@@ -1,0 +1,93 @@
+{
+  "version": 8,
+  "name": "Backyrd Minimal",
+  "metadata": {
+    "mapbox:autocomposite": true,
+    "mapbox:type": "template"
+  },
+  "center": [7.5886, 47.5596],
+  "zoom": 12,
+  "bearing": 0,
+  "pitch": 0,
+  "sources": {
+    "mapbox": {
+      "type": "vector",
+      "url": "mapbox://mapbox.mapbox-streets-v8"
+    }
+  },
+  "sprite": "mapbox://sprites/mapbox/streets-v8",
+  "glyphs": "mapbox://fonts/mapbox/{fontstack}/{range}.pbf",
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#FFFFF1" 
+      }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "mapbox",
+      "source-layer": "water",
+      "paint": {
+        "fill-color": "#F4E8E3"
+      }
+    },
+    {
+      "id": "landuse",
+      "type": "fill",
+      "source": "mapbox",
+      "source-layer": "landuse",
+      "paint": {
+        "fill-color": "#FFFDF4"
+      }
+    },
+    {
+      "id": "roads",
+      "type": "line",
+      "source": "mapbox",
+      "source-layer": "road",
+      "paint": {
+        "line-color": "#DAD2CA",
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          5,
+          0.3,
+          15,
+          2
+        ]
+      }
+    },
+    {
+      "id": "boundaries",
+      "type": "line",
+      "source": "mapbox",
+      "source-layer": "admin",
+      "paint": {
+        "line-color": "#CFC6B8",
+        "line-width": 1
+      }
+    },
+    {
+      "id": "labels",
+      "type": "symbol",
+      "source": "mapbox",
+      "source-layer": "place_label",
+      "layout": {
+        "text-field": "{name_en}",
+        "text-size": 12,
+        "text-transform": "uppercase",
+        "text-font": ["DIN Offc Pro Medium", "Arial Unicode MS Regular"]
+      },
+      "paint": {
+        "text-color": "#1A1A1A",
+        "text-halo-color": "#FFFFF1",
+        "text-halo-width": 1.5
+      }
+    }
+  ],
+  "id": "backyrd-minimal"
+}

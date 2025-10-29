@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "7779ff79-6fa4-4d0e-b592-9c19c5f87881"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.philipplanger.backyrd",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

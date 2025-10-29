@@ -1,0 +1,40 @@
+{
+  "cli": {
+    "version": ">= 16.20.1",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://hjgcrrzfjchzqoegcywn.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ2NycnpmamNoenFvZWdjeXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MjQ3NDYsImV4cCI6MjA3NDEwMDc0Nn0._ZUo--CgdS9jlhIEMTH908_V_3VZ7MfU2GxEZx9Aewo",
+        "EXPO_PUBLIC_MAPBOX_TOKEN": "pk.eyJ1IjoicGhpbGlwcG85MyIsImEiOiJjbWZ1dXM1ZWgwMHQ1Mm1yMjdyMjhwdjNhIn0.OCug0tqy3eXO6m7eKt4-GQ",
+        "MAPBOX_DOWNLOADS_TOKEN": "sk.eyJ1IjoicGhpbGlwcG85MyIsImEiOiJjbWdlOHNtcnAxeHhkMmlzOHJpaDE0MGtrIn0.Vdo4IZvgU_GAal7LP2b7SA"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "developmentClient": true
+    },
+    "production": {
+      "distribution": "store",
+      "channel": "production",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://hjgcrrzfjchzqoegcywn.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ2NycnpmamNoenFvZWdjeXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MjQ3NDYsImV4cCI6MjA3NDEwMDc0Nn0._ZUo--CgdS9jlhIEMTH908_V_3VZ7MfU2GxEZx9Aewo",
+        "EXPO_PUBLIC_MAPBOX_TOKEN": "pk.eyJ1IjoicGhpbGlwcG85MyIsImEiOiJjbWZ1dXM1ZWgwMHQ1Mm1yMjdyMjhwdjNhIn0.OCug0tqy3eXO6m7eKt4-GQ",
+        "MAPBOX_DOWNLOADS_TOKEN": "sk.eyJ1IjoicGhpbGlwcG85MyIsImEiOiJjbWdlOHNtcnAxeHhkMmlzOHJpaDE0MGtrIn0.Vdo4IZvgU_GAal7LP2b7SA"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
