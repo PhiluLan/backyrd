@@ -1,6 +1,5 @@
-// mobile/app/_layout.tsx
 import React, { useEffect } from "react";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import {
   useFonts,
   PlayfairDisplay_400Regular,
@@ -8,6 +7,8 @@ import {
 } from "@expo-google-fonts/playfair-display";
 import { Text } from "react-native";
 import { registerForPushNotificationsAsync } from "../lib/notifications";
+import SplashScreen from "./splash";
+import { useAuth } from "../hooks/useAuth";
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -15,7 +16,10 @@ export default function RootLayout() {
     PlayfairDisplay_700Bold,
   });
 
-  // 🧠 Push Notifications beim Start registrieren
+  const { session, loading } = useAuth();
+  const router = useRouter();
+
+  // 🔔 Push Notifications
   useEffect(() => {
     (async () => {
       try {
@@ -26,30 +30,46 @@ export default function RootLayout() {
     })();
   }, []);
 
-  if (!fontsLoaded) {
-    return null; // Optional: Splash / Loader
-  }
+  // 📌 Global Font Override
+  useEffect(() => {
+    const oldRender = Text.render;
 
-  // 📌 Override: global alle Text-Komponenten mit Playfair Regular
-  const oldRender = Text.render;
-  if (oldRender) {
-    Text.render = function (...args) {
-      const origin = oldRender.call(this, ...args);
-      return React.cloneElement(origin, {
-        style: [
-          { fontFamily: "PlayfairDisplay_400Regular" },
-          origin.props.style,
-        ],
-      });
-    };
-  }
+    if (oldRender) {
+      Text.render = function (...args) {
+        const origin = oldRender.call(this, ...args);
+
+        return React.cloneElement(origin, {
+          style: [
+            { fontFamily: "PlayfairDisplay_400Regular" },
+            origin.props.style,
+          ],
+        });
+      };
+    }
+  }, []);
+
+  // ✅ Login / Tabs Navigation
+  useEffect(() => {
+    if (!loading && fontsLoaded) {
+      router.replace("/(tabs)");
+    }
+  }, [loading, fontsLoaded]);
+
+  // ⏳ Loading / Splash
+  if (!fontsLoaded || loading) return <SplashScreen />;
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      {/* Tabs-Navigation */}
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
-      {/* Spot-Details */}
+      {/* Tabs */}
+      <Stack.Screen name="(tabs)" />
+
+      {/* Auth */}
+      <Stack.Screen name="auth/login" />
+      <Stack.Screen name="auth/register" />
+      <Stack.Screen name="auth/verify" />
+
+      {/* Detailseite */}
       <Stack.Screen
         name="spot/[id]"
         options={{

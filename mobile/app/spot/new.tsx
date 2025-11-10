@@ -15,11 +15,12 @@ import {
 } from "react-native";
 import { supabase } from "../../lib/supabase";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { searchAddress } from "../../lib/geocode";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
+/* ================== Types ================== */
 type Category = {
   id: string;
   name: string;
@@ -27,12 +28,61 @@ type Category = {
   color?: string | null;
 };
 
+/* ================== Helpers ================== */
+async function uploadImageToSupabase(params: {
+  uri: string;
+  bucket: string;
+  pathPrefix?: string;
+  contentTypeHint?: string;
+}) {
+  const { uri, bucket, pathPrefix = "upload", contentTypeHint } = params;
+
+  const extGuess = uri.split(".").pop()?.toLowerCase() || "jpg";
+  const ext = ["jpg", "jpeg", "png", "webp", "heic", "heif"].includes(extGuess)
+    ? extGuess
+    : "jpg";
+
+  const contentType =
+    contentTypeHint ||
+    (ext === "png"
+      ? "image/png"
+      : ext === "webp"
+      ? "image/webp"
+      : ext === "heic" || ext === "heif"
+      ? "image/heic"
+      : "image/jpeg");
+
+  const fileName = `${pathPrefix}_${Date.now()}.${ext}`;
+
+  let arrayBuffer: ArrayBuffer;
+  try {
+    const resp = await fetch(uri);
+    arrayBuffer = await resp.arrayBuffer();
+  } catch (e: any) {
+    throw new Error(`Bild konnte nicht gelesen werden: ${e?.message || String(e)}`);
+  }
+
+  const { error: uploadErr } = await supabase.storage
+    .from(bucket)
+    .upload(fileName, arrayBuffer, { contentType, upsert: false });
+
+  if (uploadErr) throw new Error(uploadErr.message || "Upload fehlgeschlagen");
+
+  const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
+  return { fileName, publicUrl: publicUrlData.publicUrl as string };
+}
+
+/* ================== Screen ================== */
 export default function NewSpotScreen() {
+  const { photo: incomingPhoto } = useLocalSearchParams<{ photo?: string }>();
+  const [photo, setPhoto] = useState<string | null>(
+    incomingPhoto ? decodeURIComponent(incomingPhoto) : null
+  );
+
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [photo, setPhoto] = useState<string | null>(null);
   const [moodA, setMoodA] = useState("");
   const [moodB, setMoodB] = useState("");
   const [loading, setLoading] = useState(false);
@@ -57,18 +107,22 @@ export default function NewSpotScreen() {
 
   /* ========= 📸 Bild wählen ========= */
   async function pickImage(fromCamera: boolean) {
-    const result = await (fromCamera
-      ? ImagePicker.launchCameraAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          quality: 0.8,
-        })
-      : ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          quality: 0.8,
-        }));
+    try {
+      const result = await (fromCamera
+        ? ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 0.8,
+          })
+        : ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 0.8,
+          }));
 
-    if (!result.canceled && result.assets.length > 0) {
-      setPhoto(result.assets[0].uri);
+      if (!result.canceled && result.assets.length > 0) {
+        setPhoto(result.assets[0].uri);
+      }
+    } catch (err) {
+      console.warn("Bildauswahl fehlgeschlagen:", err);
     }
   }
 
@@ -112,7 +166,6 @@ export default function NewSpotScreen() {
     setLoading(true);
 
     try {
-      // 🧱 Spot speichern
       const { data: spot, error: spotErr } = await supabase
         .from("spots")
         .insert({
@@ -129,43 +182,43 @@ export default function NewSpotScreen() {
 
       if (spotErr) throw spotErr;
 
-      // 📸 Foto Upload
+      // 📸 Foto Upload (auch übernommenes Foto)
       if (photo) {
-        const fileExt = photo.split(".").pop()?.toLowerCase() || "jpg";
-        const fileName = `spot_${spot.id}_${Date.now()}.${fileExt}`;
-
-        const resp = await fetch(photo);
-        const blob = await resp.blob();
-
-        const { error: uploadErr } = await supabase.storage
-          .from("spot-photos")
-          .upload(fileName, blob, {
-            contentType: "image/jpeg",
+        try {
+          const { fileName, publicUrl } = await uploadImageToSupabase({
+            uri: photo,
+            bucket: "spot-photos",
+            pathPrefix: `spot_${spot.id}`,
           });
-        if (uploadErr) throw uploadErr;
 
-        const { data: publicUrlData } = supabase.storage
-          .from("spot-photos")
-          .getPublicUrl(fileName);
+          await supabase.from("spot_photos").insert({
+            spot_id: spot.id,
+            url: publicUrl,
+          });
 
-        await supabase.from("spot_photos").insert({
-          spot_id: spot.id,
-          url: publicUrlData.publicUrl,
-        });
+          await supabase
+            .from("spots")
+            .update({
+              header_photo_path: fileName,
+            })
+            .eq("id", spot.id);
+        } catch (e: any) {
+          console.warn("Foto-Upload fehlgeschlagen:", e?.message || e);
+        }
       }
 
-      // 🧠 Optional: erste Mood speichern
       if (moodA || moodB) {
         await supabase.from("reviews").insert({
           spot_id: spot.id,
           mood_a: moodA || null,
           mood_b: moodB || null,
           text: null,
+          user_id: user.user.id,
         });
       }
 
       Alert.alert("Erfolg", "Neuer Spot wurde hinzugefügt!");
-      router.replace(`/spot/${spot.id}`);
+      router.replace("/(tabs)/map");
     } catch (e: any) {
       console.error(e);
       Alert.alert("Fehler", e.message ?? String(e));

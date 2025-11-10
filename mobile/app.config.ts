@@ -19,9 +19,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   ios: {
     bundleIdentifier: "com.backyrd.app",
+    usesAppleSignIn: true,
     supportsTablet: false,
+    autoFillCredentials: true,
     config: {
-      googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ?? "AIzaSyA7Mnx0hiFe4rrvtOd1Ya52NkM7WM-lXDI",
+      googleMapsApiKey:
+        process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ??
+        "AIzaSyA7Mnx0hiFe4rrvtOd1Ya52NkM7WM-lXDI",
     },
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
@@ -31,6 +35,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         "Backyrd benötigt die Kamera, um Fotos für Reviews aufzunehmen.",
       NSPhotoLibraryAddUsageDescription:
         "Backyrd speichert deine Review-Fotos in der Mediathek.",
+      NSAppTransportSecurity: {
+        NSAllowsArbitraryLoads: true,
+        NSAllowsArbitraryLoadsInWebContent: true,
+      },
     },
   },
   android: {
@@ -41,26 +49,39 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     },
     config: {
       googleMaps: {
-        apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ?? "AIzaSyA7Mnx0hiFe4rrvtOd1Ya52NkM7WM-lXDI",
+        apiKey:
+          process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ??
+          "AIzaSyA7Mnx0hiFe4rrvtOd1Ya52NkM7WM-lXDI",
       },
     },
+    permissions: [
+      "CAMERA",
+      "ACCESS_FINE_LOCATION",
+      "ACCESS_COARSE_LOCATION",
+      "READ_EXTERNAL_STORAGE",
+      "WRITE_EXTERNAL_STORAGE",
+    ],
   },
   plugins: [
-    // Expo Router für dateibasierte Navigation
-    ["expo-router"]
+    ["expo-router"], // 👈 Komma war hier entscheidend
+    ["expo-camera"], // 📸 Kamera-Plugin korrekt eingebunden
+    "expo-secure-store",
+    "expo-web-browser",
   ],
   extra: {
-    // wichtig: hier steht deine EAS Project ID für OTA
     eas: {
       projectId: "7779ff79-6fa4-4d0e-b592-9c19c5f87881",
     },
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-    googleMapsKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ?? "AIzaSyA7Mnx0hiFe4rrvtOd1Ya52NkM7WM-lXDI",
+    googleMapsKey:
+      process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ??
+      "AIzaSyA7Mnx0hiFe4rrvtOd1Ya52NkM7WM-lXDI",
+    openaiKey: process.env.EXPO_PUBLIC_OPENAI_KEY,
   },
   updates: {
     enabled: true,
     url: "https://u.expo.dev/7779ff79-6fa4-4d0e-b592-9c19c5f87881",
-    fallbackToCacheTimeout: 0, // sofort Update prüfen, kein Delay
+    fallbackToCacheTimeout: 0,
   },
 });

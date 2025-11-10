@@ -32,8 +32,16 @@ const PALETTE = [
 ];
 
 /** lowercase + trim */
-export function normalizeMood(mood: string): string {
-  return (mood || "").toLowerCase().trim();
+/** lowercase + trim + Mapping gängiger Varianten */
+export function normalizeMood(mood?: any): string {
+  if (typeof mood !== "string") return "";
+  const clean = mood.trim().toLowerCase();
+  const map: Record<string, string> = {
+    gemuetlich: "gemütlich",
+    chillig: "chillig",
+    ruhig: "leise",
+  };
+  return map[clean] ?? clean;
 }
 
 /** einfacher Hash für stabile Farbwahl */

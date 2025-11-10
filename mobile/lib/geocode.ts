@@ -1,8 +1,9 @@
 // mobile/lib/geocode.ts
-const GOOGLE_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY;
+import { GOOGLE_KEY } from "./config";
 
 export async function searchAddress(query: string) {
   if (!GOOGLE_KEY) throw new Error("Google API Key fehlt");
+
   const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
     query
   )}&types=geocode&language=de&key=${GOOGLE_KEY}`;
@@ -15,13 +16,11 @@ export async function searchAddress(query: string) {
     return [];
   }
 
-  // Wir holen für jedes Ergebnis die Koordinaten (Place Details)
   const results = await Promise.all(
     data.predictions.map(async (p: any) => {
       const detailUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${p.place_id}&fields=geometry,formatted_address&key=${GOOGLE_KEY}`;
       const detailResp = await fetch(detailUrl);
       const detailData = await detailResp.json();
-
       const loc = detailData.result.geometry.location;
       return {
         id: p.place_id,

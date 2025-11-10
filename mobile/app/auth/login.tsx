@@ -1,4 +1,4 @@
-// mobile/app/auth/register.tsx
+// mobile/app/login.tsx
 import React, { useState } from "react";
 import {
   Alert,
@@ -15,13 +15,13 @@ import {
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useRouter, Link } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import * as AppleAuthentication from "expo-apple-authentication";
-import * as AuthSession from "expo-auth-session";
-import * as WebBrowser from "expo-web-browser";
-import * as Device from "expo-device";
 import { supabase } from "../../lib/supabase";
+import * as AppleAuthentication from "expo-apple-authentication";
+import * as WebBrowser from "expo-web-browser";
+import * as AuthSession from "expo-auth-session";
+import * as Device from "expo-device";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -33,66 +33,35 @@ const webClientId =
 
 const isSimulator = !Device.isDevice;
 
-export default function RegisterScreen() {
+export default function LoginScreen() {
   const router = useRouter();
 
-  const [first, setFirst] = useState("");
-  const [last, setLast] = useState("");
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
 
-  /* ======================================================
-     ✅ REGISTRIERUNG MIT EMAIL / PW
-  ====================================================== */
-  async function onRegister() {
-    if (!first.trim() || !last.trim() || !email.trim() || !pw.trim()) {
-      Alert.alert("Fehlende Angaben", "Bitte alle Felder ausfüllen.");
+  async function onLogin() {
+    if (!email.trim() || !pw.trim()) {
+      Alert.alert("Angaben fehlen", "Bitte E-Mail und Passwort eingeben.");
       return;
     }
-
     try {
       setLoading(true);
-
-      const { error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password: pw,
-        options: {
-          data: {
-            first_name: first.trim(),
-            last_name: last.trim(),
-          },
-        },
       });
-
       if (error) throw error;
-
-      Alert.alert(
-        "Code gesendet",
-        "Wir haben dir einen Bestätigungscode per E-Mail geschickt.",
-        [
-          {
-            text: "OK",
-            onPress: () =>
-              router.push({
-                pathname: "/auth/verify",
-                params: { email },
-              }),
-          },
-        ]
-      );
+      router.replace("/(tabs)");
     } catch (e: any) {
-      Alert.alert("Registrierung fehlgeschlagen", e.message ?? String(e));
+      Alert.alert("Login fehlgeschlagen", e.message ?? String(e));
     } finally {
       setLoading(false);
     }
   }
 
-  /* ======================================================
-     ✅ REGISTER MIT GOOGLE
-  ====================================================== */
-  async function onGoogleRegister() {
+  async function onGoogleLogin() {
     try {
       setSocialLoading(true);
 
@@ -124,16 +93,13 @@ export default function RegisterScreen() {
         router.replace("/(tabs)");
       }
     } catch (e: any) {
-      Alert.alert("Google Anmeldung fehlgeschlagen", e.message);
+      Alert.alert("Google Login fehlgeschlagen", e.message);
     } finally {
       setSocialLoading(false);
     }
   }
 
-  /* ======================================================
-     ✅ REGISTER MIT APPLE
-  ====================================================== */
-  async function onAppleRegister() {
+  async function onAppleLogin() {
     try {
       if (isSimulator) {
         Alert.alert(
@@ -160,13 +126,10 @@ export default function RegisterScreen() {
       router.replace("/(tabs)");
     } catch (e: any) {
       if (e.code === "ERR_CANCELED") return;
-      Alert.alert("Apple Anmeldung fehlgeschlagen", e.message);
+      Alert.alert("Apple Login fehlgeschlagen", e.message);
     }
   }
 
-  /* ======================================================
-     ✅ UI RENDER
-  ====================================================== */
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -179,38 +142,28 @@ export default function RegisterScreen() {
         >
           {/* HEADER */}
           <View style={styles.header}>
-            <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Pressable
+              onPress={() => router.back()}
+              hitSlop={10}
+              style={styles.backBtn}
+            >
               <Ionicons name="chevron-back" size={28} color="#fff" />
             </Pressable>
-            <Text style={styles.headerTitle}>Account erstellen</Text>
+            <Text style={styles.headerTitle}>Login</Text>
           </View>
 
           <ScrollView
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingBottom: 60 }}
           >
-            {/* FORM CARD */}
+            {/* FORM CONTAINER (GLASS CARD) */}
             <BlurView intensity={60} tint="dark" style={styles.card}>
-              <Text style={styles.cardTitle}>Registrieren</Text>
+              <Text style={styles.cardTitle}>Willkommen zurück 👋</Text>
               <Text style={styles.cardSubtitle}>
-                Starte deine persönliche Backyrd Journey 🔥
+                Melde dich an, um deine Backyrd-Journey fortzusetzen
               </Text>
 
-              {/* Inputs */}
-              <TextInput
-                placeholder="Vorname"
-                placeholderTextColor="#7D8086"
-                value={first}
-                onChangeText={setFirst}
-                style={styles.input}
-              />
-              <TextInput
-                placeholder="Nachname"
-                placeholderTextColor="#7D8086"
-                value={last}
-                onChangeText={setLast}
-                style={styles.input}
-              />
+              {/* INPUTS */}
               <TextInput
                 placeholder="E-Mail"
                 placeholderTextColor="#7D8086"
@@ -220,6 +173,7 @@ export default function RegisterScreen() {
                 autoCapitalize="none"
                 style={styles.input}
               />
+
               <TextInput
                 placeholder="Passwort"
                 placeholderTextColor="#7D8086"
@@ -229,9 +183,9 @@ export default function RegisterScreen() {
                 style={styles.input}
               />
 
-              {/* Primary Button */}
+              {/* LOGIN BUTTON */}
               <Pressable
-                onPress={onRegister}
+                onPress={onLogin}
                 disabled={loading}
                 style={({ pressed }) => [
                   styles.primaryBtn,
@@ -239,20 +193,20 @@ export default function RegisterScreen() {
                 ]}
               >
                 <Text style={styles.primaryBtnText}>
-                  {loading ? "Erstelle…" : "Registrieren"}
+                  {loading ? "Logge ein…" : "Login"}
                 </Text>
               </Pressable>
 
-              {/* Divider */}
+              {/* DIVIDER */}
               <View style={styles.dividerRow}>
                 <View style={styles.divider} />
                 <Text style={styles.dividerLabel}>oder</Text>
                 <View style={styles.divider} />
               </View>
 
-              {/* Google */}
+              {/* GOOGLE */}
               <Pressable
-                onPress={onGoogleRegister}
+                onPress={onGoogleLogin}
                 disabled={socialLoading}
                 style={({ pressed }) => [
                   styles.googleBtn,
@@ -260,25 +214,40 @@ export default function RegisterScreen() {
                 ]}
               >
                 <Ionicons name="logo-google" size={18} color="#111" />
-                <Text style={styles.googleText}>Mit Google registrieren</Text>
+                <Text style={styles.googleText}>Mit Google anmelden</Text>
               </Pressable>
 
-              {/* Apple */}
+              {/* APPLE */}
               {Platform.OS === "ios" && !isSimulator && (
                 <View style={{ marginTop: 12 }}>
                   <AppleAuthentication.AppleAuthenticationButton
                     buttonType={
-                      AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP
+                      AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
                     }
                     buttonStyle={
                       AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
                     }
                     cornerRadius={14}
                     style={{ width: "100%", height: 48 }}
-                    onPress={onAppleRegister}
+                    onPress={onAppleLogin}
                   />
                 </View>
               )}
+
+              {/* LINKS */}
+              <View style={styles.linkRow}>
+                <Link href="/auth/register" asChild>
+                  <Pressable>
+                    <Text style={styles.link}>Neu registrieren</Text>
+                  </Pressable>
+                </Link>
+
+                <Link href="/auth/verify" asChild>
+                  <Pressable>
+                    <Text style={styles.link}>Code eingeben</Text>
+                  </Pressable>
+                </Link>
+              </View>
             </BlurView>
           </ScrollView>
         </LinearGradient>
@@ -288,7 +257,7 @@ export default function RegisterScreen() {
 }
 
 /* ======================================================
- ✅ STYLES (BACKYRD DESIGN)
+ ✅ STYLES IM BACKYRD DESIGN
 ====================================================== */
 const styles = StyleSheet.create({
   container: {
@@ -296,23 +265,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
 
-  /* Header */
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingTop: Platform.select({ ios: 54, android: 32 }),
     paddingBottom: 16,
   },
-  backBtn: {
-    marginRight: 12,
-  },
+  backBtn: { marginRight: 8 },
   headerTitle: {
     color: "#fff",
     fontSize: 22,
     fontWeight: "800",
+    letterSpacing: 0.3,
   },
 
-  /* Card */
+  /* Glass Card */
   card: {
     marginTop: 20,
     padding: 22,
@@ -320,6 +287,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.06)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
+    overflow: "hidden",
   },
   cardTitle: {
     color: "#fff",
@@ -333,7 +301,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
 
-  /* Inputs */
+  /* Input */
   input: {
     backgroundColor: "rgba(255,255,255,0.08)",
     borderColor: "rgba(255,255,255,0.14)",
@@ -367,32 +335,32 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginVertical: 18,
+    marginVertical: 16,
   },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "rgba(255,255,255,0.12)",
-  },
-  dividerLabel: {
-    color: "#8E9198",
-    fontSize: 12,
-    fontWeight: "600",
-  },
+  divider: { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.12)" },
+  dividerLabel: { color: "#8E9198", fontSize: 12, fontWeight: "700" },
 
   /* Google */
   googleBtn: {
     backgroundColor: "#fff",
     paddingVertical: 14,
     borderRadius: 14,
-    flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
     gap: 8,
   },
-  googleText: {
-    color: "#111",
-    fontWeight: "700",
-    fontSize: 15,
+  googleText: { color: "#111", fontWeight: "700", fontSize: 15 },
+
+  /* Links */
+  linkRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 18,
+  },
+  link: {
+    color: "#A6A8AD",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
