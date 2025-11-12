@@ -13,7 +13,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   scheme: "backyrd",
   icon: "./assets/icon.png",
   splash: {
-    image: "./assets/splash.png",
+    image: "./assets/icon.png",
     resizeMode: "contain",
     backgroundColor: "#0B0B0C",
   },
