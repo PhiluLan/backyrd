@@ -1,19 +1,20 @@
-import 'react-native-url-polyfill/auto';
-import { createClient } from '@supabase/supabase-js';
+import "react-native-url-polyfill/auto";
+import { createClient } from "@supabase/supabase-js";
+import Constants from "expo-constants";
 
-async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit & { timeout?: number } = {}) {
-  const { timeout = 8000, ...rest } = init;
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeout);
-  try {
-    return await fetch(input, { ...rest, signal: controller.signal });
-  } finally {
-    clearTimeout(id);
-  }
+const {
+  supabaseUrl,
+  supabaseAnonKey,
+} = Constants.expoConfig?.extra ?? {};
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("❌ SUPABASE ENV FEHLT!", { supabaseUrl, supabaseAnonKey });
 }
 
-export const supabase = createClient(
-  process.env.EXPO_PUBLIC_SUPABASE_URL!,
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
-  { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } }
-);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+  },
+});

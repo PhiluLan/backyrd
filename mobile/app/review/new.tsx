@@ -1,3 +1,4 @@
+// mobile/app/review/new.tsx
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -22,6 +23,10 @@ import type { User } from "@supabase/supabase-js";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
+
+// ⭐⭐⭐ ACHIEVEMENTS IMPORT – NEU ⭐⭐⭐
+import { awardAchievementsForUser } from "../../lib/achievementEngine";
+import { AchievementUnlockModal } from "../../components/AchievementUnlockModal";
 
 const theme = {
   colors: {
@@ -49,6 +54,9 @@ export default function NewReviewScreen() {
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+
+  // ⭐ Popup State – NEU
+  const [unlockedAchievements, setUnlockedAchievements] = useState([]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
@@ -104,6 +112,7 @@ export default function NewReviewScreen() {
     try {
       setUploading(true);
 
+      // 1) Review speichern
       const { data: reviewData, error: reviewErr } = await supabase
         .from("reviews")
         .insert({
@@ -119,10 +128,12 @@ export default function NewReviewScreen() {
       if (reviewErr) throw reviewErr;
       const reviewId = reviewData.id;
 
+      // 2) Fotos hochladen
       for (const uri of photos) {
         const fileName = `${spotId}/${reviewId}-${Date.now()}-${Math.random()
           .toString(36)
           .slice(2)}.jpg`;
+
         const photoUrl = await uploadImage(uri, fileName);
 
         await supabase.from("spot_photos").insert({
@@ -133,8 +144,16 @@ export default function NewReviewScreen() {
         });
       }
 
-      Alert.alert("Danke!", "Deine Review wurde gespeichert.");
-      router.back();
+      // ⭐⭐⭐ 3) ACHIEVEMENTS PRÜFEN – NEU ⭐⭐⭐
+      const newlyUnlocked = await awardAchievementsForUser(user.id);
+
+      if (newlyUnlocked.length > 0) {
+        setUnlockedAchievements(newlyUnlocked);
+      } else {
+        Alert.alert("Danke!", "Deine Review wurde gespeichert.");
+        router.back();
+      }
+
     } catch (e: any) {
       console.error(e);
       Alert.alert("Fehler", e.message ?? "Konnte Review nicht speichern.");
@@ -238,6 +257,17 @@ export default function NewReviewScreen() {
               </LinearGradient>
             </BlurView>
           </ScrollView>
+
+          {/* ⭐⭐⭐ POPUP – NEU ⭐⭐⭐ */}
+          {unlockedAchievements.length > 0 && (
+            <AchievementUnlockModal
+              achievements={unlockedAchievements}
+              onClose={() => {
+                setUnlockedAchievements([]);
+                router.back(); // Zurück nach dem Popup
+              }}
+            />
+          )}
         </SafeAreaView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>

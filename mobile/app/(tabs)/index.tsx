@@ -954,7 +954,7 @@ export default function Home() {
                         transform: [{ translateY: fadeTextY }],
                       }}
                     >
-                      <Text style={styles.heroTimeEmoji}>{getTimeEmoji()}</Text>
+
 
                       {profile ? (
                         <>
