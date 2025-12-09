@@ -212,25 +212,52 @@ export default function SpotDetailScreen() {
       if (!id) return;
       setLoading(true);
 
-      const [{ data: spotRow }, { data: photoRows }, { data: revRows }, { data: hourRows }] =
-        await Promise.all([
-          supabase
-            .from("spots")
-            .select("id,name,address,lat,lng,phone,website,price_level")
-            .eq("id", id)
-            .single(),
-          supabase
-            .from("spot_photos")
-            .select("id,url,created_at")
-            .eq("spot_id", id)
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("reviews")
-            .select("*, profiles!reviews_user_id_fkey(id,first_name,is_local)")
-            .eq("spot_id", id)
-            .order("created_at", { ascending: false }),
-          supabase.from("spot_hours").select("*").eq("spot_id", id),
-        ]);
+      const [
+        { data: spotRow },
+        { data: photoRows },
+        { data: revRows },
+        { data: hourRows }
+      ] = await Promise.all([
+        supabase
+          .from("spots")
+          .select("id,name,address,lat,lng,phone,website,price_level")
+          .eq("id", id)
+          .single(),
+
+        supabase
+          .from("spot_photos")
+          .select("id,url,created_at")
+          .eq("spot_id", id)
+          .order("created_at", { ascending: false }),
+
+        supabase
+          .from("reviews")
+          .select(`
+            id,
+            text,
+            photo_path,
+            created_at,
+            mood_a,
+            mood_b,
+            mood_a_id,
+            mood_b_id,
+            moodA:mood_a_id ( token ),
+            moodB:mood_b_id ( token ),
+            profiles:user_id (
+              id,
+              first_name,
+              is_local
+            )
+          `)
+          .eq("spot_id", id)
+          .order("created_at", { ascending: false }),
+
+        supabase
+          .from("spot_hours")
+          .select("*")
+          .eq("spot_id", id),
+      ]);
+
 
       setSpot(spotRow);
       setPhotos(photoRows || []);
@@ -250,16 +277,22 @@ export default function SpotDetailScreen() {
 
       if (revRows?.length) {
         const counts: Record<string, number> = {};
+
         for (const r of revRows) {
-          if (r.mood_a) counts[r.mood_a] = (counts[r.mood_a] || 0) + 1;
-          if (r.mood_b) counts[r.mood_b] = (counts[r.mood_b] || 0) + 1;
+          const mA = r.moodA?.token ?? r.mood_a;
+          const mB = r.moodB?.token ?? r.mood_b;
+
+          if (mA) counts[mA] = (counts[mA] || 0) + 1;
+          if (mB) counts[mB] = (counts[mB] || 0) + 1;
         }
+
         setMoodSummary(
           Object.entries(counts)
             .map(([mood, count]) => ({ mood, count }))
-            .sort((a, b) => (b as any).count - (a as any).count)
+            .sort((a, b) => b.count - a.count)
         );
       }
+
 
       setLoading(false);
     })();
@@ -775,7 +808,10 @@ export default function SpotDetailScreen() {
             </View>
 
             {reviews.slice(0, 6).map((rev) => {
-              const moods = [rev.mood_a, rev.mood_b].filter(Boolean) as string[];
+              const moods = [
+                rev.moodA?.token ?? rev.mood_a,
+                rev.moodB?.token ?? rev.mood_b,
+              ].filter(Boolean);
               const name = rev.profiles?.first_name || "User";
               const isLocal = rev.profiles?.is_local;
               return (

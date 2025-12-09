@@ -1,4 +1,3 @@
-// mobile/app/(tabs)/index.tsx
 import { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
@@ -28,7 +27,6 @@ import { BlurView } from "expo-blur";
 import LoginBottomSheet from "../../components/LoginBottomSheet";
 import * as Location from "expo-location";
 import { ImageBackground } from "react-native";
-
 
 /** ===== THEME ===== */
 const theme = {
@@ -101,14 +99,14 @@ function greetingByTime() {
   return "heute Nacht?";
 }
 
-
-
-
 /** ===== SCREEN ===== */
 export default function Home() {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
-  const [grouped, setGrouped] = useState<GroupedResults>({ fromName: [], fromMood: [] });
+  const [grouped, setGrouped] = useState<GroupedResults>({
+    fromName: [],
+    fromMood: [],
+  });
   const [topMoods, setTopMoods] = useState<SpotTopMoods>({});
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -118,7 +116,9 @@ export default function Home() {
   const [topMoodChips, setTopMoodChips] = useState<string[]>([]);
   const [recentVisits, setRecentVisits] = useState<SpotWithPhoto[]>([]);
   const [discoverSpots, setDiscoverSpots] = useState<SpotWithPhoto[]>([]);
-  const [journeyTitle, setJourneyTitle] = useState<string>("Wie wär’s mal mit Ausgehen 2.0?");
+  const [journeyTitle, setJourneyTitle] = useState<string>(
+    "Wie wär’s mal mit Ausgehen 2.0?"
+  );
   const [journeyMini, setJourneyMini] = useState<JourneyMiniItem[]>([]);
   const [loadingSecondary, setLoadingSecondary] = useState(false);
 
@@ -145,11 +145,9 @@ export default function Home() {
       </View>
     );
   }
-  
-
 
   const HEADER_IMAGES: Record<string, { day: any; night: any }> = {
-    "Zürich": {
+    Zürich: {
       day: require("../../assets/headers/zurich_day.jpg"),
       night: require("../../assets/headers/zurich_night.jpg"),
     },
@@ -157,7 +155,7 @@ export default function Home() {
       day: require("../../assets/headers/basel_day.jpg"),
       night: require("../../assets/headers/basel_night.jpg"),
     },
-    "Bern": {
+    Bern: {
       day: require("../../assets/headers/bern_day.jpg"),
       night: require("../../assets/headers/bern_night.jpg"),
     },
@@ -167,7 +165,6 @@ export default function Home() {
       night: require("../../assets/headers/switzerland_night.jpg"),
     },
   };
-
 
   /* ============================================================= */
   /*             ✅ ULTRA HEADER: IMAGE SELECTION + FX             */
@@ -245,11 +242,11 @@ export default function Home() {
 
   // ✅ Canton tint map (super subtle)
   const cantonTintColor: Record<string, string> = {
-    "Zürich": "rgba(51, 131, 255, 0.09)",
+    Zürich: "rgba(51, 131, 255, 0.09)",
     "Basel-Stadt": "rgba(255, 51, 102, 0.09)",
-    "Bern": "rgba(255, 196, 0, 0.09)",
-    "Luzern": "rgba(0, 174, 255, 0.09)",
-    "Genf": "rgba(0, 215, 146, 0.09)",
+    Bern: "rgba(255, 196, 0, 0.09)",
+    Luzern: "rgba(0, 174, 255, 0.09)",
+    Genf: "rgba(0, 215, 146, 0.09)",
   };
 
   /* ============================================================= */
@@ -281,7 +278,11 @@ export default function Home() {
 
         if (rev.length > 0) {
           const r = rev[0];
-          const canton = normalizeCanton(r.region, (r as any).subregion, r.city);
+          const canton = normalizeCanton(
+            r.region,
+            (r as any).subregion,
+            r.city
+          );
 
           console.log("Detected canton:", canton, "| raw:", r);
           setCurrentCanton(canton);
@@ -329,8 +330,6 @@ export default function Home() {
     }
   }, [user]);
 
-
-  // Session
   // Session + Profile Laden
   useEffect(() => {
     // 1) User aus Auth holen
@@ -375,10 +374,9 @@ export default function Home() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-
   // Load sections on login change
   useEffect(() => {
-    loadTopMoodChips(); // global, unabhängig vom User
+    loadPersonalMoodChips(user?.id ?? null); // global, unabhängig vom User
     loadGeneralSuggestions(); // global
     if (user) {
       loadRecentVisits(user.id);
@@ -391,27 +389,6 @@ export default function Home() {
       setJourneyTitle("Wie wär’s mal mit Ausgehen 2.0?");
     }
   }, [user]);
-
-  useEffect(() => {
-    async function loadGlobalTopMoods() {
-      const { data, error } = await supabase
-        .from("spot_moods")
-        .select("mood, mood_count")
-        .order("mood_count", { ascending: false })
-        .limit(8);
-
-      if (error) {
-        console.warn("Could not load top moods", error);
-        return;
-      }
-
-      const moods = Array.from(new Set(data.map((row) => row.mood)));
-      setTop8Moods(moods);
-    }
-
-    loadGlobalTopMoods();
-  }, []);
-
 
   // Suche (bestehend)
   useEffect(() => {
@@ -444,39 +421,128 @@ export default function Home() {
   }
 
   /** ===== GLOBAL: Top Mood Chips (8) ===== */
-  async function loadTopMoodChips() {
+  /** ===== PERSONALIZED MOOD SUGGESTIONS ===== */
+  async function loadPersonalMoodChips(userId?: string | null) {
     try {
-      // Wir holen mehrere Reihen aus spot_moods und aggregieren clientseitig.
-      const { data, error } = await supabase
+      const weights = {
+        ownReview: 3,
+        visitedSpot: 2,
+        likedSpot: 1.5,
+        global: 1,
+      };
+
+      const moodScore: Record<string, number> = {};
+
+      /* ============================================================
+        1️⃣ Eigene Reviews → mood_id → mood_tokens.token
+      ============================================================ */
+      if (userId) {
+        const { data: myReviews } = await supabase
+          .from("reviews")
+          .select(`
+            mood_id,
+            spot_id
+          `)
+          .eq("user_id", userId);
+
+        const ownMoodIds = (myReviews || [])
+          .map(r => r.mood_id)
+          .filter(Boolean);
+
+        if (ownMoodIds.length > 0) {
+          const { data: ownTokens } = await supabase
+            .from("mood_tokens")
+            .select("id, token")
+            .in("id", ownMoodIds);
+
+          for (const row of ownTokens || []) {
+            const t = row.token.toLowerCase();
+            moodScore[t] = (moodScore[t] || 0) + weights.ownReview;
+          }
+        }
+
+        /* ============================================================
+          2️⃣ Orte, die du besucht hast → spot_moods
+        ============================================================ */
+        const visitedSpotIds = Array.from(
+          new Set((myReviews || []).map(r => r.spot_id))
+        ).filter(Boolean);
+
+        if (visitedSpotIds.length > 0) {
+          const { data: visitedMoods } = await supabase
+            .from("spot_moods")
+            .select(`
+              mood_id,
+              mood_tokens ( token )
+            `)
+            .in("spot_id", visitedSpotIds)
+            .limit(200);
+
+          for (const row of visitedMoods || []) {
+            const t = row.mood_tokens.token.toLowerCase();
+            moodScore[t] = (moodScore[t] || 0) + weights.visitedSpot;
+          }
+        }
+
+        /* ============================================================
+          3️⃣ Liked Spots (falls vorhanden)
+        ============================================================ */
+        const { data: likes } = await supabase
+          .from("spot_likes")
+          .select("spot_id")
+          .eq("user_id", userId);
+
+        const likedSpotIds = Array.from(new Set((likes || []).map(x => x.spot_id)));
+
+        if (likedSpotIds.length > 0) {
+          const { data: likedMoods } = await supabase
+            .from("spot_moods")
+            .select(`
+              mood_id,
+              mood_tokens ( token )
+            `)
+            .in("spot_id", likedSpotIds);
+
+          for (const row of likedMoods || []) {
+            const t = row.mood_tokens.token.toLowerCase();
+            moodScore[t] = (moodScore[t] || 0) + weights.likedSpot;
+          }
+        }
+      }
+
+      /* ============================================================
+        4️⃣ Global fallback
+      ============================================================ */
+      const { data: globalMoods } = await supabase
         .from("spot_moods")
-        .select("mood,mood_count")
-        .limit(2000);
-      if (error) throw error;
+        .select(`
+          mood_id,
+          mood_count,
+          mood_tokens ( token )
+        `)
+        .order("mood_count", { ascending: false })
+        .limit(50);
 
-      const map: Record<string, number> = {};
-      (data || []).forEach((row: any) => {
-        const raw = sanitizeMood(row.mood);
-        if (!isValidMood(raw)) return;
-        const key = raw.toLowerCase();
-        map[key] = (map[key] || 0) + (row.mood_count || 1);
-      });
+      for (const row of globalMoods || []) {
+        const t = row.mood_tokens.token.toLowerCase();
+        moodScore[t] = (moodScore[t] || 0) + weights.global;
+      }
 
-      const entries = Object.entries(map)
+      /* ============================================================
+        🎯 Final – Score sortieren & Top-8 auswählen
+      ============================================================ */
+      const sorted = Object.entries(moodScore)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 20) // Top 20, daraus nehmen wir 8
-        .map(([k]) => k);
-
-      const prettified = entries
         .slice(0, 8)
-        .map((k) => k.charAt(0).toUpperCase() + k.slice(1));
+        .map(([token]) => token.charAt(0).toUpperCase() + token.slice(1));
 
-      setTopMoodChips(prettified);
+      setTop8Moods(sorted);
     } catch (e) {
-      console.warn("TopMoodChips:", (e as any).message);
-      // Fallback falls query fehlschlägt
-      setTopMoodChips(["Gemütlich", "Cozy", "Entspannt", "Lässig", "Romantisch", "Chic", "Date Night", "Cocktails"]);
+      console.warn("PersonalizedMoodChips:", (e as any).message);
+      setTop8Moods(["Gemütlich", "Chillig", "Romantisch", "Modern", "Versteckt"]);
     }
   }
+
 
   /** ===== GENERELLE VORSCHLÄGE ===== */
   async function loadGeneralSuggestions() {
@@ -485,7 +551,9 @@ export default function Home() {
       // "Beliebt in Backyrd" — Proxy: zuletzt approved/erstellt
       const { data: popular } = await supabase
         .from("spots")
-        .select("id,name,address,lat,lng,category_id,categories ( id, name, icon, color ),status,created_at")
+        .select(
+          "id,name,address,lat,lng,category_id,categories ( id, name, icon, color ),status,created_at"
+        )
         .eq("status", "approved")
         .order("created_at", { ascending: false })
         .limit(12);
@@ -495,7 +563,9 @@ export default function Home() {
       // "Zufällige Empfehlungen" — wir holen 40 und shufflen clientseitig
       const { data: some } = await supabase
         .from("spots")
-        .select("id,name,address,lat,lng,category_id,categories ( id, name, icon, color ),status,created_at")
+        .select(
+          "id,name,address,lat,lng,category_id,categories ( id, name, icon, color ),status,created_at"
+        )
         .eq("status", "approved")
         .limit(40);
       const someWithPhotos = await mapSpotPhotos((some || []) as Spot[]);
@@ -525,7 +595,8 @@ export default function Home() {
       setLoadingSecondary(true);
       const { data, error } = await supabase
         .from("reviews")
-        .select(`
+        .select(
+          `
           id,
           created_at,
           spot:spot_id (
@@ -538,15 +609,23 @@ export default function Home() {
             categories ( id, name, icon, color ),
             status
           )
-        `)
+        `
+        )
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(5);
       if (error) throw error;
 
-      const spots = (data || []).map((r: any) => r.spot).filter(Boolean) as Spot[];
-      const uniqueSpots = Array.from(new Map(spots.map((s) => [s.id, s])).values());
-      const keyed = uniqueSpots.map((s, i) => ({ ...s, _key: `${s.id}-${i}` }));
+      const spots = (data || [])
+        .map((r: any) => r.spot)
+        .filter(Boolean) as Spot[];
+      const uniqueSpots = Array.from(
+        new Map(spots.map((s) => [s.id, s])).values()
+      );
+      const keyed = uniqueSpots.map((s, i) => ({
+        ...s,
+        _key: `${s.id}-${i}`,
+      }));
       const withPhotos = await mapSpotPhotos(keyed);
       setRecentVisits(withPhotos);
     } catch (e: any) {
@@ -561,14 +640,15 @@ export default function Home() {
   async function loadDiscover(userId: string) {
     try {
       setLoadingSecondary(true);
-      // Achtung: Deine Follows-Relation könnte anders heißen; hier bleibt dein bisheriger Code praktisch erhalten.
       const { data: following, error: followErr } = await supabase
         .from("follows")
         .select("follower, followee_id")
         .eq("follower", userId);
       if (followErr) console.warn("follows:", followErr.message);
 
-      const followeeIds = Array.from(new Set((following || []).map((x: any) => x.followee_id))).filter(Boolean);
+      const followeeIds = Array.from(
+        new Set((following || []).map((x: any) => x.followee_id))
+      ).filter(Boolean);
 
       const creators = [userId, ...followeeIds];
       if (creators.length === 0) {
@@ -578,7 +658,9 @@ export default function Home() {
 
       const { data: spots, error } = await supabase
         .from("spots")
-        .select("id,name,address,lat,lng,category_id,categories ( id, name, icon, color ),status,created_by,created_at")
+        .select(
+          "id,name,address,lat,lng,category_id,categories ( id, name, icon, color ),status,created_by,created_at"
+        )
         .in("created_by", creators)
         .order("created_at", { ascending: false })
         .limit(12);
@@ -592,6 +674,31 @@ export default function Home() {
     } finally {
       setLoadingSecondary(false);
     }
+  }
+
+  // Mood-IDs per RPC aus Text-Moods holen
+  async function resolveMoodIds(targetMoods: string[]): Promise<number[]> {
+    const ids: number[] = [];
+    for (const m of targetMoods) {
+      try {
+        const { data, error } = await supabase.rpc("rpc_match_mood", {
+          input: m,
+        });
+        if (error) {
+          console.warn("rpc_match_mood error:", error.message);
+          continue;
+        }
+        if (typeof data === "number") {
+          ids.push(data);
+        }
+      } catch (e) {
+        console.warn(
+          "resolveMoodIds rpc_match_mood error:",
+          (e as any).message
+        );
+      }
+    }
+    return Array.from(new Set(ids));
   }
 
   /** ===== Letzte Journey-Suche (Mini) ===== */
@@ -615,22 +722,38 @@ export default function Home() {
         setJourneyTitle("Wie wär’s mal mit Ausgehen 2.0?");
       }
 
-      const targetMoods = phrase ? extractMoodsFromPhrase(phrase) : ["romantisch", "gemütlich"];
+      const targetMoods = phrase
+        ? extractMoodsFromPhrase(phrase)
+        : ["romantisch", "gemütlich"];
 
-      const { data: moodRows, error: moodErr } = await supabase
-        .from("spot_moods")
-        .select("spot_id,mood,rank")
-        .in("mood", targetMoods)
-        .lte("rank", 3)
-        .limit(300);
-      if (moodErr) console.warn("spot_moods:", moodErr.message);
+      const targetMoodIds = await resolveMoodIds(targetMoods);
 
-      const spotIds = Array.from(new Set((moodRows || []).map((m: any) => m.spot_id)));
+      let spotIds: string[] = [];
+      if (targetMoodIds.length > 0) {
+        const { data: moodRows, error: moodErr } = await supabase
+          .from("spot_moods")
+          .select(`
+            spot_id,
+            rank,
+            mood_id
+          `)
+          .in("mood_id", targetMoodIds)
+          .lte("rank", 3)
+          .limit(300);
+        if (moodErr) console.warn("spot_moods:", moodErr.message);
+
+        spotIds = Array.from(
+          new Set((moodRows || []).map((m: any) => m.spot_id))
+        );
+      }
+
       let baseSpots: Spot[] = [];
       if (spotIds.length) {
         const { data: spots, error: spotsErr } = await supabase
           .from("spots")
-          .select("id,name,address,lat,lng,category_id,categories ( id, name, icon, color ),status")
+          .select(
+            "id,name,address,lat,lng,category_id,categories ( id, name, icon, color ),status"
+          )
           .eq("status", "approved")
           .in("id", spotIds)
           .limit(40);
@@ -640,7 +763,9 @@ export default function Home() {
       if (baseSpots.length === 0) {
         const { data: fallbackSpots } = await supabase
           .from("spots")
-          .select("id,name,address,lat,lng,category_id,categories ( id, name, icon, color ),status,created_at")
+          .select(
+            "id,name,address,lat,lng,category_id,categories ( id, name, icon, color ),status,created_at"
+          )
           .eq("status", "approved")
           .order("created_at", { ascending: false })
           .limit(12);
@@ -654,7 +779,9 @@ export default function Home() {
         .map((s) => ({
           s,
           score:
-            (/(restaurant|bar|weinbar)/i.test((s as any).category || "") ? 1.0 : 0) +
+            (/(restaurant|bar|weinbar)/i.test((s as any).category || "")
+              ? 1.0
+              : 0) +
             topMoodsScore(s.id, moodSet) +
             0.1,
         }))
@@ -701,9 +828,13 @@ export default function Home() {
       const pattern = `%${searchTerm}%`;
       const { data: spotsA } = await supabase
         .from("spots")
-        .select("id,name,address,lat,lng,category_id,categories ( id, name, icon, color ),status")
+        .select(
+          "id,name,address,lat,lng,category_id,categories ( id, name, icon, color ),status"
+        )
         .eq("status", "approved")
-        .or(`name.ilike.${pattern},address.ilike.${pattern},category.ilike.${pattern}`)
+        .or(
+          `name.ilike.${pattern},address.ilike.${pattern},category.ilike.${pattern}`
+        )
         .limit(100);
 
       const { data: reviews } = await supabase
@@ -712,12 +843,16 @@ export default function Home() {
         .or(`mood_a.ilike.${pattern},mood_b.ilike.${pattern}`)
         .limit(200);
 
-      const moodSpotIds = Array.from(new Set((reviews || []).map((r) => r.spot_id as string)));
+      const moodSpotIds = Array.from(
+        new Set((reviews || []).map((r) => r.spot_id as string))
+      );
       let spotsB: Spot[] = [];
       if (moodSpotIds.length) {
         const { data } = await supabase
           .from("spots")
-          .select("id,name,address,lat,lng,category_id,categories ( id, name, icon, color ),status")
+          .select(
+            "id,name,address,lat,lng,category_id,categories ( id, name, icon, color ),status"
+          )
           .eq("status", "approved")
           .in("id", moodSpotIds);
         spotsB = (data || []) as Spot[];
@@ -730,14 +865,22 @@ export default function Home() {
         const ids = merged.map((s) => s.id);
         const { data: moodsData } = await supabase
           .from("spot_moods")
-          .select("spot_id,mood,rank")
+          .select(`
+            spot_id,
+            rank,
+            mood_tokens (
+              token
+            )
+          `)
           .in("spot_id", ids)
           .lte("rank", 3);
 
         const bySpot: SpotTopMoods = {};
         (moodsData || []).forEach((row: any) => {
+          const token = row.mood_tokens?.token as string | undefined;
+          if (!token) return;
           if (!bySpot[row.spot_id]) bySpot[row.spot_id] = [];
-          bySpot[row.spot_id].push(row.mood);
+          bySpot[row.spot_id].push(token);
         });
         setTopMoods(bySpot);
       } else {
@@ -756,10 +899,11 @@ export default function Home() {
       setLoadingSecondary(true);
       setJourneyTitle("Deine Überraschungs-Journey 🎲");
 
-      // Hole mehrere approved Spots (z. B. 40), shuffle sie clientseitig und picke 3–5
       const { data: some } = await supabase
         .from("spots")
-        .select("id,name,address,lat,lng,category_id,categories ( id, name, icon, color ),status,created_at")
+        .select(
+          "id,name,address,lat,lng,category_id,categories ( id, name, icon, color ),status,created_at"
+        )
         .eq("status", "approved")
         .limit(40);
 
@@ -783,23 +927,17 @@ export default function Home() {
   const handleSurpriseJourney = () => {
     try {
       if (!top8Moods || top8Moods.length === 0) {
-        // Falls kein Mood geladen → fallback
         const fallback = "gemütlich";
         setQ(fallback);
         return;
       }
-
-      // 1) Zufälligen Mood auswählen
-      const randomMood = top8Moods[Math.floor(Math.random() * top8Moods.length)];
-
-      // 2) Query setzen → triggert automatisch runSearch()
+      const randomMood =
+        top8Moods[Math.floor(Math.random() * top8Moods.length)];
       setQ(randomMood);
-
     } catch (e) {
       console.warn("handleSurpriseJourney error:", e);
     }
   };
-
 
   const openMapWithResults = () => {
     const all = [...grouped.fromName, ...grouped.fromMood];
@@ -815,13 +953,24 @@ export default function Home() {
       (async () => {
         const { data } = await supabase
           .from("spot_moods")
-          .select("mood,rank")
+          .select(`
+            rank,
+            mood_tokens (
+              token
+            )
+          `)
           .eq("spot_id", spotId)
           .lte("rank", 3)
           .order("rank", { ascending: true })
           .limit(3);
 
-        setMoods((data || []).map((x: any) => x.mood));
+        setMoods(
+          (data || [])
+            .map(
+              (x: any) => x.mood_tokens?.token as string | undefined
+            )
+            .filter(Boolean) as string[]
+        );
       })();
     }, [spotId]);
 
@@ -836,8 +985,7 @@ export default function Home() {
         ))}
       </View>
     );
-  }   // ✅ ← DIESE KLAMMER HAT DIR GEFÄHLT!
-
+  } // ✅
 
   /** ===== NEW USER DETECTION ===== */
   const isNewUserUI =
@@ -864,13 +1012,11 @@ export default function Home() {
             scrollEventThrottle={16}
             style={{ opacity: fade, transform: [{ translateY }] }}
           >
-
             {/* ===================================================== */}
             {/*                   ULTRA PREMIUM HEADER                */}
             {/* ===================================================== */}
 
             <View style={styles.heroContainer}>
-              
               {/* --- PARALLAX BACKGROUND IMAGE --- */}
               <Animated.View
                 style={[
@@ -880,7 +1026,7 @@ export default function Home() {
                       {
                         translateY: scrollY.interpolate({
                           inputRange: [-150, 0, 300],
-                          outputRange: [-60, 0, 25], 
+                          outputRange: [-60, 0, 25],
                           extrapolateRight: "clamp",
                         }),
                       },
@@ -893,7 +1039,6 @@ export default function Home() {
                   style={styles.heroImage}
                   resizeMode="cover"
                 >
-
                   {/* --- DARK MULTI GRADIENT OVERLAY (Apple Style) --- */}
                   <LinearGradient
                     colors={[
@@ -934,7 +1079,6 @@ export default function Home() {
                   {/*         FOREGROUND TEXT       */}
                   {/* ============================= */}
                   <SafeAreaView style={styles.heroSafe}>
-
                     {/* AVATAR ORB */}
                     {profile?.avatar_url && (
                       <Pressable
@@ -954,8 +1098,6 @@ export default function Home() {
                         transform: [{ translateY: fadeTextY }],
                       }}
                     >
-
-
                       {profile ? (
                         <>
                           <Text style={styles.heroGreeting}>
@@ -996,7 +1138,11 @@ export default function Home() {
             {/*               FLOATING GLASS SEARCH BAR               */}
             {/* ===================================================== */}
             <Animated.View style={styles.floatingSearchContainer}>
-              <BlurView intensity={40} tint="dark" style={styles.searchBarGlass}>
+              <BlurView
+                intensity={40}
+                tint="dark"
+                style={styles.searchBarGlass}
+              >
                 <View style={styles.searchBox}>
                   <Ionicons name="search" size={20} color="#B0B2B8" />
 
@@ -1011,7 +1157,11 @@ export default function Home() {
 
                   {q.length > 0 && (
                     <Pressable onPress={() => setQ("")} hitSlop={10}>
-                      <Ionicons name="close-circle" size={18} color="#7C8087" />
+                      <Ionicons
+                        name="close-circle"
+                        size={18}
+                        color="#7C8087"
+                      />
                     </Pressable>
                   )}
                 </View>
@@ -1058,7 +1208,10 @@ export default function Home() {
             {(grouped.fromName.length > 0 || grouped.fromMood.length > 0) && (
               <View style={styles.mapBtnWrapper}>
                 <BlurView intensity={60} tint="dark" style={styles.mapBtnBlur}>
-                  <Pressable onPress={openMapWithResults} style={styles.mapBtn}>
+                  <Pressable
+                    onPress={openMapWithResults}
+                    style={styles.mapBtn}
+                  >
                     <Text style={styles.mapBtnTextGlass}>
                       Ergebnisse auf Karte anzeigen
                     </Text>
@@ -1073,7 +1226,10 @@ export default function Home() {
             <View style={{ paddingHorizontal: theme.spacing(2) }}>
               {loading && (
                 <View style={{ paddingVertical: theme.spacing(2) }}>
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
+                  <ActivityIndicator
+                    size="small"
+                    color={theme.colors.primary}
+                  />
                 </View>
               )}
 
@@ -1087,11 +1243,17 @@ export default function Home() {
                       paddingVertical: theme.spacing(4),
                     }}
                   >
-                    <Text style={{ fontSize: 42, marginBottom: theme.spacing(1) }}>
+                    <Text
+                      style={{
+                        fontSize: 42,
+                        marginBottom: theme.spacing(1),
+                      }}
+                    >
                       🤔
                     </Text>
                     <Text style={styles.textMuted}>
-                      Nichts gefunden. Versuch’s mit „gemütlich“, „rooftop“ oder „modern“.
+                      Nichts gefunden. Versuch’s mit „gemütlich“, „rooftop“ oder
+                      „modern“.
                     </Text>
                   </View>
                 )}
@@ -1137,7 +1299,9 @@ export default function Home() {
                       style={{ marginRight: 14, width: 240 }}
                     >
                       <Image
-                        source={{ uri: item.photoUrl || PLACEHOLDER_FUN(item.id) }}
+                        source={{
+                          uri: item.photoUrl || PLACEHOLDER_FUN(item.id),
+                        }}
                         style={styles.recentImg}
                       />
                       <Text style={styles.resultTitle} numberOfLines={1}>
@@ -1168,7 +1332,9 @@ export default function Home() {
                       style={{ marginRight: 14, width: 240 }}
                     >
                       <Image
-                        source={{ uri: item.photoUrl || PLACEHOLDER_FUN(item.id) }}
+                        source={{
+                          uri: item.photoUrl || PLACEHOLDER_FUN(item.id),
+                        }}
                         style={styles.recentImg}
                       />
                       <Text style={styles.resultTitle} numberOfLines={1}>
@@ -1202,7 +1368,9 @@ export default function Home() {
                       style={{ marginRight: 14, width: 240 }}
                     >
                       <Image
-                        source={{ uri: item.photoUrl || PLACEHOLDER_FUN(item.id) }}
+                        source={{
+                          uri: item.photoUrl || PLACEHOLDER_FUN(item.id),
+                        }}
                         style={styles.recentImg}
                       />
                       <Text style={styles.resultTitle} numberOfLines={1}>
@@ -1229,7 +1397,9 @@ export default function Home() {
                       style={{ marginRight: 14, width: 240 }}
                     >
                       <Image
-                        source={{ uri: item.photoUrl || PLACEHOLDER_FUN(item.id) }}
+                        source={{
+                          uri: item.photoUrl || PLACEHOLDER_FUN(item.id),
+                        }}
                         style={styles.recentImg}
                       />
                       <Text style={styles.resultTitle} numberOfLines={1}>
@@ -1286,7 +1456,10 @@ export default function Home() {
                             {spot.name}
                           </Text>
                           {!!spot.address && (
-                            <Text style={styles.resultSubtitle} numberOfLines={1}>
+                            <Text
+                              style={styles.resultSubtitle}
+                              numberOfLines={1}
+                            >
                               {spot.address}
                             </Text>
                           )}
@@ -1298,7 +1471,8 @@ export default function Home() {
                 </View>
               ) : (
                 <Text style={styles.textMuted}>
-                  Keine Historie – probier die Journey auf dem „Mood Journey“ Tab aus!
+                  Keine Historie – probier die Journey auf dem „Mood Journey“
+                  Tab aus!
                 </Text>
               )}
             </View>
@@ -1315,8 +1489,101 @@ export default function Home() {
       />
     </View>
   );
-
 }
+
+/** ============================================================
+ *               RESULT CARD (mit Mood-Engine)
+ *  Lädt:  - 1 Foto
+ *        - Top 3 Moods über spot_moods_agg → mood_tokens
+ * ============================================================ */
+
+function ResultCard({ spot }: { spot: Spot }) {
+  const router = useRouter();
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [moods, setMoods] = useState<string[]>([]);
+
+  // Lade erstes Foto
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("spot_photos")
+        .select("url")
+        .eq("spot_id", spot.id)
+        .order("id", { ascending: true })
+        .limit(1);
+
+      setPhoto(data?.[0]?.url ?? null);
+    })();
+  }, [spot.id]);
+
+  // Lade Top-Moods (rank <= 3)
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("spot_moods_agg")
+        .select(`
+          mood_tokens ( token ),
+          rank
+        `)
+        .eq("spot_id", spot.id)
+        .lte("rank", 3)
+        .order("rank", { ascending: true });
+
+      const list =
+        data?.map((row: any) => row.mood_tokens?.token).filter(Boolean) ?? [];
+
+      setMoods(list);
+    })();
+  }, [spot.id]);
+
+  return (
+    <Pressable
+      onPress={() => router.push(`/spot/${spot.id}`)}
+      style={styles.card}
+    >
+      <View style={styles.cardMedia}>
+        <Image
+          source={{
+            uri:
+              photo ??
+              spot.header_photo_url ??
+              "https://via.placeholder.com/600x400/1b1b21/777?text=No+Image",
+          }}
+          style={styles.cardImg}
+        />
+
+        <LinearGradient
+          colors={["transparent", "rgba(0,0,0,0.45)", "rgba(0,0,0,0.85)"]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.cardOverlay}
+        >
+          <Text style={styles.resultTitle} numberOfLines={1}>
+            {spot.name}
+          </Text>
+
+          {!!spot.address && (
+            <Text style={styles.resultSubtitle} numberOfLines={1}>
+              {spot.address}
+            </Text>
+          )}
+
+          {/* MOOD BADGES */}
+          {moods.length > 0 && (
+            <View style={styles.cardChipsRow}>
+              {moods.slice(0, 3).map((m, i) => (
+                <View key={i} style={styles.badgeGhost}>
+                  <Text style={styles.badgeGhostText}>{m}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </LinearGradient>
+      </View>
+    </Pressable>
+  );
+}
+
 
 /** ================================
  *        ULTRA HEADER STYLES

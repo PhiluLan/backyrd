@@ -1,4 +1,4 @@
-// /lib/ai/rerank.ts
+// lib/ai/rerank.ts
 
 export type ReRankInput = {
   id: string;
@@ -15,69 +15,140 @@ function normalize(s?: string | null): string {
   return (s || "").trim().toLowerCase();
 }
 
+/**
+ * Lokales Intention-Modell (Phase 0)
+ * — dieser Intent wird später durch GPT ersetzt & ergänzt.
+ */
 export type UserIntent = {
-  wantRomance: boolean;
-  wantChill: boolean;
-  wantLively: boolean;
-  wantFood: boolean;
-  wantBar: boolean;
-  wantWalk: boolean;
+  wantRomance?: boolean;
+  wantChill?: boolean;
+  wantLively?: boolean;
+  wantFood?: boolean;
+  wantBar?: boolean;
+  wantWalk?: boolean;
+  preferredDistanceKm?: number | null;
+  memory?: any;
+  preferences?: any;
+  deepPreferences?: any;
 };
 
-export function rerankSpots(
-  spots: ReRankInput[],
-  intent: UserIntent
-): ScoredSpot[] {
-  return spots
-    .map((s) => {
-      const cat = normalize(s.category);
-      const moods = (s.moods || []).map(normalize);
-      const rmoods = (s.reviewMoods || []).map(normalize);
+/**
+ * ULTRA HYBRID LOCAL RERANKER
+ *
+ * Kombiniert:
+ * - heuristische Mood-Matches
+ * - Kategorie-Matches
+ * - Distanzprofil
+ * - Popularität
+ * - User Preference Signals
+ * - Deep Preference Vector Matches
+ */
+export function rerankSpots(spots: ReRankInput[], intent: UserIntent): ScoredSpot[] {
+  const {
+    wantRomance,
+    wantChill,
+    wantLively,
+    wantFood,
+    wantBar,
+    wantWalk,
+    preferredDistanceKm,
+    preferences,
+    deepPreferences,
+  } = intent;
 
+  return spots
+    .map((spot) => {
+      const cat = normalize(spot.category);
+      const moods = (spot.moods || []).map(normalize);
+      const rmoods = (spot.reviewMoods || []).map(normalize);
+
+      /* ============================================================
+         1) M O O D   S C O R E
+      ============================================================ */
       let moodScore = 0;
 
-      // ✅ Mood Matching
-      if (intent.wantRomance) {
-        if (moods.some((m) => m.includes("romant"))) moodScore += 1.0;
+      // Romance / Date
+      if (wantRomance) {
+        if (moods.some((m) => m.includes("romant"))) moodScore += 1.2;
+        if (moods.some((m) => m.includes("cozy"))) moodScore += 0.6;
         if (rmoods.some((m) => m.includes("romant"))) moodScore += 0.8;
       }
-      if (intent.wantChill || intent.wantChill === undefined) {
-        if (moods.some((m) => m.includes("gemüt") || m.includes("chill"))) moodScore += 0.9;
-        if (rmoods.some((m) => m.includes("gemüt") || m.includes("chill"))) moodScore += 0.7;
-      }
-      if (intent.wantLively) {
-        if (moods.some((m) => m.includes("lebend"))) moodScore += 0.8;
-        if (rmoods.some((m) => m.includes("party"))) moodScore += 0.6;
+
+      // Cozy / Chill
+      if (wantChill || wantChill === undefined) {
+        if (moods.some((m) => m.includes("gemüt") || m.includes("cozy") || m.includes("chill")))
+          moodScore += 1.1;
+        if (rmoods.some((m) => m.includes("gemüt") || m.includes("chill")))
+          moodScore += 0.7;
       }
 
-      // ✅ Kategorie-Matching
+      // Lively / Energetic
+      if (wantLively) {
+        if (moods.some((m) => m.includes("lebend") || m.includes("party")))
+          moodScore += 0.9;
+        if (rmoods.some((m) => m.includes("party")))
+          moodScore += 0.7;
+      }
+
+      /* ============================================================
+         2) C A T E G O R Y   S C O R E
+      ============================================================ */
       let catScore = 0;
-      if (intent.wantFood && cat.includes("restaurant")) catScore += 1.2;
-      if (intent.wantBar && (cat.includes("bar") || cat.includes("wein"))) catScore += 1.0;
-      if (intent.wantWalk && (cat.includes("walk") || cat.includes("aussicht"))) catScore += 0.8;
 
-      // ✅ Distanz-Bonus
-      const dist = s.distanceKm ?? 999;
+      if (wantFood && cat.includes("restaurant")) catScore += 1.3;
+      if (wantBar && (cat.includes("bar") || cat.includes("wein"))) catScore += 1.2;
+      if (wantWalk && (cat.includes("walk") || cat.includes("aussicht") || cat.includes("view")))
+        catScore += 1.0;
+
+      /* ============================================================
+         3) D I S T A N C E   S C O R E
+      ============================================================ */
+      const dist = spot.distanceKm ?? 999;
       let distScore = 0;
-      if (dist <= 1) distScore = 1.2;
-      else if (dist <= 3) distScore = 0.9;
-      else if (dist <= 5) distScore = 0.5;
-      else distScore = -0.5;
 
-      // ✅ Popularität (Review-Moods)
+      const ideal = preferredDistanceKm ?? 3; // fallback: 3km angenehm
+
+      if (dist <= ideal) distScore = 1.2;
+      else if (dist <= ideal + 1.5) distScore = 0.7;
+      else if (dist <= ideal + 3) distScore = 0.3;
+      else distScore = -0.4;
+
+      /* ============================================================
+         4) P O P U L A R I T Y   S C O R E
+      ============================================================ */
       const popularityScore = Math.min(1.0, Math.log(1 + rmoods.length) / 2);
 
-      // ✅ Gesamtscore (gewichtet)
-      const score =
-        moodScore * 1.5 +
-        catScore * 1.3 +
-        distScore * 1.2 +
-        popularityScore * 1.0;
+      /* ============================================================
+         5) P R E F E R E N C E S   (User Behavior Model)
+      ============================================================ */
+      let preferenceScore = 0;
 
-      return {
-        ...s,
-        score,
-      };
+      if (preferences?.moodPreferences) {
+        for (const m of moods) {
+          preferenceScore += preferences.moodPreferences[m] ?? 0;
+        }
+      }
+
+      /* ============================================================
+         6) D E E P   P R E F E R E N C E S   (Neural Similarity)
+      ============================================================ */
+      let deepScore = 0;
+      if (deepPreferences?.vectors && deepPreferences.vectors[spot.id]) {
+        deepScore = deepPreferences.vectors[spot.id]; // already normalized 0–1
+      }
+
+      /* ============================================================
+         7) F I N A L   S C O R E (Weighted Hybrid)
+      ============================================================ */
+      const score =
+        moodScore * 1.6 +
+        catScore * 1.3 +
+        distScore * 1.1 +
+        popularityScore * 0.8 +
+        preferenceScore * 1.2 +
+        deepScore * 1.4;
+
+      return { ...spot, score };
     })
     .sort((a, b) => b.score - a.score);
 }

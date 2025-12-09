@@ -62,6 +62,35 @@ export default function NewReviewScreen() {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
   }, []);
 
+  // ⬇️ GANZ OBEN EINBAUEN – Mood-ID Lookup
+  async function getMoodId(token: string | null) {
+    if (!token || token.trim() === "") return null;
+
+    const { data, error } = await supabase
+      .from("mood_tokens")
+      .select("id")
+      .eq("token", token.trim().toLowerCase())
+      .single();
+
+    // Wenn Mood nicht existiert → automatisch anlegen
+    if (!data) {
+      const { data: newMood, error: insertErr } = await supabase
+        .from("mood_tokens")
+        .insert({
+          token: token.trim().toLowerCase(),
+          locale: "de-CH",
+          valid: true,
+        })
+        .select()
+        .single();
+
+      return newMood?.id ?? null;
+    }
+
+    return data.id;
+  }
+
+
   async function pickImage(fromCamera: boolean) {
     try {
       const options: any = {
@@ -112,15 +141,21 @@ export default function NewReviewScreen() {
     try {
       setUploading(true);
 
-      // 1) Review speichern
+      // ⬇️ Mood-IDs auflösen
+      const moodAId = await getMoodId(moodA);
+      const moodBId = await getMoodId(moodB);
+
+      // 1) Review speichern (Backyrd 2.0)
       const { data: reviewData, error: reviewErr } = await supabase
         .from("reviews")
         .insert({
           spot_id: spotId,
           user_id: user.id,
           text,
-          mood_a: moodA || null,
-          mood_b: moodB || null,
+          mood_a: moodA || null,     // Legacy
+          mood_b: moodB || null,     // Legacy
+          mood_a_id: moodAId,        // NEW 🔥
+          mood_b_id: moodBId,        // NEW 🔥
         })
         .select()
         .single();
@@ -144,7 +179,7 @@ export default function NewReviewScreen() {
         });
       }
 
-      // ⭐⭐⭐ 3) ACHIEVEMENTS PRÜFEN – NEU ⭐⭐⭐
+      // ⭐⭐⭐ 3) ACHIEVEMENTS PRÜFEN
       const newlyUnlocked = await awardAchievementsForUser(user.id);
 
       if (newlyUnlocked.length > 0) {
@@ -161,6 +196,7 @@ export default function NewReviewScreen() {
       setUploading(false);
     }
   }
+
 
   return (
     <KeyboardAvoidingView

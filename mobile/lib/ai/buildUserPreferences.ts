@@ -1,105 +1,162 @@
 import { supabase } from "../supabase";
 
 /**
- * Deep Preference Learning:
- * Liefert ein Vektorprofil des Users basierend auf ALLEN Aktionen.
+ * Preference Engine 2.0:
+ * Lernt Nutzerverhalten aus:
+ * - Reviews (stärkstes Signal)
+ * - Reservations (Intentionalität)
+ * - Searches (Trend-Signale)
+ * - Spot Moods (indirekte Präferenzen)
+ *
+ * → liefert ein skalierbares Nutzer-Vektorprofil
  */
 
+function norm(s?: string | null) {
+  return (s || "").trim().toLowerCase();
+}
+
 export async function buildUserPreferences(userId: string) {
-  // ------------------------------------------------------
-  // 1) REVIEWS – stärkstes Signal
-  // ------------------------------------------------------
-  const { data: reviews } = await supabase
+  // ====================================================================
+  // 1) REVIEWS – sehr starke Präferenzsignale
+  // ====================================================================
+  const { data: reviews, error: reviewErr } = await supabase
     .from("reviews")
     .select("spot_id, mood_a, mood_b, created_at")
     .eq("user_id", userId);
 
-  // ------------------------------------------------------
-  // 2) RESERVATIONS – gutes Signal (Intentionalität)
-  // ------------------------------------------------------
-  const { data: reservations } = await supabase
-    .from("reservations")
-    .select("spot_id, date");
+  if (reviewErr) console.warn("buildUserPreferences: reviews error", reviewErr.message);
 
-  // ------------------------------------------------------
-  // 3) SEARCHES – schwächeres Signal, aber gut für Trends
-  // ------------------------------------------------------
-  const { data: searches } = await supabase
+  // ====================================================================
+  // 2) RESERVATIONS – moderate Signale (Intent zum Besuch)
+  // ====================================================================
+  const { data: reservations, error: resErr } = await supabase
+    .from("reservations")
+    .select("spot_id, date")
+    .eq("user_id", userId);
+
+  if (resErr) console.warn("buildUserPreferences: reservations error", resErr.message);
+
+  // ====================================================================
+  // 3) SEARCHES – schwache semantische Signale
+  // ====================================================================
+  const { data: searches, error: searchErr } = await supabase
     .from("user_searches")
     .select("query, created_at")
     .eq("user_id", userId);
 
-  // ------------------------------------------------------
-  // 4) Moods der Spots (für Indirekte Signale)
-  // ------------------------------------------------------
-  const spotIds = [
-    ...(reviews?.map((r) => r.spot_id) || []),
-    ...(reservations?.map((r) => r.spot_id) || []),
+  if (searchErr) console.warn("buildUserPreferences: searches error", searchErr.message);
+
+  // ====================================================================
+  // 4) SPOT MOODS – indirekte Signale (Moods der Spots, die besucht wurden)
+  // ====================================================================
+  const visitedSpotIds = [
+    ...(reviews?.map((r) => r.spot_id).filter(Boolean) || []),
+    ...(reservations?.map((r) => r.spot_id).filter(Boolean) || []),
   ];
 
-  const { data: spotMoods } = await supabase
-    .from("spot_moods")
-    .select("spot_id, mood, rank")
-    .in("spot_id", spotIds);
+  let spotMoods: any[] = [];
+  if (visitedSpotIds.length > 0) {
+    const { data, error } = await supabase
+      .from("spot_moods_agg")
+      .select("spot_id, mood_id, mood_tokens(token), rank")
+      .in("spot_id", visitedSpotIds);
 
-  // ------------------------------------------------------
+    if (error) console.warn("buildUserPreferences: spot_moods_agg error", error.message);
+    else spotMoods = data || [];
+  }
+
+  // ====================================================================
   // AGGREGATION
-  // ------------------------------------------------------
+  // ====================================================================
 
   const moodScore: Record<string, number> = {};
   const categoryScore: Record<string, number> = {};
-  const timePatterns: Record<string, number> = {}; // "Friday-evening", "Sunday-afternoon"
-  const distancePreferences: number[] = [];
+  const timePatterns: Record<string, number> = {};
 
-  // Weighting
   const weights = {
-    review: 3,
-    reservation: 2,
-    search: 1,
+    review: 3,       // direkt angegeben
+    reservation: 2,  // Nutzer hat aktiv gebucht → stark
+    search: 1,       // schwach, aber relevant
+    spotMood: 1,     // indirektes Signal
   };
 
-  function addScore(map: Record<string, number>, key: string, value: number) {
+  function increase(map: Record<string, number>, key: string, value: number) {
+    if (!key) return;
     map[key] = (map[key] || 0) + value;
   }
 
-  // Reviews
+  // ====================================================================
+  // REVIEWS
+  // ====================================================================
   for (const r of reviews || []) {
-    if (r.mood_a) addScore(moodScore, r.mood_a.toLowerCase(), weights.review);
-    if (r.mood_b) addScore(moodScore, r.mood_b.toLowerCase(), weights.review);
+    const moods = [norm(r.mood_a), norm(r.mood_b)].filter(Boolean);
+    for (const m of moods) increase(moodScore, m, weights.review);
 
-    const hour = new Date(r.created_at).getHours();
-    const dow = new Date(r.created_at).getDay();
-    addScore(timePatterns, `${dow}-${hour}`, 1);
+    // Zeitmuster
+    const dt = new Date(r.created_at);
+    increase(timePatterns, `${dt.getDay()}-${dt.getHours()}`, 1);
   }
 
-  // Reservations
+  // ====================================================================
+  // RESERVATIONS
+  // ====================================================================
   for (const r of reservations || []) {
-    const d = new Date(r.date);
-    addScore(timePatterns, `${d.getDay()}-${d.getHours()}`, weights.reservation);
+    const dt = new Date(r.date);
+    increase(timePatterns, `${dt.getDay()}-${dt.getHours()}`, weights.reservation);
   }
 
-  // Searches
+  // ====================================================================
+  // SEARCHES  → semantische Mood-Extraktion
+  // ====================================================================
+  const searchMoodDictionary = [
+    { key: "romant", mood: "romantisch" },
+    { key: "date", mood: "romantisch" },
+    { key: "gemüt", mood: "gemütlich" },
+    { key: "cozy", mood: "gemütlich" },
+    { key: "ruhig", mood: "ruhig" },
+    { key: "entspannt", mood: "ruhig" },
+    { key: "chill", mood: "chillig" },
+    { key: "lebendig", mood: "lebendig" },
+    { key: "party", mood: "lebendig" },
+    { key: "laut", mood: "laut" },
+  ];
+
   for (const s of searches || []) {
-    const q = (s.query || "").toLowerCase();
-    const moods = ["romantisch", "gemütlich", "lebendig", "chillig", "cozy"];
+    const q = norm(s.query);
 
-    for (const m of moods) {
-      if (q.includes(m)) addScore(moodScore, m, weights.search);
+    for (const entry of searchMoodDictionary) {
+      if (q.includes(entry.key)) {
+        increase(moodScore, entry.mood, weights.search);
+      }
     }
+
+    // Auch Zeitmuster aus Suchanfrage
+    const dt = new Date(s.created_at);
+    increase(timePatterns, `${dt.getDay()}-${dt.getHours()}`, 0.5);
   }
 
-  // Spot Moods (indirekte Signale)
-  for (const sm of spotMoods || []) {
-    addScore(moodScore, sm.mood.toLowerCase(), 1);
+  // ====================================================================
+  // SPOT MOODS (indirekt)
+  // ====================================================================
+  for (const sm of spotMoods) {
+    const token: string = norm(sm.mood_tokens?.token);
+    if (!token) continue;
+
+    // Spots, die der Nutzer gewählt hat, sagen viel über Vorlieben
+    increase(moodScore, token, weights.spotMood * (sm.rank ? 1 / sm.rank : 1));
   }
 
-  // ------------------------------------------------------
-  // Normalize
-  // ------------------------------------------------------
+  // ====================================================================
+  // NORMALIZATION (min-max scaling)
+  // ====================================================================
   function normalizeScores(obj: Record<string, number>) {
-    const max = Math.max(...Object.values(obj), 1);
+    const vals = Object.values(obj);
+    if (vals.length === 0) return {};
+    const max = Math.max(...vals);
     const out: Record<string, number> = {};
-    for (const key in obj) out[key] = obj[key] / max;
+    for (const key in obj) {
+      out[key] = max === 0 ? 0 : obj[key] / max;
+    }
     return out;
   }
 
@@ -107,9 +164,6 @@ export async function buildUserPreferences(userId: string) {
     moodPreferences: normalizeScores(moodScore),
     categoryPreferences: normalizeScores(categoryScore),
     timePatterns: normalizeScores(timePatterns),
-    distancePreferencesAvgKm:
-      distancePreferences.length > 0
-        ? distancePreferences.reduce((a, b) => a + b, 0) / distancePreferences.length
-        : null,
+    distancePreferencesAvgKm: null, // später implementieren
   };
 }

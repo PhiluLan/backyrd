@@ -1,156 +1,149 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { supabase } from "@/lib/supabaseClient";
+import type { Spot, SpotStatus } from "@/types/spots";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+type SpotListItem = Pick<Spot, "id" | "name" | "city" | "status" | "created_at">;
 
-type Spot = {
-  id: string;
-  name: string;
-  category: string | null;
-  status: "pending" | "approved";
-  created_at: string;
+const STATUS_LABELS: Record<SpotStatus, string> = {
+  pending: "Pending",
+  approved: "Approved",
+  rejected: "Rejected",
+  hidden: "Hidden",
 };
 
 export default function SpotsPage() {
-  const [spots, setSpots] = useState<Spot[]>([]);
+  const [spots, setSpots] = useState<SpotListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "pending" | "approved">("all");
-  const router = useRouter();
+  const [statusFilter, setStatusFilter] = useState<SpotStatus | "all">("all");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     loadSpots();
-  }, [filter]);
+  }, []);
 
   async function loadSpots() {
     setLoading(true);
-    let query = supabase.from("spots").select("*").order("created_at", { ascending: false });
 
-    if (filter !== "all") {
-      query = query.eq("status", filter);
-    }
+    const { data, error } = await supabase
+      .from("spots")
+      .select("id, name, city, status, created_at")
+      .order("created_at", { ascending: false });
 
-    const { data, error } = await query;
     if (error) {
-      console.error("Fehler beim Laden der Spots:", error.message);
+      console.error("Fehler beim Laden der Spots:", error);
     } else {
-      setSpots(data as Spot[]);
+      setSpots((data ?? []) as SpotListItem[]);
     }
+
     setLoading(false);
   }
 
-  async function approveSpot(id: string) {
-    const { error } = await supabase.from("spots").update({ status: "approved" }).eq("id", id);
-    if (error) {
-      alert("Fehler beim Freigeben: " + error.message);
-    } else {
-      setSpots((prev) => prev.map((s) => (s.id === id ? { ...s, status: "approved" } : s)));
+  const filteredSpots = spots.filter((spot) => {
+    if (statusFilter !== "all" && spot.status !== statusFilter) return false;
+    if (search.trim().length > 0) {
+      const q = search.toLowerCase();
+      return (
+        spot.name.toLowerCase().includes(q) ||
+        (spot.city ?? "").toLowerCase().includes(q)
+      );
     }
-  }
-
-  async function deleteSpot(id: string) {
-    if (!confirm("Spot wirklich löschen?")) return;
-    const { error } = await supabase.from("spots").delete().eq("id", id);
-    if (error) {
-      alert("Fehler beim Löschen: " + error.message);
-    } else {
-      setSpots((prev) => prev.filter((s) => s.id !== id));
-    }
-  }
+    return true;
+  });
 
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold mb-6 text-white">📍 Spots verwalten</h1>
-
-      {/* Filter */}
-      <div className="flex gap-2 mb-4">
-        {["all", "pending", "approved"].map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f as any)}
-            className={`px-3 py-1 rounded ${
-              filter === f ? "bg-blue-600 text-white" : "bg-gray-800 text-gray-300"
-            }`}
-          >
-            {f === "all" ? "Alle" : f === "pending" ? "Pending" : "Approved"}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-white">📍 Spots verwalten</h1>
-        <Link
-            href="/spots/new"
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-            + Neuer Spot
-        </Link>
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold">Spots</h1>
+          <p className="text-sm text-gray-500">
+            Verwaltung aller Spots im Backyrd Universum.
+          </p>
         </div>
 
-      {/* Tabelle */}
-      <div className="overflow-x-auto rounded-lg border border-gray-700">
-        <table className="min-w-full divide-y divide-gray-700">
-          <thead className="bg-gray-900">
-            <tr>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-300">Name</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-300">Kategorie</th>
-              <th className="px-4 py-2 text-left text-sm font-semibold text-gray-300">Status</th>
-              <th className="px-4 py-2 text-right text-sm font-semibold text-gray-300">Aktionen</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-800 bg-gray-950">
-            {loading ? (
+        <Link
+          href="/spots/new"
+          className="inline-flex items-center rounded-md border border-gray-200 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+        >
+          + Neuer Spot
+        </Link>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          type="text"
+          placeholder="Suche nach Name oder Stadt…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full max-w-xs rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/5"
+        />
+
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as SpotStatus | "all")}
+          className="rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/5"
+        >
+          <option value="all">Alle Status</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+          <option value="hidden">Hidden</option>
+        </select>
+
+        <button
+          type="button"
+          onClick={loadSpots}
+          className="rounded-md border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50"
+        >
+          Neu laden
+        </button>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-gray-500">Lade Spots…</p>
+      ) : filteredSpots.length === 0 ? (
+        <p className="text-sm text-gray-500">Keine Spots gefunden.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-gray-100">
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-gray-50">
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-gray-400">
-                  ⏳ Spots werden geladen...
-                </td>
+                <th className="px-4 py-2 font-medium">Name</th>
+                <th className="px-4 py-2 font-medium">Stadt</th>
+                <th className="px-4 py-2 font-medium">Status</th>
+                <th className="px-4 py-2 font-medium">Erstellt</th>
+                <th className="px-4 py-2 font-medium text-right">Aktion</th>
               </tr>
-            ) : spots.length === 0 ? (
-              <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-gray-400">
-                  Keine Spots gefunden.
-                </td>
-              </tr>
-            ) : (
-              spots.map((spot) => (
-                <tr key={spot.id}>
-                  <td className="px-4 py-2 text-white">{spot.name}</td>
-                  <td className="px-4 py-2 text-gray-300">{spot.category || "–"}</td>
-                  <td
-                    className={`px-4 py-2 font-medium ${
-                      spot.status === "approved" ? "text-green-400" : "text-yellow-400"
-                    }`}
-                  >
-                    {spot.status}
+            </thead>
+            <tbody>
+              {filteredSpots.map((spot) => (
+                <tr key={spot.id} className="border-t border-gray-100">
+                  <td className="px-4 py-2">{spot.name}</td>
+                  <td className="px-4 py-2">{spot.city ?? "-"}</td>
+                  <td className="px-4 py-2">
+                    <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs">
+                      {STATUS_LABELS[spot.status]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2">
+                    {new Date(spot.created_at).toLocaleDateString("de-CH")}
                   </td>
                   <td className="px-4 py-2 text-right">
-                    {spot.status !== "approved" && (
-                      <button
-                        onClick={() => approveSpot(spot.id)}
-                        className="mr-2 text-sm bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
-                      >
-                        Approve
-                      </button>
-                    )}
-                    <button
-                      onClick={() => deleteSpot(spot.id)}
-                      className="text-sm bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded"
+                    <Link
+                      href={`/spots/${spot.id}/edit`}
+                      className="text-sm text-blue-600 hover:underline"
                     >
-                      Delete
-                    </button>
+                      Bearbeiten
+                    </Link>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

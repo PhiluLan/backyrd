@@ -131,3 +131,188 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.4);
 }
+
+/* 🌌 Spot Form – Dark Theme kompatibel */
+
+.spot-form {
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.form-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.form-label-required {
+  color: #f97373;
+  margin-left: 0.15rem;
+}
+
+.form-input {
+  background-color: #1a1a1a;
+  color: var(--foreground);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.9rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-input::placeholder {
+  color: rgba(255,255,255,0.4);
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.35);
+}
+
+/* Select braucht denselben Look */
+.form-select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--accent) 50%),
+                    linear-gradient(135deg, var(--accent) 50%, transparent 50%);
+  background-position: calc(100% - 16px) calc(50% - 2px),
+                       calc(100% - 12px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 2rem;
+}
+
+/* Grids für 2/3-spaltige Reihen */
+.form-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.form-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Mobile Anpassung */
+@media (max-width: 720px) {
+  .form-grid-2,
+  .form-grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Messages */
+.form-message {
+  font-size: 0.85rem;
+}
+
+.form-message-error {
+  color: #f87171;
+}
+
+.form-message-success {
+  color: #4ade80;
+}
+
+/* Buttons */
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 1.2rem;
+  border-radius: 999px;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.18s ease, transform 0.06s ease, box-shadow 0.18s ease;
+}
+
+.btn-primary {
+  background-color: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 8px 16px rgba(14, 165, 233, 0.35);
+}
+
+.btn-primary:hover {
+  background-color: #0284c7;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(14, 165, 233, 0.5);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 10px rgba(14, 165, 233, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+  box-shadow: none;
+}
+/* 📄 Seitenlayout */
+.page-container {
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* 🔹 Header Bereich */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+}
+
+.page-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.page-title {
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--foreground);
+}
+
+.page-subtitle {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* 🔙 Backlink */
+.page-backlink {
+  font-size: 0.9rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.page-backlink:hover {
+  text-decoration: underline;
+}
+
+

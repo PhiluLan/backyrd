@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <aside className="w-60 bg-gray-900 border-r border-gray-800 p-4 flex flex-col gap-4">
           <h1 className="text-xl font-bold mb-4">🧭 Dashboard</h1>
           <nav className="flex flex-col gap-2">
-            <Link href="/" className="hover:bg-gray-800 px-3 py-2 rounded">🏠 Übersicht</Link>
+            <Link href="/dashboard" className="hover:bg-gray-800 px-3 py-2 rounded">🏠 Dashboard</Link>
             <Link href="/spots" className="hover:bg-gray-800 px-3 py-2 rounded">📍 Spots</Link>
             <Link href="/reviews" className="hover:bg-gray-800 px-3 py-2 rounded">📝 Reviews</Link>
             <Link href="/users" className="hover:bg-gray-800 px-3 py-2 rounded">👤 Benutzer</Link>
