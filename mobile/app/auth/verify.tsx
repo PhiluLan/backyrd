@@ -1,114 +1,118 @@
 // mobile/app/auth/verify.tsx
+
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
-  View,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
-  Pressable,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
   TouchableWithoutFeedback,
-  Keyboard,
-  Platform,
+  View,
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { supabase } from "../../lib/supabase";
 
-export default function Verify() {
+import { supabase } from "../../lib/supabase";
+import { ensureProfile } from "../../lib/profile";
+
+function cleanEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+export default function VerifyScreen() {
   const router = useRouter();
   const { email: emailParam } = useLocalSearchParams<{ email?: string }>();
 
-  const [email, setEmail] = useState(emailParam ?? "");
+  const [email, setEmail] = useState(cleanEmail(emailParam ?? ""));
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
 
-  /* ======================================================
-     ✅ CODE VERIFY
-  ====================================================== */
   async function onVerify() {
-    if (!email.trim() || !code.trim()) {
+    const normalizedEmail = cleanEmail(email);
+    const token = code.trim();
+
+    if (!normalizedEmail || !token) {
       Alert.alert("Angaben fehlen", "Bitte E-Mail und Code eingeben.");
       return;
     }
+
     try {
       setLoading(true);
 
       const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: code.trim(),
+        email: normalizedEmail,
+        token,
         type: "signup",
       });
 
       if (error) throw error;
 
-      Alert.alert("Erfolg", "Dein Account wurde bestätigt.", [
-        { text: "OK", onPress: () => router.replace("/(tabs)") },
+      await ensureProfile();
+
+      Alert.alert("Bestätigt", "Dein Account wurde bestätigt. Wir richten jetzt dein Profil ein.", [
+        { text: "OK", onPress: () => router.replace("/gate" as any) },
       ]);
     } catch (e: any) {
-      Alert.alert("Verifizierung fehlgeschlagen", e.message);
+      Alert.alert("Verifizierung fehlgeschlagen", e?.message ?? String(e));
     } finally {
       setLoading(false);
     }
   }
 
-  /* ======================================================
-     ✅ RESEND CODE
-  ====================================================== */
   async function resendCode() {
-    try {
-      if (!email.trim()) {
-        Alert.alert("E-Mail fehlt", "Bitte gib deine E-Mail ein.");
-        return;
-      }
+    const normalizedEmail = cleanEmail(email);
 
-      const { error } = await supabase.auth.signInWithOtp({ email });
+    if (!normalizedEmail) {
+      Alert.alert("E-Mail fehlt", "Bitte gib deine E-Mail ein.");
+      return;
+    }
+
+    try {
+      setResending(true);
+
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: normalizedEmail,
+      });
 
       if (error) throw error;
 
-      Alert.alert("Gesendet", "Wir haben dir erneut einen Code geschickt.");
+      Alert.alert("Gesendet", "Wir haben dir die Bestätigungs-E-Mail nochmals geschickt.");
     } catch (e: any) {
-      Alert.alert("Fehler", e.message);
+      Alert.alert("Senden fehlgeschlagen", e?.message ?? String(e));
+    } finally {
+      setResending(false);
     }
   }
 
-  /* ======================================================
-     ✅ UI
-  ====================================================== */
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <KeyboardAvoidingView style={styles.keyboardRoot} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <LinearGradient
-          colors={["#0A0A0B", "#0A0A0B", "#191A22"]}
-          style={styles.container}
-        >
-          {/* Header */}
+        <LinearGradient colors={["#050506", "#0A0A0B", "#191A22"]} style={styles.container}>
           <View style={styles.header}>
-            <Pressable onPress={() => router.back()} style={styles.backBtn}>
-              <Ionicons name="chevron-back" size={28} color="#fff" />
+            <Pressable onPress={() => router.replace("/auth/login" as any)} hitSlop={10} style={styles.backBtn}>
+              <Ionicons name="chevron-back" size={32} color="#fff" />
             </Pressable>
             <Text style={styles.headerTitle}>E-Mail bestätigen</Text>
           </View>
 
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: 60 }}
-          >
-            <BlurView intensity={60} tint="dark" style={styles.card}>
-              <Text style={styles.cardTitle}>Code eingeben</Text>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
+            <BlurView intensity={62} tint="dark" style={styles.card}>
+              <Text style={styles.cardTitle}>Bestätigungscode</Text>
               <Text style={styles.cardSubtitle}>
-                Gib den 6-stelligen Bestätigungscode ein, den wir dir gemailt
-                haben.
+                Gib den Code aus deiner E-Mail ein. Falls du einen Bestätigungslink erhalten hast,
+                kannst du auch einfach den Link öffnen und danach einloggen.
               </Text>
 
-              {/* Email */}
               <TextInput
                 placeholder="E-Mail"
                 placeholderTextColor="#7D8086"
@@ -116,42 +120,46 @@ export default function Verify() {
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="emailAddress"
                 style={styles.input}
               />
 
-              {/* Code */}
               <TextInput
-                placeholder="Bestätigungscode"
+                placeholder="Code"
                 placeholderTextColor="#7D8086"
                 value={code}
                 onChangeText={setCode}
                 keyboardType="number-pad"
+                autoCapitalize="none"
+                autoCorrect={false}
                 style={styles.input}
               />
 
-              {/* Verify Btn */}
               <Pressable
                 onPress={onVerify}
-                disabled={loading}
+                disabled={loading || resending}
                 style={({ pressed }) => [
                   styles.primaryBtn,
+                  (loading || resending) && styles.disabled,
                   pressed && { opacity: 0.85 },
                 ]}
               >
-                <Text style={styles.primaryBtnText}>
-                  {loading ? "Prüfe…" : "Code bestätigen"}
-                </Text>
+                {loading ? <ActivityIndicator /> : <Text style={styles.primaryBtnText}>Bestätigen</Text>}
               </Pressable>
 
-              {/* Resend */}
               <Pressable
                 onPress={resendCode}
+                disabled={loading || resending}
                 style={({ pressed }) => [
-                  styles.ghostBtn,
-                  pressed && { opacity: 0.8 },
+                  styles.secondaryBtn,
+                  (loading || resending) && styles.disabled,
+                  pressed && { opacity: 0.85 },
                 ]}
               >
-                <Text style={styles.ghostBtnText}>Code erneut senden</Text>
+                <Text style={styles.secondaryBtnText}>
+                  {resending ? "Sendet..." : "Code nochmals senden"}
+                </Text>
               </Pressable>
             </BlurView>
           </ScrollView>
@@ -161,89 +169,103 @@ export default function Verify() {
   );
 }
 
-/* ======================================================
- ✅ STYLES — BACKYRD DESIGN
-====================================================== */
 const styles = StyleSheet.create({
+  keyboardRoot: {
+    flex: 1,
+    backgroundColor: "#050506",
+  },
   container: {
     flex: 1,
     paddingHorizontal: 18,
   },
-
-  /* Header */
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: Platform.select({ ios: 54, android: 32 }),
-    paddingBottom: 16,
+    paddingTop: Platform.select({ ios: 56, android: 34, default: 34 }),
+    paddingBottom: 18,
   },
   backBtn: {
-    marginRight: 12,
+    width: 58,
+    height: 58,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.11)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
   },
   headerTitle: {
     color: "#fff",
-    fontSize: 22,
-    fontWeight: "800",
+    fontSize: 29,
+    fontWeight: "950",
+    letterSpacing: 0.2,
+    flexShrink: 1,
   },
-
-  /* Card */
   card: {
-    marginTop: 20,
-    padding: 22,
-    borderRadius: 26,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    marginTop: 92,
+    padding: 24,
+    borderRadius: 30,
+    backgroundColor: "rgba(255,255,255,0.065)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(255,255,255,0.11)",
+    overflow: "hidden",
   },
   cardTitle: {
     color: "#fff",
-    fontSize: 26,
-    fontWeight: "800",
-    marginBottom: 6,
+    fontSize: 38,
+    lineHeight: 42,
+    fontWeight: "950",
+    letterSpacing: -0.9,
+    marginBottom: 10,
   },
   cardSubtitle: {
     color: "#A6A8AD",
-    fontSize: 14,
-    marginBottom: 18,
+    fontSize: 17,
+    lineHeight: 25,
+    marginBottom: 24,
   },
-
-  /* Inputs */
   input: {
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderColor: "rgba(255,255,255,0.14)",
+    borderColor: "rgba(255,255,255,0.16)",
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    borderRadius: 17,
     marginBottom: 12,
     color: "#fff",
-    fontSize: 16,
+    fontSize: 17,
+    fontWeight: "700",
   },
-
-  /* Buttons */
   primaryBtn: {
     backgroundColor: "#000",
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 17,
+    borderRadius: 17,
     alignItems: "center",
-    marginTop: 6,
+    marginTop: 8,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
+    borderColor: "rgba(255,255,255,0.14)",
   },
   primaryBtnText: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "800",
+    fontSize: 17,
+    fontWeight: "950",
   },
-
-  ghostBtn: {
-    marginTop: 14,
-    paddingVertical: 12,
+  secondaryBtn: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    paddingVertical: 17,
+    borderRadius: 17,
     alignItems: "center",
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
   },
-  ghostBtnText: {
-    color: "#A6A8AD",
-    fontSize: 14,
-    fontWeight: "600",
+  secondaryBtnText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  disabled: {
+    opacity: 0.58,
   },
 });

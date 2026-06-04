@@ -1,14 +1,32 @@
+// mobile/app/_layout.tsx
+
 import React, { useEffect } from "react";
-import { Stack, useRouter } from "expo-router";
+import { Stack } from "expo-router";
 import {
   useFonts,
   PlayfairDisplay_400Regular,
   PlayfairDisplay_700Bold,
 } from "@expo-google-fonts/playfair-display";
-import { Text } from "react-native";
-import { registerForPushNotificationsAsync } from "../lib/notifications";
+import { Platform, View, ActivityIndicator } from "react-native";
+
 import SplashScreen from "./splash";
+import { registerForPushNotificationsAsync } from "../lib/notifications";
 import { useAuth } from "../hooks/useAuth";
+
+function WebSafeFallback() {
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: "#0B0B0C",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <ActivityIndicator color="#fff" />
+    </View>
+  );
+}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -16,11 +34,11 @@ export default function RootLayout() {
     PlayfairDisplay_700Bold,
   });
 
-  const { session, loading } = useAuth();
-  const router = useRouter();
+  const { loading: authLoading } = useAuth();
 
-  // 🔔 Push Notifications
   useEffect(() => {
+    if (Platform.OS === "web") return;
+
     (async () => {
       try {
         await registerForPushNotificationsAsync();
@@ -30,46 +48,24 @@ export default function RootLayout() {
     })();
   }, []);
 
-  // 📌 Global Font Override
-  useEffect(() => {
-    const oldRender = Text.render;
-
-    if (oldRender) {
-      Text.render = function (...args) {
-        const origin = oldRender.call(this, ...args);
-
-        return React.cloneElement(origin, {
-          style: [
-            { fontFamily: "PlayfairDisplay_400Regular" },
-            origin.props.style,
-          ],
-        });
-      };
-    }
-  }, []);
-
-  // ✅ Login / Tabs Navigation
-  useEffect(() => {
-    if (!loading && fontsLoaded) {
-      router.replace("/(tabs)");
-    }
-  }, [loading, fontsLoaded]);
-
-  // ⏳ Loading / Splash
-  if (!fontsLoaded || loading) return <SplashScreen />;
+  if (!fontsLoaded || authLoading) {
+    return Platform.OS === "web" ? <WebSafeFallback /> : <SplashScreen />;
+  }
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="gate" />
 
-      {/* Tabs */}
       <Stack.Screen name="(tabs)" />
 
-      {/* Auth */}
       <Stack.Screen name="auth/login" />
       <Stack.Screen name="auth/register" />
       <Stack.Screen name="auth/verify" />
 
-      {/* Detailseite */}
+      <Stack.Screen name="onboarding/index" />
+      <Stack.Screen name="onboarding/profile" />
+      <Stack.Screen name="onboarding/decision" />
+
       <Stack.Screen
         name="spot/[id]"
         options={{

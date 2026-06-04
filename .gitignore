@@ -146,3 +146,34 @@ node_modules
 dist
 .DS_Store
 
+
+# Local editor settings
+.vscode/
+
+# Next / web caches
+.next/
+**/.next/
+
+# iOS / CocoaPods generated files
+Pods/
+ios/Pods/
+mobile/ios/Pods/
+
+# Expo / native generated caches
+.expo/
+.expo-shared/
+
+# Build artifacts
+*.ipa
+*.apk
+*.aab
+
+# Local exports / dumps
+supabase_export/
+full_schema.sql
+
+# Local one-off files
+index.html
+
+# Local secret EAS config
+mobile/eas.local.secret.json

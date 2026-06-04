@@ -75,7 +75,25 @@ async function uploadImageToSupabase(uri: string, pathPrefix: string) {
    📸 Quick Review Screen
 ====================================================== */
 export default function QuickReviewScreen() {
-  const { spotId } = useLocalSearchParams<{ spotId: string }>();
+  const {
+    spotId,
+    decisionId,
+    decisionRank,
+    decisionQuery,
+    inputMode,
+    modelVersion,
+    source,
+  } = useLocalSearchParams<{
+    spotId: string;
+    decisionId?: string;
+    decisionRank?: string;
+    decisionQuery?: string;
+    inputMode?: string;
+    modelVersion?: string;
+    source?: string;
+  }>();
+
+  const isDecisionReview = source === "decision" || Boolean(decisionId);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [filter, setFilter] = useState<"none" | "bw" | "dark">("none");
   const [moodA, setMoodA] = useState("");
@@ -130,16 +148,39 @@ export default function QuickReviewScreen() {
         `review_${spotId}`
       );
 
-      const { error: insertError } = await supabase.from("reviews").insert({
-        spot_id: spotId,
-        user_id: user.id,
-        mood_a: moodA || null,
-        mood_b: moodB || null,
-        photo_path: publicUrl,
-        text: null,
-      });
+      const { data: reviewData, error: insertError } = await supabase
+        .from("reviews")
+        .insert({
+          spot_id: spotId,
+          user_id: user.id,
+          mood_a: moodA || null,
+          mood_b: moodB || null,
+          photo_path: publicUrl,
+          text: null,
+        })
+        .select()
+        .single();
 
       if (insertError) throw insertError;
+
+      if (isDecisionReview && reviewData?.id) {
+        const { error: linkError } = await supabase.rpc("link_decision_review_v1", {
+          p_review_id: reviewData.id,
+          p_decision_id: decisionId || null,
+          p_source_context: {
+            source: "review_quick",
+            source_type: "decision_review",
+            decision_id: decisionId || null,
+            decision_rank: decisionRank ? Number(decisionRank) : null,
+            decision_query: decisionQuery || null,
+            input_mode: inputMode || null,
+            model_version: modelVersion || null,
+            linked_from_client: true,
+          },
+        });
+
+        if (linkError) console.log("link_decision_review_v1 failed", linkError);
+      }
 
       router.replace(`/spot/${spotId}`);
     } catch (e: any) {

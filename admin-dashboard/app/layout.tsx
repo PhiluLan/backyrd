@@ -3,33 +3,77 @@ import Link from "next/link";
 import Script from "next/script";
 
 export const metadata = {
-  title: "Admin Dashboard",
-  description: "Backyrd Admin",
+  title: "Backyrd Admin",
+  description: "Backyrd Admin Dashboard",
 };
 
+function NavLink({
+  href,
+  icon,
+  label,
+}: {
+  href: string;
+  icon: string;
+  label: string;
+}) {
+  return (
+    <Link href={href} className="by-navlink">
+      <span className="by-navicon">{icon}</span>
+      <span>{label}</span>
+    </Link>
+  );
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const googleKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+
   return (
     <html lang="de">
       <head>
-        <Script
-          src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_API_KEY}&libraries=places`}
-          strategy="beforeInteractive"
-        />
+        {googleKey ? (
+          <Script
+            id="google-maps"
+            src={`https://maps.googleapis.com/maps/api/js?key=${googleKey}&libraries=places`}
+            strategy="beforeInteractive"
+          />
+        ) : null}
       </head>
-      <body className="bg-black text-white flex min-h-screen">
-        {/* Sidebar */}
-        <aside className="w-60 bg-gray-900 border-r border-gray-800 p-4 flex flex-col gap-4">
-          <h1 className="text-xl font-bold mb-4">🧭 Dashboard</h1>
-          <nav className="flex flex-col gap-2">
-            <Link href="/dashboard" className="hover:bg-gray-800 px-3 py-2 rounded">🏠 Dashboard</Link>
-            <Link href="/spots" className="hover:bg-gray-800 px-3 py-2 rounded">📍 Spots</Link>
-            <Link href="/reviews" className="hover:bg-gray-800 px-3 py-2 rounded">📝 Reviews</Link>
-            <Link href="/users" className="hover:bg-gray-800 px-3 py-2 rounded">👤 Benutzer</Link>
-          </nav>
-        </aside>
 
-        {/* Content */}
-        <main className="flex-1">{children}</main>
+      <body>
+        <div className="by-app">
+          <aside className="by-sidebar">
+            <div className="by-card by-sidebarCard">
+              <div className="by-sidebarHeader">
+                <div className="by-avatarStub" />
+                <div className="by-sidebarTitle">
+                  <div className="by-h2">Dashboard</div>
+                  <div className="by-muted by-small">Backyrd Admin</div>
+                </div>
+              </div>
+
+              <div className="by-sidebarLinks">
+                <NavLink href="/dashboard" icon="🏠" label="Dashboard" />
+                <NavLink href="/spots" icon="📍" label="Spots" />
+                <NavLink href="/claims" icon="✅" label="Claims" />
+                <NavLink href="/moods" icon="🧠" label="Moods" />
+                <NavLink href="/reviews" icon="📝" label="Reviews" />
+                <NavLink href="/users" icon="👤" label="Benutzer" />
+              </div>
+
+              <div className="by-sidebarHint">
+                <div className="by-muted by-xs">Tipp</div>
+                <div className="by-muted by-small by-hintText">
+                  Betreiber-Claims erst nach bestätigter Business-Mail prüfen.
+                  Nach Approval erscheint automatisch das verifizierte Betreiber-Badge.
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <main className="by-content">
+            <div className="by-container">{children}</div>
+          </main>
+        </div>
       </body>
     </html>
   );

@@ -1,18 +1,21 @@
 {
   "name": "backyrd",
+  "private": true,
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "workspaces": [
+    "web",
+    "packages/*"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "supabase:start": "npx supabase start",
+    "supabase:stop": "npx supabase stop",
+    "supabase:status": "npx supabase status",
+    "supabase:reset": "npx supabase db reset"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/PhiluLan/backyrd.git"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "bugs": {
     "url": "https://github.com/PhiluLan/backyrd/issues"
   },
@@ -27,6 +30,7 @@
     "@types/node": "^24.6.2",
     "@types/node-fetch": "^2.6.13",
     "eas-cli": "^16.20.1",
+    "supabase": "^2.89.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }

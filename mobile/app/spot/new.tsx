@@ -47,10 +47,10 @@ async function uploadImageToSupabase(params: {
     (ext === "png"
       ? "image/png"
       : ext === "webp"
-      ? "image/webp"
-      : ext === "heic" || ext === "heif"
-      ? "image/heic"
-      : "image/jpeg");
+        ? "image/webp"
+        : ext === "heic" || ext === "heif"
+          ? "image/heic"
+          : "image/jpeg");
 
   const fileName = `${pathPrefix}_${Date.now()}.${ext}`;
 
@@ -59,7 +59,9 @@ async function uploadImageToSupabase(params: {
     const resp = await fetch(uri);
     arrayBuffer = await resp.arrayBuffer();
   } catch (e: any) {
-    throw new Error(`Bild konnte nicht gelesen werden: ${e?.message || String(e)}`);
+    throw new Error(
+      `Bild konnte nicht gelesen werden: ${e?.message || String(e)}`,
+    );
   }
 
   const { error: uploadErr } = await supabase.storage
@@ -68,15 +70,29 @@ async function uploadImageToSupabase(params: {
 
   if (uploadErr) throw new Error(uploadErr.message || "Upload fehlgeschlagen");
 
-  const { data: publicUrlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
+  const { data: publicUrlData } = supabase.storage
+    .from(bucket)
+    .getPublicUrl(fileName);
   return { fileName, publicUrl: publicUrlData.publicUrl as string };
+}
+
+function parseTagInput(value: string): string[] {
+  return value
+    .split(/[\n,]+/g)
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+function cleanNullableText(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : null;
 }
 
 /* ================== Screen ================== */
 export default function NewSpotScreen() {
   const { photo: incomingPhoto } = useLocalSearchParams<{ photo?: string }>();
   const [photo, setPhoto] = useState<string | null>(
-    incomingPhoto ? decodeURIComponent(incomingPhoto) : null
+    incomingPhoto ? decodeURIComponent(incomingPhoto) : null,
   );
 
   const [name, setName] = useState("");
@@ -85,6 +101,13 @@ export default function NewSpotScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [moodA, setMoodA] = useState("");
   const [moodB, setMoodB] = useState("");
+  const [description, setDescription] = useState("");
+  const [keywords, setKeywords] = useState("");
+  const [bestFor, setBestFor] = useState("");
+  const [atmosphereTags, setAtmosphereTags] = useState("");
+  const [avoidIfTags, setAvoidIfTags] = useState("");
+  const [goodForTime, setGoodForTime] = useState("");
+  const [noiseLevel, setNoiseLevel] = useState("");
   const [loading, setLoading] = useState(false);
   const [coords, setCoords] = useState<[number, number] | null>(null);
   const [suggestions, setSuggestions] = useState<
@@ -100,7 +123,8 @@ export default function NewSpotScreen() {
         .from("categories")
         .select("id, name, icon, color")
         .order("name", { ascending: true });
-      if (error) console.error("Kategorien laden fehlgeschlagen:", error.message);
+      if (error)
+        console.error("Kategorien laden fehlgeschlagen:", error.message);
       else setCategories(data || []);
     })();
   }, []);
@@ -142,6 +166,88 @@ export default function NewSpotScreen() {
     }
   }
 
+  async function saveSpotContentAndIntelligence(spotId: string) {
+    const contentDescription = cleanNullableText(description);
+    const contentKeywords = parseTagInput(keywords);
+
+    if (contentDescription || contentKeywords.length > 0) {
+      const { error } = await supabase.rpc("upsert_spot_admin_content_v1", {
+        p_spot_id: spotId,
+        p_description: contentDescription,
+        p_keywords: contentKeywords,
+        p_source: "admin",
+        p_enriched_url: null,
+      });
+
+      if (error) {
+        console.warn(
+          "Spot-Beschreibung konnte nicht gespeichert werden:",
+          error.message,
+        );
+      }
+    }
+
+    const hasIntelligence =
+      parseTagInput(bestFor).length > 0 ||
+      parseTagInput(atmosphereTags).length > 0 ||
+      parseTagInput(avoidIfTags).length > 0 ||
+      parseTagInput(goodForTime).length > 0 ||
+      cleanNullableText(noiseLevel);
+
+    if (hasIntelligence) {
+      const { error } = await supabase.rpc("upsert_spot_intelligence_v1", {
+        p_spot_id: spotId,
+        p_best_for: parseTagInput(bestFor),
+        p_occasion_tags: [],
+        p_atmosphere_tags: parseTagInput(atmosphereTags),
+        p_avoid_if_tags: parseTagInput(avoidIfTags),
+        p_good_for_time: parseTagInput(goodForTime),
+        p_noise_level: cleanNullableText(noiseLevel),
+        p_crowd_type: [],
+        p_dress_code: null,
+        p_reservation_recommended: null,
+        p_average_duration_minutes: null,
+        p_signature_items: [],
+        p_special_notes: null,
+        p_admin_notes: null,
+        p_source: "admin",
+        p_is_verified: false,
+      });
+
+      if (error) {
+        console.warn(
+          "Spot Intelligence konnte nicht gespeichert werden:",
+          error.message,
+        );
+      }
+    }
+
+    const { error: refreshError } = await supabase.rpc(
+      "backyrd_refresh_spot_ml_document_v13",
+      { p_spot_id: spotId },
+    );
+
+    if (refreshError) {
+      console.warn(
+        "ML-Dokument konnte nicht aktualisiert werden:",
+        refreshError.message,
+      );
+      return;
+    }
+
+    const { error: embeddingError } = await supabase.functions.invoke(
+      "generate-spot-embeddings",
+      { body: { limit: 10 } },
+    );
+
+    if (embeddingError) {
+      console.warn(
+        "Embedding konnte nicht aktualisiert werden:",
+        embeddingError.message,
+      );
+    }
+  }
+
   /* ========= 🚀 Spot speichern ========= */
   async function submit() {
     if (!name.trim()) {
@@ -159,7 +265,10 @@ export default function NewSpotScreen() {
 
     const { data: user } = await supabase.auth.getUser();
     if (!user || !user.user) {
-      Alert.alert("Fehler", "Du musst eingeloggt sein, um einen Spot anzulegen.");
+      Alert.alert(
+        "Fehler",
+        "Du musst eingeloggt sein, um einen Spot anzulegen.",
+      );
       return;
     }
 
@@ -216,6 +325,8 @@ export default function NewSpotScreen() {
           user_id: user.user.id,
         });
       }
+
+      await saveSpotContentAndIntelligence(spot.id);
 
       Alert.alert("Erfolg", "Neuer Spot wurde hinzugefügt!");
       router.replace("/(tabs)/map");
@@ -296,7 +407,12 @@ export default function NewSpotScreen() {
         {photo ? (
           <Image
             source={{ uri: photo }}
-            style={{ width: "100%", height: 200, borderRadius: 12, marginBottom: 12 }}
+            style={{
+              width: "100%",
+              height: 200,
+              borderRadius: 12,
+              marginBottom: 12,
+            }}
           />
         ) : (
           <Text style={{ color: "#777", marginBottom: 12 }}>
@@ -316,6 +432,95 @@ export default function NewSpotScreen() {
           >
             <Text style={styles.photoBtnText}>Kamera</Text>
           </Pressable>
+        </View>
+
+        {/* Beschreibung / Intelligence */}
+        <Text style={styles.sectionTitle}>Für bessere Empfehlungen</Text>
+        <Text style={styles.helperText}>
+          Optional, aber sehr wertvoll für die Decision Engine.
+        </Text>
+
+        <Text style={styles.label}>Beschreibung</Text>
+        <TextInput
+          placeholder="Was macht diesen Ort besonders? Stimmung, Angebot, Vibe…"
+          placeholderTextColor="#777"
+          value={description}
+          onChangeText={setDescription}
+          style={[styles.input, styles.textArea]}
+          multiline
+        />
+
+        <Text style={styles.label}>Keywords</Text>
+        <TextInput
+          placeholder="z. B. ruhig, urban, Kaffee, Date, Regenwetter"
+          placeholderTextColor="#777"
+          value={keywords}
+          onChangeText={setKeywords}
+          style={[styles.input, styles.textAreaSmall]}
+          multiline
+        />
+
+        <Text style={styles.label}>Gut für</Text>
+        <TextInput
+          placeholder="z. B. Date, Solo, Arbeiten, ruhiger Nachmittag"
+          placeholderTextColor="#777"
+          value={bestFor}
+          onChangeText={setBestFor}
+          style={[styles.input, styles.textAreaSmall]}
+          multiline
+        />
+
+        <Text style={styles.label}>Atmosphäre</Text>
+        <TextInput
+          placeholder="z. B. warm, ruhig, lebhaft, inspirierend"
+          placeholderTextColor="#777"
+          value={atmosphereTags}
+          onChangeText={setAtmosphereTags}
+          style={[styles.input, styles.textAreaSmall]}
+          multiline
+        />
+
+        <Text style={styles.label}>Eher nicht geeignet für</Text>
+        <TextInput
+          placeholder="z. B. grosse Gruppen, Party, schnelles Essen"
+          placeholderTextColor="#777"
+          value={avoidIfTags}
+          onChangeText={setAvoidIfTags}
+          style={[styles.input, styles.textAreaSmall]}
+          multiline
+        />
+
+        <Text style={styles.label}>Gute Zeiten / Situationen</Text>
+        <TextInput
+          placeholder="z. B. Nachmittag, Abend, Wochenende, Regen"
+          placeholderTextColor="#777"
+          value={goodForTime}
+          onChangeText={setGoodForTime}
+          style={[styles.input, styles.textAreaSmall]}
+          multiline
+        />
+
+        <Text style={styles.label}>Geräuschlevel</Text>
+        <View style={styles.segmentRow}>
+          {["quiet", "moderate", "lively", "loud"].map((level) => (
+            <Pressable
+              key={level}
+              onPress={() => setNoiseLevel(noiseLevel === level ? "" : level)}
+              style={[
+                styles.segmentPill,
+                noiseLevel === level && styles.segmentPillActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.segmentText,
+                  noiseLevel === level && styles.segmentTextActive,
+                ]}
+              >
+                {level}
+              </Text>
+            </Pressable>
+          ))}
         </View>
 
         {/* Moods */}
@@ -353,7 +558,10 @@ export default function NewSpotScreen() {
         animationType="fade"
         onRequestClose={() => setPickerOpen(false)}
       >
-        <Pressable style={styles.modalBackdrop} onPress={() => setPickerOpen(false)}>
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setPickerOpen(false)}
+        >
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Kategorie auswählen</Text>
             <FlatList
@@ -372,8 +580,7 @@ export default function NewSpotScreen() {
                         categoryId === item.id
                           ? "rgba(16,185,129,0.15)"
                           : "#141417",
-                      borderColor:
-                        categoryId === item.id ? "#10B981" : "#222",
+                      borderColor: categoryId === item.id ? "#10B981" : "#222",
                     },
                   ]}
                 >
@@ -433,6 +640,49 @@ const styles = StyleSheet.create({
     padding: 12,
     color: "#fff",
   },
+  textArea: {
+    minHeight: 110,
+    textAlignVertical: "top",
+  },
+  textAreaSmall: {
+    minHeight: 74,
+    textAlignVertical: "top",
+  },
+  sectionTitle: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "800",
+    marginTop: 26,
+    marginBottom: 4,
+  },
+  helperText: {
+    color: "#888",
+    marginBottom: 4,
+  },
+  segmentRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  segmentPill: {
+    borderWidth: 1,
+    borderColor: "#333",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "#111",
+  },
+  segmentPillActive: {
+    borderColor: "#10B981",
+    backgroundColor: "rgba(16,185,129,0.15)",
+  },
+  segmentText: {
+    color: "#aaa",
+    fontWeight: "700",
+  },
+  segmentTextActive: {
+    color: "#10B981",
+  },
   categorySelect: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -486,7 +736,12 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     maxHeight: "70%",
   },
-  modalTitle: { color: "#fff", fontWeight: "700", fontSize: 18, marginBottom: 12 },
+  modalTitle: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 18,
+    marginBottom: 12,
+  },
   modalItem: {
     flexDirection: "row",
     justifyContent: "space-between",

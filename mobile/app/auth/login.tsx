@@ -1,27 +1,32 @@
-// mobile/app/login.tsx
+// mobile/app/auth/login.tsx
+
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
-  View,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
-  Pressable,
-  StyleSheet,
-  KeyboardAvoidingView,
-  ScrollView,
   TouchableWithoutFeedback,
-  Keyboard,
-  Platform,
+  View,
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter, Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { supabase } from "../../lib/supabase";
 import * as AppleAuthentication from "expo-apple-authentication";
-import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
 import * as Device from "expo-device";
+import * as WebBrowser from "expo-web-browser";
+import Constants from "expo-constants";
+
+import { supabase } from "../../lib/supabase";
+import { ensureProfile } from "../../lib/profile";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -31,7 +36,30 @@ const androidClientId = "<YOUR_ANDROID_CLIENT_ID>";
 const webClientId =
   "729608339021-u22np8gnlld09a248ovjtrj1n61q6kgt.apps.googleusercontent.com";
 
+const isExpoGo = Constants.appOwnership === "expo";
 const isSimulator = !Device.isDevice;
+
+function cleanEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function getAuthErrorMessage(error: any) {
+  const message = error?.message ?? String(error);
+
+  if (message.toLowerCase().includes("invalid login credentials")) {
+    return "E-Mail oder Passwort ist nicht korrekt.";
+  }
+
+  if (message.toLowerCase().includes("email not confirmed")) {
+    return "Bitte bestätige zuerst deine E-Mail-Adresse.";
+  }
+
+  if (message.toLowerCase().includes("unacceptable audience")) {
+    return "Apple Login kann in Expo Go nicht korrekt getestet werden. Bitte nutze dafür einen Development Build oder eine echte App-Installation.";
+  }
+
+  return message;
+}
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -41,21 +69,33 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
 
+  function goGate() {
+    router.replace("/gate" as any);
+  }
+
   async function onLogin() {
-    if (!email.trim() || !pw.trim()) {
+    const normalizedEmail = cleanEmail(email);
+    const password = pw.trim();
+
+    if (!normalizedEmail || !password) {
       Alert.alert("Angaben fehlen", "Bitte E-Mail und Passwort eingeben.");
       return;
     }
+
     try {
       setLoading(true);
+
       const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password: pw,
+        email: normalizedEmail,
+        password,
       });
+
       if (error) throw error;
-      router.replace("/(tabs)");
+
+      await ensureProfile();
+      goGate();
     } catch (e: any) {
-      Alert.alert("Login fehlgeschlagen", e.message ?? String(e));
+      Alert.alert("Login fehlgeschlagen", getAuthErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -70,30 +110,45 @@ export default function LoginScreen() {
         path: "auth/callback",
       });
 
-      const authUrl =
-        `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${
-          Platform.select({
-            ios: iosClientId,
-            android: androidClientId,
-            web: webClientId,
-          })!
-        }` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        `&response_type=code&scope=openid%20email%20profile`;
+      const clientId = Platform.select({
+        ios: iosClientId,
+        android: androidClientId,
+        web: webClientId,
+        default: webClientId,
+      });
 
-      const result = await AuthSession.startAsync({ authUrl });
-
-      if (result.type === "success" && result.params.code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(
-          result.params.code
-        );
-        if (error) throw error;
-
-        router.replace("/(tabs)");
+      if (!clientId || clientId.includes("YOUR_ANDROID_CLIENT_ID")) {
+        Alert.alert("Google Login", "Google Login ist für diese Plattform noch nicht vollständig konfiguriert.");
+        return;
       }
+
+      const authUrl =
+        "https://accounts.google.com/o/oauth2/v2/auth?" +
+        `client_id=${encodeURIComponent(clientId)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        "&response_type=code" +
+        "&scope=openid%20email%20profile" +
+        "&access_type=offline" +
+        "&prompt=select_account";
+
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+
+      if (result.type !== "success" || !result.url) return;
+
+      const parsed = new URL(result.url);
+      const code = parsed.searchParams.get("code");
+
+      if (!code) {
+        throw new Error("Kein Google-Code erhalten.");
+      }
+
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error) throw error;
+
+      await ensureProfile();
+      goGate();
     } catch (e: any) {
-      Alert.alert("Google Login fehlgeschlagen", e.message);
+      Alert.alert("Google Login fehlgeschlagen", getAuthErrorMessage(e));
     } finally {
       setSocialLoading(false);
     }
@@ -102,12 +157,19 @@ export default function LoginScreen() {
   async function onAppleLogin() {
     try {
       if (isSimulator) {
+        Alert.alert("Nicht im Simulator", "Apple Login funktioniert nur auf einem echten Gerät.");
+        return;
+      }
+
+      if (isExpoGo) {
         Alert.alert(
-          "Nicht im Simulator",
-          "Apple Login funktioniert nur auf echtem Gerät."
+          "Expo Go",
+          "Apple Login kann in Expo Go wegen der falschen Bundle-ID nicht sauber mit Supabase getestet werden. Nutze dafür einen Development Build."
         );
         return;
       }
+
+      setSocialLoading(true);
 
       const response = await AppleAuthentication.signInAsync({
         requestedScopes: [
@@ -116,54 +178,52 @@ export default function LoginScreen() {
         ],
       });
 
+      if (!response.identityToken) {
+        throw new Error("Apple hat kein identityToken zurückgegeben.");
+      }
+
       const { error } = await supabase.auth.signInWithIdToken({
         provider: "apple",
-        token: response.identityToken!,
-        nonce: response.nonce!,
+        token: response.identityToken,
+        nonce: response.nonce ?? undefined,
       });
+
       if (error) throw error;
 
-      router.replace("/(tabs)");
+      await ensureProfile({
+        email: response.email ?? null,
+        firstName: response.fullName?.givenName ?? null,
+        lastName: response.fullName?.familyName ?? null,
+      });
+
+      goGate();
     } catch (e: any) {
-      if (e.code === "ERR_CANCELED") return;
-      Alert.alert("Apple Login fehlgeschlagen", e.message);
+      if (e?.code === "ERR_CANCELED") return;
+      Alert.alert("Apple Login fehlgeschlagen", getAuthErrorMessage(e));
+    } finally {
+      setSocialLoading(false);
     }
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <LinearGradient
-          colors={["#0A0A0B", "#0A0A0B", "#191A22"]}
-          style={styles.container}
-        >
-          {/* HEADER */}
+        <LinearGradient colors={["#050506", "#0A0A0B", "#191A22"]} style={styles.container}>
           <View style={styles.header}>
-            <Pressable
-              onPress={() => router.back()}
-              hitSlop={10}
-              style={styles.backBtn}
-            >
-              <Ionicons name="chevron-back" size={28} color="#fff" />
+            <Pressable onPress={() => router.replace("/gate" as any)} hitSlop={10} style={styles.backBtn}>
+              <Ionicons name="chevron-back" size={32} color="#fff" />
             </Pressable>
-            <Text style={styles.headerTitle}>Login</Text>
+            <Text style={styles.headerTitle}>Einloggen</Text>
           </View>
 
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: 60 }}
-          >
-            {/* FORM CONTAINER (GLASS CARD) */}
-            <BlurView intensity={60} tint="dark" style={styles.card}>
-              <Text style={styles.cardTitle}>Willkommen zurück 👋</Text>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
+            <BlurView intensity={62} tint="dark" style={styles.card}>
+              <Text style={styles.kicker}>BACKYRD</Text>
+              <Text style={styles.cardTitle}>Willkommen zurück</Text>
               <Text style={styles.cardSubtitle}>
-                Melde dich an, um deine Backyrd-Journey fortzusetzen
+                Melde dich an und finde direkt wieder Orte, die zu deiner Stimmung passen.
               </Text>
 
-              {/* INPUTS */}
               <TextInput
                 placeholder="E-Mail"
                 placeholderTextColor="#7D8086"
@@ -171,6 +231,8 @@ export default function LoginScreen() {
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="emailAddress"
                 style={styles.input}
               />
 
@@ -180,61 +242,48 @@ export default function LoginScreen() {
                 value={pw}
                 onChangeText={setPw}
                 secureTextEntry
+                textContentType="password"
                 style={styles.input}
               />
 
-              {/* LOGIN BUTTON */}
               <Pressable
                 onPress={onLogin}
-                disabled={loading}
+                disabled={loading || socialLoading}
                 style={({ pressed }) => [
                   styles.primaryBtn,
+                  (loading || socialLoading) && styles.disabled,
                   pressed && { opacity: 0.85 },
                 ]}
               >
-                <Text style={styles.primaryBtnText}>
-                  {loading ? "Logge ein…" : "Login"}
-                </Text>
+                {loading ? <ActivityIndicator /> : <Text style={styles.primaryBtnText}>Einloggen</Text>}
               </Pressable>
 
-              {/* DIVIDER */}
               <View style={styles.dividerRow}>
                 <View style={styles.divider} />
                 <Text style={styles.dividerLabel}>oder</Text>
                 <View style={styles.divider} />
               </View>
 
-              {/* GOOGLE */}
+              {Platform.OS === "ios" && (
+                <Pressable
+                  onPress={onAppleLogin}
+                  disabled={loading || socialLoading}
+                  style={({ pressed }) => [styles.appleBtn, pressed && { opacity: 0.9 }]}
+                >
+                  <Ionicons name="logo-apple" size={24} color="#fff" />
+                  <Text style={styles.appleText}>Mit Apple anmelden</Text>
+                </Pressable>
+              )}
+
               <Pressable
                 onPress={onGoogleLogin}
-                disabled={socialLoading}
-                style={({ pressed }) => [
-                  styles.googleBtn,
-                  pressed && { opacity: 0.9 },
-                ]}
+                disabled={loading || socialLoading}
+                style={({ pressed }) => [styles.googleBtn, pressed && { opacity: 0.9 }]}
               >
-                <Ionicons name="logo-google" size={18} color="#111" />
+                <Ionicons name="logo-google" size={20} color="#111" />
                 <Text style={styles.googleText}>Mit Google anmelden</Text>
               </Pressable>
 
-              {/* APPLE */}
-              {Platform.OS === "ios" && !isSimulator && (
-                <View style={{ marginTop: 12 }}>
-                  <AppleAuthentication.AppleAuthenticationButton
-                    buttonType={
-                      AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
-                    }
-                    buttonStyle={
-                      AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-                    }
-                    cornerRadius={14}
-                    style={{ width: "100%", height: 48 }}
-                    onPress={onAppleLogin}
-                  />
-                </View>
-              )}
-
-              {/* LINKS */}
               <View style={styles.linkRow}>
                 <Link href="/auth/register" asChild>
                   <Pressable>
@@ -244,7 +293,7 @@ export default function LoginScreen() {
 
                 <Link href="/auth/verify" asChild>
                   <Pressable>
-                    <Text style={styles.link}>Code eingeben</Text>
+                    <Text style={styles.link}>E-Mail bestätigen</Text>
                   </Pressable>
                 </Link>
               </View>
@@ -256,111 +305,146 @@ export default function LoginScreen() {
   );
 }
 
-/* ======================================================
- ✅ STYLES IM BACKYRD DESIGN
-====================================================== */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 18,
   },
-
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: Platform.select({ ios: 54, android: 32 }),
-    paddingBottom: 16,
+    paddingTop: Platform.select({ ios: 56, android: 34, default: 34 }),
+    paddingBottom: 18,
   },
-  backBtn: { marginRight: 8 },
+  backBtn: {
+    width: 58,
+    height: 58,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.11)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+  },
   headerTitle: {
     color: "#fff",
-    fontSize: 22,
-    fontWeight: "800",
-    letterSpacing: 0.3,
+    fontSize: 30,
+    fontWeight: "950",
+    letterSpacing: 0.2,
   },
-
-  /* Glass Card */
   card: {
-    marginTop: 20,
-    padding: 22,
-    borderRadius: 26,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    marginTop: 92,
+    padding: 24,
+    borderRadius: 30,
+    backgroundColor: "rgba(255,255,255,0.065)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(255,255,255,0.11)",
     overflow: "hidden",
+  },
+  kicker: {
+    color: "rgba(255,255,255,0.48)",
+    fontSize: 13,
+    fontWeight: "950",
+    letterSpacing: 6,
+    marginBottom: 18,
   },
   cardTitle: {
     color: "#fff",
-    fontSize: 26,
-    fontWeight: "800",
-    marginBottom: 6,
+    fontSize: 38,
+    lineHeight: 42,
+    fontWeight: "950",
+    letterSpacing: -0.9,
+    marginBottom: 10,
   },
   cardSubtitle: {
     color: "#A6A8AD",
-    fontSize: 14,
-    marginBottom: 18,
+    fontSize: 17,
+    lineHeight: 25,
+    marginBottom: 24,
   },
-
-  /* Input */
   input: {
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderColor: "rgba(255,255,255,0.14)",
+    borderColor: "rgba(255,255,255,0.16)",
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    borderRadius: 17,
     marginBottom: 12,
     color: "#fff",
-    fontSize: 16,
+    fontSize: 17,
+    fontWeight: "700",
   },
-
-  /* Primary Button */
   primaryBtn: {
     backgroundColor: "#000",
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 17,
+    borderRadius: 17,
     alignItems: "center",
-    marginTop: 6,
+    marginTop: 8,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+  disabled: {
+    opacity: 0.58,
   },
   primaryBtnText: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "800",
+    fontSize: 17,
+    fontWeight: "950",
   },
-
-  /* Divider */
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginVertical: 16,
+    marginVertical: 18,
   },
-  divider: { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.12)" },
-  dividerLabel: { color: "#8E9198", fontSize: 12, fontWeight: "700" },
-
-  /* Google */
-  googleBtn: {
-    backgroundColor: "#fff",
-    paddingVertical: 14,
-    borderRadius: 14,
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.13)",
+  },
+  dividerLabel: {
+    color: "#8E9198",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  appleBtn: {
+    backgroundColor: "#000",
+    paddingVertical: 16,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
-    gap: 8,
+    gap: 10,
+    marginBottom: 12,
   },
-  googleText: { color: "#111", fontWeight: "700", fontSize: 15 },
-
-  /* Links */
+  appleText: {
+    color: "#fff",
+    fontWeight: "950",
+    fontSize: 17,
+  },
+  googleBtn: {
+    backgroundColor: "#fff",
+    paddingVertical: 16,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  googleText: {
+    color: "#111",
+    fontWeight: "950",
+    fontSize: 17,
+  },
   linkRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 18,
+    marginTop: 22,
   },
   link: {
     color: "#A6A8AD",
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: "850",
   },
 });

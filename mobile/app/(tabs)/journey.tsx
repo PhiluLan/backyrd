@@ -1,5 +1,3 @@
-// mobile/app/(tabs)/journey.tsx
-
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -22,22 +20,6 @@ import { supabase } from "../../lib/supabase";
 import { useRouter } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
-/** ===== AI MODULES ===== */
-import { rerankSpots } from "../../lib/ai/rerank";
-import { buildUserProfile } from "../../lib/ai/userProfile";
-import { extractIntention } from "../../lib/ai/intention";
-import { rankCandidates } from "../../lib/ai/rankCandidates";
-import { synthesizeJourney } from "../../lib/ai/synthesizeJourney";
-import { buildUserMemory } from "../../lib/ai/memory";
-import { buildUserPreferences } from "../../lib/ai/buildUserPreferences";
-import { buildDeepPreferences } from "../../lib/ai/preferences/deepPreferences";
-import { computeGeoContext } from "../../lib/ai/computeGeoContext";
-import { computeAreaContext } from "../../lib/ai/computeAreaContext";
-import { classifyArea, getAreaFlowPreference } from "../../lib/ai/localKnowledge";
-import { buildContext } from "../../lib/ai/buildContext";
-import { buildWeather } from "../../lib/ai/buildWeather";
-
-/* ===================== THEME ===================== */
 const theme = {
   colors: {
     background: "#000",
@@ -54,16 +36,17 @@ const theme = {
   spacing: (n: number) => n * 8,
 };
 
-/* ===================== HELPERS ===================== */
-const DEFAULT_CENTER = { latitude: 47.5596, longitude: 7.5886 }; // Basel
+const DEFAULT_CENTER = { latitude: 47.5596, longitude: 7.5886 };
 
 function normalize(s?: string | null) {
   return (s || "").trim().toLowerCase();
 }
+
 function toNumber(n: any): number {
   const v = Number(n);
   return Number.isFinite(v) ? v : NaN;
 }
+
 function haversineKm(
   a: { latitude: number; longitude: number },
   b: { latitude: number; longitude: number }
@@ -78,9 +61,9 @@ function haversineKm(
     Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
   return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
 }
+
 const uniq = <T,>(arr: T[]) => Array.from(new Set(arr));
 
-/* ===================== TYPES ===================== */
 type CatalogSpot = {
   id: string;
   name: string;
@@ -104,32 +87,41 @@ type UIJourneyStep = {
   spot: CatalogSpot;
 };
 
-/* ===== Journey-Type Logik für Kandidaten-Filter ===== */
+type LocalIntention = {
+  journeyType: string;
+  primaryMood: string;
+  summary: string;
+  wantsFood: boolean;
+  wantsDrinks: boolean;
+  wantsCoffee: boolean;
+  wantsWalk: boolean;
+};
+
 function looksLikeBar(cat: string) {
   return /bar|weinbar|pub|cocktail|spritz|lounge|speakeasy|bier|club|nightclub/i.test(
     cat
   );
 }
+
 function looksLikeRestaurant(cat: string) {
-  return /restaurant|bistro|trattoria|brasserie|kitchen|beiz|ristorante/i.test(
-    cat
-  );
+  return /restaurant|bistro|trattoria|brasserie|kitchen|beiz|ristorante/i.test(cat);
 }
+
 function looksLikeSightseeing(cat: string) {
   return /museum|kirche|kirch|münster|denkmal|monument|galerie|gallery|park|platz|aussicht|lookout/i.test(
     cat
   );
 }
 
-/**
- * Filtert den Katalog grob nach Journey-Typ, damit Münster & Sightseeing
- * NICHT in Barhopping / DateNight auftauchen, außer es passt wirklich.
- */
+function looksLikeCafe(cat: string) {
+  return /café|cafe|coffee|espresso|bakery|bäckerei/i.test(cat);
+}
+
 function filterCatalogByJourneyType(
   catalog: CatalogSpot[],
-  intention: any,
+  intention: { journeyType?: string; primaryMood?: string; summary?: string },
   rawInput: string
-): CatalogSpot[] {
+) {
   const jt = normalize(intention?.journeyType);
   const primaryMood = normalize(intention?.primaryMood);
   const summary = normalize(intention?.summary);
@@ -148,17 +140,13 @@ function filterCatalogByJourneyType(
     jt.includes("datenight") ||
     text.includes("date night") ||
     text.includes("datenight") ||
-    text.includes("datenacht") ||
-    text.includes("date mit") ||
-    text.includes("datenight mit");
+    text.includes("datenacht");
 
   const isFriendsNight =
     jt.includes("friends") ||
     jt.includes("group") ||
     text.includes("freunde") ||
-    text.includes("freunden") ||
-    text.includes("jungs") ||
-    text.includes("mädels");
+    text.includes("freunden");
 
   const wantsWalkOnly =
     jt.includes("walk") ||
@@ -166,7 +154,6 @@ function filterCatalogByJourneyType(
     primaryMood.includes("spazieren") ||
     text.includes("spaziergang");
 
-  // 1) Klassischer Barhopping / Drinks Abend ohne großes Essen
   if (wantsDrinks && !isDateNight && isFriendsNight) {
     const filtered = catalog.filter((s) => {
       const cat = normalize(s.categoryName);
@@ -174,32 +161,146 @@ function filterCatalogByJourneyType(
       if (looksLikeSightseeing(cat)) return false;
       return looksLikeBar(cat);
     });
-    // wenn zu hart gefiltert → fallback auf original
     return filtered.length >= 6 ? filtered : catalog;
   }
 
-  // 2) Date Night: Essen + Drinks, aber kein Sightseeing-Fokus
   if (isDateNight) {
     const filtered = catalog.filter((s) => {
       const cat = normalize(s.categoryName);
       if (!cat) return true;
-      if (looksLikeSightseeing(cat)) return false; // Münster raus
-      return looksLikeRestaurant(cat) || looksLikeBar(cat) || cat.includes("café");
+      if (looksLikeSightseeing(cat)) return false;
+      return looksLikeRestaurant(cat) || looksLikeBar(cat) || cat.includes("café") || cat.includes("cafe");
     });
     return filtered.length >= 6 ? filtered : catalog;
   }
 
-  // 3) Reiner Spaziergang / ruhiger Abend
   if (wantsWalkOnly && !wantsDrinks) {
-    // hier lassen wir ALLES drin, GPT wählt dann die passenden Spots
     return catalog;
   }
 
-  // Default: nichts filtern
   return catalog;
 }
 
-/* ===================== SCREEN ===================== */
+function parseLocalIntention(input: string): LocalIntention {
+  const text = normalize(input);
+
+  const wantsDrinks =
+    /bar|cocktail|wein|wine|drinks|drink|bier|beer|pub|apéro|apero|night/.test(text);
+
+  const wantsFood =
+    /essen|dinner|lunch|restaurant|food|küche|kitchen|pizza|pasta|burger|sushi|brunch/.test(
+      text
+    );
+
+  const wantsCoffee =
+    /kaffee|coffee|café|cafe|espresso|latte/.test(text);
+
+  const wantsWalk =
+    /spaziergang|walk|laufen|flanieren|park|aussicht/.test(text);
+
+  const cozy =
+    /cozy|gemütlich|gemuetlich|ruhig|entspannt|chillig|romantisch/.test(text);
+
+  const lively =
+    /lebhaft|laut|party|energie|energetisch|fun|spass|spaß/.test(text);
+
+  const dateNight =
+    /date|datenight|datenacht|romantisch|zu zweit|couple/.test(text);
+
+  const withFriends =
+    /freunde|freunden|gruppe|group|jungs|mädels|maedels|kollegen/.test(text);
+
+  let journeyType = "mixed";
+  if (dateNight) journeyType = "date-night";
+  else if (wantsDrinks && withFriends) journeyType = "barhopping";
+  else if (wantsWalk && !wantsFood && !wantsDrinks) journeyType = "walk";
+  else if (wantsCoffee) journeyType = "coffee";
+  else if (wantsFood && wantsDrinks) journeyType = "dinner-drinks";
+  else if (wantsFood) journeyType = "food";
+  else if (wantsDrinks) journeyType = "drinks";
+
+  let primaryMood = "balanced";
+  if (cozy) primaryMood = "cozy";
+  else if (lively) primaryMood = "lively";
+  else if (wantsWalk) primaryMood = "calm";
+
+  return {
+    journeyType,
+    primaryMood,
+    summary: input.trim(),
+    wantsFood,
+    wantsDrinks,
+    wantsCoffee,
+    wantsWalk,
+  };
+}
+
+function scoreSpotLocal(spot: CatalogSpot, intention: LocalIntention) {
+  let score = 0;
+  const cat = normalize(spot.categoryName);
+  const moods = uniq([...spot.moods, ...spot.reviewMoods].map((m) => normalize(m)));
+  const dist = typeof spot.distanceKm === "number" ? spot.distanceKm : 99;
+
+  score += Math.max(0, 25 - dist * 2);
+
+  if (intention.wantsDrinks && looksLikeBar(cat)) score += 24;
+  if (intention.wantsFood && looksLikeRestaurant(cat)) score += 24;
+  if (intention.wantsCoffee && looksLikeCafe(cat)) score += 24;
+  if (intention.wantsWalk && looksLikeSightseeing(cat)) score += 12;
+
+  if (intention.primaryMood === "cozy") {
+    if (moods.some((m) => /cozy|gemütlich|gemuetlich|ruhig|romantisch|chillig/.test(m))) score += 18;
+  }
+
+  if (intention.primaryMood === "lively") {
+    if (moods.some((m) => /lebhaft|energetisch|fun|laut|party|vibrant/.test(m))) score += 18;
+  }
+
+  if (intention.primaryMood === "calm") {
+    if (moods.some((m) => /ruhig|entspannt|chillig|cozy|gemütlich|gemuetlich/.test(m))) score += 14;
+  }
+
+  if (looksLikeSightseeing(cat) && intention.journeyType !== "walk") score -= 10;
+  if (dist > 8) score -= 8;
+  if (dist > 12) score -= 10;
+
+  return score;
+}
+
+function buildFallbackJourney(input: string, catalog: CatalogSpot[]) {
+  const intention = parseLocalIntention(input);
+  const filtered = filterCatalogByJourneyType(catalog, intention, input);
+
+  const ranked = [...filtered]
+    .map((spot) => ({ spot, score: scoreSpotLocal(spot, intention) }))
+    .sort((a, b) => b.score - a.score);
+
+  const chosen: CatalogSpot[] = [];
+  for (const row of ranked) {
+    if (chosen.length >= 4) break;
+    if (chosen.some((s) => s.id === row.spot.id)) continue;
+    chosen.push(row.spot);
+  }
+
+  const steps: UIJourneyStep[] = chosen.map((spot, i) => ({
+    step: i + 1,
+    spotId: spot.id,
+    title: spot.name,
+    reason:
+      i === 0
+        ? "Ein starker Start, der gut zu deiner Anfrage passt."
+        : i === chosen.length - 1
+        ? "Ein runder Abschluss für deine Journey."
+        : "Passt gut als nächster Schritt in deiner Route.",
+    spot,
+  }));
+
+  return {
+    greeting: "Ich habe dir eine passende Journey zusammengestellt.",
+    steps,
+  };
+}
+
 export default function JourneyScreen() {
   const router = useRouter();
 
@@ -207,30 +308,24 @@ export default function JourneyScreen() {
   const [loading, setLoading] = useState(false);
   const [catalogLoading, setCatalogLoading] = useState(true);
 
-  const [myPos, setMyPos] = useState<{ latitude: number; longitude: number } | null>(
-    null
-  );
+  const [myPos, setMyPos] = useState<{ latitude: number; longitude: number } | null>(null);
   const [catalog, setCatalog] = useState<CatalogSpot[]>([]);
   const [greeting, setGreeting] = useState<string | null>(null);
   const [steps, setSteps] = useState<UIJourneyStep[]>([]);
 
-  /** Booking */
   const [bookingVisible, setBookingVisible] = useState(false);
   const [selectedSpot, setSelectedSpot] = useState<CatalogSpot | null>(null);
   const [date, setDate] = useState(new Date());
   const [persons, setPersons] = useState(2);
 
-  /* ============================================================
-   * 1) STANDORT + SPOT-KATALOG LADEN (robust, mit neuer Mood-Engine)
-   * ============================================================ */
   useEffect(() => {
     (async () => {
       try {
-        // Standort sicher laden (mit Timeout)
         async function loadSafeLocation() {
+          if (Platform.OS === "web") return null;
+
           try {
-            const { status } =
-              await Location.requestForegroundPermissionsAsync();
+            const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== "granted") return null;
 
             const pos: any = await Promise.race([
@@ -241,12 +336,12 @@ export default function JourneyScreen() {
             ]);
 
             if (!pos) return null;
+
             return {
               latitude: pos.coords.latitude,
               longitude: pos.coords.longitude,
             };
-          } catch (err) {
-            console.warn("Standort konnte nicht geladen werden:", err);
+          } catch {
             return null;
           }
         }
@@ -254,7 +349,6 @@ export default function JourneyScreen() {
         const loc = await loadSafeLocation();
         setMyPos(loc);
 
-        // 1) Spots laden
         const { data, error } = await supabase
           .from("spots")
           .select(
@@ -273,76 +367,21 @@ export default function JourneyScreen() {
         const center = loc ?? DEFAULT_CENTER;
         const rawSpots = (data || []) as any[];
 
-        const spotIds = rawSpots.map((r) => r.id).filter(Boolean);
-
-        // 2) Moods aus neuer Engine (spot_moods_agg + mood_tokens)
-        let moodBySpot: Record<string, string[]> = {};
-        if (spotIds.length > 0) {
-          const { data: moodRows, error: moodErr } = await supabase
-            .from("spot_moods_agg")
-            .select(
-              `
-              spot_id,
-              rank,
-              mood_tokens ( token )
-            `
-            )
-            .in("spot_id", spotIds)
-            .lte("rank", 3);
-
-          if (moodErr) {
-            console.warn("Journey: spot_moods_agg Fehler:", moodErr.message);
-          } else {
-            const tmp: Record<string, string[]> = {};
-            (moodRows || []).forEach((r: any) => {
-              const token = r.mood_tokens?.token;
-              if (!token) return;
-              const key = r.spot_id;
-              if (!tmp[key]) tmp[key] = [];
-              // keine Duplikate
-              if (!tmp[key].includes(token.toLowerCase())) {
-                tmp[key].push(token.toLowerCase());
-              }
-            });
-            moodBySpot = tmp;
-          }
-        }
-
         const spots = rawSpots
           .map((row: any) => {
             const lat = toNumber(row.lat);
             const lng = toNumber(row.lng);
             if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
-            const dist = loc
-              ? haversineKm(center, { latitude: lat, longitude: lng })
-              : null;
+            const dist = haversineKm(center, { latitude: lat, longitude: lng });
 
-            const topMoods =
-              moodBySpot[row.id]?.map((m) => normalize(m)) || [];
-
-            // Review-Moods extrahieren
             const reviewMoodsRaw: string[] = [];
             (row.reviews || []).forEach((r: any) => {
               if (r?.mood_a) reviewMoodsRaw.push(normalize(r.mood_a));
               if (r?.mood_b) reviewMoodsRaw.push(normalize(r.mood_b));
             });
 
-            const moodCounts: Record<string, number> = {};
-            reviewMoodsRaw.forEach((m) => {
-              if (!m) return;
-              moodCounts[m] = (moodCounts[m] || 0) + 1;
-            });
-
-            const topReviewMoods = Object.entries(moodCounts)
-              .sort((a, b) => b[1] - a[1])
-              .map(([m]) => m)
-              .slice(0, 5);
-
-            const moodSummary = uniq([
-              ...topMoods,
-              ...topReviewMoods,
-            ]).join(", ");
+            const moodSummary = uniq(reviewMoodsRaw).join(", ");
 
             return {
               id: row.id,
@@ -352,8 +391,8 @@ export default function JourneyScreen() {
               lng,
               distanceKm: dist,
               categoryName: row.categories?.name || "",
-              moods: topMoods,
-              reviewMoods: topReviewMoods,
+              moods: [],
+              reviewMoods: uniq(reviewMoodsRaw),
               moodSummary,
               website: row.website ?? null,
               photo: row.spot_photos?.[0]?.url ?? null,
@@ -361,9 +400,7 @@ export default function JourneyScreen() {
           })
           .filter(Boolean) as CatalogSpot[];
 
-        const filtered = loc
-          ? spots.filter((s) => (s.distanceKm ?? 9999) <= 15)
-          : spots;
+        const filtered = spots.filter((s) => (s.distanceKm ?? 9999) <= 15);
 
         filtered.sort((a, b) => {
           const da = a.distanceKm ?? 9999;
@@ -382,259 +419,24 @@ export default function JourneyScreen() {
     })();
   }, []);
 
-  /* ============================================================
-   * 2) JOURNEY GENERIEREN (Hybrid: lokal + KI)
-   * ============================================================ */
   const generate = async () => {
     if (!input.trim()) return;
-    if (catalogLoading)
-      return Alert.alert(
-        "Bitte warten …",
-        "Spots werden noch geladen."
-      );
-    if (!catalog.length)
-      return Alert.alert(
-        "Keine Spots",
-        "Keine Spots in deiner Nähe gefunden."
-      );
+    if (catalogLoading) return Alert.alert("Bitte warten …", "Spots werden noch geladen.");
+    if (!catalog.length) return Alert.alert("Keine Spots", "Keine Spots in deiner Nähe gefunden.");
 
     setLoading(true);
     try {
-      /** Context (Zeit / Saison / Tagesmodus) */
-      const context = await buildContext();
-
-      /** Wetter (nicht kritisch, aber nice) */
-      let weather: any = null;
-      try {
-        const loc = myPos ?? DEFAULT_CENTER;
-        weather = await buildWeather(loc.latitude, loc.longitude);
-      } catch (e) {
-        console.warn("Weather konnte nicht geladen werden:", e);
-      }
-
-      /** Session → UserId */
-      const { data: session } = await supabase.auth.getSession();
-      const userId = session.session?.user.id || null;
-
-      /** Userdaten (soft-fail) */
-      let userProfile: any = null;
-      let memory: any = null;
-      let preferences: any = null;
-      let deepPreferences: any = null;
-
-      if (userId) {
-        try {
-          userProfile = await buildUserProfile(userId);
-        } catch (e) {
-          console.warn("UserProfile Fehler:", e);
-        }
-        try {
-          memory = await buildUserMemory(userId);
-        } catch (e) {
-          console.warn("Memory Fehler:", e);
-        }
-        try {
-          preferences = await buildUserPreferences(userId);
-        } catch (e) {
-          console.warn("Preferences Fehler:", e);
-        }
-        try {
-          deepPreferences = await buildDeepPreferences(userId);
-        } catch (e) {
-          console.warn("DeepPreferences Fehler:", e);
-        }
-
-        // Suche loggen (nicht kritisch)
-        try {
-          await supabase
-            .from("user_searches")
-            .insert({ user_id: userId, query: input });
-        } catch (e) {
-          console.warn("Fehler beim Speichern der Suche:", e);
-        }
-      }
-
-      /** Phase 1 → Intention (GPT, inkl. Journey-Type & Emotion) */
-      const intention = await extractIntention(input, {
-        profile: userProfile,
-        memory,
-        preferences,
-        deepPreferences,
-        context,
-        weather,
-      });
-
-      /** Katalog je nach Journey-Typ anpassen (Barhopping vs Date etc.) */
-      const catalogForThisSearch = filterCatalogByJourneyType(
-        catalog,
-        intention,
-        input
-      );
-
-      /** Lokales Re-Ranking (ohne KI, aber mit Intention + Preferences) */
-      const base = catalogForThisSearch.map((s) => ({
-        id: s.id,
-        name: s.name,
-        category: s.categoryName,
-        moods: s.moods,
-        reviewMoods: s.reviewMoods,
-        distanceKm: s.distanceKm,
-      }));
-
-      const rankedLocal = rerankSpots(base, {
-        intention,
-        memory,
-        preferences,
-        deepPreferences,
-      });
-
-      // 40–60 Kandidaten reichen für die KI
-      const slim = rankedLocal.slice(0, 60);
-
-      /** Phase 2 → AI Candidate Ranking */
-      const rankedAi = await rankCandidates(intention, slim, {
-        profile: userProfile,
-        memory,
-        preferences,
-        deepPreferences,
-      });
-
-      let topRanked: Array<{ id: string; score: number }> = [];
-      if (Array.isArray(rankedAi) && rankedAi.length) {
-        topRanked = rankedAi
-          .filter((x: any) => x && x.id)
-          .sort(
-            (a: any, b: any) =>
-              Number(b.score || 0) - Number(a.score || 0)
-          )
-          .slice(0, 8);
-      } else {
-        topRanked = slim
-          .slice(0, 8)
-          .map((s) => ({ id: s.id, score: 0 }));
-      }
-
-      if (topRanked.length < 3) {
-        topRanked = uniq([
-          ...topRanked,
-          ...slim.slice(0, 3).map((s) => ({ id: s.id, score: 0 })),
-        ]).slice(0, 3);
-      }
-
-      /** GEO CONTEXT (Distanzen, Wege) */
-      const geoInput = topRanked
-        .map((s) => {
-          const spot = catalogForThisSearch.find((c) => c.id === s.id);
-          if (!spot) return null;
-          return { id: spot.id, lat: spot.lat, lng: spot.lng };
-        })
-        .filter(Boolean) as Array<{ id: string; lat: number; lng: number }>;
-
-      const geoContext = computeGeoContext(geoInput);
-
-      /** AREA CONTEXT — Hybrid */
-      const topRankedSpots = topRanked
-        .map((s) => catalogForThisSearch.find((c) => c.id === s.id))
-        .filter(Boolean) as CatalogSpot[];
-
-      const areaContextAuto = computeAreaContext(topRankedSpots); // dynamisch
-      const areaContextManual = topRankedSpots.map((spot) => {
-        const info = classifyArea(spot.lat, spot.lng); // lokal gepflegt
-        return { id: spot.id, area: info.area, vibe: info.vibe };
-      });
-
-      const areaFlowPreference = getAreaFlowPreference(
-        // aktuelles localKnowledge erwartet evtl. from/to,
-        // hier geben wir einfach eine abstrakte Sequenz mit
-        topRankedSpots[0]?.categoryName || "",
-        topRankedSpots[topRankedSpots.length - 1]?.categoryName || ""
-      );
-
-      const areaContext = {
-        auto: areaContextAuto,
-        manual: areaContextManual,
-        flow: areaFlowPreference,
-      };
-
-      /** Phase 3 → Journey Synthese (GPT, Apple-like Tonalität) */
-      const journey = await synthesizeJourney(
-        intention,
-        topRanked,
-        userProfile,
-        {
-          memory,
-          preferences,
-          deepPreferences,
-          geoContext,
-          areaContext,
-          weather,
-          context,
-        }
-      );
-
-      if (
-        !journey?.steps ||
-        !Array.isArray(journey.steps) ||
-        journey.steps.length === 0
-      ) {
-        throw new Error("Die KI hat keine validen Schritte geliefert.");
-      }
-
-      /** Mapping: KI → echte Spots */
-      const safeSteps: UIJourneyStep[] = journey.steps
-        .map((x: any, i: number) => {
-          const sid = String(x?.spotId || "").trim().toLowerCase();
-          const match = rankedLocal.find(
-            (c: any) => c.id.toLowerCase() === sid
-          );
-          if (!match) return null;
-
-          const full = catalogForThisSearch.find((c) => c.id === match.id);
-          if (!full) return null;
-
-          return {
-            step: Number(x?.step ?? i + 1),
-            spotId: match.id,
-            title: String(x?.title || full.name),
-            reason: String(x?.reason || ""),
-            spot: full,
-          };
-        })
-        .filter(Boolean)
-        .slice(0, 5) as UIJourneyStep[]; // max. 5 Schritte
-
-      /** Fallsafe: falls KI keine brauchbaren Steps liefert */
-      if (safeSteps.length < 3) {
-        const fallbackBase = rankedLocal.slice(0, 5);
-        const fallback = fallbackBase.slice(0, 3).map((s: any, i: number) => ({
-          step: i + 1,
-          spotId: s.id,
-          title: s.name,
-          reason: "Automatische Empfehlung – passend zu deiner Anfrage.",
-          spot: catalogForThisSearch.find((c) => c.id === s.id)!,
-        }));
-        setGreeting("Ich hab dir passende Spots rausgesucht:");
-        setSteps(fallback);
-        return;
-      }
-
-      /** UI Update */
-      setGreeting(
-        journey.greeting || "Hier ist eine Idee, die zu dir passt:"
-      );
-      setSteps(safeSteps);
-      console.log("Journey _debug:", journey._debug);
+      const fallback = buildFallbackJourney(input, catalog);
+      setGreeting(fallback.greeting);
+      setSteps(fallback.steps);
     } catch (e: any) {
-      console.error(e);
-      Alert.alert("KI", e.message ?? "Konnte die Journey nicht erstellen.");
+      console.error("Journey fallback error:", e);
+      Alert.alert("Journey", e?.message ?? "Konnte die Journey nicht erstellen.");
     } finally {
       setLoading(false);
     }
   };
 
-  /* ============================================================
-   * BOOKING
-   * ============================================================ */
   const openBooking = (spot: CatalogSpot) => {
     setSelectedSpot(spot);
     setBookingVisible(true);
@@ -642,6 +444,7 @@ export default function JourneyScreen() {
 
   const submitBooking = async () => {
     if (!selectedSpot) return;
+
     try {
       const { data: session } = await supabase.auth.getSession();
       const userId = session.session?.user.id;
@@ -653,6 +456,7 @@ export default function JourneyScreen() {
         date: date.toISOString(),
         persons,
       });
+
       if (error) throw error;
 
       setBookingVisible(false);
@@ -665,13 +469,8 @@ export default function JourneyScreen() {
     }
   };
 
-  /* ============================================================
-   * RENDER
-   * ============================================================ */
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: theme.colors.background }}
-    >
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
@@ -679,7 +478,7 @@ export default function JourneyScreen() {
         <ScrollView contentContainerStyle={styles.container}>
           <Text style={styles.title}>✨ Deine perfekte Mood Journey</Text>
           <Text style={styles.subtitle}>
-            Sag mir, wonach dir heute ist — ich kenn da was 😉
+            Sag mir, wonach dir heute ist — ich stelle dir passende Spots zusammen.
           </Text>
 
           <TextInput
@@ -699,27 +498,21 @@ export default function JourneyScreen() {
             ]}
             disabled={loading || catalogLoading}
           >
-            <Ionicons
-              name="sparkles"
-              size={20}
-              color="#fff"
-              style={{ marginRight: 6 }}
-            />
+            <Ionicons name="sparkles" size={20} color="#fff" style={{ marginRight: 6 }} />
             <Text style={styles.buttonText}>
-              {loading
-                ? "Wird generiert…"
-                : catalogLoading
-                ? "Lade Spots…"
-                : "Vorschlag generieren"}
+              {loading ? "Wird generiert…" : catalogLoading ? "Lade Spots…" : "Vorschlag generieren"}
             </Text>
           </Pressable>
 
           {!catalogLoading && (
-            <Text
-              style={{ color: theme.colors.textMuted, marginTop: 8 }}
-            >
-              {catalog.length} Spots berücksichtigt{" "}
-              {myPos ? "im Radius ~15 km" : "(ohne Standort)"}
+            <Text style={{ color: theme.colors.textMuted, marginTop: 8 }}>
+              {catalog.length} Spots berücksichtigt {myPos ? "im Radius ~15 km" : "(ohne Standort)"}
+            </Text>
+          )}
+
+          {Platform.OS === "web" && (
+            <Text style={{ color: theme.colors.textMuted, marginTop: 8, lineHeight: 20 }}>
+              Web läuft aktuell mit lokalem Journey-Fallback. Die serverseitige AI-Version bauen wir danach sauber über eine Backend-Function.
             </Text>
           )}
 
@@ -728,44 +521,21 @@ export default function JourneyScreen() {
           {steps.length > 0 && (
             <View style={{ marginTop: 16 }}>
               {steps.map((s) => (
-                <View
-                  key={`${s.step}-${s.spotId}`}
-                  style={styles.card}
-                >
-                  {s.spot.photo && (
-                    <Image
-                      source={{ uri: s.spot.photo }}
-                      style={styles.cardImage}
-                    />
-                  )}
+                <View key={`${s.step}-${s.spotId}`} style={styles.card}>
+                  {s.spot.photo && <Image source={{ uri: s.spot.photo }} style={styles.cardImage} />}
 
                   <Text style={styles.cardStep}>Schritt {s.step}</Text>
                   <Text style={styles.cardTitle}>{s.title}</Text>
                   <Text style={styles.cardMeta}>
                     {s.spot.categoryName}
-                    {typeof s.spot.distanceKm === "number"
-                      ? ` • ${s.spot.distanceKm.toFixed(1)} km`
-                      : ""}
-                    {s.spot.moodSummary
-                      ? ` • ${s.spot.moodSummary}`
-                      : ""}
+                    {typeof s.spot.distanceKm === "number" ? ` • ${s.spot.distanceKm.toFixed(1)} km` : ""}
+                    {s.spot.moodSummary ? ` • ${s.spot.moodSummary}` : ""}
                   </Text>
                   <Text style={styles.cardReason}>{s.reason}</Text>
 
-                  {(s.spot.moods.length > 0 ||
-                    s.spot.reviewMoods.length > 0) && (
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        flexWrap: "wrap",
-                        gap: 8,
-                        marginTop: 10,
-                      }}
-                    >
-                      {uniq([
-                        ...s.spot.moods,
-                        ...s.spot.reviewMoods,
-                      ])
+                  {(s.spot.moods.length > 0 || s.spot.reviewMoods.length > 0) && (
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+                      {uniq([...s.spot.moods, ...s.spot.reviewMoods])
                         .slice(0, 6)
                         .map((m) => (
                           <View key={m} style={styles.chip}>
@@ -775,45 +545,22 @@ export default function JourneyScreen() {
                     </View>
                   )}
 
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      gap: 8,
-                      marginTop: 12,
-                    }}
-                  >
+                  <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
                     <Pressable
                       onPress={() => router.push(`/spot/${s.spot.id}`)}
-                      style={[
-                        styles.detailButton,
-                        {
-                          flex: 1,
-                          backgroundColor: theme.colors.primary,
-                        },
-                      ]}
+                      style={[styles.detailButton, { flex: 1, backgroundColor: theme.colors.primary }]}
                     >
-                      <Text style={styles.detailButtonText}>
-                        Details
-                      </Text>
+                      <Text style={styles.detailButtonText}>Details</Text>
                     </Pressable>
 
-                    {["restaurant", "bar", "weinbar", "event"].some(
-                      (k) =>
-                        normalize(s.spot.categoryName).includes(k)
+                    {["restaurant", "bar", "weinbar", "event"].some((k) =>
+                      normalize(s.spot.categoryName).includes(k)
                     ) && (
                       <Pressable
                         onPress={() => openBooking(s.spot)}
-                        style={[
-                          styles.detailButton,
-                          {
-                            flex: 1,
-                            backgroundColor: theme.colors.accent,
-                          },
-                        ]}
+                        style={[styles.detailButton, { flex: 1, backgroundColor: theme.colors.accent }]}
                       >
-                        <Text style={styles.detailButtonText}>
-                          Reservieren
-                        </Text>
+                        <Text style={styles.detailButtonText}>Reservieren</Text>
                       </Pressable>
                     )}
                   </View>
@@ -823,16 +570,13 @@ export default function JourneyScreen() {
           )}
 
           {(loading || catalogLoading) && (
-            <View
-              style={{ marginTop: 24, alignItems: "center" }}
-            >
+            <View style={{ marginTop: 24, alignItems: "center" }}>
               <ActivityIndicator color={theme.colors.primary} />
             </View>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* BOOKING MODAL */}
       <Modal
         visible={bookingVisible}
         transparent
@@ -841,69 +585,34 @@ export default function JourneyScreen() {
       >
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>
-              Tisch reservieren bei {selectedSpot?.name}
-            </Text>
+            <Text style={styles.modalTitle}>Tisch reservieren bei {selectedSpot?.name}</Text>
 
             <Text style={styles.modalLabel}>Datum & Uhrzeit</Text>
             <DateTimePicker
               value={date}
               mode="datetime"
-              onChange={(e, d) => d && setDate(d)}
+              onChange={(_e, d) => d && setDate(d)}
               minimumDate={new Date()}
             />
 
             <Text style={styles.modalLabel}>Personen</Text>
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 12,
-              }}
-            >
-              <Pressable
-                onPress={() =>
-                  setPersons(Math.max(1, persons - 1))
-                }
-              >
-                <Ionicons
-                  name="remove-circle"
-                  size={32}
-                  color={theme.colors.primary}
-                />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+              <Pressable onPress={() => setPersons(Math.max(1, persons - 1))}>
+                <Ionicons name="remove-circle" size={32} color={theme.colors.primary} />
               </Pressable>
-              <Text
-                style={{ color: "#fff", fontSize: 18 }}
-              >
-                {persons}
-              </Text>
-              <Pressable
-                onPress={() => setPersons(persons + 1)}
-              >
-                <Ionicons
-                  name="add-circle"
-                  size={32}
-                  color={theme.colors.primary}
-                />
+
+              <Text style={{ color: "#fff", fontSize: 18 }}>{persons}</Text>
+
+              <Pressable onPress={() => setPersons(persons + 1)}>
+                <Ionicons name="add-circle" size={32} color={theme.colors.primary} />
               </Pressable>
             </View>
 
-            <Pressable
-              onPress={submitBooking}
-              style={[styles.button, { marginTop: 16 }]}
-            >
-              <Text style={styles.buttonText}>
-                Reservierung bestätigen
-              </Text>
+            <Pressable onPress={submitBooking} style={[styles.button, { marginTop: 16 }]}>
+              <Text style={styles.buttonText}>Reservierung bestätigen</Text>
             </Pressable>
 
-            <Pressable
-              onPress={() => setBookingVisible(false)}
-              style={{
-                marginTop: 12,
-                alignItems: "center",
-              }}
-            >
+            <Pressable onPress={() => setBookingVisible(false)} style={{ marginTop: 12, alignItems: "center" }}>
               <Text style={{ color: "#aaa" }}>Abbrechen</Text>
             </Pressable>
           </View>
@@ -913,7 +622,6 @@ export default function JourneyScreen() {
   );
 }
 
-/* ===================== STYLES ===================== */
 const styles = StyleSheet.create({
   container: { padding: 20 },
   title: {

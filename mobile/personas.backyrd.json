@@ -1,0 +1,168 @@
+{
+  "meta": {
+    "city": "Basel",
+    "core_moods": ["Cozy", "Lively", "Chill", "Urban", "Romantic", "Creative", "Classy", "Wild"]
+  },
+  "personas": [
+    {
+      "handle": "noah_afterwork_minimalist",
+      "display_name": "Noah",
+      "age": 29,
+      "one_liner": "Afterwork, verlässlich, keine Experimente.",
+      "top_moods": ["Classy", "Urban", "Chill"],
+      "avoid_moods": ["Wild"],
+      "time_bias": ["evening"],
+      "favorite_seeds": [
+        {"spot_id": "ff90b2f4-0c51-4423-adb5-e9a0ad22213e", "mood": "Classy"},
+        {"spot_id": "7b4dfb0a-49cb-4aa0-8430-3afbd37b5d31", "mood": "Urban"},
+        {"spot_id": "fe86af1e-c1dd-4655-a899-3de7ba3b0e1c", "mood": "Classy"},
+        {"spot_id": "c489a008-f7e3-40b6-a0c2-4c74d47d3a32", "mood": "Urban"}
+      ],
+      "action_plan": {"days": 14, "was_here": 6, "exact_mood": 5, "not_there": 2, "tapped": 8}
+    },
+    {
+      "handle": "mira_cozy_cafe_ritual",
+      "display_name": "Mira",
+      "age": 26,
+      "one_liner": "Café-Ritual, ruhige Ecken, wiederkehrend.",
+      "top_moods": ["Cozy", "Chill", "Creative"],
+      "avoid_moods": ["Wild"],
+      "time_bias": ["morning", "afternoon"],
+      "favorite_seeds": [
+        {"spot_id": "644fbd15-91f8-4ab7-8a4b-dbe06622d148", "mood": "Cozy"},
+        {"spot_id": "df035fda-40ea-4e7b-bde5-992b5aa5a1c2", "mood": "Creative"},
+        {"spot_id": "879350d7-d1d9-4e68-85aa-866f0fae96fa", "mood": "Chill"},
+        {"spot_id": "e46a8ed7-94dd-4389-ad37-3ceddbeca654", "mood": "Cozy"}
+      ],
+      "action_plan": {"days": 14, "was_here": 8, "exact_mood": 6, "not_there": 1, "tapped": 10}
+    },
+    {
+      "handle": "luca_nightout_social",
+      "display_name": "Luca",
+      "age": 31,
+      "one_liner": "Night-out, Energie, Leute, spontan.",
+      "top_moods": ["Lively", "Wild", "Urban"],
+      "avoid_moods": ["Chill"],
+      "time_bias": ["night"],
+      "favorite_seeds": [
+        {"spot_id": "d46188c0-d44f-4270-ad84-c277ffe27a46", "mood": "Lively"},
+        {"spot_id": "514bdf47-f9f5-4cfd-80b2-b8677bc8e3da", "mood": "Wild"},
+        {"spot_id": "7b4dfb0a-49cb-4aa0-8430-3afbd37b5d31", "mood": "Urban"},
+        {"spot_id": "941da8a2-97c0-442f-adfb-288ee14904de", "mood": "Lively"}
+      ],
+      "action_plan": {"days": 14, "was_here": 4, "exact_mood": 6, "not_there": 3, "tapped": 8}
+    },
+    {
+      "handle": "sophie_date_night",
+      "display_name": "Sophie",
+      "age": 30,
+      "one_liner": "Selten frei — wenn, dann Date Night muss sitzen.",
+      "top_moods": ["Romantic", "Classy", "Cozy"],
+      "avoid_moods": ["Wild"],
+      "time_bias": ["evening"],
+      "favorite_seeds": [
+        {"spot_id": "05f2d74b-aefb-4bbc-8af1-3c4b8018c25e", "mood": "Classy"},
+        {"spot_id": "5dd449f3-bd7f-40d4-8232-b7d0bb1daa3a", "mood": "Romantic"},
+        {"spot_id": "fe86af1e-c1dd-4655-a899-3de7ba3b0e1c", "mood": "Romantic"},
+        {"spot_id": "55aac98e-4acf-4572-8710-945c7e8a6555", "mood": "Cozy"}
+      ],
+      "action_plan": {"days": 14, "was_here": 3, "exact_mood": 6, "not_there": 2, "tapped": 6}
+    },
+    {
+      "handle": "jonas_craft_cornerbars",
+      "display_name": "Jonas",
+      "age": 35,
+      "one_liner": "Echte Bars, Charakter, nichts Glattes.",
+      "top_moods": ["Creative", "Cozy", "Lively"],
+      "avoid_moods": ["Classy"],
+      "time_bias": ["evening", "night"],
+      "favorite_seeds": [
+        {"spot_id": "1101ee26-5046-4cdc-921a-5a3bd4cb5306", "mood": "Creative"},
+        {"spot_id": "b76eb3ff-953b-4ae8-9e14-224ca49e1b8f", "mood": "Cozy"},
+        {"spot_id": "ff90b2f4-0c51-4423-adb5-e9a0ad22213e", "mood": "Lively"},
+        {"spot_id": "55aac98e-4acf-4572-8710-945c7e8a6555", "mood": "Cozy"}
+      ],
+      "action_plan": {"days": 14, "was_here": 5, "exact_mood": 7, "not_there": 2, "tapped": 10}
+    },
+    {
+      "handle": "aylin_remote_work_anywhere",
+      "display_name": "Aylin",
+      "age": 27,
+      "one_liner": "Remote, gutes Ambiente, ruhig aber nicht tot.",
+      "top_moods": ["Chill", "Creative", "Urban"],
+      "avoid_moods": ["Wild"],
+      "time_bias": ["morning", "afternoon"],
+      "favorite_seeds": [
+        {"spot_id": "df035fda-40ea-4e7b-bde5-992b5aa5a1c2", "mood": "Creative"},
+        {"spot_id": "e46a8ed7-94dd-4389-ad37-3ceddbeca654", "mood": "Urban"},
+        {"spot_id": "644fbd15-91f8-4ab7-8a4b-dbe06622d148", "mood": "Chill"},
+        {"spot_id": "7287f1cb-a7c6-4358-a1b3-34819069c6b6", "mood": "Chill"}
+      ],
+      "action_plan": {"days": 14, "was_here": 10, "exact_mood": 6, "not_there": 1, "tapped": 12}
+    },
+    {
+      "handle": "marco_food_first",
+      "display_name": "Marco",
+      "age": 38,
+      "one_liner": "Food first, familienkompatibel, kein Nightlife.",
+      "top_moods": ["Cozy", "Classy", "Romantic"],
+      "avoid_moods": ["Wild"],
+      "time_bias": ["afternoon", "evening"],
+      "favorite_seeds": [
+        {"spot_id": "fe86af1e-c1dd-4655-a899-3de7ba3b0e1c", "mood": "Cozy"},
+        {"spot_id": "e46a8ed7-94dd-4389-ad37-3ceddbeca654", "mood": "Urban"},
+        {"spot_id": "92741865-1bfe-4f79-a99b-9304b946d167", "mood": "Cozy"},
+        {"spot_id": "999c8376-3c6a-4a02-aca1-d2f934861444", "mood": "Cozy"}
+      ],
+      "action_plan": {"days": 14, "was_here": 6, "exact_mood": 5, "not_there": 2, "tapped": 8}
+    },
+    {
+      "handle": "lea_artsy_explorer",
+      "display_name": "Lea",
+      "age": 24,
+      "one_liner": "Kultur + neue Orte, mag ‘anders’.",
+      "top_moods": ["Creative", "Urban", "Lively"],
+      "avoid_moods": ["Classy"],
+      "time_bias": ["afternoon", "evening"],
+      "favorite_seeds": [
+        {"spot_id": "a9178789-196f-4b13-8b96-0a94bb29fd10", "mood": "Creative"},
+        {"spot_id": "e1ec19df-5213-4445-8f36-b3484f5fc221", "mood": "Urban"},
+        {"spot_id": "a2a12ea3-1a8b-4810-91db-3704a0c57ff6", "mood": "Creative"},
+        {"spot_id": "9f144aba-3d6f-403c-bdc8-e4d7-41b3-88f1-488d05fe2118", "mood": "Urban"}
+      ],
+      "action_plan": {"days": 14, "was_here": 6, "exact_mood": 8, "not_there": 1, "tapped": 12}
+    },
+    {
+      "handle": "daniel_low_energy_recover",
+      "display_name": "Daniel",
+      "age": 33,
+      "one_liner": "Low-energy, hasst Lärm, will sichere Ruhe.",
+      "top_moods": ["Chill", "Cozy"],
+      "avoid_moods": ["Wild", "Lively"],
+      "time_bias": ["evening"],
+      "favorite_seeds": [
+        {"spot_id": "308c3258-b8a1-4ad5-8579-8a75390125eb", "mood": "Chill"},
+        {"spot_id": "55aac98e-4acf-4572-8710-945c7e8a6555", "mood": "Cozy"},
+        {"spot_id": "607c44e8-2080-48a8-a530-166634121008", "mood": "Cozy"},
+        {"spot_id": "644fbd15-91f8-4ab7-8a4b-dbe06622d148", "mood": "Chill"}
+      ],
+      "action_plan": {"days": 14, "was_here": 6, "exact_mood": 6, "not_there": 3, "tapped": 6}
+    },
+    {
+      "handle": "nina_premium_treat",
+      "display_name": "Nina",
+      "age": 41,
+      "one_liner": "Selten, aber hochwertig. ‘Treat myself’ Abende.",
+      "top_moods": ["Classy", "Romantic", "Urban"],
+      "avoid_moods": ["Wild"],
+      "time_bias": ["evening"],
+      "favorite_seeds": [
+        {"spot_id": "05f2d74b-aefb-4bbc-8af1-3c4b8018c25e", "mood": "Classy"},
+        {"spot_id": "5dd449f3-bd7f-40d4-8232-b7d0bb1daa3a", "mood": "Classy"},
+        {"spot_id": "ff90b2f4-0c51-4423-adb5-e9a0ad22213e", "mood": "Romantic"},
+        {"spot_id": "879350d7-d1d9-4e68-85aa-866f0fae96fa", "mood": "Urban"}
+      ],
+      "action_plan": {"days": 14, "was_here": 4, "exact_mood": 6, "not_there": 2, "tapped": 8}
+    }
+  ]
+}

@@ -26,6 +26,11 @@ export default function LoginBottomSheet({ visible, onClose, onApple, onGoogle }
   const router = useRouter();
   const open = useSharedValue(0); // 0=zu, 1=offen
 
+  const goToLogin = () => {
+    handleClose();
+    router.push("/auth/login" as any);
+  };
+
   useEffect(() => {
     open.value = withTiming(visible ? 1 : 0, {duration: 450,});
   }, [visible]);
@@ -70,13 +75,13 @@ export default function LoginBottomSheet({ visible, onClose, onApple, onGoogle }
           <Text style={styles.subtitle}>Melde dich an, um Spots zu speichern, Freunden zu folgen und deine Journey zu starten.</Text>
 
           {/* Apple */}
-          <Pressable onPress={onApple} style={({ pressed }) => [styles.btn, styles.btnApple, pressed && { opacity: 0.9 }]}>
+          <Pressable onPress={onApple ?? goToLogin} style={({ pressed }) => [styles.btn, styles.btnApple, pressed && { opacity: 0.9 }]}>
             <Ionicons name="logo-apple" size={20} color="#fff" />
             <Text style={styles.btnText}>Mit Apple anmelden</Text>
           </Pressable>
 
           {/* Google */}
-          <Pressable onPress={onGoogle} style={({ pressed }) => [styles.btn, styles.btnGoogle, pressed && { opacity: 0.95 }]}>
+          <Pressable onPress={onGoogle ?? goToLogin} style={({ pressed }) => [styles.btn, styles.btnGoogle, pressed && { opacity: 0.95 }]}>
             <Ionicons name="logo-google" size={18} color="#111" />
             <Text style={[styles.btnText, { color: "#111" }]}>Mit Google anmelden</Text>
           </Pressable>
@@ -92,7 +97,7 @@ export default function LoginBottomSheet({ visible, onClose, onApple, onGoogle }
           <Pressable
             onPress={() => {
               handleClose();
-              router.push("/auth/login");
+              router.push("/auth/login" as any);
             }}
             style={({ pressed }) => [styles.btn, styles.btnEmail, pressed && { opacity: 0.95 }]}
           >

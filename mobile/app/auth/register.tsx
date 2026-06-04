@@ -1,27 +1,32 @@
 // mobile/app/auth/register.tsx
+
 import React, { useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
-  View,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
-  Pressable,
-  StyleSheet,
-  KeyboardAvoidingView,
-  ScrollView,
   TouchableWithoutFeedback,
-  Keyboard,
-  Platform,
+  View,
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as AuthSession from "expo-auth-session";
-import * as WebBrowser from "expo-web-browser";
 import * as Device from "expo-device";
+import * as WebBrowser from "expo-web-browser";
+import Constants from "expo-constants";
+
 import { supabase } from "../../lib/supabase";
+import { ensureProfile } from "../../lib/profile";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -31,7 +36,30 @@ const androidClientId = "<YOUR_ANDROID_CLIENT_ID>";
 const webClientId =
   "729608339021-u22np8gnlld09a248ovjtrj1n61q6kgt.apps.googleusercontent.com";
 
+const isExpoGo = Constants.appOwnership === "expo";
 const isSimulator = !Device.isDevice;
+
+function cleanEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function getAuthErrorMessage(error: any) {
+  const message = error?.message ?? String(error);
+
+  if (message.toLowerCase().includes("user already registered")) {
+    return "Für diese E-Mail existiert bereits ein Account. Bitte logge dich ein.";
+  }
+
+  if (message.toLowerCase().includes("password")) {
+    return "Bitte verwende ein stärkeres Passwort.";
+  }
+
+  if (message.toLowerCase().includes("unacceptable audience")) {
+    return "Apple Registrierung kann in Expo Go nicht korrekt getestet werden. Bitte nutze dafür einen Development Build.";
+  }
+
+  return message;
+}
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -43,11 +71,13 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
 
-  /* ======================================================
-     ✅ REGISTRIERUNG MIT EMAIL / PW
-  ====================================================== */
   async function onRegister() {
-    if (!first.trim() || !last.trim() || !email.trim() || !pw.trim()) {
+    const firstName = first.trim();
+    const lastName = last.trim();
+    const normalizedEmail = cleanEmail(email);
+    const password = pw.trim();
+
+    if (!firstName || !lastName || !normalizedEmail || !password) {
       Alert.alert("Fehlende Angaben", "Bitte alle Felder ausfüllen.");
       return;
     }
@@ -55,43 +85,53 @@ export default function RegisterScreen() {
     try {
       setLoading(true);
 
-      const { error } = await supabase.auth.signUp({
-        email,
-        password: pw,
+      const { data, error } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password,
         options: {
           data: {
-            first_name: first.trim(),
-            last_name: last.trim(),
+            first_name: firstName,
+            last_name: lastName,
+            display_name: firstName,
           },
         },
       });
 
       if (error) throw error;
 
+      // Supabase may return a session immediately when email confirmations are disabled.
+      if (data.session?.user) {
+        await ensureProfile({
+          email: normalizedEmail,
+          firstName,
+          lastName,
+        });
+
+        router.replace("/gate" as any);
+        return;
+      }
+
       Alert.alert(
-        "Code gesendet",
-        "Wir haben dir einen Bestätigungscode per E-Mail geschickt.",
+        "Fast geschafft",
+        "Wir haben dir eine Bestätigungs-E-Mail geschickt. Bestätige deine E-Mail und logge dich danach ein.",
         [
           {
             text: "OK",
             onPress: () =>
-              router.push({
+              router.replace({
                 pathname: "/auth/verify",
-                params: { email },
-              }),
+                params: { email: normalizedEmail },
+              } as any),
           },
         ]
       );
     } catch (e: any) {
-      Alert.alert("Registrierung fehlgeschlagen", e.message ?? String(e));
+      Alert.alert("Registrierung fehlgeschlagen", getAuthErrorMessage(e));
     } finally {
       setLoading(false);
     }
   }
 
-  /* ======================================================
-     ✅ REGISTER MIT GOOGLE
-  ====================================================== */
   async function onGoogleRegister() {
     try {
       setSocialLoading(true);
@@ -101,47 +141,66 @@ export default function RegisterScreen() {
         path: "auth/callback",
       });
 
-      const authUrl =
-        `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${
-          Platform.select({
-            ios: iosClientId,
-            android: androidClientId,
-            web: webClientId,
-          })!
-        }` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        `&response_type=code&scope=openid%20email%20profile`;
+      const clientId = Platform.select({
+        ios: iosClientId,
+        android: androidClientId,
+        web: webClientId,
+        default: webClientId,
+      });
 
-      const result = await AuthSession.startAsync({ authUrl });
-
-      if (result.type === "success" && result.params.code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(
-          result.params.code
-        );
-        if (error) throw error;
-
-        router.replace("/(tabs)");
+      if (!clientId || clientId.includes("YOUR_ANDROID_CLIENT_ID")) {
+        Alert.alert("Google Registrierung", "Google Login ist für diese Plattform noch nicht vollständig konfiguriert.");
+        return;
       }
+
+      const authUrl =
+        "https://accounts.google.com/o/oauth2/v2/auth?" +
+        `client_id=${encodeURIComponent(clientId)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        "&response_type=code" +
+        "&scope=openid%20email%20profile" +
+        "&access_type=offline" +
+        "&prompt=select_account";
+
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
+
+      if (result.type !== "success" || !result.url) return;
+
+      const parsed = new URL(result.url);
+      const code = parsed.searchParams.get("code");
+
+      if (!code) {
+        throw new Error("Kein Google-Code erhalten.");
+      }
+
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error) throw error;
+
+      await ensureProfile();
+      router.replace("/gate" as any);
     } catch (e: any) {
-      Alert.alert("Google Anmeldung fehlgeschlagen", e.message);
+      Alert.alert("Google Registrierung fehlgeschlagen", getAuthErrorMessage(e));
     } finally {
       setSocialLoading(false);
     }
   }
 
-  /* ======================================================
-     ✅ REGISTER MIT APPLE
-  ====================================================== */
   async function onAppleRegister() {
     try {
       if (isSimulator) {
+        Alert.alert("Nicht im Simulator", "Apple Registrierung funktioniert nur auf einem echten Gerät.");
+        return;
+      }
+
+      if (isExpoGo) {
         Alert.alert(
-          "Nicht im Simulator",
-          "Apple Login funktioniert nur auf echtem Gerät."
+          "Expo Go",
+          "Apple Registrierung kann in Expo Go wegen der falschen Bundle-ID nicht sauber mit Supabase getestet werden. Nutze dafür einen Development Build."
         );
         return;
       }
+
+      setSocialLoading(true);
 
       const response = await AppleAuthentication.signInAsync({
         requestedScopes: [
@@ -150,67 +209,69 @@ export default function RegisterScreen() {
         ],
       });
 
+      if (!response.identityToken) {
+        throw new Error("Apple hat kein identityToken zurückgegeben.");
+      }
+
       const { error } = await supabase.auth.signInWithIdToken({
         provider: "apple",
-        token: response.identityToken!,
-        nonce: response.nonce!,
+        token: response.identityToken,
+        nonce: response.nonce ?? undefined,
       });
+
       if (error) throw error;
 
-      router.replace("/(tabs)");
+      await ensureProfile({
+        email: response.email ?? null,
+        firstName: response.fullName?.givenName ?? null,
+        lastName: response.fullName?.familyName ?? null,
+      });
+
+      router.replace("/gate" as any);
     } catch (e: any) {
-      if (e.code === "ERR_CANCELED") return;
-      Alert.alert("Apple Anmeldung fehlgeschlagen", e.message);
+      if (e?.code === "ERR_CANCELED") return;
+      Alert.alert("Apple Registrierung fehlgeschlagen", getAuthErrorMessage(e));
+    } finally {
+      setSocialLoading(false);
     }
   }
 
-  /* ======================================================
-     ✅ UI RENDER
-  ====================================================== */
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <LinearGradient
-          colors={["#0A0A0B", "#0A0A0B", "#191A22"]}
-          style={styles.container}
-        >
-          {/* HEADER */}
+        <LinearGradient colors={["#050506", "#0A0A0B", "#191A22"]} style={styles.container}>
           <View style={styles.header}>
-            <Pressable onPress={() => router.back()} style={styles.backBtn}>
-              <Ionicons name="chevron-back" size={28} color="#fff" />
+            <Pressable onPress={() => router.replace("/gate" as any)} hitSlop={10} style={styles.backBtn}>
+              <Ionicons name="chevron-back" size={32} color="#fff" />
             </Pressable>
             <Text style={styles.headerTitle}>Account erstellen</Text>
           </View>
 
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: 60 }}
-          >
-            {/* FORM CARD */}
-            <BlurView intensity={60} tint="dark" style={styles.card}>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
+            <BlurView intensity={62} tint="dark" style={styles.card}>
               <Text style={styles.cardTitle}>Registrieren</Text>
-              <Text style={styles.cardSubtitle}>
-                Starte deine persönliche Backyrd Journey 🔥
-              </Text>
+              <Text style={styles.cardSubtitle}>Starte deine persönliche Backyrd Journey 🔥</Text>
 
-              {/* Inputs */}
               <TextInput
                 placeholder="Vorname"
                 placeholderTextColor="#7D8086"
                 value={first}
                 onChangeText={setFirst}
+                autoCapitalize="words"
+                textContentType="givenName"
                 style={styles.input}
               />
+
               <TextInput
                 placeholder="Nachname"
                 placeholderTextColor="#7D8086"
                 value={last}
                 onChangeText={setLast}
+                autoCapitalize="words"
+                textContentType="familyName"
                 style={styles.input}
               />
+
               <TextInput
                 placeholder="E-Mail"
                 placeholderTextColor="#7D8086"
@@ -218,67 +279,72 @@ export default function RegisterScreen() {
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="emailAddress"
                 style={styles.input}
               />
+
               <TextInput
                 placeholder="Passwort"
                 placeholderTextColor="#7D8086"
                 value={pw}
                 onChangeText={setPw}
                 secureTextEntry
+                textContentType="newPassword"
                 style={styles.input}
               />
 
-              {/* Primary Button */}
               <Pressable
                 onPress={onRegister}
-                disabled={loading}
+                disabled={loading || socialLoading}
                 style={({ pressed }) => [
                   styles.primaryBtn,
+                  (loading || socialLoading) && styles.disabled,
                   pressed && { opacity: 0.85 },
                 ]}
               >
-                <Text style={styles.primaryBtnText}>
-                  {loading ? "Erstelle…" : "Registrieren"}
-                </Text>
+                {loading ? <ActivityIndicator /> : <Text style={styles.primaryBtnText}>Registrieren</Text>}
               </Pressable>
 
-              {/* Divider */}
               <View style={styles.dividerRow}>
                 <View style={styles.divider} />
                 <Text style={styles.dividerLabel}>oder</Text>
                 <View style={styles.divider} />
               </View>
 
-              {/* Google */}
               <Pressable
                 onPress={onGoogleRegister}
-                disabled={socialLoading}
-                style={({ pressed }) => [
-                  styles.googleBtn,
-                  pressed && { opacity: 0.9 },
-                ]}
+                disabled={loading || socialLoading}
+                style={({ pressed }) => [styles.googleBtn, pressed && { opacity: 0.9 }]}
               >
-                <Ionicons name="logo-google" size={18} color="#111" />
+                <Ionicons name="logo-google" size={20} color="#111" />
                 <Text style={styles.googleText}>Mit Google registrieren</Text>
               </Pressable>
 
-              {/* Apple */}
-              {Platform.OS === "ios" && !isSimulator && (
-                <View style={{ marginTop: 12 }}>
-                  <AppleAuthentication.AppleAuthenticationButton
-                    buttonType={
-                      AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP
-                    }
-                    buttonStyle={
-                      AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-                    }
-                    cornerRadius={14}
-                    style={{ width: "100%", height: 48 }}
-                    onPress={onAppleRegister}
-                  />
-                </View>
+              {Platform.OS === "ios" && (
+                <Pressable
+                  onPress={onAppleRegister}
+                  disabled={loading || socialLoading}
+                  style={({ pressed }) => [styles.appleBtn, pressed && { opacity: 0.9 }]}
+                >
+                  <Ionicons name="logo-apple" size={24} color="#fff" />
+                  <Text style={styles.appleText}>Mit Apple registrieren</Text>
+                </Pressable>
               )}
+
+              <View style={styles.linkRow}>
+                <Link href="/auth/login" asChild>
+                  <Pressable>
+                    <Text style={styles.link}>Schon registriert?</Text>
+                  </Pressable>
+                </Link>
+
+                <Link href="/auth/verify" asChild>
+                  <Pressable>
+                    <Text style={styles.link}>E-Mail bestätigen</Text>
+                  </Pressable>
+                </Link>
+              </View>
             </BlurView>
           </ScrollView>
         </LinearGradient>
@@ -287,82 +353,87 @@ export default function RegisterScreen() {
   );
 }
 
-/* ======================================================
- ✅ STYLES (BACKYRD DESIGN)
-====================================================== */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: 18,
   },
-
-  /* Header */
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: Platform.select({ ios: 54, android: 32 }),
-    paddingBottom: 16,
+    paddingTop: Platform.select({ ios: 56, android: 34, default: 34 }),
+    paddingBottom: 18,
   },
   backBtn: {
-    marginRight: 12,
+    width: 58,
+    height: 58,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.11)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
   },
   headerTitle: {
     color: "#fff",
-    fontSize: 22,
-    fontWeight: "800",
+    fontSize: 30,
+    fontWeight: "950",
+    letterSpacing: 0.2,
+    flexShrink: 1,
   },
-
-  /* Card */
   card: {
-    marginTop: 20,
-    padding: 22,
-    borderRadius: 26,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    marginTop: 56,
+    padding: 24,
+    borderRadius: 30,
+    backgroundColor: "rgba(255,255,255,0.065)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(255,255,255,0.11)",
+    overflow: "hidden",
   },
   cardTitle: {
     color: "#fff",
-    fontSize: 26,
-    fontWeight: "800",
-    marginBottom: 6,
+    fontSize: 38,
+    lineHeight: 42,
+    fontWeight: "950",
+    letterSpacing: -0.9,
+    marginBottom: 10,
   },
   cardSubtitle: {
     color: "#A6A8AD",
-    fontSize: 14,
-    marginBottom: 18,
+    fontSize: 17,
+    lineHeight: 25,
+    marginBottom: 24,
   },
-
-  /* Inputs */
   input: {
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderColor: "rgba(255,255,255,0.14)",
+    borderColor: "rgba(255,255,255,0.16)",
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    borderRadius: 17,
     marginBottom: 12,
     color: "#fff",
-    fontSize: 16,
+    fontSize: 17,
+    fontWeight: "700",
   },
-
-  /* Primary Button */
   primaryBtn: {
     backgroundColor: "#000",
-    paddingVertical: 14,
-    borderRadius: 14,
+    paddingVertical: 17,
+    borderRadius: 17,
     alignItems: "center",
-    marginTop: 6,
+    marginTop: 8,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+  disabled: {
+    opacity: 0.58,
   },
   primaryBtnText: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "800",
+    fontSize: 17,
+    fontWeight: "950",
   },
-
-  /* Divider */
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -372,27 +443,50 @@ const styles = StyleSheet.create({
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.13)",
   },
   dividerLabel: {
     color: "#8E9198",
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "900",
   },
-
-  /* Google */
+  appleBtn: {
+    backgroundColor: "#000",
+    paddingVertical: 16,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 12,
+  },
+  appleText: {
+    color: "#fff",
+    fontWeight: "950",
+    fontSize: 17,
+  },
   googleBtn: {
     backgroundColor: "#fff",
-    paddingVertical: 14,
-    borderRadius: 14,
-    flexDirection: "row",
-    justifyContent: "center",
+    paddingVertical: 16,
+    borderRadius: 17,
     alignItems: "center",
-    gap: 8,
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 10,
   },
   googleText: {
     color: "#111",
-    fontWeight: "700",
+    fontWeight: "950",
+    fontSize: 17,
+  },
+  linkRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 22,
+  },
+  link: {
+    color: "#A6A8AD",
     fontSize: 15,
+    fontWeight: "850",
   },
 });

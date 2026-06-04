@@ -1,11 +1,4 @@
-// backyrd/mobile/app/spot/[id].tsx
-import React, {
-  useEffect,
-  useRef,
-  useState,
-  useCallback,
-  useMemo,
-} from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -20,21 +13,16 @@ import {
   StyleSheet,
 } from "react-native";
 
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 
 import LoginPromptModal from "../../components/LoginPromptModal";
-import { typography } from "../../theme/typography";
 import { supabase } from "../../lib/supabase";
 import { openWebsite, callNumber, openInAppleMaps } from "../../lib/links";
-
-/* ========================================= */
-/*                 THEME + CONST             */
-/* ========================================= */
 
 const theme = {
   colors: {
@@ -52,7 +40,6 @@ const theme = {
 const { width } = Dimensions.get("window");
 const HEADER_H = Math.round(width * 0.98);
 const HEADER_MAX = Math.round(width * 0.98);
-const HEADER_MIN = 160;
 const SLIDE_INTERVAL = 6000;
 const SLIDE_DURATION = 650;
 const IOS_EASE = Easing.bezier(0.4, 0.0, 0.2, 1);
@@ -67,21 +54,17 @@ const WEEK_ORDER = [
   "Sonntag",
 ];
 
-/* ========================================= */
-/*                 HELPERS                   */
-/* ========================================= */
-
 function priceToSymbols(n?: number | null) {
   if (!n || n < 1) return "—";
   return "$".repeat(Math.min(5, Math.max(1, n)));
 }
+
 function parseTimeToMinutes(t?: string | null) {
   if (!t) return null;
   const [hh, mm] = t.split(":").map(Number);
   return hh * 60 + mm;
 }
 
-// ✅ NEU: unterstützt mehrere Slots (Mittag + Abend etc.)
 function isOpenNow(rowsForDay?: any[]) {
   if (!rowsForDay || rowsForDay.length === 0) return { open: false };
   const now = new Date();
@@ -92,7 +75,6 @@ function isOpenNow(rowsForDay?: any[]) {
     const close = parseTimeToMinutes(row.close_time);
     if (open == null || close == null) continue;
 
-    // über Mitternacht (z. B. 17:00 – 01:00)
     if (close <= open) {
       if (nowMin >= open || nowMin < close) return { open: true };
     } else {
@@ -112,6 +94,7 @@ function moodColor(mood: string) {
   };
   return preset[mood] || "rgba(255,255,255,0.2)";
 }
+
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -123,10 +106,6 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
       Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
-
-/* ========================================= */
-/*                COMPONENTS                 */
-/* ========================================= */
 
 const Avatar = ({ name }: { name?: string }) => (
   <View
@@ -160,10 +139,6 @@ const Chip = ({ text }: { text: string }) => (
   </View>
 );
 
-/* ========================================= */
-/*             MAIN SCREEN START             */
-/* ========================================= */
-
 export default function SpotDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -184,7 +159,6 @@ export default function SpotDetailScreen() {
   const [spot, setSpot] = useState<any>(null);
   const [photos, setPhotos] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
-  // ✅ NEU: Objekt nach Tag gruppiert
   const [hours, setHours] = useState<Record<string, any[]>>({});
   const [moodSummary, setMoodSummary] = useState<any[]>([]);
   const [nearby, setNearby] = useState<any[]>([]);
@@ -195,9 +169,26 @@ export default function SpotDetailScreen() {
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showAllMoods, setShowAllMoods] = useState(false);
 
+  const [ownerCtx, setOwnerCtx] = useState<any>(null);
+  const [claimLoading, setClaimLoading] = useState(false);
+
   const index = useRef(0);
   const translateX = useRef(new Animated.Value(0)).current;
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const loadOwnerCtx = useCallback(async () => {
+    if (!id) return;
+    try {
+      const { data, error } = await supabase.rpc("get_spot_owner_context_v1", {
+        p_spot_id: id,
+      });
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      setOwnerCtx(row ?? null);
+    } catch (e) {
+      console.log("get_spot_owner_context_v1 error", e);
+    }
+  }, [id]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
@@ -206,6 +197,12 @@ export default function SpotDetailScreen() {
     );
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadOwnerCtx();
+    }, [loadOwnerCtx])
+  );
 
   useEffect(() => {
     (async () => {
@@ -216,11 +213,11 @@ export default function SpotDetailScreen() {
         { data: spotRow },
         { data: photoRows },
         { data: revRows },
-        { data: hourRows }
+        { data: hourRows },
       ] = await Promise.all([
         supabase
           .from("spots")
-          .select("id,name,address,lat,lng,phone,website,price_level")
+          .select("id,name,address,lat,lng,phone,website,email,price_level")
           .eq("id", id)
           .single(),
 
@@ -247,29 +244,30 @@ export default function SpotDetailScreen() {
               id,
               first_name,
               is_local
+            ),
+            review_photos (
+              id,
+              url,
+              created_at
             )
           `)
           .eq("spot_id", id)
           .order("created_at", { ascending: false }),
 
-        supabase
-          .from("spot_hours")
-          .select("*")
-          .eq("spot_id", id),
+        supabase.from("spot_hours").select("*").eq("spot_id", id),
       ]);
-
 
       setSpot(spotRow);
       setPhotos(photoRows || []);
       setReviews(revRows || []);
 
-      // ✅ Öffnungszeiten nach Tag gruppieren (unterstützt mehrere Slots pro Tag)
+      await loadOwnerCtx();
+
       const grouped: Record<string, any[]> = {};
       (hourRows || []).forEach((h: any) => {
         if (!grouped[h.day_of_week]) grouped[h.day_of_week] = [];
         grouped[h.day_of_week].push(h);
       });
-      // optional sortieren innerhalb des Tages nach open_time
       Object.keys(grouped).forEach((d) => {
         grouped[d].sort((a, b) => (a.open_time || "").localeCompare(b.open_time || ""));
       });
@@ -277,15 +275,12 @@ export default function SpotDetailScreen() {
 
       if (revRows?.length) {
         const counts: Record<string, number> = {};
-
         for (const r of revRows) {
           const mA = r.moodA?.token ?? r.mood_a;
           const mB = r.moodB?.token ?? r.mood_b;
-
           if (mA) counts[mA] = (counts[mA] || 0) + 1;
           if (mB) counts[mB] = (counts[mB] || 0) + 1;
         }
-
         setMoodSummary(
           Object.entries(counts)
             .map(([mood, count]) => ({ mood, count }))
@@ -293,12 +288,10 @@ export default function SpotDetailScreen() {
         );
       }
 
-
       setLoading(false);
     })();
-  }, [id]);
+  }, [id, loadOwnerCtx]);
 
-  // ✅ Heute ermitteln + heutige Slots holen
   const todayNameNormalized = useMemo(() => {
     const formatter = new Intl.DateTimeFormat("de-DE", { weekday: "long" });
     const todayName = formatter.format(new Date());
@@ -339,21 +332,24 @@ export default function SpotDetailScreen() {
         }
       });
     }, SLIDE_INTERVAL);
-  }, [photos]);
+  }, [photos, translateX]);
 
   useEffect(() => {
     if (photos.length > 1) startSlideshow();
     return () => timerRef.current && clearInterval(timerRef.current);
-  }, [photos]);
+  }, [photos, startSlideshow]);
 
   async function onShare() {
     if (!spot) return;
     const url =
       spot.website ||
-      `https://maps.apple.com/?ll=${spot.lat},${spot.lng}&q=${encodeURIComponent(
-        spot.name
-      )}`;
+      `https://maps.apple.com/?ll=${spot.lat},${spot.lng}&q=${encodeURIComponent(spot.name)}`;
     Share.share({ message: `${spot.name}\n${spot.address ?? ""}\n${url}` });
+  }
+
+  async function requestClaim() {
+    if (!userId) return setShowLoginPrompt(true);
+    router.push(`/spot/${id}/claim`);
   }
 
   useEffect(() => {
@@ -416,11 +412,13 @@ export default function SpotDetailScreen() {
     );
   }
 
+  const effectiveDesc: string | null = ownerCtx?.effective_description ?? null;
+  const descSource: string | null = ownerCtx?.description_source ?? null;
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* ✅ Floating Glass Header Bar — Clean & Pro */}
       <Animated.View
         pointerEvents="box-none"
         style={{
@@ -448,12 +446,10 @@ export default function SpotDetailScreen() {
         }}
       >
         <BlurView intensity={0} tint="dark" style={styles.topBar}>
-          {/* Back */}
           <Pressable onPress={() => router.back()} style={styles.topBarBtn} hitSlop={8}>
             <Ionicons name="chevron-back" size={22} color="#fff" />
           </Pressable>
 
-          {/* Actions */}
           <View style={styles.topBarActions}>
             <Pressable onPress={onShare} style={styles.topBarBtn} hitSlop={8}>
               <Feather name="share" size={18} color="#fff" />
@@ -486,16 +482,13 @@ export default function SpotDetailScreen() {
         </BlurView>
       </Animated.View>
 
-      {/* MAIN SCROLL */}
       <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
-        )}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+          useNativeDriver: false,
+        })}
       >
-        {/* ULTRA HEADER */}
         <Animated.View
           style={{
             width: "100%",
@@ -504,7 +497,6 @@ export default function SpotDetailScreen() {
             transform: [{ translateY: headerTranslateY }],
           }}
         >
-          {/* Parallax Image Layer */}
           <Animated.View
             style={{
               position: "absolute",
@@ -524,14 +516,8 @@ export default function SpotDetailScreen() {
                   transform: [{ translateX }],
                 }}
               >
-                <Image
-                  source={{ uri: photos[index.current]?.url }}
-                  style={{ width, height: HEADER_MAX }}
-                />
-                <Image
-                  source={{ uri: photos[(index.current + 1) % photos.length]?.url }}
-                  style={{ width, height: HEADER_MAX }}
-                />
+                <Image source={{ uri: photos[index.current]?.url }} style={{ width, height: HEADER_MAX }} />
+                <Image source={{ uri: photos[(index.current + 1) % photos.length]?.url }} style={{ width, height: HEADER_MAX }} />
               </Animated.View>
             ) : (
               <View
@@ -547,42 +533,15 @@ export default function SpotDetailScreen() {
               </View>
             )}
 
-            {/* Darken bottom for smooth transition */}
             <LinearGradient
-              colors={[
-                "transparent",
-                "rgba(0,0,0,0.1)",
-                "rgba(0,0,0,0.35)",
-                "rgba(0,0,0,0.65)",
-              ]}
-              style={{
-                position: "absolute",
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: 180,
-              }}
+              colors={["transparent", "rgba(0,0,0,0.1)", "rgba(0,0,0,0.35)", "rgba(0,0,0,0.65)"]}
+              style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 180 }}
             />
           </Animated.View>
         </Animated.View>
 
-        {/* Title + badges on image */}
-        <View
-          style={{
-            paddingHorizontal: theme.spacing(2),
-            paddingTop: 10,
-            paddingBottom: 10,
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 32,
-              fontWeight: "900",
-              color: "#fff",
-            }}
-          >
-            {spot.name}
-          </Text>
+        <View style={{ paddingHorizontal: theme.spacing(2), paddingTop: 10, paddingBottom: 10 }}>
+          <Text style={{ fontSize: 32, fontWeight: "900", color: "#fff" }}>{spot.name}</Text>
 
           <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
             <View
@@ -591,17 +550,10 @@ export default function SpotDetailScreen() {
                 paddingVertical: 6,
                 borderRadius: theme.radius.pill,
                 borderWidth: 1,
-                borderColor: isOpen
-                  ? "rgba(34,197,94,0.35)"
-                  : "rgba(239,68,68,0.35)",
+                borderColor: isOpen ? "rgba(34,197,94,0.35)" : "rgba(239,68,68,0.35)",
               }}
             >
-              <Text
-                style={{
-                  color: isOpen ? theme.colors.success : theme.colors.danger,
-                  fontWeight: "700",
-                }}
-              >
+              <Text style={{ color: isOpen ? theme.colors.success : theme.colors.danger, fontWeight: "700" }}>
                 {isOpen ? "Jetzt geöffnet" : "Geschlossen"}
               </Text>
             </View>
@@ -620,21 +572,44 @@ export default function SpotDetailScreen() {
           </View>
         </View>
 
-        {/* ✅ MOODS — Top 5 oder alle */}
+        <View style={{ paddingHorizontal: theme.spacing(2), marginTop: 18 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>Beschreibung</Text>
+
+            {!!descSource ? (
+              <View
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: theme.radius.pill,
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.18)",
+                  backgroundColor: "rgba(255,255,255,0.06)",
+                }}
+              >
+                <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 12, fontWeight: "800" }}>
+                  {descSource === "owner" ? "vom Betreiber" : descSource}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          {effectiveDesc ? (
+            <Text style={{ color: "rgba(255,255,255,0.88)", marginTop: 10, lineHeight: 20 }}>
+              {effectiveDesc}
+            </Text>
+          ) : (
+            <Text style={{ color: "rgba(255,255,255,0.55)", marginTop: 10, lineHeight: 20 }}>
+              Noch keine Beschreibung vorhanden.
+            </Text>
+          )}
+        </View>
+
         {moodSummary.length > 0 && (
           <View style={{ paddingHorizontal: theme.spacing(2), marginTop: 20 }}>
-            <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>
-              Top Moods
-            </Text>
+            <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>Top Moods</Text>
 
-            <View
-              style={{
-                flexDirection: "row",
-                flexWrap: "wrap",
-                gap: 10,
-                marginTop: 12,
-              }}
-            >
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 }}>
               {(showAllMoods ? moodSummary : moodSummary.slice(0, 5)).map((m) => (
                 <View
                   key={m.mood}
@@ -686,30 +661,19 @@ export default function SpotDetailScreen() {
           </View>
         )}
 
-        {/* INFO */}
         <View style={{ paddingHorizontal: theme.spacing(2), marginTop: 26 }}>
-          <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>
-            Info
-          </Text>
+          <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>Info</Text>
 
-          {spot.address && (
-            <Text style={{ color: "#fff", marginTop: 10 }}>📍 {spot.address}</Text>
-          )}
+          {spot.address && <Text style={{ color: "#fff", marginTop: 10 }}>📍 {spot.address}</Text>}
 
           {spot.phone && (
-            <Text
-              onPress={() => callNumber(spot.phone)}
-              style={{ color: "#38BDF8", marginTop: 8 }}
-            >
+            <Text onPress={() => callNumber(spot.phone)} style={{ color: "#38BDF8", marginTop: 8 }}>
               📞 {spot.phone}
             </Text>
           )}
 
           {spot.website && (
-            <Text
-              onPress={() => openWebsite(spot.website)}
-              style={{ color: "#38BDF8", marginTop: 8 }}
-            >
+            <Text onPress={() => openWebsite(spot.website)} style={{ color: "#38BDF8", marginTop: 8 }}>
               🌐 {spot.website}
             </Text>
           )}
@@ -729,7 +693,52 @@ export default function SpotDetailScreen() {
           </Pressable>
         </View>
 
-        {/* ÖFFNUNGSZEITEN */}
+        <View style={{ marginTop: 14, paddingHorizontal: theme.spacing(2) }}>
+          {ownerCtx?.is_verified_owner ? (
+            <Pressable
+              onPress={() => router.push(`/spot/${spot.id}/manage`)}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                borderRadius: theme.radius.pill,
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.25)",
+              }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "800" }}>⚙️ Spot verwalten</Text>
+            </Pressable>
+          ) : ownerCtx?.claim_status === "pending" ? (
+            <View
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                borderRadius: theme.radius.pill,
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.25)",
+              }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "700" }}>⏳ Claim wird geprüft</Text>
+            </View>
+          ) : (
+            <Pressable
+              onPress={requestClaim}
+              disabled={claimLoading}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 10,
+                borderRadius: theme.radius.pill,
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.25)",
+                opacity: claimLoading ? 0.6 : 1,
+              }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "800" }}>
+                {claimLoading ? "Sende…" : "✅ Betreiberzugang anfragen"}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+
         {Object.keys(hours).length > 0 && (
           <View
             style={{
@@ -743,9 +752,7 @@ export default function SpotDetailScreen() {
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-              <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>
-                Öffnungszeiten
-              </Text>
+              <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>Öffnungszeiten</Text>
             </View>
 
             {WEEK_ORDER.map((day) => {
@@ -755,11 +762,7 @@ export default function SpotDetailScreen() {
               return (
                 <View
                   key={day}
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    paddingVertical: 6,
-                  }}
+                  style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 }}
                 >
                   <Text
                     style={{
@@ -788,7 +791,6 @@ export default function SpotDetailScreen() {
           </View>
         )}
 
-        {/* REVIEWS */}
         {reviews.length > 0 && (
           <View
             style={{
@@ -802,18 +804,21 @@ export default function SpotDetailScreen() {
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-              <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>
-                Reviews
-              </Text>
+              <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>Reviews</Text>
             </View>
 
             {reviews.slice(0, 6).map((rev) => {
-              const moods = [
-                rev.moodA?.token ?? rev.mood_a,
-                rev.moodB?.token ?? rev.mood_b,
-              ].filter(Boolean);
+              const moods = [rev.moodA?.token ?? rev.mood_a, rev.moodB?.token ?? rev.mood_b].filter(Boolean);
               const name = rev.profiles?.first_name || "User";
               const isLocal = rev.profiles?.is_local;
+              const reviewPhotoUrl =
+                rev.review_photos?.[0]?.url ||
+                (rev.photo_path?.startsWith("http")
+                  ? rev.photo_path
+                  : rev.photo_path
+                  ? `https://hjgcrrzfjchzqoegcywn.supabase.co/storage/v1/object/public/spot-photos/${rev.photo_path}`
+                  : null);
+
               return (
                 <View
                   key={rev.id}
@@ -829,12 +834,7 @@ export default function SpotDetailScreen() {
                   <View style={{ flexDirection: "row", gap: 12 }}>
                     <Avatar name={name} />
                     <View style={{ flex: 1 }}>
-                      <View
-                        style={{
-                          flexDirection: "row",
-                          justifyContent: "space-between",
-                        }}
-                      >
+                      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                         <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>
                           {name}
                           {isLocal ? " 🌆" : ""}
@@ -848,38 +848,22 @@ export default function SpotDetailScreen() {
                       </View>
 
                       {rev.text ? (
-                        <Text
-                          style={{
-                            color: theme.colors.text,
-                            fontSize: 14,
-                            lineHeight: 19,
-                            marginTop: 6,
-                          }}
-                        >
+                        <Text style={{ color: theme.colors.text, fontSize: 14, lineHeight: 19, marginTop: 6 }}>
                           {rev.text}
                         </Text>
                       ) : null}
 
                       {moods.length > 0 && (
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            flexWrap: "wrap",
-                            gap: 6,
-                            marginTop: 6,
-                          }}
-                        >
-                          {moods.map((m) => (
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                          {moods.map((m: string) => (
                             <Chip key={m} text={m} />
                           ))}
                         </View>
                       )}
 
-                      {rev.photo_path ? (
+                      {reviewPhotoUrl ? (
                         <Image
-                          source={{
-                            uri: `https://hjgcrrzfjchzqoegcywn.supabase.co/storage/v1/object/public/spot-photos/${rev.photo_path}`,
-                          }}
+                          source={{ uri: reviewPhotoUrl }}
                           style={{
                             width: "100%",
                             height: 150,
@@ -894,34 +878,12 @@ export default function SpotDetailScreen() {
                 </View>
               );
             })}
-
-            {reviews.length > 6 && (
-              <Pressable
-                onPress={() => router.push(`/spot/${spot.id}/reviews`)}
-                style={{
-                  alignSelf: "center",
-                  marginTop: theme.spacing(1),
-                  paddingHorizontal: 16,
-                  paddingVertical: 10,
-                  borderRadius: theme.radius.pill,
-                  borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.2)",
-                }}
-              >
-                <Text style={{ color: "#93C5FD", fontWeight: "700" }}>
-                  Alle Reviews anzeigen
-                </Text>
-              </Pressable>
-            )}
           </View>
         )}
 
-        {/* NEARBY */}
         <View style={{ paddingHorizontal: theme.spacing(2), marginTop: theme.spacing(2) }}>
           <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>
-              In der Nähe
-            </Text>
+            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>In der Nähe</Text>
           </View>
 
           {nearby.length > 0 ? (
@@ -931,10 +893,7 @@ export default function SpotDetailScreen() {
               data={nearby}
               keyExtractor={(i) => i.id}
               renderItem={({ item }) => (
-                <Pressable
-                  onPress={() => router.push(`/spot/${item.id}`)}
-                  style={{ marginRight: 14, width: 240 }}
-                >
+                <Pressable onPress={() => router.push(`/spot/${item.id}`)} style={{ marginRight: 14, width: 240 }}>
                   <View
                     style={{
                       width: 240,
@@ -947,14 +906,7 @@ export default function SpotDetailScreen() {
                     {item.photoUrl ? (
                       <Image source={{ uri: item.photoUrl }} style={{ width: "100%", height: "100%" }} />
                     ) : (
-                      <View
-                        style={{
-                          flex: 1,
-                          alignItems: "center",
-                          justifyContent: "center",
-                          backgroundColor: "#222",
-                        }}
-                      >
+                      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#222" }}>
                         <Text style={{ color: "#fff" }}>{item.name?.[0] || "?"}</Text>
                       </View>
                     )}
@@ -1001,13 +953,11 @@ export default function SpotDetailScreen() {
         <View style={{ height: 80 }} />
       </Animated.ScrollView>
 
-      {/* FAB */}
       <Animated.View
         style={{
           position: "absolute",
           bottom: 24 + insets.bottom,
           right: 24,
-          transform: [{ translateY: 0 }],
           opacity: 1,
         }}
       >
@@ -1022,27 +972,12 @@ export default function SpotDetailScreen() {
         </Pressable>
       </Animated.View>
 
-      <LoginPromptModal
-        visible={showLoginPrompt}
-        onClose={() => setShowLoginPrompt(false)}
-      />
+      <LoginPromptModal visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
     </View>
   );
 }
 
-
-/* ========= STYLES ========= */
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-
-  headerBarSafeArea: { paddingHorizontal: theme.spacing(2) },
-  headerIconBtn: {
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: theme.radius.pill,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-  /* ===== Header (Top Bar) ===== */
   topBar: {
     height: 52,
     borderRadius: 28,
@@ -1050,19 +985,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 12,
-
-    // Glass look + feiner Rand
-    backgroundColor: "transparent", // 👈 kein Hintergrund
-    borderWidth: 0,                 // 👈 kein Rahmen
-    shadowColor: "transparent",     // 👈 kein Schatten
-    elevation: 0,  
-
-    // Soft ambient shadow
-
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    shadowColor: "transparent",
+    elevation: 0,
     shadowOpacity: 0.3,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 12 },
-
   },
   topBarBtn: {
     width: 48,
@@ -1074,216 +1003,8 @@ const styles = StyleSheet.create({
   },
   topBarActions: {
     flexDirection: "row",
-    columnGap: 10, // RN 0.73+; falls älter: nutze marginLeft am 2. Button
+    columnGap: 10,
   },
-
-
-  headerWrap: { position: "relative" },
-  slideContainer: {
-    width: "100%",
-    height: HEADER_MAX,
-    overflow: "hidden",
-    borderBottomLeftRadius: theme.radius.xxl,
-    borderBottomRightRadius: theme.radius.xxl,
-    backgroundColor: "#111",
-  },
-
-  headerFallback: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerFallbackText: {
-    fontSize: 48,
-    fontWeight: "900",
-    color: theme.colors.text,
-  },
-
-  headerGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 160,
-  },
-
-  title: {
-    ...typography.h1,
-    color: theme.colors.text,
-    fontSize: 34,
-    fontWeight: "900",
-  },
-
-  badgeSoft: {
-    borderRadius: theme.radius.pill,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "rgba(255,255,255,0.06)",
-  },
-
-  sectionBox: {
-    backgroundColor: theme.colors.surfaceElevated,
-    borderRadius: theme.radius.xxl,
-    padding: theme.spacing(2),
-    marginHorizontal: theme.spacing(2),
-    marginTop: theme.spacing(2),
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.06)",
-  },
-
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  sectionHeaderTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "800",
-  },
-
-  text: {
-    ...typography.body,
-    color: theme.colors.text,
-    fontSize: 15,
-    marginBottom: 6,
-  },
-  textMuted: {
-    ...typography.body,
-    color: theme.colors.textMuted,
-    fontSize: 14,
-  },
-  link: {
-    color: "#93C5FD",
-    fontSize: 15,
-    marginBottom: 4,
-  },
-
-  ghostChip: {
-    marginTop: 10,
-    alignSelf: "flex-start",
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderColor: "rgba(255,255,255,0.12)",
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: theme.radius.pill,
-  },
-  ghostChipText: {
-    color: theme.colors.text,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-
-  chip: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: theme.radius.pill,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-  },
-  chipText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 12,
-  },
-
-  moodPillsWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
-  moodPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: theme.radius.pill,
-    borderWidth: 2,
-    borderColor: "transparent",
-    backgroundColor: "transparent",
-    gap: 10,
-    maxWidth: "100%",
-  },
-  moodPillText: {
-    color: "#fff",
-    fontWeight: "800",
-    fontSize: 14,
-  },
-  moodPillCount: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: theme.radius.pill,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  moodPillCountText: {
-    color: "#fff",
-    fontWeight: "900",
-    fontSize: 12,
-  },
-
-  hoursRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 6,
-  },
-
-  reviewCard: {
-    backgroundColor: "rgba(255,255,255,0.05)",
-    borderColor: "rgba(255,255,255,0.1)",
-    borderWidth: 1,
-    borderRadius: theme.radius.lg,
-    padding: theme.spacing(1.5),
-    marginBottom: theme.spacing(1.5),
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  reviewName: {
-    color: theme.colors.text,
-    fontWeight: "800",
-    fontSize: 15,
-  },
-  reviewDate: {
-    color: theme.colors.textMuted,
-    fontSize: 12,
-  },
-  reviewText: {
-    color: theme.colors.text,
-    fontSize: 14,
-    lineHeight: 19,
-    marginTop: 6,
-  },
-  reviewImage: {
-    width: "100%",
-    height: 150,
-    borderRadius: theme.radius.lg,
-    backgroundColor: "#111",
-    marginTop: 10,
-  },
-  moreReviewsBtn: {
-    alignSelf: "center",
-    marginTop: theme.spacing(1),
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: theme.radius.pill,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
-  },
-  moreReviewsText: {
-    color: "#93C5FD",
-    fontWeight: "700",
-  },
-
   fab: {
     width: 64,
     height: 64,
@@ -1296,43 +1017,5 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
     elevation: 8,
-  },
-
-  nearbyImageWrap: {
-    width: 240,
-    height: 140,
-    borderRadius: theme.radius.lg,
-    overflow: "hidden",
-    backgroundColor: "#111",
-  },
-  nearbyImg: { width: "100%", height: "100%" },
-  nearbyGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 80,
-  },
-  nearbyDistance: {
-    position: "absolute",
-    right: 8,
-    bottom: 8,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    borderRadius: theme.radius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-  },
-  nearbyDistanceText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  resultTitle: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "800",
-    marginTop: 8,
   },
 });

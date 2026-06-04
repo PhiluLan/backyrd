@@ -1,100 +1,273 @@
-// app/(tabs)/profile.tsx
-import React, { useEffect, useState, useRef } from "react";
+// mobile/app/(tabs)/profile.tsx
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  Image,
-  Pressable,
+  Alert,
   Animated,
   Dimensions,
-  TextInput,
-  StyleSheet,
-  Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
-import { supabase } from "../../lib/supabase";
-import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { decode } from "base64-arraybuffer";
-import { PanResponder } from "react-native";
+
+import { supabase } from "@/lib/supabase";
+import { ensureProfile } from "@/lib/profile";
+import SocialPostCard, { type SocialFeedPost } from "@/components/PostCard";
+import CommentsSheet from "@/components/CommentsSheet";
 
 const { width } = Dimensions.get("window");
 
+type ProfileTab = "posts" | "favorites" | "badges";
+
+type ProfileRow = {
+  id: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  username?: string | null;
+  avatar_url?: string | null;
+  header_photo_url?: string | null;
+  bio?: string | null;
+  city?: string | null;
+  country?: string | null;
+  since_date?: string | null;
+  pronouns?: string | null;
+  birthdate?: string | null;
+  instagram?: string | null;
+  tiktok?: string | null;
+  website?: string | null;
+  contact_email?: string | null;
+  interests?: string | null;
+  personality?: string | null;
+  job_title?: string | null;
+  languages?: string | string[] | null;
+};
+
+type FavoriteRow = {
+  spot_id: string;
+  spots?: {
+    id?: string;
+    name?: string | null;
+    city?: string | null;
+    header_photo_path?: string | null;
+    spot_photos?: Array<{ url?: string | null }> | null;
+  } | null;
+};
+
+type BadgeRow = {
+  achievements?: {
+    name?: string | null;
+    icon_url?: string | null;
+    tier?: string | null;
+  } | null;
+};
+
+function formatSince(value?: string | null) {
+  if (!value) return null;
+  const year = String(value).slice(0, 4);
+  return year && year !== "null" ? `Local since ${year}` : null;
+}
+
+function profileName(profile: ProfileRow | null) {
+  const full = `${profile?.first_name ?? ""} ${profile?.last_name ?? ""}`.trim();
+  return full || profile?.username || "Backyrd User";
+}
+
+function profileHandle(profile: ProfileRow | null) {
+  return profile?.username ? `@${profile.username}` : "@backyrd";
+}
+
+function splitChips(value?: string | string[] | null) {
+  if (Array.isArray(value)) return value.map((v) => `${v}`.trim()).filter(Boolean);
+  if (typeof value !== "string") return [];
+  return value
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+function getSpotPhoto(item: FavoriteRow) {
+  return (
+    item.spots?.header_photo_path ||
+    item.spots?.spot_photos?.find((p) => p?.url)?.url ||
+    "https://placehold.co/800x1000/17171D/FFFFFF?text=Backyrd"
+  );
+}
+
+function errorText(error: any) {
+  return error?.message || error?.details || error?.hint || "Bitte nochmals versuchen.";
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
-  const [tab, setTab] = useState<"posts" | "favorites" | "badges">("posts");
-  const [reviews, setReviews] = useState<any[]>([]);
-  const [favorites, setFavorites] = useState<any[]>([]);
-  const [badges, setBadges] = useState<any[]>([]);
-  const [showEdit, setShowEdit] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [showInfo, setShowInfo] = useState(false);
-  const infoTranslateY = useRef(new Animated.Value(0)).current; 
-  const infoStartY = useRef(0);
-
-
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  // ---------------------------------------------------------
-  // LOAD USER + DATA
-  // ---------------------------------------------------------
-  useEffect(() => {
-    supabase.auth.getUser().then(async ({ data }) => {
-      const u = data.user;
-      setUser(u);
-      if (!u) return;
+  const [checkedAuth, setCheckedAuth] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", u.id)
-        .single();
-      setProfile(prof);
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
 
-      const { data: rev } = await supabase
-        .from("reviews")
-        .select("*, spots(name, header_photo_path, spot_photos(url))")
-        .eq("user_id", u.id)
-        .order("created_at", { ascending: false });
-      setReviews(rev || []);
+  const [posts, setPosts] = useState<SocialFeedPost[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteRow[]>([]);
+  const [badges, setBadges] = useState<BadgeRow[]>([]);
 
-      const { data: fav } = await supabase
-        .from("favorites")
-        .select("spot_id, spots(name, header_photo_path, spot_photos(url))")
-        .eq("user_id", u.id);
-      setFavorites(fav || []);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
 
-      const { data: badgeRows } = await supabase
-        .from("user_achievements")
-        .select("achievements(name, icon_url, tier)")
-        .eq("user_id", u.id);
-      setBadges(badgeRows || []);
-    });
-  }, []);
+  const [tab, setTab] = useState<ProfileTab>("posts");
+  const [showEdit, setShowEdit] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // ---------------------------------------------------------
-  // HEADER ANIMATION (nur Optik, kein Sticky mehr)
-  // ---------------------------------------------------------
-  const HEADER_MAX = 320;
-  const HEADER_MIN = 160;
+  const [selectedCommentsPost, setSelectedCommentsPost] = useState<SocialFeedPost | null>(null);
+
+  const HEADER_MAX = 310;
+  const HEADER_MIN = 128;
 
   const headerHeight = scrollY.interpolate({
-    inputRange: [0, 200],
+    inputRange: [0, 220],
     outputRange: [HEADER_MAX, HEADER_MIN],
     extrapolate: "clamp",
   });
 
-  // ---------------------------------------------------------
-  // AVATAR / HEADER UPLOAD
-  // ---------------------------------------------------------
+  const displayName = useMemo(() => profileName(profile), [profile]);
+  const handle = useMemo(() => profileHandle(profile), [profile]);
+  const sinceLabel = useMemo(() => formatSince(profile?.since_date), [profile?.since_date]);
+
+  const headerImage =
+    profile?.header_photo_url ||
+    profile?.avatar_url ||
+    "https://placehold.co/1000x800/111116/FFFFFF?text=Backyrd";
+
+  const avatarImage =
+    profile?.avatar_url || "https://placehold.co/240x240/22222A/FFFFFF?text=BU";
+
+  const interestChips = useMemo(() => splitChips(profile?.interests).slice(0, 5), [profile?.interests]);
+  const personalityChips = useMemo(() => splitChips(profile?.personality).slice(0, 4), [profile?.personality]);
+
+  const loadForUser = useCallback(
+    async (currentUser: any) => {
+      setUser(currentUser);
+
+      if (!currentUser) {
+        setProfile(null);
+        setPosts([]);
+        setFavorites([]);
+        setBadges([]);
+        setFollowersCount(0);
+        setFollowingCount(0);
+        router.replace("/gate" as any);
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        await ensureProfile();
+
+        const [
+          profileRes,
+          feedRes,
+          favoritesRes,
+          badgesRes,
+          followerRes,
+          followingRes,
+        ] = await Promise.all([
+          supabase.from("profiles").select("*").eq("id", currentUser.id).maybeSingle(),
+
+          // Uses the same social feed source as public profiles/feed.
+          // The client filters to the current user so the own profile and public profile feel identical.
+          supabase.rpc("get_social_feed_v1", {
+            p_limit: 80,
+            p_feed_mode: "for_you",
+            p_city: null,
+            p_cursor: null,
+          }),
+
+          supabase
+            .from("favorites")
+            .select("spot_id, spots(id, name, city, header_photo_path, spot_photos(url))")
+            .eq("user_id", currentUser.id),
+
+          supabase
+            .from("user_achievements")
+            .select("achievements(name, icon_url, tier)")
+            .eq("user_id", currentUser.id),
+
+          supabase
+            .from("follows")
+            .select("follower", { count: "exact", head: true })
+            .eq("following", currentUser.id),
+
+          supabase
+            .from("follows")
+            .select("following", { count: "exact", head: true })
+            .eq("follower", currentUser.id),
+        ]);
+
+        if (profileRes.error) console.log("profile load failed", profileRes.error);
+        if (feedRes.error) console.log("profile posts load failed", feedRes.error);
+        if (favoritesRes.error) console.log("favorites load failed", favoritesRes.error);
+        if (badgesRes.error) console.log("badges load failed", badgesRes.error);
+        if (followerRes.error) console.log("followers count failed", followerRes.error);
+        if (followingRes.error) console.log("following count failed", followingRes.error);
+
+        setProfile((profileRes.data ?? {}) as ProfileRow);
+
+        const allFeedPosts = Array.isArray(feedRes.data) ? (feedRes.data as SocialFeedPost[]) : [];
+        setPosts(allFeedPosts.filter((post) => post.user_id === currentUser.id));
+
+        setFavorites((favoritesRes.data ?? []) as FavoriteRow[]);
+        setBadges((badgesRes.data ?? []) as BadgeRow[]);
+        setFollowersCount(followerRes.count ?? 0);
+        setFollowingCount(followingRes.count ?? 0);
+      } catch (error: any) {
+        console.log("profile bootstrap failed", error?.message ?? error);
+        Alert.alert("Profil konnte nicht geladen werden", errorText(error));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [router]
+  );
+
+  useEffect(() => {
+    let active = true;
+
+    supabase.auth
+      .getUser()
+      .then(async ({ data }) => {
+        if (!active) return;
+        await loadForUser(data.user ?? null);
+      })
+      .finally(() => {
+        if (active) setCheckedAuth(true);
+      });
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!active) return;
+      await loadForUser(session?.user ?? null);
+      if (active) setCheckedAuth(true);
+    });
+
+    return () => {
+      active = false;
+      listener?.subscription.unsubscribe();
+    };
+  }, [loadForUser, refreshKey]);
+
   async function pickImageAndUploadAvatar() {
     if (!user) return;
 
@@ -115,7 +288,6 @@ export default function ProfileScreen() {
     const fileName = `avatar_${user.id}_${Date.now()}.${ext}`;
     const arrayBuffer = decode(asset.base64);
 
-    // Upload
     const { error: uploadError } = await supabase.storage
       .from("profile-photos")
       .upload(fileName, arrayBuffer, {
@@ -123,91 +295,34 @@ export default function ProfileScreen() {
         upsert: true,
       });
 
-    if (uploadError)
-      return Alert.alert("Upload-Fehler", uploadError.message);
+    if (uploadError) {
+      Alert.alert("Upload-Fehler", uploadError.message);
+      return;
+    }
 
-    // Public URL holen
-    const { data } = supabase.storage
-      .from("profile-photos")
-      .getPublicUrl(fileName);
-
+    const { data } = supabase.storage.from("profile-photos").getPublicUrl(fileName);
     const url = data.publicUrl;
 
-    // Avatar UND Header aktualisieren
     const { error: updateError } = await supabase
       .from("profiles")
       .update({
         avatar_url: url,
-        header_photo_url: url, // 👈 AUTOMATISCH
+        header_photo_url: url,
       })
       .eq("id", user.id);
 
-    if (updateError)
-      return Alert.alert("Fehler beim Speichern", updateError.message);
+    if (updateError) {
+      Alert.alert("Fehler beim Speichern", updateError.message);
+      return;
+    }
 
-    // Lokales Profil aktualisieren
-    setProfile({
-      ...profile,
+    setProfile((prev) => ({
+      ...(prev ?? { id: user.id }),
       avatar_url: url,
       header_photo_url: url,
-    });
+    }));
   }
 
-
-  // Convenience wrappers
-
-  const InfoRow = ({ label, value }) => {
-    if (!value) return null;
-
-    return (
-      <View style={{ marginBottom: 18 }}>
-        <Text style={{ color: "#999", fontSize: 13, marginBottom: 4 }}>
-          {label}
-        </Text>
-        <Text style={{ color: "#fff", fontSize: 16 }}>{value}</Text>
-      </View>
-    );
-  };
-
-  const infoPan = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onPanResponderGrant: (_, gestureState) => {
-      infoStartY.current = gestureState.dy;
-    },
-    onPanResponderMove: (_, gestureState) => {
-      const drag = gestureState.dy - infoStartY.current;
-      if (drag > 0) {
-        infoTranslateY.setValue(drag);
-      }
-    },
-    onPanResponderRelease: (_, gestureState) => {
-      const drag = gestureState.dy - infoStartY.current;
-
-      // Wenn genug runtergezogen → sheet schließen
-      if (drag > 120) {
-        Animated.timing(infoTranslateY, {
-          toValue: 800,
-          duration: 250,
-          useNativeDriver: true,
-        }).start(() => {
-          setShowInfo(false);
-          infoTranslateY.setValue(0);
-        });
-      } else {
-        // Zurückfedern
-        Animated.spring(infoTranslateY, {
-          toValue: 0,
-          bounciness: 6,
-          useNativeDriver: true,
-        }).start();
-      }
-    },
-  });
-
-
-  // ---------------------------------------------------------
-  // SAVE PROFILE
-  // ---------------------------------------------------------
   async function saveProfile() {
     if (!user || !profile) return;
 
@@ -221,12 +336,10 @@ export default function ProfileScreen() {
         bio: profile.bio,
         city: profile.city,
         since_date: profile.since_date,
-
-        // neue Felder:
         username: profile.username,
         pronouns: profile.pronouns,
         country: profile.country,
-        birthdate: profile.birthdate, // erwartet "YYYY-MM-DD"
+        birthdate: profile.birthdate,
         instagram: profile.instagram,
         tiktok: profile.tiktok,
         website: profile.website,
@@ -240,703 +353,399 @@ export default function ProfileScreen() {
 
     if (error) {
       Alert.alert("Fehler", error.message);
-    } else {
-      setShowEdit(false);
-      Alert.alert("Gespeichert", "Profil aktualisiert");
+      return;
     }
+
+    setShowEdit(false);
   }
 
-  if (!profile)
+  async function toggleReaction(postId: string, reactionType: "like" | "save", active: boolean) {
+    const { error } = await supabase.rpc("react_to_social_post_v1", {
+      p_post_id: postId,
+      p_reaction_type: reactionType,
+      p_active: active,
+    });
+
+    if (error) throw error;
+
+    setPosts((current) =>
+      current.map((post) => {
+        if (post.post_id !== postId) return post;
+
+        if (reactionType === "like") {
+          const wasActive = Boolean(post.viewer_has_liked);
+          return {
+            ...post,
+            viewer_has_liked: active,
+            like_count: Math.max(0, (post.like_count ?? 0) + (active && !wasActive ? 1 : !active && wasActive ? -1 : 0)),
+          };
+        }
+
+        const wasActive = Boolean(post.viewer_has_saved);
+        return {
+          ...post,
+          viewer_has_saved: active,
+          save_count: Math.max(0, (post.save_count ?? 0) + (active && !wasActive ? 1 : !active && wasActive ? -1 : 0)),
+        };
+      })
+    );
+  }
+
+  function openSpot(post: SocialFeedPost) {
+    if (!post.spot_id) return;
+    router.push(`/spot/${post.spot_id}` as any);
+  }
+
+  function openComments(post: SocialFeedPost) {
+    setSelectedCommentsPost(post);
+  }
+
+  function onCommentCreated(postId: string) {
+    setPosts((current) =>
+      current.map((post) =>
+        post.post_id === postId
+          ? { ...post, comment_count: Math.max(0, (post.comment_count ?? 0) + 1) }
+          : post
+      )
+    );
+  }
+
+  if (!checkedAuth) {
     return (
       <View style={styles.center}>
-        <Text style={{ color: "#999" }}>Profil wird geladen...</Text>
+        <Text style={styles.mutedText}>Profil wird geladen...</Text>
       </View>
     );
+  }
 
-  // ---------------------------------------------------------
-  // PREMIUM CARD COMPONENT
-  // ---------------------------------------------------------
-  const Card = ({
-    imageUrl,
-    title,
-    subtitle,
-    date,
-    onPress,
-  }: {
-    imageUrl: string;
-    title?: string;
-    subtitle?: string;
-    date?: string;
-    onPress?: () => void;
-  }) => {
-    const scale = useRef(new Animated.Value(1)).current;
-
-    const pressIn = () => {
-      Animated.spring(scale, {
-        toValue: 0.97,
-        useNativeDriver: true,
-      }).start();
-    };
-
-    const pressOut = () => {
-      Animated.spring(scale, {
-        toValue: 1,
-        useNativeDriver: true,
-      }).start();
-    };
-
+  if (!user) {
     return (
-      <Animated.View style={{ transform: [{ scale }] }}>
-        <Pressable
-          onPressIn={pressIn}
-          onPressOut={pressOut}
-          onPress={onPress}
-          style={styles.newCard}
-        >
-          <Image source={{ uri: imageUrl }} style={styles.newCardImage} />
-
-          <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.75)"]}
-            style={styles.newCardGradient}
-          />
-
-          <View style={styles.newCardContent}>
-            {!!title && (
-              <Text style={styles.newCardTitle} numberOfLines={1}>
-                {title}
-              </Text>
-            )}
-
-            {!!subtitle && (
-              <Text style={styles.newCardSubtitle} numberOfLines={1}>
-                {subtitle}
-              </Text>
-            )}
-
-            {!!date && (
-              <Text style={styles.newCardDate}>{date}</Text>
-            )}
-          </View>
-        </Pressable>
-      </Animated.View>
+      <View style={styles.center}>
+        <Text style={styles.mutedText}>Weiter zum Login...</Text>
+      </View>
     );
-  };
-
-  // ---------------------------------------------------------
-  // UI
-  // ---------------------------------------------------------
-  const headerImage =
-    profile.header_photo_url ||
-    profile.avatar_url ||
-    "https://placehold.co/600x400/222/fff?text=Backyrd";
-
-  const interestChips =
-    typeof profile.interests === "string"
-      ? profile.interests
-          .split(",")
-          .map((s: string) => s.trim())
-          .filter((s: string) => s.length > 0)
-      : [];
-
-  const personalityChips =
-    typeof profile.personality === "string"
-      ? profile.personality
-          .split(",")
-          .map((s: string) => s.trim())
-          .filter((s: string) => s.length > 0)
-      : [];
+  }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#0A0A0B" }}>
-      {/* HEADER-BILD IM HINTERGRUND */}
-      <Animated.View
-        style={[styles.header, { height: headerHeight }]}
-        pointerEvents="none"
-      >
-        <Image
-          source={{ uri: headerImage }}
-          style={styles.bgImage}
-          blurRadius={4}
-        />
+    <View style={styles.screen}>
+      <Animated.View style={[styles.headerBackdrop, { height: headerHeight }]} pointerEvents="none">
+        <Image source={{ uri: headerImage }} style={styles.headerImage} blurRadius={8} />
         <LinearGradient
-          colors={["rgba(0,0,0,0.3)", "rgba(0,0,0,0.95)"]}
+          colors={["rgba(0,0,0,0.08)", "rgba(10,10,11,0.72)", "#0A0A0B"]}
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
 
-      {/* ALLES SCROLLT NORMAL MIT */}
       <Animated.ScrollView
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
-        )}
+        showsVerticalScrollIndicator={false}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+          useNativeDriver: false,
+        })}
         scrollEventThrottle={16}
-        contentContainerStyle={{
-          paddingTop: HEADER_MAX - 80, // Platz für das große Headerbild
-          paddingBottom: 150,
-        }}
+        contentContainerStyle={styles.scrollContent}
       >
-        {/* HEADER-CONTENT (Avatar + Text + Bearbeiten) */}
-        <View style={{ paddingHorizontal: 20 }}>
-          <BlurView intensity={60} tint="dark" style={styles.profileHeaderBox}>
+        <View style={styles.topActions}>
+          <Pressable style={styles.circleButton} onPress={() => router.back()}>
+            <Ionicons name="chevron-back" size={25} color="#FFFFFF" />
+          </Pressable>
 
-            {/* Avatar */}
-            <Pressable onPress={pickImageAndUploadAvatar} style={styles.avatarWrapper}>
-              <Image
-                source={{
-                  uri:
-                    profile.avatar_url ||
-                    "https://placehold.co/100x100/333/FFF?text=User",
-                }}
-                style={styles.avatar}
-              />
-            </Pressable>
-            <View style={{ position: "absolute", top: 14, right: 14 }}>
-              <Pressable
-                onPress={() => setShowInfo(true)}
-                style={{
-                  backgroundColor: "rgba(255,255,255,0.15)",
-                  borderRadius: 20,
-                  padding: 6,
-                }}
-              >
-                <Ionicons name="information-circle-outline" size={20} color="#fff" />
-              </Pressable>
-            </View>
-
-
-            {/* Name + Username */}
-            <Text style={styles.nameText}>
-              {profile.first_name || "User"} {profile.last_name || ""}
-            </Text>
-
-            {profile.username && (
-              <Text style={styles.usernameText}>
-                @{profile.username}
-              </Text>
-            )}
-
-            {/* Stadt + "seit" */}
-            {(profile.city || profile.since_date) && (
-              <Text style={styles.cityText}>
-                📍 {profile.city || "Unbekannt"}
-                {profile.since_date ? ` • seit ${profile.since_date}` : ""}
-              </Text>
-            )}
-
-            {/* Bio */}
-            {profile.bio && (
-              <Text style={styles.bioText} numberOfLines={3}>
-                {profile.bio}
-              </Text>
-            )}
-
-            {/* Interests */}
-            {interestChips.length > 0 && (
-              <View style={styles.chipRow}>
-                {interestChips.slice(0, 4).map((chip: string, idx: number) => (
-                  <View key={idx} style={styles.moodChip}>
-                    <Text style={styles.moodChipText}>{chip}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* Personality */}
-            {personalityChips.length > 0 && (
-              <View style={styles.chipRow}>
-                {personalityChips.slice(0, 3).map((chip: string, idx: number) => (
-                  <View key={idx} style={styles.subtleChip}>
-                    <Text style={styles.subtleChipText}>{chip}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* Social Links (nur anzeigen, wenn vorhanden) */}
-            {(profile.instagram || profile.tiktok || profile.website) && (
-              <View style={styles.socialRow}>
-                {profile.instagram && (
-                  <View style={styles.socialItem}>
-                    <Ionicons name="logo-instagram" size={16} color="#fff" />
-                    <Text style={styles.socialText}>
-                      @{profile.instagram}
-                    </Text>
-                  </View>
-                )}
-                {profile.tiktok && (
-                  <View style={styles.socialItem}>
-                    <Ionicons name="logo-tiktok" size={16} color="#fff" />
-                    <Text style={styles.socialText}>
-                      @{profile.tiktok}
-                    </Text>
-                  </View>
-                )}
-                {profile.website && (
-                  <View style={styles.socialItem}>
-                    <Ionicons name="globe-outline" size={16} color="#fff" />
-                    <Text style={styles.socialText}>
-                      {profile.website}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
-
-            {/* Bearbeiten */}
-            <Pressable onPress={() => setShowEdit(true)} style={styles.editBtn}>
-              <Ionicons name="pencil" size={16} color="#fff" />
-              <Text style={styles.editBtnText}>Profil bearbeiten</Text>
-            </Pressable>
-          </BlurView>
-
-          {/* Tabs direkt UNTER dem Header-Block mit Abstand */}
-          <View style={styles.tabsWrapper}>
-            <View style={[styles.tabRow, { columnGap: 30 }]}>
-              {["posts", "favorites", "badges"].map((t) => (
-                <Pressable key={t} onPress={() => setTab(t as any)}>
-                  <Text
-                    style={[
-                      styles.tabText,
-                      tab === t && { color: "#fff", fontWeight: "800" },
-                    ]}
-                  >
-                    {t === "posts"
-                      ? "Beiträge"
-                      : t === "favorites"
-                      ? "Favoriten"
-                      : "Badges"}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        </View>
-
-        {/* CONTENT */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 10 }}>
-          {/* POSTS */}
-          {tab === "posts" && (
-            <View>
-              {reviews.map((item) => {
-                const photo =
-                  item.spots?.header_photo_path ||
-                  item.spots?.spot_photos?.[0]?.url ||
-                  item.photo_path ||
-                  "https://placehold.co/400x300";
-
-                return (
-                  <View key={item.id}>
-                    <Card
-                      imageUrl={photo}
-                      title={item.spots?.name}
-                      subtitle={item.text?.slice(0, 60) || ""}
-                      date={new Date(item.created_at).toLocaleDateString()}
-                    />
-
-                    {/* Review Info */}
-                    <View style={styles.reviewInfoBox}>
-                      <View style={styles.moodRow}>
-                        {item.mood_a && (
-                          <View style={styles.moodChip}>
-                            <Text style={styles.moodChipText}>{item.mood_a}</Text>
-                          </View>
-                        )}
-                        {item.mood_b && (
-                          <View style={styles.moodChip}>
-                            <Text style={styles.moodChipText}>{item.mood_b}</Text>
-                          </View>
-                        )}
-                      </View>
-
-                      {item.text && (
-                        <Text style={styles.reviewText}>{item.text}</Text>
-                      )}
-
-                      <Text style={styles.reviewDateSmall}>
-                        {new Date(item.created_at).toLocaleDateString()}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-
-          {/* FAVORITES */}
-          {tab === "favorites" && (
-            <View>
-              {favorites.map((item) => {
-                const photo =
-                  item.spots?.header_photo_path ||
-                  item.spots?.spot_photos?.[0]?.url ||
-                  "https://placehold.co/400x300";
-
-                return (
-                  <Card
-                    key={item.spot_id}
-                    imageUrl={photo}
-                    title={item.spots?.name}
-                  />
-                );
-              })}
-            </View>
-          )}
-
-          {/* BADGES */}
-          {tab === "badges" && (
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 16 }}>
-              {badges.map((b, i) => (
-                <View key={i} style={styles.badge}>
-                  <Image
-                    source={{ uri: b.achievements.icon_url }}
-                    style={styles.badgeIcon}
-                  />
-                  <Text style={styles.badgeName}>{b.achievements.name}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* LOGOUT */}
-          <Pressable
-            onPress={async () => {
-              await supabase.auth.signOut();
-              router.replace("/(tabs)");
-            }}
-            style={styles.logoutBtn}
-          >
-            <Ionicons name="log-out-outline" size={18} color="#fff" />
-            <Text style={styles.logoutText}>Logout</Text>
+          <Pressable style={styles.circleButton} onPress={() => setRefreshKey((v) => v + 1)}>
+            <Ionicons name="refresh" size={22} color="#FFFFFF" />
           </Pressable>
         </View>
-      </Animated.ScrollView>
 
-      {showInfo && (
-        <Animated.View
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: "75%",
-            transform: [{ translateY: infoTranslateY }],
-          }}
-          {...infoPan.panHandlers}
-        >
-          <BlurView
-            intensity={70}
-            tint="dark"
-            style={{
-              flex: 1,
-              borderTopLeftRadius: 26,
-              borderTopRightRadius: 26,
-              padding: 20,
-              backgroundColor: "rgba(0,0,0,0.75)",
-            }}
-          >
-            {/* Handle */}
-            <View style={{ alignItems: "center", marginBottom: 20 }}>
-              <View
-                style={{
-                  width: 40,
-                  height: 4,
-                  backgroundColor: "rgba(255,255,255,0.3)",
-                  borderRadius: 2,
-                  marginBottom: 16,
-                }}
-              />
-              <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>
-                Profilinformation
+        <View style={styles.profileCard}>
+          <View style={styles.profileTopRow}>
+            <Pressable onPress={pickImageAndUploadAvatar} style={styles.avatarRing}>
+              <Image source={{ uri: avatarImage }} style={styles.avatar} />
+            </Pressable>
+
+            <View style={styles.identityBlock}>
+              <Text style={styles.displayName} numberOfLines={1}>
+                {displayName}
+              </Text>
+              <Text style={styles.handleText} numberOfLines={1}>
+                {handle}
+                {profile?.city ? ` · ${profile.city}` : ""}
               </Text>
             </View>
+          </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/** dein Info Content **/}
-              <InfoRow label="Name" value={`${profile.first_name} ${profile.last_name}`} />
-              <InfoRow label="Stadt" value={profile.city} />
-              <InfoRow label="Local since" value={profile.since_date} />
-              <InfoRow label="Bio" value={profile.bio} />
-              <InfoRow label="Beruf" value={profile.job_title} />
-              <InfoRow label="Interessen" value={profile.interests?.join(", ")} />
-              <InfoRow label="Sprachen" value={profile.languages?.join(", ")} />
-              <InfoRow label="Instagram" value={profile.instagram} />
-              <InfoRow label="Website" value={profile.website} />
-            </ScrollView>
+          {!!profile?.bio && <Text style={styles.bioText}>{profile.bio}</Text>}
+
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber}>{posts.length}</Text>
+              <Text style={styles.statLabel}>Posts</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber}>{followersCount}</Text>
+              <Text style={styles.statLabel}>Follower</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber}>{followingCount}</Text>
+              <Text style={styles.statLabel}>Folgt</Text>
+            </View>
+          </View>
+
+          <View style={styles.profileChips}>
+            {sinceLabel && (
+              <View style={styles.softChip}>
+                <Ionicons name="location-outline" size={15} color="#DADAE0" />
+                <Text style={styles.softChipText}>{sinceLabel}</Text>
+              </View>
+            )}
+
+            {profile?.instagram && (
+              <View style={styles.softChip}>
+                <Ionicons name="logo-instagram" size={15} color="#DADAE0" />
+                <Text style={styles.softChipText}>@{profile.instagram}</Text>
+              </View>
+            )}
+
+            {profile?.website && (
+              <View style={styles.softChip}>
+                <Ionicons name="globe-outline" size={15} color="#DADAE0" />
+                <Text style={styles.softChipText}>{profile.website}</Text>
+              </View>
+            )}
+          </View>
+
+          {(interestChips.length > 0 || personalityChips.length > 0) && (
+            <View style={styles.tasteChips}>
+              {[...interestChips, ...personalityChips].slice(0, 6).map((chip) => (
+                <View key={chip} style={styles.tasteChip}>
+                  <Text style={styles.tasteChipText}>{chip}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <Pressable style={styles.editProfileButton} onPress={() => setShowEdit(true)}>
+            <Ionicons name="pencil" size={18} color="#0A0A0B" />
+            <Text style={styles.editProfileText}>Profil bearbeiten</Text>
+          </Pressable>
+        </View>
+
+        <Pressable style={styles.historyButton} onPress={() => router.push("/profile/history" as any)}>
+          <View style={styles.historyLeft}>
+            <Ionicons name="time-outline" size={22} color="#FFFFFF" />
+            <Text style={styles.historyText}>Decision History</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={21} color="rgba(255,255,255,0.76)" />
+        </Pressable>
+
+        <View style={styles.tabShell}>
+          {[
+            ["posts", "Beiträge"],
+            ["favorites", "Favoriten"],
+            ["badges", "Badges"],
+          ].map(([key, label]) => {
+            const active = tab === key;
+            return (
+              <Pressable
+                key={key}
+                style={[styles.tabButton, active && styles.tabButtonActive]}
+                onPress={() => setTab(key as ProfileTab)}
+              >
+                <Text style={[styles.tabText, active && styles.tabTextActive]}>{label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {loading ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>Lade Profil...</Text>
+          </View>
+        ) : (
+          <View style={styles.contentArea}>
+            {tab === "posts" && (
+              <>
+                {posts.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="albums-outline" size={34} color="rgba(255,255,255,0.42)" />
+                    <Text style={styles.emptyTitle}>Noch keine Moments</Text>
+                    <Text style={styles.emptyText}>Deine Bewertungen und Posts erscheinen hier.</Text>
+                  </View>
+                ) : (
+                  posts.map((post) => (
+                    <SocialPostCard
+                      key={post.post_id}
+                      post={post}
+                      currentUserId={user.id}
+                      onToggleReaction={toggleReaction}
+                      onOpenSpot={openSpot}
+                      onOpenComments={openComments}
+                    />
+                  ))
+                )}
+              </>
+            )}
+
+            {tab === "favorites" && (
+              <>
+                {favorites.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="bookmark-outline" size={34} color="rgba(255,255,255,0.42)" />
+                    <Text style={styles.emptyTitle}>Noch keine Favoriten</Text>
+                    <Text style={styles.emptyText}>Gemerkte Spots landen hier.</Text>
+                  </View>
+                ) : (
+                  favorites.map((item) => (
+                    <Pressable
+                      key={item.spot_id}
+                      style={styles.favoriteCard}
+                      onPress={() => router.push(`/spot/${item.spot_id}` as any)}
+                    >
+                      <Image source={{ uri: getSpotPhoto(item) }} style={styles.favoriteImage} />
+                      <LinearGradient
+                        colors={["transparent", "rgba(0,0,0,0.88)"]}
+                        style={StyleSheet.absoluteFill}
+                      />
+                      <View style={styles.favoriteContent}>
+                        <Text style={styles.favoriteTitle}>{item.spots?.name ?? "Spot"}</Text>
+                        {!!item.spots?.city && <Text style={styles.favoriteMeta}>{item.spots.city}</Text>}
+                      </View>
+                    </Pressable>
+                  ))
+                )}
+              </>
+            )}
+
+            {tab === "badges" && (
+              <>
+                {badges.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="trophy-outline" size={34} color="rgba(255,255,255,0.42)" />
+                    <Text style={styles.emptyTitle}>Noch keine Badges</Text>
+                    <Text style={styles.emptyText}>Badges erscheinen, wenn du Backyrd nutzt.</Text>
+                  </View>
+                ) : (
+                  <View style={styles.badgeGrid}>
+                    {badges.map((badge, index) => (
+                      <View key={`${badge.achievements?.name ?? "badge"}-${index}`} style={styles.badgeCard}>
+                        {!!badge.achievements?.icon_url ? (
+                          <Image source={{ uri: badge.achievements.icon_url }} style={styles.badgeIcon} />
+                        ) : (
+                          <View style={styles.badgeFallback}>
+                            <Ionicons name="trophy-outline" size={24} color="#FFFFFF" />
+                          </View>
+                        )}
+                        <Text style={styles.badgeName}>{badge.achievements?.name ?? "Badge"}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
 
             <Pressable
-              onPress={() => {
-                Animated.timing(infoTranslateY, {
-                  toValue: 800,
-                  duration: 250,
-                  useNativeDriver: true,
-                }).start(() => {
-                  setShowInfo(false);
-                  infoTranslateY.setValue(0);
-                });
+              onPress={async () => {
+                await supabase.auth.signOut();
+                router.replace("/gate" as any);
               }}
-              style={{
-                marginTop: 20,
-                paddingVertical: 14,
-                backgroundColor: "rgba(255,255,255,0.15)",
-                borderRadius: 16,
-                alignItems: "center",
-              }}
+              style={styles.logoutButton}
             >
-              <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
-                Schließen
-              </Text>
+              <Ionicons name="log-out-outline" size={19} color="#FFFFFF" />
+              <Text style={styles.logoutText}>Logout</Text>
             </Pressable>
-          </BlurView>
-        </Animated.View>
-      )}
+          </View>
+        )}
+      </Animated.ScrollView>
 
-
-
-      {/* ---------- EDIT BOTTOM SHEET ---------- */}
       {showEdit && (
-        <BlurView
-          intensity={80}
-          tint="dark"
-          style={styles.editSheetOverlay}
-        >
+        <BlurView intensity={85} tint="dark" style={styles.editOverlay}>
           <KeyboardAvoidingView
-            style={{ flex: 1, justifyContent: "flex-end" }}
+            style={styles.editKeyboard}
             behavior={Platform.OS === "ios" ? "padding" : undefined}
           >
-            <View style={styles.editSheetContainer}>
+            <View style={styles.editSheet}>
               <View style={styles.sheetHandle} />
 
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 120 }}
-              >
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.editContent}>
                 <Text style={styles.editTitle}>Profil bearbeiten</Text>
-                {/* Avatar ändern */}
-                <Pressable
-                  onPress={pickImageAndUploadAvatar}
-                  style={{ alignSelf: "center", marginBottom: 18 }}
-                >
-                  <View style={{ position: "relative" }}>
-                    {/* Avatar image */}
-                    <Image
-                      source={{ uri: profile.avatar_url }}
-                      style={{
-                        width: 110,
-                        height: 110,
-                        borderRadius: 55,
-                        borderWidth: 2,
-                        borderColor: "rgba(255,255,255,0.25)",
-                      }}
-                    />
 
-                    {/* Camera icon overlay */}
-                    <View
-                      style={{
-                        position: "absolute",
-                        right: -2,
-                        bottom: -2,
-                        width: 36,
-                        height: 36,
-                        borderRadius: 18,
-                        backgroundColor: "rgba(0,0,0,0.55)",
-                        borderWidth: 1,
-                        borderColor: "rgba(255,255,255,0.25)",
-                        justifyContent: "center",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Ionicons name="camera-outline" size={18} color="#fff" />
-                    </View>
+                <Pressable onPress={pickImageAndUploadAvatar} style={styles.editAvatarWrap}>
+                  <Image source={{ uri: avatarImage }} style={styles.editAvatar} />
+                  <View style={styles.editAvatarIcon}>
+                    <Ionicons name="camera-outline" size={18} color="#FFFFFF" />
                   </View>
-
-                  <Text
-                    style={{
-                      textAlign: "center",
-                      marginTop: 8,
-                      color: "#fff",
-                      fontSize: 13,
-                      opacity: 0.8,
-                    }}
-                  >
-                    Profilbild ändern
-                  </Text>
                 </Pressable>
 
-
-                {/* Abschnitt: Basis */}
-                <Text style={styles.sectionLabel}>Basis</Text>
-                <View style={styles.rowInputs}>
-                  <TextInput
-                    value={profile.first_name || ""}
-                    onChangeText={(t) =>
-                      setProfile({ ...profile, first_name: t })
-                    }
+                <FieldLabel label="Basis" />
+                <View style={styles.inputRow}>
+                  <ProfileInput
+                    value={profile?.first_name ?? ""}
+                    onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), first_name: text }))}
                     placeholder="Vorname"
-                    placeholderTextColor="#979AA2"
-                    style={[styles.input, { flex: 1, marginRight: 6 }]}
+                    style={{ flex: 1 }}
                   />
-                  <TextInput
-                    value={profile.last_name || ""}
-                    onChangeText={(t) =>
-                      setProfile({ ...profile, last_name: t })
-                    }
+                  <ProfileInput
+                    value={profile?.last_name ?? ""}
+                    onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), last_name: text }))}
                     placeholder="Nachname"
-                    placeholderTextColor="#979AA2"
-                    style={[styles.input, { flex: 1, marginLeft: 6 }]}
+                    style={{ flex: 1 }}
                   />
                 </View>
 
-                <TextInput
-                  value={profile.username || ""}
-                  onChangeText={(t) =>
-                    setProfile({ ...profile, username: t })
-                  }
-                  placeholder="Username (@handle)"
-                  placeholderTextColor="#979AA2"
-                  style={styles.input}
-                />
-
-                <TextInput
-                  value={profile.pronouns || ""}
-                  onChangeText={(t) =>
-                    setProfile({ ...profile, pronouns: t })
-                  }
-                  placeholder="Pronomen (z.B. sie/ihr, er/ihm)"
-                  placeholderTextColor="#979AA2"
-                  style={styles.input}
-                />
-
-                {/* Abschnitt: Ort */}
-                <Text style={styles.sectionLabel}>Ort</Text>
-                <TextInput
-                  value={profile.city || ""}
-                  onChangeText={(t) =>
-                    setProfile({ ...profile, city: t })
-                  }
-                  placeholder="Stadt"
-                  placeholderTextColor="#979AA2"
-                  style={styles.input}
-                />
-
-                <TextInput
-                  value={profile.country || ""}
-                  onChangeText={(t) =>
-                    setProfile({ ...profile, country: t })
-                  }
-                  placeholder="Land"
-                  placeholderTextColor="#979AA2"
-                  style={styles.input}
-                />
-
-                <TextInput
-                  value={profile.since_date || ""}
-                  onChangeText={(t) =>
-                    setProfile({ ...profile, since_date: t })
-                  }
-                  placeholder="Local since (YYYY-MM-DD)"
-                  placeholderTextColor="#979AA2"
-                  style={styles.input}
-                />
-
-                <TextInput
-                  value={profile.birthdate || ""}
-                  onChangeText={(t) =>
-                    setProfile({ ...profile, birthdate: t })
-                  }
-                  placeholder="Geburtstag (YYYY-MM-DD)"
-                  placeholderTextColor="#979AA2"
-                  style={styles.input}
-                />
-
-                {/* Abschnitt: Über dich */}
-                <Text style={styles.sectionLabel}>Über mich</Text>
-                <TextInput
-                  value={profile.bio || ""}
-                  onChangeText={(t) =>
-                    setProfile({ ...profile, bio: t })
-                  }
-                  placeholder="Erzähl etwas über dich..."
-                  placeholderTextColor="#979AA2"
-                  style={[styles.input, { height: 90, textAlignVertical: "top" }]}
-                  multiline
-                />
-
-                {/* Interests & Personality */}
-                <Text style={styles.sectionLabel}>Interessen</Text>
-                <TextInput
-                  value={profile.interests || ""}
-                  onChangeText={(t) => setProfile({ ...profile, interests: t })}
-                  placeholder="Interessen (kommagetrennt, z.B. Food, Craft Beer, Hidden Bars)"
-                  placeholderTextColor="#979AA2"
-                  style={styles.input}
-                />
-
-                <Text style={styles.sectionLabel}>Vibes / Persönlichkeit</Text>
-                <TextInput
-                  value={profile.personality || ""}
-                  onChangeText={(t) => setProfile({ ...profile, personality: t })}
-                  placeholder="Vibes (z.B. Chillig, Urban, Abenteuerlustig – kommagetrennt)"
-                  placeholderTextColor="#979AA2"
-                  style={styles.input}
-                />
-
-                {/* Social */}
-                <Text style={styles.sectionLabel}>Social</Text>
-                <TextInput
-                  value={profile.instagram || ""}
-                  onChangeText={(t) =>
-                    setProfile({ ...profile, instagram: t })
-                  }
-                  placeholder="Instagram (ohne @)"
-                  placeholderTextColor="#979AA2"
-                  style={styles.input}
-                />
-
-                <TextInput
-                  value={profile.tiktok || ""}
-                  onChangeText={(t) =>
-                    setProfile({ ...profile, tiktok: t })
-                  }
-                  placeholder="TikTok (ohne @)"
-                  placeholderTextColor="#979AA2"
-                  style={styles.input}
-                />
-
-                <TextInput
-                  value={profile.website || ""}
-                  onChangeText={(t) =>
-                    setProfile({ ...profile, website: t })
-                  }
-                  placeholder="Website (https://...)"
-                  placeholderTextColor="#979AA2"
-                  style={styles.input}
-                />
-
-                {/* Kontakt */}
-                <Text style={styles.sectionLabel}>Kontakt</Text>
-                <TextInput
-                  value={profile.contact_email || ""}
-                  onChangeText={(t) =>
-                    setProfile({ ...profile, contact_email: t })
-                  }
-                  placeholder="E-Mail für Anfragen (optional)"
-                  placeholderTextColor="#979AA2"
-                  style={styles.input}
-                  keyboardType="email-address"
+                <ProfileInput
+                  value={profile?.username ?? ""}
+                  onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), username: text }))}
+                  placeholder="Username"
                   autoCapitalize="none"
                 />
 
-                <Pressable onPress={saveProfile} style={styles.saveBtn}>
-                  <Text style={styles.saveBtnText}>
-                    {saving ? "Speichern..." : "Speichern"}
-                  </Text>
+                <FieldLabel label="Ort & Bio" />
+                <ProfileInput
+                  value={profile?.city ?? ""}
+                  onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), city: text }))}
+                  placeholder="Stadt"
+                />
+                <ProfileInput
+                  value={profile?.since_date ?? ""}
+                  onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), since_date: text }))}
+                  placeholder="Local since, z.B. 2012-07-01"
+                />
+                <ProfileInput
+                  value={profile?.bio ?? ""}
+                  onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), bio: text }))}
+                  placeholder="Bio"
+                  multiline
+                  style={styles.bioInput}
+                />
+
+                <FieldLabel label="Taste" />
+                <ProfileInput
+                  value={profile?.interests ?? ""}
+                  onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), interests: text }))}
+                  placeholder="Interessen, kommagetrennt"
+                />
+                <ProfileInput
+                  value={profile?.personality ?? ""}
+                  onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), personality: text }))}
+                  placeholder="Vibes, kommagetrennt"
+                />
+
+                <FieldLabel label="Social" />
+                <ProfileInput
+                  value={profile?.instagram ?? ""}
+                  onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), instagram: text }))}
+                  placeholder="Instagram ohne @"
+                  autoCapitalize="none"
+                />
+                <ProfileInput
+                  value={profile?.website ?? ""}
+                  onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), website: text }))}
+                  placeholder="Website"
+                  autoCapitalize="none"
+                />
+
+                <Pressable style={styles.saveButton} onPress={saveProfile} disabled={saving}>
+                  <Text style={styles.saveButtonText}>{saving ? "Speichern..." : "Speichern"}</Text>
                 </Pressable>
 
-                <Pressable
-                  onPress={() => setShowEdit(false)}
-                  style={styles.cancelBtn}
-                >
+                <Pressable style={styles.cancelButton} onPress={() => setShowEdit(false)}>
                   <Text style={styles.cancelText}>Abbrechen</Text>
                 </Pressable>
               </ScrollView>
@@ -944,348 +753,493 @@ export default function ProfileScreen() {
           </KeyboardAvoidingView>
         </BlurView>
       )}
+
+      <CommentsSheet
+        visible={Boolean(selectedCommentsPost)}
+        post={selectedCommentsPost}
+        onClose={() => setSelectedCommentsPost(null)}
+        onCommentCreated={onCommentCreated}
+      />
     </View>
   );
 }
 
-// ---------------------------------------------------------
-// STYLES
-// ---------------------------------------------------------
-const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+function FieldLabel({ label }: { label: string }) {
+  return <Text style={styles.fieldLabel}>{label}</Text>;
+}
 
-  header: {
+function ProfileInput({
+  style,
+  ...props
+}: React.ComponentProps<typeof TextInput>) {
+  return (
+    <TextInput
+      {...props}
+      placeholderTextColor="#85858B"
+      style={[styles.input, style]}
+    />
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#0A0A0B",
+  },
+  center: {
+    flex: 1,
+    backgroundColor: "#0A0A0B",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  mutedText: {
+    color: "#8F8F98",
+    fontSize: 15,
+    fontWeight: "650",
+  },
+  headerBackdrop: {
     position: "absolute",
     top: 0,
-    width: "100%",
+    left: 0,
+    width,
     overflow: "hidden",
   },
-  bgImage: { width, height: "100%", position: "absolute" },
-
-  // Profil Header Box
-  profileHeaderBox: {
+  headerImage: {
+    width,
+    height: "100%",
+  },
+  scrollContent: {
+    paddingTop: 76,
+    paddingHorizontal: 14,
+    paddingBottom: 148,
+  },
+  topActions: {
+    marginBottom: 26,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  circleButton: {
+    width: 48,
+    height: 48,
     borderRadius: 24,
-    paddingTop: 12,
-    paddingBottom: 18,
-    paddingHorizontal: 16,
-    backgroundColor: "rgba(18,18,20,0.85)",
+    backgroundColor: "rgba(18,18,24,0.72)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(255,255,255,0.14)",
     alignItems: "center",
+    justifyContent: "center",
   },
-
-  avatarWrapper: {
-    marginTop: 6,
-    borderRadius: 999,
+  profileCard: {
+    borderRadius: 34,
+    backgroundColor: "rgba(14,14,20,0.88)",
+    borderWidth: 1,
+    borderColor: "#282832",
+    padding: 20,
     overflow: "hidden",
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.4)",
   },
-
-  avatar: { width: 100, height: 100, borderRadius: 50 },
-
-  changeCoverBtn: {
-    alignSelf: "flex-end",
+  profileTopRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    marginBottom: 4,
+    gap: 17,
   },
-  changeCoverText: {
-    marginLeft: 4,
-    color: "#fff",
-    fontSize: 11,
+  avatarRing: {
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    padding: 3,
+    backgroundColor: "#101016",
   },
-
-  nameText: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "800",
-    textAlign: "center",
-    marginTop: 10,
-  },
-
-  usernameText: {
-    color: "#A6A8AD",
-    fontSize: 13,
-    marginTop: 2,
-    textAlign: "center",
-  },
-
-  cityText: { color: "#C7C7CC", textAlign: "center", marginTop: 4 },
-
-  bioText: {
-    color: "#A6A8AD",
-    textAlign: "center",
-    marginTop: 8,
-    fontStyle: "italic",
-  },
-
-  chipRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 8,
-    marginTop: 10,
-  },
-
-  socialRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 12,
-    marginTop: 10,
-  },
-
-  socialItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 20,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-  },
-
-  socialText: {
-    color: "#fff",
-    fontSize: 12,
-    marginLeft: 4,
-  },
-
-  editBtn: {
-    marginTop: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.16)",
-    borderRadius: 22,
-    paddingVertical: 7,
-    paddingHorizontal: 18,
-  },
-
-  editBtnText: { color: "#fff", fontWeight: "600", marginLeft: 6 },
-
-  tabsWrapper: {
-    marginTop: 20,
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-  },
-
-  tabRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-  },
-
-  tabText: {
-    color: "#888",
-    fontSize: 15,
-  },
-
-  // PREMIUM CARD
-  newCard: {
+  avatar: {
     width: "100%",
-    height: 200,
-    borderRadius: 20,
-    overflow: "hidden",
-    marginBottom: 22,
-    backgroundColor: "#1A1A1C",
-    shadowColor: "#000",
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 5,
+    height: "100%",
+    borderRadius: 49,
+    backgroundColor: "#181820",
   },
-
-  newCardImage: {
+  identityBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  displayName: {
+    color: "#FFFFFF",
+    fontSize: 36,
+    fontWeight: "850",
+    letterSpacing: -1.2,
+  },
+  handleText: {
+    marginTop: 5,
+    color: "#8F8F98",
+    fontSize: 18,
+    fontWeight: "850",
+  },
+  bioText: {
+    marginTop: 18,
+    color: "#EDEDF2",
+    fontSize: 17,
+    lineHeight: 24,
+    fontWeight: "600",
+  },
+  statsRow: {
+    marginTop: 22,
+    flexDirection: "row",
+    gap: 10,
+  },
+  statBox: {
+    flex: 1,
+    minHeight: 82,
+    borderRadius: 22,
+    backgroundColor: "#14141B",
+    borderWidth: 1,
+    borderColor: "#292933",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statNumber: {
+    color: "#FFFFFF",
+    fontSize: 25,
+    fontWeight: "780",
+  },
+  statLabel: {
+    marginTop: 5,
+    color: "#8F8F98",
+    fontSize: 14,
+    fontWeight: "650",
+  },
+  profileChips: {
+    marginTop: 16,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 9,
+  },
+  softChip: {
+    minHeight: 36,
+    borderRadius: 999,
+    backgroundColor: "#19191F",
+    paddingHorizontal: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  softChipText: {
+    color: "#DADAE0",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  tasteChips: {
+    marginTop: 12,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  tasteChip: {
+    minHeight: 34,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#30303A",
+    paddingHorizontal: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tasteChipText: {
+    color: "#EAEAEE",
+    fontSize: 13,
+    fontWeight: "750",
+  },
+  editProfileButton: {
+    marginTop: 20,
+    minHeight: 50,
+    borderRadius: 999,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 9,
+  },
+  editProfileText: {
+    color: "#0A0A0B",
+    fontSize: 16,
+    fontWeight: "950",
+  },
+  historyButton: {
+    marginTop: 16,
+    minHeight: 64,
+    borderRadius: 26,
+    backgroundColor: "#101016",
+    borderWidth: 1,
+    borderColor: "#292933",
+    paddingHorizontal: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  historyLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 13,
+  },
+  historyText: {
+    color: "#FFFFFF",
+    fontSize: 19,
+    fontWeight: "850",
+  },
+  tabShell: {
+    marginTop: 20,
+    minHeight: 58,
+    borderRadius: 29,
+    backgroundColor: "#101016",
+    borderWidth: 1,
+    borderColor: "#292933",
+    flexDirection: "row",
+    padding: 5,
+  },
+  tabButton: {
+    flex: 1,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabButtonActive: {
+    backgroundColor: "#FFFFFF",
+  },
+  tabText: {
+    color: "#8F8F98",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  tabTextActive: {
+    color: "#0A0A0B",
+  },
+  contentArea: {
+    paddingTop: 18,
+  },
+  emptyState: {
+    minHeight: 190,
+    borderRadius: 28,
+    backgroundColor: "#101016",
+    borderWidth: 1,
+    borderColor: "#24242D",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 22,
+  },
+  emptyTitle: {
+    marginTop: 10,
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "850",
+    textAlign: "center",
+  },
+  emptyText: {
+    marginTop: 7,
+    color: "#8F8F98",
+    fontSize: 15,
+    lineHeight: 21,
+    textAlign: "center",
+    fontWeight: "600",
+  },
+  favoriteCard: {
+    height: 230,
+    borderRadius: 28,
+    overflow: "hidden",
+    marginBottom: 16,
+    backgroundColor: "#101016",
+    borderWidth: 1,
+    borderColor: "#24242D",
+  },
+  favoriteImage: {
     width: "100%",
     height: "100%",
     position: "absolute",
+    backgroundColor: "#181820",
   },
-
-  newCardGradient: {
+  favoriteContent: {
     position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 110,
+    left: 18,
+    right: 18,
+    bottom: 18,
   },
-
-  newCardContent: {
-    position: "absolute",
-    bottom: 14,
-    left: 14,
-    right: 14,
+  favoriteTitle: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "900",
+    letterSpacing: -0.4,
   },
-
-  newCardTitle: {
-    color: "white",
-    fontSize: 18,
+  favoriteMeta: {
+    marginTop: 4,
+    color: "#C4C4CA",
+    fontSize: 15,
     fontWeight: "700",
-    marginBottom: 2,
   },
-
-  newCardSubtitle: {
-    color: "#e0e0e0",
+  badgeGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  badgeCard: {
+    width: (width - 52) / 2,
+    minHeight: 150,
+    borderRadius: 26,
+    backgroundColor: "#101016",
+    borderWidth: 1,
+    borderColor: "#24242D",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
+  badgeIcon: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    marginBottom: 10,
+  },
+  badgeFallback: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    marginBottom: 10,
+    backgroundColor: "#191920",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgeName: {
+    color: "#FFFFFF",
     fontSize: 14,
-    marginBottom: 4,
+    fontWeight: "800",
+    textAlign: "center",
   },
-
-  newCardDate: {
-    color: "#b0b0b0",
-    fontSize: 12,
-  },
-
-  // BADGES
-  badge: { alignItems: "center", width: 90 },
-  badgeIcon: { width: 64, height: 64, borderRadius: 32, marginBottom: 6 },
-  badgeName: { color: "#fff", fontSize: 12, textAlign: "center" },
-
-  // LOGOUT
-  logoutBtn: {
-    marginTop: 40,
+  logoutButton: {
+    marginTop: 28,
     alignSelf: "center",
+    minHeight: 46,
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    backgroundColor: "#15151A",
+    borderWidth: 1,
+    borderColor: "#30303A",
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.08)",
   },
-  logoutText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-
-  // EDIT BOTTOM SHEET
-  editSheetOverlay: {
+  logoutText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  editOverlay: {
     position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    inset: 0,
   },
-
-  editSheetContainer: {
-    backgroundColor: "rgba(15,15,18,0.97)",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
+  editKeyboard: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  editSheet: {
+    height: "91%",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    backgroundColor: "rgba(14,14,18,0.98)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
     paddingTop: 8,
-    height: "92%",
   },
-
   sheetHandle: {
     alignSelf: "center",
-    width: 40,
-    height: 4,
+    width: 42,
+    height: 5,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.3)",
-    marginBottom: 12,
+    backgroundColor: "rgba(255,255,255,0.24)",
+    marginBottom: 14,
   },
-
+  editContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 120,
+  },
   editTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "800",
-    marginBottom: 12,
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "900",
     textAlign: "center",
+    marginBottom: 18,
   },
-
-  sectionLabel: {
-    color: "#979AA2",
-    fontSize: 13,
-    fontWeight: "600",
-    marginTop: 14,
-    marginBottom: 4,
+  editAvatarWrap: {
+    alignSelf: "center",
+    marginBottom: 20,
   },
-
-  rowInputs: {
-    flexDirection: "row",
-    marginBottom: 4,
-  },
-
-  input: {
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderColor: "rgba(255,255,255,0.12)",
+  editAvatar: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: "#191920",
     borderWidth: 1,
-    color: "#fff",
-    borderRadius: 16,
-    padding: 12,
-    fontSize: 15,
-    marginBottom: 10,
+    borderColor: "rgba(255,255,255,0.22)",
   },
-
-  saveBtn: {
-    backgroundColor: "#000",
-    paddingVertical: 14,
-    borderRadius: 16,
-    alignItems: "center",
+  editAvatarIcon: {
+    position: "absolute",
+    right: 0,
+    bottom: 0,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#202028",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.18)",
-    marginTop: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
-
-  saveBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-
-  cancelBtn: { marginTop: 10, alignItems: "center" },
-  cancelText: { color: "#aaa", fontSize: 15 },
-
-  // Review Info unter Cards
-  reviewInfoBox: {
-    marginTop: -10,
-    marginBottom: 20,
-    backgroundColor: "rgba(255,255,255,0.05)",
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+  fieldLabel: {
+    color: "#8F8F98",
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    marginTop: 12,
+    marginBottom: 8,
   },
-
-  moodRow: {
+  inputRow: {
     flexDirection: "row",
     gap: 10,
-    marginBottom: 10,
-    flexWrap: "wrap",
   },
-
-  moodChip: {
-    backgroundColor: "rgba(255,255,255,0.14)",
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 30,
+  input: {
+    minHeight: 52,
+    borderRadius: 18,
+    backgroundColor: "#15151B",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
-  },
-
-  moodChipText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "600",
-  },
-
-  subtleChip: {
-    backgroundColor: "rgba(255,255,255,0.06)",
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-  },
-
-  subtleChipText: {
-    color: "#ddd",
-    fontSize: 12,
-  },
-
-  reviewText: {
-    color: "#ccc",
-    fontSize: 14,
-    lineHeight: 18,
+    borderColor: "#2B2B35",
+    color: "#FFFFFF",
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    fontSize: 16,
+    fontWeight: "650",
     marginBottom: 10,
   },
-
-  reviewDateSmall: {
-    color: "#666",
-    fontSize: 12,
+  bioInput: {
+    minHeight: 96,
+    textAlignVertical: "top",
+  },
+  saveButton: {
+    marginTop: 12,
+    minHeight: 54,
+    borderRadius: 999,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  saveButtonText: {
+    color: "#0A0A0B",
+    fontSize: 17,
+    fontWeight: "950",
+  },
+  cancelButton: {
+    marginTop: 12,
+    minHeight: 46,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelText: {
+    color: "#A0A0A8",
+    fontSize: 16,
+    fontWeight: "800",
   },
 });

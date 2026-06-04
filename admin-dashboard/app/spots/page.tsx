@@ -1,6 +1,7 @@
+//admin-dashboard/app/spots/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import type { Spot, SpotStatus } from "@/types/spots";
@@ -14,6 +15,13 @@ const STATUS_LABELS: Record<SpotStatus, string> = {
   hidden: "Hidden",
 };
 
+function statusBadgeClass(status: SpotStatus) {
+  if (status === "approved") return "by-badge by-badge-green";
+  if (status === "rejected") return "by-badge by-badge-red";
+  if (status === "pending") return "by-badge by-badge-yellow";
+  return "by-badge";
+}
+
 export default function SpotsPage() {
   const [spots, setSpots] = useState<SpotListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +29,7 @@ export default function SpotsPage() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    loadSpots();
+    void loadSpots();
   }, []);
 
   async function loadSpots() {
@@ -34,6 +42,7 @@ export default function SpotsPage() {
 
     if (error) {
       console.error("Fehler beim Laden der Spots:", error);
+      setSpots([]);
     } else {
       setSpots((data ?? []) as SpotListItem[]);
     }
@@ -41,109 +50,113 @@ export default function SpotsPage() {
     setLoading(false);
   }
 
-  const filteredSpots = spots.filter((spot) => {
-    if (statusFilter !== "all" && spot.status !== statusFilter) return false;
-    if (search.trim().length > 0) {
-      const q = search.toLowerCase();
-      return (
-        spot.name.toLowerCase().includes(q) ||
-        (spot.city ?? "").toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  const filteredSpots = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return spots.filter((spot) => {
+      if (statusFilter !== "all" && spot.status !== statusFilter) return false;
+      if (q.length > 0) {
+        return (
+          spot.name.toLowerCase().includes(q) ||
+          (spot.city ?? "").toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [spots, statusFilter, search]);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4">
+    <div className="by-page">
+      <div className="by-header">
         <div>
-          <h1 className="text-2xl font-semibold">Spots</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="by-title">Spots</h1>
+          <div className="by-subtitle">
             Verwaltung aller Spots im Backyrd Universum.
-          </p>
+          </div>
         </div>
 
-        <Link
-          href="/spots/new"
-          className="inline-flex items-center rounded-md border border-gray-200 px-4 py-2 text-sm font-medium hover:bg-gray-50"
-        >
-          + Neuer Spot
-        </Link>
+        <div className="by-toolbar">
+          <Link href="/spots/new" className="by-btn by-btn-blue">
+            + Neuer Spot
+          </Link>
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          type="text"
-          placeholder="Suche nach Name oder Stadt…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-xs rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/5"
-        />
+      <div className="by-card by-section">
+        <div className="by-toolbar">
+          <input
+            type="text"
+            placeholder="Suche nach Name oder Stadt…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="by-input"
+            style={{ maxWidth: 360 }}
+          />
 
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as SpotStatus | "all")}
-          className="rounded-md border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/5"
-        >
-          <option value="all">Alle Status</option>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-          <option value="hidden">Hidden</option>
-        </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as SpotStatus | "all")}
+            className="by-select"
+            style={{ maxWidth: 220 }}
+          >
+            <option value="all">Alle Status</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="hidden">Hidden</option>
+          </select>
 
-        <button
-          type="button"
-          onClick={loadSpots}
-          className="rounded-md border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50"
-        >
-          Neu laden
-        </button>
+          <button type="button" onClick={() => void loadSpots()} className="by-btn by-btn-soft">
+            {loading ? "Lade…" : "Neu laden"}
+          </button>
+
+          <div className="by-muted by-small" style={{ marginLeft: "auto" }}>
+            {filteredSpots.length} Spots
+          </div>
+        </div>
       </div>
 
-      {loading ? (
-        <p className="text-sm text-gray-500">Lade Spots…</p>
-      ) : filteredSpots.length === 0 ? (
-        <p className="text-sm text-gray-500">Keine Spots gefunden.</p>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-100">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium">Stadt</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Erstellt</th>
-                <th className="px-4 py-2 font-medium text-right">Aktion</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSpots.map((spot) => (
-                <tr key={spot.id} className="border-t border-gray-100">
-                  <td className="px-4 py-2">{spot.name}</td>
-                  <td className="px-4 py-2">{spot.city ?? "-"}</td>
-                  <td className="px-4 py-2">
-                    <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs">
-                      {STATUS_LABELS[spot.status]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2">
-                    {new Date(spot.created_at).toLocaleDateString("de-CH")}
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    <Link
-                      href={`/spots/${spot.id}/edit`}
-                      className="text-sm text-blue-600 hover:underline"
-                    >
-                      Bearbeiten
-                    </Link>
-                  </td>
+      <div className="by-card by-section">
+        {loading ? (
+          <div className="by-muted by-small">Lade Spots…</div>
+        ) : filteredSpots.length === 0 ? (
+          <div className="by-muted by-small">Keine Spots gefunden.</div>
+        ) : (
+          <div className="by-tableWrap">
+            <table className="by-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Stadt</th>
+                  <th>Status</th>
+                  <th>Erstellt</th>
+                  <th style={{ textAlign: "right" }}>Aktion</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {filteredSpots.map((spot) => (
+                  <tr key={spot.id}>
+                    <td style={{ fontWeight: 900 }}>{spot.name}</td>
+                    <td className="by-muted">{spot.city ?? "—"}</td>
+                    <td>
+                      <span className={statusBadgeClass(spot.status)}>
+                        {STATUS_LABELS[spot.status]}
+                      </span>
+                    </td>
+                    <td className="by-muted">
+                      {new Date(spot.created_at).toLocaleDateString("de-CH")}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      <Link href={`/spots/${spot.id}`} className="by-link">
+                        Bearbeiten
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

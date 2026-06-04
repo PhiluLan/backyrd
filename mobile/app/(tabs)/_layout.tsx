@@ -1,19 +1,55 @@
 // mobile/app/(tabs)/_layout.tsx
-import { Tabs, useRouter } from "expo-router";
+import { Tabs, useGlobalSearchParams, usePathname, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import * as Updates from "expo-updates";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "../../lib/supabase";
-import { StyleSheet } from "react-native";
+
+const DEV_EMAIL = "philipplanger@yahoo.com";
+
+const DEFAULT_TAB_BAR_STYLE = {
+  position: "absolute" as const,
+  left: 14,
+  right: 14,
+  bottom: 16,
+  height: 74,
+  backgroundColor: "rgba(10,10,10,0.94)",
+  borderTopWidth: 0,
+  borderRadius: 26,
+  elevation: 0,
+  paddingTop: 8,
+  paddingBottom: 10,
+};
+
+function SmartReviewTabButton({ onPress }: { onPress?: () => void }) {
+  return (
+    <View style={styles.plusWrap}>
+      <Pressable onPress={onPress} style={styles.plusBtn}>
+        <Ionicons name="add" size={28} color="#000" />
+      </Pressable>
+    </View>
+  );
+}
 
 export default function TabsLayout() {
   const router = useRouter();
-  const [checkedSession, setCheckedSession] = useState(false);
+  const pathname = usePathname();
+  const params = useGlobalSearchParams();
 
-  // 🔥 OTA Updates beim App-Start automatisch prüfen
+  const [checkedSession, setCheckedSession] = useState(false);
+  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+
+  const isDev = useMemo(() => {
+    return (sessionEmail ?? "").toLowerCase() === DEV_EMAIL.toLowerCase();
+  }, [sessionEmail]);
+
+  const hideTabs = pathname.includes("/decision") && params.hideTabs === "1";
+
   useEffect(() => {
     if (__DEV__) return;
+    if (Platform.OS === "web") return;
+
     (async () => {
       try {
         const update = await Updates.checkForUpdateAsync();
@@ -27,100 +63,73 @@ export default function TabsLayout() {
     })();
   }, []);
 
-  // 🧭 Session + Onboarding prüfen
   useEffect(() => {
     let active = true;
+
     (async () => {
       try {
         const { data } = await supabase.auth.getSession();
-        const onboardingDone = await AsyncStorage.getItem("onboardingComplete");
 
-        if (!data.session && onboardingDone !== "true") {
-          router.replace("/onboarding");
+        const email = data.session?.user?.email ?? null;
+        if (active) setSessionEmail(email);
+
+        if (!data.session) {
+          router.replace("/gate" as any);
+          return;
         }
       } finally {
         if (active) setCheckedSession(true);
       }
     })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionEmail(session?.user?.email ?? null);
+
+      if (!session) {
+        router.replace("/gate" as any);
+      }
+    });
+
     return () => {
       active = false;
+      sub.subscription.unsubscribe();
     };
-  }, []);
+  }, [router]);
 
-  if (!checkedSession) {
-    return null; // Splash-Zustand
-  }
+  if (!checkedSession) return null;
 
   return (
     <Tabs
+      initialRouteName="index"
       screenOptions={{
         headerShown: false,
-        tabBarStyle: {
-          backgroundColor: "rgba(10,10,10,0.9)",
-          borderTopColor: "#222",
-          borderTopWidth: StyleSheet.hairlineWidth,
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          elevation: 0,
-        },
+        tabBarStyle: hideTabs ? { display: "none" } : DEFAULT_TAB_BAR_STYLE,
         tabBarActiveTintColor: "#fff",
-        tabBarInactiveTintColor: "#888",
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: "600",
-          marginBottom: 2,
-        },
+        tabBarInactiveTintColor: "#777",
+        tabBarLabelStyle: { fontSize: 12, fontWeight: "600", marginBottom: 2 },
+        tabBarItemStyle: { paddingVertical: 4 },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "home" : "home-outline"} color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="map"
-        options={{
-          title: "Map",
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "map" : "map-outline"} color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="new-spot"
-        options={{
-          title: "Neu",
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "add-circle" : "add-circle-outline"} color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profil",
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "person" : "person-outline"} color={color} size={size} />
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="journey"
-        options={{
-          title: "Journey",
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? "sparkles" : "sparkles-outline"} color={color} size={size} />
-          ),
-        }}
-      />
-
+      <Tabs.Screen name="index" options={{ title: "Home", tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "home" : "home-outline"} color={color} size={size} /> }} />
+      <Tabs.Screen name="decision" options={{ title: "Decision", tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "sparkles" : "sparkles-outline"} color={color} size={size} /> }} />
+      <Tabs.Screen name="smart-review" options={{ title: "", tabBarIcon: () => null, tabBarButton: hideTabs ? () => null : () => <SmartReviewTabButton onPress={() => router.push("/review/smart")} /> }} />
+      <Tabs.Screen name="map" options={{ title: "Karte", tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "map" : "map-outline"} color={color} size={size} /> }} />
+      <Tabs.Screen name="feed" options={{ title: "Feed", tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "albums" : "albums-outline"} color={color} size={size} /> }} />
+      <Tabs.Screen name="settings" options={{ title: "Settings", tabBarIcon: ({ color, size, focused }) => <Ionicons name={focused ? "settings" : "settings-outline"} color={color} size={size} /> }} />
+      <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="dev" options={{ href: null }} />
+      <Tabs.Screen name="decision-onboarding" options={{ href: null }} />
+      <Tabs.Screen name="new-spot" options={{ href: null }} />
+      <Tabs.Screen name="messages" options={{ href: null }} />
+      <Tabs.Screen name="achievements" options={{ href: null }} />
+      <Tabs.Screen name="explore" options={{ href: null }} />
+      <Tabs.Screen name="journey" options={{ href: null }} />
+      <Tabs.Screen name="spot" options={{ href: null }} />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  plusWrap: { flex: 1, alignItems: "center", justifyContent: "center", marginTop: -18 },
+  plusBtn: { width: 62, height: 62, borderRadius: 31, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 10 },
+});
