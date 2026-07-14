@@ -340,7 +340,7 @@ export default function NewSpotScreen() {
 
   /* ========= UI ========= */
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#000" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#050506" }} edges={["top"]}>
       {/* 🔙 Header */}
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={10}>
@@ -351,11 +351,17 @@ export default function NewSpotScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.hero}>
+          <Text style={styles.kicker}>BACKYRD SPOT</Text>
+          <Text style={styles.heroTitle}>Neuen Ort anlegen</Text>
+          <Text style={styles.heroText}>Erfasse die Basics. Details helfen später der Decision Engine.</Text>
+        </View>
+
         {/* Name */}
         <Text style={styles.label}>Name *</Text>
         <TextInput
           placeholder="Name"
-          placeholderTextColor="#777"
+          placeholderTextColor="rgba(255,255,255,0.34)"
           value={name}
           onChangeText={setName}
           style={styles.input}
@@ -365,7 +371,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Adresse *</Text>
         <TextInput
           placeholder="Adresse eingeben"
-          placeholderTextColor="#777"
+          placeholderTextColor="rgba(255,255,255,0.34)"
           value={address}
           onChangeText={onAddressChange}
           style={styles.input}
@@ -382,7 +388,7 @@ export default function NewSpotScreen() {
                 }}
                 style={styles.suggestionItem}
               >
-                <Text style={{ color: "#fff" }}>{s.place_name}</Text>
+                <Text style={styles.suggestionText}>{s.place_name}</Text>
               </Pressable>
             ))}
           </View>
@@ -394,12 +400,12 @@ export default function NewSpotScreen() {
           onPress={() => setPickerOpen(true)}
           style={[styles.input, styles.categorySelect]}
         >
-          <Text style={{ color: categoryId ? "#fff" : "#777" }}>
+          <Text style={{ color: categoryId ? "#fff" : "rgba(255,255,255,0.34)", fontWeight: "700" }}>
             {categoryId
               ? categories.find((c) => c.id === categoryId)?.name
               : "Kategorie auswählen"}
           </Text>
-          <Ionicons name="chevron-down" size={18} color="#888" />
+          <Ionicons name="chevron-down" size={18} color="rgba(255,255,255,0.56)" />
         </Pressable>
 
         {/* Foto */}
@@ -407,28 +413,24 @@ export default function NewSpotScreen() {
         {photo ? (
           <Image
             source={{ uri: photo }}
-            style={{
-              width: "100%",
-              height: 200,
-              borderRadius: 12,
-              marginBottom: 12,
-            }}
+            style={styles.photoPreview}
           />
         ) : (
-          <Text style={{ color: "#777", marginBottom: 12 }}>
-            Noch kein Foto ausgewählt
-          </Text>
+          <View style={styles.photoEmpty}>
+            <Ionicons name="image-outline" size={26} color="rgba(255,255,255,0.42)" />
+            <Text style={styles.photoEmptyText}>Noch kein Foto ausgewählt</Text>
+          </View>
         )}
         <View style={styles.photoButtons}>
           <Pressable
             onPress={() => pickImage(false)}
-            style={[styles.photoBtn, { backgroundColor: "#2563EB" }]}
+            style={styles.photoBtn}
           >
             <Text style={styles.photoBtnText}>Galerie</Text>
           </Pressable>
           <Pressable
             onPress={() => pickImage(true)}
-            style={[styles.photoBtn, { backgroundColor: "#10B981" }]}
+            style={[styles.photoBtn, styles.photoBtnAccent]}
           >
             <Text style={styles.photoBtnText}>Kamera</Text>
           </Pressable>
@@ -443,7 +445,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Beschreibung</Text>
         <TextInput
           placeholder="Was macht diesen Ort besonders? Stimmung, Angebot, Vibe…"
-          placeholderTextColor="#777"
+          placeholderTextColor="rgba(255,255,255,0.34)"
           value={description}
           onChangeText={setDescription}
           style={[styles.input, styles.textArea]}
@@ -453,7 +455,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Keywords</Text>
         <TextInput
           placeholder="z. B. ruhig, urban, Kaffee, Date, Regenwetter"
-          placeholderTextColor="#777"
+          placeholderTextColor="rgba(255,255,255,0.34)"
           value={keywords}
           onChangeText={setKeywords}
           style={[styles.input, styles.textAreaSmall]}
@@ -463,7 +465,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Gut für</Text>
         <TextInput
           placeholder="z. B. Date, Solo, Arbeiten, ruhiger Nachmittag"
-          placeholderTextColor="#777"
+          placeholderTextColor="rgba(255,255,255,0.34)"
           value={bestFor}
           onChangeText={setBestFor}
           style={[styles.input, styles.textAreaSmall]}
@@ -473,7 +475,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Atmosphäre</Text>
         <TextInput
           placeholder="z. B. warm, ruhig, lebhaft, inspirierend"
-          placeholderTextColor="#777"
+          placeholderTextColor="rgba(255,255,255,0.34)"
           value={atmosphereTags}
           onChangeText={setAtmosphereTags}
           style={[styles.input, styles.textAreaSmall]}
@@ -483,7 +485,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Eher nicht geeignet für</Text>
         <TextInput
           placeholder="z. B. grosse Gruppen, Party, schnelles Essen"
-          placeholderTextColor="#777"
+          placeholderTextColor="rgba(255,255,255,0.34)"
           value={avoidIfTags}
           onChangeText={setAvoidIfTags}
           style={[styles.input, styles.textAreaSmall]}
@@ -493,7 +495,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Gute Zeiten / Situationen</Text>
         <TextInput
           placeholder="z. B. Nachmittag, Abend, Wochenende, Regen"
-          placeholderTextColor="#777"
+          placeholderTextColor="rgba(255,255,255,0.34)"
           value={goodForTime}
           onChangeText={setGoodForTime}
           style={[styles.input, styles.textAreaSmall]}
@@ -527,7 +529,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Mood A (optional)</Text>
         <TextInput
           placeholder="z. B. romantisch"
-          placeholderTextColor="#777"
+          placeholderTextColor="rgba(255,255,255,0.34)"
           value={moodA}
           onChangeText={setMoodA}
           style={styles.input}
@@ -535,7 +537,7 @@ export default function NewSpotScreen() {
         <Text style={styles.label}>Mood B (optional)</Text>
         <TextInput
           placeholder="z. B. entspannt"
-          placeholderTextColor="#777"
+          placeholderTextColor="rgba(255,255,255,0.34)"
           value={moodB}
           onChangeText={setMoodB}
           style={styles.input}
@@ -544,7 +546,7 @@ export default function NewSpotScreen() {
         {/* Submit */}
         <Pressable onPress={submit} style={styles.submitBtn} disabled={loading}>
           {loading ? (
-            <ActivityIndicator color="#000" />
+            <ActivityIndicator color="#171214" />
           ) : (
             <Text style={styles.submitText}>Spot speichern</Text>
           )}
@@ -578,23 +580,20 @@ export default function NewSpotScreen() {
                     {
                       backgroundColor:
                         categoryId === item.id
-                          ? "rgba(16,185,129,0.15)"
+                          ? "rgba(255,125,167,0.14)"
                           : "#141417",
-                      borderColor: categoryId === item.id ? "#10B981" : "#222",
+                      borderColor: categoryId === item.id ? "#FF7DA7" : "rgba(255,255,255,0.09)",
                     },
                   ]}
                 >
                   <Text
-                    style={{
-                      color: item.color ?? "#fff",
-                      fontWeight: "600",
-                    }}
+                    style={styles.modalItemText}
                   >
                     {item.icon ? `${item.icon} ` : ""}
                     {item.name}
                   </Text>
                   {categoryId === item.id && (
-                    <Ionicons name="checkmark" size={18} color="#10B981" />
+                    <Ionicons name="checkmark" size={18} color="#FF7DA7" />
                   )}
                 </Pressable>
               )}
@@ -613,9 +612,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    backgroundColor: "#000",
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+    backgroundColor: "#050506",
   },
   headerTitle: {
     color: "#fff",
@@ -623,22 +622,54 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   container: {
-    padding: 16,
+    paddingHorizontal: 20,
     paddingBottom: 120,
-    backgroundColor: "#000",
+    backgroundColor: "#050506",
+  },
+  hero: {
+    marginTop: 6,
+    marginBottom: 22,
+  },
+  kicker: {
+    color: "#FF9ABA",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 3,
+    marginBottom: 12,
+  },
+  heroTitle: {
+    color: "#fff",
+    fontSize: 40,
+    lineHeight: 42,
+    fontWeight: "900",
+    letterSpacing: -1,
+  },
+  heroText: {
+    color: "rgba(255,255,255,0.56)",
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "600",
+    marginTop: 10,
+    maxWidth: 330,
   },
   label: {
-    color: "#fff",
-    fontWeight: "600",
-    marginBottom: 6,
+    color: "rgba(255,255,255,0.56)",
+    fontSize: 12,
+    fontWeight: "800",
+    marginBottom: 7,
     marginTop: 16,
+    marginLeft: 2,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#333",
-    borderRadius: 10,
-    padding: 12,
+    borderColor: "rgba(255,255,255,0.09)",
+    borderRadius: 18,
+    paddingHorizontal: 15,
+    paddingVertical: 14,
     color: "#fff",
+    backgroundColor: "#111113",
+    fontSize: 15,
+    fontWeight: "700",
   },
   textArea: {
     minHeight: 110,
@@ -650,14 +681,18 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: "#fff",
-    fontSize: 18,
-    fontWeight: "800",
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: "900",
     marginTop: 26,
     marginBottom: 4,
+    letterSpacing: -0.45,
   },
   helperText: {
-    color: "#888",
+    color: "rgba(255,255,255,0.56)",
     marginBottom: 4,
+    lineHeight: 20,
+    fontWeight: "600",
   },
   segmentRow: {
     flexDirection: "row",
@@ -666,22 +701,22 @@ const styles = StyleSheet.create({
   },
   segmentPill: {
     borderWidth: 1,
-    borderColor: "#333",
+    borderColor: "rgba(255,255,255,0.09)",
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: "#111",
+    backgroundColor: "rgba(255,255,255,0.055)",
   },
   segmentPillActive: {
-    borderColor: "#10B981",
-    backgroundColor: "rgba(16,185,129,0.15)",
+    borderColor: "#FF7DA7",
+    backgroundColor: "#FF7DA7",
   },
   segmentText: {
-    color: "#aaa",
+    color: "rgba(255,255,255,0.72)",
     fontWeight: "700",
   },
   segmentTextActive: {
-    color: "#10B981",
+    color: "#171214",
   },
   categorySelect: {
     flexDirection: "row",
@@ -689,14 +724,43 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   suggestionBox: {
-    backgroundColor: "#111",
-    borderRadius: 8,
-    marginTop: 4,
+    backgroundColor: "#111113",
+    borderRadius: 18,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.09)",
+    overflow: "hidden",
   },
   suggestionItem: {
-    padding: 10,
+    padding: 12,
     borderBottomWidth: 1,
-    borderColor: "#222",
+    borderColor: "rgba(255,255,255,0.07)",
+  },
+  suggestionText: {
+    color: "#fff",
+    fontWeight: "700",
+    lineHeight: 19,
+  },
+  photoPreview: {
+    width: "100%",
+    height: 220,
+    borderRadius: 28,
+    marginBottom: 12,
+    backgroundColor: "#111113",
+  },
+  photoEmpty: {
+    height: 160,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.09)",
+    backgroundColor: "rgba(255,255,255,0.045)",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  photoEmptyText: {
+    color: "rgba(255,255,255,0.56)",
+    fontWeight: "700",
   },
   photoButtons: {
     flexDirection: "row",
@@ -706,20 +770,27 @@ const styles = StyleSheet.create({
   photoBtn: {
     flex: 1,
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 999,
     alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.055)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.09)",
   },
-  photoBtnText: { color: "#fff", fontWeight: "600" },
+  photoBtnAccent: {
+    backgroundColor: "rgba(255,125,167,0.14)",
+    borderColor: "rgba(255,125,167,0.28)",
+  },
+  photoBtnText: { color: "#fff", fontWeight: "800" },
   submitBtn: {
     marginTop: 28,
-    backgroundColor: "#fff",
+    backgroundColor: "#FF7DA7",
     padding: 16,
     borderRadius: 999,
     alignItems: "center",
   },
   submitText: {
-    color: "#000",
-    fontWeight: "700",
+    color: "#171214",
+    fontWeight: "900",
     fontSize: 16,
   },
   modalBackdrop: {
@@ -729,26 +800,29 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   modalCard: {
-    backgroundColor: "#111",
-    borderRadius: 16,
+    backgroundColor: "#111113",
+    borderRadius: 28,
     padding: 16,
-    borderColor: "#222",
-    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(255,255,255,0.09)",
+    borderWidth: 1,
     maxHeight: "70%",
   },
   modalTitle: {
     color: "#fff",
-    fontWeight: "700",
-    fontSize: 18,
+    fontWeight: "900",
+    fontSize: 22,
     marginBottom: 12,
   },
   modalItem: {
     flexDirection: "row",
     justifyContent: "space-between",
     backgroundColor: "#141417",
-    borderRadius: 12,
+    borderRadius: 18,
     padding: 12,
-    borderColor: "#222",
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
+  },
+  modalItemText: {
+    color: "#fff",
+    fontWeight: "800",
   },
 });

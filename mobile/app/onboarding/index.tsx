@@ -317,91 +317,122 @@ export default function ProfileOnboardingScreen() {
   return (
     <KeyboardAvoidingView style={styles.keyboardRoot} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <LinearGradient colors={["#050506", "#0A0A0B", "#191A22"]} style={styles.container}>
+        <LinearGradient colors={["#050506", "#09090A", "#0D0D10"]} style={styles.container}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-            <Text style={styles.kicker}>PROFIL</Text>
-            <Text style={styles.title}>Kurz zu dir.</Text>
-            <Text style={styles.subtitle}>
-              Damit Backyrd persönlicher wird, brauchen wir nur die Basics. Danach wählst du drei Lieblingsorte als Startgeschmack.
-            </Text>
+            <View style={styles.topRow}>
+              <Text numberOfLines={1} style={styles.location}>{clean(city) || "Basel"}</Text>
+              <View style={styles.stepPill}>
+                <Text style={styles.stepText}>1 von 2</Text>
+              </View>
+            </View>
+
+            <View style={styles.hero}>
+              <Text style={styles.kicker}>BACKYRD</Text>
+              <Text style={styles.title}>
+                Willkommen bei{"\n"}
+                <Text style={styles.titlePink}>Backyrd.</Text>
+              </Text>
+              <Text style={styles.subtitle}>
+                Kurz dein Profil anlegen. Danach baust du deinen ersten Geschmack auf.
+              </Text>
+            </View>
 
             <View style={styles.card}>
-              <Text style={styles.label}>Name</Text>
-              <TextInput
-                value={firstName}
-                onChangeText={(value) => {
-                  setFirstName(value);
-                  if (!username) setUsername(usernameFrom(value));
-                }}
-                placeholder="Philipp"
-                placeholderTextColor="rgba(255,255,255,0.36)"
-                autoCapitalize="words"
-                style={styles.input}
-              />
-
-              <Text style={styles.label}>Benutzername</Text>
-              <TextInput
-                value={username}
-                onChangeText={(value) => setUsername(usernameFrom(value))}
-                placeholder="philipp"
-                placeholderTextColor="rgba(255,255,255,0.36)"
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={styles.input}
-              />
-
-              <Text style={styles.label}>Alter</Text>
-              <TextInput
-                value={age}
-                onChangeText={setAge}
-                placeholder="31"
-                placeholderTextColor="rgba(255,255,255,0.36)"
-                keyboardType="number-pad"
-                style={styles.input}
-              />
-
-              <Text style={styles.label}>Stadt</Text>
-              <View style={styles.cityRow}>
-                <TextInput
-                  value={city}
-                  onChangeText={setCity}
-                  placeholder="Basel"
-                  placeholderTextColor="rgba(255,255,255,0.36)"
-                  autoCapitalize="words"
-                  style={[styles.input, styles.cityInput]}
-                />
-
-                <Pressable
-                  onPress={detectLocation}
-                  disabled={locationLoading}
-                  style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}
-                >
-                  {locationLoading ? (
-                    <ActivityIndicator size="small" />
-                  ) : (
-                    <Text style={styles.locationButtonText}>Erkennen</Text>
-                  )}
-                </Pressable>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>Deine Basics</Text>
+                <Text style={styles.cardHint}>Nur was wir für gute Vorschläge brauchen.</Text>
               </View>
 
-              <Text style={styles.label}>Land</Text>
-              <TextInput
-                value={country}
-                onChangeText={setCountry}
-                placeholder="Schweiz"
-                placeholderTextColor="rgba(255,255,255,0.36)"
-                autoCapitalize="words"
-                style={styles.input}
-              />
+              <View style={styles.field}>
+                <Text style={styles.label}>Name</Text>
+                <TextInput
+                  value={firstName}
+                  onChangeText={(value) => {
+                    setFirstName(value);
+                    if (!username) setUsername(usernameFrom(value));
+                  }}
+                  placeholder="Philipp"
+                  placeholderTextColor="rgba(255,255,255,0.34)"
+                  autoCapitalize="words"
+                  style={styles.input}
+                />
+              </View>
+
+              <View style={styles.field}>
+                <Text style={styles.label}>Benutzername</Text>
+                <TextInput
+                  value={username}
+                  onChangeText={(value) => setUsername(usernameFrom(value))}
+                  placeholder="philipp"
+                  placeholderTextColor="rgba(255,255,255,0.34)"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  style={styles.input}
+                />
+              </View>
+
+              <View style={styles.field}>
+                <Text style={styles.label}>Alter</Text>
+                <TextInput
+                  value={age}
+                  onChangeText={setAge}
+                  placeholder="31"
+                  placeholderTextColor="rgba(255,255,255,0.34)"
+                  keyboardType="number-pad"
+                  style={styles.input}
+                />
+              </View>
+
+              <View style={styles.field}>
+                <Text style={styles.label}>Stadt</Text>
+                <View style={styles.cityRow}>
+                  <TextInput
+                    value={city}
+                    onChangeText={setCity}
+                    placeholder="Basel"
+                    placeholderTextColor="rgba(255,255,255,0.34)"
+                    autoCapitalize="words"
+                    style={[styles.input, styles.cityInput]}
+                  />
+
+                  <Pressable
+                    onPress={detectLocation}
+                    disabled={locationLoading}
+                    style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}
+                  >
+                    {locationLoading ? (
+                      <ActivityIndicator size="small" color="#171214" />
+                    ) : (
+                      <Text style={styles.locationButtonText}>Aktuell</Text>
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+
+              <View style={styles.field}>
+                <Text style={styles.label}>Land</Text>
+                <TextInput
+                  value={country}
+                  onChangeText={setCountry}
+                  placeholder="Schweiz"
+                  placeholderTextColor="rgba(255,255,255,0.34)"
+                  autoCapitalize="words"
+                  style={styles.input}
+                />
+              </View>
 
               <Pressable
                 onPress={saveProfile}
                 disabled={saving}
                 style={({ pressed }) => [styles.primaryButton, saving && styles.disabled, pressed && styles.pressed]}
               >
-                {saving ? <ActivityIndicator /> : <Text style={styles.primaryButtonText}>Weiter zu deinem Geschmack</Text>}
+                {saving ? <ActivityIndicator color="#171214" /> : <Text style={styles.primaryButtonText}>Weiter</Text>}
               </Pressable>
             </View>
+
+            <Text style={styles.footerNote}>
+              Dein Profil hilft Backyrd, Orte persönlicher zu sortieren. Du kannst alles später ändern.
+            </Text>
           </ScrollView>
         </LinearGradient>
       </TouchableWithoutFeedback>
@@ -425,55 +456,111 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: Platform.select({ ios: 78, android: 48, default: 48 }),
-    paddingBottom: 42,
+    paddingTop: Platform.select({ ios: 70, android: 42, default: 42 }),
+    paddingBottom: 34,
+  },
+  topRow: {
+    minHeight: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 30,
+  },
+  location: {
+    color: "rgba(255,255,255,0.92)",
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: "700",
+    letterSpacing: -0.35,
+  },
+  stepPill: {
+    height: 34,
+    paddingHorizontal: 13,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.09)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepText: {
+    color: "rgba(255,255,255,0.66)",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  hero: {
+    marginBottom: 26,
   },
   kicker: {
-    color: "rgba(255,255,255,0.46)",
-    fontSize: 13,
-    fontWeight: "950",
-    letterSpacing: 6,
-    marginBottom: 18,
+    color: "#FF9ABA",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 4.2,
+    marginBottom: 16,
   },
   title: {
     color: "#fff",
-    fontSize: 42,
-    lineHeight: 45,
-    fontWeight: "950",
-    letterSpacing: -1.2,
+    fontSize: 44,
+    lineHeight: 46,
+    fontWeight: "800",
+    letterSpacing: -1.35,
+  },
+  titlePink: {
+    color: "#FF7DA7",
+    fontWeight: "900",
   },
   subtitle: {
-    color: "rgba(255,255,255,0.68)",
-    fontSize: 17,
-    lineHeight: 25,
-    marginTop: 12,
-    marginBottom: 22,
+    color: "rgba(255,255,255,0.66)",
+    fontSize: 16,
+    lineHeight: 23,
+    marginTop: 14,
+    maxWidth: 330,
   },
   card: {
-    borderRadius: 30,
-    padding: 18,
-    backgroundColor: "rgba(255,255,255,0.07)",
+    borderRadius: 28,
+    padding: 16,
+    backgroundColor: "rgba(255,255,255,0.045)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: "rgba(255,255,255,0.09)",
+  },
+  cardHeader: {
+    marginBottom: 18,
+  },
+  cardTitle: {
+    color: "#fff",
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: "800",
+    letterSpacing: -0.45,
+  },
+  cardHint: {
+    color: "rgba(255,255,255,0.48)",
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "600",
+    marginTop: 5,
+  },
+  field: {
+    marginBottom: 13,
   },
   label: {
-    color: "rgba(255,255,255,0.64)",
-    fontSize: 13,
-    fontWeight: "950",
-    letterSpacing: 0.3,
-    marginBottom: 7,
-    marginLeft: 2,
+    color: "rgba(255,255,255,0.48)",
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.25,
+    marginBottom: 8,
+    marginLeft: 4,
   },
   input: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderColor: "rgba(255,255,255,0.16)",
+    minHeight: 56,
+    backgroundColor: "rgba(255,255,255,0.055)",
+    borderColor: "rgba(255,255,255,0.095)",
     borderWidth: 1,
     paddingHorizontal: 16,
-    paddingVertical: 15,
-    borderRadius: 17,
-    marginBottom: 14,
+    paddingVertical: 14,
+    borderRadius: 18,
     color: "#fff",
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "800",
   },
   cityRow: {
@@ -485,32 +572,40 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   locationButton: {
-    marginBottom: 14,
-    minWidth: 98,
-    height: 54,
-    borderRadius: 17,
-    backgroundColor: "rgba(244,235,221,0.12)",
+    minWidth: 94,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: "#FFD4E0",
     borderWidth: 1,
-    borderColor: "rgba(244,235,221,0.28)",
+    borderColor: "rgba(255,125,167,0.35)",
     alignItems: "center",
     justifyContent: "center",
   },
   locationButtonText: {
-    color: "#F4EBDD",
-    fontWeight: "950",
+    color: "#171214",
+    fontWeight: "900",
+    fontSize: 13,
   },
   primaryButton: {
     height: 58,
-    borderRadius: 18,
-    backgroundColor: "#fff",
+    borderRadius: 999,
+    backgroundColor: "#FF7DA7",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 6,
+    marginTop: 8,
   },
   primaryButtonText: {
-    color: "#050506",
+    color: "#171214",
     fontSize: 16,
-    fontWeight: "950",
+    fontWeight: "900",
+  },
+  footerNote: {
+    color: "rgba(255,255,255,0.42)",
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "600",
+    marginTop: 18,
+    paddingHorizontal: 4,
   },
   disabled: {
     opacity: 0.58,

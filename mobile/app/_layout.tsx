@@ -12,6 +12,9 @@ import { Platform, View, ActivityIndicator } from "react-native";
 import SplashScreen from "./splash";
 import { registerForPushNotificationsAsync } from "../lib/notifications";
 import { useAuth } from "../hooks/useAuth";
+import { AnalyticsProvider } from "../providers/AnalyticsProvider";
+import { AnalyticsErrorBoundary } from "../components/AnalyticsErrorBoundary";
+import { reportAnalyticsError } from "../lib/analytics";
 
 function WebSafeFallback() {
   return (
@@ -23,8 +26,37 @@ function WebSafeFallback() {
         justifyContent: "center",
       }}
     >
-      <ActivityIndicator color="#fff" />
+      <ActivityIndicator color="#FF7DA7" />
     </View>
+  );
+}
+
+function RootStack() {
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="gate" />
+      <Stack.Screen name="(tabs)" />
+
+      <Stack.Screen name="auth/login" />
+      <Stack.Screen name="auth/register" />
+      <Stack.Screen name="auth/verify" />
+
+      <Stack.Screen name="onboarding/index" />
+      <Stack.Screen name="onboarding/profile" />
+      <Stack.Screen name="onboarding/decision" />
+
+      <Stack.Screen
+        name="spot/[id]"
+        options={{
+          headerShown: true,
+          headerTintColor: "#FFFFFF",
+          headerBackTitle: "Zurück",
+          headerTitle: "",
+          headerStyle: { backgroundColor: "#09090A" },
+          headerShadowVisible: false,
+        }}
+      />
+    </Stack>
   );
 }
 
@@ -42,8 +74,14 @@ export default function RootLayout() {
     (async () => {
       try {
         await registerForPushNotificationsAsync();
-      } catch (e) {
-        console.log("Push registration error:", e);
+      } catch (error) {
+        console.log("Push registration error:", error);
+        await reportAnalyticsError({
+          error,
+          errorType: "push_registration_error",
+          severity: "warning",
+          handled: true,
+        });
       }
     })();
   }, []);
@@ -53,29 +91,10 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="gate" />
-
-      <Stack.Screen name="(tabs)" />
-
-      <Stack.Screen name="auth/login" />
-      <Stack.Screen name="auth/register" />
-      <Stack.Screen name="auth/verify" />
-
-      <Stack.Screen name="onboarding/index" />
-      <Stack.Screen name="onboarding/profile" />
-      <Stack.Screen name="onboarding/decision" />
-
-      <Stack.Screen
-        name="spot/[id]"
-        options={{
-          headerShown: true,
-          headerTintColor: "#000",
-          headerBackTitle: "Zurück",
-          headerTitle: "",
-          headerStyle: { backgroundColor: "#FFFFF1" },
-        }}
-      />
-    </Stack>
+    <AnalyticsErrorBoundary>
+      <AnalyticsProvider>
+        <RootStack />
+      </AnalyticsProvider>
+    </AnalyticsErrorBoundary>
   );
 }

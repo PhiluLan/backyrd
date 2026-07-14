@@ -22,6 +22,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import { supabase } from "@/lib/supabase";
 import { mapTextToClusterIds } from "@/lib/decision/moodMapping";
+import { trackAnalyticsEvent, reportAnalyticsError } from "@/lib/analytics";
 
 type DecisionSpotRpcRow = {
   spot_id: string;
@@ -173,6 +174,9 @@ const theme = {
   muted: "rgba(255,255,255,0.66)",
   subtle: "rgba(255,255,255,0.46)",
   cream: "#F4EBDD",
+  pink: "#FF7DA7",
+  pinkSoft: "#FFD4E0",
+  pinkMuted: "#FF9ABA",
   ink: "#111111",
   green: "#78A045",
   red: "#E95050",
@@ -1241,13 +1245,27 @@ export default function DecisionScreen() {
       if (!spot) return;
 
       logSwipeSignal(spot, direction);
+      void trackAnalyticsEvent({
+        eventName: direction === "like" ? "decision_like" : "decision_dislike",
+        screenName: "decision",
+        entityType: "spot",
+        entityId: spot.spot_id,
+        spotId: spot.spot_id,
+        decisionId,
+        properties: { rank: activeIndex + 1 },
+      });
       setActiveIndex((current) => Math.min(current + 1, spots.length));
     },
-    [activeIndex, spots, logSwipeSignal]
+    [activeIndex, decisionId, spots, logSwipeSignal]
   );
 
   const runDecision = useCallback(
     async (options?: { remix?: boolean }) => {
+      void trackAnalyticsEvent({
+        eventName: options?.remix ? "decision_remixed" : "decision_started",
+        screenName: "decision",
+        properties: { input_mode: inputMode },
+      });
       const isRemix = Boolean(options?.remix);
 
       if (!userId) {
@@ -1549,6 +1567,14 @@ export default function DecisionScreen() {
           if (error) console.log("taste v3 tapped error", error);
         });
 
+      void trackAnalyticsEvent({
+        eventName: "decision_spot_opened",
+        screenName: "decision",
+        entityType: "spot",
+        entityId: spotId,
+        spotId,
+        decisionId,
+      });
       router.push(`/spot/${spotId}` as any);
     },
     [activeIndex, decisionId, logMlEvent, router, spots]
@@ -1594,44 +1620,19 @@ export default function DecisionScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             flexGrow: 1,
-            paddingHorizontal: 22,
-            paddingTop: 18,
+            paddingHorizontal: 20,
+            paddingTop: 16,
             paddingBottom: 112,
-            justifyContent: "center",
           }}
         >
-          <View style={{ marginBottom: 28 }}>
-            <View
-              style={{
-                alignSelf: "flex-start",
-                paddingHorizontal: 12,
-                paddingVertical: 7,
-                borderRadius: 999,
-                backgroundColor: "rgba(244,235,221,0.08)",
-                borderWidth: 1,
-                borderColor: "rgba(244,235,221,0.14)",
-                marginBottom: 18,
-              }}
-            >
-              <Text
-                style={{
-                  color: "rgba(244,235,221,0.9)",
-                  fontSize: 12,
-                  fontWeight: "900",
-                  letterSpacing: 0.2,
-                }}
-              >
-                Decision
-              </Text>
-            </View>
-
+          <View style={{ marginBottom: 24, marginTop: 4 }}>
             <Text
               style={{
                 color: theme.text,
-                fontSize: 44,
-                lineHeight: 47,
-                fontWeight: "950",
-                letterSpacing: -1.55,
+                fontSize: 28,
+                lineHeight: 32,
+                fontWeight: "850",
+                letterSpacing: -0.7,
               }}
             >
               Wohin jetzt?
@@ -1641,23 +1642,23 @@ export default function DecisionScreen() {
               style={{
                 color: "rgba(255,255,255,0.54)",
                 marginTop: 12,
-                fontSize: 16,
-                lineHeight: 23,
+                fontSize: 15,
+                lineHeight: 22,
                 maxWidth: 330,
                 fontWeight: "600",
               }}
             >
-              Wähle eine Richtung oder beschreib frei, was du gerade suchst. Stimmung ist optional.
+              Beschreib deinen Moment oder wähle ein paar Signale. Backyrd sucht daraus passende Orte.
             </Text>
           </View>
 
           <View
             style={{
-              borderRadius: 38,
+              borderRadius: 30,
               overflow: "hidden",
               borderWidth: 1,
               borderColor: "rgba(255,255,255,0.1)",
-              backgroundColor: "rgba(255,255,255,0.055)",
+              backgroundColor: "rgba(255,255,255,0.045)",
               shadowColor: "#000",
               shadowOpacity: 0.3,
               shadowRadius: 28,
@@ -1665,7 +1666,7 @@ export default function DecisionScreen() {
             }}
           >
             <LinearGradient
-              colors={["rgba(255,255,255,0.085)", "rgba(255,255,255,0.035)"]}
+              colors={["rgba(255,255,255,0.07)", "rgba(255,255,255,0.03)"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{ padding: 18 }}
@@ -1953,7 +1954,7 @@ export default function DecisionScreen() {
                   borderRadius: 999,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: loading || !canRun ? "rgba(255,255,255,0.11)" : theme.cream,
+                  backgroundColor: loading || !canRun ? "rgba(255,255,255,0.11)" : theme.pink,
                   shadowColor: "#000",
                   shadowOpacity: loading || !canRun ? 0 : 0.28,
                   shadowRadius: 18,
@@ -1970,7 +1971,7 @@ export default function DecisionScreen() {
                 ) : (
                   <Text
                     style={{
-                      color: canRun ? theme.ink : "rgba(255,255,255,0.45)",
+                      color: canRun ? "#171214" : "rgba(255,255,255,0.45)",
                       fontWeight: "950",
                       fontSize: 17,
                       letterSpacing: -0.2,
@@ -2019,12 +2020,12 @@ export default function DecisionScreen() {
                   marginTop: 13,
                   height: 48,
                   borderRadius: 999,
-                  backgroundColor: "rgba(244,235,221,0.94)",
+                  backgroundColor: theme.pink,
                   alignItems: "center",
                   justifyContent: "center",
                 }}
               >
-                <Text style={{ color: "#111", fontWeight: "950", fontSize: 15 }}>Deck öffnen</Text>
+                <Text style={{ color: "#171214", fontWeight: "950", fontSize: 15 }}>Deck öffnen</Text>
               </Pressable>
             </View>
           )}
@@ -2088,12 +2089,12 @@ function SegmentButton({
         borderRadius: 999,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: active ? theme.cream : "transparent",
+        backgroundColor: active ? theme.pinkSoft : "transparent",
       }}
     >
       <Text
         style={{
-          color: active ? theme.ink : "rgba(255,255,255,0.62)",
+          color: active ? "#171214" : "rgba(255,255,255,0.62)",
           fontWeight: "950",
           fontSize: 14,
         }}
@@ -2144,14 +2145,14 @@ function ChoiceChip({
         borderRadius: 999,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: active ? "rgba(244,235,221,0.94)" : "rgba(0,0,0,0.18)",
+        backgroundColor: active ? theme.pinkSoft : "rgba(0,0,0,0.18)",
         borderWidth: 1,
-        borderColor: active ? "rgba(244,235,221,0.62)" : "rgba(255,255,255,0.1)",
+        borderColor: active ? "rgba(255,125,167,0.45)" : "rgba(255,255,255,0.1)",
       }}
     >
       <Text
         style={{
-          color: active ? theme.ink : "rgba(255,255,255,0.76)",
+          color: active ? "#171214" : "rgba(255,255,255,0.76)",
           fontWeight: "950",
           fontSize: 13,
         }}
@@ -2229,10 +2230,10 @@ function FullscreenDeck({
                   borderRadius: 999,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: theme.cream,
+                  backgroundColor: theme.pink,
                 }}
               >
-                <Text style={{ color: theme.ink, fontWeight: "950", fontSize: 15 }}>
+                <Text style={{ color: "#171214", fontWeight: "950", fontSize: 15 }}>
                   Ich will mehr entdecken{remixCount > 0 ? ` · Mix ${remixCount + 2}` : ""}
                 </Text>
               </Pressable>
@@ -2282,22 +2283,22 @@ function RoundDeckButton({ label, onPress }: { label: string; onPress: () => voi
     <Pressable
       onPress={onPress}
       style={{
-        width: 52,
-        height: 52,
-        borderRadius: 26,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "rgba(12,12,13,0.72)",
+        backgroundColor: "rgba(255,255,255,0.055)",
         borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.13)",
+        borderColor: "rgba(255,255,255,0.095)",
       }}
     >
       <Text
         style={{
           color: "#fff",
-          fontSize: label === "≡" ? 25 : 30,
-          fontWeight: "300",
-          marginTop: label === "×" ? -3 : -1,
+          fontSize: label === "✦" ? 19 : 25,
+          fontWeight: label === "✦" ? "800" : "400",
+          marginTop: label === "✦" ? -1 : -2,
         }}
       >
         {label}
@@ -2429,252 +2430,277 @@ function FullscreenSwipeCard({
   ).current;
 
   const imageUrl = spot.photo_url;
-  const price = priceToSymbols(spot.price_level);
-  const cityLabel = clean(spot.city) || clean(city);
   const itemCopy = getCopyForSpot(copy, spot, index, moodA, moodB);
-  const todayHours = clean(spot.opening_hours_summary).replace(/^Heute\s*/i, "") || null;
+  const matchScore = Math.max(
+    82,
+    Math.min(98, Math.round(((spot.v13_combined_score ?? Number(spot.final_score) ?? 0.9) as number) * 100) || 95)
+  );
+  const queryLabel =
+    clean(moodA) ||
+    clean(moodB) ||
+    clean(itemCopy.headline) ||
+    "Ausflug mit meiner vierjährigen Tochter";
+  const momentChips = uniq(
+    [
+      clean(moodA),
+      clean(moodB),
+      ...(spot.matched_terms ?? []).map(clean),
+      ...(spot.matched_tokens ?? []).map(clean),
+      clean(spot.category_name),
+    ].filter(Boolean)
+  ).slice(0, 3);
+  const whyText = limitSentences(itemCopy.why || spot.human_reason || spot.why_this, 2);
 
   return (
     <View style={{ flex: 1, backgroundColor: "#050506" }}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <SafeAreaView
-        pointerEvents="box-none"
-        edges={["top", "left", "right"]}
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          top: 0,
-          zIndex: 40,
-        }}
-      >
+      <SafeAreaView edges={["top", "left", "right"]} style={{ flex: 1, backgroundColor: "#050506" }}>
         <View
-          pointerEvents="box-none"
           style={{
-            height: 74,
-            paddingHorizontal: 18,
+            paddingHorizontal: 20,
+            paddingTop: 10,
+            paddingBottom: 16,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
           }}
         >
-          <RoundDeckButton label="×" onPress={onBack} />
-
-          <View style={{ alignItems: "center", maxWidth: SCREEN_WIDTH - 160 }}>
-
-          </View>
-
-          <RoundDeckButton label="≡" onPress={onSettings} />
+          <RoundDeckButton label="‹" onPress={onBack} />
+          <Text style={{ color: theme.text, fontSize: 24, fontWeight: "850", letterSpacing: -0.55 }}>
+            Wohin jetzt?
+          </Text>
+          <RoundDeckButton label="✦" onPress={onSettings} />
         </View>
-      </SafeAreaView>
 
-      <View
-        style={{
-          flex: 1,
-          paddingTop: 110,
-          paddingHorizontal: 14,
-          paddingBottom: 130,
-        }}
-      >
-        <Animated.View
-          {...panResponder.panHandlers}
-          style={{
-            flex: 1,
-            transform: [{ translateX: pan.x }, { translateY: pan.y }, { rotate }, { scale: cardScale }],
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingBottom: 118,
           }}
         >
           <View
             style={{
-              flex: 1,
-              borderRadius: 38,
-              overflow: "hidden",
-              backgroundColor: "#111",
-              shadowColor: "#000",
-              shadowOpacity: 0.36,
-              shadowRadius: 24,
-              shadowOffset: { width: 0, height: 16 },
+              alignSelf: "flex-start",
+              maxWidth: "100%",
+              minHeight: 38,
+              paddingHorizontal: 14,
+              paddingVertical: 9,
+              borderRadius: 999,
+              backgroundColor: theme.pinkSoft,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 8,
             }}
           >
-            {imageUrl ? (
-              <Image
-                source={{ uri: imageUrl }}
-                resizeMode="cover"
+            <Text numberOfLines={1} style={{ color: "#171214", fontSize: 14, fontWeight: "750", maxWidth: SCREEN_WIDTH - 108 }}>
+              {queryLabel}
+            </Text>
+            <Text style={{ color: "rgba(23,18,20,0.58)", fontSize: 18, fontWeight: "600", marginTop: -1 }}>×</Text>
+          </View>
+
+          <Text
+            style={{
+              color: "rgba(255,255,255,0.44)",
+              fontSize: 13,
+              fontWeight: "650",
+              marginTop: 22,
+              marginBottom: 10,
+            }}
+          >
+            Dein Moment
+          </Text>
+
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
+            {(momentChips.length > 0 ? momentChips : ["draussen", "ruhig", "kindertauglich"]).map((chip, chipIndex) => (
+              <View
+                key={`${chip}-${chipIndex}`}
                 style={{
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: "100%",
-                  height: "100%",
+                  minHeight: 34,
+                  paddingHorizontal: 12,
+                  borderRadius: 999,
+                  backgroundColor: "rgba(255,255,255,0.06)",
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.08)",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 7,
                 }}
-              />
-            ) : (
-              <LinearGradient
-                colors={["rgba(244,235,221,0.2)", "#151515", "#070707"]}
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  bottom: 0,
-                }}
-              />
-            )}
+              >
+                <Text style={{ color: chipIndex === 0 ? "#C8E3A6" : theme.pinkMuted, fontSize: 15 }}>
+                  {chipIndex === 0 ? "↗" : chipIndex === 1 ? "∿" : "♡"}
+                </Text>
+                <Text style={{ color: theme.text, fontSize: 13, fontWeight: "750" }}>{chip}</Text>
+              </View>
+            ))}
+          </View>
 
-            <LinearGradient
-              colors={["rgba(0,0,0,0.08)", "rgba(0,0,0,0.1)", "rgba(0,0,0,0.52)", "rgba(0,0,0,0.9)"]}
-              locations={[0, 0.34, 0.66, 1]}
-              style={{
-                position: "absolute",
-                left: 0,
-                right: 0,
-                top: 0,
-                bottom: 0,
-              }}
-            />
-
-            <Animated.View
-              pointerEvents="none"
-              style={{
-                position: "absolute",
-                right: 26,
-                top: "36%",
-                opacity: likeProgress,
-                transform: [{ scale: likeScale }],
-                width: 112,
-                height: 112,
-                borderRadius: 56,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: "rgba(120,160,69,0.94)",
-                borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.42)",
-                zIndex: 20,
-              }}
-            >
-              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 48 }}>♡</Text>
-            </Animated.View>
-
-            <Animated.View
-              pointerEvents="none"
-              style={{
-                position: "absolute",
-                left: 26,
-                top: "36%",
-                opacity: dislikeProgress,
-                transform: [{ scale: dislikeScale }],
-                width: 112,
-                height: 112,
-                borderRadius: 56,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: "rgba(233,80,80,0.94)",
-                borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.42)",
-                zIndex: 20,
-              }}
-            >
-              <Text style={{ color: "#fff", fontWeight: "300", fontSize: 58, marginTop: -4 }}>×</Text>
-            </Animated.View>
-
+          <Animated.View
+            {...panResponder.panHandlers}
+            style={{
+              transform: [{ translateX: pan.x }, { translateY: pan.y }, { rotate }, { scale: cardScale }],
+            }}
+          >
             <View
               style={{
-                flex: 1,
-                justifyContent: "flex-end",
-                padding: 18,
+                minHeight: Math.min(510, SCREEN_HEIGHT * 0.58),
+                borderRadius: 26,
+                overflow: "hidden",
+                backgroundColor: "#121214",
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.08)",
               }}
             >
-              <Text style={{ color: "rgba(255,255,255,0.64)", fontSize: 12, fontWeight: "800", marginBottom: 10 }}>
-                Pick {index + 1} von {total}
-              </Text>
-
-              <View
-                style={{
-                  alignSelf: "flex-start",
-                  paddingHorizontal: 12,
-                  paddingVertical: 7,
-                  borderRadius: 999,
-                  backgroundColor: "rgba(255,255,255,0.88)",
-                  marginBottom: 12,
-                  maxWidth: "96%",
-                }}
-              >
-                <Text numberOfLines={1} style={{ color: "#111", fontWeight: "950", fontSize: 12 }}>
-                  {itemCopy.headline}
-                </Text>
-              </View>
-
-              <Text
-                numberOfLines={2}
-                style={{
-                  color: "#fff",
-                  fontSize: 36,
-                  lineHeight: 39,
-                  fontWeight: "950",
-                  letterSpacing: -1.1,
-                }}
-              >
-                {spot.name}
-              </Text>
-
-              <Text
-                numberOfLines={2}
-                style={{
-                  color: "rgba(255,255,255,0.82)",
-                  marginTop: 7,
-                  fontWeight: "850",
-                  fontSize: 15,
-                  lineHeight: 21,
-                }}
-              >
-                {itemCopy.subtitle}
-              </Text>
-
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 13 }}>
-                {spot.is_open_now === true && <MiniPill label="jetzt offen" tone="green" />}
-                {spot.is_open_now === false && <MiniPill label="gerade zu" tone="red" />}
-                {spot.category_name && <MiniPill label={spot.category_name} />}
-                {cityLabel && <MiniPill label={cityLabel} />}
-              </View>
-
-              <View
-                style={{
-                  flexDirection: "row",
-                  gap: 10,
-                  marginTop: 15,
-                }}
-              >
-                <InfoTile
-                  label="Heute"
-                  value={todayHours ?? "Keine Zeiten"}
-                  tone={spot.is_open_now === true ? "green" : spot.is_open_now === false ? "red" : "neutral"}
+              {imageUrl ? (
+                <Image
+                  source={{ uri: imageUrl }}
+                  resizeMode="cover"
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    height: "100%",
+                    width: "100%",
+                  }}
                 />
-                <InfoTile
-                  label="Preislevel"
-                  value={price ?? "Nicht angegeben"}
-                  tone="neutral"
+              ) : (
+                <LinearGradient
+                  colors={["#262128", "#111114", "#070708"]}
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                  }}
                 />
-              </View>
+              )}
 
-              <Pressable
-                onPress={onOpen}
+              <LinearGradient
+                colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.18)", "rgba(0,0,0,0.72)", "rgba(0,0,0,0.95)"]}
+                locations={[0, 0.42, 0.72, 1]}
                 style={{
-                  marginTop: 15,
-                  height: 52,
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  bottom: 0,
+                }}
+              />
+
+              <Animated.View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  right: 18,
+                  top: 18,
+                  opacity: likeProgress,
+                  transform: [{ scale: likeScale }],
+                  paddingHorizontal: 14,
+                  height: 42,
                   borderRadius: 999,
-                  backgroundColor: "rgba(244,235,221,0.96)",
                   alignItems: "center",
                   justifyContent: "center",
+                  backgroundColor: "rgba(255,125,167,0.92)",
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.32)",
+                  zIndex: 20,
                 }}
               >
-                <Text style={{ color: "#111", fontWeight: "950", fontSize: 15 }}>Mehr entdecken</Text>
-              </Pressable>
+                <Text style={{ color: "#171214", fontSize: 14, fontWeight: "900" }}>passt</Text>
+              </Animated.View>
+
+              <Animated.View
+                pointerEvents="none"
+                style={{
+                  position: "absolute",
+                  left: 18,
+                  top: 18,
+                  opacity: dislikeProgress,
+                  transform: [{ scale: dislikeScale }],
+                  paddingHorizontal: 14,
+                  height: 42,
+                  borderRadius: 999,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: "rgba(255,255,255,0.86)",
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.28)",
+                  zIndex: 20,
+                }}
+              >
+                <Text style={{ color: "#171214", fontSize: 14, fontWeight: "900" }}>weiter</Text>
+              </Animated.View>
+
+              <View style={{ flex: 1, justifyContent: "space-between", padding: 16 }}>
+                <View
+                  style={{
+                    alignSelf: "flex-start",
+                    paddingHorizontal: 12,
+                    paddingVertical: 9,
+                    borderRadius: 15,
+                    backgroundColor: "rgba(255,125,167,0.86)",
+                  }}
+                >
+                  <Text style={{ color: "#fff", fontSize: 24, lineHeight: 25, fontWeight: "850", letterSpacing: -0.8 }}>
+                    {matchScore}%
+                  </Text>
+                  <Text style={{ color: "rgba(255,255,255,0.86)", fontSize: 12, fontWeight: "700" }}>Match</Text>
+                </View>
+
+                <View>
+                  <Text
+                    numberOfLines={2}
+                    style={{
+                      color: theme.text,
+                      fontSize: 38,
+                      lineHeight: 39,
+                      fontWeight: "900",
+                      letterSpacing: -1.15,
+                    }}
+                  >
+                    {spot.name}
+                  </Text>
+                  <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: "650", marginTop: 8 }}>
+                    Passt zu deinem Moment
+                  </Text>
+
+                  <View
+                    style={{
+                      marginTop: 18,
+                      padding: 15,
+                      borderRadius: 18,
+                      backgroundColor: "rgba(12,12,14,0.74)",
+                      borderWidth: 1,
+                      borderColor: "rgba(255,255,255,0.11)",
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
+                      <Text style={{ color: theme.pinkMuted, fontSize: 27, lineHeight: 30 }}>✦</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: theme.pinkSoft, fontSize: 14, fontWeight: "800", marginBottom: 7 }}>
+                          Warum dieser Treffer?
+                        </Text>
+                        <Text style={{ color: "rgba(255,255,255,0.88)", fontSize: 15, lineHeight: 21, fontWeight: "600" }}>
+                          {whyText || "Nah, passend und mit genug Raum für deinen Moment."}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              </View>
             </View>
-          </View>
-        </Animated.View>
-      </View>
+          </Animated.View>
+
+          {total > 1 && (
+            <Text style={{ color: "rgba(255,255,255,0.38)", textAlign: "center", marginTop: 14, fontWeight: "700", fontSize: 12 }}>
+              Treffer {index + 1} von {total}
+            </Text>
+          )}
+        </ScrollView>
+      </SafeAreaView>
 
       <SafeAreaView
         pointerEvents="box-none"
@@ -2690,70 +2716,58 @@ function FullscreenSwipeCard({
         <View
           pointerEvents="box-none"
           style={{
-            height: 118,
+            paddingHorizontal: 20,
+            paddingTop: 12,
             paddingBottom: 12,
             flexDirection: "row",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: 28,
+            gap: 10,
+            backgroundColor: "rgba(5,5,6,0.82)",
           }}
         >
-          <Animated.View style={{ transform: [{ scale: dislikeScale }] }}>
-            <Pressable
-              onPress={() => swipeOut("dislike")}
-              style={{
-                width: 68,
-                height: 68,
-                borderRadius: 34,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: "#fff",
-                shadowColor: "#000",
-                shadowOpacity: 0.26,
-                shadowRadius: 16,
-                shadowOffset: { width: 0, height: 10 },
-              }}
-            >
-              <Text style={{ color: theme.red, fontSize: 35, fontWeight: "300", marginTop: -4 }}>×</Text>
-            </Pressable>
-          </Animated.View>
-
-          <Animated.View style={{ transform: [{ scale: likeScale }] }}>
-            <Pressable
-              onPress={() => swipeOut("like")}
-              style={{
-                width: 86,
-                height: 86,
-                borderRadius: 43,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: theme.green,
-                shadowColor: "#000",
-                shadowOpacity: 0.3,
-                shadowRadius: 18,
-                shadowOffset: { width: 0, height: 12 },
-              }}
-            >
-              <Text style={{ color: "#fff", fontSize: 46, fontWeight: "700", marginTop: -2 }}>♡</Text>
-            </Pressable>
-          </Animated.View>
+          <Pressable
+            onPress={() => swipeOut("dislike")}
+            style={{
+              flex: 1,
+              height: 52,
+              borderRadius: 999,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(255,255,255,0.065)",
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.09)",
+            }}
+          >
+            <Text style={{ color: theme.text, fontWeight: "800", fontSize: 13 }}>Nicht passend</Text>
+          </Pressable>
 
           <Pressable
             onPress={onOpen}
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: 28,
+              flex: 1.12,
+              height: 52,
+              borderRadius: 999,
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: "#fff",
-              shadowColor: "#000",
-              shadowOpacity: 0.2,
-              shadowRadius: 13,
-              shadowOffset: { width: 0, height: 8 },
+              backgroundColor: theme.pink,
             }}
           >
-            <Text style={{ color: "rgba(17,17,17,0.72)", fontSize: 24, fontWeight: "700" }}>?</Text>
+            <Text style={{ color: "#171214", fontWeight: "900", fontSize: 15 }}>Route</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => swipeOut("like")}
+            style={{
+              flex: 1,
+              height: 52,
+              borderRadius: 999,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(255,255,255,0.065)",
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.09)",
+            }}
+          >
+            <Text style={{ color: theme.text, fontWeight: "800", fontSize: 14 }}>Passt</Text>
           </Pressable>
         </View>
       </SafeAreaView>

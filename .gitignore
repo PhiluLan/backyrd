@@ -177,3 +177,9 @@ index.html
 
 # Local secret EAS config
 mobile/eas.local.secret.json
+
+# Lokale Archive
+*.zip
+
+# Lokale Archive
+*.zip

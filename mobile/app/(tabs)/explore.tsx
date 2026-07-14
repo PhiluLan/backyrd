@@ -54,14 +54,12 @@ const theme = {
 };
 
 /** ===== HELPERS ===== */
-const PLACEHOLDER_FUN = (seed: string | number) =>
-  `https://placekitten.com/seed/${encodeURIComponent(String(seed))}/800/500`;
-
 type SpotTopMoods = Record<string, string[]>;
 type GroupedResults = { fromName: Spot[]; fromMood: Spot[] };
 
 type SpotWithPhoto = Spot & { photoUrl?: string | null; _key?: string };
 type JourneyMiniItem = SpotWithPhoto;
+type UserCoords = { latitude: number; longitude: number };
 
 const sanitizeMood = (m: string) => m?.trim();
 const isValidMood = (m?: string) => {
@@ -99,6 +97,46 @@ function greetingByTime() {
   return "heute Nacht?";
 }
 
+function shortAddress(address?: string | null) {
+  if (!address) return "Basel";
+  const parts = address.split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length >= 2) return parts.slice(0, 2).join(" · ");
+  return address;
+}
+
+function moodTone(index: number) {
+  const tones = [
+    { bg: "rgba(167,139,250,0.18)", border: "rgba(167,139,250,0.34)", text: "#D8C7FF" },
+    { bg: "rgba(74,222,128,0.14)", border: "rgba(74,222,128,0.28)", text: "#BDF7C9" },
+    { bg: "rgba(251,146,60,0.14)", border: "rgba(251,146,60,0.28)", text: "#FFD0A8" },
+    { bg: "rgba(85,214,255,0.14)", border: "rgba(85,214,255,0.28)", text: "#BDEEFF" },
+  ];
+  return tones[index % tones.length];
+}
+
+function distanceKm(from: UserCoords | null, spot: SpotWithPhoto | Spot) {
+  const lat = Number((spot as any).lat);
+  const lng = Number((spot as any).lng);
+  if (!from || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  const earthKm = 6371;
+  const dLat = ((lat - from.latitude) * Math.PI) / 180;
+  const dLng = ((lng - from.longitude) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((from.latitude * Math.PI) / 180) *
+      Math.cos((lat * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  return earthKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDistance(km: number | null) {
+  if (km === null) return null;
+  if (km < 1) return `${Math.round(km * 1000)} m`;
+  return `${km.toFixed(km < 10 ? 1 : 0).replace(".", ",")} km`;
+}
+
 /** ===== SCREEN ===== */
 export default function Home() {
   const [q, setQ] = useState("");
@@ -134,6 +172,7 @@ export default function Home() {
   const translateY = useRef(new Animated.Value(10)).current;
 
   const [currentCanton, setCurrentCanton] = useState<string | null>(null);
+  const [userCoords, setUserCoords] = useState<UserCoords | null>(null);
   const [timeOfDay, setTimeOfDay] = useState<"day" | "night">("day");
 
   function SectionHeader({ title }: { title: string }) {
@@ -270,6 +309,10 @@ export default function Home() {
         }
 
         const pos = await Location.getCurrentPositionAsync({});
+        setUserCoords({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        });
         const rev = await Location.reverseGeocodeAsync({
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
@@ -290,6 +333,7 @@ export default function Home() {
         }
       } catch (e) {
         console.warn("Location error:", e);
+        setUserCoords(null);
         setCurrentCanton(null);
       }
     })();
@@ -407,7 +451,7 @@ export default function Home() {
     });
     return spots.map((s) => ({
       ...s,
-      photoUrl: firstBySpot[s.id] || PLACEHOLDER_FUN(s.id),
+      photoUrl: firstBySpot[s.id] || null,
     }));
   }
 
@@ -985,6 +1029,20 @@ export default function Home() {
     discoverSpots.length === 0 &&
     journeyMini.length === 0;
 
+  const currentCityName =
+    currentCanton === "Basel-Stadt" ? "Basel" : currentCanton || "Basel";
+  const cityMatches = (spot: SpotWithPhoto) =>
+    !currentCityName ||
+    currentCityName === "Schweiz" ||
+    (spot.address || "").toLowerCase().includes(currentCityName.toLowerCase());
+  const newestSource = popularFallback;
+  const newestInCity = newestSource.filter(cityMatches);
+  const newestSpots = (newestInCity.length > 0 ? newestInCity : newestSource).slice(0, 3);
+  const recentRankingSpots = recentVisits.slice(0, 3);
+  const randomInCity = randomFallback.filter(cityMatches);
+  const randomCitySpots = (randomInCity.length > 0 ? randomInCity : randomFallback).slice(0, 3);
+  const firstName = profile?.first_name || "du";
+
   /** ===== RENDER ===== */
   return (
     <View style={styles.container}>
@@ -1003,195 +1061,112 @@ export default function Home() {
             scrollEventThrottle={16}
             style={{ opacity: fade, transform: [{ translateY }] }}
           >
-            {/* ===================================================== */}
-            {/*                   ULTRA PREMIUM HEADER                */}
-            {/* ===================================================== */}
-
-            <View style={styles.heroContainer}>
-              {/* --- PARALLAX BACKGROUND IMAGE --- */}
-              <Animated.View
-                style={[
-                  StyleSheet.absoluteFillObject,
-                  {
-                    transform: [
-                      {
-                        translateY: scrollY.interpolate({
-                          inputRange: [-150, 0, 300],
-                          outputRange: [-60, 0, 25],
-                          extrapolateRight: "clamp",
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              >
-                <ImageBackground
-                  source={selectedImage}
-                  style={styles.heroImage}
-                  resizeMode="cover"
+            <SafeAreaView edges={["top"]} style={styles.quietTop}>
+              <View style={styles.quietHeader}>
+                <Pressable
+                  onPress={() => router.push("/map")}
+                  style={styles.locationButton}
                 >
-                  {/* --- DARK MULTI GRADIENT OVERLAY (Apple Style) --- */}
-                  <LinearGradient
-                    colors={[
-                      "rgba(0,0,0,0.15)",
-                      "rgba(0,0,0,0.35)",
-                      "rgba(0,0,0,0.55)",
-                      "rgba(0,0,0,0.85)",
-                    ]}
-                    start={{ x: 0.5, y: 0 }}
-                    end={{ x: 0.5, y: 1 }}
-                    style={StyleSheet.absoluteFill}
-                  />
-
-                  {/* --- NIGHT COLOR FILTER --- */}
-                  <LinearGradient
-                    colors={
-                      timeOfDay === "night"
-                        ? ["rgba(0,0,30,0.2)", "rgba(0,0,60,0.4)"]
-                        : ["rgba(255,255,255,0)", "rgba(255,255,255,0)"]
-                    }
-                    style={styles.heroNightFilter}
-                  />
-
-                  {/* --- CANTON TINT (SUBTLE) --- */}
-                  {currentCanton && (
-                    <View
-                      style={[
-                        styles.cantonTint,
-                        {
-                          backgroundColor:
-                            cantonTintColor[currentCanton] || "transparent",
-                        },
-                      ]}
-                    />
-                  )}
-
-                  {/* ============================= */}
-                  {/*         FOREGROUND TEXT       */}
-                  {/* ============================= */}
-                  <SafeAreaView style={styles.heroSafe}>
-                    {/* AVATAR ORB */}
-                    {profile?.avatar_url && (
-                      <Pressable
-                        onPress={() => router.push("/profile")}
-                        style={styles.heroAvatarOrb}
-                      >
-                        <Image
-                          source={{ uri: profile.avatar_url }}
-                          style={styles.heroAvatarImg}
-                        />
-                      </Pressable>
-                    )}
-
-                    <Animated.View
-                      style={{
-                        opacity: fadeText,
-                        transform: [{ translateY: fadeTextY }],
-                      }}
-                    >
-                      {profile ? (
-                        <>
-                          <Text style={styles.heroGreeting}>
-                            Hey {profile.first_name}
-                          </Text>
-                          <Text style={styles.heroSubtitle}>
-                            Wonach steht dir der Sinn {getGreetingForTime()}?
-                          </Text>
-                        </>
-                      ) : (
-                        <>
-                          <Text style={styles.heroGreeting}>
-                            Willkommen bei Backyrd
-                          </Text>
-                          <Text style={styles.heroSubtitle}>
-                            Finde Orte, die zu deiner Stimmung passen.
-                          </Text>
-                        </>
-                      )}
-                    </Animated.View>
-
-                    {/* HERO SHINE */}
-                    <LinearGradient
-                      colors={[
-                        "rgba(255,255,255,0.18)",
-                        "rgba(255,255,255,0.02)",
-                      ]}
-                      start={{ x: 0, y: 0.2 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.heroShine}
-                    />
-                  </SafeAreaView>
-                </ImageBackground>
-              </Animated.View>
-            </View>
-
-            {/* ===================================================== */}
-            {/*               FLOATING GLASS SEARCH BAR               */}
-            {/* ===================================================== */}
-            <Animated.View style={styles.floatingSearchContainer}>
-              <BlurView
-                intensity={40}
-                tint="dark"
-                style={styles.searchBarGlass}
-              >
-                <View style={styles.searchBox}>
-                  <Ionicons name="search" size={20} color="#B0B2B8" />
-
-                  <TextInput
-                    placeholder="z. B. cozy bar, rooftop…"
-                    placeholderTextColor="#8F9299"
-                    style={styles.searchInput}
-                    value={q}
-                    onChangeText={setQ}
-                    returnKeyType="search"
-                  />
-
-                  {q.length > 0 && (
-                    <Pressable onPress={() => setQ("")} hitSlop={10}>
-                      <Ionicons
-                        name="close-circle"
-                        size={18}
-                        color="#7C8087"
-                      />
-                    </Pressable>
-                  )}
-                </View>
-              </BlurView>
-            </Animated.View>
-
-            {/* ===================================================== */}
-            {/*                    MOOD CHIPS                         */}
-            {/* ===================================================== */}
-            <View style={styles.moodChipsWrapper}>
-              <View pointerEvents="none" style={styles.fadeLeft} />
-
-              <RNScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.moodChipsRow}
-              >
-                {top8Moods?.length > 0 &&
-                  top8Moods.map((mood) => (
-                    <Pressable
-                      key={mood}
-                      style={styles.moodChip}
-                      onPress={() => onSelectMood(mood)}
-                    >
-                      <Text style={styles.moodChipText}>{mood}</Text>
-                    </Pressable>
-                  ))}
+                  <Text style={styles.locationText}>
+                    {currentCityName}
+                  </Text>
+                  <Ionicons name="chevron-down" size={19} color="#DCD7CB" />
+                </Pressable>
 
                 <Pressable
-                  style={styles.moodChipSurprise}
-                  onPress={handleSurpriseJourney}
+                  onPress={() => router.push("/profile")}
+                  style={styles.quietAvatar}
                 >
-                  <Ionicons name="dice" size={16} color="#fff" />
-                  <Text style={styles.moodChipText}>Überrasch mich</Text>
+                  {profile?.avatar_url ? (
+                    <Image
+                      source={{ uri: profile.avatar_url }}
+                      style={styles.quietAvatarImage}
+                    />
+                  ) : (
+                    <Ionicons name="person" size={21} color="#F4EFE4" />
+                  )}
                 </Pressable>
-              </RNScrollView>
+              </View>
 
-              <View pointerEvents="none" style={styles.fadeRight} />
-            </View>
+              <View style={styles.quietGreetingWrap}>
+                <Text style={styles.quietGreeting}>
+                  Hey <Text style={styles.quietGreetingAccent}>{firstName}</Text>
+                </Text>
+                <Text style={styles.homeSubtitle}>
+                  Worauf hast du gerade Lust?
+                </Text>
+              </View>
+
+              <BlurView intensity={24} tint="dark" style={styles.quietSearch}>
+                <Ionicons name="search" size={23} color="#8E8D8A" />
+                <TextInput
+                  placeholder="Ausflug mit meiner Tochter..."
+                  placeholderTextColor="#8E8D8A"
+                  style={styles.quietSearchInput}
+                  value={q}
+                  onChangeText={setQ}
+                  returnKeyType="search"
+                />
+                {q.length > 0 && (
+                  <Pressable onPress={() => setQ("")} hitSlop={10}>
+                    <Ionicons name="close-circle" size={20} color="#8E8D8A" />
+                  </Pressable>
+                )}
+                {q.length === 0 && (
+                  <Pressable
+                    hitSlop={10}
+                    onPress={() =>
+                      Alert.alert(
+                        "Sucheinstellungen",
+                        "Filter fuer Stimmung, Entfernung und Kategorien kommen hier hin."
+                      )
+                    }
+                  >
+                    <Ionicons name="options-outline" size={22} color="#FF9ABA" />
+                  </Pressable>
+                )}
+              </BlurView>
+
+              {!q && (
+                <View style={styles.primaryTiles}>
+                  <Pressable
+                    onPress={() => router.push("/decision")}
+                    style={[styles.intentTile, styles.intentTileLarge]}
+                  >
+                    <View style={styles.intentIconMuted}>
+                      <Ionicons name="navigate-outline" size={25} color="#BBC7A0" />
+                    </View>
+                    <View style={styles.intentCopy}>
+                      <Text style={styles.intentTitle}>Wohin jetzt?</Text>
+                    </View>
+                    <Ionicons
+                      name="arrow-forward"
+                      size={23}
+                      color="#DCD7CB"
+                      style={styles.intentArrow}
+                    />
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => router.push("/review/smart")}
+                    style={styles.intentTile}
+                  >
+                    <View style={styles.intentIconMuted}>
+                      <Ionicons name="heart-outline" size={24} color="#C9B1F4" />
+                    </View>
+                    <View style={styles.intentCopy}>
+                      <Text style={styles.intentTitle}>Moment teilen</Text>
+                    </View>
+                    <Ionicons
+                      name="arrow-forward"
+                      size={22}
+                      color="#DCD7CB"
+                      style={styles.intentArrow}
+                    />
+                  </Pressable>
+                </View>
+              )}
+            </SafeAreaView>
 
             {/* ===================================================== */}
             {/*                CTA: Map (GLASS)                       */}
@@ -1272,205 +1247,284 @@ export default function Home() {
               )}
             </View>
 
-            {/* ===================================================== */}
-            {/*      DEINE LETZTEN BESUCHE & NEU ENTDECKT            */}
-            {/* ===================================================== */}
-
-            {recentVisits.length > 0 && (
-              <View style={{ paddingHorizontal: theme.spacing(2) }}>
-                <SectionHeader title="Deine letzten Besuche" />
-                <FlatList
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  data={recentVisits}
-                  keyExtractor={(item) => item._key!}
-                  renderItem={({ item }) => (
-                    <Pressable
-                      onPress={() => router.push(`/spot/${item.id}`)}
-                      style={{ marginRight: 14, width: 240 }}
-                    >
-                      <Image
-                        source={{
-                          uri: item.photoUrl || PLACEHOLDER_FUN(item.id),
-                        }}
-                        style={styles.recentImg}
-                      />
-                      <Text style={styles.resultTitle} numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                      {!!item.address && (
-                        <Text style={styles.textMuted} numberOfLines={1}>
-                          {item.address}
-                        </Text>
-                      )}
-                    </Pressable>
-                  )}
+            {!q && (
+              <View style={styles.rankingStack}>
+                <SpotRankingSection
+                  title="Neu auf Backyrd"
+                  showAll
+                  spots={newestSpots}
+                  userCoords={userCoords}
+                />
+                <SpotRankingSection
+                  title="Kürzlich besucht"
+                  spots={recentRankingSpots}
+                  userCoords={userCoords}
+                />
+                <SpotRankingSection
+                  title="Einfach drauf los"
+                  spots={randomCitySpots}
+                  userCoords={userCoords}
                 />
               </View>
             )}
 
-            {discoverSpots.length > 0 && (
-              <View style={{ paddingHorizontal: theme.spacing(2) }}>
-                <SectionHeader title="Neu entdeckt" />
-                <FlatList
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  data={discoverSpots}
-                  keyExtractor={(item) => item.id}
-                  renderItem={({ item }) => (
-                    <Pressable
-                      onPress={() => router.push(`/spot/${item.id}`)}
-                      style={{ marginRight: 14, width: 240 }}
-                    >
-                      <Image
-                        source={{
-                          uri: item.photoUrl || PLACEHOLDER_FUN(item.id),
-                        }}
-                        style={styles.recentImg}
-                      />
-                      <Text style={styles.resultTitle} numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                      {!!item.address && (
-                        <Text style={styles.textMuted} numberOfLines={1}>
-                          {item.address}
-                        </Text>
-                      )}
-                    </Pressable>
-                  )}
-                />
-              </View>
-            )}
-
-            {/* ===================================================== */}
-            {/*         GENERELLE VORSCHLÄGE FALLBACK                 */}
-            {/* ===================================================== */}
-            {recentVisits.length === 0 && discoverSpots.length === 0 && (
-              <View style={{ paddingHorizontal: theme.spacing(2) }}>
-                <SectionHeader title="Beliebt in Backyrd" />
-                <FlatList
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  data={popularFallback}
-                  keyExtractor={(item) => item.id}
-                  renderItem={({ item }) => (
-                    <Pressable
-                      onPress={() => router.push(`/spot/${item.id}`)}
-                      style={{ marginRight: 14, width: 240 }}
-                    >
-                      <Image
-                        source={{
-                          uri: item.photoUrl || PLACEHOLDER_FUN(item.id),
-                        }}
-                        style={styles.recentImg}
-                      />
-                      <Text style={styles.resultTitle} numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                      {!!item.address && (
-                        <Text style={styles.textMuted} numberOfLines={1}>
-                          {item.address}
-                        </Text>
-                      )}
-                    </Pressable>
-                  )}
-                />
-
-                <SectionHeader title="Zufällige Empfehlungen" />
-                <FlatList
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  data={randomFallback}
-                  keyExtractor={(item) => item.id}
-                  renderItem={({ item }) => (
-                    <Pressable
-                      onPress={() => router.push(`/spot/${item.id}`)}
-                      style={{ marginRight: 14, width: 240 }}
-                    >
-                      <Image
-                        source={{
-                          uri: item.photoUrl || PLACEHOLDER_FUN(item.id),
-                        }}
-                        style={styles.recentImg}
-                      />
-                      <Text style={styles.resultTitle} numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                      {!!item.address && (
-                        <Text style={styles.textMuted} numberOfLines={1}>
-                          {item.address}
-                        </Text>
-                      )}
-                    </Pressable>
-                  )}
-                />
-              </View>
-            )}
-
-            {/* ===================================================== */}
-            {/*                   JOURNEY MINI                        */}
-            {/* ===================================================== */}
-            <View
-              style={{
-                paddingHorizontal: theme.spacing(2),
-                marginTop: theme.spacing(2),
-              }}
-            >
-              <SectionHeader title={journeyTitle} />
-
-              {journeyMini.length > 0 ? (
-                <View style={{ gap: 16, marginBottom: 22 }}>
-                  {journeyMini.map((spot) => (
-                    <Pressable
-                      key={spot.id}
-                      onPress={() => router.push(`/spot/${spot.id}`)}
-                      style={styles.card}
-                    >
-                      <View style={styles.cardMedia}>
-                        <Image
-                          source={{
-                            uri: spot.photoUrl || PLACEHOLDER_FUN(spot.id),
-                          }}
-                          style={styles.cardImg}
-                        />
-                        <LinearGradient
-                          colors={[
-                            "transparent",
-                            "rgba(0,0,0,0.45)",
-                            "rgba(0,0,0,0.85)",
-                          ]}
-                          start={{ x: 0.5, y: 0 }}
-                          end={{ x: 0.5, y: 1 }}
-                          style={styles.cardOverlay}
-                        >
-                          <Text style={styles.resultTitle} numberOfLines={1}>
-                            {spot.name}
-                          </Text>
-                          {!!spot.address && (
-                            <Text
-                              style={styles.resultSubtitle}
-                              numberOfLines={1}
-                            >
-                              {spot.address}
-                            </Text>
-                          )}
-                          <MiniMoods spotId={spot.id} />
-                        </LinearGradient>
-                      </View>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : (
-                <Text style={styles.textMuted}>
-                  Keine Historie – probier die Journey auf dem „Mood Journey“
-                  Tab aus!
-                </Text>
-              )}
-            </View>
           </Animated.ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
     </View>
+  );
+}
+
+function SpotVisual({
+  uri,
+  name,
+  height = 190,
+}: {
+  uri?: string | null;
+  name: string;
+  height?: number;
+}) {
+  if (uri) {
+    return <Image source={{ uri }} style={[styles.cardImg, { height }]} />;
+  }
+
+  return (
+    <LinearGradient
+      colors={["#231D33", "#10151C", "#111111"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.generatedSpotArt, { height }]}
+    >
+      <View style={styles.generatedSpotGlow} />
+      <Text style={styles.generatedSpotInitial}>{name.slice(0, 1)}</Text>
+    </LinearGradient>
+  );
+}
+
+function PremiumSpotCard({
+  spot,
+  width = 252,
+}: {
+  spot: SpotWithPhoto;
+  width?: number;
+}) {
+  const router = useRouter();
+  const [moods, setMoods] = useState<string[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("spot_moods_agg")
+        .select(`
+          mood_tokens ( token ),
+          rank
+        `)
+        .eq("spot_id", spot.id)
+        .lte("rank", 3)
+        .order("rank", { ascending: true });
+
+      const list =
+        data?.map((row: any) => row.mood_tokens?.token).filter(Boolean) ?? [];
+
+      setMoods(list);
+    })();
+  }, [spot.id]);
+
+  return (
+    <Pressable
+      onPress={() => router.push(`/spot/${spot.id}`)}
+      style={[styles.premiumSpotCard, { width }]}
+    >
+      <View style={styles.premiumSpotMedia}>
+        <SpotVisual uri={spot.photoUrl || spot.header_photo_url} name={spot.name} />
+        <LinearGradient
+          colors={["transparent", "rgba(0,0,0,0.25)", "rgba(0,0,0,0.92)"]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        <View style={styles.spotSaveBadge}>
+          <Ionicons name="bookmark-outline" size={18} color="#FFFFFF" />
+        </View>
+
+        <View style={styles.spotOpenBadge}>
+          <Text style={styles.spotOpenText}>Geöffnet</Text>
+        </View>
+
+        <View style={styles.spotScoreBadge}>
+          <Text style={styles.spotScoreText}>4.{Math.abs(spot.name.length % 8)}</Text>
+        </View>
+      </View>
+
+      <View style={styles.premiumSpotBody}>
+        <Text style={styles.premiumSpotTitle} numberOfLines={1}>
+          {spot.name}
+        </Text>
+        <Text style={styles.premiumSpotMeta} numberOfLines={1}>
+          {shortAddress(spot.address)}
+        </Text>
+
+        {moods.length > 0 && (
+          <View style={styles.premiumMoodRow}>
+            {moods.slice(0, 2).map((mood, index) => {
+              const tone = moodTone(index);
+              return (
+                <View
+                  key={mood}
+                  style={[
+                    styles.premiumMoodBadge,
+                    {
+                      backgroundColor: tone.bg,
+                      borderColor: tone.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[styles.premiumMoodText, { color: tone.text }]}
+                  >
+                    {mood}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        <View style={styles.spotReasonRow}>
+          <Ionicons name="location-outline" size={14} color="#A6A8AD" />
+          <Text style={styles.spotReasonText} numberOfLines={1}>
+            passt zu deinem Abend
+          </Text>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+function SpotRankingSection({
+  title,
+  showAll = false,
+  spots,
+  userCoords,
+}: {
+  title: string;
+  showAll?: boolean;
+  spots: SpotWithPhoto[];
+  userCoords: UserCoords | null;
+}) {
+  if (spots.length === 0) return null;
+
+  return (
+    <View style={styles.rankingSection}>
+      <View style={styles.rankingHeader}>
+        <Text style={styles.rankingTitle}>{title}</Text>
+        {showAll && (
+          <Pressable>
+            <Text style={styles.rankingAllText}>Alle ansehen</Text>
+          </Pressable>
+        )}
+      </View>
+      <View style={styles.calmSpotList}>
+        {spots.map((spot) => (
+          <CalmSpotCard key={spot._key || spot.id} spot={spot} userCoords={userCoords} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function CalmSpotCard({
+  spot,
+  userCoords,
+}: {
+  spot: SpotWithPhoto;
+  userCoords: UserCoords | null;
+}) {
+  const router = useRouter();
+  const [moods, setMoods] = useState<string[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("spot_moods_agg")
+        .select(`
+          mood_tokens ( token ),
+          rank
+        `)
+        .eq("spot_id", spot.id)
+        .lte("rank", 2)
+        .order("rank", { ascending: true });
+
+      const list =
+        data?.map((row: any) => row.mood_tokens?.token).filter(Boolean) ?? [];
+
+      setMoods(list);
+    })();
+  }, [spot.id]);
+
+  const moodLabel =
+    moods.length >= 2
+      ? `${moods[0]} & ${moods[1]}`
+      : moods.length === 1
+        ? moods[0]
+        : null;
+  const distanceLabel = formatDistance(distanceKm(userCoords, spot));
+
+  return (
+    <Pressable
+      onPress={() => router.push(`/spot/${spot.id}`)}
+      style={styles.calmSpotCard}
+    >
+      <View style={styles.calmSpotImageWrap}>
+        <SpotVisual
+          uri={spot.photoUrl || spot.header_photo_url}
+          name={spot.name}
+          height={236}
+        />
+        <LinearGradient
+          colors={[
+            "rgba(0,0,0,0.02)",
+            "rgba(0,0,0,0.18)",
+            "rgba(0,0,0,0.78)",
+          ]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.calmOpenBadge}>
+          <View style={styles.calmOpenDot} />
+          <Text style={styles.calmOpenText}>Geöffnet</Text>
+        </View>
+
+        <View style={styles.calmSpotBody}>
+          <View style={styles.calmSpotMain}>
+            <Text style={styles.calmSpotTitle} numberOfLines={1}>
+              {spot.name}
+            </Text>
+
+            <View style={styles.calmSpotMetaRow}>
+              <Ionicons name="location-outline" size={15} color="#D4D0C8" />
+              <Text style={styles.calmSpotMeta} numberOfLines={1}>
+                {distanceLabel || "In deiner Nähe"}
+              </Text>
+            </View>
+            {moodLabel && (
+              <View style={styles.calmMoodRow}>
+                <Ionicons name="sparkles-outline" size={14} color="#FF9ABA" />
+                <Text style={styles.calmSpotReason} numberOfLines={1}>
+                  {moodLabel}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.calmSpotArrow}>
+            <Ionicons name="arrow-forward" size={20} color="#F4EFE4" />
+          </View>
+        </View>
+      </View>
+    </Pressable>
   );
 }
 
@@ -1525,14 +1579,10 @@ function ResultCard({ spot }: { spot: Spot }) {
       style={styles.card}
     >
       <View style={styles.cardMedia}>
-        <Image
-          source={{
-            uri:
-              photo ??
-              spot.header_photo_url ??
-              "https://via.placeholder.com/600x400/1b1b21/777?text=No+Image",
-          }}
-          style={styles.cardImg}
+        <SpotVisual
+          uri={photo ?? spot.header_photo_url}
+          name={spot.name}
+          height={220}
         />
 
         <LinearGradient
@@ -1577,7 +1627,339 @@ export const styles = StyleSheet.create({
 
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: "#080808",
+  },
+
+  quietTop: {
+    paddingHorizontal: 20,
+    paddingBottom: 18,
+  },
+
+  quietHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+
+  locationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 4,
+  },
+
+  locationText: {
+    color: "#F4EFE4",
+    fontSize: 20,
+    lineHeight: 25,
+    fontWeight: "700",
+  },
+
+  quietGreetingWrap: {
+    marginTop: 14,
+    marginBottom: 20,
+  },
+
+  quietGreeting: {
+    color: "#F4EFE4",
+    fontSize: 35,
+    lineHeight: 41,
+    fontWeight: "900",
+  },
+
+  quietGreetingAccent: {
+    color: "#FF7DA7",
+  },
+
+  homeSubtitle: {
+    marginTop: 6,
+    color: "#B8B4B8",
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "600",
+  },
+
+  quietAvatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1A1A1A",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+  },
+
+  quietAvatarImage: {
+    width: "100%",
+    height: "100%",
+  },
+
+  quietSearch: {
+    height: 58,
+    borderRadius: 18,
+    overflow: "hidden",
+    paddingHorizontal: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 15,
+    backgroundColor: "rgba(255,255,255,0.065)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.055)",
+  },
+
+  quietSearchInput: {
+    flex: 1,
+    color: "#F4EFE4",
+    fontSize: 17,
+    fontWeight: "500",
+  },
+
+  primaryTiles: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 20,
+  },
+
+  intentTile: {
+    flex: 1,
+    minHeight: 132,
+    borderRadius: 18,
+    padding: 16,
+    justifyContent: "space-between",
+    backgroundColor: "rgba(255,255,255,0.055)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+
+  intentTileLarge: {
+    flex: 1,
+    backgroundColor: "rgba(187,199,160,0.06)",
+  },
+
+  intentIconMuted: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(244,239,228,0.18)",
+    backgroundColor: "rgba(255,255,255,0.035)",
+  },
+
+  intentCopy: {
+    paddingRight: 26,
+  },
+
+  intentTitle: {
+    color: "#F4EFE4",
+    fontSize: 20,
+    lineHeight: 25,
+    fontWeight: "800",
+  },
+
+  intentSubtitle: {
+    marginTop: 5,
+    color: "#A6A29A",
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: "500",
+  },
+
+  intentArrow: {
+    position: "absolute",
+    right: 22,
+    bottom: 22,
+  },
+
+  rankingStack: {
+    paddingHorizontal: 20,
+    marginTop: 14,
+    gap: 28,
+  },
+
+  rankingSection: {
+    gap: 14,
+  },
+
+  rankingHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  rankingTitle: {
+    color: "#F4EFE4",
+    fontSize: 20,
+    lineHeight: 25,
+    fontWeight: "900",
+  },
+
+  rankingAllText: {
+    color: "#FF9ABA",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+
+  openMapPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "rgba(187,199,160,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(187,199,160,0.18)",
+  },
+
+  openMapText: {
+    color: "#BBC7A0",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  calmSpotList: {
+    gap: 18,
+  },
+
+  calmSpotCard: {
+    borderRadius: 20,
+    overflow: "hidden",
+    backgroundColor: "rgba(255,255,255,0.052)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.075)",
+  },
+
+  calmSpotImageWrap: {
+    height: 236,
+    overflow: "hidden",
+    position: "relative",
+  },
+
+  calmOpenBadge: {
+    position: "absolute",
+    top: 14,
+    left: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "rgba(31,49,34,0.70)",
+    borderWidth: 1,
+    borderColor: "rgba(187,199,160,0.18)",
+  },
+
+  calmOpenDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#BBC7A0",
+  },
+
+  calmOpenText: {
+    color: "#F4EFE4",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+
+  calmSpotBody: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 18,
+    paddingTop: 48,
+    paddingBottom: 18,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 14,
+    backgroundColor: "rgba(0,0,0,0.18)",
+  },
+
+  calmSpotMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  calmSpotTitle: {
+    color: "#F4EFE4",
+    fontSize: 31,
+    lineHeight: 36,
+    fontWeight: "900",
+  },
+
+  calmMoodRow: {
+    marginTop: 7,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+
+  calmSpotReason: {
+    flex: 1,
+    color: "#FFB1C9",
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: "500",
+  },
+
+  calmSpotMetaRow: {
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+
+  calmSpotMeta: {
+    color: "#D4D0C8",
+    fontSize: 14,
+    fontWeight: "600",
+    flexShrink: 1,
+  },
+
+  calmMetaDot: {
+    color: "#8E8D8A",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  calmSpotArrow: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+
+  emptyMomentCard: {
+    borderRadius: 24,
+    padding: 20,
+    backgroundColor: "rgba(255,255,255,0.052)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.075)",
+  },
+
+  emptyMomentTitle: {
+    color: "#F4EFE4",
+    fontSize: 20,
+    fontWeight: "700",
+  },
+
+  emptyMomentText: {
+    marginTop: 8,
+    color: "#A6A29A",
+    fontSize: 15,
+    lineHeight: 21,
   },
 
   /* ---------------------------------------------------- */
@@ -1585,11 +1967,11 @@ export const styles = StyleSheet.create({
   /* ---------------------------------------------------- */
 
   heroContainer: {
-    height: 440,                          // leicht größer für Premium-Look
+    height: 430,
     width: "100%",
     overflow: "hidden",
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
 
   heroImage: {
@@ -1631,22 +2013,58 @@ export const styles = StyleSheet.create({
   },
 
   heroSafe: {
-    paddingHorizontal: 22,
-    paddingBottom: 36,
+    paddingHorizontal: 20,
+    paddingBottom: 22,
     flex: 1,
-    justifyContent: "flex-end",
+  },
+
+  heroTopBar: {
+    marginTop: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+
+  brandWordmark: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "900",
+    letterSpacing: 5,
+  },
+
+  heroMetaPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingHorizontal: 15,
+    paddingVertical: 9,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "rgba(10,10,12,0.46)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+  },
+
+  heroMetaText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  heroMetaDivider: {
+    width: 1,
+    height: 15,
+    backgroundColor: "rgba(255,255,255,0.2)",
   },
 
   /* Avatar orb */
   heroAvatarOrb: {
-    position: "absolute",
-    top: 16,
-    right: 20,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    marginLeft: 8,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     overflow: "hidden",
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.13)",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
@@ -1662,7 +2080,24 @@ export const styles = StyleSheet.create({
     height: "100%",
   },
 
+  avatarOnlineDot: {
+    position: "absolute",
+    right: 2,
+    bottom: 3,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#88F27D",
+    borderWidth: 2,
+    borderColor: "#111111",
+  },
+
   /* Textblock */
+  heroContent: {
+    marginTop: "auto",
+    marginBottom: 16,
+  },
+
   heroTextWrap: {
     marginBottom: 18,
   },
@@ -1673,17 +2108,25 @@ export const styles = StyleSheet.create({
   },
 
   heroGreeting: {
-    fontSize: 34,
-    fontWeight: "800",
+    fontSize: 38,
+    fontWeight: "900",
     color: "#fff",
-    letterSpacing: 0.3,
+    letterSpacing: 0,
+    lineHeight: 42,
+  },
+
+  heroKicker: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 22,
+    fontWeight: "500",
+    marginBottom: 2,
   },
 
   heroSubtitle: {
-    marginTop: 4,
-    fontSize: 18,
-    color: "rgba(255,255,255,0.82)",
-    fontWeight: "400",
+    marginTop: 7,
+    fontSize: 16,
+    color: "rgba(255,255,255,0.78)",
+    fontWeight: "600",
   },
 
   heroShine: {
@@ -1693,28 +2136,27 @@ export const styles = StyleSheet.create({
     bottom: 0,
     height: "100%",
     opacity: 0.55,
-    pointerEvents: "none",
   },
 
   /* ---------------------------------------------------- */
   /*              FLOATING SEARCH BAR                     */
   /* ---------------------------------------------------- */
 
-  floatingSearchContainer: {
-    marginTop: -58,                       // perfekter Abstand zum Header
-    paddingHorizontal: theme.spacing(2),
+  heroSearchBlur: {
+    borderRadius: 27,
+    overflow: "hidden",
+    backgroundColor: "rgba(10,10,12,0.44)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
   },
 
   searchBox: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
-    borderRadius: theme.radius.pill,
+    backgroundColor: "rgba(255,255,255,0.04)",
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
     shadowColor: "#000",
     shadowOpacity: 0.28,
     shadowRadius: 18,
@@ -1726,6 +2168,34 @@ export const styles = StyleSheet.create({
     flex: 1,
     color: "#fff",
     fontSize: 16,
+    fontWeight: "600",
+  },
+
+  heroMoodScroller: {
+    marginTop: 12,
+    maxHeight: 44,
+    flexGrow: 0,
+  },
+
+  heroMoodRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingRight: 8,
+  },
+
+  heroMoodChip: {
+    height: 42,
+    paddingHorizontal: 16,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  heroMoodChipText: {
+    fontSize: 14,
+    fontWeight: "800",
   },
 
   /* ---------------------------------------------------- */
@@ -1764,6 +2234,127 @@ export const styles = StyleSheet.create({
   moodChipText: {
     color: "#fff",
     fontWeight: "700",
+  },
+
+  discoveryActions: {
+    gap: 12,
+    paddingHorizontal: theme.spacing(2),
+    marginTop: 18,
+    marginBottom: 8,
+  },
+
+  decisionAction: {
+    minHeight: 132,
+    borderRadius: 28,
+    backgroundColor: "#15151A",
+    overflow: "hidden",
+    padding: 18,
+    paddingRight: 122,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.11)",
+    shadowColor: "#000",
+    shadowOpacity: 0.28,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 12 },
+  },
+
+  decisionOrb: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  decisionCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  decisionEyebrow: {
+    color: "#C7A7FF",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1.3,
+  },
+
+  decisionTitle: {
+    marginTop: 6,
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "900",
+  },
+
+  decisionSubtitle: {
+    marginTop: 4,
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: "600",
+  },
+
+  decisionStartPill: {
+    position: "absolute",
+    right: 18,
+    bottom: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "#F9F7F1",
+  },
+
+  decisionStartText: {
+    color: "#0A0A0B",
+    fontWeight: "900",
+    fontSize: 15,
+  },
+
+  moodReviewAction: {
+    minHeight: 82,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+    padding: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+
+  moodReviewIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(74,222,128,0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  moodReviewCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  moodReviewTitle: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+
+  moodReviewSubtitle: {
+    marginTop: 3,
+    color: "rgba(255,255,255,0.62)",
+    fontSize: 13,
+    fontWeight: "600",
   },
 
   /* ---------------------------------------------------- */
@@ -1825,6 +2416,14 @@ export const styles = StyleSheet.create({
     borderRadius: 2,
   },
 
+  sectionIntro: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: -2,
+    marginBottom: 12,
+  },
+
   textMuted: {
     color: theme.colors.textMuted,
     fontSize: 15,
@@ -1846,6 +2445,171 @@ export const styles = StyleSheet.create({
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 8 },
     elevation: 10,
+  },
+
+  horizontalSpotList: {
+    gap: 14,
+    paddingRight: theme.spacing(2),
+    paddingBottom: 8,
+  },
+
+  premiumSpotCard: {
+    borderRadius: 26,
+    overflow: "hidden",
+    backgroundColor: "#15151A",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+    shadowColor: "#000",
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+  },
+
+  premiumSpotMedia: {
+    position: "relative",
+    overflow: "hidden",
+  },
+
+  premiumSpotBody: {
+    padding: 14,
+    paddingTop: 12,
+  },
+
+  premiumSpotTitle: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "900",
+  },
+
+  premiumSpotMeta: {
+    marginTop: 3,
+    color: "rgba(255,255,255,0.62)",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  premiumMoodRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+    flexWrap: "wrap",
+  },
+
+  premiumMoodBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+  },
+
+  premiumMoodText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+
+  spotSaveBadge: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(0,0,0,0.48)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  spotOpenBadge: {
+    position: "absolute",
+    right: 12,
+    bottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "rgba(74,222,128,0.22)",
+    borderWidth: 1,
+    borderColor: "rgba(190,255,204,0.26)",
+  },
+
+  spotOpenText: {
+    color: "#C8FACC",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+
+  spotScoreBadge: {
+    position: "absolute",
+    left: 12,
+    bottom: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(10,10,12,0.72)",
+    borderWidth: 2,
+    borderColor: "#A78BFA",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  spotScoreText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+
+  spotReasonRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+
+  spotReasonText: {
+    color: "rgba(255,255,255,0.58)",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  generatedSpotArt: {
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+
+  generatedSpotGlow: {
+    position: "absolute",
+    width: 190,
+    height: 190,
+    borderRadius: 95,
+    backgroundColor: "rgba(167,139,250,0.18)",
+    right: -45,
+    top: -55,
+  },
+
+  generatedSpotSign: {
+    position: "absolute",
+    top: 22,
+    left: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+    backgroundColor: "rgba(255,255,255,0.07)",
+  },
+
+  generatedSpotSignText: {
+    color: "rgba(255,255,255,0.74)",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 2,
+  },
+
+  generatedSpotInitial: {
+    color: "rgba(255,255,255,0.16)",
+    fontSize: 88,
+    fontWeight: "900",
   },
 
   cardMedia: { position: "relative" },
@@ -1910,4 +2674,3 @@ export const styles = StyleSheet.create({
     backgroundColor: "#222",
   },
 });
-

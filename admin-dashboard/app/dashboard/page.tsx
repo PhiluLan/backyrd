@@ -1,272 +1,166 @@
-//admin-dashboard/app/dashboard/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
 
-type Stats = {
-  users: number;
-  spots: number;
-  reviews: number;
-  pendingSpots: number;
-  pendingReviews: number;
-  pendingClaims: number;
+type Preset = "today" | "yesterday" | "week" | "last_week" | "month" | "last_month" | "year" | "last_year";
+
+type Overview = {
+  period: { from: string; to: string; previous_from: string; previous_to: string };
+  kpis: Record<string, number>;
+  decision: { sessions: number; impressions: number; opens: number; likes: number; dislikes: number };
+  daily: Array<{ day: string; active_users: number; reviews: number; decisions: number; screen_views: number }>;
+  top_screens: Array<{ screen_name: string; views: number; users: number }>;
+  top_spots: Array<{ spot_id: string; name: string; views: number; users: number }>;
+  latest_errors: Array<{ id: number; message: string; severity: string; screen_name: string | null; app_version: string | null; occurred_at: string }>;
 };
 
-type RecentSpot = {
-  id: string;
-  name: string;
-  city: string | null;
-  created_at: string;
-};
+const presets: Array<[Preset, string]> = [
+  ["today", "Heute"], ["yesterday", "Gestern"], ["week", "Diese Woche"],
+  ["last_week", "Letzte Woche"], ["month", "Dieser Monat"], ["last_month", "Letzter Monat"],
+  ["year", "Dieses Jahr"], ["last_year", "Letztes Jahr"],
+];
 
-type RecentReview = {
-  id: string;
-  text: string | null;
-  created_at: string;
-  spot: { name: string } | null;
-  mood_a: string | null;
-  mood_b: string | null;
-};
+function rangeFor(preset: Preset) {
+  const now = new Date();
+  const startDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  let from: Date;
+  let to: Date;
 
-export default function DashboardPage() {
-  const router = useRouter();
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [recentSpots, setRecentSpots] = useState<RecentSpot[]>([]);
-  const [recentReviews, setRecentReviews] = useState<RecentReview[]>([]);
+  switch (preset) {
+    case "today": from = startDay(now); to = now; break;
+    case "yesterday": { to = startDay(now); from = new Date(to); from.setDate(from.getDate() - 1); break; }
+    case "week": { from = startDay(now); const day = (from.getDay() + 6) % 7; from.setDate(from.getDate() - day); to = now; break; }
+    case "last_week": { to = startDay(now); const day = (to.getDay() + 6) % 7; to.setDate(to.getDate() - day); from = new Date(to); from.setDate(from.getDate() - 7); break; }
+    case "month": from = new Date(now.getFullYear(), now.getMonth(), 1); to = now; break;
+    case "last_month": from = new Date(now.getFullYear(), now.getMonth() - 1, 1); to = new Date(now.getFullYear(), now.getMonth(), 1); break;
+    case "year": from = new Date(now.getFullYear(), 0, 1); to = now; break;
+    case "last_year": from = new Date(now.getFullYear() - 1, 0, 1); to = new Date(now.getFullYear(), 0, 1); break;
+  }
+  return { from: from!.toISOString(), to: to!.toISOString() };
+}
+
+function change(current: number, previous: number) {
+  if (previous === 0) return current === 0 ? 0 : 100;
+  return ((current - previous) / Math.abs(previous)) * 100;
+}
+
+function format(value: number, suffix = "") {
+  if (!Number.isFinite(value)) return "—";
+  return `${new Intl.NumberFormat("de-CH", { maximumFractionDigits: 1 }).format(value)}${suffix}`;
+}
+
+export default function FounderDashboardPage() {
+  const [preset, setPreset] = useState<Preset>("month");
+  const [data, setData] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    void loadDashboard();
-  }, []);
+    let cancelled = false;
+    async function load() {
+      setLoading(true); setError("");
+      const range = rangeFor(preset);
+      const { data: result, error: rpcError } = await supabase.rpc("admin_founder_overview_v1", {
+        p_from: range.from,
+        p_to: range.to,
+      });
+      if (cancelled) return;
+      if (rpcError) { setError(rpcError.message); setData(null); }
+      else setData(result as Overview);
+      setLoading(false);
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, [preset]);
 
-  async function loadDashboard() {
-    setLoading(true);
-
-    const { count: userCount } = await supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true });
-
-    const { count: spotCount } = await supabase
-      .from("spots")
-      .select("*", { count: "exact", head: true });
-
-    const { count: reviewCount } = await supabase
-      .from("reviews")
-      .select("*", { count: "exact", head: true });
-
-    const { count: pendingSpots } = await supabase
-      .from("spots")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "pending");
-
-    const { count: pendingReviews } = await supabase
-      .from("reviews")
-      .select("*", { count: "exact", head: true });
-
-    const { data: pendingClaimRows } = await supabase.rpc("get_spot_claim_queue_v2", {
-      p_status: "pending",
-      p_limit: 200,
-    });
-
-    const { data: spots } = await supabase
-      .from("spots")
-      .select("id, name, city, created_at")
-      .order("created_at", { ascending: false })
-      .limit(5);
-
-    const { data: reviews } = await supabase
-      .from("reviews")
-      .select(
-        `
-        id,
-        text,
-        created_at,
-        mood_a,
-        mood_b,
-        spot:spots ( name )
-      `
-      )
-      .order("created_at", { ascending: false })
-      .limit(5);
-
-    setStats({
-      users: userCount ?? 0,
-      spots: spotCount ?? 0,
-      reviews: reviewCount ?? 0,
-      pendingSpots: pendingSpots ?? 0,
-      pendingReviews: pendingReviews ?? 0,
-      pendingClaims: Array.isArray(pendingClaimRows) ? pendingClaimRows.length : 0,
-    });
-
-    setRecentSpots(spots ?? []);
-    setRecentReviews(reviews ?? []);
-    setLoading(false);
-  }
+  const maxDaily = useMemo(() => Math.max(1, ...(data?.daily.map((d) => d.active_users) ?? [1])), [data]);
+  const k = data?.kpis ?? {};
+  const decisionCtr = data?.decision?.impressions ? (data.decision.opens / data.decision.impressions) * 100 : 0;
+  const decisionPositive = data?.decision && data.decision.likes + data.decision.dislikes > 0
+    ? (data.decision.likes / (data.decision.likes + data.decision.dislikes)) * 100 : 0;
 
   return (
-    <div className="by-page by-dashboard by-container-wide">
-      {/* HEADER */}
-      <div className="by-dashboardHeader">
+    <div className="bi-page">
+      <header className="bi-header">
         <div>
-          <h1 className="by-dashboardTitle">Dashboard</h1>
-          <div className="by-dashboardSubtitle">Überblick über Backyrd Admin.</div>
+          <div className="bi-eyebrow">Founder cockpit</div>
+          <h1>Backyrd Intelligence</h1>
+          <p>Was heute wichtig ist — Wachstum, Produkt, Community und Systemzustand.</p>
         </div>
-
-        <div className="by-toolbar">
-          <button className="by-btn by-btn-soft" onClick={() => void loadDashboard()} disabled={loading}>
-            {loading ? "Lade…" : "Neu laden"}
-          </button>
-
-          <button
-            onClick={async () => {
-              await supabase.auth.signOut();
-              router.replace("/");
-            }}
-            className="by-btn by-btn-accent"
-          >
-            Logout
-          </button>
+        <div className="bi-periods">
+          {presets.map(([value, label]) => (
+            <button key={value} className={preset === value ? "active" : ""} onClick={() => setPreset(value)}>{label}</button>
+          ))}
         </div>
-      </div>
+      </header>
 
-      {/* STATS */}
-      <div className="by-card by-section">
-        {loading || !stats ? (
-          <div className="by-muted by-small">Lade Daten…</div>
-        ) : (
-          <div className="by-statsGrid">
-            <StatCard label="Nutzer" value={stats.users} />
-            <StatCard label="Spots" value={stats.spots} />
-            <StatCard label="Reviews" value={stats.reviews} />
-            <StatCard label="Wartende Spots" value={stats.pendingSpots} />
-            <StatCard label="Offene Claims" value={stats.pendingClaims} />
-            <StatCard label="Reviews (gesamt)" value={stats.pendingReviews} />
+      {loading ? <div className="bi-state">Daten werden verdichtet …</div> : null}
+      {error ? <div className="bi-error">Migration/RPC fehlt oder ist nicht erreichbar: {error}</div> : null}
+
+      {data ? <>
+        <section className="bi-briefing">
+          <div>
+            <span className="bi-kicker">Daily briefing</span>
+            <h2>{k.active_users > 0 ? `${format(k.active_users)} aktive Nutzer im Zeitraum.` : "Noch keine messbare Aktivität im Zeitraum."}</h2>
+            <p>{k.reviews > 0 ? `${format(k.reviews)} Reviews wurden erstellt.` : "Noch keine neuen Reviews."} {data.decision.sessions > 0 ? `${format(data.decision.sessions)} Decisions wurden gestartet.` : ""}</p>
           </div>
-        )}
-      </div>
+          <div className="bi-briefingSignal"><span /> Intelligence online</div>
+        </section>
 
-      {/* QUICK ACTIONS */}
-      <div className="by-card by-section">
-        <div style={{ marginBottom: 10 }}>
-          <div className="by-cardTitle">Quick Actions</div>
-          <div className="by-cardHint">Schnelle Links für häufige Aufgaben.</div>
-        </div>
+        <section className="bi-kpiGrid">
+          <Kpi label="Registrierungen" value={format(k.signups)} delta={change(k.signups, k.signups_previous)} />
+          <Kpi label="Aktivierte Nutzer" value={format(k.activated_users)} delta={change(k.activated_users, k.activated_users_previous)} />
+          <Kpi label="Aktive Nutzer" value={format(k.active_users)} delta={change(k.active_users, k.active_users_previous)} />
+          <Kpi label="DAU / MAU" value={format(k.stickiness, "%")} hint={`${format(k.dau)} / ${format(k.mau)}`} />
+          <Kpi label="Reviews" value={format(k.reviews)} delta={change(k.reviews, k.reviews_previous)} />
+          <Kpi label="Reviews / User" value={format(k.reviews_per_active_user)} />
+          <Kpi label="Partner-Spots" value={format(k.partner_spots)} hint={`${format(k.pending_claims)} offene Claims`} />
+          <Kpi label="App Errors" value={format(k.errors)} tone={k.errors > 0 ? "danger" : "normal"} />
+        </section>
 
-        <div className="by-toolbar">
-          <QuickAction label="+ Neuer Spot" href="/spots/new" variant="blue" />
-          <QuickAction label="Claims prüfen" href="/claims" variant="blue" />
-          <QuickAction label="Spots verwalten" href="/spots" variant="soft" />
-          <QuickAction label="Review Übersicht" href="/reviews" variant="soft" />
-        </div>
-      </div>
+        <section className="bi-gridTwo">
+          <article className="bi-card bi-chartCard">
+            <div className="bi-cardHead"><div><span className="bi-kicker">Engagement</span><h3>Aktive Nutzer</h3></div></div>
+            <div className="bi-bars">
+              {data.daily.map((d) => <div key={d.day} className="bi-barCol" title={`${d.day}: ${d.active_users}`}>
+                <div className="bi-bar" style={{ height: `${Math.max(4, (d.active_users / maxDaily) * 100)}%` }} />
+                <span>{new Date(d.day).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit" })}</span>
+              </div>)}
+            </div>
+          </article>
 
-      {/* RECENT SPOTS */}
-      <div className="by-card by-section">
-        <div style={{ marginBottom: 10 }}>
-          <div className="by-cardTitle">Zuletzt hinzugefügte Spots</div>
-          <div className="by-cardHint">Die neuesten 5 Spots.</div>
-        </div>
+          <article className="bi-card">
+            <div className="bi-cardHead"><div><span className="bi-kicker">Decision</span><h3>Recommendation Funnel</h3></div></div>
+            <Funnel label="Sessions" value={data.decision.sessions} base={data.decision.sessions} />
+            <Funnel label="Impressions" value={data.decision.impressions} base={data.decision.impressions} />
+            <Funnel label="Spot Opens" value={data.decision.opens} base={data.decision.impressions} />
+            <Funnel label="Likes" value={data.decision.likes} base={data.decision.likes + data.decision.dislikes} />
+            <div className="bi-miniStats"><span>CTR <b>{format(decisionCtr, "%")}</b></span><span>Positive Rate <b>{format(decisionPositive, "%")}</b></span></div>
+          </article>
+        </section>
 
-        <div className="by-listCompact">
-          {recentSpots.map((s) => (
-            <RecentRow
-              key={s.id}
-              title={s.name}
-              subtitle={s.city ?? ""}
-              date={s.created_at}
-              href={`/spots/${s.id}`}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* RECENT REVIEWS */}
-      <div className="by-card by-section">
-        <div style={{ marginBottom: 10 }}>
-          <div className="by-cardTitle">Neueste Reviews</div>
-          <div className="by-cardHint">Die neuesten 5 Reviews.</div>
-        </div>
-
-        <div className="by-listCompact">
-          {recentReviews.map((r) => (
-            <RecentRow
-              key={r.id}
-              title={r.spot?.name ?? "Unknown Spot"}
-              subtitle={(r.text ?? "").length ? (r.text ?? "").slice(0, 72) + "…" : "—"}
-              date={r.created_at}
-              href={`/reviews/${r.id}`}
-              badges={[r.mood_a, r.mood_b].filter(Boolean) as string[]}
-            />
-          ))}
-        </div>
-      </div>
+        <section className="bi-gridThree">
+          <Ranking title="Top Screens" empty="Screen Tracking startet mit dem neuen Analytics Client." rows={data.top_screens.map((x) => ({ title: x.screen_name, value: x.views, detail: `${x.users} Nutzer` }))} />
+          <Ranking title="Top Spots" empty="Spot-Aufrufe werden künftig zentral getrackt." rows={data.top_spots.map((x) => ({ title: x.name || "Unbekannter Spot", value: x.views, detail: `${x.users} Nutzer` }))} />
+          <article className="bi-card">
+            <div className="bi-cardHead"><div><span className="bi-kicker">Health</span><h3>Neueste Fehler</h3></div></div>
+            {data.latest_errors.length === 0 ? <Empty text="Keine Fehler im Zeitraum." /> : data.latest_errors.map((e) => <div className="bi-rowItem" key={e.id}><div><strong>{e.message}</strong><small>{e.screen_name || "Unbekannter Screen"} · {e.app_version || "Version unbekannt"}</small></div><span className={`bi-severity ${e.severity}`}>{e.severity}</span></div>)}
+          </article>
+        </section>
+      </> : null}
     </div>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="by-panel by-statCard">
-      <div className="by-statLabel">{label}</div>
-      <div className="by-statValue">{value}</div>
-    </div>
-  );
+function Kpi({ label, value, delta, hint, tone = "normal" }: { label: string; value: string; delta?: number; hint?: string; tone?: "normal" | "danger" }) {
+  return <article className={`bi-kpi ${tone}`}><span>{label}</span><strong>{value}</strong><div>{delta !== undefined ? <em className={delta >= 0 ? "up" : "down"}>{delta >= 0 ? "↗" : "↘"} {Math.abs(delta).toFixed(1)}%</em> : null}{hint ? <small>{hint}</small> : null}</div></article>;
 }
-
-function QuickAction({
-  label,
-  href,
-  variant,
-}: {
-  label: string;
-  href: string;
-  variant: "blue" | "soft";
-}) {
-  const cls = variant === "blue" ? "by-btn by-btn-blue" : "by-btn by-btn-soft";
-  return (
-    <Link href={href} className={cls}>
-      {label}
-    </Link>
-  );
+function Funnel({ label, value, base }: { label: string; value: number; base: number }) {
+  const pct = base > 0 ? Math.min(100, (value / base) * 100) : 0;
+  return <div className="bi-funnel"><div><span>{label}</span><b>{value}</b></div><div className="bi-track"><i style={{ width: `${pct}%` }} /></div></div>;
 }
-
-function RecentRow({
-  title,
-  subtitle,
-  date,
-  href,
-  badges = [],
-}: {
-  title: string;
-  subtitle?: string;
-  date: string;
-  href: string;
-  badges?: string[];
-}) {
-  return (
-    <Link href={href} className="by-panel" style={{ padding: 12, textDecoration: "none" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 1000 }}>{title}</div>
-          {subtitle ? <div className="by-muted by-small">{subtitle}</div> : null}
-          <div className="by-muted by-xs" style={{ marginTop: 6 }}>
-            {new Date(date).toLocaleDateString("de-CH")}
-          </div>
-        </div>
-
-        {badges.length > 0 ? (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-            {badges.map((b) => (
-              <span key={b} className="by-badge">
-                {b}
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </Link>
-  );
+function Ranking({ title, rows, empty }: { title: string; rows: Array<{ title: string; value: number; detail: string }>; empty: string }) {
+  return <article className="bi-card"><div className="bi-cardHead"><div><span className="bi-kicker">Performance</span><h3>{title}</h3></div></div>{rows.length === 0 ? <Empty text={empty} /> : rows.map((r, i) => <div className="bi-rowItem" key={`${r.title}-${i}`}><div><strong>{i + 1}. {r.title}</strong><small>{r.detail}</small></div><b>{r.value}</b></div>)}</article>;
 }
+function Empty({ text }: { text: string }) { return <div className="bi-empty">{text}</div>; }

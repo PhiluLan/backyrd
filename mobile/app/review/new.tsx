@@ -24,17 +24,20 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { awardAchievementsForUser } from "../../lib/achievementEngine";
 import { AchievementUnlockModal } from "../../components/AchievementUnlockModal";
+import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 
 const theme = {
   colors: {
-    background: "#0A0A0B",
-    surface: "#131316",
-    surfaceElevated: "#1B1B21",
-    border: "#2A2A33",
+    background: "#050506",
+    surface: "#111113",
+    surfaceElevated: "rgba(255,255,255,0.045)",
+    border: "rgba(255,255,255,0.09)",
     text: "#FFFFFF",
-    textMuted: "#A6A8AD",
-    primary: "#6366F1",
-    accent: "#8B5CF6",
+    textMuted: "rgba(255,255,255,0.56)",
+    textSoft: "rgba(255,255,255,0.72)",
+    primary: "#FF7DA7",
+    accent: "#FFD4E0",
+    ink: "#171214",
   },
   radius: { md: 12, lg: 16, xl: 24, pill: 999 },
   spacing: (n: number) => n * 8,
@@ -101,6 +104,9 @@ export default function NewReviewScreen() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
   }, []);
+  useEffect(() => {
+    void trackAnalyticsEvent({ eventName: "review_started", screenName: "review_new", spotId, decisionId: decisionId ?? null, properties: { source: source ?? "spot" } });
+  }, [decisionId, source, spotId]);
 
   async function getMoodId(token: string | null) {
     if (!token || token.trim() === "") return null;
@@ -155,6 +161,7 @@ export default function NewReviewScreen() {
         }
 
         setPhotos((prev) => [...prev, result.assets[0].uri]);
+        void trackAnalyticsEvent({ eventName: "review_photo_added", screenName: "review_new", spotId, properties: { source: fromCamera ? "camera" : "library" } });
       }
     } catch (e: any) {
       console.error("pickImage error:", e);
@@ -271,6 +278,7 @@ export default function NewReviewScreen() {
       }
 
       await linkDecisionReview(reviewId);
+      void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_new", entityType: "review", entityId: reviewId, spotId, decisionId: decisionId ?? null, properties: { photo_count: photos.length, has_text: Boolean(text.trim()), source: source ?? "spot" } });
 
       const newlyUnlocked = await awardAchievementsForUser(user.id);
 
@@ -286,6 +294,8 @@ export default function NewReviewScreen() {
         router.back();
       }
     } catch (e: any) {
+      void reportAnalyticsError({ error: e, screenName: "review_new", errorType: "review_submit_failed", context: { spot_id: spotId, decision_id: decisionId ?? null } });
+      void trackAnalyticsEvent({ eventName: "review_failed", screenName: "review_new", spotId, decisionId: decisionId ?? null });
       console.error("submitReview error:", e);
       Alert.alert("Fehler", e.message ?? "Konnte Review nicht speichern.");
     } finally {
@@ -311,6 +321,14 @@ export default function NewReviewScreen() {
           </View>
 
           <ScrollView contentContainerStyle={styles.container}>
+            <View style={styles.hero}>
+              <Text style={styles.kicker}>BACKYRD MOMENT</Text>
+              <Text style={styles.title}>Wie war es?</Text>
+              <Text style={styles.subtitle}>
+                Zwei Moods reichen. Ein kurzer Satz und Foto machen den Moment wertvoller.
+              </Text>
+            </View>
+
             {isDecisionReview && (
               <View style={styles.decisionCard}>
                 <Text style={styles.decisionKicker}>Gefunden mit Backyrd</Text>
@@ -324,27 +342,28 @@ export default function NewReviewScreen() {
             )}
 
             <View style={styles.card}>
-              <Text style={styles.label}>Mood A</Text>
+              <Text style={styles.cardTitle}>Moods</Text>
+              <Text style={styles.label}>Erste Stimmung</Text>
               <TextInput
-                placeholder="Erste Stimmung"
+                placeholder="z. B. gemütlich"
                 placeholderTextColor={theme.colors.textMuted}
                 value={moodA}
                 onChangeText={setMoodA}
                 style={styles.input}
               />
 
-              <Text style={styles.label}>Mood B</Text>
+              <Text style={styles.label}>Zweite Stimmung</Text>
               <TextInput
-                placeholder="Zweite Stimmung"
+                placeholder="z. B. ehrlich"
                 placeholderTextColor={theme.colors.textMuted}
                 value={moodB}
                 onChangeText={setMoodB}
                 style={styles.input}
               />
 
-              <Text style={styles.label}>Dein Text (max. 100 Zeichen)</Text>
+              <Text style={styles.label}>Text</Text>
               <TextInput
-                placeholder="Wie war dein Erlebnis?"
+                placeholder="Was sollte man über diesen Moment wissen?"
                 placeholderTextColor={theme.colors.textMuted}
                 value={text}
                 onChangeText={setText}
@@ -356,7 +375,8 @@ export default function NewReviewScreen() {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.label}>Fotos (max. 3)</Text>
+              <Text style={styles.cardTitle}>Fotos</Text>
+              <Text style={styles.cardHint}>Optional, maximal 3 Bilder.</Text>
               <View style={styles.photoContainer}>
                 {photos.map((uri, idx) => (
                   <Image key={idx} source={{ uri }} style={styles.preview} />
@@ -365,7 +385,7 @@ export default function NewReviewScreen() {
 
               <View style={styles.photoButtons}>
                 <LinearGradient
-                  colors={[theme.colors.primary, theme.colors.accent]}
+                  colors={["rgba(255,255,255,0.065)", "rgba(255,255,255,0.04)"]}
                   style={styles.photoBtnGradient}
                 >
                   <Pressable onPress={() => pickImage(false)} style={styles.photoBtn}>
@@ -374,7 +394,7 @@ export default function NewReviewScreen() {
                 </LinearGradient>
 
                 <LinearGradient
-                  colors={["#10B981", "#34D399"]}
+                  colors={["rgba(255,125,167,0.18)", "rgba(255,125,167,0.1)"]}
                   style={styles.photoBtnGradient}
                 >
                   <Pressable onPress={() => pickImage(true)} style={styles.photoBtn}>
@@ -386,14 +406,14 @@ export default function NewReviewScreen() {
 
             <BlurView intensity={30} tint="dark" style={styles.submitWrap}>
               <LinearGradient
-                colors={[theme.colors.primary, theme.colors.accent]}
+                colors={[theme.colors.primary, theme.colors.primary]}
                 style={styles.submitGradient}
               >
                 <Pressable onPress={submitReview} style={styles.submitBtn} disabled={uploading}>
                   {uploading ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color={theme.colors.ink} />
                   ) : (
-                    <Text style={styles.submitText}>Review speichern</Text>
+                    <Text style={styles.submitText}>Moment speichern</Text>
                   )}
                 </Pressable>
               </LinearGradient>
@@ -416,16 +436,41 @@ export default function NewReviewScreen() {
 }
 
 const styles = StyleSheet.create({
+  hero: {
+    marginBottom: theme.spacing(3),
+  },
+  kicker: {
+    color: "#FF9ABA",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 3.4,
+    marginBottom: 14,
+  },
+  title: {
+    color: theme.colors.text,
+    fontSize: 42,
+    lineHeight: 44,
+    fontWeight: "900",
+    letterSpacing: -1.1,
+  },
+  subtitle: {
+    color: theme.colors.textMuted,
+    fontSize: 16,
+    lineHeight: 23,
+    fontWeight: "600",
+    marginTop: 10,
+    maxWidth: 340,
+  },
   decisionCard: {
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(255,125,167,0.1)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
+    borderColor: "rgba(255,125,167,0.22)",
     borderRadius: theme.radius.xl,
     padding: theme.spacing(2),
     marginBottom: theme.spacing(2),
   },
   decisionKicker: {
-    color: theme.colors.textMuted,
+    color: theme.colors.accent,
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 1.1,
@@ -440,9 +485,9 @@ const styles = StyleSheet.create({
   },
   decisionText: {
     marginTop: 8,
-    color: "rgba(255,255,255,0.72)",
+    color: theme.colors.textSoft,
     fontSize: 15,
-    fontWeight: "650",
+    fontWeight: "600",
     lineHeight: 21,
   },
   headerWrap: {
@@ -452,10 +497,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "rgba(0,0,0,0.25)",
+    backgroundColor: "rgba(5,5,6,0.64)",
     borderRadius: theme.radius.xl,
     paddingVertical: 10,
     paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   headerBtn: {
     width: 36,
@@ -463,7 +510,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.pill,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.06)",
   },
   headerTitle: { color: "#fff", fontSize: 18, fontWeight: "800" },
 
@@ -476,18 +523,44 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.xl,
     padding: theme.spacing(2),
     marginBottom: theme.spacing(2),
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  label: { color: theme.colors.text, fontWeight: "700", marginBottom: 6 },
+  cardTitle: {
+    color: theme.colors.text,
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: "800",
+    letterSpacing: -0.45,
+    marginBottom: 12,
+  },
+  cardHint: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "600",
+    marginTop: -6,
+    marginBottom: 12,
+  },
+  label: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+    marginBottom: 7,
+    marginLeft: 2,
+  },
   input: {
     borderWidth: 1,
     borderColor: theme.colors.border,
-    borderRadius: theme.radius.lg,
-    padding: 12,
+    borderRadius: 18,
+    paddingHorizontal: 15,
+    paddingVertical: 14,
     color: theme.colors.text,
     marginBottom: 12,
     backgroundColor: theme.colors.surface,
+    fontSize: 15,
+    fontWeight: "700",
   },
   counter: {
     alignSelf: "flex-end",
@@ -505,7 +578,7 @@ const styles = StyleSheet.create({
   preview: {
     width: 100,
     height: 100,
-    borderRadius: theme.radius.md,
+    borderRadius: 18,
     backgroundColor: "#1f1f1f",
   },
   photoButtons: {
@@ -515,26 +588,28 @@ const styles = StyleSheet.create({
   },
   photoBtnGradient: {
     flex: 1,
-    borderRadius: theme.radius.lg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   photoBtn: {
     paddingVertical: 14,
     alignItems: "center",
-    borderRadius: theme.radius.lg,
+    borderRadius: 18,
   },
-  photoBtnText: { color: "#fff", fontWeight: "700" },
+  photoBtnText: { color: theme.colors.text, fontWeight: "800" },
 
   submitWrap: {
-    borderRadius: theme.radius.xl,
+    borderRadius: theme.radius.pill,
     overflow: "hidden",
     marginTop: theme.spacing(3),
   },
   submitGradient: {
-    borderRadius: theme.radius.xl,
+    borderRadius: theme.radius.pill,
   },
   submitBtn: {
     paddingVertical: 16,
     alignItems: "center",
   },
-  submitText: { color: "#fff", fontWeight: "800", fontSize: 16, letterSpacing: 0.3 },
+  submitText: { color: theme.colors.ink, fontWeight: "900", fontSize: 16, letterSpacing: 0.1 },
 });

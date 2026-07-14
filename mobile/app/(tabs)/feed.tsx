@@ -25,6 +25,7 @@ import { Stack, useRouter } from "expo-router";
 import CommentsSheet from "../../components/CommentsSheet";
 import SocialPostCard, { SocialFeedPost } from "../../components/PostCard";
 import { supabase } from "../../lib/supabase";
+import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 
 type FeedMode = "for_you" | "following";
 
@@ -191,6 +192,7 @@ export default function FeedScreen() {
   );
 
   const toggleReaction = useCallback(async (postId: string, reactionType: "like" | "save", active: boolean) => {
+    void trackAnalyticsEvent({ eventName: `feed_${reactionType}_${active ? "added" : "removed"}`, screenName: "feed", entityType: "social_post", entityId: postId });
     const { error } = await supabase.rpc("react_to_social_post_v1", {
       p_post_id: postId,
       p_reaction_type: reactionType,
@@ -203,12 +205,14 @@ export default function FeedScreen() {
   const openSpot = useCallback(
     (post: SocialFeedPost) => {
       if (!post.spot_id) return;
+      void trackAnalyticsEvent({ eventName: "feed_spot_opened", screenName: "feed", entityType: "spot", entityId: post.spot_id, spotId: post.spot_id, properties: { post_id: post.post_id } });
       router.push(`/spot/${post.spot_id}` as any);
     },
     [router]
   );
 
   const openComments = useCallback((post: SocialFeedPost) => {
+    void trackAnalyticsEvent({ eventName: "feed_comments_opened", screenName: "feed", entityType: "social_post", entityId: post.post_id, spotId: post.spot_id ?? null });
     setCommentsPost(post);
   }, []);
 
@@ -229,6 +233,7 @@ export default function FeedScreen() {
 
   const sharePost = useCallback(async (post: SocialFeedPost) => {
     try {
+      void trackAnalyticsEvent({ eventName: "feed_post_shared", screenName: "feed", entityType: "social_post", entityId: post.post_id, spotId: post.spot_id ?? null });
       await Share.share({
         message: post.spot_name
           ? `${post.display_name ?? "Backyrd"} bei ${post.spot_name}: ${post.caption ?? ""}`
@@ -520,21 +525,23 @@ export default function FeedScreen() {
           ListHeaderComponent={renderHeader}
           ListEmptyComponent={emptyState}
           renderItem={({ item }) => (
-            <SocialPostCard
-              post={item}
-              currentUserId={currentUserId}
-              onToggleReaction={toggleReaction}
-              onOpenSpot={openSpot}
-              onOpenComments={openComments}
-              onShare={sharePost}
-              onFollowChanged={(authorId, following) => {
-                patchAllVisiblePostsByAuthor(authorId, following);
+            <View style={styles.fullWidthPost}>
+              <SocialPostCard
+                post={item}
+                currentUserId={currentUserId}
+                onToggleReaction={toggleReaction}
+                onOpenSpot={openSpot}
+                onOpenComments={openComments}
+                onShare={sharePost}
+                onFollowChanged={(authorId, following) => {
+                  patchAllVisiblePostsByAuthor(authorId, following);
 
-                if (mode === "following") {
-                  loadFeed("following", { silent: true });
-                }
-              }}
-            />
+                  if (mode === "following") {
+                    loadFeed("following", { silent: true });
+                  }
+                }}
+              />
+            </View>
           )}
           contentContainerStyle={styles.feedContent}
           showsVerticalScrollIndicator={false}
@@ -711,8 +718,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#050506",
   },
   feedContent: {
-    paddingHorizontal: 14,
     paddingBottom: 120,
+  },
+  fullWidthPost: {
+    width: "100%",
   },
   loadingWrap: {
     flex: 1,
@@ -726,6 +735,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   headerWrap: {
+    paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 16,
   },
@@ -737,9 +747,9 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   kicker: {
-    color: "#8E8E95",
+    color: "#FF9ABA",
     fontSize: 12,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: 1.25,
     textTransform: "uppercase",
   },
@@ -748,7 +758,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 42,
     lineHeight: 46,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -1.5,
   },
   subtitle: {
@@ -763,7 +773,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FF7DA7",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -773,7 +783,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     backgroundColor: "#101014",
     borderWidth: 1,
-    borderColor: "#282832",
+    borderColor: "rgba(255,255,255,0.09)",
     padding: 5,
     flexDirection: "row",
   },
@@ -784,15 +794,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   modeButtonActive: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FFD4E0",
   },
   modeText: {
     color: "#8E8E95",
     fontSize: 15,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   modeTextActive: {
-    color: "#050506",
+    color: "#171214",
   },
   emptyCard: {
     minHeight: 380,
@@ -817,7 +827,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 25,
     lineHeight: 30,
-    fontWeight: "950",
+    fontWeight: "900",
     textAlign: "center",
     letterSpacing: -0.5,
   },
@@ -826,7 +836,7 @@ const styles = StyleSheet.create({
     color: "#8E8E95",
     fontSize: 16,
     lineHeight: 23,
-    fontWeight: "650",
+    fontWeight: "600",
     textAlign: "center",
   },
   emptyButton: {
@@ -834,14 +844,14 @@ const styles = StyleSheet.create({
     height: 48,
     paddingHorizontal: 22,
     borderRadius: 24,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FF7DA7",
     alignItems: "center",
     justifyContent: "center",
   },
   emptyButtonText: {
-    color: "#050506",
+    color: "#171214",
     fontSize: 15,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   composerScreen: {
     flex: 1,
@@ -854,7 +864,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#24242B",
+    borderBottomColor: "rgba(255,255,255,0.09)",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -864,20 +874,22 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     backgroundColor: "#15151A",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.09)",
     alignItems: "center",
     justifyContent: "center",
   },
   composerTitle: {
     color: "#FFFFFF",
     fontSize: 18,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   composerPostButton: {
     minWidth: 82,
     height: 44,
     paddingHorizontal: 17,
     borderRadius: 22,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FF7DA7",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -885,9 +897,9 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   composerPostText: {
-    color: "#050506",
+    color: "#171214",
     fontSize: 15,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   composerScroll: {
     flex: 1,
@@ -901,13 +913,13 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     backgroundColor: "#101014",
     borderWidth: 1,
-    borderColor: "#24242B",
+    borderColor: "rgba(255,255,255,0.09)",
     padding: 16,
   },
   composerIntroKicker: {
     color: "#8E8E95",
     fontSize: 11,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: 1.1,
     textTransform: "uppercase",
   },
@@ -916,7 +928,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 25,
     lineHeight: 30,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -0.6,
   },
   composerIntroText: {
@@ -924,13 +936,13 @@ const styles = StyleSheet.create({
     color: "#8E8E95",
     fontSize: 15,
     lineHeight: 21,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   composerCard: {
     borderRadius: 30,
     backgroundColor: "#101014",
     borderWidth: 1,
-    borderColor: "#24242B",
+    borderColor: "rgba(255,255,255,0.09)",
     padding: 14,
   },
   captionInput: {
@@ -938,7 +950,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 22,
     lineHeight: 29,
-    fontWeight: "650",
+    fontWeight: "600",
     textAlignVertical: "top",
   },
   mediaRow: {
@@ -978,7 +990,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: "#17171C",
     borderWidth: 1,
-    borderColor: "#2B2B31",
+    borderColor: "rgba(255,255,255,0.09)",
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
@@ -993,7 +1005,7 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     backgroundColor: "#101014",
     borderWidth: 1,
-    borderColor: "#24242B",
+    borderColor: "rgba(255,255,255,0.09)",
     padding: 14,
   },
   spotCardHeader: {
@@ -1004,7 +1016,7 @@ const styles = StyleSheet.create({
   spotCardKicker: {
     color: "#8E8E95",
     fontSize: 11,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: 1.1,
     textTransform: "uppercase",
   },
@@ -1013,7 +1025,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 22,
     lineHeight: 27,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -0.5,
   },
   clearSpotButton: {
@@ -1030,7 +1042,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     backgroundColor: "#17171C",
     borderWidth: 1,
-    borderColor: "#2B2B31",
+    borderColor: "rgba(255,255,255,0.09)",
     color: "#FFFFFF",
     paddingHorizontal: 16,
     fontSize: 16,
@@ -1062,12 +1074,12 @@ const styles = StyleSheet.create({
   spotSuggestionName: {
     color: "#FFFFFF",
     fontSize: 15,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   spotSuggestionMeta: {
     marginTop: 2,
     color: "#8E8E95",
     fontSize: 12,
-    fontWeight: "750",
+    fontWeight: "700",
   },
 });

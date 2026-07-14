@@ -1,8 +1,8 @@
-//admin-dashboard/app/spots/[id]/edit/page.tsx
-
+// admin-dashboard/app/spots/[id]/edit/page.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { Spot } from "@/types/spots";
@@ -35,8 +35,6 @@ function storagePathFromPublicUrl(url: string): string | null {
 
 export default function EditSpotPage({ params }: EditSpotPageProps) {
   const router = useRouter();
-
-  // 👇 FIX FÜR NEXT.JS 15 PARAMS
   const { id: spotId } = React.use(params);
 
   const [spot, setSpot] = useState<Spot | null>(null);
@@ -45,13 +43,9 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /* -------------------------------------------------
-     Spot + Öffnungszeiten laden
-  -------------------------------------------------- */
   useEffect(() => {
     async function load() {
       setLoading(true);
-
       try {
         const { data: spotData, error: spotError } = await supabase
           .from("spots")
@@ -73,26 +67,22 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
         setOpeningHours((hoursData ?? []) as OpeningHourRow[]);
       } catch (err: any) {
         console.error(err);
-        setError(err.message ?? "Fehler beim Laden.");
+        setError(err?.message ?? "Fehler beim Laden.");
       } finally {
         setLoading(false);
       }
     }
 
-    load();
+    void load();
   }, [spotId]);
 
-  /* -------------------------------------------------
-     Spot löschen
-  -------------------------------------------------- */
   async function handleDelete() {
-    if (!window.confirm("Diesen Spot inklusive Fotos löschen?")) return;
+    if (!window.confirm("Diesen Spot inklusive Fotos endgültig löschen?")) return;
 
     setDeleting(true);
     setError(null);
 
     try {
-      // Lade Fotos
       const { data: photos } = await supabase
         .from("spot_photos")
         .select("url")
@@ -100,8 +90,8 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
 
       const toDelete: string[] = [];
 
-      (photos ?? []).forEach((p) => {
-        const path = storagePathFromPublicUrl(p.url);
+      (photos ?? []).forEach((photo) => {
+        const path = storagePathFromPublicUrl(photo.url);
         if (path) toDelete.push(path);
       });
 
@@ -117,113 +107,86 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
       await supabase.from("spot_photos").delete().eq("spot_id", spotId);
       await supabase.from("spot_hours").delete().eq("spot_id", spotId);
 
-      const { error: delErr } = await supabase
+      const { error: deleteError } = await supabase
         .from("spots")
         .delete()
         .eq("id", spotId);
 
-      if (delErr) throw delErr;
-
+      if (deleteError) throw deleteError;
       router.push("/spots");
     } catch (err: any) {
       console.error(err);
-      setError(err.message ?? "Fehler beim Löschen.");
+      setError(err?.message ?? "Fehler beim Löschen.");
     } finally {
       setDeleting(false);
     }
   }
 
-  /* -------------------------------------------------
-     Render
-  -------------------------------------------------- */
-  if (loading)
+  if (loading) {
     return (
-      <div style={{ padding: "2rem" }}>
-        <p style={{ color: "var(--muted)" }}>Lade Spot…</p>
+      <div className="spot-editor-page">
+        <div className="spot-editor-loading">
+          <span className="spot-editor-spinner" />
+          Spot wird geladen …
+        </div>
       </div>
     );
+  }
 
-  if (!spot)
+  if (!spot) {
     return (
-      <div style={{ padding: "2rem" }}>
-        <p style={{ color: "var(--muted)" }}>Spot nicht gefunden.</p>
-        {error && <p style={{ color: "#ff6b6b" }}>{error}</p>}
+      <div className="spot-editor-page">
+        <div className="spot-editor-empty">
+          <strong>Spot nicht gefunden</strong>
+          <span>{error ?? "Der Datensatz ist nicht mehr verfügbar."}</span>
+          <Link href="/spots">Zur Spot-Übersicht</Link>
+        </div>
       </div>
     );
+  }
 
   return (
-    <>
-      <div className="edit-page">
-        <div className="edit-header">
-          <div>
-            <h1 className="edit-title">Spot bearbeiten</h1>
-            <p className="edit-subtitle">
-              Ändere alle Angaben, Fotos und Öffnungszeiten.
-            </p>
-          </div>
+    <div className="spot-editor-page">
+      <header className="spot-editor-hero">
+        <div>
+          <div className="spot-editor-eyebrow">Spot Management</div>
+          <h1>{spot.name || "Spot bearbeiten"}</h1>
+          <p>Stammdaten, Intelligence, Fotos und Öffnungszeiten aktualisieren.</p>
+        </div>
 
+        <div className="spot-editor-actions">
+          <Link href={`/spots/${spotId}`} className="spot-editor-back">
+            <span>←</span>
+            Spot-Detail
+          </Link>
           <button
             type="button"
-            className="btn-danger"
+            className="spot-editor-delete"
             onClick={handleDelete}
             disabled={deleting}
           >
-            {deleting ? "Lösche…" : "Spot löschen"}
+            {deleting ? "Wird gelöscht …" : "Spot löschen"}
           </button>
         </div>
+      </header>
 
-        {error && <p className="error">{error}</p>}
-
-        <SpotForm
-          mode="edit"
-          spotId={spotId}
-          initialValues={{
-            ...spot,
-            opening_hours: openingHours,
-          }}
-        />
+      <div className="spot-editor-meta">
+        <span className={`spot-status spot-status-${spot.status ?? "pending"}`}>
+          {spot.status ?? "pending"}
+        </span>
+        <code>{spotId}</code>
       </div>
 
-      <style jsx>{`
-        .edit-page {
-          padding: 2rem;
-          max-width: 960px;
-        }
+      {error ? <div className="by-alert by-alertError">{error}</div> : null}
 
-        .edit-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 2rem;
-        }
-
-        .edit-title {
-          font-size: 1.6rem;
-          font-weight: 600;
-        }
-
-        .edit-subtitle {
-          color: var(--muted);
-          font-size: 0.9rem;
-        }
-
-        .btn-danger {
-          background: #b91c1c;
-          color: #fff;
-          padding: 0.6rem 1rem;
-          border-radius: 8px;
-          border: none;
-          font-weight: 600;
-        }
-
-        .btn-danger:disabled {
-          opacity: 0.6;
-        }
-
-        .error {
-          color: #ff6b6b;
-        }
-      `}</style>
-    </>
+      <SpotForm
+        mode="edit"
+        spotId={spotId}
+        initialValues={{
+          ...spot,
+          opening_hours: openingHours,
+        }}
+      />
+    </div>
   );
 }

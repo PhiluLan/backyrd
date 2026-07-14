@@ -70,7 +70,9 @@ export function SiteHeader() {
 
   const navLinkClass = (href: string) =>
     `text-sm transition ${
-      pathname === href ? "text-white" : "text-white/75 hover:text-white"
+      pathname === href || (href !== "/" && pathname.startsWith(href))
+        ? "text-white"
+        : "text-white/75 hover:text-white"
     }`;
 
   return (
@@ -85,8 +87,14 @@ export function SiteHeader() {
             Discover
           </Link>
 
+          {user && (
+            <Link href="/owner" className={navLinkClass("/owner")}>
+              Owner
+            </Link>
+          )}
+
           {loading ? (
-            <div className="text-sm text-white/40">Lädt…</div>
+            <div className="text-sm text-white/40">Lädt...</div>
           ) : user ? (
             <div className="relative">
               <button
@@ -111,6 +119,14 @@ export function SiteHeader() {
                     className="block rounded-xl px-4 py-3 text-sm text-white/85 transition hover:bg-white/5"
                   >
                     Profil ansehen
+                  </Link>
+
+                  <Link
+                    href="/owner"
+                    onClick={() => setMenuOpen(false)}
+                    className="block rounded-xl px-4 py-3 text-sm text-white/85 transition hover:bg-white/5"
+                  >
+                    Owner Dashboard
                   </Link>
 
                   <Link

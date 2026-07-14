@@ -1,166 +1,88 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { SearchBar } from "@/components/search-bar";
+import Link from "next/link";
 import { SiteHeader } from "@/components/site-header";
-import { SpotCard } from "@/components/spot-card";
-import { getHomeSections } from "@/lib/backyrd-api";
-import type { HomeSectionDTO, HomeSectionsDTO } from "@backyrd/shared";
-
-function Section({ section }: { section: HomeSectionDTO }) {
-  if (!section.items.length) return null;
-
-  return (
-    <section className="mt-14">
-      <div className="mb-6 flex items-end justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold text-white">{section.title}</h2>
-          <p className="mt-2 text-sm text-white/50">{section.subtitle}</p>
-        </div>
-
-        <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/55">
-          {section.items.length} Spots
-        </div>
-      </div>
-
-      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-        {section.items.map((spot) => (
-          <SpotCard key={spot.id} spot={spot} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="mt-14 rounded-3xl border border-white/10 bg-white/5 p-10 text-white/60">
-      Noch keine Discovery-Daten verfügbar. Prüfe, ob deine lokale Supabase läuft,
-      ob die RPCs deployed sind und ob Seed-/Import-Daten vorhanden sind.
-    </div>
-  );
-}
-
-function LoadingState() {
-  return (
-    <div className="mt-14 rounded-3xl border border-white/10 bg-white/5 p-10 text-white/60">
-      Discovery wird geladen…
-    </div>
-  );
-}
-
-function ErrorState({ message }: { message: string }) {
-  return (
-    <div className="mt-14 rounded-3xl border border-red-500/20 bg-red-500/10 p-10 text-red-100/85">
-      <div className="text-lg font-medium text-white">Home konnte nicht geladen werden</div>
-      <p className="mt-3 text-sm leading-7 text-red-100/75">{message}</p>
-    </div>
-  );
-}
 
 export default function HomePage() {
-  const [sections, setSections] = useState<HomeSectionsDTO | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-
-    async function load() {
-      try {
-        setLoading(true);
-        setErrorMessage(null);
-
-        const data = await getHomeSections(12);
-
-        if (!active) return;
-        setSections(data);
-      } catch (error) {
-        if (!active) return;
-
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Unbekannter Fehler beim Laden der Discovery.";
-
-        setErrorMessage(message);
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    }
-
-    load();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const visibleSections = useMemo(
-    () => sections?.sections.filter((section) => section.items.length > 0) ?? [],
-    [sections]
-  );
-
   return (
-    <main className="min-h-screen bg-[#050506]">
+    <main className="min-h-screen bg-[#050506] text-white">
       <SiteHeader />
 
-      <section className="mx-auto max-w-7xl px-6 pb-20 pt-10">
-        <div className="grid gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
-          <div className="space-y-5">
-            <div className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70">
+      <section className="mx-auto max-w-7xl px-6 py-16">
+        <div className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+          <div>
+            <div className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/60">
               Backyrd Web
             </div>
 
-            <h1 className="max-w-4xl text-5xl font-semibold tracking-tight text-white md:text-6xl">
+            <h1 className="mt-8 max-w-4xl text-5xl font-semibold tracking-tight md:text-7xl">
               Finde Orte nach Stimmung, nicht nach Sternen.
             </h1>
 
-            <p className="max-w-2xl text-base leading-7 text-white/60 md:text-lg">
-              Backyrd verbindet Mood, echte Empfehlungen und Discovery zu einer
-              personalisierten Startseite — mit öffentlichem Fallback, wenn noch
-              keine Session vorhanden ist.
+            <p className="mt-8 max-w-2xl text-lg leading-8 text-white/55">
+              Die öffentliche Web-Discovery bauen wir später sauber neu auf. Aktuell ist der
+              Web-Bereich auf das Owner Dashboard fokussiert.
             </p>
-          </div>
 
-          <div className="lg:pb-2">
-            <SearchBar />
-          </div>
-        </div>
-
-        <div className="mt-12 flex flex-wrap gap-3">
-          {["Cozy", "Afterwork", "Date Night", "Urban", "Hidden Gems"].map((chip) => (
-            <div
-              key={chip}
-              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/75"
-            >
-              {chip}
+            <div className="mt-8 flex flex-wrap gap-3">
+              {["Mood statt Sterne", "Owner Dashboard", "Spot Qualität", "Backyrd Intelligence"].map(
+                (chip) => (
+                  <span
+                    key={chip}
+                    className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/65"
+                  >
+                    {chip}
+                  </span>
+                )
+              )}
             </div>
-          ))}
-        </div>
 
-        {sections && (
-          <div className="mt-10 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/55">
-            Quelle:{" "}
-            {sections.source === "personalized"
-              ? "personalisierte Home"
-              : "öffentliche Discovery-Übersicht"}
+            <div className="mt-10 flex flex-wrap gap-3">
+              <Link
+                href="/owner"
+                className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
+              >
+                Zum Owner Dashboard
+              </Link>
+
+              <Link
+                href="/login?next=/owner"
+                className="rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-white/75 transition hover:bg-white/10 hover:text-white"
+              >
+                Einloggen
+              </Link>
+            </div>
           </div>
-        )}
 
-        {loading ? (
-          <LoadingState />
-        ) : errorMessage ? (
-          <ErrorState message={errorMessage} />
-        ) : visibleSections.length === 0 ? (
-          <EmptyState />
-        ) : (
-          visibleSections.map((section) => (
-            <Section key={section.key} section={section} />
-          ))
-        )}
+          <div className="rounded-[2.5rem] border border-white/10 bg-white/[0.04] p-6">
+            <div className="rounded-[2rem] border border-white/10 bg-black/25 p-6">
+              <div className="text-sm font-semibold uppercase tracking-[0.24em] text-white/35">
+                Fokus
+              </div>
+              <h2 className="mt-4 text-3xl font-semibold">Owner Dashboard Sprint</h2>
+              <p className="mt-4 leading-7 text-white/55">
+                Betriebe können ihre Spots pflegen, bessere Daten liefern und Backyrd helfen,
+                echte Relevanz statt bezahlte Fake-Platzierungen zu schaffen.
+              </p>
+
+              <div className="mt-6 grid gap-3">
+                {[
+                  "Basisdaten pflegen",
+                  "Owner Beschreibung",
+                  "Backyrd Intelligence",
+                  "Ranking-Futter verbessern",
+                ].map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white/75"
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
     </main>
   );

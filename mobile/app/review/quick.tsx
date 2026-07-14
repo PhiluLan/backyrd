@@ -14,7 +14,22 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import * as ImageManipulator from "expo-image-manipulator";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
+import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
+
+const theme = {
+  bg: "#050506",
+  surface: "#111113",
+  card: "rgba(255,255,255,0.045)",
+  border: "rgba(255,255,255,0.09)",
+  text: "#FFFFFF",
+  muted: "rgba(255,255,255,0.56)",
+  soft: "rgba(255,255,255,0.72)",
+  pink: "#FF7DA7",
+  pinkSoft: "#FFD4E0",
+  ink: "#171214",
+};
 
 /* ======================================================
    🔧 Helper: Filter anwenden
@@ -109,12 +124,17 @@ export default function QuickReviewScreen() {
     if (!permission) requestPermission();
   }, [permission]);
 
+  useEffect(() => {
+    void trackAnalyticsEvent({ eventName: "review_started", screenName: "review_quick", spotId, decisionId: decisionId ?? null, properties: { source: source ?? "spot" } });
+  }, [decisionId, source, spotId]);
+
   /* ======= Foto aufnehmen ======= */
   async function takePhoto() {
     if (!cameraRef) return;
     try {
       const photo = await cameraRef.takePictureAsync({ quality: 0.8 });
       setPhotoUri(photo.uri);
+      void trackAnalyticsEvent({ eventName: "review_photo_added", screenName: "review_quick", spotId, properties: { source: "camera" } });
     } catch (err) {
       Alert.alert("Fehler", "Kamera konnte kein Bild aufnehmen.");
       console.error(err);
@@ -182,8 +202,11 @@ export default function QuickReviewScreen() {
         if (linkError) console.log("link_decision_review_v1 failed", linkError);
       }
 
+      void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_quick", entityType: "review", entityId: reviewData?.id ?? null, spotId, decisionId: decisionId ?? null, properties: { photo_count: 1, source: source ?? "spot" } });
       router.replace(`/spot/${spotId}`);
     } catch (e: any) {
+      void reportAnalyticsError({ error: e, screenName: "review_quick", errorType: "review_submit_failed", context: { spot_id: spotId } });
+      void trackAnalyticsEvent({ eventName: "review_failed", screenName: "review_quick", spotId, decisionId: decisionId ?? null });
       Alert.alert("Fehler", e.message ?? String(e));
     } finally {
       setLoading(false);
@@ -194,9 +217,8 @@ export default function QuickReviewScreen() {
   if (!permission?.granted) {
     return (
       <SafeAreaView style={styles.center}>
-        <Text style={{ color: "#fff", marginBottom: 8 }}>
-          Zugriff auf Kamera erforderlich
-        </Text>
+        <Text style={styles.permissionTitle}>Kamera freigeben</Text>
+        <Text style={styles.permissionBody}>Für einen schnellen Backyrd Moment brauchen wir kurz Zugriff auf deine Kamera.</Text>
         <Pressable
           style={styles.permissionBtn}
           onPress={() => requestPermission()}
@@ -217,7 +239,17 @@ export default function QuickReviewScreen() {
           ref={setCameraRef}
           onCameraReady={() => setCameraReady(true)}
         />
+        <View style={styles.cameraTop}>
+          <Pressable onPress={() => router.back()} style={styles.iconButton}>
+            <Ionicons name="chevron-back" size={24} color={theme.text} />
+          </Pressable>
+          <View style={styles.cameraTitlePill}>
+            <Text style={styles.cameraTitle}>Moment aufnehmen</Text>
+          </View>
+          <View style={styles.iconButtonPlaceholder} />
+        </View>
         <View style={styles.cameraOverlay}>
+          <Text style={styles.cameraHint}>Foto machen. Moods danach ergänzen.</Text>
           <Pressable
             onPress={takePhoto}
             style={[styles.captureBtn, { opacity: cameraReady ? 1 : 0.5 }]}
@@ -233,7 +265,17 @@ export default function QuickReviewScreen() {
   /* ======= Foto + Review-Eingabe ======= */
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.reviewHeader}>
+          <Pressable onPress={() => router.back()} style={styles.iconButton}>
+            <Ionicons name="chevron-back" size={24} color={theme.text} />
+          </Pressable>
+          <Text style={styles.reviewHeaderTitle}>Neuer Moment</Text>
+          <Pressable onPress={() => setPhotoUri(null)} style={styles.iconButton}>
+            <Ionicons name="camera-outline" size={21} color={theme.text} />
+          </Pressable>
+        </View>
+
         <Image
           source={{ uri: photoUri }}
           style={styles.photoPreview}
@@ -241,6 +283,7 @@ export default function QuickReviewScreen() {
         />
 
         {/* Filter Buttons */}
+        <Text style={styles.sectionTitle}>Look</Text>
         <View style={styles.filterRow}>
           {["none", "bw", "dark"].map((f) => (
             <Pressable
@@ -248,14 +291,11 @@ export default function QuickReviewScreen() {
               onPress={() => setFilter(f as "none" | "bw" | "dark")}
               style={[
                 styles.filterBtn,
-                filter === f && { backgroundColor: "#fff" },
+                filter === f && styles.filterBtnActive,
               ]}
             >
               <Text
-                style={{
-                  color: filter === f ? "#000" : "#fff",
-                  fontWeight: "600",
-                }}
+                style={[styles.filterText, filter === f && styles.filterTextActive]}
               >
                 {f === "none"
                   ? "Original"
@@ -268,22 +308,25 @@ export default function QuickReviewScreen() {
         </View>
 
         {/* Mood Inputs */}
-        <Text style={styles.label}>Mood A</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="z. B. gemütlich"
-          placeholderTextColor="#777"
-          value={moodA}
-          onChangeText={setMoodA}
-        />
-        <Text style={styles.label}>Mood B</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="z. B. lebhaft"
-          placeholderTextColor="#777"
-          value={moodB}
-          onChangeText={setMoodB}
-        />
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Moods</Text>
+          <Text style={styles.label}>Erste Stimmung</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="z. B. gemütlich"
+            placeholderTextColor="rgba(255,255,255,0.34)"
+            value={moodA}
+            onChangeText={setMoodA}
+          />
+          <Text style={styles.label}>Zweite Stimmung</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="z. B. lebhaft"
+            placeholderTextColor="rgba(255,255,255,0.34)"
+            value={moodB}
+            onChangeText={setMoodB}
+          />
+        </View>
 
         <Pressable
           onPress={submitReview}
@@ -291,9 +334,9 @@ export default function QuickReviewScreen() {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#000" />
+            <ActivityIndicator color={theme.ink} />
           ) : (
-            <Text style={styles.submitText}>Hochladen & Fertig</Text>
+            <Text style={styles.submitText}>Moment speichern</Text>
           )}
         </Pressable>
       </ScrollView>
@@ -309,31 +352,100 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#000",
+    backgroundColor: theme.bg,
+    paddingHorizontal: 28,
+  },
+  permissionTitle: {
+    color: theme.text,
+    fontSize: 30,
+    lineHeight: 34,
+    fontWeight: "900",
+    letterSpacing: -0.8,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  permissionBody: {
+    color: theme.muted,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 20,
   },
   permissionBtn: {
-    backgroundColor: "#fff",
-    paddingVertical: 10,
+    backgroundColor: theme.pink,
+    paddingVertical: 13,
     paddingHorizontal: 24,
     borderRadius: 999,
   },
-  permissionText: { color: "#000", fontWeight: "600" },
+  permissionText: { color: theme.ink, fontWeight: "900" },
   cameraContainer: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: theme.bg,
     position: "relative",
+  },
+  cameraTop: {
+    position: "absolute",
+    top: 14,
+    left: 18,
+    right: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(5,5,6,0.68)",
+    borderWidth: 1,
+    borderColor: theme.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconButtonPlaceholder: {
+    width: 44,
+    height: 44,
+  },
+  cameraTitlePill: {
+    minHeight: 38,
+    paddingHorizontal: 15,
+    borderRadius: 999,
+    backgroundColor: "rgba(5,5,6,0.68)",
+    borderWidth: 1,
+    borderColor: theme.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cameraTitle: {
+    color: theme.text,
+    fontSize: 14,
+    fontWeight: "800",
   },
   cameraOverlay: {
     position: "absolute",
-    bottom: 40,
+    bottom: 38,
     width: "100%",
     alignItems: "center",
+  },
+  cameraHint: {
+    color: "rgba(255,255,255,0.82)",
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(5,5,6,0.58)",
+    overflow: "hidden",
   },
   captureBtn: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "rgba(255,255,255,0.4)",
+    backgroundColor: "rgba(255,125,167,0.32)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.42)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -341,46 +453,109 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "#fff",
+    backgroundColor: theme.pink,
   },
-  container: { flex: 1, backgroundColor: "#000", padding: 16 },
+  container: { flex: 1, backgroundColor: theme.bg },
+  content: {
+    paddingHorizontal: 18,
+    paddingBottom: 110,
+  },
+  reviewHeader: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  reviewHeaderTitle: {
+    color: theme.text,
+    fontSize: 19,
+    fontWeight: "800",
+    letterSpacing: -0.3,
+  },
   photoPreview: {
     width: "100%",
-    height: 400,
-    borderRadius: 16,
-    marginBottom: 20,
+    height: 390,
+    borderRadius: 28,
+    marginBottom: 22,
+    backgroundColor: theme.surface,
+  },
+  sectionTitle: {
+    color: theme.text,
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: "800",
+    letterSpacing: -0.45,
+    marginBottom: 12,
   },
   filterRow: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 18,
   },
   filterBtn: {
+    flex: 1,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "#444",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    borderColor: theme.border,
+    backgroundColor: "rgba(255,255,255,0.055)",
+    paddingVertical: 11,
+    paddingHorizontal: 10,
+    alignItems: "center",
+  },
+  filterBtnActive: {
+    backgroundColor: theme.pink,
+    borderColor: theme.pink,
+  },
+  filterText: {
+    color: theme.soft,
+    fontWeight: "800",
+    fontSize: 12,
+  },
+  filterTextActive: {
+    color: theme.ink,
+  },
+  card: {
+    borderRadius: 28,
+    padding: 16,
+    backgroundColor: theme.card,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  cardTitle: {
+    color: theme.text,
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: "800",
+    letterSpacing: -0.45,
+    marginBottom: 12,
   },
   label: {
-    color: "#fff",
-    fontWeight: "600",
-    marginTop: 12,
-    marginBottom: 6,
+    color: theme.muted,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+    marginBottom: 7,
+    marginLeft: 2,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#333",
-    borderRadius: 8,
-    padding: 12,
-    color: "#fff",
+    borderColor: theme.border,
+    borderRadius: 18,
+    paddingHorizontal: 15,
+    paddingVertical: 14,
+    color: theme.text,
+    backgroundColor: theme.surface,
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 12,
   },
   submitBtn: {
     marginTop: 24,
-    backgroundColor: "#fff",
+    backgroundColor: theme.pink,
     padding: 16,
     borderRadius: 999,
     alignItems: "center",
   },
-  submitText: { color: "#000", fontWeight: "700", fontSize: 16 },
+  submitText: { color: theme.ink, fontWeight: "900", fontSize: 16 },
 });

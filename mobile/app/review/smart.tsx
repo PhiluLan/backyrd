@@ -21,16 +21,20 @@ import { supabase } from "../../lib/supabase";
 import { reverseGeocode } from "../../lib/geocode";
 import { awardAchievementsForUser } from "../../lib/achievementEngine";
 import { AchievementUnlockModal } from "../../components/AchievementUnlockModal";
+import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 
 const theme = {
   colors: {
-    background: "#0A0A0B",
-    surface: "#131316",
-    card: "#15151A",
-    border: "#2A2A33",
+    background: "#050506",
+    surface: "#111113",
+    card: "rgba(255,255,255,0.045)",
+    border: "rgba(255,255,255,0.09)",
     text: "#fff",
-    textMuted: "#A6A8AD",
-    primary: "#0EA5E9",
+    textMuted: "rgba(255,255,255,0.56)",
+    textSoft: "rgba(255,255,255,0.72)",
+    primary: "#FF7DA7",
+    pinkSoft: "#FFD4E0",
+    ink: "#171214",
   },
   radius: { lg: 16, pill: 999 },
   spacing: (n: number) => n * 8,
@@ -123,6 +127,10 @@ export default function SmartReviewScreen() {
     moodB.trim().length > 0;
 
   useEffect(() => {
+    void trackAnalyticsEvent({ eventName: "review_started", screenName: "review_smart", decisionId: decisionId ?? null, properties: { source: source ?? "smart" } });
+  }, [decisionId, source]);
+
+  useEffect(() => {
     (async () => {
       try {
         const cam = await ImagePicker.requestCameraPermissionsAsync();
@@ -152,6 +160,7 @@ export default function SmartReviewScreen() {
         }
 
         setPhotoUri(result.assets[0].uri);
+        void trackAnalyticsEvent({ eventName: "review_photo_added", screenName: "review_smart", decisionId: decisionId ?? null, properties: { source: "camera" } });
 
         const position = await Location.getCurrentPositionAsync({});
         const lat = position.coords.latitude;
@@ -344,6 +353,7 @@ export default function SmartReviewScreen() {
       if (photoErr) throw photoErr;
 
       await linkDecisionReview(reviewId);
+      void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_smart", entityType: "review", entityId: reviewId, spotId: nearest.id, decisionId: decisionId ?? null, properties: { photo_count: 1, has_text: Boolean(text.trim()), source: source ?? "smart" } });
 
       const newlyUnlocked = await awardAchievementsForUser(user.id);
 
@@ -404,6 +414,12 @@ export default function SmartReviewScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.container}>
+          <View style={styles.hero}>
+            <Text style={styles.kicker}>SMART REVIEW</Text>
+            <Text style={styles.heroTitle}>Moment erkennen</Text>
+            <Text style={styles.heroText}>Backyrd sucht den nächsten Spot zu deinem Foto und deiner Location.</Text>
+          </View>
+
           {photoUri ? (
             <Image source={{ uri: photoUri }} style={styles.photo} />
           ) : (
@@ -424,29 +440,29 @@ export default function SmartReviewScreen() {
                 <Text style={styles.spotName}>{nearest.name}</Text>
                 {!!nearest.address && <Text style={styles.address}>{nearest.address}</Text>}
 
-                <Text style={styles.label}>Mood A</Text>
+                <Text style={styles.label}>Erste Stimmung</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="z. B. gemütlich"
-                  placeholderTextColor="#777"
+                  placeholderTextColor="rgba(255,255,255,0.34)"
                   value={moodA}
                   onChangeText={setMoodA}
                 />
 
-                <Text style={styles.label}>Mood B</Text>
+                <Text style={styles.label}>Zweite Stimmung</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="z. B. lebhaft"
-                  placeholderTextColor="#777"
+                  placeholderTextColor="rgba(255,255,255,0.34)"
                   value={moodB}
                   onChangeText={setMoodB}
                 />
 
-                <Text style={styles.label}>Optionaler Text</Text>
+                <Text style={styles.label}>Text</Text>
                 <TextInput
                   style={[styles.input, { minHeight: 88, textAlignVertical: "top" }]}
-                  placeholder="Wie war dein Erlebnis?"
-                  placeholderTextColor="#777"
+                  placeholder="Was sollte man wissen?"
+                  placeholderTextColor="rgba(255,255,255,0.34)"
                   value={text}
                   onChangeText={setText}
                   multiline
@@ -463,9 +479,9 @@ export default function SmartReviewScreen() {
                   ]}
                 >
                   {saving ? (
-                    <ActivityIndicator color="#000" />
+                    <ActivityIndicator color={theme.colors.ink} />
                   ) : (
-                    <Text style={styles.btnPrimaryText}>Review speichern</Text>
+                    <Text style={styles.btnPrimaryText}>Moment speichern</Text>
                   )}
                 </Pressable>
 
@@ -480,20 +496,20 @@ export default function SmartReviewScreen() {
                   Wir haben in ca. 120 m Umkreis nichts Passendes gefunden.
                 </Text>
 
-                <Text style={styles.label}>Mood A</Text>
+                <Text style={styles.label}>Erste Stimmung</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="z. B. gemütlich"
-                  placeholderTextColor="#777"
+                  placeholderTextColor="rgba(255,255,255,0.34)"
                   value={moodA}
                   onChangeText={setMoodA}
                 />
 
-                <Text style={styles.label}>Mood B</Text>
+                <Text style={styles.label}>Zweite Stimmung</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="z. B. lebhaft"
-                  placeholderTextColor="#777"
+                  placeholderTextColor="rgba(255,255,255,0.34)"
                   value={moodB}
                   onChangeText={setMoodB}
                 />
@@ -526,8 +542,8 @@ export default function SmartReviewScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    height: 56,
-    paddingHorizontal: 16,
+    minHeight: 58,
+    paddingHorizontal: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -538,15 +554,41 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   container: {
-    padding: 16,
+    paddingHorizontal: 20,
     paddingBottom: 120,
-    gap: 16,
+  },
+  hero: {
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  kicker: {
+    color: theme.colors.pinkSoft,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 3,
+    marginBottom: 12,
+  },
+  heroTitle: {
+    color: theme.colors.text,
+    fontSize: 40,
+    lineHeight: 42,
+    fontWeight: "900",
+    letterSpacing: -1,
+  },
+  heroText: {
+    color: theme.colors.textMuted,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "600",
+    marginTop: 10,
+    maxWidth: 330,
   },
   photo: {
     width: "100%",
-    height: 220,
-    borderRadius: 14,
+    height: 260,
+    borderRadius: 28,
     backgroundColor: "#111",
+    marginBottom: 16,
   },
   photoPlaceholder: {
     borderWidth: 1,
@@ -556,22 +598,24 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: theme.colors.card,
-    borderRadius: 16,
+    borderRadius: 28,
     padding: 16,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
   title: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "800",
-    marginBottom: 6,
+    marginBottom: 8,
   },
   spotName: {
     color: "#fff",
-    fontSize: 20,
+    fontSize: 26,
+    lineHeight: 30,
     fontWeight: "900",
     marginBottom: 4,
+    letterSpacing: -0.55,
   },
   address: {
     color: theme.colors.textMuted,
@@ -583,19 +627,24 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   label: {
-    color: "#fff",
-    fontWeight: "700",
-    marginTop: 10,
-    marginBottom: 6,
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontWeight: "800",
+    marginTop: 12,
+    marginBottom: 7,
+    marginLeft: 2,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#333",
-    borderRadius: 10,
-    padding: 12,
+    borderColor: theme.colors.border,
+    borderRadius: 18,
+    paddingHorizontal: 15,
+    paddingVertical: 14,
     color: "#fff",
     backgroundColor: theme.colors.surface,
     marginBottom: 8,
+    fontSize: 15,
+    fontWeight: "700",
   },
   btn: {
     paddingVertical: 14,
@@ -608,7 +657,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
   },
   btnPrimaryText: {
-    color: "#000",
+    color: theme.colors.ink,
     fontWeight: "900",
     fontSize: 15,
   },
@@ -617,7 +666,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   btnGhostText: {
-    color: "#fff",
+    color: theme.colors.text,
     fontWeight: "800",
   },
 });

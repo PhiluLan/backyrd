@@ -30,6 +30,7 @@ import { useSpotsStore } from "../../lib/useSpotsStore";
 import { useDebounce } from "use-debounce";
 import { supabase } from "../../lib/supabase";
 import { MOOD_SUGGESTIONS } from "../../lib/moods";
+import { trackAnalyticsEvent } from "../../lib/analytics";
 
 const BASEL = { latitude: 47.5596, longitude: 7.5886 };
 const { height: SCREEN_H } = Dimensions.get("window");
@@ -42,11 +43,16 @@ const OFFSET_HIDDEN = SHEET_HEIGHT + 40;
 
 const theme = {
   colors: {
-    background: "#0A0A0B",
-    surface: "#131316",
-    border: "#2A2A33",
+    background: "#050506",
+    surface: "#111113",
+    surfaceElevated: "#17171A",
+    border: "rgba(255,255,255,0.09)",
     text: "#FFFFFF",
-    primary: "#0EA5E9",
+    textMuted: "rgba(255,255,255,0.58)",
+    textSoft: "rgba(255,255,255,0.74)",
+    primary: "#FF7DA7",
+    pinkSoft: "#FFD4E0",
+    greenSoft: "#C8E3A6",
   },
 };
 
@@ -363,6 +369,14 @@ export default function MapScreen() {
           onPress={(e) => {
             e.stopPropagation();
             setSelectedSpot(spot);
+            void trackAnalyticsEvent({
+              eventName: "map_marker_opened",
+              screenName: "map",
+              entityType: "spot",
+              entityId: spot.id,
+              spotId: spot.id,
+              properties: { view_mode: viewMode },
+            });
             openSheetCollapsed();
           }}
         >
@@ -371,7 +385,7 @@ export default function MapScreen() {
             style={{
               width: 34,
               height: 34,
-              tintColor: spot.categories?.color || "#A78BFA",
+              tintColor: spot.categories?.color || theme.colors.primary,
             }}
             resizeMode="contain"
           />
@@ -473,13 +487,21 @@ export default function MapScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* HEADER */}
       <View style={styles.header}>
+        <View style={styles.titleRow}>
+          <View>
+            <Text style={styles.locationLabel}>Basel</Text>
+            <Text style={styles.title}>Orte entdecken</Text>
+          </View>
+          <Text style={styles.resultCount}>{filteredSpots.length} Spots</Text>
+        </View>
+
         <View style={styles.headerTopRow}>
           {/* SEARCH */}
           <View style={styles.searchBox}>
-            <Ionicons name="search" size={18} color="#aaa" style={{ marginRight: 6 }} />
+            <Ionicons name="search" size={19} color="rgba(255,255,255,0.54)" style={{ marginRight: 8 }} />
             <TextInput
-              placeholder="Suche nach Name, Stadt oder Mood..."
-              placeholderTextColor="#777"
+              placeholder="Suche nach Ort, Mood oder Stadt..."
+              placeholderTextColor="rgba(255,255,255,0.36)"
               value={search}
               onChangeText={setSearch}
               style={styles.searchInput}
@@ -489,8 +511,11 @@ export default function MapScreen() {
             />
             {search.length > 0 && (
               <Pressable onPress={() => setSearch("")}>
-                <Ionicons name="close" size={16} color="#aaa" />
+                <Ionicons name="close" size={17} color="rgba(255,255,255,0.62)" />
               </Pressable>
+            )}
+            {search.length === 0 && (
+              <Ionicons name="options-outline" size={19} color={theme.colors.pinkSoft} />
             )}
           </View>
 
@@ -501,7 +526,7 @@ export default function MapScreen() {
             <Ionicons
               name={viewMode === "map" ? "list-outline" : "map-outline"}
               size={20}
-              color="#fff"
+              color={theme.colors.text}
             />
           </Pressable>
 
@@ -515,7 +540,7 @@ export default function MapScreen() {
               setSearch("");
             }}
           >
-            <Ionicons name="refresh" size={18} color="#fff" />
+            <Ionicons name="refresh" size={18} color={theme.colors.text} />
           </Pressable>
         </View>
 
@@ -544,17 +569,17 @@ export default function MapScreen() {
                   {
                     backgroundColor: active
                       ? theme.colors.primary
-                      : "rgba(255,255,255,0.08)",
+                      : "rgba(255,255,255,0.055)",
                     borderColor: active
                       ? theme.colors.primary
-                      : "rgba(255,255,255,0.2)",
+                      : theme.colors.border,
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.moodChipTextBtn,
-                    { color: active ? "#fff" : "#ccc" },
+                    { color: active ? "#171214" : theme.colors.textSoft },
                   ]}
                 >
                   {m}
@@ -582,11 +607,11 @@ export default function MapScreen() {
                   styles.catChip,
                   {
                     backgroundColor: active
-                      ? cat.color
-                      : "rgba(255,255,255,0.08)",
+                      ? cat.color || theme.colors.primary
+                      : "rgba(255,255,255,0.055)",
                     borderColor: active
-                      ? cat.color
-                      : "rgba(255,255,255,0.2)",
+                      ? cat.color || theme.colors.primary
+                      : theme.colors.border,
                   },
                 ]}
               >
@@ -594,7 +619,7 @@ export default function MapScreen() {
                 <Text
                   style={[
                     styles.catText,
-                    { color: active ? "#fff" : "#ccc" },
+                    { color: active ? "#171214" : theme.colors.textSoft },
                   ]}
                 >
                   {cat.name}
@@ -626,10 +651,14 @@ export default function MapScreen() {
           data={filteredSpots}
           keyExtractor={(i) => i.id}
           contentContainerStyle={{ padding: 16 }}
+          style={styles.list}
           renderItem={({ item }) => (
             <Pressable
               style={styles.listCard}
-              onPress={() => router.push(`/spot/${item.id}`)}
+              onPress={() => {
+                void trackAnalyticsEvent({ eventName: "map_spot_opened", screenName: "map", entityType: "spot", entityId: item.id, spotId: item.id, properties: { source: "list" } });
+                router.push(`/spot/${item.id}`);
+              }}
             >
               <Image
                 source={
@@ -643,9 +672,7 @@ export default function MapScreen() {
               />
               <View style={styles.listCardBody}>
                 <Text style={styles.listCardTitle}>{item.name}</Text>
-                <Text style={styles.listCardAddress}>
-                  {item.address || "–"}
-                </Text>
+                <Text style={styles.listCardAddress}>{item.address || "Adresse offen"}</Text>
 
                 <View style={styles.moodRow}>
                   {(spotMoods[item.id] || []).slice(0, 5).map((m) => (
@@ -663,7 +690,7 @@ export default function MapScreen() {
       {/* RECENTER BUTTON */}
       {viewMode === "map" && (
         <Pressable style={styles.recenterBtn} onPress={recenterToMe}>
-          <Ionicons name="locate-outline" size={22} color="#fff" />
+          <Ionicons name="locate-outline" size={22} color={theme.colors.text} />
         </Pressable>
       )}
 
@@ -676,13 +703,16 @@ export default function MapScreen() {
         pointerEvents={selectedSpot ? "box-none" : "none"}
         {...panResponder.panHandlers}
       >
-        <BlurView intensity={30} tint="dark" style={styles.sheetBlur}>
+        <BlurView intensity={34} tint="dark" style={styles.sheetBlur}>
           <View style={styles.sheetHandle} />
 
           {selectedSpot ? (
             <View style={{ paddingHorizontal: 16, paddingBottom: 30 }}>
               <Pressable
-                onPress={() => router.push(`/spot/${selectedSpot.id}`)}
+                onPress={() => {
+                  void trackAnalyticsEvent({ eventName: "map_spot_opened", screenName: "map", entityType: "spot", entityId: selectedSpot.id, spotId: selectedSpot.id, properties: { source: "preview" } });
+                  router.push(`/spot/${selectedSpot.id}`);
+                }}
                 style={styles.sheetCard}
               >
                 <View style={styles.cardMedia}>
@@ -709,11 +739,7 @@ export default function MapScreen() {
                       {selectedSpot.name}
                     </Text>
 
-                    {selectedSpot.address && (
-                      <Text style={styles.resultSubtitle} numberOfLines={1}>
-                        {selectedSpot.address}
-                      </Text>
-                    )}
+                    {selectedSpot.address && <Text style={styles.resultSubtitle} numberOfLines={1}>{selectedSpot.address}</Text>}
 
                     <View style={styles.cardChipsRow}>
                       {(spotMoods[selectedSpot.id] || [])
@@ -730,14 +756,17 @@ export default function MapScreen() {
 
               <Pressable
                 style={[styles.sheetCtaPrimary, { marginTop: 18 }]}
-                onPress={() => router.push(`/spot/${selectedSpot.id}`)}
+                onPress={() => {
+                  void trackAnalyticsEvent({ eventName: "map_spot_opened", screenName: "map", entityType: "spot", entityId: selectedSpot.id, spotId: selectedSpot.id, properties: { source: "preview" } });
+                  router.push(`/spot/${selectedSpot.id}`);
+                }}
               >
                 <Text style={styles.sheetCtaPrimaryText}>Spot ansehen</Text>
               </Pressable>
             </View>
           ) : (
             <View style={{ alignItems: "center", paddingTop: 18 }}>
-              <Text style={{ color: "#aaa" }}>Tippe auf einen Marker…</Text>
+              <Text style={styles.emptySheetText}>Tippe auf einen Marker</Text>
             </View>
           )}
         </BlurView>
@@ -751,83 +780,164 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
 
-  header: { paddingHorizontal: 16, paddingTop: 10, backgroundColor: "#0A0A0B" },
-  headerTopRow: { flexDirection: "row", gap: 10, alignItems: "center" },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 10,
+    backgroundColor: theme.colors.background,
+  },
+  titleRow: {
+    minHeight: 54,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 14,
+    marginBottom: 14,
+  },
+  locationLabel: {
+    color: "rgba(255,255,255,0.66)",
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: "700",
+    letterSpacing: -0.2,
+  },
+  title: {
+    color: theme.colors.text,
+    fontSize: 30,
+    lineHeight: 34,
+    fontWeight: "800",
+    letterSpacing: -0.8,
+    marginTop: 1,
+  },
+  resultCount: {
+    color: theme.colors.pinkSoft,
+    fontSize: 13,
+    fontWeight: "800",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,125,167,0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255,125,167,0.2)",
+    overflow: "hidden",
+    marginTop: 3,
+  },
+  headerTopRow: { flexDirection: "row", gap: 9, alignItems: "center" },
 
   searchBox: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1B1B21",
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    minHeight: 54,
+    backgroundColor: "rgba(255,255,255,0.055)",
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 14,
   },
-  searchInput: { flex: 1, color: "#fff", fontSize: 15 },
+  searchInput: {
+    flex: 1,
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: "700",
+  },
 
-  filterScroll: { paddingVertical: 6, gap: 8 },
+  filterScroll: { paddingTop: 10, paddingBottom: 2, gap: 8 },
 
   moodChipBtn: {
     borderWidth: 1,
     borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 13,
     marginRight: 8,
   },
-  moodChipTextBtn: { fontSize: 13, fontWeight: "600" },
+  moodChipTextBtn: { fontSize: 13, fontWeight: "800" },
 
   catChip: {
     flexDirection: "row",
     alignItems: "center",
     borderRadius: 999,
     borderWidth: 1,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
     marginRight: 8,
   },
   catIcon: { marginRight: 4, fontSize: 16 },
-  catText: { fontSize: 13, fontWeight: "600" },
+  catText: { fontSize: 13, fontWeight: "800" },
 
   toggleBtn: {
-    backgroundColor: "rgba(0,0,0,0.5)",
+    width: 50,
+    height: 50,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.055)",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     borderRadius: 999,
-    padding: 8,
   },
   clearBtn: {
-    backgroundColor: "rgba(255,255,255,0.05)",
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.045)",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     borderRadius: 999,
-    padding: 6,
   },
 
   // LIST Cards
-  listCard: {
-    backgroundColor: "#1B1B21",
-    borderRadius: 16,
-    marginBottom: 14,
-    overflow: "hidden",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.12)",
+  list: {
+    backgroundColor: theme.colors.background,
   },
-  listCardImage: { width: "100%", height: 140 },
-  listCardBody: { padding: 10 },
-  listCardTitle: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  listCardAddress: { color: "#aaa", fontSize: 13, marginBottom: 6 },
+  listCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 24,
+    marginBottom: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  listCardImage: { width: "100%", height: 170 },
+  listCardBody: { padding: 14 },
+  listCardTitle: {
+    color: theme.colors.text,
+    fontSize: 21,
+    lineHeight: 25,
+    fontWeight: "800",
+    letterSpacing: -0.45,
+  },
+  listCardAddress: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    lineHeight: 19,
+    marginTop: 5,
+    marginBottom: 10,
+    fontWeight: "600",
+  },
 
   moodRow: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
   moodChipSmall: {
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.07)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.09)",
     borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
   },
-  moodChipSmallText: { color: "#fff", fontSize: 11 },
+  moodChipSmallText: { color: theme.colors.textSoft, fontSize: 11, fontWeight: "800" },
 
   recenterBtn: {
     position: "absolute",
-    bottom: 30,
+    bottom: 114,
     right: 20,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    padding: 10,
+    width: 52,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(5,5,6,0.72)",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     borderRadius: 999,
   },
 
@@ -841,68 +951,82 @@ const styles = StyleSheet.create({
   },
   sheetBlur: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: "rgba(5,5,6,0.7)",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
   },
   sheetHandle: {
     alignSelf: "center",
-    width: 44,
-    height: 5,
+    width: 40,
+    height: 4,
     borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.35)",
-    marginTop: 8,
-    marginBottom: 6,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    marginTop: 10,
+    marginBottom: 10,
   },
 
   sheetCard: {
-    backgroundColor: "#1B1B21",
-    borderRadius: 24,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 28,
     overflow: "hidden",
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     shadowColor: "#000",
     shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 8,
   },
   cardMedia: { position: "relative" },
-  cardImg: { width: "100%", height: 220 },
+  cardImg: { width: "100%", height: 228 },
   cardOverlay: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    padding: 14,
+    padding: 16,
   },
   resultTitle: {
-    color: "#fff",
-    fontSize: 20,
+    color: theme.colors.text,
+    fontSize: 25,
+    lineHeight: 29,
     fontWeight: "800",
-    marginBottom: 2,
-    letterSpacing: 0.2,
+    marginBottom: 4,
+    letterSpacing: -0.55,
   },
-  resultSubtitle: { color: "#ccc", fontSize: 13, marginBottom: 8 },
+  resultSubtitle: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 14,
+    lineHeight: 19,
+    marginBottom: 10,
+    fontWeight: "600",
+  },
   cardChipsRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   badgeGhost: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.11)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.16)",
   },
-  badgeGhostText: { color: "#fff", fontSize: 12, fontWeight: "700" },
+  badgeGhostText: { color: theme.colors.text, fontSize: 12, fontWeight: "800" },
 
   sheetCtaPrimary: {
-    backgroundColor: "#fff",
-    paddingVertical: 12,
+    backgroundColor: theme.colors.primary,
+    paddingVertical: 15,
     borderRadius: 999,
     alignItems: "center",
     marginTop: 12,
   },
-  sheetCtaPrimaryText: { fontWeight: "800", color: "#111" },
+  sheetCtaPrimaryText: { fontWeight: "900", color: "#171214", fontSize: 15 },
+  emptySheetText: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    fontWeight: "700",
+  },
 });
 
 const DARK_MAP_STYLE = [

@@ -10,86 +10,55 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const pathname = usePathname();
   const [state, setState] = useState<GuardState>("checking");
-  const [reason, setReason] = useState<string>("");
+  const [reason, setReason] = useState("");
 
   useEffect(() => {
     let cancelled = false;
 
-    (async () => {
-      // öffentliche Routes
+    async function checkAccess() {
       if (pathname === "/login") {
         if (!cancelled) setState("ok");
         return;
       }
 
-      // 1) Session check
-      const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       if (cancelled) return;
 
-      if (sessionErr) {
-        console.warn("getSession error:", sessionErr);
-        setReason("session_error");
+      if (sessionError || !sessionData.session?.user) {
+        setReason(sessionError ? "session_error" : "no_session");
         setState("blocked");
         router.replace("/login");
         return;
       }
 
-      const user = sessionData.session?.user;
-      if (!user) {
-        setReason("no_session");
-        setState("blocked");
-        router.replace("/login");
-        return;
-      }
-
-      // 2) Admin flag check
-      const { data: profile, error: profErr } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", user.id)
-        .single();
-
+      const { data, error } = await supabase.rpc("admin_is_admin_v1");
       if (cancelled) return;
 
-      if (profErr) {
-        // IMPORTANT:
-        // Wenn profiles read durch RLS/Policies failt, NICHT in einen Redirect-Loop fallen.
-        console.warn("profiles is_admin check failed (allowing temporarily):", profErr);
-        setReason("profile_check_failed_allow");
-        setState("ok");
-        return;
-      }
-
-      if (!profile?.is_admin) {
-        setReason("not_admin");
+      if (error || data !== true) {
+        console.error("Admin check failed:", error);
+        setReason(error ? "admin_check_failed" : "not_admin");
         setState("blocked");
+        await supabase.auth.signOut();
         router.replace("/login");
         return;
       }
 
       setReason("ok");
       setState("ok");
-    })();
+    }
 
+    void checkAccess();
     return () => {
       cancelled = true;
     };
   }, [pathname, router]);
 
   if (state === "checking") {
-    return (
-      <div className="p-6 text-sm text-gray-500">
-        Checking session…
-      </div>
-    );
+    return <div className="bi-guard">Backyrd Intelligence wird geladen …</div>;
   }
 
   if (state === "blocked") {
-    return (
-      <div className="p-6 text-sm text-gray-500">
-        Access denied. ({reason})
-      </div>
-    );
+    return <div className="bi-guard">Zugriff verweigert. ({reason})</div>;
   }
 
   return <>{children}</>;

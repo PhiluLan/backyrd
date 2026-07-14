@@ -23,13 +23,20 @@ import * as Haptics from "expo-haptics";
 import LoginPromptModal from "../../components/LoginPromptModal";
 import { supabase } from "../../lib/supabase";
 import { openWebsite, callNumber, openInAppleMaps } from "../../lib/links";
+import { trackAnalyticsEvent } from "../../lib/analytics";
 
 const theme = {
   colors: {
     background: "#0A0A0B",
-    surfaceElevated: "#1B1B21",
+    surface: "#111113",
+    surfaceElevated: "#151519",
+    border: "rgba(255,255,255,0.09)",
     text: "#FFFFFF",
     textMuted: "#A6A8AD",
+    textSoft: "rgba(255,255,255,0.72)",
+    pink: "#FF7DA7",
+    pinkSoft: "#FFD4E0",
+    greenSoft: "#C8E3A6",
     success: "#22C55E",
     danger: "#EF4444",
   },
@@ -137,6 +144,31 @@ const Chip = ({ text }: { text: string }) => (
   >
     <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>{text}</Text>
   </View>
+);
+
+const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+  <Text style={styles.sectionTitle}>{children}</Text>
+);
+
+const InfoRow = ({
+  icon,
+  text,
+  onPress,
+  color,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  text: string;
+  onPress?: () => void;
+  color?: string;
+}) => (
+  <Pressable disabled={!onPress} onPress={onPress} style={styles.infoRow}>
+    <View style={styles.infoIcon}>
+      <Feather name={icon} size={17} color={color ?? theme.colors.textSoft} />
+    </View>
+    <Text numberOfLines={2} style={[styles.infoText, color ? { color } : null]}>
+      {text}
+    </Text>
+  </Pressable>
 );
 
 export default function SpotDetailScreen() {
@@ -344,6 +376,7 @@ export default function SpotDetailScreen() {
     const url =
       spot.website ||
       `https://maps.apple.com/?ll=${spot.lat},${spot.lng}&q=${encodeURIComponent(spot.name)}`;
+    void trackAnalyticsEvent({ eventName: "spot_shared", screenName: "spot_detail", entityType: "spot", entityId: id, spotId: id });
     Share.share({ message: `${spot.name}\n${spot.address ?? ""}\n${url}` });
   }
 
@@ -520,457 +553,240 @@ export default function SpotDetailScreen() {
                 <Image source={{ uri: photos[(index.current + 1) % photos.length]?.url }} style={{ width, height: HEADER_MAX }} />
               </Animated.View>
             ) : (
-              <View
-                style={{
-                  width: "100%",
-                  height: HEADER_MAX,
-                  backgroundColor: "#222",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Text style={{ color: "#fff", fontSize: 48 }}>{spot.name[0]}</Text>
+              <View style={styles.photoFallback}>
+                <Text style={styles.photoFallbackText}>{spot.name?.[0] ?? "B"}</Text>
               </View>
             )}
 
             <LinearGradient
-              colors={["transparent", "rgba(0,0,0,0.1)", "rgba(0,0,0,0.35)", "rgba(0,0,0,0.65)"]}
-              style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 180 }}
+              colors={["rgba(0,0,0,0.08)", "rgba(0,0,0,0.12)", "rgba(0,0,0,0.62)", theme.colors.background]}
+              locations={[0, 0.45, 0.78, 1]}
+              style={StyleSheet.absoluteFill}
             />
+
+            <View style={styles.heroContent}>
+              <View style={styles.heroPills}>
+                <View style={[styles.statusPill, isOpen ? styles.statusOpen : styles.statusClosed]}>
+                  <View style={[styles.statusDot, { backgroundColor: isOpen ? theme.colors.greenSoft : theme.colors.danger }]} />
+                  <Text style={[styles.statusText, { color: isOpen ? theme.colors.greenSoft : "#FFB4B4" }]}>
+                    {isOpen ? "Geöffnet" : "Geschlossen"}
+                  </Text>
+                </View>
+                {spot.price_level ? <Chip text={priceToSymbols(spot.price_level)} /> : null}
+              </View>
+
+              <Text numberOfLines={3} style={styles.heroTitle}>{spot.name}</Text>
+              {spot.address ? (
+                <Text numberOfLines={1} style={styles.heroAddress}>{spot.address}</Text>
+              ) : null}
+            </View>
           </Animated.View>
         </Animated.View>
 
-        <View style={{ paddingHorizontal: theme.spacing(2), paddingTop: 10, paddingBottom: 10 }}>
-          <Text style={{ fontSize: 32, fontWeight: "900", color: "#fff" }}>{spot.name}</Text>
-
-          <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
-            <View
-              style={{
-                paddingHorizontal: 14,
-                paddingVertical: 6,
-                borderRadius: theme.radius.pill,
-                borderWidth: 1,
-                borderColor: isOpen ? "rgba(34,197,94,0.35)" : "rgba(239,68,68,0.35)",
+        <View style={styles.content}>
+          <View style={styles.quickActions}>
+            <Pressable onPress={() => {
+              void trackAnalyticsEvent({ eventName: "spot_route_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
+              openInAppleMaps(spot.lat, spot.lng, spot.name);
+            }} style={styles.primaryAction}>
+              <Feather name="navigation" size={17} color="#171214" />
+              <Text style={styles.primaryActionText}>Route</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                if (!userId) return setShowLoginPrompt(true);
+                void trackAnalyticsEvent({ eventName: "spot_review_started", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
+                router.push(`/review/new?spotId=${spot.id}`);
               }}
+              style={styles.secondaryAction}
             >
-              <Text style={{ color: isOpen ? theme.colors.success : theme.colors.danger, fontWeight: "700" }}>
-                {isOpen ? "Jetzt geöffnet" : "Geschlossen"}
-              </Text>
-            </View>
-
-            <View
-              style={{
-                paddingHorizontal: 14,
-                paddingVertical: 6,
-                borderRadius: theme.radius.pill,
-                borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.25)",
-              }}
-            >
-              <Text style={{ color: "#ddd" }}>{priceToSymbols(spot.price_level)}</Text>
-            </View>
+              <Feather name="plus" size={18} color={theme.colors.text} />
+              <Text style={styles.secondaryActionText}>Moment</Text>
+            </Pressable>
           </View>
-        </View>
 
-        <View style={{ paddingHorizontal: theme.spacing(2), marginTop: 18 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>Beschreibung</Text>
-
-            {!!descSource ? (
-              <View
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 6,
-                  borderRadius: theme.radius.pill,
-                  borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.18)",
-                  backgroundColor: "rgba(255,255,255,0.06)",
-                }}
-              >
-                <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 12, fontWeight: "800" }}>
-                  {descSource === "owner" ? "vom Betreiber" : descSource}
-                </Text>
+          {moodSummary.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <SectionTitle>Taste DNA</SectionTitle>
+                {moodSummary.length > 5 ? (
+                  <Pressable onPress={() => setShowAllMoods((s) => !s)}>
+                    <Text style={styles.showMoreText}>{showAllMoods ? "Weniger" : "Mehr anzeigen"}</Text>
+                  </Pressable>
+                ) : null}
               </View>
-            ) : null}
+              <View style={styles.moodWrap}>
+                {(showAllMoods ? moodSummary : moodSummary.slice(0, 5)).map((m) => (
+                  <View key={m.mood} style={[styles.moodPill, { borderColor: moodColor(m.mood) }]}>
+                    <Text style={styles.moodText}>{m.mood}</Text>
+                    <Text style={styles.moodCount}>{m.count}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <SectionTitle>Beschreibung</SectionTitle>
+              {!!descSource ? (
+                <View style={styles.sourcePill}>
+                  <Text style={styles.sourceText}>{descSource === "owner" ? "Betreiber" : descSource}</Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={styles.bodyText}>
+              {effectiveDesc || "Noch keine Beschreibung vorhanden."}
+            </Text>
           </View>
 
-          {effectiveDesc ? (
-            <Text style={{ color: "rgba(255,255,255,0.88)", marginTop: 10, lineHeight: 20 }}>
-              {effectiveDesc}
-            </Text>
-          ) : (
-            <Text style={{ color: "rgba(255,255,255,0.55)", marginTop: 10, lineHeight: 20 }}>
-              Noch keine Beschreibung vorhanden.
-            </Text>
-          )}
-        </View>
-
-        {moodSummary.length > 0 && (
-          <View style={{ paddingHorizontal: theme.spacing(2), marginTop: 20 }}>
-            <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>Top Moods</Text>
-
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 }}>
-              {(showAllMoods ? moodSummary : moodSummary.slice(0, 5)).map((m) => (
-                <View
-                  key={m.mood}
-                  style={{
-                    paddingHorizontal: 14,
-                    paddingVertical: 8,
-                    borderRadius: theme.radius.pill,
-                    borderWidth: 1,
-                    borderColor: moodColor(m.mood),
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  <Text style={{ color: "#fff" }}>{m.mood}</Text>
-                  <View
-                    style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 4,
-                      borderRadius: theme.radius.pill,
-                      borderWidth: 1,
-                      borderColor: moodColor(m.mood),
-                    }}
-                  >
-                    <Text style={{ color: "#fff" }}>{m.count}</Text>
-                  </View>
-                </View>
-              ))}
+          <View style={styles.section}>
+            <SectionTitle>Info</SectionTitle>
+            <View style={styles.infoCard}>
+              {spot.address ? <InfoRow icon="map-pin" text={spot.address} /> : null}
+              {spot.phone ? <InfoRow icon="phone" text={spot.phone} color={theme.colors.pinkSoft} onPress={() => {
+                void trackAnalyticsEvent({ eventName: "spot_phone_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
+                callNumber(spot.phone);
+              }} /> : null}
+              {spot.website ? <InfoRow icon="globe" text={spot.website} color={theme.colors.pinkSoft} onPress={() => {
+                void trackAnalyticsEvent({ eventName: "spot_website_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
+                openWebsite(spot.website);
+              }} /> : null}
             </View>
+          </View>
 
-            {moodSummary.length > 5 && (
-              <Pressable
-                onPress={() => setShowAllMoods((s) => !s)}
-                style={{
-                  marginTop: 12,
-                  alignSelf: "flex-start",
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  borderRadius: theme.radius.pill,
-                  borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.25)",
-                }}
-              >
-                <Text style={{ color: "#93C5FD", fontWeight: "700" }}>
-                  {showAllMoods ? "Weniger anzeigen" : "Mehr anzeigen"}
-                </Text>
+          <View style={styles.ownerBlock}>
+            {ownerCtx?.is_verified_owner ? (
+              <Pressable onPress={() => router.push(`/spot/${spot.id}/manage`)} style={styles.ownerButton}>
+                <Feather name="settings" size={17} color={theme.colors.text} />
+                <Text style={styles.ownerButtonText}>Spot verwalten</Text>
+              </Pressable>
+            ) : ownerCtx?.claim_status === "pending" ? (
+              <View style={styles.ownerButton}>
+                <Feather name="clock" size={17} color={theme.colors.textSoft} />
+                <Text style={styles.ownerButtonText}>Claim wird geprüft</Text>
+              </View>
+            ) : (
+              <Pressable onPress={requestClaim} disabled={claimLoading} style={[styles.ownerButton, claimLoading ? { opacity: 0.6 } : null]}>
+                <Feather name="check-circle" size={17} color={theme.colors.text} />
+                <Text style={styles.ownerButtonText}>{claimLoading ? "Sende..." : "Betreiberzugang anfragen"}</Text>
               </Pressable>
             )}
           </View>
-        )}
 
-        <View style={{ paddingHorizontal: theme.spacing(2), marginTop: 26 }}>
-          <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700" }}>Info</Text>
+          {Object.keys(hours).length > 0 && (
+            <View style={styles.section}>
+              <SectionTitle>Öffnungszeiten</SectionTitle>
+              <View style={styles.hoursCard}>
+                {WEEK_ORDER.map((day) => {
+                  const slots = hours[day] || [];
+                  const isToday = day === todayNameNormalized;
 
-          {spot.address && <Text style={{ color: "#fff", marginTop: 10 }}>📍 {spot.address}</Text>}
-
-          {spot.phone && (
-            <Text onPress={() => callNumber(spot.phone)} style={{ color: "#38BDF8", marginTop: 8 }}>
-              📞 {spot.phone}
-            </Text>
+                  return (
+                    <View key={day} style={styles.hoursRow}>
+                      <Text style={[styles.hoursDay, isToday ? styles.hoursToday : null]}>{day}</Text>
+                      <View style={{ alignItems: "flex-end", flex: 1 }}>
+                        {slots.length > 0 ? (
+                          slots.map((s, idx) => (
+                            <Text key={idx} style={[styles.hoursTime, isToday ? styles.hoursToday : null]}>
+                              {s.open_time && s.close_time
+                                ? `${s.open_time.slice(0, 5)} - ${s.close_time.slice(0, 5)}`
+                                : "-"}
+                            </Text>
+                          ))
+                        ) : (
+                          <Text style={styles.hoursTime}>-</Text>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
           )}
 
-          {spot.website && (
-            <Text onPress={() => openWebsite(spot.website)} style={{ color: "#38BDF8", marginTop: 8 }}>
-              🌐 {spot.website}
-            </Text>
-          )}
+          {reviews.length > 0 && (
+            <View style={styles.section}>
+              <SectionTitle>Moments</SectionTitle>
+              {reviews.slice(0, 6).map((rev) => {
+                const moods = [rev.moodA?.token ?? rev.mood_a, rev.moodB?.token ?? rev.mood_b].filter(Boolean);
+                const name = rev.profiles?.first_name || "User";
+                const isLocal = rev.profiles?.is_local;
+                const reviewPhotoUrl =
+                  rev.review_photos?.[0]?.url ||
+                  (rev.photo_path?.startsWith("http")
+                    ? rev.photo_path
+                    : rev.photo_path
+                    ? `https://hjgcrrzfjchzqoegcywn.supabase.co/storage/v1/object/public/spot-photos/${rev.photo_path}`
+                    : null);
 
-          <Pressable
-            onPress={() => openInAppleMaps(spot.lat, spot.lng, spot.name)}
-            style={{
-              marginTop: 14,
-              paddingHorizontal: 16,
-              paddingVertical: 10,
-              borderRadius: theme.radius.pill,
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.25)",
-            }}
-          >
-            <Text style={{ color: "#fff" }}>🗺️ In Karten öffnen</Text>
-          </Pressable>
-        </View>
-
-        <View style={{ marginTop: 14, paddingHorizontal: theme.spacing(2) }}>
-          {ownerCtx?.is_verified_owner ? (
-            <Pressable
-              onPress={() => router.push(`/spot/${spot.id}/manage`)}
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 10,
-                borderRadius: theme.radius.pill,
-                borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.25)",
-              }}
-            >
-              <Text style={{ color: "#fff", fontWeight: "800" }}>⚙️ Spot verwalten</Text>
-            </Pressable>
-          ) : ownerCtx?.claim_status === "pending" ? (
-            <View
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 10,
-                borderRadius: theme.radius.pill,
-                borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.25)",
-              }}
-            >
-              <Text style={{ color: "#fff", fontWeight: "700" }}>⏳ Claim wird geprüft</Text>
-            </View>
-          ) : (
-            <Pressable
-              onPress={requestClaim}
-              disabled={claimLoading}
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 10,
-                borderRadius: theme.radius.pill,
-                borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.25)",
-                opacity: claimLoading ? 0.6 : 1,
-              }}
-            >
-              <Text style={{ color: "#fff", fontWeight: "800" }}>
-                {claimLoading ? "Sende…" : "✅ Betreiberzugang anfragen"}
-              </Text>
-            </Pressable>
-          )}
-        </View>
-
-        {Object.keys(hours).length > 0 && (
-          <View
-            style={{
-              backgroundColor: theme.colors.surfaceElevated,
-              borderRadius: theme.radius.xl,
-              padding: theme.spacing(2),
-              marginHorizontal: theme.spacing(2),
-              marginTop: theme.spacing(2),
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: "rgba(255,255,255,0.06)",
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-              <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>Öffnungszeiten</Text>
-            </View>
-
-            {WEEK_ORDER.map((day) => {
-              const slots = hours[day] || [];
-              const isToday = day === todayNameNormalized;
-
-              return (
-                <View
-                  key={day}
-                  style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 }}
-                >
-                  <Text
-                    style={{
-                      color: isToday ? theme.colors.text : theme.colors.textMuted,
-                      fontWeight: isToday ? "700" : "400",
-                    }}
-                  >
-                    {day}
-                  </Text>
-                  <View style={{ alignItems: "flex-end" }}>
-                    {slots.length > 0 ? (
-                      slots.map((s, idx) => (
-                        <Text key={idx} style={{ color: theme.colors.text }}>
-                          {s.open_time && s.close_time
-                            ? `${s.open_time.slice(0, 5)} – ${s.close_time.slice(0, 5)}`
-                            : "—"}
-                        </Text>
-                      ))
-                    ) : (
-                      <Text style={{ color: theme.colors.text }}>—</Text>
-                    )}
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
-
-        {reviews.length > 0 && (
-          <View
-            style={{
-              backgroundColor: theme.colors.surfaceElevated,
-              borderRadius: theme.radius.xl,
-              padding: theme.spacing(2),
-              marginHorizontal: theme.spacing(2),
-              marginTop: theme.spacing(2),
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: "rgba(255,255,255,0.06)",
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-              <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>Reviews</Text>
-            </View>
-
-            {reviews.slice(0, 6).map((rev) => {
-              const moods = [rev.moodA?.token ?? rev.mood_a, rev.moodB?.token ?? rev.mood_b].filter(Boolean);
-              const name = rev.profiles?.first_name || "User";
-              const isLocal = rev.profiles?.is_local;
-              const reviewPhotoUrl =
-                rev.review_photos?.[0]?.url ||
-                (rev.photo_path?.startsWith("http")
-                  ? rev.photo_path
-                  : rev.photo_path
-                  ? `https://hjgcrrzfjchzqoegcywn.supabase.co/storage/v1/object/public/spot-photos/${rev.photo_path}`
-                  : null);
-
-              return (
-                <View
-                  key={rev.id}
-                  style={{
-                    backgroundColor: "rgba(255,255,255,0.05)",
-                    borderColor: "rgba(255,255,255,0.1)",
-                    borderWidth: 1,
-                    borderRadius: theme.radius.lg,
-                    padding: theme.spacing(1.5),
-                    marginBottom: theme.spacing(1.5),
-                  }}
-                >
-                  <View style={{ flexDirection: "row", gap: 12 }}>
-                    <Avatar name={name} />
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                        <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>
-                          {name}
-                          {isLocal ? " 🌆" : ""}
-                        </Text>
-                        <Text style={{ color: theme.colors.textMuted, fontSize: 12 }}>
+                return (
+                  <View key={rev.id} style={styles.reviewCard}>
+                    <View style={styles.reviewHeader}>
+                      <Avatar name={name} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.reviewName}>{name}{isLocal ? " · Local" : ""}</Text>
+                        <Text style={styles.reviewDate}>
                           {new Date(rev.created_at).toLocaleDateString("de-DE", {
                             day: "2-digit",
                             month: "short",
                           })}
                         </Text>
                       </View>
-
-                      {rev.text ? (
-                        <Text style={{ color: theme.colors.text, fontSize: 14, lineHeight: 19, marginTop: 6 }}>
-                          {rev.text}
-                        </Text>
-                      ) : null}
-
-                      {moods.length > 0 && (
-                        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
-                          {moods.map((m: string) => (
-                            <Chip key={m} text={m} />
-                          ))}
-                        </View>
-                      )}
-
-                      {reviewPhotoUrl ? (
-                        <Image
-                          source={{ uri: reviewPhotoUrl }}
-                          style={{
-                            width: "100%",
-                            height: 150,
-                            borderRadius: theme.radius.lg,
-                            backgroundColor: "#111",
-                            marginTop: 10,
-                          }}
-                        />
-                      ) : null}
                     </View>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
-
-        <View style={{ paddingHorizontal: theme.spacing(2), marginTop: theme.spacing(2) }}>
-          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
-            <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>In der Nähe</Text>
-          </View>
-
-          {nearby.length > 0 ? (
-            <FlatList
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              data={nearby}
-              keyExtractor={(i) => i.id}
-              renderItem={({ item }) => (
-                <Pressable onPress={() => router.push(`/spot/${item.id}`)} style={{ marginRight: 14, width: 240 }}>
-                  <View
-                    style={{
-                      width: 240,
-                      height: 140,
-                      borderRadius: theme.radius.lg,
-                      overflow: "hidden",
-                      backgroundColor: "#111",
-                    }}
-                  >
-                    {item.photoUrl ? (
-                      <Image source={{ uri: item.photoUrl }} style={{ width: "100%", height: "100%" }} />
-                    ) : (
-                      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#222" }}>
-                        <Text style={{ color: "#fff" }}>{item.name?.[0] || "?"}</Text>
+                    {rev.text ? <Text style={styles.reviewText}>{rev.text}</Text> : null}
+                    {moods.length > 0 && (
+                      <View style={styles.reviewMoods}>
+                        {moods.map((m: string) => <Chip key={m} text={m} />)}
                       </View>
                     )}
-                    <LinearGradient
-                      colors={["transparent", "rgba(0,0,0,0.5)"]}
-                      style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 80 }}
-                    />
-                    <View
-                      style={{
-                        position: "absolute",
-                        right: 8,
-                        bottom: 8,
-                        backgroundColor: "rgba(0,0,0,0.45)",
-                        borderRadius: theme.radius.pill,
-                        paddingHorizontal: 8,
-                        paddingVertical: 4,
-                        borderWidth: 1,
-                        borderColor: "rgba(255,255,255,0.12)",
-                      }}
-                    >
-                      <Text style={{ color: "#fff", fontSize: 12, fontWeight: "800" }}>
-                        {item.distanceKm.toFixed(1)} km
-                      </Text>
-                    </View>
+                    {reviewPhotoUrl ? <Image source={{ uri: reviewPhotoUrl }} style={styles.reviewPhoto} /> : null}
                   </View>
-
-                  <Text style={{ color: "#fff", fontSize: 15, fontWeight: "800", marginTop: 8 }} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-
-                  {!!item.address && (
-                    <Text style={{ color: theme.colors.textMuted }} numberOfLines={1}>
-                      {item.address}
-                    </Text>
-                  )}
-                </Pressable>
-              )}
-            />
-          ) : (
-            <Text style={{ color: theme.colors.textMuted }}>Keine Spots gefunden.</Text>
+                );
+              })}
+            </View>
           )}
+
+          <View style={styles.section}>
+            <SectionTitle>In der Nähe</SectionTitle>
+            {nearby.length > 0 ? (
+              <FlatList
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                data={nearby}
+                keyExtractor={(i) => i.id}
+                contentContainerStyle={{ paddingRight: 20 }}
+                renderItem={({ item }) => (
+                  <Pressable onPress={() => {
+                    void trackAnalyticsEvent({ eventName: "nearby_spot_opened", screenName: "spot_detail", entityType: "spot", entityId: item.id, spotId: item.id, properties: { parent_spot_id: spot.id } });
+                    router.push(`/spot/${item.id}`);
+                  }} style={styles.nearbyCard}>
+                    <View style={styles.nearbyPhotoWrap}>
+                      {item.photoUrl ? (
+                        <Image source={{ uri: item.photoUrl }} style={styles.nearbyPhoto} />
+                      ) : (
+                        <View style={styles.nearbyFallback}>
+                          <Text style={styles.nearbyFallbackText}>{item.name?.[0] || "?"}</Text>
+                        </View>
+                      )}
+                      <LinearGradient colors={["transparent", "rgba(0,0,0,0.62)"]} style={styles.nearbyGradient} />
+                      <View style={styles.distancePill}>
+                        <Text style={styles.distanceText}>{item.distanceKm.toFixed(1)} km</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.nearbyName} numberOfLines={1}>{item.name}</Text>
+                    {!!item.address && <Text style={styles.nearbyAddress} numberOfLines={1}>{item.address}</Text>}
+                  </Pressable>
+                )}
+              />
+            ) : (
+              <Text style={styles.mutedText}>Keine Spots gefunden.</Text>
+            )}
+          </View>
         </View>
 
-        <View style={{ height: 80 }} />
+        <View style={{ height: 44 + insets.bottom }} />
       </Animated.ScrollView>
-
-      <Animated.View
-        style={{
-          position: "absolute",
-          bottom: 24 + insets.bottom,
-          right: 24,
-          opacity: 1,
-        }}
-      >
-        <Pressable
-          onPress={() => {
-            if (!userId) return setShowLoginPrompt(true);
-            router.push(`/review/new?spotId=${spot.id}`);
-          }}
-          style={styles.fab}
-        >
-          <Ionicons name="add" size={28} color="#000" />
-        </Pressable>
-      </Animated.View>
 
       <LoginPromptModal visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
     </View>
@@ -979,12 +795,12 @@ export default function SpotDetailScreen() {
 
 const styles = StyleSheet.create({
   topBar: {
-    height: 52,
-    borderRadius: 28,
+    height: 48,
+    borderRadius: 24,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 12,
+    paddingHorizontal: 0,
     backgroundColor: "transparent",
     borderWidth: 0,
     shadowColor: "transparent",
@@ -994,10 +810,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 12 },
   },
   topBarBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 25,
-    backgroundColor: "rgba(0,0,0,0.75)",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(5,5,6,0.72)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1009,7 +827,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "#0EA5E9",
+    backgroundColor: theme.colors.pink,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
@@ -1017,5 +835,372 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
     elevation: 8,
+  },
+  photoFallback: {
+    width: "100%",
+    height: HEADER_MAX,
+    backgroundColor: theme.colors.surfaceElevated,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoFallbackText: {
+    color: theme.colors.text,
+    fontSize: 52,
+    fontWeight: "800",
+  },
+  heroContent: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    bottom: 30,
+  },
+  heroPills: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 14,
+  },
+  statusPill: {
+    minHeight: 34,
+    paddingHorizontal: 12,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  statusOpen: {
+    backgroundColor: "rgba(200,227,166,0.13)",
+    borderColor: "rgba(200,227,166,0.28)",
+  },
+  statusClosed: {
+    backgroundColor: "rgba(239,68,68,0.13)",
+    borderColor: "rgba(239,68,68,0.28)",
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  heroTitle: {
+    color: theme.colors.text,
+    fontSize: 42,
+    lineHeight: 43,
+    fontWeight: "900",
+    letterSpacing: -1.2,
+  },
+  heroAddress: {
+    color: "rgba(255,255,255,0.74)",
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: "600",
+    marginTop: 8,
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+  },
+  quickActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 24,
+  },
+  primaryAction: {
+    flex: 1.15,
+    height: 54,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.pink,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  primaryActionText: {
+    color: "#171214",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  secondaryAction: {
+    flex: 1,
+    height: 54,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  secondaryActionText: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  section: {
+    marginBottom: 26,
+  },
+  sectionHeader: {
+    minHeight: 28,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    color: theme.colors.text,
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: "800",
+    letterSpacing: -0.45,
+  },
+  showMoreText: {
+    color: theme.colors.pinkSoft,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  moodWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  moodPill: {
+    minHeight: 38,
+    paddingHorizontal: 12,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "rgba(255,255,255,0.055)",
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  moodText: {
+    color: theme.colors.text,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  moodCount: {
+    color: theme.colors.pinkSoft,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  sourcePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "rgba(255,125,167,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,125,167,0.24)",
+  },
+  sourceText: {
+    color: theme.colors.pinkSoft,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  bodyText: {
+    color: theme.colors.textSoft,
+    fontSize: 15,
+    lineHeight: 23,
+    fontWeight: "500",
+  },
+  infoCard: {
+    marginTop: 12,
+    borderRadius: 24,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    overflow: "hidden",
+  },
+  infoRow: {
+    minHeight: 56,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255,255,255,0.07)",
+  },
+  infoIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.055)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  infoText: {
+    flex: 1,
+    color: theme.colors.textSoft,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: "600",
+  },
+  ownerBlock: {
+    marginBottom: 26,
+  },
+  ownerButton: {
+    minHeight: 52,
+    borderRadius: theme.radius.pill,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(255,255,255,0.055)",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  ownerButtonText: {
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  hoursCard: {
+    marginTop: 12,
+    borderRadius: 24,
+    padding: 16,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  hoursRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 18,
+    paddingVertical: 7,
+  },
+  hoursDay: {
+    width: 104,
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  hoursTime: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: "600",
+  },
+  hoursToday: {
+    color: theme.colors.text,
+    fontWeight: "800",
+  },
+  reviewCard: {
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 24,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  reviewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  reviewName: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  reviewDate: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+    fontWeight: "600",
+  },
+  reviewText: {
+    color: theme.colors.textSoft,
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 12,
+    fontWeight: "500",
+  },
+  reviewMoods: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 10,
+  },
+  reviewPhoto: {
+    width: "100%",
+    height: 160,
+    borderRadius: 18,
+    backgroundColor: "#111",
+    marginTop: 12,
+  },
+  nearbyCard: {
+    marginRight: 14,
+    width: 220,
+  },
+  nearbyPhotoWrap: {
+    width: 220,
+    height: 132,
+    borderRadius: 22,
+    overflow: "hidden",
+    backgroundColor: theme.colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  nearbyPhoto: {
+    width: "100%",
+    height: "100%",
+  },
+  nearbyFallback: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nearbyFallbackText: {
+    color: theme.colors.text,
+    fontSize: 28,
+    fontWeight: "800",
+  },
+  nearbyGradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 80,
+  },
+  distancePill: {
+    position: "absolute",
+    left: 10,
+    bottom: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "rgba(0,0,0,0.56)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+  distanceText: {
+    color: theme.colors.text,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  nearbyName: {
+    color: theme.colors.text,
+    fontSize: 15,
+    fontWeight: "800",
+    marginTop: 9,
+  },
+  nearbyAddress: {
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  mutedText: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 10,
   },
 });

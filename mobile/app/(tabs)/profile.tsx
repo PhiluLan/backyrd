@@ -25,6 +25,7 @@ import { supabase } from "@/lib/supabase";
 import { ensureProfile } from "@/lib/profile";
 import SocialPostCard, { type SocialFeedPost } from "@/components/PostCard";
 import CommentsSheet from "@/components/CommentsSheet";
+import { trackAnalyticsEvent, reportAnalyticsError } from "@/lib/analytics";
 
 const { width } = Dimensions.get("window");
 
@@ -145,6 +146,10 @@ export default function ProfileScreen() {
   const displayName = useMemo(() => profileName(profile), [profile]);
   const handle = useMemo(() => profileHandle(profile), [profile]);
   const sinceLabel = useMemo(() => formatSince(profile?.since_date), [profile?.since_date]);
+  const profileMeta = useMemo(() => {
+    const parts = [profile?.city || "Basel", sinceLabel].filter(Boolean);
+    return parts.join(" · ");
+  }, [profile?.city, sinceLabel]);
 
   const headerImage =
     profile?.header_photo_url ||
@@ -324,6 +329,7 @@ export default function ProfileScreen() {
   }
 
   async function saveProfile() {
+    void trackAnalyticsEvent({ eventName: "profile_update_started", screenName: "profile" });
     if (!user || !profile) return;
 
     setSaving(true);
@@ -393,6 +399,7 @@ export default function ProfileScreen() {
 
   function openSpot(post: SocialFeedPost) {
     if (!post.spot_id) return;
+    void trackAnalyticsEvent({ eventName: "profile_spot_opened", screenName: "profile", entityType: "spot", entityId: post.spot_id, spotId: post.spot_id });
     router.push(`/spot/${post.spot_id}` as any);
   }
 
@@ -445,12 +452,14 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.topActions}>
-          <Pressable style={styles.circleButton} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={25} color="#FFFFFF" />
-          </Pressable>
+          <Text style={styles.topActionsTitle}>Mein Backyrd</Text>
 
-          <Pressable style={styles.circleButton} onPress={() => setRefreshKey((v) => v + 1)}>
-            <Ionicons name="refresh" size={22} color="#FFFFFF" />
+          <Pressable
+            accessibilityLabel="Einstellungen öffnen"
+            style={styles.circleButton}
+            onPress={() => router.push("/settings")}
+          >
+            <Ionicons name="settings-outline" size={22} color="#FFFFFF" />
           </Pressable>
         </View>
 
@@ -465,8 +474,7 @@ export default function ProfileScreen() {
                 {displayName}
               </Text>
               <Text style={styles.handleText} numberOfLines={1}>
-                {handle}
-                {profile?.city ? ` · ${profile.city}` : ""}
+                {profileMeta}
               </Text>
             </View>
           </View>
@@ -521,7 +529,10 @@ export default function ProfileScreen() {
             </View>
           )}
 
-          <Pressable style={styles.editProfileButton} onPress={() => setShowEdit(true)}>
+          <Pressable style={styles.editProfileButton} onPress={() => {
+            void trackAnalyticsEvent({ eventName: "profile_edit_started", screenName: "profile" });
+            setShowEdit(true);
+          }}>
             <Ionicons name="pencil" size={18} color="#0A0A0B" />
             <Text style={styles.editProfileText}>Profil bearbeiten</Text>
           </Pressable>
@@ -596,7 +607,10 @@ export default function ProfileScreen() {
                     <Pressable
                       key={item.spot_id}
                       style={styles.favoriteCard}
-                      onPress={() => router.push(`/spot/${item.spot_id}` as any)}
+                      onPress={() => {
+                        void trackAnalyticsEvent({ eventName: "profile_favorite_spot_opened", screenName: "profile", entityType: "spot", entityId: item.spot_id, spotId: item.spot_id });
+                        router.push(`/spot/${item.spot_id}` as any);
+                      }}
                     >
                       <Image source={{ uri: getSpotPhoto(item) }} style={styles.favoriteImage} />
                       <LinearGradient
@@ -784,7 +798,7 @@ function ProfileInput({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#0A0A0B",
+    backgroundColor: "#050507",
   },
   center: {
     flex: 1,
@@ -811,7 +825,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 76,
-    paddingHorizontal: 14,
+    paddingHorizontal: 20,
     paddingBottom: 148,
   },
   topActions: {
@@ -819,6 +833,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  topActionsTitle: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "900",
   },
   circleButton: {
     width: 48,
@@ -831,11 +850,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   profileCard: {
-    borderRadius: 34,
-    backgroundColor: "rgba(14,14,20,0.88)",
-    borderWidth: 1,
-    borderColor: "#282832",
-    padding: 20,
+    borderRadius: 0,
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    padding: 0,
     overflow: "hidden",
   },
   profileTopRow: {
@@ -844,9 +862,9 @@ const styles = StyleSheet.create({
     gap: 17,
   },
   avatarRing: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.18)",
     padding: 3,
@@ -855,7 +873,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: "100%",
     height: "100%",
-    borderRadius: 49,
+    borderRadius: 45,
     backgroundColor: "#181820",
   },
   identityBlock: {
@@ -864,14 +882,14 @@ const styles = StyleSheet.create({
   },
   displayName: {
     color: "#FFFFFF",
-    fontSize: 36,
+    fontSize: 34,
     fontWeight: "850",
-    letterSpacing: -1.2,
+    letterSpacing: 0,
   },
   handleText: {
     marginTop: 5,
     color: "#8F8F98",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "850",
   },
   bioText: {
@@ -888,8 +906,8 @@ const styles = StyleSheet.create({
   },
   statBox: {
     flex: 1,
-    minHeight: 82,
-    borderRadius: 22,
+    minHeight: 72,
+    borderRadius: 16,
     backgroundColor: "#14141B",
     borderWidth: 1,
     borderColor: "#292933",
@@ -898,7 +916,7 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     color: "#FFFFFF",
-    fontSize: 25,
+    fontSize: 23,
     fontWeight: "780",
   },
   statLabel: {
@@ -937,7 +955,7 @@ const styles = StyleSheet.create({
     minHeight: 34,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "#30303A",
+    borderColor: "rgba(255,125,167,0.18)",
     paddingHorizontal: 13,
     alignItems: "center",
     justifyContent: "center",
@@ -951,14 +969,14 @@ const styles = StyleSheet.create({
     marginTop: 20,
     minHeight: 50,
     borderRadius: 999,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#FF7DA7",
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 9,
   },
   editProfileText: {
-    color: "#0A0A0B",
+    color: "#08080A",
     fontSize: 16,
     fontWeight: "950",
   },

@@ -5,23 +5,35 @@ import { SpotForm } from "../SpotForm";
 
 export default function NewSpotPage() {
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4">
+    <div className="spot-editor-page">
+      <header className="spot-editor-hero">
         <div>
-          <h1 className="text-2xl font-semibold">Neuer Spot</h1>
-          <p className="text-sm text-gray-500">Spot anlegen inkl. Öffnungszeiten & Fotos.</p>
+          <div className="spot-editor-eyebrow">Spot Management</div>
+          <h1>Neuen Spot anlegen</h1>
+          <p>
+            Stammdaten, Decision Intelligence, Öffnungszeiten und Medien an
+            einem Ort pflegen.
+          </p>
         </div>
-        <Link href="/spots" className="text-sm text-gray-500 hover:underline">
-          Zurück zur Übersicht
+
+        <Link href="/spots" className="spot-editor-back">
+          <span>←</span>
+          Zur Spot-Übersicht
         </Link>
+      </header>
+
+      <div className="spot-editor-hint">
+        <div className="spot-editor-hintIcon">✦</div>
+        <div>
+          <strong>Intelligence-ready</strong>
+          <span>
+            Beschreibung, Keywords und strukturierte Angaben fliessen direkt
+            in die Recommendation Engine ein.
+          </span>
+        </div>
       </div>
 
-      <SpotForm
-        mode="create"
-        onSaved={() => {
-          // optional: redirect / toast
-        }}
-      />
+      <SpotForm mode="create" />
     </div>
   );
 }
