@@ -9,7 +9,7 @@ function isActive(pathname: string, href: string) {
 }
 
 export function Sidebar() {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
 
   const links = [
     { href: "/dashboard", label: "Dashboard", icon: "🏠" },

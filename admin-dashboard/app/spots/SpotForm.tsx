@@ -646,13 +646,10 @@ export function SpotForm({
 
     let savedSpotId = spotId ?? null;
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { opening_hours, ...cleanValues } = values;
-
     const payload: SpotFormValues = {
-      ...cleanValues,
-      lat: cleanValues.lat ?? null,
-      lng: cleanValues.lng ?? null,
+      ...values,
+      lat: values.lat ?? null,
+      lng: values.lng ?? null,
     };
 
     try {

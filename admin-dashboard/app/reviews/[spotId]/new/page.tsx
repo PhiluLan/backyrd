@@ -10,18 +10,13 @@ type PageProps = {
 };
 
 export default function NewReviewPage({ params }: PageProps) {
-  const { spotId } = use(params); // <-- hier ebenfalls
-
+  const { spotId } = use(params);
   const router = useRouter();
 
-  // ------------------- FORM STATE -------------------
   const [text, setText] = useState("");
   const [moodA, setMoodA] = useState("");
   const [moodB, setMoodB] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
-  const moodAId = await getMoodId(moodA);
-  const moodBId = await getMoodId(moodB);
-
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,73 +30,6 @@ export default function NewReviewPage({ params }: PageProps) {
     "trendy",
     "fancy",
   ];
-
-  // ------------------- SUBMIT -------------------
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-
-    try {
-      // 1️⃣ Review speichern
-      const { data: reviewData, error: reviewError } = await supabase
-        .from("reviews")
-        .insert({
-          spot_id: spotId,
-          text,
-          mood_a_id: moodAId,
-          mood_b_id: moodBId,
-        })
-        .select("id")
-        .single();
-
-      if (reviewError || !reviewData) throw reviewError;
-
-      const reviewId = reviewData.id;
-
-      // 2️⃣ Fotos hochladen
-      if (photos.length > 0) {
-        for (const file of photos) {
-          const ext = file.name.split(".").pop();
-          const filename = `review-${reviewId}-${Date.now()}-${Math.random()
-            .toString(36)
-            .slice(2)}.${ext}`;
-
-          // Upload ins Storage
-          const { error: uploadError } = await supabase.storage
-            .from("review-photos")
-            .upload(filename, file);
-
-          if (uploadError) throw uploadError;
-
-          // Public URL holen
-          const { data } = supabase.storage
-            .from("review-photos")
-            .getPublicUrl(filename);
-
-          const url = data.publicUrl;
-
-          // In review_photos speichern
-          await supabase.from("review_photos").insert({
-            review_id: reviewId,
-            url,
-          });
-        }
-      }
-
-      // 3️⃣ Zurück zur Spot-Review-Ansicht
-      router.push(`/reviews/${spotId}`);
-    } catch (err: any) {
-      setError(err.message ?? "Konnte Review nicht speichern.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []) as File[];
-    setPhotos(files);
-  }
 
   async function getMoodId(token: string | null) {
     if (!token) return null;
@@ -120,8 +48,72 @@ export default function NewReviewPage({ params }: PageProps) {
     return data.id;
   }
 
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
 
-  // ------------------- RENDER -------------------
+    try {
+      const moodAId = await getMoodId(moodA);
+      const moodBId = await getMoodId(moodB);
+
+      const { data: reviewData, error: reviewError } = await supabase
+        .from("reviews")
+        .insert({
+          spot_id: spotId,
+          text,
+          mood_a_id: moodAId,
+          mood_b_id: moodBId,
+        })
+        .select("id")
+        .single();
+
+      if (reviewError || !reviewData) {
+        throw reviewError ?? new Error("Review konnte nicht erstellt werden.");
+      }
+
+      const reviewId = reviewData.id;
+
+      for (const file of photos) {
+        const ext = file.name.split(".").pop() || "jpg";
+        const filename = `review-${reviewId}-${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2)}.${ext}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("review-photos")
+          .upload(filename, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage
+          .from("review-photos")
+          .getPublicUrl(filename);
+
+        const { error: photoInsertError } = await supabase
+          .from("review_photos")
+          .insert({
+            review_id: reviewId,
+            url: data.publicUrl,
+          });
+
+        if (photoInsertError) throw photoInsertError;
+      }
+
+      router.push(`/reviews/${spotId}`);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Konnte Review nicht speichern.";
+      setError(message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setPhotos(Array.from(e.target.files ?? []));
+  }
+
   return (
     <div className="p-8 text-white max-w-xl space-y-6">
       <div>
@@ -132,7 +124,6 @@ export default function NewReviewPage({ params }: PageProps) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Text */}
         <div>
           <label className="block mb-1">Kurzbeschreibung</label>
           <textarea
@@ -141,10 +132,9 @@ export default function NewReviewPage({ params }: PageProps) {
             rows={4}
             className="w-full rounded bg-gray-900 border border-gray-700 px-3 py-2 text-gray-200"
             placeholder="Wie war dein Besuch…?"
-          ></textarea>
+          />
         </div>
 
-        {/* Mood A */}
         <div>
           <label className="block mb-1">Mood A</label>
           <select
@@ -153,15 +143,14 @@ export default function NewReviewPage({ params }: PageProps) {
             className="w-full rounded bg-gray-900 border border-gray-700 px-3 py-2 text-gray-200"
           >
             <option value="">– auswählen –</option>
-            {MOOD_OPTIONS.map((m) => (
-              <option key={m} value={m}>
-                {m}
+            {MOOD_OPTIONS.map((mood) => (
+              <option key={mood} value={mood}>
+                {mood}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Mood B */}
         <div>
           <label className="block mb-1">Mood B (optional)</label>
           <select
@@ -170,15 +159,14 @@ export default function NewReviewPage({ params }: PageProps) {
             className="w-full rounded bg-gray-900 border border-gray-700 px-3 py-2 text-gray-200"
           >
             <option value="">– auswählen –</option>
-            {MOOD_OPTIONS.map((m) => (
-              <option key={m} value={m}>
-                {m}
+            {MOOD_OPTIONS.map((mood) => (
+              <option key={mood} value={mood}>
+                {mood}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Fotos */}
         <div>
           <label className="block mb-1">Fotos (optional)</label>
           <input
@@ -197,10 +185,9 @@ export default function NewReviewPage({ params }: PageProps) {
           )}
         </div>
 
-        {/* Buttons */}
         <button
           type="submit"
-          className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-semibold"
+          className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-semibold disabled:opacity-60"
           disabled={saving}
         >
           {saving ? "Speichere…" : "Review erstellen"}

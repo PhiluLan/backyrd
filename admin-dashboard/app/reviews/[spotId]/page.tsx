@@ -14,11 +14,11 @@ type ReviewRow = {
   mood_a?: string | null;
   mood_b?: string | null;
 
-  mood_a_token?: { token: string } | null;
-  mood_b_token?: { token: string } | null;
+  mood_a_token?: { token: string } | { token: string }[] | null;
+  mood_b_token?: { token: string } | { token: string }[] | null;
 
   review_photos?: { url: string }[];
-  profiles: { first_name: string | null } | null;
+  profiles: { first_name: string | null } | { first_name: string | null }[] | null;
 };
 
 type SpotInfo = {
@@ -84,7 +84,7 @@ export default function ReviewSpotPage({ params }: PageProps) {
     console.error("Review Ladefehler:", JSON.stringify(reviewError, null, 2));
 
     setSpot(spotData);
-    setReviews(reviewData ?? []);
+    setReviews((reviewData ?? []) as unknown as ReviewRow[]);
     setLoading(false);
   }
 
@@ -128,8 +128,11 @@ export default function ReviewSpotPage({ params }: PageProps) {
           <p className="text-gray-400">Keine Reviews vorhanden.</p>
         ) : (
           reviews.map((r) => {
-            const moodA = r.mood_a_token?.token ?? r.mood_a ?? null;
-            const moodB = r.mood_b_token?.token ?? r.mood_b ?? null;
+            const moodAToken = Array.isArray(r.mood_a_token) ? r.mood_a_token[0] : r.mood_a_token;
+            const moodBToken = Array.isArray(r.mood_b_token) ? r.mood_b_token[0] : r.mood_b_token;
+            const profile = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
+            const moodA = moodAToken?.token ?? r.mood_a ?? null;
+            const moodB = moodBToken?.token ?? r.mood_b ?? null;
 
             return (
               <div
@@ -158,20 +161,21 @@ export default function ReviewSpotPage({ params }: PageProps) {
                   Moods: {[moodA, moodB].filter(Boolean).join(", ") || "–"}
                 </p>
 
-                {r.review_photos?.length > 0 && (
+                {(r.review_photos?.length ?? 0) > 0 && (
                   <div className="flex gap-2 overflow-x-auto pt-2">
-                    {r.review_photos.map((p, idx) => (
+                    {(r.review_photos ?? []).map((p, idx) => (
                       <img
                         key={idx}
                         src={p.url}
                         className="w-28 h-28 object-cover rounded border border-gray-700"
+                        alt="Review-Foto"
                       />
                     ))}
                   </div>
                 )}
 
                 <p className="text-gray-500 text-xs">
-                  von {r.profiles?.first_name ?? "Unbekannt"}
+                  von {profile?.first_name ?? "Unbekannt"}
                 </p>
               </div>
             );
