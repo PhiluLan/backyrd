@@ -1,89 +1,168 @@
-"use client";
-
 import Link from "next/link";
-import { SiteHeader } from "@/components/site-header";
+import styles from "./landing.module.css";
+
+const principles = [
+  {
+    title: "Worauf hast du gerade Lust?",
+    text: "Backyrd beginnt nicht mit Sternen, sondern mit deinem Moment.",
+  },
+  {
+    title: "Orte, die wirklich passen.",
+    text: "Restaurants, Bars, Cafés und Erlebnisse – ausgewählt nach Stimmung und Kontext.",
+  },
+  {
+    title: "Empfehlungen mit Gefühl.",
+    text: "Echte Eindrücke von Menschen statt endloser, anonymer Bewertungen.",
+  },
+];
 
 export default function HomePage() {
+  const appDownloadUrl =
+    process.env.NEXT_PUBLIC_APP_DOWNLOAD_URL || "#download";
+
   return (
-    <main className="min-h-screen bg-[#050506] text-white">
-      <SiteHeader />
+    <main className={styles.page}>
+      <header className={styles.header}>
+        <Link href="/" className={styles.brand} aria-label="Backyrd">
+          backyrd
+        </Link>
 
-      <section className="mx-auto max-w-7xl px-6 py-16">
-        <div className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
-          <div>
-            <div className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/60">
-              Backyrd Web
-            </div>
+        <nav className={styles.nav} aria-label="Hauptnavigation">
+          <a href="#idee">Die Idee</a>
+          <a href="#owner">Für Owner</a>
+          <Link href="/login?next=/owner" className={styles.login}>
+            Owner Login
+          </Link>
+        </nav>
+      </header>
 
-            <h1 className="mt-8 max-w-4xl text-5xl font-semibold tracking-tight md:text-7xl">
-              Finde Orte nach Stimmung, nicht nach Sternen.
-            </h1>
+      <section className={styles.hero}>
+        <div className={styles.heroInner}>
+          <p className={styles.kicker}>Basel fühlt sich gut an.</p>
 
-            <p className="mt-8 max-w-2xl text-lg leading-8 text-white/55">
-              Die öffentliche Web-Discovery bauen wir später sauber neu auf. Aktuell ist der
-              Web-Bereich auf das Owner Dashboard fokussiert.
-            </p>
+          <h1>
+            Finde nicht irgendeinen Ort.
+            <span>Finde den richtigen.</span>
+          </h1>
 
-            <div className="mt-8 flex flex-wrap gap-3">
-              {["Mood statt Sterne", "Owner Dashboard", "Spot Qualität", "Backyrd Intelligence"].map(
-                (chip) => (
-                  <span
-                    key={chip}
-                    className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/65"
-                  >
-                    {chip}
-                  </span>
-                )
-              )}
-            </div>
+          <p className={styles.intro}>
+            Backyrd findet Restaurants, Bars, Cafés und Erlebnisse danach,
+            wie sie sich anfühlen – und danach, was gerade zu dir passt.
+          </p>
 
-            <div className="mt-10 flex flex-wrap gap-3">
-              <Link
-                href="/owner"
-                className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
-              >
-                Zum Owner Dashboard
-              </Link>
-
-              <Link
-                href="/login?next=/owner"
-                className="rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm font-semibold text-white/75 transition hover:bg-white/10 hover:text-white"
-              >
-                Einloggen
-              </Link>
-            </div>
+          <div className={styles.actions}>
+            <a href={appDownloadUrl} className={styles.primary}>
+              App herunterladen
+            </a>
+            <a href="#idee" className={styles.secondary}>
+              Mehr über Backyrd
+            </a>
           </div>
 
-          <div className="rounded-[2.5rem] border border-white/10 bg-white/[0.04] p-6">
-            <div className="rounded-[2rem] border border-white/10 bg-black/25 p-6">
-              <div className="text-sm font-semibold uppercase tracking-[0.24em] text-white/35">
-                Fokus
-              </div>
-              <h2 className="mt-4 text-3xl font-semibold">Owner Dashboard Sprint</h2>
-              <p className="mt-4 leading-7 text-white/55">
-                Betriebe können ihre Spots pflegen, bessere Daten liefern und Backyrd helfen,
-                echte Relevanz statt bezahlte Fake-Platzierungen zu schaffen.
-              </p>
+          <p className={styles.note}>
+            Aktuell in Basel. Weitere Städte folgen.
+          </p>
+        </div>
 
-              <div className="mt-6 grid gap-3">
-                {[
-                  "Basisdaten pflegen",
-                  "Owner Beschreibung",
-                  "Backyrd Intelligence",
-                  "Ranking-Futter verbessern",
-                ].map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white/75"
-                  >
-                    {item}
-                  </div>
-                ))}
+        <div className={styles.heroVisual} aria-hidden="true">
+          <div className={styles.visualFrame}>
+            <span className={styles.visualLabel}>Heute Abend</span>
+
+            <div className={styles.visualQuestion}>
+              <small>Worauf hast du Lust?</small>
+              <strong>Gemütlich. Lokal. Nicht zu laut.</strong>
+            </div>
+
+            <div className={styles.visualResult}>
+              <div>
+                <small>Backyrd empfiehlt</small>
+                <strong>Ein Ort, der jetzt zu dir passt.</strong>
               </div>
+              <span>↗</span>
             </div>
           </div>
         </div>
       </section>
+
+      <section className={styles.manifesto}>
+        <p>
+          Sterne sagen dir, wie andere einen Ort fanden.
+          <strong> Backyrd sagt dir, ob er zu deinem Moment passt.</strong>
+        </p>
+      </section>
+
+      <section id="idee" className={styles.section}>
+        <div className={styles.sectionHead}>
+          <p className={styles.kicker}>Die Idee</p>
+          <h2>Weniger suchen. Besser entscheiden.</h2>
+        </div>
+
+        <div className={styles.principles}>
+          {principles.map((item, index) => (
+            <article key={item.title} className={styles.principle}>
+              <span>0{index + 1}</span>
+              <h3>{item.title}</h3>
+              <p>{item.text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className={styles.moment}>
+        <p className={styles.kicker}>Backyrd Moments</p>
+        <blockquote>
+          Die besten Orte sind nicht immer die bekanntesten.
+          Es sind die, an die man sich erinnert.
+        </blockquote>
+      </section>
+
+      <section id="owner" className={styles.owner}>
+        <div>
+          <p className={styles.kicker}>Für Gastronomie & Spots</p>
+          <h2>Dein Spot auf Backyrd.</h2>
+        </div>
+
+        <div className={styles.ownerCopy}>
+          <p>
+            Im Owner Dashboard pflegst du deinen Auftritt und erhältst einen
+            klaren Blick darauf, wie Gäste deinen Spot entdecken und erleben.
+          </p>
+
+          <div className={styles.ownerLinks}>
+            <Link href="/login?next=/owner" className={styles.primary}>
+              Owner Login
+            </Link>
+            <Link href="/owner" className={styles.ownerTextLink}>
+              Zum Dashboard
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section id="download" className={styles.download}>
+        <div>
+          <p className={styles.kicker}>Backyrd für iPhone</p>
+          <h2>Dein nächster Ort beginnt mit einem Gefühl.</h2>
+        </div>
+
+        <a href={appDownloadUrl} className={styles.primary}>
+          App herunterladen
+        </a>
+      </section>
+
+      <footer className={styles.footer}>
+        <Link href="/" className={styles.brand}>
+          backyrd
+        </Link>
+
+        <p>Orte nach Gefühl. Nicht nur nach Sternen.</p>
+
+        <div>
+          <Link href="/login?next=/owner">Owner Login</Link>
+          <a href="mailto:hello@backyrd.ch">Kontakt</a>
+          <span>© {new Date().getFullYear()}</span>
+        </div>
+      </footer>
     </main>
   );
 }
