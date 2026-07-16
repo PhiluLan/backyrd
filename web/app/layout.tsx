@@ -14,11 +14,43 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || "https://www.backyrd.ch"
+  ),
   title: {
-    default: "Backyrd Owner",
-    template: "%s · Backyrd Owner",
+    default: "Backyrd – Orte nach Gefühl",
+    template: "%s · Backyrd",
   },
-  description: "Performance, Inhalte und Spot-Verwaltung für Backyrd Partner.",
+  description:
+    "Finde Restaurants, Bars, Cafés und Erlebnisse danach, wie sie sich anfühlen – nicht nur nach Sternen.",
+  applicationName: "Backyrd",
+  keywords: [
+    "Backyrd",
+    "Basel",
+    "Restaurants",
+    "Bars",
+    "Cafés",
+    "Erlebnisse",
+    "Spot Discovery",
+  ],
+  openGraph: {
+    type: "website",
+    locale: "de_CH",
+    siteName: "Backyrd",
+    title: "Backyrd – Orte nach Gefühl",
+    description:
+      "Finde nicht irgendeinen Ort. Finde den richtigen.",
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Backyrd – Orte nach Gefühl",
+    description:
+      "Finde nicht irgendeinen Ort. Finde den richtigen.",
+  },
+  alternates: {
+    canonical: "/",
+  },
 };
 
 export default function RootLayout({
