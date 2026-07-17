@@ -21,6 +21,7 @@ import {
   type PublicCitySpot,
   type PublicMoment,
 } from "@/lib/public-web-api";
+import { PublicMomentImage } from "@/components/public-moment-image";
 import styles from "./landing.module.css";
 
 const suggestions = [
@@ -66,6 +67,16 @@ function formatDate(value: string): string {
   } catch {
     return "";
   }
+}
+
+function Logo() {
+  return (
+    <img
+      src="/backyrd-logo.png"
+      alt="Backyrd"
+      className={styles.brandLogo}
+    />
+  );
 }
 
 export function LandingExperience() {
@@ -205,8 +216,8 @@ export function LandingExperience() {
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <Link href="/" className={styles.brand}>
-          backyrd
+        <Link href="/" className={styles.brand} aria-label="Backyrd Startseite">
+          <Logo />
         </Link>
 
         <nav className={styles.nav}>
@@ -322,11 +333,7 @@ export function LandingExperience() {
         </div>
       </section>
 
-      <section
-        ref={decisionRef}
-        id="decision"
-        className={styles.decisionSection}
-      >
+      <section ref={decisionRef} id="decision" className={styles.decisionSection}>
         <div className={styles.sectionHeading}>
           <p className={styles.decisionKicker}>Backyrd Decision</p>
           <h2>Wohin soll es heute gehen?</h2>
@@ -362,11 +369,7 @@ export function LandingExperience() {
         {!hasDecision && (
           <div className={styles.suggestions}>
             {suggestions.map((suggestion) => (
-              <button
-                type="button"
-                key={suggestion}
-                onClick={() => setQuery(suggestion)}
-              >
+              <button type="button" key={suggestion} onClick={() => setQuery(suggestion)}>
                 {suggestion}
               </button>
             ))}
@@ -384,28 +387,15 @@ export function LandingExperience() {
           <div className={styles.decisionState}>
             <h3>Die Entscheidung konnte nicht geladen werden.</h3>
             <p>{decisionError}</p>
-            <button
-              type="button"
-              onClick={() => void submitDecision()}
-              disabled={!canSubmit}
-            >
-              Erneut versuchen
-            </button>
           </div>
         )}
 
-        {!decisionLoading &&
-          hasDecision &&
-          !decisionError &&
-          results.length === 0 && (
-            <div className={styles.decisionState}>
-              <h3>Noch kein passender Ort gefunden.</h3>
-              <p>
-                Probiere es etwas offener, zum Beispiel mit „gemütlich und
-                lokal“.
-              </p>
-            </div>
-          )}
+        {!decisionLoading && hasDecision && !decisionError && results.length === 0 && (
+          <div className={styles.decisionState}>
+            <h3>Noch kein passender Ort gefunden.</h3>
+            <p>Probiere es etwas offener, zum Beispiel mit „gemütlich und lokal“.</p>
+          </div>
+        )}
 
         {!decisionLoading && results.length > 0 && (
           <div className={styles.decisionResults}>
@@ -413,10 +403,7 @@ export function LandingExperience() {
               <div>
                 <p className={styles.eyebrow}>Backyrd Auswahl</p>
                 <h3>{context?.title || "Wohin jetzt?"}</h3>
-                <p>
-                  {context?.body ||
-                    "Diese Orte passen am besten zu deinem Moment."}
-                </p>
+                <p>{context?.body || "Diese Orte passen am besten zu deinem Moment."}</p>
               </div>
               <button
                 type="button"
@@ -435,7 +422,6 @@ export function LandingExperience() {
               {results.map((result, index) => {
                 const photo = decisionPhoto(result);
                 const match = scoreLabel(result.final_score);
-
                 return (
                   <Link
                     href={`/spots/${result.spot_id}?from=decision`}
@@ -466,7 +452,6 @@ export function LandingExperience() {
                         <h4>{result.name}</h4>
                       </div>
                     </div>
-
                     <div className={styles.decisionCardBody}>
                       <p>
                         {result.why_this ||
@@ -499,10 +484,7 @@ export function LandingExperience() {
         <div className={styles.sectionHeading}>
           <p className={styles.spotsKicker}>Basel auf Backyrd</p>
           <h2>Spots, die gerade auffallen.</h2>
-          <p>
-            Orte mit starken Mood-Signalen und besonders vielen echten
-            Moments.
-          </p>
+          <p>Orte mit starken Mood-Signalen und besonders vielen echten Moments.</p>
         </div>
 
         {spotsLoading ? (
@@ -518,18 +500,10 @@ export function LandingExperience() {
               Erneut laden
             </button>
           </div>
-        ) : topSpots.length === 0 ? (
-          <div className={styles.sectionState}>
-            Noch keine öffentlichen Top-Spots verfügbar.
-          </div>
         ) : (
           <div className={styles.topSpotsGrid}>
             {topSpots.map((spot, index) => (
-              <Link
-                href={`/spots/${spot.spot_id}`}
-                className={styles.topSpotCard}
-                key={spot.spot_id}
-              >
+              <Link href={`/spots/${spot.spot_id}`} className={styles.topSpotCard} key={spot.spot_id}>
                 <div
                   className={`${styles.topSpotImage} ${
                     spot.photo_url ? "" : styles.imageFallback
@@ -589,24 +563,16 @@ export function LandingExperience() {
         ) : moments.length === 0 ? (
           <div className={styles.sectionState}>
             <p>In den letzten sieben Tagen wurden noch keine Moments geteilt.</p>
-            <button type="button" onClick={() => void loadMoments()}>
-              Jetzt neu prüfen
-            </button>
           </div>
         ) : (
           <div className={styles.momentsRail}>
             {moments.map((moment) => (
-              <Link
-                href={`/spots/${moment.spot_id}`}
-                className={styles.momentCard}
-                key={moment.review_id}
-              >
+              <Link href={`/spots/${moment.spot_id}`} className={styles.momentCard} key={moment.review_id}>
                 {moment.photo_url && (
-                  <div
-                    className={styles.momentImage}
-                    style={{
-                      backgroundImage: `linear-gradient(180deg, transparent, rgba(7,7,8,.72)), url("${moment.photo_url}")`,
-                    }}
+                  <PublicMomentImage
+                    path={moment.photo_url}
+                    alt={`Moment bei ${moment.spot_name}`}
+                    className={styles.momentImageElement}
                   />
                 )}
 
@@ -615,11 +581,7 @@ export function LandingExperience() {
                     {moment.mood_a && <span>{moment.mood_a}</span>}
                     {moment.mood_b && <span>{moment.mood_b}</span>}
                   </div>
-
-                  <blockquote>
-                    {moment.text || "Ein Moment auf Backyrd."}
-                  </blockquote>
-
+                  <blockquote>{moment.text || "Ein Moment auf Backyrd."}</blockquote>
                   <div className={styles.momentFooter}>
                     <div>
                       <strong>{moment.spot_name}</strong>
@@ -665,10 +627,7 @@ export function LandingExperience() {
             entdecken und erleben.
           </p>
           <div className={styles.ownerActions}>
-            <Link
-              href="/login?next=/owner"
-              className={styles.primaryButton}
-            >
+            <Link href="/login?next=/owner" className={styles.primaryButton}>
               Owner Login
             </Link>
             <Link href="/owner">Zum Dashboard</Link>
@@ -677,8 +636,8 @@ export function LandingExperience() {
       </section>
 
       <footer className={styles.footer}>
-        <Link href="/" className={styles.brand}>
-          backyrd
+        <Link href="/" className={styles.brand} aria-label="Backyrd Startseite">
+          <Logo />
         </Link>
         <span>Orte nach Gefühl. Nicht nur nach Sternen.</span>
         <div>

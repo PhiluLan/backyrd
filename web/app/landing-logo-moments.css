@@ -1,0 +1,8 @@
+
+.brand{display:inline-flex;align-items:center;text-decoration:none}
+.brandLogo{display:block;width:132px;height:auto;object-fit:contain}
+.momentImageElement{width:100%;height:180px;display:block;object-fit:cover;object-position:center}
+@media(max-width:720px){
+  .brandLogo{width:112px}
+  .momentImageElement{height:190px}
+}
