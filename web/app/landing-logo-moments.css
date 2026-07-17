@@ -1,8 +1,27 @@
-
 .brand{display:inline-flex;align-items:center;text-decoration:none}
-.brandLogo{display:block;width:132px;height:auto;object-fit:contain}
-.momentImageElement{width:100%;height:180px;display:block;object-fit:cover;object-position:center}
-@media(max-width:720px){
-  .brandLogo{width:112px}
-  .momentImageElement{height:190px}
+
+header img[alt="Backyrd"]{
+  display:block;
+  width:112px;
+  max-width:112px;
+  height:auto;
+  object-fit:contain;
 }
+
+footer img[alt="Backyrd"]{
+  display:block;
+  width:88px;
+  max-width:88px;
+  height:auto;
+  object-fit:contain;
+}
+
+img[alt^="Moment bei"]{
+  width:100%;
+  height:180px;
+  display:block;
+  object-fit:cover;
+  object-position:center;
+}
+
+@media(max-width:720
