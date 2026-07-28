@@ -11,7 +11,6 @@ import {
   Animated,
   Easing,
   StyleSheet,
-  Linking,
 } from "react-native";
 
 import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
@@ -25,14 +24,7 @@ import LoginPromptModal from "../../components/LoginPromptModal";
 import { supabase } from "../../lib/supabase";
 import { openWebsite, callNumber, openInAppleMaps } from "../../lib/links";
 import { trackAnalyticsEvent } from "../../lib/analytics";
-import {
-  getGooglePlacePhotoFallback,
-  type GooglePlacePhotoResult,
-} from "../../lib/google-place-photo";
-import {
-  SpotTaxonomyChips,
-  SpotTaxonomyDetails,
-} from "../../components/spot/SpotTaxonomyHighlights";
+import SpotTaxonomyHighlights from "../../components/spot/SpotTaxonomyHighlights";
 import { getMobileSpotTaxonomy, type MobileSpotTaxonomyItem } from "../../lib/taxonomy";
 
 const theme = {
@@ -200,8 +192,6 @@ export default function SpotDetailScreen() {
 
   const [spot, setSpot] = useState<any>(null);
   const [photos, setPhotos] = useState<any[]>([]);
-  const [googlePhoto, setGooglePhoto] =
-    useState<GooglePlacePhotoResult | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [hours, setHours] = useState<Record<string, any[]>>({});
   const [moodSummary, setMoodSummary] = useState<any[]>([]);
@@ -263,7 +253,7 @@ export default function SpotDetailScreen() {
       ] = await Promise.all([
         supabase
           .from("spots")
-          .select("id,name,address,lat,lng,phone,website,email,price_level,header_photo_path,google_place_id,google_photo_enabled")
+          .select("id,name,address,lat,lng,phone,website,email,price_level")
           .eq("id", id)
           .single(),
 
@@ -309,15 +299,7 @@ export default function SpotDetailScreen() {
 
       setSpot(spotRow);
       setPhotos(photoRows || []);
-      setGooglePhoto(null);
       setReviews(revRows || []);
-
-      if ((photoRows || []).length === 0 && spotRow?.google_place_id) {
-        const googleFallback = await getGooglePlacePhotoFallback(String(id));
-        if (googleFallback?.source === "google" && googleFallback.imageUrl) {
-          setGooglePhoto(googleFallback);
-        }
-      }
       setTaxonomyItems(taxonomyRows || []);
 
       await loadOwnerCtx();
@@ -579,36 +561,6 @@ export default function SpotDetailScreen() {
                 <Image source={{ uri: photos[index.current]?.url }} style={{ width, height: HEADER_MAX }} />
                 <Image source={{ uri: photos[(index.current + 1) % photos.length]?.url }} style={{ width, height: HEADER_MAX }} />
               </Animated.View>
-            ) : googlePhoto?.imageUrl ? (
-              <View style={{ flex: 1 }}>
-                <Image
-                  source={{ uri: googlePhoto.imageUrl }}
-                  style={{ width, height: HEADER_MAX }}
-                />
-
-                <Pressable
-                  disabled={!googlePhoto.googleMapsUri}
-                  onPress={() => {
-                    if (googlePhoto.googleMapsUri) {
-                      void Linking.openURL(googlePhoto.googleMapsUri);
-                    }
-                  }}
-                  style={styles.googlePhotoAttribution}
-                >
-                  <Text style={styles.googlePhotoAttributionText} numberOfLines={1}>
-                    {googlePhoto.authorAttributions?.[0]?.displayName
-                      ? `Foto: ${googlePhoto.authorAttributions[0].displayName} · Google`
-                      : "Foto · Google"}
-                  </Text>
-                  {googlePhoto.googleMapsUri ? (
-                    <Ionicons
-                      name="open-outline"
-                      size={13}
-                      color="rgba(255,255,255,0.88)"
-                    />
-                  ) : null}
-                </Pressable>
-              </View>
             ) : (
               <View style={styles.photoFallback}>
                 <Text style={styles.photoFallbackText}>{spot.name?.[0] ?? "B"}</Text>
@@ -662,7 +614,7 @@ export default function SpotDetailScreen() {
             </Pressable>
           </View>
 
-          <SpotTaxonomyChips items={taxonomyItems} />
+          <SpotTaxonomyHighlights items={taxonomyItems} />
 
           {moodSummary.length > 0 && (
             <View style={styles.section}>
@@ -764,8 +716,6 @@ export default function SpotDetailScreen() {
             </View>
           )}
 
-
-          <SpotTaxonomyDetails items={taxonomyItems} />
           {reviews.length > 0 && (
             <View style={styles.section}>
               <SectionTitle>Moments</SectionTitle>
@@ -1264,29 +1214,4 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginTop: 10,
   },
-  googlePhotoAttribution: {
-    position: "absolute",
-    left: 14,
-    bottom: 16,
-    maxWidth: "82%",
-    minHeight: 30,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-    borderRadius: 999,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: "rgba(0,0,0,0.62)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
-  },
-
-  googlePhotoAttributionText: {
-    flexShrink: 1,
-    color: "rgba(255,255,255,0.92)",
-    fontSize: 11,
-    lineHeight: 15,
-    fontWeight: "700",
-  },
-
 });

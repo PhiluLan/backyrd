@@ -71,6 +71,30 @@ export type OwnerSpotDetail = {
   };
 };
 
+export type OwnerTaxonomyNodeType = "subcategory" | "feature" | "offering" | "service";
+
+export type OwnerTaxonomyCatalogItem = {
+  id: string;
+  slug: string;
+  node_type: OwnerTaxonomyNodeType;
+  parent_id: string | null;
+  label: string;
+  icon: string | null;
+  color: string | null;
+  sort_order: number;
+  category_ids: string[];
+};
+
+export type OwnerSpotTaxonomyItem = {
+  taxonomy_node_id: string;
+  slug: string;
+  node_type: OwnerTaxonomyNodeType;
+  label: string;
+  source: string;
+  confidence: number;
+  is_verified: boolean;
+};
+
 export type UpdateOwnerSpotProfileInput = {
   spotId: string;
   name: string;
@@ -112,9 +136,10 @@ export function extractOwnerError(error: unknown): string {
   if (error instanceof Error) return error.message;
 
   const e = error as SupabaseErrorLike | null;
-  return [e?.message, e?.details, e?.hint, e?.code]
-    .filter(Boolean)
-    .join(" • ") || "Unbekannter Fehler";
+  return (
+    [e?.message, e?.details, e?.hint, e?.code].filter(Boolean).join(" • ") ||
+    "Unbekannter Fehler"
+  );
 }
 
 export function parseCsvTags(value: string): string[] {
@@ -135,10 +160,7 @@ export async function requireOwnerSession() {
     error,
   } = await supabase.auth.getSession();
 
-  if (error) {
-    throw new Error(extractOwnerError(error));
-  }
-
+  if (error) throw new Error(extractOwnerError(error));
   return session;
 }
 
@@ -158,6 +180,46 @@ export async function getOwnerSpotDetail(spotId: string): Promise<OwnerSpotDetai
 
   if (error) throw new Error(extractOwnerError(error));
   return data as OwnerSpotDetail;
+}
+
+export async function getOwnerTaxonomyCatalog(
+  categoryId: string | null,
+  locale = "de",
+): Promise<OwnerTaxonomyCatalogItem[]> {
+  const { data, error } = await supabase.rpc("get_taxonomy_catalog_v1", {
+    p_locale: locale,
+    p_category_id: categoryId,
+    p_owner_selectable_only: true,
+  });
+
+  if (error) throw new Error(extractOwnerError(error));
+  return Array.isArray(data) ? (data as OwnerTaxonomyCatalogItem[]) : [];
+}
+
+export async function getOwnerSpotTaxonomies(
+  spotId: string,
+  locale = "de",
+): Promise<OwnerSpotTaxonomyItem[]> {
+  const { data, error } = await supabase.rpc("get_spot_taxonomies_v1", {
+    p_spot_id: spotId,
+    p_locale: locale,
+  });
+
+  if (error) throw new Error(extractOwnerError(error));
+  return Array.isArray(data) ? (data as OwnerSpotTaxonomyItem[]) : [];
+}
+
+export async function setOwnerSpotTaxonomies(
+  spotId: string,
+  taxonomyNodeIds: string[],
+) {
+  const { data, error } = await supabase.rpc("set_owner_spot_taxonomies_v1", {
+    p_spot_id: spotId,
+    p_taxonomy_node_ids: taxonomyNodeIds,
+  });
+
+  if (error) throw new Error(extractOwnerError(error));
+  return data;
 }
 
 export async function updateOwnerSpotProfile(input: UpdateOwnerSpotProfileInput) {

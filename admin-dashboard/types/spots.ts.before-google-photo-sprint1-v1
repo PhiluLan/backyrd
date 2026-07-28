@@ -15,8 +15,6 @@ export interface Spot {
   phone: string | null;
   email: string | null;
   header_photo_path: string | null;
-  google_place_id: string | null;
-  google_photo_enabled: boolean;
   status: SpotStatus;
   created_at: string;
   created_by: string | null;

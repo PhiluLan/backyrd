@@ -27,11 +27,6 @@ import { BlurView } from "expo-blur";
 import * as Location from "expo-location";
 import { ImageBackground } from "react-native";
 import { ensureProfile } from "../../lib/profile";
-import {
-  getGooglePlacePhotoFallback,
-  type GooglePlacePhotoResult,
-} from "../../lib/google-place-photo";
-import { searchMobileTaxonomySpots } from "../../lib/taxonomy-search";
 
 /** ===== THEME ===== */
 const theme = {
@@ -62,13 +57,7 @@ const theme = {
 type SpotTopMoods = Record<string, string[]>;
 type GroupedResults = { fromName: Spot[]; fromMood: Spot[] };
 
-type SpotWithPhoto = Spot & {
-  photoUrl?: string | null;
-  photoSource?: "backyrd" | "google" | "placeholder";
-  photoAttribution?: string | null;
-  photoGoogleMapsUri?: string | null;
-  _key?: string;
-};
+type SpotWithPhoto = Spot & { photoUrl?: string | null; _key?: string };
 type JourneyMiniItem = SpotWithPhoto;
 type UserCoords = { latitude: number; longitude: number };
 
@@ -448,133 +437,22 @@ export default function Home() {
   }, [q]);
 
   /** ===== Fotos zu Spots laden und mappen ===== */
-  const GOOGLE_PHOTO_HOME_CONCURRENCY = 4;
-
-  async function resolveGoogleFallbacks(
-    spots: Spot[],
-    ownPhotoBySpot: Record<string, string>,
-  ): Promise<Record<string, GooglePlacePhotoResult>> {
-    const missing = spots.filter((spot) => !ownPhotoBySpot[spot.id]);
-    const results: Record<string, GooglePlacePhotoResult> = {};
-
-    for (
-      let index = 0;
-      index < missing.length;
-      index += GOOGLE_PHOTO_HOME_CONCURRENCY
-    ) {
-      const batch = missing.slice(
-        index,
-        index + GOOGLE_PHOTO_HOME_CONCURRENCY,
-      );
-
-      const batchResults = await Promise.all(
-        batch.map(async (spot) => {
-          try {
-            const result = await getGooglePlacePhotoFallback(spot.id);
-            return { spotId: spot.id, result };
-          } catch (error) {
-            console.warn(
-              "Google home photo fallback:",
-              spot.id,
-              (error as any)?.message ?? error,
-            );
-            return { spotId: spot.id, result: null };
-          }
-        }),
-      );
-
-      for (const item of batchResults) {
-        if (item.result) {
-          results[item.spotId] = item.result;
-        }
-      }
-    }
-
-    return results;
-  }
-
-  async function mapSpotPhotos(
-    spots: Spot[],
-  ): Promise<SpotWithPhoto[]> {
-    const ids = spots.map((spot) => spot.id);
+  async function mapSpotPhotos(spots: Spot[]): Promise<SpotWithPhoto[]> {
+    const ids = spots.map((s) => s.id);
     if (ids.length === 0) return [];
-
-    const { data: photos, error: photoError } = await supabase
+    const { data: photos } = await supabase
       .from("spot_photos")
       .select("spot_id,url")
       .in("spot_id", ids)
-      .not("url", "is", null)
-      .neq("url", "")
       .order("id", { ascending: true });
-
-    if (photoError) {
-      console.warn(
-        "Spot-Fotos konnten nicht geladen werden:",
-        photoError.message,
-      );
-    }
-
     const firstBySpot: Record<string, string> = {};
-
-    (photos || []).forEach((photo: any) => {
-      const url =
-        typeof photo.url === "string"
-          ? photo.url.trim()
-          : "";
-
-      if (url && !firstBySpot[photo.spot_id]) {
-        firstBySpot[photo.spot_id] = url;
-      }
+    (photos || []).forEach((p: any) => {
+      if (!firstBySpot[p.spot_id]) firstBySpot[p.spot_id] = p.url;
     });
-
-    const googleFallbacks = await resolveGoogleFallbacks(
-      spots,
-      firstBySpot,
-    );
-
-    return spots.map((spot) => {
-      const ownPhoto = firstBySpot[spot.id];
-
-      if (ownPhoto) {
-        return {
-          ...spot,
-          photoUrl: ownPhoto,
-          photoSource: "backyrd",
-          photoAttribution: null,
-          photoGoogleMapsUri: null,
-        };
-      }
-
-      const googlePhoto = googleFallbacks[spot.id];
-
-      if (
-        googlePhoto?.source === "google" &&
-        googlePhoto.imageUrl
-      ) {
-        const author =
-          googlePhoto.authorAttributions?.[0]?.displayName?.trim() ||
-          null;
-
-        return {
-          ...spot,
-          photoUrl: googlePhoto.imageUrl,
-          photoSource: "google",
-          photoAttribution: author
-            ? `Foto: ${author} · Google`
-            : "Foto · Google",
-          photoGoogleMapsUri:
-            googlePhoto.googleMapsUri ?? null,
-        };
-      }
-
-      return {
-        ...spot,
-        photoUrl: null,
-        photoSource: "placeholder",
-        photoAttribution: null,
-        photoGoogleMapsUri: null,
-      };
-    });
+    return spots.map((s) => ({
+      ...s,
+      photoUrl: firstBySpot[s.id] || null,
+    }));
   }
 
   /** ===== GLOBAL: Top Mood Chips (8) ===== */
@@ -725,11 +603,9 @@ export default function Home() {
         )
         .eq("status", "approved")
         .limit(40);
-      const randomSelection = shuffleArray(
-        ((some || []) as Spot[]),
-      ).slice(0, 12);
-      const randomWithPhotos = await mapSpotPhotos(randomSelection);
-      setRandomFallback(randomWithPhotos);
+      const someWithPhotos = await mapSpotPhotos((some || []) as Spot[]);
+      const shuffled = shuffleArray(someWithPhotos).slice(0, 12);
+      setRandomFallback(shuffled);
     } catch (e) {
       console.warn("GeneralSuggestions:", (e as any).message);
       setPopularFallback([]);
@@ -996,68 +872,28 @@ export default function Home() {
         )
         .limit(100);
 
-      const [{ data: reviews }, taxonomyMatches] = await Promise.all([
-        supabase
-          .from("reviews")
-          .select("spot_id")
-          .or(`mood_a.ilike.${pattern},mood_b.ilike.${pattern}`)
-          .limit(200),
-        (
-          searchTerm.length >= 4
-            ? searchMobileTaxonomySpots(searchTerm, "de", 100)
-            : Promise.resolve([])
-        ).catch((error) => {
-          console.warn("Taxonomy search:", error.message);
-          return [];
-        }),
-      ]);
+      const { data: reviews } = await supabase
+        .from("reviews")
+        .select("spot_id")
+        .or(`mood_a.ilike.${pattern},mood_b.ilike.${pattern}`)
+        .limit(200);
 
-      const contextualSpotIds = Array.from(
-        new Set([
-          ...(reviews || []).map((r) => r.spot_id as string),
-          ...taxonomyMatches.map((match) => match.spot_id),
-        ])
+      const moodSpotIds = Array.from(
+        new Set((reviews || []).map((r) => r.spot_id as string))
       );
-
       let spotsB: Spot[] = [];
-      if (contextualSpotIds.length) {
+      if (moodSpotIds.length) {
         const { data } = await supabase
           .from("spots")
           .select(
             "id,name,address,lat,lng,category_id,categories ( id, name, icon, color ),status"
           )
           .eq("status", "approved")
-          .in("id", contextualSpotIds);
-
-        const taxonomyMatchBySpot = new Map(
-          taxonomyMatches.map((match) => [match.spot_id, match])
-        );
-
-        spotsB = ((data || []) as Spot[])
-          .map((spot) => {
-            const taxonomyMatch = taxonomyMatchBySpot.get(spot.id);
-
-            return {
-              ...spot,
-              search_match_label:
-                taxonomyMatch?.matched_labels?.[0] ?? null,
-            } as Spot;
-          })
-          .sort(
-            (a, b) =>
-              (taxonomyMatchBySpot.get(b.id)?.match_score || 0) -
-              (taxonomyMatchBySpot.get(a.id)?.match_score || 0)
-          );
+          .in("id", moodSpotIds);
+        spotsB = (data || []) as Spot[];
       }
 
-      const directSpots = ((spotsA as Spot[]) || []);
-      const directIds = new Set(directSpots.map((spot) => spot.id));
-      const contextualSpots = spotsB.filter((spot) => !directIds.has(spot.id));
-
-      setGrouped({
-        fromName: directSpots,
-        fromMood: contextualSpots,
-      });
+      setGrouped({ fromName: (spotsA as Spot[]) || [], fromMood: spotsB });
 
       const merged = [...(spotsA || []), ...spotsB];
       if (merged.length) {
@@ -1401,7 +1237,7 @@ export default function Home() {
 
               {grouped.fromMood.length > 0 && (
                 <>
-                  <SectionHeader title="Passend zu deiner Suche" />
+                  <SectionHeader title="Passend nach Stimmung" />
                   <View style={{ gap: 16, marginBottom: 22 }}>
                     {grouped.fromMood.map((spot) => (
                       <ResultCard key={spot.id} spot={spot} />
@@ -1507,17 +1343,6 @@ function PremiumSpotCard({
           end={{ x: 0.5, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-
-        {spot.photoSource === "google" && spot.photoAttribution ? (
-          <View style={styles.googleOverviewAttribution}>
-            <Text
-              style={styles.googleOverviewAttributionText}
-              numberOfLines={1}
-            >
-              {spot.photoAttribution}
-            </Text>
-          </View>
-        ) : null}
 
         <View style={styles.spotSaveBadge}>
           <Ionicons name="bookmark-outline" size={18} color="#FFFFFF" />
@@ -1672,17 +1497,6 @@ function CalmSpotCard({
           <Text style={styles.calmOpenText}>Geöffnet</Text>
         </View>
 
-        {spot.photoSource === "google" && spot.photoAttribution ? (
-          <View style={styles.googleOverviewAttribution}>
-            <Text
-              style={styles.googleOverviewAttributionText}
-              numberOfLines={1}
-            >
-              {spot.photoAttribution}
-            </Text>
-          </View>
-        ) : null}
-
         <View style={styles.calmSpotBody}>
           <View style={styles.calmSpotMain}>
             <Text style={styles.calmSpotTitle} numberOfLines={1}>
@@ -1724,8 +1538,6 @@ function ResultCard({ spot }: { spot: Spot }) {
   const router = useRouter();
   const [photo, setPhoto] = useState<string | null>(null);
   const [moods, setMoods] = useState<string[]>([]);
-  const searchMatchLabel =
-    ((spot as any).search_match_label as string | null | undefined) ?? null;
 
   // Lade erstes Foto
   useEffect(() => {
@@ -1767,15 +1579,6 @@ function ResultCard({ spot }: { spot: Spot }) {
       style={styles.card}
     >
       <View style={styles.cardMedia}>
-        {searchMatchLabel ? (
-          <View style={styles.searchMatchPill}>
-            <Ionicons name="sparkles-outline" size={13} color="#171214" />
-            <Text style={styles.searchMatchPillText} numberOfLines={1}>
-              {searchMatchLabel}
-            </Text>
-          </View>
-        ) : null}
-
         <SpotVisual
           uri={photo ?? spot.header_photo_url}
           name={spot.name}
@@ -2870,59 +2673,4 @@ export const styles = StyleSheet.create({
     marginBottom: theme.spacing(1),
     backgroundColor: "#222",
   },
-  searchMatchPill: {
-    position: "absolute",
-    top: 14,
-    left: 14,
-    zIndex: 12,
-    elevation: 12,
-    maxWidth: "78%",
-    minHeight: 34,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-    borderRadius: 999,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#FF9ABA",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.30)",
-    shadowColor: "#000",
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 },
-  },
-
-  searchMatchPillText: {
-    flexShrink: 1,
-    color: "#171214",
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "800",
-  },
-
-  googleOverviewAttribution: {
-    position: "absolute",
-    top: 14,
-    right: 14,
-    zIndex: 15,
-    elevation: 15,
-    maxWidth: "54%",
-    minHeight: 28,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: "rgba(0,0,0,0.64)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
-  },
-
-  googleOverviewAttributionText: {
-    flexShrink: 1,
-    color: "rgba(255,255,255,0.92)",
-    fontSize: 10,
-    lineHeight: 14,
-    fontWeight: "700",
-  },
-
 });

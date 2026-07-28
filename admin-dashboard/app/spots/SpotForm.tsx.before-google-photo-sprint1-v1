@@ -197,8 +197,6 @@ export function SpotForm({
       phone: "",
       email: "",
       header_photo_path: "",
-      google_place_id: null,
-      google_photo_enabled: true,
       status: "pending",
     },
   );
@@ -248,7 +246,6 @@ export function SpotForm({
         handleChange("lng", place.geometry.location.lng());
         handleChange("city", extractCity(place));
         handleChange("country", extractCountry(place));
-        handleChange("google_place_id", place.place_id ?? null);
       });
     }
 
@@ -741,10 +738,7 @@ export function SpotForm({
             type="text"
             ref={addressInputRef}
             value={(values.address ?? "") as any}
-            onChange={(e) => {
-              handleChange("address", e.target.value as any);
-              handleChange("google_place_id", null as any);
-            }}
+            onChange={(e) => handleChange("address", e.target.value as any)}
             className="by-input"
           />
         </Field>

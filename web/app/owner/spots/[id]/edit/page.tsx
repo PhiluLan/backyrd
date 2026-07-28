@@ -4,14 +4,20 @@ import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   getOwnerSpotDetail,
+  getOwnerSpotTaxonomies,
+  getOwnerTaxonomyCatalog,
   parseCsvTags,
   requireOwnerSession,
+  setOwnerSpotTaxonomies,
   tagsToCsv,
   updateOwnerSpotIntelligence,
   updateOwnerSpotProfile,
   type OwnerSpotDetail,
+  type OwnerSpotTaxonomyItem,
+  type OwnerTaxonomyCatalogItem,
 } from "@/lib/owner-api";
 import { OwnerShell } from "@/components/owner/owner-shell";
+import { OwnerTaxonomyPicker } from "@/components/owner/owner-taxonomy-picker";
 
 function Field({
   label,
@@ -108,6 +114,9 @@ export default function OwnerSpotEditPage() {
   const spotId = params.id;
 
   const [detail, setDetail] = useState<OwnerSpotDetail | null>(null);
+  const [taxonomyCatalog, setTaxonomyCatalog] = useState<OwnerTaxonomyCatalogItem[]>([]);
+  const [existingTaxonomies, setExistingTaxonomies] = useState<OwnerSpotTaxonomyItem[]>([]);
+  const [selectedTaxonomyIds, setSelectedTaxonomyIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -152,7 +161,16 @@ export default function OwnerSpotEditPage() {
         const data = await getOwnerSpotDetail(spotId);
         if (!active) return;
 
+        const [catalog, assigned] = await Promise.all([
+          getOwnerTaxonomyCatalog(data.spot.category_id, "de"),
+          getOwnerSpotTaxonomies(spotId, "de"),
+        ]);
+        if (!active) return;
+
         setDetail(data);
+        setTaxonomyCatalog(catalog);
+        setExistingTaxonomies(assigned);
+        setSelectedTaxonomyIds(assigned.map((item) => item.taxonomy_node_id));
 
         setName(data.spot.name ?? "");
         setAddress(data.spot.address ?? "");
@@ -178,7 +196,7 @@ export default function OwnerSpotEditPage() {
         setAverageDurationMinutes(
           data.intelligence.average_duration_minutes
             ? String(data.intelligence.average_duration_minutes)
-            : ""
+            : "",
         );
         setSignatureItems(tagsToCsv(data.intelligence.signature_items));
         setSpecialNotes(data.intelligence.special_notes ?? "");
@@ -190,7 +208,7 @@ export default function OwnerSpotEditPage() {
       }
     }
 
-    load();
+    void load();
 
     return () => {
       active = false;
@@ -239,6 +257,8 @@ export default function OwnerSpotEditPage() {
         specialNotes: specialNotes.trim() || null,
       });
 
+      await setOwnerSpotTaxonomies(spotId, selectedTaxonomyIds);
+
       router.push(`/owner/spots/${spotId}?saved=1`);
       router.refresh();
     } catch (error) {
@@ -249,7 +269,10 @@ export default function OwnerSpotEditPage() {
   }
 
   return (
-    <OwnerShell title={title} subtitle="Pflege die Informationen, die Ranking, Decision und Spot Detail wirklich verbessern.">
+    <OwnerShell
+      title={title}
+      subtitle="Pflege die Informationen, die Ranking, Decision und Spot Detail wirklich verbessern."
+    >
       {loading ? (
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-8 text-white/55">
           Lädt…
@@ -275,7 +298,8 @@ export default function OwnerSpotEditPage() {
           <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
             <h2 className="text-2xl font-semibold">Basisdaten</h2>
             <p className="mt-2 text-sm leading-6 text-white/45">
-              Diese Daten erscheinen im Spot Detail und helfen der Decision Engine bei Relevanz, Distanz und Kontext.
+              Diese Daten erscheinen im Spot Detail und helfen der Decision Engine bei Relevanz,
+              Distanz und Kontext.
             </p>
 
             <div className="mt-6 grid gap-5 md:grid-cols-2">
@@ -286,9 +310,22 @@ export default function OwnerSpotEditPage() {
               <Field label="Telefon" value={phone} onChange={setPhone} />
               <Field label="Website" value={website} onChange={setWebsite} />
               <Field label="E-Mail" value={email} onChange={setEmail} />
-              <Field label="Preislevel 1-4" value={priceLevel} onChange={setPriceLevel} type="number" />
+              <Field
+                label="Preislevel 1-4"
+                value={priceLevel}
+                onChange={setPriceLevel}
+                type="number"
+              />
             </div>
           </section>
+
+          <OwnerTaxonomyPicker
+            catalog={taxonomyCatalog}
+            selectedIds={selectedTaxonomyIds}
+            existingAssignments={existingTaxonomies}
+            onChange={setSelectedTaxonomyIds}
+            disabled={saving}
+          />
 
           <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
             <h2 className="text-2xl font-semibold">Owner Beschreibung</h2>
@@ -303,7 +340,6 @@ export default function OwnerSpotEditPage() {
                 onChange={setOwnerDescription}
                 placeholder="Was ist euer Spot? Wann passt ihr am besten? Was macht euch besonders?"
               />
-
               <Field
                 label="Keywords, kommagetrennt"
                 value={ownerKeywords}
@@ -316,8 +352,7 @@ export default function OwnerSpotEditPage() {
           <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
             <h2 className="text-2xl font-semibold">Backyrd Intelligence</h2>
             <p className="mt-2 text-sm leading-6 text-white/45">
-              Das ist das wichtigste Ranking-Futter. Hier definierst du nicht, dass dein Spot gut ist,
-              sondern für welche Situationen er wirklich passt.
+              Definiere, für welche Situationen dein Spot wirklich passt.
             </p>
 
             <div className="mt-6 grid gap-5 md:grid-cols-2">
