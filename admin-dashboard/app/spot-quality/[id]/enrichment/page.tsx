@@ -24,7 +24,19 @@ export default function GoogleEnrichmentPage(){
   }
   async function load(){
     if(!id)return; setLoading(true);setError("");
-    try{const data=await invoke({action:"preview",spotId:id});setPreview(data.preview);setSelected([data.preview.website.canApply?"website":null,data.preview.phone.canApply?"phone":null,data.preview.openingHours.canApply?"openingHours":null].filter(Boolean));}
+    try {
+  const data = await invoke({ action: "preview", spotId: id });
+
+  setPreview(data.preview);
+
+  setSelected(
+    [
+      data.preview.website.canApply ? "website" : null,
+      data.preview.phone.canApply ? "phone" : null,
+      data.preview.openingHours.canApply ? "openingHours" : null,
+    ].filter((field): field is string => field !== null),
+  );
+}
     catch(e:any){setError(e.message)}finally{setLoading(false)}
   }
   function toggle(field:string){setSelected(v=>v.includes(field)?v.filter(x=>x!==field):[...v,field])}
