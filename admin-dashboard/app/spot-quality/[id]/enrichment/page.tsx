@@ -7,7 +7,8 @@ import { supabase } from "@/lib/supabaseClient";
 type Preview={website:{current:string|null;suggested:string|null;canApply:boolean};phone:{current:string|null;suggested:string|null;canApply:boolean};openingHours:{currentCount:number;suggestedCount:number;canApply:boolean;weekdayDescriptions:string[]};businessStatus:string|null;primaryTypeLabel:string|null;googleMapsUri:string|null;googleName:string|null;googleAddress:string|null};
 
 export default function GoogleEnrichmentPage(){
-  const {id}=useParams<{id:string}>();
+  const params = useParams<{ id: string }>();
+  const id = params?.id ?? "";
   const [preview,setPreview]=useState<Preview|null>(null);
   const [selected,setSelected]=useState<string[]>([]);
   const [loading,setLoading]=useState(true);

@@ -1,5 +1,4 @@
 import { supabase } from "@/lib/supabase/client";
-import { evaluateOwnerChangeInBackground } from "@/lib/safety-owner";
 
 export type OwnerSpotListItem = {
   spot_id: string;
@@ -241,7 +240,6 @@ export async function updateOwnerSpotProfile(input: UpdateOwnerSpotProfileInput)
   });
 
   if (error) throw new Error(extractOwnerError(error));
-  void evaluateOwnerChangeInBackground(data);
   return data;
 }
 
@@ -264,6 +262,5 @@ export async function updateOwnerSpotIntelligence(input: UpdateOwnerSpotIntellig
   });
 
   if (error) throw new Error(extractOwnerError(error));
-  void evaluateOwnerChangeInBackground(data);
   return data;
 }

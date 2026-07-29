@@ -264,6 +264,5 @@ export async function updateOwnerSpotIntelligence(input: UpdateOwnerSpotIntellig
   });
 
   if (error) throw new Error(extractOwnerError(error));
-  void evaluateOwnerChangeInBackground(data);
   return data;
 }

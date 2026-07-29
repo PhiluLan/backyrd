@@ -199,7 +199,6 @@ export default function SpotManageScreen() {
         p_change_source: "owner_mobile",
       });
       if (saveErr) throw saveErr;
-      void evaluateOwnerChangeMobile(saveData);
 
       await trackEvent({
         userId,
