@@ -86,7 +86,7 @@ export default function FounderDashboardPage() {
         <div>
           <div className="bi-eyebrow">Founder cockpit</div>
           <h1>Backyrd Intelligence</h1>
-          <p>Was heute wichtig ist — Wachstum, Produkt, Community und Systemzustand.</p>
+          <p>Was heute wichtig ist — Wachstum, Produkt, Community und System</p>
         </div>
         <div className="bi-periods">
           {presets.map(([value, label]) => (
