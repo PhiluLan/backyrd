@@ -1,0 +1,1878 @@
+============================================================
+BACKYRD TRUST & MODERATION ENGINE V1 – KOMPAKT-AUDIT
+Erstellt: Di. 28 Juli 2026 22:12:57 CEST
+Repository: /Users/philippjohanna/dev/backyrd
+============================================================
+
+### GIT
+Branch: main
+Commit: a0ebdb786a3b1c586b19dd1b47ba3407010e109b
+
+ M admin-dashboard/app/globals.css
+ M admin-dashboard/components/intelligence/Sidebar.tsx
+?? admin-dashboard/app/globals.css.before-google-backfill-v1
+?? admin-dashboard/app/globals.css.before-spot-quality-v1
+?? admin-dashboard/app/spot-quality/
+?? admin-dashboard/components/intelligence/Sidebar.tsx.before-spot-quality-v1
+?? admin-dashboard/components/spot-quality/
+?? audit_backyrd_trust_moderation_v1.sh
+?? audit_backyrd_trust_moderation_v2.sh
+?? backyrd_spot_quality_backfill_component_fix_v1/
+?? backyrd_spot_quality_backfill_separate_page_v1/
+?? backyrd_spot_quality_engine_v1_foundation/
+?? backyrd_spot_quality_google_backfill_v1/
+?? backyrd_spot_quality_google_enrichment_v1/
+?? install_spot_google_enrichment_v1_1.py
+?? repair_spot_quality_backfill_and_enrichment_v1.py
+?? supabase/functions/spot-google-backfill/
+?? supabase/functions/spot-google-enrichment/
+?? supabase/migrations/20260728_spot_google_enrichment_v1.sql
+?? supabase/migrations/20260728_spot_quality_engine_v1_foundation.sql
+?? supabase/migrations/20260728_spot_quality_google_backfill_v1.sql
+?? trust_moderation_v1_audit_compact.txt
+
+### RELEVANTE DATEIEN
+admin-dashboard/app/claims/page.tsx
+admin-dashboard/app/spots/[id]/edit/page.tsx
+admin-dashboard/app/spots/[id]/owner/page.tsx
+mobile/app/spot/[id]/claim.tsx
+mobile/app/spot/[id]/manage.tsx
+supabase/functions/send-spot-claim-approved-email/index.ts
+supabase/functions/send-spot-claim-code/index.ts
+supabase/migrations/20260411100112_spot_claims.sql
+supabase/migrations/20260411100119_admin_moderation_completion.sql
+
+### OWNER-/CLAIM-RPC-TREFFER
+admin-dashboard/app/claims/page.tsx:119:    const { data, error } = await supabase.rpc("get_spot_claim_queue_v2", {
+admin-dashboard/app/claims/page.tsx:172:        const { data, error } = await supabase.rpc("revoke_spot_operator_access_v1", {
+admin-dashboard/app/claims/page.tsx:190:      const { data, error } = await supabase.rpc("decide_spot_claim_v2", {
+admin-dashboard/app/spots/[id]/owner/page.tsx:117:      .from("spot_claims")
+admin-dashboard/app/spots/[id]/owner/page.tsx:163:      ? await supabase.rpc("admin_set_spot_owner_v1", {
+admin-dashboard/app/spots/[id]/owner/page.tsx:167:      : await supabase.rpc("admin_clear_spot_owner_v1", {
+admin-dashboard/app/spots/[id]/owner/page.tsx:187:    const { error } = await supabase.rpc("admin_approve_spot_claim_v1", {
+admin-dashboard/app/spots/[id]/owner/page.tsx:208:    const { error } = await supabase.rpc("admin_reject_spot_claim_v1", {
+mobile/app/spot/[id].tsx:227:      const { data, error } = await supabase.rpc("get_spot_owner_context_v1", {
+mobile/app/spot/[id].tsx:234:      console.log("get_spot_owner_context_v1 error", e);
+mobile/app/spot/[id]/claim.tsx:131:        const { data, error } = await supabase.rpc("get_spot_owner_context_v1", {
+mobile/app/spot/[id]/manage.tsx:84:            supabase.rpc("get_spot_owner_context_v1", { p_spot_id: spotId }),
+mobile/app/spot/[id]/manage.tsx:173:      const { error: dErr } = await supabase.rpc("upsert_owner_description_v1", {
+mobile/app/spot/[id]/manage.tsx:183:      const { error: sErr } = await supabase.rpc("upsert_spot_owner_fields_v1", {
+supabase/migrations/20260411100119_admin_moderation_completion.sql:462:        from public.spot_claims sc
+supabase/migrations/20260411100119_admin_moderation_completion.sql:554:create or replace function public.get_claim_queue_v1(
+supabase/migrations/20260411100119_admin_moderation_completion.sql:607:    from public.spot_claims sc
+supabase/migrations/20260411100119_admin_moderation_completion.sql:733:        from public.spot_claims sc
+supabase/migrations/20260411100119_admin_moderation_completion.sql:738:        from public.spot_claims sc
+supabase/migrations/20260411100119_admin_moderation_completion.sql:743:        from public.spot_claims sc
+supabase/migrations/20260411100112_spot_claims.sql:1:-- 20260411100112_spot_claims.sql
+supabase/migrations/20260411100112_spot_claims.sql:15:create table if not exists public.spot_claims (
+supabase/migrations/20260411100112_spot_claims.sql:39:  constraint spot_claims_status_check check (
+supabase/migrations/20260411100112_spot_claims.sql:44:create index if not exists idx_spot_claims_spot_id
+supabase/migrations/20260411100112_spot_claims.sql:45:  on public.spot_claims(spot_id);
+supabase/migrations/20260411100112_spot_claims.sql:47:create index if not exists idx_spot_claims_claimant_id
+supabase/migrations/20260411100112_spot_claims.sql:48:  on public.spot_claims(claimant_id);
+supabase/migrations/20260411100112_spot_claims.sql:50:create index if not exists idx_spot_claims_status
+supabase/migrations/20260411100112_spot_claims.sql:51:  on public.spot_claims(status);
+supabase/migrations/20260411100112_spot_claims.sql:53:create index if not exists idx_spot_claims_created_at
+supabase/migrations/20260411100112_spot_claims.sql:54:  on public.spot_claims(created_at desc);
+supabase/migrations/20260411100112_spot_claims.sql:56:create unique index if not exists uq_spot_claims_one_pending_per_spot_claimant
+supabase/migrations/20260411100112_spot_claims.sql:57:  on public.spot_claims(spot_id, claimant_id)
+supabase/migrations/20260411100112_spot_claims.sql:60:drop trigger if exists trg_spot_claims_set_updated_at on public.spot_claims;
+supabase/migrations/20260411100112_spot_claims.sql:61:create trigger trg_spot_claims_set_updated_at
+supabase/migrations/20260411100112_spot_claims.sql:62:before update on public.spot_claims
+supabase/migrations/20260411100112_spot_claims.sql:112:  v_claim public.spot_claims%rowtype;
+supabase/migrations/20260411100112_spot_claims.sql:136:  from public.spot_claims sc
+supabase/migrations/20260411100112_spot_claims.sql:146:  insert into public.spot_claims (
+supabase/migrations/20260411100112_spot_claims.sql:206:  v_claim public.spot_claims%rowtype;
+supabase/migrations/20260411100112_spot_claims.sql:216:  from public.spot_claims sc
+supabase/migrations/20260411100112_spot_claims.sql:229:  update public.spot_claims
+supabase/migrations/20260411100112_spot_claims.sql:260:create or replace function public.decide_spot_claim_v1(
+supabase/migrations/20260411100112_spot_claims.sql:272:  v_claim public.spot_claims%rowtype;
+supabase/migrations/20260411100112_spot_claims.sql:292:  from public.spot_claims sc
+supabase/migrations/20260411100112_spot_claims.sql:304:  update public.spot_claims
+supabase/migrations/20260411100112_spot_claims.sql:322:    update public.spot_claims
+supabase/migrations/20260411100112_spot_claims.sql:416:  from public.spot_claims sc
+supabase/migrations/20260411100112_spot_claims.sql:440:create or replace function public.get_my_spot_claims_v1(
+supabase/migrations/20260411100112_spot_claims.sql:479:    from public.spot_claims sc
+supabase/migrations/20260411100112_spot_claims.sql:550:create or replace function public.get_claim_queue_v1(
+supabase/migrations/20260411100112_spot_claims.sql:596:    from public.spot_claims sc
+supabase/migrations/20260411100112_spot_claims.sql:679:alter table public.spot_claims enable row level security;
+supabase/migrations/20260411100112_spot_claims.sql:684:drop policy if exists "spot_claims_select_own_or_admin" on public.spot_claims;
+supabase/migrations/20260411100112_spot_claims.sql:685:create policy "spot_claims_select_own_or_admin"
+supabase/migrations/20260411100112_spot_claims.sql:686:on public.spot_claims
+supabase/migrations/20260411100112_spot_claims.sql:694:drop policy if exists "spot_claims_insert_own" on public.spot_claims;
+supabase/migrations/20260411100112_spot_claims.sql:695:create policy "spot_claims_insert_own"
+supabase/migrations/20260411100112_spot_claims.sql:696:on public.spot_claims
+supabase/migrations/20260411100112_spot_claims.sql:703:drop policy if exists "spot_claims_update_own_pending_or_admin" on public.spot_claims;
+supabase/migrations/20260411100112_spot_claims.sql:704:create policy "spot_claims_update_own_pending_or_admin"
+supabase/migrations/20260411100112_spot_claims.sql:705:on public.spot_claims
+supabase/migrations/20260411100112_spot_claims.sql:722:drop policy if exists "spot_claims_delete_admin_only" on public.spot_claims;
+supabase/migrations/20260411100112_spot_claims.sql:723:create policy "spot_claims_delete_admin_only"
+supabase/migrations/20260411100112_spot_claims.sql:724:on public.spot_claims
+supabase/migrations/20260515174832_add_spot_intelligence_v1.sql:176:    from public.spot_claims sc
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:379:-- ersetzt decide_spot_claim_v1 durch Version mit Notification
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:381:create or replace function public.decide_spot_claim_v1(
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:393:  v_claim public.spot_claims%rowtype;
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:414:  from public.spot_claims sc
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:429:  update public.spot_claims
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:447:    update public.spot_claims
+supabase/functions/send-spot-claim-approved-email/index.ts:206:      `spot_claims?id=eq.${claimId}&select=id,status,business_email,claimant_name,spot_id&limit=1`,
+
+### DIREKTE SPOT-SCHREIBZUGRIFFE
+admin-dashboard/app/spot-quality/backfill/[id]/page.tsx:19:  useEffect(()=>{(async()=>{if(!id)return;const{data,error}=await supabase.from("spots").select("id,name,address,city,country").eq("id",id).single();if(error){setError(error.message);setLoading(false);return;}setSpot(data);const q=[data.name,data.address||data.city,data.country].filter(Boolean).join(", ");setQuery(q);await runSearch(q);})()},[id]);
+admin-dashboard/app/spot-quality/[id]/google-backfill/page.tsx:67:      .from("spots")
+admin-dashboard/app/_admin_disabled/page.tsx:34:        .from("spots")
+admin-dashboard/app/_admin_disabled/page.tsx:38:        .from("spots")
+admin-dashboard/app/_admin_disabled/page.tsx:43:        .from("spots")
+admin-dashboard/app/_admin_disabled/page.tsx:62:        .from("spots")
+admin-dashboard/app/spots/SpotForm.tsx:483:      .from("spots")
+admin-dashboard/app/spots/SpotForm.tsx:661:          .from("spots")
+admin-dashboard/app/spots/SpotForm.tsx:670:          .from("spots")
+admin-dashboard/app/spots/[id]/moods/page.tsx:50:      .from("spots")
+admin-dashboard/app/spots/[id]/owner/page.tsx:70:      .from("spots")
+admin-dashboard/app/spots/[id]/edit/page.tsx:51:          .from("spots")
+admin-dashboard/app/spots/[id]/edit/page.tsx:111:        .from("spots")
+admin-dashboard/app/reviews/[spotId]/ReviewSpotClient.tsx:43:        supabase.from("spots").select("id, name, city").eq("id", spotId).single(),
+admin-dashboard/app/reviews/[spotId]/page.tsx:52:      .from("spots")
+mobile/app/search.tsx:22:        .from("spots")
+mobile/app/search.tsx:42:          .from("spots")
+mobile/app/(tabs)/decision.tsx:870:      supabase.from("spots").select("id,address,price_level,category_id,header_photo_path").in("id", ids),
+mobile/app/(tabs)/feed.tsx:260:        .from("spots")
+mobile/app/(tabs)/journey.tsx:353:          .from("spots")
+mobile/app/(tabs)/explore.tsx:710:        .from("spots")
+mobile/app/(tabs)/explore.tsx:722:        .from("spots")
+mobile/app/(tabs)/explore.tsx:819:        .from("spots")
+mobile/app/(tabs)/explore.tsx:912:          .from("spots")
+mobile/app/(tabs)/explore.tsx:924:          .from("spots")
+mobile/app/(tabs)/explore.tsx:989:        .from("spots")
+mobile/app/(tabs)/explore.tsx:1025:          .from("spots")
+mobile/app/(tabs)/explore.tsx:1102:        .from("spots")
+mobile/app/(tabs)/decision-onboarding.tsx:88:        .from("spots")
+mobile/app/(tabs)/decision-onboarding.tsx:119:        .from("spots")
+mobile/app/review/smart.tsx:171:          .from("spots")
+mobile/app/spot/new.tsx:283:        .from("spots")
+mobile/app/spot/new.tsx:315:            .from("spots")
+mobile/app/spot/[id].tsx:265:          .from("spots")
+mobile/app/spot/[id].tsx:420:        .from("spots")
+mobile/app/spot/[id]/manage.tsx:173:      const { error: dErr } = await supabase.rpc("upsert_owner_description_v1", {
+mobile/app/spot/[id]/manage.tsx:183:      const { error: sErr } = await supabase.rpc("upsert_spot_owner_fields_v1", {
+mobile/supabase/functions/enrich-spot-description/index.ts:35:      .from("spots")
+mobile/lib/useSpotsStore.ts:30:      .from("spots")
+mobile/lib/achievementEngine.ts:61:      .from("spots")
+mobile/lib/achievementEngine.ts:134:      .from("spots")
+mobile/lib/ai/userProfile.ts:97:      .from("spots")
+
+### BESTEHENDE VALIDIERUNG / MODERATION
+admin-dashboard/app/dashboard/page.tsx:15:  latest_errors: Array<{ id: number; message: string; severity: string; screen_name: string | null; app_version: string | null; occurred_at: string }>;
+admin-dashboard/app/dashboard/page.tsx:148:            {data.latest_errors.length === 0 ? <Empty text="Keine Fehler im Zeitraum." /> : data.latest_errors.map((e) => <div className="bi-rowItem" key={e.id}><div><strong>{e.message}</strong><small>{e.screen_name || "Unbekannter Screen"} · {e.app_version || "Version unbekannt"}</small></div><span className={`bi-severity ${e.severity}`}>{e.severity}</span></div>)}
+admin-dashboard/app/system/page.tsx:21:type Version = { app_version: string; events: number; users: number; last_seen: string | null };
+admin-dashboard/app/system/page.tsx:24:type RecentError = { id: number; fingerprint: string | null; error_type: string; message: string; severity: string; screen_name: string | null; platform: string | null; app_version: string | null; handled: boolean; occurred_at: string };
+admin-dashboard/app/system/page.tsx:27:type Data = { generated_at: string; summary: Summary; daily: Daily[]; versions: Version[]; platforms: Platform[]; top_events: TopEvent[]; recent_errors: RecentError[]; tables: TableHealth[]; insights: Insight[] };
+admin-dashboard/app/system/page.tsx:80:        <Metric label="App-Versionen" value={data.versions.length} meta="Im Zeitraum aktiv" />
+admin-dashboard/app/system/page.tsx:89:        <section className="bi-card bi-pad"><div className="bi-sectionHead"><div><div className="bi-kicker">Release health</div><h2>App-Versionen</h2></div></div><div className="bi-tableWrap"><table className="bi-table"><thead><tr><th>Version</th><th>Events</th><th>Nutzer</th><th>Zuletzt aktiv</th></tr></thead><tbody>{data.versions.map(v => <tr key={v.app_version}><td><strong>{v.app_version}</strong></td><td>{number(v.events)}</td><td>{number(v.users)}</td><td>{dateTime(v.last_seen)}</td></tr>)}</tbody></table></div></section>
+admin-dashboard/app/system/page.tsx:95:      <section className="bi-card bi-pad"><div className="bi-sectionHead"><div><div className="bi-kicker">Recent failures</div><h2>Neueste Fehler</h2></div><Link href="/errors">Alle Fehler →</Link></div>{data.recent_errors.length?<div className="bi-tableWrap"><table className="bi-table"><thead><tr><th>Zeit</th><th>Fehler</th><th>Screen</th><th>Version</th><th>Severity</th></tr></thead><tbody>{data.recent_errors.map(e => <tr key={e.id}><td>{dateTime(e.occurred_at)}</td><td><strong>{e.message}</strong><small>{e.error_type}</small></td><td>{e.screen_name||"—"}</td><td>{e.app_version||"—"}</td><td><span className={`bi-severity ${e.severity}`}>{e.severity}</span></td></tr>)}</tbody></table></div>:<div className="bi-emptyInline">Keine Fehler im gewählten Zeitraum. Sehr gut.</div>}</section>
+admin-dashboard/app/users/[id]/page.tsx:3:type Detail={user:{user_id:string;email:string|null;display_name:string|null;username:string|null;avatar_url:string|null;city:string|null;country:string|null;registered_at:string;last_active_at:string|null;platform:string|null;app_version:string|null};metrics:{sessions:number;screen_views:number;spot_opens:number;decisions:number;reviews:number;favorites:number};timeline:Array<{kind:string;name:string;screen_name:string|null;spot_id:string|null;spot_name:string|null;occurred_at:string;properties:Record<string,unknown>}>};
+admin-dashboard/app/users/[id]/page.tsx:4:export default function UserDetail(){const params=useParams<{id:string}>();const id=params?.id;const qs=useSearchParams();const [data,setData]=useState<Detail|null>(null);const [error,setError]=useState("");const [loading,setLoading]=useState(true);useEffect(()=>{(async()=>{if(!id)return;const to=qs?.get("to")||new Date().toISOString();const from=qs?.get("from")||new Date(Date.now()-30*86400000).toISOString();const {data,error}=await supabase.rpc("admin_user_detail_intelligence_v1",{p_user_id:id,p_from:from,p_to:to});if(error)setError(error.message);else setData(data as Detail);setLoading(false)})()},[id,qs]);return <div className="bi-page"><div className="bi-back"><Link href="/users">← Users</Link></div>{loading&&<div className="bi-state">User-Profil wird verdichtet …</div>}{error&&<div className="bi-error">{error}</div>}{data&&<><header className="bi-detailHero"><div className="bi-person hero">{data.user.avatar_url?<img src={data.user.avatar_url} alt=""/>:<i/>}<div><div className="bi-eyebrow">User intelligence</div><h1>{data.user.display_name||data.user.username||data.user.email||"Backyrd User"}</h1><p>{data.user.email||data.user.user_id} · {data.user.city||"Ort unbekannt"}</p></div></div><div className="bi-meta"><span>Registriert {dateTime(data.user.registered_at)}</span><span>Zuletzt aktiv {dateTime(data.user.last_active_at)}</span><span>{data.user.platform||"—"} · {data.user.app_version||"—"}</span></div></header><section className="bi-kpiGrid"><K l="Sessions" v={data.metrics.sessions}/><K l="Screen Views" v={data.metrics.screen_views}/><K l="Spot Opens" v={data.metrics.spot_opens}/><K l="Decisions" v={data.metrics.decisions}/><K l="Reviews" v={data.metrics.reviews}/><K l="Favoriten" v={data.metrics.favorites}/></section><section className="bi-card"><div className="bi-cardHead"><div><span className="bi-kicker">Journey</span><h3>Aktivitäts-Timeline</h3></div></div><div className="bi-timeline">{data.timeline.length===0?<div className="bi-empty">Keine Aktivität im Zeitraum.</div>:data.timeline.map((e,i)=><div className="bi-timelineItem" key={`${e.occurred_at}-${i}`}><span/><div><strong>{label(e.name)}</strong><small>{[e.screen_name,e.spot_name,dateTime(e.occurred_at)].filter(Boolean).join(" · ")}</small></div></div>)}</div></section></>}</div>}
+admin-dashboard/app/users/page.tsx:8:type UserRow = { user_id:string; email:string|null; display_name:string|null; username:string|null; avatar_url:string|null; city:string|null; registered_at:string; last_active_at:string|null; activated:boolean; sessions:number; screen_views:number; spot_opens:number; decisions:number; reviews:number; platform:string|null; app_version:string|null };
+admin-dashboard/app/decision/page.tsx:10:type Session={decision_id:string|null;started_at:string;user_id:string|null;query:string|null;input_mode:string|null;model_version:string|null;impressions:number;likes:number;dislikes:number;opens:number;remixes:number;empty_results:number};
+admin-dashboard/app/decision/page.tsx:17: return <div className="bi-page"><header className="bi-header"><div><div className="bi-eyebrow">Decision intelligence</div><h1>Decision</h1><p>Qualität, Conversion und Lernsignale deiner Recommendation Engine.</p></div><DateRangeSelector value={preset} onChange={setPreset}/></header>
+admin-dashboard/app/decision/page.tsx:22: <section className="bi-card bi-pad"><div className="bi-sectionHead"><div><div className="bi-kicker">Drilldown</div><h2>Letzte Decision Sessions</h2></div></div><div className="bi-tableWrap"><table className="bi-table"><thead><tr><th>Zeit</th><th>Query</th><th>Modell</th><th>Impressions</th><th>Likes</th><th>Opens</th><th></th></tr></thead><tbody>{data.sessions.map((x,i)=><tr key={`${x.decision_id}-${i}`}><td>{new Date(x.started_at).toLocaleString("de-CH")}</td><td>{x.query||"—"}</td><td>{x.model_version||"—"}</td><td>{number(x.impressions)}</td><td>{number(x.likes)}</td><td>{number(x.opens)}</td><td>{x.decision_id?<Link className="bi-action" href={`/decision/${x.decision_id}`}>Details →</Link>:"—"}</td></tr>)}</tbody></table></div></section>
+admin-dashboard/app/errors/page.tsx:7:export default function ErrorsPage(){const[preset,setPreset]=useState<Preset>("month"),[data,setData]=useState<any>(null),[status,setStatus]=useState("all"),[loading,setLoading]=useState(true),[error,setError]=useState("");useEffect(()=>{let dead=false;(async()=>{setLoading(true);const r=rangeFor(preset);const{data,error}=await supabase.rpc("admin_errors_intelligence_v1",{p_from:r.from,p_to:r.to,p_limit:300});if(dead)return;if(error)setError(error.message);else{setError("");setData(data)}setLoading(false)})();return()=>{dead=true}},[preset]);const rows=useMemo(()=>status==="all"?(data?.groups||[]):(data?.groups||[]).filter((x:any)=>x.status===status),[data,status]);return <div className="bi-page"><header className="bi-header"><div><div className="bi-eyebrow">Product health</div><h1>Errors</h1><p>Fehlergruppen, betroffene Nutzer und Release-Qualität.</p></div><DateRangeSelector value={preset} onChange={setPreset}/></header>{error&&<div className="bi-error">{error}</div>}{loading&&<div className="bi-state">Fehler werden gruppiert …</div>}{data&&<><section className="bi-kpiGrid"><K l="Occurrences" v={data.summary.occurrences}/><K l="Fehlergruppen" v={data.summary.groups}/><K l="Betroffene Nutzer" v={data.summary.affected_users}/><K l="Fatal" v={data.summary.fatal}/></section><section className="bi-card"><div className="bi-tableToolbar"><select className="bi-select" value={status} onChange={e=>setStatus(e.target.value)}><option value="all">Alle Status</option><option value="open">Offen</option><option value="watching">Beobachten</option><option value="resolved">Gelöst</option></select><span>{rows.length} Gruppen</span></div><div className="bi-tableWrap"><table className="bi-table"><thead><tr><th>Fehler</th><th>Status</th><th>Severity</th><th>Occurrences</th><th>Users</th><th>Screen</th><th>Version</th><th>Zuletzt</th><th></th></tr></thead><tbody>{rows.map((x:any)=><tr key={x.fingerprint}><td><strong>{x.message}</strong><small>{x.error_type}</small></td><td><span className={`bi-badge ${x.status==="resolved"?"success":x.status==="watching"?"warning":"danger"}`}>{x.status}</span></td><td>{x.severity}</td><td>{number(x.occurrences)}</td><td>{number(x.users)}</td><td>{x.screen_name||"—"}</td><td>{x.app_version||"—"}</td><td>{dateTime(x.last_seen_at)}</td><td><Link className="bi-action" href={`/errors/${encodeURIComponent(x.fingerprint)}`}>Details →</Link></td></tr>)}</tbody></table></div></section></>}</div>}
+admin-dashboard/app/errors/[fingerprint]/page.tsx:6:export default function ErrorDetail({params}:{params:Promise<{fingerprint:string}>}){const{fingerprint}=React.use(params);const fp=decodeURIComponent(fingerprint);const[data,setData]=useState<any>(null),[status,setStatus]=useState("open"),[note,setNote]=useState(""),[saving,setSaving]=useState(false),[error,setError]=useState("");async function load(){const r=await supabase.rpc("admin_error_detail_v1",{p_fingerprint:fp});if(r.error)setError(r.error.message);else{setData(r.data);setStatus(r.data.group?.status||"open");setNote(r.data.group?.internal_note||"")}}useEffect(()=>{load()},[fp]);async function save(){setSaving(true);const{error}=await supabase.rpc("admin_update_error_group_v1",{p_fingerprint:fp,p_status:status,p_internal_note:note||null});setSaving(false);if(error)setError(error.message);else load()}const first=data?.occurrences?.[0];return <div className="bi-page"><Link className="bi-back" href="/errors">← Zurück zu Errors</Link>{error&&<div className="bi-error">{error}</div>}{!data&&!error&&<div className="bi-state">Fehlerdetails werden geladen …</div>}{data&&<><div className="bi-detailHero"><div><div className="bi-eyebrow">Error group</div><h1>{first?.message||"Unbekannter Fehler"}</h1><p>{fp}</p></div><div className="bi-detailActions"><select className="bi-select" value={status} onChange={e=>setStatus(e.target.value)}><option value="open">Offen</option><option value="watching">Beobachten</option><option value="resolved">Gelöst</option></select><button className="bi-button" onClick={save} disabled={saving}>{saving?"Speichert …":"Status speichern"}</button></div></div><div className="bi-grid2"><section className="bi-card bi-pad"><div className="bi-kicker">Occurrence</div><h2>Letzter Stacktrace</h2><pre className="bi-code">{first?.stack||"Kein Stacktrace gespeichert."}</pre></section><section className="bi-card bi-pad"><div className="bi-kicker">Triage</div><h2>Interne Notiz</h2><textarea className="bi-textarea" value={note} onChange={e=>setNote(e.target.value)} placeholder="Analyse, Ursache oder Fix dokumentieren …"/><button className="bi-button" onClick={save} disabled={saving}>Notiz speichern</button></section></div><section className="bi-card bi-pad"><div className="bi-kicker">Timeline</div><h2>Vorkommnisse</h2><div className="bi-tableWrap"><table className="bi-table"><thead><tr><th>Zeit</th><th>Screen</th><th>Platform</th><th>Version</th><th>User</th><th>Handled</th></tr></thead><tbody>{data.occurrences.map((x:any)=><tr key={x.id}><td>{dateTime(x.occurred_at)}</td><td>{x.screen_name||"—"}</td><td>{x.platform||"—"}</td><td>{x.app_version||"—"}</td><td>{x.user_id||"anonym"}</td><td>{x.handled?"Ja":"Nein"}</td></tr>)}</tbody></table></div></section></>}</div>}
+admin-dashboard/app/spots/page.tsx:4:export default function Spots(){const[preset,setPreset]=useState<Preset>("month");const[data,setData]=useState<Res|null>(null);const[loading,setLoading]=useState(true);const[error,setError]=useState("");const[search,setSearch]=useState("");const[status,setStatus]=useState("all");useEffect(()=>{(async()=>{setLoading(true);const r=rangeFor(preset);const{data,error}=await supabase.rpc("admin_spots_intelligence_v1",{p_from:r.from,p_to:r.to,p_limit:1000,p_offset:0,p_search:null});if(error){setError(error.message);setData(null)}else{setError("");setData(data as Res)}setLoading(false)})()},[preset]);const rows=useMemo(()=>{const q=search.toLowerCase().trim();return(data?.spots??[]).filter(s=>(status==="all"||s.status===status)&&(!q||`${s.name} ${s.city||""}`.toLowerCase().includes(q)))},[data,search,status]);return <div className="bi-page"><header className="bi-header"><div><div className="bi-eyebrow">Place intelligence</div><h1>Spots</h1><p>Reichweite, Conversion und Business-Intent pro Location.</p></div><DateRangeSelector value={preset} onChange={setPreset}/></header>{error&&<div className="bi-error">{error}</div>}{loading&&<div className="bi-state">Spot Performance wird berechnet …</div>}{data&&<><section className="bi-kpiGrid"><K l="Spots" v={data.summary.spots}/><K l="Mit Aufrufen" v={data.summary.viewed}/><K l="Partner-Spots" v={data.summary.partner_spots}/><K l="Spot Views" v={data.summary.views}/></section><section className="bi-card"><div className="bi-tableToolbar"><input className="bi-input" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Spot oder Stadt suchen …"/><select className="bi-select" value={status} onChange={e=>setStatus(e.target.value)}><option value="all">Alle Status</option><option value="approved">Approved</option><option value="pending">Pending</option><option value="hidden">Hidden</option><option value="rejected">Rejected</option></select><Link href="/spots/new" className="bi-primaryButton">+ Neuer Spot</Link></div><div className="bi-tableWrap"><table className="bi-table"><thead><tr><th>Spot</th><th>Status</th><th>Views</th><th>Users</th><th>Decision CTR</th><th>Reviews</th><th>Intent</th><th></th></tr></thead><tbody>{rows.map(s=><tr key={s.spot_id}><td><strong>{s.name}</strong><small>{s.city||"—"}{s.partner?" · Partner":""}</small></td><td><span className={`bi-badge ${s.status==="approved"?"success":"muted"}`}>{s.status||"—"}</span></td><td>{number(s.views)}</td><td>{number(s.users)}</td><td>{number(s.ctr,1)}%</td><td>{number(s.reviews)}</td><td>{number(s.route_clicks+s.website_clicks+s.phone_clicks)}</td><td><Link className="bi-action" href={`/spots/${s.spot_id}?from=${encodeURIComponent(rangeFor(preset).from)}&to=${encodeURIComponent(rangeFor(preset).to)}`}>Details →</Link></td></tr>)}</tbody></table></div></section></>}</div>}
+admin-dashboard/components/AdminGuard.tsx:7:type GuardState = "checking" | "ok" | "blocked";
+admin-dashboard/components/AdminGuard.tsx:29:        setState("blocked");
+admin-dashboard/components/AdminGuard.tsx:40:        setState("blocked");
+admin-dashboard/components/AdminGuard.tsx:60:  if (state === "blocked") {
+mobile/app/(tabs)/decision.tsx:114:  version?: string;
+mobile/app/(tabs)/decision.tsx:1386:          model_version: data.version ?? null,
+mobile/app/(tabs)/profile.tsx:541:        <Pressable style={styles.historyButton} onPress={() => router.push("/profile/history" as any)}>
+mobile/app/(tabs)/profile.tsx:542:          <View style={styles.historyLeft}>
+mobile/app/(tabs)/profile.tsx:544:            <Text style={styles.historyText}>Decision History</Text>
+mobile/app/(tabs)/profile.tsx:983:  historyButton: {
+mobile/app/(tabs)/profile.tsx:995:  historyLeft: {
+mobile/app/(tabs)/profile.tsx:1000:  historyText: {
+mobile/app/review/smart.tsx:292:        model_version: modelVersion || null,
+mobile/app/review/new.tsx:223:        model_version: modelVersion || null,
+mobile/app/review/quick.tsx:197:            model_version: modelVersion || null,
+mobile/app/spot/[id]/claim.tsx:39:function normalizeEmail(value: string) {
+mobile/app/spot/[id]/claim.tsx:43:function isValidEmail(value: string) {
+mobile/app/spot/[id]/claim.tsx:191:      const email = normalizeEmail(businessEmail);
+mobile/app/spot/[id]/claim.tsx:193:      if (!isValidEmail(email)) {
+mobile/app/spot/[id]/claim.tsx:270:        p_business_email: normalizeEmail(businessEmail),
+mobile/supabase/functions/cluster-mood/index.ts:115:        return new Response(JSON.stringify({ ok: false, error: rpcErr, version: VERSION }), { status: 500 });
+mobile/supabase/functions/cluster-mood/index.ts:120:        JSON.stringify({ ok: true, token_id: tokenId, cluster_name: ruled.cluster, confidence: ruled.confidence, source: "rule", version: VERSION }),
+mobile/supabase/functions/cluster-mood/index.ts:175:      return new Response(JSON.stringify({ ok: false, error: errText, version: VERSION }), { status: 500 });
+mobile/supabase/functions/cluster-mood/index.ts:200:      return new Response(JSON.stringify({ ok: false, error: rpcErr, version: VERSION }), { status: 500 });
+mobile/supabase/functions/cluster-mood/index.ts:206:      JSON.stringify({ ok: true, token_id: tokenId, cluster_name: clusterName, confidence, source: "ai", version: VERSION }),
+mobile/supabase/functions/cluster-mood/index.ts:210:    return new Response(JSON.stringify({ ok: false, error: String(e), version: VERSION }), { status: 500 });
+mobile/app.config.ts:14:    version: "1.0.0",
+mobile/lib/analytics.ts:38:  return Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "unknown";
+mobile/lib/analytics.ts:125:      p_app_version: appVersion(),
+mobile/lib/analytics.ts:128:      p_os_version: String(Device.osVersion ?? Platform.Version ?? ""),
+mobile/lib/analytics.ts:175:        p_app_version: appVersion(),
+mobile/lib/analytics.ts:252:      p_app_version: appVersion(),
+mobile/lib/analytics.ts:282:      p_app_version: appVersion(),
+mobile/lib/reviewSubmit.ts:113:        model_version: decisionContext.modelVersion || null,
+supabase/migrations/20260411100113_spot_submission.sql:34:  add column if not exists moderation_note text;
+supabase/migrations/20260411100113_spot_submission.sql:340:  p_moderation_note text default null
+supabase/migrations/20260411100113_spot_submission.sql:385:      moderation_note = nullif(trim(p_moderation_note), ''),
+supabase/migrations/20260411100113_spot_submission.sql:398:      moderation_note = nullif(trim(p_moderation_note), ''),
+supabase/migrations/20260411100113_spot_submission.sql:415:      'moderation_note', v_spot.moderation_note,
+supabase/migrations/20260411100113_spot_submission.sql:467:    'moderation_note', s.moderation_note,
+supabase/migrations/20260411100113_spot_submission.sql:612:            'moderation_note', p.moderation_note,
+supabase/migrations/20260411100113_spot_submission.sql:728:            'moderation_note', p.moderation_note,
+supabase/migrations/20260716_backyrd_public_web_v1.sql:2:-- Corrected version: review images use reviews.photo_path.
+supabase/migrations/20260411100119_admin_moderation_completion.sql:1:-- 20260411100119_admin_moderation_completion.sql
+supabase/migrations/20260411100119_admin_moderation_completion.sql:15:  add column if not exists moderation_status text not null default 'visible';
+supabase/migrations/20260411100119_admin_moderation_completion.sql:24:  add column if not exists moderation_note text;
+supabase/migrations/20260411100119_admin_moderation_completion.sql:31:    where conname = 'reviews_moderation_status_check'
+supabase/migrations/20260411100119_admin_moderation_completion.sql:34:      add constraint reviews_moderation_status_check
+supabase/migrations/20260411100119_admin_moderation_completion.sql:36:        moderation_status in ('visible', 'hidden', 'flagged')
+supabase/migrations/20260411100119_admin_moderation_completion.sql:42:create index if not exists idx_reviews_moderation_status
+supabase/migrations/20260411100119_admin_moderation_completion.sql:43:  on public.reviews(moderation_status);
+supabase/migrations/20260411100119_admin_moderation_completion.sql:91:        and rx.moderation_status = 'visible'
+supabase/migrations/20260411100119_admin_moderation_completion.sql:129:        'moderation_status', r.moderation_status,
+supabase/migrations/20260411100119_admin_moderation_completion.sql:160:    and r.moderation_status = 'visible';
+supabase/migrations/20260411100119_admin_moderation_completion.sql:220:    raise exception 'Invalid moderation status';
+supabase/migrations/20260411100119_admin_moderation_completion.sql:225:    moderation_status = v_status,
+supabase/migrations/20260411100119_admin_moderation_completion.sql:228:    moderation_note = nullif(trim(p_note), ''),
+supabase/migrations/20260411100119_admin_moderation_completion.sql:245:      'moderation_status', v_review.moderation_status,
+supabase/migrations/20260411100119_admin_moderation_completion.sql:248:      'moderation_note', v_review.moderation_note,
+supabase/migrations/20260411100119_admin_moderation_completion.sql:259:create or replace function public.get_review_moderation_queue_v1(
+supabase/migrations/20260411100119_admin_moderation_completion.sql:309:      or r.moderation_status = v_status
+supabase/migrations/20260411100119_admin_moderation_completion.sql:321:        when moderation_status = 'flagged' then 0
+supabase/migrations/20260411100119_admin_moderation_completion.sql:322:        when moderation_status = 'hidden' then 1
+supabase/migrations/20260411100119_admin_moderation_completion.sql:342:            'moderation_status', p.moderation_status,
+supabase/migrations/20260411100119_admin_moderation_completion.sql:345:            'moderation_note', p.moderation_note,
+supabase/migrations/20260411100119_admin_moderation_completion.sql:382:              when p.moderation_status = 'flagged' then 0
+supabase/migrations/20260411100119_admin_moderation_completion.sql:383:              when p.moderation_status = 'hidden' then 1
+supabase/migrations/20260411100119_admin_moderation_completion.sql:458:          and r.moderation_status = 'visible'
+supabase/migrations/20260411100119_admin_moderation_completion.sql:508:            'moderation_note', p.moderation_note,
+supabase/migrations/20260411100119_admin_moderation_completion.sql:601:          and r.moderation_status = 'visible'
+supabase/migrations/20260411100119_admin_moderation_completion.sql:751:        where r.moderation_status = 'visible'
+supabase/migrations/20260411100119_admin_moderation_completion.sql:756:        where r.moderation_status = 'hidden'
+supabase/migrations/20260411100119_admin_moderation_completion.sql:761:        where r.moderation_status = 'flagged'
+supabase/migrations/20260411100119_admin_moderation_completion.sql:788:set moderation_status = 'visible'
+supabase/migrations/20260411100119_admin_moderation_completion.sql:789:where moderation_status is null;
+supabase/migrations/20260515174832_add_spot_intelligence_v1.sql:121:-- Direct writes are blocked. Writes should happen via RPC.
+supabase/migrations/20260411100120_social_feed_and_following_signals.sql:23:where r.moderation_status = 'visible';
+supabase/migrations/20260411100120_social_feed_and_following_signals.sql:143:        and r.moderation_status = 'visible'
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:505:  p_moderation_note text default null
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:550:      moderation_note = nullif(trim(p_moderation_note), ''),
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:576:      moderation_note = nullif(trim(p_moderation_note), ''),
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:606:      'moderation_note', v_spot.moderation_note,
+supabase/functions/generate-spot-embeddings/index.ts:12:  document_version: string;
+supabase/functions/generate-spot-embeddings/index.ts:219:      document_version: row.document_version,
+supabase/functions/generate-spot-embeddings/index.ts:330:          document_version: row.document_version,
+supabase/functions/decision-v13/index.ts:115:    version: string;
+supabase/functions/decision-v13/index.ts:1855:        version: MODEL_VERSION,
+supabase/functions/decision-v13/index.ts:1930:          version: MODEL_VERSION,
+supabase/functions/decision-v13/index.ts:2146:      model_version: MODEL_VERSION,
+supabase/functions/decision-v13/index.ts:2283:      version: MODEL_VERSION,
+supabase/functions/send-spot-claim-code/index.ts:85:function normalizeEmail(email: string): string {
+supabase/functions/send-spot-claim-code/index.ts:100:  const email = normalizeEmail(value);
+
+### MOBILE OWNER MANAGE
+
+-------------------- mobile/app/spot/[id]/manage.tsx --------------------
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+  ScrollView,
+  Alert,
+} from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { supabase } from "@/lib/supabase";
+import { trackEvent } from "@/lib/events";
+
+type Category = { id: string; name: string };
+
+type OwnerContext = {
+  spot_id: string;
+  spot_name: string;
+  city: string | null;
+  address: string | null;
+  website: string | null;
+  phone: string | null;
+  email: string | null;
+  price_level: number | null;
+  category_id: string | null;
+  category_name: string | null;
+
+  is_verified_owner: boolean;
+
+  description_source: string | null;
+  effective_description: string | null;
+  effective_keywords: string[] | null;
+};
+
+export default function SpotManageScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ id?: string }>();
+
+  // IMPORTANT: avoid String(undefined) -> "undefined"
+  const spotId = useMemo(() => {
+    const raw = params?.id;
+    return typeof raw === "string" && raw.length > 0 ? raw : null;
+  }, [params?.id]);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const [ctx, setCtx] = useState<OwnerContext | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  // editable fields
+  const [desc, setDesc] = useState("");
+  const [keywordsRaw, setKeywordsRaw] = useState(""); // comma separated
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [website, setWebsite] = useState("");
+  const [priceLevel, setPriceLevel] = useState<string>(""); // "1".."4"
+  const [categoryId, setCategoryId] = useState<string>("");
+
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      try {
+        setLoading(true);
+
+        if (!spotId) {
+          Alert.alert("Fehler", "Spot-ID fehlt.");
+          router.back();
+          return;
+        }
+
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userId = sessionData.session?.user?.id;
+
+        if (!userId) {
+          router.replace("/auth/login");
+          return;
+        }
+
+        const [{ data: ctxData, error: ctxErr }, { data: catData, error: catErr }] =
+          await Promise.all([
+            supabase.rpc("get_spot_owner_context_v1", { p_spot_id: spotId }),
+            supabase.from("categories").select("id,name").order("name"),
+          ]);
+
+        if (ctxErr) throw ctxErr;
+        if (catErr) throw catErr;
+
+        const row = Array.isArray(ctxData) ? ctxData[0] : ctxData;
+        if (!row) throw new Error("Spot not found");
+
+        const normalized: OwnerContext = {
+          spot_id: String(row.spot_id),
+          spot_name: String(row.spot_name),
+          city: row.city ? String(row.city) : null,
+          address: row.address ? String(row.address) : null,
+          website: row.website ? String(row.website) : null,
+          phone: row.phone ? String(row.phone) : null,
+          email: row.email ? String(row.email) : null,
+          price_level: row.price_level ?? null,
+          category_id: row.category_id ? String(row.category_id) : null,
+          category_name: row.category_name ? String(row.category_name) : null,
+          is_verified_owner: row.is_verified_owner === true,
+          description_source: row.description_source ? String(row.description_source) : null,
+          effective_description: row.effective_description ? String(row.effective_description) : null,
+          effective_keywords: Array.isArray(row.effective_keywords)
+            ? row.effective_keywords.map(String)
+            : null,
+        };
+
+        if (!normalized.is_verified_owner) {
+          Alert.alert("Kein Zugriff", "Du bist nicht als Owner verifiziert.");
+          router.back();
+          return;
+        }
+
+        if (!alive) return;
+
+        setCtx(normalized);
+        setCategories(
+          (catData ?? []).map((c: any) => ({ id: String(c.id), name: String(c.name) }))
+        );
+
+        setDesc(normalized.effective_description ?? "");
+        setKeywordsRaw((normalized.effective_keywords ?? []).join(", "));
+        setEmail(normalized.email ?? "");
+        setPhone(normalized.phone ?? "");
+        setWebsite(normalized.website ?? "");
+        setPriceLevel(normalized.price_level ? String(normalized.price_level) : "");
+        setCategoryId(normalized.category_id ?? "");
+
+        await trackEvent({
+          userId,
+          eventType: "spot_manage_opened",
+          entityType: "spot",
+          entityId: normalized.spot_id,
+          meta: { city: normalized.city ?? null },
+        });
+      } catch (e: any) {
+        console.log("manage load error", e);
+        Alert.alert("Fehler", e?.message ?? "Unbekannter Fehler");
+        router.back();
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [spotId, router]);
+
+  const keywords = useMemo(() => {
+    return keywordsRaw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 20);
+  }, [keywordsRaw]);
+
+  async function saveAll() {
+    if (!ctx) return;
+
+    try {
+      setSaving(true);
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData.session?.user?.id;
+      if (!userId) throw new Error("not_authenticated");
+
+      const { error: dErr } = await supabase.rpc("upsert_owner_description_v1", {
+        p_spot_id: ctx.spot_id,
+        p_description: desc,
+        p_keywords: keywords,
+      });
+      if (dErr) throw dErr;
+
+      const parsedPrice = priceLevel ? Number(priceLevel) : null;
+      const validPrice = parsedPrice && Number.isFinite(parsedPrice) ? parsedPrice : null;
+
+      const { error: sErr } = await supabase.rpc("upsert_spot_owner_fields_v1", {
+        p_spot_id: ctx.spot_id,
+        p_category_id: categoryId || null,
+        p_price_level: validPrice,
+        p_email: email || null,
+        p_phone: phone || null,
+        p_website: website || null,
+        p_header_photo_path: null,
+      });
+      if (sErr) throw sErr;
+
+      await trackEvent({
+        userId,
+        eventType: "spot_manage_saved",
+        entityType: "spot",
+        entityId: ctx.spot_id,
+        meta: {
+          category_id: categoryId || null,
+          price_level: validPrice,
+          has_desc: desc.trim().length > 0,
+          keyword_count: keywords.length,
+        },
+      });
+
+      Alert.alert("Gespeichert", "Deine Änderungen wurden übernommen.");
+      router.back();
+    } catch (e: any) {
+      console.log("save error", e);
+      Alert.alert("Fehler", e?.message ?? "Speichern fehlgeschlagen");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ✅ Render Branches: INSIDE component, after hooks
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0B0B0C" }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+
+  if (!ctx) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0B0B0C", padding: 20 }}>
+        <Text style={{ color: "white", opacity: 0.8, textAlign: "center" }}>
+          Spot konnte nicht geladen werden.
+        </Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 14 }}>
+          <Text style={{ color: "white", textDecorationLine: "underline" }}>Zurück</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      style={{ flex: 1, backgroundColor: "#0B0B0C" }}
+      contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+    >
+      <Text style={{ color: "white", fontSize: 26, marginBottom: 6 }}>Spot verwalten</Text>
+      <Text style={{ color: "rgba(255,255,255,0.7)", marginBottom: 18 }}>{ctx.spot_name}</Text>
+
+      <Text style={{ color: "rgba(255,255,255,0.85)", marginBottom: 6 }}>Beschreibung</Text>
+      <TextInput
+        value={desc}
+        onChangeText={setDesc}
+        multiline
+        placeholder="Beschreibe deinen Ort in 2–4 Sätzen (ehrlich, hilfreich, mit Keywords)…"
+        placeholderTextColor="rgba(255,255,255,0.4)"
+        style={{
+          minHeight: 110,
+          borderRadius: 12,
+          padding: 12,
+          backgroundColor: "rgba(255,255,255,0.10)",
+          color: "white",
+          marginBottom: 12,
+
+[gekürzt: 356 Zeilen insgesamt]
+
+### MOBILE CLAIM
+
+-------------------- mobile/app/spot/[id]/claim.tsx --------------------
+// mobile/app/spot/[id]/claim.tsx
+
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+} from "react-native";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { supabase } from "@/lib/supabase";
+
+const FUNCTION_URL =
+  "https://hjgcrrzfjchzqoegcywn.supabase.co/functions/v1/send-spot-claim-code";
+
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "";
+
+type OwnerContext = {
+  spot_id: string;
+  spot_name: string;
+  city: string | null;
+  address: string | null;
+  website: string | null;
+  phone: string | null;
+  email: string | null;
+  claim_status: string | null;
+  is_verified_owner: boolean;
+};
+
+type Step = "email" | "code" | "done";
+
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function errorMessage(err: any) {
+  const raw =
+    err?.message ||
+    err?.error_description ||
+    err?.details ||
+    err?.hint ||
+    String(err ?? "");
+
+  if (raw.includes("business_domain_does_not_match_spot_name")) {
+    return "Diese E-Mail-Domain passt nicht eindeutig zum Namen des Spots. Verwende bitte eine offizielle Unternehmens-Mailadresse.";
+  }
+
+  if (raw.includes("public_email_domain_not_allowed")) {
+    return "Private Maildomains wie Gmail, Yahoo oder iCloud sind für Betreiber-Claims nicht erlaubt.";
+  }
+
+  if (raw.includes("invalid_code")) {
+    return "Der Code stimmt nicht. Bitte prüfe die Mail und versuche es erneut.";
+  }
+
+  if (raw.includes("verification_expired")) {
+    return "Der Code ist abgelaufen. Bitte fordere einen neuen Code an.";
+  }
+
+  if (raw.includes("too_many_attempts")) {
+    return "Zu viele Fehlversuche. Bitte fordere einen neuen Code an.";
+  }
+
+  if (raw.includes("verification_not_found")) {
+    return "Für diese E-Mail wurde kein aktiver Code gefunden. Bitte fordere zuerst einen neuen Code an.";
+  }
+
+  if (raw.includes("not_authenticated")) {
+    return "Bitte melde dich erneut an.";
+  }
+
+  return raw || "Etwas ist schiefgelaufen.";
+}
+
+export default function SpotClaimScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ id?: string }>();
+
+  const spotId = useMemo(() => {
+    const raw = params?.id;
+    return typeof raw === "string" && raw.length > 0 ? raw : null;
+  }, [params?.id]);
+
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+
+  const [ctx, setCtx] = useState<OwnerContext | null>(null);
+  const [step, setStep] = useState<Step>("email");
+
+  const [businessEmail, setBusinessEmail] = useState("");
+  const [claimantName, setClaimantName] = useState("");
+  const [claimantRole, setClaimantRole] = useState("");
+  const [note, setNote] = useState("");
+  const [code, setCode] = useState("");
+
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function load() {
+      try {
+        setLoading(true);
+
+        if (!spotId) {
+          Alert.alert("Fehler", "Spot-ID fehlt.");
+          router.back();
+          return;
+        }
+
+        const { data: sessionData } = await supabase.auth.getSession();
+        const session = sessionData.session;
+
+        if (!session?.user) {
+          router.replace("/auth/login");
+          return;
+        }
+
+        const { data, error } = await supabase.rpc("get_spot_owner_context_v1", {
+          p_spot_id: spotId,
+        });
+
+        if (error) throw error;
+
+        const row = Array.isArray(data) ? data[0] : data;
+        if (!row) throw new Error("Spot nicht gefunden.");
+
+        const normalized: OwnerContext = {
+          spot_id: String(row.spot_id),
+          spot_name: String(row.spot_name),
+          city: row.city ? String(row.city) : null,
+          address: row.address ? String(row.address) : null,
+          website: row.website ? String(row.website) : null,
+          phone: row.phone ? String(row.phone) : null,
+          email: row.email ? String(row.email) : null,
+          claim_status: row.claim_status ? String(row.claim_status) : null,
+          is_verified_owner: row.is_verified_owner === true,
+        };
+
+        if (!alive) return;
+
+        setCtx(normalized);
+
+        if (normalized.is_verified_owner || normalized.claim_status === "approved") {
+          setStep("done");
+          return;
+        }
+
+        if (normalized.claim_status === "pending") {
+          setStep("done");
+          return;
+        }
+
+        const fullName =
+          session.user.user_metadata?.first_name ||
+          session.user.user_metadata?.name ||
+          "";
+
+        setClaimantName(String(fullName || ""));
+      } catch (e: any) {
+        Alert.alert("Fehler", errorMessage(e));
+        router.back();
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+
+    load();
+
+    return () => {
+      alive = false;
+    };
+  }, [spotId, router]);
+
+  async function sendCode() {
+    try {
+      if (!spotId || !ctx) return;
+
+      const email = normalizeEmail(businessEmail);
+
+      if (!isValidEmail(email)) {
+        Alert.alert("E-Mail prüfen", "Bitte gib eine gültige Unternehmens-Mailadresse ein.");
+        return;
+      }
+
+      if (!claimantName.trim()) {
+        Alert.alert("Name fehlt", "Bitte gib deinen Namen ein.");
+        return;
+      }
+
+      if (!claimantRole.trim()) {
+        Alert.alert("Rolle fehlt", "Bitte gib deine Rolle im Betrieb ein.");
+        return;
+      }
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+
+      if (!token) {
+        router.replace("/auth/login");
+        return;
+      }
+
+      setSending(true);
+
+      const response = await fetch(FUNCTION_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          apikey: SUPABASE_ANON_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          spotId,
+          businessEmail: email,
+          claimantName: claimantName.trim(),
+          claimantRole: claimantRole.trim(),
+          note: note.trim() || null,
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok || payload?.ok === false) {
+        throw new Error(payload?.message || payload?.error || "Code konnte nicht gesendet werden.");
+      }
+
+      setBusinessEmail(email);
+      setExpiresAt(payload?.expiresAt ?? null);
+      setStep("code");
+
+      Alert.alert(
+        "Code gesendet",
+        `Wir haben einen 6-stelligen Code an ${email} gesendet.`
+      );
+    } catch (e: any) {
+      Alert.alert("Claim nicht möglich", errorMessage(e));
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function verifyCode() {
+    try {
+      if (!spotId) return;
+
+      const cleanedCode = code.trim();
+
+
+[gekürzt: 658 Zeilen insgesamt]
+
+### WEB OWNER-EDITOR-KANDIDATEN
+
+### RELEVANTE SQL-DATEIEN
+
+-------------------- supabase/migrations/20260411100119_admin_moderation_completion.sql --------------------
+-- 20260411100119_admin_moderation_completion.sql
+-- Admin Moderation Completion für Backyrd
+--
+-- Ziel:
+-- - Reviews moderierbar machen
+-- - zentrale Admin Queues erweitern
+-- - Dashboard Summary für Admin bereitstellen
+-- - Moderation serverseitig vereinheitlichen
+
+-- ----------------------------------------
+-- 1) Review Moderation Felder
+-- ----------------------------------------
+
+alter table public.reviews
+  add column if not exists moderation_status text not null default 'visible';
+
+alter table public.reviews
+  add column if not exists moderated_at timestamptz;
+
+alter table public.reviews
+  add column if not exists moderated_by uuid references public.profiles(id) on delete set null;
+
+alter table public.reviews
+  add column if not exists moderation_note text;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'reviews_moderation_status_check'
+  ) then
+    alter table public.reviews
+      add constraint reviews_moderation_status_check
+      check (
+        moderation_status in ('visible', 'hidden', 'flagged')
+      );
+  end if;
+end
+$$;
+
+create index if not exists idx_reviews_moderation_status
+  on public.reviews(moderation_status);
+
+create index if not exists idx_reviews_moderated_at
+  on public.reviews(moderated_at desc);
+
+create index if not exists idx_reviews_moderated_by
+  on public.reviews(moderated_by);
+
+-- ----------------------------------------
+-- 2) Spot Detail RPC erweitern:
+-- nur sichtbare Reviews öffentlich ausliefern
+-- ----------------------------------------
+-- ersetzt bestehende Funktion aus rpc_core.sql
+
+create or replace function public.get_spot_detail_v1(p_spot_id uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  spot_json jsonb;
+  photos_json jsonb;
+  reviews_json jsonb;
+  moods_json jsonb;
+begin
+  select jsonb_build_object(
+    'id', s.id,
+    'name', s.name,
+    'slug', s.slug,
+    'address', s.address,
+    'city', s.city,
+    'country', s.country,
+    'lat', s.lat,
+    'lng', s.lng,
+    'description', s.description,
+    'website', s.website,
+    'phone', s.phone,
+    'email', s.email,
+    'price_level', s.price_level,
+    'header_photo_path', s.header_photo_path,
+    'status', s.status,
+    'owner_id', s.owner_id,
+    'created_by', s.created_by,
+    'review_count', (
+      select count(*)::integer
+      from public.reviews rx
+      where rx.spot_id = s.id
+        and rx.moderation_status = 'visible'
+    ),
+    'category', jsonb_build_object(
+      'id', c.id,
+      'name', c.name,
+      'slug', c.slug,
+      'icon', c.icon,
+      'color', c.color
+    )
+  )
+  into spot_json
+  from public.spots s
+  left join public.categories c on c.id = s.category_id
+  where s.id = p_spot_id
+  limit 1;
+
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', sp.id,
+        'url', sp.url,
+        'created_at', sp.created_at
+      )
+      order by sp.created_at desc
+    ),
+    '[]'::jsonb
+  )
+  into photos_json
+  from public.spot_photos sp
+  where sp.spot_id = p_spot_id;
+
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'id', r.id,
+        'text', r.text,
+        'mood_a', r.mood_a,
+        'mood_b', r.mood_b,
+        'moderation_status', r.moderation_status,
+        'created_at', r.created_at,
+        'user', jsonb_build_object(
+          'id', p.id,
+          'first_name', p.first_name,
+          'avatar_url', p.avatar_url
+        ),
+        'photos', (
+          select coalesce(
+            jsonb_agg(
+              jsonb_build_object(
+                'id', rp.id,
+                'url', rp.url,
+                'created_at', rp.created_at
+              )
+              order by rp.created_at asc
+            ),
+            '[]'::jsonb
+          )
+          from public.review_photos rp
+          where rp.review_id = r.id
+        )
+      )
+      order by r.created_at desc
+    ),
+    '[]'::jsonb
+  )
+  into reviews_json
+  from public.reviews r
+  left join public.profiles p on p.id = r.user_id
+  where r.spot_id = p_spot_id
+    and r.moderation_status = 'visible';
+
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'mood_id', sm.mood_id,
+        'token', mt.token,
+        'mood_count', sm.mood_count,
+        'rank', sm.rank
+      )
+      order by sm.rank asc nulls last, sm.mood_count desc
+    ),
+    '[]'::jsonb
+  )
+  into moods_json
+  from public.spot_moods sm
+  join public.mood_tokens mt on mt.id = sm.mood_id
+  where sm.spot_id = p_spot_id;
+
+  return jsonb_build_object(
+    'spot', coalesce(spot_json, '{}'::jsonb),
+    'photos', coalesce(photos_json, '[]'::jsonb),
+    'reviews', coalesce(reviews_json, '[]'::jsonb),
+    'top_moods', coalesce(moods_json, '[]'::jsonb)
+  );
+end;
+$$;
+
+-- ----------------------------------------
+-- 3) Review moderieren
+-- ----------------------------------------
+-- visible / hidden / flagged
+
+create or replace function public.moderate_review_v1(
+  p_review_id uuid,
+  p_status text,
+  p_note text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid;
+  v_status text;
+  v_review public.reviews%rowtype;
+begin
+  v_user_id := auth.uid();
+  v_status := lower(trim(p_status));
+
+  if v_user_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  if public.is_admin_v1(v_user_id) is not true then
+    raise exception 'Admin access required';
+  end if;
+
+  if v_status not in ('visible', 'hidden', 'flagged') then
+    raise exception 'Invalid moderation status';
+  end if;
+
+  update public.reviews
+  set
+    moderation_status = v_status,
+    moderated_at = now(),
+    moderated_by = v_user_id,
+    moderation_note = nullif(trim(p_note), ''),
+    updated_at = now()
+  where id = p_review_id
+  returning *
+  into v_review;
+
+  if v_review.id is null then
+    raise exception 'Review not found';
+  end if;
+
+  perform public.refresh_spot_moods_v1(v_review.spot_id);
+
+  return jsonb_build_object(
+    'review', jsonb_build_object(
+      'id', v_review.id,
+      'spot_id', v_review.spot_id,
+      'user_id', v_review.user_id,
+      'moderation_status', v_review.moderation_status,
+      'moderated_at', v_review.moderated_at,
+      'moderated_by', v_review.moderated_by,
+      'moderation_note', v_review.moderation_note,
+      'updated_at', v_review.updated_at
+    )
+  );
+end;
+$$;
+
+-- ----------------------------------------
+-- 4) Review Queue für Admin
+-- ----------------------------------------
+
+create or replace function public.get_review_moderation_queue_v1(
+  p_status text default null,
+
+[gekürzt: 788 Zeilen insgesamt]
+
+-------------------- supabase/migrations/20260411100112_spot_claims.sql --------------------
+-- 20260411100112_spot_claims.sql
+-- Owner / Claim Workflow für Backyrd
+--
+-- Ziel:
+-- - Spots sauber claimbar machen
+-- - Claim-Prozess serverseitig und datenbankseitig abbilden
+-- - owner_id auf spots nicht direkt "irgendwie" setzen,
+--   sondern über einen nachvollziehbaren Workflow
+-- - Grundlage für Admin / Owner Dashboard schaffen
+
+-- ----------------------------------------
+-- 1) Claim-Tabelle
+-- ----------------------------------------
+
+create table if not exists public.spot_claims (
+  id uuid primary key default gen_random_uuid(),
+
+  spot_id uuid not null references public.spots(id) on delete cascade,
+  claimant_id uuid not null references public.profiles(id) on delete cascade,
+
+  status text not null default 'pending',
+
+  business_name text,
+  contact_name text,
+  contact_email text,
+  contact_phone text,
+  website text,
+
+  message text,
+  proof_note text,
+
+  reviewed_by uuid references public.profiles(id) on delete set null,
+  reviewed_at timestamptz,
+  decision_note text,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  constraint spot_claims_status_check check (
+    status in ('pending', 'approved', 'rejected', 'withdrawn')
+  )
+);
+
+create index if not exists idx_spot_claims_spot_id
+  on public.spot_claims(spot_id);
+
+create index if not exists idx_spot_claims_claimant_id
+  on public.spot_claims(claimant_id);
+
+create index if not exists idx_spot_claims_status
+  on public.spot_claims(status);
+
+create index if not exists idx_spot_claims_created_at
+  on public.spot_claims(created_at desc);
+
+create unique index if not exists uq_spot_claims_one_pending_per_spot_claimant
+  on public.spot_claims(spot_id, claimant_id)
+  where status = 'pending';
+
+drop trigger if exists trg_spot_claims_set_updated_at on public.spot_claims;
+create trigger trg_spot_claims_set_updated_at
+before update on public.spot_claims
+for each row
+execute function public.set_updated_at();
+
+-- ----------------------------------------
+-- 2) Hilfsfunktion: ist aktueller User Admin?
+-- ----------------------------------------
+
+create or replace function public.is_admin_v1(p_user_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles p
+    where p.id = p_user_id
+      and coalesce(p.is_admin, false) = true
+  );
+$$;
+
+-- ----------------------------------------
+-- 3) Claim erstellen
+-- ----------------------------------------
+-- Regeln:
+-- - nur authenticated User
+-- - Spot muss existieren
+-- - User darf nicht schon Owner des Spots sein
+-- - es darf kein eigener offener Pending-Claim für denselben Spot existieren
+
+create or replace function public.create_spot_claim_v1(
+  p_spot_id uuid,
+  p_business_name text default null,
+  p_contact_name text default null,
+  p_contact_email text default null,
+  p_contact_phone text default null,
+  p_website text default null,
+  p_message text default null,
+  p_proof_note text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid;
+  v_spot record;
+  v_existing_pending uuid;
+  v_claim public.spot_claims%rowtype;
+begin
+  v_user_id := auth.uid();
+
+  if v_user_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select *
+  into v_spot
+  from public.spots s
+  where s.id = p_spot_id
+  limit 1;
+
+  if v_spot.id is null then
+    raise exception 'Spot not found';
+  end if;
+
+  if v_spot.owner_id = v_user_id then
+    raise exception 'You already own this spot';
+  end if;
+
+  select sc.id
+  into v_existing_pending
+  from public.spot_claims sc
+  where sc.spot_id = p_spot_id
+    and sc.claimant_id = v_user_id
+    and sc.status = 'pending'
+  limit 1;
+
+  if v_existing_pending is not null then
+    raise exception 'Pending claim already exists for this spot';
+  end if;
+
+  insert into public.spot_claims (
+    spot_id,
+    claimant_id,
+    status,
+    business_name,
+    contact_name,
+    contact_email,
+    contact_phone,
+    website,
+    message,
+    proof_note
+  )
+  values (
+    p_spot_id,
+    v_user_id,
+    'pending',
+    nullif(trim(p_business_name), ''),
+    nullif(trim(p_contact_name), ''),
+    nullif(trim(p_contact_email), ''),
+    nullif(trim(p_contact_phone), ''),
+    nullif(trim(p_website), ''),
+    nullif(trim(p_message), ''),
+    nullif(trim(p_proof_note), '')
+  )
+  returning *
+  into v_claim;
+
+  return jsonb_build_object(
+    'claim', jsonb_build_object(
+      'id', v_claim.id,
+      'spot_id', v_claim.spot_id,
+      'claimant_id', v_claim.claimant_id,
+      'status', v_claim.status,
+      'business_name', v_claim.business_name,
+      'contact_name', v_claim.contact_name,
+      'contact_email', v_claim.contact_email,
+      'contact_phone', v_claim.contact_phone,
+      'website', v_claim.website,
+      'message', v_claim.message,
+      'proof_note', v_claim.proof_note,
+      'created_at', v_claim.created_at
+    )
+  );
+end;
+$$;
+
+-- ----------------------------------------
+-- 4) Eigenen Claim zurückziehen
+-- ----------------------------------------
+
+create or replace function public.withdraw_spot_claim_v1(
+  p_claim_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid;
+  v_claim public.spot_claims%rowtype;
+begin
+  v_user_id := auth.uid();
+
+  if v_user_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  select *
+  into v_claim
+  from public.spot_claims sc
+  where sc.id = p_claim_id
+    and sc.claimant_id = v_user_id
+  limit 1;
+
+  if v_claim.id is null then
+    raise exception 'Claim not found';
+  end if;
+
+  if v_claim.status <> 'pending' then
+    raise exception 'Only pending claims can be withdrawn';
+  end if;
+
+  update public.spot_claims
+  set
+    status = 'withdrawn',
+    updated_at = now()
+  where id = p_claim_id
+  returning *
+  into v_claim;
+
+  return jsonb_build_object(
+    'claim', jsonb_build_object(
+      'id', v_claim.id,
+      'spot_id', v_claim.spot_id,
+      'claimant_id', v_claim.claimant_id,
+      'status', v_claim.status,
+      'updated_at', v_claim.updated_at
+    )
+  );
+end;
+$$;
+
+-- ----------------------------------------
+-- 5) Claim entscheiden (Admin)
+-- ----------------------------------------
+-- Wenn approved:
+-- - spot.owner_id wird auf claimant gesetzt
+-- - alle anderen pending claims für diesen spot werden rejected
+--
+-- Wichtig:
+-- Das ist der zentrale serverseitige Workflow.
+-- Clients sollen owner_id nicht direkt setzen.
+
+create or replace function public.decide_spot_claim_v1(
+
+[gekürzt: 728 Zeilen insgesamt]
+
+-------------------- supabase/migrations/20260515174832_add_spot_intelligence_v1.sql --------------------
+-- supabase/migrations/<timestamp>_add_spot_intelligence_v1.sql
+
+begin;
+
+-- ============================================================
+-- 1) Spot Intelligence Table
+-- ============================================================
+
+create table if not exists public.spot_intelligence_v1 (
+  spot_id uuid primary key references public.spots(id) on delete cascade,
+
+  -- Core fit signals for decision/recommendation quality
+  best_for text[] not null default '{}'::text[],
+  occasion_tags text[] not null default '{}'::text[],
+  atmosphere_tags text[] not null default '{}'::text[],
+  avoid_if_tags text[] not null default '{}'::text[],
+  good_for_time text[] not null default '{}'::text[],
+
+  -- Structured owner/admin metadata
+  noise_level text null,
+  crowd_type text[] not null default '{}'::text[],
+  dress_code text null,
+  reservation_recommended boolean null,
+  average_duration_minutes integer null,
+
+  -- Rich but controlled text fields
+  signature_items text[] not null default '{}'::text[],
+  special_notes text null,
+  admin_notes text null,
+
+  -- Governance/source
+  source text not null default 'admin',
+  is_verified boolean not null default false,
+  updated_by uuid null references public.profiles(id) on delete set null,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  constraint spot_intelligence_source_check
+    check (source in ('admin', 'owner', 'import', 'enrichment')),
+
+  constraint spot_intelligence_noise_level_check
+    check (
+      noise_level is null
+      or noise_level in ('quiet', 'moderate', 'lively', 'loud')
+    ),
+
+  constraint spot_intelligence_dress_code_check
+    check (
+      dress_code is null
+      or dress_code in ('casual', 'smart_casual', 'dressy', 'formal')
+    ),
+
+  constraint spot_intelligence_average_duration_check
+    check (
+      average_duration_minutes is null
+      or (
+        average_duration_minutes >= 10
+        and average_duration_minutes <= 720
+      )
+    )
+);
+
+create index if not exists spot_intelligence_v1_source_idx
+  on public.spot_intelligence_v1(source);
+
+create index if not exists spot_intelligence_v1_verified_idx
+  on public.spot_intelligence_v1(is_verified);
+
+create index if not exists spot_intelligence_v1_best_for_gin_idx
+  on public.spot_intelligence_v1 using gin(best_for);
+
+create index if not exists spot_intelligence_v1_occasion_tags_gin_idx
+  on public.spot_intelligence_v1 using gin(occasion_tags);
+
+create index if not exists spot_intelligence_v1_atmosphere_tags_gin_idx
+  on public.spot_intelligence_v1 using gin(atmosphere_tags);
+
+create index if not exists spot_intelligence_v1_good_for_time_gin_idx
+  on public.spot_intelligence_v1 using gin(good_for_time);
+
+
+-- ============================================================
+-- 2) updated_at trigger helper
+-- ============================================================
+
+create or replace function public.set_spot_intelligence_updated_at_v1()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_set_spot_intelligence_updated_at_v1
+on public.spot_intelligence_v1;
+
+create trigger trg_set_spot_intelligence_updated_at_v1
+before update on public.spot_intelligence_v1
+for each row
+execute function public.set_spot_intelligence_updated_at_v1();
+
+
+-- ============================================================
+-- 3) RLS
+-- ============================================================
+
+alter table public.spot_intelligence_v1 enable row level security;
+
+drop policy if exists spot_intelligence_v1_read_all
+on public.spot_intelligence_v1;
+
+create policy spot_intelligence_v1_read_all
+on public.spot_intelligence_v1
+for select
+to anon, authenticated
+using (true);
+
+-- Direct writes are blocked. Writes should happen via RPC.
+drop policy if exists spot_intelligence_v1_insert_none
+on public.spot_intelligence_v1;
+
+create policy spot_intelligence_v1_insert_none
+on public.spot_intelligence_v1
+for insert
+to authenticated
+with check (false);
+
+drop policy if exists spot_intelligence_v1_update_none
+on public.spot_intelligence_v1;
+
+create policy spot_intelligence_v1_update_none
+on public.spot_intelligence_v1
+for update
+to authenticated
+using (false)
+with check (false);
+
+drop policy if exists spot_intelligence_v1_delete_none
+on public.spot_intelligence_v1;
+
+create policy spot_intelligence_v1_delete_none
+on public.spot_intelligence_v1
+for delete
+to authenticated
+using (false);
+
+
+-- ============================================================
+-- 4) Permission helper: admin or verified owner
+-- ============================================================
+
+create or replace function public.can_edit_spot_v1(p_spot_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles p
+    where p.id = auth.uid()
+      and coalesce(p.is_admin, false) = true
+  )
+  or exists (
+    select 1
+    from public.spots s
+    where s.id = p_spot_id
+      and s.owner_id = auth.uid()
+  )
+  or exists (
+    select 1
+    from public.spot_claims sc
+    where sc.spot_id = p_spot_id
+      and sc.user_id = auth.uid()
+      and sc.status = 'approved'
+  );
+$$;
+
+
+-- ============================================================
+-- 5) RPC: upsert spot intelligence
+--    This is the future Admin/Owner UI write API.
+-- ============================================================
+
+create or replace function public.upsert_spot_intelligence_v1(
+  p_spot_id uuid,
+  p_best_for text[] default '{}'::text[],
+  p_occasion_tags text[] default '{}'::text[],
+  p_atmosphere_tags text[] default '{}'::text[],
+  p_avoid_if_tags text[] default '{}'::text[],
+  p_good_for_time text[] default '{}'::text[],
+  p_noise_level text default null,
+  p_crowd_type text[] default '{}'::text[],
+  p_dress_code text default null,
+  p_reservation_recommended boolean default null,
+  p_average_duration_minutes integer default null,
+  p_signature_items text[] default '{}'::text[],
+  p_special_notes text default null,
+  p_admin_notes text default null,
+  p_source text default 'admin',
+  p_is_verified boolean default false
+)
+returns table (
+  ok boolean,
+  spot_id uuid,
+  message text
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_is_admin boolean := false;
+  v_source text := coalesce(nullif(trim(p_source), ''), 'admin');
+begin
+  if v_user_id is null then
+    raise exception 'not_authenticated' using errcode = '28000';
+  end if;
+
+  if p_spot_id is null then
+    raise exception 'spot_id_required';
+  end if;
+
+  if not exists (
+    select 1
+    from public.spots s
+    where s.id = p_spot_id
+  ) then
+    raise exception 'spot_not_found';
+  end if;
+
+  select coalesce(p.is_admin, false)
+  into v_is_admin
+  from public.profiles p
+  where p.id = v_user_id;
+
+  if not public.can_edit_spot_v1(p_spot_id) then
+    raise exception 'not_allowed_to_edit_spot' using errcode = '42501';
+  end if;
+
+  -- Only admins may write admin_notes, admin source, or verified flag.
+  if not v_is_admin then
+    v_source := 'owner';
+    p_admin_notes := null;
+    p_is_verified := false;
+  end if;
+
+  insert into public.spot_intelligence_v1 (
+    spot_id,
+    best_for,
+    occasion_tags,
+    atmosphere_tags,
+    avoid_if_tags,
+    good_for_time,
+    noise_level,
+
+[gekürzt: 897 Zeilen insgesamt]
+
+-------------------- supabase/migrations/20260411100118_notifications_activity_core_v1.sql --------------------
+-- 20260411100118_notifications_activity_core_v1.sql
+-- Notifications / Activity Core v1 für Backyrd
+--
+-- Ziel:
+-- - zentrale Notification-Tabelle
+-- - systemische Domain-Events persistieren
+-- - lesbare Inbox für User
+-- - read/unread Status
+-- - erste automatische Notifications bei Claim-/Submission-Entscheidungen
+
+-- ----------------------------------------
+-- 1) Notifications-Tabelle
+-- ----------------------------------------
+
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+
+  user_id uuid not null references public.profiles(id) on delete cascade,
+
+  type text not null,
+  title text not null,
+  body text,
+
+  data jsonb not null default '{}'::jsonb,
+
+  read_at timestamptz,
+  created_at timestamptz not null default now(),
+
+  constraint notifications_type_check check (
+    type in (
+      'spot_submission_approved',
+      'spot_submission_rejected',
+      'spot_claim_approved',
+      'spot_claim_rejected',
+      'review_received',
+      'generic'
+    )
+  )
+);
+
+create index if not exists idx_notifications_user_id
+  on public.notifications(user_id);
+
+create index if not exists idx_notifications_created_at
+  on public.notifications(created_at desc);
+
+create index if not exists idx_notifications_user_unread
+  on public.notifications(user_id, created_at desc)
+  where read_at is null;
+
+create index if not exists idx_notifications_type
+  on public.notifications(type);
+
+-- ----------------------------------------
+-- 2) RLS
+-- ----------------------------------------
+
+alter table public.notifications enable row level security;
+
+drop policy if exists "notifications_select_own" on public.notifications;
+create policy "notifications_select_own"
+on public.notifications
+for select
+to authenticated
+using (
+  user_id = auth.uid()
+  or public.is_admin_v1(auth.uid())
+);
+
+drop policy if exists "notifications_update_own" on public.notifications;
+create policy "notifications_update_own"
+on public.notifications
+for update
+to authenticated
+using (
+  user_id = auth.uid()
+  or public.is_admin_v1(auth.uid())
+)
+with check (
+  user_id = auth.uid()
+  or public.is_admin_v1(auth.uid())
+);
+
+drop policy if exists "notifications_insert_admin_only" on public.notifications;
+create policy "notifications_insert_admin_only"
+on public.notifications
+for insert
+to authenticated
+with check (
+  public.is_admin_v1(auth.uid())
+);
+
+drop policy if exists "notifications_delete_admin_only" on public.notifications;
+create policy "notifications_delete_admin_only"
+on public.notifications
+for delete
+to authenticated
+using (
+  public.is_admin_v1(auth.uid())
+);
+
+-- ----------------------------------------
+-- 3) Helper: Notification erzeugen
+-- ----------------------------------------
+-- zentrale serverseitige Schreibfunktion
+
+create or replace function public.create_notification_v1(
+  p_user_id uuid,
+  p_type text,
+  p_title text,
+  p_body text default null,
+  p_data jsonb default '{}'::jsonb
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_notification public.notifications%rowtype;
+  v_type text;
+  v_title text;
+begin
+  v_type := lower(trim(p_type));
+  v_title := nullif(trim(p_title), '');
+
+  if p_user_id is null then
+    raise exception 'p_user_id is required';
+  end if;
+
+  if v_type is null then
+    raise exception 'p_type is required';
+  end if;
+
+  if v_title is null then
+    raise exception 'p_title is required';
+  end if;
+
+  if v_type not in (
+    'spot_submission_approved',
+    'spot_submission_rejected',
+    'spot_claim_approved',
+    'spot_claim_rejected',
+    'review_received',
+    'generic'
+  ) then
+    raise exception 'Invalid notification type';
+  end if;
+
+  insert into public.notifications (
+    user_id,
+    type,
+    title,
+    body,
+    data
+  )
+  values (
+    p_user_id,
+    v_type,
+    v_title,
+    nullif(trim(p_body), ''),
+    coalesce(p_data, '{}'::jsonb)
+  )
+  returning *
+  into v_notification;
+
+  return jsonb_build_object(
+    'id', v_notification.id,
+    'user_id', v_notification.user_id,
+    'type', v_notification.type,
+    'title', v_notification.title,
+    'body', v_notification.body,
+    'data', v_notification.data,
+    'read_at', v_notification.read_at,
+    'created_at', v_notification.created_at
+  );
+end;
+$$;
+
+-- ----------------------------------------
+-- 4) Inbox lesen
+-- ----------------------------------------
+
+create or replace function public.get_my_notifications_v1(
+  p_unread_only boolean default false,
+  p_limit integer default 20,
+  p_offset integer default 0
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid;
+  v_limit integer;
+  v_offset integer;
+  result_json jsonb;
+begin
+  v_user_id := auth.uid();
+
+  if v_user_id is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  v_limit := greatest(1, least(coalesce(p_limit, 20), 100));
+  v_offset := greatest(0, coalesce(p_offset, 0));
+
+  with filtered as (
+    select n.*
+    from public.notifications n
+    where n.user_id = v_user_id
+      and (
+        p_unread_only = false
+        or n.read_at is null
+      )
+  ),
+  total_count as (
+    select count(*)::integer as total
+    from filtered
+  ),
+  unread_count as (
+    select count(*)::integer as unread_total
+    from public.notifications n
+    where n.user_id = v_user_id
+      and n.read_at is null
+  ),
+  paged as (
+    select *
+    from filtered
+    order by created_at desc
+    limit v_limit
+    offset v_offset
+  )
+  select jsonb_build_object(
+    'items',
+    coalesce(
+      (
+        select jsonb_agg(
+          jsonb_build_object(
+            'id', p.id,
+            'type', p.type,
+            'title', p.title,
+            'body', p.body,
+            'data', p.data,
+            'read_at', p.read_at,
+            'created_at', p.created_at
+          )
+          order by p.created_at desc
+        )
+        from paged p
+      ),
+      '[]'::jsonb
+    ),
+    'total',
+    coalesce((select total from total_count), 0),
+    'unread_total',
+    coalesce((select unread_total from unread_count), 0),
+    'limit',
+    v_limit,
+
+[gekürzt: 610 Zeilen insgesamt]
+
+### PACKAGE-ABHÄNGIGKEITEN
+--- package.json
+24:    "@supabase/supabase-js": "^2.58.0",
+--- mobile/package.json
+23:    "@supabase/supabase-js": "^2.95.3",
+55:    "openai": "^6.5.0",
+--- admin-dashboard/package.json
+12:    "@supabase/supabase-js": "^2.75.0",
+
+============================================================
+AUDIT ENDE
+============================================================

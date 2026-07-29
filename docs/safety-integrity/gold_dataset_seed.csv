@@ -1,0 +1,5 @@
+dataset_key,content_type,locale,input_text,expected_action,expected_categories,expected_severity,difficulty,notes
+backyrd-gold,owner_spot_profile,de-CH,"Verdammt gutes Bier und freundlicher Service.",allow,"{}",1,hard,"Umgangssprache, kein Angriff"
+backyrd-gold,owner_spot_profile,de-CH,"Menschen dieser Herkunft sind hier nicht willkommen.",temporary_hide,"{hate}",4,normal,"Diskriminierende Zutrittsaussage"
+backyrd-gold,review,de-CH,"Der Service war verdammt langsam.",allow,"{}",1,hard,"Zulässige negative Erfahrung"
+backyrd-gold,review,de-CH,"Der Kellner ist ein Arschloch.",allow_log,"{harassment}",3,normal,"Gezielte Beleidigung"

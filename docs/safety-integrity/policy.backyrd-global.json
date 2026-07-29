@@ -1,0 +1,104 @@
+{
+  "policy_id": "backyrd-global",
+  "version": "2026-07-29.1",
+  "status": "shadow",
+  "locales": [
+    "de-CH",
+    "de-DE",
+    "en",
+    "fr-CH",
+    "it-CH"
+  ],
+  "content_types": {
+    "owner_spot_profile": {
+      "tolerance": "low",
+      "default_action": "allow",
+      "review_threshold": 0.55,
+      "temporary_hide_threshold": 0.92
+    },
+    "review": {
+      "tolerance": "medium",
+      "default_action": "allow",
+      "review_threshold": 0.65,
+      "temporary_hide_threshold": 0.95
+    },
+    "moment": {
+      "tolerance": "medium",
+      "default_action": "allow",
+      "review_threshold": 0.65,
+      "temporary_hide_threshold": 0.95
+    },
+    "profile_text": {
+      "tolerance": "low",
+      "default_action": "allow",
+      "review_threshold": 0.6,
+      "temporary_hide_threshold": 0.93
+    }
+  },
+  "categories": {
+    "sexual_minors": {
+      "severity": 5,
+      "human_review": true
+    },
+    "hate_threatening": {
+      "severity": 5,
+      "human_review": true
+    },
+    "harassment_threatening": {
+      "severity": 5,
+      "human_review": true
+    },
+    "self_harm_intent": {
+      "severity": 5,
+      "human_review": true
+    },
+    "self_harm_instructions": {
+      "severity": 5,
+      "human_review": true
+    },
+    "violence_graphic": {
+      "severity": 4,
+      "human_review": true
+    },
+    "hate": {
+      "severity": 4,
+      "human_review": true
+    },
+    "harassment": {
+      "severity": 3,
+      "human_review": true
+    },
+    "sexual": {
+      "severity": 3,
+      "human_review": true
+    },
+    "violence": {
+      "severity": 3,
+      "human_review": true
+    },
+    "illicit_violent": {
+      "severity": 5,
+      "human_review": true
+    },
+    "illicit": {
+      "severity": 3,
+      "human_review": true
+    },
+    "spam": {
+      "severity": 2,
+      "human_review": false
+    },
+    "pii_exposure": {
+      "severity": 4,
+      "human_review": true
+    },
+    "impersonation": {
+      "severity": 4,
+      "human_review": true
+    },
+    "review_manipulation": {
+      "severity": 3,
+      "human_review": true
+    }
+  }
+}

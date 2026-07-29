@@ -213,10 +213,9 @@ export async function setOwnerSpotTaxonomies(
   spotId: string,
   taxonomyNodeIds: string[],
 ) {
-  const { data, error } = await supabase.rpc("set_owner_spot_taxonomies_moderated_v1", {
+  const { data, error } = await supabase.rpc("set_owner_spot_taxonomies_v1", {
     p_spot_id: spotId,
     p_taxonomy_node_ids: taxonomyNodeIds,
-    p_change_source: "owner_web",
   });
 
   if (error) throw new Error(extractOwnerError(error));
@@ -224,7 +223,7 @@ export async function setOwnerSpotTaxonomies(
 }
 
 export async function updateOwnerSpotProfile(input: UpdateOwnerSpotProfileInput) {
-  const { data, error } = await supabase.rpc("update_owner_spot_profile_moderated_v1", {
+  const { data, error } = await supabase.rpc("update_owner_spot_profile_v1", {
     p_spot_id: input.spotId,
     p_name: input.name,
     p_address: input.address,
@@ -236,7 +235,6 @@ export async function updateOwnerSpotProfile(input: UpdateOwnerSpotProfileInput)
     p_price_level: input.priceLevel,
     p_owner_description: input.ownerDescription,
     p_owner_keywords: input.ownerKeywords,
-    p_change_source: "owner_web",
   });
 
   if (error) throw new Error(extractOwnerError(error));
@@ -244,7 +242,7 @@ export async function updateOwnerSpotProfile(input: UpdateOwnerSpotProfileInput)
 }
 
 export async function updateOwnerSpotIntelligence(input: UpdateOwnerSpotIntelligenceInput) {
-  const { data, error } = await supabase.rpc("update_owner_spot_intelligence_moderated_v1", {
+  const { data, error } = await supabase.rpc("update_owner_spot_intelligence_v1", {
     p_spot_id: input.spotId,
     p_best_for: input.bestFor,
     p_occasion_tags: input.occasionTags,
@@ -258,7 +256,6 @@ export async function updateOwnerSpotIntelligence(input: UpdateOwnerSpotIntellig
     p_average_duration_minutes: input.averageDurationMinutes,
     p_signature_items: input.signatureItems,
     p_special_notes: input.specialNotes,
-    p_change_source: "owner_web",
   });
 
   if (error) throw new Error(extractOwnerError(error));

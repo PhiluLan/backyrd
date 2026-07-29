@@ -11,7 +11,6 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { trackEvent } from "@/lib/events";
-import { validateOwnerContactMobile } from "@/lib/owner-validation";
 
 type Category = { id: string; name: string };
 
@@ -171,33 +170,26 @@ export default function SpotManageScreen() {
       const userId = sessionData.session?.user?.id;
       if (!userId) throw new Error("not_authenticated");
 
-      const validation = validateOwnerContactMobile({
-        email,
-        phone,
-        website,
-        country: "Schweiz",
+      const { error: dErr } = await supabase.rpc("upsert_owner_description_v1", {
+        p_spot_id: ctx.spot_id,
+        p_description: desc,
+        p_keywords: keywords,
       });
-      const validationError = validation.errors.email || validation.errors.phone || validation.errors.website;
-      if (validationError) {
-        Alert.alert("Eingabe prüfen", validationError);
-        return;
-      }
+      if (dErr) throw dErr;
 
       const parsedPrice = priceLevel ? Number(priceLevel) : null;
       const validPrice = parsedPrice && Number.isFinite(parsedPrice) ? parsedPrice : null;
 
-      const { error: saveErr } = await supabase.rpc("update_owner_spot_mobile_moderated_v1", {
+      const { error: sErr } = await supabase.rpc("upsert_spot_owner_fields_v1", {
         p_spot_id: ctx.spot_id,
         p_category_id: categoryId || null,
         p_price_level: validPrice,
         p_email: email || null,
         p_phone: phone || null,
         p_website: website || null,
-        p_owner_description: desc || null,
-        p_owner_keywords: keywords,
-        p_change_source: "owner_mobile",
+        p_header_photo_path: null,
       });
-      if (saveErr) throw saveErr;
+      if (sErr) throw sErr;
 
       await trackEvent({
         userId,

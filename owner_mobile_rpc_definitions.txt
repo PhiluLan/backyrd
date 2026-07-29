@@ -1,0 +1,86 @@
+  set status='done', updated_at=now(), last_error=null
+  where token_id = p_token_id;
+end $$;
+
+
+ALTER FUNCTION "public"."upsert_cluster_and_map_token"("p_token_id" integer, "p_cluster_name" "text", "p_confidence" numeric, "p_source" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."upsert_owner_description_v1"("p_spot_id" "uuid", "p_description" "text", "p_keywords" "text"[] DEFAULT NULL::"text"[]) RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+declare
+  v_owner uuid;
+  v_verified boolean;
+begin
+  if auth.uid() is null then
+    raise exception 'not_authenticated';
+  end if;
+
+  select owner_user_id, is_verified into v_owner, v_verified
+  from public.spot_descriptions
+  where spot_id = p_spot_id;
+
+  if v_owner is null or v_verified is distinct from true or v_owner <> auth.uid() then
+    raise exception 'not_owner_or_not_verified';
+  end if;
+
+  update public.spot_descriptions
+  set owner_description = p_description,
+      owner_keywords = p_keywords,
+      owner_updated_at = now(),
+      updated_at = now()
+  where spot_id = p_spot_id;
+end $$;
+
+
+ALTER FUNCTION "public"."upsert_owner_description_v1"("p_spot_id" "uuid", "p_description" "text", "p_keywords" "text"[]) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."upsert_spot_owner_fields_v1"("p_spot_id" "uuid", "p_category_id" "uuid" DEFAULT NULL::"uuid", "p_price_level" integer DEFAULT NULL::integer, "p_email" "text" DEFAULT NULL::"text", "p_phone" "text" DEFAULT NULL::"text", "p_website" "text" DEFAULT NULL::"text", "p_header_photo_path" "text" DEFAULT NULL::"text") RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public'
+    AS $$
+declare
+  v_owner uuid;
+  v_verified boolean;
+begin
+  if auth.uid() is null then
+    raise exception 'not_authenticated';
+  end if;
+
+  select owner_user_id, is_verified into v_owner, v_verified
+  from public.spot_descriptions
+  where spot_id = p_spot_id;
+
+  if v_owner is null or v_verified is distinct from true or v_owner <> auth.uid() then
+    raise exception 'not_owner_or_not_verified';
+  end if;
+
+  update public.spots
+  set
+    category_id = coalesce(p_category_id, category_id),
+    price_level = coalesce(p_price_level, price_level),
+    email = p_email,
+    phone = p_phone,
+    website = p_website,
+    header_photo_path = coalesce(p_header_photo_path, header_photo_path)
+  where id = p_spot_id;
+end $$;
+
+
+ALTER FUNCTION "public"."upsert_spot_owner_fields_v1"("p_spot_id" "uuid", "p_category_id" "uuid", "p_price_level" integer, "p_email" "text", "p_phone" "text", "p_website" "text", "p_header_photo_path" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "realtime"."apply_rls"("wal" "jsonb", "max_record_bytes" integer DEFAULT (1024 * 1024)) RETURNS SETOF "realtime"."wal_rls"
+    LANGUAGE "plpgsql"
+    AS $$
+declare
+entity_ regclass = (quote_ident(wal ->> 'schema') || '.' || quote_ident(wal ->> 'table'))::regclass;
+
+action realtime.action = (
+    case wal ->> 'action'
+        when 'I' then 'INSERT'
+        when 'U' then 'UPDATE'
+        when 'D' then 'DELETE'

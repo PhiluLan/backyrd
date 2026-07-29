@@ -18,7 +18,6 @@ import {
 } from "@/lib/owner-api";
 import { OwnerShell } from "@/components/owner/owner-shell";
 import { OwnerTaxonomyPicker } from "@/components/owner/owner-taxonomy-picker";
-import { firstContactValidationError, validateOwnerContactClient } from "@/lib/owner-validation";
 
 function Field({
   label,
@@ -217,12 +216,6 @@ export default function OwnerSpotEditPage() {
   }, [spotId]);
 
   const title = useMemo(() => detail?.spot.name ?? "Spot bearbeiten", [detail]);
-  const contactValidation = useMemo(() => validateOwnerContactClient({
-    email,
-    phone,
-    website,
-    country,
-  }), [email, phone, website, country]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -231,12 +224,6 @@ export default function OwnerSpotEditPage() {
       setSaving(true);
       setMessage(null);
       setSuccess(null);
-
-      const contactError = firstContactValidationError(contactValidation);
-      if (contactError) {
-        setMessage(contactError);
-        return;
-      }
 
       await updateOwnerSpotProfile({
         spotId,
@@ -320,9 +307,9 @@ export default function OwnerSpotEditPage() {
               <Field label="Stadt" value={city} onChange={setCity} />
               <Field label="Adresse" value={address} onChange={setAddress} />
               <Field label="Land" value={country} onChange={setCountry} />
-              <div><Field label="Telefon" value={phone} onChange={setPhone} />{contactValidation.errors.phone ? <p className="mt-2 text-sm text-red-300">{contactValidation.errors.phone}</p> : contactValidation.warnings.phone ? <p className="mt-2 text-sm text-amber-200">{contactValidation.warnings.phone}</p> : null}</div>
-              <div><Field label="Website" value={website} onChange={setWebsite} />{contactValidation.errors.website ? <p className="mt-2 text-sm text-red-300">{contactValidation.errors.website}</p> : null}</div>
-              <div><Field label="E-Mail" value={email} onChange={setEmail} />{contactValidation.errors.email ? <p className="mt-2 text-sm text-red-300">{contactValidation.errors.email}</p> : null}</div>
+              <Field label="Telefon" value={phone} onChange={setPhone} />
+              <Field label="Website" value={website} onChange={setWebsite} />
+              <Field label="E-Mail" value={email} onChange={setEmail} />
               <Field
                 label="Preislevel 1-4"
                 value={priceLevel}
