@@ -1,0 +1,292 @@
+export type OpenAIModerationResult = {
+  flagged: boolean;
+  categories: Record<string, boolean>;
+  category_scores: Record<string, number>;
+  category_applied_input_types?: Record<string, string[]>;
+};
+
+export type SafetyPolicy = {
+  policy_id: string;
+  version: string;
+  status: "shadow" | "active";
+  content_types: Record<
+    string,
+    {
+      review_threshold: number;
+      temporary_hide_threshold: number;
+    }
+  >;
+};
+
+type DominantCategory = {
+  category: string;
+  score: number;
+  flagged: boolean;
+};
+
+type LocalPolicySignal = {
+  matched: boolean;
+  category: string;
+  severity: number;
+  confidence: number;
+  reasonCode: string | null;
+};
+
+const CATEGORY_REVIEW_THRESHOLDS: Record<string, number> = {
+  hate: 0.10,
+  hate_threatening: 0.08,
+  harassment: 0.30,
+  harassment_threatening: 0.12,
+  self_harm: 0.20,
+  self_harm_intent: 0.10,
+  self_harm_instructions: 0.08,
+  violence: 0.35,
+  violence_graphic: 0.18,
+  sexual: 0.55,
+  sexual_minors: 0.05,
+  illicit: 0.40,
+  illicit_violent: 0.15,
+};
+
+const DISCRIMINATORY_EXCLUSION_PATTERNS: RegExp[] = [
+  /\bmenschen\s+bestimmter\s+herkunft\b/iu,
+  /\bbestimmte(?:n|r|s)?\s+(?:herkunft|nationalität|ethnie|religion)\b/iu,
+  /\b(?:nicht|unerwünscht)\s+willkommen\b/iu,
+  /\bkein(?:e|en|er|es)?\s+zutritt\b/iu,
+  /\bwir\s+bedienen\s+(?:keine|keinen|nicht)\b/iu,
+  /\b(?:ausländer|muslime|juden|christen|schwarze|weisse|asiaten)\s+(?:nicht|unerwünscht)\b/iu,
+];
+
+export function normalizeCategory(key: string): string {
+  return key.replaceAll("/", "_").replaceAll("-", "_");
+}
+
+export function severityFor(category: string): number {
+  const map: Record<string, number> = {
+    sexual_minors: 5,
+    hate_threatening: 5,
+    harassment_threatening: 5,
+    self_harm_intent: 5,
+    self_harm_instructions: 5,
+    illicit_violent: 5,
+    violence_graphic: 4,
+    hate: 4,
+    harassment: 3,
+    sexual: 3,
+    violence: 3,
+    illicit: 3,
+    self_harm: 4,
+  };
+
+  return map[category] ?? 0;
+}
+
+export function chooseDominant(
+  result: OpenAIModerationResult,
+): DominantCategory {
+  const entries = Object.entries(result.category_scores ?? {})
+    .map(([key, score]) => ({
+      category: normalizeCategory(key),
+      score: Number(score ?? 0),
+      flagged: Boolean(result.categories?.[key]),
+    }))
+    .sort((a, b) => {
+      if (a.flagged !== b.flagged) {
+        return a.flagged ? -1 : 1;
+      }
+
+      return b.score - a.score;
+    });
+
+  return entries[0] ?? {
+    category: "none",
+    score: 0,
+    flagged: false,
+  };
+}
+
+export function choosePolicyRelevant(
+  result: OpenAIModerationResult,
+): DominantCategory {
+  const entries = Object.entries(result.category_scores ?? {})
+    .map(([key, score]) => {
+      const category = normalizeCategory(key);
+
+      return {
+        category,
+        score: Number(score ?? 0),
+        flagged: Boolean(result.categories?.[key]),
+        threshold:
+          CATEGORY_REVIEW_THRESHOLDS[category] ??
+          Number.POSITIVE_INFINITY,
+      };
+    })
+    .filter(
+      (entry) =>
+        entry.flagged ||
+        entry.score >= entry.threshold,
+    )
+    .sort((a, b) => {
+      if (a.flagged !== b.flagged) {
+        return a.flagged ? -1 : 1;
+      }
+
+      const aRatio =
+        a.threshold === 0 || !Number.isFinite(a.threshold)
+          ? a.score
+          : a.score / a.threshold;
+      const bRatio =
+        b.threshold === 0 || !Number.isFinite(b.threshold)
+          ? b.score
+          : b.score / b.threshold;
+
+      return bRatio - aRatio;
+    });
+
+  return entries[0] ?? {
+    category: "none",
+    score: 0,
+    flagged: false,
+  };
+}
+
+export function detectLocalPolicy(
+  text: string | null | undefined,
+): LocalPolicySignal {
+  const normalized = (text ?? "").trim();
+
+  if (!normalized) {
+    return {
+      matched: false,
+      category: "none",
+      severity: 0,
+      confidence: 0,
+      reasonCode: null,
+    };
+  }
+
+  const matchesExclusion =
+    DISCRIMINATORY_EXCLUSION_PATTERNS.some((pattern) =>
+      pattern.test(normalized)
+    );
+
+  if (matchesExclusion) {
+    return {
+      matched: true,
+      category: "harassment",
+      severity: 3,
+      confidence: 0.90,
+      reasonCode: "DISCRIMINATORY_EXCLUSION_LANGUAGE",
+    };
+  }
+
+  return {
+    matched: false,
+    category: "none",
+    severity: 0,
+    confidence: 0,
+    reasonCode: null,
+  };
+}
+
+export function orchestrate(input: {
+  result: OpenAIModerationResult;
+  policy: SafetyPolicy;
+  contentType: string;
+  textContent?: string | null;
+}) {
+  const cfg = input.policy.content_types[input.contentType] ?? {
+    review_threshold: 0.65,
+    temporary_hide_threshold: 0.95,
+  };
+
+  const dominant = chooseDominant(input.result);
+  const policyRelevant = choosePolicyRelevant(input.result);
+  const localPolicy = detectLocalPolicy(input.textContent);
+
+  const genericThresholdReached =
+    dominant.score >= cfg.review_threshold;
+
+  const requiresReview =
+    input.result.flagged ||
+    policyRelevant.category !== "none" ||
+    genericThresholdReached ||
+    localPolicy.matched;
+
+  if (!requiresReview) {
+    return {
+      finalAction: "allow",
+      recommendedAction: "allow",
+      caseStatus: "decided",
+      category: "none",
+      severity: 0,
+      confidence: dominant.score,
+      reasonCodes: [
+        "NO_POLICY_VIOLATION",
+        input.policy.status === "shadow"
+          ? "SHADOW_MODE"
+          : "ACTIVE_POLICY",
+      ],
+    };
+  }
+
+  const selectedCategory =
+    localPolicy.matched
+      ? localPolicy.category
+      : policyRelevant.category !== "none"
+        ? policyRelevant.category
+        : dominant.category;
+
+  const selectedScore =
+    localPolicy.matched
+      ? Math.max(localPolicy.confidence, policyRelevant.score)
+      : policyRelevant.category !== "none"
+        ? policyRelevant.score
+        : dominant.score;
+
+  const selectedSeverity =
+    localPolicy.matched
+      ? localPolicy.severity
+      : severityFor(selectedCategory);
+
+  let recommendedAction = "allow_log";
+  const caseStatus = "needs_review";
+
+  if (
+    selectedScore >= cfg.temporary_hide_threshold &&
+    selectedSeverity >= 4
+  ) {
+    recommendedAction = "temporary_hide";
+  }
+
+  const finalAction =
+    input.policy.status === "shadow"
+      ? "allow_log"
+      : recommendedAction;
+
+  const reasonCodes = [
+    `PRIMARY_${selectedCategory.toUpperCase()}`,
+    input.result.flagged
+      ? "MODEL_FLAGGED"
+      : policyRelevant.category !== "none"
+        ? "CATEGORY_THRESHOLD_REACHED"
+        : "GENERIC_REVIEW_THRESHOLD_REACHED",
+    input.policy.status === "shadow"
+      ? "SHADOW_MODE"
+      : "ACTIVE_POLICY",
+  ];
+
+  if (localPolicy.reasonCode) {
+    reasonCodes.push(localPolicy.reasonCode);
+  }
+
+  return {
+    finalAction,
+    recommendedAction,
+    caseStatus,
+    category: selectedCategory,
+    severity: selectedSeverity,
+    confidence: selectedScore,
+    reasonCodes,
+  };
+}

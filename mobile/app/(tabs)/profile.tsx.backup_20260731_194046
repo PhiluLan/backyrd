@@ -73,88 +73,6 @@ type BadgeRow = {
   } | null;
 };
 
-
-async function filterSafetyVisiblePosts(
-  posts: SocialFeedPost[],
-): Promise<SocialFeedPost[]> {
-  if (posts.length === 0) return posts;
-
-  const postIds = posts
-    .map((post) => post.post_id)
-    .filter(Boolean);
-
-  const reviewIds = posts
-    .map((post) => post.review_id)
-    .filter((value): value is string => Boolean(value));
-
-  const [
-    visiblePostsResult,
-    visibleReviewsResult,
-    commentCountsResult,
-  ] = await Promise.all([
-    supabase.rpc("safety_visible_social_post_ids_v1", {
-      p_post_ids: postIds,
-    }),
-    reviewIds.length > 0
-      ? supabase.rpc("safety_visible_entity_ids_v1", {
-          p_entity_type: "review",
-          p_entity_ids: reviewIds,
-        })
-      : Promise.resolve({
-          data: [],
-          error: null,
-        }),
-    supabase.rpc("safety_visible_comment_counts_v1", {
-      p_post_ids: postIds,
-    }),
-  ]);
-
-  const visiblePostIds = new Set(
-    Array.isArray(visiblePostsResult.data)
-      ? visiblePostsResult.data
-      : postIds,
-  );
-
-  const visibleReviewIds = new Set(
-    Array.isArray(visibleReviewsResult.data)
-      ? visibleReviewsResult.data
-      : reviewIds,
-  );
-
-  const commentCounts = new Map<string, number>();
-
-  if (Array.isArray(commentCountsResult.data)) {
-    for (const row of commentCountsResult.data) {
-      if (row?.post_id) {
-        commentCounts.set(
-          row.post_id,
-          Number(row.visible_count ?? 0),
-        );
-      }
-    }
-  }
-
-  return posts
-    .filter((post) => {
-      if (!visiblePostIds.has(post.post_id)) return false;
-
-      if (
-        post.review_id &&
-        !visibleReviewIds.has(post.review_id)
-      ) {
-        return false;
-      }
-
-      return true;
-    })
-    .map((post) => ({
-      ...post,
-      comment_count: commentCounts.has(post.post_id)
-        ? commentCounts.get(post.post_id) ?? 0
-        : post.comment_count,
-    }));
-}
-
 function formatSince(value?: string | null) {
   if (!value) return null;
   const year = String(value).slice(0, 4);
@@ -313,16 +231,8 @@ export default function ProfileScreen() {
 
         setProfile((profileRes.data ?? {}) as ProfileRow);
 
-        const allFeedPosts = Array.isArray(feedRes.data)
-          ? (feedRes.data as SocialFeedPost[])
-          : [];
-        const ownPosts = allFeedPosts.filter(
-          (post) => post.user_id === currentUser.id,
-        );
-        const visibleOwnPosts =
-          await filterSafetyVisiblePosts(ownPosts);
-
-        setPosts(visibleOwnPosts);
+        const allFeedPosts = Array.isArray(feedRes.data) ? (feedRes.data as SocialFeedPost[]) : [];
+        setPosts(allFeedPosts.filter((post) => post.user_id === currentUser.id));
 
         setFavorites((favoritesRes.data ?? []) as FavoriteRow[]);
         setBadges((badgesRes.data ?? []) as BadgeRow[]);

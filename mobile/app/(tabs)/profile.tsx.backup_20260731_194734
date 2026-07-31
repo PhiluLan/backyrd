@@ -92,8 +92,9 @@ async function filterSafetyVisiblePosts(
     visibleReviewsResult,
     commentCountsResult,
   ] = await Promise.all([
-    supabase.rpc("safety_visible_social_post_ids_v1", {
-      p_post_ids: postIds,
+    supabase.rpc("safety_visible_entity_ids_v1", {
+      p_entity_type: "social_post",
+      p_entity_ids: postIds,
     }),
     reviewIds.length > 0
       ? supabase.rpc("safety_visible_entity_ids_v1", {

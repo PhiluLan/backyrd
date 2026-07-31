@@ -1,0 +1,1093 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+
+type QueueStatus =
+  | "needs_review"
+  | "queued"
+  | "evaluating"
+  | "decided"
+  | "failed"
+  | "all";
+
+type SafetyRow = {
+  case_id: string;
+  content_item_id: string;
+  content_type: string;
+  entity_type: string;
+  entity_id: string | null;
+  spot_id: string | null;
+  actor_user_id: string | null;
+  actor_name: string | null;
+  case_status: string;
+  priority: number;
+  final_action: string | null;
+  final_category: string | null;
+  final_severity: number | null;
+  final_confidence: number | string | null;
+  decision_source: string | null;
+  explanation_code: string | null;
+  explanation_public: string | null;
+  explanation_internal: string | null;
+  text_content: string | null;
+  image_urls: string[];
+  locale: string | null;
+  context: Record<string, unknown>;
+  lifecycle_status: string;
+  latest_reason_codes: string[];
+  latest_metadata: Record<string, unknown>;
+  created_at: string;
+};
+
+type ModerationAction =
+  | "allow"
+  | "limit"
+  | "temporary_hide"
+  | "remove";
+
+type DecisionDraft = {
+  row: SafetyRow;
+  action: ModerationAction;
+  explanation: string;
+} | null;
+
+const statusLabels: Record<string, string> = {
+  needs_review: "Prüfung erforderlich",
+  queued: "In Warteschlange",
+  evaluating: "Wird geprüft",
+  decided: "Entschieden",
+  failed: "Fehlgeschlagen",
+};
+
+const actionLabels: Record<string, string> = {
+  allow: "Erlaubt",
+  allow_log: "Erlaubt und protokolliert",
+  limit: "Begrenzt",
+  temporary_hide: "Temporär ausgeblendet",
+  remove: "Entfernt",
+  block_submit: "Veröffentlichung blockiert",
+  escalate: "Eskaliert",
+};
+
+const categoryLabels: Record<string, string> = {
+  none: "Kein Verstoß",
+  hate: "Hass und Diskriminierung",
+  harassment: "Belästigung und Ausgrenzung",
+  violence: "Gewalt",
+  sexual: "Sexuelle Inhalte",
+  self_harm: "Selbstgefährdung",
+  illicit: "Illegale oder gefährliche Inhalte",
+};
+
+const policyCategoryLabels: Record<string, string> = {
+  hate_and_discrimination: "Hass und Diskriminierung",
+  harassment_and_bullying: "Belästigung und Mobbing",
+  violence_and_incitement: "Gewalt und Aufruf zu Gewalt",
+  sexual_safety: "Sexuelle Sicherheit",
+  self_harm: "Selbstgefährdung",
+  fraud_and_deception: "Betrug und Täuschung",
+  privacy_and_personal_data: "Privatsphäre und persönliche Daten",
+  regulated_and_dangerous_commerce: "Regulierte und gefährliche Angebote",
+  none: "Kein Policy-Verstoß",
+};
+
+const subcategoryLabels: Record<string, string> = {
+  ambiguous_group_exclusion: "Uneindeutige Gruppenausgrenzung",
+  discriminatory_exclusion: "Diskriminierender Ausschluss",
+  protected_group_attack: "Angriff auf geschützte Gruppe",
+  denial_of_service_based_on_identity:
+    "Verweigerung aufgrund persönlicher Merkmale",
+  none: "Keine Subkategorie",
+};
+
+const reasonLabels: Record<string, string> = {
+  NO_POLICY_VIOLATION: "Kein Richtlinienverstoß",
+  AMBIGUOUS_GROUP_TARGET: "Uneindeutig bezeichnete Zielgruppe",
+  EXCLUSION_LANGUAGE: "Ausgrenzende Formulierung",
+  HUMAN_CONTEXT_REQUIRED: "Menschliche Kontextprüfung erforderlich",
+  LOCAL_POLICY_MATCH: "Backyrd-Policy-Regel getroffen",
+  SHADOW_MODE: "Shadow Mode",
+  PROTECTED_CHARACTERISTIC: "Geschütztes Merkmal erkannt",
+  DENIAL_OF_ACCESS_OR_SERVICE: "Zutritt oder Dienstleistung verweigert",
+  DISCRIMINATORY_EXCLUSION: "Diskriminierender Ausschluss",
+  LEGITIMATE_BUSINESS_ACCESS_RULE: "Legitime betriebliche Zutrittsregel",
+  MODEL_FLAGGED: "Vom Moderationsmodell markiert",
+  CATEGORY_THRESHOLD_REACHED: "Kategorie-Schwellenwert erreicht",
+};
+
+function formatConfidence(value: number | string | null): string {
+  if (value === null || value === undefined) {
+    return "—";
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return "—";
+  }
+
+  return `${Math.round(parsed * 100)} %`;
+}
+
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat("de-CH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function getMetadataString(
+  metadata: Record<string, unknown> | null | undefined,
+  key: string,
+): string | null {
+  const value = metadata?.[key];
+
+  return typeof value === "string" ? value : null;
+}
+
+function humanizeCode(code: string): string {
+  return reasonLabels[code] ??
+    code
+      .toLowerCase()
+      .split("_")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+}
+
+export default function SafetyIntegrityPage() {
+  const [rows, setRows] = useState<SafetyRow[]>([]);
+  const [status, setStatus] = useState<QueueStatus>("needs_review");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [decidingCaseId, setDecidingCaseId] = useState<string | null>(
+    null,
+  );
+  const [decisionDraft, setDecisionDraft] =
+    useState<DecisionDraft>(null);
+
+  async function load() {
+    setLoading(true);
+    setError("");
+
+    const { data, error: loadError } = await supabase.rpc(
+      "safety_admin_queue_v2",
+      {
+        p_status: status === "all" ? null : status,
+        p_limit: 250,
+      },
+    );
+
+    if (loadError) {
+      setError(loadError.message);
+      setRows([]);
+    } else {
+      setRows((data ?? []) as SafetyRow[]);
+    }
+
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    void load();
+  }, [status]);
+
+  const summary = useMemo(() => {
+    return {
+      total: rows.length,
+      highSeverity: rows.filter(
+        (row) => (row.final_severity ?? 0) >= 4,
+      ).length,
+      profileCases: rows.filter(
+        (row) => row.content_type === "owner_spot_profile",
+      ).length,
+    };
+  }, [rows]);
+
+  function defaultExplanation(
+    action: ModerationAction,
+  ): string {
+    const defaults: Record<ModerationAction, string> = {
+      allow:
+        "Der Inhalt verstößt nicht gegen die Backyrd-Richtlinien.",
+      limit:
+        "Der Inhalt wurde nach menschlicher Prüfung begrenzt.",
+      temporary_hide:
+        "Der Inhalt wurde vorübergehend ausgeblendet und wird weiter geprüft.",
+      remove:
+        "Der Inhalt wurde nach menschlicher Prüfung entfernt.",
+    };
+
+    return defaults[action];
+  }
+
+  function openDecisionModal(
+    row: SafetyRow,
+    action: ModerationAction,
+  ) {
+    setDecisionDraft({
+      row,
+      action,
+      explanation: defaultExplanation(action),
+    });
+  }
+
+  function closeDecisionModal() {
+    if (decidingCaseId) {
+      return;
+    }
+
+    setDecisionDraft(null);
+  }
+
+  async function submitDecision() {
+    if (!decisionDraft) {
+      return;
+    }
+
+    const { row, action, explanation } = decisionDraft;
+
+    setDecidingCaseId(row.case_id);
+    setError("");
+
+    const { error: decisionError } = await supabase.rpc(
+      "safety_admin_decide_v1",
+      {
+        p_case_id: row.case_id,
+        p_action: action,
+        p_category: row.final_category,
+        p_severity: row.final_severity,
+        p_confidence:
+          row.final_confidence === null
+            ? null
+            : Number(row.final_confidence),
+        p_public_explanation:
+          explanation.trim() || null,
+        p_internal_explanation:
+          "Human review via Backyrd Safety & Integrity Admin V2.",
+        p_reason_codes: [
+          "HUMAN_REVIEW",
+          `HUMAN_ACTION_${action.toUpperCase()}`,
+        ],
+      },
+    );
+
+    if (decisionError) {
+      setError(decisionError.message);
+      setDecidingCaseId(null);
+      return;
+    }
+
+    setDecisionDraft(null);
+    setDecidingCaseId(null);
+    await load();
+  }
+
+  return (
+    <div className="by-page">
+      <div
+        className="by-header"
+        style={{
+          alignItems: "flex-start",
+          marginBottom: 28,
+        }}
+      >
+        <div>
+          <div
+            className="by-badge"
+            style={{
+              display: "inline-flex",
+              marginBottom: 12,
+              background: "rgba(255, 54, 125, 0.08)",
+              color: "#ff4f8b",
+              borderColor: "rgba(255, 79, 139, 0.18)",
+            }}
+          >
+            Trust Operations
+          </div>
+          <h1
+            className="by-title"
+            style={{
+              fontSize: "clamp(34px, 4vw, 54px)",
+              lineHeight: 1,
+              letterSpacing: "-0.035em",
+            }}
+          >
+            Safety & Integrity
+          </h1>
+          <div
+            className="by-subtitle"
+            style={{
+              maxWidth: 720,
+              marginTop: 12,
+              fontSize: 17,
+              lineHeight: 1.55,
+            }}
+          >
+            Policy-versionierte Moderation, menschliche Entscheidungen
+            und nachvollziehbare Enforcement-Historie.
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+          gap: 14,
+          marginBottom: 18,
+        }}
+      >
+        {[
+          {
+            label: "Fälle im Filter",
+            value: summary.total,
+            hint: "Aktuelle Ansicht",
+          },
+          {
+            label: "Hohe Severity",
+            value: summary.highSeverity,
+            hint: "Severity 4–5",
+          },
+          {
+            label: "Owner-Profile",
+            value: summary.profileCases,
+            hint: "Spot-Inhalte",
+          },
+        ].map((item) => (
+          <div
+            key={item.label}
+            className="by-card"
+            style={{
+              padding: 18,
+              minHeight: 112,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              background:
+                "linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012))",
+              borderColor: "rgba(255,255,255,0.08)",
+            }}
+          >
+            <div
+              className="by-muted by-small"
+              style={{ fontWeight: 600 }}
+            >
+              {item.label}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-end",
+                justifyContent: "space-between",
+                gap: 12,
+                marginTop: 18,
+              }}
+            >
+              <strong
+                style={{
+                  fontSize: 34,
+                  lineHeight: 1,
+                  letterSpacing: "-0.03em",
+                }}
+              >
+                {item.value}
+              </strong>
+              <span className="by-muted by-small">
+                {item.hint}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div
+        className="by-card by-section"
+        style={{
+          padding: 14,
+          marginBottom: 24,
+          background: "rgba(255,255,255,0.018)",
+        }}
+      >
+        <div className="by-toolbar">
+          <select
+            className="by-select"
+            value={status}
+            onChange={(event) =>
+              setStatus(event.target.value as QueueStatus)
+            }
+          >
+            <option value="needs_review">
+              Prüfung erforderlich
+            </option>
+            <option value="queued">Warteschlange</option>
+            <option value="evaluating">Wird geprüft</option>
+            <option value="decided">Entschieden</option>
+            <option value="failed">Fehlgeschlagen</option>
+            <option value="all">Alle</option>
+          </select>
+
+          <button
+            className="by-btn by-btn-soft"
+            onClick={() => void load()}
+            disabled={loading}
+          >
+            {loading ? "Lädt…" : "Neu laden"}
+          </button>
+        </div>
+      </div>
+
+      {error ? (
+        <div
+          className="by-card by-section"
+          style={{ color: "#ef4444" }}
+        >
+          {error}
+        </div>
+      ) : null}
+
+      {!loading && rows.length === 0 ? (
+        <div className="by-card by-section">
+          <div
+            style={{
+              display: "grid",
+              placeItems: "center",
+              minHeight: 220,
+              textAlign: "center",
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  margin: "0 auto 16px",
+                  borderRadius: 16,
+                  display: "grid",
+                  placeItems: "center",
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                ✓
+              </div>
+              <strong style={{ fontSize: 20 }}>
+                Keine Fälle in diesem Filter
+              </strong>
+              <div
+                className="by-muted"
+                style={{ marginTop: 8 }}
+              >
+                Neue auffällige Inhalte erscheinen hier automatisch.
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {!loading &&
+        rows.map((row) => {
+          const policyCategory =
+            getMetadataString(
+              row.latest_metadata,
+              "policy_category",
+            ) ?? "none";
+
+          const policySubcategory =
+            getMetadataString(
+              row.latest_metadata,
+              "policy_subcategory",
+            ) ?? "none";
+
+          const policyVersion =
+            getMetadataString(
+              row.latest_metadata,
+              "policy_version",
+            ) ?? "—";
+
+          const canDecide =
+            row.case_status === "needs_review";
+
+          return (
+            <article
+              className="by-card by-section"
+              key={row.case_id}
+              style={{
+                padding: 0,
+                overflow: "hidden",
+                borderColor:
+                  row.case_status === "needs_review"
+                    ? "rgba(255, 79, 139, 0.18)"
+                    : "rgba(255,255,255,0.08)",
+                background:
+                  "linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.012))",
+                boxShadow:
+                  row.case_status === "needs_review"
+                    ? "0 18px 60px rgba(255, 54, 125, 0.05)"
+                    : "none",
+              }}
+            >
+              <div
+                className="by-row"
+                style={{
+                  padding: "20px 22px",
+                  borderBottom: "1px solid rgba(255,255,255,0.06)",
+                  background: "rgba(255,255,255,0.015)",
+                }}
+              >
+                <div>
+                  <strong
+                    style={{
+                      fontSize: 17,
+                      letterSpacing: "-0.01em",
+                    }}
+                  >
+                    {row.content_type === "owner_spot_profile"
+                      ? "Owner-Profil"
+                      : row.content_type ===
+                          "owner_spot_intelligence"
+                        ? "Spot Intelligence"
+                        : row.content_type}
+                  </strong>
+
+                  <div className="by-muted by-small">
+                    {row.actor_name ?? "Unbekannter Nutzer"}
+                    {" · "}
+                    {row.locale ?? "Sprache offen"}
+                    {" · "}
+                    {formatDate(row.created_at)}
+                  </div>
+                </div>
+
+                <span
+                  className="by-badge"
+                  style={{
+                    background:
+                      row.case_status === "needs_review"
+                        ? "rgba(255, 184, 77, 0.10)"
+                        : "rgba(255,255,255,0.04)",
+                    color:
+                      row.case_status === "needs_review"
+                        ? "#ffbe66"
+                        : "inherit",
+                    borderColor:
+                      row.case_status === "needs_review"
+                        ? "rgba(255, 184, 77, 0.22)"
+                        : "rgba(255,255,255,0.08)",
+                  }}
+                >
+                  {statusLabels[row.case_status] ??
+                    row.case_status}
+                </span>
+              </div>
+
+              {row.text_content ? (
+                <div style={{ padding: "22px 22px 0" }}>
+                  <div
+                    className="by-muted by-small"
+                    style={{
+                      marginBottom: 8,
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.08em",
+                    }}
+                  >
+                    Geprüfter Inhalt
+                  </div>
+                  <div
+                    className="by-panel"
+                    style={{
+                      whiteSpace: "pre-wrap",
+                      lineHeight: 1.55,
+                      padding: 18,
+                      fontSize: 17,
+                      borderRadius: 16,
+                      background: "rgba(0,0,0,0.18)",
+                    }}
+                  >
+                    {row.text_content}
+                  </div>
+                </div>
+              ) : null}
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(4, minmax(0, 1fr))",
+                  gap: 10,
+                  marginTop: 14,
+                  padding: "0 22px",
+                }}
+              >
+                <div
+                  className="by-panel"
+                  style={{
+                    minHeight: 92,
+                    padding: 14,
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    background: "rgba(255,255,255,0.018)",
+                  }}
+                >
+                  <div className="by-muted by-small">
+                    Kategorie
+                  </div>
+                  <strong>
+                    {categoryLabels[
+                      row.final_category ?? "none"
+                    ] ??
+                      row.final_category ??
+                      "—"}
+                  </strong>
+                </div>
+
+                <div
+                  className="by-panel"
+                  style={{
+                    minHeight: 92,
+                    padding: 14,
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    background: "rgba(255,255,255,0.018)",
+                  }}
+                >
+                  <div className="by-muted by-small">
+                    Severity
+                  </div>
+                  <strong>
+                    {row.final_severity ?? "—"} / 5
+                  </strong>
+                </div>
+
+                <div
+                  className="by-panel"
+                  style={{
+                    minHeight: 92,
+                    padding: 14,
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    background: "rgba(255,255,255,0.018)",
+                  }}
+                >
+                  <div className="by-muted by-small">
+                    Confidence
+                  </div>
+                  <strong>
+                    {formatConfidence(
+                      row.final_confidence,
+                    )}
+                  </strong>
+                </div>
+
+                <div
+                  className="by-panel"
+                  style={{
+                    minHeight: 92,
+                    padding: 14,
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    background: "rgba(255,255,255,0.018)",
+                  }}
+                >
+                  <div className="by-muted by-small">
+                    Policy-Version
+                  </div>
+                  <strong>{policyVersion}</strong>
+                </div>
+              </div>
+
+              <div
+                className="by-panel"
+                style={{
+                  margin: "12px 22px 0",
+                  padding: 16,
+                  background: "rgba(255,255,255,0.018)",
+                }}
+              >
+                <div className="by-muted by-small">
+                  Policy-Einstufung
+                </div>
+                <strong>
+                  {policyCategoryLabels[policyCategory] ??
+                    policyCategory}
+                </strong>
+                <div
+                  className="by-muted by-small"
+                  style={{ marginTop: 4 }}
+                >
+                  {subcategoryLabels[policySubcategory] ??
+                    policySubcategory}
+                </div>
+              </div>
+
+              {row.latest_reason_codes?.length ? (
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    flexWrap: "wrap",
+                    margin: "14px 22px 0",
+                  }}
+                >
+                  {row.latest_reason_codes.map((code) => (
+                    <span
+                      className="by-badge"
+                      key={code}
+                    >
+                      {humanizeCode(code)}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+
+              {row.explanation_public ? (
+                <div
+                  className="by-muted by-small"
+                  style={{
+                    margin: "14px 22px 0",
+                    paddingLeft: 12,
+                    borderLeft: "2px solid rgba(255,255,255,0.10)",
+                  }}
+                >
+                  {row.explanation_public}
+                </div>
+              ) : null}
+
+              {canDecide ? (
+                <div
+                  className="by-actions"
+                  style={{
+                    marginTop: 20,
+                    padding: "16px 22px 20px",
+                    borderTop: "1px solid rgba(255,255,255,0.06)",
+                    background: "rgba(0,0,0,0.14)",
+                  }}
+                >
+                  <button
+                    className="by-btn by-btn-blue"
+                    disabled={
+                      decidingCaseId === row.case_id
+                    }
+                    onClick={() =>
+                      openDecisionModal(row, "allow")
+                    }
+                  >
+                    Erlauben
+                  </button>
+
+                  <button
+                    className="by-btn by-btn-soft"
+                    disabled={
+                      decidingCaseId === row.case_id
+                    }
+                    onClick={() =>
+                      openDecisionModal(row, "limit")
+                    }
+                  >
+                    Begrenzen
+                  </button>
+
+                  <button
+                    className="by-btn"
+                    style={{
+                      background: "#7f1d1d",
+                      color: "white",
+                    }}
+                    disabled={
+                      decidingCaseId === row.case_id
+                    }
+                    onClick={() =>
+                      openDecisionModal(
+                        row,
+                        "temporary_hide",
+                      )
+                    }
+                  >
+                    Temporär ausblenden
+                  </button>
+
+                  <button
+                    className="by-btn"
+                    style={{
+                      background: "#450a0a",
+                      color: "white",
+                    }}
+                    disabled={
+                      decidingCaseId === row.case_id
+                    }
+                    onClick={() =>
+                      openDecisionModal(row, "remove")
+                    }
+                  >
+                    Entfernen
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className="by-panel"
+                  style={{ margin: "18px 22px 22px" }}
+                >
+                  <div className="by-muted by-small">
+                    Entscheidung
+                  </div>
+                  <strong>
+                    {actionLabels[
+                      row.final_action ?? ""
+                    ] ??
+                      row.final_action ??
+                      "Noch keine Entscheidung"}
+                  </strong>
+                </div>
+              )}
+            </article>
+          );
+        })}
+
+      {decisionDraft ? (
+        <div
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              closeDecisionModal();
+            }
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "grid",
+            placeItems: "center",
+            padding: 28,
+            background: "rgba(0, 0, 0, 0.78)",
+            backdropFilter: "blur(18px)",
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="safety-decision-title"
+            className="by-card"
+            style={{
+              width: "min(680px, 100%)",
+              padding: 0,
+              overflow: "hidden",
+              borderRadius: 24,
+              border: "1px solid rgba(255,255,255,0.10)",
+              background:
+                "linear-gradient(180deg, rgba(20,20,24,0.98), rgba(10,10,12,0.98))",
+              boxShadow:
+                "0 36px 120px rgba(0, 0, 0, 0.68)",
+            }}
+          >
+            <div
+              className="by-row"
+              style={{
+                padding: "24px 24px 20px",
+                borderBottom: "1px solid rgba(255,255,255,0.06)",
+              }}
+            >
+              <div>
+                <div
+                  className="by-muted by-small"
+                  style={{
+                    marginBottom: 8,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.10em",
+                    fontWeight: 700,
+                  }}
+                >
+                  Human Review
+                </div>
+                <h2
+                  id="safety-decision-title"
+                  style={{
+                    margin: 0,
+                    fontSize: 28,
+                    lineHeight: 1.1,
+                    letterSpacing: "-0.025em",
+                  }}
+                >
+                  {decisionDraft.action === "allow"
+                    ? "Inhalt erlauben"
+                    : decisionDraft.action === "limit"
+                      ? "Inhalt begrenzen"
+                      : decisionDraft.action === "temporary_hide"
+                        ? "Inhalt temporär ausblenden"
+                        : "Inhalt entfernen"}
+                </h2>
+                <div
+                  className="by-muted by-small"
+                  style={{ marginTop: 8 }}
+                >
+                  Die Entscheidung wird versioniert und im Audit Trail
+                  gespeichert.
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="by-btn by-btn-soft"
+                onClick={closeDecisionModal}
+                disabled={Boolean(decidingCaseId)}
+                aria-label="Dialog schließen"
+                style={{
+                  width: 40,
+                  height: 40,
+                  minWidth: 40,
+                  padding: 0,
+                  borderRadius: 12,
+                  fontSize: 22,
+                  lineHeight: 1,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ padding: "22px 24px 0" }}>
+              <div
+                className="by-muted by-small"
+                style={{
+                  marginBottom: 8,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                Betroffener Inhalt
+              </div>
+              <div
+                className="by-panel"
+                style={{
+                  maxHeight: 160,
+                  overflow: "auto",
+                  whiteSpace: "pre-wrap",
+                  lineHeight: 1.5,
+                  padding: 16,
+                  borderRadius: 16,
+                  background: "rgba(0,0,0,0.20)",
+                }}
+              >
+                {decisionDraft.row.text_content ||
+                  "Kein Textinhalt vorhanden."}
+              </div>
+            </div>
+
+            <div style={{ padding: "0 24px" }}>
+            <label
+              htmlFor="safety-public-explanation"
+              style={{
+                display: "block",
+                marginTop: 22,
+                fontWeight: 700,
+                fontSize: 16,
+              }}
+            >
+              Begründung
+            </label>
+
+            <div
+              className="by-muted by-small"
+              style={{ marginTop: 5 }}
+            >
+              Diese Begründung wird im Audit Trail gespeichert.
+            </div>
+
+            <textarea
+              id="safety-public-explanation"
+              value={decisionDraft.explanation}
+              onChange={(event) =>
+                setDecisionDraft((current) =>
+                  current
+                    ? {
+                        ...current,
+                        explanation:
+                          event.target.value,
+                      }
+                    : current,
+                )
+              }
+              autoFocus
+              rows={4}
+              disabled={Boolean(decidingCaseId)}
+              style={{
+                width: "100%",
+                marginTop: 10,
+                resize: "vertical",
+                minHeight: 120,
+                borderRadius: 16,
+                border:
+                  "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(255,255,255,0.04)",
+                color: "inherit",
+                padding: 14,
+                font: "inherit",
+                lineHeight: 1.45,
+                outline: "none",
+              }}
+            />
+            </div>
+
+            <div
+              className="by-actions"
+              style={{
+                justifyContent: "flex-end",
+                marginTop: 24,
+                padding: "18px 24px 22px",
+                borderTop: "1px solid rgba(255,255,255,0.06)",
+                background: "rgba(0,0,0,0.16)",
+              }}
+            >
+              <button
+                type="button"
+                className="by-btn by-btn-soft"
+                onClick={closeDecisionModal}
+                disabled={Boolean(decidingCaseId)}
+              >
+                Abbrechen
+              </button>
+
+              <button
+                type="button"
+                className={
+                  decisionDraft.action === "allow"
+                    ? "by-btn by-btn-blue"
+                    : "by-btn"
+                }
+                onClick={() => void submitDecision()}
+                disabled={
+                  Boolean(decidingCaseId) ||
+                  !decisionDraft.explanation.trim()
+                }
+                style={
+                  decisionDraft.action === "remove"
+                    ? {
+                        background: "#450a0a",
+                        color: "white",
+                      }
+                    : decisionDraft.action ===
+                        "temporary_hide"
+                      ? {
+                          background: "#7f1d1d",
+                          color: "white",
+                        }
+                      : undefined
+                }
+              >
+                {decidingCaseId
+                  ? "Wird gespeichert…"
+                  : `${actionLabels[decisionDraft.action]} bestätigen`}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+    </div>
+  );
+}

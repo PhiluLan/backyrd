@@ -19,7 +19,6 @@ import { Ionicons } from "@expo/vector-icons";
 
 import Avatar from "./Avatar";
 import { supabase } from "../lib/supabase";
-import ReportContentButton from "./safety/ReportContentButton";
 
 export type SocialComment = {
   comment_id: string;
@@ -81,8 +80,6 @@ export default function CommentsSheet({
   const insets = useSafeAreaInsets();
   const inputRef = useRef<TextInput>(null);
 
-  const [currentUserId, setCurrentUserId] =
-    useState<string | null>(null);
   const [comments, setComments] = useState<SocialComment[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -96,62 +93,14 @@ export default function CommentsSheet({
     try {
       setLoading(true);
 
-      const [commentsResult, userResult] =
-        await Promise.all([
-          supabase.rpc("get_social_comments_v1", {
-            p_post_id: postId,
-            p_limit: 80,
-          }),
-          supabase.auth.getUser(),
-        ]);
+      const { data, error } = await supabase.rpc("get_social_comments_v1", {
+        p_post_id: postId,
+        p_limit: 80,
+      });
 
-      if (commentsResult.error) {
-        throw commentsResult.error;
-      }
+      if (error) throw error;
 
-      setCurrentUserId(
-        userResult.data.user?.id ?? null,
-      );
-
-      const rawComments = Array.isArray(
-        commentsResult.data,
-      )
-        ? (commentsResult.data as SocialComment[])
-        : [];
-
-      if (rawComments.length === 0) {
-        setComments([]);
-        return;
-      }
-
-      const { data: visibleCommentIds, error: visibilityError } =
-        await supabase.rpc("safety_visible_entity_ids_v1", {
-          p_entity_type: "social_comment",
-          p_entity_ids: rawComments.map(
-            (comment) => comment.comment_id,
-          ),
-        });
-
-      if (visibilityError) {
-        console.log(
-          "comment safety visibility failed",
-          visibilityError,
-        );
-        setComments(rawComments);
-        return;
-      }
-
-      const allowedIds = new Set(
-        Array.isArray(visibleCommentIds)
-          ? visibleCommentIds
-          : [],
-      );
-
-      setComments(
-        rawComments.filter((comment) =>
-          allowedIds.has(comment.comment_id),
-        ),
-      );
+      setComments(Array.isArray(data) ? (data as SocialComment[]) : []);
     } catch (error) {
       console.log("get_social_comments_v1 failed:", error);
       Alert.alert("Kommentare konnten nicht geladen werden", formatError(error));
@@ -216,44 +165,17 @@ export default function CommentsSheet({
 
         <View style={styles.commentTextWrap}>
           <View style={styles.commentTopLine}>
-            <View style={styles.commentIdentity}>
-              <Text
-                style={styles.commentName}
-                numberOfLines={1}
-              >
-                {name}
-              </Text>
-              <Text style={styles.commentTime}>
-                {timeAgo(item.created_at)}
-              </Text>
-            </View>
-
-            {currentUserId &&
-            item.user_id !== currentUserId ? (
-              <ReportContentButton
-                entityType="social_comment"
-                entityId={item.comment_id}
-                contentType="comment"
-                actorUserId={item.user_id}
-                textContent={item.body}
-                locale="de-CH"
-                sourceSurface="comments_sheet"
-                sourceContext={{
-                  screen: "comments_sheet",
-                  post_id: item.post_id,
-                  comment_id: item.comment_id,
-                }}
-              />
-            ) : null}
+            <Text style={styles.commentName} numberOfLines={1}>
+              {name}
+            </Text>
+            <Text style={styles.commentTime}>{timeAgo(item.created_at)}</Text>
           </View>
 
-          <Text style={styles.commentText}>
-            {item.body}
-          </Text>
+          <Text style={styles.commentText}>{item.body}</Text>
         </View>
       </View>
     );
-  }, [currentUserId]);
+  }, []);
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={closeSheet}>
@@ -485,15 +407,6 @@ const styles = StyleSheet.create({
     paddingTop: 1,
   },
   commentTopLine: {
-    minHeight: 34,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  commentIdentity: {
-    flex: 1,
-    minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,

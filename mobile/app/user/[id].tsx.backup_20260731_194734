@@ -16,7 +16,6 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useFocusEffect } from "@react-navigation/native";
 
 import Avatar from "../../components/Avatar";
 import SocialPostCard, { SocialFeedPost } from "../../components/PostCard";
@@ -67,8 +66,9 @@ async function filterSafetyVisiblePosts(
     visibleReviewsResult,
     commentCountsResult,
   ] = await Promise.all([
-    supabase.rpc("safety_visible_social_post_ids_v1", {
-      p_post_ids: postIds,
+    supabase.rpc("safety_visible_entity_ids_v1", {
+      p_entity_type: "social_post",
+      p_entity_ids: postIds,
     }),
     reviewIds.length > 0
       ? supabase.rpc("safety_visible_entity_ids_v1", {
@@ -252,11 +252,9 @@ export default function UserProfileScreen() {
     [router, userId]
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      void load("initial");
-    }, [load]),
-  );
+  useEffect(() => {
+    load("initial");
+  }, [load]);
 
   const toggleFollow = useCallback(async () => {
     if (!profile || profile.is_me || followBusy) return;

@@ -306,7 +306,6 @@ export default function SafetyIntegrityPage() {
   const [appeals, setAppeals] = useState<AppealRow[]>([]);
 
   const [error, setError] = useState("");
-  const [decisionErrorText, setDecisionErrorText] = useState("");
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState<string | null>(null);
 
@@ -398,7 +397,6 @@ export default function SafetyIntegrityPage() {
         "Der Inhalt wurde nach menschlicher Prüfung entfernt.",
     };
 
-    setDecisionErrorText("");
     setDecisionDraft({
       row,
       action,
@@ -413,13 +411,8 @@ export default function SafetyIntegrityPage() {
     setWorkingId(row.case_id);
     setError("");
 
-    const decisionRpc =
-      row.entity_type === "spot_owner_change"
-        ? "safety_admin_decide_v1"
-        : "safety_admin_decide_user_content_v1";
-
     const { error: decisionError } = await supabase.rpc(
-      decisionRpc,
+      "safety_admin_decide_v1",
       {
         p_case_id: row.case_id,
         p_action: action,
@@ -440,12 +433,11 @@ export default function SafetyIntegrityPage() {
     );
 
     if (decisionError) {
-      setDecisionErrorText(decisionError.message);
+      setError(decisionError.message);
       setWorkingId(null);
       return;
     }
 
-    setDecisionErrorText("");
     setDecisionDraft(null);
     setWorkingId(null);
     await load();
@@ -1632,24 +1624,6 @@ export default function SafetyIntegrityPage() {
             </div>
 
             <div style={{ padding: "22px 26px" }}>
-              {decisionErrorText ? (
-                <div
-                  style={{
-                    marginBottom: 16,
-                    padding: "12px 14px",
-                    borderRadius: 12,
-                    border: "1px solid rgba(255,90,90,0.22)",
-                    background: "rgba(255,70,70,0.08)",
-                    color: "#ff8f8f",
-                    fontSize: 13,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Entscheidung konnte nicht gespeichert werden:{" "}
-                  {decisionErrorText}
-                </div>
-              ) : null}
-
               <label
                 htmlFor="decision-note"
                 style={{ fontWeight: 800 }}

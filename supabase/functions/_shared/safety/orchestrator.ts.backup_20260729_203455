@@ -1,0 +1,143 @@
+export type OpenAIModerationResult = {
+  flagged: boolean;
+  categories: Record<string, boolean>;
+  category_scores: Record<string, number>;
+  category_applied_input_types?: Record<string, string[]>;
+};
+
+export type SafetyPolicy = {
+  policy_id: string;
+  version: string;
+  status: "shadow" | "active";
+  content_types: Record<
+    string,
+    {
+      review_threshold: number;
+      temporary_hide_threshold: number;
+    }
+  >;
+};
+
+type DominantCategory = {
+  category: string;
+  score: number;
+  flagged: boolean;
+};
+
+export function normalizeCategory(key: string): string {
+  return key.replaceAll("/", "_").replaceAll("-", "_");
+}
+
+export function severityFor(category: string): number {
+  const map: Record<string, number> = {
+    sexual_minors: 5,
+    hate_threatening: 5,
+    harassment_threatening: 5,
+    self_harm_intent: 5,
+    self_harm_instructions: 5,
+    illicit_violent: 5,
+    violence_graphic: 4,
+    hate: 4,
+    harassment: 3,
+    sexual: 3,
+    violence: 3,
+    illicit: 3,
+    self_harm: 4,
+  };
+
+  return map[category] ?? 0;
+}
+
+export function chooseDominant(
+  result: OpenAIModerationResult,
+): DominantCategory {
+  const entries = Object.entries(result.category_scores ?? {})
+    .map(([key, score]) => ({
+      category: normalizeCategory(key),
+      score: Number(score ?? 0),
+      flagged: Boolean(result.categories?.[key]),
+    }))
+    .sort((a, b) => {
+      if (a.flagged !== b.flagged) {
+        return a.flagged ? -1 : 1;
+      }
+
+      return b.score - a.score;
+    });
+
+  return entries[0] ?? {
+    category: "none",
+    score: 0,
+    flagged: false,
+  };
+}
+
+export function orchestrate(input: {
+  result: OpenAIModerationResult;
+  policy: SafetyPolicy;
+  contentType: string;
+}) {
+  const cfg = input.policy.content_types[input.contentType] ?? {
+    review_threshold: 0.65,
+    temporary_hide_threshold: 0.95,
+  };
+
+  const dominant = chooseDominant(input.result);
+
+  const requiresReview =
+    input.result.flagged ||
+    dominant.flagged ||
+    dominant.score >= cfg.review_threshold;
+
+  if (!requiresReview) {
+    return {
+      finalAction: "allow",
+      recommendedAction: "allow",
+      caseStatus: "decided",
+      category: "none",
+      severity: 0,
+      confidence: dominant.score,
+      reasonCodes: [
+        "NO_POLICY_VIOLATION",
+        input.policy.status === "shadow"
+          ? "SHADOW_MODE"
+          : "ACTIVE_POLICY",
+      ],
+    };
+  }
+
+  const severity = severityFor(dominant.category);
+
+  let recommendedAction = "allow_log";
+  let caseStatus = "needs_review";
+
+  if (
+    dominant.score >= cfg.temporary_hide_threshold &&
+    severity >= 4
+  ) {
+    recommendedAction = "temporary_hide";
+  }
+
+  const finalAction =
+    input.policy.status === "shadow"
+      ? "allow_log"
+      : recommendedAction;
+
+  return {
+    finalAction,
+    recommendedAction,
+    caseStatus,
+    category: dominant.category,
+    severity,
+    confidence: dominant.score,
+    reasonCodes: [
+      `PRIMARY_${dominant.category.toUpperCase()}`,
+      dominant.flagged
+        ? "CATEGORY_FLAGGED"
+        : "REVIEW_THRESHOLD_REACHED",
+      input.policy.status === "shadow"
+        ? "SHADOW_MODE"
+        : "ACTIVE_POLICY",
+    ],
+  };
+}

@@ -16,7 +16,6 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useFocusEffect } from "@react-navigation/native";
 
 import Avatar from "../../components/Avatar";
 import SocialPostCard, { SocialFeedPost } from "../../components/PostCard";
@@ -46,109 +45,6 @@ type SocialProfile = {
 
 function errorMessage(err: any) {
   return err?.message || err?.details || err?.hint || "Unbekannter Fehler";
-}
-
-
-async function filterSafetyVisiblePosts(
-  posts: SocialFeedPost[],
-): Promise<SocialFeedPost[]> {
-  if (posts.length === 0) return posts;
-
-  const postIds = posts
-    .map((post) => post.post_id)
-    .filter(Boolean);
-
-  const reviewIds = posts
-    .map((post) => post.review_id)
-    .filter((value): value is string => Boolean(value));
-
-  const [
-    visiblePostsResult,
-    visibleReviewsResult,
-    commentCountsResult,
-  ] = await Promise.all([
-    supabase.rpc("safety_visible_social_post_ids_v1", {
-      p_post_ids: postIds,
-    }),
-    reviewIds.length > 0
-      ? supabase.rpc("safety_visible_entity_ids_v1", {
-          p_entity_type: "review",
-          p_entity_ids: reviewIds,
-        })
-      : Promise.resolve({
-          data: [],
-          error: null,
-        }),
-    supabase.rpc("safety_visible_comment_counts_v1", {
-      p_post_ids: postIds,
-    }),
-  ]);
-
-  if (visiblePostsResult.error) {
-    console.log(
-      "social post safety visibility failed",
-      visiblePostsResult.error,
-    );
-  }
-
-  if (visibleReviewsResult.error) {
-    console.log(
-      "review safety visibility failed",
-      visibleReviewsResult.error,
-    );
-  }
-
-  if (commentCountsResult.error) {
-    console.log(
-      "visible comment counts failed",
-      commentCountsResult.error,
-    );
-  }
-
-  const visiblePostIds = new Set(
-    Array.isArray(visiblePostsResult.data)
-      ? visiblePostsResult.data
-      : postIds,
-  );
-
-  const visibleReviewIds = new Set(
-    Array.isArray(visibleReviewsResult.data)
-      ? visibleReviewsResult.data
-      : reviewIds,
-  );
-
-  const commentCounts = new Map<string, number>();
-
-  if (Array.isArray(commentCountsResult.data)) {
-    for (const row of commentCountsResult.data) {
-      if (row?.post_id) {
-        commentCounts.set(
-          row.post_id,
-          Number(row.visible_count ?? 0),
-        );
-      }
-    }
-  }
-
-  return posts
-    .filter((post) => {
-      if (!visiblePostIds.has(post.post_id)) return false;
-
-      if (
-        post.review_id &&
-        !visibleReviewIds.has(post.review_id)
-      ) {
-        return false;
-      }
-
-      return true;
-    })
-    .map((post) => ({
-      ...post,
-      comment_count: commentCounts.has(post.post_id)
-        ? commentCounts.get(post.post_id) ?? 0
-        : post.comment_count,
-    }));
 }
 
 function formatSince(value?: string | null) {
@@ -233,14 +129,7 @@ export default function UserProfileScreen() {
 
         const profileRow = Array.isArray(profileData) ? profileData[0] : profileData;
         setProfile(profileRow ?? null);
-
-        const rawPosts = Array.isArray(postData)
-          ? (postData as SocialFeedPost[])
-          : [];
-        const visiblePosts =
-          await filterSafetyVisiblePosts(rawPosts);
-
-        setPosts(visiblePosts);
+        setPosts(Array.isArray(postData) ? (postData as SocialFeedPost[]) : []);
       } catch (error: any) {
         console.log("user profile load failed", error);
         Alert.alert("Profil konnte nicht geladen werden", errorMessage(error));
@@ -252,11 +141,9 @@ export default function UserProfileScreen() {
     [router, userId]
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      void load("initial");
-    }, [load]),
-  );
+  useEffect(() => {
+    load("initial");
+  }, [load]);
 
   const toggleFollow = useCallback(async () => {
     if (!profile || profile.is_me || followBusy) return;

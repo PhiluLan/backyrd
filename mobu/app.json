@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "MoBu",
+    "slug": "mobu",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "mobu",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ch.mobu.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "MoBu benötigt die Kamera, um Dokumente zu erfassen.",
+        "NSPhotoLibraryUsageDescription": "MoBu benötigt Zugriff auf Fotos, um Dokumente zu importieren."
+      }
+    },
+    "android": {
+      "package": "ch.mobu.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#F3F6F2"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MoBu benötigt Zugriff auf Fotos, um Dokumente zu importieren.",
+          "cameraPermission": "MoBu benötigt die Kamera, um Dokumente zu erfassen."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

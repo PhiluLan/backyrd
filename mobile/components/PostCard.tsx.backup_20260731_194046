@@ -14,7 +14,6 @@ import { useRouter } from "expo-router";
 
 import Avatar from "./Avatar";
 import { supabase } from "../lib/supabase";
-import ReportContentButton from "./safety/ReportContentButton";
 
 export type SocialFeedPost = {
   post_id: string;
@@ -98,19 +97,6 @@ function cleanTags(value?: string[] | null) {
     : [];
 }
 
-function mediaUrls(post: SocialFeedPost) {
-  return Array.isArray(post.media)
-    ? post.media
-        .map(
-          (item) =>
-            item.public_url ||
-            item.storage_path ||
-            null,
-        )
-        .filter((value): value is string => Boolean(value))
-    : [];
-}
-
 function firstMediaUrl(post: SocialFeedPost) {
   const first = Array.isArray(post.media) ? post.media[0] : null;
   if (!first) return null;
@@ -181,10 +167,6 @@ export default function SocialPostCard({
   const displayName = post.display_name?.trim() || post.username?.trim() || "Backyrd User";
   const handle = post.username?.trim() ? `@${post.username.trim()}` : "Backyrd";
   const imageUrl = useMemo(() => firstMediaUrl(post), [post]);
-  const reportImageUrls = useMemo(
-    () => mediaUrls(post),
-    [post],
-  );
   const moodTags = useMemo(() => cleanTags(post.mood_tags), [post.mood_tags]);
   const occasionTags = useMemo(() => cleanTags(post.occasion_tags), [post.occasion_tags]);
   const allTags = useMemo(() => [...moodTags, ...occasionTags].slice(0, 6), [moodTags, occasionTags]);
@@ -302,26 +284,7 @@ export default function SocialPostCard({
           </View>
 
           {!isOwnPost ? (
-            <View style={styles.postHeaderActions}>
-              <ReportContentButton
-                entityType="social_post"
-                entityId={post.post_id}
-                contentType="moment"
-                actorUserId={post.user_id}
-                spotId={post.spot_id}
-                textContent={post.caption}
-                imageUrls={reportImageUrls}
-                locale="de-CH"
-                sourceSurface="social_post_card"
-                sourceContext={{
-                  screen: "social_feed",
-                  post_id: post.post_id,
-                  review_id: post.review_id ?? null,
-                  source_type: post.source_type ?? null,
-                }}
-              />
-
-              <Pressable
+            <Pressable
               style={[styles.followButton, following && styles.followButtonActive]}
               onPress={toggleFollow}
               disabled={busyFollow}
@@ -329,8 +292,7 @@ export default function SocialPostCard({
               <Text style={[styles.followText, following && styles.followTextActive]}>
                 {following ? "Gefolgt" : "Folgen"}
               </Text>
-              </Pressable>
-            </View>
+            </Pressable>
           ) : null}
         </View>
       </View>
@@ -506,12 +468,6 @@ const styles = StyleSheet.create({
   },
   reviewBadgeText: {
     color: "#0A0A0B",
-  },
-  postHeaderActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 7,
   },
   followButton: {
     height: 30,

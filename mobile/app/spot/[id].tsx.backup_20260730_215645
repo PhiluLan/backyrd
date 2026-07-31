@@ -244,97 +244,10 @@ export default function SpotDetailScreen() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const refreshVisibleReviews = useCallback(async () => {
-    if (!id) return;
-
-    const { data: revRows, error: reviewsError } = await supabase
-      .from("reviews")
-      .select(`
-        id,
-        text,
-        photo_path,
-        created_at,
-        mood_a,
-        mood_b,
-        mood_a_id,
-        mood_b_id,
-        moodA:mood_a_id ( token ),
-        moodB:mood_b_id ( token ),
-        profiles:user_id (
-          id,
-          first_name,
-          is_local
-        ),
-        review_photos (
-          id,
-          url,
-          created_at
-        )
-      `)
-      .eq("spot_id", id)
-      .order("created_at", { ascending: false });
-
-    if (reviewsError) {
-      console.log("refresh reviews error", reviewsError);
-      return;
-    }
-
-    const rawReviews = revRows || [];
-    let visibleReviews = rawReviews;
-
-    if (rawReviews.length > 0) {
-      const reviewIds = rawReviews
-        .map((review: any) => review.id)
-        .filter(Boolean);
-
-      const { data: visibleReviewIds, error: visibilityError } =
-        await supabase.rpc("safety_visible_entity_ids_v1", {
-          p_entity_type: "review",
-          p_entity_ids: reviewIds,
-        });
-
-      if (visibilityError) {
-        console.log(
-          "safety_visible_entity_ids_v1 refresh error",
-          visibilityError,
-        );
-      } else {
-        const allowedIds = new Set(
-          Array.isArray(visibleReviewIds)
-            ? visibleReviewIds
-            : [],
-        );
-
-        visibleReviews = rawReviews.filter((review: any) =>
-          allowedIds.has(review.id),
-        );
-      }
-    }
-
-    setReviews(visibleReviews);
-
-    const counts: Record<string, number> = {};
-
-    for (const review of visibleReviews) {
-      const moodA = review.moodA?.token ?? review.mood_a;
-      const moodB = review.moodB?.token ?? review.mood_b;
-
-      if (moodA) counts[moodA] = (counts[moodA] || 0) + 1;
-      if (moodB) counts[moodB] = (counts[moodB] || 0) + 1;
-    }
-
-    setMoodSummary(
-      Object.entries(counts)
-        .map(([mood, count]) => ({ mood, count }))
-        .sort((a, b) => b.count - a.count),
-    );
-  }, [id]);
-
   useFocusEffect(
     useCallback(() => {
       loadOwnerCtx();
-      void refreshVisibleReviews();
-    }, [loadOwnerCtx, refreshVisibleReviews])
+    }, [loadOwnerCtx])
   );
 
   useEffect(() => {
@@ -398,40 +311,7 @@ export default function SpotDetailScreen() {
       setSpot(spotRow);
       setPhotos(photoRows || []);
       setGooglePhoto(null);
-
-      const rawReviews = revRows || [];
-      let visibleReviews = rawReviews;
-
-      if (rawReviews.length > 0) {
-        const reviewIds = rawReviews
-          .map((review: any) => review.id)
-          .filter(Boolean);
-
-        const { data: visibleReviewIds, error: visibilityError } =
-          await supabase.rpc("safety_visible_entity_ids_v1", {
-            p_entity_type: "review",
-            p_entity_ids: reviewIds,
-          });
-
-        if (visibilityError) {
-          console.log(
-            "safety_visible_entity_ids_v1 error",
-            visibilityError,
-          );
-        } else {
-          const allowedIds = new Set(
-            Array.isArray(visibleReviewIds)
-              ? visibleReviewIds
-              : [],
-          );
-
-          visibleReviews = rawReviews.filter((review: any) =>
-            allowedIds.has(review.id),
-          );
-        }
-      }
-
-      setReviews(visibleReviews);
+      setReviews(revRows || []);
 
       if ((photoRows || []).length === 0 && spotRow?.google_place_id) {
         const googleFallback = await getGooglePlacePhotoFallback(String(id));
@@ -453,9 +333,9 @@ export default function SpotDetailScreen() {
       });
       setHours(grouped);
 
-      if (visibleReviews.length) {
+      if (revRows?.length) {
         const counts: Record<string, number> = {};
-        for (const r of visibleReviews) {
+        for (const r of revRows) {
           const mA = r.moodA?.token ?? r.mood_a;
           const mB = r.moodB?.token ?? r.mood_b;
           if (mA) counts[mA] = (counts[mA] || 0) + 1;
