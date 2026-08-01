@@ -1,0 +1,111 @@
+import { supabase } from "./supabase";
+
+export type SafetySnapshotInput = {
+  entityType: "profile" | "review" | "social_post";
+  entityId: string;
+  contentType: string;
+  actorUserId?: string | null;
+  spotId?: string | null;
+  textContent?: string | null;
+  imageUrls?: string[];
+  sourceSurface: string;
+  sourceContext?: Record<string, unknown>;
+};
+
+export async function registerSafetySnapshot(
+  input: SafetySnapshotInput,
+) {
+  const { data, error } = await supabase.rpc(
+    "safety_register_content_snapshot_v1",
+    {
+      p_entity_type: input.entityType,
+      p_entity_id: input.entityId,
+      p_content_type: input.contentType,
+      p_actor_user_id: input.actorUserId ?? null,
+      p_spot_id: input.spotId ?? null,
+      p_text_content: input.textContent ?? null,
+      p_image_urls: input.imageUrls ?? [],
+      p_source_surface: input.sourceSurface,
+      p_source_context: input.sourceContext ?? {},
+    },
+  );
+
+  if (error) {
+    console.log(
+      "registerSafetySnapshot failed",
+      error,
+    );
+    return;
+  }
+
+  const caseId =
+    typeof data?.case_id === "string"
+      ? data.case_id
+      : null;
+
+  const analysisRequired =
+    data?.analysis_required === true;
+
+  if (!analysisRequired || !caseId) {
+    return;
+  }
+
+  const { error: evaluationError } =
+    await supabase.functions.invoke(
+      "safety-evaluate",
+      {
+        body: {
+          caseId,
+        },
+      },
+    );
+
+  if (evaluationError) {
+    console.log(
+      "automatic image safety evaluation failed",
+      evaluationError,
+    );
+  }
+}
+
+export function buildProfileSafetyText(profile: {
+  first_name?: string | null;
+  last_name?: string | null;
+  username?: string | null;
+  bio?: string | null;
+  city?: string | null;
+  country?: string | null;
+  interests?: string | null;
+  personality?: string | null;
+  instagram?: string | null;
+  tiktok?: string | null;
+  website?: string | null;
+  contact_email?: string | null;
+}) {
+  return [
+    profile.first_name,
+    profile.last_name,
+    profile.username
+      ? `@${profile.username}`
+      : null,
+    profile.bio,
+    profile.city,
+    profile.country,
+    profile.interests,
+    profile.personality,
+    profile.instagram
+      ? `Instagram: ${profile.instagram}`
+      : null,
+    profile.tiktok
+      ? `TikTok: ${profile.tiktok}`
+      : null,
+    profile.website
+      ? `Website: ${profile.website}`
+      : null,
+    profile.contact_email
+      ? `Kontakt: ${profile.contact_email}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}

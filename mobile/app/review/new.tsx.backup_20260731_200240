@@ -25,7 +25,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { awardAchievementsForUser } from "../../lib/achievementEngine";
 import { AchievementUnlockModal } from "../../components/AchievementUnlockModal";
 import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
-import { registerSafetySnapshot } from "../../lib/safety-content";
 
 const theme = {
   colors: {
@@ -266,11 +265,8 @@ export default function NewReviewScreen() {
       if (reviewErr) throw reviewErr;
       const reviewId = reviewData.id as string;
 
-      const uploadedPhotoUrls: string[] = [];
-
       for (const uri of photos) {
         const photoUrl = await uploadReviewImage(uri, reviewId);
-        uploadedPhotoUrls.push(photoUrl);
 
         const { error: photoErr } = await supabase.from("review_photos").insert({
           review_id: reviewId,
@@ -282,26 +278,6 @@ export default function NewReviewScreen() {
       }
 
       await linkDecisionReview(reviewId);
-
-      await registerSafetySnapshot({
-        entityType: "review",
-        entityId: reviewId,
-        contentType: "review",
-        actorUserId: user.id,
-        spotId,
-        textContent: [
-          text.trim() || null,
-          moodA.trim() || null,
-          moodB.trim() || null,
-        ].filter(Boolean).join("\n"),
-        imageUrls: uploadedPhotoUrls,
-        sourceSurface: "review_new",
-        sourceContext: {
-          source: source ?? "spot",
-          decision_id: decisionId ?? null,
-        },
-      });
-
       void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_new", entityType: "review", entityId: reviewId, spotId, decisionId: decisionId ?? null, properties: { photo_count: photos.length, has_text: Boolean(text.trim()), source: source ?? "spot" } });
 
       const newlyUnlocked = await awardAchievementsForUser(user.id);

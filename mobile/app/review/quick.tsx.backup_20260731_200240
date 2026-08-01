@@ -17,7 +17,6 @@ import * as ImageManipulator from "expo-image-manipulator";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
 import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
-import { registerSafetySnapshot } from "../../lib/safety-content";
 
 const theme = {
   bg: "#050506",
@@ -183,26 +182,6 @@ export default function QuickReviewScreen() {
         .single();
 
       if (insertError) throw insertError;
-
-      if (reviewData?.id) {
-        await registerSafetySnapshot({
-          entityType: "review",
-          entityId: reviewData.id,
-          contentType: "review",
-          actorUserId: user.id,
-          spotId,
-          textContent: [
-            moodA || null,
-            moodB || null,
-          ].filter(Boolean).join("\n"),
-          imageUrls: [publicUrl],
-          sourceSurface: "review_quick",
-          sourceContext: {
-            source: source ?? "spot",
-            decision_id: decisionId ?? null,
-          },
-        });
-      }
 
       if (isDecisionReview && reviewData?.id) {
         const { error: linkError } = await supabase.rpc("link_decision_review_v1", {

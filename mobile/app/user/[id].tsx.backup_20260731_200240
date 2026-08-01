@@ -22,7 +22,6 @@ import Avatar from "../../components/Avatar";
 import SocialPostCard, { SocialFeedPost } from "../../components/PostCard";
 import CommentsSheet from "../../components/CommentsSheet";
 import { supabase } from "../../lib/supabase";
-import ReportProfileAction from "../../components/safety/ReportProfileAction";
 
 const { width } = Dimensions.get("window");
 
@@ -63,18 +62,9 @@ async function filterSafetyVisiblePosts(
     .map((post) => post.review_id)
     .filter((value): value is string => Boolean(value));
 
-  const authorIds = Array.from(
-    new Set(
-      posts
-        .map((post) => post.user_id)
-        .filter(Boolean),
-    ),
-  );
-
   const [
     visiblePostsResult,
     visibleReviewsResult,
-    visibleProfilesResult,
     commentCountsResult,
   ] = await Promise.all([
     supabase.rpc("safety_visible_social_post_ids_v1", {
@@ -89,10 +79,6 @@ async function filterSafetyVisiblePosts(
           data: [],
           error: null,
         }),
-    supabase.rpc("safety_visible_entity_ids_v1", {
-      p_entity_type: "profile",
-      p_entity_ids: authorIds,
-    }),
     supabase.rpc("safety_visible_comment_counts_v1", {
       p_post_ids: postIds,
     }),
@@ -131,12 +117,6 @@ async function filterSafetyVisiblePosts(
       : reviewIds,
   );
 
-  const visibleProfileIds = new Set(
-    Array.isArray(visibleProfilesResult.data)
-      ? visibleProfilesResult.data
-      : authorIds,
-  );
-
   const commentCounts = new Map<string, number>();
 
   if (Array.isArray(commentCountsResult.data)) {
@@ -163,26 +143,12 @@ async function filterSafetyVisiblePosts(
 
       return true;
     })
-    .map((post) => {
-      const authorProfileVisible =
-        visibleProfileIds.has(post.user_id);
-
-      return {
-        ...post,
-        display_name: authorProfileVisible
-          ? post.display_name
-          : "Backyrd User",
-        username: authorProfileVisible
-          ? post.username
-          : null,
-        avatar_url: authorProfileVisible
-          ? post.avatar_url
-          : null,
-        comment_count: commentCounts.has(post.post_id)
-          ? commentCounts.get(post.post_id) ?? 0
-          : post.comment_count,
-      };
-    });
+    .map((post) => ({
+      ...post,
+      comment_count: commentCounts.has(post.post_id)
+        ? commentCounts.get(post.post_id) ?? 0
+        : post.comment_count,
+    }));
 }
 
 function formatSince(value?: string | null) {
@@ -201,7 +167,6 @@ export default function UserProfileScreen() {
 
   const [meId, setMeId] = useState<string | null>(null);
   const [profile, setProfile] = useState<SocialProfile | null>(null);
-  const [profileVisible, setProfileVisible] = useState(true);
   const [posts, setPosts] = useState<SocialFeedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -266,58 +231,8 @@ export default function UserProfileScreen() {
         if (profileError) throw profileError;
         if (postError) throw postError;
 
-        const profileRow = Array.isArray(profileData)
-          ? profileData[0]
-          : profileData;
-
-        const { data: visibleProfileIds, error: profileVisibilityError } =
-          await supabase.rpc("safety_visible_entity_ids_v1", {
-            p_entity_type: "profile",
-            p_entity_ids: [userId],
-          });
-
-        if (profileVisibilityError) {
-          console.log(
-            "profile safety visibility failed",
-            profileVisibilityError,
-          );
-        }
-
-        const isProfileVisible = profileVisibilityError
-          ? true
-          : Array.isArray(visibleProfileIds) &&
-            visibleProfileIds.includes(userId);
-
-        setProfileVisible(isProfileVisible);
-
-        setProfile(
-          profileRow
-            ? {
-                ...profileRow,
-                display_name: isProfileVisible
-                  ? profileRow.display_name
-                  : "Backyrd User",
-                username: isProfileVisible
-                  ? profileRow.username
-                  : null,
-                avatar_url: isProfileVisible
-                  ? profileRow.avatar_url
-                  : null,
-                header_photo_url: isProfileVisible
-                  ? profileRow.header_photo_url
-                  : null,
-                bio: isProfileVisible
-                  ? profileRow.bio
-                  : null,
-                instagram: isProfileVisible
-                  ? profileRow.instagram
-                  : null,
-                website: isProfileVisible
-                  ? profileRow.website
-                  : null,
-              }
-            : null,
-        );
+        const profileRow = Array.isArray(profileData) ? profileData[0] : profileData;
+        setProfile(profileRow ?? null);
 
         const rawPosts = Array.isArray(postData)
           ? (postData as SocialFeedPost[])
@@ -455,35 +370,9 @@ export default function UserProfileScreen() {
             <Ionicons name="chevron-back" size={25} color="#FFFFFF" />
           </Pressable>
 
-          <View style={styles.topBarActions}>
-            {profileVisible && profile ? (
-              <ReportProfileAction
-                profileUserId={profile.user_id}
-                textContent={[
-                  profile.display_name,
-                  profile.username,
-                  profile.bio,
-                  profile.city,
-                  profile.country,
-                  profile.instagram,
-                  profile.website,
-                ].filter(Boolean).join("\n")}
-                avatarUrl={profile.avatar_url}
-                headerPhotoUrl={profile.header_photo_url}
-              />
-            ) : null}
-
-            <Pressable
-              style={styles.circleButton}
-              onPress={() => load("refresh")}
-            >
-              <Ionicons
-                name="refresh"
-                size={21}
-                color="#FFFFFF"
-              />
-            </Pressable>
-          </View>
+          <Pressable style={styles.circleButton} onPress={() => load("refresh")}>
+            <Ionicons name="refresh" size={21} color="#FFFFFF" />
+          </Pressable>
         </View>
 
         <View style={styles.profileCard}>
@@ -507,19 +396,6 @@ export default function UserProfileScreen() {
               {profile.bio}
             </Text>
           )}
-
-          {!profileVisible ? (
-            <View style={styles.profileSafetyNotice}>
-              <Ionicons
-                name="shield-outline"
-                size={18}
-                color="#FFBA62"
-              />
-              <Text style={styles.profileSafetyNoticeText}>
-                Dieses Profil ist aufgrund einer Moderationsentscheidung eingeschränkt.
-              </Text>
-            </View>
-          ) : null}
 
           <View style={styles.statsRow}>
             <View style={styles.statBox}>
@@ -718,11 +594,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  topBarActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 9,
-  },
   circleButton: {
     width: 48,
     height: 48,
@@ -761,25 +632,6 @@ const styles = StyleSheet.create({
     color: "#8F8F98",
     fontSize: 18,
     fontWeight: "850",
-  },
-  profileSafetyNotice: {
-    marginTop: 18,
-    minHeight: 52,
-    borderRadius: 17,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "rgba(255,186,98,0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(255,186,98,0.18)",
-  },
-  profileSafetyNoticeText: {
-    flex: 1,
-    color: "#D9C29F",
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: "650",
   },
   bioText: {
     marginTop: 18,

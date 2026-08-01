@@ -22,7 +22,6 @@ import { reverseGeocode } from "../../lib/geocode";
 import { awardAchievementsForUser } from "../../lib/achievementEngine";
 import { AchievementUnlockModal } from "../../components/AchievementUnlockModal";
 import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
-import { registerSafetySnapshot } from "../../lib/safety-content";
 
 const theme = {
   colors: {
@@ -352,25 +351,6 @@ export default function SmartReviewScreen() {
       });
 
       if (photoErr) throw photoErr;
-
-      await registerSafetySnapshot({
-        entityType: "review",
-        entityId: reviewId,
-        contentType: "review",
-        actorUserId: user.id,
-        spotId: nearest.id,
-        textContent: [
-          text.trim() || null,
-          moodA.trim() || null,
-          moodB.trim() || null,
-        ].filter(Boolean).join("\n"),
-        imageUrls: [photoUrl],
-        sourceSurface: "review_smart",
-        sourceContext: {
-          source: source ?? "smart",
-          decision_id: decisionId ?? null,
-        },
-      });
 
       await linkDecisionReview(reviewId);
       void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_smart", entityType: "review", entityId: reviewId, spotId: nearest.id, decisionId: decisionId ?? null, properties: { photo_count: 1, has_text: Boolean(text.trim()), source: source ?? "smart" } });

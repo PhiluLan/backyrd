@@ -15,7 +15,6 @@ import { useAuth } from "../hooks/useAuth";
 import { AnalyticsProvider } from "../providers/AnalyticsProvider";
 import { AnalyticsErrorBoundary } from "../components/AnalyticsErrorBoundary";
 import { reportAnalyticsError } from "../lib/analytics";
-import GlobalSafetyEnforcementGuard from "../components/safety/GlobalSafetyEnforcementGuard";
 
 function WebSafeFallback() {
   return (
@@ -94,9 +93,7 @@ export default function RootLayout() {
   return (
     <AnalyticsErrorBoundary>
       <AnalyticsProvider>
-        <GlobalSafetyEnforcementGuard>
-          <RootStack />
-        </GlobalSafetyEnforcementGuard>
+        <RootStack />
       </AnalyticsProvider>
     </AnalyticsErrorBoundary>
   );

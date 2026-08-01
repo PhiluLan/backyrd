@@ -624,23 +624,6 @@ export default function SafetyIntegrityPage() {
             </button>
           );
         })}
-
-        <a
-          href="/safety-integrity/enforcement"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            border: "1px solid rgba(255,79,139,0.28)",
-            background: "rgba(255,79,139,0.08)",
-            color: "#ff78a7",
-            borderRadius: 12,
-            padding: "11px 16px",
-            fontWeight: 800,
-            textDecoration: "none",
-          }}
-        >
-          Account Enforcement →
-        </a>
       </nav>
 
       <section

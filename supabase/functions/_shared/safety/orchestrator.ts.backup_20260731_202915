@@ -30,29 +30,6 @@ export type SafetyPolicy = {
   };
 };
 
-export type ImageSymbolSignal = {
-  checked: boolean;
-  matched: boolean;
-  category:
-    | "none"
-    | "extremist_symbol"
-    | "hate_symbol"
-    | "terrorist_symbol"
-    | "prohibited_symbol";
-  confidence: number;
-  symbols: string[];
-  context:
-    | "none"
-    | "supportive"
-    | "neutral"
-    | "historical"
-    | "educational"
-    | "critical"
-    | "satirical"
-    | "unclear";
-  reasonCodes: string[];
-};
-
 type CategorySignal = {
   category: string;
   score: number;
@@ -84,13 +61,6 @@ const DEFAULT_CATEGORY_THRESHOLDS: Record<string, number> = {
   sexual_minors: 0.05,
   illicit: 0.40,
   illicit_violent: 0.15,
-};
-
-const IMAGE_CATEGORY_THRESHOLDS: Record<string, number> = {
-  sexual: 0.24,
-  sexual_minors: 0.015,
-  violence_graphic: 0.12,
-  hate: 0.08,
 };
 
 const LEGITIMATE_ACCESS_RULES: RegExp[] = [
@@ -162,7 +132,6 @@ export function severityFor(category: string): number {
     violence: 3,
     illicit: 3,
     self_harm: 4,
-    prohibited_symbols: 4,
   };
 
   return map[category] ?? 0;
@@ -170,21 +139,16 @@ export function severityFor(category: string): number {
 
 function categorySignals(
   result: OpenAIModerationResult,
-  hasImages: boolean,
 ): CategorySignal[] {
   return Object.entries(result.category_scores ?? {})
     .map(([rawCategory, rawScore]) => {
       const category = normalizeCategory(rawCategory);
-      const imageThreshold = hasImages
-        ? IMAGE_CATEGORY_THRESHOLDS[category]
-        : undefined;
 
       return {
         category,
         score: Number(rawScore ?? 0),
         flagged: Boolean(result.categories?.[rawCategory]),
         threshold:
-          imageThreshold ??
           DEFAULT_CATEGORY_THRESHOLDS[category] ??
           Number.POSITIVE_INFINITY,
       };
@@ -194,9 +158,8 @@ function categorySignals(
 
 function chooseDominant(
   result: OpenAIModerationResult,
-  hasImages: boolean,
 ): CategorySignal {
-  return categorySignals(result, hasImages)[0] ?? {
+  return categorySignals(result)[0] ?? {
     category: "none",
     score: 0,
     flagged: false,
@@ -206,9 +169,8 @@ function chooseDominant(
 
 function choosePolicyRelevant(
   result: OpenAIModerationResult,
-  hasImages: boolean,
 ): CategorySignal | null {
-  const relevant = categorySignals(result, hasImages)
+  const relevant = categorySignals(result)
     .filter((entry) => entry.flagged || entry.score >= entry.threshold)
     .sort((a, b) => {
       if (a.flagged !== b.flagged) {
@@ -319,11 +281,8 @@ export function orchestrate(input: {
   policy: SafetyPolicy;
   contentType: string;
   textContent?: string | null;
-  hasImages?: boolean;
-  imageSymbolSignal?: ImageSymbolSignal | null;
 }) {
   const status = input.policy.status ?? "shadow";
-  const hasImages = Boolean(input.hasImages);
 
   const contentTypePolicy =
     input.policy.content_types?.[input.contentType] ?? {};
@@ -334,21 +293,9 @@ export function orchestrate(input: {
   const temporaryHideThreshold =
     contentTypePolicy.temporary_hide_threshold ?? 0.95;
 
-  const dominant = chooseDominant(input.result, hasImages);
-  const policyRelevant = choosePolicyRelevant(
-    input.result,
-    hasImages,
-  );
+  const dominant = chooseDominant(input.result);
+  const policyRelevant = choosePolicyRelevant(input.result);
   const local = detectLocalPolicy(input.textContent);
-  const symbol = input.imageSymbolSignal;
-
-  const symbolRequiresReview = Boolean(
-    symbol?.matched &&
-    symbol.confidence >= 0.70 &&
-    !["historical", "educational", "critical", "satirical"].includes(
-      symbol.context,
-    ),
-  );
 
   const genericThresholdReached =
     dominant.score >= genericReviewThreshold;
@@ -357,8 +304,7 @@ export function orchestrate(input: {
     input.result.flagged ||
     policyRelevant !== null ||
     genericThresholdReached ||
-    local.matched ||
-    symbolRequiresReview;
+    local.matched;
 
   if (!requiresReview) {
     return {
@@ -373,9 +319,6 @@ export function orchestrate(input: {
       reasonCodes: [
         "NO_POLICY_VIOLATION",
         ...local.reasonCodes,
-        ...(symbol?.checked
-          ? ["IMAGE_SYMBOL_CHECKED"]
-          : []),
         status === "shadow"
           ? "SHADOW_MODE"
           : "ACTIVE_POLICY",
@@ -383,44 +326,36 @@ export function orchestrate(input: {
     };
   }
 
-  const selectedCategory = symbolRequiresReview
-    ? "prohibited_symbols"
-    : local.matched
-      ? local.modelCategory
-      : policyRelevant?.category ?? dominant.category;
+  const selectedCategory = local.matched
+    ? local.modelCategory
+    : policyRelevant?.category ?? dominant.category;
 
-  const policyCategory = symbolRequiresReview
-    ? "hate_and_discrimination"
-    : local.matched
-      ? local.policyCategory
-      : selectedCategory.startsWith("hate")
-        ? "hate_and_discrimination"
-        : selectedCategory.startsWith("harassment")
-          ? "harassment_and_bullying"
-          : selectedCategory.startsWith("violence")
-            ? "violence_and_incitement"
-            : selectedCategory.startsWith("sexual")
-              ? "sexual_safety"
-              : selectedCategory.startsWith("self_harm")
-                ? "self_harm"
-                : selectedCategory.startsWith("illicit")
-                  ? "regulated_and_dangerous_commerce"
-                  : "other";
+  const policyCategory = local.matched
+    ? local.policyCategory
+    : selectedCategory.startsWith("hate")
+      ? "hate_and_discrimination"
+      : selectedCategory.startsWith("harassment")
+        ? "harassment_and_bullying"
+        : selectedCategory.startsWith("violence")
+          ? "violence_and_incitement"
+          : selectedCategory.startsWith("sexual")
+            ? "sexual_safety"
+            : selectedCategory.startsWith("self_harm")
+              ? "self_harm"
+              : selectedCategory.startsWith("illicit")
+                ? "regulated_and_dangerous_commerce"
+                : "other";
 
-  const selectedScore = symbolRequiresReview
-    ? symbol?.confidence ?? 0
-    : local.matched
-      ? Math.max(
-          local.confidence,
-          policyRelevant?.score ?? 0,
-        )
-      : policyRelevant?.score ?? dominant.score;
+  const selectedScore = local.matched
+    ? Math.max(
+        local.confidence,
+        policyRelevant?.score ?? 0,
+      )
+    : policyRelevant?.score ?? dominant.score;
 
-  const severity = symbolRequiresReview
-    ? 4
-    : local.matched
-      ? local.severity
-      : severityFor(selectedCategory);
+  const severity = local.matched
+    ? local.severity
+    : severityFor(selectedCategory);
 
   let recommendedAction = "allow_log";
 
@@ -443,22 +378,13 @@ export function orchestrate(input: {
       ? [`SUBCATEGORY_${local.subcategory.toUpperCase()}`]
       : []),
     ...local.reasonCodes,
-    ...(symbolRequiresReview
-      ? [
-          "PROHIBITED_SYMBOL_DETECTED",
-          ...(symbol?.reasonCodes ?? []),
-        ]
-      : []),
     input.result.flagged
       ? "MODEL_FLAGGED"
       : policyRelevant
         ? "CATEGORY_THRESHOLD_REACHED"
         : local.matched
           ? "LOCAL_POLICY_MATCH"
-          : symbolRequiresReview
-            ? "VISION_POLICY_MATCH"
-            : "GENERIC_REVIEW_THRESHOLD_REACHED",
-    hasImages ? "IMAGE_INPUT_PRESENT" : "TEXT_ONLY_INPUT",
+          : "GENERIC_REVIEW_THRESHOLD_REACHED",
     status === "shadow"
       ? "SHADOW_MODE"
       : "ACTIVE_POLICY",
@@ -470,9 +396,7 @@ export function orchestrate(input: {
     caseStatus: "needs_review",
     category: selectedCategory,
     policyCategory,
-    subcategory: symbolRequiresReview
-      ? symbol?.category ?? "prohibited_symbol"
-      : local.subcategory,
+    subcategory: local.subcategory,
     severity,
     confidence: selectedScore,
     reasonCodes: [...new Set(reasonCodes)],

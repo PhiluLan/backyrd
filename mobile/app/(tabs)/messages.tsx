@@ -1,86 +1,488 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity } from 'react-native';
-import { supabase } from '../../lib/supabase';
-import { useRouter } from 'expo-router';
+// mobile/app/(tabs)/messages.tsx
+import React, {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 
-type Chat = {
-  id: string;
-  user_a: string;
-  user_b: string;
-  other_profile: { id: string; first_name: string | null; avatar_url: string | null };
+import Avatar from "../../components/Avatar";
+import { supabase } from "../../lib/supabase";
+
+type ChatListItem = {
+  chat_id: string;
+  other_user_id: string;
+  other_display_name: string | null;
+  other_first_name: string | null;
+  other_username: string | null;
+  other_avatar_url: string | null;
+  chat_created_at: string;
+  last_message_text: string | null;
+  last_message_at: string | null;
+  last_message_sender_id: string | null;
+  unread_count: number;
 };
 
-export default function MessagesScreen() {
-  const [chats, setChats] = useState<Chat[]>([]);
-  const router = useRouter();
-
-  useEffect(() => {
-    (async () => {
-      const { data: session } = await supabase.auth.getSession();
-      const uid = session.session?.user.id;
-      if (!uid) return;
-
-      const { data, error } = await supabase
-        .from('chats')
-        .select(`
-          id,
-          user_a,
-          user_b,
-          profiles:user_a (
-            id,
-            first_name,
-            avatar_url
-          ),
-          profiles_b:user_b (
-            id,
-            first_name,
-            avatar_url
-          )
-        `)
-        .or(`user_a.eq.${uid},user_b.eq.${uid}`);
-
-      if (error) {
-        console.error(error);
-        return;
-      }
-
-      // Bestimme immer das Gegenüber
-      const mapped = data.map((chat: any) => {
-        const other =
-          chat.user_a === uid ? chat.profiles_b : chat.profiles;
-        return {
-          id: chat.id,
-          user_a: chat.user_a,
-          user_b: chat.user_b,
-          other_profile: other,
-        };
-      });
-
-      setChats(mapped);
-    })();
-  }, []);
-
+function errorMessage(error: any) {
   return (
-    <View style={{ flex: 1, backgroundColor: '#000', padding: 16 }}>
-      <Text style={{ color: '#fff', fontSize: 28, fontWeight: '800', marginBottom: 16 }}>Nachrichten</Text>
-      <FlatList
-        data={chats}
-        keyExtractor={(c) => c.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() => router.push(`/messages/${item.id}`)}
-            style={{
-              paddingVertical: 14,
-              borderBottomColor: '#222',
-              borderBottomWidth: 1,
-            }}
-          >
-            <Text style={{ color: '#fff', fontSize: 16 }}>
-              {item.other_profile.first_name ?? 'User'}
-            </Text>
-          </TouchableOpacity>
-        )}
-      />
-    </View>
+    error?.message ||
+    error?.details ||
+    error?.hint ||
+    "Chats konnten nicht geladen werden."
   );
 }
+
+function formatTime(value: string | null) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  const now = new Date();
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString("de-CH", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  return date.toLocaleDateString("de-CH", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
+
+export default function MessagesScreen() {
+  const router = useRouter();
+
+  const [chats, setChats] = useState<ChatListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(
+    null,
+  );
+
+  const loadChats = useCallback(
+    async (options?: { refresh?: boolean }) => {
+      const isRefresh = Boolean(options?.refresh);
+
+      try {
+        if (isRefresh) {
+          setRefreshing(true);
+        } else {
+          setLoading(true);
+        }
+
+        setErrorText(null);
+
+        const { data: authData, error: authError } =
+          await supabase.auth.getUser();
+
+        if (authError) throw authError;
+
+        if (!authData.user) {
+          setChats([]);
+          setErrorText(
+            "Bitte melde dich an, um deine Nachrichten zu sehen.",
+          );
+          return;
+        }
+
+        const { data, error } = await supabase.rpc(
+          "get_my_direct_chats_v1",
+        );
+
+        if (error) throw error;
+
+        const normalized = Array.isArray(data)
+          ? data
+              .filter(
+                (row: any) =>
+                  row &&
+                  typeof row.chat_id === "string" &&
+                  typeof row.other_user_id === "string",
+              )
+              .map(
+                (row: any): ChatListItem => ({
+                  chat_id: row.chat_id,
+                  other_user_id: row.other_user_id,
+                  other_display_name:
+                    typeof row.other_display_name === "string"
+                      ? row.other_display_name
+                      : null,
+                  other_first_name:
+                    typeof row.other_first_name === "string"
+                      ? row.other_first_name
+                      : null,
+                  other_username:
+                    typeof row.other_username === "string"
+                      ? row.other_username
+                      : null,
+                  other_avatar_url:
+                    typeof row.other_avatar_url === "string"
+                      ? row.other_avatar_url
+                      : null,
+                  chat_created_at:
+                    typeof row.chat_created_at === "string"
+                      ? row.chat_created_at
+                      : new Date().toISOString(),
+                  last_message_text:
+                    typeof row.last_message_text === "string"
+                      ? row.last_message_text
+                      : null,
+                  last_message_at:
+                    typeof row.last_message_at === "string"
+                      ? row.last_message_at
+                      : null,
+                  last_message_sender_id:
+                    typeof row.last_message_sender_id === "string"
+                      ? row.last_message_sender_id
+                      : null,
+                  unread_count: Number(row.unread_count ?? 0),
+                }),
+              )
+          : [];
+
+        setChats(normalized);
+      } catch (error: any) {
+        console.log("get_my_direct_chats_v1 failed:", error);
+        setChats([]);
+        setErrorText(errorMessage(error));
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadChats();
+    }, [loadChats]),
+  );
+
+  useEffect(() => {
+    void loadChats();
+  }, [loadChats]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.screen}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#FF6B9E" />
+          <Text style={styles.stateText}>
+            Nachrichten werden geladen …
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.kicker}>BACKYRD</Text>
+          <Text style={styles.title}>Nachrichten</Text>
+        </View>
+
+        <View style={styles.headerIcon}>
+          <Ionicons
+            name="chatbubble-ellipses-outline"
+            size={22}
+            color="#FFFFFF"
+          />
+        </View>
+      </View>
+
+      {errorText ? (
+        <View style={styles.center}>
+          <Ionicons
+            name="alert-circle-outline"
+            size={38}
+            color="rgba(255,255,255,0.4)"
+          />
+          <Text style={styles.stateTitle}>
+            Nachrichten nicht verfügbar
+          </Text>
+          <Text style={styles.stateText}>{errorText}</Text>
+          <Pressable
+            style={styles.retryButton}
+            onPress={() => void loadChats()}
+          >
+            <Text style={styles.retryText}>
+              Erneut versuchen
+            </Text>
+          </Pressable>
+        </View>
+      ) : (
+        <FlatList
+          data={chats}
+          keyExtractor={(item) => item.chat_id}
+          contentContainerStyle={
+            chats.length === 0
+              ? styles.emptyList
+              : styles.listContent
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() =>
+                void loadChats({ refresh: true })
+              }
+              tintColor="#FF6B9E"
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.center}>
+              <View style={styles.emptyIcon}>
+                <Ionicons
+                  name="chatbubbles-outline"
+                  size={34}
+                  color="#FF6B9E"
+                />
+              </View>
+              <Text style={styles.stateTitle}>
+                Noch keine Nachrichten
+              </Text>
+              <Text style={styles.stateText}>
+                Öffne ein Profil und starte dort deinen ersten
+                Backyrd-Chat.
+              </Text>
+            </View>
+          }
+          renderItem={({ item }) => {
+            const displayName =
+              item.other_display_name?.trim() ||
+              item.other_first_name?.trim() ||
+              item.other_username?.trim() ||
+              "Backyrd User";
+
+            const preview =
+              item.last_message_text?.trim() ||
+              "Noch keine Nachricht";
+
+            const hasUnread = item.unread_count > 0;
+
+            return (
+              <Pressable
+                style={styles.chatRow}
+                onPress={() =>
+                  router.push(
+                    `/messages/${item.chat_id}` as any,
+                  )
+                }
+              >
+                <Avatar
+                  uri={item.other_avatar_url ?? undefined}
+                  name={displayName}
+                  size={52}
+                />
+
+                <View style={styles.chatText}>
+                  <View style={styles.nameRow}>
+                    <Text
+                      style={[
+                        styles.chatName,
+                        hasUnread && styles.unreadText,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {displayName}
+                    </Text>
+
+                    <Text style={styles.timeText}>
+                      {formatTime(
+                        item.last_message_at ||
+                          item.chat_created_at,
+                      )}
+                    </Text>
+                  </View>
+
+                  <View style={styles.previewRow}>
+                    <Text
+                      style={[
+                        styles.previewText,
+                        hasUnread && styles.unreadText,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {preview}
+                    </Text>
+
+                    {hasUnread ? (
+                      <View style={styles.unreadBadge}>
+                        <Text style={styles.unreadBadgeText}>
+                          {Math.min(item.unread_count, 99)}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color="rgba(255,255,255,0.28)"
+                      />
+                    )}
+                  </View>
+                </View>
+              </Pressable>
+            );
+          }}
+        />
+      )}
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#050506",
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 18,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  kicker: {
+    color: "#FF6B9E",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 2,
+    marginBottom: 4,
+  },
+  title: {
+    color: "#FFFFFF",
+    fontSize: 30,
+    fontWeight: "800",
+  },
+  headerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.07)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 30,
+  },
+  emptyList: {
+    flexGrow: 1,
+  },
+  chatRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "rgba(255,255,255,0.10)",
+  },
+  chatText: {
+    flex: 1,
+    marginLeft: 13,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  chatName: {
+    flex: 1,
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "650",
+  },
+  timeText: {
+    color: "rgba(255,255,255,0.42)",
+    fontSize: 12,
+  },
+  previewRow: {
+    marginTop: 5,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  previewText: {
+    flex: 1,
+    color: "rgba(255,255,255,0.48)",
+    fontSize: 14,
+  },
+  unreadText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+  },
+  unreadBadge: {
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 6,
+    borderRadius: 11,
+    backgroundColor: "#FF6B9E",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  unreadBadgeText: {
+    color: "#121214",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  center: {
+    flex: 1,
+    paddingHorizontal: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(255,107,158,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 18,
+  },
+  stateTitle: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "800",
+    textAlign: "center",
+    marginTop: 14,
+  },
+  stateText: {
+    color: "rgba(255,255,255,0.52)",
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+    marginTop: 8,
+  },
+  retryButton: {
+    marginTop: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 999,
+    backgroundColor: "#FF6B9E",
+  },
+  retryText: {
+    color: "#151216",
+    fontSize: 14,
+    fontWeight: "900",
+  },
+});

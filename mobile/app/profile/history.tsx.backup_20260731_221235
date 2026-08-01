@@ -15,7 +15,6 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { supabase } from "@/lib/supabase";
 
-import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
 type VisitStatus =
   | "visited_reviewed"
   | "confirmed_needs_review"

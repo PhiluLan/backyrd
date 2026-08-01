@@ -183,13 +183,8 @@ export function SpotForm({
   spotId,
   onSaved,
 }: SpotFormProps) {
-  const [values, setValues] = useState<SpotFormValues>(() => {
-    if (initialValues) {
-      const { opening_hours: _openingHours, ...spotValues } = initialValues;
-      return spotValues;
-    }
-
-    return {
+  const [values, setValues] = useState<SpotFormValues>(
+    initialValues ?? {
       name: "",
       address: "",
       city: "",
@@ -205,8 +200,8 @@ export function SpotForm({
       google_place_id: null,
       google_photo_enabled: true,
       status: "pending",
-    };
-  });
+    },
+  );
 
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);

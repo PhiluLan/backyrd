@@ -7,13 +7,11 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { supabase } from "../../lib/supabase";
 
@@ -68,8 +66,6 @@ export default function AppealDecisionButton({
   disabled = false,
   onSubmitted,
 }: Props) {
-  const insets = useSafeAreaInsets();
-
   const [visible, setVisible] = useState(false);
   const [reason, setReason] =
     useState<AppealReason>("context_misunderstood");
@@ -136,15 +132,11 @@ export default function AppealDecisionButton({
         visible={visible}
         transparent
         animationType="slide"
-        statusBarTranslucent
-        onRequestClose={() => {
-          if (!submitting) setVisible(false);
-        }}
+        onRequestClose={() => setVisible(false)}
       >
         <KeyboardAvoidingView
           style={styles.root}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={0}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
           <Pressable
             style={styles.backdrop}
@@ -153,18 +145,11 @@ export default function AppealDecisionButton({
             }}
           />
 
-          <View
-            style={[
-              styles.sheet,
-              {
-                paddingBottom: Math.max(insets.bottom, 10),
-              },
-            ]}
-          >
+          <View style={styles.sheet}>
             <View style={styles.handle} />
 
             <View style={styles.header}>
-              <View style={styles.headerCopy}>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.eyebrow}>
                   SAFETY & INTEGRITY
                 </Text>
@@ -182,26 +167,11 @@ export default function AppealDecisionButton({
                 disabled={submitting}
                 style={styles.close}
               >
-                <Ionicons
-                  name="close"
-                  size={22}
-                  color="#fff"
-                />
+                <Ionicons name="close" size={22} color="#fff" />
               </Pressable>
             </View>
 
-            <ScrollView
-              style={styles.scroll}
-              contentContainerStyle={styles.body}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode={
-                Platform.OS === "ios"
-                  ? "interactive"
-                  : "on-drag"
-              }
-              showsVerticalScrollIndicator={false}
-              bounces
-            >
+            <View style={styles.body}>
               <Text style={styles.label}>
                 Betroffener Inhalt
               </Text>
@@ -225,7 +195,6 @@ export default function AppealDecisionButton({
                   <Pressable
                     key={item.value}
                     onPress={() => setReason(item.value)}
-                    disabled={submitting}
                     style={styles.reasonRow}
                   >
                     <View
@@ -264,10 +233,6 @@ export default function AppealDecisionButton({
                 style={styles.input}
               />
 
-              <Text style={styles.counter}>
-                {statement.length}/4000
-              </Text>
-
               <Pressable
                 onPress={submit}
                 disabled={submitting}
@@ -285,7 +250,7 @@ export default function AppealDecisionButton({
                   </Text>
                 )}
               </Pressable>
-            </ScrollView>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -303,14 +268,12 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.74)",
   },
   sheet: {
-    height: "92%",
     maxHeight: "94%",
     backgroundColor: "#111114",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
-    overflow: "hidden",
   },
   handle: {
     alignSelf: "center",
@@ -323,15 +286,9 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     gap: 16,
-    paddingHorizontal: 22,
-    paddingTop: 18,
-    paddingBottom: 18,
+    padding: 22,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(255,255,255,0.08)",
-  },
-  headerCopy: {
-    flex: 1,
-    minWidth: 0,
   },
   eyebrow: {
     color: "#FF4F8B",
@@ -360,13 +317,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.06)",
   },
-  scroll: {
-    flex: 1,
-  },
   body: {
-    paddingHorizontal: 22,
-    paddingTop: 22,
-    paddingBottom: 48,
+    padding: 22,
+    paddingBottom: 32,
   },
   label: {
     color: "#F5F5F7",
@@ -391,7 +344,7 @@ const styles = StyleSheet.create({
     marginBottom: 21,
   },
   reasonRow: {
-    minHeight: 46,
+    minHeight: 42,
     flexDirection: "row",
     alignItems: "center",
     gap: 11,
@@ -421,7 +374,8 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   input: {
-    minHeight: 150,
+    minHeight: 125,
+    maxHeight: 200,
     padding: 14,
     borderRadius: 16,
     borderWidth: 1,
@@ -430,13 +384,6 @@ const styles = StyleSheet.create({
     color: "#F6F6F8",
     fontSize: 14,
     lineHeight: 20,
-  },
-  counter: {
-    marginTop: 8,
-    alignSelf: "flex-end",
-    color: "#73737C",
-    fontSize: 12,
-    fontWeight: "700",
   },
   trigger: {
     minHeight: 46,
@@ -454,7 +401,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   submit: {
-    minHeight: 56,
+    minHeight: 54,
     marginTop: 18,
     borderRadius: 17,
     alignItems: "center",

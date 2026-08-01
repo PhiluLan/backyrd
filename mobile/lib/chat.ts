@@ -1,42 +1,57 @@
 // mobile/lib/chat.ts
-import { supabase } from './supabase';
+import { supabase } from "./supabase";
 
 /**
- * Findet oder erstellt einen 1:1 Chat zwischen zwei Usern
+ * Finds or creates one canonical 1:1 chat.
+ *
+ * The public signature stays compatible with existing callers, but the
+ * database derives the current user from auth.uid() and creates the chat
+ * plus both participant rows atomically.
  */
-export async function getOrCreateChat(userA: string, userB: string) {
-  // Prüfen, ob bereits ein gemeinsamer Chat existiert
-  const { data: existing } = await supabase
-    .from('chat_participants')
-    .select('chat_id')
-    .eq('user_id', userA);
+export async function getOrCreateChat(
+  userA: string,
+  userB: string,
+): Promise<string> {
+  const { data: authData, error: authError } =
+    await supabase.auth.getUser();
 
-  if (existing?.length) {
-    const chatIds = existing.map((e) => e.chat_id);
-    const { data: shared } = await supabase
-      .from('chat_participants')
-      .select('chat_id')
-      .in('chat_id', chatIds)
-      .eq('user_id', userB)
-      .limit(1)
-      .maybeSingle();
+  if (authError) throw authError;
 
-    if (shared) return shared.chat_id;
+  const currentUserId = authData.user?.id;
+
+  if (!currentUserId) {
+    throw new Error("Du musst angemeldet sein, um einen Chat zu starten.");
   }
 
-  // 🆕 Chat anlegen
-  const { data: chat, error } = await supabase
-    .from('chats')
-    .insert({})
-    .select()
-    .single();
+  if (!userA || !userB) {
+    throw new Error("Für den Chat fehlen Teilnehmer.");
+  }
+
+  if (userA === userB) {
+    throw new Error("Ein Chat mit dir selbst ist nicht möglich.");
+  }
+
+  if (currentUserId !== userA && currentUserId !== userB) {
+    throw new Error(
+      "Der angemeldete Nutzer gehört nicht zu diesem Chat.",
+    );
+  }
+
+  const otherUserId =
+    currentUserId === userA ? userB : userA;
+
+  const { data, error } = await supabase.rpc(
+    "get_or_create_direct_chat_v1",
+    {
+      p_other_user_id: otherUserId,
+    },
+  );
+
   if (error) throw error;
 
-  // Teilnehmer eintragen
-  await supabase.from('chat_participants').insert([
-    { chat_id: chat.id, user_id: userA },
-    { chat_id: chat.id, user_id: userB },
-  ]);
+  if (typeof data !== "string" || !data) {
+    throw new Error("Chat konnte nicht erstellt werden.");
+  }
 
-  return chat.id;
+  return data;
 }

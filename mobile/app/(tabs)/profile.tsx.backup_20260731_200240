@@ -26,7 +26,6 @@ import { ensureProfile } from "@/lib/profile";
 import SocialPostCard, { type SocialFeedPost } from "@/components/PostCard";
 import CommentsSheet from "@/components/CommentsSheet";
 import { trackAnalyticsEvent, reportAnalyticsError } from "@/lib/analytics";
-import { buildProfileSafetyText, registerSafetySnapshot } from "@/lib/safety-content";
 
 const { width } = Dimensions.get("window");
 
@@ -88,18 +87,9 @@ async function filterSafetyVisiblePosts(
     .map((post) => post.review_id)
     .filter((value): value is string => Boolean(value));
 
-  const authorIds = Array.from(
-    new Set(
-      posts
-        .map((post) => post.user_id)
-        .filter(Boolean),
-    ),
-  );
-
   const [
     visiblePostsResult,
     visibleReviewsResult,
-    visibleProfilesResult,
     commentCountsResult,
   ] = await Promise.all([
     supabase.rpc("safety_visible_social_post_ids_v1", {
@@ -114,10 +104,6 @@ async function filterSafetyVisiblePosts(
           data: [],
           error: null,
         }),
-    supabase.rpc("safety_visible_entity_ids_v1", {
-      p_entity_type: "profile",
-      p_entity_ids: authorIds,
-    }),
     supabase.rpc("safety_visible_comment_counts_v1", {
       p_post_ids: postIds,
     }),
@@ -133,12 +119,6 @@ async function filterSafetyVisiblePosts(
     Array.isArray(visibleReviewsResult.data)
       ? visibleReviewsResult.data
       : reviewIds,
-  );
-
-  const visibleProfileIds = new Set(
-    Array.isArray(visibleProfilesResult.data)
-      ? visibleProfilesResult.data
-      : authorIds,
   );
 
   const commentCounts = new Map<string, number>();
@@ -167,26 +147,12 @@ async function filterSafetyVisiblePosts(
 
       return true;
     })
-    .map((post) => {
-      const authorProfileVisible =
-        visibleProfileIds.has(post.user_id);
-
-      return {
-        ...post,
-        display_name: authorProfileVisible
-          ? post.display_name
-          : "Backyrd User",
-        username: authorProfileVisible
-          ? post.username
-          : null,
-        avatar_url: authorProfileVisible
-          ? post.avatar_url
-          : null,
-        comment_count: commentCounts.has(post.post_id)
-          ? commentCounts.get(post.post_id) ?? 0
-          : post.comment_count,
-      };
-    });
+    .map((post) => ({
+      ...post,
+      comment_count: commentCounts.has(post.post_id)
+        ? commentCounts.get(post.post_id) ?? 0
+        : post.comment_count,
+    }));
 }
 
 function formatSince(value?: string | null) {
@@ -445,27 +411,11 @@ export default function ProfileScreen() {
       return;
     }
 
-    const nextProfile = {
-      ...(profile ?? { id: user.id }),
+    setProfile((prev) => ({
+      ...(prev ?? { id: user.id }),
       avatar_url: url,
       header_photo_url: url,
-    } as ProfileRow;
-
-    setProfile(nextProfile);
-
-    await registerSafetySnapshot({
-      entityType: "profile",
-      entityId: user.id,
-      contentType: "profile",
-      actorUserId: user.id,
-      textContent: buildProfileSafetyText(nextProfile),
-      imageUrls: [url],
-      sourceSurface: "profile_avatar_upload",
-      sourceContext: {
-        screen: "profile",
-        media_role: "avatar_and_header",
-      },
-    });
+    }));
   }
 
   async function saveProfile() {
@@ -501,22 +451,6 @@ export default function ProfileScreen() {
       Alert.alert("Fehler", error.message);
       return;
     }
-
-    await registerSafetySnapshot({
-      entityType: "profile",
-      entityId: user.id,
-      contentType: "profile",
-      actorUserId: user.id,
-      textContent: buildProfileSafetyText(profile),
-      imageUrls: [
-        profile.avatar_url,
-        profile.header_photo_url,
-      ].filter((value): value is string => Boolean(value)),
-      sourceSurface: "profile_edit",
-      sourceContext: {
-        screen: "profile",
-      },
-    });
 
     setShowEdit(false);
   }

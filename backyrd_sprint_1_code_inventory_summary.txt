@@ -1,0 +1,947 @@
+
+=== legal_privacy_terms (155) ===
+mobu/README.md:30 | 4. Datenschutz-, Lösch- und Exportfunktionen
+supabase_export/01_schema_only.sql:856 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_decision_debug_v11"("p_city" "text" DEFAULT NULL::"text", "p_selected_cluster_ids" integer[] DEFAULT NULL::integer[], "p_query" "text" DEFAULT NULL::"text", "p_limit" integer DEFAULT 10, "p_k" numeric DEFAULT 1.0, "p_open_bonus" numeric DEFAULT 0.0, "p_taste_weight" numeric DEFAULT 0.28, "p_explore_weight" numeric DEFAULT 0.05) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "is_open_now" boolean, "final_score" numeric, "matched_toke
+supabase_export/01_schema_only.sql:874 | d.matched_terms,
+supabase_export/01_schema_only.sql:917 | s.matched_terms,
+supabase_export/01_schema_only.sql:932 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_decision_debug_v2"("p_city" "text" DEFAULT NULL::"text", "p_selected_cluster_ids" integer[] DEFAULT NULL::integer[], "p_query" "text" DEFAULT NULL::"text", "p_limit" integer DEFAULT 30, "p_k" numeric DEFAULT 3.0, "p_open_bonus" numeric DEFAULT 0.02) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "is_open_now" boolean, "raw_mood_strength" integer, "mood_strength_norm" numeric, "mood_match_count" integer, "text_match_score" numeric, "
+supabase_export/01_schema_only.sql:952 | end as matched_terms
+supabase_export/01_schema_only.sql:1022 | coalesce(t.matched_terms, array[]::text[]) as matched_terms,
+supabase_export/01_schema_only.sql:1049 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_decision_debug_v3"("p_city" "text" DEFAULT NULL::"text", "p_selected_cluster_ids" integer[] DEFAULT NULL::integer[], "p_query" "text" DEFAULT NULL::"text", "p_limit" integer DEFAULT 30, "p_k" numeric DEFAULT 3.0, "p_open_bonus" numeric DEFAULT 0.02) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "is_open_now" boolean, "raw_mood_strength" integer, "mood_strength_norm" numeric, "mood_match_count" integer, "text_match_score" numeric, "
+supabase_export/01_schema_only.sql:1069 | end as matched_terms
+supabase_export/01_schema_only.sql:1145 | coalesce(t.matched_terms, array[]::text[]) as matched_terms,
+supabase_export/01_schema_only.sql:1171 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_decision_debug_v4"("p_city" "text" DEFAULT NULL::"text", "p_selected_cluster_ids" integer[] DEFAULT NULL::integer[], "p_query" "text" DEFAULT NULL::"text", "p_limit" integer DEFAULT 10, "p_k" numeric DEFAULT 1.0, "p_open_bonus" numeric DEFAULT 0.0) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "is_open_now" boolean, "raw_mood_strength" integer, "mood_strength_norm" numeric, "mood_match_count" integer, "text_match_score" numeric, "o
+supabase_export/01_schema_only.sql:1184 | q_terms as (
+supabase_export/01_schema_only.sql:1195 | from q_terms qt
+supabase_export/01_schema_only.sql:1201 | from q_terms qt
+supabase_export/01_schema_only.sql:1303 | case when (select count(*) from q_concepts) > 0 then (select array_agg(label_norm order by label_norm asc) from q_concepts) else array[]::text[] end as matched_terms,
+supabase_export/01_schema_only.sql:1319 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_decision_spots_v10"("p_city" "text" DEFAULT NULL::"text", "p_selected_cluster_ids" integer[] DEFAULT NULL::integer[], "p_query" "text" DEFAULT NULL::"text", "p_limit" integer DEFAULT 10) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "is_open_now" boolean, "final_score" numeric, "matched_tokens" "text"[], "matched_counts" integer[], "matched_terms" "text"[], "why_this" "text")
+supabase_export/01_schema_only.sql:1330 | d.matched_terms,
+supabase_export/01_schema_only.sql:1347 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_decision_spots_v11"("p_city" "text" DEFAULT NULL::"text", "p_selected_cluster_ids" integer[] DEFAULT NULL::integer[], "p_query" "text" DEFAULT NULL::"text", "p_limit" integer DEFAULT 10, "p_k" numeric DEFAULT 1.0, "p_open_bonus" numeric DEFAULT 0.0, "p_taste_weight" numeric DEFAULT 0.28, "p_explore_weight" numeric DEFAULT 0.05) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "is_open_now" boolean, "final_score" numeric, "matched_toke
+supabase_export/01_schema_only.sql:1368 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_decision_spots_v9"("p_city" "text" DEFAULT NULL::"text", "p_selected_cluster_ids" integer[] DEFAULT NULL::integer[], "p_query" "text" DEFAULT NULL::"text", "p_limit" integer DEFAULT 10) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "is_open_now" boolean, "final_score" numeric, "matched_tokens" "text"[], "matched_counts" integer[], "matched_terms" "text"[], "why_this" "text")
+supabase_export/01_schema_only.sql:1379 | d.matched_terms,
+supabase_export/01_schema_only.sql:2072 | CREATE OR REPLACE FUNCTION "public"."get_decision_debug_v1"("p_city" "text", "p_mood_a_text" "text", "p_mood_b_text" "text", "p_seen_spot_ids" "uuid"[] DEFAULT '{}'::"uuid"[], "p_min_cluster_confidence" numeric DEFAULT 0.65, "p_min_token_count" integer DEFAULT 2, "p_open_now_epsilon" numeric DEFAULT 0.12, "p_limit" integer DEFAULT 10) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "mood_strength" integer, "mood_match_count" integer, "text_match_score" integer, "is_open_now" boolea
+supabase_export/01_schema_only.sql:2118 | terms_raw as (
+supabase_export/01_schema_only.sql:2126 | terms as (
+supabase_export/01_schema_only.sql:2131 | lower(regexp_replace((select q from terms_raw), '\s+', ' ', 'g')),
+supabase_export/01_schema_only.sql:2199 | from unnest((select arr from terms)) as t
+supabase_export/01_schema_only.sql:2204 | from unnest((select arr from terms)) as t
+supabase_export/01_schema_only.sql:2215 | ) as matched_terms
+supabase_export/01_schema_only.sql:2236 | tx.matched_terms,
+supabase_export/01_schema_only.sql:2296 | r.matched_terms,
+supabase_export/01_schema_only.sql:2306 | coalesce(array_to_string(r.matched_terms[1:3], ', '), '…') || '.'
+supabase_export/01_schema_only.sql:3662 | terms_raw as (
+supabase_export/01_schema_only.sql:3670 | terms as (
+supabase_export/01_schema_only.sql:3675 | lower(regexp_replace((select q from terms_raw), '\s+', ' ', 'g')),
+supabase_export/01_schema_only.sql:3746 | from unnest((select arr from terms)) as t
+supabase_export/01_schema_only.sql:3753 | from unnest((select arr from terms)) as t
+supabase_export/01_schema_only.sql:3765 | ) as matched_terms
+supabase_export/01_schema_only.sql:3789 | tx.matched_terms,
+supabase_export/01_schema_only.sql:3860 | coalesce(array_to_string(r.matched_terms[1:3], ', '), '…') || '.'
+supabase_export/01_schema_only.sql:4434 | CREATE OR REPLACE FUNCTION "public"."match_spots_semantic_v1"("p_city" "text", "p_query" "text", "p_limit" integer DEFAULT 3, "p_seen_spot_ids" "uuid"[] DEFAULT '{}'::"uuid"[]) RETURNS TABLE("spot_id" "uuid", "score" integer, "matched_terms" "text"[], "why_semantic" "text")
+supabase_export/01_schema_only.sql:4443 | terms as (
+supabase_export/01_schema_only.sql:4444 | -- split on whitespace + commas, keep terms length >= 3
+supabase_export/01_schema_only.sql:4484 | from terms t
+supabase_export/01_schema_only.sql:4498 | from terms t
+supabase_export/01_schema_only.sql:4503 | -- collect matched terms (best-effort)
+supabase_export/01_schema_only.sql:4506 | from terms t
+supabase_export/01_schema_only.sql:4515 | ), '{}'::text[]) as matched_terms
+supabase_export/01_schema_only.sql:4523 | h.matched_terms,
+supabase_export/01_schema_only.sql:4529 | when array_length(h.matched_terms, 1) is not null and array_length(h.matched_terms, 1) > 0
+supabase_export/01_schema_only.sql:4530 | then '. Passt wegen: ' || array_to_string(h.matched_terms[1:least(array_length(h.matched_terms,1),3)], ', ') || '.'
+supabase_export/01_schema_only.sql:4544 | s.matched_terms,
+supabase_export/00_full_schema.sql:874 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_decision_debug_v11"("p_city" "text" DEFAULT NULL::"text", "p_selected_cluster_ids" integer[] DEFAULT NULL::integer[], "p_query" "text" DEFAULT NULL::"text", "p_limit" integer DEFAULT 10, "p_k" numeric DEFAULT 1.0, "p_open_bonus" numeric DEFAULT 0.0, "p_taste_weight" numeric DEFAULT 0.28, "p_explore_weight" numeric DEFAULT 0.05) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "is_open_now" boolean, "final_score" numeric, "matched_toke
+supabase_export/00_full_schema.sql:892 | d.matched_terms,
+supabase_export/00_full_schema.sql:935 | s.matched_terms,
+supabase_export/00_full_schema.sql:950 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_decision_debug_v2"("p_city" "text" DEFAULT NULL::"text", "p_selected_cluster_ids" integer[] DEFAULT NULL::integer[], "p_query" "text" DEFAULT NULL::"text", "p_limit" integer DEFAULT 30, "p_k" numeric DEFAULT 3.0, "p_open_bonus" numeric DEFAULT 0.02) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "is_open_now" boolean, "raw_mood_strength" integer, "mood_strength_norm" numeric, "mood_match_count" integer, "text_match_score" numeric, "
+supabase_export/00_full_schema.sql:970 | end as matched_terms
+supabase_export/00_full_schema.sql:1040 | coalesce(t.matched_terms, array[]::text[]) as matched_terms,
+supabase_export/00_full_schema.sql:1067 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_decision_debug_v3"("p_city" "text" DEFAULT NULL::"text", "p_selected_cluster_ids" integer[] DEFAULT NULL::integer[], "p_query" "text" DEFAULT NULL::"text", "p_limit" integer DEFAULT 30, "p_k" numeric DEFAULT 3.0, "p_open_bonus" numeric DEFAULT 0.02) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "is_open_now" boolean, "raw_mood_strength" integer, "mood_strength_norm" numeric, "mood_match_count" integer, "text_match_score" numeric, "
+supabase_export/00_full_schema.sql:1087 | end as matched_terms
+supabase_export/00_full_schema.sql:1163 | coalesce(t.matched_terms, array[]::text[]) as matched_terms,
+supabase_export/00_full_schema.sql:1189 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_decision_debug_v4"("p_city" "text" DEFAULT NULL::"text", "p_selected_cluster_ids" integer[] DEFAULT NULL::integer[], "p_query" "text" DEFAULT NULL::"text", "p_limit" integer DEFAULT 10, "p_k" numeric DEFAULT 1.0, "p_open_bonus" numeric DEFAULT 0.0) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "is_open_now" boolean, "raw_mood_strength" integer, "mood_strength_norm" numeric, "mood_match_count" integer, "text_match_score" numeric, "o
+supabase_export/00_full_schema.sql:1202 | q_terms as (
+supabase_export/00_full_schema.sql:1213 | from q_terms qt
+supabase_export/00_full_schema.sql:1219 | from q_terms qt
+supabase_export/00_full_schema.sql:1321 | case when (select count(*) from q_concepts) > 0 then (select array_agg(label_norm order by label_norm asc) from q_concepts) else array[]::text[] end as matched_terms,
+supabase_export/00_full_schema.sql:1337 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_decision_spots_v10"("p_city" "text" DEFAULT NULL::"text", "p_selected_cluster_ids" integer[] DEFAULT NULL::integer[], "p_query" "text" DEFAULT NULL::"text", "p_limit" integer DEFAULT 10) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "is_open_now" boolean, "final_score" numeric, "matched_tokens" "text"[], "matched_counts" integer[], "matched_terms" "text"[], "why_this" "text")
+supabase_export/00_full_schema.sql:1348 | d.matched_terms,
+supabase_export/00_full_schema.sql:1365 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_decision_spots_v11"("p_city" "text" DEFAULT NULL::"text", "p_selected_cluster_ids" integer[] DEFAULT NULL::integer[], "p_query" "text" DEFAULT NULL::"text", "p_limit" integer DEFAULT 10, "p_k" numeric DEFAULT 1.0, "p_open_bonus" numeric DEFAULT 0.0, "p_taste_weight" numeric DEFAULT 0.28, "p_explore_weight" numeric DEFAULT 0.05) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "is_open_now" boolean, "final_score" numeric, "matched_toke
+supabase_export/00_full_schema.sql:1386 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_decision_spots_v9"("p_city" "text" DEFAULT NULL::"text", "p_selected_cluster_ids" integer[] DEFAULT NULL::integer[], "p_query" "text" DEFAULT NULL::"text", "p_limit" integer DEFAULT 10) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "is_open_now" boolean, "final_score" numeric, "matched_tokens" "text"[], "matched_counts" integer[], "matched_terms" "text"[], "why_this" "text")
+supabase_export/00_full_schema.sql:1397 | d.matched_terms,
+supabase_export/00_full_schema.sql:2090 | CREATE OR REPLACE FUNCTION "public"."get_decision_debug_v1"("p_city" "text", "p_mood_a_text" "text", "p_mood_b_text" "text", "p_seen_spot_ids" "uuid"[] DEFAULT '{}'::"uuid"[], "p_min_cluster_confidence" numeric DEFAULT 0.65, "p_min_token_count" integer DEFAULT 2, "p_open_now_epsilon" numeric DEFAULT 0.12, "p_limit" integer DEFAULT 10) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "mood_strength" integer, "mood_match_count" integer, "text_match_score" integer, "is_open_now" boolea
+supabase_export/00_full_schema.sql:2136 | terms_raw as (
+supabase_export/00_full_schema.sql:2144 | terms as (
+supabase_export/00_full_schema.sql:2149 | lower(regexp_replace((select q from terms_raw), '\s+', ' ', 'g')),
+supabase_export/00_full_schema.sql:2217 | from unnest((select arr from terms)) as t
+supabase_export/00_full_schema.sql:2222 | from unnest((select arr from terms)) as t
+supabase_export/00_full_schema.sql:2233 | ) as matched_terms
+supabase_export/00_full_schema.sql:2254 | tx.matched_terms,
+supabase_export/00_full_schema.sql:2314 | r.matched_terms,
+supabase_export/00_full_schema.sql:2324 | coalesce(array_to_string(r.matched_terms[1:3], ', '), '…') || '.'
+supabase_export/00_full_schema.sql:3680 | terms_raw as (
+supabase_export/00_full_schema.sql:3688 | terms as (
+supabase_export/00_full_schema.sql:3693 | lower(regexp_replace((select q from terms_raw), '\s+', ' ', 'g')),
+supabase_export/00_full_schema.sql:3764 | from unnest((select arr from terms)) as t
+supabase_export/00_full_schema.sql:3771 | from unnest((select arr from terms)) as t
+supabase_export/00_full_schema.sql:3783 | ) as matched_terms
+supabase_export/00_full_schema.sql:3807 | tx.matched_terms,
+supabase_export/00_full_schema.sql:3878 | coalesce(array_to_string(r.matched_terms[1:3], ', '), '…') || '.'
+supabase_export/00_full_schema.sql:4452 | CREATE OR REPLACE FUNCTION "public"."match_spots_semantic_v1"("p_city" "text", "p_query" "text", "p_limit" integer DEFAULT 3, "p_seen_spot_ids" "uuid"[] DEFAULT '{}'::"uuid"[]) RETURNS TABLE("spot_id" "uuid", "score" integer, "matched_terms" "text"[], "why_semantic" "text")
+supabase_export/00_full_schema.sql:4461 | terms as (
+supabase_export/00_full_schema.sql:4462 | -- split on whitespace + commas, keep terms length >= 3
+supabase_export/00_full_schema.sql:4502 | from terms t
+supabase_export/00_full_schema.sql:4516 | from terms t
+supabase_export/00_full_schema.sql:4521 | -- collect matched terms (best-effort)
+supabase_export/00_full_schema.sql:4524 | from terms t
+supabase_export/00_full_schema.sql:4533 | ), '{}'::text[]) as matched_terms
+supabase_export/00_full_schema.sql:4541 | h.matched_terms,
+supabase_export/00_full_schema.sql:4547 | when array_length(h.matched_terms, 1) is not null and array_length(h.matched_terms, 1) > 0
+supabase_export/00_full_schema.sql:4548 | then '. Passt wegen: ' || array_to_string(h.matched_terms[1:least(array_length(h.matched_terms,1),3)], ', ') || '.'
+supabase_export/00_full_schema.sql:4562 | s.matched_terms,
+mobile/app/safety-center.tsx:83 | privacy: "Privatsphäre",
+mobile/app/safety-center.tsx:84 | illegal_dangerous: "Illegal oder gefährlich",
+mobile/app/safety-center.tsx:102 | illicit: "Illegale oder gefährliche Inhalte",
+mobile/lib/decision/backyrdDecision.ts:12 | matched_terms: string[] | null;
+mobile/lib/decision/backyrdDecision.ts:41 | matched_terms: string[] | null;
+mobile/lib/decision/friendCopy.ts:71 | * - bezieht sich auf Input (moodA/moodB) + tatsächliche Matches (tokens/terms)
+mobile/lib/decision/friendCopy.ts:80 | matchedTerms?: string[] | null;
+mobile/lib/decision/friendCopy.ts:87 | const terms = uniq((params.matchedTerms ?? []).map(norm)).filter(Boolean);
+mobile/lib/decision/friendCopy.ts:89 | const overlap = intersects(tokens.length ? tokens : terms, input); // was matcht wirklich auf deine Eingabe?
+mobile/lib/decision/friendCopy.ts:90 | const hasMatches = tokens.length > 0 || terms.length > 0;
+mobile/lib/decision/friendCopy.ts:110 | const { t1, t2 } = topTwo(tokens.length ? tokens : terms);
+mobile/components/safety/ReportContentButton.tsx:35 | | "privacy_personal_data"
+mobile/components/safety/ReportContentButton.tsx:36 | | "illegal_dangerous_goods"
+mobile/components/safety/ReportContentButton.tsx:97 | value: "privacy_personal_data",
+mobile/components/safety/ReportContentButton.tsx:104 | value: "illegal_dangerous_goods",
+mobile/components/safety/ReportContentButton.tsx:105 | title: "Illegale oder gefährliche Angebote",
+mobile/components/safety/ReportContentButton.tsx:107 | "Illegale Waren, gefährliche Dienstleistungen oder Handel.",
+mobile/app/(tabs)/decision.tsx:35 | matched_terms: string[] | null;
+mobile/app/(tabs)/decision.tsx:105 | matched_terms: string[];
+mobile/app/(tabs)/decision.tsx:636 | matched_terms: Array.isArray(candidate.matched_terms) ? candidate.matched_terms : [],
+mobile/app/(tabs)/decision.tsx:1022 | matched_terms: uniq([...(row.matched_terms ?? []), ...descriptionKeywords]).slice(0, 10),
+mobile/app/(tabs)/decision.tsx:1064 | matched_terms: spot.matched_terms ?? [],
+mobile/app/(tabs)/decision.tsx:1205 | matched_terms: spot.matched_terms ?? [],
+mobile/app/(tabs)/decision.tsx:1480 | matched_terms: enriched[i].matched_terms ?? [],
+mobile/app/(tabs)/decision.tsx:1536 | matched_terms: spot?.matched_terms ?? [],
+mobile/app/(tabs)/decision.tsx:2447 | ...(spot.matched_terms ?? []).map(clean),
+mobile/app/(tabs)/decision-debug.tsx:406 | <Text style={{ color: theme.muted, fontWeight: "900", marginTop: 12, marginBottom: 6 }}>Matched terms</Text>
+mobile/app/(tabs)/decision-debug.tsx:407 | <Text style={{ color: "#fff", lineHeight: 18 }}>{(r.matched_terms ?? []).join(", ") || "—"}</Text>
+supabase/functions/decision-v13/index.ts:26 | matched_terms: string[] | null;
+supabase/functions/decision-v13/index.ts:100 | matched_terms: string[];
+supabase/functions/decision-v13/index.ts:1043 | const terms = normalizeText(candidate.matched_terms.join(" "));
+supabase/functions/decision-v13/index.ts:1044 | return `${category} ${preview} ${tokens} ${terms}`;
+supabase/functions/decision-v13/index.ts:1840 | matched_terms: Array.isArray(row.matched_terms) ? row.matched_terms : [],
+supabase/functions/decision-v13/index.ts:1915 | matched_terms: [],
+supabase/functions/decision-v13/index.ts:2333 | matched_terms: candidate.matched_terms,
+supabase/functions/decision-copy/index.ts:21 | matched_terms?: string[] | null;
+supabase/functions/decision-copy/index.ts:181 | matched_terms: safeArray(spot?.matched_terms),
+supabase/functions/_shared/safety/orchestrator.ts:108 | const PROTECTED_CHARACTERISTIC_TERMS: RegExp[] = [
+supabase/functions/_shared/safety/orchestrator.ts:128 | const EXCLUSION_TERMS: RegExp[] = [
+supabase/functions/_shared/safety/orchestrator.ts:259 | PROTECTED_CHARACTERISTIC_TERMS,
+supabase/functions/_shared/safety/orchestrator.ts:262 | const exclusion = matchesAny(text, EXCLUSION_TERMS);
+admin-dashboard/app/safety-integrity/page.tsx:151 | illicit: "Illegale oder gefährliche Inhalte",
+admin-dashboard/app/safety-integrity/page.tsx:164 | privacy_personal_data: "Privatsphäre oder persönliche Daten",
+admin-dashboard/app/safety-integrity/page.tsx:165 | illegal_dangerous_goods: "Illegale oder gefährliche Angebote",
+admin-dashboard/app/spots/SpotForm.tsx:446 | function handleGalleryFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
+admin-dashboard/app/spots/SpotForm.tsx:1276 | onChange={handleGalleryFilesChange}
+web/lib/decision-web-api.ts:23 | matched_terms: string[];
+web/lib/decision-web-api.ts:98 | matched_terms: asStringArray(row.matched_terms),
+mobu/app/(tabs)/capture.tsx:99 | <Card style={styles.privacyCard}>
+mobu/app/(tabs)/capture.tsx:101 | <View style={styles.privacyCopy}>
+mobu/app/(tabs)/capture.tsx:102 | <Text style={styles.privacyTitle}>Deine Dokumente bleiben privat</Text>
+... 5 weitere Treffer
+
+=== consent (46) ===
+supabase_export/01_schema_only.sql:7850 | CREATE TABLE IF NOT EXISTS "auth"."oauth_consents" (
+supabase_export/01_schema_only.sql:7857 | CONSTRAINT "oauth_consents_revoked_after_granted" CHECK ((("revoked_at" IS NULL) OR ("revoked_at" >= "granted_at"))),
+supabase_export/01_schema_only.sql:7858 | CONSTRAINT "oauth_consents_scopes_length" CHECK (("char_length"("scopes") <= 2048)),
+supabase_export/01_schema_only.sql:7859 | CONSTRAINT "oauth_consents_scopes_not_empty" CHECK (("char_length"(TRIM(BOTH FROM "scopes")) > 0))
+supabase_export/01_schema_only.sql:7863 | ALTER TABLE "auth"."oauth_consents" OWNER TO "supabase_auth_admin";
+supabase_export/01_schema_only.sql:9630 | ALTER TABLE ONLY "auth"."oauth_consents"
+supabase_export/01_schema_only.sql:9631 | ADD CONSTRAINT "oauth_consents_pkey" PRIMARY KEY ("id");
+supabase_export/01_schema_only.sql:9635 | ALTER TABLE ONLY "auth"."oauth_consents"
+supabase_export/01_schema_only.sql:9636 | ADD CONSTRAINT "oauth_consents_user_client_unique" UNIQUE ("user_id", "client_id");
+supabase_export/01_schema_only.sql:10178 | CREATE INDEX "oauth_consents_active_client_idx" ON "auth"."oauth_consents" USING "btree" ("client_id") WHERE ("revoked_at" IS NULL);
+supabase_export/01_schema_only.sql:10182 | CREATE INDEX "oauth_consents_active_user_client_idx" ON "auth"."oauth_consents" USING "btree" ("user_id", "client_id") WHERE ("revoked_at" IS NULL);
+supabase_export/01_schema_only.sql:10186 | CREATE INDEX "oauth_consents_user_order_idx" ON "auth"."oauth_consents" USING "btree" ("user_id", "granted_at" DESC);
+supabase_export/01_schema_only.sql:10676 | ALTER TABLE ONLY "auth"."oauth_consents"
+supabase_export/01_schema_only.sql:10677 | ADD CONSTRAINT "oauth_consents_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "auth"."oauth_clients"("id") ON DELETE CASCADE;
+supabase_export/01_schema_only.sql:10681 | ALTER TABLE ONLY "auth"."oauth_consents"
+supabase_export/01_schema_only.sql:10682 | ADD CONSTRAINT "oauth_consents_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+supabase_export/01_schema_only.sql:12444 | GRANT ALL ON TABLE "auth"."oauth_consents" TO "postgres";
+supabase_export/01_schema_only.sql:12445 | GRANT ALL ON TABLE "auth"."oauth_consents" TO "dashboard_user";
+supabase_export/00_full_schema.sql:7868 | CREATE TABLE IF NOT EXISTS "auth"."oauth_consents" (
+supabase_export/00_full_schema.sql:7875 | CONSTRAINT "oauth_consents_revoked_after_granted" CHECK ((("revoked_at" IS NULL) OR ("revoked_at" >= "granted_at"))),
+supabase_export/00_full_schema.sql:7876 | CONSTRAINT "oauth_consents_scopes_length" CHECK (("char_length"("scopes") <= 2048)),
+supabase_export/00_full_schema.sql:7877 | CONSTRAINT "oauth_consents_scopes_not_empty" CHECK (("char_length"(TRIM(BOTH FROM "scopes")) > 0))
+supabase_export/00_full_schema.sql:7881 | ALTER TABLE "auth"."oauth_consents" OWNER TO "supabase_auth_admin";
+supabase_export/00_full_schema.sql:9697 | ALTER TABLE ONLY "auth"."oauth_consents"
+supabase_export/00_full_schema.sql:9698 | ADD CONSTRAINT "oauth_consents_pkey" PRIMARY KEY ("id");
+supabase_export/00_full_schema.sql:9702 | ALTER TABLE ONLY "auth"."oauth_consents"
+supabase_export/00_full_schema.sql:9703 | ADD CONSTRAINT "oauth_consents_user_client_unique" UNIQUE ("user_id", "client_id");
+supabase_export/00_full_schema.sql:10260 | CREATE INDEX "oauth_consents_active_client_idx" ON "auth"."oauth_consents" USING "btree" ("client_id") WHERE ("revoked_at" IS NULL);
+supabase_export/00_full_schema.sql:10264 | CREATE INDEX "oauth_consents_active_user_client_idx" ON "auth"."oauth_consents" USING "btree" ("user_id", "client_id") WHERE ("revoked_at" IS NULL);
+supabase_export/00_full_schema.sql:10268 | CREATE INDEX "oauth_consents_user_order_idx" ON "auth"."oauth_consents" USING "btree" ("user_id", "granted_at" DESC);
+supabase_export/00_full_schema.sql:10758 | ALTER TABLE ONLY "auth"."oauth_consents"
+supabase_export/00_full_schema.sql:10759 | ADD CONSTRAINT "oauth_consents_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "auth"."oauth_clients"("id") ON DELETE CASCADE;
+supabase_export/00_full_schema.sql:10763 | ALTER TABLE ONLY "auth"."oauth_consents"
+supabase_export/00_full_schema.sql:10764 | ADD CONSTRAINT "oauth_consents_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+supabase_export/00_full_schema.sql:12531 | GRANT ALL ON TABLE "auth"."oauth_consents" TO "postgres";
+supabase_export/00_full_schema.sql:12532 | GRANT ALL ON TABLE "auth"."oauth_consents" TO "dashboard_user";
+mobile/lib/supabaseStorage.ts:66 | * Wird verwendet, wenn Supabase einen veralteten oder bereits widerrufenen
+supabase/migrations/20260729_safety_integrity_engine_core.sql:100 | check (status in ('submitted','in_review','decided','withdrawn')),
+supabase/migrations/20260411100119_admin_moderation_completion.sql:585 | if v_status is not null and v_status not in ('pending', 'approved', 'rejected', 'withdrawn') then
+supabase/migrations/20260411100112_spot_claims.sql:40 | status in ('pending', 'approved', 'rejected', 'withdrawn')
+supabase/migrations/20260411100112_spot_claims.sql:196 | create or replace function public.withdraw_spot_claim_v1(
+supabase/migrations/20260411100112_spot_claims.sql:226 | raise exception 'Only pending claims can be withdrawn';
+supabase/migrations/20260411100112_spot_claims.sql:231 | status = 'withdrawn',
+supabase/migrations/20260411100112_spot_claims.sql:467 | if v_status is not null and v_status not in ('pending', 'approved', 'rejected', 'withdrawn') then
+supabase/migrations/20260411100112_spot_claims.sql:581 | if v_status is not null and v_status not in ('pending', 'approved', 'rejected', 'withdrawn') then
+admin-dashboard/app/safety-integrity/page.tsx:133 | { value: "withdrawn", label: "Zurückgezogen" },
+
+=== location (100) ===
+mobile/package-lock.json:41 | "expo-location": "~19.0.7",
+mobile/package-lock.json:9496 | "node_modules/expo-location": {
+mobile/package-lock.json:9498 | "resolved": "https://registry.npmjs.org/expo-location/-/expo-location-19.0.8.tgz",
+mobile/package.json:44 | "expo-location": "~19.0.7",
+backyrd_spot_quality_google_backfill_v1/supabase/functions/spot-google-backfill/index.ts:85 | if(Number.isFinite(spot.lat)&&Number.isFinite(spot.lng)) payload.locationBias={circle:{center:{latitude:spot.lat,longitude:spot.lng},radius:1500}};
+backyrd_spot_quality_google_backfill_v1/supabase/functions/spot-google-backfill/index.ts:98 | const dist=Number.isFinite(spot.lat)&&Number.isFinite(spot.lng)&&Number.isFinite(p.location?.latitude)&&Number.isFinite(p.location?.longitude)
+backyrd_spot_quality_google_backfill_v1/supabase/functions/spot-google-backfill/index.ts:99 | ? distanceMeters(spot.lat,spot.lng,p.location.latitude,p.location.longitude):null;
+mobile/lib/utils/haversine.ts:2 | a: { latitude: number; longitude: number },
+mobile/lib/utils/haversine.ts:3 | b: { latitude: number; longitude: number }
+mobile/lib/utils/haversine.ts:7 | const dLat = deg2rad(b.latitude - a.latitude);
+mobile/lib/utils/haversine.ts:8 | const dLng = deg2rad(b.longitude - a.longitude);
+mobile/lib/utils/haversine.ts:10 | const lat1 = deg2rad(a.latitude);
+mobile/lib/utils/haversine.ts:11 | const lat2 = deg2rad(b.latitude);
+mobile/lib/ai/computeGeoContext.ts:41 | { latitude: a.lat, longitude: a.lng },
+mobile/lib/ai/computeGeoContext.ts:42 | { latitude: b.lat, longitude: b.lng }
+mobile/lib/ai/memory.ts:80 | const center = { latitude: 47.5596, longitude: 7.5886 };
+mobile/lib/ai/memory.ts:81 | distanceVals.push(haversineKm(center, { latitude: lat, longitude: lng }));
+mobile/lib/ai/memory.ts:105 | const center = { latitude: 47.5596, longitude: 7.5886 };
+mobile/lib/ai/memory.ts:106 | distanceVals.push(haversineKm(center, { latitude: lat, longitude: lng }));
+mobile/lib/ai/buildWeather.ts:17 | `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
+mobile/components/map/Map.native.tsx:8 | <Marker coordinate={{ latitude: 47.5596, longitude: 7.5886 }} />
+mobile/app/(tabs)/journey.tsx:18 | import * as Location from "expo-location";
+mobile/app/(tabs)/journey.tsx:39 | const DEFAULT_CENTER = { latitude: 47.5596, longitude: 7.5886 };
+mobile/app/(tabs)/journey.tsx:51 | a: { latitude: number; longitude: number },
+mobile/app/(tabs)/journey.tsx:52 | b: { latitude: number; longitude: number }
+mobile/app/(tabs)/journey.tsx:55 | const dLat = ((b.latitude - a.latitude) * Math.PI) / 180;
+mobile/app/(tabs)/journey.tsx:56 | const dLon = ((b.longitude - a.longitude) * Math.PI) / 180;
+mobile/app/(tabs)/journey.tsx:57 | const lat1 = (a.latitude * Math.PI) / 180;
+mobile/app/(tabs)/journey.tsx:58 | const lat2 = (b.latitude * Math.PI) / 180;
+mobile/app/(tabs)/journey.tsx:311 | const [myPos, setMyPos] = useState<{ latitude: number; longitude: number } | null>(null);
+mobile/app/(tabs)/journey.tsx:328 | const { status } = await Location.requestForegroundPermissionsAsync();
+mobile/app/(tabs)/journey.tsx:332 | Location.getCurrentPositionAsync({
+mobile/app/(tabs)/journey.tsx:341 | latitude: pos.coords.latitude,
+mobile/app/(tabs)/journey.tsx:342 | longitude: pos.coords.longitude,
+mobile/app/(tabs)/journey.tsx:376 | const dist = haversineKm(center, { latitude: lat, longitude: lng });
+mobile/app/(tabs)/map.tsx:20 | import * as Location from "expo-location";
+mobile/app/(tabs)/map.tsx:35 | const BASEL = { latitude: 47.5596, longitude: 7.5886 };
+mobile/app/(tabs)/map.tsx:127 | latitudeDelta: 0.05,
+mobile/app/(tabs)/map.tsx:128 | longitudeDelta: 0.05,
+mobile/app/(tabs)/map.tsx:368 | coordinate={{ latitude: spot.lat, longitude: spot.lng }}
+mobile/app/(tabs)/map.tsx:455 | const { status } = await Location.requestForegroundPermissionsAsync();
+mobile/app/(tabs)/map.tsx:458 | const pos = await Location.getCurrentPositionAsync({
+mobile/app/(tabs)/map.tsx:464 | latitude: pos.coords.latitude,
+mobile/app/(tabs)/map.tsx:465 | longitude: pos.coords.longitude,
+mobile/app/(tabs)/map.tsx:645 | clusteringEnabled={region.latitudeDelta > 0.05}
+mobile/app/(tabs)/map.web.tsx:12 | import * as Location from "expo-location";
+mobile/app/(tabs)/map.web.tsx:18 | type Coords = { latitude: number; longitude: number };
+mobile/app/(tabs)/map.web.tsx:34 | const dLat = toRad(b.latitude - a.latitude);
+mobile/app/(tabs)/map.web.tsx:35 | const dLon = toRad(b.longitude - a.longitude);
+mobile/app/(tabs)/map.web.tsx:36 | const lat1 = toRad(a.latitude);
+mobile/app/(tabs)/map.web.tsx:37 | const lat2 = toRad(b.latitude);
+mobile/app/(tabs)/map.web.tsx:73 | const da = distanceKm(coords, { latitude: Number(a.lat), longitude: Number(a.lng) });
+mobile/app/(tabs)/map.web.tsx:74 | const db = distanceKm(coords, { latitude: Number(b.lat), longitude: Number(b.lng) });
+mobile/app/(tabs)/map.web.tsx:82 | const permission = await Location.requestForegroundPermissionsAsync();
+mobile/app/(tabs)/map.web.tsx:85 | const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+mobile/app/(tabs)/map.web.tsx:86 | setCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+mobile/app/(tabs)/map.web.tsx:132 | latitude: Number(spot.lat),
+mobile/app/(tabs)/map.web.tsx:133 | longitude: Number(spot.lng),
+mobile/app/(tabs)/explore.tsx:27 | import * as Location from "expo-location";
+mobile/app/(tabs)/explore.tsx:73 | type UserCoords = { latitude: number; longitude: number };
+mobile/app/(tabs)/explore.tsx:134 | const dLat = ((lat - from.latitude) * Math.PI) / 180;
+mobile/app/(tabs)/explore.tsx:135 | const dLng = ((lng - from.longitude) * Math.PI) / 180;
+mobile/app/(tabs)/explore.tsx:138 | Math.cos((from.latitude * Math.PI) / 180) *
+mobile/app/(tabs)/explore.tsx:316 | const { status } = await Location.requestForegroundPermissionsAsync();
+mobile/app/(tabs)/explore.tsx:322 | const pos = await Location.getCurrentPositionAsync({});
+mobile/app/(tabs)/explore.tsx:324 | latitude: pos.coords.latitude,
+mobile/app/(tabs)/explore.tsx:325 | longitude: pos.coords.longitude,
+mobile/app/(tabs)/explore.tsx:327 | const rev = await Location.reverseGeocodeAsync({
+mobile/app/(tabs)/explore.tsx:328 | latitude: pos.coords.latitude,
+mobile/app/(tabs)/explore.tsx:329 | longitude: pos.coords.longitude,
+mobile/app/(tabs)/decision-onboarding.tsx:16 | import * as Location from "expo-location";
+mobile/app/(tabs)/decision-onboarding.tsx:142 | const permission = await Location.requestForegroundPermissionsAsync();
+mobile/app/(tabs)/decision-onboarding.tsx:149 | const position = await Location.getCurrentPositionAsync({
+mobile/app/(tabs)/decision-onboarding.tsx:153 | const geocoded = await Location.reverseGeocodeAsync({
+mobile/app/(tabs)/decision-onboarding.tsx:154 | latitude: position.coords.latitude,
+mobile/app/(tabs)/decision-onboarding.tsx:155 | longitude: position.coords.longitude,
+mobile/app/review/smart.tsx:16 | import * as Location from "expo-location";
+mobile/app/review/smart.tsx:21 | import { reverseGeocode } from "../../lib/geocode";
+mobile/app/review/smart.tsx:144 | const locPerm = await Location.requestForegroundPermissionsAsync();
+mobile/app/review/smart.tsx:166 | const position = await Location.getCurrentPositionAsync({});
+mobile/app/review/smart.tsx:167 | const lat = position.coords.latitude;
+mobile/app/review/smart.tsx:168 | const lon = position.coords.longitude;
+mobile/app/review/smart.tsx:403 | const meta = await reverseGeocode(coords.lon, coords.lat);
+mobile/app/onboarding/index.tsx:20 | import * as Location from "expo-location";
+mobile/app/onboarding/index.tsx:178 | const permission = await Location.requestForegroundPermissionsAsync();
+mobile/app/onboarding/index.tsx:185 | const position = await Location.getCurrentPositionAsync({
+mobile/app/onboarding/index.tsx:189 | const geocoded = await Location.reverseGeocodeAsync({
+mobile/app/onboarding/index.tsx:190 | latitude: position.coords.latitude,
+mobile/app/onboarding/index.tsx:191 | longitude: position.coords.longitude,
+supabase/functions/spot-google-backfill/index.ts:85 | if(Number.isFinite(spot.lat)&&Number.isFinite(spot.lng)) payload.locationBias={circle:{center:{latitude:spot.lat,longitude:spot.lng},radius:1500}};
+supabase/functions/spot-google-backfill/index.ts:98 | const dist=Number.isFinite(spot.lat)&&Number.isFinite(spot.lng)&&Number.isFinite(p.location?.latitude)&&Number.isFinite(p.location?.longitude)
+supabase/functions/spot-google-backfill/index.ts:99 | ? distanceMeters(spot.lat,spot.lng,p.location.latitude,p.location.longitude):null;
+supabase/functions/google-place-photo/index.ts:21 | location?: { latitude?: number; longitude?: number };
+supabase/functions/google-place-photo/index.ts:125 | center: { latitude: spot.lat, longitude: spot.lng },
+supabase/functions/google-place-photo/index.ts:159 | typeof place.location?.latitude === "number" &&
+supabase/functions/google-place-photo/index.ts:160 | typeof place.location?.longitude === "number"
+supabase/functions/google-place-photo/index.ts:165 | place.location.latitude,
+supabase/functions/google-place-photo/index.ts:166 | place.location.longitude,
+admin-dashboard/app/spots/SpotForm.tsx:778 | <Field label="Latitude">
+admin-dashboard/app/spots/SpotForm.tsx:795 | <Field label="Longitude">
+
+=== notifications (100) ===
+README.md:96 | - Expo Notifications
+README.md:317 | ### Achievements / Notifications
+README.md:322 | notifications / notification-related tables if present
+README.md:1023 | - Push Notifications für Kommentare/Follows
+mobile/package-lock.json:42 | "expo-notifications": "~0.32.12",
+mobile/package-lock.json:9753 | "node_modules/expo-notifications": {
+mobile/package-lock.json:9755 | "resolved": "https://registry.npmjs.org/expo-notifications/-/expo-notifications-0.32.16.tgz",
+mobile/package-lock.json:9773 | "node_modules/expo-notifications/node_modules/@expo/image-utils": {
+mobile/package-lock.json:9791 | "node_modules/expo-notifications/node_modules/getenv": {
+mobile/package-lock.json:9800 | "node_modules/expo-notifications/node_modules/semver": {
+mobile/package.json:45 | "expo-notifications": "~0.32.12",
+mobile/app/_layout.tsx:13 | import { registerForPushNotificationsAsync } from "../lib/notifications";
+mobile/app/_layout.tsx:77 | await registerForPushNotificationsAsync();
+mobile/lib/notifications.ts:1 | // mobile/lib/notifications.ts
+mobile/lib/notifications.ts:2 | import * as Notifications from 'expo-notifications';
+mobile/lib/notifications.ts:7 | // ✅ Konfiguration für eingehende Notifications
+mobile/lib/notifications.ts:8 | Notifications.setNotificationHandler({
+mobile/lib/notifications.ts:9 | handleNotification: async () => ({
+mobile/lib/notifications.ts:17 | export async function registerForPushNotificationsAsync() {
+mobile/lib/notifications.ts:19 | console.log('Push Notifications benötigen ein physisches Gerät');
+mobile/lib/notifications.ts:23 | const { status: existingStatus } = await Notifications.getPermissionsAsync();
+mobile/lib/notifications.ts:27 | const { status } = await Notifications.requestPermissionsAsync();
+mobile/lib/notifications.ts:36 | // Expo Push Token abrufen
+mobile/lib/notifications.ts:37 | const tokenData = await Notifications.getExpoPushTokenAsync();
+mobile/lib/notifications.ts:51 | Notifications.setNotificationChannelAsync('default', {
+mobile/lib/notifications.ts:53 | importance: Notifications.AndroidImportance.MAX,
+supabase/migrations/20260411100119_admin_moderation_completion.sql:764 | 'notifications', jsonb_build_object(
+supabase/migrations/20260411100119_admin_moderation_completion.sql:767 | from public.notifications n
+supabase/migrations/20260411100119_admin_moderation_completion.sql:771 | from public.notifications n
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:1 | -- 20260411100118_notifications_activity_core_v1.sql
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:2 | -- Notifications / Activity Core v1 für Backyrd
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:5 | -- - zentrale Notification-Tabelle
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:9 | -- - erste automatische Notifications bei Claim-/Submission-Entscheidungen
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:12 | -- 1) Notifications-Tabelle
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:15 | create table if not exists public.notifications (
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:29 | constraint notifications_type_check check (
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:41 | create index if not exists idx_notifications_user_id
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:42 | on public.notifications(user_id);
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:44 | create index if not exists idx_notifications_created_at
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:45 | on public.notifications(created_at desc);
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:47 | create index if not exists idx_notifications_user_unread
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:48 | on public.notifications(user_id, created_at desc)
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:51 | create index if not exists idx_notifications_type
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:52 | on public.notifications(type);
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:58 | alter table public.notifications enable row level security;
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:60 | drop policy if exists "notifications_select_own" on public.notifications;
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:61 | create policy "notifications_select_own"
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:62 | on public.notifications
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:70 | drop policy if exists "notifications_update_own" on public.notifications;
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:71 | create policy "notifications_update_own"
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:72 | on public.notifications
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:84 | drop policy if exists "notifications_insert_admin_only" on public.notifications;
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:85 | create policy "notifications_insert_admin_only"
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:86 | on public.notifications
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:93 | drop policy if exists "notifications_delete_admin_only" on public.notifications;
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:94 | create policy "notifications_delete_admin_only"
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:95 | on public.notifications
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:103 | -- 3) Helper: Notification erzeugen
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:107 | create or replace function public.create_notification_v1(
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:120 | v_notification public.notifications%rowtype;
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:147 | raise exception 'Invalid notification type';
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:150 | insert into public.notifications (
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:165 | into v_notification;
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:168 | 'id', v_notification.id,
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:169 | 'user_id', v_notification.user_id,
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:170 | 'type', v_notification.type,
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:171 | 'title', v_notification.title,
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:172 | 'body', v_notification.body,
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:173 | 'data', v_notification.data,
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:174 | 'read_at', v_notification.read_at,
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:175 | 'created_at', v_notification.created_at
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:184 | create or replace function public.get_my_notifications_v1(
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:211 | from public.notifications n
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:224 | from public.notifications n
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:271 | -- 5) Einzelne Notification als gelesen markieren
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:274 | create or replace function public.mark_notification_read_v1(
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:275 | p_notification_id uuid
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:284 | v_notification public.notifications%rowtype;
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:292 | update public.notifications
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:295 | where id = p_notification_id
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:298 | into v_notification;
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:300 | if v_notification.id is null then
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:301 | raise exception 'Notification not found';
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:305 | 'id', v_notification.id,
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:306 | 'read_at', v_notification.read_at
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:312 | -- 6) Alle Notifications als gelesen markieren
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:315 | create or replace function public.mark_all_notifications_read_v1()
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:331 | update public.notifications
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:348 | create or replace function public.get_my_notification_unread_count_v1()
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:366 | from public.notifications n
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:379 | -- ersetzt decide_spot_claim_v1 durch Version mit Notification
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:458 | perform public.create_notification_v1(
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:470 | perform public.create_notification_v1(
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:500 | -- ersetzt decide_spot_submission_v1 durch Version mit Notification
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:557 | perform public.create_notification_v1(
+supabase/migrations/20260411100118_notifications_activity_core_v1.sql:583 | perform public.create_notification_v1(
+mobu/app/review.tsx:42 | await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+mobu/app/(tabs)/capture.tsx:33 | await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+mobu/app/document/[id].tsx:24 | await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+mobu/app/document/[id].tsx:61 | <SecondaryButton label="Erinnerung einstellen" icon="notifications-outline" onPress={() => {}} />
+
+=== analytics (178) ===
+package-lock.json:11020 | "@opentelemetry/api": "^1.1.0",
+package-lock.json:11028 | "@opentelemetry/api": {
+supabase_export/01_schema_only.sql:226 | 'ANALYTICS',
+supabase_export/01_schema_only.sql:7718 | "session_id" "uuid" NOT NULL,
+supabase_export/01_schema_only.sql:7890 | "session_id" "uuid"
+supabase_export/01_schema_only.sql:9363 | CREATE TABLE IF NOT EXISTS "storage"."buckets_analytics" (
+supabase_export/01_schema_only.sql:9365 | "type" "storage"."buckettype" DEFAULT 'ANALYTICS'::"storage"."buckettype" NOT NULL,
+supabase_export/01_schema_only.sql:9374 | ALTER TABLE "storage"."buckets_analytics" OWNER TO "supabase_storage_admin";
+supabase_export/01_schema_only.sql:9586 | ADD CONSTRAINT "mfa_amr_claims_session_id_authentication_method_pkey" UNIQUE ("session_id", "authentication_method");
+supabase_export/01_schema_only.sql:10065 | ALTER TABLE ONLY "storage"."buckets_analytics"
+supabase_export/01_schema_only.sql:10066 | ADD CONSTRAINT "buckets_analytics_pkey" PRIMARY KEY ("id");
+supabase_export/01_schema_only.sql:10222 | CREATE INDEX "refresh_tokens_session_id_revoked_idx" ON "auth"."refresh_tokens" USING "btree" ("session_id", "revoked");
+supabase_export/01_schema_only.sql:10494 | CREATE UNIQUE INDEX "buckets_analytics_unique_name_idx" ON "storage"."buckets_analytics" USING "btree" ("name") WHERE ("deleted_at" IS NULL);
+supabase_export/01_schema_only.sql:10652 | ADD CONSTRAINT "mfa_amr_claims_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "auth"."sessions"("id") ON DELETE CASCADE;
+supabase_export/01_schema_only.sql:10692 | ADD CONSTRAINT "refresh_tokens_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "auth"."sessions"("id") ON DELETE CASCADE;
+supabase_export/01_schema_only.sql:11619 | ALTER TABLE "storage"."buckets_analytics" ENABLE ROW LEVEL SECURITY;
+supabase_export/01_schema_only.sql:13043 | GRANT ALL ON TABLE "storage"."buckets_analytics" TO "service_role";
+supabase_export/01_schema_only.sql:13044 | GRANT ALL ON TABLE "storage"."buckets_analytics" TO "authenticated";
+supabase_export/01_schema_only.sql:13045 | GRANT ALL ON TABLE "storage"."buckets_analytics" TO "anon";
+supabase_export/00_full_schema.sql:244 | 'ANALYTICS',
+supabase_export/00_full_schema.sql:7736 | "session_id" "uuid" NOT NULL,
+supabase_export/00_full_schema.sql:7908 | "session_id" "uuid"
+supabase_export/00_full_schema.sql:9407 | CREATE TABLE IF NOT EXISTS "storage"."buckets_analytics" (
+supabase_export/00_full_schema.sql:9409 | "type" "storage"."buckettype" DEFAULT 'ANALYTICS'::"storage"."buckettype" NOT NULL,
+supabase_export/00_full_schema.sql:9418 | ALTER TABLE "storage"."buckets_analytics" OWNER TO "supabase_storage_admin";
+supabase_export/00_full_schema.sql:9653 | ADD CONSTRAINT "mfa_amr_claims_session_id_authentication_method_pkey" UNIQUE ("session_id", "authentication_method");
+supabase_export/00_full_schema.sql:10137 | ALTER TABLE ONLY "storage"."buckets_analytics"
+supabase_export/00_full_schema.sql:10138 | ADD CONSTRAINT "buckets_analytics_pkey" PRIMARY KEY ("id");
+supabase_export/00_full_schema.sql:10304 | CREATE INDEX "refresh_tokens_session_id_revoked_idx" ON "auth"."refresh_tokens" USING "btree" ("session_id", "revoked");
+supabase_export/00_full_schema.sql:10576 | CREATE UNIQUE INDEX "buckets_analytics_unique_name_idx" ON "storage"."buckets_analytics" USING "btree" ("name") WHERE ("deleted_at" IS NULL);
+supabase_export/00_full_schema.sql:10734 | ADD CONSTRAINT "mfa_amr_claims_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "auth"."sessions"("id") ON DELETE CASCADE;
+supabase_export/00_full_schema.sql:10774 | ADD CONSTRAINT "refresh_tokens_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "auth"."sessions"("id") ON DELETE CASCADE;
+supabase_export/00_full_schema.sql:11701 | ALTER TABLE "storage"."buckets_analytics" ENABLE ROW LEVEL SECURITY;
+supabase_export/00_full_schema.sql:13130 | GRANT ALL ON TABLE "storage"."buckets_analytics" TO "service_role";
+supabase_export/00_full_schema.sql:13131 | GRANT ALL ON TABLE "storage"."buckets_analytics" TO "authenticated";
+supabase_export/00_full_schema.sql:13132 | GRANT ALL ON TABLE "storage"."buckets_analytics" TO "anon";
+web/package-lock.json:4993 | "@opentelemetry/api": "^1.1.0",
+web/package-lock.json:5001 | "@opentelemetry/api": {
+admin-dashboard/package-lock.json:5166 | "@opentelemetry/api": "^1.1.0",
+admin-dashboard/package-lock.json:5174 | "@opentelemetry/api": {
+.safety_owner_integration_backup_20260729_195554/mobile/app/spot/[id]/manage.tsx:13 | import { trackEvent } from "@/lib/events";
+.safety_owner_integration_backup_20260729_195554/mobile/app/spot/[id]/manage.tsx:136 | await trackEvent({
+.safety_owner_integration_backup_20260729_195554/mobile/app/spot/[id]/manage.tsx:203 | await trackEvent({
+mobile/app/_layout.tsx:15 | import { AnalyticsProvider } from "../providers/AnalyticsProvider";
+mobile/app/_layout.tsx:16 | import { AnalyticsErrorBoundary } from "../components/AnalyticsErrorBoundary";
+mobile/app/_layout.tsx:17 | import { reportAnalyticsError } from "../lib/analytics";
+mobile/app/_layout.tsx:80 | await reportAnalyticsError({
+mobile/app/_layout.tsx:95 | <AnalyticsErrorBoundary>
+mobile/app/_layout.tsx:96 | <AnalyticsProvider>
+mobile/app/_layout.tsx:100 | </AnalyticsProvider>
+mobile/app/_layout.tsx:101 | </AnalyticsErrorBoundary>
+mobile/providers/AnalyticsProvider.tsx:8 | reportAnalyticsError,
+mobile/providers/AnalyticsProvider.tsx:9 | setCurrentAnalyticsScreen,
+mobile/providers/AnalyticsProvider.tsx:10 | startAnalyticsSession,
+mobile/providers/AnalyticsProvider.tsx:11 | touchAnalyticsSession,
+mobile/providers/AnalyticsProvider.tsx:12 | trackAnalyticsEvent,
+mobile/providers/AnalyticsProvider.tsx:13 | } from "../lib/analytics";
+mobile/providers/AnalyticsProvider.tsx:34 | export function AnalyticsProvider({ children }: PropsWithChildren) {
+mobile/providers/AnalyticsProvider.tsx:47 | await startAnalyticsSession(normalizeScreenName(pathname));
+mobile/providers/AnalyticsProvider.tsx:52 | reportAnalyticsError({
+mobile/providers/AnalyticsProvider.tsx:54 | errorType: "analytics_bootstrap_error",
+mobile/providers/AnalyticsProvider.tsx:71 | setCurrentAnalyticsScreen(screenName);
+mobile/providers/AnalyticsProvider.tsx:79 | trackAnalyticsEvent({
+mobile/providers/AnalyticsProvider.tsx:92 | trackAnalyticsEvent({
+mobile/providers/AnalyticsProvider.tsx:110 | await touchAnalyticsSession(undefined, false);
+mobile/providers/AnalyticsProvider.tsx:120 | await touchAnalyticsSession(undefined, true);
+mobile/providers/AnalyticsProvider.tsx:121 | await startAnalyticsSession(normalizeScreenName(pathname));
+mobile/providers/AnalyticsProvider.tsx:123 | await touchAnalyticsSession(undefined, false);
+mobile/providers/AnalyticsProvider.tsx:125 | await trackAnalyticsEvent({
+mobile/components/AnalyticsErrorBoundary.tsx:4 | import { reportAnalyticsError } from "../lib/analytics";
+mobile/components/AnalyticsErrorBoundary.tsx:10 | export class AnalyticsErrorBoundary extends React.Component<PropsWithChildren, State> {
+mobile/components/AnalyticsErrorBoundary.tsx:18 | reportAnalyticsError({
+mobile/lib/analytics.ts:9 | const INSTALLATION_ID_KEY = "@backyrd/analytics/installation-id-v1";
+mobile/lib/analytics.ts:10 | const SESSION_ID_KEY = "@backyrd/analytics/session-id-v1";
+mobile/lib/analytics.ts:11 | const SESSION_LAST_SEEN_KEY = "@backyrd/analytics/session-last-seen-v1";
+mobile/lib/analytics.ts:14 | export type AnalyticsProperties = Record<string, unknown>;
+mobile/lib/analytics.ts:15 | export type AnalyticsSeverity = "info" | "warning" | "error" | "fatal";
+mobile/lib/analytics.ts:17 | export type TrackEventInput = {
+mobile/lib/analytics.ts:24 | properties?: AnalyticsProperties;
+mobile/lib/analytics.ts:32 | severity?: AnalyticsSeverity;
+mobile/lib/analytics.ts:34 | context?: AnalyticsProperties;
+mobile/lib/analytics.ts:97 | const stored = await AsyncStorage.getItem(INSTALLATION_ID_KEY);
+mobile/lib/analytics.ts:105 | await AsyncStorage.setItem(INSTALLATION_ID_KEY, created);
+mobile/lib/analytics.ts:109 | export function setCurrentAnalyticsScreen(screenName: string | null) {
+mobile/lib/analytics.ts:113 | export function getCurrentAnalyticsScreen() {
+mobile/lib/analytics.ts:117 | export async function registerInstallation(properties: AnalyticsProperties = {}) {
+mobile/lib/analytics.ts:122 | const { error } = await supabase.rpc("analytics_register_installation_v1", {
+mobile/lib/analytics.ts:123 | p_installation_id: installationId,
+mobile/lib/analytics.ts:142 | console.warn("[analytics] register installation failed", error);
+mobile/lib/analytics.ts:148 | AsyncStorage.getItem(SESSION_ID_KEY),
+mobile/lib/analytics.ts:160 | export async function startAnalyticsSession(entryScreen?: string | null) {
+mobile/lib/analytics.ts:167 | await touchAnalyticsSession(entryScreen ?? undefined, false);
+mobile/lib/analytics.ts:172 | const { data, error } = await supabase.rpc("analytics_start_session_v1", {
+mobile/lib/analytics.ts:173 | p_installation_id: installationId,
+mobile/lib/analytics.ts:189 | [SESSION_ID_KEY, sessionId],
+mobile/lib/analytics.ts:193 | await trackAnalyticsEvent({
+mobile/lib/analytics.ts:201 | console.warn("[analytics] start session failed", error);
+mobile/lib/analytics.ts:211 | export async function touchAnalyticsSession(exitScreen?: string | null, end = false) {
+mobile/lib/analytics.ts:216 | const { error } = await supabase.rpc("analytics_touch_session_v1", {
+mobile/lib/analytics.ts:217 | p_session_id: sessionId,
+mobile/lib/analytics.ts:227 | await AsyncStorage.multiRemove([SESSION_ID_KEY, SESSION_LAST_SEEN_KEY]);
+mobile/lib/analytics.ts:230 | console.warn("[analytics] touch session failed", error);
+mobile/lib/analytics.ts:234 | export async function trackAnalyticsEvent(input: TrackEventInput) {
+mobile/lib/analytics.ts:240 | const sessionId = sessionIdCache ?? (await startAnalyticsSession(input.screenName));
+mobile/lib/analytics.ts:242 | const { data, error } = await supabase.rpc("analytics_track_event_v1", {
+mobile/lib/analytics.ts:244 | p_session_id: sessionId,
+mobile/lib/analytics.ts:245 | p_installation_id: installationId,
+mobile/lib/analytics.ts:261 | console.warn("[analytics] track event failed", error);
+mobile/lib/analytics.ts:266 | export async function reportAnalyticsError(input: ReportErrorInput) {
+mobile/lib/analytics.ts:272 | const { data, error } = await supabase.rpc("analytics_report_error_v1", {
+mobile/lib/analytics.ts:274 | p_session_id: sessionId,
+mobile/lib/analytics.ts:275 | p_installation_id: installationId,
+mobile/lib/analytics.ts:291 | console.warn("[analytics] report error failed", error);
+mobile/lib/analytics.ts:296 | export async function resetAnalyticsSession() {
+mobile/lib/analytics.ts:298 | await AsyncStorage.multiRemove([SESSION_ID_KEY, SESSION_LAST_SEEN_KEY]);
+mobile/lib/events.ts:3 | type TrackEventParams = {
+mobile/lib/events.ts:11 | export async function trackEvent({
+mobile/lib/events.ts:17 | }: TrackEventParams) {
+mobile/lib/events.ts:30 | console.log("trackEvent error:", error.message);
+mobile/app/(tabs)/decision.tsx:25 | import { trackAnalyticsEvent, reportAnalyticsError } from "@/lib/analytics";
+mobile/app/(tabs)/decision.tsx:1248 | void trackAnalyticsEvent({
+mobile/app/(tabs)/decision.tsx:1264 | void trackAnalyticsEvent({
+mobile/app/(tabs)/decision.tsx:1570 | void trackAnalyticsEvent({
+mobile/app/(tabs)/feed.tsx:29 | import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
+mobile/app/(tabs)/feed.tsx:457 | void trackAnalyticsEvent({ eventName: `feed_${reactionType}_${active ? "added" : "removed"}`, screenName: "feed", entityType: "social_post", entityId: postId });
+mobile/app/(tabs)/feed.tsx:470 | void trackAnalyticsEvent({ eventName: "feed_spot_opened", screenName: "feed", entityType: "spot", entityId: post.spot_id, spotId: post.spot_id, properties: { post_id: post.post_id } });
+mobile/app/(tabs)/feed.tsx:477 | void trackAnalyticsEvent({ eventName: "feed_comments_opened", screenName: "feed", entityType: "social_post", entityId: post.post_id, spotId: post.spot_id ?? null });
+mobile/app/(tabs)/feed.tsx:498 | void trackAnalyticsEvent({ eventName: "feed_post_shared", screenName: "feed", entityType: "social_post", entityId: post.post_id, spotId: post.spot_id ?? null });
+mobile/app/(tabs)/map.tsx:33 | import { trackAnalyticsEvent } from "../../lib/analytics";
+mobile/app/(tabs)/map.tsx:372 | void trackAnalyticsEvent({
+mobile/app/(tabs)/map.tsx:659 | void trackAnalyticsEvent({ eventName: "map_spot_opened", screenName: "map", entityType: "spot", entityId: item.id, spotId: item.id, properties: { source: "list" } });
+mobile/app/(tabs)/map.tsx:713 | void trackAnalyticsEvent({ eventName: "map_spot_opened", screenName: "map", entityType: "spot", entityId: selectedSpot.id, spotId: selectedSpot.id, properties: { source: "preview" } });
+mobile/app/(tabs)/map.tsx:760 | void trackAnalyticsEvent({ eventName: "map_spot_opened", screenName: "map", entityType: "spot", entityId: selectedSpot.id, spotId: selectedSpot.id, properties: { source: "preview" } });
+mobile/app/(tabs)/profile.tsx:28 | import { trackAnalyticsEvent, reportAnalyticsError } from "@/lib/analytics";
+mobile/app/(tabs)/profile.tsx:472 | void trackAnalyticsEvent({ eventName: "profile_update_started", screenName: "profile" });
+mobile/app/(tabs)/profile.tsx:558 | void trackAnalyticsEvent({ eventName: "profile_spot_opened", screenName: "profile", entityType: "spot", entityId: post.spot_id, spotId: post.spot_id });
+mobile/app/(tabs)/profile.tsx:689 | void trackAnalyticsEvent({ eventName: "profile_edit_started", screenName: "profile" });
+mobile/app/(tabs)/profile.tsx:804 | void trackAnalyticsEvent({ eventName: "profile_favorite_spot_opened", screenName: "profile", entityType: "spot", entityId: item.spot_id, spotId: item.spot_id });
+mobile/app/(tabs)/_layout.tsx:9 | import { reportAnalyticsError, trackAnalyticsEvent } from "../../lib/analytics";
+mobile/app/(tabs)/_layout.tsx:78 | await reportAnalyticsError({
+mobile/app/(tabs)/_layout.tsx:178 | trackAnalyticsEvent({
+mobile/app/review/smart.tsx:24 | import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
+mobile/app/review/smart.tsx:131 | void trackAnalyticsEvent({ eventName: "review_started", screenName: "review_smart", decisionId: decisionId ?? null, properties: { source: source ?? "smart" } });
+mobile/app/review/smart.tsx:164 | void trackAnalyticsEvent({ eventName: "review_photo_added", screenName: "review_smart", decisionId: decisionId ?? null, properties: { source: "camera" } });
+mobile/app/review/smart.tsx:376 | void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_smart", entityType: "review", entityId: reviewId, spotId: nearest.id, decisionId: decisionId ?? null, properties: { photo_count: 1, has_text: Boolean(text.trim()), source: source ?? "smart" } });
+mobile/app/review/new.tsx:27 | import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
+mobile/app/review/new.tsx:109 | void trackAnalyticsEvent({ eventName: "review_started", screenName: "review_new", spotId, decisionId: decisionId ?? null, properties: { source: source ?? "spot" } });
+mobile/app/review/new.tsx:165 | void trackAnalyticsEvent({ eventName: "review_photo_added", screenName: "review_new", spotId, properties: { source: fromCamera ? "camera" : "library" } });
+mobile/app/review/new.tsx:305 | void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_new", entityType: "review", entityId: reviewId, spotId, decisionId: decisionId ?? null, properties: { photo_count: photos.length, has_text: Boolean(text.trim()), source: source ?? "spot" } });
+mobile/app/review/new.tsx:321 | void reportAnalyticsError({ error: e, screenName: "review_new", errorType: "review_submit_failed", context: { spot_id: spotId, decision_id: decisionId ?? null } });
+... 28 weitere Treffer
+
+=== taste_personalization (806) ===
+README.md:33 | Eine KI-gestützte Spot-Empfehlung anhand von Freitext, Moods, Kategorie, Publikum, Ort, Kontext und persönlichem Taste-Profil.
+README.md:41 | 4. **Taste & Signal Graph**
+README.md:57 | → die Taste Engine bekommt ein starkes positives Signal
+README.md:111 | - OpenAI Embeddings / semantic matching
+README.md:112 | - Embedding-basierte Spot-Suche
+README.md:302 | ### Decision / Taste / ML
+README.md:308 | decision_sessions
+README.md:309 | decision_actions
+README.md:312 | user_taste_profile_v1
+README.md:355 | ### ML / Taste
+README.md:369 | create_decision_session_v1
+README.md:395 | - persönliche Taste-Profile
+README.md:587 | - Taste-Signale
+README.md:1013 | 5. Taste Signal für decision_review_confirmed optional stärker loggen
+README.md:1027 | - Leute mit ähnlichem Taste-Profil
+README.md:1064 | Die nächsten Arbeiten sollten darauf abzielen, diese Social-Proof-Signale in den Core der App zu integrieren, besonders ins Spot Detail. Social soll nicht als separates Instagram-artiges Feature wirken, sondern als Vertrauens- und Taste-Schicht über der gesamten App.
+supabase_export/01_schema_only.sql:608 | v_decision_id := public.create_decision_session_v1(
+supabase_export/01_schema_only.sql:629 | insert into public.decision_actions(decision_id, spot_id, action, created_at)
+supabase_export/01_schema_only.sql:636 | -- rebuild taste profile (adjust params if your signature differs)
+supabase_export/01_schema_only.sql:637 | perform public.rebuild_user_taste_profile_v1(v_uid, 0.65, 5);
+supabase_export/01_schema_only.sql:669 | (fast path into taste profile; same pipeline as real actions)
+supabase_export/01_schema_only.sql:681 | insert into public.decision_sessions(user_id, city, mood_a_text, mood_b_text, created_at)
+supabase_export/01_schema_only.sql:693 | insert into public.decision_actions(decision_id, spot_id, action, created_at)
+supabase_export/01_schema_only.sql:697 | insert into public.decision_actions(decision_id, spot_id, action, created_at)
+supabase_export/01_schema_only.sql:701 | -- Rebuild taste (same as production)
+supabase_export/01_schema_only.sql:702 | perform public.rebuild_user_taste_profile_v2(p_user_id);
+supabase_export/01_schema_only.sql:743 | CREATE OR REPLACE FUNCTION "public"."backyrd_create_decision_session_v1"("p_city" "text", "p_selected_cluster_ids" integer[], "p_query" "text") RETURNS "uuid"
+supabase_export/01_schema_only.sql:767 | select public.create_decision_session_v1(
+supabase_export/01_schema_only.sql:779 | ALTER FUNCTION "public"."backyrd_create_decision_session_v1"("p_city" "text", "p_selected_cluster_ids" integer[], "p_query" "text") OWNER TO "postgres";
+supabase_export/01_schema_only.sql:782 | CREATE OR REPLACE FUNCTION "public"."backyrd_debug_get_user_taste_affinity_for_user_v1"("p_user_id" "uuid", "p_spot_id" "uuid") RETURNS numeric
+supabase_export/01_schema_only.sql:798 | join public.user_taste_concepts_v2 utc
+supabase_export/01_schema_only.sql:808 | ALTER FUNCTION "public"."backyrd_debug_get_user_taste_affinity_for_user_v1"("p_user_id" "uuid", "p_spot_id" "uuid") OWNER TO "postgres";
+supabase_export/01_schema_only.sql:811 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_decision_context_v2"("p_city" "text" DEFAULT NULL::"text", "p_selected_cluster_ids" integer[] DEFAULT NULL::integer[], "p_query" "text" DEFAULT NULL::"text", "p_limit" integer DEFAULT 10) RETURNS TABLE("mode" "text", "strong_personalized" boolean, "weak_personalized" boolean, "used_semantic_fallback" boolean, "top_score" numeric, "top_raw_mood_strength" integer, "explanation" "text")
+supabase_export/01_schema_only.sql:833 | when a.top_raw_mood_strength >= 4 then 'strong_personalized'
+supabase_export/01_schema_only.sql:834 | when a.any_mood_signal then 'weak_personalized'
+supabase_export/01_schema_only.sql:838 | (a.top_raw_mood_strength >= 4) as strong_personalized,
+supabase_export/01_schema_only.sql:839 | (a.any_mood_signal and a.top_raw_mood_strength < 4) as weak_personalized,
+supabase_export/01_schema_only.sql:856 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_decision_debug_v11"("p_city" "text" DEFAULT NULL::"text", "p_selected_cluster_ids" integer[] DEFAULT NULL::integer[], "p_query" "text" DEFAULT NULL::"text", "p_limit" integer DEFAULT 10, "p_k" numeric DEFAULT 1.0, "p_open_bonus" numeric DEFAULT 0.0, "p_taste_weight" numeric DEFAULT 0.28, "p_explore_weight" numeric DEFAULT 0.05) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "is_open_now" boolean, "final_score" numeric, "matched_toke
+supabase_export/01_schema_only.sql:862 | greatest(0, least(0.35, coalesce(p_taste_weight, 0.28)))::numeric as taste_w,
+supabase_export/01_schema_only.sql:889 | -- Taste affinity can be negative/positive; 0 if no profile
+supabase_export/01_schema_only.sql:890 | public.backyrd_get_user_taste_affinity_v2(b.spot_id) as taste_affinity,
+supabase_export/01_schema_only.sql:894 | (1::numeric / (1::numeric + exp(-(coalesce(public.backyrd_get_user_taste_affinity_v2(b.spot_id),0) * 2))))::numeric
+supabase_export/01_schema_only.sql:895 | as taste_component,
+supabase_export/01_schema_only.sql:910 | ( (1 - p.taste_w - p.explore_w) * s.base_score )
+supabase_export/01_schema_only.sql:911 | + ( p.taste_w * s.taste_component )
+supabase_export/01_schema_only.sql:929 | ALTER FUNCTION "public"."backyrd_get_decision_debug_v11"("p_city" "text", "p_selected_cluster_ids" integer[], "p_query" "text", "p_limit" integer, "p_k" numeric, "p_open_bonus" numeric, "p_taste_weight" numeric, "p_explore_weight" numeric) OWNER TO "postgres";
+supabase_export/01_schema_only.sql:1347 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_decision_spots_v11"("p_city" "text" DEFAULT NULL::"text", "p_selected_cluster_ids" integer[] DEFAULT NULL::integer[], "p_query" "text" DEFAULT NULL::"text", "p_limit" integer DEFAULT 10, "p_k" numeric DEFAULT 1.0, "p_open_bonus" numeric DEFAULT 0.0, "p_taste_weight" numeric DEFAULT 0.28, "p_explore_weight" numeric DEFAULT 0.05) RETURNS TABLE("spot_id" "uuid", "name" "text", "city" "text", "is_open_now" boolean, "final_score" numeric, "matched_toke
+supabase_export/01_schema_only.sql:1358 | p_taste_weight := p_taste_weight,
+supabase_export/01_schema_only.sql:1365 | ALTER FUNCTION "public"."backyrd_get_decision_spots_v11"("p_city" "text", "p_selected_cluster_ids" integer[], "p_query" "text", "p_limit" integer, "p_k" numeric, "p_open_bonus" numeric, "p_taste_weight" numeric, "p_explore_weight" numeric) OWNER TO "postgres";
+supabase_export/01_schema_only.sql:1394 | CREATE OR REPLACE FUNCTION "public"."backyrd_get_user_taste_affinity_v2"("p_spot_id" "uuid") RETURNS numeric
+supabase_export/01_schema_only.sql:1399 | from public.user_taste_concepts_v2
+supabase_export/01_schema_only.sql:1409 | ALTER FUNCTION "public"."backyrd_get_user_taste_affinity_v2"("p_spot_id" "uuid") OWNER TO "postgres";
+supabase_export/01_schema_only.sql:1412 | CREATE OR REPLACE FUNCTION "public"."backyrd_log_decision_action_v1"("p_decision_id" "uuid", "p_spot_id" "uuid", "p_action" "text") RETURNS "void"
+supabase_export/01_schema_only.sql:1416 | perform public.log_decision_action_v1(
+supabase_export/01_schema_only.sql:1425 | ALTER FUNCTION "public"."backyrd_log_decision_action_v1"("p_decision_id" "uuid", "p_spot_id" "uuid", "p_action" "text") OWNER TO "postgres";
+supabase_export/01_schema_only.sql:1444 | CREATE OR REPLACE FUNCTION "public"."backyrd_log_taste_event_v2"("p_spot_id" "uuid", "p_event_type" "text") RETURNS "void"
+supabase_export/01_schema_only.sql:1465 | insert into public.user_taste_events_v2(user_id, spot_id, event_type, factor)
+supabase_export/01_schema_only.sql:1469 | insert into public.user_taste_concepts_v2(user_id, concept_id, weight, confidence, updated_at)
+supabase_export/01_schema_only.sql:1479 | left join public.user_taste_concepts_v2 utc
+supabase_export/01_schema_only.sql:1491 | ALTER FUNCTION "public"."backyrd_log_taste_event_v2"("p_spot_id" "uuid", "p_event_type" "text") OWNER TO "postgres";
+supabase_export/01_schema_only.sql:1494 | CREATE OR REPLACE FUNCTION "public"."backyrd_log_taste_event_v3"("p_spot_id" "uuid", "p_event_type" "text", "p_cap" numeric DEFAULT 0.4, "p_conf_inc" numeric DEFAULT 0.03) RETURNS "void"
+supabase_export/01_schema_only.sql:1541 | insert into public.user_taste_concepts_v2 (user_id, concept_id, weight, confidence, updated_at)
+supabase_export/01_schema_only.sql:1560 | (public.user_taste_concepts_v2.weight + (excluded.weight * (1 - (abs(public.user_taste_concepts_v2.weight) / v_cap))))
+supabase_export/01_schema_only.sql:1569 | (public.user_taste_concepts_v2.weight + (excluded.weight * (1 - (abs(public.user_taste_concepts_v2.weight) / v_cap))))
+supabase_export/01_schema_only.sql:1574 | confidence = greatest(0, least(1, public.user_taste_concepts_v2.confidence + v_conf_inc))::numeric,
+supabase_export/01_schema_only.sql:1588 | -- 2) Optional event log into user_taste_events_v2
+supabase_export/01_schema_only.sql:1592 | where table_schema='public' and table_name='user_taste_events_v2'
+supabase_export/01_schema_only.sql:1598 | if exists (select 1 from information_schema.columns where table_schema='public' and table_name='user_taste_events_v2' and column_name='user_id') then
+supabase_export/01_schema_only.sql:1603 | if exists (select 1 from information_schema.columns where table_schema='public' and table_name='user_taste_events_v2' and column_name='spot_id') then
+supabase_export/01_schema_only.sql:1608 | if exists (select 1 from information_schema.columns where table_schema='public' and table_name='user_taste_events_v2' and column_name='event_type') then
+supabase_export/01_schema_only.sql:1613 | if exists (select 1 from information_schema.columns where table_schema='public' and table_name='user_taste_events_v2' and column_name in ('created_at','ts','created')) then
+supabase_export/01_schema_only.sql:1615 | if exists (select 1 from information_schema.columns where table_schema='public' and table_name='user_taste_events_v2' and column_name='created_at') then
+supabase_export/01_schema_only.sql:1618 | elsif exists (select 1 from information_schema.columns where table_schema='public' and table_name='user_taste_events_v2' and column_name='ts') then
+supabase_export/01_schema_only.sql:1621 | elsif exists (select 1 from information_schema.columns where table_schema='public' and table_name='user_taste_events_v2' and column_name='created') then
+supabase_export/01_schema_only.sql:1627 | if exists (select 1 from information_schema.columns where table_schema='public' and table_name='user_taste_events_v2' and column_name='payload') then
+supabase_export/01_schema_only.sql:1633 | v_sql := 'insert into public.user_taste_events_v2 (' || v_cols || ') values (' || v_vals || ');';
+supabase_export/01_schema_only.sql:1642 | ALTER FUNCTION "public"."backyrd_log_taste_event_v3"("p_spot_id" "uuid", "p_event_type" "text", "p_cap" numeric, "p_conf_inc" numeric) OWNER TO "postgres";
+supabase_export/01_schema_only.sql:1782 | CREATE OR REPLACE FUNCTION "public"."create_decision_session_v1"("p_city" "text", "p_mood_a_text" "text" DEFAULT NULL::"text", "p_mood_b_text" "text" DEFAULT NULL::"text") RETURNS "uuid"
+supabase_export/01_schema_only.sql:1793 | insert into public.decision_sessions(user_id, city, mood_a_text, mood_b_text)
+supabase_export/01_schema_only.sql:1802 | ALTER FUNCTION "public"."create_decision_session_v1"("p_city" "text", "p_mood_a_text" "text", "p_mood_b_text" "text") OWNER TO "postgres";
+supabase_export/01_schema_only.sql:1973 | from public.user_taste_profile_v1 p
+supabase_export/01_schema_only.sql:2027 | decision_mode := 'strong_personalized';
+supabase_export/01_schema_only.sql:2029 | decision_mode := 'weak_personalized';
+supabase_export/01_schema_only.sql:2040 | elsif decision_mode = 'strong_personalized' then
+supabase_export/01_schema_only.sql:2044 | elsif decision_mode = 'weak_personalized' then
+supabase_export/01_schema_only.sql:2323 | from public.decision_sessions s
+supabase_export/01_schema_only.sql:2336 | from public.decision_actions a
+supabase_export/01_schema_only.sql:2375 | from public.decision_sessions s
+supabase_export/01_schema_only.sql:2388 | from public.decision_actions a
+supabase_export/01_schema_only.sql:2438 | from public.decision_sessions
+supabase_export/01_schema_only.sql:2454 | from public.decision_actions da
+supabase_export/01_schema_only.sql:3941 | CREATE OR REPLACE FUNCTION "public"."get_my_taste_profile_status_v1"() RETURNS TABLE("qualified_actions" integer, "confidence" numeric, "needs_onboarding" boolean)
+supabase_export/01_schema_only.sql:3949 | from public.user_taste_profile_v1 p
+supabase_export/01_schema_only.sql:3954 | and not exists (select 1 from public.user_taste_profile_v1 p2 where p2.user_id = auth.uid());
+supabase_export/01_schema_only.sql:3958 | ALTER FUNCTION "public"."get_my_taste_profile_status_v1"() OWNER TO "postgres";
+supabase_export/01_schema_only.sql:3970 | join public.decision_sessions ds on ds.id = di.decision_id
+supabase_export/01_schema_only.sql:4263 | CREATE OR REPLACE FUNCTION "public"."log_decision_action_v1"("p_decision_id" "uuid", "p_spot_id" "uuid", "p_action" "text") RETURNS "void"
+supabase_export/01_schema_only.sql:4284 | select 1 from public.decision_sessions s
+supabase_export/01_schema_only.sql:4291 | insert into public.decision_actions(decision_id, spot_id, action, created_at)
+supabase_export/01_schema_only.sql:4298 | select 1 from public.decision_actions
+supabase_export/01_schema_only.sql:4303 | update public.decision_actions
+supabase_export/01_schema_only.sql:4310 | insert into public.decision_actions(decision_id, spot_id, action, created_at)
+supabase_export/01_schema_only.sql:4318 | from public.user_taste_profile_v1 p
+supabase_export/01_schema_only.sql:4322 | perform public.rebuild_user_taste_profile_v2(v_uid);
+supabase_export/01_schema_only.sql:4332 | ALTER FUNCTION "public"."log_decision_action_v1"("p_decision_id" "uuid", "p_spot_id" "uuid", "p_action" "text") OWNER TO "postgres";
+supabase_export/01_schema_only.sql:4350 | select 1 from public.decision_sessions ds
+supabase_export/01_schema_only.sql:4606 | CREATE OR REPLACE FUNCTION "public"."rebuild_my_taste_profile_v1"() RETURNS "void"
+supabase_export/01_schema_only.sql:4610 | select public.rebuild_user_taste_profile_v1(auth.uid());
+supabase_export/01_schema_only.sql:4614 | ALTER FUNCTION "public"."rebuild_my_taste_profile_v1"() OWNER TO "postgres";
+supabase_export/01_schema_only.sql:4617 | CREATE OR REPLACE FUNCTION "public"."rebuild_user_taste_profile_v1"("p_user_id" "uuid", "p_min_cluster_confidence" numeric DEFAULT 0.65, "p_min_qualified_actions" integer DEFAULT 5) RETURNS "void"
+supabase_export/01_schema_only.sql:4626 | delete from public.user_taste_moods_v1 where user_id = p_user_id;
+supabase_export/01_schema_only.sql:4627 | delete from public.user_taste_time_v1 where user_id = p_user_id;
+supabase_export/01_schema_only.sql:4628 | delete from public.user_taste_profile_v1 where user_id = p_user_id;
+supabase_export/01_schema_only.sql:4637 | from public.decision_actions a
+supabase_export/01_schema_only.sql:4638 | join public.decision_sessions s on s.id = a.decision_id
+supabase_export/01_schema_only.sql:4675 | join public.decision_sessions s on s.id = w.decision_id
+supabase_export/01_schema_only.sql:4825 | insert into public.user_taste_moods_v1(
+supabase_export/01_schema_only.sql:4847 | insert into public.user_taste_time_v1(
+supabase_export/01_schema_only.sql:4868 | insert into public.user_taste_profile_v1(user_id, qualified_actions, last_rebuild_at, confidence, notes)
+supabase_export/01_schema_only.sql:4884 | ALTER FUNCTION "public"."rebuild_user_taste_profile_v1"("p_user_id" "uuid", "p_min_cluster_confidence" numeric, "p_min_qualified_actions" integer) OWNER TO "postgres";
+supabase_export/01_schema_only.sql:4887 | CREATE OR REPLACE FUNCTION "public"."rebuild_user_taste_profile_v2"("p_user_id" "uuid", "p_min_cluster_confidence" numeric DEFAULT 0.65, "p_min_qualified_actions" integer DEFAULT 5) RETURNS "void"
+supabase_export/01_schema_only.sql:4897 | delete from public.user_taste_moods_v1 where user_id = p_user_id;
+supabase_export/01_schema_only.sql:4898 | delete from public.user_taste_time_v1 where user_id = p_user_id;
+supabase_export/01_schema_only.sql:4899 | delete from public.user_taste_profile_v1 where user_id = p_user_id;
+supabase_export/01_schema_only.sql:4911 | from public.decision_actions a
+supabase_export/01_schema_only.sql:4912 | join public.decision_sessions s on s.id = a.decision_id
+supabase_export/01_schema_only.sql:4945 | join public.decision_sessions s on s.id = w.decision_id
+supabase_export/01_schema_only.sql:5027 | insert into public.user_taste_moods_v1(
+supabase_export/01_schema_only.sql:5056 | from public.decision_actions a
+supabase_export/01_schema_only.sql:5057 | join public.decision_sessions s on s.id = a.decision_id
+supabase_export/01_schema_only.sql:5116 | insert into public.user_taste_time_v1(
+supabase_export/01_schema_only.sql:5145 | from public.decision_actions a
+supabase_export/01_schema_only.sql:5146 | join public.decision_sessions s on s.id = a.decision_id
+supabase_export/01_schema_only.sql:5159 | insert into public.user_taste_profile_v1(user_id, qualified_actions, last_rebuild_at, confidence, notes)
+supabase_export/01_schema_only.sql:5175 | ALTER FUNCTION "public"."rebuild_user_taste_profile_v2"("p_user_id" "uuid", "p_min_cluster_confidence" numeric, "p_min_qualified_actions" integer) OWNER TO "postgres";
+supabase_export/01_schema_only.sql:5178 | CREATE OR REPLACE FUNCTION "public"."rebuild_user_taste_profile_v3"("p_decay_lambda" numeric DEFAULT 0.05, "p_cap" numeric DEFAULT 0.4) RETURNS "void"
+supabase_export/01_schema_only.sql:5190 | update public.user_taste_concepts_v2 utc
+supabase_export/01_schema_only.sql:5206 | ALTER FUNCTION "public"."rebuild_user_taste_profile_v3"("p_decay_lambda" numeric, "p_cap" numeric) OWNER TO "postgres";
+supabase_export/01_schema_only.sql:8262 | CREATE TABLE IF NOT EXISTS "public"."user_taste_concepts_v2" (
+supabase_export/01_schema_only.sql:8271 | ALTER TABLE "public"."user_taste_concepts_v2" OWNER TO "postgres";
+supabase_export/01_schema_only.sql:8291 | FROM "public"."user_taste_concepts_v2" "t"
+supabase_export/01_schema_only.sql:8292 | WHERE ("t"."user_id" = "p"."id")) AS "taste_concepts_count",
+supabase_export/01_schema_only.sql:8294 | FROM "public"."user_taste_concepts_v2" "t"
+supabase_export/01_schema_only.sql:8295 | WHERE ("t"."user_id" = "p"."id")) AS "taste_updated_at"
+supabase_export/01_schema_only.sql:8426 | CREATE TABLE IF NOT EXISTS "public"."decision_actions" (
+supabase_export/01_schema_only.sql:8432 | CONSTRAINT "decision_actions_action_check" CHECK (("action" = ANY (ARRAY['tapped'::"text", 'was_here'::"text", 'exact_mood'::"text", 'not_there'::"text"])))
+supabase_export/01_schema_only.sql:8436 | ALTER TABLE "public"."decision_actions" OWNER TO "postgres";
+supabase_export/01_schema_only.sql:8439 | ALTER TABLE "public"."decision_actions" ALTER COLUMN "id" ADD GENERATED ALWAYS AS IDENTITY (
+supabase_export/01_schema_only.sql:8440 | SEQUENCE NAME "public"."decision_actions_id_seq"
+supabase_export/01_schema_only.sql:8475 | CREATE TABLE IF NOT EXISTS "public"."decision_sessions" (
+... 656 weitere Treffer
+
+=== photo_ai (1310) ===
+README.md:95 | - Expo Image Picker / Camera
+README.md:111 | - OpenAI Embeddings / semantic matching
+README.md:112 | - Embedding-basierte Spot-Suche
+README.md:283 | spot_photos
+README.md:285 | review_photos
+README.md:295 | social_post_media
+README.md:549 | review_photos
+README.md:1025 | - Moderation für Posts/Kommentare/Profile
+package-lock.json:9769 | "integrity": "sha512-0K65Lea881pHotoGEa5gDlMxt3pctLi2RplBb7Ezh4rRdLEOtgi7n4EwK9lamnUCkKBqaeKRVebTq6BAxSkpXQ==",
+mobu/app.json:14 | "NSCameraUsageDescription": "MoBu benötigt die Kamera, um Dokumente zu erfassen.",
+mobu/app.json:15 | "NSPhotoLibraryUsageDescription": "MoBu benötigt Zugriff auf Fotos, um Dokumente zu importieren."
+mobu/app.json:29 | "photosPermission": "MoBu benötigt Zugriff auf Fotos, um Dokumente zu importieren.",
+mobu/app.json:30 | "cameraPermission": "MoBu benötigt die Kamera, um Dokumente zu erfassen."
+supabase_export/01_schema_only.sql:5905 | CREATE OR REPLACE FUNCTION "public"."upsert_spot_owner_fields_v1"("p_spot_id" "uuid", "p_category_id" "uuid" DEFAULT NULL::"uuid", "p_price_level" integer DEFAULT NULL::integer, "p_email" "text" DEFAULT NULL::"text", "p_phone" "text" DEFAULT NULL::"text", "p_website" "text" DEFAULT NULL::"text", "p_header_photo_path" "text" DEFAULT NULL::"text") RETURNS "void"
+supabase_export/01_schema_only.sql:5932 | header_photo_path = coalesce(p_header_photo_path, header_photo_path)
+supabase_export/01_schema_only.sql:5937 | ALTER FUNCTION "public"."upsert_spot_owner_fields_v1"("p_spot_id" "uuid", "p_category_id" "uuid", "p_price_level" integer, "p_email" "text", "p_phone" "text", "p_website" "text", "p_header_photo_path" "text") OWNER TO "postgres";
+supabase_export/01_schema_only.sql:8213 | "header_photo_url" "text"
+supabase_export/01_schema_only.sql:8227 | "photo_path" "text",
+supabase_export/01_schema_only.sql:8249 | "header_photo_path" "text",
+supabase_export/01_schema_only.sql:8732 | CREATE TABLE IF NOT EXISTS "public"."review_photos" (
+supabase_export/01_schema_only.sql:8740 | ALTER TABLE "public"."review_photos" OWNER TO "postgres";
+supabase_export/01_schema_only.sql:8969 | CREATE TABLE IF NOT EXISTS "public"."spot_photos" (
+supabase_export/01_schema_only.sql:8979 | ALTER TABLE "public"."spot_photos" OWNER TO "postgres";
+supabase_export/01_schema_only.sql:8982 | CREATE SEQUENCE IF NOT EXISTS "public"."spot_photos_id_seq"
+supabase_export/01_schema_only.sql:8991 | ALTER SEQUENCE "public"."spot_photos_id_seq" OWNER TO "postgres";
+supabase_export/01_schema_only.sql:8994 | ALTER SEQUENCE "public"."spot_photos_id_seq" OWNED BY "public"."spot_photos"."id";
+supabase_export/01_schema_only.sql:9535 | ALTER TABLE ONLY "public"."spot_photos" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."spot_photos_id_seq"'::"regclass");
+supabase_export/01_schema_only.sql:9875 | ALTER TABLE ONLY "public"."review_photos"
+supabase_export/01_schema_only.sql:9876 | ADD CONSTRAINT "review_photos_pkey" PRIMARY KEY ("id");
+supabase_export/01_schema_only.sql:9945 | ALTER TABLE ONLY "public"."spot_photos"
+supabase_export/01_schema_only.sql:9946 | ADD CONSTRAINT "spot_photos_pkey" PRIMARY KEY ("id");
+supabase_export/01_schema_only.sql:10891 | ALTER TABLE ONLY "public"."review_photos"
+supabase_export/01_schema_only.sql:10892 | ADD CONSTRAINT "review_photos_review_id_fkey" FOREIGN KEY ("review_id") REFERENCES "public"."reviews"("id") ON DELETE CASCADE;
+supabase_export/01_schema_only.sql:10981 | ALTER TABLE ONLY "public"."spot_photos"
+supabase_export/01_schema_only.sql:10982 | ADD CONSTRAINT "spot_photos_review_id_fkey" FOREIGN KEY ("review_id") REFERENCES "public"."reviews"("id") ON DELETE CASCADE;
+supabase_export/01_schema_only.sql:10986 | ALTER TABLE ONLY "public"."spot_photos"
+supabase_export/01_schema_only.sql:10987 | ADD CONSTRAINT "spot_photos_spot_id_fkey" FOREIGN KEY ("spot_id") REFERENCES "public"."spots"("id") ON DELETE CASCADE;
+supabase_export/01_schema_only.sql:10991 | ALTER TABLE ONLY "public"."spot_photos"
+supabase_export/01_schema_only.sql:10992 | ADD CONSTRAINT "spot_photos_uploaded_by_users_id_fk" FOREIGN KEY ("uploaded_by") REFERENCES "public"."users"("id");
+supabase_export/01_schema_only.sql:11421 | CREATE POLICY "public_read_spot_photos" ON "public"."spot_photos" FOR SELECT USING (true);
+supabase_export/01_schema_only.sql:11526 | CREATE POLICY "spot_photos_insert_public" ON "public"."spot_photos" FOR INSERT WITH CHECK (true);
+supabase_export/01_schema_only.sql:11600 | CREATE POLICY "Anyone can view profile photos" ON "storage"."objects" FOR SELECT USING (("bucket_id" = 'profile-photos'::"text"));
+supabase_export/01_schema_only.sql:11604 | CREATE POLICY "Users can delete their own profile photos" ON "storage"."objects" FOR DELETE TO "authenticated" USING ((("bucket_id" = 'profile-photos'::"text") AND ("owner" = "auth"."uid"())));
+supabase_export/01_schema_only.sql:11608 | CREATE POLICY "Users can update their own profile photos" ON "storage"."objects" FOR UPDATE TO "authenticated" USING ((("bucket_id" = 'profile-photos'::"text") AND ("owner" = "auth"."uid"())));
+supabase_export/01_schema_only.sql:11612 | CREATE POLICY "Users can upload own profile photos" ON "storage"."objects" FOR INSERT TO "authenticated" WITH CHECK (("bucket_id" = 'profile-photos'::"text"));
+supabase_export/01_schema_only.sql:11637 | CREATE POLICY "spot-photos delete authenticated" ON "storage"."objects" FOR DELETE TO "authenticated" USING (("bucket_id" = 'spot-photos'::"text"));
+supabase_export/01_schema_only.sql:11641 | CREATE POLICY "spot-photos read public" ON "storage"."objects" FOR SELECT USING (("bucket_id" = 'spot-photos'::"text"));
+supabase_export/01_schema_only.sql:11645 | CREATE POLICY "spot-photos update authenticated" ON "storage"."objects" FOR UPDATE TO "authenticated" USING (("bucket_id" = 'spot-photos'::"text")) WITH CHECK (("bucket_id" = 'spot-photos'::"text"));
+supabase_export/01_schema_only.sql:11649 | CREATE POLICY "spot-photos upload authenticated" ON "storage"."objects" FOR INSERT TO "authenticated" WITH CHECK (("bucket_id" = 'spot-photos'::"text"));
+supabase_export/01_schema_only.sql:12285 | GRANT ALL ON FUNCTION "public"."upsert_spot_owner_fields_v1"("p_spot_id" "uuid", "p_category_id" "uuid", "p_price_level" integer, "p_email" "text", "p_phone" "text", "p_website" "text", "p_header_photo_path" "text") TO "anon";
+supabase_export/01_schema_only.sql:12286 | GRANT ALL ON FUNCTION "public"."upsert_spot_owner_fields_v1"("p_spot_id" "uuid", "p_category_id" "uuid", "p_price_level" integer, "p_email" "text", "p_phone" "text", "p_website" "text", "p_header_photo_path" "text") TO "authenticated";
+supabase_export/01_schema_only.sql:12287 | GRANT ALL ON FUNCTION "public"."upsert_spot_owner_fields_v1"("p_spot_id" "uuid", "p_category_id" "uuid", "p_price_level" integer, "p_email" "text", "p_phone" "text", "p_website" "text", "p_header_photo_path" "text") TO "service_role";
+supabase_export/01_schema_only.sql:12776 | GRANT ALL ON TABLE "public"."review_photos" TO "anon";
+supabase_export/01_schema_only.sql:12777 | GRANT ALL ON TABLE "public"."review_photos" TO "authenticated";
+supabase_export/01_schema_only.sql:12778 | GRANT ALL ON TABLE "public"."review_photos" TO "service_role";
+supabase_export/01_schema_only.sql:12866 | GRANT ALL ON TABLE "public"."spot_photos" TO "anon";
+supabase_export/01_schema_only.sql:12867 | GRANT ALL ON TABLE "public"."spot_photos" TO "authenticated";
+supabase_export/01_schema_only.sql:12868 | GRANT ALL ON TABLE "public"."spot_photos" TO "service_role";
+supabase_export/01_schema_only.sql:12872 | GRANT ALL ON SEQUENCE "public"."spot_photos_id_seq" TO "anon";
+supabase_export/01_schema_only.sql:12873 | GRANT ALL ON SEQUENCE "public"."spot_photos_id_seq" TO "authenticated";
+supabase_export/01_schema_only.sql:12874 | GRANT ALL ON SEQUENCE "public"."spot_photos_id_seq" TO "service_role";
+supabase_export/00_full_schema.sql:5923 | CREATE OR REPLACE FUNCTION "public"."upsert_spot_owner_fields_v1"("p_spot_id" "uuid", "p_category_id" "uuid" DEFAULT NULL::"uuid", "p_price_level" integer DEFAULT NULL::integer, "p_email" "text" DEFAULT NULL::"text", "p_phone" "text" DEFAULT NULL::"text", "p_website" "text" DEFAULT NULL::"text", "p_header_photo_path" "text" DEFAULT NULL::"text") RETURNS "void"
+supabase_export/00_full_schema.sql:5950 | header_photo_path = coalesce(p_header_photo_path, header_photo_path)
+supabase_export/00_full_schema.sql:5955 | ALTER FUNCTION "public"."upsert_spot_owner_fields_v1"("p_spot_id" "uuid", "p_category_id" "uuid", "p_price_level" integer, "p_email" "text", "p_phone" "text", "p_website" "text", "p_header_photo_path" "text") OWNER TO "postgres";
+supabase_export/00_full_schema.sql:8257 | "header_photo_url" "text"
+supabase_export/00_full_schema.sql:8271 | "photo_path" "text",
+supabase_export/00_full_schema.sql:8293 | "header_photo_path" "text",
+supabase_export/00_full_schema.sql:8776 | CREATE TABLE IF NOT EXISTS "public"."review_photos" (
+supabase_export/00_full_schema.sql:8784 | ALTER TABLE "public"."review_photos" OWNER TO "postgres";
+supabase_export/00_full_schema.sql:9013 | CREATE TABLE IF NOT EXISTS "public"."spot_photos" (
+supabase_export/00_full_schema.sql:9023 | ALTER TABLE "public"."spot_photos" OWNER TO "postgres";
+supabase_export/00_full_schema.sql:9026 | CREATE SEQUENCE IF NOT EXISTS "public"."spot_photos_id_seq"
+supabase_export/00_full_schema.sql:9035 | ALTER SEQUENCE "public"."spot_photos_id_seq" OWNER TO "postgres";
+supabase_export/00_full_schema.sql:9038 | ALTER SEQUENCE "public"."spot_photos_id_seq" OWNED BY "public"."spot_photos"."id";
+supabase_export/00_full_schema.sql:9602 | ALTER TABLE ONLY "public"."spot_photos" ALTER COLUMN "id" SET DEFAULT "nextval"('"public"."spot_photos_id_seq"'::"regclass");
+supabase_export/00_full_schema.sql:9947 | ALTER TABLE ONLY "public"."review_photos"
+supabase_export/00_full_schema.sql:9948 | ADD CONSTRAINT "review_photos_pkey" PRIMARY KEY ("id");
+supabase_export/00_full_schema.sql:10017 | ALTER TABLE ONLY "public"."spot_photos"
+supabase_export/00_full_schema.sql:10018 | ADD CONSTRAINT "spot_photos_pkey" PRIMARY KEY ("id");
+supabase_export/00_full_schema.sql:10973 | ALTER TABLE ONLY "public"."review_photos"
+supabase_export/00_full_schema.sql:10974 | ADD CONSTRAINT "review_photos_review_id_fkey" FOREIGN KEY ("review_id") REFERENCES "public"."reviews"("id") ON DELETE CASCADE;
+supabase_export/00_full_schema.sql:11063 | ALTER TABLE ONLY "public"."spot_photos"
+supabase_export/00_full_schema.sql:11064 | ADD CONSTRAINT "spot_photos_review_id_fkey" FOREIGN KEY ("review_id") REFERENCES "public"."reviews"("id") ON DELETE CASCADE;
+supabase_export/00_full_schema.sql:11068 | ALTER TABLE ONLY "public"."spot_photos"
+supabase_export/00_full_schema.sql:11069 | ADD CONSTRAINT "spot_photos_spot_id_fkey" FOREIGN KEY ("spot_id") REFERENCES "public"."spots"("id") ON DELETE CASCADE;
+supabase_export/00_full_schema.sql:11073 | ALTER TABLE ONLY "public"."spot_photos"
+supabase_export/00_full_schema.sql:11074 | ADD CONSTRAINT "spot_photos_uploaded_by_users_id_fk" FOREIGN KEY ("uploaded_by") REFERENCES "public"."users"("id");
+supabase_export/00_full_schema.sql:11503 | CREATE POLICY "public_read_spot_photos" ON "public"."spot_photos" FOR SELECT USING (true);
+supabase_export/00_full_schema.sql:11608 | CREATE POLICY "spot_photos_insert_public" ON "public"."spot_photos" FOR INSERT WITH CHECK (true);
+supabase_export/00_full_schema.sql:11682 | CREATE POLICY "Anyone can view profile photos" ON "storage"."objects" FOR SELECT USING (("bucket_id" = 'profile-photos'::"text"));
+supabase_export/00_full_schema.sql:11686 | CREATE POLICY "Users can delete their own profile photos" ON "storage"."objects" FOR DELETE TO "authenticated" USING ((("bucket_id" = 'profile-photos'::"text") AND ("owner" = "auth"."uid"())));
+supabase_export/00_full_schema.sql:11690 | CREATE POLICY "Users can update their own profile photos" ON "storage"."objects" FOR UPDATE TO "authenticated" USING ((("bucket_id" = 'profile-photos'::"text") AND ("owner" = "auth"."uid"())));
+supabase_export/00_full_schema.sql:11694 | CREATE POLICY "Users can upload own profile photos" ON "storage"."objects" FOR INSERT TO "authenticated" WITH CHECK (("bucket_id" = 'profile-photos'::"text"));
+supabase_export/00_full_schema.sql:11719 | CREATE POLICY "spot-photos delete authenticated" ON "storage"."objects" FOR DELETE TO "authenticated" USING (("bucket_id" = 'spot-photos'::"text"));
+supabase_export/00_full_schema.sql:11723 | CREATE POLICY "spot-photos read public" ON "storage"."objects" FOR SELECT USING (("bucket_id" = 'spot-photos'::"text"));
+supabase_export/00_full_schema.sql:11727 | CREATE POLICY "spot-photos update authenticated" ON "storage"."objects" FOR UPDATE TO "authenticated" USING (("bucket_id" = 'spot-photos'::"text")) WITH CHECK (("bucket_id" = 'spot-photos'::"text"));
+supabase_export/00_full_schema.sql:11731 | CREATE POLICY "spot-photos upload authenticated" ON "storage"."objects" FOR INSERT TO "authenticated" WITH CHECK (("bucket_id" = 'spot-photos'::"text"));
+supabase_export/00_full_schema.sql:12372 | GRANT ALL ON FUNCTION "public"."upsert_spot_owner_fields_v1"("p_spot_id" "uuid", "p_category_id" "uuid", "p_price_level" integer, "p_email" "text", "p_phone" "text", "p_website" "text", "p_header_photo_path" "text") TO "anon";
+supabase_export/00_full_schema.sql:12373 | GRANT ALL ON FUNCTION "public"."upsert_spot_owner_fields_v1"("p_spot_id" "uuid", "p_category_id" "uuid", "p_price_level" integer, "p_email" "text", "p_phone" "text", "p_website" "text", "p_header_photo_path" "text") TO "authenticated";
+supabase_export/00_full_schema.sql:12374 | GRANT ALL ON FUNCTION "public"."upsert_spot_owner_fields_v1"("p_spot_id" "uuid", "p_category_id" "uuid", "p_price_level" integer, "p_email" "text", "p_phone" "text", "p_website" "text", "p_header_photo_path" "text") TO "service_role";
+supabase_export/00_full_schema.sql:12863 | GRANT ALL ON TABLE "public"."review_photos" TO "anon";
+supabase_export/00_full_schema.sql:12864 | GRANT ALL ON TABLE "public"."review_photos" TO "authenticated";
+supabase_export/00_full_schema.sql:12865 | GRANT ALL ON TABLE "public"."review_photos" TO "service_role";
+supabase_export/00_full_schema.sql:12953 | GRANT ALL ON TABLE "public"."spot_photos" TO "anon";
+supabase_export/00_full_schema.sql:12954 | GRANT ALL ON TABLE "public"."spot_photos" TO "authenticated";
+supabase_export/00_full_schema.sql:12955 | GRANT ALL ON TABLE "public"."spot_photos" TO "service_role";
+supabase_export/00_full_schema.sql:12959 | GRANT ALL ON SEQUENCE "public"."spot_photos_id_seq" TO "anon";
+supabase_export/00_full_schema.sql:12960 | GRANT ALL ON SEQUENCE "public"."spot_photos_id_seq" TO "authenticated";
+supabase_export/00_full_schema.sql:12961 | GRANT ALL ON SEQUENCE "public"."spot_photos_id_seq" TO "service_role";
+web/package-lock.json:4509 | "integrity": "sha512-0K65Lea881pHotoGEa5gDlMxt3pctLi2RplBb7Ezh4rRdLEOtgi7n4EwK9lamnUCkKBqaeKRVebTq6BAxSkpXQ==",
+admin-dashboard/package-lock.json:4674 | "integrity": "sha512-0K65Lea881pHotoGEa5gDlMxt3pctLi2RplBb7Ezh4rRdLEOtgi7n4EwK9lamnUCkKBqaeKRVebTq6BAxSkpXQ==",
+mobile/app.config.ts:42 | NSCameraUsageDescription:
+mobile/app.config.ts:44 | NSPhotoLibraryAddUsageDescription:
+mobile/app.config.ts:45 | "Backyrd speichert deine Review-Fotos in der Mediathek.",
+mobile/app.config.ts:67 | "CAMERA",
+mobile/app.config.ts:75 | plugins: ["expo-router", "expo-camera", "expo-secure-store", "expo-web-browser"],
+mobile/package-lock.json:28 | "expo-camera": "~17.0.9",
+mobile/package-lock.json:9026 | "node_modules/expo-camera": {
+mobile/package-lock.json:9028 | "resolved": "https://registry.npmjs.org/expo-camera/-/expo-camera-17.0.10.tgz",
+mobile/package-lock.json:11449 | "setimmediate": "^1.0.5",
+mobile/package-lock.json:16885 | "node_modules/setimmediate": {
+mobile/package-lock.json:16887 | "resolved": "https://registry.npmjs.org/setimmediate/-/setimmediate-1.0.5.tgz",
+mobile/package.json:31 | "expo-camera": "~17.0.9",
+scripts/supabase_inventory_and_archive.sql:327 | ('review_photos'),
+scripts/supabase_inventory_and_archive.sql:338 | ('spot_photos'),
+.safety_owner_integration_backup_20260729_195554/supabase/migrations/20260729_safety_owner_integration.sql:153 | when new.moderation_status = 'flagged' then 80
+.safety_owner_integration_backup_20260729_195554/supabase/migrations/20260729_safety_owner_integration.sql:288 | case when v_event.moderation_status = 'flagged' then 80 else 50 end
+.safety_owner_integration_backup_20260729_195554/web/lib/owner-api.ts:12 | header_photo_path: string | null;
+.safety_owner_integration_backup_20260729_195554/web/lib/owner-api.ts:34 | header_photo_path: string | null;
+backups/_backup_sprint_1a1/profile.page.tsx:15 | header_photo_url: string | null;
+backups/_backup_sprint_1a1/profile.page.tsx:33 | header_photo_path: string | null;
+backups/_backup_sprint_1a1/profile.page.tsx:44 | header_photo_path: string | null;
+backups/_backup_sprint_1a1/profile.page.tsx:122 | "id, username, first_name, last_name, full_name, avatar_url, header_photo_url, city, country, bio, contact_email, locale"
+backups/_backup_sprint_1a1/profile.page.tsx:141 | "id, text, mood_a, mood_b, created_at, spots:spot_id(id, name, city, header_photo_path)"
+backups/_backup_sprint_1a1/profile.page.tsx:153 | "spot_id, created_at, spots:spot_id(id, name, city, header_photo_path)"
+backups/_backup_sprint_1a1/profile.page.tsx:231 | const heroImage = profile?.header_photo_url || profile?.avatar_url || null;
+backups/_backup_sprint_1a1/profile.page.tsx:232 | const avatarImage = profile?.avatar_url || profile?.header_photo_url || null;
+backups/_backup_sprint_1a1/profile.page.tsx:337 | const image = item.spots?.header_photo_path || null;
+backups/_backup_sprint_1a1/profile.page.tsx:398 | src={item.spots?.header_photo_path || null}
+.safety_owner_integration_backup_20260729_195427/web/lib/owner-api.ts:11 | header_photo_path: string | null;
+.safety_owner_integration_backup_20260729_195427/web/lib/owner-api.ts:33 | header_photo_path: string | null;
+packages/shared/src/dto/spot.ts:9 | header_photo_path: string | null;
+packages/shared/src/dto/spot.ts:10 | photo_url: string | null;
+packages/shared/src/dto/spot.ts:13 | export type SpotPhotoDTO = {
+packages/shared/src/dto/spot.ts:19 | export type SpotReviewPhotoDTO = {
+packages/shared/src/dto/spot.ts:36 | photos: SpotReviewPhotoDTO[];
+packages/shared/src/dto/spot.ts:60 | header_photo_path: string | null;
+packages/shared/src/dto/spot.ts:70 | photos: SpotPhotoDTO[];
+packages/shared/src/contracts/review.ts:1 | export type CreateReviewWithPhotosRequest = {
+packages/shared/src/contracts/review.ts:6 | photo_urls?: string[];
+... 1160 weitere Treffer
+
+=== onboarding_age (79) ===
+README.md:198 | mobile/app/(tabs)/decision-onboarding.tsx
+supabase_export/01_schema_only.sql:611 | p_mood_b_text := 'onboarding'
+supabase_export/01_schema_only.sql:618 | select array_agg('Lieblingsspot (Onboarding).'::text)
+supabase_export/01_schema_only.sql:661 | - seed_favorite_spot  (onboarding seed)
+supabase_export/01_schema_only.sql:3941 | CREATE OR REPLACE FUNCTION "public"."get_my_taste_profile_status_v1"() RETURNS TABLE("qualified_actions" integer, "confidence" numeric, "needs_onboarding" boolean)
+supabase_export/01_schema_only.sql:3948 | (coalesce(p.qualified_actions, 0) < 5) as needs_onboarding
+supabase_export/01_schema_only.sql:5693 | select v_uid, v_city, sid, null, 'onboarding', 'exact_mood'
+supabase_export/01_schema_only.sql:5699 | select v_uid, v_city, null, nullif(trim(rn),''), 'onboarding', 'exact_mood'
+supabase_export/01_schema_only.sql:8206 | "birthdate" "date",
+supabase_export/01_schema_only.sql:9071 | "source" "text" DEFAULT 'onboarding'::"text" NOT NULL,
+supabase_export/00_full_schema.sql:629 | p_mood_b_text := 'onboarding'
+supabase_export/00_full_schema.sql:636 | select array_agg('Lieblingsspot (Onboarding).'::text)
+supabase_export/00_full_schema.sql:679 | - seed_favorite_spot  (onboarding seed)
+supabase_export/00_full_schema.sql:3959 | CREATE OR REPLACE FUNCTION "public"."get_my_taste_profile_status_v1"() RETURNS TABLE("qualified_actions" integer, "confidence" numeric, "needs_onboarding" boolean)
+supabase_export/00_full_schema.sql:3966 | (coalesce(p.qualified_actions, 0) < 5) as needs_onboarding
+supabase_export/00_full_schema.sql:5711 | select v_uid, v_city, sid, null, 'onboarding', 'exact_mood'
+supabase_export/00_full_schema.sql:5717 | select v_uid, v_city, null, nullif(trim(rn),''), 'onboarding', 'exact_mood'
+supabase_export/00_full_schema.sql:8250 | "birthdate" "date",
+supabase_export/00_full_schema.sql:9115 | "source" "text" DEFAULT 'onboarding'::"text" NOT NULL,
+mobile/app/gate.tsx:19 | type OnboardingStatus = {
+mobile/app/gate.tsx:23 | profile_onboarding_completed: boolean;
+mobile/app/gate.tsx:24 | decision_onboarding_completed: boolean;
+mobile/app/gate.tsx:25 | needs_profile_onboarding: boolean;
+mobile/app/gate.tsx:26 | needs_decision_onboarding: boolean;
+mobile/app/gate.tsx:30 | birthdate: string | null;
+mobile/app/gate.tsx:44 | if (route === "/onboarding") return "/onboarding";
+mobile/app/gate.tsx:45 | if (route === "/onboarding/profile") return "/onboarding";
+mobile/app/gate.tsx:46 | if (route === "/onboarding/decision") return "/(tabs)/decision-onboarding";
+mobile/app/gate.tsx:47 | if (route === "/decision-onboarding") return "/(tabs)/decision-onboarding";
+mobile/app/gate.tsx:48 | if (route === "/(tabs)/decision-onboarding") return "/(tabs)/decision-onboarding";
+mobile/app/gate.tsx:144 | const { data, error } = await supabase.rpc("get_my_onboarding_status_v1");
+mobile/app/gate.tsx:148 | ? (data[0] as OnboardingStatus | undefined)
+mobile/app/gate.tsx:149 | : (data as OnboardingStatus | undefined);
+mobile/app/_layout.tsx:45 | <Stack.Screen name="onboarding/index" />
+mobile/app/_layout.tsx:46 | <Stack.Screen name="onboarding/profile" />
+mobile/app/_layout.tsx:47 | <Stack.Screen name="onboarding/decision" />
+mobile/app/(tabs)/decision.tsx:740 | const onboardingPushInFlightRef = useRef(false);
+mobile/app/(tabs)/decision.tsx:797 | const checkNeedsDecisionOnboarding = useCallback(async (): Promise<boolean> => {
+mobile/app/(tabs)/decision.tsx:807 | return Boolean(row?.needs_onboarding);
+mobile/app/(tabs)/decision.tsx:809 | console.log("Decision onboarding check failed:", error);
+mobile/app/(tabs)/decision.tsx:819 | if (onboardingPushInFlightRef.current) return;
+mobile/app/(tabs)/decision.tsx:824 | const needs = await checkNeedsDecisionOnboarding();
+mobile/app/(tabs)/decision.tsx:828 | onboardingPushInFlightRef.current = true;
+mobile/app/(tabs)/decision.tsx:829 | router.push("/(tabs)/decision-onboarding");
+mobile/app/(tabs)/decision.tsx:832 | onboardingPushInFlightRef.current = false;
+mobile/app/(tabs)/decision.tsx:842 | }, [router, checkNeedsDecisionOnboarding])
+mobile/app/(tabs)/decision.tsx:1333 | const needsOnboarding = await checkNeedsDecisionOnboarding();
+mobile/app/(tabs)/decision.tsx:1335 | if (needsOnboarding) {
+mobile/app/(tabs)/decision.tsx:1337 | router.push("/(tabs)/decision-onboarding");
+mobile/app/(tabs)/decision.tsx:1509 | checkNeedsDecisionOnboarding,
+mobile/app/(tabs)/profile.tsx:47 | birthdate?: string | null;
+mobile/app/(tabs)/profile.tsx:488 | birthdate: profile.birthdate,
+mobile/app/(tabs)/_layout.tsx:221 | <Tabs.Screen name="decision-onboarding" options={{ href: null }} />
+mobile/app/(tabs)/decision-onboarding.tsx:1 | // mobile/app/(tabs)/decision-onboarding.tsx
+mobile/app/(tabs)/decision-onboarding.tsx:30 | type CompleteOnboardingRow = {
+mobile/app/(tabs)/decision-onboarding.tsx:60 | export default function DecisionOnboardingScreen() {
+mobile/app/(tabs)/decision-onboarding.tsx:99 | console.log("load onboarding suggestions failed", error);
+mobile/app/(tabs)/decision-onboarding.tsx:130 | console.log("onboarding spot search failed", error);
+mobile/app/(tabs)/decision-onboarding.tsx:258 | const { data, error } = await supabase.rpc("complete_decision_onboarding_v1", {
+mobile/app/(tabs)/decision-onboarding.tsx:266 | ? (data[0] as CompleteOnboardingRow | undefined)
+mobile/app/(tabs)/decision-onboarding.tsx:267 | : (data as CompleteOnboardingRow | undefined);
+mobile/app/(tabs)/decision-onboarding.tsx:270 | throw new Error("Onboarding konnte nicht abgeschlossen werden.");
+mobile/app/(tabs)/decision-onboarding.tsx:275 | console.log("complete decision onboarding failed", error);
+mobile/app/onboarding/index.tsx:1 | // mobile/app/onboarding/index.tsx
+mobile/app/onboarding/index.tsx:34 | birthdate: string | null;
+mobile/app/onboarding/index.tsx:52 | function birthdateFromAge(ageText: string) {
+mobile/app/onboarding/index.tsx:63 | function ageFromBirthdate(birthdate: string | null | undefined) {
+mobile/app/onboarding/index.tsx:64 | if (!birthdate) return "";
+mobile/app/onboarding/index.tsx:66 | const year = Number.parseInt(String(birthdate).slice(0, 4), 10);
+mobile/app/onboarding/index.tsx:101 | console.log("profile onboarding stale/invalid auth user", error?.message ?? "No user");
+mobile/app/onboarding/index.tsx:113 | export default function ProfileOnboardingScreen() {
+mobile/app/onboarding/index.tsx:126 | const birthdate = useMemo(() => birthdateFromAge(age), [age]);
+mobile/app/onboarding/index.tsx:144 | .select("id,display_name,first_name,last_name,username,city,home_city,country,birthdate")
+mobile/app/onboarding/index.tsx:157 | setAge(ageFromBirthdate(profile?.birthdate));
+mobile/app/onboarding/index.tsx:161 | console.log("profile onboarding load failed", error);
+mobile/app/onboarding/index.tsx:225 | if (!birthdate) {
+mobile/app/onboarding/index.tsx:252 | birthdate,
+mobile/app/onboarding/index.tsx:257 | profile_onboarding_completed_at: new Date().toISOString(),
+mobile/app/onboarding/index.tsx:293 | console.log("profile onboarding save failed", error);
+
+=== account_delete_export (0) ===

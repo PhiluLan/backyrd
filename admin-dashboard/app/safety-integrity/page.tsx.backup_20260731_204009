@@ -149,8 +149,6 @@ const categoryLabels: Record<string, string> = {
   sexual: "Sexuelle Inhalte",
   self_harm: "Selbstgefährdung",
   illicit: "Illegale oder gefährliche Inhalte",
-  prohibited_symbols:
-    "Verbotene oder extremistische Symbole",
 };
 
 const reportReasonLabels: Record<string, string> = {
@@ -624,23 +622,6 @@ export default function SafetyIntegrityPage() {
             </button>
           );
         })}
-
-        <a
-          href="/safety-integrity/enforcement"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            border: "1px solid rgba(255,79,139,0.28)",
-            background: "rgba(255,79,139,0.08)",
-            color: "#ff78a7",
-            borderRadius: 12,
-            padding: "11px 16px",
-            fontWeight: 800,
-            textDecoration: "none",
-          }}
-        >
-          Account Enforcement →
-        </a>
       </nav>
 
       <section
@@ -888,164 +869,6 @@ export default function SafetyIntegrityPage() {
                         {content.body ||
                           "Kein zusätzlicher Text vorhanden."}
                       </div>
-
-                      {Array.isArray(row.image_urls) &&
-                      row.image_urls.length > 0 ? (
-                        <div style={{ marginTop: 20 }}>
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              gap: 12,
-                              marginBottom: 10,
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 800,
-                                color: "#9da4af",
-                                textTransform: "uppercase",
-                                letterSpacing: "0.08em",
-                              }}
-                            >
-                              Bildmaterial
-                            </div>
-
-                            <div
-                              className="by-muted by-small"
-                              style={{ whiteSpace: "nowrap" }}
-                            >
-                              {row.image_urls.length}{" "}
-                              {row.image_urls.length === 1
-                                ? "Bild"
-                                : "Bilder"}
-                            </div>
-                          </div>
-
-                          <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns:
-                                "repeat(auto-fit, minmax(260px, 1fr))",
-                              gap: 14,
-                            }}
-                          >
-                            {row.image_urls.map(
-                              (imageUrl, imageIndex) => (
-                                <a
-                                  key={`${row.case_id}-${imageIndex}`}
-                                  href={imageUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  title="Originalbild öffnen"
-                                  style={{
-                                    display: "block",
-                                    overflow: "hidden",
-                                    borderRadius: 18,
-                                    background:
-                                      "rgba(0,0,0,0.34)",
-                                    border:
-                                      "1px solid rgba(255,255,255,0.09)",
-                                    color: "inherit",
-                                    textDecoration: "none",
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      position: "relative",
-                                      width: "100%",
-                                      minHeight: 320,
-                                      maxHeight: 620,
-                                      display: "grid",
-                                      placeItems: "center",
-                                      overflow: "hidden",
-                                      background:
-                                        "linear-gradient(145deg, rgba(255,255,255,0.035), rgba(0,0,0,0.20))",
-                                    }}
-                                  >
-                                    <img
-                                      src={imageUrl}
-                                      alt={`Zu prüfendes Bild ${imageIndex + 1}`}
-                                      loading="lazy"
-                                      style={{
-                                        display: "block",
-                                        width: "100%",
-                                        height: "100%",
-                                        minHeight: 320,
-                                        maxHeight: 620,
-                                        objectFit: "contain",
-                                        background: "#070708",
-                                      }}
-                                    />
-
-                                    <div
-                                      style={{
-                                        position: "absolute",
-                                        left: 12,
-                                        right: 12,
-                                        bottom: 12,
-                                        display: "flex",
-                                        justifyContent: "space-between",
-                                        alignItems: "center",
-                                        gap: 12,
-                                        pointerEvents: "none",
-                                      }}
-                                    >
-                                      <span
-                                        style={{
-                                          padding: "7px 10px",
-                                          borderRadius: 999,
-                                          background: "rgba(7,7,8,0.82)",
-                                          border:
-                                            "1px solid rgba(255,255,255,0.14)",
-                                          backdropFilter: "blur(10px)",
-                                          color: "#fff",
-                                          fontSize: 12,
-                                          fontWeight: 800,
-                                        }}
-                                      >
-                                        Bild {imageIndex + 1}
-                                      </span>
-
-                                      <span
-                                        style={{
-                                          padding: "7px 10px",
-                                          borderRadius: 999,
-                                          background: "rgba(7,7,8,0.82)",
-                                          border:
-                                            "1px solid rgba(255,255,255,0.14)",
-                                          backdropFilter: "blur(10px)",
-                                          color: "#fff",
-                                          fontSize: 12,
-                                          fontWeight: 800,
-                                        }}
-                                      >
-                                        Original öffnen ↗
-                                      </span>
-                                    </div>
-                                  </div>
-                                </a>
-                              ),
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <div
-                          className="by-muted by-small"
-                          style={{
-                            marginTop: 16,
-                            padding: "13px 15px",
-                            borderRadius: 14,
-                            background: "rgba(255,255,255,0.025)",
-                            border:
-                              "1px dashed rgba(255,255,255,0.10)",
-                          }}
-                        >
-                          Für diesen Fall ist kein Bild hinterlegt.
-                        </div>
-                      )}
                     </div>
 
                     <aside

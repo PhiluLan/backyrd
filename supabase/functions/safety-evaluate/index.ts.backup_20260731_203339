@@ -506,13 +506,7 @@ Deno.serve(async (req) => {
       },
       scores: {
         prohibited_symbol:
-          symbolEvaluation.signal.matched
-            ? symbolEvaluation.signal.confidence
-            : 0,
-        no_prohibited_symbol:
-          symbolEvaluation.signal.matched
-            ? 0
-            : symbolEvaluation.signal.confidence,
+          symbolEvaluation.signal.confidence,
       },
       flagged:
         symbolEvaluation.signal.matched,

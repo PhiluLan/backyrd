@@ -306,22 +306,9 @@ function uniquePosts(posts: SocialFeedPost[]) {
   return result;
 }
 
-async function uriToUploadBody(uri: string) {
+async function uriToBlob(uri: string) {
   const response = await fetch(uri);
-
-  if (!response.ok) {
-    throw new Error(
-      `Bild konnte nicht gelesen werden (${response.status})`,
-    );
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-
-  if (!arrayBuffer || arrayBuffer.byteLength === 0) {
-    throw new Error("Bilddatei ist leer (0 Bytes).");
-  }
-
-  return arrayBuffer;
+  return await response.blob();
 }
 
 function makeUploadPath(userId: string, index: number, uri: string) {
@@ -653,11 +640,11 @@ export default function FeedScreen() {
       for (let index = 0; index < media.length; index += 1) {
         const item = media[index];
         const path = makeUploadPath(userId, index, item.uri);
-        const uploadBody = await uriToUploadBody(item.uri);
+        const blob = await uriToBlob(item.uri);
 
         const { error: uploadError } = await supabase.storage
           .from("social-post-media")
-          .upload(path, uploadBody, {
+          .upload(path, blob, {
             contentType: item.mimeType ?? "image/jpeg",
             upsert: false,
           });
