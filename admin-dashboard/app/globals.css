@@ -1227,3 +1227,73 @@
     font-size: 12px;
   }
 }
+
+
+/* Backyrd Sprint 2 – Privacy & Legal */
+.privacyAdmin{gap:22px}
+.privacyPrimary,.privacySecondary{appearance:none;border:0;border-radius:13px;padding:11px 15px;font-weight:850;cursor:pointer}
+.privacyPrimary{background:#ff7da7;color:#111114}
+.privacySecondary{background:rgba(255,255,255,.08);color:#fff;border:1px solid var(--line)}
+.privacyPrimary:disabled,.privacySecondary:disabled{opacity:.5;cursor:not-allowed}
+.privacyKpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.privacySection{padding:22px}
+.privacySectionHead{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px}
+.privacySectionHead span{display:block;color:var(--muted);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.privacySectionHead h2{margin:5px 0 0;font-size:24px}
+.privacySectionHead>strong{color:#ff7da7}
+.privacyPurposeGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.privacyPurpose{padding:17px;border-radius:17px;background:rgba(255,255,255,.026);border:1px solid var(--line)}
+.privacyPurpose>div:first-child span{font-weight:850}.privacyPurpose small{display:block;color:var(--muted);margin-top:4px}
+.privacyPurpose dl{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0 0}
+.privacyPurpose dl div{display:flex;flex-direction:column;gap:5px}
+.privacyPurpose dt{font-size:11px;color:var(--muted)}
+.privacyPurpose dd{margin:0;font-size:21px;font-weight:900}
+.privacyWorkspace{display:grid;grid-template-columns:minmax(300px,.72fr) minmax(520px,1.28fr);gap:16px;align-items:start}
+.privacyDocuments,.privacyEditor{padding:20px}
+.privacyDocumentList{display:flex;flex-direction:column;gap:8px}
+.privacyDocumentList button{appearance:none;width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;padding:13px;border-radius:14px;color:#fff;background:rgba(255,255,255,.025);border:1px solid var(--line);cursor:pointer}
+.privacyDocumentList button.active,.privacyDocumentList button:hover{border-color:rgba(255,125,167,.45);background:rgba(255,125,167,.07)}
+.privacyDocumentList strong,.privacyDocumentList span{display:block}.privacyDocumentList span{color:var(--muted);font-size:12px;margin-top:4px}
+.privacyStatus{font-style:normal;text-transform:uppercase;font-size:10px;font-weight:900;letter-spacing:.08em;padding:6px 8px;border-radius:999px;border:1px solid var(--line)}
+.privacyStatus.draft{color:#f5c76b;background:rgba(245,199,107,.08);border-color:rgba(245,199,107,.24)}
+.privacyStatus.published{color:#65d89b;background:rgba(101,216,155,.08);border-color:rgba(101,216,155,.24)}
+.privacyStatus.retired{color:#9999a3}
+.privacyForm{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+.privacyForm label{display:flex;flex-direction:column;gap:7px;color:#b9b9c1;font-size:12px;font-weight:800}
+.privacyForm label.wide{grid-column:1/-1}
+.privacyForm input,.privacyForm select,.privacyForm textarea{width:100%;border-radius:12px;border:1px solid var(--line);background:#0d0d10;color:#fff;padding:11px 12px;font:inherit;resize:vertical}
+.privacyForm input:disabled,.privacyForm textarea:disabled,.privacyForm select:disabled{opacity:.72}
+.privacyForm .privacyCheck{flex-direction:row;align-items:center;color:#fff}
+.privacyForm .privacyCheck input{width:auto}
+.privacyActions{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:18px}
+.privacyImmutable{color:var(--muted)}
+.privacyEmpty{min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:var(--muted)}
+.privacyEmpty strong{color:#fff;font-size:19px;margin-bottom:7px}
+@media(max-width:1200px){.privacyPurposeGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.privacyWorkspace{grid-template-columns:1fr}}
+@media(max-width:760px){.privacyKpis,.privacyPurposeGrid,.privacyForm{grid-template-columns:1fr}.privacyForm label.wide{grid-column:auto}.privacySectionHead,.privacyActions{align-items:flex-start;flex-direction:column}.privacyActions button{width:100%}}
+
+
+/* Sprint 2 – Data Rights Queue */
+.privacyRequestTable{display:flex;flex-direction:column;gap:10px}
+.privacyRequest{display:grid;grid-template-columns:minmax(260px,1fr) auto auto;align-items:center;gap:14px;padding:15px;border-radius:16px;background:rgba(255,255,255,.026);border:1px solid var(--line)}
+.privacyRequestMain strong,.privacyRequestMain span,.privacyRequestMain small{display:block}
+.privacyRequestMain span{margin-top:4px;color:#fff}
+.privacyRequestMain small{margin-top:5px;color:var(--muted)}
+.privacyRequestActions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.privacyStatus.scheduled{color:#f5c76b;background:rgba(245,199,107,.08);border-color:rgba(245,199,107,.24)}
+.privacyStatus.processing{color:#7cb7ff;background:rgba(124,183,255,.08);border-color:rgba(124,183,255,.24)}
+.privacyStatus.ready,.privacyStatus.completed{color:#65d89b;background:rgba(101,216,155,.08);border-color:rgba(101,216,155,.24)}
+.privacyStatus.failed,.privacyStatus.rejected{color:#ff7d87;background:rgba(255,125,135,.08);border-color:rgba(255,125,135,.24)}
+@media(max-width:900px){.privacyRequest{grid-template-columns:1fr}.privacyRequestActions{justify-content:flex-start}}
+
+
+/* Sprint 2 – Controlled Account Deletion */
+.privacyDanger{appearance:none;border:1px solid rgba(255,125,135,.34);border-radius:13px;padding:11px 15px;font-weight:850;cursor:pointer;background:rgba(184,61,80,.18);color:#ff9aa5}
+.privacyDanger:hover{background:rgba(184,61,80,.28)}
+.privacyDanger:disabled{opacity:.5;cursor:not-allowed}
+.privacyPreflight{min-width:220px;max-width:320px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid var(--line)}
+.privacyPreflight strong,.privacyPreflight span,.privacyPreflight small{display:block}
+.privacyPreflight strong{font-size:12px;color:#fff}
+.privacyPreflight span{font-size:11px;color:var(--muted);margin-top:4px}
+.privacyPreflight small{font-size:11px;color:#ff9aa5;line-height:1.4;margin-top:5px}
+@media(max-width:1100px){.privacyPreflight{max-width:none}}

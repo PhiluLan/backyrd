@@ -17,7 +17,6 @@ import {
   PanResponder,
 } from "react-native";
 
-import * as Location from "expo-location";
 import ClusteredMapView from "react-native-map-clustering";
 import { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -29,6 +28,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSpotsStore } from "../../lib/useSpotsStore";
 import { useDebounce } from "use-debounce";
 import { supabase } from "../../lib/supabase";
+import { getPrivacySafeLocation } from "../../lib/locationPrivacy";
 import { MOOD_SUGGESTIONS } from "../../lib/moods";
 import { trackAnalyticsEvent } from "../../lib/analytics";
 
@@ -451,25 +451,27 @@ export default function MapScreen() {
   ============================================================= */
 
   async function recenterToMe() {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") return;
+    const result = await getPrivacySafeLocation({
+      purpose: "map_recenter",
+      accuracy: 3,
+      forceConsentRefresh: true,
+      timeoutMs: 8_000,
+      allowLastKnown: true,
+    });
 
-      const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const next = {
-        ...region,
-        latitude: pos.coords.latitude,
-        longitude: pos.coords.longitude,
-      };
-
-      setRegion(next);
-      mapRef.current?.animateToRegion(next, 500);
-    } catch {
-      Alert.alert("Standort", "Konnte Standort nicht bestimmen.");
+    if (!result.ok) {
+      Alert.alert("Standort", result.message);
+      return;
     }
+
+    const next = {
+      ...region,
+      latitude: result.location.coords.latitude,
+      longitude: result.location.coords.longitude,
+    };
+
+    setRegion(next);
+    mapRef.current?.animateToRegion(next, 500);
   }
 
   /* =============================================================

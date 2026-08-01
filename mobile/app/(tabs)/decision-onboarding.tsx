@@ -13,11 +13,13 @@ import {
   TextInput,
   View,
 } from "react-native";
-import * as Location from "expo-location";
+import type * as Location from "expo-location";
 import { Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { supabase } from "@/lib/supabase";
+import { getPrivacySafeLocation, reverseGeocodePrivacySafe } from "../../lib/locationPrivacy";
+import { safeDevelopmentWarning } from "../../lib/privacySanitize";
 
 type SpotRow = {
   id: string;
@@ -139,23 +141,21 @@ export default function DecisionOnboardingScreen() {
       setDetectingLocation(true);
       setLocationStatus("idle");
 
-      const permission = await Location.requestForegroundPermissionsAsync();
+      const result = await getPrivacySafeLocation({
+        purpose: "city_detection",
+        forceConsentRefresh: true,
+        timeoutMs: 8_000,
+        allowLastKnown: true,
+      });
 
-      if (permission.status !== "granted") {
+      if (!result.ok) {
+        Alert.alert("Standort", result.message);
         setLocationStatus("denied");
         return;
       }
 
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const geocoded = await Location.reverseGeocodeAsync({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
-
-      const detectedCity = getCityFromGeocode(geocoded[0]);
+      const geocoded = await reverseGeocodePrivacySafe(result.location);
+      const detectedCity = getCityFromGeocode(geocoded);
 
       if (!detectedCity) {
         setLocationStatus("failed");
@@ -168,7 +168,7 @@ export default function DecisionOnboardingScreen() {
       setLocationStatus("detected");
       loadSuggestions(detectedCity);
     } catch (error) {
-      console.log("location detection failed", error);
+      safeDevelopmentWarning("[decision-onboarding] location detection failed", error);
       setLocationStatus("failed");
     } finally {
       setDetectingLocation(false);

@@ -17,8 +17,9 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import * as Location from "expo-location";
+import type * as Location from "expo-location";
 
+import { getPrivacySafeLocation, reverseGeocodePrivacySafe } from "../../lib/locationPrivacy";
 import { supabase } from "../../lib/supabase";
 import { ensureProfile } from "../../lib/profile";
 
@@ -175,23 +176,23 @@ export default function ProfileOnboardingScreen() {
     try {
       setLocationLoading(true);
 
-      const permission = await Location.requestForegroundPermissionsAsync();
+      const result = await getPrivacySafeLocation({
+        purpose: "city_detection",
+        forceConsentRefresh: true,
+        timeoutMs: 8_000,
+        allowLastKnown: true,
+      });
 
-      if (permission.status !== "granted") {
-        Alert.alert("Standort nicht freigegeben", "Kein Problem — du kannst deine Stadt manuell eingeben.");
+      if (!result.ok) {
+        Alert.alert(
+          "Standort nicht verfügbar",
+          `${result.message} Du kannst deine Stadt manuell eingeben.`,
+        );
         return;
       }
 
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const geocoded = await Location.reverseGeocodeAsync({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
-
-      const detectedCity = getCityFromGeocode(geocoded[0]);
+      const geocoded = await reverseGeocodePrivacySafe(result.location);
+      const detectedCity = getCityFromGeocode(geocoded);
 
       if (!detectedCity) {
         Alert.alert("Stadt nicht erkannt", "Bitte gib deine Stadt manuell ein.");

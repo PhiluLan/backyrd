@@ -21,6 +21,7 @@ const navigationItems: NavigationItem[] = [
   { href: "/spot-quality", label: "Spot Quality", icon: "◈" },
   { href: "/taxonomy", label: "Taxonomy", icon: "◆" },
   { href: "/safety-integrity", label: "Safety & Integrity", icon: "◉" },
+  { href: "/privacy", label: "Privacy & Legal", icon: "▣" },
   { href: "/errors", label: "Errors", icon: "!" },
   { href: "/system", label: "System", icon: "⚙" },
 ];

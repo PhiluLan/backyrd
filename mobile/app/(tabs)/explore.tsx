@@ -17,6 +17,8 @@ import {
   ScrollView as RNScrollView,
 } from "react-native";
 import { supabase } from "../../lib/supabase";
+import { getPrivacySafeLocation, reverseGeocodePrivacySafe } from "@/lib/locationPrivacy";
+import { safeDevelopmentWarning } from "../../lib/privacySanitize";
 import type { Spot } from "../../lib/types";
 import { useRouter } from "expo-router";
 import type { User } from "@supabase/supabase-js";
@@ -24,7 +26,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import * as Location from "expo-location";
 import { ImageBackground } from "react-native";
 import { ensureProfile } from "../../lib/profile";
 import {
@@ -313,24 +314,26 @@ export default function Home() {
   useEffect(() => {
     (async () => {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") {
+        const result = await getPrivacySafeLocation({
+          purpose: "nearby_discovery",
+          requestPermission: false,
+          timeoutMs: 4_000,
+          allowLastKnown: true,
+        });
+
+        if (!result.ok) {
           setCurrentCanton(null);
           return;
         }
 
-        const pos = await Location.getCurrentPositionAsync({});
         setUserCoords({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
-        const rev = await Location.reverseGeocodeAsync({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
+          latitude: result.location.coords.latitude,
+          longitude: result.location.coords.longitude,
         });
 
-        if (rev.length > 0) {
-          const r = rev[0];
+        const r = await reverseGeocodePrivacySafe(result.location);
+
+        if (r) {
           const canton = normalizeCanton(
             r.region,
             (r as any).subregion,
@@ -343,7 +346,7 @@ export default function Home() {
           setCurrentCanton(null);
         }
       } catch (e) {
-        console.warn("Location error:", e);
+        safeDevelopmentWarning("[explore] location failed", e);
         setUserCoords(null);
         setCurrentCanton(null);
       }

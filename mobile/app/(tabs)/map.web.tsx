@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import * as Location from "expo-location";
+import { hasActiveConsent } from "../../lib/consent";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
@@ -79,10 +80,17 @@ export default function MapWebScreen() {
   async function locateMe() {
     setLocating(true);
     try {
+      const consentGranted = await hasActiveConsent("precise_location", {
+        forceRefresh: true,
+      });
+      if (!consentGranted) return;
+
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== "granted") return;
 
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
       setCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
     } finally {
       setLocating(false);

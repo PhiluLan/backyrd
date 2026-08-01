@@ -5,6 +5,12 @@ import * as Device from "expo-device";
 import { Platform } from "react-native";
 
 import { supabase } from "./supabase";
+import { hasActiveConsent } from "./consent";
+import {
+  safeDevelopmentWarning,
+  sanitizePrivacyError,
+  sanitizePrivacyPayload,
+} from "./privacySanitize";
 
 const INSTALLATION_ID_KEY = "@backyrd/analytics/installation-id-v1";
 const SESSION_ID_KEY = "@backyrd/analytics/session-id-v1";
@@ -54,27 +60,7 @@ function cleanUuid(value?: string | null) {
 }
 
 function errorParts(error: unknown) {
-  if (error instanceof Error) {
-    return {
-      message: error.message || error.name || "Unknown error",
-      stack: error.stack ?? null,
-      name: error.name || "Error",
-    };
-  }
-
-  if (typeof error === "string") {
-    return { message: error, stack: null, name: "Error" };
-  }
-
-  try {
-    return {
-      message: JSON.stringify(error),
-      stack: null,
-      name: "UnknownError",
-    };
-  } catch {
-    return { message: String(error), stack: null, name: "UnknownError" };
-  }
+  return sanitizePrivacyError(error);
 }
 
 function fingerprintFor(message: string, stack: string | null) {
@@ -114,7 +100,12 @@ export function getCurrentAnalyticsScreen() {
   return currentScreenCache;
 }
 
+async function optionalAnalyticsEnabled() {
+  return hasActiveConsent("optional_product_analytics");
+}
+
 export async function registerInstallation(properties: AnalyticsProperties = {}) {
+  if (!(await optionalAnalyticsEnabled())) return;
   try {
     const installationId = await getInstallationId();
     const locale = Intl.DateTimeFormat().resolvedOptions().locale ?? null;
@@ -133,13 +124,13 @@ export async function registerInstallation(properties: AnalyticsProperties = {})
         app_variant: Constants.expoConfig?.extra?.appVariant ?? "prod",
         device_type: Device.deviceType ?? null,
         is_device: Device.isDevice,
-        ...properties,
+        ...sanitizePrivacyPayload(properties),
       },
     });
 
     if (error) throw error;
   } catch (error) {
-    console.warn("[analytics] register installation failed", error);
+    safeDevelopmentWarning("[analytics] register installation failed", error);
   }
 }
 
@@ -158,6 +149,7 @@ async function storedSessionIsFresh() {
 }
 
 export async function startAnalyticsSession(entryScreen?: string | null) {
+  if (!(await optionalAnalyticsEnabled())) return null;
   if (startPromise) return startPromise;
 
   startPromise = (async () => {
@@ -198,7 +190,7 @@ export async function startAnalyticsSession(entryScreen?: string | null) {
 
       return sessionId;
     } catch (error) {
-      console.warn("[analytics] start session failed", error);
+      safeDevelopmentWarning("[analytics] start session failed", error);
       return null;
     } finally {
       startPromise = null;
@@ -209,6 +201,7 @@ export async function startAnalyticsSession(entryScreen?: string | null) {
 }
 
 export async function touchAnalyticsSession(exitScreen?: string | null, end = false) {
+  if (!(await optionalAnalyticsEnabled())) return;
   try {
     const sessionId = sessionIdCache ?? (await storedSessionIsFresh());
     if (!sessionId) return;
@@ -227,11 +220,12 @@ export async function touchAnalyticsSession(exitScreen?: string | null, end = fa
       await AsyncStorage.multiRemove([SESSION_ID_KEY, SESSION_LAST_SEEN_KEY]);
     }
   } catch (error) {
-    console.warn("[analytics] touch session failed", error);
+    safeDevelopmentWarning("[analytics] touch session failed", error);
   }
 }
 
 export async function trackAnalyticsEvent(input: TrackEventInput) {
+  if (!(await optionalAnalyticsEnabled())) return null;
   try {
     const eventName = input.eventName.trim();
     if (!eventName) return null;
@@ -250,7 +244,7 @@ export async function trackAnalyticsEvent(input: TrackEventInput) {
       p_decision_id: cleanUuid(input.decisionId),
       p_platform: platformName(),
       p_app_version: appVersion(),
-      p_properties: input.properties ?? {},
+      p_properties: sanitizePrivacyPayload(input.properties ?? {}),
       p_occurred_at: input.occurredAt ?? new Date().toISOString(),
     });
 
@@ -258,7 +252,7 @@ export async function trackAnalyticsEvent(input: TrackEventInput) {
     await AsyncStorage.setItem(SESSION_LAST_SEEN_KEY, String(Date.now()));
     return data as number | null;
   } catch (error) {
-    console.warn("[analytics] track event failed", error);
+    safeDevelopmentWarning("[analytics] track event failed", error);
     return null;
   }
 }
@@ -281,14 +275,14 @@ export async function reportAnalyticsError(input: ReportErrorInput) {
       p_platform: platformName(),
       p_app_version: appVersion(),
       p_handled: input.handled ?? true,
-      p_context: input.context ?? {},
+      p_context: sanitizePrivacyPayload(input.context ?? {}),
       p_occurred_at: new Date().toISOString(),
     });
 
     if (error) throw error;
     return data as number | null;
   } catch (error) {
-    console.warn("[analytics] report error failed", error);
+    safeDevelopmentWarning("[analytics] report error failed", error);
     return null;
   }
 }

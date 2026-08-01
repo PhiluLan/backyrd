@@ -13,11 +13,12 @@ import {
   Platform,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
+import { getPrivacySafeLocation } from "../../lib/locationPrivacy";
+import { safeDevelopmentWarning } from "../../lib/privacySanitize";
 import { reverseGeocode } from "../../lib/geocode";
 import { awardAchievementsForUser } from "../../lib/achievementEngine";
 import { AchievementUnlockModal } from "../../components/AchievementUnlockModal";
@@ -141,11 +142,18 @@ export default function SmartReviewScreen() {
           return;
         }
 
-        const locPerm = await Location.requestForegroundPermissionsAsync();
-        if (locPerm.status !== "granted") {
-          Alert.alert("Standort nötig", "Bitte erlaube den Standortzugriff.");
-          router.back();
-          return;
+        const locationResult = await getPrivacySafeLocation({
+          purpose: "smart_review_match",
+          requestPermission: true,
+          timeoutMs: 5_000,
+          allowLastKnown: true,
+        });
+
+        if (!locationResult.ok) {
+          Alert.alert(
+            "Standort nicht verfügbar",
+            "Die Aufnahme funktioniert weiter. Den Spot kannst du später manuell auswählen.",
+          );
         }
 
         const result = await ImagePicker.launchCameraAsync({
@@ -163,9 +171,13 @@ export default function SmartReviewScreen() {
         setPhotoUri(result.assets[0].uri);
         void trackAnalyticsEvent({ eventName: "review_photo_added", screenName: "review_smart", decisionId: decisionId ?? null, properties: { source: "camera" } });
 
-        const position = await Location.getCurrentPositionAsync({});
-        const lat = position.coords.latitude;
-        const lon = position.coords.longitude;
+        if (!locationResult.ok) {
+          setStep("select");
+          return;
+        }
+
+        const lat = locationResult.location.coords.latitude;
+        const lon = locationResult.location.coords.longitude;
         setCoords({ lat, lon });
 
         const { data: spots, error } = await supabase
@@ -193,7 +205,7 @@ export default function SmartReviewScreen() {
           setNearest(null);
         }
       } catch (e: any) {
-        console.log("Smart review bootstrap error:", e?.message || e);
+        safeDevelopmentWarning("[smart-review] bootstrap failed", e);
         Alert.alert("Fehler", e?.message || "Smart Review konnte nicht gestartet werden.");
       } finally {
         setSearching(false);
@@ -414,7 +426,7 @@ export default function SmartReviewScreen() {
 
       router.replace(`/spot/new?${q.toString()}`);
     } catch (e: any) {
-      console.log("reverse geocode error:", e);
+      safeDevelopmentWarning("[smart-review] reverse geocode failed", e);
       Alert.alert("Fehler", e?.message || "Neuer Spot konnte nicht vorbereitet werden.");
     }
   }

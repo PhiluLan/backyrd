@@ -15,8 +15,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import * as Location from "expo-location";
 import { supabase } from "../../lib/supabase";
+import { getPrivacySafeLocation } from "../../lib/locationPrivacy";
+import { safeDevelopmentWarning } from "../../lib/privacySanitize";
 import { useRouter } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
@@ -324,26 +325,20 @@ export default function JourneyScreen() {
         async function loadSafeLocation() {
           if (Platform.OS === "web") return null;
 
-          try {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== "granted") return null;
+          const result = await getPrivacySafeLocation({
+            purpose: "journey_ranking",
+            accuracy: 3,
+            requestPermission: false,
+            timeoutMs: 2_500,
+            allowLastKnown: true,
+          });
 
-            const pos: any = await Promise.race([
-              Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Balanced,
-              }),
-              new Promise((resolve) => setTimeout(() => resolve(null), 2500)),
-            ]);
+          if (!result.ok) return null;
 
-            if (!pos) return null;
-
-            return {
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-            };
-          } catch {
-            return null;
-          }
+          return {
+            latitude: result.location.coords.latitude,
+            longitude: result.location.coords.longitude,
+          };
         }
 
         const loc = await loadSafeLocation();
@@ -411,7 +406,7 @@ export default function JourneyScreen() {
 
         setCatalog(filtered);
       } catch (err) {
-        console.error(err);
+        safeDevelopmentWarning("[journey] loading failed", err);
         Alert.alert("Fehler", "Spots konnten nicht geladen werden.");
       } finally {
         setCatalogLoading(false);
@@ -430,7 +425,7 @@ export default function JourneyScreen() {
       setGreeting(fallback.greeting);
       setSteps(fallback.steps);
     } catch (e: any) {
-      console.error("Journey fallback error:", e);
+      safeDevelopmentWarning("[journey] fallback failed", e);
       Alert.alert("Journey", e?.message ?? "Konnte die Journey nicht erstellen.");
     } finally {
       setLoading(false);

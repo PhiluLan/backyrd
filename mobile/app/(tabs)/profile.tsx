@@ -702,6 +702,17 @@ export default function ProfileScreen() {
           <Ionicons name="chevron-forward" size={21} color="rgba(255,255,255,0.76)" />
         </Pressable>
 
+        <Pressable
+          style={styles.historyButton}
+          onPress={() => router.push("/privacy-consent" as any)}
+        >
+          <View style={styles.historyLeft}>
+            <Ionicons name="shield-checkmark-outline" size={22} color="#FF7DA7" />
+            <Text style={styles.historyText}>Datenschutz & Einwilligungen</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={21} color="rgba(255,255,255,0.76)" />
+        </Pressable>
+
         <View style={styles.safetySection}>
           <Text style={styles.safetySectionEyebrow}>SAFETY & SUPPORT</Text>
 

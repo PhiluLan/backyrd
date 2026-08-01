@@ -3,6 +3,7 @@ import { AppState, AppStateStatus } from "react-native";
 import { usePathname } from "expo-router";
 
 import { supabase } from "../lib/supabase";
+import { clearConsentCache } from "../lib/consent";
 import {
   registerInstallation,
   reportAnalyticsError,
@@ -57,6 +58,7 @@ export function AnalyticsProvider({ children }: PropsWithChildren) {
     });
 
     const { data: authSubscription } = supabase.auth.onAuthStateChange(() => {
+      clearConsentCache();
       registerInstallation({ auth_state_changed: true });
     });
 

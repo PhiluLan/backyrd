@@ -21,6 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 
 import { supabase } from "@/lib/supabase";
+import { hasActiveConsent } from "@/lib/consent";
 import { mapTextToClusterIds } from "@/lib/decision/moodMapping";
 import { trackAnalyticsEvent, reportAnalyticsError } from "@/lib/analytics";
 
@@ -1154,6 +1155,12 @@ export default function DecisionScreen() {
       extraContext?: Record<string, unknown>;
     }) => {
       try {
+        const consentGranted = await hasActiveConsent(
+          "personalized_recommendations",
+        );
+
+        if (!consentGranted) return;
+
         const { error } = await supabase.rpc("backyrd_ml_log_event_v1", {
           p_event_type: eventType,
           p_spot_id: spotId ?? null,
@@ -1225,16 +1232,21 @@ export default function DecisionScreen() {
           });
       }
 
-      supabase
-        .rpc("backyrd_log_taste_event_v3", {
-          p_spot_id: spot.spot_id,
-          p_event_type: action,
-          p_cap: TASTE_CAP,
-          p_conf_inc: direction === "like" ? TASTE_CONF_INC * 1.4 : TASTE_CONF_INC,
-        })
-        .then(({ error }) => {
-          if (error) console.log("taste v3 swipe error", error);
-        });
+      void hasActiveConsent("personalized_recommendations").then((granted) => {
+        if (!granted) return;
+
+        supabase
+          .rpc("backyrd_log_taste_event_v3", {
+            p_spot_id: spot.spot_id,
+            p_event_type: action,
+            p_cap: TASTE_CAP,
+            p_conf_inc:
+              direction === "like" ? TASTE_CONF_INC * 1.4 : TASTE_CONF_INC,
+          })
+          .then(({ error }) => {
+            if (error) console.log("taste v3 swipe error", error);
+          });
+      });
     },
     [activeIndex, decisionId, logMlEvent]
   );
@@ -1556,16 +1568,20 @@ export default function DecisionScreen() {
           });
       }
 
-      supabase
-        .rpc("backyrd_log_taste_event_v3", {
-          p_spot_id: spotId,
-          p_event_type: "tapped",
-          p_cap: TASTE_CAP,
-          p_conf_inc: TASTE_CONF_INC,
-        })
-        .then(({ error }) => {
-          if (error) console.log("taste v3 tapped error", error);
-        });
+      void hasActiveConsent("personalized_recommendations").then((granted) => {
+        if (!granted) return;
+
+        supabase
+          .rpc("backyrd_log_taste_event_v3", {
+            p_spot_id: spotId,
+            p_event_type: "tapped",
+            p_cap: TASTE_CAP,
+            p_conf_inc: TASTE_CONF_INC,
+          })
+          .then(({ error }) => {
+            if (error) console.log("taste v3 tapped error", error);
+          });
+      });
 
       void trackAnalyticsEvent({
         eventName: "decision_spot_opened",
