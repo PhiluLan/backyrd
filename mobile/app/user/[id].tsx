@@ -22,6 +22,7 @@ import Avatar from "../../components/Avatar";
 import SocialPostCard, { SocialFeedPost } from "../../components/PostCard";
 import CommentsSheet from "../../components/CommentsSheet";
 import { supabase } from "../../lib/supabase";
+import { getOrCreateChat } from "../../lib/chat";
 import ReportProfileAction from "../../components/safety/ReportProfileAction";
 
 const { width } = Dimensions.get("window");
@@ -43,6 +44,9 @@ type SocialProfile = {
   following_count: number;
   viewer_follows_user: boolean;
   is_me: boolean;
+  is_private?: boolean;
+  can_follow?: boolean;
+  can_message?: boolean;
 };
 
 function errorMessage(err: any) {
@@ -206,6 +210,8 @@ export default function UserProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  const [blockBusy, setBlockBusy] = useState(false);
+  const [messageBusy, setMessageBusy] = useState(false);
   const [selectedCommentPost, setSelectedCommentPost] = useState<SocialFeedPost | null>(null);
 
   const displayName = useMemo(() => {
@@ -254,10 +260,10 @@ export default function UserProfileScreen() {
 
         const [{ data: profileData, error: profileError }, { data: postData, error: postError }] =
           await Promise.all([
-            supabase.rpc("get_social_profile_v1", {
+            supabase.rpc("get_social_profile_v2", {
               p_user_id: userId,
             }),
-            supabase.rpc("get_social_user_posts_v1", {
+            supabase.rpc("get_social_user_posts_v2", {
               p_user_id: userId,
               p_limit: 40,
             }),
@@ -360,7 +366,7 @@ export default function UserProfileScreen() {
     );
 
     try {
-      const { error } = await supabase.rpc(next ? "follow_user_v1" : "unfollow_user_v1", {
+      const { error } = await supabase.rpc(next ? "follow_user_v2" : "unfollow_user_v2", {
         p_user_id: profile.user_id,
       });
 
@@ -381,6 +387,92 @@ export default function UserProfileScreen() {
       setFollowBusy(false);
     }
   }, [followBusy, profile]);
+
+  const startMessage = useCallback(async () => {
+    if (
+      !profile ||
+      profile.is_me ||
+      messageBusy ||
+      profile.can_message === false
+    ) {
+      return;
+    }
+
+    setMessageBusy(true);
+
+    try {
+      const currentUserId = meId ?? (
+        await supabase.auth.getUser()
+      ).data.user?.id ?? null;
+
+      if (!currentUserId) {
+        throw new Error(
+          "Du musst angemeldet sein, um eine Nachricht zu senden.",
+        );
+      }
+
+      const chatId = await getOrCreateChat(
+        currentUserId,
+        profile.user_id,
+      );
+
+      router.push(`/messages/${chatId}` as any);
+    } catch (error: any) {
+      const message = errorMessage(error);
+
+      if (
+        message.includes("private_profile_not_messageable")
+      ) {
+        Alert.alert(
+          "Nachricht nicht möglich",
+          "Dieses Konto ist privat und kann keine neuen Nachrichten erhalten.",
+        );
+      } else if (message.includes("interaction_blocked")) {
+        Alert.alert(
+          "Nachricht nicht möglich",
+          "Zwischen diesen Konten sind keine Nachrichten möglich.",
+        );
+      } else {
+        Alert.alert(
+          "Chat konnte nicht geöffnet werden",
+          message,
+        );
+      }
+    } finally {
+      setMessageBusy(false);
+    }
+  }, [meId, messageBusy, profile, router]);
+
+  const blockUser = useCallback(() => {
+    if (!profile || profile.is_me || blockBusy) return;
+
+    Alert.alert(
+      "Nutzer blockieren?",
+      "Ihr seht euch danach nicht mehr in Suche, Profil oder Moments. Neue Nachrichten werden ebenfalls verhindert.",
+      [
+        { text: "Abbrechen", style: "cancel" },
+        {
+          text: "Blockieren",
+          style: "destructive",
+          onPress: async () => {
+            setBlockBusy(true);
+            try {
+              const { error } = await supabase.rpc("block_user_v1", {
+                p_user_id: profile.user_id,
+              });
+              if (error) throw error;
+              Alert.alert("Blockiert", "Der Nutzer wurde blockiert.");
+              router.back();
+            } catch (error: any) {
+              Alert.alert("Blockieren fehlgeschlagen", errorMessage(error));
+            } finally {
+              setBlockBusy(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [blockBusy, profile, router]);
 
   const toggleReaction = useCallback(async (postId: string, reactionType: "like" | "save", active: boolean) => {
     const { error } = await supabase.rpc("react_to_social_post_v1", {
@@ -473,6 +565,17 @@ export default function UserProfileScreen() {
               />
             ) : null}
 
+            {profileVisible && profile && !profile.is_me ? (
+              <Pressable
+                style={styles.circleButton}
+                onPress={blockUser}
+                disabled={blockBusy}
+                accessibilityLabel="Nutzer blockieren"
+              >
+                <Ionicons name="ban-outline" size={21} color="#FF8A8A" />
+              </Pressable>
+            ) : null}
+
             <Pressable
               style={styles.circleButton}
               onPress={() => load("refresh")}
@@ -559,15 +662,68 @@ export default function UserProfileScreen() {
             )}
           </View>
 
-          <Pressable
-            style={[styles.followButton, profile.viewer_follows_user && styles.followButtonActive]}
-            onPress={toggleFollow}
-            disabled={followBusy}
-          >
-            <Text style={[styles.followButtonText, profile.viewer_follows_user && styles.followButtonTextActive]}>
-              {profile.viewer_follows_user ? "Gefolgt" : "Folgen"}
-            </Text>
-          </Pressable>
+          <View style={styles.profileActionRow}>
+            <Pressable
+              style={[
+                styles.followButton,
+                profile.viewer_follows_user &&
+                  styles.followButtonActive,
+              ]}
+              onPress={toggleFollow}
+              disabled={
+                followBusy ||
+                profile.can_follow === false
+              }
+            >
+              <Text
+                style={[
+                  styles.followButtonText,
+                  profile.viewer_follows_user &&
+                    styles.followButtonTextActive,
+                ]}
+              >
+                {profile.viewer_follows_user
+                  ? "Gefolgt"
+                  : "Folgen"}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[
+                styles.messageButton,
+                profile.can_message === false &&
+                  styles.messageButtonDisabled,
+              ]}
+              onPress={startMessage}
+              disabled={
+                messageBusy ||
+                profile.can_message === false
+              }
+              accessibilityRole="button"
+              accessibilityLabel={`${displayName} eine Nachricht senden`}
+            >
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                size={20}
+                color={
+                  profile.can_message === false
+                    ? "#66666E"
+                    : "#FFFFFF"
+                }
+              />
+              <Text
+                style={[
+                  styles.messageButtonText,
+                  profile.can_message === false &&
+                    styles.messageButtonTextDisabled,
+                ]}
+              >
+                {messageBusy
+                  ? "Öffnet …"
+                  : "Nachricht"}
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.sectionHeader}>
@@ -834,7 +990,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
+  profileActionRow: {
+    marginTop: 18,
+    flexDirection: "row",
+    gap: 10,
+  },
+  messageButton: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: 18,
+    backgroundColor: "#202026",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.13)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
+  },
+  messageButtonDisabled: {
+    opacity: 0.5,
+  },
+  messageButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  messageButtonTextDisabled: {
+    color: "#77777F",
+  },
   followButton: {
+    flex: 1,
     marginTop: 20,
     minHeight: 50,
     borderRadius: 999,

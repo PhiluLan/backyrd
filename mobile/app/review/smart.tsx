@@ -11,13 +11,17 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Linking,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
-import { getPrivacySafeLocation } from "../../lib/locationPrivacy";
+import {
+  getPrivacySafeLocation,
+  type PrivacyLocationFailureReason,
+} from "../../lib/locationPrivacy";
 import { safeDevelopmentWarning } from "../../lib/privacySanitize";
 import { reverseGeocode } from "../../lib/geocode";
 import { awardAchievementsForUser } from "../../lib/achievementEngine";
@@ -50,6 +54,76 @@ type SpotRow = {
   lng: number;
   status: "approved" | "pending";
 };
+
+type SmartReviewGateFailure = {
+  reason:
+    | PrivacyLocationFailureReason
+    | "login_required";
+  title: string;
+  body: string;
+};
+
+function smartReviewGateCopy(
+  reason: SmartReviewGateFailure["reason"],
+): SmartReviewGateFailure {
+  switch (reason) {
+    case "login_required":
+      return {
+        reason,
+        title: "Login erforderlich",
+        body:
+          "Smart Reviews sind mit deinem Backyrd-Konto verbunden. Melde dich an, bevor du einen Moment vor Ort erstellst.",
+      };
+
+    case "consent_not_granted":
+      return {
+        reason,
+        title: "Standort für Smart Review aktivieren",
+        body:
+          "Smart Review erkennt den Spot über deinen aktuellen Standort. Aktiviere dafür den präzisen Standort im Privacy Center. Backyrd speichert keinen Standortverlauf.",
+      };
+
+    case "services_disabled":
+      return {
+        reason,
+        title: "Ortungsdienste sind ausgeschaltet",
+        body:
+          "Aktiviere die Ortungsdienste auf deinem Gerät. Ohne aktuelle Position kann Backyrd keinen Smart Review erstellen.",
+      };
+
+    case "permission_denied":
+      return {
+        reason,
+        title: "Standortzugriff nicht erlaubt",
+        body:
+          "Erlaube Backyrd den Standortzugriff in den Geräteeinstellungen. Die Berechtigung wird nur für aktive standortbezogene Funktionen verwendet.",
+      };
+
+    case "position_unavailable":
+      return {
+        reason,
+        title: "Standort gerade nicht verfügbar",
+        body:
+          "Deine aktuelle Position konnte nicht zuverlässig bestimmt werden. Prüfe Empfang und Ortungsdienste und versuche es nochmals.",
+      };
+
+    case "web_unsupported":
+      return {
+        reason,
+        title: "Smart Review nur in der App",
+        body:
+          "Die Standort- und Kamerafunktion für Smart Review ist in dieser Webansicht nicht verfügbar.",
+      };
+
+    default:
+      return {
+        reason,
+        title: "Smart Review konnte nicht starten",
+        body:
+          "Der Standortcheck ist fehlgeschlagen. Bitte versuche es nochmals.",
+      };
+  }
+}
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
@@ -114,6 +188,9 @@ export default function SmartReviewScreen() {
   const [nearest, setNearest] = useState<SpotRow | null>(null);
 
   const [searching, setSearching] = useState(true);
+  const [gateFailure, setGateFailure] =
+    useState<SmartReviewGateFailure | null>(null);
+  const [bootstrapNonce, setBootstrapNonce] = useState(0);
   const [saving, setSaving] = useState(false);
 
   const [moodA, setMoodA] = useState("");
@@ -133,27 +210,65 @@ export default function SmartReviewScreen() {
   }, [decisionId, source]);
 
   useEffect(() => {
+    let active = true;
+
     (async () => {
+      setSearching(true);
+      setGateFailure(null);
+      setPhotoUri(null);
+      setCoords(null);
+      setNearest(null);
+
       try {
-        const cam = await ImagePicker.requestCameraPermissionsAsync();
-        if (cam.status !== "granted") {
-          Alert.alert("Kamera nötig", "Bitte erlaube den Kamerazugriff.");
-          router.back();
+        const { data: userData } = await supabase.auth.getUser();
+
+        if (!userData.user?.id) {
+          if (active) {
+            setGateFailure(smartReviewGateCopy("login_required"));
+          }
           return;
         }
 
         const locationResult = await getPrivacySafeLocation({
           purpose: "smart_review_match",
           requestPermission: true,
-          timeoutMs: 5_000,
-          allowLastKnown: true,
+          forceConsentRefresh: true,
+          timeoutMs: 8_000,
+          allowLastKnown: false,
         });
 
         if (!locationResult.ok) {
+          if (active) {
+            setGateFailure(smartReviewGateCopy(locationResult.reason));
+          }
+
+          void trackAnalyticsEvent({
+            eventName: "smart_review_location_blocked",
+            screenName: "review_smart",
+            decisionId: decisionId ?? null,
+            properties: {
+              reason: locationResult.reason,
+              source: source ?? "smart",
+            },
+          });
+          return;
+        }
+
+        const cam = await ImagePicker.requestCameraPermissionsAsync();
+
+        if (cam.status !== "granted") {
           Alert.alert(
-            "Standort nicht verfügbar",
-            "Die Aufnahme funktioniert weiter. Den Spot kannst du später manuell auswählen.",
+            "Kamera erforderlich",
+            "Smart Review benötigt ein aktuelles Foto. Erlaube Backyrd den Kamerazugriff in den Geräteeinstellungen.",
+            [
+              { text: "Zurück", style: "cancel", onPress: () => router.back() },
+              {
+                text: "Einstellungen öffnen",
+                onPress: () => void Linking.openSettings(),
+              },
+            ],
           );
+          return;
         }
 
         const result = await ImagePicker.launchCameraAsync({
@@ -168,13 +283,16 @@ export default function SmartReviewScreen() {
           return;
         }
 
-        setPhotoUri(result.assets[0].uri);
-        void trackAnalyticsEvent({ eventName: "review_photo_added", screenName: "review_smart", decisionId: decisionId ?? null, properties: { source: "camera" } });
+        if (!active) return;
 
-        if (!locationResult.ok) {
-          setStep("select");
-          return;
-        }
+        setPhotoUri(result.assets[0].uri);
+
+        void trackAnalyticsEvent({
+          eventName: "review_photo_added",
+          screenName: "review_smart",
+          decisionId: decisionId ?? null,
+          properties: { source: "camera" },
+        });
 
         const lat = locationResult.location.coords.latitude;
         const lon = locationResult.location.coords.longitude;
@@ -199,6 +317,8 @@ export default function SmartReviewScreen() {
           }
         }
 
+        if (!active) return;
+
         if (nearestSpot && nearestDist <= 0.12) {
           setNearest(nearestSpot);
         } else {
@@ -206,12 +326,19 @@ export default function SmartReviewScreen() {
         }
       } catch (e: any) {
         safeDevelopmentWarning("[smart-review] bootstrap failed", e);
-        Alert.alert("Fehler", e?.message || "Smart Review konnte nicht gestartet werden.");
+
+        if (active) {
+          setGateFailure(smartReviewGateCopy("unexpected_error"));
+        }
       } finally {
-        setSearching(false);
+        if (active) setSearching(false);
       }
     })();
-  }, [router]);
+
+    return () => {
+      active = false;
+    };
+  }, [bootstrapNonce, decisionId, router, source]);
 
   const headerTitle = useMemo(() => {
     if (searching) return "Spot wird erkannt…";
@@ -431,6 +558,103 @@ export default function SmartReviewScreen() {
     }
   }
 
+  if (gateFailure) {
+    const consentMissing = gateFailure.reason === "consent_not_granted";
+    const loginRequired = gateFailure.reason === "login_required";
+    const canOpenDeviceSettings =
+      gateFailure.reason === "services_disabled" ||
+      gateFailure.reason === "permission_denied";
+
+    return (
+      <SafeAreaView style={styles.gateSafe}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} hitSlop={10}>
+            <Ionicons name="chevron-back" size={26} color="#fff" />
+          </Pressable>
+          <Text style={styles.headerTitle}>Smart Review</Text>
+          <View style={{ width: 26 }} />
+        </View>
+
+        <View style={styles.gateContent}>
+          <View style={styles.gateIcon}>
+            <Ionicons
+              name={
+                loginRequired
+                  ? "person-outline"
+                  : consentMissing
+                    ? "location-outline"
+                    : "navigate-outline"
+              }
+              size={34}
+              color={theme.colors.primary}
+            />
+          </View>
+
+          <Text style={styles.gateKicker}>SMART REVIEW</Text>
+          <Text style={styles.gateTitle}>{gateFailure.title}</Text>
+          <Text style={styles.gateBody}>{gateFailure.body}</Text>
+
+          <View style={styles.gatePrivacyCard}>
+            <Ionicons
+              name="shield-checkmark-outline"
+              size={21}
+              color={theme.colors.pinkSoft}
+            />
+            <Text style={styles.gatePrivacyText}>
+              Backyrd verwendet deinen Standort nur während der aktiven
+              Spot-Erkennung. Es wird kein Standortverlauf gespeichert.
+            </Text>
+          </View>
+
+          {consentMissing ? (
+            <Pressable
+              style={[styles.btn, styles.btnPrimary]}
+              onPress={() => router.push("/privacy-consents" as any)}
+            >
+              <Text style={styles.btnPrimaryText}>
+                Privacy Center öffnen
+              </Text>
+            </Pressable>
+          ) : loginRequired ? (
+            <Pressable
+              style={[styles.btn, styles.btnPrimary]}
+              onPress={() => router.push("/login" as any)}
+            >
+              <Text style={styles.btnPrimaryText}>Anmelden</Text>
+            </Pressable>
+          ) : canOpenDeviceSettings ? (
+            <Pressable
+              style={[styles.btn, styles.btnPrimary]}
+              onPress={() => void Linking.openSettings()}
+            >
+              <Text style={styles.btnPrimaryText}>
+                Geräteeinstellungen öffnen
+              </Text>
+            </Pressable>
+          ) : null}
+
+          {!loginRequired && !consentMissing ? (
+            <Pressable
+              style={[styles.btn, styles.btnGhost]}
+              onPress={() => setBootstrapNonce((value) => value + 1)}
+            >
+              <Text style={styles.btnGhostText}>Erneut versuchen</Text>
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            style={styles.gateBack}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.gateBackText}>
+              Backyrd ohne Smart Review weiter nutzen
+            </Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <KeyboardAvoidingView
@@ -449,7 +673,7 @@ export default function SmartReviewScreen() {
           <View style={styles.hero}>
             <Text style={styles.kicker}>SMART REVIEW</Text>
             <Text style={styles.heroTitle}>Moment erkennen</Text>
-            <Text style={styles.heroText}>Backyrd sucht den nächsten Spot zu deinem Foto und deiner Location.</Text>
+            <Text style={styles.heroText}>Backyrd erkennt den Spot über dein aktuelles Foto und deinen Standort.</Text>
           </View>
 
           {photoUri ? (
@@ -573,6 +797,78 @@ export default function SmartReviewScreen() {
 }
 
 const styles = StyleSheet.create({
+  gateSafe: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  gateContent: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 52,
+    paddingBottom: 32,
+  },
+  gateIcon: {
+    width: 68,
+    height: 68,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,125,167,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,125,167,0.24)",
+    marginBottom: 25,
+  },
+  gateKicker: {
+    color: theme.colors.pinkSoft,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 2.6,
+    marginBottom: 12,
+  },
+  gateTitle: {
+    color: theme.colors.text,
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: "900",
+    letterSpacing: -0.8,
+  },
+  gateBody: {
+    color: theme.colors.textSoft,
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: "600",
+    marginTop: 14,
+    marginBottom: 22,
+  },
+  gatePrivacyCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 11,
+    padding: 15,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.045)",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: 22,
+  },
+  gatePrivacyText: {
+    flex: 1,
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "600",
+  },
+  gateBack: {
+    minHeight: 50,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 6,
+  },
+  gateBackText: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    fontWeight: "700",
+  },
   header: {
     minHeight: 58,
     paddingHorizontal: 20,

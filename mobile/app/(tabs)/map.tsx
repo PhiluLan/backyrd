@@ -23,12 +23,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 
 import { useSpotsStore } from "../../lib/useSpotsStore";
 import { useDebounce } from "use-debounce";
 import { supabase } from "../../lib/supabase";
-import { getPrivacySafeLocation } from "../../lib/locationPrivacy";
+import { resolveLocationContext } from "../../lib/locationContext";
+import { hasActiveConsent } from "../../lib/consent";
+import { safeDevelopmentWarning } from "../../lib/privacySanitize";
 import { MOOD_SUGGESTIONS } from "../../lib/moods";
 import { trackAnalyticsEvent } from "../../lib/analytics";
 
@@ -143,6 +145,21 @@ export default function MapScreen() {
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
 
   const mapRef = useRef<ClusteredMapView | null>(null);
+  const [locationConsentGranted, setLocationConsentGranted] = useState(false);
+
+  const refreshLocationConsent = React.useCallback(async () => {
+    const granted = await hasActiveConsent("precise_location", {
+      forceRefresh: true,
+    });
+    setLocationConsentGranted(granted);
+    return granted;
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void refreshLocationConsent();
+    }, [refreshLocationConsent]),
+  );
 
   /* =============================================================
      LOAD DATA
@@ -451,23 +468,49 @@ export default function MapScreen() {
   ============================================================= */
 
   async function recenterToMe() {
-    const result = await getPrivacySafeLocation({
-      purpose: "map_recenter",
-      accuracy: 3,
-      forceConsentRefresh: true,
-      timeoutMs: 8_000,
-      allowLastKnown: true,
-    });
+    const consentGranted = await refreshLocationConsent();
 
-    if (!result.ok) {
-      Alert.alert("Standort", result.message);
+    if (!consentGranted) {
+      Alert.alert(
+        "Standort ist ausgeschaltet",
+        "Backyrd verwendet deinen präzisen Standort nur, wenn du ihn im Privacy Center aktivierst.",
+        [
+          { text: "Später", style: "cancel" },
+          {
+            text: "Privacy Center öffnen",
+            onPress: () => router.push("/privacy-consents" as any),
+          },
+        ],
+      );
       return;
     }
 
+    const context = await resolveLocationContext({
+      purpose: "map_recenter",
+      requestPermission: true,
+      forceConsentRefresh: true,
+      allowCityFallback: false,
+      timeoutMs: 8_000,
+    });
+
+    if (!context.coordinates) {
+      const message =
+        context.failureReason === "services_disabled"
+          ? "Die Ortungsdienste sind auf deinem iPhone ausgeschaltet. Aktiviere sie in den iOS-Einstellungen, um die Karte auf dich zu zentrieren."
+          : context.failureReason === "permission_denied"
+            ? "Backyrd hat aktuell keine iOS-Berechtigung für deinen Standort. Du kannst sie in den iOS-Einstellungen erlauben."
+            : "Dein Standort ist gerade nicht verfügbar. Du kannst die Karte trotzdem frei erkunden.";
+
+      Alert.alert("Standort nicht verfügbar", message);
+      return;
+    }
+
+    setLocationConsentGranted(true);
+
     const next = {
       ...region,
-      latitude: result.location.coords.latitude,
-      longitude: result.location.coords.longitude,
+      latitude: context.coordinates.latitude,
+      longitude: context.coordinates.longitude,
     };
 
     setRegion(next);
@@ -491,7 +534,7 @@ export default function MapScreen() {
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <View>
-            <Text style={styles.locationLabel}>Basel</Text>
+            <Text style={styles.locationLabel}>Karte entdecken</Text>
             <Text style={styles.title}>Orte entdecken</Text>
           </View>
           <Text style={styles.resultCount}>{filteredSpots.length} Spots</Text>
@@ -639,7 +682,7 @@ export default function MapScreen() {
           provider={PROVIDER_GOOGLE}
           style={{ flex: 1 }}
           region={region}
-          showsUserLocation
+          showsUserLocation={locationConsentGranted}
           clusterColor={theme.colors.primary}
           spiralEnabled
           customMapStyle={DARK_MAP_STYLE}

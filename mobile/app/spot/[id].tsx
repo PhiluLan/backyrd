@@ -976,7 +976,7 @@ export default function SpotDetailScreen() {
           )}
 
           <View style={styles.section}>
-            <SectionTitle>In der Nähe</SectionTitle>
+            <SectionTitle>Rund um diesen Spot</SectionTitle>
             {nearby.length > 0 ? (
               <FlatList
                 horizontal
@@ -999,7 +999,7 @@ export default function SpotDetailScreen() {
                       )}
                       <LinearGradient colors={["transparent", "rgba(0,0,0,0.62)"]} style={styles.nearbyGradient} />
                       <View style={styles.distancePill}>
-                        <Text style={styles.distanceText}>{item.distanceKm.toFixed(1)} km</Text>
+                        <Text style={styles.distanceText}>{item.distanceKm.toFixed(1)} km vom Spot</Text>
                       </View>
                     </View>
                     <Text style={styles.nearbyName} numberOfLines={1}>{item.name}</Text>

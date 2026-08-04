@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -91,6 +92,25 @@ type AppealRow = {
   submitted_at: string;
   reviewed_at: string | null;
 };
+
+type CaseTiming = {
+  case_id: string;
+  created_at: string;
+  updated_at: string;
+  decided_at: string | null;
+  case_status: string;
+  priority: number;
+  final_action: string | null;
+  final_category: string | null;
+  final_severity: number | null;
+};
+
+type CaseSort =
+  | "decision_newest"
+  | "created_newest"
+  | "created_oldest"
+  | "priority_highest"
+  | "severity_highest";
 
 type DecisionDraft = {
   row: SafetyRow;
@@ -306,6 +326,15 @@ export default function SafetyIntegrityPage() {
   const [cases, setCases] = useState<SafetyRow[]>([]);
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [appeals, setAppeals] = useState<AppealRow[]>([]);
+  const [caseTimings, setCaseTimings] =
+    useState<Record<string, CaseTiming>>({});
+  const [searchTerm, setSearchTerm] = useState("");
+  const [caseSort, setCaseSort] =
+    useState<CaseSort>("decision_newest");
+  const [categoryFilter, setCategoryFilter] =
+    useState("all");
+  const [severityFilter, setSeverityFilter] =
+    useState("all");
 
   const [error, setError] = useState("");
   const [decisionErrorText, setDecisionErrorText] = useState("");
@@ -327,7 +356,23 @@ export default function SafetyIntegrityPage() {
     );
 
     if (loadError) throw loadError;
-    setCases((data ?? []) as SafetyRow[]);
+
+    const loadedCases = (data ?? []) as SafetyRow[];
+    setCases(loadedCases);
+
+    const { data: timingData, error: timingError } =
+      await supabase.rpc(
+        "safety_admin_case_timings_v1",
+        { p_limit: 5000 },
+      );
+
+    if (timingError) throw timingError;
+
+    const timingMap: Record<string, CaseTiming> = {};
+    for (const timing of (timingData ?? []) as CaseTiming[]) {
+      timingMap[timing.case_id] = timing;
+    }
+    setCaseTimings(timingMap);
   }
 
   async function loadReports() {
@@ -379,11 +424,180 @@ export default function SafetyIntegrityPage() {
     void load();
   }, [view, caseStatus, reportStatus, appealStatus]);
 
+  useEffect(() => {
+    setSearchTerm("");
+
+    if (view === "cases") {
+      setCaseSort(
+        caseStatus === "decided"
+          ? "decision_newest"
+          : "priority_highest",
+      );
+    }
+  }, [view, caseStatus]);
+
+  const filteredCases = useMemo(() => {
+    const query =
+      searchTerm.trim().toLocaleLowerCase("de-CH");
+
+    const rows = cases.filter((row) => {
+      const timing = caseTimings[row.case_id];
+      const haystack = [
+        row.case_id,
+        row.text_content,
+        row.actor_name,
+        row.content_type,
+        row.entity_type,
+        row.final_category,
+        row.final_action,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("de-CH");
+
+      const severity = Number(
+        timing?.final_severity ??
+          row.final_severity ??
+          0,
+      );
+
+      return (
+        (!query || haystack.includes(query)) &&
+        (
+          categoryFilter === "all" ||
+          row.final_category === categoryFilter
+        ) &&
+        (
+          severityFilter === "all" ||
+          (severityFilter === "high" && severity >= 4) ||
+          (severityFilter === "medium" && severity === 3) ||
+          (severityFilter === "low" && severity <= 2)
+        )
+      );
+    });
+
+    return [...rows].sort((a, b) => {
+      const timingA = caseTimings[a.case_id];
+      const timingB = caseTimings[b.case_id];
+
+      if (caseSort === "priority_highest") {
+        return (
+          Number(timingB?.priority ?? b.priority ?? 0) -
+          Number(timingA?.priority ?? a.priority ?? 0)
+        );
+      }
+
+      if (caseSort === "severity_highest") {
+        return (
+          Number(
+            timingB?.final_severity ??
+              b.final_severity ??
+              0,
+          ) -
+          Number(
+            timingA?.final_severity ??
+              a.final_severity ??
+              0,
+          )
+        );
+      }
+
+      if (caseSort === "created_oldest") {
+        return (
+          new Date(
+            timingA?.created_at ?? a.created_at,
+          ).getTime() -
+          new Date(
+            timingB?.created_at ?? b.created_at,
+          ).getTime()
+        );
+      }
+
+      if (caseSort === "created_newest") {
+        return (
+          new Date(
+            timingB?.created_at ?? b.created_at,
+          ).getTime() -
+          new Date(
+            timingA?.created_at ?? a.created_at,
+          ).getTime()
+        );
+      }
+
+      return (
+        new Date(
+          timingB?.decided_at ??
+            timingB?.updated_at ??
+            b.created_at,
+        ).getTime() -
+        new Date(
+          timingA?.decided_at ??
+            timingA?.updated_at ??
+            a.created_at,
+        ).getTime()
+      );
+    });
+  }, [
+    cases,
+    caseTimings,
+    searchTerm,
+    categoryFilter,
+    severityFilter,
+    caseSort,
+  ]);
+
+  const filteredReports = useMemo(() => {
+    const query =
+      searchTerm.trim().toLocaleLowerCase("de-CH");
+
+    return reports.filter((row) =>
+      !query ||
+      [
+        row.report_id,
+        row.report_reason,
+        row.report_details,
+        row.reporter_name,
+        row.text_content,
+        row.final_category,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("de-CH")
+        .includes(query),
+    );
+  }, [reports, searchTerm]);
+
+  const filteredAppeals = useMemo(() => {
+    const query =
+      searchTerm.trim().toLocaleLowerCase("de-CH");
+
+    return appeals.filter((row) =>
+      !query ||
+      [
+        row.appeal_id,
+        row.appeal_reason,
+        row.statement,
+        row.appellant_name,
+        row.text_content,
+        row.original_category,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("de-CH")
+        .includes(query),
+    );
+  }, [appeals, searchTerm]);
+
   const visibleCount = useMemo(() => {
-    if (view === "cases") return cases.length;
-    if (view === "reports") return reports.length;
-    return appeals.length;
-  }, [view, cases, reports, appeals]);
+    if (view === "cases") return filteredCases.length;
+    if (view === "reports") return filteredReports.length;
+    return filteredAppeals.length;
+  }, [
+    view,
+    filteredCases,
+    filteredReports,
+    filteredAppeals,
+  ]);
 
   function openDecisionModal(
     row: SafetyRow,
@@ -713,6 +927,121 @@ export default function SafetyIntegrityPage() {
         </div>
       </section>
 
+      <section
+        className="by-card"
+        style={{
+          padding: 14,
+          marginBottom: 22,
+          display: "grid",
+          gridTemplateColumns:
+            view === "cases"
+              ? "minmax(260px, 1fr) repeat(3, minmax(170px, auto))"
+              : "minmax(260px, 1fr)",
+          gap: 10,
+          background: "rgba(255,255,255,0.018)",
+        }}
+      >
+        <input
+          value={searchTerm}
+          onChange={(event) =>
+            setSearchTerm(event.target.value)
+          }
+          placeholder={
+            view === "cases"
+              ? "Inhalt, Nutzer, Kategorie oder Fall-ID suchen …"
+              : view === "reports"
+                ? "Meldungen durchsuchen …"
+                : "Einsprüche durchsuchen …"
+          }
+          style={{
+            width: "100%",
+            borderRadius: 12,
+            border:
+              "1px solid rgba(255,255,255,0.10)",
+            background: "rgba(255,255,255,0.035)",
+            color: "inherit",
+            padding: "11px 13px",
+            font: "inherit",
+          }}
+        />
+
+        {view === "cases" ? (
+          <>
+            <select
+              className="by-select"
+              value={caseSort}
+              onChange={(event) =>
+                setCaseSort(
+                  event.target.value as CaseSort,
+                )
+              }
+            >
+              <option value="decision_newest">
+                Zuletzt entschieden
+              </option>
+              <option value="priority_highest">
+                Höchste Priorität
+              </option>
+              <option value="severity_highest">
+                Höchster Schweregrad
+              </option>
+              <option value="created_newest">
+                Neueste Erstellung
+              </option>
+              <option value="created_oldest">
+                Älteste Erstellung
+              </option>
+            </select>
+
+            <select
+              className="by-select"
+              value={categoryFilter}
+              onChange={(event) =>
+                setCategoryFilter(event.target.value)
+              }
+            >
+              <option value="all">Alle Kategorien</option>
+              <option value="none">Kein Verstoß</option>
+              <option value="hate">
+                Hass oder Diskriminierung
+              </option>
+              <option value="harassment">
+                Belästigung
+              </option>
+              <option value="violence">Gewalt</option>
+              <option value="sexual">
+                Sexuelle Inhalte
+              </option>
+              <option value="self_harm">
+                Selbstgefährdung
+              </option>
+              <option value="illicit">
+                Illegale Inhalte
+              </option>
+            </select>
+
+            <select
+              className="by-select"
+              value={severityFilter}
+              onChange={(event) =>
+                setSeverityFilter(event.target.value)
+              }
+            >
+              <option value="all">
+                Alle Schweregrade
+              </option>
+              <option value="high">
+                Hoch und kritisch
+              </option>
+              <option value="medium">Mittel</option>
+              <option value="low">
+                Niedrig und unauffällig
+              </option>
+            </select>
+          </>
+        ) : null}
+      </section>
+
       {error ? (
         <div
           className="by-card"
@@ -768,7 +1097,7 @@ export default function SafetyIntegrityPage() {
       {view === "cases" ? (
         <div style={{ display: "grid", gap: 18 }}>
           {!loading &&
-            cases.map((row) => {
+            filteredCases.map((row) => {
               const content = splitContent(row.text_content);
               const canDecide =
                 row.case_status === "needs_review";
@@ -828,22 +1157,40 @@ export default function SafetyIntegrityPage() {
                       </div>
                     </div>
 
-                    <StatusPill
-                      label={
-                        row.case_status === "needs_review"
-                          ? "Prüfung erforderlich"
-                          : row.case_status === "decided"
-                            ? "Entschieden"
-                            : row.case_status
-                      }
-                      tone={
-                        row.case_status === "needs_review"
-                          ? "warning"
-                          : row.case_status === "decided"
-                            ? "success"
-                            : "neutral"
-                      }
-                    />
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 9,
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        justifyContent: "flex-end",
+                      }}
+                    >
+                      <Link
+                        href={`/safety-integrity/${row.case_id}`}
+                        className="by-btn by-btn-soft"
+                        style={{ textDecoration: "none" }}
+                      >
+                        Fall öffnen
+                      </Link>
+
+                      <StatusPill
+                        label={
+                          row.case_status === "needs_review"
+                            ? "Prüfung erforderlich"
+                            : row.case_status === "decided"
+                              ? "Entschieden"
+                              : row.case_status
+                        }
+                        tone={
+                          row.case_status === "needs_review"
+                            ? "warning"
+                            : row.case_status === "decided"
+                              ? "success"
+                              : "neutral"
+                        }
+                      />
+                    </div>
                   </div>
 
                   <div
@@ -1149,6 +1496,13 @@ export default function SafetyIntegrityPage() {
                           flexWrap: "wrap",
                         }}
                       >
+                        <Link
+                          href={`/safety-integrity/${row.case_id}`}
+                          className="by-btn by-btn-soft"
+                          style={{ textDecoration: "none" }}
+                        >
+                          Fall öffnen
+                        </Link>
                         <button
                           className="by-btn by-btn-blue"
                           onClick={() =>
@@ -1204,7 +1558,7 @@ export default function SafetyIntegrityPage() {
       {view === "reports" ? (
         <div style={{ display: "grid", gap: 18 }}>
           {!loading &&
-            reports.map((row) => {
+            filteredReports.map((row) => {
               const content = splitContent(row.text_content);
               const count = Number(row.report_count ?? 1);
 
@@ -1448,7 +1802,7 @@ export default function SafetyIntegrityPage() {
       {view === "appeals" ? (
         <div style={{ display: "grid", gap: 18 }}>
           {!loading &&
-            appeals.map((row) => {
+            filteredAppeals.map((row) => {
               const content = splitContent(row.text_content);
               const open = ["submitted", "in_review"].includes(
                 row.appeal_status,

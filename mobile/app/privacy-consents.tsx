@@ -13,11 +13,11 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
 import { Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { supabase } from "@/lib/supabase";
-import { requestLocationDevicePermissionAfterConsent } from "@/lib/locationPrivacy";
 
 import {
   ConsentPurposeKey,
@@ -83,7 +83,36 @@ export default function PrivacyConsentScreen() {
     [rows],
   );
 
+  async function confirmDisablePreciseLocation() {
+    return await new Promise<boolean>((resolve) => {
+      Alert.alert(
+        "Smart Review deaktivieren?",
+        "Ohne präzisen Standort kannst du keine Smart Reviews erstellen. Discovery, Map, Decision und dein Profil bleiben weiterhin nutzbar.",
+        [
+          {
+            text: "Abbrechen",
+            style: "cancel",
+            onPress: () => resolve(false),
+          },
+          {
+            text: "Standort deaktivieren",
+            style: "destructive",
+            onPress: () => resolve(true),
+          },
+        ],
+        { cancelable: true, onDismiss: () => resolve(false) },
+      );
+    });
+  }
+
   async function toggle(row: ConsentStateRow, nextValue: boolean) {
+    if (
+      row.purpose_key === "precise_location" &&
+      !nextValue
+    ) {
+      const confirmed = await confirmDisablePreciseLocation();
+      if (!confirmed) return;
+    }
     setSavingKey(row.purpose_key);
 
     try {
@@ -94,10 +123,9 @@ export default function PrivacyConsentScreen() {
         nextValue &&
         Platform.OS !== "web"
       ) {
-        const permission =
-          await requestLocationDevicePermissionAfterConsent();
+        const permission = await Location.requestForegroundPermissionsAsync();
 
-        if (!permission.granted) {
+        if (permission.status !== "granted") {
           await setMyConsent("precise_location", false, row.document_id);
           Alert.alert(
             "Standort nicht aktiviert",
@@ -106,7 +134,7 @@ export default function PrivacyConsentScreen() {
         } else {
           Alert.alert(
             "Standort aktiviert",
-            "Backyrd darf deinen aktuellen Standort verwenden. Auf der Map kannst du dich über den Locate-Button neu zentrieren.",
+            "Smart Review ist jetzt freigeschaltet. Backyrd darf deinen aktuellen Standort außerdem für aktive Standortfunktionen wie den Locate-Button verwenden.",
           );
         }
       }
@@ -228,13 +256,14 @@ export default function PrivacyConsentScreen() {
             <Ionicons name="shield-checkmark-outline" size={25} color="#FF7DA7" />
             <Text style={styles.introTitle}>Du entscheidest.</Text>
             <Text style={styles.introText}>
-              Optionale Verarbeitungen sind standardmässig deaktiviert. Du kannst
-              jede Einwilligung jederzeit ändern. Notwendige Sicherheits- und
-              Kontofunktionen bleiben davon getrennt.
+              Du kannst Backyrd ohne Standort durchsuchen und Spots entdecken.
+              Für Smart Review ist der präzise Standort erforderlich, weil der Spot
+              während der Aufnahme automatisch erkannt wird. Du kannst die
+              Freigabe jederzeit widerrufen; Smart Review wird dann deaktiviert.
             </Text>
           </View>
 
-          <Text style={styles.sectionTitle}>OPTIONALE EINWILLIGUNGEN</Text>
+          <Text style={styles.sectionTitle}>FUNKTIONEN & EINWILLIGUNGEN</Text>
 
           {optionalRows.map((row) => {
             const enabled = row.current_status === "granted";
@@ -251,10 +280,25 @@ export default function PrivacyConsentScreen() {
                 </View>
 
                 <View style={styles.cardCopy}>
-                  <Text style={styles.cardTitle}>{row.title_de}</Text>
+                  <View style={styles.cardTitleRow}>
+                    <Text style={styles.cardTitle}>{row.title_de}</Text>
+                    {row.purpose_key === "precise_location" ? (
+                      <View style={styles.smartReviewBadge}>
+                        <Text style={styles.smartReviewBadgeText}>
+                          Smart Review
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
                   <Text style={styles.cardText}>{row.description_de}</Text>
                   <Text style={styles.statusText}>
-                    {enabled ? "Aktiv" : "Nicht aktiv"}
+                    {row.purpose_key === "precise_location"
+                      ? enabled
+                        ? "Smart Review freigeschaltet"
+                        : "Smart Review deaktiviert"
+                      : enabled
+                        ? "Aktiv"
+                        : "Nicht aktiv"}
                     {row.granted_at
                       ? ` · seit ${new Date(row.granted_at).toLocaleDateString("de-CH")}`
                       : ""}
@@ -402,6 +446,26 @@ const styles = StyleSheet.create({
     marginRight: 13,
   },
   cardCopy: { flex: 1, paddingRight: 12 },
+  cardTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 7,
+  },
+  smartReviewBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,125,167,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,125,167,0.25)",
+  },
+  smartReviewBadgeText: {
+    color: "#FFD4E0",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 0.4,
+  },
   cardTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
   cardText: { color: "#AFAFB7", fontSize: 13, lineHeight: 18, marginTop: 4 },
   statusText: {

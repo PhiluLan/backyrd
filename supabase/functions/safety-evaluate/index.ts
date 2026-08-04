@@ -245,32 +245,56 @@ Deno.serve(async (req) => {
   const authHeader =
     req.headers.get("Authorization") ?? "";
 
-  const userClient = createClient(
-    supabaseUrl,
-    serviceKey,
-    {
-      global: {
-        headers: {
-          Authorization: authHeader,
-        },
-      },
-    },
-  );
+  const internalWorkerSecret =
+    Deno.env.get("SAFETY_TEXT_WORKER_SECRET") ?? "";
+
+  const suppliedWorkerSecret =
+    req.headers.get("x-backyrd-worker-secret") ?? "";
+
+  const isInternalWorker =
+    internalWorkerSecret.length >= 32 &&
+    suppliedWorkerSecret === internalWorkerSecret;
 
   const admin = createClient(supabaseUrl, serviceKey);
 
-  const { data: userData } =
-    await userClient.auth.getUser();
+  let authenticatedUserId: string | null = null;
 
-  if (!userData.user) {
-    return json(
-      { ok: false, error: "not_authenticated" },
-      401,
+  if (!isInternalWorker) {
+    const userClient = createClient(
+      supabaseUrl,
+      serviceKey,
+      {
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+      },
     );
+
+    const { data: userData } =
+      await userClient.auth.getUser();
+
+    authenticatedUserId = userData.user?.id ?? null;
+
+    if (!authenticatedUserId) {
+      return json(
+        { ok: false, error: "not_authenticated" },
+        401,
+      );
+    }
   }
 
   const body = await req.json().catch(() => null);
   const caseId = body?.caseId;
+  const evaluationSource =
+    typeof body?.source === "string"
+      ? body.source
+      : "interactive";
+
+  const isTextOnlyEvaluation =
+    evaluationSource ===
+      "automatic_text_queue_v1";
 
   if (!caseId) {
     return json(
@@ -314,14 +338,21 @@ Deno.serve(async (req) => {
     ? caseRow.content[0]
     : caseRow.content;
 
+  if (!content) {
+    return json(
+      { ok: false, error: "content_not_found" },
+      404,
+    );
+  }
+
   if (
-    !content ||
-    content.actor_user_id !== userData.user.id
+    !isInternalWorker &&
+    content.actor_user_id !== authenticatedUserId
   ) {
     const { data: profile } = await admin
       .from("profiles")
       .select("is_admin")
-      .eq("id", userData.user.id)
+      .eq("id", authenticatedUserId)
       .single();
 
     if (!profile?.is_admin) {
@@ -340,12 +371,15 @@ Deno.serve(async (req) => {
     })
     .eq("id", caseId);
 
-  const imageUrls = Array.isArray(content.image_urls)
-    ? content.image_urls
-        .map(String)
-        .filter(Boolean)
-        .slice(0, 4)
-    : [];
+  const imageUrls =
+    isTextOnlyEvaluation
+      ? []
+      : Array.isArray(content.image_urls)
+        ? content.image_urls
+            .map(String)
+            .filter(Boolean)
+            .slice(0, 4)
+        : [];
 
   const inputs: unknown[] = [];
 
@@ -546,6 +580,8 @@ Deno.serve(async (req) => {
           `policy=${policy.version ?? "unknown"}`,
           `policy_category=${decision.policyCategory}`,
           `subcategory=${decision.subcategory}`,
+          `evaluation_source=${evaluationSource}`,
+          `text_only=${isTextOnlyEvaluation}`,
           `has_images=${imageUrls.length > 0}`,
           `symbol_checked=${symbolEvaluation.signal.checked}`,
           `symbol_matched=${symbolEvaluation.signal.matched}`,

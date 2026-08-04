@@ -141,6 +141,7 @@ type MlDecisionEventType =
 
 
 type DecisionInputMode = "guided" | "free";
+type DecisionCitySource = "empty" | "profile" | "manual";
 
 type DirectionOption = {
   key: string;
@@ -715,7 +716,8 @@ export default function DecisionScreen() {
 
   const [userId, setUserId] = useState<string | null>(null);
 
-  const [city, setCity] = useState("Basel");
+  const [city, setCity] = useState("");
+  const [citySource, setCitySource] = useState<DecisionCitySource>("empty");
   const [inputMode, setInputMode] = useState<DecisionInputMode>("guided");
   const [freeTextQuery, setFreeTextQuery] = useState("");
   const [selectedDirections, setSelectedDirections] = useState<string[]>([]);
@@ -774,10 +776,35 @@ export default function DecisionScreen() {
   }, [city, inputMode, freeTextQuery, selectedDirections.length, selectedAudiences.length, selectedMoods.length, moodA, moodB]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
+    const loadUserAndProfileCity = async (nextUserId?: string | null) => {
+      const resolvedUserId = nextUserId ?? null;
+      setUserId(resolvedUserId);
+
+      if (!resolvedUserId) return;
+
+      const { data: profileRow } = await supabase
+        .from("profiles")
+        .select("city")
+        .eq("id", resolvedUserId)
+        .maybeSingle();
+
+      const profileCity = clean(profileRow?.city);
+
+      if (profileCity) {
+        setCity((current) => {
+          if (clean(current)) return current;
+          setCitySource("profile");
+          return profileCity;
+        });
+      }
+    };
+
+    supabase.auth.getUser().then(({ data }) => {
+      void loadUserAndProfileCity(data.user?.id ?? null);
+    });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserId(session?.user?.id ?? null);
+      void loadUserAndProfileCity(session?.user?.id ?? null);
     });
 
     return () => sub.subscription.unsubscribe();
@@ -1708,13 +1735,20 @@ export default function DecisionScreen() {
                     marginBottom: 9,
                   }}
                 >
-                  Stadt
+                  {citySource === "profile"
+                    ? "Profilstadt"
+                    : citySource === "manual"
+                      ? "Gewählte Stadt"
+                      : "Stadt wählen"}
                 </Text>
 
                 <TextInput
                   value={city}
-                  onChangeText={setCity}
-                  placeholder="Basel"
+                  onChangeText={(value) => {
+                    setCity(value);
+                    setCitySource(clean(value) ? "manual" : "empty");
+                  }}
+                  placeholder="Zum Beispiel Basel oder Zürich"
                   placeholderTextColor="rgba(255,255,255,0.26)"
                   autoCorrect={false}
                   returnKeyType="next"
@@ -1727,6 +1761,34 @@ export default function DecisionScreen() {
                     letterSpacing: -0.75,
                   }}
                 />
+
+                <View
+                  style={{
+                    marginTop: 12,
+                    alignSelf: "flex-start",
+                    borderRadius: 999,
+                    paddingHorizontal: 11,
+                    paddingVertical: 7,
+                    backgroundColor: "rgba(255,125,167,0.10)",
+                    borderWidth: 1,
+                    borderColor: "rgba(255,125,167,0.24)",
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: "rgba(255,255,255,0.66)",
+                      fontSize: 12,
+                      lineHeight: 16,
+                      fontWeight: "700",
+                    }}
+                  >
+                    {citySource === "profile"
+                      ? "Aus deinem Profil · nicht dein Live-Standort"
+                      : citySource === "manual"
+                        ? "Manuell gewählt · ohne Standortfreigabe"
+                        : "Keine Standortfreigabe nötig"}
+                  </Text>
+                </View>
               </View>
 
               <View

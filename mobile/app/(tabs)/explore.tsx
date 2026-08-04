@@ -1,4 +1,10 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback
+} from "react";
 import {
   View,
   Text,
@@ -17,10 +23,10 @@ import {
   ScrollView as RNScrollView,
 } from "react-native";
 import { supabase } from "../../lib/supabase";
-import { getPrivacySafeLocation, reverseGeocodePrivacySafe } from "@/lib/locationPrivacy";
+import { resolveLocationContext } from "@/lib/locationContext";
 import { safeDevelopmentWarning } from "../../lib/privacySanitize";
 import type { Spot } from "../../lib/types";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import type { User } from "@supabase/supabase-js";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -110,7 +116,7 @@ function greetingByTime() {
 }
 
 function shortAddress(address?: string | null) {
-  if (!address) return "Basel";
+  if (!address) return "Adresse noch offen";
   const parts = address.split(",").map((part) => part.trim()).filter(Boolean);
   if (parts.length >= 2) return parts.slice(0, 2).join(" · ");
   return address;
@@ -161,6 +167,7 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [top8Moods, setTop8Moods] = useState<string[]>([]);
+  const [unreadMessages, setUnreadMessages] = useState(0);
 
   // NEW: Dynamic chips + general suggestions + surprise
   const [topMoodChips, setTopMoodChips] = useState<string[]>([]);
@@ -314,37 +321,27 @@ export default function Home() {
   useEffect(() => {
     (async () => {
       try {
-        const result = await getPrivacySafeLocation({
+        const context = await resolveLocationContext({
           purpose: "nearby_discovery",
           requestPermission: false,
+          allowCityFallback: false,
           timeoutMs: 4_000,
-          allowLastKnown: true,
         });
 
-        if (!result.ok) {
+        if (!context.coordinates) {
           setCurrentCanton(null);
+          setUserCoords(null);
           return;
         }
 
-        setUserCoords({
-          latitude: result.location.coords.latitude,
-          longitude: result.location.coords.longitude,
-        });
+        setUserCoords(context.coordinates);
 
-        const r = await reverseGeocodePrivacySafe(result.location);
-
-        if (r) {
-          const canton = normalizeCanton(
-            r.region,
-            (r as any).subregion,
-            r.city
-          );
-
-          console.log("Detected canton:", canton, "| raw:", r);
-          setCurrentCanton(canton);
-        } else {
-          setCurrentCanton(null);
-        }
+        const canton = normalizeCanton(
+          context.region || undefined,
+          undefined,
+          context.city || undefined,
+        );
+        setCurrentCanton(canton);
       } catch (e) {
         safeDevelopmentWarning("[explore] location failed", e);
         setUserCoords(null);
@@ -1197,7 +1194,9 @@ export default function Home() {
     journeyMini.length === 0;
 
   const currentCityName =
-    currentCanton === "Basel-Stadt" ? "Basel" : currentCanton || "Basel";
+    currentCanton === "Basel-Stadt"
+      ? "Basel"
+      : currentCanton || profile?.city || null;
   const cityMatches = (spot: SpotWithPhoto) =>
     !currentCityName ||
     currentCityName === "Schweiz" ||
@@ -1209,6 +1208,37 @@ export default function Home() {
   const randomInCity = randomFallback.filter(cityMatches);
   const randomCitySpots = (randomInCity.length > 0 ? randomInCity : randomFallback).slice(0, 3);
   const firstName = profile?.first_name || "du";
+
+  const loadUnreadMessages = useCallback(async () => {
+    if (!user?.id) {
+      setUnreadMessages(0);
+      return;
+    }
+
+    const { data, error } = await supabase.rpc("get_my_direct_chats_v1");
+    if (error) return;
+
+    const total = (Array.isArray(data) ? data : []).reduce(
+      (sum: number, row: any) =>
+        sum + Number(row?.unread_count ?? 0),
+      0,
+    );
+
+    setUnreadMessages(total);
+  }, [user?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadUnreadMessages();
+
+      const timer = setInterval(
+        () => void loadUnreadMessages(),
+        30000,
+      );
+
+      return () => clearInterval(timer);
+    }, [loadUnreadMessages]),
+  );
 
   /** ===== RENDER ===== */
   return (
@@ -1240,19 +1270,48 @@ export default function Home() {
                   <Ionicons name="chevron-down" size={19} color="#DCD7CB" />
                 </Pressable>
 
-                <Pressable
-                  onPress={() => router.push("/profile")}
-                  style={styles.quietAvatar}
-                >
-                  {profile?.avatar_url ? (
-                    <Image
-                      source={{ uri: profile.avatar_url }}
-                      style={styles.quietAvatarImage}
+                <View style={styles.homeHeaderActions}>
+                  <Pressable
+                    onPress={() => router.push("/users/search" as any)}
+                    style={styles.headerActionButton}
+                    accessibilityLabel="Benutzer suchen"
+                  >
+                    <Ionicons name="people-outline" size={21} color="#F4EFE4" />
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => router.push("/(tabs)/messages" as any)}
+                    style={styles.headerActionButton}
+                    accessibilityLabel="Nachrichten öffnen"
+                  >
+                    <Ionicons
+                      name="chatbubble-ellipses-outline"
+                      size={21}
+                      color="#F4EFE4"
                     />
-                  ) : (
-                    <Ionicons name="person" size={21} color="#F4EFE4" />
-                  )}
-                </Pressable>
+                    {unreadMessages > 0 ? (
+                      <View style={styles.unreadDot}>
+                        <Text style={styles.unreadDotText}>
+                          {Math.min(unreadMessages, 99)}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => router.push("/profile")}
+                    style={styles.quietAvatar}
+                  >
+                    {profile?.avatar_url ? (
+                      <Image
+                        source={{ uri: profile.avatar_url }}
+                        style={styles.quietAvatarImage}
+                      />
+                    ) : (
+                      <Ionicons name="person" size={21} color="#F4EFE4" />
+                    )}
+                  </Pressable>
+                </View>
               </View>
 
               <View style={styles.quietGreetingWrap}>
@@ -1695,7 +1754,7 @@ function CalmSpotCard({
             <View style={styles.calmSpotMetaRow}>
               <Ionicons name="location-outline" size={15} color="#D4D0C8" />
               <Text style={styles.calmSpotMeta} numberOfLines={1}>
-                {distanceLabel || "In deiner Nähe"}
+                {distanceLabel || shortAddress(spot.address)}
               </Text>
             </View>
             {moodLabel && (
@@ -1840,6 +1899,44 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 10,
+  },
+
+  homeHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+  },
+
+  headerActionButton: {
+    width: 43,
+    height: 43,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.065)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.09)",
+  },
+
+  unreadDot: {
+    position: "absolute",
+    right: -4,
+    top: -4,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FF477E",
+    borderWidth: 2,
+    borderColor: "#080808",
+  },
+
+  unreadDotText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "900",
   },
 
   locationButton: {

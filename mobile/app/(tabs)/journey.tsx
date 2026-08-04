@@ -16,7 +16,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
-import { getPrivacySafeLocation } from "../../lib/locationPrivacy";
+import {
+  locationContextRadiusLabel,
+  resolveLocationContext,
+  type BackyrdLocationContext,
+} from "../../lib/locationContext";
 import { safeDevelopmentWarning } from "../../lib/privacySanitize";
 import { useRouter } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -37,7 +41,6 @@ const theme = {
   spacing: (n: number) => n * 8,
 };
 
-const DEFAULT_CENTER = { latitude: 47.5596, longitude: 7.5886 };
 
 function normalize(s?: string | null) {
   return (s || "").trim().toLowerCase();
@@ -309,7 +312,7 @@ export default function JourneyScreen() {
   const [loading, setLoading] = useState(false);
   const [catalogLoading, setCatalogLoading] = useState(true);
 
-  const [myPos, setMyPos] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationContext, setLocationContext] = useState<BackyrdLocationContext | null>(null);
   const [catalog, setCatalog] = useState<CatalogSpot[]>([]);
   const [greeting, setGreeting] = useState<string | null>(null);
   const [steps, setSteps] = useState<UIJourneyStep[]>([]);
@@ -322,27 +325,14 @@ export default function JourneyScreen() {
   useEffect(() => {
     (async () => {
       try {
-        async function loadSafeLocation() {
-          if (Platform.OS === "web") return null;
+        const context = await resolveLocationContext({
+          purpose: "journey_ranking",
+          requestPermission: false,
+          allowCityFallback: false,
+          timeoutMs: 2_500,
+        });
+        setLocationContext(context);
 
-          const result = await getPrivacySafeLocation({
-            purpose: "journey_ranking",
-            accuracy: 3,
-            requestPermission: false,
-            timeoutMs: 2_500,
-            allowLastKnown: true,
-          });
-
-          if (!result.ok) return null;
-
-          return {
-            latitude: result.location.coords.latitude,
-            longitude: result.location.coords.longitude,
-          };
-        }
-
-        const loc = await loadSafeLocation();
-        setMyPos(loc);
 
         const { data, error } = await supabase
           .from("spots")
@@ -359,7 +349,7 @@ export default function JourneyScreen() {
 
         if (error) throw error;
 
-        const center = loc ?? DEFAULT_CENTER;
+        const center = context.coordinates;
         const rawSpots = (data || []) as any[];
 
         const spots = rawSpots
@@ -368,7 +358,9 @@ export default function JourneyScreen() {
             const lng = toNumber(row.lng);
             if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
-            const dist = haversineKm(center, { latitude: lat, longitude: lng });
+            const dist = center
+              ? haversineKm(center, { latitude: lat, longitude: lng })
+              : null;
 
             const reviewMoodsRaw: string[] = [];
             (row.reviews || []).forEach((r: any) => {
@@ -395,7 +387,9 @@ export default function JourneyScreen() {
           })
           .filter(Boolean) as CatalogSpot[];
 
-        const filtered = spots.filter((s) => (s.distanceKm ?? 9999) <= 15);
+        const filtered = center
+          ? spots.filter((s) => (s.distanceKm ?? 9999) <= 15)
+          : spots;
 
         filtered.sort((a, b) => {
           const da = a.distanceKm ?? 9999;
@@ -501,7 +495,7 @@ export default function JourneyScreen() {
 
           {!catalogLoading && (
             <Text style={{ color: theme.colors.textMuted, marginTop: 8 }}>
-              {catalog.length} Spots berücksichtigt {myPos ? "im Radius ~15 km" : "(ohne Standort)"}
+              {catalog.length} Spots berücksichtigt · {locationContextRadiusLabel(locationContext)}
             </Text>
           )}
 

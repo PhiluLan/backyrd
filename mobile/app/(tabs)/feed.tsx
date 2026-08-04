@@ -26,6 +26,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import CommentsSheet from "../../components/CommentsSheet";
 import SocialPostCard, { SocialFeedPost } from "../../components/PostCard";
 import { supabase } from "../../lib/supabase";
+import { hydrateSocialMediaSignedUrls } from "../../lib/socialMedia";
 import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 import { registerSafetySnapshot } from "../../lib/safety-content";
 
@@ -399,7 +400,7 @@ export default function FeedScreen() {
         const { data: userData } = await supabase.auth.getUser();
         setCurrentUserId(userData.user?.id ?? null);
 
-        const { data, error } = await supabase.rpc("get_social_feed_v1", {
+        const { data, error } = await supabase.rpc("get_social_feed_v2", {
           p_limit: FEED_LIMIT,
           p_cursor: null,
           p_city: null,
@@ -413,13 +414,15 @@ export default function FeedScreen() {
         );
         const visiblePosts =
           await filterSafetyVisiblePosts(normalizedPosts);
+        const signedPosts =
+          await hydrateSocialMediaSignedUrls(visiblePosts);
 
         updatePostsForMode(
           feedMode,
-          () => visiblePosts,
+          () => signedPosts,
         );
       } catch (error: any) {
-        console.log("get_social_feed_v1 failed:", error);
+        console.log("get_social_feed_v2 failed:", error);
         Alert.alert("Moments konnten nicht geladen werden", errorMessage(error));
       } finally {
         setLoading(false);
@@ -664,13 +667,9 @@ export default function FeedScreen() {
 
         if (uploadError) throw uploadError;
 
-        const { data: publicUrlData } = supabase.storage
-          .from("social-post-media")
-          .getPublicUrl(path);
-
         uploadedMedia.push({
           storage_path: path,
-          public_url: publicUrlData.publicUrl,
+          public_url: null,
           media_type: "image",
           width: item.width ?? null,
           height: item.height ?? null,
@@ -735,35 +734,131 @@ export default function FeedScreen() {
     }
   }, [caption, loadFeed, media, resetComposer, selectedSpot?.id]);
 
+  const pulseProfiles = useMemo(() => {
+    const seen = new Set<string>();
+    const result: SocialFeedPost[] = [];
+
+    for (const post of [...forYouPosts, ...followingPosts]) {
+      if (!post.user_id || seen.has(post.user_id)) continue;
+      seen.add(post.user_id);
+      result.push(post);
+      if (result.length >= 8) break;
+    }
+
+    return result;
+  }, [forYouPosts, followingPosts]);
+
   const renderHeader = (
     <View style={styles.headerWrap}>
-      <View style={styles.topRow}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.kicker}>Backyrd Pulse</Text>
-          <Text style={styles.title}>Moments</Text>
-          <Text style={styles.subtitle} numberOfLines={2}>
-            Bewertungen, Tipps und Orte aus deinem Backyrd.
-          </Text>
+      <View style={styles.appBar}>
+        <Pressable
+          style={styles.smallCreateButton}
+          onPress={() => setComposerVisible(true)}
+        >
+          <Ionicons name="add" size={27} color="#FFFFFF" />
+        </Pressable>
+
+        <View style={styles.appBarTitleWrap}>
+          <Text style={styles.kicker}>BACKYRD PULSE</Text>
+          <Text style={styles.appBarTitle}>Moments</Text>
         </View>
 
-        <Pressable style={styles.createButton} onPress={() => setComposerVisible(true)}>
-          <Ionicons name="add" size={30} color="#050506" />
+        <Pressable
+          style={styles.communityButton}
+          onPress={() => router.push("/users/search" as any)}
+        >
+          <Ionicons name="people-outline" size={24} color="#FFFFFF" />
         </Pressable>
       </View>
 
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.pulseRail}
+      >
+        <Pressable
+          style={styles.pulseItem}
+          onPress={() => setComposerVisible(true)}
+        >
+          <View style={styles.myPulseAvatar}>
+            <Ionicons name="add" size={27} color="#FFFFFF" />
+          </View>
+          <Text style={styles.pulseLabel} numberOfLines={1}>
+            Dein Moment
+          </Text>
+        </Pressable>
+
+        {pulseProfiles.map((profile) => {
+          const name =
+            profile.display_name?.trim() ||
+            profile.username?.trim() ||
+            "Backyrd";
+
+          return (
+            <Pressable
+              key={profile.user_id}
+              style={styles.pulseItem}
+              onPress={() =>
+                router.push(`/user/${profile.user_id}` as any)
+              }
+            >
+              <View style={styles.pulseRing}>
+                {profile.avatar_url ? (
+                  <Image
+                    source={{ uri: profile.avatar_url }}
+                    style={styles.pulseAvatar}
+                  />
+                ) : (
+                  <View style={styles.pulseAvatarFallback}>
+                    <Text style={styles.pulseInitial}>
+                      {name.slice(0, 1).toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.pulseLabel} numberOfLines={1}>
+                {profile.username
+                  ? `@${profile.username}`
+                  : name}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
       <View style={styles.modeShell}>
         <Pressable
-          style={[styles.modeButton, mode === "for_you" && styles.modeButtonActive]}
+          style={[
+            styles.modeButton,
+            mode === "for_you" && styles.modeButtonActive,
+          ]}
           onPress={() => switchMode("for_you")}
         >
-          <Text style={[styles.modeText, mode === "for_you" && styles.modeTextActive]}>Für dich</Text>
+          <Text
+            style={[
+              styles.modeText,
+              mode === "for_you" && styles.modeTextActive,
+            ]}
+          >
+            Für dich
+          </Text>
         </Pressable>
 
         <Pressable
-          style={[styles.modeButton, mode === "following" && styles.modeButtonActive]}
+          style={[
+            styles.modeButton,
+            mode === "following" && styles.modeButtonActive,
+          ]}
           onPress={() => switchMode("following")}
         >
-          <Text style={[styles.modeText, mode === "following" && styles.modeTextActive]}>Folge ich</Text>
+          <Text
+            style={[
+              styles.modeText,
+              mode === "following" && styles.modeTextActive,
+            ]}
+          >
+            Folge ich
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -1027,74 +1122,136 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   headerWrap: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingTop: 4,
+    paddingBottom: 12,
+    backgroundColor: "#050506",
   },
-  topRow: {
-    minHeight: 92,
+  appBar: {
+    minHeight: 72,
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 16,
+  },
+  smallCreateButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#15151A",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+  },
+  appBarTitleWrap: {
+    alignItems: "center",
   },
   kicker: {
-    color: "#FF9ABA",
-    fontSize: 12,
+    color: "#FF8FB2",
+    fontSize: 10,
     fontWeight: "900",
-    letterSpacing: 1.25,
-    textTransform: "uppercase",
+    letterSpacing: 2.2,
   },
-  title: {
-    marginTop: 4,
+  appBarTitle: {
+    marginTop: 2,
     color: "#FFFFFF",
-    fontSize: 42,
-    lineHeight: 46,
+    fontSize: 29,
+    lineHeight: 33,
     fontWeight: "900",
-    letterSpacing: -1.5,
+    letterSpacing: -0.8,
   },
-  subtitle: {
-    marginTop: 8,
-    color: "#85858B",
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: "700",
-    maxWidth: 270,
+  communityButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#15151A",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
   },
-  createButton: {
-    width: 60,
-    height: 60,
+  pulseRail: {
+    paddingHorizontal: 13,
+    paddingTop: 8,
+    paddingBottom: 17,
+    gap: 13,
+  },
+  pulseItem: {
+    width: 76,
+    alignItems: "center",
+  },
+  myPulseAvatar: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#17171C",
+    borderWidth: 2,
+    borderColor: "#FF7DA7",
+  },
+  pulseRing: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    padding: 3,
+    backgroundColor: "#FF5C8D",
+  },
+  pulseAvatar: {
+    width: "100%",
+    height: "100%",
     borderRadius: 30,
-    backgroundColor: "#FF7DA7",
+    borderWidth: 2,
+    borderColor: "#050506",
+  },
+  pulseAvatarFallback: {
+    flex: 1,
+    borderRadius: 30,
+    backgroundColor: "#25252C",
+    borderWidth: 2,
+    borderColor: "#050506",
     alignItems: "center",
     justifyContent: "center",
   },
+  pulseInitial: {
+    color: "#FFFFFF",
+    fontSize: 23,
+    fontWeight: "900",
+  },
+  pulseLabel: {
+    marginTop: 7,
+    width: 76,
+    color: "#D9D9DE",
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+  },
   modeShell: {
-    marginTop: 16,
-    height: 56,
-    borderRadius: 28,
+    marginHorizontal: 16,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: "#101014",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.09)",
-    padding: 5,
+    padding: 4,
     flexDirection: "row",
   },
   modeButton: {
     flex: 1,
-    borderRadius: 23,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
   modeButtonActive: {
-    backgroundColor: "#FFD4E0",
+    backgroundColor: "#FFB5CB",
   },
   modeText: {
     color: "#8E8E95",
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "900",
   },
   modeTextActive: {
-    color: "#171214",
+    color: "#161116",
   },
   emptyCard: {
     minHeight: 380,

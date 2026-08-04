@@ -200,13 +200,13 @@ export default function MessagesScreen() {
           <Text style={styles.title}>Nachrichten</Text>
         </View>
 
-        <View style={styles.headerIcon}>
-          <Ionicons
-            name="chatbubble-ellipses-outline"
-            size={22}
-            color="#FFFFFF"
-          />
-        </View>
+        <Pressable
+          style={styles.headerIcon}
+          onPress={() => router.push("/users/search" as any)}
+          accessibilityLabel="Neuen Chat starten"
+        >
+          <Ionicons name="person-add-outline" size={22} color="#FFFFFF" />
+        </Pressable>
       </View>
 
       {errorText ? (
@@ -260,8 +260,7 @@ export default function MessagesScreen() {
                 Noch keine Nachrichten
               </Text>
               <Text style={styles.stateText}>
-                Öffne ein Profil und starte dort deinen ersten
-                Backyrd-Chat.
+                Suche nach einem öffentlichen Profil und starte deinen ersten Backyrd-Chat.
               </Text>
             </View>
           }

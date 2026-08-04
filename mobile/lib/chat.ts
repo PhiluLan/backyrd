@@ -41,7 +41,7 @@ export async function getOrCreateChat(
     currentUserId === userA ? userB : userA;
 
   const { data, error } = await supabase.rpc(
-    "get_or_create_direct_chat_v1",
+    "get_or_create_direct_chat_v2",
     {
       p_other_user_id: otherUserId,
     },

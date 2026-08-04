@@ -15,6 +15,7 @@ import { AnalyticsProvider } from "../providers/AnalyticsProvider";
 import { AnalyticsErrorBoundary } from "../components/AnalyticsErrorBoundary";
 import GlobalSafetyEnforcementGuard from "../components/safety/GlobalSafetyEnforcementGuard";
 import LegalGateGuard from "../components/consent/LegalGateGuard";
+import PushNotificationRouter from "../components/PushNotificationRouter";
 
 function WebSafeFallback() {
   return (
@@ -84,6 +85,7 @@ export default function RootLayout() {
       <AnalyticsProvider>
         <GlobalSafetyEnforcementGuard>
           <LegalGateGuard>
+            <PushNotificationRouter />
             <RootStack />
           </LegalGateGuard>
         </GlobalSafetyEnforcementGuard>

@@ -18,7 +18,10 @@ import { Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { supabase } from "@/lib/supabase";
-import { getPrivacySafeLocation, reverseGeocodePrivacySafe } from "../../lib/locationPrivacy";
+import {
+  normalizeLocationCity,
+  resolveLocationContext,
+} from "../../lib/locationContext";
 import { safeDevelopmentWarning } from "../../lib/privacySanitize";
 
 type SpotRow = {
@@ -141,21 +144,25 @@ export default function DecisionOnboardingScreen() {
       setDetectingLocation(true);
       setLocationStatus("idle");
 
-      const result = await getPrivacySafeLocation({
+      const context = await resolveLocationContext({
         purpose: "city_detection",
+        requestPermission: true,
         forceConsentRefresh: true,
+        allowCityFallback: false,
         timeoutMs: 8_000,
-        allowLastKnown: true,
       });
 
-      if (!result.ok) {
-        Alert.alert("Standort", result.message);
-        setLocationStatus("denied");
+      if (!context.coordinates) {
+        setLocationStatus(
+          context.failureReason === "permission_denied" ||
+            context.failureReason === "consent_not_granted"
+            ? "denied"
+            : "failed",
+        );
         return;
       }
 
-      const geocoded = await reverseGeocodePrivacySafe(result.location);
-      const detectedCity = getCityFromGeocode(geocoded);
+      const detectedCity = normalizeLocationCity(context.city);
 
       if (!detectedCity) {
         setLocationStatus("failed");

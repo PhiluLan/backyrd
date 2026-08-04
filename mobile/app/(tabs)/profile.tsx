@@ -25,6 +25,7 @@ import { supabase } from "@/lib/supabase";
 import { ensureProfile } from "@/lib/profile";
 import SocialPostCard, { type SocialFeedPost } from "@/components/PostCard";
 import CommentsSheet from "@/components/CommentsSheet";
+import ProfilePrivacyCard from "@/components/ProfilePrivacyCard";
 import { trackAnalyticsEvent, reportAnalyticsError } from "@/lib/analytics";
 import { buildProfileSafetyText, registerSafetySnapshot } from "@/lib/safety-content";
 
@@ -53,6 +54,7 @@ type ProfileRow = {
   personality?: string | null;
   job_title?: string | null;
   languages?: string | string[] | null;
+  is_private?: boolean;
 };
 
 type FavoriteRow = {
@@ -310,7 +312,7 @@ export default function ProfileScreen() {
 
           // Uses the same social feed source as public profiles/feed.
           // The client filters to the current user so the own profile and public profile feel identical.
-          supabase.rpc("get_social_feed_v1", {
+          supabase.rpc("get_social_feed_v2", {
             p_limit: 80,
             p_feed_mode: "for_you",
             p_city: null,
@@ -749,6 +751,16 @@ export default function ProfileScreen() {
             />
           </Pressable>
         </View>
+
+        <ProfilePrivacyCard
+          key={`privacy-${profile?.is_private ? "private" : "public"}`}
+          initialPrivate={Boolean(profile?.is_private)}
+          onChanged={(isPrivate) =>
+            setProfile((current) =>
+              current ? { ...current, is_private: isPrivate } : current
+            )
+          }
+        />
 
         <View style={styles.tabShell}>
           {[
