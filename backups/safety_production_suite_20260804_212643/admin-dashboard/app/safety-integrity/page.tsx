@@ -1042,11 +1042,6 @@ export default function SafetyIntegrityPage() {
         ) : null}
       </section>
 
-      <section style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:18}}>
-        <Link href="/safety-integrity/overview" className="by-btn by-btn-soft" style={{textDecoration:"none"}}>Qualität & Monitoring</Link>
-        <Link href="/safety-integrity/enforcement" className="by-btn by-btn-soft" style={{textDecoration:"none"}}>Verwarnungen & Kontomaßnahmen</Link>
-      </section>
-
       {error ? (
         <div
           className="by-card"

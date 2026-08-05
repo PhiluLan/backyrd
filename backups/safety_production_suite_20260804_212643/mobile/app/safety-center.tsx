@@ -192,21 +192,6 @@ export default function SafetyCenterScreen() {
             Safety Center
           </Text>
         </View>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Safety-Mitteilungen öffnen"
-          onPress={() =>
-            router.push("/safety-notifications" as any)
-          }
-          style={styles.notificationButton}
-        >
-          <Ionicons
-            name="notifications-outline"
-            size={22}
-            color="#FFFFFF"
-          />
-        </Pressable>
       </View>
 
       {loading ? (
@@ -463,17 +448,9 @@ export default function SafetyCenterScreen() {
                 </View>
               ) : (
                 reports.map((report) => (
-                  <Pressable
+                  <View
                     key={report.report_id}
-                    accessibilityRole="button"
-                    accessibilityLabel="Meldungsdetails öffnen"
-                    onPress={() =>
-                      router.push(`/safety-report/${report.report_id}` as any)
-                    }
-                    style={({ pressed }) => [
-                      styles.card,
-                      pressed ? styles.cardPressed : null,
-                    ]}
+                    style={styles.card}
                   >
                     <View style={styles.cardHeader}>
                       <View style={{ flex: 1 }}>
@@ -563,14 +540,7 @@ export default function SafetyCenterScreen() {
                         </Text>
                       </View>
                     ) : null}
-
-                    <View style={styles.openReportRow}>
-                      <Text style={styles.openReportText}>
-                        Meldungsdetails öffnen
-                      </Text>
-                      <Ionicons name="chevron-forward" size={18} color="#FF7DA7" />
-                    </View>
-                  </Pressable>
+                  </View>
                 ))
               )}
         </ScrollView>
@@ -592,34 +562,6 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "rgba(255,255,255,0.08)",
-  },
-  notificationButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,79,139,0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(255,79,139,0.24)",
-  },
-  cardPressed: {
-    opacity: 0.82,
-    transform: [{ scale: 0.995 }],
-  },
-  openReportRow: {
-    marginTop: 16,
-    paddingTop: 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255,255,255,0.08)",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  openReportText: {
-    color: "#FF7DA7",
-    fontSize: 13,
-    fontWeight: "800",
   },
   backButton: {
     width: 44,
