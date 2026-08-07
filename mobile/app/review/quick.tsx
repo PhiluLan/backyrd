@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
 import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 import { registerSafetySnapshot } from "../../lib/safety-content";
+import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
 
 const theme = {
   bg: "#050506",
@@ -156,6 +157,28 @@ export default function QuickReviewScreen() {
       return;
     }
 
+    const { data: ownerSpot, error: ownerCheckError } = await supabase
+      .from("spots")
+      .select("owner_id")
+      .eq("id", spotId)
+      .maybeSingle();
+
+    if (!ownerCheckError && ownerSpot?.owner_id === user.id) {
+      void trackAnalyticsEvent({
+        eventName: "review_blocked_owner_self_review",
+        screenName: "review_quick",
+        spotId,
+        decisionId: decisionId ?? null,
+      });
+
+      Alert.alert(
+        "Eigenen Spot bewerten nicht möglich",
+        "Als verifizierter Owner kannst du deinen eigenen Spot nicht bewerten. So bleiben Reviews und Empfehlungen auf Backyrd unabhängig.",
+        [{ text: "Verstanden", onPress: () => router.back() }],
+      );
+      return;
+    }
+
     if (!photoUri) {
       Alert.alert("Fehler", "Bitte zuerst ein Foto aufnehmen.");
       return;
@@ -226,9 +249,52 @@ export default function QuickReviewScreen() {
       void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_quick", entityType: "review", entityId: reviewData?.id ?? null, spotId, decisionId: decisionId ?? null, properties: { photo_count: 1, source: source ?? "spot" } });
       router.replace(`/spot/${spotId}`);
     } catch (e: any) {
-      void reportAnalyticsError({ error: e, screenName: "review_quick", errorType: "review_submit_failed", context: { spot_id: spotId } });
-      void trackAnalyticsEvent({ eventName: "review_failed", screenName: "review_quick", spotId, decisionId: decisionId ?? null });
-      Alert.alert("Fehler", e.message ?? String(e));
+      const errorMessage = String(e?.message ?? e ?? "");
+      const isOwnerSelfReview = errorMessage.includes("SAFETY_OWNER_SELF_REVIEW");
+      const safetyMessage = getSafetyRestrictionMessage(e);
+
+      if (isOwnerSelfReview) {
+        void trackAnalyticsEvent({
+          eventName: "review_blocked_owner_self_review",
+          screenName: "review_quick",
+          spotId,
+          decisionId: decisionId ?? null,
+        });
+        console.info("Owner self-review blocked by Review Integrity.");
+        Alert.alert(
+          "Eigenen Spot bewerten nicht möglich",
+          "Als verifizierter Owner kannst du deinen eigenen Spot nicht bewerten. So bleiben Reviews und Empfehlungen auf Backyrd unabhängig.",
+          [{ text: "Verstanden", onPress: () => router.back() }],
+        );
+      } else if (safetyMessage) {
+        void trackAnalyticsEvent({
+          eventName: "review_blocked_by_safety",
+          screenName: "review_quick",
+          spotId,
+          decisionId: decisionId ?? null,
+        });
+        console.info("Quick Review publishing blocked by Safety enforcement.");
+        Alert.alert(
+          "Veröffentlichen eingeschränkt",
+          safetyMessage,
+          [{ text: "OK", onPress: () => router.replace("/") }],
+        );
+      } else {
+        void reportAnalyticsError({
+          error: e,
+          screenName: "review_quick",
+          errorType: "review_submit_failed",
+          context: { spot_id: spotId },
+        });
+        void trackAnalyticsEvent({
+          eventName: "review_failed",
+          screenName: "review_quick",
+          spotId,
+          decisionId: decisionId ?? null,
+        });
+        console.error("submitQuickReview error:", e);
+        Alert.alert("Fehler", e?.message ?? "Review konnte nicht gespeichert werden.");
+      }
     } finally {
       setLoading(false);
     }

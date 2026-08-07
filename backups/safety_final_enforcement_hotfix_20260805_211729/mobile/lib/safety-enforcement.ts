@@ -52,27 +52,8 @@ export function getSafetyRestrictionMessage(
           )
         : String(error ?? "");
 
-  if (message.includes("SAFETY_ACCOUNT_RESTRICTED")) {
-    return "Dein Backyrd-Konto ist derzeit gesperrt. Öffne dein Safety Center für weitere Informationen.";
-  }
-
-  if (
-    message.includes("SAFETY_POSTING_RESTRICTED") ||
-    message.includes("SAFETY_WRITE_RESTRICTED")
-  ) {
-    return "Du kannst derzeit keine neuen Reviews oder Moments veröffentlichen. Öffne dein Safety Center für weitere Informationen.";
-  }
-
-  if (message.includes("SAFETY_COMMENTING_RESTRICTED")) {
-    return "Du kannst derzeit keine Kommentare veröffentlichen. Öffne dein Safety Center für weitere Informationen.";
-  }
-
-  if (message.includes("SAFETY_MESSAGING_RESTRICTED")) {
-    return "Du kannst derzeit keine privaten Nachrichten senden. Öffne dein Safety Center für weitere Informationen.";
-  }
-
-  if (message.includes("SAFETY_OWNER_EDIT_RESTRICTED")) {
-    return "Du kannst deine Spot-Owner-Inhalte derzeit nicht bearbeiten. Öffne dein Safety Center für weitere Informationen.";
+  if (message.includes("SAFETY_WRITE_RESTRICTED")) {
+    return "Du kannst derzeit keine neuen Reviews, Moments oder Kommentare veröffentlichen. Öffne dein Safety Center für weitere Informationen.";
   }
 
   if (message.includes("SAFETY_DUPLICATE_REPORT")) {

@@ -28,6 +28,7 @@ import { awardAchievementsForUser } from "../../lib/achievementEngine";
 import { AchievementUnlockModal } from "../../components/AchievementUnlockModal";
 import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 import { registerSafetySnapshot } from "../../lib/safety-content";
+import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
 
 const theme = {
   colors: {
@@ -528,8 +529,52 @@ export default function SmartReviewScreen() {
         router.replace(`/spot/${nearest.id}`);
       }
     } catch (e: any) {
-      console.log("submitSmartReview error:", e);
-      Alert.alert("Fehler", e?.message || "Review konnte nicht gespeichert werden.");
+      const errorMessage = String(e?.message ?? e ?? "");
+      const isOwnerSelfReview = errorMessage.includes("SAFETY_OWNER_SELF_REVIEW");
+      const safetyMessage = getSafetyRestrictionMessage(e);
+
+      if (isOwnerSelfReview) {
+        void trackAnalyticsEvent({
+          eventName: "review_blocked_owner_self_review",
+          screenName: "review_smart",
+          spotId: nearest?.id ?? null,
+          decisionId: decisionId ?? null,
+        });
+        console.info("Owner self-review blocked by Review Integrity.");
+        Alert.alert(
+          "Eigenen Spot bewerten nicht möglich",
+          "Als verifizierter Owner kannst du deinen eigenen Spot nicht bewerten. So bleiben Reviews und Empfehlungen auf Backyrd unabhängig.",
+          [{ text: "Verstanden", onPress: () => router.back() }],
+        );
+      } else if (safetyMessage) {
+        void trackAnalyticsEvent({
+          eventName: "review_blocked_by_safety",
+          screenName: "review_smart",
+          spotId: nearest?.id ?? null,
+          decisionId: decisionId ?? null,
+        });
+        console.info("Smart Review publishing blocked by Safety enforcement.");
+        Alert.alert(
+          "Veröffentlichen eingeschränkt",
+          safetyMessage,
+          [{ text: "OK", onPress: () => router.replace("/") }],
+        );
+      } else {
+        void reportAnalyticsError({
+          error: e,
+          screenName: "review_smart",
+          errorType: "review_submit_failed",
+          context: { spot_id: nearest?.id ?? null },
+        });
+        void trackAnalyticsEvent({
+          eventName: "review_failed",
+          screenName: "review_smart",
+          spotId: nearest?.id ?? null,
+          decisionId: decisionId ?? null,
+        });
+        console.error("submitSmartReview error:", e);
+        Alert.alert("Fehler", e?.message || "Review konnte nicht gespeichert werden.");
+      }
     } finally {
       setSaving(false);
     }

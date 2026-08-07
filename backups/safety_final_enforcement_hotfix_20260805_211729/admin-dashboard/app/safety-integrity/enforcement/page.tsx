@@ -23,7 +23,7 @@ export default function Page(){
  const load=useCallback(async()=>{
   setLoading(true);setError("");
   const r=await supabase.rpc("safety_admin_enforcements_v1",{
-   p_status:status,p_limit:1000
+   p_status:status==="all"?null:status,p_limit:1000
   });
   if(r.error){setError(r.error.message);setRows([]);} else setRows((r.data??[]) as Row[]);
   setLoading(false);
@@ -47,24 +47,7 @@ export default function Page(){
 
  return <div className="by-page" style={{maxWidth:1500,margin:"0 auto",padding:"32px 34px 70px"}}>
   <Link href="/safety-integrity" style={{color:"#aeb4bf",textDecoration:"none"}}>← Zur Moderationskonsole</Link>
-  <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          marginTop: 18,
-          marginBottom: 8,
-        }}
-      >
-        <Link
-          href="/safety-integrity/enforcement/new"
-          className="by-btn by-btn-primary"
-          style={{ textDecoration: "none" }}
-        >
-          Neue Maßnahme aussprechen
-        </Link>
-      </div>
-
-      <header style={{margin:"25px 0"}}><div style={{color:"#ff4f8b",fontWeight:850}}>HUMAN ENFORCEMENT ONLY</div>
+  <header style={{margin:"25px 0"}}><div style={{color:"#ff4f8b",fontWeight:850}}>HUMAN ENFORCEMENT ONLY</div>
   <h1 className="by-title">Verwarnungen & Kontomaßnahmen</h1>
   <p className="by-muted">Automatische Signale erstellen niemals selbstständig Strikes oder Kontosperren.</p></header>
   <section className="by-card" style={{padding:14,display:"grid",gridTemplateColumns:"1fr auto",gap:10,marginBottom:18}}>

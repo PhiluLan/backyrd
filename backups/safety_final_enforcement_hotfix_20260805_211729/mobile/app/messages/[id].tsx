@@ -34,7 +34,6 @@ import { v4 as uuidv4 } from "uuid";
 
 import Avatar from "../../components/Avatar";
 import { supabase } from "../../lib/supabase";
-import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
 
 type Message = {
   id: string;
@@ -401,17 +400,6 @@ export default function ChatScreen() {
       );
     } catch (error: any) {
       setText(body);
-
-      const safetyMessage =
-        getSafetyRestrictionMessage(error);
-
-      if (safetyMessage) {
-        Alert.alert(
-          "Nachrichtenfunktion eingeschränkt",
-          safetyMessage,
-        );
-        return;
-      }
       Alert.alert(
         "Nachricht konnte nicht gesendet werden",
         errorMessage(error),
@@ -947,7 +935,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: "#9A9AA3",
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "650",
   },
   loading: {
     flex: 1,

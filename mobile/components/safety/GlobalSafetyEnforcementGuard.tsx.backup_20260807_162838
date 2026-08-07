@@ -20,21 +20,7 @@ import {
 import { supabase } from "../../lib/supabase";
 
 type Props = { children: ReactNode };
-const SAFETY_ALLOWED_ROUTES = [
-  "/safety-center",
-  "/safety-notifications",
-];
-
-function isAllowedSafetyRoute(pathname: string): boolean {
-  return (
-    pathname.startsWith("/safety/") ||
-    SAFETY_ALLOWED_ROUTES.some(
-      (route) =>
-        pathname === route ||
-        pathname.startsWith(`${route}/`),
-    )
-  );
-}
+const SAFETY_ROUTE_PREFIX = "/safety/";
 
 function formatEnd(value: string | null): string | null {
   if (!value) return null;
@@ -54,7 +40,7 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
   const [signedIn, setSignedIn] = useState(false);
   const shownWriteNoticeKey = useRef<string | null>(null);
   const mounted = useRef(true);
-  const isSafetyRoute = isAllowedSafetyRoute(pathname);
+  const isSafetyRoute = pathname.startsWith(SAFETY_ROUTE_PREFIX);
 
   const refresh = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -115,7 +101,7 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
         ? `Du kannst Backyrd weiterhin ansehen und Spots entdecken. Bis ${end} kannst du jedoch keine Moments, Reviews oder Kommentare veröffentlichen. Im Safety Center siehst du den Grund und kannst die Entscheidung anfechten.`
         : "Du kannst Backyrd weiterhin ansehen und Spots entdecken. Momentan kannst du jedoch keine Moments, Reviews oder Kommentare veröffentlichen. Im Safety Center siehst du den Grund und kannst die Entscheidung anfechten.",
       [
-        { text: "Safety Center öffnen", onPress: () => router.push("/safety-center" as any) },
+        { text: "Safety Center öffnen", onPress: () => router.push("/safety/account-status") },
         { text: "Backyrd nur ansehen", style: "cancel" },
       ],
     );
@@ -128,71 +114,29 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
 
   if (isFullAccountLock && !isSafetyRoute) {
     return (
-      <View style={{ flex: 1 }}>
-        {children}
-
-        <SafeAreaView
-          style={[
-            StyleSheet.absoluteFillObject,
-            styles.lockRoot,
-            { zIndex: 9999 },
-          ]}
-        >
-          <View style={styles.lockGlow} />
-
-          <View style={styles.lockContent}>
-            <View style={styles.iconWrap}>
-              <Ionicons
-                name="lock-closed"
-                size={34}
-                color="#FF78A7"
-              />
-            </View>
-
-            <Text style={styles.kicker}>
-              ACCOUNT SAFETY
-            </Text>
-
-            <Text style={styles.title}>
-              Dein Backyrd-Account ist gesperrt
-            </Text>
-
-            <Text style={styles.body}>
-              Dein Konto ist vorübergehend gesperrt. Im Safety Center kannst du sehen, warum diese Maßnahme gilt, wie lange sie dauert und ob du die Entscheidung anfechten kannst.
-            </Text>
-
-            <Pressable
-              onPress={() =>
-                router.push("/safety/account-status" as any)
-              }
-              style={styles.primaryButton}
-            >
-              <Ionicons
-                name="shield-checkmark-outline"
-                size={20}
-                color="#09090A"
-              />
-              <Text style={styles.primaryButtonText}>
-                Entscheidung ansehen
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => void signOut()}
-              style={styles.secondaryButton}
-            >
-              <Ionicons
-                name="log-out-outline"
-                size={20}
-                color="#FFFFFF"
-              />
-              <Text style={styles.secondaryButtonText}>
-                Ausloggen
-              </Text>
-            </Pressable>
+      <SafeAreaView style={styles.lockRoot}>
+        <View style={styles.lockGlow} />
+        <View style={styles.lockContent}>
+          <View style={styles.iconWrap}>
+            <Ionicons name="lock-closed" size={34} color="#FF78A7" />
           </View>
-        </SafeAreaView>
-      </View>
+          <Text style={styles.kicker}>ACCOUNT SAFETY</Text>
+          <Text style={styles.title}>Dein Backyrd-Account ist gesperrt</Text>
+          <Text style={styles.body}>
+            Aufgrund wiederholter oder schwerwiegender Richtlinienverstöße ist dein Account derzeit nicht verfügbar. Du kannst die Entscheidung im Safety Center ansehen und gegebenenfalls anfechten.
+          </Text>
+
+          <Pressable onPress={() => router.push("/safety/account-status")} style={styles.primaryButton}>
+            <Ionicons name="shield-checkmark-outline" size={20} color="#09090A" />
+            <Text style={styles.primaryButtonText}>Entscheidung ansehen</Text>
+          </Pressable>
+
+          <Pressable onPress={() => void signOut()} style={styles.secondaryButton}>
+            <Ionicons name="log-out-outline" size={20} color="#FFFFFF" />
+            <Text style={styles.secondaryButtonText}>Ausloggen</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
     );
   }
 

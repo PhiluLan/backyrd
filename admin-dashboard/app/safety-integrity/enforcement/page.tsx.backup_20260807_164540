@@ -23,7 +23,7 @@ export default function Page(){
  const load=useCallback(async()=>{
   setLoading(true);setError("");
   const r=await supabase.rpc("safety_admin_enforcements_v1",{
-   p_status:status,p_limit:1000
+   p_status:status==="all"?null:status,p_limit:1000
   });
   if(r.error){setError(r.error.message);setRows([]);} else setRows((r.data??[]) as Row[]);
   setLoading(false);

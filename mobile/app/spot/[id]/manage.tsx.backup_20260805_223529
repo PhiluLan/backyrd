@@ -217,36 +217,8 @@ export default function SpotManageScreen() {
       Alert.alert("Gespeichert", "Deine Änderungen wurden übernommen.");
       router.back();
     } catch (e: any) {
-      const rawMessage = String(
-        e?.message ?? e ?? "",
-      );
-
-      const isSafetyRestriction =
-        rawMessage.includes("SAFETY_WRITE_RESTRICTED");
-
-      if (isSafetyRestriction) {
-        console.info(
-          "Owner editing blocked by Safety enforcement.",
-        );
-
-        Alert.alert(
-          "Bearbeitung derzeit nicht möglich",
-          "Dein Konto wurde vorübergehend eingeschränkt. Deshalb kannst du die Angaben dieses Spots aktuell nicht ändern. Im Safety Center siehst du den Grund und wie lange die Einschränkung gilt.",
-          [
-            {
-              text: "Verstanden",
-              onPress: () => router.back(),
-            },
-          ],
-        );
-      } else {
-        console.error("Owner spot save failed:", e);
-
-        Alert.alert(
-          "Änderungen nicht gespeichert",
-          "Beim Speichern ist etwas schiefgelaufen. Bitte versuche es später erneut.",
-        );
-      }
+      console.log("save error", e);
+      Alert.alert("Fehler", e?.message ?? "Speichern fehlgeschlagen");
     } finally {
       setSaving(false);
     }

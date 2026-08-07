@@ -18,6 +18,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
+import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
 import type { User } from "@supabase/supabase-js";
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
@@ -318,10 +319,72 @@ export default function NewReviewScreen() {
         router.back();
       }
     } catch (e: any) {
-      void reportAnalyticsError({ error: e, screenName: "review_new", errorType: "review_submit_failed", context: { spot_id: spotId, decision_id: decisionId ?? null } });
-      void trackAnalyticsEvent({ eventName: "review_failed", screenName: "review_new", spotId, decisionId: decisionId ?? null });
-      console.error("submitReview error:", e);
-      Alert.alert("Fehler", e.message ?? "Konnte Review nicht speichern.");
+      const errorMessage = String(e?.message ?? e ?? "");
+      const isOwnerSelfReview = errorMessage.includes("SAFETY_OWNER_SELF_REVIEW");
+      const safetyMessage = getSafetyRestrictionMessage(e);
+
+      if (isOwnerSelfReview) {
+        void trackAnalyticsEvent({
+          eventName: "review_blocked_owner_self_review",
+          screenName: "review_new",
+          spotId,
+          decisionId: decisionId ?? null,
+        });
+
+        console.info("Owner self-review blocked by Review Integrity.");
+
+        Alert.alert(
+          "Eigenen Spot bewerten nicht möglich",
+          "Als verifizierter Owner kannst du deinen eigenen Spot nicht bewerten. So bleiben Reviews und Empfehlungen auf Backyrd unabhängig.",
+          [{ text: "Verstanden", onPress: () => router.back() }],
+        );
+      } else if (safetyMessage) {
+        void trackAnalyticsEvent({
+          eventName: "review_blocked_by_safety",
+          screenName: "review_new",
+          spotId,
+          decisionId: decisionId ?? null,
+        });
+
+        console.info(
+          "Review publishing blocked by Safety enforcement.",
+        );
+
+        Alert.alert(
+          "Veröffentlichen eingeschränkt",
+          safetyMessage,
+          [
+            {
+              text: "OK",
+              onPress: () => router.replace("/"),
+            },
+          ],
+        );
+      } else {
+        void reportAnalyticsError({
+          error: e,
+          screenName: "review_new",
+          errorType: "review_submit_failed",
+          context: {
+            spot_id: spotId,
+            decision_id: decisionId ?? null,
+          },
+        });
+
+        void trackAnalyticsEvent({
+          eventName: "review_failed",
+          screenName: "review_new",
+          spotId,
+          decisionId: decisionId ?? null,
+        });
+
+        console.error("submitReview error:", e);
+
+        Alert.alert(
+          "Fehler",
+          e.message ?? "Konnte Review nicht speichern.",
+        );
+      }
     } finally {
       setUploading(false);
     }
