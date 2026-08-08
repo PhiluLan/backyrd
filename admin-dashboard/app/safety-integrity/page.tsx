@@ -46,6 +46,11 @@ type SafetyRow = {
   latest_reason_codes: string[];
   latest_metadata: Record<string, unknown>;
   created_at: string;
+  has_integrity_signal: boolean;
+  integrity_signal_count: number;
+  integrity_signal_types: string[];
+  integrity_risk_level: string | null;
+  integrity_score: number | string | null;
 };
 
 type ReportRow = {
@@ -246,8 +251,10 @@ function contentTypeLabel(contentType: string): string {
 
 function isReviewIntegrityCase(row: SafetyRow): boolean {
   return (
-    row.content_type === "review" &&
-    row.explanation_code === "REVIEW_INTEGRITY_SIGNAL"
+    row.content_type === "review" && (
+      row.has_integrity_signal ||
+      row.explanation_code === "REVIEW_INTEGRITY_SIGNAL"
+    )
   );
 }
 
@@ -355,7 +362,7 @@ export default function SafetyIntegrityPage() {
 
   async function loadCases() {
     const { data, error: loadError } = await supabase.rpc(
-      "safety_admin_queue_v2",
+      "safety_admin_queue_v3",
       {
         p_status: caseStatus === "all" ? null : caseStatus,
         p_limit: 250,
@@ -1162,11 +1169,35 @@ export default function SafetyIntegrityPage() {
                       </div>
 
                       {integrityCase ? (
-                        <div style={{ marginBottom: 10 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 8,
+                            flexWrap: "wrap",
+                            marginBottom: 10,
+                          }}
+                        >
                           <StatusPill
                             label="Review Integrity"
                             tone="pink"
                           />
+                          <StatusPill
+                            label={
+                              row.integrity_risk_level === "high_risk"
+                                ? "Hohes Risiko"
+                                : "Auffällig"
+                            }
+                            tone={
+                              row.integrity_risk_level === "high_risk"
+                                ? "danger"
+                                : "warning"
+                            }
+                          />
+                          {row.integrity_score !== null ? (
+                            <StatusPill
+                              label={`${Math.round(Number(row.integrity_score) * 100)}% Integrity`}
+                            />
+                          ) : null}
                         </div>
                       ) : null}
 
