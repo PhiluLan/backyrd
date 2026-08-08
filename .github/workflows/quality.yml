@@ -60,7 +60,6 @@ jobs:
     name: Web lint (advisory)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    continue-on-error: true
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288ca8642d1e84afbd3f7d6820020 # v4
@@ -69,7 +68,16 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
-      - run: npm run lint --workspace web
+      - name: Run Web lint baseline
+        id: lint
+        continue-on-error: true
+        run: npm run lint --workspace web
+      - name: Record inherited Web lint debt
+        if: steps.lint.outcome == 'failure'
+        run: |
+          echo "::warning::Web lint has inherited product-code findings; cleanup is tracked for Phase 2."
+          echo "### Web lint advisory" >> "$GITHUB_STEP_SUMMARY"
+          echo "Existing lint debt remains. This check becomes required after cleanup." >> "$GITHUB_STEP_SUMMARY"
 
   admin:
     name: Admin typecheck and build
@@ -101,7 +109,6 @@ jobs:
     name: Admin lint (advisory)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    continue-on-error: true
     defaults:
       run:
         working-directory: admin-dashboard
@@ -113,7 +120,16 @@ jobs:
           cache: npm
           cache-dependency-path: admin-dashboard/package-lock.json
       - run: npm ci
-      - run: npm run lint
+      - name: Run Admin lint baseline
+        id: lint
+        continue-on-error: true
+        run: npm run lint
+      - name: Record inherited Admin lint debt
+        if: steps.lint.outcome == 'failure'
+        run: |
+          echo "::warning::Admin lint has inherited product-code findings; cleanup is tracked for Phase 2."
+          echo "### Admin lint advisory" >> "$GITHUB_STEP_SUMMARY"
+          echo "Existing lint debt remains. This check becomes required after cleanup." >> "$GITHUB_STEP_SUMMARY"
 
   mobile-lint:
     name: Mobile lint
@@ -136,7 +152,6 @@ jobs:
     name: Mobile typecheck (advisory)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    continue-on-error: true
     defaults:
       run:
         working-directory: mobile
@@ -148,7 +163,16 @@ jobs:
           cache: npm
           cache-dependency-path: mobile/package-lock.json
       - run: npm ci
-      - run: npm exec tsc -- --noEmit --pretty false
+      - name: Run Mobile TypeScript baseline
+        id: typecheck
+        continue-on-error: true
+        run: npm exec tsc -- --noEmit --pretty false
+      - name: Record inherited Mobile TypeScript debt
+        if: steps.typecheck.outcome == 'failure'
+        run: |
+          echo "::warning::Mobile TypeScript has inherited findings; cleanup is tracked for Phase 2."
+          echo "### Mobile TypeScript advisory" >> "$GITHUB_STEP_SUMMARY"
+          echo "Existing type debt remains. This check becomes required after cleanup." >> "$GITHUB_STEP_SUMMARY"
 
   shared:
     name: Shared typecheck
