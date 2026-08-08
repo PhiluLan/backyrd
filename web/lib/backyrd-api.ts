@@ -4,7 +4,6 @@ import type {
   HomeSectionDTO,
   HomeSectionKey,
   SpotCardDTO,
-  SpotDetailDTO,
   CreateReviewWithPhotosRequest,
   CreateReviewWithPhotosResponse,
 } from "@backyrd/shared";
@@ -246,18 +245,6 @@ export async function getHomeSections(limit = 12): Promise<HomeSectionsDTO> {
   }
 
   return normalizeHomePayload(overview.data as RawHomePayload, "discovery_overview");
-}
-
-export async function getSpotDetail(spotId: string): Promise<SpotDetailDTO> {
-  const { data, error } = await supabase.rpc("get_spot_detail_v1", {
-    p_spot_id: spotId,
-  });
-
-  if (error) {
-    throw new Error(extractErrorMessage(error));
-  }
-
-  return data as SpotDetailDTO;
 }
 
 export async function createReviewWithPhotos(

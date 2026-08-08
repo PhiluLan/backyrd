@@ -1,6 +1,8 @@
 import { supabase } from "@/lib/supabase/client";
-import { getSpotDetail } from "@/lib/backyrd-api";
-import type { SpotDetailDTO } from "@backyrd/shared";
+import {
+  getPublicSpotDetail,
+  type PublicSpotDetailDTO,
+} from "@/lib/public-spot-detail";
 
 export type DecisionContext = {
   decision_mode: string | null;
@@ -22,7 +24,7 @@ export type DecisionResult = {
   matched_counts: number | null;
   matched_terms: string[];
   why_this: string | null;
-  detail: SpotDetailDTO | null;
+  detail: PublicSpotDetailDTO | null;
 };
 
 type UnknownRecord = Record<string, unknown>;
@@ -140,7 +142,7 @@ export async function runWebDecision(input: {
   const details = await Promise.all(
     rows.map(async (row) => {
       try {
-        return await getSpotDetail(row.spot_id);
+        return await getPublicSpotDetail(row.spot_id);
       } catch {
         return null;
       }
