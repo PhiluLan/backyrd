@@ -31,6 +31,7 @@ mkdir -p "$validation_root/supabase"
 cp "$repo_root/supabase/config.toml" "$validation_root/supabase/config.toml"
 cp -R "$repo_root/supabase/migrations" "$validation_root/supabase/migrations"
 cp -R "$repo_root/supabase/canonical" "$validation_root/supabase/canonical"
+cp -R "$repo_root/supabase/tests" "$validation_root/supabase/tests"
 
 sed -i.bak "s/^project_id = .*/project_id = \"$project_id\"/" \
   "$validation_root/supabase/config.toml"
@@ -140,6 +141,9 @@ assert_count 7 'canonical Storage buckets' \
   "select count(*) from storage.buckets where id in ('badges','chat-uploads','data-rights-exports','profile-photos','review-photos','social-post-media','spot-photos');"
 assert_count 19 'canonical Storage policies' \
   "select count(*) from pg_policies where schemaname='storage' and tablename in ('buckets','objects');"
+
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/sprint8_integrity_case_lifecycle.sql"
 
 lint_json="$validation_root/db-lint.json"
 supabase db lint \
