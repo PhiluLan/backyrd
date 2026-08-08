@@ -2,251 +2,251 @@
 
 > AI-powered experience discovery for real-life moments.
 
-Backyrd hilft Menschen, Restaurants, Cafés, Bars, Hotels, Aktivitäten und andere Erlebnisse passend zu ihrer aktuellen Stimmung und Situation zu entdecken. Im Mittelpunkt stehen nicht Sternebewertungen, sondern Mood, Kontext, persönliche Vorlieben und vertrauenswürdige Signale aus echten Erfahrungen.
+Backyrd hilft Menschen, Orte und Erlebnisse zu finden, die zu ihrer aktuellen Stimmung, Situation und ihrem persönlichen Geschmack passen. Das Produkt beantwortet nicht primär die Frage „Welcher Ort hat die höchste Bewertung?“, sondern „Was passt genau jetzt zu mir?“.
 
-Das Repository enthält die mobile App, die öffentliche und Owner-Weboberfläche, ein internes Admin-Dashboard, gemeinsame TypeScript-Verträge sowie das Supabase-Backend.
+Backyrd ist deshalb keine klassische Review- oder Rating-Plattform. Reviews sind kurze, authentische Erfahrungssignale. Sie dienen dazu, zukünftige Empfehlungen zu verbessern – nicht dazu, Aufmerksamkeit oder möglichst viele Bewertungen zu erzeugen.
 
-## Produktprinzipien
+## Wie Backyrd funktioniert
 
-- **Mood statt Sterne:** Empfehlungen beschreiben, wie sich ein Ort anfühlt.
-- **Kontext statt Popularität:** Zeit, Begleitung, Wetter, Distanz und Absicht verändern die passende Empfehlung.
-- **Erlebnisse statt Review-Masse:** Reviews sind kurze, authentische Signale für zukünftige Entscheidungen.
-- **Vertrauen vor Engagement:** Moderation und Review-Integrität unterstützen Menschen, ersetzen aber keine menschliche Entscheidung.
-- **AI assists, humans decide:** KI hilft beim Entdecken, Erklären und Moderieren, ohne Unsicherheit zu verstecken.
+Der zentrale Produktkreislauf verbindet eine Entscheidung mit der späteren realen Erfahrung:
 
-## Aktueller Funktionsumfang
+```text
+Mood + Kontext + Absicht
+        ↓
+passende Spots entdecken
+        ↓
+Spot auswählen oder speichern
+        ↓
+reale Erfahrung als Moment oder Review festhalten
+        ↓
+Taste- und Vertrauenssignale für zukünftige Empfehlungen
+```
 
-Der derzeitige Code bildet unter anderem folgende Produktbereiche ab:
+Empfehlungen berücksichtigen unter anderem Mood, Ort, Distanz, Zeitpunkt, Begleitung, persönliche Präferenzen, soziale Signale und Datenqualität. Popularität ist ein Signal, aber nicht das Ziel der Optimierung.
 
-- kontext- und moodbasierte Spot-Empfehlungen über die Decision Engine
-- Suche, Explore-Ansicht, Karte und öffentliche Spot-Detailseiten
-- Journeys und personalisierte Discovery-Signale
-- kurze Reviews mit Fotos und Mood-Zuordnung
-- Social Feed, Profile, Follows, Likes, Kommentare und Direktnachrichten
-- Spot-Einreichung, Claims und Owner-Verwaltung mit Analytics
-- Push-Benachrichtigungen
-- Privacy Center mit Einwilligungen, Datenexport und Account-Löschung
-- Trust & Safety mit Meldungen, Moderation, Appeals und Integrity-Signalen
-- internes Spot-Quality- und Google-Places-Enrichment
+Die Produktentscheidungen folgen fünf Grundsätzen:
 
-## Architektur
+- **Mood statt Sterne:** Ein Erlebnis wird durch seine Atmosphäre und Eignung beschrieben, nicht auf eine Zahl reduziert.
+- **Kontext statt Popularität:** Der beste Spot hängt von Situation und Absicht ab.
+- **Erlebnisse statt Review-Masse:** Feedback bleibt leichtgewichtig und verbessert die nächste Entscheidung.
+- **Vertrauen vor Engagement:** Backyrd optimiert weder auf Spam noch auf endloses Scrollen.
+- **KI unterstützt, Menschen entscheiden:** KI erklärt und priorisiert; menschliche Moderation bleibt final.
+
+## Systemüberblick
+
+Backyrd besteht aus drei Produktoberflächen und einem gemeinsamen Supabase-Backend:
 
 ```mermaid
-flowchart LR
-    Mobile["Mobile App<br/>Expo / React Native"]
-    Web["Public & Owner Web<br/>Next.js"]
-    Admin["Admin Dashboard<br/>Next.js"]
-    Shared["@backyrd/shared<br/>TypeScript contracts"]
-    Supabase["Supabase<br/>Auth · Postgres · Storage · RLS"]
-    Functions["Edge Functions<br/>Deno / TypeScript"]
+flowchart TB
+    subgraph Clients["Produktoberflächen"]
+        Mobile["Mobile App<br/>Discovery · Decisions · Social · Privacy"]
+        Web["Public & Owner Web<br/>Discovery · Spot Profiles · Owner Analytics"]
+        Admin["Admin Dashboard<br/>Operations · Quality · Moderation"]
+    end
+
+    Shared["@backyrd/shared<br/>Web DTOs & Contracts"]
+
+    subgraph Backend["Supabase Backend"]
+        Auth["Auth"]
+        Database["PostgreSQL<br/>RLS · RPCs · Domain Data"]
+        Storage["Storage & Realtime"]
+        Functions["Edge Functions<br/>AI · Safety · Lifecycle · Integrations"]
+    end
+
     External["OpenAI · Google Places · Resend · Expo Push"]
 
-    Mobile --> Supabase
-    Web --> Supabase
-    Admin --> Supabase
-    Web --> Shared
+    Mobile --> Auth
+    Mobile --> Database
     Mobile --> Functions
+    Web --> Shared
+    Web --> Auth
+    Web --> Database
     Web --> Functions
+    Admin --> Auth
+    Admin --> Database
     Admin --> Functions
-    Functions --> Supabase
+    Functions --> Database
+    Functions --> Storage
     Functions --> External
 ```
 
-Die Clients verwenden den Supabase-Anon-Key und greifen auf durch Row Level Security geschützte Daten zu. Privilegierte Schlüssel und externe API-Secrets gehören ausschließlich in serverseitige Routen oder Supabase Edge Functions.
+### Verantwortungsgrenzen
+
+| Bereich | Verantwortung |
+| --- | --- |
+| Mobile App | Primäre Consumer Experience: Discovery, Decision Engine, Journeys, Reviews, Social, Messaging und Privacy |
+| Public Web | Öffentliche Landing-, Discovery- und Spot-Seiten |
+| Owner Web | Verifizierte Spot-Verwaltung und Analytics ohne direkten Einfluss auf Rankings |
+| Admin Dashboard | Interne Operations für Spots, Claims, Nutzer, Taxonomie, Qualität, Moderation und Safety |
+| PostgreSQL | Domänendaten, RLS-Policies, Transaktionen, Aggregationen und versionierte RPCs |
+| Edge Functions | Privilegierte oder externe Abläufe wie AI, semantische Suche, Uploads, Safety, E-Mail, Push und Datenrechte |
+| Trust & Safety | Signale, Cases, Entscheidungen und Appeals; Signale sind Hinweise, keine Beweise |
+
+Clients authentifizieren sich mit dem Supabase-Anon-Key. Autorisierung wird im Backend durch Row Level Security und domänenspezifische RPCs erzwungen. Service-Role-Keys und externe API-Secrets dürfen ausschließlich in serverseitigen Routen oder Edge Functions verwendet werden.
 
 ## Repositorystruktur
 
-| Pfad | Zweck |
-| --- | --- |
-| `mobile/` | Expo-54-App für iOS, Android und Web mit Expo Router |
-| `web/` | Öffentliche Discovery- und Spot-Seiten sowie Owner-Portal auf Next.js 16 |
-| `admin-dashboard/` | Geschütztes internes Dashboard für Spots, Reviews, Nutzer, Claims, Taxonomie, Qualität und Safety |
-| `packages/shared/` | Gemeinsame DTOs und Verträge für Spots, Home und Reviews |
-| `supabase/migrations/` | Versionierte PostgreSQL-Schemaänderungen inklusive RLS und RPCs |
-| `supabase/functions/` | Edge Functions für Decisions, Suche, Reviews, Safety, Benachrichtigungen, Privacy und Enrichment |
-| `supabase/seed.sql` | Seed-Daten für die lokale Supabase-Instanz |
-| `docs/` und `legal/` | Moderations-, Transparenz- und Safety-Richtlinien |
-| `scripts/` | Wartungs- und Importskripte, unter anderem für OpenStreetMap-Daten |
+```text
+backyrd/
+├── mobile/                 Expo-App für iOS und Android
+├── web/                    Next.js-App für Public Web und Owner Portal
+├── admin-dashboard/        separates internes Next.js-Dashboard
+├── packages/shared/        gemeinsam genutzte Web-DTOs und Verträge
+├── supabase/
+│   ├── migrations/         kanonische, versionierte Datenbankänderungen
+│   ├── functions/          kanonische Supabase Edge Functions
+│   ├── config.toml         lokale Supabase-Konfiguration
+│   └── seed.sql            Seed-Einstiegspunkt; derzeit leer
+├── docs/                   interne Betriebs- und Safety-Dokumentation
+├── legal/                  Community-, Moderations- und Appeals-Richtlinien
+└── scripts/                Wartungs- und Importskripte
+```
 
-Zusätzlich enthält das Repository historische Backups, Audit-Artefakte und einmalige Installationsskripte. Sie sind nicht Teil des regulären Build- oder Runtime-Pfads. `mobu/` ist ein separates Expo-Projekt und gehört nicht zur Backyrd-Produktarchitektur.
+Die Root-npm-Workspaces umfassen nur `web` und `packages/*`. `mobile` und `admin-dashboard` besitzen eigene Lockfiles und werden separat installiert.
+
+Weitere eingecheckte Bereiche sind nicht Teil des regulären Runtime-Pfads:
+
+- `mobile/supabase/functions/` enthält zusätzliche, mobile-nahe Function-Quellen außerhalb des kanonischen Supabase-Projekts im Root.
+- `web/src/app/` enthält eine ältere parallele Page-Quelle; die aktive Next.js-App liegt unter `web/app/`.
+- `app.json` und `eas.json` im Root definieren eine zweite Expo/EAS-Konfiguration. Für die Mobile-App sind in diesem Dokument `mobile/app.config.ts` und `mobile/eas.json` maßgeblich.
+- `mobu/` ist ein eigenständiger Expo-Prototyp und kein Backyrd-Produktmodul.
+- `backups/`, versteckte Backup-Verzeichnisse, Audit-Dateien und `backyrd_spot_quality_*` sind historische Arbeitsartefakte oder Installer.
+
+Neue Produktlogik gehört in die kanonischen Laufzeitbereiche. Historische Artefakte dürfen nicht als Implementierungsvorlage oder Deployment-Quelle behandelt werden.
 
 ## Technologie
 
-| Bereich | Stack |
-| --- | --- |
-| Mobile | Expo 54, React Native 0.81, React 19, Expo Router, Zustand, React Native Maps |
-| Web | Next.js 16, React 19, TypeScript, Tailwind CSS 4 |
-| Backend | Supabase Auth, PostgreSQL 17, Storage, Realtime, RLS, SQL RPCs |
-| Serverless | Supabase Edge Functions mit Deno und TypeScript |
-| AI und Daten | OpenAI, Embeddings, semantische Spot-Suche, Google Places |
-| Builds | EAS Build / Updates, native iOS- und Android-Projekte |
+- **Mobile:** Expo, React Native, Expo Router und TypeScript
+- **Web und Admin:** Next.js, React, TypeScript und Tailwind CSS
+- **Backend:** Supabase Auth, PostgreSQL, Storage, Realtime, RLS und SQL RPCs
+- **Serverless:** Supabase Edge Functions mit Deno und TypeScript
+- **AI und Enrichment:** OpenAI, Embeddings, semantische Suche und Google Places
+- **Mobile Delivery:** EAS Build und EAS Update
 
-## Voraussetzungen
+Die verbindlichen Versionen stehen in den jeweiligen `package.json`-, Lock- und Expo-Konfigurationsdateien; diese README dupliziert sie bewusst nicht.
 
-- Node.js 20 (die Mobile-App ist auf `20.19.4` festgelegt)
-- npm
-- Docker für die lokale Supabase-Umgebung
-- Supabase CLI (wird im Root-Projekt als Dev Dependency bereitgestellt)
-- Xcode und CocoaPods für lokale iOS-Builds
-- Android Studio und Android SDK für lokale Android-Builds
+## Lokale Entwicklung
 
-## Lokale Einrichtung
+### Voraussetzungen
 
-### 1. Repository installieren
+- Node.js 20 und npm
+- Docker für den lokalen Supabase-Stack
+- Xcode und CocoaPods für native iOS-Builds
+- Android Studio und Android SDK für native Android-Builds
 
-Die Root-Workspaces umfassen `web` und `packages/*`. Mobile und Admin besitzen jeweils einen eigenen Lockfile und werden separat installiert.
+Die Mobile-App definiert die erwartete Node-Version über Volta in `mobile/package.json`. Die Supabase CLI ist als Root-Dev-Dependency installiert.
+
+### 1. Abhängigkeiten installieren
 
 ```bash
 git clone https://github.com/PhiluLan/backyrd.git
 cd backyrd
-npm install
-npm --prefix mobile install
-npm --prefix admin-dashboard install
+
+npm ci
+npm --prefix mobile ci
+npm --prefix admin-dashboard ci
 ```
 
-### 2. Umgebungsvariablen konfigurieren
-
-Lege lokale `.env`-Dateien an und committe sie nicht. Das Repository enthält aktuell keine vollständigen `.env.example`-Dateien.
-
-`mobile/.env`:
-
-```dotenv
-EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-EXPO_PUBLIC_SUPABASE_ANON_KEY=<local-anon-key>
-EXPO_PUBLIC_GOOGLE_MAPS_KEY=<google-maps-key>
-APP_VARIANT=dev
-```
-
-`web/.env.local`:
-
-```dotenv
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<local-anon-key>
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
-NEXT_PUBLIC_APP_DOWNLOAD_URL=<optional-app-link>
-```
-
-`admin-dashboard/.env.local`:
-
-```dotenv
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<local-anon-key>
-NEXT_PUBLIC_SITE_URL=http://localhost:3001
-NEXT_PUBLIC_GOOGLE_API_KEY=<google-places-key>
-SUPABASE_SERVICE_ROLE_KEY=<local-service-role-key>
-```
-
-Je nach bereitgestellter Edge Function werden serverseitig außerdem Secrets wie `OPENAI_API_KEY`, `GOOGLE_PLACES_API_KEY`, `RESEND_API_KEY` und Worker-/Webhook-Secrets benötigt. Setze sie lokal in `supabase/.env` oder für ein verknüpftes Cloud-Projekt über die Supabase CLI.
-
-> `EXPO_PUBLIC_*` und `NEXT_PUBLIC_*` werden in Client-Bundles eingebettet. Dort dürfen niemals Service-Role-Keys oder andere privilegierte Secrets stehen.
-
-### 3. Supabase starten
+### 2. Lokales Backend starten
 
 ```bash
 npm run supabase:start
 npm run supabase:status
 ```
 
-Der lokale Stack nutzt standardmäßig:
+Der erste Start wendet die Migrationen unter `supabase/migrations/` an. Die lokale API ist anschließend standardmäßig unter `http://127.0.0.1:54321` und Supabase Studio unter `http://127.0.0.1:54323` erreichbar.
 
-- API: `http://127.0.0.1:54321`
-- PostgreSQL: Port `54322`
-- Supabase Studio: `http://127.0.0.1:54323`
-- Inbucket: `http://127.0.0.1:54324`
+`supabase/seed.sql` ist derzeit leer. Ein frischer Stack enthält daher Schema und Policies, aber keine produktnahen Spots, Admin-Nutzer oder Testkonten. Vollständige Discovery-, Owner- und Admin-Flows benötigen geeignete Testdaten und Rollen in einer lokalen oder isolierten Umgebung.
 
-Migrationen und `supabase/seed.sql` werden bei einem lokalen Reset neu angewendet:
+### 3. Umgebungsvariablen setzen
 
-```bash
-npm run supabase:reset
+Lege lokale `.env`-Dateien an; sie werden von Git ignoriert. Die lokalen Supabase-Werte liefert `npm run supabase:status`. Das Repository enthält noch keine `.env.example`-Dateien; bis diese ergänzt werden, ist die folgende Tabelle der minimale Konfigurationsvertrag.
+
+| Anwendung | Datei | Erforderlich | Optional oder funktionsabhängig |
+| --- | --- | --- | --- |
+| Mobile | `mobile/.env` | `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` | `APP_VARIANT`, `EXPO_PUBLIC_GOOGLE_MAPS_KEY` |
+| Public/Owner Web | `web/.env.local` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_DOWNLOAD_URL` |
+| Admin | `admin-dashboard/.env.local` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_GOOGLE_API_KEY`, serverseitig `SUPABASE_SERVICE_ROLE_KEY` |
+| Edge Functions | `supabase/.env` | abhängig von der Function | unter anderem `OPENAI_API_KEY`, `GOOGLE_PLACES_API_KEY`, `RESEND_API_KEY` und Worker-/Webhook-Secrets |
+
+Minimalbeispiel für die Mobile-App:
+
+```dotenv
+EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon-key-aus-supabase-status>
+APP_VARIANT=dev
 ```
 
-Der Reset verwirft die Daten der lokalen Supabase-Instanz. Er darf nicht als Produktionsworkflow verwendet werden.
+Variablen mit `EXPO_PUBLIC_` oder `NEXT_PUBLIC_` werden in Client-Bundles eingebettet und sind keine Secret-Speicher. Privilegierte Schlüssel gehören niemals in diese Variablen.
 
-### 4. Apps starten
+Einige ältere Mobile-Hilfsquellen referenzieren noch `EXPO_PUBLIC_OPENAI_KEY`. Das ist keine unterstützte Sicherheitsgrenze: Verwende dort keinen produktiven OpenAI-Key; neue AI-Aufrufe gehören hinter eine Edge Function.
 
-Mobile-App:
+### 4. Gewünschte Oberfläche starten
+
+| Oberfläche | Befehl | Standardadresse |
+| --- | --- | --- |
+| Mobile / Expo Dev Server | `npm --prefix mobile run start` | Expo-Ausgabe folgen |
+| Public & Owner Web | `npm --workspace web run dev` | `http://localhost:3000` |
+| Admin Dashboard | `npm --prefix admin-dashboard run dev -- -p 3001` | `http://localhost:3001` |
+
+Für Kamera, Push, Maps und andere native Integrationen ist ein Development Build zuverlässiger als Expo Go. Das Admin-Dashboard erfordert zusätzlich einen authentifizierten Nutzer, für den `admin_is_admin_v1` positiv ausfällt.
+
+### 5. Edge Functions lokal ausführen
 
 ```bash
-npm --prefix mobile run start
+npx supabase functions serve <function-name> --env-file supabase/.env
 ```
 
-Alternativ stehen `android`, `ios` und `web` als Mobile-Skripte zur Verfügung. Für native Features ist ein Development Build in der Regel geeigneter als Expo Go.
+Ohne die jeweils benötigten Secrets funktionieren AI-, E-Mail-, Push-, Safety- und Google-Places-Flows nicht vollständig. Secrets für Cloud-Umgebungen werden über die Supabase-Secret-Verwaltung gesetzt und nicht committed.
 
-Öffentliche und Owner-Web-App:
-
-```bash
-npm --workspace web run dev
-```
-
-Admin-Dashboard auf einem separaten Port:
+Häufige Backend-Befehle:
 
 ```bash
-npm --prefix admin-dashboard run dev -- -p 3001
-```
-
-Der Zugriff auf das Admin-Dashboard setzt eine gültige Supabase-Session und eine positive Antwort der RPC `admin_is_admin_v1` voraus.
-
-## Datenbank und Edge Functions
-
-Schemaänderungen werden ausschließlich als neue Migration unter `supabase/migrations/` umgesetzt. Bestehende Migrationen sollten nach ihrer Anwendung nicht nachträglich verändert werden.
-
-Nützliche Befehle:
-
-```bash
-# Neue Migration erzeugen
+# Neue Schemaänderung anlegen
 npx supabase migration new <name>
 
-# Edge Function lokal ausführen
-npx supabase functions serve <function-name> --env-file supabase/.env
+# Lokale Datenbank neu aus Migrationen aufbauen (löscht lokale Daten)
+npm run supabase:reset
 
 # Lokalen Stack stoppen
 npm run supabase:stop
 ```
 
-Die vorhandenen Edge Functions decken aktuell unter anderem Decision-Generierung, semantische Suche, Embeddings, Journey-Erzeugung, Review-Uploads, Safety-Evaluierung, Push-Nachrichten, Datenexport, Account-Löschung und Google-Places-Enrichment ab.
+## Entwicklungsworkflow
 
-## Qualitätssicherung
-
-Vor einem Commit sollten mindestens die betroffenen Anwendungen geprüft werden:
+1. Lies vor Änderungen die verbindlichen Produkt- und Engineering-Regeln in [`AGENTS.md`](./AGENTS.md).
+2. Suche nach bestehenden Komponenten, Services, Hooks, RPCs und Migrationen, bevor du neue Logik einführst.
+3. Ordne die Änderung einer Domäne und allen betroffenen Oberflächen zu; Owner-, Admin- und Mobile-Auswirkungen dürfen nicht isoliert betrachtet werden.
+4. Implementiere Schemaänderungen ausschließlich als neue Migration. Ändere keine bereits angewandte Migration und schwäche keine RLS-Policy ab.
+5. Prüfe mindestens Lint und Build der betroffenen Anwendung sowie kritische Auth-, RLS-, Safety- und Moderationspfade manuell.
 
 ```bash
 # Mobile
 npm --prefix mobile run lint
 
-# Web
+# Public & Owner Web
 npm --workspace web run lint
 npm --workspace web run build
 
-# Admin
+# Admin Dashboard
 npm --prefix admin-dashboard run lint
 npm --prefix admin-dashboard run build
 ```
 
-Das Repository definiert derzeit keine automatisierte Test-Suite und keine CI-Workflows. Änderungen an Datenbanklogik, RLS, Auth, Safety oder Owner/Admin-Berechtigungen benötigen deshalb zusätzlich gezielte manuelle Tests gegen eine lokale oder isolierte Supabase-Umgebung.
+Das Repository enthält derzeit keine automatisierte Test-Suite und keine CI-Workflows. Das ist insbesondere für Datenbank-, Berechtigungs- und Trust-&-Safety-Änderungen eine relevante Qualitätssicherungslücke.
 
-## Entwicklungsregeln
+`AGENTS.md` ist die aktuelle Source of Truth für Produkt- und Implementierungsprinzipien. Vor einer Öffnung für externe Contributions sollte ein separates `CONTRIBUTING.md` Branch-, Review-, Test- und Release-Konventionen dokumentieren, statt diese README weiter auszubauen.
 
-- Vor einer Implementierung bestehende Komponenten, Hooks, Services, RPCs und Migrationen suchen und wiederverwenden.
-- Änderungen klein, nachvollziehbar und rückwärtskompatibel halten.
-- TypeScript strikt typisieren und `any` vermeiden.
-- RLS niemals umgehen oder abschwächen.
-- Integrity-Signale als Hinweise behandeln, nicht als Beweise; permanente automatische Sanktionen sind ausgeschlossen.
-- Mobile, öffentliche Web-App, Owner-Portal und Admin-Dashboard bei domänenübergreifenden Änderungen gemeinsam betrachten.
-- Keine Backup-Dateien anlegen: Git ist die Versionshistorie.
+## Weiterführende Dokumentation
 
-Weitere verbindliche Produkt- und Engineering-Grundsätze stehen in [`AGENTS.md`](./AGENTS.md).
-
-## Dokumentation
-
-- [`docs/safety/MODERATION_SOP.md`](./docs/safety/MODERATION_SOP.md) – Moderationsabläufe
+- [`AGENTS.md`](./AGENTS.md) – Produktphilosophie und verbindliche Engineering-Regeln
+- [`docs/safety/MODERATION_SOP.md`](./docs/safety/MODERATION_SOP.md) – operativer Moderationsablauf
 - [`docs/safety/TRANSPARENCY_MONITORING.md`](./docs/safety/TRANSPARENCY_MONITORING.md) – Transparenz und Monitoring
 - [`legal/safety/COMMUNITY_GUIDELINES.md`](./legal/safety/COMMUNITY_GUIDELINES.md) – Community Guidelines
-- [`legal/safety/APPEALS_POLICY.md`](./legal/safety/APPEALS_POLICY.md) – Einspruchsverfahren
-- [`legal/safety/ENFORCEMENT_POLICY.md`](./legal/safety/ENFORCEMENT_POLICY.md) – Durchsetzungsrichtlinie
 - [`legal/safety/MODERATION_POLICY.md`](./legal/safety/MODERATION_POLICY.md) – Moderationsrichtlinie
+- [`legal/safety/ENFORCEMENT_POLICY.md`](./legal/safety/ENFORCEMENT_POLICY.md) – Durchsetzungsrichtlinie
+- [`legal/safety/APPEALS_POLICY.md`](./legal/safety/APPEALS_POLICY.md) – Einspruchsverfahren
 
-## Repositorystatus und Lizenz
-
-Backyrd befindet sich in aktiver Entwicklung. Öffentliche und interne Schnittstellen können sich ändern; Datenbankänderungen bleiben dabei migrationsbasiert und sollen rückwärtskompatibel erfolgen.
+## Lizenz
 
 Dieses Repository enthält derzeit keine `LICENSE`-Datei. Ohne ausdrückliche Lizenz werden keine Nutzungs-, Änderungs- oder Weiterverteilungsrechte eingeräumt.
