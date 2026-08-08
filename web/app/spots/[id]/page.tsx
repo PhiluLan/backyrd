@@ -21,9 +21,8 @@ export default async function SpotDetailPage({
 }) {
   const { id } = await params;
   const data = await getPublicSpotDetail(id);
-  const spot = data?.spot;
-
-  if (!spot?.id) notFound();
+  if (!data?.spot?.id) notFound();
+  const spot = data.spot;
 
   const hero =
     data.photos[0]?.url ||
