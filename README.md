@@ -1,1123 +1,252 @@
-# Backyrd – Project README
+# Backyrd
 
-> Stand: Sprint 2D.1 / vor Sprint 2F  
-> Projektpfad lokal: `/Users/philippjohanna/dev/backyrd`  
-> Mobile App: Expo / React Native  
-> Backend: Supabase Cloud  
-> Produktidee: Backyrd ist eine Social-Discovery-App für Orte, Erlebnisse und echte Empfehlungen. Nicht Sternebewertungen, sondern Stimmung, Kontext, echte Moments und persönliche Entscheidungen.
+> AI-powered experience discovery for real-life moments.
 
----
+Backyrd hilft Menschen, Orte und Erlebnisse zu finden, die zu ihrer aktuellen Stimmung, Situation und ihrem persönlichen Geschmack passen. Das Produkt beantwortet nicht primär die Frage „Welcher Ort hat die höchste Bewertung?“, sondern „Was passt genau jetzt zu mir?“.
 
-## 1. Was ist Backyrd?
+Backyrd ist deshalb keine klassische Review- oder Rating-Plattform. Reviews sind kurze, authentische Erfahrungssignale. Sie dienen dazu, zukünftige Empfehlungen zu verbessern – nicht dazu, Aufmerksamkeit oder möglichst viele Bewertungen zu erzeugen.
 
-Backyrd ist eine Location-Discovery-App für Restaurants, Bars, Cafés, Aktivitäten, Museen, Hotels und Erlebnisse.
+## Wie Backyrd funktioniert
 
-Der Kern ist nicht:
+Der zentrale Produktkreislauf verbindet eine Entscheidung mit der späteren realen Erfahrung:
 
 ```text
-"Welcher Spot hat 4.7 Sterne?"
+Mood + Kontext + Absicht
+        ↓
+passende Spots entdecken
+        ↓
+Spot auswählen oder speichern
+        ↓
+reale Erfahrung als Moment oder Review festhalten
+        ↓
+Taste- und Vertrauenssignale für zukünftige Empfehlungen
 ```
 
-Sondern:
+Empfehlungen berücksichtigen unter anderem Mood, Ort, Distanz, Zeitpunkt, Begleitung, persönliche Präferenzen, soziale Signale und Datenqualität. Popularität ist ein Signal, aber nicht das Ziel der Optimierung.
+
+Die Produktentscheidungen folgen fünf Grundsätzen:
+
+- **Mood statt Sterne:** Ein Erlebnis wird durch seine Atmosphäre und Eignung beschrieben, nicht auf eine Zahl reduziert.
+- **Kontext statt Popularität:** Der beste Spot hängt von Situation und Absicht ab.
+- **Erlebnisse statt Review-Masse:** Feedback bleibt leichtgewichtig und verbessert die nächste Entscheidung.
+- **Vertrauen vor Engagement:** Backyrd optimiert weder auf Spam noch auf endloses Scrollen.
+- **KI unterstützt, Menschen entscheiden:** KI erklärt und priorisiert; menschliche Moderation bleibt final.
+
+## Systemüberblick
+
+Backyrd besteht aus drei Produktoberflächen und einem gemeinsamen Supabase-Backend:
+
+```mermaid
+flowchart TB
+    subgraph Clients["Produktoberflächen"]
+        Mobile["Mobile App<br/>Discovery · Decisions · Social · Privacy"]
+        Web["Public & Owner Web<br/>Discovery · Spot Profiles · Owner Analytics"]
+        Admin["Admin Dashboard<br/>Operations · Quality · Moderation"]
+    end
+
+    Shared["@backyrd/shared<br/>Web DTOs & Contracts"]
+
+    subgraph Backend["Supabase Backend"]
+        Auth["Auth"]
+        Database["PostgreSQL<br/>RLS · RPCs · Domain Data"]
+        Storage["Storage & Realtime"]
+        Functions["Edge Functions<br/>AI · Safety · Lifecycle · Integrations"]
+    end
+
+    External["OpenAI · Google Places · Resend · Expo Push"]
+
+    Mobile --> Auth
+    Mobile --> Database
+    Mobile --> Functions
+    Web --> Shared
+    Web --> Auth
+    Web --> Database
+    Web --> Functions
+    Admin --> Auth
+    Admin --> Database
+    Admin --> Functions
+    Functions --> Database
+    Functions --> Storage
+    Functions --> External
+```
+
+### Verantwortungsgrenzen
+
+| Bereich | Verantwortung |
+| --- | --- |
+| Mobile App | Primäre Consumer Experience: Discovery, Decision Engine, Journeys, Reviews, Social, Messaging und Privacy |
+| Public Web | Öffentliche Landing-, Discovery- und Spot-Seiten |
+| Owner Web | Verifizierte Spot-Verwaltung und Analytics ohne direkten Einfluss auf Rankings |
+| Admin Dashboard | Interne Operations für Spots, Claims, Nutzer, Taxonomie, Qualität, Moderation und Safety |
+| PostgreSQL | Domänendaten, RLS-Policies, Transaktionen, Aggregationen und versionierte RPCs |
+| Edge Functions | Privilegierte oder externe Abläufe wie AI, semantische Suche, Uploads, Safety, E-Mail, Push und Datenrechte |
+| Trust & Safety | Signale, Cases, Entscheidungen und Appeals; Signale sind Hinweise, keine Beweise |
+
+Clients authentifizieren sich mit dem Supabase-Anon-Key. Autorisierung wird im Backend durch Row Level Security und domänenspezifische RPCs erzwungen. Service-Role-Keys und externe API-Secrets dürfen ausschließlich in serverseitigen Routen oder Edge Functions verwendet werden.
+
+## Repositorystruktur
 
 ```text
-"Worauf habe ich gerade Lust?"
-"Was passt zu meinem Kontext?"
-"Was empfehlen Menschen aus meinem Kreis wirklich?"
-"Welche Backyrd-Entscheidung wurde später zu einem echten Moment?"
+backyrd/
+├── mobile/                 Expo-App für iOS und Android
+├── web/                    Next.js-App für Public Web und Owner Portal
+├── admin-dashboard/        separates internes Next.js-Dashboard
+├── packages/shared/        gemeinsam genutzte Web-DTOs und Verträge
+├── supabase/
+│   ├── migrations/         kanonische, versionierte Datenbankänderungen
+│   ├── functions/          kanonische Supabase Edge Functions
+│   ├── config.toml         lokale Supabase-Konfiguration
+│   └── seed.sql            Seed-Einstiegspunkt; derzeit leer
+├── docs/                   interne Betriebs- und Safety-Dokumentation
+├── legal/                  Community-, Moderations- und Appeals-Richtlinien
+└── scripts/                Wartungs- und Importskripte
 ```
 
-Backyrd kombiniert vier Hauptbereiche:
+Die Root-npm-Workspaces umfassen nur `web` und `packages/*`. `mobile` und `admin-dashboard` besitzen eigene Lockfiles und werden separat installiert.
 
-1. **Decision Engine**  
-   Eine KI-gestützte Spot-Empfehlung anhand von Freitext, Moods, Kategorie, Publikum, Ort, Kontext und persönlichem Taste-Profil.
+Weitere eingecheckte Bereiche sind nicht Teil des regulären Runtime-Pfads:
 
-2. **Reviews / Moments**  
-   Nutzer bewerten Spots schnell mit Mood-Tags, optionalem Bild und kurzem Text. Diese Reviews werden automatisch zu Social Moments.
+- `mobile/supabase/functions/` enthält zusätzliche, mobile-nahe Function-Quellen außerhalb des kanonischen Supabase-Projekts im Root.
+- `web/src/app/` enthält eine ältere parallele Page-Quelle; die aktive Next.js-App liegt unter `web/app/`.
+- `app.json` und `eas.json` im Root definieren eine zweite Expo/EAS-Konfiguration. Für die Mobile-App sind in diesem Dokument `mobile/app.config.ts` und `mobile/eas.json` maßgeblich.
+- `mobu/` ist ein eigenständiger Expo-Prototyp und kein Backyrd-Produktmodul.
+- `backups/`, versteckte Backup-Verzeichnisse, Audit-Dateien und `backyrd_spot_quality_*` sind historische Arbeitsartefakte oder Installer.
 
-3. **Social Feed**  
-   Ein Feed aus echten Bewertungen, Backyrd-Treffern, manuellen Moments und später Spot-Owner-Updates.
+Neue Produktlogik gehört in die kanonischen Laufzeitbereiche. Historische Artefakte dürfen nicht als Implementierungsvorlage oder Deployment-Quelle behandelt werden.
 
-4. **Taste & Signal Graph**  
-   Backyrd lernt aus Entscheidungen, Likes, Öffnungen, Reviews, Follows, Saves und Decision→Review-Verknüpfungen.
+## Technologie
 
----
+- **Mobile:** Expo, React Native, Expo Router und TypeScript
+- **Web und Admin:** Next.js, React, TypeScript und Tailwind CSS
+- **Backend:** Supabase Auth, PostgreSQL, Storage, Realtime, RLS und SQL RPCs
+- **Serverless:** Supabase Edge Functions mit Deno und TypeScript
+- **AI und Enrichment:** OpenAI, Embeddings, semantische Suche und Google Places
+- **Mobile Delivery:** EAS Build und EAS Update
 
-## 2. Produkt-Nordstern
+Die verbindlichen Versionen stehen in den jeweiligen `package.json`-, Lock- und Expo-Konfigurationsdateien; diese README dupliziert sie bewusst nicht.
 
-Der wichtigste Backyrd-Flow ist:
+## Lokale Entwicklung
 
-```text
-User sucht mit Backyrd
-→ Backyrd schlägt passende Spots vor
-→ User liked / öffnet / merkt sich einen Spot
-→ User bewertet später denselben Spot
-→ Backyrd erkennt: Die Empfehlung hat funktioniert
-→ daraus entsteht ein Social Moment: "Gefunden mit Backyrd"
-→ die Taste Engine bekommt ein starkes positives Signal
-```
+### Voraussetzungen
 
-Beispiel:
+- Node.js 20 und npm
+- Docker für den lokalen Supabase-Stack
+- Xcode und CocoaPods für native iOS-Builds
+- Android Studio und Android SDK für native Android-Builds
 
-```text
-Suche:
-"Ausflug mit meiner vierjährigen Tochter"
+Die Mobile-App definiert die erwartete Node-Version über Volta in `mobile/package.json`. Die Supabase CLI ist als Root-Dev-Dependency installiert.
 
-Backyrd empfiehlt:
-Tierpark Lange Erlen
-
-User liked den Spot.
-
-1 Stunde später:
-User bewertet Tierpark Lange Erlen.
-
-Backyrd erkennt automatisch:
-Decision Like + gleiche Person + gleicher Spot + Review innerhalb 12h
-
-Feed:
-"Gefunden mit Backyrd"
-```
-
-Das ist der zentrale Unterschied zu Yelp, Google Maps oder Instagram.
-
----
-
-## 3. Tech Stack
-
-### Mobile
-
-- Expo
-- React Native
-- TypeScript
-- expo-router
-- Supabase JS Client
-- React Native Maps / Google Maps
-- Expo Image Picker / Camera
-- Expo Notifications
-- Expo Updates
-- AsyncStorage
-- Ionicons
-- Custom dark UI
-
-### Backend
-
-- Supabase Cloud
-- PostgreSQL
-- Supabase Auth
-- Supabase Storage
-- Row Level Security
-- SQL RPC Functions
-- Edge Functions für Decision Engine
-- OpenAI Embeddings / semantic matching
-- Embedding-basierte Spot-Suche
-
-### Lokaler Projektpfad
-
-```bash
-/Users/philippjohanna/dev/backyrd
-```
-
-### Wichtig
-
-Die Migrationen im Repo sind historisch teilweise lokal. Die App nutzt aktuell primär die **Supabase Cloud**. Deshalb wurden viele neue SQL-Patches direkt im Supabase Cloud SQL Editor ausgeführt.
-
----
-
-## 4. Wichtige Environment Variablen
-
-Die Werte niemals committen.
-
-Typische Variablen:
-
-```bash
-EXPO_PUBLIC_SUPABASE_URL=
-EXPO_PUBLIC_SUPABASE_ANON_KEY=
-EXPO_PUBLIC_OPENAI_KEY=
-EXPO_PUBLIC_MAPS=
-```
-
-Falls vorhanden zusätzlich:
-
-```bash
-SUPABASE_SERVICE_ROLE_KEY=
-OPENAI_API_KEY=
-```
-
-Die App darf im Client nur Public/Anon Keys nutzen. Service Role Keys gehören niemals in die App.
-
----
-
-## 5. Wichtige lokale Befehle
-
-### App starten
+### 1. Abhängigkeiten installieren
 
 ```bash
-cd /Users/philippjohanna/dev/backyrd/mobile
-npx expo start -c
+git clone https://github.com/PhiluLan/backyrd.git
+cd backyrd
+
+npm ci
+npm --prefix mobile ci
+npm --prefix admin-dashboard ci
 ```
 
-### Projektwurzel
-
-```bash
-cd /Users/philippjohanna/dev/backyrd
-```
-
-### Dateien aus Downloads ersetzen
-
-Die Dateien, die aus ChatGPT heruntergeladen werden, liegen auf dem Mac in:
+### 2. Lokales Backend starten
 
 ```bash
-/Users/philippjohanna/Downloads
+npm run supabase:start
+npm run supabase:status
 ```
 
-Beispiel:
+Der erste Start wendet die Migrationen unter `supabase/migrations/` an. Die lokale API ist anschließend standardmäßig unter `http://127.0.0.1:54321` und Supabase Studio unter `http://127.0.0.1:54323` erreichbar.
+
+`supabase/seed.sql` ist derzeit leer. Ein frischer Stack enthält daher Schema und Policies, aber keine produktnahen Spots, Admin-Nutzer oder Testkonten. Vollständige Discovery-, Owner- und Admin-Flows benötigen geeignete Testdaten und Rollen in einer lokalen oder isolierten Umgebung.
+
+### 3. Umgebungsvariablen setzen
+
+Lege lokale `.env`-Dateien an; sie werden von Git ignoriert. Die lokalen Supabase-Werte liefert `npm run supabase:status`. Das Repository enthält noch keine `.env.example`-Dateien; bis diese ergänzt werden, ist die folgende Tabelle der minimale Konfigurationsvertrag.
+
+| Anwendung | Datei | Erforderlich | Optional oder funktionsabhängig |
+| --- | --- | --- | --- |
+| Mobile | `mobile/.env` | `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY` | `APP_VARIANT`, `EXPO_PUBLIC_GOOGLE_MAPS_KEY` |
+| Public/Owner Web | `web/.env.local` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_APP_DOWNLOAD_URL` |
+| Admin | `admin-dashboard/.env.local` | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_GOOGLE_API_KEY`, serverseitig `SUPABASE_SERVICE_ROLE_KEY` |
+| Edge Functions | `supabase/.env` | abhängig von der Function | unter anderem `OPENAI_API_KEY`, `GOOGLE_PLACES_API_KEY`, `RESEND_API_KEY` und Worker-/Webhook-Secrets |
+
+Minimalbeispiel für die Mobile-App:
+
+```dotenv
+EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<anon-key-aus-supabase-status>
+APP_VARIANT=dev
+```
+
+Variablen mit `EXPO_PUBLIC_` oder `NEXT_PUBLIC_` werden in Client-Bundles eingebettet und sind keine Secret-Speicher. Privilegierte Schlüssel gehören niemals in diese Variablen.
+
+Einige ältere Mobile-Hilfsquellen referenzieren noch `EXPO_PUBLIC_OPENAI_KEY`. Das ist keine unterstützte Sicherheitsgrenze: Verwende dort keinen produktiven OpenAI-Key; neue AI-Aufrufe gehören hinter eine Edge Function.
+
+### 4. Gewünschte Oberfläche starten
+
+| Oberfläche | Befehl | Standardadresse |
+| --- | --- | --- |
+| Mobile / Expo Dev Server | `npm --prefix mobile run start` | Expo-Ausgabe folgen |
+| Public & Owner Web | `npm --workspace web run dev` | `http://localhost:3000` |
+| Admin Dashboard | `npm --prefix admin-dashboard run dev -- -p 3001` | `http://localhost:3001` |
+
+Für Kamera, Push, Maps und andere native Integrationen ist ein Development Build zuverlässiger als Expo Go. Das Admin-Dashboard erfordert zusätzlich einen authentifizierten Nutzer, für den `admin_is_admin_v1` positiv ausfällt.
+
+### 5. Edge Functions lokal ausführen
 
 ```bash
-cd /Users/philippjohanna/dev/backyrd
-cp "/Users/philippjohanna/Downloads/PostCard.tsx" "mobile/components/PostCard.tsx"
-cd mobile
-npx expo start -c
+npx supabase functions serve <function-name> --env-file supabase/.env
 ```
 
----
+Ohne die jeweils benötigten Secrets funktionieren AI-, E-Mail-, Push-, Safety- und Google-Places-Flows nicht vollständig. Secrets für Cloud-Umgebungen werden über die Supabase-Secret-Verwaltung gesetzt und nicht committed.
 
-## 6. App-Struktur – wichtige Routen
-
-Aktueller relevanter Stand:
-
-```text
-mobile/app/_layout.tsx
-mobile/app/index.tsx
-mobile/app/gate.tsx
-mobile/app/splash.tsx
-
-mobile/app/(tabs)/_layout.tsx
-mobile/app/(tabs)/index.tsx
-mobile/app/(tabs)/decision.tsx
-mobile/app/(tabs)/decision-debug.tsx
-mobile/app/(tabs)/decision-onboarding.tsx
-mobile/app/(tabs)/feed.tsx
-mobile/app/(tabs)/explore.tsx
-mobile/app/(tabs)/map.tsx
-mobile/app/(tabs)/journey.tsx
-mobile/app/(tabs)/messages.tsx
-mobile/app/(tabs)/profile.tsx
-mobile/app/(tabs)/settings.tsx
-mobile/app/(tabs)/achievements.tsx
-mobile/app/(tabs)/new-spot.tsx
-mobile/app/(tabs)/smart-review.tsx
-mobile/app/(tabs)/dev.tsx
-
-mobile/app/auth/login.tsx
-mobile/app/auth/register.tsx
-mobile/app/auth/verify.tsx
-
-mobile/app/spot/[id].tsx
-mobile/app/spot/new.tsx
-mobile/app/spot/[id]/claim.tsx
-mobile/app/spot/[id]/manage.tsx
-
-mobile/app/review/new.tsx
-mobile/app/review/quick.tsx
-mobile/app/review/smart.tsx
-
-mobile/app/profile/history.tsx
-mobile/app/user/[id].tsx
-mobile/app/messages/[id].tsx
-mobile/app/search.tsx
-```
-
----
-
-## 7. Wichtige Komponenten
-
-```text
-mobile/components/PostCard.tsx
-mobile/components/CommentsSheet.tsx
-mobile/components/Avatar.tsx
-mobile/components/FollowButton.tsx
-mobile/components/LoginBottomSheet.tsx
-mobile/components/LoginPromptModal.tsx
-mobile/components/AchievementPopup.tsx
-mobile/components/AchievementUnlockModal.tsx
-mobile/components/map/Map.native.tsx
-mobile/components/ui.tsx
-```
-
-### `PostCard.tsx`
-
-Aktueller Feed-Card-Kern. Erkennt und unterscheidet:
-
-```text
-manual           → Moment
-review           → Bewertet
-decision_review  → Gefunden mit Backyrd
-owner_post       → Update
-```
-
-`decision_review` wird visuell besonders dargestellt:
-
-```text
-Gefunden
-Gefunden mit Backyrd
-"Ursprüngliche Suche"
-```
-
-### `CommentsSheet.tsx`
-
-Bottom Sheet für Kommentare. Wurde mehrfach optimiert und nimmt visuell etwa eine halbe Seite ein.
-
-### `Avatar.tsx`
-
-Einheitliche Profilbilder im Feed und Profil.
-
----
-
-## 8. Supabase – zentrale Tabellen
-
-### Core
-
-```text
-spots
-categories
-spot_photos
-reviews
-review_photos
-profiles
-favorites
-follows
-```
-
-### Social
-
-```text
-social_posts
-social_post_media
-social_post_reactions
-social_comments
-social_feed_events
-spot_follows
-```
-
-### Decision / Taste / ML
-
-```text
-backyrd_ml_events_v1
-backyrd_user_feature_weights_v1
-backyrd_decision_review_links_v1
-decision_sessions
-decision_actions
-decision_impressions
-user_place_type_preferences_v1
-user_taste_profile_v1
-spot_intelligence_v1
-spot_descriptions
-```
-
-### Achievements / Notifications
-
-```text
-achievements
-user_achievements
-notifications / notification-related tables if present
-```
-
----
-
-## 9. Supabase – wichtige RPC Functions
-
-### Social
-
-```text
-get_social_feed_v1
-create_social_post_v1
-react_to_social_post_v1
-create_social_comment_v1
-get_social_comments_v1
-follow_user_v1
-unfollow_user_v1
-get_social_profile_v1
-get_social_user_posts_v1
-log_social_feed_event_v1
-```
-
-### Decision Follow-up / Review Linking
-
-```text
-get_decision_followup_v1
-get_decision_followup_v2
-get_decision_visit_candidates_v1
-link_decision_review_v1
-backyrd_try_auto_link_decision_review_v1
-get_my_decision_review_links_v1
-```
-
-### ML / Taste
-
-```text
-backyrd_ml_event_strength_v1
-backyrd_ml_extract_spot_features_v1
-backyrd_ml_feature_cap_v1
-backyrd_ml_norm_text_v1
-backyrd_ml_log_event_v1
-```
-
-### Decision Context / Engine
-
-```text
-get_decision_context_v1
-create_decision_session_v1
-backyrd_get_decision_spots_v11
-```
-
-Die aktuelle App nutzt zusätzlich die Edge Function:
-
-```text
-/functions/v1/decision-v13
-```
-
----
-
-## 10. Decision Engine V13 / V13.10
-
-Die Decision Engine ist aktuell der stärkste Produktkern.
-
-Sie kombiniert:
-
-```text
-- Freitext
-- Stadt
-- gewünschte Place Types
-- sekundäre Place Types
-- ausgeschlossene Place Types
-- Audience, z.B. kids/family
-- Moods
-- persönliche Taste-Profile
-- vergangene Entscheidungen
-- semantic search
-- V12 / V13 Fusionslogik
-```
-
-Beispiel Request:
-
-```json
-{
-  "city": "Basel",
-  "query": "Freier Tag mit meiner 4 jährigen Tochter, irgendwas unternehmen",
-  "preferredPlaceTypes": ["activity", "culture"],
-  "audience": ["kids"],
-  "inputMode": "free",
-  "rawFreeText": "Freier Tag mit meiner 4 jährigen Tochter, irgendwas unternehmen",
-  "limit": 10,
-  "v12Limit": 12,
-  "semanticLimit": 24
-}
-```
-
-Wichtig: Wenn die App mit einem eingeloggten User arbeitet, muss sie den Supabase Access Token mitgeben. Nur dann funktioniert Personalisierung vollständig.
-
----
-
-## 11. Decision Events
-
-Die App loggt Decision-Signale in:
-
-```text
-backyrd_ml_events_v1
-```
-
-Wichtige Event Types:
-
-```text
-decision_impression
-decision_like
-decision_dislike
-decision_open
-decision_remix
-favorite_add
-favorite_remove
-review_create
-review_update
-spot_detail_view
-search_result_click
-map_spot_tap
-```
-
-Besonders wichtige Decision-Signale:
-
-```text
-decision_like       → stark
-decision_open       → mittelstark
-decision_impression → schwach
-```
-
----
-
-## 12. Sprint 2D – Decision → Review → Social Moment
-
-### Ziel
-
-Wenn ein User nach einer Decision denselben Spot bewertet, erkennt Backyrd den Zusammenhang automatisch.
-
-### Tabelle
-
-```text
-backyrd_decision_review_links_v1
-```
-
-Wichtige Spalten:
-
-```text
-id
-user_id
-decision_id
-review_id
-spot_id
-match_type
-signal_strength
-decision_created_at
-review_created_at
-hours_between
-context
-created_at
-```
-
-### Auto-Link Function
-
-```text
-backyrd_try_auto_link_decision_review_v1(review_id, window_hours)
-```
-
-Sie sucht:
-
-```text
-gleicher User
-gleicher Spot
-Decision Event vor Review
-innerhalb Zeitfenster, aktuell 12h
-```
-
-Priorität:
-
-```text
-decision_like       → signal_strength 1.00
-decision_open       → signal_strength 0.82
-decision_impression → signal_strength 0.42
-```
-
-### Beispiel erfolgreicher Link
-
-```text
-Decision Like: Tierpark Lange Erlen
-Review: Tierpark Lange Erlen
-hours_between: 0.0227
-match_type: auto_recent_same_spot_after_like
-signal_strength: 1.00
-```
-
-Danach wird der Social Post automatisch hochgestuft:
-
-```text
-source_type = decision_review
-```
-
-Und `source_context` enthält:
-
-```text
-decision_id
-review_id
-linked_from_decision
-match_type
-hours_between
-signal_strength
-model_version
-input_mode
-raw_free_text
-query_text
-```
-
----
-
-## 13. Review → Social Moment
-
-Reviews werden automatisch zu Social Posts.
-
-Review Tabellen:
-
-```text
-reviews
-review_photos
-```
-
-Social Ergebnis:
-
-```text
-social_posts.source_type = review
-```
-
-Wenn der Review mit einer Decision verbunden wird:
-
-```text
-social_posts.source_type = decision_review
-```
-
-Feed Darstellung:
-
-```text
-review:
-Bewertet
-
-decision_review:
-Gefunden mit Backyrd
-```
-
----
-
-## 14. Social Feed
-
-Der Feed soll kein Mini-Instagram sein.
-
-Backyrd Social bedeutet:
-
-```text
-- echte Spot-Moments
-- Bewertungen
-- Decision-Erfolge
-- Menschen aus meinem Kreis
-- Taste-Signale
-- später Spot-Owner-Updates
-```
-
-Interaktionen:
-
-```text
-like       → "Guter Tipp"
-save       → "Will ich auch hin" / "Gemerkt"
-comment    → Comments Sheet
-follow     → User folgen
-open spot  → Spot Detail
-open user  → User Profile
-```
-
----
-
-## 15. Profile
-
-Es gab ursprünglich zwei Profilwelten:
-
-```text
-1. Hauptprofil in Tabs
-2. Userprofil aus dem Feed
-```
-
-Diese wurden optisch angenähert.
-
-### Hauptprofil
-
-```text
-mobile/app/(tabs)/profile.tsx
-```
-
-Beinhaltet:
-
-```text
-- Avatar
-- Header
-- Name / Username
-- Bio
-- Stats
-- Beiträge
-- Favoriten
-- Badges
-- Profil bearbeiten
-- Decision History
-- Logout
-```
-
-### Public User Profile
-
-```text
-mobile/app/user/[id].tsx
-```
-
-Wichtiges Verhalten:
-
-```text
-Wenn User im Feed auf eigenes Profil klickt:
-→ Redirect zu /(tabs)/profile
-
-Wenn User auf fremdes Profil klickt:
-→ Social User Profile
-```
-
----
-
-## 16. Decision History / Visit Follow-up
-
-Datei:
-
-```text
-mobile/app/profile/history.tsx
-```
-
-Ziel:
-
-```text
-Nicht stumpf "Warst du da?" fragen,
-sondern smart erkennen.
-```
-
-Mögliche States:
-
-```text
-review_confirmed:
-Besuch erkannt
-Aus deiner Decision wurde ein Backyrd Moment.
-
-strong_candidate:
-Kurz bewerten
-Du hast diesen Spot als Treffer markiert.
-
-opened_candidate:
-Wie war es?
-Du hast dir diesen Spot genauer angeschaut.
-
-soft_candidate:
-Vielleicht besucht?
-Backyrd hat dir diesen Spot vorgeschlagen.
-```
-
-Wichtige RPC:
-
-```text
-get_decision_visit_candidates_v1
-```
-
----
-
-## 17. Aktueller Stand nach Sprint 2D.1
-
-Funktioniert:
-
-```text
-✅ Decision V13 mit Events
-✅ Decision Like/Open/Impression Logging
-✅ Review erstellen
-✅ Review wird Social Post
-✅ Decision Review Auto-Link über backyrd_ml_events_v1
-✅ Social Post wird zu decision_review
-✅ Feed Card zeigt "Gefunden mit Backyrd"
-✅ Comments
-✅ Likes
-✅ Saves
-✅ User folgen
-✅ Hauptprofil und Userprofil optisch angenähert
-```
-
-Wichtigster verifizierter Test:
-
-```text
-User:
-philipplanger@yahoo.com
-
-Decision:
-"Ausflug mit meiner vierjährigen Tochter"
-
-Spot:
-Tierpark Lange Erlen
-
-Event:
-decision_like
-
-Review:
-"Perfekter Tag 1"
-
-Ergebnis:
-backyrd_decision_review_links_v1 enthält Link
-social_posts.source_type = decision_review
-```
-
----
-
-## 18. Geplanter nächster Sprint: 2F
-
-### Sprint 2F: Spot Detail zeigt Social Proof aus deinem Kreis
-
-Ziel:
-
-Im Spot Detail soll sichtbar werden:
-
-```text
-Aus deinem Kreis
-Philipp war hier · Gefunden mit Backyrd
-"Perfekter Tag 1"
-
-2 weitere Moments
-```
-
-Oder allgemein:
-
-```text
-Backyrd Moments
-3 Moments in den letzten 30 Tagen
-1 Gefunden mit Backyrd
-5x gespeichert
-```
-
-Wichtig: Nicht den kompletten Feed ins Spot Detail packen.
-
-Besser:
-
-```text
-- kleine kompakte Moment Cards
-- 2 bis 3 Beispiele
-- "Alle Moments ansehen" später
-```
-
-Vermutete Dateien:
-
-```text
-mobile/app/spot/[id].tsx
-mobile/components/SpotSocialContextSection.tsx
-```
-
-Vermutete neue RPC:
-
-```text
-get_spot_social_context_v1
-```
-
----
-
-## 19. Design-Richtung
-
-Backyrd soll sich anfühlen wie:
-
-```text
-Apple-like
-Instagram-smooth
-urban
-dark
-premium
-local
-emotional
-nicht Yelp
-nicht Google Maps
-nicht Bewertungsportal
-```
-
-Design-Prinzipien:
-
-```text
-- Große Cards
-- Viel schwarzer Raum
-- Runde Ecken
-- Soft Borders
-- Wenig harte Farben
-- Klare Typografie
-- Emotionale Labels
-- Keine mechanischen KI-Texte
-- So wenig technische Sprache wie möglich
-```
-
-Begriffe vermeiden:
-
-```text
-Verified
-Score
-Algorithmus
-Rating
-technical why
-```
-
-Bessere Begriffe:
-
-```text
-Gefunden mit Backyrd
-Guter Tipp
-Will ich auch hin
-Bewertet
-Moment
-Aus deinem Kreis
-Backyrd Treffer
-```
-
----
-
-## 20. GitHub Workflow
-
-Das Repo existiert bereits auf GitHub:
-
-```text
-https://github.com/PhiluLan/backyrd
-```
-
-Vor dem Push unbedingt prüfen, dass keine Secrets committed werden.
-
-### Status prüfen
+Häufige Backend-Befehle:
 
 ```bash
-cd /Users/philippjohanna/dev/backyrd
-git status
+# Neue Schemaänderung anlegen
+npx supabase migration new <name>
+
+# Lokale Datenbank neu aus Migrationen aufbauen (löscht lokale Daten)
+npm run supabase:reset
+
+# Lokalen Stack stoppen
+npm run supabase:stop
 ```
 
-### Remote prüfen
+## Entwicklungsworkflow
+
+1. Lies vor Änderungen die verbindlichen Produkt- und Engineering-Regeln in [`AGENTS.md`](./AGENTS.md).
+2. Suche nach bestehenden Komponenten, Services, Hooks, RPCs und Migrationen, bevor du neue Logik einführst.
+3. Ordne die Änderung einer Domäne und allen betroffenen Oberflächen zu; Owner-, Admin- und Mobile-Auswirkungen dürfen nicht isoliert betrachtet werden.
+4. Implementiere Schemaänderungen ausschließlich als neue Migration. Ändere keine bereits angewandte Migration und schwäche keine RLS-Policy ab.
+5. Prüfe mindestens Lint und Build der betroffenen Anwendung sowie kritische Auth-, RLS-, Safety- und Moderationspfade manuell.
 
 ```bash
-git remote -v
+# Mobile
+npm --prefix mobile run lint
+
+# Public & Owner Web
+npm --workspace web run lint
+npm --workspace web run build
+
+# Admin Dashboard
+npm --prefix admin-dashboard run lint
+npm --prefix admin-dashboard run build
 ```
 
-### Sensitive Dateien prüfen
+Das Repository enthält derzeit keine automatisierte Test-Suite und keine CI-Workflows. Das ist insbesondere für Datenbank-, Berechtigungs- und Trust-&-Safety-Änderungen eine relevante Qualitätssicherungslücke.
 
-Nicht committen:
+`AGENTS.md` ist die aktuelle Source of Truth für Produkt- und Implementierungsprinzipien. Vor einer Öffnung für externe Contributions sollte ein separates `CONTRIBUTING.md` Branch-, Review-, Test- und Release-Konventionen dokumentieren, statt diese README weiter auszubauen.
 
-```text
-.env
-.env.local
-.env.production
-*.p8
-*.pem
-service_role keys
-Supabase service role keys
-OpenAI API keys
-Google Maps private keys
-```
+## Weiterführende Dokumentation
 
-### `.gitignore` sollte enthalten
+- [`AGENTS.md`](./AGENTS.md) – Produktphilosophie und verbindliche Engineering-Regeln
+- [`docs/safety/MODERATION_SOP.md`](./docs/safety/MODERATION_SOP.md) – operativer Moderationsablauf
+- [`docs/safety/TRANSPARENCY_MONITORING.md`](./docs/safety/TRANSPARENCY_MONITORING.md) – Transparenz und Monitoring
+- [`legal/safety/COMMUNITY_GUIDELINES.md`](./legal/safety/COMMUNITY_GUIDELINES.md) – Community Guidelines
+- [`legal/safety/MODERATION_POLICY.md`](./legal/safety/MODERATION_POLICY.md) – Moderationsrichtlinie
+- [`legal/safety/ENFORCEMENT_POLICY.md`](./legal/safety/ENFORCEMENT_POLICY.md) – Durchsetzungsrichtlinie
+- [`legal/safety/APPEALS_POLICY.md`](./legal/safety/APPEALS_POLICY.md) – Einspruchsverfahren
 
-```gitignore
-node_modules/
-.expo/
-dist/
-build/
-ios/build/
-android/build/
+## Lizenz
 
-.env
-.env.*
-!.env.example
-
-.DS_Store
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-*.p8
-*.pem
-*.key
-```
-
-### Änderungen anschauen
-
-```bash
-git status
-git diff --stat
-```
-
-### Alles hinzufügen
-
-```bash
-git add .
-```
-
-### Commit
-
-```bash
-git commit -m "Update Backyrd decision social feed and profile system"
-```
-
-### Push
-
-```bash
-git push origin main
-```
-
-Falls Branch anders heißt:
-
-```bash
-git branch
-git push origin <branch-name>
-```
-
----
-
-## 21. Empfohlene GitHub-Vorbereitung vor dem Push
-
-### 1. Secrets suchen
-
-```bash
-cd /Users/philippjohanna/dev/backyrd
-
-grep -R "SUPABASE_SERVICE_ROLE_KEY\|service_role\|OPENAI_API_KEY\|sk-" . \
-  --exclude-dir=node_modules \
-  --exclude-dir=.git \
-  --exclude-dir=.expo
-```
-
-### 2. Environment Dateien prüfen
-
-```bash
-find . -name ".env*" -maxdepth 4 -print
-```
-
-### 3. Große Dateien prüfen
-
-```bash
-find . -type f -size +50M \
-  -not -path "./node_modules/*" \
-  -not -path "./.git/*"
-```
-
-### 4. Git Status prüfen
-
-```bash
-git status
-```
-
----
-
-## 22. Wichtige Produktentscheidung
-
-Backyrd soll kein normales Social Network werden.
-
-Ein normaler User soll nicht primär posten wie bei Instagram.
-
-Der wichtigste User-Beitrag ist:
-
-```text
-Ich habe einen Spot erlebt und bewertet.
-```
-
-Noch stärker:
-
-```text
-Backyrd hat mir einen Spot vorgeschlagen,
-ich war dort,
-ich habe ihn bewertet.
-```
-
-Spot Owner können später eher klassische Posts/Updates veröffentlichen.
-
----
-
-## 23. Aktuelle offene Punkte / Next Actions
-
-Direkt nächste technische Punkte:
-
-```text
-1. Spot Detail: Social Proof aus deinem Kreis
-2. Spot Detail: kleine Moment Cards
-3. Feed Filter: Alle / Gefunden / Bewertet / Updates
-4. Decision History UI final polish
-5. Taste Signal für decision_review_confirmed optional stärker loggen
-6. Social discovery: welche Spots trenden bei meinen Leuten?
-```
-
-Später:
-
-```text
-- echte Location Verification
-- bessere Owner Tools
-- Spot Owner Updates
-- Push Notifications für Kommentare/Follows
-- Realtime Feed Updates
-- Moderation für Posts/Kommentare/Profile
-- bessere Following Discovery
-- Leute mit ähnlichem Taste-Profil
-```
-
----
-
-## 24. Arbeitspräferenzen
-
-Der Projektinhaber bevorzugt:
-
-```text
-- Deutschsprachige Erklärungen
-- komplette Dateien statt Snippets
-- klare Pfade
-- copy-paste-fähige Terminalbefehle
-- keine Platzhalter-Pfade
-- konkrete nächste Schritte
-- Supabase Cloud SQL Editor für produktive Cloud-Änderungen
-```
-
-Wenn Dateien aus ChatGPT heruntergeladen werden, liegen sie lokal in:
-
-```bash
-/Users/philippjohanna/Downloads
-```
-
-Projekt liegt in:
-
-```bash
-/Users/philippjohanna/dev/backyrd
-```
-
----
-
-## 25. Kurzbeschreibung für neue Entwickler / KI-CTO
-
-Backyrd ist aktuell in einer spannenden Phase: Die technische Basis der Decision Engine und des Social Feeds steht. Der wichtigste Durchbruch ist die automatische Verknüpfung von Decision Events mit späteren Reviews. Dadurch kann Backyrd echte Empfehlungserfolge erkennen und als “Gefunden mit Backyrd” im Feed darstellen.
-
-Die nächsten Arbeiten sollten darauf abzielen, diese Social-Proof-Signale in den Core der App zu integrieren, besonders ins Spot Detail. Social soll nicht als separates Instagram-artiges Feature wirken, sondern als Vertrauens- und Taste-Schicht über der gesamten App.
-
----
-
-## 26. Schnellstart für Weiterarbeit
-
-```bash
-cd /Users/philippjohanna/dev/backyrd/mobile
-npx expo start -c
-```
-
-Dann auf dem Gerät testen:
-
-```text
-1. Login
-2. Decision Suche
-3. Spot liken / öffnen
-4. Review für denselben Spot erstellen
-5. Feed prüfen
-6. Profil / History prüfen
-7. Social Post sollte "Gefunden mit Backyrd" sein
-```
-
-SQL Checks:
-
-```sql
-select * from public.get_my_decision_review_links_v1(20);
-```
-
-```sql
-select
-  sp.id,
-  sp.source_type,
-  sp.review_id,
-  sp.spot_id,
-  s.name as spot_name,
-  sp.caption,
-  sp.source_context,
-  sp.created_at
-from public.social_posts sp
-left join public.spots s on s.id = sp.spot_id
-order by sp.created_at desc
-limit 20;
-```
-
----
-
-## 27. Schlussgedanke
-
-Backyrd wird dann stark, wenn es nicht versucht, ein weiteres Bewertungsportal oder ein weiteres Instagram zu sein.
-
-Backyrd soll beantworten:
-
-```text
-Was passt jetzt wirklich zu mir?
-Wer aus meinem Kreis hat das erlebt?
-Welche Empfehlung wurde wirklich zu einem guten Moment?
-```
-
-Der aktuelle technische Stand ist genau auf diesem Weg.
+Dieses Repository enthält derzeit keine `LICENSE`-Datei. Ohne ausdrückliche Lizenz werden keine Nutzungs-, Änderungs- oder Weiterverteilungsrechte eingeräumt.
