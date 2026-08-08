@@ -144,6 +144,8 @@ assert_count 19 'canonical Storage policies' \
 
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/sprint8_integrity_case_lifecycle.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/sprint8_review_authenticity_acceptance.sql"
 
 lint_json="$validation_root/db-lint.json"
 supabase db lint \
