@@ -244,6 +244,13 @@ function contentTypeLabel(contentType: string): string {
   }
 }
 
+function isReviewIntegrityCase(row: SafetyRow): boolean {
+  return (
+    row.content_type === "review" &&
+    row.explanation_code === "REVIEW_INTEGRITY_SIGNAL"
+  );
+}
+
 function severityLabel(severity: number | null): string {
   const value = severity ?? 0;
   if (value >= 5) return "Kritisch";
@@ -450,6 +457,10 @@ export default function SafetyIntegrityPage() {
         row.entity_type,
         row.final_category,
         row.final_action,
+        row.explanation_code,
+        isReviewIntegrityCase(row)
+          ? "review integrity manipulation spam brigading"
+          : null,
       ]
         .filter(Boolean)
         .join(" ")
@@ -465,6 +476,10 @@ export default function SafetyIntegrityPage() {
         (!query || haystack.includes(query)) &&
         (
           categoryFilter === "all" ||
+          (
+            categoryFilter === "review_integrity" &&
+            isReviewIntegrityCase(row)
+          ) ||
           row.final_category === categoryFilter
         ) &&
         (
@@ -1001,6 +1016,9 @@ export default function SafetyIntegrityPage() {
               }
             >
               <option value="all">Alle Kategorien</option>
+              <option value="review_integrity">
+                Review Integrity
+              </option>
               <option value="none">Kein Verstoß</option>
               <option value="hate">
                 Hass oder Diskriminierung
@@ -1106,6 +1124,8 @@ export default function SafetyIntegrityPage() {
               const content = splitContent(row.text_content);
               const canDecide =
                 row.case_status === "needs_review";
+              const integrityCase =
+                isReviewIntegrityCase(row);
 
               return (
                 <article
@@ -1141,6 +1161,15 @@ export default function SafetyIntegrityPage() {
                         {contentTypeLabel(row.content_type)}
                       </div>
 
+                      {integrityCase ? (
+                        <div style={{ marginBottom: 10 }}>
+                          <StatusPill
+                            label="Review Integrity"
+                            tone="pink"
+                          />
+                        </div>
+                      ) : null}
+
                       <div
                         style={{
                           fontSize: 22,
@@ -1155,7 +1184,9 @@ export default function SafetyIntegrityPage() {
                         className="by-muted by-small"
                         style={{ marginTop: 7 }}
                       >
-                        Geändert von{" "}
+                        {integrityCase
+                          ? "Bewertung von "
+                          : "Geändert von "}
                         {row.actor_name ?? "unbekanntem Nutzer"}
                         {" · "}
                         {relativeTime(row.created_at)}
@@ -1416,10 +1447,44 @@ export default function SafetyIntegrityPage() {
                           marginBottom: 16,
                         }}
                       >
-                        Risikobewertung
+                        {integrityCase
+                          ? "Integrity-Fall"
+                          : "Risikobewertung"}
                       </div>
 
                       <div style={{ display: "grid", gap: 16 }}>
+                        {integrityCase ? (
+                          <div>
+                            <div className="by-muted by-small">
+                              Falltyp
+                            </div>
+                            <strong
+                              style={{
+                                display: "block",
+                                marginTop: 4,
+                                color: "#ff6d9f",
+                              }}
+                            >
+                              Review Integrity
+                            </strong>
+                          </div>
+                        ) : null}
+
+                        {integrityCase ? (
+                          <div>
+                            <div className="by-muted by-small">
+                              Automatische Reaktion
+                            </div>
+                            <strong
+                              style={{
+                                display: "block",
+                                marginTop: 4,
+                              }}
+                            >
+                              Nur menschliche Prüfung
+                            </strong>
+                          </div>
+                        ) : null}
                         <div>
                           <div className="by-muted by-small">
                             Einschätzung
@@ -1491,7 +1556,9 @@ export default function SafetyIntegrityPage() {
                       }}
                     >
                       <div className="by-muted by-small">
-                        Wähle eine Maßnahme für diese Änderung.
+                        {integrityCase
+                          ? "Prüfe die Integrity-Signale im Falldetail, bevor du entscheidest."
+                          : "Wähle eine Maßnahme für diese Änderung."}
                       </div>
 
                       <div
