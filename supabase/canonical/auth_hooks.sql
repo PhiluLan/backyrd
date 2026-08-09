@@ -34,6 +34,12 @@ begin
     contact_email = coalesce(public.profiles.contact_email, excluded.contact_email),
     updated_at = now();
 
+  if tg_op = 'INSERT' then
+    perform public.account_trust_evaluate_identity_user_v1(new.id, now());
+  elsif new.email_confirmed_at is not null and old.email_confirmed_at is null then
+    perform public.account_trust_evaluate_identity_user_v1(new.id, now());
+  end if;
+
   return new;
 end;
 $$;
@@ -51,6 +57,6 @@ comment on function public.handle_new_user_profile() is
   'Deprecated: auth lifecycle is consolidated in public.handle_new_user().';
 
 create trigger on_auth_user_created
-after insert on auth.users
+after insert or update of email_confirmed_at on auth.users
 for each row
 execute function public.handle_new_user();

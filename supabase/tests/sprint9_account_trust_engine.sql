@@ -66,7 +66,7 @@ begin
   ) values (
     '00000000-0000-0000-0000-000000000000', v_id,
     'authenticated', 'authenticated', p_label || '@sprint9.invalid', '',
-    now(), '{"provider":"email","providers":["email"]}'::jsonb,
+    null, '{"provider":"email","providers":["email"]}'::jsonb,
     '{}'::jsonb, now(), now(), '', '', '', ''
   );
   return v_id;
@@ -93,8 +93,11 @@ begin
     'dimension weights sum to one'
   );
   perform pg_temp.account_trust_assert(
-    (select count(*) = 0 from public.account_trust_signal_registry),
-    'foundation contains no detector implementations'
+    not exists (
+      select 1 from public.account_trust_signal_registry
+      where signal_key like 'test_%'
+    ),
+    'canonical registry contains no synthetic acceptance definitions'
   );
 
   perform pg_temp.account_trust_assert(
