@@ -146,6 +146,8 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/sprint8_integrity_case_lifecycle.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/sprint8_review_authenticity_acceptance.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/sprint9_account_trust_engine.sql"
 
 lint_json="$validation_root/db-lint.json"
 supabase db lint \
