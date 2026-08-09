@@ -150,6 +150,8 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/sprint9_account_trust_engine.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/sprint9_1_identity_trust_signals.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/founder_control_center_v1.sql"
 
 lint_json="$validation_root/db-lint.json"
 supabase db lint \

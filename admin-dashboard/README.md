@@ -1,4 +1,9 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Backyrd Admin Dashboard
+
+Internal operations, quality, moderation and Founder launch control for Backyrd.
+
+The Founder Control Center is part of this application and uses the existing
+Supabase Admin authorization boundary. It does not have a separate login.
 
 ## Getting Started
 
@@ -14,9 +19,34 @@ pnpm dev
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser and sign in
+with an account accepted by `admin_is_admin_v1`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment
+
+Required browser-safe Supabase configuration:
+
+```dotenv
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+```
+
+Server-only configuration used by the Founder Engineering panel:
+
+```dotenv
+FOUNDER_GITHUB_TOKEN=...
+FOUNDER_GITHUB_REPOSITORY=PhiluLan/backyrd
+```
+
+`FOUNDER_GITHUB_TOKEN` must never use a `NEXT_PUBLIC_` prefix. The browser calls
+an Admin-authorized server route and never receives the credential. Engineering
+responses are normalized and cached for 45 seconds.
+
+The Founder routes are:
+
+- `/founder` — Basel launch control center
+- `/founder/launch-readiness` — evidence-backed launch register
+- `/founder/engineering` — live GitHub and CI state
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
