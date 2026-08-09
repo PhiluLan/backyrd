@@ -2,15 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 type NavigationItem = {
   href: string;
   label: string;
   icon: string;
+  groupLabel?: string;
 };
 
 const navigationItems: NavigationItem[] = [
+  { href: "/founder", label: "Control Center", icon: "B", groupLabel: "Founder" },
+  { href: "/founder/launch-readiness", label: "Launch Readiness", icon: "◎" },
+  { href: "/founder/engineering", label: "Engineering", icon: "⌘" },
   { href: "/dashboard", label: "Overview", icon: "◫" },
   { href: "/growth", label: "Growth", icon: "↗" },
   { href: "/users", label: "Users", icon: "◎" },
@@ -27,6 +31,9 @@ const navigationItems: NavigationItem[] = [
 ];
 
 function isActivePath(pathname: string, href: string): boolean {
+  if (href === "/founder") {
+    return pathname === href;
+  }
   if (href === "/dashboard") {
     return pathname === "/" || pathname === "/dashboard";
   }
@@ -43,19 +50,21 @@ function NavigationLinks({
 }) {
   return (
     <>
-      {navigationItems.map(({ href, label, icon }) => {
+      {navigationItems.map(({ href, label, icon, groupLabel }) => {
         const active = isActivePath(pathname, href);
 
         return (
-          <Link
-            key={href}
-            href={href}
-            onClick={onNavigate}
-            className={`bi-navItem ${active ? "active" : ""}`}
-          >
-            <span aria-hidden="true">{icon}</span>
-            {label}
-          </Link>
+          <Fragment key={href}>
+            {groupLabel ? <div className="bi-navGroup">{groupLabel}</div> : null}
+            <Link
+              href={href}
+              onClick={onNavigate}
+              className={`bi-navItem ${active ? "active" : ""}`}
+            >
+              <span aria-hidden="true">{icon}</span>
+              {label}
+            </Link>
+          </Fragment>
         );
       })}
     </>
@@ -67,7 +76,8 @@ export function IntelligenceSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    setMobileOpen(false);
+    const closeAfterNavigation = window.setTimeout(() => setMobileOpen(false), 0);
+    return () => window.clearTimeout(closeAfterNavigation);
   }, [pathname]);
 
   useEffect(() => {
