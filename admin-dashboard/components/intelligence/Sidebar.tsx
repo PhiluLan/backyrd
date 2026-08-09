@@ -12,9 +12,9 @@ type NavigationItem = {
 };
 
 const navigationItems: NavigationItem[] = [
-  { href: "/founder", label: "Control Center", icon: "B", groupLabel: "Founder" },
-  { href: "/founder/launch-readiness", label: "Launch Readiness", icon: "◎" },
-  { href: "/founder/engineering", label: "Engineering", icon: "⌘" },
+  { href: "/founder", label: "Founder Cockpit", icon: "B", groupLabel: "Founder" },
+  { href: "/founder/launch-readiness", label: "Launch-Übersicht", icon: "◎" },
+  { href: "/founder/engineering", label: "Entwicklung", icon: "⌘" },
   { href: "/dashboard", label: "Overview", icon: "◫" },
   { href: "/growth", label: "Growth", icon: "↗" },
   { href: "/users", label: "Users", icon: "◎" },
@@ -113,13 +113,13 @@ export function IntelligenceSidebar() {
           </div>
         </div>
 
-        <nav className="bi-nav" aria-label="Founder Navigation">
+        <nav className="bi-nav" aria-label="Founder-Navigation">
           <NavigationLinks pathname={pathname} />
         </nav>
 
         <div className="bi-sidebarFooter">
           <span className="bi-liveDot" />
-          Live data
+          Live-Daten
         </div>
       </aside>
 
@@ -173,7 +173,7 @@ export function IntelligenceSidebar() {
           </button>
         </div>
 
-        <nav className="bi-nav bi-mobileNav" aria-label="Mobile Founder Navigation">
+        <nav className="bi-nav bi-mobileNav" aria-label="Mobile Founder-Navigation">
           <NavigationLinks
             pathname={pathname}
             onNavigate={() => setMobileOpen(false)}
@@ -182,7 +182,7 @@ export function IntelligenceSidebar() {
 
         <div className="bi-mobileDrawerFooter">
           <span className="bi-liveDot" />
-          Intelligence online
+          Live-Daten verfügbar
         </div>
       </aside>
     </>
