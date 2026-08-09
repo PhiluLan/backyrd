@@ -6,6 +6,14 @@ declare
   v_job record;
   v_missing text[];
 begin
+  -- The Account Trust milestone job is database-local and secret-free.
+  for v_job in
+    select jobid from cron.job
+    where jobname = 'backyrd-account-trust-identity-daily'
+  loop
+    perform cron.unschedule(v_job.jobid);
+  end loop;
+
   select array_agg(required.name order by required.name)
   into v_missing
   from (
@@ -85,6 +93,14 @@ begin
       ),
       body := jsonb_build_object('source', 'pg_cron', 'invoked_at', now())
     );
+    $command$
+  );
+
+  perform cron.schedule(
+    'backyrd-account-trust-identity-daily',
+    '17 3 * * *',
+    $command$
+    select public.account_trust_evaluate_identity_due_v1(1000, now());
     $command$
   );
 end;
