@@ -17,6 +17,12 @@ type Detail = {
   text_jobs: R[];
   image_jobs: R[];
 };
+type DistributionDetail = {
+  state?: R | null;
+  policy?: R | null;
+  reasons?: R[];
+  affected_consumers?: string[];
+};
 type Action = "allow" | "limit" | "temporary_hide" | "remove";
 
 const STATUS: Record<string,string> = {
@@ -172,11 +178,19 @@ export default function Page() {
   const [decision,setDecision]=useState<Action|null>(null);
   const [decisionNote,setDecisionNote]=useState("");
   const [savingDecision,setSavingDecision]=useState(false);
+  const [distribution,setDistribution]=useState<DistributionDetail|null>(null);
 
   async function load() {
     setLoading(true); setError("");
     const {data,error}=await supabase.rpc("safety_admin_case_detail_v1",{p_case_id:caseId});
-    if(error){setError(error.message);setDetail(null);} else {const d=data as Detail;setDetail(d);setPriority(n(d.case.priority));}
+    if(error){setError(error.message);setDetail(null);setDistribution(null);} else {
+      const d=data as Detail;setDetail(d);setPriority(n(d.case.priority));
+      const contentItemId=t(d.content.id,"");
+      if(contentItemId){
+        const distributionResult=await supabase.rpc("distribution_trust_admin_detail_v1",{p_content_item_id:contentItemId});
+        setDistribution(distributionResult.error?null:distributionResult.data as DistributionDetail);
+      } else setDistribution(null);
+    }
     setLoading(false);
   }
   useEffect(()=>{if(caseId) void load();},[caseId]);
@@ -253,6 +267,17 @@ export default function Page() {
       </main>
 
       <aside style={{display:"grid",gap:18}}>
+        <Card title="Distribution" subtitle="Aktuelle reversible Sichtbarkeitsentscheidung und betroffene Produktflächen.">
+          {distribution?.state?<>
+            <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"center"}}>
+              <span className="by-muted">Aktueller Zustand</span>
+              <Badge value={distribution.state.effective_state}/>
+            </div>
+            <div className="by-muted by-small">Policy: {t(distribution.policy?.rule_key,"Standardregel")} · {t(distribution.policy?.engine_version)}</div>
+            <div className="by-muted by-small">Betroffene Flächen: {(distribution.affected_consumers??[]).join(", ")||"Keine öffentliche Verteilung"}</div>
+            {(distribution.reasons??[]).map((reason,index)=><div key={t(reason.reason_code,`reason-${index}`)} style={{padding:12,borderRadius:12,border:"1px solid rgba(255,255,255,.07)",background:"rgba(255,255,255,.018)"}}><strong>{t(reason.reason_code).replaceAll("_"," ")}</strong><div className="by-muted by-small" style={{marginTop:5}}>{t(reason.description)}</div></div>)}
+          </>:<div className="by-muted">Noch keine Distribution-Auswertung vorhanden.</div>}
+        </Card>
         <Card title="Deine Entscheidung" subtitle={integrityCase?"Entscheide anhand des Reviews, der Muster und des Kontexts. Ein Integrity-Signal ist keine automatische Verurteilung.":"Die automatische Empfehlung ist nur eine Hilfe. Entscheidend ist der sichtbare Zusammenhang."}>
           {(integrityCase?[["allow","Freigeben","Die Integritätshinweise reichen nach Prüfung nicht für eine Maßnahme."],["limit","Begrenzen","Die Bewertung bleibt sichtbar, wird aber wegen bestätigter Integritätsrisiken weniger stark verbreitet."],["temporary_hide","Vorübergehend ausblenden","Die Bewertung wird versteckt, bis der Integritätsfall geklärt ist."],["remove","Entfernen","Die Bewertung wird nach menschlicher Prüfung als manipulativ oder nicht authentisch entfernt."]]:[["allow","Freigeben","Der Inhalt ist im Kontext zulässig."],["limit","Begrenzen","Der Inhalt bleibt sichtbar, wird aber weniger stark verbreitet."],["temporary_hide","Vorübergehend ausblenden","Der Inhalt wird versteckt, bis der Fall geklärt ist."],["remove","Entfernen","Der Inhalt verstößt gegen die Richtlinien."]]).map(([value,title,desc])=><button key={value} type="button" onClick={()=>setDecision(value as Action)} style={{textAlign:"left",padding:15,borderRadius:14,border:decision===value?"1px solid rgba(255,79,139,.45)":"1px solid rgba(255,255,255,.08)",background:decision===value?"rgba(255,79,139,.1)":"rgba(255,255,255,.02)",color:"inherit",cursor:"pointer"}}><strong>{title}</strong><div className="by-muted by-small" style={{marginTop:5,lineHeight:1.45}}>{desc}</div></button>)}
           <textarea rows={5} value={decisionNote} onChange={e=>setDecisionNote(e.target.value)} placeholder="Begründe deine Entscheidung in einem verständlichen Satz …" style={{width:"100%",borderRadius:13,border:"1px solid rgba(255,255,255,.1)",background:"rgba(255,255,255,.035)",color:"inherit",padding:13,font:"inherit"}}/>

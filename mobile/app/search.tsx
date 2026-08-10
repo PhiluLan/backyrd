@@ -4,6 +4,7 @@ import { Screen, Container, Title, Input, Button } from "../components/ui";
 import { supabase } from "../lib/supabase";
 import type { Spot } from "../lib/types";
 import { useRouter } from "expo-router";
+import { filterDistributedSpots } from "../lib/distributionTrust";
 
 export default function Search() {
   const [q, setQ] = useState("");
@@ -51,7 +52,7 @@ export default function Search() {
       const map = new Map<string, Spot>();
       for (const s of (spotsA || []) as Spot[]) map.set(s.id, s);
       for (const s of spotsB) map.set(s.id, s);
-      setResults(Array.from(map.values()));
+      setResults(await filterDistributedSpots(Array.from(map.values()), "search"));
 
     } catch (e: any) {
       Alert.alert("Suche fehlgeschlagen", e.message ?? String(e));

@@ -15,6 +15,12 @@ type MatchRow = {
   document_text: string;
 };
 
+type DistributionEligibilityRow = {
+  entity_id: string;
+  eligible: boolean;
+  distribution_priority: number;
+};
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -138,6 +144,43 @@ async function callMatchRpc(
   return JSON.parse(text) as MatchRow[];
 }
 
+async function filterDistributedMatches(
+  env: Env,
+  matches: MatchRow[],
+): Promise<MatchRow[]> {
+  if (matches.length === 0) return [];
+
+  const response = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/rpc/distribution_trust_filter_entities_v1`,
+    {
+      method: "POST",
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        p_entity_type: "spot",
+        p_entity_ids: matches.map((match) => match.spot_id),
+        p_surface: "search",
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Distribution eligibility failed ${response.status}`);
+  }
+
+  const rows = (await response.json()) as DistributionEligibilityRow[];
+  const priority = new Map(
+    rows.filter((row) => row.eligible).map((row) => [row.entity_id, row.distribution_priority]),
+  );
+
+  return matches
+    .filter((match) => priority.has(match.spot_id))
+    .sort((a, b) => (priority.get(b.spot_id) ?? 0) - (priority.get(a.spot_id) ?? 0));
+}
+
 function buildQueryText(input: {
   query: string;
   city?: string | null;
@@ -201,12 +244,13 @@ Deno.serve(async (request: Request) => {
 
     const embedding = await createEmbedding(env, queryText);
 
-    const matches = await callMatchRpc(env, {
+    const rawMatches = await callMatchRpc(env, {
       queryEmbedding: embedding,
       city,
-      limit,
+      limit: Math.min(limit * 4, 30),
       excludeSpotIds,
     });
+    const matches = (await filterDistributedMatches(env, rawMatches)).slice(0, limit);
 
     return jsonResponse({
       ok: true,

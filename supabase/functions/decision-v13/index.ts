@@ -37,6 +37,19 @@ type SpotMetaRow = {
   } | null;
 };
 
+type DistributionEligibilityRow = {
+  entity_id: string;
+  eligible: boolean;
+  distribution_priority: number;
+};
+
+type DistributionFallbackRow = {
+  id: string;
+  name: string;
+  city: string | null;
+  category_name: string | null;
+};
+
 type PlaceTypeProfileRow = {
   context_key: string;
   place_type: string;
@@ -95,6 +108,7 @@ type Candidate = {
   semantic_score_norm: number;
 
   combined_score: number;
+  distribution_priority: number;
 
   matched_tokens: string[];
   matched_terms: string[];
@@ -805,6 +819,77 @@ async function fetchSpotMeta(
   } catch {
     return result;
   }
+}
+
+async function getDistributionEligibility(
+  env: Env,
+  spotIds: string[],
+): Promise<Map<string, DistributionEligibilityRow>> {
+  const uniqueIds = Array.from(new Set(spotIds.filter(Boolean)));
+  const result = new Map<string, DistributionEligibilityRow>();
+
+  if (uniqueIds.length === 0) return result;
+
+  const rows = await rpc<DistributionEligibilityRow[]>(
+    env,
+    "distribution_trust_filter_entities_v1",
+    {
+      p_entity_type: "spot",
+      p_entity_ids: uniqueIds,
+      p_surface: "decision",
+    },
+    env.SUPABASE_SERVICE_ROLE_KEY,
+  );
+
+  for (const row of rows ?? []) result.set(row.entity_id, row);
+  return result;
+}
+
+async function getDistributionFallbackSpots(
+  env: Env,
+  args: { city: string | null; limit: number; excludeSpotIds: string[] },
+): Promise<SemanticMatchRow[]> {
+  const fetchCatalog = (city: string | null) => rpc<DistributionFallbackRow[]>(
+    env,
+    "distribution_trust_spot_catalog_v1",
+    {
+      p_query: null,
+      p_city: city,
+      p_limit: Math.max(args.limit * 3, 12),
+      p_surface: "decision",
+    },
+    env.SUPABASE_SERVICE_ROLE_KEY,
+  );
+  const excluded = new Set(args.excludeSpotIds);
+  const selected: DistributionFallbackRow[] = [];
+
+  for (const row of await fetchCatalog(args.city)) {
+    if (excluded.has(row.id)) continue;
+    selected.push(row);
+    excluded.add(row.id);
+    if (selected.length >= args.limit) break;
+  }
+
+  // A sparse city must not produce a broken journey. Expand to the global
+  // trusted catalog while preserving the same Distribution eligibility rule.
+  if (selected.length < args.limit && args.city) {
+    for (const row of await fetchCatalog(null)) {
+      if (excluded.has(row.id)) continue;
+      selected.push(row);
+      excluded.add(row.id);
+      if (selected.length >= args.limit) break;
+    }
+  }
+
+  return selected
+    .map((row) => ({
+      spot_id: row.id,
+      name: row.name,
+      city: row.city,
+      category_name: row.category_name,
+      similarity: 0,
+      document_text: "Distribution-safe alternative candidate",
+    }));
 }
 
 async function getPlaceTypeProfile(
@@ -1811,6 +1896,7 @@ function fuseCandidates(input: {
   };
   contextualTaste: ContextualTasteRow[];
   recentMemory: RecentDecisionMemoryRow[];
+  distributionPriority: Map<string, number>;
 }): Candidate[] {
   const map = new Map<string, Candidate>();
 
@@ -1835,6 +1921,7 @@ function fuseCandidates(input: {
       semantic_score_norm: 0,
 
       combined_score: 0,
+      distribution_priority: input.distributionPriority.get(row.spot_id) ?? 100,
 
       matched_tokens: Array.isArray(row.matched_tokens) ? row.matched_tokens : [],
       matched_terms: Array.isArray(row.matched_terms) ? row.matched_terms : [],
@@ -1869,6 +1956,7 @@ function fuseCandidates(input: {
         v12_only_penalty: 0,
         weak_intent_penalty: 0,
         combined_score: 0,
+        distribution_priority: input.distributionPriority.get(row.spot_id) ?? 100,
       },
     });
   });
@@ -2028,6 +2116,9 @@ function fuseCandidates(input: {
   });
 
   fused.sort((a, b) => {
+    if (b.distribution_priority !== a.distribution_priority) {
+      return b.distribution_priority - a.distribution_priority;
+    }
     if (b.combined_score !== a.combined_score) {
       return b.combined_score - a.combined_score;
     }
@@ -2218,9 +2309,42 @@ Deno.serve(async (request: Request) => {
       ]),
     );
 
-    const meta = await fetchSpotMeta(env, allSpotIds);
+    let distribution = await getDistributionEligibility(env, allSpotIds);
+    const eligibleIds = new Set(
+      Array.from(distribution.values()).filter((row) => row.eligible).map((row) => row.entity_id),
+    );
 
-    const semanticWithMeta = (semanticCandidates ?? []).map((row) => {
+    let distributedSemantic = (semanticCandidates ?? []).filter((row) => eligibleIds.has(row.spot_id));
+    const distributedV12 = (v12Candidates ?? []).filter((row) => eligibleIds.has(row.spot_id));
+
+    const distributedIds = new Set([
+      ...distributedSemantic.map((row) => row.spot_id),
+      ...distributedV12.map((row) => row.spot_id),
+    ]);
+
+    if (distributedIds.size < limit) {
+      const fallbacks = await getDistributionFallbackSpots(env, {
+        city,
+        limit: limit - distributedIds.size,
+        excludeSpotIds: [...excludeSpotIds, ...distributedIds],
+      });
+      if (fallbacks.length > 0) {
+        const fallbackEligibility = await getDistributionEligibility(
+          env,
+          fallbacks.map((row) => row.spot_id),
+        );
+        distribution = new Map([...distribution, ...fallbackEligibility]);
+        distributedSemantic = [...distributedSemantic, ...fallbacks];
+      }
+    }
+
+    const distributedSpotIds = Array.from(new Set([
+      ...distributedSemantic.map((row) => row.spot_id),
+      ...distributedV12.map((row) => row.spot_id),
+    ]));
+    const meta = await fetchSpotMeta(env, distributedSpotIds);
+
+    const semanticWithMeta = distributedSemantic.map((row) => {
       const metaRow = meta.get(row.spot_id);
 
       return {
@@ -2231,7 +2355,7 @@ Deno.serve(async (request: Request) => {
       };
     });
 
-    const v12WithMeta = (v12Candidates ?? []).map((row) => {
+    const v12WithMeta = distributedV12.map((row) => {
       const metaRow = meta.get(row.spot_id);
 
       return {
@@ -2249,6 +2373,9 @@ Deno.serve(async (request: Request) => {
       placeTypeProfile,
       contextualTaste,
       recentMemory,
+      distributionPriority: new Map(
+        Array.from(distribution.entries()).map(([id, row]) => [id, row.distribution_priority]),
+      ),
     });
 
     for (const candidate of fused) {

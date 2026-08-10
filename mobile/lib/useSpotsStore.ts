@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { supabase } from "./supabase";
+import { filterDistributedSpots } from "./distributionTrust";
 
 type Spot = {
   id: string;
@@ -59,7 +60,13 @@ export const useSpotsStore = create<State>((set, get) => ({
           : s.spot_photos?.url || null,
       })) ?? [];
 
-    set({ spots: mapped, loading: false });
+    try {
+      const visible = await filterDistributedSpots(mapped, "maps");
+      set({ spots: visible, loading: false });
+    } catch (distributionError) {
+      console.error("Error applying Distribution eligibility:", distributionError);
+      set({ spots: [], loading: false });
+    }
   },
 }));
 
