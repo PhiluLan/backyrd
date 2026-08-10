@@ -11,7 +11,8 @@ begin
     select jobid from cron.job
     where jobname in (
       'backyrd-account-trust-identity-daily',
-      'backyrd-account-trust-behaviour-daily'
+      'backyrd-account-trust-behaviour-daily',
+      'backyrd-account-trust-network-daily'
     )
   loop
     perform cron.unschedule(v_job.jobid);
@@ -112,6 +113,14 @@ begin
     '43 3 * * *',
     $command$
     select public.account_trust_evaluate_behaviour_due_v1(1000, now());
+    $command$
+  );
+
+  perform cron.schedule(
+    'backyrd-account-trust-network-daily',
+    '59 3 * * *',
+    $command$
+    select public.account_trust_evaluate_network_due_v1(1000, now());
     $command$
   );
 end;
