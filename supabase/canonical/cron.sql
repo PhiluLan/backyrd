@@ -15,7 +15,8 @@ begin
       'backyrd-account-trust-network-daily',
       'backyrd-account-trust-security-15m',
       'backyrd-account-trust-owner-daily',
-      'backyrd-account-trust-reputation-daily'
+      'backyrd-account-trust-reputation-daily',
+      'backyrd-distribution-trust-every-5m'
     )
   loop
     perform cron.unschedule(v_job.jobid);
@@ -148,6 +149,14 @@ begin
     '29 4 * * *',
     $command$
     select public.account_trust_evaluate_reputation_due_v1(1000, now());
+    $command$
+  );
+
+  perform cron.schedule(
+    'backyrd-distribution-trust-every-5m',
+    '*/5 * * * *',
+    $command$
+    select public.distribution_trust_evaluate_due_v1(1000, now());
     $command$
   );
 end;
