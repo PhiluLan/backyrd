@@ -4,11 +4,33 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
+search_quiet() {
+  local pattern="$1"
+  local file="$2"
+  if command -v rg >/dev/null 2>&1; then
+    rg -q "$pattern" "$file"
+  else
+    grep -Eq "$pattern" "$file"
+  fi
+}
+
+search_runtime() {
+  local pattern="$1"
+  shift
+  if command -v rg >/dev/null 2>&1; then
+    rg -n "$pattern" "$@" \
+      --glob '!**/node_modules/**' --glob '!*.backup*' --glob '!**/*.backup*'
+  else
+    grep -Ern --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist \
+      --exclude-dir=build --exclude='*.backup*' -- "$pattern" "$@"
+  fi
+}
+
 require_pattern() {
   local pattern="$1"
   local file="$2"
   local label="$3"
-  if ! rg -q "$pattern" "$file"; then
+  if ! search_quiet "$pattern" "$file"; then
     printf 'Trust Platform consumer validation failed: %s\n' "$label" >&2
     exit 1
   fi
@@ -37,16 +59,15 @@ require_pattern 'get_my_personalized_home_v1|get_discovery_overview_v1' \
 require_pattern 'backyrd_web_city_spots_v1' \
   'web/lib/public-web-api.ts' 'Public Web discovery must use the canonical contract'
 
-if rg -n \
+if search_runtime \
   'distribution_trust_(states|history|events|overrides|policy_rules|evaluation_queue)' \
-  mobile web admin-dashboard supabase/functions \
-  --glob '!**/node_modules/**' --glob '!*.backup*' --glob '!**/*.backup*'; then
+  mobile web admin-dashboard supabase/functions; then
   printf 'Runtime consumer reads private Distribution internals directly.\n' >&2
   exit 1
 fi
 
-if rg -n 'get_social_(feed|user_posts)_v1' mobile web admin-dashboard supabase/functions \
-  --glob '!**/node_modules/**' --glob '!*.backup*' --glob '!**/*.backup*'; then
+if search_runtime 'get_social_(feed|user_posts)_v1' \
+  mobile web admin-dashboard supabase/functions; then
   printf 'An active runtime path still uses a pre-Distribution social RPC.\n' >&2
   exit 1
 fi
