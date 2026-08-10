@@ -52,7 +52,29 @@ export default function Search() {
       const map = new Map<string, Spot>();
       for (const s of (spotsA || []) as Spot[]) map.set(s.id, s);
       for (const s of spotsB) map.set(s.id, s);
-      setResults(await filterDistributedSpots(Array.from(map.values()), "search"));
+      const distributed = await filterDistributedSpots(Array.from(map.values()), "search");
+
+      // If a real query matched only temporarily unavailable Distribution
+      // candidates, keep Search useful with neutral trusted alternatives. Do
+      // not expose why the original candidates were unavailable.
+      if (distributed.length === 0 && map.size > 0) {
+        const { data: alternatives, error: alternativesError } = await supabase.rpc(
+          "distribution_trust_spot_catalog_v1",
+          { p_query: null, p_city: null, p_limit: 20, p_surface: "search" },
+        );
+        if (alternativesError) throw alternativesError;
+        setResults(((alternatives ?? []) as Spot[]).map((spot) => ({
+          id: spot.id,
+          name: spot.name,
+          address: spot.address,
+          lat: spot.lat,
+          lng: spot.lng,
+          category: spot.category,
+          status: spot.status,
+        })));
+      } else {
+        setResults(distributed);
+      }
 
     } catch (e: any) {
       Alert.alert("Suche fehlgeschlagen", e.message ?? String(e));

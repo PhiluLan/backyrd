@@ -93,6 +93,24 @@ export type FounderOverview = {
     open_cases: number;
     needs_human_review: number;
     failed_cases: number;
+    distribution: {
+      states: {
+        normal: number;
+        reduced: number;
+        quarantined: number;
+        excluded: number;
+      };
+      active_overrides: number;
+      expired_active_overrides: number;
+      due_evaluations: number;
+      overdue_evaluations: number;
+      failed_evaluations: number;
+      admin_events_missing_actor: number;
+      restorations_24h: number;
+      engine_version: string;
+      calculated_at: string;
+      interpretation: string;
+    };
     calculated_at: string;
     interpretation: string;
   };
