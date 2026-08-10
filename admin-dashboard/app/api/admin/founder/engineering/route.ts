@@ -60,11 +60,11 @@ function normalizeCi(checks: GitHubCheckRuns): EngineeringPullRequest["ciStatus"
 
 function inferArea(pulls: EngineeringPullRequest[], latestMerge: GitHubPull | null): string {
   const text = `${pulls.map((pull) => `${pull.title} ${pull.branch}`).join(" ")} ${latestMerge?.title ?? ""}`.toLowerCase();
-  if (text.includes("founder") || text.includes("launch")) return "Founder Control Center / Basel Launch";
-  if (text.includes("trust") || text.includes("integrity") || text.includes("safety")) return "Trust & Safety";
-  if (text.includes("decision")) return "Decision Engine";
-  if (text.includes("spot")) return "Spot Quality";
-  return "Core platform";
+  if (text.includes("founder") || text.includes("launch")) return "Founder Cockpit & Basel-Launch";
+  if (text.includes("trust") || text.includes("integrity") || text.includes("safety")) return "Vertrauen & Moderation";
+  if (text.includes("decision")) return "Empfehlungsqualität";
+  if (text.includes("spot")) return "Spot-Qualität";
+  return "Backyrd-Plattform";
 }
 
 async function loadEngineering(): Promise<FounderEngineering> {
@@ -77,6 +77,8 @@ async function loadEngineering(): Promise<FounderEngineering> {
     githubFetch<GitHubPull[]>(`/repos/${repository}/pulls?state=open&sort=updated&direction=desc&per_page=20`, token),
     githubFetch<GitHubPull[]>(`/repos/${repository}/pulls?state=closed&sort=updated&direction=desc&per_page=20`, token),
   ]);
+
+  const mainChecks = await githubFetch<GitHubCheckRuns>(`/repos/${repository}/commits/${main.sha}/check-runs?per_page=100`, token);
 
   const normalizedPulls = await Promise.all(openPulls.map(async (listedPull) => {
     const [pull, checks] = await Promise.all([
@@ -104,6 +106,7 @@ async function loadEngineering(): Promise<FounderEngineering> {
       message: main.commit.message.split("\n")[0],
       url: main.html_url,
       committedAt: main.commit.committer?.date ?? new Date().toISOString(),
+      ciStatus: normalizeCi(mainChecks),
     },
     latestMerge: latestMerge ? {
       number: latestMerge.number,
@@ -121,7 +124,7 @@ async function loadEngineering(): Promise<FounderEngineering> {
 export async function GET(request: Request) {
   const authorization = await authorizeAdminRequest(request);
   if (!authorization.ok) {
-    return NextResponse.json({ error: authorization.error }, { status: authorization.status });
+    return NextResponse.json({ error: authorization.status === 403 ? "Für diese Entwicklungsdaten fehlt die Admin-Berechtigung." : "Die Admin-Sitzung ist nicht mehr gültig. Bitte erneut anmelden." }, { status: authorization.status });
   }
 
   try {
@@ -133,6 +136,16 @@ export async function GET(request: Request) {
     return NextResponse.json(value, { headers: { "Cache-Control": "private, max-age=15" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "engineering_unavailable";
-    return NextResponse.json({ error: message }, { status: message === "github_not_configured" ? 503 : 502 });
+    console.error("Founder engineering integration failed", { code: message });
+    if (message === "github_not_configured") {
+      return NextResponse.json({ error: "GitHub-Verbindung fehlt. Das Entwicklungs-Dashboard kann derzeit keine Live-Daten laden." }, { status: 503 });
+    }
+    if (message === "github_api_403") {
+      return NextResponse.json({ error: "GitHub konnte nicht gelesen werden. Bitte Berechtigung des Tokens prüfen." }, { status: 502 });
+    }
+    if (/^github_api_5\d\d$/.test(message)) {
+      return NextResponse.json({ error: "GitHub ist momentan nicht erreichbar. Wir versuchen es beim nächsten Aktualisieren erneut." }, { status: 502 });
+    }
+    return NextResponse.json({ error: "Entwicklungsdaten konnten gerade nicht geladen werden." }, { status: 502 });
   }
 }

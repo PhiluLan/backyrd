@@ -127,6 +127,7 @@ export type FounderEngineering = {
     message: string;
     url: string;
     committedAt: string;
+    ciStatus: EngineeringPullRequest["ciStatus"];
   };
   latestMerge: {
     number: number;

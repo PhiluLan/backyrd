@@ -1306,3 +1306,61 @@
 .fcc-engineeringMain{grid-template-columns:.8fr 1.25fr 1.1fr .55fr}
 @media(max-width:1250px){.fcc-engineeringMain{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:900px){.fcc-engineeringMain{grid-template-columns:1fr}}
+
+/* Founder Control Center V1 – German UX and responsive polish */
+.fcc-page{overflow-x:clip}
+.fcc-page *{min-width:0}
+.fcc-heroCopy h1,.fcc-pageHeader h1,.fcc-gateHero h1{overflow-wrap:anywhere}
+.fcc-readiness>strong{max-width:100%;font-size:clamp(72px,9vw,132px);white-space:nowrap}
+.fcc-launchVerdict{gap:18px}
+.fcc-launchVerdict b{max-width:430px;text-align:right;line-height:1.02;overflow-wrap:anywhere}
+.fcc-readinessInterpretation{margin:16px 0 0;color:#615f64;font-size:12px;line-height:1.55}
+.fcc-kpi{min-height:172px}
+.fcc-kpi>span{font-weight:750;line-height:1.35}
+.fcc-kpi>strong{margin:18px 0 8px;line-height:1.05;overflow-wrap:anywhere}
+.fcc-kpi>p{margin:0 0 14px;color:#85858f;font-size:10px;line-height:1.45}
+.fcc-kpi>small{margin-top:auto}
+.fcc-kpi.subdued>strong{font-size:17px;line-height:1.25;color:#f4c96e}
+.fcc-panelIntro{max-width:510px;margin:7px 0 0;color:#85858f;font-size:11px;line-height:1.5}
+.fcc-gateRow p{margin:5px 0;color:#92929c;font-size:10px;line-height:1.45}
+.fcc-priority.P2{color:#aaaab4;background:rgba(170,170,180,.07);border-color:rgba(170,170,180,.18)}
+.fcc-status.accepted_risk{color:#aaaab4;background:rgba(170,170,180,.07)}
+.fcc-engineeringSummary{display:flex;align-items:center;gap:11px;margin:-4px 0 16px;padding:13px 15px;border:1px solid var(--line);border-radius:14px;background:#0c0c0f}
+.fcc-engineeringSummary>span{width:25px;height:25px;display:grid;place-items:center;flex:0 0 auto;border-radius:8px;background:#202025;font-weight:900}
+.fcc-engineeringSummary p{margin:0;color:#aaaab3;font-size:12px;line-height:1.45}
+.fcc-engineeringSummary.pass>span{color:#65d89b;background:rgba(101,216,155,.1)}
+.fcc-engineeringSummary.fail>span{color:#ff7d87;background:rgba(255,125,135,.1)}
+.fcc-engineeringSummary.pending>span{color:#f4c96e;background:rgba(244,201,110,.1)}
+.fcc-draft{display:inline-flex;margin-left:8px;padding:3px 6px;border:1px solid var(--line);border-radius:999px;color:#aaaab4;font-size:8px;font-style:normal;text-transform:uppercase;letter-spacing:.06em;vertical-align:middle}
+.fcc-currentState h2,.fcc-responsibility h2{font-size:26px}
+.fcc-technicalEditor{margin-top:14px;border:1px solid var(--line);border-radius:12px;background:#0c0c0f}
+.fcc-technicalEditor summary{padding:12px;color:#a7a7b0;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.06em;cursor:pointer}
+.fcc-technicalEditor>label{display:flex;flex-direction:column;gap:7px;padding:0 12px 12px;color:#a7a7b0;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.06em}
+
+@media(max-width:900px){
+  .fcc-page{padding:28px 22px 70px}
+  .fcc-heroCopy,.fcc-readiness{min-height:0}
+  .fcc-heroCopy{padding:32px;min-height:360px}
+  .fcc-readiness{padding:30px}
+  .fcc-readiness>strong{font-size:clamp(72px,18vw,112px)}
+  .fcc-launchVerdict{align-items:flex-start;flex-direction:column}
+  .fcc-launchVerdict b{max-width:100%;text-align:left;font-size:clamp(24px,5vw,31px)}
+  .fcc-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .fcc-registerMeta{flex-wrap:wrap;justify-content:flex-start}
+  .fcc-pr{grid-template-columns:42px minmax(0,1fr);row-gap:8px}
+  .fcc-pr .fcc-ci,.fcc-pr .fcc-merge{display:inline-flex;grid-column:2;justify-self:start}
+}
+
+@media(max-width:600px){
+  .fcc-page{padding:22px 15px 60px}
+  .fcc-heroCopy,.fcc-readiness{padding:24px}
+  .fcc-heroCopy{min-height:320px}
+  .fcc-heroCopy h1{font-size:clamp(39px,14vw,52px);line-height:.92}
+  .fcc-readiness>strong{font-size:clamp(66px,24vw,98px)}
+  .fcc-kpis{grid-template-columns:1fr}
+  .fcc-kpi{min-height:145px}
+  .fcc-readinessMeta{gap:8px}
+  .fcc-panelHead{flex-direction:column}
+  .fcc-gateLabels{flex-wrap:wrap}
+  .fcc-registerSummary{grid-template-columns:1fr 1fr}
+}
