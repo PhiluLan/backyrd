@@ -28,6 +28,7 @@ import SocialPostCard, { SocialFeedPost } from "../../components/PostCard";
 import { supabase } from "../../lib/supabase";
 import { hydrateSocialMediaSignedUrls } from "../../lib/socialMedia";
 import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
+import { filterDistributedSpots } from "../../lib/distributionTrust";
 import { registerSafetySnapshot } from "../../lib/safety-content";
 
 type FeedMode = "for_you" | "following";
@@ -536,7 +537,7 @@ export default function FeedScreen() {
         category_name: row.categories?.name ?? null,
       }));
 
-      setSpotSuggestions(mapped);
+      setSpotSuggestions(await filterDistributedSpots(mapped, "search"));
     } catch (error) {
       console.log("spot search failed:", error);
       setSpotSuggestions([]);

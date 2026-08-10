@@ -165,6 +165,8 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/sprint10_distribution_trust_foundation.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/sprint10_distribution_policy_consumption.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/founder_control_center_v1.sql"
 
 lint_json="$validation_root/db-lint.json"

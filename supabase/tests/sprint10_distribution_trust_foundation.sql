@@ -81,14 +81,14 @@ do $$
 declare v_normal uuid:=pg_temp.dt_user('normal-user');
 begin
   perform pg_temp.dt_assert((select count(*)=1 from public.distribution_trust_engine_versions
-    where status='active' and version='distribution-trust-v1'),
+    where status='active' and version='distribution-trust-v2'),
     'exactly one canonical engine version is active');
   perform pg_temp.dt_assert((select rules->'states'=
     '["normal","reduced","quarantined","excluded"]'::jsonb
     from public.distribution_trust_engine_versions where status='active'),
     'the four canonical states are ordered and versioned');
-  perform pg_temp.dt_assert((select count(*)=16 from public.distribution_trust_reason_registry
-    where enabled),'the structured v1 reason registry is complete');
+  perform pg_temp.dt_assert((select count(*)=20 from public.distribution_trust_reason_registry
+    where enabled),'the structured reason registry is complete');
   perform pg_temp.dt_assert(not has_function_privilege('anon',
     'public.distribution_trust_evaluate_content_v1(uuid,timestamp with time zone,text)','EXECUTE')
     and not has_function_privilege('authenticated',
@@ -146,23 +146,20 @@ begin
 
   update public.account_trust_scores set risk_level='suspicious',trust_score=40 where user_id=v_user;
   v_result:=public.distribution_trust_evaluate_content_v1(v_content,now(),'automatic');
-  perform pg_temp.dt_assert(v_result->>'effective_state'='reduced'
-    and v_result->'reason_codes' ? 'DISTRIBUTION_ACCOUNT_SUSPICIOUS',
-    'suspicious Account Trust recommends reduced distribution only');
+  perform pg_temp.dt_assert(v_result->>'effective_state'='normal'
+    and v_result->>'policy_rule'='default_normal',
+    'one suspicious Account Trust input cannot reduce distribution by itself');
   update public.account_trust_scores set risk_level='high_risk',trust_score=10 where user_id=v_user;
   v_result:=public.distribution_trust_evaluate_content_v1(v_content,now(),'automatic');
-  perform pg_temp.dt_assert(v_result->>'effective_state'='reduced'
-    and v_result->'reason_codes' ? 'DISTRIBUTION_ACCOUNT_HIGH_RISK',
-    'Account Trust alone cannot quarantine or exclude content');
+  perform pg_temp.dt_assert(v_result->>'effective_state'='normal'
+    and v_result->>'policy_rule'='default_normal',
+    'Account Trust alone cannot reduce, quarantine or exclude content');
 
   update public.account_trust_scores set risk_level='normal',trust_score=v_trust where user_id=v_user;
   v_result:=public.distribution_trust_evaluate_content_v1(v_content,now(),'automatic');
   perform pg_temp.dt_assert(v_result->>'effective_state'='normal'
-    and not (v_result->'reason_codes' ? 'DISTRIBUTION_TRUST_RECOVERED')
-    and exists(select 1 from public.distribution_trust_events where content_item_id=v_content
-      and event_type='automatically_restored'
-      and 'DISTRIBUTION_TRUST_RECOVERED'=any(reason_codes)),
-    'expired or cleared Trust inputs restore automatically with a durable transition reason');
+    and not (v_result->'reason_codes' ? 'DISTRIBUTION_TRUST_RECOVERED'),
+    'clearing a non-decisive isolated input remains stable at normal');
   v_history:=(select count(*) from public.distribution_trust_history where content_item_id=v_content);
   perform public.distribution_trust_evaluate_content_v1(v_content,now(),'automatic');
   perform pg_temp.dt_assert((select count(*) from public.distribution_trust_history
@@ -175,13 +172,13 @@ begin
   values(v_case,'review_integrity_near_duplicate','backyrd_integrity',
     '{"risk_level":"suspicious"}','{"integrity_score":0.72}',true);
   v_result:=public.distribution_trust_evaluate_content_v1(v_content,now(),'automatic');
-  perform pg_temp.dt_assert(v_result->>'effective_state'='reduced'
-    and v_result->'reason_codes' ? 'DISTRIBUTION_REVIEW_INTEGRITY_SUSPICIOUS',
-    'unresolved suspicious Review Integrity recommends reduced distribution');
+  perform pg_temp.dt_assert(v_result->>'effective_state'='quarantined'
+    and v_result->'reason_codes' ? 'DISTRIBUTION_POLICY_PENDING_HUMAN',
+    'an unresolved human-review requirement quarantines distribution temporarily');
   update public.safety_signals set categories='{"risk_level":"high_risk"}' where case_id=v_case;
   v_result:=public.distribution_trust_evaluate_content_v1(v_content,now(),'automatic');
   perform pg_temp.dt_assert(v_result->>'effective_state'='quarantined'
-    and v_result->'reason_codes' ? 'DISTRIBUTION_REVIEW_INTEGRITY_HIGH_RISK',
+    and v_result->'reason_codes' ? 'DISTRIBUTION_POLICY_PENDING_HUMAN',
     'unresolved high-risk Review Integrity recommends quarantine, not removal');
 
   update public.safety_cases set case_status='decided',final_action='allow',decision_source='appeal_human',
@@ -211,20 +208,28 @@ declare v_user uuid:=pg_temp.dt_user('human-outcome');v_content uuid:=pg_temp.dt
 begin
   insert into public.safety_cases(id,content_item_id,case_status,priority)
   values(v_case,v_content,'decided',50);
+  update public.safety_cases set final_action='limit',decision_source='human_admin',decided_at=v_base+interval '1 minute'
+  where id=v_case;
   insert into public.safety_decision_events(case_id,action,source,reason_codes,created_at)
   values(v_case,'limit','human_admin',array['HUMAN_REVIEW'],v_base+interval '1 minute');
   v_result:=public.distribution_trust_evaluate_content_v1(v_content,now(),'automatic');
   perform pg_temp.dt_assert(v_result->>'effective_state'='reduced','human LIMIT maps to reduced');
+  update public.safety_cases set final_action='temporary_hide',decision_source='human_admin',decided_at=v_base+interval '2 minutes'
+  where id=v_case;
   insert into public.safety_decision_events(case_id,action,source,reason_codes,created_at)
   values(v_case,'temporary_hide','human_admin',array['HUMAN_REVIEW'],v_base+interval '2 minutes');
   v_result:=public.distribution_trust_evaluate_content_v1(v_content,now(),'automatic');
   perform pg_temp.dt_assert(v_result->>'effective_state'='quarantined','human TEMPORARY_HIDE maps to quarantine');
+  update public.safety_cases set final_action='remove',decision_source='human_admin',decided_at=v_base+interval '3 minutes'
+  where id=v_case;
   insert into public.safety_decision_events(case_id,action,source,reason_codes,created_at)
   values(v_case,'remove','human_admin',array['HUMAN_REVIEW'],v_base+interval '3 minutes');
   v_result:=public.distribution_trust_evaluate_content_v1(v_content,now(),'automatic');
   perform pg_temp.dt_assert(v_result->>'effective_state'='excluded'
     and (select lifecycle_status='live' from public.safety_content_items where id=v_content),
     'human REMOVE maps to distribution exclusion without deleting or hiding source content');
+  update public.safety_cases set final_action='allow',decision_source='human_admin',decided_at=v_base+interval '4 minutes'
+  where id=v_case;
   insert into public.safety_decision_events(case_id,action,source,reason_codes,created_at)
   values(v_case,'allow','human_admin',array['HUMAN_REVIEW'],v_base+interval '4 minutes');
   v_result:=public.distribution_trust_evaluate_content_v1(v_content,now(),'automatic');
@@ -252,8 +257,8 @@ begin
 
   v_result:=public.distribution_trust_set_override_v1(v_content,'normal',
     'DISTRIBUTION_ADMIN_FORCE_NORMAL','Human review cleared temporary concern.',null);
-  perform pg_temp.dt_assert(v_result->>'automatic_state'='reduced'
-    and v_result->>'effective_state'='normal','force-normal overrides automatic reduction');
+  perform pg_temp.dt_assert(v_result->>'automatic_state'='normal'
+    and v_result->>'effective_state'='normal','force-normal remains an explicit accountable override');
   v_result:=public.distribution_trust_set_override_v1(v_content,'reduced',
     'DISTRIBUTION_ADMIN_FORCE_REDUCED','Temporary confidence adjustment.',null);
   perform pg_temp.dt_assert(v_result->>'effective_state'='reduced','force-reduced is supported');
@@ -274,8 +279,8 @@ begin
     'repeated identical override is idempotent');
 
   v_result:=public.distribution_trust_release_override_v1(v_content,'Return to automatic evaluation.');
-  perform pg_temp.dt_assert(v_result->>'effective_state'='reduced'
-    and v_result->>'automatic_state'='reduced'
+  perform pg_temp.dt_assert(v_result->>'effective_state'='normal'
+    and v_result->>'automatic_state'='normal'
     and exists(select 1 from public.distribution_trust_overrides where id=v_override
       and status='released' and released_by=v_admin),
     'manual release returns to the current automatic recommendation');
@@ -296,7 +301,7 @@ begin
     where content_item_id=v_content)
     and (select count(*)>=4 from public.distribution_trust_events where content_item_id=v_content)
     and not exists(select 1 from public.distribution_trust_history where content_item_id=v_content
-      and engine_version<>'distribution-trust-v1'),
+      and engine_version<>'distribution-trust-v2'),
     'state, history, events, actor and engine version form a durable audit trail');
   perform pg_temp.dt_assert((public.distribution_trust_admin_detail_v1(v_content)->'state'->>'effective_state')='normal'
     and jsonb_array_length(public.distribution_trust_admin_detail_v1(v_content)->'history')>=4,

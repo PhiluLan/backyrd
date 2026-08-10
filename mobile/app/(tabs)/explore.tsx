@@ -39,6 +39,7 @@ import {
   type GooglePlacePhotoResult,
 } from "../../lib/google-place-photo";
 import { searchMobileTaxonomySpots } from "../../lib/taxonomy-search";
+import { filterDistributedSpots } from "../../lib/distributionTrust";
 
 /** ===== THEME ===== */
 const theme = {
@@ -714,7 +715,9 @@ export default function Home() {
         .eq("status", "approved")
         .order("created_at", { ascending: false })
         .limit(12);
-      const popWithPhotos = await mapSpotPhotos((popular || []) as Spot[]);
+      const popWithPhotos = await mapSpotPhotos(
+        await filterDistributedSpots((popular || []) as Spot[], "discovery"),
+      );
       setPopularFallback(popWithPhotos);
 
       // "Zufällige Empfehlungen" — wir holen 40 und shufflen clientseitig
@@ -728,7 +731,9 @@ export default function Home() {
       const randomSelection = shuffleArray(
         ((some || []) as Spot[]),
       ).slice(0, 12);
-      const randomWithPhotos = await mapSpotPhotos(randomSelection);
+      const randomWithPhotos = await mapSpotPhotos(
+        await filterDistributedSpots(randomSelection, "discovery"),
+      );
       setRandomFallback(randomWithPhotos);
     } catch (e) {
       console.warn("GeneralSuggestions:", (e as any).message);
@@ -785,7 +790,9 @@ export default function Home() {
         ...s,
         _key: `${s.id}-${i}`,
       }));
-      const withPhotos = await mapSpotPhotos(keyed);
+      const withPhotos = await mapSpotPhotos(
+        await filterDistributedSpots(keyed, "discovery"),
+      );
       setRecentVisits(withPhotos);
     } catch (e: any) {
       console.error("Fehler bei recent visits:", e.message);
@@ -825,7 +832,9 @@ export default function Home() {
         .limit(12);
       if (error) throw error;
 
-      const withPhotos = await mapSpotPhotos((spots || []) as Spot[]);
+      const withPhotos = await mapSpotPhotos(
+        await filterDistributedSpots((spots || []) as Spot[], "discovery"),
+      );
       setDiscoverSpots(withPhotos);
     } catch (e: any) {
       console.error("Neu entdeckt:", e.message);
@@ -931,7 +940,9 @@ export default function Home() {
         baseSpots = (fallbackSpots || []) as Spot[];
       }
 
-      const withPhotos = await mapSpotPhotos(baseSpots);
+      const withPhotos = await mapSpotPhotos(
+        await filterDistributedSpots(baseSpots, "discovery"),
+      );
 
       const moodSet = new Set(targetMoods.map((m) => m.toLowerCase()));
       const ranked = withPhotos
@@ -1054,12 +1065,16 @@ export default function Home() {
       const directIds = new Set(directSpots.map((spot) => spot.id));
       const contextualSpots = spotsB.filter((spot) => !directIds.has(spot.id));
 
+      const [distributedDirect, distributedContextual] = await Promise.all([
+        filterDistributedSpots(directSpots, "search"),
+        filterDistributedSpots(contextualSpots, "search"),
+      ]);
       setGrouped({
-        fromName: directSpots,
-        fromMood: contextualSpots,
+        fromName: distributedDirect,
+        fromMood: distributedContextual,
       });
 
-      const merged = [...(spotsA || []), ...spotsB];
+      const merged = [...distributedDirect, ...distributedContextual];
       if (merged.length) {
         const ids = merged.map((s) => s.id);
         const { data: moodsData } = await supabase
@@ -1106,7 +1121,9 @@ export default function Home() {
         .eq("status", "approved")
         .limit(40);
 
-      const withPhotos = await mapSpotPhotos((some || []) as Spot[]);
+      const withPhotos = await mapSpotPhotos(
+        await filterDistributedSpots((some || []) as Spot[], "discovery"),
+      );
       const shuffled = shuffleArray(withPhotos);
       const count = Math.floor(Math.random() * 3) + 3; // 3..5
       const pick = shuffled.slice(0, count);
