@@ -131,8 +131,8 @@ assert_count() {
 
 assert_count 1 'auth.users lifecycle trigger' \
   "select count(*) from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace join pg_proc p on p.oid=t.tgfoid join pg_namespace pn on pn.oid=p.pronamespace where n.nspname='auth' and c.relname='users' and not t.tgisinternal and t.tgenabled <> 'D' and pn.nspname='public' and p.proname='handle_new_user';"
-assert_count 5 'canonical cron jobs' \
-  "select count(*) from cron.job where active and (command like '%/functions/v1/generate-spot-embeddings%' or command like '%/functions/v1/safety-text-worker%' or command like '%/functions/v1/safety-image-worker%' or jobname in ('backyrd-account-trust-identity-daily','backyrd-account-trust-behaviour-daily'));"
+assert_count 6 'canonical cron jobs' \
+  "select count(*) from cron.job where active and (command like '%/functions/v1/generate-spot-embeddings%' or command like '%/functions/v1/safety-text-worker%' or command like '%/functions/v1/safety-image-worker%' or jobname in ('backyrd-account-trust-identity-daily','backyrd-account-trust-behaviour-daily','backyrd-account-trust-network-daily'));"
 assert_count 1 'message push webhook trigger' \
   "select count(*) from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace join pg_proc p on p.oid=t.tgfoid where n.nspname='public' and c.relname='message_push_outbox' and not t.tgisinternal and t.tgenabled <> 'D' and p.proname='send_message_push_webhook_v1';"
 assert_count 1 'Realtime messages publication' \
@@ -152,6 +152,8 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/sprint9_1_identity_trust_signals.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/sprint9_2_behaviour_trust_signals.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/sprint9_3_network_trust_signals.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/founder_control_center_v1.sql"
 
