@@ -13,7 +13,8 @@ begin
       'backyrd-account-trust-identity-daily',
       'backyrd-account-trust-behaviour-daily',
       'backyrd-account-trust-network-daily',
-      'backyrd-account-trust-security-15m'
+      'backyrd-account-trust-security-15m',
+      'backyrd-account-trust-owner-daily'
     )
   loop
     perform cron.unschedule(v_job.jobid);
@@ -130,6 +131,14 @@ begin
     '*/15 * * * *',
     $command$
     select public.account_trust_evaluate_security_due_v1(1000, now());
+    $command$
+  );
+
+  perform cron.schedule(
+    'backyrd-account-trust-owner-daily',
+    '11 4 * * *',
+    $command$
+    select public.account_trust_evaluate_owner_due_v1(1000, now());
     $command$
   );
 end;
