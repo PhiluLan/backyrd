@@ -26,6 +26,7 @@ cleanup() {
 trap cleanup EXIT
 
 "$repo_root/scripts/ci/validate-migrations.sh"
+"$repo_root/scripts/ci/validate-trust-platform-consumers.sh"
 
 mkdir -p "$validation_root/supabase"
 cp "$repo_root/supabase/config.toml" "$validation_root/supabase/config.toml"
@@ -166,6 +167,8 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/sprint10_distribution_trust_foundation.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/sprint10_distribution_policy_consumption.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/sprint10_final_trust_platform_acceptance.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/founder_control_center_v1.sql"
 
