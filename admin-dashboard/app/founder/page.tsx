@@ -41,6 +41,8 @@ export default function FounderControlCenterPage() {
   if (error || !data) return <div className="fcc-page"><div className="fcc-error">{error || "Die Launch-Daten sind gerade nicht verfügbar."}</div></div>;
 
   const readiness = data.readiness;
+  const governance = data.trust_health.governance;
+  const platformHealthy = governance.platform_health.status === "healthy";
   const isBlocked = readiness.launch_status === "BLOCKED";
   const criticalSentence = readiness.p0_remaining === 1
     ? "1 kritischer Punkt muss vor dem öffentlichen Basel-Launch noch erledigt werden."
@@ -80,6 +82,8 @@ export default function FounderControlCenterPage() {
         <Kpi label="Offene Trust-&-Safety-Fälle" value={founderNumber(data.kpis.open_trust_alerts)} source="automatic" interpretation={`${founderNumber(data.kpis.open_trust_alerts)} Fälle benötigen noch Aufmerksamkeit.`} danger={data.kpis.open_trust_alerts > 0} />
         <Kpi label="Temporär eingeschränkte Verteilung" value={founderNumber(data.trust_health.distribution.states.reduced + data.trust_health.distribution.states.quarantined)} source="automatic" interpretation={`${founderNumber(data.trust_health.distribution.states.reduced)} reduziert, ${founderNumber(data.trust_health.distribution.states.quarantined)} vorübergehend quarantänisiert.`} />
         <Kpi label="Distribution-Wiederherstellung" value={data.trust_health.distribution.overdue_evaluations === 0 && data.trust_health.distribution.expired_active_overrides === 0 && data.trust_health.distribution.admin_events_missing_actor === 0 ? "Gesund" : "Prüfung nötig"} source="system" interpretation={`${founderNumber(data.trust_health.distribution.restorations_24h)} automatische Wiederherstellungen in 24 Stunden; ${founderNumber(data.trust_health.distribution.overdue_evaluations)} überfällige Auswertungen; ${founderNumber(data.trust_health.distribution.admin_events_missing_actor)} Admin-Ereignisse ohne Akteur.`} danger={data.trust_health.distribution.overdue_evaluations > 0 || data.trust_health.distribution.expired_active_overrides > 0 || data.trust_health.distribution.failed_evaluations > 0 || data.trust_health.distribution.admin_events_missing_actor > 0} />
+        <Kpi label="Trust Platform Health" value={platformHealthy ? "Gesund" : governance.platform_health.status === "critical" ? "Kritisch" : "Prüfung nötig"} source="system" interpretation={`${founderNumber(governance.platform_health.open_incidents)} offene Incidents, ${founderNumber(governance.platform_health.overdue_escalations)} überfällige Eskalationen.`} danger={!platformHealthy} />
+        <Kpi label="Aktive Break-Glass-Kontrollen" value={founderNumber(governance.break_glass.active_count)} source="system" interpretation="Jede Notfallkontrolle ist zeitlich begrenzt, reversibel und einem Incident zugeordnet." danger={governance.break_glass.active_count > 0} />
         <Kpi label="Empfehlungsqualität" value="Noch nicht genügend Daten" source="automatic" interpretation="Wir messen zuverlässig, sobald Empfehlungen mit echten Ergebnissen verbunden sind." subdued />
       </section>
 
@@ -114,6 +118,40 @@ export default function FounderControlCenterPage() {
       </section>
 
       <EngineeringPanel compact />
+
+      <section className="fcc-grid">
+        <article className="fcc-panel">
+          <div className="fcc-panelHead"><div><span className="fcc-overline">Governance</span><h2>Offene Incidents</h2><p className="fcc-panelIntro">Severity bleibt unabhängig von Trust- und Distribution-Zuständen.</p></div><b>{governance.open_incidents.length} offen</b></div>
+          <div className="fcc-gateList">
+            {governance.open_incidents.map((incident) => (
+              <div className="fcc-gateRow" key={incident.id}>
+                <span className={`fcc-priority ${incident.severity_key === "S4" ? "P0" : incident.severity_key === "S3" ? "P1" : "P2"}`}>{incident.severity_key}</span>
+                <div><strong>{incident.summary}</strong><small>{incident.incident_key} · {incident.affected_systems.join(", ")} · seit {founderDate(incident.started_at)}</small></div>
+                <span className={`fcc-status ${incident.status}`}>{incident.status}</span>
+              </div>
+            ))}
+            {governance.open_incidents.length === 0 ? <div className="fcc-empty">Keine offenen Governance-Incidents.</div> : null}
+          </div>
+        </article>
+        <article className="fcc-panel">
+          <div className="fcc-panelHead"><div><span className="fcc-overline">Oversight</span><h2>Eskalationen & Postmortems</h2></div><b>{governance.current_escalations.length} aktiv</b></div>
+          <div className="fcc-gateList">
+            {governance.current_escalations.map((escalation) => (
+              <div className="fcc-gateRow" key={escalation.id}>
+                <span className="fcc-priority P1">Eskalation</span>
+                <div><strong>{escalation.reason}</strong><small>{escalation.required_role} · fällig {founderDate(escalation.due_at)}</small></div>
+                <span className={`fcc-status ${escalation.status}`}>{escalation.status}</span>
+              </div>
+            ))}
+            {governance.current_escalations.length === 0 ? <div className="fcc-empty">Keine aktiven Eskalationen.</div> : null}
+          </div>
+          <div className="fcc-panelHead"><div><span className="fcc-overline">Lernen</span><h2>Letzte Postmortems</h2></div></div>
+          {governance.recent_postmortems.map((postmortem) => (
+            <div className="fcc-verified" key={postmortem.id}><span>✓</span><div><strong>{postmortem.summary}</strong><small>{founderDate(postmortem.published_at)}</small></div></div>
+          ))}
+          {governance.recent_postmortems.length === 0 ? <div className="fcc-empty">Noch keine veröffentlichten Postmortems.</div> : null}
+        </article>
+      </section>
 
       <section className="fcc-grid">
         <article className="fcc-panel">
