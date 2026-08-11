@@ -172,6 +172,11 @@ mobile/ios/Pods/
 supabase_export/
 full_schema.sql
 
+# Decision Lab generated worlds, traces and disposable runtime state
+decision-lab/.generated/
+decision-lab/exports/
+decision-lab/.runtime/
+
 # Local one-off files
 index.html
 

@@ -1,0 +1,10 @@
+{
+  "generatorVersion": "decision-lab-generator-v1",
+  "groundTruthVersion": "latent-utility-v1",
+  "scenarioSetVersion": "d1-smoke-v1",
+  "evaluationVersion": "raw-metrics-v1",
+  "seed": "backyrd-d1-smoke-2026",
+  "scale": { "users": 40, "spots": 60, "reviews": 280, "interactions": 1600, "decisions": 600 },
+  "historyDays": 180,
+  "embeddingMode": "FAST_SIMULATION"
+}

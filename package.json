@@ -7,6 +7,9 @@
     "packages/*"
   ],
   "scripts": {
+    "decision-lab": "node decision-lab/src/cli.mjs",
+    "decision-lab:test": "node --test decision-lab/test/*.test.mjs",
+    "decision-lab:smoke": "node decision-lab/src/cli.mjs validate --config decision-lab/config/smoke-v1.json",
     "supabase:start": "npx supabase start",
     "supabase:stop": "npx supabase stop",
     "supabase:status": "npx supabase status",
