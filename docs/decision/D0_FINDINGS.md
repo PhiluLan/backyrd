@@ -10,7 +10,7 @@ This is the canonical finding register for D0 Decision Engine forensics. It reco
 | Area | Candidate eligibility / Decision integrity |
 | Severity | **P0 — Decision Integrity Failure** |
 | Confidence | **High** |
-| Status | **OPEN — immediate Production integrity review required** |
+| Status | **RESOLVED IN CODE — deterministic acceptance passed; Production deployment pending** |
 
 ### Evidence
 
@@ -37,3 +37,38 @@ The current Mobile Production path can admit non-approved inventory into the V12
 
 The D0.2 prompt requires an immediate stop and separate report when a genuine Production integrity problem is found. Further Live traces and normal D0.2 completion were therefore stopped after confirming this finding.
 
+### Root cause
+
+`backyrd_get_decision_debug_v3` constructed its base candidate universe with only a city predicate. The later V11 wrapper is `SECURITY DEFINER`, so its call chain did not receive the caller-facing `spots_select_approved` RLS restriction. V11 applied Distribution eligibility, but Distribution deliberately does not encode Spot product approval. V12 and Public Web inherited that candidate universe.
+
+### Fix
+
+The shared V3 base candidate query now requires:
+
+```sql
+s.status = 'approved'::public.spot_status
+```
+
+This predicate is applied before text, Mood, Taste, exploration, Distribution, or V12 scoring. V11, V12, Mobile V13 personalized candidates, Public Web, and Decision Debug therefore inherit the same product-eligibility boundary. Existing Semantic V13 matching and the V13 fallback catalog were independently re-verified as already approved-only; their ranking behavior was not changed. Distribution Trust was not modified.
+
+### Migration
+
+`supabase/migrations/20260811210000_enforce_decision_product_eligibility.sql`
+
+The migration is additive and redefines only `backyrd_get_decision_debug_v3`. Its scoring formula, ordering, parameters, return contract, ownership, and grants remain unchanged; the only candidate-universe change is the approval predicate.
+
+### Permanent regression
+
+`supabase/tests/sprint_decision_product_eligibility.sql`, executed by the canonical database validation, covers:
+
+- exact-name and broad-query exclusion for stronger `pending` and `rejected` fixtures;
+- direct V3 and V11 approved-only contracts;
+- three authenticated isolated V12 executions and approved-only recommendation-run items;
+- Semantic V13, fallback catalog, and personalized + semantic + fallback union eligibility;
+- approved-only V11 score/order equivalence before and after invalid fixtures are added;
+- approved `NORMAL`, `REDUCED`, `QUARANTINED`, `EXCLUDED`, and pending `NORMAL` interactions;
+- repeated execution inside a rolled-back synthetic transaction.
+
+### Resolution evidence
+
+On 2026-08-11 a fresh canonical database boot passed the new regression, all existing Sprint 8–12 acceptance suites, and the reviewed DB-lint baseline. No Production mutation, `db push`, migration repair, deployment, or real-user behavioral write occurred.
