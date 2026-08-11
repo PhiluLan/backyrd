@@ -4,4 +4,4 @@ The evaluator consumes Flight Recorder stages plus evaluation-only latent truth.
 
 Primary attribution is deterministic: missing best item in the first candidate stage is retrieval; present but low final rank is ranking; hard eligibility/distribution violations supersede soft failures; incomplete traces are contract failures. Reports separate Framework Validity, Engine Quality and D3 Readiness.
 
-A/B requires identical world, evaluation version and embedding mode. Reviewer bundles omit engine identity and randomize position deterministically. Unblinding material is separate. Identical comparisons return INCONCLUSIVE, never a winner.
+A/B requires identical world, evaluation version and embedding mode. Reviewer bundles omit engine identity and randomize position deterministically. Unblinding material is separate. Identical comparisons return INCONCLUSIVE, never a winner. Trace replay verifies a canonical SHA-256 seal and refuses mutation; Development, Regression, Locked Holdout and multi-seed commands now execute scenario records rather than returning declarations.

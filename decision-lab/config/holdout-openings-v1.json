@@ -4,7 +4,7 @@
     {
       "evaluationVersion": "decision-evaluator-v1",
       "constitutionHash": "3ff5a5cc54014abdbd51a5a65a4d8110c10b215fbd27828625457f2269f57bbd",
-      "scenarioRegistryHash": "134c8586afde85212f938a2bb238d75569c008725adfa6f6015823fa7af2d4d8",
+      "scenarioRegistryHash": "2e3c9151021d647cb5a58b913970e62bc26580746f88ac63bf47b9c56f75b22c",
       "openedAt": "2026-08-11T23:00:00.000Z",
       "reason": "D2 framework acceptance after constitution freeze",
       "command": "npm run decision-lab:d2 -- holdout-acceptance",
