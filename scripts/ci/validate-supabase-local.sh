@@ -172,6 +172,8 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/sprint11_governance_acceptance.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/sprint12_adversarial_platform_validation.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/founder_control_center_v1.sql"
 
 lint_json="$validation_root/db-lint.json"

@@ -27,12 +27,14 @@ while IFS= read -r path; do
   added_files+=("$path")
 done < <(git diff --diff-filter=A --name-only "$base_sha" HEAD)
 bad_backups=()
-for path in "${added_files[@]}"; do
-  if [[ "$path" =~ ^(mobile|web|admin-dashboard|packages/shared|supabase/functions)/ ]] \
-    && [[ "$path" =~ (\.backup|\.before-|/(backup|backups)/) ]]; then
-    bad_backups+=("$path")
-  fi
-done
+if test "${#added_files[@]}" -gt 0; then
+  for path in "${added_files[@]}"; do
+    if [[ "$path" =~ ^(mobile|web|admin-dashboard|packages/shared|supabase/functions)/ ]] \
+      && [[ "$path" =~ (\.backup|\.before-|/(backup|backups)/) ]]; then
+      bad_backups+=("$path")
+    fi
+  done
+fi
 
 if test "${#bad_backups[@]}" -gt 0; then
   printf 'New backup artifacts in active runtime paths:\n' >&2
