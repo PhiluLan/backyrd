@@ -111,6 +111,60 @@ export type FounderOverview = {
       calculated_at: string;
       interpretation: string;
     };
+    governance: {
+      platform_health: {
+        status: "healthy" | "degraded" | "critical";
+        failed_evaluations: { safety_text: number; safety_image: number; distribution: number };
+        stuck_queues: { safety_text: number; safety_image: number; distribution: number };
+        stale_trust_states: number;
+        stale_distribution_states: number;
+        orphan_overrides: number;
+        missing_restorations: number;
+        open_incidents: number;
+        critical_incidents: number;
+        open_escalations: number;
+        overdue_escalations: number;
+        active_break_glass: number;
+        expired_break_glass_pending_audit: number;
+        governance_version: string;
+        calculated_at: string;
+      };
+      open_incidents: Array<{
+        id: string;
+        incident_key: string;
+        status: string;
+        severity_key: "S0" | "S1" | "S2" | "S3" | "S4";
+        summary: string;
+        affected_systems: string[];
+        started_at: string;
+        owner_user_id: string | null;
+      }>;
+      critical_alerts: number;
+      break_glass: {
+        active_count: number;
+        controls: Array<{
+          control_key: string;
+          mode: "manual_only" | "paused";
+          expires_at: string;
+          incident_id: string;
+        }>;
+      };
+      current_escalations: Array<{
+        id: string;
+        incident_id: string;
+        status: "open" | "acknowledged";
+        required_role: string;
+        reason: string;
+        due_at: string;
+      }>;
+      recent_postmortems: Array<{
+        id: string;
+        incident_id: string;
+        summary: string;
+        published_at: string;
+      }>;
+      calculated_at: string;
+    };
     calculated_at: string;
     interpretation: string;
   };
