@@ -237,9 +237,11 @@ D3 hält World, Seed, observed History, Scenario Set, Ground-Truth- und Evaluati
 - Lab schema: additive Migration `20260811220000_create_decision_lab_foundation.sql`
 - Scripts: `decision-lab/src/cli.mjs`, `scripts/decision/run-d1-canonical-demo.sh`
 - Tests: 14 Node Tests, SQL Isolation Acceptance, bestehende Product Eligibility Regression
-- CI: Quality Smoke Job plus Canonical DB Boot
+- CI: vollständig grün auf PR #24: Decision Lab Smoke, Canonical DB Boot, Secret Guard, Gitleaks, Repository Sanity, Web/Admin Builds, Mobile, Shared und Vercel Previews; Supabase Preview erwartungsgemäß skipped
 - Branch: `codex/decision-d1-lab-foundation`
-- Commit/PR: werden erst nach finaler CI-Validierung erzeugt; Draft, kein Merge
+- Implementation Commit: `9572ce4`
+- Draft PR: `#24`; offen, kein Merge
+- Production/Supabase Deployment: keines
 
 ## Verdict explanations
 
