@@ -6,7 +6,7 @@
 |---|---|
 | Area | D2 Constitution / Evaluation Framework |
 | Severity | P1 — Framework integrity |
-| Status | RESOLVED IN D2.1 — pending merge of the re-certification PR |
+| Status | RESOLVED IN D2.1 — merged in PR #27 |
 | Detected | 2026-08-12, mandatory D3 preflight |
 | Production impact | None established by this finding; no Production access or mutation occurred |
 | Required next phase | Versioned D2.x framework correction and complete acceptance rerun |
@@ -117,4 +117,4 @@ New versions and freeze:
 - Freeze Manifest: `6488f3031bb63df482dbff2b2e2c011c1a82781862e1fe532ffdd1c968fffacf`
 - V13 Engine Source remains `a3618a4254a884a53b45cf185c630444239d3da8e04f78d86ece6a65cda507ba`
 
-Final status becomes **RESOLVED IN D2.1** when the reviewed D2.1 PR is merged. D3 must then restart separately and validate this new freeze before measurement.
+Final status is **RESOLVED IN D2.1**. PR #27 was merged, and the restarted D3 preflight validated the new freeze before measurement. The re-certified evaluator then correctly detected the separate engine-integrity finding `D3-F-001`; see `D3_P0_HARD_CONSTRAINT_INTEGRITY_STOP.md`.

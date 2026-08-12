@@ -1,0 +1,89 @@
+{
+  "baselineId": "backyrd-decision-v13-baseline-d3-v1",
+  "planVersion": "d3-run-plan-v1",
+  "sourceGitSha": "0977dfc437a482806da00fad446b7e0f151acd99",
+  "freezeManifestHash": "6488f3031bb63df482dbff2b2e2c011c1a82781862e1fe532ffdd1c968fffacf",
+  "constitutionVersion": "decision-quality-v1.1",
+  "constitutionHash": "cf0df61e94db56a480a1334b701fe1725d563c989225bdfd5158ba16e0a5fca1",
+  "scenarioRegistryVersion": "golden-scenarios-v1.1",
+  "scenarioRegistryHash": "4f3e4294c385e29c35ea7911557bfc5bc014115b28cb6f58a1a856706c971bef",
+  "evaluationVersion": "decision-evaluator-v1.1",
+  "evaluationHash": "c60fdb75dc6e7550bc106dfbc1fd648e4f39227eb6901ebc2775ef62a9feae76",
+  "gateVersion": "decision-gates-v1.1",
+  "hardGateRegistryHash": "2925d28d4eee37580fe3b6ddc6cb9c6adeb772c033122b63d749bab49f1230dc",
+  "frameworkAcceptanceVersion": "framework-acceptance-v1.1",
+  "frameworkAcceptanceHash": "a1280e3f9314d04f673c8590653506d3954eb005d127e5c3ebfcbaad8be3f3ba",
+  "resultSchemaVersion": "decision-evaluation-result-v1.1",
+  "generatorVersion": "decision-lab-generator-v1",
+  "groundTruthVersion": "latent-utility-v1",
+  "engine": {
+    "name": "backyrd_decision_v13_orchestrator",
+    "version": "0.1.10",
+    "sourceHash": "a3618a4254a884a53b45cf185c630444239d3da8e04f78d86ece6a65cda507ba",
+    "embeddingModel": "text-embedding-3-small",
+    "embeddingDimensions": 1536
+  },
+  "worldConfig": "decision-lab/config/world-v1.json",
+  "worldSeeds": [
+    "backyrd-d1-basel-v1-2026",
+    "backyrd-d1-basel-v1-2026-2",
+    "backyrd-d1-basel-v1-2026-3"
+  ],
+  "splits": {
+    "DEVELOPMENT": 18,
+    "REGRESSION": 12,
+    "LOCKED_HOLDOUT": 12
+  },
+  "scenarioCountPerWorld": 42,
+  "plannedDecisionRuns": 126,
+  "reproducibilityRerun": {
+    "seed": "backyrd-d1-basel-v1-2026",
+    "split": "REGRESSION",
+    "plannedDecisionRuns": 12
+  },
+  "fidelity": {
+    "engineExecution": "FULL_FIDELITY_CANONICAL_CODE_AND_SQL",
+    "v12": "FULL_FIDELITY_CANONICAL_SQL",
+    "fusion": "FULL_FIDELITY_CANONICAL_EDGE_SOURCE",
+    "productAndDistributionEligibility": "FULL_FIDELITY_CANONICAL_SQL",
+    "semanticEmbedding": "FAST_SIMULATION_TOKEN_FEATURE_HASH",
+    "semanticValidityClass": "SIMULATION_ONLY",
+    "aggregateValidityClass": "STRUCTURALLY_VALIDATED",
+    "reason": "No Decision Lab OpenAI credential is present. The D3 contract permits staged execution, but semantic and aggregate results must not be labelled full-fidelity V13 quality."
+  },
+  "metricSet": [
+    "hard_correctness",
+    "candidate_recall",
+    "ranking_quality",
+    "rank_regret",
+    "candidate_source_contribution",
+    "context",
+    "personalization",
+    "maturity",
+    "diversity",
+    "novelty",
+    "fallback",
+    "explanation",
+    "synthetic_outcome_potential",
+    "distribution",
+    "D0-F-002",
+    "failure_decomposition",
+    "latency"
+  ],
+  "failureTaxonomySource": "decision-lab/src/contracts.mjs",
+  "hardGateScope": "FULL_RETURNED_SET",
+  "expectedArtifacts": [
+    "decision-lab/baselines/v13-d3-v1.json",
+    "decision-lab/baselines/v13-d3-v1.metrics.json",
+    "decision-lab/baselines/v13-d3-v1.failures.json",
+    "decision-lab/baselines/v13-d3-v1.findings.json",
+    "decision-lab/baselines/v13-d3-v1.human-sample.json",
+    "docs/decision/D3_V13_BASELINE.md",
+    "docs/decision/D3_FAILURE_DECOMPOSITION.md",
+    "docs/decision/D3_BASELINE_MANIFEST.md",
+    "docs/decision/D3_FINDINGS.md"
+  ],
+  "productionAccess": "PROHIBITED",
+  "mutationPolicy": "MEASURE_ONLY",
+  "createdAt": "2026-08-12T19:30:00.000Z"
+}

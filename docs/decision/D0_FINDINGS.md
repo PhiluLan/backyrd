@@ -238,3 +238,21 @@ The engine can observe these outcomes in separate tables but does not reliably c
 ### Observed behavior and impact
 
 Current output is normally repaired before response, but the compile-time contract masks a database/runtime mismatch and makes the fallback stage easier to misread or reuse incorrectly.
+
+## D3-F-001 — Hard user constraints are soft-scored rather than eligibility-enforced
+
+| Field | Value |
+|---|---|
+| ID | `D3-F-001` |
+| Area | Public Decision hard-constraint integrity |
+| Severity | **P0 — Decision Integrity Failure** |
+| Confidence | **High** |
+| Status | **OPEN — D3 stopped; no baseline certified** |
+
+### Evidence
+
+After the D2.1/v1.1 preflight passed, the first controlled 42-scenario V13 World produced nine full-result hard-gate failures: Hard Category 5/5, Category Exclusion 3/3 and Open Now 1/2. Violations occurred in Development, Regression and Locked Holdout and reached rank 1. Product Eligibility and Distribution Eligibility remained intact.
+
+### Observed behavior and impact
+
+V13 recognizes category/exclusion intent but applies it through bounded fusion boosts and penalties rather than a canonical hard eligibility boundary. A user can therefore receive a Bar after “keine Bar,” a wrong category under strict guided intent, or a closed Spot under an open-now requirement. D3 stopped after seed 1 and certified no baseline. Full evidence is in `docs/decision/D3_P0_HARD_CONSTRAINT_INTEGRITY_STOP.md`.
