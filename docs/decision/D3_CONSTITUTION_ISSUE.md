@@ -6,7 +6,7 @@
 |---|---|
 | Area | D2 Constitution / Evaluation Framework |
 | Severity | P1 — Framework integrity |
-| Status | OPEN — D3 certification stopped |
+| Status | RESOLVED IN D2.1 — pending merge of the re-certification PR |
 | Detected | 2026-08-12, mandatory D3 preflight |
 | Production impact | None established by this finding; no Production access or mutation occurred |
 | Required next phase | Versioned D2.x framework correction and complete acceptance rerun |
@@ -102,3 +102,19 @@ The D2.x correction must not be made silently on the D3 branch because doing so 
 **D3 V13 BASELINE MEASUREMENT — FAIL (NOT EXECUTED; INVALID MEASUREMENT FOUNDATION)**
 
 No V13 quality or Basel Closed-Beta judgment is supportable from this aborted D3 attempt.
+
+## D2.1 resolution
+
+Root cause was the missing executable connection between declared Constitution gates, evaluator failure records, hard aggregation, adversarial acceptance and D3 readiness. D2.1 introduces nine deterministic gate evaluators, explicit applicability and `NOT_EVALUATED`, canonical synthetic-World evidence lookup, non-compensable aggregation, result invariants and coverage/readiness meta-guards.
+
+The original four false-PASS traces are permanent regressions and now fail. Their valid equivalents pass. The adversarial matrix has 45 cases with 0 false passes, 0 false fails and 0 `NOT_EVALUATED` leaks. D2.A–D2.D, Scientific Validity, three-seed Regression and Locked Holdout re-certification pass.
+
+New versions and freeze:
+
+- Constitution: `decision-quality-v1.1` / `cf0df61e94db56a480a1334b701fe1725d563c989225bdfd5158ba16e0a5fca1`
+- Scenario Registry: `golden-scenarios-v1.1` / `4f3e4294c385e29c35ea7911557bfc5bc014115b28cb6f58a1a856706c971bef`
+- Evaluator: `decision-evaluator-v1.1` / `c60fdb75dc6e7550bc106dfbc1fd648e4f39227eb6901ebc2775ef62a9feae76`
+- Freeze Manifest: `6488f3031bb63df482dbff2b2e2c011c1a82781862e1fe532ffdd1c968fffacf`
+- V13 Engine Source remains `a3618a4254a884a53b45cf185c630444239d3da8e04f78d86ece6a65cda507ba`
+
+Final status becomes **RESOLVED IN D2.1** when the reviewed D2.1 PR is merged. D3 must then restart separately and validate this new freeze before measurement.

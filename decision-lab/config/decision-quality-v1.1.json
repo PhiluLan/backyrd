@@ -1,0 +1,50 @@
+{
+  "constitutionVersion": "decision-quality-v1.1",
+  "evaluationVersion": "decision-evaluator-v1.1",
+  "gateVersion": "decision-gates-v1.1",
+  "scenarioVersion": "golden-scenarios-v1.1",
+  "resultSchemaVersion": "decision-evaluation-result-v1.1",
+  "frameworkAcceptanceVersion": "framework-acceptance-v1.1",
+  "groundTruthVersion": "latent-utility-v1",
+  "evaluationMode": "CERTIFIED",
+  "resultScope": "FULL_RETURNED_SET",
+  "metricOrder": ["run_validity", "hard_correctness", "candidate_recall", "ranking_quality", "context", "personalization", "maturity", "diversity", "fallback", "explanation", "reliability", "outcome_potential"],
+  "ks": [5, 10, 20],
+  "relevanceThreshold": 0.6,
+  "bootstrap": { "iterations": 2000, "seed": "decision-quality-v1-bootstrap", "confidence": 0.95 },
+  "hardGates": {
+    "PRODUCT_ELIGIBILITY": { "required": true, "expected": "approved" },
+    "DISTRIBUTION_ELIGIBILITY": { "required": true, "eligible": ["normal", "reduced"] },
+    "ENTITY_INTEGRITY": { "required": true, "source": "synthetic-world" },
+    "LATENT_LEAKAGE": { "required": true, "forbiddenKeys": ["latent", "latentUtility", "groundTruth", "groundTruthUtility", "truePreference"] },
+    "CITY": { "requiredWhenDeclared": true },
+    "HARD_CATEGORY": { "requiredWhenDeclared": true },
+    "CATEGORY_EXCLUSION": { "requiredWhenDeclared": true },
+    "OPEN_NOW": { "requiredWhenDeclared": true, "evidence": "latent.openByContext[scenario.context.timeBucket]" },
+    "DUPLICATE_RESULTS": { "required": true, "duplicateRateMax": 0, "identity": "spot-id" }
+  },
+  "hardGateAggregation": {
+    "pass": "all applicable gates are PASS",
+    "fail": "any applicable gate is FAIL",
+    "notEvaluated": "any applicable required gate is NOT_EVALUATED",
+    "notApplicable": "excluded from applicable gate counts"
+  },
+  "dimensionFloors": {
+    "ndcgAt10": 0.55,
+    "recallAt20": 0.65,
+    "precisionAt10": 0.35,
+    "explanationSupport": 0.95,
+    "fallbackEligibleRate": 1,
+    "contextDirectionalRate": 0.6,
+    "maturePersonalizationMedianLift": 0
+  },
+  "minimums": { "scenarioFamilies": 16, "development": 16, "regression": 12, "lockedHoldout": 12, "pairedSample": 8 },
+  "notYetCalibrated": ["production_latency", "real_conversion", "retention", "real_user_satisfaction", "clock-time opening boundaries", "cross-midnight opening intervals"],
+  "knownEngineDefects": [{ "id": "D0-F-002", "severity": "P1", "engineVerdictException": true, "frameworkException": false }],
+  "changelog": {
+    "reason": "Hard-gate enforcement corrected after D3-CONSTITUTION-ISSUE-001",
+    "added": ["explicit gate IDs", "applicability", "NOT_EVALUATED", "full-result scope", "certification contract"],
+    "changed": ["hard-gate implementation and aggregation are executable and fail closed"],
+    "notChanged": ["Decision quality intent", "soft thresholds", "latent utility", "V13 behavior", "scenario semantic expectations"]
+  }
+}
