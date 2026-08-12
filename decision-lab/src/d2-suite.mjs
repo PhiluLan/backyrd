@@ -20,4 +20,4 @@ export function runSplit({ world, constitution, split, variant = "ORACLE" }) {
   return { split, scenarioCount: scenarios.length, records, aggregate: aggregate(records, constitution), traceHashes: records.map((record) => record.inputHash) };
 }
 
-export function runFramework({ world, constitution }) { const all = buildGoldenScenarios(world, constitution.scenarioVersion); const integrity = validateSplitIntegrity(all, constitution.minimums); const registry = splitRegistry(all); const acceptance = selfValidate(); return { integrity, registry, acceptance, development: runSplit({ world, constitution, split: "DEVELOPMENT" }), regression: runSplit({ world, constitution, split: "REGRESSION" }) }; }
+export function runFramework({ world, constitution }) { const all = buildGoldenScenarios(world, constitution.scenarioVersion); const integrity = validateSplitIntegrity(all, constitution.minimums); const registry = splitRegistry(all); const acceptance = selfValidate(constitution); return { integrity, registry, acceptance, development: runSplit({ world, constitution, split: "DEVELOPMENT" }), regression: runSplit({ world, constitution, split: "REGRESSION" }) }; }

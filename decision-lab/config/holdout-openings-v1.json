@@ -10,6 +10,16 @@
       "command": "npm run decision-lab:d2 -- holdout-acceptance",
       "result": "PASS",
       "custody": "process-isolated; repository secrecy not claimed"
+    },
+    {
+      "evaluationVersion": "decision-evaluator-v1.1",
+      "constitutionHash": "cf0df61e94db56a480a1334b701fe1725d563c989225bdfd5158ba16e0a5fca1",
+      "scenarioRegistryHash": "4f3e4294c385e29c35ea7911557bfc5bc014115b28cb6f58a1a856706c971bef",
+      "openedAt": "2026-08-12T19:00:00.000Z",
+      "reason": "D2.1 hard-gate re-certification; no V13 result or threshold tuning",
+      "command": "DECISION_LAB_HOLDOUT_UNLOCK=cf0df61e94db56a4 npm run decision-lab:d2 -- holdout-acceptance",
+      "result": "PASS",
+      "custody": "process-isolated; repository secrecy not claimed"
     }
   ]
 }

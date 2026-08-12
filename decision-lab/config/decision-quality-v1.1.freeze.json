@@ -1,0 +1,42 @@
+{
+  "d2Version": "2.1",
+  "constitutionVersion": "decision-quality-v1.1",
+  "constitutionHash": "cf0df61e94db56a480a1334b701fe1725d563c989225bdfd5158ba16e0a5fca1",
+  "scenarioRegistryVersion": "golden-scenarios-v1.1",
+  "scenarioRegistryHash": "4f3e4294c385e29c35ea7911557bfc5bc014115b28cb6f58a1a856706c971bef",
+  "evaluationVersion": "decision-evaluator-v1.1",
+  "evaluationHash": "c60fdb75dc6e7550bc106dfbc1fd648e4f39227eb6901ebc2775ef62a9feae76",
+  "gateVersion": "decision-gates-v1.1",
+  "hardGateRegistryHash": "2925d28d4eee37580fe3b6ddc6cb9c6adeb772c033122b63d749bab49f1230dc",
+  "frameworkAcceptanceVersion": "framework-acceptance-v1.1",
+  "frameworkAcceptanceHash": "a1280e3f9314d04f673c8590653506d3954eb005d127e5c3ebfcbaad8be3f3ba",
+  "resultSchemaVersion": "decision-evaluation-result-v1.1",
+  "generatorVersion": "decision-lab-generator-v1",
+  "groundTruthVersion": "latent-utility-v1",
+  "engineSourceHash": "a3618a4254a884a53b45cf185c630444239d3da8e04f78d86ece6a65cda507ba",
+  "sourceGitSha": "c324e71e2e4f2e4b6815289d29f681690edbaaac",
+  "hardGateCount": 9,
+  "hardGateCoverage": {
+    "rows": [
+      { "gateId": "CATEGORY_EXCLUSION", "declared": true, "registered": true, "implemented": true, "validTest": true, "violationTest": true, "boundaryTest": true, "multiViolationTest": true, "missingEvidenceTest": true },
+      { "gateId": "CITY", "declared": true, "registered": true, "implemented": true, "validTest": true, "violationTest": true, "boundaryTest": true, "multiViolationTest": true, "missingEvidenceTest": true },
+      { "gateId": "DISTRIBUTION_ELIGIBILITY", "declared": true, "registered": true, "implemented": true, "validTest": true, "violationTest": true, "boundaryTest": true, "multiViolationTest": true, "missingEvidenceTest": true },
+      { "gateId": "DUPLICATE_RESULTS", "declared": true, "registered": true, "implemented": true, "validTest": true, "violationTest": true, "boundaryTest": true, "multiViolationTest": true, "missingEvidenceTest": true },
+      { "gateId": "ENTITY_INTEGRITY", "declared": true, "registered": true, "implemented": true, "validTest": true, "violationTest": true, "boundaryTest": true, "multiViolationTest": true, "missingEvidenceTest": true },
+      { "gateId": "HARD_CATEGORY", "declared": true, "registered": true, "implemented": true, "validTest": true, "violationTest": true, "boundaryTest": true, "multiViolationTest": true, "missingEvidenceTest": true },
+      { "gateId": "LATENT_LEAKAGE", "declared": true, "registered": true, "implemented": true, "validTest": true, "violationTest": true, "boundaryTest": true, "multiViolationTest": true, "missingEvidenceTest": true },
+      { "gateId": "OPEN_NOW", "declared": true, "registered": true, "implemented": true, "validTest": true, "violationTest": true, "boundaryTest": true, "multiViolationTest": true, "missingEvidenceTest": true },
+      { "gateId": "PRODUCT_ELIGIBILITY", "declared": true, "registered": true, "implemented": true, "validTest": true, "violationTest": true, "boundaryTest": true, "multiViolationTest": true, "missingEvidenceTest": true }
+    ],
+    "pass": true
+  },
+  "adversarial": { "total": 45, "valid": 9, "violations": 18, "boundaries": 9, "multiViolations": 9, "missingEvidence": 9, "falsePasses": 0, "falseFails": 0, "notEvaluatedLeakage": 0 },
+  "scientificValidity": "PASS",
+  "engineMutation": "NONE",
+  "d3Readiness": "READY",
+  "freezeManifestHash": "6488f3031bb63df482dbff2b2e2c011c1a82781862e1fe532ffdd1c968fffacf",
+  "frozen": true,
+  "frozenAt": "2026-08-12T19:00:00.000Z",
+  "supersedes": { "constitutionVersion": "decision-quality-v1", "reason": "D3-CONSTITUTION-ISSUE-001" },
+  "integrity": { "valid": true, "failures": [], "familyCount": 18, "counts": { "DEVELOPMENT": 18, "REGRESSION": 12, "LOCKED_HOLDOUT": 12 } }
+}
