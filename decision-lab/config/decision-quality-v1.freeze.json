@@ -1,0 +1,11 @@
+{
+  "constitutionVersion": "decision-quality-v1",
+  "constitutionHash": "3ff5a5cc54014abdbd51a5a65a4d8110c10b215fbd27828625457f2269f57bbd",
+  "scenarioVersion": "golden-scenarios-v1",
+  "scenarioRegistryHash": "2e3c9151021d647cb5a58b913970e62bc26580746f88ac63bf47b9c56f75b22c",
+  "evaluationVersion": "decision-evaluator-v1",
+  "gateVersion": "decision-gates-v1",
+  "frozen": true,
+  "frozenAt": "2026-08-11T23:00:00.000Z",
+  "rule": "Never overwrite this version; create a new evaluation version."
+}

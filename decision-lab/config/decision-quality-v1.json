@@ -1,0 +1,31 @@
+{
+  "constitutionVersion": "decision-quality-v1",
+  "evaluationVersion": "decision-evaluator-v1",
+  "gateVersion": "decision-gates-v1",
+  "scenarioVersion": "golden-scenarios-v1",
+  "groundTruthVersion": "latent-utility-v1",
+  "metricOrder": ["run_validity", "hard_correctness", "candidate_recall", "ranking_quality", "context", "personalization", "maturity", "diversity", "fallback", "explanation", "reliability", "outcome_potential"],
+  "ks": [5, 10, 20],
+  "relevanceThreshold": 0.6,
+  "bootstrap": { "iterations": 2000, "seed": "decision-quality-v1-bootstrap", "confidence": 0.95 },
+  "hardGates": {
+    "approved": 1,
+    "distributionEligible": 1,
+    "entityIntegrity": 1,
+    "latentLeakageFree": 1,
+    "mustPassConstraints": 1,
+    "duplicateRateMax": 0
+  },
+  "dimensionFloors": {
+    "ndcgAt10": 0.55,
+    "recallAt20": 0.65,
+    "precisionAt10": 0.35,
+    "explanationSupport": 0.95,
+    "fallbackEligibleRate": 1,
+    "contextDirectionalRate": 0.6,
+    "maturePersonalizationMedianLift": 0
+  },
+  "minimums": { "scenarioFamilies": 16, "development": 16, "regression": 12, "lockedHoldout": 12, "pairedSample": 8 },
+  "notYetCalibrated": ["production_latency", "real_conversion", "retention", "real_user_satisfaction"],
+  "knownEngineDefects": [{ "id": "D0-F-002", "severity": "P1", "engineVerdictException": true, "frameworkException": false }]
+}

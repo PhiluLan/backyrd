@@ -24,6 +24,8 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
@@ -32,6 +34,12 @@ jobs:
       - run: npm ci
       - run: npm run decision-lab:test
       - run: npm run decision-lab:smoke
+      - name: D2 framework acceptance
+        run: npm run decision-lab:d2:acceptance
+      - name: D2 protected-scope guard
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: bash scripts/ci/decision-d2-scope-guard.sh
 
   repository-sanity:
     name: Repository sanity
