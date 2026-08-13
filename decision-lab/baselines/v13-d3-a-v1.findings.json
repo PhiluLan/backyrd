@@ -1,0 +1,40 @@
+{
+  "baselineId": "backyrd-decision-v13-baseline-d3-a-v1",
+  "resultHash": "b0701aebb83878ae2ee28c3e0cfe0a17617952aad3bb0a51bc4589689138908c",
+  "findings": {
+    "d3f001": {
+      "decisionFailures": 21,
+      "decisionFailureRate": 0.16666666666666666,
+      "gates": {
+        "HARD_CATEGORY": {
+          "applicable": 18,
+          "failed": 13,
+          "failureRate": 0.7222222222222222,
+          "violatingCandidates": 96
+        },
+        "CATEGORY_EXCLUSION": {
+          "applicable": 9,
+          "failed": 3,
+          "failureRate": 0.3333333333333333,
+          "violatingCandidates": 5
+        },
+        "OPEN_NOW": {
+          "applicable": 6,
+          "failed": 5,
+          "failureRate": 0.8333333333333334,
+          "violatingCandidates": 18
+        }
+      }
+    },
+    "d0f002": {
+      "naturalOccurrenceCount": 0,
+      "affectedDecisionCount": 0,
+      "affectedDecisionRate": 0,
+      "top3ImpactCount": 0,
+      "meanRankMovement": null,
+      "meanUtilityImpact": null,
+      "rows": [],
+      "controlledFixtureStatus": "DETECTION_REGRESSION_ONLY; NOT INCLUDED IN NATURAL FREQUENCY"
+    }
+  }
+}

@@ -1,0 +1,4060 @@
+{
+  "baselineId": "backyrd-decision-v13-baseline-d3-a-v1",
+  "resultHash": "b0701aebb83878ae2ee28c3e0cfe0a17617952aad3bb0a51bc4589689138908c",
+  "failureDecomposition": {
+    "total": 141,
+    "unknownCount": 0,
+    "unknownRate": 0,
+    "counts": {
+      "CONSTRAINT_FAILURE": 16,
+      "OPENING_HOURS_FAILURE": 5,
+      "RANKING_FAILURE": 2,
+      "RETRIEVAL_FAILURE": 118
+    },
+    "rows": [
+      {
+        "scenarioId": "65ec70cc-ee76-4f32-a2f1-660c42c33d6a",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "budget_discoverer",
+        "maturity": "sparse",
+        "family": "product_eligibility",
+        "utilityLoss": 0.1382,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "65ec70cc-ee76-4f32-a2f1-660c42c33d6a:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "f27e6f8a-8e7c-475e-aea0-af350083029c",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "4e9acca5-b38c-4000-920b-729dd1dc4810",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "quiet_regular",
+        "maturity": "cold",
+        "family": "distribution",
+        "utilityLoss": 0.7601,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "4e9acca5-b38c-4000-920b-729dd1dc4810:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "7f3eb815-d1e6-43eb-ba9b-034d2320b938",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "86dab3eb-d774-420d-b9a6-58f919e372b1",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "social_explorer",
+        "maturity": "cold",
+        "family": "exact_name",
+        "utilityLoss": 0.08830000000000005,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "86dab3eb-d774-420d-b9a6-58f919e372b1:hard:HARD_CATEGORY",
+        "primaryClass": "CONSTRAINT_FAILURE",
+        "expected": "bar",
+        "actual": [
+          {
+            "spotId": "047d682f-658b-4097-8e4b-d09ba9b06948",
+            "rank": 4,
+            "category": "activity"
+          },
+          {
+            "spotId": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+            "rank": 5,
+            "category": "outing"
+          },
+          {
+            "spotId": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+            "rank": 7,
+            "category": "activity"
+          },
+          {
+            "spotId": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+            "rank": 8,
+            "category": "outing"
+          },
+          {
+            "spotId": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+            "rank": 9,
+            "category": "activity"
+          },
+          {
+            "spotId": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+            "rank": 10,
+            "category": "outing"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "047d682f-658b-4097-8e4b-d09ba9b06948",
+              "rank": 4,
+              "category": "activity"
+            },
+            {
+              "spotId": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+              "rank": 5,
+              "category": "outing"
+            },
+            {
+              "spotId": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+              "rank": 7,
+              "category": "activity"
+            },
+            {
+              "spotId": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+              "rank": 8,
+              "category": "outing"
+            },
+            {
+              "spotId": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+              "rank": 9,
+              "category": "activity"
+            },
+            {
+              "spotId": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+              "rank": 10,
+              "category": "outing"
+            }
+          ]
+        },
+        "reason": "Wrong category returned"
+      },
+      {
+        "scenarioId": "e08f30e3-7a0f-47d5-afc3-b28eb02c7c3e",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "family_planner",
+        "maturity": "cold",
+        "family": "broad_query",
+        "utilityLoss": 0.8001,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "e08f30e3-7a0f-47d5-afc3-b28eb02c7c3e:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "67cb5cb5-9a97-4ecf-9028-74f3ae789745",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "a6d604aa-8f96-4e9c-948c-0b2a8c0d9639",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "quiet_regular",
+        "maturity": "cold",
+        "family": "category_intent",
+        "utilityLoss": 0,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "a6d604aa-8f96-4e9c-948c-0b2a8c0d9639:hard:HARD_CATEGORY",
+        "primaryClass": "CONSTRAINT_FAILURE",
+        "expected": "activity",
+        "actual": [
+          {
+            "spotId": "552e8646-622d-421b-b73e-69b169f6c1f2",
+            "rank": 4,
+            "category": "bar"
+          },
+          {
+            "spotId": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+            "rank": 6,
+            "category": "outing"
+          },
+          {
+            "spotId": "3b3f611b-962d-4f9f-a876-80688419371c",
+            "rank": 7,
+            "category": "bar"
+          },
+          {
+            "spotId": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+            "rank": 8,
+            "category": "outing"
+          },
+          {
+            "spotId": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+            "rank": 9,
+            "category": "bar"
+          },
+          {
+            "spotId": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+            "rank": 10,
+            "category": "outing"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "552e8646-622d-421b-b73e-69b169f6c1f2",
+              "rank": 4,
+              "category": "bar"
+            },
+            {
+              "spotId": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+              "rank": 6,
+              "category": "outing"
+            },
+            {
+              "spotId": "3b3f611b-962d-4f9f-a876-80688419371c",
+              "rank": 7,
+              "category": "bar"
+            },
+            {
+              "spotId": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+              "rank": 8,
+              "category": "outing"
+            },
+            {
+              "spotId": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+              "rank": 9,
+              "category": "bar"
+            },
+            {
+              "spotId": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+              "rank": 10,
+              "category": "outing"
+            }
+          ]
+        },
+        "reason": "Wrong category returned"
+      },
+      {
+        "scenarioId": "324b52ef-d387-466d-ba59-f31ff8d4f2bc",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "date_planner",
+        "maturity": "power",
+        "family": "negation",
+        "utilityLoss": 0.1592,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "324b52ef-d387-466d-ba59-f31ff8d4f2bc:hard:CATEGORY_EXCLUSION",
+        "primaryClass": "CONSTRAINT_FAILURE",
+        "expected": {
+          "excludedCategories": [
+            "bar"
+          ]
+        },
+        "actual": [
+          {
+            "spotId": "552e8646-622d-421b-b73e-69b169f6c1f2",
+            "rank": 2,
+            "category": "bar"
+          },
+          {
+            "spotId": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+            "rank": 9,
+            "category": "bar"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "552e8646-622d-421b-b73e-69b169f6c1f2",
+              "rank": 2,
+              "category": "bar"
+            },
+            {
+              "spotId": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+              "rank": 9,
+              "category": "bar"
+            }
+          ]
+        },
+        "reason": "Explicitly excluded category returned"
+      },
+      {
+        "scenarioId": "324b52ef-d387-466d-ba59-f31ff8d4f2bc",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "date_planner",
+        "maturity": "power",
+        "family": "negation",
+        "utilityLoss": 0.1592,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "324b52ef-d387-466d-ba59-f31ff8d4f2bc:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "1bd1feca-da50-49fd-9792-1b5a161033d1",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "88ef7e11-e6f3-4fa0-90fc-7201e0f55b4a",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "quiet_regular",
+        "maturity": "developing",
+        "family": "open_now",
+        "utilityLoss": 0.22000000000000003,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "88ef7e11-e6f3-4fa0-90fc-7201e0f55b4a:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "0cd9a790-fbb3-4561-9e0d-ac5774c04dfd",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "beaaae80-1dfd-4b8f-b3ab-543a74762313",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "date_planner",
+        "maturity": "mature",
+        "family": "geo",
+        "utilityLoss": 0.1815,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "beaaae80-1dfd-4b8f-b3ab-543a74762313:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "1793c958-ccf8-4d0f-8400-e1b29f99e85e",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "54597ccc-e422-411d-8657-7ef2b87f0fe8",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "novelty_hunter",
+        "maturity": "power",
+        "family": "cold_start",
+        "utilityLoss": 0.7697,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "54597ccc-e422-411d-8657-7ef2b87f0fe8:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "ca19064a-fbc5-41be-a348-519690636e39",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "94953040-24e3-4fcc-a5c0-75a9f374445c",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "date_planner",
+        "maturity": "mature",
+        "family": "mature_personalization",
+        "utilityLoss": 0.23670000000000002,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "94953040-24e3-4fcc-a5c0-75a9f374445c:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "48f30015-d5f4-40de-90cf-d24cb3beb54e",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "0c6500f5-63d3-4a50-b344-f4857c30d419",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "social_explorer",
+        "maturity": "sparse",
+        "family": "audience",
+        "utilityLoss": 0.7286,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "0c6500f5-63d3-4a50-b344-f4857c30d419:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "ae1ae307-9663-437e-b788-2b803e085f9b",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "e5dd50a9-741c-4c1e-9e88-a58ff6743cba",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "date_planner",
+        "maturity": "onboarding",
+        "family": "quiet_lively",
+        "utilityLoss": 0.09839999999999993,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "e5dd50a9-741c-4c1e-9e88-a58ff6743cba:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "b58e66d9-15ad-4338-9fa6-1fe4722e9284",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "bf0dbf5c-310f-4770-a5b3-c0e48c10a709",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "social_explorer",
+        "maturity": "mature",
+        "family": "price",
+        "utilityLoss": 0.7243,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "bf0dbf5c-310f-4770-a5b3-c0e48c10a709:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "43085d56-0eba-4a3a-8f65-684a3348fbbb",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "e852c3bc-1329-4cf1-a267-bed1b8bc3319",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "spontaneous_local",
+        "maturity": "developing",
+        "family": "semantic_only",
+        "utilityLoss": 0.7743,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "e852c3bc-1329-4cf1-a267-bed1b8bc3319:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "bf2c5fce-fc3c-4e5a-bf46-7ddc4ddc14d6",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "2b0420fd-0325-4051-8ffa-231b9e01c0c8",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "budget_discoverer",
+        "maturity": "sparse",
+        "family": "fallback",
+        "utilityLoss": 0.7869,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "2b0420fd-0325-4051-8ffa-231b9e01c0c8:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "48f30015-d5f4-40de-90cf-d24cb3beb54e",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "a9c0a665-3484-425e-856a-d35585da119b",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "quiet_regular",
+        "maturity": "cold",
+        "family": "zero_result",
+        "utilityLoss": 0.15800000000000003,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "a9c0a665-3484-425e-856a-d35585da119b:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "67cb5cb5-9a97-4ecf-9028-74f3ae789745",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "7b2d7282-83c7-4fcd-84b2-b742e31891d6",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "social_explorer",
+        "maturity": "cold",
+        "family": "repetition",
+        "utilityLoss": 0.0024999999999999467,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "7b2d7282-83c7-4fcd-84b2-b742e31891d6:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "1793c958-ccf8-4d0f-8400-e1b29f99e85e",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "df4cbf57-9847-4d81-a5c3-2a90e3c259a3",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "DEVELOPMENT",
+        "persona": "family_planner",
+        "maturity": "cold",
+        "family": "explanation",
+        "utilityLoss": 0.07239999999999991,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "df4cbf57-9847-4d81-a5c3-2a90e3c259a3:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "1bd1feca-da50-49fd-9792-1b5a161033d1",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "dff698ec-3b6c-44be-bcbd-48b29ca2826e",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "REGRESSION",
+        "persona": "quiet_regular",
+        "maturity": "developing",
+        "family": "product_eligibility",
+        "utilityLoss": 0.7687,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "dff698ec-3b6c-44be-bcbd-48b29ca2826e:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "7f3eb815-d1e6-43eb-ba9b-034d2320b938",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "3a1e4608-c37a-4790-bf93-b6f53831d7ba",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "REGRESSION",
+        "persona": "budget_discoverer",
+        "maturity": "onboarding",
+        "family": "distribution",
+        "utilityLoss": 0.128,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "3a1e4608-c37a-4790-bf93-b6f53831d7ba:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "b4ea5c9a-65c6-4004-b78d-63f17c6dab49",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "15057599-d202-4fed-8a7b-9e51048728b6",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "REGRESSION",
+        "persona": "social_explorer",
+        "maturity": "sparse",
+        "family": "exact_name",
+        "utilityLoss": 0.7212,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "15057599-d202-4fed-8a7b-9e51048728b6:hard:HARD_CATEGORY",
+        "primaryClass": "CONSTRAINT_FAILURE",
+        "expected": "activity",
+        "actual": [
+          {
+            "spotId": "552e8646-622d-421b-b73e-69b169f6c1f2",
+            "rank": 2,
+            "category": "bar"
+          },
+          {
+            "spotId": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+            "rank": 3,
+            "category": "outing"
+          },
+          {
+            "spotId": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+            "rank": 5,
+            "category": "outing"
+          },
+          {
+            "spotId": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+            "rank": 7,
+            "category": "outing"
+          },
+          {
+            "spotId": "df1c474e-0558-4d87-a5b0-7691ba5c082d",
+            "rank": 8,
+            "category": "outing"
+          },
+          {
+            "spotId": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+            "rank": 9,
+            "category": "bar"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "552e8646-622d-421b-b73e-69b169f6c1f2",
+              "rank": 2,
+              "category": "bar"
+            },
+            {
+              "spotId": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+              "rank": 3,
+              "category": "outing"
+            },
+            {
+              "spotId": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+              "rank": 5,
+              "category": "outing"
+            },
+            {
+              "spotId": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+              "rank": 7,
+              "category": "outing"
+            },
+            {
+              "spotId": "df1c474e-0558-4d87-a5b0-7691ba5c082d",
+              "rank": 8,
+              "category": "outing"
+            },
+            {
+              "spotId": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+              "rank": 9,
+              "category": "bar"
+            }
+          ]
+        },
+        "reason": "Wrong category returned"
+      },
+      {
+        "scenarioId": "15057599-d202-4fed-8a7b-9e51048728b6",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "REGRESSION",
+        "persona": "social_explorer",
+        "maturity": "sparse",
+        "family": "exact_name",
+        "utilityLoss": 0.7212,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "15057599-d202-4fed-8a7b-9e51048728b6:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "def2cf0f-cac8-4ec0-a0c2-8456d5064c43",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "59f9869f-e665-420c-b3e1-0409a71acef4",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "REGRESSION",
+        "persona": "spontaneous_local",
+        "maturity": "cold",
+        "family": "broad_query",
+        "utilityLoss": 0.7952,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "59f9869f-e665-420c-b3e1-0409a71acef4:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "1793c958-ccf8-4d0f-8400-e1b29f99e85e",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "e8a29a30-e9d5-45d7-a43c-8c09fb15bb4e",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "REGRESSION",
+        "persona": "quiet_regular",
+        "maturity": "developing",
+        "family": "category_intent",
+        "utilityLoss": 0.08530000000000004,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "e8a29a30-e9d5-45d7-a43c-8c09fb15bb4e:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "1be874d0-7857-4345-a006-ff318faea9a7",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "f09aa665-859c-4b8a-b5c7-636802a37e4e",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "REGRESSION",
+        "persona": "date_planner",
+        "maturity": "onboarding",
+        "family": "negation",
+        "utilityLoss": 0.6299,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "f09aa665-859c-4b8a-b5c7-636802a37e4e:hard:CATEGORY_EXCLUSION",
+        "primaryClass": "CONSTRAINT_FAILURE",
+        "expected": {
+          "excludedCategories": [
+            "bar"
+          ]
+        },
+        "actual": [
+          {
+            "spotId": "552e8646-622d-421b-b73e-69b169f6c1f2",
+            "rank": 3,
+            "category": "bar"
+          },
+          {
+            "spotId": "127fce20-5925-48a8-94b8-ba50b5cef38c",
+            "rank": 10,
+            "category": "bar"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "552e8646-622d-421b-b73e-69b169f6c1f2",
+              "rank": 3,
+              "category": "bar"
+            },
+            {
+              "spotId": "127fce20-5925-48a8-94b8-ba50b5cef38c",
+              "rank": 10,
+              "category": "bar"
+            }
+          ]
+        },
+        "reason": "Explicitly excluded category returned"
+      },
+      {
+        "scenarioId": "f09aa665-859c-4b8a-b5c7-636802a37e4e",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "REGRESSION",
+        "persona": "date_planner",
+        "maturity": "onboarding",
+        "family": "negation",
+        "utilityLoss": 0.6299,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "f09aa665-859c-4b8a-b5c7-636802a37e4e:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "e9b9f8e8-db3d-49cd-9a80-2df717f89e62",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "dd51efcf-134f-4d6c-b636-862969324e44",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "REGRESSION",
+        "persona": "budget_discoverer",
+        "maturity": "onboarding",
+        "family": "open_now",
+        "utilityLoss": 0.12919999999999998,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "dd51efcf-134f-4d6c-b636-862969324e44:hard:OPEN_NOW",
+        "primaryClass": "OPENING_HOURS_FAILURE",
+        "expected": {
+          "open": true,
+          "timeBucket": "morning"
+        },
+        "actual": [
+          {
+            "spotId": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+            "rank": 2,
+            "open": false,
+            "timeBucket": "morning"
+          },
+          {
+            "spotId": "552e8646-622d-421b-b73e-69b169f6c1f2",
+            "rank": 3,
+            "open": false,
+            "timeBucket": "morning"
+          },
+          {
+            "spotId": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+            "rank": 9,
+            "open": false,
+            "timeBucket": "morning"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+              "rank": 2,
+              "open": false,
+              "timeBucket": "morning"
+            },
+            {
+              "spotId": "552e8646-622d-421b-b73e-69b169f6c1f2",
+              "rank": 3,
+              "open": false,
+              "timeBucket": "morning"
+            },
+            {
+              "spotId": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+              "rank": 9,
+              "open": false,
+              "timeBucket": "morning"
+            }
+          ]
+        },
+        "reason": "Closed Spot returned for open-now constraint"
+      },
+      {
+        "scenarioId": "dd51efcf-134f-4d6c-b636-862969324e44",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "REGRESSION",
+        "persona": "budget_discoverer",
+        "maturity": "onboarding",
+        "family": "open_now",
+        "utilityLoss": 0.12919999999999998,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "dd51efcf-134f-4d6c-b636-862969324e44:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "bc5ddee2-7dac-4599-9eab-a77e437da2dd",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "a21bc818-55c2-4636-9d44-b848d86f9f08",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "REGRESSION",
+        "persona": "quiet_regular",
+        "maturity": "developing",
+        "family": "geo",
+        "utilityLoss": 0.13669999999999993,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "a21bc818-55c2-4636-9d44-b848d86f9f08:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "8fd27b11-99ec-4efc-a5b9-c6ef3210d2d1",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "e7d501b5-45d0-40b5-a945-eb468017be6a",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "REGRESSION",
+        "persona": "quiet_regular",
+        "maturity": "developing",
+        "family": "cold_start",
+        "utilityLoss": 0.2669,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "e7d501b5-45d0-40b5-a945-eb468017be6a:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "67cb5cb5-9a97-4ecf-9028-74f3ae789745",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "ce475c7c-2d1b-46ab-a08f-4953de460cae",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "REGRESSION",
+        "persona": "family_planner",
+        "maturity": "sparse",
+        "family": "mature_personalization",
+        "utilityLoss": 0.25250000000000006,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "ce475c7c-2d1b-46ab-a08f-4953de460cae:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "13afcab4-2004-4255-8dce-f794f514e626",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "03c29a0f-a1eb-4fcc-9941-90a304d41d4b",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "REGRESSION",
+        "persona": "date_planner",
+        "maturity": "sparse",
+        "family": "audience",
+        "utilityLoss": 0.03550000000000009,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "03c29a0f-a1eb-4fcc-9941-90a304d41d4b:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "ff729e84-0bbe-42ba-9dce-1944c92d5b1d",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "59b9dc6b-bb29-4886-ab0c-53e5809e35d5",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "REGRESSION",
+        "persona": "date_planner",
+        "maturity": "mature",
+        "family": "quiet_lively",
+        "utilityLoss": 0.2016,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "59b9dc6b-bb29-4886-ab0c-53e5809e35d5:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "bf2c5fce-fc3c-4e5a-bf46-7ddc4ddc14d6",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "89e89c62-9afe-49e7-9c45-cdd27f454799",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "culture_seeker",
+        "maturity": "sparse",
+        "family": "price",
+        "utilityLoss": 0.7057,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "89e89c62-9afe-49e7-9c45-cdd27f454799:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "a2404177-fc02-4f6b-af99-ce7174009f70",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "a490713d-c997-49b2-9fa3-d7fbbca7146b",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "social_explorer",
+        "maturity": "sparse",
+        "family": "semantic_only",
+        "utilityLoss": 0.0494,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "a490713d-c997-49b2-9fa3-d7fbbca7146b:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "6842e294-8651-4a64-b2ab-407e22799ff7",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "a11dd5df-c751-4f84-9a8e-3c461684efbb",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "novelty_hunter",
+        "maturity": "cold",
+        "family": "fallback",
+        "utilityLoss": 0.05610000000000004,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "a11dd5df-c751-4f84-9a8e-3c461684efbb:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "bf2c5fce-fc3c-4e5a-bf46-7ddc4ddc14d6",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "6e74d200-1fe6-43ba-b6d8-00ae880a3f40",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "culture_seeker",
+        "maturity": "developing",
+        "family": "zero_result",
+        "utilityLoss": 0.12570000000000003,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "6e74d200-1fe6-43ba-b6d8-00ae880a3f40:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "ad5bf640-1346-4745-aae0-7344d62b4897",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "f0996b00-ee93-4838-bc1e-00a51e525eb2",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "spontaneous_local",
+        "maturity": "developing",
+        "family": "repetition",
+        "utilityLoss": 0.055199999999999916,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "f0996b00-ee93-4838-bc1e-00a51e525eb2:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "8fd27b11-99ec-4efc-a5b9-c6ef3210d2d1",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "bca62863-ac19-48a1-9458-84fbfb27b8b3",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "budget_discoverer",
+        "maturity": "power",
+        "family": "explanation",
+        "utilityLoss": 0.16989999999999994,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "bca62863-ac19-48a1-9458-84fbfb27b8b3:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "4be81d57-1a68-4795-bd9f-992f1702b2cb",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "c5545591-8466-49bf-b92e-b7ad7e368af5",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "spontaneous_local",
+        "maturity": "cold",
+        "family": "product_eligibility",
+        "utilityLoss": 0.7576,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "c5545591-8466-49bf-b92e-b7ad7e368af5:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "e42e938a-ca7d-4ece-89c9-67f5b1efb49b",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "e5c95434-2468-43ee-bc6d-c98d7adf7365",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "spontaneous_local",
+        "maturity": "developing",
+        "family": "distribution",
+        "utilityLoss": 0.7335,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "e5c95434-2468-43ee-bc6d-c98d7adf7365:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "1793c958-ccf8-4d0f-8400-e1b29f99e85e",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "c8edc806-4ce0-499d-8d2a-f1877b01fcbb",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "novelty_hunter",
+        "maturity": "developing",
+        "family": "exact_name",
+        "utilityLoss": 0.6216,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "c8edc806-4ce0-499d-8d2a-f1877b01fcbb:hard:HARD_CATEGORY",
+        "primaryClass": "CONSTRAINT_FAILURE",
+        "expected": "bar",
+        "actual": [
+          {
+            "spotId": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+            "rank": 3,
+            "category": "outing"
+          },
+          {
+            "spotId": "047d682f-658b-4097-8e4b-d09ba9b06948",
+            "rank": 5,
+            "category": "activity"
+          },
+          {
+            "spotId": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+            "rank": 6,
+            "category": "activity"
+          },
+          {
+            "spotId": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+            "rank": 7,
+            "category": "outing"
+          },
+          {
+            "spotId": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+            "rank": 8,
+            "category": "outing"
+          },
+          {
+            "spotId": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+            "rank": 9,
+            "category": "activity"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+              "rank": 3,
+              "category": "outing"
+            },
+            {
+              "spotId": "047d682f-658b-4097-8e4b-d09ba9b06948",
+              "rank": 5,
+              "category": "activity"
+            },
+            {
+              "spotId": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+              "rank": 6,
+              "category": "activity"
+            },
+            {
+              "spotId": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+              "rank": 7,
+              "category": "outing"
+            },
+            {
+              "spotId": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+              "rank": 8,
+              "category": "outing"
+            },
+            {
+              "spotId": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+              "rank": 9,
+              "category": "activity"
+            }
+          ]
+        },
+        "reason": "Wrong category returned"
+      },
+      {
+        "scenarioId": "c8edc806-4ce0-499d-8d2a-f1877b01fcbb",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "novelty_hunter",
+        "maturity": "developing",
+        "family": "exact_name",
+        "utilityLoss": 0.6216,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "c8edc806-4ce0-499d-8d2a-f1877b01fcbb:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "f8d9d3b1-0f8b-4c55-9749-b0312b4d4949",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "3dc1bc25-4eda-41ea-8ede-f4aed5ba563c",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "quiet_regular",
+        "maturity": "developing",
+        "family": "broad_query",
+        "utilityLoss": 0.1362,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "3dc1bc25-4eda-41ea-8ede-f4aed5ba563c:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "7c5d4405-9c77-4757-b3ea-87914348e444",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "56c8e0de-c174-4aed-b892-9efefa86729e",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "family_planner",
+        "maturity": "cold",
+        "family": "category_intent",
+        "utilityLoss": 0.0947,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "56c8e0de-c174-4aed-b892-9efefa86729e:hard:HARD_CATEGORY",
+        "primaryClass": "CONSTRAINT_FAILURE",
+        "expected": "cafe",
+        "actual": [
+          {
+            "spotId": "552e8646-622d-421b-b73e-69b169f6c1f2",
+            "rank": 1,
+            "category": "bar"
+          },
+          {
+            "spotId": "047d682f-658b-4097-8e4b-d09ba9b06948",
+            "rank": 2,
+            "category": "activity"
+          },
+          {
+            "spotId": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+            "rank": 3,
+            "category": "outing"
+          },
+          {
+            "spotId": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+            "rank": 4,
+            "category": "outing"
+          },
+          {
+            "spotId": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+            "rank": 5,
+            "category": "activity"
+          },
+          {
+            "spotId": "3b3f611b-962d-4f9f-a876-80688419371c",
+            "rank": 6,
+            "category": "bar"
+          },
+          {
+            "spotId": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+            "rank": 7,
+            "category": "bar"
+          },
+          {
+            "spotId": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+            "rank": 8,
+            "category": "outing"
+          },
+          {
+            "spotId": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+            "rank": 9,
+            "category": "activity"
+          },
+          {
+            "spotId": "cb3c0f88-bf94-4f5d-8db2-d8963323482e",
+            "rank": 10,
+            "category": "activity"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "552e8646-622d-421b-b73e-69b169f6c1f2",
+              "rank": 1,
+              "category": "bar"
+            },
+            {
+              "spotId": "047d682f-658b-4097-8e4b-d09ba9b06948",
+              "rank": 2,
+              "category": "activity"
+            },
+            {
+              "spotId": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+              "rank": 3,
+              "category": "outing"
+            },
+            {
+              "spotId": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+              "rank": 4,
+              "category": "outing"
+            },
+            {
+              "spotId": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+              "rank": 5,
+              "category": "activity"
+            },
+            {
+              "spotId": "3b3f611b-962d-4f9f-a876-80688419371c",
+              "rank": 6,
+              "category": "bar"
+            },
+            {
+              "spotId": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+              "rank": 7,
+              "category": "bar"
+            },
+            {
+              "spotId": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+              "rank": 8,
+              "category": "outing"
+            },
+            {
+              "spotId": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+              "rank": 9,
+              "category": "activity"
+            },
+            {
+              "spotId": "cb3c0f88-bf94-4f5d-8db2-d8963323482e",
+              "rank": 10,
+              "category": "activity"
+            }
+          ]
+        },
+        "reason": "Wrong category returned"
+      },
+      {
+        "scenarioId": "56c8e0de-c174-4aed-b892-9efefa86729e",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "family_planner",
+        "maturity": "cold",
+        "family": "category_intent",
+        "utilityLoss": 0.0947,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "56c8e0de-c174-4aed-b892-9efefa86729e:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "61915cea-87a3-4327-88e9-c55f8f5d0acc",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "b2892da6-9fcb-4da9-8448-1857456f0c53",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "culture_seeker",
+        "maturity": "mature",
+        "family": "negation",
+        "utilityLoss": 0.7595,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "b2892da6-9fcb-4da9-8448-1857456f0c53:hard:CATEGORY_EXCLUSION",
+        "primaryClass": "CONSTRAINT_FAILURE",
+        "expected": {
+          "excludedCategories": [
+            "bar"
+          ]
+        },
+        "actual": [
+          {
+            "spotId": "552e8646-622d-421b-b73e-69b169f6c1f2",
+            "rank": 3,
+            "category": "bar"
+          },
+          {
+            "spotId": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+            "rank": 9,
+            "category": "bar"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "552e8646-622d-421b-b73e-69b169f6c1f2",
+              "rank": 3,
+              "category": "bar"
+            },
+            {
+              "spotId": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+              "rank": 9,
+              "category": "bar"
+            }
+          ]
+        },
+        "reason": "Explicitly excluded category returned"
+      },
+      {
+        "scenarioId": "b2892da6-9fcb-4da9-8448-1857456f0c53",
+        "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+        "seed": "backyrd-d1-basel-v1-2026",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "culture_seeker",
+        "maturity": "mature",
+        "family": "negation",
+        "utilityLoss": 0.7595,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "b2892da6-9fcb-4da9-8448-1857456f0c53:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "ad5bf640-1346-4745-aae0-7344d62b4897",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "8b1d6a56-8fc8-40ef-b34c-228cbafd011d",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "quiet_regular",
+        "maturity": "cold",
+        "family": "product_eligibility",
+        "utilityLoss": 0.047599999999999976,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "8b1d6a56-8fc8-40ef-b34c-228cbafd011d:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "06fa0f37-5533-47b5-a5ec-e085350fd592",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "da4739f7-8f87-4d78-a1bc-fd5df947e9c2",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "social_explorer",
+        "maturity": "cold",
+        "family": "distribution",
+        "utilityLoss": 0.767,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "da4739f7-8f87-4d78-a1bc-fd5df947e9c2:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "8b23dfc5-7fc6-4af6-8eae-bead8185764b",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "3297fe8d-ff28-4ada-9a18-8db9c8440b69",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "social_explorer",
+        "maturity": "sparse",
+        "family": "exact_name",
+        "utilityLoss": 0.01319999999999999,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "3297fe8d-ff28-4ada-9a18-8db9c8440b69:hard:HARD_CATEGORY",
+        "primaryClass": "CONSTRAINT_FAILURE",
+        "expected": "outing",
+        "actual": [
+          {
+            "spotId": "04efc962-0ce3-4293-8936-d152f2d946ec",
+            "rank": 1,
+            "category": "cafe"
+          },
+          {
+            "spotId": "51fb7d1a-5100-42b2-9f41-be7be5be9e43",
+            "rank": 2,
+            "category": "bar"
+          },
+          {
+            "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+            "rank": 3,
+            "category": "activity"
+          },
+          {
+            "spotId": "435ed46b-6a65-442e-9db7-af554b917fe3",
+            "rank": 5,
+            "category": "bar"
+          },
+          {
+            "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+            "rank": 6,
+            "category": "activity"
+          },
+          {
+            "spotId": "4b0a90e8-7e9a-40f5-b9b2-1f90cad41a18",
+            "rank": 9,
+            "category": "activity"
+          },
+          {
+            "spotId": "a66c4d01-b8bc-47cd-8990-4b517b84c7fd",
+            "rank": 10,
+            "category": "activity"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "04efc962-0ce3-4293-8936-d152f2d946ec",
+              "rank": 1,
+              "category": "cafe"
+            },
+            {
+              "spotId": "51fb7d1a-5100-42b2-9f41-be7be5be9e43",
+              "rank": 2,
+              "category": "bar"
+            },
+            {
+              "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+              "rank": 3,
+              "category": "activity"
+            },
+            {
+              "spotId": "435ed46b-6a65-442e-9db7-af554b917fe3",
+              "rank": 5,
+              "category": "bar"
+            },
+            {
+              "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+              "rank": 6,
+              "category": "activity"
+            },
+            {
+              "spotId": "4b0a90e8-7e9a-40f5-b9b2-1f90cad41a18",
+              "rank": 9,
+              "category": "activity"
+            },
+            {
+              "spotId": "a66c4d01-b8bc-47cd-8990-4b517b84c7fd",
+              "rank": 10,
+              "category": "activity"
+            }
+          ]
+        },
+        "reason": "Wrong category returned"
+      },
+      {
+        "scenarioId": "3297fe8d-ff28-4ada-9a18-8db9c8440b69",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "social_explorer",
+        "maturity": "sparse",
+        "family": "exact_name",
+        "utilityLoss": 0.01319999999999999,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "3297fe8d-ff28-4ada-9a18-8db9c8440b69:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "5e8dd2dc-b39b-4151-91ae-78bfeb6be400",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "de82cf6a-67fb-4aaf-ba2d-574604dec5d4",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "culture_seeker",
+        "maturity": "developing",
+        "family": "broad_query",
+        "utilityLoss": 0.15159999999999996,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "de82cf6a-67fb-4aaf-ba2d-574604dec5d4:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "5c85a68f-58a5-4840-acb3-3f95254daae8",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "fc39109b-ddd0-4c23-994f-3a4426e9b98b",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "budget_discoverer",
+        "maturity": "developing",
+        "family": "category_intent",
+        "utilityLoss": 0.6789,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "fc39109b-ddd0-4c23-994f-3a4426e9b98b:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "5781748a-b942-45a8-8eac-4f3765efe156",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "dc72644e-7da4-413b-be8e-1360896b8a9e",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "date_planner",
+        "maturity": "sparse",
+        "family": "negation",
+        "utilityLoss": 0.14539999999999997,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "dc72644e-7da4-413b-be8e-1360896b8a9e:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "9e25a907-98f4-487f-9131-913b61336f46",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "cfbc5db5-b3c0-4239-85a9-be88c990c7fc",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "culture_seeker",
+        "maturity": "mature",
+        "family": "open_now",
+        "utilityLoss": 0.12959999999999994,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "cfbc5db5-b3c0-4239-85a9-be88c990c7fc:hard:OPEN_NOW",
+        "primaryClass": "OPENING_HOURS_FAILURE",
+        "expected": {
+          "open": true,
+          "timeBucket": "evening"
+        },
+        "actual": [
+          {
+            "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+            "rank": 3,
+            "open": false,
+            "timeBucket": "evening"
+          },
+          {
+            "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+            "rank": 6,
+            "open": false,
+            "timeBucket": "evening"
+          },
+          {
+            "spotId": "a66c4d01-b8bc-47cd-8990-4b517b84c7fd",
+            "rank": 10,
+            "open": false,
+            "timeBucket": "evening"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+              "rank": 3,
+              "open": false,
+              "timeBucket": "evening"
+            },
+            {
+              "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+              "rank": 6,
+              "open": false,
+              "timeBucket": "evening"
+            },
+            {
+              "spotId": "a66c4d01-b8bc-47cd-8990-4b517b84c7fd",
+              "rank": 10,
+              "open": false,
+              "timeBucket": "evening"
+            }
+          ]
+        },
+        "reason": "Closed Spot returned for open-now constraint"
+      },
+      {
+        "scenarioId": "cfbc5db5-b3c0-4239-85a9-be88c990c7fc",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "culture_seeker",
+        "maturity": "mature",
+        "family": "open_now",
+        "utilityLoss": 0.12959999999999994,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "cfbc5db5-b3c0-4239-85a9-be88c990c7fc:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "57bd4def-24e1-4db0-a4b5-3c870ba0b068",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "60fd684c-c596-4267-b6db-e7212e686321",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "social_explorer",
+        "maturity": "onboarding",
+        "family": "geo",
+        "utilityLoss": 0.09529999999999994,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "60fd684c-c596-4267-b6db-e7212e686321:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "57bd4def-24e1-4db0-a4b5-3c870ba0b068",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "2a0d26eb-cf0b-47da-bd1f-7ba4a5d7f8cb",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "culture_seeker",
+        "maturity": "sparse",
+        "family": "cold_start",
+        "utilityLoss": 0.1491,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "2a0d26eb-cf0b-47da-bd1f-7ba4a5d7f8cb:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "46999d30-9822-4fe2-a6ce-c5114d82eddb",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "09d97487-73aa-4f48-aaf3-bb04c6b43f40",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "social_explorer",
+        "maturity": "onboarding",
+        "family": "mature_personalization",
+        "utilityLoss": 0.05049999999999999,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "09d97487-73aa-4f48-aaf3-bb04c6b43f40:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "06fa0f37-5533-47b5-a5ec-e085350fd592",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "49afa258-bcef-4686-a56b-918793ab06b8",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "date_planner",
+        "maturity": "power",
+        "family": "audience",
+        "utilityLoss": 0.12370000000000003,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "49afa258-bcef-4686-a56b-918793ab06b8:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "f9c9c7b4-46c2-4eb4-9b8f-005b3bcc89a2",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "5b9af671-b80d-441e-a666-56d2c1f5e48e",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "social_explorer",
+        "maturity": "mature",
+        "family": "quiet_lively",
+        "utilityLoss": 0.1190000000000001,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "5b9af671-b80d-441e-a666-56d2c1f5e48e:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "07c68799-4aab-4586-bf68-218d69c3ada2",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "a2919aed-8ace-4b4a-8d50-7f1aa06fca0f",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "spontaneous_local",
+        "maturity": "cold",
+        "family": "price",
+        "utilityLoss": 0.15800000000000003,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "a2919aed-8ace-4b4a-8d50-7f1aa06fca0f:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "dde215d9-e805-4d49-8dc7-fc5f1439c6b3",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "86412aba-d1af-4793-ac7b-4795f64d037d",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "budget_discoverer",
+        "maturity": "mature",
+        "family": "semantic_only",
+        "utilityLoss": 0.19489999999999996,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "86412aba-d1af-4793-ac7b-4795f64d037d:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "8918d918-efc1-47c0-b163-f6b8f6d8b046",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "2f696732-564c-44ef-a1f0-8ca3645ba2c9",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "quiet_regular",
+        "maturity": "cold",
+        "family": "fallback",
+        "utilityLoss": 0.7555,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "2f696732-564c-44ef-a1f0-8ca3645ba2c9:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "22e479b6-eabc-4daa-9f20-550dddfadf99",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "8eacfdc3-bc4b-4676-9b8e-09427d175171",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "social_explorer",
+        "maturity": "cold",
+        "family": "zero_result",
+        "utilityLoss": 0.15710000000000002,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "8eacfdc3-bc4b-4676-9b8e-09427d175171:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "c5ed4ad7-708c-476a-9878-8fbc939e40f9",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "736ff7ac-a289-41c8-ab72-2cfff0cab6b7",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "social_explorer",
+        "maturity": "sparse",
+        "family": "repetition",
+        "utilityLoss": 0.13260000000000005,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "736ff7ac-a289-41c8-ab72-2cfff0cab6b7:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "665b968f-50c1-4f34-8c81-51fea66d19f1",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "071d022b-80e8-4ff6-a7ed-bcc397b7ead4",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "DEVELOPMENT",
+        "persona": "culture_seeker",
+        "maturity": "developing",
+        "family": "explanation",
+        "utilityLoss": 0.08640000000000003,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "071d022b-80e8-4ff6-a7ed-bcc397b7ead4:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "6c7015c0-c3a1-4ee0-af34-7e73a7d1c29f",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "87b354ea-db63-4954-8155-e036ca090feb",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "REGRESSION",
+        "persona": "quiet_regular",
+        "maturity": "developing",
+        "family": "product_eligibility",
+        "utilityLoss": 0.748,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "87b354ea-db63-4954-8155-e036ca090feb:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "9394c4fa-3e44-45a0-a6c4-a0218c17d2c0",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "5eaa3cd9-a9f6-42a9-bbf5-8a1544b707b6",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "REGRESSION",
+        "persona": "culture_seeker",
+        "maturity": "sparse",
+        "family": "distribution",
+        "utilityLoss": 0.7638,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "5eaa3cd9-a9f6-42a9-bbf5-8a1544b707b6:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "e3e0ea77-4e47-41e2-9fbc-6028db79bed0",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "89f06ae4-9677-4e54-b811-d427549e1f49",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "REGRESSION",
+        "persona": "budget_discoverer",
+        "maturity": "mature",
+        "family": "exact_name",
+        "utilityLoss": 0.7094,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "89f06ae4-9677-4e54-b811-d427549e1f49:hard:HARD_CATEGORY",
+        "primaryClass": "CONSTRAINT_FAILURE",
+        "expected": "activity",
+        "actual": [
+          {
+            "spotId": "c90078ad-c34f-47df-a5c5-cf5cc1d01fd4",
+            "rank": 6,
+            "category": "outing"
+          },
+          {
+            "spotId": "51fb7d1a-5100-42b2-9f41-be7be5be9e43",
+            "rank": 7,
+            "category": "bar"
+          },
+          {
+            "spotId": "04efc962-0ce3-4293-8936-d152f2d946ec",
+            "rank": 8,
+            "category": "cafe"
+          },
+          {
+            "spotId": "435ed46b-6a65-442e-9db7-af554b917fe3",
+            "rank": 10,
+            "category": "bar"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "c90078ad-c34f-47df-a5c5-cf5cc1d01fd4",
+              "rank": 6,
+              "category": "outing"
+            },
+            {
+              "spotId": "51fb7d1a-5100-42b2-9f41-be7be5be9e43",
+              "rank": 7,
+              "category": "bar"
+            },
+            {
+              "spotId": "04efc962-0ce3-4293-8936-d152f2d946ec",
+              "rank": 8,
+              "category": "cafe"
+            },
+            {
+              "spotId": "435ed46b-6a65-442e-9db7-af554b917fe3",
+              "rank": 10,
+              "category": "bar"
+            }
+          ]
+        },
+        "reason": "Wrong category returned"
+      },
+      {
+        "scenarioId": "89f06ae4-9677-4e54-b811-d427549e1f49",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "REGRESSION",
+        "persona": "budget_discoverer",
+        "maturity": "mature",
+        "family": "exact_name",
+        "utilityLoss": 0.7094,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "89f06ae4-9677-4e54-b811-d427549e1f49:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "9980e448-d24b-42f6-91c5-5e0e04e2c63c",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "7e9ca435-5350-4e3b-af15-f8118185a92e",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "REGRESSION",
+        "persona": "social_explorer",
+        "maturity": "developing",
+        "family": "broad_query",
+        "utilityLoss": 0.19110000000000005,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "7e9ca435-5350-4e3b-af15-f8118185a92e:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "75dc2fa0-290b-4aa4-aec4-2519751380d7",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "e82657f1-bce2-485f-9327-91d0c33c7078",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "REGRESSION",
+        "persona": "date_planner",
+        "maturity": "developing",
+        "family": "category_intent",
+        "utilityLoss": 0.6996,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "e82657f1-bce2-485f-9327-91d0c33c7078:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "8b0e3063-0eed-4756-99b6-62da728137f1",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "635c5968-d0c5-4987-9c13-89a47e836bff",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "REGRESSION",
+        "persona": "quiet_regular",
+        "maturity": "sparse",
+        "family": "negation",
+        "utilityLoss": 0.047699999999999965,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "635c5968-d0c5-4987-9c13-89a47e836bff:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "06fa0f37-5533-47b5-a5ec-e085350fd592",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "47110962-19be-4535-9ab2-b411defb2fa9",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "REGRESSION",
+        "persona": "culture_seeker",
+        "maturity": "onboarding",
+        "family": "open_now",
+        "utilityLoss": 0.08950000000000002,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "47110962-19be-4535-9ab2-b411defb2fa9:hard:OPEN_NOW",
+        "primaryClass": "OPENING_HOURS_FAILURE",
+        "expected": {
+          "open": true,
+          "timeBucket": "evening"
+        },
+        "actual": [
+          {
+            "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+            "rank": 4,
+            "open": false,
+            "timeBucket": "evening"
+          },
+          {
+            "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+            "rank": 7,
+            "open": false,
+            "timeBucket": "evening"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+              "rank": 4,
+              "open": false,
+              "timeBucket": "evening"
+            },
+            {
+              "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+              "rank": 7,
+              "open": false,
+              "timeBucket": "evening"
+            }
+          ]
+        },
+        "reason": "Closed Spot returned for open-now constraint"
+      },
+      {
+        "scenarioId": "47110962-19be-4535-9ab2-b411defb2fa9",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "REGRESSION",
+        "persona": "culture_seeker",
+        "maturity": "onboarding",
+        "family": "open_now",
+        "utilityLoss": 0.08950000000000002,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "47110962-19be-4535-9ab2-b411defb2fa9:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "6774d03b-cc33-4777-8b8e-658244cd7aef",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "f0f9126a-9011-4905-8c6d-6b34774e7fa7",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "REGRESSION",
+        "persona": "family_planner",
+        "maturity": "mature",
+        "family": "geo",
+        "utilityLoss": 0.08429999999999993,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "f0f9126a-9011-4905-8c6d-6b34774e7fa7:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "9980e448-d24b-42f6-91c5-5e0e04e2c63c",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "15724dea-7a2c-48ae-9c25-a14f0a843e3b",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "REGRESSION",
+        "persona": "date_planner",
+        "maturity": "developing",
+        "family": "cold_start",
+        "utilityLoss": 0.10409999999999997,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "15724dea-7a2c-48ae-9c25-a14f0a843e3b:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "a6e2ce03-06d5-4ac0-a000-265f3d6d17d9",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "742733e2-3e2f-4acf-8715-727eb5475610",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "REGRESSION",
+        "persona": "social_explorer",
+        "maturity": "cold",
+        "family": "mature_personalization",
+        "utilityLoss": 0.027999999999999914,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "742733e2-3e2f-4acf-8715-727eb5475610:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "8ba27295-5610-4f5f-955b-7277f7321b0e",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "c72ca024-26b1-4510-8153-e33940a51469",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "REGRESSION",
+        "persona": "quiet_regular",
+        "maturity": "onboarding",
+        "family": "audience",
+        "utilityLoss": 0.14949999999999997,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "c72ca024-26b1-4510-8153-e33940a51469:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "75073f17-fe93-4c6e-92dd-aa7cac53b416",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "8ca7c565-0f9e-4605-96b3-6606aef4e199",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "REGRESSION",
+        "persona": "quiet_regular",
+        "maturity": "mature",
+        "family": "quiet_lively",
+        "utilityLoss": 0.16479999999999995,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "8ca7c565-0f9e-4605-96b3-6606aef4e199:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "a6e2ce03-06d5-4ac0-a000-265f3d6d17d9",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "653af742-70bb-494d-acfc-99d24d25b913",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "date_planner",
+        "maturity": "mature",
+        "family": "price",
+        "utilityLoss": 0.17910000000000004,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "653af742-70bb-494d-acfc-99d24d25b913:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "06fa0f37-5533-47b5-a5ec-e085350fd592",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "b7310fcf-6360-4522-97a5-bae7383541cb",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "budget_discoverer",
+        "maturity": "sparse",
+        "family": "semantic_only",
+        "utilityLoss": 0.14439999999999997,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "b7310fcf-6360-4522-97a5-bae7383541cb:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "0534e201-9936-416e-8457-5d8c71a9f1f4",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "32f951f3-4709-45f3-b29f-349f3c0740c3",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "date_planner",
+        "maturity": "cold",
+        "family": "fallback",
+        "utilityLoss": 0.10340000000000005,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "32f951f3-4709-45f3-b29f-349f3c0740c3:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "ee80cf94-e5ca-433a-b4d3-37f07b467819",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "bf732075-6491-4780-8905-bdcfac91da64",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "budget_discoverer",
+        "maturity": "sparse",
+        "family": "repetition",
+        "utilityLoss": 0.1512,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "bf732075-6491-4780-8905-bdcfac91da64:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "57bd4def-24e1-4db0-a4b5-3c870ba0b068",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "5bcacca1-026b-4462-9205-5942ec01868d",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "family_planner",
+        "maturity": "mature",
+        "family": "explanation",
+        "utilityLoss": 0.16289999999999993,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "5bcacca1-026b-4462-9205-5942ec01868d:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "9980e448-d24b-42f6-91c5-5e0e04e2c63c",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "001b2960-d42f-4a30-bbbe-165e7e8da789",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "spontaneous_local",
+        "maturity": "mature",
+        "family": "product_eligibility",
+        "utilityLoss": 0.15770000000000006,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "001b2960-d42f-4a30-bbbe-165e7e8da789:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "1fde7996-65d4-48c0-b171-3ed3a8b0b369",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "158b2a1c-ec5c-495b-aff6-4d69b1da0e08",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "budget_discoverer",
+        "maturity": "sparse",
+        "family": "distribution",
+        "utilityLoss": 0.2138,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "158b2a1c-ec5c-495b-aff6-4d69b1da0e08:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "8b0e3063-0eed-4756-99b6-62da728137f1",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "555ec6a8-8d69-4700-8ddb-539e521d3e58",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "budget_discoverer",
+        "maturity": "onboarding",
+        "family": "exact_name",
+        "utilityLoss": 0.6968,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "555ec6a8-8d69-4700-8ddb-539e521d3e58:hard:HARD_CATEGORY",
+        "primaryClass": "CONSTRAINT_FAILURE",
+        "expected": "experience",
+        "actual": [
+          {
+            "spotId": "04efc962-0ce3-4293-8936-d152f2d946ec",
+            "rank": 1,
+            "category": "cafe"
+          },
+          {
+            "spotId": "51fb7d1a-5100-42b2-9f41-be7be5be9e43",
+            "rank": 2,
+            "category": "bar"
+          },
+          {
+            "spotId": "c90078ad-c34f-47df-a5c5-cf5cc1d01fd4",
+            "rank": 3,
+            "category": "outing"
+          },
+          {
+            "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+            "rank": 4,
+            "category": "activity"
+          },
+          {
+            "spotId": "435ed46b-6a65-442e-9db7-af554b917fe3",
+            "rank": 5,
+            "category": "bar"
+          },
+          {
+            "spotId": "11dda41d-7740-43b7-9f58-2edcb148a15c",
+            "rank": 6,
+            "category": "outing"
+          },
+          {
+            "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+            "rank": 7,
+            "category": "activity"
+          },
+          {
+            "spotId": "9b731f48-1b17-4c7f-907a-3ea7e3fc3be7",
+            "rank": 8,
+            "category": "outing"
+          },
+          {
+            "spotId": "4b0a90e8-7e9a-40f5-b9b2-1f90cad41a18",
+            "rank": 9,
+            "category": "activity"
+          },
+          {
+            "spotId": "a66c4d01-b8bc-47cd-8990-4b517b84c7fd",
+            "rank": 10,
+            "category": "activity"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "04efc962-0ce3-4293-8936-d152f2d946ec",
+              "rank": 1,
+              "category": "cafe"
+            },
+            {
+              "spotId": "51fb7d1a-5100-42b2-9f41-be7be5be9e43",
+              "rank": 2,
+              "category": "bar"
+            },
+            {
+              "spotId": "c90078ad-c34f-47df-a5c5-cf5cc1d01fd4",
+              "rank": 3,
+              "category": "outing"
+            },
+            {
+              "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+              "rank": 4,
+              "category": "activity"
+            },
+            {
+              "spotId": "435ed46b-6a65-442e-9db7-af554b917fe3",
+              "rank": 5,
+              "category": "bar"
+            },
+            {
+              "spotId": "11dda41d-7740-43b7-9f58-2edcb148a15c",
+              "rank": 6,
+              "category": "outing"
+            },
+            {
+              "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+              "rank": 7,
+              "category": "activity"
+            },
+            {
+              "spotId": "9b731f48-1b17-4c7f-907a-3ea7e3fc3be7",
+              "rank": 8,
+              "category": "outing"
+            },
+            {
+              "spotId": "4b0a90e8-7e9a-40f5-b9b2-1f90cad41a18",
+              "rank": 9,
+              "category": "activity"
+            },
+            {
+              "spotId": "a66c4d01-b8bc-47cd-8990-4b517b84c7fd",
+              "rank": 10,
+              "category": "activity"
+            }
+          ]
+        },
+        "reason": "Wrong category returned"
+      },
+      {
+        "scenarioId": "555ec6a8-8d69-4700-8ddb-539e521d3e58",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "budget_discoverer",
+        "maturity": "onboarding",
+        "family": "exact_name",
+        "utilityLoss": 0.6968,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "555ec6a8-8d69-4700-8ddb-539e521d3e58:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "584f2c2a-2ece-4b5a-8ced-0d335bbc1b35",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "44ad517e-095e-49d0-9c7e-aba6df9c8db0",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "date_planner",
+        "maturity": "sparse",
+        "family": "broad_query",
+        "utilityLoss": 0.1583,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "44ad517e-095e-49d0-9c7e-aba6df9c8db0:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "e3e0ea77-4e47-41e2-9fbc-6028db79bed0",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "d9ca98b0-1d85-465d-a9be-ecf9ef812351",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "social_explorer",
+        "maturity": "developing",
+        "family": "category_intent",
+        "utilityLoss": 0.0030000000000000027,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "d9ca98b0-1d85-465d-a9be-ecf9ef812351:hard:HARD_CATEGORY",
+        "primaryClass": "CONSTRAINT_FAILURE",
+        "expected": "experience",
+        "actual": [
+          {
+            "spotId": "51fb7d1a-5100-42b2-9f41-be7be5be9e43",
+            "rank": 1,
+            "category": "bar"
+          },
+          {
+            "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+            "rank": 2,
+            "category": "activity"
+          },
+          {
+            "spotId": "04efc962-0ce3-4293-8936-d152f2d946ec",
+            "rank": 3,
+            "category": "cafe"
+          },
+          {
+            "spotId": "c90078ad-c34f-47df-a5c5-cf5cc1d01fd4",
+            "rank": 4,
+            "category": "outing"
+          },
+          {
+            "spotId": "11dda41d-7740-43b7-9f58-2edcb148a15c",
+            "rank": 5,
+            "category": "outing"
+          },
+          {
+            "spotId": "435ed46b-6a65-442e-9db7-af554b917fe3",
+            "rank": 6,
+            "category": "bar"
+          },
+          {
+            "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+            "rank": 7,
+            "category": "activity"
+          },
+          {
+            "spotId": "9b731f48-1b17-4c7f-907a-3ea7e3fc3be7",
+            "rank": 8,
+            "category": "outing"
+          },
+          {
+            "spotId": "4b0a90e8-7e9a-40f5-b9b2-1f90cad41a18",
+            "rank": 9,
+            "category": "activity"
+          },
+          {
+            "spotId": "a0a9fd64-666a-4254-9ba8-13a412c4296e",
+            "rank": 10,
+            "category": "outing"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "51fb7d1a-5100-42b2-9f41-be7be5be9e43",
+              "rank": 1,
+              "category": "bar"
+            },
+            {
+              "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+              "rank": 2,
+              "category": "activity"
+            },
+            {
+              "spotId": "04efc962-0ce3-4293-8936-d152f2d946ec",
+              "rank": 3,
+              "category": "cafe"
+            },
+            {
+              "spotId": "c90078ad-c34f-47df-a5c5-cf5cc1d01fd4",
+              "rank": 4,
+              "category": "outing"
+            },
+            {
+              "spotId": "11dda41d-7740-43b7-9f58-2edcb148a15c",
+              "rank": 5,
+              "category": "outing"
+            },
+            {
+              "spotId": "435ed46b-6a65-442e-9db7-af554b917fe3",
+              "rank": 6,
+              "category": "bar"
+            },
+            {
+              "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+              "rank": 7,
+              "category": "activity"
+            },
+            {
+              "spotId": "9b731f48-1b17-4c7f-907a-3ea7e3fc3be7",
+              "rank": 8,
+              "category": "outing"
+            },
+            {
+              "spotId": "4b0a90e8-7e9a-40f5-b9b2-1f90cad41a18",
+              "rank": 9,
+              "category": "activity"
+            },
+            {
+              "spotId": "a0a9fd64-666a-4254-9ba8-13a412c4296e",
+              "rank": 10,
+              "category": "outing"
+            }
+          ]
+        },
+        "reason": "Wrong category returned"
+      },
+      {
+        "scenarioId": "d9ca98b0-1d85-465d-a9be-ecf9ef812351",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "social_explorer",
+        "maturity": "developing",
+        "family": "category_intent",
+        "utilityLoss": 0.0030000000000000027,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "d9ca98b0-1d85-465d-a9be-ecf9ef812351:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "84bf9262-4f83-4a2f-a1f5-275eb20f2f7c",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "472c6961-5a45-433a-8a4a-7cc57bfae997",
+        "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+        "seed": "backyrd-d1-basel-v1-2026-2",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "quiet_regular",
+        "maturity": "sparse",
+        "family": "negation",
+        "utilityLoss": 0.10829999999999995,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "472c6961-5a45-433a-8a4a-7cc57bfae997:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "5c85a68f-58a5-4840-acb3-3f95254daae8",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "067db2b0-d36c-4eeb-b6c5-c7fe5c85cd7b",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "spontaneous_local",
+        "maturity": "cold",
+        "family": "product_eligibility",
+        "utilityLoss": 0.08240000000000003,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "067db2b0-d36c-4eeb-b6c5-c7fe5c85cd7b:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "5e7c5a10-db2f-4509-8395-df32dd29d2c1",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "43558a0e-524b-4092-9647-b7847459e73b",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "culture_seeker",
+        "maturity": "developing",
+        "family": "distribution",
+        "utilityLoss": 0.19699999999999995,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "43558a0e-524b-4092-9647-b7847459e73b:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "9560ae52-e8c1-4df0-a7b0-941b20416876",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "b3af6aad-75cb-4b4d-a64a-0852ac7b0070",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "social_explorer",
+        "maturity": "sparse",
+        "family": "exact_name",
+        "utilityLoss": 0,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "b3af6aad-75cb-4b4d-a64a-0852ac7b0070:hard:HARD_CATEGORY",
+        "primaryClass": "CONSTRAINT_FAILURE",
+        "expected": "cafe",
+        "actual": [
+          {
+            "spotId": "15a5c50d-2d64-4f75-95dd-755e6ae7eb10",
+            "rank": 2,
+            "category": "outing"
+          },
+          {
+            "spotId": "93cb04e4-aeab-46fa-93c4-bfd5287ff5f3",
+            "rank": 3,
+            "category": "bar"
+          },
+          {
+            "spotId": "fbd34df6-336d-477f-8508-19303c370d8c",
+            "rank": 5,
+            "category": "activity"
+          },
+          {
+            "spotId": "83db880f-25f8-42fc-8f7e-9a25c3b6f8ce",
+            "rank": 6,
+            "category": "outing"
+          },
+          {
+            "spotId": "3ab6ed63-f3b9-495f-ab06-858e6225c266",
+            "rank": 7,
+            "category": "activity"
+          },
+          {
+            "spotId": "7eff2c3a-9622-4125-b2c8-7412d19bdc10",
+            "rank": 8,
+            "category": "bar"
+          },
+          {
+            "spotId": "fcc3aa4e-0c8f-48e0-820b-b7038f1f9d66",
+            "rank": 9,
+            "category": "activity"
+          },
+          {
+            "spotId": "5fe7bfd6-f7ca-47e5-8b85-0e2f80ab7643",
+            "rank": 10,
+            "category": "bar"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "15a5c50d-2d64-4f75-95dd-755e6ae7eb10",
+              "rank": 2,
+              "category": "outing"
+            },
+            {
+              "spotId": "93cb04e4-aeab-46fa-93c4-bfd5287ff5f3",
+              "rank": 3,
+              "category": "bar"
+            },
+            {
+              "spotId": "fbd34df6-336d-477f-8508-19303c370d8c",
+              "rank": 5,
+              "category": "activity"
+            },
+            {
+              "spotId": "83db880f-25f8-42fc-8f7e-9a25c3b6f8ce",
+              "rank": 6,
+              "category": "outing"
+            },
+            {
+              "spotId": "3ab6ed63-f3b9-495f-ab06-858e6225c266",
+              "rank": 7,
+              "category": "activity"
+            },
+            {
+              "spotId": "7eff2c3a-9622-4125-b2c8-7412d19bdc10",
+              "rank": 8,
+              "category": "bar"
+            },
+            {
+              "spotId": "fcc3aa4e-0c8f-48e0-820b-b7038f1f9d66",
+              "rank": 9,
+              "category": "activity"
+            },
+            {
+              "spotId": "5fe7bfd6-f7ca-47e5-8b85-0e2f80ab7643",
+              "rank": 10,
+              "category": "bar"
+            }
+          ]
+        },
+        "reason": "Wrong category returned"
+      },
+      {
+        "scenarioId": "af637262-eb58-4f43-9847-f43991be6417",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "date_planner",
+        "maturity": "mature",
+        "family": "broad_query",
+        "utilityLoss": 0.17379999999999995,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "af637262-eb58-4f43-9847-f43991be6417:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "3614fe3a-c3cd-440e-aaca-95d6740b3ef9",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "e148e000-df88-458d-9946-358144b0ea8a",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "quiet_regular",
+        "maturity": "mature",
+        "family": "category_intent",
+        "utilityLoss": 0.09800000000000009,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "e148e000-df88-458d-9946-358144b0ea8a:hard:HARD_CATEGORY",
+        "primaryClass": "CONSTRAINT_FAILURE",
+        "expected": "nightlife",
+        "actual": [
+          {
+            "spotId": "fbd34df6-336d-477f-8508-19303c370d8c",
+            "rank": 1,
+            "category": "activity"
+          },
+          {
+            "spotId": "894282b5-1e46-4d18-8152-3b1c83d7a274",
+            "rank": 2,
+            "category": "cafe"
+          },
+          {
+            "spotId": "93cb04e4-aeab-46fa-93c4-bfd5287ff5f3",
+            "rank": 3,
+            "category": "bar"
+          },
+          {
+            "spotId": "15a5c50d-2d64-4f75-95dd-755e6ae7eb10",
+            "rank": 4,
+            "category": "outing"
+          },
+          {
+            "spotId": "7eff2c3a-9622-4125-b2c8-7412d19bdc10",
+            "rank": 5,
+            "category": "bar"
+          },
+          {
+            "spotId": "3ab6ed63-f3b9-495f-ab06-858e6225c266",
+            "rank": 6,
+            "category": "activity"
+          },
+          {
+            "spotId": "83db880f-25f8-42fc-8f7e-9a25c3b6f8ce",
+            "rank": 7,
+            "category": "outing"
+          },
+          {
+            "spotId": "2d39a707-1209-4296-8307-2fc8dfae6165",
+            "rank": 8,
+            "category": "cafe"
+          },
+          {
+            "spotId": "5fe7bfd6-f7ca-47e5-8b85-0e2f80ab7643",
+            "rank": 9,
+            "category": "bar"
+          },
+          {
+            "spotId": "fcc3aa4e-0c8f-48e0-820b-b7038f1f9d66",
+            "rank": 10,
+            "category": "activity"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "fbd34df6-336d-477f-8508-19303c370d8c",
+              "rank": 1,
+              "category": "activity"
+            },
+            {
+              "spotId": "894282b5-1e46-4d18-8152-3b1c83d7a274",
+              "rank": 2,
+              "category": "cafe"
+            },
+            {
+              "spotId": "93cb04e4-aeab-46fa-93c4-bfd5287ff5f3",
+              "rank": 3,
+              "category": "bar"
+            },
+            {
+              "spotId": "15a5c50d-2d64-4f75-95dd-755e6ae7eb10",
+              "rank": 4,
+              "category": "outing"
+            },
+            {
+              "spotId": "7eff2c3a-9622-4125-b2c8-7412d19bdc10",
+              "rank": 5,
+              "category": "bar"
+            },
+            {
+              "spotId": "3ab6ed63-f3b9-495f-ab06-858e6225c266",
+              "rank": 6,
+              "category": "activity"
+            },
+            {
+              "spotId": "83db880f-25f8-42fc-8f7e-9a25c3b6f8ce",
+              "rank": 7,
+              "category": "outing"
+            },
+            {
+              "spotId": "2d39a707-1209-4296-8307-2fc8dfae6165",
+              "rank": 8,
+              "category": "cafe"
+            },
+            {
+              "spotId": "5fe7bfd6-f7ca-47e5-8b85-0e2f80ab7643",
+              "rank": 9,
+              "category": "bar"
+            },
+            {
+              "spotId": "fcc3aa4e-0c8f-48e0-820b-b7038f1f9d66",
+              "rank": 10,
+              "category": "activity"
+            }
+          ]
+        },
+        "reason": "Wrong category returned"
+      },
+      {
+        "scenarioId": "e148e000-df88-458d-9946-358144b0ea8a",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "quiet_regular",
+        "maturity": "mature",
+        "family": "category_intent",
+        "utilityLoss": 0.09800000000000009,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "e148e000-df88-458d-9946-358144b0ea8a:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "7e3cd8a8-3041-4abe-b07e-e018682a2611",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "9a605e58-39e3-4139-8384-37c491b243ef",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "quiet_regular",
+        "maturity": "cold",
+        "family": "negation",
+        "utilityLoss": 0.1542,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "9a605e58-39e3-4139-8384-37c491b243ef:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "114ffbf7-b7bb-4c78-9a2f-345fd9e8ab82",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "cf0c04d6-ab8b-4db0-bad0-5391f93929f7",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "date_planner",
+        "maturity": "developing",
+        "family": "open_now",
+        "utilityLoss": 0.22830000000000006,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "cf0c04d6-ab8b-4db0-bad0-5391f93929f7:hard:OPEN_NOW",
+        "primaryClass": "OPENING_HOURS_FAILURE",
+        "expected": {
+          "open": true,
+          "timeBucket": "night"
+        },
+        "actual": [
+          {
+            "spotId": "fbd34df6-336d-477f-8508-19303c370d8c",
+            "rank": 2,
+            "open": false,
+            "timeBucket": "night"
+          },
+          {
+            "spotId": "15a5c50d-2d64-4f75-95dd-755e6ae7eb10",
+            "rank": 3,
+            "open": false,
+            "timeBucket": "night"
+          },
+          {
+            "spotId": "894282b5-1e46-4d18-8152-3b1c83d7a274",
+            "rank": 4,
+            "open": false,
+            "timeBucket": "night"
+          },
+          {
+            "spotId": "83db880f-25f8-42fc-8f7e-9a25c3b6f8ce",
+            "rank": 7,
+            "open": false,
+            "timeBucket": "night"
+          },
+          {
+            "spotId": "3ab6ed63-f3b9-495f-ab06-858e6225c266",
+            "rank": 8,
+            "open": false,
+            "timeBucket": "night"
+          },
+          {
+            "spotId": "5fe7bfd6-f7ca-47e5-8b85-0e2f80ab7643",
+            "rank": 9,
+            "open": false,
+            "timeBucket": "night"
+          },
+          {
+            "spotId": "fcc3aa4e-0c8f-48e0-820b-b7038f1f9d66",
+            "rank": 10,
+            "open": false,
+            "timeBucket": "night"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "fbd34df6-336d-477f-8508-19303c370d8c",
+              "rank": 2,
+              "open": false,
+              "timeBucket": "night"
+            },
+            {
+              "spotId": "15a5c50d-2d64-4f75-95dd-755e6ae7eb10",
+              "rank": 3,
+              "open": false,
+              "timeBucket": "night"
+            },
+            {
+              "spotId": "894282b5-1e46-4d18-8152-3b1c83d7a274",
+              "rank": 4,
+              "open": false,
+              "timeBucket": "night"
+            },
+            {
+              "spotId": "83db880f-25f8-42fc-8f7e-9a25c3b6f8ce",
+              "rank": 7,
+              "open": false,
+              "timeBucket": "night"
+            },
+            {
+              "spotId": "3ab6ed63-f3b9-495f-ab06-858e6225c266",
+              "rank": 8,
+              "open": false,
+              "timeBucket": "night"
+            },
+            {
+              "spotId": "5fe7bfd6-f7ca-47e5-8b85-0e2f80ab7643",
+              "rank": 9,
+              "open": false,
+              "timeBucket": "night"
+            },
+            {
+              "spotId": "fcc3aa4e-0c8f-48e0-820b-b7038f1f9d66",
+              "rank": 10,
+              "open": false,
+              "timeBucket": "night"
+            }
+          ]
+        },
+        "reason": "Closed Spot returned for open-now constraint"
+      },
+      {
+        "scenarioId": "cf0c04d6-ab8b-4db0-bad0-5391f93929f7",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "date_planner",
+        "maturity": "developing",
+        "family": "open_now",
+        "utilityLoss": 0.22830000000000006,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "cf0c04d6-ab8b-4db0-bad0-5391f93929f7:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "5e7c5a10-db2f-4509-8395-df32dd29d2c1",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "feee6a5f-1926-40b6-baa9-5290ace8b738",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "quiet_regular",
+        "maturity": "onboarding",
+        "family": "geo",
+        "utilityLoss": 0.7801,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "feee6a5f-1926-40b6-baa9-5290ace8b738:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "4af7ee88-32b2-4df4-8777-3ec1e89bb5c8",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "84290d84-ad1e-451c-8831-f3ed3ce46226",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "family_planner",
+        "maturity": "developing",
+        "family": "cold_start",
+        "utilityLoss": 0.759,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "84290d84-ad1e-451c-8831-f3ed3ce46226:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "5e7c5a10-db2f-4509-8395-df32dd29d2c1",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "cfb206f7-320c-4cc2-a642-2748e2828f3e",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "family_planner",
+        "maturity": "developing",
+        "family": "mature_personalization",
+        "utilityLoss": 0.10160000000000002,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "cfb206f7-320c-4cc2-a642-2748e2828f3e:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "6fb29b87-07b8-46f0-863e-393a249f564c",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "ea8f367d-07e6-45db-a87c-fb7e9480c3de",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "family_planner",
+        "maturity": "sparse",
+        "family": "audience",
+        "utilityLoss": 0.7778,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "ea8f367d-07e6-45db-a87c-fb7e9480c3de:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "3e6320af-6a68-4c9b-b18c-2d7731889865",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "e6556900-4ef8-4d16-9dc4-85595902b16f",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "quiet_regular",
+        "maturity": "developing",
+        "family": "quiet_lively",
+        "utilityLoss": 0.2536,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "e6556900-4ef8-4d16-9dc4-85595902b16f:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "7cfb197e-5750-4130-b0b2-cb59d6253492",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "742f329a-046f-4e0e-a646-c0f1bfd16f14",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "date_planner",
+        "maturity": "developing",
+        "family": "semantic_only",
+        "utilityLoss": 0.11619999999999997,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "742f329a-046f-4e0e-a646-c0f1bfd16f14:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "5e7c5a10-db2f-4509-8395-df32dd29d2c1",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "adcd2eea-b15f-4f24-b58a-f2d75cf473da",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "spontaneous_local",
+        "maturity": "cold",
+        "family": "fallback",
+        "utilityLoss": 0.16079999999999994,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "adcd2eea-b15f-4f24-b58a-f2d75cf473da:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "4aab322c-b47b-42dd-8a4d-6895c7c0fc25",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "1743abc8-5ef2-4f2e-a37e-1f3156857041",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "culture_seeker",
+        "maturity": "developing",
+        "family": "zero_result",
+        "utilityLoss": 0.7224,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "1743abc8-5ef2-4f2e-a37e-1f3156857041:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "dbeea4ae-4fea-4da5-800a-780962d3132a",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "a4c61a57-ef27-4ddb-949d-5262675d0a30",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "social_explorer",
+        "maturity": "sparse",
+        "family": "repetition",
+        "utilityLoss": 0.1674,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "a4c61a57-ef27-4ddb-949d-5262675d0a30:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "6fb29b87-07b8-46f0-863e-393a249f564c",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "75b2e73e-49b4-4157-a43d-c355b9d5a1ad",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "DEVELOPMENT",
+        "persona": "date_planner",
+        "maturity": "mature",
+        "family": "explanation",
+        "utilityLoss": 0.061899999999999955,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "75b2e73e-49b4-4157-a43d-c355b9d5a1ad:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "6fb29b87-07b8-46f0-863e-393a249f564c",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "35346b14-54df-406a-851b-2f15769826fb",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "REGRESSION",
+        "persona": "novelty_hunter",
+        "maturity": "cold",
+        "family": "product_eligibility",
+        "utilityLoss": 0.24349999999999994,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "35346b14-54df-406a-851b-2f15769826fb:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "4aab322c-b47b-42dd-8a4d-6895c7c0fc25",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "ddcd7594-9ddb-46f7-8b0c-866572d9a2a8",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "REGRESSION",
+        "persona": "quiet_regular",
+        "maturity": "mature",
+        "family": "distribution",
+        "utilityLoss": 0.16070000000000007,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "ddcd7594-9ddb-46f7-8b0c-866572d9a2a8:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "c19b443f-7272-4c4d-8d58-ba5bd27baf9c",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "0a0ef994-9832-4f13-962d-ecc4f5220cbb",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "REGRESSION",
+        "persona": "quiet_regular",
+        "maturity": "cold",
+        "family": "exact_name",
+        "utilityLoss": 0.77,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "0a0ef994-9832-4f13-962d-ecc4f5220cbb:hard:HARD_CATEGORY",
+        "primaryClass": "CONSTRAINT_FAILURE",
+        "expected": "cafe",
+        "actual": [
+          {
+            "spotId": "15a5c50d-2d64-4f75-95dd-755e6ae7eb10",
+            "rank": 1,
+            "category": "outing"
+          },
+          {
+            "spotId": "fbd34df6-336d-477f-8508-19303c370d8c",
+            "rank": 2,
+            "category": "activity"
+          },
+          {
+            "spotId": "7eff2c3a-9622-4125-b2c8-7412d19bdc10",
+            "rank": 5,
+            "category": "bar"
+          },
+          {
+            "spotId": "3ab6ed63-f3b9-495f-ab06-858e6225c266",
+            "rank": 6,
+            "category": "activity"
+          },
+          {
+            "spotId": "83db880f-25f8-42fc-8f7e-9a25c3b6f8ce",
+            "rank": 7,
+            "category": "outing"
+          },
+          {
+            "spotId": "fcc3aa4e-0c8f-48e0-820b-b7038f1f9d66",
+            "rank": 8,
+            "category": "activity"
+          },
+          {
+            "spotId": "7cee80ef-dbc6-43cd-b5e1-408e707196ae",
+            "rank": 9,
+            "category": "outing"
+          },
+          {
+            "spotId": "6b440c3d-d624-4f6e-a9f9-c388b88bcb90",
+            "rank": 10,
+            "category": "bar"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "15a5c50d-2d64-4f75-95dd-755e6ae7eb10",
+              "rank": 1,
+              "category": "outing"
+            },
+            {
+              "spotId": "fbd34df6-336d-477f-8508-19303c370d8c",
+              "rank": 2,
+              "category": "activity"
+            },
+            {
+              "spotId": "7eff2c3a-9622-4125-b2c8-7412d19bdc10",
+              "rank": 5,
+              "category": "bar"
+            },
+            {
+              "spotId": "3ab6ed63-f3b9-495f-ab06-858e6225c266",
+              "rank": 6,
+              "category": "activity"
+            },
+            {
+              "spotId": "83db880f-25f8-42fc-8f7e-9a25c3b6f8ce",
+              "rank": 7,
+              "category": "outing"
+            },
+            {
+              "spotId": "fcc3aa4e-0c8f-48e0-820b-b7038f1f9d66",
+              "rank": 8,
+              "category": "activity"
+            },
+            {
+              "spotId": "7cee80ef-dbc6-43cd-b5e1-408e707196ae",
+              "rank": 9,
+              "category": "outing"
+            },
+            {
+              "spotId": "6b440c3d-d624-4f6e-a9f9-c388b88bcb90",
+              "rank": 10,
+              "category": "bar"
+            }
+          ]
+        },
+        "reason": "Wrong category returned"
+      },
+      {
+        "scenarioId": "0a0ef994-9832-4f13-962d-ecc4f5220cbb",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "REGRESSION",
+        "persona": "quiet_regular",
+        "maturity": "cold",
+        "family": "exact_name",
+        "utilityLoss": 0.77,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "0a0ef994-9832-4f13-962d-ecc4f5220cbb:ranking",
+        "primaryClass": "RANKING_FAILURE",
+        "expected": "2d39a707-1209-4296-8307-2fc8dfae6165 near top",
+        "actual": 4,
+        "evidence": "trace.results"
+      },
+      {
+        "scenarioId": "4e6f1cf6-c277-44df-b26c-9a2323257a4f",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "REGRESSION",
+        "persona": "quiet_regular",
+        "maturity": "mature",
+        "family": "broad_query",
+        "utilityLoss": 0.32569999999999993,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "4e6f1cf6-c277-44df-b26c-9a2323257a4f:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "383ee5c6-96c2-4e39-90ee-8b95b2e8a58b",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "2725d855-2ba0-4d3d-a750-e29d5af16dfb",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "REGRESSION",
+        "persona": "quiet_regular",
+        "maturity": "onboarding",
+        "family": "category_intent",
+        "utilityLoss": 0.02939999999999998,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "2725d855-2ba0-4d3d-a750-e29d5af16dfb:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "d4cb062e-8850-4214-b901-d5f37b782266",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "d114d4f5-d132-419d-97f2-8ea343f8440e",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "REGRESSION",
+        "persona": "date_planner",
+        "maturity": "developing",
+        "family": "negation",
+        "utilityLoss": 0.05059999999999998,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "d114d4f5-d132-419d-97f2-8ea343f8440e:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "383ee5c6-96c2-4e39-90ee-8b95b2e8a58b",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "29d86832-5b03-47c0-8aab-404365bf8240",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "REGRESSION",
+        "persona": "quiet_regular",
+        "maturity": "developing",
+        "family": "open_now",
+        "utilityLoss": 0.7137,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "29d86832-5b03-47c0-8aab-404365bf8240:hard:OPEN_NOW",
+        "primaryClass": "OPENING_HOURS_FAILURE",
+        "expected": {
+          "open": true,
+          "timeBucket": "morning"
+        },
+        "actual": [
+          {
+            "spotId": "93cb04e4-aeab-46fa-93c4-bfd5287ff5f3",
+            "rank": 1,
+            "open": false,
+            "timeBucket": "morning"
+          },
+          {
+            "spotId": "fbd34df6-336d-477f-8508-19303c370d8c",
+            "rank": 3,
+            "open": false,
+            "timeBucket": "morning"
+          },
+          {
+            "spotId": "2d39a707-1209-4296-8307-2fc8dfae6165",
+            "rank": 7,
+            "open": false,
+            "timeBucket": "morning"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "93cb04e4-aeab-46fa-93c4-bfd5287ff5f3",
+              "rank": 1,
+              "open": false,
+              "timeBucket": "morning"
+            },
+            {
+              "spotId": "fbd34df6-336d-477f-8508-19303c370d8c",
+              "rank": 3,
+              "open": false,
+              "timeBucket": "morning"
+            },
+            {
+              "spotId": "2d39a707-1209-4296-8307-2fc8dfae6165",
+              "rank": 7,
+              "open": false,
+              "timeBucket": "morning"
+            }
+          ]
+        },
+        "reason": "Closed Spot returned for open-now constraint"
+      },
+      {
+        "scenarioId": "29d86832-5b03-47c0-8aab-404365bf8240",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "REGRESSION",
+        "persona": "quiet_regular",
+        "maturity": "developing",
+        "family": "open_now",
+        "utilityLoss": 0.7137,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "29d86832-5b03-47c0-8aab-404365bf8240:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "7077f0e8-933d-4af9-a71b-0d2f340bc4ac",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "428c8712-636d-4252-be8d-635e1bc040d3",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "REGRESSION",
+        "persona": "date_planner",
+        "maturity": "cold",
+        "family": "geo",
+        "utilityLoss": 0.21440000000000003,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "428c8712-636d-4252-be8d-635e1bc040d3:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "3614fe3a-c3cd-440e-aaca-95d6740b3ef9",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "e029e413-7e31-4595-b1d0-40123985d97c",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "REGRESSION",
+        "persona": "novelty_hunter",
+        "maturity": "onboarding",
+        "family": "cold_start",
+        "utilityLoss": 0.10860000000000003,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "e029e413-7e31-4595-b1d0-40123985d97c:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "dbeea4ae-4fea-4da5-800a-780962d3132a",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "bc2a791a-c161-4b5a-aef3-064fc78c6567",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "REGRESSION",
+        "persona": "date_planner",
+        "maturity": "developing",
+        "family": "mature_personalization",
+        "utilityLoss": 0.15249999999999997,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "bc2a791a-c161-4b5a-aef3-064fc78c6567:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "3614fe3a-c3cd-440e-aaca-95d6740b3ef9",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "1563be61-4752-4eff-a0ab-000a9daf564a",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "REGRESSION",
+        "persona": "culture_seeker",
+        "maturity": "onboarding",
+        "family": "audience",
+        "utilityLoss": 0.20850000000000002,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "1563be61-4752-4eff-a0ab-000a9daf564a:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "5e7c5a10-db2f-4509-8395-df32dd29d2c1",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "b72cf69d-735b-40bf-b84e-ed763f830b06",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "REGRESSION",
+        "persona": "quiet_regular",
+        "maturity": "developing",
+        "family": "quiet_lively",
+        "utilityLoss": 0.20809999999999995,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "b72cf69d-735b-40bf-b84e-ed763f830b06:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "371b3734-02f6-49da-9ee3-8a982cb8de41",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "5480af6d-14bc-4bf9-92ef-41dbd5dfac62",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "family_planner",
+        "maturity": "cold",
+        "family": "price",
+        "utilityLoss": 0.25050000000000006,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "5480af6d-14bc-4bf9-92ef-41dbd5dfac62:ranking",
+        "primaryClass": "RANKING_FAILURE",
+        "expected": "7cee80ef-dbc6-43cd-b5e1-408e707196ae near top",
+        "actual": 10,
+        "evidence": "trace.results"
+      },
+      {
+        "scenarioId": "8d930f45-4249-43c8-82a9-b29297efabc5",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "date_planner",
+        "maturity": "mature",
+        "family": "semantic_only",
+        "utilityLoss": 0.7168,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "8d930f45-4249-43c8-82a9-b29297efabc5:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "444fdf20-3546-4f86-80aa-04a6df0aa3de",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "b2c07177-f00f-4d10-bbde-7b5f81c4e08c",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "budget_discoverer",
+        "maturity": "mature",
+        "family": "fallback",
+        "utilityLoss": 0.07469999999999999,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "b2c07177-f00f-4d10-bbde-7b5f81c4e08c:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "9deed8a6-044c-4b85-b2ab-1754243148e3",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "03614429-5981-4ce8-93a8-ef689483c789",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "budget_discoverer",
+        "maturity": "sparse",
+        "family": "zero_result",
+        "utilityLoss": 0.21940000000000004,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "03614429-5981-4ce8-93a8-ef689483c789:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "f0893b15-44e5-4e49-9fad-33ae0969a5f8",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "3e3dd4fc-4f6d-484f-b2cb-3dc4984cf673",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "novelty_hunter",
+        "maturity": "developing",
+        "family": "repetition",
+        "utilityLoss": 0.19379999999999997,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "3e3dd4fc-4f6d-484f-b2cb-3dc4984cf673:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "9560ae52-e8c1-4df0-a7b0-941b20416876",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "a2a332fc-caf0-4986-9974-a837115a8378",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "culture_seeker",
+        "maturity": "sparse",
+        "family": "explanation",
+        "utilityLoss": 0.20750000000000002,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "a2a332fc-caf0-4986-9974-a837115a8378:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "8fd3ee7a-d988-4f30-9295-c2d01c3b1136",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "7be5b583-6fa1-4301-a4c1-c7aa0738e722",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "social_explorer",
+        "maturity": "sparse",
+        "family": "product_eligibility",
+        "utilityLoss": 0.17690000000000006,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "7be5b583-6fa1-4301-a4c1-c7aa0738e722:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "6fb29b87-07b8-46f0-863e-393a249f564c",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "ebffbaa6-7f5b-4414-a13c-a07079524c77",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "spontaneous_local",
+        "maturity": "developing",
+        "family": "distribution",
+        "utilityLoss": 0.2279,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "ebffbaa6-7f5b-4414-a13c-a07079524c77:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "5e7c5a10-db2f-4509-8395-df32dd29d2c1",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "da548ded-3576-48e1-87ac-e3a8efb20d1a",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "budget_discoverer",
+        "maturity": "onboarding",
+        "family": "exact_name",
+        "utilityLoss": 0.2572,
+        "secondaryClasses": [],
+        "severity": "P1",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "da548ded-3576-48e1-87ac-e3a8efb20d1a:hard:HARD_CATEGORY",
+        "primaryClass": "CONSTRAINT_FAILURE",
+        "expected": "bar",
+        "actual": [
+          {
+            "spotId": "894282b5-1e46-4d18-8152-3b1c83d7a274",
+            "rank": 7,
+            "category": "cafe"
+          },
+          {
+            "spotId": "fbd34df6-336d-477f-8508-19303c370d8c",
+            "rank": 8,
+            "category": "activity"
+          },
+          {
+            "spotId": "15a5c50d-2d64-4f75-95dd-755e6ae7eb10",
+            "rank": 9,
+            "category": "outing"
+          },
+          {
+            "spotId": "2d39a707-1209-4296-8307-2fc8dfae6165",
+            "rank": 10,
+            "category": "cafe"
+          }
+        ],
+        "evidence": {
+          "candidates": [
+            {
+              "spotId": "894282b5-1e46-4d18-8152-3b1c83d7a274",
+              "rank": 7,
+              "category": "cafe"
+            },
+            {
+              "spotId": "fbd34df6-336d-477f-8508-19303c370d8c",
+              "rank": 8,
+              "category": "activity"
+            },
+            {
+              "spotId": "15a5c50d-2d64-4f75-95dd-755e6ae7eb10",
+              "rank": 9,
+              "category": "outing"
+            },
+            {
+              "spotId": "2d39a707-1209-4296-8307-2fc8dfae6165",
+              "rank": 10,
+              "category": "cafe"
+            }
+          ]
+        },
+        "reason": "Wrong category returned"
+      },
+      {
+        "scenarioId": "da548ded-3576-48e1-87ac-e3a8efb20d1a",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "budget_discoverer",
+        "maturity": "onboarding",
+        "family": "exact_name",
+        "utilityLoss": 0.2572,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "da548ded-3576-48e1-87ac-e3a8efb20d1a:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "8fd3ee7a-d988-4f30-9295-c2d01c3b1136",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "210abfb3-c92f-4f78-88b1-55beaadfa3b7",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "spontaneous_local",
+        "maturity": "mature",
+        "family": "category_intent",
+        "utilityLoss": 0.6674,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "210abfb3-c92f-4f78-88b1-55beaadfa3b7:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "9bb15e38-36e9-4e78-8be4-6c8ba8937b48",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      },
+      {
+        "scenarioId": "a9a72052-1630-4538-ad31-f57eaa8ddf37",
+        "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+        "seed": "backyrd-d1-basel-v1-2026-3",
+        "split": "LOCKED_HOLDOUT",
+        "persona": "family_planner",
+        "maturity": "onboarding",
+        "family": "negation",
+        "utilityLoss": 0.11329999999999996,
+        "secondaryClasses": [],
+        "severity": "P2",
+        "ownership": "ENGINE",
+        "status": "OPEN",
+        "id": "a9a72052-1630-4538-ad31-f57eaa8ddf37:retrieval",
+        "primaryClass": "RETRIEVAL_FAILURE",
+        "expected": "5c6b7b75-24c6-4078-aba6-672388a550d1",
+        "actual": "missing from first pool",
+        "evidence": "trace.stages[0]"
+      }
+    ]
+  },
+  "dataSufficiency": {
+    "ENGINE_FAILURE": 74,
+    "OBSERVED_DATA_LIMITATION": 23,
+    "BOTH": 29,
+    "NOT_APPLICABLE": 0
+  }
+}

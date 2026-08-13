@@ -15,4 +15,5 @@ test("Product seed keeps observed and latent storage structurally separate", () 
   assert.match(sql, /decision_lab\.latent_users/);
   const publicStatements = sql.split("\n").filter((line) => line.includes("public."));
   assert.equal(publicStatements.some((line) => /latent_truth|expected_utility|true_preference/.test(line)), false);
+  assert.doesNotMatch(sql, /'archived'::public\.spot_status/);
 });
