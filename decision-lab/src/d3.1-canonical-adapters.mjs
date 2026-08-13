@@ -154,8 +154,9 @@ export function createIsolatedPostgresTreatmentAdapters({ dbUrl, referenceIso = 
     const createdAt = new Date(Date.parse(referenceIso) + Number(occurredDay) * 86_400_000).toISOString();
     const eventSql = invocationSql(call).replace(/^select /, "create temporary table d31_event on commit drop as select ").replace(/;$/, ";");
     const output = run(`begin; ${claims(userId)} ${eventSql} update public.backyrd_ml_events_v1 e set created_at=${sqlLiteral(createdAt)}::timestamptz from d31_event d where e.id=d.backyrd_ml_log_event_v1; copy (select backyrd_ml_log_event_v1 from d31_event) to stdout; commit;`);
-    if (!output.includes("\\N")) throw new Error(`Historical clock adapter expected the canonical V12 void-return contract for ${userId}: ${JSON.stringify(output)}`);
-    return { canonicalCallExecuted: true, rawEventRetimestamped: false, limitation: "CANONICAL_RPC_RETURNED_NULL" };
+    const eventId = output.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0];
+    if (!eventId) throw new Error(`Canonical ML event was suppressed for ${userId}; verify synthetic personalization consent`);
+    return { canonicalCallExecuted: true, rawEventRetimestamped: true, eventId };
   };
   const snapshotState = async (userId) => {
     const tables = ["backyrd_ml_events_v1", "user_taste_events_v2", "backyrd_user_feature_weights_v1", "user_place_type_preferences_v1", "backyrd_user_context_feature_preferences_v1", "user_taste_concepts_v2"];
