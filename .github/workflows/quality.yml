@@ -40,6 +40,10 @@ jobs:
         run: npm run decision-lab:d2:recertify
       - name: D2.2 personalization treatment freeze and scientific validation
         run: npm run decision-lab:d2.2:validate
+      - name: D3.1 diagnostic coverage preflight
+        run: npm run decision-lab:d3.1:preflight
+      - name: D3.1 diagnostic runner contract tests
+        run: node --test decision-lab/test/d3.1-*.test.mjs
       - name: D2 protected-scope guard
         env:
           CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
