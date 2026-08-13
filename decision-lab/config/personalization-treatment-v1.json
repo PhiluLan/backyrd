@@ -1,0 +1,53 @@
+{
+  "contractVersion": "personalization-treatment-v1",
+  "treatmentGeneratorVersion": "personalization-treatment-generator-v1",
+  "parentFreezeManifestHash": "6488f3031bb63df482dbff2b2e2c011c1a82781862e1fe532ffdd1c968fffacf",
+  "engineSourceHash": "a3618a4254a884a53b45cf185c630444239d3da8e04f78d86ece6a65cda507ba",
+  "arms": ["ACTUAL", "NEUTRAL", "OPPOSING"],
+  "treatmentVariable": "observed_personal_history",
+  "controlMode": "authenticated_synthetic_twins",
+  "historyMaterialization": "canonical_product_learning_calls_only",
+  "historicalClockPolicy": "preserve source event time; D3.1 materializer must use the isolated event schema and canonical triggers when a product RPC cannot accept occurred_at",
+  "memoryPolicy": "INCLUDED_TOTAL_HISTORY_EFFECT_AND_REPORTED_SEPARATELY",
+  "onboardingPolicy": "INCLUDED_ONLY_WHEN_EXPLICIT_ACTUAL_SELECTION_IDS_EXIST; ABSENT_IN_NEUTRAL; MATCHED_OPPOSING_SELECTIONS_IN_OPPOSING",
+  "neutralPolicy": "authenticated twin with the same non-personal account and current-scenario state, but no preference-bearing onboarding selections, events or derived projections",
+  "opposingPolicy": "authenticated twin with deterministic observed positive history on observable low-affinity dimensions and negative history on observable high-affinity dimensions",
+  "prohibited": [
+    "anonymous_control",
+    "engine_weight_override",
+    "engine_branch",
+    "direct_score_write",
+    "direct_projection_write",
+    "latent_truth_in_engine_plan",
+    "query_or_context_change",
+    "forced_candidate_set"
+  ],
+  "canonicalCalls": [
+    "complete_decision_onboarding_v1",
+    "backyrd_ml_log_event_v1",
+    "backyrd_log_taste_event_v3",
+    "backyrd_log_decision_action_v1"
+  ],
+  "semanticSnapshotIgnoredFields": ["created_at", "updated_at", "last_event_at", "last_rebuild_at"],
+  "minimumCoverage": {
+    "armsPerPair": 3,
+    "maturities": ["cold", "onboarding", "sparse", "developing", "mature", "power"],
+    "pairedSample": 8
+  },
+  "metrics": [
+    "personalization_lift",
+    "personalization_harm",
+    "opposing_history_impact",
+    "current_intent_robustness",
+    "candidate_recall_delta",
+    "candidate_set_jaccard",
+    "rank_movement",
+    "ndcg_delta",
+    "top_k_utility_delta",
+    "source_contribution_delta",
+    "taste_contribution_delta",
+    "contextual_taste_contribution_delta",
+    "place_type_contribution_delta",
+    "recent_memory_contribution_delta"
+  ]
+}

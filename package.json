@@ -13,6 +13,7 @@
     "decision-lab:d2": "node decision-lab/src/d2-cli.mjs",
     "decision-lab:d2:acceptance": "node decision-lab/src/d2-cli.mjs self-validate",
     "decision-lab:d2:recertify": "node decision-lab/src/d2-cli.mjs validate-freeze",
+    "decision-lab:d2.2:validate": "node decision-lab/src/personalization-treatment-freeze.mjs validate",
     "supabase:start": "npx supabase start",
     "supabase:stop": "npx supabase stop",
     "supabase:status": "npx supabase status",
