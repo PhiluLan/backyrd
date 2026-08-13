@@ -1,0 +1,810 @@
+{
+  "baselineId": "backyrd-decision-v13-baseline-d3-a-v1",
+  "blinded": true,
+  "sample": [
+    {
+      "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+      "scenarioId": "001b2960-d42f-4a30-bbbe-165e7e8da789",
+      "split": "LOCKED_HOLDOUT",
+      "persona": "spontaneous_local",
+      "maturity": "mature",
+      "context": {
+        "audience": "family",
+        "timeBucket": "afternoon",
+        "weekday": 4,
+        "weather": "dry",
+        "indoorRequired": false
+      },
+      "input": "exact approved discovery",
+      "results": [
+        {
+          "spotId": "04efc962-0ce3-4293-8936-d152f2d946ec",
+          "rank": 1,
+          "reason": "LAB Café 008 passt zur aktuellen Suche und hat zusätzlich Signale, die zu deinem bisherigen Geschmack passen."
+        },
+        {
+          "spotId": "c90078ad-c34f-47df-a5c5-cf5cc1d01fd4",
+          "rank": 2,
+          "reason": "LAB Ausflugsort 256 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+          "rank": 3,
+          "reason": "LAB Aktivität 255 passt zur Richtung: machen statt nur sitzen. Solider Aktiv-Pick."
+        },
+        {
+          "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+          "rank": 4,
+          "reason": "LAB Aktivität 245 passt zur Richtung: machen statt nur sitzen. Solider Aktiv-Pick."
+        },
+        {
+          "spotId": "435ed46b-6a65-442e-9db7-af554b917fe3",
+          "rank": 5,
+          "reason": "LAB Bar 112 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "11dda41d-7740-43b7-9f58-2edcb148a15c",
+          "rank": 6,
+          "reason": "LAB Ausflugsort 235 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "4b0a90e8-7e9a-40f5-b9b2-1f90cad41a18",
+          "rank": 7,
+          "reason": "LAB Aktivität 107 passt zur Richtung: machen statt nur sitzen. Solider Aktiv-Pick."
+        },
+        {
+          "spotId": "9b731f48-1b17-4c7f-907a-3ea7e3fc3be7",
+          "rank": 8,
+          "reason": "LAB Ausflugsort 028 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "a66c4d01-b8bc-47cd-8990-4b517b84c7fd",
+          "rank": 9,
+          "reason": "LAB Aktivität 196 passt zur Richtung: machen statt nur sitzen. Solider Aktiv-Pick."
+        },
+        {
+          "spotId": "a0a9fd64-666a-4254-9ba8-13a412c4296e",
+          "rank": 10,
+          "reason": "LAB Ausflugsort 037 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        }
+      ]
+    },
+    {
+      "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+      "scenarioId": "15724dea-7a2c-48ae-9c25-a14f0a843e3b",
+      "split": "REGRESSION",
+      "persona": "date_planner",
+      "maturity": "developing",
+      "context": {
+        "audience": "friends",
+        "timeBucket": "afternoon",
+        "weekday": 6,
+        "weather": "dry",
+        "indoorRequired": false
+      },
+      "input": "gemütlich und unkompliziert",
+      "results": [
+        {
+          "spotId": "14a0a3ab-6e6c-4836-9273-9926ec482b76",
+          "rank": 1,
+          "reason": "LAB Ausflugsort 097 passt zur aktuellen Suche und hat zusätzlich Signale, die zu deinem bisherigen Geschmack passen."
+        },
+        {
+          "spotId": "04efc962-0ce3-4293-8936-d152f2d946ec",
+          "rank": 2,
+          "reason": "LAB Café 008 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+          "rank": 3,
+          "reason": "LAB Aktivität 255 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "51fb7d1a-5100-42b2-9f41-be7be5be9e43",
+          "rank": 4,
+          "reason": "LAB Bar 161 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "c90078ad-c34f-47df-a5c5-cf5cc1d01fd4",
+          "rank": 5,
+          "reason": "LAB Ausflugsort 256 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "435ed46b-6a65-442e-9db7-af554b917fe3",
+          "rank": 6,
+          "reason": "LAB Bar 112 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+          "rank": 7,
+          "reason": "LAB Aktivität 245 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "11dda41d-7740-43b7-9f58-2edcb148a15c",
+          "rank": 8,
+          "reason": "LAB Ausflugsort 235 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "9b731f48-1b17-4c7f-907a-3ea7e3fc3be7",
+          "rank": 9,
+          "reason": "LAB Ausflugsort 028 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "4b0a90e8-7e9a-40f5-b9b2-1f90cad41a18",
+          "rank": 10,
+          "reason": "LAB Aktivität 107 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        }
+      ]
+    },
+    {
+      "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+      "scenarioId": "3297fe8d-ff28-4ada-9a18-8db9c8440b69",
+      "split": "DEVELOPMENT",
+      "persona": "social_explorer",
+      "maturity": "sparse",
+      "context": {
+        "audience": "friends",
+        "timeBucket": "evening",
+        "weekday": 1,
+        "weather": "rain",
+        "indoorRequired": false
+      },
+      "input": "exact name",
+      "results": [
+        {
+          "spotId": "04efc962-0ce3-4293-8936-d152f2d946ec",
+          "rank": 1,
+          "reason": "LAB Café 008 passt zur aktuellen Suche und hat zusätzlich Signale, die zu deinem bisherigen Geschmack passen."
+        },
+        {
+          "spotId": "51fb7d1a-5100-42b2-9f41-be7be5be9e43",
+          "rank": 2,
+          "reason": "LAB Bar 161 geht in Richtung stimmungsvolle Bar – nicht beliebig, sondern eher warm, urban und mit etwas besonderem Abendgefühl."
+        },
+        {
+          "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+          "rank": 3,
+          "reason": "LAB Aktivität 255 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "c90078ad-c34f-47df-a5c5-cf5cc1d01fd4",
+          "rank": 4,
+          "reason": "LAB Ausflugsort 256 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "435ed46b-6a65-442e-9db7-af554b917fe3",
+          "rank": 5,
+          "reason": "LAB Bar 112 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+          "rank": 6,
+          "reason": "LAB Aktivität 245 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "11dda41d-7740-43b7-9f58-2edcb148a15c",
+          "rank": 7,
+          "reason": "LAB Ausflugsort 235 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "9b731f48-1b17-4c7f-907a-3ea7e3fc3be7",
+          "rank": 8,
+          "reason": "LAB Ausflugsort 028 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "4b0a90e8-7e9a-40f5-b9b2-1f90cad41a18",
+          "rank": 9,
+          "reason": "LAB Aktivität 107 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "a66c4d01-b8bc-47cd-8990-4b517b84c7fd",
+          "rank": 10,
+          "reason": "LAB Aktivität 196 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        }
+      ]
+    },
+    {
+      "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+      "scenarioId": "472c6961-5a45-433a-8a4a-7cc57bfae997",
+      "split": "LOCKED_HOLDOUT",
+      "persona": "quiet_regular",
+      "maturity": "sparse",
+      "context": {
+        "audience": "friends",
+        "timeBucket": "afternoon",
+        "weekday": 6,
+        "weather": "dry",
+        "indoorRequired": false
+      },
+      "input": "keine Bar, etwas ruhiges",
+      "results": [
+        {
+          "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+          "rank": 1,
+          "reason": "LAB Aktivität 255 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "c90078ad-c34f-47df-a5c5-cf5cc1d01fd4",
+          "rank": 2,
+          "reason": "LAB Ausflugsort 256 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "04efc962-0ce3-4293-8936-d152f2d946ec",
+          "rank": 3,
+          "reason": "LAB Café 008 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+          "rank": 4,
+          "reason": "LAB Aktivität 245 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "11dda41d-7740-43b7-9f58-2edcb148a15c",
+          "rank": 5,
+          "reason": "LAB Ausflugsort 235 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "4b0a90e8-7e9a-40f5-b9b2-1f90cad41a18",
+          "rank": 6,
+          "reason": "LAB Aktivität 107 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "9b731f48-1b17-4c7f-907a-3ea7e3fc3be7",
+          "rank": 7,
+          "reason": "LAB Ausflugsort 028 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "a66c4d01-b8bc-47cd-8990-4b517b84c7fd",
+          "rank": 8,
+          "reason": "LAB Aktivität 196 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "a0a9fd64-666a-4254-9ba8-13a412c4296e",
+          "rank": 9,
+          "reason": "LAB Ausflugsort 037 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "83779cec-628c-4c7d-a8f1-b6c1fd1d8394",
+          "rank": 10,
+          "reason": "LAB Ausflugsort 069 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        }
+      ]
+    },
+    {
+      "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+      "scenarioId": "5b9af671-b80d-441e-a666-56d2c1f5e48e",
+      "split": "DEVELOPMENT",
+      "persona": "social_explorer",
+      "maturity": "mature",
+      "context": {
+        "audience": "date",
+        "timeBucket": "evening",
+        "weekday": 6,
+        "weather": "dry",
+        "indoorRequired": false
+      },
+      "input": "lebhaft",
+      "results": [
+        {
+          "spotId": "51fb7d1a-5100-42b2-9f41-be7be5be9e43",
+          "rank": 1,
+          "reason": "LAB Bar 161 geht in Richtung stimmungsvolle Bar – nicht beliebig, sondern eher warm, urban und mit etwas besonderem Abendgefühl."
+        },
+        {
+          "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+          "rank": 2,
+          "reason": "LAB Aktivität 255 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "04efc962-0ce3-4293-8936-d152f2d946ec",
+          "rank": 3,
+          "reason": "LAB Café 008 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "c90078ad-c34f-47df-a5c5-cf5cc1d01fd4",
+          "rank": 4,
+          "reason": "LAB Ausflugsort 256 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+          "rank": 5,
+          "reason": "LAB Aktivität 245 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "435ed46b-6a65-442e-9db7-af554b917fe3",
+          "rank": 6,
+          "reason": "LAB Bar 112 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "11dda41d-7740-43b7-9f58-2edcb148a15c",
+          "rank": 7,
+          "reason": "LAB Ausflugsort 235 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "4b0a90e8-7e9a-40f5-b9b2-1f90cad41a18",
+          "rank": 8,
+          "reason": "LAB Aktivität 107 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "9b731f48-1b17-4c7f-907a-3ea7e3fc3be7",
+          "rank": 9,
+          "reason": "LAB Ausflugsort 028 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "a0a9fd64-666a-4254-9ba8-13a412c4296e",
+          "rank": 10,
+          "reason": "LAB Ausflugsort 037 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        }
+      ]
+    },
+    {
+      "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+      "scenarioId": "742f329a-046f-4e0e-a646-c0f1bfd16f14",
+      "split": "DEVELOPMENT",
+      "persona": "date_planner",
+      "maturity": "developing",
+      "context": {
+        "audience": "family",
+        "timeBucket": "afternoon",
+        "weekday": 0,
+        "weather": "dry",
+        "indoorRequired": false
+      },
+      "input": "ungewöhnlich inspirierend entdecken",
+      "results": [
+        {
+          "spotId": "fbd34df6-336d-477f-8508-19303c370d8c",
+          "rank": 1,
+          "reason": "LAB Aktivität 007 passt zur Richtung: machen statt nur sitzen. Solider Aktiv-Pick."
+        },
+        {
+          "spotId": "15a5c50d-2d64-4f75-95dd-755e6ae7eb10",
+          "rank": 2,
+          "reason": "LAB Ausflugsort 100 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "894282b5-1e46-4d18-8152-3b1c83d7a274",
+          "rank": 3,
+          "reason": "LAB Café 113 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "2d39a707-1209-4296-8307-2fc8dfae6165",
+          "rank": 4,
+          "reason": "LAB Café 079 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "3ab6ed63-f3b9-495f-ab06-858e6225c266",
+          "rank": 5,
+          "reason": "LAB Aktivität 206 passt zur Richtung: machen statt nur sitzen. Solider Aktiv-Pick."
+        },
+        {
+          "spotId": "83db880f-25f8-42fc-8f7e-9a25c3b6f8ce",
+          "rank": 6,
+          "reason": "LAB Ausflugsort 060 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "fcc3aa4e-0c8f-48e0-820b-b7038f1f9d66",
+          "rank": 7,
+          "reason": "LAB Aktivität 256 passt zur Richtung: machen statt nur sitzen. Solider Aktiv-Pick."
+        },
+        {
+          "spotId": "7cee80ef-dbc6-43cd-b5e1-408e707196ae",
+          "rank": 8,
+          "reason": "LAB Ausflugsort 118 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "2252919d-67ce-461a-a3c5-7282780a6447",
+          "rank": 9,
+          "reason": "LAB Ausflugsort 107 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "6b440c3d-d624-4f6e-a9f9-c388b88bcb90",
+          "rank": 10,
+          "reason": "LAB Bar 203 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        }
+      ]
+    },
+    {
+      "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+      "scenarioId": "89e89c62-9afe-49e7-9c45-cdd27f454799",
+      "split": "LOCKED_HOLDOUT",
+      "persona": "culture_seeker",
+      "maturity": "sparse",
+      "context": {
+        "audience": "family",
+        "timeBucket": "evening",
+        "weekday": 3,
+        "weather": "dry",
+        "indoorRequired": false
+      },
+      "input": "nicht teuer",
+      "results": [
+        {
+          "spotId": "047d682f-658b-4097-8e4b-d09ba9b06948",
+          "rank": 1,
+          "reason": "LAB Aktivität 089 passt zur Richtung: machen statt nur sitzen. Solider Aktiv-Pick."
+        },
+        {
+          "spotId": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+          "rank": 2,
+          "reason": "LAB Ausflugsort 170 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "552e8646-622d-421b-b73e-69b169f6c1f2",
+          "rank": 3,
+          "reason": "LAB Bar 010 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+          "rank": 4,
+          "reason": "LAB Aktivität 251 passt zur Richtung: machen statt nur sitzen. Solider Aktiv-Pick."
+        },
+        {
+          "spotId": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+          "rank": 5,
+          "reason": "LAB Ausflugsort 024 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+          "rank": 6,
+          "reason": "LAB Aktivität 238 passt zur Richtung: machen statt nur sitzen. Solider Aktiv-Pick."
+        },
+        {
+          "spotId": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+          "rank": 7,
+          "reason": "LAB Ausflugsort 075 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "cb3c0f88-bf94-4f5d-8db2-d8963323482e",
+          "rank": 8,
+          "reason": "LAB Aktivität 081 passt zur Richtung: machen statt nur sitzen. Solider Aktiv-Pick."
+        },
+        {
+          "spotId": "df1c474e-0558-4d87-a5b0-7691ba5c082d",
+          "rank": 9,
+          "reason": "LAB Ausflugsort 179 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+          "rank": 10,
+          "reason": "LAB Bar 221 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        }
+      ]
+    },
+    {
+      "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+      "scenarioId": "a2919aed-8ace-4b4a-8d50-7f1aa06fca0f",
+      "split": "DEVELOPMENT",
+      "persona": "spontaneous_local",
+      "maturity": "cold",
+      "context": {
+        "audience": "friends",
+        "timeBucket": "afternoon",
+        "weekday": 1,
+        "weather": "rain",
+        "indoorRequired": false
+      },
+      "input": "nicht teuer",
+      "results": [
+        {
+          "spotId": "51fb7d1a-5100-42b2-9f41-be7be5be9e43",
+          "rank": 1,
+          "reason": "LAB Bar 161 geht in Richtung stimmungsvolle Bar – nicht beliebig, sondern eher warm, urban und mit etwas besonderem Abendgefühl."
+        },
+        {
+          "spotId": "c90078ad-c34f-47df-a5c5-cf5cc1d01fd4",
+          "rank": 2,
+          "reason": "LAB Ausflugsort 256 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+          "rank": 3,
+          "reason": "LAB Aktivität 255 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "04efc962-0ce3-4293-8936-d152f2d946ec",
+          "rank": 4,
+          "reason": "LAB Café 008 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "435ed46b-6a65-442e-9db7-af554b917fe3",
+          "rank": 5,
+          "reason": "LAB Bar 112 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+          "rank": 6,
+          "reason": "LAB Aktivität 245 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "11dda41d-7740-43b7-9f58-2edcb148a15c",
+          "rank": 7,
+          "reason": "LAB Ausflugsort 235 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "9b731f48-1b17-4c7f-907a-3ea7e3fc3be7",
+          "rank": 8,
+          "reason": "LAB Ausflugsort 028 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "4b0a90e8-7e9a-40f5-b9b2-1f90cad41a18",
+          "rank": 9,
+          "reason": "LAB Aktivität 107 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "a0a9fd64-666a-4254-9ba8-13a412c4296e",
+          "rank": 10,
+          "reason": "LAB Ausflugsort 037 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        }
+      ]
+    },
+    {
+      "worldId": "e9c3c7e0-8a2b-4ebb-a47b-23b3c52237eb",
+      "scenarioId": "b2c07177-f00f-4d10-bbde-7b5f81c4e08c",
+      "split": "LOCKED_HOLDOUT",
+      "persona": "budget_discoverer",
+      "maturity": "mature",
+      "context": {
+        "audience": "friends",
+        "timeBucket": "evening",
+        "weekday": 1,
+        "weather": "cold",
+        "indoorRequired": false
+      },
+      "input": "eine sichere Alternative",
+      "results": [
+        {
+          "spotId": "894282b5-1e46-4d18-8152-3b1c83d7a274",
+          "rank": 1,
+          "reason": "LAB Café 113 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "93cb04e4-aeab-46fa-93c4-bfd5287ff5f3",
+          "rank": 2,
+          "reason": "LAB Bar 046 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "fbd34df6-336d-477f-8508-19303c370d8c",
+          "rank": 3,
+          "reason": "LAB Aktivität 007 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "15a5c50d-2d64-4f75-95dd-755e6ae7eb10",
+          "rank": 4,
+          "reason": "LAB Ausflugsort 100 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "3ab6ed63-f3b9-495f-ab06-858e6225c266",
+          "rank": 5,
+          "reason": "LAB Aktivität 206 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "83db880f-25f8-42fc-8f7e-9a25c3b6f8ce",
+          "rank": 6,
+          "reason": "LAB Ausflugsort 060 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "2d39a707-1209-4296-8307-2fc8dfae6165",
+          "rank": 7,
+          "reason": "LAB Café 079 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "7eff2c3a-9622-4125-b2c8-7412d19bdc10",
+          "rank": 8,
+          "reason": "LAB Bar 263 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "5fe7bfd6-f7ca-47e5-8b85-0e2f80ab7643",
+          "rank": 9,
+          "reason": "LAB Bar 228 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "fcc3aa4e-0c8f-48e0-820b-b7038f1f9d66",
+          "rank": 10,
+          "reason": "LAB Aktivität 256 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        }
+      ]
+    },
+    {
+      "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+      "scenarioId": "c402c833-563e-40af-81a9-36996c4e252f",
+      "split": "LOCKED_HOLDOUT",
+      "persona": "family_planner",
+      "maturity": "cold",
+      "context": {
+        "audience": "friends",
+        "timeBucket": "afternoon",
+        "weekday": 0,
+        "weather": "dry",
+        "indoorRequired": false
+      },
+      "input": "sicher passende Idee",
+      "results": [
+        {
+          "spotId": "51fb7d1a-5100-42b2-9f41-be7be5be9e43",
+          "rank": 1,
+          "reason": "LAB Bar 161 geht in Richtung stimmungsvolle Bar – nicht beliebig, sondern eher warm, urban und mit etwas besonderem Abendgefühl."
+        },
+        {
+          "spotId": "c90078ad-c34f-47df-a5c5-cf5cc1d01fd4",
+          "rank": 2,
+          "reason": "LAB Ausflugsort 256 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+          "rank": 3,
+          "reason": "LAB Aktivität 255 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "04efc962-0ce3-4293-8936-d152f2d946ec",
+          "rank": 4,
+          "reason": "LAB Café 008 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+          "rank": 5,
+          "reason": "LAB Aktivität 245 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "11dda41d-7740-43b7-9f58-2edcb148a15c",
+          "rank": 6,
+          "reason": "LAB Ausflugsort 235 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "435ed46b-6a65-442e-9db7-af554b917fe3",
+          "rank": 7,
+          "reason": "LAB Bar 112 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "9b731f48-1b17-4c7f-907a-3ea7e3fc3be7",
+          "rank": 8,
+          "reason": "LAB Ausflugsort 028 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "4b0a90e8-7e9a-40f5-b9b2-1f90cad41a18",
+          "rank": 9,
+          "reason": "LAB Aktivität 107 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "a66c4d01-b8bc-47cd-8990-4b517b84c7fd",
+          "rank": 10,
+          "reason": "LAB Aktivität 196 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        }
+      ]
+    },
+    {
+      "worldId": "b3af220a-d06e-4f00-883b-38756a50c091",
+      "scenarioId": "da4739f7-8f87-4d78-a1bc-fd5df947e9c2",
+      "split": "DEVELOPMENT",
+      "persona": "social_explorer",
+      "maturity": "cold",
+      "context": {
+        "audience": "family",
+        "timeBucket": "morning",
+        "weekday": 5,
+        "weather": "rain",
+        "indoorRequired": false
+      },
+      "input": "trusted places",
+      "results": [
+        {
+          "spotId": "04efc962-0ce3-4293-8936-d152f2d946ec",
+          "rank": 1,
+          "reason": "LAB Café 008 passt zur aktuellen Suche und hat zusätzlich Signale, die zu deinem bisherigen Geschmack passen."
+        },
+        {
+          "spotId": "c90078ad-c34f-47df-a5c5-cf5cc1d01fd4",
+          "rank": 2,
+          "reason": "LAB Ausflugsort 256 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "2c76574a-c791-4fb8-8a16-b897f18f4a2a",
+          "rank": 3,
+          "reason": "LAB Aktivität 255 passt zur Richtung: machen statt nur sitzen. Solider Aktiv-Pick."
+        },
+        {
+          "spotId": "6833857e-a0e7-46d8-86b7-6100d55921e1",
+          "rank": 4,
+          "reason": "LAB Aktivität 245 passt zur Richtung: machen statt nur sitzen. Solider Aktiv-Pick."
+        },
+        {
+          "spotId": "11dda41d-7740-43b7-9f58-2edcb148a15c",
+          "rank": 5,
+          "reason": "LAB Ausflugsort 235 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "435ed46b-6a65-442e-9db7-af554b917fe3",
+          "rank": 6,
+          "reason": "LAB Bar 112 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "4b0a90e8-7e9a-40f5-b9b2-1f90cad41a18",
+          "rank": 7,
+          "reason": "LAB Aktivität 107 passt zur Richtung: machen statt nur sitzen. Solider Aktiv-Pick."
+        },
+        {
+          "spotId": "9b731f48-1b17-4c7f-907a-3ea7e3fc3be7",
+          "rank": 8,
+          "reason": "LAB Ausflugsort 028 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "a0a9fd64-666a-4254-9ba8-13a412c4296e",
+          "rank": 9,
+          "reason": "LAB Ausflugsort 037 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "a66c4d01-b8bc-47cd-8990-4b517b84c7fd",
+          "rank": 10,
+          "reason": "LAB Aktivität 196 passt zur Richtung: machen statt nur sitzen. Solider Aktiv-Pick."
+        }
+      ]
+    },
+    {
+      "worldId": "f4b35a23-9ceb-4571-bffe-da29768e883e",
+      "scenarioId": "e08f30e3-7a0f-47d5-afc3-b28eb02c7c3e",
+      "split": "DEVELOPMENT",
+      "persona": "family_planner",
+      "maturity": "cold",
+      "context": {
+        "audience": "date",
+        "timeBucket": "evening",
+        "weekday": 2,
+        "weather": "dry",
+        "indoorRequired": false
+      },
+      "input": "something good in Basel",
+      "results": [
+        {
+          "spotId": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+          "rank": 1,
+          "reason": "LAB Bar 007 passt zur aktuellen Suche und hat zusätzlich Signale, die zu deinem bisherigen Geschmack passen."
+        },
+        {
+          "spotId": "552e8646-622d-421b-b73e-69b169f6c1f2",
+          "rank": 2,
+          "reason": "LAB Bar 010 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "047d682f-658b-4097-8e4b-d09ba9b06948",
+          "rank": 3,
+          "reason": "LAB Aktivität 089 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+          "rank": 4,
+          "reason": "LAB Ausflugsort 170 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "3b3f611b-962d-4f9f-a876-80688419371c",
+          "rank": 5,
+          "reason": "LAB Bar 222 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+          "rank": 6,
+          "reason": "LAB Aktivität 251 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+          "rank": 7,
+          "reason": "LAB Ausflugsort 024 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+          "rank": 8,
+          "reason": "LAB Ausflugsort 075 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        },
+        {
+          "spotId": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+          "rank": 9,
+          "reason": "LAB Aktivität 238 bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst."
+        },
+        {
+          "spotId": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+          "rank": 10,
+          "reason": "LAB Bar 221 ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer."
+        }
+      ]
+    }
+  ]
+}

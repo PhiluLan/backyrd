@@ -83,7 +83,7 @@ After this resolution, D0.2 resumed and completed. The finding status remains un
 | Area | Distribution / final ordering |
 | Severity | **P1 — Major Decision Quality Risk** |
 | Confidence | **High** |
-| Status | **OPEN — documented, not fixed in D0.2** |
+| Status | **OPEN — D3-A natural exposure quantified as 0/126; not fixed** |
 
 ### Evidence
 
@@ -94,6 +94,10 @@ The controlled sparse trace supplied priority 50 for the reduced Cellar Bar and 
 ### Observed behavior and impact
 
 Eligible `REDUCED` semantic-only/fallback candidates can outrank eligible `NORMAL` candidates. Quarantined and excluded candidates are still removed by the earlier Distribution filter, so no non-eligible candidate exposure was proved. The defect violates the intended exposure ordering and can materially change the Top 10.
+
+### D3-A quantification
+
+The complete three-seed D3-A run observed zero natural occurrences in 126 Golden Decisions because no semantic-only or fallback candidate reached a final list under deterministic simulation embeddings. Therefore affected rank movement and utility impact remain `NOT AVAILABLE`; zero exposure is not evidence of zero possible impact. The controlled D0 detection fixture remains separate and is excluded from the natural frequency denominator. Severity remains P1.
 
 ## D0-F-003 — V12 recommendation runs do not represent the displayed Decision
 
