@@ -45,7 +45,7 @@ This is the first implementation wave because it removes the only open P0, has a
 | Scope | structured/category + lexical retrieval, source-evidence union, V12 and semantic shadow sources, source calibration, recall/sufficiency telemetry, Basel data report |
 | Dependencies | Wave 1 eligible universe; Full-Fidelity semantic baseline before semantic replacement |
 | Tests | Recall@20/50, marginal recall, exact-name, sparse/free text, source ablations, missing/stale documents, candidate-limit saturation, latency |
-| Promotion gate | frozen Recall@20 floor `≥0.65`; statistically robust recall/regret gain on multi-seed and holdout; zero hard leakage; bounded latency/cost |
+| Promotion gate | historical Wave 2/Wave 2.1: frozen Recall@20 floor `>=0.65`; future retrieval experiments: D4.1 `retrieval-quality-contract-v1` capacity-normalized multi-metric gate; statistically robust multi-seed/holdout gain; zero hard leakage; bounded pool/latency/cost. Historical verdicts are unchanged. |
 | Risk | larger pools raise latency and ranking burden; duplicate evidence; data gaps masked as source weakness |
 | Rollback | disable new sources independently; preserve V12/Semantic adapters |
 | Definition of Done | every candidate has a canonical envelope; retrieval failure rate materially reduced; data versus source attribution available |

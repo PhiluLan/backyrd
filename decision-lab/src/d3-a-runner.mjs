@@ -306,6 +306,11 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
         candidateCounts: { v12: run.trace.v12CandidateIds.length, semantic: run.trace.semanticCandidateIds.length, postDistributionV12: run.trace.distributedV12CandidateIds.length, postDistributionSemantic: run.trace.distributedSemanticCandidateIds.length, union: unionIds.length, preDiversity: run.trace.fusedCandidateIds.length, final: candidates.length },
         candidateSources: Object.fromEntries(["v12_only", "semantic_only", "overlap", "fallback"].map((key) => [key, candidates.filter((candidate) => candidate.source === key).length])),
         retrieval,
+        retrievalContractEvidence: {
+          candidateIds: unionIds,
+          eligibleUtilityById: truth,
+          relevanceThreshold: scenario.relevanceRule.utilityAtLeast,
+        },
         retrievalNextGen: retrievalNextGen ? {
           projections: retrievalNextGen.projections,
           candidateUnion: retrievalNextGen.nextUnion,

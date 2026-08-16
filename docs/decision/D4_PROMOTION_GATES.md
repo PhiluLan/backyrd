@@ -53,6 +53,8 @@ A candidate must meet the existing D2.1 floors wherever evaluable:
 
 Recall@20 requires an executable result contract before it can certify a candidate; it cannot be inferred from V13's missing aggregate. Fallback requires planned exposure fixtures and natural exposure reporting separately.
 
+> **D4.1 prospective supersession:** the frozen `Recall@20 >=0.65` rule above remains part of the historical D2.1/Wave 2 record, but is `SUPERSEDED_FOR_FUTURE_RETRIEVAL_PROMOTION` by `retrieval-quality-contract-v1`. D4.1 proved that mean Oracle Recall@20 capacity is only `0.4515` across the frozen scenarios. Future retrieval promotion uses capacity-normalized Top-K capture plus best-available, full-pool, efficiency and non-regression gates. No historical verdict changes.
+
 ## 5. Relative improvement and regression protection
 
 Passing a floor is necessary but not always sufficient. Promotion over V13 requires:
@@ -81,7 +83,7 @@ V13 itself fails multiple gates; its failures are a baseline, not an allowance f
 
 ### Wave 2 — Retrieval
 
-- frozen Recall@20 floor `≥0.65` plus source-level Recall@20/50 and marginal recall;
+- historical Wave 2/Wave 2.1 evaluation retains the frozen Recall@20 floor `>=0.65`; future iterations use the separately frozen D4.1 `retrieval-quality-contract-v1` without retrospective re-grading;
 - materially fewer best-eligible-missing records than V13 across all three seeds;
 - exact-name/category/sparse/free-text families report separately;
 - zero eligibility leakage and complete source/candidate evidence;

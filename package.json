@@ -21,6 +21,8 @@
     "decision-lab:wave1": "bash scripts/decision/run-wave1-comparison.sh",
     "decision-lab:wave2": "bash scripts/decision/run-wave2-comparison.sh",
     "decision-lab:wave2.1": "bash scripts/decision/run-wave2-1-comparison.sh",
+    "decision-lab:d4.1:freeze": "node decision-lab/src/retrieval-quality-freeze.mjs",
+    "decision-lab:d4.1:historical": "bash scripts/decision/run-d4-1-historical-diagnostic.sh",
     "supabase:start": "npx supabase start",
     "supabase:stop": "npx supabase stop",
     "supabase:status": "npx supabase status",
