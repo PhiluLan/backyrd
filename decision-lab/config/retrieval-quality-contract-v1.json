@@ -1,0 +1,67 @@
+{
+  "version": "retrieval-quality-contract-v1",
+  "status": "PROSPECTIVE_ONLY",
+  "supersedes": {
+    "contract": "decision-quality-v1.1.dimensionFloors.recallAt20",
+    "value": 0.65,
+    "disposition": "SUPERSEDED_FOR_FUTURE_RETRIEVAL_PROMOTION",
+    "historicalVerdictsChanged": false
+  },
+  "parents": {
+    "d2_1Freeze": "6488f3031bb63df482dbff2b2e2c011c1a82781862e1fe532ffdd1c968fffacf",
+    "d2_2Freeze": "9b4691de75bead63ad798700ada0b818ba6d29ad92d24804dcb2d3eeecfc1053",
+    "scenarioVersion": "golden-scenarios-v1.1",
+    "groundTruthVersion": "latent-utility-v1"
+  },
+  "relevanceThreshold": 0.6,
+  "promotionK": 20,
+  "diagnosticKs": [10, 20, 50],
+  "thresholds": {
+    "topKCapacityCaptureOverallMinimum": 0.7,
+    "topKCapacityCaptureEverySeedMinimum": 0.65,
+    "topKCapacityCaptureEverySplitMinimum": 0.65,
+    "bestAvailableRetrievalOverallMinimum": 0.8,
+    "bestAvailableRetrievalEverySplitMinimum": 0.7,
+    "fullPoolRecallOverallMinimum": 0.7,
+    "fullPoolRecallEverySplitMinimum": 0.65,
+    "pairedCapacityCaptureLiftMinimum": 0.03,
+    "pairedConfidenceLowerBoundMinimum": 0,
+    "candidatePoolMeanMaximum": 80,
+    "candidatePoolP95Maximum": 100,
+    "fullFidelityLabLatencyP95MillisecondsMaximum": 750,
+    "externalCostPerDecisionUsdMaximum": 0.01,
+    "noResultRateMaximum": 0.01,
+    "candidateStarvationRateMaximum": 0.02,
+    "softMetricRegressionBudget": 0.02,
+    "hardViolationMaximum": 0
+  },
+  "aggregation": {
+    "scenario": "hits_at_k / min(k, eligible_relevant_count)",
+    "cohort": "macro_mean_over_evaluable_scenarios",
+    "zeroRelevant": "NOT_EVALUATED",
+    "emptyEvaluationSet": "FAIL_CLOSED",
+    "bestAvailableTie": "all eligible spots at exact maximum finite utility"
+  },
+  "efficiency": {
+    "candidatePoolIncludes": "deduplicated eligible retrieval union before ranking",
+    "latencyCalibration": "FULL_FIDELITY_LAB_ONLY",
+    "productionSloClaim": false,
+    "requiresPreRegisteredCandidateBudget": true
+  },
+  "robustness": {
+    "seeds": 3,
+    "requiredSplits": ["DEVELOPMENT", "REGRESSION", "LOCKED_HOLDOUT"],
+    "pairedBootstrapConfidence": 0.95,
+    "requiresEverySeedImprovement": true,
+    "requiresLockedHoldoutNonRegression": true
+  },
+  "scientificControls": {
+    "oracleUsesEngineOutput": false,
+    "oracleInput": "eligible latent utility evaluation truth only",
+    "oracleFeedsEngine": false,
+    "groundTruthMutation": "PROHIBITED",
+    "scenarioMutation": "PROHIBITED",
+    "engineMutation": "PROHIBITED",
+    "lockedHoldoutThresholdTuning": "PROHIBITED"
+  }
+}

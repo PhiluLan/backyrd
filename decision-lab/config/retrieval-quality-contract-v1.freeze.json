@@ -1,0 +1,36 @@
+{
+  "version": "retrieval-quality-contract-freeze-v1",
+  "contractVersion": "retrieval-quality-contract-v1",
+  "contractHash": "921b30103f8fd4e82a60b8d96a04ea166e57652bc160e9ba894979d5380b618b",
+  "oracleCapacityDefinitionHash": "3fdeda3167b675302d3f28c4f0e39809a4f5da37c3492aef06efb0b245bcf9bc",
+  "promotionGateDefinitionHash": "01fc96ba68aecc0694898f35a6274e6751924d933e4c64587db5441670cd0355",
+  "implementationHash": "bff9ee67be226fbd980e191c238a560cd3eb373d4f67ca0a121e6e4021d5e897",
+  "scientificValidation": {
+    "version": "retrieval-quality-adversarial-validation-v1",
+    "cases": [
+      "perfect",
+      "very_good",
+      "mediocre",
+      "bad",
+      "brute_force",
+      "small_high_quality",
+      "full_pool_good_top_k_bad",
+      "top_k_good_coverage_bad",
+      "sparse",
+      "dense"
+    ],
+    "thresholdDerivation": "NORMATIVE_SLOT_AND_USER_OPPORTUNITY_PROTECTION",
+    "historicalEngineResultsUsedForThresholdSelection": false,
+    "lockedHoldoutUsedForThresholdSelection": false,
+    "latentTruthUse": "EVALUATION_ONLY",
+    "engineMutation": "NONE"
+  },
+  "scientificValidationHash": "a5f59a2ffdf6367f808c44869f280866e30a640f6dc672432c9aa0b01c25c113",
+  "parentD2_1Freeze": "6488f3031bb63df482dbff2b2e2c011c1a82781862e1fe532ffdd1c968fffacf",
+  "parentD2_2Freeze": "9b4691de75bead63ad798700ada0b818ba6d29ad92d24804dcb2d3eeecfc1053",
+  "historicalRecallGateDisposition": "SUPERSEDED_FOR_FUTURE_RETRIEVAL_PROMOTION",
+  "historicalWave2_1Verdict": "FAIL_UNCHANGED",
+  "productionAccess": "NONE",
+  "frozen": true,
+  "freezeManifestHash": "6c6421d61e2e4cb6ccdbc8ce4a8c807392bfdc7742797b8cb2d3734564ae3947"
+}
