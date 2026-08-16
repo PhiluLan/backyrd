@@ -1,0 +1,1350 @@
+{
+  "version": "wave2.1-retrieval-next-gen-v1",
+  "sampleSizes": {
+    "modes": 2,
+    "seeds": 3,
+    "scenariosPerSeed": 42,
+    "decisionsPerMode": 126,
+    "totalDecisions": 252
+  },
+  "frozenIdentities": {
+    "d2_1": "6488f3031bb63df482dbff2b2e2c011c1a82781862e1fe532ffdd1c968fffacf",
+    "d2_2": "9b4691de75bead63ad798700ada0b818ba6d29ad92d24804dcb2d3eeecfc1053"
+  },
+  "sourceHashes": {
+    "v13": "a3618a4254a884a53b45cf185c630444239d3da8e04f78d86ece6a65cda507ba",
+    "wave1": "5d65a4db6e8a8baf6bce872d967d5350e55ec5f4470191ff4490540dac0b20b8",
+    "wave2": "4e73269b48c0c7372962fbd23040e2c06d85fd6e56504c2217d80d9f4881823c",
+    "executionSource": "4e73269b48c0c7372962fbd23040e2c06d85fd6e56504c2217d80d9f4881823c"
+  },
+  "comparison": {
+    "v13": {
+      "ndcgAt10": 0.5274279249032943,
+      "recallAt10": 0.06009184162288182,
+      "precisionAt10": 0.3190476190476193,
+      "noResultRate": 0,
+      "hardViolationRate": 0.16666666666666666
+    },
+    "wave1Full": {
+      "decisions": 126,
+      "goodOrBetterRecall": 0.21507242281373187,
+      "goodOrBetterRecallAt20": 0.10524687675997431,
+      "goodOrBetterRecallAt50": 0.21507242281373187,
+      "excellentFitRecall": 0.9761904761904762,
+      "excellentFitRecallAt20": 0.9761904761904762,
+      "excellentFitRecallAt50": 0.9761904761904762,
+      "bestAvailableRetrievalRate": 0.16666666666666666,
+      "candidatePoolSize": 36.53174603174603,
+      "retrievalCeiling": 0.6995769841269843,
+      "badSemanticMatchRate": 0.38699472759226716,
+      "semanticGoodOrBetterRecallAt20": 0.1415800700540952,
+      "semanticGoodOrBetterRecallAt50": 0.15272293115338925,
+      "semanticSimilarity": {
+        "min": 0.545353863090752,
+        "mean": 0.6561182466241495,
+        "max": 0.76553645106452,
+        "normalizedSaturationRate": 0.0007558578987150415
+      },
+      "semanticUtilityRankCorrelation": 0.004819728216178855,
+      "noResultRate": 0.007936507936507936,
+      "starvationRate": 0.015873015873015872,
+      "hardConstraintFailures": 0,
+      "ndcgAt10": 0.5393057586957072,
+      "precisionAt10": 0.33280423280423305,
+      "latencyMs": {
+        "median": 367.868,
+        "p95": 528.593,
+        "max": 879.873
+      }
+    },
+    "wave2Full": {
+      "decisions": 126,
+      "goodOrBetterRecall": 0.5277572233744539,
+      "goodOrBetterRecallAt20": 0.16522736559110263,
+      "goodOrBetterRecallAt50": 0.3432038570280551,
+      "excellentFitRecall": 0.9880952380952381,
+      "excellentFitRecallAt20": 0.9682539682539683,
+      "excellentFitRecallAt50": 0.9880952380952381,
+      "bestAvailableRetrievalRate": 0.49206349206349204,
+      "candidatePoolSize": 97.56349206349206,
+      "retrievalCeiling": 0.7226373015873017,
+      "badSemanticMatchRate": 0.34804862444017914,
+      "semanticGoodOrBetterRecallAt20": 0.151469300922828,
+      "semanticGoodOrBetterRecallAt50": 0.29376383620389784,
+      "semanticSimilarity": {
+        "min": 0.529895068450004,
+        "mean": 0.6454178592116147,
+        "max": 0.734032600670787,
+        "normalizedSaturationRate": 0
+      },
+      "semanticUtilityRankCorrelation": -0.02941487150952352,
+      "noResultRate": 0.007936507936507936,
+      "starvationRate": 0.007936507936507936,
+      "hardConstraintFailures": 0,
+      "ndcgAt10": 0.5455082417812422,
+      "precisionAt10": 0.30396825396825405,
+      "latencyMs": {
+        "median": 131.592,
+        "p95": 147.537,
+        "max": 202.098
+      }
+    },
+    "wave2_1Full": {
+      "decisions": 126,
+      "goodOrBetterRecall": 0.5027055044471552,
+      "goodOrBetterRecallAt20": 0.17059017150875472,
+      "goodOrBetterRecallAt50": 0.33617138472132074,
+      "bestAvailableRetrievalRate": 0.48412698412698413,
+      "candidatePoolSize": 90.21428571428571,
+      "noResultRate": 0.007936507936507936,
+      "starvationRate": 0.007936507936507936,
+      "hardConstraintFailures": 0,
+      "ndcgAt10": 0.543669258008736,
+      "precisionAt10": 0.30238095238095253,
+      "latencyMs": {
+        "median": 1012.844,
+        "p95": 2094.291,
+        "max": 2663.698
+      },
+      "recallAt20Capacity": {
+        "mean": 0.4514809250969429,
+        "minimum": 0.11560693641618497,
+        "maximum": 1,
+        "meanRelevant": 64.2936507936508,
+        "scenariosCapableOfPoint65": 31
+      },
+      "rootCause": {
+        "CANDIDATE_LIMIT_FAILURE": 341,
+        "QUERY_REPRESENTATION_FAILURE": 405,
+        "RETRIEVED_AT_20": 775,
+        "SOURCE_GAP": 3533,
+        "SOURCE_ORDERING_FAILURE": 2927,
+        "SPOT_REPRESENTATION_FAILURE": 120
+      },
+      "sourceContribution": {
+        "lexical_v1": {
+          "evidence": 13318,
+          "usefulEvidence": 4162
+        },
+        "personalized_v12": {
+          "evidence": 1361,
+          "usefulEvidence": 438
+        },
+        "semantic_v13": {
+          "evidence": 15581,
+          "usefulEvidence": 4501
+        },
+        "structured_category_v1": {
+          "evidence": 19332,
+          "usefulEvidence": 5845
+        }
+      },
+      "projectionContribution": {
+        "base": {
+          "evidence": 16379,
+          "usefulEvidence": 4964
+        },
+        "category": {
+          "evidence": 981,
+          "usefulEvidence": 261
+        },
+        "lexical_specificity": {
+          "evidence": 9196,
+          "usefulEvidence": 2788
+        },
+        "occasion_context": {
+          "evidence": 16326,
+          "usefulEvidence": 4916
+        },
+        "semantic_concept": {
+          "evidence": 3787,
+          "usefulEvidence": 1036
+        },
+        "vibe": {
+          "evidence": 2923,
+          "usefulEvidence": 981
+        }
+      }
+    }
+  },
+  "metrics": {
+    "fast": {
+      "overall": {
+        "decisions": 126,
+        "goodOrBetterRecall": 0.5234729763790856,
+        "goodOrBetterRecallAt20": 0.166327403818144,
+        "goodOrBetterRecallAt50": 0.34493106686682284,
+        "bestAvailableRetrievalRate": 0.5,
+        "candidatePoolSize": 90.22222222222223,
+        "noResultRate": 0.007936507936507936,
+        "starvationRate": 0.007936507936507936,
+        "hardConstraintFailures": 0,
+        "ndcgAt10": 0.5591269060360307,
+        "precisionAt10": 0.31825396825396846,
+        "latencyMs": {
+          "median": 520.183,
+          "p95": 798.642,
+          "max": 836.144
+        },
+        "recallAt20Capacity": {
+          "mean": 0.4514809250969429,
+          "minimum": 0.11560693641618497,
+          "maximum": 1,
+          "meanRelevant": 64.2936507936508,
+          "scenariosCapableOfPoint65": 31
+        },
+        "rootCause": {
+          "CANDIDATE_LIMIT_FAILURE": 356,
+          "QUERY_REPRESENTATION_FAILURE": 201,
+          "RETRIEVED_AT_20": 808,
+          "SOURCE_GAP": 3385,
+          "SOURCE_ORDERING_FAILURE": 3221,
+          "SPOT_REPRESENTATION_FAILURE": 130
+        },
+        "sourceContribution": {
+          "lexical_v1": {
+            "evidence": 13068,
+            "usefulEvidence": 4081
+          },
+          "personalized_v12": {
+            "evidence": 1248,
+            "usefulEvidence": 424
+          },
+          "semantic_v13": {
+            "evidence": 14778,
+            "usefulEvidence": 4584
+          },
+          "structured_category_v1": {
+            "evidence": 19176,
+            "usefulEvidence": 5821
+          }
+        },
+        "projectionContribution": {
+          "base": {
+            "evidence": 15926,
+            "usefulEvidence": 4975
+          },
+          "category": {
+            "evidence": 958,
+            "usefulEvidence": 259
+          },
+          "lexical_specificity": {
+            "evidence": 8887,
+            "usefulEvidence": 2740
+          },
+          "occasion_context": {
+            "evidence": 15926,
+            "usefulEvidence": 4935
+          },
+          "semantic_concept": {
+            "evidence": 3765,
+            "usefulEvidence": 1036
+          },
+          "vibe": {
+            "evidence": 2808,
+            "usefulEvidence": 965
+          }
+        }
+      },
+      "seeds": {
+        "backyrd-d1-basel-v1-2026": {
+          "decisions": 42,
+          "goodOrBetterRecall": 0.5387989655140633,
+          "goodOrBetterRecallAt20": 0.1695428073635308,
+          "goodOrBetterRecallAt50": 0.33439548203642283,
+          "bestAvailableRetrievalRate": 0.40476190476190477,
+          "candidatePoolSize": 90.5952380952381,
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardConstraintFailures": 0,
+          "ndcgAt10": 0.5643989813914162,
+          "precisionAt10": 0.3380952380952381,
+          "latencyMs": {
+            "median": 525.946,
+            "p95": 774.629,
+            "max": 824.784
+          },
+          "recallAt20Capacity": {
+            "mean": 0.4576590885775594,
+            "minimum": 0.13986013986013987,
+            "maximum": 1,
+            "meanRelevant": 61,
+            "scenariosCapableOfPoint65": 10
+          },
+          "rootCause": {
+            "CANDIDATE_LIMIT_FAILURE": 98,
+            "QUERY_REPRESENTATION_FAILURE": 68,
+            "RETRIEVED_AT_20": 214,
+            "SOURCE_GAP": 1071,
+            "SOURCE_ORDERING_FAILURE": 1070,
+            "SPOT_REPRESENTATION_FAILURE": 41
+          },
+          "sourceContribution": {
+            "lexical_v1": {
+              "evidence": 4448,
+              "usefulEvidence": 1150
+            },
+            "personalized_v12": {
+              "evidence": 418,
+              "usefulEvidence": 115
+            },
+            "semantic_v13": {
+              "evidence": 5004,
+              "usefulEvidence": 1546
+            },
+            "structured_category_v1": {
+              "evidence": 6519,
+              "usefulEvidence": 1845
+            }
+          },
+          "projectionContribution": {
+            "base": {
+              "evidence": 5361,
+              "usefulEvidence": 1538
+            },
+            "category": {
+              "evidence": 360,
+              "usefulEvidence": 122
+            },
+            "lexical_specificity": {
+              "evidence": 3027,
+              "usefulEvidence": 888
+            },
+            "occasion_context": {
+              "evidence": 5403,
+              "usefulEvidence": 1568
+            },
+            "semantic_concept": {
+              "evidence": 1287,
+              "usefulEvidence": 306
+            },
+            "vibe": {
+              "evidence": 951,
+              "usefulEvidence": 234
+            }
+          }
+        },
+        "backyrd-d1-basel-v1-2026-2": {
+          "decisions": 42,
+          "goodOrBetterRecall": 0.4925709964744762,
+          "goodOrBetterRecallAt20": 0.165966628368306,
+          "goodOrBetterRecallAt50": 0.3381705048396957,
+          "bestAvailableRetrievalRate": 0.5,
+          "candidatePoolSize": 89.64285714285714,
+          "noResultRate": 0.023809523809523808,
+          "starvationRate": 0.023809523809523808,
+          "hardConstraintFailures": 0,
+          "ndcgAt10": 0.5570107013980873,
+          "precisionAt10": 0.3666666666666667,
+          "latencyMs": {
+            "median": 506.646,
+            "p95": 772.025,
+            "max": 798.642
+          },
+          "recallAt20Capacity": {
+            "mean": 0.4311267971709466,
+            "minimum": 0.11560693641618497,
+            "maximum": 1,
+            "meanRelevant": 71.52380952380952,
+            "scenariosCapableOfPoint65": 11
+          },
+          "rootCause": {
+            "CANDIDATE_LIMIT_FAILURE": 133,
+            "QUERY_REPRESENTATION_FAILURE": 73,
+            "RETRIEVED_AT_20": 318,
+            "SOURCE_GAP": 1272,
+            "SOURCE_ORDERING_FAILURE": 1149,
+            "SPOT_REPRESENTATION_FAILURE": 59
+          },
+          "sourceContribution": {
+            "lexical_v1": {
+              "evidence": 4236,
+              "usefulEvidence": 1492
+            },
+            "personalized_v12": {
+              "evidence": 457,
+              "usefulEvidence": 184
+            },
+            "semantic_v13": {
+              "evidence": 4899,
+              "usefulEvidence": 1704
+            },
+            "structured_category_v1": {
+              "evidence": 6277,
+              "usefulEvidence": 2079
+            }
+          },
+          "projectionContribution": {
+            "base": {
+              "evidence": 5318,
+              "usefulEvidence": 1857
+            },
+            "category": {
+              "evidence": 235,
+              "usefulEvidence": 57
+            },
+            "lexical_specificity": {
+              "evidence": 2978,
+              "usefulEvidence": 967
+            },
+            "occasion_context": {
+              "evidence": 5227,
+              "usefulEvidence": 1806
+            },
+            "semantic_concept": {
+              "evidence": 1168,
+              "usefulEvidence": 384
+            },
+            "vibe": {
+              "evidence": 943,
+              "usefulEvidence": 388
+            }
+          }
+        },
+        "backyrd-d1-basel-v1-2026-3": {
+          "decisions": 42,
+          "goodOrBetterRecall": 0.539048967148718,
+          "goodOrBetterRecallAt20": 0.1634727757225952,
+          "goodOrBetterRecallAt50": 0.36222721372434935,
+          "bestAvailableRetrievalRate": 0.5952380952380952,
+          "candidatePoolSize": 90.42857142857143,
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardConstraintFailures": 0,
+          "ndcgAt10": 0.5559710353185895,
+          "precisionAt10": 0.25,
+          "latencyMs": {
+            "median": 537.854,
+            "p95": 820.839,
+            "max": 836.144
+          },
+          "recallAt20Capacity": {
+            "mean": 0.4656568895423228,
+            "minimum": 0.1388888888888889,
+            "maximum": 1,
+            "meanRelevant": 60.357142857142854,
+            "scenariosCapableOfPoint65": 10
+          },
+          "rootCause": {
+            "CANDIDATE_LIMIT_FAILURE": 125,
+            "QUERY_REPRESENTATION_FAILURE": 60,
+            "RETRIEVED_AT_20": 276,
+            "SOURCE_GAP": 1042,
+            "SOURCE_ORDERING_FAILURE": 1002,
+            "SPOT_REPRESENTATION_FAILURE": 30
+          },
+          "sourceContribution": {
+            "lexical_v1": {
+              "evidence": 4384,
+              "usefulEvidence": 1439
+            },
+            "personalized_v12": {
+              "evidence": 373,
+              "usefulEvidence": 125
+            },
+            "semantic_v13": {
+              "evidence": 4875,
+              "usefulEvidence": 1334
+            },
+            "structured_category_v1": {
+              "evidence": 6380,
+              "usefulEvidence": 1897
+            }
+          },
+          "projectionContribution": {
+            "base": {
+              "evidence": 5247,
+              "usefulEvidence": 1580
+            },
+            "category": {
+              "evidence": 363,
+              "usefulEvidence": 80
+            },
+            "lexical_specificity": {
+              "evidence": 2882,
+              "usefulEvidence": 885
+            },
+            "occasion_context": {
+              "evidence": 5296,
+              "usefulEvidence": 1561
+            },
+            "semantic_concept": {
+              "evidence": 1310,
+              "usefulEvidence": 346
+            },
+            "vibe": {
+              "evidence": 914,
+              "usefulEvidence": 343
+            }
+          }
+        }
+      },
+      "splits": {
+        "DEVELOPMENT": {
+          "decisions": 54,
+          "goodOrBetterRecall": 0.4886836375727651,
+          "goodOrBetterRecallAt20": 0.14728999681830063,
+          "goodOrBetterRecallAt50": 0.3078324661280791,
+          "bestAvailableRetrievalRate": 0.48148148148148145,
+          "candidatePoolSize": 91.20370370370371,
+          "noResultRate": 0.018518518518518517,
+          "starvationRate": 0.018518518518518517,
+          "hardConstraintFailures": 0,
+          "ndcgAt10": 0.5641877465117185,
+          "precisionAt10": 0.311111111111111,
+          "latencyMs": {
+            "median": 523.556,
+            "p95": 807.611,
+            "max": 836.144
+          },
+          "recallAt20Capacity": {
+            "mean": 0.4178663892001622,
+            "minimum": 0.11560693641618497,
+            "maximum": 1,
+            "meanRelevant": 68.14814814814815,
+            "scenariosCapableOfPoint65": 10
+          },
+          "rootCause": {
+            "CANDIDATE_LIMIT_FAILURE": 174,
+            "QUERY_REPRESENTATION_FAILURE": 86,
+            "RETRIEVED_AT_20": 343,
+            "SOURCE_GAP": 1570,
+            "SOURCE_ORDERING_FAILURE": 1445,
+            "SPOT_REPRESENTATION_FAILURE": 62
+          },
+          "sourceContribution": {
+            "lexical_v1": {
+              "evidence": 5518,
+              "usefulEvidence": 1631
+            },
+            "personalized_v12": {
+              "evidence": 543,
+              "usefulEvidence": 190
+            },
+            "semantic_v13": {
+              "evidence": 6305,
+              "usefulEvidence": 2084
+            },
+            "structured_category_v1": {
+              "evidence": 8167,
+              "usefulEvidence": 2520
+            }
+          },
+          "projectionContribution": {
+            "base": {
+              "evidence": 6815,
+              "usefulEvidence": 2184
+            },
+            "category": {
+              "evidence": 357,
+              "usefulEvidence": 83
+            },
+            "lexical_specificity": {
+              "evidence": 4056,
+              "usefulEvidence": 1309
+            },
+            "occasion_context": {
+              "evidence": 6804,
+              "usefulEvidence": 2188
+            },
+            "semantic_concept": {
+              "evidence": 1300,
+              "usefulEvidence": 328
+            },
+            "vibe": {
+              "evidence": 1201,
+              "usefulEvidence": 333
+            }
+          }
+        },
+        "LOCKED_HOLDOUT": {
+          "decisions": 36,
+          "goodOrBetterRecall": 0.5455534185026726,
+          "goodOrBetterRecallAt20": 0.19009538030962014,
+          "goodOrBetterRecallAt50": 0.37924030115853746,
+          "bestAvailableRetrievalRate": 0.5,
+          "candidatePoolSize": 88.75,
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardConstraintFailures": 0,
+          "ndcgAt10": 0.532241122723404,
+          "precisionAt10": 0.3222222222222222,
+          "latencyMs": {
+            "median": 533.132,
+            "p95": 774.629,
+            "max": 820.839
+          },
+          "recallAt20Capacity": {
+            "mean": 0.49903066641820765,
+            "minimum": 0.15625,
+            "maximum": 1,
+            "meanRelevant": 57.97222222222222,
+            "scenariosCapableOfPoint65": 13
+          },
+          "rootCause": {
+            "CANDIDATE_LIMIT_FAILURE": 86,
+            "QUERY_REPRESENTATION_FAILURE": 53,
+            "RETRIEVED_AT_20": 217,
+            "SOURCE_GAP": 881,
+            "SOURCE_ORDERING_FAILURE": 818,
+            "SPOT_REPRESENTATION_FAILURE": 32
+          },
+          "sourceContribution": {
+            "lexical_v1": {
+              "evidence": 3668,
+              "usefulEvidence": 1153
+            },
+            "personalized_v12": {
+              "evidence": 332,
+              "usefulEvidence": 104
+            },
+            "semantic_v13": {
+              "evidence": 4179,
+              "usefulEvidence": 1119
+            },
+            "structured_category_v1": {
+              "evidence": 5317,
+              "usefulEvidence": 1525
+            }
+          },
+          "projectionContribution": {
+            "base": {
+              "evidence": 4500,
+              "usefulEvidence": 1266
+            },
+            "category": {
+              "evidence": 298,
+              "usefulEvidence": 87
+            },
+            "lexical_specificity": {
+              "evidence": 2422,
+              "usefulEvidence": 669
+            },
+            "occasion_context": {
+              "evidence": 4531,
+              "usefulEvidence": 1260
+            },
+            "semantic_concept": {
+              "evidence": 945,
+              "usefulEvidence": 266
+            },
+            "vibe": {
+              "evidence": 800,
+              "usefulEvidence": 353
+            }
+          }
+        },
+        "REGRESSION": {
+          "decisions": 36,
+          "goodOrBetterRecall": 0.5535765424649802,
+          "goodOrBetterRecallAt20": 0.17111553782643285,
+          "goodOrBetterRecallAt50": 0.3662697336832232,
+          "bestAvailableRetrievalRate": 0.5277777777777778,
+          "candidatePoolSize": 90.22222222222223,
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardConstraintFailures": 0,
+          "ndcgAt10": 0.5784214286351264,
+          "precisionAt10": 0.3249999999999999,
+          "latencyMs": {
+            "median": 503.007,
+            "p95": 824.784,
+            "max": 826.962
+          },
+          "recallAt20Capacity": {
+            "mean": 0.45435298762084897,
+            "minimum": 0.13986013986013987,
+            "maximum": 1,
+            "meanRelevant": 64.83333333333333,
+            "scenariosCapableOfPoint65": 8
+          },
+          "rootCause": {
+            "CANDIDATE_LIMIT_FAILURE": 96,
+            "QUERY_REPRESENTATION_FAILURE": 62,
+            "RETRIEVED_AT_20": 248,
+            "SOURCE_GAP": 934,
+            "SOURCE_ORDERING_FAILURE": 958,
+            "SPOT_REPRESENTATION_FAILURE": 36
+          },
+          "sourceContribution": {
+            "lexical_v1": {
+              "evidence": 3882,
+              "usefulEvidence": 1297
+            },
+            "personalized_v12": {
+              "evidence": 373,
+              "usefulEvidence": 130
+            },
+            "semantic_v13": {
+              "evidence": 4294,
+              "usefulEvidence": 1381
+            },
+            "structured_category_v1": {
+              "evidence": 5692,
+              "usefulEvidence": 1776
+            }
+          },
+          "projectionContribution": {
+            "base": {
+              "evidence": 4611,
+              "usefulEvidence": 1525
+            },
+            "category": {
+              "evidence": 303,
+              "usefulEvidence": 89
+            },
+            "lexical_specificity": {
+              "evidence": 2409,
+              "usefulEvidence": 762
+            },
+            "occasion_context": {
+              "evidence": 4591,
+              "usefulEvidence": 1487
+            },
+            "semantic_concept": {
+              "evidence": 1520,
+              "usefulEvidence": 442
+            },
+            "vibe": {
+              "evidence": 807,
+              "usefulEvidence": 279
+            }
+          }
+        }
+      }
+    },
+    "full": {
+      "overall": {
+        "decisions": 126,
+        "goodOrBetterRecall": 0.5027055044471552,
+        "goodOrBetterRecallAt20": 0.17059017150875472,
+        "goodOrBetterRecallAt50": 0.33617138472132074,
+        "bestAvailableRetrievalRate": 0.48412698412698413,
+        "candidatePoolSize": 90.21428571428571,
+        "noResultRate": 0.007936507936507936,
+        "starvationRate": 0.007936507936507936,
+        "hardConstraintFailures": 0,
+        "ndcgAt10": 0.543669258008736,
+        "precisionAt10": 0.30238095238095253,
+        "latencyMs": {
+          "median": 1012.844,
+          "p95": 2094.291,
+          "max": 2663.698
+        },
+        "recallAt20Capacity": {
+          "mean": 0.4514809250969429,
+          "minimum": 0.11560693641618497,
+          "maximum": 1,
+          "meanRelevant": 64.2936507936508,
+          "scenariosCapableOfPoint65": 31
+        },
+        "rootCause": {
+          "CANDIDATE_LIMIT_FAILURE": 341,
+          "QUERY_REPRESENTATION_FAILURE": 405,
+          "RETRIEVED_AT_20": 775,
+          "SOURCE_GAP": 3533,
+          "SOURCE_ORDERING_FAILURE": 2927,
+          "SPOT_REPRESENTATION_FAILURE": 120
+        },
+        "sourceContribution": {
+          "lexical_v1": {
+            "evidence": 13318,
+            "usefulEvidence": 4162
+          },
+          "personalized_v12": {
+            "evidence": 1361,
+            "usefulEvidence": 438
+          },
+          "semantic_v13": {
+            "evidence": 15581,
+            "usefulEvidence": 4501
+          },
+          "structured_category_v1": {
+            "evidence": 19332,
+            "usefulEvidence": 5845
+          }
+        },
+        "projectionContribution": {
+          "base": {
+            "evidence": 16379,
+            "usefulEvidence": 4964
+          },
+          "category": {
+            "evidence": 981,
+            "usefulEvidence": 261
+          },
+          "lexical_specificity": {
+            "evidence": 9196,
+            "usefulEvidence": 2788
+          },
+          "occasion_context": {
+            "evidence": 16326,
+            "usefulEvidence": 4916
+          },
+          "semantic_concept": {
+            "evidence": 3787,
+            "usefulEvidence": 1036
+          },
+          "vibe": {
+            "evidence": 2923,
+            "usefulEvidence": 981
+          }
+        }
+      },
+      "seeds": {
+        "backyrd-d1-basel-v1-2026": {
+          "decisions": 42,
+          "goodOrBetterRecall": 0.5056706122611189,
+          "goodOrBetterRecallAt20": 0.16607399971658157,
+          "goodOrBetterRecallAt50": 0.3169061696497626,
+          "bestAvailableRetrievalRate": 0.42857142857142855,
+          "candidatePoolSize": 90.5952380952381,
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardConstraintFailures": 0,
+          "ndcgAt10": 0.5521655482680647,
+          "precisionAt10": 0.292857142857143,
+          "latencyMs": {
+            "median": 1113.043,
+            "p95": 2094.291,
+            "max": 2538.988
+          },
+          "recallAt20Capacity": {
+            "mean": 0.4576590885775594,
+            "minimum": 0.13986013986013987,
+            "maximum": 1,
+            "meanRelevant": 61,
+            "scenariosCapableOfPoint65": 10
+          },
+          "rootCause": {
+            "CANDIDATE_LIMIT_FAILURE": 91,
+            "QUERY_REPRESENTATION_FAILURE": 126,
+            "RETRIEVED_AT_20": 200,
+            "SOURCE_GAP": 1149,
+            "SOURCE_ORDERING_FAILURE": 955,
+            "SPOT_REPRESENTATION_FAILURE": 41
+          },
+          "sourceContribution": {
+            "lexical_v1": {
+              "evidence": 4524,
+              "usefulEvidence": 1167
+            },
+            "personalized_v12": {
+              "evidence": 484,
+              "usefulEvidence": 120
+            },
+            "semantic_v13": {
+              "evidence": 5144,
+              "usefulEvidence": 1355
+            },
+            "structured_category_v1": {
+              "evidence": 6511,
+              "usefulEvidence": 1831
+            }
+          },
+          "projectionContribution": {
+            "base": {
+              "evidence": 5504,
+              "usefulEvidence": 1479
+            },
+            "category": {
+              "evidence": 366,
+              "usefulEvidence": 123
+            },
+            "lexical_specificity": {
+              "evidence": 3084,
+              "usefulEvidence": 878
+            },
+            "occasion_context": {
+              "evidence": 5468,
+              "usefulEvidence": 1468
+            },
+            "semantic_concept": {
+              "evidence": 1270,
+              "usefulEvidence": 306
+            },
+            "vibe": {
+              "evidence": 971,
+              "usefulEvidence": 219
+            }
+          }
+        },
+        "backyrd-d1-basel-v1-2026-2": {
+          "decisions": 42,
+          "goodOrBetterRecall": 0.47976403260227907,
+          "goodOrBetterRecallAt20": 0.16739854870088014,
+          "goodOrBetterRecallAt50": 0.32773990333934105,
+          "bestAvailableRetrievalRate": 0.5238095238095238,
+          "candidatePoolSize": 89.71428571428571,
+          "noResultRate": 0.023809523809523808,
+          "starvationRate": 0.023809523809523808,
+          "hardConstraintFailures": 0,
+          "ndcgAt10": 0.5117226527285791,
+          "precisionAt10": 0.32380952380952377,
+          "latencyMs": {
+            "median": 1010.961,
+            "p95": 1950.501,
+            "max": 2296.269
+          },
+          "recallAt20Capacity": {
+            "mean": 0.4311267971709466,
+            "minimum": 0.11560693641618497,
+            "maximum": 1,
+            "meanRelevant": 71.52380952380952,
+            "scenariosCapableOfPoint65": 11
+          },
+          "rootCause": {
+            "CANDIDATE_LIMIT_FAILURE": 137,
+            "QUERY_REPRESENTATION_FAILURE": 144,
+            "RETRIEVED_AT_20": 283,
+            "SOURCE_GAP": 1352,
+            "SOURCE_ORDERING_FAILURE": 1035,
+            "SPOT_REPRESENTATION_FAILURE": 53
+          },
+          "sourceContribution": {
+            "lexical_v1": {
+              "evidence": 4348,
+              "usefulEvidence": 1518
+            },
+            "personalized_v12": {
+              "evidence": 516,
+              "usefulEvidence": 195
+            },
+            "semantic_v13": {
+              "evidence": 5141,
+              "usefulEvidence": 1618
+            },
+            "structured_category_v1": {
+              "evidence": 6342,
+              "usefulEvidence": 2108
+            }
+          },
+          "projectionContribution": {
+            "base": {
+              "evidence": 5476,
+              "usefulEvidence": 1854
+            },
+            "category": {
+              "evidence": 237,
+              "usefulEvidence": 57
+            },
+            "lexical_specificity": {
+              "evidence": 3075,
+              "usefulEvidence": 956
+            },
+            "occasion_context": {
+              "evidence": 5372,
+              "usefulEvidence": 1817
+            },
+            "semantic_concept": {
+              "evidence": 1185,
+              "usefulEvidence": 370
+            },
+            "vibe": {
+              "evidence": 1002,
+              "usefulEvidence": 385
+            }
+          }
+        },
+        "backyrd-d1-basel-v1-2026-3": {
+          "decisions": 42,
+          "goodOrBetterRecall": 0.5226818684780681,
+          "goodOrBetterRecallAt20": 0.17829796610880247,
+          "goodOrBetterRecallAt50": 0.3638680811748585,
+          "bestAvailableRetrievalRate": 0.5,
+          "candidatePoolSize": 90.33333333333333,
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardConstraintFailures": 0,
+          "ndcgAt10": 0.5671195730295645,
+          "precisionAt10": 0.2904761904761905,
+          "latencyMs": {
+            "median": 850.04,
+            "p95": 2208.912,
+            "max": 2663.698
+          },
+          "recallAt20Capacity": {
+            "mean": 0.4656568895423228,
+            "minimum": 0.1388888888888889,
+            "maximum": 1,
+            "meanRelevant": 60.357142857142854,
+            "scenariosCapableOfPoint65": 10
+          },
+          "rootCause": {
+            "CANDIDATE_LIMIT_FAILURE": 113,
+            "QUERY_REPRESENTATION_FAILURE": 135,
+            "RETRIEVED_AT_20": 292,
+            "SOURCE_GAP": 1032,
+            "SOURCE_ORDERING_FAILURE": 937,
+            "SPOT_REPRESENTATION_FAILURE": 26
+          },
+          "sourceContribution": {
+            "lexical_v1": {
+              "evidence": 4446,
+              "usefulEvidence": 1477
+            },
+            "personalized_v12": {
+              "evidence": 361,
+              "usefulEvidence": 123
+            },
+            "semantic_v13": {
+              "evidence": 5296,
+              "usefulEvidence": 1528
+            },
+            "structured_category_v1": {
+              "evidence": 6479,
+              "usefulEvidence": 1906
+            }
+          },
+          "projectionContribution": {
+            "base": {
+              "evidence": 5399,
+              "usefulEvidence": 1631
+            },
+            "category": {
+              "evidence": 378,
+              "usefulEvidence": 81
+            },
+            "lexical_specificity": {
+              "evidence": 3037,
+              "usefulEvidence": 954
+            },
+            "occasion_context": {
+              "evidence": 5486,
+              "usefulEvidence": 1631
+            },
+            "semantic_concept": {
+              "evidence": 1332,
+              "usefulEvidence": 360
+            },
+            "vibe": {
+              "evidence": 950,
+              "usefulEvidence": 377
+            }
+          }
+        }
+      },
+      "splits": {
+        "DEVELOPMENT": {
+          "decisions": 54,
+          "goodOrBetterRecall": 0.46775092348776337,
+          "goodOrBetterRecallAt20": 0.14818494464638027,
+          "goodOrBetterRecallAt50": 0.2947276957269357,
+          "bestAvailableRetrievalRate": 0.46296296296296297,
+          "candidatePoolSize": 91.25925925925925,
+          "noResultRate": 0.018518518518518517,
+          "starvationRate": 0.018518518518518517,
+          "hardConstraintFailures": 0,
+          "ndcgAt10": 0.5484849709052986,
+          "precisionAt10": 0.2666666666666667,
+          "latencyMs": {
+            "median": 1085.229,
+            "p95": 2094.291,
+            "max": 2663.698
+          },
+          "recallAt20Capacity": {
+            "mean": 0.4178663892001622,
+            "minimum": 0.11560693641618497,
+            "maximum": 1,
+            "meanRelevant": 68.14814814814815,
+            "scenariosCapableOfPoint65": 10
+          },
+          "rootCause": {
+            "CANDIDATE_LIMIT_FAILURE": 157,
+            "QUERY_REPRESENTATION_FAILURE": 202,
+            "RETRIEVED_AT_20": 307,
+            "SOURCE_GAP": 1628,
+            "SOURCE_ORDERING_FAILURE": 1327,
+            "SPOT_REPRESENTATION_FAILURE": 59
+          },
+          "sourceContribution": {
+            "lexical_v1": {
+              "evidence": 5646,
+              "usefulEvidence": 1674
+            },
+            "personalized_v12": {
+              "evidence": 567,
+              "usefulEvidence": 194
+            },
+            "semantic_v13": {
+              "evidence": 6701,
+              "usefulEvidence": 1894
+            },
+            "structured_category_v1": {
+              "evidence": 8217,
+              "usefulEvidence": 2530
+            }
+          },
+          "projectionContribution": {
+            "base": {
+              "evidence": 7010,
+              "usefulEvidence": 2127
+            },
+            "category": {
+              "evidence": 369,
+              "usefulEvidence": 84
+            },
+            "lexical_specificity": {
+              "evidence": 4188,
+              "usefulEvidence": 1305
+            },
+            "occasion_context": {
+              "evidence": 6985,
+              "usefulEvidence": 2115
+            },
+            "semantic_concept": {
+              "evidence": 1309,
+              "usefulEvidence": 326
+            },
+            "vibe": {
+              "evidence": 1270,
+              "usefulEvidence": 335
+            }
+          }
+        },
+        "LOCKED_HOLDOUT": {
+          "decisions": 36,
+          "goodOrBetterRecall": 0.5295033510118008,
+          "goodOrBetterRecallAt20": 0.20730996440830268,
+          "goodOrBetterRecallAt50": 0.37330635760463143,
+          "bestAvailableRetrievalRate": 0.5555555555555556,
+          "candidatePoolSize": 88.75,
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardConstraintFailures": 0,
+          "ndcgAt10": 0.5260323356339502,
+          "precisionAt10": 0.3111111111111111,
+          "latencyMs": {
+            "median": 746.026,
+            "p95": 1989.069,
+            "max": 2017.867
+          },
+          "recallAt20Capacity": {
+            "mean": 0.49903066641820765,
+            "minimum": 0.15625,
+            "maximum": 1,
+            "meanRelevant": 57.97222222222222,
+            "scenariosCapableOfPoint65": 13
+          },
+          "rootCause": {
+            "CANDIDATE_LIMIT_FAILURE": 89,
+            "QUERY_REPRESENTATION_FAILURE": 99,
+            "RETRIEVED_AT_20": 215,
+            "SOURCE_GAP": 902,
+            "SOURCE_ORDERING_FAILURE": 754,
+            "SPOT_REPRESENTATION_FAILURE": 28
+          },
+          "sourceContribution": {
+            "lexical_v1": {
+              "evidence": 3709,
+              "usefulEvidence": 1168
+            },
+            "personalized_v12": {
+              "evidence": 384,
+              "usefulEvidence": 106
+            },
+            "semantic_v13": {
+              "evidence": 4371,
+              "usefulEvidence": 1195
+            },
+            "structured_category_v1": {
+              "evidence": 5351,
+              "usefulEvidence": 1524
+            }
+          },
+          "projectionContribution": {
+            "base": {
+              "evidence": 4636,
+              "usefulEvidence": 1300
+            },
+            "category": {
+              "evidence": 300,
+              "usefulEvidence": 87
+            },
+            "lexical_specificity": {
+              "evidence": 2489,
+              "usefulEvidence": 685
+            },
+            "occasion_context": {
+              "evidence": 4634,
+              "usefulEvidence": 1296
+            },
+            "semantic_concept": {
+              "evidence": 939,
+              "usefulEvidence": 266
+            },
+            "vibe": {
+              "evidence": 817,
+              "usefulEvidence": 359
+            }
+          }
+        },
+        "REGRESSION": {
+          "decisions": 36,
+          "goodOrBetterRecall": 0.5283395293215976,
+          "goodOrBetterRecallAt20": 0.16747821890276846,
+          "goodOrBetterRecallAt50": 0.36120194532958744,
+          "bestAvailableRetrievalRate": 0.4444444444444444,
+          "candidatePoolSize": 90.11111111111111,
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardConstraintFailures": 0,
+          "ndcgAt10": 0.5540826110386777,
+          "precisionAt10": 0.34722222222222215,
+          "latencyMs": {
+            "median": 1083.804,
+            "p95": 2364.601,
+            "max": 2538.988
+          },
+          "recallAt20Capacity": {
+            "mean": 0.45435298762084897,
+            "minimum": 0.13986013986013987,
+            "maximum": 1,
+            "meanRelevant": 64.83333333333333,
+            "scenariosCapableOfPoint65": 8
+          },
+          "rootCause": {
+            "CANDIDATE_LIMIT_FAILURE": 95,
+            "QUERY_REPRESENTATION_FAILURE": 104,
+            "RETRIEVED_AT_20": 253,
+            "SOURCE_GAP": 1003,
+            "SOURCE_ORDERING_FAILURE": 846,
+            "SPOT_REPRESENTATION_FAILURE": 33
+          },
+          "sourceContribution": {
+            "lexical_v1": {
+              "evidence": 3963,
+              "usefulEvidence": 1320
+            },
+            "personalized_v12": {
+              "evidence": 410,
+              "usefulEvidence": 138
+            },
+            "semantic_v13": {
+              "evidence": 4509,
+              "usefulEvidence": 1412
+            },
+            "structured_category_v1": {
+              "evidence": 5764,
+              "usefulEvidence": 1791
+            }
+          },
+          "projectionContribution": {
+            "base": {
+              "evidence": 4733,
+              "usefulEvidence": 1537
+            },
+            "category": {
+              "evidence": 312,
+              "usefulEvidence": 90
+            },
+            "lexical_specificity": {
+              "evidence": 2519,
+              "usefulEvidence": 798
+            },
+            "occasion_context": {
+              "evidence": 4707,
+              "usefulEvidence": 1505
+            },
+            "semantic_concept": {
+              "evidence": 1539,
+              "usefulEvidence": 444
+            },
+            "vibe": {
+              "evidence": 836,
+              "usefulEvidence": 287
+            }
+          }
+        }
+      }
+    }
+  },
+  "experiments": [
+    {
+      "id": "H0_BASE_EVIDENCE_RRF",
+      "projections": [
+        "base"
+      ],
+      "goodOrBetterRecallAt20": 0.16794371653185136,
+      "candidatePoolSize": 86.65873015873017
+    },
+    {
+      "id": "H1_LEXICAL_DECOMPOSITION",
+      "projections": [
+        "base",
+        "lexical_specificity"
+      ],
+      "goodOrBetterRecallAt20": 0.16587518552555844,
+      "candidatePoolSize": 88.93650793650794
+    },
+    {
+      "id": "H2_SEMANTIC_CONCEPT_DECOMPOSITION",
+      "projections": [
+        "base",
+        "semantic_concept"
+      ],
+      "goodOrBetterRecallAt20": 0.169771583984417,
+      "candidatePoolSize": 87.51587301587301
+    },
+    {
+      "id": "H3_VIBE_DECOMPOSITION",
+      "projections": [
+        "base",
+        "vibe"
+      ],
+      "goodOrBetterRecallAt20": 0.16769384017168598,
+      "candidatePoolSize": 87.82539682539682
+    },
+    {
+      "id": "H4_ALL_PROJECTIONS",
+      "projections": [
+        "base",
+        "category",
+        "lexical_specificity",
+        "vibe",
+        "occasion_context",
+        "semantic_concept"
+      ],
+      "goodOrBetterRecallAt20": 0.17059017150875472,
+      "candidatePoolSize": 90.21428571428571
+    }
+  ],
+  "integrity": {
+    "productFailures": 0,
+    "distributionFailures": 0,
+    "userConstraintFailures": 0,
+    "scientificValidity": "PASS",
+    "latentTruthInEngineInput": false,
+    "rankingMutation": "NONE",
+    "productionAccess": "NONE"
+  },
+  "semantic": {
+    "priorClassification": "HARDEN",
+    "decision": "HARDEN",
+    "rationale": "Multi-projection semantic evidence is retained for unique recall; utility calibration remains a downstream responsibility."
+  },
+  "externalUsage": {
+    "model": "text-embedding-3-small",
+    "dimensions": 1536,
+    "spotPromptTokens": 41802,
+    "queryPromptTokens": 16926,
+    "queryCacheHash": "84f5998605cdc6f696de489df17cc9495011b488d91d6950b3968055b5b39dc9",
+    "pricePerMillionTokensUsd": 0.02,
+    "estimatedCostUsd": 0.00117456,
+    "capUsd": 3
+  },
+  "promotion": {
+    "goodOrBetterRecallAt20Floor": false,
+    "oracleCapacitySupportsFloor": false,
+    "improvesAllSeeds": true,
+    "lockedHoldoutImproves": true,
+    "fullPoolDoesNotRegress": false,
+    "noIntegrityRegression": true,
+    "candidatePoolOperational": true,
+    "costWithinCap": true
+  },
+  "retrievalQuality": "IMPROVED",
+  "architectureVerdict": "NOT_PROMOTED",
+  "verdict": "FAIL",
+  "resultHash": "e13348c36da23c0c860f8352f87ef189b88507bacf9c1ece7c5a5c1f242663d4"
+}
