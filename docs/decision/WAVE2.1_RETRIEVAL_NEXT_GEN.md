@@ -251,7 +251,9 @@ Durable coverage includes:
 - existing Wave 2, D3.1, and Scientific Validity regressions;
 - disposable local Supabase execution for 3 seeds x 42 scenarios in FAST_SIMULATION and FULL_FIDELITY.
 
-The repository-wide CI result is recorded in the Draft PR after GitHub Actions completes.
+Local acceptance completed with 86/86 Decision Lab tests, D2 acceptance, D2.1 re-certification, D2.2 validation, D3.1 preflight, D3-A baseline validation, D2 protected-scope guard, repository sanity, canonical SQL secret scan, Web typecheck/build, Admin typecheck/build, Mobile lint, and Shared typecheck passing. Web/Admin lint retain inherited advisory findings and no affected file is in this change.
+
+Draft PR #35 is intentionally stacked on the still-open Wave 2 PR #34. GitHub's Quality, Database, and Security workflows are configured only for pull requests targeting `main`, so they do not trigger for the stacked PR. PR #34's complete GitHub suite, including Gitleaks, is green; PR #35's Web and Intelligence previews are green. After #34 merges, #35 must be retargeted to `main` and the full required GitHub suite must pass before any merge decision.
 
 ## 17. Files and Reproducibility
 
@@ -273,6 +275,12 @@ DECISION_LAB_OPENAI_API_KEY=... bash scripts/decision/run-wave2-1-comparison.sh
 ```
 
 Only synthetic Lab data is used. The disposable database is destroyed at the end.
+
+Git:
+
+- branch: `codex/decision-wave2-1-retrieval-next-gen`
+- Draft PR: [#35](https://github.com/PhiluLan/backyrd/pull/35), stacked on Wave 2 PR #34
+- merge: not performed
 
 ## 18. Wave 3 Readiness
 
