@@ -13,6 +13,7 @@ import { buildPersonalizationTreatment } from "./personalization-treatment.mjs";
 import { sealTrace } from "./replay.mjs";
 import { counterfactualPairs, scenarioLibrary } from "./scenarios.mjs";
 import { latentUtility } from "./utility.mjs";
+import { buildRetrievalProjections, candidateUnionNextGen, classifyRetrievalMisses, oracleRecallAtKCapacity } from "./wave2.1-retrieval-next-gen.mjs";
 
 const mean = (values) => { const rows = values.filter(Number.isFinite); return rows.length ? rows.reduce((sum, value) => sum + value, 0) / rows.length : null; };
 const quantile = (values, p) => { const rows = values.filter(Number.isFinite).sort((a, b) => a - b); return rows.length ? rows[Math.min(rows.length - 1, Math.ceil(rows.length * p) - 1)] : null; };
@@ -244,6 +245,37 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
       const request = { ...requestForGoldenScenario(scenario), ...(engine?.requestOverrides ?? {}) };
       const started = performance.now();
       const run = await executor({ userId: scenario.userId, request, context: scenario.context, diagnostic: { arm: "golden", scenarioId: scenario.id } });
+      let retrievalNextGen = null;
+      if (engine?.retrievalNextGen === true) {
+        const baseUnion = structuredClone(run.trace.observed.retrievalUnion ?? []);
+        const projections = buildRetrievalProjections({ request, structuredIntent: run.trace.structuredIntent });
+        const projectionRuns = [{ projection: projections.find((item) => item.id === "base") ?? { id: "base", query: request.query }, observed: structuredClone(run.trace.observed) }];
+        for (const projection of projections.filter((item) => item.id !== "base")) {
+          const projectionRequest = {
+            ...request,
+            query: projection.query,
+            rawFreeText: projection.query,
+            structuredLimit: engine.retrievalNextGenLimits?.structured ?? 60,
+            lexicalLimit: engine.retrievalNextGenLimits?.lexical ?? 40,
+            semanticLimit: engine.retrievalNextGenLimits?.semantic ?? 60,
+          };
+          const projectionRun = await executor({ userId: scenario.userId, request: projectionRequest, context: scenario.context, diagnostic: { arm: "retrieval_projection", scenarioId: scenario.id, projection: projection.id } });
+          projectionRuns.push({ projection, observed: structuredClone(projectionRun.trace.observed) });
+        }
+        const nextUnion = candidateUnionNextGen(projectionRuns, { limit: engine.retrievalNextGenLimits?.union ?? 100 });
+        run.trace.observed.retrievalUnion = nextUnion.map((candidate) => ({
+          spot_id: candidate.spot_id,
+          retrieval_score: candidate.retrieval_score,
+          union_rank: candidate.union_rank,
+          evidence_list: candidate.evidence.map((evidence) => ({
+            source: evidence.source,
+            source_rank: evidence.source_rank,
+            source_score: evidence.source_score,
+            evidence: [...evidence.evidence, `projection:${evidence.projection}`, `rrf:${evidence.rrf_contribution.toFixed(9)}`],
+          })),
+        }));
+        retrievalNextGen = { projections, projectionRuns, baseUnion, nextUnion };
+      }
       const latencyMs = Number((performance.now() - started).toFixed(3));
       const trace = traceFrom(run, world, scenario);
       const evaluation = evaluateTrace({ world, scenario, trace, constitution, identity: identity(world, constitution, scenario, request, trace, canonical.sourceHash) });
@@ -254,6 +286,8 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
       const bestRetrieved = Math.max(0, ...unionIds.map((id) => truth[id] ?? 0));
       const top1 = candidates[0]?.latentUtility ?? 0;
       const retrieval = retrievalDiagnostics(world, scenario, truth, unionIds, run.trace.observed);
+      const retrievalRootCause = retrievalNextGen ? classifyRetrievalMisses({ world, truth, baseUnion: retrievalNextGen.baseUnion, nextUnion: retrievalNextGen.nextUnion, projectionRuns: retrievalNextGen.projectionRuns }) : null;
+      const recallCapacity = oracleRecallAtKCapacity(truth, 20, scenario.relevanceRule.utilityAtLeast);
       records.push({
         baselineId,
         experimentId: evaluation.runId,
@@ -272,6 +306,12 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
         candidateCounts: { v12: run.trace.v12CandidateIds.length, semantic: run.trace.semanticCandidateIds.length, postDistributionV12: run.trace.distributedV12CandidateIds.length, postDistributionSemantic: run.trace.distributedSemanticCandidateIds.length, union: unionIds.length, preDiversity: run.trace.fusedCandidateIds.length, final: candidates.length },
         candidateSources: Object.fromEntries(["v12_only", "semantic_only", "overlap", "fallback"].map((key) => [key, candidates.filter((candidate) => candidate.source === key).length])),
         retrieval,
+        retrievalNextGen: retrievalNextGen ? {
+          projections: retrievalNextGen.projections,
+          candidateUnion: retrievalNextGen.nextUnion,
+          rootCause: retrievalRootCause,
+          recallAt20Capacity: recallCapacity,
+        } : null,
         finalTopK: candidates.map((candidate) => candidate.spotId),
         latentUtilities: candidates.map((candidate) => candidate.latentUtility),
         metrics: { ...evaluation.metrics, rankRegretTop1: bestRetrieved - top1, eligibleRegretTop1: bestEligible - top1, retrievalCeilingTop1: bestRetrieved, eligibleCeilingTop1: bestEligible, outcomePotential: outcomePotential(candidates.map((candidate) => candidate.spotId), truth) },

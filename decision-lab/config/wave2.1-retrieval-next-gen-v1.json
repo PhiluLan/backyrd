@@ -1,0 +1,24 @@
+{
+  "version": "wave2.1-retrieval-next-gen-v1",
+  "parent": "wave2-retrieval-spot-intelligence-v1",
+  "executionSource": "decision-wave2-retrieval-spot-intelligence-v1",
+  "queryProjections": ["base", "base_limit_probe", "category", "lexical_specificity", "vibe", "occasion_context", "semantic_concept"],
+  "sources": ["structured_category_v1", "lexical_v1", "personalized_v12", "semantic_v13", "distribution_fallback"],
+  "limits": { "structured": 60, "lexical": 40, "semanticPerProjection": 60, "candidateUnion": 100, "promotionK": 20 },
+  "candidateUnion": { "version": "retrieval-next-gen-rrf-v1", "rrfK": 20 },
+  "scientificControls": {
+    "latentTruthInEngineInput": false,
+    "groundTruthChanged": false,
+    "scenarioRegistryChanged": false,
+    "eligibilityChanged": false,
+    "rankingChanged": false
+  },
+  "promotion": {
+    "goodOrBetterRecallAt20Floor": 0.65,
+    "gateMutableDuringExperiment": false,
+    "requiresAllSeedImprovement": true,
+    "requiresLockedHoldoutImprovement": true,
+    "hardLeakageBudget": 0,
+    "productionAccess": "PROHIBITED"
+  }
+}

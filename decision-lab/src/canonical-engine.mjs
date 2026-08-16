@@ -84,7 +84,7 @@ export async function loadCanonicalDecisionHandler({ env, embeddingMode, sourceU
           await mkdir(dirname(embeddingCachePath), { recursive: true });
           await writeFile(embeddingCachePath, `${JSON.stringify(Object.fromEntries(embeddingCache))}\n`, { mode: 0o600 });
         }
-        return response;
+        return new Response(bodyText, { status: response.status, headers: response.headers });
       }
       return new Response(JSON.stringify({ data: [{ embedding: fastEmbedding(body.input, body.dimensions ?? 1536) }] }), { status: 200, headers: { "content-type": "application/json" } });
     }
