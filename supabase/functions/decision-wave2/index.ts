@@ -1,0 +1,3094 @@
+// supabase/functions/decision-v13/index.ts
+
+type Env = {
+  SUPABASE_URL: string;
+  SUPABASE_SERVICE_ROLE_KEY: string;
+  OPENAI_API_KEY: string;
+};
+
+type SemanticMatchRow = {
+  spot_id: string;
+  name: string;
+  city: string | null;
+  category_name: string | null;
+  similarity: number;
+  document_text: string;
+  is_open_now?: boolean | null;
+};
+
+type V12DecisionRow = {
+  spot_id: string;
+  name: string;
+  city: string | null;
+  is_open_now: boolean | null;
+  final_score: number | string | null;
+  matched_tokens: string[] | null;
+  matched_counts: number[] | null;
+  matched_terms: string[] | null;
+  why_this: string | null;
+  category_name?: string | null;
+};
+
+type SpotMetaRow = {
+  id: string;
+  name: string;
+  city: string | null;
+  category_id: string | null;
+  categories?: {
+    name?: string | null;
+  } | null;
+  spot_hours?: Array<{
+    day_of_week?: string | null;
+    open_time?: string | null;
+    close_time?: string | null;
+    idx?: number | null;
+  }> | null;
+};
+
+type SpotIntelligenceRow = SpotMetaRow & {
+  status: string | null;
+  price_level: number | null;
+  lat: number | null;
+  lng: number | null;
+};
+
+type SpotDocumentRow = {
+  spot_id: string;
+  document_text: string | null;
+  document_version: string | null;
+  updated_at: string | null;
+};
+
+type SpotIntelligenceV1 = {
+  version: "spot-intelligence-v1";
+  spot_id: string;
+  name: string;
+  city: string | null;
+  status: string | null;
+  category_name: string | null;
+  place_type: string;
+  price_level: number | null;
+  lat: number | null;
+  lng: number | null;
+  is_open_now: boolean | null;
+  document_text: string | null;
+  document_version: string | null;
+  document_updated_at: string | null;
+  availability: {
+    category: "KNOWN" | "UNKNOWN";
+    document: "KNOWN" | "UNKNOWN";
+    price: "KNOWN" | "UNKNOWN";
+    location: "KNOWN" | "UNKNOWN";
+    opening_hours: "KNOWN" | "UNKNOWN";
+  };
+};
+
+type RetrievalSourceId = "structured_category_v1" | "lexical_v1" | "personalized_v12" | "semantic_v13" | "distribution_fallback";
+
+type RetrievalEvidenceV1 = {
+  source: RetrievalSourceId;
+  source_rank: number;
+  source_score: number | null;
+  evidence: string[];
+};
+
+type RetrievalCandidateV1 = {
+  spot_id: string;
+  name: string;
+  city: string | null;
+  category_name: string | null;
+  is_open_now: boolean | null;
+  document_text: string | null;
+  evidence: RetrievalEvidenceV1;
+};
+
+type RetrievalSourceReportV1 = {
+  source: RetrievalSourceId;
+  status: "OK" | "DEGRADED";
+  candidate_count: number;
+  latency_ms: number;
+  error: string | null;
+};
+
+type DistributionEligibilityRow = {
+  entity_id: string;
+  eligible: boolean;
+  distribution_priority: number;
+};
+
+type DistributionFallbackRow = {
+  id: string;
+  name: string;
+  city: string | null;
+  category_name: string | null;
+};
+
+type PlaceTypeProfileRow = {
+  context_key: string;
+  place_type: string;
+  label: string;
+  weight: number | string;
+  confidence: number | string;
+  positive_count: number;
+  negative_count: number;
+  last_event_at: string | null;
+};
+
+
+type DecisionContextKeyRow = {
+  context_scope: string;
+  context_key: string;
+};
+
+type ContextualTasteRow = {
+  context_scope: string;
+  context_key: string;
+  feature_type: string;
+  feature_key: string;
+  weight: number | string;
+  confidence: number | string;
+  positive_count: number;
+  negative_count: number;
+  last_event_at: string | null;
+};
+
+type RecentDecisionMemoryRow = {
+  spot_id: string;
+  spot_name: string | null;
+  memory_kind: string;
+  last_event_type: string;
+  last_rank: number | null;
+  penalty: number | string;
+  bonus: number | string;
+  last_event_at: string | null;
+};
+
+type Candidate = {
+  spot_id: string;
+  name: string;
+  city: string | null;
+  category_name: string | null;
+  place_type: string | null;
+  place_type_label: string | null;
+  is_open_now: boolean | null;
+
+  v12_rank: number | null;
+  v12_score: number;
+  v12_score_norm: number;
+
+  semantic_rank: number | null;
+  semantic_similarity: number;
+  semantic_score_norm: number;
+
+  combined_score: number;
+  distribution_priority: number;
+
+  matched_tokens: string[];
+  matched_terms: string[];
+  technical_why_this: string | null;
+  human_reason: string;
+  place_type_reason: string | null;
+  document_preview: string | null;
+
+  place_type_context_weight: number;
+  place_type_global_weight: number;
+  place_type_context_confidence: number;
+  place_type_global_confidence: number;
+
+  sources: RetrievalSourceId[];
+  retrieval_evidence: RetrievalEvidenceV1[];
+
+  explanation: {
+    model: string;
+    version: string;
+    v12_rank: number | null;
+    v12_score: number;
+    semantic_rank: number | null;
+    semantic_similarity: number;
+    personalized_component: number;
+    semantic_component: number;
+    source_bonus: number;
+    intent_boost: number;
+    category_fit_component: number;
+    category_mismatch_penalty: number;
+    place_type_boost: number;
+    contextual_taste_component: number;
+    recent_memory_component: number;
+    v12_only_penalty: number;
+    weak_intent_penalty: number;
+    combined_score: number;
+  };
+};
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const EMBEDDING_MODEL = "text-embedding-3-small";
+const EMBEDDING_DIMENSIONS = 1536;
+
+const MODEL_NAME = "backyrd_decision_wave2_candidate";
+const MODEL_VERSION = "2.0.0-candidate";
+const WAVE2_ENGINE_CANDIDATE = "decision-wave2-retrieval-spot-intelligence-v1";
+const STRUCTURED_INTENT_VERSION = "decision-intent-v1";
+const SPOT_INTELLIGENCE_VERSION = "spot-intelligence-v1";
+const RETRIEVAL_UNION_VERSION = "retrieval-union-v1";
+
+const DEFAULT_LIMIT = 12;
+const DEFAULT_V12_LIMIT = 12;
+const DEFAULT_SEMANTIC_LIMIT = 18;
+const DEFAULT_STRUCTURED_LIMIT = 50;
+const DEFAULT_LEXICAL_LIMIT = 30;
+const MAX_CATALOG_LIMIT = 500;
+
+export const SPOT_INTELLIGENCE_FIELD_CONTRACT_V1 = {
+  status: "REQUIRED_FOR_ELIGIBILITY",
+  distribution_state: "REQUIRED_FOR_ELIGIBILITY",
+  category: "REQUIRED_FOR_RETRIEVAL",
+  name: "REQUIRED_FOR_RETRIEVAL",
+  city: "REQUIRED_FOR_RETRIEVAL",
+  coordinates: "REQUIRED_FOR_RETRIEVAL",
+  opening_hours: "REQUIRED_FOR_ELIGIBILITY",
+  ml_document: "VALUABLE_FOR_RETRIEVAL",
+  price: "VALUABLE_FOR_RETRIEVAL",
+  moods_vibes: "DERIVED",
+  occasion_context: "UNKNOWN_LOW_CONFIDENCE",
+  photos_reviews: "OPTIONAL",
+} as const;
+
+function getEnv(): Env {
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+
+  if (!SUPABASE_URL) throw new Error("Missing SUPABASE_URL");
+  if (!SUPABASE_SERVICE_ROLE_KEY) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+  if (!OPENAI_API_KEY) throw new Error("Missing OPENAI_API_KEY");
+
+  return {
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
+    OPENAI_API_KEY,
+  };
+}
+
+function jsonResponse(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+    },
+  });
+}
+
+function sanitizeLimit(value: unknown, fallback: number, max: number): number {
+  const parsed = Number(value ?? fallback);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(1, Math.min(Math.floor(parsed), max));
+}
+
+function sanitizeString(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text.length > 0 ? text : null;
+}
+
+function toNumber(value: unknown, fallback = 0): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeText(value: string | null | undefined): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+}
+
+function embeddingToSqlVector(embedding: number[]): string {
+  return `[${embedding.join(",")}]`;
+}
+
+function getBearerToken(request: Request): string | null {
+  const header = request.headers.get("Authorization") ?? "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() ?? null;
+}
+
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const [, payloadBase64] = token.split(".");
+    if (!payloadBase64) return null;
+
+    const normalized = payloadBase64.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(
+      normalized.length + ((4 - (normalized.length % 4)) % 4),
+      "=",
+    );
+
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+}
+
+function getUserIdFromJwt(token: string | null): string | null {
+  if (!token) return null;
+  const payload = decodeJwtPayload(token);
+  const sub = payload?.sub;
+  const role = payload?.role;
+
+  if (role !== "authenticated") return null;
+  if (!sub || typeof sub !== "string") return null;
+
+  return sub;
+}
+
+function looksLikeAnonOrServiceToken(token: string | null): boolean {
+  if (!token) return true;
+
+  const payload = decodeJwtPayload(token);
+  if (!payload) return true;
+
+  const role = payload.role;
+  const sub = payload.sub;
+
+  if (role !== "authenticated") return true;
+  if (!sub || typeof sub !== "string") return true;
+
+  return false;
+}
+
+function buildQueryText(input: {
+  city: string | null;
+  moodA: string | null;
+  moodB: string | null;
+  query: string | null;
+  primaryPlaceTypes?: string[];
+  secondaryPlaceTypes?: string[];
+  excludedPlaceTypes?: string[];
+  audience?: string[];
+  occasions?: string[];
+}): string {
+  const categoryText = [
+    ...(input.primaryPlaceTypes ?? []).map((type) => placeTypeLabel(type)),
+    ...(input.secondaryPlaceTypes ?? []).map((type) => placeTypeLabel(type)),
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const baseQuery =
+    input.query ??
+    [input.moodA, input.moodB, categoryText].filter(Boolean).join(" ").trim();
+
+  const parts = [
+    baseQuery,
+    input.city ? `City: ${input.city}` : null,
+    input.moodA ? `Mood A: ${input.moodA}` : null,
+    input.moodB ? `Mood B: ${input.moodB}` : null,
+    (input.primaryPlaceTypes?.length ?? 0) > 0
+      ? `Preferred place types: ${input.primaryPlaceTypes!.map(placeTypeLabel).join(", ")}`
+      : null,
+    (input.secondaryPlaceTypes?.length ?? 0) > 0
+      ? `Secondary place types: ${input.secondaryPlaceTypes!.map(placeTypeLabel).join(", ")}`
+      : null,
+    (input.excludedPlaceTypes?.length ?? 0) > 0
+      ? `Avoid place types: ${input.excludedPlaceTypes!.map(placeTypeLabel).join(", ")}`
+      : null,
+    (input.audience?.length ?? 0) > 0
+      ? `Audience: ${input.audience!.join(", ")}`
+      : null,
+    (input.occasions?.length ?? 0) > 0
+      ? `Occasion: ${input.occasions!.join(", ")}`
+      : null,
+    "Find places that match the current intent first, then the mood and atmosphere. Personal taste is only a soft signal when it conflicts with the current category intent.",
+  ].filter(Boolean);
+
+  return parts.join("\n");
+}
+
+function buildContextKey(moodA: string | null, moodB: string | null): string {
+  const parts = [moodA, moodB]
+    .map((value) => String(value ?? "").trim().toLowerCase().replace(/\s+/g, " "))
+    .filter(Boolean);
+
+  return parts.length ? parts.join("+") : "global";
+}
+
+function placeTypeFromCategory(categoryName: string | null | undefined): string {
+  const category = normalizeText(categoryName);
+
+  if (["cafe", "café", "coffee", "kaffee"].includes(category)) return "cafe";
+  if (category === "bar") return "bar";
+  if (["restaurant", "essen", "food"].includes(category)) return "restaurant";
+  if (["nachtleben", "club", "nightlife"].includes(category)) return "nightlife";
+  if (["museum", "kultur", "galerie", "gallery"].includes(category)) return "culture";
+  if (["aussichtspunkt", "viewpoint", "ausflug"].includes(category)) return "outing";
+  if (["aktivitat", "aktivität", "activity"].includes(category)) return "activity";
+  if (["besonderes erlebnis", "erlebnis", "experience"].includes(category)) return "experience";
+  if (["unterkunft / hotel", "hotel", "unterkunft"].includes(category)) return "hotel";
+
+  return "other";
+}
+
+function placeTypeLabel(placeType: string | null | undefined): string {
+  switch (placeType) {
+    case "cafe":
+      return "Café";
+    case "bar":
+      return "Bar";
+    case "restaurant":
+      return "Restaurant";
+    case "nightlife":
+      return "Nachtleben";
+    case "culture":
+      return "Kultur";
+    case "outing":
+      return "Ausflug";
+    case "activity":
+      return "Aktivität";
+    case "experience":
+      return "Erlebnis";
+    case "hotel":
+      return "Hotel";
+    default:
+      return "Anderes";
+  }
+}
+
+
+type DecisionIntent = {
+  wantsCafe: boolean;
+  wantsWarm: boolean;
+  wantsQuiet: boolean;
+  wantsRomantic: boolean;
+  wantsTalk: boolean;
+  wantsDrinks: boolean;
+  wantsActivity: boolean;
+  wantsCulture: boolean;
+  wantsArt: boolean;
+  wantsSolo: boolean;
+  wantsRainyDay: boolean;
+  wantsOuting: boolean;
+  avoidRestaurant: boolean;
+  avoidParty: boolean;
+  avoidBars: boolean;
+  wantsKids: boolean;
+  wantsFamily: boolean;
+  wantsSunday: boolean;
+  wantsWeekend: boolean;
+  wantsIndoor: boolean;
+  wantsOutdoor: boolean;
+  hasMoodSignal: boolean;
+  hasExplicitPlaceTypeIntent: boolean;
+  mustRespectCategory: boolean;
+  categoryOnlyMode: boolean;
+  primaryPlaceTypes: string[];
+  secondaryPlaceTypes: string[];
+  excludedPlaceTypes: string[];
+  audience: string[];
+  occasions: string[];
+};
+
+export type StructuredDecisionIntentV1 = {
+  version: "decision-intent-v1";
+  hardConstraints: {
+    requiredPlaceTypes: string[];
+    excludedPlaceTypes: string[];
+    openNow: boolean;
+  };
+  softPreferences: {
+    placeTypes: string[];
+  };
+  extraction: {
+    mode: "deterministic_v1";
+    confidence: "high" | "unknown";
+    unknown: string[];
+    evidence: Array<{
+      field: "required_place_type" | "excluded_place_type" | "open_now" | "soft_place_type";
+      source: "guided" | "free_text";
+      value: string;
+    }>;
+  };
+};
+
+export type HardConstraintExclusionV1 = {
+  spot_id: string;
+  constraint: "HARD_CATEGORY" | "CATEGORY_EXCLUSION" | "OPEN_NOW";
+  expected: string | string[] | boolean;
+  observed: string | boolean | null;
+  evidenceStatus: "KNOWN" | "UNKNOWN";
+};
+
+export type HardConstraintEligibilityV1 = {
+  version: "user-hard-constraint-eligibility-v1";
+  candidateCountBefore: number;
+  candidateCountAfter: number;
+  excludedCount: number;
+  unknownEvidenceCount: number;
+  exclusions: HardConstraintExclusionV1[];
+};
+
+const KNOWN_PLACE_TYPES = [
+  "cafe",
+  "bar",
+  "restaurant",
+  "nightlife",
+  "culture",
+  "outing",
+  "activity",
+  "experience",
+  "hotel",
+] as const;
+
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function normalizePlaceType(value: unknown): string | null {
+  const raw = normalizeText(String(value ?? ""));
+
+  if (!raw) return null;
+
+  if (["cafe", "kaffee", "coffee", "café"].includes(raw)) return "cafe";
+  if (["bar", "drinks", "cocktails", "bier", "wein"].includes(raw)) return "bar";
+  if (["restaurant", "essen", "food", "dinner", "lunch", "brunch"].includes(raw)) return "restaurant";
+  if (["nachtleben", "nightlife", "club", "party", "tanzen"].includes(raw)) return "nightlife";
+  if (["museum", "museen", "kultur", "culture", "kunst", "art", "galerie", "gallery", "ausstellung"].includes(raw)) return "culture";
+  if (["ausflug", "outing", "aussichtspunkt", "viewpoint", "spaziergang", "rausgehen"].includes(raw)) return "outing";
+  if (["aktivitat", "aktivitaet", "aktivität", "activity", "klettern", "spiel", "sport"].includes(raw)) return "activity";
+  if (["erlebnis", "experience", "besonderes erlebnis"].includes(raw)) return "experience";
+  if (["hotel", "unterkunft"].includes(raw)) return "hotel";
+
+  if ((KNOWN_PLACE_TYPES as readonly string[]).includes(raw)) return raw;
+
+  return null;
+}
+
+function sanitizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((v) => String(v ?? "").trim()).filter(Boolean);
+}
+
+function sanitizePlaceTypeArray(value: unknown): string[] {
+  return uniqueStrings(sanitizeStringArray(value).map(normalizePlaceType).filter(Boolean) as string[]);
+}
+
+function detectPlaceTypesFromText(joined: string): string[] {
+  const result: string[] = [];
+
+  if (/\b(cafe|kaffee|coffee)\b/.test(joined)) result.push("cafe");
+  if (/\b(bar|bars|drinks|cocktail|cocktails|bier|beer|wein|wine|afterwork)\b/.test(joined)) result.push("bar");
+  if (/\b(restaurant|restaurants|essen|dinner|lunch|brunch|mittagessen|abendessen|food)\b/.test(joined)) result.push("restaurant");
+  if (/\b(nachtleben|nightlife|club|party|tanzen)\b/.test(joined)) result.push("nightlife");
+  if (/\b(museum|museen|kultur|culture|galerie|gallery|kunst|art|ausstellung|ausstellungen)\b/.test(joined)) result.push("culture");
+  if (/\b(aktivitat|aktivitaet|aktivität|activity|aktivitäten|klettern|spielplatz|sport|jump|aquabasilea)\b/.test(joined)) result.push("activity");
+  if (/\b(ausflug|outing|aussicht|view|spaziergang|walk|park|tierpark|zoo|raus|draussen|draußen|outdoor)\b/.test(joined)) result.push("outing");
+  if (/\b(erlebnis|experience|besonderes erlebnis)\b/.test(joined)) result.push("experience");
+  if (/\b(hotel|unterkunft|hostel)\b/.test(joined)) result.push("hotel");
+
+  return uniqueStrings(result);
+}
+
+function removePlaceTypes(values: string[], excluded: string[]): string[] {
+  const excludedSet = new Set(excluded);
+  return values.filter((value) => !excludedSet.has(value));
+}
+
+function hasAnyMoodSignal(joined: string): boolean {
+  return /\b(cozy|cosy|gemutlich|gemuetlich|ruhig|quiet|warm|romantisch|romantic|urban|hidden|chic|stylish|inspirierend|inspiration|entspannt|lebhaft|lively|date|afterwork|sonntag|sunday|regen|rain|solo)\b/.test(
+    joined,
+  );
+}
+
+function detectIntent(input: {
+  query: string | null;
+  moodA: string | null;
+  moodB: string | null;
+  preferredPlaceTypes?: string[];
+  excludedPlaceTypes?: string[];
+  audience?: string[];
+  occasions?: string[];
+  strictCategoryIntent?: boolean;
+}): DecisionIntent {
+  const joined = normalizeText(
+    [input.query, input.moodA, input.moodB].filter(Boolean).join(" "),
+  );
+
+  const explicitFromBody = uniqueStrings(input.preferredPlaceTypes ?? []);
+  const explicitFromText = detectPlaceTypesFromText(joined);
+  const excludedFromBody = uniqueStrings(input.excludedPlaceTypes ?? []);
+
+  const excludedFromText: string[] = [];
+  if (/\b(keine bar|kein bar|nicht bar|no bar|ohne bar|keine drinks|kein alkohol)\b/.test(joined)) excludedFromText.push("bar");
+  if (/\b(kein restaurant|nicht restaurant|no restaurant|ohne restaurant|kein dinner|kein essen|nicht essen)\b/.test(joined)) excludedFromText.push("restaurant");
+  if (/\b(kein club|nicht club|kein nachtleben|nicht nachtleben|keine party|kein party|no party)\b/.test(joined)) {
+    excludedFromText.push("nightlife");
+  }
+
+  const excludedPlaceTypes = uniqueStrings([...excludedFromBody, ...excludedFromText]);
+
+  let primaryPlaceTypes = removePlaceTypes(
+    uniqueStrings([...explicitFromBody, ...explicitFromText]),
+    excludedPlaceTypes,
+  );
+
+  const wantsKids =
+    /\b(kind|kinder|kids|kid|family|familie|familien|tochter|sohn|baby|kleinkind|spielplatz)\b/.test(
+      joined,
+    ) || (input.audience ?? []).some((a) => /kid|kind|family|familie/i.test(a));
+
+  const wantsFamily =
+    wantsKids || /\b(familie|family|familienfreundlich|family friendly)\b/.test(joined);
+
+  const wantsSunday = /\b(sonntag|sunday)\b/.test(joined);
+  const wantsWeekend = wantsSunday || /\b(wochenende|weekend|samstag|saturday)\b/.test(joined);
+  const wantsIndoor = /\b(indoor|drinnen|innen|regen|regenwetter|rainy|schlechtwetter)\b/.test(joined);
+  const wantsOutdoor = /\b(outdoor|draussen|draußen|park|spaziergang|tierpark|zoo|aussicht)\b/.test(joined);
+
+  if (wantsKids && primaryPlaceTypes.length === 0) {
+    primaryPlaceTypes = ["activity", "culture", "outing", "experience"];
+  }
+
+  if (wantsKids && primaryPlaceTypes.includes("bar")) {
+    primaryPlaceTypes = primaryPlaceTypes.filter((type) => type !== "bar");
+  }
+
+  const secondaryPlaceTypes: string[] = [];
+
+  if (wantsKids) {
+    for (const type of ["culture", "activity", "outing", "experience"]) {
+      if (!primaryPlaceTypes.includes(type) && !excludedPlaceTypes.includes(type)) {
+        secondaryPlaceTypes.push(type);
+      }
+    }
+
+    if (!primaryPlaceTypes.includes("cafe") && !excludedPlaceTypes.includes("cafe")) {
+      secondaryPlaceTypes.push("cafe");
+    }
+
+    if (!excludedPlaceTypes.includes("bar")) excludedPlaceTypes.push("bar");
+    if (!excludedPlaceTypes.includes("nightlife")) excludedPlaceTypes.push("nightlife");
+  }
+
+  const wantsCafe =
+    /\b(cafe|kaffee|coffee)\b/.test(joined) || primaryPlaceTypes.includes("cafe");
+
+  const wantsWarm =
+    /\b(warm|gemutlich|gemuetlich|cozy|cosy|ruhig|quiet|intimate|intim|entspannt)\b/.test(
+      joined,
+    );
+
+  const wantsQuiet =
+    /\b(ruhig|quiet|leise|nicht laut|nicht zu laut|calm|entspannt|entspannter|reflektiert)\b/.test(
+      joined,
+    );
+
+  const wantsRomantic =
+    /\b(romantic|romantisch|date|datenight|date night)\b/.test(joined);
+
+  const wantsTalk =
+    /\b(talk|reden|gesprach|gespraech|unterhalten|quiet enough|nicht zu laut)\b/.test(
+      joined,
+    );
+
+  const wantsDrinks =
+    /\b(drinks|bar|cocktail|cocktails|bier|beer|wine|wein|afterwork)\b/.test(
+      joined,
+    ) || primaryPlaceTypes.includes("bar");
+
+  const wantsActivity =
+    /\b(activity|aktivitat|aktivitaet|kids|family|familie|klettern|museum|spaziergang|kultur|culture|ausflug)\b/.test(
+      joined,
+    ) ||
+    primaryPlaceTypes.some((type) =>
+      ["activity", "culture", "outing", "experience"].includes(type),
+    );
+
+  const wantsCulture =
+    /\b(kultur|culture|museum|galerie|gallery|kunst|art|creative|kreativ|ausstellung|ausstellungen|inspirierend|inspiration|entdecken|discover)\b/.test(
+      joined,
+    ) || primaryPlaceTypes.includes("culture");
+
+  const wantsArt =
+    /\b(kunst|art|galerie|gallery|ausstellung|ausstellungen|museum|museen|kunsthalle|kreativ|creative)\b/.test(
+      joined,
+    );
+
+  const wantsSolo =
+    /\b(alleine|allein|solo|me time|metime|fur mich|für mich)\b/.test(joined);
+
+  const wantsRainyDay =
+    /\b(regen|regenwetter|rain|rainy|schlechtwetter|indoor)\b/.test(joined);
+
+  const wantsOuting =
+    /\b(ausflug|spaziergang|view|aussicht|draussen|draußen|outdoor|walk|entdecken|discover)\b/.test(
+      joined,
+    ) || primaryPlaceTypes.includes("outing");
+
+  const avoidRestaurant =
+    excludedPlaceTypes.includes("restaurant") ||
+    /\b(kein restaurant|nicht restaurant|no restaurant|ohne restaurant|kein dinner|kein essen|nicht essen)\b/.test(
+      joined,
+    );
+
+  const avoidParty =
+    excludedPlaceTypes.includes("nightlife") ||
+    /\b(kein party|keine party|nicht party|no party|kein club|nicht club|kein nachtleben|nicht nachtleben|nicht laut|kein lauter abend)\b/.test(
+      joined,
+    );
+
+  const avoidBars =
+    excludedPlaceTypes.includes("bar") ||
+    /\b(keine bar|kein bar|nicht bar|no bar|ohne bar|keine drinks|kein alkohol)\b/.test(
+      joined,
+    );
+
+  const hasExplicitPlaceTypeIntent = primaryPlaceTypes.length > 0;
+  const hasMoodSignal = hasAnyMoodSignal(joined);
+  const categoryOnlyMode = hasExplicitPlaceTypeIntent && !input.moodA && !input.moodB && !hasMoodSignal;
+  const mustRespectCategory = Boolean(input.strictCategoryIntent) || hasExplicitPlaceTypeIntent || wantsKids;
+
+  return {
+    wantsCafe,
+    wantsWarm,
+    wantsQuiet,
+    wantsRomantic,
+    wantsTalk,
+    wantsDrinks,
+    wantsActivity,
+    wantsCulture,
+    wantsArt,
+    wantsSolo,
+    wantsRainyDay,
+    wantsOuting,
+    avoidRestaurant,
+    avoidParty,
+    avoidBars,
+    wantsKids,
+    wantsFamily,
+    wantsSunday,
+    wantsWeekend,
+    wantsIndoor,
+    wantsOutdoor,
+    hasMoodSignal,
+    hasExplicitPlaceTypeIntent,
+    mustRespectCategory,
+    categoryOnlyMode,
+    primaryPlaceTypes: uniqueStrings(primaryPlaceTypes),
+    secondaryPlaceTypes: uniqueStrings(removePlaceTypes(secondaryPlaceTypes, primaryPlaceTypes)),
+    excludedPlaceTypes: uniqueStrings(excludedPlaceTypes),
+    audience: uniqueStrings([
+      ...(input.audience ?? []),
+      ...(wantsKids ? ["kids"] : []),
+      ...(wantsFamily ? ["family"] : []),
+    ]),
+    occasions: uniqueStrings([
+      ...(input.occasions ?? []),
+      ...(wantsSunday ? ["sunday"] : []),
+      ...(wantsWeekend ? ["weekend"] : []),
+      ...(wantsRainyDay ? ["rainy_day"] : []),
+      ...(wantsIndoor ? ["indoor"] : []),
+      ...(wantsOutdoor ? ["outdoor"] : []),
+    ]),
+  };
+}
+
+function explicitHardPlaceTypesFromText(joined: string): string[] {
+  const result: string[] = [];
+  const patterns: Array<[string, RegExp]> = [
+    ["cafe", /\b(?:nur|ausschliesslich|ausschließlich|only)\s+(?:ein(?:e|en)?\s+)?(?:cafe|kaffee|coffee)\b/],
+    ["bar", /\b(?:nur|ausschliesslich|ausschließlich|only)\s+(?:ein(?:e|en)?\s+)?bar\b/],
+    ["restaurant", /\b(?:nur|ausschliesslich|ausschließlich|only)\s+(?:ein(?:e|en)?\s+)?restaurant\b/],
+    ["nightlife", /\b(?:nur|ausschliesslich|ausschließlich|only)\s+(?:ein(?:e|en)?\s+)?(?:club|nachtleben|nightlife)\b/],
+    ["culture", /\b(?:nur|ausschliesslich|ausschließlich|only)\s+(?:ein(?:e|en)?\s+)?(?:museum|kultur|culture|galerie|kunst)\b/],
+    ["activity", /\b(?:nur|ausschliesslich|ausschließlich|only)\s+(?:ein(?:e|en)?\s+)?(?:aktivitat|aktivitaet|aktivität|activity)\b/],
+    ["outing", /\b(?:nur|ausschliesslich|ausschließlich|only)\s+(?:ein(?:e|en)?\s+)?(?:ausflug|outing)\b/],
+    ["experience", /\b(?:nur|ausschliesslich|ausschließlich|only)\s+(?:ein(?:e|en)?\s+)?(?:erlebnis|experience)\b/],
+    ["hotel", /\b(?:nur|ausschliesslich|ausschließlich|only)\s+(?:ein(?:e|en)?\s+)?(?:hotel|unterkunft)\b/],
+  ];
+  for (const [type, pattern] of patterns) if (pattern.test(joined)) result.push(type);
+  return uniqueStrings(result);
+}
+
+function softPlaceTypesFromText(joined: string): string[] {
+  const result: string[] = [];
+  const patterns: Array<[string, RegExp]> = [
+    ["cafe", /\b(?:am liebsten|bevorzugt|preferably|ideally)\s+(?:ein(?:e|en)?\s+)?(?:cafe|kaffee|coffee)\b/],
+    ["bar", /\b(?:am liebsten|bevorzugt|preferably|ideally)\s+(?:ein(?:e|en)?\s+)?bar\b/],
+    ["restaurant", /\b(?:am liebsten|bevorzugt|preferably|ideally)\s+(?:ein(?:e|en)?\s+)?restaurant\b/],
+    ["culture", /\b(?:am liebsten|bevorzugt|preferably|ideally)\s+(?:ein(?:e|en)?\s+)?(?:museum|kultur|culture|galerie|kunst)\b/],
+  ];
+  for (const [type, pattern] of patterns) if (pattern.test(joined)) result.push(type);
+  return uniqueStrings(result);
+}
+
+export function extractStructuredIntentV1(input: {
+  query: string | null;
+  rawFreeText?: string | null;
+  preferredPlaceTypes?: string[];
+  excludedPlaceTypes?: string[];
+  strictCategoryIntent?: boolean;
+  openNow?: boolean;
+}): StructuredDecisionIntentV1 {
+  const joined = normalizeText([input.query, input.rawFreeText].filter(Boolean).join(" "));
+  const excluded = uniqueStrings([
+    ...(input.excludedPlaceTypes ?? []),
+    ...(/\b(keine bar|kein bar|nicht bar|no bar|ohne bar|keine drinks|kein alkohol)\b/.test(joined) ? ["bar"] : []),
+    ...(/\b(kein restaurant|nicht restaurant|no restaurant|ohne restaurant|kein dinner|kein essen|nicht essen)\b/.test(joined) ? ["restaurant"] : []),
+    ...(/\b(kein club|nicht club|kein nachtleben|nicht nachtleben|keine party|kein party|no party)\b/.test(joined) ? ["nightlife"] : []),
+  ]);
+  const explicitHard = explicitHardPlaceTypesFromText(joined);
+  const guidedHard = input.strictCategoryIntent ? (input.preferredPlaceTypes ?? []) : [];
+  const required = removePlaceTypes(uniqueStrings([...guidedHard, ...explicitHard]), excluded);
+  const explicitSoft = softPlaceTypesFromText(joined);
+  const guidedSoft = input.strictCategoryIntent ? [] : (input.preferredPlaceTypes ?? []);
+  const soft = removePlaceTypes(uniqueStrings([...guidedSoft, ...explicitSoft]), [...required, ...excluded]);
+  const textOpenNow = /\b(jetzt (?:geoffnet|geöffnet|offen)|open now|currently open)\b/.test(joined);
+  const openNow = input.openNow === true || textOpenNow;
+  const evidence: StructuredDecisionIntentV1["extraction"]["evidence"] = [];
+  for (const value of guidedHard) evidence.push({ field: "required_place_type", source: "guided", value });
+  for (const value of explicitHard) evidence.push({ field: "required_place_type", source: "free_text", value });
+  for (const value of input.excludedPlaceTypes ?? []) evidence.push({ field: "excluded_place_type", source: "guided", value });
+  for (const value of excluded.filter((item) => !(input.excludedPlaceTypes ?? []).includes(item))) evidence.push({ field: "excluded_place_type", source: "free_text", value });
+  for (const value of guidedSoft) evidence.push({ field: "soft_place_type", source: "guided", value });
+  for (const value of explicitSoft) evidence.push({ field: "soft_place_type", source: "free_text", value });
+  if (input.openNow === true) evidence.push({ field: "open_now", source: "guided", value: "true" });
+  else if (textOpenNow) evidence.push({ field: "open_now", source: "free_text", value: "true" });
+
+  return {
+    version: STRUCTURED_INTENT_VERSION,
+    hardConstraints: { requiredPlaceTypes: required, excludedPlaceTypes: excluded, openNow },
+    softPreferences: { placeTypes: soft },
+    extraction: { mode: "deterministic_v1", confidence: "high", unknown: [], evidence },
+  };
+}
+
+export function applyUserHardConstraintEligibilityV1(
+  candidates: Candidate[],
+  intent: StructuredDecisionIntentV1,
+): { eligible: Candidate[]; report: HardConstraintEligibilityV1 } {
+  const eligible: Candidate[] = [];
+  const exclusions: HardConstraintExclusionV1[] = [];
+  for (const candidate of candidates) {
+    const exclusion = hardConstraintExclusionV1(candidate, intent);
+    if (exclusion) exclusions.push(exclusion);
+    else eligible.push(candidate);
+  }
+  return {
+    eligible,
+    report: {
+      version: "user-hard-constraint-eligibility-v1",
+      candidateCountBefore: candidates.length,
+      candidateCountAfter: eligible.length,
+      excludedCount: exclusions.length,
+      unknownEvidenceCount: exclusions.filter((row) => row.evidenceStatus === "UNKNOWN").length,
+      exclusions,
+    },
+  };
+}
+
+function hardConstraintExclusionV1(
+  candidate: Pick<Candidate, "spot_id" | "place_type" | "category_name" | "is_open_now">,
+  intent: StructuredDecisionIntentV1,
+): HardConstraintExclusionV1 | null {
+  const placeType = candidate.place_type ?? placeTypeFromCategory(candidate.category_name);
+  if (intent.hardConstraints.requiredPlaceTypes.length > 0 && !intent.hardConstraints.requiredPlaceTypes.includes(placeType)) {
+    return { spot_id: candidate.spot_id, constraint: "HARD_CATEGORY", expected: intent.hardConstraints.requiredPlaceTypes, observed: placeType, evidenceStatus: "KNOWN" };
+  }
+  if (intent.hardConstraints.excludedPlaceTypes.includes(placeType)) {
+    return { spot_id: candidate.spot_id, constraint: "CATEGORY_EXCLUSION", expected: intent.hardConstraints.excludedPlaceTypes, observed: placeType, evidenceStatus: "KNOWN" };
+  }
+  if (intent.hardConstraints.openNow && candidate.is_open_now !== true) {
+    return { spot_id: candidate.spot_id, constraint: "OPEN_NOW", expected: true, observed: candidate.is_open_now, evidenceStatus: candidate.is_open_now === null ? "UNKNOWN" : "KNOWN" };
+  }
+  return null;
+}
+
+async function createEmbedding(env: Env, input: string): Promise<number[]> {
+  const response = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: EMBEDDING_MODEL,
+      input,
+      dimensions: EMBEDDING_DIMENSIONS,
+    }),
+  });
+
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      `OpenAI embeddings failed ${response.status}: ${JSON.stringify(payload)}`,
+    );
+  }
+
+  const embedding = payload?.data?.[0]?.embedding;
+
+  if (!Array.isArray(embedding) || embedding.length !== EMBEDDING_DIMENSIONS) {
+    throw new Error(
+      `Invalid embedding length: expected ${EMBEDDING_DIMENSIONS}, got ${
+        Array.isArray(embedding) ? embedding.length : "non-array"
+      }`,
+    );
+  }
+
+  return embedding;
+}
+
+async function rpc<T>(
+  env: Env,
+  functionName: string,
+  body: Record<string, unknown>,
+  authToken?: string | null,
+): Promise<T> {
+  const token = authToken ?? env.SUPABASE_SERVICE_ROLE_KEY;
+
+  const response = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${functionName}`, {
+    method: "POST",
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(
+      `Supabase RPC ${functionName} failed ${response.status}: ${
+        text || response.statusText
+      }`,
+    );
+  }
+
+  if (!text) return null as T;
+  return JSON.parse(text) as T;
+}
+
+async function getSemanticCandidates(
+  env: Env,
+  args: {
+    queryEmbedding: number[];
+    city: string | null;
+    limit: number;
+    excludeSpotIds: string[];
+  },
+): Promise<SemanticMatchRow[]> {
+  return await rpc<SemanticMatchRow[]>(
+    env,
+    "backyrd_match_spot_embeddings_v13",
+    {
+      p_query_embedding: embeddingToSqlVector(args.queryEmbedding),
+      p_city: args.city,
+      p_limit: args.limit,
+      p_exclude_spot_ids: args.excludeSpotIds,
+    },
+    env.SUPABASE_SERVICE_ROLE_KEY,
+  );
+}
+
+async function getV12Candidates(
+  env: Env,
+  args: {
+    city: string | null;
+    moodA: string | null;
+    moodB: string | null;
+    query: string | null;
+    limit: number;
+    userToken: string;
+  },
+): Promise<V12DecisionRow[]> {
+  return await rpc<V12DecisionRow[]>(
+    env,
+    "backyrd_get_decision_spots_v12",
+    {
+      p_city: args.city,
+      p_selected_cluster_ids: null,
+      p_query:
+        args.query ?? [args.moodA, args.moodB].filter(Boolean).join(" ").trim(),
+      p_limit: args.limit,
+      p_k: 1.0,
+      p_open_bonus: 0.0,
+      p_taste_weight: 0.52,
+      p_explore_weight: 0.055,
+      p_mood_a_text: args.moodA,
+      p_mood_b_text: args.moodB,
+    },
+    args.userToken,
+  );
+}
+
+async function fetchSpotMeta(
+  env: Env,
+  spotIds: string[],
+): Promise<Map<string, SpotMetaRow>> {
+  const uniqueIds = Array.from(new Set(spotIds.filter(Boolean)));
+  const result = new Map<string, SpotMetaRow>();
+
+  if (uniqueIds.length === 0) return result;
+
+  const quotedIds = uniqueIds.map((id) => `"${id}"`).join(",");
+  const url =
+    `${env.SUPABASE_URL}/rest/v1/spots?select=id,name,city,category_id,categories(name),spot_hours(day_of_week,open_time,close_time,idx)&id=in.(${quotedIds})`;
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) return result;
+
+    const rows = (await response.json()) as SpotMetaRow[];
+
+    for (const row of rows) {
+      result.set(row.id, row);
+    }
+
+    return result;
+  } catch {
+    return result;
+  }
+}
+
+const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+function minuteOfDay(value: string | null | undefined): number | null {
+  const match = String(value ?? "").match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute) || hour > 23 || minute > 59) return null;
+  return hour * 60 + minute;
+}
+
+function resolveOpenAt(
+  hours: SpotMetaRow["spot_hours"],
+  decisionAt: Date,
+): boolean | null {
+  if (!Array.isArray(hours) || hours.length === 0 || Number.isNaN(decisionAt.getTime())) return null;
+  const day = WEEKDAYS[decisionAt.getUTCDay()];
+  const previousDay = WEEKDAYS[(decisionAt.getUTCDay() + 6) % 7];
+  const minute = decisionAt.getUTCHours() * 60 + decisionAt.getUTCMinutes();
+  let hadValidEvidence = false;
+  for (const row of hours) {
+    const open = minuteOfDay(row.open_time);
+    const close = minuteOfDay(row.close_time);
+    if (open === null || close === null) continue;
+    const rowDay = normalizeText(row.day_of_week);
+    if (open <= close && rowDay === day) {
+      hadValidEvidence = true;
+      if (minute >= open && minute < close) return true;
+    } else if (open > close) {
+      if (rowDay === day) {
+        hadValidEvidence = true;
+        if (minute >= open) return true;
+      }
+      if (rowDay === previousDay) {
+        hadValidEvidence = true;
+        if (minute < close) return true;
+      }
+    }
+  }
+  return hadValidEvidence ? false : null;
+}
+
+async function fetchSpotIntelligenceCatalog(
+  env: Env,
+  args: { city: string | null; decisionAt: Date },
+): Promise<SpotIntelligenceV1[]> {
+  const cityFilter = args.city ? `&city=eq.${encodeURIComponent(args.city)}` : "";
+  const url = `${env.SUPABASE_URL}/rest/v1/spots?select=id,name,city,status,category_id,price_level,lat,lng,categories(name),spot_hours(day_of_week,open_time,close_time,idx)&status=eq.approved${cityFilter}&order=id.asc&limit=${MAX_CATALOG_LIMIT}`;
+  const response = await fetch(url, {
+    headers: {
+      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+      authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+    },
+  });
+  if (!response.ok) throw new Error(`Spot Intelligence catalog failed ${response.status}`);
+  const rows = await response.json() as SpotIntelligenceRow[];
+  const documents = new Map<string, SpotDocumentRow>();
+  for (let offset = 0; offset < rows.length; offset += 100) {
+    const ids = rows.slice(offset, offset + 100).map((row) => `"${row.id}"`).join(",");
+    if (!ids) continue;
+    const documentResponse = await fetch(`${env.SUPABASE_URL}/rest/v1/backyrd_spot_ml_documents_v1?select=spot_id,document_text,document_version,updated_at&spot_id=in.(${ids})`, {
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+      },
+    });
+    if (!documentResponse.ok) throw new Error(`Spot Intelligence documents failed ${documentResponse.status}`);
+    for (const document of await documentResponse.json() as SpotDocumentRow[]) documents.set(document.spot_id, document);
+  }
+  return rows.map((row) => {
+    const document = documents.get(row.id);
+    const open = resolveOpenAt(row.spot_hours, args.decisionAt);
+    const categoryName = row.categories?.name ?? null;
+    return {
+      version: SPOT_INTELLIGENCE_VERSION,
+      spot_id: row.id,
+      name: row.name,
+      city: row.city,
+      status: row.status,
+      category_name: categoryName,
+      place_type: placeTypeFromCategory(categoryName),
+      price_level: row.price_level,
+      lat: row.lat,
+      lng: row.lng,
+      is_open_now: open,
+      document_text: document?.document_text ?? null,
+      document_version: document?.document_version ?? null,
+      document_updated_at: document?.updated_at ?? null,
+      availability: {
+        category: categoryName ? "KNOWN" : "UNKNOWN",
+        document: document?.document_text ? "KNOWN" : "UNKNOWN",
+        price: row.price_level === null ? "UNKNOWN" : "KNOWN",
+        location: Number.isFinite(row.lat) && Number.isFinite(row.lng) ? "KNOWN" : "UNKNOWN",
+        opening_hours: open === null ? "UNKNOWN" : "KNOWN",
+      },
+    };
+  });
+}
+
+function spotIntelligenceCompleteness(spot: SpotIntelligenceV1): number {
+  const values = Object.values(spot.availability);
+  return values.length ? values.filter((value) => value === "KNOWN").length / values.length : 0;
+}
+
+export function eligibleSpotIntelligence(
+  catalog: SpotIntelligenceV1[],
+  intent: StructuredDecisionIntentV1,
+  distribution: Map<string, DistributionEligibilityRow>,
+): { eligible: SpotIntelligenceV1[]; exclusions: HardConstraintExclusionV1[] } {
+  const exclusions: HardConstraintExclusionV1[] = [];
+  const eligible = catalog.filter((spot) => {
+    if (spot.status !== "approved") return false;
+    if (!distribution.get(spot.spot_id)?.eligible) return false;
+    const exclusion = hardConstraintExclusionV1({ spot_id: spot.spot_id, place_type: spot.place_type, category_name: spot.category_name, is_open_now: spot.is_open_now }, intent);
+    if (exclusion) exclusions.push(exclusion);
+    return !exclusion;
+  });
+  return { eligible, exclusions };
+}
+
+export function structuredRetrievalV1(
+  catalog: SpotIntelligenceV1[],
+  intent: StructuredDecisionIntentV1,
+  limit: number,
+): RetrievalCandidateV1[] {
+  const preferred = new Set([...intent.hardConstraints.requiredPlaceTypes, ...intent.softPreferences.placeTypes]);
+  return [...catalog]
+    .map((spot) => {
+      const categoryMatch = preferred.size === 0 ? 0 : preferred.has(spot.place_type) ? 1 : -1;
+      const sourceScore = (categoryMatch > 0 ? 0.6 : 0.2) + spotIntelligenceCompleteness(spot) * 0.4;
+      return { spot, categoryMatch, sourceScore };
+    })
+    .filter((row) => preferred.size === 0 || row.categoryMatch > 0)
+    .sort((a, b) => b.sourceScore - a.sourceScore || a.spot.spot_id.localeCompare(b.spot.spot_id))
+    .slice(0, limit)
+    .map((row, index) => ({
+      spot_id: row.spot.spot_id,
+      name: row.spot.name,
+      city: row.spot.city,
+      category_name: row.spot.category_name,
+      is_open_now: row.spot.is_open_now,
+      document_text: row.spot.document_text,
+      evidence: {
+        source: "structured_category_v1",
+        source_rank: index + 1,
+        source_score: row.sourceScore,
+        evidence: [preferred.size ? `category:${row.spot.place_type}` : `city:${row.spot.city ?? "unknown"}`, `completeness:${spotIntelligenceCompleteness(row.spot).toFixed(2)}`],
+      },
+    }));
+}
+
+const LEXICAL_STOP_WORDS = new Set(["and", "der", "die", "ein", "eine", "etwas", "for", "fur", "für", "good", "in", "mit", "oder", "place", "places", "spot", "und", "was", "why", "zu"]);
+
+function lexicalTokens(value: string): string[] {
+  return uniqueStrings(normalizeText(value).split(/[^a-z0-9]+/).filter((token) => token.length >= 3 && !LEXICAL_STOP_WORDS.has(token)));
+}
+
+export function lexicalRetrievalV1(
+  catalog: SpotIntelligenceV1[],
+  queryText: string,
+  limit: number,
+): RetrievalCandidateV1[] {
+  const tokens = lexicalTokens(queryText);
+  if (!tokens.length) return [];
+  return catalog.map((spot) => {
+    const name = normalizeText(spot.name);
+    const category = normalizeText(`${spot.category_name ?? ""} ${spot.place_type}`);
+    const document = normalizeText(spot.document_text);
+    const matched = tokens.filter((token) => name.includes(token) || category.includes(token) || document.includes(token));
+    const exactName = normalizeText(queryText) === name ? 1 : 0;
+    const score = exactName * 2 + matched.reduce((sum, token) => sum + (name.includes(token) ? 1 : category.includes(token) ? 0.7 : 0.35), 0) / tokens.length;
+    return { spot, matched, score };
+  }).filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score || a.spot.spot_id.localeCompare(b.spot.spot_id))
+    .slice(0, limit)
+    .map((row, index) => ({
+      spot_id: row.spot.spot_id,
+      name: row.spot.name,
+      city: row.spot.city,
+      category_name: row.spot.category_name,
+      is_open_now: row.spot.is_open_now,
+      document_text: row.spot.document_text,
+      evidence: { source: "lexical_v1", source_rank: index + 1, source_score: row.score, evidence: row.matched.map((token) => `token:${token}`) },
+    }));
+}
+
+export function candidateUnionV1(sources: RetrievalCandidateV1[][]): Array<RetrievalCandidateV1 & { evidence_list: RetrievalEvidenceV1[] }> {
+  const union = new Map<string, RetrievalCandidateV1 & { evidence_list: RetrievalEvidenceV1[] }>();
+  for (const candidates of sources) for (const candidate of candidates) {
+    const existing = union.get(candidate.spot_id);
+    if (existing) existing.evidence_list.push(candidate.evidence);
+    else union.set(candidate.spot_id, { ...candidate, evidence_list: [candidate.evidence] });
+  }
+  return Array.from(union.values()).sort((a, b) => {
+    const aRank = Math.min(...a.evidence_list.map((row) => row.source_rank));
+    const bRank = Math.min(...b.evidence_list.map((row) => row.source_rank));
+    return b.evidence_list.length - a.evidence_list.length || aRank - bRank || a.spot_id.localeCompare(b.spot_id);
+  });
+}
+
+async function getDistributionEligibility(
+  env: Env,
+  spotIds: string[],
+): Promise<Map<string, DistributionEligibilityRow>> {
+  const uniqueIds = Array.from(new Set(spotIds.filter(Boolean)));
+  const result = new Map<string, DistributionEligibilityRow>();
+
+  if (uniqueIds.length === 0) return result;
+
+  const rows = await rpc<DistributionEligibilityRow[]>(
+    env,
+    "distribution_trust_filter_entities_v1",
+    {
+      p_entity_type: "spot",
+      p_entity_ids: uniqueIds,
+      p_surface: "decision",
+    },
+    env.SUPABASE_SERVICE_ROLE_KEY,
+  );
+
+  for (const row of rows ?? []) result.set(row.entity_id, row);
+  return result;
+}
+
+async function getDistributionFallbackSpots(
+  env: Env,
+  args: { city: string | null; limit: number; excludeSpotIds: string[] },
+): Promise<SemanticMatchRow[]> {
+  const fetchCatalog = (city: string | null) => rpc<DistributionFallbackRow[]>(
+    env,
+    "distribution_trust_spot_catalog_v1",
+    {
+      p_query: null,
+      p_city: city,
+      p_limit: Math.max(args.limit * 3, 12),
+      p_surface: "decision",
+    },
+    env.SUPABASE_SERVICE_ROLE_KEY,
+  );
+  const excluded = new Set(args.excludeSpotIds);
+  const selected: DistributionFallbackRow[] = [];
+
+  for (const row of await fetchCatalog(args.city)) {
+    if (excluded.has(row.id)) continue;
+    selected.push(row);
+    excluded.add(row.id);
+    if (selected.length >= args.limit) break;
+  }
+
+  // A sparse city must not produce a broken journey. Expand to the global
+  // trusted catalog while preserving the same Distribution eligibility rule.
+  if (selected.length < args.limit && args.city) {
+    for (const row of await fetchCatalog(null)) {
+      if (excluded.has(row.id)) continue;
+      selected.push(row);
+      excluded.add(row.id);
+      if (selected.length >= args.limit) break;
+    }
+  }
+
+  return selected
+    .map((row) => ({
+      spot_id: row.id,
+      name: row.name,
+      city: row.city,
+      category_name: row.category_name,
+      similarity: 0,
+      document_text: "Distribution-safe alternative candidate",
+    }));
+}
+
+async function getPlaceTypeProfile(
+  env: Env,
+  args: {
+    userToken: string | null;
+    hasUserToken: boolean;
+    contextKey: string;
+  },
+): Promise<{
+  global: Map<string, PlaceTypeProfileRow>;
+  context: Map<string, PlaceTypeProfileRow>;
+}> {
+  const empty = {
+    global: new Map<string, PlaceTypeProfileRow>(),
+    context: new Map<string, PlaceTypeProfileRow>(),
+  };
+
+  if (!args.hasUserToken || !args.userToken) return empty;
+
+  try {
+    const rows = await rpc<PlaceTypeProfileRow[]>(
+      env,
+      "backyrd_get_my_place_type_profile_v1",
+      {
+        p_context_key: null,
+        p_limit: 100,
+      },
+      args.userToken,
+    );
+
+    const global = new Map<string, PlaceTypeProfileRow>();
+    const context = new Map<string, PlaceTypeProfileRow>();
+
+    for (const row of rows ?? []) {
+      if (row.context_key === "global") {
+        global.set(row.place_type, row);
+      }
+
+      if (row.context_key === args.contextKey) {
+        context.set(row.place_type, row);
+      }
+    }
+
+    return { global, context };
+  } catch (error) {
+    console.log("place type profile failed", error);
+    return empty;
+  }
+}
+
+
+async function getDecisionContextKeys(
+  env: Env,
+  args: {
+    city: string | null;
+    moodA: string | null;
+    moodB: string | null;
+    context: Record<string, unknown>;
+  },
+): Promise<DecisionContextKeyRow[]> {
+  try {
+    return await rpc<DecisionContextKeyRow[]>(
+      env,
+      "backyrd_get_context_keys_for_decision_v1",
+      {
+        p_city: args.city,
+        p_mood_a_text: args.moodA,
+        p_mood_b_text: args.moodB,
+        p_context: args.context,
+      },
+      env.SUPABASE_SERVICE_ROLE_KEY,
+    );
+  } catch (error) {
+    console.log("decision context keys failed", error);
+    return [{ context_scope: "global", context_key: "global" }];
+  }
+}
+
+async function getContextualTaste(
+  env: Env,
+  args: {
+    userToken: string | null;
+    hasUserToken: boolean;
+    contextKeys: string[];
+  },
+): Promise<ContextualTasteRow[]> {
+  if (!args.hasUserToken || !args.userToken) return [];
+
+  try {
+    return await rpc<ContextualTasteRow[]>(
+      env,
+      "backyrd_get_my_contextual_taste_v1",
+      {
+        p_context_keys: args.contextKeys.length ? args.contextKeys : ["global"],
+        p_limit: 160,
+      },
+      args.userToken,
+    );
+  } catch (error) {
+    console.log("contextual taste failed", error);
+    return [];
+  }
+}
+
+async function getRecentDecisionMemory(
+  env: Env,
+  args: {
+    userToken: string | null;
+    hasUserToken: boolean;
+  },
+): Promise<RecentDecisionMemoryRow[]> {
+  if (!args.hasUserToken || !args.userToken) return [];
+
+  try {
+    return await rpc<RecentDecisionMemoryRow[]>(
+      env,
+      "backyrd_get_recent_decision_memory_v1",
+      {
+        p_hours: 48,
+        p_limit: 220,
+      },
+      args.userToken,
+    );
+  } catch (error) {
+    console.log("recent decision memory failed", error);
+    return [];
+  }
+}
+
+function cleanFeatureKey(featureKey: string | null | undefined): string {
+  const normalized = normalizeText(featureKey);
+  const [, value = normalized] = normalized.split(":");
+  return value.trim();
+}
+
+function featureMatchesCandidate(candidate: Candidate, row: ContextualTasteRow): boolean {
+  const searchable = candidateSearchable(candidate);
+  const featureType = normalizeText(row.feature_type);
+  const value = cleanFeatureKey(String(row.feature_key ?? ""));
+  if (!value) return false;
+
+  if (featureType === "category") {
+    const category = normalizeText(candidate.category_name);
+    const type = normalizeText(candidate.place_type);
+    return category.includes(value) || value.includes(category) || type.includes(value) || searchable.includes(value);
+  }
+
+  if (featureType === "price") {
+    return searchable.includes(`preislevel: ${value}`) || searchable.includes(`price:${value}`) || searchable.includes(`price ${value}`);
+  }
+
+  if (featureType === "city") {
+    return normalizeText(candidate.city).includes(value);
+  }
+
+  return searchable.includes(value);
+}
+
+function scopeTasteMultiplier(scope: string): number {
+  switch (scope) {
+    case "category_situation":
+      return 0.72;
+    case "situation":
+      return 0.5;
+    case "category":
+      return 0.34;
+    case "global":
+      return 0.14;
+    default:
+      return 0.2;
+  }
+}
+
+function calculateContextualTasteComponent(candidate: Candidate, rows: ContextualTasteRow[], intent: DecisionIntent): number {
+  if (!rows.length) return 0;
+
+  let total = 0;
+
+  for (const row of rows) {
+    if (!featureMatchesCandidate(candidate, row)) continue;
+
+    const weight = toNumber(row.weight, 0);
+    const confidence = Math.max(0.15, Math.min(1, toNumber(row.confidence, 0) * 7.5));
+    const scopeMultiplier = scopeTasteMultiplier(String(row.context_scope ?? ""));
+    const signed = weight * confidence * scopeMultiplier;
+
+    total += signed;
+  }
+
+  // In explicit category-only mode this is a friend-like nudge, not the boss.
+  const cap = intent.categoryOnlyMode ? 0.18 : intent.hasExplicitPlaceTypeIntent ? 0.22 : 0.3;
+  return Math.max(-cap, Math.min(cap, total));
+}
+
+function calculateRecentMemoryComponent(candidate: Candidate, rows: RecentDecisionMemoryRow[], intent: DecisionIntent): number {
+  const row = rows.find((item) => item.spot_id === candidate.spot_id);
+  if (!row) return 0;
+
+  const penalty = toNumber(row.penalty, 0);
+  const bonus = toNumber(row.bonus, 0);
+
+  // V13.9: Recent memory is a session-diversity layer.
+  // A like still teaches taste through contextual memory, but the exact same spot
+  // should not be pushed again too aggressively in an immediate repeat.
+  let value = penalty + bonus;
+
+  if (row.memory_kind === "recent_dislike") value -= intent.categoryOnlyMode ? 0.1 : 0.06;
+  if (row.memory_kind === "recent_positive") value -= intent.categoryOnlyMode ? 0.15 : 0.1;
+  if (row.memory_kind === "recent_open") value -= intent.categoryOnlyMode ? 0.04 : 0.015;
+  if (row.memory_kind === "recent_seen") value -= intent.categoryOnlyMode ? 0.055 : 0.03;
+
+  return Math.max(-0.56, Math.min(0.08, value));
+}
+
+function normalizeV12Score(score: number): number {
+  return Math.max(0, Math.min(score, 1));
+}
+
+function normalizeSemanticSimilarity(similarity: number): number {
+  const normalized = (similarity - 0.5) / 0.25;
+  return Math.max(0, Math.min(normalized, 1));
+}
+
+function sourceBonus(sources: Candidate["sources"]): number {
+  if (sources.includes("personalized_v12") && sources.includes("semantic_v13")) {
+    return 0.08;
+  }
+  return 0;
+}
+
+function candidateSearchable(candidate: Candidate): string {
+  const category = normalizeText(candidate.category_name);
+  const preview = normalizeText(candidate.document_preview);
+  const tokens = normalizeText(candidate.matched_tokens.join(" "));
+  const terms = normalizeText(candidate.matched_terms.join(" "));
+  return `${category} ${preview} ${tokens} ${terms}`;
+}
+
+function hasKidsFriendlySignal(searchable: string): boolean {
+  return Boolean(
+    /\b(kinder|kind|kids|kid|familie|familien|family|family friendly|family-friendly|familienfreundlich|mit kindern|tochter|sohn|kleinkind|baby)\b/.test(searchable) ||
+      searchable.includes("spielplatz") ||
+      searchable.includes("spielzeug") ||
+      searchable.includes("tierpark") ||
+      searchable.includes("zoo") ||
+      searchable.includes("tiere") ||
+      searchable.includes("tier") ||
+      searchable.includes("gratis") ||
+      searchable.includes("kostenlos") ||
+      searchable.includes("unkompliziert") ||
+      searchable.includes("niederschwellig")
+  );
+}
+
+function hasHandsOnFamilySignal(searchable: string): boolean {
+  return Boolean(
+    searchable.includes("hands-on") ||
+      searchable.includes("workshop") ||
+      searchable.includes("interaktiv") ||
+      searchable.includes("interaktive") ||
+      searchable.includes("mitmachen") ||
+      searchable.includes("selber") ||
+      searchable.includes("kreativ") ||
+      searchable.includes("handwerk") ||
+      searchable.includes("druck") ||
+      searchable.includes("papier") ||
+      searchable.includes("technik") ||
+      searchable.includes("rundfahrt") ||
+      searchable.includes("tram")
+  );
+}
+
+function hasOutdoorFamilySignal(searchable: string): boolean {
+  return Boolean(
+    searchable.includes("outdoor") ||
+      searchable.includes("draussen") ||
+      searchable.includes("draußen") ||
+      searchable.includes("park") ||
+      searchable.includes("spaziergang") ||
+      searchable.includes("natur") ||
+      searchable.includes("grun") ||
+      searchable.includes("grün") ||
+      searchable.includes("wald") ||
+      searchable.includes("tiere") ||
+      searchable.includes("tierpark") ||
+      searchable.includes("zoo")
+  );
+}
+
+function hasFoodIntent(intent: DecisionIntent): boolean {
+  return Boolean(
+    intent.primaryPlaceTypes.includes("restaurant") ||
+      intent.secondaryPlaceTypes.includes("restaurant") ||
+      intent.wantsCafe ||
+      intent.wantsDrinks
+  );
+}
+
+function normalizeCandidateNameKey(candidate: Candidate): string {
+  const name = normalizeText(candidate.name)
+    .replace(/\b(basel|schweiz|switzerland|universitat|universitaet|university|der|die|das|the|restaurant|bar|cafe|museum)\b/g, " ")
+    .replace(/\blange erlen\b/g, "lange erle")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+  const compact = name.replace(/\s+/g, "");
+
+  if (compact.includes("tierparklangeerle")) return "tierpark-lange-erle";
+  if (compact.includes("baslerpapiermuhle") || compact.includes("papiermuhle")) return "basler-papiermuehle";
+  if (compact.includes("kunsthalle")) return "kunsthalle-basel";
+  if (compact.includes("kunstmuseum")) return "kunstmuseum-basel";
+
+  return compact || candidate.spot_id;
+}
+
+function diversifyCandidates(candidates: Candidate[], limit: number, intent: DecisionIntent): Candidate[] {
+  const selected: Candidate[] = [];
+  const usedNameKeys = new Set<string>();
+  const typeCounts = new Map<string, number>();
+
+  for (const candidate of candidates) {
+    const key = normalizeCandidateNameKey(candidate);
+    if (usedNameKeys.has(key)) continue;
+
+    const type = candidate.place_type ?? "other";
+    const currentTypeCount = typeCounts.get(type) ?? 0;
+
+    // In family/activity mode, avoid a wall of museums when stronger outdoor/activity options exist.
+    if ((intent.wantsKids || intent.wantsFamily) && type === "culture" && currentTypeCount >= 3 && selected.length < limit - 1) {
+      continue;
+    }
+
+    selected.push(candidate);
+    usedNameKeys.add(key);
+    typeCounts.set(type, currentTypeCount + 1);
+
+    if (selected.length >= limit) break;
+  }
+
+  if (selected.length >= limit) return selected;
+
+  for (const candidate of candidates) {
+    if (selected.some((item) => item.spot_id === candidate.spot_id)) continue;
+    const key = normalizeCandidateNameKey(candidate);
+    if (usedNameKeys.has(key)) continue;
+
+    selected.push(candidate);
+    usedNameKeys.add(key);
+    if (selected.length >= limit) break;
+  }
+
+  return selected;
+}
+
+function isClassicAdultCultureSignal(searchable: string): boolean {
+  return Boolean(
+    (
+      searchable.includes("kunsthalle") ||
+      searchable.includes("zeitgenossische kunst") ||
+      searchable.includes("zeitgenössische kunst") ||
+      searchable.includes("galerie") ||
+      searchable.includes("gallery") ||
+      searchable.includes("ausstellung")
+    ) &&
+      !hasKidsFriendlySignal(searchable) &&
+      !hasHandsOnFamilySignal(searchable)
+  );
+}
+
+function isStrongCultureIntent(intent: DecisionIntent): boolean {
+  return Boolean(
+    intent.primaryPlaceTypes.includes("culture") ||
+      (intent.wantsCulture &&
+        (intent.wantsArt ||
+          intent.wantsQuiet ||
+          intent.wantsSolo ||
+          intent.wantsRainyDay ||
+          intent.avoidRestaurant ||
+          intent.avoidParty))
+  );
+}
+
+function isExplicitNonFoodCultureIntent(intent: DecisionIntent): boolean {
+  return Boolean(
+    (intent.primaryPlaceTypes.includes("culture") &&
+      !intent.primaryPlaceTypes.includes("restaurant") &&
+      !intent.primaryPlaceTypes.includes("cafe") &&
+      !intent.primaryPlaceTypes.includes("bar")) ||
+      (isStrongCultureIntent(intent) &&
+        (intent.avoidRestaurant || intent.avoidParty || intent.wantsArt || intent.wantsSolo))
+  );
+}
+
+function isStrongBarIntent(intent: DecisionIntent): boolean {
+  return Boolean(
+    !intent.wantsKids &&
+      !intent.avoidBars &&
+      intent.primaryPlaceTypes.includes("bar") &&
+      intent.wantsDrinks
+  );
+}
+
+function calculateIntentBoost(candidate: Candidate, intent: DecisionIntent): number {
+  const searchable = candidateSearchable(candidate);
+  const placeType = candidate.place_type ?? "other";
+
+  let boost = 0;
+
+  const strongCultureIntent = isStrongCultureIntent(intent);
+  const strongBarIntent = isStrongBarIntent(intent);
+  const strongActivityIntent = intent.mustRespectCategory && intent.primaryPlaceTypes.includes("activity") && !intent.wantsDrinks && !intent.wantsCafe;
+  const explicitNonFoodCultureIntent = isExplicitNonFoodCultureIntent(intent);
+  const kidsFriendly = hasKidsFriendlySignal(searchable);
+  const handsOn = hasHandsOnFamilySignal(searchable);
+  const outdoorFamily = hasOutdoorFamilySignal(searchable);
+  const classicAdultCulture = isClassicAdultCultureSignal(searchable);
+
+  if (intent.wantsKids || intent.wantsFamily) {
+    if (kidsFriendly) boost += 0.2;
+    if (handsOn) boost += 0.15;
+    if (outdoorFamily) boost += intent.wantsIndoor ? 0.02 : 0.14;
+
+    if (placeType === "outing") boost += 0.16;
+    if (placeType === "activity") boost += 0.14;
+    if (placeType === "experience") boost += 0.1;
+
+    if (placeType === "culture") {
+      boost += kidsFriendly || handsOn ? 0.09 : -0.07;
+    }
+
+    if (intent.wantsIndoor || intent.wantsRainyDay) {
+      if (placeType === "culture" && (kidsFriendly || handsOn)) boost += 0.09;
+      if (placeType === "activity" || placeType === "experience") boost += 0.05;
+      if (outdoorFamily && !handsOn) boost -= 0.06;
+    }
+
+    if (!intent.wantsIndoor && !intent.wantsRainyDay && classicAdultCulture) {
+      boost -= 0.16;
+    }
+
+    if (placeType === "cafe") boost += 0.015;
+
+    if (placeType === "bar" || placeType === "nightlife") {
+      boost -= 0.42;
+    }
+
+    if (placeType === "restaurant" && !hasFoodIntent(intent)) {
+      boost -= intent.categoryOnlyMode ? 0.46 : 0.28;
+    }
+
+    if (
+      searchable.includes("club") ||
+      searchable.includes("cocktail") ||
+      searchable.includes("drinks") ||
+      searchable.includes("party") ||
+      searchable.includes("bierhalle")
+    ) {
+      boost -= 0.28;
+    }
+  }
+
+  if (intent.wantsCafe) {
+    if (placeType === "cafe") boost += 0.065;
+    if (searchable.includes("kaffee") || searchable.includes("coffee")) boost += 0.025;
+
+    if (placeType === "nightlife" || searchable.includes("party") || searchable.includes("club") || searchable.includes("tanzen")) {
+      boost -= 0.07;
+    }
+  }
+
+  if (intent.wantsWarm && !explicitNonFoodCultureIntent) {
+    if (
+      searchable.includes("cozy") ||
+      searchable.includes("warm") ||
+      searchable.includes("gemutlich") ||
+      searchable.includes("gemuetlich") ||
+      searchable.includes("intimate") ||
+      searchable.includes("intim") ||
+      searchable.includes("entspannt")
+    ) {
+      boost += intent.hasExplicitPlaceTypeIntent ? 0.025 : 0.045;
+    }
+  }
+
+  if (intent.wantsQuiet) {
+    if (
+      searchable.includes("ruhig") ||
+      searchable.includes("quiet") ||
+      searchable.includes("calm") ||
+      searchable.includes("reflektiert") ||
+      searchable.includes("minimalistisch") ||
+      searchable.includes("entschleunigt")
+    ) {
+      boost += 0.04;
+    }
+
+    if (
+      searchable.includes("club") ||
+      searchable.includes("party") ||
+      searchable.includes("tanzen") ||
+      searchable.includes("bierhalle") ||
+      searchable.includes("grosse gruppen") ||
+      placeType === "nightlife"
+    ) {
+      boost -= 0.09;
+    }
+  }
+
+  if (intent.wantsSunday || intent.wantsWeekend) {
+    if (
+      searchable.includes("sonntag") ||
+      searchable.includes("sunday") ||
+      searchable.includes("wochenende") ||
+      searchable.includes("weekend") ||
+      searchable.includes("brunch")
+    ) {
+      boost += 0.045;
+    }
+  }
+
+  if (intent.wantsIndoor) {
+    if (searchable.includes("indoor") || searchable.includes("drinnen") || searchable.includes("innen")) {
+      boost += 0.055;
+    }
+    if (placeType === "culture" && (kidsFriendly || handsOn || !intent.wantsKids)) boost += 0.035;
+    if (placeType === "activity" || placeType === "experience") boost += 0.025;
+  }
+
+  if (intent.wantsRomantic) {
+    if (searchable.includes("romantic") || searchable.includes("romantisch") || searchable.includes("date night") || searchable.includes("intimate")) {
+      boost += 0.035;
+    }
+  }
+
+  if (intent.wantsTalk) {
+    if (placeType === "cafe" || searchable.includes("quiet") || searchable.includes("ruhig") || searchable.includes("intimate") || searchable.includes("gemutlich") || searchable.includes("gemuetlich")) {
+      boost += 0.03;
+    }
+
+    if (searchable.includes("club") || searchable.includes("party") || searchable.includes("tanzen") || placeType === "nightlife") {
+      boost -= 0.08;
+    }
+  }
+
+  if (intent.wantsDrinks && !intent.avoidBars && !intent.wantsKids) {
+    if (placeType === "bar" || searchable.includes("cocktail") || searchable.includes("drinks")) {
+      boost += 0.04;
+    }
+  }
+
+  // V13.9: for a clear bar-tour / drinks night, bars should dominate.
+  // Cafés can remain as soft fallbacks, but not compete in the first few picks.
+  if (strongBarIntent) {
+    if (placeType === "bar") boost += 0.12;
+    else if (placeType === "nightlife") boost += 0.04;
+    else if (placeType === "cafe") boost -= 0.22;
+    else if (placeType === "restaurant") boost -= 0.2;
+    else boost -= 0.28;
+
+    if (
+      searchable.includes("weinbar") ||
+      searchable.includes("cocktail") ||
+      searchable.includes("drinks") ||
+      searchable.includes("bier") ||
+      searchable.includes("beer") ||
+      searchable.includes("bar")
+    ) {
+      boost += 0.04;
+    }
+  }
+
+  // V13.10: Wenn geführt klar "Aktivität" gewählt ist, darf persönlicher Bar/Café-Geschmack die Kategorie nicht sprengen.
+  if (strongActivityIntent) {
+    if (placeType === "activity") boost += 0.14;
+    else if (placeType === "experience" || placeType === "outing") boost += 0.07;
+    else if (placeType === "culture") boost += 0.01;
+    else if (placeType === "bar" || placeType === "nightlife") boost -= 0.5;
+    else if (placeType === "cafe" || placeType === "restaurant") boost -= 0.3;
+    else boost -= 0.22;
+  }
+
+  if (intent.wantsCulture) {
+    if (placeType === "culture") {
+      boost += intent.wantsKids ? 0.06 : strongCultureIntent ? 0.18 : 0.075;
+    }
+
+    if (
+      searchable.includes("kunst") ||
+      searchable.includes("art") ||
+      searchable.includes("museum") ||
+      searchable.includes("galerie") ||
+      searchable.includes("gallery") ||
+      searchable.includes("ausstellung") ||
+      searchable.includes("creative") ||
+      searchable.includes("kreativ") ||
+      searchable.includes("inspirierend") ||
+      searchable.includes("inspiration")
+    ) {
+      boost += intent.wantsKids ? 0.02 : strongCultureIntent ? 0.075 : 0.035;
+    }
+
+    if (placeType === "cafe" || placeType === "bar") {
+      boost -= explicitNonFoodCultureIntent ? 0.06 : 0.015;
+    }
+  }
+
+  if (intent.wantsArt && !intent.wantsKids) {
+    if (placeType === "culture") boost += 0.08;
+    if (searchable.includes("museum")) boost += 0.035;
+  }
+
+  if (intent.wantsSolo) {
+    if (searchable.includes("solo") || searchable.includes("ruhig") || placeType === "culture") {
+      boost += 0.035;
+    }
+    if (placeType === "nightlife") boost -= 0.08;
+  }
+
+  if (intent.wantsRainyDay) {
+    if (searchable.includes("regen") || searchable.includes("indoor") || placeType === "culture" || placeType === "cafe") {
+      boost += 0.025;
+    }
+    if (placeType === "outing" && searchable.includes("outdoor") && !intent.wantsOutdoor) {
+      boost -= intent.wantsKids ? 0.08 : 0.025;
+    }
+  }
+
+  if (intent.wantsOuting && !strongCultureIntent) {
+    if (placeType === "outing" || placeType === "culture" || placeType === "experience") {
+      boost += 0.04;
+    }
+  }
+
+  if (intent.avoidRestaurant && placeType === "restaurant") boost -= 0.18;
+
+  if (intent.avoidParty) {
+    if (placeType === "nightlife" || searchable.includes("club") || searchable.includes("party") || searchable.includes("tanzen") || searchable.includes("lively")) {
+      boost -= 0.16;
+    }
+  }
+
+  if (intent.avoidBars && placeType === "bar") boost -= 0.16;
+
+  if (!intent.wantsActivity && intent.wantsCafe) {
+    if (placeType === "activity" || placeType === "culture" || placeType === "outing") {
+      boost -= 0.08;
+    }
+  }
+
+  return Math.max(-0.55, Math.min(boost, 0.58));
+}
+
+function calculateCategoryFitComponent(candidate: Candidate, intent: DecisionIntent): {
+  component: number;
+  penalty: number;
+} {
+  const placeType = candidate.place_type ?? "other";
+  const searchable = candidateSearchable(candidate);
+  const kidsFriendly = hasKidsFriendlySignal(searchable);
+  const handsOn = hasHandsOnFamilySignal(searchable);
+  const outdoorFamily = hasOutdoorFamilySignal(searchable);
+  const classicAdultCulture = isClassicAdultCultureSignal(searchable);
+  const strongBarIntent = isStrongBarIntent(intent);
+  const strongActivityIntent = intent.mustRespectCategory && intent.primaryPlaceTypes.includes("activity") && !intent.wantsDrinks && !intent.wantsCafe;
+
+  if (!intent.hasExplicitPlaceTypeIntent && intent.excludedPlaceTypes.length === 0) {
+    return { component: 0, penalty: 0 };
+  }
+
+  let component = 0;
+  let penalty = 0;
+
+  if (intent.wantsKids || intent.wantsFamily) {
+    if (placeType === "activity") component += 0.38;
+    else if (placeType === "outing") component += intent.wantsIndoor ? 0.1 : 0.38;
+    else if (placeType === "experience") component += 0.28;
+    else if (placeType === "culture") {
+      if (kidsFriendly || handsOn) component += 0.28;
+      else {
+        component += 0.08;
+        if (classicAdultCulture) penalty -= 0.14;
+      }
+    } else if (intent.secondaryPlaceTypes.includes(placeType)) {
+      component += 0.08;
+    } else if (intent.mustRespectCategory && intent.primaryPlaceTypes.length > 0) {
+      penalty -= 0.22;
+    }
+
+    if ((kidsFriendly || handsOn || outdoorFamily) && ["activity", "outing", "experience", "culture"].includes(placeType)) {
+      component += 0.08;
+    }
+  } else {
+    if (intent.primaryPlaceTypes.includes(placeType)) {
+      component += intent.mustRespectCategory ? 0.32 : 0.18;
+    } else if (intent.secondaryPlaceTypes.includes(placeType)) {
+      component += intent.mustRespectCategory ? 0.14 : 0.08;
+    } else if (intent.mustRespectCategory && intent.primaryPlaceTypes.length > 0) {
+      penalty -= intent.categoryOnlyMode ? 0.22 : 0.18;
+    }
+  }
+
+  if ((intent.wantsKids || intent.wantsFamily) && placeType === "restaurant" && !hasFoodIntent(intent)) {
+    penalty -= intent.categoryOnlyMode ? 0.48 : 0.28;
+  }
+
+  // V13.9: clear bar-tour category gating.
+  if (strongBarIntent) {
+    if (placeType === "bar") component += 0.12;
+    else if (placeType === "nightlife") component += 0.02;
+    else if (placeType === "cafe") penalty -= 0.34;
+    else if (placeType === "restaurant") penalty -= 0.3;
+    else penalty -= 0.42;
+  }
+
+  // V13.10: Hartes Gating für geführte Aktivitäts-Suche.
+  if (strongActivityIntent) {
+    if (placeType === "activity") component += 0.14;
+    else if (placeType === "experience" || placeType === "outing") component += 0.06;
+    else if (placeType === "culture") penalty -= 0.06;
+    else if (placeType === "bar" || placeType === "nightlife") penalty -= 0.58;
+    else if (placeType === "cafe" || placeType === "restaurant") penalty -= 0.34;
+    else penalty -= 0.26;
+  }
+
+  if (intent.excludedPlaceTypes.includes(placeType)) {
+    penalty -= intent.mustRespectCategory ? 0.42 : 0.24;
+  }
+
+  if ((intent.wantsKids || intent.wantsFamily) && (placeType === "bar" || placeType === "nightlife")) {
+    penalty -= 0.42;
+  }
+
+  return {
+    component: Math.max(0, Math.min(component, 0.5)),
+    penalty: Math.max(-0.65, Math.min(0, penalty)),
+  };
+}
+
+function calculatePlaceTypeBoost(candidate: Candidate, intent: DecisionIntent): number {
+  const contextWeight = candidate.place_type_context_weight;
+  const globalWeight = candidate.place_type_global_weight;
+
+  const contextConfidence = candidate.place_type_context_confidence;
+  const globalConfidence = candidate.place_type_global_confidence;
+
+  const contextualMax = intent.hasExplicitPlaceTypeIntent ? 0.06 : 0.16;
+  const globalMax = intent.hasExplicitPlaceTypeIntent ? 0.025 : 0.08;
+
+  const contextual = Math.max(-contextualMax, Math.min(contextualMax, contextWeight * 0.09)) *
+    Math.max(0.35, Math.min(1, contextConfidence * 3.2));
+
+  const global = Math.max(-globalMax, Math.min(globalMax, globalWeight * 0.045)) *
+    Math.max(0.2, Math.min(1, globalConfidence * 2.2));
+
+  const totalMax = intent.hasExplicitPlaceTypeIntent ? 0.07 : 0.18;
+  return Math.max(-totalMax, Math.min(totalMax, contextual + global));
+}
+
+function calculateV12OnlyPenalty(candidate: Candidate): number {
+  const onlyV12 =
+    candidate.sources.includes("personalized_v12") &&
+    !candidate.sources.includes("semantic_v13");
+
+  if (!onlyV12) return 0;
+
+  if (candidate.v12_score >= 0.8) return -0.035;
+  if (candidate.v12_score >= 0.6) return -0.09;
+  return -0.13;
+}
+
+function calculateWeakIntentPenalty(
+  candidate: Candidate,
+  intent: DecisionIntent,
+): number {
+  const category = normalizeText(candidate.category_name);
+  const preview = normalizeText(candidate.document_preview);
+  const tokens = normalizeText(candidate.matched_tokens.join(" "));
+  const searchable = `${category} ${preview} ${tokens}`;
+
+  let penalty = 0;
+
+  if (intent.wantsCafe && intent.wantsWarm) {
+    if (candidate.semantic_rank === null && candidate.v12_rank !== null) {
+      if (
+        searchable.includes("klettern") ||
+        searchable.includes("kids") ||
+        candidate.place_type === "activity"
+      ) {
+        penalty -= 0.12;
+      }
+
+      if (
+        searchable.includes("bier") ||
+        searchable.includes("brewpub") ||
+        searchable.includes("hazy") ||
+        searchable.includes("grosse gruppen") ||
+        searchable.includes("grosse halle")
+      ) {
+        penalty -= 0.08;
+      }
+    }
+  }
+
+  if (intent.wantsTalk) {
+    if (
+      searchable.includes("club") ||
+      searchable.includes("tanzen") ||
+      searchable.includes("party") ||
+      candidate.place_type === "nightlife"
+    ) {
+      penalty -= 0.1;
+    }
+  }
+
+  return Math.max(-0.22, penalty);
+}
+
+function createPlaceTypeReason(candidate: Candidate, intent: DecisionIntent): string | null {
+  const label = candidate.place_type_label ?? placeTypeLabel(candidate.place_type);
+
+  if (!candidate.place_type || candidate.place_type === "other") return null;
+
+  if (candidate.place_type_context_weight > 0.25 && candidate.place_type_context_confidence >= 0.05) {
+    return `Bei dieser Stimmung reagierst du öfter positiv auf ${label}-Orte.`;
+  }
+
+  if (
+    !intent.hasExplicitPlaceTypeIntent &&
+    candidate.place_type_global_weight > 0.35 &&
+    candidate.place_type_global_confidence >= 0.08
+  ) {
+    return `Generell scheinen ${label}-Orte bei dir gut zu funktionieren.`;
+  }
+
+  if (candidate.place_type_context_weight < -0.2 && candidate.place_type_context_confidence >= 0.04) {
+    return `Bei dieser Stimmung waren ${label}-Orte bisher eher selten dein Treffer.`;
+  }
+
+  return null;
+}
+
+function createHumanReason(candidate: Candidate, intent: DecisionIntent): string {
+  const name = candidate.name;
+  const searchable = candidateSearchable(candidate);
+
+  const isCafe = candidate.place_type === "cafe";
+  const isBar = candidate.place_type === "bar";
+  const isRestaurant = candidate.place_type === "restaurant";
+  const isCulture = candidate.place_type === "culture";
+  const isOuting = candidate.place_type === "outing";
+  const isActivity = candidate.place_type === "activity";
+  const isExperience = candidate.place_type === "experience";
+
+  const kidsFriendly = hasKidsFriendlySignal(searchable);
+  const handsOn = hasHandsOnFamilySignal(searchable);
+  const outdoorFamily = hasOutdoorFamilySignal(searchable);
+  const classicAdultCulture = isClassicAdultCultureSignal(searchable);
+
+  const hasCozy =
+    searchable.includes("cozy") ||
+    searchable.includes("warm") ||
+    searchable.includes("gemutlich") ||
+    searchable.includes("gemuetlich") ||
+    searchable.includes("entspannt");
+
+  const hasUrban = searchable.includes("urban") || searchable.includes("basel") || searchable.includes("stadt");
+
+  const hasIntimate =
+    searchable.includes("intimate") ||
+    searchable.includes("intim") ||
+    searchable.includes("romantic") ||
+    searchable.includes("romantisch");
+
+  const typeReason = candidate.place_type_reason;
+
+  if (intent.wantsKids || intent.wantsFamily) {
+    if (outdoorFamily && (isOuting || isActivity)) {
+      return `${name} passt sehr direkt zu einem freien Tag mit Kind: unkompliziert raus, etwas sehen oder erleben, ohne dass es sich nach grosser Planung anfühlt.`;
+    }
+
+    if (handsOn && isCulture) {
+      return `${name} ist nicht nur ein klassisches Museum zum Anschauen – es ist greifbarer, kreativer und dadurch deutlich besser für einen Nachmittag mit Kind.`;
+    }
+
+    if (kidsFriendly && isCulture) {
+      return `${name} funktioniert als Kultur-Pick mit Kind, weil der Ort familienfreundliche Signale mitbringt und nicht nur erwachsenes Ausstellungsprogramm ist.`;
+    }
+
+    if ((isActivity || isExperience) && kidsFriendly) {
+      return `${name} ist ein praktischer Familien-Pick: aktiv genug, damit es nicht langweilig wird, aber trotzdem unkompliziert für einen spontanen Nachmittag.`;
+    }
+
+    if (isCafe && hasCozy) {
+      return `${name} wäre eher die ruhige Pause dazu – gut, wenn ihr kurz sitzen wollt, aber nicht der stärkste Hauptplan für einen Tag mit Kind.`;
+    }
+
+    if (isRestaurant && !hasFoodIntent(intent)) {
+      return `${name} fühlt sich eher nach Essen gehen an. Für “etwas unternehmen mit Kind” würde ich ihn nur als Backup sehen, nicht als eigentlichen Plan.`;
+    }
+
+    if (classicAdultCulture) {
+      return `${name} ist kulturell stark, wirkt für einen Tag mit Kind aber eher wie die ruhigere zweite Wahl als wie der offensichtlichste Familien-Pick.`;
+    }
+  }
+
+  if (isCulture) {
+    if (intent.wantsArt && intent.wantsQuiet) {
+      return `${name} trifft die Suche ziemlich klar: Kunst, Ruhe und Stadtgefühl, ohne Restaurant- oder Party-Vibe.`;
+    }
+
+    if (intent.wantsArt || intent.wantsCulture) {
+      return `${name} passt als Kultur-Spot zur Anfrage – gut, wenn du nicht nur irgendwo sitzen, sondern wirklich etwas aufnehmen oder entdecken willst.`;
+    }
+
+    if (typeReason && candidate.place_type_context_weight > 0.25) {
+      return `Ein bewusst anderer Vorschlag: ${typeReason} ${name} bringt eine kulturelle Seite in deine Auswahl.`;
+    }
+
+    if (intent.wantsOuting) {
+      return `${name} ist ein ruhiger Kultur-Pick, wenn du raus willst, aber nicht unbedingt einen lauten oder konsumlastigen Ort suchst.`;
+    }
+
+    return `${name} ist ein Kultur-Pick mit Basel-Gefühl – eher entdecken als nur sitzen.`;
+  }
+
+  if (isOuting) {
+    if (intent.wantsRomantic) {
+      return `${name} passt eher zur kleinen-Ausflug-Seite deiner Suche – gut, wenn es nicht nur ein Tisch und zwei Getränke sein sollen.`;
+    }
+
+    return `${name} ist ein guter Ortswechsel: rauskommen, etwas sehen, kurz bleiben oder länger treiben lassen.`;
+  }
+
+  if (isActivity) {
+    if (intent.hasExplicitPlaceTypeIntent && intent.primaryPlaceTypes.includes("activity")) {
+      if (hasCozy && hasUrban) return `${name} passt: aktiv, urban, easy. Genau so ein Spot, wenn du nicht nur rumsitzen willst.`;
+      if (hasUrban) return `${name} ist ein urbaner Aktiv-Pick – unkompliziert, direkt, mit etwas Energie.`;
+      if (hasCozy) return `${name} bringt Bewegung rein, bleibt aber angenehm entspannt.`;
+      return `${name} passt zur Richtung: machen statt nur sitzen. Solider Aktiv-Pick.`;
+    }
+
+    if (typeReason && candidate.place_type_context_weight > 0.25) {
+      return `${name} passt zu deinem Aktiv-Modus. ${typeReason}`;
+    }
+
+    return `${name} bringt Bewegung rein – guter Pick, wenn du wirklich etwas machen willst.`;
+  }
+
+  if (isExperience) {
+    return `${name} ist der etwas andere Pick – weniger Standard, mehr kleines Erlebnis.`;
+  }
+
+  if (candidate.sources.includes("personalized_v12") && candidate.sources.includes("semantic_v13")) {
+    if (isCafe && hasCozy && hasIntimate) {
+      return `${name} wirkt wie ein sehr guter Match: warm, gemütlich und ruhig genug, um wirklich anzukommen.${typeReason ? ` ${typeReason}` : ""}`;
+    }
+
+    if (isCafe && hasCozy) {
+      return `${name} passt gut, wenn du etwas Gemütliches suchst, ohne dass es gleich nach grosser Abendplanung wirken muss.${typeReason ? ` ${typeReason}` : ""}`;
+    }
+
+    if (isBar && hasIntimate) {
+      return `${name} geht in Richtung stimmungsvolle Bar – nicht beliebig, sondern eher warm, urban und mit etwas besonderem Abendgefühl.${typeReason ? ` ${typeReason}` : ""}`;
+    }
+
+    if (isRestaurant && hasIntimate) {
+      return `${name} wirkt wie ein guter Dinner-Pick: etwas wärmer, persönlicher und mit genug Stimmung für den Abend.${typeReason ? ` ${typeReason}` : ""}`;
+    }
+
+    if (typeReason) return `${name} passt zur aktuellen Suche und zu Mustern, die bei dir schon funktioniert haben. ${typeReason}`;
+    return `${name} passt zur aktuellen Suche und hat zusätzlich Signale, die zu deinem bisherigen Geschmack passen.`;
+  }
+
+  if (candidate.sources.includes("semantic_v13")) {
+    if (isCafe && hasCozy) return `${name} trifft die gemütliche Café-Richtung gut: warm, unkompliziert und nicht zu schwer.`;
+    if (isBar && hasIntimate) return `${name} ist eher Bar als Café, bringt aber die intime, stimmungsvolle Richtung gut mit.`;
+    if (isRestaurant && hasIntimate) return `${name} wirkt eher wie ein Dinner-Spot, aber mit einer passenden warmen und stilvollen Atmosphäre.`;
+    if (typeReason) return `${name} passt inhaltlich zur Suche. ${typeReason}`;
+    return `${name} passt inhaltlich zu dem, was du gerade beschrieben hast.`;
+  }
+
+  if (candidate.sources.includes("personalized_v12")) {
+    if (candidate.v12_score >= 0.7) {
+      if (typeReason) return `${name} kommt stark aus deinem bisherigen Geschmack. ${typeReason}`;
+      return `${name} kommt stark aus deinem bisherigen Geschmack – ich würde ihn aber nur nehmen, wenn er auch zum heutigen Kontext passt.`;
+    }
+
+    if (typeReason) return `${name} passt zu einzelnen Signalen aus deinem Profil. ${typeReason}`;
+    return `${name} ist eher ein weicher Explore-Pick als ein ganz eindeutiger Treffer.`;
+  }
+
+  return `${name} könnte zu deiner Suche passen.`;
+}
+
+function candidateFromRetrieval(row: RetrievalCandidateV1 & { evidence_list: RetrievalEvidenceV1[] }, distributionPriority: Map<string, number>): Candidate {
+  const placeType = placeTypeFromCategory(row.category_name);
+  return {
+    spot_id: row.spot_id, name: row.name, city: row.city, category_name: row.category_name,
+    place_type: placeType, place_type_label: placeTypeLabel(placeType), is_open_now: row.is_open_now,
+    v12_rank: null, v12_score: 0, v12_score_norm: 0,
+    semantic_rank: null, semantic_similarity: 0, semantic_score_norm: 0,
+    combined_score: 0, distribution_priority: distributionPriority.get(row.spot_id) ?? 100,
+    matched_tokens: [], matched_terms: [], technical_why_this: null, human_reason: "", place_type_reason: null,
+    document_preview: row.document_text?.slice(0, 700) ?? null,
+    place_type_context_weight: 0, place_type_global_weight: 0, place_type_context_confidence: 0, place_type_global_confidence: 0,
+    sources: uniqueStrings(row.evidence_list.map((item) => item.source)) as RetrievalSourceId[],
+    retrieval_evidence: row.evidence_list,
+    explanation: {
+      model: MODEL_NAME, version: MODEL_VERSION, v12_rank: null, v12_score: 0, semantic_rank: null, semantic_similarity: 0,
+      personalized_component: 0, semantic_component: 0, source_bonus: 0, intent_boost: 0, category_fit_component: 0,
+      category_mismatch_penalty: 0, place_type_boost: 0, contextual_taste_component: 0, recent_memory_component: 0,
+      v12_only_penalty: 0, weak_intent_penalty: 0, combined_score: 0,
+    },
+  };
+}
+
+function fuseCandidates(input: {
+  v12: V12DecisionRow[];
+  semantic: SemanticMatchRow[];
+  retrievalUnion: Array<RetrievalCandidateV1 & { evidence_list: RetrievalEvidenceV1[] }>;
+  limit: number;
+  intent: DecisionIntent;
+  placeTypeProfile: {
+    global: Map<string, PlaceTypeProfileRow>;
+    context: Map<string, PlaceTypeProfileRow>;
+  };
+  contextualTaste: ContextualTasteRow[];
+  recentMemory: RecentDecisionMemoryRow[];
+  distributionPriority: Map<string, number>;
+  structuredIntent: StructuredDecisionIntentV1;
+}): { candidates: Candidate[]; hardEligibility: HardConstraintEligibilityV1 } {
+  const map = new Map<string, Candidate>();
+
+  for (const row of input.retrievalUnion) map.set(row.spot_id, candidateFromRetrieval(row, input.distributionPriority));
+
+  input.v12.forEach((row, index) => {
+    const rawScore = toNumber(row.final_score, 0);
+    const existing = map.get(row.spot_id);
+    if (existing) {
+      existing.name = row.name || existing.name;
+      existing.city = row.city ?? existing.city;
+      existing.category_name = row.category_name ?? existing.category_name;
+      existing.is_open_now = row.is_open_now ?? existing.is_open_now;
+      existing.v12_rank = index + 1;
+      existing.v12_score = rawScore;
+      existing.v12_score_norm = normalizeV12Score(rawScore);
+      existing.matched_tokens = Array.isArray(row.matched_tokens) ? row.matched_tokens : [];
+      existing.matched_terms = Array.isArray(row.matched_terms) ? row.matched_terms : [];
+      existing.technical_why_this = row.why_this ?? null;
+      if (!existing.sources.includes("personalized_v12")) existing.sources.push("personalized_v12");
+      if (!existing.retrieval_evidence.some((item) => item.source === "personalized_v12")) existing.retrieval_evidence.push({ source: "personalized_v12", source_rank: index + 1, source_score: rawScore, evidence: existing.matched_terms });
+      existing.explanation.v12_rank = index + 1;
+      existing.explanation.v12_score = rawScore;
+      return;
+    }
+    map.set(row.spot_id, {
+      spot_id: row.spot_id,
+      name: row.name,
+      city: row.city ?? null,
+      category_name: row.category_name ?? null,
+      place_type: placeTypeFromCategory(row.category_name),
+      place_type_label: placeTypeLabel(placeTypeFromCategory(row.category_name)),
+      is_open_now: row.is_open_now ?? null,
+
+      v12_rank: index + 1,
+      v12_score: rawScore,
+      v12_score_norm: normalizeV12Score(rawScore),
+
+      semantic_rank: null,
+      semantic_similarity: 0,
+      semantic_score_norm: 0,
+
+      combined_score: 0,
+      distribution_priority: input.distributionPriority.get(row.spot_id) ?? 100,
+
+      matched_tokens: Array.isArray(row.matched_tokens) ? row.matched_tokens : [],
+      matched_terms: Array.isArray(row.matched_terms) ? row.matched_terms : [],
+      technical_why_this: row.why_this ?? null,
+      human_reason: "",
+      place_type_reason: null,
+      document_preview: null,
+
+      place_type_context_weight: 0,
+      place_type_global_weight: 0,
+      place_type_context_confidence: 0,
+      place_type_global_confidence: 0,
+
+      sources: ["personalized_v12"],
+      retrieval_evidence: [{ source: "personalized_v12", source_rank: index + 1, source_score: rawScore, evidence: Array.isArray(row.matched_terms) ? row.matched_terms : [] }],
+
+      explanation: {
+        model: MODEL_NAME,
+        version: MODEL_VERSION,
+        v12_rank: index + 1,
+        v12_score: rawScore,
+        semantic_rank: null,
+        semantic_similarity: 0,
+        personalized_component: 0,
+        semantic_component: 0,
+        source_bonus: 0,
+        intent_boost: 0,
+        category_fit_component: 0,
+        category_mismatch_penalty: 0,
+        place_type_boost: 0,
+        contextual_taste_component: 0,
+        recent_memory_component: 0,
+        v12_only_penalty: 0,
+        weak_intent_penalty: 0,
+        combined_score: 0,
+        distribution_priority: input.distributionPriority.get(row.spot_id) ?? 100,
+      },
+    });
+  });
+
+  input.semantic.forEach((row, index) => {
+    const existing = map.get(row.spot_id);
+    const similarity = toNumber(row.similarity, 0);
+    const semanticNorm = normalizeSemanticSimilarity(similarity);
+
+    if (existing) {
+      existing.category_name = row.category_name ?? existing.category_name;
+      existing.semantic_rank = index + 1;
+      existing.semantic_similarity = similarity;
+      existing.semantic_score_norm = semanticNorm;
+      existing.document_preview = row.document_text?.slice(0, 700) ?? null;
+
+      if (!existing.sources.includes("semantic_v13")) {
+        existing.sources.push("semantic_v13");
+      }
+      if (!existing.retrieval_evidence.some((item) => item.source === "semantic_v13")) existing.retrieval_evidence.push({ source: "semantic_v13", source_rank: index + 1, source_score: similarity, evidence: ["cosine_similarity"] });
+
+      existing.explanation.semantic_rank = index + 1;
+      existing.explanation.semantic_similarity = similarity;
+    } else {
+      map.set(row.spot_id, {
+        spot_id: row.spot_id,
+        name: row.name,
+        city: row.city ?? null,
+        category_name: row.category_name ?? null,
+        place_type: placeTypeFromCategory(row.category_name),
+        place_type_label: placeTypeLabel(placeTypeFromCategory(row.category_name)),
+        is_open_now: row.is_open_now ?? null,
+
+        v12_rank: null,
+        v12_score: 0,
+        v12_score_norm: 0,
+
+        semantic_rank: index + 1,
+        semantic_similarity: similarity,
+        semantic_score_norm: semanticNorm,
+
+        combined_score: 0,
+
+        matched_tokens: [],
+        matched_terms: [],
+        technical_why_this: null,
+        human_reason: "",
+        place_type_reason: null,
+        document_preview: row.document_text?.slice(0, 700) ?? null,
+
+        place_type_context_weight: 0,
+        place_type_global_weight: 0,
+        place_type_context_confidence: 0,
+        place_type_global_confidence: 0,
+
+        sources: ["semantic_v13"],
+        retrieval_evidence: [{ source: "semantic_v13", source_rank: index + 1, source_score: similarity, evidence: ["cosine_similarity"] }],
+
+        explanation: {
+          model: MODEL_NAME,
+          version: MODEL_VERSION,
+          v12_rank: null,
+          v12_score: 0,
+          semantic_rank: index + 1,
+          semantic_similarity: similarity,
+          personalized_component: 0,
+          semantic_component: 0,
+          source_bonus: 0,
+          intent_boost: 0,
+          category_fit_component: 0,
+          category_mismatch_penalty: 0,
+          place_type_boost: 0,
+          v12_only_penalty: 0,
+          weak_intent_penalty: 0,
+          combined_score: 0,
+        },
+      });
+    }
+  });
+
+  const envelope = Array.from(map.values());
+  for (const candidate of envelope) {
+    if (!candidate.place_type) {
+      candidate.place_type = placeTypeFromCategory(candidate.category_name);
+      candidate.place_type_label = placeTypeLabel(candidate.place_type);
+    }
+  }
+  const hardEligibility = applyUserHardConstraintEligibilityV1(envelope, input.structuredIntent);
+
+  const fused = hardEligibility.eligible.map((candidate) => {
+    if (!candidate.place_type) {
+      candidate.place_type = placeTypeFromCategory(candidate.category_name);
+      candidate.place_type_label = placeTypeLabel(candidate.place_type);
+    }
+
+    const contextProfile = input.placeTypeProfile.context.get(candidate.place_type);
+    const globalProfile = input.placeTypeProfile.global.get(candidate.place_type);
+
+    candidate.place_type_context_weight = toNumber(contextProfile?.weight, 0);
+    candidate.place_type_global_weight = toNumber(globalProfile?.weight, 0);
+    candidate.place_type_context_confidence = toNumber(contextProfile?.confidence, 0);
+    candidate.place_type_global_confidence = toNumber(globalProfile?.confidence, 0);
+
+    candidate.place_type_reason = createPlaceTypeReason(candidate, input.intent);
+
+    const strongCultureIntent = isStrongCultureIntent(input.intent);
+    const explicitCategoryIntent = input.intent.hasExplicitPlaceTypeIntent;
+
+    const personalizedWeight = input.intent.categoryOnlyMode
+      ? 0.12
+      : explicitCategoryIntent
+        ? 0.18
+        : strongCultureIntent
+          ? 0.32
+          : 0.48;
+
+    const semanticWeight = input.intent.categoryOnlyMode
+      ? 0.46
+      : explicitCategoryIntent
+        ? 0.44
+        : strongCultureIntent
+          ? 0.5
+          : 0.42;
+
+    const personalizedComponent = candidate.v12_score_norm * personalizedWeight;
+    const semanticComponent = candidate.semantic_score_norm * semanticWeight;
+    const bonus = explicitCategoryIntent ? sourceBonus(candidate.sources) * 0.55 : sourceBonus(candidate.sources);
+    const intentBoost = calculateIntentBoost(candidate, input.intent);
+    const categoryFit = calculateCategoryFitComponent(candidate, input.intent);
+    const placeTypeBoost = strongCultureIntent
+      ? calculatePlaceTypeBoost(candidate, input.intent) * 0.45
+      : calculatePlaceTypeBoost(candidate, input.intent);
+    const contextualTasteComponent = calculateContextualTasteComponent(candidate, input.contextualTaste, input.intent);
+    const recentMemoryComponent = calculateRecentMemoryComponent(candidate, input.recentMemory, input.intent);
+    const v12Penalty = calculateV12OnlyPenalty(candidate);
+    const weakIntentPenalty = calculateWeakIntentPenalty(candidate, input.intent);
+
+    const combined =
+      personalizedComponent +
+      semanticComponent +
+      bonus +
+      intentBoost +
+      categoryFit.component +
+      categoryFit.penalty +
+      placeTypeBoost +
+      contextualTasteComponent +
+      recentMemoryComponent +
+      v12Penalty +
+      weakIntentPenalty;
+
+    candidate.combined_score = combined;
+    candidate.human_reason = createHumanReason(candidate, input.intent);
+
+    candidate.explanation.personalized_component = personalizedComponent;
+    candidate.explanation.semantic_component = semanticComponent;
+    candidate.explanation.source_bonus = bonus;
+    candidate.explanation.intent_boost = intentBoost;
+    candidate.explanation.category_fit_component = categoryFit.component;
+    candidate.explanation.category_mismatch_penalty = categoryFit.penalty;
+    candidate.explanation.place_type_boost = placeTypeBoost;
+    candidate.explanation.contextual_taste_component = contextualTasteComponent;
+    candidate.explanation.recent_memory_component = recentMemoryComponent;
+    candidate.explanation.v12_only_penalty = v12Penalty;
+    candidate.explanation.weak_intent_penalty = weakIntentPenalty;
+    candidate.explanation.combined_score = combined;
+
+    return candidate;
+  });
+
+  fused.sort((a, b) => {
+    if (b.distribution_priority !== a.distribution_priority) {
+      return b.distribution_priority - a.distribution_priority;
+    }
+    if (b.combined_score !== a.combined_score) {
+      return b.combined_score - a.combined_score;
+    }
+
+    const aBestRank = Math.min(a.v12_rank ?? 999, a.semantic_rank ?? 999);
+    const bBestRank = Math.min(b.v12_rank ?? 999, b.semantic_rank ?? 999);
+
+    return aBestRank - bBestRank;
+  });
+
+  return {
+    candidates: diversifyCandidates(fused, input.limit, input.intent),
+    hardEligibility: hardEligibility.report,
+  };
+}
+
+Deno.serve(async (request: Request) => {
+  if (request.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  if (request.method !== "POST") {
+    return jsonResponse({ ok: false, error: "Method not allowed" }, 405);
+  }
+
+  try {
+    const env = getEnv();
+
+    let body: Record<string, unknown> = {};
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
+
+    const callerToken = getBearerToken(request);
+    const hasUserToken = !looksLikeAnonOrServiceToken(callerToken);
+    const userId = getUserIdFromJwt(callerToken);
+
+    const city = sanitizeString(body.city);
+    const moodA = sanitizeString(body.moodA);
+    const moodB = sanitizeString(body.moodB);
+    const rawQuery = sanitizeString(body.query);
+    const preferredPlaceTypes = sanitizePlaceTypeArray(
+      body.preferredPlaceTypes ?? body.placeTypes ?? body.categories,
+    );
+    const explicitSinglePlaceType = normalizePlaceType(
+      body.placeType ?? body.category ?? body.direction ?? body.richtung,
+    );
+    if (explicitSinglePlaceType && !preferredPlaceTypes.includes(explicitSinglePlaceType)) {
+      preferredPlaceTypes.push(explicitSinglePlaceType);
+    }
+
+    const excludedPlaceTypes = sanitizePlaceTypeArray(
+      body.excludedPlaceTypes ?? body.avoidPlaceTypes,
+    );
+    const audience = sanitizeStringArray(body.audience);
+    const occasions = sanitizeStringArray(body.occasions ?? body.occasion);
+    const strictCategoryIntent =
+      body.strictCategoryIntent === true ||
+      body.mustRespectCategory === true ||
+      body.categoryIntent === true;
+    const openNow = body.openNow === true || body.requireOpenNow === true;
+    const requestedDecisionAt = sanitizeString(body.decisionAt);
+    const decisionAt = requestedDecisionAt ? new Date(requestedDecisionAt) : new Date();
+    if (requestedDecisionAt && Number.isNaN(decisionAt.getTime())) {
+      return jsonResponse({ ok: false, error: "Invalid decisionAt" }, 400);
+    }
+
+    const categoryQueryFallback = preferredPlaceTypes.length
+      ? preferredPlaceTypes.map(placeTypeLabel).join(" ")
+      : null;
+
+    const query = rawQuery ?? categoryQueryFallback;
+
+    const limit = sanitizeLimit(body.limit, DEFAULT_LIMIT, 20);
+    const v12Limit = sanitizeLimit(body.v12Limit, DEFAULT_V12_LIMIT, 30);
+    const semanticLimit = sanitizeLimit(
+      body.semanticLimit,
+      DEFAULT_SEMANTIC_LIMIT,
+      60,
+    );
+    const structuredLimit = sanitizeLimit(body.structuredLimit, DEFAULT_STRUCTURED_LIMIT, 60);
+    const lexicalLimit = sanitizeLimit(body.lexicalLimit, DEFAULT_LEXICAL_LIMIT, 40);
+
+    const excludeSpotIds = Array.isArray(body.excludeSpotIds)
+      ? body.excludeSpotIds.map(String).filter(Boolean)
+      : [];
+
+    if (!query && !moodA && !moodB && preferredPlaceTypes.length === 0) {
+      return jsonResponse(
+        {
+          ok: false,
+          error: "Missing query, moodA, moodB or preferredPlaceTypes",
+        },
+        400,
+      );
+    }
+
+    const contextKey = buildContextKey(moodA, moodB);
+
+    const intent = detectIntent({
+      query,
+      moodA,
+      moodB,
+      preferredPlaceTypes,
+      excludedPlaceTypes,
+      audience,
+      occasions,
+      strictCategoryIntent,
+    });
+    const structuredIntent = extractStructuredIntentV1({
+      query,
+      rawFreeText: sanitizeString(body.rawFreeText),
+      preferredPlaceTypes,
+      excludedPlaceTypes,
+      strictCategoryIntent,
+      openNow,
+    });
+
+    const queryText = buildQueryText({
+      city,
+      moodA,
+      moodB,
+      query,
+      primaryPlaceTypes: intent.primaryPlaceTypes,
+      secondaryPlaceTypes: intent.secondaryPlaceTypes,
+      excludedPlaceTypes: intent.excludedPlaceTypes,
+      audience: intent.audience,
+      occasions: intent.occasions,
+    });
+
+    const decisionContext = {
+      source: WAVE2_ENGINE_CANDIDATE,
+      model_version: MODEL_VERSION,
+      inputMode: sanitizeString(body.inputMode),
+      rawFreeText: sanitizeString(body.rawFreeText) ?? query,
+      query,
+      preferredPlaceTypes,
+      primaryPlaceTypes: intent.primaryPlaceTypes,
+      secondaryPlaceTypes: intent.secondaryPlaceTypes,
+      excludedPlaceTypes: intent.excludedPlaceTypes,
+      audience: intent.audience,
+      occasions: intent.occasions,
+      strictCategoryIntent: intent.mustRespectCategory,
+      categoryOnlyMode: intent.categoryOnlyMode,
+      structuredIntent,
+      decisionAt: decisionAt.toISOString(),
+    };
+
+    const decisionContextKeys = await getDecisionContextKeys(env, {
+      city,
+      moodA,
+      moodB,
+      context: decisionContext,
+    });
+
+    const contextKeys = Array.from(new Set(decisionContextKeys.map((row) => row.context_key).filter(Boolean)));
+
+    const queryEmbedding = await createEmbedding(env, queryText);
+
+    const semanticStarted = performance.now();
+    const semanticPromise = getSemanticCandidates(env, {
+      queryEmbedding,
+      city,
+      limit: semanticLimit,
+      excludeSpotIds,
+    }).then((rows) => ({ rows, latencyMs: performance.now() - semanticStarted }));
+
+    const v12Started = performance.now();
+    const v12Promise = (hasUserToken && callerToken
+      ? getV12Candidates(env, {
+          city,
+          moodA,
+          moodB,
+          query,
+          limit: v12Limit,
+          userToken: callerToken,
+        })
+      : Promise.resolve([])).then((rows) => ({ rows, latencyMs: performance.now() - v12Started }));
+
+    const placeTypeProfilePromise = getPlaceTypeProfile(env, {
+      userToken: callerToken,
+      hasUserToken,
+      contextKey,
+    });
+
+    const contextualTastePromise = getContextualTaste(env, {
+      userToken: callerToken,
+      hasUserToken,
+      contextKeys,
+    });
+
+    const recentMemoryPromise = getRecentDecisionMemory(env, {
+      userToken: callerToken,
+      hasUserToken,
+    });
+
+    const catalogStarted = performance.now();
+    const catalogPromise = fetchSpotIntelligenceCatalog(env, { city, decisionAt })
+      .then((rows) => ({ rows, error: null as string | null, latencyMs: performance.now() - catalogStarted }))
+      .catch((error) => ({ rows: [] as SpotIntelligenceV1[], error: error instanceof Error ? error.message : String(error), latencyMs: performance.now() - catalogStarted }));
+
+    const [semanticResult, v12Result, placeTypeProfile, contextualTaste, recentMemory, catalogResult] = await Promise.all([
+      semanticPromise,
+      v12Promise,
+      placeTypeProfilePromise,
+      contextualTastePromise,
+      recentMemoryPromise,
+      catalogPromise,
+    ]);
+    const semanticCandidates = semanticResult.rows;
+    const v12Candidates = v12Result.rows;
+
+    const allSpotIds = Array.from(
+      new Set([
+        ...(semanticCandidates ?? []).map((row) => row.spot_id),
+        ...(v12Candidates ?? []).map((row) => row.spot_id),
+        ...catalogResult.rows.map((row) => row.spot_id),
+      ]),
+    );
+
+    let distribution = await getDistributionEligibility(env, allSpotIds);
+    const eligibleIds = new Set(
+      Array.from(distribution.values()).filter((row) => row.eligible).map((row) => row.entity_id),
+    );
+
+    const catalogEligibility = eligibleSpotIntelligence(catalogResult.rows, structuredIntent, distribution);
+    const catalogEligibleIds = new Set(catalogEligibility.eligible.map((row) => row.spot_id));
+    const requireCatalogEligibility = catalogResult.error === null;
+    let distributedSemantic = (semanticCandidates ?? []).filter((row) => eligibleIds.has(row.spot_id) && (!requireCatalogEligibility || catalogEligibleIds.has(row.spot_id)));
+    const distributedV12 = (v12Candidates ?? []).filter((row) => eligibleIds.has(row.spot_id) && (!requireCatalogEligibility || catalogEligibleIds.has(row.spot_id)));
+    const structuredCandidates = structuredRetrievalV1(catalogEligibility.eligible, structuredIntent, structuredLimit);
+    const lexicalCandidates = lexicalRetrievalV1(catalogEligibility.eligible, queryText, lexicalLimit);
+
+    const distributedIds = new Set([
+      ...distributedSemantic.map((row) => row.spot_id),
+      ...distributedV12.map((row) => row.spot_id),
+      ...structuredCandidates.map((row) => row.spot_id),
+      ...lexicalCandidates.map((row) => row.spot_id),
+    ]);
+
+    let fallbackCandidates: RetrievalCandidateV1[] = [];
+    if (distributedIds.size < limit) {
+      const fallbacks = await getDistributionFallbackSpots(env, {
+        city,
+        limit: limit - distributedIds.size,
+        excludeSpotIds: [...excludeSpotIds, ...distributedIds],
+      });
+      if (fallbacks.length > 0) {
+        const fallbackEligibility = await getDistributionEligibility(
+          env,
+          fallbacks.map((row) => row.spot_id),
+        );
+        distribution = new Map([...distribution, ...fallbackEligibility]);
+        const safeFallbacks = fallbacks.filter((row) => {
+          if (!fallbackEligibility.get(row.spot_id)?.eligible) return false;
+          const intelligence = catalogEligibility.eligible.find((spot) => spot.spot_id === row.spot_id);
+          if (!intelligence) return structuredIntent.hardConstraints.requiredPlaceTypes.length === 0 && structuredIntent.hardConstraints.excludedPlaceTypes.length === 0 && !structuredIntent.hardConstraints.openNow;
+          return !hardConstraintExclusionV1({ spot_id: row.spot_id, place_type: intelligence.place_type, category_name: intelligence.category_name, is_open_now: intelligence.is_open_now }, structuredIntent);
+        });
+        distributedSemantic = [...distributedSemantic, ...safeFallbacks];
+        fallbackCandidates = safeFallbacks.map((row, index) => ({
+          spot_id: row.spot_id, name: row.name, city: row.city, category_name: row.category_name,
+          is_open_now: null, document_text: row.document_text,
+          evidence: { source: "distribution_fallback", source_rank: index + 1, source_score: null, evidence: ["distribution_safe_catalog"] },
+        }));
+      }
+    }
+
+    const v12RetrievalCandidates: RetrievalCandidateV1[] = distributedV12.map((row, index) => ({
+      spot_id: row.spot_id, name: row.name, city: row.city, category_name: row.category_name ?? null,
+      is_open_now: row.is_open_now, document_text: null,
+      evidence: { source: "personalized_v12", source_rank: index + 1, source_score: toNumber(row.final_score, 0), evidence: Array.isArray(row.matched_terms) ? row.matched_terms : [] },
+    }));
+    const semanticRetrievalCandidates: RetrievalCandidateV1[] = distributedSemantic
+      .filter((row) => !fallbackCandidates.some((fallback) => fallback.spot_id === row.spot_id))
+      .map((row, index) => ({
+        spot_id: row.spot_id, name: row.name, city: row.city, category_name: row.category_name,
+        is_open_now: row.is_open_now ?? null, document_text: row.document_text,
+        evidence: { source: "semantic_v13", source_rank: index + 1, source_score: toNumber(row.similarity, 0), evidence: ["cosine_similarity"] },
+      }));
+    const retrievalUnion = candidateUnionV1([structuredCandidates, lexicalCandidates, v12RetrievalCandidates, semanticRetrievalCandidates, fallbackCandidates]);
+
+    const distributedSpotIds = Array.from(new Set([
+      ...distributedSemantic.map((row) => row.spot_id),
+      ...distributedV12.map((row) => row.spot_id),
+      ...retrievalUnion.map((row) => row.spot_id),
+    ]));
+    const meta = await fetchSpotMeta(env, distributedSpotIds);
+
+    const fallbackIds = new Set(fallbackCandidates.map((row) => row.spot_id));
+    const semanticWithMeta = distributedSemantic.filter((row) => !fallbackIds.has(row.spot_id)).map((row) => {
+      const metaRow = meta.get(row.spot_id);
+
+      return {
+        ...row,
+        name: row.name || metaRow?.name || row.name,
+        city: row.city ?? metaRow?.city ?? null,
+        category_name: row.category_name ?? metaRow?.categories?.name ?? null,
+        is_open_now: resolveOpenAt(metaRow?.spot_hours, decisionAt),
+      };
+    });
+
+    const v12WithMeta = distributedV12.map((row) => {
+      const metaRow = meta.get(row.spot_id);
+
+      return {
+        ...row,
+        name: row.name || metaRow?.name || row.name,
+        city: row.city ?? metaRow?.city ?? null,
+        category_name: metaRow?.categories?.name ?? row.category_name ?? null,
+        is_open_now: resolveOpenAt(metaRow?.spot_hours, decisionAt),
+      };
+    });
+
+    // Every new source consumes the approved + Distribution-eligible + User-hard-
+    // eligible Spot Intelligence catalog. The same user boundary is re-applied
+    // to the canonical union before score calculation as defense in depth.
+    const fusedResult = fuseCandidates({
+      v12: v12WithMeta,
+      semantic: semanticWithMeta,
+      retrievalUnion,
+      limit,
+      intent,
+      placeTypeProfile,
+      contextualTaste,
+      recentMemory,
+      distributionPriority: new Map(
+        Array.from(distribution.entries()).map(([id, row]) => [id, row.distribution_priority]),
+      ),
+      structuredIntent,
+    });
+    const fused = fusedResult.candidates;
+    const hardEligibility = fusedResult.hardEligibility;
+
+    for (const candidate of fused) {
+      const row = meta.get(candidate.spot_id);
+      if (!row) continue;
+
+      candidate.name = candidate.name || row.name;
+      candidate.city = candidate.city ?? row.city ?? null;
+      candidate.category_name =
+        candidate.category_name ??
+        row.categories?.name ??
+        null;
+
+      candidate.place_type = placeTypeFromCategory(candidate.category_name);
+      candidate.place_type_label = placeTypeLabel(candidate.place_type);
+
+      const contextProfile = placeTypeProfile.context.get(candidate.place_type);
+      const globalProfile = placeTypeProfile.global.get(candidate.place_type);
+
+      candidate.place_type_context_weight = toNumber(contextProfile?.weight, 0);
+      candidate.place_type_global_weight = toNumber(globalProfile?.weight, 0);
+      candidate.place_type_context_confidence = toNumber(contextProfile?.confidence, 0);
+      candidate.place_type_global_confidence = toNumber(globalProfile?.confidence, 0);
+
+      candidate.place_type_reason = createPlaceTypeReason(candidate, intent);
+      candidate.human_reason = createHumanReason(candidate, intent);
+    }
+
+    return jsonResponse({
+      ok: true,
+      model: MODEL_NAME,
+      version: MODEL_VERSION,
+      mode: hasUserToken ? "personalized_semantic" : "semantic_only_no_user_token",
+      warning: hasUserToken
+        ? null
+        : "No authenticated user JWT was provided. V12 personalization was skipped. Call this from the app with the user's Supabase access_token for full personalization.",
+      user_id: userId,
+      embedding_model: EMBEDDING_MODEL,
+      embedding_dimensions: EMBEDDING_DIMENSIONS,
+      city,
+      moodA,
+      moodB,
+      contextKey,
+      query,
+      queryText,
+      decision_at: decisionAt.toISOString(),
+      intent,
+      structured_intent: structuredIntent,
+      hard_constraint_eligibility: hardEligibility,
+      retrieval: {
+        version: RETRIEVAL_UNION_VERSION,
+        source_reports: [
+          { source: "structured_category_v1", status: catalogResult.error ? "DEGRADED" : "OK", candidate_count: structuredCandidates.length, latency_ms: catalogResult.latencyMs, error: catalogResult.error },
+          { source: "lexical_v1", status: catalogResult.error ? "DEGRADED" : "OK", candidate_count: lexicalCandidates.length, latency_ms: catalogResult.latencyMs, error: catalogResult.error },
+          { source: "personalized_v12", status: "OK", candidate_count: distributedV12.length, latency_ms: v12Result.latencyMs, error: null },
+          { source: "semantic_v13", status: "OK", candidate_count: semanticRetrievalCandidates.length, latency_ms: semanticResult.latencyMs, error: null },
+          { source: "distribution_fallback", status: "OK", candidate_count: fallbackCandidates.length, latency_ms: 0, error: null },
+        ] satisfies RetrievalSourceReportV1[],
+        candidate_count_before_deduplication: structuredCandidates.length + lexicalCandidates.length + v12RetrievalCandidates.length + semanticRetrievalCandidates.length + fallbackCandidates.length,
+        candidate_count_after_deduplication: retrievalUnion.length,
+        candidate_union: retrievalUnion.map((candidate) => ({ spot_id: candidate.spot_id, evidence: candidate.evidence_list })),
+      },
+      spot_intelligence: {
+        version: SPOT_INTELLIGENCE_VERSION,
+        field_contract: SPOT_INTELLIGENCE_FIELD_CONTRACT_V1,
+        catalog_count: catalogResult.rows.length,
+        eligible_count: catalogEligibility.eligible.length,
+        hard_constraint_exclusions: catalogEligibility.exclusions,
+        coverage: Object.fromEntries(["category", "document", "price", "location", "opening_hours"].map((field) => [field, catalogResult.rows.filter((spot) => spot.availability[field as keyof SpotIntelligenceV1["availability"]] === "KNOWN").length])),
+        unknown_by_spot: catalogResult.rows.filter((spot) => Object.values(spot.availability).includes("UNKNOWN")).map((spot) => ({ spot_id: spot.spot_id, unknown: Object.entries(spot.availability).filter(([, value]) => value === "UNKNOWN").map(([field]) => field) })),
+      },
+      counts: {
+        v12: v12Candidates?.length ?? 0,
+        semantic: semanticCandidates?.length ?? 0,
+        structured: structuredCandidates.length,
+        lexical: lexicalCandidates.length,
+        retrieval_union: retrievalUnion.length,
+        post_distribution: hardEligibility.candidateCountBefore,
+        post_user_hard_constraints: hardEligibility.candidateCountAfter,
+        hard_constraint_excluded: hardEligibility.excludedCount,
+        hard_constraint_unknown: hardEligibility.unknownEvidenceCount,
+        fused: fused.length,
+        place_type_global: placeTypeProfile.global.size,
+        place_type_context: placeTypeProfile.context.size,
+        contextual_taste: contextualTaste.length,
+        recent_memory: recentMemory.length,
+      },
+      place_type_profile: {
+        context_key: contextKey,
+        global: Array.from(placeTypeProfile.global.values()),
+        context: Array.from(placeTypeProfile.context.values()),
+      },
+      contextual_memory: {
+        context_keys: decisionContextKeys,
+        taste: contextualTaste,
+        recent: recentMemory,
+      },
+      candidates: fused.map((candidate, index) => ({
+        rank: index + 1,
+        spot_id: candidate.spot_id,
+        name: candidate.name,
+        city: candidate.city,
+        category_name: candidate.category_name,
+        place_type: candidate.place_type,
+        place_type_label: candidate.place_type_label,
+        is_open_now: candidate.is_open_now,
+        combined_score: candidate.combined_score,
+        sources: candidate.sources,
+        v12_rank: candidate.v12_rank,
+        v12_score: candidate.v12_score,
+        semantic_rank: candidate.semantic_rank,
+        semantic_similarity: candidate.semantic_similarity,
+        matched_tokens: candidate.matched_tokens,
+        matched_terms: candidate.matched_terms,
+        human_reason: candidate.human_reason,
+        place_type_reason: candidate.place_type_reason,
+        technical_why_this: candidate.technical_why_this,
+        document_preview: candidate.document_preview,
+        place_type_context_weight: candidate.place_type_context_weight,
+        place_type_global_weight: candidate.place_type_global_weight,
+        place_type_context_confidence: candidate.place_type_context_confidence,
+        place_type_global_confidence: candidate.place_type_global_confidence,
+        explanation: candidate.explanation,
+        retrieval_evidence: candidate.retrieval_evidence,
+      })),
+    });
+  } catch (error) {
+    return jsonResponse(
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      500,
+    );
+  }
+});

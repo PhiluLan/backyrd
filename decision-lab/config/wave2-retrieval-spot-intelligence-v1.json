@@ -1,0 +1,37 @@
+{
+  "version": "wave2-retrieval-spot-intelligence-v1",
+  "parentEngine": "decision-wave1-intent-constraints-v1",
+  "parentWave1SourceHash": "5d65a4db6e8a8baf6bce872d967d5350e55ec5f4470191ff4490540dac0b20b8",
+  "parentV13SourceHash": "a3618a4254a884a53b45cf185c630444239d3da8e04f78d86ece6a65cda507ba",
+  "sources": {
+    "structured_category_v1": { "limit": 50, "purpose": "category and eligible-universe recall" },
+    "lexical_v1": { "limit": 30, "purpose": "exact-name and explainable term recall" },
+    "personalized_v12": { "limit": 16, "purpose": "unchanged personalized shadow retrieval" },
+    "semantic_v13": { "limit": 60, "purpose": "unchanged semantic shadow retrieval" },
+    "distribution_fallback": { "limit": 12, "purpose": "existing safe fallback" }
+  },
+  "spotIntelligenceVersion": "spot-intelligence-v1",
+  "candidateUnionVersion": "candidate-evidence-union-v1",
+  "semanticBenchmark": {
+    "model": "text-embedding-3-small",
+    "dimensions": 1536,
+    "pricePerMillionInputTokensUsd": 0.02,
+    "budgetCapUsdPerSeed": 1,
+    "modes": ["FAST_SIMULATION", "FULL_FIDELITY"],
+    "seeds": 3,
+    "goldenScenariosPerSeed": 42,
+    "classification": {
+      "keep": { "recallAt20Floor": 0.65, "maximumBadMatchRate": 0.2, "requiresUniqueUsefulContribution": true },
+      "harden": { "minimumUsefulRate": 0.25, "orUniqueUsefulContribution": true },
+      "replace": { "maximumUsefulCandidates": 0, "minimumBadMatchRate": 0.8 },
+      "zeroCandidates": "INCONCLUSIVE"
+    }
+  },
+  "promotion": {
+    "eligibleRecallFloor": 0.65,
+    "requiresAllSeedImprovement": true,
+    "requiresLockedHoldoutImprovement": true,
+    "hardLeakageBudget": 0,
+    "productionAccess": "PROHIBITED"
+  }
+}
