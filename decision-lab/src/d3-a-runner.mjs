@@ -18,6 +18,14 @@ const mean = (values) => { const rows = values.filter(Number.isFinite); return r
 const quantile = (values, p) => { const rows = values.filter(Number.isFinite).sort((a, b) => a - b); return rows.length ? rows[Math.min(rows.length - 1, Math.ceil(rows.length * p) - 1)] : null; };
 const ids = (rows) => (rows ?? []).map((row) => row.spot_id ?? row.id).filter(Boolean);
 const spotFor = (world, id) => world.spots.find((spot) => spot.id === id);
+const recallAt = (relevant, orderedIds, limit) => relevant.length ? relevant.filter((row) => new Set(orderedIds.slice(0, limit)).has(row.spotId)).length / relevant.length : 1;
+const pearson = (left, right) => {
+  if (left.length < 2 || left.length !== right.length) return null;
+  const leftMean = mean(left); const rightMean = mean(right);
+  const numerator = left.reduce((sum, value, index) => sum + (value - leftMean) * (right[index] - rightMean), 0);
+  const denominator = Math.sqrt(left.reduce((sum, value) => sum + (value - leftMean) ** 2, 0) * right.reduce((sum, value) => sum + (value - rightMean) ** 2, 0));
+  return denominator ? numerator / denominator : null;
+};
 
 export function requestForGoldenScenario(scenario) {
   const query = {
@@ -65,7 +73,7 @@ export function requestForGoldenScenario(scenario) {
 function traceFrom(run, world, scenario) {
   const observed = run.trace.observed;
   const stage = (name, rows) => ({ name, candidates: ids(rows).map((id) => ({ id, status: spotFor(world, id)?.observed.status, distribution: spotFor(world, id)?.observed.distribution })) });
-  const unionIds = [...new Set([...ids(observed.distributedV12), ...ids(observed.distributedSemantic)])];
+  const unionIds = observed.retrievalUnion?.length ? ids(observed.retrievalUnion) : [...new Set([...ids(observed.distributedV12), ...ids(observed.distributedSemantic)])];
   const results = run.candidates.map((candidate) => ({
     id: candidate.spot_id,
     status: spotFor(world, candidate.spot_id)?.observed.status,
@@ -77,6 +85,8 @@ function traceFrom(run, world, scenario) {
     scenarioId: scenario.id,
     stages: [
       stage("v12", observed.v12Candidates), stage("semantic", observed.semanticCandidates),
+      ...(observed.structuredCandidates ? [stage("structured", observed.structuredCandidates)] : []),
+      ...(observed.lexicalCandidates ? [stage("lexical", observed.lexicalCandidates)] : []),
       stage("post_distribution_v12", observed.distributedV12), stage("post_distribution_semantic", observed.distributedSemantic),
       stage("union", unionIds.map((id) => ({ id }))), stage("pre_diversity", observed.fusedBeforeFinalMetadata),
       stage("final", results)
@@ -151,6 +161,61 @@ function missedOpportunity(world, scenario, trace, candidates) {
   return { bestEligibleSpotId: id, utility, finalRank: final?.finalRank ?? null, disposition, dataSufficiency: observedEvidence >= 3 ? "ENGINE_FAILURE" : observedEvidence <= 1 ? "OBSERVED_DATA_LIMITATION" : "BOTH", observedEvidenceCount: observedEvidence };
 }
 
+function retrievalDiagnostics(world, scenario, truth, unionIds, observed) {
+  const utilityRows = Object.entries(truth).map(([spotId, utility]) => ({ spotId, utility }));
+  const retrieved = new Set(unionIds);
+  const good = utilityRows.filter((row) => row.utility >= 0.6);
+  const excellent = utilityRows.filter((row) => row.utility >= 0.8);
+  const best = [...utilityRows].sort((a, b) => b.utility - a.utility)[0] ?? null;
+  const evidenceBySpot = new Map((observed.retrievalUnion ?? []).map((row) => [row.spot_id, row.evidence_list ?? [row.evidence].filter(Boolean)]));
+  if (!observed.retrievalUnion) {
+    for (const id of ids(observed.distributedV12)) evidenceBySpot.set(id, [{ source: "personalized_v12" }]);
+    for (const id of ids(observed.distributedSemantic)) evidenceBySpot.set(id, [...(evidenceBySpot.get(id) ?? []), { source: "semantic_v13" }]);
+  }
+  const sources = [...new Set([...evidenceBySpot.values()].flat().map((row) => row.source).filter(Boolean))];
+  const sourceContribution = Object.fromEntries(sources.map((source) => {
+    const sourceIds = [...evidenceBySpot.entries()].filter(([, evidence]) => evidence.some((row) => row.source === source)).map(([id]) => id);
+    const useful = sourceIds.filter((id) => (truth[id] ?? 0) >= 0.6);
+    const uniqueUseful = useful.filter((id) => (evidenceBySpot.get(id) ?? []).length === 1);
+    return [source, { candidates: sourceIds.length, useful: useful.length, uniqueUseful: uniqueUseful.length }];
+  }));
+  const missed = good.filter((row) => !retrieved.has(row.spotId)).slice(0, 20).map((row) => {
+    const spot = spotFor(world, row.spotId);
+    const known = [spot?.category, spot?.observed.name, spot?.observed.description, spot?.observed.priceLevel, spot?.observed.lat, spot?.observed.lng, ...(spot?.observed.moods ?? [])].filter((value) => value !== null && value !== undefined && value !== "").length;
+    const classification = known <= 4 ? "SPOT_DATA_LIMITATION" : known <= 6 ? "BOTH" : "ENGINE_RETRIEVAL_FAILURE";
+    return { spotId: row.spotId, utility: row.utility, density: spot?.density ?? "unknown", category: spot?.category ?? "unknown", observedEvidenceCount: known, classification };
+  });
+  const semanticIds = new Set(ids(observed.distributedSemantic));
+  const semanticRows = observed.distributedSemantic ?? [];
+  const semanticSimilarities = semanticRows.map((row) => Number(row.similarity)).filter(Number.isFinite);
+  const semanticRanks = semanticRows.map((_, index) => index + 1);
+  const semanticUtilityRanks = semanticRows.map((row) => truth[row.spot_id] ?? 0);
+  const bestSpot = best ? spotFor(world, best.spotId) : null;
+  return {
+    candidatePoolSize: unionIds.length,
+    goodOrBetterRecall: good.length ? good.filter((row) => retrieved.has(row.spotId)).length / good.length : 1,
+    goodOrBetterRecallAt20: recallAt(good, unionIds, 20),
+    goodOrBetterRecallAt50: recallAt(good, unionIds, 50),
+    excellentFitRecall: excellent.length ? excellent.filter((row) => retrieved.has(row.spotId)).length / excellent.length : 1,
+    excellentFitRecallAt20: recallAt(excellent, unionIds, 20),
+    excellentFitRecallAt50: recallAt(excellent, unionIds, 50),
+    bestAvailableRetrieved: best ? retrieved.has(best.spotId) : true,
+    bestAvailableSpotId: best?.spotId ?? null,
+    retrievalCeiling: Math.max(0, ...unionIds.map((id) => truth[id] ?? 0)),
+    badSemanticMatches: [...semanticIds].filter((id) => (truth[id] ?? 0) < 0.35).length,
+    semanticCandidates: semanticIds.size,
+    semanticGoodOrBetterRecallAt20: recallAt(good, [...semanticIds], 20),
+    semanticGoodOrBetterRecallAt50: recallAt(good, [...semanticIds], 50),
+    semanticSimilarity: { min: semanticSimilarities.length ? Math.min(...semanticSimilarities) : null, mean: mean(semanticSimilarities), max: semanticSimilarities.length ? Math.max(...semanticSimilarities) : null, normalizedSaturationRate: semanticSimilarities.length ? semanticSimilarities.filter((value) => value >= 0.75).length / semanticSimilarities.length : null },
+    semanticUtilityRankCorrelation: pearson(semanticRanks, semanticUtilityRanks),
+    sourceOverlapCount: [...evidenceBySpot.values()].filter((evidence) => evidence.length > 1).length,
+    sourceContribution,
+    missed,
+    scenarioCategory: scenario.hardConstraints.category ?? bestSpot?.category ?? null,
+    scenarioDensity: bestSpot?.density ?? "unknown",
+  };
+}
+
 function identity(world, constitution, scenario, request, trace, engineSourceHash = world.manifest.engineSourceHash) {
   const inputHash = contentHash({ request, scenarioHash: scenario.hash, traceHash: trace.traceHash });
   const runId = createHash("sha256").update(`${world.manifest.worldHash}:${scenario.id}:${inputHash}`).digest("hex");
@@ -176,7 +241,7 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
   const records = [];
   try {
     for (const scenario of goldenScenarios) {
-      const request = requestForGoldenScenario(scenario);
+      const request = { ...requestForGoldenScenario(scenario), ...(engine?.requestOverrides ?? {}) };
       const started = performance.now();
       const run = await executor({ userId: scenario.userId, request, context: scenario.context, diagnostic: { arm: "golden", scenarioId: scenario.id } });
       const latencyMs = Number((performance.now() - started).toFixed(3));
@@ -188,6 +253,7 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
       const bestEligible = Math.max(0, ...Object.values(truth));
       const bestRetrieved = Math.max(0, ...unionIds.map((id) => truth[id] ?? 0));
       const top1 = candidates[0]?.latentUtility ?? 0;
+      const retrieval = retrievalDiagnostics(world, scenario, truth, unionIds, run.trace.observed);
       records.push({
         baselineId,
         experimentId: evaluation.runId,
@@ -205,6 +271,7 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
         fidelityMode: config.embeddingMode,
         candidateCounts: { v12: run.trace.v12CandidateIds.length, semantic: run.trace.semanticCandidateIds.length, postDistributionV12: run.trace.distributedV12CandidateIds.length, postDistributionSemantic: run.trace.distributedSemanticCandidateIds.length, union: unionIds.length, preDiversity: run.trace.fusedCandidateIds.length, final: candidates.length },
         candidateSources: Object.fromEntries(["v12_only", "semantic_only", "overlap", "fallback"].map((key) => [key, candidates.filter((candidate) => candidate.source === key).length])),
+        retrieval,
         finalTopK: candidates.map((candidate) => candidate.spotId),
         latentUtilities: candidates.map((candidate) => candidate.latentUtility),
         metrics: { ...evaluation.metrics, rankRegretTop1: bestRetrieved - top1, eligibleRegretTop1: bestEligible - top1, retrievalCeilingTop1: bestRetrieved, eligibleCeilingTop1: bestEligible, outcomePotential: outcomePotential(candidates.map((candidate) => candidate.spotId), truth) },
@@ -220,6 +287,10 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
         outputHash: evaluation.outputHash,
         observedEngine: { ...run.payloadMeta, structuredIntent: run.trace.structuredIntent ?? null, hardConstraintEligibility: run.trace.hardConstraintEligibility ?? null }
       });
+    }
+
+    if (engine?.goldenOnly === true) {
+      return { worldManifest: world.manifest, worldHealth, records, diagnostics: null, externalUsage: canonical.getExternalUsage?.() ?? null };
     }
 
     const library = scenarioLibrary(world);
@@ -238,7 +309,7 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
     const explanation = await runExplanationAlignment({ cases: explanationCases, executor, engineSourceHash: canonical.sourceHash });
     const coverage = coverageReport({ expected: coverageContract, results: { counterfactual, personalization, remix, explanation } });
     if (!coverage.ready) throw new Error(`D3-A diagnostic coverage incomplete: ${JSON.stringify(coverage.rows)}`);
-    return { worldManifest: world.manifest, worldHealth, records, diagnostics: { counterfactual, personalization, remix, explanation, coverage } };
+    return { worldManifest: world.manifest, worldHealth, records, diagnostics: { counterfactual, personalization, remix, explanation, coverage }, externalUsage: canonical.getExternalUsage?.() ?? null };
   } finally {
     canonical.restore();
   }
