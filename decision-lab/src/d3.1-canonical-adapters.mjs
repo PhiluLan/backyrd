@@ -54,6 +54,8 @@ export function createCanonicalV13Executor({ canonical, jwtSecret }) {
       fallbackUsed: candidates.some((candidate) => candidate.semantic_similarity === 0 && candidate.document_preview === "Distribution-safe alternative candidate"),
       observed
     };
+    if (payload.structured_intent) traceBody.structuredIntent = payload.structured_intent;
+    if (payload.hard_constraint_eligibility) traceBody.hardConstraintEligibility = payload.hard_constraint_eligibility;
     return { executionPath: CANONICAL_EXECUTION_PATH, engineSourceHash: canonical.sourceHash, authenticated: true, candidates, hardGates: input.hardGates ?? null, trace: { ...traceBody, traceHash: contentHash(traceBody) }, payloadMeta: { version: payload.version, mode: payload.mode, counts: payload.counts } };
   };
 }

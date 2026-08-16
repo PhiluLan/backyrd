@@ -18,6 +18,7 @@
     "decision-lab:d3.1:coverage": "bash scripts/decision/run-d3-1-coverage-smoke.sh",
     "decision-lab:d3-a": "bash scripts/decision/run-d3-a-full-diagnostic.sh",
     "decision-lab:d3-a:validate": "node decision-lab/src/d3-a-validate.mjs",
+    "decision-lab:wave1": "bash scripts/decision/run-wave1-comparison.sh",
     "supabase:start": "npx supabase start",
     "supabase:stop": "npx supabase stop",
     "supabase:status": "npx supabase status",
