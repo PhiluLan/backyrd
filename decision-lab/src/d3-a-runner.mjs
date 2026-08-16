@@ -40,6 +40,8 @@ export function requestForGoldenScenario(scenario) {
     repetition: "etwas anderes als zuletzt",
     explanation: "warum passt dieser Ort"
   }[scenario.family] ?? scenario.request.query;
+  const requiresOpenNow = scenario.hardConstraints.openNow === true;
+  const decisionHour = { morning: 9, afternoon: 13, evening: 19, night: 23 }[scenario.context.timeBucket] ?? 12;
   return {
     city: scenario.request.city,
     query,
@@ -50,6 +52,9 @@ export function requestForGoldenScenario(scenario) {
     audience: [scenario.context.audience],
     occasions: [scenario.context.timeBucket, scenario.context.weekday === 0 ? "sunday" : "weekday"],
     strictCategoryIntent: Boolean(scenario.hardConstraints.category),
+    openNow: requiresOpenNow,
+    requireOpenNow: requiresOpenNow,
+    decisionAt: `2026-08-10T${String(decisionHour).padStart(2, "0")}:30:00.000Z`,
     limit: 10,
     v12Limit: 16,
     semanticLimit: 24,
@@ -146,10 +151,10 @@ function missedOpportunity(world, scenario, trace, candidates) {
   return { bestEligibleSpotId: id, utility, finalRank: final?.finalRank ?? null, disposition, dataSufficiency: observedEvidence >= 3 ? "ENGINE_FAILURE" : observedEvidence <= 1 ? "OBSERVED_DATA_LIMITATION" : "BOTH", observedEvidenceCount: observedEvidence };
 }
 
-function identity(world, constitution, scenario, request, trace) {
+function identity(world, constitution, scenario, request, trace, engineSourceHash = world.manifest.engineSourceHash) {
   const inputHash = contentHash({ request, scenarioHash: scenario.hash, traceHash: trace.traceHash });
   const runId = createHash("sha256").update(`${world.manifest.worldHash}:${scenario.id}:${inputHash}`).digest("hex");
-  return { worldId: world.manifest.worldId, worldHash: world.manifest.worldHash, split: scenario.split, seedId: world.manifest.seed, generatorVersion: world.manifest.generatorVersion, groundTruthVersion: constitution.groundTruthVersion, scenarioVersion: constitution.scenarioVersion, evaluationVersion: constitution.evaluationVersion, gateVersion: constitution.gateVersion, gitSha: world.manifest.gitSha, migrationHash: world.manifest.migrationHash, engineSourceHash: world.manifest.engineSourceHash, embeddingMode: world.manifest.embeddingMode, runId, inputHash, outputHash: "pending" };
+  return { worldId: world.manifest.worldId, worldHash: world.manifest.worldHash, split: scenario.split, seedId: world.manifest.seed, generatorVersion: world.manifest.generatorVersion, groundTruthVersion: constitution.groundTruthVersion, scenarioVersion: constitution.scenarioVersion, evaluationVersion: constitution.evaluationVersion, gateVersion: constitution.gateVersion, gitSha: world.manifest.gitSha, migrationHash: world.manifest.migrationHash, engineSourceHash, embeddingMode: world.manifest.embeddingMode, runId, inputHash, outputHash: "pending" };
 }
 
 function utilityMap(world, userId, context = world.contexts[0]) {
@@ -158,12 +163,14 @@ function utilityMap(world, userId, context = world.contexts[0]) {
   return Object.fromEntries(world.spots.map((spot) => [spot.id, latentUtility(user, spot, context).utility]));
 }
 
-export async function runD3AWorld({ config, metadata, constitution, coverageContract, env }) {
+export async function runD3AWorld({ config, metadata, constitution, coverageContract, env, engine = null }) {
   const world = generateWorld({ ...config, scenarioSetVersion: constitution.scenarioVersion, evaluationVersion: constitution.evaluationVersion }, metadata);
   const worldHealth = validateWorld(world);
   if (!worldHealth.valid) throw new Error(`World health failed: ${JSON.stringify(worldHealth.failures)}`);
-  const canonical = await loadCanonicalDecisionHandler({ env, embeddingMode: config.embeddingMode });
-  if (canonical.sourceHash !== coverageContract.engineSourceHash) throw new Error("Canonical V13 source hash drift");
+  const canonical = await loadCanonicalDecisionHandler({ env, embeddingMode: config.embeddingMode, ...(engine?.sourceUrl ? { sourceUrl: engine.sourceUrl } : {}) });
+  const expectedEngineSourceHash = engine?.expectedSourceHash ?? coverageContract.engineSourceHash;
+  const baselineId = engine?.baselineId ?? "backyrd-decision-v13-baseline-d3-a-v1";
+  if (canonical.sourceHash !== expectedEngineSourceHash) throw new Error("Decision Engine source hash drift");
   const executor = createCanonicalV13Executor({ canonical, jwtSecret: env.DECISION_LAB_JWT_SECRET });
   const goldenScenarios = buildGoldenScenarios(world, constitution.scenarioVersion);
   const records = [];
@@ -174,7 +181,7 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
       const run = await executor({ userId: scenario.userId, request, context: scenario.context, diagnostic: { arm: "golden", scenarioId: scenario.id } });
       const latencyMs = Number((performance.now() - started).toFixed(3));
       const trace = traceFrom(run, world, scenario);
-      const evaluation = evaluateTrace({ world, scenario, trace, constitution, identity: identity(world, constitution, scenario, request, trace) });
+      const evaluation = evaluateTrace({ world, scenario, trace, constitution, identity: identity(world, constitution, scenario, request, trace, canonical.sourceHash) });
       const candidates = candidateDiagnostics(world, scenario, run);
       const truth = groundTruth(world, scenario);
       const unionIds = trace.stages.find((stage) => stage.name === "union").candidates.map((item) => item.id);
@@ -182,7 +189,7 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
       const bestRetrieved = Math.max(0, ...unionIds.map((id) => truth[id] ?? 0));
       const top1 = candidates[0]?.latentUtility ?? 0;
       records.push({
-        baselineId: "backyrd-decision-v13-baseline-d3-a-v1",
+        baselineId,
         experimentId: evaluation.runId,
         worldId: world.manifest.worldId,
         seed: world.manifest.seed,
@@ -211,12 +218,12 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
         missedOpportunity: missedOpportunity(world, scenario, trace, candidates),
         traceHash: trace.traceHash,
         outputHash: evaluation.outputHash,
-        observedEngine: run.payloadMeta
+        observedEngine: { ...run.payloadMeta, structuredIntent: run.trace.structuredIntent ?? null, hardConstraintEligibility: run.trace.hardConstraintEligibility ?? null }
       });
     }
 
     const library = scenarioLibrary(world);
-    const counterfactual = await runCounterfactualEvaluation({ pairs: counterfactualPairs(library), executor, engineSourceHash: coverageContract.engineSourceHash, utilityFor: (scenario) => utilityMap(world, scenario.userId) });
+    const counterfactual = await runCounterfactualEvaluation({ pairs: counterfactualPairs(library), executor, engineSourceHash: canonical.sourceHash, utilityFor: (scenario) => utilityMap(world, scenario.userId) });
     const bundles = coverageContract.arms.personalization.maturities.map((maturity) => {
       const sourceUser = world.users.find((user) => user.maturity === maturity);
       if (!sourceUser) throw new Error(`World has no ${maturity} user`);
@@ -224,11 +231,11 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
       return buildPersonalizationTreatment(world, { userId: sourceUser.id, scenarioId: `d3-a-${maturity}`, currentRequest: scenario.request, currentContext: world.contexts[0] });
     });
     const materialize = createTreatmentMaterializer(createIsolatedPostgresTreatmentAdapters({ dbUrl: env.DECISION_LAB_DB_URL }));
-    const personalization = await runPersonalizationTreatmentComparison({ bundles, materialize, executor, engineSourceHash: coverageContract.engineSourceHash, utilityFor: (userId, context) => utilityMap(world, userId, context) });
+    const personalization = await runPersonalizationTreatmentComparison({ bundles, materialize, executor, engineSourceHash: canonical.sourceHash, utilityFor: (userId, context) => utilityMap(world, userId, context) });
     const remixCases = coverageContract.arms.remix.families.map((family, index) => ({ ...library[index % library.length], id: `d3-a-remix-${family}`, family, context: world.contexts[index % world.contexts.length], request: { ...library[index % library.length].request, limit: family.includes("few") || family.includes("sparse") ? 6 : 10 } }));
-    const remix = await runRemixEvaluation({ cases: remixCases, executor, engineSourceHash: coverageContract.engineSourceHash, utilityFor: (item) => utilityMap(world, item.userId, item.context) });
+    const remix = await runRemixEvaluation({ cases: remixCases, executor, engineSourceHash: canonical.sourceHash, utilityFor: (item) => utilityMap(world, item.userId, item.context) });
     const explanationCases = goldenScenarios.map((scenario) => ({ id: scenario.id, userId: scenario.userId, request: requestForGoldenScenario(scenario), context: scenario.context }));
-    const explanation = await runExplanationAlignment({ cases: explanationCases, executor, engineSourceHash: coverageContract.engineSourceHash });
+    const explanation = await runExplanationAlignment({ cases: explanationCases, executor, engineSourceHash: canonical.sourceHash });
     const coverage = coverageReport({ expected: coverageContract, results: { counterfactual, personalization, remix, explanation } });
     if (!coverage.ready) throw new Error(`D3-A diagnostic coverage incomplete: ${JSON.stringify(coverage.rows)}`);
     return { worldManifest: world.manifest, worldHealth, records, diagnostics: { counterfactual, personalization, remix, explanation, coverage } };

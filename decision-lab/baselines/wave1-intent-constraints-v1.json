@@ -1,0 +1,97 @@
+{
+  "version": "wave1-comparison-v1",
+  "engine": {
+    "version": "decision-wave1-intent-constraints-v1",
+    "sourceHash": "5d65a4db6e8a8baf6bce872d967d5350e55ec5f4470191ff4490540dac0b20b8",
+    "parentV13SourceHash": "a3618a4254a884a53b45cf185c630444239d3da8e04f78d86ece6a65cda507ba"
+  },
+  "frozenIdentities": {
+    "d2_1": "6488f3031bb63df482dbff2b2e2c011c1a82781862e1fe532ffdd1c968fffacf",
+    "d2_2": "9b4691de75bead63ad798700ada0b818ba6d29ad92d24804dcb2d3eeecfc1053"
+  },
+  "sampleSizes": {
+    "seeds": 3,
+    "goldenDecisions": 126,
+    "scenariosPerSeed": 42
+  },
+  "fidelity": {
+    "semantic": "FAST_SIMULATION",
+    "aggregate": "STRUCTURALLY_VALIDATED",
+    "production": "NONE"
+  },
+  "hardGates": {
+    "productEligibility": {
+      "applicable": 126,
+      "failed": 0,
+      "notEvaluated": 0,
+      "pass": true
+    },
+    "distributionEligibility": {
+      "applicable": 126,
+      "failed": 0,
+      "notEvaluated": 0,
+      "pass": true
+    },
+    "hardCategory": {
+      "applicable": 18,
+      "failed": 0,
+      "notEvaluated": 0,
+      "pass": true
+    },
+    "categoryExclusion": {
+      "applicable": 9,
+      "failed": 0,
+      "notEvaluated": 0,
+      "pass": true
+    },
+    "openNow": {
+      "applicable": 6,
+      "failed": 0,
+      "notEvaluated": 0,
+      "pass": true
+    }
+  },
+  "d3f001": {
+    "beforeDecisionFailures": 21,
+    "afterDecisionFailures": 0
+  },
+  "metrics": {
+    "v13": {
+      "ndcgAt10": 0.5274279249032943,
+      "recallAt10": 0.06009184162288182,
+      "precisionAt10": 0.3190476190476193,
+      "noResultRate": 0,
+      "hardViolationRate": 0.16666666666666666
+    },
+    "wave1": {
+      "ndcgAt10": 0.5589498719239941,
+      "recallAt10": 0.07101832611241557,
+      "precisionAt10": 0.3274470899470901,
+      "noResultRate": 0.007936507936507936,
+      "starvationRate": 0.023809523809523808,
+      "hardViolationRate": 0,
+      "top1Utility": 0.43898400000000004,
+      "eligibleRegretTop1": 0.30726587301587316
+    }
+  },
+  "eligibility": {
+    "reports": 126,
+    "meanBefore": 36.404761904761905,
+    "meanAfter": 32.29365079365079,
+    "excluded": 518,
+    "unknownEvidence": 0
+  },
+  "scientificValidity": "PASS",
+  "parentV13Mutation": "NONE",
+  "productionAccess": "NONE",
+  "promotion": {
+    "d3f001Zero": true,
+    "productEligibility": true,
+    "distributionEligibility": true,
+    "allWave1HardGates": true,
+    "harmfulRetrievalCollapse": false
+  },
+  "verdict": "PASS",
+  "resultHash": "974f06207941b1b47fcc511fe574e416dd9f2fce5ec40f28af5c4f572235465a",
+  "sourceArtifactHash": "5d65a4db6e8a8baf6bce872d967d5350e55ec5f4470191ff4490540dac0b20b8"
+}
