@@ -14,6 +14,7 @@ import { sealTrace } from "./replay.mjs";
 import { counterfactualPairs, scenarioLibrary } from "./scenarios.mjs";
 import { latentUtility } from "./utility.mjs";
 import { buildRetrievalProjections, candidateUnionNextGen, classifyRetrievalMisses, oracleRecallAtKCapacity } from "./wave2.1-retrieval-next-gen.mjs";
+import { retrievalBreakthroughExperiments, retrievalBreakthroughManifest } from "./wave2.2-retrieval-breakthrough.mjs";
 
 const mean = (values) => { const rows = values.filter(Number.isFinite); return rows.length ? rows.reduce((sum, value) => sum + value, 0) / rows.length : null; };
 const quantile = (values, p) => { const rows = values.filter(Number.isFinite).sort((a, b) => a - b); return rows.length ? rows[Math.min(rows.length - 1, Math.ceil(rows.length * p) - 1)] : null; };
@@ -246,11 +247,12 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
       const started = performance.now();
       const run = await executor({ userId: scenario.userId, request, context: scenario.context, diagnostic: { arm: "golden", scenarioId: scenario.id } });
       let retrievalNextGen = null;
+      let retrievalBreakthrough = null;
       if (engine?.retrievalNextGen === true) {
         const baseUnion = structuredClone(run.trace.observed.retrievalUnion ?? []);
         const projections = buildRetrievalProjections({ request, structuredIntent: run.trace.structuredIntent });
         const projectionRuns = [{ projection: projections.find((item) => item.id === "base") ?? { id: "base", query: request.query }, observed: structuredClone(run.trace.observed) }];
-        for (const projection of projections.filter((item) => item.id !== "base")) {
+        const executeProjection = async (projection) => {
           const projectionRequest = {
             ...request,
             query: projection.query,
@@ -259,11 +261,30 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
             lexicalLimit: engine.retrievalNextGenLimits?.lexical ?? 40,
             semanticLimit: engine.retrievalNextGenLimits?.semantic ?? 60,
           };
+          const projectionStarted = performance.now();
           const projectionRun = await executor({ userId: scenario.userId, request: projectionRequest, context: scenario.context, diagnostic: { arm: "retrieval_projection", scenarioId: scenario.id, projection: projection.id } });
-          projectionRuns.push({ projection, observed: structuredClone(projectionRun.trace.observed) });
+          return { projection, observed: structuredClone(projectionRun.trace.observed), latencyMs: Number((performance.now() - projectionStarted).toFixed(3)) };
+        };
+        const additionalProjections = projections.filter((item) => item.id !== "base");
+        if (engine?.retrievalBreakthrough === true) {
+          projectionRuns.push(...await Promise.all(additionalProjections.map(executeProjection)));
+        } else {
+          for (const projection of additionalProjections) projectionRuns.push(await executeProjection(projection));
         }
         const nextUnion = candidateUnionNextGen(projectionRuns, { limit: engine.retrievalNextGenLimits?.union ?? 100 });
-        run.trace.observed.retrievalUnion = nextUnion.map((candidate) => ({
+        if (engine?.retrievalBreakthrough === true) {
+          const experiments = retrievalBreakthroughExperiments({
+            projectionRuns,
+            catalogResult: run.trace.observed.eligibleSpotIntelligenceCatalog,
+            request,
+            structuredIntent: run.trace.structuredIntent,
+            poolLimit: engine.retrievalBreakthroughLimits?.union ?? 80,
+          });
+          experiments.H0_WAVE2_1 = nextUnion;
+          retrievalBreakthrough = { manifest: retrievalBreakthroughManifest(), experiments, finalUnion: experiments.H3_EVIDENCE_AGGREGATION };
+        }
+        const selectedUnion = retrievalBreakthrough?.finalUnion ?? nextUnion;
+        run.trace.observed.retrievalUnion = selectedUnion.map((candidate) => ({
           spot_id: candidate.spot_id,
           retrieval_score: candidate.retrieval_score,
           union_rank: candidate.union_rank,
@@ -271,10 +292,15 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
             source: evidence.source,
             source_rank: evidence.source_rank,
             source_score: evidence.source_score,
-            evidence: [...evidence.evidence, `projection:${evidence.projection}`, `rrf:${evidence.rrf_contribution.toFixed(9)}`],
+            evidence: [
+              ...evidence.evidence,
+              `projection:${evidence.projection}`,
+              ...(Number.isFinite(evidence.rrf_contribution) ? [`rrf:${evidence.rrf_contribution.toFixed(9)}`] : []),
+              ...(Number.isFinite(evidence.calibrated_rank) ? [`calibrated_rank:${evidence.calibrated_rank.toFixed(9)}`] : []),
+            ],
           })),
         }));
-        retrievalNextGen = { projections, projectionRuns, baseUnion, nextUnion };
+        retrievalNextGen = { projections, projectionRuns, baseUnion, nextUnion: selectedUnion };
       }
       const latencyMs = Number((performance.now() - started).toFixed(3));
       const trace = traceFrom(run, world, scenario);
@@ -316,6 +342,20 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
           candidateUnion: retrievalNextGen.nextUnion,
           rootCause: retrievalRootCause,
           recallAt20Capacity: recallCapacity,
+        } : null,
+        retrievalBreakthrough: retrievalBreakthrough ? {
+          manifest: retrievalBreakthrough.manifest,
+          experiments: retrievalBreakthrough.experiments,
+          finalUnion: retrievalBreakthrough.finalUnion,
+          integrity: Object.fromEntries(Object.entries(retrievalBreakthrough.experiments).map(([experiment, rows]) => {
+            const resolved = (rows ?? []).map((candidate) => world.spots.find((spot) => spot.id === candidate.spot_id));
+            return [experiment, {
+              unresolved: resolved.filter((spot) => !spot).length,
+              productFailures: resolved.filter((spot) => spot && spot.observed.status !== "approved").length,
+              distributionFailures: resolved.filter((spot) => spot && ["quarantined", "excluded"].includes(spot.observed.distribution)).length,
+              hardConstraintFailures: resolved.filter((spot) => spot && !Object.hasOwn(truth, spot.id)).length,
+            }];
+          })),
         } : null,
         finalTopK: candidates.map((candidate) => candidate.spotId),
         latentUtilities: candidates.map((candidate) => candidate.latentUtility),
