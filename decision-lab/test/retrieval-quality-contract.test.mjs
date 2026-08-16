@@ -80,3 +80,27 @@ test("threshold contract is prospective and does not rewrite historical Wave 2.1
   assert.equal(contract.scientificControls.lockedHoldoutThresholdTuning, "PROHIBITED");
   assert.equal(retrievalContractHashes(contract).contractHash, contentHash(contract));
 });
+
+test("historical diagnostic is sealed and preserves every historical verdict", async () => {
+  const evidence = JSON.parse(await readFile(new URL("../baselines/d4.1-retrieval-quality-contract-v1.json", import.meta.url), "utf8"));
+  const { resultHash, ...body } = evidence;
+  assert.equal(resultHash, contentHash(body));
+  assert.equal(evidence.contractFreezeHash, "6c6421d61e2e4cb6ccdbc8ce4a8c807392bfdc7742797b8cb2d3734564ae3947");
+  assert.deepEqual(evidence.sample, { engines: 4, seeds: 3, scenariosPerSeed: 42, decisions: 504, embeddingMode: "FULL_FIDELITY" });
+  assert.equal(evidence.oracleCapacity.meanMaximumRecallAtK, 0.4514809250969429);
+  assert.equal(evidence.oracleCapacity.scenariosCapableOfHistoricalPoint65, 31);
+  assert.deepEqual(evidence.historicalVerdicts, {
+    v13: "UNCHANGED",
+    wave1: "UNCHANGED",
+    wave2: "FAIL_UNCHANGED",
+    wave2_1: "FAIL_UNCHANGED",
+    wave2_1Architecture: "NOT_PROMOTED_UNCHANGED",
+  });
+  assert.equal(evidence.scientificValidity.status, "PASS");
+  assert.equal(evidence.scientificValidity.thresholdsFrozenBeforeHistoricalRun, true);
+  assert.match(evidence.scientificValidity.thresholdFreezeCommit, /^2ec40c4/);
+  assert.equal(evidence.scientificValidity.oracleFeedsEngine, false);
+  assert.equal(evidence.scientificValidity.engineMutation, "NONE");
+  assert.equal(evidence.scientificValidity.productionAccess, "NONE");
+  for (const result of Object.values(evidence.diagnosticPromotion)) assert.equal(result.pass, false);
+});
