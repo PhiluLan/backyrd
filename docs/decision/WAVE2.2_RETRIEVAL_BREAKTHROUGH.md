@@ -198,7 +198,7 @@ Local and GitHub CI evidence is recorded in the pull request. The full repositor
 
 Branch: `codex/decision-wave2-2-retrieval-breakthrough`
 
-Draft PR: pending at document creation; the pull request is the final CI source of truth.
+Draft PR: [#37](https://github.com/PhiluLan/backyrd/pull/37); the pull request is the final CI source of truth.
 
 Durable additions are limited to the Lab retrieval experiment, behavior-neutral trace evidence, runner/aggregator, sealed baseline, tests, package command, and this report.
 
