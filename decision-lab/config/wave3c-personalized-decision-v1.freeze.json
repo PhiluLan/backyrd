@@ -1,0 +1,13 @@
+{
+  "freezeVersion": "backyrd-wave3c-personalized-decision-freeze-v1",
+  "contractVersion": "backyrd-wave3c-personalized-decision-validation-v1",
+  "contractHash": "371389933d059646339430f46eb2ac0a718891792f8adb355e6bc70581b2550f",
+  "personalizedFitSourceHash": "3b62b8ce33ffd308426df46593515084d5676607bfefbb4995c6de44dcf7e0ae",
+  "worldRunnerSourceHash": "54b822c331e94382b132f25ea86e9c1ff41fe06005338df314a4d124966dc4b0",
+  "aggregateRunnerSourceHash": "f16dc1743c6e5dc2d76b67650afc1483ba985b3ed292b18681f8d49141504a93",
+  "officialScriptHash": "ce483bdd093317c2bac6aae6a2f137519678ea30377605d58b648a5aeede273b",
+  "tasteEngineFreezeHash": "2a4a9e2f7353ad20d10073a00ccfb235778d64d5730f5e7771a4787f92a2116f",
+  "tasteTreatmentFreezeHash": "ab2339de028fb5ed04999ea682d6a38d9434e75350993fb4963c518c8af15116",
+  "personalizationTreatmentFreezeHash": "9b4691de75bead63ad798700ada0b818ba6d29ad92d24804dcb2d3eeecfc1053",
+  "parentValidity": "PASS"
+}

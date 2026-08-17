@@ -1,0 +1,73 @@
+{
+  "version": "backyrd-wave3c-personalized-decision-validation-v1",
+  "candidatePath": "decision-wave1-intent-constraints-v1",
+  "personalizedFitVersion": "backyrd-personalized-fit-v1",
+  "tasteEngineFreezeHash": "2a4a9e2f7353ad20d10073a00ccfb235778d64d5730f5e7771a4787f92a2116f",
+  "personalizationTreatmentFreezeHash": "9b4691de75bead63ad798700ada0b818ba6d29ad92d24804dcb2d3eeecfc1053",
+  "tasteTreatmentFreezeHash": "ab2339de028fb5ed04999ea682d6a38d9434e75350993fb4963c518c8af15116",
+  "seeds": [
+    "backyrd-d1-basel-v1-2026",
+    "backyrd-d1-basel-v1-2026-2",
+    "backyrd-d1-basel-v1-2026-3"
+  ],
+  "arms": ["ACTUAL", "NEUTRAL", "OPPOSING"],
+  "maturities": ["cold", "onboarding", "sparse", "developing", "mature", "power"],
+  "topK": 10,
+  "bootstrap": { "iterations": 2000, "seed": "wave3c-personalization-v1", "confidence": 0.95 },
+  "coverage": {
+    "failClosed": true,
+    "requiredArms": [
+      "ACTUAL_NEUTRAL_OPPOSING",
+      "SAME_USER_DIFFERENT_CONTEXT",
+      "SAME_REQUEST_DIFFERENT_USERS",
+      "CURRENT_INTENT_CONFLICT",
+      "MATURITY",
+      "CONFIDENCE",
+      "RETRIEVAL_ATTRIBUTION",
+      "INTEGRITY"
+    ],
+    "minimumTreatmentComparisons": 18,
+    "minimumContextComparisons": 9,
+    "minimumDifferentUserComparisons": 9,
+    "minimumIntentConflictComparisons": 6
+  },
+  "thresholds": {
+    "personalizationLiftMeanMinimum": 0.005,
+    "personalizationLiftBootstrapLowerMinimum": -0.005,
+    "personalizationHarmRateMaximum": 0.35,
+    "personalizationHarmCohortMaximum": 0.50,
+    "opposingHistoryHarmMaximum": 0.50,
+    "currentIntentRobustnessMinimum": 0.95,
+    "historyOverrideRateMaximum": 0,
+    "contextualDifferentiationMinimum": 0.20,
+    "sameUserContextUtilityGainMinimum": 0.005,
+    "differentUserRankingDivergenceMinimum": 0.20,
+    "falsePersonalizationMaximum": 0.30,
+    "confidenceLiftCorrelationMinimum": 0.20,
+    "coldStartUtilityDeltaMinimum": -0.002,
+    "coldStartHarmRateMaximum": 0.10,
+    "matureUserLiftMinimum": 0.005,
+    "hardConstraintViolationsMaximum": 0,
+    "productEligibilityViolationsMaximum": 0,
+    "distributionEligibilityViolationsMaximum": 0,
+    "tasteGatePassRateMinimum": 1
+  },
+  "thresholdRationale": {
+    "lift": "A five-basis-point mean Top-K latent-utility gain is the smallest product-relevant internal floor; the paired interval may include only negligible harm because the frozen synthetic sample is deliberately small.",
+    "harm": "At least 65% of Decisions must not be worse than Neutral, and no maturity cohort may be harmed in a majority of cases.",
+    "intent": "Explicit current intent is an authority boundary; any historical override is prohibited and at least 95% of conflict cases must retain the requested direction.",
+    "context": "Different contexts must move at least 20% of Top-K positions while improving context-specific utility, proving adaptation rather than cosmetic score changes.",
+    "confidence": "Higher-confidence evidence must have a positive relationship with realized lift; unknown and Cold Start remain neutral.",
+    "integrity": "Hard, Product and Distribution eligibility are non-compensable and therefore allow zero violations."
+  },
+  "scientificControls": {
+    "latentTruthRuntimeInput": false,
+    "groundTruthRole": "EVALUATOR_ONLY",
+    "sameCandidateUniverseAcrossTreatmentArms": true,
+    "sameQueryContextWorldAcrossTreatmentArms": true,
+    "lockedHoldoutTuning": false,
+    "retrievalMutation": "PROHIBITED",
+    "tasteEngineMutation": "PROHIBITED_DURING_OFFICIAL_RUN",
+    "productionAccess": "NONE"
+  }
+}
