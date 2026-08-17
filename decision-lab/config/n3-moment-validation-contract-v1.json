@@ -1,0 +1,42 @@
+{
+  "version": "backyrd-moment-validation-contract-v1",
+  "status": "FROZEN_BEFORE_OFFICIAL_RUN",
+  "seeds": [3001, 3002, 3003],
+  "cohorts": [
+    "FAMILY_SUNDAY_AFTERNOON",
+    "FRIENDS_FRIDAY_NIGHT",
+    "DATE_SATURDAY_EVENING_BUDGET",
+    "SOLO_TUESDAY_AFTERWORK",
+    "SPONTANEOUS_TOURIST_NEW_CITY",
+    "BUSINESS_LUNCH",
+    "COLD_VAGUE",
+    "MATURE_RECURRING_CONTEXT",
+    "EXPLICIT_HISTORY_CONFLICT",
+    "SAME_USER_DIFFERENT_MOMENT"
+  ],
+  "gates": {
+    "explicitIntentPreservation": 1,
+    "momentDimensionAccuracy": 0.92,
+    "falseInferenceRateMaximum": 0.08,
+    "unknownCorrectness": 0.9,
+    "provenanceCorrectness": 1,
+    "confidenceBrierMaximum": 0.08,
+    "historicalPatternOverrideSafety": 1,
+    "sameUserDifferentMoment": 1,
+    "differentUserSameExplicitMoment": 1,
+    "crossCityCorrectness": 1,
+    "timeCorrectness": 1,
+    "socialContextCorrectness": 1,
+    "privacyConsent": 1,
+    "n2BoundaryIntegrity": 1,
+    "deterministicReplay": 1
+  },
+  "policies": {
+    "lockedHoldout": "NO_THRESHOLD_OR_INFERENCE_TUNING_AFTER_RESULT",
+    "latentTruth": "EVALUATOR_ONLY",
+    "missingRequiredArm": "FAIL_CLOSED",
+    "runtimeUnknown": "PREFERRED_OVER_UNSUPPORTED_INFERENCE",
+    "engineMutationDuringOfficialRun": "PROHIBITED",
+    "productionIntegration": "NOT_STARTED"
+  }
+}
