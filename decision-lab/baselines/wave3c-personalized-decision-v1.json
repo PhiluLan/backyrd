@@ -1,0 +1,227 @@
+{
+  "version": "backyrd-wave3c-personalized-decision-result-v1",
+  "generatedAt": "2026-08-17T14:00:00.000Z",
+  "contractVersion": "backyrd-wave3c-personalized-decision-validation-v1",
+  "contractHash": "371389933d059646339430f46eb2ac0a718891792f8adb355e6bc70581b2550f",
+  "contractFreezeHash": "4673f2447eed83b44d486bb1a549605a5ae09b9e23a5bccd9ed4d78451071b90",
+  "parentFreezes": {
+    "tasteEngine": "2a4a9e2f7353ad20d10073a00ccfb235778d64d5730f5e7771a4787f92a2116f",
+    "tasteTreatment": "ab2339de028fb5ed04999ea682d6a38d9434e75350993fb4963c518c8af15116",
+    "personalizationTreatment": "9b4691de75bead63ad798700ada0b818ba6d29ad92d24804dcb2d3eeecfc1053"
+  },
+  "fitManifest": {
+    "version": "backyrd-personalized-fit-v1",
+    "runtimeInputs": [
+      "structured_intent",
+      "current_context",
+      "user_taste_map",
+      "place_type_taste",
+      "contextual_taste",
+      "taste_confidence",
+      "eligible_candidate_spot_intelligence"
+    ],
+    "prohibitedInputs": [
+      "latent_truth",
+      "evaluation_utility",
+      "golden_scenario_labels",
+      "future_outcomes"
+    ],
+    "eligibilityAuthority": "OUTSIDE_AND_IMMUTABLE",
+    "retrievalMutation": "NONE",
+    "unknownPolicy": "NEUTRAL",
+    "finalUtilityModel": "NOT_IMPLEMENTED",
+    "manifestHash": "fc92f95ded02a6f0e88f0887758ff71e3ec986b9621f8fe0e2cd7a03f2f1276d"
+  },
+  "candidatePathSourceHash": "5d65a4db6e8a8baf6bce872d967d5350e55ec5f4470191ff4490540dac0b20b8",
+  "coverage": {
+    "arms": {
+      "ACTUAL_NEUTRAL_OPPOSING": true,
+      "SAME_USER_DIFFERENT_CONTEXT": true,
+      "SAME_REQUEST_DIFFERENT_USERS": true,
+      "CURRENT_INTENT_CONFLICT": true,
+      "MATURITY": true,
+      "CONFIDENCE": true,
+      "RETRIEVAL_ATTRIBUTION": true,
+      "INTEGRITY": true
+    },
+    "pass": true
+  },
+  "metrics": {
+    "sample": {
+      "seeds": 3,
+      "goldenScenarios": 126,
+      "treatments": 378,
+      "contextComparisons": 9,
+      "differentUserComparisons": 9,
+      "intentConflictComparisons": 18
+    },
+    "personalization": {
+      "lift": {
+        "n": 126,
+        "meanDelta": -0.0008840476190476207,
+        "medianDelta": 0,
+        "interval": [
+          -0.003979682539682537,
+          0.00238880952380953
+        ],
+        "wins": 14,
+        "ties": 91,
+        "losses": 21
+      },
+      "harmRate": 0.16666666666666666,
+      "maximumCohortHarm": 0.6,
+      "opposingHarmRate": 0.16666666666666666,
+      "topK": {
+        "actualUtility": 0.39817851851851854,
+        "neutralUtility": 0.3990625661375661,
+        "opposingUtility": 0.3993294708994708,
+        "actualNdcg": 0.5466819999022817,
+        "neutralNdcg": 0.5486878268096392,
+        "actualPrecision": 0.34517195767195796,
+        "neutralPrecision": 0.34834656084656107
+      }
+    },
+    "maturity": {
+      "cold": {
+        "n": 26,
+        "lift": 0,
+        "harmRate": 0,
+        "confidence": 0.5707023804960758
+      },
+      "onboarding": {
+        "n": 15,
+        "lift": 0.0006213333333333312,
+        "harmRate": 0.06666666666666667,
+        "confidence": 0.6140168114367559
+      },
+      "sparse": {
+        "n": 25,
+        "lift": -0.0013875999999999895,
+        "harmRate": 0.16,
+        "confidence": 0.48750690908640126
+      },
+      "developing": {
+        "n": 33,
+        "lift": 0.003220606060606055,
+        "harmRate": 0.18181818181818182,
+        "confidence": 0.5798852968996349
+      },
+      "mature": {
+        "n": 22,
+        "lift": -0.004968636363636361,
+        "harmRate": 0.3181818181818182,
+        "confidence": 0.616584644372219
+      },
+      "power": {
+        "n": 5,
+        "lift": -0.016598000000000064,
+        "harmRate": 0.6,
+        "confidence": 0.6018734103760939
+      }
+    },
+    "splits": {
+      "DEVELOPMENT": {
+        "n": 54,
+        "lift": -0.0009442592592592635,
+        "harmRate": 0.16666666666666666
+      },
+      "REGRESSION": {
+        "n": 36,
+        "lift": 0.002472222222222214,
+        "harmRate": 0.08333333333333333
+      },
+      "LOCKED_HOLDOUT": {
+        "n": 36,
+        "lift": -0.004149999999999992,
+        "harmRate": 0.25
+      }
+    },
+    "context": {
+      "contextualDifferentiation": 0.12121212121212117,
+      "utilityGain": -0.007823333333333318,
+      "groups": [
+        {
+          "id": "family-sunday-afternoon",
+          "n": 3,
+          "lift": 3.700743415417188e-17
+        },
+        {
+          "id": "friends-friday-evening",
+          "n": 3,
+          "lift": -0.02346999999999999
+        },
+        {
+          "id": "date-evening",
+          "n": 3,
+          "lift": 0
+        }
+      ]
+    },
+    "differentUsers": {
+      "rankingDivergence": 0,
+      "falsePersonalizationRate": 0.3333333333333333
+    },
+    "intent": {
+      "robustness": 1,
+      "historyOverrideRate": 0,
+      "evaluable": 18
+    },
+    "confidence": {
+      "liftCorrelation": -0.009199463016101531
+    },
+    "attribution": {
+      "retrievalMisses": 102,
+      "personalizationMisses": 21
+    },
+    "integrity": {
+      "hardConstraintViolations": 0,
+      "productEligibilityViolations": 0,
+      "distributionEligibilityViolations": 0,
+      "sameCandidateUniverseAcrossArms": true,
+      "latentTruthRuntimeInput": false,
+      "retrievalMutation": "NONE",
+      "productionAccess": "NONE"
+    }
+  },
+  "gates": {
+    "coverage": true,
+    "personalizationLift": false,
+    "personalizationHarm": false,
+    "opposingHistory": true,
+    "currentIntentAuthority": true,
+    "contextualDecision": false,
+    "differentUsers": false,
+    "confidenceAware": false,
+    "coldStart": true,
+    "matureBenefit": false,
+    "hardConstraints": true,
+    "productEligibility": true,
+    "distributionEligibility": true
+  },
+  "failureDecomposition": {
+    "retrievalMisses": 102,
+    "personalizationMisses": 21,
+    "failedGates": [
+      "personalizationLift",
+      "personalizationHarm",
+      "contextualDecision",
+      "differentUsers",
+      "confidenceAware",
+      "matureBenefit"
+    ]
+  },
+  "scientificValidity": {
+    "status": "PASS",
+    "groundTruthRole": "EVALUATOR_ONLY",
+    "latentTruthRuntimeInput": false,
+    "thresholdsFrozenBeforeOfficialRun": true,
+    "treatmentControls": "D2.2_UNCHANGED",
+    "tasteEngineMutationDuringRun": "NONE",
+    "retrievalMutation": "NONE",
+    "productionAccess": "NONE"
+  },
+  "verdict": "FAIL",
+  "integrationVerdict": "NOT_PROMOTED",
+  "wave4Readiness": "NOT_READY",
+  "resultHash": "aa9e2c7c455df48eb746025877b804c8ac5471d9d7fceec3b2a59e7eae15de7a"
+}
