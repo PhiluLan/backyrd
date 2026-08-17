@@ -1,0 +1,52 @@
+{
+  "version": "backyrd-d4.3-stage-evaluation-v1",
+  "stage": "SMOKE",
+  "metrics": {
+    "control": {
+      "meanUtilityAtK": 0.275274,
+      "ndcgAt10": 0.34480713809955105,
+      "precisionAt10": 0.16
+    },
+    "wave4": {
+      "meanUtilityAtK": 0.275274,
+      "ndcgAt10": 0.3393849176526258,
+      "precisionAt10": 0.16
+    },
+    "ai": {
+      "meanUtilityAtK": 0.275274,
+      "ndcgAt10": 0.3678060863787206,
+      "precisionAt10": 0.16
+    }
+  },
+  "deltasVsControl": {
+    "meanUtilityAtK": 0,
+    "ndcgAt10": 0.02299894827916954,
+    "precisionAt10": 0
+  },
+  "schemaFailureRate": 0,
+  "integrityViolations": 0,
+  "positiveRankingMetricCount": 1,
+  "maximumRegression": 0,
+  "p95LatencyMs": 7282.077624999998,
+  "costs": {
+    "priorSpentUsd": 0.0104938,
+    "stageCostUsd": 0.013753599999999996,
+    "cumulativeSpentUsd": 0.024247399999999995,
+    "inputTokens": 20393,
+    "outputTokens": 10860,
+    "budgetUsd": 2,
+    "remainingBudgetUsd": 1.9757526,
+    "projectedPilotWorstCaseUsd": 0.1344,
+    "projectedFullWorstCaseUsd": 0.8467199999999999
+  },
+  "gates": {
+    "integrity": true,
+    "schema": true,
+    "latency": true,
+    "pilotAndFullBudget": true
+  },
+  "proceed": true,
+  "decision": "PROCEED",
+  "productionAccess": "NONE",
+  "reportHash": "ec3f6614cd76f934e53419c877b052ea7774c533f5d367533a13c8c9719c651d"
+}

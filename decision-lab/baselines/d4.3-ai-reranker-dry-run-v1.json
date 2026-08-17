@@ -1,0 +1,77 @@
+{
+  "version": "backyrd-d4.3-ai-reranker-dry-run-v1",
+  "generatedAt": "2026-08-17T16:00:00.000Z",
+  "mode": "DRY_RUN",
+  "externalApiCalls": 0,
+  "experimentVersion": "backyrd-d4.3-ai-reranker-experiment-v1",
+  "model": "gpt-5.6-luna",
+  "modelConfig": {
+    "reasoningEffort": "low",
+    "maxOutputTokens": 1600,
+    "timeoutMs": 30000,
+    "temperature": "MODEL_DEFAULT"
+  },
+  "candidateCount": 10,
+  "budgetUsd": 2,
+  "priorSpentUsd": 0.0242474,
+  "pricingUsdPerMillionTokens": {
+    "input": 0.2,
+    "output": 1.2,
+    "source": "https://developers.openai.com/api/docs/models"
+  },
+  "projection": {
+    "stages": [
+      {
+        "stage": "SMOKE",
+        "requests": 15,
+        "expected": {
+          "inputTokens": 16800,
+          "outputTokens": 13201,
+          "costUsd": 0.0192012
+        },
+        "worstCase": {
+          "inputTokens": 24000,
+          "outputTokens": 24000,
+          "costUsd": 0.0336
+        }
+      },
+      {
+        "stage": "PILOT",
+        "requests": 60,
+        "expected": {
+          "inputTokens": 67200,
+          "outputTokens": 52801,
+          "costUsd": 0.07680119999999999
+        },
+        "worstCase": {
+          "inputTokens": 96000,
+          "outputTokens": 96000,
+          "costUsd": 0.1344
+        }
+      },
+      {
+        "stage": "FULL",
+        "requests": 378,
+        "expected": {
+          "inputTokens": 423360,
+          "outputTokens": 332640,
+          "costUsd": 0.48384
+        },
+        "worstCase": {
+          "inputTokens": 604800,
+          "outputTokens": 604800,
+          "costUsd": 0.8467199999999999
+        }
+      }
+    ],
+    "totalExpectedUsd": 0.5798424,
+    "totalWorstCaseUsd": 1.0147199999999998,
+    "requests": 453
+  },
+  "remainingAfterWorstCaseUsd": 0.9610326000000002,
+  "budgetGate": "PASS",
+  "nextStage": "SMOKE_AUTHORIZED",
+  "productionAccess": "NONE",
+  "secretMaterialPresent": false,
+  "resultHash": "454c6389fa499f2119dfd7913ed5c812f04855d5fcbdd34df8f781590ea08a0d"
+}

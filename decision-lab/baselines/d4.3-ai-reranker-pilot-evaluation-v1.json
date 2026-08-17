@@ -1,0 +1,55 @@
+{
+  "version": "backyrd-d4.3-stage-evaluation-v1",
+  "stage": "PILOT",
+  "metrics": {
+    "control": {
+      "meanUtilityAtK": 0.3576965,
+      "ndcgAt10": 0.465250775761232,
+      "precisionAt10": 0.26999999999999996
+    },
+    "wave4": {
+      "meanUtilityAtK": 0.3576965,
+      "ndcgAt10": 0.4662953326853684,
+      "precisionAt10": 0.26999999999999996
+    },
+    "ai": {
+      "meanUtilityAtK": 0.3576965,
+      "ndcgAt10": 0.4854738047228544,
+      "precisionAt10": 0.26999999999999996
+    }
+  },
+  "deltasVsControl": {
+    "meanUtilityAtK": 0,
+    "ndcgAt10": 0.02022302896162237,
+    "precisionAt10": 0
+  },
+  "schemaFailureRate": 0,
+  "integrityViolations": 0,
+  "positiveRankingMetricCount": 1,
+  "maximumRegression": 0,
+  "p95LatencyMs": 7384.911208000034,
+  "costs": {
+    "priorSpentUsd": 0.0242474,
+    "stageCostUsd": 0.05791739999999998,
+    "cumulativeSpentUsd": 0.08216479999999998,
+    "inputTokens": 81980,
+    "outputTokens": 44070,
+    "budgetUsd": 2,
+    "remainingBudgetUsd": 1.9178352,
+    "projectedPilotWorstCaseUsd": 0.1344,
+    "projectedFullWorstCaseUsd": 0.8467199999999999
+  },
+  "gates": {
+    "integrity": true,
+    "schema": true,
+    "latency": true,
+    "meanUtility": true,
+    "rankingSignal": false,
+    "regression": true,
+    "fullBudget": true
+  },
+  "proceed": false,
+  "decision": "STOP_EARLY",
+  "productionAccess": "NONE",
+  "reportHash": "32d22a40a1402c3d47e5d493ef8812207907ecb91c3a05f6c97564a2d5c43494"
+}

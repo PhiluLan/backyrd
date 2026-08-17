@@ -188,3 +188,4 @@ mobile/eas.local.secret.json
 
 # Lokale Archive
 *.zip
+.decision-lab-ai-cache/

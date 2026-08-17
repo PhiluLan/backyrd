@@ -1,0 +1,86 @@
+{
+  "version": "backyrd-d4.3-ai-reranker-experiment-v1",
+  "promptVersion": "backyrd-ai-decision-reranker-prompt-v1",
+  "inputContractVersion": "backyrd-ai-decision-input-v1",
+  "outputContractVersion": "backyrd-ai-decision-output-v1",
+  "model": "gpt-5.6-luna",
+  "modelConfig": {
+    "reasoningEffort": "low",
+    "maxOutputTokens": 1600,
+    "timeoutMs": 30000,
+    "temperature": "MODEL_DEFAULT"
+  },
+  "pricingUsdPerMillionTokens": {
+    "input": 0.2,
+    "output": 1.2,
+    "source": "https://developers.openai.com/api/docs/models"
+  },
+  "candidateCount": 10,
+  "maxInputTokensPerRequest": 1600,
+  "estimatedTokenSafetyMultiplier": 1.15,
+  "stages": {
+    "SMOKE": { "decisions": 5, "arms": 3, "maxRequests": 15, "allowedSplits": ["DEVELOPMENT", "REGRESSION"] },
+    "PILOT": { "decisions": 20, "arms": 3, "maxRequests": 60, "allowedSplits": ["DEVELOPMENT", "REGRESSION"] },
+    "FULL": { "decisions": 126, "arms": 3, "maxRequests": 378, "allowedSplits": ["DEVELOPMENT", "REGRESSION", "LOCKED_HOLDOUT"] }
+  },
+  "smokeProceedCriteria": {
+    "integrityViolationsMaximum": 0,
+    "schemaFailureRateMaximum": 0,
+    "p95LatencyMsMaximum": 30000,
+    "projectedPilotAndFullMustFitRemainingBudget": true
+  },
+  "pilotProceedCriteria": {
+    "integrityViolationsMaximum": 0,
+    "schemaFailureRateMaximum": 0.05,
+    "meanUtilityDeltaMinimum": 0,
+    "rankingMetricsWithPositiveDeltaMinimum": 2,
+    "anyRankingMetricRegressionMaximum": 0.01,
+    "p95LatencyMsMaximum": 30000,
+    "projectedTotalMustFitRemainingBudget": true
+  },
+  "fullEvaluationThresholds": {
+    "meanUtilityAt10Minimum": 0.4,
+    "ndcgAt10Minimum": 0.55,
+    "precisionAt10Minimum": 0.35,
+    "meanUtilityLiftVsWave3CMinimum": 0.005,
+    "personalizationLiftMinimum": 0.003,
+    "personalizationHarmRateMaximum": 0.3,
+    "contextualDifferentiationMinimum": 0.2,
+    "currentIntentRobustnessMinimum": 0.95,
+    "hardConstraintViolationsMaximum": 0,
+    "productEligibilityViolationsMaximum": 0,
+    "distributionEligibilityViolationsMaximum": 0
+  },
+  "reasonCodes": [
+    "current_intent_fit",
+    "contextual_fit",
+    "personal_taste_fit",
+    "place_type_fit",
+    "strong_spot_evidence",
+    "retrieval_support",
+    "uncertain_fit"
+  ],
+  "seeds": [
+    "backyrd-d1-basel-v1-2026",
+    "backyrd-d1-basel-v1-2026-2",
+    "backyrd-d1-basel-v1-2026-3"
+  ],
+  "arms": ["ACTUAL", "NEUTRAL", "OPPOSING"],
+  "monthlyProjectionAssumption": { "decisionsPerActiveUserPerMonth": 8 },
+  "scientificControls": {
+    "latentTruthRuntimeInput": false,
+    "groundTruthRole": "EVALUATOR_ONLY",
+    "lockedHoldoutInPilot": false,
+    "sameCandidateUniverseAcrossArms": true,
+    "retrievalMutation": "PROHIBITED",
+    "tasteEngineMutation": "PROHIBITED",
+    "productionAccess": "NONE"
+  },
+  "parentIdentities": {
+    "wave3cControlResultHash": "27b502363a8250aae46c5b12a420b3dca78c9bf2dd1ac35e5808b24ab2a34dab",
+    "wave4ResultHash": "f16fbc4956bd56d7323761ae19e02c00146220beabcc9380907384d7d12f727f",
+    "wave4FreezeHash": "cfb89fc8abe3a27307acf278f45e61fbd0d5723edde7846de6643f105b4d34d2",
+    "tasteEngineFreezeHash": "2a4a9e2f7353ad20d10073a00ccfb235778d64d5730f5e7771a4787f92a2116f",
+    "personalizationTreatmentFreezeHash": "9b4691de75bead63ad798700ada0b818ba6d29ad92d24804dcb2d3eeecfc1053"
+  }
+}

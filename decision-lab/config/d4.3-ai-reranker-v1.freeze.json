@@ -1,0 +1,14 @@
+{
+  "freezeVersion": "backyrd-d4.3-ai-reranker-post-stop-evidence-freeze-v1",
+  "freezeTiming": "POST_PILOT_STOP_EVIDENCE_ONLY_NOT_PRE_RUN_CERTIFICATION",
+  "experimentVersion": "backyrd-d4.3-ai-reranker-experiment-v1",
+  "contractHash": "8f59e287ecbcd734a5e878965341a2bcf2ba4552b08a5c9feb96d26383f04000",
+  "rerankerSourceHash": "17359f3ab4694ade5a3c5b5a4ef3592f4049cad31a0d43e997bdb0d2852cc25b",
+  "dryRunSourceHash": "31868aae845df66d4d06b3521dd160de86251ccce8005a01e3e13f6bd3eb0ee0",
+  "stageRunnerSourceHash": "0704898d19be09ca6d0b453252b94deb6cded7f4dbed03acb15d43cba01d33d8",
+  "evaluatorSourceHash": "e3e08fb498c1db28d6d366672374275219bc34f13f2a34877ca2eeffc24c9c7d",
+  "stageScriptHash": "c8899055afa7a9b12901508cd31328ac73690c8d6a60f7ceefc916e63920b40e",
+  "wave4ParentResultHash": "f16fbc4956bd56d7323761ae19e02c00146220beabcc9380907384d7d12f727f",
+  "scientificStatus": "FAIL_MEASUREMENT_CONTRACT_AND_PRE_RUN_FREEZE",
+  "productionAccess": "NONE"
+}

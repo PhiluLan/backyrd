@@ -1,0 +1,4099 @@
+{
+  "version": "backyrd-d4.3-ai-stage-world-v1",
+  "stage": "SMOKE",
+  "seed": "backyrd-d1-basel-v1-2026",
+  "experimentContractHash": "02f67506258de0aa63735aea73cf6e202b8618546f7856796ae096b9e852fba9",
+  "candidatePathSourceHash": "5d65a4db6e8a8baf6bce872d967d5350e55ec5f4470191ff4490540dac0b20b8",
+  "records": [
+    {
+      "scenarioId": "0c6500f5-63d3-4a50-b344-f4857c30d419",
+      "split": "DEVELOPMENT",
+      "family": "audience",
+      "maturity": "sparse",
+      "candidateCount": 10,
+      "hardConstraintPass": true,
+      "arms": {
+        "ACTUAL": {
+          "control": {
+            "recallAt10": 0,
+            "precisionAt10": 0,
+            "hitRateAt10": 0,
+            "ndcgAt10": 0.2187164786719636,
+            "regretAt10": 4.9684,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.21512000000000003,
+            "worstUtilityAtK": 0
+          },
+          "wave4": {
+            "recallAt10": 0,
+            "precisionAt10": 0,
+            "hitRateAt10": 0,
+            "ndcgAt10": 0.21805353937964958,
+            "regretAt10": 4.9684,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.21512000000000003,
+            "worstUtilityAtK": 0
+          },
+          "ai": {
+            "recallAt10": 0,
+            "precisionAt10": 0,
+            "hitRateAt10": 0,
+            "ndcgAt10": 0.25258370736918473,
+            "regretAt10": 4.9684,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.21512000000000003,
+            "worstUtilityAtK": 0
+          },
+          "aiResult": {
+            "responseIdHash": "5c25a5d2f193d97c626ad16062085b490e63a6780d59ddd57ab0adcce50bc349",
+            "responseModel": "gpt-5.6-luna",
+            "ranking": [
+              {
+                "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                "rank": 1,
+                "fit": 0.91,
+                "confidence": 0.82,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                "rank": 2,
+                "fit": 0.88,
+                "confidence": 0.57,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "cb3c0f88-bf94-4f5d-8db2-d8963323482e",
+                "rank": 3,
+                "fit": 0.82,
+                "confidence": 0.72,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                "rank": 4,
+                "fit": 0.8,
+                "confidence": 0.79,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                "rank": 5,
+                "fit": 0.79,
+                "confidence": 0.76,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                "rank": 6,
+                "fit": 0.77,
+                "confidence": 0.8,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                "rank": 7,
+                "fit": 0.74,
+                "confidence": 0.79,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                "rank": 8,
+                "fit": 0.66,
+                "confidence": 0.78,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                "rank": 9,
+                "fit": 0.62,
+                "confidence": 0.55,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                "rank": 10,
+                "fit": 0.54,
+                "confidence": 0.49,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              }
+            ],
+            "overallConfidence": 0.72,
+            "validation": {
+              "valid": true,
+              "ranked": [
+                {
+                  "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                  "rank": 1,
+                  "fit": 0.91,
+                  "confidence": 0.82,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                  "rank": 2,
+                  "fit": 0.88,
+                  "confidence": 0.57,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "cb3c0f88-bf94-4f5d-8db2-d8963323482e",
+                  "rank": 3,
+                  "fit": 0.82,
+                  "confidence": 0.72,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                  "rank": 4,
+                  "fit": 0.8,
+                  "confidence": 0.79,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                  "rank": 5,
+                  "fit": 0.79,
+                  "confidence": 0.76,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                  "rank": 6,
+                  "fit": 0.77,
+                  "confidence": 0.8,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                  "rank": 7,
+                  "fit": 0.74,
+                  "confidence": 0.79,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                  "rank": 8,
+                  "fit": 0.66,
+                  "confidence": 0.78,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                  "rank": 9,
+                  "fit": 0.62,
+                  "confidence": 0.55,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                  "rank": 10,
+                  "fit": 0.54,
+                  "confidence": 0.49,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                }
+              ]
+            },
+            "usage": {
+              "inputTokens": 1419,
+              "outputTokens": 737,
+              "totalTokens": 2156
+            },
+            "costUsd": 0.0011682,
+            "latencyMs": 5682.621125,
+            "execution": "LIVE",
+            "cacheKey": "2624994afd7c85ccc680fa2e5ec6d241789be6df7b66855373dd3ae389110f7a"
+          },
+          "inputHash": "b693a926f415c9fffe080fb397be45adb69d659c5252a7df54f196bbb597333c",
+          "candidateIdsHash": "5de6c0acb3581bb11205d7bd8a5a57c4a6cfe7a30c3cf1132a0994e609bc6903"
+        },
+        "NEUTRAL": {
+          "control": {
+            "recallAt10": 0,
+            "precisionAt10": 0,
+            "hitRateAt10": 0,
+            "ndcgAt10": 0.2187164786719636,
+            "regretAt10": 4.9684,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.21512000000000003,
+            "worstUtilityAtK": 0
+          },
+          "wave4": {
+            "recallAt10": 0,
+            "precisionAt10": 0,
+            "hitRateAt10": 0,
+            "ndcgAt10": 0.21805353937964958,
+            "regretAt10": 4.9684,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.21512000000000003,
+            "worstUtilityAtK": 0
+          },
+          "ai": {
+            "recallAt10": 0,
+            "precisionAt10": 0,
+            "hitRateAt10": 0,
+            "ndcgAt10": 0.22242977403704475,
+            "regretAt10": 4.9684,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.21512000000000003,
+            "worstUtilityAtK": 0
+          },
+          "aiResult": {
+            "responseIdHash": "eea8d36c1731670b29f7a0a9b163faae3c13ccceff68f3bb9220a05a271ed562",
+            "responseModel": "gpt-5.6-luna",
+            "ranking": [
+              {
+                "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                "rank": 1,
+                "fit": 0.92,
+                "confidence": 0.78,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                "rank": 2,
+                "fit": 0.89,
+                "confidence": 0.82,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                "rank": 3,
+                "fit": 0.86,
+                "confidence": 0.47,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                "rank": 4,
+                "fit": 0.83,
+                "confidence": 0.77,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                "rank": 5,
+                "fit": 0.78,
+                "confidence": 0.72,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                "rank": 6,
+                "fit": 0.75,
+                "confidence": 0.74,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "cb3c0f88-bf94-4f5d-8db2-d8963323482e",
+                "rank": 7,
+                "fit": 0.7,
+                "confidence": 0.68,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit"
+                ]
+              },
+              {
+                "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                "rank": 8,
+                "fit": 0.67,
+                "confidence": 0.75,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                "rank": 9,
+                "fit": 0.64,
+                "confidence": 0.43,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                "rank": 10,
+                "fit": 0.54,
+                "confidence": 0.4,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              }
+            ],
+            "overallConfidence": 0.61,
+            "validation": {
+              "valid": true,
+              "ranked": [
+                {
+                  "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                  "rank": 1,
+                  "fit": 0.92,
+                  "confidence": 0.78,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                  "rank": 2,
+                  "fit": 0.89,
+                  "confidence": 0.82,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                  "rank": 3,
+                  "fit": 0.86,
+                  "confidence": 0.47,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                  "rank": 4,
+                  "fit": 0.83,
+                  "confidence": 0.77,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                  "rank": 5,
+                  "fit": 0.78,
+                  "confidence": 0.72,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                  "rank": 6,
+                  "fit": 0.75,
+                  "confidence": 0.74,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "cb3c0f88-bf94-4f5d-8db2-d8963323482e",
+                  "rank": 7,
+                  "fit": 0.7,
+                  "confidence": 0.68,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit"
+                  ]
+                },
+                {
+                  "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                  "rank": 8,
+                  "fit": 0.67,
+                  "confidence": 0.75,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                  "rank": 9,
+                  "fit": 0.64,
+                  "confidence": 0.43,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                  "rank": 10,
+                  "fit": 0.54,
+                  "confidence": 0.4,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                }
+              ]
+            },
+            "usage": {
+              "inputTokens": 1299,
+              "outputTokens": 728,
+              "totalTokens": 2027
+            },
+            "costUsd": 0.0011334000000000001,
+            "latencyMs": 5822.895332999999,
+            "execution": "LIVE",
+            "cacheKey": "191e4b88e5f49c5a5fed484b37059f4002cac1e9eabc459d791075d3d421075d"
+          },
+          "inputHash": "7a206c61dba2d212123750e46ce8989bbac8934daa26db4c572a200e65cf93b8",
+          "candidateIdsHash": "5de6c0acb3581bb11205d7bd8a5a57c4a6cfe7a30c3cf1132a0994e609bc6903"
+        },
+        "OPPOSING": {
+          "control": {
+            "recallAt10": 0,
+            "precisionAt10": 0,
+            "hitRateAt10": 0,
+            "ndcgAt10": 0.2187164786719636,
+            "regretAt10": 4.9684,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.21512000000000003,
+            "worstUtilityAtK": 0
+          },
+          "wave4": {
+            "recallAt10": 0,
+            "precisionAt10": 0,
+            "hitRateAt10": 0,
+            "ndcgAt10": 0.21805353937964958,
+            "regretAt10": 4.9684,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.21512000000000003,
+            "worstUtilityAtK": 0
+          },
+          "ai": {
+            "recallAt10": 0,
+            "precisionAt10": 0,
+            "hitRateAt10": 0,
+            "ndcgAt10": 0.20300573815132658,
+            "regretAt10": 4.9684,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.21512000000000003,
+            "worstUtilityAtK": 0
+          },
+          "aiResult": {
+            "responseIdHash": "95e6681e5c591d75a47ca0ecb7e5b1c9af1ed6a5e1de1d5272158ca6979c86f2",
+            "responseModel": "gpt-5.6-luna",
+            "ranking": [
+              {
+                "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                "rank": 1,
+                "fit": 0.86,
+                "confidence": 0.8,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                "rank": 2,
+                "fit": 0.84,
+                "confidence": 0.8,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                "rank": 3,
+                "fit": 0.82,
+                "confidence": 0.8,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                "rank": 4,
+                "fit": 0.8,
+                "confidence": 0.8,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                "rank": 5,
+                "fit": 0.78,
+                "confidence": 0.52,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                "rank": 6,
+                "fit": 0.73,
+                "confidence": 0.52,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "personal_taste_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "cb3c0f88-bf94-4f5d-8db2-d8963323482e",
+                "rank": 7,
+                "fit": 0.69,
+                "confidence": 0.7,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                "rank": 8,
+                "fit": 0.65,
+                "confidence": 0.75,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "strong_spot_evidence",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                "rank": 9,
+                "fit": 0.58,
+                "confidence": 0.72,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                "rank": 10,
+                "fit": 0.42,
+                "confidence": 0.45,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              }
+            ],
+            "overallConfidence": 0.7,
+            "validation": {
+              "valid": true,
+              "ranked": [
+                {
+                  "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                  "rank": 1,
+                  "fit": 0.86,
+                  "confidence": 0.8,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                  "rank": 2,
+                  "fit": 0.84,
+                  "confidence": 0.8,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                  "rank": 3,
+                  "fit": 0.82,
+                  "confidence": 0.8,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                  "rank": 4,
+                  "fit": 0.8,
+                  "confidence": 0.8,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                  "rank": 5,
+                  "fit": 0.78,
+                  "confidence": 0.52,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                  "rank": 6,
+                  "fit": 0.73,
+                  "confidence": 0.52,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "personal_taste_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "cb3c0f88-bf94-4f5d-8db2-d8963323482e",
+                  "rank": 7,
+                  "fit": 0.69,
+                  "confidence": 0.7,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                  "rank": 8,
+                  "fit": 0.65,
+                  "confidence": 0.75,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "strong_spot_evidence",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                  "rank": 9,
+                  "fit": 0.58,
+                  "confidence": 0.72,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                  "rank": 10,
+                  "fit": 0.42,
+                  "confidence": 0.45,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                }
+              ]
+            },
+            "usage": {
+              "inputTokens": 1419,
+              "outputTokens": 756,
+              "totalTokens": 2175
+            },
+            "costUsd": 0.001191,
+            "latencyMs": 5895.008167,
+            "execution": "LIVE",
+            "cacheKey": "2b974b8848ef05a1453d91825b0209c81ac98f31dd760592a39f9ada774c16f6"
+          },
+          "inputHash": "3613fcd5d3bd20398478d7d5bb40230551ee480ed08e32c4376f5fb8b68beebe",
+          "candidateIdsHash": "5de6c0acb3581bb11205d7bd8a5a57c4a6cfe7a30c3cf1132a0994e609bc6903"
+        }
+      }
+    },
+    {
+      "scenarioId": "e08f30e3-7a0f-47d5-afc3-b28eb02c7c3e",
+      "split": "DEVELOPMENT",
+      "family": "broad_query",
+      "maturity": "cold",
+      "candidateCount": 10,
+      "hardConstraintPass": true,
+      "arms": {
+        "ACTUAL": {
+          "control": {
+            "recallAt10": 0.025974025974025976,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.24784997114220989,
+            "regretAt10": 5.469600000000002,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.18950999999999998,
+            "worstUtilityAtK": 0
+          },
+          "wave4": {
+            "recallAt10": 0.025974025974025976,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.24784997114220989,
+            "regretAt10": 5.469600000000002,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.18950999999999998,
+            "worstUtilityAtK": 0
+          },
+          "ai": {
+            "recallAt10": 0.025974025974025976,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.2909129643312181,
+            "regretAt10": 5.469600000000002,
+            "top1Utility": 0.5569,
+            "meanUtilityAtK": 0.18950999999999998,
+            "worstUtilityAtK": 0
+          },
+          "aiResult": {
+            "responseIdHash": "28a44b8e607e47d244d0b465d5fcbb6cbad42d6d3739d25cd530aa6b8d583c75",
+            "responseModel": "gpt-5.6-luna",
+            "ranking": [
+              {
+                "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                "rank": 1,
+                "fit": 0.86,
+                "confidence": 0.78,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                "rank": 2,
+                "fit": 0.82,
+                "confidence": 0.78,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                "rank": 3,
+                "fit": 0.78,
+                "confidence": 0.76,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                "rank": 4,
+                "fit": 0.75,
+                "confidence": 0.76,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                "rank": 5,
+                "fit": 0.7,
+                "confidence": 0.76,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                "rank": 6,
+                "fit": 0.62,
+                "confidence": 0.72,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                "rank": 7,
+                "fit": 0.6,
+                "confidence": 0.55,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                "rank": 8,
+                "fit": 0.57,
+                "confidence": 0.5,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                "rank": 9,
+                "fit": 0.48,
+                "confidence": 0.68,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                "rank": 10,
+                "fit": 0.4,
+                "confidence": 0.5,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              }
+            ],
+            "overallConfidence": 0.68,
+            "validation": {
+              "valid": true,
+              "ranked": [
+                {
+                  "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                  "rank": 1,
+                  "fit": 0.86,
+                  "confidence": 0.78,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                  "rank": 2,
+                  "fit": 0.82,
+                  "confidence": 0.78,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                  "rank": 3,
+                  "fit": 0.78,
+                  "confidence": 0.76,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                  "rank": 4,
+                  "fit": 0.75,
+                  "confidence": 0.76,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                  "rank": 5,
+                  "fit": 0.7,
+                  "confidence": 0.76,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                  "rank": 6,
+                  "fit": 0.62,
+                  "confidence": 0.72,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                  "rank": 7,
+                  "fit": 0.6,
+                  "confidence": 0.55,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                  "rank": 8,
+                  "fit": 0.57,
+                  "confidence": 0.5,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                  "rank": 9,
+                  "fit": 0.48,
+                  "confidence": 0.68,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                  "rank": 10,
+                  "fit": 0.4,
+                  "confidence": 0.5,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                }
+              ]
+            },
+            "usage": {
+              "inputTokens": 1428,
+              "outputTokens": 755,
+              "totalTokens": 2183
+            },
+            "costUsd": 0.0011916000000000001,
+            "latencyMs": 5728.220417,
+            "execution": "LIVE",
+            "cacheKey": "dcf1ac53606119b7808ce92bd4b1c1e6be1b855ae201b9d004add43a5d396f47"
+          },
+          "inputHash": "873239df4d0f850a1ad5e6975b7d29f4420ec56c17431ca9b69db9e74f3c1d05",
+          "candidateIdsHash": "6c2b1384385031b6ac3b057ce51b26d245ea61b9365f22cc78f8b871731ac218"
+        },
+        "NEUTRAL": {
+          "control": {
+            "recallAt10": 0.025974025974025976,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.24784997114220989,
+            "regretAt10": 5.469600000000002,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.18950999999999998,
+            "worstUtilityAtK": 0
+          },
+          "wave4": {
+            "recallAt10": 0.025974025974025976,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.24784997114220989,
+            "regretAt10": 5.469600000000002,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.18950999999999998,
+            "worstUtilityAtK": 0
+          },
+          "ai": {
+            "recallAt10": 0.025974025974025976,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.2909129643312181,
+            "regretAt10": 5.469600000000002,
+            "top1Utility": 0.5569,
+            "meanUtilityAtK": 0.18950999999999998,
+            "worstUtilityAtK": 0
+          },
+          "aiResult": {
+            "responseIdHash": "483a4634890ee1b60fe8bf5b29632c11c7e761adeba04f5a2827051f6352dab9",
+            "responseModel": "gpt-5.6-luna",
+            "ranking": [
+              {
+                "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                "rank": 1,
+                "fit": 0.86,
+                "confidence": 0.75,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                "rank": 2,
+                "fit": 0.8,
+                "confidence": 0.76,
+                "reason_codes": [
+                  "contextual_fit",
+                  "strong_spot_evidence",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                "rank": 3,
+                "fit": 0.72,
+                "confidence": 0.42,
+                "reason_codes": [
+                  "contextual_fit",
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                "rank": 4,
+                "fit": 0.7,
+                "confidence": 0.75,
+                "reason_codes": [
+                  "contextual_fit",
+                  "strong_spot_evidence",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                "rank": 5,
+                "fit": 0.68,
+                "confidence": 0.74,
+                "reason_codes": [
+                  "contextual_fit",
+                  "strong_spot_evidence",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                "rank": 6,
+                "fit": 0.64,
+                "confidence": 0.74,
+                "reason_codes": [
+                  "contextual_fit",
+                  "strong_spot_evidence",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                "rank": 7,
+                "fit": 0.58,
+                "confidence": 0.73,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "place_type_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                "rank": 8,
+                "fit": 0.55,
+                "confidence": 0.42,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                "rank": 9,
+                "fit": 0.5,
+                "confidence": 0.7,
+                "reason_codes": [
+                  "contextual_fit",
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                "rank": 10,
+                "fit": 0.42,
+                "confidence": 0.4,
+                "reason_codes": [
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              }
+            ],
+            "overallConfidence": 0.66,
+            "validation": {
+              "valid": true,
+              "ranked": [
+                {
+                  "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                  "rank": 1,
+                  "fit": 0.86,
+                  "confidence": 0.75,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                  "rank": 2,
+                  "fit": 0.8,
+                  "confidence": 0.76,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "strong_spot_evidence",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                  "rank": 3,
+                  "fit": 0.72,
+                  "confidence": 0.42,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                  "rank": 4,
+                  "fit": 0.7,
+                  "confidence": 0.75,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "strong_spot_evidence",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                  "rank": 5,
+                  "fit": 0.68,
+                  "confidence": 0.74,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "strong_spot_evidence",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                  "rank": 6,
+                  "fit": 0.64,
+                  "confidence": 0.74,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "strong_spot_evidence",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                  "rank": 7,
+                  "fit": 0.58,
+                  "confidence": 0.73,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "place_type_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                  "rank": 8,
+                  "fit": 0.55,
+                  "confidence": 0.42,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                  "rank": 9,
+                  "fit": 0.5,
+                  "confidence": 0.7,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                  "rank": 10,
+                  "fit": 0.42,
+                  "confidence": 0.4,
+                  "reason_codes": [
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                }
+              ]
+            },
+            "usage": {
+              "inputTokens": 1307,
+              "outputTokens": 729,
+              "totalTokens": 2036
+            },
+            "costUsd": 0.0011362,
+            "latencyMs": 6047.020334000001,
+            "execution": "LIVE",
+            "cacheKey": "0b8aca57a27abfb79f4adc6bb2192b8119aeae716a8d5bf97ec7eb10c090e763"
+          },
+          "inputHash": "31cc63cabf3e20820a91d5faf33427fa3d88c9a1a70bbc905c64f0f517f06cf7",
+          "candidateIdsHash": "6c2b1384385031b6ac3b057ce51b26d245ea61b9365f22cc78f8b871731ac218"
+        },
+        "OPPOSING": {
+          "control": {
+            "recallAt10": 0.025974025974025976,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.24784997114220989,
+            "regretAt10": 5.469600000000002,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.18950999999999998,
+            "worstUtilityAtK": 0
+          },
+          "wave4": {
+            "recallAt10": 0.025974025974025976,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.24784997114220989,
+            "regretAt10": 5.469600000000002,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.18950999999999998,
+            "worstUtilityAtK": 0
+          },
+          "ai": {
+            "recallAt10": 0.025974025974025976,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.2909129643312181,
+            "regretAt10": 5.469600000000002,
+            "top1Utility": 0.5569,
+            "meanUtilityAtK": 0.18950999999999998,
+            "worstUtilityAtK": 0
+          },
+          "aiResult": {
+            "responseIdHash": "483a4634890ee1b60fe8bf5b29632c11c7e761adeba04f5a2827051f6352dab9",
+            "responseModel": "gpt-5.6-luna",
+            "ranking": [
+              {
+                "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                "rank": 1,
+                "fit": 0.86,
+                "confidence": 0.75,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                "rank": 2,
+                "fit": 0.8,
+                "confidence": 0.76,
+                "reason_codes": [
+                  "contextual_fit",
+                  "strong_spot_evidence",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                "rank": 3,
+                "fit": 0.72,
+                "confidence": 0.42,
+                "reason_codes": [
+                  "contextual_fit",
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                "rank": 4,
+                "fit": 0.7,
+                "confidence": 0.75,
+                "reason_codes": [
+                  "contextual_fit",
+                  "strong_spot_evidence",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                "rank": 5,
+                "fit": 0.68,
+                "confidence": 0.74,
+                "reason_codes": [
+                  "contextual_fit",
+                  "strong_spot_evidence",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                "rank": 6,
+                "fit": 0.64,
+                "confidence": 0.74,
+                "reason_codes": [
+                  "contextual_fit",
+                  "strong_spot_evidence",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                "rank": 7,
+                "fit": 0.58,
+                "confidence": 0.73,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "place_type_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                "rank": 8,
+                "fit": 0.55,
+                "confidence": 0.42,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                "rank": 9,
+                "fit": 0.5,
+                "confidence": 0.7,
+                "reason_codes": [
+                  "contextual_fit",
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                "rank": 10,
+                "fit": 0.42,
+                "confidence": 0.4,
+                "reason_codes": [
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              }
+            ],
+            "overallConfidence": 0.66,
+            "validation": {
+              "valid": true,
+              "ranked": [
+                {
+                  "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                  "rank": 1,
+                  "fit": 0.86,
+                  "confidence": 0.75,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                  "rank": 2,
+                  "fit": 0.8,
+                  "confidence": 0.76,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "strong_spot_evidence",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                  "rank": 3,
+                  "fit": 0.72,
+                  "confidence": 0.42,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                  "rank": 4,
+                  "fit": 0.7,
+                  "confidence": 0.75,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "strong_spot_evidence",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                  "rank": 5,
+                  "fit": 0.68,
+                  "confidence": 0.74,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "strong_spot_evidence",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                  "rank": 6,
+                  "fit": 0.64,
+                  "confidence": 0.74,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "strong_spot_evidence",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                  "rank": 7,
+                  "fit": 0.58,
+                  "confidence": 0.73,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "place_type_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                  "rank": 8,
+                  "fit": 0.55,
+                  "confidence": 0.42,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                  "rank": 9,
+                  "fit": 0.5,
+                  "confidence": 0.7,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                  "rank": 10,
+                  "fit": 0.42,
+                  "confidence": 0.4,
+                  "reason_codes": [
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                }
+              ]
+            },
+            "usage": {
+              "inputTokens": 1307,
+              "outputTokens": 729,
+              "totalTokens": 2036
+            },
+            "costUsd": 0,
+            "latencyMs": 6047.020334000001,
+            "execution": "CACHE_REPLAY",
+            "cacheKey": "0b8aca57a27abfb79f4adc6bb2192b8119aeae716a8d5bf97ec7eb10c090e763"
+          },
+          "inputHash": "31cc63cabf3e20820a91d5faf33427fa3d88c9a1a70bbc905c64f0f517f06cf7",
+          "candidateIdsHash": "6c2b1384385031b6ac3b057ce51b26d245ea61b9365f22cc78f8b871731ac218"
+        }
+      }
+    },
+    {
+      "scenarioId": "a6d604aa-8f96-4e9c-948c-0b2a8c0d9639",
+      "split": "DEVELOPMENT",
+      "family": "category_intent",
+      "maturity": "cold",
+      "candidateCount": 10,
+      "hardConstraintPass": true,
+      "arms": {
+        "ACTUAL": {
+          "control": {
+            "recallAt10": 0.029850746268656716,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5263929426819904,
+            "regretAt10": 2.986700000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.41014,
+            "worstUtilityAtK": 0
+          },
+          "wave4": {
+            "recallAt10": 0.029850746268656716,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5047297946416219,
+            "regretAt10": 2.986700000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.41014,
+            "worstUtilityAtK": 0
+          },
+          "ai": {
+            "recallAt10": 0.029850746268656716,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5133232194375531,
+            "regretAt10": 2.986700000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.41014,
+            "worstUtilityAtK": 0
+          },
+          "aiResult": {
+            "responseIdHash": "a3c224421be61d191a17ffa84c1474828113482b25042f5791c8b890f811b3f7",
+            "responseModel": "gpt-5.6-luna",
+            "ranking": [
+              {
+                "spot_id": "5a5240d6-50e5-42f6-bbd9-14903ea895f8",
+                "rank": 1,
+                "fit": 0.92,
+                "confidence": 0.86,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "05dac3f8-85b5-4204-9142-31de176fb65a",
+                "rank": 2,
+                "fit": 0.86,
+                "confidence": 0.84,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "4cd339d1-6dd0-4ac0-b223-e4fae08632d6",
+                "rank": 3,
+                "fit": 0.82,
+                "confidence": 0.9,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                "rank": 4,
+                "fit": 0.76,
+                "confidence": 0.76,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "cb3c0f88-bf94-4f5d-8db2-d8963323482e",
+                "rank": 5,
+                "fit": 0.71,
+                "confidence": 0.75,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                "rank": 6,
+                "fit": 0.64,
+                "confidence": 0.42,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "47bbf5af-fae1-4d86-aaaf-7fcd6f473c4d",
+                "rank": 7,
+                "fit": 0.6,
+                "confidence": 0.82,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "personal_taste_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "1a7778c3-8fad-4f97-a6fb-f39e63e4eb8e",
+                "rank": 8,
+                "fit": 0.57,
+                "confidence": 0.83,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "a67e2049-baea-4bdb-ab1f-03a17d69da3e",
+                "rank": 9,
+                "fit": 0.53,
+                "confidence": 0.75,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                "rank": 10,
+                "fit": 0.45,
+                "confidence": 0.35,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              }
+            ],
+            "overallConfidence": 0.74,
+            "validation": {
+              "valid": true,
+              "ranked": [
+                {
+                  "spot_id": "5a5240d6-50e5-42f6-bbd9-14903ea895f8",
+                  "rank": 1,
+                  "fit": 0.92,
+                  "confidence": 0.86,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "05dac3f8-85b5-4204-9142-31de176fb65a",
+                  "rank": 2,
+                  "fit": 0.86,
+                  "confidence": 0.84,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "4cd339d1-6dd0-4ac0-b223-e4fae08632d6",
+                  "rank": 3,
+                  "fit": 0.82,
+                  "confidence": 0.9,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                  "rank": 4,
+                  "fit": 0.76,
+                  "confidence": 0.76,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "cb3c0f88-bf94-4f5d-8db2-d8963323482e",
+                  "rank": 5,
+                  "fit": 0.71,
+                  "confidence": 0.75,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                  "rank": 6,
+                  "fit": 0.64,
+                  "confidence": 0.42,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "47bbf5af-fae1-4d86-aaaf-7fcd6f473c4d",
+                  "rank": 7,
+                  "fit": 0.6,
+                  "confidence": 0.82,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "personal_taste_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "1a7778c3-8fad-4f97-a6fb-f39e63e4eb8e",
+                  "rank": 8,
+                  "fit": 0.57,
+                  "confidence": 0.83,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "a67e2049-baea-4bdb-ab1f-03a17d69da3e",
+                  "rank": 9,
+                  "fit": 0.53,
+                  "confidence": 0.75,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                  "rank": 10,
+                  "fit": 0.45,
+                  "confidence": 0.35,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                }
+              ]
+            },
+            "usage": {
+              "inputTokens": 1418,
+              "outputTokens": 730,
+              "totalTokens": 2148
+            },
+            "costUsd": 0.0011596,
+            "latencyMs": 6038.872375000006,
+            "execution": "LIVE",
+            "cacheKey": "ce1cf6d44034d9dcc834b00819b7db43d6ba501960e389236a79a4f6051242cc"
+          },
+          "inputHash": "1cb6948f1af35034ca606cf95ec6566e6beac944a2a18638847dd519f281637b",
+          "candidateIdsHash": "acc5fd87cad00338c7b25a71c1d2500fde02868cf7aa3608655baf0c91cfedf1"
+        },
+        "NEUTRAL": {
+          "control": {
+            "recallAt10": 0.029850746268656716,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5263929426819904,
+            "regretAt10": 2.986700000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.41014,
+            "worstUtilityAtK": 0
+          },
+          "wave4": {
+            "recallAt10": 0.029850746268656716,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5047297946416219,
+            "regretAt10": 2.986700000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.41014,
+            "worstUtilityAtK": 0
+          },
+          "ai": {
+            "recallAt10": 0.029850746268656716,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5086327739070299,
+            "regretAt10": 2.986700000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.41014,
+            "worstUtilityAtK": 0
+          },
+          "aiResult": {
+            "responseIdHash": "7ffd24662aeeafa1469a025a311b7826b5188b05b0be02c219c3057d5c0aca1f",
+            "responseModel": "gpt-5.6-luna",
+            "ranking": [
+              {
+                "spot_id": "5a5240d6-50e5-42f6-bbd9-14903ea895f8",
+                "rank": 1,
+                "fit": 0.92,
+                "confidence": 0.78,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "05dac3f8-85b5-4204-9142-31de176fb65a",
+                "rank": 2,
+                "fit": 0.88,
+                "confidence": 0.79,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "4cd339d1-6dd0-4ac0-b223-e4fae08632d6",
+                "rank": 3,
+                "fit": 0.84,
+                "confidence": 0.86,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                "rank": 4,
+                "fit": 0.78,
+                "confidence": 0.74,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                "rank": 5,
+                "fit": 0.72,
+                "confidence": 0.42,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "cb3c0f88-bf94-4f5d-8db2-d8963323482e",
+                "rank": 6,
+                "fit": 0.67,
+                "confidence": 0.73,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "47bbf5af-fae1-4d86-aaaf-7fcd6f473c4d",
+                "rank": 7,
+                "fit": 0.63,
+                "confidence": 0.86,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "1a7778c3-8fad-4f97-a6fb-f39e63e4eb8e",
+                "rank": 8,
+                "fit": 0.61,
+                "confidence": 0.85,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "a67e2049-baea-4bdb-ab1f-03a17d69da3e",
+                "rank": 9,
+                "fit": 0.56,
+                "confidence": 0.73,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                "rank": 10,
+                "fit": 0.5,
+                "confidence": 0.4,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              }
+            ],
+            "overallConfidence": 0.7,
+            "validation": {
+              "valid": true,
+              "ranked": [
+                {
+                  "spot_id": "5a5240d6-50e5-42f6-bbd9-14903ea895f8",
+                  "rank": 1,
+                  "fit": 0.92,
+                  "confidence": 0.78,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "05dac3f8-85b5-4204-9142-31de176fb65a",
+                  "rank": 2,
+                  "fit": 0.88,
+                  "confidence": 0.79,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "4cd339d1-6dd0-4ac0-b223-e4fae08632d6",
+                  "rank": 3,
+                  "fit": 0.84,
+                  "confidence": 0.86,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                  "rank": 4,
+                  "fit": 0.78,
+                  "confidence": 0.74,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                  "rank": 5,
+                  "fit": 0.72,
+                  "confidence": 0.42,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "cb3c0f88-bf94-4f5d-8db2-d8963323482e",
+                  "rank": 6,
+                  "fit": 0.67,
+                  "confidence": 0.73,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "47bbf5af-fae1-4d86-aaaf-7fcd6f473c4d",
+                  "rank": 7,
+                  "fit": 0.63,
+                  "confidence": 0.86,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "1a7778c3-8fad-4f97-a6fb-f39e63e4eb8e",
+                  "rank": 8,
+                  "fit": 0.61,
+                  "confidence": 0.85,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "a67e2049-baea-4bdb-ab1f-03a17d69da3e",
+                  "rank": 9,
+                  "fit": 0.56,
+                  "confidence": 0.73,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                  "rank": 10,
+                  "fit": 0.5,
+                  "confidence": 0.4,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                }
+              ]
+            },
+            "usage": {
+              "inputTokens": 1297,
+              "outputTokens": 711,
+              "totalTokens": 2008
+            },
+            "costUsd": 0.0011126,
+            "latencyMs": 7230.364625000002,
+            "execution": "LIVE",
+            "cacheKey": "ffd64d2a92df9d5ae32ea1980b6b37f25662e0c149b857674638af7231559b1a"
+          },
+          "inputHash": "8a06ac51d1f19e5a425f48cf998823112c37d026a63247d87dca13a3cd4e5881",
+          "candidateIdsHash": "acc5fd87cad00338c7b25a71c1d2500fde02868cf7aa3608655baf0c91cfedf1"
+        },
+        "OPPOSING": {
+          "control": {
+            "recallAt10": 0.029850746268656716,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5263929426819904,
+            "regretAt10": 2.986700000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.41014,
+            "worstUtilityAtK": 0
+          },
+          "wave4": {
+            "recallAt10": 0.029850746268656716,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5047297946416219,
+            "regretAt10": 2.986700000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.41014,
+            "worstUtilityAtK": 0
+          },
+          "ai": {
+            "recallAt10": 0.029850746268656716,
+            "precisionAt10": 0.2,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5086327739070299,
+            "regretAt10": 2.986700000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.41014,
+            "worstUtilityAtK": 0
+          },
+          "aiResult": {
+            "responseIdHash": "7ffd24662aeeafa1469a025a311b7826b5188b05b0be02c219c3057d5c0aca1f",
+            "responseModel": "gpt-5.6-luna",
+            "ranking": [
+              {
+                "spot_id": "5a5240d6-50e5-42f6-bbd9-14903ea895f8",
+                "rank": 1,
+                "fit": 0.92,
+                "confidence": 0.78,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "05dac3f8-85b5-4204-9142-31de176fb65a",
+                "rank": 2,
+                "fit": 0.88,
+                "confidence": 0.79,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "4cd339d1-6dd0-4ac0-b223-e4fae08632d6",
+                "rank": 3,
+                "fit": 0.84,
+                "confidence": 0.86,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                "rank": 4,
+                "fit": 0.78,
+                "confidence": 0.74,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                "rank": 5,
+                "fit": 0.72,
+                "confidence": 0.42,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "cb3c0f88-bf94-4f5d-8db2-d8963323482e",
+                "rank": 6,
+                "fit": 0.67,
+                "confidence": 0.73,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "47bbf5af-fae1-4d86-aaaf-7fcd6f473c4d",
+                "rank": 7,
+                "fit": 0.63,
+                "confidence": 0.86,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "1a7778c3-8fad-4f97-a6fb-f39e63e4eb8e",
+                "rank": 8,
+                "fit": 0.61,
+                "confidence": 0.85,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "a67e2049-baea-4bdb-ab1f-03a17d69da3e",
+                "rank": 9,
+                "fit": 0.56,
+                "confidence": 0.73,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                "rank": 10,
+                "fit": 0.5,
+                "confidence": 0.4,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              }
+            ],
+            "overallConfidence": 0.7,
+            "validation": {
+              "valid": true,
+              "ranked": [
+                {
+                  "spot_id": "5a5240d6-50e5-42f6-bbd9-14903ea895f8",
+                  "rank": 1,
+                  "fit": 0.92,
+                  "confidence": 0.78,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "05dac3f8-85b5-4204-9142-31de176fb65a",
+                  "rank": 2,
+                  "fit": 0.88,
+                  "confidence": 0.79,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "4cd339d1-6dd0-4ac0-b223-e4fae08632d6",
+                  "rank": 3,
+                  "fit": 0.84,
+                  "confidence": 0.86,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                  "rank": 4,
+                  "fit": 0.78,
+                  "confidence": 0.74,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                  "rank": 5,
+                  "fit": 0.72,
+                  "confidence": 0.42,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "cb3c0f88-bf94-4f5d-8db2-d8963323482e",
+                  "rank": 6,
+                  "fit": 0.67,
+                  "confidence": 0.73,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "47bbf5af-fae1-4d86-aaaf-7fcd6f473c4d",
+                  "rank": 7,
+                  "fit": 0.63,
+                  "confidence": 0.86,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "1a7778c3-8fad-4f97-a6fb-f39e63e4eb8e",
+                  "rank": 8,
+                  "fit": 0.61,
+                  "confidence": 0.85,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "a67e2049-baea-4bdb-ab1f-03a17d69da3e",
+                  "rank": 9,
+                  "fit": 0.56,
+                  "confidence": 0.73,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                  "rank": 10,
+                  "fit": 0.5,
+                  "confidence": 0.4,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                }
+              ]
+            },
+            "usage": {
+              "inputTokens": 1297,
+              "outputTokens": 711,
+              "totalTokens": 2008
+            },
+            "costUsd": 0,
+            "latencyMs": 7230.364625000002,
+            "execution": "CACHE_REPLAY",
+            "cacheKey": "ffd64d2a92df9d5ae32ea1980b6b37f25662e0c149b857674638af7231559b1a"
+          },
+          "inputHash": "8a06ac51d1f19e5a425f48cf998823112c37d026a63247d87dca13a3cd4e5881",
+          "candidateIdsHash": "acc5fd87cad00338c7b25a71c1d2500fde02868cf7aa3608655baf0c91cfedf1"
+        }
+      }
+    },
+    {
+      "scenarioId": "54597ccc-e422-411d-8657-7ef2b87f0fe8",
+      "split": "DEVELOPMENT",
+      "family": "cold_start",
+      "maturity": "power",
+      "candidateCount": 10,
+      "hardConstraintPass": true,
+      "arms": {
+        "ACTUAL": {
+          "control": {
+            "recallAt10": 0.012658227848101266,
+            "precisionAt10": 0.1,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.1943331705780551,
+            "regretAt10": 5.467200000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.1643,
+            "worstUtilityAtK": 0
+          },
+          "wave4": {
+            "recallAt10": 0.012658227848101266,
+            "precisionAt10": 0.1,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.18954815567611147,
+            "regretAt10": 5.467200000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.1643,
+            "worstUtilityAtK": 0
+          },
+          "ai": {
+            "recallAt10": 0.012658227848101266,
+            "precisionAt10": 0.1,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.18713174083943887,
+            "regretAt10": 5.467200000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.16429999999999997,
+            "worstUtilityAtK": 0
+          },
+          "aiResult": {
+            "responseIdHash": "18745eb178797bcb027d6e2339ba9946b669b617b57b3bbb2bcb513a65012d5e",
+            "responseModel": "gpt-5.6-luna",
+            "ranking": [
+              {
+                "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                "rank": 1,
+                "fit": 0.92,
+                "confidence": 0.86,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                "rank": 2,
+                "fit": 0.8,
+                "confidence": 0.8,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "personal_taste_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                "rank": 3,
+                "fit": 0.72,
+                "confidence": 0.78,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "personal_taste_fit",
+                  "contextual_fit"
+                ]
+              },
+              {
+                "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                "rank": 4,
+                "fit": 0.6,
+                "confidence": 0.76,
+                "reason_codes": [
+                  "contextual_fit",
+                  "personal_taste_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                "rank": 5,
+                "fit": 0.54,
+                "confidence": 0.76,
+                "reason_codes": [
+                  "place_type_fit",
+                  "retrieval_support"
+                ]
+              },
+              {
+                "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                "rank": 6,
+                "fit": 0.5,
+                "confidence": 0.58,
+                "reason_codes": [
+                  "place_type_fit",
+                  "retrieval_support",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                "rank": 7,
+                "fit": 0.48,
+                "confidence": 0.52,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                "rank": 8,
+                "fit": 0.45,
+                "confidence": 0.8,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                "rank": 9,
+                "fit": 0.3,
+                "confidence": 0.5,
+                "reason_codes": [
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                "rank": 10,
+                "fit": 0.18,
+                "confidence": 0.78,
+                "reason_codes": [
+                  "uncertain_fit"
+                ]
+              }
+            ],
+            "overallConfidence": 0.73,
+            "validation": {
+              "valid": true,
+              "ranked": [
+                {
+                  "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                  "rank": 1,
+                  "fit": 0.92,
+                  "confidence": 0.86,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                  "rank": 2,
+                  "fit": 0.8,
+                  "confidence": 0.8,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "personal_taste_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                  "rank": 3,
+                  "fit": 0.72,
+                  "confidence": 0.78,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "personal_taste_fit",
+                    "contextual_fit"
+                  ]
+                },
+                {
+                  "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                  "rank": 4,
+                  "fit": 0.6,
+                  "confidence": 0.76,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "personal_taste_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                  "rank": 5,
+                  "fit": 0.54,
+                  "confidence": 0.76,
+                  "reason_codes": [
+                    "place_type_fit",
+                    "retrieval_support"
+                  ]
+                },
+                {
+                  "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                  "rank": 6,
+                  "fit": 0.5,
+                  "confidence": 0.58,
+                  "reason_codes": [
+                    "place_type_fit",
+                    "retrieval_support",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                  "rank": 7,
+                  "fit": 0.48,
+                  "confidence": 0.52,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                  "rank": 8,
+                  "fit": 0.45,
+                  "confidence": 0.8,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                  "rank": 9,
+                  "fit": 0.3,
+                  "confidence": 0.5,
+                  "reason_codes": [
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                  "rank": 10,
+                  "fit": 0.18,
+                  "confidence": 0.78,
+                  "reason_codes": [
+                    "uncertain_fit"
+                  ]
+                }
+              ]
+            },
+            "usage": {
+              "inputTokens": 1430,
+              "outputTokens": 689,
+              "totalTokens": 2119
+            },
+            "costUsd": 0.0011128000000000002,
+            "latencyMs": 5169.061583000002,
+            "execution": "LIVE",
+            "cacheKey": "736e53fe70255442560f3a3a98473b4dd5a9d776d4536ff2d6be62dd0a732bf4"
+          },
+          "inputHash": "8072bf665f67741d710c5d5a3d033b7b9ff022b52853247a946b32cbac272bb8",
+          "candidateIdsHash": "7fd21bc78e809e0dd7aba7767e78ed58411dc46fbc2e84d2eac5ff2b6af8572f"
+        },
+        "NEUTRAL": {
+          "control": {
+            "recallAt10": 0.012658227848101266,
+            "precisionAt10": 0.1,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.1943331705780551,
+            "regretAt10": 5.467200000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.1643,
+            "worstUtilityAtK": 0
+          },
+          "wave4": {
+            "recallAt10": 0.012658227848101266,
+            "precisionAt10": 0.1,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.18954815567611147,
+            "regretAt10": 5.467200000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.1643,
+            "worstUtilityAtK": 0
+          },
+          "ai": {
+            "recallAt10": 0.012658227848101266,
+            "precisionAt10": 0.1,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.1739689854245433,
+            "regretAt10": 5.467200000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.1643,
+            "worstUtilityAtK": 0
+          },
+          "aiResult": {
+            "responseIdHash": "ed2ae8ed565c971d68e79eadaaf9781189912648ecc4ec87104395a12d7f0e07",
+            "responseModel": "gpt-5.6-luna",
+            "ranking": [
+              {
+                "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                "rank": 1,
+                "fit": 0.93,
+                "confidence": 0.88,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                "rank": 2,
+                "fit": 0.82,
+                "confidence": 0.8,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                "rank": 3,
+                "fit": 0.77,
+                "confidence": 0.58,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                "rank": 4,
+                "fit": 0.7,
+                "confidence": 0.72,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                "rank": 5,
+                "fit": 0.55,
+                "confidence": 0.76,
+                "reason_codes": [
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                "rank": 6,
+                "fit": 0.5,
+                "confidence": 0.72,
+                "reason_codes": [
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                "rank": 7,
+                "fit": 0.45,
+                "confidence": 0.58,
+                "reason_codes": [
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                "rank": 8,
+                "fit": 0.42,
+                "confidence": 0.78,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                "rank": 9,
+                "fit": 0.3,
+                "confidence": 0.72,
+                "reason_codes": [
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                "rank": 10,
+                "fit": 0.25,
+                "confidence": 0.4,
+                "reason_codes": [
+                  "uncertain_fit"
+                ]
+              }
+            ],
+            "overallConfidence": 0.7,
+            "validation": {
+              "valid": true,
+              "ranked": [
+                {
+                  "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                  "rank": 1,
+                  "fit": 0.93,
+                  "confidence": 0.88,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                  "rank": 2,
+                  "fit": 0.82,
+                  "confidence": 0.8,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                  "rank": 3,
+                  "fit": 0.77,
+                  "confidence": 0.58,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                  "rank": 4,
+                  "fit": 0.7,
+                  "confidence": 0.72,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                  "rank": 5,
+                  "fit": 0.55,
+                  "confidence": 0.76,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                  "rank": 6,
+                  "fit": 0.5,
+                  "confidence": 0.72,
+                  "reason_codes": [
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                  "rank": 7,
+                  "fit": 0.45,
+                  "confidence": 0.58,
+                  "reason_codes": [
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                  "rank": 8,
+                  "fit": 0.42,
+                  "confidence": 0.78,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                  "rank": 9,
+                  "fit": 0.3,
+                  "confidence": 0.72,
+                  "reason_codes": [
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                  "rank": 10,
+                  "fit": 0.25,
+                  "confidence": 0.4,
+                  "reason_codes": [
+                    "uncertain_fit"
+                  ]
+                }
+              ]
+            },
+            "usage": {
+              "inputTokens": 1309,
+              "outputTokens": 706,
+              "totalTokens": 2015
+            },
+            "costUsd": 0.001109,
+            "latencyMs": 7282.077624999998,
+            "execution": "LIVE",
+            "cacheKey": "0bdd4a65cb426815cac62320d15c6cfdbdc075292b1ceca79b9203d39e7ddd2c"
+          },
+          "inputHash": "cb7ef49ec5027f0c492ae2f77f06e782c9a20665c31552532a2e8ec4c9eeff7b",
+          "candidateIdsHash": "7fd21bc78e809e0dd7aba7767e78ed58411dc46fbc2e84d2eac5ff2b6af8572f"
+        },
+        "OPPOSING": {
+          "control": {
+            "recallAt10": 0.012658227848101266,
+            "precisionAt10": 0.1,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.18954815567611147,
+            "regretAt10": 5.467200000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.1643,
+            "worstUtilityAtK": 0
+          },
+          "wave4": {
+            "recallAt10": 0.012658227848101266,
+            "precisionAt10": 0.1,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.18954815567611147,
+            "regretAt10": 5.467200000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.1643,
+            "worstUtilityAtK": 0
+          },
+          "ai": {
+            "recallAt10": 0.012658227848101266,
+            "precisionAt10": 0.1,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.18960649410830943,
+            "regretAt10": 5.467200000000001,
+            "top1Utility": 0,
+            "meanUtilityAtK": 0.1643,
+            "worstUtilityAtK": 0
+          },
+          "aiResult": {
+            "responseIdHash": "7d1a2b4d84fb03760049dbd6e95051420559bfc35a747e461b367a137bfe2c2b",
+            "responseModel": "gpt-5.6-luna",
+            "ranking": [
+              {
+                "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                "rank": 1,
+                "fit": 0.91,
+                "confidence": 0.82,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                "rank": 2,
+                "fit": 0.82,
+                "confidence": 0.78,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "personal_taste_fit",
+                  "strong_spot_evidence"
+                ]
+              },
+              {
+                "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                "rank": 3,
+                "fit": 0.7,
+                "confidence": 0.73,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                "rank": 4,
+                "fit": 0.67,
+                "confidence": 0.48,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "personal_taste_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                "rank": 5,
+                "fit": 0.62,
+                "confidence": 0.7,
+                "reason_codes": [
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                "rank": 6,
+                "fit": 0.51,
+                "confidence": 0.67,
+                "reason_codes": [
+                  "contextual_fit",
+                  "place_type_fit",
+                  "retrieval_support"
+                ]
+              },
+              {
+                "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                "rank": 7,
+                "fit": 0.45,
+                "confidence": 0.59,
+                "reason_codes": [
+                  "place_type_fit",
+                  "contextual_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                "rank": 8,
+                "fit": 0.42,
+                "confidence": 0.64,
+                "reason_codes": [
+                  "personal_taste_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                "rank": 9,
+                "fit": 0.4,
+                "confidence": 0.48,
+                "reason_codes": [
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                "rank": 10,
+                "fit": 0.27,
+                "confidence": 0.35,
+                "reason_codes": [
+                  "uncertain_fit"
+                ]
+              }
+            ],
+            "overallConfidence": 0.66,
+            "validation": {
+              "valid": true,
+              "ranked": [
+                {
+                  "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                  "rank": 1,
+                  "fit": 0.91,
+                  "confidence": 0.82,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                  "rank": 2,
+                  "fit": 0.82,
+                  "confidence": 0.78,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "personal_taste_fit",
+                    "strong_spot_evidence"
+                  ]
+                },
+                {
+                  "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                  "rank": 3,
+                  "fit": 0.7,
+                  "confidence": 0.73,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                  "rank": 4,
+                  "fit": 0.67,
+                  "confidence": 0.48,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "personal_taste_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                  "rank": 5,
+                  "fit": 0.62,
+                  "confidence": 0.7,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                  "rank": 6,
+                  "fit": 0.51,
+                  "confidence": 0.67,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "place_type_fit",
+                    "retrieval_support"
+                  ]
+                },
+                {
+                  "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                  "rank": 7,
+                  "fit": 0.45,
+                  "confidence": 0.59,
+                  "reason_codes": [
+                    "place_type_fit",
+                    "contextual_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                  "rank": 8,
+                  "fit": 0.42,
+                  "confidence": 0.64,
+                  "reason_codes": [
+                    "personal_taste_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                  "rank": 9,
+                  "fit": 0.4,
+                  "confidence": 0.48,
+                  "reason_codes": [
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                  "rank": 10,
+                  "fit": 0.27,
+                  "confidence": 0.35,
+                  "reason_codes": [
+                    "uncertain_fit"
+                  ]
+                }
+              ]
+            },
+            "usage": {
+              "inputTokens": 1429,
+              "outputTokens": 739,
+              "totalTokens": 2168
+            },
+            "costUsd": 0.0011725999999999998,
+            "latencyMs": 5390.587916999997,
+            "execution": "LIVE",
+            "cacheKey": "79f21936a8d484e9e71890ba0702e762d428595956113eb00028cb2976b5fffe"
+          },
+          "inputHash": "fd4fdbb58fd545718707ae8486782a7a50ca2ddbaa8046b8b5d541421af88b19",
+          "candidateIdsHash": "7fd21bc78e809e0dd7aba7767e78ed58411dc46fbc2e84d2eac5ff2b6af8572f"
+        }
+      }
+    },
+    {
+      "scenarioId": "4e9acca5-b38c-4000-920b-729dd1dc4810",
+      "split": "DEVELOPMENT",
+      "family": "distribution",
+      "maturity": "cold",
+      "candidateCount": 10,
+      "hardConstraintPass": true,
+      "arms": {
+        "ACTUAL": {
+          "control": {
+            "recallAt10": 0.05172413793103448,
+            "precisionAt10": 0.3,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5367431274235361,
+            "regretAt10": 3.182999999999999,
+            "top1Utility": 0.5615,
+            "meanUtilityAtK": 0.3973,
+            "worstUtilityAtK": 0
+          },
+          "wave4": {
+            "recallAt10": 0.05172413793103448,
+            "precisionAt10": 0.3,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5367431274235361,
+            "regretAt10": 3.182999999999999,
+            "top1Utility": 0.5615,
+            "meanUtilityAtK": 0.3973,
+            "worstUtilityAtK": 0
+          },
+          "ai": {
+            "recallAt10": 0.05172413793103448,
+            "precisionAt10": 0.3,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5950787999162083,
+            "regretAt10": 3.182999999999999,
+            "top1Utility": 0.5159,
+            "meanUtilityAtK": 0.3973,
+            "worstUtilityAtK": 0
+          },
+          "aiResult": {
+            "responseIdHash": "30c8d2087bc54dd14375e3effb6e2be5dc1a78116528ac405b9c777dae47c5ca",
+            "responseModel": "gpt-5.6-luna",
+            "ranking": [
+              {
+                "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                "rank": 1,
+                "fit": 0.82,
+                "confidence": 0.72,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "personal_taste_fit"
+                ]
+              },
+              {
+                "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                "rank": 2,
+                "fit": 0.75,
+                "confidence": 0.7,
+                "reason_codes": [
+                  "contextual_fit",
+                  "personal_taste_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                "rank": 3,
+                "fit": 0.69,
+                "confidence": 0.43,
+                "reason_codes": [
+                  "contextual_fit",
+                  "personal_taste_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                "rank": 4,
+                "fit": 0.57,
+                "confidence": 0.6,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                "rank": 5,
+                "fit": 0.51,
+                "confidence": 0.61,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "place_type_fit",
+                  "retrieval_support"
+                ]
+              },
+              {
+                "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                "rank": 6,
+                "fit": 0.42,
+                "confidence": 0.62,
+                "reason_codes": [
+                  "personal_taste_fit",
+                  "strong_spot_evidence",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                "rank": 7,
+                "fit": 0.38,
+                "confidence": 0.64,
+                "reason_codes": [
+                  "personal_taste_fit",
+                  "strong_spot_evidence",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                "rank": 8,
+                "fit": 0.35,
+                "confidence": 0.38,
+                "reason_codes": [
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                "rank": 9,
+                "fit": 0.3,
+                "confidence": 0.4,
+                "reason_codes": [
+                  "personal_taste_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                "rank": 10,
+                "fit": 0.2,
+                "confidence": 0.5,
+                "reason_codes": [
+                  "uncertain_fit"
+                ]
+              }
+            ],
+            "overallConfidence": 0.52,
+            "validation": {
+              "valid": true,
+              "ranked": [
+                {
+                  "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                  "rank": 1,
+                  "fit": 0.82,
+                  "confidence": 0.72,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "personal_taste_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                  "rank": 2,
+                  "fit": 0.75,
+                  "confidence": 0.7,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "personal_taste_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                  "rank": 3,
+                  "fit": 0.69,
+                  "confidence": 0.43,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "personal_taste_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                  "rank": 4,
+                  "fit": 0.57,
+                  "confidence": 0.6,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                  "rank": 5,
+                  "fit": 0.51,
+                  "confidence": 0.61,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "place_type_fit",
+                    "retrieval_support"
+                  ]
+                },
+                {
+                  "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                  "rank": 6,
+                  "fit": 0.42,
+                  "confidence": 0.62,
+                  "reason_codes": [
+                    "personal_taste_fit",
+                    "strong_spot_evidence",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                  "rank": 7,
+                  "fit": 0.38,
+                  "confidence": 0.64,
+                  "reason_codes": [
+                    "personal_taste_fit",
+                    "strong_spot_evidence",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                  "rank": 8,
+                  "fit": 0.35,
+                  "confidence": 0.38,
+                  "reason_codes": [
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                  "rank": 9,
+                  "fit": 0.3,
+                  "confidence": 0.4,
+                  "reason_codes": [
+                    "personal_taste_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                  "rank": 10,
+                  "fit": 0.2,
+                  "confidence": 0.5,
+                  "reason_codes": [
+                    "uncertain_fit"
+                  ]
+                }
+              ]
+            },
+            "usage": {
+              "inputTokens": 1424,
+              "outputTokens": 728,
+              "totalTokens": 2152
+            },
+            "costUsd": 0.0011584,
+            "latencyMs": 5671.257792000004,
+            "execution": "LIVE",
+            "cacheKey": "34c9046eb943176574aac18ed3b9beb808b6f93e77d635ed641f669a6fcc0dc2"
+          },
+          "inputHash": "aa97fea9353119c9f40f502acbdaf1278cefc1e35373bcbc230aa763551f1a55",
+          "candidateIdsHash": "49fa37643af9589c5012599f73ca7ba198f6d5efa662bfcbd393e8d89113d329"
+        },
+        "NEUTRAL": {
+          "control": {
+            "recallAt10": 0.05172413793103448,
+            "precisionAt10": 0.3,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5367431274235361,
+            "regretAt10": 3.182999999999999,
+            "top1Utility": 0.5615,
+            "meanUtilityAtK": 0.3973,
+            "worstUtilityAtK": 0
+          },
+          "wave4": {
+            "recallAt10": 0.05172413793103448,
+            "precisionAt10": 0.3,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5367431274235361,
+            "regretAt10": 3.182999999999999,
+            "top1Utility": 0.5615,
+            "meanUtilityAtK": 0.3973,
+            "worstUtilityAtK": 0
+          },
+          "ai": {
+            "recallAt10": 0.05172413793103448,
+            "precisionAt10": 0.3,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5743248954280061,
+            "regretAt10": 3.182999999999999,
+            "top1Utility": 0.5159,
+            "meanUtilityAtK": 0.3973,
+            "worstUtilityAtK": 0
+          },
+          "aiResult": {
+            "responseIdHash": "203c088e08d0b879f731c77fc75d3e5df5547c2c00382459176ae929aa556600",
+            "responseModel": "gpt-5.6-luna",
+            "ranking": [
+              {
+                "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                "rank": 1,
+                "fit": 0.74,
+                "confidence": 0.78,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                "rank": 2,
+                "fit": 0.71,
+                "confidence": 0.77,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                "rank": 3,
+                "fit": 0.6,
+                "confidence": 0.72,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                "rank": 4,
+                "fit": 0.57,
+                "confidence": 0.72,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                "rank": 5,
+                "fit": 0.55,
+                "confidence": 0.43,
+                "reason_codes": [
+                  "contextual_fit",
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                "rank": 6,
+                "fit": 0.39,
+                "confidence": 0.41,
+                "reason_codes": [
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                "rank": 7,
+                "fit": 0.3,
+                "confidence": 0.62,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                "rank": 8,
+                "fit": 0.24,
+                "confidence": 0.61,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                "rank": 9,
+                "fit": 0.2,
+                "confidence": 0.39,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                "rank": 10,
+                "fit": 0.17,
+                "confidence": 0.59,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              }
+            ],
+            "overallConfidence": 0.62,
+            "validation": {
+              "valid": true,
+              "ranked": [
+                {
+                  "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                  "rank": 1,
+                  "fit": 0.74,
+                  "confidence": 0.78,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                  "rank": 2,
+                  "fit": 0.71,
+                  "confidence": 0.77,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                  "rank": 3,
+                  "fit": 0.6,
+                  "confidence": 0.72,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                  "rank": 4,
+                  "fit": 0.57,
+                  "confidence": 0.72,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                  "rank": 5,
+                  "fit": 0.55,
+                  "confidence": 0.43,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                  "rank": 6,
+                  "fit": 0.39,
+                  "confidence": 0.41,
+                  "reason_codes": [
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                  "rank": 7,
+                  "fit": 0.3,
+                  "confidence": 0.62,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                  "rank": 8,
+                  "fit": 0.24,
+                  "confidence": 0.61,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                  "rank": 9,
+                  "fit": 0.2,
+                  "confidence": 0.39,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                  "rank": 10,
+                  "fit": 0.17,
+                  "confidence": 0.59,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                }
+              ]
+            },
+            "usage": {
+              "inputTokens": 1305,
+              "outputTokens": 706,
+              "totalTokens": 2011
+            },
+            "costUsd": 0.0011082,
+            "latencyMs": 5333.274541000006,
+            "execution": "LIVE",
+            "cacheKey": "3187d9cd03bc24f58abc4f392797282aceb554b6d1f338688d29c00ddfcc8d76"
+          },
+          "inputHash": "1b085779726e74d8bbb665035bef434a470729cb473905b53a2773837bec1514",
+          "candidateIdsHash": "49fa37643af9589c5012599f73ca7ba198f6d5efa662bfcbd393e8d89113d329"
+        },
+        "OPPOSING": {
+          "control": {
+            "recallAt10": 0.05172413793103448,
+            "precisionAt10": 0.3,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5367431274235361,
+            "regretAt10": 3.182999999999999,
+            "top1Utility": 0.5615,
+            "meanUtilityAtK": 0.3973,
+            "worstUtilityAtK": 0
+          },
+          "wave4": {
+            "recallAt10": 0.05172413793103448,
+            "precisionAt10": 0.3,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5367431274235361,
+            "regretAt10": 3.182999999999999,
+            "top1Utility": 0.5615,
+            "meanUtilityAtK": 0.3973,
+            "worstUtilityAtK": 0
+          },
+          "ai": {
+            "recallAt10": 0.05172413793103448,
+            "precisionAt10": 0.3,
+            "hitRateAt10": 1,
+            "ndcgAt10": 0.5743248954280061,
+            "regretAt10": 3.182999999999999,
+            "top1Utility": 0.5159,
+            "meanUtilityAtK": 0.3973,
+            "worstUtilityAtK": 0
+          },
+          "aiResult": {
+            "responseIdHash": "203c088e08d0b879f731c77fc75d3e5df5547c2c00382459176ae929aa556600",
+            "responseModel": "gpt-5.6-luna",
+            "ranking": [
+              {
+                "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                "rank": 1,
+                "fit": 0.74,
+                "confidence": 0.78,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                "rank": 2,
+                "fit": 0.71,
+                "confidence": 0.77,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                "rank": 3,
+                "fit": 0.6,
+                "confidence": 0.72,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "contextual_fit",
+                  "place_type_fit"
+                ]
+              },
+              {
+                "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                "rank": 4,
+                "fit": 0.57,
+                "confidence": 0.72,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                "rank": 5,
+                "fit": 0.55,
+                "confidence": 0.43,
+                "reason_codes": [
+                  "contextual_fit",
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                "rank": 6,
+                "fit": 0.39,
+                "confidence": 0.41,
+                "reason_codes": [
+                  "place_type_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                "rank": 7,
+                "fit": 0.3,
+                "confidence": 0.62,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                "rank": 8,
+                "fit": 0.24,
+                "confidence": 0.61,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                "rank": 9,
+                "fit": 0.2,
+                "confidence": 0.39,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              },
+              {
+                "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                "rank": 10,
+                "fit": 0.17,
+                "confidence": 0.59,
+                "reason_codes": [
+                  "current_intent_fit",
+                  "uncertain_fit"
+                ]
+              }
+            ],
+            "overallConfidence": 0.62,
+            "validation": {
+              "valid": true,
+              "ranked": [
+                {
+                  "spot_id": "5d8bf7ef-45a7-47fe-952c-15b397f78ad9",
+                  "rank": 1,
+                  "fit": 0.74,
+                  "confidence": 0.78,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e33c5a18-a934-41b5-bbda-fd71cb7e6e24",
+                  "rank": 2,
+                  "fit": 0.71,
+                  "confidence": 0.77,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "312f6cf2-6aa0-4928-abd3-a2f4986ea72c",
+                  "rank": 3,
+                  "fit": 0.6,
+                  "confidence": 0.72,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "contextual_fit",
+                    "place_type_fit"
+                  ]
+                },
+                {
+                  "spot_id": "ed756f3b-3e3d-4232-9968-c65ac57e448f",
+                  "rank": 4,
+                  "fit": 0.57,
+                  "confidence": 0.72,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "047d682f-658b-4097-8e4b-d09ba9b06948",
+                  "rank": 5,
+                  "fit": 0.55,
+                  "confidence": 0.43,
+                  "reason_codes": [
+                    "contextual_fit",
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "028f4fb9-8b96-4f86-9bc8-97c1ab58aab9",
+                  "rank": 6,
+                  "fit": 0.39,
+                  "confidence": 0.41,
+                  "reason_codes": [
+                    "place_type_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "552e8646-622d-421b-b73e-69b169f6c1f2",
+                  "rank": 7,
+                  "fit": 0.3,
+                  "confidence": 0.62,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "3b3f611b-962d-4f9f-a876-80688419371c",
+                  "rank": 8,
+                  "fit": 0.24,
+                  "confidence": 0.61,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e1af89e0-0b42-4e3e-b9b7-66c7b59c8064",
+                  "rank": 9,
+                  "fit": 0.2,
+                  "confidence": 0.39,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                },
+                {
+                  "spot_id": "e7a682d2-bbb0-41d6-bcfc-d15fd7e1c20d",
+                  "rank": 10,
+                  "fit": 0.17,
+                  "confidence": 0.59,
+                  "reason_codes": [
+                    "current_intent_fit",
+                    "uncertain_fit"
+                  ]
+                }
+              ]
+            },
+            "usage": {
+              "inputTokens": 1305,
+              "outputTokens": 706,
+              "totalTokens": 2011
+            },
+            "costUsd": 0,
+            "latencyMs": 5333.274541000006,
+            "execution": "CACHE_REPLAY",
+            "cacheKey": "3187d9cd03bc24f58abc4f392797282aceb554b6d1f338688d29c00ddfcc8d76"
+          },
+          "inputHash": "1b085779726e74d8bbb665035bef434a470729cb473905b53a2773837bec1514",
+          "candidateIdsHash": "49fa37643af9589c5012599f73ca7ba198f6d5efa662bfcbd393e8d89113d329"
+        }
+      }
+    }
+  ],
+  "costs": {
+    "priorSpentUsd": 0.0104938,
+    "stageCostUsd": 0.013753599999999996,
+    "cumulativeSpentUsd": 0.024247399999999995,
+    "inputTokens": 20393,
+    "outputTokens": 10860
+  },
+  "integrity": {
+    "hardConstraintViolations": 0,
+    "invalidAiOutputs": 0,
+    "candidateMutationViolations": 0,
+    "productEligibilityViolations": 0,
+    "distributionEligibilityViolations": 0,
+    "latentTruthRuntimeInput": false,
+    "productionAccess": "NONE",
+    "retrievalMutation": "NONE",
+    "tasteEngineMutation": "NONE"
+  },
+  "resultHash": "87fa6b09f7937bc670369e635b0ffa90084edf222826c3866ef03b8e0b32ad77"
+}
