@@ -10,7 +10,7 @@
     "personalizationTreatment": "9b4691de75bead63ad798700ada0b818ba6d29ad92d24804dcb2d3eeecfc1053"
   },
   "fitManifest": {
-    "version": "backyrd-personalized-fit-v1",
+    "version": "backyrd-personalized-fit-v1.2",
     "runtimeInputs": [
       "structured_intent",
       "current_context",
@@ -30,7 +30,7 @@
     "retrievalMutation": "NONE",
     "unknownPolicy": "NEUTRAL",
     "finalUtilityModel": "NOT_IMPLEMENTED",
-    "manifestHash": "fc92f95ded02a6f0e88f0887758ff71e3ec986b9621f8fe0e2cd7a03f2f1276d"
+    "manifestHash": "d8d32504e432b832efcd55ffd98f91743efb4072f2d57689e8bdc995dc1bd6af"
   },
   "candidatePathSourceHash": "5d65a4db6e8a8baf6bce872d967d5350e55ec5f4470191ff4490540dac0b20b8",
   "coverage": {
@@ -58,27 +58,27 @@
     "personalization": {
       "lift": {
         "n": 126,
-        "meanDelta": -0.0008840476190476207,
+        "meanDelta": 0.0008590476190476162,
         "medianDelta": 0,
         "interval": [
-          -0.003979682539682537,
-          0.00238880952380953
+          -0.0023961904761904814,
+          0.004042619047619045
         ],
-        "wins": 14,
+        "wins": 16,
         "ties": 91,
-        "losses": 21
+        "losses": 19
       },
-      "harmRate": 0.16666666666666666,
-      "maximumCohortHarm": 0.6,
-      "opposingHarmRate": 0.16666666666666666,
+      "harmRate": 0.15079365079365079,
+      "maximumCohortHarm": 0.45454545454545453,
+      "opposingHarmRate": 0.2222222222222222,
       "topK": {
-        "actualUtility": 0.39817851851851854,
-        "neutralUtility": 0.3990625661375661,
-        "opposingUtility": 0.3993294708994708,
-        "actualNdcg": 0.5466819999022817,
-        "neutralNdcg": 0.5486878268096392,
-        "actualPrecision": 0.34517195767195796,
-        "neutralPrecision": 0.34834656084656107
+        "actualUtility": 0.3948885789871504,
+        "neutralUtility": 0.3940295313681029,
+        "opposingUtility": 0.3930364361300076,
+        "actualNdcg": 0.5400218663240002,
+        "neutralNdcg": 0.5399689056975253,
+        "actualPrecision": 0.34830876795162535,
+        "neutralPrecision": 0.3451341647770221
       }
     },
     "maturity": {
@@ -86,80 +86,80 @@
         "n": 26,
         "lift": 0,
         "harmRate": 0,
-        "confidence": 0.5707023804960758
+        "confidence": 0.5703309695806111
       },
       "onboarding": {
         "n": 15,
-        "lift": 0.0006213333333333312,
-        "harmRate": 0.06666666666666667,
-        "confidence": 0.6140168114367559
+        "lift": 0,
+        "harmRate": 0,
+        "confidence": 0.6132377232737073
       },
       "sparse": {
         "n": 25,
-        "lift": -0.0013875999999999895,
-        "harmRate": 0.16,
-        "confidence": 0.48750690908640126
+        "lift": 0.0020284,
+        "harmRate": 0.04,
+        "confidence": 0.48711572157371663
       },
       "developing": {
         "n": 33,
-        "lift": 0.003220606060606055,
+        "lift": 0.004249999999999994,
         "harmRate": 0.18181818181818182,
-        "confidence": 0.5798852968996349
+        "confidence": 0.5788201427808517
       },
       "mature": {
         "n": 22,
-        "lift": -0.004968636363636361,
-        "harmRate": 0.3181818181818182,
-        "confidence": 0.616584644372219
+        "lift": -0.003414545454545463,
+        "harmRate": 0.45454545454545453,
+        "confidence": 0.6169470131380351
       },
       "power": {
         "n": 5,
-        "lift": -0.016598000000000064,
-        "harmRate": 0.6,
-        "confidence": 0.6018734103760939
+        "lift": -0.0015199999999999992,
+        "harmRate": 0.4,
+        "confidence": 0.6024697758898502
       }
     },
     "splits": {
       "DEVELOPMENT": {
         "n": 54,
-        "lift": -0.0009442592592592635,
-        "harmRate": 0.16666666666666666
+        "lift": 0.00036370370370370045,
+        "harmRate": 0.14814814814814814
       },
       "REGRESSION": {
         "n": 36,
-        "lift": 0.002472222222222214,
-        "harmRate": 0.08333333333333333
+        "lift": 0.003083333333333325,
+        "harmRate": 0.1388888888888889
       },
       "LOCKED_HOLDOUT": {
         "n": 36,
-        "lift": -0.004149999999999992,
-        "harmRate": 0.25
+        "lift": -0.0006222222222222192,
+        "harmRate": 0.16666666666666666
       }
     },
     "context": {
-      "contextualDifferentiation": 0.12121212121212117,
-      "utilityGain": -0.007823333333333318,
+      "contextualDifferentiation": 0.15488215488215487,
+      "utilityGain": -0.006997777777777745,
       "groups": [
         {
           "id": "family-sunday-afternoon",
           "n": 3,
-          "lift": 3.700743415417188e-17
+          "lift": 0.000010000000000028505
         },
         {
           "id": "friends-friday-evening",
           "n": 3,
-          "lift": -0.02346999999999999
+          "lift": 0
         },
         {
           "id": "date-evening",
           "n": 3,
-          "lift": 0
+          "lift": -0.021003333333333263
         }
       ]
     },
     "differentUsers": {
       "rankingDivergence": 0,
-      "falsePersonalizationRate": 0.3333333333333333
+      "falsePersonalizationRate": 0
     },
     "intent": {
       "robustness": 1,
@@ -167,11 +167,11 @@
       "evaluable": 18
     },
     "confidence": {
-      "liftCorrelation": -0.009199463016101531
+      "liftCorrelation": 0.01837998815470797
     },
     "attribution": {
       "retrievalMisses": 102,
-      "personalizationMisses": 21
+      "personalizationMisses": 19
     },
     "integrity": {
       "hardConstraintViolations": 0,
@@ -186,7 +186,7 @@
   "gates": {
     "coverage": true,
     "personalizationLift": false,
-    "personalizationHarm": false,
+    "personalizationHarm": true,
     "opposingHistory": true,
     "currentIntentAuthority": true,
     "contextualDecision": false,
@@ -200,10 +200,9 @@
   },
   "failureDecomposition": {
     "retrievalMisses": 102,
-    "personalizationMisses": 21,
+    "personalizationMisses": 19,
     "failedGates": [
       "personalizationLift",
-      "personalizationHarm",
       "contextualDecision",
       "differentUsers",
       "confidenceAware",
@@ -223,5 +222,5 @@
   "verdict": "FAIL",
   "integrationVerdict": "NOT_PROMOTED",
   "wave4Readiness": "NOT_READY",
-  "resultHash": "aa9e2c7c455df48eb746025877b804c8ac5471d9d7fceec3b2a59e7eae15de7a"
+  "resultHash": "27b502363a8250aae46c5b12a420b3dca78c9bf2dd1ac35e5808b24ab2a34dab"
 }

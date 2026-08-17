@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildUserTasteMap } from "../src/taste-engine.mjs";
-import { personalizedFitManifest, rankWithPersonalizedFit, spotTasteConcepts } from "../src/wave3c-personalized-fit.mjs";
+import { currentContextConcepts, personalizedFitManifest, rankWithPersonalizedFit, spotTasteConcepts } from "../src/wave3c-personalized-fit.mjs";
 
 const spot = (id, moods, category = "bar", overrides = {}) => ({
   id, category, observed: { name: id, description: moods.join(" "), city: "Synthetic Basel", status: "approved", distribution: "normal", priceLevel: 3, moods, ...overrides },
@@ -49,4 +49,25 @@ test("manifest prohibits evaluation truth and final utility inputs", () => {
   assert.ok(manifest.prohibitedInputs.includes("latent_truth"));
   assert.equal(manifest.retrievalMutation, "NONE");
   assert.equal(manifest.finalUtilityModel, "NOT_IMPLEMENTED");
+});
+
+test("current observed Context moods activate only their canonical Taste dimensions", () => {
+  const concepts = currentContextConcepts({ audience: "date", timeBucket: "evening", moods: { lively: 0.2, romantic: 0.91 } });
+  assert.ok(concepts.includes("vibe.romantic"));
+  assert.equal(concepts.includes("vibe.lively"), false);
+});
+
+test("negative Taste evidence lowers Candidate fit instead of becoming a positive match", () => {
+  const negative = buildUserTasteMap([
+    evidence(1, "disliked", ["vibe.lively"], "l1", "s1"),
+    evidence(2, "negative_post_visit", ["vibe.lively"], "l2", "s2"),
+    evidence(3, "disliked", ["vibe.lively"], "l3", "s3"),
+  ], { asOf: "2026-08-10T12:00:00.000Z" });
+  const input = { candidateIds: [lively.id, quiet.id], spots: [lively, quiet], request: { query: "etwas trinken" }, context: { audience: "friends", timeBucket: "evening", weekday: 5, moods: { lively: 0.9 } }, maturity: "mature" };
+  const personalized = rankWithPersonalizedFit({ ...input, tasteMap: negative });
+  const neutral = rankWithPersonalizedFit({ ...input, tasteMap: neutralMap });
+  const actualLively = personalized.allCandidates.find((row) => row.spotId === lively.id);
+  const neutralLively = neutral.allCandidates.find((row) => row.spotId === lively.id);
+  assert.ok(actualLively.evidence.personalizedFit.score < 0.5);
+  assert.ok(actualLively.score < neutralLively.score);
 });

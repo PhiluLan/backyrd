@@ -21,6 +21,7 @@ export async function currentWave3CIdentity() {
     contractVersion: contract.version,
     contractHash: contentHash(contract),
     personalizedFitSourceHash: await sha("decision-lab/src/wave3c-personalized-fit.mjs"),
+    canonicalAdapterSourceHash: await sha("decision-lab/src/d3.1-canonical-adapters.mjs"),
     worldRunnerSourceHash: await sha("decision-lab/src/wave3c-world-cli.mjs"),
     aggregateRunnerSourceHash: await sha("decision-lab/src/wave3c-aggregate.mjs"),
     officialScriptHash: await sha("scripts/decision/run-wave3c-personalized-decision.sh"),

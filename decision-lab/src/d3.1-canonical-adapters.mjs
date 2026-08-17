@@ -7,10 +7,10 @@ const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url
 
 export function syntheticJwt(userId, secret) {
   const now = Math.floor(Date.now() / 1000);
-  // Local Supabase containers can briefly lag the host clock after a database
-  // reset. Backdate only the synthetic Lab token to keep authentication
-  // deterministic without changing its subject, role or one-hour lifetime.
-  const issuedAt = now - 30;
+  // A local database reset can leave the restarted API container several
+  // minutes behind the host. The skew allowance affects only synthetic Lab
+  // authentication and preserves the token's subject, role and one-hour life.
+  const issuedAt = now - 300;
   const header = encode({ alg: "HS256", typ: "JWT" });
   const payload = encode({ aud: "authenticated", exp: issuedAt + 3600, iat: issuedAt, iss: "supabase-d3-1", role: "authenticated", sub: userId });
   return `${header}.${payload}.${createHmac("sha256", secret).update(`${header}.${payload}`).digest("base64url")}`;
