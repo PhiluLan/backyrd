@@ -1,0 +1,26 @@
+{
+  "freezeVersion": "backyrd-n3-moment-intelligence-freeze-v1",
+  "frozenBeforeOfficialRun": true,
+  "versions": {
+    "momentSchema": "backyrd-current-moment-schema-v1",
+    "inferenceContract": "backyrd-moment-inference-v1",
+    "provenanceContract": "backyrd-moment-provenance-v1",
+    "confidenceContract": "backyrd-moment-confidence-v1",
+    "historySignatureContract": "backyrd-moment-history-signature-v1",
+    "validationContract": "backyrd-moment-validation-contract-v1",
+    "flightRecorder": "backyrd-moment-flight-recorder-v1"
+  },
+  "momentContractHash": "291a36edf3d3608f534879c2a4914c82c43725af779406296c8c3a2d40eb46e9",
+  "momentSchemaHash": "5d1dd5d31ac8d4b15a10db46978c751d467dd13ced3b6d1954908b7115ef6136",
+  "inferenceContractHash": "ec986855c9c73c49e251ead280c345a61bf593ade03ff6af6049f6d1adf37d44",
+  "provenanceContractHash": "3b5119db5cdaf5e4fc42aa2cc6fdb95cc42dc4ef319eadb3f4568b4ce355eff5",
+  "confidenceContractHash": "81cb03b2b7f7617bef1ce891c1a304070c60599b78e2bd8c6b740c522f80a9c6",
+  "historySignatureContractHash": "9c73d5005df88f4a3618b187a5216ad5ea9c96c396a5f37292e5d525aa64537a",
+  "protectedN2MemoryContractHash": "0294d85141e4ee40545591d6ec68372b0558762f35b9b9a12e521b35ebe84b9d",
+  "engineSourceHash": "a5e9e8b90b3d7e25413d8bccf924279b2809965183997020871061ed26ca0a8e",
+  "validationSourceHash": "1c89e63bd7fef9652f4365e54b595c4246982ffa8abfeec4381b33f7d5fff337",
+  "acceptanceTestHash": "e6d78d1361679747c9d0f1cd21e96bedb42c0b9894780210f7bbf5980f3c6e96",
+  "validationContractFileHash": "70b29868e6a4ff3918d859e9c78e4f9806d16b204cb5dfdfcd4ff3c96eb52d03",
+  "protectedStructuredIntentSourceHash": "5d65a4db6e8a8baf6bce872d967d5350e55ec5f4470191ff4490540dac0b20b8",
+  "officialResultHash": "ac3d5c59ff2286e098e29e2797cf141c85738640e278faf37d9eb808feeaf312"
+}

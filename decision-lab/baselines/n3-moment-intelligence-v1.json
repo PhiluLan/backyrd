@@ -1,0 +1,283 @@
+{
+  "artifactVersion": "backyrd-n3-moment-validation-result-v1",
+  "runMode": "OFFICIAL_FULL_LAB",
+  "contractVersion": "backyrd-moment-validation-contract-v1",
+  "contractHash": "40380a9b8d9c1ada6748a184b36660acf85a333a6f9d9c80ef55ea42e8301154",
+  "engineContractHash": "291a36edf3d3608f534879c2a4914c82c43725af779406296c8c3a2d40eb46e9",
+  "seeds": [
+    3001,
+    3002,
+    3003
+  ],
+  "scenarioCountPerSeed": 10,
+  "metrics": {
+    "explicitIntentPreservation": 1,
+    "momentDimensionAccuracy": 1,
+    "falseInferenceRate": 0,
+    "unknownCorrectness": 1,
+    "provenanceCorrectness": 1,
+    "confidenceBrier": 0.018765189629629628,
+    "expectedSourceCorrectness": 1
+  },
+  "arms": {
+    "sameUserDifferentMoment": 1,
+    "differentUserSameExplicitMoment": 1,
+    "historicalPatternOverrideSafety": 1,
+    "crossCityCorrectness": 1,
+    "timeCorrectness": 1,
+    "socialContextCorrectness": 1,
+    "privacyConsent": 1,
+    "n2BoundaryIntegrity": 1,
+    "deterministicReplay": 1,
+    "stalePatternIgnored": 1,
+    "maliciousTextBounded": 1,
+    "failClosedMalformedInputs": 1,
+    "failureDetails": []
+  },
+  "gateMatrix": {
+    "explicitIntentPreservation": true,
+    "momentDimensionAccuracy": true,
+    "falseInferenceRate": true,
+    "unknownCorrectness": true,
+    "provenanceCorrectness": true,
+    "confidenceCalibration": true,
+    "historicalPatternOverrideSafety": true,
+    "sameUserDifferentMoment": true,
+    "differentUserSameExplicitMoment": true,
+    "crossCityCorrectness": true,
+    "timeCorrectness": true,
+    "socialContextCorrectness": true,
+    "privacyConsent": true,
+    "n2BoundaryIntegrity": true,
+    "deterministicReplay": true,
+    "adversarialFailClosed": true
+  },
+  "allMandatoryGatesPass": true,
+  "scientificValidity": "PASS",
+  "boundaries": {
+    "n2Mutation": "NONE",
+    "tasteEngineMutation": "NONE",
+    "ranking": "NONE",
+    "retrieval": "NONE",
+    "production": "UNCHANGED"
+  },
+  "scenarioSummaries": [
+    {
+      "id": "FAMILY_SUNDAY_AFTERNOON",
+      "momentHash": "f0ccd2e6177e3111eddc076f9ac0517aadad85880aed280fd30aaf4288afc3d1",
+      "confidence": 0.476,
+      "confidenceLevel": "PARTIAL",
+      "fieldChecks": {
+        "social_context": true,
+        "vibe": true,
+        "activity_intent": true,
+        "daypart": true,
+        "calendar": true,
+        "weekday": true
+      },
+      "unknownIncorrect": [],
+      "memoryEvidenceCount": 0,
+      "historySignature": {
+        "audience": "family",
+        "daypart": "afternoon",
+        "calendar": "weekend"
+      }
+    },
+    {
+      "id": "FRIENDS_FRIDAY_NIGHT",
+      "momentHash": "6bf3243d20cef52b55f61edba747c361cdfd508cb5993fe33e873a15790b7e13",
+      "confidence": 0.53,
+      "confidenceLevel": "PARTIAL",
+      "fieldChecks": {
+        "social_context": true,
+        "vibe": true,
+        "activity_intent": true,
+        "orientation": true,
+        "daypart": true,
+        "calendar": true,
+        "weekday": true
+      },
+      "unknownIncorrect": [],
+      "memoryEvidenceCount": 0,
+      "historySignature": {
+        "audience": "friends",
+        "daypart": "night",
+        "calendar": "weekday",
+        "placeType": "bar"
+      }
+    },
+    {
+      "id": "DATE_SATURDAY_EVENING_BUDGET",
+      "momentHash": "0656663921846b1c1192a4338d2f161eaddeb6b82dfd3fe2a113352e0745d5fa",
+      "confidence": 0.43,
+      "confidenceLevel": "LOW",
+      "fieldChecks": {
+        "social_context": true,
+        "vibe": true,
+        "budget_orientation": true,
+        "daypart": true,
+        "calendar": true
+      },
+      "unknownIncorrect": [],
+      "memoryEvidenceCount": 0,
+      "historySignature": {
+        "audience": "date",
+        "daypart": "evening",
+        "calendar": "weekend"
+      }
+    },
+    {
+      "id": "SOLO_TUESDAY_AFTERWORK",
+      "momentHash": "7b218e128afd43c74062f783041b130e03b1a688c68d4ab402e3f06b7d4133e4",
+      "confidence": 0.54338,
+      "confidenceLevel": "PARTIAL",
+      "fieldChecks": {
+        "social_context": true,
+        "occasion": true,
+        "activity_intent": true,
+        "planning_tolerance": true,
+        "distance_willingness": true,
+        "daypart": true,
+        "calendar": true
+      },
+      "unknownIncorrect": [],
+      "memoryEvidenceCount": 1,
+      "historySignature": {
+        "audience": "solo",
+        "daypart": "evening",
+        "calendar": "weekday",
+        "occasion": "afterwork",
+        "friction": "low",
+        "distanceWillingness": "near"
+      }
+    },
+    {
+      "id": "SPONTANEOUS_TOURIST_NEW_CITY",
+      "momentHash": "64b50c4c07c88e66b2467721cdb1552a2428c3703b7259415443aaadd05a5f5b",
+      "confidence": 0.6302,
+      "confidenceLevel": "PARTIAL",
+      "fieldChecks": {
+        "city": true,
+        "occasion": true,
+        "duration": true,
+        "activity_intent": true,
+        "vibe": true,
+        "daypart": true
+      },
+      "unknownIncorrect": [],
+      "memoryEvidenceCount": 0,
+      "historySignature": {
+        "daypart": "afternoon",
+        "calendar": "weekday",
+        "occasion": "tourist",
+        "placeType": "bar"
+      }
+    },
+    {
+      "id": "BUSINESS_LUNCH",
+      "momentHash": "8afe3be7453e4e0dc17b236e18f1ffa2d85cddf90b7a91a21e62b875b49b1f00",
+      "confidence": 0.4845,
+      "confidenceLevel": "PARTIAL",
+      "fieldChecks": {
+        "social_context": true,
+        "occasion": true,
+        "activity_intent": true,
+        "orientation": true,
+        "daypart": true,
+        "calendar": true
+      },
+      "unknownIncorrect": [],
+      "memoryEvidenceCount": 0,
+      "historySignature": {
+        "audience": "work",
+        "daypart": "afternoon",
+        "calendar": "weekday",
+        "occasion": "business",
+        "placeType": "restaurant"
+      }
+    },
+    {
+      "id": "COLD_VAGUE",
+      "momentHash": "7642750e0b338a539a5489c1d2a51b4a54bd1c04cc0b3d6a7d9555447f1c0ec1",
+      "confidence": 0.2485,
+      "confidenceLevel": "LOW",
+      "fieldChecks": {
+        "activity_intent": true,
+        "vibe": true,
+        "daypart": true,
+        "calendar": true
+      },
+      "unknownIncorrect": [],
+      "memoryEvidenceCount": 0,
+      "historySignature": {
+        "daypart": "evening",
+        "calendar": "weekday"
+      }
+    },
+    {
+      "id": "MATURE_RECURRING_CONTEXT",
+      "momentHash": "ebcf8b026392f36c5300a8ff801c812588fd2cd494ed3f620b0c69ebfcdaade4",
+      "confidence": 0.546278,
+      "confidenceLevel": "PARTIAL",
+      "fieldChecks": {
+        "social_context": true,
+        "occasion": true,
+        "activity_intent": true,
+        "planning_tolerance": true,
+        "distance_willingness": true
+      },
+      "unknownIncorrect": [],
+      "memoryEvidenceCount": 2,
+      "historySignature": {
+        "audience": "solo",
+        "daypart": "evening",
+        "calendar": "weekday",
+        "occasion": "afterwork",
+        "friction": "low",
+        "distanceWillingness": "near"
+      }
+    },
+    {
+      "id": "EXPLICIT_HISTORY_CONFLICT",
+      "momentHash": "d66eb04903d795b50bd5b683e59afbcedf362fd9c6983574cafbf721b57a2b85",
+      "confidence": 0.535484,
+      "confidenceLevel": "PARTIAL",
+      "fieldChecks": {
+        "social_context": true,
+        "vibe": true,
+        "daypart": true,
+        "calendar": true
+      },
+      "unknownIncorrect": [],
+      "memoryEvidenceCount": 3,
+      "historySignature": {
+        "audience": "friends",
+        "daypart": "evening",
+        "calendar": "weekday",
+        "placeType": "bar",
+        "friction": "high",
+        "distanceWillingness": "far"
+      }
+    },
+    {
+      "id": "SAME_USER_DATE_MOMENT",
+      "momentHash": "ec0f59c71f2b676e87f8a5cf70405cb7356e26ff6eeb4583e11f7e1a0e93e02a",
+      "confidence": 0.35,
+      "confidenceLevel": "LOW",
+      "fieldChecks": {
+        "social_context": true,
+        "vibe": true,
+        "daypart": true,
+        "calendar": true
+      },
+      "unknownIncorrect": [],
+      "memoryEvidenceCount": 0,
+      "historySignature": {
+        "audience": "date",
+        "daypart": "evening",
+        "calendar": "weekend"
+      }
+    }
+  ],
+  "resultHash": "ac3d5c59ff2286e098e29e2797cf141c85738640e278faf37d9eb808feeaf312"
+}
