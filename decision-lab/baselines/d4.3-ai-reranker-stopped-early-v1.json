@@ -1,0 +1,139 @@
+{
+  "version": "backyrd-d4.3-ai-reranker-stopped-early-result-v1",
+  "generatedAt": "2026-08-17T18:30:00.000Z",
+  "status": "STOPPED_EARLY",
+  "stopReason": "D4.3-MI-003_PILOT_PROCEED_GATE_MATHEMATICALLY_UNSATISFIABLE_FOR_PURE_TOP10_RERANKING",
+  "freeze": {
+    "freezeVersion": "backyrd-d4.3-ai-reranker-post-stop-evidence-freeze-v1",
+    "freezeTiming": "POST_PILOT_STOP_EVIDENCE_ONLY_NOT_PRE_RUN_CERTIFICATION",
+    "experimentVersion": "backyrd-d4.3-ai-reranker-experiment-v1",
+    "contractHash": "8f59e287ecbcd734a5e878965341a2bcf2ba4552b08a5c9feb96d26383f04000",
+    "rerankerSourceHash": "17359f3ab4694ade5a3c5b5a4ef3592f4049cad31a0d43e997bdb0d2852cc25b",
+    "dryRunSourceHash": "31868aae845df66d4d06b3521dd160de86251ccce8005a01e3e13f6bd3eb0ee0",
+    "stageRunnerSourceHash": "0704898d19be09ca6d0b453252b94deb6cded7f4dbed03acb15d43cba01d33d8",
+    "evaluatorSourceHash": "e3e08fb498c1db28d6d366672374275219bc34f13f2a34877ca2eeffc24c9c7d",
+    "stageScriptHash": "c8899055afa7a9b12901508cd31328ac73690c8d6a60f7ceefc916e63920b40e",
+    "wave4ParentResultHash": "f16fbc4956bd56d7323761ae19e02c00146220beabcc9380907384d7d12f727f",
+    "scientificStatus": "FAIL_MEASUREMENT_CONTRACT_AND_PRE_RUN_FREEZE",
+    "productionAccess": "NONE",
+    "freezeHash": "c93d173c1c4351c869a78d5f6448994f234f6408a75d7f71ccebd1134ce03e84"
+  },
+  "stages": {
+    "dryRun": {
+      "resultHash": "454c6389fa499f2119dfd7913ed5c812f04855d5fcbdd34df8f781590ea08a0d",
+      "budgetGate": "PASS",
+      "externalApiCalls": 0
+    },
+    "smoke": {
+      "resultHash": "87fa6b09f7937bc670369e635b0ffa90084edf222826c3866ef03b8e0b32ad77",
+      "evaluationHash": "ec3f6614cd76f934e53419c877b052ea7774c533f5d367533a13c8c9719c651d",
+      "proceed": true
+    },
+    "pilot": {
+      "resultHash": "de9e453d327c6c9d599b0f108634e9f75914df4e1a4374eb456a4c6d205590a7",
+      "evaluationHash": "32d22a40a1402c3d47e5d493ef8812207907ecb91c3a05f6c97564a2d5c43494",
+      "proceed": false
+    },
+    "full": {
+      "executed": false,
+      "reason": "PILOT_PROCEED_GATE_FAILED"
+    }
+  },
+  "pilotMetrics": {
+    "control": {
+      "meanUtilityAtK": 0.3576965,
+      "ndcgAt10": 0.465250775761232,
+      "precisionAt10": 0.26999999999999996
+    },
+    "wave4": {
+      "meanUtilityAtK": 0.3576965,
+      "ndcgAt10": 0.4662953326853684,
+      "precisionAt10": 0.26999999999999996
+    },
+    "ai": {
+      "meanUtilityAtK": 0.3576965,
+      "ndcgAt10": 0.4854738047228544,
+      "precisionAt10": 0.26999999999999996
+    }
+  },
+  "pilotDeltasVsWave3CControl": {
+    "meanUtilityAtK": 0,
+    "ndcgAt10": 0.02022302896162237,
+    "precisionAt10": 0
+  },
+  "measurementIntegrity": {
+    "incidents": [
+      {
+        "id": "D4.3-MI-001",
+        "issue": "Initial 1100-token input cap below strict-schema payload",
+        "externalCalls": 0,
+        "costUsd": 0,
+        "disposition": "FIXED_BEFORE_EXTERNAL_CALL"
+      },
+      {
+        "id": "D4.3-MI-002",
+        "issue": "Initial 500-token output cap truncated every structured response",
+        "externalCalls": 15,
+        "costUsd": 0.0104938,
+        "disposition": "FIXED_AND_SMOKE_RESTARTED"
+      },
+      {
+        "id": "D4.3-MI-003",
+        "issue": "Pilot requires two positive metrics although Mean Utility@10 and Precision@10 are set-invariant when all ten candidates are reranked",
+        "disposition": "STOP_FULL_RUN_NO_POST_RESULT_GATE_CHANGE"
+      },
+      {
+        "id": "D4.3-MI-004",
+        "issue": "No pre-run immutable source/config freeze was sealed before live Smoke/Pilot",
+        "disposition": "SCIENTIFIC_VALIDITY_FAIL_POST_STOP_EVIDENCE_FREEZE_ONLY"
+      }
+    ],
+    "scientificValidity": "FAIL"
+  },
+  "integrity": {
+    "hardConstraintViolations": 0,
+    "invalidAiOutputs": 0,
+    "candidateMutationViolations": 0,
+    "productEligibilityViolations": 0,
+    "distributionEligibilityViolations": 0,
+    "latentTruthRuntimeInput": false,
+    "productionAccess": "NONE",
+    "retrievalMutation": "NONE",
+    "tasteEngineMutation": "NONE"
+  },
+  "costs": {
+    "smokeInvalidCapUsd": 0.0104938,
+    "smokeSuccessfulUsd": 0.013753599999999996,
+    "pilotIncrementalUsd": 0.05791739999999998,
+    "fullRunUsd": 0,
+    "totalUsd": 0.08216479999999998,
+    "budgetUsd": 2,
+    "remainingBudgetUsd": 1.9178352,
+    "averageValidLiveCallUsd": 0.0011945166666666662,
+    "projectedMonthlyUsd": {
+      "assumptions": {
+        "aiCallsPerDecision": 1,
+        "decisionsPerActiveUserPerMonth": 8
+      },
+      "byActiveUsers": {
+        "100": 0.955613333333333,
+        "500": 4.778066666666665,
+        "2000": 19.11226666666666,
+        "10000": 95.5613333333333
+      }
+    }
+  },
+  "verdicts": {
+    "experiment": "STOPPED_EARLY",
+    "aiRankingQuality": "INCONCLUSIVE",
+    "personalizationValue": "INCONCLUSIVE",
+    "contextualDecisionIntelligence": "INCONCLUSIVE",
+    "currentIntentAuthority": "PASS",
+    "aiCostProfile": "INCONCLUSIVE",
+    "aiLatencyProfile": "ACCEPTABLE_PILOT_ONLY",
+    "scientificValidity": "FAIL",
+    "aiDecisionLayer": "FURTHER_TEST_REQUIRED",
+    "production": "UNCHANGED"
+  },
+  "resultHash": "2c260379df5cf5569fd5855af7f197d40ae92f23362c63e7d3786e3075506182"
+}
