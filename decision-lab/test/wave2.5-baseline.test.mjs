@@ -1,0 +1,40 @@
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+import { contentHash } from "../src/canonical-json.mjs";
+
+const artifactUrl = new URL("../baselines/wave2.5-retrieval-relevance-v1.json", import.meta.url);
+const engineUrl = new URL("../../supabase/functions/decision-wave2/index.ts", import.meta.url);
+
+test("Wave 2.5 evidence is complete, sealed, scientifically valid and preserves the failed verdict", async () => {
+  const artifact = JSON.parse(await readFile(artifactUrl, "utf8"));
+  const sealed = structuredClone(artifact);
+  delete sealed.resultHash;
+  assert.equal(contentHash(sealed), artifact.resultHash);
+  assert.deepEqual(artifact.sample, { seeds: 3, scenariosPerSeed: 42, decisions: 126, embeddingMode: "FULL_FIDELITY" });
+  assert.equal(artifact.frozenIdentities.retrievalQualityFreeze, "6c6421d61e2e4cb6ccdbc8ce4a8c807392bfdc7742797b8cb2d3734564ae3947");
+  assert.equal(artifact.sourceHashes.executionSource, createHash("sha256").update(await readFile(engineUrl)).digest("hex"));
+  assert.equal(artifact.sourceHashes.engineMutation, "NONE");
+  assert.equal(artifact.integrity.scientificValidity, "PASS");
+  assert.equal(artifact.integrity.latentTruthInEngineInput, false);
+  assert.equal(artifact.integrity.personalizationInRelevanceInput, false);
+  assert.equal(artifact.integrity.retrievalQualityContractMutation, "NONE");
+  assert.equal(artifact.integrity.wave24CandidateIdentityPreserved, true);
+  assert.equal(artifact.integrity.productionAccess, "NONE");
+  assert.equal(artifact.integrity.productFailures, 0);
+  assert.equal(artifact.integrity.distributionFailures, 0);
+  assert.equal(artifact.integrity.userConstraintFailures, 0);
+  assert.equal(artifact.experiments.H1_DETERMINISTIC_STRUCTURED.overall.fullPoolRecall, artifact.experiments.H0_WAVE2_4.overall.fullPoolRecall);
+  assert.equal(artifact.experiments.H1_DETERMINISTIC_STRUCTURED.overall.bestAvailableRetrievalRate, artifact.experiments.H0_WAVE2_4.overall.bestAvailableRetrievalRate);
+  assert.ok(artifact.experiments.H1_DETERMINISTIC_STRUCTURED.overall.topKCapacityCapture < artifact.experiments.H0_WAVE2_4.overall.topKCapacityCapture);
+  assert.ok(artifact.pairedLift.meanDelta < 0);
+  assert.ok(artifact.pairedLift.interval[1] < 0);
+  assert.equal(artifact.misses.before.COVERAGE_MISS, artifact.misses.after.COVERAGE_MISS);
+  assert.ok(artifact.misses.after.ORDERING_MISS > artifact.misses.before.ORDERING_MISS);
+  assert.equal(artifact.promotion.pass, false);
+  assert.equal(artifact.promotion.verdict, "REJECT");
+  assert.equal(artifact.verdict, "FAIL");
+  assert.equal(artifact.architectureVerdict, "NOT_PROMOTED");
+  assert.equal(artifact.relevanceVerdict, "INSUFFICIENT");
+});
