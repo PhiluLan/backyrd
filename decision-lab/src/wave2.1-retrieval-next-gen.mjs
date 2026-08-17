@@ -97,7 +97,7 @@ export function buildRetrievalProjections({ request, structuredIntent }) {
   return deduped;
 }
 
-function observedCandidates(observed, projectionId) {
+export function observedCandidates(observed, projectionId) {
   const rows = [];
   const add = (candidates, source) => {
     for (const [index, candidate] of (candidates ?? []).entries()) {
@@ -180,7 +180,7 @@ export function classifyRetrievalMisses({ world, truth, baseUnion, nextUnion, pr
       else if (!evidence.length) primaryCause = "COVERAGE_FAILURE";
       else primaryCause = "SOURCE_ORDERING_FAILURE";
     } else primaryCause = "RETRIEVED_AT_20";
-    return { spotId, utility, primaryCause, baseRank: baseRank.get(spotId) ?? null, nextGenRank: nextRank.get(spotId) ?? null, observedEvidenceCount: evidenceCount(spot), evidence };
+    return { spotId, utility, primaryCause, baseRank: baseRank.get(spotId) ?? null, nextGenRank: nextRank.get(spotId) ?? null, category: spot?.category ?? null, density: spot?.density ?? null, observedEvidenceCount: evidenceCount(spot), evidence };
   });
 }
 
