@@ -1,0 +1,15 @@
+{
+  "freezeVersion": "backyrd-wave4-contextual-utility-fusion-freeze-v1",
+  "contractVersion": "backyrd-wave4-contextual-utility-fusion-validation-v1",
+  "contractHash": "bf45fd0294781afd99633707564c887f59dabd43dbfd4133bedd1393348851cb",
+  "utilityFusionSourceHash": "6f93dfbc8e0bd528db1e78260d861e94068764e021e5e001a78351929a318c4b",
+  "worldRunnerSourceHash": "afcd0a3c17f6a536d5b242aa1dbee38f8d38d1ced4f3c8bce331eace5343eedb",
+  "aggregateRunnerSourceHash": "f26423fe99d23d56350a62a00787df5d1d328ad1f897af3501850e9b25b308e6",
+  "officialScriptHash": "0b0d29a19e01d44c081561670a771a08df7b11f4ec15f05861484d049257167d",
+  "d42ArchitectureDocumentHash": "fc7c389eda0bcaae083b0eb67b6805f8ee9b7dad6b22b2d492dfd30f5096dbed",
+  "tasteEngineFreezeHash": "2a4a9e2f7353ad20d10073a00ccfb235778d64d5730f5e7771a4787f92a2116f",
+  "tasteTreatmentFreezeHash": "ab2339de028fb5ed04999ea682d6a38d9434e75350993fb4963c518c8af15116",
+  "personalizationTreatmentFreezeHash": "9b4691de75bead63ad798700ada0b818ba6d29ad92d24804dcb2d3eeecfc1053",
+  "wave3cControlFreezeHash": "2883837fef33a607e9b36cd4a566b0e658e917c943627ae8c50cd2cc7b1576f0",
+  "parentValidity": "PASS"
+}

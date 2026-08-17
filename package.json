@@ -32,6 +32,8 @@
     "decision-lab:wave3b": "node decision-lab/src/taste-validation-run.mjs",
     "decision-lab:wave3b.1": "node decision-lab/src/taste-validation-run.mjs --output decision-lab/baselines/wave3b1-taste-calibration-v1.json",
     "decision-lab:wave3c": "bash scripts/decision/run-wave3c-personalized-decision.sh",
+    "decision-lab:wave4:freeze": "node decision-lab/src/wave4-freeze.mjs",
+    "decision-lab:wave4": "bash scripts/decision/run-wave4-contextual-utility-fusion.sh",
     "supabase:start": "npx supabase start",
     "supabase:stop": "npx supabase stop",
     "supabase:status": "npx supabase status",
