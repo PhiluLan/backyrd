@@ -28,6 +28,8 @@
     "decision-lab:wave2.4": "bash scripts/decision/run-wave2-4-comparison.sh",
     "decision-lab:wave2.5": "bash scripts/decision/run-wave2-5-comparison.sh",
     "decision-lab:wave3a:validate": "node decision-lab/src/taste-engine-freeze.mjs",
+    "decision-lab:wave3b:freeze": "node decision-lab/src/taste-validation-freeze.mjs",
+    "decision-lab:wave3b": "node decision-lab/src/taste-validation-run.mjs",
     "supabase:start": "npx supabase start",
     "supabase:stop": "npx supabase stop",
     "supabase:status": "npx supabase status",

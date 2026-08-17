@@ -1,0 +1,87 @@
+{
+  "version": "backyrd-taste-validation-contract-v1.1",
+  "engineFreezeVersion": "backyrd-taste-engine-freeze-v1",
+  "seeds": [3101, 3102, 3103],
+  "learningCheckpoints": [0, 5, 10, 25, 50, 100, 200],
+  "cohorts": {
+    "NEW_USER": 0,
+    "ONBOARDING_ONLY": "ONBOARDING_ONLY",
+    "EARLY_USER": 10,
+    "DEVELOPING_USER": 50,
+    "MATURE_USER": 100,
+    "LONG_TERM_USER": 200
+  },
+  "coverageRequirements": {
+    "failClosed": true,
+    "minimumMeasurementsPerArm": 1,
+    "mandatoryArms": [
+      "ONBOARDING_ONLY",
+      "SIGNAL_RESERVATION",
+      "SIGNAL_REVIEW_MOOD",
+      "REPEATED_BEHAVIOUR",
+      "CONSENT_WITHDRAWAL",
+      "INCOMPLETE_HISTORY",
+      "TOURIST_WEEK",
+      "FESTIVAL_WEEKEND",
+      "BUSINESS_TRIP",
+      "TEMPORARY_CATEGORY_PHASE",
+      "MASS_SAME_CATEGORY",
+      "WEAK_VS_STRONG_EVIDENCE",
+      "FAILURE_BY_COHORT",
+      "FAILURE_BY_CONCEPT"
+    ]
+  },
+  "thresholds": {
+    "directionAccuracyOverallMinimum": 0.75,
+    "directionAccuracyMatureMinimum": 0.8,
+    "affinityAccuracyOverallMinimum": 0.72,
+    "rankCorrelationMatureMinimum": 0.55,
+    "topPreferenceRecallMatureMinimum": 0.7,
+    "falsePreferenceRateMaximum": 0.12,
+    "negativeDirectionAccuracyMinimum": 0.75,
+    "falseNegativePreferenceRateMaximum": 0.08,
+    "confidenceEceMaximum": 0.18,
+    "highConfidenceDirectionAccuracyMinimum": 0.82,
+    "contextualDirectionAccuracyMinimum": 0.75,
+    "placeTypeDirectionAccuracyMinimum": 0.75,
+    "globalRetentionMinimum": 0.7,
+    "contextualAdaptationMinimum": 0.15,
+    "currentIntentAuthorityMinimum": 1.0,
+    "driftDirectionAccuracyMinimum": 0.7,
+    "driftAdaptationEventsMaximum": 50,
+    "noiseFalsePreferenceRateMaximum": 0.12,
+    "oneOffAbsoluteAffinityMaximum": 0.35,
+    "onboardingCorrectionEventsMaximum": 25,
+    "consentBoundaryMinimum": 1.0,
+    "idempotencyMinimum": 1.0
+  },
+  "metricSemantics": {
+    "direction": "sign of learned affinity compared with signed latent preference; absent rows are unknown, not correct",
+    "affinityAccuracy": "1 minus mean absolute error divided by two over declared non-zero truth concepts",
+    "rankCorrelation": "Spearman correlation over declared truth concepts, missing learned affinity equals zero",
+    "falsePreference": "absolute learned affinity >= 0.15 for a neutral concept or learned direction opposite to truth",
+    "confidenceCalibration": "expected calibration error between row confidence and direction correctness",
+    "contextualAccuracy": "signed contextual projection accuracy with global retention measured separately",
+    "placeTypeAccuracy": "signed place-type projection accuracy without cross-place contamination",
+    "drift": "first checkpoint at which the new sustained preference direction is learned",
+    "notEvaluated": "metrics without applicable truth or evidence remain null and never become automatic passes"
+  },
+  "failureClasses": [
+    "SIGNAL_WEIGHT", "CONCEPT_MAPPING", "CONFIDENCE", "DECAY", "DRIFT", "PLACE_TYPE",
+    "CONTEXT", "INTENT_CONFLICT", "NEGATIVE_LEARNING", "ONBOARDING_BIAS", "SPARSE_DATA",
+    "OBSERVABILITY_LIMIT", "OTHER_UNKNOWN"
+  ],
+  "scientificControls": {
+    "latentTruthFeedsEngine": false,
+    "engineMutationDuringRun": "PROHIBITED",
+    "thresholdMutationAfterResults": "PROHIBITED",
+    "lockedHoldoutTuning": "PROHIBITED",
+    "productionAccess": "PROHIBITED",
+    "finalDecisionRankingIntegration": "NOT_IN_SCOPE"
+  },
+  "promotion": {
+    "allMandatoryGatesRequired": true,
+    "compositeCompensation": false,
+    "wave3cRequiresPass": true
+  }
+}
