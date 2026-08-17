@@ -83,8 +83,8 @@ test("synthetic Lab tokens tolerate local clock skew without changing lifetime",
   const before = Math.floor(Date.now() / 1000);
   const [, encodedPayload] = syntheticJwt("00000000-0000-4000-8000-000000000001", "wave2.1-test-secret").split(".");
   const payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8"));
-  assert.ok(payload.iat <= before - 29);
-  assert.ok(payload.iat >= before - 31);
+  assert.ok(payload.iat <= before - 299);
+  assert.ok(payload.iat >= before - 301);
   assert.equal(payload.exp - payload.iat, 3600);
   assert.equal(payload.role, "authenticated");
 });
