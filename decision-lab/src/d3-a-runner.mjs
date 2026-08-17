@@ -17,6 +17,7 @@ import { buildRetrievalProjections, candidateUnionNextGen, classifyRetrievalMiss
 import { retrievalBreakthroughExperiments, retrievalBreakthroughManifest } from "./wave2.2-retrieval-breakthrough.mjs";
 import { buildObservedSpotSignals, retrievalRebuildExperiments, retrievalRebuildManifest } from "./wave2.3-retrieval-rebuild.mjs";
 import { retrievalShortlistingExperiments, retrievalShortlistingManifest } from "./wave2.4-retrieval-shortlisting.mjs";
+import { retrievalRelevanceExperiments, retrievalRelevanceManifest } from "./wave2.5-retrieval-relevance.mjs";
 
 const mean = (values) => { const rows = values.filter(Number.isFinite); return rows.length ? rows.reduce((sum, value) => sum + value, 0) / rows.length : null; };
 const quantile = (values, p) => { const rows = values.filter(Number.isFinite).sort((a, b) => a - b); return rows.length ? rows[Math.min(rows.length - 1, Math.ceil(rows.length * p) - 1)] : null; };
@@ -253,6 +254,7 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
       let retrievalBreakthrough = null;
       let retrievalRebuild = null;
       let retrievalShortlisting = null;
+      let retrievalRelevance = null;
       let retrievalRebuildProjectionRuns = null;
       if (engine?.retrievalNextGen === true) {
         const baseUnion = structuredClone(run.trace.observed.retrievalUnion ?? []);
@@ -323,7 +325,27 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
             latencyMs: Number((retrievalRebuild.latencyMs + performance.now() - shortlistStarted).toFixed(3)),
           };
         }
-        const selectedUnion = retrievalShortlisting?.finalUnion ?? retrievalRebuild?.finalUnion ?? retrievalBreakthrough?.finalUnion ?? nextUnion;
+        if (engine?.retrievalRelevance === true && retrievalShortlisting) {
+          const relevanceStarted = performance.now();
+          const experiments = retrievalRelevanceExperiments({
+            request,
+            structuredIntent: run.trace.structuredIntent,
+            catalogResult: run.trace.observed.eligibleSpotIntelligenceCatalog,
+            observedSpotSignals: buildObservedSpotSignals(world),
+            wave24Candidates: retrievalShortlisting.finalUnion,
+            shortlistK: engine.retrievalRelevanceLimits?.shortlist ?? 20,
+          });
+          const finalExperiment = engine.retrievalRelevanceExperiment ?? "H1_DETERMINISTIC_STRUCTURED";
+          if (!Array.isArray(experiments[finalExperiment])) throw new Error(`Unknown Wave 2.5 relevance experiment: ${finalExperiment}`);
+          retrievalRelevance = {
+            manifest: retrievalRelevanceManifest(),
+            experiments,
+            finalExperiment,
+            finalUnion: experiments[finalExperiment],
+            latencyMs: Number((retrievalShortlisting.latencyMs + performance.now() - relevanceStarted).toFixed(3)),
+          };
+        }
+        const selectedUnion = retrievalRelevance?.finalUnion ?? retrievalShortlisting?.finalUnion ?? retrievalRebuild?.finalUnion ?? retrievalBreakthrough?.finalUnion ?? nextUnion;
         run.trace.observed.retrievalUnion = selectedUnion.map((candidate) => ({
           spot_id: candidate.spot_id,
           retrieval_score: candidate.retrieval_score,
@@ -418,6 +440,22 @@ export async function runD3AWorld({ config, metadata, constitution, coverageCont
           finalUnion: retrievalShortlisting.finalUnion,
           latencyMs: retrievalShortlisting.latencyMs,
           integrity: Object.fromEntries(Object.entries(retrievalShortlisting.experiments).filter(([, rows]) => Array.isArray(rows)).map(([experiment, rows]) => {
+            const resolved = rows.map((candidate) => world.spots.find((spot) => spot.id === candidate.spot_id));
+            return [experiment, {
+              unresolved: resolved.filter((spot) => !spot).length,
+              productFailures: resolved.filter((spot) => spot && spot.observed.status !== "approved").length,
+              distributionFailures: resolved.filter((spot) => spot && ["quarantined", "excluded"].includes(spot.observed.distribution)).length,
+              hardConstraintFailures: resolved.filter((spot) => spot && !Object.hasOwn(truth, spot.id)).length,
+            }];
+          })),
+        } : null,
+        retrievalRelevance: retrievalRelevance ? {
+          manifest: retrievalRelevance.manifest,
+          experiments: retrievalRelevance.experiments,
+          finalExperiment: retrievalRelevance.finalExperiment,
+          finalUnion: retrievalRelevance.finalUnion,
+          latencyMs: retrievalRelevance.latencyMs,
+          integrity: Object.fromEntries(Object.entries(retrievalRelevance.experiments).filter(([, rows]) => Array.isArray(rows)).map(([experiment, rows]) => {
             const resolved = rows.map((candidate) => world.spots.find((spot) => spot.id === candidate.spot_id));
             return [experiment, {
               unresolved: resolved.filter((spot) => !spot).length,

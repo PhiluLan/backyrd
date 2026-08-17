@@ -26,6 +26,7 @@
     "decision-lab:wave2.2": "bash scripts/decision/run-wave2-2-comparison.sh",
     "decision-lab:wave2.3": "bash scripts/decision/run-wave2-3-comparison.sh",
     "decision-lab:wave2.4": "bash scripts/decision/run-wave2-4-comparison.sh",
+    "decision-lab:wave2.5": "bash scripts/decision/run-wave2-5-comparison.sh",
     "supabase:start": "npx supabase start",
     "supabase:stop": "npx supabase stop",
     "supabase:status": "npx supabase status",

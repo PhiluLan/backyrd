@@ -1,0 +1,2576 @@
+{
+  "version": "wave2.5-retrieval-relevance-v1",
+  "sample": {
+    "seeds": 3,
+    "scenariosPerSeed": 42,
+    "decisions": 126,
+    "embeddingMode": "FULL_FIDELITY"
+  },
+  "frozenIdentities": {
+    "retrievalQualityFreeze": "6c6421d61e2e4cb6ccdbc8ce4a8c807392bfdc7742797b8cb2d3734564ae3947",
+    "d2_1": "6488f3031bb63df482dbff2b2e2c011c1a82781862e1fe532ffdd1c968fffacf",
+    "d2_2": "9b4691de75bead63ad798700ada0b818ba6d29ad92d24804dcb2d3eeecfc1053"
+  },
+  "sourceHashes": {
+    "executionSource": "4e73269b48c0c7372962fbd23040e2c06d85fd6e56504c2217d80d9f4881823c",
+    "engineMutation": "NONE",
+    "relevanceManifest": "4abceb0d78724df2d3fb2420a9520cc2470a602a778b02c2169a546280295a95"
+  },
+  "comparison": {
+    "v13": {
+      "scenarios": 126,
+      "evaluableScenarios": 126,
+      "notEvaluatedScenarios": 0,
+      "topKCapacityCapture": 0.296903955321138,
+      "topKRecall": 0.1055819673158396,
+      "fullPoolRecall": 0.21544785140865624,
+      "bestAvailableRetrievalRate": 0.16666666666666666,
+      "candidatePool": {
+        "mean": 36.54761904761905,
+        "p95": 39,
+        "max": 40
+      },
+      "latencyMs": {
+        "p95": 608.744
+      },
+      "noResultRate": 0,
+      "starvationRate": 0,
+      "hardViolations": 27,
+      "duplicateCandidates": 0
+    },
+    "wave1": {
+      "scenarios": 126,
+      "evaluableScenarios": 126,
+      "notEvaluatedScenarios": 0,
+      "topKCapacityCapture": 0.29730078071796345,
+      "topKRecall": 0.10568293012893192,
+      "fullPoolRecall": 0.21538709677529114,
+      "bestAvailableRetrievalRate": 0.16666666666666666,
+      "candidatePool": {
+        "mean": 36.51587301587302,
+        "p95": 39,
+        "max": 40
+      },
+      "latencyMs": {
+        "p95": 132.11
+      },
+      "noResultRate": 0.007936507936507936,
+      "starvationRate": 0.015873015873015872,
+      "hardViolations": 0,
+      "duplicateCandidates": 0
+    },
+    "wave2": {
+      "scenarios": 126,
+      "evaluableScenarios": 126,
+      "notEvaluatedScenarios": 0,
+      "topKCapacityCapture": 0.35683072046959735,
+      "topKRecall": 0.16515625802681286,
+      "fullPoolRecall": 0.5281653957441733,
+      "bestAvailableRetrievalRate": 0.49206349206349204,
+      "candidatePool": {
+        "mean": 97.58730158730158,
+        "p95": 117,
+        "max": 121
+      },
+      "latencyMs": {
+        "p95": 151.757
+      },
+      "noResultRate": 0.007936507936507936,
+      "starvationRate": 0.007936507936507936,
+      "hardViolations": 0,
+      "duplicateCandidates": 0
+    },
+    "wave2_1": {
+      "scenarios": 126,
+      "evaluableScenarios": 126,
+      "notEvaluatedScenarios": 0,
+      "topKCapacityCapture": 0.3685975511743977,
+      "topKRecall": 0.17023710705216438,
+      "fullPoolRecall": 0.5021622516893697,
+      "bestAvailableRetrievalRate": 0.48412698412698413,
+      "candidatePool": {
+        "mean": 90.21428571428571,
+        "p95": 100,
+        "max": 100
+      },
+      "latencyMs": {
+        "p95": 1941.283
+      },
+      "noResultRate": 0.007936507936507936,
+      "starvationRate": 0.007936507936507936,
+      "hardViolations": 0,
+      "duplicateCandidates": 0
+    },
+    "wave2_2": {
+      "scenarios": 126,
+      "evaluableScenarios": 126,
+      "notEvaluatedScenarios": 0,
+      "topKCapacityCapture": 0.36261194321510554,
+      "topKRecall": 0.16217654920118074,
+      "fullPoolRecall": 0.441022600550363,
+      "bestAvailableRetrievalRate": 0.4365079365079365,
+      "candidatePool": {
+        "mean": 73.34126984126983,
+        "p95": 80,
+        "max": 80
+      },
+      "latencyMs": {
+        "p95": 1098.056
+      },
+      "noResultRate": 0.007936507936507936,
+      "starvationRate": 0.007936507936507936,
+      "hardViolations": 0,
+      "duplicateCandidates": 0
+    },
+    "wave2_3": {
+      "scenarios": 126,
+      "evaluableScenarios": 126,
+      "notEvaluatedScenarios": 0,
+      "topKCapacityCapture": 0.5890472751485578,
+      "topKRecall": 0.27311640131636244,
+      "fullPoolRecall": 0.6421444646748488,
+      "bestAvailableRetrievalRate": 0.6904761904761905,
+      "candidatePool": {
+        "mean": 73.34126984126983,
+        "p95": 80,
+        "max": 80
+      },
+      "latencyMs": {
+        "p95": 484.085,
+        "p50": 378.334
+      },
+      "noResultRate": 0.007936507936507936,
+      "starvationRate": 0.007936507936507936,
+      "hardViolations": 0,
+      "duplicateCandidates": 0
+    },
+    "wave2_4": {
+      "scenarios": 126,
+      "evaluableScenarios": 126,
+      "notEvaluatedScenarios": 0,
+      "topKCapacityCapture": 0.609413443842347,
+      "topKRecall": 0.28062610621784406,
+      "fullPoolRecall": 0.6421444646748488,
+      "bestAvailableRetrievalRate": 0.6904761904761905,
+      "candidatePool": {
+        "mean": 73.34126984126983,
+        "p95": 80,
+        "max": 80
+      },
+      "latencyMs": {
+        "p95": 495.112,
+        "p50": 387.382
+      },
+      "noResultRate": 0.007936507936507936,
+      "starvationRate": 0.007936507936507936,
+      "hardViolations": 0,
+      "duplicateCandidates": 0
+    },
+    "wave2_5": {
+      "scenarios": 126,
+      "evaluableScenarios": 126,
+      "notEvaluatedScenarios": 0,
+      "topKCapacityCapture": 0.5240536370152691,
+      "topKRecall": 0.22336869844076673,
+      "fullPoolRecall": 0.6425774374408071,
+      "bestAvailableRetrievalRate": 0.6904761904761905,
+      "candidatePool": {
+        "mean": 73.34126984126983,
+        "p95": 80,
+        "max": 80
+      },
+      "latencyMs": {
+        "p95": 514.633,
+        "p50": 395.249
+      },
+      "noResultRate": 0.007936507936507936,
+      "starvationRate": 0.007936507936507936,
+      "hardViolations": 0,
+      "duplicateCandidates": 0
+    }
+  },
+  "experiments": {
+    "H0_WAVE2_4": {
+      "overall": {
+        "scenarios": 126,
+        "evaluableScenarios": 126,
+        "notEvaluatedScenarios": 0,
+        "topKCapacityCapture": 0.6076124670413703,
+        "topKRecall": 0.27963854577876474,
+        "fullPoolRecall": 0.6425774374408071,
+        "bestAvailableRetrievalRate": 0.6904761904761905,
+        "candidatePool": {
+          "mean": 73.34126984126983,
+          "p95": 80,
+          "max": 80
+        },
+        "latencyMs": {
+          "p95": 506.744,
+          "p50": 386.948
+        },
+        "noResultRate": 0.007936507936507936,
+        "starvationRate": 0.007936507936507936,
+        "hardViolations": 0,
+        "duplicateCandidates": 0
+      },
+      "seeds": {
+        "backyrd-d1-basel-v1-2026": {
+          "scenarios": 42,
+          "evaluableScenarios": 42,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5822004645312915,
+          "topKRecall": 0.28749995103390613,
+          "fullPoolRecall": 0.6440886409619455,
+          "bestAvailableRetrievalRate": 0.6190476190476191,
+          "candidatePool": {
+            "mean": 73.45238095238095,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 506.303
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "backyrd-d1-basel-v1-2026-2": {
+          "scenarios": 42,
+          "evaluableScenarios": 42,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6274891774891775,
+          "topKRecall": 0.25837181448845575,
+          "fullPoolRecall": 0.6219525290038941,
+          "bestAvailableRetrievalRate": 0.7142857142857143,
+          "candidatePool": {
+            "mean": 72.73809523809524,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 476.195
+          },
+          "noResultRate": 0.023809523809523808,
+          "starvationRate": 0.023809523809523808,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "backyrd-d1-basel-v1-2026-3": {
+          "scenarios": 42,
+          "evaluableScenarios": 42,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6131477591036416,
+          "topKRecall": 0.29304387181393193,
+          "fullPoolRecall": 0.6616911423565819,
+          "bestAvailableRetrievalRate": 0.7380952380952381,
+          "candidatePool": {
+            "mean": 73.83333333333333,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 533.405
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        }
+      },
+      "splits": {
+        "DEVELOPMENT": {
+          "scenarios": 54,
+          "evaluableScenarios": 54,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5777907277907276,
+          "topKRecall": 0.23504761402241633,
+          "fullPoolRecall": 0.5874327056020727,
+          "bestAvailableRetrievalRate": 0.6481481481481481,
+          "candidatePool": {
+            "mean": 73.96296296296296,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 610.351
+          },
+          "noResultRate": 0.018518518518518517,
+          "starvationRate": 0.018518518518518517,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "LOCKED_HOLDOUT": {
+          "scenarios": 36,
+          "evaluableScenarios": 36,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5991109821121431,
+          "topKRecall": 0.31401034182089826,
+          "fullPoolRecall": 0.6996243105928212,
+          "bestAvailableRetrievalRate": 0.7222222222222222,
+          "candidatePool": {
+            "mean": 72.08333333333333,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 512.44
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "REGRESSION": {
+          "scenarios": 36,
+          "evaluableScenarios": 36,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6608465608465609,
+          "topKRecall": 0.3121531473711532,
+          "fullPoolRecall": 0.6682476620468948,
+          "bestAvailableRetrievalRate": 0.7222222222222222,
+          "candidatePool": {
+            "mean": 73.66666666666667,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 506.744
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        }
+      },
+      "families": {
+        "audience": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6749999999999999,
+          "topKRecall": 0.20038572726199502,
+          "fullPoolRecall": 0.6708080808080809,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 435.799
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "broad_query": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6611111111111111,
+          "topKRecall": 0.16420337556761588,
+          "fullPoolRecall": 0.513549132774296,
+          "bestAvailableRetrievalRate": 0.5555555555555556,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 506.744
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "category_intent": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.8786491286491286,
+          "topKRecall": 0.8786491286491286,
+          "fullPoolRecall": 1,
+          "bestAvailableRetrievalRate": 1,
+          "candidatePool": {
+            "mean": 41,
+            "p95": 56,
+            "max": 56
+          },
+          "latencyMs": {
+            "p95": 437.552
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "cold_start": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5750000000000001,
+          "topKRecall": 0.1759646652825064,
+          "fullPoolRecall": 0.5816233784749527,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 490.994
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "distribution": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.46111111111111114,
+          "topKRecall": 0.1994935225264246,
+          "fullPoolRecall": 0.6528217981029326,
+          "bestAvailableRetrievalRate": 0.5555555555555556,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 446.777
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "exact_name": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.8257080610021785,
+          "topKRecall": 0.8257080610021785,
+          "fullPoolRecall": 0.8888888888888888,
+          "bestAvailableRetrievalRate": 0.8888888888888888,
+          "candidatePool": {
+            "mean": 27.666666666666668,
+            "p95": 39,
+            "max": 39
+          },
+          "latencyMs": {
+            "p95": 628.767
+          },
+          "noResultRate": 0.1111111111111111,
+          "starvationRate": 0.1111111111111111,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "explanation": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5333333333333333,
+          "topKRecall": 0.3681636240103982,
+          "fullPoolRecall": 1,
+          "bestAvailableRetrievalRate": 1,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 455.409
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "fallback": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.55,
+          "topKRecall": 0.23336678602098224,
+          "fullPoolRecall": 0.7351065653391234,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 498.192
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "geo": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6083333333333333,
+          "topKRecall": 0.19140145420096996,
+          "fullPoolRecall": 0.6665307943818278,
+          "bestAvailableRetrievalRate": 0.8333333333333334,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 409.377
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "mature_personalization": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6416666666666667,
+          "topKRecall": 0.1879145545504002,
+          "fullPoolRecall": 0.5405879760612867,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 442.907
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "negation": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6129629629629629,
+          "topKRecall": 0.19610119152210986,
+          "fullPoolRecall": 0.5664399957146687,
+          "bestAvailableRetrievalRate": 0.5555555555555556,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 389.658
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "open_now": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5666666666666667,
+          "topKRecall": 0.19594058433303285,
+          "fullPoolRecall": 0.5743998046829855,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 77.16666666666667,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 425.284
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "price": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5,
+          "topKRecall": 0.15507405902096294,
+          "fullPoolRecall": 0.5475392328450146,
+          "bestAvailableRetrievalRate": 0.8333333333333334,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 453.51
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "product_eligibility": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5944444444444444,
+          "topKRecall": 0.1336165653754588,
+          "fullPoolRecall": 0.44860792941769223,
+          "bestAvailableRetrievalRate": 0.5555555555555556,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 667.824
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "quiet_lively": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5666666666666667,
+          "topKRecall": 0.1469906738542686,
+          "fullPoolRecall": 0.46628837094750625,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 505.802
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "repetition": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.4859649122807017,
+          "topKRecall": 0.1606796129757946,
+          "fullPoolRecall": 0.5620590828924162,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 476.195
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "semantic_only": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5666666666666667,
+          "topKRecall": 0.12790689844882802,
+          "fullPoolRecall": 0.47481063387729555,
+          "bestAvailableRetrievalRate": 0.5,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 557.807
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "zero_result": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.43958333333333327,
+          "topKRecall": 0.13196305442954256,
+          "fullPoolRecall": 0.568910648598744,
+          "bestAvailableRetrievalRate": 0.5,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 462.627
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        }
+      },
+      "maturity": {
+        "cold": {
+          "scenarios": 26,
+          "evaluableScenarios": 26,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6171597633136094,
+          "topKRecall": 0.2947919888132924,
+          "fullPoolRecall": 0.6402022760039696,
+          "bestAvailableRetrievalRate": 0.7692307692307693,
+          "candidatePool": {
+            "mean": 73.03846153846153,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 533.405
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "developing": {
+          "scenarios": 33,
+          "evaluableScenarios": 33,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5462872056173491,
+          "topKRecall": 0.3067239569979534,
+          "fullPoolRecall": 0.6882272677582374,
+          "bestAvailableRetrievalRate": 0.6363636363636364,
+          "candidatePool": {
+            "mean": 73.18181818181819,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 457.701
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "mature": {
+          "scenarios": 22,
+          "evaluableScenarios": 22,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6772727272727272,
+          "topKRecall": 0.2797380260166736,
+          "fullPoolRecall": 0.6202526043200679,
+          "bestAvailableRetrievalRate": 0.7727272727272727,
+          "candidatePool": {
+            "mean": 74.18181818181819,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 470.232
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "onboarding": {
+          "scenarios": 15,
+          "evaluableScenarios": 15,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.7420915032679737,
+          "topKRecall": 0.3354640121172039,
+          "fullPoolRecall": 0.6607413712526281,
+          "bestAvailableRetrievalRate": 0.6,
+          "candidatePool": {
+            "mean": 70.93333333333334,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 512.44
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "power": {
+          "scenarios": 5,
+          "evaluableScenarios": 5,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.56,
+          "topKRecall": 0.15636482506687108,
+          "fullPoolRecall": 0.6045436741088915,
+          "bestAvailableRetrievalRate": 1,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 456.415
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "sparse": {
+          "scenarios": 25,
+          "evaluableScenarios": 25,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5461666666666667,
+          "topKRecall": 0.2191981439434816,
+          "fullPoolRecall": 0.6011440748416519,
+          "bestAvailableRetrievalRate": 0.6,
+          "candidatePool": {
+            "mean": 73.24,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 610.351
+          },
+          "noResultRate": 0.04,
+          "starvationRate": 0.04,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        }
+      },
+      "diagnosticK": {
+        "10": {
+          "scenarios": 126,
+          "evaluableScenarios": 126,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5848544973544975,
+          "topKRecall": 0.16447292729415927,
+          "fullPoolRecall": 0.6425774374408071,
+          "bestAvailableRetrievalRate": 0.6904761904761905,
+          "candidatePool": {
+            "mean": 73.34126984126983,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 506.744
+          },
+          "noResultRate": 0.007936507936507936,
+          "starvationRate": 0.007936507936507936,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "20": {
+          "scenarios": 126,
+          "evaluableScenarios": 126,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6076124670413703,
+          "topKRecall": 0.27963854577876474,
+          "fullPoolRecall": 0.6425774374408071,
+          "bestAvailableRetrievalRate": 0.6904761904761905,
+          "candidatePool": {
+            "mean": 73.34126984126983,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 506.744
+          },
+          "noResultRate": 0.007936507936507936,
+          "starvationRate": 0.007936507936507936,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "50": {
+          "scenarios": 126,
+          "evaluableScenarios": 126,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6495146149620542,
+          "topKRecall": 0.4997449408243521,
+          "fullPoolRecall": 0.6425774374408071,
+          "bestAvailableRetrievalRate": 0.6904761904761905,
+          "candidatePool": {
+            "mean": 73.34126984126983,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 506.744
+          },
+          "noResultRate": 0.007936507936507936,
+          "starvationRate": 0.007936507936507936,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        }
+      }
+    },
+    "H1_DETERMINISTIC_STRUCTURED": {
+      "overall": {
+        "scenarios": 126,
+        "evaluableScenarios": 126,
+        "notEvaluatedScenarios": 0,
+        "topKCapacityCapture": 0.5240536370152691,
+        "topKRecall": 0.22336869844076673,
+        "fullPoolRecall": 0.6425774374408071,
+        "bestAvailableRetrievalRate": 0.6904761904761905,
+        "candidatePool": {
+          "mean": 73.34126984126983,
+          "p95": 80,
+          "max": 80
+        },
+        "latencyMs": {
+          "p95": 514.633,
+          "p50": 395.249
+        },
+        "noResultRate": 0.007936507936507936,
+        "starvationRate": 0.007936507936507936,
+        "hardViolations": 0,
+        "duplicateCandidates": 0
+      },
+      "seeds": {
+        "backyrd-d1-basel-v1-2026": {
+          "scenarios": 42,
+          "evaluableScenarios": 42,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5046891496139617,
+          "topKRecall": 0.22035490327999113,
+          "fullPoolRecall": 0.6440886409619455,
+          "bestAvailableRetrievalRate": 0.6190476190476191,
+          "candidatePool": {
+            "mean": 73.45238095238095,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 514.295
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "backyrd-d1-basel-v1-2026-2": {
+          "scenarios": 42,
+          "evaluableScenarios": 42,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5806895485466914,
+          "topKRecall": 0.22998251703056102,
+          "fullPoolRecall": 0.6219525290038941,
+          "bestAvailableRetrievalRate": 0.7142857142857143,
+          "candidatePool": {
+            "mean": 72.73809523809524,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 483.987
+          },
+          "noResultRate": 0.023809523809523808,
+          "starvationRate": 0.023809523809523808,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "backyrd-d1-basel-v1-2026-3": {
+          "scenarios": 42,
+          "evaluableScenarios": 42,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.48678221288515416,
+          "topKRecall": 0.21976867501174815,
+          "fullPoolRecall": 0.6616911423565819,
+          "bestAvailableRetrievalRate": 0.7380952380952381,
+          "candidatePool": {
+            "mean": 73.83333333333333,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 540.789
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        }
+      },
+      "splits": {
+        "DEVELOPMENT": {
+          "scenarios": 54,
+          "evaluableScenarios": 54,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.48483830983830983,
+          "topKRecall": 0.1779458294796994,
+          "fullPoolRecall": 0.5874327056020727,
+          "bestAvailableRetrievalRate": 0.6481481481481481,
+          "candidatePool": {
+            "mean": 73.96296296296296,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 621.248
+          },
+          "noResultRate": 0.018518518518518517,
+          "starvationRate": 0.018518518518518517,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "LOCKED_HOLDOUT": {
+          "scenarios": 36,
+          "evaluableScenarios": 36,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5414871431028553,
+          "topKRecall": 0.26886994055524815,
+          "fullPoolRecall": 0.6996243105928212,
+          "bestAvailableRetrievalRate": 0.7222222222222222,
+          "candidatePool": {
+            "mean": 72.08333333333333,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 519.056
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "REGRESSION": {
+          "scenarios": 36,
+          "evaluableScenarios": 36,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5654431216931219,
+          "topKRecall": 0.24600175976788632,
+          "fullPoolRecall": 0.6682476620468948,
+          "bestAvailableRetrievalRate": 0.7222222222222222,
+          "candidatePool": {
+            "mean": 73.66666666666667,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 514.633
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        }
+      },
+      "families": {
+        "audience": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5583333333333332,
+          "topKRecall": 0.15870123528338537,
+          "fullPoolRecall": 0.6708080808080809,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 443.666
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "broad_query": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5777777777777778,
+          "topKRecall": 0.1440473037030505,
+          "fullPoolRecall": 0.513549132774296,
+          "bestAvailableRetrievalRate": 0.5555555555555556,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 514.633
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "category_intent": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6126012876012876,
+          "topKRecall": 0.6126012876012876,
+          "fullPoolRecall": 1,
+          "bestAvailableRetrievalRate": 1,
+          "candidatePool": {
+            "mean": 41,
+            "p95": 56,
+            "max": 56
+          },
+          "latencyMs": {
+            "p95": 444.3
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "cold_start": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5083333333333333,
+          "topKRecall": 0.14520866151300935,
+          "fullPoolRecall": 0.5816233784749527,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 497.782
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "distribution": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.41666666666666674,
+          "topKRecall": 0.18733809488759087,
+          "fullPoolRecall": 0.6528217981029326,
+          "bestAvailableRetrievalRate": 0.5555555555555556,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 455.012
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "exact_name": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6072984749455337,
+          "topKRecall": 0.6072984749455337,
+          "fullPoolRecall": 0.8888888888888888,
+          "bestAvailableRetrievalRate": 0.8888888888888888,
+          "candidatePool": {
+            "mean": 27.666666666666668,
+            "p95": 39,
+            "max": 39
+          },
+          "latencyMs": {
+            "p95": 633.63
+          },
+          "noResultRate": 0.1111111111111111,
+          "starvationRate": 0.1111111111111111,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "explanation": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.3678571428571429,
+          "topKRecall": 0.24534197880972075,
+          "fullPoolRecall": 1,
+          "bestAvailableRetrievalRate": 1,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 462.804
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "fallback": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.4749999999999999,
+          "topKRecall": 0.21055241977891118,
+          "fullPoolRecall": 0.7351065653391234,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 507.711
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "geo": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5083333333333334,
+          "topKRecall": 0.15227213990237554,
+          "fullPoolRecall": 0.6665307943818278,
+          "bestAvailableRetrievalRate": 0.8333333333333334,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 417.064
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "mature_personalization": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5166666666666667,
+          "topKRecall": 0.11596927533053082,
+          "fullPoolRecall": 0.5405879760612867,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 451.143
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "negation": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5425925925925926,
+          "topKRecall": 0.15452721924440363,
+          "fullPoolRecall": 0.5664399957146687,
+          "bestAvailableRetrievalRate": 0.5555555555555556,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 397.795
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "open_now": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5333333333333333,
+          "topKRecall": 0.1655749716848115,
+          "fullPoolRecall": 0.5743998046829855,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 77.16666666666667,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 435.086
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "price": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5166666666666667,
+          "topKRecall": 0.155134638020083,
+          "fullPoolRecall": 0.5475392328450146,
+          "bestAvailableRetrievalRate": 0.8333333333333334,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 460.978
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "product_eligibility": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6,
+          "topKRecall": 0.134251950503215,
+          "fullPoolRecall": 0.44860792941769223,
+          "bestAvailableRetrievalRate": 0.5555555555555556,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 677.02
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "quiet_lively": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5416666666666666,
+          "topKRecall": 0.1434726569177638,
+          "fullPoolRecall": 0.46628837094750625,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 514.295
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "repetition": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.437280701754386,
+          "topKRecall": 0.17200811123669743,
+          "fullPoolRecall": 0.5620590828924162,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 483.987
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "semantic_only": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5833333333333334,
+          "topKRecall": 0.13200580456787078,
+          "fullPoolRecall": 0.47481063387729555,
+          "bestAvailableRetrievalRate": 0.5,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 566.131
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "zero_result": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.4229166666666666,
+          "topKRecall": 0.13440427788332004,
+          "fullPoolRecall": 0.568910648598744,
+          "bestAvailableRetrievalRate": 0.5,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 471.19
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        }
+      },
+      "maturity": {
+        "cold": {
+          "scenarios": 26,
+          "evaluableScenarios": 26,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.49778106508875736,
+          "topKRecall": 0.19984745345244853,
+          "fullPoolRecall": 0.6402022760039696,
+          "bestAvailableRetrievalRate": 0.7692307692307693,
+          "candidatePool": {
+            "mean": 73.03846153846153,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 540.789
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "developing": {
+          "scenarios": 33,
+          "evaluableScenarios": 33,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5053615443567596,
+          "topKRecall": 0.2727487967792175,
+          "fullPoolRecall": 0.6882272677582374,
+          "bestAvailableRetrievalRate": 0.6363636363636364,
+          "candidatePool": {
+            "mean": 73.18181818181819,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 465.796
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "mature": {
+          "scenarios": 22,
+          "evaluableScenarios": 22,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5681818181818181,
+          "topKRecall": 0.21786083298494896,
+          "fullPoolRecall": 0.6202526043200679,
+          "bestAvailableRetrievalRate": 0.7727272727272727,
+          "candidatePool": {
+            "mean": 74.18181818181819,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 478.463
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "onboarding": {
+          "scenarios": 15,
+          "evaluableScenarios": 15,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6427124183006536,
+          "topKRecall": 0.2875225438219967,
+          "fullPoolRecall": 0.6607413712526281,
+          "bestAvailableRetrievalRate": 0.6,
+          "candidatePool": {
+            "mean": 70.93333333333334,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 519.056
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "power": {
+          "scenarios": 5,
+          "evaluableScenarios": 5,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5,
+          "topKRecall": 0.13950312204787907,
+          "fullPoolRecall": 0.6045436741088915,
+          "bestAvailableRetrievalRate": 1,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 464.699
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "sparse": {
+          "scenarios": 25,
+          "evaluableScenarios": 25,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.4708333333333334,
+          "topKRecall": 0.16577679307282187,
+          "fullPoolRecall": 0.6011440748416519,
+          "bestAvailableRetrievalRate": 0.6,
+          "candidatePool": {
+            "mean": 73.24,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 621.248
+          },
+          "noResultRate": 0.04,
+          "starvationRate": 0.04,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        }
+      },
+      "diagnosticK": {
+        "10": {
+          "scenarios": 126,
+          "evaluableScenarios": 126,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.4832671957671957,
+          "topKRecall": 0.10570912233581173,
+          "fullPoolRecall": 0.6425774374408071,
+          "bestAvailableRetrievalRate": 0.6904761904761905,
+          "candidatePool": {
+            "mean": 73.34126984126983,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 514.633
+          },
+          "noResultRate": 0.007936507936507936,
+          "starvationRate": 0.007936507936507936,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "20": {
+          "scenarios": 126,
+          "evaluableScenarios": 126,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5240536370152691,
+          "topKRecall": 0.22336869844076673,
+          "fullPoolRecall": 0.6425774374408071,
+          "bestAvailableRetrievalRate": 0.6904761904761905,
+          "candidatePool": {
+            "mean": 73.34126984126983,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 514.633
+          },
+          "noResultRate": 0.007936507936507936,
+          "starvationRate": 0.007936507936507936,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "50": {
+          "scenarios": 126,
+          "evaluableScenarios": 126,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.605014306172407,
+          "topKRecall": 0.45824841121342885,
+          "fullPoolRecall": 0.6425774374408071,
+          "bestAvailableRetrievalRate": 0.6904761904761905,
+          "candidatePool": {
+            "mean": 73.34126984126983,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 514.633
+          },
+          "noResultRate": 0.007936507936507936,
+          "starvationRate": 0.007936507936507936,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        }
+      }
+    },
+    "H2_STRUCTURED_PLUS_RETRIEVAL": {
+      "overall": {
+        "scenarios": 126,
+        "evaluableScenarios": 126,
+        "notEvaluatedScenarios": 0,
+        "topKCapacityCapture": 0.5128932851511354,
+        "topKRecall": 0.2178613810350265,
+        "fullPoolRecall": 0.6425774374408071,
+        "bestAvailableRetrievalRate": 0.6904761904761905,
+        "candidatePool": {
+          "mean": 73.34126984126983,
+          "p95": 80,
+          "max": 80
+        },
+        "latencyMs": {
+          "p95": 514.633,
+          "p50": 395.249
+        },
+        "noResultRate": 0.007936507936507936,
+        "starvationRate": 0.007936507936507936,
+        "hardViolations": 0,
+        "duplicateCandidates": 0
+      },
+      "seeds": {
+        "backyrd-d1-basel-v1-2026": {
+          "scenarios": 42,
+          "evaluableScenarios": 42,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.49259687680740327,
+          "topKRecall": 0.20880790487313605,
+          "fullPoolRecall": 0.6440886409619455,
+          "bestAvailableRetrievalRate": 0.6190476190476191,
+          "candidatePool": {
+            "mean": 73.45238095238095,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 514.295
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "backyrd-d1-basel-v1-2026-2": {
+          "scenarios": 42,
+          "evaluableScenarios": 42,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5826376004947432,
+          "topKRecall": 0.2245139219556766,
+          "fullPoolRecall": 0.6219525290038941,
+          "bestAvailableRetrievalRate": 0.7142857142857143,
+          "candidatePool": {
+            "mean": 72.73809523809524,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 483.987
+          },
+          "noResultRate": 0.023809523809523808,
+          "starvationRate": 0.023809523809523808,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "backyrd-d1-basel-v1-2026-3": {
+          "scenarios": 42,
+          "evaluableScenarios": 42,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.4634453781512606,
+          "topKRecall": 0.2202623162762667,
+          "fullPoolRecall": 0.6616911423565819,
+          "bestAvailableRetrievalRate": 0.7380952380952381,
+          "candidatePool": {
+            "mean": 73.83333333333333,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 540.789
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        }
+      },
+      "splits": {
+        "DEVELOPMENT": {
+          "scenarios": 54,
+          "evaluableScenarios": 54,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.47659562659562654,
+          "topKRecall": 0.17847872900582734,
+          "fullPoolRecall": 0.5874327056020727,
+          "bestAvailableRetrievalRate": 0.6481481481481481,
+          "candidatePool": {
+            "mean": 73.96296296296296,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 621.248
+          },
+          "noResultRate": 0.018518518518518517,
+          "starvationRate": 0.018518518518518517,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "LOCKED_HOLDOUT": {
+          "scenarios": 36,
+          "evaluableScenarios": 36,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.511946021098498,
+          "topKRecall": 0.24335150689055643,
+          "fullPoolRecall": 0.6996243105928212,
+          "bestAvailableRetrievalRate": 0.7222222222222222,
+          "candidatePool": {
+            "mean": 72.08333333333333,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 519.056
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "REGRESSION": {
+          "scenarios": 36,
+          "evaluableScenarios": 36,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5682870370370372,
+          "topKRecall": 0.2514452332232951,
+          "fullPoolRecall": 0.6682476620468948,
+          "bestAvailableRetrievalRate": 0.7222222222222222,
+          "candidatePool": {
+            "mean": 73.66666666666667,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 514.633
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        }
+      },
+      "families": {
+        "audience": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5166666666666667,
+          "topKRecall": 0.1467930683245085,
+          "fullPoolRecall": 0.6708080808080809,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 443.666
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "broad_query": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5722222222222221,
+          "topKRecall": 0.14181832754405252,
+          "fullPoolRecall": 0.513549132774296,
+          "bestAvailableRetrievalRate": 0.5555555555555556,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 514.633
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "category_intent": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6282245532245532,
+          "topKRecall": 0.6282245532245532,
+          "fullPoolRecall": 1,
+          "bestAvailableRetrievalRate": 1,
+          "candidatePool": {
+            "mean": 41,
+            "p95": 56,
+            "max": 56
+          },
+          "latencyMs": {
+            "p95": 444.3
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "cold_start": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5166666666666667,
+          "topKRecall": 0.15166160387299818,
+          "fullPoolRecall": 0.5816233784749527,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 497.782
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "distribution": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.4,
+          "topKRecall": 0.16251350880806728,
+          "fullPoolRecall": 0.6528217981029326,
+          "bestAvailableRetrievalRate": 0.5555555555555556,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 455.012
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "exact_name": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.570152505446623,
+          "topKRecall": 0.570152505446623,
+          "fullPoolRecall": 0.8888888888888888,
+          "bestAvailableRetrievalRate": 0.8888888888888888,
+          "candidatePool": {
+            "mean": 27.666666666666668,
+            "p95": 39,
+            "max": 39
+          },
+          "latencyMs": {
+            "p95": 633.63
+          },
+          "noResultRate": 0.1111111111111111,
+          "starvationRate": 0.1111111111111111,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "explanation": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.3678571428571429,
+          "topKRecall": 0.23996563472369925,
+          "fullPoolRecall": 1,
+          "bestAvailableRetrievalRate": 1,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 462.804
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "fallback": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.42500000000000004,
+          "topKRecall": 0.1911172156622106,
+          "fullPoolRecall": 0.7351065653391234,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 507.711
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "geo": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5750000000000001,
+          "topKRecall": 0.18760037376002114,
+          "fullPoolRecall": 0.6665307943818278,
+          "bestAvailableRetrievalRate": 0.8333333333333334,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 417.064
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "mature_personalization": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5499999999999999,
+          "topKRecall": 0.14091123152248702,
+          "fullPoolRecall": 0.5405879760612867,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 451.143
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "negation": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.4981481481481482,
+          "topKRecall": 0.14206651083647803,
+          "fullPoolRecall": 0.5664399957146687,
+          "bestAvailableRetrievalRate": 0.5555555555555556,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 397.795
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "open_now": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.525,
+          "topKRecall": 0.15672263250352494,
+          "fullPoolRecall": 0.5743998046829855,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 77.16666666666667,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 435.086
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "price": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5166666666666666,
+          "topKRecall": 0.14563314848422607,
+          "fullPoolRecall": 0.5475392328450146,
+          "bestAvailableRetrievalRate": 0.8333333333333334,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 460.978
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "product_eligibility": {
+          "scenarios": 9,
+          "evaluableScenarios": 9,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5833333333333333,
+          "topKRecall": 0.1283284649947823,
+          "fullPoolRecall": 0.44860792941769223,
+          "bestAvailableRetrievalRate": 0.5555555555555556,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 677.02
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "quiet_lively": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5166666666666667,
+          "topKRecall": 0.1366490809683967,
+          "fullPoolRecall": 0.46628837094750625,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 514.295
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "repetition": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.41228070175438597,
+          "topKRecall": 0.1669155186441048,
+          "fullPoolRecall": 0.5620590828924162,
+          "bestAvailableRetrievalRate": 0.6666666666666666,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 483.987
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "semantic_only": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5499999999999999,
+          "topKRecall": 0.12418909726267242,
+          "fullPoolRecall": 0.47481063387729555,
+          "bestAvailableRetrievalRate": 0.5,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 566.131
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "zero_result": {
+          "scenarios": 6,
+          "evaluableScenarios": 6,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.4208333333333332,
+          "topKRecall": 0.12727458972487082,
+          "fullPoolRecall": 0.568910648598744,
+          "bestAvailableRetrievalRate": 0.5,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 471.19
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        }
+      },
+      "maturity": {
+        "cold": {
+          "scenarios": 26,
+          "evaluableScenarios": 26,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.4813609467455621,
+          "topKRecall": 0.1992142745289214,
+          "fullPoolRecall": 0.6402022760039696,
+          "bestAvailableRetrievalRate": 0.7692307692307693,
+          "candidatePool": {
+            "mean": 73.03846153846153,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 540.789
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "developing": {
+          "scenarios": 33,
+          "evaluableScenarios": 33,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.49730697266582446,
+          "topKRecall": 0.2645543176833938,
+          "fullPoolRecall": 0.6882272677582374,
+          "bestAvailableRetrievalRate": 0.6363636363636364,
+          "candidatePool": {
+            "mean": 73.18181818181819,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 465.796
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "mature": {
+          "scenarios": 22,
+          "evaluableScenarios": 22,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5681818181818181,
+          "topKRecall": 0.21731608775006536,
+          "fullPoolRecall": 0.6202526043200679,
+          "bestAvailableRetrievalRate": 0.7727272727272727,
+          "candidatePool": {
+            "mean": 74.18181818181819,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 478.463
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "onboarding": {
+          "scenarios": 15,
+          "evaluableScenarios": 15,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.6182026143790849,
+          "topKRecall": 0.27610301055233877,
+          "fullPoolRecall": 0.6607413712526281,
+          "bestAvailableRetrievalRate": 0.6,
+          "candidatePool": {
+            "mean": 70.93333333333334,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 519.056
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "power": {
+          "scenarios": 5,
+          "evaluableScenarios": 5,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.53,
+          "topKRecall": 0.15042306314684833,
+          "fullPoolRecall": 0.6045436741088915,
+          "bestAvailableRetrievalRate": 1,
+          "candidatePool": {
+            "mean": 80,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 464.699
+          },
+          "noResultRate": 0,
+          "starvationRate": 0,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "sparse": {
+          "scenarios": 25,
+          "evaluableScenarios": 25,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.451,
+          "topKRecall": 0.15464223938354457,
+          "fullPoolRecall": 0.6011440748416519,
+          "bestAvailableRetrievalRate": 0.6,
+          "candidatePool": {
+            "mean": 73.24,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 621.248
+          },
+          "noResultRate": 0.04,
+          "starvationRate": 0.04,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        }
+      },
+      "diagnosticK": {
+        "10": {
+          "scenarios": 126,
+          "evaluableScenarios": 126,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.47142857142857136,
+          "topKRecall": 0.11133114274076057,
+          "fullPoolRecall": 0.6425774374408071,
+          "bestAvailableRetrievalRate": 0.6904761904761905,
+          "candidatePool": {
+            "mean": 73.34126984126983,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 514.633
+          },
+          "noResultRate": 0.007936507936507936,
+          "starvationRate": 0.007936507936507936,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "20": {
+          "scenarios": 126,
+          "evaluableScenarios": 126,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5128932851511354,
+          "topKRecall": 0.2178613810350265,
+          "fullPoolRecall": 0.6425774374408071,
+          "bestAvailableRetrievalRate": 0.6904761904761905,
+          "candidatePool": {
+            "mean": 73.34126984126983,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 514.633
+          },
+          "noResultRate": 0.007936507936507936,
+          "starvationRate": 0.007936507936507936,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        },
+        "50": {
+          "scenarios": 126,
+          "evaluableScenarios": 126,
+          "notEvaluatedScenarios": 0,
+          "topKCapacityCapture": 0.5868189417179105,
+          "topKRecall": 0.44174769218629933,
+          "fullPoolRecall": 0.6425774374408071,
+          "bestAvailableRetrievalRate": 0.6904761904761905,
+          "candidatePool": {
+            "mean": 73.34126984126983,
+            "p95": 80,
+            "max": 80
+          },
+          "latencyMs": {
+            "p95": 514.633
+          },
+          "noResultRate": 0.007936507936507936,
+          "starvationRate": 0.007936507936507936,
+          "hardViolations": 0,
+          "duplicateCandidates": 0
+        }
+      }
+    }
+  },
+  "experimentDecisions": {
+    "H0_WAVE2_4": "CONTROL_RETAINED",
+    "H1_DETERMINISTIC_STRUCTURED": "EVALUATED_NOT_PROMOTED",
+    "H2_STRUCTURED_PLUS_RETRIEVAL": "EVALUATED_NOT_PROMOTED",
+    "LIGHTWEIGHT_LEARNED": "NOT_SCIENTIFICALLY_EXECUTABLE_WITHOUT_DEDICATED_TRAINING_SPLIT",
+    "AI_ASSISTED": "NOT_OPERATIONALLY_JUSTIFIED_WITHOUT_FROZEN_RELEVANCE_CONTRACT"
+  },
+  "pairedLift": {
+    "n": 126,
+    "meanDelta": -0.08355883002610118,
+    "medianDelta": -0.050000000000000044,
+    "interval": [
+      -0.11589151057306744,
+      -0.0529500660526755
+    ],
+    "wins": 31,
+    "ties": 23,
+    "losses": 72
+  },
+  "promotion": {
+    "gates": {
+      "capacityCaptureOverall": false,
+      "capacityCaptureEverySeed": false,
+      "capacityCaptureEverySplit": false,
+      "bestAvailableOverall": false,
+      "bestAvailableEverySplit": false,
+      "fullPoolRecallOverall": false,
+      "fullPoolRecallEverySplit": false,
+      "pairedLift": false,
+      "everySeedImproves": false,
+      "lockedHoldoutNonRegression": false,
+      "fullPoolNonRegression": true,
+      "bestAvailableNonRegression": true,
+      "candidatePoolMean": true,
+      "candidatePoolP95": true,
+      "latency": true,
+      "cost": true,
+      "noResult": true,
+      "starvation": true,
+      "hardIntegrity": true,
+      "duplicateIntegrity": true,
+      "evaluable": true
+    },
+    "pass": false,
+    "verdict": "REJECT"
+  },
+  "misses": {
+    "before": {
+      "RETRIEVED_AT_20": 1319,
+      "ORDERING_MISS": 2937,
+      "COVERAGE_MISS": 3845
+    },
+    "after": {
+      "RETRIEVED_AT_20": 1176,
+      "ORDERING_MISS": 3080,
+      "COVERAGE_MISS": 3845
+    },
+    "coverageClusters": {
+      "product_eligibility:sparse": 107,
+      "distribution:cold": 65,
+      "broad_query:cold": 87,
+      "negation:power": 32,
+      "open_now:developing": 50,
+      "geo:mature": 60,
+      "cold_start:power": 38,
+      "mature_personalization:mature": 73,
+      "audience:sparse": 80,
+      "quiet_lively:onboarding": 43,
+      "semantic_only:developing": 97,
+      "fallback:sparse": 32,
+      "zero_result:cold": 127,
+      "repetition:cold": 34,
+      "product_eligibility:developing": 79,
+      "distribution:onboarding": 19,
+      "open_now:onboarding": 91,
+      "cold_start:developing": 78,
+      "mature_personalization:sparse": 80,
+      "quiet_lively:mature": 209,
+      "price:sparse": 31,
+      "semantic_only:sparse": 88,
+      "zero_result:developing": 71,
+      "product_eligibility:cold": 234,
+      "distribution:developing": 52,
+      "broad_query:developing": 118,
+      "negation:mature": 27,
+      "exact_name:sparse": 10,
+      "negation:sparse": 145,
+      "open_now:mature": 37,
+      "geo:onboarding": 105,
+      "cold_start:sparse": 49,
+      "mature_personalization:onboarding": 89,
+      "audience:power": 51,
+      "price:cold": 89,
+      "semantic_only:mature": 92,
+      "repetition:sparse": 152,
+      "mature_personalization:cold": 27,
+      "audience:onboarding": 46,
+      "price:mature": 79,
+      "product_eligibility:mature": 54,
+      "broad_query:sparse": 25,
+      "broad_query:mature": 140,
+      "negation:cold": 39,
+      "quiet_lively:developing": 44,
+      "price:developing": 21,
+      "fallback:cold": 41,
+      "distribution:mature": 80,
+      "negation:developing": 43,
+      "geo:cold": 34,
+      "cold_start:onboarding": 44,
+      "mature_personalization:developing": 38,
+      "fallback:mature": 39,
+      "repetition:developing": 28,
+      "broad_query:power": 44,
+      "negation:onboarding": 58
+    },
+    "remainingOrdering": {
+      "QUERY_EVIDENCE_MISSING_OR_UNKNOWN": 0,
+      "QUERY_EVIDENCE_PRESENT_BUT_INSUFFICIENT": 3080
+    },
+    "orderingReduction": -0.04868913857677903
+  },
+  "sourceContribution": {
+    "availability_v1": {
+      "top20Memberships": 2500,
+      "usefulMemberships": 1176,
+      "usefulDensity": 0.4704
+    },
+    "category_entity_v1": {
+      "top20Memberships": 340,
+      "usefulMemberships": 83,
+      "usefulDensity": 0.24411764705882352
+    },
+    "lexical_entity_v2": {
+      "top20Memberships": 519,
+      "usefulMemberships": 188,
+      "usefulDensity": 0.3622350674373796
+    },
+    "lexical_v1": {
+      "top20Memberships": 848,
+      "usefulMemberships": 322,
+      "usefulDensity": 0.37971698113207547
+    },
+    "observed_quality_v1": {
+      "top20Memberships": 2500,
+      "usefulMemberships": 1176,
+      "usefulDensity": 0.4704
+    },
+    "personalized_v12": {
+      "top20Memberships": 328,
+      "usefulMemberships": 141,
+      "usefulDensity": 0.4298780487804878
+    },
+    "price_attribute_v1": {
+      "top20Memberships": 110,
+      "usefulMemberships": 57,
+      "usefulDensity": 0.5181818181818182
+    },
+    "semantic_v13": {
+      "top20Memberships": 1029,
+      "usefulMemberships": 395,
+      "usefulDensity": 0.3838678328474247
+    },
+    "structured_category_v1": {
+      "top20Memberships": 1034,
+      "usefulMemberships": 434,
+      "usefulDensity": 0.4197292069632495
+    },
+    "vibe_review_v1": {
+      "top20Memberships": 613,
+      "usefulMemberships": 325,
+      "usefulDensity": 0.5301794453507341
+    }
+  },
+  "usefulCandidateDensityAt20": 0.4666666666666667,
+  "externalUsage": {
+    "model": "text-embedding-3-small",
+    "dimensions": 1536,
+    "relevanceApiCalls": 0,
+    "spotPromptTokens": 41802,
+    "queryPromptTokens": 16926,
+    "queryCacheHash": "8c0ab0e6a7e2389a799e5b73267ecb87e6ab2b8e949618078adc509f1d8caf9f",
+    "pricePerMillionTokensUsd": 0.02,
+    "externalCostPerDecisionUsd": 0.0000026866666666666666
+  },
+  "integrity": {
+    "unresolved": 0,
+    "productFailures": 0,
+    "distributionFailures": 0,
+    "userConstraintFailures": 0,
+    "scientificValidity": "PASS",
+    "latentTruthInEngineInput": false,
+    "personalizationInRelevanceInput": false,
+    "learnedTrainingOnHoldout": false,
+    "retrievalQualityContractMutation": "NONE",
+    "wave24CandidateIdentityPreserved": true,
+    "productionAccess": "NONE"
+  },
+  "verdict": "FAIL",
+  "architectureVerdict": "NOT_PROMOTED",
+  "relevanceVerdict": "INSUFFICIENT",
+  "resultHash": "1e5498516fd294a01b3b177c3df15cace398054d143e87a0540262c64d8ef11c"
+}
