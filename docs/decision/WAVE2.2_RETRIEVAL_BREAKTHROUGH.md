@@ -194,6 +194,8 @@ Permanent tests cover observed-only attribute retrieval, latent-isolation, indep
 
 Local and GitHub CI evidence is recorded in the pull request. The full repository suite includes Decision Lab, D2/D2.1/D2.2, D3.1/D3-A validation, D4.1 freeze validation, Wave 1, database boot/regressions, repository/security guards, and Mobile/Web/Admin/Shared checks.
 
+CI hardening note: the unchanged Sprint 9.3 repeated-targeting fixture originally used the live wall-clock time and placed the peer event two hours later. Runs after 22:00 UTC therefore crossed a UTC date boundary and no longer represented three shared calendar days. Only the repeated-target review timestamps now use a deterministic 12:00 UTC anchor on the previous UTC day; identity recording and detector evaluation retain the real test time. This changes only fixture timestamps; Sprint 9.3 functions, detector behavior, thresholds, and product SQL are unchanged.
+
 ## 16. Files, Git, and Pull Request
 
 Branch: `codex/decision-wave2-2-retrieval-breakthrough`

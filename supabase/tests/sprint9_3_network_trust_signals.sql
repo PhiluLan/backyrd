@@ -343,7 +343,9 @@ $$;
 -- evidence. One shared outing and two shared days are controls.
 do $$
 declare
-  v_now timestamptz:=now();j integer;i integer;v_primary uuid;v_peer uuid;v_spot uuid;v_count integer;
+  v_now timestamptz:=now();
+  v_review_anchor timestamptz:=(date_trunc('day',v_now at time zone 'UTC')-interval '1 day'+interval '12 hours') at time zone 'UTC';
+  j integer;i integer;v_primary uuid;v_peer uuid;v_spot uuid;v_count integer;
   v_below uuid:=pg_temp.network_make_user('target-below',v_now-interval '100 days');
   v_below_peer uuid:=pg_temp.network_make_user('target-below-peer',v_now-interval '100 days');
   v_at uuid:=pg_temp.network_make_user('target-at',v_now-interval '100 days');
@@ -360,8 +362,8 @@ begin
     perform public.account_trust_record_technical_identity_v1(v_primary,pg_temp.network_uuid('target-install-'||j),v_now);
     perform public.account_trust_record_technical_identity_v1(v_peer,pg_temp.network_uuid('target-install-'||j),v_now);
     for i in 1..(j+1) loop
-      perform pg_temp.network_add_review(v_primary,v_spot,'Target primary '||i,v_now-make_interval(days=>i));
-      perform pg_temp.network_add_review(v_peer,v_spot,'Target peer '||i,v_now-make_interval(days=>i)+interval '2 hours');
+      perform pg_temp.network_add_review(v_primary,v_spot,'Target primary '||i,v_review_anchor-make_interval(days=>i));
+      perform pg_temp.network_add_review(v_peer,v_spot,'Target peer '||i,v_review_anchor-make_interval(days=>i)+interval '2 hours');
     end loop;
     perform public.account_trust_evaluate_network_user_v1(v_primary,v_now);
   end loop;
