@@ -34,6 +34,8 @@
     "decision-lab:wave3c": "bash scripts/decision/run-wave3c-personalized-decision.sh",
     "decision-lab:wave4:freeze": "node decision-lab/src/wave4-freeze.mjs",
     "decision-lab:wave4": "bash scripts/decision/run-wave4-contextual-utility-fusion.sh",
+    "decision-lab:n2": "node decision-lab/src/n2-acceptance.mjs",
+    "decision-lab:n2:freeze": "node decision-lab/src/n2-freeze.mjs",
     "supabase:start": "npx supabase start",
     "supabase:stop": "npx supabase stop",
     "supabase:status": "npx supabase status",

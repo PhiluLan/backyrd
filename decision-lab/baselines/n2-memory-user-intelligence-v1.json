@@ -1,0 +1,38 @@
+{
+  "artifactVersion": "backyrd-n2-acceptance-result-v1",
+  "asOf": "2026-08-17T12:00:00.000Z",
+  "versions": {
+    "memoryEventContract": "backyrd-memory-event-contract-v1",
+    "evidenceMapping": "backyrd-memory-evidence-mapping-v1",
+    "userIntelligenceSchema": "backyrd-user-intelligence-schema-v1",
+    "behavioralPatternContract": "backyrd-behavioral-pattern-contract-v1",
+    "confidenceContract": "backyrd-user-intelligence-confidence-v1",
+    "retentionContract": "backyrd-memory-retention-v1"
+  },
+  "memoryContractHash": "0294d85141e4ee40545591d6ec68372b0558762f35b9b9a12e521b35ebe84b9d",
+  "inventory": {
+    "eventTypes": 22,
+    "retentionClasses": 8
+  },
+  "acceptance": {
+    "activeMemoryEvents": 6,
+    "tasteRows": 10,
+    "knownPatterns": 1,
+    "crossCityTasteHashEqual": true,
+    "n5BoundaryPrepared": true,
+    "withdrawalLeavesDerivedRows": 0,
+    "tasteEngineIntegration": "UNCHANGED_ADAPTER",
+    "latentTruthRuntimeInput": false,
+    "productionIntegration": "NOT_STARTED"
+  },
+  "verdicts": {
+    "memory": "READY",
+    "userIntelligenceGraph": "READY",
+    "tasteIntegration": "PASS",
+    "behavioralMemory": "READY",
+    "crossCity": "PASS",
+    "privacy": "PASS",
+    "scientificValidity": "PASS"
+  },
+  "resultHash": "227eafae0d0214c8409dc0a942abeaf8db44748952649dfb2174ecce6c108ea7"
+}
