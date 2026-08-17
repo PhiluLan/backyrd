@@ -1,0 +1,82 @@
+{
+  "version": "backyrd-wave4-contextual-utility-fusion-validation-v1",
+  "utilityContractVersion": "backyrd-contextual-utility-contract-v1",
+  "fusionVersion": "backyrd-deterministic-hybrid-fusion-v1",
+  "candidatePath": "decision-wave1-intent-constraints-v1",
+  "seeds": [
+    "backyrd-d1-basel-v1-2026",
+    "backyrd-d1-basel-v1-2026-2",
+    "backyrd-d1-basel-v1-2026-3"
+  ],
+  "arms": ["ACTUAL", "NEUTRAL", "OPPOSING"],
+  "maturities": ["cold", "onboarding", "sparse", "developing", "mature", "power"],
+  "topK": 10,
+  "bootstrap": { "iterations": 2000, "seed": "wave4-contextual-utility-v1", "confidence": 0.95 },
+  "parentFreezes": {
+    "tasteEngine": "2a4a9e2f7353ad20d10073a00ccfb235778d64d5730f5e7771a4787f92a2116f",
+    "tasteTreatment": "ab2339de028fb5ed04999ea682d6a38d9434e75350993fb4963c518c8af15116",
+    "personalizationTreatment": "9b4691de75bead63ad798700ada0b818ba6d29ad92d24804dcb2d3eeecfc1053",
+    "wave3cControl": "2883837fef33a607e9b36cd4a566b0e658e917c943627ae8c50cd2cc7b1576f0",
+    "d42ArchitectureDocument": "fc7c389eda0bcaae083b0eb67b6805f8ee9b7dad6b22b2d492dfd30f5096dbed"
+  },
+  "coverage": {
+    "failClosed": true,
+    "requiredArms": [
+      "UTILITY_COMPONENTS",
+      "ACTUAL_NEUTRAL_OPPOSING",
+      "WAVE3C_CONTROL",
+      "SAME_USER_DIFFERENT_CONTEXT",
+      "SAME_REQUEST_DIFFERENT_USERS",
+      "CURRENT_INTENT_CONFLICT",
+      "MATURITY",
+      "RETRIEVAL_UTILITY_ATTRIBUTION",
+      "MULTI_SEED_SPLIT",
+      "INTEGRITY"
+    ],
+    "minimumTreatmentComparisons": 126,
+    "minimumContextComparisons": 9,
+    "minimumDifferentUserComparisons": 9,
+    "minimumIntentConflictComparisons": 18
+  },
+  "thresholds": {
+    "ndcgAt10Minimum": 0.55,
+    "precisionAt10Minimum": 0.35,
+    "meanUtilityAt10Minimum": 0.40,
+    "utilityLiftVsWave3CMinimum": 0.005,
+    "utilityLiftBootstrapLowerMinimum": -0.002,
+    "personalizationLiftMinimum": 0.003,
+    "personalizationLiftBootstrapLowerMinimum": -0.003,
+    "personalizationHarmRateMaximum": 0.30,
+    "personalizationHarmCohortMaximum": 0.50,
+    "contextualDifferentiationMinimum": 0.20,
+    "sameUserContextUtilityGainMinimum": 0.003,
+    "differentUserRankingDivergenceMinimum": 0.15,
+    "falsePersonalizationMaximum": 0.30,
+    "currentIntentRobustnessMinimum": 0.95,
+    "historyOverrideRateMaximum": 0,
+    "coldStartUtilityDeltaMinimum": -0.002,
+    "matureUserLiftMinimum": 0.003,
+    "hardConstraintViolationsMaximum": 0,
+    "productEligibilityViolationsMaximum": 0,
+    "distributionEligibilityViolationsMaximum": 0,
+    "p95UtilityLatencyMsMaximum": 25,
+    "externalCostPerDecisionMaximumUsd": 0
+  },
+  "thresholdRationale": {
+    "overall": "D4.2 preserves the published NDCG@10 0.55 and Precision@10 0.35 floors; mean utility 0.40 prevents ranking gains that remain below the established Wave-3C quality level.",
+    "utilityLift": "Five basis points of mean Top-K latent utility is the pre-registered minimum material conditional-ranking gain over the frozen Wave-3C control.",
+    "personalization": "Taste must contribute a positive causal delta without harming more than 30% overall or a majority of any maturity cohort.",
+    "context": "At least 20% Top-K divergence plus positive context-specific utility separates meaningful adaptation from cosmetic rank movement.",
+    "integrity": "Eligibility and current Intent are authority boundaries and permit no compensating violation.",
+    "efficiency": "The deterministic in-process layer has no external calls and must remain below 25ms p95 in the synthetic Lab."
+  },
+  "scientificControls": {
+    "latentTruthRuntimeInput": false,
+    "groundTruthRole": "EVALUATOR_ONLY",
+    "lockedHoldoutTuning": false,
+    "sameCandidateUniverseAcrossTreatmentArms": true,
+    "retrievalMutation": "PROHIBITED",
+    "tasteEngineMutation": "PROHIBITED",
+    "productionAccess": "NONE"
+  }
+}
