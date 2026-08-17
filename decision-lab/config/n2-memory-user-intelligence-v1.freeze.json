@@ -1,0 +1,19 @@
+{
+  "freezeVersion": "backyrd-n2-memory-user-intelligence-freeze-v1",
+  "versions": {
+    "memoryEventContract": "backyrd-memory-event-contract-v1",
+    "evidenceMapping": "backyrd-memory-evidence-mapping-v1",
+    "userIntelligenceSchema": "backyrd-user-intelligence-schema-v1",
+    "behavioralPatternContract": "backyrd-behavioral-pattern-contract-v1",
+    "confidenceContract": "backyrd-user-intelligence-confidence-v1",
+    "retentionContract": "backyrd-memory-retention-v1"
+  },
+  "memoryContractHash": "0294d85141e4ee40545591d6ec68372b0558762f35b9b9a12e521b35ebe84b9d",
+  "evidenceMappingHash": "aba112b2add654dc19e1134b24523f5de5aa41cc425b7ffbb6f62bf0f25aff9d",
+  "retentionContractHash": "8f048679d049ebb2283b5994896b9e2f2ac9fcf8cc252732e39af63c83a395bf",
+  "tasteEngineContractHash": "d7ec1a228d0c56641855bc051f3bf1715f539349e551be23ea2a7ba979f5fc46",
+  "sourceHash": "79c6b7950486d76b3321b4d32c1789524d567e3438233f63db42c9fe1f39a830",
+  "acceptanceSourceHash": "5552f66a3021445c93fbc9e0645ef4472527e3cfa9a689b1c9c482711b21a85c",
+  "migrationHash": "1e1322c63e33c350d1eb2ad6cb81f78792ef1beb893a2f5ed3380c6e3a279358",
+  "acceptanceResultHash": "227eafae0d0214c8409dc0a942abeaf8db44748952649dfb2174ecce6c108ea7"
+}
