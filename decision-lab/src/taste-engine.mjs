@@ -2,11 +2,11 @@ import { contentHash } from "./canonical-json.mjs";
 
 export const TASTE_ENGINE_VERSIONS = Object.freeze({
   tasteSpace: "backyrd-taste-space-v1",
-  evidenceModel: "backyrd-taste-evidence-v1",
-  learningEngine: "backyrd-taste-learning-v1",
-  confidenceModel: "backyrd-taste-confidence-v1",
-  decayModel: "backyrd-taste-decay-v1",
-  projectionContract: "backyrd-current-taste-projection-v1"
+  evidenceModel: "backyrd-taste-evidence-v1.1",
+  learningEngine: "backyrd-taste-learning-v1.1",
+  confidenceModel: "backyrd-taste-confidence-v1.1",
+  decayModel: "backyrd-taste-decay-v1.1",
+  projectionContract: "backyrd-current-taste-projection-v1.1"
 });
 
 const concepts = {
@@ -36,9 +36,9 @@ const contextKeys = new Set(CANONICAL_CONTEXT_KEYS);
 // already proven. New names are semantic aliases for the same evidence tiers.
 export const EVIDENCE_MODEL = Object.freeze({
   decision_shown: { direction: 0, strength: 0, family: "exposure", decay: "transient", qualified: false },
-  spot_tapped: { direction: 1, strength: 0.08, family: "interaction", decay: "transient", qualified: true },
-  search_result_opened: { direction: 1, strength: 0.10, family: "interaction", decay: "transient", qualified: true },
-  spot_opened: { direction: 1, strength: 0.14, family: "interaction", decay: "behavioral", qualified: true },
+  spot_tapped: { direction: 1, strength: 0.05, family: "interaction", decay: "transient", qualified: true },
+  search_result_opened: { direction: 1, strength: 0.07, family: "interaction", decay: "transient", qualified: true },
+  spot_opened: { direction: 1, strength: 0.10, family: "interaction", decay: "behavioral", qualified: true },
   exact_mood_feedback: { direction: 1, strength: 0.22, family: "explicit", decay: "behavioral", qualified: true },
   liked: { direction: 1, strength: 0.22, family: "explicit", decay: "behavioral", qualified: true },
   disliked: { direction: -1, strength: 0.22, family: "explicit_negative", decay: "behavioral", qualified: true },
@@ -53,8 +53,8 @@ export const EVIDENCE_MODEL = Object.freeze({
   not_there: { direction: 0, strength: 0, family: "correction", decay: "transient", qualified: false }
 });
 
-export const DECAY_HALF_LIFE_DAYS = Object.freeze({ transient: 30, contextual: 60, onboarding: 120, behavioral: 180, stable: 365 });
-const SCOPE_WEIGHT = Object.freeze({ GLOBAL: 1, PLACE_TYPE: 0.65, CONTEXT: 0.5 });
+export const DECAY_HALF_LIFE_DAYS = Object.freeze({ transient: 30, contextual: 60, onboarding: 120, behavioral: 180, stable: 300 });
+const SCOPE_WEIGHT = Object.freeze({ GLOBAL: 1, PLACE_TYPE: 0.65, CONTEXT: 0.65 });
 
 export const TASTE_ENGINE_CONTRACT = Object.freeze({
   versions: TASTE_ENGINE_VERSIONS,
@@ -137,10 +137,14 @@ function summarizeRow(samples, scope, concept, asOf) {
     families.add(sample.sourceFamily);
   }
   const support = positiveEvidence + negativeEvidence;
-  const affinity = support === 0 ? 0 : clamp((positiveEvidence - negativeEvidence) / (support + 0.75));
+  let affinity = support === 0 ? 0 : clamp((positiveEvidence - negativeEvidence) / (support + 1));
+  const interactionOnly = families.size === 1 && families.has("interaction");
+  const independentlyCorroborated = spots.size >= 3 && sessions.size >= 3;
+  if (samples.length === 1 || (interactionOnly && !independentlyCorroborated)) affinity = clamp(affinity, -0.14, 0.14);
   const consistency = support === 0 ? 0 : 0.15 + 0.85 * Math.abs(positiveEvidence - negativeEvidence) / support;
   const diversity = Math.min(1, 0.55 + 0.15 * Math.min(3, spots.size) / 3 + 0.15 * Math.min(3, sessions.size) / 3 + 0.15 * Math.min(3, families.size) / 3);
-  let confidence = clamp((1 - Math.exp(-support / 1.5)) * consistency * diversity * (0.6 + 0.4 * latestDecay), 0, 1);
+  const evidenceReliability = (1 - Math.exp(-support / 1.5)) * consistency * diversity * (0.6 + 0.4 * latestDecay);
+  let confidence = support === 0 ? 0 : clamp(0.57 + 0.43 * evidenceReliability, 0, 1);
   if (families.size === 1 && families.has("onboarding")) confidence = Math.min(confidence, 0.35);
   const times = samples.map(({ occurredAt }) => occurredAt).sort();
   return Object.freeze({

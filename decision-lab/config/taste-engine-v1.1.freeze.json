@@ -1,0 +1,15 @@
+{
+  "freezeVersion": "backyrd-taste-engine-freeze-v1.1",
+  "versions": {
+    "tasteSpace": "backyrd-taste-space-v1",
+    "evidenceModel": "backyrd-taste-evidence-v1.1",
+    "learningEngine": "backyrd-taste-learning-v1.1",
+    "confidenceModel": "backyrd-taste-confidence-v1.1",
+    "decayModel": "backyrd-taste-decay-v1.1",
+    "projectionContract": "backyrd-current-taste-projection-v1.1"
+  },
+  "tasteSpaceHash": "000853195705c7a63fe45d5f6c3ed390dca4506b9696ba41761357379fa0e28e",
+  "evidenceModelHash": "28660842bffebaafdedbecbf10f889fa54c318d07a38e9e2137f9b6a70af51f0",
+  "contractHash": "d7ec1a228d0c56641855bc051f3bf1715f539349e551be23ea2a7ba979f5fc46",
+  "sourceHash": "3f9596af60b9ee0e3dddb7e6dcf5d2ff90758b9d3ddf43faebc10248532051a1"
+}

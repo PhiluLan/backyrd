@@ -30,6 +30,7 @@
     "decision-lab:wave3a:validate": "node decision-lab/src/taste-engine-freeze.mjs",
     "decision-lab:wave3b:freeze": "node decision-lab/src/taste-validation-freeze.mjs",
     "decision-lab:wave3b": "node decision-lab/src/taste-validation-run.mjs",
+    "decision-lab:wave3b.1": "node decision-lab/src/taste-validation-run.mjs --output decision-lab/baselines/wave3b1-taste-calibration-v1.json",
     "supabase:start": "npx supabase start",
     "supabase:stop": "npx supabase stop",
     "supabase:status": "npx supabase status",

@@ -5,14 +5,14 @@ import {
   TASTE_ENGINE_VERSIONS, TASTE_SPACE_HASH
 } from "./taste-engine.mjs";
 
-const freezeUrl = new URL("../config/taste-engine-v1.freeze.json", import.meta.url);
+const freezeUrl = new URL("../config/taste-engine-v1.1.freeze.json", import.meta.url);
 const sourceUrl = new URL("./taste-engine.mjs", import.meta.url);
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 
 export async function validateTasteEngineFreeze() {
   const frozen = JSON.parse(await readFile(freezeUrl, "utf8"));
   const actual = {
-    freezeVersion: "backyrd-taste-engine-freeze-v1",
+    freezeVersion: "backyrd-taste-engine-freeze-v1.1",
     versions: TASTE_ENGINE_VERSIONS,
     tasteSpaceHash: TASTE_SPACE_HASH,
     evidenceModelHash: EVIDENCE_MODEL_HASH,
