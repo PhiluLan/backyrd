@@ -1,0 +1,65 @@
+{
+  "contractVersion": "backyrd-spot-validation-contract-v1",
+  "seeds": [
+    4001,
+    4002,
+    4003
+  ],
+  "scenarioCount": 30,
+  "scenarioFailures": [],
+  "metrics": {
+    "factAccuracy": 1,
+    "provenanceCompleteness": 1,
+    "confidenceBrier": 0.0006490415789118675,
+    "ownerClaimIsolation": 1,
+    "freePremiumFairness": 1,
+    "contradictionHandling": 1,
+    "contextualIntelligence": 1,
+    "unknownCorrectness": 1,
+    "crossCitySchemaCompatibility": 1,
+    "securityContract": 1,
+    "n6SerializationIntegrity": 1,
+    "deterministicReplay": 1
+  },
+  "gateMatrix": {
+    "factAccuracy": true,
+    "provenanceCompleteness": true,
+    "confidenceCalibration": true,
+    "ownerClaimIsolation": true,
+    "freePremiumFairness": true,
+    "contradictionHandling": true,
+    "contextualIntelligence": true,
+    "unknownCorrectness": true,
+    "crossCitySchemaCompatibility": true,
+    "securityContract": true,
+    "n6SerializationIntegrity": true,
+    "deterministicReplay": true
+  },
+  "performancePass": true,
+  "contractHash": "69cdfab2de8014aa90826f086b793946bee8c040b14425e708ad52eaa4bc3b94",
+  "n4ContractHash": "053ce565c1a49679f17b4d562bacbda93b7ab5ddb8f9aa4359cd8eb4103e800a",
+  "performance": [
+    {
+      "count": 300,
+      "lookupP50Ms": 0.02850000000000108,
+      "lookupP95Ms": 0.03841700000000259,
+      "serializationP95Ms": 0.004708000000000823
+    },
+    {
+      "count": 1000,
+      "lookupP50Ms": 0.023583999999999605,
+      "lookupP95Ms": 0.03175000000000239,
+      "serializationP95Ms": 0.0022080000000030964
+    },
+    {
+      "count": 10000,
+      "lookupP50Ms": 0.020624999999995453,
+      "lookupP95Ms": 0.02445799999999565,
+      "serializationP95Ms": 0.0012920000000065102
+    }
+  ],
+  "allMandatoryGatesPass": true,
+  "scientificValidity": "PASS",
+  "production": "UNCHANGED",
+  "resultHash": "ecdc868fa4b931815443d3cac8ab875d9c869d5a616473ae62bdedc7f02dffa1"
+}

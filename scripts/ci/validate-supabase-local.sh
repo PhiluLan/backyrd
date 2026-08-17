@@ -182,6 +182,8 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/decision_n2_memory_user_intelligence.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/decision_n4_spot_intelligence.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/founder_control_center_v1.sql"
 
 lint_json="$validation_root/db-lint.json"
