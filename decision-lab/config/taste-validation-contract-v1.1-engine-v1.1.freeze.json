@@ -1,0 +1,9 @@
+{
+  "freezeVersion": "backyrd-taste-validation-freeze-v1.1-engine-v1.1",
+  "contractVersion": "backyrd-taste-validation-contract-v1.1",
+  "contractHash": "52cccacc7942975d1662a8bf88f1472cf259753da172d61d6682079a95de202d",
+  "validationRuntimeSourceHash": "254602f1e024d94ae8267618b45ecfdb576333f4941553460e34f68ba9f506a9",
+  "officialRunnerSourceHash": "4d3d7a890b15f5ef6d505da31a05eee870094998bcefb1f6cc993e916be8aec4",
+  "parentTasteEngineFreezeHash": "2a4a9e2f7353ad20d10073a00ccfb235778d64d5730f5e7771a4787f92a2116f",
+  "parentTasteEngineValid": true
+}

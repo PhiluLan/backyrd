@@ -154,5 +154,19 @@ test("scientific boundary rejects latent truth and runtime utility leakage", () 
 test("the versioned Taste Engine freeze validates without silent contract drift", async () => {
   const result = await validateTasteEngineFreeze();
   assert.equal(result.valid, true, result.reasons.join(","));
-  assert.equal(result.actual.freezeVersion, "backyrd-taste-engine-freeze-v1");
+  assert.equal(result.actual.freezeVersion, "backyrd-taste-engine-freeze-v1.1");
+});
+
+test("calibrated learning requires corroboration before strong affinity", () => {
+  const singleOutcome = buildUserTasteMap([event("one-outcome", "positive_post_visit", ["vibe.cozy"])], { asOf: AS_OF });
+  const repeatedWeak = buildUserTasteMap(Array.from({ length: 8 }, (_, index) => event(`weak-${index}`, "spot_tapped", ["vibe.cozy"], {
+    spotId: "same-spot", sessionId: "same-session"
+  })), { asOf: AS_OF });
+  const corroborated = buildUserTasteMap(Array.from({ length: 3 }, (_, index) => event(`strong-${index}`, "positive_post_visit", ["vibe.cozy"], {
+    spotId: `spot-${index}`, sessionId: `session-${index}`
+  })), { asOf: AS_OF });
+  const affinity = (map) => map.rows.find(({ concept, scope }) => concept === "vibe.cozy" && scope.kind === "GLOBAL").affinity;
+  assert.ok(Math.abs(affinity(singleOutcome)) < 0.15);
+  assert.ok(Math.abs(affinity(repeatedWeak)) < 0.15);
+  assert.ok(affinity(corroborated) > 0.15);
 });

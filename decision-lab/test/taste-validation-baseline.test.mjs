@@ -2,21 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { contentHash } from "../src/canonical-json.mjs";
-import { validateTasteEngineFreeze } from "../src/taste-engine-freeze.mjs";
-import { validateTasteValidationFreeze } from "../src/taste-validation-freeze.mjs";
 
 const artifact = JSON.parse(await readFile(new URL("../baselines/wave3b-taste-validation-v1.1.json", import.meta.url), "utf8"));
+const historicalEngineFreeze = JSON.parse(await readFile(new URL("../config/taste-engine-v1.freeze.json", import.meta.url), "utf8"));
+const historicalValidationFreeze = JSON.parse(await readFile(new URL("../config/taste-validation-contract-v1.1.freeze.json", import.meta.url), "utf8"));
 
 test("the official Wave 3B baseline is sealed, complete and bound to valid freezes", async () => {
   const sealed = structuredClone(artifact); delete sealed.resultHash;
   assert.equal(contentHash(sealed), artifact.resultHash);
   assert.equal(artifact.resultHash, "cde2ea2440116aacb644a220797f1ab937b39f02ed6e8bf27438e3a8bb3cdec2");
   assert.deepEqual(artifact.sample, { seeds: 3, archetypes: 10, checkpoints: 7, lifecycleEvaluations: 210, maxInformativeEvents: 200 });
-  const [engine, validation] = await Promise.all([validateTasteEngineFreeze(), validateTasteValidationFreeze()]);
-  assert.equal(engine.valid, true, engine.reasons.join(","));
-  assert.equal(validation.valid, true, validation.reasons.join(","));
-  assert.equal(artifact.parentTasteEngineFreezeHash, contentHash(engine.frozen));
-  assert.equal(artifact.validationFreezeHash, validation.freezeHash);
+  assert.equal(artifact.parentTasteEngineFreezeHash, contentHash(historicalEngineFreeze));
+  assert.equal(artifact.validationFreezeHash, contentHash(historicalValidationFreeze));
 });
 
 test("scientific controls hold and every prospective gate is present", () => {
