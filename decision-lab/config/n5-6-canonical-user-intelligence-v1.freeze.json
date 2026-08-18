@@ -1,0 +1,48 @@
+{
+  "freezeVersion": "backyrd-n5-6-canonical-user-intelligence-freeze-v1",
+  "frozenBeforeOfficialMeasurement": true,
+  "files": {
+    "engine": {
+      "path": "decision-lab/src/n5-6-canonical-user-intelligence.mjs",
+      "sha256": "6437dbf37ac26202ff4717aef5910c10b08611ce5d9b298eea6d1130b50a3020"
+    },
+    "projection": {
+      "path": "decision-lab/src/n5-6-signed-projection.mjs",
+      "sha256": "2e99da8db7a385923ba829abeb0d2f1ef924176ba49dd4ce4ef0620958d83c45"
+    },
+    "world": {
+      "path": "decision-lab/src/n5-6-world.mjs",
+      "sha256": "1b56c56efb983e92a0703e1f475ca8178e09455e568b314677c738eddea28033"
+    },
+    "histories": {
+      "path": "decision-lab/src/n5-6-product-like-histories.mjs",
+      "sha256": "f04078901d80148ee7c31f01748cbad30142244a6c02fd2912128c470cb5ad5e"
+    },
+    "validation": {
+      "path": "decision-lab/src/n5-6-validation.mjs",
+      "sha256": "fc768e67fb37937df7989dc20fd6724b91c6f3e0b2311e8e6db15ae0f88305ca"
+    },
+    "freezer": {
+      "path": "decision-lab/src/n5-6-freeze.mjs",
+      "sha256": "246b8f3930b4d74a67b5353efbe1e818cf18598d274cfb1daa8eab9cbbf8ab4e"
+    },
+    "test": {
+      "path": "decision-lab/test/n5-6-canonical-user-intelligence.test.mjs",
+      "sha256": "2575aeecf68144c936272f064fb3a01c54151b2b30e46853927ec2fded76c58a"
+    },
+    "contract": {
+      "path": "decision-lab/config/n5-6-validation-contract-v1.json",
+      "sha256": "d1bddd60cfe160e85be2f16f70b7cd63f508356a5a20dbcd831875d74b339772"
+    }
+  },
+  "contractHash": "6efe3381793cbe837be61b98323d8880188b126b0be06aa5130747d29c8fdc7b",
+  "n56ContractHash": "84ca75f94281932f1b31230abeed3804f141b9e68dfa3c5ef9a09e7214db18f8",
+  "worldHash": "73b1208ee5d80876935553f60d719d855bdb40b4c87f5aa6bd18fd1d3a516f34",
+  "resultHash": "32ee29c02602c0065c6399fed7e26b82435399928be8b134d41ac6206d116fdf",
+  "scientificValidity": "FAIL",
+  "humanReviewRequired": true,
+  "automaticN6Authorization": false,
+  "externalAiCalls": 0,
+  "production": "UNCHANGED",
+  "freezeHash": "b82e8082ab7887e10b8c8af1cd7bb96032d03b6fea605cd037438cd21462dfc8"
+}
