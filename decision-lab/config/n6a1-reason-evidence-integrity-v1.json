@@ -5,7 +5,7 @@
   "modelConfig": {
     "reasoningEffort": "medium",
     "maxOutputTokens": 2400,
-    "timeoutMs": 60000,
+    "timeoutMs": 120000,
     "temperature": "MODEL_DEFAULT"
   },
   "inputContractVersion": "backyrd-n6a1-ai-decision-input-v1",

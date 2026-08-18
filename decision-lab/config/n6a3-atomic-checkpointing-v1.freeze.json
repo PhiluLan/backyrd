@@ -1,5 +1,5 @@
 {
-  "freezeVersion": "backyrd-n6a3-atomic-checkpointing-freeze-v1",
+  "freezeVersion": "backyrd-n6a6-sol-transport-timeout-freeze-v1",
   "frozenBeforeNewPilot": true,
   "versions": {
     "manifest": "backyrd-n6a3-pilot-manifest-v1",
@@ -7,14 +7,15 @@
     "checkpoint": "backyrd-n6a3-slot-checkpoint-v1",
     "resume": "backyrd-n6a3-safe-resume-v1",
     "retry": "backyrd-n6a3-technical-retry-v1",
-    "costAccounting": "backyrd-n6a3-cost-accounting-v1"
+    "costAccounting": "backyrd-n6a3-cost-accounting-v1",
+    "secretScanner": "backyrd-n6a5-secret-scanner-v1"
   },
-  "protectedDecisionBuddyIdentityHash": "f92c9e79b0b6c0f556159588f0a6f98f33799e78f0c091333ac4a32025183472",
-  "engineSourceHash": "21460b82234903c47649eb6de5edd520ffefc7becfbf653c169499e477d5470e",
+  "protectedDecisionBuddyIdentityHash": "a37254a131df1f65d7d11feaa828e859f18d28bf0042d29bc7a46bee3dc74844",
+  "engineSourceHash": "3ffb4a51e12197e6b7156e12b5cdfaa3cd3474c7d2252a4f221a4ebf9bffffc6",
   "pilotContractSourceHash": "25f4701af2f801cdcb951a413a2968cfbce86487c21fd4284e7b0f3b96f9a61c",
   "runnerSourceHash": "b952cd7cfee4622709e4a9d839d442b164369c707143443b22c96f2a3bc13907",
-  "liveExecutorSourceHash": "36e7ebcd804ea665f6e50e60ee15cfef9eecf76091305c959230968c9570a56c",
-  "acceptanceTestHash": "f8790f9191e54dfcf19f43f7b59e8f8fcaf44545c7604aa72de599752b0481fc",
+  "liveExecutorSourceHash": "5f775b564d134d8ed1d4f79df7132bfa6e3ea43875e0f978118edf9816267afe",
+  "acceptanceTestHash": "10a5961438a52556ed5931723c38b7a8be26a4321da18626d9c43db14c00a64e",
   "configHash": "3b84598640b2ab7bb6886edbbf0898d5fc2fb901986f0e9efa7bda3ec2ae1c5d",
   "externalAiCalls": 0,
   "externalAiCostUsd": 0,
