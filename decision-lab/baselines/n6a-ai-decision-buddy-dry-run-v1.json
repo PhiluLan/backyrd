@@ -1,0 +1,38 @@
+{
+  "version": "backyrd-n6a-ai-decision-buddy-experiment-v1",
+  "stage": "DRY_RUN",
+  "externalAiCalls": 0,
+  "model": "gpt-5.6-sol",
+  "candidateCount": 10,
+  "estimates": {
+    "SMOKE": {
+      "stage": "SMOKE",
+      "requests": 5,
+      "maximumInputTokens": 60000,
+      "maximumOutputTokens": 12000,
+      "worstCaseCostUsd": 1.32
+    },
+    "PILOT": {
+      "stage": "PILOT",
+      "requests": 72,
+      "maximumInputTokens": 864000,
+      "maximumOutputTokens": 172800,
+      "worstCaseCostUsd": 19.008000000000003
+    },
+    "FULL": {
+      "stage": "FULL",
+      "requests": 378,
+      "maximumInputTokens": 4536000,
+      "maximumOutputTokens": 907200,
+      "worstCaseCostUsd": 99.792
+    }
+  },
+  "totalWorstCaseCostUsd": 120.12,
+  "configuredBudgetUsd": null,
+  "budgetStatus": "BLOCKED_BUDGET_REQUIRED",
+  "inputContractHash": "023ffc2472aaf992bb53e54442a37f7b007a3183f43789751df4518aac4d86fd",
+  "validationContractHash": "6fb05381a951d96138a18ba7ee625979895cc208004d659204f3ccd22d1c5a6b",
+  "secretMaterialPresent": false,
+  "production": "UNCHANGED",
+  "resultHash": "2f59b1da3e24b6e94a05e59bf9d4bbd95718e934851ae12dca07595c5949696c"
+}

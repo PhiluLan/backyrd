@@ -1,0 +1,36 @@
+{
+  "version": "backyrd-n6a3-atomic-checkpointing-v1",
+  "scope": "EXPERIMENT_EXECUTION_PERSISTENCE_RESUME_ONLY",
+  "manifestContractVersion": "backyrd-n6a3-pilot-manifest-v1",
+  "slotIdentityContractVersion": "backyrd-n6a3-slot-identity-v1",
+  "checkpointContractVersion": "backyrd-n6a3-slot-checkpoint-v1",
+  "resumeContractVersion": "backyrd-n6a3-safe-resume-v1",
+  "retryContractVersion": "backyrd-n6a3-technical-retry-v1",
+  "costAccountingContractVersion": "backyrd-n6a3-cost-accounting-v1",
+  "expectedPilotSlots": 72,
+  "technicalRetryPolicy": {
+    "maximumRetriesPerSlot": 1,
+    "retryableFailures": [
+      "API_FAILURE",
+      "TIMEOUT",
+      "ABORT",
+      "NETWORK_FAILURE"
+    ],
+    "validRejectedOutputRetryable": false
+  },
+  "aggregation": {
+    "requiredCommittedSlots": 72,
+    "requiredArms": ["ACTUAL", "NEUTRAL", "OPPOSING"],
+    "partialQualityVerdict": "PROHIBITED"
+  },
+  "scientificControls": {
+    "oldInterruptedPilotReusable": false,
+    "committedSlotsImmutable": true,
+    "resumeOnIdentityMismatch": "REFUSED",
+    "cacheIsCheckpoint": false,
+    "latentTruthRuntimeInput": false,
+    "productionAccess": "NONE"
+  },
+  "externalAiCalls": 0,
+  "externalAiCostUsd": 0
+}

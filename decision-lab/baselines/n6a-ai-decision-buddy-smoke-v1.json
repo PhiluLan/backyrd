@@ -1,0 +1,1693 @@
+{
+  "version": "backyrd-n6a-ai-decision-buddy-experiment-v1",
+  "stage": "SMOKE",
+  "status": "COMPLETE",
+  "model": "gpt-5.6-sol",
+  "requestCount": 5,
+  "candidateCount": 10,
+  "metrics": {
+    "byArm": {
+      "ACTUAL": {
+        "count": 2,
+        "ndcgAt10": 0.9936895628849317,
+        "top1Utility": 0.944,
+        "top3Utility": 0.6933333333333334,
+        "rankWeightedUtility": 0.588913697330985,
+        "buddyDirectionAlignment": 1
+      }
+    },
+    "personalizationLift": 0,
+    "matureUserLift": 0,
+    "coldStartDelta": 0,
+    "crossCityLift": 0,
+    "personalizationHarmRate": 0,
+    "fundamentalDirectionFailureRate": 0,
+    "confidenceCalibration": 0.781,
+    "currentIntentAuthority": 1,
+    "explanationEvidenceAlignment": 0,
+    "candidateParity": 1,
+    "treatmentParity": 1,
+    "premiumParity": 1,
+    "failureDecomposition": {
+      "INTEGRITY_FAILURE": 3,
+      "NONE": 2
+    },
+    "invalidOutputRate": 0.6,
+    "hallucinatedCandidateRate": 0,
+    "latency": {
+      "p50Ms": 28150.028667000006,
+      "p95Ms": 33621.202584000006,
+      "maxMs": 33621.202584000006
+    },
+    "usage": {
+      "inputTokens": 12978,
+      "outputTokens": 8067,
+      "costUsd": 0.6138
+    }
+  },
+  "proceed": false,
+  "gateMatrix": {
+    "integrity": false,
+    "hallucinations": true,
+    "latency": true
+  },
+  "spentBeforeStageUsd": 0,
+  "cumulativeSpentUsd": 0.6138,
+  "runs": [
+    {
+      "scenarioId": "6101-0",
+      "family": "COLD_START",
+      "arm": "ACTUAL",
+      "inputHash": "21ec14e22989bdfa482d7500c26e7262382ad2a120a97359fbc1c412af608c53",
+      "execution": "LIVE_CALL",
+      "validation": {
+        "valid": false,
+        "reason": "UNSUPPORTED_REASON_EVIDENCE"
+      },
+      "ranking": null,
+      "decisionConfidence": null,
+      "usage": {
+        "inputTokens": 2548,
+        "outputTokens": 1196
+      },
+      "costUsd": 0.09724000000000001,
+      "latencyMs": 21948.885833,
+      "responseHash": "f8335b0e18982671b6905a8a1a755baca3ae71b9291a91af0823ae2b2042c21f",
+      "flightRecorder": {
+        "version": "backyrd-n6a-flight-recorder-v1",
+        "inputHash": "21ec14e22989bdfa482d7500c26e7262382ad2a120a97359fbc1c412af608c53",
+        "currentIntent": {
+          "requestSummary": "current vibe.cozy decision",
+          "conceptDirections": [
+            {
+              "concept": "vibe.cozy",
+              "direction": 1
+            }
+          ],
+          "excludedPlaceTypes": []
+        },
+        "moment": {
+          "projectionHash": "432aad1a2e600d8fb59d214cb5aab5827283c87ce74a09597aec658201223695",
+          "confidence": 0.9,
+          "sufficiency": "HIGH"
+        },
+        "userProjection": {
+          "serializationHash": "fd273b62635819fa4c7d7a71793a8c7481bb309820d8a412b9863a5aa08e8c9c",
+          "sufficiency": {
+            "level": "LOW",
+            "score": 0.3
+          },
+          "uncertainties": [
+            "MINIMUM_NECESSARY_USER_KNOWLEDGE"
+          ]
+        },
+        "candidates": [
+          {
+            "spotId": "n6-6101-0-spot-0",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-0-spot-1",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-0-spot-2",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-0-spot-3",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-0-spot-4",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-0-spot-5",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-0-spot-6",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-0-spot-7",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-0-spot-8",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-0-spot-9",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          }
+        ],
+        "model": "gpt-5.6-sol",
+        "execution": "LIVE_CALL",
+        "validation": {
+          "valid": false,
+          "reason": "UNSUPPORTED_REASON_EVIDENCE"
+        },
+        "rankedOutput": null,
+        "decisionConfidence": null,
+        "failureClassification": "INTEGRITY_FAILURE",
+        "usage": {
+          "inputTokens": 2548,
+          "outputTokens": 1196
+        },
+        "latencyMs": 21948.885833,
+        "costUsd": 0.09724000000000001,
+        "secretMaterialPresent": false
+      }
+    },
+    {
+      "scenarioId": "6101-1",
+      "family": "EARLY_USER",
+      "arm": "ACTUAL",
+      "inputHash": "1fb020dd91556e888b944c1f9b26e886e7439e9fd0095e999b2c8f6062947ac7",
+      "execution": "LIVE_CALL",
+      "validation": {
+        "valid": true,
+        "ranked": [
+          {
+            "spot_id": "n6-6101-1-spot-0",
+            "rank": 1,
+            "buddy_fit": 0.88,
+            "confidence": 0.73,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CURRENT_INTENT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-3",
+            "rank": 2,
+            "buddy_fit": 0.86,
+            "confidence": 0.73,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CURRENT_INTENT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-9",
+            "rank": 3,
+            "buddy_fit": 0.71,
+            "confidence": 0.7,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CURRENT_MOMENT_MATCH",
+              "CONTEXTUAL_SPOT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-6",
+            "rank": 4,
+            "buddy_fit": 0.68,
+            "confidence": 0.69,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CURRENT_MOMENT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-1",
+            "rank": 5,
+            "buddy_fit": 0.54,
+            "confidence": 0.59,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-2",
+            "rank": 6,
+            "buddy_fit": 0.52,
+            "confidence": 0.62,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CONTEXTUAL_SPOT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-7",
+            "rank": 7,
+            "buddy_fit": 0.51,
+            "confidence": 0.62,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CONTEXTUAL_SPOT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-4",
+            "rank": 8,
+            "buddy_fit": 0.48,
+            "confidence": 0.57,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-8",
+            "rank": 9,
+            "buddy_fit": 0.46,
+            "confidence": 0.59,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CONTEXTUAL_SPOT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-5",
+            "rank": 10,
+            "buddy_fit": 0.36,
+            "confidence": 0.55,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          }
+        ]
+      },
+      "ranking": [
+        {
+          "spot_id": "n6-6101-1-spot-0",
+          "rank": 1,
+          "buddy_fit": 0.88,
+          "confidence": 0.73,
+          "why_for_you_reason_codes": [],
+          "why_now_reason_codes": [
+            "CURRENT_INTENT_MATCH",
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": [
+            "LOW_USER_KNOWLEDGE"
+          ]
+        },
+        {
+          "spot_id": "n6-6101-1-spot-3",
+          "rank": 2,
+          "buddy_fit": 0.86,
+          "confidence": 0.73,
+          "why_for_you_reason_codes": [],
+          "why_now_reason_codes": [
+            "CURRENT_INTENT_MATCH",
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": [
+            "LOW_USER_KNOWLEDGE"
+          ]
+        },
+        {
+          "spot_id": "n6-6101-1-spot-9",
+          "rank": 3,
+          "buddy_fit": 0.71,
+          "confidence": 0.7,
+          "why_for_you_reason_codes": [],
+          "why_now_reason_codes": [
+            "CURRENT_MOMENT_MATCH",
+            "CONTEXTUAL_SPOT_MATCH",
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": [
+            "LOW_USER_KNOWLEDGE"
+          ]
+        },
+        {
+          "spot_id": "n6-6101-1-spot-6",
+          "rank": 4,
+          "buddy_fit": 0.68,
+          "confidence": 0.69,
+          "why_for_you_reason_codes": [],
+          "why_now_reason_codes": [
+            "CURRENT_MOMENT_MATCH",
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": [
+            "LOW_USER_KNOWLEDGE"
+          ]
+        },
+        {
+          "spot_id": "n6-6101-1-spot-1",
+          "rank": 5,
+          "buddy_fit": 0.54,
+          "confidence": 0.59,
+          "why_for_you_reason_codes": [],
+          "why_now_reason_codes": [
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": [
+            "LOW_USER_KNOWLEDGE"
+          ]
+        },
+        {
+          "spot_id": "n6-6101-1-spot-2",
+          "rank": 6,
+          "buddy_fit": 0.52,
+          "confidence": 0.62,
+          "why_for_you_reason_codes": [],
+          "why_now_reason_codes": [
+            "CONTEXTUAL_SPOT_MATCH",
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": [
+            "LOW_USER_KNOWLEDGE"
+          ]
+        },
+        {
+          "spot_id": "n6-6101-1-spot-7",
+          "rank": 7,
+          "buddy_fit": 0.51,
+          "confidence": 0.62,
+          "why_for_you_reason_codes": [],
+          "why_now_reason_codes": [
+            "CONTEXTUAL_SPOT_MATCH",
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": [
+            "LOW_USER_KNOWLEDGE"
+          ]
+        },
+        {
+          "spot_id": "n6-6101-1-spot-4",
+          "rank": 8,
+          "buddy_fit": 0.48,
+          "confidence": 0.57,
+          "why_for_you_reason_codes": [],
+          "why_now_reason_codes": [
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": [
+            "LOW_USER_KNOWLEDGE"
+          ]
+        },
+        {
+          "spot_id": "n6-6101-1-spot-8",
+          "rank": 9,
+          "buddy_fit": 0.46,
+          "confidence": 0.59,
+          "why_for_you_reason_codes": [],
+          "why_now_reason_codes": [
+            "CONTEXTUAL_SPOT_MATCH",
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": [
+            "LOW_USER_KNOWLEDGE"
+          ]
+        },
+        {
+          "spot_id": "n6-6101-1-spot-5",
+          "rank": 10,
+          "buddy_fit": 0.36,
+          "confidence": 0.55,
+          "why_for_you_reason_codes": [],
+          "why_now_reason_codes": [
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": [
+            "LOW_USER_KNOWLEDGE"
+          ]
+        }
+      ],
+      "decisionConfidence": 0.68,
+      "usage": {
+        "inputTokens": 2554,
+        "outputTokens": 1649
+      },
+      "costUsd": 0.12448000000000001,
+      "latencyMs": 25489.553290999997,
+      "responseHash": "21b2e03753e3a814c1d600536dc8f9d79e688191a68ef08dc8d9d0ccb97744a3",
+      "flightRecorder": {
+        "version": "backyrd-n6a-flight-recorder-v1",
+        "inputHash": "1fb020dd91556e888b944c1f9b26e886e7439e9fd0095e999b2c8f6062947ac7",
+        "currentIntent": {
+          "requestSummary": "current character.authentic_character decision",
+          "conceptDirections": [
+            {
+              "concept": "character.authentic_character",
+              "direction": 1
+            }
+          ],
+          "excludedPlaceTypes": []
+        },
+        "moment": {
+          "projectionHash": "72ee84af5a321606f41ab9c8230421305c0fbb3a99b170e2016ce87141d95186",
+          "confidence": 0.9,
+          "sufficiency": "HIGH"
+        },
+        "userProjection": {
+          "serializationHash": "fd273b62635819fa4c7d7a71793a8c7481bb309820d8a412b9863a5aa08e8c9c",
+          "sufficiency": {
+            "level": "LOW",
+            "score": 0.3
+          },
+          "uncertainties": [
+            "MINIMUM_NECESSARY_USER_KNOWLEDGE"
+          ]
+        },
+        "candidates": [
+          {
+            "spotId": "n6-6101-1-spot-0",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-1-spot-1",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-1-spot-2",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-1-spot-3",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-1-spot-4",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-1-spot-5",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-1-spot-6",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-1-spot-7",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-1-spot-8",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-1-spot-9",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          }
+        ],
+        "model": "gpt-5.6-sol",
+        "execution": "LIVE_CALL",
+        "validation": {
+          "valid": true,
+          "ranked": [
+            {
+              "spot_id": "n6-6101-1-spot-0",
+              "rank": 1,
+              "buddy_fit": 0.88,
+              "confidence": 0.73,
+              "why_for_you_reason_codes": [],
+              "why_now_reason_codes": [
+                "CURRENT_INTENT_MATCH",
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": [
+                "LOW_USER_KNOWLEDGE"
+              ]
+            },
+            {
+              "spot_id": "n6-6101-1-spot-3",
+              "rank": 2,
+              "buddy_fit": 0.86,
+              "confidence": 0.73,
+              "why_for_you_reason_codes": [],
+              "why_now_reason_codes": [
+                "CURRENT_INTENT_MATCH",
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": [
+                "LOW_USER_KNOWLEDGE"
+              ]
+            },
+            {
+              "spot_id": "n6-6101-1-spot-9",
+              "rank": 3,
+              "buddy_fit": 0.71,
+              "confidence": 0.7,
+              "why_for_you_reason_codes": [],
+              "why_now_reason_codes": [
+                "CURRENT_MOMENT_MATCH",
+                "CONTEXTUAL_SPOT_MATCH",
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": [
+                "LOW_USER_KNOWLEDGE"
+              ]
+            },
+            {
+              "spot_id": "n6-6101-1-spot-6",
+              "rank": 4,
+              "buddy_fit": 0.68,
+              "confidence": 0.69,
+              "why_for_you_reason_codes": [],
+              "why_now_reason_codes": [
+                "CURRENT_MOMENT_MATCH",
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": [
+                "LOW_USER_KNOWLEDGE"
+              ]
+            },
+            {
+              "spot_id": "n6-6101-1-spot-1",
+              "rank": 5,
+              "buddy_fit": 0.54,
+              "confidence": 0.59,
+              "why_for_you_reason_codes": [],
+              "why_now_reason_codes": [
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": [
+                "LOW_USER_KNOWLEDGE"
+              ]
+            },
+            {
+              "spot_id": "n6-6101-1-spot-2",
+              "rank": 6,
+              "buddy_fit": 0.52,
+              "confidence": 0.62,
+              "why_for_you_reason_codes": [],
+              "why_now_reason_codes": [
+                "CONTEXTUAL_SPOT_MATCH",
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": [
+                "LOW_USER_KNOWLEDGE"
+              ]
+            },
+            {
+              "spot_id": "n6-6101-1-spot-7",
+              "rank": 7,
+              "buddy_fit": 0.51,
+              "confidence": 0.62,
+              "why_for_you_reason_codes": [],
+              "why_now_reason_codes": [
+                "CONTEXTUAL_SPOT_MATCH",
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": [
+                "LOW_USER_KNOWLEDGE"
+              ]
+            },
+            {
+              "spot_id": "n6-6101-1-spot-4",
+              "rank": 8,
+              "buddy_fit": 0.48,
+              "confidence": 0.57,
+              "why_for_you_reason_codes": [],
+              "why_now_reason_codes": [
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": [
+                "LOW_USER_KNOWLEDGE"
+              ]
+            },
+            {
+              "spot_id": "n6-6101-1-spot-8",
+              "rank": 9,
+              "buddy_fit": 0.46,
+              "confidence": 0.59,
+              "why_for_you_reason_codes": [],
+              "why_now_reason_codes": [
+                "CONTEXTUAL_SPOT_MATCH",
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": [
+                "LOW_USER_KNOWLEDGE"
+              ]
+            },
+            {
+              "spot_id": "n6-6101-1-spot-5",
+              "rank": 10,
+              "buddy_fit": 0.36,
+              "confidence": 0.55,
+              "why_for_you_reason_codes": [],
+              "why_now_reason_codes": [
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": [
+                "LOW_USER_KNOWLEDGE"
+              ]
+            }
+          ]
+        },
+        "rankedOutput": [
+          {
+            "spot_id": "n6-6101-1-spot-0",
+            "rank": 1,
+            "buddy_fit": 0.88,
+            "confidence": 0.73,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CURRENT_INTENT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-3",
+            "rank": 2,
+            "buddy_fit": 0.86,
+            "confidence": 0.73,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CURRENT_INTENT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-9",
+            "rank": 3,
+            "buddy_fit": 0.71,
+            "confidence": 0.7,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CURRENT_MOMENT_MATCH",
+              "CONTEXTUAL_SPOT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-6",
+            "rank": 4,
+            "buddy_fit": 0.68,
+            "confidence": 0.69,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CURRENT_MOMENT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-1",
+            "rank": 5,
+            "buddy_fit": 0.54,
+            "confidence": 0.59,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-2",
+            "rank": 6,
+            "buddy_fit": 0.52,
+            "confidence": 0.62,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CONTEXTUAL_SPOT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-7",
+            "rank": 7,
+            "buddy_fit": 0.51,
+            "confidence": 0.62,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CONTEXTUAL_SPOT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-4",
+            "rank": 8,
+            "buddy_fit": 0.48,
+            "confidence": 0.57,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-8",
+            "rank": 9,
+            "buddy_fit": 0.46,
+            "confidence": 0.59,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CONTEXTUAL_SPOT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-5",
+            "rank": 10,
+            "buddy_fit": 0.36,
+            "confidence": 0.55,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": [
+              "LOW_USER_KNOWLEDGE"
+            ]
+          }
+        ],
+        "decisionConfidence": 0.68,
+        "failureClassification": "NONE",
+        "usage": {
+          "inputTokens": 2554,
+          "outputTokens": 1649
+        },
+        "latencyMs": 25489.553290999997,
+        "costUsd": 0.12448000000000001,
+        "secretMaterialPresent": false
+      }
+    },
+    {
+      "scenarioId": "6101-2",
+      "family": "MATURE_USER",
+      "arm": "ACTUAL",
+      "inputHash": "e70eb96e8128ad817378e0e0e52b42e31a82f2c65a50ff55518089782afc2320",
+      "execution": "LIVE_CALL",
+      "validation": {
+        "valid": false,
+        "reason": "UNSUPPORTED_REASON_EVIDENCE"
+      },
+      "ranking": null,
+      "decisionConfidence": null,
+      "usage": {
+        "inputTokens": 2629,
+        "outputTokens": 1769
+      },
+      "costUsd": 0.13243,
+      "latencyMs": 33621.202584000006,
+      "responseHash": "97daa42a749ca16b48f31889cc7344bf1e27a51f7009cc48186f01e1691c6ba8",
+      "flightRecorder": {
+        "version": "backyrd-n6a-flight-recorder-v1",
+        "inputHash": "e70eb96e8128ad817378e0e0e52b42e31a82f2c65a50ff55518089782afc2320",
+        "currentIntent": {
+          "requestSummary": "current discovery.hidden_gem decision",
+          "conceptDirections": [
+            {
+              "concept": "discovery.hidden_gem",
+              "direction": 1
+            }
+          ],
+          "excludedPlaceTypes": []
+        },
+        "moment": {
+          "projectionHash": "fbf821d57b05522846ce5f174117c70e67c4790fd41712c7f6764e01089d01a3",
+          "confidence": 0.9,
+          "sufficiency": "HIGH"
+        },
+        "userProjection": {
+          "serializationHash": "5229b4131b49ce2789ba5dc86d9893e63abb95905c833a35bb783b7e7da7baf5",
+          "sufficiency": {
+            "level": "HIGH",
+            "score": 0.85
+          },
+          "uncertainties": []
+        },
+        "candidates": [
+          {
+            "spotId": "n6-6101-2-spot-0",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-2-spot-1",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-2-spot-2",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-2-spot-3",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-2-spot-4",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-2-spot-5",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-2-spot-6",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-2-spot-7",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-2-spot-8",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-2-spot-9",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          }
+        ],
+        "model": "gpt-5.6-sol",
+        "execution": "LIVE_CALL",
+        "validation": {
+          "valid": false,
+          "reason": "UNSUPPORTED_REASON_EVIDENCE"
+        },
+        "rankedOutput": null,
+        "decisionConfidence": null,
+        "failureClassification": "INTEGRITY_FAILURE",
+        "usage": {
+          "inputTokens": 2629,
+          "outputTokens": 1769
+        },
+        "latencyMs": 33621.202584000006,
+        "costUsd": 0.13243,
+        "secretMaterialPresent": false
+      }
+    },
+    {
+      "scenarioId": "6101-3",
+      "family": "POWER_USER",
+      "arm": "ACTUAL",
+      "inputHash": "3d154b7cafce9fdc30a84942737022933fcb28690b8495e6f66f12c7e482be0c",
+      "execution": "LIVE_CALL",
+      "validation": {
+        "valid": false,
+        "reason": "UNSUPPORTED_REASON_EVIDENCE"
+      },
+      "ranking": null,
+      "decisionConfidence": null,
+      "usage": {
+        "inputTokens": 2621,
+        "outputTokens": 1733
+      },
+      "costUsd": 0.13019,
+      "latencyMs": 28150.028667000006,
+      "responseHash": "2347d03a30bccd901cf166e1dac3b7ce0c84e746678fdc0a81e0419ccde9bc96",
+      "flightRecorder": {
+        "version": "backyrd-n6a-flight-recorder-v1",
+        "inputHash": "3d154b7cafce9fdc30a84942737022933fcb28690b8495e6f66f12c7e482be0c",
+        "currentIntent": {
+          "requestSummary": "current character.design_led decision",
+          "conceptDirections": [
+            {
+              "concept": "character.design_led",
+              "direction": 1
+            }
+          ],
+          "excludedPlaceTypes": []
+        },
+        "moment": {
+          "projectionHash": "eace2f0cabfaf24bd5df3a15fd9c55a6c27428d38a28b8687212d2afbc37fea4",
+          "confidence": 0.9,
+          "sufficiency": "HIGH"
+        },
+        "userProjection": {
+          "serializationHash": "a18b6dfd87eb96a204dd7951126a4bf2d756f633e0cab565635f839140c03642",
+          "sufficiency": {
+            "level": "HIGH",
+            "score": 0.85
+          },
+          "uncertainties": []
+        },
+        "candidates": [
+          {
+            "spotId": "n6-6101-3-spot-0",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-3-spot-1",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-3-spot-2",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-3-spot-3",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-3-spot-4",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-3-spot-5",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-3-spot-6",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-3-spot-7",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-3-spot-8",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-3-spot-9",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          }
+        ],
+        "model": "gpt-5.6-sol",
+        "execution": "LIVE_CALL",
+        "validation": {
+          "valid": false,
+          "reason": "UNSUPPORTED_REASON_EVIDENCE"
+        },
+        "rankedOutput": null,
+        "decisionConfidence": null,
+        "failureClassification": "INTEGRITY_FAILURE",
+        "usage": {
+          "inputTokens": 2621,
+          "outputTokens": 1733
+        },
+        "latencyMs": 28150.028667000006,
+        "costUsd": 0.13019,
+        "secretMaterialPresent": false
+      }
+    },
+    {
+      "scenarioId": "6101-4",
+      "family": "SAME_USER_DIFFERENT_MOMENT",
+      "arm": "ACTUAL",
+      "inputHash": "67c05a3a82192f46bbd197b02df4783de8a6a3a0d36fb97fed10d1c7df82010f",
+      "execution": "LIVE_CALL",
+      "validation": {
+        "valid": true,
+        "ranked": [
+          {
+            "spot_id": "n6-6101-4-spot-4",
+            "rank": 1,
+            "buddy_fit": 0.93,
+            "confidence": 0.84,
+            "why_for_you_reason_codes": [
+              "USER_TASTE_MATCH",
+              "OCCASION_PATTERN_MATCH"
+            ],
+            "why_now_reason_codes": [
+              "CURRENT_INTENT_MATCH",
+              "CONTEXTUAL_SPOT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-3",
+            "rank": 2,
+            "buddy_fit": 0.88,
+            "confidence": 0.82,
+            "why_for_you_reason_codes": [
+              "USER_TASTE_MATCH"
+            ],
+            "why_now_reason_codes": [
+              "CURRENT_INTENT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-6",
+            "rank": 3,
+            "buddy_fit": 0.72,
+            "confidence": 0.72,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CURRENT_MOMENT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-5",
+            "rank": 4,
+            "buddy_fit": 0.7,
+            "confidence": 0.71,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CURRENT_MOMENT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-1",
+            "rank": 5,
+            "buddy_fit": 0.65,
+            "confidence": 0.68,
+            "why_for_you_reason_codes": [
+              "OCCASION_PATTERN_MATCH"
+            ],
+            "why_now_reason_codes": [
+              "CONTEXTUAL_SPOT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-8",
+            "rank": 6,
+            "buddy_fit": 0.58,
+            "confidence": 0.55,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-0",
+            "rank": 7,
+            "buddy_fit": 0.54,
+            "confidence": 0.52,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-2",
+            "rank": 8,
+            "buddy_fit": 0.5,
+            "confidence": 0.5,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-9",
+            "rank": 9,
+            "buddy_fit": 0.48,
+            "confidence": 0.47,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-7",
+            "rank": 10,
+            "buddy_fit": 0.45,
+            "confidence": 0.46,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          }
+        ]
+      },
+      "ranking": [
+        {
+          "spot_id": "n6-6101-4-spot-4",
+          "rank": 1,
+          "buddy_fit": 0.93,
+          "confidence": 0.84,
+          "why_for_you_reason_codes": [
+            "USER_TASTE_MATCH",
+            "OCCASION_PATTERN_MATCH"
+          ],
+          "why_now_reason_codes": [
+            "CURRENT_INTENT_MATCH",
+            "CONTEXTUAL_SPOT_MATCH",
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": []
+        },
+        {
+          "spot_id": "n6-6101-4-spot-3",
+          "rank": 2,
+          "buddy_fit": 0.88,
+          "confidence": 0.82,
+          "why_for_you_reason_codes": [
+            "USER_TASTE_MATCH"
+          ],
+          "why_now_reason_codes": [
+            "CURRENT_INTENT_MATCH",
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": []
+        },
+        {
+          "spot_id": "n6-6101-4-spot-6",
+          "rank": 3,
+          "buddy_fit": 0.72,
+          "confidence": 0.72,
+          "why_for_you_reason_codes": [],
+          "why_now_reason_codes": [
+            "CURRENT_MOMENT_MATCH",
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": []
+        },
+        {
+          "spot_id": "n6-6101-4-spot-5",
+          "rank": 4,
+          "buddy_fit": 0.7,
+          "confidence": 0.71,
+          "why_for_you_reason_codes": [],
+          "why_now_reason_codes": [
+            "CURRENT_MOMENT_MATCH",
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": []
+        },
+        {
+          "spot_id": "n6-6101-4-spot-1",
+          "rank": 5,
+          "buddy_fit": 0.65,
+          "confidence": 0.68,
+          "why_for_you_reason_codes": [
+            "OCCASION_PATTERN_MATCH"
+          ],
+          "why_now_reason_codes": [
+            "CONTEXTUAL_SPOT_MATCH",
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": []
+        },
+        {
+          "spot_id": "n6-6101-4-spot-8",
+          "rank": 6,
+          "buddy_fit": 0.58,
+          "confidence": 0.55,
+          "why_for_you_reason_codes": [],
+          "why_now_reason_codes": [
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": []
+        },
+        {
+          "spot_id": "n6-6101-4-spot-0",
+          "rank": 7,
+          "buddy_fit": 0.54,
+          "confidence": 0.52,
+          "why_for_you_reason_codes": [],
+          "why_now_reason_codes": [
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": []
+        },
+        {
+          "spot_id": "n6-6101-4-spot-2",
+          "rank": 8,
+          "buddy_fit": 0.5,
+          "confidence": 0.5,
+          "why_for_you_reason_codes": [],
+          "why_now_reason_codes": [
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": []
+        },
+        {
+          "spot_id": "n6-6101-4-spot-9",
+          "rank": 9,
+          "buddy_fit": 0.48,
+          "confidence": 0.47,
+          "why_for_you_reason_codes": [],
+          "why_now_reason_codes": [
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": []
+        },
+        {
+          "spot_id": "n6-6101-4-spot-7",
+          "rank": 10,
+          "buddy_fit": 0.45,
+          "confidence": 0.46,
+          "why_for_you_reason_codes": [],
+          "why_now_reason_codes": [
+            "PRACTICAL_FIT"
+          ],
+          "uncertainty_codes": []
+        }
+      ],
+      "decisionConfidence": 0.77,
+      "usage": {
+        "inputTokens": 2626,
+        "outputTokens": 1720
+      },
+      "costUsd": 0.12946,
+      "latencyMs": 28774.360958000005,
+      "responseHash": "ac52efe412b80a68907e067f458833ed714e703f907dea6ccc30b09144a3a968",
+      "flightRecorder": {
+        "version": "backyrd-n6a-flight-recorder-v1",
+        "inputHash": "67c05a3a82192f46bbd197b02df4783de8a6a3a0d36fb97fed10d1c7df82010f",
+        "currentIntent": {
+          "requestSummary": "current social_style.family_friendly decision",
+          "conceptDirections": [
+            {
+              "concept": "social_style.family_friendly",
+              "direction": 1
+            }
+          ],
+          "excludedPlaceTypes": []
+        },
+        "moment": {
+          "projectionHash": "f9c0b6e0989bcb664838539ac271253be53197f64ab8508df29af2ea18ec6dd0",
+          "confidence": 0.9,
+          "sufficiency": "HIGH"
+        },
+        "userProjection": {
+          "serializationHash": "76adf76997766a4d46c11733749d2f74362f030ed4565ae26572a64f488efd71",
+          "sufficiency": {
+            "level": "HIGH",
+            "score": 0.85
+          },
+          "uncertainties": []
+        },
+        "candidates": [
+          {
+            "spotId": "n6-6101-4-spot-0",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-4-spot-1",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-4-spot-2",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-4-spot-3",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-4-spot-4",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-4-spot-5",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-4-spot-6",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-4-spot-7",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-4-spot-8",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          },
+          {
+            "spotId": "n6-6101-4-spot-9",
+            "intelligenceConfidence": 0.74,
+            "evidenceSufficiency": "RICH"
+          }
+        ],
+        "model": "gpt-5.6-sol",
+        "execution": "LIVE_CALL",
+        "validation": {
+          "valid": true,
+          "ranked": [
+            {
+              "spot_id": "n6-6101-4-spot-4",
+              "rank": 1,
+              "buddy_fit": 0.93,
+              "confidence": 0.84,
+              "why_for_you_reason_codes": [
+                "USER_TASTE_MATCH",
+                "OCCASION_PATTERN_MATCH"
+              ],
+              "why_now_reason_codes": [
+                "CURRENT_INTENT_MATCH",
+                "CONTEXTUAL_SPOT_MATCH",
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": []
+            },
+            {
+              "spot_id": "n6-6101-4-spot-3",
+              "rank": 2,
+              "buddy_fit": 0.88,
+              "confidence": 0.82,
+              "why_for_you_reason_codes": [
+                "USER_TASTE_MATCH"
+              ],
+              "why_now_reason_codes": [
+                "CURRENT_INTENT_MATCH",
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": []
+            },
+            {
+              "spot_id": "n6-6101-4-spot-6",
+              "rank": 3,
+              "buddy_fit": 0.72,
+              "confidence": 0.72,
+              "why_for_you_reason_codes": [],
+              "why_now_reason_codes": [
+                "CURRENT_MOMENT_MATCH",
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": []
+            },
+            {
+              "spot_id": "n6-6101-4-spot-5",
+              "rank": 4,
+              "buddy_fit": 0.7,
+              "confidence": 0.71,
+              "why_for_you_reason_codes": [],
+              "why_now_reason_codes": [
+                "CURRENT_MOMENT_MATCH",
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": []
+            },
+            {
+              "spot_id": "n6-6101-4-spot-1",
+              "rank": 5,
+              "buddy_fit": 0.65,
+              "confidence": 0.68,
+              "why_for_you_reason_codes": [
+                "OCCASION_PATTERN_MATCH"
+              ],
+              "why_now_reason_codes": [
+                "CONTEXTUAL_SPOT_MATCH",
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": []
+            },
+            {
+              "spot_id": "n6-6101-4-spot-8",
+              "rank": 6,
+              "buddy_fit": 0.58,
+              "confidence": 0.55,
+              "why_for_you_reason_codes": [],
+              "why_now_reason_codes": [
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": []
+            },
+            {
+              "spot_id": "n6-6101-4-spot-0",
+              "rank": 7,
+              "buddy_fit": 0.54,
+              "confidence": 0.52,
+              "why_for_you_reason_codes": [],
+              "why_now_reason_codes": [
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": []
+            },
+            {
+              "spot_id": "n6-6101-4-spot-2",
+              "rank": 8,
+              "buddy_fit": 0.5,
+              "confidence": 0.5,
+              "why_for_you_reason_codes": [],
+              "why_now_reason_codes": [
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": []
+            },
+            {
+              "spot_id": "n6-6101-4-spot-9",
+              "rank": 9,
+              "buddy_fit": 0.48,
+              "confidence": 0.47,
+              "why_for_you_reason_codes": [],
+              "why_now_reason_codes": [
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": []
+            },
+            {
+              "spot_id": "n6-6101-4-spot-7",
+              "rank": 10,
+              "buddy_fit": 0.45,
+              "confidence": 0.46,
+              "why_for_you_reason_codes": [],
+              "why_now_reason_codes": [
+                "PRACTICAL_FIT"
+              ],
+              "uncertainty_codes": []
+            }
+          ]
+        },
+        "rankedOutput": [
+          {
+            "spot_id": "n6-6101-4-spot-4",
+            "rank": 1,
+            "buddy_fit": 0.93,
+            "confidence": 0.84,
+            "why_for_you_reason_codes": [
+              "USER_TASTE_MATCH",
+              "OCCASION_PATTERN_MATCH"
+            ],
+            "why_now_reason_codes": [
+              "CURRENT_INTENT_MATCH",
+              "CONTEXTUAL_SPOT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-3",
+            "rank": 2,
+            "buddy_fit": 0.88,
+            "confidence": 0.82,
+            "why_for_you_reason_codes": [
+              "USER_TASTE_MATCH"
+            ],
+            "why_now_reason_codes": [
+              "CURRENT_INTENT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-6",
+            "rank": 3,
+            "buddy_fit": 0.72,
+            "confidence": 0.72,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CURRENT_MOMENT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-5",
+            "rank": 4,
+            "buddy_fit": 0.7,
+            "confidence": 0.71,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "CURRENT_MOMENT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-1",
+            "rank": 5,
+            "buddy_fit": 0.65,
+            "confidence": 0.68,
+            "why_for_you_reason_codes": [
+              "OCCASION_PATTERN_MATCH"
+            ],
+            "why_now_reason_codes": [
+              "CONTEXTUAL_SPOT_MATCH",
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-8",
+            "rank": 6,
+            "buddy_fit": 0.58,
+            "confidence": 0.55,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-0",
+            "rank": 7,
+            "buddy_fit": 0.54,
+            "confidence": 0.52,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-2",
+            "rank": 8,
+            "buddy_fit": 0.5,
+            "confidence": 0.5,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-9",
+            "rank": 9,
+            "buddy_fit": 0.48,
+            "confidence": 0.47,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-7",
+            "rank": 10,
+            "buddy_fit": 0.45,
+            "confidence": 0.46,
+            "why_for_you_reason_codes": [],
+            "why_now_reason_codes": [
+              "PRACTICAL_FIT"
+            ],
+            "uncertainty_codes": []
+          }
+        ],
+        "decisionConfidence": 0.77,
+        "failureClassification": "NONE",
+        "usage": {
+          "inputTokens": 2626,
+          "outputTokens": 1720
+        },
+        "latencyMs": 28774.360958000005,
+        "costUsd": 0.12946,
+        "secretMaterialPresent": false
+      }
+    }
+  ],
+  "validationContractHash": "6fb05381a951d96138a18ba7ee625979895cc208004d659204f3ccd22d1c5a6b",
+  "scientificValidity": "FAIL",
+  "production": "UNCHANGED",
+  "resultHash": "f6bf5ba74f92b87ca2022a1e972a9b151c11efdd05b7f0ac88e508016929bfac"
+}

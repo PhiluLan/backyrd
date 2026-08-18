@@ -176,6 +176,7 @@ full_schema.sql
 decision-lab/.generated/
 decision-lab/exports/
 decision-lab/.runtime/
+decision-lab/.ai-cache/
 
 # Local one-off files
 index.html
