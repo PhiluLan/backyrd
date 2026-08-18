@@ -1,0 +1,15 @@
+{
+  "freezeVersion": "backyrd-n5-5-longitudinal-user-world-freeze-v1",
+  "frozenBeforeOfficialRun": true,
+  "worldVersion": "backyrd-n5-5-longitudinal-user-world-v1",
+  "worldSourceHash": "9584ee132a4452c9d1e1ff00d9eb5cc1f3678faf4c0a1a73e19d487c5f8c8bd0",
+  "validationSourceHash": "0c6db8103dc6648a893181855126a6d3987611ee7f508c1376b88b168cec0ac8",
+  "acceptanceTestHash": "d95ea03430169ed33340c33ab91f2661293777602a177035f1f69678f7df9aee",
+  "validationContractHash": "b3834651bbbd9a354437cab1c5709c921ea57f4bb42b97f6760bd2faa95ad020",
+  "sealedResultFileHash": "0ae443c1ecff0ab62b922658ba9832fa7bb29182bb274db1d1f862caf61bc954",
+  "n2MemoryContractHash": "0294d85141e4ee40545591d6ec68372b0558762f35b9b9a12e521b35ebe84b9d",
+  "n3ContractHash": "291a36edf3d3608f534879c2a4914c82c43725af779406296c8c3a2d40eb46e9",
+  "n5ContractHash": "1a2b39de24132937db719a9a4290ee25d89824e9eda51e8273096d801cfd7420",
+  "officialResultHash": "8a8171c59d3f88bb6c2191048931bedba6d2ed11c28e793f46311b8e91d4b7bd",
+  "sealedArtifactHash": "4ce947fad119c43badf771fbb86fdfc043700575dac75bd66bc103e44ed0e1ed"
+}
