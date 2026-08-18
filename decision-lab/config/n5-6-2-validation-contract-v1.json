@@ -1,0 +1,92 @@
+{
+  "version": "backyrd-n5-6-2-validation-contract-v1",
+  "frozenBeforeOfficialMeasurement": true,
+  "seeds": [56201, 56202, 56203],
+  "world": {
+    "minimumUsers": 12,
+    "minimumLongTermUsers": 8,
+    "minimumNorthStarSpanDays": 1000,
+    "minimumNorthStarEvents": 400,
+    "minimumSessionTypes": 6,
+    "minimumPlaceTypes": 6,
+    "minimumAudiences": 5,
+    "minimumDriftUsers": 4,
+    "missingOutcomeRate": { "minimum": 0.38, "maximum": 0.75 },
+    "minimumImplicitEvidenceRate": 0.65,
+    "minimumNoiseRate": 0.03,
+    "minimumCompromiseRate": 0.03,
+    "minimumLogisticsRate": 0.05,
+    "minimumTravelRate": 0.02,
+    "maximumExactSpotBundleShare": 0.18,
+    "maximumConceptPairConditionalRate": 0.93,
+    "minimumLongTermContradictionRate": 0.7,
+    "minimumUnknownSpaceRate": 0.25
+  },
+  "learningGates": {
+    "signedPreferencePrecision": 0.82,
+    "signedPreferenceRecall": 0.5,
+    "negativePreferencePrecision": 0.78,
+    "negativePreferenceRecall": 0.45,
+    "falsePreferenceControl": 0.82,
+    "contextAccuracy": 0.72,
+    "placeTypeAccuracy": 0.72,
+    "unknownHonesty": 0.88,
+    "highConfidenceErrorControl": 0.97,
+    "confidenceCalibrationScore": 0.72,
+    "contradictionRobustness": 0.7,
+    "driftAdaptation": 0.55,
+    "noiseResistance": 0.95,
+    "exposureBiasControl": 0.98,
+    "sessionIndependence": 1,
+    "conceptAttribution": 0.78,
+    "learnableTruthAccuracy": 0.78,
+    "incrementalFullEquivalence": 1
+  },
+  "confidenceRealism": {
+    "highConfidenceThreshold": 0.8,
+    "nearMaximumThreshold": 0.99,
+    "maximumNearMaximumShare": 0.2,
+    "minimumInterquartileRange": 0.08
+  },
+  "longitudinalGates": {
+    "coldSparsity": 1,
+    "earlyConservatism": 1,
+    "developingPartialKnowledge": 0.75,
+    "evidenceBasedMaturity": 1,
+    "knowledgeGapsAtDepth": 1,
+    "temporaryPhaseResilience": 0.75
+  },
+  "projectionGates": {
+    "contextLeakageControl": 1,
+    "placeTypeLeakageControl": 1,
+    "currentIntentAuthority": 1,
+    "profileDumpControl": 0.9,
+    "broadMomentUncertainty": 1,
+    "unsupportedContextHonesty": 0.9,
+    "crossCityPortability": 1,
+    "sameUserDifferentMoment": 0.2,
+    "differentUsersSameMoment": 0.3,
+    "coldDevelopingCalibration": 0.9
+  },
+  "multiSeed": {
+    "maximumMandatoryMetricSpread": 0.18,
+    "minimumStableMetricShare": 0.9
+  },
+  "futureN6": {
+    "minimumScenarios": 36,
+    "minimumHighOpportunity": 10,
+    "minimumLowOpportunity": 6,
+    "automaticAuthorization": false
+  },
+  "stopConditions": [
+    "engine_contract_hash_changed",
+    "projection_contract_hash_changed",
+    "latent_truth_runtime_leakage",
+    "invalid_product_event",
+    "learnable_truth_depends_on_engine_output",
+    "incremental_full_rebuild_divergence",
+    "post_freeze_threshold_change"
+  ],
+  "externalDecisionAiCalls": 0,
+  "production": "UNCHANGED"
+}

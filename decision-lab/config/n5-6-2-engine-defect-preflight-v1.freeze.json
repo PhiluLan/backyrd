@@ -1,0 +1,46 @@
+{
+  "freezeVersion": "backyrd-n5-6-2-engine-defect-preflight-freeze-v1",
+  "identityType": "PREFLIGHT_STOP_EVIDENCE_NOT_OFFICIAL_WORLD_FREEZE",
+  "files": {
+    "world": {
+      "path": "decision-lab/src/n5-6-2-realistic-user-world.mjs",
+      "sha256": "e8ac0e0b3f8b62cf49fd1ac9d7a78f035a0dc33644b94951bd3be94ce4534884"
+    },
+    "evaluator": {
+      "path": "decision-lab/src/n5-6-2-evaluator.mjs",
+      "sha256": "4d06a5d6af75ad88ff6ee6acdfbad2140f60646113d21e87fac10611026e6f02"
+    },
+    "preflight": {
+      "path": "decision-lab/src/n5-6-2-engine-preflight.mjs",
+      "sha256": "3c6fc0d5f78c79ab43d43185ba07ca3a56ae9d5dc71ee256ea50071e6dd2e893"
+    },
+    "freezer": {
+      "path": "decision-lab/src/n5-6-2-preflight-freeze.mjs",
+      "sha256": "78615efd106ec17f54f066fb564e25f3f2a856b78212ec92af3d918e2a8ad00c"
+    },
+    "test": {
+      "path": "decision-lab/test/n5-6-2-realistic-user-world.test.mjs",
+      "sha256": "95ff3e589677cc5e10cd703b65a83f36d96dc76eb9af127ab5b7f342265640b5"
+    },
+    "contract": {
+      "path": "decision-lab/config/n5-6-2-validation-contract-v1.json",
+      "sha256": "62e4b27790c7b7179bb53649146a054ada5fd0e2dcb456d8de0821dbf85eb7d6"
+    }
+  },
+  "contractHash": "91a67e533e30f19770662337042f6098addee3fbc751a015c9354cdec48122d1",
+  "engineContractHash": "84ca75f94281932f1b31230abeed3804f141b9e68dfa3c5ef9a09e7214db18f8",
+  "projectionContractHash": "e96c1b87ada27b5006445a5302564ba1126951320b8fd002399b23bd347b8cf8",
+  "worldHashes": [
+    "507e496da5a5ce56209a62f3042a43d229f20a0bfa372f95559125b4b53362c7",
+    "aced69c4ab94455b0adb2e1363327991cb368f5d342e4c175414aff1a6197349",
+    "93561f7a307e85dc3e5ce96fc2f86da369df1fa6fcb274c5aae245636509e0d9"
+  ],
+  "defectId": "N5.6.2-ED-001",
+  "defectProven": true,
+  "resultHash": "6cb23e5e82dca9f4c98a7d496086693646eac555ef60320131a173c57e46f39b",
+  "officialMeasurementStarted": false,
+  "officialQualityVerdictProduced": false,
+  "externalDecisionAiCalls": 0,
+  "production": "UNCHANGED",
+  "freezeHash": "8ffe86ad28ccdc5aabb138565821d5d9473d16f114c3507db4743c6bf95fd381"
+}
