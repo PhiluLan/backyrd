@@ -1,0 +1,42 @@
+{
+  "version": "backyrd-relevant-user-projection-validation-v1",
+  "status": "FROZEN_BEFORE_OFFICIAL_RUN",
+  "seeds": [5001, 5002, 5003],
+  "cohorts": ["COLD", "ONBOARDING", "EARLY", "MATURE", "LONG_TERM"],
+  "scenarios": [
+    "FAMILY_SUNDAY", "FRIENDS_FRIDAY", "DATE_BUDGET", "MATCHING_OCCASION_PATTERN",
+    "CURRENT_INTENT_CONFLICT", "CROSS_CITY", "FIRST_CULTURE_REQUEST", "BROAD_MULTI_CATEGORY",
+    "HUGE_MATURE_PROFILE", "DIFFERENT_USER_SAME_MOMENT"
+  ],
+  "gates": {
+    "relevantKnowledgePrecision": 0.95,
+    "relevantKnowledgeRecall": 0.90,
+    "irrelevantKnowledgeSuppression": 0.95,
+    "currentIntentAuthority": 1,
+    "contextualDifferentiation": 1,
+    "placeTypeScoping": 1,
+    "patternApplicability": 1,
+    "confidencePreservation": 1,
+    "knowledgeSufficiencyCalibration": 0.90,
+    "crossCityPortability": 1,
+    "projectionSizeCompliance": 1,
+    "privacyDataMinimization": 1,
+    "provenanceIntegrity": 1,
+    "deterministicReplay": 1
+    , "lifecycleCohortCoverage": 1
+  },
+  "performance": {
+    "memoryEventCounts": [0, 1000, 10000],
+    "maximumProjectionP95Ms": 20,
+    "maximumSerializedBytes": 12000,
+    "maximumEstimatedTokens": 3000
+  },
+  "policies": {
+    "missingArm": "FAIL_CLOSED",
+    "latentTruth": "EVALUATOR_ONLY",
+    "candidateInput": "PROHIBITED",
+    "rawHistory": "PROHIBITED",
+    "thresholdMutationAfterResult": "PROHIBITED",
+    "productionIntegration": "NOT_STARTED"
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "contractVersion": "backyrd-relevant-user-projection-validation-v1",
+  "seedCount": 3,
+  "scenarioCount": 30,
+  "cohortArmCount": 15,
+  "cohortFailures": [],
+  "metrics": {
+    "relevantKnowledgePrecision": 1,
+    "relevantKnowledgeRecall": 1,
+    "irrelevantKnowledgeSuppression": 1,
+    "currentIntentAuthority": 1,
+    "contextualDifferentiation": 1,
+    "placeTypeScoping": 1,
+    "patternApplicability": 1,
+    "confidencePreservation": 1,
+    "knowledgeSufficiencyCalibration": 1,
+    "crossCityPortability": 1,
+    "projectionSizeCompliance": 1,
+    "privacyDataMinimization": 1,
+    "provenanceIntegrity": 1,
+    "deterministicReplay": 1,
+    "lifecycleCohortCoverage": 1
+  },
+  "gateMatrix": {
+    "relevantKnowledgePrecision": true,
+    "relevantKnowledgeRecall": true,
+    "irrelevantKnowledgeSuppression": true,
+    "currentIntentAuthority": true,
+    "contextualDifferentiation": true,
+    "placeTypeScoping": true,
+    "patternApplicability": true,
+    "confidencePreservation": true,
+    "knowledgeSufficiencyCalibration": true,
+    "crossCityPortability": true,
+    "projectionSizeCompliance": true,
+    "privacyDataMinimization": true,
+    "provenanceIntegrity": true,
+    "deterministicReplay": true,
+    "lifecycleCohortCoverage": true
+  },
+  "performancePass": true,
+  "contractHash": "38ec27456cc740cf4422a0d702b345658546a36d3b9c99e79bafae43c4111902",
+  "n5ContractHash": "1a2b39de24132937db719a9a4290ee25d89824e9eda51e8273096d801cfd7420",
+  "adversarial": {
+    "failClosed": true,
+    "deterministic": true,
+    "privateDataAbsent": true,
+    "scientificBoundary": true
+  },
+  "performance": [
+    {
+      "eventCount": 0,
+      "p50Ms": 0.03383399999999881,
+      "p95Ms": 0.08895899999999557,
+      "maxSerializedBytes": 546,
+      "maxEstimatedTokens": 137
+    },
+    {
+      "eventCount": 1000,
+      "p50Ms": 0.5254999999999939,
+      "p95Ms": 0.707209000000006,
+      "maxSerializedBytes": 3664,
+      "maxEstimatedTokens": 916
+    },
+    {
+      "eventCount": 10000,
+      "p50Ms": 2.2860000000000014,
+      "p95Ms": 2.733457999999999,
+      "maxSerializedBytes": 3664,
+      "maxEstimatedTokens": 916
+    }
+  ],
+  "allMandatoryGatesPass": true,
+  "scientificValidity": "PASS",
+  "production": "UNCHANGED",
+  "resultHash": "c877dcc7b986823011ac2ec33612504f2539f8ef2dadcb7c6b5cd7de42ed1ac8"
+}
