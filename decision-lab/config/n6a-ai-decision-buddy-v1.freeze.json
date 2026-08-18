@@ -1,0 +1,27 @@
+{
+  "freezeVersion": "backyrd-n6a-ai-decision-buddy-freeze-v1",
+  "frozenBeforeExternalRun": true,
+  "versions": {
+    "buddy": "backyrd-ai-decision-buddy-v1",
+    "input": "backyrd-n6-ai-decision-input-v1",
+    "output": "backyrd-n6-ai-decision-output-v1",
+    "instruction": "backyrd-ai-decision-buddy-instruction-v1",
+    "reasons": "backyrd-n6-buddy-reason-codes-v1",
+    "confidence": "backyrd-n6-decision-confidence-v1",
+    "direction": "backyrd-buddy-direction-alignment-v1",
+    "cost": "backyrd-n6a-cost-contract-v1",
+    "validation": "backyrd-n6a-validation-contract-v1"
+  },
+  "n6aContractHash": "b3c68cddb3011b2faf3cb6633a9a37300bc25eb8a790ca3f3daccf295301b6ee",
+  "protectedN3ContractHash": "291a36edf3d3608f534879c2a4914c82c43725af779406296c8c3a2d40eb46e9",
+  "protectedN4ContractHash": "053ce565c1a49679f17b4d562bacbda93b7ab5ddb8f9aa4359cd8eb4103e800a",
+  "protectedN5ContractHash": "1a2b39de24132937db719a9a4290ee25d89824e9eda51e8273096d801cfd7420",
+  "engineSourceHash": "2e5494545048700b0e6e4048af9fb0d6188a7053008098de3eaf2cfbca39a4d8",
+  "scenarioSourceHash": "6919740f930b1832ce9b0d5b6e7e2201d0144dd9219b005ffcf26892f4b81299",
+  "evaluatorSourceHash": "d9b27ccac40371b671104e489a99ec8a56c1093474cd8b062b6935eb9b2b4d5d",
+  "runnerSourceHash": "b73c1b057bf6e59b72b6873ab307bb4a32d94f7451ad5d27a05f072929aafcbc",
+  "acceptanceTestHash": "96ea63ce160d5f6e79959146289a7f0e9dcaf98d1cabf6e3525b5ac5d7cec710",
+  "experimentContractFileHash": "7bc3d7bbda02831ab3485408654916accc3149f9fa0448c6ec31e680ce92adab",
+  "validationContractFileHash": "b3c5a6a6ade825d242506f50c3f2ad049e32eb5e35f59088e7b63fda5801ed43",
+  "officialResultHash": null
+}

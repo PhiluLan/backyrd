@@ -1,0 +1,43 @@
+{
+  "version": "backyrd-n6a-validation-contract-v1",
+  "status": "FROZEN_BEFORE_OFFICIAL_RUN",
+  "seeds": [6101, 6102, 6103],
+  "scenarioFamilies": [
+    "COLD_START", "EARLY_USER", "MATURE_USER", "POWER_USER",
+    "SAME_USER_DIFFERENT_MOMENT", "DIFFERENT_USERS_SAME_MOMENT", "CROSS_CITY",
+    "UNKNOWN_CONTEXT", "INTENT_HISTORY_CONFLICT", "SPARSE_SPOT_INTELLIGENCE",
+    "PREMIUM_FAIRNESS", "STRONG_WRONG_CANDIDATE", "BUDDY_DIRECTION_FAILURE"
+  ],
+  "fullScenarioCount": 126,
+  "gates": {
+    "ndcgAt10Minimum": 0.65,
+    "rankWeightedUtilityMinimum": 0.55,
+    "buddyDirectionAlignmentMinimum": 0.9,
+    "fundamentalDirectionFailureRateMaximum": 0.05,
+    "personalizationLiftMinimum": 0.01,
+    "personalizationHarmRateMaximum": 0.2,
+    "matureUserLiftMinimum": 0.02,
+    "coldStartNonRegressionMinimum": -0.005,
+    "contextualDifferentiationMinimum": 0.8,
+    "crossCityLiftMinimum": 0.01,
+    "currentIntentAuthorityMinimum": 1,
+    "confidenceCalibrationMinimum": 0.7,
+    "explanationEvidenceAlignmentMinimum": 1,
+    "hallucinatedCandidateRateMaximum": 0,
+    "invalidOutputRateMaximum": 0,
+    "eligibilityViolationsMaximum": 0,
+    "premiumParityMinimum": 1,
+    "candidateParityMinimum": 1,
+    "treatmentParityMinimum": 1,
+    "mandatoryScenarioCoverageMinimum": 1,
+    "p95LatencyMsMaximum": 60000,
+    "costBudgetComplianceMinimum": 1
+  },
+  "policies": {
+    "missingArm": "FAIL_CLOSED",
+    "measurementIntegrityDefect": "STOP_AND_RESTART_AFTER_VERSIONED_FIX",
+    "poorAiQuality": "CONTINUE_UNLESS_PILOT_STOP_GATE",
+    "setInvariantRerankingMetricAsLiftGate": "PROHIBITED",
+    "productionIntegration": "NOT_STARTED"
+  }
+}
