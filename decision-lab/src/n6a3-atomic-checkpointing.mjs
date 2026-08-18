@@ -8,7 +8,8 @@ export const N6A3_VERSIONS = Object.freeze({
   checkpoint: "backyrd-n6a3-slot-checkpoint-v1",
   resume: "backyrd-n6a3-safe-resume-v1",
   retry: "backyrd-n6a3-technical-retry-v1",
-  costAccounting: "backyrd-n6a3-cost-accounting-v1"
+  costAccounting: "backyrd-n6a3-cost-accounting-v1",
+  secretScanner: "backyrd-n6a5-secret-scanner-v1"
 });
 
 const SLOT_STATES = new Set(["PENDING", "IN_FLIGHT", "COMMITTED", "FAILED", "INTERRUPTED"]);
@@ -19,8 +20,10 @@ const REQUIRED_CHECKPOINT_FIELDS = [
   "uncertaintyAudit", "validatorDisposition", "failureReason", "inputTokens", "outputTokens",
   "latencyMs", "verifiedCostUsd", "startedAt", "completedAt", "execution", "freezeIds"
 ];
-const SECRET_KEY = /(api[_-]?key|authorization|bearer|secret|password|token)$/i;
-const SECRET_VALUE = /(?:sk-[A-Za-z0-9_-]{12,}|Bearer\s+[A-Za-z0-9._-]{12,})/i;
+const SECRET_KEY = /(api[_-]?key|authorization|bearer|secret|password|token|credential|private[_-]?key|access[_-]?token)$/i;
+const SECRET_VALUE = /(?:sk-[A-Za-z0-9_-]{12,}|Bearer\s+[A-Za-z0-9._-]{12,}|(?:ghp_|gho_|ghs_|ghu_|github_pat_)[A-Za-z0-9_]{10,})/i;
+const AUTHORIZATION_AUDIT_PATH = /^(?:root\.validatorDisposition|root\.slots\[\d+\]\.validatorDisposition)\.audit\[\d+\]\.authorization$/;
+const AUTHORIZATION_AUDIT_VALUES = new Set(["AUTHORIZED", "NOT_AUTHORIZED"]);
 
 const invariant = (condition, code) => { if (!condition) throw new Error(code); };
 const finiteNonNegative = (value) => Number.isFinite(value) && value >= 0;
@@ -28,12 +31,18 @@ const slotFile = (experimentDir, slotId) => join(experimentDir, "slots", `${slot
 const attemptFile = (experimentDir, slotId, attempt) => join(experimentDir, "attempts", slotId, `${attempt}.json`);
 const manifestFile = (experimentDir) => join(experimentDir, "manifest.json");
 
-function assertSecretFree(value, path = "root") {
+export function assertSecretFree(value, path = "root") {
   if (typeof value === "string") invariant(!SECRET_VALUE.test(value), `N6A3_SECRET_MATERIAL:${path}`);
   if (Array.isArray(value)) return value.forEach((entry, index) => assertSecretFree(entry, `${path}[${index}]`));
   if (value && typeof value === "object") for (const [key, entry] of Object.entries(value)) {
-    invariant(!SECRET_KEY.test(key), `N6A3_SECRET_FIELD:${path}.${key}`);
-    assertSecretFree(entry, `${path}.${key}`);
+    const fieldPath = `${path}.${key}`;
+    const canonicalAuthorizationAudit = key === "authorization" && AUTHORIZATION_AUDIT_PATH.test(fieldPath);
+    if (canonicalAuthorizationAudit) {
+      invariant(typeof entry === "string" && AUTHORIZATION_AUDIT_VALUES.has(entry), `N6A3_INVALID_AUTHORIZATION_AUDIT:${fieldPath}`);
+    } else {
+      invariant(!SECRET_KEY.test(key), `N6A3_SECRET_FIELD:${fieldPath}`);
+    }
+    assertSecretFree(entry, fieldPath);
   }
 }
 

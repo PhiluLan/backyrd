@@ -22,7 +22,7 @@ const fileHash = async (file) => sha(await readFile(resolve(repoRoot, file)));
 
 export async function currentN6A1FreezeIdentity() {
   return {
-    freezeVersion: "backyrd-n6a1-reason-evidence-integrity-freeze-v1",
+    freezeVersion: "backyrd-n6a6-sol-transport-timeout-freeze-v1",
     frozenBeforeFutureSmoke: true,
     versions: N6A1_VERSIONS,
     n6a1ContractHash: N6A1_CONTRACT_HASH,

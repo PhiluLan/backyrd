@@ -188,3 +188,40 @@ test("N6A.3 rejects malformed cost, partial JSON, duplicate slots, and secret ma
   await assert.rejects(() => initializePilot({ experimentDir: `${context.dir}-duplicate`, experimentId: "duplicate", experimentIdentity: identity(), slotIdentities: duplicate }), /N6A3_DUPLICATE_SLOT/);
   await removeExperiment(context.dir); await removeExperiment(`${context.dir}-duplicate`);
 });
+
+test("N6A.4 accepts canonical validator authorization audit metadata and commits it", async () => {
+  const context = await setup("authorization-audit"); const slot = context.slotIdentities[0];
+  await beginSlotAttempt({ experimentDir: context.dir, expectedIdentity: context.experimentIdentity, slotId: slot.slotId, estimatedWorstCaseCostUsd: 0.1, budgetUsd: 100 });
+  const payload = checkpoint(slot);
+  payload.validatorDisposition = {
+    valid: true,
+    audit: [
+      { spotId: "spot-0-0", scope: "WHY_FOR_YOU", code: "RELEVANT_TASTE_MATCH", evidenceRefs: ["user-1", "spot-1"], authorization: "AUTHORIZED" },
+      { spotId: "spot-0-1", scope: "WHY_NOW", code: "CURRENT_MOMENT_MATCH", evidenceRefs: ["moment-1", "spot-2"], authorization: "NOT_AUTHORIZED" }
+    ]
+  };
+  payload.authorizedReasonSets = { candidates: [{ spot_id: "spot-0-0", why_for_you: [{ code: "RELEVANT_TASTE_MATCH", evidence_refs: ["user-1", "spot-1"] }] }] };
+  const result = await commitSlot({ experimentDir: context.dir, expectedIdentity: context.experimentIdentity, slotId: slot.slotId, payload });
+  assert.equal(result.manifest.summary.committed, 1);
+  await removeExperiment(context.dir);
+});
+
+test("N6A.4 keeps real secret detection fail-closed around authorization audits", async () => {
+  const fixtures = [
+    { name: "openai", rawOutput: { value: "sk-proj-abcdefghijklmnop" } },
+    { name: "bearer", rawOutput: { value: "Bearer abcdefghijklmnop" } },
+    { name: "github", rawOutput: { value: "ghp_abcdefghijklmnop" } },
+    { name: "audit-credential", validatorDisposition: { valid: true, audit: [{ authorization: { credential: "secret" } }] } },
+    { name: "nested-secret", validatorDisposition: { valid: true, audit: [{ authorization: "AUTHORIZED", nested: { token: "secret" } }] } },
+    { name: "obfuscated", rawOutput: { value: "github_pat_abcdefghijklmnop" } },
+    { name: "global-authorization", rawOutput: { authorization: "AUTHORIZED" } },
+    { name: "noncanonical-audit-value", validatorDisposition: { valid: true, audit: [{ authorization: "MAYBE" }] } }
+  ];
+  for (const fixture of fixtures) {
+    const context = await setup(`secret-${fixture.name}`); const slot = context.slotIdentities[0];
+    await beginSlotAttempt({ experimentDir: context.dir, expectedIdentity: context.experimentIdentity, slotId: slot.slotId, estimatedWorstCaseCostUsd: 0.1, budgetUsd: 100 });
+    const payload = { ...checkpoint(slot), ...fixture };
+    await assert.rejects(() => commitSlot({ experimentDir: context.dir, expectedIdentity: context.experimentIdentity, slotId: slot.slotId, payload }), /N6A3_SECRET_(FIELD|MATERIAL)|N6A3_INVALID_AUTHORIZATION_AUDIT/);
+    await removeExperiment(context.dir);
+  }
+});

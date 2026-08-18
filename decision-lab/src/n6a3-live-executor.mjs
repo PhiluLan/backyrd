@@ -24,7 +24,7 @@ function fullReasonAudit(parsed, input) {
   })));
 }
 
-export async function createN6A3LiveExecution({ env = process.env, fetchImpl = globalThis.fetch } = {}) {
+export async function createN6A3LiveExecution({ env = process.env, fetchImpl = globalThis.fetch, setTimeoutImpl = setTimeout, clearTimeoutImpl = clearTimeout } = {}) {
   const [base, n6a1, n6a2] = await Promise.all([
     readConfig("decision-lab/config/n6a-ai-decision-buddy-v1.json"), readConfig("decision-lab/config/n6a1-reason-evidence-integrity-v1.json"), readConfig("decision-lab/config/n6a2-reason-authorization-v1.json")
   ]);
@@ -37,7 +37,7 @@ export async function createN6A3LiveExecution({ env = process.env, fetchImpl = g
   const executeSlot = async ({ identity, input }) => {
     if (!env.DECISION_LAB_OPENAI_API_KEY) throw Object.assign(new Error("N6A3_API_KEY_REQUIRED"), { failureType: "API_FAILURE" });
     const candidateIds = input.n6a1Input.baseInput.candidates.map(({ spotId }) => spotId); const schema = n6A2OutputSchema(candidateIds);
-    const startedAt = new Date().toISOString(); const started = performance.now(); const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), config.modelConfig.timeoutMs);
+    const startedAt = new Date().toISOString(); const started = performance.now(); const controller = new AbortController(); const timer = setTimeoutImpl(() => controller.abort(), config.modelConfig.timeoutMs);
     let response;
     try {
       response = await fetchImpl("https://api.openai.com/v1/responses", {
@@ -48,7 +48,7 @@ export async function createN6A3LiveExecution({ env = process.env, fetchImpl = g
     } catch (error) {
       if (error?.name === "AbortError") error.failureType = "ABORT"; else error.failureType = "NETWORK_FAILURE";
       throw error;
-    } finally { clearTimeout(timer); }
+    } finally { clearTimeoutImpl(timer); }
     const latencyMs = performance.now() - started;
     if (!response.ok) throw Object.assign(new Error(`OPENAI_API_ERROR:${response.status}`), { failureType: "API_FAILURE" });
     const rawOutput = await response.json(); let parsedOutput = null;
