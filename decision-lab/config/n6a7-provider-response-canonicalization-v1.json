@@ -1,0 +1,15 @@
+{
+  "contractVersion": "backyrd-n6a7-canonical-provider-response-v1",
+  "allowlistVersion": "backyrd-n6a7-provider-field-allowlist-v1",
+  "compatibilityVersion": "backyrd-n6a7-checkpoint-compatibility-v1",
+  "persistedFields": {
+    "response": ["id", "object", "model", "status", "created_at", "completed_at", "service_tier"],
+    "outputItem": ["type", "role", "status", "content.type", "content.text"],
+    "usage": ["input_tokens", "output_tokens", "total_tokens"]
+  },
+  "droppedFields": "all provider fields not explicitly listed, including encrypted_content and opaque internal metadata",
+  "migrationRule": "legacy rawOutput is canonicalized on immutable copies; parsed output, validator disposition, token counts, latency, cost, slot identity and treatment identity must remain byte-equivalent",
+  "encryptedContent": "DROP_NOT_PERSISTED",
+  "externalAiCalls": 0,
+  "production": "UNCHANGED"
+}

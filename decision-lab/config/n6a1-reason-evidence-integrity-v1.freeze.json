@@ -1,0 +1,24 @@
+{
+  "freezeVersion": "backyrd-n6a6-sol-transport-timeout-freeze-v1",
+  "frozenBeforeFutureSmoke": true,
+  "versions": {
+    "reasonContract": "backyrd-n6a1-reason-evidence-contract-v1",
+    "input": "backyrd-n6a1-ai-decision-input-v1",
+    "output": "backyrd-n6a1-ai-decision-output-v1",
+    "instruction": "backyrd-n6a1-ai-decision-buddy-instruction-v1",
+    "validator": "backyrd-n6a1-reason-evidence-validator-v1",
+    "capture": "backyrd-n6a1-output-forensic-capture-v1"
+  },
+  "n6a1ContractHash": "dfad028b95d7f99c186ff65eaa02c1d882928c1b317655c36c546867f78a0376",
+  "protectedN3ContractHash": "291a36edf3d3608f534879c2a4914c82c43725af779406296c8c3a2d40eb46e9",
+  "protectedN4ContractHash": "053ce565c1a49679f17b4d562bacbda93b7ab5ddb8f9aa4359cd8eb4103e800a",
+  "protectedN5ContractHash": "1a2b39de24132937db719a9a4290ee25d89824e9eda51e8273096d801cfd7420",
+  "engineSourceHash": "b405756e5b7d10d6a38f527dbd35ade4f4ac79fb48f03e5e6e271a6afae6a38e",
+  "forensicsSourceHash": "9abc4f59a2c86bbcf9ad7d113a58820713b6adeafe643c3318b3ed9e99f431ff",
+  "acceptanceTestHash": "d8441b12ace175c687272dd43ee8a6360da2d97715051847b3bff8a1a0d426c0",
+  "experimentContractFileHash": "2f28631d29eabd612e0f95439671d82cc7da2f3d26f9ba605a468ebdcf4f98f3",
+  "validationContractFileHash": "c98adc50673b51ec838a2c3735f97cc27f97d35ecc4bd5769483025717e272ba",
+  "forensicResultFileHash": "cf52b34b008ab82e4fbd8a81f2c5d7bfd67d12f92d3bfa9e96e94b21364a67ac",
+  "historicalSmokeFileHash": "6dd585d780e404f790d0e9339b95d676dded5d788ecf357a52086f562e8352ea",
+  "officialResultHash": null
+}

@@ -1,0 +1,31 @@
+{
+  "version": "backyrd-n6a1-reason-evidence-integrity-experiment-v1",
+  "scope": "FORENSIC_HARDENING_ONLY",
+  "model": "gpt-5.6-sol",
+  "modelConfig": {
+    "reasoningEffort": "medium",
+    "maxOutputTokens": 2400,
+    "timeoutMs": 120000,
+    "temperature": "MODEL_DEFAULT"
+  },
+  "inputContractVersion": "backyrd-n6a1-ai-decision-input-v1",
+  "outputContractVersion": "backyrd-n6a1-ai-decision-output-v1",
+  "reasonEvidenceContractVersion": "backyrd-n6a1-reason-evidence-contract-v1",
+  "candidateCount": 10,
+  "futureSmoke": {
+    "scenarioCount": 5,
+    "arms": ["ACTUAL"],
+    "maxRequests": 5,
+    "requiresFreshExplicitApproval": true
+  },
+  "externalCallsPermittedForThisChange": false,
+  "externalAiCostUsd": 0,
+  "scientificControls": {
+    "legacyN6AContractPreserved": true,
+    "rejectedOutputCaptureRequired": true,
+    "reasonReferencesRequired": true,
+    "latentTruthRuntimeInput": false,
+    "premiumRuntimeInput": false,
+    "productionAccess": "NONE"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "version": "backyrd-n6a-ai-decision-buddy-experiment-v1",
+  "model": "gpt-5.6-sol",
+  "modelConfig": {
+    "reasoningEffort": "medium",
+    "maxOutputTokens": 2400,
+    "timeoutMs": 60000,
+    "temperature": "MODEL_DEFAULT"
+  },
+  "promptVersion": "backyrd-ai-decision-buddy-instruction-v1",
+  "inputContractVersion": "backyrd-n6-ai-decision-input-v1",
+  "outputContractVersion": "backyrd-n6-ai-decision-output-v1",
+  "reasonCodeContractVersion": "backyrd-n6-buddy-reason-codes-v1",
+  "confidenceContractVersion": "backyrd-n6-decision-confidence-v1",
+  "candidateCount": 10,
+  "maxInputTokensPerRequest": 12000,
+  "tokenEstimateSafetyMultiplier": 1.2,
+  "costAccountingCeilingUsdPerMillionTokens": {
+    "input": 10,
+    "output": 60,
+    "meaning": "CONSERVATIVE_LAB_BUDGET_CEILING_NOT_PROVIDER_PRICE_CLAIM"
+  },
+  "stages": {
+    "SMOKE": { "scenarioCount": 5, "arms": ["ACTUAL"], "maxRequests": 5, "lockedHoldout": false },
+    "PILOT": { "scenarioCount": 24, "arms": ["ACTUAL", "NEUTRAL", "OPPOSING"], "maxRequests": 72, "lockedHoldout": false },
+    "FULL": { "scenarioCount": 126, "arms": ["ACTUAL", "NEUTRAL", "OPPOSING"], "maxRequests": 378, "lockedHoldout": true }
+  },
+  "smokeProceedGates": {
+    "integrityFailureRateMaximum": 0,
+    "invalidOutputRateMaximum": 0,
+    "hallucinatedCandidateRateMaximum": 0,
+    "p95LatencyMsMaximum": 60000
+  },
+  "pilotProceedGates": {
+    "integrityFailureRateMaximum": 0,
+    "invalidOutputRateMaximum": 0.05,
+    "buddyDirectionAlignmentMinimum": 0.8,
+    "ndcgLiftVsNeutralMinimum": 0,
+    "maturePersonalizationLiftMinimum": 0.005,
+    "personalizationHarmRateMaximum": 0.25,
+    "currentIntentAuthorityMinimum": 1,
+    "p95LatencyMsMaximum": 60000
+  },
+  "scientificControls": {
+    "latentTruthRuntimeInput": false,
+    "groundTruthRole": "EVALUATOR_ONLY",
+    "premiumRuntimeInput": false,
+    "sameCandidateUniverseAcrossArms": true,
+    "sameMomentAcrossTreatmentArms": true,
+    "lockedHoldoutPromptTuning": "PROHIBITED",
+    "productionAccess": "NONE"
+  }
+}

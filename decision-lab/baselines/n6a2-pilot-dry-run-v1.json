@@ -1,0 +1,45 @@
+{
+  "version": "backyrd-n6a2-pilot-dry-run-v1",
+  "stage": "PILOT_DRY_RUN",
+  "model": "gpt-5.6-sol",
+  "preflight": {
+    "allFreezesValid": true,
+    "freezeReasons": { "n3": [], "n4": [], "n5": [], "n6a1": [], "n6a2": [] },
+    "reasoningEffort": "medium",
+    "candidateCount": 10,
+    "latentTruthRuntimeInput": false,
+    "premiumRuntimeInput": false,
+    "sameCandidateUniverseAcrossArms": true,
+    "sameMomentAcrossTreatmentArms": true,
+    "lockedHoldout": false,
+    "coverage": {
+      "matureHighKnowledge": true,
+      "coldLowSufficiency": true,
+      "sameUserDifferentMoment": true,
+      "sameMomentDifferentUsers": true,
+      "currentIntentVsHistory": true,
+      "crossCity": true,
+      "treatmentTriadsComplete": true
+    }
+  },
+  "dryRun": {
+    "requests": 72,
+    "baseScenarios": 24,
+    "arms": ["ACTUAL", "NEUTRAL", "OPPOSING"],
+    "estimatedInputTokens": 393362,
+    "maximumOutputTokens": 172800,
+    "stageWorstCaseCostUsd": 14.30162,
+    "priorSpentUsd": 1.95373,
+    "remainingBudgetBeforeUsd": 4.04627,
+    "projectedCumulativeWorstCaseUsd": 16.25535,
+    "configuredBudgetUsd": 6,
+    "budgetFits": false,
+    "minimumWorstCaseCostPerRequestUsd": 0.19093,
+    "maximumWorstCaseCostPerRequestUsd": 0.2001
+  },
+  "budgetDisposition": "FAIL_CLOSED_PROJECTED_BUDGET_EXCEEDED",
+  "pilotStarted": false,
+  "liveCalls": 0,
+  "additionalExternalCostUsd": 0,
+  "production": "UNCHANGED"
+}
