@@ -46,6 +46,8 @@
     "decision-lab:n5.5:freeze": "node decision-lab/src/n5-5-freeze.mjs",
     "decision-lab:n5.6": "node decision-lab/src/n5-6-validation.mjs",
     "decision-lab:n5.6:freeze": "node decision-lab/src/n5-6-freeze.mjs",
+    "decision-lab:n5.6.1": "node decision-lab/src/n5-6-1-validation.mjs",
+    "decision-lab:n5.6.1:freeze": "node decision-lab/src/n5-6-1-freeze.mjs",
     "decision-lab:n6a": "node decision-lab/src/n6a-runner.mjs",
     "decision-lab:n6a:freeze": "node decision-lab/src/n6a-freeze.mjs",
     "decision-lab:n6a3:preflight": "node decision-lab/src/n6a3-pilot-runner.mjs",
