@@ -1,0 +1,13 @@
+{
+  "version": "backyrd-n6a2-reason-authorization-experiment-v1",
+  "scope": "OFFLINE_CONTRACT_HARDENING_ONLY",
+  "baseModel": "gpt-5.6-sol",
+  "reasonAuthorizationContractVersion": "backyrd-n6a2-authorized-reason-set-v1",
+  "inputContractVersion": "backyrd-n6a2-ai-decision-input-v1",
+  "instructionVersion": "backyrd-n6a2-ai-decision-buddy-instruction-v1",
+  "validatorVersion": "backyrd-n6a2-authorized-reason-validator-v1",
+  "externalAiCalls": 0,
+  "externalAiCostUsd": 0,
+  "nextSmoke": { "requiresExplicitApproval": true, "maxNewLiveCalls": 5, "mustUseFreshInputsAndOutputs": true },
+  "scientificControls": { "rankingQualityOfflinePromotion": false, "latentTruthRuntimeInput": false, "premiumRuntimeInput": false, "productionAccess": "NONE" }
+}

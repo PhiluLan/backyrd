@@ -1,0 +1,20 @@
+{
+  "freezeVersion": "backyrd-n6a2-reason-authorization-freeze-v1",
+  "frozenBeforeNextSmoke": true,
+  "versions": {
+    "authorization": "backyrd-n6a2-authorized-reason-set-v1",
+    "input": "backyrd-n6a2-ai-decision-input-v1",
+    "instruction": "backyrd-n6a2-ai-decision-buddy-instruction-v1",
+    "validator": "backyrd-n6a2-authorized-reason-validator-v1",
+    "replay": "backyrd-n6a2-offline-replay-v1"
+  },
+  "n6a1ContractHash": "dfad028b95d7f99c186ff65eaa02c1d882928c1b317655c36c546867f78a0376",
+  "n6a2ContractHash": "204a79e99f0f603ff5186e6375fee20b1ab57d0e96539bf38d0963226c5dbea7",
+  "engineSourceHash": "4317f8d60bf061276b93aaa2fff7172317f476d74e9c5bf9c36c1f5a702ae099",
+  "replaySourceHash": "ff163f34952fd8f86eb6ac7890d5ab5af56555b719089dda167f10c648bd82d2",
+  "acceptanceTestHash": "e9038f781d0983cc17be9b627d040035a5074cad725878449d022f1872910eb6",
+  "configHash": "ac50caba6d46b79fb17ff19e45b67ea599732961189203ade1f1cf087394e2fc",
+  "sourceSmokeHash": "59711a0c9f61de04fafc55d6ce11e36e1417ec6804579373d7ee4c8f0be42648",
+  "replayResultHash": "e4f8ffd4a6b59522f7063372808439f2b08fb05982e5b86cfab784bdc3463b65",
+  "officialResultHash": null
+}
