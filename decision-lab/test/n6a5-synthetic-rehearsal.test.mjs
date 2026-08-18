@@ -8,6 +8,7 @@ import { aggregatePilot, assertSecretFree, listTemporaryArtifacts, loadPilot, re
 import { buildCanonicalN6A3PilotDefinition } from "../src/n6a3-pilot-contract.mjs";
 import { inspectAtomicPilot, runAtomicPilot } from "../src/n6a3-pilot-runner.mjs";
 import { validateN6A2Output } from "../src/n6a2-reason-authorization.mjs";
+import { canonicalizeProviderResponse } from "../src/n6a7-provider-response.mjs";
 
 const BUDGET = 100;
 const estimate = () => 0.04;
@@ -28,7 +29,7 @@ function fakePayload(record, { rejected = false } = {}) {
   const externalAudit = audit.map(({ authorization, ...row }) => ({ ...row, authorized: authorization === "AUTHORIZED" }));
   return {
     slotId: record.identity.slotId, inputHash: record.identity.inputHash, sanitizedInput: input, model: "gpt-5.6-sol",
-    modelConfig: { reasoningEffort: "medium", maxOutputTokens: 2400 }, rawOutput: { id: `fake-${record.identity.slotId}`, output: [{ content: [{ type: "output_text", text: JSON.stringify(parsedOutput) }] }] },
+    modelConfig: { reasoningEffort: "medium", maxOutputTokens: 2400 }, canonicalProviderResponse: canonicalizeProviderResponse({ id: `fake-${record.identity.slotId}`, object: "response", model: "gpt-5.6-sol", status: "completed", encrypted_payload_v2: "opaque-fixture", output: [{ encrypted_content: `gAAAA-${record.identity.slotId}`, content: [{ type: "output_text", text: JSON.stringify(parsedOutput) }] }] }), checkpointContractVersion: "backyrd-n6a7-checkpoint-compatibility-v1",
     parsedOutput, candidateIds: input.n6a1Input.baseInput.candidates.map(({ spotId }) => spotId), authorizedReasonSets: input.authorizedReasons,
     evidenceReferences: [...new Set(externalAudit.flatMap(({ evidenceRefs }) => evidenceRefs ?? []))].sort(),
     whyForYouAudit: externalAudit.filter(({ scope }) => scope === "WHY_FOR_YOU"), whyNowAudit: externalAudit.filter(({ scope }) => scope === "WHY_NOW"), uncertaintyAudit: externalAudit.filter(({ scope }) => scope === "UNCERTAINTY"),

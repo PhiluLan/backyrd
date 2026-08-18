@@ -12,6 +12,7 @@ const files = {
   liveExecutor: "decision-lab/src/n6a3-live-executor.mjs",
   tests: "decision-lab/test/n6a3-atomic-checkpointing.test.mjs",
   config: "decision-lab/config/n6a3-atomic-checkpointing-v1.json",
+  canonicalResponse: "decision-lab/config/n6a7-provider-response-canonicalization-v1.json",
   freeze: "decision-lab/config/n6a3-atomic-checkpointing-v1.freeze.json"
 };
 const hashFile = async (path) => createHash("sha256").update(await readFile(resolve(repoRoot, path))).digest("hex");
@@ -19,10 +20,10 @@ const hashFile = async (path) => createHash("sha256").update(await readFile(reso
 export async function currentN6A3FreezeIdentity() {
   const definition = await buildCanonicalN6A3PilotDefinition();
   return {
-    freezeVersion: "backyrd-n6a6-sol-transport-timeout-freeze-v1", frozenBeforeNewPilot: true, versions: N6A3_VERSIONS,
+    freezeVersion: "backyrd-n6a7-provider-response-canonicalization-freeze-v1", frozenBeforeNewPilot: true, versions: N6A3_VERSIONS,
     protectedDecisionBuddyIdentityHash: definition.experimentIdentity.identityHash,
     engineSourceHash: await hashFile(files.engine), pilotContractSourceHash: await hashFile(files.pilotContract),
-    runnerSourceHash: await hashFile(files.runner), liveExecutorSourceHash: await hashFile(files.liveExecutor), acceptanceTestHash: await hashFile(files.tests), configHash: await hashFile(files.config),
+    runnerSourceHash: await hashFile(files.runner), liveExecutorSourceHash: await hashFile(files.liveExecutor), acceptanceTestHash: await hashFile(files.tests), configHash: await hashFile(files.config), canonicalResponseContractHash: await hashFile(files.canonicalResponse),
     externalAiCalls: 0, externalAiCostUsd: 0, officialNewPilotResultHash: null
   };
 }

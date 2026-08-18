@@ -9,13 +9,15 @@ export const N6A3_VERSIONS = Object.freeze({
   resume: "backyrd-n6a3-safe-resume-v1",
   retry: "backyrd-n6a3-technical-retry-v1",
   costAccounting: "backyrd-n6a3-cost-accounting-v1",
-  secretScanner: "backyrd-n6a5-secret-scanner-v1"
+  secretScanner: "backyrd-n6a5-secret-scanner-v1",
+  canonicalResponse: "backyrd-n6a7-canonical-provider-response-v1",
+  compatibility: "backyrd-n6a7-checkpoint-compatibility-v1"
 });
 
 const SLOT_STATES = new Set(["PENDING", "IN_FLIGHT", "COMMITTED", "FAILED", "INTERRUPTED"]);
 const RETRYABLE_FAILURES = new Set(["API_FAILURE", "TIMEOUT", "ABORT", "NETWORK_FAILURE"]);
 const REQUIRED_CHECKPOINT_FIELDS = [
-  "slotId", "inputHash", "sanitizedInput", "model", "modelConfig", "rawOutput", "parsedOutput",
+  "slotId", "inputHash", "sanitizedInput", "model", "modelConfig", "parsedOutput",
   "candidateIds", "authorizedReasonSets", "evidenceReferences", "whyForYouAudit", "whyNowAudit",
   "uncertaintyAudit", "validatorDisposition", "failureReason", "inputTokens", "outputTokens",
   "latencyMs", "verifiedCostUsd", "startedAt", "completedAt", "execution", "freezeIds"
@@ -209,6 +211,7 @@ export async function beginSlotAttempt({ experimentDir, expectedIdentity, slotId
 
 function validateCheckpointPayload(payload, slot) {
   for (const field of REQUIRED_CHECKPOINT_FIELDS) invariant(Object.hasOwn(payload, field), `N6A3_CHECKPOINT_FIELD_MISSING:${field}`);
+  invariant(Object.hasOwn(payload, "canonicalProviderResponse") || Object.hasOwn(payload, "rawOutput"), "N6A7_CANONICAL_RESPONSE_MISSING");
   invariant(payload.slotId === slot.identity.slotId && payload.inputHash === slot.identity.inputHash, "N6A3_CHECKPOINT_IDENTITY_MISMATCH");
   invariant(Array.isArray(payload.candidateIds) && contentHash(payload.candidateIds) === slot.identity.candidateSetHash, "N6A3_CHECKPOINT_CANDIDATE_MISMATCH");
   invariant(finiteNonNegative(payload.inputTokens) && finiteNonNegative(payload.outputTokens) && finiteNonNegative(payload.latencyMs) && finiteNonNegative(payload.verifiedCostUsd), "N6A3_CHECKPOINT_NUMERIC_INVALID");

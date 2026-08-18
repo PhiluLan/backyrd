@@ -104,7 +104,7 @@ test("N6A.3 live executor remains frozen and is testable without an external cal
   const parsed = { ranked_candidates: candidateIds.map((spot_id, index) => ({ spot_id, rank: index + 1, buddy_fit: 0.5, confidence: 0.5, why_for_you: [], why_now: [], uncertainty: [] })), decision_confidence: 0.5,
     user_knowledge_sufficiency: record.input.n6a1Input.baseInput.relevantUserProjection.sufficiency.level,
     moment_understanding_sufficiency: record.input.n6a1Input.baseInput.currentMoment.confidenceLevel };
-  const fetchImpl = async () => { fakeCalls += 1; return { ok: true, json: async () => ({ id: "fake-response", output: [{ content: [{ type: "output_text", text: JSON.stringify(parsed) }] }], usage: { input_tokens: 1000, output_tokens: 500 } }) }; };
+  const fetchImpl = async () => { fakeCalls += 1; return { ok: true, json: async () => ({ id: "fake-response", object: "response", model: "gpt-5.6-sol", status: "completed", output: [{ content: [{ type: "output_text", text: JSON.stringify(parsed) }] }], usage: { input_tokens: 1000, output_tokens: 500 } }) }; };
   const live = await createN6A3LiveExecution({ env: { DECISION_LAB_OPENAI_API_KEY: "fixture-only-not-a-real-key" }, fetchImpl });
   const payload = await live.executeSlot(record);
   assert.equal(fakeCalls, 1); assert.equal(payload.execution, "LIVE"); assert.equal(payload.validatorDisposition.valid, true);

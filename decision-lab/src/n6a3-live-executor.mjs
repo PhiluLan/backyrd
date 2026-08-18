@@ -3,6 +3,7 @@ import { performance } from "node:perf_hooks";
 import { resolve } from "node:path";
 import { estimateRequestCost, estimateTokens } from "./n6a-ai-decision-buddy.mjs";
 import { n6A2Instructions, n6A2OutputSchema, validateN6A2Output } from "./n6a2-reason-authorization.mjs";
+import { canonicalizeProviderResponse } from "./n6a7-provider-response.mjs";
 import { repoRoot } from "./io.mjs";
 
 const readConfig = async (path) => JSON.parse(await readFile(resolve(repoRoot, path), "utf8"));
@@ -51,13 +52,13 @@ export async function createN6A3LiveExecution({ env = process.env, fetchImpl = g
     } finally { clearTimeoutImpl(timer); }
     const latencyMs = performance.now() - started;
     if (!response.ok) throw Object.assign(new Error(`OPENAI_API_ERROR:${response.status}`), { failureType: "API_FAILURE" });
-    const rawOutput = await response.json(); let parsedOutput = null;
-    try { parsedOutput = JSON.parse(outputText(rawOutput)); } catch { /* validator records malformed output */ }
+    const rawOutput = await response.json(); const canonicalProviderResponse = canonicalizeProviderResponse(rawOutput); let parsedOutput = null;
+    try { parsedOutput = JSON.parse(canonicalProviderResponse.output.text); } catch { /* validator records malformed output */ }
     const validatorDisposition = validateN6A2Output(parsedOutput, input); const audit = fullReasonAudit(parsedOutput, input);
     const inputTokens = Number(rawOutput.usage?.input_tokens ?? 0); const outputTokens = Number(rawOutput.usage?.output_tokens ?? 0);
     return {
       slotId: identity.slotId, inputHash: identity.inputHash, sanitizedInput: input, model: config.model, modelConfig: config.modelConfig,
-      rawOutput, parsedOutput, candidateIds, authorizedReasonSets: input.authorizedReasons, evidenceReferences: [...new Set(audit.flatMap(({ evidenceRefs }) => evidenceRefs))].sort(),
+      canonicalProviderResponse, checkpointContractVersion: "backyrd-n6a7-checkpoint-compatibility-v1", parsedOutput, candidateIds, authorizedReasonSets: input.authorizedReasons, evidenceReferences: [...new Set(audit.flatMap(({ evidenceRefs }) => evidenceRefs))].sort(),
       whyForYouAudit: audit.filter(({ family }) => family === "WHY_FOR_YOU"), whyNowAudit: audit.filter(({ family }) => family === "WHY_NOW"), uncertaintyAudit: audit.filter(({ family }) => family === "UNCERTAINTY"),
       validatorDisposition, failureReason: validatorDisposition.valid ? null : validatorDisposition.reason, inputTokens, outputTokens, latencyMs,
       verifiedCostUsd: estimateRequestCost(config, inputTokens, outputTokens), startedAt, completedAt: new Date().toISOString(), execution: "LIVE",

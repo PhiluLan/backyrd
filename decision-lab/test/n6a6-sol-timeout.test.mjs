@@ -15,7 +15,7 @@ function parsedFor(record) {
 
 function transportFixture(mode, record) {
   const parsed = parsedFor(record);
-  const response = { ok: true, json: async () => ({ id: "fake-timeout-response", output: [{ content: [{ type: "output_text", text: JSON.stringify(parsed) }] }], usage: { input_tokens: 1000, output_tokens: 500 } }) };
+  const response = { ok: true, json: async () => ({ id: "fake-timeout-response", object: "response", model: "gpt-5.6-sol", status: "completed", output: [{ content: [{ type: "output_text", text: JSON.stringify(parsed) }] }], usage: { input_tokens: 1000, output_tokens: 500 } }) };
   return {
     fetchImpl: async (_url, { signal }) => {
       if (mode === "over-limit") {
