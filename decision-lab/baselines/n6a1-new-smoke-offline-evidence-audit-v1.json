@@ -1,0 +1,1776 @@
+{
+  "version": "backyrd-n6a1-new-smoke-offline-evidence-audit-v1",
+  "sourceResult": "n6a1-new-smoke-result-v1",
+  "noAdditionalAiCalls": true,
+  "reasonCount": 64,
+  "supportedReasonCount": 56,
+  "unsupportedReasonCount": 8,
+  "unsupportedReasonRate": 0.125,
+  "falseAcceptCount": 0,
+  "falseRejectCount": 0,
+  "hallucinatedCandidateIdCount": 0,
+  "runs": [
+    {
+      "scenarioId": "6101-0",
+      "validatorDisposition": {
+        "valid": false,
+        "reason": "UNSUPPORTED_REASON_EVIDENCE",
+        "audit": [
+          {
+            "spotId": "n6-6101-0-spot-9",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_INTENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "intent:vibe.cozy",
+              "spot:n6-6101-0-spot-9:vibe.cozy"
+            ]
+          },
+          {
+            "spotId": "n6-6101-0-spot-9",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_MOMENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "moment:vibe:vibe.cozy",
+              "spot:n6-6101-0-spot-9:vibe.cozy"
+            ]
+          },
+          {
+            "spotId": "n6-6101-0-spot-9",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_MOMENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "moment:social_context:social_style.conversation_friendly",
+              "spot:n6-6101-0-spot-9:social_style.conversation_friendly"
+            ]
+          },
+          {
+            "spotId": "n6-6101-0-spot-9",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          },
+          {
+            "spotId": "n6-6101-0-spot-6",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_INTENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "intent:vibe.cozy",
+              "spot:n6-6101-0-spot-6:vibe.cozy"
+            ]
+          },
+          {
+            "spotId": "n6-6101-0-spot-6",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_MOMENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "moment:vibe:vibe.cozy",
+              "spot:n6-6101-0-spot-6:vibe.cozy"
+            ]
+          },
+          {
+            "spotId": "n6-6101-0-spot-6",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          },
+          {
+            "spotId": "n6-6101-0-spot-8",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_MOMENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "moment:social_context:social_style.conversation_friendly",
+              "spot:n6-6101-0-spot-8:social_style.conversation_friendly"
+            ]
+          },
+          {
+            "spotId": "n6-6101-0-spot-8",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          },
+          {
+            "spotId": "n6-6101-0-spot-1",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          },
+          {
+            "spotId": "n6-6101-0-spot-4",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          },
+          {
+            "spotId": "n6-6101-0-spot-2",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          },
+          {
+            "spotId": "n6-6101-0-spot-7",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          },
+          {
+            "spotId": "n6-6101-0-spot-5",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          },
+          {
+            "spotId": "n6-6101-0-spot-5",
+            "scope": "UNCERTAINTY",
+            "code": "CONTRADICTORY_EVIDENCE",
+            "status": "UNSUPPORTED",
+            "reason": "MISSING_REQUIRED_EVIDENCE_KIND"
+          }
+        ]
+      },
+      "parsedOutputPresent": true,
+      "candidateIdentityValid": true,
+      "audits": [
+        {
+          "spotId": "n6-6101-0-spot-9",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_INTENT_MATCH",
+          "evidenceRefs": [
+            "intent:vibe.cozy",
+            "spot:n6-6101-0-spot-9:vibe.cozy"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-0-spot-9",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:vibe:vibe.cozy",
+            "spot:n6-6101-0-spot-9:vibe.cozy"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-0-spot-9",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:social_context:social_style.conversation_friendly",
+            "spot:n6-6101-0-spot-9:social_style.conversation_friendly"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-0-spot-9",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-0-spot-6",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_INTENT_MATCH",
+          "evidenceRefs": [
+            "intent:vibe.cozy",
+            "spot:n6-6101-0-spot-6:vibe.cozy"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-0-spot-6",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:vibe:vibe.cozy",
+            "spot:n6-6101-0-spot-6:vibe.cozy"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-0-spot-6",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-0-spot-8",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:social_context:social_style.conversation_friendly",
+            "spot:n6-6101-0-spot-8:social_style.conversation_friendly"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-0-spot-8",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-0-spot-1",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-0-spot-4",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-0-spot-2",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-0-spot-7",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-0-spot-5",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-0-spot-5",
+          "scope": "UNCERTAINTY",
+          "code": "CONTRADICTORY_EVIDENCE",
+          "evidenceRefs": [
+            "spot:n6-6101-0-spot-5:price.budget",
+            "spot:n6-6101-0-spot-5:price.premium"
+          ],
+          "status": "UNSUPPORTED",
+          "failureReason": "MISSING_REQUIRED_EVIDENCE_KIND"
+        },
+        {
+          "spotId": "n6-6101-0-spot-0",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-0-spot-0",
+          "scope": "UNCERTAINTY",
+          "code": "CONTRADICTORY_EVIDENCE",
+          "evidenceRefs": [
+            "intent:vibe.cozy",
+            "spot:n6-6101-0-spot-0:vibe.lively"
+          ],
+          "status": "UNSUPPORTED",
+          "failureReason": "MISSING_REQUIRED_EVIDENCE_KIND"
+        },
+        {
+          "spotId": "n6-6101-0-spot-3",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-0-spot-3",
+          "scope": "UNCERTAINTY",
+          "code": "CONTRADICTORY_EVIDENCE",
+          "evidenceRefs": [
+            "intent:vibe.cozy",
+            "spot:n6-6101-0-spot-3:vibe.lively"
+          ],
+          "status": "UNSUPPORTED",
+          "failureReason": "MISSING_REQUIRED_EVIDENCE_KIND"
+        }
+      ]
+    },
+    {
+      "scenarioId": "6101-1",
+      "validatorDisposition": {
+        "valid": true,
+        "ranked": [
+          {
+            "spot_id": "n6-6101-1-spot-0",
+            "rank": 1,
+            "buddy_fit": 0.86,
+            "confidence": 0.72,
+            "why_for_you": [],
+            "why_now": [
+              {
+                "code": "CURRENT_INTENT_MATCH",
+                "evidence_refs": [
+                  "intent:character.authentic_character",
+                  "spot:n6-6101-1-spot-0:character.authentic_character"
+                ]
+              }
+            ],
+            "uncertainty": [
+              {
+                "code": "LOW_USER_KNOWLEDGE",
+                "evidence_refs": [
+                  "user:sufficiency:low"
+                ]
+              }
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-3",
+            "rank": 2,
+            "buddy_fit": 0.86,
+            "confidence": 0.72,
+            "why_for_you": [],
+            "why_now": [
+              {
+                "code": "CURRENT_INTENT_MATCH",
+                "evidence_refs": [
+                  "intent:character.authentic_character",
+                  "spot:n6-6101-1-spot-3:character.authentic_character"
+                ]
+              }
+            ],
+            "uncertainty": [
+              {
+                "code": "LOW_USER_KNOWLEDGE",
+                "evidence_refs": [
+                  "user:sufficiency:low"
+                ]
+              }
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-6",
+            "rank": 3,
+            "buddy_fit": 0.74,
+            "confidence": 0.72,
+            "why_for_you": [],
+            "why_now": [
+              {
+                "code": "CURRENT_MOMENT_MATCH",
+                "evidence_refs": [
+                  "moment:vibe:vibe.lively",
+                  "spot:n6-6101-1-spot-6:vibe.lively"
+                ]
+              }
+            ],
+            "uncertainty": [
+              {
+                "code": "LOW_USER_KNOWLEDGE",
+                "evidence_refs": [
+                  "user:sufficiency:low"
+                ]
+              }
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-9",
+            "rank": 4,
+            "buddy_fit": 0.74,
+            "confidence": 0.72,
+            "why_for_you": [],
+            "why_now": [
+              {
+                "code": "CURRENT_MOMENT_MATCH",
+                "evidence_refs": [
+                  "moment:vibe:vibe.lively",
+                  "spot:n6-6101-1-spot-9:vibe.lively"
+                ]
+              }
+            ],
+            "uncertainty": [
+              {
+                "code": "LOW_USER_KNOWLEDGE",
+                "evidence_refs": [
+                  "user:sufficiency:low"
+                ]
+              }
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-2",
+            "rank": 5,
+            "buddy_fit": 0.71,
+            "confidence": 0.72,
+            "why_for_you": [],
+            "why_now": [
+              {
+                "code": "CURRENT_MOMENT_MATCH",
+                "evidence_refs": [
+                  "moment:social_context:social_style.conversation_friendly",
+                  "spot:n6-6101-1-spot-2:social_style.conversation_friendly"
+                ]
+              }
+            ],
+            "uncertainty": [
+              {
+                "code": "LOW_USER_KNOWLEDGE",
+                "evidence_refs": [
+                  "user:sufficiency:low"
+                ]
+              }
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-7",
+            "rank": 6,
+            "buddy_fit": 0.71,
+            "confidence": 0.72,
+            "why_for_you": [],
+            "why_now": [
+              {
+                "code": "CURRENT_MOMENT_MATCH",
+                "evidence_refs": [
+                  "moment:social_context:social_style.conversation_friendly",
+                  "spot:n6-6101-1-spot-7:social_style.conversation_friendly"
+                ]
+              }
+            ],
+            "uncertainty": [
+              {
+                "code": "LOW_USER_KNOWLEDGE",
+                "evidence_refs": [
+                  "user:sufficiency:low"
+                ]
+              }
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-1",
+            "rank": 7,
+            "buddy_fit": 0.42,
+            "confidence": 0.52,
+            "why_for_you": [],
+            "why_now": [],
+            "uncertainty": [
+              {
+                "code": "LOW_USER_KNOWLEDGE",
+                "evidence_refs": [
+                  "user:sufficiency:low"
+                ]
+              }
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-4",
+            "rank": 8,
+            "buddy_fit": 0.42,
+            "confidence": 0.52,
+            "why_for_you": [],
+            "why_now": [],
+            "uncertainty": [
+              {
+                "code": "LOW_USER_KNOWLEDGE",
+                "evidence_refs": [
+                  "user:sufficiency:low"
+                ]
+              }
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-5",
+            "rank": 9,
+            "buddy_fit": 0.42,
+            "confidence": 0.52,
+            "why_for_you": [],
+            "why_now": [],
+            "uncertainty": [
+              {
+                "code": "LOW_USER_KNOWLEDGE",
+                "evidence_refs": [
+                  "user:sufficiency:low"
+                ]
+              }
+            ]
+          },
+          {
+            "spot_id": "n6-6101-1-spot-8",
+            "rank": 10,
+            "buddy_fit": 0.42,
+            "confidence": 0.52,
+            "why_for_you": [],
+            "why_now": [],
+            "uncertainty": [
+              {
+                "code": "LOW_USER_KNOWLEDGE",
+                "evidence_refs": [
+                  "user:sufficiency:low"
+                ]
+              }
+            ]
+          }
+        ],
+        "audit": [
+          {
+            "spotId": "n6-6101-1-spot-0",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_INTENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "intent:character.authentic_character",
+              "spot:n6-6101-1-spot-0:character.authentic_character"
+            ]
+          },
+          {
+            "spotId": "n6-6101-1-spot-0",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          },
+          {
+            "spotId": "n6-6101-1-spot-3",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_INTENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "intent:character.authentic_character",
+              "spot:n6-6101-1-spot-3:character.authentic_character"
+            ]
+          },
+          {
+            "spotId": "n6-6101-1-spot-3",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          },
+          {
+            "spotId": "n6-6101-1-spot-6",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_MOMENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "moment:vibe:vibe.lively",
+              "spot:n6-6101-1-spot-6:vibe.lively"
+            ]
+          },
+          {
+            "spotId": "n6-6101-1-spot-6",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          },
+          {
+            "spotId": "n6-6101-1-spot-9",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_MOMENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "moment:vibe:vibe.lively",
+              "spot:n6-6101-1-spot-9:vibe.lively"
+            ]
+          },
+          {
+            "spotId": "n6-6101-1-spot-9",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          },
+          {
+            "spotId": "n6-6101-1-spot-2",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_MOMENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "moment:social_context:social_style.conversation_friendly",
+              "spot:n6-6101-1-spot-2:social_style.conversation_friendly"
+            ]
+          },
+          {
+            "spotId": "n6-6101-1-spot-2",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          },
+          {
+            "spotId": "n6-6101-1-spot-7",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_MOMENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "moment:social_context:social_style.conversation_friendly",
+              "spot:n6-6101-1-spot-7:social_style.conversation_friendly"
+            ]
+          },
+          {
+            "spotId": "n6-6101-1-spot-7",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          },
+          {
+            "spotId": "n6-6101-1-spot-1",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          },
+          {
+            "spotId": "n6-6101-1-spot-4",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          },
+          {
+            "spotId": "n6-6101-1-spot-5",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          },
+          {
+            "spotId": "n6-6101-1-spot-8",
+            "scope": "UNCERTAINTY",
+            "code": "LOW_USER_KNOWLEDGE",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:sufficiency:low"
+            ]
+          }
+        ]
+      },
+      "parsedOutputPresent": true,
+      "candidateIdentityValid": true,
+      "audits": [
+        {
+          "spotId": "n6-6101-1-spot-0",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_INTENT_MATCH",
+          "evidenceRefs": [
+            "intent:character.authentic_character",
+            "spot:n6-6101-1-spot-0:character.authentic_character"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-1-spot-0",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-1-spot-3",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_INTENT_MATCH",
+          "evidenceRefs": [
+            "intent:character.authentic_character",
+            "spot:n6-6101-1-spot-3:character.authentic_character"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-1-spot-3",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-1-spot-6",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:vibe:vibe.lively",
+            "spot:n6-6101-1-spot-6:vibe.lively"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-1-spot-6",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-1-spot-9",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:vibe:vibe.lively",
+            "spot:n6-6101-1-spot-9:vibe.lively"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-1-spot-9",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-1-spot-2",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:social_context:social_style.conversation_friendly",
+            "spot:n6-6101-1-spot-2:social_style.conversation_friendly"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-1-spot-2",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-1-spot-7",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:social_context:social_style.conversation_friendly",
+            "spot:n6-6101-1-spot-7:social_style.conversation_friendly"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-1-spot-7",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-1-spot-1",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-1-spot-4",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-1-spot-5",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-1-spot-8",
+          "scope": "UNCERTAINTY",
+          "code": "LOW_USER_KNOWLEDGE",
+          "evidenceRefs": [
+            "user:sufficiency:low"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        }
+      ]
+    },
+    {
+      "scenarioId": "6101-2",
+      "validatorDisposition": {
+        "valid": false,
+        "reason": "UNSUPPORTED_REASON_EVIDENCE",
+        "audit": [
+          {
+            "spotId": "n6-6101-2-spot-3",
+            "scope": "WHY_FOR_YOU",
+            "code": "RELEVANT_TASTE_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:GLOBAL:discovery.hidden_gem",
+              "spot:n6-6101-2-spot-3:discovery.hidden_gem"
+            ]
+          },
+          {
+            "spotId": "n6-6101-2-spot-3",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_INTENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "intent:discovery.hidden_gem",
+              "spot:n6-6101-2-spot-3:discovery.hidden_gem"
+            ]
+          },
+          {
+            "spotId": "n6-6101-2-spot-0",
+            "scope": "WHY_FOR_YOU",
+            "code": "RELEVANT_TASTE_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:GLOBAL:discovery.hidden_gem",
+              "spot:n6-6101-2-spot-0:discovery.hidden_gem"
+            ]
+          },
+          {
+            "spotId": "n6-6101-2-spot-0",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_INTENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "intent:discovery.hidden_gem",
+              "spot:n6-6101-2-spot-0:discovery.hidden_gem"
+            ]
+          },
+          {
+            "spotId": "n6-6101-2-spot-0",
+            "scope": "UNCERTAINTY",
+            "code": "CONTRADICTORY_EVIDENCE",
+            "status": "UNSUPPORTED",
+            "reason": "MISSING_REQUIRED_EVIDENCE_KIND"
+          }
+        ]
+      },
+      "parsedOutputPresent": true,
+      "candidateIdentityValid": true,
+      "audits": [
+        {
+          "spotId": "n6-6101-2-spot-3",
+          "scope": "WHY_FOR_YOU",
+          "code": "RELEVANT_TASTE_MATCH",
+          "evidenceRefs": [
+            "user:GLOBAL:discovery.hidden_gem",
+            "spot:n6-6101-2-spot-3:discovery.hidden_gem"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-2-spot-3",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_INTENT_MATCH",
+          "evidenceRefs": [
+            "intent:discovery.hidden_gem",
+            "spot:n6-6101-2-spot-3:discovery.hidden_gem"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-2-spot-0",
+          "scope": "WHY_FOR_YOU",
+          "code": "RELEVANT_TASTE_MATCH",
+          "evidenceRefs": [
+            "user:GLOBAL:discovery.hidden_gem",
+            "spot:n6-6101-2-spot-0:discovery.hidden_gem"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-2-spot-0",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_INTENT_MATCH",
+          "evidenceRefs": [
+            "intent:discovery.hidden_gem",
+            "spot:n6-6101-2-spot-0:discovery.hidden_gem"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-2-spot-0",
+          "scope": "UNCERTAINTY",
+          "code": "CONTRADICTORY_EVIDENCE",
+          "evidenceRefs": [
+            "spot:n6-6101-2-spot-0:discovery.hidden_gem",
+            "spot:n6-6101-2-spot-0:discovery.mainstream"
+          ],
+          "status": "UNSUPPORTED",
+          "failureReason": "MISSING_REQUIRED_EVIDENCE_KIND"
+        },
+        {
+          "spotId": "n6-6101-2-spot-5",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:social_context:social_style.conversation_friendly",
+            "spot:n6-6101-2-spot-5:social_style.conversation_friendly"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-2-spot-6",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:social_context:social_style.conversation_friendly",
+            "spot:n6-6101-2-spot-6:social_style.conversation_friendly"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-2-spot-2",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:vibe:vibe.cozy",
+            "spot:n6-6101-2-spot-2:vibe.cozy"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-2-spot-7",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:vibe:vibe.cozy",
+            "spot:n6-6101-2-spot-7:vibe.cozy"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-2-spot-4",
+          "scope": "UNCERTAINTY",
+          "code": "CONTRADICTORY_EVIDENCE",
+          "evidenceRefs": [
+            "spot:n6-6101-2-spot-4:price.premium",
+            "spot:n6-6101-2-spot-4:price.budget"
+          ],
+          "status": "UNSUPPORTED",
+          "failureReason": "MISSING_REQUIRED_EVIDENCE_KIND"
+        },
+        {
+          "spotId": "n6-6101-2-spot-9",
+          "scope": "UNCERTAINTY",
+          "code": "CONTRADICTORY_EVIDENCE",
+          "evidenceRefs": [
+            "moment:vibe:energy.calm",
+            "spot:n6-6101-2-spot-9:vibe.lively"
+          ],
+          "status": "UNSUPPORTED",
+          "failureReason": "MISSING_REQUIRED_EVIDENCE_KIND"
+        },
+        {
+          "spotId": "n6-6101-2-spot-8",
+          "scope": "UNCERTAINTY",
+          "code": "CONTRADICTORY_EVIDENCE",
+          "evidenceRefs": [
+            "moment:vibe:energy.calm",
+            "spot:n6-6101-2-spot-8:vibe.lively"
+          ],
+          "status": "UNSUPPORTED",
+          "failureReason": "MISSING_REQUIRED_EVIDENCE_KIND"
+        },
+        {
+          "spotId": "n6-6101-2-spot-1",
+          "scope": "UNCERTAINTY",
+          "code": "CONTRADICTORY_EVIDENCE",
+          "evidenceRefs": [
+            "intent:discovery.hidden_gem",
+            "spot:n6-6101-2-spot-1:discovery.mainstream"
+          ],
+          "status": "UNSUPPORTED",
+          "failureReason": "MISSING_REQUIRED_EVIDENCE_KIND"
+        }
+      ]
+    },
+    {
+      "scenarioId": "6101-3",
+      "validatorDisposition": {
+        "valid": true,
+        "ranked": [
+          {
+            "spot_id": "n6-6101-3-spot-0",
+            "rank": 1,
+            "buddy_fit": 0.9,
+            "confidence": 0.86,
+            "why_for_you": [
+              {
+                "code": "RELEVANT_TASTE_MATCH",
+                "evidence_refs": [
+                  "user:GLOBAL:character.design_led",
+                  "spot:n6-6101-3-spot-0:character.design_led"
+                ]
+              }
+            ],
+            "why_now": [
+              {
+                "code": "CURRENT_INTENT_MATCH",
+                "evidence_refs": [
+                  "intent:character.design_led",
+                  "spot:n6-6101-3-spot-0:character.design_led"
+                ]
+              }
+            ],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-3-spot-1",
+            "rank": 2,
+            "buddy_fit": 0.9,
+            "confidence": 0.86,
+            "why_for_you": [
+              {
+                "code": "RELEVANT_TASTE_MATCH",
+                "evidence_refs": [
+                  "user:GLOBAL:character.design_led",
+                  "spot:n6-6101-3-spot-1:character.design_led"
+                ]
+              }
+            ],
+            "why_now": [
+              {
+                "code": "CURRENT_INTENT_MATCH",
+                "evidence_refs": [
+                  "intent:character.design_led",
+                  "spot:n6-6101-3-spot-1:character.design_led"
+                ]
+              }
+            ],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-3-spot-5",
+            "rank": 3,
+            "buddy_fit": 0.82,
+            "confidence": 0.83,
+            "why_for_you": [],
+            "why_now": [
+              {
+                "code": "CURRENT_MOMENT_MATCH",
+                "evidence_refs": [
+                  "moment:vibe:vibe.cozy",
+                  "spot:n6-6101-3-spot-5:vibe.cozy"
+                ]
+              },
+              {
+                "code": "CURRENT_MOMENT_MATCH",
+                "evidence_refs": [
+                  "moment:social_context:social_style.conversation_friendly",
+                  "spot:n6-6101-3-spot-5:social_style.conversation_friendly"
+                ]
+              }
+            ],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-3-spot-8",
+            "rank": 4,
+            "buddy_fit": 0.71,
+            "confidence": 0.78,
+            "why_for_you": [],
+            "why_now": [
+              {
+                "code": "CURRENT_MOMENT_MATCH",
+                "evidence_refs": [
+                  "moment:social_context:social_style.conversation_friendly",
+                  "spot:n6-6101-3-spot-8:social_style.conversation_friendly"
+                ]
+              }
+            ],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-3-spot-6",
+            "rank": 5,
+            "buddy_fit": 0.69,
+            "confidence": 0.77,
+            "why_for_you": [],
+            "why_now": [
+              {
+                "code": "CURRENT_MOMENT_MATCH",
+                "evidence_refs": [
+                  "moment:vibe:vibe.cozy",
+                  "spot:n6-6101-3-spot-6:vibe.cozy"
+                ]
+              }
+            ],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-3-spot-9",
+            "rank": 6,
+            "buddy_fit": 0.42,
+            "confidence": 0.58,
+            "why_for_you": [],
+            "why_now": [],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-3-spot-3",
+            "rank": 7,
+            "buddy_fit": 0.38,
+            "confidence": 0.56,
+            "why_for_you": [],
+            "why_now": [],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-3-spot-4",
+            "rank": 8,
+            "buddy_fit": 0.36,
+            "confidence": 0.55,
+            "why_for_you": [],
+            "why_now": [],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-3-spot-2",
+            "rank": 9,
+            "buddy_fit": 0.29,
+            "confidence": 0.61,
+            "why_for_you": [],
+            "why_now": [],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-3-spot-7",
+            "rank": 10,
+            "buddy_fit": 0.28,
+            "confidence": 0.61,
+            "why_for_you": [],
+            "why_now": [],
+            "uncertainty": []
+          }
+        ],
+        "audit": [
+          {
+            "spotId": "n6-6101-3-spot-0",
+            "scope": "WHY_FOR_YOU",
+            "code": "RELEVANT_TASTE_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:GLOBAL:character.design_led",
+              "spot:n6-6101-3-spot-0:character.design_led"
+            ]
+          },
+          {
+            "spotId": "n6-6101-3-spot-0",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_INTENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "intent:character.design_led",
+              "spot:n6-6101-3-spot-0:character.design_led"
+            ]
+          },
+          {
+            "spotId": "n6-6101-3-spot-1",
+            "scope": "WHY_FOR_YOU",
+            "code": "RELEVANT_TASTE_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:GLOBAL:character.design_led",
+              "spot:n6-6101-3-spot-1:character.design_led"
+            ]
+          },
+          {
+            "spotId": "n6-6101-3-spot-1",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_INTENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "intent:character.design_led",
+              "spot:n6-6101-3-spot-1:character.design_led"
+            ]
+          },
+          {
+            "spotId": "n6-6101-3-spot-5",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_MOMENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "moment:vibe:vibe.cozy",
+              "spot:n6-6101-3-spot-5:vibe.cozy"
+            ]
+          },
+          {
+            "spotId": "n6-6101-3-spot-5",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_MOMENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "moment:social_context:social_style.conversation_friendly",
+              "spot:n6-6101-3-spot-5:social_style.conversation_friendly"
+            ]
+          },
+          {
+            "spotId": "n6-6101-3-spot-8",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_MOMENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "moment:social_context:social_style.conversation_friendly",
+              "spot:n6-6101-3-spot-8:social_style.conversation_friendly"
+            ]
+          },
+          {
+            "spotId": "n6-6101-3-spot-6",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_MOMENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "moment:vibe:vibe.cozy",
+              "spot:n6-6101-3-spot-6:vibe.cozy"
+            ]
+          }
+        ]
+      },
+      "parsedOutputPresent": true,
+      "candidateIdentityValid": true,
+      "audits": [
+        {
+          "spotId": "n6-6101-3-spot-0",
+          "scope": "WHY_FOR_YOU",
+          "code": "RELEVANT_TASTE_MATCH",
+          "evidenceRefs": [
+            "user:GLOBAL:character.design_led",
+            "spot:n6-6101-3-spot-0:character.design_led"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-3-spot-0",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_INTENT_MATCH",
+          "evidenceRefs": [
+            "intent:character.design_led",
+            "spot:n6-6101-3-spot-0:character.design_led"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-3-spot-1",
+          "scope": "WHY_FOR_YOU",
+          "code": "RELEVANT_TASTE_MATCH",
+          "evidenceRefs": [
+            "user:GLOBAL:character.design_led",
+            "spot:n6-6101-3-spot-1:character.design_led"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-3-spot-1",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_INTENT_MATCH",
+          "evidenceRefs": [
+            "intent:character.design_led",
+            "spot:n6-6101-3-spot-1:character.design_led"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-3-spot-5",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:vibe:vibe.cozy",
+            "spot:n6-6101-3-spot-5:vibe.cozy"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-3-spot-5",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:social_context:social_style.conversation_friendly",
+            "spot:n6-6101-3-spot-5:social_style.conversation_friendly"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-3-spot-8",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:social_context:social_style.conversation_friendly",
+            "spot:n6-6101-3-spot-8:social_style.conversation_friendly"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-3-spot-6",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:vibe:vibe.cozy",
+            "spot:n6-6101-3-spot-6:vibe.cozy"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        }
+      ]
+    },
+    {
+      "scenarioId": "6101-4",
+      "validatorDisposition": {
+        "valid": true,
+        "ranked": [
+          {
+            "spot_id": "n6-6101-4-spot-4",
+            "rank": 1,
+            "buddy_fit": 0.94,
+            "confidence": 0.86,
+            "why_for_you": [
+              {
+                "code": "RELEVANT_TASTE_MATCH",
+                "evidence_refs": [
+                  "user:GLOBAL:social_style.family_friendly",
+                  "spot:n6-6101-4-spot-4:social_style.family_friendly"
+                ]
+              }
+            ],
+            "why_now": [
+              {
+                "code": "CURRENT_INTENT_MATCH",
+                "evidence_refs": [
+                  "intent:social_style.family_friendly",
+                  "spot:n6-6101-4-spot-4:social_style.family_friendly"
+                ]
+              },
+              {
+                "code": "CURRENT_MOMENT_MATCH",
+                "evidence_refs": [
+                  "moment:social_context:social_style.conversation_friendly",
+                  "spot:n6-6101-4-spot-4:social_style.conversation_friendly"
+                ]
+              }
+            ],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-3",
+            "rank": 2,
+            "buddy_fit": 0.88,
+            "confidence": 0.81,
+            "why_for_you": [
+              {
+                "code": "RELEVANT_TASTE_MATCH",
+                "evidence_refs": [
+                  "user:GLOBAL:social_style.family_friendly",
+                  "spot:n6-6101-4-spot-3:social_style.family_friendly"
+                ]
+              }
+            ],
+            "why_now": [
+              {
+                "code": "CURRENT_INTENT_MATCH",
+                "evidence_refs": [
+                  "intent:social_style.family_friendly",
+                  "spot:n6-6101-4-spot-3:social_style.family_friendly"
+                ]
+              }
+            ],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-1",
+            "rank": 3,
+            "buddy_fit": 0.77,
+            "confidence": 0.75,
+            "why_for_you": [],
+            "why_now": [
+              {
+                "code": "CURRENT_MOMENT_MATCH",
+                "evidence_refs": [
+                  "moment:social_context:social_style.conversation_friendly",
+                  "spot:n6-6101-4-spot-1:social_style.conversation_friendly"
+                ]
+              }
+            ],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-5",
+            "rank": 4,
+            "buddy_fit": 0.73,
+            "confidence": 0.72,
+            "why_for_you": [],
+            "why_now": [
+              {
+                "code": "CURRENT_MOMENT_MATCH",
+                "evidence_refs": [
+                  "moment:vibe:vibe.lively",
+                  "spot:n6-6101-4-spot-5:vibe.lively"
+                ]
+              }
+            ],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-6",
+            "rank": 5,
+            "buddy_fit": 0.73,
+            "confidence": 0.72,
+            "why_for_you": [],
+            "why_now": [
+              {
+                "code": "CURRENT_MOMENT_MATCH",
+                "evidence_refs": [
+                  "moment:vibe:vibe.lively",
+                  "spot:n6-6101-4-spot-6:vibe.lively"
+                ]
+              }
+            ],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-0",
+            "rank": 6,
+            "buddy_fit": 0.42,
+            "confidence": 0.55,
+            "why_for_you": [],
+            "why_now": [],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-2",
+            "rank": 7,
+            "buddy_fit": 0.42,
+            "confidence": 0.55,
+            "why_for_you": [],
+            "why_now": [],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-7",
+            "rank": 8,
+            "buddy_fit": 0.42,
+            "confidence": 0.55,
+            "why_for_you": [],
+            "why_now": [],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-8",
+            "rank": 9,
+            "buddy_fit": 0.42,
+            "confidence": 0.55,
+            "why_for_you": [],
+            "why_now": [],
+            "uncertainty": []
+          },
+          {
+            "spot_id": "n6-6101-4-spot-9",
+            "rank": 10,
+            "buddy_fit": 0.42,
+            "confidence": 0.55,
+            "why_for_you": [],
+            "why_now": [],
+            "uncertainty": []
+          }
+        ],
+        "audit": [
+          {
+            "spotId": "n6-6101-4-spot-4",
+            "scope": "WHY_FOR_YOU",
+            "code": "RELEVANT_TASTE_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:GLOBAL:social_style.family_friendly",
+              "spot:n6-6101-4-spot-4:social_style.family_friendly"
+            ]
+          },
+          {
+            "spotId": "n6-6101-4-spot-4",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_INTENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "intent:social_style.family_friendly",
+              "spot:n6-6101-4-spot-4:social_style.family_friendly"
+            ]
+          },
+          {
+            "spotId": "n6-6101-4-spot-4",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_MOMENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "moment:social_context:social_style.conversation_friendly",
+              "spot:n6-6101-4-spot-4:social_style.conversation_friendly"
+            ]
+          },
+          {
+            "spotId": "n6-6101-4-spot-3",
+            "scope": "WHY_FOR_YOU",
+            "code": "RELEVANT_TASTE_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "user:GLOBAL:social_style.family_friendly",
+              "spot:n6-6101-4-spot-3:social_style.family_friendly"
+            ]
+          },
+          {
+            "spotId": "n6-6101-4-spot-3",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_INTENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "intent:social_style.family_friendly",
+              "spot:n6-6101-4-spot-3:social_style.family_friendly"
+            ]
+          },
+          {
+            "spotId": "n6-6101-4-spot-1",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_MOMENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "moment:social_context:social_style.conversation_friendly",
+              "spot:n6-6101-4-spot-1:social_style.conversation_friendly"
+            ]
+          },
+          {
+            "spotId": "n6-6101-4-spot-5",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_MOMENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "moment:vibe:vibe.lively",
+              "spot:n6-6101-4-spot-5:vibe.lively"
+            ]
+          },
+          {
+            "spotId": "n6-6101-4-spot-6",
+            "scope": "WHY_NOW",
+            "code": "CURRENT_MOMENT_MATCH",
+            "status": "SUPPORTED",
+            "evidenceRefs": [
+              "moment:vibe:vibe.lively",
+              "spot:n6-6101-4-spot-6:vibe.lively"
+            ]
+          }
+        ]
+      },
+      "parsedOutputPresent": true,
+      "candidateIdentityValid": true,
+      "audits": [
+        {
+          "spotId": "n6-6101-4-spot-4",
+          "scope": "WHY_FOR_YOU",
+          "code": "RELEVANT_TASTE_MATCH",
+          "evidenceRefs": [
+            "user:GLOBAL:social_style.family_friendly",
+            "spot:n6-6101-4-spot-4:social_style.family_friendly"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-4-spot-4",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_INTENT_MATCH",
+          "evidenceRefs": [
+            "intent:social_style.family_friendly",
+            "spot:n6-6101-4-spot-4:social_style.family_friendly"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-4-spot-4",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:social_context:social_style.conversation_friendly",
+            "spot:n6-6101-4-spot-4:social_style.conversation_friendly"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-4-spot-3",
+          "scope": "WHY_FOR_YOU",
+          "code": "RELEVANT_TASTE_MATCH",
+          "evidenceRefs": [
+            "user:GLOBAL:social_style.family_friendly",
+            "spot:n6-6101-4-spot-3:social_style.family_friendly"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-4-spot-3",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_INTENT_MATCH",
+          "evidenceRefs": [
+            "intent:social_style.family_friendly",
+            "spot:n6-6101-4-spot-3:social_style.family_friendly"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-4-spot-1",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:social_context:social_style.conversation_friendly",
+            "spot:n6-6101-4-spot-1:social_style.conversation_friendly"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-4-spot-5",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:vibe:vibe.lively",
+            "spot:n6-6101-4-spot-5:vibe.lively"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        },
+        {
+          "spotId": "n6-6101-4-spot-6",
+          "scope": "WHY_NOW",
+          "code": "CURRENT_MOMENT_MATCH",
+          "evidenceRefs": [
+            "moment:vibe:vibe.lively",
+            "spot:n6-6101-4-spot-6:vibe.lively"
+          ],
+          "status": "SUPPORTED",
+          "failureReason": null
+        }
+      ]
+    }
+  ]
+}
