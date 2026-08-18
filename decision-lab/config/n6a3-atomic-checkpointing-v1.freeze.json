@@ -1,0 +1,22 @@
+{
+  "freezeVersion": "backyrd-n6a3-atomic-checkpointing-freeze-v1",
+  "frozenBeforeNewPilot": true,
+  "versions": {
+    "manifest": "backyrd-n6a3-pilot-manifest-v1",
+    "slotIdentity": "backyrd-n6a3-slot-identity-v1",
+    "checkpoint": "backyrd-n6a3-slot-checkpoint-v1",
+    "resume": "backyrd-n6a3-safe-resume-v1",
+    "retry": "backyrd-n6a3-technical-retry-v1",
+    "costAccounting": "backyrd-n6a3-cost-accounting-v1"
+  },
+  "protectedDecisionBuddyIdentityHash": "f92c9e79b0b6c0f556159588f0a6f98f33799e78f0c091333ac4a32025183472",
+  "engineSourceHash": "21460b82234903c47649eb6de5edd520ffefc7becfbf653c169499e477d5470e",
+  "pilotContractSourceHash": "25f4701af2f801cdcb951a413a2968cfbce86487c21fd4284e7b0f3b96f9a61c",
+  "runnerSourceHash": "b952cd7cfee4622709e4a9d839d442b164369c707143443b22c96f2a3bc13907",
+  "liveExecutorSourceHash": "36e7ebcd804ea665f6e50e60ee15cfef9eecf76091305c959230968c9570a56c",
+  "acceptanceTestHash": "f8790f9191e54dfcf19f43f7b59e8f8fcaf44545c7604aa72de599752b0481fc",
+  "configHash": "3b84598640b2ab7bb6886edbbf0898d5fc2fb901986f0e9efa7bda3ec2ae1c5d",
+  "externalAiCalls": 0,
+  "externalAiCostUsd": 0,
+  "officialNewPilotResultHash": null
+}
