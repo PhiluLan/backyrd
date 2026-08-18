@@ -38,6 +38,8 @@
     "decision-lab:n2:freeze": "node decision-lab/src/n2-freeze.mjs",
     "decision-lab:n3": "node decision-lab/src/n3-validation.mjs",
     "decision-lab:n3:freeze": "node decision-lab/src/n3-freeze.mjs",
+    "decision-lab:n4": "node decision-lab/src/n4-validation.mjs",
+    "decision-lab:n4:freeze": "node decision-lab/src/n4-freeze.mjs",
     "supabase:start": "npx supabase start",
     "supabase:stop": "npx supabase stop",
     "supabase:status": "npx supabase status",

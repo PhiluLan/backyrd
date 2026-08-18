@@ -1,0 +1,29 @@
+{
+  "freezeVersion": "backyrd-n4-spot-intelligence-freeze-v1",
+  "frozenBeforeOfficialRun": true,
+  "versions": {
+    "schema": "backyrd-spot-intelligence-schema-v1",
+    "evidence": "backyrd-spot-evidence-contract-v1",
+    "provenance": "backyrd-spot-provenance-contract-v1",
+    "confidence": "backyrd-spot-confidence-contract-v1",
+    "owner": "backyrd-owner-intelligence-contract-v1",
+    "commercialBoundary": "backyrd-owner-free-premium-boundary-v1",
+    "contextual": "backyrd-contextual-spot-intelligence-v1",
+    "serialization": "backyrd-relevant-spot-intelligence-boundary-v1",
+    "validation": "backyrd-spot-validation-contract-v1"
+  },
+  "spotIntelligenceContractHash": "053ce565c1a49679f17b4d562bacbda93b7ab5ddb8f9aa4359cd8eb4103e800a",
+  "schemaHash": "f12324f15c00bdfd2792a83a0d994ff50eed7e7f422f3570d40706000e7997da",
+  "evidenceContractHash": "730acf8f59706ef8d130861ba6bdd17885a331d73ebc44d8963fcad4765809f4",
+  "ownerContractHash": "547f668a7e93a7adcb99042c44f9a687fd1d7981ab80d939084bfd8875afe9fa",
+  "protectedN2MemoryContractHash": "0294d85141e4ee40545591d6ec68372b0558762f35b9b9a12e521b35ebe84b9d",
+  "protectedN3MomentContractHash": "291a36edf3d3608f534879c2a4914c82c43725af779406296c8c3a2d40eb46e9",
+  "engineSourceHash": "7b969794bb14ef1c102e700e7e02968d0f3f8da07fec4c10af78833eef5a2f5e",
+  "validationSourceHash": "e1221e1018a23fbbd748ca7ef6006f24755eaf162670d84f285737c844199ad9",
+  "acceptanceTestHash": "b4aa08002b92f8b386590bca632a9b60350ce97c78a79460ef88d7827733cb92",
+  "freezeAcceptanceTestHash": "df48cc42d73b82ff100d2850684f6b0a7c78b02e32744ecbe6ee1746c02ece9c",
+  "validationContractFileHash": "89bd487286aaecb44843a6865fdef00d858d54927b8c884dce79a6f7a7477774",
+  "additiveMigrationHash": "b76d8f98351d8a5629a482046751bd9de0c690709b1775e1c140b99a70e28396",
+  "databaseAcceptanceTestHash": "a90ff29ce08e0e0f7ca25a77318ff3bd5b3ce6d6001890fa4637eb1079cad924",
+  "officialResultHash": "ecdc868fa4b931815443d3cac8ab875d9c869d5a616473ae62bdedc7f02dffa1"
+}

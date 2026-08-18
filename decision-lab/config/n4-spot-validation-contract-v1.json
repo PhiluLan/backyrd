@@ -1,0 +1,43 @@
+{
+  "version": "backyrd-spot-validation-contract-v1",
+  "status": "FROZEN_BEFORE_OFFICIAL_RUN",
+  "seeds": [4001, 4002, 4003],
+  "scenarios": [
+    "RICH_PREMIUM_BAR",
+    "MISLEADING_PREMIUM_SPOT",
+    "FREE_STRONG_COMMUNITY",
+    "SPARSE_NEW_SPOT",
+    "CONTEXT_DEPENDENT_BAR",
+    "FAMILY_RESTAURANT",
+    "DATE_RESTAURANT",
+    "CROSS_CITY",
+    "PREMIUM_WRONG_FOR_REQUEST",
+    "FREE_PERFECT_FIT"
+  ],
+  "gates": {
+    "factAccuracy": 1,
+    "provenanceCompleteness": 1,
+    "confidenceCalibrationMaximumBrier": 0.08,
+    "ownerClaimIsolation": 1,
+    "freePremiumFairness": 1,
+    "contradictionHandling": 1,
+    "contextualIntelligence": 1,
+    "unknownCorrectness": 1,
+    "crossCitySchemaCompatibility": 1,
+    "securityContract": 1,
+    "n6SerializationIntegrity": 1,
+    "deterministicReplay": 1
+  },
+  "performance": {
+    "spotCounts": [300, 1000, 10000],
+    "maximumLookupP95Ms": 20,
+    "maximumSerializationP95Ms": 5
+  },
+  "policies": {
+    "missingArm": "FAIL_CLOSED",
+    "latentTruth": "EVALUATOR_ONLY",
+    "premiumAsDecisionFeature": "PROHIBITED",
+    "thresholdMutationAfterResult": "PROHIBITED",
+    "productionIntegration": "NOT_STARTED"
+  }
+}
