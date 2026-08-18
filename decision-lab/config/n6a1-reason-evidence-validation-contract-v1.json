@@ -1,0 +1,22 @@
+{
+  "version": "backyrd-n6a1-reason-evidence-validation-contract-v1",
+  "frozenBeforeFutureSmoke": true,
+  "purpose": "Reason-evidence integrity; not a ranking-quality contract.",
+  "mandatoryGates": {
+    "allReasonCodesHaveExactSemantics": true,
+    "whyForYouRequiresN5EvidenceAndCandidateMatch": true,
+    "whyNowRequiresIntentOrN3EvidenceAndCandidateMatch": true,
+    "uncertaintyRequiresReferencedEvidence": true,
+    "unknownOrAmbiguousEvidenceFailsClosed": true,
+    "invalidOutputsAreCaptured": true,
+    "candidateIdentityIntegrity": true,
+    "noPremiumBillingTrustOrLatentTruthInput": true,
+    "noExternalCallsForN6A1": true
+  },
+  "historicalReplay": {
+    "missingParsedRejectedOutput": "UNREPLAYABLE_MEASUREMENT_ARTIFACT_GAP",
+    "legacyOutputWithoutEvidenceRefs": "FAIL_NEW_CONTRACT",
+    "notAQualityEvaluation": true
+  },
+  "futureSmokeRequirement": "A fresh live smoke is required; the five historical outputs cannot establish post-hardening ranking quality."
+}
