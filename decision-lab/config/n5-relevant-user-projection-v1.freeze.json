@@ -1,0 +1,25 @@
+{
+  "freezeVersion": "backyrd-n5-relevant-user-projection-freeze-v1",
+  "frozenBeforeOfficialRun": true,
+  "versions": {
+    "projection": "backyrd-relevant-user-projection-v1",
+    "relevance": "backyrd-user-knowledge-relevance-v1",
+    "sufficiency": "backyrd-decision-user-knowledge-sufficiency-v1",
+    "suppression": "backyrd-user-knowledge-suppression-v1",
+    "serialization": "backyrd-n6-user-knowledge-serialization-v1",
+    "validation": "backyrd-relevant-user-projection-validation-v1"
+  },
+  "projectionContractHash": "1a2b39de24132937db719a9a4290ee25d89824e9eda51e8273096d801cfd7420",
+  "relevanceContractHash": "2e9714daacd485e44a0e554abdca79c361c5c6402e3da0847581b89f079f8843",
+  "sufficiencyContractHash": "8d5c721d38ff0c4e7524cb776b828e5a70824dbd4497632d605623ae9d6e2422",
+  "suppressionContractHash": "a3fdf1d6fca0359aa19712097c2d0546a28923ad75b4c8c08731c4ec41a01118",
+  "protectedN2MemoryContractHash": "0294d85141e4ee40545591d6ec68372b0558762f35b9b9a12e521b35ebe84b9d",
+  "protectedN3MomentContractHash": "291a36edf3d3608f534879c2a4914c82c43725af779406296c8c3a2d40eb46e9",
+  "protectedN4SpotContractHash": "053ce565c1a49679f17b4d562bacbda93b7ab5ddb8f9aa4359cd8eb4103e800a",
+  "engineSourceHash": "b1b8bda08999d18d580b65e4fe201d4b8d804b4923d14f913f040db0e26edc51",
+  "validationSourceHash": "6a1f7eb7fe32961681da9326762c32e53273c154a730da1cac9836d56ac0746e",
+  "acceptanceTestHash": "10223efd6299788762b85c8670343615bf068af7ab373541399d7210afa3b1de",
+  "freezeAcceptanceTestHash": "3aab77973201247e11cfb783654f8253b9f94d767db7290ccd333dca4c2014d8",
+  "validationContractFileHash": "af4aa57641233bc6f05370d27129039e14f9738668c2e480d6c2aaf309f52b0b",
+  "officialResultHash": "c877dcc7b986823011ac2ec33612504f2539f8ef2dadcb7c6b5cd7de42ed1ac8"
+}
