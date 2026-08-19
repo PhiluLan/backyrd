@@ -24,6 +24,7 @@ import { supabase } from "@/lib/supabase";
 import { hasActiveConsent } from "@/lib/consent";
 import { mapTextToClusterIds } from "@/lib/decision/moodMapping";
 import { trackAnalyticsEvent, reportAnalyticsError } from "@/lib/analytics";
+import { recordMemoryProductAction } from "@/lib/memory-bridge";
 
 type DecisionSpotRpcRow = {
   spot_id: string;
@@ -1618,7 +1619,8 @@ export default function DecisionScreen() {
         spotId,
         decisionId,
       });
-      router.push(`/spot/${spotId}` as any);
+      void recordMemoryProductAction({ actionType: "spot_opened", spotId, decisionId, entrySurface: "decision" });
+      router.push(`/spot/${spotId}?entrySource=decision` as any);
     },
     [activeIndex, decisionId, logMlEvent, router, spots]
   );

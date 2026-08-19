@@ -471,6 +471,9 @@ export default function SmartReviewScreen() {
         .insert({
           spot_id: nearest.id,
           user_id: user.id,
+          // The database bridge only treats this explicit Smart Review origin plus
+          // its user-owned photo as qualified Experience evidence.
+          product_evidence_origin: "smart_review_v1",
           text: text.trim() || null,
           mood_a: moodA.trim() || null,
           mood_b: moodB.trim() || null,
