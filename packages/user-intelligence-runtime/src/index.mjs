@@ -30,3 +30,4 @@ export {
   N5_8_2_HIGH_ELIGIBILITY_CONTRACT_HASH,
 } from "../../../decision-lab/src/n5-8-2-epistemic-high-guard.mjs";
 export { buildCanonicalRuntimeInput } from "./production-input.mjs";
+export { rebuildUserIntelligence, validateRuntimeResult } from "./worker.mjs";
