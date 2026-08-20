@@ -144,6 +144,23 @@ test("provider timeout is bounded and retryable only by the queue",async()=>{
   assert.equal(calls,1);
 });
 
+test("provider HTTP diagnostics are secret-safe and preserve actionable contract metadata",async()=>{
+  const { input }=fixture();
+  const fetchImpl=async()=>({ok:false,status:400,headers:{get:(name)=>name==="x-request-id"?"req_fixture":null},json:async()=>({error:{message:"must not persist this raw provider message",type:"invalid_request_error",code:"invalid_json_schema",param:"text.format.schema"},opaque:"drop"})});
+  await assert.rejects(()=>callN6ProviderWithRetry(input,{apiKey:"test",fetchImpl,maxRetries:0}),(error)=>{
+    assert.equal(error.code,"N6_PROVIDER_HTTP_400");
+    assert.deepEqual(error.diagnostic,{httpStatus:400,requestId:"req_fixture",responseObject:null,responseStatus:null,errorType:"invalid_request_error",errorCode:"invalid_json_schema",errorParam:"text.format.schema"});
+    assert.equal(JSON.stringify(error.diagnostic).includes("raw provider message"),false);
+    return true;
+  });
+});
+
+test("non-completed Responses API dispositions never reach the semantic validator",async()=>{
+  const { input }=fixture();
+  const fetchImpl=async()=>({ok:true,status:200,headers:{get:()=>"req_incomplete"},json:async()=>({id:"resp_incomplete",object:"response",model:"gpt-5.6-sol",status:"incomplete",output:[],usage:{input_tokens:100,output_tokens:0,total_tokens:100}})});
+  await assert.rejects(()=>callN6ProviderWithRetry(input,{apiKey:"test",fetchImpl,maxRetries:0}),(error)=>error.code==="N6_PROVIDER_RESPONSE_NOT_COMPLETED"&&error.diagnostic.responseStatus==="incomplete");
+});
+
 test("validator rejection is persisted whole and never retried",async()=>{
   const { input }=fixture();const invalid=validPayload(input);invalid.ranked_candidates.pop();let calls=0,trace;
   const repository={claim:async()=>({workId:"w",shadowRunId:"s",decisionId,userId,attempt:1}),loadInput:async()=>input,finalize:async(_work,value)=>{trace=value;return{status:"REJECTED",trace:value};},fail:async()=>assert.fail("semantic rejection must not retry")};

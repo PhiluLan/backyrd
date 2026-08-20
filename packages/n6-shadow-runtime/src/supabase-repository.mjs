@@ -36,7 +36,7 @@ export class SupabaseN6ShadowRepository {
     const { data, error } = await this.client.rpc("backyrd_fail_n6_shadow_v1", {
       p_work_id: work.workId, p_shadow_run_id: work.shadowRunId, p_runner_id: this.runnerId,
       p_retryable: failure.retryable, p_failure_code: failure.code,
-      p_failure_trace: { version: "backyrd-production-n6-shadow-trace-v1", shadowRunId: work.shadowRunId, workId: work.workId, decisionId: work.decisionId, userId: work.userId, startedAt: failure.startedAt, completedAt: new Date().toISOString(), retryCount: failure.retryCount, validatorDisposition: "FAILED", failureCode: failure.code, boundaries: { visibleDecisionChanged: false, n2LearningCreated: false } }
+      p_failure_trace: { version: "backyrd-production-n6-shadow-trace-v1", shadowRunId: work.shadowRunId, workId: work.workId, decisionId: work.decisionId, userId: work.userId, startedAt: failure.startedAt, completedAt: new Date().toISOString(), retryCount: failure.retryCount, validatorDisposition: "FAILED", failureCode: failure.code, providerDiagnostic: failure.providerDiagnostic ?? null, boundaries: { visibleDecisionChanged: false, n2LearningCreated: false } }
     });
     fail(error, "fail"); return data;
   }

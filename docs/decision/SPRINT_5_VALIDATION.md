@@ -4,9 +4,9 @@
 
 The offline integration and local database path pass. The visible deterministic decision was unchanged, eight required Shadow scenarios completed, and no Shadow result became N2 learning evidence.
 
-One bounded live staging attempt reached the external provider boundary but produced no canonical usage-bearing response. No second live scenario was started after the predeclared two-transport-attempt ceiling could no longer be proven unused. The frozen model/configuration was not changed. Verified provider usage/cost recorded: USD 0.000000; conservative live exposure ceiling: USD 0.50.
+Sprint 5.1 added secret-safe provider error metadata and repeated the real queue path under a USD 0.50 hard cap. One logical live Shadow run consumed the frozen maximum of two technical attempts. The provider returned HTTP 429 with `error.type=insufficient_quota` and `error.code=credit_balance_exhausted`; the final request identity was retained without body text or secrets. Neither attempt returned a canonical usage-bearing response. Verified provider usage/cost recorded: USD 0.000000.
 
-Because a validated live provider output was not obtained, Sprint 5 is not closed for internal-user readiness. This is an integration readiness failure, not a reason to weaken the validator or alter the frozen engine.
+Because a validated live provider output was not obtained, Sprint 5 is not closed for internal-user readiness. The remaining blocker is external provider credit/quota availability, not ranking semantics, parsing, structured-output configuration, or validator behavior. No model, prompt, timeout, decision semantics, or gate was changed.
 
 ## Executed gates
 
@@ -33,9 +33,23 @@ The final representative local mock-provider validation recorded Top-1 agreement
 
 The account-erasure fixture follows the repository's authoritative deletion order: owned Safety registry rows are removed before the profile. A direct local Auth Admin deletion bypassing that procedure is blocked by the pre-existing Safety actor synchronization trigger and is not a Sprint-5 regression.
 
+## Sprint 5.1 provider diagnosis
+
+- endpoint: `POST /v1/responses`; reached provider.
+- model: `gpt-5.6-sol`; officially supports Responses and Structured Outputs.
+- request format: `text.format.type=json_schema`; matches the current Responses API contract.
+- response: HTTP 429 provider error object, not a Response object.
+- provider disposition: `insufficient_quota / credit_balance_exhausted`.
+- completion/output/usage: unavailable because generation never started.
+- parser/canonicalizer/validator: correctly not invoked for the provider error.
+- queue: attempt 1 became retryable; attempt 2 became terminal `FAILED`.
+- visible deterministic mutation: 0; N2 learning delta: 0.
+
+The earlier Sprint-5 response body was not retained, so its precise provider error cannot be claimed retroactively. Sprint 5.1 fixes that observability gap and establishes the exact current blocker without guessing.
+
 ## Required remaining closure proof
 
-With explicit fresh authorization and the frozen model/configuration available at the provider boundary, obtain at least one usage-bearing canonical provider response that passes or is cleanly rejected by the validator and is persisted through the real Shadow queue. Do not make N6 visible.
+After provider credit/quota is restored, use the same frozen model/configuration to obtain one usage-bearing canonical provider response that passes or is cleanly rejected by the validator and is persisted through the real Shadow queue. Do not make N6 visible.
 
 ## Commands
 

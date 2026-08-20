@@ -66,7 +66,7 @@ export class N6ShadowService {
       };
       return this.repository.finalize(work, trace);
     } catch (error) {
-      try { return await this.repository.fail(work, { code: error.code ?? error.message, retryable: error.retryable === true, retryCount: error.retryCount ?? 0, startedAt }); }
+      try { return await this.repository.fail(work, { code: error.code ?? error.message, retryable: error.retryable === true, retryCount: error.retryCount ?? 0, startedAt, providerDiagnostic: error.diagnostic ?? null }); }
       catch (reconcileError) {
         if (/claim_invalid|consent|user_deleted|not found/i.test(`${error.message}:${reconcileError.message}`)) return { status: "SHADOW_ABORTED_LIFECYCLE_CHANGED", failureCode: error.code ?? error.message };
         throw reconcileError;

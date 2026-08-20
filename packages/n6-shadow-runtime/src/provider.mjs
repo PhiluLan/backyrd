@@ -7,7 +7,22 @@ const textOf = (canonical) => canonical.output.text;
 const retryableStatus = (status) => status === 408 || status === 409 || status === 429 || status >= 500;
 
 export class N6ProviderError extends Error {
-  constructor(code, { retryable = false, cause } = {}) { super(code, { cause }); this.code = code; this.retryable = retryable; }
+  constructor(code, { retryable = false, cause, diagnostic = null } = {}) { super(code, { cause }); this.code = code; this.retryable = retryable; this.diagnostic = diagnostic; }
+}
+
+async function canonicalProviderError(response) {
+  let body = null;
+  try { body = await response.json(); } catch { /* body is deliberately optional */ }
+  const providerError = body?.error && typeof body.error === "object" ? body.error : {};
+  return Object.freeze({
+    httpStatus: Number(response.status),
+    requestId: response.headers?.get?.("x-request-id") ?? null,
+    responseObject: typeof body?.object === "string" ? body.object : null,
+    responseStatus: typeof body?.status === "string" ? body.status : null,
+    errorType: typeof providerError.type === "string" ? providerError.type : null,
+    errorCode: typeof providerError.code === "string" ? providerError.code : null,
+    errorParam: typeof providerError.param === "string" ? providerError.param : null
+  });
 }
 
 export function buildProviderRequest(input) {
@@ -36,10 +51,11 @@ export async function callN6Provider(input, { apiKey, fetchImpl = globalThis.fet
     if (error?.name === "AbortError") throw new N6ProviderError("N6_PROVIDER_TIMEOUT", { retryable: true, cause: error });
     throw new N6ProviderError("N6_PROVIDER_NETWORK_FAILURE", { retryable: true, cause: error });
   } finally { clearTimeout(timer); }
-  if (!response.ok) throw new N6ProviderError(`N6_PROVIDER_HTTP_${response.status}`, { retryable: retryableStatus(response.status) });
+  if (!response.ok) throw new N6ProviderError(`N6_PROVIDER_HTTP_${response.status}`, { retryable: retryableStatus(response.status), diagnostic: await canonicalProviderError(response) });
   let raw;
   try { raw = await response.json(); } catch (error) { throw new N6ProviderError("N6_PROVIDER_MALFORMED_JSON", { cause: error }); }
   const canonicalProviderResponse = canonicalizeProviderResponse(raw);
+  if (canonicalProviderResponse.response.status !== "completed") throw new N6ProviderError("N6_PROVIDER_RESPONSE_NOT_COMPLETED", { diagnostic: { httpStatus: Number(response.status), requestId: response.headers?.get?.("x-request-id") ?? null, responseStatus: canonicalProviderResponse.response.status } });
   let payload = null;
   try { payload = JSON.parse(textOf(canonicalProviderResponse)); } catch { /* strict validator rejects */ }
   const validation = validateProductionN6Output(payload, input);

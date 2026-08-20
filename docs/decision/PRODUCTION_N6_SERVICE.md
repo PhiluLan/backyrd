@@ -39,6 +39,8 @@ Required server environment: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `B
 
 Provider error, timeout, invalid output, budget skip, rate limit, disabled flag, or lifecycle change never changes the deterministic response. Technical retry is queue-level so every external attempt is budgeted and traced. Semantic rejection is never retried.
 
+Non-success provider responses retain only secret-safe diagnostic metadata: HTTP status, request ID, provider error type/code/parameter, and response disposition when present. Raw provider error messages and opaque response bodies are not persisted. Only a completed Responses API object proceeds to N6A.7 canonicalization and the strict semantic validator.
+
 ## Privacy and commercial boundaries
 
 The provider input excludes raw history, arbitrary review text, user identity, owner/payment data, Trust internals, latent truth, and commercial ranking signals. Service credentials never enter a client. Shadow output creates no impressions, N2 events, Taste evidence, or User Card changes.
