@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { contentHash } from "../../decision-input-runtime/src/package.mjs";
-import { buildDeterministicDecision,validateDeterministicDecision } from "../src/index.mjs";
+import { buildDeterministicDecision,SupabaseDecisionOrchestrator,validateDeterministicDecision } from "../src/index.mjs";
 
 const userId="10000000-0000-4000-8000-000000000001";
 const decisionId="10000000-0000-4000-8000-000000000010";
@@ -78,4 +78,15 @@ test("same semantic input replays identically",()=>{
 test("zero eligible candidates returns an honest empty result",()=>{
   const p=fixture({candidates:[]});const out=buildDeterministicDecision(p,[],{expectedUserId:userId});
   assert.deepEqual(out.response.spots,[]);assert.equal(out.response.fallback.returnedCount,0);
+});
+
+test("trace persistence failure never returns an apparently complete decision",async()=>{
+  const p=fixture();
+  const client={from:()=>({select(){return this;},eq(){return this;},single:async()=>({data:{enabled:true},error:null})})};
+  const runtime=new SupabaseDecisionOrchestrator(client);
+  runtime.assertDecisionOwner=async()=>{};
+  runtime.inputRepository={buildAndPersist:async()=>({package:p,performance:{},traceId:"input-trace"})};
+  runtime.readSpotCards=async()=>cards(p.candidates);
+  runtime.persistCompleteTrace=async()=>{throw new Error("simulated_trace_failure");};
+  await assert.rejects(()=>runtime.run({decisionId,userId,authenticatedUserId:userId}),/simulated_trace_failure/);
 });
