@@ -3,7 +3,7 @@ import { buildProductCurrentMoment } from "./current-moment.mjs";
 import { buildColdUserCard,buildProductProjection } from "./projection.mjs";
 import { serializeCandidateN4,N4_DECISION_VERSION } from "./n4-decision.mjs";
 
-export const DECISION_INPUT_PACKAGE_VERSION = "backyrd-decision-input-package-v1";
+export const DECISION_INPUT_PACKAGE_VERSION = "backyrd-decision-input-package-v2";
 export const DECISION_INPUT_VALIDATION_VERSION = "backyrd-decision-input-validation-v1";
 const canonical = (value) => value && typeof value === "object" ? Array.isArray(value) ? value.map(canonical) : Object.fromEntries(Object.keys(value).sort().map((key)=>[key,canonical(value[key])])) : value;
 export const contentHash = (value) => createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex");
@@ -39,7 +39,7 @@ export function validateDecisionInputPackage(value,{expectedUserId}={}) {
   if(value.n3.currentMoment.userId!==value.userId||value.n5.userId!==value.userId)throw new Error("decision_input_identity_mismatch");
   if(value.n3.currentMoment.decisionId!==value.decisionId||value.n5.decisionId!==value.decisionId)throw new Error("decision_input_decision_mismatch");
   const ids=value.candidates.map((candidate)=>candidate.spotId);
-  if(ids.length===0||ids.length>50||new Set(ids).size!==ids.length)throw new Error("decision_input_candidate_identity_invalid");
+  if(ids.length>50||new Set(ids).size!==ids.length)throw new Error("decision_input_candidate_identity_invalid");
   if(value.candidates.some((candidate)=>candidate.eligible!==true||candidate.n4.spotId!==candidate.spotId))throw new Error("decision_input_ineligible_candidate");
   if(hasForbiddenKey(value))throw new Error("decision_input_forbidden_field");
   const body={...value};delete body.packageHash;
