@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { buildMomentAwareRelevantUserProjection, N5_6_1_PROJECTION_CONTRACT_HASH, N5_6_1_SUFFICIENCY_CONTRACT_HASH } from "../../../decision-lab/src/n5-6-1-moment-aware-projection.mjs";
 
-export const PRODUCT_PROJECTION_VERSION = "backyrd-product-n5-6-1-projection-v1";
+export const PRODUCT_PROJECTION_VERSION = "backyrd-product-n5-6-1-projection-v2";
 const canonical = (value) => value && typeof value === "object" ? Array.isArray(value) ? value.map(canonical) : Object.fromEntries(Object.keys(value).sort().map((key) => [key,canonical(value[key])])) : value;
 const hash = (value) => createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex");
 const field = (moment,key) => moment.fields?.[key]?.value;
@@ -45,6 +45,7 @@ export function buildProductProjection({userCard,currentMoment,requestContext={}
     occasionPatterns:raw.occasionPatterns.map(({patternKey,confidence,relevance,reasonCodes})=>({patternKey,confidence,relevance,reasonCodes})),
     knowledgeSufficiency:raw.knowledgeSufficiency,
     knowledgeMode,
+    currentIntent,
     uncertainties:raw.uncertainties,
     suppressionSummary:{suppressedCount:raw.projectionAudit.suppressedCount,suppressionByReason:raw.projectionAudit.suppressionByReason},
     authority:raw.authority,
