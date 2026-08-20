@@ -18,7 +18,13 @@ test("shared production runtime invokes the frozen N5.8.2 implementation", () =>
 
 test("production input adapter preserves visit and derives satisfaction only from a bound explicit review", () => {
   const memory = { id: "visit-1", idempotencyKey: "visit-1", userId: "user", eventType: "verified_visit", contractVersion: "n2", occurredAt: "2026-01-01T10:00:00.000Z", observedAt: "2026-01-01T10:00:00.000Z", ingestedAt: "2026-01-01T10:00:00.000Z", sessionId: "s", spotId: "spot", reviewId: "review", momentSignature: {}, provenance: { source: "product" }, consentPurpose: "personalized_recommendations", consentState: "granted" };
-  const rows = buildCanonicalRuntimeInput({ memoryEvents: [memory], reviewsById: { review: { text: "Super gemütlich, komme wieder.", moods: ["gemütlich"], spotBinding: { status: "CONFIRMED", confidence: .9 } } }, n4BySpot: { spot: { concepts: { "vibe.cozy": { confidence: .9 } } } } });
+  const rows = buildCanonicalRuntimeInput({ memoryEvents: [memory], reviewsById: { review: { text: "Super gemütlich, komme wieder.", moods: ["gemütlich"], spotBinding: { status: "CONFIRMED", confidence: .9 } } }, n4BySpot: { spot: { placeType:"bar",concepts: { "vibe.cozy": { confidence: .9 } } } } });
   assert.deepEqual(rows.map((row) => row.eventType), ["verified_visit", "positive_post_visit"]);
   assert.equal(rows[0].id, "visit-1");
+});
+
+test("positive review without N4 or an explicit concept remains in N2 but is omitted from Taste input", () => {
+  const memory={id:"visit-missing",idempotencyKey:"visit-missing",userId:"user",eventType:"verified_visit",contractVersion:"n2",occurredAt:"2026-01-01T10:00:00.000Z",observedAt:"2026-01-01T10:00:00.000Z",ingestedAt:"2026-01-01T10:00:00.000Z",sessionId:"s",spotId:"missing",reviewId:"r",momentSignature:{},provenance:{source:"product"},consentPurpose:"personalized_recommendations",consentState:"granted"};
+  const input=buildCanonicalRuntimeInput({memoryEvents:[memory],reviewsById:{r:{text:"War gut.",moods:["unmapped"],spotBinding:{status:"CONFIRMED",confidence:.9}}},n4BySpot:{}});
+  assert.deepEqual(input.map((event)=>event.eventType),[]);
 });

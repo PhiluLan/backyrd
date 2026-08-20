@@ -15,7 +15,7 @@ The production worker boundary remains responsible only for:
 It must not compute affinity, confidence, eligibility, fusion, or negative
 promotion itself. N4 remains read-only and unavailable N4 remains UNKNOWN.
 
-The package is server-only. It has no mobile export, no N6 integration, and
-does not enable the existing background runtime. A following worker-port
-change must replace the remaining SQL approximation before Sprint 2 can be
-closed.
+The package is server-only. It has no mobile export or N6 integration. The
+shared JS queue runner is now the sole authoritative background learning
+path; the former SQL inference/rebuild functions are guarded against
+activation. The feature flag remains off by default.

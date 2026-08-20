@@ -37,9 +37,9 @@ select pg_temp.assert(public.backyrd_record_memory_product_action_v1(pg_temp.uui
 reset role;
 
 select pg_temp.assert((select count(*)=8 from public.backyrd_memory_bridge_outbox_v1 where user_id=pg_temp.uuid('bridge-user')),'all defined source mappings queued once');
-select pg_temp.assert((select count(*)=1 from public.backyrd_memory_bridge_outbox_v1 where canonical_event_type='verified_visit'),'only qualified Smart Review is experience');
-select pg_temp.assert((select count(*)=0 from public.backyrd_memory_bridge_outbox_v1 where canonical_event_type in ('positive_post_visit','negative_post_visit')),'no source action implies satisfaction');
-select pg_temp.assert((select count(*)=0 from public.backyrd_memory_bridge_outbox_v1 where source_metadata::text ilike '%great place%' or source_metadata::text ilike '%cozy%'),'review text and moods are not copied into N2 bridge metadata');
+select pg_temp.assert((select count(*)=1 from public.backyrd_memory_bridge_outbox_v1 where user_id=pg_temp.uuid('bridge-user') and canonical_event_type='verified_visit'),'only qualified Smart Review is experience');
+select pg_temp.assert((select count(*)=0 from public.backyrd_memory_bridge_outbox_v1 where user_id=pg_temp.uuid('bridge-user') and canonical_event_type in ('positive_post_visit','negative_post_visit')),'no source action implies satisfaction');
+select pg_temp.assert((select count(*)=0 from public.backyrd_memory_bridge_outbox_v1 where user_id=pg_temp.uuid('bridge-user') and (source_metadata::text ilike '%great place%' or source_metadata::text ilike '%cozy%')),'review text and moods are not copied into N2 bridge metadata');
 
 set local role service_role;
 select set_config('request.jwt.claims',jsonb_build_object('role','service_role')::text,true);
