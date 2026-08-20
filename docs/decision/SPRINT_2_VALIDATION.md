@@ -11,6 +11,10 @@ Local database validation proves:
 - consent withdrawal erases chains and snapshots;
 - authenticated clients cannot run the worker or read raw evidence.
 
-## Acceptance disposition
+## Sprint 2.1 dependency completion
 
-The direct-semantic path passes its local contract tests. Sprint 2 as a whole remains **FAIL / blocked**: the required N5.7 comparative path and Lab/Product golden parity cannot be honestly asserted while canonical N4 concept evidence is unavailable to the Product runtime. No Decision behavior, N5 projection or N6 path is enabled.
+Sprint 2.1 adds the required canonical, service-only N4 read adapter and
+connects active N4 concept evidence to the comparative runtime. The bounded
+adapter/golden fixture and the complete existing Sprint-1/2 database suites
+are recorded in `SPRINT_2_1_VALIDATION.md`. No Decision behavior, N5
+projection, or N6 path is enabled.
