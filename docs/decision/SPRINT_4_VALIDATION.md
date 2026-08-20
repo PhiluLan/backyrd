@@ -1,5 +1,15 @@
 # Sprint 4 Validation
 
+## Production integration closure (2026-08-20)
+
+The deterministic orchestrator passed against the linked project and through
+the deployed `decision-north-star-internal` Edge entrypoint. Edge and direct
+shared-runtime response hashes matched exactly. Decision 1 consumed its initial
+card, reviews produced a new canonical card, and Decision 2 consumed that exact
+new hash. Cold start, known user, different Moments, explicit Quiet-vs-Lively
+conflict, broad unknown, Copenhagen, partial/unknown N4, open-now, replay,
+commercial isolation, and cross-user denial passed. Visible v13 stayed intact.
+
 ## Result
 
 PASS on a fresh local Supabase reset. Production remained disabled and visible decision-v13 behavior was unchanged. External decision AI calls: 0.

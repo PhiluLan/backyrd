@@ -1,5 +1,16 @@
 # Production N6 Service
 
+## Deployed internal execution
+
+`decision-engine-worker` is the internal Supabase Edge queue executor. It
+claims N6 Shadow work and invokes the shared frozen N6 runtime; it contains no
+prompt, ranking, reason, or validator semantics. Its ignored deployment bundle
+is reproducibly built by `scripts/decision/build-production-edge-runtimes.sh`.
+
+Invocation requires a valid server JWT and `DECISION_ENGINE_INTERNAL_SECRET`.
+The provider key remains server-only. Runtime flags default OFF; provider or
+validator failure never changes the already-secured deterministic result.
+
 ## Authority
 
 The Sprint-4 deterministic decision remains authoritative and user-visible. N6 is an optional server-side shadow strategy. It receives only the validated Sprint-4 package, frozen eligible candidate IDs, bounded N3/N4/N5 data, and candidate-specific authorized reasons.

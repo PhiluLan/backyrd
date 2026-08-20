@@ -1,5 +1,19 @@
 # Sprint 2 final validation — closed
 
+## Production integration closure (2026-08-20)
+
+The shared-runtime worker passed against the linked Backyrd Supabase project.
+The derived latest-snapshot pointer now cascades with account deletion instead
+of blocking it through `ON DELETE RESTRICT`. Own-card RLS evaluates consent
+through an `auth.uid()`-bound helper without exposing the generic arbitrary-user
+consent function.
+
+Cloud proof: open/save produced zero signed nodes; contrasting Smart Reviews
+produced six nodes; missing N4 stayed fail-closed; source deletion reduced the
+card to two supported nodes; identical rebuild produced the same hash and no
+fake ledger change. Progressive, full-rebuild, and direct-runtime hashes match.
+The 100-event burst took 7.045 s and full rebuild 1.018 s.
+
 The local/staging execution used actual Product source rows, the Sprint-1 N2
 bridge, a claimed database work item, canonical N4 reads, the shared frozen
 runtime, and the atomic persistence RPC.

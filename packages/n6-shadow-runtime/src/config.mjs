@@ -5,6 +5,7 @@ export const N6_SHADOW_VERSIONS = Object.freeze({
   comparison: "backyrd-production-n6-shadow-comparison-v1",
   trace: "backyrd-production-n6-shadow-trace-v1",
   prompt: "backyrd-n6a2-ai-decision-buddy-instruction-v1",
+  providerRequest: "backyrd-production-n6-shadow-provider-request-v1.1",
   providerResponse: "backyrd-n6a7-canonical-provider-response-v1"
 });
 

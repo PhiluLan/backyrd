@@ -189,3 +189,6 @@ mobile/eas.local.secret.json
 
 # Lokale Archive
 *.zip
+# Reproducible Supabase Edge bundles built from the shared canonical runtimes.
+supabase/functions/decision-engine-worker/index.deploy.ts
+supabase/functions/decision-north-star-internal/index.deploy.ts

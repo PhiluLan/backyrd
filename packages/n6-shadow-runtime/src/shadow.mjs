@@ -51,7 +51,7 @@ export class N6ShadowService {
         version: N6_SHADOW_VERSIONS.trace, shadowRunId: work.shadowRunId, workId: work.workId,
         decisionId: input.decisionId, userId: input.userId, inputHash: input.inputHash, packageHash: input.packageHash,
         candidateSetHash: input.candidateSetHash, momentHash: input.momentHash, projectionHash: input.projectionHash, n4Hashes: input.n4Hashes,
-        model: result.model, promptVersion: N6_SHADOW_VERSIONS.prompt, providerResponseVersion: N6_SHADOW_VERSIONS.providerResponse,
+        model: result.model, promptVersion: N6_SHADOW_VERSIONS.prompt, providerRequestVersion: N6_SHADOW_VERSIONS.providerRequest, providerResponseVersion: N6_SHADOW_VERSIONS.providerResponse,
         startedAt, completedAt: new Date().toISOString(), latencyMs: result.latencyMs,
         usage: result.usage, costUsd: result.costUsd, retryCount: Math.max(0, Number(work.attempt ?? 1) - 1),
         validatorDisposition: result.validation.valid ? "VALIDATED" : "REJECTED", validationReason: result.validation.valid ? null : result.validation.reason,

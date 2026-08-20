@@ -28,6 +28,13 @@ async function canonicalProviderError(response) {
 export function buildProviderRequest(input) {
   const candidateIds = input.n6a2Input.n6a1Input.baseInput.candidates.map(({ spotId }) => spotId);
   const schema = n6A2OutputSchema(candidateIds);
+  // The frozen validator requires these fields to echo canonical N3/N5
+  // sufficiency exactly. Constrain Structured Outputs to that existing
+  // contract, just as candidate IDs are constrained, instead of repairing a
+  // mismatching provider answer after generation.
+  const base = input.n6a2Input.n6a1Input.baseInput;
+  schema.properties.user_knowledge_sufficiency.enum = [base.relevantUserProjection.sufficiency.level];
+  schema.properties.moment_understanding_sufficiency.enum = [base.currentMoment.confidenceLevel];
   const instructions = n6A2Instructions();
   const estimatedInputTokens = estimateTokens({ instructions, input: input.n6a2Input, schema });
   if (estimatedInputTokens > FROZEN_N6_CONFIG.maxInputTokens) throw new N6ProviderError("N6_INPUT_TOKEN_CAP_EXCEEDED");

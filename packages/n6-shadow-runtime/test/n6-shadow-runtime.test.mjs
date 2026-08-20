@@ -49,7 +49,10 @@ test("production input is bounded, frozen-N6A2 shaped, and Sprint-4-authorized",
   assert.equal(input.n6a2Input.version,"backyrd-n6a2-ai-decision-input-v1");
   assert.ok(Object.keys(input.s4ReasonMap).length>0);
   assert.equal(JSON.stringify(input).includes("payment"),false);
-  assert.ok(buildProviderRequest(input).estimatedInputTokens<12_000);
+  const request=buildProviderRequest(input);
+  assert.ok(request.estimatedInputTokens<12_000);
+  assert.deepEqual(request.body.text.format.schema.properties.user_knowledge_sufficiency.enum,[input.n6a2Input.n6a1Input.baseInput.relevantUserProjection.sufficiency.level]);
+  assert.deepEqual(request.body.text.format.schema.properties.moment_understanding_sufficiency.enum,[input.n6a2Input.n6a1Input.baseInput.currentMoment.confidenceLevel]);
 });
 
 test("strict validator accepts exact candidates and exact candidate reasons",()=>{

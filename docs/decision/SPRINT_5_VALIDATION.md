@@ -1,61 +1,43 @@
 # Sprint 5 Validation
 
-## Result
+## Final result
 
-The offline integration and local database path pass. The visible deterministic decision was unchanged, eight required Shadow scenarios completed, and no Shadow result became N2 learning evidence.
+Sprint 5 is closed for controlled internal use. The real OpenAI Responses API,
+canonicalization, strict validator, Shadow persistence, and deployed server
+worker all completed with `VALIDATED` output. Public N6 routing remains off and
+the deterministic Sprint-4 result remains authoritative.
 
-Sprint 5.1 added secret-safe provider error metadata and repeated the real queue path under a USD 0.50 hard cap. One logical live Shadow run consumed the frozen maximum of two technical attempts. The provider returned HTTP 429 with `error.type=insufficient_quota` and `error.code=credit_balance_exhausted`; the final request identity was retained without body text or secrets. Neither attempt returned a canonical usage-bearing response. Verified provider usage/cost recorded: USD 0.000000.
+The previous live failure was provider quota exhaustion. After credit was
+restored, the first canonical response exposed one integration mismatch: the
+provider schema allowed a Moment-sufficiency echo that contradicted the frozen
+input. The request schema now constrains both sufficiency echoes to their exact
+canonical input values, as it already does for candidate IDs. No model, prompt,
+ranking, N3/N4/N5, confidence, or validator rule changed.
 
-Because a validated live provider output was not obtained, Sprint 5 is not closed for internal-user readiness. The remaining blocker is external provider credit/quota availability, not ranking semantics, parsing, structured-output configuration, or validator behavior. No model, prompt, timeout, decision semantics, or gate was changed.
+## Real provider proofs
 
-## Executed gates
+- Initial response: `VALIDATOR_REJECTED` (`SUFFICIENCY_MISMATCH`), 10.716 s,
+  5,438 input / 884 output tokens, USD 0.10742.
+- Corrected local queue: `VALIDATED`, 11.625 s, 5,394 / 901 tokens, USD 0.10800.
+- Real Supabase queue: `VALIDATED`, 12.215 s, 5,381 / 947 tokens, USD 0.11063.
+- Deployed Edge worker: `VALIDATED`, 14.108 s, 5,398 / 1,051 tokens,
+  USD 0.11704.
 
-- Fresh local database reset and all migrations: PASS.
-- N6 runtime/validator tests: 13/13 PASS.
-- Required offline Product Shadow scenarios: 8/8 VALIDATED.
-- Cold/LOW personalization exclusion: PASS.
-- candidate identity and exact reasons: PASS.
-- explicit Current Intent conflict: PASS.
-- partial N4 and Copenhagen minimization: PASS.
-- N6A.7 provider canonicalization: PASS.
-- timeout, provider failure, queue-level technical retry, semantic no-retry: PASS.
-- response-loss idempotency: PASS.
-- consent-withdrawal race after claim: PASS; provider not called and work cannot resurrect.
-- canonical account-erasure race after claim: PASS; Product profile erasure purges work and stale runner aborts.
-- kill switch, per-user limit, global budget: PASS.
-- RLS/cross-user mutation and read denial: PASS.
-- deterministic response mutation: 0.
-- N2 Shadow learning events: 0.
-- frozen N6A plus Sprint 1-4 regression selection: 95/95 PASS.
-- database lint on the fresh final schema: PASS.
+Total closure exposure: four logical runs and USD 0.44309, below the five-run
+and USD 1.00 hard limits. Technical retries: zero. Calls stopped after the
+deployed proof.
 
-The final representative local mock-provider validation recorded Top-1 agreement 0.875. Order difference is descriptive only and is not a quality verdict. Local validation latency excludes a real provider and is not a Production SLO.
+## Gates and operational state
 
-The account-erasure fixture follows the repository's authoritative deletion order: owned Safety registry rows are removed before the profile. A direct local Auth Admin deletion bypassing that procedure is blocked by the pre-existing Safety actor synchronization trigger and is not a Sprint-5 regression.
+- frozen candidate identity and candidate-specific reasons: PASS.
+- LOW/UNKNOWN honesty and Current Intent authority: PASS.
+- canonical response, usage extraction, and whole-output validator: PASS.
+- errors/rejection/timeout fall back to deterministic: PASS.
+- response-loss, consent/deletion races, rate/cost guards, and kill switch: PASS.
+- Shadow → N2 events: 0; visible deterministic mutations: 0.
+- cross-user and forged queue/trace operations: denied.
+- `decision-engine-worker`: deployed, internal-secret protected, flags OFF.
+- N6 public visibility: OFF; deterministic Product routing unchanged.
 
-## Sprint 5.1 provider diagnosis
-
-- endpoint: `POST /v1/responses`; reached provider.
-- model: `gpt-5.6-sol`; officially supports Responses and Structured Outputs.
-- request format: `text.format.type=json_schema`; matches the current Responses API contract.
-- response: HTTP 429 provider error object, not a Response object.
-- provider disposition: `insufficient_quota / credit_balance_exhausted`.
-- completion/output/usage: unavailable because generation never started.
-- parser/canonicalizer/validator: correctly not invoked for the provider error.
-- queue: attempt 1 became retryable; attempt 2 became terminal `FAILED`.
-- visible deterministic mutation: 0; N2 learning delta: 0.
-
-The earlier Sprint-5 response body was not retained, so its precise provider error cannot be claimed retroactively. Sprint 5.1 fixes that observability gap and establishes the exact current blocker without guessing.
-
-## Required remaining closure proof
-
-After provider credit/quota is restored, use the same frozen model/configuration to obtain one usage-bearing canonical provider response that passes or is cleanly rejected by the validator and is persisted through the real Shadow queue. Do not make N6 visible.
-
-## Commands
-
-```sh
-node --test packages/n6-shadow-runtime/test/*.test.mjs
-node scripts/decision/validate-n6-shadow.mjs
-```
-
-The validation script is local/staging-only and restores all feature flags to off.
+The Edge artifact is reproducibly bundled from the canonical shared runtime;
+it is not a second N6 implementation.
