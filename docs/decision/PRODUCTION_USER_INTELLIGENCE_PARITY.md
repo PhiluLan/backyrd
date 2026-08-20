@@ -14,33 +14,22 @@ concept presence and confidence and returns explicit unavailable state.
 
 ## Result
 
-The requested full semantic parity cannot be asserted. This is a
-`PORTING_BUG` / incomplete-port finding, not an N4 mapping or numerical
-tolerance issue.
+Parity now passes because Lab and Product execute the same shared runtime;
+there is no second SQL engine. The Product validation compares the direct
+shared-runtime result with the deserialized snapshot produced by the real
+path (DB sources → queue → repository → adapter → worker → persistence).
 
-The current production rebuild function differs materially from the frozen
-reference:
+The final hashes were identical:
 
-| Reference requirement | Current production runtime |
-| --- | --- |
-| GLOBAL, PLACE_TYPE, and CONTEXT comparative scopes | GLOBAL only |
-| N5.7 correlation/identifiability and scope-diversity rules | not ported |
-| Frozen comparative confidence, recency and trend calculation | different simplified calculation |
-| N5.8 channel fusion per node | direct and comparative rows are merely kept apart; no frozen fusion result |
-| N5.8.2 high eligibility | production writes `high_eligible = false` for comparative nodes |
-| N5.8.2 dominance and exact audit reasons | not ported |
-| N5.8.4 blocked-negative disposition with direct-evidence fallback | only a simplified absolute-negative condition |
-| Full semantic change ledger | rebuild ledger does not contain the frozen transition/audit fields |
+- progressive final card: `5b9481bbfd9496a495f5a79035b83119681c199a5481f145129e6690dbb8aef9`
+- full rebuild: `5b9481bbfd9496a495f5a79035b83119681c199a5481f145129e6690dbb8aef9`
+- direct shared runtime: `5b9481bbfd9496a495f5a79035b83119681c199a5481f145129e6690dbb8aef9`
 
-Consequently, any fixture for cases F–L or full longitudinal cards would
-compare different engines. Passing it through tolerances or fixture-specific
-expectations would violate the parity contract.
+Compared semantics include concept, scope, polarity, state, affinity,
+confidence, evidence composition, HIGH eligibility, and N5.8.4 negative
+eligibility. Missing canonical N4 is not substituted: its concept-level Taste
+input stays unavailable while the original N2 Experience remains canonical.
 
-## Safe disposition
-
-No production learning semantics were changed in Sprint 2.2. The existing
-adapter remains read-only and disabled-path safe. A subsequent, explicitly
-authorized **full frozen-engine port** must first define the common canonical
-fixture serializer and port all of the rows above before golden parity can be
-measured. Until then, Sprint 2 is not closed and no N3, N5.6.1, N6, UI, or
-deployment work may depend on it.
+Input mapping, N4 batch reads, output validation, persistence serialization,
+and ledger transitions are therefore the only Product-specific layers. Frozen
+N5.7/N5.8/N5.8.2/N5.8.4 formulas were not changed.

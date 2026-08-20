@@ -1,4 +1,7 @@
-import { understandReview } from "../../../decision-lab/src/n5-8-unified-user-evidence.mjs";
+import { understandMoods, understandReview } from "../../../decision-lab/src/n5-8-unified-user-evidence.mjs";
+
+const conceptRequiredEvents=new Set(["spot_tapped","search_result_opened","spot_opened","saved","navigation_intent","reservation_intent","verified_visit","positive_post_visit","negative_post_visit","exact_mood_feedback","explicit_positive","explicit_negative"]);
+const outcomeEvents=new Set(["verified_visit","positive_post_visit","negative_post_visit","exact_mood_feedback","explicit_positive","explicit_negative"]);
 
 /**
  * Builds the frozen runtime input from server-read product rows. This adapter
@@ -26,15 +29,24 @@ export function buildCanonicalRuntimeInput({ memoryEvents, reviewsById = {}, n4B
       consentPurpose: memory.consentPurpose,
       consentState: memory.consentState,
     };
-    events.push(base);
     const review = memory.reviewId ? reviewsById[memory.reviewId] : null;
-    if (memory.eventType !== "verified_visit" || !review || !base.spotId) continue;
-    const reviewEvidence = { ...review, reviewId: memory.reviewId, journeyLink: review.journeyLink ?? { journeyKey: [base.userId, base.sessionId, base.decisionId, base.spotId].join("|") } };
-    const interpretation = understandReview(reviewEvidence, { spotIntelligence: n4BySpot[base.spotId] });
-    if (!['POSITIVE', 'NEGATIVE'].includes(interpretation.overallSentiment)) continue;
+    const reviewEvidence=memory.eventType==="verified_visit"&&review&&base.spotId?{...review,reviewId:memory.reviewId,journeyLink:review.journeyLink??{journeyKey:[base.userId,base.sessionId,base.decisionId,base.spotId].join("|")}}:null;
+    const interpretation=reviewEvidence?understandReview(reviewEvidence,{spotIntelligence:n4BySpot[base.spotId]}):null;
+    const directlySupported=interpretation?[...interpretation.claims,...understandMoods(reviewEvidence,interpretation)].map((claim)=>claim.concept):[];
+    const attributableConcepts=[...new Set([...base.spotEvidence.concepts,...directlySupported])].sort();
+    base.spotEvidence.concepts=attributableConcepts;
+    // N2 remains the authoritative Experience/Interest record. The frozen
+    // Taste runtime accepts concept-bearing learning events only, so missing
+    // N4/direct concepts are omitted here rather than imputed.
+    const outcomeScopeReady=!outcomeEvents.has(base.eventType)||Boolean(base.spotEvidence.placeType);
+    if((!conceptRequiredEvents.has(base.eventType)||attributableConcepts.length>0)&&outcomeScopeReady)events.push(base);
+    if(!interpretation||!['POSITIVE','NEGATIVE'].includes(interpretation.overallSentiment))continue;
+    // Overall sentiment without N4 or explicit attribute evidence is observable
+    // satisfaction, but cannot safely become concept-level Taste input.
+    if (attributableConcepts.length === 0 || !base.spotEvidence.placeType) continue;
     // A review-derived satisfaction observation is deterministic, scoped to
     // the same journey, and never changes the immutable visit fact.
-    events.push({ ...base, id: `${base.id}:review-satisfaction`, idempotencyKey: `${base.id}:review-satisfaction`, eventType: interpretation.overallSentiment === "POSITIVE" ? "positive_post_visit" : "negative_post_visit", reviewEvidence });
+    events.push({ ...base, spotEvidence:{...base.spotEvidence,concepts:attributableConcepts},id: `${base.id}:review-satisfaction`, idempotencyKey: `${base.id}:review-satisfaction`, eventType: interpretation.overallSentiment === "POSITIVE" ? "positive_post_visit" : "negative_post_visit", reviewEvidence });
   }
   return events;
 }

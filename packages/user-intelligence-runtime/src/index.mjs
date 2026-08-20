@@ -31,3 +31,5 @@ export {
 } from "../../../decision-lab/src/n5-8-2-epistemic-high-guard.mjs";
 export { buildCanonicalRuntimeInput } from "./production-input.mjs";
 export { rebuildUserIntelligence, validateRuntimeResult } from "./worker.mjs";
+export { SupabaseUserIntelligenceRepository } from "./supabase-repository.mjs";
+export { runQueueOnce, drainQueue } from "./queue-runner.mjs";
