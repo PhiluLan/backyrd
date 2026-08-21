@@ -94,6 +94,8 @@ select pg_temp.actor(pg_temp.gold_uuid('admin'));
 do $$
 declare proposal_id uuid;environment_proposal uuid;opening_proposal uuid;source_id uuid;first_hash text;second_hash text;profile jsonb;
 begin
+ perform public.upsert_spot_admin_content_v1(pg_temp.gold_uuid('pro-spot'),'Persisted Admin description used after reload.',array['gold','verified'],'admin',null);
+ perform pg_temp.assert((select admin_description='Persisted Admin description used after reload.' and admin_keywords=array['gold','verified'] from public.spot_descriptions where spot_id=pg_temp.gold_uuid('pro-spot')),'Admin description and keywords persist for save/reload');
  select (item->>'id')::uuid into proposal_id
  from jsonb_array_elements(public.backyrd_gold_profile_v1(pg_temp.gold_uuid('pro-spot'))->'proposals') item
  where item->>'field_key'='suitability.rain' limit 1;
