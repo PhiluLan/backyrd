@@ -22,6 +22,20 @@ if printf '%s\n' "$protected" | grep -Fx "$memory_bridge_path" >/dev/null; then
   fi
 fi
 
+# The first-live Decision incident requires one bounded Product fix in the same
+# screen: remove internal retrieval instructions from the client request and
+# suppress the uncalibrated percentage only for a server-confirmed North-Star
+# response. Accept the reviewed cumulative patch byte-for-byte; any subsequent
+# Product change produces a different hash and remains protected.
+incident_mobile_diff_sha='53bca8ec232a388c412417237e0a0ccf6bba15872503a22489f29ae6bb7db125'
+if printf '%s\n' "$protected" | grep -Fx "$memory_bridge_path" >/dev/null; then
+  actual_mobile_diff_sha="$(git diff "$base"...HEAD -- "$memory_bridge_path" | sha256sum | awk '{print $1}')"
+  if [[ "$actual_mobile_diff_sha" == "$incident_mobile_diff_sha" ]]; then
+    protected="$(printf '%s\n' "$protected" | grep -Fvx "$memory_bridge_path" || true)"
+    echo "D2 scope guard: exact first-live Decision UI incident patch accepted"
+  fi
+fi
+
 # The first internal-live activation is a server-only wrapper around the
 # byte-identical frozen v13 engine. Permit only these two integration files,
 # and only while the canonical v13 source itself has no diff from the base.
