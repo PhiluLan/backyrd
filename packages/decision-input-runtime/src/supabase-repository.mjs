@@ -1,19 +1,7 @@
 import { buildDecisionInputPackage } from "./package.mjs";
+import { categoryToPlaceType } from "../../canonical-semantics/src/index.mjs";
 
 const fail=(error,label)=>{if(error)throw new Error(`decision_input_repository:${label}:${error.message}`)};
-const placeType=(category)=>{
-  const value=String(category??"").trim().toLowerCase();
-  if(["café","cafe","coffee","kaffee"].includes(value))return"cafe";
-  if(["bar"].includes(value))return"bar";
-  if(["restaurant","essen","food"].includes(value))return"restaurant";
-  if(["nachtleben","club","nightlife"].includes(value))return"nightlife";
-  if(["museum","kultur","galerie","gallery"].includes(value))return"culture";
-  if(["aussichtspunkt","viewpoint","ausflug"].includes(value))return"outing";
-  if(["aktivität","aktivitat","activity"].includes(value))return"activity";
-  if(["besonderes erlebnis","erlebnis","experience"].includes(value))return"experience";
-  if(["unterkunft / hotel","hotel","unterkunft"].includes(value))return"hotel";
-  return"other";
-};
 
 export class SupabaseDecisionInputRepository {
   constructor(client){this.client=client;}
@@ -32,18 +20,18 @@ export class SupabaseDecisionInputRepository {
     const{data:facts,error:factsError}=await this.client.rpc("backyrd_read_decision_candidate_facts_v1",{p_spot_ids:ids});fail(factsError,"candidate_facts");
     const{data:distribution,error:distributionError}=await this.client.rpc("distribution_trust_filter_entities_v1",{p_entity_type:"spot",p_entity_ids:ids,p_surface:"decision"});fail(distributionError,"distribution");
     const eligibilityDone=performance.now();
-    const{data:n4Rows,error:n4Error}=await this.client.rpc("backyrd_read_n4_for_user_intelligence_v1",{p_spot_ids:ids});fail(n4Error,"n4");
+    const{data:n4Rows,error:n4Error}=await this.client.rpc("backyrd_read_n4_for_decision_v2",{p_spot_ids:ids});fail(n4Error,"n4");
     const n4Done=performance.now();
     const{data:userCard,error:cardError}=await this.client.rpc("backyrd_read_latest_shared_user_card_v1",{p_user_id:decision.user_id});fail(cardError,"user_card");
     const cardDone=performance.now();
     const factById=new Map((facts??[]).map((row)=>[row.spot_id,row]));
     const distributionById=new Map((distribution??[]).map((row)=>[row.entity_id,row]));
-    const n4BySpot=Object.fromEntries((n4Rows??[]).map((row)=>[row.spot_id,{available:row.available,placeType:row.place_type,snapshotIdentity:row.snapshot_identity,freshness:row.freshness,concepts:Object.fromEntries((row.concepts??[]).map((concept)=>[concept.concept,{presence:Number(concept.presence),confidence:Number(concept.confidence),provenance:concept.provenance}]))}]));
+    const n4BySpot=Object.fromEntries((n4Rows??[]).map((row)=>[row.spot_id,{available:row.available,placeType:row.place_type,snapshotIdentity:row.snapshot_identity,freshness:row.freshness,suitabilityFacts:row.suitability_facts??{},concepts:Object.fromEntries((row.concepts??[]).map((concept)=>[concept.concept,{presence:Number(concept.presence),confidence:Number(concept.confidence),provenance:concept.provenance}]))}]));
     return {
       decision:{id:decision.id,userId:decision.user_id,city:decision.city,moodA:decision.mood_a_text,moodB:decision.mood_b_text,createdAt:decision.created_at},
       requestContext:handoff?.request_context??events?.[0]?.context??{},requestVersion:(handoff?.request_context??events?.[0]?.context)?.model_version??"decision-v13-product-context-v1",
       memoryConsentState:userCard?"granted":"missing",userCard:userCard??null,n4BySpot,
-      candidates:(impressions??[]).map((row)=>{const fact=factById.get(row.spot_id)??{};return{spotId:row.spot_id,retrievalPosition:row.rank,status:fact.status,city:fact.city,category:fact.category_name,productPlaceType:placeType(fact.category_name),openNow:fact.open_now,distributionEligible:distributionById.get(row.spot_id)?.eligible===true};}),
+      candidates:(impressions??[]).map((row)=>{const fact=factById.get(row.spot_id)??{},mapped=categoryToPlaceType(fact.category_name);return{spotId:row.spot_id,retrievalPosition:row.rank,status:fact.status,city:fact.city,category:fact.category_name,productPlaceType:mapped.placeType,categoryMappingStatus:mapped.status,openNow:fact.open_now,distributionEligible:distributionById.get(row.spot_id)?.eligible===true};}),
       performance:{candidateRetrievalReadMs:Number((retrievalDone-started).toFixed(3)),eligibilityFactsMs:Number((eligibilityDone-retrievalDone).toFixed(3)),n4BatchReadMs:Number((n4Done-eligibilityDone).toFixed(3)),userCardReadMs:Number((cardDone-n4Done).toFixed(3))},
     };
   }

@@ -2,8 +2,9 @@ import { createHash } from "node:crypto";
 import { buildProductCurrentMoment } from "./current-moment.mjs";
 import { buildColdUserCard,buildProductProjection } from "./projection.mjs";
 import { serializeCandidateN4,N4_DECISION_VERSION } from "./n4-decision.mjs";
+import { SEMANTIC_CONTRACT_VERSION } from "../../canonical-semantics/src/index.mjs";
 
-export const DECISION_INPUT_PACKAGE_VERSION = "backyrd-decision-input-package-v2";
+export const DECISION_INPUT_PACKAGE_VERSION = "backyrd-decision-input-package-v3";
 export const DECISION_INPUT_VALIDATION_VERSION = "backyrd-decision-input-validation-v1";
 const canonical = (value) => value && typeof value === "object" ? Array.isArray(value) ? value.map(canonical) : Object.fromEntries(Object.keys(value).sort().map((key)=>[key,canonical(value[key])])) : value;
 export const contentHash = (value) => createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex");
@@ -70,7 +71,7 @@ export function buildDecisionInputPackage(source) {
     candidateSet:{candidateSetHash:contentHash(candidateSetBody),count:candidates.length,source:"EXISTING_V13_IMPRESSIONS",openingHoursPolicy:"EXPLICIT_OPEN_NOW_EXCLUDES_FALSE_AND_UNKNOWN"},
     candidates,
     retrievalMetadata:{originalCount:source.candidates.length,eligibleCount:candidates.length,orderAuthority:"V13_RETRIEVAL_POSITION"},
-    contractIdentities:{n4:N4_DECISION_VERSION,n5Projection:n5.contractHashes.projection,n5Sufficiency:n5.contractHashes.sufficiency},
+    contractIdentities:{semantics:SEMANTIC_CONTRACT_VERSION,n3Product:n3.inputVersion,n4:N4_DECISION_VERSION,n5Projection:n5.contractHashes.projection,n5Sufficiency:n5.contractHashes.sufficiency},
     createdAt:source.decision.createdAt,
     boundaries:{n6:"NOT_AUTHORIZED",rankingMutation:false,rawUserHistory:false,commercialSignals:false,latentTruthIncluded:false},
   };

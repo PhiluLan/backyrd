@@ -3,32 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getOwnerGoldProfile, submitOwnerGoldProposal, type OwnerGoldProfile } from "@/lib/owner-api";
 
-const OWNER_FIELDS = [
-  "place_type",
-  "opening.regular",
-  "opening.status",
-  "suitability.family_kids",
-  "suitability.environment",
-  "accessibility.basic",
-  "reservation.recommended",
-  "duration.approximate",
-  "audience.basic",
-  "suitability.age",
-  "suitability.family_characteristics",
-  "suitability.rain",
-  "activity.types",
-  "accessibility.capabilities",
-  "suitability.conversation",
-  "character.noise",
-  "social.suitability",
-  "occasion.suitability",
-  "time.dayparts",
-  "reservation.character",
-  "duration.character",
-  "signature.characteristics",
-  "atmosphere.descriptors",
-] as const;
-
 function parseValue(kind: string, allowed: unknown[], raw: string): unknown {
   if (["MULTI_SELECT", "RANGE", "STRUCTURED_OBJECT"].includes(kind)) return JSON.parse(raw);
   if (kind === "BOOLEAN") return raw === "true";
@@ -41,14 +15,16 @@ function jsonArray(raw: string): unknown[] { try { const parsed=JSON.parse(raw);
 
 export function OwnerGoldAuthoring({ spotId }: { spotId: string }) {
   const [profile, setProfile] = useState<OwnerGoldProfile | null>(null);
-  const [fieldKey, setFieldKey] = useState<string>(OWNER_FIELDS[0]);
+  const [fieldKey, setFieldKey] = useState("");
   const [value, setValue] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    setProfile(await getOwnerGoldProfile(spotId));
+    const next=await getOwnerGoldProfile(spotId);
+    setProfile(next);
+    setFieldKey((current)=>current||next.catalog[0]?.field_key||"");
   }, [spotId]);
 
   useEffect(() => {
@@ -84,7 +60,7 @@ export function OwnerGoldAuthoring({ spotId }: { spotId: string }) {
       {message && <p className="mt-4 rounded-2xl border border-white/10 bg-black/25 p-4 text-sm text-white/75" role="status">{message}</p>}
 
       <div className="mt-6 grid gap-5 md:grid-cols-2">
-        <label className="block"><span className="text-sm font-semibold text-white/55">Information</span><select value={fieldKey} onChange={(event) => { const next=event.target.value; const nextField=profile.catalog.find((item)=>item.field_key===next); setFieldKey(next); setValue(nextField?.value_kind === "MULTI_SELECT" ? "[]" : ["RANGE", "STRUCTURED_OBJECT"].includes(nextField?.value_kind ?? "") ? "{}" : ""); }} className="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white">{profile.catalog.filter((item) => OWNER_FIELDS.includes(item.field_key as typeof OWNER_FIELDS[number])).map((item) => <option key={item.field_key} value={item.field_key}>{item.section} · {item.field_key}{item.capability === "DEEP" ? " · PRO" : ""}</option>)}</select></label>
+        <label className="block"><span className="text-sm font-semibold text-white/55">Information</span><select value={fieldKey} onChange={(event) => { const next=event.target.value; const nextField=profile.catalog.find((item)=>item.field_key===next); setFieldKey(next); setValue(nextField?.value_kind === "MULTI_SELECT" ? "[]" : ["RANGE", "STRUCTURED_OBJECT"].includes(nextField?.value_kind ?? "") ? "{}" : ""); }} className="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white">{profile.catalog.map((item) => <option key={item.field_key} value={item.field_key}>{item.section} · {item.field_key}{item.capability === "DEEP" ? " · PRO" : ""}</option>)}</select></label>
         {field?.value_kind === "ENUM" ? <label className="block"><span className="text-sm font-semibold text-white/55">Wert</span><select value={value} onChange={(event) => setValue(event.target.value)} disabled={locked} className="mt-2 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-white disabled:opacity-40"><option value="">Bitte wählen</option>{field.allowed_values.map((item) => <option key={String(item)} value={String(item)}>{String(item)}</option>)}</select></label>
         : field?.field_key === "suitability.age" ? <div><span className="text-sm font-semibold text-white/55">Alters-Eignung</span><div className="mt-2 grid grid-cols-3 gap-2"><input type="number" min="0" max="120" placeholder="Min." value={String(objectValue.min_age ?? "")} onChange={(event)=>updateObject("min_age",event.target.value===""?null:Number(event.target.value))} disabled={locked} className="rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-white"/><input type="number" min="0" max="120" placeholder="Max." value={String(objectValue.max_age ?? "")} onChange={(event)=>updateObject("max_age",event.target.value===""?null:Number(event.target.value))} disabled={locked} className="rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-white"/><select value={String(objectValue.adult_supervision_required ?? "UNKNOWN")} onChange={(event)=>updateObject("adult_supervision_required",event.target.value==="UNKNOWN"?"UNKNOWN":event.target.value==="YES")} disabled={locked} className="rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-white"><option>UNKNOWN</option><option>YES</option><option>NO</option></select></div></div>
         : field?.field_key === "social.suitability" || field?.field_key.startsWith("accessibility.") ? <div><span className="text-sm font-semibold text-white/55">{field.field_key === "social.suitability" ? "Social Context" : "Accessibility"}</span><div className="mt-2 grid grid-cols-2 gap-2">{(field.field_key === "social.suitability" ? ["solo","date","friends","family","groups","work"] : ["step_free","wheelchair_spaces","accessible_toilet","elevator","hearing_support","assistance_dogs"]).map((key)=><label key={key} className="text-xs text-white/50">{key}<select value={String(objectValue[key] ?? "UNKNOWN")} onChange={(event)=>updateObject(key,event.target.value)} disabled={locked} className="mt-1 w-full rounded-xl border border-white/10 bg-black/30 px-2 py-2 text-white"><option>UNKNOWN</option><option>SUITABLE</option><option>NOT_SUITABLE</option></select></label>)}</div></div>

@@ -1,5 +1,9 @@
 import { supabase } from "../supabase";
 
+/** @deprecated Legacy discovery/display helper. It is not canonical evidence and
+ * must never be imported by N2, User Card, N4, N5, N6 or North-Star ranking. */
+export const LEGACY_DISPLAY_ONLY_AUTHORITY = "LEGACY_DISPLAY_ONLY" as const;
+
 /**
  * Preference Engine 2.0:
  * Lernt Nutzerverhalten aus:

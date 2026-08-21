@@ -1,0 +1,15 @@
+export type PlaceType="cafe"|"bar"|"restaurant"|"nightlife"|"culture"|"outing"|"activity"|"experience"|"hotel"|"other";
+export declare const SEMANTIC_CONTRACT_VERSION:"backyrd-canonical-semantics-v1";
+export declare const CURRENT_MOMENT_VERSION:"backyrd-current-moment-schema-v2";
+export declare const FROZEN_TASTE_CONCEPTS:readonly string[];
+export declare const FROZEN_N4_DIMENSIONS:readonly string[];
+export declare const CANONICAL_CONCEPTS:readonly {key:string;family:string;labels:{de:string;en:string}}[];
+export declare const CANONICAL_FACTS:readonly object[];
+export declare const CONTEXT_KEYS:Readonly<Record<string,readonly string[]>>;
+export declare const PRODUCT_MOODS:readonly object[];
+export declare const FACT_KEYS:Readonly<Record<string,string>>;
+export declare const FACTUAL_REASON_CODES:readonly string[];
+export declare function categoryToPlaceType(value:unknown):{status:"KNOWN"|"UNKNOWN";category:string|null;placeType:PlaceType|null;contractVersion:string};
+export declare function canonicalizeProductMood(value:unknown):{status:string;moodId:string|null;canonicalLabel?:string;concept:string|null;direction:number;contractVersion:string};
+export declare function reviewOriginPair(value:{reviewOrigin?:string|null;productEvidenceOrigin?:string|null}):{reviewOrigin:string;productEvidenceOrigin:string|null}|null;
+export declare function assertRegistryIntegrity():true;

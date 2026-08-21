@@ -2,6 +2,7 @@ import { canonicalizeProviderResponse } from "../../../decision-lab/src/n6a7-pro
 import { n6A2Instructions, n6A2OutputSchema } from "../../../decision-lab/src/n6a2-reason-authorization.mjs";
 import { FROZEN_N6_CONFIG, estimateCostUsd, estimateTokens } from "./config.mjs";
 import { validateProductionN6Output } from "./validator.mjs";
+import { FACTUAL_REASON_CODES } from "../../canonical-semantics/src/index.mjs";
 
 const textOf = (canonical) => canonical.output.text;
 const retryableStatus = (status) => status === 408 || status === 409 || status === 429 || status >= 500;
@@ -28,6 +29,8 @@ async function canonicalProviderError(response) {
 export function buildProviderRequest(input) {
   const candidateIds = input.n6a2Input.n6a1Input.baseInput.candidates.map(({ spotId }) => spotId);
   const schema = n6A2OutputSchema(candidateIds);
+  const whyNow=schema.properties.ranked_candidates.items.properties.why_now.items.properties.code.enum;
+  schema.properties.ranked_candidates.items.properties.why_now.items.properties.code.enum=[...new Set([...whyNow,...FACTUAL_REASON_CODES])];
   // The frozen validator requires these fields to echo canonical N3/N5
   // sufficiency exactly. Constrain Structured Outputs to that existing
   // contract, just as candidate IDs are constrained, instead of repairing a
@@ -35,7 +38,7 @@ export function buildProviderRequest(input) {
   const base = input.n6a2Input.n6a1Input.baseInput;
   schema.properties.user_knowledge_sufficiency.enum = [base.relevantUserProjection.sufficiency.level];
   schema.properties.moment_understanding_sufficiency.enum = [base.currentMoment.confidenceLevel];
-  const instructions = n6A2Instructions();
+  const instructions = `${n6A2Instructions()} Provenance-bound factual WHY_NOW codes are allowed only when they occur verbatim in the candidate-specific authorized_reasons set.`;
   const estimatedInputTokens = estimateTokens({ instructions, input: input.n6a2Input, schema });
   if (estimatedInputTokens > FROZEN_N6_CONFIG.maxInputTokens) throw new N6ProviderError("N6_INPUT_TOKEN_CAP_EXCEEDED");
   return {

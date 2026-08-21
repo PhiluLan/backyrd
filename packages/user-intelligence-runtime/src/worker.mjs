@@ -1,5 +1,6 @@
 import { buildCanonicalRuntimeInput } from "./production-input.mjs";
 import { buildN5_8_4UserCard } from "../../../decision-lab/src/n5-8-4-absolute-negativity-guard.mjs";
+import { buildCanonicalUserCard } from "../../../decision-lab/src/n5-6-canonical-user-intelligence.mjs";
 import { createHash } from "node:crypto";
 
 const STATES = new Set(["UNKNOWN", "HYPOTHESIS_POSITIVE", "HYPOTHESIS_NEGATIVE", "POSITIVE", "NEGATIVE", "MIXED"]);
@@ -34,12 +35,22 @@ export function validateRuntimeResult({ userId, result }) {
   return { card: result.userCard, nodes: result.userCard.nodes, ledger: result.changeLedger, runtimeVersion: result.identities.n584ContractHash };
 }
 
+function exposeEvidenceAuthorities(result,input,{asOf,spotIntelligence}){
+  const declaredIds=new Set(input.filter((event)=>event.eventType==="onboarding_preference").map((event)=>event.id));
+  const declaredCard=declaredIds.size?buildCanonicalUserCard(input.filter((event)=>declaredIds.has(event.id)),{asOf,spotIntelligence}).userCard:null;
+  const merged=new Map(result.userCard.nodes.map((node)=>[node.nodeKey,node]));
+  for(const node of declaredCard?.nodes??[])if(!merged.has(node.nodeKey))merged.set(node.nodeKey,{...node,knowledgeState:"UNKNOWN"});
+  const nodes=[...merged.values()].map((node)=>{const refs=(node.evidenceRefs??[]).map((ref)=>typeof ref==="string"?ref:ref.eventId);const declared=refs.filter((id)=>declaredIds.has(id)).length;return{...node,evidenceComposition:{behavioral:0,comparative:0,mood:0,review:0,explicit:0,...node.evidenceComposition,declared},evidenceAuthorities:{declared,directReview:node.evidenceComposition?.review??0,comparative:node.evidenceComposition?.comparative??0,behavioral:node.evidenceComposition?.behavioral??0}};}).sort((a,b)=>a.nodeKey.localeCompare(b.nodeKey));
+  const body={...result.userCard,nodes,evidenceAuthorityVersion:"backyrd-canonical-semantics-v1"};delete body.userCardHash;
+  return{...result,userCard:{...body,userCardHash:digest(body)}};
+}
+
 /** Server worker orchestration. The supplied repository owns DB reads and a single transactional persist call. */
 export async function rebuildUserIntelligence({ userId, repository, reason = "MEMORY_COMMITTED", watermark = null, workIds = [], leaseToken = null }) {
   const source = await repository.readCanonicalSources(userId, { watermark });
   if (!source.consentGranted) return repository.purgeDerivedUserIntelligence(userId, reason);
   const input = buildCanonicalRuntimeInput(source);
-  const result = buildN5_8_4UserCard(input, { asOf: source.asOf, spotIntelligence: source.n4BySpot });
+  const result = exposeEvidenceAuthorities(buildN5_8_4UserCard(input, { asOf: source.asOf, spotIntelligence: source.n4BySpot }),input,{asOf:source.asOf,spotIntelligence:source.n4BySpot});
   const validated = validateRuntimeResult({ userId, result });
   const previousCard = await repository.readLatestCard(userId);
   const ledger = semanticLedger(previousCard, validated.card, validated.runtimeVersion, source.watermark);

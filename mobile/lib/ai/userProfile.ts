@@ -1,5 +1,9 @@
 import { supabase } from "../supabase";
 
+/** @deprecated Legacy generated display context. Not a canonical User Card or
+ * evidence source under backyrd-canonical-semantics-v1. */
+export const LEGACY_DISPLAY_ONLY_AUTHORITY = "LEGACY_DISPLAY_ONLY" as const;
+
 export type UserProfile = {
   preferredMoods: string[];
   dislikedMoods: string[];

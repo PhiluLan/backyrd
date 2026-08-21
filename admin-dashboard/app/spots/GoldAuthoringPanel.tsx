@@ -31,27 +31,6 @@ type GoldProfile = {
   legacy: { label: string };
 };
 
-const IMPORTANT_FIELDS = [
-  "place_type",
-  "opening.regular",
-  "opening.status",
-  "suitability.family_kids",
-  "suitability.environment",
-  "suitability.age",
-  "suitability.rain",
-  "suitability.conversation",
-  "character.noise",
-  "activity.types",
-  "accessibility.basic",
-  "accessibility.capabilities",
-  "social.suitability",
-  "occasion.suitability",
-  "time.dayparts",
-  "reservation.character",
-  "duration.character",
-  "atmosphere.descriptors",
-] as const;
-
 function initialValue(field: CatalogField | undefined): string {
   if (!field) return "";
   if (field.value_kind === "MULTI_SELECT") return "[]";
@@ -76,7 +55,7 @@ function jsonArray(raw: string): unknown[] {
 
 export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
   const [profile, setProfile] = useState<GoldProfile | null>(null);
-  const [fieldKey, setFieldKey] = useState<string>(IMPORTANT_FIELDS[0]);
+  const [fieldKey, setFieldKey] = useState("");
   const [rawValue, setRawValue] = useState("");
   const [sourceType, setSourceType] = useState("ADMIN_VERIFIED");
   const [sourceUrl, setSourceUrl] = useState("");
@@ -87,7 +66,9 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
   const load = useCallback(async () => {
     const { data, error } = await supabase.rpc("backyrd_gold_profile_v1", { p_spot_id: spotId });
     if (error) throw error;
-    setProfile(data as GoldProfile);
+    const next=data as GoldProfile;
+    setProfile(next);
+    setFieldKey((current)=>current||next.catalog[0]?.field_key||"");
   }, [spotId]);
 
   useEffect(() => {
@@ -145,7 +126,8 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
   if (!profile) return <section className="spot-editor-section"><h2>Gold Authoring</h2><p>{message ?? "Wird geladen …"}</p></section>;
 
   const concepts = Object.entries(profile.canonicalN4?.intelligence?.concepts ?? {});
-  const fields = profile.catalog.filter((item) => IMPORTANT_FIELDS.includes(item.field_key as typeof IMPORTANT_FIELDS[number]));
+  // Field IDs, types and options come exclusively from the server catalog.
+  const fields = profile.catalog;
   const objectValue=jsonObject(rawValue);
   const arrayValue=jsonArray(rawValue);
   const updateObject=(key:string,value:unknown)=>setRawValue(JSON.stringify({...objectValue,[key]:value}));
