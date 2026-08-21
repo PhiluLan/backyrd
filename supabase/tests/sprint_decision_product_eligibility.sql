@@ -136,12 +136,14 @@ begin
   perform pg_temp.dpe_set_distribution(v_approved_quarantined, 'quarantined');
   perform pg_temp.dpe_set_distribution(v_approved_excluded, 'excluded');
 
-  insert into public.reviews(spot_id, user_id, mood_a, mood_a_id, city)
+  insert into public.reviews(
+    spot_id, user_id, mood_a, mood_a_id, city, data_origin, review_origin
+  )
   values
-    (v_approved_normal, v_user, 'EligibilitySignal', v_token, 'Decision Eligibility City'),
-    (v_approved_normal, v_user, 'EligibilitySignal', v_token, 'Decision Eligibility City'),
-    (v_approved_second, v_user, 'EligibilitySignal', v_token, 'Decision Eligibility City'),
-    (v_approved_reduced, v_user, 'EligibilitySignal', v_token, 'Decision Eligibility City');
+    (v_approved_normal, v_user, 'EligibilitySignal', v_token, 'Decision Eligibility City', 'TEST', 'FIXTURE'),
+    (v_approved_normal, v_user, 'EligibilitySignal', v_token, 'Decision Eligibility City', 'TEST', 'FIXTURE'),
+    (v_approved_second, v_user, 'EligibilitySignal', v_token, 'Decision Eligibility City', 'TEST', 'FIXTURE'),
+    (v_approved_reduced, v_user, 'EligibilitySignal', v_token, 'Decision Eligibility City', 'TEST', 'FIXTURE');
 
   create temporary table dpe_approved_control_before on commit drop as
   select row_number() over ()::integer as result_position, r.*
@@ -166,10 +168,12 @@ begin
   perform pg_temp.dpe_set_distribution(v_rejected_normal, 'normal');
 
   for v_index in 1..20 loop
-    insert into public.reviews(spot_id, user_id, mood_a, mood_a_id, city)
+    insert into public.reviews(
+      spot_id, user_id, mood_a, mood_a_id, city, data_origin, review_origin
+    )
     values
-      (v_pending_normal, v_user, 'EligibilitySignal', v_token, 'Decision Eligibility City'),
-      (v_rejected_normal, v_user, 'EligibilitySignal', v_token, 'Decision Eligibility City');
+      (v_pending_normal, v_user, 'EligibilitySignal', v_token, 'Decision Eligibility City', 'TEST', 'FIXTURE'),
+      (v_rejected_normal, v_user, 'EligibilitySignal', v_token, 'Decision Eligibility City', 'TEST', 'FIXTURE');
   end loop;
 
   insert into public.backyrd_user_feature_weights_v1(

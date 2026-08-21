@@ -3,30 +3,15 @@ import { supabase } from "./supabase";
 export async function getMoodId(token: string | null) {
   if (!token || token.trim() === "") return null;
 
-  const clean = token.trim().toLowerCase();
-
-  const { data } = await supabase
-    .from("mood_tokens")
-    .select("id")
-    .eq("token", clean)
-    .single();
-
-  if (!data) {
-    const { data: newMood, error: insertErr } = await supabase
-      .from("mood_tokens")
-      .insert({
-        token: clean,
-        locale: "de-CH",
-        valid: true,
-      })
-      .select()
-      .single();
-
-    if (insertErr) throw insertErr;
-    return newMood?.id ?? null;
-  }
-
-  return data.id;
+  // Product Moods are controlled server-side. Clients must never extend the
+  // canonical vocabulary by inserting arbitrary free-text tokens.
+  const { data, error } = await supabase.rpc("backyrd_resolve_product_mood_v1", {
+    p_input: token,
+  });
+  if (error) throw error;
+  const resolved = data as { valid?: boolean; moodTokenId?: number | null } | null;
+  if (!resolved?.valid) throw new Error("Bitte wähle eine gültige Backyrd-Stimmung.");
+  return resolved.moodTokenId ?? null;
 }
 
 export async function uploadReviewImage(uri: string, fileName: string) {
