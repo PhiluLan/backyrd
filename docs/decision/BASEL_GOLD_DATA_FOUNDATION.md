@@ -183,11 +183,11 @@ Validierung:
 - DB-Lint: keine neue Meldung; drei bekannte Baseline-Fehler in bestehenden Funktionen bleiben
 - Mobile TypeScript-Gesamtlauf: durch zahlreiche vorbestehende, sachfremde Repository-Fehler nicht grün; kein neuer Fehler aus den geänderten Review-Dateien festgestellt
 
-Deployment-Hinweis: Die ersten beiden Foundation-Migrationen sind live. Die additive Cleanup-Migration, die ausschließlich die sieben in diesem Sprint transient angelegten N4-Registry-/Evidence-Einträge entfernt und die Fakten in die separate Suitability-Schicht überführt, ist lokal vollständig validiert, benötigt wegen ihrer gezielten `DELETE`-Operationen aber eine separate ausdrückliche Produktionsfreigabe. Bis dahin besitzt die Live-Registry vorübergehend 67 statt der eingefrorenen 60 Dimensionen.
+Deployment-Hinweis: Alle drei Foundation-Migrationen sind live. Der ausdrücklich freigegebene Cleanup entfernte ausschließlich sieben in diesem Sprint transient angelegte N4-Definitionen und 77 daraus erzeugte Evidence-Zeilen. Die eingefrorene Registry enthält wieder exakt 60 Dimensionen. Alle 77 Suitability-Fakten und 60 Gold-Snapshots sind erhalten beziehungsweise neu aufgebaut. Reviews (98), Memory Events (53) und User-Intelligence-Snapshots (7) blieben unverändert.
 
 ## Final Verdicts
 
-- BASEL GOLD DATA FOUNDATION — FAIL (gezielter Live-Cleanup noch nicht freigegeben)
+- BASEL GOLD DATA FOUNDATION — PASS
 - TEST/FIXTURE ISOLATION — PASS
 - REVIEW PROVENANCE — PASS
 - CONTROLLED MOOD VOCABULARY — PASS
