@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   getOwnerSpotDetail,
+  getOwnerGoldProfile,
   getOwnerSpotTaxonomies,
   getOwnerTaxonomyCatalog,
   parseCsvTags,
@@ -19,6 +20,7 @@ import {
 import { OwnerShell } from "@/components/owner/owner-shell";
 import { OwnerTaxonomyPicker } from "@/components/owner/owner-taxonomy-picker";
 import { firstContactValidationError, validateOwnerContactClient } from "@/lib/owner-validation";
+import { OwnerGoldAuthoring } from "@/components/owner/owner-gold-authoring";
 
 function Field({
   label,
@@ -115,6 +117,7 @@ export default function OwnerSpotEditPage() {
   const spotId = params.id;
 
   const [detail, setDetail] = useState<OwnerSpotDetail | null>(null);
+  const [ownerCapability, setOwnerCapability] = useState<"BASIC" | "DEEP">("DEEP");
   const [taxonomyCatalog, setTaxonomyCatalog] = useState<OwnerTaxonomyCatalogItem[]>([]);
   const [existingTaxonomies, setExistingTaxonomies] = useState<OwnerSpotTaxonomyItem[]>([]);
   const [selectedTaxonomyIds, setSelectedTaxonomyIds] = useState<string[]>([]);
@@ -159,8 +162,11 @@ export default function OwnerSpotEditPage() {
         const session = await requireOwnerSession();
         if (!session) return;
 
+        const goldAuthoringEnabled = process.env.NEXT_PUBLIC_GOLD_AUTHORING_OWNER_V2 === "enabled";
         const data = await getOwnerSpotDetail(spotId);
+        const goldProfile = goldAuthoringEnabled ? await getOwnerGoldProfile(spotId) : null;
         if (!active) return;
+        if (goldProfile) setOwnerCapability(goldProfile.actor.capability);
 
         const [catalog, assigned] = await Promise.all([
           getOwnerTaxonomyCatalog(data.spot.category_id, "de"),
@@ -252,7 +258,7 @@ export default function OwnerSpotEditPage() {
         ownerKeywords: parseCsvTags(ownerKeywords),
       });
 
-      await updateOwnerSpotIntelligence({
+      if (ownerCapability === "DEEP") await updateOwnerSpotIntelligence({
         spotId,
         bestFor: parseCsvTags(bestFor),
         occasionTags: parseCsvTags(occasionTags),
@@ -295,6 +301,7 @@ export default function OwnerSpotEditPage() {
           {message}
         </div>
       ) : (
+        <>
         <form onSubmit={handleSubmit} className="space-y-6">
           {message && (
             <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-5 text-red-100/80">
@@ -362,7 +369,7 @@ export default function OwnerSpotEditPage() {
             </div>
           </section>
 
-          <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+          {ownerCapability === "DEEP" ? <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
             <h2 className="text-2xl font-semibold">Backyrd Intelligence</h2>
             <p className="mt-2 text-sm leading-6 text-white/45">
               Definiere, für welche Situationen dein Spot wirklich passt.
@@ -397,7 +404,10 @@ export default function OwnerSpotEditPage() {
                 placeholder="Zum Beispiel: Garten nur bei gutem Wetter, am Freitag sehr voll, ideal für Gruppen ab 6 Personen..."
               />
             </div>
-          </section>
+          </section> : <section className="rounded-[2rem] border border-pink-400/20 bg-pink-400/10 p-6">
+            <h2 className="text-2xl font-semibold">Deep Spot Intelligence · Owner Pro</h2>
+            <p className="mt-2 text-sm leading-6 text-pink-100/75">Mit Owner Pro kannst du Backyrd genauer beschreiben, damit wir deinen Spot in passenden Situationen besser verstehen können. Das ist kein Ranking-Boost. Bereits akzeptierte Deep-Fakten bleiben auch nach einem Downgrade erhalten.</p>
+          </section>}
 
           <div className="sticky bottom-6 z-10 flex justify-end">
             <div className="rounded-full border border-white/10 bg-black/80 p-2 backdrop-blur-xl">
@@ -411,6 +421,10 @@ export default function OwnerSpotEditPage() {
             </div>
           </div>
         </form>
+        {process.env.NEXT_PUBLIC_GOLD_AUTHORING_OWNER_V2 === "enabled" ? (
+          <div className="mt-6"><OwnerGoldAuthoring spotId={spotId} /></div>
+        ) : null}
+        </>
       )}
     </OwnerShell>
   );

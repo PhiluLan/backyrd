@@ -337,20 +337,22 @@ export function SpotForm({
       const { data: descriptionData, error: descriptionError } = await supabase
         .from("spot_descriptions")
         .select(
-          "owner_description, owner_keywords, enriched_description, enriched_keywords",
+          "admin_description, admin_keywords, owner_description, owner_keywords, enriched_description, enriched_keywords",
         )
         .eq("spot_id", spotId)
         .maybeSingle();
 
       if (!descriptionError && descriptionData) {
         setAdminDescription(
-          (descriptionData.owner_description ||
+          (descriptionData.admin_description ||
+            descriptionData.owner_description ||
             descriptionData.enriched_description ||
             "") as string,
         );
         setAdminKeywords(
           tagsToText(
-            descriptionData.owner_keywords ||
+            descriptionData.admin_keywords ||
+              descriptionData.owner_keywords ||
               descriptionData.enriched_keywords ||
               [],
           ),

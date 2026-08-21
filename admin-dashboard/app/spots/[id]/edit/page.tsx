@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { Spot } from "@/types/spots";
 import { SpotForm } from "../../SpotForm";
+import { GoldAuthoringPanel } from "../../GoldAuthoringPanel";
 
 type EditSpotPageProps = {
   params: Promise<{ id: string }>;
@@ -187,6 +188,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
           opening_hours: openingHours,
         }}
       />
+      <GoldAuthoringPanel spotId={spotId} />
     </div>
   );
 }
