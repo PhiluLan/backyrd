@@ -46,9 +46,8 @@ select pg_temp.assert((select count(*)=5 from public.backyrd_user_intelligence_w
 do $$ begin begin perform public.backyrd_process_user_intelligence_work_v1(10); raise exception 'old sql worker activated'; exception when feature_not_supported then null; end; end $$;
 select pg_temp.assert((select count(*)=0 from public.backyrd_user_intelligence_nodes_v2 where user_id=pg_temp.uuid('n4-adapter-user')),'disabled SQL worker cannot create derived nodes');
 reset role;
-
-set local role authenticated;
-select set_config('request.jwt.claims',jsonb_build_object('role','authenticated')::text,true); select set_config('request.jwt.claim.role','authenticated',true);
-do $$ begin begin perform public.backyrd_read_n4_for_user_intelligence_v1(array[pg_temp.uuid('n4-adapter-a')]); raise exception 'client adapter access'; exception when insufficient_privilege then null; end; end $$;
-reset role;
+select pg_temp.assert(
+  not has_function_privilege('authenticated','public.backyrd_read_n4_for_user_intelligence_v1(uuid[])','execute'),
+  'client adapter access'
+);
 rollback;
