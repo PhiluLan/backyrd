@@ -8,7 +8,7 @@ Nicht im Scope: Decision-Engine-, N3-, N5-, N6- oder Ranking-Änderungen; öffen
 
 ## Ergebnis
 
-Die Live-Daten besitzen jetzt eine belastbare Provenance-Grenze, eine kontrollierte Mood-Grenze und ein bewusst kuratiertes Gold-Set aus 60 realen Basel-Spots. Test- und Fixture-Daten sind weiterhin auditierbar, werden aber von realer N4-Qualifikation und öffentlichen Product-Kandidaten ausgeschlossen.
+Die Live-Daten besitzen jetzt eine belastbare Provenance-Grenze, eine kontrollierte Mood-Grenze und ein bewusst kuratiertes Gold-Set aus 60 realen Basel-Spots. Test- und Fixture-Daten sind weiterhin auditierbar, werden aber von realer N4-Qualifikation und öffentlichen Product-Kandidaten ausgeschlossen. Die neuen Suitability-Fakten liegen in einer additiven Product-Datenschicht; die eingefrorene N4-Registry bleibt unverändert bei 60 Dimensionen.
 
 Die Grundlage ist technisch funktionsfähig, aber inhaltlich noch nicht breit genug für einen seriösen Beta-Qualitätsvergleich: 16 der 60 Spots sind `GOLD_READY`, 44 sind `PARTIAL`. N4 ist für alle 60 serialisierbar, jedoch besitzen nur 25 eine belastbare kanonische Interpretation; 35 sind identity-only. Alters-Eignung bleibt überall `UNKNOWN`.
 
@@ -88,7 +88,7 @@ Reviews sind keine Pflicht. Ein Spot kann durch belastbare Admin-/Source-Fakten 
 | PARTIAL (identity-only) | 35 |
 | UNKNOWN | 0 |
 
-`FULL` bedeutet hier mindestens eine qualifizierte reale Interpretation zusätzlich zur kanonischen Identität. Fehlende N4-Information wird weiterhin als `UNKNOWN` serialisiert; Legacy- oder Fixture-Intelligence wird nicht ersatzweise als kanonische Wahrheit ausgegeben.
+`FULL` bedeutet hier mindestens eine qualifizierte reale Interpretation zusätzlich zur kanonischen Identität. Nur bereits registrierte N4-Konzepte werden materialisiert. Family/Kids-, Age-, Rain-, Activity-, Conversation- und Social-Fakten erweitern nicht die eingefrorene N4-Taxonomie, sondern werden mit eigener Provenance unter `facts.suitability` serialisiert. Fehlende Information wird weiterhin als `UNKNOWN` geführt; Legacy- oder Fixture-Intelligence wird nicht ersatzweise als kanonische Wahrheit ausgegeben.
 
 | Strukturierte Dimension | Spots mit belegtem Fakt |
 |---|---:|
@@ -177,15 +177,17 @@ Validierung:
 - lokaler kompletter Supabase-Reset inklusive Seed: PASS
 - `basel_gold_data_foundation.sql`: PASS
 - vollständiger Supabase-CI-Pfad mit frischem Datenbank-Boot und allen Acceptance-Tests: PASS
-- Migration uniqueness/order validation: PASS (46 aktive eindeutige Migrationen)
+- Migration uniqueness/order validation: PASS (47 aktive eindeutige Migrationen)
 - Secret Scan: PASS
 - Decision Input, Orchestrator und User-Intelligence Runtime: 33/33 PASS
 - DB-Lint: keine neue Meldung; drei bekannte Baseline-Fehler in bestehenden Funktionen bleiben
 - Mobile TypeScript-Gesamtlauf: durch zahlreiche vorbestehende, sachfremde Repository-Fehler nicht grün; kein neuer Fehler aus den geänderten Review-Dateien festgestellt
 
+Deployment-Hinweis: Die ersten beiden Foundation-Migrationen sind live. Die additive Cleanup-Migration, die ausschließlich die sieben in diesem Sprint transient angelegten N4-Registry-/Evidence-Einträge entfernt und die Fakten in die separate Suitability-Schicht überführt, ist lokal vollständig validiert, benötigt wegen ihrer gezielten `DELETE`-Operationen aber eine separate ausdrückliche Produktionsfreigabe. Bis dahin besitzt die Live-Registry vorübergehend 67 statt der eingefrorenen 60 Dimensionen.
+
 ## Final Verdicts
 
-- BASEL GOLD DATA FOUNDATION — PASS
+- BASEL GOLD DATA FOUNDATION — FAIL (gezielter Live-Cleanup noch nicht freigegeben)
 - TEST/FIXTURE ISOLATION — PASS
 - REVIEW PROVENANCE — PASS
 - CONTROLLED MOOD VOCABULARY — PASS

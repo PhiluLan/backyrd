@@ -25,23 +25,7 @@ begin
     values(v_spot,v_owner,'PREMIUM','TEST_FIXTURE');
   insert into public.backyrd_spot_intelligence_evidence_v1(spot_id,dimension_key,value_kind,value,source_family,source_reference,signal_confidence,observed_at,valid_from,provenance)
     values(v_spot,'category','FACT','"bar"','canonical_spot_data','spots.category',0.98,now()-interval '1 day',now()-interval '1 day','{"source":"spots"}');
-  perform pg_temp.n4_assert(
-    (select count(*) >= 67 from public.backyrd_spot_intelligence_dimensions_v1)
-    and not exists(
-      select required.dimension_key
-      from unnest(array[
-        'family_kids', 'age_suitability', 'environment',
-        'rain_suitability', 'activity_type',
-        'conversation_suitability', 'social_context_suitability'
-      ]) required(dimension_key)
-      where not exists(
-        select 1
-        from public.backyrd_spot_intelligence_dimensions_v1 actual
-        where actual.dimension_key = required.dimension_key
-      )
-    ),
-    'dimension registry preserves the N4 baseline and includes Gold suitability dimensions'
-  );
+  perform pg_temp.n4_assert((select count(*)=60 from public.backyrd_spot_intelligence_dimensions_v1),'dimension registry is complete');
 end; $$;
 
 set local role authenticated;

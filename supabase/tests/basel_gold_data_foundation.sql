@@ -11,8 +11,7 @@ select pg_temp.assert((select count(*)=60 from public.backyrd_basel_gold_spots_v
 select pg_temp.assert((public.backyrd_resolve_product_mood_v1('ruhig')->>'canonicalMood')='leise','explicit Mood alias resolves canonically');
 select pg_temp.assert(not (public.backyrd_resolve_product_mood_v1('a')->>'valid')::boolean,'placeholder Mood a is rejected');
 select pg_temp.assert(not (public.backyrd_resolve_product_mood_v1('test')->>'valid')::boolean,'placeholder Mood test is rejected');
-select pg_temp.assert((select count(*)=7 from public.backyrd_spot_intelligence_dimensions_v1 where dimension_key in
- ('family_kids','age_suitability','rain_suitability','activity_type','social_context_suitability','conversation_suitability','weather.rain_suitable')),'Product suitability dimensions are registered');
+select pg_temp.assert((select count(*)=60 from public.backyrd_spot_intelligence_dimensions_v1),'frozen N4 dimension registry remains unchanged');
 
 do $$
 declare u uuid:=pg_temp.uuid('gold-user'); real_spot uuid:=pg_temp.uuid('gold-real'); fixture_spot uuid:=pg_temp.uuid('gold-fixture'); category uuid:=pg_temp.uuid('gold-category');
@@ -27,6 +26,20 @@ begin
  insert into public.backyrd_spot_intelligence_evidence_v1(spot_id,dimension_key,value_kind,value,source_family,source_reference,signal_confidence,observed_at,valid_from,provenance,data_origin) values
   (real_spot,'occasion.kids_friendly','INTERPRETATION','1','backyrd_derived','test:real',.9,now(),now(),'{"test":"gold"}','REAL'),
   (fixture_spot,'occasion.kids_friendly','INTERPRETATION','1','backyrd_derived','test:fixture',.9,now(),now(),'{"test":"fixture"}','FIXTURE');
+ insert into public.backyrd_spot_suitability_facts_v1(
+  spot_id,dimension_key,value,confidence,source_origin,source_table,source_record
+ ) values
+  (real_spot,'family_kids','{"suitable":true}',.9,'LEGACY','test_fixture','family'),
+  (real_spot,'age_suitability','{"minAge":4}',.9,'LEGACY','test_fixture','age'),
+  (real_spot,'environment','"INDOOR"',.9,'LEGACY','test_fixture','environment'),
+  (real_spot,'rain_suitability','{"suitable":true}',.9,'LEGACY','test_fixture','rain'),
+  (real_spot,'activity_type','["museum"]',.9,'LEGACY','test_fixture','activity'),
+  (real_spot,'conversation_suitability','{"level":"HIGH"}',.9,'LEGACY','test_fixture','conversation'),
+  (real_spot,'social_context_suitability','["family"]',.9,'LEGACY','test_fixture','social');
+ perform pg_temp.assert(
+  (select count(*)=7 from public.backyrd_spot_suitability_facts_v1 where spot_id=real_spot),
+  'all Product suitability dimensions are structurally representable outside the frozen N4 registry'
+ );
 end $$;
 
 set local role authenticated;
