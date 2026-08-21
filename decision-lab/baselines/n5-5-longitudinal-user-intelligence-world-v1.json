@@ -1,0 +1,1360 @@
+{
+  "artifactType": "BACKYRD_N5_5_LONGITUDINAL_USER_INTELLIGENCE_WORLD_RESULT",
+  "sealed": true,
+  "version": "backyrd-n5-5-longitudinal-validation-contract-v1",
+  "contractHash": "9c11528ca9eed351df419b029bb0712a21e0787f80a1951e9e421b3f194b8943",
+  "identities": {
+    "worldVersion": "backyrd-n5-5-longitudinal-user-world-v1",
+    "n2MemoryContractHash": "0294d85141e4ee40545591d6ec68372b0558762f35b9b9a12e521b35ebe84b9d",
+    "n3ContractHash": "291a36edf3d3608f534879c2a4914c82c43725af779406296c8c3a2d40eb46e9",
+    "n5ContractHash": "1a2b39de24132937db719a9a4290ee25d89824e9eda51e8273096d801cfd7420"
+  },
+  "worldHash": "ff04ef639effeaad4cba0a9bd852dfb8d88011abfdaae99c1839e3970bfe40fd",
+  "evaluatorReferenceHash": "f73e1c385c649ca0c3bfc7d5f36a8fde5dcf3204042bc14b388decccc7fcc87b",
+  "metrics": {
+    "canonicalMemoryValidity": 1,
+    "latentIsolation": 1,
+    "matureProfileRichness": 1,
+    "lifecycleProgression": 1,
+    "contextualProjectionDifferentiation": 1,
+    "differentUserDifferentiation": 1,
+    "crossCityPortability": 1,
+    "currentIntentAuthority": 1,
+    "projectionBoundedness": 1,
+    "privacyBoundary": 1,
+    "personalizationOpportunityCoverage": 0.851852
+  },
+  "gateMatrix": {
+    "canonicalMemoryValidity": true,
+    "latentIsolation": true,
+    "matureProfileRichness": true,
+    "lifecycleProgression": true,
+    "contextualProjectionDifferentiation": true,
+    "differentUserDifferentiation": true,
+    "crossCityPortability": true,
+    "currentIntentAuthority": true,
+    "projectionBoundedness": true,
+    "privacyBoundary": true,
+    "personalizationOpportunityCoverage": true
+  },
+  "opportunities": {
+    "HIGH": 40,
+    "MEDIUM": 6,
+    "LOW": 8
+  },
+  "profiles": [
+    {
+      "id": "n55-user-explorer",
+      "label": "Explorer",
+      "declaredLifecycle": "LONG_TERM",
+      "city": "Basel",
+      "eventCount": 105,
+      "knowledgeState": "LONG_TERM",
+      "globalConcepts": 8,
+      "placeTypeConcepts": 8,
+      "contextConcepts": 8,
+      "negativeEvidenceConcepts": 2,
+      "patterns": 2,
+      "contradictions": 5,
+      "sessions": 105,
+      "spots": 47,
+      "outcomeCount": 104,
+      "snapshots": [
+        {
+          "stage": "DAY_0",
+          "count": 1,
+          "knowledgeState": "EARLY",
+          "rows": 5,
+          "patterns": 0
+        },
+        {
+          "stage": "EARLY",
+          "count": 3,
+          "knowledgeState": "EARLY",
+          "rows": 35,
+          "patterns": 1
+        },
+        {
+          "stage": "DEVELOPING",
+          "count": 9,
+          "knowledgeState": "DEVELOPING",
+          "rows": 53,
+          "patterns": 2
+        },
+        {
+          "stage": "MATURE",
+          "count": 105,
+          "knowledgeState": "LONG_TERM",
+          "rows": 61,
+          "patterns": 2
+        }
+      ]
+    },
+    {
+      "id": "n55-user-social",
+      "label": "Social / nightlife",
+      "declaredLifecycle": "LONG_TERM",
+      "city": "Basel",
+      "eventCount": 103,
+      "knowledgeState": "LONG_TERM",
+      "globalConcepts": 6,
+      "placeTypeConcepts": 6,
+      "contextConcepts": 6,
+      "negativeEvidenceConcepts": 1,
+      "patterns": 4,
+      "contradictions": 0,
+      "sessions": 103,
+      "spots": 47,
+      "outcomeCount": 102,
+      "snapshots": [
+        {
+          "stage": "DAY_0",
+          "count": 1,
+          "knowledgeState": "EARLY",
+          "rows": 4,
+          "patterns": 0
+        },
+        {
+          "stage": "EARLY",
+          "count": 3,
+          "knowledgeState": "EARLY",
+          "rows": 24,
+          "patterns": 1
+        },
+        {
+          "stage": "DEVELOPING",
+          "count": 9,
+          "knowledgeState": "DEVELOPING",
+          "rows": 34,
+          "patterns": 2
+        },
+        {
+          "stage": "MATURE",
+          "count": 103,
+          "knowledgeState": "LONG_TERM",
+          "rows": 40,
+          "patterns": 4
+        }
+      ]
+    },
+    {
+      "id": "n55-user-family",
+      "label": "Family planner",
+      "declaredLifecycle": "LONG_TERM",
+      "city": "Basel",
+      "eventCount": 101,
+      "knowledgeState": "LONG_TERM",
+      "globalConcepts": 6,
+      "placeTypeConcepts": 6,
+      "contextConcepts": 6,
+      "negativeEvidenceConcepts": 1,
+      "patterns": 4,
+      "contradictions": 0,
+      "sessions": 101,
+      "spots": 47,
+      "outcomeCount": 100,
+      "snapshots": [
+        {
+          "stage": "DAY_0",
+          "count": 1,
+          "knowledgeState": "EARLY",
+          "rows": 5,
+          "patterns": 0
+        },
+        {
+          "stage": "EARLY",
+          "count": 3,
+          "knowledgeState": "EARLY",
+          "rows": 30,
+          "patterns": 1
+        },
+        {
+          "stage": "DEVELOPING",
+          "count": 9,
+          "knowledgeState": "DEVELOPING",
+          "rows": 45,
+          "patterns": 2
+        },
+        {
+          "stage": "MATURE",
+          "count": 101,
+          "knowledgeState": "LONG_TERM",
+          "rows": 51,
+          "patterns": 4
+        }
+      ]
+    },
+    {
+      "id": "n55-user-date",
+      "label": "Date / couple",
+      "declaredLifecycle": "MATURE",
+      "city": "Basel",
+      "eventCount": 85,
+      "knowledgeState": "LONG_TERM",
+      "globalConcepts": 6,
+      "placeTypeConcepts": 6,
+      "contextConcepts": 6,
+      "negativeEvidenceConcepts": 1,
+      "patterns": 2,
+      "contradictions": 0,
+      "sessions": 85,
+      "spots": 46,
+      "outcomeCount": 84,
+      "snapshots": [
+        {
+          "stage": "DAY_0",
+          "count": 1,
+          "knowledgeState": "EARLY",
+          "rows": 5,
+          "patterns": 0
+        },
+        {
+          "stage": "EARLY",
+          "count": 3,
+          "knowledgeState": "EARLY",
+          "rows": 30,
+          "patterns": 1
+        },
+        {
+          "stage": "DEVELOPING",
+          "count": 9,
+          "knowledgeState": "DEVELOPING",
+          "rows": 45,
+          "patterns": 2
+        },
+        {
+          "stage": "MATURE",
+          "count": 85,
+          "knowledgeState": "LONG_TERM",
+          "rows": 45,
+          "patterns": 2
+        }
+      ]
+    },
+    {
+      "id": "n55-user-budget",
+      "label": "Budget conscious",
+      "declaredLifecycle": "MATURE",
+      "city": "Basel",
+      "eventCount": 81,
+      "knowledgeState": "LONG_TERM",
+      "globalConcepts": 6,
+      "placeTypeConcepts": 6,
+      "contextConcepts": 6,
+      "negativeEvidenceConcepts": 1,
+      "patterns": 2,
+      "contradictions": 0,
+      "sessions": 81,
+      "spots": 46,
+      "outcomeCount": 80,
+      "snapshots": [
+        {
+          "stage": "DAY_0",
+          "count": 1,
+          "knowledgeState": "EARLY",
+          "rows": 5,
+          "patterns": 0
+        },
+        {
+          "stage": "EARLY",
+          "count": 3,
+          "knowledgeState": "EARLY",
+          "rows": 30,
+          "patterns": 1
+        },
+        {
+          "stage": "DEVELOPING",
+          "count": 9,
+          "knowledgeState": "DEVELOPING",
+          "rows": 30,
+          "patterns": 2
+        },
+        {
+          "stage": "MATURE",
+          "count": 81,
+          "knowledgeState": "LONG_TERM",
+          "rows": 30,
+          "patterns": 2
+        }
+      ]
+    },
+    {
+      "id": "n55-user-premium",
+      "label": "Premium / design",
+      "declaredLifecycle": "MATURE",
+      "city": "Basel",
+      "eventCount": 79,
+      "knowledgeState": "LONG_TERM",
+      "globalConcepts": 6,
+      "placeTypeConcepts": 6,
+      "contextConcepts": 6,
+      "negativeEvidenceConcepts": 1,
+      "patterns": 2,
+      "contradictions": 0,
+      "sessions": 79,
+      "spots": 46,
+      "outcomeCount": 78,
+      "snapshots": [
+        {
+          "stage": "DAY_0",
+          "count": 1,
+          "knowledgeState": "EARLY",
+          "rows": 5,
+          "patterns": 0
+        },
+        {
+          "stage": "EARLY",
+          "count": 3,
+          "knowledgeState": "EARLY",
+          "rows": 30,
+          "patterns": 1
+        },
+        {
+          "stage": "DEVELOPING",
+          "count": 9,
+          "knowledgeState": "DEVELOPING",
+          "rows": 45,
+          "patterns": 2
+        },
+        {
+          "stage": "MATURE",
+          "count": 79,
+          "knowledgeState": "LONG_TERM",
+          "rows": 45,
+          "patterns": 2
+        }
+      ]
+    },
+    {
+      "id": "n55-user-developing",
+      "label": "Developing café user",
+      "declaredLifecycle": "DEVELOPING",
+      "city": "Basel",
+      "eventCount": 9,
+      "knowledgeState": "DEVELOPING",
+      "globalConcepts": 4,
+      "placeTypeConcepts": 4,
+      "contextConcepts": 4,
+      "negativeEvidenceConcepts": 1,
+      "patterns": 1,
+      "contradictions": 0,
+      "sessions": 9,
+      "spots": 8,
+      "outcomeCount": 8,
+      "snapshots": [
+        {
+          "stage": "DAY_0",
+          "count": 1,
+          "knowledgeState": "EARLY",
+          "rows": 5,
+          "patterns": 0
+        },
+        {
+          "stage": "EARLY",
+          "count": 3,
+          "knowledgeState": "EARLY",
+          "rows": 20,
+          "patterns": 1
+        },
+        {
+          "stage": "DEVELOPING",
+          "count": 9,
+          "knowledgeState": "DEVELOPING",
+          "rows": 26,
+          "patterns": 2
+        },
+        {
+          "stage": "MATURE",
+          "count": 9,
+          "knowledgeState": "DEVELOPING",
+          "rows": 26,
+          "patterns": 2
+        }
+      ]
+    },
+    {
+      "id": "n55-user-cold",
+      "label": "Cold user",
+      "declaredLifecycle": "COLD",
+      "city": "Basel",
+      "eventCount": 1,
+      "knowledgeState": "COLD",
+      "globalConcepts": 0,
+      "placeTypeConcepts": 0,
+      "contextConcepts": 0,
+      "negativeEvidenceConcepts": 0,
+      "patterns": 0,
+      "contradictions": 0,
+      "sessions": 1,
+      "spots": 0,
+      "outcomeCount": 0,
+      "snapshots": [
+        {
+          "stage": "DAY_0",
+          "count": 1,
+          "knowledgeState": "COLD",
+          "rows": 0,
+          "patterns": 0
+        },
+        {
+          "stage": "EARLY",
+          "count": 1,
+          "knowledgeState": "COLD",
+          "rows": 0,
+          "patterns": 0
+        },
+        {
+          "stage": "DEVELOPING",
+          "count": 1,
+          "knowledgeState": "COLD",
+          "rows": 0,
+          "patterns": 0
+        },
+        {
+          "stage": "MATURE",
+          "count": 1,
+          "knowledgeState": "COLD",
+          "rows": 0,
+          "patterns": 0
+        }
+      ]
+    },
+    {
+      "id": "NORTH_STAR_EXPLORER_01",
+      "label": "North Star explorer",
+      "declaredLifecycle": "LONG_TERM",
+      "city": "Basel",
+      "eventCount": 109,
+      "knowledgeState": "LONG_TERM",
+      "globalConcepts": 10,
+      "placeTypeConcepts": 10,
+      "contextConcepts": 10,
+      "negativeEvidenceConcepts": 3,
+      "patterns": 2,
+      "contradictions": 5,
+      "sessions": 109,
+      "spots": 47,
+      "outcomeCount": 108,
+      "snapshots": [
+        {
+          "stage": "DAY_0",
+          "count": 1,
+          "knowledgeState": "EARLY",
+          "rows": 5,
+          "patterns": 0
+        },
+        {
+          "stage": "EARLY",
+          "count": 3,
+          "knowledgeState": "EARLY",
+          "rows": 40,
+          "patterns": 1
+        },
+        {
+          "stage": "DEVELOPING",
+          "count": 9,
+          "knowledgeState": "DEVELOPING",
+          "rows": 47,
+          "patterns": 2
+        },
+        {
+          "stage": "MATURE",
+          "count": 109,
+          "knowledgeState": "LONG_TERM",
+          "rows": 59,
+          "patterns": 2
+        }
+      ]
+    }
+  ],
+  "projections": [
+    {
+      "userId": "n55-user-explorer",
+      "momentKey": "FAMILY_SUNDAY",
+      "opportunity": "HIGH",
+      "projectionHash": "a152d5b17e58eb4ed434358f5abf2650be52d8b80c0ed32f381041641521b37f",
+      "relevantTasteCount": 8,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "vibe.cozy:CONTEXT",
+        "character.authentic_character:CONTEXT",
+        "discovery.novel:CONTEXT",
+        "social_style.conversation_friendly:CONTEXT",
+        "vibe.lively:CONTEXT",
+        "discovery.hidden_gem:CONTEXT",
+        "discovery.mainstream:CONTEXT",
+        "vibe.quiet:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-explorer",
+      "momentKey": "FRIENDS_FRIDAY",
+      "opportunity": "HIGH",
+      "projectionHash": "37bc9012470323c44a7aaf7f3bf86f3997e0408c73aad612839646fdf1b901bf",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "character.authentic_character:CONTEXT",
+        "discovery.hidden_gem:CONTEXT",
+        "discovery.novel:CONTEXT",
+        "social_style.conversation_friendly:CONTEXT",
+        "vibe.cozy:CONTEXT",
+        "vibe.lively:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-explorer",
+      "momentKey": "DATE_EVENING",
+      "opportunity": "HIGH",
+      "projectionHash": "bbefa413932d941e79dd940e2ca03e0e834cb4c79aaeb39ae69f7fa87ee25b26",
+      "relevantTasteCount": 8,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "social_style.conversation_friendly:CONTEXT",
+        "vibe.cozy:CONTEXT",
+        "discovery.hidden_gem:CONTEXT",
+        "character.authentic_character:CONTEXT",
+        "discovery.novel:CONTEXT",
+        "vibe.lively:CONTEXT",
+        "discovery.mainstream:CONTEXT",
+        "vibe.quiet:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-explorer",
+      "momentKey": "SOLO_AFTERWORK",
+      "opportunity": "HIGH",
+      "projectionHash": "fa9a8377fb00a5da0a6bef171e458ff939c316baf37d258956c0cef25aa9b247",
+      "relevantTasteCount": 8,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "character.authentic_character:CONTEXT",
+        "discovery.novel:CONTEXT",
+        "social_style.conversation_friendly:CONTEXT",
+        "vibe.cozy:CONTEXT",
+        "vibe.lively:CONTEXT",
+        "discovery.hidden_gem:CONTEXT",
+        "discovery.mainstream:CONTEXT",
+        "vibe.quiet:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-explorer",
+      "momentKey": "CROSS_CITY_COPENHAGEN",
+      "opportunity": "HIGH",
+      "projectionHash": "4f64a313f8ef0611608430e2fe45bd70569f275b3a137ce9e3673ecd46799ed7",
+      "relevantTasteCount": 7,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "vibe.cozy:CONTEXT",
+        "character.authentic_character:CONTEXT",
+        "discovery.novel:CONTEXT",
+        "social_style.conversation_friendly:CONTEXT",
+        "vibe.lively:CONTEXT",
+        "vibe.quiet:PLACE_TYPE",
+        "discovery.hidden_gem:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-explorer",
+      "momentKey": "BROAD_UNKNOWN",
+      "opportunity": "HIGH",
+      "projectionHash": "caa116eb1b41ab3e36f4ce28d5d14e4a0f68e256c62669cb2d0f7d74d43324db",
+      "relevantTasteCount": 8,
+      "relevantPatternCount": 0,
+      "sufficiency": "MEDIUM",
+      "selected": [
+        "character.authentic_character:GLOBAL",
+        "discovery.novel:GLOBAL",
+        "social_style.conversation_friendly:GLOBAL",
+        "vibe.cozy:GLOBAL",
+        "vibe.lively:GLOBAL",
+        "discovery.hidden_gem:CONTEXT",
+        "vibe.quiet:GLOBAL",
+        "discovery.mainstream:GLOBAL"
+      ]
+    },
+    {
+      "userId": "n55-user-social",
+      "momentKey": "FAMILY_SUNDAY",
+      "opportunity": "HIGH",
+      "projectionHash": "363860e69e46fd9a07c7366131449b13485ca08a0a468f1d49b448fc835d7ad4",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "vibe.lively:CONTEXT",
+        "energy.energetic:CONTEXT",
+        "occasion.evening_friendly:CONTEXT",
+        "social_style.group_friendly:CONTEXT",
+        "vibe.social:CONTEXT",
+        "vibe.quiet:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-social",
+      "momentKey": "FRIENDS_FRIDAY",
+      "opportunity": "HIGH",
+      "projectionHash": "318a21132cfda29d0da6fcacc35a291a7f3ef5380537bda945b6514476f6bc3f",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 1,
+      "sufficiency": "HIGH",
+      "selected": [
+        "vibe.lively:CONTEXT",
+        "energy.energetic:CONTEXT",
+        "social_style.group_friendly:CONTEXT",
+        "occasion.evening_friendly:CONTEXT",
+        "vibe.social:CONTEXT",
+        "vibe.quiet:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-social",
+      "momentKey": "DATE_EVENING",
+      "opportunity": "HIGH",
+      "projectionHash": "9d6ec4f93dcbd147fca3c3d64637a31e9d4b48cf0f7f67595c95d0913d9ccb67",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "vibe.lively:CONTEXT",
+        "energy.energetic:CONTEXT",
+        "occasion.evening_friendly:CONTEXT",
+        "social_style.group_friendly:CONTEXT",
+        "vibe.social:CONTEXT",
+        "vibe.quiet:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-social",
+      "momentKey": "SOLO_AFTERWORK",
+      "opportunity": "HIGH",
+      "projectionHash": "24b1bd0bce29f4ff0bba29bdd34658e9869fa319b7b407ea12b4dc0e421cb802",
+      "relevantTasteCount": 5,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "energy.energetic:CONTEXT",
+        "occasion.evening_friendly:CONTEXT",
+        "social_style.group_friendly:CONTEXT",
+        "vibe.lively:CONTEXT",
+        "vibe.social:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-social",
+      "momentKey": "CROSS_CITY_COPENHAGEN",
+      "opportunity": "HIGH",
+      "projectionHash": "bc82fcca7d7b0c7134f9634d80d55880598251f0236d94a1880075124a388958",
+      "relevantTasteCount": 5,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "energy.energetic:CONTEXT",
+        "occasion.evening_friendly:CONTEXT",
+        "social_style.group_friendly:CONTEXT",
+        "vibe.lively:CONTEXT",
+        "vibe.social:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-social",
+      "momentKey": "BROAD_UNKNOWN",
+      "opportunity": "HIGH",
+      "projectionHash": "1fce9350b77125520e8e07dc38d3e11afc0c47218843da31043055e982c3cb28",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "MEDIUM",
+      "selected": [
+        "vibe.lively:GLOBAL",
+        "energy.energetic:GLOBAL",
+        "occasion.evening_friendly:GLOBAL",
+        "social_style.group_friendly:GLOBAL",
+        "vibe.social:GLOBAL",
+        "vibe.quiet:GLOBAL"
+      ]
+    },
+    {
+      "userId": "n55-user-family",
+      "momentKey": "FAMILY_SUNDAY",
+      "opportunity": "HIGH",
+      "projectionHash": "303c1317606ff863ec07f5da8afb2253d0eba35cfd7f07c2fffb5ecffb445fcb",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 1,
+      "sufficiency": "HIGH",
+      "selected": [
+        "social_style.family_friendly:CONTEXT",
+        "vibe.cozy:CONTEXT",
+        "energy.calm:CONTEXT",
+        "environment.outdoor:CONTEXT",
+        "price.balanced_price:CONTEXT",
+        "energy.energetic:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-family",
+      "momentKey": "FRIENDS_FRIDAY",
+      "opportunity": "HIGH",
+      "projectionHash": "cd76c7ef8be3ed6ee83c94a8592381aa787d61b59abae31fe6d5397009bc8d28",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "energy.calm:CONTEXT",
+        "environment.outdoor:CONTEXT",
+        "price.balanced_price:CONTEXT",
+        "social_style.family_friendly:CONTEXT",
+        "vibe.cozy:CONTEXT",
+        "energy.energetic:GLOBAL"
+      ]
+    },
+    {
+      "userId": "n55-user-family",
+      "momentKey": "DATE_EVENING",
+      "opportunity": "HIGH",
+      "projectionHash": "554703c974819d3f86c3e9b4709110f6853ad04719b7927872f9e14784de3310",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "vibe.cozy:CONTEXT",
+        "social_style.family_friendly:CONTEXT",
+        "energy.calm:CONTEXT",
+        "environment.outdoor:CONTEXT",
+        "price.balanced_price:CONTEXT",
+        "energy.energetic:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-family",
+      "momentKey": "SOLO_AFTERWORK",
+      "opportunity": "HIGH",
+      "projectionHash": "4042ff732add999a95cd786f12a0b93257d190ed01f03b6ddec48b75a73e8c6e",
+      "relevantTasteCount": 5,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "energy.calm:CONTEXT",
+        "environment.outdoor:CONTEXT",
+        "price.balanced_price:CONTEXT",
+        "social_style.family_friendly:CONTEXT",
+        "vibe.cozy:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-family",
+      "momentKey": "CROSS_CITY_COPENHAGEN",
+      "opportunity": "HIGH",
+      "projectionHash": "061b57f2131039040b168bdc9705640e316f1fff951223c98546cf0da5a460f1",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "energy.calm:CONTEXT",
+        "vibe.cozy:CONTEXT",
+        "social_style.family_friendly:CONTEXT",
+        "environment.outdoor:CONTEXT",
+        "price.balanced_price:CONTEXT",
+        "energy.energetic:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-family",
+      "momentKey": "BROAD_UNKNOWN",
+      "opportunity": "HIGH",
+      "projectionHash": "4759f70a58d13c4644f773926fd07d67ae4b13758297b935f73525d6fb0ea9bc",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 1,
+      "sufficiency": "HIGH",
+      "selected": [
+        "social_style.family_friendly:GLOBAL",
+        "energy.calm:GLOBAL",
+        "environment.outdoor:GLOBAL",
+        "price.balanced_price:GLOBAL",
+        "vibe.cozy:GLOBAL",
+        "energy.energetic:GLOBAL"
+      ]
+    },
+    {
+      "userId": "n55-user-date",
+      "momentKey": "FAMILY_SUNDAY",
+      "opportunity": "HIGH",
+      "projectionHash": "733bbff49d19c3c485a5110d646586f401003f4d25db2868cbe1a2eb7206b2d8",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "social_style.romantic_friendly:CONTEXT",
+        "price.balanced_price:CONTEXT",
+        "social_style.conversation_friendly:CONTEXT",
+        "vibe.elegant:CONTEXT",
+        "vibe.romantic:CONTEXT",
+        "social_style.group_friendly:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-date",
+      "momentKey": "FRIENDS_FRIDAY",
+      "opportunity": "HIGH",
+      "projectionHash": "41a928bd9da2b435b6c3126bdae7049a86c2c2399bfe7e3d524773114e9ba077",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "price.balanced_price:CONTEXT",
+        "social_style.conversation_friendly:CONTEXT",
+        "social_style.romantic_friendly:CONTEXT",
+        "vibe.elegant:CONTEXT",
+        "vibe.romantic:CONTEXT",
+        "social_style.group_friendly:GLOBAL"
+      ]
+    },
+    {
+      "userId": "n55-user-date",
+      "momentKey": "DATE_EVENING",
+      "opportunity": "HIGH",
+      "projectionHash": "1f7f1a0fc5d6aef6c8b0cbfe800353523891dba89e66d9b1442c765036c19cb8",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "social_style.romantic_friendly:CONTEXT",
+        "social_style.conversation_friendly:CONTEXT",
+        "price.balanced_price:CONTEXT",
+        "vibe.elegant:CONTEXT",
+        "vibe.romantic:CONTEXT",
+        "social_style.group_friendly:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-date",
+      "momentKey": "SOLO_AFTERWORK",
+      "opportunity": "HIGH",
+      "projectionHash": "39327d60830ffe9d6b21b472d71639ff239572f046694246fefed426ba5a80dc",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "social_style.romantic_friendly:CONTEXT",
+        "price.balanced_price:CONTEXT",
+        "social_style.conversation_friendly:CONTEXT",
+        "vibe.elegant:CONTEXT",
+        "vibe.romantic:CONTEXT",
+        "social_style.group_friendly:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-date",
+      "momentKey": "CROSS_CITY_COPENHAGEN",
+      "opportunity": "HIGH",
+      "projectionHash": "7d7dcd3dcc880271ae5d20258b5222c60b93f4189442c5695205457363509d5e",
+      "relevantTasteCount": 5,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "price.balanced_price:CONTEXT",
+        "social_style.conversation_friendly:CONTEXT",
+        "social_style.romantic_friendly:CONTEXT",
+        "vibe.elegant:CONTEXT",
+        "vibe.romantic:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-date",
+      "momentKey": "BROAD_UNKNOWN",
+      "opportunity": "HIGH",
+      "projectionHash": "c34152efb8846a0384192e861548d714ef3ebb7e93943376883d7bfba5cc4023",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "MEDIUM",
+      "selected": [
+        "social_style.romantic_friendly:GLOBAL",
+        "price.balanced_price:GLOBAL",
+        "social_style.conversation_friendly:GLOBAL",
+        "vibe.elegant:GLOBAL",
+        "vibe.romantic:GLOBAL",
+        "social_style.group_friendly:GLOBAL"
+      ]
+    },
+    {
+      "userId": "n55-user-budget",
+      "momentKey": "FAMILY_SUNDAY",
+      "opportunity": "MEDIUM",
+      "projectionHash": "6fd5809c0f1fba6f06e07d28a66ad3da4d7fc518dcb17e9fa39dbadf1cea9582",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "LOW",
+      "selected": [
+        "price.budget:GLOBAL",
+        "energy.balanced:GLOBAL",
+        "social_style.conversation_friendly:GLOBAL",
+        "vibe.relaxed:GLOBAL",
+        "vibe.social:GLOBAL",
+        "price.premium:GLOBAL"
+      ]
+    },
+    {
+      "userId": "n55-user-budget",
+      "momentKey": "FRIENDS_FRIDAY",
+      "opportunity": "HIGH",
+      "projectionHash": "029f94d03cb4247419f7ea2e8ba5ce87fa84a52293c9580be47e578b43d81cd8",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "price.budget:CONTEXT",
+        "energy.balanced:CONTEXT",
+        "social_style.conversation_friendly:CONTEXT",
+        "vibe.relaxed:CONTEXT",
+        "vibe.social:CONTEXT",
+        "price.premium:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-budget",
+      "momentKey": "DATE_EVENING",
+      "opportunity": "HIGH",
+      "projectionHash": "e8e0d6ba86fade61afcc2c3239ebf9cc67e19219b615e3e0dbad31018d1fc2d8",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "social_style.conversation_friendly:CONTEXT",
+        "price.budget:CONTEXT",
+        "energy.balanced:CONTEXT",
+        "vibe.relaxed:CONTEXT",
+        "vibe.social:CONTEXT",
+        "price.premium:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-budget",
+      "momentKey": "SOLO_AFTERWORK",
+      "opportunity": "HIGH",
+      "projectionHash": "9bdbf9ee3b96b02e239d7e50955f9ab8d834cefc7e3476f12bbccfee794ae8e3",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "price.budget:CONTEXT",
+        "energy.balanced:CONTEXT",
+        "social_style.conversation_friendly:CONTEXT",
+        "vibe.relaxed:CONTEXT",
+        "vibe.social:CONTEXT",
+        "price.premium:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-budget",
+      "momentKey": "CROSS_CITY_COPENHAGEN",
+      "opportunity": "HIGH",
+      "projectionHash": "59155c9f13ca9d084b22ff3a1ef8d3f2b17c36e903e7379f0c12a73ea980ff6a",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "price.budget:CONTEXT",
+        "energy.balanced:CONTEXT",
+        "social_style.conversation_friendly:CONTEXT",
+        "vibe.relaxed:CONTEXT",
+        "vibe.social:CONTEXT",
+        "price.premium:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-budget",
+      "momentKey": "BROAD_UNKNOWN",
+      "opportunity": "HIGH",
+      "projectionHash": "75fb7ab73338eaee14721e85a56a958fd2c4a90455f8e8786ac131c37d66de92",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "MEDIUM",
+      "selected": [
+        "price.budget:GLOBAL",
+        "energy.balanced:GLOBAL",
+        "social_style.conversation_friendly:GLOBAL",
+        "vibe.relaxed:GLOBAL",
+        "vibe.social:GLOBAL",
+        "price.premium:GLOBAL"
+      ]
+    },
+    {
+      "userId": "n55-user-premium",
+      "momentKey": "FAMILY_SUNDAY",
+      "opportunity": "HIGH",
+      "projectionHash": "7275f7dc216c602e6febe203b513a7968a7c9a613004910d9d57873c831a11d6",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "price.premium:CONTEXT",
+        "character.distinctive:CONTEXT",
+        "social_style.romantic_friendly:CONTEXT",
+        "vibe.elegant:CONTEXT",
+        "character.design_led:CONTEXT",
+        "price.budget:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-premium",
+      "momentKey": "FRIENDS_FRIDAY",
+      "opportunity": "HIGH",
+      "projectionHash": "184dee3c8f4c807e71e7476849dccc9aad986b3831ff52d5d2175d95a305f8d2",
+      "relevantTasteCount": 5,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "character.design_led:CONTEXT",
+        "character.distinctive:CONTEXT",
+        "price.premium:CONTEXT",
+        "social_style.romantic_friendly:CONTEXT",
+        "vibe.elegant:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-premium",
+      "momentKey": "DATE_EVENING",
+      "opportunity": "HIGH",
+      "projectionHash": "0db7795c07a3e4d33f01e6ab3fd8d1d39f227f47a3d1cb8eccedf54da7dfc990",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "social_style.romantic_friendly:CONTEXT",
+        "price.premium:CONTEXT",
+        "character.design_led:CONTEXT",
+        "character.distinctive:CONTEXT",
+        "vibe.elegant:CONTEXT",
+        "price.budget:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-premium",
+      "momentKey": "SOLO_AFTERWORK",
+      "opportunity": "HIGH",
+      "projectionHash": "3301854c773ba80123d17a7f4ef2a658879d5e765699e439f7899d419fa9a515",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "price.premium:CONTEXT",
+        "character.distinctive:CONTEXT",
+        "social_style.romantic_friendly:CONTEXT",
+        "vibe.elegant:CONTEXT",
+        "character.design_led:CONTEXT",
+        "price.budget:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-premium",
+      "momentKey": "CROSS_CITY_COPENHAGEN",
+      "opportunity": "HIGH",
+      "projectionHash": "c107f4a64c7dfeac3ac756d3ac1f912aa3ef92f5f05ae99df23f4a567e6383c1",
+      "relevantTasteCount": 5,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "character.distinctive:CONTEXT",
+        "price.premium:CONTEXT",
+        "social_style.romantic_friendly:CONTEXT",
+        "vibe.elegant:CONTEXT",
+        "character.design_led:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-premium",
+      "momentKey": "BROAD_UNKNOWN",
+      "opportunity": "HIGH",
+      "projectionHash": "62abc6cf32e7295e92149cb990855264d288dec93060be8d5dbf69537816d460",
+      "relevantTasteCount": 6,
+      "relevantPatternCount": 0,
+      "sufficiency": "MEDIUM",
+      "selected": [
+        "price.premium:GLOBAL",
+        "character.design_led:GLOBAL",
+        "character.distinctive:GLOBAL",
+        "social_style.romantic_friendly:GLOBAL",
+        "vibe.elegant:GLOBAL",
+        "price.budget:GLOBAL"
+      ]
+    },
+    {
+      "userId": "n55-user-developing",
+      "momentKey": "FAMILY_SUNDAY",
+      "opportunity": "MEDIUM",
+      "projectionHash": "058c270cb86c00e3b3f659eb06da0a48d94afecad84edbda94afca6444aa1c70",
+      "relevantTasteCount": 3,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "vibe.cozy:CONTEXT",
+        "energy.calm:CONTEXT",
+        "social_style.solo_friendly:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-developing",
+      "momentKey": "FRIENDS_FRIDAY",
+      "opportunity": "MEDIUM",
+      "projectionHash": "fe1ac32ccfbe74af157139d8aec623cb18be53970a354a2021d5f65e232d1cbb",
+      "relevantTasteCount": 3,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "vibe.cozy:CONTEXT",
+        "energy.calm:CONTEXT",
+        "social_style.solo_friendly:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-developing",
+      "momentKey": "DATE_EVENING",
+      "opportunity": "LOW",
+      "projectionHash": "2cd66432e7bca6b2764b7a4eca1963180025ac69938ebeb40efded0269584224",
+      "relevantTasteCount": 3,
+      "relevantPatternCount": 0,
+      "sufficiency": "MEDIUM",
+      "selected": [
+        "vibe.cozy:PLACE_TYPE",
+        "energy.calm:PLACE_TYPE",
+        "social_style.solo_friendly:PLACE_TYPE"
+      ]
+    },
+    {
+      "userId": "n55-user-developing",
+      "momentKey": "SOLO_AFTERWORK",
+      "opportunity": "MEDIUM",
+      "projectionHash": "3881b14050dab82e5d8cd681a1c74c4ab20ba509d91d23311f1d97089c3b4653",
+      "relevantTasteCount": 3,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "social_style.solo_friendly:CONTEXT",
+        "vibe.cozy:CONTEXT",
+        "energy.calm:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-developing",
+      "momentKey": "CROSS_CITY_COPENHAGEN",
+      "opportunity": "MEDIUM",
+      "projectionHash": "1aead1d34e419acd7c2d794b93f6883b13f954e97eaa601eef835842b2eafc5d",
+      "relevantTasteCount": 3,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "vibe.cozy:CONTEXT",
+        "energy.calm:CONTEXT",
+        "social_style.solo_friendly:CONTEXT"
+      ]
+    },
+    {
+      "userId": "n55-user-developing",
+      "momentKey": "BROAD_UNKNOWN",
+      "opportunity": "MEDIUM",
+      "projectionHash": "509d32fd0c22f1745d8db8ed461e16073507ca90a1b75a0d3659984ba7a2dd2c",
+      "relevantTasteCount": 4,
+      "relevantPatternCount": 1,
+      "sufficiency": "MEDIUM",
+      "selected": [
+        "vibe.cozy:GLOBAL",
+        "energy.calm:GLOBAL",
+        "social_style.solo_friendly:GLOBAL",
+        "vibe.lively:GLOBAL"
+      ]
+    },
+    {
+      "userId": "n55-user-cold",
+      "momentKey": "FAMILY_SUNDAY",
+      "opportunity": "LOW",
+      "projectionHash": "1ac298c49fa980ea7d8fec07be1b407deead7be175b446b5084ad9f66a409317",
+      "relevantTasteCount": 0,
+      "relevantPatternCount": 0,
+      "sufficiency": "LOW",
+      "selected": []
+    },
+    {
+      "userId": "n55-user-cold",
+      "momentKey": "FRIENDS_FRIDAY",
+      "opportunity": "LOW",
+      "projectionHash": "ec56f1577d4c68e1611288cb2621c37305189cad7efc1d4b744cd597466e9165",
+      "relevantTasteCount": 0,
+      "relevantPatternCount": 0,
+      "sufficiency": "LOW",
+      "selected": []
+    },
+    {
+      "userId": "n55-user-cold",
+      "momentKey": "DATE_EVENING",
+      "opportunity": "LOW",
+      "projectionHash": "c84db8bf549863b80692f702972cd5871967fc3f7ff0602660b2b55aa6ccedb7",
+      "relevantTasteCount": 0,
+      "relevantPatternCount": 0,
+      "sufficiency": "LOW",
+      "selected": []
+    },
+    {
+      "userId": "n55-user-cold",
+      "momentKey": "SOLO_AFTERWORK",
+      "opportunity": "LOW",
+      "projectionHash": "8d5b4533d6051138a6e2e93b4f0b03e0dc4b0e1b085d7e42a6323dce660f71c3",
+      "relevantTasteCount": 0,
+      "relevantPatternCount": 0,
+      "sufficiency": "LOW",
+      "selected": []
+    },
+    {
+      "userId": "n55-user-cold",
+      "momentKey": "CROSS_CITY_COPENHAGEN",
+      "opportunity": "LOW",
+      "projectionHash": "31d1f1495d33882647cfd6271f203ec30535666e9099e28c61d9314a0dbeb42a",
+      "relevantTasteCount": 0,
+      "relevantPatternCount": 0,
+      "sufficiency": "LOW",
+      "selected": []
+    },
+    {
+      "userId": "n55-user-cold",
+      "momentKey": "BROAD_UNKNOWN",
+      "opportunity": "LOW",
+      "projectionHash": "3d5da0add1ed81e5af7b2e865b8797a3c60c3c18be069d470fc71667e864c1e0",
+      "relevantTasteCount": 0,
+      "relevantPatternCount": 0,
+      "sufficiency": "LOW",
+      "selected": []
+    },
+    {
+      "userId": "NORTH_STAR_EXPLORER_01",
+      "momentKey": "FAMILY_SUNDAY",
+      "opportunity": "LOW",
+      "projectionHash": "ae280ec220b1bdf8520fe7f37269a322c0f7337efbc711242e7efb97ce6f846d",
+      "relevantTasteCount": 1,
+      "relevantPatternCount": 0,
+      "sufficiency": "LOW",
+      "selected": [
+        "vibe.cozy:GLOBAL"
+      ]
+    },
+    {
+      "userId": "NORTH_STAR_EXPLORER_01",
+      "momentKey": "FRIENDS_FRIDAY",
+      "opportunity": "HIGH",
+      "projectionHash": "d28e380e27948ce73f333abe6daa136317bb0ef33e756843c21fc9f0658dd351",
+      "relevantTasteCount": 9,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "vibe.lively:CONTEXT",
+        "discovery.hidden_gem:CONTEXT",
+        "character.authentic_character:CONTEXT",
+        "price.balanced_price:CONTEXT",
+        "social_style.conversation_friendly:CONTEXT",
+        "social_style.solo_friendly:CONTEXT",
+        "vibe.cozy:CONTEXT",
+        "discovery.mainstream:CONTEXT",
+        "price.premium:CONTEXT"
+      ]
+    },
+    {
+      "userId": "NORTH_STAR_EXPLORER_01",
+      "momentKey": "DATE_EVENING",
+      "opportunity": "HIGH",
+      "projectionHash": "81e2913d188c198fffa1819ddd7528e6ea413287bb2f4013ceeb1296b4ff7527",
+      "relevantTasteCount": 10,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "social_style.conversation_friendly:CONTEXT",
+        "vibe.cozy:CONTEXT",
+        "discovery.hidden_gem:CONTEXT",
+        "character.authentic_character:CONTEXT",
+        "price.balanced_price:CONTEXT",
+        "social_style.solo_friendly:CONTEXT",
+        "vibe.lively:CONTEXT",
+        "discovery.mainstream:CONTEXT",
+        "vibe.quiet:CONTEXT",
+        "price.premium:CONTEXT"
+      ]
+    },
+    {
+      "userId": "NORTH_STAR_EXPLORER_01",
+      "momentKey": "SOLO_AFTERWORK",
+      "opportunity": "HIGH",
+      "projectionHash": "672297f06e682fab457308ddd13af6a863806932ab97d234396474fd06362f04",
+      "relevantTasteCount": 10,
+      "relevantPatternCount": 1,
+      "sufficiency": "HIGH",
+      "selected": [
+        "social_style.solo_friendly:CONTEXT",
+        "character.authentic_character:CONTEXT",
+        "price.balanced_price:CONTEXT",
+        "social_style.conversation_friendly:CONTEXT",
+        "vibe.cozy:CONTEXT",
+        "vibe.lively:CONTEXT",
+        "discovery.hidden_gem:CONTEXT",
+        "discovery.mainstream:CONTEXT",
+        "vibe.quiet:CONTEXT",
+        "price.premium:CONTEXT"
+      ]
+    },
+    {
+      "userId": "NORTH_STAR_EXPLORER_01",
+      "momentKey": "CROSS_CITY_COPENHAGEN",
+      "opportunity": "HIGH",
+      "projectionHash": "a9a9439731f550039fd87bff958f2a9d7f0a04a0d8ce15989d1eed86004a9336",
+      "relevantTasteCount": 10,
+      "relevantPatternCount": 0,
+      "sufficiency": "HIGH",
+      "selected": [
+        "social_style.solo_friendly:CONTEXT",
+        "vibe.cozy:CONTEXT",
+        "character.authentic_character:CONTEXT",
+        "price.balanced_price:CONTEXT",
+        "social_style.conversation_friendly:CONTEXT",
+        "vibe.lively:CONTEXT",
+        "discovery.hidden_gem:CONTEXT",
+        "discovery.mainstream:CONTEXT",
+        "vibe.quiet:CONTEXT",
+        "price.premium:CONTEXT"
+      ]
+    },
+    {
+      "userId": "NORTH_STAR_EXPLORER_01",
+      "momentKey": "BROAD_UNKNOWN",
+      "opportunity": "HIGH",
+      "projectionHash": "abcd9feb03972fe1b7c1cb366334bbcfab0fb354eb0ce9d44e5567afc0acfdee",
+      "relevantTasteCount": 10,
+      "relevantPatternCount": 0,
+      "sufficiency": "MEDIUM",
+      "selected": [
+        "discovery.hidden_gem:CONTEXT",
+        "character.authentic_character:GLOBAL",
+        "price.balanced_price:GLOBAL",
+        "social_style.conversation_friendly:GLOBAL",
+        "social_style.solo_friendly:GLOBAL",
+        "vibe.cozy:GLOBAL",
+        "vibe.lively:GLOBAL",
+        "vibe.quiet:GLOBAL",
+        "discovery.mainstream:GLOBAL",
+        "price.premium:GLOBAL"
+      ]
+    }
+  ],
+  "scientificBoundary": {
+    "noExternalAiCalls": true,
+    "noN6Invocation": true,
+    "noRanking": true,
+    "noProductionMutation": true,
+    "latentTruthRuntimeInput": false
+  },
+  "scientificValidity": "PASS",
+  "production": "UNCHANGED",
+  "externalAiCalls": 0,
+  "historicalN6AVerdicts": "UNCHANGED_NOT_REEVALUATED",
+  "artifactHash": "4ce947fad119c43badf771fbb86fdfc043700575dac75bd66bc103e44ed0e1ed"
+}

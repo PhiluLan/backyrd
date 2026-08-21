@@ -1,0 +1,61 @@
+{
+  "version": "backyrd-n5-6-1-validation-contract-v1",
+  "frozenBeforeOfficialMeasurement": true,
+  "treatment": {
+    "control": "N5.6 frozen world + N5.6 projection",
+    "projection": "N5.6 frozen world + N5.6.1 moment-aware projection",
+    "realisticWorld": "NOT_CHANGED"
+  },
+  "gates": {
+    "scientificIdentity": 1,
+    "conceptMetadataCompleteness": 1,
+    "currentIntentAuthority": 1,
+    "signedPolarityCompleteness": 1,
+    "projectionAuditCompleteness": 1,
+    "contextLeakageControl": 1,
+    "placeTypeLeakageControl": 1,
+    "globalFallbackControl": 1,
+    "projectionCapAsMaximum": 1,
+    "profileDumpControl": 1,
+    "broadMomentUncertainty": 1,
+    "deepUserUnknownContextHonesty": 1,
+    "soloMatchingKnowledgeRetention": 1,
+    "familyUnknownHonesty": 1,
+    "crossCityPortability": 1,
+    "coldUserSparsity": 1,
+    "developingUserCalibration": 1,
+    "sameUserDifferentMoment": 0.28,
+    "differentUsersSameMoment": 0.35,
+    "relevantNegativeSignalRetention": 1,
+    "projectionRelevancePrecision": 0.95,
+    "projectionRelevanceRecall": 0.8,
+    "irrelevantKnowledgeSuppression": 0.95,
+    "suppressionPrecision": 0.95,
+    "suppressionRecall": 0.9,
+    "decisionSpecificSufficiency": 0.9,
+    "currentIntentDuplicationControl": 0.9,
+    "independentPersonalizationSignalRate": 0.5,
+    "crossCityUnknownContextHonesty": 1,
+    "privacyAndScientificBoundary": 1,
+    "externalAiCallsZero": 1
+  },
+  "profileDump": {
+    "maximumCapHitRate": 0.1,
+    "maximumMeanSelectionRatio": 0.2,
+    "maximumIrrelevantSelectedRate": 0.05,
+    "maximumSemanticFamilyDuplicationRate": 0.35
+  },
+  "stopConditions": [
+    "incomplete_concept_metadata",
+    "unfrozen_relevance_or_sufficiency",
+    "latent_evaluator_leakage",
+    "unexplained_negative_preference_failure",
+    "incomplete_suppression_audit",
+    "post_freeze_threshold_change"
+  ],
+  "humanReview": {
+    "required": true,
+    "automaticN6Authorization": false
+  },
+  "explicitNonGoals": ["N6", "AI calls", "ranking", "retrieval", "production activation", "N5.6 User Card rewrite"]
+}

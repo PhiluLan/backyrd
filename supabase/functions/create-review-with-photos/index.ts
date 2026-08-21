@@ -74,23 +74,25 @@ Deno.serve(async (req) => {
     let moodBId: number | null = null;
 
     if (moodA) {
-      const { data, error } = await adminClient.rpc("match_mood_v1", {
-        input: moodA,
+      const { data, error } = await adminClient.rpc("backyrd_resolve_product_mood_v1", {
+        p_input: moodA,
       });
       if (error) {
         return json({ error: error.message }, { status: 400 });
       }
-      moodAId = data ?? null;
+      if (!data?.valid) return json({ error: "invalid_product_mood_a" }, { status: 400 });
+      moodAId = data.moodTokenId ?? null;
     }
 
     if (moodB) {
-      const { data, error } = await adminClient.rpc("match_mood_v1", {
-        input: moodB,
+      const { data, error } = await adminClient.rpc("backyrd_resolve_product_mood_v1", {
+        p_input: moodB,
       });
       if (error) {
         return json({ error: error.message }, { status: 400 });
       }
-      moodBId = data ?? null;
+      if (!data?.valid) return json({ error: "invalid_product_mood_b" }, { status: 400 });
+      moodBId = data.moodTokenId ?? null;
     }
 
     const { data: review, error: reviewError } = await adminClient
@@ -98,6 +100,9 @@ Deno.serve(async (req) => {
       .insert({
         spot_id: payload.spot_id,
         user_id: user.id,
+        data_origin: "REAL",
+        review_origin: "SMART_REVIEW",
+        product_evidence_origin: "smart_review_v1",
         text: payload.text?.trim() || null,
         mood_a: moodA,
         mood_b: moodB,

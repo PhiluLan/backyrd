@@ -1,0 +1,19 @@
+{
+  "version": "backyrd-n5-5-longitudinal-validation-contract-v1",
+  "frozenBeforeMeasurement": true,
+  "world": { "minimumUsers": 9, "minimumMatureEvents": 100, "minimumMatureSessions": 40, "minimumMatureSpots": 25, "minimumHistorySpanDays": 180, "minimumProjectionScenarios": 30 },
+  "gates": {
+    "canonicalMemoryValidity": 1,
+    "latentIsolation": 1,
+    "matureProfileRichness": 1,
+    "lifecycleProgression": 1,
+    "contextualProjectionDifferentiation": 1,
+    "differentUserDifferentiation": 1,
+    "crossCityPortability": 1,
+    "currentIntentAuthority": 1,
+    "projectionBoundedness": 1,
+    "privacyBoundary": 1,
+    "personalizationOpportunityCoverage": 0.5
+  },
+  "explicitNonGoals": ["N6_AI_CALLS", "candidate_ranking", "retrieval", "spot_intelligence_changes", "production_data", "production_mutation"]
+}

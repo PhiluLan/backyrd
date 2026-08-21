@@ -441,7 +441,7 @@ export default function NewReviewScreen() {
 
               <Text style={styles.label}>Zweite Stimmung</Text>
               <TextInput
-                placeholder="z. B. ehrlich"
+                placeholder="z. B. authentisch"
                 placeholderTextColor={theme.colors.textMuted}
                 value={moodB}
                 onChangeText={setMoodB}

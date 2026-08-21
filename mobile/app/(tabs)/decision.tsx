@@ -24,6 +24,7 @@ import { supabase } from "@/lib/supabase";
 import { hasActiveConsent } from "@/lib/consent";
 import { mapTextToClusterIds } from "@/lib/decision/moodMapping";
 import { trackAnalyticsEvent, reportAnalyticsError } from "@/lib/analytics";
+import { recordMemoryProductAction } from "@/lib/memory-bridge";
 
 type DecisionSpotRpcRow = {
   spot_id: string;
@@ -38,6 +39,7 @@ type DecisionSpotRpcRow = {
 };
 
 type EnrichedDecisionSpot = DecisionSpotRpcRow & {
+  north_star_active?: boolean;
   address?: string | null;
   price_level?: number | null;
   category_id?: string | null;
@@ -127,6 +129,10 @@ type DecisionV13Response = {
     fused: number;
   };
   candidates?: DecisionV13Candidate[];
+  north_star?: {
+    active?: boolean;
+    knowledge_mode?: "SUFFICIENT" | "PARTIAL" | "LOW_OR_UNKNOWN";
+  };
   error?: string;
 };
 
@@ -605,8 +611,6 @@ function buildDecisionV13Query({
       directionLabel ? `Gewünschte Richtung: ${directionLabel}` : null,
       audienceLabel ? `Situation: ${audienceLabel}` : null,
       moodText ? `Stimmung: ${moodText}` : null,
-      "Respect the user's concrete current intent more than old taste patterns.",
-      "If category or audience is clear, prefer matching categories strongly and use personal taste only softly.",
     ]
       .filter(Boolean)
       .join("\n");
@@ -618,9 +622,6 @@ function buildDecisionV13Query({
     moodText ? `Stimmung: ${moodText}` : null,
     hintText || null,
     `Ort in ${c}`,
-    "Find places that match the selected direction, situation and vibe.",
-    "Category and current intent are more important than old likes.",
-    "Use previous taste only as a soft tie-breaker.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -1439,7 +1440,10 @@ export default function DecisionScreen() {
         };
 
         const candidates = Array.isArray(data.candidates) ? data.candidates : [];
-        const v13Rows = candidates.map(mapV13CandidateToDecisionRow).filter((row) => row?.spot_id);
+        const northStarActive = data.north_star?.active === true;
+        const v13Rows = candidates
+          .map((candidate) => ({ ...mapV13CandidateToDecisionRow(candidate), north_star_active: northStarActive }))
+          .filter((row) => row?.spot_id);
 
         const pickedRows = pickDecisionBatch({
           rows: v13Rows,
@@ -1618,7 +1622,8 @@ export default function DecisionScreen() {
         spotId,
         decisionId,
       });
-      router.push(`/spot/${spotId}` as any);
+      void recordMemoryProductAction({ actionType: "spot_opened", spotId, decisionId, entrySurface: "decision" });
+      router.push(`/spot/${spotId}?entrySource=decision` as any);
     },
     [activeIndex, decisionId, logMlEvent, router, spots]
   );
@@ -2513,6 +2518,7 @@ function FullscreenSwipeCard({
     82,
     Math.min(98, Math.round(((spot.v13_combined_score ?? Number(spot.final_score) ?? 0.9) as number) * 100) || 95)
   );
+  const showMatchPercentage = spot.north_star_active !== true;
   const queryLabel =
     clean(moodA) ||
     clean(moodB) ||
@@ -2713,7 +2719,7 @@ function FullscreenSwipeCard({
               </Animated.View>
 
               <View style={{ flex: 1, justifyContent: "space-between", padding: 16 }}>
-                <View
+                {showMatchPercentage ? <View
                   style={{
                     alignSelf: "flex-start",
                     paddingHorizontal: 12,
@@ -2726,7 +2732,7 @@ function FullscreenSwipeCard({
                     {matchScore}%
                   </Text>
                   <Text style={{ color: "rgba(255,255,255,0.86)", fontSize: 12, fontWeight: "700" }}>Match</Text>
-                </View>
+                </View> : null}
 
                 <View>
                   <Text

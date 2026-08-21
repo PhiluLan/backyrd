@@ -26,6 +26,7 @@ import ReportContentButton from "../../components/safety/ReportContentButton";
 import { supabase } from "../../lib/supabase";
 import { openWebsite, callNumber, openInAppleMaps } from "../../lib/links";
 import { trackAnalyticsEvent } from "../../lib/analytics";
+import { recordMemoryProductAction } from "../../lib/memory-bridge";
 import {
   getGooglePlacePhotoFallback,
   type GooglePlacePhotoResult,
@@ -184,7 +185,7 @@ const InfoRow = ({
 );
 
 export default function SpotDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, entrySource } = useLocalSearchParams<{ id: string; entrySource?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -210,9 +211,26 @@ export default function SpotDetailScreen() {
   const [nearby, setNearby] = useState<any[]>([]);
   const [taxonomyItems, setTaxonomyItems] = useState<MobileSpotTaxonomyItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const productOpenLogged = useRef(false);
 
   const [userId, setUserId] = useState<string | null>(null);
   const [isFav, setIsFav] = useState(false);
+
+  // One canonical detail-open signal for generic entry surfaces. Decision and
+  // nearby-card entries already emit their own source event before navigation.
+  useEffect(() => {
+    if (!id || productOpenLogged.current || entrySource === "decision" || entrySource === "nearby") return;
+    productOpenLogged.current = true;
+    void recordMemoryProductAction({ actionType: "spot_opened", spotId: id, entrySurface: "generic" });
+    void trackAnalyticsEvent({
+      eventName: "spot_detail_opened",
+      screenName: "spot_detail",
+      entityType: "spot",
+      entityId: id,
+      spotId: id,
+      properties: { entry_surface: "generic" },
+    });
+  }, [entrySource, id]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showAllMoods, setShowAllMoods] = useState(false);
 
@@ -766,6 +784,7 @@ export default function SpotDetailScreen() {
           <View style={styles.quickActions}>
             <Pressable onPress={() => {
               void trackAnalyticsEvent({ eventName: "spot_route_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
+              void recordMemoryProductAction({ actionType: "navigation_intent", spotId: spot.id, entrySurface: "generic" });
               openInAppleMaps(spot.lat, spot.lng, spot.name);
             }} style={styles.primaryAction}>
               <Feather name="navigation" size={17} color="#171214" />
@@ -987,7 +1006,8 @@ export default function SpotDetailScreen() {
                 renderItem={({ item }) => (
                   <Pressable onPress={() => {
                     void trackAnalyticsEvent({ eventName: "nearby_spot_opened", screenName: "spot_detail", entityType: "spot", entityId: item.id, spotId: item.id, properties: { parent_spot_id: spot.id } });
-                    router.push(`/spot/${item.id}`);
+                    void recordMemoryProductAction({ actionType: "spot_opened", spotId: item.id, entrySurface: "nearby" });
+                    router.push(`/spot/${item.id}?entrySource=nearby`);
                   }} style={styles.nearbyCard}>
                     <View style={styles.nearbyPhotoWrap}>
                       {item.photoUrl ? (

@@ -412,3 +412,18 @@ entrypoint = "./functions/generate-journey/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/generate-journey/*.html" ]
+
+[functions.decision-north-star-internal]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/decision-north-star-internal/index.deploy.ts"
+
+[functions.decision-engine-worker]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/decision-engine-worker/index.deploy.ts"
+
+[functions.decision-v13]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/decision-v13/index.deploy.ts"

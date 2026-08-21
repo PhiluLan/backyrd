@@ -1,0 +1,674 @@
+{
+  "artifactType": "BACKYRD_N5_6_2_ENGINE_DEFECT_PREFLIGHT",
+  "sealed": true,
+  "version": "backyrd-n5-6-2-engine-defect-preflight-v1",
+  "defectId": "N5.6.2-ED-001",
+  "contractHash": "91a67e533e30f19770662337042f6098addee3fbc751a015c9354cdec48122d1",
+  "identities": {
+    "engineContractHash": "84ca75f94281932f1b31230abeed3804f141b9e68dfa3c5ef9a09e7214db18f8",
+    "projectionContractHash": "e96c1b87ada27b5006445a5302564ba1126951320b8fd002399b23bd347b8cf8",
+    "worldHashes": [
+      "507e496da5a5ce56209a62f3042a43d229f20a0bfa372f95559125b4b53362c7",
+      "aced69c4ab94455b0adb2e1363327991cb368f5d342e4c175414aff1a6197349",
+      "93561f7a307e85dc3e5ce96fc2f86da369df1fa6fcb274c5aae245636509e0d9"
+    ]
+  },
+  "rootCause": {
+    "classification": "ENGINE_DEFECT",
+    "component": "N5.6_EVIDENCE_CHAIN_STRONGEST_DISPOSITION_SELECTION",
+    "mechanism": "Within one journey/concept/scope, verified_visit has greater weighted positive magnitude than the later explicit negative outcome, so the negative sample is discarded before User Intelligence aggregation.",
+    "weightedStrengthBeforeSpotConfidenceAndDilution": {
+      "verifiedVisitPositive": 0.3936,
+      "negativePostVisit": 0.3496,
+      "explicitNegative": 0.2024
+    },
+    "semanticViolation": "A confirmed visit is not satisfaction and must not erase explicit post-visit negative evidence.",
+    "worldValidity": "A visit followed by explicit negative feedback is a canonical Product-observable journey, not a fixture anomaly."
+  },
+  "seedResults": [
+    {
+      "seed": 56201,
+      "worldHash": "507e496da5a5ce56209a62f3042a43d229f20a0bfa372f95559125b4b53362c7",
+      "treatmentHash": "66afc8d391b89d8d650fc7fe3566cfea6c63e3f0479a254402a938f76aaa3c64",
+      "population": 12,
+      "sessions": 768,
+      "events": 5185,
+      "missingOutcomeRate": 0.604167,
+      "explicitFeedbackRate": 0.104167,
+      "outcomeDistribution": {
+        "unknown": 464,
+        "neutral": 96,
+        "strong_positive": 30,
+        "positive": 129,
+        "negative": 45,
+        "strong_negative": 4
+      },
+      "placeTypes": {
+        "bar": 173,
+        "cafe": 144,
+        "outing": 52,
+        "activity": 89,
+        "restaurant": 203,
+        "culture": 60,
+        "nightlife": 46,
+        "other": 1
+      },
+      "audiences": {
+        "date": 135,
+        "family": 108,
+        "friends": 223,
+        "solo": 208,
+        "work": 68,
+        "other": 26
+      },
+      "confidenceDistribution": {
+        "all": {
+          "min": 0.001604,
+          "p10": 0.007534,
+          "p25": 0.040177,
+          "median": 0.093803,
+          "p75": 0.237825,
+          "p90": 0.467881,
+          "p95": 0.583398,
+          "max": 0.967273
+        },
+        "byScope": {
+          "GLOBAL": {
+            "min": 0.002787,
+            "p10": 0.034018,
+            "p25": 0.077483,
+            "median": 0.214895,
+            "p75": 0.464914,
+            "p90": 0.678038,
+            "p95": 0.786992,
+            "max": 0.967273
+          },
+          "PLACE_TYPE": {
+            "min": 0.002787,
+            "p10": 0.014119,
+            "p25": 0.06214,
+            "median": 0.162699,
+            "p75": 0.339059,
+            "p90": 0.558481,
+            "p95": 0.673765,
+            "max": 0.92699
+          },
+          "CONTEXT": {
+            "min": 0.001604,
+            "p10": 0.006367,
+            "p25": 0.035101,
+            "median": 0.076614,
+            "p75": 0.182898,
+            "p90": 0.368597,
+            "p95": 0.503031,
+            "max": 0.843004
+          }
+        },
+        "nearMaximumShare": 0,
+        "interquartileRange": 0.197648
+      },
+      "diagnosticLearningMetrics": {
+        "signedPreferencePrecision": 0.201705,
+        "signedPreferenceRecall": 0.78453,
+        "negativePreferencePrecision": 0,
+        "negativePreferenceRecall": 0,
+        "falsePreferenceControl": 0.201705,
+        "contextAccuracy": 0.094629,
+        "placeTypeAccuracy": 0.297619,
+        "unknownHonesty": 0.815684,
+        "highConfidenceErrorControl": 0.730769,
+        "highConfidenceErrorRate": 0.269231,
+        "confidenceCalibrationScore": 0.812195,
+        "confidenceBrier": 0.187805,
+        "confidenceEce": 0.227851,
+        "learnableTruthAccuracy": 0.608054
+      },
+      "negativeFeedbackJourneys": 28,
+      "negativeFeedbackSamplesSelected": 0,
+      "learnedNegativeNodes": 0,
+      "swallowedNegativeJourneys": 28,
+      "representativeFailure": {
+        "userId": "NORTH_STAR_REALISTIC_01",
+        "sessionId": "n562:56201:NORTH_STAR_REALISTIC_01:session:103",
+        "spotId": "n562:56201:spot:basel:bar:1",
+        "negativeEventId": "n562:56201:NORTH_STAR_REALISTIC_01:session:103:event:08:negative_post_visit",
+        "negativeEventType": "negative_post_visit",
+        "positiveVisitEventId": "n562:56201:NORTH_STAR_REALISTIC_01:session:103:event:07:verified_visit",
+        "negativeSelectedSampleCount": 0,
+        "selectedDirections": [
+          1
+        ],
+        "selectedEventTypes": [
+          "verified_visit"
+        ],
+        "sample": [
+          {
+            "concept": "discovery.hidden_gem",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "audience.friends"
+            },
+            "direction": 1,
+            "magnitude": 0.184247,
+            "eventId": "n562:56201:NORTH_STAR_REALISTIC_01:session:103:event:07:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "place_type.bar",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "audience.friends"
+            },
+            "direction": 1,
+            "magnitude": 0.174341,
+            "eventId": "n562:56201:NORTH_STAR_REALISTIC_01:session:103:event:07:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "vibe.lively",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "audience.friends"
+            },
+            "direction": 1,
+            "magnitude": 0.134618,
+            "eventId": "n562:56201:NORTH_STAR_REALISTIC_01:session:103:event:07:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "vibe.social",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "audience.friends"
+            },
+            "direction": 1,
+            "magnitude": 0.115815,
+            "eventId": "n562:56201:NORTH_STAR_REALISTIC_01:session:103:event:07:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "discovery.hidden_gem",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "time.evening"
+            },
+            "direction": 1,
+            "magnitude": 0.184247,
+            "eventId": "n562:56201:NORTH_STAR_REALISTIC_01:session:103:event:07:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "place_type.bar",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "time.evening"
+            },
+            "direction": 1,
+            "magnitude": 0.174341,
+            "eventId": "n562:56201:NORTH_STAR_REALISTIC_01:session:103:event:07:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "vibe.lively",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "time.evening"
+            },
+            "direction": 1,
+            "magnitude": 0.134618,
+            "eventId": "n562:56201:NORTH_STAR_REALISTIC_01:session:103:event:07:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "vibe.social",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "time.evening"
+            },
+            "direction": 1,
+            "magnitude": 0.115815,
+            "eventId": "n562:56201:NORTH_STAR_REALISTIC_01:session:103:event:07:verified_visit",
+            "evidenceFamily": "outcome"
+          }
+        ]
+      }
+    },
+    {
+      "seed": 56202,
+      "worldHash": "aced69c4ab94455b0adb2e1363327991cb368f5d342e4c175414aff1a6197349",
+      "treatmentHash": "b167b72d6dd3759144a71fb87190d4e129dfce8f064475438db1294e13847127",
+      "population": 12,
+      "sessions": 768,
+      "events": 5168,
+      "missingOutcomeRate": 0.585938,
+      "explicitFeedbackRate": 0.132813,
+      "outcomeDistribution": {
+        "positive": 118,
+        "strong_positive": 48,
+        "unknown": 450,
+        "neutral": 78,
+        "negative": 70,
+        "strong_negative": 4
+      },
+      "placeTypes": {
+        "bar": 182,
+        "cafe": 146,
+        "culture": 81,
+        "activity": 85,
+        "restaurant": 169,
+        "outing": 58,
+        "nightlife": 45,
+        "other": 2
+      },
+      "audiences": {
+        "friends": 241,
+        "solo": 196,
+        "date": 131,
+        "work": 75,
+        "family": 95,
+        "other": 30
+      },
+      "confidenceDistribution": {
+        "all": {
+          "min": 0.001616,
+          "p10": 0.006147,
+          "p25": 0.038062,
+          "median": 0.088003,
+          "p75": 0.214966,
+          "p90": 0.410857,
+          "p95": 0.535516,
+          "max": 0.950605
+        },
+        "byScope": {
+          "GLOBAL": {
+            "min": 0.001769,
+            "p10": 0.025306,
+            "p25": 0.080094,
+            "median": 0.216582,
+            "p75": 0.429259,
+            "p90": 0.649383,
+            "p95": 0.721176,
+            "max": 0.950605
+          },
+          "PLACE_TYPE": {
+            "min": 0.001667,
+            "p10": 0.016442,
+            "p25": 0.053974,
+            "median": 0.150652,
+            "p75": 0.324157,
+            "p90": 0.518659,
+            "p95": 0.619023,
+            "max": 0.815069
+          },
+          "CONTEXT": {
+            "min": 0.001616,
+            "p10": 0.005348,
+            "p25": 0.032809,
+            "median": 0.072584,
+            "p75": 0.162714,
+            "p90": 0.327967,
+            "p95": 0.438345,
+            "max": 0.827186
+          }
+        },
+        "nearMaximumShare": 0,
+        "interquartileRange": 0.176904
+      },
+      "diagnosticLearningMetrics": {
+        "signedPreferencePrecision": 0.16079,
+        "signedPreferenceRecall": 0.721519,
+        "negativePreferencePrecision": 0,
+        "negativePreferenceRecall": 0,
+        "falsePreferenceControl": 0.16079,
+        "contextAccuracy": 0.081794,
+        "placeTypeAccuracy": 0.232558,
+        "unknownHonesty": 0.823669,
+        "highConfidenceErrorControl": 0.692308,
+        "highConfidenceErrorRate": 0.307692,
+        "confidenceCalibrationScore": 0.819447,
+        "confidenceBrier": 0.180553,
+        "confidenceEce": 0.253479,
+        "learnableTruthAccuracy": 0.616455
+      },
+      "negativeFeedbackJourneys": 57,
+      "negativeFeedbackSamplesSelected": 0,
+      "learnedNegativeNodes": 0,
+      "swallowedNegativeJourneys": 57,
+      "representativeFailure": {
+        "userId": "NORTH_STAR_REALISTIC_01",
+        "sessionId": "n562:56202:NORTH_STAR_REALISTIC_01:session:025",
+        "spotId": "n562:56202:spot:zurich:restaurant:1",
+        "negativeEventId": "n562:56202:NORTH_STAR_REALISTIC_01:session:025:event:07:negative_post_visit",
+        "negativeEventType": "negative_post_visit",
+        "positiveVisitEventId": "n562:56202:NORTH_STAR_REALISTIC_01:session:025:event:06:verified_visit",
+        "negativeSelectedSampleCount": 0,
+        "selectedDirections": [
+          1
+        ],
+        "selectedEventTypes": [
+          "verified_visit"
+        ],
+        "sample": [
+          {
+            "concept": "character.design_led",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "audience.solo"
+            },
+            "direction": 1,
+            "magnitude": 0.131692,
+            "eventId": "n562:56202:NORTH_STAR_REALISTIC_01:session:025:event:06:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "place_type.restaurant",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "audience.solo"
+            },
+            "direction": 1,
+            "magnitude": 0.131955,
+            "eventId": "n562:56202:NORTH_STAR_REALISTIC_01:session:025:event:06:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "price.balanced_price",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "audience.solo"
+            },
+            "direction": 1,
+            "magnitude": 0.098397,
+            "eventId": "n562:56202:NORTH_STAR_REALISTIC_01:session:025:event:06:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "vibe.cozy",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "audience.solo"
+            },
+            "direction": 1,
+            "magnitude": 0.13674,
+            "eventId": "n562:56202:NORTH_STAR_REALISTIC_01:session:025:event:06:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "vibe.elegant",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "audience.solo"
+            },
+            "direction": 1,
+            "magnitude": 0.087495,
+            "eventId": "n562:56202:NORTH_STAR_REALISTIC_01:session:025:event:06:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "character.design_led",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "time.evening"
+            },
+            "direction": 1,
+            "magnitude": 0.131692,
+            "eventId": "n562:56202:NORTH_STAR_REALISTIC_01:session:025:event:06:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "place_type.restaurant",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "time.evening"
+            },
+            "direction": 1,
+            "magnitude": 0.131955,
+            "eventId": "n562:56202:NORTH_STAR_REALISTIC_01:session:025:event:06:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "price.balanced_price",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "time.evening"
+            },
+            "direction": 1,
+            "magnitude": 0.098397,
+            "eventId": "n562:56202:NORTH_STAR_REALISTIC_01:session:025:event:06:verified_visit",
+            "evidenceFamily": "outcome"
+          }
+        ]
+      }
+    },
+    {
+      "seed": 56203,
+      "worldHash": "93561f7a307e85dc3e5ce96fc2f86da369df1fa6fcb274c5aae245636509e0d9",
+      "treatmentHash": "0c156337ecdaf548df675d7cc57f8748c909877429e09d97f808c6d9a57041d1",
+      "population": 12,
+      "sessions": 768,
+      "events": 5201,
+      "missingOutcomeRate": 0.60026,
+      "explicitFeedbackRate": 0.127604,
+      "outcomeDistribution": {
+        "unknown": 461,
+        "positive": 113,
+        "neutral": 83,
+        "strong_positive": 30,
+        "negative": 74,
+        "strong_negative": 7
+      },
+      "placeTypes": {
+        "cafe": 136,
+        "bar": 179,
+        "outing": 54,
+        "activity": 96,
+        "restaurant": 187,
+        "culture": 64,
+        "nightlife": 47,
+        "other": 5
+      },
+      "audiences": {
+        "solo": 203,
+        "friends": 217,
+        "family": 84,
+        "date": 154,
+        "other": 33,
+        "work": 77
+      },
+      "confidenceDistribution": {
+        "all": {
+          "min": 0.001591,
+          "p10": 0.00751,
+          "p25": 0.040031,
+          "median": 0.094186,
+          "p75": 0.231955,
+          "p90": 0.439545,
+          "p95": 0.557396,
+          "max": 0.921658
+        },
+        "byScope": {
+          "GLOBAL": {
+            "min": 0.001936,
+            "p10": 0.030368,
+            "p25": 0.083896,
+            "median": 0.231822,
+            "p75": 0.471298,
+            "p90": 0.68288,
+            "p95": 0.770992,
+            "max": 0.921658
+          },
+          "PLACE_TYPE": {
+            "min": 0.001936,
+            "p10": 0.011384,
+            "p25": 0.066694,
+            "median": 0.155923,
+            "p75": 0.358524,
+            "p90": 0.54311,
+            "p95": 0.663061,
+            "max": 0.913332
+          },
+          "CONTEXT": {
+            "min": 0.001591,
+            "p10": 0.006837,
+            "p25": 0.034633,
+            "median": 0.076857,
+            "p75": 0.177372,
+            "p90": 0.342828,
+            "p95": 0.464213,
+            "max": 0.832922
+          }
+        },
+        "nearMaximumShare": 0,
+        "interquartileRange": 0.191924
+      },
+      "diagnosticLearningMetrics": {
+        "signedPreferencePrecision": 0.138422,
+        "signedPreferenceRecall": 0.699346,
+        "negativePreferencePrecision": 0,
+        "negativePreferenceRecall": 0,
+        "falsePreferenceControl": 0.138422,
+        "contextAccuracy": 0.054422,
+        "placeTypeAccuracy": 0.244048,
+        "unknownHonesty": 0.804702,
+        "highConfidenceErrorControl": 0.55,
+        "highConfidenceErrorRate": 0.45,
+        "confidenceCalibrationScore": 0.816669,
+        "confidenceBrier": 0.183331,
+        "confidenceEce": 0.274601,
+        "learnableTruthAccuracy": 0.581921
+      },
+      "negativeFeedbackJourneys": 54,
+      "negativeFeedbackSamplesSelected": 0,
+      "learnedNegativeNodes": 0,
+      "swallowedNegativeJourneys": 54,
+      "representativeFailure": {
+        "userId": "NORTH_STAR_REALISTIC_01",
+        "sessionId": "n562:56203:NORTH_STAR_REALISTIC_01:session:008",
+        "spotId": "n562:56203:spot:basel:restaurant:2",
+        "negativeEventId": "n562:56203:NORTH_STAR_REALISTIC_01:session:008:event:06:negative_post_visit",
+        "negativeEventType": "negative_post_visit",
+        "positiveVisitEventId": "n562:56203:NORTH_STAR_REALISTIC_01:session:008:event:05:verified_visit",
+        "negativeSelectedSampleCount": 0,
+        "selectedDirections": [
+          1
+        ],
+        "selectedEventTypes": [
+          "verified_visit"
+        ],
+        "sample": [
+          {
+            "concept": "place_type.restaurant",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "audience.friends"
+            },
+            "direction": 1,
+            "magnitude": 0.215025,
+            "eventId": "n562:56203:NORTH_STAR_REALISTIC_01:session:008:event:05:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "price.premium",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "audience.friends"
+            },
+            "direction": 1,
+            "magnitude": 0.201694,
+            "eventId": "n562:56203:NORTH_STAR_REALISTIC_01:session:008:event:05:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "social_style.conversation_friendly",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "audience.friends"
+            },
+            "direction": 1,
+            "magnitude": 0.209582,
+            "eventId": "n562:56203:NORTH_STAR_REALISTIC_01:session:008:event:05:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "place_type.restaurant",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "time.afternoon"
+            },
+            "direction": 1,
+            "magnitude": 0.215025,
+            "eventId": "n562:56203:NORTH_STAR_REALISTIC_01:session:008:event:05:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "price.premium",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "time.afternoon"
+            },
+            "direction": 1,
+            "magnitude": 0.201694,
+            "eventId": "n562:56203:NORTH_STAR_REALISTIC_01:session:008:event:05:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "social_style.conversation_friendly",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "time.afternoon"
+            },
+            "direction": 1,
+            "magnitude": 0.209582,
+            "eventId": "n562:56203:NORTH_STAR_REALISTIC_01:session:008:event:05:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "place_type.restaurant",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "time.weekend"
+            },
+            "direction": 1,
+            "magnitude": 0.215025,
+            "eventId": "n562:56203:NORTH_STAR_REALISTIC_01:session:008:event:05:verified_visit",
+            "evidenceFamily": "outcome"
+          },
+          {
+            "concept": "price.premium",
+            "scope": {
+              "kind": "CONTEXT",
+              "key": "time.weekend"
+            },
+            "direction": 1,
+            "magnitude": 0.201694,
+            "eventId": "n562:56203:NORTH_STAR_REALISTIC_01:session:008:event:05:verified_visit",
+            "evidenceFamily": "outcome"
+          }
+        ]
+      }
+    }
+  ],
+  "stopRule": {
+    "triggered": true,
+    "code": "ENGINE_LIMITATION_FOUND_BY_REALISTIC_WORLD",
+    "officialWorldFreezeCreated": false,
+    "officialMeasurementStarted": false,
+    "officialQualityVerdictProduced": false,
+    "engineModified": false
+  },
+  "historicalVerdicts": {
+    "n56": "FAIL_UNCHANGED",
+    "n561": "PASS_UNCHANGED",
+    "n6a": "FAIL_UNCHANGED"
+  },
+  "scientificBoundary": {
+    "externalDecisionAiCalls": 0,
+    "externalDecisionAiCostUsd": 0,
+    "n6": "NOT_AUTHORIZED",
+    "production": "UNCHANGED"
+  },
+  "defectProven": true,
+  "scientificValidity": "PASS",
+  "n562Disposition": "STOPPED_ENGINE_DEFECT",
+  "resultHash": "6cb23e5e82dca9f4c98a7d496086693646eac555ef60320131a173c57e46f39b"
+}

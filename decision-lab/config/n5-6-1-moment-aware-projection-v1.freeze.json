@@ -1,0 +1,44 @@
+{
+  "freezeVersion": "backyrd-n5-6-1-moment-aware-projection-freeze-v1",
+  "frozenBeforeOfficialMeasurement": true,
+  "files": {
+    "projection": {
+      "path": "decision-lab/src/n5-6-1-moment-aware-projection.mjs",
+      "sha256": "dc278fa248e3ac6375da71688dfea1359bd0accedc4933e4e1e0951c93c9778c"
+    },
+    "world": {
+      "path": "decision-lab/src/n5-6-1-world.mjs",
+      "sha256": "4f7e5a27e45fe6c20189e5d95360ec5786bd39d11380d50737b894f779c623b9"
+    },
+    "validation": {
+      "path": "decision-lab/src/n5-6-1-validation.mjs",
+      "sha256": "cb9bce89d8bed1ce96213cc5d1d6582296457c045b57407fdb92ca19f38d2c0a"
+    },
+    "freezer": {
+      "path": "decision-lab/src/n5-6-1-freeze.mjs",
+      "sha256": "922d4922445f5da9b2a8b4e70e3a46d42e0e7f68fb63f823d6424dd7df59925f"
+    },
+    "test": {
+      "path": "decision-lab/test/n5-6-1-moment-aware-projection.test.mjs",
+      "sha256": "7aab36519e08fbcc5fd2404e69fce7547e15ea934836bf70c1d7e245ae7416cb"
+    },
+    "contract": {
+      "path": "decision-lab/config/n5-6-1-validation-contract-v1.json",
+      "sha256": "f8fbd2681c7fcd995e0184d484f8b562af92293614516e6d11be8101edfc8704"
+    }
+  },
+  "contractHash": "54b93191c81fd06f2ac5fe45b1e2dd77d7fa1c83efc956e0f9537d97bdcb17f3",
+  "parentN56WorldHash": "73b1208ee5d80876935553f60d719d855bdb40b4c87f5aa6bd18fd1d3a516f34",
+  "worldHash": "dd62dc80eae5e14c599cecbc52acca16ba883a00f312684a8d20795d1fc36b7b",
+  "projectionContractHash": "e96c1b87ada27b5006445a5302564ba1126951320b8fd002399b23bd347b8cf8",
+  "sufficiencyContractHash": "d0d591c768d61f9c5d814247cb36f6b565a533fb9a8cafee641bff8ca53b84a8",
+  "conceptMetadataHash": "65d90ab3f4bb6ae2db8c6f0d20679b7cb206b6189d0d2edc312ae09d483fda6c",
+  "resultHash": "9c96bb23b01a6ebebb079ef32b7c7fee3cbd6be0341b9bfec5649df5c1123676",
+  "scientificValidity": "PASS",
+  "humanReviewRequired": true,
+  "automaticN6Authorization": false,
+  "externalDecisionAiCalls": 0,
+  "externalDecisionAiCostUsd": 0,
+  "production": "UNCHANGED",
+  "freezeHash": "698612afa2c3497d74ed3f6edcfdd4f70e5a8cf230cdd982fc44623abc50f1d7"
+}
