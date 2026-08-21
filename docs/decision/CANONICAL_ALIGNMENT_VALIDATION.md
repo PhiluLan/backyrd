@@ -17,7 +17,7 @@ Validated chains:
 
 ## Verification performed
 
-- Clean local Supabase migration reset through `20260821220000_create_canonical_semantic_alignment_v1.sql`.
+- Clean local Supabase migration reset through `20260821231000_filter_onboarding_to_frozen_taste_registry_v1.sql`.
 - Canonical DB/RLS conformance test passed transactionally.
 - Existing Basel Gold, Gold Authoring, Product→N2, N4 adapter, User Intelligence runtime/execution, Decision Input and deterministic orchestrator SQL regressions passed transactionally.
 - 58 Shared Registry, Decision Input, Orchestrator, N6 Shadow and User Intelligence Node tests passed.
@@ -39,3 +39,10 @@ Where accepted Spot facts exist, the package carries exact source identities for
 ## Compatibility
 
 Historical records retain their original versions. The mobile onboarding call moves to `complete_decision_onboarding_v2`; favorite UX remains, while the old synthetic Decision, ML and legacy Taste rebuild are absent from the new path. The Admin and Owner editors render the server-authorized Gold catalog instead of maintaining surface-local field lists. Production is unchanged until the additive migration and server/mobile artifacts are deployed.
+
+The controlled Production E2E also proved that canonical N4 includes valid
+Spot-only concepts that are intentionally absent from the frozen 45-concept
+User Taste registry. Onboarding now intersects its N4 anchor concepts with the
+Taste registry before writing `SELF_DECLARED` evidence. Spot-only concepts
+remain valid N4/Decision inputs but cannot cross the RAW → CANONICAL → DERIVED
+boundary as invented User Taste.
