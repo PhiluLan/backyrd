@@ -62,6 +62,7 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
   const [sourceReference, setSourceReference] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [researchBusy, setResearchBusy] = useState(false);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.rpc("backyrd_gold_profile_v1", { p_spot_id: spotId });
@@ -123,6 +124,20 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
     finally { setBusy(false); }
   }
 
+  async function researchSpot() {
+    setResearchBusy(true); setMessage(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("research-spot", { body: { spotId } });
+      if (error) throw error;
+      setMessage(data.proposalCount > 0
+        ? `${data.proposalCount} quellengestützte Vorschläge erstellt. Es wurde noch keine kanonische Wahrheit verändert.`
+        : "Keine ausreichend belegten neuen Fakten gefunden. Es wurde nichts erfunden oder kanonisch verändert.");
+      await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Spot-Recherche konnte nicht ausgeführt werden.");
+    } finally { setResearchBusy(false); }
+  }
+
   if (!profile) return <section className="spot-editor-section"><h2>Gold Authoring</h2><p>{message ?? "Wird geladen …"}</p></section>;
 
   const concepts = Object.entries(profile.canonicalN4?.intelligence?.concepts ?? {});
@@ -136,7 +151,7 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
     <section className="spot-editor-section" style={{ marginTop: 24 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "start" }}>
         <div><div className="spot-editor-eyebrow">Canonical Gold Authoring</div><h2>Gold Readiness — {profile.readiness.status} {profile.readiness.coverage}%</h2><p>UNKNOWN ist erlaubt. Coverage ist keine Ranking- oder Match-Confidence.</p></div>
-        <strong>{profile.actor.role}</strong>
+        <div style={{ display: "grid", justifyItems: "end", gap: 8 }}><strong>{profile.actor.role}</strong>{["ADMIN", "FOUNDER"].includes(profile.actor.role) && <button type="button" disabled={researchBusy || busy} onClick={() => void researchSpot()}>{researchBusy ? "Recherche läuft …" : "Spot recherchieren"}</button>}</div>
       </div>
 
       {message && <p role="status">{message}</p>}
@@ -163,6 +178,7 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
       <button type="button" disabled={busy || !rawValue || (!sourceUrl.trim() && !sourceReference.trim())} onClick={() => void submitProposal()}>Als Proposal speichern</button>
 
       <h3 style={{ marginTop: 28 }}>Proposal Review</h3>
+      <p><small>Research-Vorschläge sind Quellenhinweise, keine Wahrheit. Erst eine bewusste Admin-/Founder-Prüfung kann daraus einen akzeptierten Fact machen.</small></p>
       <div style={{ display: "grid", gap: 10 }}>
         {profile.proposals.filter((item) => ["PENDING", "CONFLICT", "STALE"].includes(item.status)).map((item) => (
           <div key={item.id} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}>

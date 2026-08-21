@@ -46,3 +46,12 @@ User Taste registry. Onboarding now intersects its N4 anchor concepts with the
 Taste registry before writing `SELF_DECLARED` evidence. Spot-only concepts
 remain valid N4/Decision inputs but cannot cross the RAW → CANONICAL → DERIVED
 boundary as invented User Taste.
+
+The real Supabase path was then reverified end-to-end: Review Mood aliases
+canonicalized through `backyrd-canonical-semantics-v1`; profile
+`SELF_DECLARED` evidence and Decision Onboarding respected the frozen Taste
+registry; accepted Gold facts rebuilt canonical N4; and N3 V2 preserved rain,
+family-with-child and age 4 as current-request facts. Transaction-local probes
+were rolled back and created no Production learning or Spot facts. The
+proposal-only Research Agent foundation consumes this same server Fact catalog
+and has no accepted-fact, N4, User Intelligence or Decision write authority.
