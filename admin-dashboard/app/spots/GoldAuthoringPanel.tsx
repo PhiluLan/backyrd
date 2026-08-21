@@ -127,7 +127,7 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
   async function researchSpot() {
     setResearchBusy(true); setMessage(null);
     try {
-      const { data, error } = await supabase.functions.invoke("research-spot", { body: { spotId } });
+      const { data, error } = await supabase.functions.invoke("research-spot", { body: { spotId, officialWebsite: sourceUrl.trim() || undefined } });
       if (error) throw error;
       setMessage(data.proposalCount > 0
         ? `${data.proposalCount} quellengestützte Vorschläge erstellt. Es wurde noch keine kanonische Wahrheit verändert.`
@@ -172,7 +172,7 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
           <label><span>Strukturierter Wert ({field?.value_kind})</span><textarea value={rawValue} onChange={(event) => setRawValue(event.target.value)} rows={3} placeholder={field?.value_kind === "STRUCTURED_OBJECT" ? '{"min_age":4,"max_age":12,"adult_supervision_required":true}' : "[]"} /></label>
         )}
         <label><span>Quelle</span><select value={sourceType} onChange={(event) => setSourceType(event.target.value)}><option>ADMIN_VERIFIED</option><option>OFFICIAL_WEBSITE</option><option>OFFICIAL_DOCUMENT</option><option>STRUCTURED_PROVIDER</option><option>IMPORT</option></select></label>
-        <label><span>Source URL</span><input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="https://…" /></label>
+        <label><span>Source URL / offizielle Research-Seed-URL</span><input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="https://…" /></label>
         <label><span>Source Reference (falls keine URL)</span><input value={sourceReference} onChange={(event) => setSourceReference(event.target.value)} placeholder="Dokument / interne Referenz" /></label>
       </div>
       <button type="button" disabled={busy || !rawValue || (!sourceUrl.trim() && !sourceReference.trim())} onClick={() => void submitProposal()}>Als Proposal speichern</button>

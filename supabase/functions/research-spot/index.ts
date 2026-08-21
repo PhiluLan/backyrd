@@ -20,7 +20,7 @@ Deno.serve(async (request) => {
   const userClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: authorization } } });
   const { data: { user }, error: authError } = await service.auth.getUser(token);
   if (authError || !user) return json({ error: "unauthorized" }, 401);
-  let body: { spotId?: string };
+  let body: { spotId?: string; officialWebsite?: string };
   try { body = await request.json(); } catch { return json({ error: "invalid_json" }, 400); }
   if (!body.spotId || !uuidPattern.test(body.spotId)) return json({ error: "invalid_spot_id" }, 400);
 
@@ -33,8 +33,13 @@ Deno.serve(async (request) => {
   if ((dailyCount ?? 0) >= 10) return json({ error: "research_daily_limit_reached" }, 429);
   const { data: spot, error: spotError } = await service.from("spots").select("id,name,city,website").eq("id", body.spotId).single();
   if (spotError || !spot) return json({ error: "spot_not_found" }, 404);
-  if (!spot.website) return json({ error: "official_website_required" }, 422);
-  const context = { spot, catalog: profile.catalog ?? [], acceptedFacts: (profile.acceptedFacts ?? []).map((row: Record<string, unknown>) => ({ fieldKey: row.field_key, value: row.value, status: row.status })) };
+  // An Admin/Founder may supply a missing official website as a research seed.
+  // It scopes the provider domain only; it is not persisted as Spot truth.
+  // An existing canonical website can never be overridden at this boundary.
+  const website = spot.website || body.officialWebsite;
+  if (!website) return json({ error: "official_website_required" }, 422);
+  if (spot.website && body.officialWebsite && spot.website !== body.officialWebsite) return json({ error: "official_website_override_forbidden" }, 422);
+  const context = { spot: { ...spot, website }, catalog: profile.catalog ?? [], acceptedFacts: (profile.acceptedFacts ?? []).map((row: Record<string, unknown>) => ({ fieldKey: row.field_key, value: row.value, status: row.status })) };
   const model = Deno.env.get("SPOT_RESEARCH_MODEL") || DEFAULT_RESEARCH_MODEL;
   const inputHash = await sha256({ contract: RESEARCH_CONTRACT_VERSION, context });
   const { data: run, error: runError } = await service.from("backyrd_spot_research_runs_v1").insert({ spot_id: spot.id, actor_id: user.id, status: "STARTED", model, input_hash: inputHash }).select("id").single();
