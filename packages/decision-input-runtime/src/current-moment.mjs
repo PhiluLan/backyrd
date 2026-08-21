@@ -1,6 +1,8 @@
 import { buildCurrentMoment, N3_CONTRACT_HASH, N3_VERSIONS } from "../../../decision-lab/src/n3-moment-intelligence.mjs";
+import { createHash } from "node:crypto";
+import { CURRENT_MOMENT_VERSION,SEMANTIC_CONTRACT_VERSION } from "../../canonical-semantics/src/index.mjs";
 
-export const PRODUCT_MOMENT_INPUT_VERSION = "backyrd-product-moment-input-v1";
+export const PRODUCT_MOMENT_INPUT_VERSION = "backyrd-product-moment-input-v2";
 
 const TIME_ZONES = new Map([
   ["basel", "Europe/Zurich"],
@@ -13,7 +15,7 @@ const SOCIAL = new Map([
   ["solo", "solo"], ["alone", "solo"], ["date", "date"],
   ["friends", "friends"], ["freunde", "friends"],
   ["family", "family"], ["familie", "family"],
-  ["family_with_kids", "family_with_kids"], ["work", "work"], ["group", "group"],
+  ["family_with_kids", "family_with_kids"], ["kids", "family_with_kids"], ["child", "family_with_kids"], ["kinder", "family_with_kids"], ["work", "work"], ["group", "group"],
 ]);
 const VIBES = new Map([
   ["cozy", "cozy"], ["gemütlich", "cozy"], ["gemuetlich", "cozy"],
@@ -27,6 +29,25 @@ const clean = (value) => typeof value === "string" ? value.trim() : "";
 const first = (value) => Array.isArray(value) ? value[0] : value;
 const normalized = (value) => clean(value).toLowerCase();
 const unique = (values) => [...new Set(values.filter(Boolean))];
+const canonical=(value)=>value&&typeof value==="object"?(Array.isArray(value)?value.map(canonical):Object.fromEntries(Object.keys(value).sort().map((key)=>[key,canonical(value[key])]))):value;
+const semanticHash=(value)=>createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex");
+
+function fact(value,provenance,sourceRef){return{value,provenance,sourceRef,semanticContractVersion:SEMANTIC_CONTRACT_VERSION};}
+
+export function extractCurrentRequestFacts(source,requestText){
+  const context=source.requestContext??{},intent=context.intent??{},structured=context.currentFacts??{};
+  const text=clean(requestText);
+  const rainValue=structured.rain??intent.rain??context.rain;
+  const rain=rainValue?fact(String(rainValue).toUpperCase(),"EXPLICIT","product:currentFacts.rain"):/\b(regentag|regnerisch|regen|rainy|rain)\b/i.test(text)?fact("PREFERRED","EXPLICIT","request:text:rain"):fact("UNKNOWN","UNKNOWN",null);
+  const explicitAge=structured.childAge??intent.childAge??context.childAge;
+  const ageMatch=text.match(/\b(?:mit\s+(?:meiner|meinem|einer|einem)\s+)?(\d{1,2})\s*[- ]?(?:jährige[nrsm]?|jahre?\s+alt|year[- ]old)\b/i);
+  const childAge=Number.isInteger(Number(explicitAge))?fact(Number(explicitAge),"EXPLICIT","product:currentFacts.childAge"):ageMatch?fact(Number(ageMatch[1]),"EXPLICIT","request:text:childAge"):fact(null,"UNKNOWN",null);
+  const familyExplicit=[...(context.audience??[]),...(intent.audience??[])].some((value)=>["family","family_with_kids","kids","child","kinder"].includes(normalized(value)));
+  const familyText=/\b(tochter|sohn|kind|kinder|daughter|son|child|kids|familie|family)\b/i.test(text);
+  const family=familyExplicit?fact("FAMILY_WITH_CHILD","EXPLICIT","product:audience"):familyText||childAge.value!==null?fact("FAMILY_WITH_CHILD",familyText?"EXPLICIT":"INFERRED",familyText?"request:text:family":"derived:childAge"):fact("UNKNOWN","UNKNOWN",null);
+  const activityValues=unique([...(structured.activityTypes??[]),...(intent.activityTypes??[]),...(context.activityTypes??[])].map((value)=>String(value).toUpperCase()));
+  return{version:CURRENT_MOMENT_VERSION,rain,childAge,familyContext:family,activityTypes:fact(activityValues,activityValues.length?"EXPLICIT":"UNKNOWN",activityValues.length?"product:currentFacts.activityTypes":null),boundaries:{durablePreference:false,softTextSignalsAreHardConstraints:false}};
+}
 
 function timeZoneFor(source) {
   const explicit = clean(source.requestContext?.timeZone);
@@ -82,6 +103,11 @@ export function mapProductDecisionToN3Input(source) {
 
 export function buildProductCurrentMoment(source) {
   const input = mapProductDecisionToN3Input(source);
-  const result = buildCurrentMoment(input);
-  return { inputVersion:PRODUCT_MOMENT_INPUT_VERSION,n3ContractHash:N3_CONTRACT_HASH,n3Versions:N3_VERSIONS,input,result };
+  const frozen = buildCurrentMoment(input);
+  const currentRequestFacts=extractCurrentRequestFacts(source,input.request.query);
+  const withoutHash={...frozen.currentMoment,schemaVersion:CURRENT_MOMENT_VERSION,semanticContractVersion:SEMANTIC_CONTRACT_VERSION,currentRequestFacts};
+  delete withoutHash.momentHash;
+  const currentMoment={...withoutHash,momentHash:semanticHash(withoutHash)};
+  const result={...frozen,currentMoment};
+  return { inputVersion:PRODUCT_MOMENT_INPUT_VERSION,n3ContractHash:N3_CONTRACT_HASH,n3Versions:{...N3_VERSIONS,productSchema:CURRENT_MOMENT_VERSION},input,result,frozenResult:frozen };
 }

@@ -18,7 +18,7 @@ const source=(overrides={})=>({
   ...overrides,
 });
 
-test("Product N3 is the frozen Lab N3 for identical canonical input",()=>{const value=source();const mapped=mapProductDecisionToN3Input(value);assert.deepEqual(buildProductCurrentMoment(value).result,buildCurrentMoment(mapped));});
+test("Product N3 V2 preserves the frozen Lab N3 as its semantic base",()=>{const value=source();const mapped=mapProductDecisionToN3Input(value);assert.deepEqual(buildProductCurrentMoment(value).frozenResult,buildCurrentMoment(mapped));});
 test("N3 golden Product mappings remain the frozen Lab runtime across canonical moments",()=>{
   const cases=[
     {query:"Friday drinks with friends",audience:["friends"],preferredPlaceTypes:["bar"]},
@@ -32,7 +32,7 @@ test("N3 golden Product mappings remain the frozen Lab runtime across canonical 
     {query:"allein",audience:["friends"]},
     {query:"new city drinks",preferredPlaceTypes:["bar"],city:"Copenhagen"},
   ];
-  for(const fixture of cases){const value=source({decision:{...source().decision,city:fixture.city??"Basel"},requestContext:{model_version:"decision-v13.0",...fixture}});assert.deepEqual(buildProductCurrentMoment(value).result,buildCurrentMoment(mapProductDecisionToN3Input(value)));}
+  for(const fixture of cases){const value=source({decision:{...source().decision,city:fixture.city??"Basel"},requestContext:{model_version:"decision-v13.0",...fixture}});assert.deepEqual(buildProductCurrentMoment(value).frozenResult,buildCurrentMoment(mapProductDecisionToN3Input(value)));}
 });
 test("N3 preserves missing fields and resolves guided conflict by explicit authority",()=>{const value=source({requestContext:{query:"allein",audience:["friends"],preferredPlaceTypes:[]}});const moment=buildProductCurrentMoment(value).result.currentMoment;assert.equal(moment.fields.social_context.value,"friends");assert.ok(moment.contradictions.some((row)=>row.dimension==="social_context"));assert.ok(moment.unknownFields.includes("budget_orientation"));});
 test("Product N5 is the frozen Lab projection and Friends differs from Date",()=>{const friends=source();const fm=buildProductCurrentMoment(friends).result.currentMoment;const fp=buildProductProjection({userCard:friends.userCard,currentMoment:fm,requestContext:friends.requestContext});assert.deepEqual(fp.raw,buildMomentAwareRelevantUserProjection({userCard:friends.userCard,currentMoment:fm,currentIntent:fp.currentIntent}));const date=source({requestContext:{query:"romantisches Date",audience:["date"],preferredPlaceTypes:["bar"]}});const dm=buildProductCurrentMoment(date).result.currentMoment;const dp=buildProductProjection({userCard:date.userCard,currentMoment:dm,requestContext:date.requestContext});assert.notDeepEqual(fp.projection.taste.map(x=>x.concept),dp.projection.taste.map(x=>x.concept));});

@@ -12,6 +12,12 @@ begin
  perform set_config('request.jwt.claim.sub',p_user::text,true);
  perform set_config('request.jwt.claim.role','authenticated',true);
 end $$;
+create function pg_temp.derived_suitability_count(p_spot uuid,p_dimension text) returns bigint
+language sql security definer set search_path=public,pg_catalog as $$
+ select count(*) from public.backyrd_spot_suitability_facts_v1
+ where spot_id=p_spot and dimension_key=p_dimension
+   and source_table='backyrd_spot_accepted_facts_v1'
+$$;
 
 do $$
 declare owner_basic uuid:=pg_temp.gold_uuid('owner-basic');owner_pro uuid:=pg_temp.gold_uuid('owner-pro');other_owner uuid:=pg_temp.gold_uuid('other-owner');admin_id uuid:=pg_temp.gold_uuid('admin');founder_id uuid:=pg_temp.gold_uuid('founder');category_id uuid:=pg_temp.gold_uuid('category');
@@ -92,7 +98,7 @@ end $$;
 
 select pg_temp.actor(pg_temp.gold_uuid('admin'));
 do $$
-declare proposal_id uuid;environment_proposal uuid;opening_proposal uuid;source_id uuid;first_hash text;second_hash text;profile jsonb;
+declare proposal_id uuid;environment_proposal uuid;environment_revision uuid;opening_proposal uuid;source_id uuid;first_hash text;second_hash text;profile jsonb;
 begin
  perform public.upsert_spot_admin_content_v1(pg_temp.gold_uuid('pro-spot'),'Persisted Admin description used after reload.',array['gold','verified'],'admin',null);
  perform pg_temp.assert((select admin_description='Persisted Admin description used after reload.' and admin_keywords=array['gold','verified'] from public.spot_descriptions where spot_id=pg_temp.gold_uuid('pro-spot')),'Admin description and keywords persist for save/reload');
@@ -113,6 +119,12 @@ begin
  profile:=public.backyrd_gold_profile_v1(pg_temp.gold_uuid('pro-spot'));
  perform pg_temp.assert(profile->'canonicalN4'->'intelligence'->'facts'->>'environment'='MIXED','accepted Product fact flows into canonical N4 facts');
  perform pg_temp.assert(profile->'canonicalN4'->'intelligence'->'concepts' ? 'environment.indoor' and profile->'canonicalN4'->'intelligence'->'concepts' ? 'environment.outdoor','frozen mapper emits only registered interpretations');
+ environment_revision:=(public.backyrd_gold_submit_proposal_v1(pg_temp.gold_uuid('pro-spot'),'suitability.environment','"INDOOR"',source_id,'admin-environment-revision',null,null)->>'proposalId')::uuid;
+ perform public.backyrd_gold_review_proposal_v1(environment_revision,'ACCEPT','Corrected verified environment');
+ profile:=public.backyrd_gold_profile_v1(pg_temp.gold_uuid('pro-spot'));
+ perform pg_temp.assert(profile->'canonicalN4'->'intelligence'->'facts'->>'environment'='INDOOR','fact revision replaces prior suitability semantics');
+ perform pg_temp.assert(profile->'canonicalN4'->'intelligence'->'concepts' ? 'environment.indoor' and not (profile->'canonicalN4'->'intelligence'->'concepts' ? 'environment.outdoor'),'superseded Gold fact cannot remain in N4');
+ perform pg_temp.assert(pg_temp.derived_suitability_count(pg_temp.gold_uuid('pro-spot'),'environment')=1,'superseded derived suitability row was not removed');
  opening_proposal:=(public.backyrd_gold_submit_proposal_v1(pg_temp.gold_uuid('pro-spot'),'opening.regular','{"days":[{"day":"Montag","intervals":[{"open":"09:00","close":"17:00"}]}]}',source_id,'admin-opening',null,null)->>'proposalId')::uuid;
  perform public.backyrd_gold_review_proposal_v1(opening_proposal,'ACCEPT','Verified opening hours');
  perform pg_temp.assert(exists(select 1 from public.spot_hours where spot_id=pg_temp.gold_uuid('pro-spot') and day_of_week='Montag'),'accepted opening fact atomically updates Product hours');
@@ -126,11 +138,19 @@ set local role service_role;
 select set_config('request.jwt.claims','{"role":"service_role"}',true);
 select set_config('request.jwt.claim.role','service_role',true);
 do $$
-declare result jsonb;
+declare result jsonb;replayed jsonb;source_count integer;
 begin
  result:=public.backyrd_gold_submit_research_proposal_v1(pg_temp.gold_uuid('pro-spot'),'suitability.conversation','"HIGH"','https://official.invalid/source','Official page',now(),'Quiet conversation areas stated.','Explicit official wording.','research-1');
  perform pg_temp.assert(result->>'status'='PENDING' and not (result->>'canonicalWrite')::boolean,'Research API creates proposal, never truth');
  perform pg_temp.assert(not exists(select 1 from public.backyrd_spot_accepted_facts_v1 where proposal_id=(result->>'proposalId')::uuid),'Research proposal cannot directly write accepted fact');
+ select count(*) into source_count from public.backyrd_spot_sources_v1 where spot_id=pg_temp.gold_uuid('pro-spot') and source_type='RESEARCH';
+ replayed:=public.backyrd_gold_submit_research_proposal_v1(pg_temp.gold_uuid('pro-spot'),'suitability.conversation','"HIGH"','https://official.invalid/source','Official page',now(),'Quiet conversation areas stated.','Explicit official wording.','research-1');
+ perform pg_temp.assert(replayed->>'proposalId'=result->>'proposalId' and not (replayed->>'inserted')::boolean,'Research response-loss replay is not idempotent');
+ perform pg_temp.assert((select count(*) from public.backyrd_spot_sources_v1 where spot_id=pg_temp.gold_uuid('pro-spot') and source_type='RESEARCH')=source_count,'Research replay created an orphan source');
+ begin
+  perform public.backyrd_gold_submit_research_proposal_v1(pg_temp.gold_uuid('pro-spot'),'suitability.conversation','"LOW"','https://official.invalid/source','Official page',now(),null,null,'research-1');
+  raise exception 'Research idempotency conflict accepted';
+ exception when unique_violation then null; end;
 end $$;
 reset role;
 

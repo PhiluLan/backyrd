@@ -3,6 +3,7 @@ import { buildN6A2Input } from "../../../decision-lab/src/n6a2-reason-authorizat
 import { N5_VERSIONS } from "../../../decision-lab/src/n5-relevant-user-projection.mjs";
 import { N4_VERSIONS } from "../../../decision-lab/src/n4-spot-intelligence.mjs";
 import { N6_SHADOW_VERSIONS, FROZEN_N6_CONFIG } from "./config.mjs";
+import { FACTUAL_REASON_CODES } from "../../canonical-semantics/src/index.mjs";
 
 const deepFreeze = (value) => {
   if (value && typeof value === "object" && !Object.isFrozen(value)) {
@@ -38,7 +39,8 @@ function adaptCandidate(candidate) {
   const facts = {
     place_type: candidate.n4.productFacts.placeType ? { value: candidate.n4.productFacts.placeType, confidence: 1 } : undefined,
     city: candidate.n4.productFacts.city ? { value: candidate.n4.productFacts.city, confidence: 1 } : undefined,
-    open_now: candidate.n4.productFacts.openNow == null ? undefined : { value: candidate.n4.productFacts.openNow, confidence: 1 }
+    open_now: candidate.n4.productFacts.openNow == null ? undefined : { value: candidate.n4.productFacts.openNow, confidence: 1 },
+    ...Object.fromEntries(Object.entries(candidate.n4.suitabilityFacts??{}).map(([key,row])=>[key,{value:row.value,confidence:row.confidence,sourceIdentity:row.sourceIdentity}]))
   };
   return {
     version: N4_VERSIONS.serialization, spotId: candidate.spotId,
@@ -56,6 +58,10 @@ function allowedFrozenReason(reason, candidate, projection) {
   const conceptRef = reason.concept ? `spot:${candidate.spotId}:${reason.concept}` : null;
   if (reason.type === "WHY_NOW" && reason.id.startsWith("now:concept:")) return { code: "CURRENT_INTENT_MATCH", evidence_refs: [`intent:${reason.concept}`, conceptRef] };
   if (reason.type === "WHY_NOW" && reason.id.startsWith("now:place_type:")) return { code: "PLACE_TYPE_MATCH", evidence_refs: [`intent:place_type:${reason.id.slice("now:place_type:".length)}`, `spot:${candidate.spotId}:place_type:${reason.id.slice("now:place_type:".length)}`] };
+  if(reason.type==="WHY_NOW"&&reason.id.startsWith("now:fact:")){
+    const code=reason.id.split(":")[2];if(!FACTUAL_REASON_CODES.includes(code))return null;
+    return{code,evidence_refs:[`moment:${reason.evidence.momentRef}`,`spot:${candidate.spotId}:fact:${reason.evidence.factKey}:${reason.evidence.factSourceIdentity}`]};
+  }
   if (reason.type === "WHY_FOR_YOU" && reason.id.startsWith("you:") && reason.concept) {
     const node = projection.taste.find((row) => `you:${row.nodeKey}` === reason.id);
     if (!node) return null;
@@ -82,7 +88,8 @@ function restrictAuthorization(n6Input, decisionPackage, deterministicInternal) 
       s4Map[`${authorized.spot_id}|${key}`] = { reasonId: reason.id, type: reason.type, copy: reason.copy, evidence: reason.evidence, reasonHash: reason.reasonHash };
     }
     const family = (rows) => rows.filter((row) => allowed.has(keyOf(row)));
-    return { spot_id: authorized.spot_id, why_for_you: family(authorized.why_for_you), why_now: family(authorized.why_now), uncertainty: family(authorized.uncertainty) };
+    const factual=[...allowed.values()].filter((row)=>FACTUAL_REASON_CODES.includes(row.code));
+    return { spot_id: authorized.spot_id, why_for_you: family(authorized.why_for_you), why_now: [...family(authorized.why_now),...factual], uncertainty: family(authorized.uncertainty) };
   });
   const body = { ...n6Input.authorizedReasons, candidates };
   const authorizedReasons = { ...body, authorizationHash: contentHash(body) };

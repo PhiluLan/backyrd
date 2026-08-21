@@ -1,0 +1,8 @@
+{
+  "name": "@backyrd/canonical-semantics",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": "./src/index.mjs",
+  "types": "./src/index.d.ts",
+  "scripts": { "test": "node --test test/*.test.mjs" }
+}

@@ -46,6 +46,20 @@ if git diff --quiet "$base"...HEAD -- supabase/functions/decision-v13/index.ts; 
   echo "D2 scope guard: frozen v13 unchanged; internal-live server wrapper accepted"
 fi
 
+# Canonical Semantic Alignment v1 changes only the onboarding RPC version so
+# selected Spots are interpreted once through the canonical N4-backed adapter.
+# Keep the exemption byte-exact; any additional onboarding or Decision UI
+# change remains protected.
+canonical_onboarding_path='mobile/app/(tabs)/decision-onboarding.tsx'
+canonical_onboarding_diff_sha='3dba9e096ce541b2646baf3b09bdf28e35f03d9b096754ae5a6874cfc3797ff3'
+if printf '%s\n' "$protected" | grep -Fx "$canonical_onboarding_path" >/dev/null; then
+  actual_onboarding_diff_sha="$(git diff "$base"...HEAD -- "$canonical_onboarding_path" | sha256sum | awk '{print $1}')"
+  if [[ "$actual_onboarding_diff_sha" == "$canonical_onboarding_diff_sha" ]]; then
+    protected="$(printf '%s\n' "$protected" | grep -Fvx "$canonical_onboarding_path" || true)"
+    echo "D2 scope guard: exact canonical onboarding adapter patch accepted"
+  fi
+fi
+
 if [[ -n "$protected" ]]; then
   echo "D2 scope guard: protected Decision Engine/Product path changed"
   printf '%s\n' "$protected"

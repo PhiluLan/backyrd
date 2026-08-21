@@ -96,6 +96,11 @@ declare
   v_query_vector public.vector(1536) := array_fill(1::real, array[1536])::public.vector;
   v_index integer;
 begin
+  -- Fixture setup is an explicit service operation. Without service claims the
+  -- Product provenance trigger correctly rewrites client-supplied origins to REAL.
+  perform set_config('request.jwt.claims','{"role":"service_role"}',true);
+  perform set_config('request.jwt.claim.role','service_role',true);
+
   insert into auth.users(
     instance_id, id, aud, role, email, encrypted_password, raw_app_meta_data,
     raw_user_meta_data, created_at, updated_at, confirmation_token, email_change,

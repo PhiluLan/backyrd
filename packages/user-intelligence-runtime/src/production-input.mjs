@@ -1,4 +1,5 @@
 import { understandMoods, understandReview } from "../../../decision-lab/src/n5-8-unified-user-evidence.mjs";
+import { canonicalizeProductMood,SEMANTIC_CONTRACT_VERSION } from "../../canonical-semantics/src/index.mjs";
 
 const conceptRequiredEvents=new Set(["spot_tapped","search_result_opened","spot_opened","saved","navigation_intent","reservation_intent","verified_visit","positive_post_visit","negative_post_visit","exact_mood_feedback","explicit_positive","explicit_negative"]);
 const outcomeEvents=new Set(["verified_visit","positive_post_visit","negative_post_visit","exact_mood_feedback","explicit_positive","explicit_negative"]);
@@ -24,13 +25,14 @@ export function buildCanonicalRuntimeInput({ memoryEvents, reviewsById = {}, n4B
       sessionId: memory.sessionId ?? null,
       spotId: memory.spotId ?? null,
       momentSignature: memory.momentSignature ?? {},
-      spotEvidence: { placeType: n4BySpot[memory.spotId]?.placeType ?? memory.spotEvidence?.placeType ?? null, concepts: Object.keys(n4BySpot[memory.spotId]?.concepts ?? {}) },
+      spotEvidence: { placeType: n4BySpot[memory.spotId]?.placeType ?? memory.spotEvidence?.placeType ?? null, concepts: [...new Set([...Object.keys(n4BySpot[memory.spotId]?.concepts ?? {}),...(memory.spotEvidence?.concepts??[])])].sort() },
       provenance: memory.provenance,
       consentPurpose: memory.consentPurpose,
       consentState: memory.consentState,
     };
     const review = memory.reviewId ? reviewsById[memory.reviewId] : null;
-    const reviewEvidence=memory.eventType==="verified_visit"&&review&&base.spotId?{...review,reviewId:memory.reviewId,journeyLink:review.journeyLink??{journeyKey:[base.userId,base.sessionId,base.decisionId,base.spotId].join("|")}}:null;
+    const qualifiedMoods=(review?.moods??[]).map(canonicalizeProductMood).filter((mood)=>mood.status==="QUALIFYING").map((mood)=>mood.canonicalLabel);
+    const reviewEvidence=memory.eventType==="verified_visit"&&review&&base.spotId?{...review,moods:qualifiedMoods,semanticContractVersion:review.semanticContractVersion??SEMANTIC_CONTRACT_VERSION,reviewId:memory.reviewId,journeyLink:review.journeyLink??{journeyKey:[base.userId,base.sessionId,base.decisionId,base.spotId].join("|")}}:null;
     const interpretation=reviewEvidence?understandReview(reviewEvidence,{spotIntelligence:n4BySpot[base.spotId]}):null;
     const directlySupported=interpretation?[...interpretation.claims,...understandMoods(reviewEvidence,interpretation)].map((claim)=>claim.concept):[];
     const attributableConcepts=[...new Set([...base.spotEvidence.concepts,...directlySupported])].sort();

@@ -262,7 +262,7 @@ export default function DecisionOnboardingScreen() {
 
       const spotIds = selected.map((spot) => spot.id);
 
-      const { data, error } = await supabase.rpc("complete_decision_onboarding_v1", {
+      const { data, error } = await supabase.rpc("complete_decision_onboarding_v2", {
         p_city: normalizeCity(city),
         p_spot_ids: spotIds,
       });
