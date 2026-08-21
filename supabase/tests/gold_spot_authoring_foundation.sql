@@ -138,7 +138,7 @@ set local role service_role;
 select set_config('request.jwt.claims','{"role":"service_role"}',true);
 select set_config('request.jwt.claim.role','service_role',true);
 do $$
-declare result jsonb;replayed jsonb;source_count integer;
+declare result jsonb;replayed jsonb;source_count integer;run_id uuid:=pg_temp.gold_uuid('research-run');batch jsonb;
 begin
  result:=public.backyrd_gold_submit_research_proposal_v1(pg_temp.gold_uuid('pro-spot'),'suitability.conversation','"HIGH"','https://official.invalid/source','Official page',now(),'Quiet conversation areas stated.','Explicit official wording.','research-1');
  perform pg_temp.assert(result->>'status'='PENDING' and not (result->>'canonicalWrite')::boolean,'Research API creates proposal, never truth');
@@ -151,6 +151,17 @@ begin
   perform public.backyrd_gold_submit_research_proposal_v1(pg_temp.gold_uuid('pro-spot'),'suitability.conversation','"LOW"','https://official.invalid/source','Official page',now(),null,null,'research-1');
   raise exception 'Research idempotency conflict accepted';
  exception when unique_violation then null; end;
+ insert into public.backyrd_spot_research_runs_v1(id,spot_id,actor_id,status,model,input_hash)
+ values(run_id,pg_temp.gold_uuid('pro-spot'),pg_temp.gold_uuid('admin'),'STARTED','gpt-5-mini',repeat('a',64));
+ batch:=public.backyrd_gold_submit_research_batch_v2(run_id,pg_temp.gold_uuid('pro-spot'),jsonb_build_array(jsonb_build_object(
+   'fieldKey','activity.types','value',jsonb_build_array('MUSEUM'),'sourceUrl','https://official.invalid/activities','sourceTitle','Official activities',
+   'observedAt',null,'evidenceExcerpt','The official page names the museum activity.','confidenceRationale','Explicit official statement.'
+ )),jsonb_build_object('providerResponseId','resp_test','providerStatus','completed','inputTokens',100,'outputTokens',50,'totalTokens',150,'latencyMs',12.5));
+ perform pg_temp.assert(batch->>'status'='PROPOSALS_CREATED' and (batch->>'proposalCount')::integer=1 and not (batch->>'canonicalWrite')::boolean,'Research batch did not create proposal-only state');
+ perform pg_temp.assert((select provider_response_id='resp_test' and provider_status='completed' and total_tokens=150 and proposal_count=1 from public.backyrd_spot_research_runs_v1 where id=run_id),'Research proposal and bounded provider trace were not committed together');
+ perform pg_temp.assert(not exists(select 1 from public.backyrd_spot_accepted_facts_v1 where spot_id=pg_temp.gold_uuid('pro-spot') and field_key='activity.types'),'Research batch crossed into accepted truth');
+ replayed:=public.backyrd_gold_submit_research_batch_v2(run_id,pg_temp.gold_uuid('pro-spot'),'[]','{}');
+ perform pg_temp.assert((replayed->>'replayed')::boolean and (replayed->>'proposalCount')::integer=1,'Research batch response-loss replay is not idempotent');
 end $$;
 reset role;
 
@@ -175,6 +186,8 @@ select pg_temp.assert((public.backyrd_gold_profile_v1(pg_temp.gold_uuid('pro-spo
 
 select pg_temp.assert(not has_table_privilege('authenticated','public.backyrd_spot_accepted_facts_v1','insert'),'clients cannot write accepted facts');
 select pg_temp.assert(not has_function_privilege('authenticated','public.backyrd_gold_submit_research_proposal_v1(uuid,text,jsonb,text,text,timestamptz,text,text,text)','execute'),'Research service API is not client-callable');
+select pg_temp.assert(not has_function_privilege('authenticated','public.backyrd_gold_submit_research_batch_v2(uuid,uuid,jsonb,jsonb)','execute'),'Research batch API is not client-callable');
+select pg_temp.assert(not has_table_privilege('authenticated','public.backyrd_spot_research_runs_v1','select'),'Research audit metadata is not client-readable');
 reset role;
 select pg_temp.assert((select count(*)=60 from public.backyrd_spot_intelligence_dimensions_v1),'authoring never extends frozen N4 registry');
 
