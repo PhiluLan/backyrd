@@ -31,6 +31,10 @@ do $$declare u uuid:=pg_temp.id('semantic-user');c uuid:=pg_temp.id('semantic-ca
  (s,'suitability.rain','"SUITABLE"',src,'ACTIVE',.9,u,'backyrd-canonical-semantics-v1');
  perform set_config('request.jwt.claim.role','service_role',true);
  perform public.backyrd_rebuild_gold_n4_snapshot_v1(s);
+ insert into public.backyrd_spot_intelligence_evidence_v1(spot_id,dimension_key,value_kind,value,source_family,source_reference,signal_confidence,observed_at,valid_from,provenance,status,data_origin) values
+ (s,'occasion.kids_friendly','INTERPRETATION','1','backyrd_derived','semantic-test:n4-only',.9,now(),now(),'{"mappingVersion":"semantic-test"}','ACTIVE','REAL'),
+ (s,'vibe.cozy','INTERPRETATION','1','backyrd_derived','semantic-test:taste-overlap',.9,now(),now(),'{"mappingVersion":"semantic-test"}','ACTIVE','REAL');
+ perform public.backyrd_rebuild_gold_n4_snapshot_v1(s);
  perform pg_temp.assert((select suitability_facts ?& array['suitability.family_kids','suitability.age','suitability.environment','suitability.rain'] from public.backyrd_read_n4_for_decision_v2(array[s])),'accepted facts did not reach Decision N4 serialization');
 end$$;
 
@@ -42,6 +46,8 @@ select pg_temp.assert((public.backyrd_set_self_declared_taste_v1('vibe.cozy',tru
 select pg_temp.assert((select state='ACTIVE' and semantic_contract_version='backyrd-canonical-semantics-v1' from public.backyrd_self_declared_taste_v1 where user_id=pg_temp.id('semantic-user') and concept_key='vibe.cozy'),'self-declared evidence not versioned');
 select pg_temp.assert((public.backyrd_set_self_declared_taste_v1('vibe.cozy',false,'PROFILE')->>'state')='REMOVED','self-declared correction path failed');
 select pg_temp.assert((public.complete_decision_onboarding_v2('Basel',array[pg_temp.id('semantic-spot'),pg_temp.id('semantic-spot-2'),pg_temp.id('semantic-spot-3')])->>'selectedCount')::integer=3,'canonical onboarding failed');
+select pg_temp.assert(exists(select 1 from public.backyrd_self_declared_taste_v1 where user_id=pg_temp.id('semantic-user') and source_kind='DECISION_ONBOARDING' and concept_key='vibe.cozy'),'Taste-registry N4 overlap was not captured by onboarding');
+select pg_temp.assert(not exists(select 1 from public.backyrd_self_declared_taste_v1 where user_id=pg_temp.id('semantic-user') and source_kind='DECISION_ONBOARDING' and concept_key='occasion.kids_friendly'),'N4-only concept crossed into User Taste');
 select pg_temp.assert(not exists(select 1 from public.decision_sessions where user_id=pg_temp.id('semantic-user')),'canonical onboarding invoked legacy synthetic Decision/Taste inference');
 do $$begin begin perform public.backyrd_set_self_declared_taste_v1('not.a.concept',true,'PROFILE');raise exception 'invalid concept accepted';exception when sqlstate '22023' then null;end;end$$;
 reset role;
