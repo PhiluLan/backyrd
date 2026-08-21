@@ -16,7 +16,9 @@ do $$declare u uuid:=pg_temp.id('semantic-user');c uuid:=pg_temp.id('semantic-ca
  insert into public.consent_purposes(key,title_de,description_de,category,legal_basis,requires_consent,is_required,default_enabled,sort_order,is_active) values('personalized_recommendations','P','P','personalization','consent',true,false,false,1,true) on conflict do nothing;
  insert into public.user_consents(user_id,purpose_key,status,granted_at,source) values(u,'personalized_recommendations','granted',now(),'system_migration');
  insert into public.categories(id,name) values(c,'Aktivität');
- insert into public.spots(id,name,lat,lng,status,city,category_id,data_origin) values(s,'Semantic Spot',47,7,'approved','Basel',c,'REAL');
+ -- Existing real spots may retain LEGACY identity provenance. Canonical REAL
+ -- evidence must remain readable without treating legacy evidence as N4.
+ insert into public.spots(id,name,lat,lng,status,city,category_id,data_origin) values(s,'Semantic Spot',47,7,'approved','Basel',c,'LEGACY');
  insert into public.spots(id,name,lat,lng,status,city,category_id,data_origin) values
  (pg_temp.id('semantic-spot-2'),'Semantic Spot 2',47.01,7.01,'approved','Basel',c,'REAL'),
  (pg_temp.id('semantic-spot-3'),'Semantic Spot 3',47.02,7.02,'approved','Basel',c,'REAL');
