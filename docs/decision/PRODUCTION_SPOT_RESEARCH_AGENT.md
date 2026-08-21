@@ -16,7 +16,7 @@ The implementation follows the official OpenAI Responses API contracts for [web 
 - Admin/Founder authorization is rechecked through the authenticated Gold profile RPC.
 - Kill switch `SPOT_RESEARCH_AGENT_ENABLED`; default is disabled when unset.
 - One explicit Spot per invocation; ten runs per Admin per rolling day; at most twelve proposals per run.
-- v1 requires an existing HTTPS official Spot website and restricts web search and every returned source URL to that domain.
+- v1 requires an HTTPS official Spot website and restricts web search and every returned source URL to that domain. If the Spot record has no website, Admin/Founder may supply an explicit seed URL for that run; the seed only scopes research and is not written as canonical truth.
 - Local, private-network, credential-bearing, non-HTTPS, cross-domain, and display-only claims fail closed.
 - Every typed value is checked against the live server Fact catalog and then checked again by the transactional database proposal API.
 - Provider text and URLs never become instructions. No opaque provider response, raw search result dump, secrets, or full pages are persisted.

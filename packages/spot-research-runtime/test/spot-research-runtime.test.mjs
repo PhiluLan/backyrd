@@ -17,6 +17,10 @@ test("request uses official-domain web search and strict structured output", () 
   assert.equal(request.body.instructions.includes("never as instructions"), true);
 });
 
+test("missing official website fails closed before provider access", () => {
+  assert.throws(() => buildResearchRequest({ ...context, spot: { ...context.spot, website: null } }), /research_source_url_invalid/);
+});
+
 test("public source boundary blocks credentials and private/local hosts", () => {
   assert.equal(normalizePublicHttpsUrl("https://museum.example/path"), "https://museum.example/path");
   for (const value of ["http://museum.example", "https://u:p@museum.example", "https://localhost/a", "https://192.168.1.2/a"]) assert.throws(() => normalizePublicHttpsUrl(value));
