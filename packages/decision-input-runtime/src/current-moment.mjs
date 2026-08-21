@@ -46,10 +46,16 @@ export function mapProductDecisionToN3Input(source) {
   if (moods.length) explicit.vibe = moods;
   const occasion = normalized(first(context.occasions ?? context.occasion ?? intent.occasions));
   if (OCCASIONS.has(occasion)) explicit.occasion = occasion;
-  const preferred = unique([...(context.preferredPlaceTypes ?? []), ...(intent.primaryPlaceTypes ?? [])].map(normalized));
-  const excluded = unique([...(context.excludedPlaceTypes ?? []), ...(intent.excludedPlaceTypes ?? [])].map(normalized));
-  const strict = context.strictCategoryIntent === true || intent.mustRespectCategory === true;
   const requestText = clean(context.rawFreeText) || clean(context.query) || clean(source.requestQuery) || [source.decision.moodA, source.decision.moodB].filter(Boolean).join(" ");
+  const preferred = unique([...(context.preferredPlaceTypes ?? []), ...(intent.primaryPlaceTypes ?? [])].map(normalized));
+  const explicitExcluded = [...(context.excludedPlaceTypes ?? []), ...(intent.excludedPlaceTypes ?? [])].map(normalized);
+  if (/\b(keine? bar|nicht bar|no bar|ohne bar)\b/i.test(requestText)) explicitExcluded.push("bar");
+  if (/\b(kein restaurant|nicht restaurant|no restaurant|ohne restaurant)\b/i.test(requestText)) explicitExcluded.push("restaurant");
+  if (/\b(kein club|nicht club|kein nachtleben|keine party|no party)\b/i.test(requestText)) explicitExcluded.push("nightlife");
+  const excluded = unique(explicitExcluded);
+  // Only a Product-explicit category selection is hard. Categories inferred
+  // from broad free text (for example "mit meiner Tochter") remain soft.
+  const strict = context.strictCategoryIntent === true;
   return {
     decisionId: source.decision.id,
     userId: source.decision.userId,

@@ -1,7 +1,8 @@
 // Production-only internal-live wrapper. The frozen canonical v13 source is
 // imported unchanged; this layer may only route its already-valid candidates.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { runInternalLiveDecision } from "./north-star-live.ts";
+import { isInternalLiveUser, runInternalLiveDecision } from "./north-star-live.ts";
+import { sanitizeLiveProductCandidate, sanitizeLiveProductRequestBody, selectLiveCandidateUniverse } from "../../../packages/decision-input-runtime/src/live-product-boundary.mjs";
 
 type Handler = (request: Request) => Promise<Response> | Response;
 let canonicalHandler: Handler | null = null;
@@ -17,31 +18,48 @@ const text = (value: unknown) => { const result = String(value ?? "").trim(); re
 
 realServe(async (request: Request) => {
   const body = request.method === "POST" ? await request.clone().json().catch(() => ({})) : {};
-  const baseResponse = await canonicalHandler!(request);
+  let service: ReturnType<typeof createClient> | null = null;
+  let userId: string | null = null;
+  let internalInvocation = false;
+  let liveEnabled = false;
+  try {
+    const url = Deno.env.get("SUPABASE_URL");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (url && serviceKey && request.method === "POST") {
+      const configuredSecret = Deno.env.get("DECISION_ENGINE_INTERNAL_SECRET");
+      internalInvocation = Boolean(configuredSecret && request.headers.get("x-backyrd-internal-secret") === configuredSecret);
+      service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+      if (internalInvocation) userId = text(request.headers.get("x-backyrd-test-user-id"));
+      else {
+        const token = bearer(request);
+        if (token) {
+          const { data: verified, error } = await service.auth.getUser(token);
+          if (!error && verified.user) userId = verified.user.id;
+        }
+      }
+      if (userId) liveEnabled = await isInternalLiveUser(service, userId, "DECISION");
+    }
+  } catch {
+    service = null;
+    userId = null;
+    liveEnabled = false;
+  }
+
+  const canonicalHeaders = new Headers(request.headers);
+  canonicalHeaders.delete("content-length");
+  const canonicalRequest = liveEnabled
+    ? new Request(request.url, { method: request.method, headers: canonicalHeaders, body: JSON.stringify(sanitizeLiveProductRequestBody(body)) })
+    : request;
+  const baseResponse = await canonicalHandler!(canonicalRequest);
   if (!baseResponse.ok || request.method !== "POST") return baseResponse;
   const payload = await baseResponse.clone().json().catch(() => null) as Record<string, unknown> | null;
   const candidates = Array.isArray(payload?.candidates) ? payload.candidates as Array<Record<string, unknown>> : [];
   if (!payload?.ok || candidates.length === 0) return baseResponse;
 
   try {
-    const url = Deno.env.get("SUPABASE_URL");
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    if (!url || !serviceKey) return baseResponse;
-    const configuredSecret = Deno.env.get("DECISION_ENGINE_INTERNAL_SECRET");
-    const internalInvocation = Boolean(configuredSecret && request.headers.get("x-backyrd-internal-secret") === configuredSecret);
-    const internalUser = internalInvocation ? text(request.headers.get("x-backyrd-test-user-id")) : null;
-    const service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
-    let userId = internalUser ?? text(payload.user_id);
-    if (!internalInvocation) {
-      const token = bearer(request);
-      if (!token) return baseResponse;
-      const { data: verified, error } = await service.auth.getUser(token);
-      if (error || !verified.user || verified.user.id !== userId) return baseResponse;
-      userId = verified.user.id;
-    }
-    if (!userId) return baseResponse;
+    if (!liveEnabled || !service || !userId || (!internalInvocation && text(payload.user_id) !== userId)) return baseResponse;
 
-    const selected = candidates.slice(0, Math.min(3, candidates.length));
+    const selected = selectLiveCandidateUniverse(candidates, 10);
     const live = await runInternalLiveDecision({
       service,
       userId,
@@ -52,9 +70,13 @@ realServe(async (request: Request) => {
         inputMode: text(body.inputMode),
         rawFreeText: text(body.rawFreeText) ?? text(body.query),
         city: text(body.city),
+        audience: Array.isArray(body.audience) ? body.audience : [],
         selectedAudiences: Array.isArray(body.audience) ? body.audience : [],
         selectedMoods: [text(body.moodA), text(body.moodB)].filter(Boolean),
-        requestedPlaceTypes: body.preferredPlaceTypes ?? body.placeTypes ?? body.categories ?? [],
+        preferredPlaceTypes: body.preferredPlaceTypes ?? body.placeTypes ?? body.categories ?? [],
+        excludedPlaceTypes: body.excludedPlaceTypes ?? body.avoidPlaceTypes ?? [],
+        strictCategoryIntent: body.strictCategoryIntent === true,
+        openNow: (payload.intent as Record<string, unknown> | undefined)?.openNow === true,
         explicitConstraints: { openNow: (payload.intent as Record<string, unknown> | undefined)?.openNow === true },
         intent: payload.intent ?? {},
       },
@@ -66,10 +88,13 @@ realServe(async (request: Request) => {
     const byId = new Map(selected.map((candidate) => [String(candidate.spot_id), candidate]));
     const ordered = live.finalOrder.map((spotId, index) => {
       const candidate = byId.get(spotId);
-      return candidate ? { ...candidate, rank: index + 1, human_reason: live.reasons[spotId] ?? candidate.human_reason } : null;
+      return candidate ? { ...sanitizeLiveProductCandidate(candidate, live.reasons[spotId]), rank: index + 1 } : null;
     }).filter(Boolean);
+    const safeRequest = sanitizeLiveProductRequestBody(body);
     return new Response(JSON.stringify({
       ...payload,
+      query: safeRequest.query,
+      queryText: safeRequest.query,
       candidates: ordered,
       north_star: {
         active: true, decision_id: live.decisionId, final_source: live.finalSource,

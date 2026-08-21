@@ -13,7 +13,7 @@ export function buildColdUserCard(userId) {
 
 export function buildCurrentIntent(moment,requestContext={}) {
   const preferred = [...new Set([...(requestContext.preferredPlaceTypes ?? []), ...(requestContext.intent?.primaryPlaceTypes ?? [])].map((value)=>String(value).trim().toLowerCase()).filter(Boolean))];
-  const required = requestContext.strictCategoryIntent === true || requestContext.intent?.mustRespectCategory === true ? preferred : [];
+  const required = requestContext.strictCategoryIntent === true ? preferred : [];
   const directions = [];
   const vibes = field(moment,"vibe") ?? [];
   for (const vibe of vibes) {

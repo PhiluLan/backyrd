@@ -68,9 +68,13 @@ export async function runInternalLiveDecision(input: LiveInput) {
               if (await isInternalLiveUser(input.service, input.userId, "N6")) {
                 finalSource = "N6_VALIDATED";
                 finalOrder = result.trace.n6Order;
+                const priority: Record<string, number> = { WHY_FOR_YOU: 3, WHY_NOW: 2, UNCERTAINTY: 1 };
+                const chosen: Record<string, { copy: string; priority: number }> = {};
                 for (const selected of result.trace.selectedReasons ?? []) {
-                  if (selected.copy) reasons[selected.spotId] = selected.copy;
+                  const nextPriority = priority[selected.type] ?? 0;
+                  if (selected.copy && nextPriority > (chosen[selected.spotId]?.priority ?? -1)) chosen[selected.spotId] = { copy: selected.copy, priority: nextPriority };
                 }
+                for (const [spotId, selected] of Object.entries(chosen)) reasons[spotId] = selected.copy;
               }
             }
           } else n6Disposition = "CONCURRENCY_FALLBACK";
