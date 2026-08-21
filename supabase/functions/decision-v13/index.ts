@@ -1,5 +1,4 @@
 // supabase/functions/decision-v13/index.ts
-import { categoryToPlaceType } from "../../../packages/canonical-semantics/src/index.mjs";
 
 type Env = {
   SUPABASE_URL: string;
@@ -325,8 +324,20 @@ function buildContextKey(moodA: string | null, moodB: string | null): string {
   return parts.length ? parts.join("+") : "global";
 }
 
-function placeTypeFromCategory(categoryName: string | null | undefined): string | null {
-  return categoryToPlaceType(categoryName).placeType;
+function placeTypeFromCategory(categoryName: string | null | undefined): string {
+  const category = normalizeText(categoryName);
+
+  if (["cafe", "café", "coffee", "kaffee"].includes(category)) return "cafe";
+  if (category === "bar") return "bar";
+  if (["restaurant", "essen", "food"].includes(category)) return "restaurant";
+  if (["nachtleben", "club", "nightlife"].includes(category)) return "nightlife";
+  if (["museum", "kultur", "galerie", "gallery"].includes(category)) return "culture";
+  if (["aussichtspunkt", "viewpoint", "ausflug"].includes(category)) return "outing";
+  if (["aktivitat", "aktivität", "activity"].includes(category)) return "activity";
+  if (["besonderes erlebnis", "erlebnis", "experience"].includes(category)) return "experience";
+  if (["unterkunft / hotel", "hotel", "unterkunft"].includes(category)) return "hotel";
+
+  return "other";
 }
 
 function placeTypeLabel(placeType: string | null | undefined): string {
