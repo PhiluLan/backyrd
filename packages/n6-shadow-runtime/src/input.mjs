@@ -30,7 +30,7 @@ function adaptProjection(value) {
     recentRelevantEvidence: [], uncertainties: value.uncertainties ?? [], contradictions: [],
     boundaries: { currentIntentAuthoritative: true, candidateIndependent: true, ranking: "NONE" }
   };
-  const serializedBytes = Buffer.byteLength(JSON.stringify(compact));
+  const serializedBytes = new TextEncoder().encode(JSON.stringify(compact)).byteLength;
   return { ...compact, serializedBytes, estimatedTokens: Math.ceil(serializedBytes / 4), serializationHash: contentHash(compact) };
 }
 

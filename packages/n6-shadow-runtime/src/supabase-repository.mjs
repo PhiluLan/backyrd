@@ -18,6 +18,13 @@ export class SupabaseN6ShadowRepository {
     return { workId: data.work_id, shadowRunId: data.shadow_run_id, userId: data.user_id, decisionId: data.decision_id, attempt: data.attempt, runnerId: this.runnerId };
   }
 
+  async claimDecision(decisionId) {
+    const { data, error } = await this.client.rpc("backyrd_claim_n6_shadow_for_decision_v1", { p_runner_id: this.runnerId, p_decision_id: decisionId });
+    fail(error, "claim_decision");
+    if (!data) return null;
+    return { workId: data.work_id, shadowRunId: data.shadow_run_id, userId: data.user_id, decisionId: data.decision_id, attempt: data.attempt, runnerId: this.runnerId };
+  }
+
   async loadInput(work) {
     const { data, error } = await this.client.rpc("backyrd_load_n6_shadow_input_v1", { p_work_id: work.workId, p_shadow_run_id: work.shadowRunId, p_runner_id: this.runnerId });
     fail(error, "load_input"); return data;

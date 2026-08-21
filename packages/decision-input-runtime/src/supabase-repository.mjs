@@ -23,7 +23,9 @@ export class SupabaseDecisionInputRepository {
     const{data:settings,error:settingsError}=await this.client.from("backyrd_decision_input_runtime_settings_v1").select("enabled").eq("singleton",true).single();fail(settingsError,"settings");
     if(!settings.enabled)throw new Error("decision_input_runtime_disabled");
     const{data:decision,error:decisionError}=await this.client.from("decision_sessions").select("id,user_id,city,mood_a_text,mood_b_text,created_at").eq("id",decisionId).single();fail(decisionError,"decision");
-    const{data:events,error:eventError}=await this.client.from("backyrd_ml_events_v1").select("rank,context,created_at").eq("decision_id",decisionId).eq("user_id",decision.user_id).eq("event_type","decision_impression").order("rank").order("created_at").limit(1);fail(eventError,"request_context");
+    const{data:handoff,error:handoffError}=await this.client.from("backyrd_internal_decision_handoffs_v1").select("request_context").eq("decision_id",decisionId).eq("user_id",decision.user_id).maybeSingle();
+    if(handoffError&&!/does not exist|schema cache/i.test(handoffError.message))fail(handoffError,"request_handoff");
+    const{data:events,error:eventError}=handoff?.request_context?{data:[],error:null}:await this.client.from("backyrd_ml_events_v1").select("rank,context,created_at").eq("decision_id",decisionId).eq("user_id",decision.user_id).eq("event_type","decision_impression").order("rank").order("created_at").limit(1);fail(eventError,"request_context");
     const{data:impressions,error:impressionError}=await this.client.from("decision_impressions").select("spot_id,rank").eq("decision_id",decisionId).order("rank");fail(impressionError,"impressions");
     const retrievalDone=performance.now();
     const ids=[...new Set((impressions??[]).map((row)=>row.spot_id))];
@@ -39,7 +41,7 @@ export class SupabaseDecisionInputRepository {
     const n4BySpot=Object.fromEntries((n4Rows??[]).map((row)=>[row.spot_id,{available:row.available,placeType:row.place_type,snapshotIdentity:row.snapshot_identity,freshness:row.freshness,concepts:Object.fromEntries((row.concepts??[]).map((concept)=>[concept.concept,{presence:Number(concept.presence),confidence:Number(concept.confidence),provenance:concept.provenance}]))}]));
     return {
       decision:{id:decision.id,userId:decision.user_id,city:decision.city,moodA:decision.mood_a_text,moodB:decision.mood_b_text,createdAt:decision.created_at},
-      requestContext:events?.[0]?.context??{},requestVersion:events?.[0]?.context?.model_version??"decision-v13-product-context-v1",
+      requestContext:handoff?.request_context??events?.[0]?.context??{},requestVersion:(handoff?.request_context??events?.[0]?.context)?.model_version??"decision-v13-product-context-v1",
       memoryConsentState:userCard?"granted":"missing",userCard:userCard??null,n4BySpot,
       candidates:(impressions??[]).map((row)=>{const fact=factById.get(row.spot_id)??{};return{spotId:row.spot_id,retrievalPosition:row.rank,status:fact.status,city:fact.city,category:fact.category_name,productPlaceType:placeType(fact.category_name),openNow:fact.open_now,distributionEligible:distributionById.get(row.spot_id)?.eligible===true};}),
       performance:{candidateRetrievalReadMs:Number((retrievalDone-started).toFixed(3)),eligibilityFactsMs:Number((eligibilityDone-retrievalDone).toFixed(3)),n4BatchReadMs:Number((n4Done-eligibilityDone).toFixed(3)),userCardReadMs:Number((cardDone-n4Done).toFixed(3))},

@@ -422,3 +422,8 @@ entrypoint = "./functions/decision-north-star-internal/index.deploy.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/decision-engine-worker/index.deploy.ts"
+
+[functions.decision-v13]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/decision-v13/index.deploy.ts"

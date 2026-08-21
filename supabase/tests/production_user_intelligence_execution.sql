@@ -10,6 +10,7 @@ do $$ declare u uuid:=pg_temp.uuid('execution-user');s uuid:=pg_temp.uuid('execu
  insert into public.spots(id,name,lat,lng,status) values(s,'Execution',47,7,'approved');
  insert into public.consent_purposes(key,title_de,description_de,category,legal_basis,requires_consent,is_required,default_enabled,sort_order,is_active) values('personalized_recommendations','P','P','personalization','consent',true,false,false,1,true) on conflict do nothing;
  insert into public.user_consents(user_id,purpose_key,status,granted_at,source) values(u,'personalized_recommendations','granted',now(),'system_migration');
+ insert into public.backyrd_internal_live_users_v1(user_id,enabled,activated_at) values(u,true,now());
  update public.backyrd_user_intelligence_runtime_settings_v1 set enabled=true;
 end $$;
 set local role service_role;

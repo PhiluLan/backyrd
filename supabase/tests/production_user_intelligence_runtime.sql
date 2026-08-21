@@ -9,6 +9,7 @@ begin
  insert into public.profiles(id) values(u),(o) on conflict do nothing; insert into public.spots(id,name,lat,lng,status) values(a,'A',47,7,'approved'),(b,'B',47.1,7.1,'approved'),(c,'C',47.2,7.2,'approved');
  insert into public.consent_purposes(key,title_de,description_de,category,legal_basis,requires_consent,is_required,default_enabled,sort_order,is_active) values('personalized_recommendations','P','P','personalization','consent',true,false,false,1,true) on conflict do nothing;
  insert into public.user_consents(user_id,purpose_key,status,granted_at,source) values(u,'personalized_recommendations','granted',now(),'system_migration');
+ insert into public.backyrd_internal_live_users_v1(user_id,enabled,activated_at) values(u,true,now());
  update public.backyrd_user_intelligence_runtime_settings_v1 set enabled=true;
  insert into public.reviews(id,spot_id,user_id,product_evidence_origin,text,mood_a) values(ra,a,u,'smart_review_v1','Super gemütlich, komme wieder.','gemütlich'),(rb,b,u,'smart_review_v1','Super gemütlich, komme wieder.','gemütlich'),(rc,c,u,'smart_review_v1','Viel zu laut und hektisch, komme nicht wieder.','laut');
  insert into public.review_photos(review_id,url,uploaded_by) values(ra,'https://fixture/a',u),(rb,'https://fixture/b',u),(rc,'https://fixture/c',u);

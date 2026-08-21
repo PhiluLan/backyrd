@@ -24,7 +24,8 @@ export const FROZEN_N6_CONFIG = Object.freeze({
 });
 
 export function estimateTokens(value) {
-  return Math.ceil(Buffer.byteLength(JSON.stringify(value), "utf8") / 4 * FROZEN_N6_CONFIG.tokenEstimateSafetyMultiplier);
+  const bytes = new TextEncoder().encode(JSON.stringify(value)).byteLength;
+  return Math.ceil(bytes / 4 * FROZEN_N6_CONFIG.tokenEstimateSafetyMultiplier);
 }
 
 export function estimateCostUsd(inputTokens, outputTokens = FROZEN_N6_CONFIG.maxOutputTokens) {

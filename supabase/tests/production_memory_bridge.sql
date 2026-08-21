@@ -17,6 +17,7 @@ begin
   insert into public.consent_purposes(key,title_de,description_de,category,legal_basis,requires_consent,is_required,default_enabled,sort_order,is_active)
   values('personalized_recommendations','Personalized','fixture','personalization','consent',true,false,false,1,true) on conflict(key) do nothing;
   insert into public.user_consents(user_id,purpose_key,status,granted_at,source) values(u,'personalized_recommendations','granted',now(),'system_migration');
+  insert into public.backyrd_internal_live_users_v1(user_id,enabled,activated_at) values(u,true,now());
   update public.backyrd_memory_bridge_settings_v1 set enabled=true;
   insert into public.decision_sessions(id,user_id,city) values(d,u,'Basel');
   insert into public.decision_impressions(decision_id,spot_id,rank) values(d,s,1);
