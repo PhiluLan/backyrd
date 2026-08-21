@@ -22,6 +22,16 @@ if printf '%s\n' "$protected" | grep -Fx "$memory_bridge_path" >/dev/null; then
   fi
 fi
 
+# The first internal-live activation is a server-only wrapper around the
+# byte-identical frozen v13 engine. Permit only these two integration files,
+# and only while the canonical v13 source itself has no diff from the base.
+live_wrapper='supabase/functions/decision-v13/live-index.ts'
+live_adapter='supabase/functions/decision-v13/north-star-live.ts'
+if git diff --quiet "$base"...HEAD -- supabase/functions/decision-v13/index.ts; then
+  protected="$(printf '%s\n' "$protected" | grep -Fvx "$live_wrapper" | grep -Fvx "$live_adapter" || true)"
+  echo "D2 scope guard: frozen v13 unchanged; internal-live server wrapper accepted"
+fi
+
 if [[ -n "$protected" ]]; then
   echo "D2 scope guard: protected Decision Engine/Product path changed"
   printf '%s\n' "$protected"
