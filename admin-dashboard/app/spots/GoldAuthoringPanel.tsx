@@ -39,7 +39,18 @@ type ResearchJob = {
   startedAt?: string | null;
   completedAt?: string | null;
   failureCode?: string | null;
+  phase?: "PASS_A_QUEUED" | "PASS_A_RUNNING" | "PASS_A_COMPLETE" | "PASS_A_FAILED" | "PASS_B_RUNNING" | "PASS_B_COMPLETE" | "PASS_B_FAILED" | "READY_FOR_REVIEW" | "FAILED";
+  passes?: Record<"A" | "B", { state: string; attempts: number; proposalCount: number; failureCode?: string | null }>;
 };
+
+function researchPhaseLabel(job: ResearchJob): string {
+  const labels: Record<string, string> = {
+    PASS_A_QUEUED: "PASS A EINGEREIHT", PASS_A_RUNNING: "PASS A RESEARCHING", PASS_A_COMPLETE: "PASS A COMPLETE",
+    PASS_A_FAILED: "PASS A FAILED", PASS_B_RUNNING: "PASS B RESEARCHING", PASS_B_COMPLETE: "PASS B COMPLETE",
+    PASS_B_FAILED: "PASS B FAILED", READY_FOR_REVIEW: "READY FOR REVIEW", FAILED: "FAILED"
+  };
+  return labels[job.phase ?? ""] ?? (job.state === "RUNNING" ? "RESEARCHING" : job.state);
+}
 
 function initialValue(field: CatalogField | undefined): string {
   if (!field) return "";
@@ -177,7 +188,7 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
     <section className="spot-editor-section" style={{ marginTop: 24 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "start" }}>
         <div><div className="spot-editor-eyebrow">Canonical Gold Authoring</div><h2>Gold Readiness — {profile.readiness.status} {profile.readiness.coverage}%</h2><p>UNKNOWN ist erlaubt. Coverage ist keine Ranking- oder Match-Confidence.</p></div>
-        <div style={{ display: "grid", justifyItems: "end", gap: 8 }}><strong>{profile.actor.role}</strong>{["ADMIN", "FOUNDER"].includes(profile.actor.role) && <button type="button" disabled={researchBusy || busy} onClick={() => void researchSpot()}>{researchBusy ? "Recherche läuft …" : "Spot recherchieren"}</button>}{researchJob && <small>Research: {researchJob.state === "RUNNING" ? "RESEARCHING" : researchJob.state}{researchJob.startedAt ? ` · Start ${new Date(researchJob.startedAt).toLocaleString("de-CH")}` : ""}{researchJob.completedAt ? ` · Ende ${new Date(researchJob.completedAt).toLocaleString("de-CH")}` : ""}{researchJob.failureCode ? ` · ${researchJob.failureCode}` : ""}</small>}</div>
+        <div style={{ display: "grid", justifyItems: "end", gap: 8 }}><strong>{profile.actor.role}</strong>{["ADMIN", "FOUNDER"].includes(profile.actor.role) && <button type="button" disabled={researchBusy || busy} onClick={() => void researchSpot()}>{researchBusy ? "Recherche läuft …" : "Spot recherchieren"}</button>}{researchJob && <small>Research: {researchPhaseLabel(researchJob)}{researchJob.passes?.A ? ` · A ${researchJob.passes.A.state}` : ""}{researchJob.passes?.B ? ` · B ${researchJob.passes.B.state}` : ""}{researchJob.startedAt ? ` · Start ${new Date(researchJob.startedAt).toLocaleString("de-CH")}` : ""}{researchJob.completedAt ? ` · Ende ${new Date(researchJob.completedAt).toLocaleString("de-CH")}` : ""}{researchJob.failureCode ? ` · ${researchJob.failureCode}` : ""}</small>}</div>
       </div>
 
       {message && <p role="status">{message}</p>}
