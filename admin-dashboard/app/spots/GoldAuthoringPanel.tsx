@@ -19,17 +19,46 @@ type Proposal = {
   status: string;
   created_at: string;
   source_id: string;
+  evidence_excerpt?: string | null;
+  confidence_rationale?: string | null;
+  research_classification?: string | null;
+  research_evidence_scope?: string | null;
+  research_pass_key?: string | null;
 };
+
+type Source = { id: string; source_type: string; source_url?: string | null; title?: string | null };
 
 type GoldProfile = {
   actor: { role: "FOUNDER" | "ADMIN" | "OWNER"; capability: "BASIC" | "DEEP" };
   catalog: CatalogField[];
   proposals: Proposal[];
+  sources: Source[];
   acceptedFacts: Array<{ id: string; field_key: string; value: unknown; status: string }>;
   readiness: { status: string; coverage: number; gaps: Array<{ item: string; state: string }>; n4?: { snapshotHash?: string; conceptCount?: number } };
   canonicalN4: { snapshotHash?: string; confidence?: number; completeness?: number; intelligence?: { concepts?: Record<string, unknown> }; calculatedAt?: string } | null;
   legacy: { label: string };
 };
+
+type ResearchJob = {
+  jobId?: string;
+  state: "NONE" | "QUEUED" | "RUNNING" | "READY_FOR_REVIEW" | "FAILED" | "CANCELLED";
+  attempts?: number;
+  proposalCount?: number;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  failureCode?: string | null;
+  phase?: "PASS_A_QUEUED" | "PASS_A_RUNNING" | "PASS_A_COMPLETE" | "PASS_A_FAILED" | "PASS_B_RUNNING" | "PASS_B_COMPLETE" | "PASS_B_FAILED" | "READY_FOR_REVIEW" | "FAILED";
+  passes?: Record<"A" | "B", { state: string; attempts: number; proposalCount: number; failureCode?: string | null }>;
+};
+
+function researchPhaseLabel(job: ResearchJob): string {
+  const labels: Record<string, string> = {
+    PASS_A_QUEUED: "PASS A EINGEREIHT", PASS_A_RUNNING: "PASS A RESEARCHING", PASS_A_COMPLETE: "PASS A COMPLETE",
+    PASS_A_FAILED: "PASS A FAILED", PASS_B_RUNNING: "PASS B RESEARCHING", PASS_B_COMPLETE: "PASS B COMPLETE",
+    PASS_B_FAILED: "PASS B FAILED", READY_FOR_REVIEW: "READY FOR REVIEW", FAILED: "FAILED"
+  };
+  return labels[job.phase ?? ""] ?? (job.state === "RUNNING" ? "RESEARCHING" : job.state);
+}
 
 function initialValue(field: CatalogField | undefined): string {
   if (!field) return "";
@@ -63,6 +92,7 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [researchBusy, setResearchBusy] = useState(false);
+  const [researchJob, setResearchJob] = useState<ResearchJob | null>(null);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.rpc("backyrd_gold_profile_v1", { p_spot_id: spotId });
@@ -74,9 +104,25 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
 
   useEffect(() => {
     // Initial server synchronization for this client-only Admin surface.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load().catch((error: unknown) => setMessage(error instanceof Error ? error.message : "Gold-Profil konnte nicht geladen werden."));
   }, [load]);
+
+  useEffect(() => {
+    if (!researchJob || !["QUEUED", "RUNNING"].includes(researchJob.state)) return;
+    const timer = window.setInterval(() => {
+      void supabase.functions.invoke("research-spot", { body: { action: "STATUS", spotId } }).then(async ({ data, error }) => {
+        if (error || !data) return;
+        const next = data as ResearchJob;
+        setResearchJob(next);
+        setResearchBusy(["QUEUED", "RUNNING"].includes(next.state));
+        if (next.state === "READY_FOR_REVIEW") {
+          setMessage(`${next.proposalCount ?? 0} quellengestützte Vorschläge sind zur Prüfung bereit. Kanonische Wahrheit wurde nicht verändert.`);
+          await load();
+        } else if (next.state === "FAILED") setMessage(`Recherche fehlgeschlagen (${next.failureCode ?? "research_failed"}). Kanonische Daten blieben unverändert.`);
+      });
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [load, researchJob, spotId]);
 
   const field = useMemo(() => profile?.catalog.find((item) => item.field_key === fieldKey), [fieldKey, profile]);
 
@@ -127,20 +173,20 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
   async function researchSpot() {
     setResearchBusy(true); setMessage(null);
     try {
-      const { data, error } = await supabase.functions.invoke("research-spot", { body: { spotId, officialWebsite: sourceUrl.trim() || undefined } });
+      const { data, error } = await supabase.functions.invoke("research-spot", { body: { action: "ENQUEUE", spotId, officialWebsite: sourceUrl.trim() || undefined } });
       if (error) throw error;
-      setMessage(data.proposalCount > 0
-        ? `${data.proposalCount} quellengestützte Vorschläge erstellt. Es wurde noch keine kanonische Wahrheit verändert.`
-        : "Keine ausreichend belegten neuen Fakten gefunden. Es wurde nichts erfunden oder kanonisch verändert.");
-      await load();
+      setResearchJob(data as ResearchJob);
+      setMessage(data.state === "RUNNING" ? "Recherche läuft im Hintergrund." : "Recherche wurde sicher eingereiht.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Spot-Recherche konnte nicht ausgeführt werden.");
-    } finally { setResearchBusy(false); }
+      setResearchBusy(false);
+    }
   }
 
   if (!profile) return <section className="spot-editor-section"><h2>Gold Authoring</h2><p>{message ?? "Wird geladen …"}</p></section>;
 
   const concepts = Object.entries(profile.canonicalN4?.intelligence?.concepts ?? {});
+  const sourceById = new Map(profile.sources.map((source) => [source.id, source]));
   // Field IDs, types and options come exclusively from the server catalog.
   const fields = profile.catalog;
   const objectValue=jsonObject(rawValue);
@@ -151,7 +197,7 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
     <section className="spot-editor-section" style={{ marginTop: 24 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "start" }}>
         <div><div className="spot-editor-eyebrow">Canonical Gold Authoring</div><h2>Gold Readiness — {profile.readiness.status} {profile.readiness.coverage}%</h2><p>UNKNOWN ist erlaubt. Coverage ist keine Ranking- oder Match-Confidence.</p></div>
-        <div style={{ display: "grid", justifyItems: "end", gap: 8 }}><strong>{profile.actor.role}</strong>{["ADMIN", "FOUNDER"].includes(profile.actor.role) && <button type="button" disabled={researchBusy || busy} onClick={() => void researchSpot()}>{researchBusy ? "Recherche läuft …" : "Spot recherchieren"}</button>}</div>
+        <div style={{ display: "grid", justifyItems: "end", gap: 8 }}><strong>{profile.actor.role}</strong>{["ADMIN", "FOUNDER"].includes(profile.actor.role) && <button type="button" disabled={researchBusy || busy} onClick={() => void researchSpot()}>{researchBusy ? "Recherche läuft …" : "Spot recherchieren"}</button>}{researchJob && <small>Research: {researchPhaseLabel(researchJob)}{researchJob.passes?.A ? ` · A ${researchJob.passes.A.state}` : ""}{researchJob.passes?.B ? ` · B ${researchJob.passes.B.state}` : ""}{researchJob.startedAt ? ` · Start ${new Date(researchJob.startedAt).toLocaleString("de-CH")}` : ""}{researchJob.completedAt ? ` · Ende ${new Date(researchJob.completedAt).toLocaleString("de-CH")}` : ""}{researchJob.failureCode ? ` · ${researchJob.failureCode}` : ""}</small>}</div>
       </div>
 
       {message && <p role="status">{message}</p>}
@@ -182,7 +228,10 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
       <div style={{ display: "grid", gap: 10 }}>
         {profile.proposals.filter((item) => ["PENDING", "CONFLICT", "STALE"].includes(item.status)).map((item) => (
           <div key={item.id} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}>
-            <strong>{item.field_key}</strong> · {item.status}<pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(item.proposed_value, null, 2)}</pre>
+            <strong>{item.field_key}</strong> · {item.status}{item.research_classification ? ` · ${item.research_classification}` : ""}{item.research_evidence_scope ? ` · Scope ${item.research_evidence_scope}` : ""}{item.research_pass_key ? ` · Pass ${item.research_pass_key}` : ""}<pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(item.proposed_value, null, 2)}</pre>
+            {item.evidence_excerpt && <p><small>Evidence: {item.evidence_excerpt}</small></p>}
+            {sourceById.get(item.source_id) && <p><small>Source: {sourceById.get(item.source_id)?.source_type} · {sourceById.get(item.source_id)?.source_url ?? sourceById.get(item.source_id)?.title}</small></p>}
+            {item.confidence_rationale && <p><small>{item.confidence_rationale}</small></p>}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button type="button" onClick={() => void review(item.id, "ACCEPT")}>Accept</button><button type="button" onClick={() => void review(item.id, "REJECT")}>Reject</button><button type="button" onClick={() => void review(item.id, "MARK_UNKNOWN")}>Mark Unknown</button><button type="button" onClick={() => void review(item.id, "MARK_STALE")}>Mark Stale</button></div>
           </div>
         ))}
