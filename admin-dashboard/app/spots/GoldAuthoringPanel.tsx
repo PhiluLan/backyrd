@@ -31,6 +31,16 @@ type GoldProfile = {
   legacy: { label: string };
 };
 
+type ResearchJob = {
+  jobId?: string;
+  state: "NONE" | "QUEUED" | "RUNNING" | "READY_FOR_REVIEW" | "FAILED" | "CANCELLED";
+  attempts?: number;
+  proposalCount?: number;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  failureCode?: string | null;
+};
+
 function initialValue(field: CatalogField | undefined): string {
   if (!field) return "";
   if (field.value_kind === "MULTI_SELECT") return "[]";
@@ -63,6 +73,7 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [researchBusy, setResearchBusy] = useState(false);
+  const [researchJob, setResearchJob] = useState<ResearchJob | null>(null);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.rpc("backyrd_gold_profile_v1", { p_spot_id: spotId });
@@ -74,9 +85,25 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
 
   useEffect(() => {
     // Initial server synchronization for this client-only Admin surface.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load().catch((error: unknown) => setMessage(error instanceof Error ? error.message : "Gold-Profil konnte nicht geladen werden."));
   }, [load]);
+
+  useEffect(() => {
+    if (!researchJob || !["QUEUED", "RUNNING"].includes(researchJob.state)) return;
+    const timer = window.setInterval(() => {
+      void supabase.functions.invoke("research-spot", { body: { action: "STATUS", spotId } }).then(async ({ data, error }) => {
+        if (error || !data) return;
+        const next = data as ResearchJob;
+        setResearchJob(next);
+        setResearchBusy(["QUEUED", "RUNNING"].includes(next.state));
+        if (next.state === "READY_FOR_REVIEW") {
+          setMessage(`${next.proposalCount ?? 0} quellengestützte Vorschläge sind zur Prüfung bereit. Kanonische Wahrheit wurde nicht verändert.`);
+          await load();
+        } else if (next.state === "FAILED") setMessage(`Recherche fehlgeschlagen (${next.failureCode ?? "research_failed"}). Kanonische Daten blieben unverändert.`);
+      });
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [load, researchJob, spotId]);
 
   const field = useMemo(() => profile?.catalog.find((item) => item.field_key === fieldKey), [fieldKey, profile]);
 
@@ -127,15 +154,14 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
   async function researchSpot() {
     setResearchBusy(true); setMessage(null);
     try {
-      const { data, error } = await supabase.functions.invoke("research-spot", { body: { spotId, officialWebsite: sourceUrl.trim() || undefined } });
+      const { data, error } = await supabase.functions.invoke("research-spot", { body: { action: "ENQUEUE", spotId, officialWebsite: sourceUrl.trim() || undefined } });
       if (error) throw error;
-      setMessage(data.proposalCount > 0
-        ? `${data.proposalCount} quellengestützte Vorschläge erstellt. Es wurde noch keine kanonische Wahrheit verändert.`
-        : "Keine ausreichend belegten neuen Fakten gefunden. Es wurde nichts erfunden oder kanonisch verändert.");
-      await load();
+      setResearchJob(data as ResearchJob);
+      setMessage(data.state === "RUNNING" ? "Recherche läuft im Hintergrund." : "Recherche wurde sicher eingereiht.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Spot-Recherche konnte nicht ausgeführt werden.");
-    } finally { setResearchBusy(false); }
+      setResearchBusy(false);
+    }
   }
 
   if (!profile) return <section className="spot-editor-section"><h2>Gold Authoring</h2><p>{message ?? "Wird geladen …"}</p></section>;
@@ -151,7 +177,7 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
     <section className="spot-editor-section" style={{ marginTop: 24 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "start" }}>
         <div><div className="spot-editor-eyebrow">Canonical Gold Authoring</div><h2>Gold Readiness — {profile.readiness.status} {profile.readiness.coverage}%</h2><p>UNKNOWN ist erlaubt. Coverage ist keine Ranking- oder Match-Confidence.</p></div>
-        <div style={{ display: "grid", justifyItems: "end", gap: 8 }}><strong>{profile.actor.role}</strong>{["ADMIN", "FOUNDER"].includes(profile.actor.role) && <button type="button" disabled={researchBusy || busy} onClick={() => void researchSpot()}>{researchBusy ? "Recherche läuft …" : "Spot recherchieren"}</button>}</div>
+        <div style={{ display: "grid", justifyItems: "end", gap: 8 }}><strong>{profile.actor.role}</strong>{["ADMIN", "FOUNDER"].includes(profile.actor.role) && <button type="button" disabled={researchBusy || busy} onClick={() => void researchSpot()}>{researchBusy ? "Recherche läuft …" : "Spot recherchieren"}</button>}{researchJob && <small>Research: {researchJob.state === "RUNNING" ? "RESEARCHING" : researchJob.state}{researchJob.startedAt ? ` · Start ${new Date(researchJob.startedAt).toLocaleString("de-CH")}` : ""}{researchJob.completedAt ? ` · Ende ${new Date(researchJob.completedAt).toLocaleString("de-CH")}` : ""}{researchJob.failureCode ? ` · ${researchJob.failureCode}` : ""}</small>}</div>
       </div>
 
       {message && <p role="status">{message}</p>}

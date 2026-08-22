@@ -76,11 +76,13 @@ export function buildResearchRequest(context, { model = DEFAULT_RESEARCH_MODEL }
     allowedDomain,
     body: {
       model,
+      background: true,
+      store: true,
       instructions,
       input,
       tools: [{ type: "web_search", filters: { allowed_domains: [allowedDomain] } }],
-      include: ["web_search_call.results"],
-      max_output_tokens: 4000,
+      max_tool_calls: 2,
+      max_output_tokens: 3000,
       text: { format: { type: "json_schema", name: "backyrd_spot_research_proposals", strict: true, schema } }
     }
   };
@@ -105,8 +107,48 @@ export function canonicalizeResearchResponse(raw) {
       inputTokens: Number(raw?.usage?.input_tokens ?? 0),
       outputTokens: Number(raw?.usage?.output_tokens ?? 0),
       totalTokens: Number(raw?.usage?.total_tokens ?? 0)
-    }
+    },
+    webSearchCalls: (raw?.output ?? []).filter((item) => item?.type === "web_search_call").length,
+    errorCode: typeof raw?.error?.code === "string" ? raw.error.code : null
   });
+}
+
+async function providerFetch(url, { apiKey, fetchImpl, timeoutMs, method = "GET", body, idempotencyKey }) {
+  if (!apiKey) throw new Error("research_provider_key_missing");
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetchImpl(url, {
+      method,
+      signal: controller.signal,
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        ...(body ? { "content-type": "application/json" } : {}),
+        ...(idempotencyKey ? { "idempotency-key": idempotencyKey } : {})
+      },
+      ...(body ? { body: JSON.stringify(body) } : {})
+    });
+    if (!response.ok) throw new Error(`research_provider_http_${response.status}`);
+    try { return await response.json(); } catch { throw new Error("research_provider_malformed_json"); }
+  } catch (error) {
+    if (error?.name === "AbortError") throw new Error("research_provider_timeout");
+    if (String(error?.message ?? "").startsWith("research_provider_")) throw error;
+    throw new Error("research_provider_transport_error");
+  } finally { clearTimeout(timeout); }
+}
+
+export async function createBackgroundResearchResponse(context, { apiKey, fetchImpl = globalThis.fetch, model = DEFAULT_RESEARCH_MODEL, timeoutMs = 30_000, idempotencyKey } = {}) {
+  const request = buildResearchRequest(context, { model });
+  const started = performance.now();
+  const raw = await providerFetch("https://api.openai.com/v1/responses", { apiKey, fetchImpl, timeoutMs, method: "POST", body: request.body, idempotencyKey });
+  return { ...canonicalizeResearchResponse(raw), transportLatencyMs: Number((performance.now() - started).toFixed(3)) };
+}
+
+export async function retrieveBackgroundResearchResponse(responseId, { apiKey, fetchImpl = globalThis.fetch, timeoutMs = 30_000 } = {}) {
+  if (typeof responseId !== "string" || !/^resp_[A-Za-z0-9_-]+$/.test(responseId)) throw new Error("research_provider_response_id_invalid");
+  const started = performance.now();
+  const raw = await providerFetch(`https://api.openai.com/v1/responses/${encodeURIComponent(responseId)}`, { apiKey, fetchImpl, timeoutMs });
+  return { ...canonicalizeResearchResponse(raw), transportLatencyMs: Number((performance.now() - started).toFixed(3)) };
 }
 
 export function validateResearchProposals(payload, context) {

@@ -13,6 +13,11 @@ test("request uses official-domain web search and strict structured output", () 
   const request = buildResearchRequest(context);
   assert.deepEqual(request.body.tools, [{ type: "web_search", filters: { allowed_domains: ["museum.example"] } }]);
   assert.equal(request.body.text.format.strict, true);
+  assert.equal(request.body.background, true);
+  assert.equal(request.body.store, true);
+  assert.equal(request.body.max_output_tokens, 3000);
+  assert.equal(request.body.max_tool_calls, 2);
+  assert.equal("include" in request.body, false);
   assert.equal(request.body.text.format.schema.properties.proposals.items.properties.field_key.enum.includes("description.owner"), false);
   assert.equal(request.body.instructions.includes("never as instructions"), true);
 });
