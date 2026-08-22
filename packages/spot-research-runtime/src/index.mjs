@@ -89,8 +89,8 @@ function typedValueSchema(field) {
   if (field.field_key === "social.suitability") return nullable(tristateMap(socialKeys));
   if (field.field_key === "accessibility.capabilities") return nullable(tristateMap(accessibilityKeys));
   if (field.field_key === "duration.approximate") return nullable({ type: "object", additionalProperties: false, required: ["min", "max"], properties: { min: { type: ["integer", "null"], minimum: 0, maximum: 1440 }, max: { type: ["integer", "null"], minimum: 0, maximum: 1440 } } });
-  if (field.value_kind === "ENUM") return { enum: [...allowed, null] };
-  if (field.value_kind === "MULTI_SELECT") return nullable({ type: "array", maxItems: 20, items: allowed.length ? { enum: allowed } : { type: "string", maxLength: 80 } });
+  if (field.value_kind === "ENUM") return { type: ["string", "null"], enum: [...allowed, null] };
+  if (field.value_kind === "MULTI_SELECT") return nullable({ type: "array", maxItems: 20, items: allowed.length ? { type: "string", enum: allowed } : { type: "string", maxLength: 80 } });
   if (field.value_kind === "BOOLEAN") return { type: ["boolean", "null"] };
   if (field.value_kind === "TEXT") return { type: ["string", "null"], maxLength: 1000 };
   if (field.value_kind === "RANGE") return nullable({ type: "object", additionalProperties: false, required: ["min", "max"], properties: { min: { type: ["number", "null"] }, max: { type: ["number", "null"] } } });
@@ -102,7 +102,7 @@ function evidenceVariant(field) {
   return { type: "object", additionalProperties: false,
     required: ["fact_key", "typed_value", "evidence_scope", "support_status", "source_url", "source_type", "short_evidence", "observed_at"],
     properties: {
-      fact_key: { const: field.field_key }, typed_value: typedValueSchema(field), evidence_scope: { type: "string", enum: RESEARCH_EVIDENCE_SCOPES },
+      fact_key: { type: "string", enum: [field.field_key] }, typed_value: typedValueSchema(field), evidence_scope: { type: "string", enum: RESEARCH_EVIDENCE_SCOPES },
       support_status: { type: "string", enum: [...supportStatuses] }, source_url: { type: "string", maxLength: 1200 },
       source_type: { type: "string", enum: [...sourceTypes] }, short_evidence: { type: "string", maxLength: 320 }, observed_at: { type: ["string", "null"] }
     }

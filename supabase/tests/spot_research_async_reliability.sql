@@ -10,7 +10,9 @@ do $$ declare v_admin uuid:=pg_temp.r_uuid('research-admin');v_owner uuid:=pg_te
  ('00000000-0000-0000-0000-000000000000',v_owner,'authenticated','authenticated','research-owner@test.invalid','','{}','{}',now(),now());
  insert into public.admin_users(user_id,role) values(v_admin,'admin');
  insert into public.categories(id,name) values(v_category,'Museum Test');
- insert into public.spots(id,name,lat,lng,status,city,category_id,data_origin,owner_id,website) values(pg_temp.r_uuid('research-spot'),'Research Museum',47,7,'approved','Basel',v_category,'REAL',v_owner,'https://museum.example/');
+ insert into public.spots(id,name,lat,lng,status,city,category_id,data_origin,owner_id,website) values
+ (pg_temp.r_uuid('research-spot'),'Research Museum',47,7,'approved','Basel',v_category,'REAL',v_owner,'https://museum.example/'),
+ (pg_temp.r_uuid('research-recovery-spot'),'Research Recovery Museum',47,7,'approved','Basel',v_category,'REAL',v_owner,'https://recovery-museum.example/');
 end $$;
 
 set local role authenticated;
@@ -58,6 +60,27 @@ do $$ declare claim jsonb;attempt jsonb;reclaim jsonb;result jsonb;second jsonb;
  perform pg_temp.assert((select count(*) from public.backyrd_spot_accepted_facts_v1 where spot_id=pg_temp.r_uuid('research-spot'))=before_facts,'research wrote accepted truth');
  perform pg_temp.assert((select count(*) from public.backyrd_spot_intelligence_snapshots_v1 where spot_id=pg_temp.r_uuid('research-spot'))=before_n4,'research mutated N4');
 end $$;
+
+reset role;set local role authenticated;select pg_temp.actor(pg_temp.r_uuid('research-admin'),'authenticated');
+do $$ declare first_job jsonb;begin
+ first_job:=public.backyrd_enqueue_spot_research_job_v1(pg_temp.r_uuid('research-recovery-spot'),null);
+ perform pg_temp.assert((first_job->>'deduplicated')::boolean=false,'recovery fixture did not create its first logical job');
+end $$;
+reset role;set local role service_role;select pg_temp.actor(pg_temp.r_uuid('research-admin'),'service_role');
+update public.backyrd_spot_research_jobs_v1 set state='FAILED',phase='FAILED',proposal_count=0,failure_code='research_provider_http_400',completed_at=now()
+where spot_id=pg_temp.r_uuid('research-recovery-spot') and contract_version='backyrd-spot-research-agent-v2.1';
+update public.backyrd_spot_research_passes_v2 set state='FAILED',attempts=1,proposal_count=0,extraction_count=0,failure_code='research_provider_http_400',completed_at=now()
+where job_id=(select id from public.backyrd_spot_research_jobs_v1 where spot_id=pg_temp.r_uuid('research-recovery-spot') and contract_version='backyrd-spot-research-agent-v2.1');
+reset role;set local role authenticated;select pg_temp.actor(pg_temp.r_uuid('research-admin'),'authenticated');
+do $$ declare recovered jsonb;begin
+ recovered:=public.backyrd_enqueue_spot_research_job_v1(pg_temp.r_uuid('research-recovery-spot'),null);
+ perform pg_temp.assert((recovered->>'recovered')::boolean,'provider-schema failure did not recover the logical job');
+end $$;
+reset role;set local role service_role;select pg_temp.actor(pg_temp.r_uuid('research-admin'),'service_role');
+select pg_temp.assert((select count(*)=1 from public.backyrd_spot_research_jobs_v1 where spot_id=pg_temp.r_uuid('research-recovery-spot') and contract_version='backyrd-spot-research-agent-v2.1'),'recovery created a second logical job');
+select pg_temp.assert((select bool_and(attempts=1) from public.backyrd_spot_research_passes_v2 where job_id=(select id from public.backyrd_spot_research_jobs_v1 where spot_id=pg_temp.r_uuid('research-recovery-spot') and contract_version='backyrd-spot-research-agent-v2.1')),'recovery reset the bounded attempt count');
+select pg_temp.assert((select state='QUEUED' and current_pass='A' from public.backyrd_spot_research_jobs_v1 where spot_id=pg_temp.r_uuid('research-recovery-spot') and contract_version='backyrd-spot-research-agent-v2.1'),'recovered job is not processable from Pass A');
+reset role;set local role authenticated;select pg_temp.actor(pg_temp.r_uuid('research-admin'),'authenticated');
 
 select pg_temp.assert(not has_table_privilege('authenticated','public.backyrd_spot_research_jobs_v1','select'),'client can read private job rows directly');
 select pg_temp.assert(not has_table_privilege('authenticated','public.backyrd_spot_research_extractions_v2','select'),'client can read private extraction rows directly');

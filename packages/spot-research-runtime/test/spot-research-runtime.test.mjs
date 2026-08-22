@@ -31,12 +31,25 @@ test("Pass A request is compact, official-domain-only and excludes accepted fact
 test("Pass B is disjoint from Pass A and carries only deep fact keys", () => {
   const a = buildResearchRequest(context, { passKey: "A" });
   const b = buildResearchRequest(context, { passKey: "B" });
-  const aKeys = a.body.text.format.schema.properties.evidence.items.anyOf.map((item) => item.properties.fact_key.const);
-  const bKeys = b.body.text.format.schema.properties.evidence.items.anyOf.map((item) => item.properties.fact_key.const);
+  const aKeys = a.body.text.format.schema.properties.evidence.items.anyOf.map((item) => item.properties.fact_key.enum[0]);
+  const bKeys = b.body.text.format.schema.properties.evidence.items.anyOf.map((item) => item.properties.fact_key.enum[0]);
   assert.deepEqual(aKeys.filter((key) => bKeys.includes(key)), []);
   assert.deepEqual(bKeys, ["suitability.conversation"]);
   const conversation = b.body.text.format.schema.properties.evidence.items.anyOf[0].properties.typed_value;
-  assert.deepEqual(conversation.enum, ["HIGH", "MEDIUM", "LOW", "UNKNOWN", null]);
+  assert.deepEqual(conversation, { type: ["string", "null"], enum: ["HIGH", "MEDIUM", "LOW", "UNKNOWN", null] });
+});
+
+test("strict provider schema uses explicit types for every enum constraint", () => {
+  for (const passKey of ["A", "B"]) {
+    const schema = buildResearchRequest(context, { passKey }).body.text.format.schema;
+    const visit = (node) => {
+      if (!node || typeof node !== "object") return;
+      if (Object.hasOwn(node, "enum")) assert.ok(Object.hasOwn(node, "type"), `enum without type in Pass ${passKey}`);
+      assert.equal(Object.hasOwn(node, "const"), false, `const is not used in Pass ${passKey}`);
+      for (const value of Object.values(node)) visit(value);
+    };
+    visit(schema);
+  }
 });
 
 test("legacy Pass B diagnostic exposes only the exact typed mismatch", () => {
