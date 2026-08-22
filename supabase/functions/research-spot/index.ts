@@ -28,10 +28,21 @@ Deno.serve(async (request) => {
   if (!url || !anonKey || !serviceKey) return json(request, { error: "server_configuration_missing" }, 503);
   const authorization = request.headers.get("authorization") ?? "";
   const userClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: authorization } } });
-  let body: { action?: "ENQUEUE" | "STATUS"; spotId?: string; officialWebsite?: string };
+  let body: { action?: "ENQUEUE" | "STATUS" | "DIAGNOSE_LAST_FAILURE"; spotId?: string; officialWebsite?: string };
   try { body = await request.json(); } catch { return json(request, { error: "invalid_json" }, 400); }
   if (!body.spotId || !uuidPattern.test(body.spotId)) return json(request, { error: "invalid_spot_id" }, 400);
   const action = body.action ?? "ENQUEUE";
+  if (action === "DIAGNOSE_LAST_FAILURE") {
+    const authorizationCheck = await userClient.rpc("backyrd_spot_research_job_status_v1", { p_spot_id: body.spotId });
+    if (authorizationCheck.error) return json(request, { error: "research_admin_required" }, 403);
+    const service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data: job } = await service.from("backyrd_spot_research_jobs_v1").select("id").eq("spot_id", body.spotId).eq("contract_version", "backyrd-spot-research-agent-v2").order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (!job) return json(request, { error: "legacy_research_job_not_found" }, 404);
+    const { data: pass } = await service.from("backyrd_spot_research_passes_v2").select("provider_response_id").eq("job_id", job.id).eq("pass_key", "B").maybeSingle();
+    if (!pass?.provider_response_id) return json(request, { error: "legacy_provider_response_not_found" }, 404);
+    const diagnosticResponse = await fetch(`${url}/functions/v1/research-spot-worker`, { method: "POST", headers: { authorization: `Bearer ${serviceKey}`, "content-type": "application/json" }, body: JSON.stringify({ action: "DIAGNOSE_LEGACY_RESPONSE", responseId: pass.provider_response_id }) });
+    return json(request, await diagnosticResponse.json(), diagnosticResponse.status);
+  }
   const rpcName = action === "STATUS" ? "backyrd_spot_research_job_status_v1" : "backyrd_enqueue_spot_research_job_v1";
   const args = action === "STATUS" ? { p_spot_id: body.spotId } : { p_spot_id: body.spotId, p_official_website: body.officialWebsite ?? null };
   const { data, error } = await userClient.rpc(rpcName, args);
