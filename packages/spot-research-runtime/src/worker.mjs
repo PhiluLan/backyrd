@@ -18,8 +18,8 @@ export async function processOneResearchJob({ repository, apiKey, runnerId, prov
       const attempt = await repository.beginAttempt(identity);
       response = await (provider.create ?? createBackgroundResearchResponse)(context, { apiKey, model: claim.model, idempotencyKey: attempt.attemptToken });
       if (!response.providerResponseId) throw new Error("research_provider_response_id_missing");
-      await repository.recordProvider(identity, response.providerResponseId, response.providerStatus);
     }
+    await repository.recordDisposition(identity, response);
     if (pendingStatuses.has(response.providerStatus)) {
       await repository.release(identity, response.providerStatus, pollDelaySeconds);
       return { state: "RUNNING", jobId: claim.jobId, providerStatus: response.providerStatus };

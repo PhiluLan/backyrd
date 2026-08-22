@@ -82,7 +82,7 @@ export function buildResearchRequest(context, { model = DEFAULT_RESEARCH_MODEL }
       input,
       tools: [{ type: "web_search", filters: { allowed_domains: [allowedDomain] } }],
       max_tool_calls: 2,
-      max_output_tokens: 4000,
+      max_output_tokens: 8000,
       text: { format: { type: "json_schema", name: "backyrd_spot_research_proposals", strict: true, schema } }
     }
   };

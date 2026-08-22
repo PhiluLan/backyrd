@@ -10,7 +10,7 @@ function repository(overrides = {}) {
     claim: async () => ({ jobId: "job", leaseToken: "lease", providerResponseId: null, model: "gpt-5-mini" }),
     loadContext: async () => context,
     beginAttempt: async () => ({ attemptToken: "attempt", runId: "run" }),
-    recordProvider: async (...args) => calls.push(["record", ...args]),
+    recordDisposition: async (...args) => calls.push(["record", ...args]),
     release: async (...args) => calls.push(["release", ...args]),
     fail: async (...args) => { calls.push(["fail", ...args]); return { state: args[1] ? "QUEUED" : "FAILED", retry: args[1] }; },
     finalize: async (...args) => { calls.push(["finalize", ...args]); return { state: "READY_FOR_REVIEW", proposalCount: args[1].length }; },
@@ -31,7 +31,7 @@ test("restart retrieves the same response and atomically finalizes proposals", a
   const result = await processOneResearchJob({ repository: repo, apiKey: "x", runnerId: "r", provider: { retrieve: async () => response } });
   assert.equal(result.state, "READY_FOR_REVIEW");
   assert.equal(result.proposalCount, 1);
-  assert.deepEqual(repo.calls.map((row) => row[0]), ["finalize"]);
+  assert.deepEqual(repo.calls.map((row) => row[0]), ["record", "finalize"]);
 });
 
 test("transport timeout receives one bounded technical retry disposition", async () => {
