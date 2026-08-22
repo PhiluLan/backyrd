@@ -40,10 +40,11 @@ test("validator accepts typed official proposals and rejects unauthorized varian
 });
 
 test("canonicalization allowlists only audit-safe provider fields", () => {
-  const result = canonicalizeResearchResponse({ id: "resp_1", status: "completed", model: "gpt-5-mini", output: [{ content: [{ type: "output_text", text: JSON.stringify({ proposals: [] }), encrypted_content: "drop" }] }], usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 }, opaque: "drop" });
+  const result = canonicalizeResearchResponse({ id: "resp_1", status: "completed", model: "gpt-5-mini", output: [{ content: [{ type: "output_text", text: JSON.stringify({ proposals: [] }), encrypted_content: "drop" }] }], usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 }, incomplete_details: { reason: "max_output_tokens", opaque: "drop" }, opaque: "drop" });
   assert.deepEqual(result.payload, { proposals: [] });
   assert.equal(JSON.stringify(result).includes("encrypted_content"), false);
   assert.equal(JSON.stringify(result).includes("opaque"), false);
+  assert.equal(result.incompleteReason, "max_output_tokens");
 });
 
 test("provider output is validated before any repository boundary", async () => {

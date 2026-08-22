@@ -24,7 +24,10 @@ export async function processOneResearchJob({ repository, apiKey, runnerId, prov
       await repository.release(identity, response.providerStatus, pollDelaySeconds);
       return { state: "RUNNING", jobId: claim.jobId, providerStatus: response.providerStatus };
     }
-    if (response.providerStatus !== "completed") throw new Error(`research_provider_${response.providerStatus || "unknown"}`);
+    if (response.providerStatus !== "completed") {
+      const detail = response.providerStatus === "incomplete" && response.incompleteReason ? `:${response.incompleteReason}` : "";
+      throw new Error(`research_provider_${response.providerStatus || "unknown"}${detail}`);
+    }
     const validation = validateResearchProposals(response.payload, context);
     if (!validation.valid) throw new Error(validation.reason);
     const result = await repository.finalize(identity, validation.proposals, {
@@ -43,4 +46,3 @@ export async function processOneResearchJob({ repository, apiKey, runnerId, prov
     return { state: failed?.state ?? "FAILED", jobId: claim.jobId, failureCode: code, retry: Boolean(failed?.retry) };
   }
 }
-

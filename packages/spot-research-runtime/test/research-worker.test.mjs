@@ -50,6 +50,13 @@ test("validator rejection is terminal and never writes proposals", async () => {
   assert.equal(repo.calls.some((row) => row[0] === "finalize"), false);
 });
 
+test("incomplete provider responses retain the allowlisted reason and do not cherry-pick", async () => {
+  const repo = repository({ claim: async () => ({ jobId: "job", leaseToken: "lease", providerResponseId: "resp_1" }) });
+  const result = await processOneResearchJob({ repository: repo, apiKey: "x", runnerId: "r", provider: { retrieve: async () => ({ providerResponseId: "resp_1", providerStatus: "incomplete", incompleteReason: "max_output_tokens" }) } });
+  assert.equal(result.failureCode, "research_provider_incomplete:max_output_tokens");
+  assert.equal(result.retry, false);
+});
+
 test("response loss reconciliation is delegated to idempotent final transaction", async () => {
   const repo = repository({ claim: async () => null });
   assert.deepEqual(await processOneResearchJob({ repository: repo, apiKey: "x", runnerId: "r" }), { state: "IDLE" });

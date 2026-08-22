@@ -109,7 +109,8 @@ export function canonicalizeResearchResponse(raw) {
       totalTokens: Number(raw?.usage?.total_tokens ?? 0)
     },
     webSearchCalls: (raw?.output ?? []).filter((item) => item?.type === "web_search_call").length,
-    errorCode: typeof raw?.error?.code === "string" ? raw.error.code : null
+    errorCode: typeof raw?.error?.code === "string" ? raw.error.code : null,
+    incompleteReason: typeof raw?.incomplete_details?.reason === "string" ? raw.incomplete_details.reason : null
   });
 }
 
