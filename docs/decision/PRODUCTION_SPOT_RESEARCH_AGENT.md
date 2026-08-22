@@ -45,3 +45,15 @@ Admin invocation is available in Gold Authoring as **Spot recherchieren**. A suc
 ## Current intentional limitations
 
 v2 researches only the Spot's official HTTPS domain. Spots without a trustworthy official website remain honest data gaps. Additional official institutional domains need an explicit future allowlist extension. No Basel bulk enrichment or automatic proposal acceptance is part of this change.
+
+## Controlled Production pilot — 2026-08-22
+
+The single authorized v2 job `ba070728-ef8f-44b2-93dd-0d71e0640b2a` researched Naturhistorisches Museum Basel (`ab4da026-0d47-4ea1-b626-5293106b4fc2`) against `www.nmbs.ch`. No second logical job was created.
+
+- The compact request payload fell from 4,190 bytes in v1 to 1,215 bytes for Pass A (-71.0%) and 1,391 bytes for Pass B (-66.8%). Provider-reported input includes web-search content and was 9,247 tokens for A and 10,816 for B, versus 12,762 in the prior monolithic attempt.
+- Pass A completed on its first attempt in 19.960 s: 9,247 input tokens, 1,570 output tokens, one web search, eight validated extractions and eight deterministic `NEW` proposals.
+- Pass B reached a complete provider response on its first attempt in 18.594 s, but deterministic typed-value validation rejected row 0 (`research_typed_value_invalid:0`). In accordance with policy there was no retry and the pass persisted zero extractions and zero proposals.
+- Total job wall time was 43.919 s. At the 2026-08-22 GPT-5 mini and web-search list prices, estimated cost was USD 0.015452 for A and USD 0.025660 for B (USD 0.041112 total).
+- Production safety before/after: accepted facts 0; canonical N4 fingerprint `bf1f7c9a99688e55908028b3b5d6662cdb129c3824e174cf591ca60469c4d3b4`; Gold Readiness `PARTIAL 45%`; Spot reviews 0; Spot memory events 0. Ranking was not invoked or written. The kill switch was returned to disabled and the worker answered `503 research_agent_disabled`.
+
+The eight proposals are visible in Founder review. Identity, official website and regular opening hours are reasonable acceptance candidates. The 6–10 age range and family suitability came from a specific “Night at the Museum” event, not a general museum admission policy, so they require rejection or narrowly scoped future modeling rather than acceptance as general Spot facts. Indoor, rain, activity and accessibility remain unknown because no accepted proposal was created for them.
