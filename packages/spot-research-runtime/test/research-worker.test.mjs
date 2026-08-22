@@ -5,7 +5,7 @@ import { processOneResearchJob } from "../src/worker.mjs";
 const context = { passKey: "A", spot: { id: "11111111-1111-4111-8111-111111111111", name: "Museum", city: "Basel", website: "https://museum.example/" }, catalog: [
   { field_key: "activity.types", value_kind: "MULTI_SELECT", allowed_values: ["MUSEUM"], engine_role: "SUITABILITY_FACT" }
 ], acceptedFacts: [] };
-const payload = { evidence: [{ fact_key: "activity.types", typed_value_json: '["MUSEUM"]', support_status: "SUPPORTED", source_url: "https://museum.example/visit", source_type: "OFFICIAL_WEBSITE", short_evidence: "The official museum visitor page identifies the museum.", observed_at: null }] };
+const payload = { evidence: [{ fact_key: "activity.types", typed_value: ["MUSEUM"], evidence_scope: "SPOT", support_status: "SUPPORTED", source_url: "https://museum.example/visit", source_type: "OFFICIAL_WEBSITE", short_evidence: "The official museum visitor page identifies the museum.", observed_at: null }] };
 
 function repository(overrides = {}) {
   const calls = [];
@@ -41,7 +41,7 @@ test("restart retrieves same response and atomically finalizes deterministic pro
 
 test("Pass B completes independently with its deep catalog", async () => {
   const deepContext = { ...context, passKey: "B", catalog: [{ field_key: "suitability.conversation", value_kind: "ENUM", allowed_values: ["HIGH", "MEDIUM", "LOW", "UNKNOWN"], engine_role: "N4_EVIDENCE" }] };
-  const deepPayload = { evidence: [{ ...payload.evidence[0], fact_key: "suitability.conversation", typed_value_json: '"MEDIUM"' }] };
+  const deepPayload = { evidence: [{ ...payload.evidence[0], fact_key: "suitability.conversation", typed_value: "MEDIUM" }] };
   const repo = repository({ claim: async () => ({ jobId: "job", leaseToken: "lease", passKey: "B", providerResponseId: "resp_b" }), loadContext: async () => deepContext, finalizePass: async (...args) => ({ state: "READY_FOR_REVIEW", phase: "READY_FOR_REVIEW", proposalCount: args[2].length }) });
   const result = await processOneResearchJob({ repository: repo, apiKey: "x", runnerId: "r", provider: { retrieve: async () => ({ providerResponseId: "resp_b", providerStatus: "completed", payload: deepPayload, usage: { inputTokens: 9, outputTokens: 4, totalTokens: 13 }, webSearchCalls: 1 }) } });
   assert.equal(result.state, "READY_FOR_REVIEW");
@@ -72,7 +72,7 @@ test("validator rejection is terminal and never writes a pass", async () => {
 
 test("valid sparse or UNKNOWN evidence completes without retry or invented proposal", async () => {
   const repo = repository({ claim: async () => ({ jobId: "job", leaseToken: "lease", passKey: "A", providerResponseId: "resp_1" }) });
-  const unknown = { evidence: [{ ...payload.evidence[0], typed_value_json: "null", support_status: "UNKNOWN", short_evidence: "" }] };
+  const unknown = { evidence: [{ ...payload.evidence[0], typed_value: null, evidence_scope: "UNKNOWN_SCOPE", support_status: "UNKNOWN", short_evidence: "" }] };
   const result = await processOneResearchJob({ repository: repo, apiKey: "x", runnerId: "r", provider: { retrieve: async () => ({ providerResponseId: "resp_1", providerStatus: "completed", payload: unknown, usage: { inputTokens: 2, outputTokens: 1, totalTokens: 3 }, webSearchCalls: 1 }) } });
   assert.equal(result.retry, undefined);
   assert.equal(repo.calls[1][3].length, 0);

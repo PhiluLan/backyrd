@@ -19,12 +19,20 @@ type Proposal = {
   status: string;
   created_at: string;
   source_id: string;
+  evidence_excerpt?: string | null;
+  confidence_rationale?: string | null;
+  research_classification?: string | null;
+  research_evidence_scope?: string | null;
+  research_pass_key?: string | null;
 };
+
+type Source = { id: string; source_type: string; source_url?: string | null; title?: string | null };
 
 type GoldProfile = {
   actor: { role: "FOUNDER" | "ADMIN" | "OWNER"; capability: "BASIC" | "DEEP" };
   catalog: CatalogField[];
   proposals: Proposal[];
+  sources: Source[];
   acceptedFacts: Array<{ id: string; field_key: string; value: unknown; status: string }>;
   readiness: { status: string; coverage: number; gaps: Array<{ item: string; state: string }>; n4?: { snapshotHash?: string; conceptCount?: number } };
   canonicalN4: { snapshotHash?: string; confidence?: number; completeness?: number; intelligence?: { concepts?: Record<string, unknown> }; calculatedAt?: string } | null;
@@ -178,6 +186,7 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
   if (!profile) return <section className="spot-editor-section"><h2>Gold Authoring</h2><p>{message ?? "Wird geladen …"}</p></section>;
 
   const concepts = Object.entries(profile.canonicalN4?.intelligence?.concepts ?? {});
+  const sourceById = new Map(profile.sources.map((source) => [source.id, source]));
   // Field IDs, types and options come exclusively from the server catalog.
   const fields = profile.catalog;
   const objectValue=jsonObject(rawValue);
@@ -219,7 +228,10 @@ export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
       <div style={{ display: "grid", gap: 10 }}>
         {profile.proposals.filter((item) => ["PENDING", "CONFLICT", "STALE"].includes(item.status)).map((item) => (
           <div key={item.id} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}>
-            <strong>{item.field_key}</strong> · {item.status}<pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(item.proposed_value, null, 2)}</pre>
+            <strong>{item.field_key}</strong> · {item.status}{item.research_classification ? ` · ${item.research_classification}` : ""}{item.research_evidence_scope ? ` · Scope ${item.research_evidence_scope}` : ""}{item.research_pass_key ? ` · Pass ${item.research_pass_key}` : ""}<pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(item.proposed_value, null, 2)}</pre>
+            {item.evidence_excerpt && <p><small>Evidence: {item.evidence_excerpt}</small></p>}
+            {sourceById.get(item.source_id) && <p><small>Source: {sourceById.get(item.source_id)?.source_type} · {sourceById.get(item.source_id)?.source_url ?? sourceById.get(item.source_id)?.title}</small></p>}
+            {item.confidence_rationale && <p><small>{item.confidence_rationale}</small></p>}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button type="button" onClick={() => void review(item.id, "ACCEPT")}>Accept</button><button type="button" onClick={() => void review(item.id, "REJECT")}>Reject</button><button type="button" onClick={() => void review(item.id, "MARK_UNKNOWN")}>Mark Unknown</button><button type="button" onClick={() => void review(item.id, "MARK_STALE")}>Mark Stale</button></div>
           </div>
         ))}

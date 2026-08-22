@@ -36,19 +36,24 @@ do $$ declare claim jsonb;attempt jsonb;reclaim jsonb;result jsonb;second jsonb;
  update public.backyrd_spot_research_jobs_v1 set available_at=now() where id=v_job;
  reclaim:=public.backyrd_claim_spot_research_job_v1('runner-b',60);
  perform pg_temp.assert(reclaim->>'providerResponseId'='resp_a','worker restart lost Pass A response identity');
- result:=public.backyrd_finalize_spot_research_pass_v2(v_job,(reclaim->>'leaseToken')::uuid,'A',
-  jsonb_build_array(jsonb_build_object('factKey','activity.types','value',jsonb_build_array('MUSEUM'),'supportStatus','SUPPORTED','sourceUrl','https://museum.example/visit','sourceType','OFFICIAL_WEBSITE','shortEvidence','Official museum visitor information.','observedAt',null,'passKey','A','classification','NEW','deterministicConfidence',.90)),
-  jsonb_build_array(jsonb_build_object('fieldKey','activity.types','value',jsonb_build_array('MUSEUM'),'sourceUrl','https://museum.example/visit','sourceType','OFFICIAL_WEBSITE','sourceTitle','Museum','observedAt',null,'evidenceExcerpt','Official museum visitor information.','confidenceRationale','Deterministic OFFICIAL_WEBSITE policy (0.90); human acceptance required.','classification','NEW','deterministicConfidence',.90,'passKey','A')),
+ result:=public.backyrd_finalize_spot_research_pass_v3(v_job,(reclaim->>'leaseToken')::uuid,'A',
+  jsonb_build_array(jsonb_build_object('factKey','activity.types','value',jsonb_build_array('MUSEUM'),'evidenceScope','SPOT','supportStatus','SUPPORTED','sourceUrl','https://museum.example/visit','sourceType','OFFICIAL_WEBSITE','shortEvidence','Official museum visitor information.','observedAt',null,'passKey','A','classification','NEW','deterministicConfidence',.90),jsonb_build_object('factKey','suitability.age','value',jsonb_build_object('min_age',6,'max_age',10,'adult_supervision_required',true),'evidenceScope','EVENT','supportStatus','SUPPORTED','sourceUrl','https://museum.example/event','sourceType','OFFICIAL_WEBSITE','shortEvidence','Event for children aged 6 to 10.','observedAt',null,'passKey','A','classification','UNSUPPORTED','deterministicConfidence',.90)),
+  jsonb_build_array(jsonb_build_object('fieldKey','activity.types','value',jsonb_build_array('MUSEUM'),'sourceUrl','https://museum.example/visit','sourceType','OFFICIAL_WEBSITE','sourceTitle','Museum','observedAt',null,'evidenceExcerpt','Official museum visitor information.','confidenceRationale','Deterministic OFFICIAL_WEBSITE policy (0.90); human acceptance required.','classification','NEW','deterministicConfidence',.90,'passKey','A','evidenceScope','SPOT','derivedFromFactKey',null)),
   jsonb_build_object('providerResponseId','resp_a','providerStatus','completed','inputBytes',900,'inputTokens',100,'outputTokens',80,'totalTokens',180,'webSearchCalls',1,'latencyMs',4));
  perform pg_temp.assert(result->>'state'='QUEUED' and result->>'phase'='PASS_A_COMPLETE','Pass A did not complete independently');
- perform pg_temp.assert((public.backyrd_finalize_spot_research_pass_v2(v_job,(reclaim->>'leaseToken')::uuid,'A','[]','[]','{}')->>'replayed')::boolean,'response-loss replay duplicated Pass A');
+ perform pg_temp.assert((public.backyrd_finalize_spot_research_pass_v3(v_job,(reclaim->>'leaseToken')::uuid,'A','[]','[]','{}')->>'replayed')::boolean,'response-loss replay duplicated Pass A');
  second:=public.backyrd_claim_spot_research_job_v1('runner-c',60);
  perform pg_temp.assert(second->>'passKey'='B','Pass B was not made processable');
  perform public.backyrd_begin_spot_research_pass_attempt_v2(v_job,(second->>'leaseToken')::uuid,'B');
  result:=public.backyrd_fail_spot_research_pass_v2(v_job,(second->>'leaseToken')::uuid,'B',false,'research_output_schema_invalid');
  perform pg_temp.assert(result->>'state'='READY_FOR_REVIEW','Pass A success did not survive Pass B failure');
  perform pg_temp.assert((select count(*) from public.backyrd_spot_fact_proposals_v1 where spot_id=pg_temp.r_uuid('research-spot') and research_classification='NEW')=1,'deterministic proposal was not persisted once');
- perform pg_temp.assert((select count(*) from public.backyrd_spot_research_extractions_v2 where job_id=v_job)=1,'validated extraction trace missing');
+ perform pg_temp.assert((select count(*) from public.backyrd_spot_research_extractions_v2 where job_id=v_job)=2,'validated extraction trace missing');
+ perform pg_temp.assert((select count(*) from public.backyrd_spot_research_extractions_v2 where job_id=v_job and evidence_scope='EVENT' and classification='UNSUPPORTED')=1,'event evidence was not retained as suppressed trace');
+ begin
+  perform public.backyrd_gold_submit_research_proposal_v3((attempt->>'runId')::uuid,pg_temp.r_uuid('research-spot'),'A','suitability.family_kids','"SUITABLE"','https://museum.example/event','OFFICIAL_WEBSITE','Event',null,'One event for families.','Deterministic policy.','NEW',.90,'EVENT',null,'event-must-fail');
+  raise exception 'event evidence created a Spot proposal';
+ exception when sqlstate '22023' then null; end;
  perform pg_temp.assert((select source_type from public.backyrd_spot_sources_v1 s join public.backyrd_spot_fact_proposals_v1 p on p.source_id=s.id where p.spot_id=pg_temp.r_uuid('research-spot') limit 1)='OFFICIAL_WEBSITE','source authority was flattened to Research');
  perform pg_temp.assert((select count(*) from public.backyrd_spot_accepted_facts_v1 where spot_id=pg_temp.r_uuid('research-spot'))=before_facts,'research wrote accepted truth');
  perform pg_temp.assert((select count(*) from public.backyrd_spot_intelligence_snapshots_v1 where spot_id=pg_temp.r_uuid('research-spot'))=before_n4,'research mutated N4');
@@ -57,5 +62,5 @@ end $$;
 select pg_temp.assert(not has_table_privilege('authenticated','public.backyrd_spot_research_jobs_v1','select'),'client can read private job rows directly');
 select pg_temp.assert(not has_table_privilege('authenticated','public.backyrd_spot_research_extractions_v2','select'),'client can read private extraction rows directly');
 select pg_temp.assert(not has_function_privilege('authenticated','public.backyrd_claim_spot_research_job_v1(text,integer)','execute'),'client can claim jobs');
-select pg_temp.assert(not has_function_privilege('authenticated','public.backyrd_finalize_spot_research_pass_v2(uuid,uuid,text,jsonb,jsonb,jsonb)','execute'),'client can persist provider output');
+select pg_temp.assert(not has_function_privilege('authenticated','public.backyrd_finalize_spot_research_pass_v3(uuid,uuid,text,jsonb,jsonb,jsonb)','execute'),'client can persist provider output');
 rollback;
