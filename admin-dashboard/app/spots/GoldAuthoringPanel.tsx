@@ -1,250 +1,123 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { HUMAN_ACCESSIBILITY_LABELS, HUMAN_CONTEXT_LABELS, HUMAN_OBJECT_FIELD_LABELS, HUMAN_SPOT_FIELDS, HUMAN_SPOT_SECTIONS, HUMAN_VALUE_LABELS } from "@backyrd/canonical-semantics";
 import { supabase } from "@/lib/supabaseClient";
 
-type CatalogField = {
-  field_key: string;
-  section: string;
-  capability: "BASIC" | "DEEP";
-  value_kind: string;
-  allowed_values: unknown[];
-  engine_role: string;
-};
-
-type Proposal = {
-  id: string;
-  field_key: string;
-  proposed_value: unknown;
-  status: string;
-  created_at: string;
-  source_id: string;
-  evidence_excerpt?: string | null;
-  confidence_rationale?: string | null;
-  research_classification?: string | null;
-  research_evidence_scope?: string | null;
-  research_pass_key?: string | null;
-};
-
-type Source = { id: string; source_type: string; source_url?: string | null; title?: string | null };
-
+type CatalogField = { field_key: string; section: string; capability: "BASIC" | "DEEP"; value_kind: string; allowed_values: unknown[]; owner_editable: boolean };
+type Source = { id: string; source_type: string; source_url?: string | null; source_reference?: string | null; last_checked_at?: string | null };
+type AcceptedFact = { id: string; field_key: string; value: unknown; status: string; source_id: string; accepted_at?: string; last_checked_at?: string | null; evidence_scope?: string | null };
+type Proposal = { id: string; field_key: string; proposed_value: unknown; status: string; source_id: string; evidence_excerpt?: string | null; research_evidence_scope?: string | null; evidence_scope?: string | null };
+type ReadinessGap = { item: string; state: "MISSING" | "UNKNOWN" | "STALE" | "CONFLICT" | "INVALID" | "UNSUPPORTED"; label?: string; detail?: string };
+type ReviewIssue = { code: string; factId?: string | null; fieldKey: string; label: string; detail: string; severity: string };
 type GoldProfile = {
   actor: { role: "FOUNDER" | "ADMIN" | "OWNER"; capability: "BASIC" | "DEEP" };
-  catalog: CatalogField[];
-  proposals: Proposal[];
-  sources: Source[];
-  acceptedFacts: Array<{ id: string; field_key: string; value: unknown; status: string }>;
-  readiness: { status: string; coverage: number; gaps: Array<{ item: string; state: string }>; n4?: { snapshotHash?: string; conceptCount?: number } };
-  canonicalN4: { snapshotHash?: string; confidence?: number; completeness?: number; intelligence?: { concepts?: Record<string, unknown> }; calculatedAt?: string } | null;
-  legacy: { label: string };
+  catalog: CatalogField[]; proposals: Proposal[]; sources: Source[]; acceptedFacts: AcceptedFact[];
+  readiness: { status: string; coverage: number; gaps: ReadinessGap[]; ready?: Array<{ item: string; label?: string }> };
+  reviewIssues?: ReviewIssue[];
+  canonicalN4: { snapshotHash?: string; intelligence?: { concepts?: Record<string, unknown> } } | null;
 };
 
-type ResearchJob = {
-  jobId?: string;
-  state: "NONE" | "QUEUED" | "RUNNING" | "READY_FOR_REVIEW" | "FAILED" | "CANCELLED";
-  attempts?: number;
-  proposalCount?: number;
-  startedAt?: string | null;
-  completedAt?: string | null;
-  failureCode?: string | null;
-  phase?: "PASS_A_QUEUED" | "PASS_A_RUNNING" | "PASS_A_COMPLETE" | "PASS_A_FAILED" | "PASS_B_RUNNING" | "PASS_B_COMPLETE" | "PASS_B_FAILED" | "READY_FOR_REVIEW" | "FAILED";
-  passes?: Record<"A" | "B", { state: string; attempts: number; proposalCount: number; failureCode?: string | null }>;
-};
+const SOURCE_OPTIONS = [["ADMIN_VERIFIED", "Eigene Kenntnis / vor Ort geprüft"], ["OFFICIAL_WEBSITE", "Offizielle Website"], ["OFFICIAL_DOCUMENT", "Andere verlässliche offizielle Quelle"]] as const;
+const SCOPE_OPTIONS = [["SPOT", "Ja, diese Angabe gilt allgemein für den Ort"], ["EVENT", "Nur für ein bestimmtes Event"], ["PROGRAM", "Nur für ein bestimmtes Angebot / Programm"], ["TEMPORARY", "Nur vorübergehend"]] as const;
+const SECTION_ORDER = ["ACTIVITY_DETAILS", "SUITABILITY", "AUDIENCE_SOCIAL"];
 
-function researchPhaseLabel(job: ResearchJob): string {
-  const labels: Record<string, string> = {
-    PASS_A_QUEUED: "PASS A EINGEREIHT", PASS_A_RUNNING: "PASS A RESEARCHING", PASS_A_COMPLETE: "PASS A COMPLETE",
-    PASS_A_FAILED: "PASS A FAILED", PASS_B_RUNNING: "PASS B RESEARCHING", PASS_B_COMPLETE: "PASS B COMPLETE",
-    PASS_B_FAILED: "PASS B FAILED", READY_FOR_REVIEW: "READY FOR REVIEW", FAILED: "FAILED"
-  };
-  return labels[job.phase ?? ""] ?? (job.state === "RUNNING" ? "RESEARCHING" : job.state);
+function humanField(key: string) { return HUMAN_SPOT_FIELDS[key as keyof typeof HUMAN_SPOT_FIELDS] ?? { question: key }; }
+function humanValue(value: unknown): string {
+  if (value == null) return "Noch nicht bekannt";
+  if (Array.isArray(value)) return value.map(humanValue).join(", ") || "Keine Auswahl";
+  if (typeof value === "object") return Object.entries(value).map(([key, entry]) => `${HUMAN_CONTEXT_LABELS[key as keyof typeof HUMAN_CONTEXT_LABELS] ?? HUMAN_ACCESSIBILITY_LABELS[key as keyof typeof HUMAN_ACCESSIBILITY_LABELS] ?? HUMAN_OBJECT_FIELD_LABELS[key as keyof typeof HUMAN_OBJECT_FIELD_LABELS] ?? "Angabe"}: ${humanValue(entry)}`).join(" · ");
+  const key = String(value);
+  if (key === "SUITABLE") return "Ja / gut geeignet";
+  if (key === "NOT_SUITABLE") return "Nein / eher nicht geeignet";
+  if (key === "true") return "Ja";
+  if (key === "false") return "Nein";
+  return HUMAN_VALUE_LABELS[key as keyof typeof HUMAN_VALUE_LABELS] ?? key.replaceAll("_", " ").toLocaleLowerCase("de-CH");
 }
-
-function initialValue(field: CatalogField | undefined): string {
-  if (!field) return "";
-  if (field.value_kind === "MULTI_SELECT") return "[]";
-  if (field.value_kind === "RANGE" || field.value_kind === "STRUCTURED_OBJECT") return "{}";
+function blankValue(field: CatalogField): unknown {
+  if (field.field_key === "suitability.age") return { min_age: null, max_age: null, adult_supervision_required: "UNKNOWN" };
+  if (field.field_key === "social.suitability") return Object.fromEntries(Object.keys(HUMAN_CONTEXT_LABELS).map((key) => [key, "UNKNOWN"]));
+  if (field.field_key === "accessibility.capabilities") return Object.fromEntries(Object.keys(HUMAN_ACCESSIBILITY_LABELS).map((key) => [key, "UNKNOWN"]));
+  if (field.value_kind === "MULTI_SELECT") return [];
+  if (["RANGE", "STRUCTURED_OBJECT"].includes(field.value_kind)) return {};
   return "";
 }
 
-function parseValue(field: CatalogField, raw: string): unknown {
-  if (["MULTI_SELECT", "RANGE", "STRUCTURED_OBJECT"].includes(field.value_kind)) return JSON.parse(raw);
-  if (field.value_kind === "BOOLEAN") return raw === "true";
-  if (field.value_kind === "ENUM" && field.allowed_values.some((item) => typeof item === "number")) return Number(raw);
-  return raw;
+function HumanControl({ field, value, onChange }: { field: CatalogField; value: unknown; onChange: (next: unknown) => void }) {
+  const config = humanField(field.field_key);
+  const labels = "labels" in config ? config.labels : undefined;
+  if (field.field_key === "suitability.age") {
+    const age = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+    const supervision = age.adult_supervision_required === true ? "YES" : age.adult_supervision_required === false ? "NO" : String(age.adult_supervision_required ?? "UNKNOWN");
+    return <div className="human-age-grid"><label><span>Ab welchem Alter?</span><input type="number" min="0" max="120" value={String(age.min_age ?? "")} onChange={(e) => onChange({ ...age, min_age: e.target.value === "" ? null : Number(e.target.value) })} /></label><label><span>Bis zu welchem Alter besonders geeignet?</span><input type="number" min="0" max="120" value={String(age.max_age ?? "")} onChange={(e) => onChange({ ...age, max_age: e.target.value === "" ? null : Number(e.target.value) })} /></label><label><span>Begleitung durch Erwachsene?</span><select value={supervision} onChange={(e) => onChange({ ...age, adult_supervision_required: e.target.value === "YES" ? true : e.target.value === "NO" ? false : "UNKNOWN" })}><option value="UNKNOWN">Weiß ich nicht</option><option value="YES">Ja</option><option value="NO">Nein</option></select></label></div>;
+  }
+  if (["social.suitability", "accessibility.capabilities"].includes(field.field_key)) {
+    const current = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+    const items = field.field_key === "social.suitability" ? HUMAN_CONTEXT_LABELS : HUMAN_ACCESSIBILITY_LABELS;
+    return <div className="human-tristate-grid">{Object.entries(items).map(([key, label]) => <label key={key}><span>{label}</span><select value={String(current[key] ?? "UNKNOWN")} onChange={(e) => onChange({ ...current, [key]: e.target.value })}><option value="UNKNOWN">Weiß ich nicht</option><option value="SUITABLE">Ja / gut geeignet</option><option value="NOT_SUITABLE">Nein / eher nicht</option></select></label>)}</div>;
+  }
+  if (field.field_key === "duration.approximate") {
+    const range = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+    return <div className="human-age-grid"><label><span>Mindestens (Minuten)</span><input type="number" min="0" value={String(range.min ?? "")} onChange={(e) => onChange({ ...range, min: e.target.value === "" ? null : Number(e.target.value) })} /></label><label><span>Höchstens (Minuten)</span><input type="number" min="0" value={String(range.max ?? "")} onChange={(e) => onChange({ ...range, max: e.target.value === "" ? null : Number(e.target.value) })} /></label></div>;
+  }
+  if (field.value_kind === "ENUM") return <select value={String(value ?? "")} onChange={(e) => onChange(e.target.value)}><option value="">Bitte auswählen</option>{field.allowed_values.map((option) => <option key={String(option)} value={String(option)}>{labels?.[String(option) as keyof typeof labels] ?? humanValue(option)}</option>)}</select>;
+  if (field.value_kind === "MULTI_SELECT" && field.allowed_values.length) {
+    const selected = Array.isArray(value) ? value : [];
+    return <div className="human-choice-grid">{field.allowed_values.map((option) => <label key={String(option)} className={selected.includes(option) ? "selected" : ""}><input type="checkbox" checked={selected.includes(option)} onChange={(e) => onChange(e.target.checked ? [...selected, option] : selected.filter((item) => item !== option))} /><span>{humanValue(option)}</span></label>)}</div>;
+  }
+  return <textarea rows={3} value={typeof value === "string" ? value : JSON.stringify(value ?? "", null, 2)} onChange={(e) => onChange(e.target.value)} placeholder="Kurze, konkrete Angabe" />;
 }
 
-function jsonObject(raw: string): Record<string, unknown> {
-  try { const value=JSON.parse(raw); return value && typeof value==="object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; } catch { return {}; }
-}
-
-function jsonArray(raw: string): unknown[] {
-  try { const value=JSON.parse(raw); return Array.isArray(value) ? value : []; } catch { return []; }
-}
-
-export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
+export function GoldAuthoringPanel({ spotId, refreshToken = 0 }: { spotId: string; refreshToken?: number }) {
   const [profile, setProfile] = useState<GoldProfile | null>(null);
-  const [fieldKey, setFieldKey] = useState("");
-  const [rawValue, setRawValue] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, unknown>>({});
   const [sourceType, setSourceType] = useState("ADMIN_VERIFIED");
   const [sourceUrl, setSourceUrl] = useState("");
   const [sourceReference, setSourceReference] = useState("");
+  const [scope, setScope] = useState("SPOT");
+  const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [researchBusy, setResearchBusy] = useState(false);
-  const [researchJob, setResearchJob] = useState<ResearchJob | null>(null);
-
-  const load = useCallback(async () => {
-    const { data, error } = await supabase.rpc("backyrd_gold_profile_v1", { p_spot_id: spotId });
-    if (error) throw error;
-    const next=data as GoldProfile;
-    setProfile(next);
-    setFieldKey((current)=>current||next.catalog[0]?.field_key||"");
-  }, [spotId]);
-
+  const load = useCallback(async () => { const { data, error } = await supabase.rpc("backyrd_gold_profile_v1", { p_spot_id: spotId }); if (error) throw error; setProfile(data as GoldProfile); }, [spotId]);
   useEffect(() => {
-    // Initial server synchronization for this client-only Admin surface.
-    void load().catch((error: unknown) => setMessage(error instanceof Error ? error.message : "Gold-Profil konnte nicht geladen werden."));
-  }, [load]);
+    void supabase.rpc("backyrd_gold_profile_v1", { p_spot_id: spotId }).then(({ data, error }) => {
+      if (error) setMessage(error.message);
+      else setProfile(data as GoldProfile);
+    });
+  }, [spotId, refreshToken]);
+  const sourceById = useMemo(() => new Map((profile?.sources ?? []).map((source) => [source.id, source])), [profile]);
+  const acceptedByField = useMemo(() => new Map((profile?.acceptedFacts ?? []).map((fact) => [fact.field_key, fact])), [profile]);
+  const issueByField = useMemo(() => new Map((profile?.reviewIssues ?? []).map((issue) => [issue.fieldKey, issue])), [profile]);
+  const sections = useMemo(() => SECTION_ORDER.map((key) => ({ key, config: HUMAN_SPOT_SECTIONS.find((section) => section.key === key), fields: (profile?.catalog ?? []).filter((field) => field.section === key && field.owner_editable && humanField(field.field_key).question !== field.field_key) })).filter((section) => section.fields.length), [profile]);
 
-  useEffect(() => {
-    if (!researchJob || !["QUEUED", "RUNNING"].includes(researchJob.state)) return;
-    const timer = window.setInterval(() => {
-      void supabase.functions.invoke("research-spot", { body: { action: "STATUS", spotId } }).then(async ({ data, error }) => {
-        if (error || !data) return;
-        const next = data as ResearchJob;
-        setResearchJob(next);
-        setResearchBusy(["QUEUED", "RUNNING"].includes(next.state));
-        if (next.state === "READY_FOR_REVIEW") {
-          setMessage(`${next.proposalCount ?? 0} quellengestützte Vorschläge sind zur Prüfung bereit. Kanonische Wahrheit wurde nicht verändert.`);
-          await load();
-        } else if (next.state === "FAILED") setMessage(`Recherche fehlgeschlagen (${next.failureCode ?? "research_failed"}). Kanonische Daten blieben unverändert.`);
-      });
-    }, 3000);
-    return () => window.clearInterval(timer);
-  }, [load, researchJob, spotId]);
-
-  const field = useMemo(() => profile?.catalog.find((item) => item.field_key === fieldKey), [fieldKey, profile]);
-
-  async function submitProposal() {
-    if (!field) return;
-    setBusy(true); setMessage(null);
+  async function submit(field: CatalogField) {
+    setBusy(field.field_key); setMessage(null);
     try {
-      const { data: sourceId, error: sourceError } = await supabase.rpc("backyrd_gold_create_source_v1", {
-        p_spot_id: spotId,
-        p_source_type: sourceType,
-        p_source_url: sourceUrl.trim() || null,
-        p_source_reference: sourceReference.trim() || null,
-        p_title: "Admin Spot Editor V2",
-        p_provider_identity: "Backyrd Admin",
-        p_observed_at: new Date().toISOString(),
-        p_last_checked_at: new Date().toISOString(),
-        p_legal_use_status: "NOT_REQUIRED",
-      });
-      if (sourceError) throw sourceError;
-      const { error } = await supabase.rpc("backyrd_gold_submit_proposal_v1", {
-        p_spot_id: spotId,
-        p_field_key: field.field_key,
-        p_value: parseValue(field, rawValue),
-        p_source_id: sourceId,
-        p_idempotency_key: `admin-v2:${crypto.randomUUID()}`,
-        p_confidence_rationale: "Vom Admin mit sichtbarer Quelle erfasst.",
-        p_evidence_excerpt: null,
-      });
+      const { error } = await supabase.rpc("backyrd_gold_submit_human_proposal_v1", { p_spot_id: spotId, p_field_key: field.field_key, p_value: drafts[field.field_key] ?? acceptedByField.get(field.field_key)?.value ?? blankValue(field), p_source_type: sourceType, p_source_url: sourceUrl.trim() || null, p_source_reference: sourceReference.trim() || (sourceType === "ADMIN_VERIFIED" ? `admin-verified:${new Date().toISOString()}` : null), p_evidence_scope: scope, p_idempotency_key: `human-editor-v1:${crypto.randomUUID()}` });
       if (error) throw error;
-      setMessage("Vorschlag gespeichert. Er muss bewusst akzeptiert werden, bevor er kanonische Wahrheit wird.");
-      await load();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Vorschlag konnte nicht gespeichert werden.");
-    } finally { setBusy(false); }
+      setMessage("Angabe gespeichert. Sie ist als prüfbarer Vorschlag erfasst; bestehende Historie bleibt erhalten."); await load();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Angabe konnte nicht gespeichert werden."); } finally { setBusy(null); }
   }
-
-  async function review(proposalId: string, action: "ACCEPT" | "REJECT" | "MARK_UNKNOWN" | "MARK_STALE") {
-    setBusy(true); setMessage(null);
-    try {
-      const { error } = await supabase.rpc("backyrd_gold_review_proposal_v1", { p_proposal_id: proposalId, p_action: action, p_resolution_note: "Admin Spot Editor V2" });
-      if (error) throw error;
-      setMessage(action === "ACCEPT" ? "Akzeptiert: Facts, N4 und Gold Readiness wurden atomar aktualisiert." : "Vorschlag aktualisiert.");
-      await load();
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Review fehlgeschlagen."); }
-    finally { setBusy(false); }
+  async function review(id: string, action: "ACCEPT" | "REJECT" | "MARK_UNKNOWN" | "MARK_STALE") {
+    setBusy(id); setMessage(null);
+    try { const { error } = await supabase.rpc("backyrd_gold_review_proposal_v1", { p_proposal_id: id, p_action: action, p_resolution_note: "Human Spot Editor V1" }); if (error) throw error; setMessage(action === "ACCEPT" ? "Bestätigt. Spot-Verständnis und Readiness wurden gemeinsam aktualisiert." : "Prüfstatus aktualisiert."); await load(); }
+    catch (error) { setMessage(error instanceof Error ? error.message : "Prüfung fehlgeschlagen."); } finally { setBusy(null); }
   }
-
-  async function researchSpot() {
-    setResearchBusy(true); setMessage(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("research-spot", { body: { action: "ENQUEUE", spotId, officialWebsite: sourceUrl.trim() || undefined } });
-      if (error) throw error;
-      setResearchJob(data as ResearchJob);
-      setMessage(data.state === "RUNNING" ? "Recherche läuft im Hintergrund." : "Recherche wurde sicher eingereiht.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Spot-Recherche konnte nicht ausgeführt werden.");
-      setResearchBusy(false);
-    }
+  async function reviewAcceptedFact(id: string, action: "RETRACT" | "MARK_STALE") {
+    setBusy(id); setMessage(null);
+    try { const { error } = await supabase.rpc("backyrd_gold_review_accepted_fact_v1", { p_fact_id: id, p_action: action, p_resolution_note: "Human Spot Editor V1" }); if (error) throw error; setMessage(action === "RETRACT" ? "Die bestätigte Angabe wurde nachvollziehbar zurückgezogen." : "Die Angabe wurde als veraltet markiert."); await load(); }
+    catch (error) { setMessage(error instanceof Error ? error.message : "Prüfung fehlgeschlagen."); } finally { setBusy(null); }
   }
+  if (!profile) return <section className="spot-editor-section"><h2>Wie Backyrd diesen Spot versteht</h2><p>{message ?? "Wird geladen …"}</p></section>;
+  const open = profile.proposals.filter((proposal) => ["PENDING", "CONFLICT", "STALE"].includes(proposal.status));
+  const sourceLabel = (source?: Source) => SOURCE_OPTIONS.find(([key]) => key === source?.source_type)?.[1] ?? "Quellenangabe";
 
-  if (!profile) return <section className="spot-editor-section"><h2>Gold Authoring</h2><p>{message ?? "Wird geladen …"}</p></section>;
-
-  const concepts = Object.entries(profile.canonicalN4?.intelligence?.concepts ?? {});
-  const sourceById = new Map(profile.sources.map((source) => [source.id, source]));
-  // Field IDs, types and options come exclusively from the server catalog.
-  const fields = profile.catalog;
-  const objectValue=jsonObject(rawValue);
-  const arrayValue=jsonArray(rawValue);
-  const updateObject=(key:string,value:unknown)=>setRawValue(JSON.stringify({...objectValue,[key]:value}));
-
-  return (
-    <section className="spot-editor-section" style={{ marginTop: 24 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "start" }}>
-        <div><div className="spot-editor-eyebrow">Canonical Gold Authoring</div><h2>Gold Readiness — {profile.readiness.status} {profile.readiness.coverage}%</h2><p>UNKNOWN ist erlaubt. Coverage ist keine Ranking- oder Match-Confidence.</p></div>
-        <div style={{ display: "grid", justifyItems: "end", gap: 8 }}><strong>{profile.actor.role}</strong>{["ADMIN", "FOUNDER"].includes(profile.actor.role) && <button type="button" disabled={researchBusy || busy} onClick={() => void researchSpot()}>{researchBusy ? "Recherche läuft …" : "Spot recherchieren"}</button>}{researchJob && <small>Research: {researchPhaseLabel(researchJob)}{researchJob.passes?.A ? ` · A ${researchJob.passes.A.state}` : ""}{researchJob.passes?.B ? ` · B ${researchJob.passes.B.state}` : ""}{researchJob.startedAt ? ` · Start ${new Date(researchJob.startedAt).toLocaleString("de-CH")}` : ""}{researchJob.completedAt ? ` · Ende ${new Date(researchJob.completedAt).toLocaleString("de-CH")}` : ""}{researchJob.failureCode ? ` · ${researchJob.failureCode}` : ""}</small>}</div>
-      </div>
-
-      {message && <p role="status">{message}</p>}
-
-      <div className="spot-editor-grid" style={{ marginTop: 20 }}>
-        <label><span>Typisiertes Feld</span><select value={fieldKey} onChange={(event) => { const next=event.target.value; setFieldKey(next); setRawValue(initialValue(profile.catalog.find((item) => item.field_key===next))); }}>{fields.map((item) => <option key={item.field_key} value={item.field_key}>{item.section} · {item.field_key} · {item.capability}</option>)}</select></label>
-        {field?.value_kind === "ENUM" ? (
-          <label><span>Wert</span><select value={rawValue} onChange={(event) => setRawValue(event.target.value)}><option value="">Bitte wählen</option>{field.allowed_values.map((item) => <option key={String(item)} value={String(item)}>{String(item)}</option>)}</select></label>
-        ) : field?.field_key === "suitability.age" ? (
-          <div><span>Alters-Eignung</span><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}><input type="number" min="0" max="120" placeholder="Min. Alter" value={String(objectValue.min_age ?? "")} onChange={(event)=>updateObject("min_age",event.target.value===""?null:Number(event.target.value))}/><input type="number" min="0" max="120" placeholder="Max. Alter" value={String(objectValue.max_age ?? "")} onChange={(event)=>updateObject("max_age",event.target.value===""?null:Number(event.target.value))}/><select value={String(objectValue.adult_supervision_required ?? "UNKNOWN")} onChange={(event)=>updateObject("adult_supervision_required",event.target.value==="UNKNOWN"?"UNKNOWN":event.target.value==="YES")}><option>UNKNOWN</option><option>YES</option><option>NO</option></select></div></div>
-        ) : field?.field_key === "social.suitability" || field?.field_key.startsWith("accessibility.") ? (
-          <div><span>{field.field_key === "social.suitability" ? "Social Context" : "Accessibility capabilities"}</span><div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:8}}>{(field.field_key === "social.suitability" ? ["solo","date","friends","family","groups","work"] : ["step_free","wheelchair_spaces","accessible_toilet","elevator","hearing_support","assistance_dogs"]).map((key)=><label key={key}><small>{key}</small><select value={String(objectValue[key] ?? "UNKNOWN")} onChange={(event)=>updateObject(key,event.target.value)}><option>UNKNOWN</option><option>SUITABLE</option><option>NOT_SUITABLE</option></select></label>)}</div></div>
-        ) : field?.value_kind === "MULTI_SELECT" && field.allowed_values.length > 0 ? (
-          <div><span>Kontrollierte Auswahl</span><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{field.allowed_values.map((item)=><label key={String(item)}><input type="checkbox" checked={arrayValue.includes(item)} onChange={(event)=>setRawValue(JSON.stringify(event.target.checked?[...arrayValue,item]:arrayValue.filter((value)=>value!==item)))}/>{String(item)}</label>)}</div></div>
-        ) : field?.value_kind === "RANGE" ? (
-          <div><span>Bereich</span><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><input type="number" placeholder="Minimum" value={String(objectValue.min ?? "")} onChange={(event)=>updateObject("min",event.target.value===""?null:Number(event.target.value))}/><input type="number" placeholder="Maximum" value={String(objectValue.max ?? "")} onChange={(event)=>updateObject("max",event.target.value===""?null:Number(event.target.value))}/></div></div>
-        ) : (
-          <label><span>Strukturierter Wert ({field?.value_kind})</span><textarea value={rawValue} onChange={(event) => setRawValue(event.target.value)} rows={3} placeholder={field?.value_kind === "STRUCTURED_OBJECT" ? '{"min_age":4,"max_age":12,"adult_supervision_required":true}' : "[]"} /></label>
-        )}
-        <label><span>Quelle</span><select value={sourceType} onChange={(event) => setSourceType(event.target.value)}><option>ADMIN_VERIFIED</option><option>OFFICIAL_WEBSITE</option><option>OFFICIAL_DOCUMENT</option><option>STRUCTURED_PROVIDER</option><option>IMPORT</option></select></label>
-        <label><span>Source URL / offizielle Research-Seed-URL</span><input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="https://…" /></label>
-        <label><span>Source Reference (falls keine URL)</span><input value={sourceReference} onChange={(event) => setSourceReference(event.target.value)} placeholder="Dokument / interne Referenz" /></label>
-      </div>
-      <button type="button" disabled={busy || !rawValue || (!sourceUrl.trim() && !sourceReference.trim())} onClick={() => void submitProposal()}>Als Proposal speichern</button>
-
-      <h3 style={{ marginTop: 28 }}>Proposal Review</h3>
-      <p><small>Research-Vorschläge sind Quellenhinweise, keine Wahrheit. Erst eine bewusste Admin-/Founder-Prüfung kann daraus einen akzeptierten Fact machen.</small></p>
-      <div style={{ display: "grid", gap: 10 }}>
-        {profile.proposals.filter((item) => ["PENDING", "CONFLICT", "STALE"].includes(item.status)).map((item) => (
-          <div key={item.id} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}>
-            <strong>{item.field_key}</strong> · {item.status}{item.research_classification ? ` · ${item.research_classification}` : ""}{item.research_evidence_scope ? ` · Scope ${item.research_evidence_scope}` : ""}{item.research_pass_key ? ` · Pass ${item.research_pass_key}` : ""}<pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(item.proposed_value, null, 2)}</pre>
-            {item.evidence_excerpt && <p><small>Evidence: {item.evidence_excerpt}</small></p>}
-            {sourceById.get(item.source_id) && <p><small>Source: {sourceById.get(item.source_id)?.source_type} · {sourceById.get(item.source_id)?.source_url ?? sourceById.get(item.source_id)?.title}</small></p>}
-            {item.confidence_rationale && <p><small>{item.confidence_rationale}</small></p>}
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button type="button" onClick={() => void review(item.id, "ACCEPT")}>Accept</button><button type="button" onClick={() => void review(item.id, "REJECT")}>Reject</button><button type="button" onClick={() => void review(item.id, "MARK_UNKNOWN")}>Mark Unknown</button><button type="button" onClick={() => void review(item.id, "MARK_STALE")}>Mark Stale</button></div>
-          </div>
-        ))}
-        {!profile.proposals.some((item) => ["PENDING", "CONFLICT", "STALE"].includes(item.status)) && <p>Keine offenen Proposals.</p>}
-      </div>
-
-      <h3 style={{ marginTop: 28 }}>Gold Readiness</h3>
-      <ul>{profile.readiness.gaps.map((gap) => <li key={`${gap.state}:${gap.item}`}><strong>{gap.state}</strong>: {gap.item}</li>)}</ul>
-
-      <h3 style={{ marginTop: 28 }}>Canonical Intelligence (read-only)</h3>
-      <p>Snapshot {profile.canonicalN4?.snapshotHash ?? "UNKNOWN"} · {concepts.length} Concepts · Confidence {profile.canonicalN4?.confidence ?? "UNKNOWN"}</p>
-      <ul>{concepts.map(([key, value]) => <li key={key}><strong>{key}</strong> <code>{JSON.stringify(value)}</code></li>)}</ul>
-      <p><small>{profile.legacy.label}. N4 confidence and snapshot cannot be edited here.</small></p>
-    </section>
-  );
+  return <section className="spot-editor-section human-spot-editor">
+    <header className="human-editor-header"><div><div className="spot-editor-eyebrow">Spot-Verständnis</div><h2>Erkläre Backyrd diesen Ort</h2><p>Du brauchst keine technischen Begriffe. Beschreibe nur, was zuverlässig stimmt. Unbekannt ist besser als geraten.</p></div><div className="human-readiness"><strong>{profile.readiness.coverage}%</strong><span>{profile.readiness.status === "GOLD_READY" ? "Gut und verlässlich beschrieben" : "Teilweise beschrieben"}</span></div></header>
+    {message && <p className="by-alert" role="status">{message}</p>}
+    <div className="human-readiness-grid"><div><h3>Bereits gut beschrieben</h3><ul>{(profile.readiness.ready ?? []).map((item) => <li key={item.item}>✓ {item.label ?? item.item}</li>)}</ul></div><div><h3>Noch offen oder zu prüfen</h3><ul>{profile.readiness.gaps.map((gap) => <li key={`${gap.state}:${gap.item}`}><strong>{gap.state === "UNKNOWN" ? "○" : "!"}</strong> {gap.label ?? gap.item}{gap.detail && <small>{gap.detail}</small>}</li>)}{(profile.reviewIssues ?? []).map((issue) => <li key={issue.code}><strong>!</strong> {humanField(issue.fieldKey).question}: {issue.label}<small>{issue.detail}</small>{issue.factId && <span className="human-issue-actions"><button type="button" disabled={busy !== null} onClick={() => void reviewAcceptedFact(issue.factId!, "RETRACT")}>Angabe zurückziehen</button><button type="button" disabled={busy !== null} onClick={() => void reviewAcceptedFact(issue.factId!, "MARK_STALE")}>Als veraltet markieren</button></span>}</li>)}</ul></div></div>
+    <section className="human-source-panel"><h3>Quelle für neue Angaben</h3><p>Woher stammt die Information? Diese Angabe bleibt mit deiner Änderung verbunden.</p><div className="spot-editor-grid"><label><span>Quelle</span><select value={sourceType} onChange={(e) => setSourceType(e.target.value)}>{SOURCE_OPTIONS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label><span>Website oder Referenz</span><input value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} placeholder="https://… (bei Online-Quelle)" /><input value={sourceReference} onChange={(e) => setSourceReference(e.target.value)} placeholder="z. B. vor Ort geprüft am …" /></label><label><span>Gilt diese Information für den Ort allgemein?</span><select value={scope} onChange={(e) => setScope(e.target.value)}>{SCOPE_OPTIONS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></div></section>
+    {sections.map(({ key, config, fields }) => <section key={key} className="human-editor-section"><h3>{config?.label}</h3><p>{config?.description}</p><div className="human-field-list">{fields.map((field) => { const accepted = acceptedByField.get(field.field_key); const fieldIssue = issueByField.get(field.field_key); const value = drafts[field.field_key] ?? accepted?.value ?? blankValue(field); const details = humanField(field.field_key); const source = accepted ? sourceById.get(accepted.source_id) : undefined; return <article key={field.field_key} className="human-field-card"><div className="human-field-copy"><h4>{details.question}</h4>{"help" in details && details.help && <p>{details.help}</p>}{accepted ? <div className="human-current"><strong>Aktuell bestätigt: {humanValue(accepted.value)}</strong><span>{sourceLabel(source)}{accepted.last_checked_at || accepted.accepted_at ? ` · zuletzt geprüft ${new Date(accepted.last_checked_at ?? accepted.accepted_at ?? "").toLocaleDateString("de-CH")}` : ""}</span>{fieldIssue && <em>Zu prüfen: {fieldIssue.label}</em>}</div> : <div className="human-current unknown"><strong>Noch nicht bestätigt</strong></div>}</div><div className="human-field-control"><HumanControl field={field} value={value} onChange={(next) => setDrafts((current) => ({ ...current, [field.field_key]: next }))} /><button type="button" disabled={busy !== null} onClick={() => void submit(field)}>{busy === field.field_key ? "Wird gespeichert …" : accepted ? "Änderung zur Prüfung speichern" : "Angabe zur Prüfung speichern"}</button></div></article>; })}</div></section>)}
+    <section className="human-review-section"><h3>Angaben zur Prüfung</h3><p>Bestätigen verändert die bestehende Wahrheit nachvollziehbar; alte Werte bleiben in der Historie.</p>{open.length ? <div className="human-proposal-list">{open.map((proposal) => { const source = sourceById.get(proposal.source_id); const proposalScope = proposal.evidence_scope ?? proposal.research_evidence_scope ?? "UNGEKLÄRT"; return <article key={proposal.id}><h4>{humanField(proposal.field_key).question}</h4><p><strong>Vorschlag:</strong> {humanValue(proposal.proposed_value)}</p><p><strong>Quelle:</strong> {sourceLabel(source)}{source?.source_url ? ` · ${source.source_url}` : ""}</p><p><strong>Gültigkeit:</strong> {proposalScope === "SPOT" ? "Gilt allgemein für den Ort" : proposalScope === "EVENT" ? "Nur Event" : proposalScope === "PROGRAM" ? "Nur Angebot / Programm" : proposalScope === "TEMPORARY" ? "Nur vorübergehend" : "Gültigkeit muss geprüft werden"}</p>{proposal.evidence_excerpt && <p>{proposal.evidence_excerpt}</p>}<div><button type="button" disabled={busy !== null || proposalScope !== "SPOT"} onClick={() => void review(proposal.id, "ACCEPT")}>Bestätigen</button><button type="button" disabled={busy !== null} onClick={() => void review(proposal.id, "REJECT")}>Ablehnen</button><button type="button" disabled={busy !== null || proposalScope !== "SPOT"} onClick={() => void review(proposal.id, "MARK_UNKNOWN")}>Als unbekannt markieren</button><button type="button" disabled={busy !== null} onClick={() => void review(proposal.id, "MARK_STALE")}>Als veraltet markieren</button></div></article>; })}</div> : <p>Keine offenen Angaben.</p>}</section>
+    {profile.actor.role === "FOUNDER" && <details className="human-debug"><summary>Technische Diagnose für Founder</summary><p>Snapshot: {profile.canonicalN4?.snapshotHash ?? "nicht vorhanden"}</p><pre>{JSON.stringify({ acceptedFacts: profile.acceptedFacts, reviewIssues: profile.reviewIssues, concepts: profile.canonicalN4?.intelligence?.concepts }, null, 2)}</pre></details>}
+  </section>;
 }

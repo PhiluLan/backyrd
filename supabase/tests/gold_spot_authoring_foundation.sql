@@ -94,6 +94,10 @@ do $$ begin
   perform public.backyrd_gold_create_source_v1(pg_temp.gold_uuid('pro-spot'),'OWNER_CLAIM',null,'attack',null,null,now(),null,'NOT_REQUIRED');
   raise exception 'cross owner source accepted';
  exception when insufficient_privilege then null; end;
+ begin
+  perform public.backyrd_gold_review_issues_v1(pg_temp.gold_uuid('pro-spot'));
+  raise exception 'cross owner review issues exposed';
+ exception when insufficient_privilege then perform pg_temp.assert(sqlerrm='spot_access_denied','review issues enforce Spot ownership'); end;
 end $$;
 
 select pg_temp.actor(pg_temp.gold_uuid('admin'));
@@ -132,6 +136,33 @@ end $$;
 
 select pg_temp.actor(pg_temp.gold_uuid('founder'));
 select pg_temp.assert((public.backyrd_gold_profile_v1(pg_temp.gold_uuid('other-spot'))->'actor'->>'role')='FOUNDER','Founder has all-Spot access');
+
+do $$
+declare website_proposal uuid;event_proposal uuid;spot_family_proposal uuid;spot_family_fact uuid;result jsonb;accepted_before bigint;
+begin
+ result:=public.backyrd_gold_submit_human_proposal_v1(pg_temp.gold_uuid('pro-spot'),'contact.website','"https://example.invalid/pro"','OFFICIAL_WEBSITE','https://example.invalid/pro',null,'SPOT','human-website');
+ website_proposal:=(result->>'proposalId')::uuid;
+ perform public.backyrd_gold_review_proposal_v1(website_proposal,'ACCEPT','Official website verified');
+ perform pg_temp.assert((select website='https://example.invalid/pro' from public.spots where id=pg_temp.gold_uuid('pro-spot')),'accepted website projects to Product basis atomically');
+ perform pg_temp.assert(public.backyrd_gold_readiness_v1(pg_temp.gold_uuid('pro-spot'))->>'version'='backyrd-human-spot-readiness-v1','one human readiness contract is authoritative');
+ perform pg_temp.assert(public.backyrd_gold_profile_v1(pg_temp.gold_uuid('pro-spot'))->'canonicalN4'->'intelligence'->>'placeType'='activity','N4 top-level place type is canonical adapter output');
+ perform pg_temp.assert(public.backyrd_gold_profile_v1(pg_temp.gold_uuid('pro-spot'))->'canonicalN4'->'intelligence'#>>'{facts,place_type}'='activity','N4 facts and top-level place type cannot disagree');
+ select count(*) into accepted_before from jsonb_array_elements(public.backyrd_gold_profile_v1(pg_temp.gold_uuid('pro-spot'))->'acceptedFacts') item where item->>'field_key'='suitability.family_kids' and item->>'status'='ACTIVE';
+ result:=public.backyrd_gold_submit_human_proposal_v1(pg_temp.gold_uuid('pro-spot'),'suitability.family_kids','"SUITABLE"','ADMIN_VERIFIED',null,'event:test','EVENT','human-event-family');
+ event_proposal:=(result->>'proposalId')::uuid;
+ begin
+  perform public.backyrd_gold_review_proposal_v1(event_proposal,'ACCEPT','Event only');
+  raise exception 'event proposal entered general Spot truth';
+ exception when invalid_parameter_value then perform pg_temp.assert(sqlerrm='general_spot_acceptance_requires_spot_scope','Event evidence fails closed'); end;
+ perform pg_temp.assert((select count(*) from jsonb_array_elements(public.backyrd_gold_profile_v1(pg_temp.gold_uuid('pro-spot'))->'acceptedFacts') item where item->>'field_key'='suitability.family_kids' and item->>'status'='ACTIVE')=accepted_before,'Event evidence cannot mutate general accepted truth');
+ result:=public.backyrd_gold_submit_human_proposal_v1(pg_temp.gold_uuid('pro-spot'),'suitability.family_kids','"UNKNOWN"','ADMIN_VERIFIED',null,'admin:family-unknown','SPOT','human-spot-family');
+ spot_family_proposal:=(result->>'proposalId')::uuid;
+ perform public.backyrd_gold_review_proposal_v1(spot_family_proposal,'ACCEPT','General Spot fact');
+ select (item->>'id')::uuid into spot_family_fact from jsonb_array_elements(public.backyrd_gold_profile_v1(pg_temp.gold_uuid('pro-spot'))->'acceptedFacts') item where (item->>'proposal_id')::uuid=spot_family_proposal;
+ result:=public.backyrd_gold_review_accepted_fact_v1(spot_family_fact,'RETRACT','Founder correction');
+ perform pg_temp.assert(result->>'status'='SUPERSEDED','accepted fact is superseded rather than deleted');
+ perform pg_temp.assert(not exists(select 1 from jsonb_array_elements(public.backyrd_gold_profile_v1(pg_temp.gold_uuid('pro-spot'))->'acceptedFacts') item where (item->>'id')::uuid=spot_family_fact),'Founder can retract problematic accepted truth without deleting history');
+end $$;
 
 reset role;
 set local role service_role;
@@ -183,11 +214,18 @@ select pg_temp.actor(pg_temp.gold_uuid('owner-pro'));
 select pg_temp.assert((public.backyrd_gold_profile_v1(pg_temp.gold_uuid('pro-spot'))->'actor'->>'capability')='BASIC','downgrade locks Deep authoring');
 select pg_temp.assert(exists(select 1 from jsonb_array_elements(public.backyrd_gold_profile_v1(pg_temp.gold_uuid('pro-spot'))->'acceptedFacts') item where item->>'field_key'='suitability.rain' and item->>'status'='ACTIVE'),'downgrade retains accepted Deep truth');
 select pg_temp.assert((public.backyrd_gold_profile_v1(pg_temp.gold_uuid('pro-spot'))->'canonicalN4'->>'snapshotHash') is not null,'downgrade retains canonical N4');
+do $$ declare fact_id uuid; begin
+ select (item->>'id')::uuid into fact_id from jsonb_array_elements(public.backyrd_gold_profile_v1(pg_temp.gold_uuid('pro-spot'))->'acceptedFacts') item where item->>'field_key'='contact.website' limit 1;
+ begin perform public.backyrd_gold_review_accepted_fact_v1(fact_id,'RETRACT','Owner attack');raise exception 'Owner retracted accepted truth';
+ exception when insufficient_privilege then perform pg_temp.assert(sqlerrm='admin_or_founder_required','Owner cannot retract accepted truth');end;
+end $$;
 
 select pg_temp.assert(not has_table_privilege('authenticated','public.backyrd_spot_accepted_facts_v1','insert'),'clients cannot write accepted facts');
 select pg_temp.assert(not has_function_privilege('authenticated','public.backyrd_gold_submit_research_proposal_v1(uuid,text,jsonb,text,text,timestamptz,text,text,text)','execute'),'Research service API is not client-callable');
 select pg_temp.assert(not has_function_privilege('authenticated','public.backyrd_gold_submit_research_batch_v2(uuid,uuid,jsonb,jsonb)','execute'),'Research batch API is not client-callable');
 select pg_temp.assert(not has_table_privilege('authenticated','public.backyrd_spot_research_runs_v1','select'),'Research audit metadata is not client-readable');
+select pg_temp.assert(not has_function_privilege('authenticated','public.backyrd_gold_review_proposal_legacy_v1(uuid,text,text)','execute'),'legacy review implementation cannot bypass scope checks');
+select pg_temp.assert(not has_function_privilege('authenticated','public.backyrd_gold_rebuild_spot_legacy_v1(uuid)','execute'),'legacy rebuild implementation is not client-callable');
 reset role;
 select pg_temp.assert((select count(*)=60 from public.backyrd_spot_intelligence_dimensions_v1),'authoring never extends frozen N4 registry');
 

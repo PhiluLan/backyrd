@@ -130,9 +130,9 @@ export type OwnerGoldProfile = {
   actor: { role: "OWNER" | "ADMIN" | "FOUNDER"; capability: "BASIC" | "DEEP"; ownerTier: "BASIC" | "PRO" | "ADMIN" };
   catalog: Array<{ field_key: string; section: string; capability: "BASIC" | "DEEP"; value_kind: string; allowed_values: unknown[]; engine_role: string }>;
   sources: Array<{ id: string; source_type: string; source_url: string | null; source_reference: string | null }>;
-  proposals: Array<{ id: string; field_key: string; proposed_value: unknown; status: string; created_at: string }>;
-  acceptedFacts: Array<{ id: string; field_key: string; value: unknown; status: string }>;
-  readiness: { status: "GOLD_READY" | "PARTIAL"; coverage: number; gaps: Array<{ item: string; state: string }>; n4?: { snapshotHash?: string; conceptCount?: number } };
+  proposals: Array<{ id: string; field_key: string; proposed_value: unknown; status: string; created_at: string; evidence_scope?: string | null }>;
+  acceptedFacts: Array<{ id: string; field_key: string; value: unknown; status: string; source_id: string; accepted_at?: string; last_checked_at?: string | null; evidence_scope?: string | null }>;
+  readiness: { status: "GOLD_READY" | "PARTIAL"; coverage: number; gaps: Array<{ item: string; state: string; label?: string; detail?: string }>; ready?: Array<{item:string;label?:string}>; n4?: { snapshotHash?: string; conceptCount?: number } };
   canonicalN4: { snapshotHash?: string; intelligence?: { concepts?: Record<string, unknown> } } | null;
 };
 
@@ -290,28 +290,17 @@ export async function submitOwnerGoldProposal(input: {
   value: unknown;
   sourceUrl?: string | null;
   sourceReference?: string | null;
+  evidenceScope?: "SPOT" | "EVENT" | "PROGRAM" | "TEMPORARY";
 }) {
-  const { data: sourceId, error: sourceError } = await supabase.rpc("backyrd_gold_create_source_v1", {
-    p_spot_id: input.spotId,
-    p_source_type: input.sourceUrl ? "OFFICIAL_WEBSITE" : "OWNER_CLAIM",
-    p_source_url: input.sourceUrl ?? null,
-    p_source_reference: input.sourceReference ?? `owner-claim:${crypto.randomUUID()}`,
-    p_title: "Owner Editor V2",
-    p_provider_identity: "Spot Owner",
-    p_observed_at: new Date().toISOString(),
-    p_last_checked_at: input.sourceUrl ? new Date().toISOString() : null,
-    p_legal_use_status: "NOT_REQUIRED",
-  });
-  if (sourceError) throw new Error(extractOwnerError(sourceError));
-
-  const { data, error } = await supabase.rpc("backyrd_gold_submit_proposal_v1", {
+  const { data, error } = await supabase.rpc("backyrd_gold_submit_human_proposal_v1", {
     p_spot_id: input.spotId,
     p_field_key: input.fieldKey,
     p_value: input.value,
-    p_source_id: sourceId,
-    p_idempotency_key: `owner-v2:${crypto.randomUUID()}`,
-    p_confidence_rationale: "Owner-provided structured claim; canonical qualification remains server-controlled.",
-    p_evidence_excerpt: null,
+    p_source_type: input.sourceUrl ? "OFFICIAL_WEBSITE" : "OWNER_CLAIM",
+    p_source_url: input.sourceUrl ?? null,
+    p_source_reference: input.sourceReference ?? `owner-claim:${crypto.randomUUID()}`,
+    p_evidence_scope: input.evidenceScope ?? "SPOT",
+    p_idempotency_key: `owner-human-v1:${crypto.randomUUID()}`,
   });
   if (error) throw new Error(extractOwnerError(error));
   return data;

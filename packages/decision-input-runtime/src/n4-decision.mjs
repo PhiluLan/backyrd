@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { FACT_KEYS,SEMANTIC_CONTRACT_VERSION } from "../../canonical-semantics/src/index.mjs";
+import { FACT_KEYS,PLACE_TYPES,SEMANTIC_CONTRACT_VERSION } from "../../canonical-semantics/src/index.mjs";
 
 export const N4_DECISION_VERSION = "backyrd-n4-decision-serialization-v2";
 const canonical = (value) => value && typeof value === "object" ? Array.isArray(value) ? value.map(canonical) : Object.fromEntries(Object.keys(value).sort().map((key)=>[key,canonical(value[key])])) : value;
@@ -14,19 +14,20 @@ function serializeSuitability(value){
 export function serializeCandidateN4(candidate,n4) {
   const concepts = Object.entries(n4?.concepts ?? {}).map(([concept,value])=>({concept,presence:bounded(value.presence),confidence:bounded(value.confidence),provenanceIdentity:value.provenance ?? null})).filter((row)=>row.presence!==null&&row.confidence!==null).sort((a,b)=>a.concept.localeCompare(b.concept));
   const suitabilityFacts=serializeSuitability(n4?.suitabilityFacts);
-  const availability = !n4?.available || (concepts.length===0&&Object.keys(suitabilityFacts).length===0) ? "UNKNOWN" : n4.placeType && n4.snapshotIdentity ? "FULL" : "PARTIAL";
+  const canonicalPlaceType=PLACE_TYPES.includes(n4?.placeType)?n4.placeType:null;
+  const availability = !n4?.available || (concepts.length===0&&Object.keys(suitabilityFacts).length===0) ? "UNKNOWN" : canonicalPlaceType && n4.snapshotIdentity ? "FULL" : "PARTIAL";
   const body = {
     version:N4_DECISION_VERSION,
     spotId:candidate.spotId,
     availability,
-    placeType:n4?.placeType ?? null,
+    placeType:canonicalPlaceType,
     concepts,
     suitabilityFacts,
     snapshotIdentity:n4?.snapshotIdentity ?? null,
     freshness:n4?.freshness ?? null,
     productFacts:{city:candidate.city,category:candidate.category,placeType:candidate.productPlaceType,openNow:candidate.openNow},
     semanticContractVersion:SEMANTIC_CONTRACT_VERSION,
-    boundaries:{legacySubstitution:false,commercialSignals:false,derivedConfidenceEditable:false},
+    boundaries:{legacySubstitution:false,commercialSignals:false,derivedConfidenceEditable:false,invalidPlaceTypeRejected:n4?.placeType!=null&&!canonicalPlaceType},
   };
   return {...body,snapshotHash:hash(body)};
 }

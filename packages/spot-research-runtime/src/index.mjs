@@ -238,7 +238,8 @@ export function buildDeterministicProposalPlan(evidence, context) {
     const ageExplicit = item.factKey !== "suitability.age" || /\b\d{1,2}\b/.test(item.shortEvidence);
     const rainExplicit = item.factKey !== "suitability.rain" || /\b(rain|rainy|wet.weather|regen|regentag|wetter)\b/i.test(item.shortEvidence);
     const openingStatusExplicit = item.factKey !== "opening.status" || /\b(currently operating|open to visitors|museum is open|geöffnet|in betrieb)\b/i.test(item.shortEvidence);
-    if (item.supportStatus === "SUPPORTED" && item.evidenceScope === "SPOT" && ageExplicit && rainExplicit && openingStatusExplicit) {
+    const daypartSuitabilityExplicit = item.factKey !== "time.dayparts" || /\b(best suited|especially suited|ideal for|particularly good|besonders geeignet|ideal für|passt besonders|empfohlen am)\b/i.test(item.shortEvidence);
+    if (item.supportStatus === "SUPPORTED" && item.evidenceScope === "SPOT" && ageExplicit && rainExplicit && openingStatusExplicit && daypartSuitabilityExplicit) {
       if (!current) classification = "NEW"; else if (current.status === "STALE") classification = "STALE";
       else if (sameValue(current.value, item.value)) classification = "SAME"; else classification = "CONFLICT";
     }

@@ -897,9 +897,9 @@ export function SpotForm({
         </div>
 
         <div className="by-panel by-section" style={{ padding: 14 }}>
-          <div className="by-h3">Beschreibung & Keywords</div>
+          <div className="by-h3">Beschreibung</div>
           <div className="by-muted by-small">
-            Fliesst direkt ins ML-Dokument und in die semantische Suche ein.
+            Beschreibe den Ort so, wie ihn Menschen verstehen sollen.
           </div>
 
           <div style={{ height: 12 }} />
@@ -914,24 +914,25 @@ export function SpotForm({
             />
           </Field>
 
-          <Field label="Keywords / Suchbegriffe">
+        </div>
+
+        <details className="by-panel by-section" style={{ padding: 14 }}>
+          <summary className="by-h3">Legacy-Daten (nicht Teil des neuen Spot-Verständnisses)</summary>
+          <div className="by-muted by-small">
+            Nur für bestehende Abläufe. Neue verlässliche Angaben werden weiter unten in normaler Sprache gepflegt.
+          </div>
+
+          <div style={{ height: 12 }} />
+
+          <Field label="Alte Suchbegriffe">
             <textarea
               value={adminKeywords}
               onChange={(e) => setAdminKeywords(e.target.value)}
               className="by-input"
               rows={3}
-              placeholder="Kultur, ruhig, urban, inspirierend, Regenwetter…"
+              placeholder="Nur bestehende Legacy-Suchbegriffe"
             />
           </Field>
-        </div>
-
-        <div className="by-panel by-section" style={{ padding: 14 }}>
-          <div className="by-h3">Spot Intelligence</div>
-          <div className="by-muted by-small">
-            Strukturierte Decision-Daten für bessere Empfehlungen und Texte.
-          </div>
-
-          <div style={{ height: 12 }} />
 
           <div className="by-formGrid2">
             <Field label="Gut für">
@@ -1122,7 +1123,7 @@ export function SpotForm({
               placeholder="Nur für Admin / Qualitätssicherung"
             />
           </Field>
-        </div>
+        </details>
 
         <div className="by-panel by-section" style={{ padding: 14 }}>
           <div className="by-h3">Öffnungszeiten</div>
