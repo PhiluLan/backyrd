@@ -6,6 +6,11 @@ import type { Spot, SpotStatus } from "@/types/spots";
 
 type SpotFormValues = Omit<Spot, "id" | "created_at" | "created_by">;
 
+type SpotBasicsSaveResponse = {
+  spot: SpotFormValues;
+  readiness: unknown;
+};
+
 interface SpotFormProps {
   mode: "create" | "edit";
   initialValues?: SpotFormValues & { opening_hours?: any[] };
@@ -107,6 +112,37 @@ function cleanNullableText(value: string): string | null {
   return trimmed.length ? trimmed : null;
 }
 
+function normalizeSpotFormValues(input?: Partial<SpotFormValues>): SpotFormValues {
+  return {
+    name: input?.name ?? "",
+    address: input?.address ?? "",
+    city: input?.city ?? "",
+    country: input?.country ?? "Switzerland",
+    lat: input?.lat ?? null,
+    lng: input?.lng ?? null,
+    category_id: input?.category_id ?? null,
+    price_level: input?.price_level ?? null,
+    website: input?.website ?? "",
+    phone: input?.phone ?? "",
+    email: input?.email ?? "",
+    header_photo_path: input?.header_photo_path ?? "",
+    google_place_id: input?.google_place_id ?? null,
+    google_photo_enabled: input?.google_photo_enabled ?? true,
+    status: input?.status ?? "pending",
+  };
+}
+
+function spotSaveErrorMessage(failure: Record<string, unknown>): string {
+  const raw = String(failure.message || failure.details || failure.hint || "");
+  if (raw.includes("admin_or_founder_required")) return "Du hast keine Berechtigung, diese Basisangaben zu ändern.";
+  if (raw.includes("canonical_basic_fact_requires_review")) return "Diese Angabe widerspricht einer bereits bestätigten Information und muss zuerst geprüft werden.";
+  if (raw.includes("spot_website_invalid")) return "Bitte gib eine vollständige Website-Adresse mit https:// ein.";
+  if (raw.includes("spot_email_invalid")) return "Bitte prüfe die E-Mail-Adresse.";
+  if (raw.includes("spot_price_level_invalid")) return "Bitte wähle ein gültiges Preisniveau.";
+  if (raw.includes("spot_category_invalid")) return "Bitte wähle eine gültige Kategorie.";
+  return raw || "Die Angaben konnten nicht gespeichert werden. Bitte versuche es erneut.";
+}
+
 function createOpeningSlot(
   open_time: string | null = null,
   close_time: string | null = null,
@@ -185,27 +221,10 @@ export function SpotForm({
 }: SpotFormProps) {
   const [values, setValues] = useState<SpotFormValues>(() => {
     if (initialValues) {
-      const { opening_hours: _openingHours, ...spotValues } = initialValues;
-      return spotValues;
+      return normalizeSpotFormValues(initialValues);
     }
 
-    return {
-      name: "",
-      address: "",
-      city: "",
-      country: "Switzerland",
-      lat: null,
-      lng: null,
-      category_id: null,
-      price_level: null,
-      website: "",
-      phone: "",
-      email: "",
-      header_photo_path: "",
-      google_place_id: null,
-      google_photo_enabled: true,
-      status: "pending",
-    };
+    return normalizeSpotFormValues();
   });
 
   const [categories, setCategories] = useState<CategoryOption[]>([]);
@@ -656,11 +675,7 @@ export function SpotForm({
 
     let savedSpotId = spotId ?? null;
 
-    const payload: SpotFormValues = {
-      ...values,
-      lat: values.lat ?? null,
-      lng: values.lng ?? null,
-    };
+    const payload = normalizeSpotFormValues(values);
 
     try {
       if (mode === "create") {
@@ -673,11 +688,20 @@ export function SpotForm({
         if (error || !data) throw error;
         savedSpotId = data.id as string;
       } else if (mode === "edit" && spotId) {
-        const { error } = await supabase
-          .from("spots")
-          .update(payload)
-          .eq("id", spotId);
+        const { data, error } = await supabase.rpc(
+          "backyrd_admin_save_spot_basics_v1",
+          {
+            p_spot_id: spotId,
+            p_patch: payload,
+            p_request_id: crypto.randomUUID(),
+          },
+        );
         if (error) throw error;
+        if (!data || typeof data !== "object" || !("spot" in data)) {
+          throw new Error("Der gespeicherte Spot konnte nicht bestätigt werden.");
+        }
+        const confirmed = data as SpotBasicsSaveResponse;
+        setValues(normalizeSpotFormValues(confirmed.spot));
       }
 
       if (!savedSpotId) throw new Error("Spot ID fehlt nach dem Speichern.");
@@ -701,28 +725,19 @@ export function SpotForm({
 
       await refreshSpotMl(savedSpotId);
 
-      setSuccess("Gespeichert! ML-Dokument wurde aktualisiert und Embedding wurde in die Queue gelegt.");
+      setSuccess("Gespeichert");
       onSaved?.();
-      } catch (err: any) {
-        const details = {
-          message: err?.message,
-          code: err?.code,
-          details: err?.details,
-          hint: err?.hint,
-          name: err?.name,
-          raw: err,
-        };
-
-        console.error("SpotForm save failed:", details);
-
-        setError(
-          err?.message ||
-            err?.details ||
-            err?.hint ||
-            JSON.stringify(details, null, 2) ||
-            "Fehler beim Speichern.",
-        );
-      } finally {
+    } catch (err: unknown) {
+      const failure = err && typeof err === "object" ? err as Record<string, unknown> : {};
+      console.error("SpotForm save failed:", {
+        message: failure.message,
+        code: failure.code,
+        details: failure.details,
+        hint: failure.hint,
+        name: failure.name,
+      });
+      setError(spotSaveErrorMessage(failure));
+    } finally {
       setSaving(false);
     }
   }
