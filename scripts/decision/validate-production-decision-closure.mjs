@@ -11,7 +11,8 @@ const anon=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY??process.env.SUPABASE_ANON_
 const serviceKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
 if(!url||!anon||!serviceKey||!url.includes("hjgcrrzfjchzqoegcywn"))throw new Error("linked Production credentials required");
 
-const options={auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}};
+class NoRealtime{constructor(){throw new Error("realtime_disabled");}}
+const options={auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},realtime:{transport:NoRealtime}};
 const service=createClient(url,serviceKey,options);
 const suffix=randomUUID().slice(0,8),email=`decision-closure-${suffix}@fixture.invalid`,password=`Closure-${randomUUID()}!aA1`;
 let userId=null;
@@ -33,7 +34,7 @@ const cases=[
   ["QUIET_CONVERSATION","Etwas Ruhiges, wo man sich gut unterhalten kann"],
   ["BROAD_UNKNOWN","Was könnten wir machen?"],
 ];
-const ok=(error,label)=>{if(error)throw new Error(`${label}:${error.message}`);};
+const ok=(error,label)=>{if(error)throw new Error(`${label}:${String(error.message??error.name??"unknown")}:status=${String(error.status??"unknown")}:code=${String(error.code??"unknown")}`);};
 
 try{
   const created=await service.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{production_fixture:"decision-closure-v1"}});ok(created.error,"create fixture user");userId=created.data.user.id;
