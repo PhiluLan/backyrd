@@ -179,9 +179,17 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
         <code>{spotId}</code>
       </div>
 
+      <nav className="spot-editor-tabs" aria-label="Spot-Bereiche">
+        <a href="#spot-information">Informationen</a>
+        <a href="#spot-understanding">Backyrd versteht den Spot</a>
+        <a href="#human-sources">Quellen & Prüfung</a>
+        <Link href={`/spots/${spotId}`}>Übersicht</Link>
+        <Link href={`/spots/${spotId}/owner`}>Owner</Link>
+      </nav>
+
       {error ? <div className="by-alert by-alertError">{error}</div> : null}
 
-      <SpotForm
+      <div id="spot-information" className="spot-editor-anchor"><SpotForm
         mode="edit"
         spotId={spotId}
         initialValues={{
@@ -189,8 +197,8 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
           opening_hours: openingHours,
         }}
         onSaved={() => setGoldRefresh((value) => value + 1)}
-      />
-      <GoldAuthoringPanel spotId={spotId} refreshToken={goldRefresh} />
+      /></div>
+      <div id="spot-understanding" className="spot-editor-anchor"><GoldAuthoringPanel spotId={spotId} refreshToken={goldRefresh} /></div>
     </div>
   );
 }

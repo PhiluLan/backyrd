@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type ClaimStatus = "pending" | "approved" | "rejected" | "revoked";
@@ -75,34 +76,44 @@ function scoreLabel(value: string | number | null) {
   return `${Math.round(numeric * 100)}%`;
 }
 
-function errorMessage(err: any) {
+function errorMessage(err: unknown) {
+  const details = err && typeof err === "object" ? err as Record<string, unknown> : {};
   const raw =
-    err?.message ||
-    err?.details ||
-    err?.hint ||
-    err?.error_description ||
+    details.message ||
+    details.details ||
+    details.hint ||
+    details.error_description ||
     String(err ?? "");
+  const message = String(raw);
 
-  if (raw.includes("not_authenticated")) return "Nicht eingeloggt.";
-  if (raw.includes("admin_required")) return "Admin-Rechte erforderlich.";
-  if (raw.includes("claim_not_found")) return "Claim wurde nicht gefunden.";
-  if (raw.includes("business_email_not_verified")) {
+  if (message.includes("not_authenticated")) return "Nicht eingeloggt.";
+  if (message.includes("admin_required")) return "Admin-Rechte erforderlich.";
+  if (message.includes("claim_not_found")) return "Claim wurde nicht gefunden.";
+  if (message.includes("business_email_not_verified")) {
     return "Die Business-Mail wurde noch nicht per Code bestätigt.";
   }
-  if (raw.includes("invalid_decision")) return "Ungültige Entscheidung.";
-  if (raw.includes("claim_not_approved")) {
+  if (message.includes("invalid_decision")) return "Ungültige Entscheidung.";
+  if (message.includes("claim_not_approved")) {
     return "Nur genehmigte Betreiberzugänge können entzogen werden.";
   }
 
-  return raw || "Etwas ist schiefgelaufen.";
+  return message || "Etwas ist schiefgelaufen.";
 }
 
 export default function ClaimsPage() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialStatus = searchParams.get("status");
   const [claims, setClaims] = useState<ClaimQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingClaimId, setSavingClaimId] = useState<number | null>(null);
-  const [statusFilter, setStatusFilter] = useState<ClaimStatus | "all">("pending");
-  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ClaimStatus | "all">(
+    initialStatus === "all" || initialStatus === "pending" || initialStatus === "approved" || initialStatus === "rejected" || initialStatus === "revoked"
+      ? initialStatus
+      : "pending"
+  );
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [decisionModal, setDecisionModal] = useState<DecisionModal>(null);
@@ -111,6 +122,19 @@ export default function ClaimsPage() {
     void loadClaims();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (search.trim()) params.set("q", search.trim());
+      else params.delete("q");
+      if (statusFilter === "pending") params.delete("status");
+      else params.set("status", statusFilter);
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, 250);
+    return () => window.clearTimeout(timeout);
+  }, [pathname, router, search, searchParams, statusFilter]);
 
   async function loadClaims() {
     setLoading(true);
@@ -219,7 +243,7 @@ export default function ClaimsPage() {
 
       setDecisionModal(null);
       await loadClaims();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Claim decision error:", err);
       setError(errorMessage(err));
     } finally {
@@ -306,6 +330,7 @@ export default function ClaimsPage() {
         </div>
 
         <div
+          className="admin-claimsSummary"
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
@@ -362,7 +387,7 @@ export default function ClaimsPage() {
             Keine Claims für diesen Filter gefunden.
           </div>
         ) : (
-          <div className="by-tableWrap">
+          <div className="by-tableWrap admin-responsiveTable">
             <table className="by-table">
               <thead>
                 <tr>
@@ -384,7 +409,7 @@ export default function ClaimsPage() {
 
                   return (
                     <tr key={claim.claim_id}>
-                      <td>
+                      <td data-label="Spot">
                         <div style={{ fontWeight: 950 }}>{claim.spot_name}</div>
                         <div className="by-muted by-small">
                           {claim.spot_city ?? "—"}
@@ -397,7 +422,7 @@ export default function ClaimsPage() {
                         </div>
                       </td>
 
-                      <td>
+                      <td data-label="Antragsteller">
                         <div style={{ fontWeight: 850 }}>
                           {claim.claimant_name ?? "—"}
                         </div>
@@ -419,7 +444,7 @@ export default function ClaimsPage() {
                         ) : null}
                       </td>
 
-                      <td>
+                      <td data-label="Business-Mail">
                         <div style={{ fontWeight: 850 }}>
                           {claim.business_email ?? "—"}
                         </div>
@@ -428,7 +453,7 @@ export default function ClaimsPage() {
                         </div>
                       </td>
 
-                      <td>
+                      <td data-label="Domain">
                         <div style={{ fontWeight: 850 }}>
                           {claim.business_domain ?? "—"}
                         </div>
@@ -440,17 +465,17 @@ export default function ClaimsPage() {
                         </div>
                       </td>
 
-                      <td>
+                      <td data-label="Status">
                         <span className={statusBadgeClass(claim.claim_status)}>
                           {STATUS_LABELS[claim.claim_status]}
                         </span>
                       </td>
 
-                      <td className="by-muted">
+                      <td data-label="Eingereicht" className="by-muted">
                         {formatDate(claim.submitted_at ?? claim.created_at)}
                       </td>
 
-                      <td style={{ textAlign: "right" }}>
+                      <td data-label="Aktion" style={{ textAlign: "right" }}>
                         {isPending ? (
                           <div
                             style={{
