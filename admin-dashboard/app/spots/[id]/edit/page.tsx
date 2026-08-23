@@ -42,6 +42,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
   const [openingHours, setOpeningHours] = useState<OpeningHourRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [goldRefresh, setGoldRefresh] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -66,9 +67,9 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
 
         setSpot(spotData as Spot);
         setOpeningHours((hoursData ?? []) as OpeningHourRow[]);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(err);
-        setError(err?.message ?? "Fehler beim Laden.");
+        setError(err instanceof Error ? err.message : "Fehler beim Laden.");
       } finally {
         setLoading(false);
       }
@@ -115,9 +116,9 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
 
       if (deleteError) throw deleteError;
       router.push("/spots");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err?.message ?? "Fehler beim Löschen.");
+      setError(err instanceof Error ? err.message : "Fehler beim Löschen.");
     } finally {
       setDeleting(false);
     }
@@ -187,8 +188,9 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
           ...spot,
           opening_hours: openingHours,
         }}
+        onSaved={() => setGoldRefresh((value) => value + 1)}
       />
-      <GoldAuthoringPanel spotId={spotId} />
+      <GoldAuthoringPanel spotId={spotId} refreshToken={goldRefresh} />
     </div>
   );
 }

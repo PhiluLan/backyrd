@@ -68,6 +68,46 @@ export const CONTEXT_KEYS=Object.freeze({social:["solo","date","friends","family
 export const REVIEW_ORIGINS = Object.freeze({SMART_REVIEW:{reviewOrigin:"SMART_REVIEW",productEvidenceOrigin:"smart_review_v1"},STANDARD_REVIEW:{reviewOrigin:"STANDARD_REVIEW",productEvidenceOrigin:null}});
 export const EVIDENCE_AUTHORITIES = Object.freeze({SELF_DECLARED:"DECLARED",DIRECT_REVIEW:"DIRECT_REVIEW",COMPARATIVE:"COMPARATIVE",BEHAVIORAL:"BEHAVIORAL",CURRENT_MOMENT:"CURRENT_CONTEXT_ONLY"});
 export const FACTUAL_REASON_CODES = Object.freeze(["RAIN_SUITABLE","INDOOR_MATCH","CHILD_AGE_MATCH","FAMILY_SUITABLE","ACTIVITY_MATCH","ACCESSIBILITY_MATCH"]);
+
+// Human-facing authoring metadata. Canonical keys stay server-owned; clients use
+// this registry only to render the same questions and labels across Admin/Owner.
+export const HUMAN_SPOT_SECTIONS = Object.freeze([
+  {key:"ACTIVITY_DETAILS",label:"Was kann man hier machen?",description:"Wähle nur Aktivitäten, die am Ort tatsächlich angeboten werden."},
+  {key:"SUITABILITY",label:"Eignung & Besuch",description:"Beschreibe den Ort ehrlich. „Weiß ich nicht“ ist eine gültige Antwort."},
+  {key:"AUDIENCE_SOCIAL",label:"Für wen und welche Stimmung?",description:"Hier geht es um die typische Eignung des Ortes, nicht um einzelne Events."},
+]);
+
+export const HUMAN_SPOT_FIELDS = Object.freeze({
+  "activity.types":{question:"Was kann man hier machen?",help:"Mehrfachauswahl aus dem gemeinsamen Backyrd-Aktivitätskatalog."},
+  "suitability.environment":{question:"Wo findet das Erlebnis hauptsächlich statt?",labels:{INDOOR:"Drinnen",OUTDOOR:"Draußen",MIXED:"Drinnen und draußen",UNKNOWN:"Weiß ich nicht"}},
+  "suitability.rain":{question:"Wie gut eignet sich der Ort bei Regen?",labels:{SUITABLE:"Gut geeignet",LIMITED:"Teilweise geeignet",NOT_SUITABLE:"Eher nicht geeignet",UNKNOWN:"Weiß ich nicht"}},
+  "suitability.family_kids":{question:"Ist der Ort grundsätzlich für Familien mit Kindern geeignet?",labels:{SUITABLE:"Ja",NOT_SUITABLE:"Nein",UNKNOWN:"Weiß ich nicht"}},
+  "audience.basic":{question:"Für wen eignet sich der Ort grundsätzlich?",help:"Eine einfache Mehrfachauswahl; detaillierte Einschätzungen sind mit Owner Pro möglich."},
+  "reservation.recommended":{question:"Ist eine Reservierung grundsätzlich empfohlen?",labels:{YES:"Ja",NO:"Nein",UNKNOWN:"Weiß ich nicht"}},
+  "duration.approximate":{question:"Wie lange dauert ein typischer Besuch ungefähr?",help:"Eine grobe, sachliche Spanne in Minuten."},
+  "suitability.age":{question:"Für welches Alter eignet sich der Ort sinnvoll?",help:"Nur angeben, wenn dies zuverlässig bekannt ist. Alter darf unbekannt bleiben."},
+  "social.suitability":{question:"Für wen passt der Ort?",help:"Bewerte jede Situation einzeln."},
+  "atmosphere.descriptors":{question:"Wie fühlt sich der Ort typischerweise an?",help:"Nur passende, belegbare Beschreibungen wählen."},
+  "character.noise":{question:"Wie laut ist es normalerweise?",labels:{QUIET:"Ruhig",MODERATE:"Mittel",LOUD:"Laut",VARIABLE:"Unterschiedlich",UNKNOWN:"Weiß ich nicht"}},
+  "suitability.conversation":{question:"Wie gut kann man sich unterhalten?",labels:{HIGH:"Sehr gut",MEDIUM:"Gut",LOW:"Eher schwierig",UNKNOWN:"Weiß ich nicht"}},
+  "reservation.character":{question:"Wie spontan kann man den Ort besuchen?",labels:{WALK_IN:"Einfach vorbeikommen",RECOMMENDED:"Reservierung empfohlen",REQUIRED:"Reservierung erforderlich",BOOK_AHEAD:"Vorausplanung nötig",UNKNOWN:"Weiß ich nicht"}},
+  "duration.character":{question:"Wie lange bleibt man typischerweise?",labels:{SHORT:"Bis etwa 1 Stunde",MEDIUM:"Etwa 1–2 Stunden",LONG:"Mehr als 2 Stunden",FLEXIBLE:"Sehr unterschiedlich",UNKNOWN:"Weiß ich nicht"}},
+  "accessibility.capabilities":{question:"Welche Barrierefreiheits-Eigenschaften sind vorhanden?",help:"Jede Eigenschaft separat mit Ja, Nein oder Unbekannt erfassen."},
+  "time.dayparts":{question:"Wann passt der Ort besonders gut?",help:"Nicht aus Öffnungszeiten ableiten; nur qualitative Eignung auswählen."},
+  "signature.characteristics":{question:"Was macht den Ort besonders?",help:"Kurze menschliche Highlights. Sie werden nicht automatisch zu Taste-Wahrheit."},
+});
+
+export const HUMAN_VALUE_LABELS = Object.freeze({
+  UNKNOWN:"Weiß ich nicht",SUITABLE:"Gut geeignet",NOT_SUITABLE:"Eher nicht geeignet",
+  SOLO:"Alleine",DATE:"Date",FRIENDS:"Freunde",FAMILY:"Familien",GROUPS:"Gruppen",WORK:"Business / Arbeit",
+  MORNING:"Morgens",AFTERNOON:"Nachmittags",EVENING:"Abends",NIGHT:"Nachts",WEEKDAY:"Werktags",WEEKEND:"Am Wochenende",
+  MUSEUM:"Museum / Ausstellung",CULTURE:"Kultur",WORKSHOP:"Workshop",SPORTS:"Sport",CLIMBING:"Klettern",BOULDERING:"Bouldern",GAMING:"Gaming",QUIZ:"Quiz",KARAOKE:"Karaoke",ANIMALS:"Tiere",WATERPARK:"Wasserpark",HISTORY:"Geschichte",LIVE_MUSIC:"Live-Musik",CONCERT:"Konzert",WALK:"Spazieren",PLAYGROUND:"Spielplatz",OTHER:"Anderes",
+  COZY:"Gemütlich",RELAXED:"Entspannt",ROMANTIC:"Romantisch",LIVELY:"Lebendig",QUIET:"Ruhig",SOCIAL:"Gesellig",INSPIRING:"Inspirierend",PLAYFUL:"Verspielt",ELEGANT:"Elegant",DESIGN_LED:"Designgeprägt",AUTHENTIC:"Authentisch",HIDDEN_GEM:"Besonders / Geheimtipp",
+});
+
+export const HUMAN_CONTEXT_LABELS = Object.freeze({solo:"Alleine",date:"Date",friends:"Freunde",family:"Familien",groups:"Gruppen",work:"Business / Arbeit"});
+export const HUMAN_ACCESSIBILITY_LABELS = Object.freeze({step_free:"Stufenlos erreichbar",wheelchair_spaces:"Rollstuhlgerecht",accessible_toilet:"Barrierefreies WC",elevator:"Aufzug",hearing_support:"Unterstützung für Hörbeeinträchtigte",assistance_dogs:"Assistenzhunde erlaubt"});
+export const HUMAN_OBJECT_FIELD_LABELS = Object.freeze({min_age:"Ab welchem Alter",max_age:"Bis zu welchem Alter",adult_supervision_required:"Begleitung durch Erwachsene erforderlich",min_minutes:"Mindestens",max_minutes:"Höchstens"});
 export const INVALID_SEMANTIC_INPUTS = Object.freeze(["a","b","i","l","s","test","test a","test b","test1","test2","v","unmapped-mood"]);
 
 const normalize = (value) => String(value ?? "").trim().toLocaleLowerCase("de-CH");

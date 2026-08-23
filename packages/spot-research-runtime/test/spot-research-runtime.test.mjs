@@ -134,6 +134,14 @@ test("weekly schedule is distinct from open-now and cannot imply operating OPEN"
   assert.equal(plan.proposals.length, 0);
 });
 
+test("weekly schedule cannot imply qualitative daypart suitability", () => {
+  const daypartContext = { ...context, catalog: [...catalog, { field_key: "time.dayparts", value_kind: "MULTI_SELECT", allowed_values: ["MORNING","AFTERNOON","EVENING","WEEKDAY","WEEKEND"], engine_role: "N4_EVIDENCE" }] };
+  const schedule = { ...evidenceRow, fact_key: "time.dayparts", typed_value: ["MORNING","AFTERNOON","WEEKEND"], short_evidence: "Opening hours Tuesday to Sunday 10:00–17:00." };
+  assert.equal(buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [schedule] }, daypartContext, "B").evidence, daypartContext).proposals.length,0);
+  const explicit = { ...schedule, short_evidence: "The official programme says the museum is especially suited to a weekend afternoon visit." };
+  assert.equal(buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [explicit] }, daypartContext, "B").evidence, daypartContext).proposals.length,1);
+});
+
 test("missing official website and private/local sources fail before provider access", () => {
   assert.throws(() => buildResearchRequest({ ...context, spot: { ...spot, website: null } }), /research_source_url_invalid/);
   for (const value of ["http://museum.example", "https://u:p@museum.example", "https://localhost/a", "https://192.168.1.2/a"]) assert.throws(() => normalizePublicHttpsUrl(value));
