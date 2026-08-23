@@ -2,6 +2,7 @@
 // imported unchanged; this layer may only route its already-valid candidates.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { isInternalLiveUser, runInternalLiveDecision } from "./north-star-live.ts";
+import { jsonResponseWithFreshEntityHeaders } from "./live-response.mjs";
 import { sanitizeLiveProductCandidate, sanitizeLiveProductRequestBody, selectLiveCandidateUniverse } from "../../../packages/decision-input-runtime/src/live-product-boundary.mjs";
 
 type Handler = (request: Request) => Promise<Response> | Response;
@@ -91,7 +92,7 @@ realServe(async (request: Request) => {
       return candidate ? { ...sanitizeLiveProductCandidate(candidate, live.reasons[spotId]), rank: index + 1 } : null;
     }).filter(Boolean);
     const safeRequest = sanitizeLiveProductRequestBody(body);
-    return new Response(JSON.stringify({
+    return jsonResponseWithFreshEntityHeaders({
       ...payload,
       query: safeRequest.query,
       queryText: safeRequest.query,
@@ -103,7 +104,7 @@ realServe(async (request: Request) => {
         n6_trace_id: live.n6TraceId, n6_disposition: live.n6Disposition,
         fallback_error: live.errorCode ?? null,
       },
-    }), { status: baseResponse.status, headers: baseResponse.headers });
+    }, baseResponse);
   } catch {
     return baseResponse;
   }
