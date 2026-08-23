@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -106,6 +107,13 @@ export default function FounderDashboardPage() {
             <p>{k.reviews > 0 ? `${format(k.reviews)} Reviews wurden erstellt.` : "Noch keine neuen Reviews."} {data.decision.sessions > 0 ? `${format(data.decision.sessions)} Decisions wurden gestartet.` : ""}</p>
           </div>
           <div className="bi-briefingSignal"><span /> Intelligence online</div>
+        </section>
+
+        <section className="admin-actionGrid" aria-label="Heute zu erledigen">
+          <Link href="/spot-quality"><span>Spots</span><strong>Qualität prüfen</strong><p>Gold-Lücken und unvollständige Spot-Profile bearbeiten.</p><b>Arbeitsliste öffnen →</b></Link>
+          <Link href="/claims?status=pending"><span>Owner</span><strong>{format(k.pending_claims)} Anfragen offen</strong><p>Betreiber-Zugänge nachvollziehbar prüfen.</p><b>Anfragen öffnen →</b></Link>
+          <Link href="/reviews"><span>Reviews</span><strong>{format(k.reviews)} im Zeitraum</strong><p>Neue Erfahrungen und Mood-Evidence überblicken.</p><b>Reviews öffnen →</b></Link>
+          <Link href="/errors"><span>System</span><strong>{format(k.errors)} Fehler</strong><p>{k.errors > 0 ? "Aktuelle Fehler brauchen Aufmerksamkeit." : "Keine Fehler im gewählten Zeitraum."}</p><b>System prüfen →</b></Link>
         </section>
 
         <section className="bi-kpiGrid">

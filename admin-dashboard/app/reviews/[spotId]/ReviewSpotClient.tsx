@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { AdminPageHeader, EmptyState, LoadingState, StatusBadge } from "@/components/admin/AdminUi";
 
 type SpotInfo = {
   id: string;
@@ -34,6 +35,7 @@ export default function ReviewSpotClient({ spotId }: { spotId: string }) {
   const [spot, setSpot] = useState<SpotInfo | null>(null);
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,8 +60,8 @@ export default function ReviewSpotClient({ spotId }: { spotId: string }) {
           .order("created_at", { ascending: false }),
       ]);
 
-    if (spotError) console.error("Spot Load Error:", spotError);
-    if (reviewError) console.error("Review Load Error:", reviewError);
+    if (spotError || reviewError) setError(spotError?.message ?? reviewError?.message ?? "Reviews konnten nicht geladen werden.");
+    else setError("");
 
     setSpot((spotData as SpotInfo | null) ?? null);
     setReviews((reviewData ?? []) as unknown as ReviewRow[]);
@@ -67,47 +69,42 @@ export default function ReviewSpotClient({ spotId }: { spotId: string }) {
   }, [spotId]);
 
   useEffect(() => {
-    void load();
+    const task = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(task);
   }, [load]);
 
   async function deleteReview(id: string) {
+    if (!window.confirm("Dieses Review wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.")) return;
     const { error } = await supabase.from("reviews").delete().eq("id", id);
     if (!error) setReviews((current) => current.filter((review) => review.id !== id));
+    else setError(error.message);
   }
 
-  if (loading) return <p>Lade…</p>;
-  if (!spot) return <p>Spot nicht gefunden.</p>;
+  if (loading) return <div className="by-page"><LoadingState label="Reviews werden geladen …" /></div>;
+  if (!spot) return <div className="by-page"><EmptyState title="Spot nicht gefunden" description={error || "Der Spot ist nicht mehr verfügbar."} action={{href:"/reviews",label:"Zur Review-Übersicht"}} /></div>;
 
   return (
-    <div className="p-8 text-white space-y-6">
-      <h1 className="text-2xl font-bold">
-        Reviews für <span className="text-blue-300">{spot.name}</span>
-      </h1>
-
-      <Link href={`/reviews/${spot.id}/new`} className="inline-block bg-blue-600 px-4 py-2 rounded hover:bg-blue-700">
-        + Neues Review
-      </Link>
-
-      <div className="space-y-4 mt-6">
+    <div className="by-page admin-page">
+      <AdminPageHeader eyebrow="Reviews" title={spot.name} description={`${spot.city ?? "Ort unbekannt"} · ${reviews.length} ${reviews.length === 1 ? "Review" : "Reviews"}`} actions={<><Link href="/reviews" className="bi-actionButton">Zur Übersicht</Link><Link href={`/reviews/${spot.id}/new`} className="bi-primaryButton">Review erfassen</Link></>} />
+      {error ? <div className="admin-errorState"><div><strong>Aktion fehlgeschlagen.</strong><span>{error}</span></div></div> : null}
+      {reviews.length === 0 ? <EmptyState title="Noch keine Reviews" description="Für diesen Spot wurden noch keine Erfahrungen erfasst." /> : <div className="admin-reviewGrid">
         {reviews.map((review) => {
           const moodA = firstRelation(review.mood_a_token)?.token ?? review.mood_a;
           const moodB = firstRelation(review.mood_b_token)?.token ?? review.mood_b;
           const profile = firstRelation(review.profiles);
+          const moods = [moodA, moodB].filter((value): value is string => Boolean(value));
 
           return (
-            <div key={review.id} className="border border-gray-700 rounded p-4 space-y-2">
-              <p>{review.text ?? "–"}</p>
-              <p className="text-sm text-gray-400">
-                Moods: {[moodA, moodB].filter(Boolean).join(", ") || "–"}
-              </p>
-              <p className="text-xs text-gray-500">von {profile?.first_name ?? "Unbekannt"}</p>
-              <button onClick={() => void deleteReview(review.id)} className="text-sm text-red-400">
-                Löschen
-              </button>
-            </div>
+            <article key={review.id} className="admin-reviewDetailCard">
+              <header><div><strong>{profile?.first_name ?? "Backyrd Nutzer"}</strong><span>{new Date(review.created_at).toLocaleString("de-CH", {dateStyle:"medium",timeStyle:"short"})}</span></div><StatusBadge tone="success">Aktiv</StatusBadge></header>
+              <p className="admin-reviewText">{review.text || "Kein Text – dieses Review enthält nur strukturierte Signale."}</p>
+              <div className="admin-reviewMoods"><span>Moods</span>{moods.length ? moods.map((mood) => <b key={mood}>{mood}</b>) : <em>Keine</em>}</div>
+              {review.review_photos?.length ? <div className="admin-reviewPhotos">{review.review_photos.map((photo) => <img key={photo.url} src={photo.url} alt="Review-Aufnahme" />)}</div> : null}
+              <footer><span>Quelle: Product Review</span><button onClick={() => void deleteReview(review.id)}>Review löschen</button></footer>
+            </article>
           );
         })}
-      </div>
+      </div>}
     </div>
   );
 }

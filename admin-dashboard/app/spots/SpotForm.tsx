@@ -6,6 +6,11 @@ import type { Spot, SpotStatus } from "@/types/spots";
 
 type SpotFormValues = Omit<Spot, "id" | "created_at" | "created_by">;
 
+type SpotBasicsSaveResponse = {
+  spot: SpotFormValues;
+  readiness: unknown;
+};
+
 interface SpotFormProps {
   mode: "create" | "edit";
   initialValues?: SpotFormValues & { opening_hours?: any[] };
@@ -17,7 +22,7 @@ const STATUS_OPTIONS: SpotStatus[] = [
   "pending",
   "approved",
   "rejected",
-  "hidden",
+  "archived",
 ];
 
 const PRICE_LEVEL_OPTIONS = [
@@ -107,6 +112,37 @@ function cleanNullableText(value: string): string | null {
   return trimmed.length ? trimmed : null;
 }
 
+function normalizeSpotFormValues(input?: Partial<SpotFormValues>): SpotFormValues {
+  return {
+    name: input?.name ?? "",
+    address: input?.address ?? "",
+    city: input?.city ?? "",
+    country: input?.country ?? "Switzerland",
+    lat: input?.lat ?? null,
+    lng: input?.lng ?? null,
+    category_id: input?.category_id ?? null,
+    price_level: input?.price_level ?? null,
+    website: input?.website ?? "",
+    phone: input?.phone ?? "",
+    email: input?.email ?? "",
+    header_photo_path: input?.header_photo_path ?? "",
+    google_place_id: input?.google_place_id ?? null,
+    google_photo_enabled: input?.google_photo_enabled ?? true,
+    status: input?.status ?? "pending",
+  };
+}
+
+function spotSaveErrorMessage(failure: Record<string, unknown>): string {
+  const raw = String(failure.message || failure.details || failure.hint || "");
+  if (raw.includes("admin_or_founder_required")) return "Du hast keine Berechtigung, diese Basisangaben zu ändern.";
+  if (raw.includes("canonical_basic_fact_requires_review")) return "Diese Angabe widerspricht einer bereits bestätigten Information und muss zuerst geprüft werden.";
+  if (raw.includes("spot_website_invalid")) return "Bitte gib eine vollständige Website-Adresse mit https:// ein.";
+  if (raw.includes("spot_email_invalid")) return "Bitte prüfe die E-Mail-Adresse.";
+  if (raw.includes("spot_price_level_invalid")) return "Bitte wähle ein gültiges Preisniveau.";
+  if (raw.includes("spot_category_invalid")) return "Bitte wähle eine gültige Kategorie.";
+  return raw || "Die Angaben konnten nicht gespeichert werden. Bitte versuche es erneut.";
+}
+
 function createOpeningSlot(
   open_time: string | null = null,
   close_time: string | null = null,
@@ -166,17 +202,6 @@ function extractCountry(place: any): string {
   return item?.long_name ?? "";
 }
 
-function storagePathFromPublicUrl(url: string): string | null {
-  try {
-    const u = new URL(url);
-    const idx = u.pathname.indexOf("/spot-photos/");
-    if (idx === -1) return null;
-    return u.pathname.substring(idx + "/spot-photos/".length);
-  } catch {
-    return null;
-  }
-}
-
 export function SpotForm({
   mode,
   initialValues,
@@ -185,27 +210,10 @@ export function SpotForm({
 }: SpotFormProps) {
   const [values, setValues] = useState<SpotFormValues>(() => {
     if (initialValues) {
-      const { opening_hours: _openingHours, ...spotValues } = initialValues;
-      return spotValues;
+      return normalizeSpotFormValues(initialValues);
     }
 
-    return {
-      name: "",
-      address: "",
-      city: "",
-      country: "Switzerland",
-      lat: null,
-      lng: null,
-      category_id: null,
-      price_level: null,
-      website: "",
-      phone: "",
-      email: "",
-      header_photo_path: "",
-      google_place_id: null,
-      google_photo_enabled: true,
-      status: "pending",
-    };
+    return normalizeSpotFormValues();
   });
 
   const [categories, setCategories] = useState<CategoryOption[]>([]);
@@ -225,6 +233,7 @@ export function SpotForm({
     useState<SpotIntelligenceFormState>(EMPTY_INTELLIGENCE);
 
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -457,17 +466,41 @@ export function SpotForm({
 
   async function deleteExistingPhoto(photo: SpotPhoto) {
     setError(null);
+    setSuccess(null);
+    setDeletingPhotoId(photo.id);
     try {
-      const path = storagePathFromPublicUrl(photo.url);
-      if (path) {
-        await supabase.storage.from("spot-photos").remove([path]);
+      if (!spotId) throw new Error("Spot ID fehlt beim Löschen des Fotos.");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Bitte melde dich erneut an.");
+      const response = await fetch(`/api/admin/spots/${spotId}/photos/${photo.id}/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ requestId: crypto.randomUUID() }),
+      });
+      const result = await response.json() as {
+        error?: string;
+        deletedPhotoId?: number | string;
+        spotId?: string;
+        dbDeleted?: boolean;
+        headerCleared?: boolean;
+      };
+      if (!response.ok) throw new Error(result.error || "Das Foto konnte nicht gelöscht werden.");
+      if (String(result.deletedPhotoId) !== String(photo.id) || result.spotId !== spotId || result.dbDeleted !== true) {
+        throw new Error("Die Löschung konnte nicht bestätigt werden.");
       }
-
-      await supabase.from("spot_photos").delete().eq("id", photo.id);
       setExistingGallery((prev) => prev.filter((p) => p.id !== photo.id));
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message ?? "Fehler beim Löschen des Fotos.");
+      if (result.headerCleared) {
+        setValues((prev) => ({ ...prev, header_photo_path: "" }));
+        setPhotoPreviewUrl(null);
+      }
+      setSuccess("Foto gelöscht");
+      onSaved?.();
+    } catch (err: unknown) {
+      console.error("Spot photo delete failed", err);
+      setError(err instanceof Error ? err.message : "Fehler beim Löschen des Fotos.");
+    } finally {
+      setDeletingPhotoId(null);
     }
   }
 
@@ -656,11 +689,7 @@ export function SpotForm({
 
     let savedSpotId = spotId ?? null;
 
-    const payload: SpotFormValues = {
-      ...values,
-      lat: values.lat ?? null,
-      lng: values.lng ?? null,
-    };
+    const payload = normalizeSpotFormValues(values);
 
     try {
       if (mode === "create") {
@@ -673,11 +702,20 @@ export function SpotForm({
         if (error || !data) throw error;
         savedSpotId = data.id as string;
       } else if (mode === "edit" && spotId) {
-        const { error } = await supabase
-          .from("spots")
-          .update(payload)
-          .eq("id", spotId);
+        const { data, error } = await supabase.rpc(
+          "backyrd_admin_save_spot_basics_v1",
+          {
+            p_spot_id: spotId,
+            p_patch: payload,
+            p_request_id: crypto.randomUUID(),
+          },
+        );
         if (error) throw error;
+        if (!data || typeof data !== "object" || !("spot" in data)) {
+          throw new Error("Der gespeicherte Spot konnte nicht bestätigt werden.");
+        }
+        const confirmed = data as SpotBasicsSaveResponse;
+        setValues(normalizeSpotFormValues(confirmed.spot));
       }
 
       if (!savedSpotId) throw new Error("Spot ID fehlt nach dem Speichern.");
@@ -701,28 +739,19 @@ export function SpotForm({
 
       await refreshSpotMl(savedSpotId);
 
-      setSuccess("Gespeichert! ML-Dokument wurde aktualisiert und Embedding wurde in die Queue gelegt.");
+      setSuccess("Gespeichert");
       onSaved?.();
-      } catch (err: any) {
-        const details = {
-          message: err?.message,
-          code: err?.code,
-          details: err?.details,
-          hint: err?.hint,
-          name: err?.name,
-          raw: err,
-        };
-
-        console.error("SpotForm save failed:", details);
-
-        setError(
-          err?.message ||
-            err?.details ||
-            err?.hint ||
-            JSON.stringify(details, null, 2) ||
-            "Fehler beim Speichern.",
-        );
-      } finally {
+    } catch (err: unknown) {
+      const failure = err && typeof err === "object" ? err as Record<string, unknown> : {};
+      console.error("SpotForm save failed:", {
+        message: failure.message,
+        code: failure.code,
+        details: failure.details,
+        hint: failure.hint,
+        name: failure.name,
+      });
+      setError(spotSaveErrorMessage(failure));
+    } finally {
       setSaving(false);
     }
   }
@@ -1288,8 +1317,9 @@ export function SpotForm({
                   type="button"
                   className="by-galleryDelete"
                   onClick={() => void deleteExistingPhoto(photo)}
+                  disabled={deletingPhotoId === photo.id}
                 >
-                  Entfernen
+                  {deletingPhotoId === photo.id ? "Wird gelöscht …" : "Entfernen"}
                 </button>
               </div>
             ))}
