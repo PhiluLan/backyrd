@@ -22,18 +22,6 @@ interface OpeningHourRow {
   idx: number;
 }
 
-function storagePathFromPublicUrl(url: string): string | null {
-  try {
-    const u = new URL(url);
-    const marker = "/spot-photos/";
-    const pos = u.pathname.indexOf(marker);
-    if (pos === -1) return null;
-    return u.pathname.substring(pos + marker.length);
-  } catch {
-    return null;
-  }
-}
-
 export default function EditSpotPage({ params }: EditSpotPageProps) {
   const router = useRouter();
   const { id: spotId } = React.use(params);
@@ -42,6 +30,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
   const [openingHours, setOpeningHours] = useState<OpeningHourRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [archiveConfirmation, setArchiveConfirmation] = useState(false);
   const [goldRefresh, setGoldRefresh] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,46 +68,25 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
   }, [spotId]);
 
   async function handleDelete() {
-    if (!window.confirm("Diesen Spot inklusive Fotos endgültig löschen?")) return;
-
     setDeleting(true);
     setError(null);
 
     try {
-      const { data: photos } = await supabase
-        .from("spot_photos")
-        .select("url")
-        .eq("spot_id", spotId);
-
-      const toDelete: string[] = [];
-
-      (photos ?? []).forEach((photo) => {
-        const path = storagePathFromPublicUrl(photo.url);
-        if (path) toDelete.push(path);
+      const { data, error: archiveError } = await supabase.rpc("backyrd_admin_archive_spot_v1", {
+        p_spot_id: spotId,
+        p_request_id: crypto.randomUUID(),
       });
-
-      if (spot?.header_photo_path?.startsWith("http")) {
-        const header = storagePathFromPublicUrl(spot.header_photo_path);
-        if (header) toDelete.push(header);
+      if (archiveError) throw archiveError;
+      if (!data || data.spotId !== spotId || data.archived !== true || data.status !== "archived") {
+        throw new Error("Die Archivierung konnte nicht bestätigt werden.");
       }
-
-      if (toDelete.length > 0) {
-        await supabase.storage.from("spot-photos").remove(toDelete);
-      }
-
-      await supabase.from("spot_photos").delete().eq("spot_id", spotId);
-      await supabase.from("spot_hours").delete().eq("spot_id", spotId);
-
-      const { error: deleteError } = await supabase
-        .from("spots")
-        .delete()
-        .eq("id", spotId);
-
-      if (deleteError) throw deleteError;
-      router.push("/spots");
+      setArchiveConfirmation(false);
+      router.push("/spots?status=archived&archiviert=1");
+      router.refresh();
     } catch (err: unknown) {
       console.error(err);
-      setError(err instanceof Error ? err.message : "Fehler beim Löschen.");
+      const message = err instanceof Error ? err.message : "Fehler beim Archivieren.";
+      setError(message.includes("admin_or_founder_required") ? "Dir fehlt die Berechtigung, diesen Spot zu archivieren." : message);
     } finally {
       setDeleting(false);
     }
@@ -164,10 +132,10 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
           <button
             type="button"
             className="spot-editor-delete"
-            onClick={handleDelete}
+            onClick={() => setArchiveConfirmation(true)}
             disabled={deleting}
           >
-            {deleting ? "Wird gelöscht …" : "Spot löschen"}
+            {deleting ? "Wird archiviert …" : "Spot archivieren"}
           </button>
         </div>
       </header>
@@ -188,6 +156,20 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
       </nav>
 
       {error ? <div className="by-alert by-alertError">{error}</div> : null}
+
+      {archiveConfirmation ? (
+        <div className="admin-confirmOverlay" role="presentation">
+          <section className="admin-confirmDialog" role="dialog" aria-modal="true" aria-labelledby="archive-spot-title">
+            <h2 id="archive-spot-title">Spot archivieren?</h2>
+            <p>Der Spot verschwindet aus Backyrd und aktiven Empfehlungen. Reviews, Entscheidungen und Qualitätsdaten bleiben für die Historie erhalten.</p>
+            <p>Die Daten werden nicht gelöscht. Founder/Admin können den Spot später wieder freigeben.</p>
+            <div className="admin-confirmActions">
+              <button type="button" className="bi-actionButton" onClick={() => setArchiveConfirmation(false)} disabled={deleting}>Abbrechen</button>
+              <button type="button" className="spot-editor-delete" onClick={() => void handleDelete()} disabled={deleting}>{deleting ? "Wird archiviert …" : "Spot jetzt archivieren"}</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       <div id="spot-information" className="spot-editor-anchor"><SpotForm
         mode="edit"

@@ -22,7 +22,7 @@ const STATUS_OPTIONS: SpotStatus[] = [
   "pending",
   "approved",
   "rejected",
-  "hidden",
+  "archived",
 ];
 
 const PRICE_LEVEL_OPTIONS = [
@@ -202,17 +202,6 @@ function extractCountry(place: any): string {
   return item?.long_name ?? "";
 }
 
-function storagePathFromPublicUrl(url: string): string | null {
-  try {
-    const u = new URL(url);
-    const idx = u.pathname.indexOf("/spot-photos/");
-    if (idx === -1) return null;
-    return u.pathname.substring(idx + "/spot-photos/".length);
-  } catch {
-    return null;
-  }
-}
-
 export function SpotForm({
   mode,
   initialValues,
@@ -244,6 +233,7 @@ export function SpotForm({
     useState<SpotIntelligenceFormState>(EMPTY_INTELLIGENCE);
 
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -476,17 +466,41 @@ export function SpotForm({
 
   async function deleteExistingPhoto(photo: SpotPhoto) {
     setError(null);
+    setSuccess(null);
+    setDeletingPhotoId(photo.id);
     try {
-      const path = storagePathFromPublicUrl(photo.url);
-      if (path) {
-        await supabase.storage.from("spot-photos").remove([path]);
+      if (!spotId) throw new Error("Spot ID fehlt beim Löschen des Fotos.");
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Bitte melde dich erneut an.");
+      const response = await fetch(`/api/admin/spots/${spotId}/photos/${photo.id}/delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ requestId: crypto.randomUUID() }),
+      });
+      const result = await response.json() as {
+        error?: string;
+        deletedPhotoId?: number | string;
+        spotId?: string;
+        dbDeleted?: boolean;
+        headerCleared?: boolean;
+      };
+      if (!response.ok) throw new Error(result.error || "Das Foto konnte nicht gelöscht werden.");
+      if (String(result.deletedPhotoId) !== String(photo.id) || result.spotId !== spotId || result.dbDeleted !== true) {
+        throw new Error("Die Löschung konnte nicht bestätigt werden.");
       }
-
-      await supabase.from("spot_photos").delete().eq("id", photo.id);
       setExistingGallery((prev) => prev.filter((p) => p.id !== photo.id));
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message ?? "Fehler beim Löschen des Fotos.");
+      if (result.headerCleared) {
+        setValues((prev) => ({ ...prev, header_photo_path: "" }));
+        setPhotoPreviewUrl(null);
+      }
+      setSuccess("Foto gelöscht");
+      onSaved?.();
+    } catch (err: unknown) {
+      console.error("Spot photo delete failed", err);
+      setError(err instanceof Error ? err.message : "Fehler beim Löschen des Fotos.");
+    } finally {
+      setDeletingPhotoId(null);
     }
   }
 
@@ -1303,8 +1317,9 @@ export function SpotForm({
                   type="button"
                   className="by-galleryDelete"
                   onClick={() => void deleteExistingPhoto(photo)}
+                  disabled={deletingPhotoId === photo.id}
                 >
-                  Entfernen
+                  {deletingPhotoId === photo.id ? "Wird gelöscht …" : "Entfernen"}
                 </button>
               </div>
             ))}

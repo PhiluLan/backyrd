@@ -12,7 +12,7 @@ type Spot = { spot_id:string; name:string; city:string|null; status:string|null;
 type Response = { summary:{ spots:number; viewed:number; partner_spots:number; views:number }; spots:Spot[] };
 type Readiness = { spot_id:string; readiness_status:string; coverage:number; gap_count:number; conflict_count:number; attention_state:"READY"|"REVIEW"|"INCOMPLETE" };
 
-const statusLabels: Record<string, string> = { approved: "Freigegeben", pending: "In Prüfung", hidden: "Ausgeblendet", rejected: "Abgelehnt" };
+const statusLabels: Record<string, string> = { approved: "Freigegeben", pending: "In Prüfung", archived: "Archiviert", rejected: "Abgelehnt" };
 const presetValues: Preset[] = ["today", "yesterday", "week", "last_week", "month", "last_month", "year", "last_year"];
 
 export default function SpotsPage() {
@@ -68,6 +68,7 @@ export default function SpotsPage() {
     <div className="bi-page admin-page">
       <AdminPageHeader eyebrow="Spots" title="Orte verwalten" description="Finde schnell die Spots, die Aufmerksamkeit brauchen, und öffne ihr vollständiges Profil." actions={<><DateRangeSelector value={preset} onChange={setPreset}/><Link href="/spots/new" className="bi-primaryButton">Neuen Spot anlegen</Link></>} />
       {error ? <ErrorState message={error} /> : null}
+      {params.get("archiviert") === "1" ? <div className="by-alert by-alertOk" role="status">Spot archiviert. Reviews und historische Daten bleiben erhalten.</div> : null}
       {loading ? <LoadingState label="Spots werden geladen …" /> : null}
       {data ? <>
         <section className="admin-summaryGrid" aria-label="Spot-Übersicht">
@@ -76,7 +77,7 @@ export default function SpotsPage() {
         <section className="admin-listPanel">
           <FilterBar resultLabel={`${rows.length} ${rows.length === 1 ? "Spot" : "Spots"}`}>
             <label className="admin-searchField"><span className="sr-only">Spot suchen</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Spot oder Stadt suchen" /></label>
-            <label><span className="sr-only">Status filtern</span><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">Alle Status</option><option value="approved">Freigegeben</option><option value="pending">In Prüfung</option><option value="hidden">Ausgeblendet</option><option value="rejected">Abgelehnt</option></select></label>
+            <label><span className="sr-only">Status filtern</span><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">Alle Status</option><option value="approved">Freigegeben</option><option value="pending">In Prüfung</option><option value="archived">Archiviert</option><option value="rejected">Abgelehnt</option></select></label>
             {(search || status !== "all") ? <button type="button" className="admin-clearButton" onClick={() => { setSearch(""); setStatus("all"); }}>Filter löschen</button> : null}
           </FilterBar>
           {rows.length === 0 ? <EmptyState title="Keine Spots gefunden" description="Passe Suche oder Filter an." /> : <>

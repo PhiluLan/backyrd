@@ -20,7 +20,7 @@ create function pg_temp.basics_active_value(p_spot uuid,p_key text) returns json
 $$;
 
 do $$
-declare founder uuid:=pg_temp.basics_uuid('basics-founder');owner_id uuid:=pg_temp.basics_uuid('basics-owner');other_owner uuid:=pg_temp.basics_uuid('basics-other-owner');spot_id uuid:=pg_temp.basics_uuid('basics-spot');category_id uuid:=pg_temp.basics_uuid('basics-category');category_name text;
+declare founder uuid:=pg_temp.basics_uuid('basics-founder');owner_id uuid:=pg_temp.basics_uuid('basics-owner');other_owner uuid:=pg_temp.basics_uuid('basics-other-owner');spot_id uuid:=pg_temp.basics_uuid('basics-spot');category_id uuid;
 begin
  insert into auth.users(instance_id,id,aud,role,email,encrypted_password,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values
  ('00000000-0000-0000-0000-000000000000',founder,'authenticated','authenticated','basics-founder@invalid','','{}','{}',now(),now()),
@@ -28,8 +28,7 @@ begin
  ('00000000-0000-0000-0000-000000000000',other_owner,'authenticated','authenticated','basics-other@invalid','','{}','{}',now(),now());
  update public.profiles set is_admin=true where id=founder;
  insert into public.admin_users(user_id,role) values(founder,'super_admin');
- select m.category_name into category_name from public.backyrd_category_place_type_v1 m order by m.category_name limit 1;
- insert into public.categories(id,name) values(category_id,category_name);
+ select id into category_id from public.categories order by name limit 1;
  insert into public.spots(id,name,address,city,country,lat,lng,status,category_id,data_origin,owner_id,website,phone,email)
  values(spot_id,'Basis Persistence Spot','Teststrasse 1','Basel','Switzerland',47.55,7.59,'approved',category_id,'REAL',owner_id,'https://old.invalid','old-phone','old@invalid.test');
  insert into public.backyrd_gold_authoring_owner_allowlist_v1(user_id,reason) values(owner_id,'basis persistence security test');
