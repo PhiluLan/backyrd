@@ -68,7 +68,7 @@ export const ATMOSPHERE_CONCEPT_MAP=Object.freeze({COZY:"vibe.cozy",RELAXED:"vib
 export const CONTEXT_KEYS=Object.freeze({social:["solo","date","friends","family","family_with_kids","work","group","unknown"],occasion:["breakfast","lunch","afterwork","dinner","late_night","celebration","tourist","business","casual","unknown"],provenance:["EXPLICIT","INFERRED","OBSERVED","UNKNOWN"]});
 export const REVIEW_ORIGINS = Object.freeze({SMART_REVIEW:{reviewOrigin:"SMART_REVIEW",productEvidenceOrigin:"smart_review_v1"},STANDARD_REVIEW:{reviewOrigin:"STANDARD_REVIEW",productEvidenceOrigin:null}});
 export const EVIDENCE_AUTHORITIES = Object.freeze({SELF_DECLARED:"DECLARED",DIRECT_REVIEW:"DIRECT_REVIEW",COMPARATIVE:"COMPARATIVE",BEHAVIORAL:"BEHAVIORAL",CURRENT_MOMENT:"CURRENT_CONTEXT_ONLY"});
-export const FACTUAL_REASON_CODES = Object.freeze(["RAIN_SUITABLE","INDOOR_MATCH","CHILD_AGE_MATCH","FAMILY_SUITABLE","ACTIVITY_MATCH","ACCESSIBILITY_MATCH"]);
+export const FACTUAL_REASON_CODES = Object.freeze(["RAIN_SUITABLE","INDOOR_MATCH","OUTDOOR_MATCH","CHILD_AGE_MATCH","FAMILY_SUITABLE","ACTIVITY_MATCH","ACCESSIBILITY_MATCH","DURATION_MATCH","QUIET_MATCH","SOCIAL_CONTEXT_MATCH","CONVERSATION_MATCH","PLANNING_MATCH","DAYPART_MATCH","PRICE_MATCH"]);
 
 // Human-facing authoring metadata. Canonical keys stay server-owned; clients use
 // this registry only to render the same questions and labels across Admin/Owner.
@@ -113,6 +113,129 @@ export const INVALID_SEMANTIC_INPUTS = Object.freeze(["a","b","i","l","s","test"
 
 const normalize = (value) => String(value ?? "").trim().toLocaleLowerCase("de-CH");
 const fold = (value) => normalize(value).normalize("NFKD").replace(/[\u0300-\u036f]/g,"");
+const uniqueValues = (values) => [...new Set(values.filter(Boolean))];
+const canonicalFact = (value,provenance,sourceRef) => ({value,provenance,sourceRef,semanticContractVersion:SEMANTIC_CONTRACT_VERSION});
+
+// One shared, deterministic interpretation boundary for current Product input.
+// Retrieval and N3 consume this same result; neither surface owns a competing
+// free-text vocabulary. The returned legacyHints only adapt canonical meaning
+// to the frozen v13 retrieval contract.
+export function interpretCanonicalCurrentIntent(input={}) {
+  const text=String(input.query??input.rawFreeText??"").trim();
+  const normalizedText=fold(text).replace(/ß/g,"ss");
+  const structured=input.currentFacts??{};
+  const suppliedAudience=[...(input.audience??[]),...(input.selectedAudiences??[])].map(fold);
+  const suppliedPlaceTypes=[...(input.preferredPlaceTypes??[]),...(input.placeTypes??[])].map(fold);
+  const suppliedExcluded=[...(input.excludedPlaceTypes??[])].map(fold);
+
+  const unwrap=(value)=>value&&typeof value==="object"&&!Array.isArray(value)&&"value" in value?value.value:value;
+  const rainInput=unwrap(structured.rain??input.rain);
+  const rain=rainInput
+    ? canonicalFact(String(rainInput).toUpperCase(),"EXPLICIT","product:currentFacts.rain")
+    : /\b(regentag|regnerisch|regen|regenwetter|schlechtwetter|rainy|rain)\b/.test(normalizedText)
+      ? canonicalFact("PREFERRED","EXPLICIT","request:text:rain")
+      : canonicalFact("UNKNOWN","UNKNOWN",null);
+  const explicitAge=unwrap(structured.childAge??input.childAge);
+  const ageMatch=normalizedText.match(/\b(?:mit\s+(?:meiner|meinem|einer|einem)\s+)?(\d{1,2})\s*[- ]?(?:jahrige[nrsm]?|jahre?\s+alt|year[- ]old)\b/);
+  const childAge=Number.isInteger(Number(explicitAge))
+    ? canonicalFact(Number(explicitAge),"EXPLICIT","product:currentFacts.childAge")
+    : ageMatch ? canonicalFact(Number(ageMatch[1]),"EXPLICIT","request:text:childAge") : canonicalFact(null,"UNKNOWN",null);
+  const familyFromProduct=suppliedAudience.some((value)=>["family","family_with_kids","kids","child","kinder","familie"].includes(value));
+  const familyFromText=/\b(tochter|sohn|kind|kinder|daughter|son|child|kids|familie|family)\b/.test(normalizedText);
+  const familyContext=familyFromProduct
+    ? canonicalFact("FAMILY_WITH_CHILD","EXPLICIT","product:audience")
+    : familyFromText||childAge.value!==null
+      ? canonicalFact("FAMILY_WITH_CHILD",familyFromText?"EXPLICIT":"INFERRED",familyFromText?"request:text:family":"derived:childAge")
+      : canonicalFact("UNKNOWN","UNKNOWN",null);
+
+  const detectedPlaceTypes=[];
+  if(/\b(cafe|kaffee|coffee)\b/.test(normalizedText))detectedPlaceTypes.push("cafe");
+  if(/\b(bar|bars|drinks|cocktail|cocktails|bier|beer|wein|wine|afterwork)\b/.test(normalizedText))detectedPlaceTypes.push("bar");
+  if(/\b(restaurant|restaurants|essen|dinner|lunch|brunch|mittagessen|abendessen|food)\b/.test(normalizedText))detectedPlaceTypes.push("restaurant");
+  if(/\b(nachtleben|nightlife|club|party|tanzen)\b/.test(normalizedText))detectedPlaceTypes.push("nightlife");
+  if(/\b(museum|museen|kultur|culture|galerie|gallery|kunst|art|ausstellung|ausstellungen)\b/.test(normalizedText))detectedPlaceTypes.push("culture");
+  if(/\b(aktivitat|aktivitaten|activity|klettern|bouldern|spielplatz|sport|jump|aquabasilea)\b/.test(normalizedText))detectedPlaceTypes.push("activity");
+  if(/\b(ausflug|outing|aussicht|view|spaziergang|walk|park|tierpark|zoo|raus|draussen|outdoor)\b/.test(normalizedText))detectedPlaceTypes.push("outing");
+  if(/\b(erlebnis|experience|besonderes erlebnis)\b/.test(normalizedText))detectedPlaceTypes.push("experience");
+  if(/\b(hotel|unterkunft|hostel)\b/.test(normalizedText))detectedPlaceTypes.push("hotel");
+
+  const excluded=[...suppliedExcluded];
+  if(/\b(keine? bar|nicht bar|no bar|ohne bar|keine drinks|kein alkohol)\b/.test(normalizedText))excluded.push("bar");
+  if(/\b(kein restaurant|nicht restaurant|no restaurant|ohne restaurant|kein dinner|kein essen|nicht essen)\b/.test(normalizedText))excluded.push("restaurant");
+  if(/\b(kein club|nicht club|kein nachtleben|keine party|no party)\b/.test(normalizedText))excluded.push("nightlife");
+  if(familyContext.value==="FAMILY_WITH_CHILD")excluded.push("bar","nightlife");
+  const excludedPlaceTypes=uniqueValues(excluded);
+  let preferredPlaceTypes=uniqueValues([...suppliedPlaceTypes,...detectedPlaceTypes]).filter((value)=>!excludedPlaceTypes.includes(value));
+  if(familyContext.value==="FAMILY_WITH_CHILD"&&preferredPlaceTypes.length===0)preferredPlaceTypes=["activity","culture","outing","experience"];
+
+  const quiet=/\b(ruhig\w*|leise\w*|quiet|calm|nicht laut|nicht zu laut)\b/.test(normalizedText);
+  const lively=/\b(lebendig\w*|lebhaft\w*|lively|energiegeladen\w*)\b/.test(normalizedText);
+  const cozy=/\b(gemutlich\w*|cozy|cosy)\b/.test(normalizedText);
+  const romantic=/\b(romantisch\w*|romantic|date|datenight|date night)\b/.test(normalizedText);
+  const socialContext=familyContext.value==="FAMILY_WITH_CHILD"?"family_with_kids":/\b(freunde|friends)\b/.test(normalizedText)?"friends":romantic?"date":/\b(alleine|allein|solo|fur mich)\b/.test(normalizedText)?"solo":null;
+  const conceptDirections=uniqueValues([
+    ...(quiet?["vibe.quiet","energy.calm"]:[]),
+    ...(lively?["vibe.lively","energy.energetic"]:[]),
+    ...(cozy?["vibe.cozy"]:[]),
+    ...(romantic?["vibe.romantic","social_style.romantic_friendly"]:[]),
+    ...(socialContext==="friends"?["vibe.social"]:[]),
+    ...(socialContext==="family_with_kids"?["social_style.family_friendly"]:[]),
+    ...(/\b(gunstig|preiswert|budget)\b/.test(normalizedText)?["price.budget"]:[]),
+  ]).map((concept)=>({concept,direction:1,authority:"EXPLICIT_CURRENT_INTENT"}));
+  const textActivities=[
+    ...(/\b(museum|museen|ausstellung)\b/.test(normalizedText)?["MUSEUM"]:[]),
+    ...(/\b(tiere|tier|animals?|zoo|tierpark)\b/.test(normalizedText)?["ANIMALS"]:[]),
+    ...(/\b(klettern|climbing)\b/.test(normalizedText)?["CLIMBING"]:[]),
+    ...(/\b(bouldern|bouldering)\b/.test(normalizedText)?["BOULDERING"]:[]),
+    ...(/\b(spazieren|spaziergang|walk)\b/.test(normalizedText)?["WALK"]:[]),
+    ...(/\b(spielplatz|playground)\b/.test(normalizedText)?["PLAYGROUND"]:[]),
+  ];
+  const structuredActivities=structured.activityTypes?.value??structured.activityTypes??[];
+  const activityTypes=uniqueValues([...(Array.isArray(structuredActivities)?structuredActivities:[]),...(input.activityTypes??[]),...textActivities].map((value)=>String(value).toUpperCase()));
+  const durationMatch=normalizedText.match(/\b(?:nur\s+)?(\d{1,3})\s*(?:minuten?|minutes?)\b/)||normalizedText.match(/\b(?:nur\s+)?(\d{1,2})\s*(?:stunden?|hours?)\b/);
+  const oneHour=/\b(?:nur\s+)?eine\s+stunde\b/.test(normalizedText);
+  const durationMinutes=oneHour?60:durationMatch?Number(durationMatch[1])*(/stunden?|hours?/.test(durationMatch[0])?60:1):null;
+  const environmentValue=/\b(indoor|drinnen|innen)\b/.test(normalizedText)?"INDOOR":/\b(outdoor|draussen)\b/.test(normalizedText)?"OUTDOOR":"UNKNOWN";
+  const conversationValue=/\b(reden|gesprach|unterhalten|talk|conversation|nicht zu laut)\b/.test(normalizedText)?"HIGH":"UNKNOWN";
+  const planningValue=/\b(spontan\w*|kurzfristig\w*|einfach vorbeikommen|ohne reservierung|walk[ -]?in)\b/.test(normalizedText)?"WALK_IN":"UNKNOWN";
+  const dayparts=uniqueValues([
+    ...(/\b(morgen|morgens|fruhstuck|breakfast)\b/.test(normalizedText)?["MORNING"]:[]),
+    ...(/\b(nachmittag|nachmittags|afternoon)\b/.test(normalizedText)?["AFTERNOON"]:[]),
+    ...(/\b(abend|abends|dinner|evening)\b/.test(normalizedText)?["EVENING"]:[]),
+    ...(/\b(nacht|nachts|late night)\b/.test(normalizedText)?["NIGHT"]:[]),
+    ...(/\b(wochenende|samstag|sonntag|weekend)\b/.test(normalizedText)?["WEEKEND"]:[]),
+    ...(/\b(werktag|werktags|weekday)\b/.test(normalizedText)?["WEEKDAY"]:[]),
+  ]);
+  const priceMaximum=/\b(gunstig|preiswert|budget|billig)\b/.test(normalizedText)?2:null;
+  const currentRequestFacts={
+    version:CURRENT_MOMENT_VERSION,rain,childAge,familyContext,
+    activityTypes:canonicalFact(activityTypes,activityTypes.length?"EXPLICIT":"UNKNOWN",activityTypes.length?"product:currentFacts.activityTypes":null),
+    environment:canonicalFact(environmentValue,environmentValue==="UNKNOWN"?"UNKNOWN":"EXPLICIT",environmentValue==="UNKNOWN"?null:"request:text:environment"),
+    durationMinutes:canonicalFact(durationMinutes,durationMinutes===null?"UNKNOWN":"EXPLICIT",durationMinutes===null?null:"request:text:duration"),
+    accessibility:canonicalFact(unwrap(structured.accessibility??input.accessibility)??null,unwrap(structured.accessibility??input.accessibility)?"EXPLICIT":"UNKNOWN",unwrap(structured.accessibility??input.accessibility)?"product:currentFacts.accessibility":null),
+    socialContext:canonicalFact(socialContext&&socialContext!=="family_with_kids"?socialContext:null,socialContext&&socialContext!=="family_with_kids"?"EXPLICIT":"UNKNOWN",socialContext&&socialContext!=="family_with_kids"?"request:social_context":null),
+    conversation:canonicalFact(conversationValue,conversationValue==="UNKNOWN"?"UNKNOWN":"EXPLICIT",conversationValue==="UNKNOWN"?null:"request:text:conversation"),
+    planning:canonicalFact(planningValue,planningValue==="UNKNOWN"?"UNKNOWN":"EXPLICIT",planningValue==="UNKNOWN"?null:"request:text:planning"),
+    dayparts:canonicalFact(dayparts,dayparts.length?"EXPLICIT":"UNKNOWN",dayparts.length?"request:text:daypart":null),
+    priceMaximum:canonicalFact(priceMaximum,priceMaximum===null?"UNKNOWN":"EXPLICIT",priceMaximum===null?null:"request:text:price"),
+    boundaries:{durablePreference:false,softTextSignalsAreHardConstraints:false},
+  };
+  return {
+    version:CURRENT_MOMENT_VERSION,semanticContractVersion:SEMANTIC_CONTRACT_VERSION,currentRequestFacts,
+    preferredPlaceTypes,excludedPlaceTypes,conceptDirections,socialContext,
+    hardConstraints:{requiredPlaceTypes:input.strictCategoryIntent===true?preferredPlaceTypes:[],excludedPlaceTypes,openNow:input.openNow===true||/\b(jetzt offen|jetzt geoffnet|open now)\b/.test(normalizedText)},
+    legacyHints:{
+      wantsKids:familyContext.value==="FAMILY_WITH_CHILD",wantsFamily:familyContext.value==="FAMILY_WITH_CHILD",
+      wantsRainyDay:rain.value!=="UNKNOWN",wantsIndoor:/\b(indoor|drinnen|innen)\b/.test(normalizedText),
+      wantsOutdoor:/\b(outdoor|draussen|park|spaziergang|tierpark|zoo|aussicht)\b/.test(normalizedText),
+      wantsQuiet:quiet,wantsWarm:quiet||cozy,wantsRomantic:romantic,wantsTalk:/\b(talk|reden|gesprach|unterhalten)\b/.test(normalizedText),
+      wantsDrinks:preferredPlaceTypes.includes("bar"),wantsActivity:preferredPlaceTypes.some((x)=>["activity","culture","outing","experience"].includes(x)),
+      wantsCulture:preferredPlaceTypes.includes("culture"),wantsArt:/\b(kunst|art|galerie|gallery|ausstellung|museum|museen)\b/.test(normalizedText),
+      wantsSolo:socialContext==="solo",wantsOuting:preferredPlaceTypes.includes("outing"),
+      wantsCafe:preferredPlaceTypes.includes("cafe"),avoidRestaurant:excludedPlaceTypes.includes("restaurant"),avoidParty:excludedPlaceTypes.includes("nightlife"),avoidBars:excludedPlaceTypes.includes("bar"),
+    },
+  };
+}
 
 export function categoryToPlaceType(category) {
   const key=normalize(category);

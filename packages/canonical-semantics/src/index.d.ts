@@ -17,6 +17,14 @@ export declare const HUMAN_VALUE_LABELS:Readonly<Record<string,string>>;
 export declare const HUMAN_CONTEXT_LABELS:Readonly<Record<string,string>>;
 export declare const HUMAN_ACCESSIBILITY_LABELS:Readonly<Record<string,string>>;
 export declare const HUMAN_OBJECT_FIELD_LABELS:Readonly<Record<string,string>>;
+export declare function interpretCanonicalCurrentIntent(input?:Record<string,unknown>):{
+  version:string;semanticContractVersion:string;currentRequestFacts:Record<string,unknown>;
+  preferredPlaceTypes:string[];excludedPlaceTypes:string[];
+  conceptDirections:Array<{concept:string;direction:number;authority:string}>;
+  socialContext:string|null;
+  hardConstraints:{requiredPlaceTypes:string[];excludedPlaceTypes:string[];openNow:boolean};
+  legacyHints:Record<string,boolean>;
+};
 export declare function categoryToPlaceType(value:unknown):{status:"KNOWN"|"UNKNOWN";category:string|null;placeType:PlaceType|null;contractVersion:string};
 export declare function canonicalizeProductMood(value:unknown):{status:string;moodId:string|null;canonicalLabel?:string;concept:string|null;direction:number;contractVersion:string};
 export declare function reviewOriginPair(value:{reviewOrigin?:string|null;productEvidenceOrigin?:string|null}):{reviewOrigin:string;productEvidenceOrigin:string|null}|null;

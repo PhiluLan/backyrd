@@ -5,6 +5,7 @@ import process from "node:process";
 import ts from "typescript";
 
 const sourcePath = new URL("../../supabase/functions/decision-v13/index.ts", import.meta.url);
+const canonicalSemanticsUrl = new URL("../../packages/canonical-semantics/src/index.mjs", import.meta.url).href;
 const source = await fs.readFile(sourcePath, "utf8");
 const serveAnchor = "Deno.serve(async (request: Request) => {";
 const returnAnchor = "  return diversifyCandidates(fused, input.limit, input.intent);";
@@ -18,6 +19,7 @@ if (!moduleSource.includes(returnAnchor)) {
 }
 
 const instrumentedSource = moduleSource
+  .replace('from "../../../packages/canonical-semantics/src/index.mjs"', `from "${canonicalSemanticsUrl}"`)
   .replace(
     returnAnchor,
     [

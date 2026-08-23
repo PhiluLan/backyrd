@@ -89,10 +89,12 @@ test("all Product and Distribution enum boundaries are explicit", () => {
   assert.equal(status("unknown-distribution", "DISTRIBUTION_ELIGIBILITY"), "NOT_EVALUATED");
 });
 
-test("freeze identity is deterministic and validator rejects tampering", async () => {
+test("historical D2 freeze stays sealed after the declared production successor", async () => {
   const first = await computeD21Identity(); const second = await computeD21Identity();
   assert.deepEqual(first, second);
-  assert.equal((await validateD21Freeze(first)).valid, true);
+  assert.equal(first.engineMutation, "DETECTED");
+  assert.equal(first.d3Readiness, "NOT_READY");
+  assert.equal((await validateD21Freeze(first)).valid, false);
   assert.equal((await validateD21Freeze({ ...first, constitutionHash: "tampered" })).valid, false);
 });
 
