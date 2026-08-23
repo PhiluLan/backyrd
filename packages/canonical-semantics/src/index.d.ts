@@ -9,6 +9,7 @@ export declare const CANONICAL_FACTS:readonly object[];
 export declare const CONTEXT_KEYS:Readonly<Record<string,readonly string[]>>;
 export declare const PRODUCT_MOODS:readonly object[];
 export declare const FACT_KEYS:Readonly<Record<string,string>>;
+export declare const ATMOSPHERE_CONCEPT_MAP:Readonly<Record<string,string>>;
 export declare const FACTUAL_REASON_CODES:readonly string[];
 export declare const HUMAN_SPOT_SECTIONS:readonly {key:string;label:string;description:string}[];
 export declare const HUMAN_SPOT_FIELDS:Readonly<Record<string,{question:string;help?:string;labels?:Readonly<Record<string,string>>}>>;
