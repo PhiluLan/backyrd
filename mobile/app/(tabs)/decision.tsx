@@ -743,6 +743,7 @@ export default function DecisionScreen() {
   const continuationInFlightRef = useRef(false);
   const continuationRequestIdRef = useRef<string | null>(null);
   const visibleExposureKeysRef = useRef(new Set<string>());
+  const cardActionInFlightRef = useRef(false);
 
   const loading = status === "checking" || status === "deciding" || status === "writing";
   const currentSpot = spots[activeIndex] ?? null;
@@ -1119,11 +1120,7 @@ export default function DecisionScreen() {
   );
 
   const persistDecisionSession = useCallback(
-    async (
-      picked: EnrichedDecisionSpot[],
-      usedCopy: DecisionCopyResponse | null,
-      existingDecisionId?: string | null,
-    ): Promise<string | null> => {
+    async (existingDecisionId?: string | null): Promise<string | null> => {
       try {
         let did = existingDecisionId ?? null;
         if (!did) {
@@ -1147,15 +1144,6 @@ export default function DecisionScreen() {
         if (!did) return null;
 
         setDecisionId(did);
-
-        if (!existingDecisionId) {
-          const spotIds = picked.map((item) => item.spot_id);
-          const why = picked.map((item, index) => getCopyForSpot(usedCopy, item, index, moodA, moodB).why);
-          const { error: impressionError } = await supabase.rpc("log_decision_impressions_v1", {
-            p_decision_id: did,p_spot_ids: spotIds,p_why_this: why,
-          });
-          if (impressionError) throw impressionError;
-        }
 
         return did;
       } catch (error) {
@@ -1182,9 +1170,16 @@ export default function DecisionScreen() {
 
   const advanceCard = useCallback(
     async (action: DecisionCardAction) => {
+      if (cardActionInFlightRef.current) return;
       const spot = spots[activeIndex];
       if (!spot) return;
-      if(action!=="next" && !(await logExplicitFeedback(spot,action)))return;
+      cardActionInFlightRef.current = true;
+
+      if (action !== "next" && !(await logExplicitFeedback(spot, action))) {
+        cardActionInFlightRef.current = false;
+        return;
+      }
+
       void trackAnalyticsEvent({
         eventName: action === "next" ? "decision_next" : action === "like" ? "decision_like" : "decision_dislike",
         screenName: "decision",
@@ -1263,6 +1258,7 @@ export default function DecisionScreen() {
           setSeenSpotIds([]);
           setRemixCount(0);
           setCurrentPage(1);
+          cardActionInFlightRef.current = false;
           setVisibleExposureReady(false);
           visibleExposureKeysRef.current.clear();
           setContinuationExhausted(false);
@@ -1404,7 +1400,7 @@ export default function DecisionScreen() {
         const serverDecisionId=data.north_star?.decision_id??data.continuation?.decision_id??null;
         const persistedDecisionId = isRemix
           ? decisionId
-          : await persistDecisionSession(enriched, generatedCopy, serverDecisionId);
+          : await persistDecisionSession(serverDecisionId);
         const activeDecisionId=serverDecisionId??persistedDecisionId;
         if(!isRemix&&activeDecisionId)setDecisionId(activeDecisionId);
 
@@ -1455,9 +1451,14 @@ export default function DecisionScreen() {
 
   useEffect(()=>{
     if(!deckMode||!decisionId||!currentSpot||currentPage<1)return;
-    if(currentSpot.north_star_active!==true){setVisibleExposureReady(true);return;}
+    if(currentSpot.north_star_active!==true){
+      cardActionInFlightRef.current = false;
+      setVisibleExposureReady(true);
+      return;
+    }
     const key=`${decisionId}:${currentSpot.spot_id}`;
     if(visibleExposureKeysRef.current.has(key)){
+      cardActionInFlightRef.current = false;
       setVisibleExposureReady(true);
       return;
     }
@@ -1473,6 +1474,7 @@ export default function DecisionScreen() {
         return;
       }
       visibleExposureKeysRef.current.add(key);
+      cardActionInFlightRef.current = false;
       setVisibleExposureReady(true);
       void trackAnalyticsEvent({
         eventName:"decision_impression",screenName:"decision",entityType:"spot",
