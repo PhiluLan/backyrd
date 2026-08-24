@@ -19,6 +19,6 @@ export class SupabaseDecisionOrchestrator {
     const persistedLatency={inputPackageMs:Number((inputDone-inputStarted).toFixed(3)),spotCardsMs:Number((cardsDone-cardsStarted).toFixed(3)),rankingReasonValidationMs:decision.performance.rankingReasonValidationMs,preTraceTotalMs:Number((beforeTrace-started).toFixed(3)),tracePersistenceExcluded:true};
     const traceId=await this.persistCompleteTrace(input,decision,persistedLatency);
     const metrics={...persistedLatency,traceMs:Number((performance.now()-beforeTrace).toFixed(3)),totalMs:Number((performance.now()-started).toFixed(3))};
-    return {...decision,inputPackage:input.package,traceId,performance:{...input.performance,...metrics}};
+    return {...decision,inputPackage:input.package,eligibilityAudit:input.eligibilityAudit,traceId,performance:{...input.performance,...metrics}};
   }
 }

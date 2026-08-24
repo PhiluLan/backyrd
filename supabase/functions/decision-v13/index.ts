@@ -1,4 +1,5 @@
 // supabase/functions/decision-v13/index.ts
+import { categoryToPlaceType, interpretCanonicalCurrentIntent } from "../../../packages/canonical-semantics/src/index.mjs";
 
 type Env = {
   SUPABASE_URL: string;
@@ -157,7 +158,7 @@ const EMBEDDING_MODEL = "text-embedding-3-small";
 const EMBEDDING_DIMENSIONS = 1536;
 
 const MODEL_NAME = "backyrd_decision_v13_orchestrator";
-const MODEL_VERSION = "0.1.10";
+const MODEL_VERSION = "0.2.0";
 
 const DEFAULT_LIMIT = 12;
 const DEFAULT_V12_LIMIT = 12;
@@ -325,19 +326,7 @@ function buildContextKey(moodA: string | null, moodB: string | null): string {
 }
 
 function placeTypeFromCategory(categoryName: string | null | undefined): string {
-  const category = normalizeText(categoryName);
-
-  if (["cafe", "café", "coffee", "kaffee"].includes(category)) return "cafe";
-  if (category === "bar") return "bar";
-  if (["restaurant", "essen", "food"].includes(category)) return "restaurant";
-  if (["nachtleben", "club", "nightlife"].includes(category)) return "nightlife";
-  if (["museum", "kultur", "galerie", "gallery"].includes(category)) return "culture";
-  if (["aussichtspunkt", "viewpoint", "ausflug"].includes(category)) return "outing";
-  if (["aktivitat", "aktivität", "activity"].includes(category)) return "activity";
-  if (["besonderes erlebnis", "erlebnis", "experience"].includes(category)) return "experience";
-  if (["unterkunft / hotel", "hotel", "unterkunft"].includes(category)) return "hotel";
-
-  return "other";
+  return categoryToPlaceType(categoryName).placeType ?? "other";
 }
 
 function placeTypeLabel(placeType: string | null | undefined): string {
@@ -484,37 +473,23 @@ function detectIntent(input: {
   const joined = normalizeText(
     [input.query, input.moodA, input.moodB].filter(Boolean).join(" "),
   );
+  const canonicalIntent=interpretCanonicalCurrentIntent({
+    query:input.query,preferredPlaceTypes:input.preferredPlaceTypes,
+    excludedPlaceTypes:input.excludedPlaceTypes,audience:input.audience,
+    strictCategoryIntent:input.strictCategoryIntent,
+  });
+  const canonicalHints=canonicalIntent.legacyHints;
 
-  const explicitFromBody = uniqueStrings(input.preferredPlaceTypes ?? []);
-  const explicitFromText = detectPlaceTypesFromText(joined);
-  const excludedFromBody = uniqueStrings(input.excludedPlaceTypes ?? []);
+  const excludedPlaceTypes = [...canonicalIntent.excludedPlaceTypes];
+  let primaryPlaceTypes = [...canonicalIntent.preferredPlaceTypes];
 
-  const excludedFromText: string[] = [];
-  if (/\b(keine bar|kein bar|nicht bar|no bar|ohne bar|keine drinks|kein alkohol)\b/.test(joined)) excludedFromText.push("bar");
-  if (/\b(kein restaurant|nicht restaurant|no restaurant|ohne restaurant|kein dinner|kein essen|nicht essen)\b/.test(joined)) excludedFromText.push("restaurant");
-  if (/\b(kein club|nicht club|kein nachtleben|nicht nachtleben|keine party|kein party|no party)\b/.test(joined)) {
-    excludedFromText.push("nightlife");
-  }
-
-  const excludedPlaceTypes = uniqueStrings([...excludedFromBody, ...excludedFromText]);
-
-  let primaryPlaceTypes = removePlaceTypes(
-    uniqueStrings([...explicitFromBody, ...explicitFromText]),
-    excludedPlaceTypes,
-  );
-
-  const wantsKids =
-    /\b(kind|kinder|kids|kid|family|familie|familien|tochter|sohn|baby|kleinkind|spielplatz)\b/.test(
-      joined,
-    ) || (input.audience ?? []).some((a) => /kid|kind|family|familie/i.test(a));
-
-  const wantsFamily =
-    wantsKids || /\b(familie|family|familienfreundlich|family friendly)\b/.test(joined);
+  const wantsKids = canonicalHints.wantsKids;
+  const wantsFamily = canonicalHints.wantsFamily;
 
   const wantsSunday = /\b(sonntag|sunday)\b/.test(joined);
   const wantsWeekend = wantsSunday || /\b(wochenende|weekend|samstag|saturday)\b/.test(joined);
-  const wantsIndoor = /\b(indoor|drinnen|innen|regen|regenwetter|rainy|schlechtwetter)\b/.test(joined);
-  const wantsOutdoor = /\b(outdoor|draussen|draußen|park|spaziergang|tierpark|zoo|aussicht)\b/.test(joined);
+  const wantsIndoor = canonicalHints.wantsIndoor;
+  const wantsOutdoor = canonicalHints.wantsOutdoor;
 
   if (wantsKids && primaryPlaceTypes.length === 0) {
     primaryPlaceTypes = ["activity", "culture", "outing", "experience"];
@@ -541,78 +516,7 @@ function detectIntent(input: {
     if (!excludedPlaceTypes.includes("nightlife")) excludedPlaceTypes.push("nightlife");
   }
 
-  const wantsCafe =
-    /\b(cafe|kaffee|coffee)\b/.test(joined) || primaryPlaceTypes.includes("cafe");
-
-  const wantsWarm =
-    /\b(warm|gemutlich|gemuetlich|cozy|cosy|ruhig|quiet|intimate|intim|entspannt)\b/.test(
-      joined,
-    );
-
-  const wantsQuiet =
-    /\b(ruhig|quiet|leise|nicht laut|nicht zu laut|calm|entspannt|entspannter|reflektiert)\b/.test(
-      joined,
-    );
-
-  const wantsRomantic =
-    /\b(romantic|romantisch|date|datenight|date night)\b/.test(joined);
-
-  const wantsTalk =
-    /\b(talk|reden|gesprach|gespraech|unterhalten|quiet enough|nicht zu laut)\b/.test(
-      joined,
-    );
-
-  const wantsDrinks =
-    /\b(drinks|bar|cocktail|cocktails|bier|beer|wine|wein|afterwork)\b/.test(
-      joined,
-    ) || primaryPlaceTypes.includes("bar");
-
-  const wantsActivity =
-    /\b(activity|aktivitat|aktivitaet|kids|family|familie|klettern|museum|spaziergang|kultur|culture|ausflug)\b/.test(
-      joined,
-    ) ||
-    primaryPlaceTypes.some((type) =>
-      ["activity", "culture", "outing", "experience"].includes(type),
-    );
-
-  const wantsCulture =
-    /\b(kultur|culture|museum|galerie|gallery|kunst|art|creative|kreativ|ausstellung|ausstellungen|inspirierend|inspiration|entdecken|discover)\b/.test(
-      joined,
-    ) || primaryPlaceTypes.includes("culture");
-
-  const wantsArt =
-    /\b(kunst|art|galerie|gallery|ausstellung|ausstellungen|museum|museen|kunsthalle|kreativ|creative)\b/.test(
-      joined,
-    );
-
-  const wantsSolo =
-    /\b(alleine|allein|solo|me time|metime|fur mich|für mich)\b/.test(joined);
-
-  const wantsRainyDay =
-    /\b(regen|regenwetter|rain|rainy|schlechtwetter|indoor)\b/.test(joined);
-
-  const wantsOuting =
-    /\b(ausflug|spaziergang|view|aussicht|draussen|draußen|outdoor|walk|entdecken|discover)\b/.test(
-      joined,
-    ) || primaryPlaceTypes.includes("outing");
-
-  const avoidRestaurant =
-    excludedPlaceTypes.includes("restaurant") ||
-    /\b(kein restaurant|nicht restaurant|no restaurant|ohne restaurant|kein dinner|kein essen|nicht essen)\b/.test(
-      joined,
-    );
-
-  const avoidParty =
-    excludedPlaceTypes.includes("nightlife") ||
-    /\b(kein party|keine party|nicht party|no party|kein club|nicht club|kein nachtleben|nicht nachtleben|nicht laut|kein lauter abend)\b/.test(
-      joined,
-    );
-
-  const avoidBars =
-    excludedPlaceTypes.includes("bar") ||
-    /\b(keine bar|kein bar|nicht bar|no bar|ohne bar|keine drinks|kein alkohol)\b/.test(
-      joined,
-    );
+  const {wantsCafe,wantsWarm,wantsQuiet,wantsRomantic,wantsTalk,wantsDrinks,wantsActivity,wantsCulture,wantsArt,wantsSolo,wantsRainyDay,wantsOuting,avoidRestaurant,avoidParty,avoidBars}=canonicalHints;
 
   const hasExplicitPlaceTypeIntent = primaryPlaceTypes.length > 0;
   const hasMoodSignal = hasAnyMoodSignal(joined);
@@ -1897,6 +1801,7 @@ function fuseCandidates(input: {
   contextualTaste: ContextualTasteRow[];
   recentMemory: RecentDecisionMemoryRow[];
   distributionPriority: Map<string, number>;
+  onRanked?: (candidates: Candidate[]) => void;
 }): Candidate[] {
   const map = new Map<string, Candidate>();
 
@@ -2129,6 +2034,7 @@ function fuseCandidates(input: {
     return aBestRank - bBestRank;
   });
 
+  input.onRanked?.(fused);
   return diversifyCandidates(fused, input.limit, input.intent);
 }
 
@@ -2142,6 +2048,8 @@ Deno.serve(async (request: Request) => {
   }
 
   try {
+    const requestStarted=performance.now();
+    const stageMs:Record<string,number>={};
     const env = getEnv();
 
     let body: Record<string, unknown> = {};
@@ -2208,6 +2116,12 @@ Deno.serve(async (request: Request) => {
     }
 
     const contextKey = buildContextKey(moodA, moodB);
+    const n3IntentStarted=performance.now();
+    const canonicalCurrentIntent=interpretCanonicalCurrentIntent({
+      query,preferredPlaceTypes,excludedPlaceTypes,audience,
+      strictCategoryIntent,openNow:body.openNow===true,
+    });
+    stageMs.currentIntent=performance.now()-n3IntentStarted;
 
     const intent = detectIntent({
       query,
@@ -2257,7 +2171,9 @@ Deno.serve(async (request: Request) => {
 
     const contextKeys = Array.from(new Set(decisionContextKeys.map((row) => row.context_key).filter(Boolean)));
 
+    const embeddingStarted=performance.now();
     const queryEmbedding = await createEmbedding(env, queryText);
+    stageMs.embedding=performance.now()-embeddingStarted;
 
     const semanticPromise = getSemanticCandidates(env, {
       queryEmbedding,
@@ -2294,6 +2210,7 @@ Deno.serve(async (request: Request) => {
       hasUserToken,
     });
 
+    const retrievalStarted=performance.now();
     const [semanticCandidates, v12Candidates, placeTypeProfile, contextualTaste, recentMemory] = await Promise.all([
       semanticPromise,
       v12Promise,
@@ -2301,6 +2218,8 @@ Deno.serve(async (request: Request) => {
       contextualTastePromise,
       recentMemoryPromise,
     ]);
+    stageMs.retrieval=performance.now()-retrievalStarted;
+    const processingStarted=performance.now();
 
     const allSpotIds = Array.from(
       new Set([
@@ -2365,6 +2284,7 @@ Deno.serve(async (request: Request) => {
       };
     });
 
+    let fusionRanked:Candidate[]=[];
     const fused = fuseCandidates({
       v12: v12WithMeta,
       semantic: semanticWithMeta,
@@ -2376,6 +2296,7 @@ Deno.serve(async (request: Request) => {
       distributionPriority: new Map(
         Array.from(distribution.entries()).map(([id, row]) => [id, row.distribution_priority]),
       ),
+      onRanked:(ranked)=>{fusionRanked=ranked;},
     });
 
     for (const candidate of fused) {
@@ -2404,6 +2325,16 @@ Deno.serve(async (request: Request) => {
       candidate.human_reason = createHumanReason(candidate, intent);
     }
 
+    const configuredInternalSecret=Deno.env.get("DECISION_ENGINE_INTERNAL_SECRET");
+    const internalTraceAuthorized=Boolean(configuredInternalSecret&&request.headers.get("x-backyrd-internal-wrapper")===configuredInternalSecret);
+    const fusedRankById=new Map(fusionRanked.map((candidate,index)=>[candidate.spot_id,index+1]));
+    const selectedIds=new Set(fused.map((candidate)=>candidate.spot_id));
+    const internalRetrievalTrace=internalTraceAuthorized?{
+      performance:{...stageMs,candidateProcessing:performance.now()-processingStarted,total:performance.now()-requestStarted},
+      semantic:(semanticCandidates??[]).map((row,index)=>({spotId:row.spot_id,name:row.name,city:row.city,category:row.category_name,sourceRank:index+1,sourceScore:toNumber(row.similarity),distributionEligible:distribution.get(row.spot_id)?.eligible===true,fusionRank:fusedRankById.get(row.spot_id)??null,selected:selectedIds.has(row.spot_id)})),
+      personalized:(v12Candidates??[]).map((row,index)=>({spotId:row.spot_id,name:row.name,city:row.city,sourceRank:index+1,sourceScore:toNumber(row.final_score),distributionEligible:distribution.get(row.spot_id)?.eligible===true,fusionRank:fusedRankById.get(row.spot_id)??null,selected:selectedIds.has(row.spot_id)})),
+      fusion:fusionRanked.map((candidate,index)=>({spotId:candidate.spot_id,name:candidate.name,city:candidate.city,canonicalPlaceType:candidate.place_type,fusionRank:index+1,fusionScore:candidate.combined_score,sources:candidate.sources,selected:selectedIds.has(candidate.spot_id),selectionDisposition:selectedIds.has(candidate.spot_id)?"SELECTED":"FUSION_LIMIT_OR_DIVERSITY"})),
+    }:null;
     return jsonResponse({
       ok: true,
       model: MODEL_NAME,
@@ -2422,6 +2353,8 @@ Deno.serve(async (request: Request) => {
       query,
       queryText,
       intent,
+      canonical_intent: canonicalCurrentIntent,
+      ...(internalRetrievalTrace?{_internal_retrieval_trace:internalRetrievalTrace}:{}),
       counts: {
         v12: v12Candidates?.length ?? 0,
         semantic: semanticCandidates?.length ?? 0,

@@ -46,6 +46,19 @@ if git diff --quiet "$base"...HEAD -- supabase/functions/decision-v13/index.ts; 
   echo "D2 scope guard: frozen v13 unchanged; internal-live server wrapper accepted"
 fi
 
+# Production Decision final closure is an explicitly versioned exception to
+# the historical research freeze. It may touch only the canonical v13 source
+# and its existing live wrapper/adapter, and only together with the additive
+# trace migration plus the real-incident regressions. Once merged, the marker
+# is part of the base and cannot exempt later unrelated Decision changes.
+closure_marker='supabase/migrations/20260824010000_close_production_decision_engine_v1.sql'
+if printf '%s\n' "$changed" | grep -Fx "$closure_marker" >/dev/null \
+  && printf '%s\n' "$changed" | grep -Fx 'packages/decision-input-runtime/test/live-product-boundary.test.mjs' >/dev/null \
+  && printf '%s\n' "$changed" | grep -Fx 'packages/decision-orchestrator-runtime/test/canonical-semantic-conformance.test.mjs' >/dev/null; then
+  protected="$(printf '%s\n' "$protected" | grep -Fvx "$live_wrapper" | grep -Fvx "$live_adapter" | grep -Fvx 'supabase/functions/decision-v13/index.ts' || true)"
+  echo "D2 scope guard: versioned Production Decision closure accepted"
+fi
+
 # Canonical Semantic Alignment v1 changes only the onboarding RPC version so
 # selected Spots are interpreted once through the canonical N4-backed adapter.
 # Keep the exemption byte-exact; any additional onboarding or Decision UI

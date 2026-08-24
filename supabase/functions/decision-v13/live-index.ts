@@ -3,7 +3,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { isInternalLiveUser, runInternalLiveDecision } from "./north-star-live.ts";
 import { jsonResponseWithFreshEntityHeaders } from "./live-response.mjs";
-import { sanitizeLiveProductCandidate, sanitizeLiveProductRequestBody, selectLiveCandidateUniverse } from "../../../packages/decision-input-runtime/src/live-product-boundary.mjs";
+import { buildLiveCandidateFunnel, LIVE_RETRIEVAL_SOURCE_LIMIT, sanitizeLiveProductCandidate, sanitizeLiveProductRequestBody } from "../../../packages/decision-input-runtime/src/live-product-boundary.mjs";
 
 type Handler = (request: Request) => Promise<Response> | Response;
 let canonicalHandler: Handler | null = null;
@@ -23,11 +23,13 @@ realServe(async (request: Request) => {
   let userId: string | null = null;
   let internalInvocation = false;
   let liveEnabled = false;
+  let internalWrapperSecret: string | null = null;
   try {
     const url = Deno.env.get("SUPABASE_URL");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (url && serviceKey && request.method === "POST") {
       const configuredSecret = Deno.env.get("DECISION_ENGINE_INTERNAL_SECRET");
+      internalWrapperSecret = configuredSecret ?? null;
       internalInvocation = Boolean(configuredSecret && request.headers.get("x-backyrd-internal-secret") === configuredSecret);
       service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
       if (internalInvocation) userId = text(request.headers.get("x-backyrd-test-user-id"));
@@ -48,8 +50,16 @@ realServe(async (request: Request) => {
 
   const canonicalHeaders = new Headers(request.headers);
   canonicalHeaders.delete("content-length");
+  if(liveEnabled&&internalWrapperSecret)canonicalHeaders.set("x-backyrd-internal-wrapper",internalWrapperSecret);
+  const requestedSemanticLimit=Number(body.semanticLimit);
   const canonicalRequest = liveEnabled
-    ? new Request(request.url, { method: request.method, headers: canonicalHeaders, body: JSON.stringify(sanitizeLiveProductRequestBody(body)) })
+    ? new Request(request.url, { method: request.method, headers: canonicalHeaders, body: JSON.stringify({
+        ...sanitizeLiveProductRequestBody(body),
+        limit:LIVE_RETRIEVAL_SOURCE_LIMIT,
+        semanticLimit:Number.isFinite(requestedSemanticLimit)
+          ? Math.max(LIVE_RETRIEVAL_SOURCE_LIMIT,requestedSemanticLimit)
+          : LIVE_RETRIEVAL_SOURCE_LIMIT,
+      }) })
     : request;
   const baseResponse = await canonicalHandler!(canonicalRequest);
   if (!baseResponse.ok || request.method !== "POST") return baseResponse;
@@ -60,7 +70,11 @@ realServe(async (request: Request) => {
   try {
     if (!liveEnabled || !service || !userId || (!internalInvocation && text(payload.user_id) !== userId)) return baseResponse;
 
-    const selected = selectLiveCandidateUniverse(candidates, 10);
+    const canonicalIntent=(payload.canonical_intent??{}) as Record<string, unknown>;
+    const funnel=buildLiveCandidateFunnel(candidates,{city:text(body.city),canonicalIntent});
+    const selected = funnel.selected;
+    const { selected: _selectedCandidates, ...candidateFunnelTrace } = funnel;
+    if(selected.length===0)return baseResponse;
     const live = await runInternalLiveDecision({
       service,
       userId,
@@ -80,8 +94,10 @@ realServe(async (request: Request) => {
         openNow: (payload.intent as Record<string, unknown> | undefined)?.openNow === true,
         explicitConstraints: { openNow: (payload.intent as Record<string, unknown> | undefined)?.openNow === true },
         intent: payload.intent ?? {},
+        canonicalIntent,
       },
       candidates: selected.map((candidate) => ({ spotId: String(candidate.spot_id), why: text(candidate.human_reason) })),
+      candidateFunnel:{...candidateFunnelTrace,sourceRetrieval:payload._internal_retrieval_trace??null},
       openAIKey: Deno.env.get("OPENAI_API_KEY") ?? null,
       learningEligible: !internalInvocation,
     });
@@ -92,8 +108,9 @@ realServe(async (request: Request) => {
       return candidate ? { ...sanitizeLiveProductCandidate(candidate, live.reasons[spotId]), rank: index + 1 } : null;
     }).filter(Boolean);
     const safeRequest = sanitizeLiveProductRequestBody(body);
+    const { _internal_retrieval_trace: _internalRetrievalTrace, ...safePayload } = payload;
     return jsonResponseWithFreshEntityHeaders({
-      ...payload,
+      ...safePayload,
       query: safeRequest.query,
       queryText: safeRequest.query,
       candidates: ordered,

@@ -10,8 +10,8 @@ const spotIds = ["33333333-3333-4333-8333-333333333333", "44444444-4444-4444-844
 const node = (concept, scope, affinity = .8, confidence = .84) => ({ nodeKey:`${scope.kind}:${scope.key}:${concept}`, concept, scope, affinity, polarity:"POSITIVE", knowledgeState:"POSITIVE", confidence, evidenceDepth:{independentSessions:6,independentSpots:5,outcomes:5}, evidenceComposition:{comparative:4,directReview:1}, evidenceRefs:[], contradictions:[], trend:{direction:"STABLE"} });
 const card = { version:"backyrd-n5-6-user-card-v1", userId, userCardHash:"b".repeat(64), maturity:{state:"KNOWN"}, occasionPatterns:[], memorySummary:{eventCount:30}, nodes:[node("vibe.cozy",{kind:"GLOBAL",key:"global"}),node("vibe.quiet",{kind:"CONTEXT",key:"audience.friends"})] };
 
-function source({ cold = false, query = "ruhige gemütliche Bar mit Freunden", audience = ["friends"], selectedMoods = ["ruhig","gemütlich"] } = {}) {
-  const candidates = spotIds.map((spotId,index)=>({spotId,retrievalPosition:index+1,status:"approved",city:"Basel",category:"Bar",productPlaceType:"bar",openNow:true,distributionEligible:true}));
+function source({ cold = false, query = "ruhige gemütliche Bar mit Freunden", audience = ["friends"], selectedMoods = ["ruhig","gemütlich"], candidateIds=spotIds } = {}) {
+  const candidates = candidateIds.map((spotId,index)=>({spotId,retrievalPosition:index+1,status:"approved",city:"Basel",category:"Bar",productPlaceType:"bar",openNow:true,distributionEligible:true}));
   return {
     decision:{id:decisionId,userId,city:"Basel",moodA:null,moodB:null,createdAt:"2026-08-21T18:30:00.000Z"},
     requestContext:{query,rawFreeText:query,preferredPlaceTypes:["bar"],audience,selectedMoods,strictCategoryIntent:true,model_version:"decision-v13.0"},
@@ -53,6 +53,20 @@ test("production input is bounded, frozen-N6A2 shaped, and Sprint-4-authorized",
   assert.ok(request.estimatedInputTokens<12_000);
   assert.deepEqual(request.body.text.format.schema.properties.user_knowledge_sufficiency.enum,[input.n6a2Input.n6a1Input.baseInput.relevantUserProjection.sufficiency.level]);
   assert.deepEqual(request.body.text.format.schema.properties.moment_understanding_sufficiency.enum,[input.n6a2Input.n6a1Input.baseInput.currentMoment.confidenceLevel]);
+});
+
+test("a broader factual evaluation window becomes one deterministic frozen N6 subset",()=>{
+  const candidateIds=Array.from({length:12},(_,index)=>`00000000-0000-4000-8000-${String(index+1).padStart(12,"0")}`);
+  const pkg=buildDecisionInputPackage(source({candidateIds})).package;
+  const deterministic=buildDeterministicDecision(pkg,cards(pkg),{expectedUserId:userId});
+  const input=buildProductionN6ShadowInput({decisionPackage:pkg,deterministicDecision:deterministic});
+  const providerIds=input.n6a2Input.n6a1Input.baseInput.candidates.map((candidate)=>candidate.spotId);
+  assert.equal(providerIds.length,10);
+  assert.deepEqual(providerIds,deterministic.internal.fullOrder.slice(0,10));
+  assert.equal(input.boundaries.candidateSubsetApplied,true);
+  assert.equal(input.boundaries.sourcePackageHash,pkg.packageHash);
+  assert.notEqual(input.packageHash,pkg.packageHash);
+  assert.deepEqual(Object.keys(input.rankingInputs).sort(),[...providerIds].sort());
 });
 
 test("strict validator accepts exact candidates and exact candidate reasons",()=>{
