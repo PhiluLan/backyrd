@@ -35,6 +35,25 @@ const cases=[
   ["BROAD_UNKNOWN","Was könnten wir machen?"],
 ];
 const ok=(error,label)=>{if(error)throw new Error(`${label}:${String(error.message??error.name??"unknown")}:status=${String(error.status??"unknown")}:code=${String(error.code??"unknown")}`);};
+const removeFixtureUser=async(id)=>{
+  // Keep Production validation cleanup bounded to the exact fixture identity.
+  // Removing the short-lived decision rows first avoids asking Auth to cascade
+  // a complete closure matrix in the same transaction as auth.users.
+  for(const [table,column] of [
+    ["backyrd_internal_live_users_v1","user_id"],
+    ["user_consents","user_id"],
+    ["decision_sessions","user_id"],
+  ]){
+    const removed=await service.from(table).delete().eq(column,id);
+    ok(removed.error,`delete fixture ${table}`);
+  }
+  const registry=await service.from("safety_content_items").delete().eq("entity_type","profile").eq("entity_id",id);
+  ok(registry.error,"delete fixture safety registry item");
+  const profile=await service.from("profiles").delete().eq("id",id);
+  ok(profile.error,"delete fixture profile");
+  const removed=await service.auth.admin.deleteUser(id);
+  ok(removed.error,`delete fixture auth user ${id}`);
+};
 const compactN3=(facts)=>({
   rain:facts?.weather?.rain??facts?.rain??null,
   family:facts?.socialContext?.family??facts?.family??null,
@@ -64,7 +83,7 @@ const cleanupOrphanFixtures=async()=>{
     const users=listed.data.users??[];
     for(const user of users){
       if(user.user_metadata?.production_fixture!=="decision-closure-v1"||!user.email?.endsWith("@fixture.invalid"))continue;
-      const removed=await service.auth.admin.deleteUser(user.id);ok(removed.error,`delete orphan fixture ${user.id}`);cleaned+=1;
+      await removeFixtureUser(user.id);cleaned+=1;
     }
     if(users.length<100)break;
     page+=1;
@@ -87,6 +106,7 @@ try{
     const payload=await response.json();
     if(!response.ok||payload?.ok!==true||payload?.north_star?.active!==true)throw new Error(`${label}:edge:${response.status}:${payload?.error??payload?.north_star?.fallback_error??"invalid_response"}`);
     const decisionId=payload.north_star.decision_id;
+    if(!decisionId)throw new Error(`${label}:north_star:${payload.north_star.final_source??"unknown"}:${payload.north_star.fallback_error??"decision_id_missing"}`);
     const trace=await service.from("backyrd_decision_funnel_traces_v1").select("current_intent,retrieval_funnel,decision_funnel,final_disposition,created_at,completed_at").eq("decision_id",decisionId).single();ok(trace.error,`${label}:trace`);
     const source=trace.data.retrieval_funnel?.sourceRetrieval??{};
     const sourceRows=[...(source.semantic??[]),...(source.personalized??[]),...(source.fusion??[])];
@@ -106,5 +126,5 @@ try{
   }
   process.stdout.write(`${JSON.stringify(report,null,2)}\n`);
 }finally{
-  if(userId)await service.auth.admin.deleteUser(userId).catch(()=>{});
+  if(userId)await removeFixtureUser(userId).catch(()=>{});
 }
