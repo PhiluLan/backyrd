@@ -22,6 +22,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Crypto from "expo-crypto";
 
 import { supabase } from "@/lib/supabase";
+import { getMyProductEntryStatus } from "@/lib/onboardingStatus";
 import { hasActiveConsent } from "@/lib/consent";
 import { mapTextToClusterIds } from "@/lib/decision/moodMapping";
 import { trackAnalyticsEvent, reportAnalyticsError } from "@/lib/analytics";
@@ -837,15 +838,8 @@ export default function DecisionScreen() {
 
   const checkNeedsDecisionOnboarding = useCallback(async (): Promise<boolean> => {
     try {
-      const { data, error } = await supabase.rpc("get_my_taste_profile_status_v1");
-
-      if (error) {
-        console.log("get_my_taste_profile_status_v1 failed:", error);
-        return false;
-      }
-
-      const row = Array.isArray(data) ? data[0] : data;
-      return Boolean(row?.needs_onboarding);
+      const status = await getMyProductEntryStatus();
+      return status.needsDecisionOnboarding;
     } catch (error) {
       console.log("Decision onboarding check failed:", error);
       return false;
