@@ -19,6 +19,7 @@ import {
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Crypto from "expo-crypto";
 
 import { supabase } from "@/lib/supabase";
 import { hasActiveConsent } from "@/lib/consent";
@@ -131,7 +132,15 @@ type DecisionV13Response = {
   candidates?: DecisionV13Candidate[];
   north_star?: {
     active?: boolean;
+    decision_id?: string;
     knowledge_mode?: "SUFFICIENT" | "PARTIAL" | "LOW_OR_UNKNOWN";
+  };
+  continuation?: {
+    decision_id: string;
+    page: number;
+    request_id: string | null;
+    exhausted: boolean;
+    remaining_count: number;
   };
   error?: string;
 };
@@ -329,8 +338,7 @@ function pickDecisionBatch({
 }) {
   const seen = new Set(alreadySeenIds);
   const fresh = rows.filter((row) => row?.spot_id && !seen.has(row.spot_id));
-  const fallback = rows.filter((row) => row?.spot_id);
-  const picked = fresh.length >= limit ? fresh.slice(0, limit) : [...fresh, ...fallback].slice(0, limit);
+  const picked = fresh.slice(0, limit);
 
   const deduped: DecisionSpotRpcRow[] = [];
   const used = new Set<string>();
@@ -736,12 +744,16 @@ export default function DecisionScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [seenSpotIds, setSeenSpotIds] = useState<string[]>([]);
   const [remixCount, setRemixCount] = useState(0);
+  const [continuationExhausted, setContinuationExhausted] = useState(false);
+  const [continuationLoading, setContinuationLoading] = useState(false);
   const [deckMode, setDeckMode] = useState(false);
 
   const [status, setStatus] = useState<DecisionStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const onboardingPushInFlightRef = useRef(false);
+  const continuationInFlightRef = useRef(false);
+  const continuationRequestIdRef = useRef<string | null>(null);
 
   const loading = status === "checking" || status === "deciding" || status === "writing";
   const currentSpot = spots[activeIndex] ?? null;
@@ -1125,24 +1137,30 @@ export default function DecisionScreen() {
   );
 
   const persistDecisionSession = useCallback(
-    async (picked: EnrichedDecisionSpot[], usedCopy: DecisionCopyResponse | null): Promise<string | null> => {
+    async (
+      picked: EnrichedDecisionSpot[],
+      usedCopy: DecisionCopyResponse | null,
+      existingDecisionId?: string | null,
+    ): Promise<string | null> => {
       try {
-        const { data: newId, error: sessionError } = await supabase.rpc("create_decision_session_v1", {
-          p_city: clean(city),
-          p_mood_a_text: clean(moodA),
-          p_mood_b_text: clean(moodB),
-        });
+        let did = existingDecisionId ?? null;
+        if (!did) {
+          const { data: newId, error: sessionError } = await supabase.rpc("create_decision_session_v1", {
+            p_city: clean(city),
+            p_mood_a_text: clean(moodA),
+            p_mood_b_text: clean(moodB),
+          });
 
-        if (sessionError) throw sessionError;
-
-        const did =
-          typeof newId === "string"
-            ? newId
-            : Array.isArray(newId)
-              ? typeof newId[0] === "string"
-                ? newId[0]
-                : newId[0]?.id
-              : (newId as any)?.id;
+          if (sessionError) throw sessionError;
+          did =
+            typeof newId === "string"
+              ? newId
+              : Array.isArray(newId)
+                ? typeof newId[0] === "string"
+                  ? newId[0]
+                  : newId[0]?.id
+                : (newId as any)?.id;
+        }
 
         if (!did) return null;
 
@@ -1301,12 +1319,17 @@ export default function DecisionScreen() {
 
   const runDecision = useCallback(
     async (options?: { remix?: boolean }) => {
+      const isRemix = Boolean(options?.remix);
+      if (isRemix && (continuationInFlightRef.current || continuationExhausted)) return;
+      if (isRemix && !decisionId) {
+        Alert.alert("Nicht mehr verfügbar", "Bitte starte diese Suche noch einmal.");
+        return;
+      }
       void trackAnalyticsEvent({
         eventName: options?.remix ? "decision_remixed" : "decision_started",
         screenName: "decision",
         properties: { input_mode: inputMode },
       });
-      const isRemix = Boolean(options?.remix);
 
       if (!userId) {
         Alert.alert("Login nötig", "Bitte logge dich ein, damit Decision deinen Geschmack lernen kann.");
@@ -1322,6 +1345,12 @@ export default function DecisionScreen() {
             : "Bitte wähle eine Richtung, Situation oder Stimmung."
         );
         return;
+      }
+
+      if (isRemix) {
+        continuationInFlightRef.current = true;
+        setContinuationLoading(true);
+        continuationRequestIdRef.current ??= Crypto.randomUUID();
       }
 
       if (isRemix) {
@@ -1356,31 +1385,29 @@ export default function DecisionScreen() {
       });
 
       try {
-        setStatus(isRemix ? "deciding" : "checking");
         setErrorMessage(null);
-        setSpots([]);
-        setContext(null);
-        setCopy(null);
-        setDecisionId(null);
-        setDecisionRunContext(null);
-        setActiveIndex(0);
-
         if (!isRemix) {
+          setStatus("checking");
+          setSpots([]);
+          setContext(null);
+          setCopy(null);
+          setDecisionId(null);
+          setDecisionRunContext(null);
+          setActiveIndex(0);
           setSeenSpotIds([]);
           setRemixCount(0);
+          setContinuationExhausted(false);
+          continuationRequestIdRef.current=null;
+
+          const needsOnboarding = await checkNeedsDecisionOnboarding();
+          if (needsOnboarding) {
+            setStatus("idle");
+            router.push("/(tabs)/decision-onboarding");
+            return;
+          }
+          setStatus("deciding");
         }
-
-        const needsOnboarding = await checkNeedsDecisionOnboarding();
-
-        if (needsOnboarding) {
-          setStatus("idle");
-          router.push("/(tabs)/decision-onboarding");
-          return;
-        }
-
-        setStatus("deciding");
-
-        const ctx = await loadContext();
+        const ctx = isRemix && context ? context : await loadContext();
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError) throw sessionError;
@@ -1395,7 +1422,10 @@ export default function DecisionScreen() {
         }
 
         const { data, error } = await supabase.functions.invoke<DecisionV13Response>(DECISION_V13_FUNCTION, {
-          body: {
+          body: isRemix ? {
+            continuationDecisionId: decisionId,
+            continuationRequestId: continuationRequestIdRef.current,
+          } : {
             city: c,
             moodA: a || null,
             moodB: b || null,
@@ -1408,7 +1438,6 @@ export default function DecisionScreen() {
             limit: DECISION_V13_LIMIT,
             v12Limit: DECISION_V13_V12_LIMIT,
             semanticLimit: DECISION_V13_SEMANTIC_LIMIT,
-            excludeSpotIds: isRemix ? seenSpotIds : [],
           },
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -1421,7 +1450,11 @@ export default function DecisionScreen() {
           throw new Error(data?.error || "Decision V13 konnte nicht geladen werden.");
         }
 
-        const runContext: Record<string, unknown> = {
+        const runContext: Record<string, unknown> = isRemix && decisionRunContext ? {
+          ...decisionRunContext,
+          continuation_page: data.continuation?.page ?? remixCount + 2,
+          continuation_request_id: data.continuation?.request_id ?? continuationRequestIdRef.current,
+        } : {
           model: data.model ?? "backyrd_decision_v13_orchestrator",
           model_version: data.version ?? null,
           decision_mode: data.mode ?? null,
@@ -1454,10 +1487,15 @@ export default function DecisionScreen() {
         const enriched = await enrichSpots(pickedRows);
 
         if (enriched.length === 0) {
-          setSpots([]);
-          setContext(ctx);
-          setStatus("empty");
-          setDeckMode(false);
+          if(isRemix){
+            setContinuationExhausted(true);
+            continuationRequestIdRef.current=null;
+          }else{
+            setSpots([]);
+            setContext(ctx);
+            setStatus("empty");
+            setDeckMode(false);
+          }
           return;
         }
 
@@ -1471,7 +1509,7 @@ export default function DecisionScreen() {
           setRemixCount((current) => current + 1);
         }
 
-        setStatus("writing");
+        if(!isRemix)setStatus("writing");
 
         const generatedCopy = buildV13Copy({
           spots: enriched,
@@ -1492,14 +1530,19 @@ export default function DecisionScreen() {
         setCopy(generatedCopy);
         setDecisionRunContext(runContext);
 
-        const persistedDecisionId = await persistDecisionSession(enriched, generatedCopy);
+        const serverDecisionId=data.north_star?.decision_id??data.continuation?.decision_id??null;
+        const persistedDecisionId = isRemix
+          ? decisionId
+          : await persistDecisionSession(enriched, generatedCopy, serverDecisionId);
+        const activeDecisionId=serverDecisionId??persistedDecisionId;
+        if(!isRemix&&activeDecisionId)setDecisionId(activeDecisionId);
 
         for (let i = 0; i < enriched.length; i += 1) {
           logMlEvent({
             eventType: "decision_impression",
             spotId: enriched[i].spot_id,
-            rank: i + 1,
-            decisionIdOverride: persistedDecisionId,
+            rank: (isRemix ? seenSpotIds.length : 0) + i + 1,
+            decisionIdOverride: activeDecisionId,
             extraContext: {
               ...runContext,
 
@@ -1525,14 +1568,23 @@ export default function DecisionScreen() {
           });
         }
 
+        setContinuationExhausted(data.continuation?.exhausted===true);
+        continuationRequestIdRef.current=null;
         setStatus("success");
         setDeckMode(true);
       } catch (error: any) {
         console.log("decision error", error);
         setErrorMessage(error?.message ?? "Decision konnte nicht geladen werden.");
-        setStatus("error");
-        setDeckMode(false);
+        if(!isRemix){
+          setStatus("error");
+          setDeckMode(false);
+        }
         Alert.alert("Fehler", error?.message ?? "Decision konnte nicht geladen werden.");
+      } finally {
+        if(isRemix){
+          continuationInFlightRef.current=false;
+          setContinuationLoading(false);
+        }
       }
     },
     [
@@ -1548,6 +1600,11 @@ export default function DecisionScreen() {
       moodA,
       moodB,
       seenSpotIds,
+      decisionId,
+      decisionRunContext,
+      context,
+      continuationExhausted,
+      remixCount,
       router,
       checkNeedsDecisionOnboarding,
       loadContext,
@@ -1640,6 +1697,8 @@ export default function DecisionScreen() {
         moodB={moodB}
         copy={copy}
         remixCount={remixCount}
+        continuationExhausted={continuationExhausted}
+        continuationLoading={continuationLoading}
         onSwipe={advanceCard}
         onOpenSpot={onOpenSpot}
         onBack={() => setDeckMode(false)}
@@ -2256,6 +2315,8 @@ function FullscreenDeck({
   moodB,
   copy,
   remixCount,
+  continuationExhausted,
+  continuationLoading,
   onSwipe,
   onOpenSpot,
   onBack,
@@ -2271,6 +2332,8 @@ function FullscreenDeck({
   moodB: string;
   copy: DecisionCopyResponse | null;
   remixCount: number;
+  continuationExhausted: boolean;
+  continuationLoading: boolean;
   onSwipe: (direction: SwipeDirection) => void;
   onOpenSpot: (spotId: string) => void;
   onBack: () => void;
@@ -2298,28 +2361,36 @@ function FullscreenDeck({
               }}
             >
               <Text style={{ color: "#fff", fontSize: 34, lineHeight: 38, fontWeight: "950", letterSpacing: -1 }}>
-                Noch nicht das Richtige?
+                {continuationExhausted ? "Das waren die passendsten Vorschläge." : "Noch nicht das Richtige?"}
               </Text>
 
               <Text style={{ color: "rgba(255,255,255,0.62)", marginTop: 10, fontSize: 15, lineHeight: 22 }}>
-                Ich habe deine Swipes gespeichert. Willst du deine Moods anpassen oder weiter entdecken?
+                {continuationExhausted
+                  ? "Für diese Suche sind keine weiteren passenden Orte übrig. Du kannst deine Wünsche anpassen und neu suchen."
+                  : "Ich habe deine Swipes gespeichert. Willst du deine Moods anpassen oder weiter entdecken?"}
               </Text>
 
-              <Pressable
-                onPress={onRemix}
-                style={{
-                  marginTop: 20,
-                  height: 56,
-                  borderRadius: 999,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: theme.pink,
-                }}
-              >
-                <Text style={{ color: "#171214", fontWeight: "950", fontSize: 15 }}>
-                  Ich will mehr entdecken{remixCount > 0 ? ` · Mix ${remixCount + 2}` : ""}
-                </Text>
-              </Pressable>
+              {!continuationExhausted ? (
+                <Pressable
+                  onPress={onRemix}
+                  disabled={continuationLoading}
+                  style={{
+                    marginTop: 20,
+                    height: 56,
+                    borderRadius: 999,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: theme.pink,
+                    opacity: continuationLoading ? 0.65 : 1,
+                  }}
+                >
+                  {continuationLoading ? <ActivityIndicator color="#171214" /> : (
+                    <Text style={{ color: "#171214", fontWeight: "950", fontSize: 15 }}>
+                      Weitere Vorschläge{remixCount > 0 ? ` · Seite ${remixCount + 2}` : ""}
+                    </Text>
+                  )}
+                </Pressable>
+              ) : null}
 
               <Pressable
                 onPress={onSettings}

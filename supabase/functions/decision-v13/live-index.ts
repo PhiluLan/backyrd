@@ -4,6 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { isInternalLiveUser, runInternalLiveDecision } from "./north-star-live.ts";
 import { jsonResponseWithFreshEntityHeaders } from "./live-response.mjs";
 import { buildLiveCandidateFunnel, LIVE_RETRIEVAL_SOURCE_LIMIT, sanitizeLiveProductCandidate, sanitizeLiveProductRequestBody } from "../../../packages/decision-input-runtime/src/live-product-boundary.mjs";
+import { assertUnseenContinuation } from "../../../packages/decision-input-runtime/src/continuation.mjs";
 
 type Handler = (request: Request) => Promise<Response> | Response;
 let canonicalHandler: Handler | null = null;
@@ -16,6 +17,10 @@ if (!canonicalHandler) throw new Error("canonical_v13_handler_missing");
 
 const bearer = (request: Request) => (request.headers.get("authorization") ?? "").match(/^Bearer\s+(.+)$/i)?.[1] ?? null;
 const text = (value: unknown) => { const result = String(value ?? "").trim(); return result || null; };
+const uuidPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const json=(payload:Record<string,unknown>,status=200)=>new Response(JSON.stringify(payload),{
+  status,headers:{"content-type":"application/json; charset=utf-8","access-control-allow-origin":"*","cache-control":"no-store"},
+});
 
 realServe(async (request: Request) => {
   const body = request.method === "POST" ? await request.clone().json().catch(() => ({})) : {};
@@ -46,6 +51,27 @@ realServe(async (request: Request) => {
     service = null;
     userId = null;
     liveEnabled = false;
+  }
+
+  const continuationDecisionId=text(body.continuationDecisionId);
+  if(request.method==="POST"&&continuationDecisionId){
+    const requestId=text(body.continuationRequestId);
+    if(!service||!userId)return json({ok:false,error:"decision_continuation_not_authenticated"},401);
+    if(!liveEnabled)return json({ok:false,error:"decision_continuation_not_available"},403);
+    if(!uuidPattern.test(continuationDecisionId)||!requestId||!uuidPattern.test(requestId))return json({ok:false,error:"decision_continuation_request_invalid"},400);
+    const continued=await service.rpc("backyrd_next_decision_continuation_v1",{
+      p_decision_id:continuationDecisionId,p_user_id:userId,p_request_id:requestId,p_page_size:3,
+    });
+    if(continued.error)return json({ok:false,error:"decision_continuation_failed"},continued.error.message?.includes("cross_user")?403:409);
+    const page=continued.data as Record<string,unknown>;
+    const previous=Array.isArray(page.previouslyShownSpotIds)?page.previouslyShownSpotIds.map(String):[];
+    const returned=Array.isArray(page.returnedSpotIds)?page.returnedSpotIds.map(String):[];
+    assertUnseenContinuation({previouslyShownSpotIds:previous,returnedSpotIds:returned,pageSize:3});
+    return json({
+      ok:true,model:"backyrd_decision_v13_orchestrator",version:"0.2.0",candidates:Array.isArray(page.candidates)?page.candidates:[],
+      continuation:{decision_id:continuationDecisionId,page:page.page,request_id:requestId,exhausted:page.exhausted===true,remaining_count:page.remainingCount??0},
+      north_star:{active:true,decision_id:continuationDecisionId,final_source:page.finalSource??null,n6_disposition:page.n6Disposition??null},
+    });
   }
 
   const canonicalHeaders = new Headers(request.headers);
@@ -103,10 +129,20 @@ realServe(async (request: Request) => {
     });
     if (!live.active) return baseResponse;
     const byId = new Map(selected.map((candidate) => [String(candidate.spot_id), candidate]));
-    const ordered = live.finalOrder.map((spotId, index) => {
+    const orderedAll = live.continuationOrder.map((spotId, index) => {
       const candidate = byId.get(spotId);
       return candidate ? { ...sanitizeLiveProductCandidate(candidate, live.reasons[spotId]), rank: index + 1 } : null;
     }).filter(Boolean);
+    if(orderedAll.length!==live.continuationOrder.length)throw new Error("decision_continuation_candidate_payload_incomplete");
+    const ordered=orderedAll.slice(0,3);
+    assertUnseenContinuation({previouslyShownSpotIds:[],returnedSpotIds:ordered.map((candidate)=>String(candidate?.spot_id)),pageSize:3});
+    const initialized=await service.rpc("backyrd_initialize_decision_continuation_v1",{
+      p_decision_id:live.decisionId,p_user_id:userId,p_candidate_order:live.continuationOrder,
+      p_candidate_payload:Object.fromEntries(orderedAll.map((candidate)=>[String(candidate?.spot_id),candidate])),
+      p_initial_spot_ids:ordered.map((candidate)=>String(candidate?.spot_id)),p_final_source:live.finalSource,p_n6_disposition:live.n6Disposition,
+    });
+    if(initialized.error)throw new Error(`decision_continuation_initialize:${initialized.error.message??"unknown"}`);
+    const initialPage=initialized.data as Record<string,unknown>;
     const safeRequest = sanitizeLiveProductRequestBody(body);
     const { _internal_retrieval_trace: _internalRetrievalTrace, ...safePayload } = payload;
     return jsonResponseWithFreshEntityHeaders({
@@ -121,6 +157,7 @@ realServe(async (request: Request) => {
         n6_trace_id: live.n6TraceId, n6_disposition: live.n6Disposition,
         fallback_error: live.errorCode ?? null,
       },
+      continuation:{decision_id:live.decisionId,page:1,request_id:null,exhausted:initialPage.exhausted===true,remaining_count:initialPage.remainingCount??0},
     }, baseResponse);
   } catch {
     return baseResponse;
