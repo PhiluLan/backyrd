@@ -2,6 +2,8 @@ import "dotenv/config";
 import { ConfigContext, ExpoConfig } from "@expo/config";
 
 const APP_VERSION = "1.1.0";
+const IOS_PRODUCTION_BUNDLE_IDENTIFIER = "com.philipplanger.backyrd";
+const IOS_DEVELOPMENT_BUNDLE_IDENTIFIER = `${IOS_PRODUCTION_BUNDLE_IDENTIFIER}.dev`;
 
 function requiredReleaseValue(name: string, value: string | undefined) {
   const isReleaseBuild =
@@ -60,7 +62,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
 
     ios: {
-      bundleIdentifier: isDev ? "com.backyrd.app.dev" : "com.backyrd.app",
+      bundleIdentifier: isDev
+        ? IOS_DEVELOPMENT_BUNDLE_IDENTIFIER
+        : IOS_PRODUCTION_BUNDLE_IDENTIFIER,
       usesAppleSignIn: true,
       supportsTablet: false,
       config: {

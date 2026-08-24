@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { execFileSync } from "node:child_process";
 
 const root = process.cwd();
 const required = [
@@ -12,6 +13,7 @@ const required = [
 ];
 
 const failures = [];
+const expectedIosBundleIdentifier = "com.philipplanger.backyrd";
 
 for (const name of required) {
   if (!process.env[name]?.trim()) failures.push(`${name} is missing`);
@@ -25,6 +27,24 @@ const packageJson = JSON.parse(fs.readFileSync(path.join(root, "package.json"), 
 const eas = JSON.parse(fs.readFileSync(path.join(root, "eas.json"), "utf8"));
 if (eas.build?.production?.channel !== "production") failures.push("EAS production channel mismatch");
 if (packageJson.version !== "1.1.0") failures.push("Mobile release version mismatch");
+
+try {
+  const expoConfig = JSON.parse(
+    execFileSync("npx", ["expo", "config", "--type", "public", "--json"], {
+      cwd: root,
+      encoding: "utf8",
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+  );
+  if (expoConfig.ios?.bundleIdentifier !== expectedIosBundleIdentifier) {
+    failures.push(
+      `iOS Production bundle identifier must be ${expectedIosBundleIdentifier}, received ${expoConfig.ios?.bundleIdentifier ?? "missing"}`
+    );
+  }
+} catch (error) {
+  failures.push(`Expo Production config could not be evaluated: ${error instanceof Error ? error.message : String(error)}`);
+}
 
 const sourceRoots = ["app", "components", "hooks", "lib", "providers", "stores", "theme"];
 const sourceFiles = [];
