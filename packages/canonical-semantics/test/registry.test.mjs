@@ -14,18 +14,6 @@ test("one canonical current-intent authority preserves Regentag, family and chil
  assert.deepEqual(intent.preferredPlaceTypes,["activity","culture","outing","experience"]);
  assert.ok(intent.hardConstraints.excludedPlaceTypes.includes("bar"));
 });
-test("canonical current intent understands natural German friends forms",()=>{
- for(const query of ["Gemütlicher Abend mit meinen besten Freunden","Abends mit Freunden","Etwas mit meinem Freundeskreis"]){
-  const intent=interpretCanonicalCurrentIntent({query});
-  assert.equal(intent.socialContext,"friends",query);
-  assert.equal(intent.currentRequestFacts.socialContext.value,"friends",query);
-  assert.equal(intent.currentRequestFacts.socialContext.provenance,"EXPLICIT",query);
- }
- const intent=interpretCanonicalCurrentIntent({query:"Gemütlicher Abend mit meinen besten Freunden"});
- assert.ok(intent.conceptDirections.some((row)=>row.concept==="vibe.cozy"));
- assert.ok(intent.conceptDirections.some((row)=>row.concept==="vibe.social"));
- assert.deepEqual(intent.currentRequestFacts.dayparts.value,["EVENING"]);
-});
 test("all 60 N4 dimensions have one explicit User-evidence authority",()=>{
  assert.equal(FROZEN_N4_DIMENSIONS.length,60);assert.equal(FROZEN_TASTE_CONCEPTS.length,45);
  assert.deepEqual(Object.keys(N4_USER_EVIDENCE_AUTHORITY).sort(),[...FROZEN_N4_DIMENSIONS].sort());

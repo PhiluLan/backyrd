@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 import test from "node:test";
+import {alignLiveProductCurrentIntent} from "../src/live-product-boundary.mjs";
 
 const root=new URL("../../../",import.meta.url);
 const read=(path)=>readFile(new URL(path,root),"utf8");
@@ -30,5 +31,20 @@ test("controlled canonical routing cannot silently return Legacy ranking",async(
   assert.match(wrapper,/canonical_north_star_unavailable/);
   assert.match(runner,/backyrd_canonical_product_user_enabled_v1/);
   assert.doesNotMatch(runner,/LEGACY_V13_FALLBACK/);
-  assert.match(retrieval,/!canonicalNorthStarRetrieval/);
+  assert.match(wrapper,/canonicalHeaders\.delete\("authorization"\)/);
+  assert.match(wrapper,/retrievalPayloadUserId!==null&&retrievalPayloadUserId!==userId/);
+  assert.doesNotMatch(retrieval,/canonicalNorthStarRetrieval/);
+});
+
+test("Product Current Intent boundary recognizes natural German friends forms",()=>{
+  for(const query of ["Gemütlicher Abend mit meinen besten Freunden","Abends mit Freunden","Etwas mit meinem Freundeskreis"]){
+    const intent=alignLiveProductCurrentIntent({
+      conceptDirections:[{concept:"vibe.cozy",direction:1,authority:"EXPLICIT_CURRENT_INTENT"}],
+      currentRequestFacts:{socialContext:{value:null,authority:"UNKNOWN",provenance:null}},
+    },query);
+    assert.equal(intent.socialContext,"friends",query);
+    assert.equal(intent.currentRequestFacts.socialContext.value,"friends",query);
+    assert.equal(intent.currentRequestFacts.socialContext.authority,"EXPLICIT",query);
+    assert.ok(intent.conceptDirections.some((row)=>row.concept==="vibe.social"),query);
+  }
 });

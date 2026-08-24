@@ -189,8 +189,7 @@ export function interpretCanonicalCurrentIntent(input={}) {
   const lively=/\b(lebendig\w*|lebhaft\w*|lively|energiegeladen\w*)\b/.test(normalizedText);
   const cozy=/\b(gemutlich\w*|cozy|cosy)\b/.test(normalizedText);
   const romantic=/\b(romantisch\w*|romantic|date|datenight|date night)\b/.test(normalizedText);
-  const friendsContext=/\b(freund(?:e|en|eskreis)?|friends?|friend group)\b/.test(normalizedText);
-  const socialContext=familyContext.value==="FAMILY_WITH_CHILD"?"family_with_kids":friendsContext?"friends":romantic?"date":/\b(alleine|allein|solo|fur mich)\b/.test(normalizedText)?"solo":null;
+  const socialContext=familyContext.value==="FAMILY_WITH_CHILD"?"family_with_kids":/\b(freunde|friends)\b/.test(normalizedText)?"friends":romantic?"date":/\b(alleine|allein|solo|fur mich)\b/.test(normalizedText)?"solo":null;
   const conceptDirections=uniqueValues([
     ...(quiet?["vibe.quiet","energy.calm"]:[]),
     ...(lively?["vibe.lively","energy.energetic"]:[]),

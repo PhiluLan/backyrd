@@ -1,9 +1,10 @@
 // Production-only internal-live wrapper. The frozen canonical v13 source is
 // imported unchanged; this layer may only route its already-valid candidates.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { interpretCanonicalCurrentIntent } from "../../../packages/canonical-semantics/src/index.mjs";
 import { isInternalLiveUser, runInternalLiveDecision } from "./north-star-live.ts";
 import { jsonResponseWithFreshEntityHeaders } from "./live-response.mjs";
-import { buildLiveCandidateFunnel, LIVE_RETRIEVAL_SOURCE_LIMIT, sanitizeLiveProductCandidate, sanitizeLiveProductRequestBody } from "../../../packages/decision-input-runtime/src/live-product-boundary.mjs";
+import { alignLiveProductCurrentIntent, buildLiveCandidateFunnel, LIVE_RETRIEVAL_SOURCE_LIMIT, sanitizeLiveProductCandidate, sanitizeLiveProductRequestBody } from "../../../packages/decision-input-runtime/src/live-product-boundary.mjs";
 import { assertUnseenContinuation } from "../../../packages/decision-input-runtime/src/continuation.mjs";
 
 type Handler = (request: Request) => Promise<Response> | Response;
@@ -78,6 +79,11 @@ realServe(async (request: Request) => {
 
   const canonicalHeaders = new Headers(request.headers);
   canonicalHeaders.delete("content-length");
+  // The outer Product boundary has already authenticated the bearer and bound
+  // userId to that verified token. Withholding it from the frozen retrieval
+  // handler disables only its historical personalized-v12 source; all later
+  // writes remain bound to the outer verified userId.
+  if(liveEnabled)canonicalHeaders.delete("authorization");
   if(liveEnabled&&internalWrapperSecret)canonicalHeaders.set("x-backyrd-internal-wrapper",internalWrapperSecret);
   const requestedSemanticLimit=Number(body.semanticLimit);
   const canonicalRequest = liveEnabled
@@ -100,9 +106,21 @@ realServe(async (request: Request) => {
   }
 
   try {
-    if (!liveEnabled || !service || !userId || (!internalInvocation && text(payload.user_id) !== userId)) return baseResponse;
+    const retrievalPayloadUserId=text(payload.user_id);
+    if(
+      !liveEnabled||!service||!userId||
+      (!internalInvocation&&retrievalPayloadUserId!==null&&retrievalPayloadUserId!==userId)
+    )return baseResponse;
 
-    const canonicalIntent=(payload.canonical_intent??{}) as Record<string, unknown>;
+    const productQuery=text(body.rawFreeText)??text(body.query)??[text(body.moodA),text(body.moodB)].filter(Boolean).join(" ");
+    const canonicalIntent=alignLiveProductCurrentIntent(interpretCanonicalCurrentIntent({
+      query:productQuery,
+      preferredPlaceTypes:body.preferredPlaceTypes??body.placeTypes??body.categories??[],
+      excludedPlaceTypes:body.excludedPlaceTypes??body.avoidPlaceTypes??[],
+      audience:Array.isArray(body.audience)?body.audience:[],
+      strictCategoryIntent:body.strictCategoryIntent===true,
+      openNow:body.openNow===true,
+    }),productQuery) as Record<string, unknown>;
     const funnel=buildLiveCandidateFunnel(candidates,{city:text(body.city),canonicalIntent});
     const selected = funnel.selected;
     const { selected: _selectedCandidates, ...candidateFunnelTrace } = funnel;

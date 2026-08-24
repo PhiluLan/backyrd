@@ -53,6 +53,33 @@ export const LIVE_ELIGIBLE_HANDOFF_LIMIT=20;
 const lower=(value)=>String(value??"").trim().toLocaleLowerCase("de-CH");
 const candidatePlaceType=(candidate)=>lower(candidate?.place_type||candidate?.canonical_place_type);
 
+const FRIENDS_CURRENT_INTENT=/\b(freund(?:e|en|eskreis)?|friends?|friend group)\b/;
+
+// The frozen Current Intent interpreter remains untouched. This Product-boundary
+// adapter closes a natural-language coverage gap before the canonical package is
+// handed to N5/N4. It only projects an explicit value when no social context has
+// already been established.
+export function alignLiveProductCurrentIntent(canonicalIntent,rawText){
+  const intent=canonicalIntent&&typeof canonicalIntent==="object"?canonicalIntent:{};
+  const currentRequestFacts=intent.currentRequestFacts&&typeof intent.currentRequestFacts==="object"
+    ? intent.currentRequestFacts:{};
+  const existing=currentRequestFacts.socialContext;
+  if(!FRIENDS_CURRENT_INTENT.test(lower(rawText))||(existing?.value&&existing.value!=="UNKNOWN"))return intent;
+  const conceptDirections=Array.isArray(intent.conceptDirections)?[...intent.conceptDirections]:[];
+  if(!conceptDirections.some((row)=>row?.concept==="vibe.social")){
+    conceptDirections.push({concept:"vibe.social",direction:1,authority:"EXPLICIT_CURRENT_INTENT"});
+  }
+  return{
+    ...intent,
+    socialContext:"friends",
+    conceptDirections,
+    currentRequestFacts:{
+      ...currentRequestFacts,
+      socialContext:{value:"friends",authority:"EXPLICIT",provenance:"request:social_context"},
+    },
+  };
+}
+
 export function buildLiveCandidateFunnel(candidates,{city=null,canonicalIntent=null,limit=LIVE_ELIGIBLE_HANDOFF_LIMIT}={}){
   const hard=canonicalIntent?.hardConstraints??{};
   const excluded=new Set((hard.excludedPlaceTypes??canonicalIntent?.excludedPlaceTypes??[]).map(lower));
