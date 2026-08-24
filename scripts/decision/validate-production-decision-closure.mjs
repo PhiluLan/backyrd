@@ -23,7 +23,7 @@ const curated={
   tierpark:"f8ae8625-aa9c-4647-9af5-c981fc40854a",
   muks:"39fa2f48-b5b9-4c00-8c71-efe274e4da93",
 };
-const cases=[
+const allCases=[
   ["RAIN_CHILD","Regentag mit meiner 4-jährigen Tochter"],
   ["OUTDOOR_ANIMALS","Mit meiner Tochter draußen Tiere anschauen"],
   ["INDOOR_ACTIVE_CHILD","Indoor etwas Aktives mit Kind"],
@@ -34,6 +34,9 @@ const cases=[
   ["QUIET_CONVERSATION","Etwas Ruhiges, wo man sich gut unterhalten kann"],
   ["BROAD_UNKNOWN","Was könnten wir machen?"],
 ];
+const validateN6=process.env.BACKYRD_PRODUCTION_N6_VALIDATION==="AUTHORIZED";
+const singleCase=process.env.BACKYRD_PRODUCTION_SINGLE_CASE==="AUTHORIZED";
+const cases=validateN6||singleCase?allCases.slice(0,1):allCases;
 const ok=(error,label)=>{if(error)throw new Error(`${label}:${String(error.message??error.name??"unknown")}:status=${String(error.status??"unknown")}:code=${String(error.code??"unknown")}`);};
 const removeFixtureUser=async(id)=>{
   // Keep Production validation cleanup bounded to the exact fixture identity.
@@ -97,10 +100,10 @@ try{
   const created=await service.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{production_fixture:"decision-closure-v1"}});ok(created.error,"create fixture user");userId=created.data.user.id;
   ok((await service.from("profiles").upsert({id:userId,display_name:"Decision Closure Fixture"})).error,"fixture profile");
   ok((await service.from("user_consents").insert({user_id:userId,purpose_key:"personalized_recommendations",status:"granted",granted_at:new Date().toISOString(),source:"system_migration"})).error,"fixture consent");
-  ok((await service.from("backyrd_internal_live_users_v1").insert({user_id:userId,enabled:true,n2_enabled:false,user_intelligence_enabled:false,decision_enabled:true,n6_enabled:false,activation_reason:"PRODUCTION_DECISION_FINAL_CLOSURE"})).error,"fixture allowlist");
+  ok((await service.from("backyrd_internal_live_users_v1").insert({user_id:userId,enabled:true,n2_enabled:false,user_intelligence_enabled:false,decision_enabled:true,n6_enabled:validateN6,activation_reason:"PRODUCTION_DECISION_FINAL_CLOSURE"})).error,"fixture allowlist");
   const client=createClient(url,anon,options);const signed=await client.auth.signInWithPassword({email,password});ok(signed.error,"fixture sign in");
   const token=signed.data.session?.access_token;assert.ok(token);
-  const report={version:"decision-v13-production-v64/model-0.2.0",cleanedOrphanFixtures,fixtureUser:userId,queries:[]};
+  const report={version:"decision-v13-production-v65/model-0.2.0",mode:validateN6?"N6_BOUNDED_VALIDATION":"DETERMINISTIC_MATRIX",cleanedOrphanFixtures,fixtureUser:userId,queries:[]};
   for(const [label,query] of cases){
     const started=performance.now();
     const response=await fetch(`${url}/functions/v1/decision-v13`,{method:"POST",headers:{authorization:`Bearer ${token}`,apikey:anon,"content-type":"application/json"},body:JSON.stringify({city:"Basel",moodA:null,moodB:null,query,preferredPlaceTypes:[],audience:[],strictCategoryIntent:false,inputMode:"free",rawFreeText:query,limit:10,v12Limit:12,semanticLimit:18,excludeSpotIds:[]})});
@@ -114,6 +117,12 @@ try{
     const handoff=trace.data.retrieval_funnel?.rows??[];
     const deterministicOrder=trace.data.decision_funnel?.deterministicOrder??[];
     const rankingInputs=trace.data.decision_funnel?.rankingInputs??{};
+    let n6Trace=null;
+    if(validateN6){
+      const traceRow=await service.from("backyrd_n6_shadow_traces_v1").select("disposition,latency_ms,input_tokens,output_tokens,estimated_cost_usd,failure_code,trace_payload").eq("decision_id",decisionId).order("created_at",{ascending:false}).limit(1).maybeSingle();
+      ok(traceRow.error,`${label}:n6 trace`);
+      if(traceRow.data)n6Trace={disposition:traceRow.data.disposition,latencyMs:traceRow.data.latency_ms,inputTokens:traceRow.data.input_tokens,outputTokens:traceRow.data.output_tokens,costUsd:traceRow.data.estimated_cost_usd,failureCode:traceRow.data.failure_code,candidateSubsetApplied:traceRow.data.trace_payload?.boundaries?.candidateSubsetApplied??null,candidateIdentityIntegrity:traceRow.data.trace_payload?.comparison?.candidateIdentityIntegrity??null,n6Order:traceRow.data.trace_payload?.n6Order??[]};
+    }
     report.queries.push({
       label,query,decisionId,httpStatus:response.status,totalLatencyMs:Math.round(performance.now()-started),
       n3:compactN3(trace.data.decision_funnel?.n3?.currentRequestFacts),
@@ -121,6 +130,7 @@ try{
       curated:Object.fromEntries(Object.entries(curated).map(([name,id])=>[name,{retrieved:sourceRows.some((row)=>row.spotId===id),handoff:handoff.some((row)=>row.spotId===id&&row.handoffStatus==="SELECTED"),exclusions:handoff.find((row)=>row.spotId===id)?.exclusionReasons??[]}])) ,
       deterministicOrder:deterministicOrder.slice(0,10),ranking:compactRanking(rankingInputs,deterministicOrder),
       finalSource:payload.north_star.final_source,n6Disposition:payload.north_star.n6_disposition,
+      n6Trace,
       results:(payload.candidates??[]).map((row)=>({spotId:row.spot_id,name:row.name,placeType:row.place_type,reason:row.human_reason,rank:row.rank})),
       performance:{retrievalMs:Math.round(source.performance?.total??0),decisionMs:Math.round(trace.data.decision_funnel?.performance?.totalMs??0)},
     });

@@ -31,7 +31,7 @@ Production results, trace IDs, candidate funnels, latency and visible reason rev
 
 ## Canonical Production benchmark
 
-`Regentag mit meiner 4-jährigen Tochter` on `decision-v13` v64:
+`Regentag mit meiner 4-jährigen Tochter` on final `decision-v13` v65:
 
 - N3: rain `PREFERRED`, family `FAMILY_WITH_CHILD`, child age `4`; all explicit.
 - Retrieval: 20 semantic, 12 personalized, 25 fused, 17 hard-eligible and 17 handed to factual evaluation.
@@ -41,7 +41,7 @@ Production results, trace IDs, candidate funnels, latency and visible reason rev
 - Tierpark: retrieved and evaluated, but its explicit rainy-day contradiction no longer outranks strong matches or honest unknowns.
 - Visible reasons: direct evidence-bound rainy-day reasons for ELYS and the Museum; no personal claim for the cold fixture user.
 
-The benchmark completed in 2.015 s end-to-end (retrieval 753 ms, Decision runtime 402 ms). Across all nine warm Production cases: p50 1.693 s, observed maximum 2.790 s; retrieval p50 421 ms and Decision p50 385 ms.
+The final post-deployment benchmark completed in 4.457 s end-to-end (retrieval 1.924 s, Decision runtime 598 ms). Across the preceding nine warm Production cases: p50 1.693 s, observed maximum 2.790 s; retrieval p50 421 ms and Decision p50 385 ms.
 
 N6 was intentionally disabled for this matrix to prove the deterministic fallback independently. Existing real provider canonicalization/validator evidence remains authoritative. A new 12-candidate regression proves that the broader factual evaluation universe becomes one separately hashed, deterministic ten-candidate N6 subset without identity/reason leakage; the frozen N6 model/configuration is unchanged. No external AI call or cost was added by this closure matrix.
 
