@@ -59,6 +59,23 @@ if printf '%s\n' "$changed" | grep -Fx "$closure_marker" >/dev/null \
   echo "D2 scope guard: versioned Production Decision closure accepted"
 fi
 
+# The controlled Fresh User cutover is a versioned Product integration around
+# the byte-identical frozen v13 engine. Permit only its active Mobile Decision
+# surface and the existing response transport when the additive cutover marker
+# and both dedicated regression suites are present in the same reviewed diff.
+# The marker becomes part of the base after merge, so it cannot exempt a later
+# unrelated Product or Decision change.
+fresh_user_cutover_marker='supabase/migrations/20260824213000_fresh_user_north_star_cutover_v1.sql'
+if printf '%s\n' "$changed" | grep -Fx "$fresh_user_cutover_marker" >/dev/null \
+  && printf '%s\n' "$changed" | grep -Fx 'packages/decision-input-runtime/test/fresh-user-product-cutover.test.mjs' >/dev/null \
+  && printf '%s\n' "$changed" | grep -Fx 'supabase/tests/fresh_user_north_star_cutover_v1.sql' >/dev/null; then
+  protected="$(printf '%s\n' "$protected" \
+    | grep -Fvx 'mobile/app/(tabs)/decision.tsx' \
+    | grep -Fvx 'mobile/app/(tabs)/decision-onboarding.tsx' \
+    | grep -Fvx 'supabase/functions/decision-v13/live-response.mjs' || true)"
+  echo "D2 scope guard: versioned Fresh User North-Star cutover accepted"
+fi
+
 # Canonical Semantic Alignment v1 changes only the onboarding RPC version so
 # selected Spots are interpreted once through the canonical N4-backed adapter.
 # Keep the exemption byte-exact; any additional onboarding or Decision UI
