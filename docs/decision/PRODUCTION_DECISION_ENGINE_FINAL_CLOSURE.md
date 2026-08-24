@@ -35,7 +35,7 @@ Current factual support includes rain, environment, family, child age, activity,
 
 ## N6 and reasons
 
-N6 receives exactly the eligible frozen set and exact candidate-specific reasons. The validator enforces the deterministic current-intent hierarchy even when no long-term semantic concept is present. It may reorder only within an equal authority tier. Provider failure or rejection preserves the deterministic result.
+N6 keeps its frozen ten-candidate provider boundary. When factual evaluation contains more than ten eligible candidates, the deterministic full ordering freezes the best ten as a separately hashed N6 subset; identities, ranking inputs and candidate-specific reasons are projected only for those ten. The validator enforces completeness and the deterministic current-intent hierarchy inside that exact subset. N6 may reorder only within an equal authority tier. Provider failure or rejection preserves the deterministic result.
 
 Product copy selects direct factual/current-intent reasons before personalization or generic place-type text. No reason exists without a candidate-specific N4/accepted-fact reference.
 

@@ -43,7 +43,7 @@ Production results, trace IDs, candidate funnels, latency and visible reason rev
 
 The benchmark completed in 2.015 s end-to-end (retrieval 753 ms, Decision runtime 402 ms). Across all nine warm Production cases: p50 1.693 s, observed maximum 2.790 s; retrieval p50 421 ms and Decision p50 385 ms.
 
-N6 was intentionally disabled for this matrix to prove the deterministic fallback independently. Existing real provider canonicalization/validator evidence remains authoritative, and the N6 hierarchy/candidate-authority regression suite passed. No external AI call or cost was added by this closure matrix.
+N6 was intentionally disabled for this matrix to prove the deterministic fallback independently. Existing real provider canonicalization/validator evidence remains authoritative. A new 12-candidate regression proves that the broader factual evaluation universe becomes one separately hashed, deterministic ten-candidate N6 subset without identity/reason leakage; the frozen N6 model/configuration is unchanged. No external AI call or cost was added by this closure matrix.
 
 ## Curated control set
 
