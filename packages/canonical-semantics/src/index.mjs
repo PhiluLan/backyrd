@@ -32,6 +32,23 @@ export const FROZEN_N4_EXTENSION_DIMENSIONS = Object.freeze([
 export const N4_FACT_DIMENSIONS = Object.freeze(["city","place_type","price_level","accessibility","environment","reservation_character","duration_character","spot_id"]);
 export const FROZEN_N4_DIMENSIONS = Object.freeze([...N4_FACT_DIMENSIONS,...FROZEN_TASTE_CONCEPTS,...FROZEN_N4_EXTENSION_DIMENSIONS]);
 
+// N4 describes Spots; the User Taste runtime describes durable user taste.
+// Keep the boundary machine-readable so every adapter filters by contract
+// instead of maintaining one-off exclusion lists.
+export const N4_USER_EVIDENCE_AUTHORITY = Object.freeze(Object.fromEntries([
+  ...FROZEN_TASTE_CONCEPTS.map((key)=>[key,"ALLOWED_TASTE_CONCEPT"]),
+  ...N4_FACT_DIMENSIONS.map((key)=>[key,key==="place_type"?"PLACE_TYPE_ONLY":"FACT_ONLY"]),
+  ["planning.low_friction","CONTEXT_ONLY"],
+  ["planning.high_commitment","CONTEXT_ONLY"],
+  ["occasion.kids_friendly","OCCASION_ONLY"],
+  ["occasion.group_friendly","OCCASION_ONLY"],
+  ["context.night_friendly","CONTEXT_ONLY"],
+  ["context.weekday_friendly","CONTEXT_ONLY"],
+  ["context.weekend_friendly","CONTEXT_ONLY"],
+]));
+export const classifyN4DimensionForUserEvidence=(key)=>N4_USER_EVIDENCE_AUTHORITY[key]??"NOT_USER_LEARNABLE";
+export const isUserTasteConcept=(key)=>classifyN4DimensionForUserEvidence(key)==="ALLOWED_TASTE_CONCEPT";
+
 export const PLACE_TYPES = Object.freeze(["cafe","bar","restaurant","nightlife","culture","outing","activity","experience","hotel","other"]);
 export const CATEGORY_PLACE_TYPE = Object.freeze({
   "aktivität":"activity", "aussichtspunkt":"outing", "bar":"bar", "besonderes erlebnis":"experience",

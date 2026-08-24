@@ -45,13 +45,23 @@ function exposeEvidenceAuthorities(result,input,{asOf,spotIntelligence}){
   return{...result,userCard:{...body,userCardHash:digest(body)}};
 }
 
+/** Exact, side-effect-free production materialization used for parity audits. */
+export function buildUserIntelligenceReadOnly({ userId, source }) {
+  if (!source?.consentGranted) return { input: [], result: null, validated: null };
+  const input = buildCanonicalRuntimeInput(source);
+  const result = exposeEvidenceAuthorities(
+    buildN5_8_4UserCard(input, { asOf: source.asOf, spotIntelligence: source.n4BySpot }),
+    input,
+    { asOf: source.asOf, spotIntelligence: source.n4BySpot },
+  );
+  return { input, result, validated: validateRuntimeResult({ userId, result }) };
+}
+
 /** Server worker orchestration. The supplied repository owns DB reads and a single transactional persist call. */
 export async function rebuildUserIntelligence({ userId, repository, reason = "MEMORY_COMMITTED", watermark = null, workIds = [], leaseToken = null }) {
   const source = await repository.readCanonicalSources(userId, { watermark });
   if (!source.consentGranted) return repository.purgeDerivedUserIntelligence(userId, reason);
-  const input = buildCanonicalRuntimeInput(source);
-  const result = exposeEvidenceAuthorities(buildN5_8_4UserCard(input, { asOf: source.asOf, spotIntelligence: source.n4BySpot }),input,{asOf:source.asOf,spotIntelligence:source.n4BySpot});
-  const validated = validateRuntimeResult({ userId, result });
+  const { input, validated } = buildUserIntelligenceReadOnly({ userId, source });
   const previousCard = await repository.readLatestCard(userId);
   const ledger = semanticLedger(previousCard, validated.card, validated.runtimeVersion, source.watermark);
   const persisted = await repository.persistAtomically({ userId, reason, sourceWatermark: source.watermark, input, ...validated, ledger, workIds, leaseToken });

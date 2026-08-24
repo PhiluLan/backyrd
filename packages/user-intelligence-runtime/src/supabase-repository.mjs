@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 const canonical = (value) => value && typeof value === "object" ? Array.isArray(value) ? value.map(canonical) : Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])])) : value;
 const hash = (value) => createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex");
 const fail = (error) => { if (error) throw new Error(`user_intelligence_repository:${error.message}`); };
-const reviewId = (event) => (event.provenance?.sourceEventId ?? "").match(/^smart_review:([^:]+)/)?.[1] ?? null;
+const reviewId = (event) => (event.provenance?.sourceEventId ?? "").match(/^(?:smart_review|standard_review):([^:]+)/)?.[1] ?? null;
 const batches = (values, size = 100) => Array.from({ length:Math.ceil(values.length/size) }, (_, index) => values.slice(index*size,(index+1)*size));
 
 /** Server/service-role only adapter; it contains no preference inference. */
@@ -17,7 +17,11 @@ export class SupabaseUserIntelligenceRepository {
     const { data: memoryEvents, error } = await memoryQuery; fail(error);
     const allMemoryEvents=[...(memoryEvents??[])];
     const { data: declarations, error:declarationError } = await this.client.from("backyrd_self_declared_taste_v1").select("id,concept_key,source_kind,spot_id,source_n4_snapshot_identity,created_at,semantic_contract_version").eq("user_id",userId).eq("state","ACTIVE").order("created_at").order("id"); fail(declarationError);
-    for(const row of declarations??[])allMemoryEvents.push({id:`declared:${row.id}`,idempotency_key:`declared:${row.id}`,user_id:userId,event_type:"onboarding_preference",contract_version:row.semantic_contract_version,occurred_at:row.created_at,observed_at:row.created_at,ingested_at:row.created_at,decision_id:null,session_id:`declared:${row.source_kind}`,spot_id:row.spot_id,moment_signature:{},spot_evidence:{concepts:[row.concept_key]},provenance:{source:"SELF_DECLARED",sourceVersion:row.semantic_contract_version,sourceEventId:String(row.id),n4SnapshotIdentity:row.source_n4_snapshot_identity},consent_purpose:"personalized_recommendations",consent_state:"granted"});
+    const declaredSourceIds=new Set(allMemoryEvents.filter((row)=>row.provenance?.source==="SELF_DECLARED").map((row)=>String(row.provenance?.sourceEventId??"").split(":")[0]));
+    // Canonical declarations created before the N2 wiring remain readable,
+    // but new declarations are represented by their persisted N2 event only.
+    // This avoids both historical reinterpretation and duplicate evidence.
+    for(const row of declarations??[])if(!declaredSourceIds.has(String(row.id)))allMemoryEvents.push({id:`declared:${row.id}`,idempotency_key:`declared:${row.id}`,user_id:userId,event_type:"onboarding_preference",contract_version:row.semantic_contract_version,occurred_at:row.created_at,observed_at:row.created_at,ingested_at:row.created_at,decision_id:null,session_id:`declared:${row.source_kind}`,spot_id:row.spot_id,moment_signature:{},spot_evidence:{concepts:[row.concept_key]},provenance:{source:"SELF_DECLARED",sourceVersion:row.semantic_contract_version,sourceEventId:String(row.id),n4SnapshotIdentity:row.source_n4_snapshot_identity},consent_purpose:"personalized_recommendations",consent_state:"granted"});
     allMemoryEvents.sort((a,b)=>String(a.ingested_at).localeCompare(String(b.ingested_at))||String(a.id).localeCompare(String(b.id)));
     const spotIds = [...new Set(allMemoryEvents.map((x) => x.spot_id).filter(Boolean))];
     const n4Rows=[];
@@ -26,7 +30,10 @@ export class SupabaseUserIntelligenceRepository {
     const ids = allMemoryEvents.map(reviewId).filter(Boolean);
     const reviews=[];
     for (const group of batches(ids)) { const { data, error:reviewError } = await this.client.from("reviews").select("id,text,mood_a,mood_b,spot_id,user_id,data_origin,review_origin,product_evidence_origin,semantic_contract_version").eq("user_id",userId).in("id",group); fail(reviewError); reviews.push(...(data??[])); }
-    const reviewsById = Object.fromEntries((reviews ?? []).filter((r)=>["REAL","IMPORT"].includes(r.data_origin)&&r.review_origin==="SMART_REVIEW"&&r.product_evidence_origin==="smart_review_v1").map((r) => [r.id, { text: r.text, moods: [r.mood_a, r.mood_b].filter(Boolean), semanticContractVersion:r.semantic_contract_version,spotBinding: { status: "CONFIRMED", confidence: .9 } }]));
+    const reviewsById = Object.fromEntries((reviews ?? []).filter((r)=>["REAL","IMPORT"].includes(r.data_origin)&&(
+      (r.review_origin==="SMART_REVIEW"&&r.product_evidence_origin==="smart_review_v1")||
+      (r.review_origin==="STANDARD_REVIEW"&&r.product_evidence_origin==null)
+    )&&r.semantic_contract_version==="backyrd-canonical-semantics-v1").map((r) => [r.id, { text: r.text, moods: [r.mood_a, r.mood_b].filter(Boolean), semanticContractVersion:r.semantic_contract_version,spotBinding: { status: "CONFIRMED", confidence: .9 } }]));
     const effectiveWatermark = watermark ?? allMemoryEvents.at(-1)?.ingested_at ?? null;
     return { consentGranted: true, memoryEvents: allMemoryEvents.map((m) => ({ id:m.id,idempotencyKey:m.idempotency_key,userId:m.user_id,eventType:m.event_type,contractVersion:m.contract_version,occurredAt:m.occurred_at,observedAt:m.observed_at,ingestedAt:m.ingested_at,decisionId:m.decision_id,sessionId:m.session_id,spotId:m.spot_id,reviewId:reviewId(m),momentSignature:m.moment_signature,spotEvidence:m.spot_evidence,provenance:m.provenance,consentPurpose:m.consent_purpose,consentState:m.consent_state })), n4BySpot, reviewsById, asOf: effectiveWatermark ?? new Date(0).toISOString(), watermark: effectiveWatermark };
   }
