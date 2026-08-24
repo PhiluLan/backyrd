@@ -38,8 +38,7 @@ const strongestAuthorizedReasons=(authorized:Record<string,Array<{copy?:string;t
 );
 
 export async function isInternalLiveUser(service: ServiceClient, userId: string, capability = "DECISION") {
-  const { data, error } = await service.rpc("backyrd_internal_live_user_enabled_v1", { p_user_id: userId, p_capability: capability });
-  if (error && /schema cache|does not exist/i.test(error.message ?? "")) return false;
+  const { data, error } = await service.rpc("backyrd_canonical_product_user_enabled_v1", { p_user_id: userId, p_capability: capability });
   fail(error, "allowlist");
   return data === true;
 }
@@ -125,12 +124,7 @@ export async function runInternalLiveDecision(input: LiveInput) {
       }
     }
 
-    if (!(await isInternalLiveUser(input.service, input.userId, "DECISION"))) {
-      finalSource = "LEGACY_V13_FALLBACK";
-      continuationOrder = candidateIds;
-      finalOrder = continuationOrder.slice(0,3);
-      reasons = {};
-    }
+    if (!(await isInternalLiveUser(input.service, input.userId, "DECISION"))) throw new Error("canonical_product_eligibility_revoked");
     const finalized = await input.service.rpc("backyrd_finalize_internal_live_decision_v1", {
       p_decision_id: decisionId,
       p_user_id: input.userId,
@@ -159,23 +153,21 @@ export async function runInternalLiveDecision(input: LiveInput) {
       packageHash: deterministic.inputPackage.packageHash,
       deterministicTraceId: deterministic.traceId,
       n6TraceId, n6Disposition,
+      personalizationActive:Object.values(deterministic.internal.rankingInputs).some(
+        (row)=>Number((row as {boundedPersonalFit?:number}).boundedPersonalFit??0)>0,
+      ),
     };
   } catch (error) {
     const code = errorCode(error);
     if (decisionId) {
-      const finalOrder=candidateIds.slice(0,3);
-      await input.service.rpc("backyrd_finalize_internal_live_decision_v1", {
-        p_decision_id: decisionId, p_user_id: input.userId, p_status: "FALLBACK",
-        p_deterministic_trace_id: null, p_n6_trace_id: null, p_n6_disposition: "FAILED",
-        p_final_source: "LEGACY_V13_FALLBACK", p_final_order: finalOrder,
-        p_knowledge_mode: null, p_user_card_hash: null, p_package_hash: null,
-        p_response_hash: null, p_error_code: code,
+      await input.service.rpc("backyrd_fail_canonical_product_decision_v1", {
+        p_decision_id:decisionId,p_user_id:input.userId,p_error_code:code,
       });
       await input.service.rpc("backyrd_persist_decision_funnel_trace_v1", {
         p_decision_id: decisionId, p_user_id: input.userId, p_stage: "COMPLETE",
-        p_payload: { finalSource: "LEGACY_V13_FALLBACK", finalOrder, continuationOrder:candidateIds, n6Disposition: "FAILED", errorCode: code },
+        p_payload: { finalSource: "NORTH_STAR_FAILED", finalOrder:[], continuationOrder:candidateIds, n6Disposition: "FAILED", errorCode: code },
       });
     }
-    return { active: true as const, decisionId, finalSource: "LEGACY_V13_FALLBACK", finalOrder: candidateIds.slice(0,3), continuationOrder:candidateIds, reasons: {}, knowledgeMode: null, userCardHash: null, packageHash: null, deterministicTraceId: null, n6TraceId: null, n6Disposition: "FAILED", errorCode: code };
+    throw error;
   }
 }

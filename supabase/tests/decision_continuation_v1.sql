@@ -52,6 +52,10 @@ begin
   insert into public.decision_sessions(id,user_id,city) values(v_decision,v_user,'Basel');
   v_page1:=public.backyrd_initialize_decision_continuation_v1(v_decision,v_user,v_order,v_payload,v_order[1:3],'DETERMINISTIC_NORTH_STAR','NOT_RUN');
   perform pg_temp.continuation_assert(v_page1->'returnedSpotIds'=to_jsonb(v_order[1:3]),'page 1 differs from frozen order');
+  perform pg_temp.continuation_assert((select count(*)=0 from public.backyrd_decision_visible_impressions_v1 where decision_id=v_decision),'returned page was incorrectly recorded as visible');
+  perform public.backyrd_record_visible_decision_impression_v1(v_decision,v_order[1],1,1);
+  perform public.backyrd_record_visible_decision_impression_v1(v_decision,v_order[1],1,1);
+  perform pg_temp.continuation_assert((select count(*)=1 from public.backyrd_decision_visible_impressions_v1 where decision_id=v_decision),'visible impression is not idempotent');
   v_page2:=public.backyrd_next_decision_continuation_v1(v_decision,v_user,v_request2,3);
   perform pg_temp.continuation_assert(v_page2->'returnedSpotIds'=to_jsonb(v_order[4:6]),'page 2 repeats or skips frozen candidates');
   v_page2_retry:=public.backyrd_next_decision_continuation_v1(v_decision,v_user,v_request2,3);
@@ -60,13 +64,14 @@ begin
   perform pg_temp.continuation_assert(v_page3->'returnedSpotIds'=to_jsonb(v_order[7:8]) and (v_page3->>'exhausted')::boolean,'short final page is invalid');
   v_page4:=public.backyrd_next_decision_continuation_v1(v_decision,v_user,pg_temp.continuation_uuid('continuation-page-4'),3);
   perform pg_temp.continuation_assert(jsonb_array_length(v_page4->'returnedSpotIds')=0 and (v_page4->>'exhausted')::boolean,'exhausted page refilled old Spots');
-  perform pg_temp.continuation_assert((select count(*)=8 from public.backyrd_decision_visible_impressions_v1 where decision_id=v_decision),'visible impressions are not exactly once');
+  perform pg_temp.continuation_assert((select count(*)=1 from public.backyrd_decision_visible_impressions_v1 where decision_id=v_decision),'unseen continuation candidates became exposures');
   perform pg_temp.continuation_assert((select count(*)=4 from public.backyrd_decision_continuation_pages_v1 where decision_id=v_decision),'retry created a duplicate page');
 
   -- A distinct Decision may show a previous Spot again; continuity is scoped.
   insert into public.decision_sessions(id,user_id,city) values(v_second,v_user,'Basel');
   perform public.backyrd_initialize_decision_continuation_v1(v_second,v_user,v_order,v_payload,v_order[1:3],'DETERMINISTIC_NORTH_STAR','NOT_RUN');
-  perform pg_temp.continuation_assert(exists(select 1 from public.backyrd_decision_visible_impressions_v1 where decision_id=v_second and spot_id=v_order[1]),'new Decision cannot independently show a Spot');
+  perform public.backyrd_record_visible_decision_impression_v1(v_second,v_order[1],1,1);
+  perform pg_temp.continuation_assert(exists(select 1 from public.backyrd_decision_visible_impressions_v1 where decision_id=v_second and spot_id=v_order[1]),'new Decision cannot independently expose a Spot');
   -- A candidate made unavailable after page 1 is skipped, never used as refill.
   update public.spots set status='pending' where id=v_order[8];
   v_page2:=public.backyrd_next_decision_continuation_v1(v_second,v_user,pg_temp.continuation_uuid('continuation-second-page-2'),3);

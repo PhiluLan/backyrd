@@ -23,7 +23,6 @@ import * as Crypto from "expo-crypto";
 
 import { supabase } from "@/lib/supabase";
 import { getMyProductEntryStatus } from "@/lib/onboardingStatus";
-import { hasActiveConsent } from "@/lib/consent";
 import { mapTextToClusterIds } from "@/lib/decision/moodMapping";
 import { trackAnalyticsEvent, reportAnalyticsError } from "@/lib/analytics";
 import { recordMemoryProductAction } from "@/lib/memory-bridge";
@@ -135,6 +134,7 @@ type DecisionV13Response = {
     active?: boolean;
     decision_id?: string;
     knowledge_mode?: "SUFFICIENT" | "PARTIAL" | "LOW_OR_UNKNOWN";
+    personalization_active?: boolean;
   };
   continuation?: {
     decision_id: string;
@@ -147,13 +147,7 @@ type DecisionV13Response = {
 };
 
 type DecisionStatus = "idle" | "checking" | "deciding" | "writing" | "success" | "empty" | "error";
-type SwipeDirection = "like" | "dislike";
-type MlDecisionEventType =
-  | "decision_impression"
-  | "decision_like"
-  | "decision_dislike"
-  | "decision_open"
-  | "decision_remix";
+type DecisionCardAction = "next" | "like" | "dislike";
 
 
 type DecisionInputMode = "guided" | "free";
@@ -212,10 +206,6 @@ const V11_EXPLORE_WEIGHT = 0.05;
 const V11_REMIX_EXPLORE_WEIGHT = 0.16;
 const V11_K = 1.0;
 const V11_OPEN_BONUS = 0.0;
-
-const TASTE_CAP = 0.4;
-const TASTE_CONF_INC = 0.03;
-
 
 const DIRECTION_OPTIONS: DirectionOption[] = [
   { key: "restaurant", label: "Essen", emoji: "🍽", placeTypes: ["restaurant"], queryHint: "Restaurant, Essen, Lunch oder Dinner" },
@@ -678,7 +668,7 @@ function buildV13Copy({
 }): DecisionCopyResponse {
   const c = clean(city) || "deiner Stadt";
   const moodText = [clean(moodA), clean(moodB)].filter(Boolean).join(" + ") || "deinen Vibe";
-  const personalized = response?.mode === "personalized_semantic";
+  const personalized = response?.north_star?.personalization_active === true;
 
   return {
     source: "v13",
@@ -688,12 +678,7 @@ function buildV13Copy({
       : `Für ${moodText} in ${c} habe ich Orte gesucht, die atmosphärisch möglichst gut passen.`,
     items: spots.map((spot, index) => ({
       spot_id: spot.spot_id,
-      headline:
-        index === 0
-          ? "Bester Match"
-          : index === 1
-            ? "Sehr nah dran"
-            : "Gute Alternative",
+      headline:index === 0 ? "Passt besonders gut zu diesem Moment" : "Weitere passende Option",
       subtitle:
         spot.category_name && spot.city
           ? `${spot.category_name} · ${spot.city}`
@@ -745,6 +730,8 @@ export default function DecisionScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [seenSpotIds, setSeenSpotIds] = useState<string[]>([]);
   const [remixCount, setRemixCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [visibleExposureReady, setVisibleExposureReady] = useState(false);
   const [continuationExhausted, setContinuationExhausted] = useState(false);
   const [continuationLoading, setContinuationLoading] = useState(false);
   const [deckMode, setDeckMode] = useState(false);
@@ -755,6 +742,7 @@ export default function DecisionScreen() {
   const onboardingPushInFlightRef = useRef(false);
   const continuationInFlightRef = useRef(false);
   const continuationRequestIdRef = useRef<string | null>(null);
+  const visibleExposureKeysRef = useRef(new Set<string>());
 
   const loading = status === "checking" || status === "deciding" || status === "writing";
   const currentSpot = spots[activeIndex] ?? null;
@@ -1160,16 +1148,14 @@ export default function DecisionScreen() {
 
         setDecisionId(did);
 
-        const spotIds = picked.map((item) => item.spot_id);
-        const why = picked.map((item, index) => getCopyForSpot(usedCopy, item, index, moodA, moodB).why);
-
-        const { error: impressionError } = await supabase.rpc("log_decision_impressions_v1", {
-          p_decision_id: did,
-          p_spot_ids: spotIds,
-          p_why_this: why,
-        });
-
-        if (impressionError) throw impressionError;
+        if (!existingDecisionId) {
+          const spotIds = picked.map((item) => item.spot_id);
+          const why = picked.map((item, index) => getCopyForSpot(usedCopy, item, index, moodA, moodB).why);
+          const { error: impressionError } = await supabase.rpc("log_decision_impressions_v1", {
+            p_decision_id: did,p_spot_ids: spotIds,p_why_this: why,
+          });
+          if (impressionError) throw impressionError;
+        }
 
         return did;
       } catch (error) {
@@ -1180,125 +1166,27 @@ export default function DecisionScreen() {
     [city, moodA, moodB]
   );
 
-  const logMlEvent = useCallback(
-    async ({
-      eventType,
-      spotId,
-      rank,
-      decisionIdOverride,
-      extraContext,
-    }: {
-      eventType: MlDecisionEventType;
-      spotId?: string | null;
-      rank?: number | null;
-      decisionIdOverride?: string | null;
-      extraContext?: Record<string, unknown>;
-    }) => {
-      try {
-        const consentGranted = await hasActiveConsent(
-          "personalized_recommendations",
-        );
-
-        if (!consentGranted) return;
-
-        const { error } = await supabase.rpc("backyrd_ml_log_event_v1", {
-          p_event_type: eventType,
-          p_spot_id: spotId ?? null,
-          p_decision_id: decisionIdOverride ?? decisionId,
-          p_rank: rank ?? null,
-          p_city: clean(city),
-          p_mood_a_text: clean(moodA),
-          p_mood_b_text: clean(moodB),
-          p_context: {
-            source: "mobile_decision",
-            deck_size: spots.length,
-            active_index: activeIndex,
-            ...(decisionRunContext ?? {}),
-            ...extraContext,
-          },
-          p_signal_strength: null,
-        });
-
-        if (error) {
-          console.log("backyrd_ml_log_event_v1 failed:", eventType, error);
-        }
-      } catch (error) {
-        console.log("backyrd_ml_log_event_v1 crashed:", eventType, error);
-      }
-    },
-    [activeIndex, city, decisionId, decisionRunContext, moodA, moodB, spots.length]
-  );
-
-  const logSwipeSignal = useCallback(
-    async (spot: EnrichedDecisionSpot, direction: SwipeDirection) => {
-      const action = direction === "like" ? "exact_mood" : "not_there";
-
-      logMlEvent({
-        eventType: direction === "like" ? "decision_like" : "decision_dislike",
-        spotId: spot.spot_id,
-        rank: activeIndex + 1,
-        extraContext: {
-          action: direction,
-          legacy_action: action,
-
-          spot_name: spot.name,
-          category_name: spot.category_name,
-          place_type: (spot as any).place_type ?? null,
-
-          human_reason: spot.human_reason ?? null,
-          technical_why_this: spot.technical_why_this ?? null,
-
-          matched_tokens: spot.matched_tokens ?? [],
-          matched_terms: spot.matched_terms ?? [],
-          v13_sources: spot.v13_sources ?? [],
-          v13_rank: spot.v13_rank ?? null,
-          v13_combined_score: spot.v13_combined_score ?? null,
-          v13_semantic_rank: spot.v13_semantic_rank ?? null,
-          v13_semantic_similarity: spot.v13_semantic_similarity ?? null,
-          v13_v12_rank: spot.v13_v12_rank ?? null,
-          v13_v12_score: spot.v13_v12_score ?? null,
-        },
-      });
-
-      if (decisionId) {
-        supabase
-          .rpc("log_decision_action_v1", {
-            p_decision_id: decisionId,
-            p_spot_id: spot.spot_id,
-            p_action: action,
-          })
-          .then(({ error }) => {
-            if (error) console.log("decision swipe action log error", error);
-          });
-      }
-
-      void hasActiveConsent("personalized_recommendations").then((granted) => {
-        if (!granted) return;
-
-        supabase
-          .rpc("backyrd_log_taste_event_v3", {
-            p_spot_id: spot.spot_id,
-            p_event_type: action,
-            p_cap: TASTE_CAP,
-            p_conf_inc:
-              direction === "like" ? TASTE_CONF_INC * 1.4 : TASTE_CONF_INC,
-          })
-          .then(({ error }) => {
-            if (error) console.log("taste v3 swipe error", error);
-          });
-      });
-    },
-    [activeIndex, decisionId, logMlEvent]
-  );
+  const logExplicitFeedback = useCallback(async (spot: EnrichedDecisionSpot, action: "like"|"dislike") => {
+    if (!decisionId || !visibleExposureReady) return false;
+    const { error } = await supabase.rpc("log_decision_action_v1", {
+      p_decision_id:decisionId,p_spot_id:spot.spot_id,
+      p_action:action === "like" ? "exact_mood" : "not_there",
+    });
+    if (error) {
+      console.log("canonical Decision feedback failed", error);
+      Alert.alert("Feedback nicht gespeichert", "Versuch es bitte noch einmal.");
+      return false;
+    }
+    return true;
+  },[decisionId,visibleExposureReady]);
 
   const advanceCard = useCallback(
-    (direction: SwipeDirection) => {
+    async (action: DecisionCardAction) => {
       const spot = spots[activeIndex];
       if (!spot) return;
-
-      logSwipeSignal(spot, direction);
+      if(action!=="next" && !(await logExplicitFeedback(spot,action)))return;
       void trackAnalyticsEvent({
-        eventName: direction === "like" ? "decision_like" : "decision_dislike",
+        eventName: action === "next" ? "decision_next" : action === "like" ? "decision_like" : "decision_dislike",
         screenName: "decision",
         entityType: "spot",
         entityId: spot.spot_id,
@@ -1306,9 +1194,10 @@ export default function DecisionScreen() {
         decisionId,
         properties: { rank: activeIndex + 1 },
       });
+      setVisibleExposureReady(false);
       setActiveIndex((current) => Math.min(current + 1, spots.length));
     },
-    [activeIndex, decisionId, spots, logSwipeSignal]
+    [activeIndex, decisionId, spots, logExplicitFeedback]
   );
 
   const runDecision = useCallback(
@@ -1347,23 +1236,6 @@ export default function DecisionScreen() {
         continuationRequestIdRef.current ??= Crypto.randomUUID();
       }
 
-      if (isRemix) {
-        logMlEvent({
-          eventType: "decision_remix",
-          spotId: null,
-          rank: null,
-          extraContext: {
-            reason: "user_requested_new_deck",
-            previous_seen_spot_ids: seenSpotIds,
-            model: "decision-v13",
-            input_mode: inputMode,
-            selected_directions: selectedDirections,
-            selected_audiences: selectedAudiences,
-            selected_moods: selectedMoods,
-          },
-        });
-      }
-
       const c = clean(city);
       const a = clean(moodA);
       const b = clean(moodB);
@@ -1390,6 +1262,9 @@ export default function DecisionScreen() {
           setActiveIndex(0);
           setSeenSpotIds([]);
           setRemixCount(0);
+          setCurrentPage(1);
+          setVisibleExposureReady(false);
+          visibleExposureKeysRef.current.clear();
           setContinuationExhausted(false);
           continuationRequestIdRef.current=null;
 
@@ -1516,6 +1391,8 @@ export default function DecisionScreen() {
 
         setSpots(enriched);
         setActiveIndex(0);
+        setCurrentPage(data.continuation?.page ?? (isRemix ? remixCount+2 : 1));
+        setVisibleExposureReady(false);
         setContext({
           ...ctx,
           title: generatedCopy.title,
@@ -1530,37 +1407,6 @@ export default function DecisionScreen() {
           : await persistDecisionSession(enriched, generatedCopy, serverDecisionId);
         const activeDecisionId=serverDecisionId??persistedDecisionId;
         if(!isRemix&&activeDecisionId)setDecisionId(activeDecisionId);
-
-        for (let i = 0; i < enriched.length; i += 1) {
-          logMlEvent({
-            eventType: "decision_impression",
-            spotId: enriched[i].spot_id,
-            rank: (isRemix ? seenSpotIds.length : 0) + i + 1,
-            decisionIdOverride: activeDecisionId,
-            extraContext: {
-              ...runContext,
-
-              spot_name: enriched[i].name,
-              category_name: enriched[i].category_name,
-              place_type: (enriched[i] as any).place_type ?? null,
-
-              human_reason: enriched[i].human_reason ?? null,
-              technical_why_this: enriched[i].technical_why_this ?? null,
-
-              ai_copy_source: generatedCopy.source,
-              v13_mode: data.mode,
-              v13_sources: enriched[i].v13_sources ?? [],
-              v13_rank: enriched[i].v13_rank ?? null,
-              v13_combined_score: enriched[i].v13_combined_score ?? null,
-              v13_semantic_rank: enriched[i].v13_semantic_rank ?? null,
-              v13_semantic_similarity: enriched[i].v13_semantic_similarity ?? null,
-              v13_v12_rank: enriched[i].v13_v12_rank ?? null,
-              v13_v12_score: enriched[i].v13_v12_score ?? null,
-              matched_tokens: enriched[i].matched_tokens ?? [],
-              matched_terms: enriched[i].matched_terms ?? [],
-            },
-          });
-        }
 
         setContinuationExhausted(data.continuation?.exhausted===true);
         continuationRequestIdRef.current=null;
@@ -1604,67 +1450,41 @@ export default function DecisionScreen() {
       loadContext,
       enrichSpots,
       persistDecisionSession,
-      logMlEvent,
     ]
   );
 
+  useEffect(()=>{
+    if(!deckMode||!decisionId||!currentSpot||currentPage<1)return;
+    if(currentSpot.north_star_active!==true){setVisibleExposureReady(true);return;}
+    const key=`${decisionId}:${currentSpot.spot_id}`;
+    if(visibleExposureKeysRef.current.has(key)){
+      setVisibleExposureReady(true);
+      return;
+    }
+    let cancelled=false;
+    setVisibleExposureReady(false);
+    void supabase.rpc("backyrd_record_visible_decision_impression_v1",{
+      p_decision_id:decisionId,p_spot_id:currentSpot.spot_id,
+      p_page_number:currentPage,p_position_in_page:activeIndex+1,
+    }).then(({error})=>{
+      if(cancelled)return;
+      if(error){
+        console.log("visible Decision impression failed",error);
+        return;
+      }
+      visibleExposureKeysRef.current.add(key);
+      setVisibleExposureReady(true);
+      void trackAnalyticsEvent({
+        eventName:"decision_impression",screenName:"decision",entityType:"spot",
+        entityId:currentSpot.spot_id,spotId:currentSpot.spot_id,decisionId,
+        properties:{page:currentPage,position:activeIndex+1},
+      });
+    });
+    return()=>{cancelled=true;};
+  },[activeIndex,currentPage,currentSpot,decisionId,deckMode]);
+
   const onOpenSpot = useCallback(
     async (spotId: string) => {
-      const spot = spots.find((item) => item.spot_id === spotId) ?? spots[activeIndex] ?? null;
-
-      logMlEvent({
-        eventType: "decision_open",
-        spotId,
-        rank: activeIndex + 1,
-        extraContext: {
-          action: "open_spot_detail",
-
-          spot_name: spot?.name ?? null,
-          category_name: spot?.category_name ?? null,
-          place_type: (spot as any)?.place_type ?? null,
-
-          human_reason: spot?.human_reason ?? null,
-          technical_why_this: spot?.technical_why_this ?? null,
-
-          matched_tokens: spot?.matched_tokens ?? [],
-          matched_terms: spot?.matched_terms ?? [],
-          v13_sources: spot?.v13_sources ?? [],
-          v13_rank: spot?.v13_rank ?? null,
-          v13_combined_score: spot?.v13_combined_score ?? null,
-          v13_semantic_rank: spot?.v13_semantic_rank ?? null,
-          v13_semantic_similarity: spot?.v13_semantic_similarity ?? null,
-          v13_v12_rank: spot?.v13_v12_rank ?? null,
-          v13_v12_score: spot?.v13_v12_score ?? null,
-        },
-      });
-
-      if (decisionId) {
-        supabase
-          .rpc("log_decision_action_v1", {
-            p_decision_id: decisionId,
-            p_spot_id: spotId,
-            p_action: "tapped",
-          })
-          .then(({ error }) => {
-            if (error) console.log("tapped log error", error);
-          });
-      }
-
-      void hasActiveConsent("personalized_recommendations").then((granted) => {
-        if (!granted) return;
-
-        supabase
-          .rpc("backyrd_log_taste_event_v3", {
-            p_spot_id: spotId,
-            p_event_type: "tapped",
-            p_cap: TASTE_CAP,
-            p_conf_inc: TASTE_CONF_INC,
-          })
-          .then(({ error }) => {
-            if (error) console.log("taste v3 tapped error", error);
-          });
-      });
-
       void trackAnalyticsEvent({
         eventName: "decision_spot_opened",
         screenName: "decision",
@@ -1676,7 +1496,7 @@ export default function DecisionScreen() {
       void recordMemoryProductAction({ actionType: "spot_opened", spotId, decisionId, entrySurface: "decision" });
       router.push(`/spot/${spotId}?entrySource=decision` as any);
     },
-    [activeIndex, decisionId, logMlEvent, router, spots]
+    [decisionId, router]
   );
 
   if (deckMode && !loading && (currentSpot || finishedDeck)) {
@@ -1693,6 +1513,7 @@ export default function DecisionScreen() {
         remixCount={remixCount}
         continuationExhausted={continuationExhausted}
         continuationLoading={continuationLoading}
+        exposureReady={visibleExposureReady}
         onSwipe={advanceCard}
         onOpenSpot={onOpenSpot}
         onBack={() => setDeckMode(false)}
@@ -2311,6 +2132,7 @@ function FullscreenDeck({
   remixCount,
   continuationExhausted,
   continuationLoading,
+  exposureReady,
   onSwipe,
   onOpenSpot,
   onBack,
@@ -2328,7 +2150,8 @@ function FullscreenDeck({
   remixCount: number;
   continuationExhausted: boolean;
   continuationLoading: boolean;
-  onSwipe: (direction: SwipeDirection) => void;
+  exposureReady:boolean;
+  onSwipe: (action: DecisionCardAction) => void;
   onOpenSpot: (spotId: string) => void;
   onBack: () => void;
   onSettings: () => void;
@@ -2361,7 +2184,7 @@ function FullscreenDeck({
               <Text style={{ color: "rgba(255,255,255,0.62)", marginTop: 10, fontSize: 15, lineHeight: 22 }}>
                 {continuationExhausted
                   ? "Für diese Suche sind keine weiteren passenden Orte übrig. Du kannst deine Wünsche anpassen und neu suchen."
-                  : "Ich habe deine Swipes gespeichert. Willst du deine Moods anpassen oder weiter entdecken?"}
+                  : "Du hast alle Vorschläge dieser Seite gesehen. Willst du deine Wünsche anpassen oder weiter entdecken?"}
               </Text>
 
               {!continuationExhausted ? (
@@ -2416,6 +2239,7 @@ function FullscreenDeck({
           moodA={moodA}
           moodB={moodB}
           copy={copy}
+          exposureReady={exposureReady}
           onSwipe={onSwipe}
           onOpen={() => onOpenSpot(currentSpot.spot_id)}
           onBack={onBack}
@@ -2463,6 +2287,7 @@ function FullscreenSwipeCard({
   moodA,
   moodB,
   copy,
+  exposureReady,
   onSwipe,
   onOpen,
   onBack,
@@ -2475,7 +2300,8 @@ function FullscreenSwipeCard({
   moodA: string;
   moodB: string;
   copy: DecisionCopyResponse | null;
-  onSwipe: (direction: SwipeDirection) => void;
+  exposureReady:boolean;
+  onSwipe: (action: DecisionCardAction) => void;
   onOpen: () => void;
   onBack: () => void;
   onSettings: () => void;
@@ -2520,11 +2346,11 @@ function FullscreenSwipeCard({
   });
 
   const swipeOut = useCallback(
-    (direction: SwipeDirection) => {
-      if (isAnimatingRef.current) return;
+    (action: DecisionCardAction,visualDirection:"left"|"right"="right") => {
+      if (isAnimatingRef.current||!exposureReady) return;
 
       isAnimatingRef.current = true;
-      const x = direction === "like" ? SCREEN_WIDTH * 1.45 : -SCREEN_WIDTH * 1.45;
+      const x = visualDirection === "right" ? SCREEN_WIDTH * 1.45 : -SCREEN_WIDTH * 1.45;
       const y = -SCREEN_HEIGHT * 0.06;
 
       Animated.timing(pan, {
@@ -2532,16 +2358,16 @@ function FullscreenSwipeCard({
         duration: 260,
         useNativeDriver: true,
       }).start(() => {
-        onSwipe(direction);
+        onSwipe(action);
         pan.setValue({ x: 0, y: 0 });
         isAnimatingRef.current = false;
       });
     },
-    [onSwipe, pan]
+    [exposureReady,onSwipe,pan]
   );
 
-  const panResponder = useRef(
-    PanResponder.create({
+  const panResponder = useMemo(
+    () => PanResponder.create({
       onMoveShouldSetPanResponder: (_event, gesture) => {
         return Math.abs(gesture.dx) > 5 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.75;
       },
@@ -2550,12 +2376,12 @@ function FullscreenSwipeCard({
       }),
       onPanResponderRelease: (_event, gesture) => {
         if (gesture.dx > SWIPE_THRESHOLD || gesture.vx > 0.75) {
-          swipeOut("like");
+          swipeOut("next","right");
           return;
         }
 
         if (gesture.dx < -SWIPE_THRESHOLD || gesture.vx < -0.75) {
-          swipeOut("dislike");
+          swipeOut("next","left");
           return;
         }
 
@@ -2574,21 +2400,17 @@ function FullscreenSwipeCard({
           useNativeDriver: true,
         }).start();
       },
-    })
-  ).current;
+    }),
+    [pan, swipeOut]
+  );
 
   const imageUrl = spot.photo_url;
   const itemCopy = getCopyForSpot(copy, spot, index, moodA, moodB);
-  const matchScore = Math.max(
-    82,
-    Math.min(98, Math.round(((spot.v13_combined_score ?? Number(spot.final_score) ?? 0.9) as number) * 100) || 95)
-  );
-  const showMatchPercentage = spot.north_star_active !== true;
   const queryLabel =
     clean(moodA) ||
     clean(moodB) ||
     clean(itemCopy.headline) ||
-    "Ausflug mit meiner vierjährigen Tochter";
+    "Dein aktueller Moment";
   const momentChips = uniq(
     [
       clean(moodA),
@@ -2662,7 +2484,7 @@ function FullscreenSwipeCard({
           </Text>
 
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
-            {(momentChips.length > 0 ? momentChips : ["draussen", "ruhig", "kindertauglich"]).map((chip, chipIndex) => (
+            {(momentChips.length > 0 ? momentChips : ["dein Moment"]).map((chip, chipIndex) => (
               <View
                 key={`${chip}-${chipIndex}`}
                 style={{
@@ -2758,7 +2580,7 @@ function FullscreenSwipeCard({
                   zIndex: 20,
                 }}
               >
-                <Text style={{ color: "#171214", fontSize: 14, fontWeight: "900" }}>passt</Text>
+                <Text style={{ color: "#171214", fontSize: 14, fontWeight: "900" }}>weiter</Text>
               </Animated.View>
 
               <Animated.View
@@ -2784,21 +2606,6 @@ function FullscreenSwipeCard({
               </Animated.View>
 
               <View style={{ flex: 1, justifyContent: "space-between", padding: 16 }}>
-                {showMatchPercentage ? <View
-                  style={{
-                    alignSelf: "flex-start",
-                    paddingHorizontal: 12,
-                    paddingVertical: 9,
-                    borderRadius: 15,
-                    backgroundColor: "rgba(255,125,167,0.86)",
-                  }}
-                >
-                  <Text style={{ color: "#fff", fontSize: 24, lineHeight: 25, fontWeight: "850", letterSpacing: -0.8 }}>
-                    {matchScore}%
-                  </Text>
-                  <Text style={{ color: "rgba(255,255,255,0.86)", fontSize: 12, fontWeight: "700" }}>Match</Text>
-                </View> : null}
-
                 <View>
                   <Text
                     numberOfLines={2}
@@ -2866,15 +2673,24 @@ function FullscreenSwipeCard({
           pointerEvents="box-none"
           style={{
             paddingHorizontal: 20,
-            paddingTop: 12,
+            paddingTop: 10,
             paddingBottom: 12,
-            flexDirection: "row",
             gap: 10,
             backgroundColor: "rgba(5,5,6,0.82)",
+            opacity:exposureReady?1:0.55,
           }}
         >
           <Pressable
-            onPress={() => swipeOut("dislike")}
+            onPress={()=>swipeOut("next","right")}
+            disabled={!exposureReady}
+            style={{height:50,borderRadius:999,alignItems:"center",justifyContent:"center",backgroundColor:theme.pink}}
+          >
+            {exposureReady?<Text style={{color:"#171214",fontWeight:"950",fontSize:15}}>Weiter</Text>:<ActivityIndicator color="#171214"/>}
+          </Pressable>
+          <View style={{flexDirection:"row",gap:10}}>
+          <Pressable
+            onPress={() => swipeOut("dislike","left")}
+            disabled={!exposureReady}
             style={{
               flex: 1,
               height: 52,
@@ -2891,6 +2707,7 @@ function FullscreenSwipeCard({
 
           <Pressable
             onPress={onOpen}
+            disabled={!exposureReady}
             style={{
               flex: 1.12,
               height: 52,
@@ -2904,7 +2721,8 @@ function FullscreenSwipeCard({
           </Pressable>
 
           <Pressable
-            onPress={() => swipeOut("like")}
+            onPress={() => swipeOut("like","right")}
+            disabled={!exposureReady}
             style={{
               flex: 1,
               height: 52,
@@ -2918,6 +2736,7 @@ function FullscreenSwipeCard({
           >
             <Text style={{ color: theme.text, fontWeight: "800", fontSize: 14 }}>Passt</Text>
           </Pressable>
+          </View>
         </View>
       </SafeAreaView>
     </View>

@@ -24,6 +24,7 @@ const json=(payload:Record<string,unknown>,status=200)=>new Response(JSON.string
 
 realServe(async (request: Request) => {
   const body = request.method === "POST" ? await request.clone().json().catch(() => ({})) : {};
+  const presentedBearer=bearer(request);
   let service: ReturnType<typeof createClient> | null = null;
   let userId: string | null = null;
   let internalInvocation = false;
@@ -39,18 +40,19 @@ realServe(async (request: Request) => {
       service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
       if (internalInvocation) userId = text(request.headers.get("x-backyrd-test-user-id"));
       else {
-        const token = bearer(request);
+        const token = presentedBearer;
         if (token) {
           const { data: verified, error } = await service.auth.getUser(token);
-          if (!error && verified.user) userId = verified.user.id;
+          if(error||!verified.user)return json({ok:false,error:"decision_authentication_failed"},401);
+          userId=verified.user.id;
         }
       }
       if (userId) liveEnabled = await isInternalLiveUser(service, userId, "DECISION");
     }
   } catch {
-    service = null;
-    userId = null;
-    liveEnabled = false;
+    if(userId||presentedBearer)return json({ok:false,error:"canonical_product_eligibility_unavailable"},503);
+    service=null;
+    liveEnabled=false;
   }
 
   const continuationDecisionId=text(body.continuationDecisionId);
@@ -91,7 +93,11 @@ realServe(async (request: Request) => {
   if (!baseResponse.ok || request.method !== "POST") return baseResponse;
   const payload = await baseResponse.clone().json().catch(() => null) as Record<string, unknown> | null;
   const candidates = Array.isArray(payload?.candidates) ? payload.candidates as Array<Record<string, unknown>> : [];
-  if (!payload?.ok || candidates.length === 0) return baseResponse;
+  if (!payload?.ok) return baseResponse;
+  if(candidates.length===0){
+    if(!liveEnabled)return baseResponse;
+    return jsonResponseWithFreshEntityHeaders({...payload,candidates:[],north_star:{active:true,decision_id:null,final_source:"DETERMINISTIC_EMPTY",n6_disposition:"NOT_RUN",fallback_error:null}},baseResponse);
+  }
 
   try {
     if (!liveEnabled || !service || !userId || (!internalInvocation && text(payload.user_id) !== userId)) return baseResponse;
@@ -100,7 +106,7 @@ realServe(async (request: Request) => {
     const funnel=buildLiveCandidateFunnel(candidates,{city:text(body.city),canonicalIntent});
     const selected = funnel.selected;
     const { selected: _selectedCandidates, ...candidateFunnelTrace } = funnel;
-    if(selected.length===0)return baseResponse;
+    if(selected.length===0)return jsonResponseWithFreshEntityHeaders({...payload,candidates:[],north_star:{active:true,decision_id:null,final_source:"DETERMINISTIC_EMPTY",n6_disposition:"NOT_RUN",fallback_error:null}},baseResponse);
     const live = await runInternalLiveDecision({
       service,
       userId,
@@ -155,11 +161,13 @@ realServe(async (request: Request) => {
         knowledge_mode: live.knowledgeMode, user_card_hash: live.userCardHash,
         package_hash: live.packageHash, deterministic_trace_id: live.deterministicTraceId,
         n6_trace_id: live.n6TraceId, n6_disposition: live.n6Disposition,
-        fallback_error: live.errorCode ?? null,
+        personalization_active:live.personalizationActive,
+        fallback_error: null,
       },
       continuation:{decision_id:live.decisionId,page:1,request_id:null,exhausted:initialPage.exhausted===true,remaining_count:initialPage.remainingCount??0},
     }, baseResponse);
   } catch {
+    if(liveEnabled)return json({ok:false,error:"canonical_north_star_unavailable"},503);
     return baseResponse;
   }
 });

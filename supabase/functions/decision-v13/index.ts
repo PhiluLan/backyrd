@@ -2182,7 +2182,11 @@ Deno.serve(async (request: Request) => {
       excludeSpotIds,
     });
 
-    const v12Promise = hasUserToken && callerToken
+    const configuredInternalSecret=Deno.env.get("DECISION_ENGINE_INTERNAL_SECRET");
+    const canonicalNorthStarRetrieval=Boolean(
+      configuredInternalSecret&&request.headers.get("x-backyrd-internal-wrapper")===configuredInternalSecret,
+    );
+    const v12Promise = hasUserToken && callerToken && !canonicalNorthStarRetrieval
       ? getV12Candidates(env, {
           city,
           moodA,
@@ -2325,7 +2329,6 @@ Deno.serve(async (request: Request) => {
       candidate.human_reason = createHumanReason(candidate, intent);
     }
 
-    const configuredInternalSecret=Deno.env.get("DECISION_ENGINE_INTERNAL_SECRET");
     const internalTraceAuthorized=Boolean(configuredInternalSecret&&request.headers.get("x-backyrd-internal-wrapper")===configuredInternalSecret);
     const fusedRankById=new Map(fusionRanked.map((candidate,index)=>[candidate.spot_id,index+1]));
     const selectedIds=new Set(fused.map((candidate)=>candidate.spot_id));
