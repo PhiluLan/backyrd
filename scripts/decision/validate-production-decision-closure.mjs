@@ -54,25 +54,26 @@ const removeFixtureUser=async(id)=>{
   const removed=await service.auth.admin.deleteUser(id);
   ok(removed.error,`delete fixture auth user ${id}`);
 };
+const compactField=(field)=>field?{value:field.value,provenance:field.provenance}:null;
 const compactN3=(facts)=>({
-  rain:facts?.weather?.rain??facts?.rain??null,
-  family:facts?.socialContext?.family??facts?.family??null,
-  childAge:facts?.audience?.childAge??facts?.childAge??null,
-  environment:facts?.environment??null,
-  activities:facts?.activityTypes??facts?.activities??[],
-  duration:facts?.duration??null,
-  conversation:facts?.conversation??null,
+  rain:compactField(facts?.rain),
+  family:compactField(facts?.familyContext),
+  childAge:compactField(facts?.childAge),
+  environment:compactField(facts?.environment),
+  activities:compactField(facts?.activityTypes),
+  duration:compactField(facts?.durationMinutes),
+  conversation:compactField(facts?.conversation),
 });
 const compactRanking=(rankingInputs,order)=>order.slice(0,10).map((spotId)=>{
   const row=rankingInputs?.[spotId]??{};
   return {
     spotId,
-    factualDisposition:row.factualDisposition??null,
-    matches:row.factualMatches??row.matches??[],
-    mismatches:row.factualMismatches??row.mismatches??[],
-    partials:row.factualPartials??row.partials??[],
+    factualDisposition:row.factualFit?.disposition??null,
+    matches:row.factualFit?.observations?.filter((item)=>item.outcome==="MATCH").map((item)=>item.code)??[],
+    mismatches:row.factualFit?.observations?.filter((item)=>item.outcome==="MISMATCH").map((item)=>item.code)??[],
+    partials:row.factualFit?.observations?.filter((item)=>item.outcome==="PARTIAL").map((item)=>item.code)??[],
     preferredPlaceTypeMatch:row.preferredPlaceTypeMatch??false,
-    retrievalPosition:row.retrievalPosition??null,
+    retrievalPosition:row.originalRetrievalPosition??null,
   };
 });
 
@@ -121,7 +122,7 @@ try{
       deterministicOrder:deterministicOrder.slice(0,10),ranking:compactRanking(rankingInputs,deterministicOrder),
       finalSource:payload.north_star.final_source,n6Disposition:payload.north_star.n6_disposition,
       results:(payload.candidates??[]).map((row)=>({spotId:row.spot_id,name:row.name,placeType:row.place_type,reason:row.human_reason,rank:row.rank})),
-      performance:{retrieval:source.performance??null,decision:trace.data.decision_funnel?.performance??null},
+      performance:{retrievalMs:Math.round(source.performance?.total??0),decisionMs:Math.round(trace.data.decision_funnel?.performance?.totalMs??0)},
     });
   }
   process.stdout.write(`${JSON.stringify(report,null,2)}\n`);

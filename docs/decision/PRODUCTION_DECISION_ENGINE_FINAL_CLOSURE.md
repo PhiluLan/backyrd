@@ -8,15 +8,15 @@ One shared interpreter now produces Current Intent for both N3 and the v13 retri
 
 The live funnel is ordered as follows:
 
-1. v12 and semantic retrieval, bounded to 20 fused candidates for the internal path.
+1. v12 and semantic retrieval, bounded to 20 semantic candidates and a measured fused universe.
 2. Distribution filtering in v13.
 3. Deterministic hard exclusions (identity, canonical place type, city, explicit open-now and explicit excluded/required place types).
-4. Freeze at at most 10 eligible candidates.
+4. Freeze at at most 20 eligible candidates for factual evaluation; the visible Product result remains independently bounded.
 5. Canonical N4 and accepted SPOT facts.
 6. Deterministic ranking and candidate-specific reason authorization.
 7. Optional validated N6 reordering inside the same frozen authority hierarchy.
 
-Hard-invalid candidates cannot consume the ten eligible handoff positions. The source window of 20 is bounded by the existing N6 limit of ten after hard eligibility; its adequacy is verified from Production traces rather than assumed.
+Hard-invalid candidates cannot consume eligible handoff positions. Production traces showed that a strong Gold match could sit at fusion position 12, so the post-eligibility evaluation window is now 20 across the runtime, service RPC and storage constraint. The benchmark produced 25 fused candidates, 17 hard-eligible candidates and a 17-candidate frozen handoff.
 
 ## Deterministic ordering
 
