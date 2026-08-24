@@ -35,15 +35,52 @@ const cases=[
   ["BROAD_UNKNOWN","Was könnten wir machen?"],
 ];
 const ok=(error,label)=>{if(error)throw new Error(`${label}:${String(error.message??error.name??"unknown")}:status=${String(error.status??"unknown")}:code=${String(error.code??"unknown")}`);};
+const compactN3=(facts)=>({
+  rain:facts?.weather?.rain??facts?.rain??null,
+  family:facts?.socialContext?.family??facts?.family??null,
+  childAge:facts?.audience?.childAge??facts?.childAge??null,
+  environment:facts?.environment??null,
+  activities:facts?.activityTypes??facts?.activities??[],
+  duration:facts?.duration??null,
+  conversation:facts?.conversation??null,
+});
+const compactRanking=(rankingInputs,order)=>order.slice(0,10).map((spotId)=>{
+  const row=rankingInputs?.[spotId]??{};
+  return {
+    spotId,
+    factualDisposition:row.factualDisposition??null,
+    matches:row.factualMatches??row.matches??[],
+    mismatches:row.factualMismatches??row.mismatches??[],
+    partials:row.factualPartials??row.partials??[],
+    preferredPlaceTypeMatch:row.preferredPlaceTypeMatch??false,
+    retrievalPosition:row.retrievalPosition??null,
+  };
+});
+
+const cleanupOrphanFixtures=async()=>{
+  let page=1,cleaned=0;
+  for(;;){
+    const listed=await service.auth.admin.listUsers({page,perPage:100});ok(listed.error,"list fixture users");
+    const users=listed.data.users??[];
+    for(const user of users){
+      if(user.user_metadata?.production_fixture!=="decision-closure-v1"||!user.email?.endsWith("@fixture.invalid"))continue;
+      const removed=await service.auth.admin.deleteUser(user.id);ok(removed.error,`delete orphan fixture ${user.id}`);cleaned+=1;
+    }
+    if(users.length<100)break;
+    page+=1;
+  }
+  return cleaned;
+};
 
 try{
+  const cleanedOrphanFixtures=await cleanupOrphanFixtures();
   const created=await service.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{production_fixture:"decision-closure-v1"}});ok(created.error,"create fixture user");userId=created.data.user.id;
   ok((await service.from("profiles").upsert({id:userId,display_name:"Decision Closure Fixture"})).error,"fixture profile");
   ok((await service.from("user_consents").insert({user_id:userId,purpose_key:"personalized_recommendations",status:"granted",granted_at:new Date().toISOString(),source:"system_migration"})).error,"fixture consent");
   ok((await service.from("backyrd_internal_live_users_v1").insert({user_id:userId,enabled:true,n2_enabled:false,user_intelligence_enabled:false,decision_enabled:true,n6_enabled:false,activation_reason:"PRODUCTION_DECISION_FINAL_CLOSURE"})).error,"fixture allowlist");
   const client=createClient(url,anon,options);const signed=await client.auth.signInWithPassword({email,password});ok(signed.error,"fixture sign in");
   const token=signed.data.session?.access_token;assert.ok(token);
-  const report={version:"decision-v13-production-v63/model-0.2.0",fixtureUser:userId,queries:[]};
+  const report={version:"decision-v13-production-v64/model-0.2.0",cleanedOrphanFixtures,fixtureUser:userId,queries:[]};
   for(const [label,query] of cases){
     const started=performance.now();
     const response=await fetch(`${url}/functions/v1/decision-v13`,{method:"POST",headers:{authorization:`Bearer ${token}`,apikey:anon,"content-type":"application/json"},body:JSON.stringify({city:"Basel",moodA:null,moodB:null,query,preferredPlaceTypes:[],audience:[],strictCategoryIntent:false,inputMode:"free",rawFreeText:query,limit:10,v12Limit:12,semanticLimit:18,excludeSpotIds:[]})});
@@ -54,12 +91,14 @@ try{
     const source=trace.data.retrieval_funnel?.sourceRetrieval??{};
     const sourceRows=[...(source.semantic??[]),...(source.personalized??[]),...(source.fusion??[])];
     const handoff=trace.data.retrieval_funnel?.rows??[];
+    const deterministicOrder=trace.data.decision_funnel?.deterministicOrder??[];
+    const rankingInputs=trace.data.decision_funnel?.rankingInputs??{};
     report.queries.push({
       label,query,decisionId,httpStatus:response.status,totalLatencyMs:Math.round(performance.now()-started),
-      n3:trace.data.decision_funnel?.n3?.currentRequestFacts??null,
+      n3:compactN3(trace.data.decision_funnel?.n3?.currentRequestFacts),
       sourceCounts:{semantic:source.semantic?.length??0,personalized:source.personalized?.length??0,fusion:source.fusion?.length??0,eligibleBeforeLimit:trace.data.retrieval_funnel?.eligibleBeforeLimit??0,handoff:handoff.filter((row)=>row.handoffStatus==="SELECTED").length},
       curated:Object.fromEntries(Object.entries(curated).map(([name,id])=>[name,{retrieved:sourceRows.some((row)=>row.spotId===id),handoff:handoff.some((row)=>row.spotId===id&&row.handoffStatus==="SELECTED"),exclusions:handoff.find((row)=>row.spotId===id)?.exclusionReasons??[]}])) ,
-      deterministicOrder:trace.data.decision_funnel?.deterministicOrder??[],rankingInputs:trace.data.decision_funnel?.rankingInputs??{},
+      deterministicOrder:deterministicOrder.slice(0,10),ranking:compactRanking(rankingInputs,deterministicOrder),
       finalSource:payload.north_star.final_source,n6Disposition:payload.north_star.n6_disposition,
       results:(payload.candidates??[]).map((row)=>({spotId:row.spot_id,name:row.name,placeType:row.place_type,reason:row.human_reason,rank:row.rank})),
       performance:{retrieval:source.performance??null,decision:trace.data.decision_funnel?.performance??null},

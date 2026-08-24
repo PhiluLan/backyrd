@@ -8,6 +8,8 @@ const CONCEPT_LABELS = Object.freeze({
   "vibe.quiet":"ruhige Orte", "energy.calm":"eine ruhige Atmosphäre",
   "vibe.lively":"lebendige Orte", "energy.energetic":"viel Energie",
   "vibe.cozy":"gemütliche Orte", "vibe.romantic":"eine romantische Atmosphäre",
+  "social_style.family_friendly":"einen familienfreundlichen Ort",
+  "vibe.social":"einen geselligen Ort",
   "social_style.conversation_friendly":"Orte, an denen man sich gut unterhalten kann",
   "discovery.hidden_gem":"besondere, weniger offensichtliche Orte",
   "character.authentic_character":"authentische Orte", "vibe.authentic":"authentische Orte",
@@ -102,7 +104,7 @@ function authorizeReasons(candidate,decisionPackage) {
   const placeType=candidate.n4.productFacts.placeType;
   const placeTypeCopy={activity:"Eine passende Aktivität für deine aktuelle Suche.",culture:"Ein passender Kulturort für deine aktuelle Suche.",outing:"Ein passendes Ausflugsziel für deine aktuelle Suche.",experience:"Ein passendes Erlebnis für deine aktuelle Suche.",cafe:"Ein passendes Café für deine aktuelle Suche.",bar:"Eine passende Bar für deine aktuelle Suche.",restaurant:"Ein passendes Restaurant für deine aktuelle Suche."};
   if([...required,...preferred].includes(placeType))reasons.push(reason(`now:place_type:${placeType}`,"WHY_NOW",`place_type.${placeType}`,placeTypeCopy[placeType]??"Passt zur gesuchten Art von Ort.",{momentHash:decisionPackage.n3.momentHash,n4Hash:candidate.n4.snapshotHash}));
-  for(const direction of decisionPackage.n5.currentIntent?.conceptDirections??[]){const concept=concepts.get(direction.concept);if(direction.direction>0&&evidenceStrength(concept)>0){const label=CONCEPT_LABELS[direction.concept]??"dieser ausdrücklich gewünschten Atmosphäre";reasons.push(reason(`now:concept:${direction.concept}`,"WHY_NOW",direction.concept,`Passt zu deinem aktuellen Wunsch nach ${label}.`,{momentHash:decisionPackage.n3.momentHash,n4Hash:candidate.n4.snapshotHash,conceptConfidence:concept.confidence}));}}
+  for(const direction of decisionPackage.n5.currentIntent?.conceptDirections??[]){const concept=concepts.get(direction.concept);if(direction.direction>0&&evidenceStrength(concept)>0){const label=CONCEPT_LABELS[direction.concept]??"diese ausdrücklich gewünschte Atmosphäre";reasons.push(reason(`now:concept:${direction.concept}`,"WHY_NOW",direction.concept,`Du suchst ${label} – dieser Ort passt dazu.`,{momentHash:decisionPackage.n3.momentHash,n4Hash:candidate.n4.snapshotHash,conceptConfidence:concept.confidence}));}}
   if(decisionPackage.n5.knowledgeMode!=="LOW_OR_UNKNOWN")for(const node of decisionPackage.n5.taste){
     const concept=concepts.get(node.concept);
     if(evidenceStrength(concept)<=0||node.polarity!=="POSITIVE")continue;

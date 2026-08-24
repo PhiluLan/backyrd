@@ -41,3 +41,17 @@ test("the real failure shape applies hard eligibility before the bounded handoff
   assert.equal(funnel.rows.find((row)=>row.spotId==="volta").exclusionReasons[0],"EXCLUDED_PLACE_TYPE");
   assert.equal(funnel.rows.find((row)=>row.spotId==="museum").handoffStatus,"SELECTED");
 });
+
+test("the Production handoff keeps the bounded twenty-row retrieval window for factual matching",()=>{
+  const rows=Array.from({length:24},(_,index)=>({
+    spot_id:`spot-${index+1}`,name:`Spot ${index+1}`,place_type:index<4?"bar":"activity",
+    city:"Basel",combined_score:1-index/100,sources:["semantic_v13"],
+  }));
+  rows[14]={...rows[14],spot_id:"gold-factual-match",name:"Gold factual match",place_type:"culture"};
+  const funnel=buildLiveCandidateFunnel(rows,{city:"Basel",canonicalIntent:{hardConstraints:{excludedPlaceTypes:["bar"]}}});
+  assert.equal(funnel.limit,20);
+  assert.equal(funnel.eligibleBeforeLimit,20);
+  assert.equal(funnel.selected.length,20);
+  assert.equal(funnel.rows.find((row)=>row.spotId==="gold-factual-match").handoffStatus,"SELECTED");
+  assert.equal(funnel.rows.filter((row)=>row.handoffStatus==="POST_ELIGIBILITY_LIMIT").length,0);
+});

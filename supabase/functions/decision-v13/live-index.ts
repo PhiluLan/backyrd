@@ -51,8 +51,15 @@ realServe(async (request: Request) => {
   const canonicalHeaders = new Headers(request.headers);
   canonicalHeaders.delete("content-length");
   if(liveEnabled&&internalWrapperSecret)canonicalHeaders.set("x-backyrd-internal-wrapper",internalWrapperSecret);
+  const requestedSemanticLimit=Number(body.semanticLimit);
   const canonicalRequest = liveEnabled
-    ? new Request(request.url, { method: request.method, headers: canonicalHeaders, body: JSON.stringify({ ...sanitizeLiveProductRequestBody(body), limit:LIVE_RETRIEVAL_SOURCE_LIMIT }) })
+    ? new Request(request.url, { method: request.method, headers: canonicalHeaders, body: JSON.stringify({
+        ...sanitizeLiveProductRequestBody(body),
+        limit:LIVE_RETRIEVAL_SOURCE_LIMIT,
+        semanticLimit:Number.isFinite(requestedSemanticLimit)
+          ? Math.max(LIVE_RETRIEVAL_SOURCE_LIMIT,requestedSemanticLimit)
+          : LIVE_RETRIEVAL_SOURCE_LIMIT,
+      }) })
     : request;
   const baseResponse = await canonicalHandler!(canonicalRequest);
   if (!baseResponse.ok || request.method !== "POST") return baseResponse;

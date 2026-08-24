@@ -44,7 +44,11 @@ export function selectLiveCandidateUniverse(candidates, limit = 10) {
 }
 
 export const LIVE_RETRIEVAL_SOURCE_LIMIT=20;
-export const LIVE_ELIGIBLE_HANDOFF_LIMIT=10;
+// Production traces showed that a relevant Gold candidate could sit just
+// outside a ten-row fusion window and therefore never reach factual matching.
+// Keep the window bounded, but let the orchestrator evaluate the complete
+// measured internal retrieval window before it freezes the visible result.
+export const LIVE_ELIGIBLE_HANDOFF_LIMIT=20;
 
 const lower=(value)=>String(value??"").trim().toLocaleLowerCase("de-CH");
 const candidatePlaceType=(candidate)=>lower(candidate?.place_type||candidate?.canonical_place_type);
