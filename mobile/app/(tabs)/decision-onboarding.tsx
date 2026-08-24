@@ -18,6 +18,7 @@ import { Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { supabase } from "@/lib/supabase";
+import { hasActiveConsent, setMyConsent } from "@/lib/consent";
 import {
   normalizeLocationCity,
   resolveLocationContext,
@@ -74,13 +75,19 @@ export default function DecisionOnboardingScreen() {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [searching, setSearching] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [personalizationConsent, setPersonalizationConsent] = useState(false);
+  const [personalizationConsentPersisted, setPersonalizationConsentPersisted] = useState(false);
 
   const [results, setResults] = useState<SpotRow[]>([]);
   const [suggestions, setSuggestions] = useState<SpotRow[]>([]);
   const [selected, setSelected] = useState<SpotRow[]>([]);
 
   const selectedIds = useMemo(() => new Set(selected.map((spot) => spot.id)), [selected]);
-  const canSubmit = selected.length >= MIN_SELECTION && selected.length <= MAX_SELECTION && !submitting;
+  const canSubmit =
+    selected.length >= MIN_SELECTION &&
+    selected.length <= MAX_SELECTION &&
+    personalizationConsent &&
+    !submitting;
   const remainingCount = Math.max(0, MIN_SELECTION - selected.length);
 
   const loadSuggestions = useCallback(async (nextCity: string) => {
@@ -195,6 +202,12 @@ export default function DecisionOnboardingScreen() {
         return;
       }
 
+      const consentGranted = await hasActiveConsent("personalized_recommendations", {
+        forceRefresh: true,
+      });
+      if (!alive) return;
+      setPersonalizationConsent(consentGranted);
+      setPersonalizationConsentPersisted(consentGranted);
       loadSuggestions(city);
       detectLocation();
     };
@@ -245,8 +258,15 @@ export default function DecisionOnboardingScreen() {
   }, []);
 
   const submit = useCallback(async () => {
-    if (!canSubmit) {
+    if (selected.length < MIN_SELECTION) {
       Alert.alert("Noch nicht ganz", `Wähle mindestens ${MIN_SELECTION} echte Backyrd-Spots aus.`);
+      return;
+    }
+    if (!personalizationConsent) {
+      Alert.alert(
+        "Einwilligung fehlt",
+        "Aktiviere persönliche Empfehlungen, damit Backyrd deine Auswahl als Start-Geschmack speichern darf."
+      );
       return;
     }
 
@@ -261,6 +281,11 @@ export default function DecisionOnboardingScreen() {
       }
 
       const spotIds = selected.map((spot) => spot.id);
+
+      if (!personalizationConsentPersisted) {
+        await setMyConsent("personalized_recommendations", true);
+        setPersonalizationConsentPersisted(true);
+      }
 
       const { data, error } = await supabase.rpc("complete_decision_onboarding_v2", {
         p_city: normalizeCity(city),
@@ -280,11 +305,14 @@ export default function DecisionOnboardingScreen() {
       router.replace("/(tabs)" as any);
     } catch (error: any) {
       console.log("complete decision onboarding failed", error);
-      Alert.alert("Fehler", error?.message ?? "Konnte deinen Start-Geschmack nicht speichern.");
+      Alert.alert(
+        "Speichern fehlgeschlagen",
+        "Dein Start-Geschmack konnte gerade nicht gespeichert werden. Versuch es bitte noch einmal."
+      );
     } finally {
       setSubmitting(false);
     }
-  }, [canSubmit, city, router, selected]);
+  }, [city, personalizationConsent, personalizationConsentPersisted, router, selected]);
 
   const visibleSpots = query.trim().length >= 2 ? results : suggestions;
   const visibleTitle = query.trim().length >= 2 ? "Gefundene Spots" : "Vorschläge in deiner Stadt";
@@ -452,6 +480,24 @@ export default function DecisionOnboardingScreen() {
               </View>
             )}
           </View>
+
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: personalizationConsent }}
+            onPress={() => setPersonalizationConsent((current) => !current)}
+            style={({ pressed }) => [styles.consentCard, pressed && styles.pressed]}
+          >
+            <View style={[styles.consentCheckbox, personalizationConsent && styles.consentCheckboxChecked]}>
+              <Text style={styles.consentCheckmark}>{personalizationConsent ? "✓" : ""}</Text>
+            </View>
+            <View style={styles.consentCopy}>
+              <Text style={styles.consentTitle}>Persönliche Empfehlungen aktivieren</Text>
+              <Text style={styles.consentText}>
+                Backyrd darf diese Auswahl nutzen, um deinen Start-Geschmack aufzubauen. Du kannst
+                diese Einwilligung jederzeit im Privacy Center widerrufen.
+              </Text>
+            </View>
+          </Pressable>
 
           <Pressable
             onPress={submit}
@@ -726,6 +772,49 @@ const styles = StyleSheet.create({
   removeText: {
     color: "#fff",
     fontWeight: "900",
+    fontSize: 12,
+  },
+  consentCard: {
+    marginTop: 18,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.13)",
+    backgroundColor: "rgba(255,255,255,0.045)",
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  consentCheckbox: {
+    width: 25,
+    height: 25,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.34)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  consentCheckboxChecked: {
+    backgroundColor: theme.cream,
+    borderColor: theme.cream,
+  },
+  consentCheckmark: {
+    color: theme.black,
+    fontSize: 16,
+    fontWeight: "950",
+  },
+  consentCopy: {
+    flex: 1,
+  },
+  consentTitle: {
+    color: theme.text,
+    fontWeight: "950",
+    fontSize: 15,
+  },
+  consentText: {
+    color: theme.muted,
+    marginTop: 5,
+    lineHeight: 18,
     fontSize: 12,
   },
   submitButton: {

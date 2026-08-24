@@ -46,7 +46,7 @@ function usernameFrom(value: string) {
     .replace(/ö/g, "oe")
     .replace(/ü/g, "ue")
     .replace(/ß/g, "ss")
-    .replace(/[^a-z0-9._-]/g, "")
+    .replace(/[^a-z0-9._]/g, "")
     .slice(0, 24);
 }
 
@@ -75,20 +75,15 @@ function getCityFromGeocode(item: Location.LocationGeocodedAddress | null | unde
   return clean(item?.city) || clean(item?.subregion) || clean(item?.region) || "";
 }
 
-function makeUsernameCandidate(base: string, userId: string) {
-  const cleanedBase = usernameFrom(base) || "user";
-  const suffix = String(userId || "").replace(/-/g, "").slice(0, 6).toLowerCase();
-  const maxBaseLength = Math.max(3, 24 - 1 - suffix.length);
-  return `${cleanedBase.slice(0, maxBaseLength)}.${suffix}`.slice(0, 24);
-}
-
-function isUsernameDuplicateError(error: any) {
-  const message = String(error?.message ?? "").toLowerCase();
-  const details = String(error?.details ?? "").toLowerCase();
-  const code = String(error?.code ?? "").toLowerCase();
+function isUsernameDuplicateError(error: unknown) {
+  const candidate = error as { message?: unknown; details?: unknown; code?: unknown } | null;
+  const message = String(candidate?.message ?? "").toLowerCase();
+  const details = String(candidate?.details ?? "").toLowerCase();
+  const code = String(candidate?.code ?? "").toLowerCase();
 
   return (
     code === "23505" ||
+    message.includes("username_taken") ||
     message.includes("profiles_username_lower_unique_idx") ||
     details.includes("profiles_username_lower_unique_idx") ||
     message.includes("duplicate key value")
@@ -243,54 +238,22 @@ export default function ProfileOnboardingScreen() {
         return;
       }
 
-      const userId = user.id;
+      const { data, error } = await supabase.rpc("complete_profile_onboarding_v2", {
+        p_display_name: cleanedFirstName,
+        p_username: cleanedUsername,
+        p_age: Number.parseInt(age.trim(), 10),
+        p_city: cleanedCity,
+        p_country: cleanedCountry,
+      });
 
-      const payload = {
-        id: userId,
-        display_name: cleanedFirstName,
-        first_name: cleanedFirstName,
-        username: cleanedUsername,
-        birthdate,
-        city: cleanedCity,
-        home_city: cleanedCity,
-        country: cleanedCountry,
-        contact_email: user.email ?? null,
-        profile_onboarding_completed_at: new Date().toISOString(),
-      };
-
-      const firstAttempt = await supabase
-        .from("profiles")
-        .upsert(payload, { onConflict: "id" })
-        .select("id,username")
-        .single();
-
-      if (firstAttempt.error) {
-        if (!isUsernameDuplicateError(firstAttempt.error)) {
-          throw firstAttempt.error;
-        }
-
-        const fallbackUsername = makeUsernameCandidate(cleanedUsername || cleanedFirstName, userId);
-
-        const secondAttempt = await supabase
-          .from("profiles")
-          .upsert(
-            {
-              ...payload,
-              username: fallbackUsername,
-            },
-            { onConflict: "id" }
-          )
-          .select("id,username")
-          .single();
-
-        if (secondAttempt.error) throw secondAttempt.error;
-
-        setUsername(fallbackUsername);
+      if (error) throw error;
+      if (!data || typeof data !== "object" || data.ok !== true) {
+        throw new Error("profile_onboarding_not_confirmed");
       }
 
       Keyboard.dismiss();
       router.replace("/gate" as any);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.log("profile onboarding save failed", error);
 
       if (isUsernameDuplicateError(error)) {
@@ -301,7 +264,10 @@ export default function ProfileOnboardingScreen() {
         return;
       }
 
-      Alert.alert("Speichern fehlgeschlagen", error?.message ?? "Profil konnte nicht gespeichert werden.");
+      Alert.alert(
+        "Speichern fehlgeschlagen",
+        "Dein Profil konnte gerade nicht gespeichert werden. Versuch es bitte noch einmal."
+      );
     } finally {
       setSaving(false);
     }
