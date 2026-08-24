@@ -46,6 +46,24 @@ if git diff --quiet "$base"...HEAD -- supabase/functions/decision-v13/index.ts; 
   echo "D2 scope guard: frozen v13 unchanged; internal-live server wrapper accepted"
 fi
 
+# Mobile Production Rebuild retires three obsolete client/debug Decision paths.
+# Their deletion is safe only while the frozen canonical v13 implementation is
+# byte-identical to the base; reintroducing or modifying any of them remains a
+# protected-path failure.
+retired_mobile_decision_paths=(
+  'mobile/app/(tabs)/decision-debug.tsx'
+  'mobile/lib/decision/backyrdDecision.ts'
+  'mobile/supabase/functions/semantic-bridge-decision/index.ts'
+)
+if git diff --quiet "$base"...HEAD -- supabase/functions/decision-v13/index.ts; then
+  for retired_path in "${retired_mobile_decision_paths[@]}"; do
+    if [[ ! -e "$retired_path" ]]; then
+      protected="$(printf '%s\n' "$protected" | grep -Fvx "$retired_path" || true)"
+    fi
+  done
+  echo "D2 scope guard: retired Mobile Decision clients removed; frozen v13 unchanged"
+fi
+
 # Production Decision final closure is an explicitly versioned exception to
 # the historical research freeze. It may touch only the canonical v13 source
 # and its existing live wrapper/adapter, and only together with the additive
