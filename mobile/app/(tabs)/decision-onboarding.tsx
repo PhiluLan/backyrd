@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { supabase } from "@/lib/supabase";
 import { hasActiveConsent, setMyConsent } from "@/lib/consent";
+import { getMyProductEntryStatus } from "@/lib/onboardingStatus";
 import {
   normalizeLocationCity,
   resolveLocationContext,
@@ -35,11 +36,10 @@ type SpotRow = {
 
 type CompleteOnboardingRow = {
   ok: boolean;
-  user_id: string;
-  city: string;
-  selected_count: number;
-  event_count: number;
-  message: string;
+  alreadyCompleted?: boolean;
+  selectedCount?: number;
+  declaredEvidenceCount?: number;
+  semanticContractVersion?: string;
 };
 
 const MIN_SELECTION = 3;
@@ -100,6 +100,7 @@ export default function DecisionOnboardingScreen() {
         .from("spots")
         .select("id,name,city,address,categories(name)")
         .eq("status", "approved")
+        .in("data_origin", ["REAL", "LEGACY", "IMPORT"])
         .or(`city.ilike.%${c}%,address.ilike.%${c}%`)
         .order("created_at", { ascending: false })
         .limit(18);
@@ -131,6 +132,7 @@ export default function DecisionOnboardingScreen() {
         .from("spots")
         .select("id,name,city,address,categories(name)")
         .eq("status", "approved")
+        .in("data_origin", ["REAL", "LEGACY", "IMPORT"])
         .or(`city.ilike.%${c}%,address.ilike.%${c}%`)
         .ilike("name", `%${q}%`)
         .limit(14);
@@ -199,6 +201,13 @@ export default function DecisionOnboardingScreen() {
 
       if (!data.user?.id) {
         router.replace("/gate" as any);
+        return;
+      }
+
+      const entryStatus = await getMyProductEntryStatus();
+      if (!alive) return;
+      if (entryStatus.canEnterDecision) {
+        router.replace("/(tabs)/decision" as any);
         return;
       }
 

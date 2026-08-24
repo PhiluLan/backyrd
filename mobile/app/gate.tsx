@@ -14,25 +14,8 @@ import { useRouter } from "expo-router";
 
 import SplashScreen from "./splash";
 import { supabase } from "../lib/supabase";
+import { getMyProductEntryStatus } from "../lib/onboardingStatus";
 import { useAuth } from "../hooks/useAuth";
-
-type OnboardingStatus = {
-  logged_in: boolean;
-  user_id: string | null;
-  has_profile: boolean;
-  profile_onboarding_completed: boolean;
-  decision_onboarding_completed: boolean;
-  needs_profile_onboarding: boolean;
-  needs_decision_onboarding: boolean;
-  display_name: string | null;
-  username: string | null;
-  city: string | null;
-  birthdate: string | null;
-  taste_qualified_actions: number;
-  favorite_seed_count: number;
-  place_type_profile_count: number;
-  next_route: string | null;
-};
 
 function normalizeRoute(route: string | null | undefined): string {
   if (!route) return "/(tabs)";
@@ -141,19 +124,14 @@ export default function GateScreen() {
         return;
       }
 
-      const { data, error } = await supabase.rpc("get_my_onboarding_status_v1");
-      if (error) throw error;
+      const status = await getMyProductEntryStatus();
 
-      const status = Array.isArray(data)
-        ? (data[0] as OnboardingStatus | undefined)
-        : (data as OnboardingStatus | undefined);
-
-      if (status && status.logged_in === false) {
+      if (!status.loggedIn) {
         await forceLogoutBecauseSessionIsStale("RPC returned logged_in=false");
         return;
       }
 
-      const target = normalizeRoute(status?.next_route);
+      const target = normalizeRoute(status.nextRoute);
 
       didRouteRef.current = true;
       router.replace(target as any);
