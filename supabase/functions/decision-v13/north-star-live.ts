@@ -1,6 +1,7 @@
 import { SupabaseDecisionOrchestrator } from "../../../packages/decision-orchestrator-runtime/src/supabase-repository.mjs";
 import { N6ShadowService } from "../../../packages/n6-shadow-runtime/src/shadow.mjs";
 import { SupabaseN6ShadowRepository } from "../../../packages/n6-shadow-runtime/src/supabase-repository.mjs";
+import { composeFrozenContinuationOrder } from "../../../packages/decision-input-runtime/src/continuation.mjs";
 
 type CandidateSeed = { spotId: string; why: string | null };
 type ServiceClient = {
@@ -29,6 +30,12 @@ const reasonPriority=(reason:{type?:string;code?:string})=>{
   if(reason.type==="UNCERTAINTY")return 10;
   return 0;
 };
+const strongestAuthorizedReasons=(authorized:Record<string,Array<{copy?:string;type?:string;code?:string}>>)=>Object.fromEntries(
+  Object.entries(authorized).flatMap(([spotId,candidates])=>{
+    const selected=[...candidates].filter((reason)=>reason.copy).sort((a,b)=>reasonPriority(b)-reasonPriority(a))[0];
+    return selected?.copy?[[spotId,selected.copy]]:[];
+  }),
+);
 
 export async function isInternalLiveUser(service: ServiceClient, userId: string, capability = "DECISION") {
   const { data, error } = await service.rpc("backyrd_internal_live_user_enabled_v1", { p_user_id: userId, p_capability: capability });
@@ -68,15 +75,18 @@ export async function runInternalLiveDecision(input: LiveInput) {
         n3:{momentHash:deterministic.inputPackage.n3.momentHash,currentRequestFacts:deterministic.inputPackage.n3.currentMoment.currentRequestFacts},
         n4:deterministic.inputPackage.candidates.map((candidate:{spotId:string;n4:Record<string,unknown>})=>({spotId:candidate.spotId,n4:candidate.n4})),
         rankingVersion:deterministic.internal.rankingVersion,rankingInputs:deterministic.internal.rankingInputs,
-        deterministicOrder:deterministic.internal.finalOrder,
+        deterministicOrder:deterministic.internal.fullOrder,
         authorizedReasonIds:Object.fromEntries(Object.entries(deterministic.internal.authorizedReasons).map(([spotId,reasons])=>[spotId,(reasons as Array<{id:string}>).map((reason)=>reason.id)])),
         performance:deterministic.performance,
       },
     });
     fail(decisionTrace.error,"decision_trace");
     let finalSource = "DETERMINISTIC_NORTH_STAR";
-    let finalOrder = deterministic.response.spots.map((row: { spotId: string }) => row.spotId);
-    let reasons = Object.fromEntries(deterministic.response.spots.map((row: { spotId: string; explanation: string }) => [row.spotId, row.explanation]));
+    const deterministicFullOrder=deterministic.internal.fullOrder as string[];
+    let continuationOrder = composeFrozenContinuationOrder({deterministicOrder:deterministicFullOrder});
+    let finalOrder = continuationOrder.slice(0,3);
+    let reasons = strongestAuthorizedReasons(deterministic.internal.authorizedReasons);
+    for(const row of deterministic.response.spots as Array<{spotId:string;explanation:string}>)reasons[row.spotId]=row.explanation;
     let n6TraceId: string | null = null;
     let n6Disposition = "NOT_RUN";
 
@@ -94,7 +104,10 @@ export async function runInternalLiveDecision(input: LiveInput) {
             if (result.status === "VALIDATED" && result.trace?.validatorDisposition === "VALIDATED") {
               if (await isInternalLiveUser(input.service, input.userId, "N6")) {
                 finalSource = "N6_VALIDATED";
-                finalOrder = result.trace.n6Order;
+                continuationOrder = composeFrozenContinuationOrder({
+                  deterministicOrder:deterministicFullOrder,n6Order:result.trace.n6Order,n6Validated:true,
+                });
+                finalOrder = continuationOrder.slice(0,3);
                 const chosen: Record<string, { copy: string; priority: number }> = {};
                 for (const selected of result.trace.selectedReasons ?? []) {
                   const nextPriority = reasonPriority(selected);
@@ -114,7 +127,8 @@ export async function runInternalLiveDecision(input: LiveInput) {
 
     if (!(await isInternalLiveUser(input.service, input.userId, "DECISION"))) {
       finalSource = "LEGACY_V13_FALLBACK";
-      finalOrder = candidateIds;
+      continuationOrder = candidateIds;
+      finalOrder = continuationOrder.slice(0,3);
       reasons = {};
     }
     const finalized = await input.service.rpc("backyrd_finalize_internal_live_decision_v1", {
@@ -135,11 +149,11 @@ export async function runInternalLiveDecision(input: LiveInput) {
     fail(finalized.error, "finalize");
     const finalTrace=await input.service.rpc("backyrd_persist_decision_funnel_trace_v1",{
       p_decision_id:decisionId,p_user_id:input.userId,p_stage:"COMPLETE",
-      p_payload:{finalSource,finalOrder,reasons,n6Disposition,n6TraceId,knowledgeMode:deterministic.response.knowledgeMode,responseHash:deterministic.response.responseHash},
+      p_payload:{finalSource,finalOrder,continuationOrder,reasons,n6Disposition,n6TraceId,knowledgeMode:deterministic.response.knowledgeMode,responseHash:deterministic.response.responseHash},
     });
     fail(finalTrace.error,"final_trace");
     return {
-      active: true as const, decisionId, finalSource, finalOrder, reasons,
+      active: true as const, decisionId, finalSource, finalOrder, continuationOrder, reasons,
       knowledgeMode: deterministic.response.knowledgeMode,
       userCardHash: deterministic.inputPackage.n5.userCardHash,
       packageHash: deterministic.inputPackage.packageHash,
@@ -149,18 +163,19 @@ export async function runInternalLiveDecision(input: LiveInput) {
   } catch (error) {
     const code = errorCode(error);
     if (decisionId) {
+      const finalOrder=candidateIds.slice(0,3);
       await input.service.rpc("backyrd_finalize_internal_live_decision_v1", {
         p_decision_id: decisionId, p_user_id: input.userId, p_status: "FALLBACK",
         p_deterministic_trace_id: null, p_n6_trace_id: null, p_n6_disposition: "FAILED",
-        p_final_source: "LEGACY_V13_FALLBACK", p_final_order: candidateIds,
+        p_final_source: "LEGACY_V13_FALLBACK", p_final_order: finalOrder,
         p_knowledge_mode: null, p_user_card_hash: null, p_package_hash: null,
         p_response_hash: null, p_error_code: code,
       });
       await input.service.rpc("backyrd_persist_decision_funnel_trace_v1", {
         p_decision_id: decisionId, p_user_id: input.userId, p_stage: "COMPLETE",
-        p_payload: { finalSource: "LEGACY_V13_FALLBACK", finalOrder: candidateIds, n6Disposition: "FAILED", errorCode: code },
+        p_payload: { finalSource: "LEGACY_V13_FALLBACK", finalOrder, continuationOrder:candidateIds, n6Disposition: "FAILED", errorCode: code },
       });
     }
-    return { active: true as const, decisionId, finalSource: "LEGACY_V13_FALLBACK", finalOrder: candidateIds, reasons: {}, knowledgeMode: null, userCardHash: null, packageHash: null, deterministicTraceId: null, n6TraceId: null, n6Disposition: "FAILED", errorCode: code };
+    return { active: true as const, decisionId, finalSource: "LEGACY_V13_FALLBACK", finalOrder: candidateIds.slice(0,3), continuationOrder:candidateIds, reasons: {}, knowledgeMode: null, userCardHash: null, packageHash: null, deterministicTraceId: null, n6TraceId: null, n6Disposition: "FAILED", errorCode: code };
   }
 }
