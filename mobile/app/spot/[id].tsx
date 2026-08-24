@@ -40,15 +40,15 @@ import { getMobileSpotTaxonomy, type MobileSpotTaxonomyItem } from "../../lib/ta
 import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
 const theme = {
   colors: {
-    background: "#0A0A0B",
+    background: "#050506",
     surface: "#111113",
-    surfaceElevated: "#151519",
+    surfaceElevated: "#111113",
     border: "rgba(255,255,255,0.09)",
     text: "#FFFFFF",
     textMuted: "#A6A8AD",
     textSoft: "rgba(255,255,255,0.72)",
-    pink: "#FF7DA7",
-    pinkSoft: "#FFD4E0",
+    pink: "#FF4F91",
+    pinkSoft: "#FFC5DA",
     greenSoft: "#C8E3A6",
     success: "#22C55E",
     danger: "#EF4444",
@@ -235,7 +235,6 @@ export default function SpotDetailScreen() {
   const [showAllMoods, setShowAllMoods] = useState(false);
 
   const [ownerCtx, setOwnerCtx] = useState<any>(null);
-  const [claimLoading, setClaimLoading] = useState(false);
 
   const index = useRef(0);
   const translateX = useRef(new Animated.Value(0)).current;
@@ -335,8 +334,8 @@ export default function SpotDetailScreen() {
     const counts: Record<string, number> = {};
 
     for (const review of visibleReviews) {
-      const moodA = review.moodA?.token ?? review.mood_a;
-      const moodB = review.moodB?.token ?? review.mood_b;
+      const moodA = (review as any).moodA?.token ?? review.mood_a;
+      const moodB = (review as any).moodB?.token ?? review.mood_b;
 
       if (moodA) counts[moodA] = (counts[moodA] || 0) + 1;
       if (moodB) counts[moodB] = (counts[moodB] || 0) + 1;
@@ -475,8 +474,8 @@ export default function SpotDetailScreen() {
       if (visibleReviews.length) {
         const counts: Record<string, number> = {};
         for (const r of visibleReviews) {
-          const mA = r.moodA?.token ?? r.mood_a;
-          const mB = r.moodB?.token ?? r.mood_b;
+          const mA = (r as any).moodA?.token ?? r.mood_a;
+          const mB = (r as any).moodB?.token ?? r.mood_b;
           if (mA) counts[mA] = (counts[mA] || 0) + 1;
           if (mB) counts[mB] = (counts[mB] || 0) + 1;
         }
@@ -535,7 +534,9 @@ export default function SpotDetailScreen() {
 
   useEffect(() => {
     if (photos.length > 1) startSlideshow();
-    return () => timerRef.current && clearInterval(timerRef.current);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [photos, startSlideshow]);
 
   async function onShare() {
@@ -787,7 +788,7 @@ export default function SpotDetailScreen() {
               void recordMemoryProductAction({ actionType: "navigation_intent", spotId: spot.id, entrySurface: "generic" });
               openInAppleMaps(spot.lat, spot.lng, spot.name);
             }} style={styles.primaryAction}>
-              <Feather name="navigation" size={17} color="#171214" />
+              <Feather name="navigation" size={17} color="#111113" />
               <Text style={styles.primaryActionText}>Route</Text>
             </Pressable>
             <Pressable
@@ -867,9 +868,9 @@ export default function SpotDetailScreen() {
                 <Text style={styles.ownerButtonText}>Claim wird geprüft</Text>
               </View>
             ) : (
-              <Pressable onPress={requestClaim} disabled={claimLoading} style={[styles.ownerButton, claimLoading ? { opacity: 0.6 } : null]}>
+              <Pressable onPress={requestClaim} style={styles.ownerButton}>
                 <Feather name="check-circle" size={17} color={theme.colors.text} />
-                <Text style={styles.ownerButtonText}>{claimLoading ? "Sende..." : "Betreiberzugang anfragen"}</Text>
+                <Text style={styles.ownerButtonText}>Betreiberzugang anfragen</Text>
               </Pressable>
             )}
           </View>
@@ -1168,7 +1169,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primaryActionText: {
-    color: "#171214",
+    color: "#111113",
     fontSize: 15,
     fontWeight: "900",
   },

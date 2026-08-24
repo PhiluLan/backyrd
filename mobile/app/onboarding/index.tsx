@@ -284,7 +284,7 @@ export default function ProfileOnboardingScreen() {
   return (
     <KeyboardAvoidingView style={styles.keyboardRoot} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <LinearGradient colors={["#050506", "#09090A", "#0D0D10"]} style={styles.container}>
+        <LinearGradient colors={["#050506", "#050506", "#0D0D10"]} style={styles.container}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
             <View style={styles.topRow}>
               <Text numberOfLines={1} style={styles.location}>{clean(city) || "Basel"}</Text>
@@ -368,7 +368,7 @@ export default function ProfileOnboardingScreen() {
                     style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}
                   >
                     {locationLoading ? (
-                      <ActivityIndicator size="small" color="#171214" />
+                      <ActivityIndicator size="small" color="#111113" />
                     ) : (
                       <Text style={styles.locationButtonText}>Aktuell</Text>
                     )}
@@ -393,7 +393,7 @@ export default function ProfileOnboardingScreen() {
                 disabled={saving}
                 style={({ pressed }) => [styles.primaryButton, saving && styles.disabled, pressed && styles.pressed]}
               >
-                {saving ? <ActivityIndicator color="#171214" /> : <Text style={styles.primaryButtonText}>Weiter</Text>}
+                {saving ? <ActivityIndicator color="#111113" /> : <Text style={styles.primaryButtonText}>Weiter</Text>}
               </Pressable>
             </View>
 
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
   },
   loading: {
     flex: 1,
-    backgroundColor: "#0B0B0C",
+    backgroundColor: "#050506",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     marginBottom: 26,
   },
   kicker: {
-    color: "#FF9ABA",
+    color: "#FF4F91",
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 4.2,
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
     letterSpacing: -1.35,
   },
   titlePink: {
-    color: "#FF7DA7",
+    color: "#FF4F91",
     fontWeight: "900",
   },
   subtitle: {
@@ -542,27 +542,27 @@ const styles = StyleSheet.create({
     minWidth: 94,
     height: 56,
     borderRadius: 18,
-    backgroundColor: "#FFD4E0",
+    backgroundColor: "#FFC5DA",
     borderWidth: 1,
     borderColor: "rgba(255,125,167,0.35)",
     alignItems: "center",
     justifyContent: "center",
   },
   locationButtonText: {
-    color: "#171214",
+    color: "#111113",
     fontWeight: "900",
     fontSize: 13,
   },
   primaryButton: {
     height: 58,
     borderRadius: 999,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 8,
   },
   primaryButtonText: {
-    color: "#171214",
+    color: "#111113",
     fontSize: 16,
     fontWeight: "900",
   },

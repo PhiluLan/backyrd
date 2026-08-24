@@ -383,7 +383,7 @@ export default function ReportContentButton({
                   <Ionicons
                     name="chevron-back"
                     size={18}
-                    color="#FF4F8B"
+                    color="#FF4F91"
                   />
                   <Text style={styles.backText}>
                     Grund ändern
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
   sheet: {
     maxHeight: "91%",
     minHeight: 430,
-    backgroundColor: "#111114",
+    backgroundColor: "#111113",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderWidth: 1,
@@ -564,7 +564,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   eyebrow: {
-    color: "#FF4F8B",
+    color: "#FF4F91",
     fontSize: 11,
     lineHeight: 14,
     fontWeight: "800",
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
     color: "#F4F4F7",
     fontSize: 16,
     lineHeight: 20,
-    fontWeight: "750",
+    fontWeight: "700",
   },
   reasonDescription: {
     color: "#8F8F98",
@@ -658,9 +658,9 @@ const styles = StyleSheet.create({
     marginBottom: 17,
   },
   backText: {
-    color: "#FF4F8B",
+    color: "#FF4F91",
     fontSize: 14,
-    fontWeight: "750",
+    fontWeight: "700",
   },
   previewCard: {
     padding: 16,

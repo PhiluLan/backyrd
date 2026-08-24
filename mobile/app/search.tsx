@@ -100,7 +100,7 @@ export default function Search() {
           keyExtractor={(item) => item.id}
           ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
           renderItem={({ item }) => (
-            <Pressable onPress={() => openOnMap(item)} style={{ backgroundColor: "#141417", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#1F1F23" }}>
+            <Pressable onPress={() => openOnMap(item)} style={{ backgroundColor: "#111113", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#1F1F23" }}>
               <Text style={{ color: "#EDEDED", fontWeight: "700" }}>{item.name}</Text>
               <Text style={{ color: "#B8B8B8" }}>{item.address || "–"}</Text>
               {!!item.category && <Text style={{ color: "#8E8E93", marginTop: 4 }}>#{item.category}</Text>}

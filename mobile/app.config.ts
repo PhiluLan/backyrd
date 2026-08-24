@@ -1,9 +1,43 @@
 import "dotenv/config";
 import { ConfigContext, ExpoConfig } from "@expo/config";
 
+const APP_VERSION = "1.1.0";
+
+function requiredReleaseValue(name: string, value: string | undefined) {
+  const isReleaseBuild =
+    process.env.EAS_BUILD === "true" ||
+    process.env.BACKYRD_RELEASE_BUILD === "1";
+
+  if (isReleaseBuild && !value?.trim()) {
+    throw new Error(`Missing required production runtime configuration: ${name}`);
+  }
+
+  return value?.trim();
+}
+
 export default ({ config }: ConfigContext): ExpoConfig => {
   const variant = process.env.APP_VARIANT ?? "prod";
   const isDev = variant === "dev";
+  const supabaseUrl = requiredReleaseValue(
+    "EXPO_PUBLIC_SUPABASE_URL",
+    process.env.EXPO_PUBLIC_SUPABASE_URL
+  );
+  const supabaseAnonKey = requiredReleaseValue(
+    "EXPO_PUBLIC_SUPABASE_ANON_KEY",
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
+  );
+  const googleMapsKey = requiredReleaseValue(
+    "EXPO_PUBLIC_GOOGLE_MAPS_KEY",
+    process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY
+  );
+  const googleIosClientId = requiredReleaseValue(
+    "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID",
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
+  );
+  const googleWebClientId = requiredReleaseValue(
+    "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID",
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+  );
 
   return {
     ...config,
@@ -11,7 +45,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     slug: "backyrd",
     scheme: "backyrd",
     owner: "philipplanger",
-    version: "1.0.0",
+    version: APP_VERSION,
 
     runtimeVersion: {
       policy: "appVersion",
@@ -29,11 +63,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       bundleIdentifier: isDev ? "com.backyrd.app.dev" : "com.backyrd.app",
       usesAppleSignIn: true,
       supportsTablet: false,
-      autoFillCredentials: true,
       config: {
-        googleMapsApiKey:
-          process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ??
-          "AIzaSyA7Mnx0hiFe4rrvtOd1Ya52NkM7WM-lXDI",
+        googleMapsApiKey: googleMapsKey,
       },
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
@@ -43,10 +74,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           "Backyrd benötigt die Kamera, um Fotos für Reviews aufzunehmen.",
         NSPhotoLibraryAddUsageDescription:
           "Backyrd speichert deine Review-Fotos in der Mediathek.",
-        NSAppTransportSecurity: {
-          NSAllowsArbitraryLoads: true,
-          NSAllowsArbitraryLoadsInWebContent: true,
-        },
       },
     },
 
@@ -58,9 +85,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
       config: {
         googleMaps: {
-          apiKey:
-            process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ??
-            "AIzaSyA7Mnx0hiFe4rrvtOd1Ya52NkM7WM-lXDI",
+          apiKey: googleMapsKey,
         },
       },
       permissions: [
@@ -72,23 +97,25 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ],
     },
 
-    plugins: ["expo-router", "expo-camera", "expo-secure-store", "expo-web-browser"],
+    plugins: ["expo-router", "expo-camera", "expo-secure-store", "expo-web-browser", "expo-font"],
 
     extra: {
       appVariant: variant,
       eas: {
         projectId: "7779ff79-6fa4-4d0e-b592-9c19c5f87881",
       },
-      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-      googleMapsKey:
-        process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ??
-        "AIzaSyA7Mnx0hiFe4rrvtOd1Ya52NkM7WM-lXDI",
+      supabaseUrl,
+      supabaseAnonKey,
+      googleMapsKey,
+      googleIosClientId,
+      googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID?.trim(),
+      googleWebClientId,
     },
 
     updates: {
       enabled: true,
       url: "https://u.expo.dev/7779ff79-6fa4-4d0e-b592-9c19c5f87881",
+      checkAutomatically: "ON_LOAD",
       fallbackToCacheTimeout: 0,
     },
   };

@@ -3,10 +3,13 @@ import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useAuth } from "../../hooks/useAuth";
+import { isInternalMobileUser } from "../../lib/internalAccess";
+import { backyrdTheme as productTheme } from "../../theme/backyrd";
 
 const theme = {
-  bg: "#0A0A0B",
-  card: "#15151A",
+  bg: "#050506",
+  card: "#111113",
   border: "#2A2A33",
   text: "#FFFFFF",
   muted: "#A6A8AD",
@@ -42,12 +45,15 @@ function SettingsRow({
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const internal = __DEV__ || isInternalMobileUser(user);
 
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Settings</Text>
-        <Text style={styles.subtitle}>Profil, interne Tools und App-Bereiche.</Text>
+        <Text style={styles.kicker}>DEIN BACKYRD</Text>
+        <Text style={styles.title}>EINSTELLUNGEN</Text>
+        <Text style={styles.subtitle}>Profil, Privatsphäre und deine App.</Text>
 
         <View style={styles.group}>
           <SettingsRow
@@ -57,19 +63,10 @@ export default function SettingsScreen() {
             onPress={() => router.push("/profile")}
           />
 
-          <SettingsRow
-            icon="sparkles-outline"
-            title="Decision Debug"
-            subtitle="Debug- und Diagnosebereich für Decision"
-            onPress={() => router.push("/decision-debug")}
-          />
-
-          <SettingsRow
-            icon="hammer-outline"
-            title="DEV"
-            subtitle="Interne Entwickleransicht"
-            onPress={() => router.push("/dev")}
-          />
+          {internal ? <>
+            <SettingsRow icon="pulse-outline" title="App- & Release-Status" subtitle="Version, Runtime und aktives Update" onPress={() => router.push("/release-diagnostics")} />
+            <SettingsRow icon="hammer-outline" title="DEV" subtitle="Interne Entwickleransicht" onPress={() => router.push("/dev")} />
+          </> : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -79,17 +76,19 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: theme.bg,
+    backgroundColor: productTheme.color.background,
   },
   container: {
     padding: 20,
     paddingBottom: 120,
   },
   title: {
-    color: theme.text,
-    fontSize: 28,
-    fontWeight: "800",
+    color: productTheme.color.textPrimary,
+    fontFamily: productTheme.type.display,
+    fontSize: 44,
+    fontWeight: "900",
   },
+  kicker: { color: productTheme.color.acid, fontFamily: productTheme.type.bodyBold, fontSize: 11, letterSpacing: 2.5 },
   subtitle: {
     color: theme.muted,
     marginTop: 6,

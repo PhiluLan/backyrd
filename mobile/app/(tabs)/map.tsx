@@ -30,7 +30,6 @@ import { useDebounce } from "use-debounce";
 import { supabase } from "../../lib/supabase";
 import { resolveLocationContext } from "../../lib/locationContext";
 import { hasActiveConsent } from "../../lib/consent";
-import { safeDevelopmentWarning } from "../../lib/privacySanitize";
 import { MOOD_SUGGESTIONS } from "../../lib/moods";
 import { trackAnalyticsEvent } from "../../lib/analytics";
 
@@ -52,8 +51,8 @@ const theme = {
     text: "#FFFFFF",
     textMuted: "rgba(255,255,255,0.58)",
     textSoft: "rgba(255,255,255,0.74)",
-    primary: "#FF7DA7",
-    pinkSoft: "#FFD4E0",
+    primary: "#FF4F91",
+    pinkSoft: "#FFC5DA",
     greenSoft: "#C8E3A6",
   },
 };
@@ -206,7 +205,7 @@ export default function MapScreen() {
       setSpotMoodIds(moodIdMap);
       setDbCategories(catRows || []);
     })();
-  }, []);
+  }, [refresh]);
 
   /* =============================================================
      DYNAMIC TOP MOOD CHIPS
@@ -313,7 +312,7 @@ export default function MapScreen() {
      FILTER LOGIC
   ============================================================= */
 
-  const spotMatchesSearch = (spot: Spot, term: string) => {
+  const spotMatchesSearch = React.useCallback((spot: Spot, term: string) => {
     const t = normalizeText(term);
     if (!t) return true;
 
@@ -327,9 +326,9 @@ export default function MapScreen() {
     if (moods.some((m) => m.includes(t))) return true;
 
     return false;
-  };
+  }, [spotMoods]);
 
-  const spotMatchesMood = (spot: Spot) => {
+  const spotMatchesMood = React.useCallback((spot: Spot) => {
     const ids = spotMoodIds[spot.id] || [];
 
     // Effektive Mood-IDs aus Chip + Suche
@@ -343,7 +342,7 @@ export default function MapScreen() {
 
     if (effectiveMoodIds.length === 0) return true;
     return effectiveMoodIds.some((mid) => ids.includes(mid));
-  };
+  }, [allMoodIdsInData, searchMoodId, selectedMoodId, spotMoodIds]);
 
   const filteredSpots = useMemo(() => {
     let base = globalSpots;
@@ -363,23 +362,18 @@ export default function MapScreen() {
     });
   }, [
     globalSpots,
-    selectedMoodId,
-    searchMoodId,
     selectedCategory,
     debouncedSearch,
-    spotMoods,
-    spotMoodIds,
-    allMoodIdsInData,
     initialSpotIdList,
+    spotMatchesMood,
+    spotMatchesSearch,
   ]);
 
   /* =============================================================
      MAP RENDERING
   ============================================================= */
 
-  const renderedMarkers = useMemo(
-    () =>
-      filteredSpots.map((spot) => (
+  const renderedMarkers = filteredSpots.map((spot) => (
         <Marker
           key={spot.id}
           coordinate={{ latitude: spot.lat, longitude: spot.lng }}
@@ -407,9 +401,7 @@ export default function MapScreen() {
             resizeMode="contain"
           />
         </Marker>
-      )),
-    [filteredSpots]
-  );
+      ));
 
   /* =============================================================
      BOTTOM SHEET
@@ -514,7 +506,8 @@ export default function MapScreen() {
     };
 
     setRegion(next);
-    mapRef.current?.animateToRegion(next, 500);
+    (mapRef.current as unknown as { animateToRegion?: (value: typeof next, duration: number) => void })
+      ?.animateToRegion?.(next, 500);
   }
 
   /* =============================================================
@@ -624,7 +617,7 @@ export default function MapScreen() {
                 <Text
                   style={[
                     styles.moodChipTextBtn,
-                    { color: active ? "#171214" : theme.colors.textSoft },
+                    { color: active ? "#111113" : theme.colors.textSoft },
                   ]}
                 >
                   {m}
@@ -664,7 +657,7 @@ export default function MapScreen() {
                 <Text
                   style={[
                     styles.catText,
-                    { color: active ? "#171214" : theme.colors.textSoft },
+                    { color: active ? "#111113" : theme.colors.textSoft },
                   ]}
                 >
                   {cat.name}
@@ -1066,7 +1059,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 12,
   },
-  sheetCtaPrimaryText: { fontWeight: "900", color: "#171214", fontSize: 15 },
+  sheetCtaPrimaryText: { fontWeight: "900", color: "#111113", fontSize: 15 },
   emptySheetText: {
     color: theme.colors.textMuted,
     fontSize: 14,

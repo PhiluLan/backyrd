@@ -26,7 +26,7 @@ import { ensureProfile } from "@/lib/profile";
 import SocialPostCard, { type SocialFeedPost } from "@/components/PostCard";
 import CommentsSheet from "@/components/CommentsSheet";
 import ProfilePrivacyCard from "@/components/ProfilePrivacyCard";
-import { trackAnalyticsEvent, reportAnalyticsError } from "@/lib/analytics";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 import { buildProfileSafetyText, registerSafetySnapshot } from "@/lib/safety-content";
 
 const { width } = Dimensions.get("window");
@@ -64,7 +64,7 @@ type FavoriteRow = {
     name?: string | null;
     city?: string | null;
     header_photo_path?: string | null;
-    spot_photos?: Array<{ url?: string | null }> | null;
+    spot_photos?: { url?: string | null }[] | null;
   } | null;
 };
 
@@ -202,10 +202,6 @@ function profileName(profile: ProfileRow | null) {
   return full || profile?.username || "Backyrd User";
 }
 
-function profileHandle(profile: ProfileRow | null) {
-  return profile?.username ? `@${profile.username}` : "@backyrd";
-}
-
 function splitChips(value?: string | string[] | null) {
   if (Array.isArray(value)) return value.map((v) => `${v}`.trim()).filter(Boolean);
   if (typeof value !== "string") return [];
@@ -234,7 +230,6 @@ export default function ProfileScreen() {
 
   const [checkedAuth, setCheckedAuth] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
@@ -262,7 +257,6 @@ export default function ProfileScreen() {
   });
 
   const displayName = useMemo(() => profileName(profile), [profile]);
-  const handle = useMemo(() => profileHandle(profile), [profile]);
   const sinceLabel = useMemo(() => formatSince(profile?.since_date), [profile?.since_date]);
   const profileMeta = useMemo(() => {
     const parts = [profile?.city || "Basel", sinceLabel].filter(Boolean);
@@ -397,7 +391,7 @@ export default function ProfileScreen() {
       active = false;
       listener?.subscription.unsubscribe();
     };
-  }, [loadForUser, refreshKey]);
+  }, [loadForUser]);
 
   async function pickImageAndUploadAvatar() {
     if (!user) return;
@@ -596,7 +590,7 @@ export default function ProfileScreen() {
       <Animated.View style={[styles.headerBackdrop, { height: headerHeight }]} pointerEvents="none">
         <Image source={{ uri: headerImage }} style={styles.headerImage} blurRadius={8} />
         <LinearGradient
-          colors={["rgba(0,0,0,0.08)", "rgba(10,10,11,0.72)", "#0A0A0B"]}
+          colors={["rgba(0,0,0,0.08)", "rgba(10,10,11,0.72)", "#050506"]}
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
@@ -691,7 +685,7 @@ export default function ProfileScreen() {
             void trackAnalyticsEvent({ eventName: "profile_edit_started", screenName: "profile" });
             setShowEdit(true);
           }}>
-            <Ionicons name="pencil" size={18} color="#0A0A0B" />
+            <Ionicons name="pencil" size={18} color="#050506" />
             <Text style={styles.editProfileText}>Profil bearbeiten</Text>
           </Pressable>
         </View>
@@ -709,7 +703,7 @@ export default function ProfileScreen() {
           onPress={() => router.push("/privacy-consent" as any)}
         >
           <View style={styles.historyLeft}>
-            <Ionicons name="shield-checkmark-outline" size={22} color="#FF7DA7" />
+            <Ionicons name="shield-checkmark-outline" size={22} color="#FF4F91" />
             <Text style={styles.historyText}>Datenschutz & Einwilligungen</Text>
           </View>
           <Ionicons name="chevron-forward" size={21} color="rgba(255,255,255,0.76)" />
@@ -731,7 +725,7 @@ export default function ProfileScreen() {
               <Ionicons
                 name="shield-checkmark-outline"
                 size={22}
-                color="#FF7DA7"
+                color="#FF4F91"
               />
             </View>
 
@@ -986,7 +980,8 @@ export default function ProfileScreen() {
 
       <CommentsSheet
         visible={Boolean(selectedCommentsPost)}
-        post={selectedCommentsPost}
+        postId={selectedCommentsPost?.post_id ?? null}
+        postTitle={selectedCommentsPost?.caption ?? null}
         onClose={() => setSelectedCommentsPost(null)}
         onCommentCreated={onCommentCreated}
       />
@@ -1018,7 +1013,7 @@ const styles = StyleSheet.create({
   },
   center: {
     flex: 1,
-    backgroundColor: "#0A0A0B",
+    backgroundColor: "#050506",
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
@@ -1026,7 +1021,7 @@ const styles = StyleSheet.create({
   mutedText: {
     color: "#8F8F98",
     fontSize: 15,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   headerBackdrop: {
     position: "absolute",
@@ -1084,7 +1079,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.18)",
     padding: 3,
-    backgroundColor: "#101016",
+    backgroundColor: "#111113",
   },
   avatar: {
     width: "100%",
@@ -1099,14 +1094,14 @@ const styles = StyleSheet.create({
   displayName: {
     color: "#FFFFFF",
     fontSize: 34,
-    fontWeight: "850",
+    fontWeight: "800",
     letterSpacing: 0,
   },
   handleText: {
     marginTop: 5,
     color: "#8F8F98",
     fontSize: 16,
-    fontWeight: "850",
+    fontWeight: "800",
   },
   bioText: {
     marginTop: 18,
@@ -1126,20 +1121,20 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: "#14141B",
     borderWidth: 1,
-    borderColor: "#292933",
+    borderColor: "#1B1B20",
     alignItems: "center",
     justifyContent: "center",
   },
   statNumber: {
     color: "#FFFFFF",
     fontSize: 23,
-    fontWeight: "780",
+    fontWeight: "800",
   },
   statLabel: {
     marginTop: 5,
     color: "#8F8F98",
     fontSize: 14,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   profileChips: {
     marginTop: 16,
@@ -1179,30 +1174,30 @@ const styles = StyleSheet.create({
   tasteChipText: {
     color: "#EAEAEE",
     fontSize: 13,
-    fontWeight: "750",
+    fontWeight: "700",
   },
   editProfileButton: {
     marginTop: 20,
     minHeight: 50,
     borderRadius: 999,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 9,
   },
   editProfileText: {
-    color: "#08080A",
+    color: "#050506",
     fontSize: 16,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   historyButton: {
     marginTop: 16,
     minHeight: 64,
     borderRadius: 26,
-    backgroundColor: "#101016",
+    backgroundColor: "#111113",
     borderWidth: 1,
-    borderColor: "#292933",
+    borderColor: "#1B1B20",
     paddingHorizontal: 18,
     flexDirection: "row",
     alignItems: "center",
@@ -1216,7 +1211,7 @@ const styles = StyleSheet.create({
   historyText: {
     color: "#FFFFFF",
     fontSize: 19,
-    fontWeight: "850",
+    fontWeight: "800",
   },
   safetySection: {
     marginTop: 22,
@@ -1233,9 +1228,9 @@ const styles = StyleSheet.create({
   safetyCenterButton: {
     minHeight: 82,
     borderRadius: 26,
-    backgroundColor: "#101016",
+    backgroundColor: "#111113",
     borderWidth: 1,
-    borderColor: "#292933",
+    borderColor: "#1B1B20",
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: "row",
@@ -1264,22 +1259,22 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 17,
     lineHeight: 22,
-    fontWeight: "850",
+    fontWeight: "800",
   },
   safetyCenterSubtitle: {
     marginTop: 4,
     color: "#8F8F98",
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   tabShell: {
     marginTop: 20,
     minHeight: 58,
     borderRadius: 29,
-    backgroundColor: "#101016",
+    backgroundColor: "#111113",
     borderWidth: 1,
-    borderColor: "#292933",
+    borderColor: "#1B1B20",
     flexDirection: "row",
     padding: 5,
   },
@@ -1298,7 +1293,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   tabTextActive: {
-    color: "#0A0A0B",
+    color: "#050506",
   },
   contentArea: {
     paddingTop: 18,
@@ -1306,9 +1301,9 @@ const styles = StyleSheet.create({
   emptyState: {
     minHeight: 190,
     borderRadius: 28,
-    backgroundColor: "#101016",
+    backgroundColor: "#111113",
     borderWidth: 1,
-    borderColor: "#24242D",
+    borderColor: "#1B1B20",
     alignItems: "center",
     justifyContent: "center",
     padding: 22,
@@ -1317,7 +1312,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: "#FFFFFF",
     fontSize: 20,
-    fontWeight: "850",
+    fontWeight: "800",
     textAlign: "center",
   },
   emptyText: {
@@ -1333,9 +1328,9 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     overflow: "hidden",
     marginBottom: 16,
-    backgroundColor: "#101016",
+    backgroundColor: "#111113",
     borderWidth: 1,
-    borderColor: "#24242D",
+    borderColor: "#1B1B20",
   },
   favoriteImage: {
     width: "100%",
@@ -1370,9 +1365,9 @@ const styles = StyleSheet.create({
     width: (width - 52) / 2,
     minHeight: 150,
     borderRadius: 26,
-    backgroundColor: "#101016",
+    backgroundColor: "#111113",
     borderWidth: 1,
-    borderColor: "#24242D",
+    borderColor: "#1B1B20",
     alignItems: "center",
     justifyContent: "center",
     padding: 16,
@@ -1404,9 +1399,9 @@ const styles = StyleSheet.create({
     minHeight: 46,
     borderRadius: 999,
     paddingHorizontal: 18,
-    backgroundColor: "#15151A",
+    backgroundColor: "#111113",
     borderWidth: 1,
-    borderColor: "#30303A",
+    borderColor: "#1B1B20",
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -1500,7 +1495,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 12,
     fontSize: 16,
-    fontWeight: "650",
+    fontWeight: "600",
     marginBottom: 10,
   },
   bioInput: {
@@ -1516,9 +1511,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   saveButtonText: {
-    color: "#0A0A0B",
+    color: "#050506",
     fontSize: 17,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   cancelButton: {
     marginTop: 12,

@@ -245,7 +245,7 @@ export default function PrivacyConsentScreen() {
 
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color="#FF7DA7" />
+          <ActivityIndicator color="#FF4F91" />
         </View>
       ) : (
         <ScrollView
@@ -253,7 +253,7 @@ export default function PrivacyConsentScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.introCard}>
-            <Ionicons name="shield-checkmark-outline" size={25} color="#FF7DA7" />
+            <Ionicons name="shield-checkmark-outline" size={25} color="#FF4F91" />
             <Text style={styles.introTitle}>Du entscheidest.</Text>
             <Text style={styles.introText}>
               Du kannst Backyrd ohne Standort durchsuchen und Spots entdecken.
@@ -275,7 +275,7 @@ export default function PrivacyConsentScreen() {
                   <Ionicons
                     name={ICONS[row.purpose_key]}
                     size={22}
-                    color="#FF7DA7"
+                    color="#FF4F91"
                   />
                 </View>
 
@@ -306,7 +306,7 @@ export default function PrivacyConsentScreen() {
                 </View>
 
                 {saving ? (
-                  <ActivityIndicator color="#FF7DA7" />
+                  <ActivityIndicator color="#FF4F91" />
                 ) : (
                   <Switch
                     value={enabled}
@@ -315,7 +315,7 @@ export default function PrivacyConsentScreen() {
                       false: "rgba(255,255,255,0.16)",
                       true: "rgba(255,125,167,0.48)",
                     }}
-                    thumbColor={enabled ? "#FF7DA7" : "#D8D8DC"}
+                    thumbColor={enabled ? "#FF4F91" : "#D8D8DC"}
                   />
                 )}
               </View>
@@ -331,13 +331,13 @@ export default function PrivacyConsentScreen() {
             onPress={() => void sendTestPush()}
           >
             {sendingTestPush ? (
-              <ActivityIndicator color="#09090A" />
+              <ActivityIndicator color="#050506" />
             ) : (
               <>
                 <Ionicons
                   name="paper-plane-outline"
                   size={20}
-                  color="#09090A"
+                  color="#050506"
                 />
                 <Text style={styles.testPushButtonText}>
                   Test-Benachrichtigung senden
@@ -367,7 +367,7 @@ export default function PrivacyConsentScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#09090A" },
+  safe: { flex: 1, backgroundColor: "#050506" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   },
   headerCopy: { flex: 1 },
   eyebrow: {
-    color: "#FF7DA7",
+    color: "#FF4F91",
     fontSize: 11,
     fontWeight: "900",
     letterSpacing: 1.3,
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
   introCard: {
     borderRadius: 24,
     padding: 20,
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,125,167,0.22)",
     marginBottom: 25,
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 20,
     padding: 15,
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
     marginBottom: 10,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,125,167,0.25)",
   },
   smartReviewBadgeText: {
-    color: "#FFD4E0",
+    color: "#FFC5DA",
     fontSize: 10,
     fontWeight: "900",
     letterSpacing: 0.4,
@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
   testPushButton: {
     minHeight: 54,
     borderRadius: 18,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
   },
   testPushButtonDisabled: { opacity: 0.58 },
   testPushButtonText: {
-    color: "#09090A",
+    color: "#050506",
     fontSize: 15,
     fontWeight: "900",
   },

@@ -12,13 +12,14 @@ import {
 
 import { useAchievements } from "../../hooks/useAchievements";
 import { awardAchievementsForUser } from "../../lib/achievementEngine";
+import type { AchievementWithProgress, NewlyUnlockedAchievement } from "../../lib/achievementEngine";
 import { supabase } from "../../lib/supabase";
 import { useFocusEffect } from "@react-navigation/native";
 import AchievementPopup from "../../components/AchievementPopup";
 
 export default function AchievementsScreen() {
   const { achievements, loading, error, refetch } = useAchievements();
-  const [newAchievement, setNewAchievement] = useState(null);
+  const [newAchievement, setNewAchievement] = useState<NewlyUnlockedAchievement | null>(null);
 
   /**
    * Wird ausgeführt jedes Mal, wenn man den Tab betritt.
@@ -41,20 +42,20 @@ export default function AchievementsScreen() {
       }
 
       sync();
-    }, [])
+    }, [refetch])
   );
 
   // --------- GROUPING: nur die höchste Stufe pro Typ anzeigen ---------
 
-  function groupAchievements(list) {
-    const groups = {};
+  function groupAchievements(list: AchievementWithProgress[]) {
+    const groups: Record<string, AchievementWithProgress[]> = {};
 
     list.forEach((a) => {
       if (!groups[a.type]) groups[a.type] = [];
       groups[a.type].push(a);
     });
 
-    const final = [];
+    const final: AchievementWithProgress[] = [];
 
     Object.keys(groups).forEach((type) => {
       const items = groups[type];
@@ -64,10 +65,10 @@ export default function AchievementsScreen() {
 
       if (unlocked.length > 0) {
         // höchste Stufe → größtes threshold
-        final.push(unlocked.sort((a, b) => b.threshold - a.threshold)[0]);
+        final.push(unlocked.sort((a, b) => (b.threshold ?? 0) - (a.threshold ?? 0))[0]);
       } else {
         // keine unlocked → nächste Stufe → kleinstes threshold
-        final.push(locked.sort((a, b) => a.threshold - b.threshold)[0]);
+        final.push(locked.sort((a, b) => (a.threshold ?? 0) - (b.threshold ?? 0))[0]);
       }
     });
 

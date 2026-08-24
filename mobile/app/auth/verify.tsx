@@ -97,7 +97,7 @@ export default function VerifyScreen() {
   return (
     <KeyboardAvoidingView style={styles.keyboardRoot} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <LinearGradient colors={["#050506", "#0A0A0B", "#191A22"]} style={styles.container}>
+        <LinearGradient colors={["#050506", "#050506", "#111113"]} style={styles.container}>
           <View style={styles.header}>
             <Pressable onPress={() => router.replace("/auth/login" as any)} hitSlop={10} style={styles.backBtn}>
               <Ionicons name="chevron-back" size={32} color="#fff" />
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: "#fff",
     fontSize: 29,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: 0.2,
     flexShrink: 1,
   },
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 38,
     lineHeight: 42,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -0.9,
     marginBottom: 10,
   },
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     color: "#fff",
     fontSize: 17,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   secondaryBtn: {
     backgroundColor: "rgba(255,255,255,0.08)",

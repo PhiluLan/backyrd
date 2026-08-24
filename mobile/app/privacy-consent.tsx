@@ -83,7 +83,7 @@ export default function PrivacyCenterScreen() {
       >
         <View style={styles.hero}>
           <View style={styles.heroIcon}>
-            <Ionicons name="shield-checkmark" size={31} color="#FF7DA7" />
+            <Ionicons name="shield-checkmark" size={31} color="#FF4F91" />
           </View>
           <Text style={styles.heroTitle}>Privatsphäre bei Backyrd</Text>
           <Text style={styles.heroText}>
@@ -118,7 +118,7 @@ export default function PrivacyCenterScreen() {
         ))}
 
         <View style={styles.contactCard}>
-          <Ionicons name="mail-outline" size={21} color="#FF7DA7" />
+          <Ionicons name="mail-outline" size={21} color="#FF4F91" />
           <View style={styles.contactCopy}>
             <Text style={styles.contactTitle}>Datenschutzkontakt</Text>
             <Text style={styles.contactText}>hello@backyrd.ch</Text>
@@ -133,7 +133,7 @@ export default function PrivacyCenterScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#09090A" },
+  safe: { flex: 1, backgroundColor: "#050506" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   },
   headerCopy: { flex: 1 },
   eyebrow: {
-    color: "#FF7DA7",
+    color: "#FF4F91",
     fontSize: 11,
     fontWeight: "900",
     letterSpacing: 1.3,
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   hero: {
     padding: 22,
     borderRadius: 26,
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,125,167,0.24)",
     marginBottom: 26,
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 15,
     borderRadius: 21,
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
     marginBottom: 10,
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   },
   contactCopy: { flex: 1, marginLeft: 13 },
   contactTitle: { color: "#FFFFFF", fontSize: 15, fontWeight: "900" },
-  contactText: { color: "#FF7DA7", fontWeight: "800", marginTop: 6 },
+  contactText: { color: "#FF4F91", fontWeight: "800", marginTop: 6 },
   contactAddress: {
     color: "#868690",
     fontSize: 12,

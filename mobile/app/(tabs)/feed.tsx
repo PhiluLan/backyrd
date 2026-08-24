@@ -27,7 +27,7 @@ import CommentsSheet from "../../components/CommentsSheet";
 import SocialPostCard, { SocialFeedPost } from "../../components/PostCard";
 import { supabase } from "../../lib/supabase";
 import { hydrateSocialMediaSignedUrls } from "../../lib/socialMedia";
-import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
+import { trackAnalyticsEvent } from "../../lib/analytics";
 import { filterDistributedSpots } from "../../lib/distributionTrust";
 import { registerSafetySnapshot } from "../../lib/safety-content";
 
@@ -72,7 +72,7 @@ function normalizeMedia(value: unknown): SocialFeedPost["media"] {
       ? [parsed]
       : [];
 
-  return items
+  const normalized = items
     .map((raw: any) => {
       if (!raw || typeof raw !== "object") return null;
 
@@ -129,13 +129,9 @@ function normalizeMedia(value: unknown): SocialFeedPost["media"] {
               : 0,
       };
     })
-    .filter(
-      (
-        item,
-      ): item is NonNullable<SocialFeedPost["media"]>[number] =>
-        Boolean(item),
-    )
-    .sort(
+    .filter(Boolean) as NonNullable<SocialFeedPost["media"]>;
+
+  return normalized.sort(
       (a, b) =>
         Number(a.sort_order ?? 0) -
         Number(b.sort_order ?? 0),
@@ -569,7 +565,7 @@ export default function FeedScreen() {
         uri: asset.uri,
         width: asset.width,
         height: asset.height,
-        type: asset.type,
+        type: asset.type ?? undefined,
         fileName: asset.fileName ?? undefined,
         mimeType: asset.mimeType ?? "image/jpeg",
       }))].slice(0, 4)
@@ -599,7 +595,7 @@ export default function FeedScreen() {
         uri: asset.uri,
         width: asset.width,
         height: asset.height,
-        type: asset.type,
+        type: asset.type ?? undefined,
         fileName: asset.fileName ?? undefined,
         mimeType: asset.mimeType ?? "image/jpeg",
       }].slice(0, 4)
@@ -706,12 +702,9 @@ export default function FeedScreen() {
           actorUserId: userId,
           spotId: selectedSpot?.id ?? null,
           textContent: trimmedCaption || null,
-          imageUrls: uploadedMedia
-            .map((item) => item.public_url)
-            .filter(
-              (value): value is string =>
-                Boolean(value),
-            ),
+          imageUrls: uploadedMedia.flatMap((item) =>
+            typeof item.public_url === "string" && item.public_url ? [item.public_url] : []
+          ),
           sourceSurface: "feed_composer",
           sourceContext: {
             screen: "feed",
@@ -1140,7 +1133,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#15151A",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.10)",
   },
@@ -1148,7 +1141,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   kicker: {
-    color: "#FF8FB2",
+    color: "#FF4F91",
     fontSize: 10,
     fontWeight: "900",
     letterSpacing: 2.2,
@@ -1167,7 +1160,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#15151A",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.10)",
   },
@@ -1187,16 +1180,16 @@ const styles = StyleSheet.create({
     borderRadius: 33,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#17171C",
+    backgroundColor: "#111113",
     borderWidth: 2,
-    borderColor: "#FF7DA7",
+    borderColor: "#FF4F91",
   },
   pulseRing: {
     width: 66,
     height: 66,
     borderRadius: 33,
     padding: 3,
-    backgroundColor: "#FF5C8D",
+    backgroundColor: "#FF4F91",
   },
   pulseAvatar: {
     width: "100%",
@@ -1231,7 +1224,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#101014",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.09)",
     padding: 4,
@@ -1257,7 +1250,7 @@ const styles = StyleSheet.create({
   emptyCard: {
     minHeight: 380,
     borderRadius: 34,
-    backgroundColor: "#101014",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "#24242B",
     alignItems: "center",
@@ -1268,7 +1261,7 @@ const styles = StyleSheet.create({
     width: 78,
     height: 78,
     borderRadius: 39,
-    backgroundColor: "#17171C",
+    backgroundColor: "#111113",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 22,
@@ -1294,12 +1287,12 @@ const styles = StyleSheet.create({
     height: 48,
     paddingHorizontal: 22,
     borderRadius: 24,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
     alignItems: "center",
     justifyContent: "center",
   },
   emptyButtonText: {
-    color: "#171214",
+    color: "#111113",
     fontSize: 15,
     fontWeight: "900",
   },
@@ -1323,7 +1316,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#15151A",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.09)",
     alignItems: "center",
@@ -1339,7 +1332,7 @@ const styles = StyleSheet.create({
     height: 44,
     paddingHorizontal: 17,
     borderRadius: 22,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1347,7 +1340,7 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   composerPostText: {
-    color: "#171214",
+    color: "#111113",
     fontSize: 15,
     fontWeight: "900",
   },
@@ -1361,7 +1354,7 @@ const styles = StyleSheet.create({
   },
   composerIntro: {
     borderRadius: 30,
-    backgroundColor: "#101014",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.09)",
     padding: 16,
@@ -1390,7 +1383,7 @@ const styles = StyleSheet.create({
   },
   composerCard: {
     borderRadius: 30,
-    backgroundColor: "#101014",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.09)",
     padding: 14,
@@ -1412,7 +1405,7 @@ const styles = StyleSheet.create({
     height: 160,
     borderRadius: 22,
     overflow: "hidden",
-    backgroundColor: "#17171C",
+    backgroundColor: "#111113",
   },
   mediaPreview: {
     width: "100%",
@@ -1438,7 +1431,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#17171C",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.09)",
     alignItems: "center",
@@ -1453,7 +1446,7 @@ const styles = StyleSheet.create({
   },
   spotCard: {
     borderRadius: 30,
-    backgroundColor: "#101014",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.09)",
     padding: 14,
@@ -1482,7 +1475,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "#17171C",
+    backgroundColor: "#111113",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1490,7 +1483,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     height: 50,
     borderRadius: 25,
-    backgroundColor: "#17171C",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.09)",
     color: "#FFFFFF",
@@ -1505,7 +1498,7 @@ const styles = StyleSheet.create({
   spotSuggestion: {
     minHeight: 56,
     borderRadius: 20,
-    backgroundColor: "#15151A",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "#2B2B31",
     paddingHorizontal: 10,

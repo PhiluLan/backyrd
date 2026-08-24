@@ -1,5 +1,5 @@
 // mobile/app/user/[id].tsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -893,7 +893,7 @@ const styles = StyleSheet.create({
     borderRadius: 34,
     backgroundColor: "rgba(14,14,20,0.88)",
     borderWidth: 1,
-    borderColor: "#282832",
+    borderColor: "#1B1B20",
     padding: 20,
     overflow: "hidden",
   },
@@ -909,14 +909,14 @@ const styles = StyleSheet.create({
   displayName: {
     color: "#FFFFFF",
     fontSize: 36,
-    fontWeight: "850",
+    fontWeight: "800",
     letterSpacing: -1.2,
   },
   handleText: {
     marginTop: 5,
     color: "#8F8F98",
     fontSize: 18,
-    fontWeight: "850",
+    fontWeight: "800",
   },
   profileSafetyNotice: {
     marginTop: 18,
@@ -935,7 +935,7 @@ const styles = StyleSheet.create({
     color: "#D9C29F",
     fontSize: 13,
     lineHeight: 19,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   bioText: {
     marginTop: 18,
@@ -955,20 +955,20 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     backgroundColor: "#14141B",
     borderWidth: 1,
-    borderColor: "#292933",
+    borderColor: "#1B1B20",
     alignItems: "center",
     justifyContent: "center",
   },
   statNumber: {
     color: "#FFFFFF",
     fontSize: 25,
-    fontWeight: "780",
+    fontWeight: "800",
   },
   statLabel: {
     marginTop: 5,
     color: "#8F8F98",
     fontSize: 14,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   profileChips: {
     marginTop: 16,
@@ -1028,14 +1028,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   followButtonActive: {
-    backgroundColor: "#17171C",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "#303039",
   },
   followButtonText: {
     color: "#050506",
     fontSize: 16,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   followButtonTextActive: {
     color: "#FFFFFF",
@@ -1044,7 +1044,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     height: 52,
     borderRadius: 999,
-    backgroundColor: "#17171C",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "#303039",
     alignItems: "center",
@@ -1063,7 +1063,7 @@ const styles = StyleSheet.create({
   sectionKicker: {
     color: "#8E8E95",
     fontSize: 12,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: 1.1,
     textTransform: "uppercase",
   },
@@ -1072,13 +1072,13 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 25,
     lineHeight: 30,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -0.6,
   },
   emptyCard: {
     marginTop: 4,
     borderRadius: 30,
-    backgroundColor: "#101014",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "#222229",
     minHeight: 220,
@@ -1098,7 +1098,7 @@ const styles = StyleSheet.create({
     color: "#8E8E95",
     fontSize: 15,
     lineHeight: 21,
-    fontWeight: "650",
+    fontWeight: "600",
     textAlign: "center",
   },
 });

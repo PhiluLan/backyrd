@@ -33,74 +33,18 @@ function resolveIconUrl(a: Achievement) {
    1) Vergibt Achievements und speichert sie in user_achievements
    ============================================================ */
 export async function awardAchievementsForUser(
-  userId: string
+  _userId: string
 ): Promise<NewlyUnlockedAchievement[]> {
+  const { data, error } = await supabase.rpc("backyrd_sync_my_achievements_v1");
+  if (error) throw error;
 
-  const { data: allAchievements, error: achErr } = await supabase
-    .from("achievements")
-    .select("*")
-    .order("threshold", { ascending: true });
-
-  if (achErr || !allAchievements) return [];
-
-  const { data: existingRows } = await supabase
-    .from("user_achievements")
-    .select("achievement_id")
-    .eq("user_id", userId);
-
-  const alreadyUnlocked = new Set(existingRows?.map((r) => r.achievement_id));
-
-  // review + spot zählen
-  const [{ count: reviewCount }, { count: spotCount }] = await Promise.all([
-    supabase
-      .from("reviews")
-      .select("id", { head: true, count: "exact" })
-      .eq("user_id", userId),
-
-    supabase
-      .from("spots")
-      .select("id", { head: true, count: "exact" })
-      .eq("created_by", userId),
-  ]);
-
-  const now = new Date().toISOString();
-  const newUnlocked: NewlyUnlockedAchievement[] = [];
-  const insertRows: any[] = [];
-
-  for (const ach of allAchievements) {
-    let progress = 0;
-
-    if (ach.type === "review") progress = reviewCount || 0;
-    if (ach.type === "spot") progress = spotCount || 0;
-
-    const threshold = ach.threshold ?? 1;
-    const unlocked = progress >= threshold;
-
-    if (unlocked && !alreadyUnlocked.has(ach.id)) {
-      const full: NewlyUnlockedAchievement = {
-        ...ach,
-        unlocked: true,
-        progress,
-        percentage: Math.min(1, progress / threshold),
-        public_icon_url: resolveIconUrl(ach),
-        achieved_at: now,
-      };
-
-      newUnlocked.push(full);
-
-      insertRows.push({
-        user_id: userId,
-        achievement_id: ach.id,
-        achieved_at: now,
-      });
-    }
-  }
-
-  if (insertRows.length > 0) {
-    await supabase.from("user_achievements").insert(insertRows);
-  }
-
-  return newUnlocked;
+  return (data ?? []).map((row: Achievement & { achieved_at: string }) => ({
+    ...row,
+    unlocked: true,
+    progress: row.threshold ?? 1,
+    percentage: 1,
+    public_icon_url: resolveIconUrl(row),
+  }));
 }
 
 /* ============================================================

@@ -211,7 +211,7 @@ export default function SafetyCenterScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator color="#FF4F8B" />
+          <ActivityIndicator color="#FF4F91" />
         </View>
       ) : (
         <ScrollView
@@ -223,7 +223,7 @@ export default function SafetyCenterScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => void load(true)}
-              tintColor="#FF4F8B"
+              tintColor="#FF4F91"
             />
           }
         >
@@ -568,7 +568,7 @@ export default function SafetyCenterScreen() {
                       <Text style={styles.openReportText}>
                         Meldungsdetails öffnen
                       </Text>
-                      <Ionicons name="chevron-forward" size={18} color="#FF7DA7" />
+                      <Ionicons name="chevron-forward" size={18} color="#FF4F91" />
                     </View>
                   </Pressable>
                 ))
@@ -582,7 +582,7 @@ export default function SafetyCenterScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#0A0A0B",
+    backgroundColor: "#050506",
   },
   header: {
     flexDirection: "row",
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   openReportText: {
-    color: "#FF7DA7",
+    color: "#FF4F91",
     fontSize: 13,
     fontWeight: "800",
   },
@@ -632,7 +632,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.08)",
   },
   eyebrow: {
-    color: "#FF4F8B",
+    color: "#FF4F91",
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 1.1,
@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 25,
     lineHeight: 30,
-    fontWeight: "850",
+    fontWeight: "800",
   },
   content: {
     padding: 20,
@@ -675,7 +675,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   tabTextActive: {
-    color: "#0A0A0B",
+    color: "#050506",
   },
   tabBadge: {
     minWidth: 20,
@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FF4F8B",
+    backgroundColor: "#FF4F91",
   },
   tabBadgeText: {
     color: "#FFFFFF",
@@ -804,7 +804,7 @@ const styles = StyleSheet.create({
     color: "#C9C9CF",
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   emptyCard: {
     alignItems: "center",

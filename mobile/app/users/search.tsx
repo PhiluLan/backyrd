@@ -142,7 +142,7 @@ export default function UserSearchScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator color="#FF7DA7" style={{ marginTop: 28 }} />
+        <ActivityIndicator color="#FF4F91" style={{ marginTop: 28 }} />
       ) : (
         <FlatList
           data={results}
@@ -212,7 +212,7 @@ export default function UserSearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#09090B" },
+  screen: { flex: 1, backgroundColor: "#050506" },
   header: {
     paddingHorizontal: 18,
     paddingTop: 8,
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
   },
   headerCopy: { flex: 1 },
   kicker: {
-    color: "#FF7DA7",
+    color: "#FF4F91",
     fontSize: 10,
     fontWeight: "900",
     letterSpacing: 2.2,
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
   },
-  input: { flex: 1, color: "#FFFFFF", fontSize: 16, fontWeight: "650" },
+  input: { flex: 1, color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
   list: { paddingHorizontal: 18, paddingBottom: 40 },
   row: {
     minHeight: 82,
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255,255,255,0.08)",
   },
   userCopy: { flex: 1 },
-  name: { color: "#FFFFFF", fontSize: 16, fontWeight: "850" },
+  name: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
   meta: { marginTop: 2, color: "#9B9BA4", fontSize: 13, fontWeight: "600" },
   stats: { marginTop: 4, color: "#676770", fontSize: 11, fontWeight: "700" },
   followButton: {
@@ -277,14 +277,14 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
   },
   followButtonActive: {
     backgroundColor: "#202026",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.11)",
   },
-  followText: { color: "#111114", fontSize: 13, fontWeight: "900" },
+  followText: { color: "#111113", fontSize: 13, fontWeight: "900" },
   followTextActive: { color: "#FFFFFF" },
   empty: { alignItems: "center", paddingTop: 76, paddingHorizontal: 28 },
   emptyTitle: {

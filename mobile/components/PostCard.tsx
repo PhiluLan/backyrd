@@ -33,7 +33,7 @@ export type SocialFeedPost = {
   source_type?: string | null;
   review_id?: string | null;
   source_context?: Record<string, any> | null;
-  media: Array<{
+  media: {
     id?: string;
     storage_path?: string | null;
     public_url?: string | null;
@@ -41,7 +41,7 @@ export type SocialFeedPost = {
     width?: number | null;
     height?: number | null;
     sort_order?: number | null;
-  }> | null;
+  }[] | null;
   like_count: number;
   comment_count: number;
   save_count: number;
@@ -284,7 +284,7 @@ export default function SocialPostCard({
                 <Ionicons
                   name="checkmark-circle"
                   size={15}
-                  color="#FF7DA7"
+                  color="#FF4F91"
                 />
               ) : null}
             </View>
@@ -410,7 +410,7 @@ export default function SocialPostCard({
             <Ionicons
               name={liked ? "heart" : "heart-outline"}
               size={29}
-              color={liked ? "#FF5C8D" : "#FFFFFF"}
+              color={liked ? "#FF4F91" : "#FFFFFF"}
             />
           </Pressable>
 
@@ -463,7 +463,7 @@ export default function SocialPostCard({
             onPress={() => onOpenSpot(post)}
           >
             <View style={styles.spotIcon}>
-              <Ionicons name="location" size={14} color="#09090B" />
+              <Ionicons name="location" size={14} color="#050506" />
             </View>
             <View style={styles.spotCopy}>
               <Text style={styles.spotName} numberOfLines={1}>
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     height: 49,
     borderRadius: 25,
     padding: 2,
-    backgroundColor: "#FF5C8D",
+    backgroundColor: "#FF4F91",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -553,7 +553,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
     color: "#9A9AA2",
     fontSize: 13,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   headerActions: {
     flexDirection: "row",
@@ -572,7 +572,7 @@ const styles = StyleSheet.create({
     height: 36,
     paddingHorizontal: 14,
     borderRadius: 11,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.12)",
   },
   followText: {
-    color: "#0A0A0B",
+    color: "#050506",
     fontSize: 13,
     fontWeight: "900",
   },
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
   media: {
     width: "100%",
     aspectRatio: 0.86,
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
     overflow: "hidden",
   },
   mediaImage: {
@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     color: "#FFFFFF",
     fontSize: 13,
-    fontWeight: "850",
+    fontWeight: "800",
   },
   dots: {
     height: 18,
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
   },
   actionBar: {
     minHeight: 55,
@@ -722,7 +722,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -736,10 +736,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: "#85858D",
     fontSize: 12,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   spotLink: {
-    color: "#FF8FB2",
+    color: "#FF4F91",
     fontSize: 12,
     fontWeight: "900",
   },
@@ -756,7 +756,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,125,167,0.10)",
   },
   tagText: {
-    color: "#FF9ABA",
+    color: "#FF4F91",
     fontSize: 12,
     fontWeight: "800",
   },
@@ -764,7 +764,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: "#8F8F98",
     fontSize: 14,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   timestamp: {
     marginTop: 8,

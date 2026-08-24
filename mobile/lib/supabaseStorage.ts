@@ -1,7 +1,12 @@
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
-import type { SupabaseAuthClientOptions } from "@supabase/supabase-js";
+
+type AuthStorage = {
+  getItem: (key: string) => Promise<string | null>;
+  setItem: (key: string, value: string) => Promise<void>;
+  removeItem: (key: string) => Promise<void>;
+};
 
 function getSupabaseProjectRef() {
   const supabaseUrl = String(
@@ -31,7 +36,7 @@ function getKnownAuthStorageKeys() {
   ];
 }
 
-const webStorage: SupabaseAuthClientOptions["storage"] = {
+const webStorage: AuthStorage = {
   getItem: async (key: string) => {
     if (typeof window === "undefined") return null;
     return window.localStorage.getItem(key);
@@ -46,7 +51,7 @@ const webStorage: SupabaseAuthClientOptions["storage"] = {
   },
 };
 
-const nativeStorage: SupabaseAuthClientOptions["storage"] = {
+const nativeStorage: AuthStorage = {
   getItem: async (key: string) => {
     return SecureStore.getItemAsync(key);
   },
@@ -58,7 +63,7 @@ const nativeStorage: SupabaseAuthClientOptions["storage"] = {
   },
 };
 
-export const secureStoreAdapter: SupabaseAuthClientOptions["storage"] =
+export const secureStoreAdapter: AuthStorage =
   Platform.OS === "web" ? webStorage : nativeStorage;
 
 /**

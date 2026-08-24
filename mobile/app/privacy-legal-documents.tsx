@@ -60,7 +60,7 @@ export default function PrivacyLegalDocumentsScreen() {
 
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color="#FF7DA7" />
+          <ActivityIndicator color="#FF4F91" />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
@@ -139,7 +139,7 @@ export default function PrivacyLegalDocumentsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#09090A" },
+  safe: { flex: 1, backgroundColor: "#050506" },
 
   header: {
     flexDirection: "row",
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   content: { padding: 18, paddingBottom: 48 },
   card: {
     borderRadius: 21,
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
     marginBottom: 11,
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 30,
     borderRadius: 23,
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
   },
   emptyTitle: {
     color: "#FFFFFF",

@@ -15,8 +15,9 @@ import {
   Animated,
   PanResponder,
   Dimensions,
+  Linking,
 } from "react-native";
-import { Stack, useFocusEffect, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Crypto from "expo-crypto";
@@ -24,7 +25,7 @@ import * as Crypto from "expo-crypto";
 import { supabase } from "@/lib/supabase";
 import { getMyProductEntryStatus } from "@/lib/onboardingStatus";
 import { mapTextToClusterIds } from "@/lib/decision/moodMapping";
-import { trackAnalyticsEvent, reportAnalyticsError } from "@/lib/analytics";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 import { recordMemoryProductAction } from "@/lib/memory-bridge";
 
 type DecisionSpotRpcRow = {
@@ -50,9 +51,11 @@ type EnrichedDecisionSpot = DecisionSpotRpcRow & {
   opening_hours_summary?: string | null;
   header_photo_path?: string | null;
   photo_url?: string | null;
+  lat?: number | null;
+  lng?: number | null;
   human_reason?: string | null;
   technical_why_this?: string | null;
-  v13_sources?: Array<"personalized_v12" | "semantic_v13">;
+  v13_sources?: ("personalized_v12" | "semantic_v13")[];
   v13_rank?: number | null;
   v13_combined_score?: number | null;
   v13_semantic_rank?: number | null;
@@ -60,11 +63,11 @@ type EnrichedDecisionSpot = DecisionSpotRpcRow & {
   v13_v12_rank?: number | null;
   v13_v12_score?: number | null;
   v13_document_preview?: string | null;
-  reviews?: Array<{
+  reviews?: {
     text: string | null;
     mood_a: string | null;
     mood_b: string | null;
-  }>;
+  }[];
 };
 
 type DecisionContext = {
@@ -89,7 +92,7 @@ type DecisionCopyResponse = {
   title: string;
   body: string;
   items: DecisionCopyItem[];
-  source: "openai" | "fallback" | "v13";
+  source: "v13";
 };
 
 type DecisionV13Candidate = {
@@ -100,7 +103,7 @@ type DecisionV13Candidate = {
   category_name: string | null;
   is_open_now: boolean | null;
   combined_score: number;
-  sources: Array<"personalized_v12" | "semantic_v13">;
+  sources: ("personalized_v12" | "semantic_v13")[];
   v12_rank: number | null;
   v12_score: number;
   semantic_rank: number | null;
@@ -179,33 +182,27 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const SWIPE_THRESHOLD = Math.min(105, SCREEN_WIDTH * 0.25);
 
 const theme = {
-  bg: "#09090A",
+  bg: "#050506",
   card: "rgba(255,255,255,0.065)",
   border: "rgba(255,255,255,0.13)",
   text: "#FFFFFF",
   muted: "rgba(255,255,255,0.66)",
   subtle: "rgba(255,255,255,0.46)",
   cream: "#F4EBDD",
-  pink: "#FF7DA7",
-  pinkSoft: "#FFD4E0",
-  pinkMuted: "#FF9ABA",
+  pink: "#FF4F91",
+  pinkSoft: "#FFC5DA",
+  pinkMuted: "#FF4F91",
+  acid: "#D8FF3E",
   ink: "#111111",
   green: "#78A045",
   red: "#E95050",
 };
 
 const VISIBLE_DECISION_LIMIT = 10;
-const DECISION_CANDIDATE_LIMIT = 16;
 const DECISION_V13_FUNCTION = "decision-v13";
 const DECISION_V13_LIMIT = 16;
 const DECISION_V13_V12_LIMIT = 16;
 const DECISION_V13_SEMANTIC_LIMIT = 24;
-
-const V11_TASTE_WEIGHT = 0.28;
-const V11_EXPLORE_WEIGHT = 0.05;
-const V11_REMIX_EXPLORE_WEIGHT = 0.16;
-const V11_K = 1.0;
-const V11_OPEN_BONUS = 0.0;
 
 const DIRECTION_OPTIONS: DirectionOption[] = [
   { key: "restaurant", label: "Essen", emoji: "🍽", placeTypes: ["restaurant"], queryHint: "Restaurant, Essen, Lunch oder Dinner" },
@@ -279,7 +276,7 @@ function toggleValue<T extends string>(values: T[], value: T) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 }
 
-function optionLabels(options: Array<{ key: string; label: string }>, keys: string[]) {
+function optionLabels(options: { key: string; label: string }[], keys: string[]) {
   return keys
     .map((key) => options.find((option) => option.key === key)?.label)
     .filter(Boolean)
@@ -314,10 +311,6 @@ function selectedQueryHints(directionKeys: string[], audienceKeys: string[], moo
   return uniq([...directionHints, ...audienceHints, ...moodHints]);
 }
 
-function compactMoodQuery(a: string, b: string, leftovers: string) {
-  return uniq([clean(a), clean(b), clean(leftovers)].filter(Boolean)).join(" ");
-}
-
 function pickDecisionBatch({
   rows,
   alreadySeenIds,
@@ -341,50 +334,6 @@ function pickDecisionBatch({
   }
 
   return deduped.slice(0, limit);
-}
-
-function modeBadge(mode: DecisionContext["decision_mode"], source?: DecisionCopyResponse["source"]) {
-  if (source === "v13") {
-    return {
-      label: "V13 kuratiert",
-      border: "rgba(244,235,221,0.52)",
-      bg: "rgba(244,235,221,0.15)",
-    };
-  }
-
-  if (source === "openai") {
-    return {
-      label: "AI kuratiert",
-      border: "rgba(244,235,221,0.48)",
-      bg: "rgba(244,235,221,0.13)",
-    };
-  }
-
-  switch (mode) {
-    case "strong_personalized":
-      return { label: "persönlich", border: "rgba(34,197,94,0.48)", bg: "rgba(34,197,94,0.14)" };
-    case "weak_personalized":
-      return { label: "lernt dich", border: "rgba(96,165,250,0.5)", bg: "rgba(96,165,250,0.13)" };
-    case "fallback":
-      return { label: "breite Auswahl", border: "rgba(251,191,36,0.48)", bg: "rgba(251,191,36,0.13)" };
-    default:
-      return { label: "heute passend", border: "rgba(255,255,255,0.22)", bg: "rgba(255,255,255,0.08)" };
-  }
-}
-
-function priceToSymbols(value?: number | null) {
-  const level = Number(value ?? 0);
-  if (!Number.isFinite(level) || level < 1) return null;
-
-  const normalized = Math.max(1, Math.min(4, Math.round(level)));
-  const labelByLevel: Record<number, string> = {
-    1: "günstig",
-    2: "moderat",
-    3: "gehoben",
-    4: "premium",
-  };
-
-  return `${labelByLevel[normalized]} · ${normalized}/4`;
 }
 
 function normalizeDayOfWeek(value?: string | null) {
@@ -460,12 +409,12 @@ function formatTime(value?: string | null) {
 }
 
 function buildOpeningHoursSummary(
-  rows: Array<{
+  rows: {
     day_of_week: string | null;
     open_time: string | null;
     close_time: string | null;
     idx?: number | null;
-  }>
+  }[]
 ) {
   if (!rows.length) return null;
 
@@ -494,87 +443,6 @@ function buildOpeningHoursSummary(
   const preview = cleanRows.slice(0, 2).map((row) => `${row.label} ${row.open}–${row.close}`);
   return `Öffnungszeiten: ${preview.join(", ")}`;
 }
-
-function signalLabel(spot: EnrichedDecisionSpot) {
-  const count = (spot.matched_tokens ?? []).length;
-  if (count >= 3) return "starke Richtung";
-  if (count >= 1) return "passt zum Vibe";
-  return "breiter Pick";
-}
-
-function fallbackHeadline(index: number) {
-  if (index === 0) return "Würde ich zuerst nehmen";
-  if (index === 1) return "Sichere zweite Wahl";
-  return "Etwas mehr Zufall";
-}
-
-function fallbackSubtitle(index: number) {
-  if (index === 0) return "Wenn du jetzt einfach los willst.";
-  if (index === 1) return "Weniger mutig, aber wahrscheinlich gut.";
-  return "Für den Fall, dass du offen bist.";
-}
-
-function fallbackWhy({
-  spot,
-  index,
-  moodA,
-  moodB,
-}: {
-  spot: EnrichedDecisionSpot;
-  index: number;
-  moodA: string;
-  moodB: string;
-}) {
-  const moodText = [clean(moodA), clean(moodB)].filter(Boolean).join(" + ");
-  const category = clean(spot.category_name);
-  const city = clean(spot.city);
-
-  if (index === 0) {
-    return `${spot.name}${category ? ` als ${category}` : ""} wirkt wie der naheliegende Start. Für ${moodText} würde ich hier anfangen, besonders wenn du nicht mehr lange vergleichen willst.`;
-  }
-
-  if (index === 1) {
-    return `${spot.name} ist die ruhigere Alternative. Nicht unbedingt der mutigste Pick, aber wahrscheinlich angenehm, wenn du heute etwas Verlässliches suchst.`;
-  }
-
-  return `${spot.name}${city ? ` in ${city}` : ""} ist die offenere Wahl. Ich würde ihn nehmen, wenn du nicht beim komplett Offensichtlichen landen willst.`;
-}
-
-function fallbackCopy({
-  spots,
-  city,
-  moodA,
-  moodB,
-  context,
-}: {
-  spots: EnrichedDecisionSpot[];
-  city: string;
-  moodA: string;
-  moodB: string;
-  context: DecisionContext | null;
-}): DecisionCopyResponse {
-  const c = clean(city) || "deiner Stadt";
-  const moodText = [clean(moodA), clean(moodB)].filter(Boolean).join(" + ") || "deinen Vibe";
-
-  return {
-    source: "fallback",
-    title:
-      context?.decision_mode === "strong_personalized"
-        ? "Das passt zu deinem Geschmack"
-        : context?.decision_mode === "weak_personalized"
-          ? "Ich habe eine Richtung gefunden"
-          : "Ich hätte diese drei im Kopf",
-    body: `Für ${moodText} in ${c} würde ich nicht ewig suchen. Wisch dich durch die drei Picks und öffne den Spot, der dich am meisten zieht.`,
-    items: spots.map((spot, index) => ({
-      spot_id: spot.spot_id,
-      headline: fallbackHeadline(index),
-      subtitle: fallbackSubtitle(index),
-      why: fallbackWhy({ spot, index, moodA, moodB }),
-      cta_label: "Mehr entdecken",
-    })),
-  };
-}
-
 
 function buildDecisionV13Query({
   city,
@@ -666,24 +534,27 @@ function buildV13Copy({
   ctx: DecisionContext | null;
   response: DecisionV13Response | null;
 }): DecisionCopyResponse {
-  const c = clean(city) || "deiner Stadt";
-  const moodText = [clean(moodA), clean(moodB)].filter(Boolean).join(" + ") || "deinen Vibe";
   const personalized = response?.north_star?.personalization_active === true;
 
   return {
     source: "v13",
-    title: personalized ? "Das fühlt sich nach dem besten Match an" : ctx?.title || "Ich hätte diese drei im Kopf",
+    title: "Das passt zu deinem Moment",
     body: personalized
-      ? `Für ${moodText} in ${c} kombiniere ich deinen bisherigen Geschmack mit echtem Vibe-Matching.`
-      : `Für ${moodText} in ${c} habe ich Orte gesucht, die atmosphärisch möglichst gut passen.`,
+      ? "Backyrd berücksichtigt hier deinen aktuellen Wunsch und freigegebene persönliche Signale."
+      : "Backyrd ordnet diese Orte nach deinem aktuellen Wunsch.",
     items: spots.map((spot, index) => ({
       spot_id: spot.spot_id,
-      headline:index === 0 ? "Passt besonders gut zu diesem Moment" : "Weitere passende Option",
+      headline: index === 0 ? "Passt besonders gut zu diesem Moment" : "Weitere passende Option",
       subtitle:
         spot.category_name && spot.city
           ? `${spot.category_name} · ${spot.city}`
-          : spot.category_name || spot.city || fallbackSubtitle(index),
-      why: limitSentences(spot.human_reason || spot.why_this || fallbackWhy({ spot, index, moodA, moodB }), 3),
+          : spot.category_name || spot.city || "Sichere Basisdaten verfügbar",
+      why: limitSentences(
+        spot.human_reason ||
+          spot.why_this ||
+          "Zu diesem Ort kennt Backyrd bisher nur die sicheren Basisdaten.",
+        3
+      ),
       cta_label: "Mehr entdecken",
     })),
   };
@@ -699,15 +570,21 @@ function getCopyForSpot(
   const item = copy?.items?.find((entry) => entry.spot_id === spot.spot_id);
 
   return {
-    headline: item?.headline || fallbackHeadline(index),
-    subtitle: item?.subtitle || fallbackSubtitle(index),
-    why: item?.why || fallbackWhy({ spot, index, moodA, moodB }),
+    headline: item?.headline || "Passt zu deinem Moment",
+    subtitle: item?.subtitle || spot.category_name || spot.city || "Sichere Basisdaten verfügbar",
+    why:
+      item?.why ||
+      spot.human_reason ||
+      spot.why_this ||
+      "Zu diesem Ort kennt Backyrd bisher nur die sicheren Basisdaten.",
     ctaLabel: "Mehr entdecken",
   };
 }
 
 export default function DecisionScreen() {
   const router = useRouter();
+  const homeParams = useLocalSearchParams<{ query?: string; city?: string; auto?: string }>();
+  const homeAutoRunRef = useRef<string | null>(null);
 
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -866,19 +743,6 @@ export default function DecisionScreen() {
     }, [router, checkNeedsDecisionOnboarding])
   );
 
-  const loadContext = useCallback(async () => {
-    const { data, error } = await supabase.rpc("get_decision_context_v1", {
-      p_city: clean(city),
-      p_mood_a_text: clean(moodA),
-      p_mood_b_text: clean(moodB),
-    });
-
-    if (error) throw error;
-
-    const row = Array.isArray(data) ? data[0] : data;
-    return row as DecisionContext;
-  }, [city, moodA, moodB]);
-
   const enrichSpots = useCallback(async (rows: DecisionSpotRpcRow[]) => {
     const ids = rows.map((row) => row.spot_id).filter(Boolean);
 
@@ -891,7 +755,7 @@ export default function DecisionScreen() {
       { data: effectiveContent, error: effectiveContentError },
       { data: hours, error: hoursError },
     ] = await Promise.all([
-      supabase.from("spots").select("id,address,price_level,category_id,header_photo_path").in("id", ids),
+      supabase.from("spots").select("id,address,price_level,category_id,header_photo_path,lat,lng").in("id", ids),
 
       supabase
         .from("spot_photos")
@@ -929,7 +793,7 @@ export default function DecisionScreen() {
       new Set((spotDetails ?? []).map((detail: any) => detail.category_id).filter(Boolean))
     );
 
-    let categories: Array<{ id: string; name: string | null }> = [];
+    let categories: { id: string; name: string | null }[] = [];
 
     if (categoryIds.length > 0) {
       const { data: categoryRows, error: categoryError } = await supabase
@@ -980,12 +844,12 @@ export default function DecisionScreen() {
 
     const hoursBySpotId = new Map<
       string,
-      Array<{
+      {
         day_of_week: string | null;
         open_time: string | null;
         close_time: string | null;
         idx?: number | null;
-      }>
+      }[]
     >();
 
     for (const hour of hours ?? []) {
@@ -1003,11 +867,11 @@ export default function DecisionScreen() {
 
     const reviewsBySpotId = new Map<
       string,
-      Array<{
+      {
         text: string | null;
         mood_a: string | null;
         mood_b: string | null;
-      }>
+      }[]
     >();
 
     for (const review of reviews ?? []) {
@@ -1043,116 +907,13 @@ export default function DecisionScreen() {
         opening_hours_summary: buildOpeningHoursSummary(hoursBySpotId.get(row.spot_id) ?? []),
         header_photo_path: headerUrl ?? null,
         photo_url: normalizeUrl(photoUrl) ?? normalizeUrl(headerUrl),
+        lat: Number.isFinite(Number(detail?.lat)) ? Number(detail?.lat) : null,
+        lng: Number.isFinite(Number(detail?.lng)) ? Number(detail?.lng) : null,
         matched_terms: uniq([...(row.matched_terms ?? []), ...descriptionKeywords]).slice(0, 10),
         reviews: reviewsBySpotId.get(row.spot_id) ?? [],
       };
     });
   }, []);
-
-  const loadDecisionCopy = useCallback(
-    async ({
-      picked,
-      ctx,
-    }: {
-      picked: EnrichedDecisionSpot[];
-      ctx: DecisionContext | null;
-    }): Promise<DecisionCopyResponse> => {
-      const fallback = fallbackCopy({
-        spots: picked,
-        city,
-        moodA,
-        moodB,
-        context: ctx,
-      });
-
-      try {
-        const { data, error } = await supabase.functions.invoke("decision-copy", {
-          body: {
-            city: clean(city),
-            moodA: clean(moodA),
-            moodB: clean(moodB),
-            decisionMode: ctx?.decision_mode ?? null,
-            userConfidence: ctx?.user_confidence ?? null,
-            spots: picked.map((spot, index) => ({
-              spot_id: spot.spot_id,
-              name: spot.name,
-              city: spot.city,
-              address: spot.address,
-              category_name: spot.category_name,
-              description: spot.description,
-              price_level: spot.price_level,
-              opening_hours_summary: spot.opening_hours_summary,
-              is_open_now: spot.is_open_now,
-              matched_tokens: spot.matched_tokens ?? [],
-              matched_counts: spot.matched_counts ?? [],
-              matched_terms: spot.matched_terms ?? [],
-              why_this: spot.why_this,
-              reviews: spot.reviews ?? [],
-              rank: index + 1,
-            })),
-          },
-        });
-
-        if (error) {
-          console.log("decision-copy function failed:", error);
-          return fallback;
-        }
-
-        if (!data || !Array.isArray((data as any).items)) {
-          console.log("decision-copy invalid response:", data);
-          return fallback;
-        }
-
-        const aiCopy = data as DecisionCopyResponse;
-
-        if (aiCopy.items.length !== picked.length) {
-          console.log("decision-copy item count mismatch:", aiCopy);
-          return fallback;
-        }
-
-        return aiCopy;
-      } catch (error) {
-        console.log("decision-copy crashed:", error);
-        return fallback;
-      }
-    },
-    [city, moodA, moodB]
-  );
-
-  const persistDecisionSession = useCallback(
-    async (existingDecisionId?: string | null): Promise<string | null> => {
-      try {
-        let did = existingDecisionId ?? null;
-        if (!did) {
-          const { data: newId, error: sessionError } = await supabase.rpc("create_decision_session_v1", {
-            p_city: clean(city),
-            p_mood_a_text: clean(moodA),
-            p_mood_b_text: clean(moodB),
-          });
-
-          if (sessionError) throw sessionError;
-          did =
-            typeof newId === "string"
-              ? newId
-              : Array.isArray(newId)
-                ? typeof newId[0] === "string"
-                  ? newId[0]
-                  : newId[0]?.id
-                : (newId as any)?.id;
-        }
-
-        if (!did) return null;
-
-        setDecisionId(did);
-
-        return did;
-      } catch (error) {
-        console.log("persist decision failed (non-blocking)", error);
-        return null;
-      }
-    },
-    [city, moodA, moodB]
-  );
 
   const logExplicitFeedback = useCallback(async (spot: EnrichedDecisionSpot, action: "like"|"dislike") => {
     if (!decisionId || !visibleExposureReady) return false;
@@ -1272,7 +1033,7 @@ export default function DecisionScreen() {
           }
           setStatus("deciding");
         }
-        const ctx = isRemix && context ? context : await loadContext();
+        const ctx = isRemix && context ? context : null;
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError) throw sessionError;
@@ -1313,6 +1074,16 @@ export default function DecisionScreen() {
 
         if (!data?.ok) {
           throw new Error(data?.error || "Decision V13 konnte nicht geladen werden.");
+        }
+
+        if (data.north_star?.active !== true) {
+          throw new Error("Die aktuelle Decision-Architektur ist gerade nicht verfügbar. Bitte versuche es erneut.");
+        }
+
+        const serverDecisionId =
+          data.north_star?.decision_id ?? data.continuation?.decision_id ?? null;
+        if (!serverDecisionId) {
+          throw new Error("Die Decision konnte nicht sicher fortgesetzt werden. Bitte starte die Suche erneut.");
         }
 
         const runContext: Record<string, unknown> = isRemix && decisionRunContext ? {
@@ -1390,19 +1161,18 @@ export default function DecisionScreen() {
         setCurrentPage(data.continuation?.page ?? (isRemix ? remixCount+2 : 1));
         setVisibleExposureReady(false);
         setContext({
-          ...ctx,
+          decision_mode: "orientation",
+          weekday_name: "",
+          time_bucket: "",
+          user_confidence: 0,
+          is_fallback: false,
           title: generatedCopy.title,
           body: generatedCopy.body,
         });
         setCopy(generatedCopy);
         setDecisionRunContext(runContext);
 
-        const serverDecisionId=data.north_star?.decision_id??data.continuation?.decision_id??null;
-        const persistedDecisionId = isRemix
-          ? decisionId
-          : await persistDecisionSession(serverDecisionId);
-        const activeDecisionId=serverDecisionId??persistedDecisionId;
-        if(!isRemix&&activeDecisionId)setDecisionId(activeDecisionId);
+        if (!isRemix) setDecisionId(serverDecisionId);
 
         setContinuationExhausted(data.continuation?.exhausted===true);
         continuationRequestIdRef.current=null;
@@ -1443,19 +1213,36 @@ export default function DecisionScreen() {
       remixCount,
       router,
       checkNeedsDecisionOnboarding,
-      loadContext,
       enrichSpots,
-      persistDecisionSession,
     ]
   );
 
+  useEffect(() => {
+    const query = clean(homeParams.query);
+    const incomingCity = clean(homeParams.city);
+    if (!query) return;
+
+    setInputMode("free");
+    setFreeTextQuery(query);
+    if (incomingCity) {
+      setCity(incomingCity);
+      setCitySource("manual");
+    }
+  }, [homeParams.city, homeParams.query]);
+
+  useEffect(() => {
+    const key = `${clean(homeParams.city)}:${clean(homeParams.query)}`;
+    if (homeParams.auto !== "1" || !canRun || !userId || loading) return;
+    if (homeAutoRunRef.current === key) return;
+
+    homeAutoRunRef.current = key;
+    router.setParams({ auto: "" });
+    void runDecision();
+  }, [canRun, homeParams.auto, homeParams.city, homeParams.query, loading, router, runDecision, userId]);
+
   useEffect(()=>{
     if(!deckMode||!decisionId||!currentSpot||currentPage<1)return;
-    if(currentSpot.north_star_active!==true){
-      cardActionInFlightRef.current = false;
-      setVisibleExposureReady(true);
-      return;
-    }
+    if (currentSpot.north_star_active !== true) return;
     const key=`${decisionId}:${currentSpot.spot_id}`;
     if(visibleExposureKeysRef.current.has(key)){
       cardActionInFlightRef.current = false;
@@ -1501,6 +1288,21 @@ export default function DecisionScreen() {
     [decisionId, router]
   );
 
+  const onRouteToSpot = useCallback(
+    async (spot: EnrichedDecisionSpot) => {
+      if (!Number.isFinite(spot.lat) || !Number.isFinite(spot.lng)) {
+        Alert.alert("Route nicht verfügbar", "Für diesen Spot fehlt noch eine sichere Position.");
+        return;
+      }
+      void trackAnalyticsEvent({ eventName: "spot_route_clicked", screenName: "decision", entityType: "spot", entityId: spot.spot_id, spotId: spot.spot_id, decisionId });
+      void recordMemoryProductAction({ actionType: "navigation_intent", spotId: spot.spot_id, decisionId, entrySurface: "decision" });
+      const label = encodeURIComponent(spot.name);
+      const coordinates = `${spot.lat},${spot.lng}`;
+      await Linking.openURL(Platform.OS === "ios" ? `https://maps.apple.com/?ll=${coordinates}&q=${label}` : `https://www.google.com/maps/search/?api=1&query=${coordinates}`);
+    },
+    [decisionId]
+  );
+
   if (deckMode && !loading && (currentSpot || finishedDeck)) {
     return (
       <FullscreenDeck
@@ -1518,14 +1320,13 @@ export default function DecisionScreen() {
         exposureReady={visibleExposureReady}
         onSwipe={advanceCard}
         onOpenSpot={onOpenSpot}
+        onRoute={onRouteToSpot}
         onBack={() => setDeckMode(false)}
         onSettings={() => setDeckMode(false)}
         onRemix={() => runDecision({ remix: true })}
       />
     );
   }
-
-  const badge = context ? modeBadge(context.decision_mode, copy?.source) : null;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={["top", "left", "right"]}>
@@ -1555,11 +1356,11 @@ export default function DecisionScreen() {
                 color: theme.text,
                 fontSize: 28,
                 lineHeight: 32,
-                fontWeight: "850",
+                fontWeight: "800",
                 letterSpacing: -0.7,
               }}
             >
-              Wohin jetzt?
+              DEIN / JETZT.
             </Text>
 
             <Text
@@ -1610,7 +1411,7 @@ export default function DecisionScreen() {
                   style={{
                     color: "rgba(255,255,255,0.42)",
                     fontSize: 11,
-                    fontWeight: "950",
+                    fontWeight: "900",
                     letterSpacing: 1.1,
                     textTransform: "uppercase",
                     marginBottom: 9,
@@ -1637,7 +1438,7 @@ export default function DecisionScreen() {
                     color: theme.text,
                     paddingHorizontal: 0,
                     paddingVertical: 2,
-                    fontWeight: "950",
+                    fontWeight: "900",
                     fontSize: 29,
                     letterSpacing: -0.75,
                   }}
@@ -1711,7 +1512,7 @@ export default function DecisionScreen() {
                     style={{
                       color: "rgba(255,255,255,0.42)",
                       fontSize: 11,
-                      fontWeight: "950",
+                      fontWeight: "900",
                       letterSpacing: 1.1,
                       textTransform: "uppercase",
                       marginBottom: 9,
@@ -1811,7 +1612,7 @@ export default function DecisionScreen() {
                         style={{
                           color: "rgba(255,255,255,0.42)",
                           fontSize: 11,
-                          fontWeight: "950",
+                          fontWeight: "900",
                           letterSpacing: 1.1,
                           textTransform: "uppercase",
                           marginBottom: 9,
@@ -1832,7 +1633,7 @@ export default function DecisionScreen() {
                           color: theme.text,
                           paddingHorizontal: 0,
                           paddingVertical: 2,
-                          fontWeight: "950",
+                          fontWeight: "900",
                           fontSize: 22,
                           letterSpacing: -0.45,
                         }}
@@ -1854,7 +1655,7 @@ export default function DecisionScreen() {
                         style={{
                           color: "rgba(255,255,255,0.42)",
                           fontSize: 11,
-                          fontWeight: "950",
+                          fontWeight: "900",
                           letterSpacing: 1.1,
                           textTransform: "uppercase",
                           marginBottom: 9,
@@ -1878,7 +1679,7 @@ export default function DecisionScreen() {
                           color: theme.text,
                           paddingHorizontal: 0,
                           paddingVertical: 2,
-                          fontWeight: "950",
+                          fontWeight: "900",
                           fontSize: 22,
                           letterSpacing: -0.45,
                         }}
@@ -1923,15 +1724,15 @@ export default function DecisionScreen() {
                 {loading ? (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                     <ActivityIndicator color="#fff" />
-                    <Text style={{ color: "#fff", fontWeight: "950", fontSize: 15 }}>
+                    <Text style={{ color: "#fff", fontWeight: "900", fontSize: 15 }}>
                       {status === "writing" ? "Einen Moment…" : "Suche Spots…"}
                     </Text>
                   </View>
                 ) : (
                   <Text
                     style={{
-                      color: canRun ? "#171214" : "rgba(255,255,255,0.45)",
-                      fontWeight: "950",
+                      color: canRun ? "#111113" : "rgba(255,255,255,0.45)",
+                      fontWeight: "900",
                       fontSize: 17,
                       letterSpacing: -0.2,
                     }}
@@ -1955,22 +1756,7 @@ export default function DecisionScreen() {
               }}
             >
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                <Text style={{ color: theme.text, fontWeight: "950", fontSize: 17, flex: 1 }}>{context.title}</Text>
-
-                {badge && (
-                  <View
-                    style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 6,
-                      borderRadius: 999,
-                      borderWidth: 1,
-                      borderColor: badge.border,
-                      backgroundColor: badge.bg,
-                    }}
-                  >
-                    <Text style={{ color: theme.text, fontWeight: "950", fontSize: 11 }}>{badge.label}</Text>
-                  </View>
-                )}
+                <Text style={{ color: theme.text, fontWeight: "900", fontSize: 17, flex: 1 }}>{context.title}</Text>
               </View>
 
               <Pressable
@@ -1984,7 +1770,7 @@ export default function DecisionScreen() {
                   justifyContent: "center",
                 }}
               >
-                <Text style={{ color: "#171214", fontWeight: "950", fontSize: 15 }}>Deck öffnen</Text>
+                <Text style={{ color: "#111113", fontWeight: "900", fontSize: 15 }}>Deck öffnen</Text>
               </Pressable>
             </View>
           )}
@@ -2000,7 +1786,7 @@ export default function DecisionScreen() {
                 backgroundColor: "rgba(239,68,68,0.08)",
               }}
             >
-              <Text style={{ color: theme.text, fontWeight: "950", fontSize: 15 }}>Kurz gestolpert.</Text>
+              <Text style={{ color: theme.text, fontWeight: "900", fontSize: 15 }}>Kurz gestolpert.</Text>
               <Text style={{ color: theme.muted, marginTop: 6, lineHeight: 20 }}>
                 {errorMessage ?? "Bitte versuch es gleich nochmals."}
               </Text>
@@ -2018,7 +1804,7 @@ export default function DecisionScreen() {
                 backgroundColor: "rgba(251,191,36,0.08)",
               }}
             >
-              <Text style={{ color: theme.text, fontWeight: "950", fontSize: 15 }}>Noch kein Treffer.</Text>
+              <Text style={{ color: theme.text, fontWeight: "900", fontSize: 15 }}>Noch kein Treffer.</Text>
               <Text style={{ color: theme.muted, marginTop: 6, lineHeight: 20 }}>
                 Versuch es etwas breiter, zum Beispiel „Aktivität + Mit Kind“ oder nutze Freitext.
               </Text>
@@ -2053,8 +1839,8 @@ function SegmentButton({
     >
       <Text
         style={{
-          color: active ? "#171214" : "rgba(255,255,255,0.62)",
-          fontWeight: "950",
+          color: active ? "#111113" : "rgba(255,255,255,0.62)",
+          fontWeight: "900",
           fontSize: 14,
         }}
       >
@@ -2071,7 +1857,7 @@ function InputSectionLabel({ title, subtitle }: { title: string; subtitle?: stri
         style={{
           color: "rgba(255,255,255,0.84)",
           fontSize: 14,
-          fontWeight: "950",
+          fontWeight: "900",
           letterSpacing: -0.1,
         }}
       >
@@ -2111,8 +1897,8 @@ function ChoiceChip({
     >
       <Text
         style={{
-          color: active ? "#171214" : "rgba(255,255,255,0.76)",
-          fontWeight: "950",
+          color: active ? "#111113" : "rgba(255,255,255,0.76)",
+          fontWeight: "900",
           fontSize: 13,
         }}
       >
@@ -2137,6 +1923,7 @@ function FullscreenDeck({
   exposureReady,
   onSwipe,
   onOpenSpot,
+  onRoute,
   onBack,
   onSettings,
   onRemix,
@@ -2155,6 +1942,7 @@ function FullscreenDeck({
   exposureReady:boolean;
   onSwipe: (action: DecisionCardAction) => void;
   onOpenSpot: (spotId: string) => void;
+  onRoute: (spot: EnrichedDecisionSpot) => void;
   onBack: () => void;
   onSettings: () => void;
   onRemix: () => void;
@@ -2179,7 +1967,7 @@ function FullscreenDeck({
                 backgroundColor: "rgba(255,255,255,0.065)",
               }}
             >
-              <Text style={{ color: "#fff", fontSize: 34, lineHeight: 38, fontWeight: "950", letterSpacing: -1 }}>
+              <Text style={{ color: "#fff", fontSize: 34, lineHeight: 38, fontWeight: "900", letterSpacing: -1 }}>
                 {continuationExhausted ? "Das waren die passendsten Vorschläge." : "Noch nicht das Richtige?"}
               </Text>
 
@@ -2203,8 +1991,8 @@ function FullscreenDeck({
                     opacity: continuationLoading ? 0.65 : 1,
                   }}
                 >
-                  {continuationLoading ? <ActivityIndicator color="#171214" /> : (
-                    <Text style={{ color: "#171214", fontWeight: "950", fontSize: 15 }}>
+                  {continuationLoading ? <ActivityIndicator color="#111113" /> : (
+                    <Text style={{ color: "#111113", fontWeight: "900", fontSize: 15 }}>
                       Weitere Vorschläge{remixCount > 0 ? ` · Seite ${remixCount + 2}` : ""}
                     </Text>
                   )}
@@ -2244,6 +2032,7 @@ function FullscreenDeck({
           exposureReady={exposureReady}
           onSwipe={onSwipe}
           onOpen={() => onOpenSpot(currentSpot.spot_id)}
+          onRoute={() => onRoute(currentSpot)}
           onBack={onBack}
           onSettings={onSettings}
         />
@@ -2292,6 +2081,7 @@ function FullscreenSwipeCard({
   exposureReady,
   onSwipe,
   onOpen,
+  onRoute,
   onBack,
   onSettings,
 }: {
@@ -2305,6 +2095,7 @@ function FullscreenSwipeCard({
   exposureReady:boolean;
   onSwipe: (action: DecisionCardAction) => void;
   onOpen: () => void;
+  onRoute: () => void;
   onBack: () => void;
   onSettings: () => void;
 }) {
@@ -2440,8 +2231,8 @@ function FullscreenSwipeCard({
           }}
         >
           <RoundDeckButton label="‹" onPress={onBack} />
-          <Text style={{ color: theme.text, fontSize: 24, fontWeight: "850", letterSpacing: -0.55 }}>
-            Wohin jetzt?
+          <Text style={{ color: theme.text, fontSize: 24, fontWeight: "800", letterSpacing: -0.55 }}>
+            DEIN / JETZT.
           </Text>
           <RoundDeckButton label="✦" onPress={onSettings} />
         </View>
@@ -2467,7 +2258,7 @@ function FullscreenSwipeCard({
               gap: 8,
             }}
           >
-            <Text numberOfLines={1} style={{ color: "#171214", fontSize: 14, fontWeight: "750", maxWidth: SCREEN_WIDTH - 108 }}>
+            <Text numberOfLines={1} style={{ color: "#111113", fontSize: 14, fontWeight: "700", maxWidth: SCREEN_WIDTH - 108 }}>
               {queryLabel}
             </Text>
             <Text style={{ color: "rgba(23,18,20,0.58)", fontSize: 18, fontWeight: "600", marginTop: -1 }}>×</Text>
@@ -2477,7 +2268,7 @@ function FullscreenSwipeCard({
             style={{
               color: "rgba(255,255,255,0.44)",
               fontSize: 13,
-              fontWeight: "650",
+              fontWeight: "600",
               marginTop: 22,
               marginBottom: 10,
             }}
@@ -2504,7 +2295,7 @@ function FullscreenSwipeCard({
                 <Text style={{ color: chipIndex === 0 ? "#C8E3A6" : theme.pinkMuted, fontSize: 15 }}>
                   {chipIndex === 0 ? "↗" : chipIndex === 1 ? "∿" : "♡"}
                 </Text>
-                <Text style={{ color: theme.text, fontSize: 13, fontWeight: "750" }}>{chip}</Text>
+                <Text style={{ color: theme.text, fontSize: 13, fontWeight: "700" }}>{chip}</Text>
               </View>
             ))}
           </View>
@@ -2518,7 +2309,7 @@ function FullscreenSwipeCard({
             <View
               style={{
                 minHeight: Math.min(510, SCREEN_HEIGHT * 0.58),
-                borderRadius: 26,
+                borderRadius: 3,
                 overflow: "hidden",
                 backgroundColor: "#121214",
                 borderWidth: 1,
@@ -2540,7 +2331,7 @@ function FullscreenSwipeCard({
                 />
               ) : (
                 <LinearGradient
-                  colors={["#262128", "#111114", "#070708"]}
+                  colors={["#262128", "#111113", "#050506"]}
                   style={{
                     position: "absolute",
                     left: 0,
@@ -2582,7 +2373,7 @@ function FullscreenSwipeCard({
                   zIndex: 20,
                 }}
               >
-                <Text style={{ color: "#171214", fontSize: 14, fontWeight: "900" }}>weiter</Text>
+                <Text style={{ color: "#111113", fontSize: 14, fontWeight: "900" }}>weiter</Text>
               </Animated.View>
 
               <Animated.View
@@ -2604,7 +2395,7 @@ function FullscreenSwipeCard({
                   zIndex: 20,
                 }}
               >
-                <Text style={{ color: "#171214", fontSize: 14, fontWeight: "900" }}>weiter</Text>
+                <Text style={{ color: "#111113", fontSize: 14, fontWeight: "900" }}>weiter</Text>
               </Animated.View>
 
               <View style={{ flex: 1, justifyContent: "space-between", padding: 16 }}>
@@ -2621,7 +2412,7 @@ function FullscreenSwipeCard({
                   >
                     {spot.name}
                   </Text>
-                  <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: "650", marginTop: 8 }}>
+                  <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: "600", marginTop: 8 }}>
                     Passt zu deinem Moment
                   </Text>
 
@@ -2687,7 +2478,7 @@ function FullscreenSwipeCard({
             disabled={!exposureReady}
             style={{height:50,borderRadius:999,alignItems:"center",justifyContent:"center",backgroundColor:theme.pink}}
           >
-            {exposureReady?<Text style={{color:"#171214",fontWeight:"950",fontSize:15}}>Weiter</Text>:<ActivityIndicator color="#171214"/>}
+            {exposureReady?<Text style={{color:"#111113",fontWeight:"900",fontSize:15}}>Weiter</Text>:<ActivityIndicator color="#111113"/>}
           </Pressable>
           <View style={{flexDirection:"row",gap:10}}>
           <Pressable
@@ -2708,7 +2499,7 @@ function FullscreenSwipeCard({
           </Pressable>
 
           <Pressable
-            onPress={onOpen}
+            onPress={onRoute}
             disabled={!exposureReady}
             style={{
               flex: 1.12,
@@ -2719,7 +2510,7 @@ function FullscreenSwipeCard({
               backgroundColor: theme.pink,
             }}
           >
-            <Text style={{ color: "#171214", fontWeight: "900", fontSize: 15 }}>Route</Text>
+            <Text style={{ color: "#111113", fontWeight: "900", fontSize: 15 }}>Route</Text>
           </Pressable>
 
           <Pressable
@@ -2741,86 +2532,6 @@ function FullscreenSwipeCard({
           </View>
         </View>
       </SafeAreaView>
-    </View>
-  );
-}
-
-function MiniPill({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "green" | "red" }) {
-  const bg =
-    tone === "green" ? "rgba(34,197,94,0.17)" : tone === "red" ? "rgba(239,68,68,0.16)" : "rgba(0,0,0,0.32)";
-
-  const border =
-    tone === "green" ? "rgba(34,197,94,0.3)" : tone === "red" ? "rgba(239,68,68,0.3)" : "rgba(255,255,255,0.14)";
-
-  return (
-    <View
-      style={{
-        paddingHorizontal: 9,
-        paddingVertical: 6,
-        borderRadius: 999,
-        backgroundColor: bg,
-        borderWidth: 1,
-        borderColor: border,
-        maxWidth: "100%",
-      }}
-    >
-      <Text numberOfLines={1} style={{ color: "#fff", fontWeight: "850", fontSize: 11 }}>
-        {label}
-      </Text>
-    </View>
-  );
-}
-
-function InfoTile({
-  label,
-  value,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  tone?: "neutral" | "green" | "red";
-}) {
-  const accent =
-    tone === "green" ? "rgba(120,160,69,0.95)" : tone === "red" ? "rgba(233,80,80,0.95)" : "rgba(244,235,221,0.95)";
-
-  return (
-    <View
-      style={{
-        flex: 1,
-        minHeight: 68,
-        borderRadius: 22,
-        paddingHorizontal: 13,
-        paddingVertical: 12,
-        backgroundColor: "rgba(0,0,0,0.34)",
-        borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.14)",
-      }}
-    >
-      <Text
-        numberOfLines={1}
-        style={{
-          color: "rgba(255,255,255,0.48)",
-          fontSize: 10,
-          fontWeight: "950",
-          letterSpacing: 0.9,
-          textTransform: "uppercase",
-          marginBottom: 6,
-        }}
-      >
-        {label}
-      </Text>
-      <Text
-        numberOfLines={2}
-        style={{
-          color: accent,
-          fontSize: 15,
-          lineHeight: 18,
-          fontWeight: "950",
-          letterSpacing: -0.2,
-        }}
-      >
-        {value}
-      </Text>
     </View>
   );
 }

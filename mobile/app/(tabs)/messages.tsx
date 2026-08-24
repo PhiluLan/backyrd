@@ -183,7 +183,7 @@ export default function MessagesScreen() {
     return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#FF6B9E" />
+          <ActivityIndicator size="large" color="#FF4F91" />
           <Text style={styles.stateText}>
             Nachrichten werden geladen …
           </Text>
@@ -244,7 +244,7 @@ export default function MessagesScreen() {
               onRefresh={() =>
                 void loadChats({ refresh: true })
               }
-              tintColor="#FF6B9E"
+              tintColor="#FF4F91"
             />
           }
           ListEmptyComponent={
@@ -253,7 +253,7 @@ export default function MessagesScreen() {
                 <Ionicons
                   name="chatbubbles-outline"
                   size={34}
-                  color="#FF6B9E"
+                  color="#FF4F91"
                 />
               </View>
               <Text style={styles.stateTitle}>
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   kicker: {
-    color: "#FF6B9E",
+    color: "#FF4F91",
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 2,
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   timeText: {
     color: "rgba(255,255,255,0.42)",
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
     height: 22,
     paddingHorizontal: 6,
     borderRadius: 11,
-    backgroundColor: "#FF6B9E",
+    backgroundColor: "#FF4F91",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 11,
     borderRadius: 999,
-    backgroundColor: "#FF6B9E",
+    backgroundColor: "#FF4F91",
   },
   retryText: {
     color: "#151216",

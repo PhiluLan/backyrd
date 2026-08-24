@@ -49,7 +49,7 @@ function LoggedOutGate() {
   const router = useRouter();
 
   return (
-    <LinearGradient colors={["#050506", "#0B0B0C", "#171820"]} style={styles.authContainer}>
+    <LinearGradient colors={["#050506", "#050506", "#171820"]} style={styles.authContainer}>
       <View style={styles.authCard}>
         <Text style={styles.kicker}>BACKYRD</Text>
         <Text style={styles.title}>Willkommen bei Backyrd</Text>
@@ -182,7 +182,7 @@ export default function GateScreen() {
 const styles = StyleSheet.create({
   loadingFallback: {
     flex: 1,
-    backgroundColor: "#0B0B0C",
+    backgroundColor: "#050506",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   kicker: {
     color: "rgba(255,255,255,0.54)",
     fontSize: 13,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: 6,
     marginBottom: 18,
   },
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 38,
     lineHeight: 41,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -1.2,
   },
   subtitle: {
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   primaryText: {
     color: "#050506",
     fontSize: 16,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   secondaryButton: {
     height: 56,
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
   secondaryText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   hint: {
     color: "rgba(255,255,255,0.42)",
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
-    backgroundColor: "#0B0B0C",
+    backgroundColor: "#050506",
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
   errorTitle: {
     color: "#fff",
     fontSize: 32,
-    fontWeight: "950",
+    fontWeight: "900",
     marginBottom: 10,
   },
   errorText: {

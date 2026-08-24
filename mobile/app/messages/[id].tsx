@@ -630,7 +630,7 @@ export default function ChatScreen() {
           <View style={styles.loading}>
             <ActivityIndicator
               size="large"
-              color="#FF7DA7"
+              color="#FF4F91"
             />
           </View>
         ) : (
@@ -842,7 +842,7 @@ export default function ChatScreen() {
                 {sending ? (
                   <ActivityIndicator
                     size="small"
-                    color="#FF7DA7"
+                    color="#FF4F91"
                   />
                 ) : (
                   <Text style={styles.sendText}>
@@ -893,7 +893,7 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#07080A",
+    backgroundColor: "#050506",
   },
   keyboardView: {
     flex: 1,
@@ -908,7 +908,7 @@ const styles = StyleSheet.create({
       StyleSheet.hairlineWidth,
     borderBottomColor:
       "rgba(255,255,255,0.08)",
-    backgroundColor: "#07080A",
+    backgroundColor: "#050506",
   },
   headerCircle: {
     width: 47,
@@ -1019,7 +1019,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   bubbleMine: {
-    backgroundColor: "#FF6F9F",
+    backgroundColor: "#FF4F91",
     borderBottomRightRadius: 7,
   },
   bubbleOther: {
@@ -1071,7 +1071,7 @@ const styles = StyleSheet.create({
       StyleSheet.hairlineWidth,
     borderTopColor:
       "rgba(255,255,255,0.08)",
-    backgroundColor: "#07080A",
+    backgroundColor: "#050506",
   },
   composer: {
     minHeight: 54,
@@ -1091,7 +1091,7 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FF6F9F",
+    backgroundColor: "#FF4F91",
   },
   input: {
     flex: 1,

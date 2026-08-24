@@ -1,14 +1,11 @@
 // mobile/app/(tabs)/_layout.tsx
 import { Ionicons } from "@expo/vector-icons";
-import * as Updates from "expo-updates";
 import { Tabs, useGlobalSearchParams, usePathname, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, StyleSheet, View } from "react-native";
+import React from "react";
+import { Pressable, StyleSheet, View } from "react-native";
 
-import { supabase } from "../../lib/supabase";
-import { reportAnalyticsError, trackAnalyticsEvent } from "../../lib/analytics";
-
-const DEV_EMAIL = "philipplanger@yahoo.com";
+import { trackAnalyticsEvent } from "../../lib/analytics";
+import { backyrdTheme as theme } from "../../theme/backyrd";
 
 const DEFAULT_TAB_BAR_STYLE = {
   position: "absolute" as const,
@@ -22,7 +19,7 @@ const DEFAULT_TAB_BAR_STYLE = {
   borderRadius: 30,
   borderWidth: 1,
   borderColor: "rgba(255,255,255,0.08)",
-  backgroundColor: "rgba(10,10,12,0.92)",
+  backgroundColor: "rgba(7,7,8,0.96)",
   elevation: 0,
   shadowColor: "#000",
   shadowOpacity: 0.38,
@@ -42,7 +39,7 @@ function SmartReviewTabButton({ onPress }: { onPress?: () => void }) {
           pressed && styles.plusButtonPressed,
         ]}
       >
-        <Ionicons name="add" size={30} color="#09090A" />
+        <Ionicons name="add" size={30} color="#050506" />
       </Pressable>
     </View>
   );
@@ -53,74 +50,7 @@ export default function TabsLayout() {
   const pathname = usePathname();
   const params = useGlobalSearchParams();
 
-  const [checkedSession, setCheckedSession] = useState(false);
-  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
-
-  const isDev = useMemo(
-    () => (sessionEmail ?? "").toLowerCase() === DEV_EMAIL.toLowerCase(),
-    [sessionEmail]
-  );
-
   const hideTabs = pathname.includes("/decision") && params.hideTabs === "1";
-
-  useEffect(() => {
-    if (__DEV__ || Platform.OS === "web") return;
-
-    (async () => {
-      try {
-        const update = await Updates.checkForUpdateAsync();
-        if (update.isAvailable) {
-          await Updates.fetchUpdateAsync();
-          await Updates.reloadAsync();
-        }
-      } catch (error) {
-        console.log("OTA Update check failed:", error);
-        await reportAnalyticsError({
-          error,
-          errorType: "ota_update_check_error",
-          severity: "warning",
-          handled: true,
-          screenName: "tabs",
-        });
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-
-    (async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (!active) return;
-
-        setSessionEmail(data.session?.user?.email ?? null);
-
-        if (!data.session) {
-          router.replace("/gate" as never);
-        }
-      } finally {
-        if (active) setCheckedSession(true);
-      }
-    })();
-
-    const { data: subscription } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSessionEmail(session?.user?.email ?? null);
-
-        if (!session) {
-          router.replace("/gate" as never);
-        }
-      }
-    );
-
-    return () => {
-      active = false;
-      subscription.subscription.unsubscribe();
-    };
-  }, [router]);
-
-  if (!checkedSession) return null;
 
   const hiddenTabStyle = hideTabs ? ({ display: "none" } as const) : DEFAULT_TAB_BAR_STYLE;
 
@@ -130,7 +60,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: hiddenTabStyle,
-        tabBarActiveTintColor: "#FF7DA7",
+        tabBarActiveTintColor: theme.color.pink,
         tabBarInactiveTintColor: "#808087",
         tabBarHideOnKeyboard: true,
         tabBarLabelStyle: styles.tabLabel,
@@ -140,7 +70,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: "Entdecken",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "home" : "home-outline"}
@@ -154,7 +84,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="decision"
         options={{
-          title: "Decision",
+          title: "Für jetzt",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "sparkles" : "sparkles-outline"}
@@ -190,7 +120,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="map"
         options={{
-          title: "Map",
+          title: "Karte",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "map" : "map-outline"}
@@ -217,13 +147,12 @@ export default function TabsLayout() {
 
       <Tabs.Screen name="profile" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
-      <Tabs.Screen name="decision-debug" options={{ href: null }} />
+      <Tabs.Screen name="release-diagnostics" options={{ href: null }} />
       <Tabs.Screen name="decision-onboarding" options={{ href: null }} />
       <Tabs.Screen name="dev" options={{ href: null }} />
       <Tabs.Screen name="new-spot" options={{ href: null }} />
       <Tabs.Screen name="messages" options={{ href: null }} />
       <Tabs.Screen name="achievements" options={{ href: null }} />
-      <Tabs.Screen name="explore" options={{ href: null }} />
       <Tabs.Screen name="journey" options={{ href: null }} />
       <Tabs.Screen name="spot" options={{ href: null }} />
     </Tabs>
@@ -249,7 +178,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: theme.color.pink,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",

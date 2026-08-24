@@ -32,7 +32,7 @@ const theme = {
     textMuted: "#9ca3af",
     primary: "#3A86FF",
     accent: "#10B981",
-    card: "#0B0B0C",
+    card: "#050506",
     chip: "rgba(255,255,255,0.06)",
     chipBorder: "rgba(255,255,255,0.12)",
     hairline: "#222",

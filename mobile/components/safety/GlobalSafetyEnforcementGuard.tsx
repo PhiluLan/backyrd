@@ -145,7 +145,7 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
               <Ionicons
                 name="lock-closed"
                 size={34}
-                color="#FF78A7"
+                color="#FF4F91"
               />
             </View>
 
@@ -170,7 +170,7 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
               <Ionicons
                 name="shield-checkmark-outline"
                 size={20}
-                color="#09090A"
+                color="#050506"
               />
               <Text style={styles.primaryButtonText}>
                 Entscheidung ansehen
@@ -199,7 +199,7 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
   if (loading && signedIn && status === null) {
     return (
       <View style={styles.loadingOverlay} pointerEvents="none">
-        <ActivityIndicator color="#FF78A7" size="small" />
+        <ActivityIndicator color="#FF4F91" size="small" />
       </View>
     );
   }
@@ -208,7 +208,7 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
 }
 
 const styles = StyleSheet.create({
-  lockRoot: { flex: 1, backgroundColor: "#070708" },
+  lockRoot: { flex: 1, backgroundColor: "#050506" },
   lockGlow: {
     position: "absolute", top: -120, alignSelf: "center", width: 360, height: 360,
     borderRadius: 180, backgroundColor: "rgba(255,79,139,0.08)",
@@ -224,14 +224,14 @@ const styles = StyleSheet.create({
   body: { marginTop: 17, color: "#A1A1AA", fontSize: 16, lineHeight: 24 },
   primaryButton: {
     marginTop: 32, minHeight: 58, borderRadius: 19, flexDirection: "row", alignItems: "center",
-    justifyContent: "center", gap: 10, backgroundColor: "#FF78A7",
+    justifyContent: "center", gap: 10, backgroundColor: "#FF4F91",
   },
-  primaryButtonText: { color: "#09090A", fontSize: 16, fontWeight: "900" },
+  primaryButtonText: { color: "#050506", fontSize: 16, fontWeight: "900" },
   secondaryButton: {
     marginTop: 12, minHeight: 56, borderRadius: 19, flexDirection: "row", alignItems: "center",
     justifyContent: "center", gap: 10, backgroundColor: "rgba(255,255,255,0.045)",
     borderWidth: 1, borderColor: "rgba(255,255,255,0.10)",
   },
   secondaryButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "900" },
-  loadingOverlay: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#070708" },
+  loadingOverlay: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#050506" },
 });

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert, Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { Alert, StyleSheet, Switch, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../lib/supabase";
 
@@ -72,7 +72,7 @@ export default function ProfilePrivacyCard({
         <Ionicons
           name={isPrivate ? "lock-closed" : "globe-outline"}
           size={21}
-          color="#FF7DA7"
+          color="#FF4F91"
         />
       </View>
 
@@ -92,7 +92,7 @@ export default function ProfilePrivacyCard({
         onValueChange={requestChange}
         disabled={busy}
         trackColor={{ false: "#34343B", true: "rgba(255,125,167,0.45)" }}
-        thumbColor={isPrivate ? "#FF7DA7" : "#D7D7DC"}
+        thumbColor={isPrivate ? "#FF4F91" : "#D7D7DC"}
       />
     </View>
   );

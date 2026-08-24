@@ -13,7 +13,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import type * as Location from "expo-location";
 import { Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -53,10 +52,6 @@ function normalizeCity(value: string | null | undefined) {
   const city = clean(value);
   if (!city) return "Basel";
   return city;
-}
-
-function getCityFromGeocode(item: Location.LocationGeocodedAddress | null | undefined) {
-  return clean(item?.city) || clean(item?.subregion) || clean(item?.region) || null;
 }
 
 function categoryName(spot: SpotRow) {
@@ -537,7 +532,7 @@ export default function DecisionOnboardingScreen() {
 }
 
 const theme = {
-  bg: "#0B0B0C",
+  bg: "#050506",
   card: "rgba(255,255,255,0.055)",
   cardStrong: "rgba(255,255,255,0.085)",
   border: "rgba(255,255,255,0.115)",
@@ -566,7 +561,7 @@ const styles = StyleSheet.create({
   kicker: {
     color: "rgba(255,255,255,0.46)",
     fontSize: 12,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: 5,
     marginBottom: 12,
   },
@@ -574,7 +569,7 @@ const styles = StyleSheet.create({
     color: theme.text,
     fontSize: 34,
     lineHeight: 38,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -1.1,
   },
   subtitle: {
@@ -599,7 +594,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: theme.muted,
-    fontWeight: "850",
+    fontWeight: "800",
     marginBottom: 7,
   },
   input: {
@@ -610,7 +605,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.07)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.12)",
-    fontWeight: "850",
+    fontWeight: "800",
   },
   detectButton: {
     marginTop: 24,
@@ -625,7 +620,7 @@ const styles = StyleSheet.create({
   },
   detectButtonText: {
     color: theme.cream,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   successText: {
     color: theme.green,
@@ -648,7 +643,7 @@ const styles = StyleSheet.create({
   },
   listTitle: {
     color: "#fff",
-    fontWeight: "950",
+    fontWeight: "900",
     fontSize: 15,
   },
   emptyBox: {
@@ -689,7 +684,7 @@ const styles = StyleSheet.create({
   },
   spotName: {
     color: "#fff",
-    fontWeight: "950",
+    fontWeight: "900",
     fontSize: 15,
   },
   spotMeta: {
@@ -699,7 +694,7 @@ const styles = StyleSheet.create({
   },
   addText: {
     color: theme.cream,
-    fontWeight: "950",
+    fontWeight: "900",
     fontSize: 18,
   },
   addTextSelected: {
@@ -717,7 +712,7 @@ const styles = StyleSheet.create({
   selectedTitle: {
     color: "#fff",
     fontSize: 18,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   selectedCount: {
     color: theme.faint,
@@ -759,12 +754,12 @@ const styles = StyleSheet.create({
   },
   selectedNumberText: {
     color: theme.cream,
-    fontWeight: "950",
+    fontWeight: "900",
     fontSize: 12,
   },
   selectedName: {
     color: "#fff",
-    fontWeight: "950",
+    fontWeight: "900",
   },
   selectedMeta: {
     color: theme.muted,
@@ -810,14 +805,14 @@ const styles = StyleSheet.create({
   consentCheckmark: {
     color: theme.black,
     fontSize: 16,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   consentCopy: {
     flex: 1,
   },
   consentTitle: {
     color: theme.text,
-    fontWeight: "950",
+    fontWeight: "900",
     fontSize: 15,
   },
   consentText: {
@@ -839,7 +834,7 @@ const styles = StyleSheet.create({
   },
   submitText: {
     color: "#000",
-    fontWeight: "950",
+    fontWeight: "900",
     fontSize: 16,
   },
   submitTextDisabled: {

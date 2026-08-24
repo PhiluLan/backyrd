@@ -25,10 +25,10 @@ type AppealReason =
   | "policy_exception"
   | "other";
 
-const reasons: Array<{
+const reasons: {
   value: AppealReason;
   label: string;
-}> = [
+}[] = [
   {
     value: "decision_incorrect",
     label: "Die Entscheidung ist falsch",
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   sheet: {
     height: "92%",
     maxHeight: "94%",
-    backgroundColor: "#111114",
+    backgroundColor: "#111113",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     borderWidth: 1,
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   eyebrow: {
-    color: "#FF4F8B",
+    color: "#FF4F91",
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1.1,
@@ -406,13 +406,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   radioSelected: {
-    borderColor: "#FF4F8B",
+    borderColor: "#FF4F91",
   },
   radioDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: "#FF4F8B",
+    backgroundColor: "#FF4F91",
   },
   reasonText: {
     flex: 1,
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,79,139,0.24)",
   },
   triggerText: {
-    color: "#FF78A7",
+    color: "#FF4F91",
     fontSize: 14,
     fontWeight: "800",
   },

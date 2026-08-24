@@ -73,7 +73,7 @@ export default function LegalConsentScreen() {
   if (loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color="#FF7DA7" />
+        <ActivityIndicator color="#FF4F91" />
       </View>
     );
   }
@@ -121,7 +121,7 @@ export default function LegalConsentScreen() {
           onPress={() => void acceptAll()}
         >
           {accepting ? (
-            <ActivityIndicator color="#09090A" />
+            <ActivityIndicator color="#050506" />
           ) : (
             <Text style={styles.buttonText}>
               Dokumente bestätigen
@@ -134,17 +134,17 @@ export default function LegalConsentScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#09090A" },
+  safe: { flex: 1, backgroundColor: "#050506" },
   loading: {
     flex: 1,
-    backgroundColor: "#09090A",
+    backgroundColor: "#050506",
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
   },
   content: { padding: 22, paddingBottom: 50 },
   eyebrow: {
-    color: "#FF7DA7",
+    color: "#FF4F91",
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 1.35,
@@ -157,25 +157,25 @@ const styles = StyleSheet.create({
   },
   lead: { color: "#AFAFB7", fontSize: 16, lineHeight: 22, marginTop: 8 },
   documentCard: {
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
     borderRadius: 22,
     padding: 20,
     marginTop: 18,
   },
   documentTitle: { color: "#FFFFFF", fontSize: 22, fontWeight: "900" },
-  version: { color: "#FF7DA7", fontWeight: "800", marginTop: 5 },
+  version: { color: "#FF4F91", fontWeight: "800", marginTop: 5 },
   summary: { color: "#BEBEC6", lineHeight: 20, marginTop: 12 },
   contentText: { color: "#A6A6AF", lineHeight: 21, marginTop: 18 },
   button: {
     minHeight: 54,
     borderRadius: 18,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 18,
     marginTop: 24,
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: "#09090A", fontWeight: "900", fontSize: 16 },
+  buttonText: { color: "#050506", fontWeight: "900", fontSize: 16 },
   emptyTitle: { color: "#FFFFFF", fontSize: 24, fontWeight: "900" },
 });

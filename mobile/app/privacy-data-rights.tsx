@@ -209,7 +209,7 @@ export default function PrivacyDataRightsScreen() {
 
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color="#FF7DA7" />
+          <ActivityIndicator color="#FF4F91" />
         </View>
       ) : (
         <ScrollView
@@ -218,12 +218,12 @@ export default function PrivacyDataRightsScreen() {
             <RefreshControl
               refreshing={false}
               onRefresh={() => void load()}
-              tintColor="#FF7DA7"
+              tintColor="#FF4F91"
             />
           }
         >
           <View style={styles.intro}>
-            <Ionicons name="archive-outline" size={28} color="#FF7DA7" />
+            <Ionicons name="archive-outline" size={28} color="#FF4F91" />
             <Text style={styles.introTitle}>Deine Datenschutzrechte</Text>
             <Text style={styles.introText}>
               Du kannst eine maschinenlesbare Kopie deiner Daten anfordern oder
@@ -234,7 +234,7 @@ export default function PrivacyDataRightsScreen() {
           <View style={styles.card}>
             <View style={styles.cardHead}>
               <View style={styles.iconWrap}>
-                <Ionicons name="download-outline" size={23} color="#FF7DA7" />
+                <Ionicons name="download-outline" size={23} color="#FF4F91" />
               </View>
               <View style={styles.cardCopy}>
                 <Text style={styles.cardTitle}>Datenexport</Text>
@@ -272,10 +272,10 @@ export default function PrivacyDataRightsScreen() {
               onPress={() => void createExport()}
             >
               {working === "export" ? (
-                <ActivityIndicator color="#09090A" />
+                <ActivityIndicator color="#050506" />
               ) : (
                 <>
-                  <Ionicons name="download-outline" size={19} color="#09090A" />
+                  <Ionicons name="download-outline" size={19} color="#050506" />
                   <Text style={styles.primaryButtonText}>
                     JSON-Export erstellen
                   </Text>
@@ -351,7 +351,7 @@ export default function PrivacyDataRightsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#09090A" },
+  safe: { flex: 1, backgroundColor: "#050506" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
   intro: {
     padding: 21,
     borderRadius: 24,
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,125,167,0.23)",
     marginBottom: 15,
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   card: {
     padding: 18,
     borderRadius: 22,
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
     marginBottom: 13,
@@ -428,14 +428,14 @@ const styles = StyleSheet.create({
   primaryButton: {
     minHeight: 52,
     borderRadius: 17,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
     marginTop: 16,
   },
-  primaryButtonText: { color: "#09090A", fontWeight: "900", fontSize: 15 },
+  primaryButtonText: { color: "#050506", fontWeight: "900", fontSize: 15 },
   deleteButton: {
     minHeight: 52,
     borderRadius: 17,

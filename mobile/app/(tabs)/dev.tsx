@@ -3,9 +3,8 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
+import { isInternalMobileUser } from "../../lib/internalAccess";
 import { useEffect, useState } from "react";
-
-const DEV_EMAIL = "philipplanger@yahoo.com";
 
 function DevRow({
   title,
@@ -41,8 +40,7 @@ export default function DevScreen() {
 
     (async () => {
       const { data } = await supabase.auth.getSession();
-      const email = (data.session?.user?.email ?? "").toLowerCase();
-      const ok = email === DEV_EMAIL.toLowerCase();
+      const ok = isInternalMobileUser(data.session?.user ?? null);
       if (!cancelled) setAllowed(ok);
 
       if (!ok) {
@@ -88,10 +86,10 @@ export default function DevScreen() {
         />
         <View style={styles.sep} />
         <DevRow
-          title="Achievements"
-          subtitle="Badges / Progress debuggen"
-          icon="trophy-outline"
-          onPress={() => router.push("/(tabs)/decision-debug")}
+          title="App- & Release-Status"
+          subtitle="Aktives Bundle und Update-Diagnostik"
+          icon="pulse-outline"
+          onPress={() => router.push("/(tabs)/release-diagnostics")}
         />
       </View>
     </View>

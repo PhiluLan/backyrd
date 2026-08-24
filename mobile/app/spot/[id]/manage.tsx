@@ -255,7 +255,7 @@ export default function SpotManageScreen() {
   // ✅ Render Branches: INSIDE component, after hooks
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0B0B0C" }}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#050506" }}>
         <ActivityIndicator />
       </View>
     );
@@ -263,7 +263,7 @@ export default function SpotManageScreen() {
 
   if (!ctx) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0B0B0C", padding: 20 }}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#050506", padding: 20 }}>
         <Text style={{ color: "white", opacity: 0.8, textAlign: "center" }}>
           Spot konnte nicht geladen werden.
         </Text>
@@ -276,7 +276,7 @@ export default function SpotManageScreen() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: "#0B0B0C" }}
+      style={{ flex: 1, backgroundColor: "#050506" }}
       contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
     >
       <Text style={{ color: "white", fontSize: 26, marginBottom: 6 }}>Spot verwalten</Text>

@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 
 const theme = {
   colors: {
-    background: "#0A0A0B",
+    background: "#050506",
     surface: "#131316",
     text: "#FFFFFF",
     textMuted: "#A6A8AD",

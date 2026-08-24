@@ -10,8 +10,9 @@ import {
   Animated,
   Easing,
 } from "react-native";
+import type { NewlyUnlockedAchievement } from "../lib/achievementEngine";
 
-export function AchievementUnlockModal({ achievements, onClose }) {
+export function AchievementUnlockModal({ achievements, onClose }: { achievements: NewlyUnlockedAchievement[]; onClose: () => void }) {
   const scale = useRef(new Animated.Value(0.6)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -29,7 +30,7 @@ export function AchievementUnlockModal({ achievements, onClose }) {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [opacity, scale]);
 
   return (
     <Modal visible transparent animationType="fade">
@@ -37,7 +38,7 @@ export function AchievementUnlockModal({ achievements, onClose }) {
         <Animated.View style={[styles.container, { opacity, transform: [{ scale }] }]}>
           <Text style={styles.title}>🎉 Neues Achievement!</Text>
 
-          {achievements.map(a => (
+          {achievements.map((a) => (
             <View key={a.id} style={styles.row}>
               {a.public_icon_url ? (
                 <Image source={{ uri: a.public_icon_url }} style={styles.icon} />

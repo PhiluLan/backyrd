@@ -490,11 +490,11 @@ export default function SpotClaimScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#0A0A0B",
+    backgroundColor: "#050506",
   },
   center: {
     flex: 1,
-    backgroundColor: "#0A0A0B",
+    backgroundColor: "#050506",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 28,
     lineHeight: 32,
-    fontWeight: "950",
+    fontWeight: "900",
     marginBottom: 10,
   },
   subtitle: {
@@ -628,7 +628,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: "#000",
-    fontWeight: "950",
+    fontWeight: "900",
     fontSize: 15,
   },
   secondaryButton: {
@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: "#fff",
-    fontWeight: "850",
+    fontWeight: "800",
   },
   backLink: {
     alignItems: "center",

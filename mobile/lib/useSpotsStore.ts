@@ -19,7 +19,7 @@ type State = {
   refresh: () => Promise<void>;
 };
 
-export const useSpotsStore = create<State>((set, get) => ({
+export const useSpotsStore = create<State>((set) => ({
   spots: [],
   loading: true,
 
@@ -78,7 +78,7 @@ supabase
     { event: "*", schema: "public", table: "spots" },
     () => {
       console.log("♻️ Spots geändert — reload...");
-      get().refresh();
+      void useSpotsStore.getState().refresh();
     }
   )
   .subscribe();
@@ -90,7 +90,7 @@ supabase
     { event: "*", schema: "public", table: "spot_photos" },
     () => {
       console.log("📸 Foto geändert — reload...");
-      get().refresh();
+      void useSpotsStore.getState().refresh();
     }
   )
   .subscribe();
@@ -102,7 +102,7 @@ supabase
     { event: "*", schema: "public", table: "categories" },
     () => {
       console.log("🎨 Kategorien geändert — reload...");
-      get().refresh();
+      void useSpotsStore.getState().refresh();
     }
   )
   .subscribe();

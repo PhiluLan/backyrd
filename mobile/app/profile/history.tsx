@@ -15,7 +15,6 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { supabase } from "@/lib/supabase";
 
-import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
 type VisitStatus =
   | "visited_reviewed"
   | "confirmed_needs_review"
@@ -257,7 +256,7 @@ export default function DecisionHistoryScreen() {
 
       <View style={styles.heroCard}>
         <View style={styles.heroIcon}>
-          <Ionicons name="sparkles" size={24} color="#0A0A0B" />
+          <Ionicons name="sparkles" size={24} color="#050506" />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.heroTitle}>Magische Signale</Text>
@@ -388,7 +387,7 @@ function CandidateCard({
     <View style={[styles.candidateCard, done && styles.candidateCardDone]}>
       <View style={styles.candidateTop}>
         <View style={[styles.statusIcon, done && styles.statusIconDone]}>
-          <Ionicons name={copy.icon} size={19} color={done ? "#0A0A0B" : "#FFFFFF"} />
+          <Ionicons name={copy.icon} size={19} color={done ? "#050506" : "#FFFFFF"} />
         </View>
 
         <View style={{ flex: 1 }}>
@@ -426,13 +425,13 @@ function CandidateCard({
         {done ? (
           <Pressable style={styles.primaryButton} onPress={onOpenSpot}>
             <Text style={styles.primaryButtonText}>Moment ansehen</Text>
-            <Ionicons name="arrow-forward" size={18} color="#0A0A0B" />
+            <Ionicons name="arrow-forward" size={18} color="#050506" />
           </Pressable>
         ) : (
           <>
             <Pressable style={styles.primaryButton} onPress={onReview}>
               <Text style={styles.primaryButtonText}>Kurz bewerten</Text>
-              <Ionicons name="arrow-forward" size={18} color="#0A0A0B" />
+              <Ionicons name="arrow-forward" size={18} color="#050506" />
             </Pressable>
 
             <Pressable style={styles.secondaryButton} onPress={onSmartReview}>
@@ -452,7 +451,7 @@ function CandidateCard({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#08080A",
+    backgroundColor: "#050506",
   },
   header: {
     paddingHorizontal: 18,
@@ -466,7 +465,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#15151A",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "#2A2A33",
     alignItems: "center",
@@ -478,7 +477,7 @@ const styles = StyleSheet.create({
   kicker: {
     color: "#85858E",
     fontSize: 12,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: 1.3,
     textTransform: "uppercase",
   },
@@ -486,16 +485,16 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: "#FFFFFF",
     fontSize: 31,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -0.9,
   },
   heroCard: {
     marginHorizontal: 18,
     marginBottom: 14,
     borderRadius: 28,
-    backgroundColor: "#101015",
+    backgroundColor: "#111113",
     borderWidth: 1,
-    borderColor: "#282832",
+    borderColor: "#1B1B20",
     padding: 16,
     flexDirection: "row",
     gap: 14,
@@ -511,13 +510,13 @@ const styles = StyleSheet.create({
   heroTitle: {
     color: "#FFFFFF",
     fontSize: 19,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   heroText: {
     marginTop: 5,
     color: "#A3A3AA",
     fontSize: 14,
-    fontWeight: "650",
+    fontWeight: "600",
     lineHeight: 20,
   },
   segment: {
@@ -526,9 +525,9 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     padding: 5,
-    backgroundColor: "#101015",
+    backgroundColor: "#111113",
     borderWidth: 1,
-    borderColor: "#282832",
+    borderColor: "#1B1B20",
     flexDirection: "row",
   },
   segmentButton: {
@@ -543,10 +542,10 @@ const styles = StyleSheet.create({
   segmentText: {
     color: "#8F8F98",
     fontSize: 14,
-    fontWeight: "850",
+    fontWeight: "800",
   },
   segmentTextActive: {
-    color: "#08080A",
+    color: "#050506",
   },
   loading: {
     flex: 1,
@@ -566,9 +565,9 @@ const styles = StyleSheet.create({
   emptyCard: {
     minHeight: 220,
     borderRadius: 30,
-    backgroundColor: "#101015",
+    backgroundColor: "#111113",
     borderWidth: 1,
-    borderColor: "#282832",
+    borderColor: "#1B1B20",
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
@@ -577,7 +576,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: "#FFFFFF",
     fontSize: 21,
-    fontWeight: "950",
+    fontWeight: "900",
     textAlign: "center",
   },
   emptyText: {
@@ -586,7 +585,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
     textAlign: "center",
-    fontWeight: "650",
+    fontWeight: "600",
   },
   decisionGroup: {
     marginBottom: 18,
@@ -609,7 +608,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
     color: "#FFFFFF",
     fontSize: 19,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -0.3,
   },
   groupCount: {
@@ -622,9 +621,9 @@ const styles = StyleSheet.create({
   },
   candidateCard: {
     borderRadius: 28,
-    backgroundColor: "#101015",
+    backgroundColor: "#111113",
     borderWidth: 1,
-    borderColor: "#282832",
+    borderColor: "#1B1B20",
     padding: 16,
   },
   candidateCardDone: {
@@ -642,7 +641,7 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     backgroundColor: "#1B1B22",
     borderWidth: 1,
-    borderColor: "#30303A",
+    borderColor: "#1B1B20",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -661,20 +660,20 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: "#FFFFFF",
     fontSize: 20,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -0.35,
   },
   candidateMeta: {
     marginTop: 2,
     color: "#9A9AA2",
     fontSize: 14,
-    fontWeight: "750",
+    fontWeight: "700",
   },
   promptTitle: {
     marginTop: 14,
     color: "#FFFFFF",
     fontSize: 22,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -0.45,
   },
   promptBody: {
@@ -682,7 +681,7 @@ const styles = StyleSheet.create({
     color: "#B7B7BE",
     fontSize: 15,
     lineHeight: 21,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   whyText: {
     marginTop: 12,
@@ -707,7 +706,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: "#D8FBE3",
     fontSize: 14,
-    fontWeight: "750",
+    fontWeight: "700",
   },
   actionRow: {
     marginTop: 16,
@@ -726,9 +725,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primaryButtonText: {
-    color: "#08080A",
+    color: "#050506",
     fontSize: 15,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   secondaryButton: {
     width: 50,
@@ -736,7 +735,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     backgroundColor: "#17171D",
     borderWidth: 1,
-    borderColor: "#30303A",
+    borderColor: "#1B1B20",
     alignItems: "center",
     justifyContent: "center",
   },

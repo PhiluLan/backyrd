@@ -66,7 +66,7 @@ export default function PrivacyHistoryScreen() {
 
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color="#FF7DA7" />
+          <ActivityIndicator color="#FF4F91" />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
@@ -122,7 +122,7 @@ export default function PrivacyHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#09090A" },
+  safe: { flex: 1, backgroundColor: "#050506" },
 
   header: {
     flexDirection: "row",
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     padding: 17,
     borderRadius: 19,
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
     marginBottom: 10,
@@ -171,13 +171,13 @@ const styles = StyleSheet.create({
   dotOff: { backgroundColor: "#FF7D87" },
   rowCopy: { flex: 1 },
   rowTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "900" },
-  eventLabel: { color: "#FF7DA7", fontWeight: "800", marginTop: 5 },
+  eventLabel: { color: "#FF4F91", fontWeight: "800", marginTop: 5 },
   meta: { color: "#797984", fontSize: 12, lineHeight: 17, marginTop: 7 },
   empty: {
     alignItems: "center",
     padding: 28,
     borderRadius: 22,
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
   },
   emptyTitle: {
     color: "#FFFFFF",

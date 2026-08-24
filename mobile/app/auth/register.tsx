@@ -24,17 +24,16 @@ import * as AuthSession from "expo-auth-session";
 import * as Device from "expo-device";
 import * as WebBrowser from "expo-web-browser";
 import Constants from "expo-constants";
+import * as Crypto from "expo-crypto";
 
 import { supabase } from "../../lib/supabase";
 import { ensureProfile } from "../../lib/profile";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const iosClientId =
-  "729608339021-dl4pqthrguti9o8sfat336kuae4s358q.apps.googleusercontent.com";
-const androidClientId = "<YOUR_ANDROID_CLIENT_ID>";
-const webClientId =
-  "729608339021-u22np8gnlld09a248ovjtrj1n61q6kgt.apps.googleusercontent.com";
+const iosClientId = Constants.expoConfig?.extra?.googleIosClientId as string | undefined;
+const androidClientId = Constants.expoConfig?.extra?.googleAndroidClientId as string | undefined;
+const webClientId = Constants.expoConfig?.extra?.googleWebClientId as string | undefined;
 
 const isExpoGo = Constants.appOwnership === "expo";
 const isSimulator = !Device.isDevice;
@@ -202,7 +201,14 @@ export default function RegisterScreen() {
 
       setSocialLoading(true);
 
+      const rawNonce = Crypto.randomUUID();
+      const appleNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce
+      );
+
       const response = await AppleAuthentication.signInAsync({
+        nonce: appleNonce,
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
@@ -216,7 +222,7 @@ export default function RegisterScreen() {
       const { error } = await supabase.auth.signInWithIdToken({
         provider: "apple",
         token: response.identityToken,
-        nonce: response.nonce ?? undefined,
+        nonce: rawNonce,
       });
 
       if (error) throw error;
@@ -239,7 +245,7 @@ export default function RegisterScreen() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <LinearGradient colors={["#050506", "#0A0A0B", "#191A22"]} style={styles.container}>
+        <LinearGradient colors={["#050506", "#050506", "#111113"]} style={styles.container}>
           <View style={styles.header}>
             <Pressable onPress={() => router.replace("/gate" as any)} hitSlop={10} style={styles.backBtn}>
               <Ionicons name="chevron-back" size={32} color="#fff" />
@@ -378,7 +384,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: "#fff",
     fontSize: 30,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: 0.2,
     flexShrink: 1,
   },
@@ -395,7 +401,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 38,
     lineHeight: 42,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -0.9,
     marginBottom: 10,
   },
@@ -432,7 +438,7 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     color: "#fff",
     fontSize: 17,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   dividerRow: {
     flexDirection: "row",
@@ -462,7 +468,7 @@ const styles = StyleSheet.create({
   },
   appleText: {
     color: "#fff",
-    fontWeight: "950",
+    fontWeight: "900",
     fontSize: 17,
   },
   googleBtn: {
@@ -476,7 +482,7 @@ const styles = StyleSheet.create({
   },
   googleText: {
     color: "#111",
-    fontWeight: "950",
+    fontWeight: "900",
     fontSize: 17,
   },
   linkRow: {
@@ -487,6 +493,6 @@ const styles = StyleSheet.create({
   link: {
     color: "#A6A8AD",
     fontSize: 15,
-    fontWeight: "850",
+    fontWeight: "800",
   },
 });

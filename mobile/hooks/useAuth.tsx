@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 
 import { supabase } from "../lib/supabase";
@@ -26,21 +25,23 @@ async function recoverFromInvalidRefreshToken() {
   }
 
   await clearSupabaseAuthStorage();
-  await AsyncStorage.removeItem("wasLoggedInBefore");
 }
 
-export function useAuth() {
+type AuthContextValue = {
+  session: Session | null;
+  user: Session["user"] | null;
+  loading: boolean;
+};
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     let recovering = false;
-
-    async function applyLoggedOutState() {
-      if (mounted) setSession(null);
-      await AsyncStorage.removeItem("wasLoggedInBefore");
-    }
 
     async function recover(error: unknown) {
       if (recovering) return;
@@ -51,7 +52,7 @@ export function useAuth() {
           "Invalid Supabase refresh token detected. Clearing local session."
         );
         await recoverFromInvalidRefreshToken();
-        await applyLoggedOutState();
+        if (mounted) setSession(null);
       } finally {
         recovering = false;
       }
@@ -88,20 +89,10 @@ export function useAuth() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+    } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       if (!mounted) return;
 
       setSession(currentSession ?? null);
-
-      try {
-        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-          await AsyncStorage.setItem("wasLoggedInBefore", "true");
-        } else if (event === "SIGNED_OUT") {
-          await AsyncStorage.removeItem("wasLoggedInBefore");
-        }
-      } catch (error) {
-        console.warn("Auth state persistence failed:", error);
-      }
     });
 
     return () => {
@@ -110,9 +101,16 @@ export function useAuth() {
     };
   }, []);
 
-  return {
-    session,
-    user: session?.user ?? null,
-    loading,
-  };
+  const value = useMemo(
+    () => ({ session, user: session?.user ?? null, loading }),
+    [loading, session]
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const value = useContext(AuthContext);
+  if (!value) throw new Error("useAuth must be used inside AuthProvider");
+  return value;
 }

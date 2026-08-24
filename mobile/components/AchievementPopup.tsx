@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from "react";
-import { View, Text, Image, StyleSheet, Animated } from "react-native";
+import { Text, Image, StyleSheet, Animated } from "react-native";
+import type { NewlyUnlockedAchievement } from "../lib/achievementEngine";
 
-export default function AchievementPopup({ achievement, onClose }) {
+export default function AchievementPopup({ achievement, onClose }: { achievement: NewlyUnlockedAchievement; onClose: () => void }) {
   const scale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -9,12 +10,14 @@ export default function AchievementPopup({ achievement, onClose }) {
       Animated.spring(scale, { toValue: 1, useNativeDriver: true }),
       Animated.delay(1800),
       Animated.timing(scale, { toValue: 0, duration: 300, useNativeDriver: true }),
-    ]).start(onClose);
-  }, []);
+    ]).start(() => onClose());
+  }, [onClose, scale]);
 
   return (
     <Animated.View style={[styles.popup, { transform: [{ scale }] }]}>
-      <Image source={{ uri: achievement.public_icon_url }} style={styles.icon} />
+      {achievement.public_icon_url ? (
+        <Image source={{ uri: achievement.public_icon_url }} style={styles.icon} />
+      ) : null}
       <Text style={styles.title}>Neues Badge!</Text>
       <Text style={styles.name}>{achievement.name}</Text>
     </Animated.View>
