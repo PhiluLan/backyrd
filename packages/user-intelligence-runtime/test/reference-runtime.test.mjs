@@ -28,3 +28,10 @@ test("positive review without N4 or an explicit concept remains in N2 but is omi
   const input=buildCanonicalRuntimeInput({memoryEvents:[memory],reviewsById:{r:{text:"War gut.",moods:["unmapped"],spotBinding:{status:"CONFIRMED",confidence:.9}}},n4BySpot:{}});
   assert.deepEqual(input.map((event)=>event.eventType),[]);
 });
+
+test("N4 Spot-only dimensions never cross into frozen User Taste evidence",()=>{
+ const memory={id:"feedback",idempotencyKey:"feedback",userId:"user",eventType:"exact_mood_feedback",contractVersion:"backyrd-memory-event-contract-v1",occurredAt:"2026-01-01T10:00:00.000Z",observedAt:"2026-01-01T10:00:00.000Z",ingestedAt:"2026-01-01T10:00:00.000Z",decisionId:"decision",sessionId:"decision",spotId:"spot",momentSignature:{audience:"family"},spotEvidence:{concepts:[]},provenance:{source:"product_memory_bridge",sourceEventId:"feedback",sourceVersion:"v1"},consentPurpose:"personalized_recommendations",consentState:"granted"};
+ const input=buildCanonicalRuntimeInput({memoryEvents:[memory],n4BySpot:{spot:{placeType:"culture",concepts:{"occasion.kids_friendly":{confidence:.9},"planning.low_friction":{confidence:.8},"vibe.inspiring":{confidence:.9},"environment.indoor":{confidence:.9}}}}});
+ assert.equal(input.length,1);
+ assert.deepEqual(input[0].spotEvidence.concepts,["environment.indoor","vibe.inspiring"]);
+});

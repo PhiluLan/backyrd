@@ -1,5 +1,5 @@
 import { understandMoods, understandReview } from "../../../decision-lab/src/n5-8-unified-user-evidence.mjs";
-import { canonicalizeProductMood,SEMANTIC_CONTRACT_VERSION } from "../../canonical-semantics/src/index.mjs";
+import { canonicalizeProductMood,isUserTasteConcept,SEMANTIC_CONTRACT_VERSION } from "../../canonical-semantics/src/index.mjs";
 
 const conceptRequiredEvents=new Set(["spot_tapped","search_result_opened","spot_opened","saved","navigation_intent","reservation_intent","verified_visit","positive_post_visit","negative_post_visit","exact_mood_feedback","explicit_positive","explicit_negative"]);
 const outcomeEvents=new Set(["verified_visit","positive_post_visit","negative_post_visit","exact_mood_feedback","explicit_positive","explicit_negative"]);
@@ -25,7 +25,16 @@ export function buildCanonicalRuntimeInput({ memoryEvents, reviewsById = {}, n4B
       sessionId: memory.sessionId ?? null,
       spotId: memory.spotId ?? null,
       momentSignature: memory.momentSignature ?? {},
-      spotEvidence: { placeType: n4BySpot[memory.spotId]?.placeType ?? memory.spotEvidence?.placeType ?? null, concepts: [...new Set([...Object.keys(n4BySpot[memory.spotId]?.concepts ?? {}),...(memory.spotEvidence?.concepts??[])])].sort() },
+      spotEvidence: {
+        placeType: n4BySpot[memory.spotId]?.placeType ?? memory.spotEvidence?.placeType ?? null,
+        // N2-authored concepts have already crossed the canonical input
+        // validator. N4 concepts are Spot Intelligence and must explicitly be
+        // admitted to the frozen 45-concept User Taste registry.
+        concepts: [...new Set([
+          ...Object.keys(n4BySpot[memory.spotId]?.concepts ?? {}).filter(isUserTasteConcept),
+          ...(memory.spotEvidence?.concepts??[]),
+        ])].sort(),
+      },
       provenance: memory.provenance,
       consentPurpose: memory.consentPurpose,
       consentState: memory.consentState,

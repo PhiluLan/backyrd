@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {assertRegistryIntegrity,canonicalizeProductMood,categoryToPlaceType,reviewOriginPair,interpretCanonicalCurrentIntent,ATMOSPHERE_CONCEPT_MAP,FACT_KEYS,HUMAN_SPOT_FIELDS,HUMAN_CONTEXT_LABELS,HUMAN_ACCESSIBILITY_LABELS} from "../src/index.mjs";
+import {assertRegistryIntegrity,canonicalizeProductMood,categoryToPlaceType,reviewOriginPair,interpretCanonicalCurrentIntent,ATMOSPHERE_CONCEPT_MAP,FACT_KEYS,HUMAN_SPOT_FIELDS,HUMAN_CONTEXT_LABELS,HUMAN_ACCESSIBILITY_LABELS,FROZEN_N4_DIMENSIONS,FROZEN_TASTE_CONCEPTS,N4_USER_EVIDENCE_AUTHORITY,classifyN4DimensionForUserEvidence,isUserTasteConcept} from "../src/index.mjs";
 
 test("frozen registries and all 14 live categories are complete",()=>{assert.equal(assertRegistryIntegrity(),true);for(const value of ["Aktivität","Aussichtspunkt","Bar","Besonderes Erlebnis","Café","Event","Kino","Museum","Nachtleben","Restaurant","Spaziergang","Unterkunft / Hotel","Weinbar","Wellness & Spa"])assert.equal(categoryToPlaceType(value).status,"KNOWN");assert.deepEqual(categoryToPlaceType("future category"),{status:"UNKNOWN",category:"future category",placeType:null,contractVersion:"backyrd-canonical-semantics-v1"});});
 test("mood aliases canonicalize while test and unsupported values do not qualify",()=>{assert.equal(canonicalizeProductMood("gemütlich").concept,"vibe.cozy");assert.equal(canonicalizeProductMood("quiet").concept,"vibe.quiet");assert.equal(canonicalizeProductMood("a").status,"INVALID");assert.equal(canonicalizeProductMood("invented").status,"UNMAPPED");assert.equal(canonicalizeProductMood("urban").status,"DISPLAY_ONLY");});
@@ -13,4 +13,12 @@ test("one canonical current-intent authority preserves Regentag, family and chil
  assert.equal(intent.legacyHints.wantsRainyDay,true);assert.equal(intent.legacyHints.wantsKids,true);
  assert.deepEqual(intent.preferredPlaceTypes,["activity","culture","outing","experience"]);
  assert.ok(intent.hardConstraints.excludedPlaceTypes.includes("bar"));
+});
+test("all 60 N4 dimensions have one explicit User-evidence authority",()=>{
+ assert.equal(FROZEN_N4_DIMENSIONS.length,60);assert.equal(FROZEN_TASTE_CONCEPTS.length,45);
+ assert.deepEqual(Object.keys(N4_USER_EVIDENCE_AUTHORITY).sort(),[...FROZEN_N4_DIMENSIONS].sort());
+ assert.equal(FROZEN_N4_DIMENSIONS.filter(isUserTasteConcept).length,45);
+ assert.equal(classifyN4DimensionForUserEvidence("occasion.kids_friendly"),"OCCASION_ONLY");
+ assert.equal(classifyN4DimensionForUserEvidence("place_type"),"PLACE_TYPE_ONLY");
+ assert.equal(classifyN4DimensionForUserEvidence("invented.dimension"),"NOT_USER_LEARNABLE");
 });
