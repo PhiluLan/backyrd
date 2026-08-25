@@ -23,7 +23,7 @@ type LiveInput = {
 const errorCode = (error: unknown) => String(error instanceof Error ? error.message : error).slice(0, 160);
 const fail = (error: { message?: string } | null, label: string) => { if (error) throw new Error(`internal_live:${label}:${error.message ?? "unknown"}`); };
 const reasonPriority=(reason:{type?:string;code?:string})=>{
-  if(reason.type==="WHY_NOW"&&["RAIN_SUITABLE","INDOOR_MATCH","OUTDOOR_MATCH","CHILD_AGE_MATCH","FAMILY_SUITABLE","ACTIVITY_MATCH","ACCESSIBILITY_MATCH","DURATION_MATCH","QUIET_MATCH","SOCIAL_CONTEXT_MATCH","CONVERSATION_MATCH","PLANNING_MATCH","DAYPART_MATCH","PRICE_MATCH"].includes(reason.code??""))return 50;
+  if(reason.type==="WHY_NOW"&&["RAIN_SUITABLE","INDOOR_MATCH","OUTDOOR_MATCH","CHILD_AGE_MATCH","FAMILY_SUITABLE","ACTIVITY_MATCH","ACCESSIBILITY_MATCH","DURATION_MATCH","QUIET_MATCH","SOCIAL_CONTEXT_MATCH","CONVERSATION_MATCH","PLANNING_MATCH","DAYPART_MATCH","PRICE_MATCH","OFFERING_MATCH","PURPOSE_MATCH"].includes(reason.code??""))return 50;
   if(reason.type==="WHY_NOW"&&reason.code==="CURRENT_INTENT_MATCH")return 40;
   if(reason.type==="WHY_NOW"&&reason.code==="PLACE_TYPE_MATCH")return 30;
   if(reason.type==="WHY_FOR_YOU")return 20;

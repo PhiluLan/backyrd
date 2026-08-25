@@ -5,7 +5,7 @@ export const N4_DECISION_VERSION = "backyrd-n4-decision-serialization-v2";
 const canonical = (value) => value && typeof value === "object" ? Array.isArray(value) ? value.map(canonical) : Object.fromEntries(Object.keys(value).sort().map((key)=>[key,canonical(value[key])])) : value;
 const hash = (value) => createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex");
 const bounded = (value) => Number.isFinite(Number(value)) ? Math.max(0,Math.min(1,Number(value))) : null;
-const allowedFacts=new Set(Object.values(FACT_KEYS));
+const allowedFacts=new Set(Object.values(FACT_KEYS).filter((key)=>![FACT_KEYS.OFFERING,FACT_KEYS.PURPOSE].includes(key)));
 
 function serializeSuitability(value){
   return Object.fromEntries(Object.entries(value??{}).filter(([key,row])=>allowedFacts.has(key)&&row&&typeof row==="object"&&row.sourceIdentity).map(([key,row])=>[key,{value:canonical(row.value),status:row.status??"ACTIVE",confidence:bounded(row.confidence),sourceIdentity:String(row.sourceIdentity),observedAt:row.observedAt??null,contractVersion:row.contractVersion??SEMANTIC_CONTRACT_VERSION}]).filter(([,row])=>row.confidence!==null).sort(([a],[b])=>a.localeCompare(b)));

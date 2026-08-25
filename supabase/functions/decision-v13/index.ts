@@ -1,4 +1,5 @@
 // supabase/functions/decision-v13/index.ts
+import { interpretCanonicalCurrentIntent } from "../../../packages/canonical-semantics/src/index.mjs";
 
 type Env = {
   SUPABASE_URL: string;
@@ -14,6 +15,8 @@ type SemanticMatchRow = {
   similarity: number;
   document_text: string;
 };
+
+type OfferingRetrievalRow = SemanticMatchRow & { offering_matches: string[]; purpose_matches: string[] };
 
 type V12DecisionRow = {
   spot_id: string;
@@ -122,7 +125,7 @@ type Candidate = {
   place_type_context_confidence: number;
   place_type_global_confidence: number;
 
-  sources: Array<"personalized_v12" | "semantic_v13">;
+  sources: Array<"personalized_v12" | "semantic_v13" | "canonical_offering_retrieval">;
 
   explanation: {
     model: string;
@@ -751,6 +754,13 @@ async function getSemanticCandidates(
     },
     env.SUPABASE_SERVICE_ROLE_KEY,
   );
+}
+
+async function getOfferingCandidates(env:Env,args:{city:string|null;offerings:string[];purposes:string[];limit:number;excludeSpotIds:string[]}):Promise<OfferingRetrievalRow[]> {
+  if(args.offerings.length===0&&args.purposes.length===0)return [];
+  return await rpc<OfferingRetrievalRow[]>(env,"backyrd_retrieve_spots_by_offering_v1",{
+    p_city:args.city,p_offerings:args.offerings,p_purposes:args.purposes,p_limit:args.limit,p_exclude_spot_ids:args.excludeSpotIds,
+  },env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
 async function getV12Candidates(
@@ -1897,6 +1907,7 @@ function fuseCandidates(input: {
   contextualTaste: ContextualTasteRow[];
   recentMemory: RecentDecisionMemoryRow[];
   distributionPriority: Map<string, number>;
+  requiredRecallIds?: Set<string>;
 }): Candidate[] {
   const map = new Map<string, Candidate>();
 
@@ -1976,6 +1987,10 @@ function fuseCandidates(input: {
       if (!existing.sources.includes("semantic_v13")) {
         existing.sources.push("semantic_v13");
       }
+      if ((Array.isArray((row as OfferingRetrievalRow).offering_matches) && (row as OfferingRetrievalRow).offering_matches.length > 0) ||
+          (Array.isArray((row as OfferingRetrievalRow).purpose_matches) && (row as OfferingRetrievalRow).purpose_matches.length > 0)) {
+        existing.sources.push("canonical_offering_retrieval");
+      }
 
       existing.explanation.semantic_rank = index + 1;
       existing.explanation.semantic_similarity = similarity;
@@ -2011,7 +2026,12 @@ function fuseCandidates(input: {
         place_type_context_confidence: 0,
         place_type_global_confidence: 0,
 
-        sources: ["semantic_v13"],
+        sources: [
+          "semantic_v13",
+          ...(((Array.isArray((row as OfferingRetrievalRow).offering_matches) && (row as OfferingRetrievalRow).offering_matches.length > 0) ||
+            (Array.isArray((row as OfferingRetrievalRow).purpose_matches) && (row as OfferingRetrievalRow).purpose_matches.length > 0)
+            ? ["canonical_offering_retrieval"] : [])),
+        ],
 
         explanation: {
           model: MODEL_NAME,
@@ -2129,7 +2149,19 @@ function fuseCandidates(input: {
     return aBestRank - bBestRank;
   });
 
-  return diversifyCandidates(fused, input.limit, input.intent);
+  const selected = diversifyCandidates(fused, input.limit, input.intent);
+  // Exact Offering/Purpose retrieval is a recall guarantee only. Candidates
+  // enter the bounded factual-matching window at its tail and receive no score
+  // or ordering bonus; the deterministic factual tuple remains authoritative.
+  for (const spotId of input.requiredRecallIds ?? []) {
+    if (selected.some((candidate) => candidate.spot_id === spotId)) continue;
+    const recalled = fused.find((candidate) => candidate.spot_id === spotId);
+    if (!recalled) continue;
+    const victim = [...selected].reverse().find((candidate) => !(input.requiredRecallIds?.has(candidate.spot_id) ?? false));
+    if (!victim) break;
+    selected[selected.indexOf(victim)] = recalled;
+  }
+  return selected;
 }
 
 Deno.serve(async (request: Request) => {
@@ -2232,7 +2264,7 @@ Deno.serve(async (request: Request) => {
       occasions: intent.occasions,
     });
 
-    const decisionContext = {
+    const decisionContext: Record<string, unknown> = {
       source: "decision_v13_edge",
       model_version: MODEL_VERSION,
       inputMode: sanitizeString(body.inputMode),
@@ -2257,6 +2289,10 @@ Deno.serve(async (request: Request) => {
 
     const contextKeys = Array.from(new Set(decisionContextKeys.map((row) => row.context_key).filter(Boolean)));
 
+    const canonicalIntent=interpretCanonicalCurrentIntent({query,rawFreeText:rawQuery,audience,preferredPlaceTypes,excludedPlaceTypes,strictCategoryIntent});
+    const requestedOfferings=canonicalIntent.currentRequestFacts.offerings?.value??[];
+    const requestedPurposes=canonicalIntent.currentRequestFacts.purposes?.value??[];
+    decisionContext.canonicalIntent=canonicalIntent;
     const queryEmbedding = await createEmbedding(env, queryText);
 
     const semanticPromise = getSemanticCandidates(env, {
@@ -2265,6 +2301,7 @@ Deno.serve(async (request: Request) => {
       limit: semanticLimit,
       excludeSpotIds,
     });
+    const offeringPromise=getOfferingCandidates(env,{city,offerings:requestedOfferings,purposes:requestedPurposes,limit:semanticLimit,excludeSpotIds});
 
     const v12Promise = hasUserToken && callerToken
       ? getV12Candidates(env, {
@@ -2294,17 +2331,19 @@ Deno.serve(async (request: Request) => {
       hasUserToken,
     });
 
-    const [semanticCandidates, v12Candidates, placeTypeProfile, contextualTaste, recentMemory] = await Promise.all([
+    const [semanticCandidates, offeringCandidates, v12Candidates, placeTypeProfile, contextualTaste, recentMemory] = await Promise.all([
       semanticPromise,
+      offeringPromise,
       v12Promise,
       placeTypeProfilePromise,
       contextualTastePromise,
       recentMemoryPromise,
     ]);
 
+    const semanticUniverse=[...offeringCandidates,...semanticCandidates.filter((row)=>!offeringCandidates.some((offering)=>offering.spot_id===row.spot_id))];
     const allSpotIds = Array.from(
       new Set([
-        ...(semanticCandidates ?? []).map((row) => row.spot_id),
+        ...semanticUniverse.map((row) => row.spot_id),
         ...(v12Candidates ?? []).map((row) => row.spot_id),
       ]),
     );
@@ -2314,7 +2353,7 @@ Deno.serve(async (request: Request) => {
       Array.from(distribution.values()).filter((row) => row.eligible).map((row) => row.entity_id),
     );
 
-    let distributedSemantic = (semanticCandidates ?? []).filter((row) => eligibleIds.has(row.spot_id));
+    let distributedSemantic = semanticUniverse.filter((row) => eligibleIds.has(row.spot_id));
     const distributedV12 = (v12Candidates ?? []).filter((row) => eligibleIds.has(row.spot_id));
 
     const distributedIds = new Set([
@@ -2373,6 +2412,7 @@ Deno.serve(async (request: Request) => {
       placeTypeProfile,
       contextualTaste,
       recentMemory,
+      requiredRecallIds:new Set(offeringCandidates.map((row)=>row.spot_id)),
       distributionPriority: new Map(
         Array.from(distribution.entries()).map(([id, row]) => [id, row.distribution_priority]),
       ),
@@ -2425,6 +2465,7 @@ Deno.serve(async (request: Request) => {
       counts: {
         v12: v12Candidates?.length ?? 0,
         semantic: semanticCandidates?.length ?? 0,
+        offering_retrieval: offeringCandidates.length,
         fused: fused.length,
         place_type_global: placeTypeProfile.global.size,
         place_type_context: placeTypeProfile.context.size,

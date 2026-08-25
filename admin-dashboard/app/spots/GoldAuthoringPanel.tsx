@@ -11,7 +11,7 @@ const GASTRONOMY = new Set(["BREWPUB", "BAR", "COCKTAIL_BAR", "WINE_BAR", "RESTA
 
 function defaultValue(question: AuthoringQuestion): unknown {
   if (question.control_type === "MULTI_CHOICE") return [];
-  if (question.control_type === "TRI_STATE_MAP" || question.control_type === "ACCESSIBILITY_MAP") return Object.fromEntries(question.options.map((option) => [String(option.value), "UNKNOWN"]));
+  if (["TRI_STATE_MAP", "AVAILABILITY_MAP", "PURPOSE_MAP", "ACCESSIBILITY_MAP"].includes(question.control_type)) return Object.fromEntries(question.options.map((option) => [String(option.value), "UNKNOWN"]));
   if (question.control_type === "AGE_RANGE") return { min_age: null, max_age: null, adult_supervision_required: "UNKNOWN" };
   return "UNKNOWN";
 }
