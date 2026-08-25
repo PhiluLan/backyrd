@@ -13,13 +13,13 @@ import {
   Alert,
   Animated,
   PanResponder,
-  Dimensions,
   Linking,
   AppState,
+  useWindowDimensions,
   type AppStateStatus,
 } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Crypto from "expo-crypto";
 
@@ -31,7 +31,8 @@ import { recordMemoryProductAction } from "@/lib/memory-bridge";
 import { selectSpotImageUrl } from "@/lib/spot-images";
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { MarkerStroke } from "@/components/brand/Editorial";
-import { backyrdTheme as brandTheme } from "@/theme/backyrd";
+import { AppText } from "@/components/foundation/AppText";
+import { backyrdTheme as foundationTheme } from "@/theme/backyrd";
 
 type DecisionSpotRpcRow = {
   spot_id: string;
@@ -183,8 +184,6 @@ type MoodOption = {
   queryHint: string;
 };
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const SWIPE_THRESHOLD = Math.min(105, SCREEN_WIDTH * 0.25);
 const VISIBLE_EXPOSURE_MINIMUM_MS = 750;
 
 const theme = {
@@ -567,6 +566,7 @@ function getCopyForSpot(
 }
 
 export default function DecisionScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const homeParams = useLocalSearchParams<{ query?: string; city?: string; auto?: string }>();
   const homeAutoRunRef = useRef<string | null>(null);
@@ -1347,22 +1347,23 @@ export default function DecisionScreen() {
             flexGrow: 1,
             paddingHorizontal: 20,
             paddingTop: 16,
-            paddingBottom: 112,
+            // The floating Tab Bar owns its visual height; Decision input owns the
+            // scroll clearance so the final context/CTA never lands underneath it.
+            paddingBottom: foundationTheme.control.tabBar + foundationTheme.spacing.xl + insets.bottom,
           }}
         >
           <View style={{ marginBottom: 24, marginTop: 4 }}>
-            <Text
+            <AppText
+              role="displayXL"
               style={{
                 color: theme.text,
-                fontFamily: brandTheme.type.display,
                 fontSize: 56,
-                lineHeight: 52,
-                fontWeight: "900",
+                lineHeight: 60,
                 letterSpacing: -1.8,
               }}
             >
               DEIN / JETZT.
-            </Text>
+            </AppText>
 
             <MarkerStroke inset={0} width={154} />
 
@@ -2093,41 +2094,47 @@ function FullscreenSwipeCard({
   onBack: () => void;
   onSettings: () => void;
 }) {
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  // Two 52pt action rows plus their internal vertical rhythm. The actual bottom
+  // inset is added by the fixed SafeAreaView below, so the ScrollView reserves it too.
+  const actionBarClearance = 136 + insets.bottom;
+  const swipeThreshold = Math.min(105, screenWidth * 0.25);
   const pan = useRef(new Animated.ValueXY()).current;
   const isAnimatingRef = useRef(false);
 
   const likeProgress = pan.x.interpolate({
-    inputRange: [0, SWIPE_THRESHOLD],
+    inputRange: [0, swipeThreshold],
     outputRange: [0, 1],
     extrapolate: "clamp",
   });
 
   const dislikeProgress = pan.x.interpolate({
-    inputRange: [-SWIPE_THRESHOLD, 0],
+    inputRange: [-swipeThreshold, 0],
     outputRange: [1, 0],
     extrapolate: "clamp",
   });
 
   const likeScale = pan.x.interpolate({
-    inputRange: [0, SWIPE_THRESHOLD],
+    inputRange: [0, swipeThreshold],
     outputRange: [1, 1.18],
     extrapolate: "clamp",
   });
 
   const dislikeScale = pan.x.interpolate({
-    inputRange: [-SWIPE_THRESHOLD, 0],
+    inputRange: [-swipeThreshold, 0],
     outputRange: [1.18, 1],
     extrapolate: "clamp",
   });
 
   const cardScale = pan.x.interpolate({
-    inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
+    inputRange: [-screenWidth, 0, screenWidth],
     outputRange: [0.965, 1, 0.965],
     extrapolate: "clamp",
   });
 
   const rotate = pan.x.interpolate({
-    inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
+    inputRange: [-screenWidth, 0, screenWidth],
     outputRange: ["-7deg", "0deg", "7deg"],
     extrapolate: "clamp",
   });
@@ -2137,8 +2144,8 @@ function FullscreenSwipeCard({
       if (isAnimatingRef.current||!exposureReady) return;
 
       isAnimatingRef.current = true;
-      const x = visualDirection === "right" ? SCREEN_WIDTH * 1.45 : -SCREEN_WIDTH * 1.45;
-      const y = -SCREEN_HEIGHT * 0.06;
+      const x = visualDirection === "right" ? screenWidth * 1.45 : -screenWidth * 1.45;
+      const y = -screenHeight * 0.06;
 
       Animated.timing(pan, {
         toValue: { x, y },
@@ -2150,7 +2157,7 @@ function FullscreenSwipeCard({
         isAnimatingRef.current = false;
       });
     },
-    [exposureReady,onSwipe,pan]
+    [exposureReady,onSwipe,pan,screenHeight,screenWidth]
   );
 
   const panResponder = useMemo(
@@ -2162,12 +2169,12 @@ function FullscreenSwipeCard({
         useNativeDriver: false,
       }),
       onPanResponderRelease: (_event, gesture) => {
-        if (gesture.dx > SWIPE_THRESHOLD || gesture.vx > 0.75) {
+        if (gesture.dx > swipeThreshold || gesture.vx > 0.75) {
           swipeOut("next","right");
           return;
         }
 
-        if (gesture.dx < -SWIPE_THRESHOLD || gesture.vx < -0.75) {
+        if (gesture.dx < -swipeThreshold || gesture.vx < -0.75) {
           swipeOut("next","left");
           return;
         }
@@ -2188,7 +2195,7 @@ function FullscreenSwipeCard({
         }).start();
       },
     }),
-    [pan, swipeOut]
+    [pan, swipeOut, swipeThreshold]
   );
 
   const imageUrl = spot.photo_url;
@@ -2225,9 +2232,9 @@ function FullscreenSwipeCard({
           }}
         >
           <RoundDeckButton label="‹" onPress={onBack} />
-          <Text style={{ color: theme.text, fontFamily: brandTheme.type.display, fontSize: 34, lineHeight: 34, fontWeight: "900", letterSpacing: -0.9 }}>
+          <AppText role="displayM" numberOfLines={1} style={{ color: theme.text, fontSize: 34, lineHeight: 40, letterSpacing: -0.9 }}>
             DEIN / JETZT.
-          </Text>
+          </AppText>
           <RoundDeckButton label="✦" onPress={onSettings} />
         </View>
 
@@ -2235,7 +2242,7 @@ function FullscreenSwipeCard({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingBottom: 118,
+            paddingBottom: actionBarClearance + 24,
           }}
         >
           <View
@@ -2252,7 +2259,7 @@ function FullscreenSwipeCard({
               gap: 8,
             }}
           >
-            <Text numberOfLines={1} style={{ color: "#111113", fontSize: 14, fontWeight: "700", maxWidth: SCREEN_WIDTH - 108 }}>
+            <Text numberOfLines={1} style={{ color: "#111113", fontSize: 14, fontWeight: "700", maxWidth: screenWidth - 108 }}>
               {queryLabel}
             </Text>
             <Text style={{ color: "rgba(23,18,20,0.58)", fontSize: 18, fontWeight: "600", marginTop: -1 }}>×</Text>
@@ -2302,7 +2309,7 @@ function FullscreenSwipeCard({
           >
             <View
               style={{
-                minHeight: Math.min(510, SCREEN_HEIGHT * 0.58),
+                minHeight: Math.min(510, screenHeight * 0.58),
                 borderRadius: 3,
                 overflow: "hidden",
                 backgroundColor: "#121214",
@@ -2319,7 +2326,7 @@ function FullscreenSwipeCard({
               />
 
               <LinearGradient
-                colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.18)", "rgba(0,0,0,0.72)", "rgba(0,0,0,0.95)"]}
+                colors={["rgba(0,0,0,0.08)", "rgba(0,0,0,0.15)", "rgba(0,0,0,0.58)", "rgba(0,0,0,0.84)"]}
                 locations={[0, 0.42, 0.72, 1]}
                 style={{
                   position: "absolute",
@@ -2376,19 +2383,18 @@ function FullscreenSwipeCard({
 
               <View style={{ flex: 1, justifyContent: "space-between", padding: 16 }}>
                 <View>
-                  <Text
+                  <AppText
                     numberOfLines={2}
                     style={{
                       color: theme.text,
-                      fontFamily: brandTheme.type.display,
                       fontSize: 47,
-                      lineHeight: 45,
-                      fontWeight: "900",
+                      lineHeight: 52,
                       letterSpacing: -1.15,
                     }}
+                    role="displayL"
                   >
                     {spot.name}
-                  </Text>
+                  </AppText>
                   <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: "600", marginTop: 8 }}>
                     Passt zu deinem Moment
                   </Text>
@@ -2420,13 +2426,26 @@ function FullscreenSwipeCard({
             </View>
           </Animated.View>
 
-          {total > 1 && (
-            <Text style={{ color: "rgba(255,255,255,0.38)", textAlign: "center", marginTop: 14, fontWeight: "700", fontSize: 12 }}>
-              Treffer {index + 1} von {total}
-            </Text>
-          )}
         </ScrollView>
       </SafeAreaView>
+
+      {total > 1 ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: 20,
+            right: 20,
+            bottom: actionBarClearance + 8,
+            zIndex: 44,
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ color: "rgba(255,255,255,0.56)", fontWeight: "800", fontSize: 12, textAlign: "center", backgroundColor: "rgba(5,5,6,0.78)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 }}>
+            Treffer {index + 1} von {total}
+          </Text>
+        </View>
+      ) : null}
 
       <SafeAreaView
         pointerEvents="box-none"
