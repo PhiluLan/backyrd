@@ -2,26 +2,27 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Updates from "expo-updates";
 import { Tabs, useGlobalSearchParams, usePathname, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, View } from "react-native";
 
 import { supabase } from "../../lib/supabase";
 import { reportAnalyticsError, trackAnalyticsEvent } from "../../lib/analytics";
+import { backyrdTheme as theme } from "../../theme/backyrd";
 
 const DEV_EMAIL = "philipplanger@yahoo.com";
 
 const DEFAULT_TAB_BAR_STYLE = {
   position: "absolute" as const,
-  left: 16,
-  right: 16,
+  left: theme.spacing.lg,
+  right: theme.spacing.lg,
   bottom: 14,
-  height: 78,
+  height: theme.control.tabBar,
   paddingTop: 8,
   paddingBottom: 12,
   borderTopWidth: 0,
-  borderRadius: 30,
+  borderRadius: theme.radius.xl,
   borderWidth: 1,
-  borderColor: "rgba(255,255,255,0.08)",
+  borderColor: theme.color.border,
   backgroundColor: "rgba(10,10,12,0.92)",
   elevation: 0,
   shadowColor: "#000",
@@ -35,6 +36,7 @@ function SmartReviewTabButton({ onPress }: { onPress?: () => void }) {
     <View style={styles.plusWrap}>
       <Pressable
         accessibilityLabel="Mood abgeben"
+        accessibilityRole="button"
         hitSlop={8}
         onPress={onPress}
         style={({ pressed }) => [
@@ -42,7 +44,7 @@ function SmartReviewTabButton({ onPress }: { onPress?: () => void }) {
           pressed && styles.plusButtonPressed,
         ]}
       >
-        <Ionicons name="add" size={30} color="#09090A" />
+        <Ionicons name="add" size={theme.icon.xl} color="#09090A" />
       </Pressable>
     </View>
   );
@@ -130,8 +132,8 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: hiddenTabStyle,
-        tabBarActiveTintColor: "#FF7DA7",
-        tabBarInactiveTintColor: "#808087",
+        tabBarActiveTintColor: theme.color.pink,
+        tabBarInactiveTintColor: theme.color.textMuted,
         tabBarHideOnKeyboard: true,
         tabBarLabelStyle: styles.tabLabel,
         tabBarItemStyle: styles.tabItem,
@@ -237,7 +239,7 @@ const styles = StyleSheet.create({
   tabLabel: {
     marginBottom: 2,
     fontSize: 11,
-    fontWeight: "700",
+    fontFamily: theme.type.bodyBold,
   },
   plusWrap: {
     flex: 1,
@@ -249,7 +251,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: theme.color.pink,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",

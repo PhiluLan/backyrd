@@ -11,10 +11,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Image,
   Animated,
   PanResponder,
-  Dimensions,
+  StyleSheet,
+  useWindowDimensions,
 } from "react-native";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -26,6 +26,10 @@ import { getMyProductEntryStatus } from "@/lib/onboardingStatus";
 import { mapTextToClusterIds } from "@/lib/decision/moodMapping";
 import { trackAnalyticsEvent, reportAnalyticsError } from "@/lib/analytics";
 import { recordMemoryProductAction } from "@/lib/memory-bridge";
+import { AppText } from "../../components/foundation/AppText";
+import { Button } from "../../components/foundation/Button";
+import { Chip } from "../../components/foundation/Chip";
+import { SpotImage } from "../../components/foundation/SpotImage";
 
 type DecisionSpotRpcRow = {
   spot_id: string;
@@ -174,9 +178,6 @@ type MoodOption = {
   label: string;
   queryHint: string;
 };
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const SWIPE_THRESHOLD = Math.min(105, SCREEN_WIDTH * 0.25);
 
 const theme = {
   bg: "#09090A",
@@ -2308,41 +2309,43 @@ function FullscreenSwipeCard({
   onBack: () => void;
   onSettings: () => void;
 }) {
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const swipeThreshold = Math.min(105, screenWidth * 0.25);
   const pan = useRef(new Animated.ValueXY()).current;
   const isAnimatingRef = useRef(false);
 
   const likeProgress = pan.x.interpolate({
-    inputRange: [0, SWIPE_THRESHOLD],
+    inputRange: [0, swipeThreshold],
     outputRange: [0, 1],
     extrapolate: "clamp",
   });
 
   const dislikeProgress = pan.x.interpolate({
-    inputRange: [-SWIPE_THRESHOLD, 0],
+    inputRange: [-swipeThreshold, 0],
     outputRange: [1, 0],
     extrapolate: "clamp",
   });
 
   const likeScale = pan.x.interpolate({
-    inputRange: [0, SWIPE_THRESHOLD],
+    inputRange: [0, swipeThreshold],
     outputRange: [1, 1.18],
     extrapolate: "clamp",
   });
 
   const dislikeScale = pan.x.interpolate({
-    inputRange: [-SWIPE_THRESHOLD, 0],
+    inputRange: [-swipeThreshold, 0],
     outputRange: [1.18, 1],
     extrapolate: "clamp",
   });
 
   const cardScale = pan.x.interpolate({
-    inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
+    inputRange: [-screenWidth, 0, screenWidth],
     outputRange: [0.965, 1, 0.965],
     extrapolate: "clamp",
   });
 
   const rotate = pan.x.interpolate({
-    inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
+    inputRange: [-screenWidth, 0, screenWidth],
     outputRange: ["-7deg", "0deg", "7deg"],
     extrapolate: "clamp",
   });
@@ -2352,8 +2355,8 @@ function FullscreenSwipeCard({
       if (isAnimatingRef.current||!exposureReady) return;
 
       isAnimatingRef.current = true;
-      const x = visualDirection === "right" ? SCREEN_WIDTH * 1.45 : -SCREEN_WIDTH * 1.45;
-      const y = -SCREEN_HEIGHT * 0.06;
+      const x = visualDirection === "right" ? screenWidth * 1.45 : -screenWidth * 1.45;
+      const y = -screenHeight * 0.06;
 
       Animated.timing(pan, {
         toValue: { x, y },
@@ -2365,7 +2368,7 @@ function FullscreenSwipeCard({
         isAnimatingRef.current = false;
       });
     },
-    [exposureReady,onSwipe,pan]
+    [exposureReady, onSwipe, pan, screenHeight, screenWidth]
   );
 
   const panResponder = useMemo(
@@ -2377,12 +2380,12 @@ function FullscreenSwipeCard({
         useNativeDriver: false,
       }),
       onPanResponderRelease: (_event, gesture) => {
-        if (gesture.dx > SWIPE_THRESHOLD || gesture.vx > 0.75) {
+        if (gesture.dx > swipeThreshold || gesture.vx > 0.75) {
           swipeOut("next","right");
           return;
         }
 
-        if (gesture.dx < -SWIPE_THRESHOLD || gesture.vx < -0.75) {
+        if (gesture.dx < -swipeThreshold || gesture.vx < -0.75) {
           swipeOut("next","left");
           return;
         }
@@ -2403,7 +2406,7 @@ function FullscreenSwipeCard({
         }).start();
       },
     }),
-    [pan, swipeOut]
+    [pan, swipeOut, swipeThreshold]
   );
 
   const imageUrl = spot.photo_url;
@@ -2467,9 +2470,9 @@ function FullscreenSwipeCard({
               gap: 8,
             }}
           >
-            <Text numberOfLines={1} style={{ color: "#171214", fontSize: 14, fontWeight: "750", maxWidth: SCREEN_WIDTH - 108 }}>
+            <AppText numberOfLines={1} role="meta" style={{ color: "#171214", maxWidth: screenWidth - 108 }}>
               {queryLabel}
-            </Text>
+            </AppText>
             <Text style={{ color: "rgba(23,18,20,0.58)", fontSize: 18, fontWeight: "600", marginTop: -1 }}>×</Text>
           </View>
 
@@ -2487,25 +2490,7 @@ function FullscreenSwipeCard({
 
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
             {(momentChips.length > 0 ? momentChips : ["dein Moment"]).map((chip, chipIndex) => (
-              <View
-                key={`${chip}-${chipIndex}`}
-                style={{
-                  minHeight: 34,
-                  paddingHorizontal: 12,
-                  borderRadius: 999,
-                  backgroundColor: "rgba(255,255,255,0.06)",
-                  borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.08)",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 7,
-                }}
-              >
-                <Text style={{ color: chipIndex === 0 ? "#C8E3A6" : theme.pinkMuted, fontSize: 15 }}>
-                  {chipIndex === 0 ? "↗" : chipIndex === 1 ? "∿" : "♡"}
-                </Text>
-                <Text style={{ color: theme.text, fontSize: 13, fontWeight: "750" }}>{chip}</Text>
-              </View>
+              <Chip key={`${chip}-${chipIndex}`} kind="information" label={`${chipIndex === 0 ? "↗" : chipIndex === 1 ? "∿" : "♡"}  ${chip}`} />
             ))}
           </View>
 
@@ -2517,7 +2502,7 @@ function FullscreenSwipeCard({
           >
             <View
               style={{
-                minHeight: Math.min(510, SCREEN_HEIGHT * 0.58),
+                minHeight: Math.min(510, screenHeight * 0.58),
                 borderRadius: 26,
                 overflow: "hidden",
                 backgroundColor: "#121214",
@@ -2525,31 +2510,7 @@ function FullscreenSwipeCard({
                 borderColor: "rgba(255,255,255,0.08)",
               }}
             >
-              {imageUrl ? (
-                <Image
-                  source={{ uri: imageUrl }}
-                  resizeMode="cover"
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    height: "100%",
-                    width: "100%",
-                  }}
-                />
-              ) : (
-                <LinearGradient
-                  colors={["#262128", "#111114", "#070708"]}
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    bottom: 0,
-                  }}
-                />
-              )}
+              <SpotImage spotName={spot.name} uri={imageUrl} overlay style={{ ...StyleSheet.absoluteFillObject }} />
 
               <LinearGradient
                 colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.18)", "rgba(0,0,0,0.72)", "rgba(0,0,0,0.95)"]}
@@ -2609,18 +2570,13 @@ function FullscreenSwipeCard({
 
               <View style={{ flex: 1, justifyContent: "space-between", padding: 16 }}>
                 <View>
-                  <Text
+                  <AppText
                     numberOfLines={2}
-                    style={{
-                      color: theme.text,
-                      fontSize: 38,
-                      lineHeight: 39,
-                      fontWeight: "900",
-                      letterSpacing: -1.15,
-                    }}
+                    role="displayM"
+                    style={{ color: theme.text }}
                   >
                     {spot.name}
-                  </Text>
+                  </AppText>
                   <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: "650", marginTop: 8 }}>
                     Passt zu deinem Moment
                   </Text>
@@ -2682,62 +2638,11 @@ function FullscreenSwipeCard({
             opacity:exposureReady?1:0.55,
           }}
         >
-          <Pressable
-            onPress={()=>swipeOut("next","right")}
-            disabled={!exposureReady}
-            style={{height:50,borderRadius:999,alignItems:"center",justifyContent:"center",backgroundColor:theme.pink}}
-          >
-            {exposureReady?<Text style={{color:"#171214",fontWeight:"950",fontSize:15}}>Weiter</Text>:<ActivityIndicator color="#171214"/>}
-          </Pressable>
+          <Button label="Weiter" loading={!exposureReady} disabled={!exposureReady} onPress={()=>swipeOut("next","right")} />
           <View style={{flexDirection:"row",gap:10}}>
-          <Pressable
-            onPress={() => swipeOut("dislike","left")}
-            disabled={!exposureReady}
-            style={{
-              flex: 1,
-              height: 52,
-              borderRadius: 999,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "rgba(255,255,255,0.065)",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.09)",
-            }}
-          >
-            <Text style={{ color: theme.text, fontWeight: "800", fontSize: 13 }}>Nicht passend</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={onOpen}
-            disabled={!exposureReady}
-            style={{
-              flex: 1.12,
-              height: 52,
-              borderRadius: 999,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: theme.pink,
-            }}
-          >
-            <Text style={{ color: "#171214", fontWeight: "900", fontSize: 15 }}>Route</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => swipeOut("like","right")}
-            disabled={!exposureReady}
-            style={{
-              flex: 1,
-              height: 52,
-              borderRadius: 999,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "rgba(255,255,255,0.065)",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.09)",
-            }}
-          >
-            <Text style={{ color: theme.text, fontWeight: "800", fontSize: 14 }}>Passt</Text>
-          </Pressable>
+          <Button label="Nicht passend" variant="secondary" disabled={!exposureReady} onPress={() => swipeOut("dislike","left")} style={{ flex: 1 }} />
+          <Button label="Route" disabled={!exposureReady} onPress={onOpen} style={{ flex: 1.12 }} />
+          <Button label="Passt" variant="secondary" disabled={!exposureReady} onPress={() => swipeOut("like","right")} style={{ flex: 1 }} />
           </View>
         </View>
       </SafeAreaView>

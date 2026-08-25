@@ -40,6 +40,8 @@ import {
 } from "../../lib/google-place-photo";
 import { searchMobileTaxonomySpots } from "../../lib/taxonomy-search";
 import { filterDistributedSpots } from "../../lib/distributionTrust";
+import { AppText } from "../../components/foundation/AppText";
+import { SpotImage } from "../../components/foundation/SpotImage";
 
 /** ===== THEME ===== */
 const theme = {
@@ -1332,12 +1334,12 @@ export default function Home() {
               </View>
 
               <View style={styles.quietGreetingWrap}>
-                <Text style={styles.quietGreeting}>
-                  Hey <Text style={styles.quietGreetingAccent}>{firstName}</Text>
-                </Text>
-                <Text style={styles.homeSubtitle}>
+                <AppText role="screenTitle" style={styles.quietGreeting}>
+                  Hey <AppText role="screenTitle" tone="pink" style={styles.quietGreetingAccent}>{firstName}</AppText>
+                </AppText>
+                <AppText role="body" tone="secondary" style={styles.homeSubtitle}>
                   Worauf hast du gerade Lust?
-                </Text>
+                </AppText>
               </View>
 
               <BlurView intensity={24} tint="dark" style={styles.quietSearch}>
@@ -1527,21 +1529,7 @@ function SpotVisual({
   name: string;
   height?: number;
 }) {
-  if (uri) {
-    return <Image source={{ uri }} style={[styles.cardImg, { height }]} />;
-  }
-
-  return (
-    <LinearGradient
-      colors={["#231D33", "#10151C", "#111111"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.generatedSpotArt, { height }]}
-    >
-      <View style={styles.generatedSpotGlow} />
-      <Text style={styles.generatedSpotInitial}>{name.slice(0, 1)}</Text>
-    </LinearGradient>
-  );
+  return <SpotImage spotName={name} uri={uri} style={[styles.cardImg, { height }]} />;
 }
 
 function PremiumSpotCard({
