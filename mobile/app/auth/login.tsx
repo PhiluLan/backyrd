@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Keyboard,
   KeyboardAvoidingView,
@@ -17,6 +16,7 @@ import {
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Link, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as AppleAuthentication from "expo-apple-authentication";
@@ -26,6 +26,8 @@ import * as WebBrowser from "expo-web-browser";
 import Constants from "expo-constants";
 
 import { supabase } from "../../lib/supabase";
+import { AppText } from "../../components/foundation/AppText";
+import { Button } from "../../components/foundation/Button";
 import { ensureProfile } from "../../lib/profile";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -63,6 +65,7 @@ function getAuthErrorMessage(error: any) {
 
 export default function LoginScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
@@ -209,20 +212,20 @@ export default function LoginScreen() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <LinearGradient colors={["#050506", "#0A0A0B", "#191A22"]} style={styles.container}>
-          <View style={styles.header}>
+          <View style={[styles.header, { paddingTop: Math.max(insets.top + 12, 34) }]}>
             <Pressable onPress={() => router.replace("/gate" as any)} hitSlop={10} style={styles.backBtn}>
               <Ionicons name="chevron-back" size={32} color="#fff" />
             </Pressable>
-            <Text style={styles.headerTitle}>Einloggen</Text>
+            <AppText role="screenTitle" style={styles.headerTitle}>Einloggen</AppText>
           </View>
 
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 + insets.bottom }}>
             <BlurView intensity={62} tint="dark" style={styles.card}>
               <Text style={styles.kicker}>BACKYRD</Text>
-              <Text style={styles.cardTitle}>Willkommen zurück</Text>
-              <Text style={styles.cardSubtitle}>
+              <AppText role="displayM" style={styles.cardTitle}>Willkommen zurück</AppText>
+              <AppText role="body" tone="secondary" style={styles.cardSubtitle}>
                 Melde dich an und finde direkt wieder Orte, die zu deiner Stimmung passen.
-              </Text>
+              </AppText>
 
               <TextInput
                 placeholder="E-Mail"
@@ -246,17 +249,7 @@ export default function LoginScreen() {
                 style={styles.input}
               />
 
-              <Pressable
-                onPress={onLogin}
-                disabled={loading || socialLoading}
-                style={({ pressed }) => [
-                  styles.primaryBtn,
-                  (loading || socialLoading) && styles.disabled,
-                  pressed && { opacity: 0.85 },
-                ]}
-              >
-                {loading ? <ActivityIndicator /> : <Text style={styles.primaryBtnText}>Einloggen</Text>}
-              </Pressable>
+              <Button label="Einloggen" loading={loading} disabled={socialLoading} onPress={onLogin} style={styles.primaryBtn} />
 
               <View style={styles.dividerRow}>
                 <View style={styles.divider} />

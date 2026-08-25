@@ -2,9 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import {
   View,
   Text,
-  ActivityIndicator,
   Image,
-  Dimensions,
   Pressable,
   FlatList,
   Share,
@@ -12,6 +10,7 @@ import {
   Easing,
   StyleSheet,
   Linking,
+  useWindowDimensions,
 } from "react-native";
 
 import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
@@ -38,6 +37,11 @@ import {
 import { getMobileSpotTaxonomy, type MobileSpotTaxonomyItem } from "../../lib/taxonomy";
 
 import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
+import { AppText } from "../../components/foundation/AppText";
+import { Button } from "../../components/foundation/Button";
+import { Chip as FoundationChip } from "../../components/foundation/Chip";
+import { SpotImage } from "../../components/foundation/SpotImage";
+import { StateView } from "../../components/foundation/StateView";
 const theme = {
   colors: {
     background: "#0A0A0B",
@@ -57,9 +61,6 @@ const theme = {
   radius: { sm: 8, md: 12, lg: 16, xl: 24, xxl: 28, pill: 999 },
 };
 
-const { width } = Dimensions.get("window");
-const HEADER_H = Math.round(width * 0.98);
-const HEADER_MAX = Math.round(width * 0.98);
 const SLIDE_INTERVAL = 6000;
 const SLIDE_DURATION = 650;
 const IOS_EASE = Easing.bezier(0.4, 0.0, 0.2, 1);
@@ -188,10 +189,12 @@ export default function SpotDetailScreen() {
   const { id, entrySource } = useLocalSearchParams<{ id: string; entrySource?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const headerHeight = Math.round(width * 0.98);
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const headerTranslateY = scrollY.interpolate({
-    inputRange: [0, HEADER_H],
+    inputRange: [0, headerHeight],
     outputRange: [0, -80],
     extrapolate: "clamp",
   });
@@ -531,7 +534,7 @@ export default function SpotDetailScreen() {
         }
       });
     }, SLIDE_INTERVAL);
-  }, [photos, translateX]);
+  }, [photos, translateX, width]);
 
   useEffect(() => {
     if (photos.length > 1) startSlideshow();
@@ -599,15 +602,8 @@ export default function SpotDetailScreen() {
 
   if (loading || !spot) {
     return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: theme.colors.background,
-        }}
-      >
-        <ActivityIndicator color="#fff" />
+      <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 20, backgroundColor: theme.colors.background }}>
+        <StateView kind="loading" title="Spot wird geladen" message="Einen Moment – wir bereiten den Ort für dich vor." />
       </View>
     );
   }
@@ -630,7 +626,7 @@ export default function SpotDetailScreen() {
           elevation: 9999,
           paddingHorizontal: 16,
           opacity: scrollY.interpolate({
-            inputRange: [0, HEADER_H * 0.4],
+            inputRange: [0, headerHeight * 0.4],
             outputRange: [1, 0.9],
             extrapolate: "clamp",
           }),
@@ -692,7 +688,7 @@ export default function SpotDetailScreen() {
         <Animated.View
           style={{
             width: "100%",
-            height: HEADER_H,
+            height: headerHeight,
             overflow: "hidden",
             transform: [{ translateY: headerTranslateY }],
           }}
@@ -703,7 +699,7 @@ export default function SpotDetailScreen() {
               top: 0,
               left: 0,
               right: 0,
-              height: HEADER_MAX,
+              height: headerHeight,
               transform: [{ translateY: headerParallax }],
             }}
           >
@@ -712,19 +708,16 @@ export default function SpotDetailScreen() {
                 style={{
                   flexDirection: "row",
                   width: width * 2,
-                  height: HEADER_MAX,
+                  height: headerHeight,
                   transform: [{ translateX }],
                 }}
               >
-                <Image source={{ uri: photos[index.current]?.url }} style={{ width, height: HEADER_MAX }} />
-                <Image source={{ uri: photos[(index.current + 1) % photos.length]?.url }} style={{ width, height: HEADER_MAX }} />
+                <Image source={{ uri: photos[index.current]?.url }} style={{ width, height: headerHeight }} />
+                <Image source={{ uri: photos[(index.current + 1) % photos.length]?.url }} style={{ width, height: headerHeight }} />
               </Animated.View>
             ) : googlePhoto?.imageUrl ? (
               <View style={{ flex: 1 }}>
-                <Image
-                  source={{ uri: googlePhoto.imageUrl }}
-                  style={{ width, height: HEADER_MAX }}
-                />
+                <SpotImage spotName={spot.name} uri={googlePhoto.imageUrl} style={{ width, height: headerHeight }} />
 
                 <Pressable
                   disabled={!googlePhoto.googleMapsUri}
@@ -750,9 +743,7 @@ export default function SpotDetailScreen() {
                 </Pressable>
               </View>
             ) : (
-              <View style={styles.photoFallback}>
-                <Text style={styles.photoFallbackText}>{spot.name?.[0] ?? "B"}</Text>
-              </View>
+              <SpotImage spotName={spot.name} style={{ width, height: headerHeight }} />
             )}
 
             <LinearGradient
@@ -769,10 +760,10 @@ export default function SpotDetailScreen() {
                     {isOpen ? "Geöffnet" : "Geschlossen"}
                   </Text>
                 </View>
-                {spot.price_level ? <Chip text={priceToSymbols(spot.price_level)} /> : null}
+                {spot.price_level ? <FoundationChip label={priceToSymbols(spot.price_level)} /> : null}
               </View>
 
-              <Text numberOfLines={3} style={styles.heroTitle}>{spot.name}</Text>
+              <AppText numberOfLines={3} role="displayL" style={styles.heroTitle}>{spot.name}</AppText>
               {spot.address ? (
                 <Text numberOfLines={1} style={styles.heroAddress}>{spot.address}</Text>
               ) : null}
@@ -782,25 +773,21 @@ export default function SpotDetailScreen() {
 
         <View style={styles.content}>
           <View style={styles.quickActions}>
-            <Pressable onPress={() => {
+            <Button label="Route" onPress={() => {
               void trackAnalyticsEvent({ eventName: "spot_route_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
               void recordMemoryProductAction({ actionType: "navigation_intent", spotId: spot.id, entrySurface: "generic" });
               openInAppleMaps(spot.lat, spot.lng, spot.name);
-            }} style={styles.primaryAction}>
-              <Feather name="navigation" size={17} color="#171214" />
-              <Text style={styles.primaryActionText}>Route</Text>
-            </Pressable>
-            <Pressable
+            }} style={styles.primaryAction} />
+            <Button
+              label="Moment"
+              variant="secondary"
               onPress={() => {
                 if (!userId) return setShowLoginPrompt(true);
                 void trackAnalyticsEvent({ eventName: "spot_review_started", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
                 void openMomentComposerSafely({ router, href: `/review/new?spotId=${spot.id}` });
               }}
               style={styles.secondaryAction}
-            >
-              <Feather name="plus" size={18} color={theme.colors.text} />
-              <Text style={styles.secondaryActionText}>Moment</Text>
-            </Pressable>
+            />
           </View>
 
           <SpotTaxonomyChips items={taxonomyItems} />
@@ -1084,18 +1071,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 8,
   },
-  photoFallback: {
-    width: "100%",
-    height: HEADER_MAX,
-    backgroundColor: theme.colors.surfaceElevated,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  photoFallbackText: {
-    color: theme.colors.text,
-    fontSize: 52,
-    fontWeight: "800",
-  },
   heroContent: {
     position: "absolute",
     left: 20,
@@ -1136,10 +1111,6 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: theme.colors.text,
-    fontSize: 42,
-    lineHeight: 43,
-    fontWeight: "900",
-    letterSpacing: -1.2,
   },
   heroAddress: {
     color: "rgba(255,255,255,0.74)",

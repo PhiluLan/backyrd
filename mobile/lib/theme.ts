@@ -1,47 +1,31 @@
 // mobile/lib/theme.ts
 
+import { backyrdTheme } from "../theme/backyrd";
+
+/** @deprecated Import `backyrdTheme` from `theme/backyrd` in new UI code. */
 export const colors = {
-  background: "#FFFFF5", // App Hintergrund (Beige-Hell)
-  primary: "#CAEDF3", // Buttonfarbe (Hellblau)
-  accent: "#F4D4D1", // Box-Farbe für Popular + Letzte Besuche
-  highlight: "#F4E8E3", // Box oben (Hi Gast)
+  background: backyrdTheme.color.background,
+  primary: backyrdTheme.color.pink,
+  accent: backyrdTheme.color.surfaceElevated,
+  highlight: backyrdTheme.color.surface,
   text: {
-    primary: "#000000", // Schwarz
-    secondary: "#333333",
-    muted: "#666666",
+    primary: backyrdTheme.color.textPrimary,
+    secondary: backyrdTheme.color.textSecondary,
+    muted: backyrdTheme.color.textMuted,
   },
-  border: "#000000", // für Suchergebnisse
+  border: backyrdTheme.color.border,
   overlay: "rgba(0,0,0,0.6)",
 };
 
-export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-};
-
-export const radius = {
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-  full: 9999,
-};
-
+export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
+export const radius = { sm: 12, md: 18, lg: 24, xl: 32, full: 9999 };
 export const typography = {
-  fontRegular: "PlayfairDisplay-Regular",
-  fontBold: "PlayfairDisplay-Bold",
-  h1: { fontFamily: "PlayfairDisplay-Bold", fontSize: 28 },
-  h2: { fontFamily: "PlayfairDisplay-Bold", fontSize: 22 },
-  body: { fontFamily: "PlayfairDisplay-Regular", fontSize: 16 },
-  small: { fontFamily: "PlayfairDisplay-Regular", fontSize: 14 },
+  fontRegular: backyrdTheme.type.body,
+  fontBold: backyrdTheme.type.bodyBold,
+  h1: { fontFamily: backyrdTheme.type.bodyBold, fontSize: 28, lineHeight: 35 },
+  h2: { fontFamily: backyrdTheme.type.bodyBold, fontSize: 22, lineHeight: 29 },
+  body: { fontFamily: backyrdTheme.type.body, fontSize: 16, lineHeight: 23 },
+  small: { fontFamily: backyrdTheme.type.body, fontSize: 14, lineHeight: 19 },
 };
 
-export const theme = {
-  colors,
-  spacing,
-  radius,
-  typography,
-};
+export const theme = { colors, spacing, radius, typography };

@@ -18,10 +18,13 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import type * as Location from "expo-location";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { getPrivacySafeLocation, reverseGeocodePrivacySafe } from "../../lib/locationPrivacy";
 import { supabase } from "../../lib/supabase";
 import { ensureProfile } from "../../lib/profile";
+import { AppText } from "../../components/foundation/AppText";
+import { Button } from "../../components/foundation/Button";
 
 type ProfileRow = {
   id: string;
@@ -108,6 +111,7 @@ async function getVerifiedUserOrSignOut() {
 
 export default function ProfileOnboardingScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -285,7 +289,7 @@ export default function ProfileOnboardingScreen() {
     <KeyboardAvoidingView style={styles.keyboardRoot} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <LinearGradient colors={["#050506", "#09090A", "#0D0D10"]} style={styles.container}>
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top + 20, 42), paddingBottom: 34 + insets.bottom }]}>
             <View style={styles.topRow}>
               <Text numberOfLines={1} style={styles.location}>{clean(city) || "Basel"}</Text>
               <View style={styles.stepPill}>
@@ -295,19 +299,19 @@ export default function ProfileOnboardingScreen() {
 
             <View style={styles.hero}>
               <Text style={styles.kicker}>BACKYRD</Text>
-              <Text style={styles.title}>
+              <AppText role="displayL" style={styles.title}>
                 Willkommen bei{"\n"}
-                <Text style={styles.titlePink}>Backyrd.</Text>
-              </Text>
-              <Text style={styles.subtitle}>
+                <AppText role="displayL" tone="pink" style={styles.titlePink}>Backyrd.</AppText>
+              </AppText>
+              <AppText role="body" tone="secondary" style={styles.subtitle}>
                 Kurz dein Profil anlegen. Danach baust du deinen ersten Geschmack auf.
-              </Text>
+              </AppText>
             </View>
 
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>Deine Basics</Text>
-                <Text style={styles.cardHint}>Nur was wir für gute Vorschläge brauchen.</Text>
+                <AppText role="sectionTitle" style={styles.cardTitle}>Deine Basics</AppText>
+                <AppText role="caption" tone="secondary" style={styles.cardHint}>Nur was wir für gute Vorschläge brauchen.</AppText>
               </View>
 
               <View style={styles.field}>
@@ -388,13 +392,7 @@ export default function ProfileOnboardingScreen() {
                 />
               </View>
 
-              <Pressable
-                onPress={saveProfile}
-                disabled={saving}
-                style={({ pressed }) => [styles.primaryButton, saving && styles.disabled, pressed && styles.pressed]}
-              >
-                {saving ? <ActivityIndicator color="#171214" /> : <Text style={styles.primaryButtonText}>Weiter</Text>}
-              </Pressable>
+              <Button label="Weiter" loading={saving} onPress={saveProfile} style={styles.primaryButton} />
             </View>
 
             <Text style={styles.footerNote}>
