@@ -4,7 +4,7 @@ import { backyrdTheme as theme } from "../../theme/backyrd";
 import { AppText } from "./AppText";
 
 type Variant = "primary" | "secondary" | "tertiary" | "destructive";
-type ButtonProps = Omit<PressableProps, "children" | "style"> & { label: string; variant?: Variant; loading?: boolean; style?: StyleProp<ViewStyle> };
+type ButtonProps = Omit<PressableProps, "children" | "style"> & { label: string; variant?: Variant; loading?: boolean; labelTone?: "primary" | "lime" | "pink" | "error"; style?: StyleProp<ViewStyle> };
 
 const variants: Record<Variant, ViewStyle> = {
   primary: { backgroundColor: theme.color.pink },
@@ -13,9 +13,10 @@ const variants: Record<Variant, ViewStyle> = {
   destructive: { backgroundColor: "rgba(255,104,104,0.14)", borderColor: "rgba(255,104,104,0.36)", borderWidth: 1 },
 };
 
-export function Button({ label, variant = "primary", loading = false, disabled, accessibilityLabel, style, ...props }: ButtonProps) {
+export function Button({ label, variant = "primary", loading = false, disabled, accessibilityLabel, labelTone, style, ...props }: ButtonProps) {
   const inactive = disabled || loading;
-  const color = variant === "primary" ? theme.color.background : variant === "destructive" ? theme.color.danger : theme.color.textPrimary;
+  const defaultColor = variant === "primary" ? theme.color.background : variant === "destructive" ? theme.color.danger : theme.color.textPrimary;
+  const color = labelTone === "lime" ? theme.color.lime : labelTone === "pink" ? theme.color.pink : labelTone === "error" ? theme.color.danger : defaultColor;
   return <Pressable {...props} accessibilityLabel={accessibilityLabel ?? label} accessibilityRole="button" accessibilityState={{ disabled: inactive, busy: loading }} disabled={inactive} style={({ pressed }) => [styles.root, variants[variant], inactive && styles.disabled, pressed && !inactive && styles.pressed, style]}>{loading ? <ActivityIndicator color={color} /> : <AppText role="label" style={{ color }}>{label}</AppText>}</Pressable>;
 }
 
