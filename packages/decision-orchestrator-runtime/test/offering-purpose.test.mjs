@@ -80,3 +80,16 @@ test("a broad unknown request keeps an honest candidate-specific uncertainty rea
    assert.ok(result.internal.authorizedReasons[spot.spotId].some((row)=>row.id===spot.reasonId));
  }
 });
+
+test("Indoor etwas Aktives keeps environment and activity-place semantics independently explainable",()=>{
+ const value=base();value.requestContext={query:"Indoor etwas Aktives",rawFreeText:"Indoor etwas Aktives",preferredPlaceTypes:["activity"],strictCategoryIntent:true};
+ value.candidates=value.candidates.map((row)=>({...row,category:"Aktivität",productPlaceType:"activity"}));
+ value.n4BySpot[ids[0]]={available:true,placeType:"activity",snapshotIdentity:"n4:indoor-activity",concepts:{"environment.indoor":{presence:1,confidence:.9,provenance:"accepted:indoor"}},suitabilityFacts:{"suitability.environment":{value:"INDOOR",status:"ACTIVE",confidence:.9,sourceIdentity:"accepted-fact:indoor"}}};
+ value.n4BySpot[ids[1]]={available:true,placeType:"activity",snapshotIdentity:"n4:outdoor-activity",concepts:{"environment.outdoor":{presence:1,confidence:.9,provenance:"accepted:outdoor"}},suitabilityFacts:{"suitability.environment":{value:"OUTDOOR",status:"ACTIVE",confidence:.9,sourceIdentity:"accepted-fact:outdoor"}}};
+ value.n4BySpot[ids[2]]={available:false,placeType:"activity",snapshotIdentity:"n4:unknown-activity",concepts:{}};
+ const activityCards=cards.map((row)=>({...row,category:"Aktivität"}));
+ const result=buildDeterministicDecision(buildDecisionInputPackage(value).package,activityCards,{expectedUserId:userId});
+ assert.equal(result.response.spots[0].spotId,ids[0]);
+ assert.equal(result.response.spots[0].explanation,"Drinnen – passend zu deiner aktuellen Suche.");
+ assert.ok(result.internal.authorizedReasons[ids[0]].some((row)=>row.id==="now:place_type:activity"));
+});
