@@ -1,4 +1,5 @@
 import { buildDecisionInputPackage } from "./package.mjs";
+import { buildDecisionEvidenceEnvelope } from "./evidence-envelope.mjs";
 import { categoryToPlaceType } from "../../canonical-semantics/src/index.mjs";
 
 const fail=(error,label)=>{if(error)throw new Error(`decision_input_repository:${label}:${error.message}`)};
@@ -36,10 +37,12 @@ export class SupabaseDecisionInputRepository {
     };
   }
 
-  async persistTrace(result){
+  async persistTrace(result,requestContext={}){
     const value=result.package;
-    const{data,error}=await this.client.rpc("backyrd_persist_decision_input_trace_v1",{p_decision_id:value.decisionId,p_user_id:value.userId,p_user_card_hash:value.n5.userCardHash,p_moment_hash:value.n3.momentHash,p_projection_hash:value.n5.projectionHash,p_candidate_set_hash:value.candidateSet.candidateSetHash,p_n4_hashes:Object.fromEntries(value.candidates.map((candidate)=>[candidate.spotId,candidate.n4.snapshotHash])),p_knowledge_mode:value.n5.knowledgeMode,p_contract_versions:value.contractIdentities,p_package_hash:value.packageHash,p_validation_disposition:result.validation.disposition});fail(error,"persist_trace");return data;
+    const{data,error}=await this.client.rpc("backyrd_persist_decision_input_trace_v1",{p_decision_id:value.decisionId,p_user_id:value.userId,p_user_card_hash:value.n5.userCardHash,p_moment_hash:value.n3.momentHash,p_projection_hash:value.n5.projectionHash,p_candidate_set_hash:value.candidateSet.candidateSetHash,p_n4_hashes:Object.fromEntries(value.candidates.map((candidate)=>[candidate.spotId,candidate.n4.snapshotHash])),p_knowledge_mode:value.n5.knowledgeMode,p_contract_versions:value.contractIdentities,p_package_hash:value.packageHash,p_validation_disposition:result.validation.disposition});fail(error,"persist_trace");
+    const envelope=buildDecisionEvidenceEnvelope(value,requestContext);
+    const{error:envelopeError}=await this.client.rpc("backyrd_persist_decision_evidence_envelope_v1",{p_decision_id:envelope.decisionId,p_user_id:envelope.userId,p_moment_hash:envelope.momentHash,p_package_hash:envelope.packageHash,p_semantic_contract_version:envelope.semanticContractVersion,p_moment_signature:envelope.momentSignature,p_requested_context:envelope.requestedContext,p_ambient_context:envelope.ambientContext,p_candidates:envelope.candidates});fail(envelopeError,"persist_evidence_envelope");return data;
   }
 
-  async buildAndPersist(decisionId){const started=performance.now(),source=await this.load(decisionId),result=buildDecisionInputPackage(source),traceStarted=performance.now(),traceId=await this.persistTrace(result);return{...result,traceId,performance:{...source.performance,...result.performance,tracePersistenceMs:Number((performance.now()-traceStarted).toFixed(3)),totalMs:Number((performance.now()-started).toFixed(3))}};}
+  async buildAndPersist(decisionId){const started=performance.now(),source=await this.load(decisionId),result=buildDecisionInputPackage(source),traceStarted=performance.now(),traceId=await this.persistTrace(result,source.requestContext);return{...result,traceId,performance:{...source.performance,...result.performance,tracePersistenceMs:Number((performance.now()-traceStarted).toFixed(3)),totalMs:Number((performance.now()-started).toFixed(3))}};}
 }

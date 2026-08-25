@@ -1,4 +1,4 @@
-import { buildCanonicalRuntimeInput } from "./production-input.mjs";
+import { buildCanonicalRuntimeInputWithDispositions } from "./production-input.mjs";
 import { buildN5_8_4UserCard } from "../../../decision-lab/src/n5-8-4-absolute-negativity-guard.mjs";
 import { buildCanonicalUserCard } from "../../../decision-lab/src/n5-6-canonical-user-intelligence.mjs";
 import { createHash } from "node:crypto";
@@ -48,22 +48,22 @@ function exposeEvidenceAuthorities(result,input,{asOf,spotIntelligence}){
 /** Exact, side-effect-free production materialization used for parity audits. */
 export function buildUserIntelligenceReadOnly({ userId, source }) {
   if (!source?.consentGranted) return { input: [], result: null, validated: null };
-  const input = buildCanonicalRuntimeInput(source);
+  const {events:input,dispositions} = buildCanonicalRuntimeInputWithDispositions(source);
   const result = exposeEvidenceAuthorities(
     buildN5_8_4UserCard(input, { asOf: source.asOf, spotIntelligence: source.n4BySpot }),
     input,
     { asOf: source.asOf, spotIntelligence: source.n4BySpot },
   );
-  return { input, result, validated: validateRuntimeResult({ userId, result }) };
+  return { input, dispositions, result, validated: validateRuntimeResult({ userId, result }) };
 }
 
 /** Server worker orchestration. The supplied repository owns DB reads and a single transactional persist call. */
 export async function rebuildUserIntelligence({ userId, repository, reason = "MEMORY_COMMITTED", watermark = null, workIds = [], leaseToken = null }) {
   const source = await repository.readCanonicalSources(userId, { watermark });
   if (!source.consentGranted) return repository.purgeDerivedUserIntelligence(userId, reason);
-  const { input, validated } = buildUserIntelligenceReadOnly({ userId, source });
+  const { input, dispositions, validated } = buildUserIntelligenceReadOnly({ userId, source });
   const previousCard = await repository.readLatestCard(userId);
   const ledger = semanticLedger(previousCard, validated.card, validated.runtimeVersion, source.watermark);
-  const persisted = await repository.persistAtomically({ userId, reason, sourceWatermark: source.watermark, input, ...validated, ledger, workIds, leaseToken });
+  const persisted = await repository.persistAtomically({ userId, reason, sourceWatermark: source.watermark, input, ...validated, ledger, dispositions, workIds, leaseToken });
   return { ...persisted, nodesChanged: ledger.length, runtimeVersion: validated.runtimeVersion };
 }
