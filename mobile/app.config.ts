@@ -5,10 +5,9 @@ const APP_VERSION = "1.1.0";
 const IOS_PRODUCTION_BUNDLE_IDENTIFIER = "com.philipplanger.backyrd";
 const IOS_DEVELOPMENT_BUNDLE_IDENTIFIER = `${IOS_PRODUCTION_BUNDLE_IDENTIFIER}.dev`;
 
-function requiredReleaseValue(name: string, value: string | undefined) {
-  const isReleaseBuild =
-    process.env.EAS_BUILD === "true" ||
-    process.env.BACKYRD_RELEASE_BUILD === "1";
+function requiredReleaseValue(name: string, value: string | undefined, nativeBuildOnly = false) {
+  const isReleaseBuild = process.env.EAS_BUILD === "true" ||
+    (!nativeBuildOnly && process.env.BACKYRD_RELEASE_BUILD === "1");
 
   if (isReleaseBuild && !value?.trim()) {
     throw new Error(`Missing required production runtime configuration: ${name}`);
@@ -30,7 +29,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   );
   const googleMapsKey = requiredReleaseValue(
     "EXPO_PUBLIC_GOOGLE_MAPS_KEY",
-    process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY
+    process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY,
+    true
   );
   const googleIosClientId = requiredReleaseValue(
     "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID",
