@@ -41,9 +41,11 @@ begin
  profile:=public.backyrd_human_spot_set_archetypes_v2(v_spot,'BREWPUB',array['BAR','RESTAURANT']);
  perform pg_temp.assert(profile#>>'{authoring,primaryArchetype}'='BREWPUB','Brewpub authoring archetype did not persist');
  perform pg_temp.assert(exists(select 1 from jsonb_array_elements(profile->'questions') q where q->>'question_id'='purpose.activities' and not (q->>'relevant')::boolean),'Brewpub still receives activity catalog');
+ perform pg_temp.assert(exists(select 1 from jsonb_array_elements(profile->'questions') q where q->>'question_id'='purpose.gastronomy' and (q->>'relevant')::boolean and q->'engine_use'='["DISPLAY_ONLY"]'::jsonb),'Brewpub purpose question is missing or claims Engine authority');
  perform pg_temp.assert(exists(select 1 from jsonb_array_elements(profile->'questions') q where q->>'question_id'='fit.audience' and (q->>'relevant')::boolean),'common audience question disappeared');
  perform pg_temp.assert(not public.backyrd_human_spot_validate_answer_v2(v_spot,'fit.dayparts','["MORNING","FORGED"]'),'forged canonical option accepted');
  perform pg_temp.assert(not public.backyrd_human_spot_validate_answer_v2(v_spot,'purpose.activities','["MUSEUM"]'),'hidden activity question accepted for Brewpub');
+ perform pg_temp.assert(public.backyrd_human_spot_validate_answer_v2(v_spot,'purpose.gastronomy','["OFFERING_BEER","OFFERING_CRAFT_BEER","PURPOSE_AFTERWORK"]'),'whitelisted Brewpub display facts rejected');
  before_count:=(select count(*) from public.backyrd_spot_accepted_facts_v1 where spot_id=v_spot);
  result:=public.backyrd_human_spot_save_section_v2(v_spot,'FIT','[{"questionId":"fit.audience","value":{"solo":"UNKNOWN","date":"SUITABLE","friends":"SUITABLE","family":"UNKNOWN","groups":"SUITABLE","work":"SUITABLE"}},{"questionId":"fit.dayparts","value":["EVENING","WEEKEND"]}]','ADMIN_VERIFIED',null,'controlled transaction','SPOT','hsi-v2-fit',null);
  after_count:=(select count(*) from public.backyrd_spot_accepted_facts_v1 where spot_id=v_spot);

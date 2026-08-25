@@ -21,6 +21,8 @@ export function HumanSpotQuestion({ question, value, archetypes, changed, proven
   const selected = Array.isArray(value) ? value : [];
   const objectValue = asRecord(value);
   const supervision = objectValue.adult_supervision_required === true ? "YES" : objectValue.adult_supervision_required === false ? "NO" : "UNKNOWN";
+  const mappedValues = new Set(options.map((option) => JSON.stringify(option.value)));
+  const legacyValues = selected.filter((item) => !mappedValues.has(JSON.stringify(item)));
 
   return <article className={`hsi-question${changed ? " is-dirty" : ""}`} id={`hsi-${question.question_id}`}>
     <header>
@@ -35,6 +37,7 @@ export function HumanSpotQuestion({ question, value, archetypes, changed, proven
     {question.control_type === "MULTI_CHOICE" && <div className="hsi-chip-grid" aria-label={question.label_de}>
       {options.map((option) => { const active = selected.includes(option.value); return <button type="button" aria-pressed={active} className={active ? "selected" : ""} key={option.id} onClick={() => onChange(active ? selected.filter((item) => item !== option.value) : [...selected, option.value])}>{option.label}{option.scopeGuard && <small>Gültigkeit prüfen</small>}</button>; })}
     </div>}
+    {question.control_type === "MULTI_CHOICE" && legacyValues.length > 0 && <p className="hsi-legacy-value">Vorhandene ältere Angabe – bitte prüfen: {legacyValues.map(String).join(", ")}. Sie bleibt beim Speichern erhalten.</p>}
 
     {question.control_type === "TRI_STATE_MAP" && <div className="hsi-tristate-list">
       {options.map((option) => <div key={option.id}><span>{option.label}</span><div role="radiogroup" aria-label={`${question.label_de}: ${option.label}`}>

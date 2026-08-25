@@ -59,4 +59,4 @@ Human readiness is separate from canonical Gold. It measures answered questions 
 
 ## Known limitations
 
-The frozen model strongly represents place type, activity, audience, vibe, environment, weather, time, age, planning and accessibility. It does not yet provide honest structured Offering/Purpose facts for beer, craft beer, own-brewed beer, concrete food service, apéro or afterwork. V2 displays that limitation rather than mapping these concepts to unrelated vibes. See `HUMAN_SPOT_INTELLIGENCE_V2_1_SEMANTIC_GAPS.md`.
+The frozen model strongly represents place type, activity, audience, vibe, environment, weather, time, age, planning and accessibility. V2 can capture beer, craft beer, own-brewed beer, food, apéro and afterwork as whitelisted `signature.characteristics` Accepted Facts for deterministic display and summary. They intentionally grant no N4, matching, ranking or reason authority. A typed Offering/Purpose Decision axis remains a V2.1 gap; see `HUMAN_SPOT_INTELLIGENCE_V2_1_SEMANTIC_GAPS.md`.

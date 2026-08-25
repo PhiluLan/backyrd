@@ -6,7 +6,7 @@ Production reference data was inspected read-only before implementation.
 
 | Spot | Derived V2 authoring | First useful question families | Regression expectation |
 |---|---|---|---|
-| Volta Bräu | Bar initially; Founder may set Brewpub | audience, time, atmosphere, environment, conversation, duration, planning | no Museum/Bouldering/Tiere activity wall |
+| Volta Bräu | Bar initially; Founder may set Brewpub | visit reasons/offerings, audience, time, atmosphere, environment, conversation, duration, planning | no Museum/Bouldering/Tiere activity wall; offerings are display-authorized only |
 | Naturhistorisches Museum Basel | Museum | exhibitions/culture/history, rain, family/age, duration, accessibility | existing Museum/Culture/Indoor/Rain facts remain representable |
 | Zoo Basel | Zoo | animals, walking, playground, outdoor/weather, family/age, duration | outing and family truth remains representable |
 | ELYS Boulderloft | Boulder/Climbing from accepted activity | bouldering, climbing, sport, indoor/rain, social, family/age, planning | no gastronomy form |
@@ -52,10 +52,10 @@ The existing V1.1 canonical tests continue to cover Accepted Fact → N4 → Dec
 | Spaziergang | yes | activity/place type | yes | strong |
 | Date | yes | social suitability + vibe | yes | strong |
 | Gruppe | partial | social suitability | factual | partial; no numeric capacity |
-| Bier | bar hint | no offering fact | no specific reason | partial |
-| Craft Beer | no exact canonical axis | none | none | unsupported |
-| Essen und Trinken | restaurant/bar hints | no structured combined offering | broad place type only | partial |
-| Afterwork | bar hint | no occasion/offering fact | broad composition only | partial |
+| Bier | bar hint | confirmed display fact | no specific reason | partial |
+| Craft Beer | no exact canonical axis | confirmed display fact | none | partial/display only |
+| Essen und Trinken | restaurant/bar hints | confirmed display facts | broad place type only | partial |
+| Afterwork | bar hint | confirmed display fact | broad composition only | partial |
 
 ## Responsive and accessibility acceptance
 
