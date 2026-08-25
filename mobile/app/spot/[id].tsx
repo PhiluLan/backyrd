@@ -38,6 +38,7 @@ import {
 import { getMobileSpotTaxonomy, type MobileSpotTaxonomyItem } from "../../lib/taxonomy";
 import { selectSpotImageUrl } from "../../lib/spot-images";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
+import { AppText } from "../../components/foundation/AppText";
 
 import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
 const theme = {
@@ -808,7 +809,7 @@ export default function SpotDetailScreen() {
                 {spot.price_level ? <Chip text={priceToSymbols(spot.price_level)} /> : null}
               </View>
 
-              <Text numberOfLines={3} style={styles.heroTitle}>{spot.name}</Text>
+              <AppText numberOfLines={3} role="displayL" style={styles.heroTitle}>{spot.name}</AppText>
               {spot.address ? (
                 <Text numberOfLines={1} style={styles.heroAddress}>{spot.address}</Text>
               ) : null}
@@ -1171,9 +1172,6 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: theme.colors.text,
-    fontSize: 42,
-    lineHeight: 43,
-    fontWeight: "900",
     letterSpacing: -1.2,
   },
   heroAddress: {

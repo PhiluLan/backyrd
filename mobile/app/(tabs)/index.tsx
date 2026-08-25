@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { EditorialMeta, EditorialRule, EditorialSectionHeader, MarkerStroke } from "../../components/brand/Editorial";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
+import { AppText } from "../../components/foundation/AppText";
 import { useAuth } from "../../hooks/useAuth";
 import { loadDiscoverySpots, type DiscoverySpot } from "../../lib/spot-images";
 import { supabase } from "../../lib/supabase";
@@ -90,7 +91,7 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <Text adjustsFontSizeToFit minimumFontScale={0.92} numberOfLines={2} style={[styles.hero, { fontSize: heroSize, lineHeight: heroSize * 0.88 }]}>WOHIN GEHT’S{`\n`}HEUTE?</Text>
+          <AppText role="displayXL" numberOfLines={2} style={[styles.hero, { fontSize: heroSize, lineHeight: Math.ceil(heroSize * 1.06) }]}>WOHIN GEHT’S{`\n`}HEUTE?</AppText>
           <MarkerStroke width={Math.min(194, width * 0.49)} />
 
           <View style={styles.searchRow}>
@@ -155,7 +156,7 @@ export default function HomeScreen() {
                     <SpotArtwork imageUrl={spot.header_photo_url} priority={index < 2 ? "high" : "normal"} spotId={spot.id} spotName={spot.name} style={StyleSheet.absoluteFill} />
                     <LinearGradient colors={["transparent", "rgba(0,0,0,0.12)", "rgba(0,0,0,0.93)"]} locations={[0.36, 0.58, 1]} style={StyleSheet.absoluteFill} />
                     <View style={styles.cardContent}>
-                      <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={2} style={styles.cardName}>{spot.name.toUpperCase()}</Text>
+                      <AppText role="displayL" numberOfLines={2} style={styles.cardName}>{spot.name.toUpperCase()}</AppText>
                       <EditorialMeta>{[spot.city || city, spot.category_name].filter(Boolean).join("  /  ")}</EditorialMeta>
                       <EditorialRule />
                     </View>
@@ -181,7 +182,7 @@ const styles = StyleSheet.create({
   topIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   profileButton: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: theme.color.acid, backgroundColor: theme.color.surfaceElevated },
   profileInitial: { color: theme.color.textPrimary, fontFamily: theme.type.display, fontWeight: "900", fontSize: 21 },
-  hero: { marginTop: 31, paddingHorizontal: 22, color: theme.color.textPrimary, fontFamily: theme.type.display, fontWeight: "900", letterSpacing: -2.2 },
+  hero: { marginTop: 31, paddingHorizontal: 22, letterSpacing: -2.2 },
   searchRow: { marginTop: 15, paddingHorizontal: 22, flexDirection: "row", alignItems: "center", gap: 12 },
   searchBox: { flex: 1, minHeight: 62, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderColor: "rgba(247,243,233,0.46)", borderRadius: 32 },
   input: { flex: 1, minHeight: 60, color: theme.color.textPrimary, fontFamily: theme.type.body, fontSize: 14, paddingVertical: 12 },
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
   cards: { paddingHorizontal: 22, paddingTop: 9, gap: 14 },
   card: { justifyContent: "flex-end", overflow: "hidden", backgroundColor: theme.color.surface },
   cardContent: { paddingHorizontal: 15, paddingBottom: 13 },
-  cardName: { color: theme.color.textPrimary, fontFamily: theme.type.display, fontWeight: "900", fontSize: 58, lineHeight: 54, letterSpacing: -1.5 },
+  cardName: { letterSpacing: -1.5 },
   skeletonCard: { marginHorizontal: 22, marginTop: 9, justifyContent: "flex-end", padding: 18, backgroundColor: theme.color.surface },
   skeletonAccent: { position: "absolute", left: 0, right: 0, top: "42%", height: 70, backgroundColor: "rgba(255,79,145,0.06)", transform: [{ rotate: "-4deg" }] },
   skeletonTitle: { width: "74%", height: 52, backgroundColor: theme.color.surfaceElevated },
