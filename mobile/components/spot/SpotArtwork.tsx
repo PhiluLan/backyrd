@@ -46,6 +46,9 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
   );
 }
 
+/** Canonical product image primitive. Alias preserves existing Product image call sites. */
+export const SpotImage = SpotArtwork;
+
 const styles = StyleSheet.create({
   root: { overflow: "hidden", backgroundColor: theme.color.surface },
   loading: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: theme.color.surface },
