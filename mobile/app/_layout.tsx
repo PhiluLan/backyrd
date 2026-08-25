@@ -4,9 +4,10 @@ import React from "react";
 import { Stack } from "expo-router";
 import {
   useFonts,
-  PlayfairDisplay_400Regular,
-  PlayfairDisplay_700Bold,
-} from "@expo-google-fonts/playfair-display";
+  Inter_400Regular,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from "@expo-google-fonts/inter";
 import { Platform, View, ActivityIndicator } from "react-native";
 
 import SplashScreen from "./splash";
@@ -69,8 +70,9 @@ function RootStack() {
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
-    PlayfairDisplay_400Regular,
-    PlayfairDisplay_700Bold,
+    Inter_400Regular,
+    Inter_600SemiBold,
+    Inter_700Bold,
   });
 
   const { loading: authLoading } = useAuth();
