@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "./supabase";
 import { filterDistributedSpots } from "./distributionTrust";
+import { selectSpotImageUrl } from "./spot-images";
 
 type Spot = {
   id: string;
@@ -37,6 +38,7 @@ export const useSpotsStore = create<State>((set) => ({
         lng,
         address,
         category_id,
+        header_photo_path,
         categories ( name, color ),
         spot_photos ( url )
         `
@@ -55,9 +57,12 @@ export const useSpotsStore = create<State>((set) => ({
         ...s,
         lat: Number(s.lat),
         lng: Number(s.lng),
-        header_photo_url: Array.isArray(s.spot_photos)
-          ? s.spot_photos[0]?.url || null
-          : s.spot_photos?.url || null,
+        header_photo_url: selectSpotImageUrl({
+          photoUrl: Array.isArray(s.spot_photos)
+            ? s.spot_photos[0]?.url || null
+            : s.spot_photos?.url || null,
+          headerPhotoPath: s.header_photo_path,
+        }),
       })) ?? [];
 
     try {

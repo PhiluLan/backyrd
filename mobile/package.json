@@ -11,6 +11,7 @@
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test:contracts": "node ./scripts/test-mobile-product-contracts.mjs",
+    "test:production-images": "node ./scripts/validate-production-images.mjs",
     "release:validate": "node ./scripts/validate-production-release.mjs",
     "release:verify:ios-ipa": "node ./scripts/validate-ios-bundle-identifiers.mjs",
     "release:export:ios": "BACKYRD_RELEASE_BUILD=1 APP_VARIANT=prod npm run release:validate && expo export --platform ios",

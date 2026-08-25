@@ -11,7 +11,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Image,
   Animated,
   PanResponder,
   Dimensions,
@@ -27,6 +26,10 @@ import { getMyProductEntryStatus } from "@/lib/onboardingStatus";
 import { mapTextToClusterIds } from "@/lib/decision/moodMapping";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { recordMemoryProductAction } from "@/lib/memory-bridge";
+import { selectSpotImageUrl } from "@/lib/spot-images";
+import { SpotArtwork } from "@/components/spot/SpotArtwork";
+import { MarkerStroke } from "@/components/brand/Editorial";
+import { backyrdTheme as brandTheme } from "@/theme/backyrd";
 
 type DecisionSpotRpcRow = {
   spot_id: string;
@@ -244,27 +247,6 @@ function limitSentences(value: string | null | undefined, maxSentences = 3) {
     .slice(0, maxSentences)
     .map((sentence) => sentence.trim())
     .join(" ");
-}
-
-function normalizeUrl(value?: string | null) {
-  const raw = clean(value);
-  if (!raw) return null;
-
-  if (
-    raw.startsWith("http://") ||
-    raw.startsWith("https://") ||
-    raw.startsWith("file://") ||
-    raw.startsWith("data:")
-  ) {
-    return raw;
-  }
-
-  try {
-    const { data } = supabase.storage.from("spot-photos").getPublicUrl(raw);
-    return data.publicUrl || null;
-  } catch {
-    return null;
-  }
 }
 
 function uniq<T>(items: T[]) {
@@ -906,7 +888,7 @@ export default function DecisionScreen() {
         description_keywords: descriptionKeywords,
         opening_hours_summary: buildOpeningHoursSummary(hoursBySpotId.get(row.spot_id) ?? []),
         header_photo_path: headerUrl ?? null,
-        photo_url: normalizeUrl(photoUrl) ?? normalizeUrl(headerUrl),
+        photo_url: selectSpotImageUrl({ photoUrl, headerPhotoPath: headerUrl }),
         lat: Number.isFinite(Number(detail?.lat)) ? Number(detail?.lat) : null,
         lng: Number.isFinite(Number(detail?.lng)) ? Number(detail?.lng) : null,
         matched_terms: uniq([...(row.matched_terms ?? []), ...descriptionKeywords]).slice(0, 10),
@@ -1332,7 +1314,7 @@ export default function DecisionScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={["top", "left", "right"]}>
       <Stack.Screen
         options={{
-          title: "Decision",
+          title: "Für jetzt",
           headerStyle: { backgroundColor: theme.bg },
           headerTintColor: "#fff",
           headerShadowVisible: false,
@@ -1354,14 +1336,17 @@ export default function DecisionScreen() {
             <Text
               style={{
                 color: theme.text,
-                fontSize: 28,
-                lineHeight: 32,
-                fontWeight: "800",
-                letterSpacing: -0.7,
+                fontFamily: brandTheme.type.display,
+                fontSize: 56,
+                lineHeight: 52,
+                fontWeight: "900",
+                letterSpacing: -1.8,
               }}
             >
               DEIN / JETZT.
             </Text>
+
+            <MarkerStroke inset={0} width={154} />
 
             <Text
               style={{
@@ -1379,37 +1364,32 @@ export default function DecisionScreen() {
 
           <View
             style={{
-              borderRadius: 30,
+              borderRadius: 2,
               overflow: "hidden",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.1)",
-              backgroundColor: "rgba(255,255,255,0.045)",
-              shadowColor: "#000",
-              shadowOpacity: 0.3,
-              shadowRadius: 28,
-              shadowOffset: { width: 0, height: 18 },
+              borderWidth: 0,
+              backgroundColor: "transparent",
             }}
           >
             <LinearGradient
-              colors={["rgba(255,255,255,0.07)", "rgba(255,255,255,0.03)"]}
+              colors={["transparent", "transparent"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={{ padding: 18 }}
+              style={{ padding: 0 }}
             >
               <View
                 style={{
-                  borderRadius: 28,
-                  backgroundColor: "rgba(0,0,0,0.18)",
-                  borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.085)",
-                  paddingHorizontal: 18,
+                  borderRadius: 0,
+                  backgroundColor: "transparent",
+                  borderBottomWidth: 1,
+                  borderColor: "rgba(255,255,255,0.35)",
+                  paddingHorizontal: 2,
                   paddingVertical: 16,
-                  marginBottom: 12,
+                  marginBottom: 18,
                 }}
               >
                 <Text
                   style={{
-                    color: "rgba(255,255,255,0.42)",
+                    color: theme.acid,
                     fontSize: 11,
                     fontWeight: "900",
                     letterSpacing: 1.1,
@@ -1417,11 +1397,7 @@ export default function DecisionScreen() {
                     marginBottom: 9,
                   }}
                 >
-                  {citySource === "profile"
-                    ? "Profilstadt"
-                    : citySource === "manual"
-                      ? "Gewählte Stadt"
-                      : "Stadt wählen"}
+                  WO
                 </Text>
 
                 <TextInput
@@ -1430,7 +1406,7 @@ export default function DecisionScreen() {
                     setCity(value);
                     setCitySource(clean(value) ? "manual" : "empty");
                   }}
-                  placeholder="Zum Beispiel Basel oder Zürich"
+                  placeholder="Basel oder Zürich"
                   placeholderTextColor="rgba(255,255,255,0.26)"
                   autoCorrect={false}
                   returnKeyType="next"
@@ -1478,7 +1454,7 @@ export default function DecisionScreen() {
                   flexDirection: "row",
                   gap: 8,
                   padding: 4,
-                  borderRadius: 999,
+                  borderRadius: 2,
                   backgroundColor: "rgba(0,0,0,0.2)",
                   borderWidth: 1,
                   borderColor: "rgba(255,255,255,0.08)",
@@ -1500,17 +1476,17 @@ export default function DecisionScreen() {
               {inputMode === "free" ? (
                 <View
                   style={{
-                    borderRadius: 28,
-                    backgroundColor: "rgba(0,0,0,0.18)",
-                    borderWidth: 1,
-                    borderColor: "rgba(255,255,255,0.085)",
-                    paddingHorizontal: 18,
-                    paddingVertical: 16,
+                  borderRadius: 0,
+                  backgroundColor: "transparent",
+                  borderBottomWidth: 1,
+                  borderColor: "rgba(255,255,255,0.35)",
+                  paddingHorizontal: 2,
+                  paddingVertical: 16,
                   }}
                 >
                   <Text
                     style={{
-                      color: "rgba(255,255,255,0.42)",
+                      color: theme.acid,
                       fontSize: 11,
                       fontWeight: "900",
                       letterSpacing: 1.1,
@@ -1518,7 +1494,7 @@ export default function DecisionScreen() {
                       marginBottom: 9,
                     }}
                   >
-                    Was suchst du?
+                    WAS / MOOD
                   </Text>
 
                   <TextInput
@@ -1711,7 +1687,7 @@ export default function DecisionScreen() {
                 style={{
                   marginTop: 18,
                   minHeight: 60,
-                  borderRadius: 999,
+                  borderRadius: 2,
                   alignItems: "center",
                   justifyContent: "center",
                   backgroundColor: loading || !canRun ? "rgba(255,255,255,0.11)" : theme.pink,
@@ -2231,7 +2207,7 @@ function FullscreenSwipeCard({
           }}
         >
           <RoundDeckButton label="‹" onPress={onBack} />
-          <Text style={{ color: theme.text, fontSize: 24, fontWeight: "800", letterSpacing: -0.55 }}>
+          <Text style={{ color: theme.text, fontFamily: brandTheme.type.display, fontSize: 34, lineHeight: 34, fontWeight: "900", letterSpacing: -0.9 }}>
             DEIN / JETZT.
           </Text>
           <RoundDeckButton label="✦" onPress={onSettings} />
@@ -2316,31 +2292,13 @@ function FullscreenSwipeCard({
                 borderColor: "rgba(255,255,255,0.08)",
               }}
             >
-              {imageUrl ? (
-                <Image
-                  source={{ uri: imageUrl }}
-                  resizeMode="cover"
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    height: "100%",
-                    width: "100%",
-                  }}
-                />
-              ) : (
-                <LinearGradient
-                  colors={["#262128", "#111113", "#050506"]}
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    bottom: 0,
-                  }}
-                />
-              )}
+              <SpotArtwork
+                imageUrl={imageUrl}
+                priority="high"
+                spotId={spot.spot_id}
+                spotName={spot.name}
+                style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}
+              />
 
               <LinearGradient
                 colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.18)", "rgba(0,0,0,0.72)", "rgba(0,0,0,0.95)"]}
@@ -2404,8 +2362,9 @@ function FullscreenSwipeCard({
                     numberOfLines={2}
                     style={{
                       color: theme.text,
-                      fontSize: 38,
-                      lineHeight: 39,
+                      fontFamily: brandTheme.type.display,
+                      fontSize: 47,
+                      lineHeight: 45,
                       fontWeight: "900",
                       letterSpacing: -1.15,
                     }}
@@ -2420,7 +2379,7 @@ function FullscreenSwipeCard({
                     style={{
                       marginTop: 18,
                       padding: 15,
-                      borderRadius: 18,
+                      borderRadius: 2,
                       backgroundColor: "rgba(12,12,14,0.74)",
                       borderWidth: 1,
                       borderColor: "rgba(255,255,255,0.11)",
@@ -2433,7 +2392,7 @@ function FullscreenSwipeCard({
                           Warum dieser Treffer?
                         </Text>
                         <Text style={{ color: "rgba(255,255,255,0.88)", fontSize: 15, lineHeight: 21, fontWeight: "600" }}>
-                          {whyText || "Nah, passend und mit genug Raum für deinen Moment."}
+                          {whyText || "Für diesen Treffer liegt noch keine genauere Begründung vor."}
                         </Text>
                       </View>
                     </View>
@@ -2476,7 +2435,7 @@ function FullscreenSwipeCard({
           <Pressable
             onPress={()=>swipeOut("next","right")}
             disabled={!exposureReady}
-            style={{height:50,borderRadius:999,alignItems:"center",justifyContent:"center",backgroundColor:theme.pink}}
+            style={{height:52,borderRadius:2,alignItems:"center",justifyContent:"center",backgroundColor:theme.pink}}
           >
             {exposureReady?<Text style={{color:"#111113",fontWeight:"900",fontSize:15}}>Weiter</Text>:<ActivityIndicator color="#111113"/>}
           </Pressable>
@@ -2507,10 +2466,12 @@ function FullscreenSwipeCard({
               borderRadius: 999,
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: theme.pink,
+              backgroundColor: "rgba(5,5,6,0.96)",
+              borderWidth: 1,
+              borderColor: theme.acid,
             }}
           >
-            <Text style={{ color: "#111113", fontWeight: "900", fontSize: 15 }}>Route</Text>
+            <Text style={{ color: theme.acid, fontWeight: "900", fontSize: 15 }}>Route</Text>
           </Pressable>
 
           <Pressable

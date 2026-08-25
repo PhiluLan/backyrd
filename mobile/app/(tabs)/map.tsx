@@ -32,6 +32,7 @@ import { resolveLocationContext } from "../../lib/locationContext";
 import { hasActiveConsent } from "../../lib/consent";
 import { MOOD_SUGGESTIONS } from "../../lib/moods";
 import { trackAnalyticsEvent } from "../../lib/analytics";
+import { SpotArtwork } from "../../components/spot/SpotArtwork";
 
 const BASEL = { latitude: 47.5596, longitude: 7.5886 };
 const { height: SCREEN_H } = Dimensions.get("window");
@@ -698,14 +699,10 @@ export default function MapScreen() {
                 router.push(`/spot/${item.id}`);
               }}
             >
-              <Image
-                source={
-                  item.header_photo_url
-                    ? { uri: item.header_photo_url }
-                    : {
-                        uri: "https://via.placeholder.com/400x300/1b1b21/777?text=No+Image",
-                      }
-                }
+              <SpotArtwork
+                imageUrl={item.header_photo_url}
+                spotId={item.id}
+                spotName={item.name}
                 style={styles.listCardImage}
               />
               <View style={styles.listCardBody}>
@@ -754,12 +751,11 @@ export default function MapScreen() {
                 style={styles.sheetCard}
               >
                 <View style={styles.cardMedia}>
-                  <Image
-                    source={{
-                      uri:
-                        selectedSpot.header_photo_url ||
-                        "https://via.placeholder.com/600x400/1b1b21/777?text=No+Image",
-                    }}
+                  <SpotArtwork
+                    imageUrl={selectedSpot.header_photo_url}
+                    priority="high"
+                    spotId={selectedSpot.id}
+                    spotName={selectedSpot.name}
                     style={styles.cardImg}
                   />
 

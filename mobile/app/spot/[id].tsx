@@ -36,6 +36,8 @@ import {
   SpotTaxonomyDetails,
 } from "../../components/spot/SpotTaxonomyHighlights";
 import { getMobileSpotTaxonomy, type MobileSpotTaxonomyItem } from "../../lib/taxonomy";
+import { selectSpotImageUrl } from "../../lib/spot-images";
+import { SpotArtwork } from "../../components/spot/SpotArtwork";
 
 import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
 const theme = {
@@ -413,8 +415,26 @@ export default function SpotDetailScreen() {
         }),
       ]);
 
+      const canonicalPhotos = (photoRows || []).map((photo: any) => ({
+        ...photo,
+        url: selectSpotImageUrl({ photoUrl: photo.url }),
+      }));
+      const headerPhotoUrl = selectSpotImageUrl({
+        headerPhotoPath: spotRow?.header_photo_path,
+      });
+      if (
+        headerPhotoUrl &&
+        !canonicalPhotos.some((photo: any) => photo.url === headerPhotoUrl)
+      ) {
+        canonicalPhotos.unshift({
+          id: `header:${id}`,
+          url: headerPhotoUrl,
+          created_at: null,
+        });
+      }
+
       setSpot(spotRow);
-      setPhotos(photoRows || []);
+      setPhotos(canonicalPhotos);
       setGooglePhoto(null);
 
       const rawReviews = revRows || [];
@@ -451,7 +471,7 @@ export default function SpotDetailScreen() {
 
       setReviews(visibleReviews);
 
-      if ((photoRows || []).length === 0 && spotRow?.google_place_id) {
+      if (canonicalPhotos.length === 0 && spotRow?.google_place_id) {
         const googleFallback = await getGooglePlacePhotoFallback(String(id));
         if (googleFallback?.source === "google" && googleFallback.imageUrl) {
           setGooglePhoto(googleFallback);
@@ -717,13 +737,28 @@ export default function SpotDetailScreen() {
                   transform: [{ translateX }],
                 }}
               >
-                <Image source={{ uri: photos[index.current]?.url }} style={{ width, height: HEADER_MAX }} />
-                <Image source={{ uri: photos[(index.current + 1) % photos.length]?.url }} style={{ width, height: HEADER_MAX }} />
+                <SpotArtwork
+                  imageUrl={photos[index.current]?.url}
+                  priority="high"
+                  spotId={String(spot.id)}
+                  spotName={spot.name}
+                  style={{ width, height: HEADER_MAX }}
+                />
+                <SpotArtwork
+                  imageUrl={photos[(index.current + 1) % photos.length]?.url}
+                  priority="high"
+                  spotId={String(spot.id)}
+                  spotName={spot.name}
+                  style={{ width, height: HEADER_MAX }}
+                />
               </Animated.View>
             ) : googlePhoto?.imageUrl ? (
               <View style={{ flex: 1 }}>
-                <Image
-                  source={{ uri: googlePhoto.imageUrl }}
+                <SpotArtwork
+                  imageUrl={googlePhoto.imageUrl}
+                  priority="high"
+                  spotId={String(spot.id)}
+                  spotName={spot.name}
                   style={{ width, height: HEADER_MAX }}
                 />
 
@@ -1011,13 +1046,12 @@ export default function SpotDetailScreen() {
                     router.push(`/spot/${item.id}?entrySource=nearby`);
                   }} style={styles.nearbyCard}>
                     <View style={styles.nearbyPhotoWrap}>
-                      {item.photoUrl ? (
-                        <Image source={{ uri: item.photoUrl }} style={styles.nearbyPhoto} />
-                      ) : (
-                        <View style={styles.nearbyFallback}>
-                          <Text style={styles.nearbyFallbackText}>{item.name?.[0] || "?"}</Text>
-                        </View>
-                      )}
+                      <SpotArtwork
+                        imageUrl={selectSpotImageUrl({ photoUrl: item.photoUrl })}
+                        spotId={String(item.id)}
+                        spotName={item.name}
+                        style={styles.nearbyPhoto}
+                      />
                       <LinearGradient colors={["transparent", "rgba(0,0,0,0.62)"]} style={styles.nearbyGradient} />
                       <View style={styles.distancePill}>
                         <Text style={styles.distanceText}>{item.distanceKm.toFixed(1)} km vom Spot</Text>
