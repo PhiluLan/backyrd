@@ -15,6 +15,8 @@ import {
   PanResponder,
   Dimensions,
   Linking,
+  AppState,
+  type AppStateStatus,
 } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -183,6 +185,7 @@ type MoodOption = {
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const SWIPE_THRESHOLD = Math.min(105, SCREEN_WIDTH * 0.25);
+const VISIBLE_EXPOSURE_MINIMUM_MS = 750;
 
 const theme = {
   bg: "#050506",
@@ -591,6 +594,7 @@ export default function DecisionScreen() {
   const [remixCount, setRemixCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [visibleExposureReady, setVisibleExposureReady] = useState(false);
+  const [appStateStatus, setAppStateStatus] = useState<AppStateStatus>(AppState.currentState);
   const [continuationExhausted, setContinuationExhausted] = useState(false);
   const [continuationLoading, setContinuationLoading] = useState(false);
   const [deckMode, setDeckMode] = useState(false);
@@ -671,6 +675,11 @@ export default function DecisionScreen() {
 
     return () => sub.subscription.unsubscribe();
   }, []);
+
+  useEffect(()=>{
+    const subscription=AppState.addEventListener("change",setAppStateStatus);
+    return()=>subscription.remove();
+  },[]);
 
   useEffect(() => {
     router.setParams({
@@ -1225,6 +1234,10 @@ export default function DecisionScreen() {
   useEffect(()=>{
     if(!deckMode||!decisionId||!currentSpot||currentPage<1)return;
     if (currentSpot.north_star_active !== true) return;
+    if(appStateStatus!=="active"){
+      setVisibleExposureReady(false);
+      return;
+    }
     const key=`${decisionId}:${currentSpot.spot_id}`;
     if(visibleExposureKeysRef.current.has(key)){
       cardActionInFlightRef.current = false;
@@ -1233,26 +1246,31 @@ export default function DecisionScreen() {
     }
     let cancelled=false;
     setVisibleExposureReady(false);
-    void supabase.rpc("backyrd_record_visible_decision_impression_v1",{
-      p_decision_id:decisionId,p_spot_id:currentSpot.spot_id,
-      p_page_number:currentPage,p_position_in_page:activeIndex+1,
-    }).then(({error})=>{
-      if(cancelled)return;
-      if(error){
-        console.log("visible Decision impression failed",error);
-        return;
-      }
-      visibleExposureKeysRef.current.add(key);
-      cardActionInFlightRef.current = false;
-      setVisibleExposureReady(true);
-      void trackAnalyticsEvent({
-        eventName:"decision_impression",screenName:"decision",entityType:"spot",
-        entityId:currentSpot.spot_id,spotId:currentSpot.spot_id,decisionId,
-        properties:{page:currentPage,position:activeIndex+1},
+    // A mounted next card is not yet a human exposure. It must remain the
+    // active foreground card for a bounded interval before persistence.
+    const timer=setTimeout(()=>{
+      if(cancelled||AppState.currentState!=="active")return;
+      void supabase.rpc("backyrd_record_visible_decision_impression_v1",{
+        p_decision_id:decisionId,p_spot_id:currentSpot.spot_id,
+        p_page_number:currentPage,p_position_in_page:activeIndex+1,
+      }).then(({error})=>{
+        if(cancelled)return;
+        if(error){
+          console.log("visible Decision impression failed",error);
+          return;
+        }
+        visibleExposureKeysRef.current.add(key);
+        cardActionInFlightRef.current = false;
+        setVisibleExposureReady(true);
+        void trackAnalyticsEvent({
+          eventName:"decision_impression",screenName:"decision",entityType:"spot",
+          entityId:currentSpot.spot_id,spotId:currentSpot.spot_id,decisionId,
+          properties:{page:currentPage,position:activeIndex+1,minimum_visible_ms:VISIBLE_EXPOSURE_MINIMUM_MS},
+        });
       });
-    });
-    return()=>{cancelled=true;};
-  },[activeIndex,currentPage,currentSpot,decisionId,deckMode]);
+    },VISIBLE_EXPOSURE_MINIMUM_MS);
+    return()=>{cancelled=true;clearTimeout(timer);};
+  },[activeIndex,appStateStatus,currentPage,currentSpot,decisionId,deckMode]);
 
   const onOpenSpot = useCallback(
     async (spotId: string) => {
