@@ -809,7 +809,7 @@ export default function SpotDetailScreen() {
                 {spot.price_level ? <Chip text={priceToSymbols(spot.price_level)} /> : null}
               </View>
 
-              <AppText numberOfLines={3} role="displayL" style={styles.heroTitle}>{spot.name}</AppText>
+              <AppText adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={4} role="displayL" style={styles.heroTitle}>{spot.name}</AppText>
               {spot.address ? (
                 <Text numberOfLines={1} style={styles.heroAddress}>{spot.address}</Text>
               ) : null}
