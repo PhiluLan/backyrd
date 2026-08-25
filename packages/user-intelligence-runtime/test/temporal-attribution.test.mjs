@@ -35,6 +35,22 @@ test("pinned N4 and requested moment survive current N4 corrections",()=>{
   assert.equal(t0.dispositions[0].processingDisposition,"FUSION_CONSUMED_BOUNDED");
 });
 
+test("family child context survives attribution without becoming a Taste concept or scope",()=>{
+  const event=baseEvent({evidenceEnvelope:{sourceKind:"DECISION_PACKAGE",momentSignature:{audience:"family",placeType:"outing"},requestedContext:{concepts:["social_style.family_friendly"],socialContext:"family_with_kids",childAge:4,requestedDayparts:[],city:"basel"},ambientContext:{observedDaypart:"afternoon"},n4SnapshotHash:"9".repeat(64),n4SnapshotIdentity:"n4:family-t0",n4Availability:"FULL",placeType:"experience",tasteConcepts:[{concept:"social_style.family_friendly",confidence:.9}],attributionDisposition:"PINNED_DECISION_EVIDENCE",envelopeHash:"8".repeat(64)}});
+  const built=buildUserIntelligenceReadOnly({userId:"user-1",source:source([event])});
+  assert.equal(built.input[0].momentSignature.audience,"family");
+  assert.equal(event.evidenceEnvelope.requestedContext.childAge,4);
+  assert.deepEqual(built.input[0].spotEvidence.concepts,["social_style.family_friendly"]);
+  assert.deepEqual(built.result.userCard.nodes.map((node)=>`${node.scope.kind}:${node.scope.key}`).sort(),[
+    "CONTEXT:audience.family","GLOBAL:global","PLACE_TYPE:experience",
+  ]);
+  assert.equal(built.result.userCard.nodes.every((node)=>node.knowledgeState==="UNKNOWN"),true);
+  assert.equal(built.result.userCard.nodes.every((node)=>node.momentFeedbackEvidence.independentSessions===1),true);
+  assert.equal(built.result.userCard.nodes.some((node)=>JSON.stringify(node).includes("childAge")||node.concept.includes("age")),false);
+  const changedN4=buildUserIntelligenceReadOnly({userId:"user-1",source:source([event],{[event.spotId]:{placeType:"bar",concepts:{"vibe.cozy":{confidence:1}}}})});
+  assert.equal(built.result.userCard.userCardHash,changedN4.result.userCard.userCardHash);
+});
+
 test("old unpinned feedback fails closed instead of borrowing current Spot truth",()=>{
   const event=baseEvent();
   const built=buildCanonicalRuntimeInputWithDispositions(source([event],{[event.spotId]:{placeType:"bar",concepts:{"vibe.cozy":{confidence:1}}}}));

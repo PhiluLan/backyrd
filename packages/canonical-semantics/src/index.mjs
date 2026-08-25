@@ -158,7 +158,7 @@ export function interpretCanonicalCurrentIntent(input={}) {
     ? canonicalFact(Number(explicitAge),"EXPLICIT","product:currentFacts.childAge")
     : ageMatch ? canonicalFact(Number(ageMatch[1]),"EXPLICIT","request:text:childAge") : canonicalFact(null,"UNKNOWN",null);
   const familyFromProduct=suppliedAudience.some((value)=>["family","family_with_kids","kids","child","kinder","familie"].includes(value));
-  const familyFromText=/\b(tochter|sohn|kind|kinder|daughter|son|child|kids|familie|family)\b/.test(normalizedText);
+  const familyFromText=/\b(tochter|sohn|kind(?:er|ern)?|daughter|son|child(?:ren)?|kids?|familie(?:n(?:ausflug)?)?|family)\b/.test(normalizedText);
   const familyContext=familyFromProduct
     ? canonicalFact("FAMILY_WITH_CHILD","EXPLICIT","product:audience")
     : familyFromText||childAge.value!==null

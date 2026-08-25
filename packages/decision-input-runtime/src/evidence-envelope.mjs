@@ -1,11 +1,24 @@
 import { isUserTasteConcept, SEMANTIC_CONTRACT_VERSION } from "../../canonical-semantics/src/index.mjs";
 
-export const DECISION_EVIDENCE_ENVELOPE_VERSION = "backyrd-decision-evidence-envelope-v1";
+export const DECISION_EVIDENCE_ENVELOPE_VERSION = "backyrd-decision-evidence-envelope-v2";
 
 const lower = (value) => String(value ?? "").trim().toLowerCase();
 const unique = (values) => [...new Set(values.filter(Boolean))].sort();
 const DAYPARTS = new Set(["morning", "afternoon", "evening", "night"]);
-const AUDIENCES = new Set(["solo", "date", "friends", "family", "work", "other"]);
+const SOCIAL_CONTEXTS = new Set(["solo", "date", "friends", "family", "family_with_kids", "work", "group"]);
+const LEARNING_AUDIENCE = Object.freeze({
+  solo: "solo",
+  date: "date",
+  friends: "friends",
+  family: "family",
+  family_with_kids: "family",
+  work: "work",
+  // The frozen User Card has no audience.group scope. Preserve the canonical
+  // requested value below, but do not invent a new learning scope here.
+  group: "other",
+});
+const factValue = (value) => value && typeof value === "object" && !Array.isArray(value) && "value" in value ? value.value : value;
+const factAuthority = (value) => lower(value?.authority ?? value?.provenance);
 
 function requestedDayparts(requestContext) {
   const fact = requestContext?.canonicalIntent?.currentRequestFacts?.dayparts;
@@ -13,11 +26,23 @@ function requestedDayparts(requestContext) {
   return unique((Array.isArray(rows) ? rows : []).map(lower).filter((value) => DAYPARTS.has(value)));
 }
 
-function requestedAudience(requestContext, currentMoment) {
-  const canonical = lower(requestContext?.canonicalIntent?.socialContext);
-  if (AUDIENCES.has(canonical)) return canonical;
-  const moment = lower(currentMoment?.fields?.social_context?.value);
-  return AUDIENCES.has(moment) ? moment : null;
+function requestedSocialContext(requestContext, currentMoment) {
+  const facts = requestContext?.canonicalIntent?.currentRequestFacts ?? currentMoment?.currentRequestFacts ?? {};
+  const family = lower(factValue(facts.familyContext));
+  const candidates = [
+    requestContext?.canonicalIntent?.socialContext,
+    factValue(facts.socialContext),
+    currentMoment?.fields?.social_context?.value,
+    family === "family_with_child" ? "family_with_kids" : null,
+  ];
+  return candidates.map(lower).find((value) => SOCIAL_CONTEXTS.has(value)) ?? null;
+}
+
+function requestedChildAge(requestContext, currentMoment) {
+  const fact = requestContext?.canonicalIntent?.currentRequestFacts?.childAge ?? currentMoment?.currentRequestFacts?.childAge;
+  const value = Number(factValue(fact));
+  if (!Number.isInteger(value) || value < 0 || value > 120) return null;
+  return factAuthority(fact) === "explicit" ? value : null;
 }
 
 function ambientDaypart(currentMoment) {
@@ -42,7 +67,9 @@ export function buildDecisionEvidenceEnvelope(decisionPackage, requestContext = 
   }
   const dayparts = requestedDayparts(requestContext);
   const ambient = ambientDaypart(currentMoment);
-  const audience = requestedAudience(requestContext, currentMoment);
+  const socialContext = requestedSocialContext(requestContext, currentMoment);
+  const audience = LEARNING_AUDIENCE[socialContext] ?? null;
+  const childAge = requestedChildAge(requestContext, currentMoment);
   const placeTypes = unique([
     ...(requestContext?.canonicalIntent?.requiredPlaceTypes ?? []),
     ...(requestContext?.canonicalIntent?.preferredPlaceTypes ?? []),
@@ -51,12 +78,13 @@ export function buildDecisionEvidenceEnvelope(decisionPackage, requestContext = 
     ...(audience ? { audience } : {}),
     // Explicit requested time is authoritative; the execution clock remains
     // separately auditable and can never silently replace it.
-    ...(dayparts[0] ? { daypart: dayparts[0] } : ambient ? { daypart: ambient } : {}),
+    ...(dayparts[0] ? { daypart: dayparts[0] } : {}),
     ...(placeTypes.length === 1 ? { placeType: placeTypes[0] } : {}),
   };
   const requestedContext = {
     city: lower(currentMoment.fields?.city?.value) || null,
-    socialContext: audience,
+    socialContext,
+    ...(childAge !== null ? { childAge } : {}),
     requestedDayparts: dayparts,
     concepts: requestedConcepts(requestContext),
   };
