@@ -14,7 +14,7 @@ begin
 end $$;
 
 do $$
-declare founder uuid:=pg_temp.hsi_uuid('hsi-founder');owner_id uuid:=pg_temp.hsi_uuid('hsi-owner');category_id uuid:=pg_temp.hsi_uuid('hsi-category');spot_id uuid:=pg_temp.hsi_uuid('hsi-spot');
+declare founder uuid:=pg_temp.hsi_uuid('hsi-founder');owner_id uuid:=pg_temp.hsi_uuid('hsi-owner');category_id uuid:=pg_temp.hsi_uuid('hsi-category');spot_id uuid:=pg_temp.hsi_uuid('hsi-spot');fixture_id uuid:=pg_temp.hsi_uuid('hsi-offering-fixture');
 begin
  insert into auth.users(instance_id,id,aud,role,email,encrypted_password,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values
  ('00000000-0000-0000-0000-000000000000',founder,'authenticated','authenticated','hsi-founder@invalid','','{}','{}',now(),now()),
@@ -22,7 +22,9 @@ begin
  update public.profiles set is_admin=true where id=founder;
  insert into public.admin_users(user_id,role) values(founder,'super_admin');
  insert into public.categories(id,name) values(category_id,'Bar');
- insert into public.spots(id,name,lat,lng,status,city,category_id,data_origin,owner_id) values(spot_id,'HSI V2 transactional Brewpub',47.55,7.59,'approved','Basel',category_id,'REAL',owner_id);
+ insert into public.spots(id,name,lat,lng,status,city,category_id,data_origin,owner_id) values
+ (spot_id,'HSI V2 transactional Brewpub',47.55,7.59,'approved','Basel',category_id,'REAL',owner_id),
+ (fixture_id,'HSI V2 isolated Offering fixture',47.55,7.59,'approved','Basel',category_id,'TEST',owner_id);
 end $$;
 
 select pg_temp.assert((select count(*)=45 from public.backyrd_taste_concepts_v1),'frozen Taste registry changed');
@@ -68,7 +70,23 @@ do $$ begin
  exception when invalid_parameter_value then null; end;
 end $$;
 
+do $$
+declare v_spot uuid:=pg_temp.hsi_uuid('hsi-offering-fixture');result jsonb;
+begin
+ perform public.backyrd_human_spot_set_archetypes_v2(v_spot,'BREWPUB','{}');
+ result:=public.backyrd_human_spot_save_section_v2(v_spot,'PURPOSE','[{"questionId":"offering.gastronomy","value":{"CRAFT_BEER":"AVAILABLE","FOOD":"AVAILABLE"}},{"questionId":"purpose.gastronomy","value":{"AFTERWORK":"SUITABLE"}}]','ADMIN_VERIFIED',null,'isolated acceptance fixture','SPOT','hsi-v2-fixture-offering',null);
+ perform pg_temp.assert((result->>'persisted')::integer=2 and result#>>'{rebuild,reason}'='TEST_FIXTURE_OFFERING_OUTSIDE_N4','isolated Offering fixture did not persist without N4');
+ perform pg_temp.assert((public.backyrd_human_spot_save_section_v2(v_spot,'PURPOSE','[{"questionId":"offering.gastronomy","value":{"CRAFT_BEER":"AVAILABLE","FOOD":"AVAILABLE"}},{"questionId":"purpose.gastronomy","value":{"AFTERWORK":"SUITABLE"}}]','ADMIN_VERIFIED',null,'isolated acceptance fixture','SPOT','hsi-v2-fixture-offering',null)->>'replayed')::boolean,'isolated fixture retry was not idempotent');
+ perform pg_temp.assert((select count(*)=2 from public.backyrd_spot_accepted_facts_v1 where spot_id=v_spot and status='ACTIVE'),'isolated fixture created duplicate active facts');
+ begin
+  perform public.backyrd_human_spot_save_section_v2(v_spot,'FIT','[{"questionId":"fit.dayparts","value":["EVENING"]}]','ADMIN_VERIFIED',null,'forbidden fixture write','SPOT','hsi-v2-fixture-fit',null);
+  raise exception 'non-Offering fixture authoring was accepted';
+ exception when insufficient_privilege then null; end;
+end $$;
+
 reset role;
+select pg_temp.assert(not exists(select 1 from public.backyrd_embedding_jobs_v1 where spot_id=pg_temp.hsi_uuid('hsi-offering-fixture')),'isolated fixture enqueued an embedding job');
+select pg_temp.assert(not exists(select 1 from public.backyrd_read_offering_for_decision_v1(array[pg_temp.hsi_uuid('hsi-offering-fixture')])),'isolated fixture leaked into normal Offering read model');
 select pg_temp.assert(exists(select 1 from public.backyrd_read_offering_for_decision_v1(array[pg_temp.hsi_uuid('hsi-spot')]) where offerings->>'CRAFT_BEER'='AVAILABLE' and purposes->>'AFTERWORK'='SUITABLE'),'Accepted Offering/Purpose did not reach Decision read model');
 select pg_temp.assert(exists(select 1 from public.backyrd_retrieve_spots_by_offering_v1('Basel',array['CRAFT_BEER'],array['AFTERWORK'],10,'{}') where spot_id=pg_temp.hsi_uuid('hsi-spot') and 'CRAFT_BEER'=any(offering_matches) and 'AFTERWORK'=any(purpose_matches)),'canonical Offering/Purpose did not reach retrieval');
 select pg_temp.assert(not exists(select 1 from public.backyrd_spot_intelligence_dimensions_v1 where dimension_key in ('offering.availability','purpose.occasions')),'Offering/Purpose leaked into frozen N4 dimensions');
