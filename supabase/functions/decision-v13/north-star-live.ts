@@ -2,6 +2,7 @@ import { SupabaseDecisionOrchestrator } from "../../../packages/decision-orchest
 import { N6ShadowService } from "../../../packages/n6-shadow-runtime/src/shadow.mjs";
 import { SupabaseN6ShadowRepository } from "../../../packages/n6-shadow-runtime/src/supabase-repository.mjs";
 import { composeFrozenContinuationOrder } from "../../../packages/decision-input-runtime/src/continuation.mjs";
+import { selectBestAuthorizedReason } from "../../../packages/decision-orchestrator-runtime/src/ranking.mjs";
 
 type CandidateSeed = { spotId: string; why: string | null };
 type ServiceClient = {
@@ -23,7 +24,7 @@ type LiveInput = {
 const errorCode = (error: unknown) => String(error instanceof Error ? error.message : error).slice(0, 160);
 const fail = (error: { message?: string } | null, label: string) => { if (error) throw new Error(`internal_live:${label}:${error.message ?? "unknown"}`); };
 const reasonPriority=(reason:{type?:string;code?:string})=>{
-  if(reason.type==="WHY_NOW"&&["RAIN_SUITABLE","INDOOR_MATCH","OUTDOOR_MATCH","CHILD_AGE_MATCH","FAMILY_SUITABLE","ACTIVITY_MATCH","ACCESSIBILITY_MATCH","DURATION_MATCH","QUIET_MATCH","SOCIAL_CONTEXT_MATCH","CONVERSATION_MATCH","PLANNING_MATCH","DAYPART_MATCH","PRICE_MATCH"].includes(reason.code??""))return 50;
+  if(reason.type==="WHY_NOW"&&["RAIN_SUITABLE","INDOOR_MATCH","OUTDOOR_MATCH","CHILD_AGE_MATCH","FAMILY_SUITABLE","ACTIVITY_MATCH","ACCESSIBILITY_MATCH","DURATION_MATCH","QUIET_MATCH","SOCIAL_CONTEXT_MATCH","CONVERSATION_MATCH","PLANNING_MATCH","DAYPART_MATCH","PRICE_MATCH","OFFERING_MATCH","PURPOSE_MATCH"].includes(reason.code??""))return 50;
   if(reason.type==="WHY_NOW"&&reason.code==="CURRENT_INTENT_MATCH")return 40;
   if(reason.type==="WHY_NOW"&&reason.code==="PLACE_TYPE_MATCH")return 30;
   if(reason.type==="WHY_FOR_YOU")return 20;
@@ -32,7 +33,7 @@ const reasonPriority=(reason:{type?:string;code?:string})=>{
 };
 const strongestAuthorizedReasons=(authorized:Record<string,Array<{copy?:string;type?:string;code?:string}>>)=>Object.fromEntries(
   Object.entries(authorized).flatMap(([spotId,candidates])=>{
-    const selected=[...candidates].filter((reason)=>reason.copy).sort((a,b)=>reasonPriority(b)-reasonPriority(a))[0];
+    const selected=selectBestAuthorizedReason(candidates,Object.values(authorized));
     return selected?.copy?[[spotId,selected.copy]]:[];
   }),
 );

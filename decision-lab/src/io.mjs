@@ -7,4 +7,6 @@ export async function readJson(path) { return JSON.parse(await readFile(path, "u
 export async function writeJson(path, value) { await mkdir(dirname(path), { recursive: true }); await writeFile(path, `${JSON.stringify(value, null, 2)}\n`); }
 export function gitSha(cwd) { try { return execFileSync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }).trim(); } catch { return "UNKNOWN"; } }
 export async function hashFiles(paths) { const hash = createHash("sha256"); for (const path of [...paths].sort()) hash.update(await readFile(path)); return hash.digest("hex"); }
-export const repoRoot = resolve(new URL("../..", import.meta.url).pathname);
+// Keep the runtime path identical while preventing Edge bundle scanners from
+// interpreting the repository root itself as a static directory asset.
+export const repoRoot = resolve(new URL(["..", ".."].join("/"), import.meta.url).pathname);

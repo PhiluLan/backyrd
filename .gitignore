@@ -193,3 +193,5 @@ mobile/eas.local.secret.json
 supabase/functions/decision-engine-worker/index.deploy.ts
 supabase/functions/decision-north-star-internal/index.deploy.ts
 supabase/functions/decision-v13/index.deploy.ts
+.vercel
+.env*

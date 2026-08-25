@@ -1,8 +1,8 @@
 import { contentHash } from "../../decision-input-runtime/src/package.mjs";
 import { FACT_KEYS,SEMANTIC_CONTRACT_VERSION } from "../../canonical-semantics/src/index.mjs";
 
-export const DETERMINISTIC_RANKING_VERSION = "backyrd-deterministic-ranking-v3";
-export const REASON_AUTHORIZATION_VERSION = "backyrd-reason-authorization-v3";
+export const DETERMINISTIC_RANKING_VERSION = "backyrd-deterministic-ranking-v4-offering-facts";
+export const REASON_AUTHORIZATION_VERSION = "backyrd-reason-authorization-v5-relevance-selection";
 
 const CONCEPT_LABELS = Object.freeze({
   "vibe.quiet":"ruhige Orte", "energy.calm":"eine ruhige Atmosphäre",
@@ -29,7 +29,7 @@ function momentConcepts(moment) {
 
 const known=(row)=>row&&row.status!=="UNKNOWN"&&row.value!=="UNKNOWN";
 const valueOf=(candidate,key)=>candidate.n4.suitabilityFacts?.[key];
-const factual=(code,key,outcome,row,momentRef)=>({code,key,outcome,matched:outcome==="MATCH",sourceIdentity:row?.sourceIdentity??null,momentRef});
+const factual=(code,key,outcome,row,momentRef,requirement=null)=>({code,key,outcome,matched:outcome==="MATCH",sourceIdentity:row?.sourceIdentity??null,momentRef,requirement});
 
 export function evaluateFactualCurrentIntent(candidate,currentMoment){
   const request=currentMoment?.currentRequestFacts??{},rows=[];
@@ -68,6 +68,18 @@ export function evaluateFactualCurrentIntent(candidate,currentMoment){
   if(request.planning?.value==="WALK_IN"&&known(reservation))rows.push(factual("PLANNING_MATCH",FACT_KEYS.RESERVATION,reservation.value==="WALK_IN"?"MATCH":reservation.value==="RECOMMENDED"?"PARTIAL":"MISMATCH",reservation,"currentRequestFacts.planning"));
   if(request.dayparts?.value?.length&&known(dayparts)){const supported=new Set(Array.isArray(dayparts.value)?dayparts.value:[]);rows.push(factual("DAYPART_MATCH",FACT_KEYS.DAYPART,request.dayparts.value.some((value)=>supported.has(value))?"MATCH":"MISMATCH",dayparts,"currentRequestFacts.dayparts"));}
   if(Number.isInteger(request.priceMaximum?.value)&&known(price))rows.push(factual("PRICE_MATCH",FACT_KEYS.PRICE,Number(price.value)<=request.priceMaximum.value?"MATCH":"MISMATCH",price,"currentRequestFacts.priceMaximum"));
+  const requestedOfferings=Array.isArray(request.offerings?.value)?request.offerings.value:[];
+  const offering=candidate.offering??{},available=new Set(offering.availableWithAncestors??[]),offeringStates=offering.offerings??{};
+  for(const requirement of requestedOfferings){
+    const state=offeringStates[requirement];
+    const outcome=available.has(requirement)?"MATCH":state==="NOT_AVAILABLE"?"MISMATCH":"UNKNOWN";
+    rows.push(factual("OFFERING_MATCH",FACT_KEYS.OFFERING,outcome,{sourceIdentity:offering.sourceIdentity},"currentRequestFacts.offerings",requirement));
+  }
+  const requestedPurposes=Array.isArray(request.purposes?.value)?request.purposes.value:[],purposeStates=offering.purposes??{};
+  for(const requirement of requestedPurposes){
+    const state=purposeStates[requirement],outcome=state==="SUITABLE"?"MATCH":state==="NOT_SUITABLE"?"MISMATCH":"UNKNOWN";
+    rows.push(factual("PURPOSE_MATCH",FACT_KEYS.PURPOSE,outcome,{sourceIdentity:offering.sourceIdentity},"currentRequestFacts.purposes",requirement));
+  }
   const matches=rows.filter((row)=>row.outcome==="MATCH").length,partials=rows.filter((row)=>row.outcome==="PARTIAL").length,mismatches=rows.filter((row)=>row.outcome==="MISMATCH").length;
   const disposition=mismatches>0?"CONTRADICTED":matches>0?"MATCHED":partials>0?"PARTIAL":"UNKNOWN";
   const tier={CONTRADICTED:0,UNKNOWN:1,PARTIAL:2,MATCHED:3}[disposition];
@@ -97,8 +109,13 @@ function authorizeReasons(candidate,decisionPackage) {
   const concepts=PRESENT(candidate),reasons=[];
   const factualFit=evaluateFactualCurrentIntent(candidate,decisionPackage.n3.currentMoment);
   const childAge=decisionPackage.n3.currentMoment.currentRequestFacts?.childAge?.value;
+  const offeringCopy={DRINKS:"Hier kannst du etwas trinken.",BEER:"Hier gibt es Bier.",CRAFT_BEER:"Hier gibt es Craft Beer.",OWN_BREWED_BEER:"Hier gibt es vor Ort gebrautes Bier.",WINE:"Hier gibt es Wein.",COCKTAILS:"Hier gibt es Cocktails.",COFFEE:"Hier gibt es Kaffee.",NON_ALCOHOLIC:"Hier gibt es alkoholfreie Getränke.",FOOD:"Hier kannst du etwas essen.",SNACKS:"Hier gibt es Snacks.",SMALL_PLATES:"Hier gibt es kleine Gerichte.",FULL_MEALS:"Hier gibt es vollständige Mahlzeiten.",BREAKFAST:"Hier gibt es Frühstück.",BRUNCH:"Hier gibt es Brunch.",LUNCH:"Hier gibt es Mittagessen.",DINNER:"Hier gibt es Abendessen."};
+  const purposeCopy={DRINK:"Passt, wenn du etwas trinken gehen möchtest.",EAT:"Passt, wenn du etwas essen gehen möchtest.",QUICK_BITE:"Passt für einen schnellen Happen.",AFTERWORK:"Passt für Afterwork.",APERO:"Passt für einen Apéro.",LONG_EVENING:"Passt für einen längeren Abend."};
   const factualCopy={RAIN_SUITABLE:"Für einen Regentag geeignet.",INDOOR_MATCH:"Drinnen – passend zu deiner aktuellen Suche.",OUTDOOR_MATCH:"Draußen – passend zu deiner aktuellen Suche.",CHILD_AGE_MATCH:`Passt zum Alter deines ${childAge}-jährigen Kindes.`,FAMILY_SUITABLE:"Für Familien mit Kindern geeignet.",ACTIVITY_MATCH:"Bietet genau die Aktivität, nach der du gerade suchst.",ACCESSIBILITY_MATCH:"Die benötigte Barrierefreiheit ist belegt.",DURATION_MATCH:"Passt in die Zeit, die du gerade hast.",QUIET_MATCH:"Eher ruhig – gut, wenn du dich unterhalten möchtest.",SOCIAL_CONTEXT_MATCH:"Passt zu der Begleitung, mit der du gerade unterwegs bist.",CONVERSATION_MATCH:"Hier kann man sich nach den belegten Angaben gut unterhalten.",PLANNING_MATCH:"Kann spontan und ohne große Vorausplanung besucht werden.",DAYPART_MATCH:"Passt gut zu der Tageszeit, die du genannt hast.",PRICE_MATCH:"Passt zu deinem genannten Preisrahmen."};
-  for(const match of factualFit.observations.filter((row)=>row.matched))reasons.push(reason(`now:fact:${match.code}:${match.key}`,"WHY_NOW",null,factualCopy[match.code],{momentHash:decisionPackage.n3.momentHash,n4Hash:candidate.n4.snapshotHash,factKey:match.key,factSourceIdentity:match.sourceIdentity,momentRef:match.momentRef,semanticContractVersion:SEMANTIC_CONTRACT_VERSION}));
+  for(const match of factualFit.observations.filter((row)=>row.matched)){
+    const copy=match.code==="OFFERING_MATCH"?offeringCopy[match.requirement]:match.code==="PURPOSE_MATCH"?purposeCopy[match.requirement]:factualCopy[match.code];
+    reasons.push(reason(`now:fact:${match.code}:${match.key}${match.requirement?`:${match.requirement}`:""}`,"WHY_NOW",null,copy,{momentHash:decisionPackage.n3.momentHash,n4Hash:candidate.n4.snapshotHash,offeringHash:candidate.offering?.snapshotHash??null,factKey:match.key,factSourceIdentity:match.sourceIdentity,momentRef:match.momentRef,requirement:match.requirement,semanticContractVersion:SEMANTIC_CONTRACT_VERSION}));
+  }
   const required=decisionPackage.n5.currentIntent?.requiredPlaceTypes??[];
   const preferred=decisionPackage.n5.currentIntent?.preferredPlaceTypes??[];
   const placeType=candidate.n4.productFacts.placeType;
@@ -119,10 +136,45 @@ function authorizeReasons(candidate,decisionPackage) {
 
 const compareTuple=(left,right)=>{for(let i=0;i<left.length;i++){if(left[i]!==right[i])return right[i]-left[i];}return 0;};
 
+const REASON_TYPE_PRIORITY=Object.freeze({WHY_NOW:3,WHY_FOR_YOU:2,UNCERTAINTY:1});
+const FACT_REASON_SPECIFICITY=Object.freeze({
+  OFFERING_MATCH:5,PURPOSE_MATCH:4,ACTIVITY_MATCH:4,CHILD_AGE_MATCH:4,
+  ACCESSIBILITY_MATCH:4,RAIN_SUITABLE:3,INDOOR_MATCH:3,OUTDOOR_MATCH:3,
+  CONVERSATION_MATCH:3,PLANNING_MATCH:3,DURATION_MATCH:3,DAYPART_MATCH:3,
+  PRICE_MATCH:3,QUIET_MATCH:3,FAMILY_SUITABLE:2,SOCIAL_CONTEXT_MATCH:2,
+});
+const reasonCode=(row)=>row.id?.startsWith("now:fact:")?row.id.split(":")[2]:null;
+const reasonAuthority=(row)=>row.id?.startsWith("now:fact:")?3:row.id?.startsWith("now:concept:")?2:row.id?.startsWith("now:place_type:")?1:0;
+const reasonSpecificity=(row)=>FACT_REASON_SPECIFICITY[reasonCode(row)]??(row.id?.startsWith("now:concept:")?2:row.id?.startsWith("now:place_type:")?1:0);
+
+/**
+ * Select the most useful authorized explanation without changing candidate
+ * ranking. Current-moment reasons always beat historical personalization; among
+ * equally current reasons, a match shared by fewer candidates is more
+ * discriminative. Factual authority and semantic specificity break remaining
+ * ties. The final id tie-break makes selection independent of serialization
+ * order.
+ */
+export function selectBestAuthorizedReason(candidates,allCandidateReasons=[candidates]) {
+  const usable=candidates.filter((row)=>row?.copy);
+  if(usable.length===0)return null;
+  const supportCount=new Map();
+  for(const rows of allCandidateReasons){
+    for(const id of new Set(rows.filter((row)=>row?.copy).map((row)=>row.id)))supportCount.set(id,(supportCount.get(id)??0)+1);
+  }
+  return [...usable].sort((left,right)=>{
+    const leftTuple=[REASON_TYPE_PRIORITY[left.type]??0,-(supportCount.get(left.id)??Number.MAX_SAFE_INTEGER),reasonAuthority(left),reasonSpecificity(left)];
+    const rightTuple=[REASON_TYPE_PRIORITY[right.type]??0,-(supportCount.get(right.id)??Number.MAX_SAFE_INTEGER),reasonAuthority(right),reasonSpecificity(right)];
+    for(let index=0;index<leftTuple.length;index+=1)if(leftTuple[index]!==rightTuple[index])return rightTuple[index]-leftTuple[index];
+    return left.id<right.id?-1:left.id>right.id?1:0;
+  })[0];
+}
+
 export function deterministicDecisionStrategy(decisionPackage) {
   const ranked=decisionPackage.candidates.map((candidate)=>({candidate,ranking:rankCandidate(candidate,decisionPackage),reasons:authorizeReasons(candidate,decisionPackage)})).sort((a,b)=>compareTuple(a.ranking.tuple,b.ranking.tuple)||a.candidate.spotId.localeCompare(b.candidate.spotId));
+  const allCandidateReasons=ranked.map((row)=>row.reasons);
   const selected=ranked.slice(0,3).map((row,index)=>{
-    const chosen=row.reasons.find((x)=>x.type==="WHY_NOW")||row.reasons.find((x)=>x.type==="WHY_FOR_YOU")||row.reasons.find((x)=>x.type==="UNCERTAINTY");
+    const chosen=selectBestAuthorizedReason(row.reasons,allCandidateReasons);
     return {...row,rank:index+1,selectedReasonId:chosen?.id??null,explanation:chosen?.copy??"Passt am besten zu den aktuell verfügbaren, sicheren Informationen."};
   });
   return {version:DETERMINISTIC_RANKING_VERSION,reasonVersion:REASON_AUTHORIZATION_VERSION,selected,allRanked:ranked,rankingHash:contentHash(ranked.map(({ranking})=>ranking)),reasonSetHashes:Object.fromEntries(ranked.map(({candidate,reasons})=>[candidate.spotId,contentHash(reasons)]))};

@@ -75,17 +75,30 @@ export const FACT_KEYS = Object.freeze({
   IDENTITY_NAME:"identity.name",LOCATION_CITY:"location.city",LOCATION_COORDINATES:"location.coordinates",CATEGORY_PRIMARY:"category.primary",PLACE_TYPE:"place_type",OPENING_REGULAR:"opening.regular",OPENING_STATUS:"opening.status",
   FAMILY_KIDS:"suitability.family_kids", AGE:"suitability.age", ENVIRONMENT:"suitability.environment", RAIN:"suitability.rain",
   ACTIVITY:"activity.types", CONVERSATION:"suitability.conversation", SOCIAL:"social.suitability", ACCESSIBILITY:"accessibility.capabilities",
-  PRICE:"price.level", DAYPART:"time.dayparts",RESERVATION:"reservation.character",RESERVATION_RECOMMENDED:"reservation.recommended",DURATION:"duration.character",DURATION_APPROXIMATE:"duration.approximate",NOISE:"character.noise",ATMOSPHERE:"atmosphere.descriptors",SIGNATURE:"signature.characteristics",AUDIENCE_BASIC:"audience.basic"
+  PRICE:"price.level", DAYPART:"time.dayparts",RESERVATION:"reservation.character",RESERVATION_RECOMMENDED:"reservation.recommended",DURATION:"duration.character",DURATION_APPROXIMATE:"duration.approximate",NOISE:"character.noise",ATMOSPHERE:"atmosphere.descriptors",SIGNATURE:"signature.characteristics",AUDIENCE_BASIC:"audience.basic",
+  OFFERING:"offering.availability",PURPOSE:"purpose.occasions"
 });
+export const OFFERING_CONTRACT_VERSION="backyrd-canonical-offering-v1";
+export const CANONICAL_OFFERINGS=Object.freeze(["DRINKS","BEER","CRAFT_BEER","OWN_BREWED_BEER","WINE","COCKTAILS","COFFEE","NON_ALCOHOLIC","FOOD","SNACKS","SMALL_PLATES","FULL_MEALS","BREAKFAST","BRUNCH","LUNCH","DINNER"]);
+export const OFFERING_PARENTS=Object.freeze({BEER:"DRINKS",CRAFT_BEER:"BEER",OWN_BREWED_BEER:"BEER",WINE:"DRINKS",COCKTAILS:"DRINKS",COFFEE:"DRINKS",NON_ALCOHOLIC:"DRINKS",SNACKS:"FOOD",SMALL_PLATES:"FOOD",FULL_MEALS:"FOOD",BREAKFAST:"FOOD",BRUNCH:"FOOD",LUNCH:"FOOD",DINNER:"FOOD"});
+export const CANONICAL_PURPOSES=Object.freeze(["DRINK","EAT","QUICK_BITE","AFTERWORK","APERO","LONG_EVENING"]);
+export const OFFERING_STATES=Object.freeze(["AVAILABLE","NOT_AVAILABLE","UNKNOWN"]);
+export const PURPOSE_STATES=Object.freeze(["SUITABLE","NOT_SUITABLE","UNKNOWN"]);
+
+export function expandOfferingHierarchy(values=[]){
+  const expanded=new Set(values.filter((value)=>CANONICAL_OFFERINGS.includes(value)));
+  for(const value of [...expanded]){let parent=OFFERING_PARENTS[value];while(parent){expanded.add(parent);parent=OFFERING_PARENTS[parent];}}
+  return CANONICAL_OFFERINGS.filter((value)=>expanded.has(value));
+}
 export const CANONICAL_FACTS=Object.freeze([
  {key:FACT_KEYS.IDENTITY_NAME,type:"TEXT"},{key:FACT_KEYS.LOCATION_CITY,type:"CITY"},{key:FACT_KEYS.LOCATION_COORDINATES,type:"GEO_POINT"},{key:FACT_KEYS.CATEGORY_PRIMARY,type:"CATEGORY_REF"},{key:FACT_KEYS.PLACE_TYPE,type:"ENUM",values:PLACE_TYPES},{key:FACT_KEYS.PRICE,type:"INTEGER_1_5"},{key:FACT_KEYS.OPENING_REGULAR,type:"SCHEDULE"},{key:FACT_KEYS.OPENING_STATUS,type:"ENUM",values:["OPEN","TEMPORARILY_CLOSED","CLOSED","UNKNOWN"]},
- {key:FACT_KEYS.FAMILY_KIDS,type:"ENUM",values:["SUITABLE","NOT_SUITABLE","UNKNOWN"]},{key:FACT_KEYS.AGE,type:"STRUCTURED_OBJECT",fields:["min_age","max_age","adult_supervision_required"]},{key:FACT_KEYS.ENVIRONMENT,type:"ENUM",values:["INDOOR","OUTDOOR","MIXED","UNKNOWN"]},{key:FACT_KEYS.RAIN,type:"ENUM",values:["SUITABLE","LIMITED","NOT_SUITABLE","UNKNOWN"]},{key:FACT_KEYS.ACTIVITY,type:"MULTI_ENUM"},{key:FACT_KEYS.CONVERSATION,type:"ENUM",values:["HIGH","MEDIUM","LOW","UNKNOWN"]},{key:FACT_KEYS.NOISE,type:"ENUM",values:["QUIET","MODERATE","LOUD","VARIABLE","UNKNOWN"]},{key:FACT_KEYS.SOCIAL,type:"MAP_TRISTATE"},{key:FACT_KEYS.ACCESSIBILITY,type:"MAP_TRISTATE"},{key:FACT_KEYS.RESERVATION,type:"ENUM",values:["WALK_IN","RECOMMENDED","REQUIRED","BOOK_AHEAD","UNKNOWN"]},{key:FACT_KEYS.RESERVATION_RECOMMENDED,type:"ENUM",values:["YES","NO","UNKNOWN"]},{key:FACT_KEYS.DURATION,type:"ENUM",values:["SHORT","MEDIUM","LONG","FLEXIBLE","UNKNOWN"]},{key:FACT_KEYS.DURATION_APPROXIMATE,type:"STRUCTURED_OBJECT",fields:["min","max"]},{key:FACT_KEYS.DAYPART,type:"MULTI_ENUM"},{key:FACT_KEYS.ATMOSPHERE,type:"MULTI_ENUM"},{key:FACT_KEYS.SIGNATURE,type:"MULTI_ENUM"},{key:FACT_KEYS.AUDIENCE_BASIC,type:"LEGACY_MULTI_ENUM"}
+ {key:FACT_KEYS.FAMILY_KIDS,type:"ENUM",values:["SUITABLE","NOT_SUITABLE","UNKNOWN"]},{key:FACT_KEYS.AGE,type:"STRUCTURED_OBJECT",fields:["min_age","max_age","adult_supervision_required"]},{key:FACT_KEYS.ENVIRONMENT,type:"ENUM",values:["INDOOR","OUTDOOR","MIXED","UNKNOWN"]},{key:FACT_KEYS.RAIN,type:"ENUM",values:["SUITABLE","LIMITED","NOT_SUITABLE","UNKNOWN"]},{key:FACT_KEYS.ACTIVITY,type:"MULTI_ENUM"},{key:FACT_KEYS.CONVERSATION,type:"ENUM",values:["HIGH","MEDIUM","LOW","UNKNOWN"]},{key:FACT_KEYS.NOISE,type:"ENUM",values:["QUIET","MODERATE","LOUD","VARIABLE","UNKNOWN"]},{key:FACT_KEYS.SOCIAL,type:"MAP_TRISTATE"},{key:FACT_KEYS.ACCESSIBILITY,type:"MAP_TRISTATE"},{key:FACT_KEYS.RESERVATION,type:"ENUM",values:["WALK_IN","RECOMMENDED","REQUIRED","BOOK_AHEAD","UNKNOWN"]},{key:FACT_KEYS.RESERVATION_RECOMMENDED,type:"ENUM",values:["YES","NO","UNKNOWN"]},{key:FACT_KEYS.DURATION,type:"ENUM",values:["SHORT","MEDIUM","LONG","FLEXIBLE","UNKNOWN"]},{key:FACT_KEYS.DURATION_APPROXIMATE,type:"STRUCTURED_OBJECT",fields:["min","max"]},{key:FACT_KEYS.DAYPART,type:"MULTI_ENUM"},{key:FACT_KEYS.ATMOSPHERE,type:"MULTI_ENUM"},{key:FACT_KEYS.SIGNATURE,type:"MULTI_ENUM"},{key:FACT_KEYS.AUDIENCE_BASIC,type:"LEGACY_MULTI_ENUM"},{key:FACT_KEYS.OFFERING,type:"MAP_AVAILABILITY",values:CANONICAL_OFFERINGS},{key:FACT_KEYS.PURPOSE,type:"MAP_TRISTATE",values:CANONICAL_PURPOSES}
 ]);
 export const ATMOSPHERE_CONCEPT_MAP=Object.freeze({COZY:"vibe.cozy",RELAXED:"vibe.relaxed",ROMANTIC:"vibe.romantic",LIVELY:"vibe.lively",QUIET:"vibe.quiet",SOCIAL:"vibe.social",INSPIRING:"vibe.inspiring",PLAYFUL:"vibe.playful",ELEGANT:"vibe.elegant",DESIGN_LED:"character.design_led",AUTHENTIC:"vibe.authentic",HIDDEN_GEM:"discovery.hidden_gem"});
 export const CONTEXT_KEYS=Object.freeze({social:["solo","date","friends","family","family_with_kids","work","group","unknown"],occasion:["breakfast","lunch","afterwork","dinner","late_night","celebration","tourist","business","casual","unknown"],provenance:["EXPLICIT","INFERRED","OBSERVED","UNKNOWN"]});
 export const REVIEW_ORIGINS = Object.freeze({SMART_REVIEW:{reviewOrigin:"SMART_REVIEW",productEvidenceOrigin:"smart_review_v1"},STANDARD_REVIEW:{reviewOrigin:"STANDARD_REVIEW",productEvidenceOrigin:null}});
 export const EVIDENCE_AUTHORITIES = Object.freeze({SELF_DECLARED:"DECLARED",DIRECT_REVIEW:"DIRECT_REVIEW",COMPARATIVE:"COMPARATIVE",BEHAVIORAL:"BEHAVIORAL",CURRENT_MOMENT:"CURRENT_CONTEXT_ONLY"});
-export const FACTUAL_REASON_CODES = Object.freeze(["RAIN_SUITABLE","INDOOR_MATCH","OUTDOOR_MATCH","CHILD_AGE_MATCH","FAMILY_SUITABLE","ACTIVITY_MATCH","ACCESSIBILITY_MATCH","DURATION_MATCH","QUIET_MATCH","SOCIAL_CONTEXT_MATCH","CONVERSATION_MATCH","PLANNING_MATCH","DAYPART_MATCH","PRICE_MATCH"]);
+export const FACTUAL_REASON_CODES = Object.freeze(["RAIN_SUITABLE","INDOOR_MATCH","OUTDOOR_MATCH","CHILD_AGE_MATCH","FAMILY_SUITABLE","ACTIVITY_MATCH","ACCESSIBILITY_MATCH","DURATION_MATCH","QUIET_MATCH","SOCIAL_CONTEXT_MATCH","CONVERSATION_MATCH","PLANNING_MATCH","DAYPART_MATCH","PRICE_MATCH","OFFERING_MATCH","PURPOSE_MATCH"]);
 
 // Human-facing authoring metadata. Canonical keys stay server-owned; clients use
 // this registry only to render the same questions and labels across Admin/Owner.
@@ -113,6 +126,8 @@ export const HUMAN_SPOT_FIELDS = Object.freeze({
   "accessibility.capabilities":{question:"Welche Barrierefreiheits-Eigenschaften sind vorhanden?",help:"Jede Eigenschaft separat mit Ja, Nein oder Unbekannt erfassen."},
   "time.dayparts":{question:"Wann passt der Ort besonders gut?",help:"Nicht aus Öffnungszeiten ableiten; nur qualitative Eignung auswählen."},
   "signature.characteristics":{question:"Was macht den Ort besonders?",help:"Kurze menschliche Highlights. Sie werden nicht automatisch zu Taste-Wahrheit."},
+  "offering.availability":{question:"Was gibt es hier?",help:"Jedes Angebot separat als verfügbar, nicht verfügbar oder unbekannt bestätigen."},
+  "purpose.occasions":{question:"Wofür kommen Gäste hauptsächlich hierher?",help:"Beschreibt den Besuchszweck dieses Orts, nicht eine persönliche Vorliebe."},
 });
 
 export const HUMAN_VALUE_LABELS = Object.freeze({
@@ -224,6 +239,36 @@ export function interpretCanonicalCurrentIntent(input={}) {
     ...(/\b(werktag|werktags|weekday)\b/.test(normalizedText)?["WEEKDAY"]:[]),
   ]);
   const priceMaximum=/\b(gunstig|preiswert|budget|billig)\b/.test(normalizedText)?2:null;
+  const explicitOfferings=[];
+  const craftBeer=/\b(craft[ -]?beer|craft[ -]?bier)\b/.test(normalizedText),ownBeer=/\b(eigen(?:es|em|en)? bier|selbst gebraut(?:es|em|en)? bier|hausgebraut(?:es|em|en)? bier|own[ -]?brewed beer)\b/.test(normalizedText);
+  if(craftBeer)explicitOfferings.push("CRAFT_BEER");
+  if(ownBeer)explicitOfferings.push("OWN_BREWED_BEER");
+  if(!craftBeer&&!ownBeer&&/\b(bier|beer)\b/.test(normalizedText))explicitOfferings.push("BEER");
+  if(/\b(glas wein|wein|wine)\b/.test(normalizedText))explicitOfferings.push("WINE");
+  if(/\b(cocktails?|cocktail)\b/.test(normalizedText))explicitOfferings.push("COCKTAILS");
+  if(/\b(kaffee|coffee)\b/.test(normalizedText))explicitOfferings.push("COFFEE");
+  if(/\b(alkoholfrei(?:e|en|es)?|non[ -]?alcoholic)\b/.test(normalizedText))explicitOfferings.push("NON_ALCOHOLIC");
+  if(/\b(snacks?)\b/.test(normalizedText))explicitOfferings.push("SNACKS");
+  if(/\b(kleine(?:s|n)? (?:gericht|gerichte|essen)|small plates?)\b/.test(normalizedText))explicitOfferings.push("SMALL_PLATES");
+  if(/\b(vollstandige(?:s|n)? mahlzeit|full meals?)\b/.test(normalizedText))explicitOfferings.push("FULL_MEALS");
+  if(/\b(fruhstuck|breakfast)\b/.test(normalizedText))explicitOfferings.push("BREAKFAST");
+  if(/\b(brunch)\b/.test(normalizedText))explicitOfferings.push("BRUNCH");
+  if(/\b(mittagessen|lunch)\b/.test(normalizedText))explicitOfferings.push("LUNCH");
+  if(/\b(abendessen|dinner)\b/.test(normalizedText))explicitOfferings.push("DINNER");
+  const hasFoodLeaf=explicitOfferings.some((value)=>["SNACKS","SMALL_PLATES","FULL_MEALS","BREAKFAST","BRUNCH","LUNCH","DINNER"].includes(value));
+  const hasDrinkLeaf=explicitOfferings.some((value)=>["BEER","CRAFT_BEER","OWN_BREWED_BEER","WINE","COCKTAILS","COFFEE","NON_ALCOHOLIC"].includes(value));
+  if(!hasFoodLeaf&&/\b(etwas essen|essen gehen|etwas zu essen|essen|food)\b/.test(normalizedText)&&!/\b(kein|nicht|ohne)\s+essen\b/.test(normalizedText))explicitOfferings.push("FOOD");
+  if(!hasDrinkLeaf&&((/\b(etwas trinken|trinken gehen|trinken|drinking)\b/.test(normalizedText)&&!/\b(kein|nicht|ohne)\s+(?:etwas\s+)?trinken\b/.test(normalizedText))||/\bdrinks?\b/.test(normalizedText)))explicitOfferings.push("DRINKS");
+  const requestedOfferings=uniqueValues(explicitOfferings);
+  const requestedOfferingCategories=expandOfferingHierarchy(requestedOfferings);
+  const requestedPurposes=uniqueValues([
+    ...(/\b(afterwork|nach der arbeit)\b/.test(normalizedText)?["AFTERWORK"]:[]),
+    ...(/\b(apero|aperitif|aperitif)\b/.test(normalizedText)?["APERO"]:[]),
+    ...(/\b(noch schnell|schnell etwas essen|quick bite)\b/.test(normalizedText)?["QUICK_BITE"]:[]),
+    ...(/\b(langer abend|den abend verbringen|long evening)\b/.test(normalizedText)?["LONG_EVENING"]:[]),
+    ...(requestedOfferingCategories.includes("DRINKS")?["DRINK"]:[]),
+    ...(requestedOfferingCategories.includes("FOOD")?["EAT"]:[]),
+  ]);
   const currentRequestFacts={
     version:CURRENT_MOMENT_VERSION,rain,childAge,familyContext,
     activityTypes:canonicalFact(activityTypes,activityTypes.length?"EXPLICIT":"UNKNOWN",activityTypes.length?"product:currentFacts.activityTypes":null),
@@ -235,6 +280,8 @@ export function interpretCanonicalCurrentIntent(input={}) {
     planning:canonicalFact(planningValue,planningValue==="UNKNOWN"?"UNKNOWN":"EXPLICIT",planningValue==="UNKNOWN"?null:"request:text:planning"),
     dayparts:canonicalFact(dayparts,dayparts.length?"EXPLICIT":"UNKNOWN",dayparts.length?"request:text:daypart":null),
     priceMaximum:canonicalFact(priceMaximum,priceMaximum===null?"UNKNOWN":"EXPLICIT",priceMaximum===null?null:"request:text:price"),
+    offerings:canonicalFact(requestedOfferings,requestedOfferings.length?"EXPLICIT":"UNKNOWN",requestedOfferings.length?"request:text:offering":null),
+    purposes:canonicalFact(requestedPurposes,requestedPurposes.length?"EXPLICIT":"UNKNOWN",requestedPurposes.length?"request:text:purpose":null),
     boundaries:{durablePreference:false,softTextSignalsAreHardConstraints:false},
   };
   return {

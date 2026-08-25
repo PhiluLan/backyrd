@@ -45,6 +45,18 @@ export function HumanSpotQuestion({ question, value, archetypes, changed, proven
       </div></div>)}
     </div>}
 
+    {question.control_type === "AVAILABILITY_MAP" && <div className="hsi-tristate-list">
+      {options.map((option) => <div key={option.id}><span>{option.label}</span><div role="radiogroup" aria-label={`${question.label_de}: ${option.label}`}>
+        {[{ label: "Verfügbar", value: "AVAILABLE" }, { label: "Nicht verfügbar", value: "NOT_AVAILABLE" }, { label: "Unbekannt", value: "UNKNOWN" }].map((state) => <button type="button" role="radio" aria-checked={objectValue[String(option.value)] === state.value} className={objectValue[String(option.value)] === state.value ? "selected" : ""} key={state.value} onClick={() => onChange({ ...objectValue, [String(option.value)]: state.value })}>{state.label}</button>)}
+      </div></div>)}
+    </div>}
+
+    {question.control_type === "PURPOSE_MAP" && <div className="hsi-tristate-list">
+      {options.map((option) => <div key={option.id}><span>{option.label}</span><div role="radiogroup" aria-label={`${question.label_de}: ${option.label}`}>
+        {[{ label: "Typischer Grund", value: "SUITABLE" }, { label: "Eher nicht", value: "NOT_SUITABLE" }, { label: "Unbekannt", value: "UNKNOWN" }].map((state) => <button type="button" role="radio" aria-checked={objectValue[String(option.value)] === state.value} className={objectValue[String(option.value)] === state.value ? "selected" : ""} key={state.value} onClick={() => onChange({ ...objectValue, [String(option.value)]: state.value })}>{state.label}</button>)}
+      </div></div>)}
+    </div>}
+
     {question.control_type === "ACCESSIBILITY_MAP" && <div className="hsi-tristate-list compact">
       {options.map((option) => <div key={option.id}><span>{option.label}</span><div role="radiogroup" aria-label={`${question.label_de}: ${option.label}`}>
         {[{ label: "Bestätigt", value: "SUITABLE" }, { label: "Nicht vorhanden", value: "NOT_SUITABLE" }, { label: "Unbekannt", value: "UNKNOWN" }].map((state) => <button type="button" role="radio" aria-checked={objectValue[String(option.value)] === state.value} className={objectValue[String(option.value)] === state.value ? "selected" : ""} key={state.value} onClick={() => onChange({ ...objectValue, [String(option.value)]: state.value })}>{state.label}</button>)}

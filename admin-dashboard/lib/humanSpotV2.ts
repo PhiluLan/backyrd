@@ -1,5 +1,5 @@
 export type AuthoringSectionId = "IDENTITY" | "PURPOSE" | "FIT" | "EXPERIENCE" | "PRACTICAL";
-export type AuthoringControlType = "SINGLE_CHOICE" | "MULTI_CHOICE" | "TRI_STATE_MAP" | "AGE_RANGE" | "DURATION_RANGE" | "ACCESSIBILITY_MAP";
+export type AuthoringControlType = "SINGLE_CHOICE" | "MULTI_CHOICE" | "TRI_STATE_MAP" | "AVAILABILITY_MAP" | "PURPOSE_MAP" | "AGE_RANGE" | "DURATION_RANGE" | "ACCESSIBILITY_MAP";
 
 export type AuthoringOption = {
   id: string;
