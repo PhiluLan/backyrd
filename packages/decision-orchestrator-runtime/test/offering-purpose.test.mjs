@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {buildDecisionInputPackage} from "../../decision-input-runtime/src/package.mjs";
 import {buildDeterministicDecision} from "../src/orchestrator.mjs";
+import {selectBestAuthorizedReason} from "../src/ranking.mjs";
 
 const userId="71000000-0000-4000-8000-000000000001",decisionId="71000000-0000-4000-8000-000000000010";
 const ids=["71000000-0000-4000-8000-000000000101","71000000-0000-4000-8000-000000000102","71000000-0000-4000-8000-000000000103"];
@@ -36,4 +37,46 @@ test("all-UNKNOWN authoring remains UNKNOWN Decision truth",()=>{
  const result=buildDeterministicDecision(input,cards,{expectedUserId:userId});
  assert.equal(result.internal.rankingInputs[ids[0]].factualFit.disposition,"UNKNOWN");
  assert.equal(result.internal.authorizedReasons[ids[0]].some((row)=>row.copy==="Hier gibt es Craft Beer."),false);
+});
+
+test("a discriminative explicit Offering reason is selected without changing ranking",()=>{
+ const value=base();value.requestContext={query:"Gemütliches Craft Beer trinken und etwas essen mit Freunden",rawFreeText:"Gemütliches Craft Beer trinken und etwas essen mit Freunden",audience:["friends"]};
+ for(const spotId of ids)value.n4BySpot[spotId]={available:true,placeType:"bar",snapshotIdentity:`n4:${spotId}`,concepts:{"vibe.cozy":{presence:1,confidence:.9,provenance:`n4:${spotId}:cozy`},"vibe.social":{presence:1,confidence:.9,provenance:`n4:${spotId}:social`}},suitabilityFacts:{"social.suitability":{value:{friends:"SUITABLE"},status:"ACTIVE",confidence:.9,sourceIdentity:`accepted-fact:${spotId}:social`}}};
+ value.offeringBySpot[ids[1]]={offerings:{value:{}},purposes:{value:{}},sourceIdentity:null,confidence:null};
+ value.offeringBySpot[ids[2]]={offerings:{value:{}},purposes:{value:{}},sourceIdentity:null,confidence:null};
+ const result=buildDeterministicDecision(buildDecisionInputPackage(value).package,cards,{expectedUserId:userId});
+ assert.equal(result.internal.finalOrder[0],ids[0]);
+ assert.equal(result.response.spots[0].reasonId,`now:fact:OFFERING_MATCH:offering.availability:CRAFT_BEER`);
+ assert.equal(result.response.spots[0].explanation,"Hier gibt es Craft Beer.");
+ assert.equal(result.response.spots[1].reasonId.includes("OFFERING_MATCH"),false);
+ assert.ok(result.internal.authorizedReasons[result.response.spots[1].spotId].some((row)=>row.id===result.response.spots[1].reasonId));
+ assert.equal(result.internal.rankingInputs[ids[0]].factualFit.matches,4);
+ assert.equal(result.internal.rankingInputs[ids[1]].factualFit.matches,0);
+});
+
+test("reason relevance is discriminative, not a hard-coded Offering-over-audience rule",()=>{
+ const offering=(id)=>({id,type:"WHY_NOW",copy:"Offering"});
+ const social={id:"now:fact:SOCIAL_CONTEXT_MATCH:social.suitability",type:"WHY_NOW",copy:"Audience"};
+ const exact={id:"now:fact:OFFERING_MATCH:offering.availability:CRAFT_BEER",type:"WHY_NOW",copy:"Craft"};
+ assert.equal(selectBestAuthorizedReason([exact,social],[[exact,social],[offering(exact.id)] ]).id,social.id);
+ assert.equal(selectBestAuthorizedReason([social,exact],[[social,exact]]).id,exact.id);
+});
+
+test("Cocktails fürs Date selects an authorized Cocktail reason when it differentiates the candidate",()=>{
+ const value=base();value.requestContext={query:"Cocktails fürs Date",rawFreeText:"Cocktails fürs Date",audience:["date"]};
+ value.offeringBySpot[ids[0]]={offerings:{value:{COCKTAILS:"AVAILABLE"}},purposes:{value:{DRINK:"SUITABLE"}},sourceIdentity:"accepted-facts:cocktails",confidence:.9};
+ value.offeringBySpot[ids[1]]={offerings:{value:{}},purposes:{value:{}},sourceIdentity:null,confidence:null};
+ value.offeringBySpot[ids[2]]={offerings:{value:{}},purposes:{value:{}},sourceIdentity:null,confidence:null};
+ const result=buildDeterministicDecision(buildDecisionInputPackage(value).package,cards,{expectedUserId:userId});
+ assert.equal(result.response.spots[0].explanation,"Hier gibt es Cocktails.");
+ assert.ok(result.internal.authorizedReasons[ids[0]].some((row)=>row.id===result.response.spots[0].reasonId));
+});
+
+test("a broad unknown request keeps an honest candidate-specific uncertainty reason",()=>{
+ const value=base();value.requestContext={query:"Was soll ich machen?",rawFreeText:"Was soll ich machen?"};value.offeringBySpot={};
+ const result=buildDeterministicDecision(buildDecisionInputPackage(value).package,cards,{expectedUserId:userId});
+ for(const spot of result.response.spots){
+   assert.ok(spot.reasonId.startsWith("uncertainty:"));
+   assert.ok(result.internal.authorizedReasons[spot.spotId].some((row)=>row.id===spot.reasonId));
+ }
 });

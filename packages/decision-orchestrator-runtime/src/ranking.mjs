@@ -2,7 +2,7 @@ import { contentHash } from "../../decision-input-runtime/src/package.mjs";
 import { FACT_KEYS,SEMANTIC_CONTRACT_VERSION } from "../../canonical-semantics/src/index.mjs";
 
 export const DETERMINISTIC_RANKING_VERSION = "backyrd-deterministic-ranking-v4-offering-facts";
-export const REASON_AUTHORIZATION_VERSION = "backyrd-reason-authorization-v4-offering-facts";
+export const REASON_AUTHORIZATION_VERSION = "backyrd-reason-authorization-v5-relevance-selection";
 
 const CONCEPT_LABELS = Object.freeze({
   "vibe.quiet":"ruhige Orte", "energy.calm":"eine ruhige Atmosphäre",
@@ -136,10 +136,45 @@ function authorizeReasons(candidate,decisionPackage) {
 
 const compareTuple=(left,right)=>{for(let i=0;i<left.length;i++){if(left[i]!==right[i])return right[i]-left[i];}return 0;};
 
+const REASON_TYPE_PRIORITY=Object.freeze({WHY_NOW:3,WHY_FOR_YOU:2,UNCERTAINTY:1});
+const FACT_REASON_SPECIFICITY=Object.freeze({
+  OFFERING_MATCH:5,PURPOSE_MATCH:4,ACTIVITY_MATCH:4,CHILD_AGE_MATCH:4,
+  ACCESSIBILITY_MATCH:4,RAIN_SUITABLE:3,INDOOR_MATCH:3,OUTDOOR_MATCH:3,
+  CONVERSATION_MATCH:3,PLANNING_MATCH:3,DURATION_MATCH:3,DAYPART_MATCH:3,
+  PRICE_MATCH:3,QUIET_MATCH:3,FAMILY_SUITABLE:2,SOCIAL_CONTEXT_MATCH:2,
+});
+const reasonCode=(row)=>row.id?.startsWith("now:fact:")?row.id.split(":")[2]:null;
+const reasonAuthority=(row)=>row.id?.startsWith("now:fact:")?3:row.id?.startsWith("now:concept:")?2:row.id?.startsWith("now:place_type:")?1:0;
+const reasonSpecificity=(row)=>FACT_REASON_SPECIFICITY[reasonCode(row)]??(row.id?.startsWith("now:concept:")?2:row.id?.startsWith("now:place_type:")?1:0);
+
+/**
+ * Select the most useful authorized explanation without changing candidate
+ * ranking. Current-moment reasons always beat historical personalization; among
+ * equally current reasons, a match shared by fewer candidates is more
+ * discriminative. Factual authority and semantic specificity break remaining
+ * ties. The final id tie-break makes selection independent of serialization
+ * order.
+ */
+export function selectBestAuthorizedReason(candidates,allCandidateReasons=[candidates]) {
+  const usable=candidates.filter((row)=>row?.copy);
+  if(usable.length===0)return null;
+  const supportCount=new Map();
+  for(const rows of allCandidateReasons){
+    for(const id of new Set(rows.filter((row)=>row?.copy).map((row)=>row.id)))supportCount.set(id,(supportCount.get(id)??0)+1);
+  }
+  return [...usable].sort((left,right)=>{
+    const leftTuple=[REASON_TYPE_PRIORITY[left.type]??0,-(supportCount.get(left.id)??Number.MAX_SAFE_INTEGER),reasonAuthority(left),reasonSpecificity(left)];
+    const rightTuple=[REASON_TYPE_PRIORITY[right.type]??0,-(supportCount.get(right.id)??Number.MAX_SAFE_INTEGER),reasonAuthority(right),reasonSpecificity(right)];
+    for(let index=0;index<leftTuple.length;index+=1)if(leftTuple[index]!==rightTuple[index])return rightTuple[index]-leftTuple[index];
+    return left.id<right.id?-1:left.id>right.id?1:0;
+  })[0];
+}
+
 export function deterministicDecisionStrategy(decisionPackage) {
   const ranked=decisionPackage.candidates.map((candidate)=>({candidate,ranking:rankCandidate(candidate,decisionPackage),reasons:authorizeReasons(candidate,decisionPackage)})).sort((a,b)=>compareTuple(a.ranking.tuple,b.ranking.tuple)||a.candidate.spotId.localeCompare(b.candidate.spotId));
+  const allCandidateReasons=ranked.map((row)=>row.reasons);
   const selected=ranked.slice(0,3).map((row,index)=>{
-    const chosen=row.reasons.find((x)=>x.type==="WHY_NOW")||row.reasons.find((x)=>x.type==="WHY_FOR_YOU")||row.reasons.find((x)=>x.type==="UNCERTAINTY");
+    const chosen=selectBestAuthorizedReason(row.reasons,allCandidateReasons);
     return {...row,rank:index+1,selectedReasonId:chosen?.id??null,explanation:chosen?.copy??"Passt am besten zu den aktuell verfügbaren, sicheren Informationen."};
   });
   return {version:DETERMINISTIC_RANKING_VERSION,reasonVersion:REASON_AUTHORIZATION_VERSION,selected,allRanked:ranked,rankingHash:contentHash(ranked.map(({ranking})=>ranking)),reasonSetHashes:Object.fromEntries(ranked.map(({candidate,reasons})=>[candidate.spotId,contentHash(reasons)]))};

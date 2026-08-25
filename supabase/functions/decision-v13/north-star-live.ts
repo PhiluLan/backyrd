@@ -2,6 +2,7 @@ import { SupabaseDecisionOrchestrator } from "../../../packages/decision-orchest
 import { N6ShadowService } from "../../../packages/n6-shadow-runtime/src/shadow.mjs";
 import { SupabaseN6ShadowRepository } from "../../../packages/n6-shadow-runtime/src/supabase-repository.mjs";
 import { composeFrozenContinuationOrder } from "../../../packages/decision-input-runtime/src/continuation.mjs";
+import { selectBestAuthorizedReason } from "../../../packages/decision-orchestrator-runtime/src/ranking.mjs";
 
 type CandidateSeed = { spotId: string; why: string | null };
 type ServiceClient = {
@@ -32,7 +33,7 @@ const reasonPriority=(reason:{type?:string;code?:string})=>{
 };
 const strongestAuthorizedReasons=(authorized:Record<string,Array<{copy?:string;type?:string;code?:string}>>)=>Object.fromEntries(
   Object.entries(authorized).flatMap(([spotId,candidates])=>{
-    const selected=[...candidates].filter((reason)=>reason.copy).sort((a,b)=>reasonPriority(b)-reasonPriority(a))[0];
+    const selected=selectBestAuthorizedReason(candidates,Object.values(authorized));
     return selected?.copy?[[spotId,selected.copy]]:[];
   }),
 );
