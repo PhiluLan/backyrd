@@ -19,7 +19,7 @@ import {
   type AppStateStatus,
 } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Crypto from "expo-crypto";
 
@@ -32,6 +32,7 @@ import { selectSpotImageUrl } from "@/lib/spot-images";
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { MarkerStroke } from "@/components/brand/Editorial";
 import { AppText } from "@/components/foundation/AppText";
+import { backyrdTheme as foundationTheme } from "@/theme/backyrd";
 
 type DecisionSpotRpcRow = {
   spot_id: string;
@@ -565,6 +566,7 @@ function getCopyForSpot(
 }
 
 export default function DecisionScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const homeParams = useLocalSearchParams<{ query?: string; city?: string; auto?: string }>();
   const homeAutoRunRef = useRef<string | null>(null);
@@ -1345,7 +1347,9 @@ export default function DecisionScreen() {
             flexGrow: 1,
             paddingHorizontal: 20,
             paddingTop: 16,
-            paddingBottom: 112,
+            // The floating Tab Bar owns its visual height; Decision input owns the
+            // scroll clearance so the final context/CTA never lands underneath it.
+            paddingBottom: foundationTheme.control.tabBar + foundationTheme.spacing.xl + insets.bottom,
           }}
         >
           <View style={{ marginBottom: 24, marginTop: 4 }}>
@@ -2091,6 +2095,10 @@ function FullscreenSwipeCard({
   onSettings: () => void;
 }) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  // Two 52pt action rows plus their internal vertical rhythm. The actual bottom
+  // inset is added by the fixed SafeAreaView below, so the ScrollView reserves it too.
+  const actionBarClearance = 136 + insets.bottom;
   const swipeThreshold = Math.min(105, screenWidth * 0.25);
   const pan = useRef(new Animated.ValueXY()).current;
   const isAnimatingRef = useRef(false);
@@ -2234,7 +2242,7 @@ function FullscreenSwipeCard({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingBottom: 118,
+            paddingBottom: actionBarClearance + 24,
           }}
         >
           <View
@@ -2318,7 +2326,7 @@ function FullscreenSwipeCard({
               />
 
               <LinearGradient
-                colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.18)", "rgba(0,0,0,0.72)", "rgba(0,0,0,0.95)"]}
+                colors={["rgba(0,0,0,0.08)", "rgba(0,0,0,0.15)", "rgba(0,0,0,0.58)", "rgba(0,0,0,0.84)"]}
                 locations={[0, 0.42, 0.72, 1]}
                 style={{
                   position: "absolute",
@@ -2418,13 +2426,26 @@ function FullscreenSwipeCard({
             </View>
           </Animated.View>
 
-          {total > 1 && (
-            <Text style={{ color: "rgba(255,255,255,0.38)", textAlign: "center", marginTop: 14, fontWeight: "700", fontSize: 12 }}>
-              Treffer {index + 1} von {total}
-            </Text>
-          )}
         </ScrollView>
       </SafeAreaView>
+
+      {total > 1 ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            left: 20,
+            right: 20,
+            bottom: actionBarClearance + 8,
+            zIndex: 44,
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ color: "rgba(255,255,255,0.56)", fontWeight: "800", fontSize: 12, textAlign: "center", backgroundColor: "rgba(5,5,6,0.78)", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 }}>
+            Treffer {index + 1} von {total}
+          </Text>
+        </View>
+      ) : null}
 
       <SafeAreaView
         pointerEvents="box-none"
