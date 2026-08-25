@@ -40,9 +40,31 @@ function exposeEvidenceAuthorities(result,input,{asOf,spotIntelligence}){
   const declaredCard=declaredIds.size?buildCanonicalUserCard(input.filter((event)=>declaredIds.has(event.id)),{asOf,spotIntelligence}).userCard:null;
   const merged=new Map(result.userCard.nodes.map((node)=>[node.nodeKey,node]));
   for(const node of declaredCard?.nodes??[])if(!merged.has(node.nodeKey))merged.set(node.nodeKey,{...node,knowledgeState:"UNKNOWN"});
-  const nodes=[...merged.values()].map((node)=>{const refs=(node.evidenceRefs??[]).map((ref)=>typeof ref==="string"?ref:ref.eventId);const declared=refs.filter((id)=>declaredIds.has(id)).length;return{...node,evidenceComposition:{behavioral:0,comparative:0,mood:0,review:0,explicit:0,...node.evidenceComposition,declared},evidenceAuthorities:{declared,directReview:node.evidenceComposition?.review??0,comparative:node.evidenceComposition?.comparative??0,behavioral:node.evidenceComposition?.behavioral??0}};}).sort((a,b)=>a.nodeKey.localeCompare(b.nodeKey));
+  const nodes=[...merged.values()].map((node)=>{const refs=(node.evidenceRefs??[]).map((ref)=>typeof ref==="string"?ref:ref.eventId);const declared=refs.filter((id)=>declaredIds.has(id)).length;return{...node,evidenceComposition:{behavioral:0,comparative:0,mood:0,review:0,explicit:0,...node.evidenceComposition,declared},evidenceAuthorities:{declared,directReview:node.evidenceComposition?.review??0,comparative:node.evidenceComposition?.comparative??0,behavioral:node.evidenceComposition?.behavioral??0,momentFit:node.evidenceComposition?.explicit??0}};}).sort((a,b)=>a.nodeKey.localeCompare(b.nodeKey));
   const body={...result.userCard,nodes,evidenceAuthorityVersion:"backyrd-canonical-semantics-v1"};delete body.userCardHash;
   return{...result,userCard:{...body,userCardHash:digest(body)}};
+}
+
+const evidenceRefEventId=(ref)=>typeof ref==="string"?ref:ref?.eventId;
+const nodeEventIds=(node)=>new Set([
+  ...(node.evidenceRefs??[]).map(evidenceRefEventId),
+  ...(node.boundedEvidence?.evidenceRefs??[]).map(evidenceRefEventId),
+  ...(node.momentFeedbackEvidence?.eventIds??[]),
+].filter(Boolean));
+
+export function finalizeProcessingDispositions({dispositions,result,previousCard=null}){
+  const before=new Map((previousCard?.nodes??[]).map((node)=>[node.nodeKey,node]));
+  const nodes=result?.userCard?.nodes??[];
+  const chains=result?.evidenceChains??[];
+  return (dispositions??[]).map((row)=>{
+    if(!["PINNED_EVIDENCE_READY","DIRECT_SEMANTIC_EVIDENCE_READY"].includes(row.processingDisposition)&&!row.fusionDisposition)return row;
+    const fusionInputCount=chains.reduce((sum,chain)=>sum+(chain.samples??[]).filter((sample)=>sample.eventId===row.eventId).length,0);
+    const contributions=nodes.filter((node)=>nodeEventIds(node).has(row.eventId));
+    const changed=contributions.filter((node)=>digest(before.get(node.nodeKey)??null)!==digest(node));
+    const active=contributions.filter((node)=>node.polarity!=="UNKNOWN"&&node.knowledgeState!=="UNKNOWN");
+    if(!contributions.length)return{...row,processingDisposition:"FUSION_SUPPRESSED_NO_CARD_CONTRIBUTION",fusionDisposition:"FUSION_SUPPRESSED",cardDisposition:"NO_CARD_CONTRIBUTION",fusionInputCount,cardContributionCount:0,hypothesisChangeCount:0,activeNodeContributionCount:0,suppressionReason:fusionInputCount?"UNIFIED_FUSION_DID_NOT_CONSUME_AUTHORITY":"NO_FUSION_INPUT"};
+    return{...row,processingDisposition:active.length?"FUSION_CONSUMED_ACTIVE":"FUSION_CONSUMED_BOUNDED",fusionDisposition:"FUSION_CONSUMED",cardDisposition:active.length?"ACTIVE_NODE_CONTRIBUTION":"BOUNDED_UNKNOWN_NODE_CONTRIBUTION",fusionInputCount,cardContributionCount:contributions.length,hypothesisChangeCount:changed.length,activeNodeContributionCount:active.length,suppressionReason:null};
+  });
 }
 
 /** Exact, side-effect-free production materialization used for parity audits. */
@@ -54,15 +76,16 @@ export function buildUserIntelligenceReadOnly({ userId, source }) {
     input,
     { asOf: source.asOf, spotIntelligence: source.n4BySpot },
   );
-  return { input, dispositions, result, validated: validateRuntimeResult({ userId, result }) };
+  return { input, dispositions:finalizeProcessingDispositions({dispositions,result}), result, validated: validateRuntimeResult({ userId, result }) };
 }
 
 /** Server worker orchestration. The supplied repository owns DB reads and a single transactional persist call. */
 export async function rebuildUserIntelligence({ userId, repository, reason = "MEMORY_COMMITTED", watermark = null, workIds = [], leaseToken = null }) {
   const source = await repository.readCanonicalSources(userId, { watermark });
   if (!source.consentGranted) return repository.purgeDerivedUserIntelligence(userId, reason);
-  const { input, dispositions, validated } = buildUserIntelligenceReadOnly({ userId, source });
+  const { input, dispositions:readOnlyDispositions, result, validated } = buildUserIntelligenceReadOnly({ userId, source });
   const previousCard = await repository.readLatestCard(userId);
+  const dispositions=finalizeProcessingDispositions({dispositions:readOnlyDispositions,result,previousCard});
   const ledger = semanticLedger(previousCard, validated.card, validated.runtimeVersion, source.watermark);
   const persisted = await repository.persistAtomically({ userId, reason, sourceWatermark: source.watermark, input, ...validated, ledger, dispositions, workIds, leaseToken });
   return { ...persisted, nodesChanged: ledger.length, runtimeVersion: validated.runtimeVersion };

@@ -1,5 +1,6 @@
 import { contentHash } from "./canonical-json.mjs";
 import { buildN5_7UserCard } from "./n5-7-comparative-preference.mjs";
+import { buildCanonicalUserCard } from "./n5-6-canonical-user-intelligence.mjs";
 
 export const N5_8_EVIDENCE_CONTRACT = Object.freeze({
   version: "backyrd-n5-8-unified-user-evidence-v1",
@@ -180,14 +181,88 @@ function fuseNode(comparative, direct) {
   return { ...comparative, affinity, confidence, polarity, knowledgeState, positiveEvidence: round(comparative.positiveEvidence + direct.positiveEvidence), negativeEvidence: round(comparative.negativeEvidence + direct.negativeEvidence), recentAffinity: affinity, longTermAffinity: affinity, contradictions: [...comparative.contradictions, ...direct.contradictions, ...(conflict ? [{ kind: "COMPARATIVE_DIRECT_CONFLICT" }] : [])], evidenceDepth: { chains: new Set([...comparative.evidenceRefs.map((x) => x.eventId), ...direct.samples.map((x) => x.journeyKey)]).size, independentSessions: new Set([...direct.samples.map((x) => x.sessionId), ...comparative.evidenceRefs.map((x) => x.eventId)]).size, independentSpots: new Set([...direct.samples.map((x) => x.spotId)]).size || comparative.evidenceDepth.independentSpots, outcomes: new Set([...comparative.evidenceRefs.map((x) => x.eventId), ...direct.samples.map((x) => x.eventId)]).size, reviews: direct.samples.length, sourceFamilies: unique([...comparative.evidenceDepth.sourceFamilies, ...direct.evidenceDepth.sourceFamilies]) }, evidenceRefs: [...comparative.evidenceRefs, ...direct.evidenceRefs], provenance: unique([...comparative.provenance, ...direct.provenance]), directEvidence: direct.directEvidence, evidenceComposition: { behavioral: 0, comparative: comparative.evidenceDepth.outcomes, mood: direct.samples.filter((x) => x.sources.includes("DIRECT_MOOD")).length, review: direct.samples.filter((x) => x.sources.includes("DIRECT_REVIEW")).length, explicit: comparative.evidenceDepth.outcomes } };
 }
 
+const BOUNDED_EXPLICIT_EVENT_TYPES = new Set(["onboarding_preference", "exact_mood_feedback"]);
+
+function boundedExplicitNodes(events, { asOf, spotIntelligence }) {
+  const boundedEvents = events.filter((event) => BOUNDED_EXPLICIT_EVENT_TYPES.has(event.eventType));
+  if (!boundedEvents.length) return [];
+  const eventById = new Map(boundedEvents.map((event) => [event.id, event]));
+  const card = buildCanonicalUserCard(boundedEvents, { asOf, spotIntelligence }).userCard;
+  return card.nodes.map((node) => {
+    const eventIds = unique(node.evidenceRefs.map((ref) => ref.eventId));
+    const declared = eventIds.filter((id) => eventById.get(id)?.eventType === "onboarding_preference").length;
+    const momentFeedback = eventIds.filter((id) => eventById.get(id)?.eventType === "exact_mood_feedback").length;
+    const knowledgeState = node.polarity === "POSITIVE" ? "HYPOTHESIS_POSITIVE"
+      : node.polarity === "NEGATIVE" ? "HYPOTHESIS_NEGATIVE"
+        : node.polarity === "MIXED" ? "MIXED" : "UNKNOWN";
+    return {
+      ...node,
+      knowledgeState,
+      evidenceComposition: { behavioral: 0, comparative: 0, mood: 0, review: 0, explicit: momentFeedback, declared },
+      evidenceAuthorities: { declared, directReview: 0, comparative: 0, behavioral: 0, momentFit: momentFeedback },
+      momentFeedbackEvidence: {
+        authority: "EXPLICIT_MOMENT_FIT",
+        eventIds: eventIds.filter((id) => eventById.get(id)?.eventType === "exact_mood_feedback"),
+        independentSessions: new Set(eventIds.map((id) => eventById.get(id)?.sessionId).filter(Boolean)).size,
+        durablePreferenceClaim: false,
+        satisfactionClaim: false,
+      },
+    };
+  });
+}
+
+function mergeBoundedLineage(stronger, bounded) {
+  if (!stronger) return bounded;
+  if (!bounded) return stronger;
+  const refs = new Map([...stronger.evidenceRefs, ...bounded.evidenceRefs].map((ref) => [JSON.stringify(ref), ref]));
+  const authorityConflict=Math.sign(stronger.affinity)!==Math.sign(bounded.affinity)&&Math.abs(stronger.affinity)>.1&&Math.abs(bounded.affinity)>.1;
+  return {
+    ...stronger,
+    evidenceRefs: [...refs.values()],
+    provenance: unique([...stronger.provenance, ...bounded.provenance]),
+    evidenceComposition: {
+      behavioral: 0,
+      comparative: 0,
+      mood: 0,
+      review: 0,
+      ...stronger.evidenceComposition,
+      explicit: (stronger.evidenceComposition?.explicit ?? 0) + (bounded.evidenceComposition?.explicit ?? 0),
+      declared: (stronger.evidenceComposition?.declared ?? 0) + (bounded.evidenceComposition?.declared ?? 0),
+    },
+    evidenceAuthorities: {
+      ...stronger.evidenceAuthorities,
+      declared: (stronger.evidenceAuthorities?.declared ?? 0) + (bounded.evidenceAuthorities?.declared ?? 0),
+      momentFit: (stronger.evidenceAuthorities?.momentFit ?? 0) + (bounded.evidenceAuthorities?.momentFit ?? 0),
+    },
+    boundedEvidence: {
+      disposition: "CONSUMED_WITH_STRONGER_AUTHORITY_NUMERICS",
+      nodeKey: bounded.nodeKey,
+      affinity: bounded.affinity,
+      confidence: bounded.confidence,
+      polarity: bounded.polarity,
+      knowledgeState: bounded.knowledgeState,
+      evidenceRefs: bounded.evidenceRefs,
+    },
+    momentFeedbackEvidence: bounded.momentFeedbackEvidence,
+    contradictions:[...(stronger.contradictions??[]),...(authorityConflict?[{kind:"DIRECT_AND_BOUNDED_MOMENT_CONFLICT",boundedAffinity:bounded.affinity,strongerAffinity:stronger.affinity}]:[])],
+  };
+}
+
 export function buildN5_8UserCard(events, { asOf, spotIntelligence = {}, channels = { comparative: true, mood: true, review: true } } = {}) {
   const base = buildN5_7UserCard(events, { asOf, spotIntelligence });
   const comparativeNodes = channels.comparative ? base.userCard.nodes : [];
   const samples = directSamples(events, spotIntelligence, channels); const direct = directNodes(samples);
-  const compMap = new Map(comparativeNodes.map((x) => [x.nodeKey, x])), directMap = new Map(direct.map((x) => [x.nodeKey, x]));
-  const nodes = unique([...compMap.keys(), ...directMap.keys()]).map((key) => fuseNode(compMap.get(key), directMap.get(key))).sort((a, b) => a.nodeKey.localeCompare(b.nodeKey));
+  const bounded = boundedExplicitNodes(events, { asOf, spotIntelligence });
+  const compMap = new Map(comparativeNodes.map((x) => [x.nodeKey, x])), directMap = new Map(direct.map((x) => [x.nodeKey, x])), boundedMap = new Map(bounded.map((x) => [x.nodeKey, x]));
+  const nodes = unique([...compMap.keys(), ...directMap.keys(), ...boundedMap.keys()]).map((key) => {
+    const comparative=compMap.get(key),directNode=directMap.get(key);
+    return mergeBoundedLineage(comparative||directNode?fuseNode(comparative,directNode):null,boundedMap.get(key));
+  }).sort((a, b) => a.nodeKey.localeCompare(b.nodeKey));
   const behavior = behaviorSummary(events); const durable = nodes.filter((x) => ["POSITIVE", "NEGATIVE"].includes(x.knowledgeState));
-  const cardBody = { ...base.userCard, nodes, behavioralEvidence: behavior, evidenceChannelSummary: { comparativeOutcomes: channels.comparative ? base.outcomeObservations.length : 0, directMoodClaims: samples.filter((x) => x.sources.includes("DIRECT_MOOD")).length, directReviewClaims: samples.filter((x) => x.sources.includes("DIRECT_REVIEW")).length, reviews: new Set(samples.map((x) => x.reviewId)).size }, comparativeSummary: { observations: channels.comparative ? base.outcomeObservations.length : 0, durablePositive: nodes.filter((x) => x.knowledgeState === "POSITIVE").length, durableNegative: nodes.filter((x) => x.knowledgeState === "NEGATIVE").length, hypotheses: nodes.filter((x) => x.knowledgeState?.startsWith("HYPOTHESIS")).length, mixed: nodes.filter((x) => x.knowledgeState === "MIXED").length, unknown: nodes.filter((x) => x.knowledgeState === "UNKNOWN").length }, contradictions: nodes.filter((x) => x.contradictions?.length).map((x) => ({ nodeKey: x.nodeKey, contradictions: x.contradictions })), uncertainty: { ...base.userCard.uncertainty, unknownConceptCount: Math.max(0, base.userCard.uncertainty.unknownConceptCount - new Set(durable.filter((x) => x.scope.kind === "GLOBAL").map((x) => x.concept)).size) }, boundaries: { ...base.userCard.boundaries, unifiedEvidence: N5_8_EVIDENCE_CONTRACT.version, fusion: N5_8_FUSION_CONTRACT.version }, userCardHash: undefined };
+  const explicitMomentFitEventIds = new Set(
+    bounded.flatMap((node) => node.momentFeedbackEvidence?.eventIds ?? []),
+  );
+  const cardBody = { ...base.userCard, nodes, behavioralEvidence: behavior, evidenceChannelSummary: { comparativeOutcomes: channels.comparative ? base.outcomeObservations.length : 0, directMoodClaims: samples.filter((x) => x.sources.includes("DIRECT_MOOD")).length, directReviewClaims: samples.filter((x) => x.sources.includes("DIRECT_REVIEW")).length, explicitMomentFitEvents: explicitMomentFitEventIds.size, explicitMomentFitNodeContributions: bounded.reduce((sum, node) => sum + (node.evidenceComposition?.explicit ?? 0), 0), reviews: new Set(samples.map((x) => x.reviewId)).size }, comparativeSummary: { observations: channels.comparative ? base.outcomeObservations.length : 0, durablePositive: nodes.filter((x) => x.knowledgeState === "POSITIVE").length, durableNegative: nodes.filter((x) => x.knowledgeState === "NEGATIVE").length, hypotheses: nodes.filter((x) => x.knowledgeState?.startsWith("HYPOTHESIS")).length, mixed: nodes.filter((x) => x.knowledgeState === "MIXED").length, unknown: nodes.filter((x) => x.knowledgeState === "UNKNOWN").length }, contradictions: nodes.filter((x) => x.contradictions?.length).map((x) => ({ nodeKey: x.nodeKey, contradictions: x.contradictions })), uncertainty: { ...base.userCard.uncertainty, unknownConceptCount: Math.max(0, base.userCard.uncertainty.unknownConceptCount - new Set(durable.filter((x) => x.scope.kind === "GLOBAL").map((x) => x.concept)).size) }, boundaries: { ...base.userCard.boundaries, unifiedEvidence: N5_8_EVIDENCE_CONTRACT.version, fusion: N5_8_FUSION_CONTRACT.version, exactMoodFeedbackAuthority: "EXPLICIT_MOMENT_FIT_NOT_SATISFACTION" }, userCardHash: undefined };
   delete cardBody.userCardHash; const userCard = { ...cardBody, userCardHash: contentHash(cardBody) };
   const ledger = nodes.map((node) => { const body = { version: "backyrd-n5-8-change-ledger-v1", userId: userCard.userId, nodeKey: node.nodeKey, before: null, after: { knowledgeState: node.knowledgeState, affinity: node.affinity, confidence: node.confidence, polarity: node.polarity }, evidenceComposition: node.evidenceComposition, evidenceRefs: node.evidenceRefs, reasonCode: node.directEvidence ? "DIRECT_AND_COMPARATIVE_EVIDENCE_FUSED" : "COMPARATIVE_PREFERENCE_INFERRED", occurredAt: node.directEvidence?.samples.at(-1)?.occurredAt ?? node.comparativeEvidence?.lastEvidenceAt ?? asOf }; return { ...body, changeId: contentHash(body) }; });
   return { userCard, evidenceChains: base.evidenceChains, outcomeObservations: channels.comparative ? base.outcomeObservations : [], directSemanticSamples: samples, changeLedger: ledger, identities: { ...base.identities, n58ContractHash: N5_8_CONTRACT_HASH } };

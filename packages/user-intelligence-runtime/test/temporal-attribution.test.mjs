@@ -32,7 +32,7 @@ test("pinned N4 and requested moment survive current N4 corrections",()=>{
   assert.notEqual(t0.input[0].momentSignature.daypart,"morning");
   assert.deepEqual(t0.input[0].spotEvidence.concepts,["vibe.cozy","vibe.social"]);
   assert.equal(t0.result.userCard.userCardHash,t1.result.userCard.userCardHash);
-  assert.equal(t0.dispositions[0].processingDisposition,"PINNED_EVIDENCE_READY");
+  assert.equal(t0.dispositions[0].processingDisposition,"FUSION_CONSUMED_BOUNDED");
 });
 
 test("old unpinned feedback fails closed instead of borrowing current Spot truth",()=>{
