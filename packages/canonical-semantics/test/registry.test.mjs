@@ -7,6 +7,23 @@ test("mood aliases canonicalize while test and unsupported values do not qualify
 test("review origin adapter is explicit and conflict-safe",()=>{assert.deepEqual(reviewOriginPair({productEvidenceOrigin:"smart_review_v1"}),{reviewOrigin:"SMART_REVIEW",productEvidenceOrigin:"smart_review_v1"});assert.deepEqual(reviewOriginPair({reviewOrigin:"STANDARD_REVIEW"}),{reviewOrigin:"STANDARD_REVIEW",productEvidenceOrigin:null});assert.throws(()=>reviewOriginPair({reviewOrigin:"STANDARD_REVIEW",productEvidenceOrigin:"smart_review_v1"}),/conflict/);});
 test("human authoring registry covers engine-critical fields without exposing a second taxonomy",()=>{for(const key of ["activity.types","suitability.environment","suitability.rain","suitability.family_kids","suitability.age","social.suitability","atmosphere.descriptors","character.noise","suitability.conversation","reservation.character","duration.character","accessibility.capabilities","time.dayparts","signature.characteristics"])assert.ok(HUMAN_SPOT_FIELDS[key]?.question);assert.deepEqual(Object.keys(HUMAN_CONTEXT_LABELS),["solo","date","friends","family","groups","work"]);assert.ok(Object.keys(HUMAN_ACCESSIBILITY_LABELS).length>=3);});
 test("V1.1 uses one audience truth and only existing atmosphere concepts",()=>{assert.equal(HUMAN_SPOT_FIELDS["social.suitability"].question,"Für wen eignet sich der Ort?");assert.match(HUMAN_SPOT_FIELDS["audience.basic"].question,/Historische/);assert.equal(ATMOSPHERE_CONCEPT_MAP.COZY,"vibe.cozy");assert.equal(ATMOSPHERE_CONCEPT_MAP.RELAXED,"vibe.relaxed");assert.equal(FACT_KEYS.NOISE,"character.noise");assert.equal(FACT_KEYS.RESERVATION_RECOMMENDED,"reservation.recommended");assert.equal(FACT_KEYS.DURATION_APPROXIMATE,"duration.approximate");});
+
+test("German family variants normalize to the existing family-with-kids context",()=>{
+  for(const [query,age] of [
+    ["mit meiner Tochter",null],
+    ["mit meiner 4-jährigen Tochter",4],
+    ["mit meinem Sohn",null],
+    ["mit meinem 6-jährigen Sohn",6],
+    ["mit meinen Kindern",null],
+    ["mit der Familie",null],
+    ["Familienausflug",null],
+  ]){
+    const intent=interpretCanonicalCurrentIntent({query});
+    assert.equal(intent.socialContext,"family_with_kids",query);
+    assert.equal(intent.currentRequestFacts.familyContext.value,"FAMILY_WITH_CHILD",query);
+    assert.equal(intent.currentRequestFacts.childAge.value,age,query);
+  }
+});
 test("one canonical current-intent authority preserves Regentag, family and child age for N3 and retrieval",()=>{
  const intent=interpretCanonicalCurrentIntent({query:"Regentag mit meiner 4-jährigen Tochter"});
  assert.equal(intent.currentRequestFacts.rain.value,"PREFERRED");assert.equal(intent.currentRequestFacts.familyContext.value,"FAMILY_WITH_CHILD");assert.equal(intent.currentRequestFacts.childAge.value,4);
