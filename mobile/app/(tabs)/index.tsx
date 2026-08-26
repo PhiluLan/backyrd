@@ -63,7 +63,10 @@ export default function HomeScreen() {
 
   const carouselGap = theme.spacing.md;
   const cardWidth = useMemo(() => Math.round(Math.min(390, Math.max(272, width * 0.84))), [width]);
-  const carouselInset = useMemo(() => Math.max(theme.spacing.lg, Math.round((width - cardWidth) / 2)), [cardWidth, width]);
+  // One coordinate system: at offset i * interval, card i starts at `inset`.
+  // Therefore its centre is always inset + cardWidth / 2 === viewport / 2.
+  const carouselInset = useMemo(() => (width - cardWidth) / 2, [cardWidth, width]);
+  const carouselOffsets = useMemo(() => spots.map((_, index) => index * (cardWidth + carouselGap)), [cardWidth, carouselGap, spots]);
   const cardHeight = Math.round(cardWidth * 1.16);
   const heroSize = Math.min(62, Math.max(43, width * 0.135));
 
@@ -156,8 +159,7 @@ export default function HomeScreen() {
                 decelerationRate="fast"
                 disableIntervalMomentum
                 showsHorizontalScrollIndicator={false}
-                snapToAlignment="center"
-                snapToInterval={cardWidth + carouselGap}
+                snapToOffsets={carouselOffsets}
               >
                 {spots.map((spot, index) => (
                   <Pressable accessibilityLabel={`${spot.name} öffnen`} key={spot.id} onPress={() => router.push(`/spot/${spot.id}` as never)} style={({ pressed }) => [styles.card, { width: cardWidth, height: cardHeight }, pressed && styles.cardPressed]}>
