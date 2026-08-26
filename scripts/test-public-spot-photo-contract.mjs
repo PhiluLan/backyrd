@@ -3,7 +3,7 @@ import fs from "node:fs";
 
 const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
 const edge = read("supabase/functions/public-spot-photo/index.ts");
-const migration = read("supabase/migrations/20260826193000_add_public_spot_photo_rate_limit_v1.sql");
+const migration = read("supabase/migrations/20260826220000_add_public_spot_photo_rate_limit_v1.sql");
 const web = read("web/components/canonical-spot-image.tsx");
 const authenticated = read("supabase/functions/google-place-photo/index.ts");
 
