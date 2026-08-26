@@ -655,8 +655,9 @@ export default function MapScreen() {
             accessibilityLabel={`${cluster.properties.point_count} Orte in diesem Bereich`}
           ><View style={styles.clusterMarker}><AppText role="label" style={styles.clusterLabel}>{cluster.properties.point_count}</AppText></View></Marker>}
           customMapStyle={DARK_MAP_STYLE}
+          onRegionChangeComplete={setRegion}
           onPress={hideSheet}
-          clusteringEnabled={region.latitudeDelta > 0.05}
+          clusteringEnabled={region.latitudeDelta >= 0.05}
           >
             {renderedMarkers}
           </ClusteredMapView>
