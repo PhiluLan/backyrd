@@ -11,6 +11,7 @@
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test:contracts": "node ./scripts/test-mobile-product-contracts.mjs",
+    "test:map-discovery": "node ./scripts/test-map-discovery-scale.mjs",
     "test:carousel-geometry": "node ./scripts/test-carousel-geometry.mjs",
     "test:production-images": "node ./scripts/validate-production-images.mjs",
     "release:validate": "node ./scripts/validate-production-release.mjs",

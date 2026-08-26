@@ -145,7 +145,7 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.discoverySection}>
-            <EditorialSectionHeader index="01" actionLabel="Karte" onAction={() => router.push("/(tabs)/map" as never)} title={`${city} entdecken`} />
+            <EditorialSectionHeader index="01" actionLabel="Karte" onAction={() => router.push({ pathname: "/(tabs)/map", params: { view: "map" } } as never)} title={`${city} entdecken`} />
             {loading ? (
               <View accessibilityLabel="Spots werden geladen" style={[styles.skeletonCard, { width: cardWidth, height: cardHeight }]}>
                 <View style={styles.skeletonAccent} /><View style={styles.skeletonTitle} /><View style={styles.skeletonMeta} />

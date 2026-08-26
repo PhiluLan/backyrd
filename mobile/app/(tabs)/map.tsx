@@ -1,6 +1,6 @@
 // backyrd/mobile/app/map.tsx
 
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import {
   View,
   Alert,
@@ -37,6 +37,7 @@ import { Button, IconButton } from "../../components/foundation/Button";
 import { Chip } from "../../components/foundation/Chip";
 import { StateView } from "../../components/foundation/StateView";
 import { backyrdTheme as theme } from "../../theme/backyrd";
+import { clusterPolicyFor, resolveMapZoomBucket, type MapZoomBucket } from "../../lib/mapDiscoveryPolicy";
 
 const BASEL = { latitude: 47.5596, longitude: 7.5886 };
 const { height: SCREEN_H } = Dimensions.get("window");
@@ -78,7 +79,8 @@ export default function MapScreen() {
   const { spots: globalSpots, refresh, loading } = useSpotsStore();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ spotIds?: string }>();
+  const params = useLocalSearchParams<{ spotIds?: string; view?: string; lat?: string; lng?: string }>();
+  const explicitMapIntent = params.view === "map" || Boolean(params.lat && params.lng);
 
   // Wenn von der Startseite Spot-IDs übergeben wurden → nur diese anzeigen
   const initialSpotIdList = useMemo(
@@ -113,11 +115,13 @@ export default function MapScreen() {
   const [topMoodChips, setTopMoodChips] = useState<string[]>([]);
 
   const [dbCategories, setDbCategories] = useState<DbCategory[]>([]);
-  const [region, setRegion] = useState({
-    ...BASEL,
+  const [region, setRegion] = useState(() => ({
+    latitude: Number(params.lat) || BASEL.latitude,
+    longitude: Number(params.lng) || BASEL.longitude,
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
-  });
+  }));
+  const [zoomBucket, setZoomBucket] = useState<MapZoomBucket>("city");
 
   // Auswahl: Mood über Chip
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
@@ -131,11 +135,14 @@ export default function MapScreen() {
   const [debouncedSearch] = useDebounce(search, 350);
 
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
-  const [viewMode, setViewMode] = useState<"map" | "list">("map");
+  const [viewMode, setViewMode] = useState<"map" | "list">(explicitMapIntent ? "map" : "list");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const mapRef = useRef<ClusteredMapView | null>(null);
+  const listRef = useRef<FlatList<Spot> | null>(null);
+  const listScrollOffset = useRef(0);
   const [locationConsentGranted, setLocationConsentGranted] = useState(false);
+  const clusterPolicy = useMemo(() => clusterPolicyFor(zoomBucket), [zoomBucket]);
 
   const refreshLocationConsent = React.useCallback(async () => {
     const granted = await hasActiveConsent("precise_location", {
@@ -360,6 +367,22 @@ export default function MapScreen() {
     spotMatchesSearch,
   ]);
 
+  useEffect(() => {
+    if (viewMode === "list") {
+      requestAnimationFrame(() => listRef.current?.scrollToOffset({ offset: listScrollOffset.current, animated: false }));
+    }
+  }, [viewMode]);
+
+  const handleRegionChangeComplete = useCallback((nextRegion: typeof region) => {
+    setRegion(nextRegion);
+    setZoomBucket((current) => resolveMapZoomBucket(nextRegion.latitudeDelta, current));
+  }, []);
+
+  const changeViewMode = useCallback((nextView: "map" | "list") => {
+    if (nextView === viewMode) return;
+    setViewMode(nextView);
+  }, [viewMode]);
+
   /* =============================================================
      MAP RENDERING
   ============================================================= */
@@ -428,7 +451,7 @@ export default function MapScreen() {
   const translateY = useRef(new Animated.Value(OFFSET_HIDDEN)).current;
   const lastOffset = useRef(OFFSET_HIDDEN);
 
-  const snapTo = (offset: number, velocity = 0) => {
+  const snapTo = useCallback((offset: number, velocity = 0) => {
     lastOffset.current = offset;
     Animated.spring(translateY, {
       toValue: offset,
@@ -438,13 +461,19 @@ export default function MapScreen() {
       stiffness: 180,
       mass: 0.9,
     }).start();
-  };
+  }, [translateY]);
 
   const openSheetCollapsed = () => snapTo(OFFSET_COLLAPSED);
-  const hideSheet = () => {
+  const hideSheet = useCallback(() => {
     setSelectedSpot(null);
     snapTo(OFFSET_HIDDEN);
-  };
+  }, [snapTo]);
+
+  useEffect(() => {
+    if (selectedSpot && !filteredSpots.some((spot) => spot.id === selectedSpot.id)) {
+      hideSheet();
+    }
+  }, [filteredSpots, selectedSpot, hideSheet]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -545,7 +574,7 @@ export default function MapScreen() {
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <View style={styles.titleCopy}>
-            <AppText role="label" tone="lime">BASEL · KARTE</AppText>
+            <AppText role="label" tone="lime">{viewMode === "list" ? "BASEL · ORTE" : "BASEL · KARTE"}</AppText>
             <AppText role="screenTitle">Orte entdecken</AppText>
           </View>
           <AppText role="caption" tone="secondary" style={styles.resultCount}>{filteredSpots.length} Orte</AppText>
@@ -555,7 +584,7 @@ export default function MapScreen() {
           <View style={styles.searchBox}>
             <Ionicons name="search" size={19} color={theme.color.textSecondary} style={{ marginRight: 8 }} />
             <TextInput
-              placeholder="Spot, Mood oder Stadt"
+              placeholder="Suchen"
               placeholderTextColor={theme.color.textMuted}
               value={search}
               onChangeText={setSearch}
@@ -580,14 +609,16 @@ export default function MapScreen() {
             <Ionicons name="options-outline" size={20} color={activeFilters.length ? theme.color.background : theme.color.textPrimary} />
           </Pressable>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={viewMode === "map" ? "Listenansicht öffnen" : "Kartenansicht öffnen"}
-            style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
-            onPress={() => setViewMode((v) => (v === "map" ? "list" : "map"))}
-          >
-            <Ionicons name={viewMode === "map" ? "list-outline" : "map-outline"} size={20} color={theme.color.textPrimary} />
-          </Pressable>
+          <View accessibilityRole="tablist" style={styles.perspectiveSwitch}>
+            <Pressable accessibilityRole="tab" accessibilityState={{ selected: viewMode === "list" }} accessibilityLabel="Listenansicht" style={({ pressed }) => [styles.perspectiveOption, viewMode === "list" && styles.perspectiveOptionActive, pressed && styles.pressed]} onPress={() => changeViewMode("list")}>
+              <Ionicons name="list-outline" size={18} color={viewMode === "list" ? theme.color.background : theme.color.textPrimary} />
+              <AppText role="caption" style={{ color: viewMode === "list" ? theme.color.background : theme.color.textPrimary }}>Liste</AppText>
+            </Pressable>
+            <Pressable accessibilityRole="tab" accessibilityState={{ selected: viewMode === "map" }} accessibilityLabel="Kartenansicht" style={({ pressed }) => [styles.perspectiveOption, viewMode === "map" && styles.perspectiveOptionActive, pressed && styles.pressed]} onPress={() => changeViewMode("map")}>
+              <Ionicons name="map-outline" size={18} color={viewMode === "map" ? theme.color.background : theme.color.textPrimary} />
+              <AppText role="caption" style={{ color: viewMode === "map" ? theme.color.background : theme.color.textPrimary }}>Karte</AppText>
+            </Pressable>
+          </View>
         </View>
 
         {activeFilters.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeFilters}>
@@ -627,7 +658,7 @@ export default function MapScreen() {
             </ScrollView>
             <View style={styles.filterSheetActions}>
               <Button label="Zurücksetzen" variant="tertiary" onPress={clearFilters} style={styles.filterReset} />
-              <Button label="Karte zeigen" onPress={() => setFiltersOpen(false)} style={styles.filterApply} />
+              <Button label={viewMode === "map" ? "Karte zeigen" : "Liste zeigen"} onPress={() => setFiltersOpen(false)} style={styles.filterApply} />
             </View>
           </View>
         </View>
@@ -642,15 +673,16 @@ export default function MapScreen() {
           style={{ flex: 1 }}
           initialRegion={region}
           showsUserLocation={locationConsentGranted}
-          clusterColor={theme.color.pink}
-          clusterTextColor={theme.color.background}
-          spiralEnabled
-          radius={48}
-          minPoints={3}
+          clusterColor={theme.color.surfaceElevated}
+          clusterTextColor={theme.color.textPrimary}
+          spiralEnabled={false}
+          animationEnabled={false}
+          radius={clusterPolicy.radius}
+          minPoints={clusterPolicy.minPoints}
           customMapStyle={DARK_MAP_STYLE}
-          onRegionChangeComplete={setRegion}
+          onRegionChangeComplete={handleRegionChangeComplete}
           onPress={hideSheet}
-          clusteringEnabled={region.latitudeDelta >= 0.05}
+          clusteringEnabled={clusterPolicy.enabled}
           >
             {renderedMarkers}
           </ClusteredMapView>
@@ -660,10 +692,17 @@ export default function MapScreen() {
         </View>
       ) : (
         <FlatList
+          ref={listRef}
           data={filteredSpots}
           keyExtractor={(i) => i.id}
-          contentContainerStyle={{ padding: 16 }}
+          contentContainerStyle={styles.listContent}
           style={styles.list}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          removeClippedSubviews
+          onScroll={(event) => { listScrollOffset.current = event.nativeEvent.contentOffset.y; }}
+          scrollEventThrottle={16}
           renderItem={({ item }) => (
             <Pressable
               style={styles.listCard}
@@ -680,15 +719,8 @@ export default function MapScreen() {
               />
               <View style={styles.listCardBody}>
                 <Text style={styles.listCardTitle}>{item.name}</Text>
-                <Text style={styles.listCardAddress}>{item.address || "Adresse offen"}</Text>
-
-                <View style={styles.moodRow}>
-                  {(spotMoods[item.id] || []).slice(0, 5).map((m) => (
-                    <View key={m} style={styles.moodChipSmall}>
-                      <Text style={styles.moodChipSmallText}>{m}</Text>
-                    </View>
-                  ))}
-                </View>
+                <Text style={styles.listCardContext} numberOfLines={1}>{item.categories?.name || spotMoods[item.id]?.[0] || "Ort in Basel"}</Text>
+                <Text style={styles.listCardAddress} numberOfLines={1}>{item.address || "Adresse offen"}</Text>
               </View>
             </Pressable>
           )}
@@ -796,6 +828,9 @@ const styles = StyleSheet.create({
   searchClear: { minWidth: 34, minHeight: 34 },
   headerButton: { width: theme.control.standard, height: theme.control.standard, alignItems: "center", justifyContent: "center", backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.pill },
   headerButtonActive: { backgroundColor: theme.color.pink, borderColor: theme.color.pink },
+  perspectiveSwitch: { flexDirection: "row", minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.lg, padding: 3 },
+  perspectiveOption: { minWidth: 58, minHeight: 38, paddingHorizontal: theme.spacing.xs, borderRadius: theme.radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
+  perspectiveOptionActive: { backgroundColor: theme.color.pink },
   pressed: { opacity: 0.8, transform: [{ scale: theme.motion.pressScale }] },
   activeFilters: { gap: theme.spacing.xs, paddingTop: theme.spacing.sm, paddingRight: theme.spacing.xs },
   mapStage: { flex: 1 },
@@ -805,14 +840,13 @@ const styles = StyleSheet.create({
   markerSelected: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.color.pink, borderColor: theme.color.textPrimary, borderWidth: 2.5, shadowColor: theme.color.pink, shadowOpacity: 0.7, shadowRadius: 10, elevation: 8 },
   markerCoreSelected: { width: 10, height: 10, backgroundColor: theme.color.background },
   list: { backgroundColor: theme.color.background },
+  listContent: { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl + theme.control.tabBar },
   listCard: { backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, marginBottom: theme.spacing.md, overflow: "hidden", borderWidth: 1, borderColor: theme.color.border },
-  listCardImage: { width: "100%", height: 170 },
+  listCardImage: { width: "100%", height: 164 },
   listCardBody: { padding: theme.spacing.md },
   listCardTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 21, lineHeight: 26, letterSpacing: -0.3 },
-  listCardAddress: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 19, marginTop: theme.spacing.xs, marginBottom: theme.spacing.sm },
-  moodRow: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.xxs },
-  moodChipSmall: { backgroundColor: "rgba(255,255,255,0.07)", borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.pill, paddingHorizontal: theme.spacing.xs, paddingVertical: theme.spacing.xxs },
-  moodChipSmallText: { color: theme.color.textSecondary, fontFamily: theme.type.bodyBold, fontSize: 11 },
+  listCardContext: { color: theme.color.lime, fontFamily: theme.type.bodyBold, fontSize: 12, lineHeight: 16, textTransform: "uppercase", letterSpacing: 0.4, marginTop: theme.spacing.xs },
+  listCardAddress: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 19, marginTop: 3 },
   recenterBtn: { position: "absolute", bottom: 114, right: theme.spacing.xl, width: theme.control.standard, height: theme.control.standard, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(5,5,6,0.9)", borderWidth: 1, borderColor: theme.color.borderStrong, borderRadius: theme.radius.pill },
   sheetContainer: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 40 },
   sheetBlur: { flex: 1, backgroundColor: "rgba(5,5,6,0.82)", borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: "hidden", borderWidth: 1, borderColor: theme.color.border },
