@@ -66,6 +66,15 @@ function mapSpot(row: Row): PublicCitySpot {
   };
 }
 
+async function attachCanonicalHeaders(spots: PublicCitySpot[]): Promise<PublicCitySpot[]> {
+  const ids = spots.map((spot) => spot.spot_id).filter(Boolean);
+  if (!ids.length) return spots.map((spot) => ({ ...spot, photo_url: null }));
+  const { data, error } = await supabase.rpc("backyrd_web_canonical_spot_image_headers_v1", { p_spot_ids: ids });
+  if (error || !Array.isArray(data)) return spots.map((spot) => ({ ...spot, photo_url: null }));
+  const headers = new Map(data.filter(isRow).map((row) => [String(row.spot_id ?? ""), str(row.header_photo_path)]));
+  return spots.map((spot) => ({ ...spot, photo_url: headers.get(spot.spot_id) ?? null }));
+}
+
 export async function getPublicCitySpots(
   city: string,
   limit = 12
@@ -80,12 +89,13 @@ export async function getPublicCitySpots(
 
   if (error) throw new Error(message(error));
 
-  return Array.isArray(data)
+  const spots = Array.isArray(data)
     ? data
         .filter(isRow)
         .map(mapSpot)
         .filter((row) => row.spot_id)
     : [];
+  return attachCanonicalHeaders(spots);
 }
 
 export async function getPublicTopSpots(
@@ -102,12 +112,13 @@ export async function getPublicTopSpots(
 
   if (error) throw new Error(message(error));
 
-  return Array.isArray(data)
+  const spots = Array.isArray(data)
     ? data
         .filter(isRow)
         .map(mapSpot)
         .filter((row) => row.spot_id)
     : [];
+  return attachCanonicalHeaders(spots);
 }
 
 export async function getPublicTopMoments(

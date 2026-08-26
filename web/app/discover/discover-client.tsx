@@ -8,6 +8,7 @@ import {
   type DecisionResult,
 } from "@/lib/decision-web-api";
 import styles from "./discover.module.css";
+import { CanonicalSpotImage } from "@/components/canonical-spot-image";
 
 const suggestions = [
   "Gemütlich, Drinks, nicht zu laut",
@@ -18,11 +19,7 @@ const suggestions = [
 ];
 
 function getPhoto(result: DecisionResult): string | null {
-  return (
-    result.detail?.photos?.[0]?.url ||
-    result.detail?.spot?.header_photo_path ||
-    null
-  );
+  return result.detail?.spot?.header_photo_path || null;
 }
 
 function getCategory(result: DecisionResult): string {
@@ -211,7 +208,6 @@ export function DiscoverClient() {
           ) : (
             <div className={styles.grid}>
               {results.map((result, index) => {
-                const photo = getPhoto(result);
                 const match = scoreLabel(result.final_score);
 
                 return (
@@ -220,17 +216,12 @@ export function DiscoverClient() {
                     className={styles.card}
                     key={result.spot_id}
                   >
-                    <div
-                      className={`${styles.cardImage} ${
-                        photo ? "" : styles.cardImageFallback
-                      }`}
-                      style={
-                        photo
-                          ? {
-                              backgroundImage: `linear-gradient(180deg, transparent 35%, rgba(7,7,8,.88)), url("${photo}")`,
-                            }
-                          : undefined
-                      }
+                    <CanonicalSpotImage
+                      attributionMode="thumbnail"
+                      className={`${styles.cardImage} ${styles.cardImageFallback}`}
+                      ownerAdminImageUrl={getPhoto(result)}
+                      spotId={result.spot_id}
+                      spotName={result.name}
                     >
                       <span className={styles.rank}>0{index + 1}</span>
                       {match && <span className={styles.match}>{match}</span>}
@@ -242,7 +233,7 @@ export function DiscoverClient() {
                         </span>
                         <h3>{result.name}</h3>
                       </div>
-                    </div>
+                    </CanonicalSpotImage>
 
                     <div className={styles.cardBody}>
                       <p>

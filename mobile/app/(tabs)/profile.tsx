@@ -28,6 +28,8 @@ import CommentsSheet from "@/components/CommentsSheet";
 import ProfilePrivacyCard from "@/components/ProfilePrivacyCard";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { buildProfileSafetyText, registerSafetySnapshot } from "@/lib/safety-content";
+import { SpotArtwork } from "@/components/spot/SpotArtwork";
+import { selectSpotImageUrl } from "@/lib/spot-images";
 
 const { width } = Dimensions.get("window");
 
@@ -64,7 +66,6 @@ type FavoriteRow = {
     name?: string | null;
     city?: string | null;
     header_photo_path?: string | null;
-    spot_photos?: { url?: string | null }[] | null;
   } | null;
 };
 
@@ -212,11 +213,7 @@ function splitChips(value?: string | string[] | null) {
 }
 
 function getSpotPhoto(item: FavoriteRow) {
-  return (
-    item.spots?.header_photo_path ||
-    item.spots?.spot_photos?.find((p) => p?.url)?.url ||
-    "https://placehold.co/800x1000/17171D/FFFFFF?text=Backyrd"
-  );
+  return selectSpotImageUrl({ headerPhotoPath: item.spots?.header_photo_path });
 }
 
 function errorText(error: any) {
@@ -315,7 +312,7 @@ export default function ProfileScreen() {
 
           supabase
             .from("favorites")
-            .select("spot_id, spots(id, name, city, header_photo_path, spot_photos(url))")
+            .select("spot_id, spots(id, name, city, header_photo_path)")
             .eq("user_id", currentUser.id),
 
           supabase
@@ -822,7 +819,7 @@ export default function ProfileScreen() {
                         router.push(`/spot/${item.spot_id}` as any);
                       }}
                     >
-                      <Image source={{ uri: getSpotPhoto(item) }} style={styles.favoriteImage} />
+                      <SpotArtwork imageUrl={getSpotPhoto(item)} spotId={item.spot_id} spotName={item.spots?.name ?? "Spot"} style={styles.favoriteImage} />
                       <LinearGradient
                         colors={["transparent", "rgba(0,0,0,0.88)"]}
                         style={StyleSheet.absoluteFill}

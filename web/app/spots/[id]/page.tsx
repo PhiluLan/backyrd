@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPublicSpotDetail } from "@/lib/public-spot-detail";
+import { CanonicalSpotImage } from "@/components/canonical-spot-image";
 import styles from "./spot.module.css";
 
 function priceSymbols(level?: number | null) {
@@ -24,11 +25,6 @@ export default async function SpotDetailPage({
   if (!data?.spot?.id) notFound();
   const spot = data.spot;
 
-  const hero =
-    data.photos[0]?.url ||
-    spot.header_photo_path ||
-    null;
-
   const appUrl =
     process.env.NEXT_PUBLIC_APP_DOWNLOAD_URL || "#app-download";
 
@@ -47,15 +43,11 @@ export default async function SpotDetailPage({
       </header>
 
       <section className={styles.hero}>
-        <div
-          className={`${styles.heroImage} ${hero ? "" : styles.heroFallback}`}
-          style={
-            hero
-              ? {
-                  backgroundImage: `linear-gradient(180deg, transparent 38%, rgba(7,7,8,.94)), url("${hero}")`,
-                }
-              : undefined
-          }
+        <CanonicalSpotImage
+          className={`${styles.heroImage} ${styles.heroFallback}`}
+          ownerAdminImageUrl={spot.header_photo_path}
+          spotId={spot.id}
+          spotName={spot.name}
         >
           <Link href="/discover" className={styles.back}>
             ← Zurück zur Entscheidung
@@ -75,7 +67,7 @@ export default async function SpotDetailPage({
                 [spot.city, spot.country].filter(Boolean).join(", ")}
             </p>
           </div>
-        </div>
+        </CanonicalSpotImage>
       </section>
 
       <section className={styles.content}>

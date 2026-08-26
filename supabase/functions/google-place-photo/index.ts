@@ -250,34 +250,24 @@ Deno.serve(async (request) => {
     const body = await request.json().catch(() => ({}));
     const spotId = String(body?.spotId ?? "").trim();
     if (!spotId) return json({ ok: false, error: "spotId is required." }, 400);
+    const preferredOwnerImageFailed = body?.preferredOwnerImageFailed === true;
 
     const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
-    const [spotResult, photoResult] = await Promise.all([
-      admin
+    const spotResult = await admin
         .from("spots")
         .select("id,name,address,lat,lng,status,header_photo_path,google_place_id,google_photo_enabled")
         .eq("id", spotId)
-        .maybeSingle(),
-      admin
-        .from("spot_photos")
-        .select("id,url")
-        .eq("spot_id", spotId)
-        .not("url", "is", null)
-        .neq("url", "")
-        .limit(1),
-    ]);
+        .maybeSingle();
 
     if (spotResult.error) throw spotResult.error;
-    if (photoResult.error) throw photoResult.error;
 
     const spot = spotResult.data as SpotRow | null;
-    const ownPhotos = photoResult.data;
     if (!spot || spot.status === "hidden" || spot.status === "rejected") {
       return json({ ok: false, error: "Spot not available." }, 404);
     }
 
     const hasHeaderPhoto = typeof spot.header_photo_path === "string" && spot.header_photo_path.trim().length > 0;
-    if (hasHeaderPhoto || (ownPhotos?.length ?? 0) > 0) {
+    if (hasHeaderPhoto && !preferredOwnerImageFailed) {
       return json({ ok: true, source: "backyrd", imageUrl: null, reason: "backyrd_photo_exists" });
     }
     if (spot.google_photo_enabled === false) {
@@ -336,6 +326,7 @@ Deno.serve(async (request) => {
       ok: true,
       source: "google",
       imageUrl,
+      imageIdentity: selectedPhoto.name ?? null,
       authorAttributions: selectedPhoto.authorAttributions ?? [],
       googleMapsUri: selectedPhoto.googleMapsUri ?? null,
       widthPx: selectedPhoto.widthPx ?? null,

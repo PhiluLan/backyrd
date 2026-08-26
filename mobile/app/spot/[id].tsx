@@ -11,7 +11,6 @@ import {
   Animated,
   Easing,
   StyleSheet,
-  Linking,
 } from "react-native";
 
 import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
@@ -27,10 +26,6 @@ import { supabase } from "../../lib/supabase";
 import { openWebsite, callNumber, openInAppleMaps } from "../../lib/links";
 import { trackAnalyticsEvent } from "../../lib/analytics";
 import { recordMemoryProductAction } from "../../lib/memory-bridge";
-import {
-  getGooglePlacePhotoFallback,
-  type GooglePlacePhotoResult,
-} from "../../lib/google-place-photo";
 import {
   SpotTaxonomyChips,
   SpotTaxonomyDetails,
@@ -208,8 +203,6 @@ export default function SpotDetailScreen() {
 
   const [spot, setSpot] = useState<any>(null);
   const [photos, setPhotos] = useState<any[]>([]);
-  const [googlePhoto, setGooglePhoto] =
-    useState<GooglePlacePhotoResult | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [hours, setHours] = useState<Record<string, any[]>>({});
   const [moodSummary, setMoodSummary] = useState<any[]>([]);
@@ -367,7 +360,6 @@ export default function SpotDetailScreen() {
 
       const [
         { data: spotRow },
-        { data: photoRows },
         { data: revRows },
         { data: hourRows },
         taxonomyRows,
@@ -377,12 +369,6 @@ export default function SpotDetailScreen() {
           .select("id,name,address,lat,lng,phone,website,email,price_level,header_photo_path,google_place_id,google_photo_enabled")
           .eq("id", id)
           .single(),
-
-        supabase
-          .from("spot_photos")
-          .select("id,url,created_at")
-          .eq("spot_id", id)
-          .order("created_at", { ascending: false }),
 
         supabase
           .from("reviews")
@@ -418,27 +404,19 @@ export default function SpotDetailScreen() {
         }),
       ]);
 
-      const canonicalPhotos = (photoRows || []).map((photo: any) => ({
-        ...photo,
-        url: selectSpotImageUrl({ photoUrl: photo.url }),
-      }));
       const headerPhotoUrl = selectSpotImageUrl({
         headerPhotoPath: spotRow?.header_photo_path,
       });
-      if (
-        headerPhotoUrl &&
-        !canonicalPhotos.some((photo: any) => photo.url === headerPhotoUrl)
-      ) {
-        canonicalPhotos.unshift({
+      const canonicalPhotos = headerPhotoUrl
+        ? [{
           id: `header:${id}`,
           url: headerPhotoUrl,
           created_at: null,
-        });
-      }
+        }]
+        : [];
 
       setSpot(spotRow);
       setPhotos(canonicalPhotos);
-      setGooglePhoto(null);
 
       const rawReviews = revRows || [];
       let visibleReviews = rawReviews;
@@ -474,12 +452,6 @@ export default function SpotDetailScreen() {
 
       setReviews(visibleReviews);
 
-      if (canonicalPhotos.length === 0 && spotRow?.google_place_id) {
-        const googleFallback = await getGooglePlacePhotoFallback(String(id));
-        if (googleFallback?.source === "google" && googleFallback.imageUrl) {
-          setGooglePhoto(googleFallback);
-        }
-      }
       setTaxonomyItems(taxonomyRows || []);
 
       await loadOwnerCtx();
@@ -755,43 +727,14 @@ export default function SpotDetailScreen() {
                   style={{ width, height: HEADER_MAX }}
                 />
               </Animated.View>
-            ) : googlePhoto?.imageUrl ? (
-              <View style={{ flex: 1 }}>
-                <SpotArtwork
-                  imageUrl={googlePhoto.imageUrl}
-                  priority="high"
-                  spotId={String(spot.id)}
-                  spotName={spot.name}
-                  style={{ width, height: HEADER_MAX }}
-                />
-
-                <Pressable
-                  disabled={!googlePhoto.googleMapsUri}
-                  onPress={() => {
-                    if (googlePhoto.googleMapsUri) {
-                      void Linking.openURL(googlePhoto.googleMapsUri);
-                    }
-                  }}
-                  style={styles.googlePhotoAttribution}
-                >
-                  <Text style={styles.googlePhotoAttributionText} numberOfLines={1}>
-                    {googlePhoto.authorAttributions?.[0]?.displayName
-                      ? `Foto: ${googlePhoto.authorAttributions[0].displayName} · Google`
-                      : "Foto · Google"}
-                  </Text>
-                  {googlePhoto.googleMapsUri ? (
-                    <Ionicons
-                      name="open-outline"
-                      size={13}
-                      color="rgba(255,255,255,0.88)"
-                    />
-                  ) : null}
-                </Pressable>
-              </View>
             ) : (
-              <View style={styles.photoFallback}>
-                <Text style={styles.photoFallbackText}>{spot.name?.[0] ?? "B"}</Text>
-              </View>
+              <SpotArtwork
+                imageUrl={selectSpotImageUrl({ headerPhotoPath: spot.header_photo_path })}
+                priority="high"
+                spotId={String(spot.id)}
+                spotName={spot.name}
+                style={{ width, height: HEADER_MAX }}
+              />
             )}
 
             <LinearGradient
@@ -1048,7 +991,7 @@ export default function SpotDetailScreen() {
                   }} style={styles.nearbyCard}>
                     <View style={styles.nearbyPhotoWrap}>
                       <SpotArtwork
-                        imageUrl={selectSpotImageUrl({ photoUrl: item.photoUrl })}
+                        imageUrl={selectSpotImageUrl({ headerPhotoPath: item.headerPhotoPath })}
                         spotId={String(item.id)}
                         spotName={item.name}
                         style={styles.nearbyPhoto}

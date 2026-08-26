@@ -22,6 +22,7 @@ import {
   type PublicMoment,
 } from "@/lib/public-web-api";
 import { PublicMomentImage } from "@/components/public-moment-image";
+import { CanonicalSpotImage } from "@/components/canonical-spot-image";
 import styles from "./landing.module.css";
 
 const suggestions = [
@@ -41,11 +42,7 @@ function shuffle<T>(items: T[]): T[] {
 }
 
 function decisionPhoto(result: DecisionResult): string | null {
-  return (
-    result.detail?.photos?.[0]?.url ||
-    result.detail?.spot?.header_photo_path ||
-    null
-  );
+  return result.detail?.spot?.header_photo_path || null;
 }
 
 function decisionCategory(result: DecisionResult): string {
@@ -268,17 +265,12 @@ export function LandingExperience() {
                 href={`/spots/${currentSpot.spot_id}`}
                 className={styles.heroSpotCard}
               >
-                <div
-                  className={`${styles.heroSpotImage} ${
-                    currentSpot.photo_url ? "" : styles.imageFallback
-                  }`}
-                  style={
-                    currentSpot.photo_url
-                      ? {
-                          backgroundImage: `linear-gradient(180deg, rgba(7,7,8,.08), rgba(7,7,8,.92)), url("${currentSpot.photo_url}")`,
-                        }
-                      : undefined
-                  }
+                <CanonicalSpotImage
+                  attributionMode="thumbnail"
+                  className={`${styles.heroSpotImage} ${styles.imageFallback}`}
+                  ownerAdminImageUrl={currentSpot.photo_url}
+                  spotId={currentSpot.spot_id}
+                  spotName={currentSpot.name}
                 >
                   <div className={styles.heroSpotTop}>
                     <span>Basel</span>
@@ -295,7 +287,7 @@ export function LandingExperience() {
                     </div>
                     <span className={styles.heroArrow}>↗</span>
                   </div>
-                </div>
+                </CanonicalSpotImage>
 
                 <div className={styles.heroSpotMeta}>
                   <div>
@@ -420,7 +412,6 @@ export function LandingExperience() {
 
             <div className={styles.decisionGrid}>
               {results.map((result, index) => {
-                const photo = decisionPhoto(result);
                 const match = scoreLabel(result.final_score);
                 return (
                   <Link
@@ -428,17 +419,12 @@ export function LandingExperience() {
                     className={styles.decisionCard}
                     key={result.spot_id}
                   >
-                    <div
-                      className={`${styles.decisionImage} ${
-                        photo ? "" : styles.imageFallback
-                      }`}
-                      style={
-                        photo
-                          ? {
-                              backgroundImage: `linear-gradient(180deg, transparent 35%, rgba(7,7,8,.9)), url("${photo}")`,
-                            }
-                          : undefined
-                      }
+                    <CanonicalSpotImage
+                      attributionMode="thumbnail"
+                      className={`${styles.decisionImage} ${styles.imageFallback}`}
+                      ownerAdminImageUrl={decisionPhoto(result)}
+                      spotId={result.spot_id}
+                      spotName={result.name}
                     >
                       <div className={styles.cardTop}>
                         <span>{String(index + 1).padStart(2, "0")}</span>
@@ -451,7 +437,7 @@ export function LandingExperience() {
                         </small>
                         <h4>{result.name}</h4>
                       </div>
-                    </div>
+                    </CanonicalSpotImage>
                     <div className={styles.decisionCardBody}>
                       <p>
                         {result.why_this ||
@@ -504,24 +490,19 @@ export function LandingExperience() {
           <div className={styles.topSpotsGrid}>
             {topSpots.map((spot, index) => (
               <Link href={`/spots/${spot.spot_id}`} className={styles.topSpotCard} key={spot.spot_id}>
-                <div
-                  className={`${styles.topSpotImage} ${
-                    spot.photo_url ? "" : styles.imageFallback
-                  }`}
-                  style={
-                    spot.photo_url
-                      ? {
-                          backgroundImage: `linear-gradient(180deg, transparent 35%, rgba(7,7,8,.9)), url("${spot.photo_url}")`,
-                        }
-                      : undefined
-                  }
+                <CanonicalSpotImage
+                  attributionMode="thumbnail"
+                  className={`${styles.topSpotImage} ${styles.imageFallback}`}
+                  ownerAdminImageUrl={spot.photo_url}
+                  spotId={spot.spot_id}
+                  spotName={spot.name}
                 >
                   <span>{String(index + 1).padStart(2, "0")}</span>
                   <div>
                     <small>{spot.category_name || "Spot"} · Basel</small>
                     <h3>{spot.name}</h3>
                   </div>
-                </div>
+                </CanonicalSpotImage>
                 <div className={styles.topSpotFooter}>
                   <div>
                     {spot.top_moods.slice(0, 2).map((mood) => (

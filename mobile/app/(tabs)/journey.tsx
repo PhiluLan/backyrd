@@ -9,7 +9,6 @@ import {
   Platform,
   StyleSheet,
   Alert,
-  Image,
   Modal,
   ActivityIndicator,
 } from "react-native";
@@ -24,6 +23,7 @@ import {
 import { safeDevelopmentWarning } from "../../lib/privacySanitize";
 import { useRouter } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { SpotArtwork } from "../../components/spot/SpotArtwork";
 
 const theme = {
   colors: {
@@ -341,7 +341,7 @@ export default function JourneyScreen() {
             id, name, address, lat, lng, website, status,
             categories(name),
             reviews(mood_a, mood_b),
-            spot_photos(url)
+            header_photo_path
           `
           )
           .eq("status", "approved")
@@ -382,7 +382,7 @@ export default function JourneyScreen() {
               reviewMoods: uniq(reviewMoodsRaw),
               moodSummary,
               website: row.website ?? null,
-              photo: row.spot_photos?.[0]?.url ?? null,
+              photo: row.header_photo_path ?? null,
             } as CatalogSpot;
           })
           .filter(Boolean) as CatalogSpot[];
@@ -511,7 +511,7 @@ export default function JourneyScreen() {
             <View style={{ marginTop: 16 }}>
               {steps.map((s) => (
                 <View key={`${s.step}-${s.spotId}`} style={styles.card}>
-                  {s.spot.photo && <Image source={{ uri: s.spot.photo }} style={styles.cardImage} />}
+                  <SpotArtwork imageUrl={s.spot.photo} spotId={s.spot.id} spotName={s.spot.name} style={styles.cardImage} />
 
                   <Text style={styles.cardStep}>Schritt {s.step}</Text>
                   <Text style={styles.cardTitle}>{s.title}</Text>

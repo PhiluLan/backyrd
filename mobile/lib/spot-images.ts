@@ -1,9 +1,20 @@
 import { supabase } from "./supabase";
 
 export type CanonicalSpotImageInput = {
+  /** `header_photo_path` is the existing Owner/Admin-selected product image. */
   headerPhotoUrl?: string | null;
   headerPhotoPath?: string | null;
+  /** Legacy gallery data is deliberately not authoritative for a Spot cover. */
   photoUrl?: string | null;
+};
+
+export type CanonicalSpotImageProvenance = "OWNER_ADMIN" | "GOOGLE_PLACES" | "BACKYRD_FALLBACK";
+
+export type CanonicalSpotImage = {
+  imageUrl: string | null;
+  provenance: CanonicalSpotImageProvenance;
+  /** Stable within the source system; useful for consistency assertions, never user-facing. */
+  identity: string;
 };
 
 export type DiscoverySpot = {
@@ -26,9 +37,31 @@ function normalizedUrl(value: string | null | undefined) {
   return supabase.storage.from("spot-photos").getPublicUrl(clean.replace(/^\/+/, "")).data.publicUrl;
 }
 
-/** Shared Mobile display precedence: canonical projection, selected photo, legacy header path. */
+/**
+ * Product-level source contract. `header_photo_path` is the existing, explicitly
+ * selected Owner/Admin header image. Generic gallery rows have no verification
+ * provenance in the schema and therefore must not silently become the cover.
+ */
+export function resolveCanonicalSpotImage(input: CanonicalSpotImageInput): CanonicalSpotImage {
+  const ownerAdminUrl = normalizedUrl(input.headerPhotoUrl) ?? normalizedUrl(input.headerPhotoPath);
+  if (ownerAdminUrl) {
+    return {
+      imageUrl: ownerAdminUrl,
+      provenance: "OWNER_ADMIN",
+      identity: `owner-admin:${ownerAdminUrl}`,
+    };
+  }
+
+  return {
+    imageUrl: null,
+    provenance: "BACKYRD_FALLBACK",
+    identity: "backyrd:fallback",
+  };
+}
+
+/** Compatibility helper for existing consumers. It intentionally omits generic gallery rows. */
 export function selectSpotImageUrl(input: CanonicalSpotImageInput) {
-  return normalizedUrl(input.headerPhotoUrl) ?? normalizedUrl(input.photoUrl) ?? normalizedUrl(input.headerPhotoPath);
+  return resolveCanonicalSpotImage(input).imageUrl;
 }
 
 export async function loadDiscoverySpots(city: string, limit = 120) {
@@ -39,9 +72,19 @@ export async function loadDiscoverySpots(city: string, limit = 120) {
     p_surface: "discovery",
   });
   if (error) throw error;
-  return ((data ?? []) as DiscoverySpot[]).map((spot) => ({
+  const spots = (data ?? []) as DiscoverySpot[];
+  const ids = spots.map((spot) => spot.id).filter(Boolean);
+  const { data: headers, error: headersError } = await supabase.rpc(
+    "backyrd_web_canonical_spot_image_headers_v1",
+    { p_spot_ids: ids },
+  );
+  if (headersError) throw headersError;
+  const headerBySpotId = new Map<string, string | null>(
+    (headers ?? []).map((row: { spot_id: string; header_photo_path: string | null }) => [row.spot_id, row.header_photo_path]),
+  );
+  return spots.map((spot) => ({
     ...spot,
-    header_photo_url: selectSpotImageUrl({ headerPhotoUrl: spot.header_photo_url }),
+    header_photo_url: selectSpotImageUrl({ headerPhotoPath: headerBySpotId.get(spot.id) ?? null }),
   }));
 }
 

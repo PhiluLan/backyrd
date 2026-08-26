@@ -744,18 +744,11 @@ export default function DecisionScreen() {
 
     const [
       { data: spotDetails, error: spotDetailsError },
-      { data: photos, error: photosError },
       { data: reviews, error: reviewsError },
       { data: effectiveContent, error: effectiveContentError },
       { data: hours, error: hoursError },
     ] = await Promise.all([
       supabase.from("spots").select("id,address,price_level,category_id,header_photo_path,lat,lng").in("id", ids),
-
-      supabase
-        .from("spot_photos")
-        .select("spot_id,url,created_at")
-        .in("spot_id", ids)
-        .order("created_at", { ascending: true }),
 
       supabase
         .from("reviews")
@@ -778,7 +771,6 @@ export default function DecisionScreen() {
     ]);
 
     if (spotDetailsError) console.log("Decision spot details enrich failed:", spotDetailsError);
-    if (photosError) console.log("Decision spot photos enrich failed:", photosError);
     if (reviewsError) console.log("Decision reviews enrich failed:", reviewsError);
     if (effectiveContentError) console.log("Decision effective content enrich failed:", effectiveContentError);
     if (hoursError) console.log("Decision hours enrich failed:", hoursError);
@@ -811,13 +803,6 @@ export default function DecisionScreen() {
     for (const category of categories) {
       if (category.id && category.name) {
         categoryById.set(category.id, category.name);
-      }
-    }
-
-    const firstPhotoBySpotId = new Map<string, string>();
-    for (const photo of photos ?? []) {
-      if (!firstPhotoBySpotId.has(photo.spot_id) && photo.url) {
-        firstPhotoBySpotId.set(photo.spot_id, photo.url);
       }
     }
 
@@ -885,7 +870,6 @@ export default function DecisionScreen() {
     return rows.map((row) => {
       const detail = detailById.get(row.spot_id);
       const content = contentBySpotId.get(row.spot_id);
-      const photoUrl = firstPhotoBySpotId.get(row.spot_id);
       const headerUrl = detail?.header_photo_path;
       const categoryName = detail?.category_id ? categoryById.get(detail.category_id) ?? null : null;
       const descriptionKeywords = content?.effective_keywords ?? [];
@@ -900,7 +884,7 @@ export default function DecisionScreen() {
         description_keywords: descriptionKeywords,
         opening_hours_summary: buildOpeningHoursSummary(hoursBySpotId.get(row.spot_id) ?? []),
         header_photo_path: headerUrl ?? null,
-        photo_url: selectSpotImageUrl({ photoUrl, headerPhotoPath: headerUrl }),
+        photo_url: selectSpotImageUrl({ headerPhotoPath: headerUrl }),
         lat: Number.isFinite(Number(detail?.lat)) ? Number(detail?.lat) : null,
         lng: Number.isFinite(Number(detail?.lng)) ? Number(detail?.lng) : null,
         matched_terms: uniq([...(row.matched_terms ?? []), ...descriptionKeywords]).slice(0, 10),
