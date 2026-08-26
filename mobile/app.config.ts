@@ -5,8 +5,11 @@ const IOS_PRODUCTION_BUNDLE_IDENTIFIER = "com.philipplanger.backyrd";
 const IOS_DEVELOPMENT_BUNDLE_IDENTIFIER = `${IOS_PRODUCTION_BUNDLE_IDENTIFIER}.dev`;
 
 function requiredReleaseValue(name = "", value = "", nativeBuildOnly = false) {
-  const isReleaseBuild = process.env.EAS_BUILD === "true" ||
-    (!nativeBuildOnly && process.env.BACKYRD_RELEASE_BUILD === "1");
+  const isNativeProductionBuild =
+    process.env.EAS_BUILD === "true" && process.env.APP_VARIANT === "prod";
+  const isProductionOta =
+    !nativeBuildOnly && process.env.BACKYRD_RELEASE_BUILD === "1";
+  const isReleaseBuild = isNativeProductionBuild || isProductionOta;
 
   if (isReleaseBuild && !value?.trim()) {
     throw new Error(`Missing required production runtime configuration: ${name}`);
