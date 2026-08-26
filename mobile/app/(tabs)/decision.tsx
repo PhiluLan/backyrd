@@ -584,6 +584,7 @@ export default function DecisionScreen() {
   const [selectedMoods, setSelectedMoods] = useState<string[]>([]);
   const [moodA, setMoodA] = useState("");
   const [moodB, setMoodB] = useState("");
+  const [guidedStage, setGuidedStage] = useState<1 | 2 | 3>(1);
 
   const [context, setContext] = useState<DecisionContext | null>(null);
   const [spots, setSpots] = useState<EnrichedDecisionSpot[]>([]);
@@ -1545,6 +1546,24 @@ export default function DecisionScreen() {
                 </View>
               ) : (
                 <>
+                  <GuidedConversation
+                    stage={guidedStage}
+                    selectedDirections={selectedDirections}
+                    selectedAudiences={selectedAudiences}
+                    selectedMoods={selectedMoods}
+                    moodA={moodA}
+                    moodB={moodB}
+                    loading={loading}
+                    canRun={canRun}
+                    onStageChange={setGuidedStage}
+                    onDirectionsChange={setSelectedDirections}
+                    onAudiencesChange={setSelectedAudiences}
+                    onMoodsChange={setSelectedMoods}
+                    onMoodAChange={setMoodA}
+                    onMoodBChange={setMoodB}
+                    onSubmit={() => runDecision()}
+                  />
+                  {false ? <>
                   <InputSectionLabel title="Wonach suchst du?" subtitle="Kategorie schlägt alten Geschmack. Stimmung ist optional." />
 
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -1683,6 +1702,7 @@ export default function DecisionScreen() {
                       />
                     </View>
                   </View>
+                  </> : null}
                 </>
               )}
 
@@ -1702,7 +1722,7 @@ export default function DecisionScreen() {
                 </Text>
               )}
 
-              <Pressable
+              {inputMode === "free" ? <Pressable
                 onPress={() => runDecision()}
                 disabled={loading || !canRun}
                 style={{
@@ -1737,7 +1757,7 @@ export default function DecisionScreen() {
                     Vorschläge finden
                   </Text>
                 )}
-              </Pressable>
+              </Pressable> : null}
             </LinearGradient>
           </View>
 
@@ -1812,6 +1832,57 @@ export default function DecisionScreen() {
     </SafeAreaView>
   );
 }
+
+function GuidedConversation({
+  stage, selectedDirections, selectedAudiences, selectedMoods, moodA, moodB, loading, canRun,
+  onStageChange, onDirectionsChange, onAudiencesChange, onMoodsChange, onMoodAChange, onMoodBChange, onSubmit,
+}: {
+  stage: 1 | 2 | 3; selectedDirections: string[]; selectedAudiences: string[]; selectedMoods: string[]; moodA: string; moodB: string; loading: boolean; canRun: boolean;
+  onStageChange: (stage: 1 | 2 | 3) => void;
+  onDirectionsChange: React.Dispatch<React.SetStateAction<string[]>>;
+  onAudiencesChange: React.Dispatch<React.SetStateAction<string[]>>;
+  onMoodsChange: React.Dispatch<React.SetStateAction<string[]>>;
+  onMoodAChange: (value: string) => void; onMoodBChange: (value: string) => void; onSubmit: () => void;
+}) {
+  const summaries = [optionLabels(DIRECTION_OPTIONS, selectedDirections), optionLabels(AUDIENCE_OPTIONS, selectedAudiences), optionLabels(MOOD_OPTIONS, selectedMoods)].filter(Boolean);
+  const title = stage === 1 ? "Was hast du vor?" : stage === 2 ? "Mit wem bist du unterwegs?" : "Wie soll es sich anfühlen?";
+  const subtitle = stage === 1 ? "Wähl einfach, worauf du Lust hast." : stage === 2 ? "Optional – Backyrd berücksichtigt deinen Moment." : "Optional – ein Gefühl genügt.";
+  return <View style={{ marginTop: 4 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+      <AppText role="caption" tone="lime">MOMENT {stage} / 3</AppText>
+      {summaries.length ? <Pressable accessibilityLabel="Auswahl bearbeiten" onPress={() => onStageChange(1)}><AppText role="caption" tone="secondary">{summaries.join(" · ")}</AppText></Pressable> : null}
+    </View>
+    <AppText role="screenTitle" style={{ color: theme.text }}>{title}</AppText>
+    <AppText role="meta" tone="secondary" style={{ marginTop: 5, marginBottom: 18 }}>{subtitle}</AppText>
+    {stage === 1 ? <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+      {DIRECTION_OPTIONS.map((option) => <ChoiceChip key={option.key} label={option.label} active={selectedDirections.includes(option.key)} onPress={() => onDirectionsChange((current) => toggleValue(current, option.key))} />)}
+      <ChoiceChip label="Egal" active={selectedDirections.length === 0 && selectedAudiences.length === 0} onPress={() => { onDirectionsChange([]); onAudiencesChange([]); }} />
+    </View> : null}
+    {stage === 2 ? <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+      {AUDIENCE_OPTIONS.map((option) => <ChoiceChip key={option.key} label={option.label} active={selectedAudiences.includes(option.key)} onPress={() => onAudiencesChange((current) => toggleValue(current, option.key))} />)}
+    </View> : null}
+    {stage === 3 ? <>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        {MOOD_OPTIONS.map((option) => <ChoiceChip key={option.key} label={option.label} active={selectedMoods.includes(option.key)} onPress={() => onMoodsChange((current) => toggleValue(current, option.key))} />)}
+      </View>
+      <View style={{ marginTop: 18, borderTopWidth: 1, borderColor: "rgba(255,255,255,0.12)", paddingTop: 14 }}>
+        <AppText role="caption" tone="secondary">Eigene Worte, wenn du magst</AppText>
+        <View style={{ flexDirection: "row", gap: 12, marginTop: 8 }}>
+          <TextInput value={moodA} onChangeText={onMoodAChange} placeholder="z. B. ruhig" placeholderTextColor="rgba(255,255,255,0.30)" style={guidedInputStyle} />
+          <TextInput value={moodB} onChangeText={onMoodBChange} placeholder="z. B. urban" placeholderTextColor="rgba(255,255,255,0.30)" style={guidedInputStyle} />
+        </View>
+      </View>
+    </> : null}
+    <View style={{ flexDirection: "row", gap: 10, marginTop: 26 }}>
+      {stage > 1 ? <Pressable accessibilityLabel="Vorherigen Moment bearbeiten" onPress={() => onStageChange((stage - 1) as 1 | 2 | 3)} style={guidedBack}><AppText role="label">Zurück</AppText></Pressable> : null}
+      {stage < 3 ? <Pressable accessibilityLabel="Nächster Moment" onPress={() => onStageChange((stage + 1) as 1 | 2 | 3)} style={guidedNext}><AppText role="label" style={{ color: "#111113" }}>Weiter</AppText></Pressable> : <Pressable accessibilityLabel="Vorschläge finden" disabled={loading || !canRun} onPress={onSubmit} style={[guidedNext, (loading || !canRun) && { opacity: 0.45 }]}><AppText role="label" style={{ color: "#111113" }}>{loading ? "Suche Spots…" : "Vorschläge finden"}</AppText></Pressable>}
+    </View>
+  </View>;
+}
+
+const guidedInputStyle = { flex: 1, minHeight: 48, borderRadius: 24, paddingHorizontal: 16, color: theme.text, fontWeight: "800", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" } as const;
+const guidedBack = { minHeight: 52, paddingHorizontal: 20, borderRadius: 999, justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)" } as const;
+const guidedNext = { flex: 1, minHeight: 52, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: theme.pink } as const;
 
 function SegmentButton({
   label,

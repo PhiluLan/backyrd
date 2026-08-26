@@ -39,6 +39,8 @@ import { getMobileSpotTaxonomy, type MobileSpotTaxonomyItem } from "../../lib/ta
 import { selectSpotImageUrl } from "../../lib/spot-images";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { AppText } from "../../components/foundation/AppText";
+import { StateView } from "../../components/foundation/StateView";
+import { backyrdTheme as foundationTheme } from "../../theme/backyrd";
 
 import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
 const theme = {
@@ -163,7 +165,7 @@ const Chip = ({ text }: { text: string }) => (
 );
 
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-  <Text style={styles.sectionTitle}>{children}</Text>
+  <View style={styles.sectionTitleRow}><View style={styles.sectionMarker} /><AppText role="sectionTitle" style={styles.sectionTitle}>{children}</AppText></View>
 );
 
 const InfoRow = ({
@@ -872,9 +874,7 @@ export default function SpotDetailScreen() {
                 </View>
               ) : null}
             </View>
-            <Text style={styles.bodyText}>
-              {effectiveDesc || "Noch keine Beschreibung vorhanden."}
-            </Text>
+            {effectiveDesc ? <Text style={styles.bodyText}>{effectiveDesc}</Text> : <StateView kind="empty" title="Noch ohne Geschichte." message="Für diesen Ort gibt es noch keine Beschreibung – die wichtigsten Infos findest du trotzdem hier." />}
           </View>
 
           <View style={styles.section}>
@@ -1235,11 +1235,10 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: theme.colors.text,
-    fontSize: 22,
-    lineHeight: 27,
-    fontWeight: "800",
-    letterSpacing: -0.45,
+    marginLeft: foundationTheme.spacing.xs,
   },
+  sectionTitleRow: { flexDirection: "row", alignItems: "center" },
+  sectionMarker: { width: 16, height: 4, borderRadius: 999, backgroundColor: foundationTheme.color.pink },
   showMoreText: {
     color: theme.colors.pinkSoft,
     fontSize: 13,

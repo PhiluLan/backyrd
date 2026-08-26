@@ -61,7 +61,9 @@ export default function HomeScreen() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const cardWidth = useMemo(() => Math.min(430, Math.max(286, width - 42)), [width]);
+  const carouselGap = theme.spacing.md;
+  const cardWidth = useMemo(() => Math.round(Math.min(390, Math.max(272, width * 0.84))), [width]);
+  const carouselInset = useMemo(() => Math.max(theme.spacing.lg, Math.round((width - cardWidth) / 2)), [cardWidth, width]);
   const cardHeight = Math.round(cardWidth * 1.16);
   const heroSize = Math.min(62, Math.max(43, width * 0.135));
 
@@ -148,7 +150,15 @@ export default function HomeScreen() {
             ) : error ? (
               <View style={styles.stateWrap}><StateView actionLabel="Noch einmal" kind="error" message={error} onAction={() => void load()} title="Kurz den Faden verloren." /></View>
             ) : spots.length ? (
-              <ScrollView horizontal contentContainerStyle={styles.cards} decelerationRate="fast" showsHorizontalScrollIndicator={false} snapToInterval={cardWidth + 14}>
+              <ScrollView
+                horizontal
+                contentContainerStyle={[styles.cards, { paddingHorizontal: carouselInset, gap: carouselGap }]}
+                decelerationRate="fast"
+                disableIntervalMomentum
+                showsHorizontalScrollIndicator={false}
+                snapToAlignment="center"
+                snapToInterval={cardWidth + carouselGap}
+              >
                 {spots.map((spot, index) => (
                   <Pressable accessibilityLabel={`${spot.name} öffnen`} key={spot.id} onPress={() => router.push(`/spot/${spot.id}` as never)} style={({ pressed }) => [styles.card, { width: cardWidth, height: cardHeight }, pressed && styles.cardPressed]}>
                     <SpotArtwork imageUrl={spot.header_photo_url} priority={index < 2 ? "high" : "normal"} spotId={spot.id} spotName={spot.name} style={StyleSheet.absoluteFill} />
@@ -193,7 +203,7 @@ const styles = StyleSheet.create({
   momentRingActive: { borderColor: theme.color.pink, borderWidth: 2 },
   momentLabel: { marginTop: 7, color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 12 },
   discoverySection: { marginTop: theme.spacing.xxxl },
-  cards: { paddingHorizontal: theme.spacing.xxl, paddingTop: theme.spacing.sm, gap: theme.spacing.md },
+  cards: { paddingTop: theme.spacing.sm },
   card: { justifyContent: "flex-end", overflow: "hidden", borderRadius: theme.radius.lg, backgroundColor: theme.color.surface },
   cardPressed: { opacity: 0.9, transform: [{ scale: theme.motion.pressScale }] },
   cardContent: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.md },
