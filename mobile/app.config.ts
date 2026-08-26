@@ -37,11 +37,13 @@ export default (context = { config: {} }) => {
   );
   const googleIosClientId = requiredReleaseValue(
     "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID",
-    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? ""
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? "",
+    true
   );
   const googleWebClientId = requiredReleaseValue(
     "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID",
-    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? ""
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "",
+    true
   );
 
   return {

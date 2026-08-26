@@ -4,18 +4,18 @@ import process from "node:process";
 import { execFileSync } from "node:child_process";
 
 const root = process.cwd();
-const required = [
+// OTA bundles require only values compiled into the JavaScript runtime. Google
+// Maps and Google OAuth IDs are read from the installed native Expo config,
+// so their presence is enforced by the native production-build config guard.
+const requiredRuntime = [
   "EXPO_PUBLIC_SUPABASE_URL",
   "EXPO_PUBLIC_SUPABASE_ANON_KEY",
-  "EXPO_PUBLIC_GOOGLE_MAPS_KEY",
-  "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID",
-  "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID",
 ];
 
 const failures = [];
 const expectedIosBundleIdentifier = "com.philipplanger.backyrd";
 
-for (const name of required) {
+for (const name of requiredRuntime) {
   if (!process.env[name]?.trim()) failures.push(`${name} is missing`);
 }
 
@@ -41,6 +41,11 @@ try {
     failures.push(
       `iOS Production bundle identifier must be ${expectedIosBundleIdentifier}, received ${expoConfig.ios?.bundleIdentifier ?? "missing"}`
     );
+  }
+  for (const name of ["supabaseUrl", "supabaseAnonKey"]) {
+    if (typeof expoConfig.extra?.[name] !== "string" || !expoConfig.extra[name].trim()) {
+      failures.push(`Expo OTA manifest runtime config missing: ${name}`);
+    }
   }
 } catch (error) {
   failures.push(`Expo Production config could not be evaluated: ${error instanceof Error ? error.message : String(error)}`);
