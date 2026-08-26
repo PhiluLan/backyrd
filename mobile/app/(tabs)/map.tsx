@@ -640,20 +640,13 @@ export default function MapScreen() {
           ref={mapRef}
           provider={PROVIDER_GOOGLE}
           style={{ flex: 1 }}
-          region={region}
+          initialRegion={region}
           showsUserLocation={locationConsentGranted}
           clusterColor={theme.color.pink}
           clusterTextColor={theme.color.background}
           spiralEnabled
           radius={48}
           minPoints={3}
-          renderCluster={(cluster) => <Marker
-            key={`cluster-${cluster.id}`}
-            coordinate={{ longitude: cluster.geometry.coordinates[0], latitude: cluster.geometry.coordinates[1] }}
-            onPress={cluster.onPress}
-            tracksViewChanges={false}
-            accessibilityLabel={`${cluster.properties.point_count} Orte in diesem Bereich`}
-          ><View style={styles.clusterMarker}><AppText role="label" style={styles.clusterLabel}>{cluster.properties.point_count}</AppText></View></Marker>}
           customMapStyle={DARK_MAP_STYLE}
           onRegionChangeComplete={setRegion}
           onPress={hideSheet}
@@ -811,8 +804,6 @@ const styles = StyleSheet.create({
   markerCore: { width: 7, height: 7, borderRadius: 999, backgroundColor: theme.color.lime },
   markerSelected: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.color.pink, borderColor: theme.color.textPrimary, borderWidth: 2.5, shadowColor: theme.color.pink, shadowOpacity: 0.7, shadowRadius: 10, elevation: 8 },
   markerCoreSelected: { width: 10, height: 10, backgroundColor: theme.color.background },
-  clusterMarker: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", backgroundColor: theme.color.pink, borderWidth: 2, borderColor: theme.color.textPrimary, shadowColor: theme.color.pink, shadowOpacity: 0.5, shadowRadius: 8, elevation: 7 },
-  clusterLabel: { color: theme.color.background },
   list: { backgroundColor: theme.color.background },
   listCard: { backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, marginBottom: theme.spacing.md, overflow: "hidden", borderWidth: 1, borderColor: theme.color.border },
   listCardImage: { width: "100%", height: 170 },
