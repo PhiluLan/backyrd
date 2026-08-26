@@ -8,6 +8,7 @@ import { HumanSpotQuestion } from "./HumanSpotQuestion";
 const SOURCE_OPTIONS = [["ADMIN_VERIFIED", "Eigene Kenntnis / vor Ort geprüft"], ["OFFICIAL_WEBSITE", "Offizielle Website"], ["OFFICIAL_DOCUMENT", "Offizielle Dokumentation"]] as const;
 const SCOPE_OPTIONS = [["SPOT", "Gilt allgemein für diesen Ort"], ["PROGRAM", "Nur für ein regelmäßiges Angebot"], ["EVENT", "Nur für ein bestimmtes Event"], ["TEMPORARY", "Nur vorübergehend"]] as const;
 const GASTRONOMY = new Set(["BREWPUB", "BAR", "COCKTAIL_BAR", "WINE_BAR", "RESTAURANT", "CAFE", "BAKERY", "NIGHTLIFE"]);
+type SectionFeedback = { tone: "success" | "error"; text: string };
 
 function defaultValue(question: AuthoringQuestion): unknown {
   if (question.control_type === "MULTI_CHOICE") return [];
@@ -32,6 +33,7 @@ export function GoldAuthoringPanel({ spotId, refreshToken = 0 }: { spotId: strin
   const [scope, setScope] = useState("SPOT");
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [sectionFeedback, setSectionFeedback] = useState<Partial<Record<AuthoringSectionId, SectionFeedback>>>({});
 
   useEffect(() => {
     void supabase.rpc("backyrd_human_spot_profile_v2", { p_spot_id: spotId }).then(({ data, error }) => {
@@ -65,6 +67,7 @@ export function GoldAuthoringPanel({ spotId, refreshToken = 0 }: { spotId: strin
     const changed = questions.filter((question) => question.section_id === sectionId && dirtyQuestions.has(question.question_id));
     if (!changed.length) { setMessage("In diesem Abschnitt gibt es keine ungespeicherten Änderungen."); return; }
     setBusy(sectionId); setMessage(null);
+    setSectionFeedback((current) => { const next = { ...current }; delete next[sectionId]; return next; });
     try {
       const { data, error } = await supabase.rpc("backyrd_human_spot_save_section_v2", {
         p_spot_id: spotId, p_section_id: sectionId,
@@ -78,8 +81,14 @@ export function GoldAuthoringPanel({ spotId, refreshToken = 0 }: { spotId: strin
       if (!result || result.persisted !== changed.length || !result.profile) throw new Error("authoring_persistence_not_confirmed");
       setProfile(result.profile);
       setDrafts((current) => { const next = { ...current }; changed.forEach((question) => delete next[question.question_id]); return next; });
-      setMessage(result.reviewRequired ? "Zur Prüfung gespeichert. Die allgemeine Spot-Wahrheit blieb unverändert." : `${changed.length} ${changed.length === 1 ? "Angabe" : "Angaben"} gespeichert. Backyrds Verständnis ist aktuell.`);
-    } catch (error) { setMessage(humanError(error)); } finally { setBusy(null); }
+      const successMessage = result.reviewRequired ? "Zur Prüfung gespeichert. Die allgemeine Spot-Wahrheit blieb unverändert." : `${changed.length} ${changed.length === 1 ? "Angabe" : "Angaben"} gespeichert. Backyrds Verständnis ist aktuell.`;
+      setMessage(successMessage);
+      setSectionFeedback((current) => ({ ...current, [sectionId]: { tone: "success", text: successMessage } }));
+    } catch (error) {
+      const errorMessage = humanError(error);
+      setMessage(errorMessage);
+      setSectionFeedback((current) => ({ ...current, [sectionId]: { tone: "error", text: errorMessage } }));
+    } finally { setBusy(null); }
   }
 
   async function saveArchetypes(primary: string, secondary: string[]) {
@@ -136,11 +145,13 @@ export function GoldAuthoringPanel({ spotId, refreshToken = 0 }: { spotId: strin
       const sectionQuestions = questions.filter((question) => question.section_id === section.id);
       if (!sectionQuestions.length) return null;
       const changed = sectionQuestions.filter((question) => dirtyQuestions.has(question.question_id)).length;
-      return <section className="hsi-section" id={`hsi-section-${section.id}`} key={section.id}><header><div><span>{changed ? `${changed} ungespeichert` : "Aktuell"}</span><h3>{section.label}</h3><p>{section.description}</p></div><button type="button" disabled={busy !== null || changed === 0} onClick={() => void saveSection(section.id)}>{busy === section.id ? "Wird gespeichert …" : scope === "SPOT" ? "Abschnitt speichern" : "Zur Prüfung speichern"}</button></header><div className="hsi-question-list">{sectionQuestions.map((question) => {
+      const feedback = sectionFeedback[section.id];
+      const saved = feedback?.tone === "success" && changed === 0;
+      return <section className="hsi-section" id={`hsi-section-${section.id}`} key={section.id}><header><div><span>{changed ? `${changed} ungespeichert` : saved ? "Gespeichert" : "Aktuell"}</span><h3>{section.label}</h3><p>{section.description}</p></div><div className="hsi-section-actions"><button type="button" className={saved ? "is-saved" : ""} disabled={busy !== null || changed === 0} onClick={() => void saveSection(section.id)}>{busy === section.id ? "Wird gespeichert …" : saved ? "Gespeichert ✓" : scope === "SPOT" ? "Abschnitt speichern" : "Zur Prüfung speichern"}</button>{feedback && <p className={`hsi-section-feedback ${feedback.tone}`} role="status">{feedback.text}</p>}</div></header><div className="hsi-question-list">{sectionQuestions.map((question) => {
         const fact = facts.get(question.canonical_field_key); const source = fact ? sources.get(fact.source_id) : undefined;
         const value = drafts[question.question_id] ?? fact?.value ?? defaultValue(question);
         const provenance = fact ? `${source?.source_type === "ADMIN_VERIFIED" ? "Von dir bestätigt" : source?.source_type === "OFFICIAL_WEBSITE" ? "Offizielle Website" : "Bestätigte Quelle"}${fact.last_checked_at || fact.accepted_at ? ` · ${new Date(fact.last_checked_at ?? fact.accepted_at ?? "").toLocaleDateString("de-CH")}` : ""}` : undefined;
-        return <HumanSpotQuestion key={question.question_id} question={question} value={value} archetypes={archetypes} changed={dirtyQuestions.has(question.question_id)} provenance={provenance} onChange={(value) => setDrafts((current) => ({ ...current, [question.question_id]: value }))} />;
+        return <HumanSpotQuestion key={question.question_id} question={question} value={value} archetypes={archetypes} changed={dirtyQuestions.has(question.question_id)} provenance={provenance} onChange={(value) => { setDrafts((current) => ({ ...current, [question.question_id]: value })); setSectionFeedback((current) => { const next = { ...current }; delete next[question.section_id]; return next; }); }} />;
       })}</div></section>;
     })}
 
