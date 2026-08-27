@@ -57,7 +57,7 @@ function getAuthErrorMessage(error: any) {
     return "Apple Registrierung kann in Expo Go nicht korrekt getestet werden. Bitte nutze dafür einen Development Build.";
   }
 
-  return message;
+  return "Registrieren ist gerade nicht möglich. Bitte versuche es erneut.";
 }
 
 export default function RegisterScreen() {
@@ -69,6 +69,7 @@ export default function RegisterScreen() {
   const [pw, setPw] = useState("");
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   async function onRegister() {
     const firstName = first.trim();
@@ -77,7 +78,7 @@ export default function RegisterScreen() {
     const password = pw.trim();
 
     if (!firstName || !lastName || !normalizedEmail || !password) {
-      Alert.alert("Fehlende Angaben", "Bitte alle Felder ausfüllen.");
+      setFormError("Fülle bitte alle Angaben aus.");
       return;
     }
 
@@ -125,7 +126,7 @@ export default function RegisterScreen() {
         ]
       );
     } catch (e: any) {
-      Alert.alert("Registrierung fehlgeschlagen", getAuthErrorMessage(e));
+      setFormError(getAuthErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -257,12 +258,13 @@ export default function RegisterScreen() {
             <BlurView intensity={62} tint="dark" style={styles.card}>
               <Text style={styles.cardTitle}>Registrieren</Text>
               <Text style={styles.cardSubtitle}>Starte deine persönliche Backyrd Journey 🔥</Text>
+              {formError ? <Text accessibilityLiveRegion="polite" style={styles.formError}>{formError}</Text> : null}
 
               <TextInput
                 placeholder="Vorname"
                 placeholderTextColor="#7D8086"
                 value={first}
-                onChangeText={setFirst}
+                onChangeText={(value) => { setFirst(value); setFormError(null); }}
                 autoCapitalize="words"
                 textContentType="givenName"
                 style={styles.input}
@@ -272,7 +274,7 @@ export default function RegisterScreen() {
                 placeholder="Nachname"
                 placeholderTextColor="#7D8086"
                 value={last}
-                onChangeText={setLast}
+                onChangeText={(value) => { setLast(value); setFormError(null); }}
                 autoCapitalize="words"
                 textContentType="familyName"
                 style={styles.input}
@@ -282,7 +284,7 @@ export default function RegisterScreen() {
                 placeholder="E-Mail"
                 placeholderTextColor="#7D8086"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(value) => { setEmail(value); setFormError(null); }}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -294,9 +296,11 @@ export default function RegisterScreen() {
                 placeholder="Passwort"
                 placeholderTextColor="#7D8086"
                 value={pw}
-                onChangeText={setPw}
+                onChangeText={(value) => { setPw(value); setFormError(null); }}
                 secureTextEntry
                 textContentType="newPassword"
+                returnKeyType="go"
+                onSubmitEditing={() => void onRegister()}
                 style={styles.input}
               />
 
@@ -410,6 +414,18 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 25,
     marginBottom: 24,
+  },
+  formError: {
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 14,
+    color: "#FFD1DF",
+    backgroundColor: "rgba(255,79,145,0.13)",
+    borderWidth: 1,
+    borderColor: "rgba(255,79,145,0.34)",
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "700",
   },
   input: {
     backgroundColor: "rgba(255,255,255,0.08)",

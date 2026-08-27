@@ -57,7 +57,7 @@ function getAuthErrorMessage(error: any) {
     return "Apple Login kann in Expo Go nicht korrekt getestet werden. Bitte nutze dafür einen Development Build oder eine echte App-Installation.";
   }
 
-  return message;
+  return "Einloggen ist gerade nicht möglich. Bitte versuche es erneut.";
 }
 
 export default function LoginScreen() {
@@ -67,6 +67,7 @@ export default function LoginScreen() {
   const [pw, setPw] = useState("");
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   function goGate() {
     router.replace("/gate" as any);
@@ -77,7 +78,7 @@ export default function LoginScreen() {
     const password = pw.trim();
 
     if (!normalizedEmail || !password) {
-      Alert.alert("Angaben fehlen", "Bitte E-Mail und Passwort eingeben.");
+      setFormError("Gib bitte E-Mail und Passwort ein.");
       return;
     }
 
@@ -94,7 +95,7 @@ export default function LoginScreen() {
       await ensureProfile();
       goGate();
     } catch (e: any) {
-      Alert.alert("Login fehlgeschlagen", getAuthErrorMessage(e));
+      setFormError(getAuthErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -229,12 +230,13 @@ export default function LoginScreen() {
               <Text style={styles.cardSubtitle}>
                 Melde dich an und finde direkt wieder Orte, die zu deiner Stimmung passen.
               </Text>
+              {formError ? <Text accessibilityLiveRegion="polite" style={styles.formError}>{formError}</Text> : null}
 
               <TextInput
                 placeholder="E-Mail"
                 placeholderTextColor="#7D8086"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(value) => { setEmail(value); setFormError(null); }}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -246,9 +248,11 @@ export default function LoginScreen() {
                 placeholder="Passwort"
                 placeholderTextColor="#7D8086"
                 value={pw}
-                onChangeText={setPw}
+                onChangeText={(value) => { setPw(value); setFormError(null); }}
                 secureTextEntry
                 textContentType="password"
+                returnKeyType="go"
+                onSubmitEditing={() => void onLogin()}
                 style={styles.input}
               />
 
@@ -368,6 +372,18 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 25,
     marginBottom: 24,
+  },
+  formError: {
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 14,
+    color: "#FFD1DF",
+    backgroundColor: "rgba(255,79,145,0.13)",
+    borderWidth: 1,
+    borderColor: "rgba(255,79,145,0.34)",
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "700",
   },
   input: {
     backgroundColor: "rgba(255,255,255,0.08)",

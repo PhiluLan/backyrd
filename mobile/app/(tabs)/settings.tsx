@@ -55,6 +55,7 @@ export default function SettingsScreen() {
         <Text style={styles.title}>EINSTELLUNGEN</Text>
         <Text style={styles.subtitle}>Profil, Privatsphäre und deine App.</Text>
 
+        <Text style={styles.groupLabel}>ACCOUNT</Text>
         <View style={styles.group}>
           <SettingsRow
             icon="person-outline"
@@ -74,6 +75,10 @@ export default function SettingsScreen() {
             subtitle="Deine bisherigen Entscheidungen"
             onPress={() => router.push("/profile/history" as any)}
           />
+        </View>
+
+        <Text style={styles.groupLabel}>PRIVATSPHÄRE</Text>
+        <View style={styles.group}>
           <SettingsRow
             icon="shield-checkmark-outline"
             title="Datenschutz & Einwilligungen"
@@ -86,12 +91,15 @@ export default function SettingsScreen() {
             subtitle="Moderationsentscheidungen und Hilfe"
             onPress={() => router.push("/safety-center" as any)}
           />
+        </View>
 
-          {internal ? <>
+        {internal ? <>
+          <Text style={styles.groupLabel}>INTERN</Text>
+          <View style={styles.group}>
             <SettingsRow icon="pulse-outline" title="App- & Release-Status" subtitle="Version, Runtime und aktives Update" onPress={() => router.push("/release-diagnostics")} />
             <SettingsRow icon="hammer-outline" title="DEV" subtitle="Interne Entwickleransicht" onPress={() => router.push("/dev")} />
-          </> : null}
-        </View>
+          </View>
+        </> : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -121,6 +129,14 @@ const styles = StyleSheet.create({
   },
   group: {
     gap: 12,
+  },
+  groupLabel: {
+    marginTop: 26,
+    marginBottom: 10,
+    color: productTheme.color.acid,
+    fontFamily: productTheme.type.bodyBold,
+    fontSize: 11,
+    letterSpacing: 1.4,
   },
   row: {
     minHeight: 76,

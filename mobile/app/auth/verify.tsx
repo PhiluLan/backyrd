@@ -35,13 +35,14 @@ export default function VerifyScreen() {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   async function onVerify() {
     const normalizedEmail = cleanEmail(email);
     const token = code.trim();
 
     if (!normalizedEmail || !token) {
-      Alert.alert("Angaben fehlen", "Bitte E-Mail und Code eingeben.");
+      setFormError("Gib bitte E-Mail und Bestätigungscode ein.");
       return;
     }
 
@@ -61,8 +62,8 @@ export default function VerifyScreen() {
       Alert.alert("Bestätigt", "Dein Account wurde bestätigt. Wir richten jetzt dein Profil ein.", [
         { text: "OK", onPress: () => router.replace("/gate" as any) },
       ]);
-    } catch (e: any) {
-      Alert.alert("Verifizierung fehlgeschlagen", e?.message ?? String(e));
+    } catch {
+      setFormError("Der Code konnte nicht bestätigt werden. Prüfe ihn und versuche es erneut.");
     } finally {
       setLoading(false);
     }
@@ -72,7 +73,7 @@ export default function VerifyScreen() {
     const normalizedEmail = cleanEmail(email);
 
     if (!normalizedEmail) {
-      Alert.alert("E-Mail fehlt", "Bitte gib deine E-Mail ein.");
+      setFormError("Gib bitte zuerst deine E-Mail ein.");
       return;
     }
 
@@ -87,8 +88,8 @@ export default function VerifyScreen() {
       if (error) throw error;
 
       Alert.alert("Gesendet", "Wir haben dir die Bestätigungs-E-Mail nochmals geschickt.");
-    } catch (e: any) {
-      Alert.alert("Senden fehlgeschlagen", e?.message ?? String(e));
+    } catch {
+      setFormError("Der Code konnte gerade nicht erneut gesendet werden. Versuch es bitte gleich noch einmal.");
     } finally {
       setResending(false);
     }
@@ -112,12 +113,13 @@ export default function VerifyScreen() {
                 Gib den Code aus deiner E-Mail ein. Falls du einen Bestätigungslink erhalten hast,
                 kannst du auch einfach den Link öffnen und danach einloggen.
               </Text>
+              {formError ? <Text accessibilityLiveRegion="polite" style={styles.formError}>{formError}</Text> : null}
 
               <TextInput
                 placeholder="E-Mail"
                 placeholderTextColor="#7D8086"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(value) => { setEmail(value); setFormError(null); }}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -129,10 +131,12 @@ export default function VerifyScreen() {
                 placeholder="Code"
                 placeholderTextColor="#7D8086"
                 value={code}
-                onChangeText={setCode}
+                onChangeText={(value) => { setCode(value); setFormError(null); }}
                 keyboardType="number-pad"
                 autoCapitalize="none"
                 autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={() => void onVerify()}
                 style={styles.input}
               />
 
@@ -224,6 +228,18 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 25,
     marginBottom: 24,
+  },
+  formError: {
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 14,
+    color: "#FFD1DF",
+    backgroundColor: "rgba(255,79,145,0.13)",
+    borderWidth: 1,
+    borderColor: "rgba(255,79,145,0.34)",
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "700",
   },
   input: {
     backgroundColor: "rgba(255,255,255,0.08)",

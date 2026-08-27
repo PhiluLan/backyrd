@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -33,6 +32,7 @@ export default function LegalConsentScreen() {
   const [documents, setDocuments] = useState<PendingDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     void load();
@@ -43,11 +43,8 @@ export default function LegalConsentScreen() {
       setDocuments(
         (await getMyPendingLegalDocuments()) as PendingDocument[],
       );
-    } catch (error: any) {
-      Alert.alert(
-        "Rechtsdokumente",
-        error?.message ?? "Dokumente konnten nicht geladen werden.",
-      );
+    } catch {
+      setErrorMessage("Dokumente konnten gerade nicht geladen werden. Bitte versuche es erneut.");
     } finally {
       setLoading(false);
     }
@@ -60,11 +57,8 @@ export default function LegalConsentScreen() {
         await acceptLegalDocument(document.document_id);
       }
       router.replace("/(tabs)" as never);
-    } catch (error: any) {
-      Alert.alert(
-        "Bestätigung fehlgeschlagen",
-        error?.message ?? "Bitte versuche es nochmals.",
-      );
+    } catch {
+      setErrorMessage("Die Bestätigung konnte nicht gespeichert werden. Bitte versuche es nochmals.");
     } finally {
       setAccepting(false);
     }
@@ -74,6 +68,18 @@ export default function LegalConsentScreen() {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color="#FF4F91" />
+      </View>
+    );
+  }
+
+  if (errorMessage && documents.length === 0) {
+    return (
+      <View style={styles.loading}>
+        <Text accessibilityLiveRegion="polite" style={styles.emptyTitle}>Kurz den Faden verloren</Text>
+        <Text style={styles.errorText}>{errorMessage}</Text>
+        <Pressable style={styles.button} onPress={() => { setErrorMessage(null); void load(); }}>
+          <Text style={styles.buttonText}>Noch einmal versuchen</Text>
+        </Pressable>
       </View>
     );
   }
@@ -101,6 +107,7 @@ export default function LegalConsentScreen() {
         <Text style={styles.lead}>
           Bitte lies und bestätige die aktuell gültigen Dokumente.
         </Text>
+        {errorMessage ? <Text accessibilityLiveRegion="polite" style={styles.inlineError}>{errorMessage}</Text> : null}
 
         {documents.map((document) => (
           <View key={document.document_id} style={styles.documentCard}>
@@ -178,4 +185,6 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: "#050506", fontWeight: "900", fontSize: 16 },
   emptyTitle: { color: "#FFFFFF", fontSize: 24, fontWeight: "900" },
+  errorText: { color: "#BEBEC6", fontSize: 15, lineHeight: 21, textAlign: "center", marginTop: 8 },
+  inlineError: { marginTop: 16, padding: 12, borderRadius: 14, color: "#FFD1DF", backgroundColor: "rgba(255,79,145,0.13)", fontSize: 14, lineHeight: 20 },
 });
