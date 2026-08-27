@@ -624,20 +624,9 @@ export default function UserProfileScreen() {
             </View>
           ) : null}
 
-          <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{profile.post_count ?? posts.length}</Text>
-              <Text style={styles.statLabel}>Posts</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{profile.follower_count ?? 0}</Text>
-              <Text style={styles.statLabel}>Follower</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{profile.following_count ?? 0}</Text>
-              <Text style={styles.statLabel}>Folgt</Text>
-            </View>
-          </View>
+          <Text style={styles.statsLine}>
+            {profile.post_count ?? posts.length} Momente · {profile.follower_count ?? 0} Follower · {profile.following_count ?? 0} folgt
+          </Text>
 
           <View style={styles.profileChips}>
             {sinceLabel && (
@@ -727,8 +716,8 @@ export default function UserProfileScreen() {
         </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionKicker}>Moments</Text>
-          <Text style={styles.sectionTitle}>Posts von {displayName}</Text>
+          <Text style={styles.sectionKicker}>MOMENTE</Text>
+          <Text style={styles.sectionTitle}>Von {displayName}</Text>
         </View>
       </View>
     );
@@ -783,6 +772,7 @@ export default function UserProfileScreen() {
             onOpenSpot={openSpot}
             onOpenComments={setSelectedCommentPost}
             onShare={sharePost}
+            showFollowAction={false}
             onFollowChanged={(authorId, following) => {
               if (authorId !== profile.user_id) return;
 
@@ -802,8 +792,8 @@ export default function UserProfileScreen() {
         ListEmptyComponent={
           <View style={styles.emptyCard}>
             <Ionicons name="images-outline" size={34} color="#77777F" />
-            <Text style={styles.emptyTitle}>Noch keine Posts</Text>
-            <Text style={styles.emptyText}>Sobald hier Moments geteilt werden, erscheinen sie in diesem Profil.</Text>
+            <Text style={styles.emptyTitle}>Noch keine Momente</Text>
+            <Text style={styles.emptyText}>Sobald hier Momente geteilt werden, erscheinen sie in diesem Profil.</Text>
           </View>
         }
         contentContainerStyle={styles.listContent}
@@ -890,12 +880,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   profileCard: {
-    borderRadius: 34,
-    backgroundColor: "rgba(14,14,20,0.88)",
-    borderWidth: 1,
-    borderColor: "#1B1B20",
-    padding: 20,
-    overflow: "hidden",
+    paddingHorizontal: 6,
   },
   profileTopRow: {
     flexDirection: "row",
@@ -944,31 +929,12 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: "600",
   },
-  statsRow: {
-    marginTop: 22,
-    flexDirection: "row",
-    gap: 10,
-  },
-  statBox: {
-    flex: 1,
-    minHeight: 82,
-    borderRadius: 22,
-    backgroundColor: "#14141B",
-    borderWidth: 1,
-    borderColor: "#1B1B20",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statNumber: {
-    color: "#FFFFFF",
-    fontSize: 25,
-    fontWeight: "800",
-  },
-  statLabel: {
-    marginTop: 5,
-    color: "#8F8F98",
-    fontSize: 14,
-    fontWeight: "600",
+  statsLine: {
+    marginTop: 18,
+    color: "#C9C9CF",
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "700",
   },
   profileChips: {
     marginTop: 16,
@@ -1020,15 +986,14 @@ const styles = StyleSheet.create({
   },
   followButton: {
     flex: 1,
-    marginTop: 20,
-    minHeight: 50,
-    borderRadius: 999,
-    backgroundColor: "#FFFFFF",
+    minHeight: 52,
+    borderRadius: 18,
+    backgroundColor: "#FF4F91",
     alignItems: "center",
     justifyContent: "center",
   },
   followButtonActive: {
-    backgroundColor: "#111113",
+    backgroundColor: "#202026",
     borderWidth: 1,
     borderColor: "#303039",
   },

@@ -63,6 +63,8 @@ type Props = {
   onOpenComments: (post: SocialFeedPost) => void;
   onShare?: (post: SocialFeedPost) => void;
   onFollowChanged?: (userId: string, following: boolean) => void;
+  /** Profile headers already own the relationship action. */
+  showFollowAction?: boolean;
 };
 
 function timeAgo(value: string) {
@@ -119,6 +121,7 @@ export default function SocialPostCard({
   onOpenComments,
   onShare,
   onFollowChanged,
+  showFollowAction = true,
 }: Props) {
   const router = useRouter();
   const [liked, setLiked] = useState(Boolean(post.viewer_has_liked));
@@ -298,7 +301,7 @@ export default function SocialPostCard({
         </Pressable>
 
         <View style={styles.headerActions}>
-          {!ownPost ? (
+          {!ownPost && showFollowAction ? (
             <Pressable
               style={[
                 styles.followButton,

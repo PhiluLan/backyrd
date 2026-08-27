@@ -25,11 +25,11 @@ import { supabase } from "@/lib/supabase";
 import { ensureProfile } from "@/lib/profile";
 import SocialPostCard, { type SocialFeedPost } from "@/components/PostCard";
 import CommentsSheet from "@/components/CommentsSheet";
-import ProfilePrivacyCard from "@/components/ProfilePrivacyCard";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { buildProfileSafetyText, registerSafetySnapshot } from "@/lib/safety-content";
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { selectSpotImageUrl } from "@/lib/spot-images";
+import Avatar from "@/components/Avatar";
 
 const { width } = Dimensions.get("window");
 
@@ -255,11 +255,6 @@ export default function ProfileScreen() {
 
   const displayName = useMemo(() => profileName(profile), [profile]);
   const sinceLabel = useMemo(() => formatSince(profile?.since_date), [profile?.since_date]);
-  const profileMeta = useMemo(() => {
-    const parts = [profile?.city || "Basel", sinceLabel].filter(Boolean);
-    return parts.join(" · ");
-  }, [profile?.city, sinceLabel]);
-
   const headerImage =
     profile?.header_photo_url ||
     profile?.avatar_url ||
@@ -614,8 +609,13 @@ export default function ProfileScreen() {
 
         <View style={styles.profileCard}>
           <View style={styles.profileTopRow}>
-            <Pressable onPress={pickImageAndUploadAvatar} style={styles.avatarRing}>
-              <Image source={{ uri: avatarImage }} style={styles.avatar} />
+            <Pressable
+              onPress={pickImageAndUploadAvatar}
+              style={styles.avatarRing}
+              accessibilityRole="button"
+              accessibilityLabel="Profilbild bearbeiten"
+            >
+              <Avatar uri={avatarImage} name={displayName} size={90} />
             </Pressable>
 
             <View style={styles.identityBlock}>
@@ -623,27 +623,16 @@ export default function ProfileScreen() {
                 {displayName}
               </Text>
               <Text style={styles.handleText} numberOfLines={1}>
-                {profileMeta}
+                {profile?.username ? `@${profile.username} · ` : ""}{profile?.city || "Basel"}
               </Text>
             </View>
           </View>
 
           {!!profile?.bio && <Text style={styles.bioText}>{profile.bio}</Text>}
 
-          <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{posts.length}</Text>
-              <Text style={styles.statLabel}>Momente</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{followersCount}</Text>
-              <Text style={styles.statLabel}>Follower</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{followingCount}</Text>
-              <Text style={styles.statLabel}>Folgt</Text>
-            </View>
-          </View>
+          <Text style={styles.statsLine}>
+            {posts.length} Momente · {followersCount} Follower · {followingCount} folgt
+          </Text>
 
           <View style={styles.profileChips}>
             {sinceLabel && (
@@ -687,77 +676,11 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
-        <Pressable style={styles.historyButton} onPress={() => router.push("/profile/history" as any)}>
-          <View style={styles.historyLeft}>
-            <Ionicons name="time-outline" size={22} color="#FFFFFF" />
-            <Text style={styles.historyText}>Decision History</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={21} color="rgba(255,255,255,0.76)" />
-        </Pressable>
-
-        <Pressable
-          style={styles.historyButton}
-          onPress={() => router.push("/privacy-consent" as any)}
-        >
-          <View style={styles.historyLeft}>
-            <Ionicons name="shield-checkmark-outline" size={22} color="#FF4F91" />
-            <Text style={styles.historyText}>Datenschutz & Einwilligungen</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={21} color="rgba(255,255,255,0.76)" />
-        </Pressable>
-
-        <View style={styles.safetySection}>
-          <Text style={styles.safetySectionEyebrow}>SAFETY & SUPPORT</Text>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Moderationsentscheidungen öffnen"
-            onPress={() => router.push("/safety-center" as any)}
-            style={({ pressed }) => [
-              styles.safetyCenterButton,
-              pressed ? styles.safetyCenterButtonPressed : null,
-            ]}
-          >
-            <View style={styles.safetyCenterIcon}>
-              <Ionicons
-                name="shield-checkmark-outline"
-                size={22}
-                color="#FF4F91"
-              />
-            </View>
-
-            <View style={styles.safetyCenterCopy}>
-              <Text style={styles.safetyCenterTitle}>
-                Moderationsentscheidungen
-              </Text>
-              <Text style={styles.safetyCenterSubtitle}>
-                Maßnahmen prüfen und Entscheidungen anfechten
-              </Text>
-            </View>
-
-            <Ionicons
-              name="chevron-forward"
-              size={21}
-              color="rgba(255,255,255,0.58)"
-            />
-          </Pressable>
-        </View>
-
-        <ProfilePrivacyCard
-          key={`privacy-${profile?.is_private ? "private" : "public"}`}
-          initialPrivate={Boolean(profile?.is_private)}
-          onChanged={(isPrivate) =>
-            setProfile((current) =>
-              current ? { ...current, is_private: isPrivate } : current
-            )
-          }
-        />
-
         <View style={styles.tabShell}>
           {[
             ["posts", "Momente"],
-            ["favorites", "Favoriten"],
-            ["badges", "Badges"],
+            ["favorites", "Gespeichert"],
+            ["badges", "Erfolge"],
           ].map(([key, label]) => {
             const active = tab === key;
             return (
@@ -783,8 +706,8 @@ export default function ProfileScreen() {
                 {posts.length === 0 ? (
                   <View style={styles.emptyState}>
                     <Ionicons name="albums-outline" size={34} color="rgba(255,255,255,0.42)" />
-                    <Text style={styles.emptyTitle}>Noch keine Moments</Text>
-                    <Text style={styles.emptyText}>Deine Bewertungen und Posts erscheinen hier.</Text>
+                    <Text style={styles.emptyTitle}>Noch keine Momente</Text>
+                    <Text style={styles.emptyText}>Deine Momente und Reviews erscheinen hier.</Text>
                   </View>
                 ) : (
                   posts.map((post) => (
@@ -1107,31 +1030,12 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: "600",
   },
-  statsRow: {
-    marginTop: 22,
-    flexDirection: "row",
-    gap: 10,
-  },
-  statBox: {
-    flex: 1,
-    minHeight: 72,
-    borderRadius: 16,
-    backgroundColor: "#14141B",
-    borderWidth: 1,
-    borderColor: "#1B1B20",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statNumber: {
-    color: "#FFFFFF",
-    fontSize: 23,
-    fontWeight: "800",
-  },
-  statLabel: {
-    marginTop: 5,
-    color: "#8F8F98",
-    fontSize: 14,
-    fontWeight: "600",
+  statsLine: {
+    marginTop: 18,
+    color: "#C9C9CF",
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "700",
   },
   profileChips: {
     marginTop: 16,
@@ -1175,18 +1079,22 @@ const styles = StyleSheet.create({
   },
   editProfileButton: {
     marginTop: 20,
-    minHeight: 50,
+    alignSelf: "flex-start",
+    minHeight: 46,
     borderRadius: 999,
-    backgroundColor: "#FF4F91",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.22)",
+    backgroundColor: "rgba(8,8,10,0.48)",
+    paddingHorizontal: 18,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 9,
   },
   editProfileText: {
-    color: "#050506",
-    fontSize: 16,
-    fontWeight: "900",
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
   },
   historyButton: {
     marginTop: 16,

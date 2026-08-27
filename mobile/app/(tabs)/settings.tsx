@@ -59,8 +59,32 @@ export default function SettingsScreen() {
           <SettingsRow
             icon="person-outline"
             title="Profil"
-            subtitle="Dein Account, Beiträge, Favoriten und Badges"
+            subtitle="Dein Account, Momente, Gespeichertes und Erfolge"
             onPress={() => router.push("/profile")}
+          />
+          <SettingsRow
+            icon="eye-outline"
+            title="Sichtbarkeit"
+            subtitle="Öffentlichkeit deines Profils und deiner Momente"
+            onPress={() => router.push("/settings/privacy" as any)}
+          />
+          <SettingsRow
+            icon="time-outline"
+            title="Decision History"
+            subtitle="Deine bisherigen Entscheidungen"
+            onPress={() => router.push("/profile/history" as any)}
+          />
+          <SettingsRow
+            icon="shield-checkmark-outline"
+            title="Datenschutz & Einwilligungen"
+            subtitle="Kontrolle über deine Daten und Zustimmung"
+            onPress={() => router.push("/privacy-consent" as any)}
+          />
+          <SettingsRow
+            icon="help-buoy-outline"
+            title="Sicherheit & Support"
+            subtitle="Moderationsentscheidungen und Hilfe"
+            onPress={() => router.push("/safety-center" as any)}
           />
 
           {internal ? <>
