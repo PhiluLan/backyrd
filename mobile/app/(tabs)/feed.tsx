@@ -30,6 +30,8 @@ import { hydrateSocialMediaSignedUrls } from "../../lib/socialMedia";
 import { trackAnalyticsEvent } from "../../lib/analytics";
 import { filterDistributedSpots } from "../../lib/distributionTrust";
 import { registerSafetySnapshot } from "../../lib/safety-content";
+import { userFacingError } from "../../lib/userFacingError";
+import { StateView } from "../../components/foundation/StateView";
 
 type FeedMode = "for_you" | "following";
 
@@ -50,10 +52,6 @@ type SpotSuggestion = {
 };
 
 const FEED_LIMIT = 30;
-
-function errorMessage(err: any) {
-  return err?.message || err?.details || err?.hint || "Unbekannter Fehler";
-}
 
 function normalizeMedia(value: unknown): SocialFeedPost["media"] {
   let parsed = value;
@@ -339,6 +337,7 @@ export default function FeedScreen() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [feedError, setFeedError] = useState<string | null>(null);
 
   const [commentsPost, setCommentsPost] = useState<SocialFeedPost | null>(null);
 
@@ -393,6 +392,7 @@ export default function FeedScreen() {
       try {
         if (!silent && !isRefresh) setLoading(true);
         if (isRefresh) setRefreshing(true);
+        setFeedError(null);
 
         const { data: userData } = await supabase.auth.getUser();
         setCurrentUserId(userData.user?.id ?? null);
@@ -420,7 +420,7 @@ export default function FeedScreen() {
         );
       } catch (error: any) {
         console.log("get_social_feed_v2 failed:", error);
-        Alert.alert("Moments konnten nicht geladen werden", errorMessage(error));
+        setFeedError(userFacingError(error, "Die Momente konnten gerade nicht geladen werden. Bitte versuche es noch einmal."));
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -722,7 +722,7 @@ export default function FeedScreen() {
       setMode("for_you");
     } catch (error: any) {
       console.log("create_social_post_v1 failed:", error);
-      Alert.alert("Moment konnte nicht erstellt werden", errorMessage(error));
+      Alert.alert("Moment konnte nicht erstellt werden", userFacingError(error, "Dein Moment konnte gerade nicht geteilt werden. Bitte versuche es noch einmal."));
     } finally {
       setCreating(false);
     }
@@ -732,6 +732,8 @@ export default function FeedScreen() {
     <View style={styles.headerWrap}>
       <View style={styles.appBar}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Moment erstellen"
           style={styles.smallCreateButton}
           onPress={() => setComposerVisible(true)}
         >
@@ -744,6 +746,8 @@ export default function FeedScreen() {
         </View>
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Leute entdecken"
           style={styles.communityButton}
           onPress={() => router.push("/users/search" as any)}
         >
@@ -751,7 +755,7 @@ export default function FeedScreen() {
         </Pressable>
       </View>
 
-      <Pressable style={styles.localPrompt} onPress={() => setComposerVisible(true)}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Moment aus deiner Stadt teilen" style={styles.localPrompt} onPress={() => setComposerVisible(true)}>
         <Ionicons name="location-outline" size={18} color="#C9ED4B" />
         <Text style={styles.localPromptText}>Teile, was gerade in deiner Stadt passiert.</Text>
         <Ionicons name="arrow-forward" size={18} color="#C9ED4B" />
@@ -759,6 +763,8 @@ export default function FeedScreen() {
 
       <View style={styles.modeShell}>
         <Pressable
+          accessibilityRole="tab"
+          accessibilityState={{ selected: mode === "for_you" }}
           style={[
             styles.modeButton,
             mode === "for_you" && styles.modeButtonActive,
@@ -776,6 +782,8 @@ export default function FeedScreen() {
         </Pressable>
 
         <Pressable
+          accessibilityRole="tab"
+          accessibilityState={{ selected: mode === "following" }}
           style={[
             styles.modeButton,
             mode === "following" && styles.modeButtonActive,
@@ -806,12 +814,12 @@ export default function FeedScreen() {
       </View>
 
       <Text style={styles.emptyTitle}>
-        {mode === "following" ? "Noch nichts aus deinem Kreis" : "Noch keine Moments"}
+        {mode === "following" ? "Noch nichts aus deinem Kreis" : "Noch keine Momente"}
       </Text>
 
       <Text style={styles.emptyText}>
         {mode === "following"
-          ? "Folge Leuten mit gutem Geschmack. Danach erscheinen hier ihre Bewertungen und Backyrd-Moments."
+          ? "Folge Leuten mit gutem Geschmack. Danach erscheinen hier ihre Bewertungen und Backyrd-Momente."
           : "Bewerte einen Spot oder teile einen Moment. Daraus entsteht dein persönlicher Stadt-Feed."}
       </Text>
 
@@ -833,8 +841,11 @@ export default function FeedScreen() {
 
       {loading && posts.length === 0 ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color="#FFFFFF" />
-          <Text style={styles.loadingText}>Moments laden…</Text>
+          <StateView kind="loading" title="Momente kommen zusammen" message="Backyrd lädt gerade, was in deiner Stadt passiert." />
+        </View>
+      ) : feedError && posts.length === 0 ? (
+        <View style={styles.loadingWrap}>
+          <StateView kind="error" title="Momente gerade nicht erreichbar" message={feedError} actionLabel="Noch einmal versuchen" onAction={() => void loadFeed(mode)} />
         </View>
       ) : (
         <FlatList
@@ -887,14 +898,17 @@ export default function FeedScreen() {
             style={styles.composerKeyboard}
             behavior={Platform.OS === "ios" ? "padding" : undefined}
           >
-            <View style={styles.composerHeader}>
-              <Pressable style={styles.composerClose} onPress={closeComposer}>
-                <Ionicons name="close" size={24} color="#FFFFFF" />
+            <View accessibilityViewIsModal style={styles.composerHeader}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Moment-Erstellung schließen" style={styles.composerClose} onPress={closeComposer}>
+                <Ionicons accessibilityElementsHidden name="close" size={24} color="#FFFFFF" />
               </Pressable>
 
               <Text style={styles.composerTitle}>Moment teilen</Text>
 
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Moment teilen"
+                accessibilityState={{ disabled: creating, busy: creating }}
                 style={[styles.composerPostButton, creating && styles.composerPostButtonDisabled]}
                 onPress={createPost}
                 disabled={creating}
@@ -917,12 +931,13 @@ export default function FeedScreen() {
                 <Text style={styles.composerIntroKicker}>Backyrd Moment</Text>
                 <Text style={styles.composerIntroTitle}>Was soll dein Kreis wissen?</Text>
                 <Text style={styles.composerIntroText}>
-                  Für echte Bewertungen nutzt du am besten den Review-Flow. Hier kannst du freie Moments teilen.
+                  Für echte Bewertungen nutzt du am besten eine Review. Hier kannst du einen freien Moment teilen.
                 </Text>
               </View>
 
               <View style={styles.composerCard}>
                 <TextInput
+                  accessibilityLabel="Moment beschreiben"
                   value={caption}
                   onChangeText={setCaption}
                   placeholder="Was ist der Moment?"
@@ -938,6 +953,8 @@ export default function FeedScreen() {
                       <View key={`${item.uri}-${index}`} style={styles.mediaPreviewWrap}>
                         <Image source={{ uri: item.uri }} style={styles.mediaPreview} />
                         <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Foto ${index + 1} entfernen`}
                           style={styles.removeMedia}
                           onPress={() => setMedia((current) => current.filter((_, i) => i !== index))}
                         >
@@ -949,13 +966,13 @@ export default function FeedScreen() {
                 )}
 
                 <View style={styles.composerActions}>
-                  <Pressable style={styles.composerActionButton} onPress={takePhoto}>
-                    <Ionicons name="camera-outline" size={21} color="#FFFFFF" />
+                  <Pressable accessibilityRole="button" accessibilityLabel="Foto aufnehmen" style={styles.composerActionButton} onPress={takePhoto}>
+                    <Ionicons accessibilityElementsHidden name="camera-outline" size={21} color="#FFFFFF" />
                     <Text style={styles.composerActionText}>Foto</Text>
                   </Pressable>
 
-                  <Pressable style={styles.composerActionButton} onPress={pickFromLibrary}>
-                    <Ionicons name="images-outline" size={21} color="#FFFFFF" />
+                  <Pressable accessibilityRole="button" accessibilityLabel="Foto aus Galerie wählen" style={styles.composerActionButton} onPress={pickFromLibrary}>
+                    <Ionicons accessibilityElementsHidden name="images-outline" size={21} color="#FFFFFF" />
                     <Text style={styles.composerActionText}>Galerie</Text>
                   </Pressable>
                 </View>
@@ -972,6 +989,8 @@ export default function FeedScreen() {
 
                   {selectedSpot && (
                     <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Verknüpften Spot entfernen"
                       style={styles.clearSpotButton}
                       onPress={() => {
                         setSelectedSpot(null);
@@ -984,6 +1003,7 @@ export default function FeedScreen() {
                 </View>
 
                 <TextInput
+                  accessibilityLabel="Spot für den Moment suchen"
                   value={spotQuery}
                   onChangeText={searchSpots}
                   placeholder="Spot suchen…"
@@ -997,6 +1017,8 @@ export default function FeedScreen() {
                   <View style={styles.spotSuggestions}>
                     {spotSuggestions.map((spot) => (
                       <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`${spot.name} verknüpfen`}
                         key={spot.id}
                         style={styles.spotSuggestion}
                         onPress={() => {

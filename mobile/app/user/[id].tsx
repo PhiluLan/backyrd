@@ -1,7 +1,6 @@
 // mobile/app/user/[id].tsx
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
@@ -24,6 +23,8 @@ import CommentsSheet from "../../components/CommentsSheet";
 import { supabase } from "../../lib/supabase";
 import { getOrCreateChat } from "../../lib/chat";
 import ReportProfileAction from "../../components/safety/ReportProfileAction";
+import { technicalErrorText, userFacingError } from "../../lib/userFacingError";
+import { StateView } from "../../components/foundation/StateView";
 
 const { width } = Dimensions.get("window");
 
@@ -48,10 +49,6 @@ type SocialProfile = {
   can_follow?: boolean;
   can_message?: boolean;
 };
-
-function errorMessage(err: any) {
-  return err?.message || err?.details || err?.hint || "Unbekannter Fehler";
-}
 
 
 async function filterSafetyVisiblePosts(
@@ -193,7 +190,7 @@ function formatSince(value?: string | null) {
   if (!value) return null;
   const year = String(value).slice(0, 4);
   if (!year || year === "null") return null;
-  return `Local since ${year}`;
+  return `Local seit ${year}`;
 }
 
 export default function UserProfileScreen() {
@@ -334,7 +331,7 @@ export default function UserProfileScreen() {
         setPosts(visiblePosts);
       } catch (error: any) {
         console.log("user profile load failed", error);
-        Alert.alert("Profil konnte nicht geladen werden", errorMessage(error));
+        Alert.alert("Profil konnte nicht geladen werden", userFacingError(error, "Dieses Profil ist gerade nicht erreichbar. Bitte versuche es noch einmal."));
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -382,7 +379,7 @@ export default function UserProfileScreen() {
           : current
       );
 
-      Alert.alert("Folgen fehlgeschlagen", errorMessage(error));
+      Alert.alert("Folgen fehlgeschlagen", userFacingError(error));
     } finally {
       setFollowBusy(false);
     }
@@ -418,7 +415,7 @@ export default function UserProfileScreen() {
 
       router.push(`/messages/${chatId}` as any);
     } catch (error: any) {
-      const message = errorMessage(error);
+      const message = technicalErrorText(error);
 
       if (
         message.includes("private_profile_not_messageable")
@@ -435,7 +432,7 @@ export default function UserProfileScreen() {
       } else {
         Alert.alert(
           "Chat konnte nicht geöffnet werden",
-          message,
+          userFacingError(error, "Der Chat konnte gerade nicht geöffnet werden. Bitte versuche es noch einmal."),
         );
       }
     } finally {
@@ -448,7 +445,7 @@ export default function UserProfileScreen() {
 
     Alert.alert(
       "Nutzer blockieren?",
-      "Ihr seht euch danach nicht mehr in Suche, Profil oder Moments. Neue Nachrichten werden ebenfalls verhindert.",
+      "Ihr seht euch danach nicht mehr in Suche, Profil oder Momenten. Neue Nachrichten werden ebenfalls verhindert.",
       [
         { text: "Abbrechen", style: "cancel" },
         {
@@ -464,7 +461,7 @@ export default function UserProfileScreen() {
               Alert.alert("Blockiert", "Der Nutzer wurde blockiert.");
               router.back();
             } catch (error: any) {
-              Alert.alert("Blockieren fehlgeschlagen", errorMessage(error));
+              Alert.alert("Blockieren fehlgeschlagen", userFacingError(error));
             } finally {
               setBlockBusy(false);
             }
@@ -543,7 +540,7 @@ export default function UserProfileScreen() {
     return (
       <View style={styles.headerWrap}>
         <View style={styles.topBar}>
-          <Pressable style={styles.circleButton} onPress={() => router.back()}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Zurück" style={styles.circleButton} onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={25} color="#FFFFFF" />
           </Pressable>
 
@@ -570,13 +567,17 @@ export default function UserProfileScreen() {
                 style={styles.circleButton}
                 onPress={blockUser}
                 disabled={blockBusy}
+                accessibilityRole="button"
                 accessibilityLabel="Nutzer blockieren"
+                accessibilityState={{ disabled: blockBusy, busy: blockBusy }}
               >
                 <Ionicons name="ban-outline" size={21} color="#FF8A8A" />
               </Pressable>
             ) : null}
 
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Profil neu laden"
               style={styles.circleButton}
               onPress={() => load("refresh")}
             >
@@ -631,21 +632,21 @@ export default function UserProfileScreen() {
           <View style={styles.profileChips}>
             {sinceLabel && (
               <View style={styles.softChip}>
-                <Ionicons name="location-outline" size={15} color="#DADAE0" />
+                <Ionicons accessibilityElementsHidden name="location-outline" size={15} color="#DADAE0" />
                 <Text style={styles.softChipText}>{sinceLabel}</Text>
               </View>
             )}
 
             {!!profile.instagram && (
               <View style={styles.softChip}>
-                <Ionicons name="logo-instagram" size={15} color="#DADAE0" />
+                <Ionicons accessibilityElementsHidden name="logo-instagram" size={15} color="#DADAE0" />
                 <Text style={styles.softChipText}>@{profile.instagram}</Text>
               </View>
             )}
 
             {!!profile.website && (
               <View style={styles.softChip}>
-                <Ionicons name="globe-outline" size={15} color="#DADAE0" />
+                <Ionicons accessibilityElementsHidden name="globe-outline" size={15} color="#DADAE0" />
                 <Text style={styles.softChipText}>{profile.website}</Text>
               </View>
             )}
@@ -653,6 +654,9 @@ export default function UserProfileScreen() {
 
           <View style={styles.profileActionRow}>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={profile.viewer_follows_user ? `${displayName} nicht mehr folgen` : `${displayName} folgen`}
+              accessibilityState={{ selected: profile.viewer_follows_user, disabled: followBusy || profile.can_follow === false, busy: followBusy }}
               style={[
                 styles.followButton,
                 profile.viewer_follows_user &&
@@ -728,8 +732,7 @@ export default function UserProfileScreen() {
       <SafeAreaView style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color="#FFFFFF" />
-          <Text style={styles.loadingText}>Profil laden…</Text>
+          <StateView kind="loading" title="Profil wird geladen" />
         </View>
       </SafeAreaView>
     );

@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
   ConsentHistoryRow,
+  consentPurposeTitle,
   getMyConsentHistory,
 } from "@/lib/consent";
 import { StateView } from "@/components/foundation/StateView";
@@ -96,18 +97,17 @@ export default function PrivacyHistoryScreen() {
                   />
                   <View style={styles.rowCopy}>
                     <Text style={styles.rowTitle}>
-                      {row.purpose_title ??
-                        row.document_title ??
-                        row.purpose_key ??
-                        "Rechtsdokument"}
+                      {row.purpose_key
+                        ? consentPurposeTitle(row.purpose_key, row.purpose_title)
+                        : row.document_title ?? "Rechtsdokument"}
                     </Text>
                     <Text style={styles.eventLabel}>
-                      {LABELS[row.event_type] ?? row.event_type}
+                      {LABELS[row.event_type] ?? "Datenschutz aktualisiert"}
                     </Text>
                     <Text style={styles.meta}>
                       {new Date(row.occurred_at).toLocaleString("de-CH")}
-                      {row.source ? ` · ${row.source}` : ""}
-                      {row.app_version ? ` · App ${row.app_version}` : ""}
+                      {row.source === "mobile" ? " · Backyrd App" : ""}
+                      {row.app_version ? ` ${row.app_version}` : ""}
                     </Text>
                   </View>
                 </View>

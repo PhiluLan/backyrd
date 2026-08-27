@@ -1,20 +1,28 @@
 import { useState } from "react";
-import { View, Text, FlatList, Pressable, ActivityIndicator, Alert } from "react-native";
-import { Screen, Container, Title, Input, Button } from "../components/ui";
+import { FlatList, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { supabase } from "../lib/supabase";
 import type { Spot } from "../lib/types";
 import { useRouter } from "expo-router";
 import { filterDistributedSpots } from "../lib/distributionTrust";
+import { AppText } from "../components/foundation/AppText";
+import { Button } from "../components/foundation/Button";
+import { Screen } from "../components/foundation/Screen";
+import { StateView } from "../components/foundation/StateView";
+import { backyrdTheme as theme } from "../theme/backyrd";
+import { userFacingError } from "../lib/userFacingError";
 
 export default function Search() {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<Spot[]>([]);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [searched, setSearched] = useState(false);
   const router = useRouter();
 
   async function runSearch() {
     if (!q.trim()) return;
     setLoading(true);
+    setErrorText(null);
     try {
       const pattern = `%${q.trim()}%`;
 
@@ -77,38 +85,61 @@ export default function Search() {
       }
 
     } catch (e: any) {
-      Alert.alert("Suche fehlgeschlagen", e.message ?? String(e));
+      setResults([]);
+      setErrorText(userFacingError(e, "Die Suche ist gerade nicht erreichbar. Bitte versuche es noch einmal."));
     } finally {
+      setSearched(true);
       setLoading(false);
     }
   }
 
   function openOnMap(s: Spot) {
-    router.push({ pathname: "/map", params: { lat: String(s.lat), lng: String(s.lng) } });
+    router.push({ pathname: "/(tabs)/map", params: { lat: String(s.lat), lng: String(s.lng), view: "map" } });
   }
 
   return (
-    <Screen>
-      <Container>
-        <Title>Suche</Title>
-        <Input placeholder="z. B. cozy, pizza, river…" value={q} onChangeText={setQ} onSubmitEditing={runSearch} />
-        <Button title={loading ? "Suche…" : "Suchen"} onPress={runSearch} />
-        {loading ? <ActivityIndicator style={{ marginTop: 12 }} /> : null}
+    <Screen padded>
+      <View style={styles.header}>
+        <AppText role="caption" tone="lime" style={styles.kicker}>ORTE / BASEL</AppText>
+        <AppText role="displayM">SUCHEN.</AppText>
+        <AppText tone="secondary">Finde einen Ort nach Name, Kategorie oder Stimmung.</AppText>
+      </View>
+      <View style={styles.form}>
+        <TextInput accessibilityLabel="Orte durchsuchen" autoCapitalize="none" returnKeyType="search" placeholder="Zum Beispiel Pizza, gemütlich, Rhein …" placeholderTextColor={theme.color.textMuted} value={q} onChangeText={setQ} onSubmitEditing={() => void runSearch()} style={styles.input} />
+        <Button label="Suchen" loading={loading} disabled={!q.trim()} onPress={() => void runSearch()} />
+      </View>
+      {errorText ? <StateView kind="error" title="Suche gerade nicht erreichbar" message={errorText} actionLabel="Erneut versuchen" onAction={() => void runSearch()} /> : null}
+      {!errorText ? (
         <FlatList
-          style={{ marginTop: 8 }}
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
           data={results}
           keyExtractor={(item) => item.id}
-          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
           renderItem={({ item }) => (
-            <Pressable onPress={() => openOnMap(item)} style={{ backgroundColor: "#111113", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: "#1F1F23" }}>
-              <Text style={{ color: "#EDEDED", fontWeight: "700" }}>{item.name}</Text>
-              <Text style={{ color: "#B8B8B8" }}>{item.address || "–"}</Text>
-              {!!item.category && <Text style={{ color: "#8E8E93", marginTop: 4 }}>#{item.category}</Text>}
+            <Pressable accessibilityLabel={`${item.name} auf der Karte öffnen`} onPress={() => openOnMap(item)} style={({ pressed }) => [styles.result, pressed && styles.pressed]}>
+              <AppText role="bodyStrong">{item.name}</AppText>
+              <AppText role="meta" tone="secondary" style={styles.resultMeta}>{item.address || item.category || "Basel"}</AppText>
+              {item.category ? <AppText role="caption" tone="lime" style={styles.category}>{item.category}</AppText> : null}
             </Pressable>
           )}
-          ListEmptyComponent={!loading ? () => <Text style={{ color: "#8E8E93", marginTop: 16 }}>Keine Ergebnisse</Text> : null}
+          ListEmptyComponent={!loading && searched ? <StateView kind="empty" title="Noch nichts Passendes" message="Versuche einen anderen Namen, eine Kategorie oder eine Stimmung." /> : null}
         />
-      </Container>
+      ) : null}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  header: { paddingTop: theme.spacing.lg, gap: theme.spacing.xs },
+  kicker: { letterSpacing: 1.8 },
+  form: { marginTop: theme.spacing.xl, marginBottom: theme.spacing.lg, gap: theme.spacing.sm },
+  input: { minHeight: theme.control.standard, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.color.border, backgroundColor: theme.color.surface, color: theme.color.textPrimary, fontFamily: theme.type.body, fontSize: 16, paddingHorizontal: theme.spacing.lg },
+  list: { flex: 1 },
+  listContent: { paddingBottom: theme.spacing.xxl },
+  separator: { height: theme.spacing.sm },
+  result: { minHeight: 82, justifyContent: "center", padding: theme.spacing.lg, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.border, backgroundColor: theme.color.surface },
+  resultMeta: { marginTop: theme.spacing.xxs },
+  category: { marginTop: theme.spacing.xs, textTransform: "uppercase", letterSpacing: 1 },
+  pressed: { opacity: 0.82, transform: [{ scale: theme.motion.pressScale }] },
+});

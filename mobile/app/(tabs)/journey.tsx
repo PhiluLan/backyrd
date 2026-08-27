@@ -24,20 +24,22 @@ import { safeDevelopmentWarning } from "../../lib/privacySanitize";
 import { useRouter } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
+import { backyrdTheme } from "../../theme/backyrd";
+import { userFacingError } from "../../lib/userFacingError";
 
 const theme = {
   colors: {
-    background: "#000",
-    text: "#fff",
-    textMuted: "#9ca3af",
-    primary: "#3A86FF",
-    accent: "#10B981",
-    card: "#050506",
-    chip: "rgba(255,255,255,0.06)",
-    chipBorder: "rgba(255,255,255,0.12)",
-    hairline: "#222",
+    background: backyrdTheme.color.background,
+    text: backyrdTheme.color.textPrimary,
+    textMuted: backyrdTheme.color.textSecondary,
+    primary: backyrdTheme.color.pink,
+    accent: backyrdTheme.color.lime,
+    card: backyrdTheme.color.surface,
+    chip: backyrdTheme.color.surfaceElevated,
+    chipBorder: backyrdTheme.color.border,
+    hairline: backyrdTheme.color.border,
   },
-  radius: { sm: 8, md: 12, lg: 16, xl: 24, pill: 999 },
+  radius: backyrdTheme.radius,
   spacing: (n: number) => n * 8,
 };
 
@@ -420,7 +422,7 @@ export default function JourneyScreen() {
       setSteps(fallback.steps);
     } catch (e: any) {
       safeDevelopmentWarning("[journey] fallback failed", e);
-      Alert.alert("Journey", e?.message ?? "Konnte die Journey nicht erstellen.");
+      Alert.alert("Journey nicht erstellt", userFacingError(e, "Deine Journey konnte gerade nicht erstellt werden."));
     } finally {
       setLoading(false);
     }
@@ -450,11 +452,11 @@ export default function JourneyScreen() {
 
       setBookingVisible(false);
       Alert.alert(
-        "Reserviert 🎉",
+        "Reserviert",
         `${selectedSpot.name} für ${persons} Person(en) am ${date.toLocaleString()}.`
       );
     } catch (e: any) {
-      Alert.alert("Fehler", e.message ?? "Reservierung fehlgeschlagen.");
+      Alert.alert("Reservierung nicht gespeichert", userFacingError(e, "Die Reservierung konnte gerade nicht gespeichert werden."));
     }
   };
 
@@ -471,7 +473,7 @@ export default function JourneyScreen() {
           </Text>
 
           <TextInput
-            placeholder="z. B. Barhopping mit 4 Freunden (cozy, gute Drinks)"
+            placeholder="z. B. Barhopping mit 4 Freunden (gemütlich, gute Drinks)"
             placeholderTextColor="#666"
             style={styles.input}
             multiline

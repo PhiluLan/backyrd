@@ -1,20 +1,12 @@
 import React from "react";
-import { View, Text, Pressable, Modal, StyleSheet } from "react-native";
+import { Modal, Pressable, StyleSheet, View } from "react-native";
 import { BlurView } from "expo-blur";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
-const theme = {
-  colors: {
-    background: "#050506",
-    surface: "#131316",
-    text: "#FFFFFF",
-    textMuted: "#A6A8AD",
-    primary: "#0EA5E9",
-    accent: "#A78BFA",
-  },
-  radius: { xl: 24, pill: 999 },
-  spacing: (n: number) => n * 8,
-};
+import { backyrdTheme as theme } from "../theme/backyrd";
+import { AppText } from "./foundation/AppText";
+import { Button, IconButton } from "./foundation/Button";
 
 export default function LoginPromptModal({
   visible,
@@ -24,48 +16,31 @@ export default function LoginPromptModal({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const continueTo = (route: "/auth/login" | "/auth/register") => {
+    onClose();
+    router.push(route);
+  };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <View style={styles.backdrop}>
-        <BlurView intensity={40} tint="dark" style={styles.box}>
-          <Text style={styles.title}>Login erforderlich</Text>
-          <Text style={styles.text}>
-            Bitte melde dich an oder registriere dich, um ein Review zu schreiben.
-          </Text>
-
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.root}>
+        <Pressable accessibilityLabel="Anmeldung schließen" accessibilityRole="button" onPress={onClose} style={StyleSheet.absoluteFill} />
+        <BlurView intensity={46} tint="dark" style={styles.sheet}>
+          <View style={styles.handle} />
+          <View style={styles.header}>
+            <View style={styles.copy}>
+              <AppText role="caption" tone="lime" style={styles.kicker}>DEIN BACKYRD</AppText>
+              <AppText role="sectionTitle">Kurz anmelden</AppText>
+            </View>
+            <IconButton accessibilityLabel="Schließen" onPress={onClose} style={styles.close}>
+              <Ionicons name="close" size={22} color={theme.color.textPrimary} />
+            </IconButton>
+          </View>
+          <AppText tone="secondary" style={styles.message}>Melde dich an oder erstelle ein Konto, um ein Review zu schreiben.</AppText>
           <View style={styles.actions}>
-            <Pressable
-              onPress={onClose}
-              style={[styles.btn, { backgroundColor: "rgba(255,255,255,0.08)" }]}
-            >
-              <Text style={styles.btnText}>Abbrechen</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => {
-                onClose();
-                router.push("/login");
-              }}
-              style={[styles.btn, { backgroundColor: theme.colors.primary }]}
-            >
-              <Text style={[styles.btnText, { color: "#000" }]}>Sign-in</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => {
-                onClose();
-                router.push("/register");
-              }}
-              style={[styles.btn, { backgroundColor: theme.colors.accent }]}
-            >
-              <Text style={[styles.btnText, { color: "#000" }]}>Sign-up</Text>
-            </Pressable>
+            <Button label="Anmelden" onPress={() => continueTo("/auth/login")} />
+            <Button label="Konto erstellen" variant="secondary" onPress={() => continueTo("/auth/register")} />
+            <Button label="Nicht jetzt" variant="tertiary" onPress={onClose} />
           </View>
         </BlurView>
       </View>
@@ -74,44 +49,13 @@ export default function LoginPromptModal({
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  box: {
-    width: "80%",
-    borderRadius: theme.radius.xl,
-    padding: theme.spacing(3),
-    backgroundColor: "rgba(20,20,25,0.9)",
-  },
-  title: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "800",
-    marginBottom: 8,
-  },
-  text: {
-    color: theme.colors.textMuted,
-    fontSize: 15,
-    marginBottom: 16,
-  },
-  actions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  btn: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: theme.radius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  btnText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 15,
-  },
+  root: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.56)" },
+  sheet: { paddingHorizontal: theme.spacing.xl, paddingTop: theme.spacing.sm, paddingBottom: theme.spacing.xxl, borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, borderColor: theme.color.border, backgroundColor: "rgba(17,17,19,0.96)", overflow: "hidden" },
+  handle: { alignSelf: "center", width: 42, height: 5, marginBottom: theme.spacing.lg, borderRadius: theme.radius.pill, backgroundColor: theme.color.borderStrong },
+  header: { flexDirection: "row", alignItems: "center", gap: theme.spacing.md },
+  copy: { flex: 1, gap: theme.spacing.xxs },
+  kicker: { letterSpacing: 1.8 },
+  close: { backgroundColor: theme.color.surfaceElevated },
+  message: { marginTop: theme.spacing.md, maxWidth: 420 },
+  actions: { marginTop: theme.spacing.xl, gap: theme.spacing.sm },
 });

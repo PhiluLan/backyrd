@@ -51,7 +51,7 @@ export default function ProfilePrivacySettingsScreen() {
           onPress={() => router.back()}
           style={styles.backButton}
         >
-          <Ionicons name="chevron-back" size={22} color={backyrdTheme.color.textPrimary} />
+          <Ionicons accessibilityElementsHidden name="chevron-back" size={22} color={backyrdTheme.color.textPrimary} />
         </Pressable>
         <Text style={styles.kicker}>DEIN PROFIL</Text>
       </View>

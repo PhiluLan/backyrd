@@ -247,7 +247,7 @@ export default function PrivacyDataRightsScreen() {
               <View style={styles.cardCopy}>
                 <Text style={styles.cardTitle}>Datenexport</Text>
                 <Text style={styles.cardText}>
-                  Erstellt eine JSON-Datei mit Profil, Reviews, Social Posts,
+                  Erstellt eine JSON-Datei mit Profil, Reviews, Momenten,
                   Nachrichten, Decisions, Analytics und Einwilligungen.
                 </Text>
               </View>

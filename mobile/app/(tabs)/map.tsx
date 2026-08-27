@@ -40,6 +40,19 @@ import { backyrdTheme as theme } from "../../theme/backyrd";
 import { clusterPolicyFor, resolveMapZoomBucket, type MapZoomBucket } from "../../lib/mapDiscoveryPolicy";
 
 const BASEL = { latitude: 47.5596, longitude: 7.5886 };
+
+function displayMoodLabel(value: string) {
+  const normalized = value.trim().toLowerCase();
+  const localized: Record<string, string> = {
+    gemutlich: "Gemütlich",
+    gemuetlich: "Gemütlich",
+    lassig: "Lässig",
+    laessig: "Lässig",
+    "klassisch franzosisch": "Klassisch französisch",
+    "klassisch französisch": "Klassisch französisch",
+  };
+  return localized[normalized] ?? normalized.replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
+}
 const { height: SCREEN_H } = Dimensions.get("window");
 const SNAP_COLLAPSED = 400;
 const SHEET_HEIGHT = SCREEN_H;
@@ -564,7 +577,7 @@ export default function MapScreen() {
   if (loading)
     return (
       <SafeAreaView style={styles.center} edges={["top"]}>
-        <StateView kind="loading" title="Karte wird geladen" />
+        <StateView kind="loading" title={viewMode === "map" ? "Karte wird geladen" : "Orte werden geladen"} />
       </SafeAreaView>
     );
 
@@ -628,7 +641,7 @@ export default function MapScreen() {
 
       <Modal transparent animationType="slide" visible={filtersOpen} onRequestClose={() => setFiltersOpen(false)}>
         <View style={styles.filterBackdrop}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Filter schliessen" style={StyleSheet.absoluteFill} onPress={() => setFiltersOpen(false)} />
+          <Pressable accessibilityRole="button" accessibilityLabel="Filter schließen" style={StyleSheet.absoluteFill} onPress={() => setFiltersOpen(false)} />
           <View style={[styles.filterSheet, { paddingBottom: insets.bottom + theme.spacing.lg }]}>
             <View style={styles.sheetHandle} />
             <View style={styles.filterSheetHeader}>
@@ -636,7 +649,7 @@ export default function MapScreen() {
                 <AppText role="sectionTitle">Filter</AppText>
                 <AppText role="meta" tone="secondary">Nur das, was zu deinem Moment passt.</AppText>
               </View>
-              <IconButton accessibilityLabel="Filter schliessen" onPress={() => setFiltersOpen(false)}>
+              <IconButton accessibilityLabel="Filter schließen" onPress={() => setFiltersOpen(false)}>
                 <Ionicons name="close" size={21} color={theme.color.textPrimary} />
               </IconButton>
             </View>
@@ -645,7 +658,7 @@ export default function MapScreen() {
               <View style={styles.filterChipGrid}>
                 {(topMoodChips.length ? topMoodChips : MOOD_SUGGESTIONS).map((m) => {
                   const selected = selectedMood?.toLowerCase() === m.toLowerCase();
-                  return <Chip key={m} label={m} kind="input" selected={selected} onPress={() => {
+                  return <Chip key={m} label={displayMoodLabel(m)} kind="input" selected={selected} onPress={() => {
                     setSelectedMood((current) => current?.toLowerCase() === m.toLowerCase() ? null : m);
                     setSearch((current) => current?.toLowerCase() === m.toLowerCase() ? "" : m);
                   }} />;

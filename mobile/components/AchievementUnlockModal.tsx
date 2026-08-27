@@ -3,59 +3,62 @@ import React, { useEffect, useRef } from "react";
 import {
   Modal,
   View,
-  Text,
   StyleSheet,
   Image,
-  TouchableOpacity,
   Animated,
   Easing,
+  AccessibilityInfo,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { NewlyUnlockedAchievement } from "../lib/achievementEngine";
+import { backyrdTheme as theme } from "../theme/backyrd";
+import { AppText } from "./foundation/AppText";
+import { Button } from "./foundation/Button";
 
 export function AchievementUnlockModal({ achievements, onClose }: { achievements: NewlyUnlockedAchievement[]; onClose: () => void }) {
   const scale = useRef(new Animated.Value(0.6)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(scale, {
-        toValue: 1,
-        duration: 350,
-        easing: Easing.out(Easing.back(1.4)),
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    let active = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((reduced) => {
+      if (!active) return;
+      if (reduced) {
+        scale.setValue(1);
+        opacity.setValue(1);
+        return;
+      }
+      Animated.parallel([
+        Animated.timing(scale, { toValue: 1, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+      ]).start();
+    });
+    return () => { active = false; };
   }, [opacity, scale]);
 
   return (
     <Modal visible transparent animationType="fade">
       <View style={styles.overlay}>
         <Animated.View style={[styles.container, { opacity, transform: [{ scale }] }]}>
-          <Text style={styles.title}>🎉 Neues Achievement!</Text>
+          <AppText role="caption" tone="lime" style={styles.kicker}>DEIN BACKYRD</AppText>
+          <AppText role="sectionTitle" style={styles.title}>Neuer Erfolg</AppText>
 
           {achievements.map((a) => (
             <View key={a.id} style={styles.row}>
               {a.public_icon_url ? (
                 <Image source={{ uri: a.public_icon_url }} style={styles.icon} />
               ) : (
-                <View style={styles.iconPlaceholder}><Text style={{ fontSize: 24 }}>🏅</Text></View>
+                <View style={styles.iconPlaceholder}><Ionicons name="ribbon-outline" size={25} color={theme.color.lime} /></View>
               )}
 
               <View style={{ flex: 1 }}>
-                <Text style={styles.name}>{a.name}</Text>
-                {a.description ? <Text style={styles.desc}>{a.description}</Text> : null}
+                <AppText role="bodyStrong">{a.name}</AppText>
+                {a.description ? <AppText role="meta" tone="secondary" style={styles.desc}>{a.description}</AppText> : null}
               </View>
             </View>
           ))}
 
-          <TouchableOpacity style={styles.button} onPress={onClose}>
-            <Text style={styles.buttonText}>Weiter</Text>
-          </TouchableOpacity>
+          <Button label="Weiter" onPress={onClose} style={styles.button} />
         </Animated.View>
       </View>
     </Modal>
@@ -65,24 +68,19 @@ export function AchievementUnlockModal({ achievements, onClose }: { achievements
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
+    backgroundColor: "rgba(0,0,0,0.72)",
     justifyContent: "center",
     padding: 20,
   },
   container: {
-    backgroundColor: "#17191d",
-    borderRadius: 20,
-    padding: 20,
-    borderColor: "#4ade80",
+    backgroundColor: theme.color.surfaceElevated,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.xl,
+    borderColor: theme.color.borderStrong,
     borderWidth: 1,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "white",
-    textAlign: "center",
-    marginBottom: 14,
-  },
+  kicker: { textAlign: "center", letterSpacing: 1.8 },
+  title: { textAlign: "center", marginTop: theme.spacing.xxs, marginBottom: theme.spacing.lg },
   row: {
     flexDirection: "row",
     marginBottom: 12,
@@ -98,22 +96,12 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: "#111",
+    backgroundColor: theme.color.surface,
     justifyContent: "center",
     alignItems: "center",
   },
-  name: { color: "white", fontSize: 16, fontWeight: "600" },
-  desc: { color: "#9ca3af", fontSize: 13 },
+  desc: { marginTop: theme.spacing.xxs },
   button: {
-    backgroundColor: "#4ade80",
-    paddingVertical: 10,
-    borderRadius: 999,
-    marginTop: 18,
-  },
-  buttonText: {
-    color: "#064e3b",
-    textAlign: "center",
-    fontWeight: "700",
-    fontSize: 14,
+    marginTop: theme.spacing.lg,
   },
 });

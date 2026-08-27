@@ -19,10 +19,10 @@ function SettingsRow({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={styles.row}>
+    <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityHint={subtitle} onPress={onPress} style={styles.row}>
       <View style={styles.rowLeft}>
         <View style={styles.iconWrap}>
-          <Ionicons name={icon} size={18} color="#fff" />
+          <Ionicons accessibilityElementsHidden name={icon} size={18} color="#fff" />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.rowTitle}>{title}</Text>
@@ -30,7 +30,7 @@ function SettingsRow({
         </View>
       </View>
 
-      <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.55)" />
+      <Ionicons accessibilityElementsHidden name="chevron-forward" size={18} color="rgba(255,255,255,0.55)" />
     </Pressable>
   );
 }
@@ -63,7 +63,7 @@ export default function SettingsScreen() {
           />
           <SettingsRow
             icon="time-outline"
-            title="Decision History"
+            title="Decision-Verlauf"
             subtitle="Deine bisherigen Entscheidungen"
             onPress={() => router.push("/profile/history" as any)}
           />

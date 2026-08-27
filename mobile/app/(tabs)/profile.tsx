@@ -30,6 +30,7 @@ import { buildProfileSafetyText, registerSafetySnapshot } from "@/lib/safety-con
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { selectSpotImageUrl } from "@/lib/spot-images";
 import Avatar from "@/components/Avatar";
+import { StateView } from "@/components/foundation/StateView";
 
 const { width } = Dimensions.get("window");
 
@@ -195,7 +196,7 @@ async function filterSafetyVisiblePosts(
 function formatSince(value?: string | null) {
   if (!value) return null;
   const year = String(value).slice(0, 4);
-  return year && year !== "null" ? `Local since ${year}` : null;
+  return year && year !== "null" ? `Local seit ${year}` : null;
 }
 
 function profileName(profile: ProfileRow | null) {
@@ -564,7 +565,7 @@ export default function ProfileScreen() {
   if (!checkedAuth) {
     return (
       <View style={styles.center}>
-        <Text style={styles.mutedText}>Profil wird geladen...</Text>
+        <StateView kind="loading" title="Profil wird geladen" />
       </View>
     );
   }
@@ -572,7 +573,7 @@ export default function ProfileScreen() {
   if (!user) {
     return (
       <View style={styles.center}>
-        <Text style={styles.mutedText}>Weiter zum Login...</Text>
+        <StateView kind="loading" title="Anmeldung wird geöffnet" />
       </View>
     );
   }
@@ -603,7 +604,7 @@ export default function ProfileScreen() {
             style={styles.circleButton}
             onPress={() => router.push("/settings")}
           >
-            <Ionicons name="settings-outline" size={22} color="#FFFFFF" />
+            <Ionicons accessibilityElementsHidden name="settings-outline" size={22} color="#FFFFFF" />
           </Pressable>
         </View>
 
@@ -637,21 +638,21 @@ export default function ProfileScreen() {
           <View style={styles.profileChips}>
             {sinceLabel && (
               <View style={styles.softChip}>
-                <Ionicons name="location-outline" size={15} color="#DADAE0" />
+                <Ionicons accessibilityElementsHidden name="location-outline" size={15} color="#DADAE0" />
                 <Text style={styles.softChipText}>{sinceLabel}</Text>
               </View>
             )}
 
             {profile?.instagram && (
               <View style={styles.softChip}>
-                <Ionicons name="logo-instagram" size={15} color="#DADAE0" />
+                <Ionicons accessibilityElementsHidden name="logo-instagram" size={15} color="#DADAE0" />
                 <Text style={styles.softChipText}>@{profile.instagram}</Text>
               </View>
             )}
 
             {profile?.website && (
               <View style={styles.softChip}>
-                <Ionicons name="globe-outline" size={15} color="#DADAE0" />
+                <Ionicons accessibilityElementsHidden name="globe-outline" size={15} color="#DADAE0" />
                 <Text style={styles.softChipText}>{profile.website}</Text>
               </View>
             )}
@@ -667,11 +668,11 @@ export default function ProfileScreen() {
             </View>
           )}
 
-          <Pressable style={styles.editProfileButton} onPress={() => {
+          <Pressable accessibilityRole="button" accessibilityLabel="Profil bearbeiten" style={styles.editProfileButton} onPress={() => {
             void trackAnalyticsEvent({ eventName: "profile_edit_started", screenName: "profile" });
             setShowEdit(true);
           }}>
-            <Ionicons name="pencil" size={18} color="#050506" />
+            <Ionicons accessibilityElementsHidden name="pencil" size={18} color="#050506" />
             <Text style={styles.editProfileText}>Profil bearbeiten</Text>
           </Pressable>
         </View>
@@ -697,7 +698,7 @@ export default function ProfileScreen() {
 
         {loading ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>Lade Profil...</Text>
+            <StateView kind="loading" title="Profil wird geladen" />
           </View>
         ) : (
           <View style={styles.contentArea}>
@@ -707,7 +708,7 @@ export default function ProfileScreen() {
                   <View style={styles.emptyState}>
                     <Ionicons name="albums-outline" size={34} color="rgba(255,255,255,0.42)" />
                     <Text style={styles.emptyTitle}>Noch keine Momente</Text>
-                    <Text style={styles.emptyText}>Deine Momente und Reviews erscheinen hier.</Text>
+                    <Text style={styles.emptyText}>Deine Momente erscheinen hier.</Text>
                   </View>
                 ) : (
                   posts.map((post) => (
@@ -806,8 +807,8 @@ export default function ProfileScreen() {
               }}
               style={styles.logoutButton}
             >
-              <Ionicons name="log-out-outline" size={19} color="#FFFFFF" />
-              <Text style={styles.logoutText}>Logout</Text>
+              <Ionicons accessibilityElementsHidden name="log-out-outline" size={19} color="#FFFFFF" />
+              <Text style={styles.logoutText}>Ausloggen</Text>
             </Pressable>
           </View>
         )}
@@ -864,7 +865,7 @@ export default function ProfileScreen() {
                 <ProfileInput
                   value={profile?.since_date ?? ""}
                   onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), since_date: text }))}
-                  placeholder="Local since, z.B. 2012-07-01"
+                  placeholder="Local seit, z. B. 2012-07-01"
                 />
                 <ProfileInput
                   value={profile?.bio ?? ""}
@@ -874,7 +875,7 @@ export default function ProfileScreen() {
                   style={styles.bioInput}
                 />
 
-                <FieldLabel label="Taste" />
+                <FieldLabel label="Vorlieben" />
                 <ProfileInput
                   value={profile?.interests ?? ""}
                   onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), interests: text }))}
@@ -883,7 +884,7 @@ export default function ProfileScreen() {
                 <ProfileInput
                   value={profile?.personality ?? ""}
                   onChangeText={(text) => setProfile((prev) => ({ ...(prev as ProfileRow), personality: text }))}
-                  placeholder="Vibes, kommagetrennt"
+                  placeholder="Stimmungen, kommagetrennt"
                 />
 
                 <FieldLabel label="Social" />

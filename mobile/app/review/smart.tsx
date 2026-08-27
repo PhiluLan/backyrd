@@ -29,6 +29,7 @@ import { AchievementUnlockModal } from "../../components/AchievementUnlockModal"
 import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 import { registerSafetySnapshot } from "../../lib/safety-content";
 import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
+import { userFacingError } from "../../lib/userFacingError";
 
 const theme = {
   colors: {
@@ -81,7 +82,7 @@ function smartReviewGateCopy(
         reason,
         title: "Standort für Smart Review aktivieren",
         body:
-          "Smart Review erkennt den Spot über deinen aktuellen Standort. Aktiviere dafür den präzisen Standort im Privacy Center. Backyrd speichert keinen Standortverlauf.",
+          "Smart Review erkennt den Spot über deinen aktuellen Standort. Aktiviere dafür den präzisen Standort unter Datenschutz & Einwilligungen. Backyrd speichert keinen Standortverlauf.",
       };
 
     case "services_disabled":
@@ -576,7 +577,7 @@ export default function SmartReviewScreen() {
           decisionId: decisionId ?? null,
         });
         console.error("submitSmartReview error:", e);
-        Alert.alert("Fehler", e?.message || "Review konnte nicht gespeichert werden.");
+        Alert.alert("Review nicht gespeichert", userFacingError(e, "Deine Review konnte gerade nicht gespeichert werden. Bitte versuche es noch einmal."));
       }
     } finally {
       setSaving(false);
@@ -602,7 +603,7 @@ export default function SmartReviewScreen() {
       router.replace(`/spot/new?${q.toString()}`);
     } catch (e: any) {
       safeDevelopmentWarning("[smart-review] reverse geocode failed", e);
-      Alert.alert("Fehler", e?.message || "Neuer Spot konnte nicht vorbereitet werden.");
+      Alert.alert("Spot nicht vorbereitet", userFacingError(e, "Der neue Spot konnte gerade nicht vorbereitet werden. Bitte versuche es noch einmal."));
     }
   }
 

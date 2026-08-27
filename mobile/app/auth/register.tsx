@@ -257,7 +257,7 @@ export default function RegisterScreen() {
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
             <BlurView intensity={62} tint="dark" style={styles.card}>
               <Text allowFontScaling={false} style={styles.cardTitle}>Registrieren</Text>
-              <Text maxFontSizeMultiplier={1.4} style={styles.cardSubtitle}>Starte deine persönliche Backyrd Journey 🔥</Text>
+              <Text maxFontSizeMultiplier={1.4} style={styles.cardSubtitle}>Dein Backyrd beginnt hier.</Text>
               {formError ? <Text accessibilityLiveRegion="polite" maxFontSizeMultiplier={1.3} style={styles.formError}>{formError}</Text> : null}
 
               <TextInput

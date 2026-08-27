@@ -115,7 +115,7 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
         ? `Du kannst Backyrd weiterhin ansehen und Spots entdecken. Bis ${end} kannst du jedoch keine Moments, Reviews oder Kommentare veröffentlichen. Im Safety Center siehst du den Grund und kannst die Entscheidung anfechten.`
         : "Du kannst Backyrd weiterhin ansehen und Spots entdecken. Momentan kannst du jedoch keine Moments, Reviews oder Kommentare veröffentlichen. Im Safety Center siehst du den Grund und kannst die Entscheidung anfechten.",
       [
-        { text: "Safety Center öffnen", onPress: () => router.push("/safety-center" as any) },
+        { text: "Sicherheit & Support öffnen", onPress: () => router.push("/safety-center" as any) },
         { text: "Backyrd nur ansehen", style: "cancel" },
       ],
     );

@@ -37,22 +37,22 @@ export default function SafetyNotifications(){
 
  return <View style={st.root}><Stack.Screen options={{headerShown:false}}/>
   <View style={[st.header,{paddingTop:insets.top+10}]}>
-   <Pressable onPress={()=>router.back()} style={st.back}><Ionicons name="chevron-back" size={22} color="#fff"/></Pressable>
-   <View><Text style={st.eyebrow}>SAFETY & SUPPORT</Text><Text style={st.title}>Mitteilungen</Text></View>
+   <Pressable accessibilityRole="button" accessibilityLabel="Zurück zu Sicherheit und Support" onPress={()=>router.back()} style={st.back}><Ionicons accessibilityElementsHidden name="chevron-back" size={22} color="#fff"/></Pressable>
+   <View><Text style={st.eyebrow}>SICHERHEIT & SUPPORT</Text><Text style={st.title}>Mitteilungen</Text></View>
   </View>
   {loading?<StateView kind="loading" title="Mitteilungen werden geladen"/>:
   <ScrollView contentContainerStyle={[st.content,{paddingBottom:insets.bottom+40}]}
    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={()=>void load(true)} tintColor="#FF4F91"/>}>
    {error?<StateView kind="error" title="Mitteilungen nicht geladen" message={error} actionLabel="Noch einmal versuchen" onAction={()=>void load()}/>:null}
    {(status?.active?.length??0)>0?<View style={st.status}>
-    <Ionicons name="warning-outline" size={24} color="#FFBA62"/>
-    <Text style={{color:"#fff",flex:1}}>{status?.active?.length} aktive Maßnahme(n)
-     {Number(status?.active_strikes??0)>0?` · ${status?.active_strikes} Strike(s)`:""}</Text>
+    <Ionicons accessibilityElementsHidden name="warning-outline" size={24} color="#FFBA62"/>
+    <Text style={{color:"#fff",flex:1}}>{status?.active?.length} aktive {status?.active?.length===1?"Maßnahme":"Maßnahmen"}
+     {Number(status?.active_strikes??0)>0?` · ${status?.active_strikes} ${status?.active_strikes===1?"Verwarnung":"Verwarnungen"}`:""}</Text>
    </View>:null}
-   {notices.length===0&&!error?<StateView kind="empty" title="Keine Safety-Mitteilungen" message="Entscheidungen, Einsprüche und Kontomaßnahmen erscheinen hier."/>:null}
-   {notices.map(n=><Pressable key={n.notice_id} onPress={()=>void open(n)}
+   {notices.length===0&&!error?<StateView kind="empty" title="Keine Sicherheitsmitteilungen" message="Entscheidungen, Einsprüche und Kontomaßnahmen erscheinen hier."/>:null}
+   {notices.map(n=><Pressable accessibilityRole="button" accessibilityLabel={`${n.title}. ${n.body}`} accessibilityHint={n.action_label??"Details öffnen"} key={n.notice_id} onPress={()=>void open(n)}
     style={[st.card,!n.read_at&&st.unread]}>
-    <View style={st.icon}><Ionicons name={n.notice_type.includes("appeal")?"checkmark-circle-outline":"shield-checkmark-outline"} size={22} color="#FF4F91"/></View>
+    <View style={st.icon}><Ionicons accessibilityElementsHidden name={n.notice_type.includes("appeal")?"checkmark-circle-outline":"shield-checkmark-outline"} size={22} color="#FF4F91"/></View>
     <View style={{flex:1}}><Text style={st.cardTitle}>{n.title}</Text><Text style={st.muted}>{n.body}</Text>
     <Text style={st.date}>{new Date(n.created_at).toLocaleString("de-CH")}</Text>
     {n.action_label?<Text style={st.action}>{n.action_label} →</Text>:null}</View>

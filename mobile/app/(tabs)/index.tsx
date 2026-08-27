@@ -108,7 +108,7 @@ export default function HomeScreen() {
                 accessibilityLabel="Beschreibe deinen heutigen Moment"
                 onChangeText={setQuery}
                 onSubmitEditing={() => submitDecision()}
-                placeholder={width < 350 ? "Spot, Mood oder Plan" : "Spots, Moods oder Decisions"}
+                placeholder={width < 350 ? "Spot, Stimmung oder Plan" : "Spots, Stimmung oder Plan"}
                 placeholderTextColor={theme.color.textSecondary}
                 returnKeyType="search"
                 style={styles.input}

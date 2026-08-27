@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
   ScrollView,
   Alert,
 } from "react-native";
@@ -13,6 +12,8 @@ import { supabase } from "@/lib/supabase";
 import { trackEvent } from "@/lib/events";
 import { validateOwnerContactMobile } from "@/lib/owner-validation";
 import { evaluateOwnerChangeMobile } from "@/lib/safety-owner";
+import { userFacingError } from "@/lib/userFacingError";
+import { StateView } from "@/components/foundation/StateView";
 
 type Category = { id: string; name: string };
 
@@ -142,7 +143,7 @@ export default function SpotManageScreen() {
         });
       } catch (e: any) {
         console.log("manage load error", e);
-        Alert.alert("Fehler", e?.message ?? "Unbekannter Fehler");
+        Alert.alert("Spot nicht erreichbar", userFacingError(e, "Die Spot-Daten konnten gerade nicht geladen werden."));
         router.back();
       } finally {
         if (alive) setLoading(false);
@@ -256,7 +257,7 @@ export default function SpotManageScreen() {
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#050506" }}>
-        <ActivityIndicator />
+        <StateView kind="loading" title="Spot wird geladen" />
       </View>
     );
   }

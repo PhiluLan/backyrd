@@ -139,7 +139,7 @@ export default function SafetyCenterScreen() {
     ]);
 
     if (actionsResult.error || reportsResult.error) {
-      setError("Der Safety Center konnte gerade nicht geladen werden.");
+      setError("Sicherheit & Support konnten gerade nicht geladen werden.");
     } else {
       setItems(
         (actionsResult.data ?? []) as SafetyAction[],
@@ -182,10 +182,10 @@ export default function SafetyCenterScreen() {
 
         <View style={{ flex: 1 }}>
           <Text style={styles.eyebrow}>
-            SAFETY & INTEGRITY
+            SICHERHEIT & VERTRAUEN
           </Text>
           <Text style={styles.title}>
-            Safety Center
+            Sicherheit & Support
           </Text>
         </View>
 
@@ -206,7 +206,7 @@ export default function SafetyCenterScreen() {
       </View>
 
       {loading ? (
-        <StateView kind="loading" title="Safety Center wird geladen" />
+        <StateView kind="loading" title="Sicherheit wird geladen" />
       ) : (
         <ScrollView
           contentContainerStyle={[

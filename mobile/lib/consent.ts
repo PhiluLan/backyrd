@@ -13,6 +13,26 @@ export type ConsentPurposeKey =
   | "photo_ai_processing"
   | "model_improvement";
 
+export const CONSENT_PURPOSE_TITLES: Record<ConsentPurposeKey, string> = {
+  personalized_recommendations: "Persönliche Vorschläge",
+  optional_product_analytics: "Optionale Produktanalyse",
+  precise_location: "Präziser Standort für Smart Review",
+  push_notifications: "Push-Benachrichtigungen",
+  marketing_messages: "Marketing-Nachrichten",
+  photo_ai_processing: "KI-Verarbeitung von Fotos",
+  model_improvement: "Verbesserung von Backyrd-Modellen",
+};
+
+export function consentPurposeTitle(
+  purposeKey: string | null,
+  serverTitle?: string | null,
+) {
+  if (purposeKey && purposeKey in CONSENT_PURPOSE_TITLES) {
+    return CONSENT_PURPOSE_TITLES[purposeKey as ConsentPurposeKey];
+  }
+  return serverTitle?.trim() || "Datenschutzentscheidung";
+}
+
 export type ConsentStateRow = {
   purpose_key: ConsentPurposeKey;
   title_de: string;

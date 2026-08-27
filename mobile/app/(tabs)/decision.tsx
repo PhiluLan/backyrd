@@ -35,6 +35,7 @@ import { AppText } from "@/components/foundation/AppText";
 import { Button } from "@/components/foundation/Button";
 import { Chip } from "@/components/foundation/Chip";
 import { backyrdTheme as foundationTheme } from "@/theme/backyrd";
+import { userFacingError } from "@/lib/userFacingError";
 
 type DecisionSpotRpcRow = {
   spot_id: string;
@@ -1158,12 +1159,13 @@ export default function DecisionScreen() {
         setDeckMode(true);
       } catch (error: any) {
         console.log("decision error", error);
-        setErrorMessage(error?.message ?? "Decision konnte nicht geladen werden.");
+        const safeError = userFacingError(error, "Deine Vorschläge konnten gerade nicht geladen werden. Bitte versuche es noch einmal.");
+        setErrorMessage(safeError);
         if(!isRemix){
           setStatus("error");
           setDeckMode(false);
         }
-        Alert.alert("Fehler", error?.message ?? "Decision konnte nicht geladen werden.");
+        Alert.alert("Vorschläge nicht geladen", safeError);
       } finally {
         if(isRemix){
           continuationInFlightRef.current=false;
@@ -1624,7 +1626,7 @@ export default function DecisionScreen() {
                       <TextInput
                         value={moodA}
                         onChangeText={setMoodA}
-                        placeholder="cozy"
+                        placeholder="gemütlich"
                         placeholderTextColor="rgba(255,255,255,0.26)"
                         autoCapitalize="none"
                         autoCorrect={false}

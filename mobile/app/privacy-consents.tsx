@@ -23,6 +23,7 @@ import { supabase } from "@/lib/supabase";
 import {
   ConsentPurposeKey,
   ConsentStateRow,
+  consentPurposeTitle,
   getMyConsentState,
   setMyConsent,
 } from "@/lib/consent";
@@ -31,6 +32,8 @@ import {
   unregisterPushNotificationsAsync,
 } from "@/lib/notifications";
 import { StateView } from "@/components/foundation/StateView";
+import { AppText } from "@/components/foundation/AppText";
+import { backyrdTheme as theme } from "@/theme/backyrd";
 
 const ORDER: ConsentPurposeKey[] = [
   "personalized_recommendations",
@@ -51,6 +54,62 @@ const ICONS: Record<ConsentPurposeKey, keyof typeof Ionicons.glyphMap> = {
   photo_ai_processing: "image-outline",
   model_improvement: "git-network-outline",
 };
+
+const PURPOSE_PRESENTATION: Record<
+  ConsentPurposeKey,
+  { title: string; description: string }
+> = {
+  personalized_recommendations: {
+    title: "Persönliche Vorschläge",
+    description:
+      "Backyrd darf deine vorhandenen Signale verwenden, um Vorschläge besser auf dich abzustimmen.",
+  },
+  optional_product_analytics: {
+    title: "Optionale Produktanalyse",
+    description:
+      "Hilft uns zu verstehen, wie Backyrd genutzt wird, damit wir das Produkt gezielt verbessern können.",
+  },
+  precise_location: {
+    title: "Präziser Standort",
+    description:
+      "Ermöglicht aktive Standortfunktionen und die automatische Spot-Erkennung für Smart Review.",
+  },
+  push_notifications: {
+    title: "Push-Benachrichtigungen",
+    description:
+      "Backyrd darf dir relevante Benachrichtigungen auf diesem Gerät senden.",
+  },
+  marketing_messages: {
+    title: "Neuigkeiten von Backyrd",
+    description:
+      "Backyrd darf dir optionale Produktneuigkeiten und ausgewählte Updates senden.",
+  },
+  photo_ai_processing: {
+    title: "Fotoanalyse",
+    description:
+      "Backyrd darf von dir ausgewählte Fotos für unterstützte Produktfunktionen analysieren.",
+  },
+  model_improvement: {
+    title: "Produktverbesserung",
+    description:
+      "Erlaubt die dafür vorgesehene Nutzung freigegebener Daten zur Verbesserung der Backyrd-Modelle.",
+  },
+};
+
+function presentPurpose(row: ConsentStateRow) {
+  const raw = `${row.title_de} ${row.description_de}`;
+  const containsInternalCopy = /\b(?:fixture|sprint|test data|placeholder)\b/i.test(raw);
+  const titleNeedsLocalization = row.title_de.trim().toLowerCase() === "personalization";
+
+  if (containsInternalCopy || titleNeedsLocalization) {
+    return PURPOSE_PRESENTATION[row.purpose_key];
+  }
+
+  return {
+    title: consentPurposeTitle(row.purpose_key, row.title_de),
+    description: row.description_de,
+  };
+}
 
 export default function PrivacyConsentScreen() {
   const router = useRouter();
@@ -139,7 +198,7 @@ export default function PrivacyConsentScreen() {
         } else {
           Alert.alert(
             "Standort aktiviert",
-            "Smart Review ist jetzt freigeschaltet. Backyrd darf deinen aktuellen Standort außerdem für aktive Standortfunktionen wie den Locate-Button verwenden.",
+            "Smart Review ist jetzt freigeschaltet. Backyrd darf deinen aktuellen Standort außerdem für aktive Standortfunktionen wie die Standorttaste verwenden.",
           );
         }
       }
@@ -242,12 +301,12 @@ export default function PrivacyConsentScreen() {
           onPress={() => router.back()}
           style={styles.backButton}
         >
-          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          <Ionicons accessibilityElementsHidden name="chevron-back" size={24} color="#FFFFFF" />
         </Pressable>
 
         <View style={styles.headerCopy}>
-          <Text style={styles.eyebrow}>PRIVACY CENTER</Text>
-          <Text style={styles.title}>Datenschutz & Einwilligungen</Text>
+          <AppText role="label" tone="pink" style={styles.eyebrow}>PRIVACY CENTER</AppText>
+          <AppText role="screenTitle" style={styles.title}>Datenschutz & Einwilligungen</AppText>
         </View>
       </View>
 
@@ -265,7 +324,7 @@ export default function PrivacyConsentScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.introCard}>
-            <Ionicons name="shield-checkmark-outline" size={25} color="#FF4F91" />
+            <Ionicons accessibilityElementsHidden name="shield-checkmark-outline" size={25} color="#FF4F91" />
             <Text style={styles.introTitle}>Du entscheidest.</Text>
             <Text style={styles.introText}>
               Du kannst Backyrd ohne Standort durchsuchen und Spots entdecken.
@@ -280,11 +339,13 @@ export default function PrivacyConsentScreen() {
           {optionalRows.map((row) => {
             const enabled = row.current_status === "granted";
             const saving = savingKey === row.purpose_key;
+            const presentation = presentPurpose(row);
 
             return (
               <View key={row.purpose_key} style={styles.consentCard}>
                 <View style={styles.iconWrap}>
                   <Ionicons
+                    accessibilityElementsHidden
                     name={ICONS[row.purpose_key]}
                     size={22}
                     color="#FF4F91"
@@ -293,7 +354,9 @@ export default function PrivacyConsentScreen() {
 
                 <View style={styles.cardCopy}>
                   <View style={styles.cardTitleRow}>
-                    <Text style={styles.cardTitle}>{row.title_de}</Text>
+                    <AppText role="bodyStrong" style={styles.cardTitle}>
+                      {presentation.title}
+                    </AppText>
                     {row.purpose_key === "precise_location" ? (
                       <View style={styles.smartReviewBadge}>
                         <Text style={styles.smartReviewBadgeText}>
@@ -302,7 +365,9 @@ export default function PrivacyConsentScreen() {
                       </View>
                     ) : null}
                   </View>
-                  <Text style={styles.cardText}>{row.description_de}</Text>
+                  <AppText role="meta" tone="secondary" style={styles.cardText}>
+                    {presentation.description}
+                  </AppText>
                   <Text style={styles.statusText}>
                     {row.purpose_key === "precise_location"
                       ? enabled
@@ -347,6 +412,7 @@ export default function PrivacyConsentScreen() {
             ) : (
               <>
                 <Ionicons
+                  accessibilityElementsHidden
                   name="paper-plane-outline"
                   size={20}
                   color="#050506"
@@ -378,14 +444,14 @@ export default function PrivacyConsentScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#050506" },
+  safe: { flex: 1, backgroundColor: theme.color.background },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.12)",
+    borderBottomColor: theme.color.border,
   },
   backButton: {
     width: 42,
@@ -393,20 +459,17 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: theme.color.surfaceElevated,
     marginRight: 13,
   },
   headerCopy: { flex: 1 },
   eyebrow: {
-    color: "#FF4F91",
+    color: theme.color.pink,
     fontSize: 11,
     fontWeight: "900",
     letterSpacing: 1.3,
   },
   title: {
-    color: "#FFFFFF",
-    fontSize: 23,
-    fontWeight: "800",
     marginTop: 2,
   },
   loading: { flex: 1, alignItems: "center", justifyContent: "center" },
@@ -414,7 +477,7 @@ const styles = StyleSheet.create({
   introCard: {
     borderRadius: 24,
     padding: 20,
-    backgroundColor: "#111113",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
     borderColor: "rgba(255,125,167,0.22)",
     marginBottom: 25,
@@ -442,7 +505,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 20,
     padding: 15,
-    backgroundColor: "#111113",
+    backgroundColor: theme.color.surface,
     marginBottom: 10,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
@@ -477,8 +540,8 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     letterSpacing: 0.4,
   },
-  cardTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
-  cardText: { color: "#AFAFB7", fontSize: 13, lineHeight: 18, marginTop: 4 },
+  cardTitle: { flexShrink: 1 },
+  cardText: { marginTop: 4 },
   statusText: {
     color: "#777782",
     fontSize: 11,
@@ -488,7 +551,7 @@ const styles = StyleSheet.create({
   testPushButton: {
     minHeight: 54,
     borderRadius: 18,
-    backgroundColor: "#FF4F91",
+    backgroundColor: theme.color.pink,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",

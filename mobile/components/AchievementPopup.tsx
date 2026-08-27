@@ -1,25 +1,37 @@
 import React, { useEffect, useRef } from "react";
-import { Text, Image, StyleSheet, Animated } from "react-native";
+import { Image, StyleSheet, Animated, AccessibilityInfo, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { NewlyUnlockedAchievement } from "../lib/achievementEngine";
+import { backyrdTheme as theme } from "../theme/backyrd";
+import { AppText } from "./foundation/AppText";
 
 export default function AchievementPopup({ achievement, onClose }: { achievement: NewlyUnlockedAchievement; onClose: () => void }) {
   const scale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.sequence([
-      Animated.spring(scale, { toValue: 1, useNativeDriver: true }),
-      Animated.delay(1800),
-      Animated.timing(scale, { toValue: 0, duration: 300, useNativeDriver: true }),
-    ]).start(() => onClose());
+    let active = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((reduced) => {
+      if (!active) return;
+      if (reduced) {
+        scale.setValue(1);
+        return;
+      }
+      Animated.sequence([
+        Animated.spring(scale, { toValue: 1, damping: 18, stiffness: 220, useNativeDriver: true }),
+        Animated.delay(1800),
+        Animated.timing(scale, { toValue: 0, duration: 220, useNativeDriver: true }),
+      ]).start(() => onClose());
+    });
+    return () => { active = false; };
   }, [onClose, scale]);
 
   return (
     <Animated.View style={[styles.popup, { transform: [{ scale }] }]}>
       {achievement.public_icon_url ? (
         <Image source={{ uri: achievement.public_icon_url }} style={styles.icon} />
-      ) : null}
-      <Text style={styles.title}>Neues Badge!</Text>
-      <Text style={styles.name}>{achievement.name}</Text>
+      ) : <View style={styles.iconFallback}><Ionicons name="ribbon-outline" size={28} color={theme.color.lime} /></View>}
+      <AppText role="caption" tone="lime" style={styles.title}>NEUER ERFOLG</AppText>
+      <AppText role="cardTitle" style={styles.name}>{achievement.name}</AppText>
     </Animated.View>
   );
 }
@@ -29,14 +41,15 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 80,
     alignSelf: "center",
-    backgroundColor: "#1a1c1f",
-    padding: 20,
-    borderRadius: 20,
+    backgroundColor: theme.color.surfaceElevated,
+    padding: theme.spacing.lg,
+    borderRadius: theme.radius.lg,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#4ade80",
+    borderColor: theme.color.borderStrong,
   },
-  icon: { width: 64, height: 64, marginBottom: 10 },
-  title: { color: "#4ade80", fontWeight: "800", fontSize: 16 },
-  name: { color: "white", fontSize: 18, fontWeight: "700", marginTop: 4 },
+  icon: { width: 58, height: 58, marginBottom: theme.spacing.sm, borderRadius: 29 },
+  iconFallback: { width: 58, height: 58, marginBottom: theme.spacing.sm, borderRadius: 29, alignItems: "center", justifyContent: "center", backgroundColor: theme.color.surface },
+  title: { letterSpacing: 1.6 },
+  name: { marginTop: theme.spacing.xxs, textAlign: "center" },
 });

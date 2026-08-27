@@ -7,6 +7,7 @@ import {
   Share,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,6 +16,7 @@ import { useRouter } from "expo-router";
 import Avatar from "./Avatar";
 import { supabase } from "../lib/supabase";
 import ReportContentButton from "./safety/ReportContentButton";
+import { userFacingError } from "../lib/userFacingError";
 
 export type SocialFeedPost = {
   post_id: string;
@@ -82,9 +84,20 @@ function timeAgo(value: string) {
   });
 }
 
+const PRESENTED_TAGS: Record<string, string> = {
+  cozy: "Gemütlich",
+  calm: "Ruhig",
+  inspiring: "Inspirierend",
+  lively: "Lebhaft",
+};
+
 function cleanTags(value?: string[] | null) {
   return Array.isArray(value)
-    ? value.map((tag) => String(tag ?? "").trim()).filter(Boolean).slice(0, 4)
+    ? value
+        .map((tag) => String(tag ?? "").trim())
+        .filter((tag) => tag.length >= 2)
+        .map((tag) => PRESENTED_TAGS[tag.toLowerCase()] ?? tag)
+        .slice(0, 4)
     : [];
 }
 
@@ -104,15 +117,6 @@ function isReviewMoment(post: SocialFeedPost) {
   );
 }
 
-function errorMessage(error: any) {
-  return (
-    error?.message ||
-    error?.details ||
-    error?.hint ||
-    "Bitte versuche es erneut."
-  );
-}
-
 export default function SocialPostCard({
   post,
   currentUserId = null,
@@ -124,6 +128,7 @@ export default function SocialPostCard({
   showFollowAction = true,
 }: Props) {
   const router = useRouter();
+  const { width: viewportWidth } = useWindowDimensions();
   const [liked, setLiked] = useState(Boolean(post.viewer_has_liked));
   const [saved, setSaved] = useState(Boolean(post.viewer_has_saved));
   const [following, setFollowing] = useState(
@@ -135,6 +140,7 @@ export default function SocialPostCard({
     null,
   );
   const [busyFollow, setBusyFollow] = useState(false);
+  const [mediaFailed, setMediaFailed] = useState(false);
 
   useEffect(() => {
     setLiked(Boolean(post.viewer_has_liked));
@@ -156,6 +162,7 @@ export default function SocialPostCard({
   const handle = post.username?.trim() ? `@${post.username.trim()}` : null;
   const images = useMemo(() => mediaUrls(post), [post]);
   const imageUrl = images[0] ?? null;
+  useEffect(() => setMediaFailed(false), [post.post_id, imageUrl]);
   const tags = useMemo(
     () =>
       [...cleanTags(post.mood_tags), ...cleanTags(post.occasion_tags)].slice(
@@ -183,7 +190,7 @@ export default function SocialPostCard({
     } catch (error: any) {
       setLiked(!next);
       setLikeCount((value) => Math.max(0, value + (next ? -1 : 1)));
-      Alert.alert("Reaktion fehlgeschlagen", errorMessage(error));
+      Alert.alert("Reaktion fehlgeschlagen", userFacingError(error));
     } finally {
       setBusyReaction(null);
     }
@@ -199,7 +206,7 @@ export default function SocialPostCard({
       await onToggleReaction(post.post_id, "save", next);
     } catch (error: any) {
       setSaved(!next);
-      Alert.alert("Speichern fehlgeschlagen", errorMessage(error));
+      Alert.alert("Speichern fehlgeschlagen", userFacingError(error));
     } finally {
       setBusyReaction(null);
     }
@@ -220,7 +227,7 @@ export default function SocialPostCard({
       onFollowChanged?.(post.user_id, next);
     } catch (error: any) {
       setFollowing(!next);
-      Alert.alert("Folgen fehlgeschlagen", errorMessage(error));
+      Alert.alert("Folgen fehlgeschlagen", userFacingError(error));
     } finally {
       setBusyFollow(false);
     }
@@ -303,6 +310,9 @@ export default function SocialPostCard({
         <View style={styles.headerActions}>
           {!ownPost && showFollowAction ? (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={following ? `${displayName} nicht mehr folgen` : `${displayName} folgen`}
+              accessibilityState={{ selected: following, busy: busyFollow }}
               style={[
                 styles.followButton,
                 following && styles.followButtonActive,
@@ -358,24 +368,33 @@ export default function SocialPostCard({
       </View>
 
       <Pressable
-        style={styles.media}
+        accessibilityRole="button"
+        accessibilityLabel={post.spot_name ? `${post.spot_name} öffnen` : `${displayName} Profil öffnen`}
+        style={
+          imageUrl && !mediaFailed
+            ? styles.media
+            : [styles.mediaWithoutImage, { width: viewportWidth }]
+        }
         onPress={() => (post.spot_id ? onOpenSpot(post) : openUser())}
         onLongPress={toggleLike}
       >
-        {imageUrl ? (
+        {imageUrl && !mediaFailed ? (
           <Image
             source={{ uri: imageUrl }}
             style={styles.mediaImage}
             resizeMode="cover"
+            onError={() => setMediaFailed(true)}
+            accessibilityLabel={`Moment von ${displayName}`}
           />
         ) : (
           <View style={styles.placeholder}>
             <Ionicons
+              accessibilityElementsHidden
               name="images-outline"
-              size={42}
+              size={28}
               color="rgba(255,255,255,0.26)"
             />
-            <Text style={styles.placeholderText}>Backyrd Moment</Text>
+            <Text style={styles.placeholderText}>Moment ohne Bild</Text>
           </View>
         )}
 
@@ -409,7 +428,7 @@ export default function SocialPostCard({
 
       <View style={styles.actionBar}>
         <View style={styles.leftActions}>
-          <Pressable style={styles.action} onPress={toggleLike}>
+          <Pressable accessibilityRole="button" accessibilityLabel={liked ? "Gefällt mir entfernen" : "Gefällt mir"} accessibilityState={{ selected: liked, busy: busyReaction === "like" }} style={styles.action} onPress={toggleLike}>
             <Ionicons
               name={liked ? "heart" : "heart-outline"}
               size={29}
@@ -418,6 +437,8 @@ export default function SocialPostCard({
           </Pressable>
 
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Kommentare öffnen"
             style={styles.action}
             onPress={() => onOpenComments(post)}
           >
@@ -428,7 +449,7 @@ export default function SocialPostCard({
             />
           </Pressable>
 
-          <Pressable style={styles.action} onPress={sharePost}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Moment teilen" style={styles.action} onPress={sharePost}>
             <Ionicons
               name="paper-plane-outline"
               size={27}
@@ -437,7 +458,7 @@ export default function SocialPostCard({
           </Pressable>
         </View>
 
-        <Pressable style={styles.action} onPress={toggleSave}>
+        <Pressable accessibilityRole="button" accessibilityLabel={saved ? "Aus Gespeichert entfernen" : "Moment speichern"} accessibilityState={{ selected: saved, busy: busyReaction === "save" }} style={styles.action} onPress={toggleSave}>
           <Ionicons
             name={saved ? "bookmark" : "bookmark-outline"}
             size={28}
@@ -496,7 +517,7 @@ export default function SocialPostCard({
         ) : null}
 
         {commentCount > 0 ? (
-          <Pressable onPress={() => onOpenComments(post)}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Alle ${commentCount} Kommentare öffnen`} onPress={() => onOpenComments(post)}>
             <Text style={styles.commentsLink}>
               Alle {commentCount} Kommentare ansehen
             </Text>
@@ -600,8 +621,15 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
+  mediaWithoutImage: {
+    alignSelf: "stretch",
+    height: 148,
+    backgroundColor: "#111113",
+    overflow: "hidden",
+  },
   placeholder: {
-    flex: 1,
+    width: "100%",
+    height: "100%",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,

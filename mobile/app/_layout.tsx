@@ -32,8 +32,6 @@ function RootStack() {
       <Stack.Screen name="auth/verify" />
 
       <Stack.Screen name="onboarding/index" />
-      <Stack.Screen name="onboarding/profile" />
-      <Stack.Screen name="onboarding/decision" />
 
       <Stack.Screen
         name="spot/[id]"
