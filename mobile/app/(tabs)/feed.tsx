@@ -728,20 +728,6 @@ export default function FeedScreen() {
     }
   }, [caption, loadFeed, media, resetComposer, selectedSpot?.id]);
 
-  const pulseProfiles = useMemo(() => {
-    const seen = new Set<string>();
-    const result: SocialFeedPost[] = [];
-
-    for (const post of [...forYouPosts, ...followingPosts]) {
-      if (!post.user_id || seen.has(post.user_id)) continue;
-      seen.add(post.user_id);
-      result.push(post);
-      if (result.length >= 8) break;
-    }
-
-    return result;
-  }, [forYouPosts, followingPosts]);
-
   const renderHeader = (
     <View style={styles.headerWrap}>
       <View style={styles.appBar}>
@@ -753,8 +739,8 @@ export default function FeedScreen() {
         </Pressable>
 
         <View style={styles.appBarTitleWrap}>
-          <Text style={styles.kicker}>BACKYRD PULSE</Text>
-          <Text style={styles.appBarTitle}>Moments</Text>
+          <Text style={styles.kicker}>LOCAL / JETZT</Text>
+          <Text style={styles.appBarTitle}>Momente</Text>
         </View>
 
         <Pressable
@@ -765,60 +751,11 @@ export default function FeedScreen() {
         </Pressable>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.pulseRail}
-      >
-        <Pressable
-          style={styles.pulseItem}
-          onPress={() => setComposerVisible(true)}
-        >
-          <View style={styles.myPulseAvatar}>
-            <Ionicons name="add" size={27} color="#FFFFFF" />
-          </View>
-          <Text style={styles.pulseLabel} numberOfLines={1}>
-            Dein Moment
-          </Text>
-        </Pressable>
-
-        {pulseProfiles.map((profile) => {
-          const name =
-            profile.display_name?.trim() ||
-            profile.username?.trim() ||
-            "Backyrd";
-
-          return (
-            <Pressable
-              key={profile.user_id}
-              style={styles.pulseItem}
-              onPress={() =>
-                router.push(`/user/${profile.user_id}` as any)
-              }
-            >
-              <View style={styles.pulseRing}>
-                {profile.avatar_url ? (
-                  <Image
-                    source={{ uri: profile.avatar_url }}
-                    style={styles.pulseAvatar}
-                  />
-                ) : (
-                  <View style={styles.pulseAvatarFallback}>
-                    <Text style={styles.pulseInitial}>
-                      {name.slice(0, 1).toUpperCase()}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text style={styles.pulseLabel} numberOfLines={1}>
-                {profile.username
-                  ? `@${profile.username}`
-                  : name}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <Pressable style={styles.localPrompt} onPress={() => setComposerVisible(true)}>
+        <Ionicons name="location-outline" size={18} color="#C9ED4B" />
+        <Text style={styles.localPromptText}>Teile, was gerade in deiner Stadt passiert.</Text>
+        <Ionicons name="arrow-forward" size={18} color="#C9ED4B" />
+      </Pressable>
 
       <View style={styles.modeShell}>
         <Pressable
@@ -1164,61 +1101,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.10)",
   },
-  pulseRail: {
-    paddingHorizontal: 13,
-    paddingTop: 8,
-    paddingBottom: 17,
-    gap: 13,
-  },
-  pulseItem: {
-    width: 76,
+  localPrompt: {
+    minHeight: 48,
+    marginHorizontal: 16,
+    marginBottom: 14,
+    paddingHorizontal: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(201,237,75,0.26)",
+    backgroundColor: "rgba(201,237,75,0.06)",
+    flexDirection: "row",
     alignItems: "center",
+    gap: 10,
   },
-  myPulseAvatar: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#111113",
-    borderWidth: 2,
-    borderColor: "#FF4F91",
-  },
-  pulseRing: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
-    padding: 3,
-    backgroundColor: "#FF4F91",
-  },
-  pulseAvatar: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 30,
-    borderWidth: 2,
-    borderColor: "#050506",
-  },
-  pulseAvatarFallback: {
+  localPromptText: {
     flex: 1,
-    borderRadius: 30,
-    backgroundColor: "#25252C",
-    borderWidth: 2,
-    borderColor: "#050506",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pulseInitial: {
-    color: "#FFFFFF",
-    fontSize: 23,
-    fontWeight: "900",
-  },
-  pulseLabel: {
-    marginTop: 7,
-    width: 76,
-    color: "#D9D9DE",
-    fontSize: 11,
+    color: "#E9E7E1",
+    fontSize: 13,
     fontWeight: "700",
-    textAlign: "center",
   },
   modeShell: {
     marginHorizontal: 16,

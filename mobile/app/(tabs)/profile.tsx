@@ -633,7 +633,7 @@ export default function ProfileScreen() {
           <View style={styles.statsRow}>
             <View style={styles.statBox}>
               <Text style={styles.statNumber}>{posts.length}</Text>
-              <Text style={styles.statLabel}>Posts</Text>
+              <Text style={styles.statLabel}>Momente</Text>
             </View>
             <View style={styles.statBox}>
               <Text style={styles.statNumber}>{followersCount}</Text>
@@ -755,7 +755,7 @@ export default function ProfileScreen() {
 
         <View style={styles.tabShell}>
           {[
-            ["posts", "Beiträge"],
+            ["posts", "Momente"],
             ["favorites", "Favoriten"],
             ["badges", "Badges"],
           ].map(([key, label]) => {
