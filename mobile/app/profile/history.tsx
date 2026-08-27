@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -10,6 +8,7 @@ import {
   View,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
+import { StateView } from "@/components/foundation/StateView";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -140,11 +139,13 @@ export default function DecisionHistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [rows, setRows] = useState<CandidateRow[]>([]);
   const [filter, setFilter] = useState<FilterMode>("smart");
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async (mode: "initial" | "refresh" = "initial") => {
     try {
       if (mode === "initial") setLoading(true);
       if (mode === "refresh") setRefreshing(true);
+      setLoadError(false);
 
       const { data: sess } = await supabase.auth.getSession();
       if (!sess.session?.user?.id) {
@@ -162,7 +163,7 @@ export default function DecisionHistoryScreen() {
       setRows((data ?? []) as CandidateRow[]);
     } catch (error: any) {
       console.log("decision visit candidates load error", error);
-      Alert.alert("Fehler", error?.message ?? "Konnte deine Backyrd Treffer nicht laden.");
+      setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -290,9 +291,16 @@ export default function DecisionHistoryScreen() {
 
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color="#FFFFFF" />
-          <Text style={styles.loadingText}>Treffer werden geladen…</Text>
+          <StateView kind="loading" title="Deine Treffer werden geladen" message="Wir holen deine bisherigen Entscheidungen." />
         </View>
+      ) : loadError ? (
+        <StateView
+          kind="error"
+          title="Treffer nicht geladen"
+          message="Deine bisherigen Treffer konnten gerade nicht geladen werden."
+          actionLabel="Noch einmal versuchen"
+          onAction={() => void load("initial")}
+        />
       ) : (
         <ScrollView
           refreshControl={

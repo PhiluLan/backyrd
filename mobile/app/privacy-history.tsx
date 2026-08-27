@@ -1,9 +1,7 @@
 // mobile/app/privacy-history.tsx
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,6 +16,7 @@ import {
   ConsentHistoryRow,
   getMyConsentHistory,
 } from "@/lib/consent";
+import { StateView } from "@/components/foundation/StateView";
 
 const LABELS: Record<string, string> = {
   consent_granted: "Einwilligung erteilt",
@@ -30,21 +29,23 @@ export default function PrivacyHistoryScreen() {
   const router = useRouter();
   const [rows, setRows] = useState<ConsentHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      setRows(await getMyConsentHistory());
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    void (async () => {
-      try {
-        setRows(await getMyConsentHistory());
-      } catch (error: any) {
-        Alert.alert(
-          "Einwilligungsverlauf",
-          error?.message ?? "Der Verlauf konnte nicht geladen werden.",
-        );
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+    void load();
+  }, [load]);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
@@ -66,7 +67,11 @@ export default function PrivacyHistoryScreen() {
 
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color="#FF4F91" />
+          <StateView kind="loading" title="Verlauf wird geladen" />
+        </View>
+      ) : error ? (
+        <View style={styles.loading}>
+          <StateView kind="error" title="Verlauf nicht verfügbar" message="Deine Datenschutzentscheidungen konnten gerade nicht geladen werden." actionLabel="Noch einmal" onAction={() => void load()} />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
@@ -76,13 +81,7 @@ export default function PrivacyHistoryScreen() {
           </Text>
 
           {rows.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="time-outline" size={28} color="#777782" />
-              <Text style={styles.emptyTitle}>Noch keine Einträge</Text>
-              <Text style={styles.emptyText}>
-                Deine künftigen Einwilligungen und Widerrufe erscheinen hier.
-              </Text>
-            </View>
+            <StateView kind="empty" title="Noch keine Einträge" message="Deine künftigen Einwilligungen und Widerrufe erscheinen hier." />
           ) : (
             rows.map((row) => {
               const withdrawn = row.event_type === "consent_withdrawn";

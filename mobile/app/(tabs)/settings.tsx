@@ -7,14 +7,6 @@ import { useAuth } from "../../hooks/useAuth";
 import { isInternalMobileUser } from "../../lib/internalAccess";
 import { backyrdTheme as productTheme } from "../../theme/backyrd";
 
-const theme = {
-  bg: "#050506",
-  card: "#111113",
-  border: "#2A2A33",
-  text: "#FFFFFF",
-  muted: "#A6A8AD",
-};
-
 function SettingsRow({
   icon,
   title,
@@ -122,7 +114,7 @@ const styles = StyleSheet.create({
   },
   kicker: { color: productTheme.color.acid, fontFamily: productTheme.type.bodyBold, fontSize: 11, letterSpacing: 2.5 },
   subtitle: {
-    color: theme.muted,
+    color: productTheme.color.textSecondary,
     marginTop: 6,
     marginBottom: 22,
     lineHeight: 20,
@@ -141,9 +133,9 @@ const styles = StyleSheet.create({
   row: {
     minHeight: 76,
     borderRadius: 18,
-    backgroundColor: theme.card,
+    backgroundColor: productTheme.color.surface,
     borderWidth: 1,
-    borderColor: theme.border,
+    borderColor: productTheme.color.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: "row",
@@ -165,12 +157,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   rowTitle: {
-    color: theme.text,
+    color: productTheme.color.textPrimary,
     fontSize: 16,
     fontWeight: "700",
   },
   rowSubtitle: {
-    color: theme.muted,
+    color: productTheme.color.textSecondary,
     fontSize: 13,
     marginTop: 4,
     lineHeight: 18,

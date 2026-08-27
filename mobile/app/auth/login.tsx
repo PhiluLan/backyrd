@@ -1,6 +1,6 @@
 // mobile/app/auth/login.tsx
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { Link, useRouter } from "expo-router";
+import { Link, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as AuthSession from "expo-auth-session";
@@ -62,12 +62,19 @@ function getAuthErrorMessage(error: any) {
 
 export default function LoginScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ preview?: string }>();
 
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (__DEV__ && params.preview === "invalid") {
+      setFormError("E-Mail oder Passwort ist nicht korrekt.");
+    }
+  }, [params.preview]);
 
   function goGate() {
     router.replace("/gate" as any);
@@ -220,19 +227,20 @@ export default function LoginScreen() {
             <Pressable onPress={() => router.replace("/gate" as any)} hitSlop={10} style={styles.backBtn}>
               <Ionicons name="chevron-back" size={32} color="#fff" />
             </Pressable>
-            <Text style={styles.headerTitle}>Einloggen</Text>
+            <Text allowFontScaling={false} style={styles.headerTitle}>Einloggen</Text>
           </View>
 
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
             <BlurView intensity={62} tint="dark" style={styles.card}>
-              <Text style={styles.kicker}>BACKYRD</Text>
-              <Text style={styles.cardTitle}>Willkommen zurück</Text>
-              <Text style={styles.cardSubtitle}>
+              <Text allowFontScaling={false} style={styles.kicker}>BACKYRD</Text>
+              <Text allowFontScaling={false} style={styles.cardTitle}>Willkommen zurück</Text>
+              <Text maxFontSizeMultiplier={1.4} style={styles.cardSubtitle}>
                 Melde dich an und finde direkt wieder Orte, die zu deiner Stimmung passen.
               </Text>
-              {formError ? <Text accessibilityLiveRegion="polite" style={styles.formError}>{formError}</Text> : null}
+              {formError ? <Text accessibilityLiveRegion="polite" maxFontSizeMultiplier={1.3} style={styles.formError}>{formError}</Text> : null}
 
               <TextInput
+                maxFontSizeMultiplier={1.3}
                 placeholder="E-Mail"
                 placeholderTextColor="#7D8086"
                 value={email}
@@ -245,6 +253,7 @@ export default function LoginScreen() {
               />
 
               <TextInput
+                maxFontSizeMultiplier={1.3}
                 placeholder="Passwort"
                 placeholderTextColor="#7D8086"
                 value={pw}
@@ -265,12 +274,12 @@ export default function LoginScreen() {
                   pressed && { opacity: 0.85 },
                 ]}
               >
-                {loading ? <ActivityIndicator /> : <Text style={styles.primaryBtnText}>Einloggen</Text>}
+                {loading ? <ActivityIndicator /> : <Text maxFontSizeMultiplier={1.2} style={styles.primaryBtnText}>Einloggen</Text>}
               </Pressable>
 
               <View style={styles.dividerRow}>
                 <View style={styles.divider} />
-                <Text style={styles.dividerLabel}>oder</Text>
+                <Text maxFontSizeMultiplier={1.3} style={styles.dividerLabel}>oder</Text>
                 <View style={styles.divider} />
               </View>
 
@@ -281,7 +290,7 @@ export default function LoginScreen() {
                   style={({ pressed }) => [styles.appleBtn, pressed && { opacity: 0.9 }]}
                 >
                   <Ionicons name="logo-apple" size={24} color="#fff" />
-                  <Text style={styles.appleText}>Mit Apple anmelden</Text>
+                  <Text maxFontSizeMultiplier={1.25} style={styles.appleText}>Mit Apple anmelden</Text>
                 </Pressable>
               )}
 
@@ -291,19 +300,19 @@ export default function LoginScreen() {
                 style={({ pressed }) => [styles.googleBtn, pressed && { opacity: 0.9 }]}
               >
                 <Ionicons name="logo-google" size={20} color="#111" />
-                <Text style={styles.googleText}>Mit Google anmelden</Text>
+                <Text maxFontSizeMultiplier={1.25} style={styles.googleText}>Mit Google anmelden</Text>
               </Pressable>
 
               <View style={styles.linkRow}>
                 <Link href="/auth/register" asChild>
                   <Pressable>
-                    <Text style={styles.link}>Neu registrieren</Text>
+                    <Text maxFontSizeMultiplier={1.4} style={styles.link}>Neu registrieren</Text>
                   </Pressable>
                 </Link>
 
                 <Link href="/auth/verify" asChild>
                   <Pressable>
-                    <Text style={styles.link}>E-Mail bestätigen</Text>
+                    <Text maxFontSizeMultiplier={1.4} style={styles.link}>E-Mail bestätigen</Text>
                   </Pressable>
                 </Link>
               </View>
@@ -344,7 +353,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   card: {
-    marginTop: 92,
+    marginTop: 40,
     padding: 24,
     borderRadius: 30,
     backgroundColor: "rgba(255,255,255,0.065)",

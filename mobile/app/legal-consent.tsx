@@ -16,6 +16,7 @@ import {
   acceptLegalDocument,
   getMyPendingLegalDocuments,
 } from "@/lib/consent";
+import { StateView } from "@/components/foundation/StateView";
 
 type PendingDocument = {
   document_id: string;
@@ -65,37 +66,15 @@ export default function LegalConsentScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color="#FF4F91" />
-      </View>
-    );
+    return <StateView kind="loading" title="Dokumente werden geladen" />;
   }
 
   if (errorMessage && documents.length === 0) {
-    return (
-      <View style={styles.loading}>
-        <Text accessibilityLiveRegion="polite" style={styles.emptyTitle}>Kurz den Faden verloren</Text>
-        <Text style={styles.errorText}>{errorMessage}</Text>
-        <Pressable style={styles.button} onPress={() => { setErrorMessage(null); void load(); }}>
-          <Text style={styles.buttonText}>Noch einmal versuchen</Text>
-        </Pressable>
-      </View>
-    );
+    return <StateView kind="error" title="Kurz den Faden verloren" message={errorMessage} actionLabel="Noch einmal versuchen" onAction={() => { setErrorMessage(null); void load(); }} />;
   }
 
   if (documents.length === 0) {
-    return (
-      <View style={styles.loading}>
-        <Text style={styles.emptyTitle}>Alles bestätigt</Text>
-        <Pressable
-          style={styles.button}
-          onPress={() => router.replace("/(tabs)" as never)}
-        >
-          <Text style={styles.buttonText}>Weiter zu Backyrd</Text>
-        </Pressable>
-      </View>
-    );
+    return <StateView kind="empty" title="Alles bestätigt" message="Du hast alle aktuell erforderlichen Dokumente bestätigt." actionLabel="Weiter zu Backyrd" onAction={() => router.replace("/(tabs)" as never)} />;
   }
 
   return (
@@ -184,7 +163,5 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: "#050506", fontWeight: "900", fontSize: 16 },
-  emptyTitle: { color: "#FFFFFF", fontSize: 24, fontWeight: "900" },
-  errorText: { color: "#BEBEC6", fontSize: 15, lineHeight: 21, textAlign: "center", marginTop: 8 },
   inlineError: { marginTop: 16, padding: 12, borderRadius: 14, color: "#FFD1DF", backgroundColor: "rgba(255,79,145,0.13)", fontSize: 14, lineHeight: 20 },
 });

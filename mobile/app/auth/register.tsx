@@ -251,16 +251,17 @@ export default function RegisterScreen() {
             <Pressable onPress={() => router.replace("/gate" as any)} hitSlop={10} style={styles.backBtn}>
               <Ionicons name="chevron-back" size={32} color="#fff" />
             </Pressable>
-            <Text style={styles.headerTitle}>Account erstellen</Text>
+            <Text allowFontScaling={false} style={styles.headerTitle}>Account erstellen</Text>
           </View>
 
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
             <BlurView intensity={62} tint="dark" style={styles.card}>
-              <Text style={styles.cardTitle}>Registrieren</Text>
-              <Text style={styles.cardSubtitle}>Starte deine persönliche Backyrd Journey 🔥</Text>
-              {formError ? <Text accessibilityLiveRegion="polite" style={styles.formError}>{formError}</Text> : null}
+              <Text allowFontScaling={false} style={styles.cardTitle}>Registrieren</Text>
+              <Text maxFontSizeMultiplier={1.4} style={styles.cardSubtitle}>Starte deine persönliche Backyrd Journey 🔥</Text>
+              {formError ? <Text accessibilityLiveRegion="polite" maxFontSizeMultiplier={1.3} style={styles.formError}>{formError}</Text> : null}
 
               <TextInput
+                maxFontSizeMultiplier={1.3}
                 placeholder="Vorname"
                 placeholderTextColor="#7D8086"
                 value={first}
@@ -271,6 +272,7 @@ export default function RegisterScreen() {
               />
 
               <TextInput
+                maxFontSizeMultiplier={1.3}
                 placeholder="Nachname"
                 placeholderTextColor="#7D8086"
                 value={last}
@@ -281,6 +283,7 @@ export default function RegisterScreen() {
               />
 
               <TextInput
+                maxFontSizeMultiplier={1.3}
                 placeholder="E-Mail"
                 placeholderTextColor="#7D8086"
                 value={email}
@@ -293,6 +296,7 @@ export default function RegisterScreen() {
               />
 
               <TextInput
+                maxFontSizeMultiplier={1.3}
                 placeholder="Passwort"
                 placeholderTextColor="#7D8086"
                 value={pw}
@@ -313,12 +317,12 @@ export default function RegisterScreen() {
                   pressed && { opacity: 0.85 },
                 ]}
               >
-                {loading ? <ActivityIndicator /> : <Text style={styles.primaryBtnText}>Registrieren</Text>}
+                {loading ? <ActivityIndicator /> : <Text maxFontSizeMultiplier={1.3} style={styles.primaryBtnText}>Registrieren</Text>}
               </Pressable>
 
               <View style={styles.dividerRow}>
                 <View style={styles.divider} />
-                <Text style={styles.dividerLabel}>oder</Text>
+                <Text maxFontSizeMultiplier={1.3} style={styles.dividerLabel}>oder</Text>
                 <View style={styles.divider} />
               </View>
 
@@ -328,7 +332,7 @@ export default function RegisterScreen() {
                 style={({ pressed }) => [styles.googleBtn, pressed && { opacity: 0.9 }]}
               >
                 <Ionicons name="logo-google" size={20} color="#111" />
-                <Text style={styles.googleText}>Mit Google registrieren</Text>
+                <Text maxFontSizeMultiplier={1.25} style={styles.googleText}>Mit Google registrieren</Text>
               </Pressable>
 
               {Platform.OS === "ios" && (
@@ -338,20 +342,20 @@ export default function RegisterScreen() {
                   style={({ pressed }) => [styles.appleBtn, pressed && { opacity: 0.9 }]}
                 >
                   <Ionicons name="logo-apple" size={24} color="#fff" />
-                  <Text style={styles.appleText}>Mit Apple registrieren</Text>
+                  <Text maxFontSizeMultiplier={1.25} style={styles.appleText}>Mit Apple registrieren</Text>
                 </Pressable>
               )}
 
               <View style={styles.linkRow}>
                 <Link href="/auth/login" asChild>
                   <Pressable>
-                    <Text style={styles.link}>Schon registriert?</Text>
+                    <Text maxFontSizeMultiplier={1.4} style={styles.link}>Schon registriert?</Text>
                   </Pressable>
                 </Link>
 
                 <Link href="/auth/verify" asChild>
                   <Pressable>
-                    <Text style={styles.link}>E-Mail bestätigen</Text>
+                    <Text maxFontSizeMultiplier={1.4} style={styles.link}>E-Mail bestätigen</Text>
                   </Pressable>
                 </Link>
               </View>
@@ -393,7 +397,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   card: {
-    marginTop: 56,
+    marginTop: 24,
     padding: 24,
     borderRadius: 30,
     backgroundColor: "rgba(255,255,255,0.065)",

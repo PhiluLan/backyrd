@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -29,6 +30,7 @@ import {
   registerForPushNotificationsAsync,
   unregisterPushNotificationsAsync,
 } from "@/lib/notifications";
+import { StateView } from "@/components/foundation/StateView";
 
 const ORDER: ConsentPurposeKey[] = [
   "personalized_recommendations",
@@ -56,16 +58,15 @@ export default function PrivacyConsentScreen() {
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<ConsentPurposeKey | null>(null);
   const [sendingTestPush, setSendingTestPush] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       setRows(await getMyConsentState());
-    } catch (error: any) {
-      Alert.alert(
-        "Datenschutz",
-        error?.message ?? "Einwilligungen konnten nicht geladen werden.",
-      );
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -130,6 +131,10 @@ export default function PrivacyConsentScreen() {
           Alert.alert(
             "Standort nicht aktiviert",
             "Die Geräteberechtigung wurde nicht erteilt. Du kannst sie später in den iOS-Einstellungen freigeben.",
+            [
+              { text: "Später", style: "cancel" },
+              { text: "Einstellungen", onPress: () => void Linking.openSettings() },
+            ],
           );
         } else {
           Alert.alert(
@@ -145,7 +150,10 @@ export default function PrivacyConsentScreen() {
 
           if (result.status !== "granted") {
             await setMyConsent("push_notifications", false, row.document_id);
-            Alert.alert("Push nicht aktiviert", result.message);
+            Alert.alert("Push nicht aktiviert", result.message, [
+              { text: "Später", style: "cancel" },
+              { text: "Einstellungen", onPress: () => void Linking.openSettings() },
+            ]);
           } else {
             Alert.alert(
               "Push aktiviert",
@@ -160,10 +168,10 @@ export default function PrivacyConsentScreen() {
       }
 
       await load();
-    } catch (error: any) {
+    } catch {
       Alert.alert(
         "Änderung nicht möglich",
-        error?.message ?? "Bitte versuche es nochmals.",
+        "Die Änderung konnte gerade nicht gespeichert werden. Bitte versuche es erneut.",
       );
     } finally {
       setSavingKey(null);
@@ -214,10 +222,10 @@ export default function PrivacyConsentScreen() {
           sentCount === 1 ? "" : "e"
         } übergeben. Lege Backyrd kurz in den Hintergrund, falls du den Banner testen möchtest.`,
       );
-    } catch (error: any) {
+    } catch {
       Alert.alert(
         "Test-Push fehlgeschlagen",
-        error?.message ?? "Die Benachrichtigung konnte nicht versendet werden.",
+        "Die Benachrichtigung konnte gerade nicht versendet werden. Bitte versuche es erneut.",
       );
     } finally {
       setSendingTestPush(false);
@@ -245,7 +253,11 @@ export default function PrivacyConsentScreen() {
 
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color="#FF4F91" />
+          <StateView kind="loading" title="Einwilligungen werden geladen" />
+        </View>
+      ) : loadError ? (
+        <View style={styles.loading}>
+          <StateView kind="error" title="Einwilligungen nicht verfügbar" message="Deine Einstellungen konnten gerade nicht geladen werden." actionLabel="Noch einmal" onAction={() => void load()} />
         </View>
       ) : (
         <ScrollView
@@ -356,9 +368,8 @@ export default function PrivacyConsentScreen() {
           </View>
 
           <Text style={styles.footerText}>
-            Aktuell sind die Rechtsdokumente noch nicht veröffentlicht. Das
-            Consent Center ist bereits funktionsfähig; das Legal Gate bleibt bis
-            zur kontrollierten Veröffentlichung inaktiv.
+            Du kannst optionale Einwilligungen jederzeit ändern. Notwendige
+            Konto- und Sicherheitsfunktionen bleiben davon unberührt.
           </Text>
         </ScrollView>
       )}

@@ -101,7 +101,7 @@ export default function AppealDecisionButton({
     if (error) {
       Alert.alert(
         "Einspruch nicht gesendet",
-        error.message,
+        "Dein Einspruch konnte gerade nicht gesendet werden. Bitte versuche es erneut.",
       );
       return;
     }

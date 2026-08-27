@@ -48,7 +48,7 @@ const ITEMS: HubItem[] = [
   {
     title: "Meine Daten",
     description:
-      "Datenexport und Kontolöschung werden im nächsten Sprint-2-Block ergänzt.",
+      "Datenexport anfordern oder eine bestehende Kontolöschung verwalten.",
     icon: "archive-outline",
     route: "/privacy-data-rights",
     tone: "amber",

@@ -217,7 +217,7 @@ function getSpotPhoto(item: FavoriteRow) {
 }
 
 function errorText(error: any) {
-  return error?.message || error?.details || error?.hint || "Bitte nochmals versuchen.";
+  return "Das hat gerade nicht geklappt. Bitte versuche es erneut.";
 }
 
 export default function ProfileScreen() {
@@ -413,7 +413,7 @@ export default function ProfileScreen() {
       });
 
     if (uploadError) {
-      Alert.alert("Upload-Fehler", uploadError.message);
+      Alert.alert("Upload-Fehler", "Dein Profilbild konnte gerade nicht hochgeladen werden. Bitte versuche es erneut.");
       return;
     }
 
@@ -429,7 +429,7 @@ export default function ProfileScreen() {
       .eq("id", user.id);
 
     if (updateError) {
-      Alert.alert("Fehler beim Speichern", updateError.message);
+      Alert.alert("Fehler beim Speichern", "Dein Profil konnte gerade nicht gespeichert werden. Bitte versuche es erneut.");
       return;
     }
 
@@ -486,7 +486,7 @@ export default function ProfileScreen() {
     setSaving(false);
 
     if (error) {
-      Alert.alert("Fehler", error.message);
+      Alert.alert("Nicht gespeichert", "Dein Profil konnte gerade nicht gespeichert werden. Bitte versuche es erneut.");
       return;
     }
 
@@ -785,9 +785,24 @@ export default function ProfileScreen() {
             )}
 
             <Pressable
-              onPress={async () => {
-                await supabase.auth.signOut();
-                router.replace("/gate" as any);
+              accessibilityRole="button"
+              accessibilityLabel="Aus Backyrd ausloggen"
+              onPress={() => {
+                Alert.alert(
+                  "Ausloggen?",
+                  "Du kannst dich jederzeit wieder mit deinem Account anmelden.",
+                  [
+                    { text: "Abbrechen", style: "cancel" },
+                    {
+                      text: "Ausloggen",
+                      style: "destructive",
+                      onPress: async () => {
+                        await supabase.auth.signOut();
+                        router.replace("/gate" as any);
+                      },
+                    },
+                  ],
+                );
               }}
               style={styles.logoutButton}
             >

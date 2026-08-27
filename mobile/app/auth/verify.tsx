@@ -103,19 +103,20 @@ export default function VerifyScreen() {
             <Pressable onPress={() => router.replace("/auth/login" as any)} hitSlop={10} style={styles.backBtn}>
               <Ionicons name="chevron-back" size={32} color="#fff" />
             </Pressable>
-            <Text style={styles.headerTitle}>E-Mail bestätigen</Text>
+            <Text allowFontScaling={false} style={styles.headerTitle}>E-Mail bestätigen</Text>
           </View>
 
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
             <BlurView intensity={62} tint="dark" style={styles.card}>
-              <Text style={styles.cardTitle}>Bestätigungscode</Text>
-              <Text style={styles.cardSubtitle}>
+              <Text allowFontScaling={false} style={styles.cardTitle}>Bestätigungscode</Text>
+              <Text maxFontSizeMultiplier={1.4} style={styles.cardSubtitle}>
                 Gib den Code aus deiner E-Mail ein. Falls du einen Bestätigungslink erhalten hast,
                 kannst du auch einfach den Link öffnen und danach einloggen.
               </Text>
-              {formError ? <Text accessibilityLiveRegion="polite" style={styles.formError}>{formError}</Text> : null}
+              {formError ? <Text accessibilityLiveRegion="polite" maxFontSizeMultiplier={1.3} style={styles.formError}>{formError}</Text> : null}
 
               <TextInput
+                maxFontSizeMultiplier={1.3}
                 placeholder="E-Mail"
                 placeholderTextColor="#7D8086"
                 value={email}
@@ -128,6 +129,7 @@ export default function VerifyScreen() {
               />
 
               <TextInput
+                maxFontSizeMultiplier={1.3}
                 placeholder="Code"
                 placeholderTextColor="#7D8086"
                 value={code}
@@ -149,7 +151,7 @@ export default function VerifyScreen() {
                   pressed && { opacity: 0.85 },
                 ]}
               >
-                {loading ? <ActivityIndicator /> : <Text style={styles.primaryBtnText}>Bestätigen</Text>}
+                {loading ? <ActivityIndicator /> : <Text maxFontSizeMultiplier={1.3} style={styles.primaryBtnText}>Bestätigen</Text>}
               </Pressable>
 
               <Pressable
@@ -161,7 +163,7 @@ export default function VerifyScreen() {
                   pressed && { opacity: 0.85 },
                 ]}
               >
-                <Text style={styles.secondaryBtnText}>
+                <Text maxFontSizeMultiplier={1.3} style={styles.secondaryBtnText}>
                   {resending ? "Sendet..." : "Code nochmals senden"}
                 </Text>
               </Pressable>
@@ -207,7 +209,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   card: {
-    marginTop: 92,
+    marginTop: 32,
     padding: 24,
     borderRadius: 30,
     backgroundColor: "rgba(255,255,255,0.065)",
@@ -217,8 +219,8 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: "#fff",
-    fontSize: 38,
-    lineHeight: 42,
+    fontSize: 32,
+    lineHeight: 38,
     fontWeight: "900",
     letterSpacing: -0.9,
     marginBottom: 10,
