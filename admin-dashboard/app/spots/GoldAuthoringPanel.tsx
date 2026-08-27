@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { AUTHORING_SECTIONS, READINESS_LABELS, currentFact, humanError, type AuthoringProfile, type AuthoringQuestion, type AuthoringSectionId } from "@/lib/humanSpotV2";
+import { AUTHORING_SECTIONS, READINESS_LABELS, currentFact, humanError, offeringHierarchyConflicts, type AuthoringProfile, type AuthoringQuestion, type AuthoringSectionId } from "@/lib/humanSpotV2";
 import { HumanSpotQuestion } from "./HumanSpotQuestion";
 
 const SOURCE_OPTIONS = [["ADMIN_VERIFIED", "Eigene Kenntnis / vor Ort geprüft"], ["OFFICIAL_WEBSITE", "Offizielle Website"], ["OFFICIAL_DOCUMENT", "Offizielle Dokumentation"]] as const;
@@ -145,9 +145,10 @@ export function GoldAuthoringPanel({ spotId, refreshToken = 0 }: { spotId: strin
       const sectionQuestions = questions.filter((question) => question.section_id === section.id);
       if (!sectionQuestions.length) return null;
       const changed = sectionQuestions.filter((question) => dirtyQuestions.has(question.question_id)).length;
+      const hasOfferingConflict = sectionQuestions.some((question) => question.control_type === "AVAILABILITY_MAP" && offeringHierarchyConflicts(drafts[question.question_id] ?? facts.get(question.canonical_field_key)?.value ?? defaultValue(question)).length > 0);
       const feedback = sectionFeedback[section.id];
       const saved = feedback?.tone === "success" && changed === 0;
-      return <section className="hsi-section" id={`hsi-section-${section.id}`} key={section.id}><header><div><span>{changed ? `${changed} ungespeichert` : saved ? "Gespeichert" : "Aktuell"}</span><h3>{section.label}</h3><p>{section.description}</p></div><div className="hsi-section-actions"><button type="button" className={saved ? "is-saved" : ""} disabled={busy !== null || changed === 0} onClick={() => void saveSection(section.id)}>{busy === section.id ? "Wird gespeichert …" : saved ? "Gespeichert ✓" : scope === "SPOT" ? "Abschnitt speichern" : "Zur Prüfung speichern"}</button>{feedback && <p className={`hsi-section-feedback ${feedback.tone}`} role="status">{feedback.text}</p>}</div></header><div className="hsi-question-list">{sectionQuestions.map((question) => {
+      return <section className="hsi-section" id={`hsi-section-${section.id}`} key={section.id}><header><div><span>{changed ? `${changed} ungespeichert` : saved ? "Gespeichert" : "Aktuell"}</span><h3>{section.label}</h3><p>{section.description}</p></div><div className="hsi-section-actions"><button type="button" className={saved ? "is-saved" : ""} disabled={busy !== null || changed === 0 || hasOfferingConflict} onClick={() => void saveSection(section.id)}>{busy === section.id ? "Wird gespeichert …" : saved ? "Gespeichert ✓" : scope === "SPOT" ? "Abschnitt speichern" : "Zur Prüfung speichern"}</button>{feedback && <p className={`hsi-section-feedback ${feedback.tone}`} role="status">{feedback.text}</p>}</div></header><div className="hsi-question-list">{sectionQuestions.map((question) => {
         const fact = facts.get(question.canonical_field_key); const source = fact ? sources.get(fact.source_id) : undefined;
         const value = drafts[question.question_id] ?? fact?.value ?? defaultValue(question);
         const provenance = fact ? `${source?.source_type === "ADMIN_VERIFIED" ? "Von dir bestätigt" : source?.source_type === "OFFICIAL_WEBSITE" ? "Offizielle Website" : "Bestätigte Quelle"}${fact.last_checked_at || fact.accepted_at ? ` · ${new Date(fact.last_checked_at ?? fact.accepted_at ?? "").toLocaleDateString("de-CH")}` : ""}` : undefined;

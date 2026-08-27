@@ -1485,6 +1485,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 /* Human editor: section-level hierarchy, clearer states and reachable actions. */
 .human-spot-editor{scroll-margin-top:90px}
+.hsi-hierarchy-warning{display:grid;gap:8px;padding:14px;border:1px solid rgba(244,201,110,.42);border-radius:12px;background:rgba(244,201,110,.08);color:#f4d99a;font-size:12px;line-height:1.5}.hsi-hierarchy-warning p{margin:0;color:#d8c89e}.hsi-hierarchy-warning button{justify-self:start;margin-top:2px;padding:9px 13px;border:1px solid rgba(244,201,110,.45);border-radius:999px;background:#2c2518;color:#fff3cf;font-weight:800;cursor:pointer}.hsi-hierarchy-warning button:focus-visible{outline:2px solid #fff;outline-offset:2px}
 .human-editor-header{position:relative;padding-bottom:4px}
 .human-readiness{position:sticky;top:18px;box-shadow:0 18px 44px rgba(0,0,0,.18)}
 .human-editor-section,.human-source-panel,.human-review-section{scroll-margin-top:92px}

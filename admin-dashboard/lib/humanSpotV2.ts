@@ -85,9 +85,46 @@ export function relevantOptions(question: AuthoringQuestion, archetypes: string[
   return question.options.filter((option) => !option.archetypes?.length || option.archetypes.some((value) => archetypes.includes(value)));
 }
 
+const OFFERING_HIERARCHY = [
+  { parent: "DRINKS", children: ["BEER", "CRAFT_BEER", "OWN_BREWED_BEER", "WINE", "COCKTAILS", "COFFEE", "NON_ALCOHOLIC"] },
+  { parent: "BEER", children: ["CRAFT_BEER", "OWN_BREWED_BEER"] },
+  { parent: "FOOD", children: ["SNACKS", "SMALL_PLATES", "FULL_MEALS", "BREAKFAST", "BRUNCH", "LUNCH", "DINNER"] },
+] as const;
+
+export type OfferingHierarchyConflict = {
+  parent: "DRINKS" | "BEER" | "FOOD";
+  children: string[];
+};
+
+export function offeringHierarchyConflicts(value: unknown): OfferingHierarchyConflict[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const offerings = value as Record<string, unknown>;
+  return OFFERING_HIERARCHY.flatMap(({ parent, children }) => {
+    if (offerings[parent] !== "NOT_AVAILABLE") return [];
+    const available = children.filter((child) => offerings[child] === "AVAILABLE");
+    return available.length ? [{ parent, children: available }] : [];
+  });
+}
+
+export function normalizeOfferingHierarchy(value: unknown): Record<string, unknown> {
+  const normalized = value && typeof value === "object" && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const { parent, children } of OFFERING_HIERARCHY) {
+      if (children.some((child) => normalized[child] === "AVAILABLE") && normalized[parent] !== "AVAILABLE") {
+        normalized[parent] = "AVAILABLE";
+        changed = true;
+      }
+    }
+  }
+  return normalized;
+}
+
 export function humanError(error: unknown): string {
   const value = error instanceof Error ? error.message : String(error);
   if (value.includes("authoring_state_changed")) return "Der Ort wurde inzwischen geändert. Bitte neu laden und deine Angaben nochmals prüfen.";
+  if (value.includes("offering_hierarchy_conflict")) return "Eine Detailangabe widerspricht noch der allgemeinen Verfügbarkeit. Bitte löse den markierten Widerspruch und speichere erneut.";
   if (value.includes("access") || value.includes("required") || value.includes("denied")) return "Du darfst diese Angaben nicht speichern.";
   return "Die Änderungen konnten nicht gespeichert werden. Deine Eingaben bleiben erhalten.";
 }

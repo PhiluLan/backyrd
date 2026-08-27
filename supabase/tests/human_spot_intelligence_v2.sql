@@ -14,17 +14,49 @@ begin
 end $$;
 
 do $$
-declare founder uuid:=pg_temp.hsi_uuid('hsi-founder');owner_id uuid:=pg_temp.hsi_uuid('hsi-owner');category_id uuid:=pg_temp.hsi_uuid('hsi-category');spot_id uuid:=pg_temp.hsi_uuid('hsi-spot');fixture_id uuid:=pg_temp.hsi_uuid('hsi-offering-fixture');
+declare founder uuid:=pg_temp.hsi_uuid('hsi-founder');owner_id uuid:=pg_temp.hsi_uuid('hsi-owner');category_id uuid:=pg_temp.hsi_uuid('hsi-category');cafe_category_id uuid:=pg_temp.hsi_uuid('hsi-cafe-category');spot_id uuid:=pg_temp.hsi_uuid('hsi-spot');cafe_id uuid:=pg_temp.hsi_uuid('hsi-kult-cafe');fixture_id uuid:=pg_temp.hsi_uuid('hsi-offering-fixture');
 begin
  insert into auth.users(instance_id,id,aud,role,email,encrypted_password,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values
  ('00000000-0000-0000-0000-000000000000',founder,'authenticated','authenticated','hsi-founder@invalid','','{}','{}',now(),now()),
  ('00000000-0000-0000-0000-000000000000',owner_id,'authenticated','authenticated','hsi-owner@invalid','','{}','{}',now(),now());
  update public.profiles set is_admin=true where id=founder;
  insert into public.admin_users(user_id,role) values(founder,'super_admin');
- insert into public.categories(id,name) values(category_id,'Bar');
+ insert into public.categories(id,name) values(category_id,'Bar'),(cafe_category_id,'Café');
  insert into public.spots(id,name,lat,lng,status,city,category_id,data_origin,owner_id) values
  (spot_id,'HSI V2 transactional Brewpub',47.55,7.59,'approved','Basel',category_id,'REAL',owner_id),
+ (cafe_id,'HSI V2 Kult-style Café',47.55,7.59,'approved','Basel',cafe_category_id,'REAL',owner_id),
  (fixture_id,'HSI V2 isolated Offering fixture',47.55,7.59,'approved','Basel',category_id,'TEST',owner_id);
+end $$;
+
+-- Regression for the exact Kultbäckerei class of failure: two Human questions
+-- are dirty, but their Offering map has negative aggregate parents alongside
+-- positive details. The transaction must reject precisely and write nothing;
+-- after explicit parent resolution, the same detail answers persist atomically.
+do $$
+declare
+ v_spot uuid:=pg_temp.hsi_uuid('hsi-kult-cafe');v_before bigint;v_after bigint;v_result jsonb;
+ v_invalid jsonb:='[{"questionId":"offering.gastronomy","value":{"DRINKS":"NOT_AVAILABLE","BEER":"AVAILABLE","CRAFT_BEER":"UNKNOWN","OWN_BREWED_BEER":"UNKNOWN","WINE":"UNKNOWN","COCKTAILS":"UNKNOWN","COFFEE":"AVAILABLE","NON_ALCOHOLIC":"AVAILABLE","FOOD":"NOT_AVAILABLE","SNACKS":"AVAILABLE","SMALL_PLATES":"NOT_AVAILABLE","FULL_MEALS":"NOT_AVAILABLE","BREAKFAST":"AVAILABLE","BRUNCH":"NOT_AVAILABLE","LUNCH":"AVAILABLE","DINNER":"UNKNOWN"}},{"questionId":"purpose.gastronomy","value":{"DRINK":"NOT_SUITABLE","EAT":"SUITABLE","QUICK_BITE":"NOT_SUITABLE","APERO":"NOT_SUITABLE","AFTERWORK":"NOT_SUITABLE","LONG_EVENING":"NOT_SUITABLE"}}]';
+ v_valid jsonb:='[{"questionId":"offering.gastronomy","value":{"DRINKS":"AVAILABLE","BEER":"AVAILABLE","CRAFT_BEER":"UNKNOWN","OWN_BREWED_BEER":"UNKNOWN","WINE":"UNKNOWN","COCKTAILS":"UNKNOWN","COFFEE":"AVAILABLE","NON_ALCOHOLIC":"AVAILABLE","FOOD":"AVAILABLE","SNACKS":"AVAILABLE","SMALL_PLATES":"NOT_AVAILABLE","FULL_MEALS":"NOT_AVAILABLE","BREAKFAST":"AVAILABLE","BRUNCH":"NOT_AVAILABLE","LUNCH":"AVAILABLE","DINNER":"UNKNOWN"}},{"questionId":"purpose.gastronomy","value":{"DRINK":"NOT_SUITABLE","EAT":"SUITABLE","QUICK_BITE":"NOT_SUITABLE","APERO":"NOT_SUITABLE","AFTERWORK":"NOT_SUITABLE","LONG_EVENING":"NOT_SUITABLE"}}]';
+begin
+ perform pg_temp.actor(pg_temp.hsi_uuid('hsi-founder'));
+ perform public.backyrd_human_spot_set_archetypes_v2(v_spot,'CAFE','{}');
+ v_before:=(select count(*) from public.backyrd_spot_accepted_facts_v1 where spot_id=v_spot);
+ begin
+  perform public.backyrd_human_spot_save_section_v2(v_spot,'PURPOSE',v_invalid,'ADMIN_VERIFIED',null,'Kult regression','SPOT','hsi-v2-kult-invalid',null);
+  raise exception 'Kult hierarchy conflict was accepted';
+ exception when invalid_parameter_value then
+  perform pg_temp.assert(sqlerrm='offering_hierarchy_conflict:DRINKS','Kult hierarchy failure was not precise');
+ end;
+ v_after:=(select count(*) from public.backyrd_spot_accepted_facts_v1 where spot_id=v_spot);
+ perform pg_temp.assert(v_after=v_before,'Kult failed save wrote partial facts');
+ perform pg_temp.assert(not exists(select 1 from public.backyrd_human_spot_save_requests_v2 where spot_id=v_spot and idempotency_key='hsi-v2-kult-invalid'),'Kult failed save left a request row');
+ v_result:=public.backyrd_human_spot_save_section_v2(v_spot,'PURPOSE',v_valid,'ADMIN_VERIFIED',null,'Kult regression','SPOT','hsi-v2-kult-valid',null);
+ perform pg_temp.assert((v_result->>'persisted')::integer=2 and (v_result->>'accepted')::boolean,'Kult corrected save did not persist both Human answers');
+ perform pg_temp.assert(v_result->'rebuild' is not null,'Kult corrected save did not rebuild once');
+ perform pg_temp.assert((select count(*)=2 from public.backyrd_spot_accepted_facts_v1 where spot_id=v_spot and field_key in ('offering.availability','purpose.occasions') and status='ACTIVE'),'Kult corrected save did not create exact active facts');
+ perform pg_temp.assert(exists(select 1 from public.backyrd_read_offering_for_decision_v1(array[v_spot]) where offerings->>'DRINKS'='AVAILABLE' and offerings->>'FOOD'='AVAILABLE' and offerings->>'BREAKFAST'='AVAILABLE' and purposes->>'EAT'='SUITABLE'),'Kult corrected facts did not reach Offering/Purpose read model');
+ perform pg_temp.assert((public.backyrd_human_spot_save_section_v2(v_spot,'PURPOSE',v_valid,'ADMIN_VERIFIED',null,'Kult regression','SPOT','hsi-v2-kult-valid',null)->>'replayed')::boolean,'Kult identical retry was not idempotent');
+ perform pg_temp.assert((select count(*)=2 from public.backyrd_spot_accepted_facts_v1 where spot_id=v_spot and field_key in ('offering.availability','purpose.occasions') and status='ACTIVE'),'Kult idempotent retry duplicated facts');
 end $$;
 
 select pg_temp.assert((select count(*)=45 from public.backyrd_taste_concepts_v1),'frozen Taste registry changed');

@@ -1,7 +1,7 @@
 "use client";
 
 import type { AuthoringQuestion } from "@/lib/humanSpotV2";
-import { relevantOptions } from "@/lib/humanSpotV2";
+import { normalizeOfferingHierarchy, offeringHierarchyConflicts, relevantOptions } from "@/lib/humanSpotV2";
 
 type Props = {
   question: AuthoringQuestion;
@@ -23,6 +23,8 @@ export function HumanSpotQuestion({ question, value, archetypes, changed, proven
   const supervision = objectValue.adult_supervision_required === true ? "YES" : objectValue.adult_supervision_required === false ? "NO" : "UNKNOWN";
   const mappedValues = new Set(options.map((option) => JSON.stringify(option.value)));
   const legacyValues = selected.filter((item) => !mappedValues.has(JSON.stringify(item)));
+  const offeringConflicts = question.control_type === "AVAILABILITY_MAP" ? offeringHierarchyConflicts(value) : [];
+  const offeringLabels = new Map(options.map((option) => [String(option.value), option.label]));
 
   return <article className={`hsi-question${changed ? " is-dirty" : ""}`} id={`hsi-${question.question_id}`}>
     <header>
@@ -49,6 +51,11 @@ export function HumanSpotQuestion({ question, value, archetypes, changed, proven
       {options.map((option) => <div key={option.id}><span>{option.label}</span><div role="radiogroup" aria-label={`${question.label_de}: ${option.label}`}>
         {[{ label: "Verfügbar", value: "AVAILABLE" }, { label: "Nicht verfügbar", value: "NOT_AVAILABLE" }, { label: "Unbekannt", value: "UNKNOWN" }].map((state) => <button type="button" role="radio" aria-checked={objectValue[String(option.value)] === state.value} className={objectValue[String(option.value)] === state.value ? "selected" : ""} key={state.value} onClick={() => onChange({ ...objectValue, [String(option.value)]: state.value })}>{state.label}</button>)}
       </div></div>)}
+    </div>}
+    {question.control_type === "AVAILABILITY_MAP" && offeringConflicts.length > 0 && <div className="hsi-hierarchy-warning" role="alert">
+      <strong>Diese Angaben widersprechen sich noch.</strong>
+      {offeringConflicts.map((conflict) => <p key={conflict.parent}><b>{offeringLabels.get(conflict.parent) ?? conflict.parent}</b> kann nicht „Nicht verfügbar“ sein, solange {conflict.children.map((child) => offeringLabels.get(child) ?? child).join(", ")} als verfügbar bestätigt ist.</p>)}
+      <button type="button" onClick={() => onChange(normalizeOfferingHierarchy(value))}>Aus Detailangaben korrekt ableiten</button>
     </div>}
 
     {question.control_type === "PURPOSE_MAP" && <div className="hsi-tristate-list">
