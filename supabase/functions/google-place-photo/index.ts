@@ -274,27 +274,11 @@ Deno.serve(async (request) => {
       return json({ ok: true, source: "placeholder", imageUrl: null, reason: "google_photo_disabled" });
     }
 
-    let selectedPlace: GooglePlace | null = null;
-    let resolutionSource: "stored_place_id" | "business_text_search" = "stored_place_id";
-
-    if (spot.google_place_id) {
-      selectedPlace = await getPlaceDetails(spot.google_place_id, googleApiKey);
-    }
-
-    if (!Array.isArray(selectedPlace?.photos) || selectedPlace.photos.length === 0) {
-      const businessPlace = await searchBusinessPlace(spot, googleApiKey);
-      if (businessPlace?.id) {
-        selectedPlace = businessPlace;
-        resolutionSource = "business_text_search";
-        if (businessPlace.id !== spot.google_place_id) {
-          const { error: updateError } = await admin
-            .from("spots")
-            .update({ google_place_id: businessPlace.id })
-            .eq("id", spot.id);
-          if (updateError) console.warn("Resolved business Place ID could not be persisted:", updateError.message);
-        }
-      }
-    }
+    // Mobile may only resolve the pre-existing Backyrd → Google Place binding.
+    // It must neither search Google nor mutate Spot identity during rendering.
+    const selectedPlace = spot.google_place_id
+      ? await getPlaceDetails(spot.google_place_id, googleApiKey)
+      : null;
 
     const selectedPhoto = selectedPlace?.photos?.find((photo) => Boolean(photo?.name));
     if (!selectedPhoto) {
@@ -303,7 +287,7 @@ Deno.serve(async (request) => {
         source: "placeholder",
         imageUrl: null,
         reason: "google_photo_missing",
-        resolutionSource,
+        resolutionSource: "stored_place_id",
         resolvedPlaceId: selectedPlace?.id ?? null,
         resolvedPlaceName: selectedPlace?.displayName?.text ?? null,
       });
@@ -316,7 +300,7 @@ Deno.serve(async (request) => {
         source: "placeholder",
         imageUrl: null,
         reason: "google_photo_uri_missing",
-        resolutionSource,
+        resolutionSource: "stored_place_id",
         resolvedPlaceId: selectedPlace?.id ?? null,
         resolvedPlaceName: selectedPlace?.displayName?.text ?? null,
       });
@@ -331,7 +315,7 @@ Deno.serve(async (request) => {
       googleMapsUri: selectedPhoto.googleMapsUri ?? null,
       widthPx: selectedPhoto.widthPx ?? null,
       heightPx: selectedPhoto.heightPx ?? null,
-      resolutionSource,
+      resolutionSource: "stored_place_id",
       resolvedPlaceId: selectedPlace?.id ?? null,
       resolvedPlaceName: selectedPlace?.displayName?.text ?? null,
     });
