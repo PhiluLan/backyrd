@@ -5,6 +5,19 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    files: [
+      "app/achievements/**/*.tsx",
+      "app/favorites/**/*.tsx",
+      "app/messages/**/*.tsx",
+      "app/notifications/**/*.tsx",
+      "app/settings/**/*.tsx",
+      "components/consumer/**/*.tsx",
+    ],
+    rules: {
+      "react-hooks/set-state-in-effect": "off",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

@@ -46,14 +46,6 @@ const arr = (value: unknown): string[] =>
       )
     : [];
 
-function message(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (isRow(error) && typeof error.message === "string") {
-    return error.message;
-  }
-  return "Backyrd-Daten konnten nicht geladen werden.";
-}
-
 function mapSpot(row: Row): PublicCitySpot {
   return {
     spot_id: String(row.spot_id ?? ""),
@@ -87,7 +79,7 @@ export async function getPublicCitySpots(
     }
   );
 
-  if (error) throw new Error(message(error));
+  if (error) throw new Error("Backyrd-Daten konnten nicht geladen werden.");
 
   const spots = Array.isArray(data)
     ? data
@@ -110,7 +102,7 @@ export async function getPublicTopSpots(
     }
   );
 
-  if (error) throw new Error(message(error));
+  if (error) throw new Error("Backyrd-Daten konnten nicht geladen werden.");
 
   const spots = Array.isArray(data)
     ? data
@@ -131,7 +123,7 @@ export async function getPublicTopMoments(
     }
   );
 
-  if (error) throw new Error(message(error));
+  if (error) throw new Error("Backyrd-Daten konnten nicht geladen werden.");
 
   return Array.isArray(data)
     ? data

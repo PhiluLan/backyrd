@@ -1,22 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Inter } from "next/font/google";
 import "./globals.css";
 import "./owner-intelligence.css";
 import "./landing-logo-moments.css";
+import "./consumer.css";
+import { ConsumerShell } from "@/components/consumer/consumer-shell";
 
-const geistSans = Geist({
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  display: "swap",
+});
+const geist = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL || "https://www.backyrd.ch"
+    process.env.NEXT_PUBLIC_SITE_URL || "https://www.backyrd.ch",
   ),
   title: {
     default: "Backyrd – Orte nach Gefühl",
@@ -24,6 +27,15 @@ export const metadata: Metadata = {
   },
   description:
     "Finde Restaurants, Bars, Cafés und Erlebnisse danach, wie sie sich anfühlen – nicht nur nach Sternen.",
+  openGraph: {
+    type: "website",
+    locale: "de_CH",
+    siteName: "Backyrd",
+    title: "Backyrd – Orte nach Gefühl",
+    description:
+      "Finde Restaurants, Bars, Cafés und Erlebnisse danach, wie sie sich anfühlen – nicht nur nach Sternen.",
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({
@@ -34,9 +46,11 @@ export default function RootLayout({
   return (
     <html
       lang="de"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${geist.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <ConsumerShell>{children}</ConsumerShell>
+      </body>
     </html>
   );
 }
