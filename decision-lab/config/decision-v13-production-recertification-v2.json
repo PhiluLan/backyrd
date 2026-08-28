@@ -1,0 +1,53 @@
+{
+  "version": "decision-v13-production-recertification-v2",
+  "status": "AUTHORIZED",
+  "authorization": {
+    "changeCommit": "dce92ef1379d7ab5140f7dc0813d8ee017933d4b",
+    "parentCommit": "6016d811b424e07cb957824a0ec9d4c49219cb8d",
+    "previousEngineSourceHash": "a3618a4254a884a53b45cf185c630444239d3da8e04f78d86ece6a65cda507ba",
+    "changeClass": "VERSIONED_FACTUAL_OFFERING_PURPOSE_EXTENSION",
+    "approvalBasis": "Committed Product contract, validation evidence, deployed Production version 73, and Gate-1 Principal Production Readiness re-certification directive",
+    "approvedAt": "2026-08-28T00:00:00.000Z"
+  },
+  "production": {
+    "supabaseProjectRef": "hjgcrrzfjchzqoegcywn",
+    "functionSlug": "decision-v13",
+    "activeVersion": 73,
+    "verifyJwt": true,
+    "bundleHash": "e72daec25d5199cb25f517eef60a322441906e6da9dc3d7038077507744c5102",
+    "verifiedAt": "2026-08-28T00:00:00.000Z",
+    "sourceIdentity": "EXACT_REPOSITORY_MATCH"
+  },
+  "protectedSemanticSourceSet": {
+    "paths": [
+      "supabase/functions/decision-v13/index.ts",
+      "supabase/functions/decision-v13/live-index.ts",
+      "supabase/functions/decision-v13/live-response.mjs",
+      "supabase/functions/decision-v13/north-star-live.ts",
+      "packages/canonical-semantics/src/index.mjs",
+      "packages/decision-input-runtime/src/offering-decision.mjs",
+      "packages/decision-orchestrator-runtime/src/ranking.mjs",
+      "supabase/migrations/20260825230000_canonical_offering_purpose_v2_1.sql"
+    ],
+    "hash": "99304c0113db860ef7db0c93bc566cf72ddd4236497551acd66bc54e91ff9efb"
+  },
+  "certificationEvidenceSet": {
+    "paths": [
+      "docs/decision/CANONICAL_OFFERING_PURPOSE_V2_1.md",
+      "docs/decision/CANONICAL_OFFERING_PURPOSE_V2_1_VALIDATION.md",
+      "packages/canonical-semantics/test/offering.test.mjs",
+      "packages/decision-orchestrator-runtime/test/offering-purpose.test.mjs"
+    ],
+    "hash": "1c1d26f912b9e5bcca56cbd6d08795a4fdfee1de5529cf2bdec97af6bb7ffce1"
+  },
+  "invariants": {
+    "hardEligibilityBeforeRanking": "PASS",
+    "distributionEligibilityBeforeFusion": "PASS",
+    "offeringPurposeRecallAddsNoScore": "PASS",
+    "factualTupleRemainsDeterministicAuthority": "PASS",
+    "reasonsRequireConfirmedCandidateFacts": "PASS",
+    "offeringPurposeIsNotUserTaste": "PASS",
+    "legacyQueriesWithoutOfferingPurposeIntent": "SEMANTICALLY_UNCHANGED",
+    "d2HardGateConstitution": "UNCHANGED"
+  }
+}

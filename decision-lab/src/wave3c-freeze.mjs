@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { contentHash } from "./canonical-json.mjs";
 import { readJson, repoRoot } from "./io.mjs";
-import { validatePersonalizationTreatmentFreeze } from "./personalization-treatment-freeze.mjs";
+import { validateHistoricalPersonalizationTreatmentFreeze } from "./personalization-treatment-freeze.mjs";
 import { validateTasteEngineFreeze } from "./taste-engine-freeze.mjs";
 import { validateTasteValidationFreeze } from "./taste-validation-freeze.mjs";
 
@@ -12,10 +12,10 @@ const sha = async (path) => createHash("sha256").update(await readFile(resolve(r
 export async function currentWave3CIdentity() {
   const [contract, d22, tasteEngine, tasteTreatment] = await Promise.all([
     readJson(resolve(repoRoot, "decision-lab/config/wave3c-personalized-decision-v1.json")),
-    readJson(resolve(repoRoot, "decision-lab/config/personalization-treatment-v1.freeze.json")),
+    readJson(resolve(repoRoot, "decision-lab/config/archive/personalization-treatment-v1.freeze.2026-08-12.json")),
     validateTasteEngineFreeze(), validateTasteValidationFreeze(),
   ]);
-  const d22Validation = await validatePersonalizationTreatmentFreeze(d22);
+  const d22Validation = validateHistoricalPersonalizationTreatmentFreeze(d22);
   return {
     freezeVersion: "backyrd-wave3c-personalized-decision-freeze-v1",
     contractVersion: contract.version,

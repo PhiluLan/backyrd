@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { HARD_GATE_REGISTRY, aggregateHardGates, evaluateHardGates, hardGateCoverage } from "../src/hard-gates.mjs";
 import { d3Readiness, frameworkGuards, independentHardGateFixture, independentScenario, runHardGateAdversarialSuite, traceFor } from "../src/hard-gate-acceptance.mjs";
 import { assertEvaluationResult } from "../src/contracts.mjs";
-import { computeD21Identity, validateD21Freeze } from "../src/d2-freeze.mjs";
+import { computeD21Identity, validateD21Freeze, validateEngineRecertification } from "../src/d2-freeze.mjs";
 import { evaluateTrace } from "../src/evaluator.mjs";
 
 const constitution = JSON.parse(await readFile(new URL("../config/decision-quality-v1.1.json", import.meta.url)));
@@ -92,8 +92,12 @@ test("all Product and Distribution enum boundaries are explicit", () => {
 test("freeze identity is deterministic and validator rejects tampering", async () => {
   const first = await computeD21Identity(); const second = await computeD21Identity();
   assert.deepEqual(first, second);
+  const recertification = await validateEngineRecertification();
+  assert.equal(recertification.valid, true, JSON.stringify(recertification.reasons));
+  assert.equal(first.engineMutation, "AUTHORIZED_RECERTIFICATION");
   assert.equal((await validateD21Freeze(first)).valid, true);
   assert.equal((await validateD21Freeze({ ...first, constitutionHash: "tampered" })).valid, false);
+  assert.equal((await validateD21Freeze({ ...first, engineRecertificationHash: "tampered" })).valid, false);
 });
 
 test("hard-gate result is independent of registry evaluation order", () => {
