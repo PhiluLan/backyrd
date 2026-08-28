@@ -34,6 +34,24 @@ cp -R "$repo_root/supabase/migrations" "$validation_root/supabase/migrations"
 cp -R "$repo_root/supabase/canonical" "$validation_root/supabase/canonical"
 cp -R "$repo_root/supabase/tests" "$validation_root/supabase/tests"
 
+# Exact-row Production cleanups are immutable historical evidence, not schema
+# bootstrap steps. Their hashes and later schema reconciliation are validated by
+# validate-migrations.sh before this disposable zero-data bootstrap is built.
+while IFS= read -r operation; do
+  rm "$validation_root/supabase/migrations/$operation"
+done < <(jq -r '.[].file' "$repo_root/supabase/historical-data-operations.json")
+printf 'Excluded %s immutable historical Production data operations from zero-data bootstrap.\n' \
+  "$(jq 'length' "$repo_root/supabase/historical-data-operations.json")"
+
+# A pg_dump-style canonical baseline encodes ACL differences from PostgreSQL's
+# standard defaults. Supabase local adds broad anon/authenticated defaults before
+# migrations, which would silently grant privileges that the baseline never
+# intended. Start empty and neutralize those defaults only through the canonical
+# dump baseline. Restore the provider defaults before replaying forward-authored
+# migrations, which were written and applied under the Supabase defaults.
+mv "$validation_root/supabase/migrations" "$validation_root/supabase/migrations.pending"
+mkdir "$validation_root/supabase/migrations"
+
 sed -i.bak "s/^project_id = .*/project_id = \"$project_id\"/" \
   "$validation_root/supabase/config.toml"
 sed -i.bak \
@@ -79,6 +97,33 @@ set +a
 : "${DB_URL:?Supabase local status did not return DB_URL}"
 ADMIN_DB_URL="$(printf '%s' "$DB_URL" | sed 's#postgresql://postgres:#postgresql://supabase_admin:#')"
 
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction >/dev/null <<'SQL'
+alter default privileges for role postgres in schema public revoke all on functions from anon,authenticated,service_role;
+alter default privileges for role postgres in schema public revoke all on tables from anon,authenticated,service_role;
+alter default privileges for role postgres in schema public revoke all on sequences from anon,authenticated,service_role;
+SQL
+while IFS= read -r baseline_file; do
+  mv "$baseline_file" "$validation_root/supabase/migrations/"
+done < <(
+  find "$validation_root/supabase/migrations.pending" -maxdepth 1 -type f -name '*.sql' \
+    | while IFS= read -r file; do
+        version="$(basename "$file" | cut -d_ -f1)"
+        if [[ "$version" < 20260808120518 ]]; then printf '%s\n' "$file"; fi
+      done | sort
+)
+supabase migration up --workdir "$validation_root" --local --include-all --agent=no
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction >/dev/null <<'SQL'
+alter default privileges for role postgres in schema public grant all on functions to postgres,anon,authenticated,service_role;
+alter default privileges for role postgres in schema public grant all on tables to postgres,anon,authenticated,service_role;
+alter default privileges for role postgres in schema public grant all on sequences to postgres,anon,authenticated,service_role;
+SQL
+
+while IFS= read -r forward_file; do
+  mv "$forward_file" "$validation_root/supabase/migrations/"
+done < <(find "$validation_root/supabase/migrations.pending" -maxdepth 1 -type f -name '*.sql' | sort)
+rmdir "$validation_root/supabase/migrations.pending"
+supabase migration up --workdir "$validation_root" --local --include-all --agent=no
+
 psql "$ADMIN_DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction \
   --file "$validation_root/supabase/canonical/storage.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction \
@@ -99,6 +144,15 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction \
   --file "$validation_root/supabase/canonical/cron.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction \
   --file "$validation_root/supabase/canonical/webhooks.sql"
+
+expected_acl_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/public-acl.sha256")"
+actual_acl_fingerprint="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
+  --file "$repo_root/scripts/ci/public-acl-fingerprint.sql")"
+test "$actual_acl_fingerprint" = "$expected_acl_fingerprint" || {
+  printf 'Public ACL fingerprint: expected %s, got %s\n' \
+    "$expected_acl_fingerprint" "$actual_acl_fingerprint" >&2
+  exit 1
+}
 
 expected_versions=()
 while IFS= read -r version; do
@@ -142,6 +196,18 @@ assert_count 7 'canonical Storage buckets' \
   "select count(*) from storage.buckets where id in ('badges','chat-uploads','data-rights-exports','profile-photos','review-photos','social-post-media','spot-photos');"
 assert_count 19 'canonical Storage policies' \
   "select count(*) from pg_policies where schemaname='storage' and tablename in ('buckets','objects');"
+assert_count 1 'User Intelligence runtime settings RLS' \
+  "select count(*) from pg_class where oid='public.backyrd_user_intelligence_runtime_settings_v1'::regclass and relrowsecurity;"
+assert_count 0 'User Intelligence runtime settings client grants' \
+  "select count(*) from information_schema.role_table_grants where table_schema='public' and table_name='backyrd_user_intelligence_runtime_settings_v1' and grantee in ('PUBLIC','anon','authenticated');"
+assert_count 1 'fixture-safe Admin intelligence projection' \
+  "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='admin_spots_intelligence_v1' and position('s.data_origin not in (''TEST'',''FIXTURE'')' in p.prosrc)>0;"
+assert_count 1 'fixture-safe Admin readiness projection' \
+  "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='admin_spot_readiness_worklist_v1' and position('s.data_origin not in (''TEST'',''FIXTURE'')' in p.prosrc)>0;"
+assert_count 1 'Admin all-status Product Spot policy' \
+  "select count(*) from pg_policies where schemaname='public' and tablename='spots' and policyname='spots_select_internal_admin_product_all_status_v1';"
+assert_count 0 'client RLS calls to service-only arbitrary-user consent helper' \
+  "select count(*) from pg_policies where schemaname='public' and coalesce(qual,'') like '%user_has_active_consent_v1%';"
 
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/sprint8_integrity_case_lifecycle.sql"

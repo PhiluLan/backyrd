@@ -1,0 +1,16 @@
+[
+  {
+    "version": "20260826120000",
+    "file": "20260826120000_production_decision_fixture_cleanup_v1.sql",
+    "sha256": "15b12d686bb3ed97301671d3ef66502f9afe78342c6c34f729e6f38c4f3eceeb",
+    "reason": "Audited one-time Production fixture cleanup with exact identity and row-count guards.",
+    "schema_reconciled_by": "20260828192125_gate1_schema_convergence_v1.sql"
+  },
+  {
+    "version": "20260826210000",
+    "file": "20260826210000_final_admin_four_spot_hard_delete_v1.sql",
+    "sha256": "7cd5b1680cb034a2e18352e8975add3eb5a8686f23684e368d2bfc0a230cf00f",
+    "reason": "Founder-authorized one-time Production hard delete with exact dependency guards.",
+    "schema_reconciled_by": "20260828192125_gate1_schema_convergence_v1.sql"
+  }
+]
