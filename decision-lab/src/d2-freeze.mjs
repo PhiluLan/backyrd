@@ -42,7 +42,17 @@ export async function validateEngineRecertification(contractOverride = null) {
     ...(contract.protectedSemanticSourceSet.hash === protectedSemanticSourceSetHash ? [] : ["PROTECTED_SEMANTIC_SOURCE_SET_MISMATCH"]),
     ...(contract.certificationEvidenceSet.hash === certificationEvidenceSetHash ? [] : ["CERTIFICATION_EVIDENCE_SET_MISMATCH"]),
     ...(engineSourceHash === "28e178dee7192cb303b07574f31f1e86f58bc80048b23ba00bf032ca02c2bfc4" ? [] : ["AUTHORIZED_ENGINE_SOURCE_MISMATCH"]),
-    ...(contract.production?.supabaseProjectRef === "hjgcrrzfjchzqoegcywn" && contract.production?.functionSlug === "decision-v13" && contract.production?.activeVersion === 73 && contract.production?.verifyJwt === true && contract.production?.bundleHash === "e72daec25d5199cb25f517eef60a322441906e6da9dc3d7038077507744c5102" && contract.production?.sourceIdentity === "EXACT_REPOSITORY_MATCH" ? [] : ["PRODUCTION_IDENTITY_NOT_CERTIFIED"]),
+    ...(contract.production?.supabaseProjectRef === "hjgcrrzfjchzqoegcywn" &&
+      contract.production?.functionSlug === "decision-v13" &&
+      contract.production?.activeVersion === 73 &&
+      contract.production?.verifyJwt === true &&
+      contract.production?.bundleHash === "e72daec25d320f3733028ad1af6760e68999bfaa341b66462e42dce51a941e65" &&
+      contract.production?.entrypointPath === "supabase/functions/decision-v13/index.deploy.ts" &&
+      contract.production?.entrypointSource === "import \"./live-index.ts\";\n" &&
+      contract.production?.entrypointSha256 === "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299" &&
+      contract.production?.deployedFileCount === 38 &&
+      contract.production?.repositoryMatchedFileCount === 37 &&
+      contract.production?.sourceIdentity === "EXACT_REPOSITORY_SOURCE_SET_PLUS_PINNED_ENTRYPOINT" ? [] : ["PRODUCTION_IDENTITY_NOT_CERTIFIED"]),
     ...Object.entries(requiredRecertificationInvariants).filter(([key, value]) => contract.invariants?.[key] !== value).map(([key]) => `SEMANTIC_INVARIANT_NOT_CERTIFIED:${key}`)
   ];
   const identity = {
@@ -56,6 +66,11 @@ export async function validateEngineRecertification(contractOverride = null) {
     productionFunctionSlug: contract.production.functionSlug,
     productionFunctionVersion: contract.production.activeVersion,
     productionBundleHash: contract.production.bundleHash,
+    productionEntrypointPath: contract.production.entrypointPath,
+    productionEntrypointSourceHash: contentHash(contract.production.entrypointSource),
+    productionEntrypointSha256: contract.production.entrypointSha256,
+    productionDeployedFileCount: contract.production.deployedFileCount,
+    productionRepositoryMatchedFileCount: contract.production.repositoryMatchedFileCount,
     productionSourceIdentity: contract.production.sourceIdentity,
     invariantCount: Object.keys(requiredRecertificationInvariants).length,
     invariantsHash: contentHash(contract.invariants)

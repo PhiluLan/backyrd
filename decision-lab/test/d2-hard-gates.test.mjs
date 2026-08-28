@@ -100,6 +100,18 @@ test("freeze identity is deterministic and validator rejects tampering", async (
   });
   assert.equal(changedProduction.valid, false);
   assert.ok(changedProduction.reasons.includes("PRODUCTION_IDENTITY_NOT_CERTIFIED"));
+  for (const production of [
+    { ...recertification.contract.production, bundleHash: "0".repeat(64) },
+    { ...recertification.contract.production, entrypointPath: "supabase/functions/decision-v13/index.ts" },
+    { ...recertification.contract.production, entrypointSource: "import \"./index.ts\";\n" },
+    { ...recertification.contract.production, entrypointSha256: "0".repeat(64) },
+    { ...recertification.contract.production, deployedFileCount: 39 },
+    { ...recertification.contract.production, repositoryMatchedFileCount: 36 }
+  ]) {
+    const changedIdentity = await validateEngineRecertification({ ...recertification.contract, production });
+    assert.equal(changedIdentity.valid, false);
+    assert.ok(changedIdentity.reasons.includes("PRODUCTION_IDENTITY_NOT_CERTIFIED"));
+  }
   const changedSourceSet = await validateEngineRecertification({
     ...recertification.contract,
     protectedSemanticSourceSet: {

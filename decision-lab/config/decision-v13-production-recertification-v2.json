@@ -14,9 +14,14 @@
     "functionSlug": "decision-v13",
     "activeVersion": 73,
     "verifyJwt": true,
-    "bundleHash": "e72daec25d5199cb25f517eef60a322441906e6da9dc3d7038077507744c5102",
+    "bundleHash": "e72daec25d320f3733028ad1af6760e68999bfaa341b66462e42dce51a941e65",
+    "entrypointPath": "supabase/functions/decision-v13/index.deploy.ts",
+    "entrypointSource": "import \"./live-index.ts\";\n",
+    "entrypointSha256": "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299",
+    "deployedFileCount": 38,
+    "repositoryMatchedFileCount": 37,
     "verifiedAt": "2026-08-28T00:00:00.000Z",
-    "sourceIdentity": "EXACT_REPOSITORY_MATCH"
+    "sourceIdentity": "EXACT_REPOSITORY_SOURCE_SET_PLUS_PINNED_ENTRYPOINT"
   },
   "protectedSemanticSourceSet": {
     "paths": [
@@ -42,7 +47,7 @@
       "scripts/ci/decision-d2-scope-guard.sh",
       "scripts/ci/test-decision-d2-web-closure-guard.sh"
     ],
-    "hash": "35d48f61aabf60f92b6ed4deec16248bac86e27e7414e6382352cebedd69acf4"
+    "hash": "87decc4fcc2509115164f9e472936030d5d4b857ca74407a731576196fb7ef35"
   },
   "invariants": {
     "hardEligibilityBeforeRanking": "PASS",
