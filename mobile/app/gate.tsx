@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -50,10 +51,11 @@ function LoggedOutGate() {
 
   return (
     <LinearGradient colors={["#050506", "#050506", "#171820"]} style={styles.authContainer}>
+      <ScrollView contentContainerStyle={styles.authContent} showsVerticalScrollIndicator={false}>
       <View style={styles.authCard}>
-        <Text style={styles.kicker}>BACKYRD</Text>
-        <Text style={styles.title}>Willkommen bei Backyrd</Text>
-        <Text style={styles.subtitle}>
+        <Text allowFontScaling={false} style={styles.kicker}>BACKYRD</Text>
+        <Text allowFontScaling={false} style={styles.title}>Willkommen bei Backyrd</Text>
+        <Text maxFontSizeMultiplier={1.4} style={styles.subtitle}>
           Melde dich an oder erstelle deinen Account. Danach bauen wir deinen ersten persönlichen
           Decision-Geschmack.
         </Text>
@@ -62,20 +64,47 @@ function LoggedOutGate() {
           onPress={() => router.push("/auth/login" as any)}
           style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
         >
-          <Text style={styles.primaryText}>Einloggen</Text>
+          <Text maxFontSizeMultiplier={1.2} style={styles.primaryText}>Einloggen</Text>
         </Pressable>
 
         <Pressable
           onPress={() => router.push("/auth/register" as any)}
           style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
         >
-          <Text style={styles.secondaryText}>Neu registrieren</Text>
+          <Text maxFontSizeMultiplier={1.2} style={styles.secondaryText}>Neu registrieren</Text>
         </Pressable>
 
-        <Text style={styles.hint}>
+        <Text maxFontSizeMultiplier={1.5} style={styles.hint}>
           Wenn du bereits eingeloggt bist, leitet dich Backyrd automatisch weiter.
         </Text>
+
+        {__DEV__ ? (
+          <View style={styles.previewRow}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push({ pathname: "/auth/login", params: { preview: "invalid" } } as any)}
+              style={({ pressed }) => [styles.previewButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.previewText}>Login-Fehler</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push({ pathname: "/auth/verify", params: { email: "vorschau@backyrd.ch" } } as any)}
+              style={({ pressed }) => [styles.previewButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.previewText}>Verification</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push({ pathname: "/onboarding", params: { preview: "1" } } as any)}
+              style={({ pressed }) => [styles.previewButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.previewText}>Onboarding</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
+      </ScrollView>
     </LinearGradient>
   );
 }
@@ -188,8 +217,12 @@ const styles = StyleSheet.create({
   },
   authContainer: {
     flex: 1,
+  },
+  authContent: {
+    flexGrow: 1,
     paddingHorizontal: 22,
     justifyContent: "center",
+    paddingVertical: 48,
   },
   authCard: {
     borderRadius: 32,
@@ -252,6 +285,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     marginTop: 18,
+  },
+  previewButton: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+  previewRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+  },
+  previewText: {
+    color: "rgba(255,255,255,0.58)",
+    fontSize: 13,
+    fontWeight: "700",
   },
   pressed: {
     opacity: 0.86,

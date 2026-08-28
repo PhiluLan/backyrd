@@ -18,6 +18,7 @@ import { supabase } from "../../lib/supabase";
 import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 import { registerSafetySnapshot } from "../../lib/safety-content";
 import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
+import { userFacingError } from "../../lib/userFacingError";
 
 const theme = {
   bg: "#050506",
@@ -265,7 +266,7 @@ export default function QuickReviewScreen() {
           decisionId: decisionId ?? null,
         });
         console.error("submitQuickReview error:", e);
-        Alert.alert("Fehler", e?.message ?? "Review konnte nicht gespeichert werden.");
+        Alert.alert("Review nicht gespeichert", userFacingError(e, "Deine Review konnte gerade nicht gespeichert werden. Bitte versuche es noch einmal."));
       }
     } finally {
       setLoading(false);

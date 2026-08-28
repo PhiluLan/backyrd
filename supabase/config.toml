@@ -413,6 +413,11 @@ entrypoint = "./functions/generate-journey/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/generate-journey/*.html" ]
 
+[functions.public-spot-photo]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/public-spot-photo/index.ts"
+
 [functions.decision-north-star-internal]
 enabled = true
 verify_jwt = true

@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -14,6 +13,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import AppealDecisionButton from "../components/safety/AppealDecisionButton";
+import { StateView } from "../components/foundation/StateView";
 import { supabase } from "../lib/supabase";
 
 type SafetyReport = {
@@ -139,11 +139,7 @@ export default function SafetyCenterScreen() {
     ]);
 
     if (actionsResult.error || reportsResult.error) {
-      setError(
-        actionsResult.error?.message ??
-          reportsResult.error?.message ??
-          "Safety Center konnte nicht geladen werden.",
-      );
+      setError("Sicherheit & Support konnten gerade nicht geladen werden.");
     } else {
       setItems(
         (actionsResult.data ?? []) as SafetyAction[],
@@ -186,10 +182,10 @@ export default function SafetyCenterScreen() {
 
         <View style={{ flex: 1 }}>
           <Text style={styles.eyebrow}>
-            SAFETY & INTEGRITY
+            SICHERHEIT & VERTRAUEN
           </Text>
           <Text style={styles.title}>
-            Safety Center
+            Sicherheit & Support
           </Text>
         </View>
 
@@ -210,9 +206,7 @@ export default function SafetyCenterScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color="#FF4F91" />
-        </View>
+        <StateView kind="loading" title="Sicherheit wird geladen" />
       ) : (
         <ScrollView
           contentContainerStyle={[

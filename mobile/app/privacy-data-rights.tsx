@@ -24,6 +24,7 @@ import {
   requestMyAccountDeletion,
   requestMyDataExport,
 } from "@/lib/data-rights";
+import { StateView } from "@/components/foundation/StateView";
 
 function formatDate(value: string | null) {
   if (!value) return "–";
@@ -49,18 +50,17 @@ export default function PrivacyDataRightsScreen() {
   const router = useRouter();
   const [rows, setRows] = useState<DataRightsRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [working, setWorking] = useState<"export" | "delete" | "cancel" | null>(
     null,
   );
 
   const load = useCallback(async () => {
     try {
+      setLoadError(false);
       setRows(await getMyDataRightsRequests());
-    } catch (error: any) {
-      Alert.alert(
-        "Meine Daten",
-        error?.message ?? "Anfragen konnten nicht geladen werden.",
-      );
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -106,10 +106,10 @@ export default function PrivacyDataRightsScreen() {
           },
         ],
       );
-    } catch (error: any) {
+    } catch {
       Alert.alert(
         "Export fehlgeschlagen",
-        error?.message ?? "Der Datenexport konnte nicht erstellt werden.",
+        "Der Datenexport konnte gerade nicht erstellt werden. Bitte versuche es erneut.",
       );
       await load();
     } finally {
@@ -147,7 +147,7 @@ export default function PrivacyDataRightsScreen() {
       const message =
         error?.message?.includes("admin_account_requires_manual_transfer")
           ? "Dieses Konto besitzt Admin-Rechte. Vor einer Löschung müssen Admin-Zugänge und Spot-Verantwortlichkeiten manuell übertragen werden."
-          : error?.message ?? "Die Löschanfrage konnte nicht erstellt werden.";
+          : "Die Löschanfrage konnte gerade nicht erstellt werden. Bitte versuche es erneut.";
 
       Alert.alert("Löschung nicht vorgemerkt", message);
     } finally {
@@ -182,10 +182,10 @@ export default function PrivacyDataRightsScreen() {
           ? "Dein Konto bleibt aktiv."
           : "Es wurde keine stornierbare Löschanfrage gefunden.",
       );
-    } catch (error: any) {
+    } catch {
       Alert.alert(
         "Stornierung fehlgeschlagen",
-        error?.message ?? "Die Anfrage konnte nicht storniert werden.",
+        "Die Anfrage konnte gerade nicht storniert werden. Bitte versuche es erneut.",
       );
     } finally {
       setWorking(null);
@@ -209,8 +209,16 @@ export default function PrivacyDataRightsScreen() {
 
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color="#FF4F91" />
+          <StateView kind="loading" title="Deine Daten werden geladen" message="Einen Moment bitte." />
         </View>
+      ) : loadError ? (
+        <StateView
+          kind="error"
+          title="Meine Daten nicht geladen"
+          message="Deine Anfragen konnten gerade nicht geladen werden."
+          actionLabel="Noch einmal versuchen"
+          onAction={() => void load()}
+        />
       ) : (
         <ScrollView
           contentContainerStyle={styles.content}
@@ -239,7 +247,7 @@ export default function PrivacyDataRightsScreen() {
               <View style={styles.cardCopy}>
                 <Text style={styles.cardTitle}>Datenexport</Text>
                 <Text style={styles.cardText}>
-                  Erstellt eine JSON-Datei mit Profil, Reviews, Social Posts,
+                  Erstellt eine JSON-Datei mit Profil, Reviews, Momenten,
                   Nachrichten, Decisions, Analytics und Einwilligungen.
                 </Text>
               </View>
@@ -260,7 +268,7 @@ export default function PrivacyDataRightsScreen() {
                 </Text>
                 {!!latestExport.failure_code && (
                   <Text style={styles.errorText}>
-                    {latestExport.failure_code}
+                    Der letzte Export konnte nicht abgeschlossen werden. Du kannst ihn erneut anfordern.
                   </Text>
                 )}
               </View>

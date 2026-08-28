@@ -1,14 +1,15 @@
 import "dotenv/config";
-import { ConfigContext, ExpoConfig } from "@expo/config";
 
 const APP_VERSION = "1.1.0";
 const IOS_PRODUCTION_BUNDLE_IDENTIFIER = "com.philipplanger.backyrd";
 const IOS_DEVELOPMENT_BUNDLE_IDENTIFIER = `${IOS_PRODUCTION_BUNDLE_IDENTIFIER}.dev`;
 
-function requiredReleaseValue(name: string, value: string | undefined) {
-  const isReleaseBuild =
-    process.env.EAS_BUILD === "true" ||
-    process.env.BACKYRD_RELEASE_BUILD === "1";
+function requiredReleaseValue(name = "", value = "", nativeBuildOnly = false) {
+  const isNativeProductionBuild =
+    process.env.EAS_BUILD === "true" && process.env.APP_VARIANT === "prod";
+  const isProductionOta =
+    !nativeBuildOnly && process.env.BACKYRD_RELEASE_BUILD === "1";
+  const isReleaseBuild = isNativeProductionBuild || isProductionOta;
 
   if (isReleaseBuild && !value?.trim()) {
     throw new Error(`Missing required production runtime configuration: ${name}`);
@@ -17,28 +18,32 @@ function requiredReleaseValue(name: string, value: string | undefined) {
   return value?.trim();
 }
 
-export default ({ config }: ConfigContext): ExpoConfig => {
+export default (context = { config: {} }) => {
+  const config = context.config;
   const variant = process.env.APP_VARIANT ?? "prod";
   const isDev = variant === "dev";
   const supabaseUrl = requiredReleaseValue(
     "EXPO_PUBLIC_SUPABASE_URL",
-    process.env.EXPO_PUBLIC_SUPABASE_URL
+    process.env.EXPO_PUBLIC_SUPABASE_URL ?? ""
   );
   const supabaseAnonKey = requiredReleaseValue(
     "EXPO_PUBLIC_SUPABASE_ANON_KEY",
-    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? ""
   );
   const googleMapsKey = requiredReleaseValue(
     "EXPO_PUBLIC_GOOGLE_MAPS_KEY",
-    process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY
+    process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ?? "",
+    true
   );
   const googleIosClientId = requiredReleaseValue(
     "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID",
-    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
+    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? "",
+    true
   );
   const googleWebClientId = requiredReleaseValue(
     "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID",
-    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "",
+    true
   );
 
   return {

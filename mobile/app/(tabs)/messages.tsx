@@ -1,11 +1,9 @@
 // mobile/app/(tabs)/messages.tsx
 import React, {
   useCallback,
-  useEffect,
   useState,
 } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
@@ -20,6 +18,8 @@ import { useRouter } from "expo-router";
 
 import Avatar from "../../components/Avatar";
 import { supabase } from "../../lib/supabase";
+import { StateView } from "../../components/foundation/StateView";
+import { userFacingError } from "../../lib/userFacingError";
 
 type ChatListItem = {
   chat_id: string;
@@ -34,15 +34,6 @@ type ChatListItem = {
   last_message_sender_id: string | null;
   unread_count: number;
 };
-
-function errorMessage(error: any) {
-  return (
-    error?.message ||
-    error?.details ||
-    error?.hint ||
-    "Chats konnten nicht geladen werden."
-  );
-}
 
 function formatTime(value: string | null) {
   if (!value) return "";
@@ -160,7 +151,7 @@ export default function MessagesScreen() {
       } catch (error: any) {
         console.log("get_my_direct_chats_v1 failed:", error);
         setChats([]);
-        setErrorText(errorMessage(error));
+        setErrorText(userFacingError(error, "Deine Nachrichten konnten gerade nicht geladen werden."));
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -175,18 +166,11 @@ export default function MessagesScreen() {
     }, [loadChats]),
   );
 
-  useEffect(() => {
-    void loadChats();
-  }, [loadChats]);
-
   if (loading) {
     return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#FF4F91" />
-          <Text style={styles.stateText}>
-            Nachrichten werden geladen …
-          </Text>
+          <StateView kind="loading" title="Nachrichten werden geladen" />
         </View>
       </SafeAreaView>
     );
@@ -201,33 +185,18 @@ export default function MessagesScreen() {
         </View>
 
         <Pressable
+          accessibilityRole="button"
           style={styles.headerIcon}
           onPress={() => router.push("/users/search" as any)}
           accessibilityLabel="Neuen Chat starten"
         >
-          <Ionicons name="person-add-outline" size={22} color="#FFFFFF" />
+          <Ionicons accessibilityElementsHidden name="person-add-outline" size={22} color="#FFFFFF" />
         </Pressable>
       </View>
 
       {errorText ? (
         <View style={styles.center}>
-          <Ionicons
-            name="alert-circle-outline"
-            size={38}
-            color="rgba(255,255,255,0.4)"
-          />
-          <Text style={styles.stateTitle}>
-            Nachrichten nicht verfügbar
-          </Text>
-          <Text style={styles.stateText}>{errorText}</Text>
-          <Pressable
-            style={styles.retryButton}
-            onPress={() => void loadChats()}
-          >
-            <Text style={styles.retryText}>
-              Erneut versuchen
-            </Text>
-          </Pressable>
+          <StateView kind="error" title="Nachrichten nicht verfügbar" message={errorText} actionLabel="Erneut versuchen" onAction={() => void loadChats()} />
         </View>
       ) : (
         <FlatList
@@ -249,19 +218,7 @@ export default function MessagesScreen() {
           }
           ListEmptyComponent={
             <View style={styles.center}>
-              <View style={styles.emptyIcon}>
-                <Ionicons
-                  name="chatbubbles-outline"
-                  size={34}
-                  color="#FF4F91"
-                />
-              </View>
-              <Text style={styles.stateTitle}>
-                Noch keine Nachrichten
-              </Text>
-              <Text style={styles.stateText}>
-                Suche nach einem öffentlichen Profil und starte deinen ersten Backyrd-Chat.
-              </Text>
+              <StateView kind="empty" title="Noch keine Nachrichten" message="Entdecke ein öffentliches Profil und starte deinen ersten Backyrd-Chat." />
             </View>
           }
           renderItem={({ item }) => {
@@ -279,6 +236,9 @@ export default function MessagesScreen() {
 
             return (
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Chat mit ${displayName}`}
+                accessibilityHint={hasUnread ? `${item.unread_count} ungelesene Nachrichten` : preview}
                 style={styles.chatRow}
                 onPress={() =>
                   router.push(
@@ -331,6 +291,7 @@ export default function MessagesScreen() {
                       </View>
                     ) : (
                       <Ionicons
+                        accessibilityElementsHidden
                         name="chevron-forward"
                         size={18}
                         color="rgba(255,255,255,0.28)"

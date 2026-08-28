@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { usePathname, useRouter } from "expo-router";
 import React, { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   AppState,
   type AppStateStatus,
@@ -18,6 +17,7 @@ import {
   type SafetyWriteStatus,
 } from "../../lib/safety-enforcement";
 import { supabase } from "../../lib/supabase";
+import { ProductLoading } from "../ui/ProductState";
 
 type Props = { children: ReactNode };
 const SAFETY_ALLOWED_ROUTES = [
@@ -115,7 +115,7 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
         ? `Du kannst Backyrd weiterhin ansehen und Spots entdecken. Bis ${end} kannst du jedoch keine Moments, Reviews oder Kommentare veröffentlichen. Im Safety Center siehst du den Grund und kannst die Entscheidung anfechten.`
         : "Du kannst Backyrd weiterhin ansehen und Spots entdecken. Momentan kannst du jedoch keine Moments, Reviews oder Kommentare veröffentlichen. Im Safety Center siehst du den Grund und kannst die Entscheidung anfechten.",
       [
-        { text: "Safety Center öffnen", onPress: () => router.push("/safety-center" as any) },
+        { text: "Sicherheit & Support öffnen", onPress: () => router.push("/safety-center" as any) },
         { text: "Backyrd nur ansehen", style: "cancel" },
       ],
     );
@@ -197,11 +197,7 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
   }
 
   if (loading && signedIn && status === null) {
-    return (
-      <View style={styles.loadingOverlay} pointerEvents="none">
-        <ActivityIndicator color="#FF4F91" size="small" />
-      </View>
-    );
+    return <ProductLoading label="Sicherheit wird geprüft" />;
   }
 
   return <>{children}</>;
@@ -233,5 +229,4 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: "rgba(255,255,255,0.10)",
   },
   secondaryButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "900" },
-  loadingOverlay: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#050506" },
 });

@@ -108,6 +108,47 @@ if printf '%s\n' "$protected" | grep -Fx "$canonical_onboarding_path" >/dev/null
   fi
 fi
 
+# Consumer Web Design Closure adds a presentation-only Web client for the
+# already frozen Production Decision contract. This is a one-time, byte-exact
+# exception: all four reviewed paths must match their pinned diff hashes, the
+# Product contract evidence must be in the same change, and v13 must remain
+# untouched. Any later byte, fifth adjacent path, or Engine change fails closed.
+web_closure_marker='web/docs/WEB_PRODUCT_CONTRACT_MATRIX.md'
+web_closure_contract='web/tests/consumer-contracts.test.mjs'
+web_closure_paths=(
+  'web/app/decision/page.tsx'
+  'web/app/settings/decision-history/page.tsx'
+  'web/components/consumer/decision-experience.tsx'
+  'web/lib/decision-web-api.ts'
+)
+web_closure_hashes=(
+  '32586d071517305da5c60c47ef65f1f87729695c370adad7901b32c56e6f7778'
+  'b45be6558834bcdc848afda24e4e64b2dfdde4b022539b0b68df1054f6908702'
+  '4d4f9d22766e0f37b7c05c17f56ad5366e58f6e0bbaa105e3a689432abaa767d'
+  '4e75221e576df4564c7db0d6fefb6b6a7dcb5529d6877b1a346825906959e548'
+)
+if printf '%s\n' "$changed" | grep -Fx "$web_closure_marker" >/dev/null \
+  && printf '%s\n' "$changed" | grep -Fx "$web_closure_contract" >/dev/null \
+  && git diff --quiet "$base"...HEAD -- supabase/functions/decision-v13/index.ts; then
+  web_closure_valid=true
+  for i in "${!web_closure_paths[@]}"; do
+    web_path="${web_closure_paths[$i]}"
+    web_hash="$(git diff "$base"...HEAD -- "$web_path" | sha256sum | awk '{print $1}')"
+    if [[ "$web_hash" != "${web_closure_hashes[$i]}" ]]; then
+      web_closure_valid=false
+      echo "D2 scope guard: Consumer Web hash mismatch: $web_path expected=${web_closure_hashes[$i]} actual=$web_hash"
+      break
+    fi
+  done
+  if [[ "$web_closure_valid" == true ]]; then
+    for i in "${!web_closure_paths[@]}"; do
+      web_path="${web_closure_paths[$i]}"
+      protected="$(printf '%s\n' "$protected" | grep -Fvx "$web_path" || true)"
+      echo "D2 scope guard: accepted reviewed Consumer Web presentation: $web_path hash=${web_closure_hashes[$i]}"
+    done
+  fi
+fi
+
 if [[ -n "$protected" ]]; then
   echo "D2 scope guard: protected Decision Engine/Product path changed"
   printf '%s\n' "$protected"

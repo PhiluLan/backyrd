@@ -16,12 +16,13 @@ import {
   View,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import type * as Location from "expo-location";
 
 import { getPrivacySafeLocation, reverseGeocodePrivacySafe } from "../../lib/locationPrivacy";
 import { supabase } from "../../lib/supabase";
 import { ensureProfile } from "../../lib/profile";
+import { StateView } from "../../components/foundation/StateView";
 
 type ProfileRow = {
   id: string;
@@ -108,6 +109,8 @@ async function getVerifiedUserOrSignOut() {
 
 export default function ProfileOnboardingScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ preview?: string }>();
+  const previewMode = __DEV__ && params.preview === "1";
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -118,6 +121,7 @@ export default function ProfileOnboardingScreen() {
   const [city, setCity] = useState("Basel");
   const [country, setCountry] = useState("Schweiz");
   const [locationLoading, setLocationLoading] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const birthdate = useMemo(() => birthdateFromAge(age), [age]);
 
@@ -125,6 +129,16 @@ export default function ProfileOnboardingScreen() {
     let alive = true;
 
     async function load() {
+      if (previewMode) {
+        setFirstName("");
+        setUsername("");
+        setAge("");
+        setCity("Basel");
+        setCountry("Schweiz");
+        setLoading(false);
+        return;
+      }
+
       try {
         const user = await getVerifiedUserOrSignOut();
 
@@ -165,7 +179,7 @@ export default function ProfileOnboardingScreen() {
     return () => {
       alive = false;
     };
-  }, [router]);
+  }, [previewMode, router]);
 
   async function detectLocation() {
     try {
@@ -195,8 +209,8 @@ export default function ProfileOnboardingScreen() {
       }
 
       setCity(detectedCity);
-    } catch (error: any) {
-      Alert.alert("Standort fehlgeschlagen", error?.message ?? "Bitte gib deine Stadt manuell ein.");
+    } catch {
+      Alert.alert("Standort fehlgeschlagen", "Dein Standort konnte gerade nicht ermittelt werden. Bitte gib deine Stadt manuell ein.");
     } finally {
       setLocationLoading(false);
     }
@@ -207,24 +221,30 @@ export default function ProfileOnboardingScreen() {
     const cleanedUsername = usernameFrom(username);
     const cleanedCity = clean(city);
     const cleanedCountry = clean(country) || "Schweiz";
+    setFormError("");
 
     if (!cleanedFirstName) {
-      Alert.alert("Name fehlt", "Bitte gib deinen Namen ein.");
+      setFormError("Bitte gib deinen Namen ein.");
       return;
     }
 
     if (!cleanedUsername || cleanedUsername.length < 3) {
-      Alert.alert("Benutzername fehlt", "Bitte wähle einen Benutzernamen mit mindestens 3 Zeichen.");
+      setFormError("Bitte wähle einen Benutzernamen mit mindestens 3 Zeichen.");
       return;
     }
 
     if (!birthdate) {
-      Alert.alert("Alter prüfen", "Bitte gib dein Alter als Zahl ein. Backyrd ist ab 13 Jahren.");
+      setFormError("Bitte gib dein Alter als Zahl ein. Backyrd ist ab 13 Jahren.");
       return;
     }
 
     if (!cleanedCity) {
-      Alert.alert("Stadt fehlt", "Bitte gib deine aktuelle Stadt ein.");
+      setFormError("Bitte gib deine aktuelle Stadt ein.");
+      return;
+    }
+
+    if (previewMode) {
+      setFormError("Vorschau aktiv: Es werden keine Profildaten gespeichert.");
       return;
     }
 
@@ -257,28 +277,18 @@ export default function ProfileOnboardingScreen() {
       console.log("profile onboarding save failed", error);
 
       if (isUsernameDuplicateError(error)) {
-        Alert.alert(
-          "Benutzername vergeben",
-          "Dieser Benutzername ist schon vergeben. Bitte nimm eine kleine Variante, zum Beispiel mit Punkt oder Zahl."
-        );
+        setFormError("Dieser Benutzername ist schon vergeben. Bitte nimm eine kleine Variante, zum Beispiel mit Punkt oder Zahl.");
         return;
       }
 
-      Alert.alert(
-        "Speichern fehlgeschlagen",
-        "Dein Profil konnte gerade nicht gespeichert werden. Versuch es bitte noch einmal."
-      );
+      setFormError("Dein Profil konnte gerade nicht gespeichert werden. Versuch es bitte noch einmal.");
     } finally {
       setSaving(false);
     }
   }
 
   if (loading) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color="#fff" />
-      </View>
-    );
+    return <StateView kind="loading" title="Profil wird vorbereitet" />;
   }
 
   return (
@@ -310,6 +320,12 @@ export default function ProfileOnboardingScreen() {
                 <Text style={styles.cardHint}>Nur was wir für gute Vorschläge brauchen.</Text>
               </View>
 
+              {formError ? (
+                <View accessibilityRole="alert" style={styles.formError}>
+                  <Text style={styles.formErrorText}>{formError}</Text>
+                </View>
+              ) : null}
+
               <View style={styles.field}>
                 <Text style={styles.label}>Name</Text>
                 <TextInput
@@ -321,6 +337,8 @@ export default function ProfileOnboardingScreen() {
                   placeholder="Philipp"
                   placeholderTextColor="rgba(255,255,255,0.34)"
                   autoCapitalize="words"
+                  textContentType="givenName"
+                  returnKeyType="next"
                   style={styles.input}
                 />
               </View>
@@ -334,6 +352,8 @@ export default function ProfileOnboardingScreen() {
                   placeholderTextColor="rgba(255,255,255,0.34)"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  textContentType="username"
+                  returnKeyType="next"
                   style={styles.input}
                 />
               </View>
@@ -359,6 +379,7 @@ export default function ProfileOnboardingScreen() {
                     placeholder="Basel"
                     placeholderTextColor="rgba(255,255,255,0.34)"
                     autoCapitalize="words"
+                    textContentType="addressCity"
                     style={[styles.input, styles.cityInput]}
                   />
 
@@ -384,6 +405,8 @@ export default function ProfileOnboardingScreen() {
                   placeholder="Schweiz"
                   placeholderTextColor="rgba(255,255,255,0.34)"
                   autoCapitalize="words"
+                  textContentType="countryName"
+                  returnKeyType="done"
                   style={styles.input}
                 />
               </View>
@@ -391,6 +414,8 @@ export default function ProfileOnboardingScreen() {
               <Pressable
                 onPress={saveProfile}
                 disabled={saving}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: saving, busy: saving }}
                 style={({ pressed }) => [styles.primaryButton, saving && styles.disabled, pressed && styles.pressed]}
               >
                 {saving ? <ActivityIndicator color="#111113" /> : <Text style={styles.primaryButtonText}>Weiter</Text>}
@@ -411,12 +436,6 @@ const styles = StyleSheet.create({
   keyboardRoot: {
     flex: 1,
     backgroundColor: "#050506",
-  },
-  loading: {
-    flex: 1,
-    backgroundColor: "#050506",
-    alignItems: "center",
-    justifyContent: "center",
   },
   container: {
     flex: 1,
@@ -489,6 +508,19 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.045)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.09)",
+  },
+  formError: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,107,107,0.35)",
+    backgroundColor: "rgba(255,107,107,0.09)",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  formErrorText: {
+    color: "#FFC0C0",
+    fontSize: 14,
+    lineHeight: 20,
   },
   cardHeader: {
     marginBottom: 18,

@@ -35,6 +35,8 @@ import { v4 as uuidv4 } from "uuid";
 import Avatar from "../../components/Avatar";
 import { supabase } from "../../lib/supabase";
 import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
+import { userFacingError } from "../../lib/userFacingError";
+import { StateView } from "../../components/foundation/StateView";
 
 type Message = {
   id: string;
@@ -162,15 +164,6 @@ function timeLabel(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function errorMessage(error: any) {
-  return (
-    error?.message ||
-    error?.details ||
-    error?.hint ||
-    "Bitte versuche es erneut."
-  );
 }
 
 export default function ChatScreen() {
@@ -328,7 +321,7 @@ export default function ChatScreen() {
       } catch (error: any) {
         Alert.alert(
           "Chat konnte nicht geladen werden",
-          errorMessage(error),
+          userFacingError(error, "Der Chat konnte gerade nicht geladen werden. Bitte versuche es noch einmal."),
         );
       } finally {
         if (active) setLoading(false);
@@ -414,7 +407,7 @@ export default function ChatScreen() {
       }
       Alert.alert(
         "Nachricht konnte nicht gesendet werden",
-        errorMessage(error),
+        userFacingError(error, "Deine Nachricht konnte gerade nicht gesendet werden. Bitte versuche es noch einmal."),
       );
     } finally {
       setSending(false);
@@ -488,7 +481,7 @@ export default function ChatScreen() {
       } catch (error: any) {
         Alert.alert(
           "Bild konnte nicht gesendet werden",
-          errorMessage(error),
+          userFacingError(error, "Das Bild konnte gerade nicht gesendet werden. Bitte versuche es noch einmal."),
         );
       } finally {
         setImageSending(false);
@@ -534,7 +527,7 @@ export default function ChatScreen() {
       } catch (error: any) {
         Alert.alert(
           "Bildauswahl fehlgeschlagen",
-          errorMessage(error),
+          userFacingError(error, "Das Bild konnte gerade nicht ausgewählt werden. Bitte versuche es noch einmal."),
         );
       }
     },
@@ -628,10 +621,7 @@ export default function ChatScreen() {
       >
         {loading ? (
           <View style={styles.loading}>
-            <ActivityIndicator
-              size="large"
-              color="#FF4F91"
-            />
+            <StateView kind="loading" title="Chat wird geladen" />
           </View>
         ) : (
           <FlatList

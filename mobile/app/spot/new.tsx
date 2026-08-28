@@ -19,6 +19,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { searchAddress } from "../../lib/geocode";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { userFacingError } from "../../lib/userFacingError";
 
 /* ================== Types ================== */
 type Category = {
@@ -338,7 +339,7 @@ export default function NewSpotScreen() {
       router.replace("/(tabs)/map");
     } catch (e: any) {
       console.error(e);
-      Alert.alert("Fehler", e.message ?? String(e));
+      Alert.alert("Spot nicht hinzugefügt", userFacingError(e, "Der Spot konnte gerade nicht hinzugefügt werden. Bitte versuche es noch einmal."));
     } finally {
       setLoading(false);
     }

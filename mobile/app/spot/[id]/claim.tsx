@@ -16,6 +16,8 @@ import {
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
+import { technicalErrorText, userFacingError } from "@/lib/userFacingError";
+import { StateView } from "@/components/foundation/StateView";
 
 const FUNCTION_URL =
   "https://hjgcrrzfjchzqoegcywn.supabase.co/functions/v1/send-spot-claim-code";
@@ -45,12 +47,7 @@ function isValidEmail(value: string) {
 }
 
 function errorMessage(err: any) {
-  const raw =
-    err?.message ||
-    err?.error_description ||
-    err?.details ||
-    err?.hint ||
-    String(err ?? "");
+  const raw = technicalErrorText(err);
 
   if (raw.includes("business_domain_does_not_match_spot_name")) {
     return "Diese E-Mail-Domain passt nicht eindeutig zum Namen des Spots. Verwende bitte eine offizielle Unternehmens-Mailadresse.";
@@ -80,7 +77,7 @@ function errorMessage(err: any) {
     return "Bitte melde dich erneut an.";
   }
 
-  return raw || "Etwas ist schiefgelaufen.";
+  return userFacingError(err, "Die Anfrage konnte gerade nicht verarbeitet werden. Bitte versuche es noch einmal.");
 }
 
 export default function SpotClaimScreen() {
@@ -301,7 +298,7 @@ export default function SpotClaimScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#fff" />
+        <StateView kind="loading" title="Claim wird vorbereitet" />
       </View>
     );
   }

@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,6 +16,7 @@ import {
   acceptLegalDocument,
   getMyPendingLegalDocuments,
 } from "@/lib/consent";
+import { StateView } from "@/components/foundation/StateView";
 
 type PendingDocument = {
   document_id: string;
@@ -33,6 +33,7 @@ export default function LegalConsentScreen() {
   const [documents, setDocuments] = useState<PendingDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     void load();
@@ -43,11 +44,8 @@ export default function LegalConsentScreen() {
       setDocuments(
         (await getMyPendingLegalDocuments()) as PendingDocument[],
       );
-    } catch (error: any) {
-      Alert.alert(
-        "Rechtsdokumente",
-        error?.message ?? "Dokumente konnten nicht geladen werden.",
-      );
+    } catch {
+      setErrorMessage("Dokumente konnten gerade nicht geladen werden. Bitte versuche es erneut.");
     } finally {
       setLoading(false);
     }
@@ -60,36 +58,23 @@ export default function LegalConsentScreen() {
         await acceptLegalDocument(document.document_id);
       }
       router.replace("/(tabs)" as never);
-    } catch (error: any) {
-      Alert.alert(
-        "Bestätigung fehlgeschlagen",
-        error?.message ?? "Bitte versuche es nochmals.",
-      );
+    } catch {
+      setErrorMessage("Die Bestätigung konnte nicht gespeichert werden. Bitte versuche es nochmals.");
     } finally {
       setAccepting(false);
     }
   }
 
   if (loading) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color="#FF4F91" />
-      </View>
-    );
+    return <StateView kind="loading" title="Dokumente werden geladen" />;
+  }
+
+  if (errorMessage && documents.length === 0) {
+    return <StateView kind="error" title="Kurz den Faden verloren" message={errorMessage} actionLabel="Noch einmal versuchen" onAction={() => { setErrorMessage(null); void load(); }} />;
   }
 
   if (documents.length === 0) {
-    return (
-      <View style={styles.loading}>
-        <Text style={styles.emptyTitle}>Alles bestätigt</Text>
-        <Pressable
-          style={styles.button}
-          onPress={() => router.replace("/(tabs)" as never)}
-        >
-          <Text style={styles.buttonText}>Weiter zu Backyrd</Text>
-        </Pressable>
-      </View>
-    );
+    return <StateView kind="empty" title="Alles bestätigt" message="Du hast alle aktuell erforderlichen Dokumente bestätigt." actionLabel="Weiter zu Backyrd" onAction={() => router.replace("/(tabs)" as never)} />;
   }
 
   return (
@@ -101,6 +86,7 @@ export default function LegalConsentScreen() {
         <Text style={styles.lead}>
           Bitte lies und bestätige die aktuell gültigen Dokumente.
         </Text>
+        {errorMessage ? <Text accessibilityLiveRegion="polite" style={styles.inlineError}>{errorMessage}</Text> : null}
 
         {documents.map((document) => (
           <View key={document.document_id} style={styles.documentCard}>
@@ -177,5 +163,5 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { color: "#050506", fontWeight: "900", fontSize: 16 },
-  emptyTitle: { color: "#FFFFFF", fontSize: 24, fontWeight: "900" },
+  inlineError: { marginTop: 16, padding: 12, borderRadius: 14, color: "#FFD1DF", backgroundColor: "rgba(255,79,145,0.13)", fontSize: 14, lineHeight: 20 },
 });

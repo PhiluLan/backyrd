@@ -25,9 +25,11 @@ assert.match(home, /loadDiscoverySpots/, "Home must use the canonical Product-vi
 assert.doesNotMatch(home, /\.from\(["']spots["']\)/, "Home must not rebuild Product visibility in the client");
 assert.doesNotMatch(home, /GERADE ANGESAGT/i, "Home must not make an unsupported trending claim");
 assert.match(spotImages, /distribution_trust_spot_catalog_v1/, "image discovery must reuse Product visibility");
-assert.match(spotImages, /headerPhotoUrl[\s\S]*photoUrl[\s\S]*headerPhotoPath/, "image precedence must remain deterministic");
+assert.match(spotImages, /resolveCanonicalSpotImage/, "image precedence must have one canonical resolver");
+assert.match(spotImages, /OWNER_ADMIN[\s\S]*BACKYRD_FALLBACK/, "only the verified header image may become the primary source");
 assert.match(spotArtwork, /cachePolicy="memory-disk"/, "editorial images must use the device cache");
 assert.match(spotArtwork, /onError=/, "image errors must have an explicit fallback path");
+assert.match(spotArtwork, /preferredOwnerImageFailed/, "a broken preferred image must fall through to Google");
 assert.match(decision, /<SpotArtwork/, "Decision must share the canonical image renderer");
 assert.doesNotMatch(tabs, /checkForUpdateAsync|fetchUpdateAsync|reloadAsync/, "Tabs must not control OTA lifecycle");
 assert.doesNotMatch(profile, /\.insert\(|\.update\(/, "Mobile profile repair must remain read-only");

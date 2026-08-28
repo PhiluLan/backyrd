@@ -27,6 +27,7 @@ import { awardAchievementsForUser } from "../../lib/achievementEngine";
 import { AchievementUnlockModal } from "../../components/AchievementUnlockModal";
 import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 import { registerSafetySnapshot } from "../../lib/safety-content";
+import { userFacingError } from "../../lib/userFacingError";
 
 const theme = {
   colors: {
@@ -167,7 +168,7 @@ export default function NewReviewScreen() {
       }
     } catch (e: any) {
       console.error("pickImage error:", e);
-      Alert.alert("Fehler", e.message ?? "Konnte kein Bild auswählen.");
+      Alert.alert("Bild nicht ausgewählt", userFacingError(e, "Das Bild konnte gerade nicht ausgewählt werden."));
     }
   }
 
@@ -381,8 +382,8 @@ export default function NewReviewScreen() {
         console.error("submitReview error:", e);
 
         Alert.alert(
-          "Fehler",
-          e.message ?? "Konnte Review nicht speichern.",
+          "Review nicht gespeichert",
+          userFacingError(e, "Deine Review konnte gerade nicht gespeichert werden. Bitte versuche es noch einmal."),
         );
       }
     } finally {

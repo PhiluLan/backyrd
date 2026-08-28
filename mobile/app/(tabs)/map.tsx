@@ -1,25 +1,24 @@
 // backyrd/mobile/app/map.tsx
 
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import {
   View,
   Alert,
   Pressable,
   Text,
-  ActivityIndicator,
   ScrollView,
   StyleSheet,
   TextInput,
   Dimensions,
   Animated,
   FlatList,
-  Image,
   PanResponder,
+  Modal,
 } from "react-native";
 
 import ClusteredMapView from "react-native-map-clustering";
 import { Marker, PROVIDER_GOOGLE } from "react-native-maps";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -33,30 +32,33 @@ import { hasActiveConsent } from "../../lib/consent";
 import { MOOD_SUGGESTIONS } from "../../lib/moods";
 import { trackAnalyticsEvent } from "../../lib/analytics";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
+import { AppText } from "../../components/foundation/AppText";
+import { Button, IconButton } from "../../components/foundation/Button";
+import { Chip } from "../../components/foundation/Chip";
+import { StateView } from "../../components/foundation/StateView";
+import { backyrdTheme as theme } from "../../theme/backyrd";
+import { clusterPolicyFor, resolveMapZoomBucket, type MapZoomBucket } from "../../lib/mapDiscoveryPolicy";
 
 const BASEL = { latitude: 47.5596, longitude: 7.5886 };
-const { height: SCREEN_H } = Dimensions.get("window");
 
+function displayMoodLabel(value: string) {
+  const normalized = value.trim().toLowerCase();
+  const localized: Record<string, string> = {
+    gemutlich: "Gemütlich",
+    gemuetlich: "Gemütlich",
+    lassig: "Lässig",
+    laessig: "Lässig",
+    "klassisch franzosisch": "Klassisch französisch",
+    "klassisch französisch": "Klassisch französisch",
+  };
+  return localized[normalized] ?? normalized.replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
+}
+const { height: SCREEN_H } = Dimensions.get("window");
 const SNAP_COLLAPSED = 400;
 const SHEET_HEIGHT = SCREEN_H;
 const OFFSET_COLLAPSED = SHEET_HEIGHT - SNAP_COLLAPSED;
 const OFFSET_FULL = 0;
 const OFFSET_HIDDEN = SHEET_HEIGHT + 40;
-
-const theme = {
-  colors: {
-    background: "#050506",
-    surface: "#111113",
-    surfaceElevated: "#17171A",
-    border: "rgba(255,255,255,0.09)",
-    text: "#FFFFFF",
-    textMuted: "rgba(255,255,255,0.58)",
-    textSoft: "rgba(255,255,255,0.74)",
-    primary: "#FF4F91",
-    pinkSoft: "#FFC5DA",
-    greenSoft: "#C8E3A6",
-  },
-};
 
 // Normalisiert Suchbegriffe für Textsuche
 const normalizeText = (str?: string | null) =>
@@ -89,7 +91,9 @@ type Spot = {
 export default function MapScreen() {
   const { spots: globalSpots, refresh, loading } = useSpotsStore();
   const router = useRouter();
-  const params = useLocalSearchParams<{ spotIds?: string }>();
+  const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ spotIds?: string; view?: string; lat?: string; lng?: string }>();
+  const explicitMapIntent = params.view === "map" || Boolean(params.lat && params.lng);
 
   // Wenn von der Startseite Spot-IDs übergeben wurden → nur diese anzeigen
   const initialSpotIdList = useMemo(
@@ -124,11 +128,13 @@ export default function MapScreen() {
   const [topMoodChips, setTopMoodChips] = useState<string[]>([]);
 
   const [dbCategories, setDbCategories] = useState<DbCategory[]>([]);
-  const [region, setRegion] = useState({
-    ...BASEL,
+  const [region, setRegion] = useState(() => ({
+    latitude: Number(params.lat) || BASEL.latitude,
+    longitude: Number(params.lng) || BASEL.longitude,
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
-  });
+  }));
+  const [zoomBucket, setZoomBucket] = useState<MapZoomBucket>("city");
 
   // Auswahl: Mood über Chip
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
@@ -142,10 +148,14 @@ export default function MapScreen() {
   const [debouncedSearch] = useDebounce(search, 350);
 
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
-  const [viewMode, setViewMode] = useState<"map" | "list">("map");
+  const [viewMode, setViewMode] = useState<"map" | "list">(explicitMapIntent ? "map" : "list");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const mapRef = useRef<ClusteredMapView | null>(null);
+  const listRef = useRef<FlatList<Spot> | null>(null);
+  const listScrollOffset = useRef(0);
   const [locationConsentGranted, setLocationConsentGranted] = useState(false);
+  const clusterPolicy = useMemo(() => clusterPolicyFor(zoomBucket), [zoomBucket]);
 
   const refreshLocationConsent = React.useCallback(async () => {
     const granted = await hasActiveConsent("precise_location", {
@@ -370,14 +380,34 @@ export default function MapScreen() {
     spotMatchesSearch,
   ]);
 
+  useEffect(() => {
+    if (viewMode === "list") {
+      requestAnimationFrame(() => listRef.current?.scrollToOffset({ offset: listScrollOffset.current, animated: false }));
+    }
+  }, [viewMode]);
+
+  const handleRegionChangeComplete = useCallback((nextRegion: typeof region) => {
+    setRegion(nextRegion);
+    setZoomBucket((current) => resolveMapZoomBucket(nextRegion.latitudeDelta, current));
+  }, []);
+
+  const changeViewMode = useCallback((nextView: "map" | "list") => {
+    if (nextView === viewMode) return;
+    setViewMode(nextView);
+  }, [viewMode]);
+
   /* =============================================================
      MAP RENDERING
   ============================================================= */
 
-  const renderedMarkers = filteredSpots.map((spot) => (
+  const renderedMarkers = filteredSpots.map((spot) => {
+    const isSelected = selectedSpot?.id === spot.id;
+    return (
         <Marker
           key={spot.id}
           coordinate={{ latitude: spot.lat, longitude: spot.lng }}
+          tracksViewChanges={isSelected}
+          accessibilityLabel={`${spot.name} auf der Karte`}
           onPress={(e) => {
             e.stopPropagation();
             setSelectedSpot(spot);
@@ -392,17 +422,40 @@ export default function MapScreen() {
             openSheetCollapsed();
           }}
         >
-          <Image
-            source={require("../../assets/icons/marker.png")}
-            style={{
-              width: 34,
-              height: 34,
-              tintColor: spot.categories?.color || theme.colors.primary,
-            }}
-            resizeMode="contain"
-          />
+          <View style={[styles.marker, isSelected && styles.markerSelected]}>
+            <View style={[styles.markerCore, isSelected && styles.markerCoreSelected]} />
+          </View>
         </Marker>
-      ));
+      );
+  });
+
+  const clearFilters = () => {
+    setSelectedMood(null);
+    setSelectedMoodId(null);
+    setSearchMoodId(null);
+    setSelectedCategory(null);
+    setSearch("");
+  };
+
+  const clearSelectedMood = () => {
+    const activeMood = selectedMood;
+    setSelectedMood(null);
+    setSelectedMoodId(null);
+    if (activeMood && search.toLowerCase() === activeMood.toLowerCase()) setSearch("");
+  };
+
+  const activeFilters = [
+    selectedMood
+      ? { id: "mood", label: selectedMood, onRemove: clearSelectedMood }
+      : null,
+    selectedCategory
+      ? {
+          id: "category",
+          label: dbCategories.find((category) => category.id === selectedCategory)?.name ?? "Kategorie",
+          onRemove: () => setSelectedCategory(null),
+        }
+      : null,
+  ].filter((filter): filter is { id: string; label: string; onRemove: () => void } => Boolean(filter));
 
   /* =============================================================
      BOTTOM SHEET
@@ -411,7 +464,7 @@ export default function MapScreen() {
   const translateY = useRef(new Animated.Value(OFFSET_HIDDEN)).current;
   const lastOffset = useRef(OFFSET_HIDDEN);
 
-  const snapTo = (offset: number, velocity = 0) => {
+  const snapTo = useCallback((offset: number, velocity = 0) => {
     lastOffset.current = offset;
     Animated.spring(translateY, {
       toValue: offset,
@@ -421,13 +474,19 @@ export default function MapScreen() {
       stiffness: 180,
       mass: 0.9,
     }).start();
-  };
+  }, [translateY]);
 
   const openSheetCollapsed = () => snapTo(OFFSET_COLLAPSED);
-  const hideSheet = () => {
+  const hideSheet = useCallback(() => {
     setSelectedSpot(null);
     snapTo(OFFSET_HIDDEN);
-  };
+  }, [snapTo]);
+
+  useEffect(() => {
+    if (selectedSpot && !filteredSpots.some((spot) => spot.id === selectedSpot.id)) {
+      hideSheet();
+    }
+  }, [filteredSpots, selectedSpot, hideSheet]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -517,9 +576,9 @@ export default function MapScreen() {
 
   if (loading)
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color="#fff" />
-      </View>
+      <SafeAreaView style={styles.center} edges={["top"]}>
+        <StateView kind="loading" title={viewMode === "map" ? "Karte wird geladen" : "Orte werden geladen"} />
+      </SafeAreaView>
     );
 
   return (
@@ -527,20 +586,19 @@ export default function MapScreen() {
       {/* HEADER */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <View>
-            <Text style={styles.locationLabel}>Karte entdecken</Text>
-            <Text style={styles.title}>Orte entdecken</Text>
+          <View style={styles.titleCopy}>
+            <AppText role="label" tone="lime">{viewMode === "list" ? "BASEL · ORTE" : "BASEL · KARTE"}</AppText>
+            <AppText role="screenTitle">Orte entdecken</AppText>
           </View>
-          <Text style={styles.resultCount}>{filteredSpots.length} Spots</Text>
+          <AppText role="caption" tone="secondary" style={styles.resultCount}>{filteredSpots.length} Orte</AppText>
         </View>
 
         <View style={styles.headerTopRow}>
-          {/* SEARCH */}
           <View style={styles.searchBox}>
-            <Ionicons name="search" size={19} color="rgba(255,255,255,0.54)" style={{ marginRight: 8 }} />
+            <Ionicons name="search" size={19} color={theme.color.textSecondary} style={{ marginRight: 8 }} />
             <TextInput
-              placeholder="Suche nach Ort, Mood oder Stadt..."
-              placeholderTextColor="rgba(255,255,255,0.36)"
+              placeholder="Suchen"
+              placeholderTextColor={theme.color.textMuted}
               value={search}
               onChangeText={setSearch}
               style={styles.searchInput}
@@ -549,148 +607,115 @@ export default function MapScreen() {
               returnKeyType="search"
             />
             {search.length > 0 && (
-              <Pressable onPress={() => setSearch("")}>
-                <Ionicons name="close" size={17} color="rgba(255,255,255,0.62)" />
-              </Pressable>
-            )}
-            {search.length === 0 && (
-              <Ionicons name="options-outline" size={19} color={theme.colors.pinkSoft} />
+              <IconButton accessibilityLabel="Suche löschen" onPress={() => setSearch("")} style={styles.searchClear}>
+                <Ionicons name="close" size={17} color={theme.color.textSecondary} />
+              </IconButton>
             )}
           </View>
 
           <Pressable
-            style={styles.toggleBtn}
-            onPress={() => setViewMode((v) => (v === "map" ? "list" : "map"))}
+            accessibilityRole="button"
+            accessibilityLabel="Filter öffnen"
+            style={({ pressed }) => [styles.headerButton, activeFilters.length > 0 && styles.headerButtonActive, pressed && styles.pressed]}
+            onPress={() => setFiltersOpen(true)}
           >
-            <Ionicons
-              name={viewMode === "map" ? "list-outline" : "map-outline"}
-              size={20}
-              color={theme.colors.text}
-            />
+            <Ionicons name="options-outline" size={20} color={activeFilters.length ? theme.color.background : theme.color.textPrimary} />
           </Pressable>
 
-          <Pressable
-            style={styles.clearBtn}
-            onPress={() => {
-              setSelectedMood(null);
-              setSelectedMoodId(null);
-              setSearchMoodId(null);
-              setSelectedCategory(null);
-              setSearch("");
-            }}
-          >
-            <Ionicons name="refresh" size={18} color={theme.colors.text} />
-          </Pressable>
+          <View accessibilityRole="tablist" style={styles.perspectiveSwitch}>
+            <Pressable accessibilityRole="tab" accessibilityState={{ selected: viewMode === "list" }} accessibilityLabel="Listenansicht" style={({ pressed }) => [styles.perspectiveOption, viewMode === "list" && styles.perspectiveOptionActive, pressed && styles.pressed]} onPress={() => changeViewMode("list")}>
+              <Ionicons name="list-outline" size={18} color={viewMode === "list" ? theme.color.background : theme.color.textPrimary} />
+              <AppText role="caption" style={{ color: viewMode === "list" ? theme.color.background : theme.color.textPrimary }}>Liste</AppText>
+            </Pressable>
+            <Pressable accessibilityRole="tab" accessibilityState={{ selected: viewMode === "map" }} accessibilityLabel="Kartenansicht" style={({ pressed }) => [styles.perspectiveOption, viewMode === "map" && styles.perspectiveOptionActive, pressed && styles.pressed]} onPress={() => changeViewMode("map")}>
+              <Ionicons name="map-outline" size={18} color={viewMode === "map" ? theme.color.background : theme.color.textPrimary} />
+              <AppText role="caption" style={{ color: viewMode === "map" ? theme.color.background : theme.color.textPrimary }}>Karte</AppText>
+            </Pressable>
+          </View>
         </View>
 
-        {/* MOOD FILTER – dynamic + fallback */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterScroll}
-        >
-          {(topMoodChips.length ? topMoodChips : MOOD_SUGGESTIONS).map((m) => {
-            const active = selectedMood?.toLowerCase() === m.toLowerCase();
-            return (
-              <Pressable
-                key={m}
-                onPress={() => {
-                  setSelectedMood((cur) =>
-                    cur?.toLowerCase() === m.toLowerCase() ? null : m
-                  );
-                  // optional: Suchfeld mit Mood befüllen
-                  setSearch((cur) =>
-                    cur?.toLowerCase() === m.toLowerCase() ? "" : m
-                  );
-                }}
-                style={[
-                  styles.moodChipBtn,
-                  {
-                    backgroundColor: active
-                      ? theme.colors.primary
-                      : "rgba(255,255,255,0.055)",
-                    borderColor: active
-                      ? theme.colors.primary
-                      : theme.colors.border,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.moodChipTextBtn,
-                    { color: active ? "#111113" : theme.colors.textSoft },
-                  ]}
-                >
-                  {m}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        {/* CATEGORY FILTER */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterScroll}
-        >
-          {dbCategories.map((cat) => {
-            const active = selectedCategory === cat.id;
-            return (
-              <Pressable
-                key={cat.id}
-                onPress={() =>
-                  setSelectedCategory((cur) => (cur === cat.id ? null : cat.id))
-                }
-                style={[
-                  styles.catChip,
-                  {
-                    backgroundColor: active
-                      ? cat.color || theme.colors.primary
-                      : "rgba(255,255,255,0.055)",
-                    borderColor: active
-                      ? cat.color || theme.colors.primary
-                      : theme.colors.border,
-                  },
-                ]}
-              >
-                <Text style={styles.catIcon}>{cat.icon}</Text>
-                <Text
-                  style={[
-                    styles.catText,
-                    { color: active ? "#111113" : theme.colors.textSoft },
-                  ]}
-                >
-                  {cat.name}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        {activeFilters.length > 0 && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeFilters}>
+          {activeFilters.map((filter) => <Chip key={filter.id} label={`${filter.label} ×`} kind="selected" onPress={filter.onRemove} />)}
+        </ScrollView>}
       </View>
+
+      <Modal transparent animationType="slide" visible={filtersOpen} onRequestClose={() => setFiltersOpen(false)}>
+        <View style={styles.filterBackdrop}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Filter schließen" style={StyleSheet.absoluteFill} onPress={() => setFiltersOpen(false)} />
+          <View style={[styles.filterSheet, { paddingBottom: insets.bottom + theme.spacing.lg }]}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.filterSheetHeader}>
+              <View>
+                <AppText role="sectionTitle">Filter</AppText>
+                <AppText role="meta" tone="secondary">Nur das, was zu deinem Moment passt.</AppText>
+              </View>
+              <IconButton accessibilityLabel="Filter schließen" onPress={() => setFiltersOpen(false)}>
+                <Ionicons name="close" size={21} color={theme.color.textPrimary} />
+              </IconButton>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterSheetContent}>
+              <AppText role="label" tone="lime">MOOD</AppText>
+              <View style={styles.filterChipGrid}>
+                {(topMoodChips.length ? topMoodChips : MOOD_SUGGESTIONS).map((m) => {
+                  const selected = selectedMood?.toLowerCase() === m.toLowerCase();
+                  return <Chip key={m} label={displayMoodLabel(m)} kind="input" selected={selected} onPress={() => {
+                    setSelectedMood((current) => current?.toLowerCase() === m.toLowerCase() ? null : m);
+                    setSearch((current) => current?.toLowerCase() === m.toLowerCase() ? "" : m);
+                  }} />;
+                })}
+              </View>
+              <AppText role="label" tone="lime" style={styles.filterSectionLabel}>KATEGORIE</AppText>
+              <View style={styles.filterChipGrid}>
+                {dbCategories.map((category) => <Chip key={category.id} label={category.name} kind="input" selected={selectedCategory === category.id} onPress={() => setSelectedCategory((current) => current === category.id ? null : category.id)} />)}
+              </View>
+            </ScrollView>
+            <View style={styles.filterSheetActions}>
+              <Button label="Zurücksetzen" variant="tertiary" onPress={clearFilters} style={styles.filterReset} />
+              <Button label={viewMode === "map" ? "Karte zeigen" : "Liste zeigen"} onPress={() => setFiltersOpen(false)} style={styles.filterApply} />
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* MAP or LIST */}
       {viewMode === "map" ? (
-        <ClusteredMapView
+        <View style={styles.mapStage}>
+          <ClusteredMapView
           ref={mapRef}
           provider={PROVIDER_GOOGLE}
           style={{ flex: 1 }}
-          region={region}
+          initialRegion={region}
           showsUserLocation={locationConsentGranted}
-          clusterColor={theme.colors.primary}
-          spiralEnabled
+          clusterColor={theme.color.surfaceElevated}
+          clusterTextColor={theme.color.textPrimary}
+          spiralEnabled={false}
+          animationEnabled={false}
+          radius={clusterPolicy.radius}
+          minPoints={clusterPolicy.minPoints}
           customMapStyle={DARK_MAP_STYLE}
+          onRegionChangeComplete={handleRegionChangeComplete}
           onPress={hideSheet}
-          clusteringEnabled={region.latitudeDelta > 0.05}
-        >
-          {renderedMarkers}
-        </ClusteredMapView>
+          clusteringEnabled={clusterPolicy.enabled}
+          >
+            {renderedMarkers}
+          </ClusteredMapView>
+          {!filteredSpots.length && <View pointerEvents="box-none" style={styles.emptyOverlay}>
+            <StateView kind="empty" title="Hier ist gerade nichts dabei" message="Passe deine Suche oder Filter an und entdecke Basel weiter." actionLabel="Filter zurücksetzen" onAction={clearFilters} />
+          </View>}
+        </View>
       ) : (
         <FlatList
+          ref={listRef}
           data={filteredSpots}
           keyExtractor={(i) => i.id}
-          contentContainerStyle={{ padding: 16 }}
+          contentContainerStyle={styles.listContent}
           style={styles.list}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          removeClippedSubviews
+          onScroll={(event) => { listScrollOffset.current = event.nativeEvent.contentOffset.y; }}
+          scrollEventThrottle={16}
           renderItem={({ item }) => (
             <Pressable
               style={styles.listCard}
@@ -707,15 +732,8 @@ export default function MapScreen() {
               />
               <View style={styles.listCardBody}>
                 <Text style={styles.listCardTitle}>{item.name}</Text>
-                <Text style={styles.listCardAddress}>{item.address || "Adresse offen"}</Text>
-
-                <View style={styles.moodRow}>
-                  {(spotMoods[item.id] || []).slice(0, 5).map((m) => (
-                    <View key={m} style={styles.moodChipSmall}>
-                      <Text style={styles.moodChipSmallText}>{m}</Text>
-                    </View>
-                  ))}
-                </View>
+                <Text style={styles.listCardContext} numberOfLines={1}>{item.categories?.name || spotMoods[item.id]?.[0] || "Ort in Basel"}</Text>
+                <Text style={styles.listCardAddress} numberOfLines={1}>{item.address || "Adresse offen"}</Text>
               </View>
             </Pressable>
           )}
@@ -725,7 +743,7 @@ export default function MapScreen() {
       {/* RECENTER BUTTON */}
       {viewMode === "map" && (
         <Pressable style={styles.recenterBtn} onPress={recenterToMe}>
-          <Ionicons name="locate-outline" size={22} color={theme.colors.text} />
+          <Ionicons name="locate-outline" size={22} color={theme.color.textPrimary} />
         </Pressable>
       )}
 
@@ -733,7 +751,7 @@ export default function MapScreen() {
       <Animated.View
         style={[
           styles.sheetContainer,
-          { height: SHEET_HEIGHT, transform: [{ translateY }] },
+          { height: SHEET_HEIGHT, bottom: theme.control.tabBar + insets.bottom, transform: [{ translateY }] },
         ]}
         pointerEvents={selectedSpot ? "box-none" : "none"}
         {...panResponder.panHandlers}
@@ -811,256 +829,60 @@ export default function MapScreen() {
 
 /* === Styles === */
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
-
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 10,
-    backgroundColor: theme.colors.background,
-  },
-  titleRow: {
-    minHeight: 54,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 14,
-    marginBottom: 14,
-  },
-  locationLabel: {
-    color: "rgba(255,255,255,0.66)",
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: "700",
-    letterSpacing: -0.2,
-  },
-  title: {
-    color: theme.colors.text,
-    fontSize: 30,
-    lineHeight: 34,
-    fontWeight: "800",
-    letterSpacing: -0.8,
-    marginTop: 1,
-  },
-  resultCount: {
-    color: theme.colors.pinkSoft,
-    fontSize: 13,
-    fontWeight: "800",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,125,167,0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(255,125,167,0.2)",
-    overflow: "hidden",
-    marginTop: 3,
-  },
-  headerTopRow: { flexDirection: "row", gap: 9, alignItems: "center" },
-
-  searchBox: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    minHeight: 54,
-    backgroundColor: "rgba(255,255,255,0.055)",
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    paddingHorizontal: 14,
-  },
-  searchInput: {
-    flex: 1,
-    color: theme.colors.text,
-    fontSize: 15,
-    fontWeight: "700",
-  },
-
-  filterScroll: { paddingTop: 10, paddingBottom: 2, gap: 8 },
-
-  moodChipBtn: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingVertical: 8,
-    paddingHorizontal: 13,
-    marginRight: 8,
-  },
-  moodChipTextBtn: { fontSize: 13, fontWeight: "800" },
-
-  catChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginRight: 8,
-  },
-  catIcon: { marginRight: 4, fontSize: 16 },
-  catText: { fontSize: 13, fontWeight: "800" },
-
-  toggleBtn: {
-    width: 50,
-    height: 50,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.055)",
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 999,
-  },
-  clearBtn: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.045)",
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 999,
-  },
-
-  // LIST Cards
-  list: {
-    backgroundColor: theme.colors.background,
-  },
-  listCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 24,
-    marginBottom: 16,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  listCardImage: { width: "100%", height: 170 },
-  listCardBody: { padding: 14 },
-  listCardTitle: {
-    color: theme.colors.text,
-    fontSize: 21,
-    lineHeight: 25,
-    fontWeight: "800",
-    letterSpacing: -0.45,
-  },
-  listCardAddress: {
-    color: theme.colors.textMuted,
-    fontSize: 14,
-    lineHeight: 19,
-    marginTop: 5,
-    marginBottom: 10,
-    fontWeight: "600",
-  },
-
-  moodRow: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
-  moodChipSmall: {
-    backgroundColor: "rgba(255,255,255,0.07)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-  },
-  moodChipSmallText: { color: theme.colors.textSoft, fontSize: 11, fontWeight: "800" },
-
-  recenterBtn: {
-    position: "absolute",
-    bottom: 114,
-    right: 20,
-    width: 52,
-    height: 52,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(5,5,6,0.72)",
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: 999,
-  },
-
-  // Sheet
-  sheetContainer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 40,
-  },
-  sheetBlur: {
-    flex: 1,
-    backgroundColor: "rgba(5,5,6,0.7)",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-  },
-  sheetHandle: {
-    alignSelf: "center",
-    width: 40,
-    height: 4,
-    borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.22)",
-    marginTop: 10,
-    marginBottom: 10,
-  },
-
-  sheetCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 28,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    shadowColor: "#000",
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  cardMedia: { position: "relative" },
-  cardImg: { width: "100%", height: 228 },
-  cardOverlay: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: 16,
-  },
-  resultTitle: {
-    color: theme.colors.text,
-    fontSize: 25,
-    lineHeight: 29,
-    fontWeight: "800",
-    marginBottom: 4,
-    letterSpacing: -0.55,
-  },
-  resultSubtitle: {
-    color: "rgba(255,255,255,0.72)",
-    fontSize: 14,
-    lineHeight: 19,
-    marginBottom: 10,
-    fontWeight: "600",
-  },
-  cardChipsRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  badgeGhost: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.11)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
-  },
-  badgeGhostText: { color: theme.colors.text, fontSize: 12, fontWeight: "800" },
-
-  sheetCtaPrimary: {
-    backgroundColor: theme.colors.primary,
-    paddingVertical: 15,
-    borderRadius: 999,
-    alignItems: "center",
-    marginTop: 12,
-  },
-  sheetCtaPrimaryText: { fontWeight: "900", color: "#111113", fontSize: 15 },
-  emptySheetText: {
-    color: theme.colors.textMuted,
-    fontSize: 14,
-    fontWeight: "700",
-  },
+  container: { flex: 1, backgroundColor: theme.color.background },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: theme.color.background },
+  header: { paddingHorizontal: theme.spacing.xl, paddingTop: theme.spacing.xs, paddingBottom: theme.spacing.sm, backgroundColor: theme.color.background },
+  titleRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: theme.spacing.md, marginBottom: theme.spacing.sm },
+  titleCopy: { gap: 1 },
+  resultCount: { marginTop: theme.spacing.xs, paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, borderRadius: theme.radius.pill, backgroundColor: "rgba(216,255,62,0.08)", borderWidth: 1, borderColor: "rgba(216,255,62,0.22)" },
+  headerTopRow: { flexDirection: "row", gap: theme.spacing.xs, alignItems: "center" },
+  searchBox: { flex: 1, flexDirection: "row", alignItems: "center", minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, borderWidth: 1, borderColor: theme.color.border, paddingLeft: theme.spacing.md, paddingRight: theme.spacing.xs },
+  searchInput: { flex: 1, color: theme.color.textPrimary, fontFamily: theme.type.bodyMedium, fontSize: 15, minHeight: theme.control.standard },
+  searchClear: { minWidth: 34, minHeight: 34 },
+  headerButton: { width: theme.control.standard, height: theme.control.standard, alignItems: "center", justifyContent: "center", backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.pill },
+  headerButtonActive: { backgroundColor: theme.color.pink, borderColor: theme.color.pink },
+  perspectiveSwitch: { flexDirection: "row", minHeight: theme.control.standard, backgroundColor: theme.color.surface, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.lg, padding: 3 },
+  perspectiveOption: { minWidth: 58, minHeight: 38, paddingHorizontal: theme.spacing.xs, borderRadius: theme.radius.md, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
+  perspectiveOptionActive: { backgroundColor: theme.color.pink },
+  pressed: { opacity: 0.8, transform: [{ scale: theme.motion.pressScale }] },
+  activeFilters: { gap: theme.spacing.xs, paddingTop: theme.spacing.sm, paddingRight: theme.spacing.xs },
+  mapStage: { flex: 1 },
+  emptyOverlay: { position: "absolute", left: theme.spacing.xl, right: theme.spacing.xl, top: theme.spacing.xl },
+  marker: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(5,5,6,0.9)", borderWidth: 1.5, borderColor: "rgba(247,243,233,0.72)" },
+  markerCore: { width: 7, height: 7, borderRadius: 999, backgroundColor: theme.color.lime },
+  markerSelected: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.color.pink, borderColor: theme.color.textPrimary, borderWidth: 2.5, shadowColor: theme.color.pink, shadowOpacity: 0.7, shadowRadius: 10, elevation: 8 },
+  markerCoreSelected: { width: 10, height: 10, backgroundColor: theme.color.background },
+  list: { backgroundColor: theme.color.background },
+  listContent: { padding: theme.spacing.lg, paddingBottom: theme.spacing.xxl + theme.control.tabBar },
+  listCard: { backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, marginBottom: theme.spacing.md, overflow: "hidden", borderWidth: 1, borderColor: theme.color.border },
+  listCardImage: { width: "100%", height: 164 },
+  listCardBody: { padding: theme.spacing.md },
+  listCardTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 21, lineHeight: 26, letterSpacing: -0.3 },
+  listCardContext: { color: theme.color.lime, fontFamily: theme.type.bodyBold, fontSize: 12, lineHeight: 16, textTransform: "uppercase", letterSpacing: 0.4, marginTop: theme.spacing.xs },
+  listCardAddress: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 19, marginTop: 3 },
+  recenterBtn: { position: "absolute", bottom: 114, right: theme.spacing.xl, width: theme.control.standard, height: theme.control.standard, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(5,5,6,0.9)", borderWidth: 1, borderColor: theme.color.borderStrong, borderRadius: theme.radius.pill },
+  sheetContainer: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 40 },
+  sheetBlur: { flex: 1, backgroundColor: "rgba(5,5,6,0.82)", borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: "hidden", borderWidth: 1, borderColor: theme.color.border },
+  sheetHandle: { alignSelf: "center", width: 40, height: 4, borderRadius: 3, backgroundColor: "rgba(247,243,233,0.3)", marginTop: theme.spacing.sm, marginBottom: theme.spacing.sm },
+  sheetCard: { backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, overflow: "hidden", borderWidth: 1, borderColor: theme.color.border, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 10, elevation: 8 },
+  cardMedia: { position: "relative" }, cardImg: { width: "100%", height: 214 },
+  cardOverlay: { position: "absolute", left: 0, right: 0, bottom: 0, padding: theme.spacing.md },
+  resultTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 25, lineHeight: 30, marginBottom: theme.spacing.xxs, letterSpacing: -0.5 },
+  resultSubtitle: { color: "rgba(247,243,233,0.76)", fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 19, marginBottom: theme.spacing.sm },
+  cardChipsRow: { flexDirection: "row", gap: theme.spacing.xs, flexWrap: "wrap" },
+  badgeGhost: { paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, borderRadius: theme.radius.pill, backgroundColor: "rgba(5,5,6,0.35)", borderWidth: 1, borderColor: "rgba(247,243,233,0.2)" },
+  badgeGhostText: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 12 },
+  sheetCtaPrimary: { backgroundColor: theme.color.pink, paddingVertical: 15, borderRadius: theme.radius.pill, alignItems: "center", marginTop: theme.spacing.sm },
+  sheetCtaPrimaryText: { fontFamily: theme.type.bodyBold, color: theme.color.background, fontSize: 15 },
+  emptySheetText: { color: theme.color.textSecondary, fontFamily: theme.type.bodyMedium, fontSize: 14 },
+  filterBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.54)" },
+  filterSheet: { maxHeight: "82%", backgroundColor: theme.color.surfaceElevated, borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, borderColor: theme.color.border, paddingHorizontal: theme.spacing.xl },
+  filterSheetHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: theme.spacing.md, marginBottom: theme.spacing.md },
+  filterSheetContent: { gap: theme.spacing.sm, paddingBottom: theme.spacing.lg },
+  filterChipGrid: { flexDirection: "row", flexWrap: "wrap", gap: theme.spacing.xs },
+  filterSectionLabel: { marginTop: theme.spacing.lg },
+  filterSheetActions: { flexDirection: "row", gap: theme.spacing.sm, paddingTop: theme.spacing.sm },
+  filterReset: { flex: 1 }, filterApply: { flex: 1 },
 });
 
 const DARK_MAP_STYLE = [

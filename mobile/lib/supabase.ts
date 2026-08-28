@@ -3,10 +3,13 @@ import { createClient } from "@supabase/supabase-js";
 import Constants from "expo-constants";
 import { secureStoreAdapter } from "./supabaseStorage";
 
-const {
-  supabaseUrl,
-  supabaseAnonKey,
-} = Constants.expoConfig?.extra ?? {};
+// `expoConfig.extra` belongs to the installed native binary. An OTA update may
+// carry a newer JS bundle but cannot retrofit missing native `extra` values.
+// Public Expo runtime variables are compiled into that bundle, so retain the
+// native values when present and use the bundled production values otherwise.
+const nativeExtra = Constants.expoConfig?.extra ?? {};
+const supabaseUrl = nativeExtra.supabaseUrl ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = nativeExtra.supabaseAnonKey ?? process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 export const runtimeConfigStatus = {
   valid:

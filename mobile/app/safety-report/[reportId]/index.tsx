@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -14,6 +13,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { supabase } from "../../../lib/supabase";
+import { StateView } from "../../../components/foundation/StateView";
 
 type SafetyReport = {
   report_id: string;
@@ -84,7 +84,7 @@ export default function SafetyReportDetailScreen() {
     );
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError("Deine Meldung konnte gerade nicht geladen werden.");
       setReport(null);
     } else {
       const rows = (data ?? []) as SafetyReport[];
@@ -113,7 +113,7 @@ export default function SafetyReportDetailScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.center}><ActivityIndicator color="#FF4F91" /></View>
+        <StateView kind="loading" title="Meldung wird geladen" />
       ) : (
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}

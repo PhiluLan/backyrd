@@ -13,13 +13,13 @@ import {
   Alert,
   Animated,
   PanResponder,
-  Dimensions,
   Linking,
   AppState,
+  useWindowDimensions,
   type AppStateStatus,
 } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Crypto from "expo-crypto";
 
@@ -31,7 +31,11 @@ import { recordMemoryProductAction } from "@/lib/memory-bridge";
 import { selectSpotImageUrl } from "@/lib/spot-images";
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { MarkerStroke } from "@/components/brand/Editorial";
-import { backyrdTheme as brandTheme } from "@/theme/backyrd";
+import { AppText } from "@/components/foundation/AppText";
+import { Button } from "@/components/foundation/Button";
+import { Chip } from "@/components/foundation/Chip";
+import { backyrdTheme as foundationTheme } from "@/theme/backyrd";
+import { userFacingError } from "@/lib/userFacingError";
 
 type DecisionSpotRpcRow = {
   spot_id: string;
@@ -183,8 +187,6 @@ type MoodOption = {
   queryHint: string;
 };
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const SWIPE_THRESHOLD = Math.min(105, SCREEN_WIDTH * 0.25);
 const VISIBLE_EXPOSURE_MINIMUM_MS = 750;
 
 const theme = {
@@ -567,6 +569,7 @@ function getCopyForSpot(
 }
 
 export default function DecisionScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const homeParams = useLocalSearchParams<{ query?: string; city?: string; auto?: string }>();
   const homeAutoRunRef = useRef<string | null>(null);
@@ -582,6 +585,7 @@ export default function DecisionScreen() {
   const [selectedMoods, setSelectedMoods] = useState<string[]>([]);
   const [moodA, setMoodA] = useState("");
   const [moodB, setMoodB] = useState("");
+  const [guidedStage, setGuidedStage] = useState<1 | 2 | 3>(1);
 
   const [context, setContext] = useState<DecisionContext | null>(null);
   const [spots, setSpots] = useState<EnrichedDecisionSpot[]>([]);
@@ -741,18 +745,11 @@ export default function DecisionScreen() {
 
     const [
       { data: spotDetails, error: spotDetailsError },
-      { data: photos, error: photosError },
       { data: reviews, error: reviewsError },
       { data: effectiveContent, error: effectiveContentError },
       { data: hours, error: hoursError },
     ] = await Promise.all([
       supabase.from("spots").select("id,address,price_level,category_id,header_photo_path,lat,lng").in("id", ids),
-
-      supabase
-        .from("spot_photos")
-        .select("spot_id,url,created_at")
-        .in("spot_id", ids)
-        .order("created_at", { ascending: true }),
 
       supabase
         .from("reviews")
@@ -775,7 +772,6 @@ export default function DecisionScreen() {
     ]);
 
     if (spotDetailsError) console.log("Decision spot details enrich failed:", spotDetailsError);
-    if (photosError) console.log("Decision spot photos enrich failed:", photosError);
     if (reviewsError) console.log("Decision reviews enrich failed:", reviewsError);
     if (effectiveContentError) console.log("Decision effective content enrich failed:", effectiveContentError);
     if (hoursError) console.log("Decision hours enrich failed:", hoursError);
@@ -808,13 +804,6 @@ export default function DecisionScreen() {
     for (const category of categories) {
       if (category.id && category.name) {
         categoryById.set(category.id, category.name);
-      }
-    }
-
-    const firstPhotoBySpotId = new Map<string, string>();
-    for (const photo of photos ?? []) {
-      if (!firstPhotoBySpotId.has(photo.spot_id) && photo.url) {
-        firstPhotoBySpotId.set(photo.spot_id, photo.url);
       }
     }
 
@@ -882,7 +871,6 @@ export default function DecisionScreen() {
     return rows.map((row) => {
       const detail = detailById.get(row.spot_id);
       const content = contentBySpotId.get(row.spot_id);
-      const photoUrl = firstPhotoBySpotId.get(row.spot_id);
       const headerUrl = detail?.header_photo_path;
       const categoryName = detail?.category_id ? categoryById.get(detail.category_id) ?? null : null;
       const descriptionKeywords = content?.effective_keywords ?? [];
@@ -897,7 +885,7 @@ export default function DecisionScreen() {
         description_keywords: descriptionKeywords,
         opening_hours_summary: buildOpeningHoursSummary(hoursBySpotId.get(row.spot_id) ?? []),
         header_photo_path: headerUrl ?? null,
-        photo_url: selectSpotImageUrl({ photoUrl, headerPhotoPath: headerUrl }),
+        photo_url: selectSpotImageUrl({ headerPhotoPath: headerUrl }),
         lat: Number.isFinite(Number(detail?.lat)) ? Number(detail?.lat) : null,
         lng: Number.isFinite(Number(detail?.lng)) ? Number(detail?.lng) : null,
         matched_terms: uniq([...(row.matched_terms ?? []), ...descriptionKeywords]).slice(0, 10),
@@ -1171,12 +1159,13 @@ export default function DecisionScreen() {
         setDeckMode(true);
       } catch (error: any) {
         console.log("decision error", error);
-        setErrorMessage(error?.message ?? "Decision konnte nicht geladen werden.");
+        const safeError = userFacingError(error, "Deine Vorschläge konnten gerade nicht geladen werden. Bitte versuche es noch einmal.");
+        setErrorMessage(safeError);
         if(!isRemix){
           setStatus("error");
           setDeckMode(false);
         }
-        Alert.alert("Fehler", error?.message ?? "Decision konnte nicht geladen werden.");
+        Alert.alert("Vorschläge nicht geladen", safeError);
       } finally {
         if(isRemix){
           continuationInFlightRef.current=false;
@@ -1347,22 +1336,23 @@ export default function DecisionScreen() {
             flexGrow: 1,
             paddingHorizontal: 20,
             paddingTop: 16,
-            paddingBottom: 112,
+            // The floating Tab Bar owns its visual height; Decision input owns the
+            // scroll clearance so the final context/CTA never lands underneath it.
+            paddingBottom: foundationTheme.control.tabBar + foundationTheme.spacing.xl + insets.bottom,
           }}
         >
           <View style={{ marginBottom: 24, marginTop: 4 }}>
-            <Text
+            <AppText
+              role="displayXL"
               style={{
                 color: theme.text,
-                fontFamily: brandTheme.type.display,
                 fontSize: 56,
-                lineHeight: 52,
-                fontWeight: "900",
+                lineHeight: 60,
                 letterSpacing: -1.8,
               }}
             >
               DEIN / JETZT.
-            </Text>
+            </AppText>
 
             <MarkerStroke inset={0} width={154} />
 
@@ -1542,6 +1532,24 @@ export default function DecisionScreen() {
                 </View>
               ) : (
                 <>
+                  <GuidedConversation
+                    stage={guidedStage}
+                    selectedDirections={selectedDirections}
+                    selectedAudiences={selectedAudiences}
+                    selectedMoods={selectedMoods}
+                    moodA={moodA}
+                    moodB={moodB}
+                    loading={loading}
+                    canRun={canRun}
+                    onStageChange={setGuidedStage}
+                    onDirectionsChange={setSelectedDirections}
+                    onAudiencesChange={setSelectedAudiences}
+                    onMoodsChange={setSelectedMoods}
+                    onMoodAChange={setMoodA}
+                    onMoodBChange={setMoodB}
+                    onSubmit={() => runDecision()}
+                  />
+                  {false ? <>
                   <InputSectionLabel title="Wonach suchst du?" subtitle="Kategorie schlägt alten Geschmack. Stimmung ist optional." />
 
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -1618,7 +1626,7 @@ export default function DecisionScreen() {
                       <TextInput
                         value={moodA}
                         onChangeText={setMoodA}
-                        placeholder="cozy"
+                        placeholder="gemütlich"
                         placeholderTextColor="rgba(255,255,255,0.26)"
                         autoCapitalize="none"
                         autoCorrect={false}
@@ -1680,6 +1688,7 @@ export default function DecisionScreen() {
                       />
                     </View>
                   </View>
+                  </> : null}
                 </>
               )}
 
@@ -1699,7 +1708,7 @@ export default function DecisionScreen() {
                 </Text>
               )}
 
-              <Pressable
+              {inputMode === "free" ? <Pressable
                 onPress={() => runDecision()}
                 disabled={loading || !canRun}
                 style={{
@@ -1734,7 +1743,7 @@ export default function DecisionScreen() {
                     Vorschläge finden
                   </Text>
                 )}
-              </Pressable>
+              </Pressable> : null}
             </LinearGradient>
           </View>
 
@@ -1809,6 +1818,57 @@ export default function DecisionScreen() {
     </SafeAreaView>
   );
 }
+
+function GuidedConversation({
+  stage, selectedDirections, selectedAudiences, selectedMoods, moodA, moodB, loading, canRun,
+  onStageChange, onDirectionsChange, onAudiencesChange, onMoodsChange, onMoodAChange, onMoodBChange, onSubmit,
+}: {
+  stage: 1 | 2 | 3; selectedDirections: string[]; selectedAudiences: string[]; selectedMoods: string[]; moodA: string; moodB: string; loading: boolean; canRun: boolean;
+  onStageChange: (stage: 1 | 2 | 3) => void;
+  onDirectionsChange: React.Dispatch<React.SetStateAction<string[]>>;
+  onAudiencesChange: React.Dispatch<React.SetStateAction<string[]>>;
+  onMoodsChange: React.Dispatch<React.SetStateAction<string[]>>;
+  onMoodAChange: (value: string) => void; onMoodBChange: (value: string) => void; onSubmit: () => void;
+}) {
+  const summaries = [optionLabels(DIRECTION_OPTIONS, selectedDirections), optionLabels(AUDIENCE_OPTIONS, selectedAudiences), optionLabels(MOOD_OPTIONS, selectedMoods)].filter(Boolean);
+  const title = stage === 1 ? "Was hast du vor?" : stage === 2 ? "Mit wem bist du unterwegs?" : "Wie soll es sich anfühlen?";
+  const subtitle = stage === 1 ? "Wähl einfach, worauf du Lust hast." : stage === 2 ? "Optional – Backyrd berücksichtigt deinen Moment." : "Optional – ein Gefühl genügt.";
+  return <View style={{ marginTop: 4 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+      <AppText role="caption" tone="lime">MOMENT {stage} / 3</AppText>
+      {summaries.length ? <Pressable accessibilityLabel="Auswahl bearbeiten" onPress={() => onStageChange(1)}><AppText role="caption" tone="secondary">{summaries.join(" · ")}</AppText></Pressable> : null}
+    </View>
+    <AppText role="screenTitle" style={{ color: theme.text }}>{title}</AppText>
+    <AppText role="meta" tone="secondary" style={{ marginTop: 5, marginBottom: 18 }}>{subtitle}</AppText>
+    {stage === 1 ? <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+      {DIRECTION_OPTIONS.map((option) => <ChoiceChip key={option.key} label={option.label} active={selectedDirections.includes(option.key)} onPress={() => onDirectionsChange((current) => toggleValue(current, option.key))} />)}
+      <ChoiceChip label="Egal" active={selectedDirections.length === 0 && selectedAudiences.length === 0} onPress={() => { onDirectionsChange([]); onAudiencesChange([]); }} />
+    </View> : null}
+    {stage === 2 ? <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+      {AUDIENCE_OPTIONS.map((option) => <ChoiceChip key={option.key} label={option.label} active={selectedAudiences.includes(option.key)} onPress={() => onAudiencesChange((current) => toggleValue(current, option.key))} />)}
+    </View> : null}
+    {stage === 3 ? <>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        {MOOD_OPTIONS.map((option) => <ChoiceChip key={option.key} label={option.label} active={selectedMoods.includes(option.key)} onPress={() => onMoodsChange((current) => toggleValue(current, option.key))} />)}
+      </View>
+      <View style={{ marginTop: 18, borderTopWidth: 1, borderColor: "rgba(255,255,255,0.12)", paddingTop: 14 }}>
+        <AppText role="caption" tone="secondary">Eigene Worte, wenn du magst</AppText>
+        <View style={{ flexDirection: "row", gap: 12, marginTop: 8 }}>
+          <TextInput value={moodA} onChangeText={onMoodAChange} placeholder="z. B. ruhig" placeholderTextColor="rgba(255,255,255,0.30)" style={guidedInputStyle} />
+          <TextInput value={moodB} onChangeText={onMoodBChange} placeholder="z. B. urban" placeholderTextColor="rgba(255,255,255,0.30)" style={guidedInputStyle} />
+        </View>
+      </View>
+    </> : null}
+    <View style={{ flexDirection: "row", gap: 10, marginTop: 26 }}>
+      {stage > 1 ? <Pressable accessibilityLabel="Vorherigen Moment bearbeiten" onPress={() => onStageChange((stage - 1) as 1 | 2 | 3)} style={guidedBack}><AppText role="label">Zurück</AppText></Pressable> : null}
+      {stage < 3 ? <Pressable accessibilityLabel="Nächster Moment" onPress={() => onStageChange((stage + 1) as 1 | 2 | 3)} style={guidedNext}><AppText role="label" style={{ color: "#111113" }}>Weiter</AppText></Pressable> : <Pressable accessibilityLabel="Vorschläge finden" disabled={loading || !canRun} onPress={onSubmit} style={[guidedNext, (loading || !canRun) && { opacity: 0.45 }]}><AppText role="label" style={{ color: "#111113" }}>{loading ? "Suche Spots…" : "Vorschläge finden"}</AppText></Pressable>}
+    </View>
+  </View>;
+}
+
+const guidedInputStyle = { flex: 1, minHeight: 48, borderRadius: 24, paddingHorizontal: 16, color: theme.text, fontWeight: "800", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" } as const;
+const guidedBack = { minHeight: 52, paddingHorizontal: 20, borderRadius: 999, justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)" } as const;
+const guidedNext = { flex: 1, minHeight: 52, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: theme.pink } as const;
 
 function SegmentButton({
   label,
@@ -2093,41 +2153,47 @@ function FullscreenSwipeCard({
   onBack: () => void;
   onSettings: () => void;
 }) {
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  // Two 52pt action rows plus their internal vertical rhythm. The actual bottom
+  // inset is added by the fixed SafeAreaView below, so the ScrollView reserves it too.
+  const actionBarClearance = 136 + insets.bottom;
+  const swipeThreshold = Math.min(105, screenWidth * 0.25);
   const pan = useRef(new Animated.ValueXY()).current;
   const isAnimatingRef = useRef(false);
 
   const likeProgress = pan.x.interpolate({
-    inputRange: [0, SWIPE_THRESHOLD],
+    inputRange: [0, swipeThreshold],
     outputRange: [0, 1],
     extrapolate: "clamp",
   });
 
   const dislikeProgress = pan.x.interpolate({
-    inputRange: [-SWIPE_THRESHOLD, 0],
+    inputRange: [-swipeThreshold, 0],
     outputRange: [1, 0],
     extrapolate: "clamp",
   });
 
   const likeScale = pan.x.interpolate({
-    inputRange: [0, SWIPE_THRESHOLD],
+    inputRange: [0, swipeThreshold],
     outputRange: [1, 1.18],
     extrapolate: "clamp",
   });
 
   const dislikeScale = pan.x.interpolate({
-    inputRange: [-SWIPE_THRESHOLD, 0],
+    inputRange: [-swipeThreshold, 0],
     outputRange: [1.18, 1],
     extrapolate: "clamp",
   });
 
   const cardScale = pan.x.interpolate({
-    inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
+    inputRange: [-screenWidth, 0, screenWidth],
     outputRange: [0.965, 1, 0.965],
     extrapolate: "clamp",
   });
 
   const rotate = pan.x.interpolate({
-    inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
+    inputRange: [-screenWidth, 0, screenWidth],
     outputRange: ["-7deg", "0deg", "7deg"],
     extrapolate: "clamp",
   });
@@ -2137,8 +2203,8 @@ function FullscreenSwipeCard({
       if (isAnimatingRef.current||!exposureReady) return;
 
       isAnimatingRef.current = true;
-      const x = visualDirection === "right" ? SCREEN_WIDTH * 1.45 : -SCREEN_WIDTH * 1.45;
-      const y = -SCREEN_HEIGHT * 0.06;
+      const x = visualDirection === "right" ? screenWidth * 1.45 : -screenWidth * 1.45;
+      const y = -screenHeight * 0.06;
 
       Animated.timing(pan, {
         toValue: { x, y },
@@ -2150,7 +2216,7 @@ function FullscreenSwipeCard({
         isAnimatingRef.current = false;
       });
     },
-    [exposureReady,onSwipe,pan]
+    [exposureReady,onSwipe,pan,screenHeight,screenWidth]
   );
 
   const panResponder = useMemo(
@@ -2162,12 +2228,12 @@ function FullscreenSwipeCard({
         useNativeDriver: false,
       }),
       onPanResponderRelease: (_event, gesture) => {
-        if (gesture.dx > SWIPE_THRESHOLD || gesture.vx > 0.75) {
+        if (gesture.dx > swipeThreshold || gesture.vx > 0.75) {
           swipeOut("next","right");
           return;
         }
 
-        if (gesture.dx < -SWIPE_THRESHOLD || gesture.vx < -0.75) {
+        if (gesture.dx < -swipeThreshold || gesture.vx < -0.75) {
           swipeOut("next","left");
           return;
         }
@@ -2188,7 +2254,7 @@ function FullscreenSwipeCard({
         }).start();
       },
     }),
-    [pan, swipeOut]
+    [pan, swipeOut, swipeThreshold]
   );
 
   const imageUrl = spot.photo_url;
@@ -2225,9 +2291,9 @@ function FullscreenSwipeCard({
           }}
         >
           <RoundDeckButton label="‹" onPress={onBack} />
-          <Text style={{ color: theme.text, fontFamily: brandTheme.type.display, fontSize: 34, lineHeight: 34, fontWeight: "900", letterSpacing: -0.9 }}>
+          <AppText role="displayM" numberOfLines={1} style={{ color: theme.text, fontSize: 34, lineHeight: 40, letterSpacing: -0.9 }}>
             DEIN / JETZT.
-          </Text>
+          </AppText>
           <RoundDeckButton label="✦" onPress={onSettings} />
         </View>
 
@@ -2235,7 +2301,7 @@ function FullscreenSwipeCard({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingBottom: 118,
+            paddingBottom: actionBarClearance + 24,
           }}
         >
           <View
@@ -2252,46 +2318,17 @@ function FullscreenSwipeCard({
               gap: 8,
             }}
           >
-            <Text numberOfLines={1} style={{ color: "#111113", fontSize: 14, fontWeight: "700", maxWidth: SCREEN_WIDTH - 108 }}>
+            <Text numberOfLines={1} style={{ color: "#111113", fontSize: 14, fontWeight: "700", maxWidth: screenWidth - 108 }}>
               {queryLabel}
             </Text>
             <Text style={{ color: "rgba(23,18,20,0.58)", fontSize: 18, fontWeight: "600", marginTop: -1 }}>×</Text>
           </View>
 
-          <Text
-            style={{
-              color: "rgba(255,255,255,0.44)",
-              fontSize: 13,
-              fontWeight: "600",
-              marginTop: 22,
-              marginBottom: 10,
-            }}
-          >
-            Dein Moment
-          </Text>
-
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
-            {(momentChips.length > 0 ? momentChips : ["dein Moment"]).map((chip, chipIndex) => (
-              <View
-                key={`${chip}-${chipIndex}`}
-                style={{
-                  minHeight: 34,
-                  paddingHorizontal: 12,
-                  borderRadius: 999,
-                  backgroundColor: "rgba(255,255,255,0.06)",
-                  borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.08)",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 7,
-                }}
-              >
-                <Text style={{ color: chipIndex === 0 ? "#C8E3A6" : theme.pinkMuted, fontSize: 15 }}>
-                  {chipIndex === 0 ? "↗" : chipIndex === 1 ? "∿" : "♡"}
-                </Text>
-                <Text style={{ color: theme.text, fontSize: 13, fontWeight: "700" }}>{chip}</Text>
-              </View>
-            ))}
+          <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: foundationTheme.spacing.sm, marginTop: foundationTheme.spacing.sm, marginBottom: foundationTheme.spacing.sm }}>
+            <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", gap: foundationTheme.spacing.xs }}>
+              {(momentChips.length > 0 ? momentChips : ["dein Moment"]).map((chip, chipIndex) => <Chip key={`${chip}-${chipIndex}`} kind="information" label={chip} />)}
+            </View>
+            {total > 1 ? <AppText role="caption" tone="muted" style={{ paddingTop: foundationTheme.spacing.sm }}>Treffer {index + 1} von {total}</AppText> : null}
           </View>
 
           <Animated.View
@@ -2302,12 +2339,13 @@ function FullscreenSwipeCard({
           >
             <View
               style={{
-                minHeight: Math.min(510, SCREEN_HEIGHT * 0.58),
-                borderRadius: 3,
+                // Keep the factual reason above the persistent actions even when
+                // contextual chips wrap. The image remains dominant, without
+                // forcing the user to scroll just to understand the result.
+                minHeight: Math.min(440, screenHeight * 0.45),
+                borderRadius: foundationTheme.radius.lg,
                 overflow: "hidden",
-                backgroundColor: "#121214",
-                borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.08)",
+                backgroundColor: foundationTheme.color.surface,
               }}
             >
               <SpotArtwork
@@ -2319,8 +2357,8 @@ function FullscreenSwipeCard({
               />
 
               <LinearGradient
-                colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.18)", "rgba(0,0,0,0.72)", "rgba(0,0,0,0.95)"]}
-                locations={[0, 0.42, 0.72, 1]}
+                colors={["rgba(0,0,0,0.02)", "rgba(0,0,0,0.10)", "rgba(0,0,0,0.54)", "rgba(0,0,0,0.90)"]}
+                locations={[0, 0.38, 0.70, 1]}
                 style={{
                   position: "absolute",
                   left: 0,
@@ -2374,57 +2412,44 @@ function FullscreenSwipeCard({
                 <Text style={{ color: "#111113", fontSize: 14, fontWeight: "900" }}>weiter</Text>
               </Animated.View>
 
-              <View style={{ flex: 1, justifyContent: "space-between", padding: 16 }}>
+              <View style={{ flex: 1, justifyContent: "flex-end", padding: foundationTheme.spacing.lg }}>
                 <View>
-                  <Text
-                    numberOfLines={2}
+                  <AppText
+                    numberOfLines={3}
                     style={{
                       color: theme.text,
-                      fontFamily: brandTheme.type.display,
-                      fontSize: 47,
-                      lineHeight: 45,
-                      fontWeight: "900",
+                      fontSize: 45,
+                      lineHeight: 51,
                       letterSpacing: -1.15,
                     }}
+                    role="displayL"
                   >
                     {spot.name}
-                  </Text>
-                  <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: "600", marginTop: 8 }}>
+                  </AppText>
+                  <AppText role="meta" style={{ color: "rgba(255,255,255,0.76)", marginTop: foundationTheme.spacing.xs }}>
                     Passt zu deinem Moment
-                  </Text>
+                  </AppText>
 
                   <View
                     style={{
-                      marginTop: 18,
-                      padding: 15,
-                      borderRadius: 2,
-                      backgroundColor: "rgba(12,12,14,0.74)",
-                      borderWidth: 1,
-                      borderColor: "rgba(255,255,255,0.11)",
+                      marginTop: foundationTheme.spacing.md,
+                      paddingTop: foundationTheme.spacing.sm,
+                      borderTopWidth: 1,
+                      borderColor: "rgba(247,243,233,0.30)",
                     }}
                   >
-                    <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
-                      <Text style={{ color: theme.pinkMuted, fontSize: 27, lineHeight: 30 }}>✦</Text>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: theme.pinkSoft, fontSize: 14, fontWeight: "800", marginBottom: 7 }}>
-                          Warum dieser Treffer?
-                        </Text>
-                        <Text style={{ color: "rgba(255,255,255,0.88)", fontSize: 15, lineHeight: 21, fontWeight: "600" }}>
-                          {whyText || "Für diesen Treffer liegt noch keine genauere Begründung vor."}
-                        </Text>
-                      </View>
-                    </View>
+                    <AppText role="label" tone="pink" style={{ marginBottom: foundationTheme.spacing.xxs }}>
+                      Warum dieser Treffer
+                    </AppText>
+                    <AppText numberOfLines={2} role="bodyStrong" style={{ color: "rgba(255,255,255,0.90)" }}>
+                      {whyText || "Für diesen Treffer liegt noch keine genauere Begründung vor."}
+                    </AppText>
                   </View>
                 </View>
               </View>
             </View>
           </Animated.View>
 
-          {total > 1 && (
-            <Text style={{ color: "rgba(255,255,255,0.38)", textAlign: "center", marginTop: 14, fontWeight: "700", fontSize: 12 }}>
-              Treffer {index + 1} von {total}
-            </Text>
-          )}
         </ScrollView>
       </SafeAreaView>
 
@@ -2451,63 +2476,27 @@ function FullscreenSwipeCard({
           }}
         >
           <Pressable
-            onPress={()=>swipeOut("next","right")}
+            accessibilityLabel="Weiter"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !exposureReady, busy: !exposureReady }}
             disabled={!exposureReady}
-            style={{height:52,borderRadius:2,alignItems:"center",justifyContent:"center",backgroundColor:theme.pink}}
+            onPress={() => swipeOut("next", "right")}
+            style={({ pressed }) => ({
+              minHeight: foundationTheme.control.standard,
+              borderRadius: foundationTheme.radius.pill,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: foundationTheme.color.pink,
+              opacity: !exposureReady ? 0.55 : pressed ? 0.82 : 1,
+              transform: pressed && exposureReady ? [{ scale: foundationTheme.motion.pressScale }] : undefined,
+            })}
           >
-            {exposureReady?<Text style={{color:"#111113",fontWeight:"900",fontSize:15}}>Weiter</Text>:<ActivityIndicator color="#111113"/>}
+            {exposureReady ? <Text style={{ color: foundationTheme.color.background, fontWeight: "900", fontSize: 15 }}>Weiter</Text> : <ActivityIndicator color={foundationTheme.color.background} />}
           </Pressable>
           <View style={{flexDirection:"row",gap:10}}>
-          <Pressable
-            onPress={() => swipeOut("dislike","left")}
-            disabled={!exposureReady}
-            style={{
-              flex: 1,
-              height: 52,
-              borderRadius: 999,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "rgba(255,255,255,0.065)",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.09)",
-            }}
-          >
-            <Text style={{ color: theme.text, fontWeight: "800", fontSize: 13 }}>Nicht passend</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={onRoute}
-            disabled={!exposureReady}
-            style={{
-              flex: 1.12,
-              height: 52,
-              borderRadius: 999,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "rgba(5,5,6,0.96)",
-              borderWidth: 1,
-              borderColor: theme.acid,
-            }}
-          >
-            <Text style={{ color: theme.acid, fontWeight: "900", fontSize: 15 }}>Route</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => swipeOut("like","right")}
-            disabled={!exposureReady}
-            style={{
-              flex: 1,
-              height: 52,
-              borderRadius: 999,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "rgba(255,255,255,0.065)",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.09)",
-            }}
-          >
-            <Text style={{ color: theme.text, fontWeight: "800", fontSize: 14 }}>Passt</Text>
-          </Pressable>
+          <Button disabled={!exposureReady} label="Nicht passend" onPress={() => swipeOut("dislike", "left")} style={{ flex: 1, paddingHorizontal: foundationTheme.spacing.xs }} variant="secondary" />
+          <Button disabled={!exposureReady} label="Route" labelTone="lime" onPress={onRoute} style={{ flex: 1.04, paddingHorizontal: foundationTheme.spacing.xs, borderColor: foundationTheme.color.lime, backgroundColor: "rgba(5,5,6,0.96)" }} variant="tertiary" />
+          <Button disabled={!exposureReady} label="Passt" onPress={() => swipeOut("like", "right")} style={{ flex: 1, paddingHorizontal: foundationTheme.spacing.xs }} variant="secondary" />
           </View>
         </View>
       </SafeAreaView>
