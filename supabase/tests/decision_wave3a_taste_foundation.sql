@@ -111,34 +111,28 @@ $$;
 set local role authenticated;
 select pg_temp.wave3a_actor(pg_temp.wave3a_uuid('consented-user'));
 
-do $$
-declare v_user uuid := pg_temp.wave3a_uuid('consented-user');
-begin
-  perform pg_temp.wave3a_assert(
-    (select count(*) = 1 from public.backyrd_get_my_taste_map_v1('GLOBAL','global',20)),
-    'consented user can read only own projected Taste rows through the bounded RPC'
-  );
-  perform pg_temp.wave3a_assert(
-    (select count(*) = 1 from public.backyrd_user_taste_map_v1),
-    'RLS hides another user Taste Map'
-  );
-  begin
-    perform count(*) from public.backyrd_taste_evidence_v1;
-    raise exception 'authenticated user unexpectedly read raw Taste evidence';
-  exception when insufficient_privilege then null;
-  end;
-  begin
-    insert into public.backyrd_user_taste_map_v1(
-      user_id,concept_key,concept_family,scope_kind,scope_key,affinity,confidence,
-      decay_state,calculated_at,evidence_fingerprint
-    ) values (v_user,'vibe.lively','vibe','GLOBAL','global',1,1,'CURRENT',now(),repeat('c',64));
-    raise exception 'authenticated user unexpectedly manipulated Taste state';
-  exception when insufficient_privilege then null;
-  end;
-end;
-$$;
+select pg_temp.wave3a_assert(
+  (select count(*)=1 from public.backyrd_get_my_taste_map_v1('GLOBAL','global',20)),
+  'consented user can read only own projected Taste rows through the bounded RPC'
+);
+select pg_temp.wave3a_assert(
+  (select count(*)=1 from public.backyrd_user_taste_map_v1),
+  'RLS hides another user Taste Map'
+);
 
 reset role;
+
+-- PostgreSQL 17.6 can segfault when a denied table operation is caught inside
+-- an authenticated-role PL/pgSQL DO block. Assert the same grant boundary as
+-- the session owner; RLS isolation is exercised by the authenticated reads.
+select pg_temp.wave3a_assert(
+  not has_table_privilege('authenticated','public.backyrd_taste_evidence_v1','SELECT'),
+  'authenticated user cannot read raw Taste evidence'
+);
+select pg_temp.wave3a_assert(
+  not has_table_privilege('authenticated','public.backyrd_user_taste_map_v1','INSERT'),
+  'authenticated user cannot manipulate Taste state'
+);
 
 update public.user_consents
 set status='withdrawn', granted_at=null, withdrawn_at=now()
