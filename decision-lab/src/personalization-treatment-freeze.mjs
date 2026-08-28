@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { writeFile } from "node:fs/promises";
 import { contentHash } from "./canonical-json.mjs";
 import { generateWorld } from "./generator.mjs";
 import { hashFiles, readJson, repoRoot } from "./io.mjs";
@@ -59,6 +60,18 @@ export async function validatePersonalizationTreatmentFreeze(manifest) {
   return { valid: reasons.length === 0, reasons, mismatches, actual };
 }
 
+export function validateHistoricalPersonalizationTreatmentFreeze(manifest) {
+  const expectedContentHash = "732b2c1d3b4db6d79647c5f98e8e1018009d3e3a86415a4bf86cb566695a2160";
+  const reasons = [
+    ...(contentHash(manifest) === expectedContentHash ? [] : ["HISTORICAL_FREEZE_CONTENT_MISMATCH"]),
+    ...(manifest.freezeManifestHash === "9b4691de75bead63ad798700ada0b818ba6d29ad92d24804dcb2d3eeecfc1053" ? [] : ["HISTORICAL_FREEZE_IDENTITY_MISMATCH"]),
+    ...(manifest.parentFreezeManifestHash === "6488f3031bb63df482dbff2b2e2c011c1a82781862e1fe532ffdd1c968fffacf" ? [] : ["HISTORICAL_PARENT_IDENTITY_MISMATCH"]),
+    ...(manifest.engineSourceHash === "a3618a4254a884a53b45cf185c630444239d3da8e04f78d86ece6a65cda507ba" ? [] : ["HISTORICAL_ENGINE_IDENTITY_MISMATCH"]),
+    ...(manifest.scientificValidity === "PASS" && manifest.frozen === true ? [] : ["HISTORICAL_FREEZE_NOT_CERTIFIED"])
+  ];
+  return { valid: reasons.length === 0, reasons, manifest, contentHash: contentHash(manifest) };
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   const command = process.argv[2] ?? "compute";
   const actual = await computePersonalizationTreatmentIdentity();
@@ -68,5 +81,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     const result = await validatePersonalizationTreatmentFreeze(manifest);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     if (!result.valid) process.exitCode = 1;
+  } else if (command === "recertify") {
+    const parent = await readJson(parentPath);
+    if (parent.engineMutation !== "AUTHORIZED_RECERTIFICATION" || actual.d31Readiness !== "READY") throw new Error("D2.2 parent is not an authorized, ready re-certification");
+    await writeFile(resolve(repoRoot, "decision-lab/config/personalization-treatment-v1.freeze.json"), `${JSON.stringify(actual, null, 2)}\n`);
+    process.stdout.write(`${JSON.stringify(actual, null, 2)}\n`);
   } else throw new Error(`Unknown treatment freeze command: ${command}`);
 }

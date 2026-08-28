@@ -12,22 +12,24 @@ type NavigationItem = {
 };
 
 const navigationItems: NavigationItem[] = [
-  { href: "/founder", label: "Founder Cockpit", icon: "B", groupLabel: "Founder" },
-  { href: "/founder/launch-readiness", label: "Launch-Übersicht", icon: "◎" },
-  { href: "/founder/engineering", label: "Entwicklung", icon: "⌘" },
-  { href: "/dashboard", label: "Overview", icon: "◫" },
-  { href: "/growth", label: "Growth", icon: "↗" },
-  { href: "/users", label: "Users", icon: "◎" },
-  { href: "/decision", label: "Decision", icon: "✦" },
+  { href: "/dashboard", label: "Übersicht", icon: "◫", groupLabel: "Überblick" },
+  { href: "/founder", label: "Founder Cockpit", icon: "B" },
+  { href: "/growth", label: "Wachstum", icon: "↗" },
+  { href: "/spots", label: "Spots", icon: "⌖", groupLabel: "Spots" },
+  { href: "/spot-quality", label: "Qualität & Gold", icon: "◈" },
+  { href: "/reviews", label: "Reviews", icon: "✎" },
+  { href: "/taxonomy", label: "Kategorien", icon: "◆" },
+  { href: "/users", label: "Nutzer", icon: "◎", groupLabel: "Menschen" },
+  { href: "/claims", label: "Owner-Anfragen", icon: "◇" },
+  { href: "/partners", label: "Owner & Partner", icon: "◈" },
+  { href: "/safety-integrity", label: "Safety & Moderation", icon: "!", groupLabel: "Sicherheit" },
+  { href: "/privacy", label: "Datenschutz", icon: "▣" },
+  { href: "/decision", label: "Decisions", icon: "✦", groupLabel: "System" },
   { href: "/moments", label: "Moments", icon: "◉" },
-  { href: "/partners", label: "Partners", icon: "◇" },
-  { href: "/spots", label: "Spots", icon: "⌖" },
-  { href: "/spot-quality", label: "Spot Quality", icon: "◈" },
-  { href: "/taxonomy", label: "Taxonomy", icon: "◆" },
-  { href: "/safety-integrity", label: "Safety & Integrity", icon: "◉" },
-  { href: "/privacy", label: "Privacy & Legal", icon: "▣" },
-  { href: "/errors", label: "Errors", icon: "!" },
-  { href: "/system", label: "System", icon: "⚙" },
+  { href: "/errors", label: "Fehler", icon: "!" },
+  { href: "/system", label: "Systemstatus", icon: "⚙" },
+  { href: "/founder/launch-readiness", label: "Launch-Status", icon: "◎" },
+  { href: "/founder/engineering", label: "Entwicklung", icon: "⌘" },
 ];
 
 function isActivePath(pathname: string, href: string): boolean {
@@ -144,6 +146,13 @@ export function IntelligenceSidebar() {
           <span />
         </button>
       </header>
+
+      <nav className="bi-mobileQuickNav" aria-label="Schnellnavigation">
+        <Link href="/dashboard" className={isActivePath(pathname, "/dashboard") ? "active" : ""}><span>◫</span>Übersicht</Link>
+        <Link href="/spots" className={isActivePath(pathname, "/spots") ? "active" : ""}><span>⌖</span>Spots</Link>
+        <Link href="/reviews" className={isActivePath(pathname, "/reviews") ? "active" : ""}><span>✎</span>Reviews</Link>
+        <Link href="/safety-integrity" className={isActivePath(pathname, "/safety-integrity") ? "active" : ""}><span>!</span>Safety</Link>
+      </nav>
 
       <button
         type="button"

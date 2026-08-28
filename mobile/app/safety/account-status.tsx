@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,6 +15,7 @@ import {
   type SafetyWriteStatus,
 } from "../../lib/safety-enforcement";
 import { supabase } from "../../lib/supabase";
+import { StateView } from "../../components/foundation/StateView";
 
 type Measure = {
   id: string;
@@ -109,10 +109,7 @@ export default function SafetyAccountStatusScreen() {
         </Text>
 
         {loading ? (
-          <ActivityIndicator
-            color="#FF4F8B"
-            style={{ marginTop: 40 }}
-          />
+          <StateView kind="loading" title="Account-Status wird geladen" />
         ) : (
           <>
             <View style={styles.summaryCard}>
@@ -222,7 +219,7 @@ export default function SafetyAccountStatusScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#070708",
+    backgroundColor: "#050506",
   },
   header: {
     minHeight: 58,
@@ -251,7 +248,7 @@ const styles = StyleSheet.create({
     paddingBottom: 80,
   },
   kicker: {
-    color: "#FF4F8B",
+    color: "#FF4F91",
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 2.5,
@@ -368,7 +365,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,79,139,0.24)",
   },
   ackButtonText: {
-    color: "#FF78A7",
+    color: "#FF4F91",
     fontWeight: "900",
   },
 });

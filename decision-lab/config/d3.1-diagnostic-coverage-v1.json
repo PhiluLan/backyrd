@@ -1,8 +1,8 @@
 {
   "version": "d3.1-diagnostic-coverage-v1",
-  "parentFreezeManifestHash": "6488f3031bb63df482dbff2b2e2c011c1a82781862e1fe532ffdd1c968fffacf",
-  "personalizationTreatmentFreezeHash": "9b4691de75bead63ad798700ada0b818ba6d29ad92d24804dcb2d3eeecfc1053",
-  "engineSourceHash": "a3618a4254a884a53b45cf185c630444239d3da8e04f78d86ece6a65cda507ba",
+  "parentFreezeManifestHash": "70f4ca13306d48a21d91d80c109794f39ad7e10af69edfcc3954b233af4e0026",
+  "personalizationTreatmentFreezeHash": "be7e65317d71717c3b14a48a75bddf9092c34de1a70e84e2e3f60c74ca6a5b3a",
+  "engineSourceHash": "28e178dee7192cb303b07574f31f1e86f58bc80048b23ba00bf032ca02c2bfc4",
   "executionPath": "CANONICAL_V13_AUTHENTICATED",
   "arms": {
     "counterfactual": { "families": ["audience", "mood", "price", "time"], "minimumExecutable": 5 },

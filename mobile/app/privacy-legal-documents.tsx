@@ -1,9 +1,7 @@
 // mobile/app/privacy-legal-documents.tsx
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,27 +16,30 @@ import {
   getMyLegalDocumentsOverview,
   LegalDocumentOverviewRow,
 } from "@/lib/consent";
+import { StateView } from "@/components/foundation/StateView";
 
 export default function PrivacyLegalDocumentsScreen() {
   const router = useRouter();
   const [rows, setRows] = useState<LegalDocumentOverviewRow[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      setRows(await getMyLegalDocumentsOverview());
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    void (async () => {
-      try {
-        setRows(await getMyLegalDocumentsOverview());
-      } catch (error: any) {
-        Alert.alert(
-          "Rechtsdokumente",
-          error?.message ?? "Dokumente konnten nicht geladen werden.",
-        );
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+    void load();
+  }, [load]);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
@@ -60,26 +61,16 @@ export default function PrivacyLegalDocumentsScreen() {
 
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color="#FF7DA7" />
+          <StateView kind="loading" title="Dokumente werden geladen" />
+        </View>
+      ) : error ? (
+        <View style={styles.loading}>
+          <StateView kind="error" title="Dokumente nicht verfügbar" message="Die Rechtsdokumente konnten gerade nicht geladen werden." actionLabel="Noch einmal" onAction={() => void load()} />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           {rows.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons
-                name="document-text-outline"
-                size={31}
-                color="#777782"
-              />
-              <Text style={styles.emptyTitle}>
-                Noch keine veröffentlichten Dokumente
-              </Text>
-              <Text style={styles.emptyText}>
-                Die rechtlichen Entwürfe befinden sich weiterhin in Prüfung.
-                Sobald sie veröffentlicht werden, erscheinen sie automatisch
-                hier.
-              </Text>
-            </View>
+            <StateView kind="empty" title="Noch keine veröffentlichten Dokumente" message="Sobald Dokumente veröffentlicht sind, erscheinen sie automatisch hier." />
           ) : (
             rows.map((row) => {
               const open = expanded === row.document_id;
@@ -139,7 +130,7 @@ export default function PrivacyLegalDocumentsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#09090A" },
+  safe: { flex: 1, backgroundColor: "#050506" },
 
   header: {
     flexDirection: "row",
@@ -169,7 +160,7 @@ const styles = StyleSheet.create({
   content: { padding: 18, paddingBottom: 48 },
   card: {
     borderRadius: 21,
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
     marginBottom: 11,
@@ -202,7 +193,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 30,
     borderRadius: 23,
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
   },
   emptyTitle: {
     color: "#FFFFFF",

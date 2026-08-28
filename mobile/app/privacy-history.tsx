@@ -1,9 +1,7 @@
 // mobile/app/privacy-history.tsx
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,8 +14,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
   ConsentHistoryRow,
+  consentPurposeTitle,
   getMyConsentHistory,
 } from "@/lib/consent";
+import { StateView } from "@/components/foundation/StateView";
 
 const LABELS: Record<string, string> = {
   consent_granted: "Einwilligung erteilt",
@@ -30,21 +30,23 @@ export default function PrivacyHistoryScreen() {
   const router = useRouter();
   const [rows, setRows] = useState<ConsentHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      setRows(await getMyConsentHistory());
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    void (async () => {
-      try {
-        setRows(await getMyConsentHistory());
-      } catch (error: any) {
-        Alert.alert(
-          "Einwilligungsverlauf",
-          error?.message ?? "Der Verlauf konnte nicht geladen werden.",
-        );
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+    void load();
+  }, [load]);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
@@ -66,7 +68,11 @@ export default function PrivacyHistoryScreen() {
 
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color="#FF7DA7" />
+          <StateView kind="loading" title="Verlauf wird geladen" />
+        </View>
+      ) : error ? (
+        <View style={styles.loading}>
+          <StateView kind="error" title="Verlauf nicht verfügbar" message="Deine Datenschutzentscheidungen konnten gerade nicht geladen werden." actionLabel="Noch einmal" onAction={() => void load()} />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
@@ -76,13 +82,7 @@ export default function PrivacyHistoryScreen() {
           </Text>
 
           {rows.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="time-outline" size={28} color="#777782" />
-              <Text style={styles.emptyTitle}>Noch keine Einträge</Text>
-              <Text style={styles.emptyText}>
-                Deine künftigen Einwilligungen und Widerrufe erscheinen hier.
-              </Text>
-            </View>
+            <StateView kind="empty" title="Noch keine Einträge" message="Deine künftigen Einwilligungen und Widerrufe erscheinen hier." />
           ) : (
             rows.map((row) => {
               const withdrawn = row.event_type === "consent_withdrawn";
@@ -97,18 +97,17 @@ export default function PrivacyHistoryScreen() {
                   />
                   <View style={styles.rowCopy}>
                     <Text style={styles.rowTitle}>
-                      {row.purpose_title ??
-                        row.document_title ??
-                        row.purpose_key ??
-                        "Rechtsdokument"}
+                      {row.purpose_key
+                        ? consentPurposeTitle(row.purpose_key, row.purpose_title)
+                        : row.document_title ?? "Rechtsdokument"}
                     </Text>
                     <Text style={styles.eventLabel}>
-                      {LABELS[row.event_type] ?? row.event_type}
+                      {LABELS[row.event_type] ?? "Datenschutz aktualisiert"}
                     </Text>
                     <Text style={styles.meta}>
                       {new Date(row.occurred_at).toLocaleString("de-CH")}
-                      {row.source ? ` · ${row.source}` : ""}
-                      {row.app_version ? ` · App ${row.app_version}` : ""}
+                      {row.source === "mobile" ? " · Backyrd App" : ""}
+                      {row.app_version ? ` ${row.app_version}` : ""}
                     </Text>
                   </View>
                 </View>
@@ -122,7 +121,7 @@ export default function PrivacyHistoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#09090A" },
+  safe: { flex: 1, backgroundColor: "#050506" },
 
   header: {
     flexDirection: "row",
@@ -155,7 +154,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     padding: 17,
     borderRadius: 19,
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
     marginBottom: 10,
@@ -171,13 +170,13 @@ const styles = StyleSheet.create({
   dotOff: { backgroundColor: "#FF7D87" },
   rowCopy: { flex: 1 },
   rowTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "900" },
-  eventLabel: { color: "#FF7DA7", fontWeight: "800", marginTop: 5 },
+  eventLabel: { color: "#FF4F91", fontWeight: "800", marginTop: 5 },
   meta: { color: "#797984", fontSize: 12, lineHeight: 17, marginTop: 7 },
   empty: {
     alignItems: "center",
     padding: 28,
     borderRadius: 22,
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
   },
   emptyTitle: {
     color: "#FFFFFF",

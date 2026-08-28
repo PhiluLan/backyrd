@@ -1,11 +1,12 @@
 // mobile/app/(tabs)/dev.tsx
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
+import { isInternalMobileUser } from "../../lib/internalAccess";
 import { useEffect, useState } from "react";
-
-const DEV_EMAIL = "philipplanger@yahoo.com";
+import { AppText } from "../../components/foundation/AppText";
+import { backyrdTheme as theme } from "../../theme/backyrd";
 
 function DevRow({
   title,
@@ -19,15 +20,15 @@ function DevRow({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityHint={subtitle} onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
       <View style={styles.rowLeft}>
-        <Ionicons name={icon} size={20} color="#fff" />
+        <Ionicons accessibilityElementsHidden name={icon} size={20} color={theme.color.textPrimary} />
         <View style={{ marginLeft: 12 }}>
-          <Text style={styles.rowTitle}>{title}</Text>
-          <Text style={styles.rowSubtitle}>{subtitle}</Text>
+          <AppText role="bodyStrong">{title}</AppText>
+          <AppText role="caption" tone="secondary" style={styles.rowSubtitle}>{subtitle}</AppText>
         </View>
       </View>
-      <Ionicons name="chevron-forward" size={18} color="#777" />
+      <Ionicons accessibilityElementsHidden name="chevron-forward" size={18} color={theme.color.textMuted} />
     </Pressable>
   );
 }
@@ -41,8 +42,7 @@ export default function DevScreen() {
 
     (async () => {
       const { data } = await supabase.auth.getSession();
-      const email = (data.session?.user?.email ?? "").toLowerCase();
-      const ok = email === DEV_EMAIL.toLowerCase();
+      const ok = isInternalMobileUser(data.session?.user ?? null);
       if (!cancelled) setAllowed(ok);
 
       if (!ok) {
@@ -60,38 +60,38 @@ export default function DevScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>DEV</Text>
-      <Text style={styles.caption}>
-        Interne Tools. Nicht Teil der User-UX.
-      </Text>
+      <AppText role="displayM">INTERN</AppText>
+      <AppText tone="secondary" style={styles.caption}>
+        Diagnose und interne Produktwerkzeuge.
+      </AppText>
 
       <View style={styles.card}>
         <DevRow
-          title="New Spot"
+          title="Neuer Spot"
           subtitle="Manuell Spots anlegen"
           icon="add-circle-outline"
           onPress={() => router.push("/(tabs)/new-spot")}
         />
         <View style={styles.sep} />
         <DevRow
-          title="Messages"
-          subtitle="Interne Inbox / Debug"
+          title="Nachrichten"
+          subtitle="Interner Nachrichtenbereich"
           icon="chatbubbles-outline"
           onPress={() => router.push("/(tabs)/messages")}
         />
         <View style={styles.sep} />
         <DevRow
-          title="Achievements"
-          subtitle="Badges / Progress debuggen"
+          title="Erfolge"
+          subtitle="Erfolge und Fortschritt prüfen"
           icon="trophy-outline"
           onPress={() => router.push("/(tabs)/achievements")}
         />
         <View style={styles.sep} />
         <DevRow
-          title="Achievements"
-          subtitle="Badges / Progress debuggen"
-          icon="trophy-outline"
-          onPress={() => router.push("/(tabs)/decision-debug")}
+          title="App- & Release-Status"
+          subtitle="Aktives Bundle und Update-Diagnostik"
+          icon="pulse-outline"
+          onPress={() => router.push("/(tabs)/release-diagnostics")}
         />
       </View>
     </View>
@@ -101,28 +101,20 @@ export default function DevScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0A0A0A",
+    backgroundColor: theme.color.background,
     paddingTop: 24,
     paddingHorizontal: 16,
   },
-  title: {
-    color: "#fff",
-    fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: -0.2,
-  },
   caption: {
     marginTop: 6,
-    color: "#9a9a9a",
-    fontSize: 14,
-    lineHeight: 19,
+    lineHeight: 21,
   },
   card: {
     marginTop: 18,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "#222",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    borderColor: theme.color.border,
+    backgroundColor: theme.color.surface,
     overflow: "hidden",
   },
   row: {
@@ -133,24 +125,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   rowPressed: {
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: theme.color.surfaceElevated,
   },
   rowLeft: {
     flexDirection: "row",
     alignItems: "center",
   },
-  rowTitle: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "700",
-  },
   rowSubtitle: {
     marginTop: 2,
-    color: "#9a9a9a",
-    fontSize: 13,
   },
   sep: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: "#222",
+    backgroundColor: theme.color.border,
   },
 });

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { supabase } from "./supabase";
 import { filterDistributedSpots } from "./distributionTrust";
+import { selectSpotImageUrl } from "./spot-images";
 
 type Spot = {
   id: string;
@@ -19,7 +20,7 @@ type State = {
   refresh: () => Promise<void>;
 };
 
-export const useSpotsStore = create<State>((set, get) => ({
+export const useSpotsStore = create<State>((set) => ({
   spots: [],
   loading: true,
 
@@ -37,6 +38,7 @@ export const useSpotsStore = create<State>((set, get) => ({
         lng,
         address,
         category_id,
+        header_photo_path,
         categories ( name, color ),
         spot_photos ( url )
         `
@@ -55,9 +57,12 @@ export const useSpotsStore = create<State>((set, get) => ({
         ...s,
         lat: Number(s.lat),
         lng: Number(s.lng),
-        header_photo_url: Array.isArray(s.spot_photos)
-          ? s.spot_photos[0]?.url || null
-          : s.spot_photos?.url || null,
+        header_photo_url: selectSpotImageUrl({
+          photoUrl: Array.isArray(s.spot_photos)
+            ? s.spot_photos[0]?.url || null
+            : s.spot_photos?.url || null,
+          headerPhotoPath: s.header_photo_path,
+        }),
       })) ?? [];
 
     try {
@@ -78,7 +83,7 @@ supabase
     { event: "*", schema: "public", table: "spots" },
     () => {
       console.log("♻️ Spots geändert — reload...");
-      get().refresh();
+      void useSpotsStore.getState().refresh();
     }
   )
   .subscribe();
@@ -90,7 +95,7 @@ supabase
     { event: "*", schema: "public", table: "spot_photos" },
     () => {
       console.log("📸 Foto geändert — reload...");
-      get().refresh();
+      void useSpotsStore.getState().refresh();
     }
   )
   .subscribe();
@@ -102,7 +107,7 @@ supabase
     { event: "*", schema: "public", table: "categories" },
     () => {
       console.log("🎨 Kategorien geändert — reload...");
-      get().refresh();
+      void useSpotsStore.getState().refresh();
     }
   )
   .subscribe();

@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     paddingHorizontal: 28,
-    backgroundColor: "#09090A",
+    backgroundColor: "#050506",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   badgeText: {
-    color: "#FF7DA7",
+    color: "#FF4F91",
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 1.4,
@@ -92,10 +92,10 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: 24,
     borderRadius: 18,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
     alignItems: "center",
     justifyContent: "center",
   },
   buttonPressed: { opacity: 0.86, transform: [{ scale: 0.98 }] },
-  buttonText: { color: "#09090A", fontSize: 15, fontWeight: "800" },
+  buttonText: { color: "#050506", fontSize: 15, fontWeight: "800" },
 });

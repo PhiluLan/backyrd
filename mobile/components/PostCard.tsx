@@ -7,6 +7,7 @@ import {
   Share,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,6 +16,7 @@ import { useRouter } from "expo-router";
 import Avatar from "./Avatar";
 import { supabase } from "../lib/supabase";
 import ReportContentButton from "./safety/ReportContentButton";
+import { userFacingError } from "../lib/userFacingError";
 
 export type SocialFeedPost = {
   post_id: string;
@@ -33,7 +35,7 @@ export type SocialFeedPost = {
   source_type?: string | null;
   review_id?: string | null;
   source_context?: Record<string, any> | null;
-  media: Array<{
+  media: {
     id?: string;
     storage_path?: string | null;
     public_url?: string | null;
@@ -41,7 +43,7 @@ export type SocialFeedPost = {
     width?: number | null;
     height?: number | null;
     sort_order?: number | null;
-  }> | null;
+  }[] | null;
   like_count: number;
   comment_count: number;
   save_count: number;
@@ -63,6 +65,8 @@ type Props = {
   onOpenComments: (post: SocialFeedPost) => void;
   onShare?: (post: SocialFeedPost) => void;
   onFollowChanged?: (userId: string, following: boolean) => void;
+  /** Profile headers already own the relationship action. */
+  showFollowAction?: boolean;
 };
 
 function timeAgo(value: string) {
@@ -80,9 +84,20 @@ function timeAgo(value: string) {
   });
 }
 
+const PRESENTED_TAGS: Record<string, string> = {
+  cozy: "Gemütlich",
+  calm: "Ruhig",
+  inspiring: "Inspirierend",
+  lively: "Lebhaft",
+};
+
 function cleanTags(value?: string[] | null) {
   return Array.isArray(value)
-    ? value.map((tag) => String(tag ?? "").trim()).filter(Boolean).slice(0, 4)
+    ? value
+        .map((tag) => String(tag ?? "").trim())
+        .filter((tag) => tag.length >= 2)
+        .map((tag) => PRESENTED_TAGS[tag.toLowerCase()] ?? tag)
+        .slice(0, 4)
     : [];
 }
 
@@ -102,15 +117,6 @@ function isReviewMoment(post: SocialFeedPost) {
   );
 }
 
-function errorMessage(error: any) {
-  return (
-    error?.message ||
-    error?.details ||
-    error?.hint ||
-    "Bitte versuche es erneut."
-  );
-}
-
 export default function SocialPostCard({
   post,
   currentUserId = null,
@@ -119,8 +125,10 @@ export default function SocialPostCard({
   onOpenComments,
   onShare,
   onFollowChanged,
+  showFollowAction = true,
 }: Props) {
   const router = useRouter();
+  const { width: viewportWidth } = useWindowDimensions();
   const [liked, setLiked] = useState(Boolean(post.viewer_has_liked));
   const [saved, setSaved] = useState(Boolean(post.viewer_has_saved));
   const [following, setFollowing] = useState(
@@ -132,6 +140,7 @@ export default function SocialPostCard({
     null,
   );
   const [busyFollow, setBusyFollow] = useState(false);
+  const [mediaFailed, setMediaFailed] = useState(false);
 
   useEffect(() => {
     setLiked(Boolean(post.viewer_has_liked));
@@ -153,6 +162,7 @@ export default function SocialPostCard({
   const handle = post.username?.trim() ? `@${post.username.trim()}` : null;
   const images = useMemo(() => mediaUrls(post), [post]);
   const imageUrl = images[0] ?? null;
+  useEffect(() => setMediaFailed(false), [post.post_id, imageUrl]);
   const tags = useMemo(
     () =>
       [...cleanTags(post.mood_tags), ...cleanTags(post.occasion_tags)].slice(
@@ -180,7 +190,7 @@ export default function SocialPostCard({
     } catch (error: any) {
       setLiked(!next);
       setLikeCount((value) => Math.max(0, value + (next ? -1 : 1)));
-      Alert.alert("Reaktion fehlgeschlagen", errorMessage(error));
+      Alert.alert("Reaktion fehlgeschlagen", userFacingError(error));
     } finally {
       setBusyReaction(null);
     }
@@ -196,7 +206,7 @@ export default function SocialPostCard({
       await onToggleReaction(post.post_id, "save", next);
     } catch (error: any) {
       setSaved(!next);
-      Alert.alert("Speichern fehlgeschlagen", errorMessage(error));
+      Alert.alert("Speichern fehlgeschlagen", userFacingError(error));
     } finally {
       setBusyReaction(null);
     }
@@ -217,7 +227,7 @@ export default function SocialPostCard({
       onFollowChanged?.(post.user_id, next);
     } catch (error: any) {
       setFollowing(!next);
-      Alert.alert("Folgen fehlgeschlagen", errorMessage(error));
+      Alert.alert("Folgen fehlgeschlagen", userFacingError(error));
     } finally {
       setBusyFollow(false);
     }
@@ -284,7 +294,7 @@ export default function SocialPostCard({
                 <Ionicons
                   name="checkmark-circle"
                   size={15}
-                  color="#FF7DA7"
+                  color="#FF4F91"
                 />
               ) : null}
             </View>
@@ -298,8 +308,11 @@ export default function SocialPostCard({
         </Pressable>
 
         <View style={styles.headerActions}>
-          {!ownPost ? (
+          {!ownPost && showFollowAction ? (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={following ? `${displayName} nicht mehr folgen` : `${displayName} folgen`}
+              accessibilityState={{ selected: following, busy: busyFollow }}
               style={[
                 styles.followButton,
                 following && styles.followButtonActive,
@@ -355,24 +368,33 @@ export default function SocialPostCard({
       </View>
 
       <Pressable
-        style={styles.media}
+        accessibilityRole="button"
+        accessibilityLabel={post.spot_name ? `${post.spot_name} öffnen` : `${displayName} Profil öffnen`}
+        style={
+          imageUrl && !mediaFailed
+            ? styles.media
+            : [styles.mediaWithoutImage, { width: viewportWidth }]
+        }
         onPress={() => (post.spot_id ? onOpenSpot(post) : openUser())}
         onLongPress={toggleLike}
       >
-        {imageUrl ? (
+        {imageUrl && !mediaFailed ? (
           <Image
             source={{ uri: imageUrl }}
             style={styles.mediaImage}
             resizeMode="cover"
+            onError={() => setMediaFailed(true)}
+            accessibilityLabel={`Moment von ${displayName}`}
           />
         ) : (
           <View style={styles.placeholder}>
             <Ionicons
+              accessibilityElementsHidden
               name="images-outline"
-              size={42}
+              size={28}
               color="rgba(255,255,255,0.26)"
             />
-            <Text style={styles.placeholderText}>Backyrd Moment</Text>
+            <Text style={styles.placeholderText}>Moment ohne Bild</Text>
           </View>
         )}
 
@@ -406,15 +428,17 @@ export default function SocialPostCard({
 
       <View style={styles.actionBar}>
         <View style={styles.leftActions}>
-          <Pressable style={styles.action} onPress={toggleLike}>
+          <Pressable accessibilityRole="button" accessibilityLabel={liked ? "Gefällt mir entfernen" : "Gefällt mir"} accessibilityState={{ selected: liked, busy: busyReaction === "like" }} style={styles.action} onPress={toggleLike}>
             <Ionicons
               name={liked ? "heart" : "heart-outline"}
               size={29}
-              color={liked ? "#FF5C8D" : "#FFFFFF"}
+              color={liked ? "#FF4F91" : "#FFFFFF"}
             />
           </Pressable>
 
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Kommentare öffnen"
             style={styles.action}
             onPress={() => onOpenComments(post)}
           >
@@ -425,7 +449,7 @@ export default function SocialPostCard({
             />
           </Pressable>
 
-          <Pressable style={styles.action} onPress={sharePost}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Moment teilen" style={styles.action} onPress={sharePost}>
             <Ionicons
               name="paper-plane-outline"
               size={27}
@@ -434,7 +458,7 @@ export default function SocialPostCard({
           </Pressable>
         </View>
 
-        <Pressable style={styles.action} onPress={toggleSave}>
+        <Pressable accessibilityRole="button" accessibilityLabel={saved ? "Aus Gespeichert entfernen" : "Moment speichern"} accessibilityState={{ selected: saved, busy: busyReaction === "save" }} style={styles.action} onPress={toggleSave}>
           <Ionicons
             name={saved ? "bookmark" : "bookmark-outline"}
             size={28}
@@ -463,7 +487,7 @@ export default function SocialPostCard({
             onPress={() => onOpenSpot(post)}
           >
             <View style={styles.spotIcon}>
-              <Ionicons name="location" size={14} color="#09090B" />
+              <Ionicons name="location" size={14} color="#050506" />
             </View>
             <View style={styles.spotCopy}>
               <Text style={styles.spotName} numberOfLines={1}>
@@ -493,7 +517,7 @@ export default function SocialPostCard({
         ) : null}
 
         {commentCount > 0 ? (
-          <Pressable onPress={() => onOpenComments(post)}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Alle ${commentCount} Kommentare öffnen`} onPress={() => onOpenComments(post)}>
             <Text style={styles.commentsLink}>
               Alle {commentCount} Kommentare ansehen
             </Text>
@@ -533,7 +557,7 @@ const styles = StyleSheet.create({
     height: 49,
     borderRadius: 25,
     padding: 2,
-    backgroundColor: "#FF5C8D",
+    backgroundColor: "#FF4F91",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -553,7 +577,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
     color: "#9A9AA2",
     fontSize: 13,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   headerActions: {
     flexDirection: "row",
@@ -572,7 +596,7 @@ const styles = StyleSheet.create({
     height: 36,
     paddingHorizontal: 14,
     borderRadius: 11,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -582,7 +606,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.12)",
   },
   followText: {
-    color: "#0A0A0B",
+    color: "#050506",
     fontSize: 13,
     fontWeight: "900",
   },
@@ -590,15 +614,22 @@ const styles = StyleSheet.create({
   media: {
     width: "100%",
     aspectRatio: 0.86,
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
     overflow: "hidden",
   },
   mediaImage: {
     width: "100%",
     height: "100%",
   },
+  mediaWithoutImage: {
+    alignSelf: "stretch",
+    height: 148,
+    backgroundColor: "#111113",
+    overflow: "hidden",
+  },
   placeholder: {
-    flex: 1,
+    width: "100%",
+    height: "100%",
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
@@ -649,7 +680,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     color: "#FFFFFF",
     fontSize: 13,
-    fontWeight: "850",
+    fontWeight: "800",
   },
   dots: {
     height: 18,
@@ -668,7 +699,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
   },
   actionBar: {
     minHeight: 55,
@@ -722,7 +753,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -736,10 +767,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: "#85858D",
     fontSize: 12,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   spotLink: {
-    color: "#FF8FB2",
+    color: "#FF4F91",
     fontSize: 12,
     fontWeight: "900",
   },
@@ -756,7 +787,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,125,167,0.10)",
   },
   tagText: {
-    color: "#FF9ABA",
+    color: "#FF4F91",
     fontSize: 12,
     fontWeight: "800",
   },
@@ -764,7 +795,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: "#8F8F98",
     fontSize: 14,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   timestamp: {
     marginTop: 8,

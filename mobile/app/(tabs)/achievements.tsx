@@ -2,23 +2,27 @@
 import React, { useState, useCallback } from "react";
 import {
   View,
-  Text,
   FlatList,
-  ActivityIndicator,
-  TouchableOpacity,
   StyleSheet,
   Image,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
 import { useAchievements } from "../../hooks/useAchievements";
 import { awardAchievementsForUser } from "../../lib/achievementEngine";
+import type { AchievementWithProgress, NewlyUnlockedAchievement } from "../../lib/achievementEngine";
 import { supabase } from "../../lib/supabase";
 import { useFocusEffect } from "@react-navigation/native";
 import AchievementPopup from "../../components/AchievementPopup";
+import { AppText } from "../../components/foundation/AppText";
+import { IconButton } from "../../components/foundation/Button";
+import { Screen } from "../../components/foundation/Screen";
+import { StateView } from "../../components/foundation/StateView";
+import { backyrdTheme as theme } from "../../theme/backyrd";
 
 export default function AchievementsScreen() {
   const { achievements, loading, error, refetch } = useAchievements();
-  const [newAchievement, setNewAchievement] = useState(null);
+  const [newAchievement, setNewAchievement] = useState<NewlyUnlockedAchievement | null>(null);
 
   /**
    * Wird ausgeführt jedes Mal, wenn man den Tab betritt.
@@ -41,20 +45,20 @@ export default function AchievementsScreen() {
       }
 
       sync();
-    }, [])
+    }, [refetch])
   );
 
   // --------- GROUPING: nur die höchste Stufe pro Typ anzeigen ---------
 
-  function groupAchievements(list) {
-    const groups = {};
+  function groupAchievements(list: AchievementWithProgress[]) {
+    const groups: Record<string, AchievementWithProgress[]> = {};
 
     list.forEach((a) => {
       if (!groups[a.type]) groups[a.type] = [];
       groups[a.type].push(a);
     });
 
-    const final = [];
+    const final: AchievementWithProgress[] = [];
 
     Object.keys(groups).forEach((type) => {
       const items = groups[type];
@@ -64,10 +68,10 @@ export default function AchievementsScreen() {
 
       if (unlocked.length > 0) {
         // höchste Stufe → größtes threshold
-        final.push(unlocked.sort((a, b) => b.threshold - a.threshold)[0]);
+        final.push(unlocked.sort((a, b) => (b.threshold ?? 0) - (a.threshold ?? 0))[0]);
       } else {
         // keine unlocked → nächste Stufe → kleinstes threshold
-        final.push(locked.sort((a, b) => a.threshold - b.threshold)[0]);
+        final.push(locked.sort((a, b) => (a.threshold ?? 0) - (b.threshold ?? 0))[0]);
       }
     });
 
@@ -77,7 +81,7 @@ export default function AchievementsScreen() {
   const grouped = groupAchievements(achievements);
 
   return (
-    <View style={styles.container}>
+    <Screen padded>
 
       {/* ---- ACHIEVEMENT POPUP ---- */}
       {newAchievement && (
@@ -90,18 +94,20 @@ export default function AchievementsScreen() {
       )}
 
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Deine Badges</Text>
-
-        <TouchableOpacity onPress={refetch} style={styles.reloadBtn}>
-          <Text style={styles.reloadText}>Neu laden</Text>
-        </TouchableOpacity>
+        <View style={styles.headerCopy}>
+          <AppText role="caption" tone="lime" style={styles.kicker}>DEIN BACKYRD</AppText>
+          <AppText role="displayM">ERFOLGE.</AppText>
+        </View>
+        <IconButton accessibilityLabel="Erfolge neu laden" onPress={() => void refetch()} style={styles.reloadBtn}>
+          <Ionicons name="refresh" size={21} color={theme.color.textPrimary} />
+        </IconButton>
       </View>
 
-      {loading && <ActivityIndicator color="#fff" />}
-      {error && <Text style={styles.error}>{error}</Text>}
+      {loading ? <StateView kind="loading" title="Erfolge werden geladen" /> : null}
+      {!loading && error ? <StateView kind="error" title="Erfolge gerade nicht erreichbar" message="Bitte versuche es noch einmal." actionLabel="Erneut laden" onAction={() => void refetch()} /> : null}
 
       {/* ---- LISTE ---- */}
-      {!loading && (
+      {!loading && !error && (
         <FlatList
           data={grouped}
           keyExtractor={(item) => item.id}
@@ -117,16 +123,14 @@ export default function AchievementsScreen() {
                   />
                 ) : (
                   <View style={styles.iconPlaceholder}>
-                    <Text style={styles.iconText}>🏅</Text>
+                    <Ionicons name="ribbon-outline" size={24} color={theme.color.lime} />
                   </View>
                 )}
 
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.name}>
-                    {item.name} {item.unlocked ? "✅" : ""}
-                  </Text>
+                  <View style={styles.nameRow}><AppText role="bodyStrong" style={styles.name}>{item.name}</AppText>{item.unlocked ? <Ionicons name="checkmark-circle" size={18} color={theme.color.lime} /> : null}</View>
 
-                  <Text style={styles.desc}>{item.description}</Text>
+                  <AppText role="meta" tone="secondary" style={styles.desc}>{item.description}</AppText>
 
                   {!item.unlocked ? (
                     <View style={styles.progressWrapper}>
@@ -138,15 +142,15 @@ export default function AchievementsScreen() {
                       />
                     </View>
                   ) : (
-                    <Text style={styles.unlockedText}>Freigeschaltet</Text>
+                    <AppText role="caption" tone="lime" style={styles.unlockedText}>Freigeschaltet</AppText>
                   )}
                 </View>
 
                 <View>
-                  <Text style={styles.badgeType}>{item.type}</Text>
-                  <Text style={styles.threshold}>
+                  <AppText role="caption" tone="muted" style={styles.badgeType}>{item.type}</AppText>
+                  <AppText role="caption" style={styles.threshold}>
                     {item.progress}/{item.threshold ?? 1}
-                  </Text>
+                  </AppText>
                 </View>
 
               </View>
@@ -154,17 +158,15 @@ export default function AchievementsScreen() {
           )}
         />
       )}
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: "#0f1012" },
-
   // POPUP WRAPPER - immer on top
   popupWrapper: {
     position: "absolute",
-    top: 30,
+    top: theme.spacing.xl,
     left: 0,
     right: 0,
     zIndex: 999,
@@ -176,61 +178,56 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.xl,
   },
-  title: { fontSize: 22, fontWeight: "700", color: "white" },
+  headerCopy: { flex: 1, gap: theme.spacing.xxs },
+  kicker: { letterSpacing: 1.8 },
 
   reloadBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: "#1f2227",
-    borderRadius: 999,
+    backgroundColor: theme.color.surfaceElevated,
   },
-  reloadText: { color: "white", fontSize: 12 },
-  error: { color: "red" },
 
   card: {
-    backgroundColor: "#17191d",
-    borderRadius: 16,
-    padding: 14,
+    backgroundColor: theme.color.surface,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.color.border,
   },
   cardUnlocked: {
-    borderColor: "#4ade80",
-    borderWidth: 1,
+    borderColor: theme.color.borderStrong,
   },
   row: { flexDirection: "row", gap: 12 },
 
-  icon: { width: 48, height: 48, borderRadius: 999, backgroundColor: "#222" },
+  icon: { width: 48, height: 48, borderRadius: theme.radius.pill, backgroundColor: theme.color.surfaceElevated },
   iconPlaceholder: {
     width: 48,
     height: 48,
-    borderRadius: 999,
-    backgroundColor: "#222",
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.color.surfaceElevated,
     justifyContent: "center",
     alignItems: "center",
   },
-  iconText: { fontSize: 20 },
-
-  name: { color: "white", fontWeight: "600", fontSize: 15 },
-  desc: { color: "#b4bbc7", fontSize: 13, marginTop: 2 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
+  name: { flexShrink: 1 },
+  desc: { marginTop: theme.spacing.xxs },
 
   progressWrapper: {
     marginTop: 8,
     height: 6,
-    backgroundColor: "#272a2f",
-    borderRadius: 999,
+    backgroundColor: theme.color.surfaceElevated,
+    borderRadius: theme.radius.pill,
     overflow: "hidden",
   },
   progressBar: {
     height: "100%",
-    backgroundColor: "#4ade80",
+    backgroundColor: theme.color.lime,
   },
-  unlockedText: { marginTop: 6, color: "#4ade80", fontSize: 12 },
+  unlockedText: { marginTop: theme.spacing.xs },
 
-  badgeType: { color: "#b4bbc7", fontSize: 11, textAlign: "right" },
+  badgeType: { textAlign: "right", textTransform: "uppercase" },
   threshold: {
-    color: "white",
-    fontWeight: "700",
     textAlign: "right",
     marginTop: 4,
   },

@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,6 +16,7 @@ import {
   acceptLegalDocument,
   getMyPendingLegalDocuments,
 } from "@/lib/consent";
+import { StateView } from "@/components/foundation/StateView";
 
 type PendingDocument = {
   document_id: string;
@@ -33,6 +33,7 @@ export default function LegalConsentScreen() {
   const [documents, setDocuments] = useState<PendingDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     void load();
@@ -43,11 +44,8 @@ export default function LegalConsentScreen() {
       setDocuments(
         (await getMyPendingLegalDocuments()) as PendingDocument[],
       );
-    } catch (error: any) {
-      Alert.alert(
-        "Rechtsdokumente",
-        error?.message ?? "Dokumente konnten nicht geladen werden.",
-      );
+    } catch {
+      setErrorMessage("Dokumente konnten gerade nicht geladen werden. Bitte versuche es erneut.");
     } finally {
       setLoading(false);
     }
@@ -60,36 +58,23 @@ export default function LegalConsentScreen() {
         await acceptLegalDocument(document.document_id);
       }
       router.replace("/(tabs)" as never);
-    } catch (error: any) {
-      Alert.alert(
-        "Bestätigung fehlgeschlagen",
-        error?.message ?? "Bitte versuche es nochmals.",
-      );
+    } catch {
+      setErrorMessage("Die Bestätigung konnte nicht gespeichert werden. Bitte versuche es nochmals.");
     } finally {
       setAccepting(false);
     }
   }
 
   if (loading) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color="#FF7DA7" />
-      </View>
-    );
+    return <StateView kind="loading" title="Dokumente werden geladen" />;
+  }
+
+  if (errorMessage && documents.length === 0) {
+    return <StateView kind="error" title="Kurz den Faden verloren" message={errorMessage} actionLabel="Noch einmal versuchen" onAction={() => { setErrorMessage(null); void load(); }} />;
   }
 
   if (documents.length === 0) {
-    return (
-      <View style={styles.loading}>
-        <Text style={styles.emptyTitle}>Alles bestätigt</Text>
-        <Pressable
-          style={styles.button}
-          onPress={() => router.replace("/(tabs)" as never)}
-        >
-          <Text style={styles.buttonText}>Weiter zu Backyrd</Text>
-        </Pressable>
-      </View>
-    );
+    return <StateView kind="empty" title="Alles bestätigt" message="Du hast alle aktuell erforderlichen Dokumente bestätigt." actionLabel="Weiter zu Backyrd" onAction={() => router.replace("/(tabs)" as never)} />;
   }
 
   return (
@@ -101,6 +86,7 @@ export default function LegalConsentScreen() {
         <Text style={styles.lead}>
           Bitte lies und bestätige die aktuell gültigen Dokumente.
         </Text>
+        {errorMessage ? <Text accessibilityLiveRegion="polite" style={styles.inlineError}>{errorMessage}</Text> : null}
 
         {documents.map((document) => (
           <View key={document.document_id} style={styles.documentCard}>
@@ -121,7 +107,7 @@ export default function LegalConsentScreen() {
           onPress={() => void acceptAll()}
         >
           {accepting ? (
-            <ActivityIndicator color="#09090A" />
+            <ActivityIndicator color="#050506" />
           ) : (
             <Text style={styles.buttonText}>
               Dokumente bestätigen
@@ -134,17 +120,17 @@ export default function LegalConsentScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#09090A" },
+  safe: { flex: 1, backgroundColor: "#050506" },
   loading: {
     flex: 1,
-    backgroundColor: "#09090A",
+    backgroundColor: "#050506",
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
   },
   content: { padding: 22, paddingBottom: 50 },
   eyebrow: {
-    color: "#FF7DA7",
+    color: "#FF4F91",
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 1.35,
@@ -157,25 +143,25 @@ const styles = StyleSheet.create({
   },
   lead: { color: "#AFAFB7", fontSize: 16, lineHeight: 22, marginTop: 8 },
   documentCard: {
-    backgroundColor: "#151519",
+    backgroundColor: "#111113",
     borderRadius: 22,
     padding: 20,
     marginTop: 18,
   },
   documentTitle: { color: "#FFFFFF", fontSize: 22, fontWeight: "900" },
-  version: { color: "#FF7DA7", fontWeight: "800", marginTop: 5 },
+  version: { color: "#FF4F91", fontWeight: "800", marginTop: 5 },
   summary: { color: "#BEBEC6", lineHeight: 20, marginTop: 12 },
   contentText: { color: "#A6A6AF", lineHeight: 21, marginTop: 18 },
   button: {
     minHeight: 54,
     borderRadius: 18,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 18,
     marginTop: 24,
   },
   buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: "#09090A", fontWeight: "900", fontSize: 16 },
-  emptyTitle: { color: "#FFFFFF", fontSize: 24, fontWeight: "900" },
+  buttonText: { color: "#050506", fontWeight: "900", fontSize: 16 },
+  inlineError: { marginTop: 16, padding: 12, borderRadius: 14, color: "#FFD1DF", backgroundColor: "rgba(255,79,145,0.13)", fontSize: 14, lineHeight: 20 },
 });

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -22,6 +23,7 @@ import { supabase } from "@/lib/supabase";
 import {
   ConsentPurposeKey,
   ConsentStateRow,
+  consentPurposeTitle,
   getMyConsentState,
   setMyConsent,
 } from "@/lib/consent";
@@ -29,6 +31,9 @@ import {
   registerForPushNotificationsAsync,
   unregisterPushNotificationsAsync,
 } from "@/lib/notifications";
+import { StateView } from "@/components/foundation/StateView";
+import { AppText } from "@/components/foundation/AppText";
+import { backyrdTheme as theme } from "@/theme/backyrd";
 
 const ORDER: ConsentPurposeKey[] = [
   "personalized_recommendations",
@@ -50,22 +55,77 @@ const ICONS: Record<ConsentPurposeKey, keyof typeof Ionicons.glyphMap> = {
   model_improvement: "git-network-outline",
 };
 
+const PURPOSE_PRESENTATION: Record<
+  ConsentPurposeKey,
+  { title: string; description: string }
+> = {
+  personalized_recommendations: {
+    title: "Persönliche Vorschläge",
+    description:
+      "Backyrd darf deine vorhandenen Signale verwenden, um Vorschläge besser auf dich abzustimmen.",
+  },
+  optional_product_analytics: {
+    title: "Optionale Produktanalyse",
+    description:
+      "Hilft uns zu verstehen, wie Backyrd genutzt wird, damit wir das Produkt gezielt verbessern können.",
+  },
+  precise_location: {
+    title: "Präziser Standort",
+    description:
+      "Ermöglicht aktive Standortfunktionen und die automatische Spot-Erkennung für Smart Review.",
+  },
+  push_notifications: {
+    title: "Push-Benachrichtigungen",
+    description:
+      "Backyrd darf dir relevante Benachrichtigungen auf diesem Gerät senden.",
+  },
+  marketing_messages: {
+    title: "Neuigkeiten von Backyrd",
+    description:
+      "Backyrd darf dir optionale Produktneuigkeiten und ausgewählte Updates senden.",
+  },
+  photo_ai_processing: {
+    title: "Fotoanalyse",
+    description:
+      "Backyrd darf von dir ausgewählte Fotos für unterstützte Produktfunktionen analysieren.",
+  },
+  model_improvement: {
+    title: "Produktverbesserung",
+    description:
+      "Erlaubt die dafür vorgesehene Nutzung freigegebener Daten zur Verbesserung der Backyrd-Modelle.",
+  },
+};
+
+function presentPurpose(row: ConsentStateRow) {
+  const raw = `${row.title_de} ${row.description_de}`;
+  const containsInternalCopy = /\b(?:fixture|sprint|test data|placeholder)\b/i.test(raw);
+  const titleNeedsLocalization = row.title_de.trim().toLowerCase() === "personalization";
+
+  if (containsInternalCopy || titleNeedsLocalization) {
+    return PURPOSE_PRESENTATION[row.purpose_key];
+  }
+
+  return {
+    title: consentPurposeTitle(row.purpose_key, row.title_de),
+    description: row.description_de,
+  };
+}
+
 export default function PrivacyConsentScreen() {
   const router = useRouter();
   const [rows, setRows] = useState<ConsentStateRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<ConsentPurposeKey | null>(null);
   const [sendingTestPush, setSendingTestPush] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       setRows(await getMyConsentState());
-    } catch (error: any) {
-      Alert.alert(
-        "Datenschutz",
-        error?.message ?? "Einwilligungen konnten nicht geladen werden.",
-      );
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -130,11 +190,15 @@ export default function PrivacyConsentScreen() {
           Alert.alert(
             "Standort nicht aktiviert",
             "Die Geräteberechtigung wurde nicht erteilt. Du kannst sie später in den iOS-Einstellungen freigeben.",
+            [
+              { text: "Später", style: "cancel" },
+              { text: "Einstellungen", onPress: () => void Linking.openSettings() },
+            ],
           );
         } else {
           Alert.alert(
             "Standort aktiviert",
-            "Smart Review ist jetzt freigeschaltet. Backyrd darf deinen aktuellen Standort außerdem für aktive Standortfunktionen wie den Locate-Button verwenden.",
+            "Smart Review ist jetzt freigeschaltet. Backyrd darf deinen aktuellen Standort außerdem für aktive Standortfunktionen wie die Standorttaste verwenden.",
           );
         }
       }
@@ -145,7 +209,10 @@ export default function PrivacyConsentScreen() {
 
           if (result.status !== "granted") {
             await setMyConsent("push_notifications", false, row.document_id);
-            Alert.alert("Push nicht aktiviert", result.message);
+            Alert.alert("Push nicht aktiviert", result.message, [
+              { text: "Später", style: "cancel" },
+              { text: "Einstellungen", onPress: () => void Linking.openSettings() },
+            ]);
           } else {
             Alert.alert(
               "Push aktiviert",
@@ -160,10 +227,10 @@ export default function PrivacyConsentScreen() {
       }
 
       await load();
-    } catch (error: any) {
+    } catch {
       Alert.alert(
         "Änderung nicht möglich",
-        error?.message ?? "Bitte versuche es nochmals.",
+        "Die Änderung konnte gerade nicht gespeichert werden. Bitte versuche es erneut.",
       );
     } finally {
       setSavingKey(null);
@@ -214,10 +281,10 @@ export default function PrivacyConsentScreen() {
           sentCount === 1 ? "" : "e"
         } übergeben. Lege Backyrd kurz in den Hintergrund, falls du den Banner testen möchtest.`,
       );
-    } catch (error: any) {
+    } catch {
       Alert.alert(
         "Test-Push fehlgeschlagen",
-        error?.message ?? "Die Benachrichtigung konnte nicht versendet werden.",
+        "Die Benachrichtigung konnte gerade nicht versendet werden. Bitte versuche es erneut.",
       );
     } finally {
       setSendingTestPush(false);
@@ -234,18 +301,22 @@ export default function PrivacyConsentScreen() {
           onPress={() => router.back()}
           style={styles.backButton}
         >
-          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          <Ionicons accessibilityElementsHidden name="chevron-back" size={24} color="#FFFFFF" />
         </Pressable>
 
         <View style={styles.headerCopy}>
-          <Text style={styles.eyebrow}>PRIVACY CENTER</Text>
-          <Text style={styles.title}>Datenschutz & Einwilligungen</Text>
+          <AppText role="label" tone="pink" style={styles.eyebrow}>PRIVACY CENTER</AppText>
+          <AppText role="screenTitle" style={styles.title}>Datenschutz & Einwilligungen</AppText>
         </View>
       </View>
 
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color="#FF7DA7" />
+          <StateView kind="loading" title="Einwilligungen werden geladen" />
+        </View>
+      ) : loadError ? (
+        <View style={styles.loading}>
+          <StateView kind="error" title="Einwilligungen nicht verfügbar" message="Deine Einstellungen konnten gerade nicht geladen werden." actionLabel="Noch einmal" onAction={() => void load()} />
         </View>
       ) : (
         <ScrollView
@@ -253,7 +324,7 @@ export default function PrivacyConsentScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.introCard}>
-            <Ionicons name="shield-checkmark-outline" size={25} color="#FF7DA7" />
+            <Ionicons accessibilityElementsHidden name="shield-checkmark-outline" size={25} color="#FF4F91" />
             <Text style={styles.introTitle}>Du entscheidest.</Text>
             <Text style={styles.introText}>
               Du kannst Backyrd ohne Standort durchsuchen und Spots entdecken.
@@ -268,20 +339,24 @@ export default function PrivacyConsentScreen() {
           {optionalRows.map((row) => {
             const enabled = row.current_status === "granted";
             const saving = savingKey === row.purpose_key;
+            const presentation = presentPurpose(row);
 
             return (
               <View key={row.purpose_key} style={styles.consentCard}>
                 <View style={styles.iconWrap}>
                   <Ionicons
+                    accessibilityElementsHidden
                     name={ICONS[row.purpose_key]}
                     size={22}
-                    color="#FF7DA7"
+                    color="#FF4F91"
                   />
                 </View>
 
                 <View style={styles.cardCopy}>
                   <View style={styles.cardTitleRow}>
-                    <Text style={styles.cardTitle}>{row.title_de}</Text>
+                    <AppText role="bodyStrong" style={styles.cardTitle}>
+                      {presentation.title}
+                    </AppText>
                     {row.purpose_key === "precise_location" ? (
                       <View style={styles.smartReviewBadge}>
                         <Text style={styles.smartReviewBadgeText}>
@@ -290,7 +365,9 @@ export default function PrivacyConsentScreen() {
                       </View>
                     ) : null}
                   </View>
-                  <Text style={styles.cardText}>{row.description_de}</Text>
+                  <AppText role="meta" tone="secondary" style={styles.cardText}>
+                    {presentation.description}
+                  </AppText>
                   <Text style={styles.statusText}>
                     {row.purpose_key === "precise_location"
                       ? enabled
@@ -306,7 +383,7 @@ export default function PrivacyConsentScreen() {
                 </View>
 
                 {saving ? (
-                  <ActivityIndicator color="#FF7DA7" />
+                  <ActivityIndicator color="#FF4F91" />
                 ) : (
                   <Switch
                     value={enabled}
@@ -315,7 +392,7 @@ export default function PrivacyConsentScreen() {
                       false: "rgba(255,255,255,0.16)",
                       true: "rgba(255,125,167,0.48)",
                     }}
-                    thumbColor={enabled ? "#FF7DA7" : "#D8D8DC"}
+                    thumbColor={enabled ? "#FF4F91" : "#D8D8DC"}
                   />
                 )}
               </View>
@@ -331,13 +408,14 @@ export default function PrivacyConsentScreen() {
             onPress={() => void sendTestPush()}
           >
             {sendingTestPush ? (
-              <ActivityIndicator color="#09090A" />
+              <ActivityIndicator color="#050506" />
             ) : (
               <>
                 <Ionicons
+                  accessibilityElementsHidden
                   name="paper-plane-outline"
                   size={20}
-                  color="#09090A"
+                  color="#050506"
                 />
                 <Text style={styles.testPushButtonText}>
                   Test-Benachrichtigung senden
@@ -356,9 +434,8 @@ export default function PrivacyConsentScreen() {
           </View>
 
           <Text style={styles.footerText}>
-            Aktuell sind die Rechtsdokumente noch nicht veröffentlicht. Das
-            Consent Center ist bereits funktionsfähig; das Legal Gate bleibt bis
-            zur kontrollierten Veröffentlichung inaktiv.
+            Du kannst optionale Einwilligungen jederzeit ändern. Notwendige
+            Konto- und Sicherheitsfunktionen bleiben davon unberührt.
           </Text>
         </ScrollView>
       )}
@@ -367,14 +444,14 @@ export default function PrivacyConsentScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#09090A" },
+  safe: { flex: 1, backgroundColor: theme.color.background },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.12)",
+    borderBottomColor: theme.color.border,
   },
   backButton: {
     width: 42,
@@ -382,20 +459,17 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: theme.color.surfaceElevated,
     marginRight: 13,
   },
   headerCopy: { flex: 1 },
   eyebrow: {
-    color: "#FF7DA7",
+    color: theme.color.pink,
     fontSize: 11,
     fontWeight: "900",
     letterSpacing: 1.3,
   },
   title: {
-    color: "#FFFFFF",
-    fontSize: 23,
-    fontWeight: "800",
     marginTop: 2,
   },
   loading: { flex: 1, alignItems: "center", justifyContent: "center" },
@@ -403,7 +477,7 @@ const styles = StyleSheet.create({
   introCard: {
     borderRadius: 24,
     padding: 20,
-    backgroundColor: "#151519",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
     borderColor: "rgba(255,125,167,0.22)",
     marginBottom: 25,
@@ -431,7 +505,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 20,
     padding: 15,
-    backgroundColor: "#151519",
+    backgroundColor: theme.color.surface,
     marginBottom: 10,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.07)",
@@ -461,13 +535,13 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,125,167,0.25)",
   },
   smartReviewBadgeText: {
-    color: "#FFD4E0",
+    color: "#FFC5DA",
     fontSize: 10,
     fontWeight: "900",
     letterSpacing: 0.4,
   },
-  cardTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
-  cardText: { color: "#AFAFB7", fontSize: 13, lineHeight: 18, marginTop: 4 },
+  cardTitle: { flexShrink: 1 },
+  cardText: { marginTop: 4 },
   statusText: {
     color: "#777782",
     fontSize: 11,
@@ -477,7 +551,7 @@ const styles = StyleSheet.create({
   testPushButton: {
     minHeight: 54,
     borderRadius: 18,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: theme.color.pink,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -488,7 +562,7 @@ const styles = StyleSheet.create({
   },
   testPushButtonDisabled: { opacity: 0.58 },
   testPushButtonText: {
-    color: "#09090A",
+    color: "#050506",
     fontSize: 15,
     fontWeight: "900",
   },

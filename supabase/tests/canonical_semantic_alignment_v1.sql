@@ -42,6 +42,7 @@ set local role authenticated;
 select set_config('request.jwt.claims',jsonb_build_object('sub',pg_temp.id('semantic-user'),'role','authenticated')::text,true);
 select set_config('request.jwt.claim.sub',pg_temp.id('semantic-user')::text,true);
 select set_config('request.jwt.claim.role','authenticated',true);
+select pg_temp.assert((public.complete_profile_onboarding_v2('Semantic User','semantic.user',31,'Basel','Schweiz')->>'ok')::boolean,'Profile Basics prerequisite failed');
 select pg_temp.assert((public.backyrd_set_self_declared_taste_v1('vibe.cozy',true,'PROFILE')->>'evidenceAuthority')='SELF_DECLARED','self-declared evidence authority missing');
 select pg_temp.assert((select state='ACTIVE' and semantic_contract_version='backyrd-canonical-semantics-v1' from public.backyrd_self_declared_taste_v1 where user_id=pg_temp.id('semantic-user') and concept_key='vibe.cozy'),'self-declared evidence not versioned');
 select pg_temp.assert((public.backyrd_set_self_declared_taste_v1('vibe.cozy',false,'PROFILE')->>'state')='REMOVED','self-declared correction path failed');

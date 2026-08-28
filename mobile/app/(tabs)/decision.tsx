@@ -11,20 +11,31 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Image,
   Animated,
   PanResponder,
-  Dimensions,
+  Linking,
+  AppState,
+  useWindowDimensions,
+  type AppStateStatus,
 } from "react-native";
-import { Stack, useFocusEffect, useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Crypto from "expo-crypto";
 
 import { supabase } from "@/lib/supabase";
-import { hasActiveConsent } from "@/lib/consent";
+import { getMyProductEntryStatus } from "@/lib/onboardingStatus";
 import { mapTextToClusterIds } from "@/lib/decision/moodMapping";
-import { trackAnalyticsEvent, reportAnalyticsError } from "@/lib/analytics";
+import { trackAnalyticsEvent } from "@/lib/analytics";
 import { recordMemoryProductAction } from "@/lib/memory-bridge";
+import { selectSpotImageUrl } from "@/lib/spot-images";
+import { SpotArtwork } from "@/components/spot/SpotArtwork";
+import { MarkerStroke } from "@/components/brand/Editorial";
+import { AppText } from "@/components/foundation/AppText";
+import { Button } from "@/components/foundation/Button";
+import { Chip } from "@/components/foundation/Chip";
+import { backyrdTheme as foundationTheme } from "@/theme/backyrd";
+import { userFacingError } from "@/lib/userFacingError";
 
 type DecisionSpotRpcRow = {
   spot_id: string;
@@ -49,9 +60,11 @@ type EnrichedDecisionSpot = DecisionSpotRpcRow & {
   opening_hours_summary?: string | null;
   header_photo_path?: string | null;
   photo_url?: string | null;
+  lat?: number | null;
+  lng?: number | null;
   human_reason?: string | null;
   technical_why_this?: string | null;
-  v13_sources?: Array<"personalized_v12" | "semantic_v13">;
+  v13_sources?: ("personalized_v12" | "semantic_v13")[];
   v13_rank?: number | null;
   v13_combined_score?: number | null;
   v13_semantic_rank?: number | null;
@@ -59,11 +72,11 @@ type EnrichedDecisionSpot = DecisionSpotRpcRow & {
   v13_v12_rank?: number | null;
   v13_v12_score?: number | null;
   v13_document_preview?: string | null;
-  reviews?: Array<{
+  reviews?: {
     text: string | null;
     mood_a: string | null;
     mood_b: string | null;
-  }>;
+  }[];
 };
 
 type DecisionContext = {
@@ -88,7 +101,7 @@ type DecisionCopyResponse = {
   title: string;
   body: string;
   items: DecisionCopyItem[];
-  source: "openai" | "fallback" | "v13";
+  source: "v13";
 };
 
 type DecisionV13Candidate = {
@@ -99,7 +112,7 @@ type DecisionV13Candidate = {
   category_name: string | null;
   is_open_now: boolean | null;
   combined_score: number;
-  sources: Array<"personalized_v12" | "semantic_v13">;
+  sources: ("personalized_v12" | "semantic_v13")[];
   v12_rank: number | null;
   v12_score: number;
   semantic_rank: number | null;
@@ -131,19 +144,22 @@ type DecisionV13Response = {
   candidates?: DecisionV13Candidate[];
   north_star?: {
     active?: boolean;
+    decision_id?: string;
     knowledge_mode?: "SUFFICIENT" | "PARTIAL" | "LOW_OR_UNKNOWN";
+    personalization_active?: boolean;
+  };
+  continuation?: {
+    decision_id: string;
+    page: number;
+    request_id: string | null;
+    exhausted: boolean;
+    remaining_count: number;
   };
   error?: string;
 };
 
 type DecisionStatus = "idle" | "checking" | "deciding" | "writing" | "success" | "empty" | "error";
-type SwipeDirection = "like" | "dislike";
-type MlDecisionEventType =
-  | "decision_impression"
-  | "decision_like"
-  | "decision_dislike"
-  | "decision_open"
-  | "decision_remix";
+type DecisionCardAction = "next" | "like" | "dislike";
 
 
 type DecisionInputMode = "guided" | "free";
@@ -171,41 +187,30 @@ type MoodOption = {
   queryHint: string;
 };
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const SWIPE_THRESHOLD = Math.min(105, SCREEN_WIDTH * 0.25);
+const VISIBLE_EXPOSURE_MINIMUM_MS = 750;
 
 const theme = {
-  bg: "#09090A",
+  bg: "#050506",
   card: "rgba(255,255,255,0.065)",
   border: "rgba(255,255,255,0.13)",
   text: "#FFFFFF",
   muted: "rgba(255,255,255,0.66)",
   subtle: "rgba(255,255,255,0.46)",
   cream: "#F4EBDD",
-  pink: "#FF7DA7",
-  pinkSoft: "#FFD4E0",
-  pinkMuted: "#FF9ABA",
+  pink: "#FF4F91",
+  pinkSoft: "#FFC5DA",
+  pinkMuted: "#FF4F91",
+  acid: "#D8FF3E",
   ink: "#111111",
   green: "#78A045",
   red: "#E95050",
 };
 
 const VISIBLE_DECISION_LIMIT = 10;
-const DECISION_CANDIDATE_LIMIT = 16;
 const DECISION_V13_FUNCTION = "decision-v13";
 const DECISION_V13_LIMIT = 16;
 const DECISION_V13_V12_LIMIT = 16;
 const DECISION_V13_SEMANTIC_LIMIT = 24;
-
-const V11_TASTE_WEIGHT = 0.28;
-const V11_EXPLORE_WEIGHT = 0.05;
-const V11_REMIX_EXPLORE_WEIGHT = 0.16;
-const V11_K = 1.0;
-const V11_OPEN_BONUS = 0.0;
-
-const TASTE_CAP = 0.4;
-const TASTE_CONF_INC = 0.03;
-
 
 const DIRECTION_OPTIONS: DirectionOption[] = [
   { key: "restaurant", label: "Essen", emoji: "🍽", placeTypes: ["restaurant"], queryHint: "Restaurant, Essen, Lunch oder Dinner" },
@@ -249,27 +254,6 @@ function limitSentences(value: string | null | undefined, maxSentences = 3) {
     .join(" ");
 }
 
-function normalizeUrl(value?: string | null) {
-  const raw = clean(value);
-  if (!raw) return null;
-
-  if (
-    raw.startsWith("http://") ||
-    raw.startsWith("https://") ||
-    raw.startsWith("file://") ||
-    raw.startsWith("data:")
-  ) {
-    return raw;
-  }
-
-  try {
-    const { data } = supabase.storage.from("spot-photos").getPublicUrl(raw);
-    return data.publicUrl || null;
-  } catch {
-    return null;
-  }
-}
-
 function uniq<T>(items: T[]) {
   return Array.from(new Set(items));
 }
@@ -279,7 +263,7 @@ function toggleValue<T extends string>(values: T[], value: T) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 }
 
-function optionLabels(options: Array<{ key: string; label: string }>, keys: string[]) {
+function optionLabels(options: { key: string; label: string }[], keys: string[]) {
   return keys
     .map((key) => options.find((option) => option.key === key)?.label)
     .filter(Boolean)
@@ -314,10 +298,6 @@ function selectedQueryHints(directionKeys: string[], audienceKeys: string[], moo
   return uniq([...directionHints, ...audienceHints, ...moodHints]);
 }
 
-function compactMoodQuery(a: string, b: string, leftovers: string) {
-  return uniq([clean(a), clean(b), clean(leftovers)].filter(Boolean)).join(" ");
-}
-
 function pickDecisionBatch({
   rows,
   alreadySeenIds,
@@ -329,8 +309,7 @@ function pickDecisionBatch({
 }) {
   const seen = new Set(alreadySeenIds);
   const fresh = rows.filter((row) => row?.spot_id && !seen.has(row.spot_id));
-  const fallback = rows.filter((row) => row?.spot_id);
-  const picked = fresh.length >= limit ? fresh.slice(0, limit) : [...fresh, ...fallback].slice(0, limit);
+  const picked = fresh.slice(0, limit);
 
   const deduped: DecisionSpotRpcRow[] = [];
   const used = new Set<string>();
@@ -342,50 +321,6 @@ function pickDecisionBatch({
   }
 
   return deduped.slice(0, limit);
-}
-
-function modeBadge(mode: DecisionContext["decision_mode"], source?: DecisionCopyResponse["source"]) {
-  if (source === "v13") {
-    return {
-      label: "V13 kuratiert",
-      border: "rgba(244,235,221,0.52)",
-      bg: "rgba(244,235,221,0.15)",
-    };
-  }
-
-  if (source === "openai") {
-    return {
-      label: "AI kuratiert",
-      border: "rgba(244,235,221,0.48)",
-      bg: "rgba(244,235,221,0.13)",
-    };
-  }
-
-  switch (mode) {
-    case "strong_personalized":
-      return { label: "persönlich", border: "rgba(34,197,94,0.48)", bg: "rgba(34,197,94,0.14)" };
-    case "weak_personalized":
-      return { label: "lernt dich", border: "rgba(96,165,250,0.5)", bg: "rgba(96,165,250,0.13)" };
-    case "fallback":
-      return { label: "breite Auswahl", border: "rgba(251,191,36,0.48)", bg: "rgba(251,191,36,0.13)" };
-    default:
-      return { label: "heute passend", border: "rgba(255,255,255,0.22)", bg: "rgba(255,255,255,0.08)" };
-  }
-}
-
-function priceToSymbols(value?: number | null) {
-  const level = Number(value ?? 0);
-  if (!Number.isFinite(level) || level < 1) return null;
-
-  const normalized = Math.max(1, Math.min(4, Math.round(level)));
-  const labelByLevel: Record<number, string> = {
-    1: "günstig",
-    2: "moderat",
-    3: "gehoben",
-    4: "premium",
-  };
-
-  return `${labelByLevel[normalized]} · ${normalized}/4`;
 }
 
 function normalizeDayOfWeek(value?: string | null) {
@@ -461,12 +396,12 @@ function formatTime(value?: string | null) {
 }
 
 function buildOpeningHoursSummary(
-  rows: Array<{
+  rows: {
     day_of_week: string | null;
     open_time: string | null;
     close_time: string | null;
     idx?: number | null;
-  }>
+  }[]
 ) {
   if (!rows.length) return null;
 
@@ -495,87 +430,6 @@ function buildOpeningHoursSummary(
   const preview = cleanRows.slice(0, 2).map((row) => `${row.label} ${row.open}–${row.close}`);
   return `Öffnungszeiten: ${preview.join(", ")}`;
 }
-
-function signalLabel(spot: EnrichedDecisionSpot) {
-  const count = (spot.matched_tokens ?? []).length;
-  if (count >= 3) return "starke Richtung";
-  if (count >= 1) return "passt zum Vibe";
-  return "breiter Pick";
-}
-
-function fallbackHeadline(index: number) {
-  if (index === 0) return "Würde ich zuerst nehmen";
-  if (index === 1) return "Sichere zweite Wahl";
-  return "Etwas mehr Zufall";
-}
-
-function fallbackSubtitle(index: number) {
-  if (index === 0) return "Wenn du jetzt einfach los willst.";
-  if (index === 1) return "Weniger mutig, aber wahrscheinlich gut.";
-  return "Für den Fall, dass du offen bist.";
-}
-
-function fallbackWhy({
-  spot,
-  index,
-  moodA,
-  moodB,
-}: {
-  spot: EnrichedDecisionSpot;
-  index: number;
-  moodA: string;
-  moodB: string;
-}) {
-  const moodText = [clean(moodA), clean(moodB)].filter(Boolean).join(" + ");
-  const category = clean(spot.category_name);
-  const city = clean(spot.city);
-
-  if (index === 0) {
-    return `${spot.name}${category ? ` als ${category}` : ""} wirkt wie der naheliegende Start. Für ${moodText} würde ich hier anfangen, besonders wenn du nicht mehr lange vergleichen willst.`;
-  }
-
-  if (index === 1) {
-    return `${spot.name} ist die ruhigere Alternative. Nicht unbedingt der mutigste Pick, aber wahrscheinlich angenehm, wenn du heute etwas Verlässliches suchst.`;
-  }
-
-  return `${spot.name}${city ? ` in ${city}` : ""} ist die offenere Wahl. Ich würde ihn nehmen, wenn du nicht beim komplett Offensichtlichen landen willst.`;
-}
-
-function fallbackCopy({
-  spots,
-  city,
-  moodA,
-  moodB,
-  context,
-}: {
-  spots: EnrichedDecisionSpot[];
-  city: string;
-  moodA: string;
-  moodB: string;
-  context: DecisionContext | null;
-}): DecisionCopyResponse {
-  const c = clean(city) || "deiner Stadt";
-  const moodText = [clean(moodA), clean(moodB)].filter(Boolean).join(" + ") || "deinen Vibe";
-
-  return {
-    source: "fallback",
-    title:
-      context?.decision_mode === "strong_personalized"
-        ? "Das passt zu deinem Geschmack"
-        : context?.decision_mode === "weak_personalized"
-          ? "Ich habe eine Richtung gefunden"
-          : "Ich hätte diese drei im Kopf",
-    body: `Für ${moodText} in ${c} würde ich nicht ewig suchen. Wisch dich durch die drei Picks und öffne den Spot, der dich am meisten zieht.`,
-    items: spots.map((spot, index) => ({
-      spot_id: spot.spot_id,
-      headline: fallbackHeadline(index),
-      subtitle: fallbackSubtitle(index),
-      why: fallbackWhy({ spot, index, moodA, moodB }),
-      cta_label: "Mehr entdecken",
-    })),
-  };
-}
-
 
 function buildDecisionV13Query({
   city,
@@ -667,29 +521,27 @@ function buildV13Copy({
   ctx: DecisionContext | null;
   response: DecisionV13Response | null;
 }): DecisionCopyResponse {
-  const c = clean(city) || "deiner Stadt";
-  const moodText = [clean(moodA), clean(moodB)].filter(Boolean).join(" + ") || "deinen Vibe";
-  const personalized = response?.mode === "personalized_semantic";
+  const personalized = response?.north_star?.personalization_active === true;
 
   return {
     source: "v13",
-    title: personalized ? "Das fühlt sich nach dem besten Match an" : ctx?.title || "Ich hätte diese drei im Kopf",
+    title: "Das passt zu deinem Moment",
     body: personalized
-      ? `Für ${moodText} in ${c} kombiniere ich deinen bisherigen Geschmack mit echtem Vibe-Matching.`
-      : `Für ${moodText} in ${c} habe ich Orte gesucht, die atmosphärisch möglichst gut passen.`,
+      ? "Backyrd berücksichtigt hier deinen aktuellen Wunsch und freigegebene persönliche Signale."
+      : "Backyrd ordnet diese Orte nach deinem aktuellen Wunsch.",
     items: spots.map((spot, index) => ({
       spot_id: spot.spot_id,
-      headline:
-        index === 0
-          ? "Bester Match"
-          : index === 1
-            ? "Sehr nah dran"
-            : "Gute Alternative",
+      headline: index === 0 ? "Passt besonders gut zu diesem Moment" : "Weitere passende Option",
       subtitle:
         spot.category_name && spot.city
           ? `${spot.category_name} · ${spot.city}`
-          : spot.category_name || spot.city || fallbackSubtitle(index),
-      why: limitSentences(spot.human_reason || spot.why_this || fallbackWhy({ spot, index, moodA, moodB }), 3),
+          : spot.category_name || spot.city || "Sichere Basisdaten verfügbar",
+      why: limitSentences(
+        spot.human_reason ||
+          spot.why_this ||
+          "Zu diesem Ort kennt Backyrd bisher nur die sicheren Basisdaten.",
+        3
+      ),
       cta_label: "Mehr entdecken",
     })),
   };
@@ -705,15 +557,22 @@ function getCopyForSpot(
   const item = copy?.items?.find((entry) => entry.spot_id === spot.spot_id);
 
   return {
-    headline: item?.headline || fallbackHeadline(index),
-    subtitle: item?.subtitle || fallbackSubtitle(index),
-    why: item?.why || fallbackWhy({ spot, index, moodA, moodB }),
+    headline: item?.headline || "Passt zu deinem Moment",
+    subtitle: item?.subtitle || spot.category_name || spot.city || "Sichere Basisdaten verfügbar",
+    why:
+      item?.why ||
+      spot.human_reason ||
+      spot.why_this ||
+      "Zu diesem Ort kennt Backyrd bisher nur die sicheren Basisdaten.",
     ctaLabel: "Mehr entdecken",
   };
 }
 
 export default function DecisionScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
+  const homeParams = useLocalSearchParams<{ query?: string; city?: string; auto?: string }>();
+  const homeAutoRunRef = useRef<string | null>(null);
 
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -726,6 +585,7 @@ export default function DecisionScreen() {
   const [selectedMoods, setSelectedMoods] = useState<string[]>([]);
   const [moodA, setMoodA] = useState("");
   const [moodB, setMoodB] = useState("");
+  const [guidedStage, setGuidedStage] = useState<1 | 2 | 3>(1);
 
   const [context, setContext] = useState<DecisionContext | null>(null);
   const [spots, setSpots] = useState<EnrichedDecisionSpot[]>([]);
@@ -736,12 +596,21 @@ export default function DecisionScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [seenSpotIds, setSeenSpotIds] = useState<string[]>([]);
   const [remixCount, setRemixCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [visibleExposureReady, setVisibleExposureReady] = useState(false);
+  const [appStateStatus, setAppStateStatus] = useState<AppStateStatus>(AppState.currentState);
+  const [continuationExhausted, setContinuationExhausted] = useState(false);
+  const [continuationLoading, setContinuationLoading] = useState(false);
   const [deckMode, setDeckMode] = useState(false);
 
   const [status, setStatus] = useState<DecisionStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const onboardingPushInFlightRef = useRef(false);
+  const continuationInFlightRef = useRef(false);
+  const continuationRequestIdRef = useRef<string | null>(null);
+  const visibleExposureKeysRef = useRef(new Set<string>());
+  const cardActionInFlightRef = useRef(false);
 
   const loading = status === "checking" || status === "deciding" || status === "writing";
   const currentSpot = spots[activeIndex] ?? null;
@@ -811,6 +680,11 @@ export default function DecisionScreen() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  useEffect(()=>{
+    const subscription=AppState.addEventListener("change",setAppStateStatus);
+    return()=>subscription.remove();
+  },[]);
+
   useEffect(() => {
     router.setParams({
       hideTabs: deckMode ? "1" : "",
@@ -825,15 +699,8 @@ export default function DecisionScreen() {
 
   const checkNeedsDecisionOnboarding = useCallback(async (): Promise<boolean> => {
     try {
-      const { data, error } = await supabase.rpc("get_my_taste_profile_status_v1");
-
-      if (error) {
-        console.log("get_my_taste_profile_status_v1 failed:", error);
-        return false;
-      }
-
-      const row = Array.isArray(data) ? data[0] : data;
-      return Boolean(row?.needs_onboarding);
+      const status = await getMyProductEntryStatus();
+      return status.needsDecisionOnboarding;
     } catch (error) {
       console.log("Decision onboarding check failed:", error);
       return false;
@@ -871,19 +738,6 @@ export default function DecisionScreen() {
     }, [router, checkNeedsDecisionOnboarding])
   );
 
-  const loadContext = useCallback(async () => {
-    const { data, error } = await supabase.rpc("get_decision_context_v1", {
-      p_city: clean(city),
-      p_mood_a_text: clean(moodA),
-      p_mood_b_text: clean(moodB),
-    });
-
-    if (error) throw error;
-
-    const row = Array.isArray(data) ? data[0] : data;
-    return row as DecisionContext;
-  }, [city, moodA, moodB]);
-
   const enrichSpots = useCallback(async (rows: DecisionSpotRpcRow[]) => {
     const ids = rows.map((row) => row.spot_id).filter(Boolean);
 
@@ -891,18 +745,11 @@ export default function DecisionScreen() {
 
     const [
       { data: spotDetails, error: spotDetailsError },
-      { data: photos, error: photosError },
       { data: reviews, error: reviewsError },
       { data: effectiveContent, error: effectiveContentError },
       { data: hours, error: hoursError },
     ] = await Promise.all([
-      supabase.from("spots").select("id,address,price_level,category_id,header_photo_path").in("id", ids),
-
-      supabase
-        .from("spot_photos")
-        .select("spot_id,url,created_at")
-        .in("spot_id", ids)
-        .order("created_at", { ascending: true }),
+      supabase.from("spots").select("id,address,price_level,category_id,header_photo_path,lat,lng").in("id", ids),
 
       supabase
         .from("reviews")
@@ -925,7 +772,6 @@ export default function DecisionScreen() {
     ]);
 
     if (spotDetailsError) console.log("Decision spot details enrich failed:", spotDetailsError);
-    if (photosError) console.log("Decision spot photos enrich failed:", photosError);
     if (reviewsError) console.log("Decision reviews enrich failed:", reviewsError);
     if (effectiveContentError) console.log("Decision effective content enrich failed:", effectiveContentError);
     if (hoursError) console.log("Decision hours enrich failed:", hoursError);
@@ -934,7 +780,7 @@ export default function DecisionScreen() {
       new Set((spotDetails ?? []).map((detail: any) => detail.category_id).filter(Boolean))
     );
 
-    let categories: Array<{ id: string; name: string | null }> = [];
+    let categories: { id: string; name: string | null }[] = [];
 
     if (categoryIds.length > 0) {
       const { data: categoryRows, error: categoryError } = await supabase
@@ -961,13 +807,6 @@ export default function DecisionScreen() {
       }
     }
 
-    const firstPhotoBySpotId = new Map<string, string>();
-    for (const photo of photos ?? []) {
-      if (!firstPhotoBySpotId.has(photo.spot_id) && photo.url) {
-        firstPhotoBySpotId.set(photo.spot_id, photo.url);
-      }
-    }
-
     const contentBySpotId = new Map<
       string,
       {
@@ -985,12 +824,12 @@ export default function DecisionScreen() {
 
     const hoursBySpotId = new Map<
       string,
-      Array<{
+      {
         day_of_week: string | null;
         open_time: string | null;
         close_time: string | null;
         idx?: number | null;
-      }>
+      }[]
     >();
 
     for (const hour of hours ?? []) {
@@ -1008,11 +847,11 @@ export default function DecisionScreen() {
 
     const reviewsBySpotId = new Map<
       string,
-      Array<{
+      {
         text: string | null;
         mood_a: string | null;
         mood_b: string | null;
-      }>
+      }[]
     >();
 
     for (const review of reviews ?? []) {
@@ -1032,7 +871,6 @@ export default function DecisionScreen() {
     return rows.map((row) => {
       const detail = detailById.get(row.spot_id);
       const content = contentBySpotId.get(row.spot_id);
-      const photoUrl = firstPhotoBySpotId.get(row.spot_id);
       const headerUrl = detail?.header_photo_path;
       const categoryName = detail?.category_id ? categoryById.get(detail.category_id) ?? null : null;
       const descriptionKeywords = content?.effective_keywords ?? [];
@@ -1047,246 +885,43 @@ export default function DecisionScreen() {
         description_keywords: descriptionKeywords,
         opening_hours_summary: buildOpeningHoursSummary(hoursBySpotId.get(row.spot_id) ?? []),
         header_photo_path: headerUrl ?? null,
-        photo_url: normalizeUrl(photoUrl) ?? normalizeUrl(headerUrl),
+        photo_url: selectSpotImageUrl({ headerPhotoPath: headerUrl }),
+        lat: Number.isFinite(Number(detail?.lat)) ? Number(detail?.lat) : null,
+        lng: Number.isFinite(Number(detail?.lng)) ? Number(detail?.lng) : null,
         matched_terms: uniq([...(row.matched_terms ?? []), ...descriptionKeywords]).slice(0, 10),
         reviews: reviewsBySpotId.get(row.spot_id) ?? [],
       };
     });
   }, []);
 
-  const loadDecisionCopy = useCallback(
-    async ({
-      picked,
-      ctx,
-    }: {
-      picked: EnrichedDecisionSpot[];
-      ctx: DecisionContext | null;
-    }): Promise<DecisionCopyResponse> => {
-      const fallback = fallbackCopy({
-        spots: picked,
-        city,
-        moodA,
-        moodB,
-        context: ctx,
-      });
-
-      try {
-        const { data, error } = await supabase.functions.invoke("decision-copy", {
-          body: {
-            city: clean(city),
-            moodA: clean(moodA),
-            moodB: clean(moodB),
-            decisionMode: ctx?.decision_mode ?? null,
-            userConfidence: ctx?.user_confidence ?? null,
-            spots: picked.map((spot, index) => ({
-              spot_id: spot.spot_id,
-              name: spot.name,
-              city: spot.city,
-              address: spot.address,
-              category_name: spot.category_name,
-              description: spot.description,
-              price_level: spot.price_level,
-              opening_hours_summary: spot.opening_hours_summary,
-              is_open_now: spot.is_open_now,
-              matched_tokens: spot.matched_tokens ?? [],
-              matched_counts: spot.matched_counts ?? [],
-              matched_terms: spot.matched_terms ?? [],
-              why_this: spot.why_this,
-              reviews: spot.reviews ?? [],
-              rank: index + 1,
-            })),
-          },
-        });
-
-        if (error) {
-          console.log("decision-copy function failed:", error);
-          return fallback;
-        }
-
-        if (!data || !Array.isArray((data as any).items)) {
-          console.log("decision-copy invalid response:", data);
-          return fallback;
-        }
-
-        const aiCopy = data as DecisionCopyResponse;
-
-        if (aiCopy.items.length !== picked.length) {
-          console.log("decision-copy item count mismatch:", aiCopy);
-          return fallback;
-        }
-
-        return aiCopy;
-      } catch (error) {
-        console.log("decision-copy crashed:", error);
-        return fallback;
-      }
-    },
-    [city, moodA, moodB]
-  );
-
-  const persistDecisionSession = useCallback(
-    async (picked: EnrichedDecisionSpot[], usedCopy: DecisionCopyResponse | null): Promise<string | null> => {
-      try {
-        const { data: newId, error: sessionError } = await supabase.rpc("create_decision_session_v1", {
-          p_city: clean(city),
-          p_mood_a_text: clean(moodA),
-          p_mood_b_text: clean(moodB),
-        });
-
-        if (sessionError) throw sessionError;
-
-        const did =
-          typeof newId === "string"
-            ? newId
-            : Array.isArray(newId)
-              ? typeof newId[0] === "string"
-                ? newId[0]
-                : newId[0]?.id
-              : (newId as any)?.id;
-
-        if (!did) return null;
-
-        setDecisionId(did);
-
-        const spotIds = picked.map((item) => item.spot_id);
-        const why = picked.map((item, index) => getCopyForSpot(usedCopy, item, index, moodA, moodB).why);
-
-        const { error: impressionError } = await supabase.rpc("log_decision_impressions_v1", {
-          p_decision_id: did,
-          p_spot_ids: spotIds,
-          p_why_this: why,
-        });
-
-        if (impressionError) throw impressionError;
-
-        return did;
-      } catch (error) {
-        console.log("persist decision failed (non-blocking)", error);
-        return null;
-      }
-    },
-    [city, moodA, moodB]
-  );
-
-  const logMlEvent = useCallback(
-    async ({
-      eventType,
-      spotId,
-      rank,
-      decisionIdOverride,
-      extraContext,
-    }: {
-      eventType: MlDecisionEventType;
-      spotId?: string | null;
-      rank?: number | null;
-      decisionIdOverride?: string | null;
-      extraContext?: Record<string, unknown>;
-    }) => {
-      try {
-        const consentGranted = await hasActiveConsent(
-          "personalized_recommendations",
-        );
-
-        if (!consentGranted) return;
-
-        const { error } = await supabase.rpc("backyrd_ml_log_event_v1", {
-          p_event_type: eventType,
-          p_spot_id: spotId ?? null,
-          p_decision_id: decisionIdOverride ?? decisionId,
-          p_rank: rank ?? null,
-          p_city: clean(city),
-          p_mood_a_text: clean(moodA),
-          p_mood_b_text: clean(moodB),
-          p_context: {
-            source: "mobile_decision",
-            deck_size: spots.length,
-            active_index: activeIndex,
-            ...(decisionRunContext ?? {}),
-            ...extraContext,
-          },
-          p_signal_strength: null,
-        });
-
-        if (error) {
-          console.log("backyrd_ml_log_event_v1 failed:", eventType, error);
-        }
-      } catch (error) {
-        console.log("backyrd_ml_log_event_v1 crashed:", eventType, error);
-      }
-    },
-    [activeIndex, city, decisionId, decisionRunContext, moodA, moodB, spots.length]
-  );
-
-  const logSwipeSignal = useCallback(
-    async (spot: EnrichedDecisionSpot, direction: SwipeDirection) => {
-      const action = direction === "like" ? "exact_mood" : "not_there";
-
-      logMlEvent({
-        eventType: direction === "like" ? "decision_like" : "decision_dislike",
-        spotId: spot.spot_id,
-        rank: activeIndex + 1,
-        extraContext: {
-          action: direction,
-          legacy_action: action,
-
-          spot_name: spot.name,
-          category_name: spot.category_name,
-          place_type: (spot as any).place_type ?? null,
-
-          human_reason: spot.human_reason ?? null,
-          technical_why_this: spot.technical_why_this ?? null,
-
-          matched_tokens: spot.matched_tokens ?? [],
-          matched_terms: spot.matched_terms ?? [],
-          v13_sources: spot.v13_sources ?? [],
-          v13_rank: spot.v13_rank ?? null,
-          v13_combined_score: spot.v13_combined_score ?? null,
-          v13_semantic_rank: spot.v13_semantic_rank ?? null,
-          v13_semantic_similarity: spot.v13_semantic_similarity ?? null,
-          v13_v12_rank: spot.v13_v12_rank ?? null,
-          v13_v12_score: spot.v13_v12_score ?? null,
-        },
-      });
-
-      if (decisionId) {
-        supabase
-          .rpc("log_decision_action_v1", {
-            p_decision_id: decisionId,
-            p_spot_id: spot.spot_id,
-            p_action: action,
-          })
-          .then(({ error }) => {
-            if (error) console.log("decision swipe action log error", error);
-          });
-      }
-
-      void hasActiveConsent("personalized_recommendations").then((granted) => {
-        if (!granted) return;
-
-        supabase
-          .rpc("backyrd_log_taste_event_v3", {
-            p_spot_id: spot.spot_id,
-            p_event_type: action,
-            p_cap: TASTE_CAP,
-            p_conf_inc:
-              direction === "like" ? TASTE_CONF_INC * 1.4 : TASTE_CONF_INC,
-          })
-          .then(({ error }) => {
-            if (error) console.log("taste v3 swipe error", error);
-          });
-      });
-    },
-    [activeIndex, decisionId, logMlEvent]
-  );
+  const logExplicitFeedback = useCallback(async (spot: EnrichedDecisionSpot, action: "like"|"dislike") => {
+    if (!decisionId || !visibleExposureReady) return false;
+    const { error } = await supabase.rpc("log_decision_action_v1", {
+      p_decision_id:decisionId,p_spot_id:spot.spot_id,
+      p_action:action === "like" ? "exact_mood" : "not_there",
+    });
+    if (error) {
+      console.log("canonical Decision feedback failed", error);
+      Alert.alert("Feedback nicht gespeichert", "Versuch es bitte noch einmal.");
+      return false;
+    }
+    return true;
+  },[decisionId,visibleExposureReady]);
 
   const advanceCard = useCallback(
-    (direction: SwipeDirection) => {
+    async (action: DecisionCardAction) => {
+      if (cardActionInFlightRef.current) return;
       const spot = spots[activeIndex];
       if (!spot) return;
+      cardActionInFlightRef.current = true;
 
-      logSwipeSignal(spot, direction);
+      if (action !== "next" && !(await logExplicitFeedback(spot, action))) {
+        cardActionInFlightRef.current = false;
+        return;
+      }
+
       void trackAnalyticsEvent({
-        eventName: direction === "like" ? "decision_like" : "decision_dislike",
+        eventName: action === "next" ? "decision_next" : action === "like" ? "decision_like" : "decision_dislike",
         screenName: "decision",
         entityType: "spot",
         entityId: spot.spot_id,
@@ -1294,19 +929,25 @@ export default function DecisionScreen() {
         decisionId,
         properties: { rank: activeIndex + 1 },
       });
+      setVisibleExposureReady(false);
       setActiveIndex((current) => Math.min(current + 1, spots.length));
     },
-    [activeIndex, decisionId, spots, logSwipeSignal]
+    [activeIndex, decisionId, spots, logExplicitFeedback]
   );
 
   const runDecision = useCallback(
     async (options?: { remix?: boolean }) => {
+      const isRemix = Boolean(options?.remix);
+      if (isRemix && (continuationInFlightRef.current || continuationExhausted)) return;
+      if (isRemix && !decisionId) {
+        Alert.alert("Nicht mehr verfügbar", "Bitte starte diese Suche noch einmal.");
+        return;
+      }
       void trackAnalyticsEvent({
         eventName: options?.remix ? "decision_remixed" : "decision_started",
         screenName: "decision",
         properties: { input_mode: inputMode },
       });
-      const isRemix = Boolean(options?.remix);
 
       if (!userId) {
         Alert.alert("Login nötig", "Bitte logge dich ein, damit Decision deinen Geschmack lernen kann.");
@@ -1325,20 +966,9 @@ export default function DecisionScreen() {
       }
 
       if (isRemix) {
-        logMlEvent({
-          eventType: "decision_remix",
-          spotId: null,
-          rank: null,
-          extraContext: {
-            reason: "user_requested_new_deck",
-            previous_seen_spot_ids: seenSpotIds,
-            model: "decision-v13",
-            input_mode: inputMode,
-            selected_directions: selectedDirections,
-            selected_audiences: selectedAudiences,
-            selected_moods: selectedMoods,
-          },
-        });
+        continuationInFlightRef.current = true;
+        setContinuationLoading(true);
+        continuationRequestIdRef.current ??= Crypto.randomUUID();
       }
 
       const c = clean(city);
@@ -1356,31 +986,33 @@ export default function DecisionScreen() {
       });
 
       try {
-        setStatus(isRemix ? "deciding" : "checking");
         setErrorMessage(null);
-        setSpots([]);
-        setContext(null);
-        setCopy(null);
-        setDecisionId(null);
-        setDecisionRunContext(null);
-        setActiveIndex(0);
-
         if (!isRemix) {
+          setStatus("checking");
+          setSpots([]);
+          setContext(null);
+          setCopy(null);
+          setDecisionId(null);
+          setDecisionRunContext(null);
+          setActiveIndex(0);
           setSeenSpotIds([]);
           setRemixCount(0);
+          setCurrentPage(1);
+          cardActionInFlightRef.current = false;
+          setVisibleExposureReady(false);
+          visibleExposureKeysRef.current.clear();
+          setContinuationExhausted(false);
+          continuationRequestIdRef.current=null;
+
+          const needsOnboarding = await checkNeedsDecisionOnboarding();
+          if (needsOnboarding) {
+            setStatus("idle");
+            router.push("/(tabs)/decision-onboarding");
+            return;
+          }
+          setStatus("deciding");
         }
-
-        const needsOnboarding = await checkNeedsDecisionOnboarding();
-
-        if (needsOnboarding) {
-          setStatus("idle");
-          router.push("/(tabs)/decision-onboarding");
-          return;
-        }
-
-        setStatus("deciding");
-
-        const ctx = await loadContext();
+        const ctx = isRemix && context ? context : null;
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError) throw sessionError;
@@ -1395,7 +1027,10 @@ export default function DecisionScreen() {
         }
 
         const { data, error } = await supabase.functions.invoke<DecisionV13Response>(DECISION_V13_FUNCTION, {
-          body: {
+          body: isRemix ? {
+            continuationDecisionId: decisionId,
+            continuationRequestId: continuationRequestIdRef.current,
+          } : {
             city: c,
             moodA: a || null,
             moodB: b || null,
@@ -1408,7 +1043,6 @@ export default function DecisionScreen() {
             limit: DECISION_V13_LIMIT,
             v12Limit: DECISION_V13_V12_LIMIT,
             semanticLimit: DECISION_V13_SEMANTIC_LIMIT,
-            excludeSpotIds: isRemix ? seenSpotIds : [],
           },
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -1421,7 +1055,21 @@ export default function DecisionScreen() {
           throw new Error(data?.error || "Decision V13 konnte nicht geladen werden.");
         }
 
-        const runContext: Record<string, unknown> = {
+        if (data.north_star?.active !== true) {
+          throw new Error("Die aktuelle Decision-Architektur ist gerade nicht verfügbar. Bitte versuche es erneut.");
+        }
+
+        const serverDecisionId =
+          data.north_star?.decision_id ?? data.continuation?.decision_id ?? null;
+        if (!serverDecisionId) {
+          throw new Error("Die Decision konnte nicht sicher fortgesetzt werden. Bitte starte die Suche erneut.");
+        }
+
+        const runContext: Record<string, unknown> = isRemix && decisionRunContext ? {
+          ...decisionRunContext,
+          continuation_page: data.continuation?.page ?? remixCount + 2,
+          continuation_request_id: data.continuation?.request_id ?? continuationRequestIdRef.current,
+        } : {
           model: data.model ?? "backyrd_decision_v13_orchestrator",
           model_version: data.version ?? null,
           decision_mode: data.mode ?? null,
@@ -1454,10 +1102,15 @@ export default function DecisionScreen() {
         const enriched = await enrichSpots(pickedRows);
 
         if (enriched.length === 0) {
-          setSpots([]);
-          setContext(ctx);
-          setStatus("empty");
-          setDeckMode(false);
+          if(isRemix){
+            setContinuationExhausted(true);
+            continuationRequestIdRef.current=null;
+          }else{
+            setSpots([]);
+            setContext(ctx);
+            setStatus("empty");
+            setDeckMode(false);
+          }
           return;
         }
 
@@ -1471,7 +1124,7 @@ export default function DecisionScreen() {
           setRemixCount((current) => current + 1);
         }
 
-        setStatus("writing");
+        if(!isRemix)setStatus("writing");
 
         const generatedCopy = buildV13Copy({
           spots: enriched,
@@ -1484,55 +1137,40 @@ export default function DecisionScreen() {
 
         setSpots(enriched);
         setActiveIndex(0);
+        setCurrentPage(data.continuation?.page ?? (isRemix ? remixCount+2 : 1));
+        setVisibleExposureReady(false);
         setContext({
-          ...ctx,
+          decision_mode: "orientation",
+          weekday_name: "",
+          time_bucket: "",
+          user_confidence: 0,
+          is_fallback: false,
           title: generatedCopy.title,
           body: generatedCopy.body,
         });
         setCopy(generatedCopy);
         setDecisionRunContext(runContext);
 
-        const persistedDecisionId = await persistDecisionSession(enriched, generatedCopy);
+        if (!isRemix) setDecisionId(serverDecisionId);
 
-        for (let i = 0; i < enriched.length; i += 1) {
-          logMlEvent({
-            eventType: "decision_impression",
-            spotId: enriched[i].spot_id,
-            rank: i + 1,
-            decisionIdOverride: persistedDecisionId,
-            extraContext: {
-              ...runContext,
-
-              spot_name: enriched[i].name,
-              category_name: enriched[i].category_name,
-              place_type: (enriched[i] as any).place_type ?? null,
-
-              human_reason: enriched[i].human_reason ?? null,
-              technical_why_this: enriched[i].technical_why_this ?? null,
-
-              ai_copy_source: generatedCopy.source,
-              v13_mode: data.mode,
-              v13_sources: enriched[i].v13_sources ?? [],
-              v13_rank: enriched[i].v13_rank ?? null,
-              v13_combined_score: enriched[i].v13_combined_score ?? null,
-              v13_semantic_rank: enriched[i].v13_semantic_rank ?? null,
-              v13_semantic_similarity: enriched[i].v13_semantic_similarity ?? null,
-              v13_v12_rank: enriched[i].v13_v12_rank ?? null,
-              v13_v12_score: enriched[i].v13_v12_score ?? null,
-              matched_tokens: enriched[i].matched_tokens ?? [],
-              matched_terms: enriched[i].matched_terms ?? [],
-            },
-          });
-        }
-
+        setContinuationExhausted(data.continuation?.exhausted===true);
+        continuationRequestIdRef.current=null;
         setStatus("success");
         setDeckMode(true);
       } catch (error: any) {
         console.log("decision error", error);
-        setErrorMessage(error?.message ?? "Decision konnte nicht geladen werden.");
-        setStatus("error");
-        setDeckMode(false);
-        Alert.alert("Fehler", error?.message ?? "Decision konnte nicht geladen werden.");
+        const safeError = userFacingError(error, "Deine Vorschläge konnten gerade nicht geladen werden. Bitte versuche es noch einmal.");
+        setErrorMessage(safeError);
+        if(!isRemix){
+          setStatus("error");
+          setDeckMode(false);
+        }
+        Alert.alert("Vorschläge nicht geladen", safeError);
+      } finally {
+        if(isRemix){
+          continuationInFlightRef.current=false;
+          setContinuationLoading(false);
+        }
       }
     },
     [
@@ -1548,72 +1186,83 @@ export default function DecisionScreen() {
       moodA,
       moodB,
       seenSpotIds,
+      decisionId,
+      decisionRunContext,
+      context,
+      continuationExhausted,
+      remixCount,
       router,
       checkNeedsDecisionOnboarding,
-      loadContext,
       enrichSpots,
-      persistDecisionSession,
-      logMlEvent,
     ]
   );
 
+  useEffect(() => {
+    const query = clean(homeParams.query);
+    const incomingCity = clean(homeParams.city);
+    if (!query) return;
+
+    setInputMode("free");
+    setFreeTextQuery(query);
+    if (incomingCity) {
+      setCity(incomingCity);
+      setCitySource("manual");
+    }
+  }, [homeParams.city, homeParams.query]);
+
+  useEffect(() => {
+    const key = `${clean(homeParams.city)}:${clean(homeParams.query)}`;
+    if (homeParams.auto !== "1" || !canRun || !userId || loading) return;
+    if (homeAutoRunRef.current === key) return;
+
+    homeAutoRunRef.current = key;
+    router.setParams({ auto: "" });
+    void runDecision();
+  }, [canRun, homeParams.auto, homeParams.city, homeParams.query, loading, router, runDecision, userId]);
+
+  useEffect(()=>{
+    if(!deckMode||!decisionId||!currentSpot||currentPage<1)return;
+    if (currentSpot.north_star_active !== true) return;
+    if(appStateStatus!=="active"){
+      setVisibleExposureReady(false);
+      return;
+    }
+    const key=`${decisionId}:${currentSpot.spot_id}`;
+    if(visibleExposureKeysRef.current.has(key)){
+      cardActionInFlightRef.current = false;
+      setVisibleExposureReady(true);
+      return;
+    }
+    let cancelled=false;
+    setVisibleExposureReady(false);
+    // A mounted next card is not yet a human exposure. It must remain the
+    // active foreground card for a bounded interval before persistence.
+    const timer=setTimeout(()=>{
+      if(cancelled||AppState.currentState!=="active")return;
+      void supabase.rpc("backyrd_record_visible_decision_impression_v1",{
+        p_decision_id:decisionId,p_spot_id:currentSpot.spot_id,
+        p_page_number:currentPage,p_position_in_page:activeIndex+1,
+      }).then(({error})=>{
+        if(cancelled)return;
+        if(error){
+          console.log("visible Decision impression failed",error);
+          return;
+        }
+        visibleExposureKeysRef.current.add(key);
+        cardActionInFlightRef.current = false;
+        setVisibleExposureReady(true);
+        void trackAnalyticsEvent({
+          eventName:"decision_impression",screenName:"decision",entityType:"spot",
+          entityId:currentSpot.spot_id,spotId:currentSpot.spot_id,decisionId,
+          properties:{page:currentPage,position:activeIndex+1,minimum_visible_ms:VISIBLE_EXPOSURE_MINIMUM_MS},
+        });
+      });
+    },VISIBLE_EXPOSURE_MINIMUM_MS);
+    return()=>{cancelled=true;clearTimeout(timer);};
+  },[activeIndex,appStateStatus,currentPage,currentSpot,decisionId,deckMode]);
+
   const onOpenSpot = useCallback(
     async (spotId: string) => {
-      const spot = spots.find((item) => item.spot_id === spotId) ?? spots[activeIndex] ?? null;
-
-      logMlEvent({
-        eventType: "decision_open",
-        spotId,
-        rank: activeIndex + 1,
-        extraContext: {
-          action: "open_spot_detail",
-
-          spot_name: spot?.name ?? null,
-          category_name: spot?.category_name ?? null,
-          place_type: (spot as any)?.place_type ?? null,
-
-          human_reason: spot?.human_reason ?? null,
-          technical_why_this: spot?.technical_why_this ?? null,
-
-          matched_tokens: spot?.matched_tokens ?? [],
-          matched_terms: spot?.matched_terms ?? [],
-          v13_sources: spot?.v13_sources ?? [],
-          v13_rank: spot?.v13_rank ?? null,
-          v13_combined_score: spot?.v13_combined_score ?? null,
-          v13_semantic_rank: spot?.v13_semantic_rank ?? null,
-          v13_semantic_similarity: spot?.v13_semantic_similarity ?? null,
-          v13_v12_rank: spot?.v13_v12_rank ?? null,
-          v13_v12_score: spot?.v13_v12_score ?? null,
-        },
-      });
-
-      if (decisionId) {
-        supabase
-          .rpc("log_decision_action_v1", {
-            p_decision_id: decisionId,
-            p_spot_id: spotId,
-            p_action: "tapped",
-          })
-          .then(({ error }) => {
-            if (error) console.log("tapped log error", error);
-          });
-      }
-
-      void hasActiveConsent("personalized_recommendations").then((granted) => {
-        if (!granted) return;
-
-        supabase
-          .rpc("backyrd_log_taste_event_v3", {
-            p_spot_id: spotId,
-            p_event_type: "tapped",
-            p_cap: TASTE_CAP,
-            p_conf_inc: TASTE_CONF_INC,
-          })
-          .then(({ error }) => {
-            if (error) console.log("taste v3 tapped error", error);
-          });
-      });
-
       void trackAnalyticsEvent({
         eventName: "decision_spot_opened",
         screenName: "decision",
@@ -1625,7 +1274,22 @@ export default function DecisionScreen() {
       void recordMemoryProductAction({ actionType: "spot_opened", spotId, decisionId, entrySurface: "decision" });
       router.push(`/spot/${spotId}?entrySource=decision` as any);
     },
-    [activeIndex, decisionId, logMlEvent, router, spots]
+    [decisionId, router]
+  );
+
+  const onRouteToSpot = useCallback(
+    async (spot: EnrichedDecisionSpot) => {
+      if (!Number.isFinite(spot.lat) || !Number.isFinite(spot.lng)) {
+        Alert.alert("Route nicht verfügbar", "Für diesen Spot fehlt noch eine sichere Position.");
+        return;
+      }
+      void trackAnalyticsEvent({ eventName: "spot_route_clicked", screenName: "decision", entityType: "spot", entityId: spot.spot_id, spotId: spot.spot_id, decisionId });
+      void recordMemoryProductAction({ actionType: "navigation_intent", spotId: spot.spot_id, decisionId, entrySurface: "decision" });
+      const label = encodeURIComponent(spot.name);
+      const coordinates = `${spot.lat},${spot.lng}`;
+      await Linking.openURL(Platform.OS === "ios" ? `https://maps.apple.com/?ll=${coordinates}&q=${label}` : `https://www.google.com/maps/search/?api=1&query=${coordinates}`);
+    },
+    [decisionId]
   );
 
   if (deckMode && !loading && (currentSpot || finishedDeck)) {
@@ -1640,8 +1304,12 @@ export default function DecisionScreen() {
         moodB={moodB}
         copy={copy}
         remixCount={remixCount}
+        continuationExhausted={continuationExhausted}
+        continuationLoading={continuationLoading}
+        exposureReady={visibleExposureReady}
         onSwipe={advanceCard}
         onOpenSpot={onOpenSpot}
+        onRoute={onRouteToSpot}
         onBack={() => setDeckMode(false)}
         onSettings={() => setDeckMode(false)}
         onRemix={() => runDecision({ remix: true })}
@@ -1649,13 +1317,11 @@ export default function DecisionScreen() {
     );
   }
 
-  const badge = context ? modeBadge(context.decision_mode, copy?.source) : null;
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} edges={["top", "left", "right"]}>
       <Stack.Screen
         options={{
-          title: "Decision",
+          title: "Für jetzt",
           headerStyle: { backgroundColor: theme.bg },
           headerTintColor: "#fff",
           headerShadowVisible: false,
@@ -1670,21 +1336,25 @@ export default function DecisionScreen() {
             flexGrow: 1,
             paddingHorizontal: 20,
             paddingTop: 16,
-            paddingBottom: 112,
+            // The floating Tab Bar owns its visual height; Decision input owns the
+            // scroll clearance so the final context/CTA never lands underneath it.
+            paddingBottom: foundationTheme.control.tabBar + foundationTheme.spacing.xl + insets.bottom,
           }}
         >
           <View style={{ marginBottom: 24, marginTop: 4 }}>
-            <Text
+            <AppText
+              role="displayXL"
               style={{
                 color: theme.text,
-                fontSize: 28,
-                lineHeight: 32,
-                fontWeight: "850",
-                letterSpacing: -0.7,
+                fontSize: 56,
+                lineHeight: 60,
+                letterSpacing: -1.8,
               }}
             >
-              Wohin jetzt?
-            </Text>
+              DEIN / JETZT.
+            </AppText>
+
+            <MarkerStroke inset={0} width={154} />
 
             <Text
               style={{
@@ -1702,49 +1372,40 @@ export default function DecisionScreen() {
 
           <View
             style={{
-              borderRadius: 30,
+              borderRadius: 2,
               overflow: "hidden",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.1)",
-              backgroundColor: "rgba(255,255,255,0.045)",
-              shadowColor: "#000",
-              shadowOpacity: 0.3,
-              shadowRadius: 28,
-              shadowOffset: { width: 0, height: 18 },
+              borderWidth: 0,
+              backgroundColor: "transparent",
             }}
           >
             <LinearGradient
-              colors={["rgba(255,255,255,0.07)", "rgba(255,255,255,0.03)"]}
+              colors={["transparent", "transparent"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={{ padding: 18 }}
+              style={{ padding: 0 }}
             >
               <View
                 style={{
-                  borderRadius: 28,
-                  backgroundColor: "rgba(0,0,0,0.18)",
-                  borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.085)",
-                  paddingHorizontal: 18,
+                  borderRadius: 0,
+                  backgroundColor: "transparent",
+                  borderBottomWidth: 1,
+                  borderColor: "rgba(255,255,255,0.35)",
+                  paddingHorizontal: 2,
                   paddingVertical: 16,
-                  marginBottom: 12,
+                  marginBottom: 18,
                 }}
               >
                 <Text
                   style={{
-                    color: "rgba(255,255,255,0.42)",
+                    color: theme.acid,
                     fontSize: 11,
-                    fontWeight: "950",
+                    fontWeight: "900",
                     letterSpacing: 1.1,
                     textTransform: "uppercase",
                     marginBottom: 9,
                   }}
                 >
-                  {citySource === "profile"
-                    ? "Profilstadt"
-                    : citySource === "manual"
-                      ? "Gewählte Stadt"
-                      : "Stadt wählen"}
+                  WO
                 </Text>
 
                 <TextInput
@@ -1753,7 +1414,7 @@ export default function DecisionScreen() {
                     setCity(value);
                     setCitySource(clean(value) ? "manual" : "empty");
                   }}
-                  placeholder="Zum Beispiel Basel oder Zürich"
+                  placeholder="Basel oder Zürich"
                   placeholderTextColor="rgba(255,255,255,0.26)"
                   autoCorrect={false}
                   returnKeyType="next"
@@ -1761,7 +1422,7 @@ export default function DecisionScreen() {
                     color: theme.text,
                     paddingHorizontal: 0,
                     paddingVertical: 2,
-                    fontWeight: "950",
+                    fontWeight: "900",
                     fontSize: 29,
                     letterSpacing: -0.75,
                   }}
@@ -1801,7 +1462,7 @@ export default function DecisionScreen() {
                   flexDirection: "row",
                   gap: 8,
                   padding: 4,
-                  borderRadius: 999,
+                  borderRadius: 2,
                   backgroundColor: "rgba(0,0,0,0.2)",
                   borderWidth: 1,
                   borderColor: "rgba(255,255,255,0.08)",
@@ -1823,25 +1484,25 @@ export default function DecisionScreen() {
               {inputMode === "free" ? (
                 <View
                   style={{
-                    borderRadius: 28,
-                    backgroundColor: "rgba(0,0,0,0.18)",
-                    borderWidth: 1,
-                    borderColor: "rgba(255,255,255,0.085)",
-                    paddingHorizontal: 18,
-                    paddingVertical: 16,
+                  borderRadius: 0,
+                  backgroundColor: "transparent",
+                  borderBottomWidth: 1,
+                  borderColor: "rgba(255,255,255,0.35)",
+                  paddingHorizontal: 2,
+                  paddingVertical: 16,
                   }}
                 >
                   <Text
                     style={{
-                      color: "rgba(255,255,255,0.42)",
+                      color: theme.acid,
                       fontSize: 11,
-                      fontWeight: "950",
+                      fontWeight: "900",
                       letterSpacing: 1.1,
                       textTransform: "uppercase",
                       marginBottom: 9,
                     }}
                   >
-                    Was suchst du?
+                    WAS / MOOD
                   </Text>
 
                   <TextInput
@@ -1871,6 +1532,24 @@ export default function DecisionScreen() {
                 </View>
               ) : (
                 <>
+                  <GuidedConversation
+                    stage={guidedStage}
+                    selectedDirections={selectedDirections}
+                    selectedAudiences={selectedAudiences}
+                    selectedMoods={selectedMoods}
+                    moodA={moodA}
+                    moodB={moodB}
+                    loading={loading}
+                    canRun={canRun}
+                    onStageChange={setGuidedStage}
+                    onDirectionsChange={setSelectedDirections}
+                    onAudiencesChange={setSelectedAudiences}
+                    onMoodsChange={setSelectedMoods}
+                    onMoodAChange={setMoodA}
+                    onMoodBChange={setMoodB}
+                    onSubmit={() => runDecision()}
+                  />
+                  {false ? <>
                   <InputSectionLabel title="Wonach suchst du?" subtitle="Kategorie schlägt alten Geschmack. Stimmung ist optional." />
 
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -1935,7 +1614,7 @@ export default function DecisionScreen() {
                         style={{
                           color: "rgba(255,255,255,0.42)",
                           fontSize: 11,
-                          fontWeight: "950",
+                          fontWeight: "900",
                           letterSpacing: 1.1,
                           textTransform: "uppercase",
                           marginBottom: 9,
@@ -1947,7 +1626,7 @@ export default function DecisionScreen() {
                       <TextInput
                         value={moodA}
                         onChangeText={setMoodA}
-                        placeholder="cozy"
+                        placeholder="gemütlich"
                         placeholderTextColor="rgba(255,255,255,0.26)"
                         autoCapitalize="none"
                         autoCorrect={false}
@@ -1956,7 +1635,7 @@ export default function DecisionScreen() {
                           color: theme.text,
                           paddingHorizontal: 0,
                           paddingVertical: 2,
-                          fontWeight: "950",
+                          fontWeight: "900",
                           fontSize: 22,
                           letterSpacing: -0.45,
                         }}
@@ -1978,7 +1657,7 @@ export default function DecisionScreen() {
                         style={{
                           color: "rgba(255,255,255,0.42)",
                           fontSize: 11,
-                          fontWeight: "950",
+                          fontWeight: "900",
                           letterSpacing: 1.1,
                           textTransform: "uppercase",
                           marginBottom: 9,
@@ -2002,13 +1681,14 @@ export default function DecisionScreen() {
                           color: theme.text,
                           paddingHorizontal: 0,
                           paddingVertical: 2,
-                          fontWeight: "950",
+                          fontWeight: "900",
                           fontSize: 22,
                           letterSpacing: -0.45,
                         }}
                       />
                     </View>
                   </View>
+                  </> : null}
                 </>
               )}
 
@@ -2028,13 +1708,13 @@ export default function DecisionScreen() {
                 </Text>
               )}
 
-              <Pressable
+              {inputMode === "free" ? <Pressable
                 onPress={() => runDecision()}
                 disabled={loading || !canRun}
                 style={{
                   marginTop: 18,
                   minHeight: 60,
-                  borderRadius: 999,
+                  borderRadius: 2,
                   alignItems: "center",
                   justifyContent: "center",
                   backgroundColor: loading || !canRun ? "rgba(255,255,255,0.11)" : theme.pink,
@@ -2047,15 +1727,15 @@ export default function DecisionScreen() {
                 {loading ? (
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                     <ActivityIndicator color="#fff" />
-                    <Text style={{ color: "#fff", fontWeight: "950", fontSize: 15 }}>
+                    <Text style={{ color: "#fff", fontWeight: "900", fontSize: 15 }}>
                       {status === "writing" ? "Einen Moment…" : "Suche Spots…"}
                     </Text>
                   </View>
                 ) : (
                   <Text
                     style={{
-                      color: canRun ? "#171214" : "rgba(255,255,255,0.45)",
-                      fontWeight: "950",
+                      color: canRun ? "#111113" : "rgba(255,255,255,0.45)",
+                      fontWeight: "900",
                       fontSize: 17,
                       letterSpacing: -0.2,
                     }}
@@ -2063,7 +1743,7 @@ export default function DecisionScreen() {
                     Vorschläge finden
                   </Text>
                 )}
-              </Pressable>
+              </Pressable> : null}
             </LinearGradient>
           </View>
 
@@ -2079,22 +1759,7 @@ export default function DecisionScreen() {
               }}
             >
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                <Text style={{ color: theme.text, fontWeight: "950", fontSize: 17, flex: 1 }}>{context.title}</Text>
-
-                {badge && (
-                  <View
-                    style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 6,
-                      borderRadius: 999,
-                      borderWidth: 1,
-                      borderColor: badge.border,
-                      backgroundColor: badge.bg,
-                    }}
-                  >
-                    <Text style={{ color: theme.text, fontWeight: "950", fontSize: 11 }}>{badge.label}</Text>
-                  </View>
-                )}
+                <Text style={{ color: theme.text, fontWeight: "900", fontSize: 17, flex: 1 }}>{context.title}</Text>
               </View>
 
               <Pressable
@@ -2108,7 +1773,7 @@ export default function DecisionScreen() {
                   justifyContent: "center",
                 }}
               >
-                <Text style={{ color: "#171214", fontWeight: "950", fontSize: 15 }}>Deck öffnen</Text>
+                <Text style={{ color: "#111113", fontWeight: "900", fontSize: 15 }}>Deck öffnen</Text>
               </Pressable>
             </View>
           )}
@@ -2124,7 +1789,7 @@ export default function DecisionScreen() {
                 backgroundColor: "rgba(239,68,68,0.08)",
               }}
             >
-              <Text style={{ color: theme.text, fontWeight: "950", fontSize: 15 }}>Kurz gestolpert.</Text>
+              <Text style={{ color: theme.text, fontWeight: "900", fontSize: 15 }}>Kurz gestolpert.</Text>
               <Text style={{ color: theme.muted, marginTop: 6, lineHeight: 20 }}>
                 {errorMessage ?? "Bitte versuch es gleich nochmals."}
               </Text>
@@ -2142,7 +1807,7 @@ export default function DecisionScreen() {
                 backgroundColor: "rgba(251,191,36,0.08)",
               }}
             >
-              <Text style={{ color: theme.text, fontWeight: "950", fontSize: 15 }}>Noch kein Treffer.</Text>
+              <Text style={{ color: theme.text, fontWeight: "900", fontSize: 15 }}>Noch kein Treffer.</Text>
               <Text style={{ color: theme.muted, marginTop: 6, lineHeight: 20 }}>
                 Versuch es etwas breiter, zum Beispiel „Aktivität + Mit Kind“ oder nutze Freitext.
               </Text>
@@ -2153,6 +1818,57 @@ export default function DecisionScreen() {
     </SafeAreaView>
   );
 }
+
+function GuidedConversation({
+  stage, selectedDirections, selectedAudiences, selectedMoods, moodA, moodB, loading, canRun,
+  onStageChange, onDirectionsChange, onAudiencesChange, onMoodsChange, onMoodAChange, onMoodBChange, onSubmit,
+}: {
+  stage: 1 | 2 | 3; selectedDirections: string[]; selectedAudiences: string[]; selectedMoods: string[]; moodA: string; moodB: string; loading: boolean; canRun: boolean;
+  onStageChange: (stage: 1 | 2 | 3) => void;
+  onDirectionsChange: React.Dispatch<React.SetStateAction<string[]>>;
+  onAudiencesChange: React.Dispatch<React.SetStateAction<string[]>>;
+  onMoodsChange: React.Dispatch<React.SetStateAction<string[]>>;
+  onMoodAChange: (value: string) => void; onMoodBChange: (value: string) => void; onSubmit: () => void;
+}) {
+  const summaries = [optionLabels(DIRECTION_OPTIONS, selectedDirections), optionLabels(AUDIENCE_OPTIONS, selectedAudiences), optionLabels(MOOD_OPTIONS, selectedMoods)].filter(Boolean);
+  const title = stage === 1 ? "Was hast du vor?" : stage === 2 ? "Mit wem bist du unterwegs?" : "Wie soll es sich anfühlen?";
+  const subtitle = stage === 1 ? "Wähl einfach, worauf du Lust hast." : stage === 2 ? "Optional – Backyrd berücksichtigt deinen Moment." : "Optional – ein Gefühl genügt.";
+  return <View style={{ marginTop: 4 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+      <AppText role="caption" tone="lime">MOMENT {stage} / 3</AppText>
+      {summaries.length ? <Pressable accessibilityLabel="Auswahl bearbeiten" onPress={() => onStageChange(1)}><AppText role="caption" tone="secondary">{summaries.join(" · ")}</AppText></Pressable> : null}
+    </View>
+    <AppText role="screenTitle" style={{ color: theme.text }}>{title}</AppText>
+    <AppText role="meta" tone="secondary" style={{ marginTop: 5, marginBottom: 18 }}>{subtitle}</AppText>
+    {stage === 1 ? <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+      {DIRECTION_OPTIONS.map((option) => <ChoiceChip key={option.key} label={option.label} active={selectedDirections.includes(option.key)} onPress={() => onDirectionsChange((current) => toggleValue(current, option.key))} />)}
+      <ChoiceChip label="Egal" active={selectedDirections.length === 0 && selectedAudiences.length === 0} onPress={() => { onDirectionsChange([]); onAudiencesChange([]); }} />
+    </View> : null}
+    {stage === 2 ? <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+      {AUDIENCE_OPTIONS.map((option) => <ChoiceChip key={option.key} label={option.label} active={selectedAudiences.includes(option.key)} onPress={() => onAudiencesChange((current) => toggleValue(current, option.key))} />)}
+    </View> : null}
+    {stage === 3 ? <>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        {MOOD_OPTIONS.map((option) => <ChoiceChip key={option.key} label={option.label} active={selectedMoods.includes(option.key)} onPress={() => onMoodsChange((current) => toggleValue(current, option.key))} />)}
+      </View>
+      <View style={{ marginTop: 18, borderTopWidth: 1, borderColor: "rgba(255,255,255,0.12)", paddingTop: 14 }}>
+        <AppText role="caption" tone="secondary">Eigene Worte, wenn du magst</AppText>
+        <View style={{ flexDirection: "row", gap: 12, marginTop: 8 }}>
+          <TextInput value={moodA} onChangeText={onMoodAChange} placeholder="z. B. ruhig" placeholderTextColor="rgba(255,255,255,0.30)" style={guidedInputStyle} />
+          <TextInput value={moodB} onChangeText={onMoodBChange} placeholder="z. B. urban" placeholderTextColor="rgba(255,255,255,0.30)" style={guidedInputStyle} />
+        </View>
+      </View>
+    </> : null}
+    <View style={{ flexDirection: "row", gap: 10, marginTop: 26 }}>
+      {stage > 1 ? <Pressable accessibilityLabel="Vorherigen Moment bearbeiten" onPress={() => onStageChange((stage - 1) as 1 | 2 | 3)} style={guidedBack}><AppText role="label">Zurück</AppText></Pressable> : null}
+      {stage < 3 ? <Pressable accessibilityLabel="Nächster Moment" onPress={() => onStageChange((stage + 1) as 1 | 2 | 3)} style={guidedNext}><AppText role="label" style={{ color: "#111113" }}>Weiter</AppText></Pressable> : <Pressable accessibilityLabel="Vorschläge finden" disabled={loading || !canRun} onPress={onSubmit} style={[guidedNext, (loading || !canRun) && { opacity: 0.45 }]}><AppText role="label" style={{ color: "#111113" }}>{loading ? "Suche Spots…" : "Vorschläge finden"}</AppText></Pressable>}
+    </View>
+  </View>;
+}
+
+const guidedInputStyle = { flex: 1, minHeight: 48, borderRadius: 24, paddingHorizontal: 16, color: theme.text, fontWeight: "800", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" } as const;
+const guidedBack = { minHeight: 52, paddingHorizontal: 20, borderRadius: 999, justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)" } as const;
+const guidedNext = { flex: 1, minHeight: 52, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: theme.pink } as const;
 
 function SegmentButton({
   label,
@@ -2177,8 +1893,8 @@ function SegmentButton({
     >
       <Text
         style={{
-          color: active ? "#171214" : "rgba(255,255,255,0.62)",
-          fontWeight: "950",
+          color: active ? "#111113" : "rgba(255,255,255,0.62)",
+          fontWeight: "900",
           fontSize: 14,
         }}
       >
@@ -2195,7 +1911,7 @@ function InputSectionLabel({ title, subtitle }: { title: string; subtitle?: stri
         style={{
           color: "rgba(255,255,255,0.84)",
           fontSize: 14,
-          fontWeight: "950",
+          fontWeight: "900",
           letterSpacing: -0.1,
         }}
       >
@@ -2235,8 +1951,8 @@ function ChoiceChip({
     >
       <Text
         style={{
-          color: active ? "#171214" : "rgba(255,255,255,0.76)",
-          fontWeight: "950",
+          color: active ? "#111113" : "rgba(255,255,255,0.76)",
+          fontWeight: "900",
           fontSize: 13,
         }}
       >
@@ -2256,8 +1972,12 @@ function FullscreenDeck({
   moodB,
   copy,
   remixCount,
+  continuationExhausted,
+  continuationLoading,
+  exposureReady,
   onSwipe,
   onOpenSpot,
+  onRoute,
   onBack,
   onSettings,
   onRemix,
@@ -2271,8 +1991,12 @@ function FullscreenDeck({
   moodB: string;
   copy: DecisionCopyResponse | null;
   remixCount: number;
-  onSwipe: (direction: SwipeDirection) => void;
+  continuationExhausted: boolean;
+  continuationLoading: boolean;
+  exposureReady:boolean;
+  onSwipe: (action: DecisionCardAction) => void;
   onOpenSpot: (spotId: string) => void;
+  onRoute: (spot: EnrichedDecisionSpot) => void;
   onBack: () => void;
   onSettings: () => void;
   onRemix: () => void;
@@ -2297,29 +2021,37 @@ function FullscreenDeck({
                 backgroundColor: "rgba(255,255,255,0.065)",
               }}
             >
-              <Text style={{ color: "#fff", fontSize: 34, lineHeight: 38, fontWeight: "950", letterSpacing: -1 }}>
-                Noch nicht das Richtige?
+              <Text style={{ color: "#fff", fontSize: 34, lineHeight: 38, fontWeight: "900", letterSpacing: -1 }}>
+                {continuationExhausted ? "Das waren die passendsten Vorschläge." : "Noch nicht das Richtige?"}
               </Text>
 
               <Text style={{ color: "rgba(255,255,255,0.62)", marginTop: 10, fontSize: 15, lineHeight: 22 }}>
-                Ich habe deine Swipes gespeichert. Willst du deine Moods anpassen oder weiter entdecken?
+                {continuationExhausted
+                  ? "Für diese Suche sind keine weiteren passenden Orte übrig. Du kannst deine Wünsche anpassen und neu suchen."
+                  : "Du hast alle Vorschläge dieser Seite gesehen. Willst du deine Wünsche anpassen oder weiter entdecken?"}
               </Text>
 
-              <Pressable
-                onPress={onRemix}
-                style={{
-                  marginTop: 20,
-                  height: 56,
-                  borderRadius: 999,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: theme.pink,
-                }}
-              >
-                <Text style={{ color: "#171214", fontWeight: "950", fontSize: 15 }}>
-                  Ich will mehr entdecken{remixCount > 0 ? ` · Mix ${remixCount + 2}` : ""}
-                </Text>
-              </Pressable>
+              {!continuationExhausted ? (
+                <Pressable
+                  onPress={onRemix}
+                  disabled={continuationLoading}
+                  style={{
+                    marginTop: 20,
+                    height: 56,
+                    borderRadius: 999,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: theme.pink,
+                    opacity: continuationLoading ? 0.65 : 1,
+                  }}
+                >
+                  {continuationLoading ? <ActivityIndicator color="#111113" /> : (
+                    <Text style={{ color: "#111113", fontWeight: "900", fontSize: 15 }}>
+                      Weitere Vorschläge{remixCount > 0 ? ` · Seite ${remixCount + 2}` : ""}
+                    </Text>
+                  )}
+                </Pressable>
+              ) : null}
 
               <Pressable
                 onPress={onSettings}
@@ -2351,8 +2083,10 @@ function FullscreenDeck({
           moodA={moodA}
           moodB={moodB}
           copy={copy}
+          exposureReady={exposureReady}
           onSwipe={onSwipe}
           onOpen={() => onOpenSpot(currentSpot.spot_id)}
+          onRoute={() => onRoute(currentSpot)}
           onBack={onBack}
           onSettings={onSettings}
         />
@@ -2398,8 +2132,10 @@ function FullscreenSwipeCard({
   moodA,
   moodB,
   copy,
+  exposureReady,
   onSwipe,
   onOpen,
+  onRoute,
   onBack,
   onSettings,
 }: {
@@ -2410,73 +2146,81 @@ function FullscreenSwipeCard({
   moodA: string;
   moodB: string;
   copy: DecisionCopyResponse | null;
-  onSwipe: (direction: SwipeDirection) => void;
+  exposureReady:boolean;
+  onSwipe: (action: DecisionCardAction) => void;
   onOpen: () => void;
+  onRoute: () => void;
   onBack: () => void;
   onSettings: () => void;
 }) {
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  // Two 52pt action rows plus their internal vertical rhythm. The actual bottom
+  // inset is added by the fixed SafeAreaView below, so the ScrollView reserves it too.
+  const actionBarClearance = 136 + insets.bottom;
+  const swipeThreshold = Math.min(105, screenWidth * 0.25);
   const pan = useRef(new Animated.ValueXY()).current;
   const isAnimatingRef = useRef(false);
 
   const likeProgress = pan.x.interpolate({
-    inputRange: [0, SWIPE_THRESHOLD],
+    inputRange: [0, swipeThreshold],
     outputRange: [0, 1],
     extrapolate: "clamp",
   });
 
   const dislikeProgress = pan.x.interpolate({
-    inputRange: [-SWIPE_THRESHOLD, 0],
+    inputRange: [-swipeThreshold, 0],
     outputRange: [1, 0],
     extrapolate: "clamp",
   });
 
   const likeScale = pan.x.interpolate({
-    inputRange: [0, SWIPE_THRESHOLD],
+    inputRange: [0, swipeThreshold],
     outputRange: [1, 1.18],
     extrapolate: "clamp",
   });
 
   const dislikeScale = pan.x.interpolate({
-    inputRange: [-SWIPE_THRESHOLD, 0],
+    inputRange: [-swipeThreshold, 0],
     outputRange: [1.18, 1],
     extrapolate: "clamp",
   });
 
   const cardScale = pan.x.interpolate({
-    inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
+    inputRange: [-screenWidth, 0, screenWidth],
     outputRange: [0.965, 1, 0.965],
     extrapolate: "clamp",
   });
 
   const rotate = pan.x.interpolate({
-    inputRange: [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
+    inputRange: [-screenWidth, 0, screenWidth],
     outputRange: ["-7deg", "0deg", "7deg"],
     extrapolate: "clamp",
   });
 
   const swipeOut = useCallback(
-    (direction: SwipeDirection) => {
-      if (isAnimatingRef.current) return;
+    (action: DecisionCardAction,visualDirection:"left"|"right"="right") => {
+      if (isAnimatingRef.current||!exposureReady) return;
 
       isAnimatingRef.current = true;
-      const x = direction === "like" ? SCREEN_WIDTH * 1.45 : -SCREEN_WIDTH * 1.45;
-      const y = -SCREEN_HEIGHT * 0.06;
+      const x = visualDirection === "right" ? screenWidth * 1.45 : -screenWidth * 1.45;
+      const y = -screenHeight * 0.06;
 
       Animated.timing(pan, {
         toValue: { x, y },
         duration: 260,
         useNativeDriver: true,
       }).start(() => {
-        onSwipe(direction);
+        onSwipe(action);
         pan.setValue({ x: 0, y: 0 });
         isAnimatingRef.current = false;
       });
     },
-    [onSwipe, pan]
+    [exposureReady,onSwipe,pan,screenHeight,screenWidth]
   );
 
-  const panResponder = useRef(
-    PanResponder.create({
+  const panResponder = useMemo(
+    () => PanResponder.create({
       onMoveShouldSetPanResponder: (_event, gesture) => {
         return Math.abs(gesture.dx) > 5 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.75;
       },
@@ -2484,13 +2228,13 @@ function FullscreenSwipeCard({
         useNativeDriver: false,
       }),
       onPanResponderRelease: (_event, gesture) => {
-        if (gesture.dx > SWIPE_THRESHOLD || gesture.vx > 0.75) {
-          swipeOut("like");
+        if (gesture.dx > swipeThreshold || gesture.vx > 0.75) {
+          swipeOut("next","right");
           return;
         }
 
-        if (gesture.dx < -SWIPE_THRESHOLD || gesture.vx < -0.75) {
-          swipeOut("dislike");
+        if (gesture.dx < -swipeThreshold || gesture.vx < -0.75) {
+          swipeOut("next","left");
           return;
         }
 
@@ -2509,21 +2253,17 @@ function FullscreenSwipeCard({
           useNativeDriver: true,
         }).start();
       },
-    })
-  ).current;
+    }),
+    [pan, swipeOut, swipeThreshold]
+  );
 
   const imageUrl = spot.photo_url;
   const itemCopy = getCopyForSpot(copy, spot, index, moodA, moodB);
-  const matchScore = Math.max(
-    82,
-    Math.min(98, Math.round(((spot.v13_combined_score ?? Number(spot.final_score) ?? 0.9) as number) * 100) || 95)
-  );
-  const showMatchPercentage = spot.north_star_active !== true;
   const queryLabel =
     clean(moodA) ||
     clean(moodB) ||
     clean(itemCopy.headline) ||
-    "Ausflug mit meiner vierjährigen Tochter";
+    "Dein aktueller Moment";
   const momentChips = uniq(
     [
       clean(moodA),
@@ -2551,9 +2291,9 @@ function FullscreenSwipeCard({
           }}
         >
           <RoundDeckButton label="‹" onPress={onBack} />
-          <Text style={{ color: theme.text, fontSize: 24, fontWeight: "850", letterSpacing: -0.55 }}>
-            Wohin jetzt?
-          </Text>
+          <AppText role="displayM" numberOfLines={1} style={{ color: theme.text, fontSize: 34, lineHeight: 40, letterSpacing: -0.9 }}>
+            DEIN / JETZT.
+          </AppText>
           <RoundDeckButton label="✦" onPress={onSettings} />
         </View>
 
@@ -2561,7 +2301,7 @@ function FullscreenSwipeCard({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingBottom: 118,
+            paddingBottom: actionBarClearance + 24,
           }}
         >
           <View
@@ -2578,46 +2318,17 @@ function FullscreenSwipeCard({
               gap: 8,
             }}
           >
-            <Text numberOfLines={1} style={{ color: "#171214", fontSize: 14, fontWeight: "750", maxWidth: SCREEN_WIDTH - 108 }}>
+            <Text numberOfLines={1} style={{ color: "#111113", fontSize: 14, fontWeight: "700", maxWidth: screenWidth - 108 }}>
               {queryLabel}
             </Text>
             <Text style={{ color: "rgba(23,18,20,0.58)", fontSize: 18, fontWeight: "600", marginTop: -1 }}>×</Text>
           </View>
 
-          <Text
-            style={{
-              color: "rgba(255,255,255,0.44)",
-              fontSize: 13,
-              fontWeight: "650",
-              marginTop: 22,
-              marginBottom: 10,
-            }}
-          >
-            Dein Moment
-          </Text>
-
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
-            {(momentChips.length > 0 ? momentChips : ["draussen", "ruhig", "kindertauglich"]).map((chip, chipIndex) => (
-              <View
-                key={`${chip}-${chipIndex}`}
-                style={{
-                  minHeight: 34,
-                  paddingHorizontal: 12,
-                  borderRadius: 999,
-                  backgroundColor: "rgba(255,255,255,0.06)",
-                  borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.08)",
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 7,
-                }}
-              >
-                <Text style={{ color: chipIndex === 0 ? "#C8E3A6" : theme.pinkMuted, fontSize: 15 }}>
-                  {chipIndex === 0 ? "↗" : chipIndex === 1 ? "∿" : "♡"}
-                </Text>
-                <Text style={{ color: theme.text, fontSize: 13, fontWeight: "750" }}>{chip}</Text>
-              </View>
-            ))}
+          <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: foundationTheme.spacing.sm, marginTop: foundationTheme.spacing.sm, marginBottom: foundationTheme.spacing.sm }}>
+            <View style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", gap: foundationTheme.spacing.xs }}>
+              {(momentChips.length > 0 ? momentChips : ["dein Moment"]).map((chip, chipIndex) => <Chip key={`${chip}-${chipIndex}`} kind="information" label={chip} />)}
+            </View>
+            {total > 1 ? <AppText role="caption" tone="muted" style={{ paddingTop: foundationTheme.spacing.sm }}>Treffer {index + 1} von {total}</AppText> : null}
           </View>
 
           <Animated.View
@@ -2628,43 +2339,26 @@ function FullscreenSwipeCard({
           >
             <View
               style={{
-                minHeight: Math.min(510, SCREEN_HEIGHT * 0.58),
-                borderRadius: 26,
+                // Keep the factual reason above the persistent actions even when
+                // contextual chips wrap. The image remains dominant, without
+                // forcing the user to scroll just to understand the result.
+                minHeight: Math.min(440, screenHeight * 0.45),
+                borderRadius: foundationTheme.radius.lg,
                 overflow: "hidden",
-                backgroundColor: "#121214",
-                borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.08)",
+                backgroundColor: foundationTheme.color.surface,
               }}
             >
-              {imageUrl ? (
-                <Image
-                  source={{ uri: imageUrl }}
-                  resizeMode="cover"
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    height: "100%",
-                    width: "100%",
-                  }}
-                />
-              ) : (
-                <LinearGradient
-                  colors={["#262128", "#111114", "#070708"]}
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    bottom: 0,
-                  }}
-                />
-              )}
+              <SpotArtwork
+                imageUrl={imageUrl}
+                priority="high"
+                spotId={spot.spot_id}
+                spotName={spot.name}
+                style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0 }}
+              />
 
               <LinearGradient
-                colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.18)", "rgba(0,0,0,0.72)", "rgba(0,0,0,0.95)"]}
-                locations={[0, 0.42, 0.72, 1]}
+                colors={["rgba(0,0,0,0.02)", "rgba(0,0,0,0.10)", "rgba(0,0,0,0.54)", "rgba(0,0,0,0.90)"]}
+                locations={[0, 0.38, 0.70, 1]}
                 style={{
                   position: "absolute",
                   left: 0,
@@ -2693,7 +2387,7 @@ function FullscreenSwipeCard({
                   zIndex: 20,
                 }}
               >
-                <Text style={{ color: "#171214", fontSize: 14, fontWeight: "900" }}>passt</Text>
+                <Text style={{ color: "#111113", fontSize: 14, fontWeight: "900" }}>weiter</Text>
               </Animated.View>
 
               <Animated.View
@@ -2715,74 +2409,47 @@ function FullscreenSwipeCard({
                   zIndex: 20,
                 }}
               >
-                <Text style={{ color: "#171214", fontSize: 14, fontWeight: "900" }}>weiter</Text>
+                <Text style={{ color: "#111113", fontSize: 14, fontWeight: "900" }}>weiter</Text>
               </Animated.View>
 
-              <View style={{ flex: 1, justifyContent: "space-between", padding: 16 }}>
-                {showMatchPercentage ? <View
-                  style={{
-                    alignSelf: "flex-start",
-                    paddingHorizontal: 12,
-                    paddingVertical: 9,
-                    borderRadius: 15,
-                    backgroundColor: "rgba(255,125,167,0.86)",
-                  }}
-                >
-                  <Text style={{ color: "#fff", fontSize: 24, lineHeight: 25, fontWeight: "850", letterSpacing: -0.8 }}>
-                    {matchScore}%
-                  </Text>
-                  <Text style={{ color: "rgba(255,255,255,0.86)", fontSize: 12, fontWeight: "700" }}>Match</Text>
-                </View> : null}
-
+              <View style={{ flex: 1, justifyContent: "flex-end", padding: foundationTheme.spacing.lg }}>
                 <View>
-                  <Text
-                    numberOfLines={2}
+                  <AppText
+                    numberOfLines={3}
                     style={{
                       color: theme.text,
-                      fontSize: 38,
-                      lineHeight: 39,
-                      fontWeight: "900",
+                      fontSize: 45,
+                      lineHeight: 51,
                       letterSpacing: -1.15,
                     }}
+                    role="displayL"
                   >
                     {spot.name}
-                  </Text>
-                  <Text style={{ color: "rgba(255,255,255,0.72)", fontSize: 15, fontWeight: "650", marginTop: 8 }}>
+                  </AppText>
+                  <AppText role="meta" style={{ color: "rgba(255,255,255,0.76)", marginTop: foundationTheme.spacing.xs }}>
                     Passt zu deinem Moment
-                  </Text>
+                  </AppText>
 
                   <View
                     style={{
-                      marginTop: 18,
-                      padding: 15,
-                      borderRadius: 18,
-                      backgroundColor: "rgba(12,12,14,0.74)",
-                      borderWidth: 1,
-                      borderColor: "rgba(255,255,255,0.11)",
+                      marginTop: foundationTheme.spacing.md,
+                      paddingTop: foundationTheme.spacing.sm,
+                      borderTopWidth: 1,
+                      borderColor: "rgba(247,243,233,0.30)",
                     }}
                   >
-                    <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
-                      <Text style={{ color: theme.pinkMuted, fontSize: 27, lineHeight: 30 }}>✦</Text>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: theme.pinkSoft, fontSize: 14, fontWeight: "800", marginBottom: 7 }}>
-                          Warum dieser Treffer?
-                        </Text>
-                        <Text style={{ color: "rgba(255,255,255,0.88)", fontSize: 15, lineHeight: 21, fontWeight: "600" }}>
-                          {whyText || "Nah, passend und mit genug Raum für deinen Moment."}
-                        </Text>
-                      </View>
-                    </View>
+                    <AppText role="label" tone="pink" style={{ marginBottom: foundationTheme.spacing.xxs }}>
+                      Warum dieser Treffer
+                    </AppText>
+                    <AppText numberOfLines={2} role="bodyStrong" style={{ color: "rgba(255,255,255,0.90)" }}>
+                      {whyText || "Für diesen Treffer liegt noch keine genauere Begründung vor."}
+                    </AppText>
                   </View>
                 </View>
               </View>
             </View>
           </Animated.View>
 
-          {total > 1 && (
-            <Text style={{ color: "rgba(255,255,255,0.38)", textAlign: "center", marginTop: 14, fontWeight: "700", fontSize: 12 }}>
-              Treffer {index + 1} von {total}
-            </Text>
-          )}
         </ScrollView>
       </SafeAreaView>
 
@@ -2801,140 +2468,38 @@ function FullscreenSwipeCard({
           pointerEvents="box-none"
           style={{
             paddingHorizontal: 20,
-            paddingTop: 12,
+            paddingTop: 10,
             paddingBottom: 12,
-            flexDirection: "row",
             gap: 10,
             backgroundColor: "rgba(5,5,6,0.82)",
+            opacity:exposureReady?1:0.55,
           }}
         >
           <Pressable
-            onPress={() => swipeOut("dislike")}
-            style={{
-              flex: 1,
-              height: 52,
-              borderRadius: 999,
+            accessibilityLabel="Weiter"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !exposureReady, busy: !exposureReady }}
+            disabled={!exposureReady}
+            onPress={() => swipeOut("next", "right")}
+            style={({ pressed }) => ({
+              minHeight: foundationTheme.control.standard,
+              borderRadius: foundationTheme.radius.pill,
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: "rgba(255,255,255,0.065)",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.09)",
-            }}
+              backgroundColor: foundationTheme.color.pink,
+              opacity: !exposureReady ? 0.55 : pressed ? 0.82 : 1,
+              transform: pressed && exposureReady ? [{ scale: foundationTheme.motion.pressScale }] : undefined,
+            })}
           >
-            <Text style={{ color: theme.text, fontWeight: "800", fontSize: 13 }}>Nicht passend</Text>
+            {exposureReady ? <Text style={{ color: foundationTheme.color.background, fontWeight: "900", fontSize: 15 }}>Weiter</Text> : <ActivityIndicator color={foundationTheme.color.background} />}
           </Pressable>
-
-          <Pressable
-            onPress={onOpen}
-            style={{
-              flex: 1.12,
-              height: 52,
-              borderRadius: 999,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: theme.pink,
-            }}
-          >
-            <Text style={{ color: "#171214", fontWeight: "900", fontSize: 15 }}>Route</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => swipeOut("like")}
-            style={{
-              flex: 1,
-              height: 52,
-              borderRadius: 999,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "rgba(255,255,255,0.065)",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.09)",
-            }}
-          >
-            <Text style={{ color: theme.text, fontWeight: "800", fontSize: 14 }}>Passt</Text>
-          </Pressable>
+          <View style={{flexDirection:"row",gap:10}}>
+          <Button disabled={!exposureReady} label="Nicht passend" onPress={() => swipeOut("dislike", "left")} style={{ flex: 1, paddingHorizontal: foundationTheme.spacing.xs }} variant="secondary" />
+          <Button disabled={!exposureReady} label="Route" labelTone="lime" onPress={onRoute} style={{ flex: 1.04, paddingHorizontal: foundationTheme.spacing.xs, borderColor: foundationTheme.color.lime, backgroundColor: "rgba(5,5,6,0.96)" }} variant="tertiary" />
+          <Button disabled={!exposureReady} label="Passt" onPress={() => swipeOut("like", "right")} style={{ flex: 1, paddingHorizontal: foundationTheme.spacing.xs }} variant="secondary" />
+          </View>
         </View>
       </SafeAreaView>
-    </View>
-  );
-}
-
-function MiniPill({ label, tone = "neutral" }: { label: string; tone?: "neutral" | "green" | "red" }) {
-  const bg =
-    tone === "green" ? "rgba(34,197,94,0.17)" : tone === "red" ? "rgba(239,68,68,0.16)" : "rgba(0,0,0,0.32)";
-
-  const border =
-    tone === "green" ? "rgba(34,197,94,0.3)" : tone === "red" ? "rgba(239,68,68,0.3)" : "rgba(255,255,255,0.14)";
-
-  return (
-    <View
-      style={{
-        paddingHorizontal: 9,
-        paddingVertical: 6,
-        borderRadius: 999,
-        backgroundColor: bg,
-        borderWidth: 1,
-        borderColor: border,
-        maxWidth: "100%",
-      }}
-    >
-      <Text numberOfLines={1} style={{ color: "#fff", fontWeight: "850", fontSize: 11 }}>
-        {label}
-      </Text>
-    </View>
-  );
-}
-
-function InfoTile({
-  label,
-  value,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  tone?: "neutral" | "green" | "red";
-}) {
-  const accent =
-    tone === "green" ? "rgba(120,160,69,0.95)" : tone === "red" ? "rgba(233,80,80,0.95)" : "rgba(244,235,221,0.95)";
-
-  return (
-    <View
-      style={{
-        flex: 1,
-        minHeight: 68,
-        borderRadius: 22,
-        paddingHorizontal: 13,
-        paddingVertical: 12,
-        backgroundColor: "rgba(0,0,0,0.34)",
-        borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.14)",
-      }}
-    >
-      <Text
-        numberOfLines={1}
-        style={{
-          color: "rgba(255,255,255,0.48)",
-          fontSize: 10,
-          fontWeight: "950",
-          letterSpacing: 0.9,
-          textTransform: "uppercase",
-          marginBottom: 6,
-        }}
-      >
-        {label}
-      </Text>
-      <Text
-        numberOfLines={2}
-        style={{
-          color: accent,
-          fontSize: 15,
-          lineHeight: 18,
-          fontWeight: "950",
-          letterSpacing: -0.2,
-        }}
-      >
-        {value}
-      </Text>
     </View>
   );
 }

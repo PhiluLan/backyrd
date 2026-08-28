@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { usePathname, useRouter } from "expo-router";
 import React, { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   AppState,
   type AppStateStatus,
@@ -18,6 +17,7 @@ import {
   type SafetyWriteStatus,
 } from "../../lib/safety-enforcement";
 import { supabase } from "../../lib/supabase";
+import { ProductLoading } from "../ui/ProductState";
 
 type Props = { children: ReactNode };
 const SAFETY_ALLOWED_ROUTES = [
@@ -115,7 +115,7 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
         ? `Du kannst Backyrd weiterhin ansehen und Spots entdecken. Bis ${end} kannst du jedoch keine Moments, Reviews oder Kommentare veröffentlichen. Im Safety Center siehst du den Grund und kannst die Entscheidung anfechten.`
         : "Du kannst Backyrd weiterhin ansehen und Spots entdecken. Momentan kannst du jedoch keine Moments, Reviews oder Kommentare veröffentlichen. Im Safety Center siehst du den Grund und kannst die Entscheidung anfechten.",
       [
-        { text: "Safety Center öffnen", onPress: () => router.push("/safety-center" as any) },
+        { text: "Sicherheit & Support öffnen", onPress: () => router.push("/safety-center" as any) },
         { text: "Backyrd nur ansehen", style: "cancel" },
       ],
     );
@@ -145,7 +145,7 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
               <Ionicons
                 name="lock-closed"
                 size={34}
-                color="#FF78A7"
+                color="#FF4F91"
               />
             </View>
 
@@ -170,7 +170,7 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
               <Ionicons
                 name="shield-checkmark-outline"
                 size={20}
-                color="#09090A"
+                color="#050506"
               />
               <Text style={styles.primaryButtonText}>
                 Entscheidung ansehen
@@ -197,18 +197,14 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
   }
 
   if (loading && signedIn && status === null) {
-    return (
-      <View style={styles.loadingOverlay} pointerEvents="none">
-        <ActivityIndicator color="#FF78A7" size="small" />
-      </View>
-    );
+    return <ProductLoading label="Sicherheit wird geprüft" />;
   }
 
   return <>{children}</>;
 }
 
 const styles = StyleSheet.create({
-  lockRoot: { flex: 1, backgroundColor: "#070708" },
+  lockRoot: { flex: 1, backgroundColor: "#050506" },
   lockGlow: {
     position: "absolute", top: -120, alignSelf: "center", width: 360, height: 360,
     borderRadius: 180, backgroundColor: "rgba(255,79,139,0.08)",
@@ -224,14 +220,13 @@ const styles = StyleSheet.create({
   body: { marginTop: 17, color: "#A1A1AA", fontSize: 16, lineHeight: 24 },
   primaryButton: {
     marginTop: 32, minHeight: 58, borderRadius: 19, flexDirection: "row", alignItems: "center",
-    justifyContent: "center", gap: 10, backgroundColor: "#FF78A7",
+    justifyContent: "center", gap: 10, backgroundColor: "#FF4F91",
   },
-  primaryButtonText: { color: "#09090A", fontSize: 16, fontWeight: "900" },
+  primaryButtonText: { color: "#050506", fontSize: 16, fontWeight: "900" },
   secondaryButton: {
     marginTop: 12, minHeight: 56, borderRadius: 19, flexDirection: "row", alignItems: "center",
     justifyContent: "center", gap: 10, backgroundColor: "rgba(255,255,255,0.045)",
     borderWidth: 1, borderColor: "rgba(255,255,255,0.10)",
   },
   secondaryButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "900" },
-  loadingOverlay: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#070708" },
 });

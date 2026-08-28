@@ -13,73 +13,30 @@ export async function ensureProfile(input?: EnsureProfileInput) {
 
   if (!user) return null;
 
-  const fallbackEmail = input?.email ?? user.email ?? null;
-  const fallbackFirstName =
-    input?.firstName?.trim() ||
-    user.user_metadata?.first_name ||
-    user.user_metadata?.full_name?.split(" ")?.[0] ||
-    fallbackEmail?.split("@")?.[0] ||
-    "User";
-
-  const fallbackLastName =
-    input?.lastName?.trim() ||
-    user.user_metadata?.last_name ||
-    user.user_metadata?.full_name?.split(" ")?.slice(1).join(" ") ||
-    null;
-
-  const { data: existing, error: fetchErr } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (fetchErr) throw fetchErr;
-
-  if (!existing) {
-    const insertPayload = {
-      id: user.id,
-      first_name: fallbackFirstName,
-      last_name: fallbackLastName,
-      display_name: fallbackFirstName,
-      contact_email: fallbackEmail,
-    };
-
-    const { data: inserted, error: insErr } = await supabase
+  let existing: Record<string, unknown> | null = null;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const { data, error } = await supabase
       .from("profiles")
-      .insert(insertPayload)
       .select("*")
-      .single();
+      .eq("id", user.id)
+      .maybeSingle();
 
-    if (insErr) throw insErr;
-    return inserted;
+    if (error) throw error;
+    if (data) {
+      existing = data;
+      break;
+    }
+
+    if (attempt < 3) {
+      await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+    }
   }
 
-  const updatePayload: Record<string, any> = {};
+  // Profile creation is owned by the Auth trigger. Profile onboarding is owned
+  // by complete_profile_onboarding_v2. Mobile must never repair either state
+  // with a privileged-looking direct insert/update fallback.
+  if (!existing) throw new Error("profile_not_ready");
 
-  if (!existing.first_name && fallbackFirstName) {
-    updatePayload.first_name = fallbackFirstName;
-  }
-  if (!existing.last_name && fallbackLastName) {
-    updatePayload.last_name = fallbackLastName;
-  }
-  if (!existing.display_name && fallbackFirstName) {
-    updatePayload.display_name = fallbackFirstName;
-  }
-  if (!existing.contact_email && fallbackEmail) {
-    updatePayload.contact_email = fallbackEmail;
-  }
-
-  if (Object.keys(updatePayload).length === 0) {
-    return existing;
-  }
-
-  const { data: updated, error: updErr } = await supabase
-    .from("profiles")
-    .update(updatePayload)
-    .eq("id", user.id)
-    .select("*")
-    .single();
-
-  if (updErr) throw updErr;
-  return updated;
+  void input;
+  return existing;
 }

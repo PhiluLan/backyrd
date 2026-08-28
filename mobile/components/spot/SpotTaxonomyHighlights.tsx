@@ -47,7 +47,7 @@ function SignalChip({
   item: MobileSpotTaxonomyItem;
   compact?: boolean;
 }) {
-  const accent = item.color || "#FFD4E0";
+  const accent = item.color || "#FFC5DA";
 
   return (
     <View
@@ -138,7 +138,7 @@ export function SpotTaxonomyDetails({ items }: Props) {
 
   const visibleGroups = useMemo(
     () =>
-      (Object.keys(GROUP_META) as Array<keyof typeof GROUP_META>).filter(
+      (Object.keys(GROUP_META) as (keyof typeof GROUP_META)[]).filter(
         (key) => groups[key].length > 0,
       ),
     [groups],
@@ -163,7 +163,7 @@ export function SpotTaxonomyDetails({ items }: Props) {
 
             <View style={styles.moreButton}>
               <Text style={styles.moreButtonText}>Alle</Text>
-              <Feather name="chevron-right" size={16} color="#FFD4E0" />
+              <Feather name="chevron-right" size={16} color="#FFC5DA" />
             </View>
           </View>
 
@@ -228,7 +228,7 @@ export function SpotTaxonomyDetails({ items }: Props) {
                       <Feather
                         name={GROUP_META[key].icon}
                         size={17}
-                        color="#FFD4E0"
+                        color="#FFC5DA"
                       />
                     </View>
 
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   moreButtonText: {
-    color: "#FFD4E0",
+    color: "#FFC5DA",
     fontSize: 11,
     fontWeight: "800",
   },

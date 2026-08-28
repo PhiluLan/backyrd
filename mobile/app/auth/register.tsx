@@ -24,17 +24,16 @@ import * as AuthSession from "expo-auth-session";
 import * as Device from "expo-device";
 import * as WebBrowser from "expo-web-browser";
 import Constants from "expo-constants";
+import * as Crypto from "expo-crypto";
 
 import { supabase } from "../../lib/supabase";
 import { ensureProfile } from "../../lib/profile";
 
 WebBrowser.maybeCompleteAuthSession();
 
-const iosClientId =
-  "729608339021-dl4pqthrguti9o8sfat336kuae4s358q.apps.googleusercontent.com";
-const androidClientId = "<YOUR_ANDROID_CLIENT_ID>";
-const webClientId =
-  "729608339021-u22np8gnlld09a248ovjtrj1n61q6kgt.apps.googleusercontent.com";
+const iosClientId = Constants.expoConfig?.extra?.googleIosClientId as string | undefined;
+const androidClientId = Constants.expoConfig?.extra?.googleAndroidClientId as string | undefined;
+const webClientId = Constants.expoConfig?.extra?.googleWebClientId as string | undefined;
 
 const isExpoGo = Constants.appOwnership === "expo";
 const isSimulator = !Device.isDevice;
@@ -58,7 +57,7 @@ function getAuthErrorMessage(error: any) {
     return "Apple Registrierung kann in Expo Go nicht korrekt getestet werden. Bitte nutze dafür einen Development Build.";
   }
 
-  return message;
+  return "Registrieren ist gerade nicht möglich. Bitte versuche es erneut.";
 }
 
 export default function RegisterScreen() {
@@ -70,6 +69,7 @@ export default function RegisterScreen() {
   const [pw, setPw] = useState("");
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   async function onRegister() {
     const firstName = first.trim();
@@ -78,7 +78,7 @@ export default function RegisterScreen() {
     const password = pw.trim();
 
     if (!firstName || !lastName || !normalizedEmail || !password) {
-      Alert.alert("Fehlende Angaben", "Bitte alle Felder ausfüllen.");
+      setFormError("Fülle bitte alle Angaben aus.");
       return;
     }
 
@@ -126,7 +126,7 @@ export default function RegisterScreen() {
         ]
       );
     } catch (e: any) {
-      Alert.alert("Registrierung fehlgeschlagen", getAuthErrorMessage(e));
+      setFormError(getAuthErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -202,7 +202,14 @@ export default function RegisterScreen() {
 
       setSocialLoading(true);
 
+      const rawNonce = Crypto.randomUUID();
+      const appleNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce
+      );
+
       const response = await AppleAuthentication.signInAsync({
+        nonce: appleNonce,
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
@@ -216,7 +223,7 @@ export default function RegisterScreen() {
       const { error } = await supabase.auth.signInWithIdToken({
         provider: "apple",
         token: response.identityToken,
-        nonce: response.nonce ?? undefined,
+        nonce: rawNonce,
       });
 
       if (error) throw error;
@@ -239,44 +246,48 @@ export default function RegisterScreen() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <LinearGradient colors={["#050506", "#0A0A0B", "#191A22"]} style={styles.container}>
+        <LinearGradient colors={["#050506", "#050506", "#111113"]} style={styles.container}>
           <View style={styles.header}>
             <Pressable onPress={() => router.replace("/gate" as any)} hitSlop={10} style={styles.backBtn}>
               <Ionicons name="chevron-back" size={32} color="#fff" />
             </Pressable>
-            <Text style={styles.headerTitle}>Account erstellen</Text>
+            <Text allowFontScaling={false} style={styles.headerTitle}>Account erstellen</Text>
           </View>
 
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
             <BlurView intensity={62} tint="dark" style={styles.card}>
-              <Text style={styles.cardTitle}>Registrieren</Text>
-              <Text style={styles.cardSubtitle}>Starte deine persönliche Backyrd Journey 🔥</Text>
+              <Text allowFontScaling={false} style={styles.cardTitle}>Registrieren</Text>
+              <Text maxFontSizeMultiplier={1.4} style={styles.cardSubtitle}>Dein Backyrd beginnt hier.</Text>
+              {formError ? <Text accessibilityLiveRegion="polite" maxFontSizeMultiplier={1.3} style={styles.formError}>{formError}</Text> : null}
 
               <TextInput
+                maxFontSizeMultiplier={1.3}
                 placeholder="Vorname"
                 placeholderTextColor="#7D8086"
                 value={first}
-                onChangeText={setFirst}
+                onChangeText={(value) => { setFirst(value); setFormError(null); }}
                 autoCapitalize="words"
                 textContentType="givenName"
                 style={styles.input}
               />
 
               <TextInput
+                maxFontSizeMultiplier={1.3}
                 placeholder="Nachname"
                 placeholderTextColor="#7D8086"
                 value={last}
-                onChangeText={setLast}
+                onChangeText={(value) => { setLast(value); setFormError(null); }}
                 autoCapitalize="words"
                 textContentType="familyName"
                 style={styles.input}
               />
 
               <TextInput
+                maxFontSizeMultiplier={1.3}
                 placeholder="E-Mail"
                 placeholderTextColor="#7D8086"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(value) => { setEmail(value); setFormError(null); }}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -285,12 +296,15 @@ export default function RegisterScreen() {
               />
 
               <TextInput
+                maxFontSizeMultiplier={1.3}
                 placeholder="Passwort"
                 placeholderTextColor="#7D8086"
                 value={pw}
-                onChangeText={setPw}
+                onChangeText={(value) => { setPw(value); setFormError(null); }}
                 secureTextEntry
                 textContentType="newPassword"
+                returnKeyType="go"
+                onSubmitEditing={() => void onRegister()}
                 style={styles.input}
               />
 
@@ -303,12 +317,12 @@ export default function RegisterScreen() {
                   pressed && { opacity: 0.85 },
                 ]}
               >
-                {loading ? <ActivityIndicator /> : <Text style={styles.primaryBtnText}>Registrieren</Text>}
+                {loading ? <ActivityIndicator /> : <Text maxFontSizeMultiplier={1.3} style={styles.primaryBtnText}>Registrieren</Text>}
               </Pressable>
 
               <View style={styles.dividerRow}>
                 <View style={styles.divider} />
-                <Text style={styles.dividerLabel}>oder</Text>
+                <Text maxFontSizeMultiplier={1.3} style={styles.dividerLabel}>oder</Text>
                 <View style={styles.divider} />
               </View>
 
@@ -318,7 +332,7 @@ export default function RegisterScreen() {
                 style={({ pressed }) => [styles.googleBtn, pressed && { opacity: 0.9 }]}
               >
                 <Ionicons name="logo-google" size={20} color="#111" />
-                <Text style={styles.googleText}>Mit Google registrieren</Text>
+                <Text maxFontSizeMultiplier={1.25} style={styles.googleText}>Mit Google registrieren</Text>
               </Pressable>
 
               {Platform.OS === "ios" && (
@@ -328,20 +342,20 @@ export default function RegisterScreen() {
                   style={({ pressed }) => [styles.appleBtn, pressed && { opacity: 0.9 }]}
                 >
                   <Ionicons name="logo-apple" size={24} color="#fff" />
-                  <Text style={styles.appleText}>Mit Apple registrieren</Text>
+                  <Text maxFontSizeMultiplier={1.25} style={styles.appleText}>Mit Apple registrieren</Text>
                 </Pressable>
               )}
 
               <View style={styles.linkRow}>
                 <Link href="/auth/login" asChild>
                   <Pressable>
-                    <Text style={styles.link}>Schon registriert?</Text>
+                    <Text maxFontSizeMultiplier={1.4} style={styles.link}>Schon registriert?</Text>
                   </Pressable>
                 </Link>
 
                 <Link href="/auth/verify" asChild>
                   <Pressable>
-                    <Text style={styles.link}>E-Mail bestätigen</Text>
+                    <Text maxFontSizeMultiplier={1.4} style={styles.link}>E-Mail bestätigen</Text>
                   </Pressable>
                 </Link>
               </View>
@@ -378,12 +392,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: "#fff",
     fontSize: 30,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: 0.2,
     flexShrink: 1,
   },
   card: {
-    marginTop: 56,
+    marginTop: 24,
     padding: 24,
     borderRadius: 30,
     backgroundColor: "rgba(255,255,255,0.065)",
@@ -395,7 +409,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 38,
     lineHeight: 42,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -0.9,
     marginBottom: 10,
   },
@@ -404,6 +418,18 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 25,
     marginBottom: 24,
+  },
+  formError: {
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 14,
+    color: "#FFD1DF",
+    backgroundColor: "rgba(255,79,145,0.13)",
+    borderWidth: 1,
+    borderColor: "rgba(255,79,145,0.34)",
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "700",
   },
   input: {
     backgroundColor: "rgba(255,255,255,0.08)",
@@ -432,7 +458,7 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     color: "#fff",
     fontSize: 17,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   dividerRow: {
     flexDirection: "row",
@@ -462,7 +488,7 @@ const styles = StyleSheet.create({
   },
   appleText: {
     color: "#fff",
-    fontWeight: "950",
+    fontWeight: "900",
     fontSize: 17,
   },
   googleBtn: {
@@ -476,7 +502,7 @@ const styles = StyleSheet.create({
   },
   googleText: {
     color: "#111",
-    fontWeight: "950",
+    fontWeight: "900",
     fontSize: 17,
   },
   linkRow: {
@@ -487,6 +513,6 @@ const styles = StyleSheet.create({
   link: {
     color: "#A6A8AD",
     fontSize: 15,
-    fontWeight: "850",
+    fontWeight: "800",
   },
 });

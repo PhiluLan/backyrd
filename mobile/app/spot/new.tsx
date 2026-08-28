@@ -19,6 +19,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { searchAddress } from "../../lib/geocode";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { userFacingError } from "../../lib/userFacingError";
 
 /* ================== Types ================== */
 type Category = {
@@ -338,7 +339,7 @@ export default function NewSpotScreen() {
       router.replace("/(tabs)/map");
     } catch (e: any) {
       console.error(e);
-      Alert.alert("Fehler", e.message ?? String(e));
+      Alert.alert("Spot nicht hinzugefügt", userFacingError(e, "Der Spot konnte gerade nicht hinzugefügt werden. Bitte versuche es noch einmal."));
     } finally {
       setLoading(false);
     }
@@ -553,7 +554,7 @@ export default function NewSpotScreen() {
         {/* Submit */}
         <Pressable onPress={submit} style={styles.submitBtn} disabled={loading}>
           {loading ? (
-            <ActivityIndicator color="#171214" />
+            <ActivityIndicator color="#111113" />
           ) : (
             <Text style={styles.submitText}>Spot speichern</Text>
           )}
@@ -588,8 +589,8 @@ export default function NewSpotScreen() {
                       backgroundColor:
                         categoryId === item.id
                           ? "rgba(255,125,167,0.14)"
-                          : "#141417",
-                      borderColor: categoryId === item.id ? "#FF7DA7" : "rgba(255,255,255,0.09)",
+                          : "#111113",
+                      borderColor: categoryId === item.id ? "#FF4F91" : "rgba(255,255,255,0.09)",
                     },
                   ]}
                 >
@@ -600,7 +601,7 @@ export default function NewSpotScreen() {
                     {item.name}
                   </Text>
                   {categoryId === item.id && (
-                    <Ionicons name="checkmark" size={18} color="#FF7DA7" />
+                    <Ionicons name="checkmark" size={18} color="#FF4F91" />
                   )}
                 </Pressable>
               )}
@@ -638,7 +639,7 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   kicker: {
-    color: "#FF9ABA",
+    color: "#FF4F91",
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 3,
@@ -715,15 +716,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.055)",
   },
   segmentPillActive: {
-    borderColor: "#FF7DA7",
-    backgroundColor: "#FF7DA7",
+    borderColor: "#FF4F91",
+    backgroundColor: "#FF4F91",
   },
   segmentText: {
     color: "rgba(255,255,255,0.72)",
     fontWeight: "700",
   },
   segmentTextActive: {
-    color: "#171214",
+    color: "#111113",
   },
   categorySelect: {
     flexDirection: "row",
@@ -790,13 +791,13 @@ const styles = StyleSheet.create({
   photoBtnText: { color: "#fff", fontWeight: "800" },
   submitBtn: {
     marginTop: 28,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
     padding: 16,
     borderRadius: 999,
     alignItems: "center",
   },
   submitText: {
-    color: "#171214",
+    color: "#111113",
     fontWeight: "900",
     fontSize: 16,
   },
@@ -823,7 +824,7 @@ const styles = StyleSheet.create({
   modalItem: {
     flexDirection: "row",
     justifyContent: "space-between",
-    backgroundColor: "#141417",
+    backgroundColor: "#111113",
     borderRadius: 18,
     padding: 12,
     borderWidth: 1,

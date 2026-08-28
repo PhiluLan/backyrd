@@ -3,14 +3,9 @@ import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-
-const theme = {
-  bg: "#0A0A0B",
-  card: "#15151A",
-  border: "#2A2A33",
-  text: "#FFFFFF",
-  muted: "#A6A8AD",
-};
+import { useAuth } from "../../hooks/useAuth";
+import { isInternalMobileUser } from "../../lib/internalAccess";
+import { backyrdTheme as productTheme } from "../../theme/backyrd";
 
 function SettingsRow({
   icon,
@@ -24,10 +19,10 @@ function SettingsRow({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={styles.row}>
+    <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityHint={subtitle} onPress={onPress} style={styles.row}>
       <View style={styles.rowLeft}>
         <View style={styles.iconWrap}>
-          <Ionicons name={icon} size={18} color="#fff" />
+          <Ionicons accessibilityElementsHidden name={icon} size={18} color="#fff" />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.rowTitle}>{title}</Text>
@@ -35,42 +30,68 @@ function SettingsRow({
         </View>
       </View>
 
-      <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.55)" />
+      <Ionicons accessibilityElementsHidden name="chevron-forward" size={18} color="rgba(255,255,255,0.55)" />
     </Pressable>
   );
 }
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const internal = __DEV__ || isInternalMobileUser(user);
 
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Settings</Text>
-        <Text style={styles.subtitle}>Profil, interne Tools und App-Bereiche.</Text>
+        <Text style={styles.kicker}>DEIN BACKYRD</Text>
+        <Text style={styles.title}>EINSTELLUNGEN</Text>
+        <Text style={styles.subtitle}>Profil, Privatsphäre und deine App.</Text>
 
+        <Text style={styles.groupLabel}>ACCOUNT</Text>
         <View style={styles.group}>
           <SettingsRow
             icon="person-outline"
             title="Profil"
-            subtitle="Dein Account, Beiträge, Favoriten und Badges"
+            subtitle="Dein Account, Momente, Gespeichertes und Erfolge"
             onPress={() => router.push("/profile")}
           />
-
           <SettingsRow
-            icon="sparkles-outline"
-            title="Decision Debug"
-            subtitle="Debug- und Diagnosebereich für Decision"
-            onPress={() => router.push("/decision-debug")}
+            icon="eye-outline"
+            title="Sichtbarkeit"
+            subtitle="Öffentlichkeit deines Profils und deiner Momente"
+            onPress={() => router.push("/settings/privacy" as any)}
           />
-
           <SettingsRow
-            icon="hammer-outline"
-            title="DEV"
-            subtitle="Interne Entwickleransicht"
-            onPress={() => router.push("/dev")}
+            icon="time-outline"
+            title="Decision-Verlauf"
+            subtitle="Deine bisherigen Entscheidungen"
+            onPress={() => router.push("/profile/history" as any)}
           />
         </View>
+
+        <Text style={styles.groupLabel}>PRIVATSPHÄRE</Text>
+        <View style={styles.group}>
+          <SettingsRow
+            icon="shield-checkmark-outline"
+            title="Datenschutz & Einwilligungen"
+            subtitle="Kontrolle über deine Daten und Zustimmung"
+            onPress={() => router.push("/privacy-consent" as any)}
+          />
+          <SettingsRow
+            icon="help-buoy-outline"
+            title="Sicherheit & Support"
+            subtitle="Moderationsentscheidungen und Hilfe"
+            onPress={() => router.push("/safety-center" as any)}
+          />
+        </View>
+
+        {internal ? <>
+          <Text style={styles.groupLabel}>INTERN</Text>
+          <View style={styles.group}>
+            <SettingsRow icon="pulse-outline" title="App- & Release-Status" subtitle="Version, Runtime und aktives Update" onPress={() => router.push("/release-diagnostics")} />
+            <SettingsRow icon="hammer-outline" title="DEV" subtitle="Interne Entwickleransicht" onPress={() => router.push("/dev")} />
+          </View>
+        </> : null}
       </ScrollView>
     </SafeAreaView>
   );
@@ -79,19 +100,21 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: theme.bg,
+    backgroundColor: productTheme.color.background,
   },
   container: {
     padding: 20,
     paddingBottom: 120,
   },
   title: {
-    color: theme.text,
-    fontSize: 28,
-    fontWeight: "800",
+    color: productTheme.color.textPrimary,
+    fontFamily: productTheme.type.display,
+    fontSize: 44,
+    fontWeight: "900",
   },
+  kicker: { color: productTheme.color.acid, fontFamily: productTheme.type.bodyBold, fontSize: 11, letterSpacing: 2.5 },
   subtitle: {
-    color: theme.muted,
+    color: productTheme.color.textSecondary,
     marginTop: 6,
     marginBottom: 22,
     lineHeight: 20,
@@ -99,12 +122,20 @@ const styles = StyleSheet.create({
   group: {
     gap: 12,
   },
+  groupLabel: {
+    marginTop: 26,
+    marginBottom: 10,
+    color: productTheme.color.acid,
+    fontFamily: productTheme.type.bodyBold,
+    fontSize: 11,
+    letterSpacing: 1.4,
+  },
   row: {
     minHeight: 76,
     borderRadius: 18,
-    backgroundColor: theme.card,
+    backgroundColor: productTheme.color.surface,
     borderWidth: 1,
-    borderColor: theme.border,
+    borderColor: productTheme.color.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: "row",
@@ -126,12 +157,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   rowTitle: {
-    color: theme.text,
+    color: productTheme.color.textPrimary,
     fontSize: 16,
     fontWeight: "700",
   },
   rowSubtitle: {
-    color: theme.muted,
+    color: productTheme.color.textSecondary,
     fontSize: 13,
     marginTop: 4,
     lineHeight: 18,

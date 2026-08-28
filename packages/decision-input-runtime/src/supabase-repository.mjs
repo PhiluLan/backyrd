@@ -1,4 +1,5 @@
 import { buildDecisionInputPackage } from "./package.mjs";
+import { buildDecisionEvidenceEnvelope } from "./evidence-envelope.mjs";
 import { categoryToPlaceType } from "../../canonical-semantics/src/index.mjs";
 
 const fail=(error,label)=>{if(error)throw new Error(`decision_input_repository:${label}:${error.message}`)};
@@ -20,7 +21,10 @@ export class SupabaseDecisionInputRepository {
     const{data:facts,error:factsError}=await this.client.rpc("backyrd_read_decision_candidate_facts_v1",{p_spot_ids:ids});fail(factsError,"candidate_facts");
     const{data:distribution,error:distributionError}=await this.client.rpc("distribution_trust_filter_entities_v1",{p_entity_type:"spot",p_entity_ids:ids,p_surface:"decision"});fail(distributionError,"distribution");
     const eligibilityDone=performance.now();
-    const{data:n4Rows,error:n4Error}=await this.client.rpc("backyrd_read_n4_for_decision_v2",{p_spot_ids:ids});fail(n4Error,"n4");
+    const[{data:n4Rows,error:n4Error},{data:offeringRows,error:offeringError}]=await Promise.all([
+      this.client.rpc("backyrd_read_n4_for_decision_v2",{p_spot_ids:ids}),
+      this.client.rpc("backyrd_read_offering_for_decision_v1",{p_spot_ids:ids}),
+    ]);fail(n4Error,"n4");fail(offeringError,"offering");
     const n4Done=performance.now();
     const{data:userCard,error:cardError}=await this.client.rpc("backyrd_read_latest_shared_user_card_v1",{p_user_id:decision.user_id});fail(cardError,"user_card");
     const cardDone=performance.now();
@@ -31,15 +35,19 @@ export class SupabaseDecisionInputRepository {
       decision:{id:decision.id,userId:decision.user_id,city:decision.city,moodA:decision.mood_a_text,moodB:decision.mood_b_text,createdAt:decision.created_at},
       requestContext:handoff?.request_context??events?.[0]?.context??{},requestVersion:(handoff?.request_context??events?.[0]?.context)?.model_version??"decision-v13-product-context-v1",
       memoryConsentState:userCard?"granted":"missing",userCard:userCard??null,n4BySpot,
+      offeringBySpot:Object.fromEntries((offeringRows??[]).map((row)=>[row.spot_id,{offerings:{value:row.offerings},purposes:{value:row.purposes},sourceIdentity:row.source_identity,observedAt:row.observed_at,confidence:row.confidence}])),
       candidates:(impressions??[]).map((row)=>{const fact=factById.get(row.spot_id)??{},mapped=categoryToPlaceType(fact.category_name);return{spotId:row.spot_id,retrievalPosition:row.rank,status:fact.status,city:fact.city,category:fact.category_name,productPlaceType:mapped.placeType,categoryMappingStatus:mapped.status,openNow:fact.open_now,distributionEligible:distributionById.get(row.spot_id)?.eligible===true};}),
       performance:{candidateRetrievalReadMs:Number((retrievalDone-started).toFixed(3)),eligibilityFactsMs:Number((eligibilityDone-retrievalDone).toFixed(3)),n4BatchReadMs:Number((n4Done-eligibilityDone).toFixed(3)),userCardReadMs:Number((cardDone-n4Done).toFixed(3))},
     };
   }
 
-  async persistTrace(result){
+  async persistTrace(result,requestContext={}){
     const value=result.package;
-    const{data,error}=await this.client.rpc("backyrd_persist_decision_input_trace_v1",{p_decision_id:value.decisionId,p_user_id:value.userId,p_user_card_hash:value.n5.userCardHash,p_moment_hash:value.n3.momentHash,p_projection_hash:value.n5.projectionHash,p_candidate_set_hash:value.candidateSet.candidateSetHash,p_n4_hashes:Object.fromEntries(value.candidates.map((candidate)=>[candidate.spotId,candidate.n4.snapshotHash])),p_knowledge_mode:value.n5.knowledgeMode,p_contract_versions:value.contractIdentities,p_package_hash:value.packageHash,p_validation_disposition:result.validation.disposition});fail(error,"persist_trace");return data;
+    const{data,error}=await this.client.rpc("backyrd_persist_decision_input_trace_v1",{p_decision_id:value.decisionId,p_user_id:value.userId,p_user_card_hash:value.n5.userCardHash,p_moment_hash:value.n3.momentHash,p_projection_hash:value.n5.projectionHash,p_candidate_set_hash:value.candidateSet.candidateSetHash,p_n4_hashes:Object.fromEntries(value.candidates.map((candidate)=>[candidate.spotId,candidate.n4.snapshotHash])),p_knowledge_mode:value.n5.knowledgeMode,p_contract_versions:value.contractIdentities,p_package_hash:value.packageHash,p_validation_disposition:result.validation.disposition});fail(error,"persist_trace");
+    const{error:offeringTraceError}=await this.client.rpc("backyrd_persist_decision_offering_snapshot_v1",{p_decision_id:value.decisionId,p_user_id:value.userId,p_package_hash:value.packageHash,p_candidates:value.candidates.map(({spotId,offering})=>({spotId,...offering}))});fail(offeringTraceError,"persist_offering_snapshot");
+    const envelope=buildDecisionEvidenceEnvelope(value,requestContext);
+    const{error:envelopeError}=await this.client.rpc("backyrd_persist_decision_evidence_envelope_v1",{p_decision_id:envelope.decisionId,p_user_id:envelope.userId,p_moment_hash:envelope.momentHash,p_package_hash:envelope.packageHash,p_semantic_contract_version:envelope.semanticContractVersion,p_moment_signature:envelope.momentSignature,p_requested_context:envelope.requestedContext,p_ambient_context:envelope.ambientContext,p_candidates:envelope.candidates});fail(envelopeError,"persist_evidence_envelope");return data;
   }
 
-  async buildAndPersist(decisionId){const started=performance.now(),source=await this.load(decisionId),result=buildDecisionInputPackage(source),traceStarted=performance.now(),traceId=await this.persistTrace(result);return{...result,traceId,performance:{...source.performance,...result.performance,tracePersistenceMs:Number((performance.now()-traceStarted).toFixed(3)),totalMs:Number((performance.now()-started).toFixed(3))}};}
+  async buildAndPersist(decisionId){const started=performance.now(),source=await this.load(decisionId),result=buildDecisionInputPackage(source),traceStarted=performance.now(),traceId=await this.persistTrace(result,source.requestContext);return{...result,traceId,performance:{...source.performance,...result.performance,tracePersistenceMs:Number((performance.now()-traceStarted).toFixed(3)),totalMs:Number((performance.now()-started).toFixed(3))}};}
 }

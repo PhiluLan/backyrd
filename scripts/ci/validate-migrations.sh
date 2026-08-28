@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 active_dir="$repo_root/supabase/migrations"
 archive_dir="$repo_root/supabase/migration-archive/legacy-pre-baseline"
+historical_operations="$repo_root/supabase/historical-data-operations.json"
 
 required_versions=(
   20260411100101
@@ -26,6 +27,14 @@ fail() {
 
 test -d "$active_dir" || fail "missing supabase/migrations"
 test -d "$archive_dir" || fail "missing legacy migration archive"
+test -f "$historical_operations" || fail "missing historical data-operation manifest"
+jq -e 'type == "array" and all(.[];
+  (.version | test("^[0-9]{14}$")) and
+  (.file | test("^[0-9]{14}_[a-z0-9_]+\\.sql$")) and
+  (.sha256 | test("^[0-9a-f]{64}$")) and
+  (.schema_reconciled_by | test("^[0-9]{14}_[a-z0-9_]+\\.sql$"))
+)' "$historical_operations" >/dev/null \
+  || fail "invalid historical data-operation manifest"
 
 active_files=()
 while IFS= read -r file; do
@@ -68,6 +77,20 @@ for version in "${sorted_versions[@]:${#required_versions[@]}}"; do
   [[ "$version" > "$last_canonical" ]] \
     || fail "new forward migration $version must follow $last_canonical"
 done
+
+while IFS=$'\t' read -r version file expected_hash reconciliation; do
+  test "${file%%_*}" = "$version" \
+    || fail "historical operation version/file mismatch: $file"
+  operation_path="$active_dir/$file"
+  test -f "$operation_path" || fail "missing historical operation: $file"
+  actual_hash="$(shasum -a 256 "$operation_path" | awk '{print $1}')"
+  test "$actual_hash" = "$expected_hash" \
+    || fail "historical operation bytes changed: $file"
+  test -f "$active_dir/$reconciliation" \
+    || fail "missing schema reconciliation for historical operation: $reconciliation"
+  [[ "${reconciliation%%_*}" > "$version" ]] \
+    || fail "schema reconciliation must follow historical operation: $file"
+done < <(jq -r '.[] | [.version,.file,.sha256,.schema_reconciled_by] | @tsv' "$historical_operations")
 
 printf 'Validated %s unique active migrations; canonical foundation is intact.\n' \
   "${#active_files[@]}"

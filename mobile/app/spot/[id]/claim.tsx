@@ -16,6 +16,8 @@ import {
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
+import { technicalErrorText, userFacingError } from "@/lib/userFacingError";
+import { StateView } from "@/components/foundation/StateView";
 
 const FUNCTION_URL =
   "https://hjgcrrzfjchzqoegcywn.supabase.co/functions/v1/send-spot-claim-code";
@@ -45,12 +47,7 @@ function isValidEmail(value: string) {
 }
 
 function errorMessage(err: any) {
-  const raw =
-    err?.message ||
-    err?.error_description ||
-    err?.details ||
-    err?.hint ||
-    String(err ?? "");
+  const raw = technicalErrorText(err);
 
   if (raw.includes("business_domain_does_not_match_spot_name")) {
     return "Diese E-Mail-Domain passt nicht eindeutig zum Namen des Spots. Verwende bitte eine offizielle Unternehmens-Mailadresse.";
@@ -80,7 +77,7 @@ function errorMessage(err: any) {
     return "Bitte melde dich erneut an.";
   }
 
-  return raw || "Etwas ist schiefgelaufen.";
+  return userFacingError(err, "Die Anfrage konnte gerade nicht verarbeitet werden. Bitte versuche es noch einmal.");
 }
 
 export default function SpotClaimScreen() {
@@ -301,7 +298,7 @@ export default function SpotClaimScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#fff" />
+        <StateView kind="loading" title="Claim wird vorbereitet" />
       </View>
     );
   }
@@ -490,11 +487,11 @@ export default function SpotClaimScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#0A0A0B",
+    backgroundColor: "#050506",
   },
   center: {
     flex: 1,
-    backgroundColor: "#0A0A0B",
+    backgroundColor: "#050506",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -554,7 +551,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 28,
     lineHeight: 32,
-    fontWeight: "950",
+    fontWeight: "900",
     marginBottom: 10,
   },
   subtitle: {
@@ -628,7 +625,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: "#000",
-    fontWeight: "950",
+    fontWeight: "900",
     fontSize: 15,
   },
   secondaryButton: {
@@ -642,7 +639,7 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: "#fff",
-    fontWeight: "850",
+    fontWeight: "800",
   },
   backLink: {
     alignItems: "center",

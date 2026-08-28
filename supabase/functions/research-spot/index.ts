@@ -1,80 +1,56 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { callResearchProvider, DEFAULT_RESEARCH_MODEL, RESEARCH_CONTRACT_VERSION } from "../../../packages/spot-research-runtime/src/index.mjs";
 
 const adminOrigins = new Set(["https://backyrd-intelligence.vercel.app"]);
 const corsHeaders = (request: Request) => {
   const origin = request.headers.get("origin") ?? "";
-  return adminOrigins.has(origin)
-    ? {
-        "access-control-allow-origin": origin,
-        "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
-        "access-control-allow-methods": "POST, OPTIONS",
-        "access-control-max-age": "600",
-        vary: "Origin",
-      }
-    : {};
+  return adminOrigins.has(origin) ? {
+    "access-control-allow-origin": origin,
+    "access-control-allow-headers": "authorization, x-client-info, apikey, content-type",
+    "access-control-allow-methods": "POST, OPTIONS", "access-control-max-age": "600", vary: "Origin",
+  } : {};
 };
-const json = (request: Request, body: unknown, status = 200) => new Response(JSON.stringify(body), {
-  status,
-  headers: { "content-type": "application/json", ...corsHeaders(request) },
-});
+const json = (request: Request, body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...corsHeaders(request) } });
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const safeCode = (error: unknown) => String(error instanceof Error ? error.message : error).replace(/[^a-zA-Z0-9_:\-]/g, "_").slice(0, 160);
-async function sha256(value: unknown) { const bytes = new TextEncoder().encode(JSON.stringify(value)); return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))).map((byte) => byte.toString(16).padStart(2, "0")).join(""); }
+
+function kickWorker(url: string, serviceKey: string) {
+  const task = fetch(`${url}/functions/v1/research-spot-worker`, { method: "POST", headers: { authorization: `Bearer ${serviceKey}`, "content-type": "application/json" }, body: "{}" }).catch(() => undefined);
+  const runtime = (globalThis as typeof globalThis & { EdgeRuntime?: { waitUntil(promise: Promise<unknown>): void } }).EdgeRuntime;
+  if (runtime) runtime.waitUntil(task);
+}
 
 Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") {
-    if (!adminOrigins.has(request.headers.get("origin") ?? "")) return new Response(null, { status: 403 });
-    return new Response(null, { status: 204, headers: corsHeaders(request) });
-  }
+  if (request.method === "OPTIONS") return adminOrigins.has(request.headers.get("origin") ?? "") ? new Response(null, { status: 204, headers: corsHeaders(request) }) : new Response(null, { status: 403 });
   if (request.method !== "POST") return json(request, { error: "method_not_allowed" }, 405);
   if (Deno.env.get("SPOT_RESEARCH_AGENT_ENABLED") !== "true") return json(request, { error: "research_agent_disabled" }, 503);
   const url = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!url || !anonKey || !serviceKey || !apiKey) return json(request, { error: "server_configuration_missing" }, 503);
+  if (!url || !anonKey || !serviceKey) return json(request, { error: "server_configuration_missing" }, 503);
   const authorization = request.headers.get("authorization") ?? "";
-  const token = authorization.replace(/^Bearer\s+/i, "");
-  const service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const userClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: authorization } } });
-  const { data: { user }, error: authError } = await service.auth.getUser(token);
-  if (authError || !user) return json(request, { error: "unauthorized" }, 401);
-  let body: { spotId?: string; officialWebsite?: string };
+  let body: { action?: "ENQUEUE" | "STATUS" | "DIAGNOSE_LAST_FAILURE"; spotId?: string; officialWebsite?: string };
   try { body = await request.json(); } catch { return json(request, { error: "invalid_json" }, 400); }
   if (!body.spotId || !uuidPattern.test(body.spotId)) return json(request, { error: "invalid_spot_id" }, 400);
-
-  const { data: profile, error: profileError } = await userClient.rpc("backyrd_gold_profile_v1", { p_spot_id: body.spotId });
-  if (profileError) return json(request, { error: "research_access_denied" }, 403);
-  if (!["ADMIN", "FOUNDER"].includes(profile?.actor?.role)) return json(request, { error: "research_admin_required" }, 403);
-  const since = new Date(Date.now() - 86_400_000).toISOString();
-  const { count: dailyCount, error: rateError } = await service.from("backyrd_spot_research_runs_v1").select("id", { count: "exact", head: true }).eq("actor_id", user.id).gte("created_at", since);
-  if (rateError) return json(request, { error: "research_rate_limit_unavailable" }, 503);
-  if ((dailyCount ?? 0) >= 10) return json(request, { error: "research_daily_limit_reached" }, 429);
-  const { data: spot, error: spotError } = await service.from("spots").select("id,name,city,website").eq("id", body.spotId).single();
-  if (spotError || !spot) return json(request, { error: "spot_not_found" }, 404);
-  // An Admin/Founder may supply a missing official website as a research seed.
-  // It scopes the provider domain only; it is not persisted as Spot truth.
-  // An existing canonical website can never be overridden at this boundary.
-  const website = spot.website || body.officialWebsite;
-  if (!website) return json(request, { error: "official_website_required" }, 422);
-  if (spot.website && body.officialWebsite && spot.website !== body.officialWebsite) return json(request, { error: "official_website_override_forbidden" }, 422);
-  const context = { spot: { ...spot, website }, catalog: profile.catalog ?? [], acceptedFacts: (profile.acceptedFacts ?? []).map((row: Record<string, unknown>) => ({ fieldKey: row.field_key, value: row.value, status: row.status })) };
-  const model = Deno.env.get("SPOT_RESEARCH_MODEL") || DEFAULT_RESEARCH_MODEL;
-  const inputHash = await sha256({ contract: RESEARCH_CONTRACT_VERSION, context });
-  const { data: run, error: runError } = await service.from("backyrd_spot_research_runs_v1").insert({ spot_id: spot.id, actor_id: user.id, status: "STARTED", model, input_hash: inputHash }).select("id").single();
-  if (runError || !run) return json(request, { error: "research_run_create_failed" }, 503);
-  try {
-    const provider = await callResearchProvider(context, { apiKey, model });
-    const { data: result, error: persistError } = await service.rpc("backyrd_gold_submit_research_batch_v2", {
-      p_run_id: run.id, p_spot_id: spot.id, p_proposals: provider.proposals,
-      p_provider_metadata: { providerResponseId: provider.providerResponseId, providerStatus: provider.providerStatus, inputTokens: provider.usage.inputTokens, outputTokens: provider.usage.outputTokens, totalTokens: provider.usage.totalTokens, latencyMs: provider.latencyMs }
-    });
-    if (persistError) throw new Error("research_proposal_persistence_failed");
-    return json(request, { runId: run.id, status: result.status, proposalCount: result.proposalCount, canonicalWrite: false });
-  } catch (error) {
-    const failureCode = safeCode(error);
-    await service.from("backyrd_spot_research_runs_v1").update({ status: "FAILED", failure_code: failureCode, finished_at: new Date().toISOString() }).eq("id", run.id).eq("status", "STARTED");
-    return json(request, { runId: run.id, error: failureCode, canonicalWrite: false }, failureCode.includes("timeout") || failureCode.includes("transport") ? 503 : 422);
+  const action = body.action ?? "ENQUEUE";
+  if (action === "DIAGNOSE_LAST_FAILURE") {
+    const authorizationCheck = await userClient.rpc("backyrd_spot_research_job_status_v1", { p_spot_id: body.spotId });
+    if (authorizationCheck.error) return json(request, { error: "research_admin_required" }, 403);
+    const service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data: job } = await service.from("backyrd_spot_research_jobs_v1").select("id").eq("spot_id", body.spotId).eq("contract_version", "backyrd-spot-research-agent-v2").order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (!job) return json(request, { error: "legacy_research_job_not_found" }, 404);
+    const { data: pass } = await service.from("backyrd_spot_research_passes_v2").select("provider_response_id").eq("job_id", job.id).eq("pass_key", "B").maybeSingle();
+    if (!pass?.provider_response_id) return json(request, { error: "legacy_provider_response_not_found" }, 404);
+    const diagnosticResponse = await fetch(`${url}/functions/v1/research-spot-worker`, { method: "POST", headers: { authorization: `Bearer ${serviceKey}`, "content-type": "application/json" }, body: JSON.stringify({ action: "DIAGNOSE_LEGACY_RESPONSE", responseId: pass.provider_response_id }) });
+    return json(request, await diagnosticResponse.json(), diagnosticResponse.status);
   }
+  const rpcName = action === "STATUS" ? "backyrd_spot_research_job_status_v1" : "backyrd_enqueue_spot_research_job_v1";
+  const args = action === "STATUS" ? { p_spot_id: body.spotId } : { p_spot_id: body.spotId, p_official_website: body.officialWebsite ?? null };
+  const { data, error } = await userClient.rpc(rpcName, args);
+  if (error) {
+    const code = String(error.message).replace(/[^a-zA-Z0-9_:\-]/g, "_").slice(0, 160);
+    const status = code.includes("admin_required") || code.includes("access_denied") || code.includes("authentication") ? 403 : code.includes("daily_limit") ? 429 : 422;
+    return json(request, { error: code }, status);
+  }
+  if (data && ["QUEUED", "RUNNING"].includes(data.state)) kickWorker(url, serviceKey);
+  return json(request, data ?? { state: "NONE", canonicalWrite: false }, action === "ENQUEUE" ? 202 : 200);
 });

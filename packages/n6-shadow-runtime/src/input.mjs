@@ -96,10 +96,30 @@ function restrictAuthorization(n6Input, decisionPackage, deterministicInternal) 
   return { n6Input: { ...n6Input, authorizedReasons, inputHash: contentHash({ n6a1InputHash: n6Input.n6a1Input.inputHash, authorizationHash: authorizedReasons.authorizationHash }) }, s4ReasonMap: s4Map };
 }
 
+function boundedN6View(decisionPackage, deterministicDecision) {
+  if(decisionPackage.candidates.length<=FROZEN_N6_CONFIG.candidateLimit)return{decisionPackage,deterministicDecision,subsetApplied:false};
+  const fullOrder=deterministicDecision.internal.fullOrder;
+  const frozenIds=fullOrder?.slice(0,FROZEN_N6_CONFIG.candidateLimit)??[];
+  if(fullOrder?.length!==decisionPackage.candidates.length||frozenIds.length!==FROZEN_N6_CONFIG.candidateLimit||new Set(fullOrder).size!==fullOrder.length)throw new Error("n6_shadow_bounded_order_invalid");
+  const byId=new Map(decisionPackage.candidates.map((candidate)=>[candidate.spotId,candidate]));
+  if(fullOrder.some((spotId)=>!byId.has(spotId)))throw new Error("n6_shadow_bounded_identity_invalid");
+  const candidates=frozenIds.map((spotId)=>byId.get(spotId));
+  const candidateSetBody={decisionId:decisionPackage.decisionId,candidates:candidates.map(({spotId,retrievalPosition,n4})=>({spotId,retrievalPosition,n4SnapshotHash:n4.snapshotHash}))};
+  const candidateSet={...decisionPackage.candidateSet,count:candidates.length,source:"DETERMINISTIC_BOUNDED_N6_SUBSET",candidateSetHash:contentHash(candidateSetBody)};
+  const {packageHash:sourcePackageHash,...sourceBody}=decisionPackage;
+  const body={...sourceBody,candidates,candidateSet,retrievalMetadata:{...decisionPackage.retrievalMetadata,n6SourceCandidateCount:decisionPackage.candidates.length,n6BoundedCandidateCount:candidates.length},boundaries:{...decisionPackage.boundaries,n6:"BOUNDED_DETERMINISTIC_SUBSET"}};
+  const boundedPackage={...body,packageHash:contentHash(body)};
+  const select=(value)=>Object.fromEntries(frozenIds.map((spotId)=>[spotId,value[spotId]]));
+  const boundedInternal={...deterministicDecision.internal,packageHash:boundedPackage.packageHash,candidateSetHash:candidateSet.candidateSetHash,rankingInputs:select(deterministicDecision.internal.rankingInputs),authorizedReasons:select(deterministicDecision.internal.authorizedReasons),reasonSetHashes:select(deterministicDecision.internal.reasonSetHashes),fullOrder:frozenIds};
+  return{decisionPackage:boundedPackage,deterministicDecision:{...deterministicDecision,internal:boundedInternal},subsetApplied:true,sourcePackageHash};
+}
+
 export function buildProductionN6ShadowInput({ decisionPackage, deterministicDecision }) {
   if (!decisionPackage || !deterministicDecision?.internal) throw new Error("n6_shadow_input_required");
   if (decisionPackage.packageHash !== deterministicDecision.internal.packageHash) throw new Error("n6_shadow_input_trace_mismatch");
-  if (decisionPackage.candidates.length < 1 || decisionPackage.candidates.length > FROZEN_N6_CONFIG.candidateLimit) throw new Error("n6_shadow_candidate_count_unsupported");
+  if (decisionPackage.candidates.length < 1) throw new Error("n6_shadow_candidate_count_unsupported");
+  const bounded=boundedN6View(decisionPackage,deterministicDecision);
+  decisionPackage=bounded.decisionPackage;deterministicDecision=bounded.deterministicDecision;
   const { userId: _privateUserIdentity, ...providerMomentSource } = decisionPackage.n3.currentMoment;
   const providerMoment = structuredClone(providerMomentSource);
   if (providerMoment.boundaries) delete providerMoment.boundaries.latentTruthRuntimeInput;
@@ -128,7 +148,7 @@ export function buildProductionN6ShadowInput({ decisionPackage, deterministicDec
     reasonSetHashes: deterministicDecision.internal.reasonSetHashes,
     n6a2Input: restricted.n6Input,
     s4ReasonMap: restricted.s4ReasonMap,
-    boundaries: { rawHistoryIncluded: false, commercialSignals: false, trustInternals: false, shadowOnly: true }
+    boundaries: { rawHistoryIncluded: false, commercialSignals: false, trustInternals: false, shadowOnly: true, candidateSubsetApplied:bounded.subsetApplied, sourcePackageHash:bounded.sourcePackageHash??decisionPackage.packageHash }
   };
   return deepFreeze({ ...body, inputHash: contentHash(body) });
 }

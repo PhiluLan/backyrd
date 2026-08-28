@@ -2,35 +2,18 @@
 
 import React from "react";
 import { Stack } from "expo-router";
-import {
-  useFonts,
-  PlayfairDisplay_400Regular,
-  PlayfairDisplay_700Bold,
-} from "@expo-google-fonts/playfair-display";
-import { Platform, View, ActivityIndicator } from "react-native";
-
-import SplashScreen from "./splash";
-import { useAuth } from "../hooks/useAuth";
+import { useFonts } from "expo-font";
+import { Inter_400Regular } from "@expo-google-fonts/inter/400Regular";
+import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
+import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
+import { AuthProvider, useAuth } from "../hooks/useAuth";
 import { AnalyticsProvider } from "../providers/AnalyticsProvider";
 import { AnalyticsErrorBoundary } from "../components/AnalyticsErrorBoundary";
 import GlobalSafetyEnforcementGuard from "../components/safety/GlobalSafetyEnforcementGuard";
 import LegalGateGuard from "../components/consent/LegalGateGuard";
 import PushNotificationRouter from "../components/PushNotificationRouter";
-
-function WebSafeFallback() {
-  return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: "#0B0B0C",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <ActivityIndicator color="#FF7DA7" />
-    </View>
-  );
-}
+import { ProductLoading, ProductState } from "../components/ui/ProductState";
+import { runtimeConfigStatus } from "../lib/supabase";
 
 function RootStack() {
   return (
@@ -49,8 +32,6 @@ function RootStack() {
       <Stack.Screen name="auth/verify" />
 
       <Stack.Screen name="onboarding/index" />
-      <Stack.Screen name="onboarding/profile" />
-      <Stack.Screen name="onboarding/decision" />
 
       <Stack.Screen
         name="spot/[id]"
@@ -59,7 +40,7 @@ function RootStack() {
           headerTintColor: "#FFFFFF",
           headerBackTitle: "Zurück",
           headerTitle: "",
-          headerStyle: { backgroundColor: "#09090A" },
+          headerStyle: { backgroundColor: "#050506" },
           headerShadowVisible: false,
         }}
       />
@@ -67,29 +48,38 @@ function RootStack() {
   );
 }
 
-export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    PlayfairDisplay_400Regular,
-    PlayfairDisplay_700Bold,
+function BootstrappedApp() {
+  const [fontsLoaded, fontError] = useFonts({
+    Inter_400Regular,
+    Inter_600SemiBold,
+    Inter_700Bold,
   });
-
   const { loading: authLoading } = useAuth();
 
+  if (fontError) {
+    return <ProductState title="Darstellung nicht geladen" message="Backyrd konnte seine Schrift gerade nicht vorbereiten. Starte die App bitte noch einmal." />;
+  }
 
-  if (!fontsLoaded || authLoading) {
-    return Platform.OS === "web" ? <WebSafeFallback /> : <SplashScreen />;
+  if (!fontsLoaded || authLoading) return <ProductLoading />;
+
+  return <AnalyticsProvider><GlobalSafetyEnforcementGuard><LegalGateGuard><PushNotificationRouter /><RootStack /></LegalGateGuard></GlobalSafetyEnforcementGuard></AnalyticsProvider>;
+}
+
+export default function RootLayout() {
+  if (!runtimeConfigStatus.valid) {
+    return (
+      <ProductState
+        title="App nicht startbereit"
+        message="Die sichere Verbindung ist in dieser App-Version nicht vollständig konfiguriert. Bitte aktualisiere Backyrd oder versuche es später erneut."
+      />
+    );
   }
 
   return (
     <AnalyticsErrorBoundary>
-      <AnalyticsProvider>
-        <GlobalSafetyEnforcementGuard>
-          <LegalGateGuard>
-            <PushNotificationRouter />
-            <RootStack />
-          </LegalGateGuard>
-        </GlobalSafetyEnforcementGuard>
-      </AnalyticsProvider>
+      <AuthProvider>
+        <BootstrappedApp />
+      </AuthProvider>
     </AnalyticsErrorBoundary>
   );
 }

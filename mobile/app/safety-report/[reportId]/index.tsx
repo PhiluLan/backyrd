@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -14,6 +13,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { supabase } from "../../../lib/supabase";
+import { StateView } from "../../../components/foundation/StateView";
 
 type SafetyReport = {
   report_id: string;
@@ -84,7 +84,7 @@ export default function SafetyReportDetailScreen() {
     );
 
     if (rpcError) {
-      setError(rpcError.message);
+      setError("Deine Meldung konnte gerade nicht geladen werden.");
       setReport(null);
     } else {
       const rows = (data ?? []) as SafetyReport[];
@@ -113,11 +113,11 @@ export default function SafetyReportDetailScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.center}><ActivityIndicator color="#FF4F8B" /></View>
+        <StateView kind="loading" title="Meldung wird geladen" />
       ) : (
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor="#FF4F8B" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor="#FF4F91" />}
         >
           {error ? <View style={styles.errorCard}><Text style={styles.errorText}>{error}</Text></View> : null}
           {report ? (
@@ -162,7 +162,7 @@ export default function SafetyReportDetailScreen() {
               </Section>
 
               <View style={styles.infoCard}>
-                <Ionicons name="information-circle-outline" size={22} color="#FF7DA7" />
+                <Ionicons name="information-circle-outline" size={22} color="#FF4F91" />
                 <Text style={styles.infoText}>
                   Aus Datenschutzgründen zeigen wir keine Kontomaßnahmen oder persönlichen Details der gemeldeten Person.
                 </Text>
@@ -184,11 +184,11 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#0A0A0B" },
+  root: { flex: 1, backgroundColor: "#050506" },
   header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 20, paddingBottom: 18, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(255,255,255,0.08)" },
   backButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.055)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
-  eyebrow: { color: "#FF4F8B", fontSize: 10, fontWeight: "800", letterSpacing: 1.1 },
-  title: { color: "#FFFFFF", fontSize: 25, fontWeight: "850", marginTop: 4 },
+  eyebrow: { color: "#FF4F91", fontSize: 10, fontWeight: "800", letterSpacing: 1.1 },
+  title: { color: "#FFFFFF", fontSize: 25, fontWeight: "800", marginTop: 4 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   content: { padding: 20, gap: 14 },
   errorCard: { padding: 16, borderRadius: 16, backgroundColor: "rgba(255,82,82,0.10)" },

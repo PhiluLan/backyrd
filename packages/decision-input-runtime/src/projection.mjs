@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { buildMomentAwareRelevantUserProjection, N5_6_1_PROJECTION_CONTRACT_HASH, N5_6_1_SUFFICIENCY_CONTRACT_HASH } from "../../../decision-lab/src/n5-6-1-moment-aware-projection.mjs";
+import { interpretCanonicalCurrentIntent,SEMANTIC_CONTRACT_VERSION } from "../../canonical-semantics/src/index.mjs";
 
 export const PRODUCT_PROJECTION_VERSION = "backyrd-product-n5-6-1-projection-v2";
 const canonical = (value) => value && typeof value === "object" ? Array.isArray(value) ? value.map(canonical) : Object.fromEntries(Object.keys(value).sort().map((key) => [key,canonical(value[key])])) : value;
@@ -12,9 +13,20 @@ export function buildColdUserCard(userId) {
 }
 
 export function buildCurrentIntent(moment,requestContext={}) {
-  const preferred = [...new Set([...(requestContext.preferredPlaceTypes ?? []), ...(requestContext.intent?.primaryPlaceTypes ?? [])].map((value)=>String(value).trim().toLowerCase()).filter(Boolean))];
-  const required = requestContext.strictCategoryIntent === true ? preferred : [];
-  const directions = [];
+  const canonicalIntent=requestContext.canonicalIntent?.semanticContractVersion===SEMANTIC_CONTRACT_VERSION
+    ? requestContext.canonicalIntent
+    : interpretCanonicalCurrentIntent({
+      query:requestContext.rawFreeText??requestContext.query,
+      currentFacts:requestContext.currentFacts,
+      audience:requestContext.audience,selectedAudiences:requestContext.selectedAudiences,
+      preferredPlaceTypes:[...(requestContext.preferredPlaceTypes??[]),...(requestContext.intent?.primaryPlaceTypes??[])],
+      excludedPlaceTypes:[...(requestContext.excludedPlaceTypes??[]),...(requestContext.intent?.excludedPlaceTypes??[])],
+      strictCategoryIntent:requestContext.strictCategoryIntent===true,
+      openNow:requestContext.openNow===true||requestContext.intent?.openNow===true,
+    });
+  const preferred = [...new Set([...(canonicalIntent.preferredPlaceTypes??[]),...(requestContext.preferredPlaceTypes ?? []), ...(requestContext.intent?.primaryPlaceTypes ?? [])].map((value)=>String(value).trim().toLowerCase()).filter(Boolean))];
+  const required = [...new Set(canonicalIntent.hardConstraints?.requiredPlaceTypes??(requestContext.strictCategoryIntent === true ? preferred : []))];
+  const directions = [...(canonicalIntent.conceptDirections??[]).map(({concept,direction})=>({concept,direction}))];
   const vibes = field(moment,"vibe") ?? [];
   for (const vibe of vibes) {
     if (vibe === "quiet") directions.push({concept:"vibe.quiet",direction:1},{concept:"energy.calm",direction:1},{concept:"vibe.lively",direction:-1},{concept:"energy.energetic",direction:-1});
@@ -22,6 +34,7 @@ export function buildCurrentIntent(moment,requestContext={}) {
     if (vibe === "cozy") directions.push({concept:"vibe.cozy",direction:1});
     if (vibe === "romantic") directions.push({concept:"vibe.romantic",direction:1},{concept:"social_style.romantic_friendly",direction:1});
   }
+  if(directions.some((row)=>row.concept==="vibe.quiet"&&row.direction>0))directions.push({concept:"vibe.lively",direction:-1},{concept:"energy.energetic",direction:-1});
   const query = `${requestContext.query ?? ""} ${requestContext.rawFreeText ?? ""}`.toLowerCase();
   if (/reden|unterhalten|conversation|talk/.test(query)) directions.push({concept:"social_style.conversation_friendly",direction:1});
   return { requiredPlaceTypes:required,preferredPlaceTypes:required.length?[]:preferred,conceptDirections:[...new Map(directions.map((row)=>[row.concept,row])).values()] };

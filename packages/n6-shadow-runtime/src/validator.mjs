@@ -8,8 +8,6 @@ const forbiddenKey = /(owner|payment|billing|subscription|premium|commercial|spo
 const hasForbidden = (value) => value && typeof value === "object" && Object.entries(value).some(([key, child]) => forbiddenKey.test(key) || hasForbidden(child));
 
 function currentIntentValid(payload, input) {
-  const directions = input.currentIntent?.conceptDirections ?? [];
-  if (!directions.length) return true;
   const ranked = [...payload.ranked_candidates].sort((a, b) => a.rank - b.rank);
   for (let index = 1; index < ranked.length; index += 1) {
     const prior = input.rankingInputs[ranked[index - 1].spot_id];
@@ -20,6 +18,9 @@ function currentIntentValid(payload, input) {
     if(prior.intentTier===current.intentTier&&prior.intentStrength===current.intentStrength){
       if((prior.factualFit?.tier??1)<(current.factualFit?.tier??1))return false;
       if((prior.factualFit?.tier??1)===(current.factualFit?.tier??1)&&(prior.factualFit?.matches??0)<(current.factualFit?.matches??0))return false;
+      if((prior.factualFit?.tier??1)===(current.factualFit?.tier??1)&&(prior.factualFit?.matches??0)===(current.factualFit?.matches??0)&&(prior.factualFit?.partials??0)<(current.factualFit?.partials??0))return false;
+      if((prior.factualFit?.tier??1)===(current.factualFit?.tier??1)&&(prior.factualFit?.matches??0)===(current.factualFit?.matches??0)&&(prior.factualFit?.partials??0)===(current.factualFit?.partials??0)&&(prior.factualFit?.mismatches??0)>(current.factualFit?.mismatches??0))return false;
+      if((prior.factualFit?.tier??1)===(current.factualFit?.tier??1)&&(prior.factualFit?.matches??0)===(current.factualFit?.matches??0)&&(prior.factualFit?.partials??0)===(current.factualFit?.partials??0)&&(prior.factualFit?.mismatches??0)===(current.factualFit?.mismatches??0)&&(prior.preferredPlaceTypeMatch??0)<(current.preferredPlaceTypeMatch??0))return false;
     }
   }
   return true;

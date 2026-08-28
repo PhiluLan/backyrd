@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from "react"
 import {
   View,
   Text,
-  ActivityIndicator,
   Image,
   Dimensions,
   Pressable,
@@ -11,7 +10,6 @@ import {
   Animated,
   Easing,
   StyleSheet,
-  Linking,
 } from "react-native";
 
 import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
@@ -28,33 +26,41 @@ import { openWebsite, callNumber, openInAppleMaps } from "../../lib/links";
 import { trackAnalyticsEvent } from "../../lib/analytics";
 import { recordMemoryProductAction } from "../../lib/memory-bridge";
 import {
-  getGooglePlacePhotoFallback,
-  type GooglePlacePhotoResult,
-} from "../../lib/google-place-photo";
-import {
   SpotTaxonomyChips,
   SpotTaxonomyDetails,
 } from "../../components/spot/SpotTaxonomyHighlights";
 import { getMobileSpotTaxonomy, type MobileSpotTaxonomyItem } from "../../lib/taxonomy";
+import { selectSpotImageUrl } from "../../lib/spot-images";
+import { SpotArtwork } from "../../components/spot/SpotArtwork";
+import { AppText } from "../../components/foundation/AppText";
+import { StateView } from "../../components/foundation/StateView";
+import { backyrdTheme as foundationTheme } from "../../theme/backyrd";
 
 import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
 const theme = {
   colors: {
-    background: "#0A0A0B",
-    surface: "#111113",
-    surfaceElevated: "#151519",
-    border: "rgba(255,255,255,0.09)",
-    text: "#FFFFFF",
-    textMuted: "#A6A8AD",
-    textSoft: "rgba(255,255,255,0.72)",
-    pink: "#FF7DA7",
-    pinkSoft: "#FFD4E0",
-    greenSoft: "#C8E3A6",
-    success: "#22C55E",
-    danger: "#EF4444",
+    background: foundationTheme.color.background,
+    surface: foundationTheme.color.surface,
+    surfaceElevated: foundationTheme.color.surfaceElevated,
+    border: foundationTheme.color.border,
+    text: foundationTheme.color.textPrimary,
+    textMuted: foundationTheme.color.textSecondary,
+    textSoft: foundationTheme.color.textSecondary,
+    pink: foundationTheme.color.pink,
+    pinkSoft: foundationTheme.color.pink,
+    greenSoft: foundationTheme.color.lime,
+    success: foundationTheme.color.success,
+    danger: foundationTheme.color.danger,
   },
   spacing: (n: number) => n * 8,
-  radius: { sm: 8, md: 12, lg: 16, xl: 24, xxl: 28, pill: 999 },
+  radius: {
+    sm: foundationTheme.radius.sm,
+    md: foundationTheme.radius.md,
+    lg: foundationTheme.radius.lg,
+    xl: foundationTheme.radius.lg,
+    xxl: foundationTheme.radius.lg,
+    pill: foundationTheme.radius.pill,
+  },
 };
 
 const { width } = Dimensions.get("window");
@@ -104,15 +110,25 @@ function isOpenNow(rowsForDay?: any[]) {
   return { open: false };
 }
 
-function moodColor(mood: string) {
-  const preset: any = {
-    Gemütlich: "rgba(251,191,36,0.35)",
-    Lebhaft: "rgba(248,113,113,0.35)",
-    Chillig: "rgba(52,211,153,0.35)",
-    Stylish: "rgba(167,139,250,0.35)",
-    Romantisch: "rgba(244,114,182,0.35)",
+function presentMoodToken(value: unknown) {
+  if (typeof value !== "string") return null;
+  const clean = value.trim().toLowerCase();
+  if (clean.length < 2) return null;
+  const localized: Record<string, string> = {
+    cozy: "Gemütlich",
+    gemuetlich: "Gemütlich",
+    gemutlich: "Gemütlich",
+    lively: "Lebhaft",
+    calm: "Ruhig",
+    quiet: "Ruhig",
   };
-  return preset[mood] || "rgba(255,255,255,0.2)";
+  return localized[clean] ?? clean.charAt(0).toUpperCase() + clean.slice(1);
+}
+
+function descriptionSourceLabel(source: string | null) {
+  if (source === "owner") return "Betreiber";
+  if (source === "admin") return "Backyrd geprüft";
+  return null;
 }
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -160,7 +176,7 @@ const Chip = ({ text }: { text: string }) => (
 );
 
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-  <Text style={styles.sectionTitle}>{children}</Text>
+  <View style={styles.sectionTitleRow}><View style={styles.sectionMarker} /><AppText role="sectionTitle" style={styles.sectionTitle}>{children}</AppText></View>
 );
 
 const InfoRow = ({
@@ -203,8 +219,6 @@ export default function SpotDetailScreen() {
 
   const [spot, setSpot] = useState<any>(null);
   const [photos, setPhotos] = useState<any[]>([]);
-  const [googlePhoto, setGooglePhoto] =
-    useState<GooglePlacePhotoResult | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [hours, setHours] = useState<Record<string, any[]>>({});
   const [moodSummary, setMoodSummary] = useState<any[]>([]);
@@ -235,7 +249,6 @@ export default function SpotDetailScreen() {
   const [showAllMoods, setShowAllMoods] = useState(false);
 
   const [ownerCtx, setOwnerCtx] = useState<any>(null);
-  const [claimLoading, setClaimLoading] = useState(false);
 
   const index = useRef(0);
   const translateX = useRef(new Animated.Value(0)).current;
@@ -335,8 +348,8 @@ export default function SpotDetailScreen() {
     const counts: Record<string, number> = {};
 
     for (const review of visibleReviews) {
-      const moodA = review.moodA?.token ?? review.mood_a;
-      const moodB = review.moodB?.token ?? review.mood_b;
+      const moodA = (review as any).moodA?.token ?? review.mood_a;
+      const moodB = (review as any).moodB?.token ?? review.mood_b;
 
       if (moodA) counts[moodA] = (counts[moodA] || 0) + 1;
       if (moodB) counts[moodB] = (counts[moodB] || 0) + 1;
@@ -363,7 +376,6 @@ export default function SpotDetailScreen() {
 
       const [
         { data: spotRow },
-        { data: photoRows },
         { data: revRows },
         { data: hourRows },
         taxonomyRows,
@@ -373,12 +385,6 @@ export default function SpotDetailScreen() {
           .select("id,name,address,lat,lng,phone,website,email,price_level,header_photo_path,google_place_id,google_photo_enabled")
           .eq("id", id)
           .single(),
-
-        supabase
-          .from("spot_photos")
-          .select("id,url,created_at")
-          .eq("spot_id", id)
-          .order("created_at", { ascending: false }),
 
         supabase
           .from("reviews")
@@ -414,9 +420,19 @@ export default function SpotDetailScreen() {
         }),
       ]);
 
+      const headerPhotoUrl = selectSpotImageUrl({
+        headerPhotoPath: spotRow?.header_photo_path,
+      });
+      const canonicalPhotos = headerPhotoUrl
+        ? [{
+          id: `header:${id}`,
+          url: headerPhotoUrl,
+          created_at: null,
+        }]
+        : [];
+
       setSpot(spotRow);
-      setPhotos(photoRows || []);
-      setGooglePhoto(null);
+      setPhotos(canonicalPhotos);
 
       const rawReviews = revRows || [];
       let visibleReviews = rawReviews;
@@ -452,12 +468,6 @@ export default function SpotDetailScreen() {
 
       setReviews(visibleReviews);
 
-      if ((photoRows || []).length === 0 && spotRow?.google_place_id) {
-        const googleFallback = await getGooglePlacePhotoFallback(String(id));
-        if (googleFallback?.source === "google" && googleFallback.imageUrl) {
-          setGooglePhoto(googleFallback);
-        }
-      }
       setTaxonomyItems(taxonomyRows || []);
 
       await loadOwnerCtx();
@@ -472,20 +482,18 @@ export default function SpotDetailScreen() {
       });
       setHours(grouped);
 
-      if (visibleReviews.length) {
-        const counts: Record<string, number> = {};
-        for (const r of visibleReviews) {
-          const mA = r.moodA?.token ?? r.mood_a;
-          const mB = r.moodB?.token ?? r.mood_b;
-          if (mA) counts[mA] = (counts[mA] || 0) + 1;
-          if (mB) counts[mB] = (counts[mB] || 0) + 1;
-        }
-        setMoodSummary(
-          Object.entries(counts)
-            .map(([mood, count]) => ({ mood, count }))
-            .sort((a, b) => b.count - a.count)
-        );
+      const counts: Record<string, number> = {};
+      for (const r of visibleReviews) {
+        const mA = presentMoodToken((r as any).moodA?.token ?? r.mood_a);
+        const mB = presentMoodToken((r as any).moodB?.token ?? r.mood_b);
+        if (mA) counts[mA] = (counts[mA] || 0) + 1;
+        if (mB) counts[mB] = (counts[mB] || 0) + 1;
       }
+      setMoodSummary(
+        Object.entries(counts)
+          .map(([mood, count]) => ({ mood, count }))
+          .sort((a, b) => b.count - a.count),
+      );
 
       setLoading(false);
     })();
@@ -535,7 +543,9 @@ export default function SpotDetailScreen() {
 
   useEffect(() => {
     if (photos.length > 1) startSlideshow();
-    return () => timerRef.current && clearInterval(timerRef.current);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, [photos, startSlideshow]);
 
   async function onShare() {
@@ -558,7 +568,7 @@ export default function SpotDetailScreen() {
       if (!spot) return;
       const { data: list } = await supabase
         .from("spots")
-        .select("id,name,address,lat,lng")
+        .select("id,name,address,lat,lng,header_photo_path")
         .neq("id", spot.id)
         .limit(200);
 
@@ -571,22 +581,9 @@ export default function SpotDetailScreen() {
           .sort((a, b) => a.distanceKm - b.distanceKm)
           .slice(0, 15) || [];
 
-      const ids = withDist.map((s) => s.id);
-      let firstPhotos: Record<string, string> = {};
-      if (ids.length) {
-        const { data: photoRows } = await supabase
-          .from("spot_photos")
-          .select("spot_id,url,id")
-          .in("spot_id", ids)
-          .order("id", { ascending: true });
-        (photoRows || []).forEach((p: any) => {
-          if (!firstPhotos[p.spot_id]) firstPhotos[p.spot_id] = p.url;
-        });
-      }
-
       const withPhoto = withDist.map((s) => ({
         ...s,
-        photoUrl: firstPhotos[s.id] || undefined,
+        headerPhotoPath: s.header_photo_path ?? undefined,
       }));
 
       if (active) setNearby(withPhoto);
@@ -607,7 +604,7 @@ export default function SpotDetailScreen() {
           backgroundColor: theme.colors.background,
         }}
       >
-        <ActivityIndicator color="#fff" />
+        <StateView kind="loading" title="Spot wird geladen" message="Backyrd bereitet diesen Ort für dich vor." />
       </View>
     );
   }
@@ -716,43 +713,29 @@ export default function SpotDetailScreen() {
                   transform: [{ translateX }],
                 }}
               >
-                <Image source={{ uri: photos[index.current]?.url }} style={{ width, height: HEADER_MAX }} />
-                <Image source={{ uri: photos[(index.current + 1) % photos.length]?.url }} style={{ width, height: HEADER_MAX }} />
-              </Animated.View>
-            ) : googlePhoto?.imageUrl ? (
-              <View style={{ flex: 1 }}>
-                <Image
-                  source={{ uri: googlePhoto.imageUrl }}
+                <SpotArtwork
+                  imageUrl={photos[index.current]?.url}
+                  priority="high"
+                  spotId={String(spot.id)}
+                  spotName={spot.name}
                   style={{ width, height: HEADER_MAX }}
                 />
-
-                <Pressable
-                  disabled={!googlePhoto.googleMapsUri}
-                  onPress={() => {
-                    if (googlePhoto.googleMapsUri) {
-                      void Linking.openURL(googlePhoto.googleMapsUri);
-                    }
-                  }}
-                  style={styles.googlePhotoAttribution}
-                >
-                  <Text style={styles.googlePhotoAttributionText} numberOfLines={1}>
-                    {googlePhoto.authorAttributions?.[0]?.displayName
-                      ? `Foto: ${googlePhoto.authorAttributions[0].displayName} · Google`
-                      : "Foto · Google"}
-                  </Text>
-                  {googlePhoto.googleMapsUri ? (
-                    <Ionicons
-                      name="open-outline"
-                      size={13}
-                      color="rgba(255,255,255,0.88)"
-                    />
-                  ) : null}
-                </Pressable>
-              </View>
+                <SpotArtwork
+                  imageUrl={photos[(index.current + 1) % photos.length]?.url}
+                  priority="high"
+                  spotId={String(spot.id)}
+                  spotName={spot.name}
+                  style={{ width, height: HEADER_MAX }}
+                />
+              </Animated.View>
             ) : (
-              <View style={styles.photoFallback}>
-                <Text style={styles.photoFallbackText}>{spot.name?.[0] ?? "B"}</Text>
-              </View>
+              <SpotArtwork
+                imageUrl={selectSpotImageUrl({ headerPhotoPath: spot.header_photo_path })}
+                priority="high"
+                spotId={String(spot.id)}
+                spotName={spot.name}
+                style={{ width, height: HEADER_MAX }}
+              />
             )}
 
             <LinearGradient
@@ -772,7 +755,7 @@ export default function SpotDetailScreen() {
                 {spot.price_level ? <Chip text={priceToSymbols(spot.price_level)} /> : null}
               </View>
 
-              <Text numberOfLines={3} style={styles.heroTitle}>{spot.name}</Text>
+              <AppText adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={4} role="displayL" style={styles.heroTitle}>{spot.name}</AppText>
               {spot.address ? (
                 <Text numberOfLines={1} style={styles.heroAddress}>{spot.address}</Text>
               ) : null}
@@ -787,7 +770,7 @@ export default function SpotDetailScreen() {
               void recordMemoryProductAction({ actionType: "navigation_intent", spotId: spot.id, entrySurface: "generic" });
               openInAppleMaps(spot.lat, spot.lng, spot.name);
             }} style={styles.primaryAction}>
-              <Feather name="navigation" size={17} color="#171214" />
+              <Feather name="navigation" size={17} color="#111113" />
               <Text style={styles.primaryActionText}>Route</Text>
             </Pressable>
             <Pressable
@@ -808,7 +791,7 @@ export default function SpotDetailScreen() {
           {moodSummary.length > 0 && (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <SectionTitle>Taste DNA</SectionTitle>
+                <SectionTitle>Stimmungen</SectionTitle>
                 {moodSummary.length > 5 ? (
                   <Pressable onPress={() => setShowAllMoods((s) => !s)}>
                     <Text style={styles.showMoreText}>{showAllMoods ? "Weniger" : "Mehr anzeigen"}</Text>
@@ -817,7 +800,7 @@ export default function SpotDetailScreen() {
               </View>
               <View style={styles.moodWrap}>
                 {(showAllMoods ? moodSummary : moodSummary.slice(0, 5)).map((m) => (
-                  <View key={m.mood} style={[styles.moodPill, { borderColor: moodColor(m.mood) }]}>
+                  <View key={m.mood} style={styles.moodPill}>
                     <Text style={styles.moodText}>{m.mood}</Text>
                     <Text style={styles.moodCount}>{m.count}</Text>
                   </View>
@@ -829,15 +812,13 @@ export default function SpotDetailScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <SectionTitle>Beschreibung</SectionTitle>
-              {!!descSource ? (
+              {!!descriptionSourceLabel(descSource) ? (
                 <View style={styles.sourcePill}>
-                  <Text style={styles.sourceText}>{descSource === "owner" ? "Betreiber" : descSource}</Text>
+                  <Text style={styles.sourceText}>{descriptionSourceLabel(descSource)}</Text>
                 </View>
               ) : null}
             </View>
-            <Text style={styles.bodyText}>
-              {effectiveDesc || "Noch keine Beschreibung vorhanden."}
-            </Text>
+            {effectiveDesc ? <Text style={styles.bodyText}>{effectiveDesc}</Text> : <StateView kind="empty" title="Noch ohne Geschichte." message="Für diesen Ort gibt es noch keine Beschreibung – die wichtigsten Infos findest du trotzdem hier." />}
           </View>
 
           <View style={styles.section}>
@@ -867,9 +848,9 @@ export default function SpotDetailScreen() {
                 <Text style={styles.ownerButtonText}>Claim wird geprüft</Text>
               </View>
             ) : (
-              <Pressable onPress={requestClaim} disabled={claimLoading} style={[styles.ownerButton, claimLoading ? { opacity: 0.6 } : null]}>
+              <Pressable onPress={requestClaim} style={styles.ownerButton}>
                 <Feather name="check-circle" size={17} color={theme.colors.text} />
-                <Text style={styles.ownerButtonText}>{claimLoading ? "Sende..." : "Betreiberzugang anfragen"}</Text>
+                <Text style={styles.ownerButtonText}>Betreiberzugang anfragen</Text>
               </Pressable>
             )}
           </View>
@@ -909,9 +890,12 @@ export default function SpotDetailScreen() {
           <SpotTaxonomyDetails items={taxonomyItems} />
           {reviews.length > 0 && (
             <View style={styles.section}>
-              <SectionTitle>Moments</SectionTitle>
+              <SectionTitle>Momente</SectionTitle>
               {reviews.slice(0, 6).map((rev) => {
-                const moods = [rev.moodA?.token ?? rev.mood_a, rev.moodB?.token ?? rev.mood_b].filter(Boolean);
+                const moods = [
+                  presentMoodToken(rev.moodA?.token ?? rev.mood_a),
+                  presentMoodToken(rev.moodB?.token ?? rev.mood_b),
+                ].filter((mood): mood is string => Boolean(mood));
                 const name = rev.profiles?.first_name || "User";
                 const isLocal = rev.profiles?.is_local;
                 const reviewPhotoUrl =
@@ -1010,13 +994,12 @@ export default function SpotDetailScreen() {
                     router.push(`/spot/${item.id}?entrySource=nearby`);
                   }} style={styles.nearbyCard}>
                     <View style={styles.nearbyPhotoWrap}>
-                      {item.photoUrl ? (
-                        <Image source={{ uri: item.photoUrl }} style={styles.nearbyPhoto} />
-                      ) : (
-                        <View style={styles.nearbyFallback}>
-                          <Text style={styles.nearbyFallbackText}>{item.name?.[0] || "?"}</Text>
-                        </View>
-                      )}
+                      <SpotArtwork
+                        imageUrl={selectSpotImageUrl({ headerPhotoPath: item.headerPhotoPath })}
+                        spotId={String(item.id)}
+                        spotName={item.name}
+                        style={styles.nearbyPhoto}
+                      />
                       <LinearGradient colors={["transparent", "rgba(0,0,0,0.62)"]} style={styles.nearbyGradient} />
                       <View style={styles.distancePill}>
                         <Text style={styles.distanceText}>{item.distanceKm.toFixed(1)} km vom Spot</Text>
@@ -1136,9 +1119,6 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: theme.colors.text,
-    fontSize: 42,
-    lineHeight: 43,
-    fontWeight: "900",
     letterSpacing: -1.2,
   },
   heroAddress: {
@@ -1168,7 +1148,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primaryActionText: {
-    color: "#171214",
+    color: "#111113",
     fontSize: 15,
     fontWeight: "900",
   },
@@ -1202,11 +1182,10 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: theme.colors.text,
-    fontSize: 22,
-    lineHeight: 27,
-    fontWeight: "800",
-    letterSpacing: -0.45,
+    marginLeft: foundationTheme.spacing.xs,
   },
+  sectionTitleRow: { flexDirection: "row", alignItems: "center" },
+  sectionMarker: { width: 16, height: 4, borderRadius: 999, backgroundColor: foundationTheme.color.pink },
   showMoreText: {
     color: theme.colors.pinkSoft,
     fontSize: 13,

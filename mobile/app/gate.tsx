@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -14,25 +15,8 @@ import { useRouter } from "expo-router";
 
 import SplashScreen from "./splash";
 import { supabase } from "../lib/supabase";
+import { getMyProductEntryStatus } from "../lib/onboardingStatus";
 import { useAuth } from "../hooks/useAuth";
-
-type OnboardingStatus = {
-  logged_in: boolean;
-  user_id: string | null;
-  has_profile: boolean;
-  profile_onboarding_completed: boolean;
-  decision_onboarding_completed: boolean;
-  needs_profile_onboarding: boolean;
-  needs_decision_onboarding: boolean;
-  display_name: string | null;
-  username: string | null;
-  city: string | null;
-  birthdate: string | null;
-  taste_qualified_actions: number;
-  favorite_seed_count: number;
-  place_type_profile_count: number;
-  next_route: string | null;
-};
 
 function normalizeRoute(route: string | null | undefined): string {
   if (!route) return "/(tabs)";
@@ -66,11 +50,12 @@ function LoggedOutGate() {
   const router = useRouter();
 
   return (
-    <LinearGradient colors={["#050506", "#0B0B0C", "#171820"]} style={styles.authContainer}>
+    <LinearGradient colors={["#050506", "#050506", "#171820"]} style={styles.authContainer}>
+      <ScrollView contentContainerStyle={styles.authContent} showsVerticalScrollIndicator={false}>
       <View style={styles.authCard}>
-        <Text style={styles.kicker}>BACKYRD</Text>
-        <Text style={styles.title}>Willkommen bei Backyrd</Text>
-        <Text style={styles.subtitle}>
+        <Text allowFontScaling={false} style={styles.kicker}>BACKYRD</Text>
+        <Text allowFontScaling={false} style={styles.title}>Willkommen bei Backyrd</Text>
+        <Text maxFontSizeMultiplier={1.4} style={styles.subtitle}>
           Melde dich an oder erstelle deinen Account. Danach bauen wir deinen ersten persönlichen
           Decision-Geschmack.
         </Text>
@@ -79,20 +64,47 @@ function LoggedOutGate() {
           onPress={() => router.push("/auth/login" as any)}
           style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
         >
-          <Text style={styles.primaryText}>Einloggen</Text>
+          <Text maxFontSizeMultiplier={1.2} style={styles.primaryText}>Einloggen</Text>
         </Pressable>
 
         <Pressable
           onPress={() => router.push("/auth/register" as any)}
           style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
         >
-          <Text style={styles.secondaryText}>Neu registrieren</Text>
+          <Text maxFontSizeMultiplier={1.2} style={styles.secondaryText}>Neu registrieren</Text>
         </Pressable>
 
-        <Text style={styles.hint}>
+        <Text maxFontSizeMultiplier={1.5} style={styles.hint}>
           Wenn du bereits eingeloggt bist, leitet dich Backyrd automatisch weiter.
         </Text>
+
+        {__DEV__ ? (
+          <View style={styles.previewRow}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push({ pathname: "/auth/login", params: { preview: "invalid" } } as any)}
+              style={({ pressed }) => [styles.previewButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.previewText}>Login-Fehler</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push({ pathname: "/auth/verify", params: { email: "vorschau@backyrd.ch" } } as any)}
+              style={({ pressed }) => [styles.previewButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.previewText}>Verification</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push({ pathname: "/onboarding", params: { preview: "1" } } as any)}
+              style={({ pressed }) => [styles.previewButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.previewText}>Onboarding</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
+      </ScrollView>
     </LinearGradient>
   );
 }
@@ -141,19 +153,14 @@ export default function GateScreen() {
         return;
       }
 
-      const { data, error } = await supabase.rpc("get_my_onboarding_status_v1");
-      if (error) throw error;
+      const status = await getMyProductEntryStatus();
 
-      const status = Array.isArray(data)
-        ? (data[0] as OnboardingStatus | undefined)
-        : (data as OnboardingStatus | undefined);
-
-      if (status && status.logged_in === false) {
+      if (!status.loggedIn) {
         await forceLogoutBecauseSessionIsStale("RPC returned logged_in=false");
         return;
       }
 
-      const target = normalizeRoute(status?.next_route);
+      const target = normalizeRoute(status.nextRoute);
 
       didRouteRef.current = true;
       router.replace(target as any);
@@ -204,14 +211,18 @@ export default function GateScreen() {
 const styles = StyleSheet.create({
   loadingFallback: {
     flex: 1,
-    backgroundColor: "#0B0B0C",
+    backgroundColor: "#050506",
     alignItems: "center",
     justifyContent: "center",
   },
   authContainer: {
     flex: 1,
+  },
+  authContent: {
+    flexGrow: 1,
     paddingHorizontal: 22,
     justifyContent: "center",
+    paddingVertical: 48,
   },
   authCard: {
     borderRadius: 32,
@@ -223,7 +234,7 @@ const styles = StyleSheet.create({
   kicker: {
     color: "rgba(255,255,255,0.54)",
     fontSize: 13,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: 6,
     marginBottom: 18,
   },
@@ -231,7 +242,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 38,
     lineHeight: 41,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -1.2,
   },
   subtitle: {
@@ -252,7 +263,7 @@ const styles = StyleSheet.create({
   primaryText: {
     color: "#050506",
     fontSize: 16,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   secondaryButton: {
     height: 56,
@@ -267,7 +278,7 @@ const styles = StyleSheet.create({
   secondaryText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   hint: {
     color: "rgba(255,255,255,0.42)",
@@ -275,13 +286,30 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginTop: 18,
   },
+  previewButton: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+  previewRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+  },
+  previewText: {
+    color: "rgba(255,255,255,0.58)",
+    fontSize: 13,
+    fontWeight: "700",
+  },
   pressed: {
     opacity: 0.86,
     transform: [{ scale: 0.99 }],
   },
   errorContainer: {
     flex: 1,
-    backgroundColor: "#0B0B0C",
+    backgroundColor: "#050506",
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
@@ -289,7 +317,7 @@ const styles = StyleSheet.create({
   errorTitle: {
     color: "#fff",
     fontSize: 32,
-    fontWeight: "950",
+    fontWeight: "900",
     marginBottom: 10,
   },
   errorText: {

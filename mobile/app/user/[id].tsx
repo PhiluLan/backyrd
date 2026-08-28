@@ -1,7 +1,6 @@
 // mobile/app/user/[id].tsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
@@ -24,6 +23,8 @@ import CommentsSheet from "../../components/CommentsSheet";
 import { supabase } from "../../lib/supabase";
 import { getOrCreateChat } from "../../lib/chat";
 import ReportProfileAction from "../../components/safety/ReportProfileAction";
+import { technicalErrorText, userFacingError } from "../../lib/userFacingError";
+import { StateView } from "../../components/foundation/StateView";
 
 const { width } = Dimensions.get("window");
 
@@ -48,10 +49,6 @@ type SocialProfile = {
   can_follow?: boolean;
   can_message?: boolean;
 };
-
-function errorMessage(err: any) {
-  return err?.message || err?.details || err?.hint || "Unbekannter Fehler";
-}
 
 
 async function filterSafetyVisiblePosts(
@@ -193,7 +190,7 @@ function formatSince(value?: string | null) {
   if (!value) return null;
   const year = String(value).slice(0, 4);
   if (!year || year === "null") return null;
-  return `Local since ${year}`;
+  return `Local seit ${year}`;
 }
 
 export default function UserProfileScreen() {
@@ -334,7 +331,7 @@ export default function UserProfileScreen() {
         setPosts(visiblePosts);
       } catch (error: any) {
         console.log("user profile load failed", error);
-        Alert.alert("Profil konnte nicht geladen werden", errorMessage(error));
+        Alert.alert("Profil konnte nicht geladen werden", userFacingError(error, "Dieses Profil ist gerade nicht erreichbar. Bitte versuche es noch einmal."));
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -382,7 +379,7 @@ export default function UserProfileScreen() {
           : current
       );
 
-      Alert.alert("Folgen fehlgeschlagen", errorMessage(error));
+      Alert.alert("Folgen fehlgeschlagen", userFacingError(error));
     } finally {
       setFollowBusy(false);
     }
@@ -418,7 +415,7 @@ export default function UserProfileScreen() {
 
       router.push(`/messages/${chatId}` as any);
     } catch (error: any) {
-      const message = errorMessage(error);
+      const message = technicalErrorText(error);
 
       if (
         message.includes("private_profile_not_messageable")
@@ -435,7 +432,7 @@ export default function UserProfileScreen() {
       } else {
         Alert.alert(
           "Chat konnte nicht geöffnet werden",
-          message,
+          userFacingError(error, "Der Chat konnte gerade nicht geöffnet werden. Bitte versuche es noch einmal."),
         );
       }
     } finally {
@@ -448,7 +445,7 @@ export default function UserProfileScreen() {
 
     Alert.alert(
       "Nutzer blockieren?",
-      "Ihr seht euch danach nicht mehr in Suche, Profil oder Moments. Neue Nachrichten werden ebenfalls verhindert.",
+      "Ihr seht euch danach nicht mehr in Suche, Profil oder Momenten. Neue Nachrichten werden ebenfalls verhindert.",
       [
         { text: "Abbrechen", style: "cancel" },
         {
@@ -464,7 +461,7 @@ export default function UserProfileScreen() {
               Alert.alert("Blockiert", "Der Nutzer wurde blockiert.");
               router.back();
             } catch (error: any) {
-              Alert.alert("Blockieren fehlgeschlagen", errorMessage(error));
+              Alert.alert("Blockieren fehlgeschlagen", userFacingError(error));
             } finally {
               setBlockBusy(false);
             }
@@ -543,7 +540,7 @@ export default function UserProfileScreen() {
     return (
       <View style={styles.headerWrap}>
         <View style={styles.topBar}>
-          <Pressable style={styles.circleButton} onPress={() => router.back()}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Zurück" style={styles.circleButton} onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={25} color="#FFFFFF" />
           </Pressable>
 
@@ -570,13 +567,17 @@ export default function UserProfileScreen() {
                 style={styles.circleButton}
                 onPress={blockUser}
                 disabled={blockBusy}
+                accessibilityRole="button"
                 accessibilityLabel="Nutzer blockieren"
+                accessibilityState={{ disabled: blockBusy, busy: blockBusy }}
               >
                 <Ionicons name="ban-outline" size={21} color="#FF8A8A" />
               </Pressable>
             ) : null}
 
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Profil neu laden"
               style={styles.circleButton}
               onPress={() => load("refresh")}
             >
@@ -624,39 +625,28 @@ export default function UserProfileScreen() {
             </View>
           ) : null}
 
-          <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{profile.post_count ?? posts.length}</Text>
-              <Text style={styles.statLabel}>Posts</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{profile.follower_count ?? 0}</Text>
-              <Text style={styles.statLabel}>Follower</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{profile.following_count ?? 0}</Text>
-              <Text style={styles.statLabel}>Folgt</Text>
-            </View>
-          </View>
+          <Text style={styles.statsLine}>
+            {profile.post_count ?? posts.length} Momente · {profile.follower_count ?? 0} Follower · {profile.following_count ?? 0} folgt
+          </Text>
 
           <View style={styles.profileChips}>
             {sinceLabel && (
               <View style={styles.softChip}>
-                <Ionicons name="location-outline" size={15} color="#DADAE0" />
+                <Ionicons accessibilityElementsHidden name="location-outline" size={15} color="#DADAE0" />
                 <Text style={styles.softChipText}>{sinceLabel}</Text>
               </View>
             )}
 
             {!!profile.instagram && (
               <View style={styles.softChip}>
-                <Ionicons name="logo-instagram" size={15} color="#DADAE0" />
+                <Ionicons accessibilityElementsHidden name="logo-instagram" size={15} color="#DADAE0" />
                 <Text style={styles.softChipText}>@{profile.instagram}</Text>
               </View>
             )}
 
             {!!profile.website && (
               <View style={styles.softChip}>
-                <Ionicons name="globe-outline" size={15} color="#DADAE0" />
+                <Ionicons accessibilityElementsHidden name="globe-outline" size={15} color="#DADAE0" />
                 <Text style={styles.softChipText}>{profile.website}</Text>
               </View>
             )}
@@ -664,6 +654,9 @@ export default function UserProfileScreen() {
 
           <View style={styles.profileActionRow}>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={profile.viewer_follows_user ? `${displayName} nicht mehr folgen` : `${displayName} folgen`}
+              accessibilityState={{ selected: profile.viewer_follows_user, disabled: followBusy || profile.can_follow === false, busy: followBusy }}
               style={[
                 styles.followButton,
                 profile.viewer_follows_user &&
@@ -727,8 +720,8 @@ export default function UserProfileScreen() {
         </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionKicker}>Moments</Text>
-          <Text style={styles.sectionTitle}>Posts von {displayName}</Text>
+          <Text style={styles.sectionKicker}>MOMENTE</Text>
+          <Text style={styles.sectionTitle}>Von {displayName}</Text>
         </View>
       </View>
     );
@@ -739,8 +732,7 @@ export default function UserProfileScreen() {
       <SafeAreaView style={styles.screen}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color="#FFFFFF" />
-          <Text style={styles.loadingText}>Profil laden…</Text>
+          <StateView kind="loading" title="Profil wird geladen" />
         </View>
       </SafeAreaView>
     );
@@ -783,6 +775,7 @@ export default function UserProfileScreen() {
             onOpenSpot={openSpot}
             onOpenComments={setSelectedCommentPost}
             onShare={sharePost}
+            showFollowAction={false}
             onFollowChanged={(authorId, following) => {
               if (authorId !== profile.user_id) return;
 
@@ -802,8 +795,8 @@ export default function UserProfileScreen() {
         ListEmptyComponent={
           <View style={styles.emptyCard}>
             <Ionicons name="images-outline" size={34} color="#77777F" />
-            <Text style={styles.emptyTitle}>Noch keine Posts</Text>
-            <Text style={styles.emptyText}>Sobald hier Moments geteilt werden, erscheinen sie in diesem Profil.</Text>
+            <Text style={styles.emptyTitle}>Noch keine Momente</Text>
+            <Text style={styles.emptyText}>Sobald hier Momente geteilt werden, erscheinen sie in diesem Profil.</Text>
           </View>
         }
         contentContainerStyle={styles.listContent}
@@ -890,12 +883,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   profileCard: {
-    borderRadius: 34,
-    backgroundColor: "rgba(14,14,20,0.88)",
-    borderWidth: 1,
-    borderColor: "#282832",
-    padding: 20,
-    overflow: "hidden",
+    paddingHorizontal: 6,
   },
   profileTopRow: {
     flexDirection: "row",
@@ -909,14 +897,14 @@ const styles = StyleSheet.create({
   displayName: {
     color: "#FFFFFF",
     fontSize: 36,
-    fontWeight: "850",
+    fontWeight: "800",
     letterSpacing: -1.2,
   },
   handleText: {
     marginTop: 5,
     color: "#8F8F98",
     fontSize: 18,
-    fontWeight: "850",
+    fontWeight: "800",
   },
   profileSafetyNotice: {
     marginTop: 18,
@@ -935,7 +923,7 @@ const styles = StyleSheet.create({
     color: "#D9C29F",
     fontSize: 13,
     lineHeight: 19,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   bioText: {
     marginTop: 18,
@@ -944,31 +932,12 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: "600",
   },
-  statsRow: {
-    marginTop: 22,
-    flexDirection: "row",
-    gap: 10,
-  },
-  statBox: {
-    flex: 1,
-    minHeight: 82,
-    borderRadius: 22,
-    backgroundColor: "#14141B",
-    borderWidth: 1,
-    borderColor: "#292933",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statNumber: {
-    color: "#FFFFFF",
-    fontSize: 25,
-    fontWeight: "780",
-  },
-  statLabel: {
-    marginTop: 5,
-    color: "#8F8F98",
-    fontSize: 14,
-    fontWeight: "650",
+  statsLine: {
+    marginTop: 18,
+    color: "#C9C9CF",
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "700",
   },
   profileChips: {
     marginTop: 16,
@@ -1020,22 +989,21 @@ const styles = StyleSheet.create({
   },
   followButton: {
     flex: 1,
-    marginTop: 20,
-    minHeight: 50,
-    borderRadius: 999,
-    backgroundColor: "#FFFFFF",
+    minHeight: 52,
+    borderRadius: 18,
+    backgroundColor: "#FF4F91",
     alignItems: "center",
     justifyContent: "center",
   },
   followButtonActive: {
-    backgroundColor: "#17171C",
+    backgroundColor: "#202026",
     borderWidth: 1,
     borderColor: "#303039",
   },
   followButtonText: {
     color: "#050506",
     fontSize: 16,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   followButtonTextActive: {
     color: "#FFFFFF",
@@ -1044,7 +1012,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     height: 52,
     borderRadius: 999,
-    backgroundColor: "#17171C",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "#303039",
     alignItems: "center",
@@ -1063,7 +1031,7 @@ const styles = StyleSheet.create({
   sectionKicker: {
     color: "#8E8E95",
     fontSize: 12,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: 1.1,
     textTransform: "uppercase",
   },
@@ -1072,13 +1040,13 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 25,
     lineHeight: 30,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -0.6,
   },
   emptyCard: {
     marginTop: 4,
     borderRadius: 30,
-    backgroundColor: "#101014",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "#222229",
     minHeight: 220,
@@ -1098,7 +1066,7 @@ const styles = StyleSheet.create({
     color: "#8E8E95",
     fontSize: 15,
     lineHeight: 21,
-    fontWeight: "650",
+    fontWeight: "600",
     textAlign: "center",
   },
 });

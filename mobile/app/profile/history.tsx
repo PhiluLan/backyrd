@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -10,12 +8,13 @@ import {
   View,
 } from "react-native";
 import { Stack, useRouter } from "expo-router";
+import { StateView } from "@/components/foundation/StateView";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { backyrdTheme as theme } from "@/theme/backyrd";
 
 import { supabase } from "@/lib/supabase";
 
-import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
 type VisitStatus =
   | "visited_reviewed"
   | "confirmed_needs_review"
@@ -89,9 +88,9 @@ function statusCopy(row: CandidateRow) {
   if (isDone(row)) {
     return {
       eyebrow: "Besuch erkannt",
-      title: "Aus Decision wurde Moment",
+      title: "Aus einem Vorschlag wurde ein Moment",
       body:
-        "Backyrd hat erkannt: Du hast diesen Spot nach deiner Suche bewertet. Genau dieses Signal macht deine Empfehlungen smarter.",
+        "Du hast diesen Spot nach deiner Suche bewertet. So kann Backyrd künftige Vorschläge besser auf dich abstimmen.",
       icon: "sparkles" as const,
       tone: "success" as const,
     };
@@ -99,10 +98,10 @@ function statusCopy(row: CandidateRow) {
 
   if (row.status === "confirmed_needs_review") {
     return {
-      eyebrow: "Starkes Signal",
+      eyebrow: "Von dir vorgemerkt",
       title: "Wie war es wirklich?",
       body:
-        "Du hast diesen Spot aktiv markiert. Eine kurze Review macht daraus einen Backyrd Treffer.",
+        "Du hast diesen Spot aktiv markiert. Eine kurze Review hält deinen echten Eindruck fest.",
       icon: "checkmark-circle" as const,
       tone: "warm" as const,
     };
@@ -110,7 +109,7 @@ function statusCopy(row: CandidateRow) {
 
   if (row.status === "opened_needs_review") {
     return {
-      eyebrow: "Follow-up",
+      eyebrow: "Noch offen",
       title: "Warst du inzwischen da?",
       body:
         "Du hast dir den Spot genauer angeschaut. Falls du dort warst, speichere kurz den Moment.",
@@ -123,7 +122,7 @@ function statusCopy(row: CandidateRow) {
     eyebrow: "Vielleicht passend",
     title: "Hat der Tipp gepasst?",
     body:
-      "Dieser Spot war weit oben in deiner Auswahl. Wenn du dort warst, lernt Backyrd extrem viel daraus.",
+        "Dieser Spot war Teil deiner Auswahl. Wenn du dort warst, kannst du deinen Eindruck festhalten.",
     icon: "help-circle" as const,
     tone: "neutral" as const,
   };
@@ -141,11 +140,13 @@ export default function DecisionHistoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [rows, setRows] = useState<CandidateRow[]>([]);
   const [filter, setFilter] = useState<FilterMode>("smart");
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async (mode: "initial" | "refresh" = "initial") => {
     try {
       if (mode === "initial") setLoading(true);
       if (mode === "refresh") setRefreshing(true);
+      setLoadError(false);
 
       const { data: sess } = await supabase.auth.getSession();
       if (!sess.session?.user?.id) {
@@ -163,7 +164,7 @@ export default function DecisionHistoryScreen() {
       setRows((data ?? []) as CandidateRow[]);
     } catch (error: any) {
       console.log("decision visit candidates load error", error);
-      Alert.alert("Fehler", error?.message ?? "Konnte deine Backyrd Treffer nicht laden.");
+      setLoadError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -241,36 +242,35 @@ export default function DecisionHistoryScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.circleButton}>
-          <Ionicons name="chevron-back" size={25} color="#FFFFFF" />
+        <Pressable accessibilityRole="button" accessibilityLabel="Zurück zu Einstellungen" onPress={() => router.back()} style={styles.circleButton}>
+          <Ionicons accessibilityElementsHidden name="chevron-back" size={25} color={theme.color.textPrimary} />
         </Pressable>
 
         <View style={styles.titleBlock}>
-          <Text style={styles.kicker}>Backyrd Intelligence</Text>
-          <Text style={styles.title}>Treffer & Besuche</Text>
+          <Text style={styles.kicker}>DEIN BACKYRD</Text>
+          <Text style={styles.title}>Decision-Verlauf</Text>
         </View>
 
-        <Pressable onPress={() => load("refresh")} style={styles.circleButton}>
-          <Ionicons name="refresh" size={21} color="#FFFFFF" />
+        <Pressable accessibilityRole="button" accessibilityLabel="Decision-Verlauf aktualisieren" accessibilityState={{ busy: refreshing }} onPress={() => load("refresh")} style={styles.circleButton}>
+          <Ionicons accessibilityElementsHidden name="refresh" size={21} color={theme.color.textPrimary} />
         </Pressable>
       </View>
 
       <View style={styles.heroCard}>
         <View style={styles.heroIcon}>
-          <Ionicons name="sparkles" size={24} color="#0A0A0B" />
+          <Ionicons accessibilityElementsHidden name="sparkles" size={24} color={theme.color.background} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.heroTitle}>Magische Signale</Text>
+          <Text style={styles.heroTitle}>Von Vorschlag zu Erfahrung</Text>
           <Text style={styles.heroText}>
-            Wenn du nach einer Decision denselben Spot bewertest, erkennt Backyrd automatisch:
-            Vorschlag → Besuch → echter Moment.
+            Hier findest du Spots aus früheren Decisions wieder und kannst deinen echten Eindruck festhalten.
           </Text>
         </View>
       </View>
 
       <View style={styles.segment}>
         <SegmentButton
-          label="Smart"
+          label="Alle"
           count={rows.length}
           active={filter === "smart"}
           onPress={() => setFilter("smart")}
@@ -282,7 +282,7 @@ export default function DecisionHistoryScreen() {
           onPress={() => setFilter("open")}
         />
         <SegmentButton
-          label="Erkannt"
+          label="Erlebt"
           count={counts.done}
           active={filter === "done"}
           onPress={() => setFilter("done")}
@@ -291,9 +291,16 @@ export default function DecisionHistoryScreen() {
 
       {loading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color="#FFFFFF" />
-          <Text style={styles.loadingText}>Treffer werden geladen…</Text>
+          <StateView kind="loading" title="Deine Treffer werden geladen" message="Wir holen deine bisherigen Entscheidungen." />
         </View>
+      ) : loadError ? (
+        <StateView
+          kind="error"
+          title="Treffer nicht geladen"
+          message="Deine bisherigen Treffer konnten gerade nicht geladen werden."
+          actionLabel="Noch einmal versuchen"
+          onAction={() => void load("initial")}
+        />
       ) : (
         <ScrollView
           refreshControl={
@@ -304,12 +311,12 @@ export default function DecisionHistoryScreen() {
         >
           {grouped.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Ionicons name="compass-outline" size={34} color="rgba(255,255,255,0.45)" />
+              <Ionicons accessibilityElementsHidden name="compass-outline" size={34} color={theme.color.textMuted} />
               <Text style={styles.emptyTitle}>
                 {filter === "done" ? "Noch nichts erkannt" : "Keine offenen Treffer"}
               </Text>
               <Text style={styles.emptyText}>
-                Suche etwas mit Backyrd, öffne oder like einen Spot und bewerte ihn später.
+                Starte eine Decision und öffne interessante Spots. Deine späteren Reviews erscheinen hier.
               </Text>
             </View>
           ) : (
@@ -362,7 +369,7 @@ function SegmentButton({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={[styles.segmentButton, active && styles.segmentButtonActive]}>
+    <Pressable accessibilityRole="tab" accessibilityLabel={`${label}, ${count}`} accessibilityState={{ selected: active }} onPress={onPress} style={[styles.segmentButton, active && styles.segmentButtonActive]}>
       <Text style={[styles.segmentText, active && styles.segmentTextActive]}>
         {label} {count}
       </Text>
@@ -388,7 +395,7 @@ function CandidateCard({
     <View style={[styles.candidateCard, done && styles.candidateCardDone]}>
       <View style={styles.candidateTop}>
         <View style={[styles.statusIcon, done && styles.statusIconDone]}>
-          <Ionicons name={copy.icon} size={19} color={done ? "#0A0A0B" : "#FFFFFF"} />
+          <Ionicons name={copy.icon} size={19} color={done ? "#050506" : "#FFFFFF"} />
         </View>
 
         <View style={{ flex: 1 }}>
@@ -397,7 +404,7 @@ function CandidateCard({
             {row.spot_name}
           </Text>
           <Text style={styles.candidateMeta} numberOfLines={1}>
-            {[row.category_name, row.spot_city || row.city, row.rank ? `Pick ${row.rank}` : null]
+            {[row.category_name, row.spot_city || row.city, row.rank ? `Treffer ${row.rank}` : null]
               .filter(Boolean)
               .join(" · ")}
           </Text>
@@ -424,25 +431,25 @@ function CandidateCard({
 
       <View style={styles.actionRow}>
         {done ? (
-          <Pressable style={styles.primaryButton} onPress={onOpenSpot}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`${row.spot_name} ansehen`} style={styles.primaryButton} onPress={onOpenSpot}>
             <Text style={styles.primaryButtonText}>Moment ansehen</Text>
-            <Ionicons name="arrow-forward" size={18} color="#0A0A0B" />
+            <Ionicons name="arrow-forward" size={18} color="#050506" />
           </Pressable>
         ) : (
           <>
-            <Pressable style={styles.primaryButton} onPress={onReview}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`${row.spot_name} kurz bewerten`} style={styles.primaryButton} onPress={onReview}>
               <Text style={styles.primaryButtonText}>Kurz bewerten</Text>
-              <Ionicons name="arrow-forward" size={18} color="#0A0A0B" />
+              <Ionicons name="arrow-forward" size={18} color="#050506" />
             </Pressable>
 
-            <Pressable style={styles.secondaryButton} onPress={onSmartReview}>
-              <Ionicons name="camera-outline" size={18} color="#FFFFFF" />
+            <Pressable accessibilityRole="button" accessibilityLabel={`Smart Review für ${row.spot_name} öffnen`} style={styles.secondaryButton} onPress={onSmartReview}>
+              <Ionicons accessibilityElementsHidden name="camera-outline" size={18} color={theme.color.textPrimary} />
             </Pressable>
           </>
         )}
 
-        <Pressable style={styles.secondaryButton} onPress={onOpenSpot}>
-          <Ionicons name="location-outline" size={18} color="#FFFFFF" />
+        <Pressable accessibilityRole="button" accessibilityLabel={`${row.spot_name} öffnen`} style={styles.secondaryButton} onPress={onOpenSpot}>
+          <Ionicons accessibilityElementsHidden name="location-outline" size={18} color={theme.color.textPrimary} />
         </Pressable>
       </View>
     </View>
@@ -452,7 +459,7 @@ function CandidateCard({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#08080A",
+    backgroundColor: theme.color.background,
   },
   header: {
     paddingHorizontal: 18,
@@ -466,9 +473,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#15151A",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "#2A2A33",
+    borderColor: theme.color.border,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -476,26 +483,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   kicker: {
-    color: "#85858E",
+    color: theme.color.lime,
     fontSize: 12,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: 1.3,
     textTransform: "uppercase",
   },
   title: {
     marginTop: 2,
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.display,
     fontSize: 31,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -0.9,
   },
   heroCard: {
     marginHorizontal: 18,
     marginBottom: 14,
     borderRadius: 28,
-    backgroundColor: "#101015",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "#282832",
+    borderColor: theme.color.border,
     padding: 16,
     flexDirection: "row",
     gap: 14,
@@ -504,20 +512,20 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: theme.color.pink,
     alignItems: "center",
     justifyContent: "center",
   },
   heroTitle: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
     fontSize: 19,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   heroText: {
     marginTop: 5,
-    color: "#A3A3AA",
+    color: theme.color.textSecondary,
     fontSize: 14,
-    fontWeight: "650",
+    fontWeight: "600",
     lineHeight: 20,
   },
   segment: {
@@ -526,9 +534,9 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     padding: 5,
-    backgroundColor: "#101015",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "#282832",
+    borderColor: theme.color.border,
     flexDirection: "row",
   },
   segmentButton: {
@@ -538,15 +546,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   segmentButtonActive: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: theme.color.textPrimary,
   },
   segmentText: {
-    color: "#8F8F98",
+    color: theme.color.textSecondary,
     fontSize: 14,
-    fontWeight: "850",
+    fontWeight: "800",
   },
   segmentTextActive: {
-    color: "#08080A",
+    color: "#050506",
   },
   loading: {
     flex: 1,
@@ -566,27 +574,27 @@ const styles = StyleSheet.create({
   emptyCard: {
     minHeight: 220,
     borderRadius: 30,
-    backgroundColor: "#101015",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "#282832",
+    borderColor: theme.color.border,
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
   },
   emptyTitle: {
     marginTop: 12,
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
     fontSize: 21,
-    fontWeight: "950",
+    fontWeight: "900",
     textAlign: "center",
   },
   emptyText: {
     marginTop: 8,
-    color: "#8F8F98",
+    color: theme.color.textSecondary,
     fontSize: 15,
     lineHeight: 21,
     textAlign: "center",
-    fontWeight: "650",
+    fontWeight: "600",
   },
   decisionGroup: {
     marginBottom: 18,
@@ -609,7 +617,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
     color: "#FFFFFF",
     fontSize: 19,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -0.3,
   },
   groupCount: {
@@ -622,9 +630,9 @@ const styles = StyleSheet.create({
   },
   candidateCard: {
     borderRadius: 28,
-    backgroundColor: "#101015",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "#282832",
+    borderColor: theme.color.border,
     padding: 16,
   },
   candidateCardDone: {
@@ -642,7 +650,7 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     backgroundColor: "#1B1B22",
     borderWidth: 1,
-    borderColor: "#30303A",
+    borderColor: "#1B1B20",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -659,30 +667,30 @@ const styles = StyleSheet.create({
   },
   candidateTitle: {
     marginTop: 2,
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
     fontSize: 20,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -0.35,
   },
   candidateMeta: {
     marginTop: 2,
     color: "#9A9AA2",
     fontSize: 14,
-    fontWeight: "750",
+    fontWeight: "700",
   },
   promptTitle: {
     marginTop: 14,
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
     fontSize: 22,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -0.45,
   },
   promptBody: {
     marginTop: 6,
-    color: "#B7B7BE",
+    color: theme.color.textSecondary,
     fontSize: 15,
     lineHeight: 21,
-    fontWeight: "650",
+    fontWeight: "600",
   },
   whyText: {
     marginTop: 12,
@@ -707,7 +715,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: "#D8FBE3",
     fontSize: 14,
-    fontWeight: "750",
+    fontWeight: "700",
   },
   actionRow: {
     marginTop: 16,
@@ -719,24 +727,24 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 50,
     borderRadius: 999,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: theme.color.pink,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 8,
   },
   primaryButtonText: {
-    color: "#08080A",
+    color: theme.color.background,
     fontSize: 15,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   secondaryButton: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: "#17171D",
+    backgroundColor: theme.color.surfaceElevated,
     borderWidth: 1,
-    borderColor: "#30303A",
+    borderColor: theme.color.border,
     alignItems: "center",
     justifyContent: "center",
   },

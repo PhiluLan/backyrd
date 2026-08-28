@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
   ScrollView,
   Alert,
 } from "react-native";
@@ -13,6 +12,8 @@ import { supabase } from "@/lib/supabase";
 import { trackEvent } from "@/lib/events";
 import { validateOwnerContactMobile } from "@/lib/owner-validation";
 import { evaluateOwnerChangeMobile } from "@/lib/safety-owner";
+import { userFacingError } from "@/lib/userFacingError";
+import { StateView } from "@/components/foundation/StateView";
 
 type Category = { id: string; name: string };
 
@@ -142,7 +143,7 @@ export default function SpotManageScreen() {
         });
       } catch (e: any) {
         console.log("manage load error", e);
-        Alert.alert("Fehler", e?.message ?? "Unbekannter Fehler");
+        Alert.alert("Spot nicht erreichbar", userFacingError(e, "Die Spot-Daten konnten gerade nicht geladen werden."));
         router.back();
       } finally {
         if (alive) setLoading(false);
@@ -255,15 +256,15 @@ export default function SpotManageScreen() {
   // ✅ Render Branches: INSIDE component, after hooks
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0B0B0C" }}>
-        <ActivityIndicator />
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#050506" }}>
+        <StateView kind="loading" title="Spot wird geladen" />
       </View>
     );
   }
 
   if (!ctx) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#0B0B0C", padding: 20 }}>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#050506", padding: 20 }}>
         <Text style={{ color: "white", opacity: 0.8, textAlign: "center" }}>
           Spot konnte nicht geladen werden.
         </Text>
@@ -276,7 +277,7 @@ export default function SpotManageScreen() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: "#0B0B0C" }}
+      style={{ flex: 1, backgroundColor: "#050506" }}
       contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
     >
       <Text style={{ color: "white", fontSize: 26, marginBottom: 6 }}>Spot verwalten</Text>

@@ -50,8 +50,10 @@ require_pattern 'distribution_trust_spot_catalog_v1' \
   'mobile/app/search.tsx' 'Search must provide trusted alternatives after Distribution filtering'
 require_pattern 'filterDistributedSpots' \
   'mobile/lib/useSpotsStore.ts' 'Maps must use canonical Distribution filtering'
-require_pattern 'filterDistributedSpots' \
-  'mobile/app/(tabs)/explore.tsx' 'Discovery must use canonical Distribution filtering'
+require_pattern 'loadDiscoverySpots' \
+  'mobile/app/(tabs)/index.tsx' 'Discovery Home must use the shared Product-visible catalog'
+require_pattern 'distribution_trust_spot_catalog_v1' \
+  'mobile/lib/spot-images.ts' 'Discovery images must use canonical Distribution filtering'
 require_pattern 'get_social_feed_v2' \
   'mobile/app/(tabs)/feed.tsx' 'Feed must use the Distribution-aware canonical RPC'
 require_pattern 'get_my_personalized_home_v1|get_discovery_overview_v1' \

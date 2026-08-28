@@ -32,3 +32,17 @@ export async function searchAddress(query: string) {
 
   return results;
 }
+
+export async function reverseGeocode(lng: number, lat: number) {
+  if (!GOOGLE_KEY) throw new Error("Google API Key fehlt");
+  const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${encodeURIComponent(`${lat},${lng}`)}&language=de&key=${GOOGLE_KEY}`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("reverse_geocode_unavailable");
+  const data = await response.json();
+  const first = Array.isArray(data.results) ? data.results[0] : null;
+  return {
+    name: first?.address_components?.[0]?.long_name ?? first?.formatted_address ?? null,
+    place_name: first?.formatted_address ?? null,
+    address: first?.formatted_address ?? null,
+  };
+}

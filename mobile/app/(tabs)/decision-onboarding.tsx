@@ -13,11 +13,12 @@ import {
   TextInput,
   View,
 } from "react-native";
-import type * as Location from "expo-location";
 import { Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { supabase } from "@/lib/supabase";
+import { hasActiveConsent, setMyConsent } from "@/lib/consent";
+import { getMyProductEntryStatus } from "@/lib/onboardingStatus";
 import {
   normalizeLocationCity,
   resolveLocationContext,
@@ -34,11 +35,10 @@ type SpotRow = {
 
 type CompleteOnboardingRow = {
   ok: boolean;
-  user_id: string;
-  city: string;
-  selected_count: number;
-  event_count: number;
-  message: string;
+  alreadyCompleted?: boolean;
+  selectedCount?: number;
+  declaredEvidenceCount?: number;
+  semanticContractVersion?: string;
 };
 
 const MIN_SELECTION = 3;
@@ -52,10 +52,6 @@ function normalizeCity(value: string | null | undefined) {
   const city = clean(value);
   if (!city) return "Basel";
   return city;
-}
-
-function getCityFromGeocode(item: Location.LocationGeocodedAddress | null | undefined) {
-  return clean(item?.city) || clean(item?.subregion) || clean(item?.region) || null;
 }
 
 function categoryName(spot: SpotRow) {
@@ -74,13 +70,19 @@ export default function DecisionOnboardingScreen() {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [searching, setSearching] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [personalizationConsent, setPersonalizationConsent] = useState(false);
+  const [personalizationConsentPersisted, setPersonalizationConsentPersisted] = useState(false);
 
   const [results, setResults] = useState<SpotRow[]>([]);
   const [suggestions, setSuggestions] = useState<SpotRow[]>([]);
   const [selected, setSelected] = useState<SpotRow[]>([]);
 
   const selectedIds = useMemo(() => new Set(selected.map((spot) => spot.id)), [selected]);
-  const canSubmit = selected.length >= MIN_SELECTION && selected.length <= MAX_SELECTION && !submitting;
+  const canSubmit =
+    selected.length >= MIN_SELECTION &&
+    selected.length <= MAX_SELECTION &&
+    personalizationConsent &&
+    !submitting;
   const remainingCount = Math.max(0, MIN_SELECTION - selected.length);
 
   const loadSuggestions = useCallback(async (nextCity: string) => {
@@ -93,6 +95,7 @@ export default function DecisionOnboardingScreen() {
         .from("spots")
         .select("id,name,city,address,categories(name)")
         .eq("status", "approved")
+        .in("data_origin", ["REAL", "LEGACY", "IMPORT"])
         .or(`city.ilike.%${c}%,address.ilike.%${c}%`)
         .order("created_at", { ascending: false })
         .limit(18);
@@ -124,6 +127,7 @@ export default function DecisionOnboardingScreen() {
         .from("spots")
         .select("id,name,city,address,categories(name)")
         .eq("status", "approved")
+        .in("data_origin", ["REAL", "LEGACY", "IMPORT"])
         .or(`city.ilike.%${c}%,address.ilike.%${c}%`)
         .ilike("name", `%${q}%`)
         .limit(14);
@@ -195,6 +199,19 @@ export default function DecisionOnboardingScreen() {
         return;
       }
 
+      const entryStatus = await getMyProductEntryStatus();
+      if (!alive) return;
+      if (entryStatus.canEnterDecision) {
+        router.replace("/(tabs)/decision" as any);
+        return;
+      }
+
+      const consentGranted = await hasActiveConsent("personalized_recommendations", {
+        forceRefresh: true,
+      });
+      if (!alive) return;
+      setPersonalizationConsent(consentGranted);
+      setPersonalizationConsentPersisted(consentGranted);
       loadSuggestions(city);
       detectLocation();
     };
@@ -245,8 +262,15 @@ export default function DecisionOnboardingScreen() {
   }, []);
 
   const submit = useCallback(async () => {
-    if (!canSubmit) {
+    if (selected.length < MIN_SELECTION) {
       Alert.alert("Noch nicht ganz", `Wähle mindestens ${MIN_SELECTION} echte Backyrd-Spots aus.`);
+      return;
+    }
+    if (!personalizationConsent) {
+      Alert.alert(
+        "Einwilligung fehlt",
+        "Aktiviere persönliche Empfehlungen, damit Backyrd deine Auswahl als Start-Geschmack speichern darf."
+      );
       return;
     }
 
@@ -261,6 +285,11 @@ export default function DecisionOnboardingScreen() {
       }
 
       const spotIds = selected.map((spot) => spot.id);
+
+      if (!personalizationConsentPersisted) {
+        await setMyConsent("personalized_recommendations", true);
+        setPersonalizationConsentPersisted(true);
+      }
 
       const { data, error } = await supabase.rpc("complete_decision_onboarding_v2", {
         p_city: normalizeCity(city),
@@ -280,11 +309,14 @@ export default function DecisionOnboardingScreen() {
       router.replace("/(tabs)" as any);
     } catch (error: any) {
       console.log("complete decision onboarding failed", error);
-      Alert.alert("Fehler", error?.message ?? "Konnte deinen Start-Geschmack nicht speichern.");
+      Alert.alert(
+        "Speichern fehlgeschlagen",
+        "Dein Start-Geschmack konnte gerade nicht gespeichert werden. Versuch es bitte noch einmal."
+      );
     } finally {
       setSubmitting(false);
     }
-  }, [canSubmit, city, router, selected]);
+  }, [city, personalizationConsent, personalizationConsentPersisted, router, selected]);
 
   const visibleSpots = query.trim().length >= 2 ? results : suggestions;
   const visibleTitle = query.trim().length >= 2 ? "Gefundene Spots" : "Vorschläge in deiner Stadt";
@@ -454,6 +486,24 @@ export default function DecisionOnboardingScreen() {
           </View>
 
           <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: personalizationConsent }}
+            onPress={() => setPersonalizationConsent((current) => !current)}
+            style={({ pressed }) => [styles.consentCard, pressed && styles.pressed]}
+          >
+            <View style={[styles.consentCheckbox, personalizationConsent && styles.consentCheckboxChecked]}>
+              <Text style={styles.consentCheckmark}>{personalizationConsent ? "✓" : ""}</Text>
+            </View>
+            <View style={styles.consentCopy}>
+              <Text style={styles.consentTitle}>Persönliche Empfehlungen aktivieren</Text>
+              <Text style={styles.consentText}>
+                Backyrd darf diese Auswahl nutzen, um deinen Start-Geschmack aufzubauen. Du kannst
+                diese Einwilligung jederzeit im Privacy Center widerrufen.
+              </Text>
+            </View>
+          </Pressable>
+
+          <Pressable
             onPress={submit}
             disabled={!canSubmit}
             style={({ pressed }) => [
@@ -482,7 +532,7 @@ export default function DecisionOnboardingScreen() {
 }
 
 const theme = {
-  bg: "#0B0B0C",
+  bg: "#050506",
   card: "rgba(255,255,255,0.055)",
   cardStrong: "rgba(255,255,255,0.085)",
   border: "rgba(255,255,255,0.115)",
@@ -511,7 +561,7 @@ const styles = StyleSheet.create({
   kicker: {
     color: "rgba(255,255,255,0.46)",
     fontSize: 12,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: 5,
     marginBottom: 12,
   },
@@ -519,7 +569,7 @@ const styles = StyleSheet.create({
     color: theme.text,
     fontSize: 34,
     lineHeight: 38,
-    fontWeight: "950",
+    fontWeight: "900",
     letterSpacing: -1.1,
   },
   subtitle: {
@@ -544,7 +594,7 @@ const styles = StyleSheet.create({
   },
   label: {
     color: theme.muted,
-    fontWeight: "850",
+    fontWeight: "800",
     marginBottom: 7,
   },
   input: {
@@ -555,7 +605,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.07)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.12)",
-    fontWeight: "850",
+    fontWeight: "800",
   },
   detectButton: {
     marginTop: 24,
@@ -570,7 +620,7 @@ const styles = StyleSheet.create({
   },
   detectButtonText: {
     color: theme.cream,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   successText: {
     color: theme.green,
@@ -593,7 +643,7 @@ const styles = StyleSheet.create({
   },
   listTitle: {
     color: "#fff",
-    fontWeight: "950",
+    fontWeight: "900",
     fontSize: 15,
   },
   emptyBox: {
@@ -634,7 +684,7 @@ const styles = StyleSheet.create({
   },
   spotName: {
     color: "#fff",
-    fontWeight: "950",
+    fontWeight: "900",
     fontSize: 15,
   },
   spotMeta: {
@@ -644,7 +694,7 @@ const styles = StyleSheet.create({
   },
   addText: {
     color: theme.cream,
-    fontWeight: "950",
+    fontWeight: "900",
     fontSize: 18,
   },
   addTextSelected: {
@@ -662,7 +712,7 @@ const styles = StyleSheet.create({
   selectedTitle: {
     color: "#fff",
     fontSize: 18,
-    fontWeight: "950",
+    fontWeight: "900",
   },
   selectedCount: {
     color: theme.faint,
@@ -704,12 +754,12 @@ const styles = StyleSheet.create({
   },
   selectedNumberText: {
     color: theme.cream,
-    fontWeight: "950",
+    fontWeight: "900",
     fontSize: 12,
   },
   selectedName: {
     color: "#fff",
-    fontWeight: "950",
+    fontWeight: "900",
   },
   selectedMeta: {
     color: theme.muted,
@@ -728,6 +778,49 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     fontSize: 12,
   },
+  consentCard: {
+    marginTop: 18,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.13)",
+    backgroundColor: "rgba(255,255,255,0.045)",
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  consentCheckbox: {
+    width: 25,
+    height: 25,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.34)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  consentCheckboxChecked: {
+    backgroundColor: theme.cream,
+    borderColor: theme.cream,
+  },
+  consentCheckmark: {
+    color: theme.black,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  consentCopy: {
+    flex: 1,
+  },
+  consentTitle: {
+    color: theme.text,
+    fontWeight: "900",
+    fontSize: 15,
+  },
+  consentText: {
+    color: theme.muted,
+    marginTop: 5,
+    lineHeight: 18,
+    fontSize: 12,
+  },
   submitButton: {
     marginTop: 18,
     height: 56,
@@ -741,7 +834,7 @@ const styles = StyleSheet.create({
   },
   submitText: {
     color: "#000",
-    fontWeight: "950",
+    fontWeight: "900",
     fontSize: 16,
   },
   submitTextDisabled: {

@@ -20,6 +20,8 @@ import { Ionicons } from "@expo/vector-icons";
 import Avatar from "./Avatar";
 import { supabase } from "../lib/supabase";
 import ReportContentButton from "./safety/ReportContentButton";
+import { StateView } from "./foundation/StateView";
+import { technicalErrorText } from "../lib/userFacingError";
 
 export type SocialComment = {
   comment_id: string;
@@ -39,16 +41,6 @@ type Props = {
   onClose: () => void;
   onCommentCreated?: (postId: string) => void;
 };
-
-function formatError(error: unknown) {
-  if (!error) return "Unbekannter Fehler";
-  if (typeof error === "string") return error;
-  if (error instanceof Error) return error.message;
-  if (typeof error === "object" && "message" in error && typeof (error as any).message === "string") {
-    return (error as any).message;
-  }
-  return "Unbekannter Fehler";
-}
 
 function timeAgo(value: string) {
   const then = new Date(value).getTime();
@@ -87,6 +79,7 @@ export default function CommentsSheet({
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [body, setBody] = useState("");
+  const [loadError, setLoadError] = useState(false);
 
   const canSend = useMemo(() => body.trim().length > 0 && !sending && !!postId, [body, postId, sending]);
 
@@ -95,6 +88,7 @@ export default function CommentsSheet({
 
     try {
       setLoading(true);
+      setLoadError(false);
 
       const [commentsResult, userResult] =
         await Promise.all([
@@ -154,7 +148,7 @@ export default function CommentsSheet({
       );
     } catch (error) {
       console.log("get_social_comments_v1 failed:", error);
-      Alert.alert("Kommentare konnten nicht geladen werden", formatError(error));
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -200,7 +194,7 @@ export default function CommentsSheet({
       setBody("");
       onCommentCreated?.(postId);
     } catch (error) {
-      const message = formatError(error);
+      const message = technicalErrorText(error);
       const isSafetyRestriction =
         message.includes("SAFETY_WRITE_RESTRICTED");
 
@@ -294,7 +288,7 @@ export default function CommentsSheet({
           keyboardVerticalOffset={0}
           style={styles.keyboardLayer}
         >
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+          <View accessibilityViewIsModal style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 10) }]}>
             <View style={styles.handle} />
 
             <View style={styles.header}>
@@ -305,7 +299,7 @@ export default function CommentsSheet({
                 </Text>
               </View>
 
-              <Pressable style={styles.closeButton} onPress={closeSheet}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Kommentare schließen" style={styles.closeButton} onPress={closeSheet}>
                 <Ionicons name="close" size={22} color="#FFFFFF" />
               </Pressable>
             </View>
@@ -313,8 +307,11 @@ export default function CommentsSheet({
             <View style={styles.content}>
               {loading ? (
                 <View style={styles.state}>
-                  <ActivityIndicator color="#FFFFFF" />
-                  <Text style={styles.stateText}>Kommentare laden…</Text>
+                  <StateView kind="loading" title="Kommentare werden geladen" />
+                </View>
+              ) : loadError ? (
+                <View style={styles.state}>
+                  <StateView kind="error" title="Kommentare gerade nicht erreichbar" message="Bitte versuche es noch einmal." actionLabel="Erneut laden" onAction={() => void loadComments()} />
                 </View>
               ) : comments.length === 0 ? (
                 <View style={styles.emptyState}>
@@ -342,6 +339,7 @@ export default function CommentsSheet({
             <View style={styles.inputWrap}>
               <View style={styles.inputShell}>
                 <TextInput
+                  accessibilityLabel="Kommentar schreiben"
                   ref={inputRef}
                   value={body}
                   onChangeText={setBody}
@@ -355,6 +353,9 @@ export default function CommentsSheet({
                 />
 
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Kommentar senden"
+                  accessibilityState={{ disabled: !canSend, busy: sending }}
                   style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
                   onPress={sendComment}
                   disabled={!canSend}
@@ -391,7 +392,7 @@ const styles = StyleSheet.create({
     height: "56%",
     maxHeight: 520,
     minHeight: 430,
-    backgroundColor: "#08080A",
+    backgroundColor: "#050506",
     borderTopLeftRadius: 34,
     borderTopRightRadius: 34,
     borderWidth: 1,
@@ -444,7 +445,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: "#17171C",
+    backgroundColor: "#111113",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -549,12 +550,12 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "#222228",
-    backgroundColor: "#08080A",
+    backgroundColor: "#050506",
   },
   inputShell: {
     minHeight: 52,
     borderRadius: 26,
-    backgroundColor: "#15151A",
+    backgroundColor: "#111113",
     borderWidth: 1,
     borderColor: "#2A2A31",
     flexDirection: "row",

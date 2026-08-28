@@ -31,6 +31,18 @@
         "MAPBOX_DOWNLOADS_TOKEN": "$MAPBOX_DOWNLOADS_TOKEN"
       }
     },
+    "map-validation-sim": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "production",
+      "environment": "production",
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "APP_VARIANT": "prod"
+      }
+    },
     "preview": {
       "distribution": "internal",
       "channel": "preview",

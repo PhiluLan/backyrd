@@ -16,12 +16,13 @@ import {
   View,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import type * as Location from "expo-location";
 
 import { getPrivacySafeLocation, reverseGeocodePrivacySafe } from "../../lib/locationPrivacy";
 import { supabase } from "../../lib/supabase";
 import { ensureProfile } from "../../lib/profile";
+import { StateView } from "../../components/foundation/StateView";
 
 type ProfileRow = {
   id: string;
@@ -46,7 +47,7 @@ function usernameFrom(value: string) {
     .replace(/ö/g, "oe")
     .replace(/ü/g, "ue")
     .replace(/ß/g, "ss")
-    .replace(/[^a-z0-9._-]/g, "")
+    .replace(/[^a-z0-9._]/g, "")
     .slice(0, 24);
 }
 
@@ -75,20 +76,15 @@ function getCityFromGeocode(item: Location.LocationGeocodedAddress | null | unde
   return clean(item?.city) || clean(item?.subregion) || clean(item?.region) || "";
 }
 
-function makeUsernameCandidate(base: string, userId: string) {
-  const cleanedBase = usernameFrom(base) || "user";
-  const suffix = String(userId || "").replace(/-/g, "").slice(0, 6).toLowerCase();
-  const maxBaseLength = Math.max(3, 24 - 1 - suffix.length);
-  return `${cleanedBase.slice(0, maxBaseLength)}.${suffix}`.slice(0, 24);
-}
-
-function isUsernameDuplicateError(error: any) {
-  const message = String(error?.message ?? "").toLowerCase();
-  const details = String(error?.details ?? "").toLowerCase();
-  const code = String(error?.code ?? "").toLowerCase();
+function isUsernameDuplicateError(error: unknown) {
+  const candidate = error as { message?: unknown; details?: unknown; code?: unknown } | null;
+  const message = String(candidate?.message ?? "").toLowerCase();
+  const details = String(candidate?.details ?? "").toLowerCase();
+  const code = String(candidate?.code ?? "").toLowerCase();
 
   return (
     code === "23505" ||
+    message.includes("username_taken") ||
     message.includes("profiles_username_lower_unique_idx") ||
     details.includes("profiles_username_lower_unique_idx") ||
     message.includes("duplicate key value")
@@ -113,6 +109,8 @@ async function getVerifiedUserOrSignOut() {
 
 export default function ProfileOnboardingScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ preview?: string }>();
+  const previewMode = __DEV__ && params.preview === "1";
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -123,6 +121,7 @@ export default function ProfileOnboardingScreen() {
   const [city, setCity] = useState("Basel");
   const [country, setCountry] = useState("Schweiz");
   const [locationLoading, setLocationLoading] = useState(false);
+  const [formError, setFormError] = useState("");
 
   const birthdate = useMemo(() => birthdateFromAge(age), [age]);
 
@@ -130,6 +129,16 @@ export default function ProfileOnboardingScreen() {
     let alive = true;
 
     async function load() {
+      if (previewMode) {
+        setFirstName("");
+        setUsername("");
+        setAge("");
+        setCity("Basel");
+        setCountry("Schweiz");
+        setLoading(false);
+        return;
+      }
+
       try {
         const user = await getVerifiedUserOrSignOut();
 
@@ -170,7 +179,7 @@ export default function ProfileOnboardingScreen() {
     return () => {
       alive = false;
     };
-  }, [router]);
+  }, [previewMode, router]);
 
   async function detectLocation() {
     try {
@@ -200,8 +209,8 @@ export default function ProfileOnboardingScreen() {
       }
 
       setCity(detectedCity);
-    } catch (error: any) {
-      Alert.alert("Standort fehlgeschlagen", error?.message ?? "Bitte gib deine Stadt manuell ein.");
+    } catch {
+      Alert.alert("Standort fehlgeschlagen", "Dein Standort konnte gerade nicht ermittelt werden. Bitte gib deine Stadt manuell ein.");
     } finally {
       setLocationLoading(false);
     }
@@ -212,24 +221,30 @@ export default function ProfileOnboardingScreen() {
     const cleanedUsername = usernameFrom(username);
     const cleanedCity = clean(city);
     const cleanedCountry = clean(country) || "Schweiz";
+    setFormError("");
 
     if (!cleanedFirstName) {
-      Alert.alert("Name fehlt", "Bitte gib deinen Namen ein.");
+      setFormError("Bitte gib deinen Namen ein.");
       return;
     }
 
     if (!cleanedUsername || cleanedUsername.length < 3) {
-      Alert.alert("Benutzername fehlt", "Bitte wähle einen Benutzernamen mit mindestens 3 Zeichen.");
+      setFormError("Bitte wähle einen Benutzernamen mit mindestens 3 Zeichen.");
       return;
     }
 
     if (!birthdate) {
-      Alert.alert("Alter prüfen", "Bitte gib dein Alter als Zahl ein. Backyrd ist ab 13 Jahren.");
+      setFormError("Bitte gib dein Alter als Zahl ein. Backyrd ist ab 13 Jahren.");
       return;
     }
 
     if (!cleanedCity) {
-      Alert.alert("Stadt fehlt", "Bitte gib deine aktuelle Stadt ein.");
+      setFormError("Bitte gib deine aktuelle Stadt ein.");
+      return;
+    }
+
+    if (previewMode) {
+      setFormError("Vorschau aktiv: Es werden keine Profildaten gespeichert.");
       return;
     }
 
@@ -243,82 +258,43 @@ export default function ProfileOnboardingScreen() {
         return;
       }
 
-      const userId = user.id;
+      const { data, error } = await supabase.rpc("complete_profile_onboarding_v2", {
+        p_display_name: cleanedFirstName,
+        p_username: cleanedUsername,
+        p_age: Number.parseInt(age.trim(), 10),
+        p_city: cleanedCity,
+        p_country: cleanedCountry,
+      });
 
-      const payload = {
-        id: userId,
-        display_name: cleanedFirstName,
-        first_name: cleanedFirstName,
-        username: cleanedUsername,
-        birthdate,
-        city: cleanedCity,
-        home_city: cleanedCity,
-        country: cleanedCountry,
-        contact_email: user.email ?? null,
-        profile_onboarding_completed_at: new Date().toISOString(),
-      };
-
-      const firstAttempt = await supabase
-        .from("profiles")
-        .upsert(payload, { onConflict: "id" })
-        .select("id,username")
-        .single();
-
-      if (firstAttempt.error) {
-        if (!isUsernameDuplicateError(firstAttempt.error)) {
-          throw firstAttempt.error;
-        }
-
-        const fallbackUsername = makeUsernameCandidate(cleanedUsername || cleanedFirstName, userId);
-
-        const secondAttempt = await supabase
-          .from("profiles")
-          .upsert(
-            {
-              ...payload,
-              username: fallbackUsername,
-            },
-            { onConflict: "id" }
-          )
-          .select("id,username")
-          .single();
-
-        if (secondAttempt.error) throw secondAttempt.error;
-
-        setUsername(fallbackUsername);
+      if (error) throw error;
+      if (!data || typeof data !== "object" || data.ok !== true) {
+        throw new Error("profile_onboarding_not_confirmed");
       }
 
       Keyboard.dismiss();
       router.replace("/gate" as any);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.log("profile onboarding save failed", error);
 
       if (isUsernameDuplicateError(error)) {
-        Alert.alert(
-          "Benutzername vergeben",
-          "Dieser Benutzername ist schon vergeben. Bitte nimm eine kleine Variante, zum Beispiel mit Punkt oder Zahl."
-        );
+        setFormError("Dieser Benutzername ist schon vergeben. Bitte nimm eine kleine Variante, zum Beispiel mit Punkt oder Zahl.");
         return;
       }
 
-      Alert.alert("Speichern fehlgeschlagen", error?.message ?? "Profil konnte nicht gespeichert werden.");
+      setFormError("Dein Profil konnte gerade nicht gespeichert werden. Versuch es bitte noch einmal.");
     } finally {
       setSaving(false);
     }
   }
 
   if (loading) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color="#fff" />
-      </View>
-    );
+    return <StateView kind="loading" title="Profil wird vorbereitet" />;
   }
 
   return (
     <KeyboardAvoidingView style={styles.keyboardRoot} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <LinearGradient colors={["#050506", "#09090A", "#0D0D10"]} style={styles.container}>
+        <LinearGradient colors={["#050506", "#050506", "#0D0D10"]} style={styles.container}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
             <View style={styles.topRow}>
               <Text numberOfLines={1} style={styles.location}>{clean(city) || "Basel"}</Text>
@@ -344,6 +320,12 @@ export default function ProfileOnboardingScreen() {
                 <Text style={styles.cardHint}>Nur was wir für gute Vorschläge brauchen.</Text>
               </View>
 
+              {formError ? (
+                <View accessibilityRole="alert" style={styles.formError}>
+                  <Text style={styles.formErrorText}>{formError}</Text>
+                </View>
+              ) : null}
+
               <View style={styles.field}>
                 <Text style={styles.label}>Name</Text>
                 <TextInput
@@ -355,6 +337,8 @@ export default function ProfileOnboardingScreen() {
                   placeholder="Philipp"
                   placeholderTextColor="rgba(255,255,255,0.34)"
                   autoCapitalize="words"
+                  textContentType="givenName"
+                  returnKeyType="next"
                   style={styles.input}
                 />
               </View>
@@ -368,6 +352,8 @@ export default function ProfileOnboardingScreen() {
                   placeholderTextColor="rgba(255,255,255,0.34)"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  textContentType="username"
+                  returnKeyType="next"
                   style={styles.input}
                 />
               </View>
@@ -393,6 +379,7 @@ export default function ProfileOnboardingScreen() {
                     placeholder="Basel"
                     placeholderTextColor="rgba(255,255,255,0.34)"
                     autoCapitalize="words"
+                    textContentType="addressCity"
                     style={[styles.input, styles.cityInput]}
                   />
 
@@ -402,7 +389,7 @@ export default function ProfileOnboardingScreen() {
                     style={({ pressed }) => [styles.locationButton, pressed && styles.pressed]}
                   >
                     {locationLoading ? (
-                      <ActivityIndicator size="small" color="#171214" />
+                      <ActivityIndicator size="small" color="#111113" />
                     ) : (
                       <Text style={styles.locationButtonText}>Aktuell</Text>
                     )}
@@ -418,6 +405,8 @@ export default function ProfileOnboardingScreen() {
                   placeholder="Schweiz"
                   placeholderTextColor="rgba(255,255,255,0.34)"
                   autoCapitalize="words"
+                  textContentType="countryName"
+                  returnKeyType="done"
                   style={styles.input}
                 />
               </View>
@@ -425,9 +414,11 @@ export default function ProfileOnboardingScreen() {
               <Pressable
                 onPress={saveProfile}
                 disabled={saving}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: saving, busy: saving }}
                 style={({ pressed }) => [styles.primaryButton, saving && styles.disabled, pressed && styles.pressed]}
               >
-                {saving ? <ActivityIndicator color="#171214" /> : <Text style={styles.primaryButtonText}>Weiter</Text>}
+                {saving ? <ActivityIndicator color="#111113" /> : <Text style={styles.primaryButtonText}>Weiter</Text>}
               </Pressable>
             </View>
 
@@ -445,12 +436,6 @@ const styles = StyleSheet.create({
   keyboardRoot: {
     flex: 1,
     backgroundColor: "#050506",
-  },
-  loading: {
-    flex: 1,
-    backgroundColor: "#0B0B0C",
-    alignItems: "center",
-    justifyContent: "center",
   },
   container: {
     flex: 1,
@@ -493,7 +478,7 @@ const styles = StyleSheet.create({
     marginBottom: 26,
   },
   kicker: {
-    color: "#FF9ABA",
+    color: "#FF4F91",
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 4.2,
@@ -507,7 +492,7 @@ const styles = StyleSheet.create({
     letterSpacing: -1.35,
   },
   titlePink: {
-    color: "#FF7DA7",
+    color: "#FF4F91",
     fontWeight: "900",
   },
   subtitle: {
@@ -523,6 +508,19 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.045)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.09)",
+  },
+  formError: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,107,107,0.35)",
+    backgroundColor: "rgba(255,107,107,0.09)",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  formErrorText: {
+    color: "#FFC0C0",
+    fontSize: 14,
+    lineHeight: 20,
   },
   cardHeader: {
     marginBottom: 18,
@@ -576,27 +574,27 @@ const styles = StyleSheet.create({
     minWidth: 94,
     height: 56,
     borderRadius: 18,
-    backgroundColor: "#FFD4E0",
+    backgroundColor: "#FFC5DA",
     borderWidth: 1,
     borderColor: "rgba(255,125,167,0.35)",
     alignItems: "center",
     justifyContent: "center",
   },
   locationButtonText: {
-    color: "#171214",
+    color: "#111113",
     fontWeight: "900",
     fontSize: 13,
   },
   primaryButton: {
     height: 58,
     borderRadius: 999,
-    backgroundColor: "#FF7DA7",
+    backgroundColor: "#FF4F91",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 8,
   },
   primaryButtonText: {
-    color: "#171214",
+    color: "#111113",
     fontSize: 16,
     fontWeight: "900",
   },

@@ -4,6 +4,19 @@ base="${CI_BASE_SHA:-origin/main}"
 changed="$(git diff --name-only "$base"...HEAD)"
 protected="$(printf '%s\n' "$changed" | grep -E '^(supabase/functions/decision-v13/|supabase/migrations/.*decision.*(v11|v12|v13)|mobile/.*decision|web/.*decision)' || true)"
 
+# Downstream, byte-pinned Product integrations may rely on either the original
+# unchanged D2 engine or the exact Production baseline admitted by the full
+# D2 re-certification contract. The latter validates the Engine, protected
+# semantic source set, evidence set, Production identity and freeze manifest;
+# any later drift remains fail-closed.
+engine_baseline_accepted=false
+if git diff --quiet "$base"...HEAD -- supabase/functions/decision-v13/index.ts; then
+  engine_baseline_accepted=true
+elif node decision-lab/src/d2-cli.mjs validate-freeze >/dev/null; then
+  engine_baseline_accepted=true
+  echo "D2 scope guard: exact re-certified Production engine baseline accepted"
+fi
+
 # Sprint 1 intentionally adds a narrowly bounded, behavior-neutral N2 memory
 # bridge to the existing Decision screen. Keep the historical D2 guard strict:
 # only this exact provenance patch is exempt; any other Product/Decision change
@@ -37,13 +50,61 @@ if printf '%s\n' "$protected" | grep -Fx "$memory_bridge_path" >/dev/null; then
 fi
 
 # The first internal-live activation is a server-only wrapper around the
-# byte-identical frozen v13 engine. Permit only these two integration files,
-# and only while the canonical v13 source itself has no diff from the base.
+# accepted v13 baseline. Permit only these two integration files while the
+# canonical engine is unchanged or exactly re-certified.
 live_wrapper='supabase/functions/decision-v13/live-index.ts'
 live_adapter='supabase/functions/decision-v13/north-star-live.ts'
-if git diff --quiet "$base"...HEAD -- supabase/functions/decision-v13/index.ts; then
+if [[ "$engine_baseline_accepted" == true ]]; then
   protected="$(printf '%s\n' "$protected" | grep -Fvx "$live_wrapper" | grep -Fvx "$live_adapter" || true)"
-  echo "D2 scope guard: frozen v13 unchanged; internal-live server wrapper accepted"
+  echo "D2 scope guard: accepted v13 baseline; internal-live server wrapper accepted"
+fi
+
+# Mobile Production Rebuild retires three obsolete client/debug Decision paths.
+# Their deletion is safe only while the canonical v13 implementation is the
+# accepted baseline; reintroducing or modifying any of them remains a
+# protected-path failure.
+retired_mobile_decision_paths=(
+  'mobile/app/(tabs)/decision-debug.tsx'
+  'mobile/lib/decision/backyrdDecision.ts'
+  'mobile/supabase/functions/semantic-bridge-decision/index.ts'
+)
+if [[ "$engine_baseline_accepted" == true ]]; then
+  for retired_path in "${retired_mobile_decision_paths[@]}"; do
+    if [[ ! -e "$retired_path" ]]; then
+      protected="$(printf '%s\n' "$protected" | grep -Fvx "$retired_path" || true)"
+    fi
+  done
+  echo "D2 scope guard: retired Mobile Decision clients removed; accepted v13 baseline"
+fi
+
+# Production Decision final closure is an explicitly versioned exception to
+# the historical research freeze. It may touch only the canonical v13 source
+# and its existing live wrapper/adapter, and only together with the additive
+# trace migration plus the real-incident regressions. Once merged, the marker
+# is part of the base and cannot exempt later unrelated Decision changes.
+closure_marker='supabase/migrations/20260824010000_close_production_decision_engine_v1.sql'
+if printf '%s\n' "$changed" | grep -Fx "$closure_marker" >/dev/null \
+  && printf '%s\n' "$changed" | grep -Fx 'packages/decision-input-runtime/test/live-product-boundary.test.mjs' >/dev/null \
+  && printf '%s\n' "$changed" | grep -Fx 'packages/decision-orchestrator-runtime/test/canonical-semantic-conformance.test.mjs' >/dev/null; then
+  protected="$(printf '%s\n' "$protected" | grep -Fvx "$live_wrapper" | grep -Fvx "$live_adapter" | grep -Fvx 'supabase/functions/decision-v13/index.ts' || true)"
+  echo "D2 scope guard: versioned Production Decision closure accepted"
+fi
+
+# The controlled Fresh User cutover is a versioned Product integration around
+# the byte-identical frozen v13 engine. Permit only its active Mobile Decision
+# surface and the existing response transport when the additive cutover marker
+# and both dedicated regression suites are present in the same reviewed diff.
+# The marker becomes part of the base after merge, so it cannot exempt a later
+# unrelated Product or Decision change.
+fresh_user_cutover_marker='supabase/migrations/20260824213000_fresh_user_north_star_cutover_v1.sql'
+if printf '%s\n' "$changed" | grep -Fx "$fresh_user_cutover_marker" >/dev/null \
+  && printf '%s\n' "$changed" | grep -Fx 'packages/decision-input-runtime/test/fresh-user-product-cutover.test.mjs' >/dev/null \
+  && printf '%s\n' "$changed" | grep -Fx 'supabase/tests/fresh_user_north_star_cutover_v1.sql' >/dev/null; then
+  protected="$(printf '%s\n' "$protected" \
+    | grep -Fvx 'mobile/app/(tabs)/decision.tsx' \
+    | grep -Fvx 'mobile/app/(tabs)/decision-onboarding.tsx' \
+    | grep -Fvx 'supabase/functions/decision-v13/live-response.mjs' || true)"
+  echo "D2 scope guard: versioned Fresh User North-Star cutover accepted"
 fi
 
 # Canonical Semantic Alignment v1 changes only the onboarding RPC version so
@@ -57,6 +118,47 @@ if printf '%s\n' "$protected" | grep -Fx "$canonical_onboarding_path" >/dev/null
   if [[ "$actual_onboarding_diff_sha" == "$canonical_onboarding_diff_sha" ]]; then
     protected="$(printf '%s\n' "$protected" | grep -Fvx "$canonical_onboarding_path" || true)"
     echo "D2 scope guard: exact canonical onboarding adapter patch accepted"
+  fi
+fi
+
+# Consumer Web Design Closure adds a presentation-only Web client for the
+# accepted Production Decision contract. This is a one-time, byte-exact
+# exception: all four reviewed paths must match their pinned diff hashes, the
+# Product contract evidence must be in the same change, and v13 must remain
+# untouched. Any later byte, fifth adjacent path, or Engine change fails closed.
+web_closure_marker='web/docs/WEB_PRODUCT_CONTRACT_MATRIX.md'
+web_closure_contract='web/tests/consumer-contracts.test.mjs'
+web_closure_paths=(
+  'web/app/decision/page.tsx'
+  'web/app/settings/decision-history/page.tsx'
+  'web/components/consumer/decision-experience.tsx'
+  'web/lib/decision-web-api.ts'
+)
+web_closure_hashes=(
+  '32586d071517305da5c60c47ef65f1f87729695c370adad7901b32c56e6f7778'
+  'b45be6558834bcdc848afda24e4e64b2dfdde4b022539b0b68df1054f6908702'
+  '4d4f9d22766e0f37b7c05c17f56ad5366e58f6e0bbaa105e3a689432abaa767d'
+  '4e75221e576df4564c7db0d6fefb6b6a7dcb5529d6877b1a346825906959e548'
+)
+if printf '%s\n' "$changed" | grep -Fx "$web_closure_marker" >/dev/null \
+  && printf '%s\n' "$changed" | grep -Fx "$web_closure_contract" >/dev/null \
+  && [[ "$engine_baseline_accepted" == true ]]; then
+  web_closure_valid=true
+  for i in "${!web_closure_paths[@]}"; do
+    web_path="${web_closure_paths[$i]}"
+    web_hash="$(git diff "$base"...HEAD -- "$web_path" | sha256sum | awk '{print $1}')"
+    if [[ "$web_hash" != "${web_closure_hashes[$i]}" ]]; then
+      web_closure_valid=false
+      echo "D2 scope guard: Consumer Web hash mismatch: $web_path expected=${web_closure_hashes[$i]} actual=$web_hash"
+      break
+    fi
+  done
+  if [[ "$web_closure_valid" == true ]]; then
+    for i in "${!web_closure_paths[@]}"; do
+      web_path="${web_closure_paths[$i]}"
+      protected="$(printf '%s\n' "$protected" | grep -Fvx "$web_path" || true)"
+      echo "D2 scope guard: accepted reviewed Consumer Web presentation: $web_path hash=${web_closure_hashes[$i]}"
+    done
   fi
 fi
 

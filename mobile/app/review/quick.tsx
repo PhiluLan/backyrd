@@ -13,12 +13,12 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import * as ImageManipulator from "expo-image-manipulator";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
 import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 import { registerSafetySnapshot } from "../../lib/safety-content";
 import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
+import { userFacingError } from "../../lib/userFacingError";
 
 const theme = {
   bg: "#050506",
@@ -28,35 +28,10 @@ const theme = {
   text: "#FFFFFF",
   muted: "rgba(255,255,255,0.56)",
   soft: "rgba(255,255,255,0.72)",
-  pink: "#FF7DA7",
-  pinkSoft: "#FFD4E0",
-  ink: "#171214",
+  pink: "#FF4F91",
+  pinkSoft: "#FFC5DA",
+  ink: "#111113",
 };
-
-/* ======================================================
-   🔧 Helper: Filter anwenden
-====================================================== */
-async function applyFilter(
-  uri: string,
-  filter: "none" | "bw" | "dark"
-): Promise<string> {
-  if (filter === "none") return uri;
-
-  const actions: ImageManipulator.Action[] = [];
-
-  if (filter === "bw") {
-    actions.push({ adjust: { saturation: 0 } }); // Entsättigen
-  } else if (filter === "dark") {
-    actions.push({ adjust: { brightness: -0.2, contrast: 1.1 } }); // dunkler & kontrastreicher
-  }
-
-  const result = await ImageManipulator.manipulateAsync(uri, actions, {
-    compress: 0.9,
-    format: ImageManipulator.SaveFormat.JPEG,
-  });
-
-  return result.uri;
-}
 
 /* ======================================================
    🔧 Helper: Sicherer Upload zu Supabase
@@ -112,7 +87,6 @@ export default function QuickReviewScreen() {
 
   const isDecisionReview = source === "decision" || Boolean(decisionId);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"none" | "bw" | "dark">("none");
   const [moodA, setMoodA] = useState("");
   const [moodB, setMoodB] = useState("");
   const [loading, setLoading] = useState(false);
@@ -124,7 +98,7 @@ export default function QuickReviewScreen() {
 
   useEffect(() => {
     if (!permission) requestPermission();
-  }, [permission]);
+  }, [permission, requestPermission]);
 
   useEffect(() => {
     void trackAnalyticsEvent({ eventName: "review_started", screenName: "review_quick", spotId, decisionId: decisionId ?? null, properties: { source: source ?? "spot" } });
@@ -186,9 +160,8 @@ export default function QuickReviewScreen() {
 
     setLoading(true);
     try {
-      const filteredUri = await applyFilter(photoUri, filter);
       const publicUrl = await uploadImageToSupabase(
-        filteredUri,
+        photoUri,
         `review_${spotId}`
       );
 
@@ -293,7 +266,7 @@ export default function QuickReviewScreen() {
           decisionId: decisionId ?? null,
         });
         console.error("submitQuickReview error:", e);
-        Alert.alert("Fehler", e?.message ?? "Review konnte nicht gespeichert werden.");
+        Alert.alert("Review nicht gespeichert", userFacingError(e, "Deine Review konnte gerade nicht gespeichert werden. Bitte versuche es noch einmal."));
       }
     } finally {
       setLoading(false);
@@ -368,31 +341,6 @@ export default function QuickReviewScreen() {
           style={styles.photoPreview}
           contentFit="cover"
         />
-
-        {/* Filter Buttons */}
-        <Text style={styles.sectionTitle}>Look</Text>
-        <View style={styles.filterRow}>
-          {["none", "bw", "dark"].map((f) => (
-            <Pressable
-              key={f}
-              onPress={() => setFilter(f as "none" | "bw" | "dark")}
-              style={[
-                styles.filterBtn,
-                filter === f && styles.filterBtnActive,
-              ]}
-            >
-              <Text
-                style={[styles.filterText, filter === f && styles.filterTextActive]}
-              >
-                {f === "none"
-                  ? "Original"
-                  : f === "bw"
-                  ? "Schwarz-Weiß"
-                  : "Dark-Ambiente"}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
 
         {/* Mood Inputs */}
         <View style={styles.card}>

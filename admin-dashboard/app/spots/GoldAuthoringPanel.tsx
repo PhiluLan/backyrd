@@ -1,201 +1,164 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { AUTHORING_SECTIONS, READINESS_LABELS, currentFact, humanError, offeringHierarchyConflicts, type AuthoringProfile, type AuthoringQuestion, type AuthoringSectionId } from "@/lib/humanSpotV2";
+import { HumanSpotQuestion } from "./HumanSpotQuestion";
 
-type CatalogField = {
-  field_key: string;
-  section: string;
-  capability: "BASIC" | "DEEP";
-  value_kind: string;
-  allowed_values: unknown[];
-  engine_role: string;
-};
+const SOURCE_OPTIONS = [["ADMIN_VERIFIED", "Eigene Kenntnis / vor Ort geprüft"], ["OFFICIAL_WEBSITE", "Offizielle Website"], ["OFFICIAL_DOCUMENT", "Offizielle Dokumentation"]] as const;
+const SCOPE_OPTIONS = [["SPOT", "Gilt allgemein für diesen Ort"], ["PROGRAM", "Nur für ein regelmäßiges Angebot"], ["EVENT", "Nur für ein bestimmtes Event"], ["TEMPORARY", "Nur vorübergehend"]] as const;
+const GASTRONOMY = new Set(["BREWPUB", "BAR", "COCKTAIL_BAR", "WINE_BAR", "RESTAURANT", "CAFE", "BAKERY", "NIGHTLIFE"]);
+type SectionFeedback = { tone: "success" | "error"; text: string };
 
-type Proposal = {
-  id: string;
-  field_key: string;
-  proposed_value: unknown;
-  status: string;
-  created_at: string;
-  source_id: string;
-};
-
-type GoldProfile = {
-  actor: { role: "FOUNDER" | "ADMIN" | "OWNER"; capability: "BASIC" | "DEEP" };
-  catalog: CatalogField[];
-  proposals: Proposal[];
-  acceptedFacts: Array<{ id: string; field_key: string; value: unknown; status: string }>;
-  readiness: { status: string; coverage: number; gaps: Array<{ item: string; state: string }>; n4?: { snapshotHash?: string; conceptCount?: number } };
-  canonicalN4: { snapshotHash?: string; confidence?: number; completeness?: number; intelligence?: { concepts?: Record<string, unknown> }; calculatedAt?: string } | null;
-  legacy: { label: string };
-};
-
-function initialValue(field: CatalogField | undefined): string {
-  if (!field) return "";
-  if (field.value_kind === "MULTI_SELECT") return "[]";
-  if (field.value_kind === "RANGE" || field.value_kind === "STRUCTURED_OBJECT") return "{}";
-  return "";
+function defaultValue(question: AuthoringQuestion): unknown {
+  if (question.control_type === "MULTI_CHOICE") return [];
+  if (["TRI_STATE_MAP", "AVAILABILITY_MAP", "PURPOSE_MAP", "ACCESSIBILITY_MAP"].includes(question.control_type)) return Object.fromEntries(question.options.map((option) => [String(option.value), "UNKNOWN"]));
+  if (question.control_type === "AGE_RANGE") return { min_age: null, max_age: null, adult_supervision_required: "UNKNOWN" };
+  return "UNKNOWN";
 }
+function stableEqual(a: unknown, b: unknown): boolean { return JSON.stringify(a) === JSON.stringify(b); }
 
-function parseValue(field: CatalogField, raw: string): unknown {
-  if (["MULTI_SELECT", "RANGE", "STRUCTURED_OBJECT"].includes(field.value_kind)) return JSON.parse(raw);
-  if (field.value_kind === "BOOLEAN") return raw === "true";
-  if (field.value_kind === "ENUM" && field.allowed_values.some((item) => typeof item === "number")) return Number(raw);
-  return raw;
-}
-
-function jsonObject(raw: string): Record<string, unknown> {
-  try { const value=JSON.parse(raw); return value && typeof value==="object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; } catch { return {}; }
-}
-
-function jsonArray(raw: string): unknown[] {
-  try { const value=JSON.parse(raw); return Array.isArray(value) ? value : []; } catch { return []; }
-}
-
-export function GoldAuthoringPanel({ spotId }: { spotId: string }) {
-  const [profile, setProfile] = useState<GoldProfile | null>(null);
-  const [fieldKey, setFieldKey] = useState("");
-  const [rawValue, setRawValue] = useState("");
+export function GoldAuthoringPanel({ spotId, refreshToken = 0 }: { spotId: string; refreshToken?: number }) {
+  const [profile, setProfile] = useState<AuthoringProfile | null>(null);
+  const draftKey = `backyrd:hsi-v2:draft:${spotId}`;
+  const [drafts, setDrafts] = useState<Record<string, unknown>>(() => {
+    if (typeof window === "undefined") return {};
+    const stored = sessionStorage.getItem(draftKey);
+    if (!stored) return {};
+    try { return JSON.parse(stored) as Record<string, unknown>; } catch { sessionStorage.removeItem(draftKey); return {}; }
+  });
   const [sourceType, setSourceType] = useState("ADMIN_VERIFIED");
   const [sourceUrl, setSourceUrl] = useState("");
   const [sourceReference, setSourceReference] = useState("");
+  const [scope, setScope] = useState("SPOT");
+  const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [researchBusy, setResearchBusy] = useState(false);
-
-  const load = useCallback(async () => {
-    const { data, error } = await supabase.rpc("backyrd_gold_profile_v1", { p_spot_id: spotId });
-    if (error) throw error;
-    const next=data as GoldProfile;
-    setProfile(next);
-    setFieldKey((current)=>current||next.catalog[0]?.field_key||"");
-  }, [spotId]);
+  const [sectionFeedback, setSectionFeedback] = useState<Partial<Record<AuthoringSectionId, SectionFeedback>>>({});
 
   useEffect(() => {
-    // Initial server synchronization for this client-only Admin surface.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load().catch((error: unknown) => setMessage(error instanceof Error ? error.message : "Gold-Profil konnte nicht geladen werden."));
-  }, [load]);
+    void supabase.rpc("backyrd_human_spot_profile_v2", { p_spot_id: spotId }).then(({ data, error }) => {
+      if (error) setMessage(humanError(error));
+      else setProfile(data as AuthoringProfile);
+    });
+  }, [draftKey, spotId, refreshToken]);
+  useEffect(() => {
+    if (Object.keys(drafts).length) sessionStorage.setItem(draftKey, JSON.stringify(drafts));
+    else sessionStorage.removeItem(draftKey);
+  }, [draftKey, drafts]);
 
-  const field = useMemo(() => profile?.catalog.find((item) => item.field_key === fieldKey), [fieldKey, profile]);
+  const archetypes = useMemo(() => profile ? [profile.authoring.primaryArchetype, ...profile.authoring.secondaryArchetypes] : [], [profile]);
+  const facts = useMemo(() => new Map((profile?.acceptedFacts ?? []).filter((fact) => ["ACTIVE", "UNKNOWN", "STALE"].includes(fact.status)).map((fact) => [fact.field_key, fact])), [profile]);
+  const sources = useMemo(() => new Map((profile?.sources ?? []).map((source) => [source.id, source])), [profile]);
+  const questions = useMemo(() => (profile?.questions ?? []).filter((question) => {
+    if (!question.relevant) return false;
+    const condition = question.relevance?.showWhen;
+    if (!condition) return true;
+    const parentQuestion = profile?.questions.find((item) => item.question_id === condition.questionId);
+    const parent = drafts[condition.questionId] ?? currentFact(profile!, parentQuestion?.canonical_field_key ?? "")?.value;
+    return condition.values.some((value) => stableEqual(value, parent));
+  }), [drafts, profile]);
+  const dirtyQuestions = useMemo(() => new Set(Object.keys(drafts).filter((id) => {
+    const question = profile?.questions.find((item) => item.question_id === id);
+    return question && !stableEqual(drafts[id], facts.get(question.canonical_field_key)?.value);
+  })), [drafts, facts, profile]);
 
-  async function submitProposal() {
-    if (!field) return;
-    setBusy(true); setMessage(null);
+  async function saveSection(sectionId: AuthoringSectionId) {
+    if (!profile) return;
+    const changed = questions.filter((question) => question.section_id === sectionId && dirtyQuestions.has(question.question_id));
+    if (!changed.length) { setMessage("In diesem Abschnitt gibt es keine ungespeicherten Änderungen."); return; }
+    setBusy(sectionId); setMessage(null);
+    setSectionFeedback((current) => { const next = { ...current }; delete next[sectionId]; return next; });
     try {
-      const { data: sourceId, error: sourceError } = await supabase.rpc("backyrd_gold_create_source_v1", {
-        p_spot_id: spotId,
-        p_source_type: sourceType,
-        p_source_url: sourceUrl.trim() || null,
-        p_source_reference: sourceReference.trim() || null,
-        p_title: "Admin Spot Editor V2",
-        p_provider_identity: "Backyrd Admin",
-        p_observed_at: new Date().toISOString(),
-        p_last_checked_at: new Date().toISOString(),
-        p_legal_use_status: "NOT_REQUIRED",
+      const { data, error } = await supabase.rpc("backyrd_human_spot_save_section_v2", {
+        p_spot_id: spotId, p_section_id: sectionId,
+        p_answers: changed.map((question) => ({ questionId: question.question_id, value: drafts[question.question_id] })),
+        p_source_type: sourceType, p_source_url: sourceUrl.trim() || null, p_source_reference: sourceReference.trim() || null,
+        p_evidence_scope: scope, p_idempotency_key: `hsi-v2:${crypto.randomUUID()}`,
+        p_expected_snapshot_hash: profile.canonicalN4?.snapshotHash ?? null,
       });
-      if (sourceError) throw sourceError;
-      const { error } = await supabase.rpc("backyrd_gold_submit_proposal_v1", {
-        p_spot_id: spotId,
-        p_field_key: field.field_key,
-        p_value: parseValue(field, rawValue),
-        p_source_id: sourceId,
-        p_idempotency_key: `admin-v2:${crypto.randomUUID()}`,
-        p_confidence_rationale: "Vom Admin mit sichtbarer Quelle erfasst.",
-        p_evidence_excerpt: null,
-      });
       if (error) throw error;
-      setMessage("Vorschlag gespeichert. Er muss bewusst akzeptiert werden, bevor er kanonische Wahrheit wird.");
-      await load();
+      const result = data as { persisted?: number; profile?: AuthoringProfile; reviewRequired?: boolean };
+      if (!result || result.persisted !== changed.length || !result.profile) throw new Error("authoring_persistence_not_confirmed");
+      setProfile(result.profile);
+      setDrafts((current) => { const next = { ...current }; changed.forEach((question) => delete next[question.question_id]); return next; });
+      const successMessage = result.reviewRequired ? "Zur Prüfung gespeichert. Die allgemeine Spot-Wahrheit blieb unverändert." : `${changed.length} ${changed.length === 1 ? "Angabe" : "Angaben"} gespeichert. Backyrds Verständnis ist aktuell.`;
+      setMessage(successMessage);
+      setSectionFeedback((current) => ({ ...current, [sectionId]: { tone: "success", text: successMessage } }));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Vorschlag konnte nicht gespeichert werden.");
-    } finally { setBusy(false); }
+      const errorMessage = humanError(error);
+      setMessage(errorMessage);
+      setSectionFeedback((current) => ({ ...current, [sectionId]: { tone: "error", text: errorMessage } }));
+    } finally { setBusy(null); }
   }
 
-  async function review(proposalId: string, action: "ACCEPT" | "REJECT" | "MARK_UNKNOWN" | "MARK_STALE") {
-    setBusy(true); setMessage(null);
+  async function saveArchetypes(primary: string, secondary: string[]) {
+    if (!profile || (primary === profile.authoring.primaryArchetype && stableEqual(secondary, profile.authoring.secondaryArchetypes))) return;
+    setBusy("ARCHETYPE"); setMessage(null);
     try {
-      const { error } = await supabase.rpc("backyrd_gold_review_proposal_v1", { p_proposal_id: proposalId, p_action: action, p_resolution_note: "Admin Spot Editor V2" });
+      const { data, error } = await supabase.rpc("backyrd_human_spot_set_archetypes_v2", { p_spot_id: spotId, p_primary_archetype: primary, p_secondary_archetypes: secondary.filter((item) => item !== primary).sort() });
       if (error) throw error;
-      setMessage(action === "ACCEPT" ? "Akzeptiert: Facts, N4 und Gold Readiness wurden atomar aktualisiert." : "Vorschlag aktualisiert.");
-      await load();
-    } catch (error) { setMessage(error instanceof Error ? error.message : "Review fehlgeschlagen."); }
-    finally { setBusy(false); }
+      setProfile(data as AuthoringProfile);
+      setMessage("Die Fragen wurden an die Art des Orts angepasst. Es wurden keine inhaltlichen Antworten vorausgewählt.");
+    } catch (error) { setMessage(humanError(error)); } finally { setBusy(null); }
   }
 
-  async function researchSpot() {
-    setResearchBusy(true); setMessage(null);
+  async function reviewProposal(proposalId: string, action: "ACCEPT" | "REJECT") {
+    setBusy(proposalId); setMessage(null);
     try {
-      const { data, error } = await supabase.functions.invoke("research-spot", { body: { spotId, officialWebsite: sourceUrl.trim() || undefined } });
+      const { error } = await supabase.rpc("backyrd_gold_review_proposal_v1", { p_proposal_id: proposalId, p_action: action, p_resolution_note: "Human Spot Intelligence V2" });
       if (error) throw error;
-      setMessage(data.proposalCount > 0
-        ? `${data.proposalCount} quellengestützte Vorschläge erstellt. Es wurde noch keine kanonische Wahrheit verändert.`
-        : "Keine ausreichend belegten neuen Fakten gefunden. Es wurde nichts erfunden oder kanonisch verändert.");
-      await load();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Spot-Recherche konnte nicht ausgeführt werden.");
-    } finally { setResearchBusy(false); }
+      const { data, error: profileError } = await supabase.rpc("backyrd_human_spot_profile_v2", { p_spot_id: spotId });
+      if (profileError) throw profileError;
+      setProfile(data as AuthoringProfile);
+      setMessage(action === "ACCEPT" ? "Vorschlag bestätigt und kanonisches Spot-Verständnis aktualisiert." : "Vorschlag abgelehnt. Die Entscheidung bleibt nachvollziehbar.");
+    } catch (error) { setMessage(humanError(error)); } finally { setBusy(null); }
   }
 
-  if (!profile) return <section className="spot-editor-section"><h2>Gold Authoring</h2><p>{message ?? "Wird geladen …"}</p></section>;
+  async function reviewAcceptedFact(factId: string, action: "CONFIRM_SPOT" | "MARK_UNKNOWN" | "RETRACT") {
+    setBusy(factId); setMessage(null);
+    try {
+      const { error } = await supabase.rpc("backyrd_gold_review_accepted_fact_v1", { p_fact_id: factId, p_action: action, p_resolution_note: "Human Spot Intelligence V2" });
+      if (error) throw error;
+      const { data, error: profileError } = await supabase.rpc("backyrd_human_spot_profile_v2", { p_spot_id: spotId });
+      if (profileError) throw profileError;
+      setProfile(data as AuthoringProfile);
+      setMessage(action === "CONFIRM_SPOT" ? "Die allgemeine Gültigkeit wurde bestätigt." : action === "MARK_UNKNOWN" ? "Die Angabe ist jetzt ehrlich als unbekannt markiert." : "Die Angabe wird nicht mehr verwendet; ihre Historie bleibt erhalten.");
+    } catch (error) { setMessage(humanError(error)); } finally { setBusy(null); }
+  }
 
-  const concepts = Object.entries(profile.canonicalN4?.intelligence?.concepts ?? {});
-  // Field IDs, types and options come exclusively from the server catalog.
-  const fields = profile.catalog;
-  const objectValue=jsonObject(rawValue);
-  const arrayValue=jsonArray(rawValue);
-  const updateObject=(key:string,value:unknown)=>setRawValue(JSON.stringify({...objectValue,[key]:value}));
+  if (!profile) return <section className="spot-editor-section hsi-v2"><h2>Backyrd Intelligence</h2><p>{message ?? "Wird geladen …"}</p></section>;
+  const isGastronomy = GASTRONOMY.has(profile.authoring.primaryArchetype);
+  const missing = profile.humanReadiness.missing.filter((item) => item.priority !== "OPTIONAL").slice(0, 6);
 
-  return (
-    <section className="spot-editor-section" style={{ marginTop: 24 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "start" }}>
-        <div><div className="spot-editor-eyebrow">Canonical Gold Authoring</div><h2>Gold Readiness — {profile.readiness.status} {profile.readiness.coverage}%</h2><p>UNKNOWN ist erlaubt. Coverage ist keine Ranking- oder Match-Confidence.</p></div>
-        <div style={{ display: "grid", justifyItems: "end", gap: 8 }}><strong>{profile.actor.role}</strong>{["ADMIN", "FOUNDER"].includes(profile.actor.role) && <button type="button" disabled={researchBusy || busy} onClick={() => void researchSpot()}>{researchBusy ? "Recherche läuft …" : "Spot recherchieren"}</button>}</div>
-      </div>
+  return <section className="spot-editor-section hsi-v2">
+    <header className="hsi-hero"><div><span className="spot-editor-eyebrow">Human Spot Intelligence V2</span><h2>Backyrd Intelligence</h2><p>Beschreibe den Ort so, wie du ihn einem Menschen erklären würdest. Unbekannt ist immer besser als geraten.</p></div><div className="hsi-readiness"><strong>{READINESS_LABELS[profile.humanReadiness.status]}</strong><span>{profile.humanReadiness.answered} von {profile.humanReadiness.relevant} wichtigen Bereichen · {profile.humanReadiness.coverage}%</span></div></header>
+    <div className="hsi-summary" id="hsi-summary"><span>So versteht Backyrd diesen Ort</span><h3>{profile.humanSummary.text}</h3><p>Deterministisch aus bestätigten Angaben – keine KI-Zusammenfassung.</p></div>
+    {missing.length > 0 && <div className="hsi-missing"><div><strong>Was Backyrd noch fehlt</strong><span>{missing.length} wichtige, für diesen Ort relevante Angaben</span></div><div>{missing.map((item) => <button type="button" key={item.questionId} onClick={() => document.getElementById(`hsi-${item.questionId}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}>{item.label}</button>)}</div></div>}
+    {message && <p className="by-alert hsi-alert" role="status">{message}</p>}
 
-      {message && <p role="status">{message}</p>}
+    <div className="hsi-archetype-card"><label><span>Was beschreibt diesen Ort am besten?</span><select aria-label="Primäre Art des Orts" disabled={busy !== null} value={profile.authoring.primaryArchetype} onChange={(event) => void saveArchetypes(event.target.value, profile.authoring.secondaryArchetypes)}>{profile.archetypes.map((item) => <option key={item.archetype_id} value={item.archetype_id}>{item.group_de} · {item.label_de}</option>)}</select><small>Bestimmt nur die Fragen – kein Ranking-Signal und keine vorausgewählte Wahrheit.</small></label><details><summary>Was trifft außerdem zu?{profile.authoring.secondaryArchetypes.length ? ` · ${profile.authoring.secondaryArchetypes.length} ausgewählt` : ""}</summary><div className="hsi-archetype-options">{profile.archetypes.filter((item) => item.archetype_id !== profile.authoring.primaryArchetype && item.archetype_id !== "UNKNOWN").map((item) => { const selected = profile.authoring.secondaryArchetypes.includes(item.archetype_id); return <button type="button" key={item.archetype_id} aria-pressed={selected} className={selected ? "selected" : ""} disabled={busy !== null} onClick={() => void saveArchetypes(profile.authoring.primaryArchetype, selected ? profile.authoring.secondaryArchetypes.filter((value) => value !== item.archetype_id) : [...profile.authoring.secondaryArchetypes, item.archetype_id])}>{item.label_de}</button>; })}</div><small>Nur ergänzen, wenn diese Nutzung den Ort wirklich mitprägt. Die Fragen werden zusammengeführt und nicht doppelt angezeigt.</small></details></div>
+    <div className="hsi-mobile-section"><label htmlFor="hsi-section-select">Bereich öffnen</label><select id="hsi-section-select" onChange={(event) => document.getElementById(event.target.value)?.scrollIntoView({ behavior: "smooth" })}><option value="hsi-summary">Zusammenfassung</option>{AUTHORING_SECTIONS.filter((section) => questions.some((question) => question.section_id === section.id)).map((section) => <option value={`hsi-section-${section.id}`} key={section.id}>{section.label}</option>)}</select></div>
+    <nav className="hsi-section-nav" aria-label="Bereiche der Spot Intelligence"><a href="#hsi-summary">Verstanden</a>{AUTHORING_SECTIONS.filter((section) => questions.some((question) => question.section_id === section.id)).map((section) => <a href={`#hsi-section-${section.id}`} key={section.id}>{section.label}</a>)}</nav>
+    {isGastronomy && <aside className="hsi-semantic-note"><strong>Gastronomie präzise beschreiben</strong><p>Bestätigte Angebote und Besuchsgründe werden als eigene Fakten für passende zukünftige Decisions verwendet. Sie verändern weder die Atmosphäre des Orts noch persönliche Vorlieben automatisch.</p></aside>}
 
-      <div className="spot-editor-grid" style={{ marginTop: 20 }}>
-        <label><span>Typisiertes Feld</span><select value={fieldKey} onChange={(event) => { const next=event.target.value; setFieldKey(next); setRawValue(initialValue(profile.catalog.find((item) => item.field_key===next))); }}>{fields.map((item) => <option key={item.field_key} value={item.field_key}>{item.section} · {item.field_key} · {item.capability}</option>)}</select></label>
-        {field?.value_kind === "ENUM" ? (
-          <label><span>Wert</span><select value={rawValue} onChange={(event) => setRawValue(event.target.value)}><option value="">Bitte wählen</option>{field.allowed_values.map((item) => <option key={String(item)} value={String(item)}>{String(item)}</option>)}</select></label>
-        ) : field?.field_key === "suitability.age" ? (
-          <div><span>Alters-Eignung</span><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}><input type="number" min="0" max="120" placeholder="Min. Alter" value={String(objectValue.min_age ?? "")} onChange={(event)=>updateObject("min_age",event.target.value===""?null:Number(event.target.value))}/><input type="number" min="0" max="120" placeholder="Max. Alter" value={String(objectValue.max_age ?? "")} onChange={(event)=>updateObject("max_age",event.target.value===""?null:Number(event.target.value))}/><select value={String(objectValue.adult_supervision_required ?? "UNKNOWN")} onChange={(event)=>updateObject("adult_supervision_required",event.target.value==="UNKNOWN"?"UNKNOWN":event.target.value==="YES")}><option>UNKNOWN</option><option>YES</option><option>NO</option></select></div></div>
-        ) : field?.field_key === "social.suitability" || field?.field_key.startsWith("accessibility.") ? (
-          <div><span>{field.field_key === "social.suitability" ? "Social Context" : "Accessibility capabilities"}</span><div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:8}}>{(field.field_key === "social.suitability" ? ["solo","date","friends","family","groups","work"] : ["step_free","wheelchair_spaces","accessible_toilet","elevator","hearing_support","assistance_dogs"]).map((key)=><label key={key}><small>{key}</small><select value={String(objectValue[key] ?? "UNKNOWN")} onChange={(event)=>updateObject(key,event.target.value)}><option>UNKNOWN</option><option>SUITABLE</option><option>NOT_SUITABLE</option></select></label>)}</div></div>
-        ) : field?.value_kind === "MULTI_SELECT" && field.allowed_values.length > 0 ? (
-          <div><span>Kontrollierte Auswahl</span><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{field.allowed_values.map((item)=><label key={String(item)}><input type="checkbox" checked={arrayValue.includes(item)} onChange={(event)=>setRawValue(JSON.stringify(event.target.checked?[...arrayValue,item]:arrayValue.filter((value)=>value!==item)))}/>{String(item)}</label>)}</div></div>
-        ) : field?.value_kind === "RANGE" ? (
-          <div><span>Bereich</span><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><input type="number" placeholder="Minimum" value={String(objectValue.min ?? "")} onChange={(event)=>updateObject("min",event.target.value===""?null:Number(event.target.value))}/><input type="number" placeholder="Maximum" value={String(objectValue.max ?? "")} onChange={(event)=>updateObject("max",event.target.value===""?null:Number(event.target.value))}/></div></div>
-        ) : (
-          <label><span>Strukturierter Wert ({field?.value_kind})</span><textarea value={rawValue} onChange={(event) => setRawValue(event.target.value)} rows={3} placeholder={field?.value_kind === "STRUCTURED_OBJECT" ? '{"min_age":4,"max_age":12,"adult_supervision_required":true}' : "[]"} /></label>
-        )}
-        <label><span>Quelle</span><select value={sourceType} onChange={(event) => setSourceType(event.target.value)}><option>ADMIN_VERIFIED</option><option>OFFICIAL_WEBSITE</option><option>OFFICIAL_DOCUMENT</option><option>STRUCTURED_PROVIDER</option><option>IMPORT</option></select></label>
-        <label><span>Source URL / offizielle Research-Seed-URL</span><input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="https://…" /></label>
-        <label><span>Source Reference (falls keine URL)</span><input value={sourceReference} onChange={(event) => setSourceReference(event.target.value)} placeholder="Dokument / interne Referenz" /></label>
-      </div>
-      <button type="button" disabled={busy || !rawValue || (!sourceUrl.trim() && !sourceReference.trim())} onClick={() => void submitProposal()}>Als Proposal speichern</button>
+    {AUTHORING_SECTIONS.map((section) => {
+      const sectionQuestions = questions.filter((question) => question.section_id === section.id);
+      if (!sectionQuestions.length) return null;
+      const changed = sectionQuestions.filter((question) => dirtyQuestions.has(question.question_id)).length;
+      const hasOfferingConflict = sectionQuestions.some((question) => question.control_type === "AVAILABILITY_MAP" && offeringHierarchyConflicts(drafts[question.question_id] ?? facts.get(question.canonical_field_key)?.value ?? defaultValue(question)).length > 0);
+      const feedback = sectionFeedback[section.id];
+      const saved = feedback?.tone === "success" && changed === 0;
+      return <section className="hsi-section" id={`hsi-section-${section.id}`} key={section.id}><header><div><span>{changed ? `${changed} ungespeichert` : saved ? "Gespeichert" : "Aktuell"}</span><h3>{section.label}</h3><p>{section.description}</p></div><div className="hsi-section-actions"><button type="button" className={saved ? "is-saved" : ""} disabled={busy !== null || changed === 0 || hasOfferingConflict} onClick={() => void saveSection(section.id)}>{busy === section.id ? "Wird gespeichert …" : saved ? "Gespeichert ✓" : scope === "SPOT" ? "Abschnitt speichern" : "Zur Prüfung speichern"}</button>{feedback && <p className={`hsi-section-feedback ${feedback.tone}`} role="status">{feedback.text}</p>}</div></header><div className="hsi-question-list">{sectionQuestions.map((question) => {
+        const fact = facts.get(question.canonical_field_key); const source = fact ? sources.get(fact.source_id) : undefined;
+        const value = drafts[question.question_id] ?? fact?.value ?? defaultValue(question);
+        const provenance = fact ? `${source?.source_type === "ADMIN_VERIFIED" ? "Von dir bestätigt" : source?.source_type === "OFFICIAL_WEBSITE" ? "Offizielle Website" : "Bestätigte Quelle"}${fact.last_checked_at || fact.accepted_at ? ` · ${new Date(fact.last_checked_at ?? fact.accepted_at ?? "").toLocaleDateString("de-CH")}` : ""}` : undefined;
+        return <HumanSpotQuestion key={question.question_id} question={question} value={value} archetypes={archetypes} changed={dirtyQuestions.has(question.question_id)} provenance={provenance} onChange={(value) => { setDrafts((current) => ({ ...current, [question.question_id]: value })); setSectionFeedback((current) => { const next = { ...current }; delete next[question.section_id]; return next; }); }} />;
+      })}</div></section>;
+    })}
 
-      <h3 style={{ marginTop: 28 }}>Proposal Review</h3>
-      <p><small>Research-Vorschläge sind Quellenhinweise, keine Wahrheit. Erst eine bewusste Admin-/Founder-Prüfung kann daraus einen akzeptierten Fact machen.</small></p>
-      <div style={{ display: "grid", gap: 10 }}>
-        {profile.proposals.filter((item) => ["PENDING", "CONFLICT", "STALE"].includes(item.status)).map((item) => (
-          <div key={item.id} style={{ border: "1px solid #ddd", borderRadius: 12, padding: 12 }}>
-            <strong>{item.field_key}</strong> · {item.status}<pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(item.proposed_value, null, 2)}</pre>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button type="button" onClick={() => void review(item.id, "ACCEPT")}>Accept</button><button type="button" onClick={() => void review(item.id, "REJECT")}>Reject</button><button type="button" onClick={() => void review(item.id, "MARK_UNKNOWN")}>Mark Unknown</button><button type="button" onClick={() => void review(item.id, "MARK_STALE")}>Mark Stale</button></div>
-          </div>
-        ))}
-        {!profile.proposals.some((item) => ["PENDING", "CONFLICT", "STALE"].includes(item.status)) && <p>Keine offenen Proposals.</p>}
-      </div>
-
-      <h3 style={{ marginTop: 28 }}>Gold Readiness</h3>
-      <ul>{profile.readiness.gaps.map((gap) => <li key={`${gap.state}:${gap.item}`}><strong>{gap.state}</strong>: {gap.item}</li>)}</ul>
-
-      <h3 style={{ marginTop: 28 }}>Canonical Intelligence (read-only)</h3>
-      <p>Snapshot {profile.canonicalN4?.snapshotHash ?? "UNKNOWN"} · {concepts.length} Concepts · Confidence {profile.canonicalN4?.confidence ?? "UNKNOWN"}</p>
-      <ul>{concepts.map(([key, value]) => <li key={key}><strong>{key}</strong> <code>{JSON.stringify(value)}</code></li>)}</ul>
-      <p><small>{profile.legacy.label}. N4 confidence and snapshot cannot be edited here.</small></p>
-    </section>
-  );
+    <section className="hsi-source-card" id="human-sources"><h3>Quelle und Gültigkeit</h3><p>Diese Einstellungen gelten für den nächsten gespeicherten Abschnitt.</p><div><label><span>Quelle</span><select value={sourceType} onChange={(event) => setSourceType(event.target.value)}>{SOURCE_OPTIONS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label><label><span>Website / Referenz</span><input value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} placeholder="https://… (nur bei Online-Quelle)" /><input value={sourceReference} onChange={(event) => setSourceReference(event.target.value)} placeholder="Optionaler kurzer Hinweis" /></label><label><span>Wie lange gilt es?</span><select value={scope} onChange={(event) => setScope(event.target.value)}>{SCOPE_OPTIONS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label></div></section>
+    {profile.proposals.some((proposal) => ["PENDING", "CONFLICT", "STALE"].includes(proposal.status)) && <section className="hsi-proposals"><header><div><span>Vorschläge</span><h3>Backyrd hat dazu Angaben gefunden</h3><p>Ein Vorschlag ist nie vorausgewählte Wahrheit. Prüfe ihn bewusst.</p></div></header><div>{profile.proposals.filter((proposal) => ["PENDING", "CONFLICT", "STALE"].includes(proposal.status)).map((proposal) => { const proposalScope = proposal.evidence_scope ?? proposal.research_evidence_scope; return <article key={proposal.id}><div><strong>{profile.questions.find((question) => question.canonical_field_key === proposal.field_key)?.label_de ?? "Ältere Angabe prüfen"}</strong><span>{proposalScope === "SPOT" ? "Gilt allgemein für den Ort" : "Nicht allgemeine Spot-Wahrheit · prüfen"}</span></div><div><button type="button" disabled={busy !== null} onClick={() => void reviewProposal(proposal.id, "REJECT")}>Ablehnen</button><button type="button" disabled={busy !== null || proposalScope !== "SPOT"} onClick={() => void reviewProposal(proposal.id, "ACCEPT")}>{busy === proposal.id ? "Wird geprüft …" : "Bestätigen"}</button></div></article>; })}</div></section>}
+    {(profile.reviewIssues?.length ?? 0) > 0 && <section className="hsi-proposals"><header><div><span>Widersprüche</span><h3>Bestehende Angaben prüfen</h3><p>Ältere oder widersprüchliche Wahrheit wird nicht stillschweigend umgedeutet.</p></div></header><div>{profile.reviewIssues?.map((issue) => <article key={issue.code}><div><strong>{issue.label}</strong><span>{issue.detail}</span></div>{issue.factId && <div>{issue.canMarkUnknown && <button type="button" disabled={busy !== null} onClick={() => void reviewAcceptedFact(issue.factId!, "MARK_UNKNOWN")}>Unbekannt</button>}<button type="button" disabled={busy !== null} onClick={() => void reviewAcceptedFact(issue.factId!, "RETRACT")}>Nicht verwenden</button>{issue.canConfirm && <button type="button" disabled={busy !== null} onClick={() => void reviewAcceptedFact(issue.factId!, "CONFIRM_SPOT")}>Bestätigen</button>}</div>}</article>)}</div></section>}
+    <div className={`hsi-save-dock${dirtyQuestions.size ? " visible" : ""}`} role="status"><span><strong>{dirtyQuestions.size} {dirtyQuestions.size === 1 ? "Änderung" : "Änderungen"}</strong> noch nicht gespeichert</span><button type="button" onClick={() => document.querySelector<HTMLElement>(".hsi-section .is-dirty")?.scrollIntoView({ behavior: "smooth", block: "center" })}>Zur Änderung</button></div>
+  </section>;
 }

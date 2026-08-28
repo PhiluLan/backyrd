@@ -1,6 +1,6 @@
 // mobile/components/LoginBottomSheet.tsx
 import React, { useEffect } from "react";
-import { View, Text, Pressable, StyleSheet, Dimensions, Platform } from "react-native";
+import { View, Text, Pressable, StyleSheet, Dimensions } from "react-native";
 import Animated, {
   useSharedValue,
   withTiming,
@@ -33,7 +33,7 @@ export default function LoginBottomSheet({ visible, onClose, onApple, onGoogle }
 
   useEffect(() => {
     open.value = withTiming(visible ? 1 : 0, {duration: 450,});
-  }, [visible]);
+  }, [open, visible]);
 
   const overlayStyle = useAnimatedStyle(() => ({
     opacity: withTiming(visible ? 1 : 0, { duration: 500 }),

@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { 
+  type AchievementWithProgress,
   awardAchievementsForUser, 
   calculateAchievementProgress 
 } from "../lib/achievementEngine";
 
 export function useAchievements() {
-  const [achievements, setAchievements] = useState([]);
+  const [achievements, setAchievements] = useState<AchievementWithProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

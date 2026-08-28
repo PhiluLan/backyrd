@@ -7,6 +7,7 @@ const userId="10000000-0000-4000-8000-000000000001";
 const decisionId="10000000-0000-4000-8000-000000000010";
 const ids=["10000000-0000-4000-8000-000000000101","10000000-0000-4000-8000-000000000102","10000000-0000-4000-8000-000000000103","10000000-0000-4000-8000-000000000104"];
 const n4=(spotId,concepts,availability="FULL")=>({spotId,availability,placeType:"bar",productFacts:{placeType:"bar"},concepts:Object.entries(concepts).map(([concept,[presence,confidence]])=>({concept,presence,confidence,provenance:[`n4:${spotId}:${concept}`]})),snapshotHash:contentHash({spotId,concepts,availability})});
+const offering=(spotId)=>({spotId,availability:"UNKNOWN",offerings:{},purposes:{},availableWithAncestors:[],snapshotHash:contentHash({spotId,offering:"UNKNOWN"})});
 const cards=(candidates)=>candidates.map(({spotId})=>({spotId,name:`Spot ${spotId.slice(-3)}`,city:"Basel",category:"Bar",headerPhotoPath:null}));
 function fixture({mode="LOW_OR_UNKNOWN",taste=[],directions=[],candidates}={}){
   const rows=candidates??[
@@ -14,7 +15,8 @@ function fixture({mode="LOW_OR_UNKNOWN",taste=[],directions=[],candidates}={}){
     {spotId:ids[1],retrievalPosition:2,eligible:true,n4:n4(ids[1],{"vibe.lively":[.95,.9]})},
     {spotId:ids[2],retrievalPosition:3,eligible:true,n4:n4(ids[2],{},"UNKNOWN")},
   ];
-  const body={version:"backyrd-decision-input-package-v3",decisionId,userId,n3:{currentMoment:{decisionId,userId,fields:{vibe:{value:["quiet"]}},currentRequestFacts:{},momentHash:"a".repeat(64)},momentHash:"a".repeat(64)},n5:{decisionId,userId,userCardHash:"b".repeat(64),projectionHash:"c".repeat(64),knowledgeMode:mode,taste,currentIntent:{conceptDirections:directions,requiredPlaceTypes:["bar"],preferredPlaceTypes:[]}},candidateSet:{candidateSetHash:contentHash(rows.map(x=>x.spotId)),count:rows.length},candidates:rows};
+  const frozenRows=rows.map((row)=>({...row,offering:row.offering??offering(row.spotId)}));
+  const body={version:"backyrd-decision-input-package-v4",decisionId,userId,n3:{currentMoment:{decisionId,userId,fields:{vibe:{value:["quiet"]}},currentRequestFacts:{},momentHash:"a".repeat(64)},momentHash:"a".repeat(64)},n5:{decisionId,userId,userCardHash:"b".repeat(64),projectionHash:"c".repeat(64),knowledgeMode:mode,taste,currentIntent:{conceptDirections:directions,requiredPlaceTypes:["bar"],preferredPlaceTypes:[]}},candidateSet:{candidateSetHash:contentHash(frozenRows.map(x=>x.spotId)),count:frozenRows.length},candidates:frozenRows};
   return {...body,packageHash:contentHash(body)};
 }
 

@@ -1,18 +1,18 @@
 {
   "d2Version": "2.2",
   "contractVersion": "personalization-treatment-v1",
-  "contractHash": "5c9b34d40f4cbbf0d630f47b9a1ba40a7e98547d9926f9c2309db12a6de47061",
+  "contractHash": "85931e3579bf1bd26d9e1d6956d9a2e8e7dc2c00eb1b6dfe4b3aa65262642cb2",
   "treatmentGeneratorVersion": "personalization-treatment-generator-v1",
   "treatmentGeneratorHash": "d09c93e3e2ce7d4f5757fac6fa14129ec2a8eb8abe0c46ee9624ebded3d5cf14",
-  "scientificValidationHash": "978b526c3f2e670349bca0feadb53be1b39b5324ad97fe2f38bbdcd6b0054d0a",
+  "scientificValidationHash": "6424c706a28c7388cc0ef08e4adb70f682f4849e433a066f248871233aaa8cb8",
   "scientificValidity": "PASS",
-  "parentFreezeManifestHash": "6488f3031bb63df482dbff2b2e2c011c1a82781862e1fe532ffdd1c968fffacf",
+  "parentFreezeManifestHash": "70f4ca13306d48a21d91d80c109794f39ad7e10af69edfcc3954b233af4e0026",
   "parentFreezePreserved": true,
-  "engineSourceHash": "a3618a4254a884a53b45cf185c630444239d3da8e04f78d86ece6a65cda507ba",
+  "engineSourceHash": "28e178dee7192cb303b07574f31f1e86f58bc80048b23ba00bf032ca02c2bfc4",
   "engineMutation": "NONE",
   "componentInventoryHash": "7b2adb88a93212339d90952dcd47b7cedb738d5888aabf1661c21b9f9157121d",
   "d31Readiness": "READY",
-  "freezeManifestHash": "9b4691de75bead63ad798700ada0b818ba6d29ad92d24804dcb2d3eeecfc1053",
+  "freezeManifestHash": "be7e65317d71717c3b14a48a75bddf9092c34de1a70e84e2e3f60c74ca6a5b3a",
   "frozen": true,
   "validation": {
     "pass": true,
@@ -26,8 +26,8 @@
       "power"
     ],
     "seedCount": 3,
-    "evidenceHash": "978b526c3f2e670349bca0feadb53be1b39b5324ad97fe2f38bbdcd6b0054d0a",
-    "validationHash": "ebaca7fe339b0ff549fc3e63d12b05e7b2b2ac716d2093bd910f3cec91f0c9ba"
+    "evidenceHash": "6424c706a28c7388cc0ef08e4adb70f682f4849e433a066f248871233aaa8cb8",
+    "validationHash": "958707ddea93af1f4dabf87867a8a066ca522b083e452da99189d53cbf68e220"
   },
-  "fixtureTreatmentHash": "1e03a6e32be6a692db936ffbbb2c3490789f1b5a8e448cc4e82994b5d58b91b9"
+  "fixtureTreatmentHash": "c0a8ca9b2f4a830739f2f24a0a9ddc181aeae732b43562b22c59f14b7d12e7b9"
 }

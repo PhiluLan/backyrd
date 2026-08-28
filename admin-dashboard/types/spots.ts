@@ -1,5 +1,5 @@
 // types/spots.ts
-export type SpotStatus = "pending" | "approved" | "rejected" | "hidden";
+export type SpotStatus = "pending" | "approved" | "rejected" | "archived";
 
 export interface Spot {
   id: string;

@@ -27,6 +27,7 @@ import { awardAchievementsForUser } from "../../lib/achievementEngine";
 import { AchievementUnlockModal } from "../../components/AchievementUnlockModal";
 import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 import { registerSafetySnapshot } from "../../lib/safety-content";
+import { userFacingError } from "../../lib/userFacingError";
 
 const theme = {
   colors: {
@@ -37,9 +38,9 @@ const theme = {
     text: "#FFFFFF",
     textMuted: "rgba(255,255,255,0.56)",
     textSoft: "rgba(255,255,255,0.72)",
-    primary: "#FF7DA7",
-    accent: "#FFD4E0",
-    ink: "#171214",
+    primary: "#FF4F91",
+    accent: "#FFC5DA",
+    ink: "#111113",
   },
   radius: { md: 12, lg: 16, xl: 24, pill: 999 },
   spacing: (n: number) => n * 8,
@@ -167,7 +168,7 @@ export default function NewReviewScreen() {
       }
     } catch (e: any) {
       console.error("pickImage error:", e);
-      Alert.alert("Fehler", e.message ?? "Konnte kein Bild auswählen.");
+      Alert.alert("Bild nicht ausgewählt", userFacingError(e, "Das Bild konnte gerade nicht ausgewählt werden."));
     }
   }
 
@@ -381,8 +382,8 @@ export default function NewReviewScreen() {
         console.error("submitReview error:", e);
 
         Alert.alert(
-          "Fehler",
-          e.message ?? "Konnte Review nicht speichern.",
+          "Review nicht gespeichert",
+          userFacingError(e, "Deine Review konnte gerade nicht gespeichert werden. Bitte versuche es noch einmal."),
         );
       }
     } finally {
@@ -527,7 +528,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing(3),
   },
   kicker: {
-    color: "#FF9ABA",
+    color: "#FF4F91",
     fontSize: 12,
     fontWeight: "900",
     letterSpacing: 3.4,
