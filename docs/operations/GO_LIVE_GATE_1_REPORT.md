@@ -8,13 +8,16 @@ Production migration tip: `20260828192125_gate1_schema_convergence_v1`
 
 ## A. Executive result
 
-**GO-LIVE GATE 1 — FAIL.** The migration history, clean bootstrap, schema/RLS convergence, relational integrity, canonical truth structures, database restore, and media restore were proven. The gate cannot pass because three P1 decisions remain outside an engineer's unilateral authority:
+**GO-LIVE GATE 1 — FAIL.** The migration history, clean bootstrap, schema/RLS convergence, relational integrity, canonical truth structures, database restore, and media restore were proven. The later repository-lineage audit also proved that `origin/main` does not contain the shipped Product. A conflict-free candidate integration now contains every proven shipped lineage, but the gate cannot pass because four P1 decisions/actions remain:
 
 1. two active Product Spots claim the same Google Place identity for Basler Papiermühle;
 2. three approved Product Spots have broken authoritative header-image references;
 3. the Free-plan project has no proven ongoing, retained, off-provider database-and-media backup strategy.
+4. the reviewed canonical integration must reach the default branch; `origin/main` remains 98 commits behind the integration anchor and lacks shipped Mobile, Consumer Web, and 36 Production migrations.
 
 No real Product history was deleted to obtain this result. The one Production mutation was a forward-only, additive schema convergence migration. Gate 2 must not start.
+
+Repository/source-of-truth evidence and the exact integration plan are in `docs/operations/GO_LIVE_GATE_1_REPOSITORY_LINEAGE.md`; machine-readable delivery identities are in `docs/operations/PRODUCTION_PRODUCT_LINEAGE.json`.
 
 ## B. Gate-1 target
 
@@ -326,6 +329,7 @@ These are read-only facts. No corpus improvement was performed.
 1. Founder-approved canonical resolution for the two active Papiermühle Spot identities, including explicit lineage migration/retention and archive choice.
 2. Founder/content-authorized replacement of the three authoritative header files, or explicit decision to clear/downgrade those references.
 3. Durable ongoing backup: authorize a provider plan/retention level and a secure off-provider scheduled Storage export with owner, monitoring, restore cadence, and retention.
+4. Merge the reviewed canonical integration to the default branch and verify the resulting remote HEAD; until then `origin/main` is not a cloneable representation of the shipped Product.
 
 The exact bounded options and required Founder response format are recorded in `docs/operations/GO_LIVE_GATE_1_FOUNDER_DECISIONS.md`.
 
@@ -408,7 +412,7 @@ PRODUCTION MUTATIONS — 1 additive/authorization schema migration; 0 data rows
 MIGRATION REPAIR — NO
 
 GATE-1 P0 REMAINING — 0
-GATE-1 P1 REMAINING — 3
+GATE-1 P1 REMAINING — 4
 
 ADMIN PR #105 REVALIDATION BASELINE — NOT_READY
 READY TO START GO-LIVE GATE 2 — NO
@@ -417,6 +421,7 @@ READY TO START GO-LIVE GATE 2 — NO
 ## AN. Final north-star questions
 
 - Can a senior engineer clone the canonical repository and build the database from zero without Philipp explaining hidden steps? **YES.**
+- Does the current default branch contain the shipped Mobile, Consumer Web, and backend lineages? **NO.** The candidate integration does; `origin/main` does not.
 - Does Production match the canonical migration history? **YES.**
 - Do we know why every retained test/fixture identity still exists? **YES.**
 - Can test/fixture history affect normal Product behavior? **NO.**

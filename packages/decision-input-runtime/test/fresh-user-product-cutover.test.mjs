@@ -11,7 +11,7 @@ test("canonical Product Decision has no parallel Legacy Taste write",async()=>{
   assert.doesNotMatch(mobile,/backyrd_log_taste_event_v[23]/);
   assert.match(mobile,/backyrd_record_visible_decision_impression_v1/);
   assert.match(mobile,/DecisionCardAction = "next" \| "like" \| "dislike"/);
-  assert.match(mobile,/action!=="next"/);
+  assert.match(mobile,/action\s*!==\s*"next"/);
 });
 
 test("active Decision UI has neutral navigation and no fake percentage",async()=>{

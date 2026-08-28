@@ -15,7 +15,7 @@ test("trace persistence atomically sequences frozen package then evidence envelo
   };
   const result=await repository.persistTrace({package:packageValue,validation:{disposition:"VALID"}},{canonicalIntent:{socialContext:"FRIENDS",currentRequestFacts:{dayparts:{value:["EVENING"]}},conceptDirections:[{concept:"vibe.cozy",direction:1}]}});
   assert.equal(result,"trace-id");
-  assert.deepEqual(calls.map((row)=>row.name),["backyrd_persist_decision_input_trace_v1","backyrd_persist_decision_evidence_envelope_v1"]);
-  assert.deepEqual(calls[1].args.p_moment_signature,{audience:"friends",daypart:"evening"});
-  assert.deepEqual(calls[1].args.p_ambient_context,{observedDaypart:"morning"});
+  assert.deepEqual(calls.map((row)=>row.name),["backyrd_persist_decision_input_trace_v1","backyrd_persist_decision_offering_snapshot_v1","backyrd_persist_decision_evidence_envelope_v1"]);
+  assert.deepEqual(calls[2].args.p_moment_signature,{audience:"friends",daypart:"evening"});
+  assert.deepEqual(calls[2].args.p_ambient_context,{observedDaypart:"morning"});
 });

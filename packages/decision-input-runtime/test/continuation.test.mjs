@@ -28,8 +28,10 @@ test("Mobile requests server continuation and never refills from seen rows",()=>
   const source=fs.readFileSync(path.join(root,"mobile/app/(tabs)/decision.tsx"),"utf8");
   assert.match(source,/continuationDecisionId:\s*decisionId/);
   assert.match(source,/continuationRequestId:\s*continuationRequestIdRef\.current/);
-  assert.match(source,/persistDecisionSession\(enriched, generatedCopy, serverDecisionId\)/);
-  assert.match(source,/activeDecisionId=serverDecisionId\?\?persistedDecisionId/);
+  assert.match(source,/const serverDecisionId\s*=\s*data\.north_star\?\.decision_id\s*\?\?\s*data\.continuation\?\.decision_id\s*\?\?\s*null/);
+  assert.match(source,/if \(!serverDecisionId\)/);
+  assert.match(source,/if \(!isRemix\) setDecisionId\(serverDecisionId\)/);
+  assert.doesNotMatch(source,/create_decision_session_v1/);
   assert.doesNotMatch(source,/\[\.\.\.fresh,\s*\.\.\.fallback\]/);
   assert.match(source,/disabled=\{continuationLoading\}/);
   assert.match(source,/Das waren die passendsten Vorschläge/);
