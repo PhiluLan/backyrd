@@ -40,10 +40,10 @@ export default function ReviewsOverview() {
   async function load() {
     setLoading(true);
 
-    const { data, error } = await supabase.rpc("spots_with_review_count");
+    const { data, error } = await supabase.rpc("admin_review_spots_v2");
 
     if (error) {
-      setError(error.message);
+      setError("Die Review-Übersicht konnte nicht geladen werden.");
       setSpots([]);
     } else {
       setError("");

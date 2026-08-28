@@ -10,7 +10,6 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const pathname = usePathname();
   const [state, setState] = useState<GuardState>("checking");
-  const [reason, setReason] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -21,11 +20,10 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
         return;
       }
 
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const { data: userData, error: sessionError } = await supabase.auth.getUser();
       if (cancelled) return;
 
-      if (sessionError || !sessionData.session?.user) {
-        setReason(sessionError ? "session_error" : "no_session");
+      if (sessionError || !userData.user) {
         setState("blocked");
         router.replace("/login");
         return;
@@ -36,14 +34,12 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
 
       if (error || data !== true) {
         console.error("Admin check failed:", error);
-        setReason(error ? "admin_check_failed" : "not_admin");
         setState("blocked");
         await supabase.auth.signOut();
         router.replace("/login");
         return;
       }
 
-      setReason("ok");
       setState("ok");
     }
 
@@ -58,7 +54,7 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
   }
 
   if (state === "blocked") {
-    return <div className="bi-guard">Zugriff verweigert. ({reason})</div>;
+    return <div className="bi-guard">Dieser Bereich ist nur für autorisierte Backyrd-Admins verfügbar.</div>;
   }
 
   return <>{children}</>;

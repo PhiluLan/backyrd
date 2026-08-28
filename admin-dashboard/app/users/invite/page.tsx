@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function InviteUserPage() {
   const [email, setEmail] = useState("");
@@ -11,17 +12,20 @@ export default function InviteUserPage() {
   async function invite() {
     setLoading(true);
     setMsg(null);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) { setMsg("Deine Sitzung ist abgelaufen. Bitte melde dich erneut an."); setLoading(false); return; }
 
     const res = await fetch("/api/admin/invite-user", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ email }),
     });
 
     const json = await res.json();
 
     if (!res.ok) {
-      setMsg(json.error ?? "Invite failed");
+      setMsg(json.error ?? "Die Einladung konnte nicht gesendet werden.");
     } else {
       setMsg("Invite gesendet.");
       setEmail("");
@@ -34,8 +38,8 @@ export default function InviteUserPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Invite User</h1>
-          <p className="text-sm text-gray-500">Einladung per Email über Supabase.</p>
+          <h1 className="text-2xl font-semibold">Nutzer einladen</h1>
+          <p className="text-sm text-gray-500">Sende eine sichere Einladung per E-Mail.</p>
         </div>
         <Link href="/users" className="text-sm text-gray-500 hover:underline">
           Zurück
@@ -55,7 +59,7 @@ export default function InviteUserPage() {
           onClick={invite}
           className="rounded-md border border-gray-200 px-3 py-2 text-sm hover:bg-gray-50 disabled:opacity-60"
         >
-          {loading ? "Sende…" : "Invite senden"}
+          {loading ? "Wird gesendet …" : "Einladung senden"}
         </button>
 
         {msg && <div className="text-sm text-gray-700">{msg}</div>}

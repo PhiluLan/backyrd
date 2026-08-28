@@ -30,7 +30,7 @@ export default function PartnersPage(){
   const [error,setError]=useState("");
 
   useEffect(()=>{const t=setTimeout(()=>setQuery(search.trim()),250);return()=>clearTimeout(t)},[search]);
-  useEffect(()=>{let cancelled=false;(async()=>{setLoading(true);setError("");const r=rangeFor(preset);const {data:res,error:rpcError}=await supabase.rpc("admin_partners_intelligence_v1",{p_from:r.from,p_to:r.to,p_limit:200,p_search:query||null});if(cancelled)return;if(rpcError){setError(rpcError.message);setData(null)}else setData(res as Data);setLoading(false)})();return()=>{cancelled=true}},[preset,query]);
+  useEffect(()=>{let cancelled=false;(async()=>{setLoading(true);setError("");const r=rangeFor(preset);const {data:res,error:rpcError}=await supabase.rpc("admin_partners_intelligence_v2",{p_from:r.from,p_to:r.to,p_limit:200,p_search:query||null});if(cancelled)return;if(rpcError){setError("Partner-Kennzahlen konnten nicht geladen werden.");setData(null)}else setData(res as Data);setLoading(false)})();return()=>{cancelled=true}},[preset,query]);
 
   const claimTotal=useMemo(()=>Object.fromEntries((data?.claims??[]).map(x=>[x.status,x.claims])),[data]);
 

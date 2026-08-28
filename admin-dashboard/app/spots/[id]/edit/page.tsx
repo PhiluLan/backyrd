@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { Spot } from "@/types/spots";
 import { SpotForm } from "../../SpotForm";
@@ -24,7 +24,10 @@ interface OpeningHourRow {
 
 export default function EditSpotPage({ params }: EditSpotPageProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { id: spotId } = React.use(params);
+  const returnParam = searchParams.get("returnTo");
+  const returnTo = returnParam?.startsWith("/") && !returnParam.startsWith("//") ? returnParam : `/spots/${spotId}`;
 
   const [spot, setSpot] = useState<Spot | null>(null);
   const [openingHours, setOpeningHours] = useState<OpeningHourRow[]>([]);
@@ -32,6 +35,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
   const [deleting, setDeleting] = useState(false);
   const [archiveConfirmation, setArchiveConfirmation] = useState(false);
   const [goldRefresh, setGoldRefresh] = useState(0);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -81,7 +85,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
         throw new Error("Die Archivierung konnte nicht bestätigt werden.");
       }
       setArchiveConfirmation(false);
-      router.push("/spots?status=archived&archiviert=1");
+      router.push("/spots?archiviert=1");
       router.refresh();
     } catch (err: unknown) {
       console.error(err);
@@ -125,9 +129,9 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
         </div>
 
         <div className="spot-editor-actions">
-          <Link href={`/spots/${spotId}`} className="spot-editor-back">
+          <Link href={returnTo} className="spot-editor-back">
             <span>←</span>
-            Spot-Detail
+            {returnTo.startsWith("/spot-quality") ? "Zur Qualitätsliste" : "Spot-Übersicht"}
           </Link>
           <button
             type="button"
@@ -156,6 +160,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
       </nav>
 
       {error ? <div className="by-alert by-alertError">{error}</div> : null}
+      {saved ? <div className="admin-saveReturn" role="status"><span>Änderungen sind gespeichert und werden in der Spot-Qualität live berücksichtigt.</span><Link href={returnTo}>Zur Arbeitsliste zurück →</Link></div> : null}
 
       {archiveConfirmation ? (
         <div className="admin-confirmOverlay" role="presentation">
@@ -178,7 +183,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
           ...spot,
           opening_hours: openingHours,
         }}
-        onSaved={() => setGoldRefresh((value) => value + 1)}
+        onSaved={() => { setGoldRefresh((value) => value + 1); setSaved(true); }}
       /></div>
       <div id="spot-understanding" className="spot-editor-anchor"><GoldAuthoringPanel spotId={spotId} refreshToken={goldRefresh} /></div>
     </div>

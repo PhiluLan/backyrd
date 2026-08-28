@@ -435,19 +435,16 @@ export default function SafetyIntegrityPage() {
   }
 
   useEffect(() => {
-    void load();
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
   }, [view, caseStatus, reportStatus, appealStatus]);
 
   useEffect(() => {
-    setSearchTerm("");
-
-    if (view === "cases") {
-      setCaseSort(
-        caseStatus === "decided"
-          ? "decision_newest"
-          : "priority_highest",
-      );
-    }
+    const timer = window.setTimeout(() => {
+      setSearchTerm("");
+      if (view === "cases") setCaseSort(caseStatus === "decided" ? "decision_newest" : "priority_highest");
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [view, caseStatus]);
 
   const filteredCases = useMemo(() => {
@@ -731,7 +728,7 @@ export default function SafetyIntegrityPage() {
     );
 
     if (appealError) {
-      setError(appealError.message);
+      setError("Die Einspruchsentscheidung konnte nicht gespeichert werden.");
       setWorkingId(null);
       return;
     }
@@ -861,7 +858,7 @@ export default function SafetyIntegrityPage() {
           );
         })}
 
-        <a
+        <Link
           href="/safety-integrity/enforcement"
           style={{
             display: "inline-flex",
@@ -876,7 +873,7 @@ export default function SafetyIntegrityPage() {
           }}
         >
           Account Enforcement →
-        </a>
+        </Link>
       </nav>
 
       <section

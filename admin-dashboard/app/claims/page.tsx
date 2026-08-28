@@ -140,7 +140,7 @@ export default function ClaimsPage() {
     setLoading(true);
     setError(null);
 
-    const { data, error } = await supabase.rpc("get_spot_claim_queue_v2", {
+    const { data, error } = await supabase.rpc("get_spot_claim_queue_v3", {
       p_status: statusFilter === "all" ? null : statusFilter,
       p_limit: 100,
     });

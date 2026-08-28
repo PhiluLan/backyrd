@@ -29,12 +29,12 @@ export default function Page(){
     const r=await supabase.rpc("safety_admin_metrics_v1",{
       p_from:from.toISOString(),p_to:new Date().toISOString()
     });
-    if(r.error){setError(r.error.message);setData(null);}
+    if(r.error){setError("Die Safety-Übersicht konnte nicht geladen werden.");setData(null);}
     else setData((r.data??{}) as Metrics);
     setLoading(false);
   },[days]);
 
-  useEffect(()=>{void load();},[load]);
+  useEffect(()=>{const timer=window.setTimeout(()=>void load(),0);return()=>window.clearTimeout(timer);},[load]);
 
   const a=data?.appeals;
   const total=Number(a?.overturned??0)+Number(a?.modified??0)+Number(a?.upheld??0);

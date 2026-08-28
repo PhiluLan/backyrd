@@ -55,8 +55,8 @@ export default function SpotOwnerPage() {
 
   useEffect(() => {
     if (!spotId) return;
-    setMsg(null);
-    void boot();
+    const timer = window.setTimeout(() => { setMsg(null); void boot(); }, 0);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spotId]);
 
@@ -92,12 +92,7 @@ export default function SpotOwnerPage() {
     });
 
     if (error) {
-      console.error("admin_list_profiles_v1 error:", {
-        message: error.message,
-        code: (error as any).code,
-        details: (error as any).details,
-        hint: (error as any).hint,
-      });
+      console.error("admin_list_profiles_v1 error:", error);
       setProfiles([]);
       setMsg(error.message);
       setLoadingProfiles(false);

@@ -23,7 +23,7 @@ export default function LoginPage() {
     });
 
     if (error || !data.session) {
-      setError(error?.message ?? "Login fehlgeschlagen.");
+      setError("Anmeldung fehlgeschlagen. Bitte E-Mail und Passwort prüfen.");
       setLoading(false);
       return;
     }
@@ -35,24 +35,24 @@ export default function LoginPage() {
     <div className="by-loginWrap">
       <div className="by-card by-loginCard">
         <div>
-          <div className="by-h3">Admin Login</div>
-          <div className="by-muted by-small">Backyrd Admin Dashboard</div>
+          <div className="by-h3">Backyrd Intelligence</div>
+          <div className="by-muted by-small">Sicherer Zugang für Founder und Admin-Team</div>
         </div>
 
         <form onSubmit={onSubmit} className="by-stack" style={{ marginTop: 14 }}>
           <div className="by-field">
-            <div className="by-fieldLabel">Email</div>
+            <div className="by-fieldLabel">E-Mail</div>
             <input
               className="by-input"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@domain.com"
+              placeholder="name@backyrd.ch"
               autoComplete="email"
             />
           </div>
 
           <div className="by-field">
-            <div className="by-fieldLabel">Password</div>
+            <div className="by-fieldLabel">Passwort</div>
             <input
               type="password"
               className="by-input"
@@ -71,12 +71,12 @@ export default function LoginPage() {
             type="submit"
             style={{ width: "100%" }}
           >
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? "Anmeldung läuft …" : "Sicher anmelden"}
           </button>
         </form>
 
         <div className="by-muted by-xs" style={{ marginTop: 10 }}>
-          Nur für Admin-Accounts (profiles.is_admin = true).
+          Nur für autorisierte Backyrd-Accounts.
         </div>
       </div>
     </div>

@@ -183,7 +183,7 @@ export default function Page() {
   async function load() {
     setLoading(true); setError("");
     const {data,error}=await supabase.rpc("safety_admin_case_detail_v1",{p_case_id:caseId});
-    if(error){setError(error.message);setDetail(null);setDistribution(null);} else {
+    if(error){setError("Der Moderationsfall konnte nicht geladen werden.");setDetail(null);setDistribution(null);} else {
       const d=data as Detail;setDetail(d);setPriority(n(d.case.priority));
       const contentItemId=t(d.content.id,"");
       if(contentItemId){
@@ -193,12 +193,16 @@ export default function Page() {
     }
     setLoading(false);
   }
-  useEffect(()=>{if(caseId) void load();},[caseId]);
+  useEffect(()=>{
+    if(!caseId) return;
+    const timer=window.setTimeout(()=>void load(),0);
+    return()=>window.clearTimeout(timer);
+  },[caseId]);
 
   async function savePriority(){
     setSavingPriority(true);setError("");
     const {error}=await supabase.rpc("safety_admin_set_case_priority_v1",{p_case_id:caseId,p_priority:priority,p_internal_note:priorityNote.trim()||null});
-    setSavingPriority(false); if(error){setError(error.message);return;} setPriorityNote(""); await load();
+    setSavingPriority(false); if(error){setError("Die Priorität konnte nicht gespeichert werden.");return;} setPriorityNote(""); await load();
   }
   async function saveDecision(){
     if(!detail||!decision||!decisionNote.trim()) return;
@@ -206,7 +210,7 @@ export default function Page() {
     const rpc=t(detail.content.entity_type,"")==="spot_owner_change"?"safety_admin_decide_v1":"safety_admin_decide_user_content_v1";
     const integrityCase=detail.signals.some(isIntegritySignal) || t(detail.case.explanation_code,"")==="REVIEW_INTEGRITY_SIGNAL";
     const {error}=await supabase.rpc(rpc,{p_case_id:caseId,p_action:decision,p_category:detail.case.final_category??null,p_severity:detail.case.final_severity??null,p_confidence:detail.case.final_confidence===null?null:Number(detail.case.final_confidence),p_public_explanation:decisionNote.trim(),p_internal_explanation:integrityCase?"Menschliche Entscheidung in der Backyrd Safety-Konsole. Review-Integrity-Signale wurden geprüft.":"Menschliche Entscheidung in der Backyrd Safety-Konsole.",p_reason_codes:["HUMAN_REVIEW",integrityCase?"REVIEW_INTEGRITY_HUMAN_REVIEW":"CONTENT_SAFETY_HUMAN_REVIEW",`HUMAN_ACTION_${decision.toUpperCase()}`]});
-    setSavingDecision(false); if(error){setError(error.message);return;} setDecision(null);setDecisionNote("");await load();
+    setSavingDecision(false); if(error){setError("Die Moderationsentscheidung konnte nicht gespeichert werden.");return;} setDecision(null);setDecisionNote("");await load();
   }
 
   if(loading) return <div className="by-page"><div className="by-card by-section">Moderationsfall wird geladen …</div></div>;

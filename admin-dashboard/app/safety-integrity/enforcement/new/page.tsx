@@ -9,6 +9,8 @@ const options=[
 ["messaging_restriction","Nachrichten-Sperre",true],["owner_edit_restriction","Owner-Sperre",true],
 ["temporary_suspension","Temporäre Kontosperre",true],["permanent_suspension","Dauerhafte Kontosperre",false]
 ] as const;
+type EnforcementType=(typeof options)[number][0];
+type EnforcementResult=Record<string,unknown>;
 
 export default function Page(){
  const [userId,setUserId]=useState(""),[caseId,setCaseId]=useState("");
@@ -16,7 +18,7 @@ export default function Page(){
  const [reason,setReason]=useState("HUMAN_ADMIN_ENFORCEMENT");
  const [publicText,setPublicText]=useState(""),[internal,setInternal]=useState("");
  const [endsAt,setEndsAt]=useState(""),[saving,setSaving]=useState(false);
- const [error,setError]=useState(""),[result,setResult]=useState<any>(null);
+ const [error,setError]=useState(""),[result,setResult]=useState<EnforcementResult|null>(null);
  const selected=useMemo(()=>options.find(x=>x[0]===type)??options[1],[type]);
 
  async function submit(){
@@ -34,7 +36,7 @@ export default function Page(){
    p_metadata:{source_surface:"admin_safety_enforcement_new",issued_manually:true}
   });
   setSaving(false);
-  if(r.error)return setError(r.error.message);
+  if(r.error)return setError("Die Kontomaßnahme konnte nicht gespeichert werden.");
   setResult(r.data);
  }
 
@@ -48,7 +50,7 @@ export default function Page(){
   <section className="by-card" style={{padding:22,display:"grid",gap:18}}>
    <label>User-ID<input style={input} value={userId} onChange={e=>setUserId(e.target.value)}/></label>
    <label>Fall-ID optional<input style={input} value={caseId} onChange={e=>setCaseId(e.target.value)}/></label>
-   <label>Maßnahme<select className="by-select" value={type} onChange={e=>setType(e.target.value as any)}>
+   <label>Maßnahme<select className="by-select" value={type} onChange={e=>setType(e.target.value as EnforcementType)}>
     {options.map(x=><option key={x[0]} value={x[0]}>{x[1]}</option>)}
    </select></label>
    {selected[2]?<label>Ende<input type="datetime-local" style={input} value={endsAt} onChange={e=>setEndsAt(e.target.value)}/></label>:null}

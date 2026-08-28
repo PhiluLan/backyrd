@@ -36,19 +36,19 @@ export default function TrustModerationPage() {
     setLoading(true);
     setError("");
     const { data, error } = await supabase.rpc(
-      "admin_get_spot_owner_moderation_queue_v1",
+      "admin_get_spot_owner_moderation_queue_v2",
       { p_status: status === "all" ? null : status, p_limit: 250 },
     );
     if (error) {
       setRows([]);
-      setError(error.message);
+      setError("Die Moderationswarteschlange konnte nicht geladen werden.");
     } else {
       setRows((data ?? []) as Row[]);
     }
     setLoading(false);
   }
 
-  useEffect(() => { void load(); }, [status]);
+  useEffect(() => { const timer=window.setTimeout(()=>void load(),0);return()=>window.clearTimeout(timer); }, [status]);
 
   async function decide(eventId: string, decision: "approved" | "flagged" | "reverted") {
     const note = decision === "reverted"
@@ -64,7 +64,7 @@ export default function TrustModerationPage() {
       p_note: note || null,
     });
     setSaving(null);
-    if (error) setError(error.message);
+    if (error) setError("Die Moderationsentscheidung konnte nicht gespeichert werden.");
     else await load();
   }
 

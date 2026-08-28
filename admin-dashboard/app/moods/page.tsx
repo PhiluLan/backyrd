@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 
 type Row = {
@@ -26,10 +25,7 @@ export default function MoodsPage() {
   async function load() {
     setLoading(true);
 
-    const { data, error } = await supabase
-      .from("admin_concepts_overview_v1")
-      .select("*")
-      .order("spots_count", { ascending: false });
+    const { data, error } = await supabase.rpc("admin_concepts_overview_v2");
 
     if (error) console.error(error);
     setRows((data ?? []) as Row[]);
@@ -50,8 +46,8 @@ export default function MoodsPage() {
     <div className="by-page">
       <div className="by-header">
         <div>
-          <h1 className="by-title">Moods / Concepts</h1>
-          <div className="by-subtitle">Konzepte, Cluster, Usage in Spots.</div>
+          <h1 className="by-title">Stimmungs-Signale</h1>
+          <div className="by-subtitle">Nur lesbare Diagnose bestehender Konzepte und ihrer Nutzung. Änderungen erfolgen nicht in dieser Ansicht.</div>
         </div>
 
         <div className="by-toolbar">
@@ -66,12 +62,12 @@ export default function MoodsPage() {
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Suche Concept…"
+            placeholder="Konzept oder Cluster suchen …"
             className="by-input"
             style={{ maxWidth: 420 }}
           />
           <div className="by-muted by-small" style={{ marginLeft: "auto" }}>
-            {filtered.length} Concepts
+            {filtered.length} Konzepte
           </div>
         </div>
       </div>
@@ -80,17 +76,16 @@ export default function MoodsPage() {
         {loading ? (
           <div className="by-muted by-small">Lade…</div>
         ) : filtered.length === 0 ? (
-          <div className="by-muted by-small">Keine Concepts gefunden.</div>
+          <div className="by-muted by-small">Keine Konzepte gefunden.</div>
         ) : (
           <div className="by-tableWrap">
             <table className="by-table">
               <thead>
                 <tr>
-                  <th>Concept</th>
+                  <th>Konzept</th>
                   <th>Cluster</th>
                   <th>Spots</th>
                   <th>Tokens</th>
-                  <th style={{ textAlign: "right" }}>Aktion</th>
                 </tr>
               </thead>
               <tbody>
@@ -103,11 +98,6 @@ export default function MoodsPage() {
                     <td className="by-muted">{r.primary_cluster_name ?? "—"}</td>
                     <td>{r.spots_count ?? 0}</td>
                     <td>{r.tokens_count ?? 0}</td>
-                    <td style={{ textAlign: "right" }}>
-                      <Link href={`/moods/${r.id}`} className="by-link">
-                        Details
-                      </Link>
-                    </td>
                   </tr>
                 ))}
               </tbody>
