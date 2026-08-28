@@ -7,6 +7,15 @@ import {
   type Moment,
 } from "@/lib/consumer-api";
 import { Avatar, Button, Dialog, StateView } from "./ui";
+
+function relative(value: string) {
+  const ms = Date.now() - new Date(value).getTime();
+  const hours = Math.floor(ms / 3600000);
+  if (hours < 1) return "Gerade eben";
+  if (hours < 24) return `Vor ${hours} Std.`;
+  const days = Math.floor(hours / 24);
+  return `Vor ${days} ${days === 1 ? "Tag" : "Tagen"}`;
+}
 export function CommentsDialog({
   moment,
   onClose,
@@ -71,18 +80,9 @@ export function CommentsDialog({
           onAction={() => void load()}
         />
       ) : comments.length ? (
-        <div
-          style={{ display: "grid", gap: 20, maxHeight: 420, overflow: "auto" }}
-        >
+        <div className="b-comments-list">
           {comments.map((comment) => (
-            <article
-              key={comment.comment_id}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "40px 1fr",
-                gap: 12,
-              }}
-            >
+            <article className="b-comment" key={comment.comment_id}>
               <Avatar
                 src={comment.avatar_url}
                 name={
@@ -91,12 +91,11 @@ export function CommentsDialog({
                 size="sm"
               />
               <div>
-                <strong>
-                  {comment.display_name || comment.username || "Backyrd User"}
-                </strong>
-                <p style={{ margin: "5px 0 0", lineHeight: 1.5 }}>
-                  {comment.body}
-                </p>
+                <div className="b-comment-meta">
+                  <strong>{comment.display_name || comment.username || "Backyrd User"}</strong>
+                  <span>{relative(comment.created_at)}</span>
+                </div>
+                <p>{comment.body}</p>
               </div>
             </article>
           ))}

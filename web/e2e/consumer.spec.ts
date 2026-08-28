@@ -1,8 +1,173 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 const widths = [320, 375, 390, 393, 430, 768, 1024, 1440, 1728];
 const realSpotId = "1101ee26-5046-4cdc-921a-5a3bd4cb5306";
+
+async function openAuthenticatedMomentsFixture(page: Page) {
+  const userId = "93c53f55-5d0f-4af2-9d1f-a6650dd44b18";
+  const now = Math.floor(Date.now() / 1000);
+  const encode = (value: object) =>
+    Buffer.from(JSON.stringify(value)).toString("base64url");
+  const accessToken = `${encode({ alg: "HS256", typ: "JWT" })}.${encode({
+    aud: "authenticated",
+    exp: now + 3600,
+    iat: now,
+    sub: userId,
+    email: "moments-web@backyrd.test",
+    role: "authenticated",
+  })}.test-signature`;
+  const user = {
+    id: userId,
+    aud: "authenticated",
+    role: "authenticated",
+    email: "moments-web@backyrd.test",
+    email_confirmed_at: new Date().toISOString(),
+    app_metadata: { provider: "email", providers: ["email"] },
+    user_metadata: {},
+    created_at: new Date().toISOString(),
+  };
+  let signedIn = false;
+  await page.route("**/auth/v1/token?grant_type=password", (route) => {
+    signedIn = true;
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        access_token: accessToken,
+        refresh_token: "moments-test-refresh-token",
+        expires_in: 3600,
+        expires_at: now + 3600,
+        token_type: "bearer",
+        user,
+      }),
+    });
+  });
+  await page.route("**/auth/v1/user", (route) =>
+    route.fulfill({
+      status: signedIn ? 200 : 401,
+      contentType: "application/json",
+      body: JSON.stringify(signedIn ? user : { message: "not signed in" }),
+    }),
+  );
+  await page.route("**/rest/v1/profiles**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([{ display_name: "Philipp", first_name: "Philipp", avatar_url: null }]),
+    }),
+  );
+  const media = (id: number) => `https://moments.backyrd.test/${id}.jpg`;
+  const moments = [
+    {
+      post_id: "10000000-0000-0000-0000-000000000001",
+      user_id: "20000000-0000-0000-0000-000000000001",
+      display_name: "Lea Muster",
+      username: "lea",
+      avatar_url: null,
+      spot_id: realSpotId,
+      spot_name: "Volta Bräu",
+      spot_city: "Basel",
+      category_name: "Bar",
+      caption: "Abend am Wasser. Genau die ruhige Seite von Basel, die heute gepasst hat.",
+      mood_tags: ["Ruhig"],
+      occasion_tags: [],
+      media: [{ public_url: media(1), media_type: "image" }],
+      like_count: 42,
+      comment_count: 6,
+      save_count: 3,
+      viewer_has_liked: true,
+      viewer_has_saved: false,
+      viewer_follows_author: true,
+      created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
+    },
+    {
+      post_id: "10000000-0000-0000-0000-000000000002",
+      user_id: "20000000-0000-0000-0000-000000000002",
+      display_name: "Niklas Berger",
+      username: "niklas",
+      avatar_url: null,
+      spot_id: "57cb213c-9472-40b6-80be-a810fd77b7c9",
+      spot_name: "ELYS Boulderloft",
+      spot_city: "Basel",
+      category_name: "Aktivität",
+      caption: "Ein neuer Griff, ein neuer Versuch – und plötzlich klappt es.",
+      mood_tags: ["Lebhaft"],
+      occasion_tags: [],
+      media: [{ public_url: media(2), media_type: "image" }],
+      like_count: 31,
+      comment_count: 3,
+      save_count: 2,
+      viewer_has_liked: false,
+      viewer_has_saved: true,
+      viewer_follows_author: true,
+      created_at: new Date(Date.now() - 5 * 86400000).toISOString(),
+    },
+    {
+      post_id: "10000000-0000-0000-0000-000000000003",
+      user_id: "20000000-0000-0000-0000-000000000003",
+      display_name: "Mara Lang",
+      username: "mara",
+      avatar_url: null,
+      spot_id: null,
+      spot_name: null,
+      spot_city: "Basel",
+      category_name: null,
+      caption: "Die Stadt ist heute leise. Manchmal ist genau das der Moment, den man gebraucht hat.",
+      mood_tags: ["Cozy", "Ruhig"],
+      occasion_tags: [],
+      media: [],
+      like_count: 12,
+      comment_count: 1,
+      save_count: 0,
+      viewer_has_liked: false,
+      viewer_has_saved: false,
+      viewer_follows_author: false,
+      created_at: new Date(Date.now() - 3 * 3600000).toISOString(),
+    },
+    {
+      post_id: "10000000-0000-0000-0000-000000000004",
+      user_id: "20000000-0000-0000-0000-000000000004",
+      display_name: "Jonas Frei",
+      username: "jonas",
+      avatar_url: null,
+      spot_id: null,
+      spot_name: null,
+      spot_city: "Basel",
+      category_name: null,
+      caption: "Ein freier Nachmittag zwischen alten Bäumen.",
+      mood_tags: [],
+      occasion_tags: [],
+      media: [{ public_url: media(3), media_type: "image" }],
+      like_count: 9,
+      comment_count: 0,
+      save_count: 1,
+      viewer_has_liked: false,
+      viewer_has_saved: false,
+      viewer_follows_author: false,
+      created_at: new Date(Date.now() - 86400000).toISOString(),
+    },
+  ];
+  await page.route("**/rest/v1/rpc/get_social_feed_v2", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(moments) }),
+  );
+  await page.route("**/rest/v1/rpc/get_social_comments_v1", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
+  );
+  await page.route("https://moments.backyrd.test/*.jpg", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "image/svg+xml",
+      body: `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="675"><rect width="900" height="675" fill="#30232b"/><circle cx="650" cy="150" r="180" fill="#ff4f91" opacity=".45"/><path d="M0 530 L300 260 L500 480 L720 300 L900 500 V675 H0Z" fill="#d8ff3e" opacity=".42"/></svg>`,
+    }),
+  );
+  await page.goto("/login?next=%2Fmoments");
+  await page.getByLabel("E-Mail").fill("moments-web@backyrd.test");
+  await page.getByLabel("Passwort").fill("test-password-123");
+  await page.getByRole("button", { name: "Anmelden" }).click();
+  await expect(page).toHaveURL(/\/moments$/);
+  await expect(page.locator(".b-moment")).toHaveCount(4);
+}
 
 const consumerRoutes = [
   "/",
@@ -304,6 +469,47 @@ test("keyboard navigation reaches controls and closes dialogs with Escape", asyn
   expect(["A", "BUTTON", "INPUT"]).toContain(focused);
   await page.goto("/settings");
   await expect(page.locator("main")).toBeVisible();
+});
+
+test("Moments matches the editorial 3/2/1 grid and keeps real social modules truthful", async ({ page }) => {
+  await openAuthenticatedMomentsFixture(page);
+  await expect(page.getByRole("heading", { name: "MOMENTE" })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Momente in Backyrd" })).toBeVisible();
+  await expect(page.getByText("Trending in Basel")).toHaveCount(0);
+  await expect(page.getByText("Beliebte Hashtags")).toHaveCount(0);
+  await expect(page.locator('.b-moment[data-has-media="true"]')).toHaveCount(3);
+  const textMoment = page.locator('.b-moment[data-has-media="false"]');
+  await expect(textMoment).toHaveCount(1);
+  await expect(textMoment.locator("img")).toHaveCount(0);
+
+  for (const [width, expectedColumns] of [[1728, 3], [1440, 3], [1024, 2], [768, 2], [430, 1], [390, 1], [320, 1]] as const) {
+    await page.setViewportSize({ width, height: width < 600 ? 844 : 1000 });
+    const columns = await page.locator(".b-moments-grid").evaluate((element) =>
+      getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean).length,
+    );
+    expect(columns, `${width}px`).toBe(expectedColumns);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `${width}px overflow`).toBe(true);
+  }
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.locator('.b-moment[data-has-media="true"] img').first().evaluate((image) => {
+    image.setAttribute("src", "data:image/png;base64,not-an-image");
+  });
+  await expect(page.locator('.b-moment[data-has-media="false"]')).toHaveCount(2);
+  await expect(page.locator(".b-moment")).toHaveCount(4);
+  await page.getByRole("button", { name: /Kommentare öffnen/ }).first().click();
+  await expect(page.getByRole("dialog", { name: "Kommentare" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Kommentare" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Moment teilen" }).first().click();
+  await expect(page.getByRole("dialog", { name: "Moment teilen" })).toBeVisible();
+
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(
+    accessibility.violations.filter((violation) =>
+      violation.impact === "critical" || violation.impact === "serious",
+    ),
+  ).toEqual([]);
 });
 
 test("primary public surfaces have no serious accessibility violations", async ({ page }) => {
