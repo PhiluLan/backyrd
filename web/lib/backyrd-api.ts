@@ -262,7 +262,10 @@ export async function createReviewWithPhotos(
   );
 
   if (error) {
-    return { error: extractErrorMessage(error) };
+    return {
+      error:
+        "Dein Beitrag konnte gerade nicht veröffentlicht werden. Bitte versuche es erneut.",
+    };
   }
 
   return data as CreateReviewWithPhotosResponse;

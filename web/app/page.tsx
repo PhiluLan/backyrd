@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
-import { LandingExperience } from "./landing-experience";
+import { HomeExperience } from "@/components/consumer/home-experience";
 
 export const metadata: Metadata = {
-  title: "Backyrd – Orte nach Gefühl",
-  description: "Finde Restaurants, Bars, Cafés und Erlebnisse danach, wie sie sich anfühlen.",
+  title: { absolute: "Entdecken · Backyrd" },
+  description:
+    "Entdecke Basel nach Gefühl – mit Decision, Orten und echten Momenten.",
+  alternates: { canonical: "/" },
 };
 
 export default function HomePage() {
-  return <LandingExperience />;
+  return <HomeExperience />;
 }
