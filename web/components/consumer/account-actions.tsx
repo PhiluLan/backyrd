@@ -1,10 +1,8 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Button, Dialog, Toast } from "./ui";
 export function AccountActions() {
-  const router = useRouter();
   const [confirm, setConfirm] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   async function logout() {
@@ -13,8 +11,7 @@ export function AccountActions() {
       setToast("Abmelden hat gerade nicht funktioniert.");
       return;
     }
-    router.replace("/");
-    router.refresh();
+    window.location.replace("/");
   }
   return (
     <section className="b-surface" style={{ padding: 24, marginTop: 42 }}>

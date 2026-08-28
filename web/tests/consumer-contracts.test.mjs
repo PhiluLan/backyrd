@@ -127,3 +127,27 @@ test("personal Consumer route families share the canonical authentication gate",
   assert.match(gate, /supabase\.auth\.getUser\(\)/);
   assert.match(gate, /\/login\?next=/);
 });
+
+test("successful auth synchronizes the persistent shell and server-visible navigation", async () => {
+  const [form, shell, account] = await Promise.all([
+    read("web/components/consumer/auth-form.tsx"),
+    read("web/components/consumer/consumer-shell.tsx"),
+    read("web/components/consumer/account-actions.tsx"),
+  ]);
+  assert.match(form, /const \{ data, error \} = await supabase\.auth\.signInWithPassword/);
+  assert.match(form, /if \(!data\.session\) throw/);
+  assert.match(form, /window\.location\.replace\(next\)/);
+  assert.match(shell, /event === "SIGNED_IN"/);
+  assert.match(shell, /void syncUser\(\)\.finally/);
+  assert.match(shell, /setUser\(\{[\s\S]*email:[\s\S]*avatar:[\s\S]*name:/);
+  assert.match(account, /await supabase\.auth\.signOut\(\)/);
+  assert.match(account, /window\.location\.replace\("\/"\)/);
+});
+
+test("canonical Owner image failures remain local and fall back without changing source priority", async () => {
+  const image = await read("web/components/canonical-spot-image.tsx");
+  assert.match(image, /onError=\{\(\) => setFailed\(true\)\}/);
+  assert.match(image, /ownerAdminImageUrl\?\.trim\(\) && !failed/);
+  assert.match(image, /b-spot-fallback/);
+  assert.doesNotMatch(image, /spot_photos|gallery|google/i);
+});

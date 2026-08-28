@@ -60,13 +60,15 @@ export function AuthForm({ mode }: { mode: Mode }) {
     setBusy(true);
     try {
       if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password,
         });
         if (error) throw error;
-        router.replace(next);
-        router.refresh();
+        if (!data.session) throw new Error("auth_session_missing");
+        // A full navigation makes the newly written Supabase cookie visible to
+        // Server Components, middleware and the client shell in one request.
+        window.location.replace(next);
       } else if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
           email: cleanEmail,

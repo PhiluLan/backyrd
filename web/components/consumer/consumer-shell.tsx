@@ -35,26 +35,50 @@ export function ConsumerShell({ children }: { children: ReactNode }) {
   } | null>(null);
   useEffect(() => {
     let active = true;
-    void supabase.auth.getUser().then(async ({ data }) => {
-      if (!active || !data.user) return active && setUser(null);
+    async function syncUser() {
+      const { data } = await supabase.auth.getUser();
+      if (!active) return;
+      if (!data.user) {
+        setUser(null);
+        return;
+      }
       const { data: profile } = await supabase
         .from("profiles")
         .select("display_name,first_name,avatar_url")
         .eq("id", data.user.id)
         .maybeSingle();
-      if (active)
-        setUser({
-          email: data.user.email,
-          avatar: profile?.avatar_url,
-          name: profile?.display_name || profile?.first_name,
-        });
-    });
+      if (!active) return;
+      setUser({
+        email: data.user.email,
+        avatar: profile?.avatar_url,
+        name: profile?.display_name || profile?.first_name,
+      });
+    }
+    void syncUser();
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
-      if (!session) setUser(null);
-      router.refresh();
+      if (!session) {
+        setUser(null);
+        router.refresh();
+        return;
+      }
+      if (
+        event === "SIGNED_IN" ||
+        event === "INITIAL_SESSION" ||
+        event === "USER_UPDATED"
+      ) {
+        // Supabase advises keeping auth callbacks synchronous. Run the profile
+        // refresh after the callback so the persistent shell cannot retain its
+        // pre-login guest state.
+        window.setTimeout(() => {
+          if (!active) return;
+          void syncUser().finally(() => {
+            if (active) router.refresh();
+          });
+        }, 0);
+      }
     });
     return () => {
       active = false;
