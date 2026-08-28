@@ -19,7 +19,7 @@ export default function MomentsPage(){
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState("");
 
-  useEffect(()=>{ let cancelled=false; (async()=>{ setLoading(true); setError(""); const range=rangeFor(preset); const {data:result,error:rpcError}=await supabase.rpc("admin_moments_intelligence_v1",{p_from:range.from,p_to:range.to}); if(cancelled)return; if(rpcError){setError(rpcError.message);setData(null)}else setData(result as MomentsData); setLoading(false) })(); return()=>{cancelled=true}},[preset]);
+  useEffect(()=>{ let cancelled=false; (async()=>{ setLoading(true); setError(""); const range=rangeFor(preset); const {data:result,error:rpcError}=await supabase.rpc("admin_moments_intelligence_v2",{p_from:range.from,p_to:range.to}); if(cancelled)return; if(rpcError){setError("Moment-Kennzahlen konnten nicht geladen werden.");setData(null)}else setData(result as MomentsData); setLoading(false) })(); return()=>{cancelled=true}},[preset]);
 
   const maxDaily=useMemo(()=>Math.max(1,...(data?.daily??[]).map(d=>Math.max(d.posts,d.likes,d.comments,d.saves,d.shares))),[data]);
 

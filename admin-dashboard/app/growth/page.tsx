@@ -55,13 +55,13 @@ export default function GrowthPage() {
       setLoading(true);
       setError("");
       const range = rangeFor(preset);
-      const { data: result, error: rpcError } = await supabase.rpc("admin_growth_intelligence_v1", {
+      const { data: result, error: rpcError } = await supabase.rpc("admin_growth_intelligence_v2", {
         p_from: range.from,
         p_to: range.to,
       });
       if (cancelled) return;
       if (rpcError) {
-        setError(rpcError.message);
+        setError("Wachstumskennzahlen konnten gerade nicht geladen werden.");
         setData(null);
       } else {
         setData(result as GrowthData);

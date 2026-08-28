@@ -48,6 +48,18 @@ The Founder routes are:
 - `/founder/launch-readiness` — evidence-backed launch register
 - `/founder/engineering` — live GitHub and CI state
 
+## Operations contracts
+
+The production-facing Admin definitions are documented in:
+
+- `docs/admin/ADMIN_COMPLETE_CLOSURE.md` — route and surface inventory
+- `docs/admin/ADMIN_METRIC_LINEAGE_V2.md` — metric source, Product universe and freshness
+- `docs/admin/SPOT_QUALITY_CONTRACT_V2.md` — deterministic quality score and queue rules
+
+Normal Admin Product metrics use the additive V2 Product universe. Fixture/Test
+history remains physically intact and is available only to explicitly labelled
+technical or audit diagnostics.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More

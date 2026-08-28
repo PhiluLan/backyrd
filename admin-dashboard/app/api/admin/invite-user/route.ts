@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
 
 export async function POST(req: Request) {
   try {
-    const { email } = await req.json();
+    const authorization = await authorizeAdminRequest(req);
+    if (!authorization.ok) return NextResponse.json({ error: "Diese Aktion ist nur für autorisierte Admins verfügbar." }, { status: authorization.status });
+    const body = await req.json() as { email?: unknown };
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
 
-    if (!email || typeof email !== "string") {
-      return NextResponse.json({ error: "Missing email" }, { status: 400 });
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+      return NextResponse.json({ error: "Bitte gib eine gültige E-Mail-Adresse ein." }, { status: 400 });
     }
 
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -14,7 +18,7 @@ export async function POST(req: Request) {
 
     if (!url || !serviceKey) {
       return NextResponse.json(
-        { error: "Server misconfigured (missing SUPABASE_SERVICE_ROLE_KEY)" },
+        { error: "Einladungen sind momentan nicht verfügbar." },
         { status: 500 }
       );
     }
@@ -27,11 +31,13 @@ export async function POST(req: Request) {
     });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      console.error("Admin invite failed", { code: error.code, message: error.message });
+      return NextResponse.json({ error: "Die Einladung konnte nicht gesendet werden." }, { status: 400 });
     }
 
     return NextResponse.json({ ok: true, data });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Unknown error" }, { status: 500 });
+  } catch (error: unknown) {
+    console.error("Admin invite request failed", error instanceof Error ? error.message : "unknown_error");
+    return NextResponse.json({ error: "Die Einladung konnte nicht verarbeitet werden." }, { status: 500 });
   }
 }

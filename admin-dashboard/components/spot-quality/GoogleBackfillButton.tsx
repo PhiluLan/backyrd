@@ -99,9 +99,9 @@ export function GoogleBackfillButton({
       }
 
       setCandidates(result.candidates ?? []);
-    } catch (searchError: any) {
+    } catch (searchError: unknown) {
       setCandidates([]);
-      setError(searchError?.message || "Google-Suche fehlgeschlagen.");
+      setError(searchError instanceof Error ? searchError.message : "Google-Suche fehlgeschlagen.");
     } finally {
       setLoading(false);
     }
@@ -126,9 +126,9 @@ export function GoogleBackfillButton({
 
       closeModal();
       onCompleted();
-    } catch (acceptError: any) {
+    } catch (acceptError: unknown) {
       setError(
-        acceptError?.message ||
+        acceptError instanceof Error ? acceptError.message :
           "Treffer konnte nicht übernommen werden.",
       );
     } finally {
@@ -159,9 +159,9 @@ export function GoogleBackfillButton({
           (item) => item.googlePlaceId !== candidate.googlePlaceId,
         ),
       );
-    } catch (rejectError: any) {
+    } catch (rejectError: unknown) {
       setError(
-        rejectError?.message ||
+        rejectError instanceof Error ? rejectError.message :
           "Treffer konnte nicht abgelehnt werden.",
       );
     } finally {

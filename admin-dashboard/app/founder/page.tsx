@@ -25,7 +25,7 @@ export default function FounderControlCenterPage() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const { data: result, error: rpcError } = await supabase.rpc("founder_launch_overview_v1");
+      const { data: result, error: rpcError } = await supabase.rpc("founder_launch_overview_v2");
       if (cancelled) return;
       if (rpcError) {
         console.error("Founder overview could not be loaded", rpcError);

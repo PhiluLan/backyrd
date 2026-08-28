@@ -8,11 +8,11 @@ import { supabase } from "@/lib/supabaseClient";
 type Row={query:string;sessions:number;impressions:number;likes:number;dislikes:number;opens:number;empty_results:number};
 type Spot={spot_id:string;name:string|null;impressions:number;likes:number;dislikes:number;opens:number};
 type Session={decision_id:string|null;started_at:string;user_id:string|null;query:string|null;input_mode:string|null;model_version:string|null;impressions:number;likes:number;dislikes:number;opens:number;remixes:number;empty_results:number};
-type Data={summary:{sessions:number;unique_users:number;impressions:number;likes:number;dislikes:number;opens:number;remixes:number;empty_results:number};queries:Row[];spots:Spot[];models:any[];sessions:Session[]};
+type Data={summary:{sessions:number;unique_users:number;impressions:number;likes:number;dislikes:number;opens:number;remixes:number;empty_results:number};queries:Row[];spots:Spot[];models:unknown[];sessions:Session[]};
 const pct=(a:number,b:number)=>b?`${number(a*100/b,1)}%`:"0%";
 export default function DecisionPage(){
  const [preset,setPreset]=useState<Preset>("month"),[data,setData]=useState<Data|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState("");
- useEffect(()=>{let dead=false;(async()=>{setLoading(true);setError("");const r=rangeFor(preset);const {data,error}=await supabase.rpc("admin_decision_intelligence_v1",{p_from:r.from,p_to:r.to,p_limit:100});if(dead)return;if(error){setError(error.message);setData(null)}else setData(data as Data);setLoading(false)})();return()=>{dead=true}},[preset]);
+ useEffect(()=>{let dead=false;(async()=>{setLoading(true);setError("");const r=rangeFor(preset);const {data,error}=await supabase.rpc("admin_decision_intelligence_v2",{p_from:r.from,p_to:r.to,p_limit:100});if(dead)return;if(error){setError("Empfehlungsdiagnostik konnte nicht geladen werden.");setData(null)}else setData(data as Data);setLoading(false)})();return()=>{dead=true}},[preset]);
  const s=data?.summary; const quality=useMemo(()=>s?pct(s.likes,s.likes+s.dislikes):"0%",[s]);
  return <div className="bi-page"><header className="bi-header"><div><div className="bi-eyebrow">Decision intelligence</div><h1>Decision</h1><p>Qualität, Conversion und Lernsignale deiner Recommendation Engine.</p></div><DateRangeSelector value={preset} onChange={setPreset}/></header>
  {error&&<div className="bi-error">{error}</div>}{loading&&<div className="bi-state">Decision-Daten werden analysiert …</div>}{data&&<>

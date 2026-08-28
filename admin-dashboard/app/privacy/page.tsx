@@ -70,6 +70,12 @@ type DataRightsRow = {
   deletion_finished_at: string | null;
   deletion_summary: Record<string, unknown>;
 };
+type DeletionPreview = {
+  can_execute: boolean;
+  owned_spots: number;
+  created_spots: number;
+  blockers: Record<string, string>;
+};
 
 const TYPES = [
   "privacy_notice",
@@ -99,10 +105,7 @@ export default function PrivacyAdminPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [dataRights, setDataRights] = useState<DataRightsRow[]>([]);
-  const [deletionPreview, setDeletionPreview] = useState<Record<
-    string,
-    any
-  >>({});
+  const [deletionPreview, setDeletionPreview] = useState<Record<string, DeletionPreview>>({});
   const [deletingRequestId, setDeletingRequestId] = useState<string | null>(
     null,
   );
@@ -122,19 +125,19 @@ export default function PrivacyAdminPage() {
       ]);
 
     if (overviewResult.error) {
-      setError(overviewResult.error.message);
+      setError("Die Datenschutzübersicht konnte nicht geladen werden.");
       setLoading(false);
       return;
     }
 
     if (documentsResult.error) {
-      setError(documentsResult.error.message);
+      setError("Die Rechtsdokumente konnten nicht geladen werden.");
       setLoading(false);
       return;
     }
 
     if (dataRightsResult.error) {
-      setError(dataRightsResult.error.message);
+      setError("Die Datenschutzanfragen konnten nicht geladen werden.");
       setLoading(false);
       return;
     }
@@ -146,7 +149,8 @@ export default function PrivacyAdminPage() {
   }
 
   useEffect(() => {
-    void load();
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   async function selectDocument(id: string) {
@@ -159,7 +163,7 @@ export default function PrivacyAdminPage() {
     );
 
     if (error) {
-      setError(error.message);
+      setError("Das Rechtsdokument konnte nicht geladen werden.");
       return;
     }
 
@@ -213,7 +217,7 @@ export default function PrivacyAdminPage() {
     setSaving(false);
 
     if (error) {
-      setError(error.message);
+      setError("Der Entwurf konnte nicht gespeichert werden.");
       return;
     }
 
@@ -234,7 +238,7 @@ export default function PrivacyAdminPage() {
 
     if (preview.error) {
       setSaving(false);
-      setError(preview.error.message);
+      setError("Die Veröffentlichung konnte nicht geprüft werden.");
       return;
     }
 
@@ -263,7 +267,7 @@ export default function PrivacyAdminPage() {
     setSaving(false);
 
     if (published.error) {
-      setError(published.error.message);
+      setError("Das Dokument konnte nicht veröffentlicht werden.");
       return;
     }
 
@@ -287,7 +291,7 @@ export default function PrivacyAdminPage() {
     );
 
     if (error) {
-      setError(error.message);
+      setError("Die Datenschutzanfrage konnte nicht aktualisiert werden.");
       return;
     }
 
@@ -303,13 +307,13 @@ export default function PrivacyAdminPage() {
     );
 
     if (error) {
-      setError(error.message);
+      setError("Die Datenschutzanfrage konnte nicht abgeschlossen werden.");
       return;
     }
 
     setDeletionPreview((current) => ({
       ...current,
-      [requestId]: data,
+      [requestId]: data as DeletionPreview,
     }));
   }
 

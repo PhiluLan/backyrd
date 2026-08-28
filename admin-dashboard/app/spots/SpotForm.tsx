@@ -13,7 +13,7 @@ type SpotBasicsSaveResponse = {
 
 interface SpotFormProps {
   mode: "create" | "edit";
-  initialValues?: SpotFormValues & { opening_hours?: any[] };
+  initialValues?: SpotFormValues & { opening_hours?: OpeningHourInput[] };
   spotId?: string;
   onSaved?: () => void;
 }
@@ -52,6 +52,27 @@ interface OpeningHourSlot {
   client_id: string;
   open_time: string | null;
   close_time: string | null;
+}
+
+interface OpeningHourInput {
+  idx?: number | null;
+  day_of_week?: string | null;
+  open_time?: string | null;
+  close_time?: string | null;
+}
+
+interface GoogleAddressComponent { long_name?: string; types: string[] }
+interface GooglePlace {
+  address_components?: GoogleAddressComponent[];
+  formatted_address?: string;
+  place_id?: string;
+  geometry?: { location: { lat: () => number; lng: () => number } };
+}
+interface GoogleAutocomplete { addListener: (event: string, callback: () => void) => void; getPlace: () => GooglePlace }
+interface GoogleAutocompleteConstructor { new(input: HTMLInputElement, options: { types: string[]; componentRestrictions: { country: string } }): GoogleAutocomplete }
+
+declare global {
+  interface Window { google?: { maps: { places: { Autocomplete: GoogleAutocompleteConstructor } } } }
 }
 
 type OpeningHoursByDay = Record<string, OpeningHourSlot[]>;
@@ -168,7 +189,7 @@ function normalizeTime(value: string | null | undefined): string | null {
 
 function loadGoogleScript(apiKey: string): Promise<void> {
   return new Promise((resolve) => {
-    if (typeof window !== "undefined" && (window as any).google) {
+    if (typeof window !== "undefined" && window.google) {
       resolve();
       return;
     }
@@ -188,17 +209,17 @@ function loadGoogleScript(apiKey: string): Promise<void> {
   });
 }
 
-function extractCity(place: any): string {
+function extractCity(place: GooglePlace): string {
   const comp = place.address_components || [];
   const item = comp.find(
-    (c: any) => c.types.includes("locality") || c.types.includes("postal_town"),
+    (component) => component.types.includes("locality") || component.types.includes("postal_town"),
   );
   return item?.long_name ?? "";
 }
 
-function extractCountry(place: any): string {
+function extractCountry(place: GooglePlace): string {
   const comp = place.address_components || [];
-  const item = comp.find((c: any) => c.types.includes("country"));
+  const item = comp.find((component) => component.types.includes("country"));
   return item?.long_name ?? "";
 }
 
@@ -246,9 +267,9 @@ export function SpotForm({
       if (!apiKey) return;
 
       await loadGoogleScript(apiKey);
-      if (!addressInputRef.current || !(window as any).google) return;
+      if (!addressInputRef.current || !window.google) return;
 
-      const autocomplete = new (window as any).google.maps.places.Autocomplete(
+      const autocomplete = new window.google.maps.places.Autocomplete(
         addressInputRef.current,
         { types: ["address"], componentRestrictions: { country: "ch" } },
       );
@@ -280,21 +301,13 @@ export function SpotForm({
   }, []);
 
   useEffect(() => {
-    if (!values.header_photo_path) {
-      setPhotoPreviewUrl(null);
-      return;
-    }
-
-    if (values.header_photo_path.startsWith("http")) {
-      setPhotoPreviewUrl(values.header_photo_path);
-      return;
-    }
-
-    const { data } = supabase.storage
-      .from("spot-photos")
-      .getPublicUrl(values.header_photo_path);
-
-    setPhotoPreviewUrl(data?.publicUrl ?? null);
+    const timer = window.setTimeout(() => {
+      if (!values.header_photo_path) return setPhotoPreviewUrl(null);
+      if (values.header_photo_path.startsWith("http")) return setPhotoPreviewUrl(values.header_photo_path);
+      const { data } = supabase.storage.from("spot-photos").getPublicUrl(values.header_photo_path);
+      setPhotoPreviewUrl(data?.publicUrl ?? null);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [values.header_photo_path]);
 
   useEffect(() => {
@@ -302,7 +315,7 @@ export function SpotForm({
 
     const next = createEmptyOpeningHours();
 
-    const sortedRows = [...initialValues.opening_hours].sort((a: any, b: any) => {
+    const sortedRows = [...initialValues.opening_hours].sort((a, b) => {
       const aIdx = typeof a.idx === "number" ? a.idx : 9999;
       const bIdx = typeof b.idx === "number" ? b.idx : 9999;
       return aIdx - bIdx;
@@ -320,7 +333,8 @@ export function SpotForm({
       next[day].push(createOpeningSlot(open, close));
     }
 
-    setOpeningHours(next);
+    const timer = window.setTimeout(() => setOpeningHours(next), 0);
+    return () => window.clearTimeout(timer);
   }, [initialValues]);
 
   useEffect(() => {
@@ -776,10 +790,10 @@ export function SpotForm({
           <input
             type="text"
             ref={addressInputRef}
-            value={(values.address ?? "") as any}
+            value={values.address ?? ""}
             onChange={(e) => {
-              handleChange("address", e.target.value as any);
-              handleChange("google_place_id", null as any);
+              handleChange("address", e.target.value);
+              handleChange("google_place_id", null);
             }}
             className="by-input"
           />
@@ -789,8 +803,8 @@ export function SpotForm({
           <Field label="Stadt">
             <input
               type="text"
-              value={(values.city ?? "") as any}
-              onChange={(e) => handleChange("city", e.target.value as any)}
+              value={values.city ?? ""}
+              onChange={(e) => handleChange("city", e.target.value)}
               className="by-input"
             />
           </Field>
@@ -798,8 +812,8 @@ export function SpotForm({
           <Field label="Land">
             <input
               type="text"
-              value={(values.country ?? "") as any}
-              onChange={(e) => handleChange("country", e.target.value as any)}
+              value={values.country ?? ""}
+              onChange={(e) => handleChange("country", e.target.value)}
               className="by-input"
             />
           </Field>
@@ -810,13 +824,13 @@ export function SpotForm({
             <input
               type="number"
               step="0.000001"
-              value={(values.lat ?? "") as any}
+              value={values.lat ?? ""}
               onChange={(e) =>
                 handleChange(
                   "lat",
                   e.target.value === ""
-                    ? (null as any)
-                    : (Number(e.target.value) as any),
+                    ? null
+                    : Number(e.target.value),
                 )
               }
               className="by-input"
@@ -827,13 +841,13 @@ export function SpotForm({
             <input
               type="number"
               step="0.000001"
-              value={(values.lng ?? "") as any}
+              value={values.lng ?? ""}
               onChange={(e) =>
                 handleChange(
                   "lng",
                   e.target.value === ""
-                    ? (null as any)
-                    : (Number(e.target.value) as any),
+                    ? null
+                    : Number(e.target.value),
                 )
               }
               className="by-input"
@@ -844,9 +858,9 @@ export function SpotForm({
         <div className="by-formGrid3">
           <Field label="Kategorie">
             <select
-              value={(values.category_id ?? "") as any}
+              value={values.category_id ?? ""}
               onChange={(e) =>
-                handleChange("category_id", (e.target.value || null) as any)
+                handleChange("category_id", e.target.value || null)
               }
               className="by-select"
             >
@@ -861,13 +875,13 @@ export function SpotForm({
 
           <Field label="Preislevel">
             <select
-              value={(values.price_level ?? "") as any}
+              value={values.price_level ?? ""}
               onChange={(e) =>
                 handleChange(
                   "price_level",
                   e.target.value === ""
-                    ? (null as any)
-                    : (Number(e.target.value) as any),
+                    ? null
+                    : Number(e.target.value),
                 )
               }
               className="by-select"
@@ -883,8 +897,8 @@ export function SpotForm({
 
           <Field label="Status">
             <select
-              value={values.status as any}
-              onChange={(e) => handleChange("status", e.target.value as any)}
+              value={values.status}
+              onChange={(e) => handleChange("status", e.target.value as SpotStatus)}
               className="by-select"
             >
               {STATUS_OPTIONS.map((s) => (
@@ -899,8 +913,8 @@ export function SpotForm({
         <Field label="Website">
           <input
             type="url"
-            value={(values.website ?? "") as any}
-            onChange={(e) => handleChange("website", e.target.value as any)}
+            value={values.website ?? ""}
+            onChange={(e) => handleChange("website", e.target.value)}
             className="by-input"
           />
         </Field>
@@ -909,8 +923,8 @@ export function SpotForm({
           <Field label="Telefon">
             <input
               type="tel"
-              value={(values.phone ?? "") as any}
-              onChange={(e) => handleChange("phone", e.target.value as any)}
+              value={values.phone ?? ""}
+              onChange={(e) => handleChange("phone", e.target.value)}
               className="by-input"
             />
           </Field>
@@ -918,8 +932,8 @@ export function SpotForm({
           <Field label="E-Mail">
             <input
               type="email"
-              value={(values.email ?? "") as any}
-              onChange={(e) => handleChange("email", e.target.value as any)}
+              value={values.email ?? ""}
+              onChange={(e) => handleChange("email", e.target.value)}
               className="by-input"
             />
           </Field>

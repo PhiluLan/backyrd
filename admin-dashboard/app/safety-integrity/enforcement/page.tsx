@@ -25,10 +25,10 @@ export default function Page(){
   const r=await supabase.rpc("safety_admin_enforcements_v1",{
    p_status:status,p_limit:1000
   });
-  if(r.error){setError(r.error.message);setRows([]);} else setRows((r.data??[]) as Row[]);
+  if(r.error){setError("Kontomaßnahmen konnten nicht geladen werden.");setRows([]);} else setRows((r.data??[]) as Row[]);
   setLoading(false);
  },[status]);
- useEffect(()=>{void load();},[load]);
+ useEffect(()=>{const timer=window.setTimeout(()=>void load(),0);return()=>window.clearTimeout(timer);},[load]);
 
  const shown=useMemo(()=>{const q=search.trim().toLowerCase();
   return q?rows.filter(r=>[r.user_name,r.user_id,r.case_id,r.enforcement_type,
@@ -42,7 +42,7 @@ export default function Page(){
   const r=await supabase.rpc("safety_admin_revoke_enforcement_v1",{
    p_enforcement_id:row.enforcement_id,p_reason:reason.trim()
   });
-  setWorking(null);if(r.error){setError(r.error.message);return;}await load();
+  setWorking(null);if(r.error){setError("Die Maßnahme konnte nicht aufgehoben werden.");return;}await load();
  }
 
  return <div className="by-page" style={{maxWidth:1500,margin:"0 auto",padding:"32px 34px 70px"}}>

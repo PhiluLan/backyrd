@@ -130,9 +130,9 @@ export default function GoogleBackfillPage() {
       }
 
       setCandidates(result.candidates ?? []);
-    } catch (searchError: any) {
+    } catch (searchError: unknown) {
       setCandidates([]);
-      setError(searchError?.message || "Google-Suche fehlgeschlagen.");
+      setError(searchError instanceof Error ? searchError.message : "Google-Suche fehlgeschlagen.");
     } finally {
       setLoadingSearch(false);
     }
@@ -159,9 +159,9 @@ export default function GoogleBackfillPage() {
 
       router.push("/spot-quality");
       router.refresh();
-    } catch (acceptError: any) {
+    } catch (acceptError: unknown) {
       setError(
-        acceptError?.message ||
+        acceptError instanceof Error ? acceptError.message :
           "Treffer konnte nicht übernommen werden.",
       );
     } finally {
@@ -194,9 +194,9 @@ export default function GoogleBackfillPage() {
           (item) => item.googlePlaceId !== candidate.googlePlaceId,
         ),
       );
-    } catch (rejectError: any) {
+    } catch (rejectError: unknown) {
       setError(
-        rejectError?.message ||
+        rejectError instanceof Error ? rejectError.message :
           "Treffer konnte nicht abgelehnt werden.",
       );
     } finally {

@@ -40,7 +40,7 @@ export default function SystemPage() {
       const r = rangeFor(preset);
       const { data: response, error: rpcError } = await supabase.rpc("admin_system_intelligence_v1", { p_from: r.from, p_to: r.to });
       if (cancelled) return;
-      if (rpcError) { setError(rpcError.message); setData(null); }
+      if (rpcError) { setError("Die technischen Zustandsdaten konnten gerade nicht geladen werden."); setData(null); }
       else setData(response as Data);
       setLoading(false);
     })();

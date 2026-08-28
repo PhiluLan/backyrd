@@ -62,12 +62,12 @@ export default function FounderDashboardPage() {
     async function load() {
       setLoading(true); setError("");
       const range = rangeFor(preset);
-      const { data: result, error: rpcError } = await supabase.rpc("admin_founder_overview_v1", {
+      const { data: result, error: rpcError } = await supabase.rpc("admin_founder_overview_v2", {
         p_from: range.from,
         p_to: range.to,
       });
       if (cancelled) return;
-      if (rpcError) { setError(rpcError.message); setData(null); }
+      if (rpcError) { setError("Die Übersicht konnte gerade nicht geladen werden."); setData(null); }
       else setData(result as Overview);
       setLoading(false);
     }
@@ -97,7 +97,7 @@ export default function FounderDashboardPage() {
       </header>
 
       {loading ? <div className="bi-state">Daten werden verdichtet …</div> : null}
-      {error ? <div className="bi-error">Migration/RPC fehlt oder ist nicht erreichbar: {error}</div> : null}
+      {error ? <div className="bi-error">{error} Bitte erneut versuchen.</div> : null}
 
       {data ? <>
         <section className="bi-briefing">
