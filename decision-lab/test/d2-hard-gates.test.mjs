@@ -94,6 +94,21 @@ test("freeze identity is deterministic and validator rejects tampering", async (
   assert.deepEqual(first, second);
   const recertification = await validateEngineRecertification();
   assert.equal(recertification.valid, true, JSON.stringify(recertification.reasons));
+  const changedProduction = await validateEngineRecertification({
+    ...recertification.contract,
+    production: { ...recertification.contract.production, activeVersion: 74 }
+  });
+  assert.equal(changedProduction.valid, false);
+  assert.ok(changedProduction.reasons.includes("PRODUCTION_IDENTITY_NOT_CERTIFIED"));
+  const changedSourceSet = await validateEngineRecertification({
+    ...recertification.contract,
+    protectedSemanticSourceSet: {
+      ...recertification.contract.protectedSemanticSourceSet,
+      paths: [...recertification.contract.protectedSemanticSourceSet.paths, "package.json"]
+    }
+  });
+  assert.equal(changedSourceSet.valid, false);
+  assert.ok(changedSourceSet.reasons.includes("PROTECTED_SEMANTIC_SOURCE_SET_MISMATCH"));
   assert.equal(first.engineMutation, "AUTHORIZED_RECERTIFICATION");
   assert.equal((await validateD21Freeze(first)).valid, true);
   assert.equal((await validateD21Freeze({ ...first, constitutionHash: "tampered" })).valid, false);

@@ -13,8 +13,8 @@ Production Supabase project `hjgcrrzfjchzqoegcywn` is actively serving `decision
 | Identity | Historical D2.1 | Re-certified Production baseline |
 |---|---|---|
 | `decision-v13/index.ts` | `a3618a4254a884a53b45cf185c630444239d3da8e04f78d86ece6a65cda507ba` | `28e178dee7192cb303b07574f31f1e86f58bc80048b23ba00bf032ca02c2bfc4` |
-| D2.1 freeze manifest | `6488f3031bb63df482dbff2b2e2c011c1a82781862e1fe532ffdd1c968fffacf` | `af0944d2f2618faffd67ad50ecc332342888e2f9fbee68db9820b0dd9011d191` |
-| D2.2 treatment freeze | `9b4691de75bead63ad798700ada0b818ba6d29ad92d24804dcb2d3eeecfc1053` | `ed0b02408b3fc156551ff8f233d8c0fde68a18ba63596a3950b43ff529ed9038` |
+| D2.1 freeze manifest | `6488f3031bb63df482dbff2b2e2c011c1a82781862e1fe532ffdd1c968fffacf` | `70f4ca13306d48a21d91d80c109794f39ad7e10af69edfcc3954b233af4e0026` |
+| D2.2 treatment freeze | `9b4691de75bead63ad798700ada0b818ba6d29ad92d24804dcb2d3eeecfc1053` | `be7e65317d71717c3b14a48a75bddf9092c34de1a70e84e2e3f60c74ca6a5b3a` |
 
 The Constitution, scenario registry, evaluator, hard-gate registry, framework acceptance code and result schema did not change. Their hashes remain identical to the original D2.1 certification.
 
@@ -42,7 +42,7 @@ The versioned authorization contract is `decision-lab/config/decision-v13-produc
 - Production function version, JWT setting, bundle identity and exact repository-source match;
 - eight explicit semantic invariants.
 
-The protected semantic source-set hash is `99304c0113db860ef7db0c93bc566cf72ddd4236497551acd66bc54e91ff9efb`. The evidence-set hash is `1c1d26f912b9e5bcca56cbd6d08795a4fdfee1de5529cf2bdec97af6bb7ffce1`. Any unapproved byte change to those sets invalidates D2.1 and blocks D3.1.
+The protected semantic source-set hash is `99304c0113db860ef7db0c93bc566cf72ddd4236497551acd66bc54e91ff9efb`. The evidence-set hash is `35d48f61aabf60f92b6ed4deec16248bac86e27e7414e6382352cebedd69acf4`; it includes the re-certification validator, scope guard and their regression evidence. Any unapproved byte change to those sets invalidates D2.1 and blocks D3.1.
 
 D2.1 retains all nine hard gates and all 45 adversarial cases with zero false pass, zero false fail and zero `NOT_EVALUATED` leakage. D2.2 was re-executed against the authorized parent and passed all 18 treatment validations over three seeds and six maturity classes. D3.1 now accepts only the re-certified D2.1 and D2.2 identities and the current engine source hash.
 
@@ -52,6 +52,8 @@ The historical D2.1 freeze remains preserved in Git and is explicitly named as t
 
 Historical Wave 3C and Wave 4 evidence remains bound to the archived, content-sealed D2.2 parent under `decision-lab/config/archive/`; those negative experimental results are not rewritten against the new Product baseline. Active D3 preflight reads the newly re-certified D2.2 freeze. This separates historical reproducibility from current Production readiness.
 
-No guard exemption was added and no protected path was removed. This re-certification narrows acceptance to one exact authorized semantic state.
+No general guard exemption was added and no protected path was removed. This re-certification narrows acceptance to one exact authorized semantic state.
+
+The real protected-scope guard accepts downstream byte-pinned Product integrations only when the Engine is unchanged or this complete re-certification validates. Regression coverage proves: unchanged baseline passes; a one-byte Engine change without re-certification fails; a new Decision source fails; altered Production identity fails; altered protected source-set identity fails; and the complete valid re-certification passes. No glob or path-wide exception is introduced.
 
 **D2/D3 FREEZE — RE-CERTIFIED**

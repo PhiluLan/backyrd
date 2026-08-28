@@ -72,12 +72,12 @@ mkdir -p "$tmp/web/app/decision-adjacent"
 printf 'export default function DecisionAdjacent() { return null; }\n' > "$tmp/web/app/decision-adjacent/page.tsx"
 git -C "$tmp" add web/app/decision-adjacent/page.tsx
 git -C "$tmp" commit -qm fifth-path
-expect_fail 'new fifth Decision-adjacent Web path'
+expect_fail 'new Decision Source'
 
 git -C "$tmp" checkout -q "$accepted"
 printf '\n' >> "$tmp/supabase/functions/decision-v13/index.ts"
 git -C "$tmp" add supabase/functions/decision-v13/index.ts
 git -C "$tmp" commit -qm engine-change
-expect_fail 'decision-v13 change'
+expect_fail 'one-byte Engine change without re-certification'
 
 echo "D2 Web closure guard regression: all cases passed"

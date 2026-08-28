@@ -28,8 +28,8 @@ const requiredRecertificationInvariants = Object.freeze({
   d2HardGateConstitution: "UNCHANGED"
 });
 
-export async function validateEngineRecertification() {
-  const contract = await readJson(recertificationPath);
+export async function validateEngineRecertification(contractOverride = null) {
+  const contract = contractOverride ?? await readJson(recertificationPath);
   const protectedSemanticSourceSetHash = await hashFiles(absolute(contract.protectedSemanticSourceSet.paths));
   const certificationEvidenceSetHash = await hashFiles(absolute(contract.certificationEvidenceSet.paths));
   const engineSourceHash = await hashFiles([resolve(repoRoot, "supabase/functions/decision-v13/index.ts")]);

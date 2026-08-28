@@ -1,7 +1,7 @@
 {
   "version": "d3.1-diagnostic-coverage-v1",
-  "parentFreezeManifestHash": "af0944d2f2618faffd67ad50ecc332342888e2f9fbee68db9820b0dd9011d191",
-  "personalizationTreatmentFreezeHash": "ed0b02408b3fc156551ff8f233d8c0fde68a18ba63596a3950b43ff529ed9038",
+  "parentFreezeManifestHash": "70f4ca13306d48a21d91d80c109794f39ad7e10af69edfcc3954b233af4e0026",
+  "personalizationTreatmentFreezeHash": "be7e65317d71717c3b14a48a75bddf9092c34de1a70e84e2e3f60c74ca6a5b3a",
   "engineSourceHash": "28e178dee7192cb303b07574f31f1e86f58bc80048b23ba00bf032ca02c2bfc4",
   "executionPath": "CANONICAL_V13_AUTHENTICATED",
   "arms": {

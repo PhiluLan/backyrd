@@ -35,10 +35,14 @@
     "paths": [
       "docs/decision/CANONICAL_OFFERING_PURPOSE_V2_1.md",
       "docs/decision/CANONICAL_OFFERING_PURPOSE_V2_1_VALIDATION.md",
+      "decision-lab/src/d2-freeze.mjs",
+      "decision-lab/test/d2-hard-gates.test.mjs",
       "packages/canonical-semantics/test/offering.test.mjs",
-      "packages/decision-orchestrator-runtime/test/offering-purpose.test.mjs"
+      "packages/decision-orchestrator-runtime/test/offering-purpose.test.mjs",
+      "scripts/ci/decision-d2-scope-guard.sh",
+      "scripts/ci/test-decision-d2-web-closure-guard.sh"
     ],
-    "hash": "1c1d26f912b9e5bcca56cbd6d08795a4fdfee1de5529cf2bdec97af6bb7ffce1"
+    "hash": "35d48f61aabf60f92b6ed4deec16248bac86e27e7414e6382352cebedd69acf4"
   },
   "invariants": {
     "hardEligibilityBeforeRanking": "PASS",

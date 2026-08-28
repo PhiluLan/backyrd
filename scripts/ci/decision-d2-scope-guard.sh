@@ -4,6 +4,19 @@ base="${CI_BASE_SHA:-origin/main}"
 changed="$(git diff --name-only "$base"...HEAD)"
 protected="$(printf '%s\n' "$changed" | grep -E '^(supabase/functions/decision-v13/|supabase/migrations/.*decision.*(v11|v12|v13)|mobile/.*decision|web/.*decision)' || true)"
 
+# Downstream, byte-pinned Product integrations may rely on either the original
+# unchanged D2 engine or the exact Production baseline admitted by the full
+# D2 re-certification contract. The latter validates the Engine, protected
+# semantic source set, evidence set, Production identity and freeze manifest;
+# any later drift remains fail-closed.
+engine_baseline_accepted=false
+if git diff --quiet "$base"...HEAD -- supabase/functions/decision-v13/index.ts; then
+  engine_baseline_accepted=true
+elif node decision-lab/src/d2-cli.mjs validate-freeze >/dev/null; then
+  engine_baseline_accepted=true
+  echo "D2 scope guard: exact re-certified Production engine baseline accepted"
+fi
+
 # Sprint 1 intentionally adds a narrowly bounded, behavior-neutral N2 memory
 # bridge to the existing Decision screen. Keep the historical D2 guard strict:
 # only this exact provenance patch is exempt; any other Product/Decision change
@@ -37,31 +50,31 @@ if printf '%s\n' "$protected" | grep -Fx "$memory_bridge_path" >/dev/null; then
 fi
 
 # The first internal-live activation is a server-only wrapper around the
-# byte-identical frozen v13 engine. Permit only these two integration files,
-# and only while the canonical v13 source itself has no diff from the base.
+# accepted v13 baseline. Permit only these two integration files while the
+# canonical engine is unchanged or exactly re-certified.
 live_wrapper='supabase/functions/decision-v13/live-index.ts'
 live_adapter='supabase/functions/decision-v13/north-star-live.ts'
-if git diff --quiet "$base"...HEAD -- supabase/functions/decision-v13/index.ts; then
+if [[ "$engine_baseline_accepted" == true ]]; then
   protected="$(printf '%s\n' "$protected" | grep -Fvx "$live_wrapper" | grep -Fvx "$live_adapter" || true)"
-  echo "D2 scope guard: frozen v13 unchanged; internal-live server wrapper accepted"
+  echo "D2 scope guard: accepted v13 baseline; internal-live server wrapper accepted"
 fi
 
 # Mobile Production Rebuild retires three obsolete client/debug Decision paths.
-# Their deletion is safe only while the frozen canonical v13 implementation is
-# byte-identical to the base; reintroducing or modifying any of them remains a
+# Their deletion is safe only while the canonical v13 implementation is the
+# accepted baseline; reintroducing or modifying any of them remains a
 # protected-path failure.
 retired_mobile_decision_paths=(
   'mobile/app/(tabs)/decision-debug.tsx'
   'mobile/lib/decision/backyrdDecision.ts'
   'mobile/supabase/functions/semantic-bridge-decision/index.ts'
 )
-if git diff --quiet "$base"...HEAD -- supabase/functions/decision-v13/index.ts; then
+if [[ "$engine_baseline_accepted" == true ]]; then
   for retired_path in "${retired_mobile_decision_paths[@]}"; do
     if [[ ! -e "$retired_path" ]]; then
       protected="$(printf '%s\n' "$protected" | grep -Fvx "$retired_path" || true)"
     fi
   done
-  echo "D2 scope guard: retired Mobile Decision clients removed; frozen v13 unchanged"
+  echo "D2 scope guard: retired Mobile Decision clients removed; accepted v13 baseline"
 fi
 
 # Production Decision final closure is an explicitly versioned exception to
@@ -109,7 +122,7 @@ if printf '%s\n' "$protected" | grep -Fx "$canonical_onboarding_path" >/dev/null
 fi
 
 # Consumer Web Design Closure adds a presentation-only Web client for the
-# already frozen Production Decision contract. This is a one-time, byte-exact
+# accepted Production Decision contract. This is a one-time, byte-exact
 # exception: all four reviewed paths must match their pinned diff hashes, the
 # Product contract evidence must be in the same change, and v13 must remain
 # untouched. Any later byte, fifth adjacent path, or Engine change fails closed.
@@ -129,7 +142,7 @@ web_closure_hashes=(
 )
 if printf '%s\n' "$changed" | grep -Fx "$web_closure_marker" >/dev/null \
   && printf '%s\n' "$changed" | grep -Fx "$web_closure_contract" >/dev/null \
-  && git diff --quiet "$base"...HEAD -- supabase/functions/decision-v13/index.ts; then
+  && [[ "$engine_baseline_accepted" == true ]]; then
   web_closure_valid=true
   for i in "${!web_closure_paths[@]}"; do
     web_path="${web_closure_paths[$i]}"
