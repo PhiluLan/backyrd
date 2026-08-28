@@ -154,13 +154,19 @@ async function openAuthenticatedMomentsFixture(page: Page) {
   await page.route("**/rest/v1/rpc/get_social_comments_v1", (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
   );
-  await page.route("https://moments.backyrd.test/*.jpg", (route) =>
-    route.fulfill({
+  await page.route("https://moments.backyrd.test/*.jpg", (route) => {
+    const id = Number(new URL(route.request().url()).pathname.match(/(\d+)\.jpg$/)?.[1] || 1);
+    const dimensions = id === 1
+      ? { width: 1200, height: 800 }
+      : id === 2
+        ? { width: 800, height: 1200 }
+        : { width: 1000, height: 1000 };
+    return route.fulfill({
       status: 200,
       contentType: "image/svg+xml",
-      body: `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="675"><rect width="900" height="675" fill="#30232b"/><circle cx="650" cy="150" r="180" fill="#ff4f91" opacity=".45"/><path d="M0 530 L300 260 L500 480 L720 300 L900 500 V675 H0Z" fill="#d8ff3e" opacity=".42"/></svg>`,
-    }),
-  );
+      body: `<svg xmlns="http://www.w3.org/2000/svg" width="${dimensions.width}" height="${dimensions.height}" viewBox="0 0 ${dimensions.width} ${dimensions.height}"><rect width="100%" height="100%" fill="#30232b"/><circle cx="72%" cy="24%" r="18%" fill="#ff4f91" opacity=".45"/><path d="M0 ${dimensions.height * 0.78} L${dimensions.width * 0.34} ${dimensions.height * 0.38} L${dimensions.width * 0.57} ${dimensions.height * 0.72} L${dimensions.width * 0.8} ${dimensions.height * 0.44} L${dimensions.width} ${dimensions.height * 0.74} V${dimensions.height} H0Z" fill="#d8ff3e" opacity=".42"/></svg>`,
+    });
+  });
   await page.goto("/login?next=%2Fmoments");
   await page.getByLabel("E-Mail").fill("moments-web@backyrd.test");
   await page.getByLabel("Passwort").fill("test-password-123");
@@ -481,6 +487,39 @@ test("Moments matches the editorial 3/2/1 grid and keeps real social modules tru
   const textMoment = page.locator('.b-moment[data-has-media="false"]');
   await expect(textMoment).toHaveCount(1);
   await expect(textMoment.locator("img")).toHaveCount(0);
+
+  const mediaGeometry = await page.locator('.b-moment[data-has-media="true"]').evaluateAll((cards) =>
+    cards.map((card) => {
+      const media = card.querySelector<HTMLElement>(".b-moment-media");
+      const image = card.querySelector<HTMLImageElement>("img");
+      const content = card.querySelector<HTMLElement>(".b-moment-content");
+      const cardStyle = getComputedStyle(card);
+      const contentStyle = content ? getComputedStyle(content) : null;
+      const mediaRect = media?.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      return {
+        cardWidth: cardRect.width,
+        mediaWidth: mediaRect?.width || 0,
+        mediaRatio: mediaRect ? mediaRect.width / mediaRect.height : 0,
+        minHeight: cardStyle.minHeight,
+        contentFlexGrow: contentStyle?.flexGrow,
+        naturalRatio: image ? image.naturalWidth / image.naturalHeight : 0,
+      };
+    }),
+  );
+  expect(mediaGeometry.map(({ naturalRatio }) => Math.round(naturalRatio * 100) / 100)).toEqual([1.5, 0.67, 1]);
+  for (const geometry of mediaGeometry) {
+    expect(Math.abs(geometry.cardWidth - geometry.mediaWidth)).toBeLessThanOrEqual(2.1);
+    expect(Math.abs(geometry.mediaRatio - 4 / 3)).toBeLessThanOrEqual(0.01);
+    expect(["auto", "0px"]).toContain(geometry.minHeight);
+    expect(geometry.contentFlexGrow).toBe("0");
+  }
+
+  const naturalCardHeights = await page.locator(".b-moment").evaluateAll((cards) =>
+    cards.map((card) => Math.round(card.getBoundingClientRect().height)),
+  );
+  expect(new Set(naturalCardHeights).size).toBeGreaterThan(1);
+  expect(naturalCardHeights[2]).toBeLessThan(Math.min(naturalCardHeights[0], naturalCardHeights[1]));
 
   for (const [width, expectedColumns] of [[1728, 3], [1440, 3], [1024, 2], [768, 2], [430, 1], [390, 1], [320, 1]] as const) {
     await page.setViewportSize({ width, height: width < 600 ? 844 : 1000 });
