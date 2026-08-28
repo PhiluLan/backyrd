@@ -327,6 +327,8 @@ These are read-only facts. No corpus improvement was performed.
 2. Founder/content-authorized replacement of the three authoritative header files, or explicit decision to clear/downgrade those references.
 3. Durable ongoing backup: authorize a provider plan/retention level and a secure off-provider scheduled Storage export with owner, monitoring, restore cadence, and retention.
 
+The exact bounded options and required Founder response format are recorded in `docs/operations/GO_LIVE_GATE_1_FOUNDER_DECISIONS.md`.
+
 **P2:** repair or intentionally re-certify the Decision Lab D2/D3.1 parent freeze after reviewing the engine-source change; do not merely update hashes.
 
 **P3:** review and either restore or retire one stale optional legacy Review object and five optional gallery references.
