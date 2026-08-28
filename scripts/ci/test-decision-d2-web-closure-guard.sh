@@ -2,7 +2,11 @@
 set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
-source_base="${CI_BASE_SHA:-0414bd950ce2450be359352862189904b604f531}"
+# This isolated Web regression fixture starts at the authorized Offering /
+# Purpose engine baseline, before the Consumer Web closure. Do not inherit
+# CI_BASE_SHA: that variable identifies the PR target for the real guard and
+# would silently replace this test's controlled input.
+source_base="${DECISION_D2_WEB_CLOSURE_BASE_SHA:-dce92ef1379d7ab5140f7dc0813d8ee017933d4b}"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 
