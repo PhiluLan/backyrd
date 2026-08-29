@@ -1,4 +1,4 @@
-import { evaluatePilotAcceptance, evaluateScaleBatchIntegrity, googleMatch, planRefreshCandidates, selectResearchCohort, selectResearchEligible, websiteIdentityCompatible, type Candidate } from "./index.ts";
+import { evaluatePilotAcceptance, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planRefreshCandidates, selectResearchCohort, selectResearchEligible, websiteIdentityCompatible, type Candidate } from "./index.ts";
 
 const candidate: Candidate = {
   sourceFamily: "OPENSTREETMAP",
@@ -121,6 +121,13 @@ Deno.test("Scale batch circuit breaker fails closed on systemic integrity anomal
   if(healthy.verdict!=="PASS")throw new Error("healthy scale batch must pass");
   const failed=evaluateScaleBatchIntegrity({attemptedCandidateCount:2,publishedSpotIds:["spot-1","spot-1"],googleDuplicateGroups:1,normalizedIdentityDuplicateGroups:1,fixtureLeakage:1,publishedWithoutSpot:1,openReviews:1,failedBootstrapJobs:1,distributionIneligible:1});
   for(const expected of ["SCALE_BATCH_IDENTITY_INVALID","GOOGLE_IDENTITY_DUPLICATE","NORMALIZED_IDENTITY_DUPLICATE","FIXTURE_LEAKAGE","PUBLISHED_WITHOUT_SPOT","OPEN_IDENTITY_REVIEW","BOOTSTRAP_QUEUE_FAILURE","DISTRIBUTION_GUARD_FAILURE"])if(!failed.failures.includes(expected))throw new Error(`missing circuit breaker: ${expected}`);
+});
+
+Deno.test("Scale finalization requires complete candidates, jobs, reviews, and contiguous PASS checkpoints", () => {
+  const healthy=evaluateScaleFinalization({candidateCount:247,unfinishedCandidates:0,openReviews:0,incompleteJobs:0,failedJobs:0,websiteIdentityMismatches:0,checkpointBatches:[1,2,3],checkpointVerdicts:["PASS","PASS","PASS"]});
+  if(healthy.verdict!=="PASS"||healthy.metrics.lastBatch!==3)throw new Error("healthy scale run must finalize");
+  const failed=evaluateScaleFinalization({candidateCount:247,unfinishedCandidates:1,openReviews:1,incompleteJobs:1,failedJobs:1,websiteIdentityMismatches:1,checkpointBatches:[1,3],checkpointVerdicts:["PASS","FAIL"]});
+  for(const expected of ["SCALE_CANDIDATES_UNFINISHED","SCALE_IDENTITY_REVIEWS_OPEN","SCALE_BOOTSTRAP_JOBS_INCOMPLETE","SCALE_BOOTSTRAP_JOBS_FAILED","SCALE_WEBSITE_IDENTITY_MISMATCH","SCALE_CHECKPOINT_LINEAGE_INVALID"])if(!failed.failures.includes(expected))throw new Error(`missing finalization guard: ${expected}`);
 });
 
 Deno.test("Scale website identity blocks stale social and sibling evidence", () => {

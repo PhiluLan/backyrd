@@ -93,6 +93,20 @@ export function evaluateScaleBatchIntegrity(input: ScaleBatchIntegrity) {
   return {verdict:failures.length?"FAIL":"PASS",failures};
 }
 
+export type ScaleFinalizationInput = { candidateCount:number;unfinishedCandidates:number;openReviews:number;incompleteJobs:number;failedJobs:number;websiteIdentityMismatches:number;checkpointBatches:number[];checkpointVerdicts:string[] };
+export function evaluateScaleFinalization(input: ScaleFinalizationInput) {
+  const failures:string[]=[];
+  const sorted=[...input.checkpointBatches].sort((a,b)=>a-b),contiguous=sorted.length>0&&sorted.every((batch,index)=>batch===index+1);
+  if(input.candidateCount<1)failures.push("SCALE_CANDIDATES_EMPTY");
+  if(input.unfinishedCandidates>0)failures.push("SCALE_CANDIDATES_UNFINISHED");
+  if(input.openReviews>0)failures.push("SCALE_IDENTITY_REVIEWS_OPEN");
+  if(input.incompleteJobs>0)failures.push("SCALE_BOOTSTRAP_JOBS_INCOMPLETE");
+  if(input.failedJobs>0)failures.push("SCALE_BOOTSTRAP_JOBS_FAILED");
+  if(input.websiteIdentityMismatches>0)failures.push("SCALE_WEBSITE_IDENTITY_MISMATCH");
+  if(!contiguous||input.checkpointVerdicts.length!==sorted.length||input.checkpointVerdicts.some((verdict)=>verdict!=="PASS"))failures.push("SCALE_CHECKPOINT_LINEAGE_INVALID");
+  return {verdict:failures.length?"FAIL":"PASS",failures,metrics:{candidateCount:input.candidateCount,checkpointCount:sorted.length,lastBatch:sorted.at(-1)??null}};
+}
+
 type RefreshPrevious = {
   identity_key?: unknown;
   source_fingerprint?: unknown;
@@ -262,7 +276,7 @@ if (import.meta.main) Deno.serve(async (request) => {
       return json({ok:true,runId,publicationAttempts,canonicalSpotsCreated,matchedExisting,publishedTotal:(publishedRows??[]).length,researchEligibleTotal:researchEligible.length,researchQueued,researchDeduplicated,researchDeferred:Math.max(0,researchEligible.length-researchCohort.length),researchIneligible:Math.max(0,(publishedRows??[]).length-researchEligible.length),researchPreviouslySeen:excludedSpotIds.size,researchPilotLimit:10,independentResearchCohort:true,canonicalFactsWritten:0,n4Writes:0});
     }
     if(action==="FINALIZE_PILOT") {
-      const runId=clean(body?.runId),requestedBy=clean(body?.requestedBy),researchJobIds=Array.isArray(body?.researchJobIds)?[...new Set(body.researchJobIds.map(clean).filter(Boolean))]:[],proposalIds=Array.isArray(body?.proposalIds)?[...new Set(body.proposalIds.map(clean).filter(Boolean))]:[];
+      const runId=clean(body?.runId),requestedBy=clean(body?.requestedBy),researchJobIds:string[]=Array.isArray(body?.researchJobIds)?[...new Set<string>(body.researchJobIds.map(clean).filter(Boolean))]:[],proposalIds:string[]=Array.isArray(body?.proposalIds)?[...new Set<string>(body.proposalIds.map(clean).filter(Boolean))]:[];
       if(clean(body?.confirm)!==`FINALIZE:${runId}`||!/^[0-9a-f-]{36}$/.test(runId)||!/^[0-9a-f-]{36}$/.test(requestedBy)||researchJobIds.length!==10||proposalIds.length<1||proposalIds.length>16||[...researchJobIds,...proposalIds].some((id)=>!/^[0-9a-f-]{36}$/.test(id)))return json({ok:false,error:"pilot_finalization_request_invalid"},400);
       const [{data:run},{data:actor},{data:candidates},{data:reviews},{data:bootstrapJobs},{data:researchJobs},{data:proposals},{data:acceptedFacts},{data:audits}]=await Promise.all([
         db.from("backyrd_city_bootstrap_runs_v1").select("id,mode,status,requested_by,started_at,stop_reason").eq("id",runId).maybeSingle(),
@@ -288,6 +302,35 @@ if (import.meta.main) Deno.serve(async (request) => {
       if(evaluation.verdict!=="PASS")return json({ok:false,runId,status:run.status,verdict:"FAIL",snapshot},409);
       const completed=await db.from("backyrd_city_bootstrap_runs_v1").update({status:"COMPLETED",completed_at:new Date().toISOString()}).eq("id",runId).in("status",["RUNNING","PAUSED","REVIEW_REQUIRED"]).select("id,status,completed_at,stop_reason").single();if(completed.error)throw completed.error;
       return json({ok:true,runId,status:completed.data.status,verdict:"PASS",replayed:false,snapshot});
+    }
+    if(action==="FINALIZE_SCALE") {
+      const runId=clean(body?.runId),requestedBy=clean(body?.requestedBy);
+      if(clean(body?.confirm)!==`FINALIZE_SCALE:${runId}`||!/^[0-9a-f-]{36}$/.test(runId)||!/^[0-9a-f-]{36}$/.test(requestedBy))return json({ok:false,error:"scale_finalization_request_invalid"},400);
+      const [{data:run,error:runError},{data:actor,error:actorError},{data:candidates,error:candidatesError},{data:reviews,error:reviewsError},{data:jobs,error:jobsError},{data:checkpoints,error:checkpointsError}]=await Promise.all([
+        db.from("backyrd_city_bootstrap_runs_v1").select("id,mode,status,requested_by,completed_at,stop_reason").eq("id",runId).maybeSingle(),
+        db.from("admin_users").select("user_id,role").eq("user_id",requestedBy).in("role",["admin","super_admin"]).maybeSingle(),
+        db.from("backyrd_city_bootstrap_candidates_v1").select("id,lifecycle_state").eq("run_id",runId),
+        db.from("backyrd_city_bootstrap_reviews_v1").select("state").eq("run_id",runId),
+        db.from("backyrd_city_bootstrap_jobs_v1").select("state").eq("run_id",runId),
+        db.from("backyrd_city_bootstrap_checkpoints_v1").select("batch_number,verdict").eq("run_id",runId).order("batch_number",{ascending:true}),
+      ]);
+      const readError=runError??actorError??candidatesError??reviewsError??jobsError??checkpointsError;if(readError)throw readError;
+      if(!run||run.mode!=="SCALE"||!actor||run.requested_by!==requestedBy)return json({ok:false,error:"scale_finalization_actor_or_run_invalid"},403);
+      if(run.status==="COMPLETED")return json({ok:true,runId,status:"COMPLETED",verdict:"PASS",replayed:true,completedAt:run.completed_at,reason:run.stop_reason});
+      if(run.status!=="RUNNING")return json({ok:false,error:"scale_run_not_finalizable",status:run.status},409);
+      const mismatches=await websiteIdentityMismatches(db,runId),evaluation=evaluateScaleFinalization({
+        candidateCount:(candidates??[]).length,
+        unfinishedCandidates:(candidates??[]).filter((candidate:any)=>!["PUBLISHED","REJECTED"].includes(candidate.lifecycle_state)).length,
+        openReviews:(reviews??[]).filter((review:any)=>review.state==="OPEN").length,
+        incompleteJobs:(jobs??[]).filter((job:any)=>!["COMPLETE","SKIPPED"].includes(job.state)).length,
+        failedJobs:(jobs??[]).filter((job:any)=>job.state==="FAILED").length,
+        websiteIdentityMismatches:mismatches.length,
+        checkpointBatches:(checkpoints??[]).map((checkpoint:any)=>Number(checkpoint.batch_number)),
+        checkpointVerdicts:(checkpoints??[]).map((checkpoint:any)=>clean(checkpoint.verdict)),
+      });
+      if(evaluation.verdict!=="PASS")return json({ok:false,runId,status:run.status,verdict:"FAIL",failures:evaluation.failures,metrics:evaluation.metrics},409);
+      const completed=await db.from("backyrd_city_bootstrap_runs_v1").update({status:"COMPLETED",completed_at:new Date().toISOString(),stop_reason:"COMPLETED:CURATED_SELECTION_EXHAUSTED"}).eq("id",runId).eq("status","RUNNING").select("id,status,completed_at,stop_reason").single();if(completed.error)throw completed.error;
+      return json({ok:true,runId,status:completed.data.status,verdict:"PASS",replayed:false,completedAt:completed.data.completed_at,reason:completed.data.stop_reason,metrics:evaluation.metrics});
     }
     if(action==="PUBLISH_SCALE_BATCH") {
       const runId=clean(body?.runId),requestedBy=clean(body?.requestedBy),batchNumber=Number(body?.batchNumber),researchLimit=Number(body?.researchLimit??0);
