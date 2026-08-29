@@ -6,6 +6,7 @@ begin if p_ok is not true then raise exception 'Research entity-instance v2.6 te
 select pg_temp.assert(not has_function_privilege('service_role','public.backyrd_finalize_spot_research_pass_v3_entity_scope_v25(uuid,uuid,text,jsonb,jsonb,jsonb)','EXECUTE'),'legacy v2.5 finalizer remains callable');
 select pg_temp.assert(has_function_privilege('service_role','public.backyrd_finalize_spot_research_pass_v3(uuid,uuid,text,jsonb,jsonb,jsonb)','EXECUTE'),'service role cannot execute v2.6 finalizer');
 select pg_temp.assert(position('research_source_instance_scope_mismatch' in pg_get_functiondef('public.backyrd_finalize_spot_research_pass_v3(uuid,uuid,text,jsonb,jsonb,jsonb)'::regprocedure))>0,'source instance gate missing from finalizer');
+select pg_temp.assert(position('v_item->>''supportStatus''=''SUPPORTED''' in replace(pg_get_functiondef('public.backyrd_finalize_spot_research_pass_v3(uuid,uuid,text,jsonb,jsonb,jsonb)'::regprocedure),' ',''))>0,'instance scope gate is not limited to supported evidence');
 select pg_temp.assert(position('research_proposal_instance_scope_mismatch' in pg_get_functiondef('public.backyrd_finalize_spot_research_pass_v3(uuid,uuid,text,jsonb,jsonb,jsonb)'::regprocedure))>0,'proposal instance gate missing from finalizer');
 
 insert into auth.users(instance_id,id,aud,role,email,encrypted_password,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
@@ -18,7 +19,7 @@ values('99999999-9999-4999-8999-999999999999','88888888-8888-4888-8888-888888888
 set local role service_role;
 select set_config('request.jwt.claim.role','service_role',true);
 do $$
-declare v_extraction jsonb:=jsonb_build_object('sourceUrl','https://brand.example/');v_proposal jsonb:=jsonb_build_object('sourceUrl','https://brand.example/basel-sbb','fieldKey','contact.website','value','"https://brand.example/"'::jsonb);
+declare v_extraction jsonb:=jsonb_build_object('sourceUrl','https://brand.example/','supportStatus','SUPPORTED');v_proposal jsonb:=jsonb_build_object('sourceUrl','https://brand.example/basel-sbb','fieldKey','contact.website','value','"https://brand.example/"'::jsonb);
 begin
   begin
     perform public.backyrd_finalize_spot_research_pass_v3('99999999-9999-4999-8999-999999999999','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','A',jsonb_build_array(v_extraction),'[]','{}');
