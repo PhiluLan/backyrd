@@ -1,3 +1,4 @@
+-- Production migration identity: 20260829080205_gate2_public_spot_detail_truth_v1.
 -- Gate 2: make Public Web Spot Detail consume canonical understanding and
 -- opening-hours truth. The contract stays additive and fails closed for
 -- non-Product or Distribution-ineligible Spots.
