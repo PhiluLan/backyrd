@@ -156,7 +156,7 @@ test("public Spot Detail exposes useful canonical truth and honest hours uncerta
   const [page, dto, migration] = await Promise.all([
     read("web/app/spots/[id]/page.tsx"),
     read("web/lib/public-spot-detail.ts"),
-    read("supabase/migrations/20260829090000_gate2_public_spot_detail_truth_v1.sql"),
+    read("supabase/migrations/20260829080205_gate2_public_spot_detail_truth_v1.sql"),
   ]);
   assert.match(dto, /description: string \| null/);
   assert.match(dto, /opening_hours/);

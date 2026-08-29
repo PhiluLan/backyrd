@@ -1,6 +1,6 @@
 {
   "version": "backyrd-production-product-lineage-v2",
-  "audited_at": "2026-08-29T07:55:00Z",
+  "audited_at": "2026-08-29T08:05:00Z",
   "repository": "PhiluLan/backyrd",
   "integration_anchor": {
     "commit": "c425ad1d61186e6d73ed2df1f9686780dcbf0e24",
@@ -13,33 +13,33 @@
   "surfaces": {
     "mobile": {
       "delivery": "EAS production OTA",
-      "commit": "0414bd950ce2450be359352862189904b604f531",
-      "tree": "ba37a044b96dd61b1dd38def9979dad1f2138f7f",
+      "commit": "643723ff3f732813c96637639f9c5e226eca65fb",
+      "tree": "57bfd6c064f20b22fe85ff5778d4742edb19d172",
       "path": "mobile",
       "runtime_version": "1.1.0",
-      "update_group": "cfda09d4-c6eb-41e2-a57c-01888117e766",
-      "android_update": "01a04504-4b86-7031-95b9-5a1dadce10aa",
-      "ios_update": "01a04504-4b86-7699-8404-32e9357d259b",
-      "created_at": "2026-08-27T20:58:24.518Z",
+      "update_group": "dce4bef4-69d0-47d2-841f-014c287cf5bc",
+      "android_update": "01a04c8c-e5c6-77bc-b98e-cc51f2ab93f1",
+      "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
+      "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
         "commit": "887221728ca3b6da9be3460386e50ccf6d6164b2",
         "tree": "57bfd6c064f20b22fe85ff5778d4742edb19d172",
-        "production_verified": false,
-        "reason": "Gate 2 changes only missing-hours presentation and its contract test; Production OTA evidence is recorded after the reviewed merge."
+        "production_verified": true,
+        "reason": "Gate 2 changes only missing-hours presentation and its contract test; EAS Production OTA is bound to canonical merge 643723f."
       }
     },
     "consumer_web": {
       "delivery": "Vercel production",
-      "commit": "925b69eb346a9cc4f83a8c3ea9358d50599667a8",
-      "tree": "bff6828dea506138cd8789fb62171beb6052a72c",
+      "commit": "643723ff3f732813c96637639f9c5e226eca65fb",
+      "tree": "f495697d92a8d019ad42e5c748b413a704a07d26",
       "path": "web",
-      "github_deployment_id": 6146634581,
-      "created_at": "2026-08-28T18:40:07Z",
+      "vercel_deployment": "BBa9jfxn6s4ZsaDkwSxv4sU2obhD",
+      "created_at": "2026-08-29T08:02:02Z",
       "canonical_source": {
-        "commit": "887221728ca3b6da9be3460386e50ccf6d6164b2",
-        "tree": "f495697d92a8d019ad42e5c748b413a704a07d26",
-        "production_verified": false,
-        "reason": "Gate 2 additively renders existing canonical description and opening-hours truth; Production deployment evidence is recorded after the reviewed merge."
+        "commit": "2a08090bb4c417086d3944371566354915874f45",
+        "tree": "e460898a8210792801718dfa99b03312a25708f4",
+        "production_verified": true,
+        "reason": "Gate 2 runtime is deployed from canonical merge 643723f; the later canonical tree changes only the contract test's migration filename to the exact Production identity."
       }
     },
     "admin_intelligence_web": {
@@ -54,15 +54,15 @@
       "provider": "Supabase",
       "project_ref": "hjgcrrzfjchzqoegcywn",
       "postgres_major": 17,
-      "migration_tip": "20260828192125_gate1_schema_convergence_v1",
-      "migration_count": 90,
-      "source_commit": "eae5abcb7c43e80017d8d0dc948d0caa490dfaa1",
+      "migration_tip": "20260829080205_gate2_public_spot_detail_truth_v1",
+      "migration_count": 91,
+      "source_commit": "643723ff3f732813c96637639f9c5e226eca65fb",
       "canonical_source": {
-        "source_commit": "887221728ca3b6da9be3460386e50ccf6d6164b2",
-        "migration_tip": "20260829090000_gate2_public_spot_detail_truth_v1",
+        "source_commit": "27a7173a01fc465d7fbb8152cad7ee422d50f126",
+        "migration_tip": "20260829080205_gate2_public_spot_detail_truth_v1",
         "migration_count": 91,
-        "production_verified": false,
-        "reason": "Additive public read-contract replacement; apply only after the source commit reaches canonical main."
+        "production_verified": true,
+        "reason": "Additive public read-contract replacement applied after canonical merge; repository filename converged to the server-registered Production version."
       }
     }
   },
@@ -78,6 +78,26 @@
         "supabase/migrations/20260829090000_gate2_public_spot_detail_truth_v1.sql",
         "web/app/spots/[id]/page.tsx",
         "web/lib/public-spot-detail.ts",
+        "web/tests/consumer-contracts.test.mjs"
+      ],
+      "evidence": "docs/readiness/BASEL_LAUNCH_CORPUS_V1.md"
+    },
+    {
+      "id": "gate2_production_migration_identity",
+      "baseline_commit": "643723ff3f732813c96637639f9c5e226eca65fb",
+      "source_commit": "27a7173a01fc465d7fbb8152cad7ee422d50f126",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "supabase/migrations/20260829080205_gate2_public_spot_detail_truth_v1.sql"
+      ],
+      "evidence": "docs/readiness/BASEL_LAUNCH_CORPUS_V1.md"
+    },
+    {
+      "id": "gate2_web_test_migration_identity",
+      "baseline_commit": "afc2b44f65523973d991738d838af1c7bbc80caa",
+      "source_commit": "2a08090bb4c417086d3944371566354915874f45",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
         "web/tests/consumer-contracts.test.mjs"
       ],
       "evidence": "docs/readiness/BASEL_LAUNCH_CORPUS_V1.md"

@@ -94,8 +94,14 @@ for surface in mobile consumer_web; do
 done
 
 tip="$(jq -r '.surfaces.database.canonical_source.migration_tip' "$manifest")"
+db_source_commit="$(jq -r '.surfaces.database.canonical_source.source_commit' "$manifest")"
+git -C "$repo_root" merge-base --is-ancestor "$db_source_commit" HEAD \
+  || fail "canonical database source is not reachable from HEAD"
 test -f "$repo_root/supabase/migrations/${tip}.sql" \
   || fail "Production migration tip is absent from HEAD: $tip"
+test "$(git -C "$repo_root" show "$db_source_commit:supabase/migrations/${tip}.sql" | git hash-object --stdin)" = \
+  "$(git -C "$repo_root" hash-object "$repo_root/supabase/migrations/${tip}.sql")" \
+  || fail "canonical database source does not bind the exact migration bytes"
 
 "$repo_root/scripts/ci/validate-migrations.sh" >/dev/null
 
