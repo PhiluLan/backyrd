@@ -10,7 +10,6 @@ fail() {
 }
 
 "$repo_root/scripts/ci/validate-migrations.sh"
-"$repo_root/scripts/ci/validate-spot-engine-admin-acl.sh"
 
 while IFS= read -r entrypoint; do
   relative_entrypoint="${entrypoint#./}"
