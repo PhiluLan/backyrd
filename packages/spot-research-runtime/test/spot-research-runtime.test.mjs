@@ -12,7 +12,7 @@ const catalog = [
   { field_key: "description.owner", value_kind: "TEXT", allowed_values: [], engine_role: "DISPLAY_ONLY" }
 ];
 const context = { spot, catalog, acceptedFacts: [] };
-const evidenceRow = { fact_key: "activity.types", typed_value: ["MUSEUM"], evidence_scope: "SPOT", support_status: "SUPPORTED", source_url: "https://museum.example/visit", source_type: "OFFICIAL_WEBSITE", short_evidence: "Official visitor information identifies the museum activity.", observed_at: null };
+const evidenceRow = { fact_key: "activity.types", typed_value: ["MUSEUM"], evidence_scope: "SPOT", entity_scope: "SPOT", subject_name: "Museum Test", durability: "PERSISTENT", support_status: "SUPPORTED", source_url: "https://museum.example/visit", source_type: "OFFICIAL_WEBSITE", short_evidence: "Museum Test is a museum with permanent exhibitions.", observed_at: null };
 
 test("Pass A request is compact, official-domain-only and excludes accepted facts", () => {
   const request = buildResearchRequest({ ...context, acceptedFacts: [{ fieldKey: "secret", value: "never-send" }] }, { passKey: "A" });
@@ -51,6 +51,8 @@ test("strict provider schema binds support status to typed-value presence", () =
     assert.notEqual(variants[index].properties.typed_value.type, "null");
     assert.deepEqual(variants[index + 1].properties.support_status.enum, ["UNKNOWN", "UNSUPPORTED"]);
     assert.deepEqual(variants[index + 1].properties.typed_value, { type: "null" });
+    assert.deepEqual(variants[index].properties.entity_scope.enum.includes("SUBVENUE"), true);
+    assert.deepEqual(variants[index].properties.durability.enum, ["PERSISTENT", "TEMPORARY", "UNKNOWN"]);
     assert.deepEqual(variants[index].properties.observed_at, { type: "null" });
     assert.deepEqual(variants[index + 1].properties.observed_at, { type: "null" });
   }
@@ -94,7 +96,7 @@ test("official root and www hosts are equivalent but sibling domains remain forb
 });
 
 test("UNKNOWN and unsupported evidence cannot carry or create a value", () => {
-  const unknown = validateResearchEvidence({ evidence: [{ ...evidenceRow, typed_value: null, support_status: "UNKNOWN", evidence_scope: "UNKNOWN_SCOPE", short_evidence: "" }] }, context, "A");
+  const unknown = validateResearchEvidence({ evidence: [{ ...evidenceRow, typed_value: null, support_status: "UNKNOWN", evidence_scope: "UNKNOWN_SCOPE", entity_scope: "AMBIGUOUS", subject_name: null, durability: "UNKNOWN", short_evidence: "" }] }, context, "A");
   assert.equal(unknown.valid, true);
   const plan = buildDeterministicProposalPlan(unknown.evidence, context);
   assert.equal(plan.proposals.length, 0);
@@ -128,7 +130,7 @@ test("age and rain remain auditable but outside the objective proposal allowlist
 
 test("only SPOT evidence creates general proposals", () => {
   for (const scope of ["EVENT", "PROGRAM", "TEMPORARY", "UNKNOWN_SCOPE"]) {
-    const evidence = validateResearchEvidence({ evidence: [{ ...evidenceRow, evidence_scope: scope }] }, context, "A").evidence;
+    const evidence = validateResearchEvidence({ evidence: [{ ...evidenceRow, evidence_scope: scope, entity_scope: scope === "UNKNOWN_SCOPE" ? "AMBIGUOUS" : scope, durability: scope === "SPOT" ? "PERSISTENT" : "TEMPORARY" }] }, context, "A").evidence;
     const plan = buildDeterministicProposalPlan(evidence, context);
     assert.equal(plan.proposals.length, 0);
     assert.equal(plan.extractions[0].classification, "UNSUPPORTED");
@@ -153,8 +155,8 @@ test("event-specific family age is excluded from the objective provider pass", (
 });
 
 test("Museum category derives canonical culture place type server-side", () => {
-  const categoryContext = { ...context, catalog: [...catalog, { field_key: "category.primary", value_kind: "TEXT", allowed_values: [], engine_role: "RAW_FACT" }] };
-  const row = { ...evidenceRow, fact_key: "category.primary", typed_value: "museum", short_evidence: "The institution is the Naturhistorisches Museum Basel." };
+  const categoryContext = { ...context, catalog: [...catalog, { field_key: "category.primary", value_kind: "ENUM", allowed_values: ["Museum", "Café"], engine_role: "RAW_FACT" }] };
+  const row = { ...evidenceRow, fact_key: "category.primary", typed_value: "museum", short_evidence: "Museum Test is a museum in Basel." };
   const plan = buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [row] }, categoryContext, "A").evidence, categoryContext);
   assert.deepEqual(plan.proposals.map((item) => [item.fieldKey,item.value]), [["category.primary","museum"],["place_type","culture"]]);
   assert.equal(plan.proposals[1].derivedFromFactKey, "category.primary");
@@ -173,6 +175,63 @@ test("qualitative daypart evidence remains extraction-only", () => {
   assert.equal(buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [schedule] }, daypartContext, "B").evidence, daypartContext).proposals.length,0);
   const explicit = { ...schedule, short_evidence: "The official programme says the museum is especially suited to a weekend afternoon visit." };
   assert.equal(buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [explicit] }, daypartContext, "B").evidence, daypartContext).proposals.length,0);
+});
+
+test("entity and subentity attribution fails closed across fact families", () => {
+  for (const entity_scope of ["SUBVENUE", "EVENT", "PROGRAM", "TEMPORARY", "SERVICE", "OFFERING", "TENANT", "PERSON", "OTHER", "AMBIGUOUS"]) {
+    const row = { ...evidenceRow, entity_scope, subject_name: entity_scope === "AMBIGUOUS" ? null : "Museum Annex", durability: entity_scope === "TEMPORARY" ? "TEMPORARY" : "PERSISTENT" };
+    const plan = buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [row] }, context, "A").evidence, context);
+    assert.equal(plan.proposals.length, 0, entity_scope);
+    assert.match(plan.extractions[0].scopeResolution, /^(ENTITY_SCOPE|SUBJECT_NOT_SPOT_ANCHORED)/);
+  }
+});
+
+test("event-limited accessibility cannot become a permanent venue capability", () => {
+  const accessContext = { ...context, catalog: [...catalog, { field_key: "accessibility.capabilities", value_kind: "STRUCTURED_OBJECT", allowed_values: [], engine_role: "SUITABILITY_FACT" }] };
+  const value = { step_free: "UNKNOWN", wheelchair_spaces: "UNKNOWN", accessible_toilet: "UNKNOWN", elevator: "UNKNOWN", hearing_support: "SUITABLE", assistance_dogs: "UNKNOWN" };
+  const row = { ...evidenceRow, fact_key: "accessibility.capabilities", typed_value: value, entity_scope: "EVENT", subject_name: "Guest Concert", durability: "TEMPORARY", evidence_scope: "EVENT", short_evidence: "For this concert on 14.09.2026, hearing assistance is available where possible at Museum Test." };
+  const plan = buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [row] }, accessContext, "A").evidence, accessContext);
+  assert.equal(plan.proposals.length, 0);
+});
+
+test("services and group courses cannot be semantically promoted to WORKSHOP", () => {
+  const activityContext = { ...context, catalog: catalog.map((field) => field.field_key === "activity.types" ? { ...field, allowed_values: ["MUSEUM", "CULTURE", "SPORTS", "WORKSHOP"] } : field) };
+  const row = { ...evidenceRow, typed_value: ["SPORTS", "WORKSHOP"], entity_scope: "SERVICE", subject_name: "Physiotherapy service", short_evidence: "Museum Test provides physiotherapy, training and group courses." };
+  const plan = buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [row] }, activityContext, "A").evidence, activityContext);
+  assert.equal(plan.proposals.length, 0);
+  assert.equal(plan.extractions[0].scopeResolution, "ENTITY_SCOPE_SERVICE");
+  const disguised = { ...row, entity_scope: "SPOT", subject_name: "Museum Test" };
+  const disguisedPlan = buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [disguised] }, activityContext, "A").evidence, activityContext);
+  assert.equal(disguisedPlan.proposals.length, 0);
+  assert.equal(disguisedPlan.extractions[0].scopeResolution, "ACTIVITY_NOT_EXPLICIT");
+});
+
+test("temporary, tenant and person evidence cannot inherit to the parent Spot", () => {
+  const cases = [
+    { entity_scope: "TEMPORARY", durability: "TEMPORARY", subject_name: "Summer Pop-up", short_evidence: "Museum Test hosts a temporary summer pop-up museum in 2026." },
+    { entity_scope: "TENANT", durability: "PERSISTENT", subject_name: "Museum Café", short_evidence: "Museum Café is a tenant operated by another company inside Museum Test." },
+    { entity_scope: "PERSON", durability: "PERSISTENT", subject_name: "Alex Example", short_evidence: "Alex Example works at Museum Test and visits museums." }
+  ];
+  for (const row of cases) assert.equal(buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [{ ...evidenceRow, ...row }] }, context, "A").evidence, context).proposals.length, 0);
+});
+
+test("website proposals require canonical safe HTTPS on the exact official domain", () => {
+  const websiteContext = { ...context, catalog: [...catalog, { field_key: "contact.website", value_kind: "TEXT", allowed_values: [], engine_role: "RAW_FACT" }] };
+  const valid = { ...evidenceRow, fact_key: "contact.website", typed_value: "https://www.museum.example/", short_evidence: "Museum Test official website is https://www.museum.example/." };
+  const validPlan = buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [valid] }, websiteContext, "A").evidence, websiteContext);
+  assert.equal(validPlan.proposals[0].value, "https://www.museum.example/");
+  for (const typed_value of ["www.museum.example", "http://museum.example", "https://attacker.example", "https://localhost/"]) {
+    const result = validateResearchEvidence({ evidence: [{ ...valid, typed_value }] }, websiteContext, "A");
+    if (!result.valid) continue;
+    assert.equal(buildDeterministicProposalPlan(result.evidence, websiteContext).proposals.length, 0);
+  }
+});
+
+test("model-declared SPOT scope cannot override deterministic temporal conflicts", () => {
+  const row = { ...evidenceRow, entity_scope: "SPOT", evidence_scope: "SPOT", durability: "PERSISTENT", subject_name: "Museum Test", short_evidence: "Museum Test presents this museum event on 14.09.2026 only." };
+  const plan = buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [row] }, context, "A").evidence, context);
+  assert.equal(plan.proposals.length, 0);
+  assert.equal(plan.extractions[0].scopeResolution, "TEMPORAL_SCOPE_CONFLICT");
 });
 
 test("missing official website and private/local sources fail before provider access", () => {

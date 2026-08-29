@@ -73,3 +73,17 @@ Deno.test("Research cohort excludes rows without canonical website eligibility",
   const selected = selectResearchCohort(eligible, 10);
   if (selected.map((row) => row.id).join(",") !== "museum-ready") throw new Error("research cohort included an ineligible row");
 });
+
+Deno.test("Independent Research cohort excludes previously researched Spots and official hosts", () => {
+  const rows = [
+    { id: "old-spot", matched_spot_id: "spot-1", canonical_category_name: "Museum" },
+    { id: "old-host", matched_spot_id: "spot-2", canonical_category_name: "Café" },
+    { id: "fresh", matched_spot_id: "spot-3", canonical_category_name: "Bar" },
+  ];
+  const eligible = selectResearchEligible(rows, [
+    { id: "spot-1", website: "https://one.example/" },
+    { id: "spot-2", website: "https://www.old.example/path" },
+    { id: "spot-3", website: "https://fresh.example/" },
+  ], { spotIds: ["spot-1"], hosts: ["old.example"] });
+  if (eligible.map((row) => row.id).join(",") !== "fresh") throw new Error("independent cohort repeated prior Research evidence");
+});
