@@ -178,6 +178,9 @@ decision-lab/exports/
 decision-lab/.runtime/
 decision-lab/.ai-cache/
 
+# Local City Bootstrap provider-linked operational manifests.
+.city-bootstrap/
+
 # Local one-off files
 index.html
 

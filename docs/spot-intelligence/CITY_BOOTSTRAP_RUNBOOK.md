@@ -13,9 +13,9 @@
 ```bash
 npm run city-bootstrap -- basel config-validate
 npm run city-bootstrap -- basel plan
-npm run city-bootstrap -- basel dry-run --source both --existing-production --output docs/spot-intelligence/manifests/BASEL_CANDIDATE_UNIVERSE_V1.json
-npm run city-bootstrap -- basel pilot-manifest --input docs/spot-intelligence/manifests/BASEL_CANDIDATE_UNIVERSE_V1.json --output docs/spot-intelligence/manifests/BASEL_PILOT_SELECTION_V1.json
-npm run city-bootstrap -- basel stage --mode PILOT --input docs/spot-intelligence/manifests/BASEL_PILOT_SELECTION_V1.json --commit <40-char-main-sha> --requested-by <admin-uuid>
+npm run city-bootstrap -- basel dry-run --source both --existing-production --operational-output .city-bootstrap/BASEL_CANDIDATE_UNIVERSE_V1.json --output docs/spot-intelligence/manifests/BASEL_CANDIDATE_UNIVERSE_V1.json
+npm run city-bootstrap -- basel pilot-manifest --input .city-bootstrap/BASEL_CANDIDATE_UNIVERSE_V1.json --operational-output .city-bootstrap/BASEL_PILOT_SELECTION_V1.json --output docs/spot-intelligence/manifests/BASEL_PILOT_SELECTION_V1.json
+npm run city-bootstrap -- basel stage --mode PILOT --input .city-bootstrap/BASEL_PILOT_SELECTION_V1.json --commit <40-char-main-sha> --requested-by <admin-uuid>
 npm run city-bootstrap -- basel status --run-id <run-uuid>
 ```
 
