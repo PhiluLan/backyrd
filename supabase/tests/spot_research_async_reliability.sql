@@ -22,7 +22,7 @@ do $$ declare a jsonb;b jsonb;begin
  b:=public.backyrd_enqueue_spot_research_job_v1(pg_temp.r_uuid('research-spot'),null);
  perform pg_temp.assert(a->>'jobId'=b->>'jobId' and (b->>'deduplicated')::boolean,'double click was not deduplicated');
  perform pg_temp.assert(a->>'phase'='PASS_A_QUEUED','job did not expose Pass A progress');
- perform pg_temp.assert((select source_scope->>'researchPolicyVersion'='backyrd-spot-research-policy-v2.3' from public.backyrd_spot_research_jobs_v1 where id=(a->>'jobId')::uuid),'Research policy version missing from durable source scope');
+ perform pg_temp.assert((select source_scope->>'researchPolicyVersion'='backyrd-spot-research-policy-v2.4' from public.backyrd_spot_research_jobs_v1 where id=(a->>'jobId')::uuid),'Research policy version missing from durable source scope');
 end $$;
 select pg_temp.actor(pg_temp.r_uuid('research-owner'),'authenticated');
 do $$ begin begin perform public.backyrd_enqueue_spot_research_job_v1(pg_temp.r_uuid('research-spot'),null);raise exception 'owner enqueued research';exception when insufficient_privilege then null;end;end $$;

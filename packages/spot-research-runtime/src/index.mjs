@@ -1,18 +1,17 @@
 import { CANONICAL_FACTS, CATEGORY_PLACE_TYPE, categoryToPlaceType } from "../../canonical-semantics/src/index.mjs";
 
 export const RESEARCH_CONTRACT_VERSION = "backyrd-spot-research-agent-v2.1";
-export const RESEARCH_POLICY_VERSION = "backyrd-spot-research-policy-v2.3";
+export const RESEARCH_POLICY_VERSION = "backyrd-spot-research-policy-v2.4";
 export const DEFAULT_RESEARCH_MODEL = "gpt-5-mini";
 export const MAX_RESEARCH_EVIDENCE_PER_PASS = 8;
 export const RESEARCH_OUTPUT_TOKENS_PER_PASS = 2600;
 export const RESEARCH_PROPOSAL_FACT_KEYS = Object.freeze([
-  "identity.name", "contact.website", "category.primary", "opening.regular", "activity.types", "accessibility.capabilities"
+  "identity.name", "contact.website", "category.primary", "activity.types", "accessibility.capabilities"
 ]);
 
 export const RESEARCH_PASSES = Object.freeze({
   A: Object.freeze({ key: "A", name: "OBJECTIVE_CORE", factKeys: Object.freeze([
-    "identity.name", "contact.website", "category.primary", "opening.regular", "opening.status",
-    "suitability.family_kids", "suitability.age", "suitability.environment", "suitability.rain", "activity.types", "accessibility.capabilities"
+    "identity.name", "contact.website", "category.primary", "activity.types", "accessibility.capabilities"
   ]) }),
   B: Object.freeze({ key: "B", name: "DEEP_FACTS", factKeys: Object.freeze([
     "suitability.conversation", "social.suitability", "duration.approximate", "reservation.recommended",
@@ -116,7 +115,7 @@ function evidenceVariant(field, supportStatus, typedValue) {
     properties: {
       fact_key: { type: "string", enum: [field.field_key] }, typed_value: typedValue, evidence_scope: { type: "string", enum: RESEARCH_EVIDENCE_SCOPES },
       support_status: { type: "string", enum: supportStatus }, source_url: { type: "string", maxLength: 1200 },
-      source_type: { type: "string", enum: [...sourceTypes] }, short_evidence: { type: "string", maxLength: 320 }, observed_at: { type: ["string", "null"] }
+      source_type: { type: "string", enum: [...sourceTypes] }, short_evidence: { type: "string", maxLength: 320 }, observed_at: { type: "null" }
     }
   };
 }
@@ -149,6 +148,7 @@ export function buildResearchRequest(context, { model = DEFAULT_RESEARCH_MODEL, 
     "Regular opening hours are a weekly schedule, never proof of OPEN right now; opening.status requires explicit general operating-state evidence.",
     "Use short verbatim evidence and the exact typed_value schema.",
     "SUPPORTED always requires a non-null value matching the exact schema; otherwise return UNKNOWN or UNSUPPORTED with typed_value null.",
+    "Always return observed_at null; Backyrd records the audited system observation time.",
     "Do not classify, recommend, score, infer N4, or create proposals."
   ].join(" ");
   const input = JSON.stringify({ contract: RESEARCH_CONTRACT_VERSION, policy: RESEARCH_POLICY_VERSION, pass: pass.name,
