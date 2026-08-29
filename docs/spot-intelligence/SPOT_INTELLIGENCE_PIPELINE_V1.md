@@ -1,6 +1,6 @@
 # City Bootstrap & Spot Intelligence Pipeline V1
 
-Status: implemented and locally accepted; production pilot and Basel scale-up are not executed.
+Status: implemented and locally accepted; Production pilots remain bounded and Basel scale-up is gated on a successful independent Pilot plus Human Review.
 
 ## Purpose and boundary
 
@@ -25,6 +25,7 @@ City config
   -> SHADOW candidate manifest
   -> representative PILOT selection
   -> existing two-pass official-domain Research Agent
+  -> deterministic entity, subentity, durability, and concrete-instance scope validation
   -> strict structured-output validation and fact proposals
   -> Admin review/acceptance for canonical facts
   -> fail-closed identity publication RPC
@@ -47,6 +48,8 @@ Google Place ID is exact identity evidence, not Product truth. Strong identity m
 
 Database publication takes a transaction-scoped advisory lock and has a unique partial index for non-empty Google Place IDs. It checks Google identity first, then an exact normalized name/address fallback. A replay marks the same candidate without creating a second Spot.
 
+Research policy v2.6 treats host ownership and venue-instance attribution as separate checks. When an official URL is path/query scoped for a branch, house, or other concrete venue, evidence and proposed website values must retain that instance scope; a generic brand homepage or sibling location cannot speak for it. `EVENT`, `PROGRAM`, `TEMPORARY`, `SUBVENUE`, `TENANT`, `SERVICE`, `OFFERING`, `PERSON`, `OTHER`, and `AMBIGUOUS` evidence remains auditable but cannot create a Spot-level proposal. These are Research guard terms, not a new Product ontology.
+
 ## Reliability
 
 Jobs have explicit states, lease tokens, bounded attempts, exponential retry, resumable idempotency keys, and circuit-breaker failure classes. Provider, schema, review-rate, duplicate, fixture, and unauthorized-write anomalies pause the run. Refresh skips unchanged fingerprints and reprocesses source changes, staleness, prior failures, manual review requests, or relevant pipeline-version changes.
@@ -57,4 +60,4 @@ The 1,081-candidate Basel shadow universe fits the current paginated REST reposi
 
 ## Current limit
 
-No server-restricted Google Places key or locally usable production Research-Agent provider secret was available. The additive migration is not deployed to Production. Therefore no real Pilot/Scale run, publication, AI-cost measurement, refresh proof on production candidates, or 500–600 Spot corpus claim exists yet.
+Production credentials are available only at the intended server boundary. Pilot runs may publish bounded real identity records, while Research remains proposal-only. A systemic Research attribution finding pauses the run and requires a new policy version, regression, canonical merge, additive migration, deployment, independent cohort, and Human Review before Scale can begin.

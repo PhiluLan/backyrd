@@ -1,7 +1,7 @@
 import { CANONICAL_FACTS, CATEGORY_PLACE_TYPE, categoryToPlaceType } from "../../canonical-semantics/src/index.mjs";
 
 export const RESEARCH_CONTRACT_VERSION = "backyrd-spot-research-agent-v2.1";
-export const RESEARCH_POLICY_VERSION = "backyrd-spot-research-policy-v2.5";
+export const RESEARCH_POLICY_VERSION = "backyrd-spot-research-policy-v2.6";
 export const DEFAULT_RESEARCH_MODEL = "gpt-5-mini";
 export const MAX_RESEARCH_EVIDENCE_PER_PASS = 8;
 export const RESEARCH_OUTPUT_TOKENS_PER_PASS = 2600;
@@ -53,6 +53,33 @@ export function officialDomain(website) { return new URL(normalizePublicHttpsUrl
 function sameOfficialDomain(sourceUrl, allowedDomain) {
   const canonicalHost = (host) => host.toLowerCase().replace(/^www\./, "");
   return canonicalHost(new URL(sourceUrl).hostname) === canonicalHost(allowedDomain);
+}
+
+const genericRouteTokens = new Set([
+  "de", "en", "fr", "it", "ch", "www", "location", "locations", "standort", "standorte",
+  "venue", "venues", "hotel", "hotels", "hostel", "hostels", "restaurant", "restaurants",
+  "page", "pages", "index", "html", "htm"
+]);
+const trackingQueryKeys = /^(?:utm_.+|gclid|fbclid|msclkid|lang|language|locale)$/i;
+
+function urlInstanceTokens(value) {
+  const url = new URL(normalizePublicHttpsUrl(value));
+  let path; try { path = decodeURIComponent(url.pathname); } catch { throw new Error("research_source_url_encoding_invalid"); }
+  const raw = [path];
+  for (const [key, item] of url.searchParams) if (!trackingQueryKeys.test(key)) raw.push(key, item);
+  return normalizedText(raw.join(" ")).split(" ").filter((token) => token.length >= 2 && !genericRouteTokens.has(token));
+}
+
+// A host proves provider ownership, not a concrete venue instance. When the
+// canonical website is path/query scoped (branch, museum house, hotel, etc.),
+// evidence from a broader brand homepage must retain every instance token.
+export function urlWithinOfficialInstanceScope(candidateUrl, officialWebsite) {
+  const candidate = normalizePublicHttpsUrl(candidateUrl); const official = normalizePublicHttpsUrl(officialWebsite);
+  if (!sameOfficialDomain(candidate, officialDomain(official))) return false;
+  const required = urlInstanceTokens(official);
+  const actual = new Set(urlInstanceTokens(candidate));
+  if (!required.length) return true;
+  return required.every((token) => actual.has(token));
 }
 
 function normalizedText(value) {
@@ -115,7 +142,7 @@ function validateFieldEvidence(item, context) {
   if (item.factKey === "contact.website") {
     try {
       const value = normalizePublicHttpsUrl(item.value);
-      return sameOfficialDomain(value, officialDomain(context.spot.website)) ? { pass: true, value } : { pass: false, reason: "WEBSITE_DOMAIN_MISMATCH" };
+      return urlWithinOfficialInstanceScope(value, context.spot.website) ? { pass: true, value } : { pass: false, reason: "WEBSITE_INSTANCE_SCOPE_MISMATCH" };
     } catch { return { pass: false, reason: "WEBSITE_NOT_CANONICAL_HTTPS" }; }
   }
   if (item.factKey === "category.primary") {
@@ -326,6 +353,9 @@ export function validateResearchEvidence(payload, context, passKey = context?.pa
     if (!(row.subject_name === null || (typeof row.subject_name === "string" && row.subject_name.trim().length > 0 && row.subject_name.length <= 160))) return { valid: false, reason: `research_subject_invalid:${index}`, evidence: [] };
     let sourceUrl; try { sourceUrl = normalizePublicHttpsUrl(row.source_url); } catch { return { valid: false, reason: `research_source_invalid:${index}`, evidence: [] }; }
     if (!sameOfficialDomain(sourceUrl, allowedDomain)) return { valid: false, reason: `research_source_not_official:${index}`, evidence: [] };
+    try {
+      if (!urlWithinOfficialInstanceScope(sourceUrl, context.spot.website)) return { valid: false, reason: `research_source_instance_scope_mismatch:${index}`, evidence: [] };
+    } catch { return { valid: false, reason: `research_source_invalid:${index}`, evidence: [] }; }
     const value = row.typed_value;
     if (row.support_status === "SUPPORTED" && !validateTypedValue(field, value)) return { valid: false, reason: `research_typed_value_invalid:${index}`, evidence: [] };
     if (row.support_status !== "SUPPORTED" && value !== null) return { valid: false, reason: `research_unsupported_value_present:${index}`, evidence: [] };

@@ -54,3 +54,17 @@ test("Research URL/SSRF boundary remains fail-closed", () => {
   for (const value of ["http://golden.example", "https://localhost/", "https://127.0.0.1/", "https://10.0.0.1/", "https://169.254.169.254/latest", "https://user:secret@golden.example/", "file:///etc/passwd"]) assert.throws(() => normalizePublicHttpsUrl(value));
   assert.equal(normalizePublicHttpsUrl("https://www.golden.example/path#fragment"), "https://www.golden.example/path");
 });
+
+test("Research adversarial brand, branch and co-located instance evidence fails closed", () => {
+  const instanceContext = { ...context, spot: { ...spot, name: "Golden Fitness", website: "https://golden.example/basel-sbb" } };
+  const cases = [
+    { ...base, fact_key: "identity.name", typed_value: "Golden Fitness", subject_name: "Golden Fitness", source_url: "https://golden.example/", short_evidence: "Golden Fitness is a fitness brand." },
+    { ...base, fact_key: "contact.website", typed_value: "https://golden.example/", subject_name: "Golden Fitness", source_url: "https://golden.example/", short_evidence: "Golden Fitness official website is https://golden.example/." },
+    { ...base, fact_key: "identity.name", typed_value: "Golden Fitness", subject_name: "Golden Fitness", source_url: "https://golden.example/basel/events", short_evidence: "Golden Fitness Basel presents an event." },
+    { ...base, entity_scope: "TENANT", subject_name: "Golden Café", source_url: "https://golden.example/basel-sbb/tenant", short_evidence: "Golden Café is a tenant at Golden Fitness Basel SBB." }
+  ];
+  assert.deepEqual(cases.map((row) => {
+    const validation = validateResearchEvidence({ evidence: [row] }, instanceContext, "A");
+    return validation.valid ? buildDeterministicProposalPlan(validation.evidence, instanceContext).proposals.length : 0;
+  }), [0, 0, 0, 0]);
+});

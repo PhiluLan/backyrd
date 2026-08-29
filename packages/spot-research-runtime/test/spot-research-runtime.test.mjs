@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildDeterministicProposalPlan, buildResearchRequest, callResearchProvider, canonicalizeResearchResponse, diagnoseLegacyResearchPayload, normalizePublicHttpsUrl, RESEARCH_OUTPUT_TOKENS_PER_PASS, RESEARCH_POLICY_VERSION, validateResearchEvidence } from "../src/index.mjs";
+import { buildDeterministicProposalPlan, buildResearchRequest, callResearchProvider, canonicalizeResearchResponse, diagnoseLegacyResearchPayload, normalizePublicHttpsUrl, RESEARCH_OUTPUT_TOKENS_PER_PASS, RESEARCH_POLICY_VERSION, urlWithinOfficialInstanceScope, validateResearchEvidence } from "../src/index.mjs";
 
 const spot = { id: "11111111-1111-4111-8111-111111111111", name: "Museum Test", city: "Basel", website: "https://museum.example/" };
 const catalog = [
@@ -225,6 +225,31 @@ test("website proposals require canonical safe HTTPS on the exact official domai
     if (!result.valid) continue;
     assert.equal(buildDeterministicProposalPlan(result.evidence, websiteContext).proposals.length, 0);
   }
+});
+
+test("path-scoped venue instances reject generic brand-homepage evidence and values", () => {
+  const branchContext = {
+    ...context,
+    spot: { ...spot, name: "update Fitness", website: "https://update-fitness.example/basel-sbb" },
+    catalog: [...catalog,
+      { field_key: "identity.name", value_kind: "TEXT", allowed_values: [], engine_role: "RAW_FACT" },
+      { field_key: "contact.website", value_kind: "TEXT", allowed_values: [], engine_role: "RAW_FACT" }
+    ]
+  };
+  const genericIdentity = { ...evidenceRow, fact_key: "identity.name", typed_value: "update Fitness", subject_name: "update Fitness", source_url: "https://www.update-fitness.example/", short_evidence: "update Fitness is the leading fitness provider." };
+  assert.match(validateResearchEvidence({ evidence: [genericIdentity] }, branchContext, "A").reason, /instance_scope_mismatch/);
+  const branchIdentity = { ...genericIdentity, source_url: "https://www.update-fitness.example/basel-sbb", short_evidence: "update Fitness Basel SBB is a fitness studio." };
+  assert.equal(buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [branchIdentity] }, branchContext, "A").evidence, branchContext).proposals.length, 1);
+  const genericWebsite = { ...branchIdentity, fact_key: "contact.website", typed_value: "https://www.update-fitness.example/", short_evidence: "update Fitness Basel SBB official website is https://www.update-fitness.example/." };
+  assert.equal(buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [genericWebsite] }, branchContext, "A").evidence, branchContext).proposals.length, 0);
+  assert.equal(urlWithinOfficialInstanceScope("https://www.update-fitness.example/basel-sbb/classes", branchContext.spot.website), true);
+  assert.equal(urlWithinOfficialInstanceScope("https://www.update-fitness.example/basel/events", branchContext.spot.website), false);
+});
+
+test("redirected localized URLs may retain the complete venue instance identity", () => {
+  assert.equal(urlWithinOfficialInstanceScope("https://www.youthhostel.example/de/hostels/jugendherberge-basel", "https://youthhostel.example/basel"), true);
+  assert.equal(urlWithinOfficialInstanceScope("https://www.youthhostel.example/de/hostels/zurich", "https://youthhostel.example/basel"), false);
+  assert.equal(validateResearchEvidence({ evidence: [{ ...evidenceRow, source_url: "https://museum.example/%ZZ" }] }, context, "A").valid, false);
 });
 
 test("model-declared SPOT scope cannot override deterministic temporal conflicts", () => {
