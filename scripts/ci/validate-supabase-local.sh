@@ -253,6 +253,8 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/founder_control_center_v1.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/basel_gold_data_foundation.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/city_bootstrap_spot_intelligence_v1.sql"
 
 lint_json="$validation_root/db-lint.json"
 supabase db lint \
