@@ -252,6 +252,16 @@ test("redirected localized URLs may retain the complete venue instance identity"
   assert.equal(validateResearchEvidence({ evidence: [{ ...evidenceRow, source_url: "https://museum.example/%ZZ" }] }, context, "A").valid, false);
 });
 
+test("stale listing URLs may resolve only to concrete same-host subject pages", () => {
+  const official="https://robi.example/spielplaetze.php",subject="Robi Bachgraben";
+  assert.equal(urlWithinOfficialInstanceScope("https://www.robi.example/angebot/offene-kinder/robi-bachgraben.html",official,subject),true);
+  assert.equal(urlWithinOfficialInstanceScope("https://robi.example/",official,subject),false);
+  assert.equal(urlWithinOfficialInstanceScope("https://robi.example/angebot/robi-volta.html",official,subject),false);
+  assert.equal(urlWithinOfficialInstanceScope("https://robi.example/events/robi-bachgraben.html",official,subject),false);
+  assert.equal(urlWithinOfficialInstanceScope("https://third-party.example/angebot/robi-bachgraben.html",official,subject),false);
+  assert.equal(urlWithinOfficialInstanceScope("https://robi.example/angebot/hostel.html",official,"Basel Hostel"),false);
+});
+
 test("model-declared SPOT scope cannot override deterministic temporal conflicts", () => {
   const row = { ...evidenceRow, entity_scope: "SPOT", evidence_scope: "SPOT", durability: "PERSISTENT", subject_name: "Museum Test", short_evidence: "Museum Test presents this museum event on 14.09.2026 only." };
   const plan = buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [row] }, context, "A").evidence, context);
