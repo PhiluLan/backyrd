@@ -263,6 +263,8 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/spot_research_entity_redirect_v2_7.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/spot_research_redirect_runtime_v2_8.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/city_bootstrap_website_identity_v1.sql"
 
 lint_json="$validation_root/db-lint.json"
 supabase db lint \

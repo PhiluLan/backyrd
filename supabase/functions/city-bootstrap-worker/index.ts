@@ -15,6 +15,30 @@ export function selectResearchCohort<T extends { canonical_category_name?: unkno
 }
 
 const publicHost = (value: unknown) => { try { const url=new URL(clean(value));return url.protocol==="https:"&&!url.username&&!url.password?url.hostname.toLowerCase().replace(/^www\./,""):"";}catch{return "";} };
+const genericWebsiteNameTokens=new Set(["basel","restaurant","restaurants","cafe","bar","bars","hotel","hotels","hostel","museum","museums","theater","theatre","fitness","studio","club","zentrum","center","centre","schweiz","switzerland","official","page","about","www","com","ch","de","und","and","am","an","der","die","das","zum","zur","im","in","of","at","place","brewery","kitchen","soulfood","pizza","pizzeria","sushi","food","confiserie","konditorei","tea","room","bistrot","gasthof","restauration"]);
+const genericWebsitePathTokens=new Set([...genericWebsiteNameTokens,"angebot","angebote","location","locations","standort","standorte","detail","index","html","php","store","locator","search","spielplatz","spielplaetze","schwimmbad","reservieren","suite","suites","stadt"]);
+const identityStrictWebsiteHosts=["facebook.com","instagram.com","linkedin.com","tiktok.com","twitter.com","x.com","linktr.ee","wixsite.com"];
+
+export function websiteIdentityCompatible(name: unknown,website: unknown) {
+  if(!clean(website))return true;
+  let parsed:URL;try{parsed=new URL(clean(website));}catch{return false;}
+  if(parsed.protocol!=="https:"||parsed.username||parsed.password)return false;
+  const subjectTokens=normalize(name).split(" ").filter((token)=>token.length>=2&&!genericWebsiteNameTokens.has(token));
+  if(!subjectTokens.length)return false;
+  const websiteIdentity=normalize(`${parsed.hostname} ${parsed.pathname} ${parsed.search}`).replaceAll(" ","");
+  const matches=subjectTokens.map((token)=>websiteIdentity.includes(token));
+  if(matches.every(Boolean))return true;
+  const host=parsed.hostname.toLowerCase().replace(/^www\./,"").replace(/\.$/,"");
+  if(identityStrictWebsiteHosts.some((expected)=>host===expected||host.endsWith(`.${expected}`)))return false;
+  if(!matches.some(Boolean))return true;
+  const subjectSet=new Set(subjectTokens),pathHasCompetingIdentity=normalize(parsed.pathname).split(" ").some((token)=>/^[a-z]{2,}$/.test(token)&&!subjectSet.has(token)&&!genericWebsitePathTokens.has(token));
+  return !pathHasCompetingIdentity;
+}
+
+async function websiteIdentityMismatches(db:any,runId:string) {
+  const {data,error}=await db.from("backyrd_city_bootstrap_candidates_v1").select("id,display_name,website,lifecycle_state").eq("run_id",runId).in("lifecycle_state",["PRODUCT_ELIGIBLE","PUBLISHED"]);if(error)throw error;
+  return (data??[]).filter((row:any)=>!websiteIdentityCompatible(row.display_name,row.website));
+}
 
 export function selectResearchEligible<T extends { matched_spot_id?: unknown }>(rows: T[], spots: Array<{ id?: unknown; website?: unknown }>, exclusions: { spotIds?: Iterable<string>; hosts?: Iterable<string> } = {}) {
   const excludedSpotIds=new Set(exclusions.spotIds??[]),excludedHosts=new Set(exclusions.hosts??[]);
@@ -138,6 +162,23 @@ if (import.meta.main) Deno.serve(async (request) => {
       const probe=await googleHealth(googleKey);
       return json({ok:probe.ok,contracts:{googlePlaces:true,cityDatabaseUrl:true,cityServiceKey:true,researchProvider:Boolean(researchKey),researchEnabled,researchModel:Boolean(researchModel)},boundaries:{serverOnly:true,cityUrlMatchesRuntime:url===Deno.env.get("SUPABASE_URL"),cityServiceMatchesRuntime:serviceKey===Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")},googleProbe:{ok:probe.ok,code:probe.ok?null:probe.code,latencyMs:probe.latency}},probe.ok&&researchKey&&researchEnabled?200:503);
     }
+    if(action==="SET_SCALE_STATE") {
+      const runId=clean(body?.runId),requestedBy=clean(body?.requestedBy),stateAction=clean(body?.stateAction),reason=clean(body?.reason);
+      if(!/^[0-9a-f-]{36}$/.test(runId)||!/^[0-9a-f-]{36}$/.test(requestedBy)||!["PAUSE","RESUME"].includes(stateAction)||!reason.match(/^[A-Z0-9_:,-]{4,160}$/))return json({ok:false,error:"scale_state_request_invalid"},400);
+      const [{data:run},{data:actor}]=await Promise.all([db.from("backyrd_city_bootstrap_runs_v1").select("id,mode,status,requested_by").eq("id",runId).maybeSingle(),db.from("admin_users").select("user_id,role").eq("user_id",requestedBy).in("role",["admin","super_admin"]).maybeSingle()]);
+      if(!run||run.mode!=="SCALE"||!actor||run.requested_by!==requestedBy)return json({ok:false,error:"scale_state_actor_or_run_invalid"},403);
+      if(stateAction==="PAUSE"){
+        if(!["RUNNING","PAUSED"].includes(run.status))return json({ok:false,error:"scale_run_not_pausable",status:run.status},409);
+        const paused=await db.from("backyrd_city_bootstrap_runs_v1").update({status:"PAUSED",stop_reason:`CIRCUIT_BREAKER:${reason}`.slice(0,500)}).eq("id",runId).in("status",["RUNNING","PAUSED"]).select("id,status").single();if(paused.error)throw paused.error;
+        return json({ok:true,runId,status:"PAUSED",reason});
+      }
+      if(run.status!=="PAUSED")return json({ok:false,error:"scale_run_not_paused",status:run.status},409);
+      const [checkpointResult,mismatches,reviewsResult,jobsResult]=await Promise.all([db.from("backyrd_city_bootstrap_checkpoints_v1").select("verdict").eq("run_id",runId).order("batch_number",{ascending:false}).limit(1).maybeSingle(),websiteIdentityMismatches(db,runId),db.from("backyrd_city_bootstrap_reviews_v1").select("id",{count:"exact",head:true}).eq("run_id",runId).eq("state","OPEN"),db.from("backyrd_city_bootstrap_jobs_v1").select("id",{count:"exact",head:true}).eq("run_id",runId).eq("state","FAILED")]);
+      const blockerError=checkpointResult.error??reviewsResult.error??jobsResult.error;if(blockerError)throw blockerError;const checkpoint=checkpointResult.data;
+      if(checkpoint?.verdict!=="PASS"||mismatches.length||(reviewsResult.count??0)>0||(jobsResult.count??0)>0)return json({ok:false,error:"scale_resume_gates_failed",checkpoint:checkpoint?.verdict??null,websiteIdentityMismatches:mismatches.length,openReviews:reviewsResult.count??0,failedJobs:jobsResult.count??0},409);
+      const resumed=await db.from("backyrd_city_bootstrap_runs_v1").update({status:"RUNNING",stop_reason:`RESUMED_AFTER:${reason}`.slice(0,500)}).eq("id",runId).eq("status","PAUSED").select("id,status").single();if(resumed.error)throw resumed.error;
+      return json({ok:true,runId,status:"RUNNING",reason});
+    }
     if(action==="STAGE_PILOT") {
       const candidates=Array.isArray(body?.candidates)?body.candidates as Candidate[]:[],commit=clean(body?.commit),runKey=clean(body?.runKey),requestedBy=clean(body?.requestedBy);
       if(candidates.length<20||candidates.length>80||!/^[0-9a-f]{40}$/.test(commit)||!/^basel-pilot-[a-z0-9-]{4,80}$/.test(runKey)||!/^[0-9a-f-]{36}$/.test(requestedBy)) return json({ok:false,error:"pilot_request_invalid"},400);
@@ -260,6 +301,7 @@ if (import.meta.main) Deno.serve(async (request) => {
       if(priorCheckpoint)return json({ok:priorCheckpoint.verdict==="PASS",runId,batchNumber,replayed:true,verdict:priorCheckpoint.verdict,snapshot:priorCheckpoint.snapshot},priorCheckpoint.verdict==="PASS"?200:409);
       if(run.status!=="RUNNING")return json({ok:false,error:"scale_run_not_running",status:run.status},409);
       if(batchNumber>1){const {data:previous}=await db.from("backyrd_city_bootstrap_checkpoints_v1").select("verdict").eq("run_id",runId).eq("batch_number",batchNumber-1).maybeSingle();if(previous?.verdict!=="PASS")return json({ok:false,error:"scale_previous_checkpoint_not_pass"},409);}
+      const websiteAudit=await websiteIdentityMismatches(db,runId);if(websiteAudit.length){const paused=await db.from("backyrd_city_bootstrap_runs_v1").update({status:"PAUSED",stop_reason:"CIRCUIT_BREAKER:WEBSITE_IDENTITY_EVIDENCE_MISMATCH"}).eq("id",runId).eq("status","RUNNING");if(paused.error)throw paused.error;return json({ok:false,runId,batchNumber,status:"PAUSED",verdict:"FAIL",error:"website_identity_evidence_mismatch",mismatchCount:websiteAudit.length},409);}
       const {data:rows,error:rowsError}=await db.from("backyrd_city_bootstrap_candidates_v1").select("id").eq("run_id",runId).eq("lifecycle_state","PRODUCT_ELIGIBLE").order("enrichment_priority",{ascending:false}).order("created_at",{ascending:true}).limit(20);if(rowsError)throw rowsError;if(!(rows??[]).length)return json({ok:false,error:"scale_batch_empty"},409);
       const publicationResults:any[]=[];for(const row of rows??[]){const publication=await db.rpc("backyrd_city_bootstrap_publish_candidate_v1",{p_candidate_id:row.id});if(publication.error)throw publication.error;publicationResults.push(publication.data);}
       const batchSpotIds=[...new Set(publicationResults.map((result:any)=>clean(result?.spotId)).filter(Boolean))];

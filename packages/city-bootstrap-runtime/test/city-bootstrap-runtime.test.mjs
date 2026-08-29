@@ -6,7 +6,7 @@ import {
   buildGoogleDiscoveryPlan, circuitBreaker, classifyRelevance, evaluateCandidate,
   executeGoogleDiscovery, normalizeDiscoveredCandidate, refreshDecision, resolveIdentity,
   safeFetch, selectLaunchCohort, selectRepresentativePilot, validateCityConfig,
-  validateExternalUrl
+  validateExternalUrl, websiteIdentityCompatible
 } from "../src/index.mjs";
 
 const base = { sourceFamily: "OPENSTREETMAP", sourceIdentity: "node/1", sourceLicense: "ODbL-1.0", name: "Café Test", address: "Testweg 1", lat: 47.56, lng: 7.59, website: "https://cafe.example/", phone: "+41 61 000 00 00", externalTypes: ["cafe"], sourceFingerprint: "a".repeat(64) };
@@ -49,6 +49,27 @@ test("rename/move ambiguity routes to review", () => {
   const row = { ...candidate(), website: null, phone: null, name: "New Name" };
   const result = evaluateCandidate(row, [{ id: "old", name: "Old Name", address: row.address, lat: row.lat, lng: row.lng, website: null, phone: null, google_place_id: null }]);
   assert.equal(result.lifecycleState, "REVIEW_REQUIRED"); assert.equal(result.reviewReason, "IDENTITY_AMBIGUOUS");
+});
+
+test("website identity evidence rejects stale brands, tenants and unrelated social handles", () => {
+  assert.equal(websiteIdentityCompatible("Bridge Bar", "https://facebook.com/pg/barbrutbasel/about"), false);
+  assert.equal(websiteIdentityCompatible("Bridge Bar", "https://www.bridge-bar.ch/"), true);
+  assert.equal(websiteIdentityCompatible("Bar Brut Basel", "https://facebook.com/pg/barbrutbasel/about"), true);
+  assert.equal(websiteIdentityCompatible("Café Fab 6", "https://sv-group.com/de/fab-6"), true);
+  assert.equal(websiteIdentityCompatible("Robi Bachgraben", "https://robi-spiel-aktionen.ch/angebot/robi-volta.html"), false);
+  assert.equal(websiteIdentityCompatible("Robi Bachgraben", "https://robi-spiel-aktionen.ch/spielplaetze.php"), true);
+  assert.equal(websiteIdentityCompatible("Basel Restaurant", "https://operator.example/tenant"), false);
+  assert.equal(websiteIdentityCompatible("Stucki", "https://tanjagrandits.ch/restaurant-stucki/"), true);
+  assert.equal(websiteIdentityCompatible("Oscar One", "https://kitchenbrew.ch/locations/oscar-two"), false);
+  assert.equal(websiteIdentityCompatible("Oscar One", "https://kitchenbrew.ch/"), true);
+  assert.equal(websiteIdentityCompatible("Bridge Bar", "https://instagram.com/bridgebar.official"), true);
+  assert.equal(websiteIdentityCompatible("Bridge Bar", "https://sub.facebook.com/bridgebar"), true);
+  assert.equal(websiteIdentityCompatible("Bridge Bar", "http://bridge-bar.ch"), false);
+  assert.equal(websiteIdentityCompatible("Restaurant Lu", "https://restaurantlu.com/"), true);
+  assert.equal(websiteIdentityCompatible("Negishi Sushi Bar", "https://negishi.ch/basel-steinen"), true);
+  const stale = evaluateCandidate({ ...candidate(), name: "Bridge Bar", website: "https://facebook.com/pg/barbrutbasel/about" }, []);
+  assert.equal(stale.lifecycleState, "REVIEW_REQUIRED");
+  assert.equal(stale.reviewReason, "WEBSITE_IDENTITY_AMBIGUOUS");
 });
 
 test("Google content remains ephemeral and only unambiguous Place IDs attach", () => {
