@@ -1,0 +1,6 @@
+FUNCTION|backyrd_enqueue_spot_intelligence_population_job_v1(uuid,uuid)|service_role|EXECUTE
+FUNCTION|backyrd_machine_accept_v1(uuid,text,text)|service_role|EXECUTE
+TABLE|public.backyrd_spot_intelligence_population_v1|service_role|INSERT
+TABLE|public.backyrd_spot_intelligence_population_v1|service_role|SELECT
+TABLE|public.backyrd_spot_intelligence_population_v1|service_role|UPDATE
+TABLE|public.backyrd_spot_machine_acceptance_policy_v1|service_role|SELECT

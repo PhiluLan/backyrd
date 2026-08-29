@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "purpose": "Reviewed delta for the canonical Mission-02 SECURITY DEFINER inventory. This is not a second inventory.",
+  "functions": [
+    {"signature":"backyrd_rebuild_spot_launch_description_internal_v1(uuid)","classification":"SERVICE_INTERNAL","anon":false,"authenticated":false,"serviceRole":false,"rationale":"Ungrantable deterministic projection called only inside the research finalizer."},
+    {"signature":"backyrd_finalize_spot_research_pass_v3_entity_scope_v25(uuid,uuid,text,jsonb,jsonb,jsonb)","classification":"SERVICE_INTERNAL","anon":false,"authenticated":false,"serviceRole":false,"rationale":"Ungrantable entity-scope validator implementation."},
+    {"signature":"backyrd_finalize_spot_research_pass_v3(uuid,uuid,text,jsonb,jsonb,jsonb)","classification":"WORKER","anon":false,"authenticated":false,"serviceRole":true,"rationale":"Existing service worker finalizer; effective client ACL is unchanged."},
+    {"signature":"backyrd_enqueue_spot_intelligence_population_job_v1(uuid,uuid)","classification":"WORKER","anon":false,"authenticated":false,"serviceRole":true,"rationale":"Bounded service-only Intelligence Population enqueue."},
+    {"signature":"backyrd_machine_accept_research_proposal_internal_v1(uuid,text,text)","classification":"SERVICE_INTERNAL","anon":false,"authenticated":false,"serviceRole":false,"rationale":"Ungrantable field-specific machine acceptance implementation."},
+    {"signature":"backyrd_machine_accept_v1(uuid,text,text)","classification":"WORKER","anon":false,"authenticated":false,"serviceRole":true,"rationale":"Service-only Machine Acceptance gateway with no caller-controlled actor."},
+    {"signature":"backyrd_fail_spot_research_pass_pre_population_v2(uuid,uuid,text,boolean,text)","classification":"SERVICE_INTERNAL","anon":false,"authenticated":false,"serviceRole":false,"rationale":"Ungrantable renamed implementation behind the canonical failure wrapper."},
+    {"signature":"backyrd_fail_spot_research_pass_v2(uuid,uuid,text,boolean,text)","classification":"WORKER","anon":false,"authenticated":false,"serviceRole":true,"rationale":"Existing service-only failure contract; effective client ACL is unchanged."},
+    {"signature":"backyrd_admin_spot_engine_operations_pre_intelligence_v1(text,uuid,text,integer,integer)","classification":"SERVICE_INTERNAL","anon":false,"authenticated":false,"serviceRole":false,"rationale":"Ungrantable renamed implementation behind the Admin operations wrapper."},
+    {"signature":"backyrd_admin_spot_engine_operations_v1(text,uuid,text,integer,integer)","classification":"ADMIN","anon":false,"authenticated":true,"serviceRole":false,"rationale":"Existing authenticated Admin contract with canonical in-function Admin/Founder authorization; effective client ACL is unchanged."}
+  ]
+}

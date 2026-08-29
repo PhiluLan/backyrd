@@ -44,6 +44,21 @@ test("Pass B is disjoint from Pass A and carries only deep fact keys", () => {
   assert.deepEqual(unsupported.properties.typed_value, { type: "null" });
 });
 
+test("continued deep cohort covers the four Gold families beyond the eight-row persistence bound", () => {
+  const continuedCatalog = [
+    { field_key: "audience.basic", value_kind: "TEXT", allowed_values: [], engine_role: "N4_EVIDENCE" },
+    { field_key: "occasion.suitability", value_kind: "TEXT", allowed_values: [], engine_role: "N4_EVIDENCE" },
+    { field_key: "duration.character", value_kind: "TEXT", allowed_values: [], engine_role: "N4_EVIDENCE" },
+    { field_key: "suitability.family_characteristics", value_kind: "TEXT", allowed_values: [], engine_role: "N4_EVIDENCE" }
+  ];
+  const continuedContext = { ...context, catalog: continuedCatalog, researchCohort: "DEEP_CONTINUED" };
+  const request = buildResearchRequest(continuedContext, { passKey: "B" });
+  assert.equal(request.body.text.format.schema.properties.evidence.minItems, 4);
+  assert.equal(request.body.text.format.schema.properties.evidence.maxItems, 4);
+  assert.deepEqual(JSON.parse(request.body.input).facts.map((fact) => fact.key), continuedCatalog.map((fact) => fact.field_key));
+  assert.equal(validateResearchEvidence({ evidence: [] }, continuedContext, "B", { requireCompleteCoverage: true }).reason, "research_fact_coverage_incomplete");
+});
+
 test("strict provider schema binds support status to typed-value presence", () => {
   const variants = buildResearchRequest(context, { passKey: "A" }).body.text.format.schema.properties.evidence.items.anyOf;
   for (let index = 0; index < variants.length; index += 2) {
@@ -80,6 +95,37 @@ test("small evidence schema accepts supported official typed evidence", () => {
   const result = validateResearchEvidence({ evidence: [evidenceRow] }, context, "A");
   assert.equal(result.valid, true);
   assert.deepEqual(result.evidence[0].value, ["MUSEUM"]);
+});
+
+test("deterministic operational evidence is proposed only when the value is explicit", () => {
+  const operationalContext = { ...context, catalog: [
+    { field_key: "contact.phone", value_kind: "TEXT", allowed_values: [], engine_role: "OPERATIONAL_FACT" },
+    { field_key: "contact.email", value_kind: "TEXT", allowed_values: [], engine_role: "OPERATIONAL_FACT" },
+    { field_key: "opening.regular", value_kind: "STRUCTURED_OBJECT", allowed_values: [], engine_role: "OPERATIONAL_FACT" }
+  ] };
+  const base = { ...evidenceRow, subject_name: "Museum Test", source_url: "https://museum.example/contact" };
+  const hours = { days: [{ day: "Montag", intervals: [{ open: "09:00", close: "17:30" }] }] };
+  const accepted = [
+    { ...base, fact_key: "contact.phone", typed_value: "+41 61 123 45 67", short_evidence: "Museum Test: Telefon +41 61 123 45 67" },
+    { ...base, fact_key: "contact.email", typed_value: "INFO@MUSEUM.EXAMPLE", short_evidence: "Museum Test Kontakt: info@museum.example" },
+    { ...base, fact_key: "opening.regular", typed_value: hours, short_evidence: "Museum Test: Montag 09:00–17:30" }
+  ];
+  const validation = validateResearchEvidence({ evidence: accepted }, operationalContext, "A");
+  assert.equal(validation.valid, true);
+  assert.deepEqual(buildDeterministicProposalPlan(validation.evidence, operationalContext).proposals.map(({ fieldKey, value }) => [fieldKey, value]), [
+    ["contact.phone", "+41611234567"],
+    ["contact.email", "info@museum.example"],
+    ["opening.regular", hours]
+  ]);
+  for (const row of [
+    { ...accepted[0], short_evidence: "Rufen Sie uns an." },
+    { ...accepted[1], short_evidence: "Kontaktformular" },
+    { ...accepted[2], short_evidence: "Unsere aktuellen Öffnungszeiten finden Sie online." }
+  ]) {
+    const sparse = validateResearchEvidence({ evidence: [row] }, operationalContext, "A");
+    assert.equal(sparse.valid, true);
+    assert.equal(buildDeterministicProposalPlan(sparse.evidence, operationalContext).proposals.length, 0);
+  }
 });
 
 test("schema fails closed on foreign source, wrong pass, truncated JSON or invented value", () => {

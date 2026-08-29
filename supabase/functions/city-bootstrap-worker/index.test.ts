@@ -1,4 +1,4 @@
-import { evaluatePilotAcceptance, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planRefreshCandidates, selectResearchCohort, selectResearchEligible, websiteIdentityCompatible, type Candidate } from "./index.ts";
+import { evaluateIntelligenceCanaryReadiness, evaluatePilotAcceptance, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planRefreshCandidates, selectIntelligenceCanary, selectResearchCohort, selectResearchEligible, websiteIdentityCompatible, type Candidate } from "./index.ts";
 
 const candidate: Candidate = {
   sourceFamily: "OPENSTREETMAP",
@@ -57,6 +57,23 @@ Deno.test("Research pilot cohort is bounded and category-breadth first", () => {
   ];
   const selected = selectResearchCohort(rows, 5);
   if (selected.map((row) => row.id).join(",") !== "a1,b1,c1,a2,b2") throw new Error("research cohort must round-robin categories");
+});
+
+Deno.test("Intelligence canary is deterministic, archetype-breadth first and always includes the physical regression Spot", () => {
+  const reference="545a8ee5-14bd-4887-b4e3-42d3271aa736";
+  const rows=[{id:reference,category_id:"hotel",website:"https://reference.example/"},...Array.from({length:18},(_,index)=>({id:`61000000-0000-4000-8000-${String(index).padStart(12,"0")}`,category_id:["museum","cafe","activity"][index%3],website:index===17?null:`https://spot-${index}.example/`}))];
+  const first=selectIntelligenceCanary(rows,reference,"canary-seed",10),second=selectIntelligenceCanary([...rows].reverse(),reference,"canary-seed",10);
+  if(first.length!==10||first[0].id!==reference)throw new Error("reference Spot or canary bound missing");
+  if(first.map((row)=>row.id).join(",")!==second.map((row)=>row.id).join(","))throw new Error("canary selection depends on input order");
+  if(new Set(first.slice(1,4).map((row)=>row.category_id)).size!==3)throw new Error("canary lacks archetype breadth");
+  if(first.some((row)=>!row.website))throw new Error("canary included a Spot without a researchable official website");
+});
+
+Deno.test("Intelligence canary cannot pass while either research cohort is still active", () => {
+  const proposal={id:"61000000-0000-4000-8000-000000000099",field_key:"contact.phone",status:"ACCEPTED",research_entity_scope:"SPOT",research_durability:"PERSISTENT",research_scope_resolution:"PASS",machine_evidence_fingerprint:"a".repeat(64),resolution_note:"SYSTEM_POLICY:backyrd-machine-acceptance-v1"};
+  const items=Array.from({length:8},()=>({terminal_state:"PROCESSED_WITH_SUPPORTED_FACTS"}));
+  const result=evaluateIntelligenceCanaryReadiness({items,jobs:[{state:"READY_FOR_REVIEW",failure_code:null},{state:"QUEUED",failure_code:null}],accepted:[proposal],inspectedProposalIds:[proposal.id]});
+  if(!result.failures.includes("CANARY_JOBS_INCOMPLETE"))throw new Error("active continued research cohort did not block canary finalization");
 });
 
 Deno.test("Research cohort excludes rows without canonical website eligibility", () => {
