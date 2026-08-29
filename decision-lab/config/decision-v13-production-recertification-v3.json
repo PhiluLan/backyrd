@@ -1,0 +1,64 @@
+{
+  "version": "decision-v13-production-recertification-v3",
+  "status": "AUTHORIZED",
+  "authorization": {
+    "changeCommit": "f2e84987f2ddab060dec0a44ee41ecea061c7b1f",
+    "parentCommit": "9b4536fd8884cacb85332eacd0e0ca0ddb807259",
+    "previousEngineSourceHash": "28e178dee7192cb303b07574f31f1e86f58bc80048b23ba00bf032ca02c2bfc4",
+    "previousRecertificationVersion": "decision-v13-production-recertification-v2",
+    "previousRecertificationHash": "27f400d1b76f13b4cc794558d41907bbd473cbb64fc7a2c0cb99623931563614",
+    "changeClass": "REPOSITORY_BACKED_DEPLOYMENT_ENTRYPOINT_CONVERGENCE",
+    "approvalBasis": "Gate-2 Production Readiness authorization, unchanged Production version 73 identity, exact previously certified deployment entrypoint, and fail-closed full D2 re-certification",
+    "approvedAt": "2026-08-29T00:00:00.000Z"
+  },
+  "production": {
+    "supabaseProjectRef": "hjgcrrzfjchzqoegcywn",
+    "functionSlug": "decision-v13",
+    "activeVersion": 73,
+    "verifyJwt": true,
+    "bundleHash": "e72daec25d320f3733028ad1af6760e68999bfaa341b66462e42dce51a941e65",
+    "entrypointPath": "supabase/functions/decision-v13/index.deploy.ts",
+    "entrypointSource": "import \"./live-index.ts\";\n",
+    "entrypointSha256": "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299",
+    "deployedFileCount": 38,
+    "repositoryMatchedFileCount": 38,
+    "verifiedAt": "2026-08-29T00:00:00.000Z",
+    "sourceIdentity": "EXACT_REPOSITORY_SOURCE_SET_INCLUDING_PINNED_ENTRYPOINT"
+  },
+  "protectedSemanticSourceSet": {
+    "paths": [
+      "supabase/functions/decision-v13/index.ts",
+      "supabase/functions/decision-v13/live-index.ts",
+      "supabase/functions/decision-v13/live-response.mjs",
+      "supabase/functions/decision-v13/north-star-live.ts",
+      "packages/canonical-semantics/src/index.mjs",
+      "packages/decision-input-runtime/src/offering-decision.mjs",
+      "packages/decision-orchestrator-runtime/src/ranking.mjs",
+      "supabase/migrations/20260825230000_canonical_offering_purpose_v2_1.sql"
+    ],
+    "hash": "99304c0113db860ef7db0c93bc566cf72ddd4236497551acd66bc54e91ff9efb"
+  },
+  "certificationEvidenceSet": {
+    "paths": [
+      "docs/decision/D2_D3_PRODUCTION_RECERTIFICATION_2026_08_28.md",
+      "decision-lab/src/d2-freeze.mjs",
+      "decision-lab/test/d2-hard-gates.test.mjs",
+      "scripts/ci/decision-d2-scope-guard.sh",
+      "scripts/ci/test-decision-d2-web-closure-guard.sh",
+      "scripts/ci/repository-sanity.sh",
+      "supabase/config.toml",
+      "supabase/functions/decision-v13/index.deploy.ts"
+    ],
+    "hash": "5800e752a2f1db4269b6977a5758e4995ad1eb8a162fe8efe6615fe9512404c0"
+  },
+  "invariants": {
+    "hardEligibilityBeforeRanking": "PASS",
+    "distributionEligibilityBeforeFusion": "PASS",
+    "offeringPurposeRecallAddsNoScore": "PASS",
+    "factualTupleRemainsDeterministicAuthority": "PASS",
+    "reasonsRequireConfirmedCandidateFacts": "PASS",
+    "offeringPurposeIsNotUserTaste": "PASS",
+    "legacyQueriesWithoutOfferingPurposeIntent": "SEMANTICALLY_UNCHANGED",
+    "d2HardGateConstitution": "UNCHANGED"
+  }
+}
