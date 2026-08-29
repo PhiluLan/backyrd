@@ -32,12 +32,25 @@ test("Pass A request is compact, official-domain-only and excludes accepted fact
 test("Pass B is disjoint from Pass A and carries only deep fact keys", () => {
   const a = buildResearchRequest(context, { passKey: "A" });
   const b = buildResearchRequest(context, { passKey: "B" });
-  const aKeys = a.body.text.format.schema.properties.evidence.items.anyOf.map((item) => item.properties.fact_key.enum[0]);
-  const bKeys = b.body.text.format.schema.properties.evidence.items.anyOf.map((item) => item.properties.fact_key.enum[0]);
+  const aKeys = [...new Set(a.body.text.format.schema.properties.evidence.items.anyOf.map((item) => item.properties.fact_key.enum[0]))];
+  const bKeys = [...new Set(b.body.text.format.schema.properties.evidence.items.anyOf.map((item) => item.properties.fact_key.enum[0]))];
   assert.deepEqual(aKeys.filter((key) => bKeys.includes(key)), []);
   assert.deepEqual(bKeys, ["suitability.conversation"]);
-  const conversation = b.body.text.format.schema.properties.evidence.items.anyOf[0].properties.typed_value;
-  assert.deepEqual(conversation, { type: ["string", "null"], enum: ["HIGH", "MEDIUM", "LOW", "UNKNOWN", null] });
+  const [supported, unsupported] = b.body.text.format.schema.properties.evidence.items.anyOf;
+  assert.deepEqual(supported.properties.support_status.enum, ["SUPPORTED"]);
+  assert.deepEqual(supported.properties.typed_value, { type: "string", enum: ["HIGH", "MEDIUM", "LOW", "UNKNOWN"] });
+  assert.deepEqual(unsupported.properties.support_status.enum, ["UNKNOWN", "UNSUPPORTED"]);
+  assert.deepEqual(unsupported.properties.typed_value, { type: "null" });
+});
+
+test("strict provider schema binds support status to typed-value presence", () => {
+  const variants = buildResearchRequest(context, { passKey: "A" }).body.text.format.schema.properties.evidence.items.anyOf;
+  for (let index = 0; index < variants.length; index += 2) {
+    assert.deepEqual(variants[index].properties.support_status.enum, ["SUPPORTED"]);
+    assert.notEqual(variants[index].properties.typed_value.type, "null");
+    assert.deepEqual(variants[index + 1].properties.support_status.enum, ["UNKNOWN", "UNSUPPORTED"]);
+    assert.deepEqual(variants[index + 1].properties.typed_value, { type: "null" });
+  }
 });
 
 test("strict provider schema uses explicit types for every enum constraint", () => {
