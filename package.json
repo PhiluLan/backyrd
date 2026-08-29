@@ -7,6 +7,8 @@
     "packages/*"
   ],
   "scripts": {
+    "gate2:corpus": "node scripts/ops/validate-gate2-corpus.mjs",
+    "gate2:corpus:self-test": "node --test scripts/ops/gate2-corpus-assertions.test.mjs",
     "decision-lab": "node decision-lab/src/cli.mjs",
     "decision-lab:test": "node --test decision-lab/test/*.test.mjs",
     "decision-lab:smoke": "node decision-lab/src/cli.mjs validate --config decision-lab/config/smoke-v1.json",
