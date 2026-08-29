@@ -4,7 +4,10 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 supabase_cli="$repo_root/node_modules/.bin/supabase"
 if test ! -x "$supabase_cli"; then
-  printf 'Pinned Supabase CLI is missing; run npm ci at the repository root.\n' >&2
+  supabase_cli="$(command -v supabase || true)"
+fi
+if test -z "$supabase_cli" || test ! -x "$supabase_cli"; then
+  printf 'Supabase CLI is missing; install the repository dependency or the CI-pinned CLI.\n' >&2
   exit 1
 fi
 if test "$($supabase_cli --version)" != "2.80.0"; then
