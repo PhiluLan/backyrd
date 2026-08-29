@@ -5,6 +5,7 @@ import { diagnoseLegacyResearchPayload, retrieveBackgroundResearchResponse } fro
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const pause = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 Deno.serve(async (request) => {
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -14,10 +15,12 @@ Deno.serve(async (request) => {
   const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!url || !serviceKey || !apiKey) return json({ error: "server_configuration_missing" }, 503);
   if (request.headers.get("authorization") !== `Bearer ${serviceKey}`) return json({ error: "forbidden" }, 403);
-  const service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  const repository = createSpotResearchRepository(service);
   let body: Record<string, unknown> = {};
   try { body = await request.json(); } catch { /* queue execution has no required body */ }
+  const populationRunId = typeof body.populationRunId === "string" ? body.populationRunId : null;
+  if (populationRunId !== null && !uuidPattern.test(populationRunId)) return json({ error: "population_run_invalid" }, 400);
+  const service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  const repository = createSpotResearchRepository(service, { populationRunId });
   if (body.action === "DIAGNOSE_LEGACY_RESPONSE") {
     const responseId = typeof body.responseId === "string" ? body.responseId : "";
     const { data: pass, error: passError } = await service.from("backyrd_spot_research_passes_v2").select("job_id,pass_key,provider_response_id").eq("provider_response_id", responseId).maybeSingle();

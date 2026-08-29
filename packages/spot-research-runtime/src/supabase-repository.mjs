@@ -1,11 +1,13 @@
-export function createSpotResearchRepository(service) {
+export function createSpotResearchRepository(service, { populationRunId = null } = {}) {
   const rpc = async (name, args) => {
     const { data, error } = await service.rpc(name, args);
     if (error) throw new Error(error.message || name);
     return data;
   };
   return Object.freeze({
-    claim: (runnerId) => rpc("backyrd_claim_spot_research_job_v1", { p_runner_id: runnerId, p_lease_seconds: 60 }),
+    claim: (runnerId) => populationRunId
+      ? rpc("backyrd_claim_spot_research_job_v2", { p_runner_id: runnerId, p_lease_seconds: 60, p_population_run_id: populationRunId })
+      : rpc("backyrd_claim_spot_research_job_v1", { p_runner_id: runnerId, p_lease_seconds: 60 }),
     beginAttempt: ({ jobId, leaseToken, passKey }) => rpc("backyrd_begin_spot_research_pass_attempt_v2", { p_job_id: jobId, p_lease_token: leaseToken, p_pass_key: passKey }),
     recordDisposition: ({ jobId, leaseToken, passKey }, response) => rpc("backyrd_record_spot_research_pass_disposition_v2", { p_job_id: jobId, p_lease_token: leaseToken, p_pass_key: passKey, p_provider_metadata: { providerResponseId: response.providerResponseId, providerStatus: response.providerStatus, inputTokens: response.usage?.inputTokens ?? 0, outputTokens: response.usage?.outputTokens ?? 0, totalTokens: response.usage?.totalTokens ?? 0, webSearchCalls: response.webSearchCalls ?? 0, transportLatencyMs: response.transportLatencyMs ?? 0, inputBytes: response.inputBytes ?? 0, incompleteReason: response.incompleteReason ?? null, errorCode: response.errorCode ?? null } }),
     release: ({ jobId, leaseToken, passKey }, status, delaySeconds) => rpc("backyrd_release_spot_research_pass_v2", { p_job_id: jobId, p_lease_token: leaseToken, p_pass_key: passKey, p_provider_status: status, p_delay_seconds: delaySeconds }),

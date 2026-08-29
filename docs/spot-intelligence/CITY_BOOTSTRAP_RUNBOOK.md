@@ -26,6 +26,8 @@ Research v2.6 requires both official-host authority and concrete venue-instance 
 
 The Production Edge path exposes only aggregate, secret-free actions: `HEALTH`, `STAGE_PILOT`, `STAGE_REFRESH`, `PUBLISH_PILOT`, `KICK_RESEARCH`, and `STATUS`. `HEALTH` checks contract presence and makes a one-result Google identifier probe without retaining provider content. `STAGE_PILOT` accepts 20–80 retainable OSM candidates, uses at most three concurrent Google identity lookups, retains only Place IDs, and pauses below 20 eligible candidates. `PUBLISH_PILOT` requires `PUBLISH:<run-id>` and enqueues the canonical Research Agent v2.1 A/B workflow with an independently versioned Research policy in the source-scope hash; it cannot accept facts or write N4. Pilot Research selection excludes every previously researched Spot and normalized official host, so a remediation pilot cannot silently replay the earlier ten URLs.
 
+For an `INTELLIGENCE` Population run, every `KICK_RESEARCH` request carries that run's UUID through the City worker to the Research worker. The service-only claim contract first verifies a running `INTELLIGENCE` run and then leases and recovers jobs only from that exact run. Older canaries and paused/completed audit runs are never drained by a newer launch-curation batch. Bounded worker concurrency controls simultaneous work; it does not reduce the run's coverage target.
+
 Publication is deliberately separate and requires an exact confirmation token:
 
 ```bash
