@@ -23,6 +23,7 @@ test("Pass A request is compact, official-domain-only and excludes accepted fact
   assert.equal(request.body.max_output_tokens, RESEARCH_OUTPUT_TOKENS_PER_PASS);
   assert.ok(request.body.max_output_tokens < 2896);
   assert.equal(JSON.parse(request.body.input).policy, RESEARCH_POLICY_VERSION);
+  assert.deepEqual(JSON.parse(request.body.input).facts.map((fact) => fact.key), ["activity.types"]);
   assert.ok(request.inputBytes < 2500);
   assert.equal(request.body.input.includes("never-send"), false);
   assert.equal(request.body.input.includes("suitability.conversation"), false);
@@ -50,6 +51,8 @@ test("strict provider schema binds support status to typed-value presence", () =
     assert.notEqual(variants[index].properties.typed_value.type, "null");
     assert.deepEqual(variants[index + 1].properties.support_status.enum, ["UNKNOWN", "UNSUPPORTED"]);
     assert.deepEqual(variants[index + 1].properties.typed_value, { type: "null" });
+    assert.deepEqual(variants[index].properties.observed_at, { type: "null" });
+    assert.deepEqual(variants[index + 1].properties.observed_at, { type: "null" });
   }
 });
 
@@ -142,11 +145,11 @@ test("qualitative evidence stays auditable without creating routine proposals", 
   assert.equal(plan.proposals.length, 0);
 });
 
-test("event-specific family age remains auditable but cannot become Spot truth", () => {
+test("event-specific family age is excluded from the objective provider pass", () => {
   const row = { ...evidenceRow, fact_key: "suitability.age", typed_value: {min_age:6,max_age:10,adult_supervision_required:true}, evidence_scope: "EVENT", short_evidence: "Night at the Museum for children aged 6 to 10." };
   const result = validateResearchEvidence({ evidence: [row] }, context, "A");
-  assert.equal(result.valid, true);
-  assert.equal(buildDeterministicProposalPlan(result.evidence, context).proposals.length, 0);
+  assert.equal(result.valid, false);
+  assert.equal(result.reason, "research_field_not_authorized:0");
 });
 
 test("Museum category derives canonical culture place type server-side", () => {
