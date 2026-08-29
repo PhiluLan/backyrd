@@ -1,4 +1,4 @@
-import { evaluatePilotAcceptance, googleMatch, planRefreshCandidates, selectResearchCohort, selectResearchEligible, type Candidate } from "./index.ts";
+import { evaluatePilotAcceptance, evaluateScaleBatchIntegrity, googleMatch, planRefreshCandidates, selectResearchCohort, selectResearchEligible, type Candidate } from "./index.ts";
 
 const candidate: Candidate = {
   sourceFamily: "OPENSTREETMAP",
@@ -114,4 +114,11 @@ Deno.test("Pilot acceptance requires reviewed, audited, persistent SPOT proposal
   if(scopedWrong.verdict!=="FAIL"||!scopedWrong.failures.includes("pilot_entity_scope_invalid"))throw new Error("non-SPOT evidence must fail pilot acceptance");
   const unreviewed=evaluatePilotAcceptance({publishedCandidateCount:30,publishedSpotIds:spotIds,googlePlaceIds:googleIds,openBootstrapReviews:0,incompleteBootstrapJobs:0,researchJobs:jobs,proposals:proposals.map((proposal,index)=>index===0?{...proposal,reviewed_by:null}:proposal),acceptedProposalIds:proposalIds,auditedProposalIds:proposalIds});
   if(unreviewed.verdict!=="FAIL"||unreviewed.metrics.unsupportedAutomaticCanonicalFacts!==1)throw new Error("automatic canonical fact must fail pilot acceptance");
+});
+
+Deno.test("Scale batch circuit breaker fails closed on systemic integrity anomalies", () => {
+  const healthy=evaluateScaleBatchIntegrity({attemptedCandidateCount:2,publishedSpotIds:["spot-1","spot-2"],googleDuplicateGroups:0,normalizedIdentityDuplicateGroups:0,fixtureLeakage:0,publishedWithoutSpot:0,openReviews:0,failedBootstrapJobs:0,distributionIneligible:0});
+  if(healthy.verdict!=="PASS")throw new Error("healthy scale batch must pass");
+  const failed=evaluateScaleBatchIntegrity({attemptedCandidateCount:2,publishedSpotIds:["spot-1","spot-1"],googleDuplicateGroups:1,normalizedIdentityDuplicateGroups:1,fixtureLeakage:1,publishedWithoutSpot:1,openReviews:1,failedBootstrapJobs:1,distributionIneligible:1});
+  for(const expected of ["SCALE_BATCH_IDENTITY_INVALID","GOOGLE_IDENTITY_DUPLICATE","NORMALIZED_IDENTITY_DUPLICATE","FIXTURE_LEAKAGE","PUBLISHED_WITHOUT_SPOT","OPEN_IDENTITY_REVIEW","BOOTSTRAP_QUEUE_FAILURE","DISTRIBUTION_GUARD_FAILURE"])if(!failed.failures.includes(expected))throw new Error(`missing circuit breaker: ${expected}`);
 });
