@@ -1,4 +1,4 @@
-import { googleMatch, planRefreshCandidates, selectResearchCohort, selectResearchEligible, type Candidate } from "./index.ts";
+import { evaluatePilotAcceptance, googleMatch, planRefreshCandidates, selectResearchCohort, selectResearchEligible, type Candidate } from "./index.ts";
 
 const candidate: Candidate = {
   sourceFamily: "OPENSTREETMAP",
@@ -102,4 +102,16 @@ Deno.test("Refresh planning skips unchanged fingerprints and routes changes or n
   if(decisions[0].identityKey!==unchangedIdentity||decisions[0].sourceFingerprint!==unchangedFingerprint||decisions[0].reason!=="UNCHANGED_SOURCE_SKIP")throw new Error("unchanged source must skip deep work");
   if(decisions[1].reason!=="SOURCE_CHANGED"||decisions[1].previous?.matched_spot_id!=="spot-2")throw new Error("changed known identity must preserve lineage and route to review");
   if(decisions[2].reason!=="NEW_CANDIDATE"||decisions[2].previous!==null)throw new Error("new refresh identity must route to identity review");
+});
+
+Deno.test("Pilot acceptance requires reviewed, audited, persistent SPOT proposals", () => {
+  const jobs=Array.from({length:10},(_,index)=>({id:`00000000-0000-0000-0000-${String(index).padStart(12,"0")}`,state:index===9?"FAILED":"READY_FOR_REVIEW",proposal_count:index<7?1:0,failure_code:index===9?"research_source_not_official:3":null}));
+  const proposals=jobs.slice(0,7).map((job,index)=>({id:`10000000-0000-0000-0000-${String(index).padStart(12,"0")}`,status:"ACCEPTED",reviewed_by:"founder",idempotency_key:`research-v2.1:${job.id}:A:0`,research_entity_scope:"SPOT",research_durability:"PERSISTENT",research_scope_resolution:"PASS"}));
+  const proposalIds=proposals.map((proposal)=>proposal.id),spotIds=Array.from({length:30},(_,index)=>`spot-${index}`),googleIds=Array.from({length:30},(_,index)=>`google-${index}`);
+  const pass=evaluatePilotAcceptance({publishedCandidateCount:30,publishedSpotIds:spotIds,googlePlaceIds:googleIds,openBootstrapReviews:0,incompleteBootstrapJobs:0,researchJobs:jobs,proposals,acceptedProposalIds:proposalIds,auditedProposalIds:proposalIds});
+  if(pass.verdict!=="PASS"||pass.metrics.unsupportedAutomaticCanonicalFacts!==0)throw new Error(`expected pilot PASS: ${pass.failures.join(",")}`);
+  const scopedWrong=evaluatePilotAcceptance({publishedCandidateCount:30,publishedSpotIds:spotIds,googlePlaceIds:googleIds,openBootstrapReviews:0,incompleteBootstrapJobs:0,researchJobs:jobs,proposals:proposals.map((proposal,index)=>index===0?{...proposal,research_entity_scope:"EVENT"}:proposal),acceptedProposalIds:proposalIds,auditedProposalIds:proposalIds});
+  if(scopedWrong.verdict!=="FAIL"||!scopedWrong.failures.includes("pilot_entity_scope_invalid"))throw new Error("non-SPOT evidence must fail pilot acceptance");
+  const unreviewed=evaluatePilotAcceptance({publishedCandidateCount:30,publishedSpotIds:spotIds,googlePlaceIds:googleIds,openBootstrapReviews:0,incompleteBootstrapJobs:0,researchJobs:jobs,proposals:proposals.map((proposal,index)=>index===0?{...proposal,reviewed_by:null}:proposal),acceptedProposalIds:proposalIds,auditedProposalIds:proposalIds});
+  if(unreviewed.verdict!=="FAIL"||unreviewed.metrics.unsupportedAutomaticCanonicalFacts!==1)throw new Error("automatic canonical fact must fail pilot acceptance");
 });
