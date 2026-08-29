@@ -24,7 +24,8 @@ export function createSpotResearchRepository(service) {
         spot: { ...spotResult.data, website },
         catalog: catalogResult.data ?? [],
         acceptedFacts: (factsResult.data ?? []).map((row) => ({ fieldKey: row.field_key, value: row.value, status: row.status })),
-        passKey: claim.passKey
+        passKey: claim.passKey,
+        researchCohort: claim.sourceScope?.researchCohort ?? "CORE"
       };
     }
   });

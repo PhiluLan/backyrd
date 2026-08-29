@@ -2,6 +2,18 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+supabase_cli="$repo_root/node_modules/.bin/supabase"
+if test ! -x "$supabase_cli"; then
+  supabase_cli="$(command -v supabase || true)"
+fi
+if test -z "$supabase_cli" || test ! -x "$supabase_cli"; then
+  printf 'Supabase CLI is missing; install the repository dependency or the CI-pinned CLI.\n' >&2
+  exit 1
+fi
+if test "$($supabase_cli --version)" != "2.80.0"; then
+  printf 'Uncertified Supabase CLI version; expected exactly 2.80.0.\n' >&2
+  exit 1
+fi
 validation_root="$(mktemp -d "${TMPDIR:-/tmp}/backyrd-supabase-ci.XXXXXX")"
 project_suffix="${GITHUB_RUN_ID:-$$}"
 project_id="backyrd-ci-${project_suffix//[^a-zA-Z0-9-]/-}"
@@ -12,7 +24,7 @@ started=false
 
 cleanup() {
   if test "$started" = true; then
-    supabase stop --workdir "$validation_root" --no-backup >/dev/null 2>&1 || true
+    "$supabase_cli" stop --workdir "$validation_root" --no-backup >/dev/null 2>&1 || true
   fi
   case "$validation_root" in
     "${TMPDIR:-/tmp}"/backyrd-supabase-ci.*|/tmp/backyrd-supabase-ci.*)
@@ -74,7 +86,7 @@ if rg -q 'hjgcrrzfjchzqoegcywn' "$validation_root"; then
 fi
 
 start_log="$validation_root/supabase-start.log"
-if ! supabase start \
+if ! "$supabase_cli" start \
   --workdir "$validation_root" \
   --exclude studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor,postgres-meta \
   --agent=no > "$start_log" 2>&1; then
@@ -88,8 +100,18 @@ fi
 printf 'Disposable Supabase stack started with project id %s.\n' "$project_id"
 started=true
 
+# postgres 17.6.1.104-.106 have a confirmed supautils SIGSEGV in the
+# permission-denied path for Supabase's reserved anon/authenticated roles.
+# Those runtime denials are security assertions here, so require the last
+# verified clean local image instead of accepting a crashing test harness.
+db_image="$(docker inspect --format '{{.Config.Image}}' "supabase_db_$project_id")"
+case "$db_image" in
+  *:17.6.1.095) ;;
+  *) printf 'Uncertified local PostgreSQL ACL-test runtime detected: %s\n' "$db_image" >&2;exit 1 ;;
+esac
+
 status_env="$validation_root/supabase-status.env"
-supabase status --workdir "$validation_root" -o env --agent=no > "$status_env"
+"$supabase_cli" status --workdir "$validation_root" -o env --agent=no > "$status_env"
 set -a
 # shellcheck disable=SC1090
 source "$status_env"
@@ -111,7 +133,7 @@ done < <(
         if [[ "$version" < 20260808120518 ]]; then printf '%s\n' "$file"; fi
       done | sort
 )
-supabase migration up --workdir "$validation_root" --local --include-all --agent=no
+"$supabase_cli" migration up --workdir "$validation_root" --local --include-all --agent=no
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction >/dev/null <<'SQL'
 alter default privileges for role postgres in schema public grant all on functions to postgres,anon,authenticated,service_role;
 alter default privileges for role postgres in schema public grant all on tables to postgres,anon,authenticated,service_role;
@@ -122,7 +144,7 @@ while IFS= read -r forward_file; do
   mv "$forward_file" "$validation_root/supabase/migrations/"
 done < <(find "$validation_root/supabase/migrations.pending" -maxdepth 1 -type f -name '*.sql' | sort)
 rmdir "$validation_root/supabase/migrations.pending"
-supabase migration up --workdir "$validation_root" --local --include-all --agent=no
+"$supabase_cli" migration up --workdir "$validation_root" --local --include-all --agent=no
 
 psql "$ADMIN_DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction \
   --file "$validation_root/supabase/canonical/storage.sql"
@@ -148,10 +170,15 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction \
 expected_acl_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/public-acl.sha256")"
 actual_acl_fingerprint="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
   --file "$repo_root/scripts/ci/public-acl-fingerprint.sql")"
+acl_mismatch=false
 test "$actual_acl_fingerprint" = "$expected_acl_fingerprint" || {
   printf 'Public ACL fingerprint: expected %s, got %s\n' \
     "$expected_acl_fingerprint" "$actual_acl_fingerprint" >&2
-  exit 1
+  if test "${BACKYRD_DIAGNOSTIC_CONTINUE_AFTER_ACL_MISMATCH:-false}" = true; then
+    acl_mismatch=true
+  else
+    exit 1
+  fi
 }
 
 expected_versions=()
@@ -265,9 +292,24 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/spot_research_redirect_runtime_v2_8.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/city_bootstrap_website_identity_v1.sql"
+# Exercise denied calls in isolated sessions. A permission failure is required;
+# keeping these outside the main test transaction also detects backend crashes.
+if psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command "set role anon;select public.backyrd_machine_accept_v1('61000000-0000-4000-8000-000000000099'::uuid,'backyrd-machine-acceptance-v1'::text,repeat('0',64)::text);" >/dev/null 2>&1;then
+  printf 'anon unexpectedly executed machine acceptance.\n' >&2;exit 1
+fi
+if ! psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command 'select 1' >/dev/null 2>&1;then
+  printf 'Database backend became unhealthy after the anon denial probe.\n' >&2
+  docker logs --tail 120 "supabase_db_$project_id" >&2 || true
+  exit 1
+fi
+if psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command "set role authenticated;select public.backyrd_machine_accept_v1('61000000-0000-4000-8000-000000000099'::uuid,'backyrd-machine-acceptance-v1'::text,repeat('0',64)::text);" >/dev/null 2>&1;then
+  printf 'authenticated/admin browser unexpectedly executed machine acceptance.\n' >&2;exit 1
+fi
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/spot_intelligence_machine_acceptance_v1.sql"
 
 lint_json="$validation_root/db-lint.json"
-supabase db lint \
+"$supabase_cli" db lint \
   --workdir "$validation_root" \
   --local \
   --schema public \
@@ -284,4 +326,8 @@ public.upsert_my_owned_spot_content_v1	42702	column reference "spot_id" is ambig
 EOF
 
 diff -u "$validation_root/db-lint-expected.txt" "$validation_root/db-lint-actual.txt"
+if test "$acl_mismatch" = true; then
+  printf 'Diagnostic checks completed, but canonical ACL certification still fails closed.\n' >&2
+  exit 1
+fi
 printf 'Fresh canonical database boot and reviewed DB lint baseline passed.\n'

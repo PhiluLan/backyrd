@@ -27,7 +27,7 @@ export async function processOneResearchJob({ repository, apiKey, runnerId, prov
       const detail = response.providerStatus === "incomplete" && response.incompleteReason ? `:${response.incompleteReason}` : "";
       throw new Error(`research_provider_${response.providerStatus || "unknown"}${detail}`);
     }
-    const validation = validateResearchEvidence(response.payload, context, claim.passKey);
+    const validation = validateResearchEvidence(response.payload, context, claim.passKey, { requireCompleteCoverage: true });
     if (!validation.valid) throw new Error(validation.reason);
     const plan = buildDeterministicProposalPlan(validation.evidence, context);
     const result = await repository.finalizePass(identity, plan.extractions, plan.proposals, {

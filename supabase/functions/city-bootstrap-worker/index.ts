@@ -14,6 +14,30 @@ export function selectResearchCohort<T extends { canonical_category_name?: unkno
   const groups=new Map<string,T[]>();for(const row of rows){const key=clean(row.canonical_category_name)||"UNKNOWN",group=groups.get(key)??[];group.push(row);groups.set(key,group);}const selected:T[]=[];while(selected.length<limit&&[...groups.values()].some((group)=>group.length)){for(const key of [...groups.keys()].sort()){const row=groups.get(key)?.shift();if(row)selected.push(row);if(selected.length>=limit)break;}}return selected;
 }
 
+const stableSeedRank = (value: string) => { let hash=2166136261;for(const char of value){hash^=char.charCodeAt(0);hash=Math.imul(hash,16777619);}return hash>>>0; };
+export function selectIntelligenceCanary<T extends { id?: unknown; category_id?: unknown; website?: unknown }>(rows:T[],referenceSpotId:string,seed:string,limit=10){
+  const eligible=rows.filter((row)=>/^[0-9a-f-]{36}$/.test(clean(row.id))&&publicHost(row.website));
+  const reference=eligible.find((row)=>clean(row.id)===referenceSpotId),groups=new Map<string,T[]>();
+  for(const row of eligible.filter((item)=>item!==reference)){const key=clean(row.category_id)||"UNKNOWN",group=groups.get(key)??[];group.push(row);groups.set(key,group);}
+  for(const [key,group] of groups)group.sort((a,b)=>stableSeedRank(`${seed}:${key}:${clean(a.id)}`)-stableSeedRank(`${seed}:${key}:${clean(b.id)}`)||clean(a.id).localeCompare(clean(b.id)));
+  const selected:T[]=reference?[reference]:[];
+  while(selected.length<limit&&[...groups.values()].some((group)=>group.length)){for(const key of [...groups.keys()].sort()){const row=groups.get(key)?.shift();if(row)selected.push(row);if(selected.length>=limit)break;}}
+  return selected;
+}
+
+export function evaluateIntelligenceCanaryReadiness(input:{items:any[];jobs:any[];accepted:any[];inspectedProposalIds:string[]}){
+  const terminal=new Set(["PROCESSED_WITH_SUPPORTED_FACTS","PROCESSED_UNKNOWN","REVIEW_REQUIRED","NOT_APPLICABLE","FAILED_WITH_EXPLICIT_REASON"]),failures:string[]=[];
+  const actualIds=input.accepted.map((proposal:any)=>clean(proposal.id)).sort(),inspected=[...input.inspectedProposalIds].sort();
+  if(input.items.length<8||input.items.length>12)failures.push("CANARY_SIZE_INVALID");
+  if(input.items.some((item:any)=>!terminal.has(clean(item.terminal_state))))failures.push("CANARY_NOT_TERMINAL");
+  if(input.jobs.some((job:any)=>!["READY_FOR_REVIEW","FAILED"].includes(clean(job.state))))failures.push("CANARY_JOBS_INCOMPLETE");
+  if(input.items.some((item:any)=>item.terminal_state==="FAILED_WITH_EXPLICIT_REASON")||input.jobs.some((job:any)=>job.state==="FAILED"||clean(job.failure_code)))failures.push("CANARY_RESEARCH_FAILED");
+  if(!input.accepted.length)failures.push("CANARY_AUTO_ACCEPTANCE_UNPROVEN");
+  if(actualIds.join(",")!==inspected.join(","))failures.push("CANARY_MANUAL_INSPECTION_INCOMPLETE");
+  if(input.accepted.some((proposal:any)=>!["contact.website","contact.phone","contact.email","opening.regular"].includes(clean(proposal.field_key))||proposal.status!=="ACCEPTED"||proposal.research_entity_scope!=="SPOT"||proposal.research_durability!=="PERSISTENT"||proposal.research_scope_resolution!=="PASS"||!clean(proposal.machine_evidence_fingerprint)||proposal.resolution_note!=="SYSTEM_POLICY:backyrd-machine-acceptance-v1"))failures.push("UNSUPPORTED_AUTO_ACCEPTED_FACT");
+  return {failures,actualIds};
+}
+
 const publicHost = (value: unknown) => { try { const url=new URL(clean(value));return url.protocol==="https:"&&!url.username&&!url.password?url.hostname.toLowerCase().replace(/^www\./,""):"";}catch{return "";} };
 const genericWebsiteNameTokens=new Set(["basel","restaurant","restaurants","cafe","bar","bars","hotel","hotels","hostel","museum","museums","theater","theatre","fitness","studio","club","zentrum","center","centre","schweiz","switzerland","official","page","about","www","com","ch","de","und","and","am","an","der","die","das","zum","zur","im","in","of","at","place","brewery","kitchen","soulfood","pizza","pizzeria","sushi","food","confiserie","konditorei","tea","room","bistrot","gasthof","restauration"]);
 const genericWebsitePathTokens=new Set([...genericWebsiteNameTokens,"angebot","angebote","location","locations","standort","standorte","detail","index","html","php","store","locator","search","spielplatz","spielplaetze","schwimmbad","reservieren","suite","suites","stadt"]);
@@ -370,7 +394,81 @@ if (import.meta.main) Deno.serve(async (request) => {
     if(action==="KICK_RESEARCH") {
       if(!researchKey||!researchEnabled)return json({ok:false,error:"research_provider_unhealthy"},503);const workers=Math.max(1,Math.min(Number(body?.workers??1),3)),statuses:number[]=[];
       await Promise.all(Array.from({length:workers},async()=>{const response=await fetch(`${url}/functions/v1/research-spot-worker`,{method:"POST",headers:{authorization:`Bearer ${serviceKey}`,"content-type":"application/json"},body:"{}"});statuses.push(response.status);await response.body?.cancel();}));
-      return json({ok:statuses.every((status)=>status===200),workers,statuses});
+      const populationRunId=clean(body?.populationRunId);let machineAccepted:any[]=[];
+      if(populationRunId){
+        if(!/^[0-9a-f-]{36}$/.test(populationRunId))return json({ok:false,error:"population_run_invalid"},400);
+        const {data:run}=await db.from("backyrd_city_bootstrap_runs_v1").select("id,mode,status").eq("id",populationRunId).maybeSingle();if(!run||run.mode!=="INTELLIGENCE"||run.status!=="RUNNING")return json({ok:false,error:"population_run_not_running"},409);
+        const {data:jobs,error:jobsError}=await db.from("backyrd_spot_research_jobs_v1").select("id").eq("population_run_id",populationRunId);if(jobsError)throw jobsError;
+        const jobPrefixes=(jobs??[]).map((job:any)=>`research-v2.1:${job.id}:`);if(jobPrefixes.length){
+          const proposalScope=jobPrefixes.map((prefix:string)=>`idempotency_key.like.${prefix}*`).join(",");
+          const {data:proposals,error:proposalError}=await db.from("backyrd_spot_fact_proposals_v1").select("id,idempotency_key,machine_evidence_fingerprint,field_key,status").eq("status","PENDING").in("field_key",["contact.website","contact.phone","contact.email","opening.regular"]).not("machine_evidence_fingerprint","is",null).or(proposalScope).limit(100);if(proposalError)throw proposalError;
+          for(const proposal of (proposals??[]).filter((proposal:any)=>jobPrefixes.some((prefix:string)=>clean(proposal.idempotency_key).startsWith(prefix)))){const accepted=await db.rpc("backyrd_machine_accept_v1",{p_proposal_id:proposal.id,p_policy_version:"backyrd-machine-acceptance-v1",p_expected_evidence_fingerprint:proposal.machine_evidence_fingerprint});machineAccepted.push({proposalId:proposal.id,fieldKey:proposal.field_key,accepted:!accepted.error,error:accepted.error?.message??null});}
+        }
+      }
+      return json({ok:statuses.every((status)=>status===200)&&machineAccepted.every((item)=>item.accepted),workers,statuses,machineAccepted});
+    }
+    if(action==="START_INTELLIGENCE_CANARY") {
+      const sourceRunId=clean(body?.sourceRunId),commit=clean(body?.commit),runKey=clean(body?.runKey),seed=clean(body?.seed),referenceSpotId="545a8ee5-14bd-4887-b4e3-42d3271aa736",sampleSize=Number(body?.sampleSize??10);
+      if(!/^[0-9a-f-]{36}$/.test(sourceRunId)||!/^[0-9a-f]{40}$/.test(commit)||!/^basel-intelligence-canary-[a-z0-9-]{4,80}$/.test(runKey)||!/^[a-z0-9-]{4,80}$/.test(seed)||!Number.isInteger(sampleSize)||sampleSize<8||sampleSize>12)return json({ok:false,error:"intelligence_canary_request_invalid"},400);
+      const [{data:sourceRun},{data:spots,count},{data:existingRun}]=await Promise.all([
+        db.from("backyrd_city_bootstrap_runs_v1").select("id,mode,status,requested_by").eq("id",sourceRunId).maybeSingle(),
+        db.from("spots").select("id,category_id,website,data_origin",{count:"exact"}).eq("city","Basel").eq("status","approved").limit(1000),
+        db.from("backyrd_city_bootstrap_runs_v1").select("id,status,requested_by,canonical_repository_commit").eq("run_key",runKey).maybeSingle()
+      ]);if(!sourceRun||sourceRun.mode!=="SCALE"||sourceRun.status!=="COMPLETED"||!sourceRun.requested_by)return json({ok:false,error:"intelligence_canary_source_lineage_invalid"},403);const {data:actor}=await db.from("admin_users").select("user_id,role").eq("user_id",sourceRun.requested_by).in("role",["admin","super_admin"]).maybeSingle();if(!actor)return json({ok:false,error:"intelligence_canary_actor_lineage_invalid"},403);if(count!==415||(spots??[]).some((spot:any)=>["TEST","FIXTURE"].includes(clean(spot.data_origin))))return json({ok:false,error:"basel_corpus_guard_failed",count},409);
+      if(existingRun){if(existingRun.requested_by!==sourceRun.requested_by||existingRun.canonical_repository_commit!==commit)return json({ok:false,error:"intelligence_canary_replay_mismatch"},409);const {data:items}=await db.from("backyrd_spot_intelligence_population_v1").select("spot_id,terminal_state,research_job_id").eq("run_id",existingRun.id);return json({ok:true,replayed:true,runId:existingRun.id,status:existingRun.status,items});}
+      const selected=selectIntelligenceCanary(spots??[],referenceSpotId,seed,sampleSize);if(selected.length!==sampleSize||!selected.some((spot:any)=>spot.id===referenceSpotId))return json({ok:false,error:"intelligence_canary_selection_incomplete"},409);
+      const created=await db.from("backyrd_city_bootstrap_runs_v1").insert({run_key:runKey,city_key:"basel",city_name:"Basel",geography:{definition:"CURRENT_CANONICAL_CORPUS",spotCount:415},source_configuration:{researchProvider:"CANONICAL_PRODUCTION_SECRET",officialWebsitesOnly:true,sourceRunId},target_configuration:{phase:"MACHINE_ACCEPTANCE_CANARY",researchConcurrencyLimit:2,researchCoverageTarget:sampleSize,fullCoverageTarget:415,discoveryEnabled:false},pipeline_version:"backyrd-intelligence-population-v1",canonical_repository_commit:commit,mode:"INTELLIGENCE",status:"RUNNING",requested_by:sourceRun.requested_by,started_at:new Date().toISOString()}).select("id,status").single();if(created.error)throw created.error;
+      const items:any[]=[];for(const spot of selected){const result=await db.rpc("backyrd_enqueue_spot_intelligence_population_job_v1",{p_run_id:created.data.id,p_spot_id:spot.id});if(result.error)throw result.error;items.push(result.data);}
+      return json({ok:true,replayed:false,runId:created.data.id,status:created.data.status,researchConcurrencyLimit:2,researchCoverageTarget:sampleSize,corpusGuard:415,items});
+    }
+    if(action==="FINALIZE_INTELLIGENCE_CANARY") {
+      const runId=clean(body?.runId),inspectedProposalIds=Array.isArray(body?.inspectedProposalIds)?[...new Set<string>(body.inspectedProposalIds.map(clean).filter(Boolean))].sort():[];
+      if(!/^[0-9a-f-]{36}$/.test(runId)||clean(body?.confirm)!==`FINALIZE_INTELLIGENCE_CANARY:${runId}:UNSUPPORTED_0`||inspectedProposalIds.some((id)=>!/^[0-9a-f-]{36}$/.test(id)))return json({ok:false,error:"intelligence_canary_finalization_invalid"},400);
+      const [{data:run},{data:items},{data:jobs}]=await Promise.all([
+        db.from("backyrd_city_bootstrap_runs_v1").select("id,mode,status,requested_by,target_configuration").eq("id",runId).maybeSingle(),
+        db.from("backyrd_spot_intelligence_population_v1").select("spot_id,terminal_state,relevant_fact_count,researched_fact_count,auto_accepted_count,review_required_count").eq("run_id",runId),
+        db.from("backyrd_spot_research_jobs_v1").select("id,state,failure_code").eq("population_run_id",runId)
+      ]);
+      if(!run||run.mode!=="INTELLIGENCE"||run.target_configuration?.phase!=="MACHINE_ACCEPTANCE_CANARY"||!run.requested_by)return json({ok:false,error:"intelligence_canary_run_invalid"},403);
+      const {data:actor}=await db.from("admin_users").select("user_id,role").eq("user_id",run.requested_by).in("role",["admin","super_admin"]).maybeSingle();if(!actor)return json({ok:false,error:"intelligence_canary_actor_lineage_invalid"},403);
+      if(run.status==="COMPLETED"){const {data:checkpoint}=await db.from("backyrd_city_bootstrap_checkpoints_v1").select("verdict,snapshot").eq("run_id",runId).eq("batch_number",0).maybeSingle();return json({ok:checkpoint?.verdict==="PASS",runId,status:"COMPLETED",replayed:true,...checkpoint},checkpoint?.verdict==="PASS"?200:409);}
+      const jobPrefixes=(jobs??[]).map((job:any)=>`research-v2.1:${job.id}:`);
+      const proposalScope=jobPrefixes.map((prefix:string)=>`idempotency_key.like.${prefix}*`).join(","),{data:proposalRows,error:proposalError}=jobPrefixes.length?await db.from("backyrd_spot_fact_proposals_v1").select("id,field_key,status,machine_policy_version,machine_evidence_fingerprint,research_entity_scope,research_durability,research_scope_resolution,resolution_note,idempotency_key").eq("machine_policy_version","backyrd-machine-acceptance-v1").or(proposalScope).limit(200):{data:[],error:null};if(proposalError)throw proposalError;
+      const accepted=(proposalRows??[]).filter((proposal:any)=>jobPrefixes.some((prefix:string)=>clean(proposal.idempotency_key).startsWith(prefix))).sort((a:any,b:any)=>clean(a.id).localeCompare(clean(b.id))),evaluation=evaluateIntelligenceCanaryReadiness({items:items??[],jobs:jobs??[],accepted,inspectedProposalIds}),failures=evaluation.failures,actualIds=evaluation.actualIds;
+      const snapshot={phase:"MACHINE_ACCEPTANCE_CANARY",spots:(items??[]).length,researchAttempted:(items??[]).filter((item:any)=>Number(item.researched_fact_count)>0).length,relevantFacts:(items??[]).reduce((sum:number,item:any)=>sum+Number(item.relevant_fact_count??0),0),autoAcceptedFacts:accepted.length,reviewRequiredFacts:(items??[]).reduce((sum:number,item:any)=>sum+Number(item.review_required_count??0),0),unsupportedAutoAcceptedFacts:failures.includes("UNSUPPORTED_AUTO_ACCEPTED_FACT")?1:0,manuallyInspectedProposalIds:actualIds,failures};
+      await db.from("backyrd_city_bootstrap_checkpoints_v1").upsert({run_id:runId,batch_number:0,snapshot,verdict:failures.length?"FAIL":"PASS"},{onConflict:"run_id,batch_number"});
+      if(failures.length){await db.from("backyrd_city_bootstrap_runs_v1").update({status:"PAUSED",stop_reason:`CIRCUIT_BREAKER:${failures.join(",")}`.slice(0,500)}).eq("id",runId);return json({ok:false,runId,status:"PAUSED",verdict:"FAIL",snapshot},409);}
+      const completed=await db.from("backyrd_city_bootstrap_runs_v1").update({status:"COMPLETED",completed_at:new Date().toISOString(),stop_reason:"COMPLETED:MACHINE_ACCEPTANCE_CANARY_PASS"}).eq("id",runId).eq("status","RUNNING").select("id,status").single();if(completed.error)throw completed.error;
+      return json({ok:true,runId,status:"COMPLETED",verdict:"PASS",snapshot});
+    }
+    if(action==="START_INTELLIGENCE_POPULATION") {
+      const commit=clean(body?.commit),runKey=clean(body?.runKey),canaryRunId=clean(body?.canaryRunId);
+      if(!/^[0-9a-f-]{36}$/.test(canaryRunId)||!/^[0-9a-f]{40}$/.test(commit)||!/^basel-intelligence-population-[a-z0-9-]{4,80}$/.test(runKey))return json({ok:false,error:"intelligence_population_request_invalid"},400);
+      const [{data:canary},{data:checkpoint},{data:spots,count},{data:existing}]=await Promise.all([
+        db.from("backyrd_city_bootstrap_runs_v1").select("id,status,requested_by,target_configuration").eq("id",canaryRunId).maybeSingle(),
+        db.from("backyrd_city_bootstrap_checkpoints_v1").select("verdict,snapshot").eq("run_id",canaryRunId).eq("batch_number",0).maybeSingle(),
+        db.from("spots").select("id,data_origin",{count:"exact"}).eq("city","Basel").eq("status","approved").limit(1000),
+        db.from("backyrd_city_bootstrap_runs_v1").select("id,status,requested_by,canonical_repository_commit").eq("run_key",runKey).maybeSingle()
+      ]);
+      if(!canary||canary.status!=="COMPLETED"||!canary.requested_by||canary.target_configuration?.phase!=="MACHINE_ACCEPTANCE_CANARY"||checkpoint?.verdict!=="PASS"||Number(checkpoint?.snapshot?.unsupportedAutoAcceptedFacts)!==0)return json({ok:false,error:"intelligence_canary_pass_required"},403);
+      const {data:actor}=await db.from("admin_users").select("user_id,role").eq("user_id",canary.requested_by).in("role",["admin","super_admin"]).maybeSingle();if(!actor)return json({ok:false,error:"intelligence_population_actor_lineage_invalid"},403);
+      if(count!==415||(spots??[]).some((spot:any)=>["TEST","FIXTURE"].includes(clean(spot.data_origin))))return json({ok:false,error:"basel_corpus_guard_failed",count},409);
+      if(existing){if(existing.requested_by!==canary.requested_by||existing.canonical_repository_commit!==commit)return json({ok:false,error:"intelligence_population_replay_mismatch"},409);return json({ok:true,replayed:true,runId:existing.id,status:existing.status,researchCoverageTarget:415});}
+      const created=await db.from("backyrd_city_bootstrap_runs_v1").insert({run_key:runKey,city_key:"basel",city_name:"Basel",geography:{definition:"CURRENT_CANONICAL_CORPUS",spotCount:415},source_configuration:{researchProvider:"CANONICAL_PRODUCTION_SECRET",officialWebsitesOnly:true,canaryRunId},target_configuration:{phase:"FULL_LAUNCH_CURATION",researchConcurrencyLimit:2,researchQueueBatchSize:5,researchCoverageTarget:415,discoveryEnabled:false},pipeline_version:"backyrd-intelligence-population-v1",canonical_repository_commit:commit,mode:"INTELLIGENCE",status:"RUNNING",requested_by:canary.requested_by,started_at:new Date().toISOString()}).select("id,status").single();if(created.error)throw created.error;
+      const ledger=await db.from("backyrd_spot_intelligence_population_v1").insert((spots??[]).map((spot:any)=>({run_id:created.data.id,spot_id:spot.id,terminal_state:"PENDING"})));if(ledger.error)throw ledger.error;
+      return json({ok:true,replayed:false,runId:created.data.id,status:"RUNNING",researchConcurrencyLimit:2,researchQueueBatchSize:5,researchCoverageTarget:415,discoveryEnabled:false});
+    }
+    if(action==="QUEUE_INTELLIGENCE_BATCH") {
+      const runId=clean(body?.runId),batchSize=Number(body?.batchSize??5);
+      if(!/^[0-9a-f-]{36}$/.test(runId)||!Number.isInteger(batchSize)||batchSize<1||batchSize>5)return json({ok:false,error:"intelligence_batch_request_invalid"},400);
+      const [{data:run},{data:active}]=await Promise.all([db.from("backyrd_city_bootstrap_runs_v1").select("id,mode,status,requested_by,target_configuration").eq("id",runId).maybeSingle(),db.from("backyrd_spot_research_jobs_v1").select("id").eq("population_run_id",runId).in("state",["QUEUED","RUNNING"])]);
+      if(!run||run.mode!=="INTELLIGENCE"||run.status!=="RUNNING"||!run.requested_by||run.target_configuration?.phase!=="FULL_LAUNCH_CURATION")return json({ok:false,error:"intelligence_batch_run_invalid"},403);
+      const {data:actor}=await db.from("admin_users").select("user_id,role").eq("user_id",run.requested_by).in("role",["admin","super_admin"]).maybeSingle();if(!actor)return json({ok:false,error:"intelligence_batch_actor_lineage_invalid"},403);
+      if((active??[]).length)return json({ok:true,runId,queued:0,waitingForActiveJobs:(active??[]).length});
+      const {data:pending,error:pendingError}=await db.from("backyrd_spot_intelligence_population_v1").select("spot_id").eq("run_id",runId).eq("terminal_state","PENDING").order("spot_id").limit(batchSize);if(pendingError)throw pendingError;
+      const items:any[]=[];for(const item of pending??[]){const queued=await db.rpc("backyrd_enqueue_spot_intelligence_population_job_v1",{p_run_id:runId,p_spot_id:item.spot_id});if(queued.error)throw queued.error;items.push(queued.data);}
+      const {count:remaining}=await db.from("backyrd_spot_intelligence_population_v1").select("spot_id",{count:"exact",head:true}).eq("run_id",runId).eq("terminal_state","PENDING");
+      return json({ok:true,runId,queued:items.length,researchJobsQueued:items.length*2,remainingCoverageTarget:remaining??0,items});
     }
     if(action==="STATUS") {
       const runId=clean(body?.runId),[{data:run},{data:candidates},{data:reviews},{data:bootstrapJobs}]=await Promise.all([db.from("backyrd_city_bootstrap_runs_v1").select("id,run_key,mode,status,started_at,completed_at,stop_reason").eq("id",runId).maybeSingle(),db.from("backyrd_city_bootstrap_candidates_v1").select("lifecycle_state,matched_spot_id").eq("run_id",runId),db.from("backyrd_city_bootstrap_reviews_v1").select("state,reason").eq("run_id",runId),db.from("backyrd_city_bootstrap_jobs_v1").select("stage,state,attempts,failure_class,failure_code").eq("run_id",runId)]);if(!run)return json({ok:false,error:"run_not_found"},404);
