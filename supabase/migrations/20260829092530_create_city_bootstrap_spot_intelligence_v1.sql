@@ -208,7 +208,8 @@ grant usage,select on sequence public.backyrd_city_bootstrap_cost_events_v1_id_s
 
 -- Definite Google identity races must fail structurally. Gate 2 proved the
 -- existing active corpus has zero duplicate Place IDs.
-create unique index spots_google_place_id_unique_v1 on public.spots(google_place_id) where google_place_id is not null and btrim(google_place_id)<>'';
+create unique index spots_google_place_id_unique_v1 on public.spots(google_place_id)
+where status='approved' and google_place_id is not null and btrim(google_place_id)<>'';
 
 create or replace function public.backyrd_city_bootstrap_claim_job_v1(p_run_id uuid,p_runner_id text,p_lease_seconds integer default 60)
 returns jsonb language plpgsql security definer set search_path=public,pg_catalog as $$
@@ -272,9 +273,9 @@ begin
  select id into v_category from public.categories where name=v_c.canonical_category_name;
  if v_category is null then raise exception 'city_bootstrap_category_not_found' using errcode='22023';end if;
  perform pg_advisory_xact_lock(hashtextextended(coalesce(v_c.google_place_id,v_c.identity_key),0));
- if v_c.google_place_id is not null then select id into v_spot from public.spots where google_place_id=v_c.google_place_id;end if;
+ if v_c.google_place_id is not null then select id into v_spot from public.spots where google_place_id=v_c.google_place_id and status='approved' limit 1;end if;
  if v_spot is null then
-  select id into v_spot from public.spots where lower(regexp_replace(name,'[^a-zA-Z0-9]+','','g'))=lower(regexp_replace(v_c.display_name,'[^a-zA-Z0-9]+','','g')) and lower(regexp_replace(address,'[^a-zA-Z0-9]+','','g'))=lower(regexp_replace(v_c.address,'[^a-zA-Z0-9]+','','g')) and status<>'archived' limit 1;
+  select id into v_spot from public.spots where lower(regexp_replace(name,'[^a-zA-Z0-9]+','','g'))=lower(regexp_replace(v_c.display_name,'[^a-zA-Z0-9]+','','g')) and lower(regexp_replace(address,'[^a-zA-Z0-9]+','','g'))=lower(regexp_replace(v_c.address,'[^a-zA-Z0-9]+','','g')) and status='approved' limit 1;
  end if;
  if v_spot is null then
  insert into public.spots(name,address,lat,lng,status,website,phone,category_id,city,country,google_place_id,google_photo_enabled,data_origin)
@@ -283,7 +284,7 @@ begin
  end if;
  insert into public.backyrd_spot_sources_v1(spot_id,source_type,source_reference,title,provider_identity,retrieved_at,observed_at,last_checked_at,legal_use_status,created_by_type)
  values(v_spot,'IMPORT','city-bootstrap:'||v_run.id||':'||v_c.id,'City bootstrap identity evidence',v_run.pipeline_version,now(),v_c.last_seen_at,now(),'PERMITTED','SYSTEM') returning id into v_source;
- if v_c.google_place_id is not null then insert into public.backyrd_spot_external_identities_v1(spot_id,source_family,source_identity,identity_confidence,bootstrap_run_id,candidate_id,first_observed_at,last_verified_at) values(v_spot,'GOOGLE_PLACE_ID',v_c.google_place_id,v_c.identity_confidence,v_run.id,v_c.id,v_c.first_seen_at,v_c.last_seen_at) on conflict(source_family,source_identity) do update set last_verified_at=excluded.last_verified_at;end if;
+ if v_c.google_place_id is not null then insert into public.backyrd_spot_external_identities_v1(spot_id,source_family,source_identity,identity_confidence,bootstrap_run_id,candidate_id,first_observed_at,last_verified_at) values(v_spot,'GOOGLE_PLACE_ID',v_c.google_place_id,v_c.identity_confidence,v_run.id,v_c.id,v_c.first_seen_at,v_c.last_seen_at) on conflict(source_family,source_identity) do update set spot_id=excluded.spot_id,identity_confidence=excluded.identity_confidence,bootstrap_run_id=excluded.bootstrap_run_id,candidate_id=excluded.candidate_id,last_verified_at=excluded.last_verified_at;end if;
  update public.backyrd_city_bootstrap_candidates_v1 set matched_spot_id=v_spot,identity_state='MATCHED_EXISTING',lifecycle_state='PUBLISHED',published_at=now(),updated_at=now() where id=v_c.id;
  return jsonb_build_object('spotId',v_spot,'sourceId',v_source,'published',true,'matchedExisting',not v_created);
 end $$;
@@ -300,6 +301,7 @@ begin
  if v_c.lifecycle_state='PRODUCT_ELIGIBLE' then return jsonb_build_object('candidateId',v_c.id,'eligible',true,'replayed',true);end if;
  if v_c.lifecycle_state<>'EVIDENCE_PENDING' or v_c.relevance_state<>'RELEVANT' or v_c.relevance_confidence not in ('EXACT','HIGH') or v_c.identity_state not in ('MATCHED_EXISTING','NEW_IDENTITY') or v_c.identity_confidence not in ('EXACT','STRONG') then raise exception 'city_bootstrap_candidate_not_validated' using errcode='22023';end if;
  if v_c.address is null or v_c.canonical_category_name is null or v_c.website is null or v_c.website!~'^https://[^[:space:]]+$' then raise exception 'city_bootstrap_required_evidence_missing' using errcode='22023';end if;
+ if v_c.matched_spot_id is not null and not exists(select 1 from public.spots where id=v_c.matched_spot_id and status='approved') then raise exception 'city_bootstrap_matched_spot_not_active' using errcode='22023';end if;
  if v_run.mode='PILOT' and v_c.google_place_id is null then raise exception 'city_bootstrap_pilot_google_identity_required' using errcode='22023';end if;
  if not exists(select 1 from public.backyrd_city_bootstrap_evidence_v1 e where e.candidate_id=v_c.id and e.source_family='OPENSTREETMAP' and e.legal_use_status='PERMITTED' and e.superseded_at is null and e.raw_payload_retained=false) then raise exception 'city_bootstrap_osm_evidence_required' using errcode='22023';end if;
  if v_c.google_place_id is not null and not exists(select 1 from public.backyrd_city_bootstrap_evidence_v1 e where e.candidate_id=v_c.id and e.source_family='GOOGLE_PLACE_ID' and e.legal_use_status='IDENTIFIER_ONLY' and e.source_identity=v_c.google_place_id and e.superseded_at is null and e.raw_payload_retained=false) then raise exception 'city_bootstrap_google_identity_evidence_required' using errcode='22023';end if;
