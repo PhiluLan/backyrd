@@ -45,8 +45,20 @@ export type AcceptedFact = {
 export type AuthoringProfile = {
   actor: { role: "FOUNDER" | "ADMIN" | "OWNER"; capability: "BASIC" | "DEEP" };
   acceptedFacts: AcceptedFact[];
-  sources: Array<{ id: string; source_type: string; last_checked_at?: string | null }>;
-  proposals: Array<{ id: string; field_key: string; proposed_value: unknown; status: string; evidence_scope?: string | null; research_evidence_scope?: string | null }>;
+  sources: Array<{ id: string; source_type: string; source_url?: string | null; title?: string | null; last_checked_at?: string | null }>;
+  proposals: Array<{
+    id: string;
+    source_id: string;
+    field_key: string;
+    proposed_value: unknown;
+    status: string;
+    evidence_excerpt?: string | null;
+    evidence_scope?: string | null;
+    research_evidence_scope?: string | null;
+    research_entity_scope?: string | null;
+    research_durability?: string | null;
+    research_scope_resolution?: string | null;
+  }>;
   reviewIssues?: Array<{ code: string; factId?: string | null; fieldKey: string; label: string; detail: string; canConfirm?: boolean; canMarkUnknown?: boolean }>;
   canonicalN4: { snapshotHash?: string | null } | null;
   authoring: { primaryArchetype: string; secondaryArchetypes: string[]; explicit: boolean };
