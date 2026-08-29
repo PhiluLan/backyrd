@@ -22,6 +22,8 @@ npm run city-bootstrap -- basel status --run-id <run-uuid>
 
 Run the existing Research Agent on the staged pilot. Resolve genuine ambiguity in Admin; do not bulk-accept proposals. Verify identity, relevance, category, provenance, unsupported inference rate, review burden, provider usage, retry behavior, and client smoke paths. Only a passing pilot permits `SCALE`.
 
+Research v2.6 requires both official-host authority and concrete venue-instance scope. For a path/query-scoped branch URL, reject evidence or a website proposal that falls back to a generic brand homepage, loses the branch tokens, or points at a sibling location. Unknown, ambiguous, tenant, subvenue, event, program, temporary, service, offering, and person attribution remains evidence/review only. Model confidence cannot override this deterministic check.
+
 The Production Edge path exposes only aggregate, secret-free actions: `HEALTH`, `STAGE_PILOT`, `PUBLISH_PILOT`, `KICK_RESEARCH`, and `STATUS`. `HEALTH` checks contract presence and makes a one-result Google identifier probe without retaining provider content. `STAGE_PILOT` accepts 20–80 retainable OSM candidates, uses at most three concurrent Google identity lookups, retains only Place IDs, and pauses below 20 eligible candidates. `PUBLISH_PILOT` requires `PUBLISH:<run-id>` and enqueues the canonical Research Agent v2.1 A/B workflow with an independently versioned Research policy in the source-scope hash; it cannot accept facts or write N4. Pilot Research selection excludes every previously researched Spot and normalized official host, so a remediation pilot cannot silently replay the earlier ten URLs.
 
 Publication is deliberately separate and requires an exact confirmation token:

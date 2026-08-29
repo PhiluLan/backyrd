@@ -20,11 +20,11 @@ select pg_temp.assert(has_function_privilege('service_role','public.backyrd_fina
 select pg_temp.assert(not has_function_privilege('service_role','public.backyrd_finalize_spot_research_pass_v3_legacy(uuid,uuid,text,jsonb,jsonb,jsonb)','execute'),'service role can bypass hardened v3 through legacy implementation');
 select pg_temp.assert(not has_function_privilege('authenticated','public.backyrd_finalize_spot_research_pass_v3(uuid,uuid,text,jsonb,jsonb,jsonb)','execute'),'client can execute hardened v3 finalizer');
 
-select pg_temp.assert(position('x->>''entityScope''<>''SPOT''' in pg_get_functiondef('public.backyrd_finalize_spot_research_pass_v3(uuid,uuid,text,jsonb,jsonb,jsonb)'::regprocedure))>0,'SPOT entity guard missing');
-select pg_temp.assert(position('x->>''durability''<>''PERSISTENT''' in pg_get_functiondef('public.backyrd_finalize_spot_research_pass_v3(uuid,uuid,text,jsonb,jsonb,jsonb)'::regprocedure))>0,'persistent durability guard missing');
-select pg_temp.assert(position('x->>''scopeResolution''<>''PASS''' in pg_get_functiondef('public.backyrd_finalize_spot_research_pass_v3(uuid,uuid,text,jsonb,jsonb,jsonb)'::regprocedure))>0,'deterministic resolution guard missing');
-select pg_temp.assert(position('backyrd_research_public_host_v1' in pg_get_functiondef('public.backyrd_finalize_spot_research_pass_v3(uuid,uuid,text,jsonb,jsonb,jsonb)'::regprocedure))>0,'official-host guard missing');
-select pg_temp.assert(position('research_proposal_extraction_mismatch' in pg_get_functiondef('public.backyrd_finalize_spot_research_pass_v3(uuid,uuid,text,jsonb,jsonb,jsonb)'::regprocedure))>0,'proposal-to-extraction guard missing');
+select pg_temp.assert(position('x->>''entityScope''<>''SPOT''' in pg_get_functiondef('public.backyrd_finalize_spot_research_pass_v3_entity_scope_v25(uuid,uuid,text,jsonb,jsonb,jsonb)'::regprocedure))>0,'SPOT entity guard missing');
+select pg_temp.assert(position('x->>''durability''<>''PERSISTENT''' in pg_get_functiondef('public.backyrd_finalize_spot_research_pass_v3_entity_scope_v25(uuid,uuid,text,jsonb,jsonb,jsonb)'::regprocedure))>0,'persistent durability guard missing');
+select pg_temp.assert(position('x->>''scopeResolution''<>''PASS''' in pg_get_functiondef('public.backyrd_finalize_spot_research_pass_v3_entity_scope_v25(uuid,uuid,text,jsonb,jsonb,jsonb)'::regprocedure))>0,'deterministic resolution guard missing');
+select pg_temp.assert(position('backyrd_research_public_host_v1' in pg_get_functiondef('public.backyrd_finalize_spot_research_pass_v3_entity_scope_v25(uuid,uuid,text,jsonb,jsonb,jsonb)'::regprocedure))>0,'official-host guard missing');
+select pg_temp.assert(position('research_proposal_extraction_mismatch' in pg_get_functiondef('public.backyrd_finalize_spot_research_pass_v3_entity_scope_v25(uuid,uuid,text,jsonb,jsonb,jsonb)'::regprocedure))>0,'proposal-to-extraction guard missing');
 
 insert into auth.users(instance_id,id,aud,role,email,encrypted_password,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
 values('00000000-0000-0000-0000-000000000000','33333333-3333-4333-8333-333333333333','authenticated','authenticated','entity-scope-test@invalid.test','','{}','{}',now(),now());
@@ -49,7 +49,7 @@ begin
   begin
     perform public.backyrd_finalize_spot_research_pass_v3('55555555-5555-4555-8555-555555555555','66666666-6666-4666-8666-666666666666','A','[]',jsonb_build_array(v_base||jsonb_build_object('fieldKey','contact.website','value','"https://attacker.invalid/"'::jsonb)),'{}');
     raise exception 'foreign proposed website bypassed database boundary';
-  exception when invalid_parameter_value then perform pg_temp.assert(sqlerrm='research_spot_entity_scope_required','foreign website did not fail closed'); end;
+  exception when invalid_parameter_value then perform pg_temp.assert(sqlerrm in ('research_spot_entity_scope_required','research_proposal_instance_scope_mismatch'),'foreign website did not fail closed'); end;
   begin
     perform public.backyrd_finalize_spot_research_pass_v3('55555555-5555-4555-8555-555555555555','66666666-6666-4666-8666-666666666666','A','[]',jsonb_build_array(v_base),'{}');
     raise exception 'orphan proposal bypassed extraction lineage';
