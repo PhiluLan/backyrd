@@ -22,6 +22,41 @@ export function selectResearchEligible<T extends { matched_spot_id?: unknown }>(
   return rows.filter((row)=>readySpotIds.has(clean(row.matched_spot_id)));
 }
 
+type RefreshPrevious = {
+  identity_key?: unknown;
+  source_fingerprint?: unknown;
+  identity_state?: unknown;
+  identity_confidence?: unknown;
+  matched_spot_id?: unknown;
+  google_place_id?: unknown;
+};
+
+export type RefreshDecision = {
+  candidate: Candidate;
+  identityKey: string;
+  sourceFingerprint: string;
+  previous: RefreshPrevious | null;
+  reason: "UNCHANGED_SOURCE_SKIP" | "SOURCE_CHANGED" | "NEW_CANDIDATE";
+};
+
+async function candidateIdentityHash(candidate: Candidate) {
+  return sha256({sourceFamily:candidate.sourceFamily,sourceIdentity:candidate.sourceIdentity});
+}
+
+async function candidateSourceHash(candidate: Candidate) {
+  return sha256({sourceIdentity:candidate.sourceIdentity,name:normalize(candidate.name),address:normalize(candidate.address),lat:candidate.lat,lng:candidate.lng,website:candidate.website,types:candidate.externalTypes});
+}
+
+export async function planRefreshCandidates(candidates: Candidate[], previousRows: RefreshPrevious[]) {
+  const previousByIdentity=new Map<string,RefreshPrevious>();
+  for(const row of previousRows){const key=clean(row.identity_key);if(key&&!previousByIdentity.has(key))previousByIdentity.set(key,row);}
+  return Promise.all(candidates.map(async(candidate):Promise<RefreshDecision>=>{
+    const identityKey=await candidateIdentityHash(candidate),sourceFingerprint=await candidateSourceHash(candidate),previous=previousByIdentity.get(identityKey)??null;
+    const reason=!previous?"NEW_CANDIDATE":clean(previous.source_fingerprint)===sourceFingerprint?"UNCHANGED_SOURCE_SKIP":"SOURCE_CHANGED";
+    return {candidate,identityKey,sourceFingerprint,previous,reason};
+  }));
+}
+
 export async function googleMatch(candidate: Candidate, apiKey: string) {
   const started=Date.now(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15_000);
   try {
@@ -90,6 +125,40 @@ if (import.meta.main) Deno.serve(async (request) => {
       }
       await db.from("backyrd_city_bootstrap_checkpoints_v1").upsert({run_id:run.id,batch_number:0,snapshot:{requested:candidates.length,providerCalls:calls,eligible:accepted.length,failures,failureDetails,acceptedSourceIdentities},verdict},{onConflict:"run_id,batch_number"});
       return json({ok:verdict==="PASS",runId:run.id,status,verdict,counts:{requested:candidates.length,providerCalls:calls,eligible:accepted.length},failures,failureDetails,acceptedSourceIdentities},verdict==="PASS"?200:409);
+    }
+    if(action==="STAGE_REFRESH") {
+      const candidates=Array.isArray(body?.candidates)?body.candidates as Candidate[]:[],commit=clean(body?.commit),runKey=clean(body?.runKey),requestedBy=clean(body?.requestedBy),sourceRunId=clean(body?.sourceRunId);
+      if(candidates.length<1||candidates.length>80||!/^[0-9a-f]{40}$/.test(commit)||!/^basel-refresh-[a-z0-9-]{4,80}$/.test(runKey)||!/^[0-9a-f-]{36}$/.test(requestedBy)||!/^[0-9a-f-]{36}$/.test(sourceRunId))return json({ok:false,error:"refresh_request_invalid"},400);
+      const validCandidates=candidates.filter((candidate)=>candidate?.sourceFamily==="OPENSTREETMAP"&&clean(candidate.sourceIdentity)&&clean(candidate.address)&&/^https:\/\/[^\s]+$/.test(clean(candidate.website))&&Number.isFinite(candidate.lat)&&Number.isFinite(candidate.lng)&&candidate.relevance?.state==="RELEVANT"&&["EXACT","HIGH"].includes(candidate.relevance?.confidence)&&permittedCategory.has(candidate.relevance?.categoryName));
+      if(validCandidates.length!==candidates.length)return json({ok:false,error:"refresh_candidate_contract_invalid"},400);
+      const refreshInput=await Promise.all(validCandidates.map(async(candidate)=>({identityKey:await candidateIdentityHash(candidate),sourceFingerprint:await candidateSourceHash(candidate)}))),inputFingerprint=await sha256([...refreshInput].sort((a,b)=>a.identityKey.localeCompare(b.identityKey)));
+      const [{data:actor},{data:sourceRun},{data:prior}]=await Promise.all([
+        db.from("admin_users").select("user_id,role").eq("user_id",requestedBy).in("role",["admin","super_admin"]).maybeSingle(),
+        db.from("backyrd_city_bootstrap_runs_v1").select("id,city_key,city_name").eq("id",sourceRunId).maybeSingle(),
+        db.from("backyrd_city_bootstrap_runs_v1").select("id,status,canonical_repository_commit,requested_by,source_configuration").eq("run_key",runKey).maybeSingle(),
+      ]);
+      if(!actor)return json({ok:false,error:"refresh_actor_invalid"},403);
+      if(!sourceRun||sourceRun.city_key!=="basel")return json({ok:false,error:"refresh_source_run_invalid"},409);
+      if(prior){
+        if(prior.canonical_repository_commit!==commit||prior.requested_by!==requestedBy||clean(prior.source_configuration?.sourceRunId)!==sourceRunId||clean(prior.source_configuration?.inputFingerprint)!==inputFingerprint)return json({ok:false,error:"refresh_replay_contract_mismatch"},409);
+        const {data:checkpoint}=await db.from("backyrd_city_bootstrap_checkpoints_v1").select("verdict,snapshot").eq("run_id",prior.id).eq("batch_number",0).maybeSingle();
+        if(!checkpoint)return json({ok:false,error:"refresh_run_incomplete",runId:prior.id,status:prior.status},409);
+        return json({ok:checkpoint.verdict==="PASS",runId:prior.id,status:prior.status,verdict:checkpoint.verdict,replayed:true,...checkpoint.snapshot},checkpoint.verdict==="PASS"?200:409);
+      }
+      const identities=refreshInput.map((row)=>row.identityKey);
+      const {data:previousRows,error:previousError}=await db.from("backyrd_city_bootstrap_candidates_v1").select("identity_key,source_fingerprint,identity_state,identity_confidence,matched_spot_id,google_place_id,created_at").eq("city","Basel").in("identity_key",identities).order("created_at",{ascending:false}).limit(5000);if(previousError)throw previousError;
+      const decisions=await planRefreshCandidates(validCandidates,previousRows??[]),unchanged=decisions.filter((row)=>row.reason==="UNCHANGED_SOURCE_SKIP"),changed=decisions.filter((row)=>row.reason==="SOURCE_CHANGED"),fresh=decisions.filter((row)=>row.reason==="NEW_CANDIDATE"),reviewRequired=changed.length+fresh.length;
+      const created=await db.from("backyrd_city_bootstrap_runs_v1").insert({run_key:runKey,city_key:"basel",city_name:sourceRun.city_name,geography:{definition:"OSM_ADMINISTRATIVE_AREA",osmName:"Basel",osmAdminLevel:"8"},source_configuration:{openStreetMap:"ODbL-1.0",sourceRunId,inputFingerprint,refreshPolicy:"SOURCE_FINGERPRINT_V1"},target_configuration:{inputSize:candidates.length},pipeline_version:"backyrd-city-bootstrap-v1",canonical_repository_commit:commit,mode:"REFRESH",status:reviewRequired?"REVIEW_REQUIRED":"COMPLETED",requested_by:requestedBy,started_at:new Date().toISOString(),completed_at:reviewRequired?null:new Date().toISOString()}).select("id,status").single();if(created.error)throw created.error;const run=created.data;
+      for(const decision of [...changed,...fresh]){
+        const candidate=decision.candidate,previous=decision.previous;
+        const persisted=await db.from("backyrd_city_bootstrap_candidates_v1").insert({run_id:run.id,identity_key:decision.identityKey,display_name:candidate.name,normalized_name:normalize(candidate.name),address:candidate.address,normalized_address:normalize(candidate.address),city:"Basel",country:"Switzerland",lat:candidate.lat,lng:candidate.lng,website:candidate.website,phone:candidate.phone??null,google_place_id:clean(previous?.google_place_id)||null,external_types:candidate.externalTypes??[],canonical_category_name:candidate.relevance.categoryName,relevance_state:"RELEVANT",relevance_reason:candidate.relevance.reason??"SUPPORTED_TYPE",relevance_confidence:candidate.relevance.confidence,identity_state:clean(previous?.identity_state)||"UNRESOLVED",identity_confidence:clean(previous?.identity_confidence)||null,matched_spot_id:clean(previous?.matched_spot_id)||null,lifecycle_state:"REVIEW_REQUIRED",source_fingerprint:decision.sourceFingerprint,enrichment_priority:Math.min(1000,Math.max(0,Math.round((candidate.sourceQuality??0)*100)))}).select("id").single();if(persisted.error)throw persisted.error;
+        const evidence=await db.from("backyrd_city_bootstrap_evidence_v1").insert({candidate_id:persisted.data.id,source_family:"OPENSTREETMAP",source_identity:candidate.sourceIdentity,fact_family:"IDENTITY",normalized_value:{source:"OPENSTREETMAP",refreshReason:decision.reason},evidence_fingerprint:decision.sourceFingerprint,authority_class:"STRUCTURED_OPEN_DATA",legal_use_status:"PERMITTED",observed_at:new Date().toISOString(),pipeline_version:"backyrd-city-bootstrap-v1"});if(evidence.error)throw evidence.error;
+        const review=await db.rpc("backyrd_city_bootstrap_open_review_v1",{p_candidate_id:persisted.data.id,p_reason:decision.reason==="SOURCE_CHANGED"?"MOVE_OR_RENAME_AMBIGUOUS":"IDENTITY_AMBIGUOUS",p_priority:decision.reason==="SOURCE_CHANGED"?"HIGH":"MEDIUM",p_evidence_fingerprint:decision.sourceFingerprint,p_proposed_action:decision.reason==="SOURCE_CHANGED"?"Review changed source identity before canonical mutation":"Resolve new refresh candidate identity before publication"});if(review.error)throw review.error;
+        const job=await db.from("backyrd_city_bootstrap_jobs_v1").insert({run_id:run.id,candidate_id:persisted.data.id,stage:"REFRESH",idempotency_key:`refresh:${decision.identityKey}:${decision.sourceFingerprint}`,state:"COMPLETE",completed_at:new Date().toISOString()});if(job.error)throw job.error;
+      }
+      const snapshot={sourceRunId,requested:candidates.length,unchangedSkipped:unchanged.length,sourceChanged:changed.length,newCandidates:fresh.length,reviewRequired,providerCalls:0,deepResearchJobs:0,canonicalFactsWritten:0,productWrites:0};
+      const checkpoint=await db.from("backyrd_city_bootstrap_checkpoints_v1").insert({run_id:run.id,batch_number:0,snapshot,verdict:"PASS"});if(checkpoint.error)throw checkpoint.error;
+      return json({ok:true,runId:run.id,status:run.status,verdict:"PASS",replayed:false,...snapshot});
     }
     if(action==="PUBLISH_PILOT") {
       const runId=clean(body?.runId);if(clean(body?.confirm)!==`PUBLISH:${runId}`)return json({ok:false,error:"publication_confirmation_required"},400);

@@ -52,7 +52,7 @@ Research policy v2.6 treats host ownership and venue-instance attribution as sep
 
 ## Reliability
 
-Jobs have explicit states, lease tokens, bounded attempts, exponential retry, resumable idempotency keys, and circuit-breaker failure classes. Provider, schema, review-rate, duplicate, fixture, and unauthorized-write anomalies pause the run. Refresh skips unchanged fingerprints and reprocesses source changes, staleness, prior failures, manual review requests, or relevant pipeline-version changes.
+Jobs have explicit states, lease tokens, bounded attempts, exponential retry, resumable idempotency keys, and circuit-breaker failure classes. Provider, schema, review-rate, duplicate, fixture, and unauthorized-write anomalies pause the run. The server-side `STAGE_REFRESH` action compares stable source identities and fingerprints before provider work: unchanged sources complete with a durable zero-call checkpoint, while new identities and changed known identities route to existing identity/move-or-rename review semantics without canonical mutation. Later refresh stages reprocess staleness, prior failures, manual review requests, or relevant pipeline-version changes.
 
 ## Scale model
 
