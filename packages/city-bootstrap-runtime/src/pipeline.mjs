@@ -3,6 +3,51 @@ import { candidateIdentityKey, distanceMeters, normalizeText, sha256 } from "./n
 import { classifyRelevance } from "./relevance.mjs";
 import { resolveIdentity } from "./identity.mjs";
 
+const genericWebsiteNameTokens = new Set([
+  "basel", "restaurant", "restaurants", "cafe", "bar", "bars", "hotel", "hotels", "hostel",
+  "museum", "museums", "theater", "theatre", "fitness", "studio", "club", "zentrum", "center",
+  "centre", "schweiz", "switzerland", "official", "page", "about", "www", "com", "ch", "de",
+  "und", "and", "am", "an", "der", "die", "das", "zum", "zur", "im", "in", "of", "at",
+  "place", "brewery", "kitchen", "soulfood", "pizza", "pizzeria", "sushi", "food", "confiserie",
+  "konditorei", "tea", "room", "bistrot", "gasthof", "restauration"
+]);
+const genericWebsitePathTokens = new Set([
+  ...genericWebsiteNameTokens, "angebot", "angebote", "location", "locations", "standort", "standorte",
+  "detail", "index", "html", "php", "store", "locator", "search", "spielplatz", "spielplaetze",
+  "schwimmbad", "reservieren", "suite", "suites", "stadt"
+]);
+const identityStrictWebsiteHosts = [
+  "facebook.com", "instagram.com", "linkedin.com", "tiktok.com", "twitter.com", "x.com",
+  "linktr.ee", "wixsite.com"
+];
+
+function hostMatches(host, expected) {
+  return host === expected || host.endsWith(`.${expected}`);
+}
+
+export function websiteIdentityCompatible(name, website) {
+  if (!website) return true;
+  let parsed;
+  try { parsed = new URL(String(website).trim()); } catch { return false; }
+  if (parsed.protocol !== "https:" || parsed.username || parsed.password) return false;
+  const subjectTokens = normalizeText(name).split(" ").filter((token) => token.length >= 2 && !genericWebsiteNameTokens.has(token));
+  if (!subjectTokens.length) return false;
+  const websiteIdentity = normalizeText(`${parsed.hostname} ${parsed.pathname} ${parsed.search}`).replaceAll(" ", "");
+  const matches = subjectTokens.map((token) => websiteIdentity.includes(token));
+  if (matches.every(Boolean)) return true;
+  const host = parsed.hostname.toLowerCase().replace(/^www\./, "").replace(/\.$/, "");
+  if (identityStrictWebsiteHosts.some((expected) => hostMatches(host, expected))) return false;
+  if (!matches.some(Boolean)) return true;
+  const subjectSet = new Set(subjectTokens);
+  const pathHasCompetingIdentity = normalizeText(parsed.pathname).split(" ").some((token) =>
+    /^[a-z]{2,}$/.test(token) && !subjectSet.has(token) && !genericWebsitePathTokens.has(token)
+  );
+  // A partial match plus another concrete identity in the URL path is strong
+  // evidence for a sibling venue, subvenue or tenant. Otherwise compatibility
+  // remains unknown and later evidence validation must establish the fact.
+  return !pathHasCompetingIdentity;
+}
+
 export function normalizeDiscoveredCandidate(row, config) {
   if (!row?.name || !Number.isFinite(Number(row.lat)) || !Number.isFinite(Number(row.lng))) throw new Error("candidate_identity_invalid");
   if (!pointInCity(config, Number(row.lat), Number(row.lng))) throw new Error("candidate_outside_geography");
@@ -39,6 +84,7 @@ export function evaluateCandidate(candidate, existingSpots) {
   let lifecycleState = "IDENTITY_RESOLVED", reviewReason = null;
   if (candidate.relevance.state === "IRRELEVANT") lifecycleState = "REJECTED";
   else if (candidate.relevance.state === "AMBIGUOUS") { lifecycleState = "REVIEW_REQUIRED"; reviewReason = "RELEVANCE_AMBIGUOUS"; }
+  else if (!websiteIdentityCompatible(candidate.name, candidate.website)) { lifecycleState = "REVIEW_REQUIRED"; reviewReason = "WEBSITE_IDENTITY_AMBIGUOUS"; }
   else if (identity.state === "AMBIGUOUS" || identity.confidence === "POSSIBLE") { lifecycleState = "REVIEW_REQUIRED"; reviewReason = "IDENTITY_AMBIGUOUS"; }
   else lifecycleState = identity.state === "MATCHED_EXISTING" ? "IDENTITY_RESOLVED" : "EVIDENCE_PENDING";
   return Object.freeze({ ...candidate, identity, lifecycleState, reviewReason });

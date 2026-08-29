@@ -1,4 +1,4 @@
-import { evaluatePilotAcceptance, evaluateScaleBatchIntegrity, googleMatch, planRefreshCandidates, selectResearchCohort, selectResearchEligible, type Candidate } from "./index.ts";
+import { evaluatePilotAcceptance, evaluateScaleBatchIntegrity, googleMatch, planRefreshCandidates, selectResearchCohort, selectResearchEligible, websiteIdentityCompatible, type Candidate } from "./index.ts";
 
 const candidate: Candidate = {
   sourceFamily: "OPENSTREETMAP",
@@ -121,4 +121,14 @@ Deno.test("Scale batch circuit breaker fails closed on systemic integrity anomal
   if(healthy.verdict!=="PASS")throw new Error("healthy scale batch must pass");
   const failed=evaluateScaleBatchIntegrity({attemptedCandidateCount:2,publishedSpotIds:["spot-1","spot-1"],googleDuplicateGroups:1,normalizedIdentityDuplicateGroups:1,fixtureLeakage:1,publishedWithoutSpot:1,openReviews:1,failedBootstrapJobs:1,distributionIneligible:1});
   for(const expected of ["SCALE_BATCH_IDENTITY_INVALID","GOOGLE_IDENTITY_DUPLICATE","NORMALIZED_IDENTITY_DUPLICATE","FIXTURE_LEAKAGE","PUBLISHED_WITHOUT_SPOT","OPEN_IDENTITY_REVIEW","BOOTSTRAP_QUEUE_FAILURE","DISTRIBUTION_GUARD_FAILURE"])if(!failed.failures.includes(expected))throw new Error(`missing circuit breaker: ${expected}`);
+});
+
+Deno.test("Scale website identity blocks stale social and sibling evidence", () => {
+  if(websiteIdentityCompatible("Bridge Bar","https://facebook.com/pg/barbrutbasel/about"))throw new Error("stale social brand accepted");
+  if(!websiteIdentityCompatible("Bridge Bar","https://bridge-bar.ch/"))throw new Error("canonical venue domain rejected");
+  if(websiteIdentityCompatible("Robi Bachgraben","https://robi-spiel-aktionen.ch/angebot/robi-volta.html"))throw new Error("sibling venue path accepted");
+  if(!websiteIdentityCompatible("Robi Bachgraben","https://robi-spiel-aktionen.ch/spielplaetze.php"))throw new Error("operator overview rejected");
+  if(websiteIdentityCompatible("Oscar One","https://kitchenbrew.ch/locations/oscar-two"))throw new Error("operator sibling accepted");
+  if(!websiteIdentityCompatible("Stucki","https://tanjagrandits.ch/restaurant-stucki/"))throw new Error("valid operator URL rejected");
+  if(!websiteIdentityCompatible("Negishi Sushi Bar","https://negishi.ch/basel-steinen"))throw new Error("valid location path rejected");
 });
