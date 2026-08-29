@@ -313,6 +313,12 @@ test("same-domain brand homepages may record UNKNOWN coverage but never support 
   const unknownResult = validateResearchEvidence({ evidence: [unknown] }, branchContext, "A");
   assert.equal(unknownResult.valid, true);
   assert.equal(buildDeterministicProposalPlan(unknownResult.evidence, branchContext).proposals.length, 0);
+  const missingSource = validateResearchEvidence({ evidence: [{ ...unknown, source_url: "" }] }, branchContext, "A");
+  assert.equal(missingSource.valid, true);
+  assert.equal(missingSource.evidence[0].sourceUrl, branchContext.spot.website);
+  assert.equal(buildDeterministicProposalPlan(missingSource.evidence, branchContext).proposals.length, 0);
+  assert.equal(validateResearchEvidence({ evidence: [{ ...unknown, source_url: "not a url" }] }, branchContext, "A").valid, false);
+  assert.equal(validateResearchEvidence({ evidence: [{ ...unknown, support_status: "SUPPORTED", typed_value: "EVO Fitness", source_url: "" }] }, branchContext, "A").valid, false);
 
   const unsupportedClaim = {
     ...unknown,
