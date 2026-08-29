@@ -36,10 +36,10 @@
       "vercel_deployment": "BBa9jfxn6s4ZsaDkwSxv4sU2obhD",
       "created_at": "2026-08-29T08:02:02Z",
       "canonical_source": {
-        "commit": "887221728ca3b6da9be3460386e50ccf6d6164b2",
-        "tree": "f495697d92a8d019ad42e5c748b413a704a07d26",
+        "commit": "2a08090bb4c417086d3944371566354915874f45",
+        "tree": "e460898a8210792801718dfa99b03312a25708f4",
         "production_verified": true,
-        "reason": "Gate 2 additively renders existing canonical description and opening-hours truth; Vercel Production is bound to canonical merge 643723f."
+        "reason": "Gate 2 runtime is deployed from canonical merge 643723f; the later canonical tree changes only the contract test's migration filename to the exact Production identity."
       }
     },
     "admin_intelligence_web": {
@@ -89,6 +89,16 @@
       "decision_semantics_changed": false,
       "authorized_surface_changes": [
         "supabase/migrations/20260829080205_gate2_public_spot_detail_truth_v1.sql"
+      ],
+      "evidence": "docs/readiness/BASEL_LAUNCH_CORPUS_V1.md"
+    },
+    {
+      "id": "gate2_web_test_migration_identity",
+      "baseline_commit": "afc2b44f65523973d991738d838af1c7bbc80caa",
+      "source_commit": "2a08090bb4c417086d3944371566354915874f45",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "web/tests/consumer-contracts.test.mjs"
       ],
       "evidence": "docs/readiness/BASEL_LAUNCH_CORPUS_V1.md"
     }
