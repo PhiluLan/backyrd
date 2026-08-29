@@ -5,10 +5,14 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 migration="$repo_root/supabase/migrations/20260829204500_spot_intelligence_machine_acceptance_v1.sql"
 delta="$repo_root/supabase/canonical/public-acl-spot-intelligence-machine-acceptance-v1.delta"
 definer_delta="$repo_root/supabase/security/security-definer-spot-intelligence-machine-acceptance-v1.delta.json"
+claim_migration="$repo_root/supabase/migrations/20260829221500_scope_research_claim_to_population_run_v1.sql"
+claim_delta="$repo_root/supabase/canonical/public-acl-spot-research-run-scoped-claim-v1.delta"
 fail(){ printf 'Spot Intelligence Machine Acceptance ACL validation failed: %s\n' "$*" >&2;exit 1;}
 test -f "$migration" || fail 'migration missing'
 test -f "$delta" || fail 'reviewed delta missing'
 test -f "$definer_delta" || fail 'reviewed SECURITY DEFINER delta missing'
+test -f "$claim_migration" || fail 'run-scoped claim migration missing'
+test -f "$claim_delta" || fail 'run-scoped claim reviewed delta missing'
 test "$(wc -l < "$delta" | tr -d ' ')" = 6 || fail 'delta must contain exactly six effective grants'
 test "$(grep -c '|service_role|' "$delta")" = 6 || fail 'non-service role in delta'
 if grep -Eq '\|(anon|authenticated)\|' "$delta";then fail 'client role in delta';fi
@@ -21,9 +25,17 @@ expected_admin_grant='grant execute on function public.backyrd_admin_spot_engine
 if test -n "$client_grants" && test "$client_grants" != "$expected_admin_grant";then fail 'unexpected client grant';fi
 if grep -Eqi '^grant (all|delete|truncate|references|trigger)' "$migration";then fail 'overbroad service grant';fi
 if rg -q 'p_(actor|user)(_id)?[[:space:]]' "$migration";then fail 'caller-controlled actor parameter';fi
+test "$(cat "$claim_delta")" = 'FUNCTION|backyrd_claim_spot_research_job_v2(text,integer,uuid)|service_role|EXECUTE' || fail 'run-scoped claim delta differs from exact reviewed grant'
+test "$(grep -c '^grant execute on function ' "$claim_migration")" = 1 || fail 'run-scoped claim has unexpected grant count'
+grep -Fq 'grant execute on function public.backyrd_claim_spot_research_job_v2(text,integer,uuid) to service_role;' "$claim_migration" || fail 'run-scoped service grant drift'
+grep -Fq 'revoke all on function public.backyrd_claim_spot_research_job_v2(text,integer,uuid) from public,anon,authenticated,service_role;' "$claim_migration" || fail 'run-scoped pre-grant revoke boundary missing'
+if grep -Eqi '^grant .* to (anon|authenticated|public)([,;]|$)' "$claim_migration";then fail 'run-scoped claim granted to client role';fi
+if grep -Eqi '^grant .* on (table|sequence) ' "$claim_migration";then fail 'run-scoped claim migration grants table or sequence access';fi
+if rg -q 'p_(actor|user)(_id)?[[:space:]]' "$claim_migration";then fail 'run-scoped claim accepts caller-controlled actor';fi
+grep -Fq "if coalesce(auth.role(),'')<>'service_role'" "$claim_migration" || fail 'run-scoped runtime service guard missing'
 test "$(grep -Fc "coalesce(auth.role(),'')<>'service_role'" "$migration")" -ge 4 || fail 'service-only runtime guards missing'
 jq -e '
-  .version == 1 and (.functions|length) == 10
+  .version == 1 and (.functions|length) == 11
   and ([.functions[].signature]|length == (unique|length))
   and ([.functions[]|select(.classification == "SERVICE_INTERNAL" and (.anon or .authenticated or .serviceRole))]|length == 0)
   and ([.functions[]|select(.classification == "WORKER" and (.anon or .authenticated or (.serviceRole|not)))]|length == 0)

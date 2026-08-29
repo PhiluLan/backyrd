@@ -393,11 +393,13 @@ if (import.meta.main) Deno.serve(async (request) => {
     }
     if(action==="KICK_RESEARCH") {
       if(!researchKey||!researchEnabled)return json({ok:false,error:"research_provider_unhealthy"},503);const workers=Math.max(1,Math.min(Number(body?.workers??1),3)),statuses:number[]=[];
-      await Promise.all(Array.from({length:workers},async()=>{const response=await fetch(`${url}/functions/v1/research-spot-worker`,{method:"POST",headers:{authorization:`Bearer ${serviceKey}`,"content-type":"application/json"},body:"{}"});statuses.push(response.status);await response.body?.cancel();}));
       const populationRunId=clean(body?.populationRunId);let machineAccepted:any[]=[];
       if(populationRunId){
         if(!/^[0-9a-f-]{36}$/.test(populationRunId))return json({ok:false,error:"population_run_invalid"},400);
         const {data:run}=await db.from("backyrd_city_bootstrap_runs_v1").select("id,mode,status").eq("id",populationRunId).maybeSingle();if(!run||run.mode!=="INTELLIGENCE"||run.status!=="RUNNING")return json({ok:false,error:"population_run_not_running"},409);
+      }
+      await Promise.all(Array.from({length:workers},async()=>{const response=await fetch(`${url}/functions/v1/research-spot-worker`,{method:"POST",headers:{authorization:`Bearer ${serviceKey}`,"content-type":"application/json"},body:JSON.stringify(populationRunId?{populationRunId}:{})});statuses.push(response.status);await response.body?.cancel();}));
+      if(populationRunId){
         const {data:jobs,error:jobsError}=await db.from("backyrd_spot_research_jobs_v1").select("id").eq("population_run_id",populationRunId);if(jobsError)throw jobsError;
         const jobPrefixes=(jobs??[]).map((job:any)=>`research-v2.1:${job.id}:`);if(jobPrefixes.length){
           const proposalScope=jobPrefixes.map((prefix:string)=>`idempotency_key.like.${prefix}*`).join(",");
