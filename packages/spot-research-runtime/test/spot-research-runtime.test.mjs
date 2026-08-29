@@ -292,6 +292,37 @@ test("path-scoped venue instances reject generic brand-homepage evidence and val
   assert.equal(urlWithinOfficialInstanceScope("https://www.update-fitness.example/basel/events", branchContext.spot.website), false);
 });
 
+test("Population quarantines opaque or broader same-domain instance evidence as UNKNOWN without proposals", () => {
+  const branchContext = {
+    ...context,
+    spot: { ...spot, name: "update Fitness", website: "https://update-fitness.example/basel-sbb" },
+    catalog: [{ field_key: "contact.phone", value_kind: "TEXT", allowed_values: [], engine_role: "RAW_FACT" }]
+  };
+  const opaqueLocationPage = {
+    ...evidenceRow,
+    fact_key: "contact.phone",
+    typed_value: "+41 61 333 90 88",
+    subject_name: "update Fitness Basel SBB",
+    source_url: "https://www.update-fitness.example/gruppenstundenplan?location_id=12",
+    source_type: "OFFICIAL_WEBSITE",
+    short_evidence: "update Fitness Basel SBB: Telefon 061 333 90 88."
+  };
+  const strict = validateResearchEvidence({ evidence: [opaqueLocationPage] }, branchContext, "A");
+  assert.match(strict.reason, /instance_scope_mismatch/);
+  const population = validateResearchEvidence({ evidence: [opaqueLocationPage] }, branchContext, "A", { quarantineInstanceMismatch: true });
+  assert.equal(population.valid, true);
+  assert.deepEqual(population.evidence[0], {
+    factKey: "contact.phone", value: null, evidenceScope: "UNKNOWN_SCOPE", entityScope: "AMBIGUOUS", subjectName: null,
+    durability: "UNKNOWN", supportStatus: "UNKNOWN", sourceUrl: "https://www.update-fitness.example/gruppenstundenplan?location_id=12",
+    sourceType: "OFFICIAL_WEBSITE", shortEvidence: "", observedAt: null, passKey: "A",
+    validationReason: "QUARANTINED_SOURCE_INSTANCE_SCOPE_MISMATCH"
+  });
+  const plan = buildDeterministicProposalPlan(population.evidence, branchContext);
+  assert.equal(plan.proposals.length, 0);
+  assert.equal(plan.extractions[0].classification, "UNSUPPORTED");
+  assert.equal(plan.extractions[0].scopeResolution, "QUARANTINED_SOURCE_INSTANCE_SCOPE_MISMATCH");
+});
+
 test("same-domain brand homepages may record UNKNOWN coverage but never support a venue fact", () => {
   const branchContext = {
     ...context,

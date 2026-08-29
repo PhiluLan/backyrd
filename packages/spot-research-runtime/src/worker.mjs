@@ -2,6 +2,7 @@ import { buildDeterministicProposalPlan, createBackgroundResearchResponse, retri
 
 const pendingStatuses = new Set(["queued", "in_progress"]);
 const retryableCodes = [/research_provider_timeout/, /research_provider_transport_error/, /research_provider_http_429/, /research_provider_http_5\d\d/, /research_provider_incomplete:max_output_tokens/];
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const safeCode = (error) => String(error instanceof Error ? error.message : error).replace(/[^a-zA-Z0-9_:\-]/g, "_").slice(0, 160);
 export const isRetryableResearchFailure = (code) => retryableCodes.some((pattern) => pattern.test(code));
 
@@ -27,7 +28,13 @@ export async function processOneResearchJob({ repository, apiKey, runnerId, prov
       const detail = response.providerStatus === "incomplete" && response.incompleteReason ? `:${response.incompleteReason}` : "";
       throw new Error(`research_provider_${response.providerStatus || "unknown"}${detail}`);
     }
-    const validation = validateResearchEvidence(response.payload, context, claim.passKey, { requireCompleteCoverage: true });
+    const validation = validateResearchEvidence(response.payload, context, claim.passKey, {
+      requireCompleteCoverage: true,
+      // Only a run-scoped INTELLIGENCE Population job may turn a same-domain
+      // but non-deterministically-bound row into audited UNKNOWN coverage.
+      // Standalone Research retains the strict all-or-nothing validator.
+      quarantineInstanceMismatch: uuidPattern.test(String(claim.sourceScope?.populationRunId ?? ""))
+    });
     if (!validation.valid) throw new Error(validation.reason);
     const plan = buildDeterministicProposalPlan(validation.evidence, context);
     const result = await repository.finalizePass(identity, plan.extractions, plan.proposals, {

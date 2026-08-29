@@ -28,6 +28,8 @@ The Production Edge path exposes only aggregate, secret-free actions: `HEALTH`, 
 
 For an `INTELLIGENCE` Population run, every `KICK_RESEARCH` request carries that run's UUID through the City worker to the Research worker. The service-only claim contract first verifies a running `INTELLIGENCE` run and then leases and recovers jobs only from that exact run. Older canaries and paused/completed audit runs are never drained by a newer launch-curation batch. Bounded worker concurrency controls simultaneous work; it does not reduce the run's coverage target.
 
+Within that run-scoped Population path only, a `SUPPORTED` row from an allowlisted official host that cannot be deterministically bound to the concrete venue instance is quarantined as audited `UNKNOWN` with `QUARANTINED_SOURCE_INSTANCE_SCOPE_MISMATCH`. It creates no proposal and cannot enter Machine Acceptance. Standalone Research remains strict and rejects the complete pass for the same mismatch.
+
 The legacy scheduled/manual Research claimant processes standalone jobs only (`population_run_id IS NULL`). Population jobs must never fall back into `LIVE_TICK` or manual global draining; they remain isolated even while preserved historical runs still contain queued audit rows.
 
 Publication is deliberately separate and requires an exact confirmation token:
