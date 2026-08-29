@@ -94,3 +94,4 @@ done < <(jq -r '.[] | [.version,.file,.sha256,.schema_reconciled_by] | @tsv' "$h
 
 printf 'Validated %s unique active migrations; canonical foundation is intact.\n' \
   "${#active_files[@]}"
+"$repo_root/scripts/ci/validate-intelligence-population-automation-acl.sh"
