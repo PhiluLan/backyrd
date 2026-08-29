@@ -59,3 +59,36 @@ No general guard exemption was added and no protected path was removed. This re-
 The real protected-scope guard accepts downstream byte-pinned Product integrations only when the Engine is unchanged or this complete re-certification validates. Regression coverage proves: unchanged baseline passes; a one-byte Engine change without re-certification fails; a new Decision source fails; altered Production identity fails; altered protected source-set identity fails; and the complete valid re-certification passes. No glob or path-wide exception is introduced.
 
 **D2/D3 FREEZE — RE-CERTIFIED**
+
+## Gate-2 repository-backed deployment convergence — 2026-08-29
+
+Gate 2 found that the Supabase Git integration referenced ignored
+`index.deploy.ts` build artifacts and therefore failed before deployment even
+though all migrations were current. The remediation does not alter Decision
+semantics. Commit `f2e84987f2ddab060dec0a44ee41ecea061c7b1f` adds the exact
+already-certified `decision-v13` deployment entrypoint to the repository and
+points the North-Star and worker functions at their existing canonical source
+entrypoints. Its parent is canonical Gate-2 main
+`9b4536fd8884cacb85332eacd0e0ca0ddb807259`.
+
+Production remains version 73 with JWT verification enabled, bundle SHA-256
+`e72daec25d320f3733028ad1af6760e68999bfaa341b66462e42dce51a941e65`,
+and the same 38-file deployment. The only identity-model change is that the
+38th file is now also repository-backed. Its complete content remains
+`import "./live-index.ts";` plus one newline and its SHA-256 remains
+`4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299`.
+All 38 deployed files therefore match the canonical repository; the 37
+semantic implementation files remain byte-identical to the previously proven
+Production implementation.
+
+The additive authorization contract
+`decision-lab/config/decision-v13-production-recertification-v3.json`
+preserves v2 as historical evidence and binds the unchanged Engine hash, the
+v2 re-certification identity, exact authorizing commit and parent, protected
+semantic source set, certification evidence set, Production bundle/version,
+repository-backed entrypoint bytes and all eight semantic invariants. The
+scope guard accepts only the one-time addition of this exact file while that
+full contract validates; later modification or deletion remains blocked.
+
+This is repository/deployment-evidence convergence, not a new Decision
+baseline and not a semantic exception.
