@@ -1,9 +1,13 @@
 import { CANONICAL_FACTS, CATEGORY_PLACE_TYPE, categoryToPlaceType } from "../../canonical-semantics/src/index.mjs";
 
 export const RESEARCH_CONTRACT_VERSION = "backyrd-spot-research-agent-v2.1";
+export const RESEARCH_POLICY_VERSION = "backyrd-spot-research-policy-v2.2";
 export const DEFAULT_RESEARCH_MODEL = "gpt-5-mini";
 export const MAX_RESEARCH_EVIDENCE_PER_PASS = 8;
-export const RESEARCH_OUTPUT_TOKENS_PER_PASS = 1800;
+export const RESEARCH_OUTPUT_TOKENS_PER_PASS = 2600;
+export const RESEARCH_PROPOSAL_FACT_KEYS = Object.freeze([
+  "identity.name", "contact.website", "category.primary", "opening.regular", "activity.types", "accessibility.capabilities"
+]);
 
 export const RESEARCH_PASSES = Object.freeze({
   A: Object.freeze({ key: "A", name: "OBJECTIVE_CORE", factKeys: Object.freeze([
@@ -23,6 +27,7 @@ const supportStatuses = new Set(["SUPPORTED", "UNKNOWN", "UNSUPPORTED"]);
 const sourceTypes = new Set(["OFFICIAL_WEBSITE", "OFFICIAL_DOCUMENT"]);
 export const RESEARCH_EVIDENCE_SCOPES = Object.freeze(["SPOT", "EVENT", "PROGRAM", "TEMPORARY", "UNKNOWN_SCOPE"]);
 const evidenceScopes = new Set(RESEARCH_EVIDENCE_SCOPES);
+const proposalFactKeys = new Set(RESEARCH_PROPOSAL_FACT_KEYS);
 const canonicalFacts = new Map(CANONICAL_FACTS.map((field) => [field.key, field]));
 const socialKeys = Object.freeze(["solo", "date", "friends", "family", "groups", "work"]);
 const accessibilityKeys = Object.freeze(["step_free", "wheelchair_spaces", "accessible_toilet", "elevator", "hearing_support", "assistance_dogs"]);
@@ -40,8 +45,8 @@ export function normalizePublicHttpsUrl(value) {
 export function officialDomain(website) { return new URL(normalizePublicHttpsUrl(website)).hostname.toLowerCase(); }
 
 function sameOfficialDomain(sourceUrl, allowedDomain) {
-  const host = new URL(sourceUrl).hostname.toLowerCase();
-  return host === allowedDomain || host.endsWith(`.${allowedDomain}`);
+  const canonicalHost = (host) => host.toLowerCase().replace(/^www\./, "");
+  return canonicalHost(new URL(sourceUrl).hostname) === canonicalHost(allowedDomain);
 }
 
 function stable(value) {
@@ -133,9 +138,10 @@ export function buildResearchRequest(context, { model = DEFAULT_RESEARCH_MODEL, 
     "Indoor alone does not prove rain suitability; rain needs explicit official support.",
     "Regular opening hours are a weekly schedule, never proof of OPEN right now; opening.status requires explicit general operating-state evidence.",
     "Use short verbatim evidence and the exact typed_value schema.",
+    "SUPPORTED always requires a non-null value matching the exact schema; otherwise return UNKNOWN or UNSUPPORTED with typed_value null.",
     "Do not classify, recommend, score, infer N4, or create proposals."
   ].join(" ");
-  const input = JSON.stringify({ contract: RESEARCH_CONTRACT_VERSION, pass: pass.name,
+  const input = JSON.stringify({ contract: RESEARCH_CONTRACT_VERSION, policy: RESEARCH_POLICY_VERSION, pass: pass.name,
     spot: { id: context.spot.id, name: context.spot.name, city: context.spot.city }, allowed_domain: allowedDomain,
     facts: catalog.map(compactField), evidence_scopes: RESEARCH_EVIDENCE_SCOPES, source_policy: ["OFFICIAL_WEBSITE", "OFFICIAL_DOCUMENT"] });
   return { allowedDomain, inputBytes: new TextEncoder().encode(input).length, pass, body: {
@@ -239,7 +245,7 @@ export function buildDeterministicProposalPlan(evidence, context) {
     const rainExplicit = item.factKey !== "suitability.rain" || /\b(rain|rainy|wet.weather|regen|regentag|wetter)\b/i.test(item.shortEvidence);
     const openingStatusExplicit = item.factKey !== "opening.status" || /\b(currently operating|open to visitors|museum is open|geöffnet|in betrieb)\b/i.test(item.shortEvidence);
     const daypartSuitabilityExplicit = item.factKey !== "time.dayparts" || /\b(best suited|especially suited|ideal for|particularly good|besonders geeignet|ideal für|passt besonders|empfohlen am)\b/i.test(item.shortEvidence);
-    if (item.supportStatus === "SUPPORTED" && item.evidenceScope === "SPOT" && ageExplicit && rainExplicit && openingStatusExplicit && daypartSuitabilityExplicit) {
+    if (proposalFactKeys.has(item.factKey) && item.supportStatus === "SUPPORTED" && item.evidenceScope === "SPOT" && ageExplicit && rainExplicit && openingStatusExplicit && daypartSuitabilityExplicit) {
       if (!current) classification = "NEW"; else if (current.status === "STALE") classification = "STALE";
       else if (sameValue(current.value, item.value)) classification = "SAME"; else classification = "CONFLICT";
     }

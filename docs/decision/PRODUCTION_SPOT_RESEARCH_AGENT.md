@@ -25,6 +25,8 @@ The implementation follows the official OpenAI Responses API contracts for [web 
 - Provider text and URLs never become instructions. No opaque provider response, raw search result dump, secrets, or full pages are persisted.
 - Provider output is accepted per complete pass or rejected whole. Truncated output creates zero proposals for that pass. Valid UNKNOWN is not retried.
 - Backyrd deterministically validates typed values, compares accepted facts (`NEW/SAME/CONFLICT/STALE/UNSUPPORTED`), applies the existing official-source confidence policy and builds proposals. Every extraction is scoped as `SPOT`, `EVENT`, `PROGRAM`, `TEMPORARY`, or `UNKNOWN_SCOPE`; only `SPOT` evidence can create a general Spot proposal. Age requires explicit numeric official support. Indoor alone never creates rain suitability.
+- Policy `backyrd-spot-research-policy-v2.2` limits review proposals to objective `identity.name`, `contact.website`, `category.primary` (plus its deterministic `place_type` adapter), `opening.regular`, `activity.types`, and `accessibility.capabilities`. Qualitative or contextual Pass-B evidence remains an auditable extraction but cannot create routine proposals. The policy identity is part of the durable source-scope hash, so a policy replay is explicit and independently idempotent.
+- Official root and `www` hosts are treated as the same boundary; unrelated sibling domains still fail closed. Supported evidence must carry a non-null exact typed value. The per-pass output ceiling is 2,600 tokens, still below the pre-existing 2,896-token safety bound.
 - The database stores validated extractions, source-bound proposals, attempt metadata and pass disposition atomically and idempotently for response-loss replay.
 
 ## Data and operational contract
@@ -58,4 +60,4 @@ The single authorized logical job `6d3ad430-58a9-430f-8b31-18740880b7cd` researc
 - The final technical execution window was about 61 seconds. Combined provider usage was 28,286 input tokens, 2,945 output tokens, and four web searches. At the 2026-08-22 GPT-5 mini and web-search list prices, estimated cost was USD 0.052962.
 - Production safety before/after: accepted facts 0; canonical N4 fingerprint `bf1f7c9a99688e55908028b3b5d6662cdb129c3824e174cf591ca60469c4d3b4`; 0 concepts; Gold Readiness `PARTIAL 45%`; Spot reviews 0; Spot memory events 0. Ranking was not invoked or written. The kill switch was returned to disabled.
 
-The pipeline is reviewable but not ready for a 60-Spot batch: Pass A still exhausted its compact 1,800-token output budget, and the sole Pass-B proposal requires semantic human review. No automatic acceptance is enabled.
+That historical pilot remained correctly classified as not ready for a 60-Spot batch. Its evidence and proposal history are preserved. The later Basel City Bootstrap pilot is the reason for the independently versioned v2.2 policy above; no automatic acceptance is enabled.
