@@ -27,4 +27,6 @@ for pattern in "${patterns[@]}"; do
   fi
 done
 
+node "$repo_root/scripts/ci/validate-city-bootstrap-public-manifests.mjs"
+
 printf 'Canonical SQL secret scan passed.\n'

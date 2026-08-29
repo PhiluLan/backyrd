@@ -1,0 +1,12 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+  [[rules.allowlists]]
+  description = "Historical generated shadow manifests used deterministic SHA-256 identity and evidence fingerprints, not credentials. Public manifests now omit them."
+  condition = "AND"
+  regexTarget = "secret"
+  regexes = ['''^[0-9a-f]{64}$''']
+  paths = ['''^docs/spot-intelligence/manifests/BASEL_(CANDIDATE_UNIVERSE|PILOT_SELECTION)_SHADOW_V1\.json$''']

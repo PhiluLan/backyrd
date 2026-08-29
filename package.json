@@ -7,6 +7,8 @@
     "packages/*"
   ],
   "scripts": {
+    "city-bootstrap": "node scripts/spot-intelligence/city-bootstrap.mjs",
+    "city-bootstrap:test": "node --test packages/city-bootstrap-runtime/test/*.test.mjs",
     "gate2:corpus": "node scripts/ops/validate-gate2-corpus.mjs",
     "gate2:corpus:self-test": "node --test scripts/ops/gate2-corpus-assertions.test.mjs",
     "decision-lab": "node decision-lab/src/cli.mjs",

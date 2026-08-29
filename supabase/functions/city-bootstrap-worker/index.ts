@@ -1,0 +1,91 @@
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+const clean = (value: unknown) => typeof value === "string" ? value.trim() : "";
+const normalize = (value: unknown) => clean(value).normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const tokens = (value: unknown) => new Set(normalize(value).split(" ").filter((part) => part.length > 1));
+const similarity = (a: unknown, b: unknown) => { const x=tokens(a),y=tokens(b),union=new Set([...x,...y]); return union.size ? [...x].filter((part)=>y.has(part)).length/union.size : 0; };
+const distance = (aLat:number,aLng:number,bLat:number,bLng:number) => { const r=6371000,dLat=(bLat-aLat)*Math.PI/180,dLng=(bLng-aLng)*Math.PI/180,s=Math.sin(dLat/2)**2+Math.cos(aLat*Math.PI/180)*Math.cos(bLat*Math.PI/180)*Math.sin(dLng/2)**2;return 2*r*Math.asin(Math.sqrt(s)); };
+async function sha256(value: unknown) { const bytes=new TextEncoder().encode(JSON.stringify(value));return [...new Uint8Array(await crypto.subtle.digest("SHA-256",bytes))].map((byte)=>byte.toString(16).padStart(2,"0")).join(""); }
+const permittedCategory = new Set(["Restaurant","Bar","Café","Museum","Aktivität","Besonderes Erlebnis","Spaziergang","Unterkunft / Hotel","Aussichtspunkt","Wellness / Spa"]);
+type Candidate = {sourceFamily:string;sourceIdentity:string;name:string;normalizedName?:string;address:string;normalizedAddress?:string;city:string;country:string;lat:number;lng:number;website:string;phone?:string|null;externalTypes:string[];relevance:{state:string;reason?:string;confidence:string;categoryName:string};identity:{state:string;confidence:string;spotId?:string};lifecycleState:string;sourceQuality?:number};
+
+async function googleMatch(candidate: Candidate, apiKey: string) {
+  const started=Date.now(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15_000);
+  try {
+    const response=await fetch("https://places.googleapis.com/v1/places:searchNearby",{method:"POST",signal:controller.signal,headers:{"content-type":"application/json","x-goog-api-key":apiKey,"x-goog-fieldmask":"places.id,places.displayName,places.formattedAddress,places.location"},body:JSON.stringify({maxResultCount:10,rankPreference:"DISTANCE",locationRestriction:{circle:{center:{latitude:candidate.lat,longitude:candidate.lng},radius:150}}})});
+    if(!response.ok) return {ok:false,code:`google_http_${response.status}`,latency:Date.now()-started};
+    const payload=await response.json(),places=Array.isArray(payload?.places)?payload.places:[];
+    const matches=places.map((place:any)=>({id:clean(place?.id),name:place?.displayName?.text,lat:Number(place?.location?.latitude),lng:Number(place?.location?.longitude)})).filter((place:any)=>place.id&&Number.isFinite(place.lat)&&Number.isFinite(place.lng)).map((place:any)=>({...place,meters:distance(candidate.lat,candidate.lng,place.lat,place.lng),score:similarity(candidate.name,place.name)})).filter((place:any)=>place.meters<=120&&place.score>=.65).sort((a:any,b:any)=>b.score-a.score||a.meters-b.meters);
+    if(!matches.length) return {ok:false,code:"google_identity_unmatched",latency:Date.now()-started};
+    if(matches.length>1&&Math.abs(matches[0].score-matches[1].score)<.08&&Math.abs(matches[0].meters-matches[1].meters)<35) return {ok:false,code:"google_identity_ambiguous",latency:Date.now()-started};
+    return {ok:true,placeId:matches[0].id,confidence:matches[0].score>=.9&&matches[0].meters<=80?"EXACT":"STRONG",latency:Date.now()-started};
+  } catch(error) { return {ok:false,code:error instanceof DOMException&&error.name==="AbortError"?"google_timeout":"google_transport_error",latency:Date.now()-started}; }
+  finally { clearTimeout(timer); }
+}
+
+async function googleHealth(apiKey: string) {
+  const started=Date.now(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15_000);
+  try { const response=await fetch("https://places.googleapis.com/v1/places:searchNearby",{method:"POST",signal:controller.signal,headers:{"content-type":"application/json","x-goog-api-key":apiKey,"x-goog-fieldmask":"places.id"},body:JSON.stringify({maxResultCount:1,rankPreference:"DISTANCE",locationRestriction:{circle:{center:{latitude:47.5596,longitude:7.5886},radius:100}}})});if(!response.ok)return {ok:false,code:`google_http_${response.status}`,latency:Date.now()-started};const payload=await response.json();return {ok:Array.isArray(payload?.places),code:Array.isArray(payload?.places)?null:"google_schema_invalid",latency:Date.now()-started}; }
+  catch(error){return {ok:false,code:error instanceof DOMException&&error.name==="AbortError"?"google_timeout":"google_transport_error",latency:Date.now()-started};}finally{clearTimeout(timer);}
+}
+
+Deno.serve(async (request) => {
+  if(request.method!=="POST") return json({ok:false,error:"method_not_allowed"},405);
+  const url=Deno.env.get("CITY_BOOTSTRAP_SUPABASE_URL"),serviceKey=Deno.env.get("CITY_BOOTSTRAP_SUPABASE_SERVICE_KEY"),googleKey=Deno.env.get("GOOGLE_PLACES_API_KEY");
+  const researchKey=Deno.env.get("OPENAI_API_KEY"),researchEnabled=Deno.env.get("SPOT_RESEARCH_AGENT_ENABLED")==="true",researchModel=Deno.env.get("SPOT_RESEARCH_MODEL");
+  if(!url||!serviceKey||!googleKey) return json({ok:false,error:"server_configuration_missing"},503);
+  if(request.headers.get("authorization")!==`Bearer ${serviceKey}`) return json({ok:false,error:"forbidden"},403);
+  const db=createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
+  const body=await request.json().catch(()=>({})),action=clean(body?.action);
+  try {
+    if(action==="HEALTH") {
+      const probe=await googleHealth(googleKey);
+      return json({ok:probe.ok,contracts:{googlePlaces:true,cityDatabaseUrl:true,cityServiceKey:true,researchProvider:Boolean(researchKey),researchEnabled,researchModel:Boolean(researchModel)},boundaries:{serverOnly:true,cityUrlMatchesRuntime:url===Deno.env.get("SUPABASE_URL"),cityServiceMatchesRuntime:serviceKey===Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")},googleProbe:{ok:probe.ok,code:probe.ok?null:probe.code,latencyMs:probe.latency}},probe.ok&&researchKey&&researchEnabled?200:503);
+    }
+    if(action==="STAGE_PILOT") {
+      const candidates=Array.isArray(body?.candidates)?body.candidates as Candidate[]:[],commit=clean(body?.commit),runKey=clean(body?.runKey),requestedBy=clean(body?.requestedBy);
+      if(candidates.length<20||candidates.length>80||!/^[0-9a-f]{40}$/.test(commit)||!/^basel-pilot-[a-z0-9-]{4,80}$/.test(runKey)||!/^[0-9a-f-]{36}$/.test(requestedBy)) return json({ok:false,error:"pilot_request_invalid"},400);
+      const {data:actor}=await db.from("admin_users").select("user_id,role").eq("user_id",requestedBy).in("role",["admin","super_admin"]).maybeSingle();if(!actor)return json({ok:false,error:"pilot_actor_invalid"},403);
+      const {data:existing}=await db.from("spots").select("id,name,lat,lng,google_place_id").eq("city","Basel").neq("status","rejected");
+      const accepted:any[]=[],failures:Record<string,number>={};let calls=0,totalLatency=0,validCandidates:Candidate[]=[];
+      for(const candidate of candidates){const valid=candidate?.sourceFamily==="OPENSTREETMAP"&&clean(candidate.sourceIdentity)&&clean(candidate.address)&&/^https:\/\/[^\s]+$/.test(clean(candidate.website))&&Number.isFinite(candidate.lat)&&Number.isFinite(candidate.lng)&&candidate.relevance?.state==="RELEVANT"&&["EXACT","HIGH"].includes(candidate.relevance?.confidence)&&permittedCategory.has(candidate.relevance?.categoryName);if(valid)validCandidates.push(candidate);else failures.candidate_contract_invalid=(failures.candidate_contract_invalid??0)+1;}
+      for(let offset=0;offset<validCandidates.length&&accepted.length<30;offset+=3){const batch=validCandidates.slice(offset,offset+3),matches=await Promise.all(batch.map((candidate)=>googleMatch(candidate,googleKey)));for(let index=0;index<batch.length&&accepted.length<30;index++){const candidate=batch[index],match=matches[index];calls++;totalLatency+=match.latency;if(!match.ok){failures[match.code]=(failures[match.code]??0)+1;continue;}const sameGoogle=(existing??[]).find((spot:any)=>spot.google_place_id===match.placeId),near=(existing??[]).filter((spot:any)=>Number.isFinite(spot.lat)&&Number.isFinite(spot.lng)&&distance(candidate.lat,candidate.lng,spot.lat,spot.lng)<=45&&similarity(candidate.name,spot.name)>=.82);if(near.length>1&&!sameGoogle){failures.existing_identity_ambiguous=(failures.existing_identity_ambiguous??0)+1;continue;}accepted.push({candidate,placeId:match.placeId,identity:sameGoogle??near[0]??null,confidence:sameGoogle?"EXACT":near[0]?"STRONG":match.confidence});}}
+      const verdict=accepted.length>=20?"PASS":"FAIL",status=verdict==="PASS"?"RUNNING":"PAUSED";
+      const {data:prior}=await db.from("backyrd_city_bootstrap_runs_v1").select("id,status").eq("run_key",runKey).maybeSingle();
+      let run=prior;if(!run){const created=await db.from("backyrd_city_bootstrap_runs_v1").insert({run_key:runKey,city_key:"basel",city_name:"Basel",geography:{definition:"OSM_ADMINISTRATIVE_AREA",osmName:"Basel",osmAdminLevel:"8"},source_configuration:{openStreetMap:"ODbL-1.0",googlePlaces:"identifier-only"},target_configuration:{pilotSize:30,minPilotSize:20},pipeline_version:"backyrd-city-bootstrap-v1",canonical_repository_commit:commit,mode:"PILOT",status,requested_by:requestedBy,started_at:new Date().toISOString(),stop_reason:verdict==="FAIL"?"PILOT_MINIMUM_NOT_REACHED":null}).select("id,status").single();if(created.error)throw created.error;run=created.data;}
+      if(!run) throw new Error("run_creation_failed");
+      for(let index=0;index<accepted.length;index++){
+        const item=accepted[index],candidate=item.candidate,identityKey=await sha256({sourceFamily:candidate.sourceFamily,sourceIdentity:candidate.sourceIdentity}),sourceFingerprint=await sha256({sourceIdentity:candidate.sourceIdentity,name:normalize(candidate.name),address:normalize(candidate.address),lat:candidate.lat,lng:candidate.lng,website:candidate.website,types:candidate.externalTypes});
+        const row={run_id:run.id,identity_key:identityKey,display_name:candidate.name,normalized_name:normalize(candidate.name),address:candidate.address,normalized_address:normalize(candidate.address),city:"Basel",country:"Switzerland",lat:candidate.lat,lng:candidate.lng,website:candidate.website,phone:candidate.phone??null,google_place_id:item.placeId,external_types:candidate.externalTypes??[],canonical_category_name:candidate.relevance.categoryName,relevance_state:"RELEVANT",relevance_reason:candidate.relevance.reason??"SUPPORTED_TYPE",relevance_confidence:candidate.relevance.confidence,identity_state:item.identity?"MATCHED_EXISTING":"NEW_IDENTITY",identity_confidence:item.confidence,matched_spot_id:item.identity?.id??null,lifecycle_state:"EVIDENCE_PENDING",source_fingerprint:sourceFingerprint,enrichment_priority:Math.min(1000,Math.max(0,Math.round((candidate.sourceQuality??0)*100)))};
+        const {data:persisted,error}=await db.from("backyrd_city_bootstrap_candidates_v1").upsert(row,{onConflict:"run_id,identity_key"}).select("id").single();if(error)throw error;
+        const osmFingerprint=await sha256({candidateId:persisted.id,source:candidate.sourceIdentity}),googleFingerprint=await sha256({candidateId:persisted.id,googlePlaceId:item.placeId});
+        const evidence=[{candidate_id:persisted.id,source_family:"OPENSTREETMAP",source_identity:candidate.sourceIdentity,fact_family:"IDENTITY",normalized_value:{source:"OPENSTREETMAP"},evidence_fingerprint:osmFingerprint,authority_class:"STRUCTURED_OPEN_DATA",legal_use_status:"PERMITTED",observed_at:new Date().toISOString(),pipeline_version:"backyrd-city-bootstrap-v1"},{candidate_id:persisted.id,source_family:"GOOGLE_PLACE_ID",source_identity:item.placeId,fact_family:"IDENTITY",normalized_value:{identifierOnly:true},evidence_fingerprint:googleFingerprint,authority_class:"IDENTIFIER_ONLY",legal_use_status:"IDENTIFIER_ONLY",observed_at:new Date().toISOString(),pipeline_version:"backyrd-city-bootstrap-v1"}];
+        const evidenceWrite=await db.from("backyrd_city_bootstrap_evidence_v1").upsert(evidence,{onConflict:"candidate_id,source_family,source_identity,evidence_fingerprint"});if(evidenceWrite.error)throw evidenceWrite.error;
+        const queryWrite=await db.from("backyrd_city_bootstrap_queries_v1").upsert({run_id:run.id,query_key:`google-link:${identityKey.slice(0,24)}`,source_family:"GOOGLE_PLACES",category_batch:candidate.externalTypes??[],center_lat:candidate.lat,center_lng:candidate.lng,radius_m:150,state:"COMPLETE",result_count:1,unique_result_count:1,provider_calls:1,started_at:new Date(Date.now()-totalLatency).toISOString(),completed_at:new Date().toISOString()},{onConflict:"run_id,query_key"});if(queryWrite.error)throw queryWrite.error;
+        const validation=await db.rpc("backyrd_city_bootstrap_validate_candidate_v1",{p_candidate_id:persisted.id});if(validation.error)throw validation.error;
+      }
+      await db.from("backyrd_city_bootstrap_cost_events_v1").insert({run_id:run.id,stage:"IDENTITY",provider:"GOOGLE_PLACES",operation:"NEARBY_IDENTIFIER_LINK",request_count:calls,latency_ms:totalLatency});
+      await db.from("backyrd_city_bootstrap_checkpoints_v1").upsert({run_id:run.id,batch_number:0,snapshot:{requested:candidates.length,providerCalls:calls,eligible:accepted.length,failures},verdict},{onConflict:"run_id,batch_number"});
+      return json({ok:verdict==="PASS",runId:run.id,status,verdict,counts:{requested:candidates.length,providerCalls:calls,eligible:accepted.length},failures},verdict==="PASS"?200:409);
+    }
+    if(action==="PUBLISH_PILOT") {
+      const runId=clean(body?.runId);if(clean(body?.confirm)!==`PUBLISH:${runId}`)return json({ok:false,error:"publication_confirmation_required"},400);
+      const {data:run}=await db.from("backyrd_city_bootstrap_runs_v1").select("id,mode,status").eq("id",runId).maybeSingle();if(!run||run.mode!=="PILOT"||run.status!=="RUNNING")return json({ok:false,error:"pilot_not_publishable"},409);
+      const {data:rows}=await db.from("backyrd_city_bootstrap_candidates_v1").select("id").eq("run_id",runId).eq("lifecycle_state","PRODUCT_ELIGIBLE").order("enrichment_priority",{ascending:false}).limit(30);let published=0,researchQueued=0;
+      for(const row of rows??[]){const publication=await db.rpc("backyrd_city_bootstrap_publish_candidate_v1",{p_candidate_id:row.id});if(publication.error)throw publication.error;published++;const research=await db.rpc("backyrd_city_bootstrap_enqueue_research_v1",{p_candidate_id:row.id});if(research.error)throw research.error;researchQueued++;}
+      return json({ok:true,runId,published,researchQueued,canonicalFactsWritten:0,n4Writes:0});
+    }
+    if(action==="KICK_RESEARCH") {
+      if(!researchKey||!researchEnabled)return json({ok:false,error:"research_provider_unhealthy"},503);const workers=Math.max(1,Math.min(Number(body?.workers??1),3)),statuses:number[]=[];
+      await Promise.all(Array.from({length:workers},async()=>{const response=await fetch(`${url}/functions/v1/research-spot-worker`,{method:"POST",headers:{authorization:`Bearer ${serviceKey}`,"content-type":"application/json"},body:"{}"});statuses.push(response.status);await response.body?.cancel();}));
+      return json({ok:statuses.every((status)=>status===200),workers,statuses});
+    }
+    if(action==="STATUS") {
+      const runId=clean(body?.runId),[{data:run},{data:candidates},{data:reviews},{data:bootstrapJobs}]=await Promise.all([db.from("backyrd_city_bootstrap_runs_v1").select("id,run_key,mode,status,started_at,completed_at,stop_reason").eq("id",runId).maybeSingle(),db.from("backyrd_city_bootstrap_candidates_v1").select("lifecycle_state,matched_spot_id").eq("run_id",runId),db.from("backyrd_city_bootstrap_reviews_v1").select("state,reason").eq("run_id",runId),db.from("backyrd_city_bootstrap_jobs_v1").select("stage,state,attempts,failure_class,failure_code").eq("run_id",runId)]);if(!run)return json({ok:false,error:"run_not_found"},404);
+      const spotIds=(candidates??[]).map((row:any)=>row.matched_spot_id).filter(Boolean);const {data:research}=spotIds.length?await db.from("backyrd_spot_research_jobs_v1").select("state,phase,technical_attempts,input_tokens,output_tokens,total_tokens,web_search_calls,provider_latency_ms,failure_code,proposal_count").in("spot_id",spotIds):{data:[]};
+      const count=(rows:any[],key:string)=>rows.reduce((out:any,row:any)=>(out[row[key]]=(out[row[key]]??0)+1,out),{});return json({ok:true,run,candidates:count(candidates??[],"lifecycle_state"),reviews:count(reviews??[],"state"),bootstrapJobs:count(bootstrapJobs??[],"state"),research:{states:count(research??[],"state"),jobs:(research??[]).length,inputTokens:(research??[]).reduce((n:number,r:any)=>n+r.input_tokens,0),outputTokens:(research??[]).reduce((n:number,r:any)=>n+r.output_tokens,0),webSearchCalls:(research??[]).reduce((n:number,r:any)=>n+r.web_search_calls,0),proposals:(research??[]).reduce((n:number,r:any)=>n+r.proposal_count,0),technicalAttempts:(research??[]).reduce((n:number,r:any)=>n+r.technical_attempts,0)}});
+    }
+    return json({ok:false,error:"action_invalid"},400);
+  } catch(error) { return json({ok:false,error:"city_bootstrap_worker_failed",code:error instanceof Error&&/^[a-z0-9_:-]{1,160}$/i.test(error.message)?error.message:"internal_error"},500); }
+});
