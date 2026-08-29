@@ -77,3 +77,22 @@ test("valid sparse or UNKNOWN evidence completes without retry or invented propo
   assert.equal(result.retry, undefined);
   assert.equal(repo.calls[1][3].length, 0);
 });
+
+test("only run-scoped Population work quarantines same-domain instance ambiguity", async () => {
+  const branchContext = { ...context, spot: { ...context.spot, name: "update Fitness", website: "https://update-fitness.example/basel-sbb" } };
+  const ambiguous = { evidence: [{ ...payload.evidence[0], subject_name: "update Fitness Basel SBB", source_url: "https://update-fitness.example/gruppenstundenplan?location_id=12", short_evidence: "update Fitness Basel SBB is a museum." }] };
+  const response = { providerResponseId: "resp_opaque", providerStatus: "completed", payload: ambiguous, usage: {}, webSearchCalls: 1 };
+
+  const standalone = repository({ claim: async () => ({ jobId: "job", leaseToken: "lease", passKey: "A", providerResponseId: "resp_opaque", sourceScope: { populationRunId: "caller-controlled-invalid" } }), loadContext: async () => branchContext });
+  const standaloneResult = await processOneResearchJob({ repository: standalone, apiKey: "x", runnerId: "r", provider: { retrieve: async () => response } });
+  assert.equal(standaloneResult.state, "FAILED");
+  assert.equal(standalone.calls.some((row) => row[0] === "finalizePass"), false);
+
+  const population = repository({ claim: async () => ({ jobId: "job", leaseToken: "lease", passKey: "A", providerResponseId: "resp_opaque", sourceScope: { populationRunId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" } }), loadContext: async () => branchContext });
+  await processOneResearchJob({ repository: population, apiKey: "x", runnerId: "r", provider: { retrieve: async () => response } });
+  const finalized = population.calls.find((row) => row[0] === "finalizePass");
+  assert.ok(finalized);
+  assert.equal(finalized[2][0].supportStatus, "UNKNOWN");
+  assert.equal(finalized[2][0].scopeResolution, "QUARANTINED_SOURCE_INSTANCE_SCOPE_MISMATCH");
+  assert.equal(finalized[3].length, 0);
+});

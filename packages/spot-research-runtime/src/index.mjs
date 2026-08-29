@@ -207,6 +207,7 @@ function validateFieldEvidence(item, context) {
 }
 
 export function resolveResearchEntityScope(item, context) {
+  if (item.validationReason) return { pass: false, reason: item.validationReason };
   if (item.supportStatus !== "SUPPORTED") return { pass: false, reason: "EVIDENCE_NOT_SUPPORTED" };
   if (item.evidenceScope !== "SPOT") return { pass: false, reason: `EVIDENCE_SCOPE_${item.evidenceScope}` };
   if (item.entityScope !== "SPOT") return { pass: false, reason: `ENTITY_SCOPE_${item.entityScope}` };
@@ -386,7 +387,7 @@ export async function retrieveBackgroundResearchResponse(responseId, { apiKey, f
   return { ...canonicalizeResearchResponse(raw), transportLatencyMs: Number((performance.now() - started).toFixed(3)) };
 }
 
-export function validateResearchEvidence(payload, context, passKey = context?.passKey ?? "A", { requireCompleteCoverage = false } = {}) {
+export function validateResearchEvidence(payload, context, passKey = context?.passKey ?? "A", { requireCompleteCoverage = false, quarantineInstanceMismatch = false } = {}) {
   if (!payload || !Array.isArray(payload.evidence) || payload.evidence.length > MAX_RESEARCH_EVIDENCE_PER_PASS) return { valid: false, reason: "research_output_schema_invalid", evidence: [] };
   const pass = researchPass(context, passKey); if (!pass) return { valid: false, reason: "research_pass_invalid", evidence: [] };
   const catalog = new Map((context.catalog ?? []).map((field) => [field.field_key, field])); const allowedDomain = officialDomain(context.spot.website); const evidence = [];
@@ -417,7 +418,17 @@ export function validateResearchEvidence(payload, context, passKey = context?.pa
       // produce a proposal. They may therefore reference the same-domain brand
       // homepage when the provider found no instance-level support. Any
       // SUPPORTED record retains the strict venue-instance boundary.
-      if (row.support_status === "SUPPORTED" && !urlWithinOfficialInstanceScope(sourceUrl, context.spot.website, context.spot.name)) return { valid: false, reason: `research_source_instance_scope_mismatch:${index}`, evidence: [] };
+      if (row.support_status === "SUPPORTED" && !urlWithinOfficialInstanceScope(sourceUrl, context.spot.website, context.spot.name)) {
+        if (!quarantineInstanceMismatch) return { valid: false, reason: `research_source_instance_scope_mismatch:${index}`, evidence: [] };
+        // Population coverage must not promote same-brand or opaque-route
+        // evidence to the concrete Spot. Quarantine only this row as an
+        // explicit researched UNKNOWN; the remaining independently valid rows
+        // may still complete. No proposal can be built from this shape.
+        evidence.push(Object.freeze({ factKey: row.fact_key, value: null, evidenceScope: "UNKNOWN_SCOPE", entityScope: "AMBIGUOUS",
+          subjectName: null, durability: "UNKNOWN", supportStatus: "UNKNOWN", sourceUrl, sourceType: row.source_type,
+          shortEvidence: "", observedAt: null, passKey, validationReason: "QUARANTINED_SOURCE_INSTANCE_SCOPE_MISMATCH" }));
+        continue;
+      }
     } catch { return { valid: false, reason: `research_source_invalid:${index}`, evidence: [] }; }
     const value = row.typed_value;
     if (row.support_status === "SUPPORTED" && !validateTypedValue(field, value)) return { valid: false, reason: `research_typed_value_invalid:${index}`, evidence: [] };
