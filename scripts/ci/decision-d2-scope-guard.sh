@@ -59,6 +59,28 @@ if [[ "$engine_baseline_accepted" == true ]]; then
   echo "D2 scope guard: accepted v13 baseline; internal-live server wrapper accepted"
 fi
 
+# Git-backed Supabase deployment may add only the exact deployment entrypoint
+# already bound by the complete Production re-certification contract. This is
+# deliberately a one-time addition, not a path exception: subsequent edits,
+# deletion, a different source/hash, config drift or an invalid freeze remain
+# protected and fail closed.
+production_entrypoint='supabase/functions/decision-v13/index.deploy.ts'
+recertification_contract='decision-lab/config/decision-v13-production-recertification-v2.json'
+if printf '%s\n' "$protected" | grep -Fx "$production_entrypoint" >/dev/null \
+  && printf '%s\n' "$changed" | grep -Fx "$production_entrypoint" >/dev/null \
+  && git diff --diff-filter=A --name-only "$base"...HEAD -- "$production_entrypoint" | grep -Fx "$production_entrypoint" >/dev/null \
+  && [[ -f "$production_entrypoint" ]] \
+  && node decision-lab/src/d2-cli.mjs validate-freeze >/dev/null; then
+  expected_entrypoint_sha="$(jq -r '.production.entrypointSha256' "$recertification_contract")"
+  actual_entrypoint_sha="$(sha256sum "$production_entrypoint" | awk '{print $1}')"
+  configured_entrypoint="$(sed -n '/^\[functions\.decision-v13\]$/,/^\[/s/^[[:space:]]*entrypoint[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' supabase/config.toml)"
+  if [[ "$actual_entrypoint_sha" == "$expected_entrypoint_sha" \
+    && "$configured_entrypoint" == "./functions/decision-v13/index.deploy.ts" ]]; then
+    protected="$(printf '%s\n' "$protected" | grep -Fvx "$production_entrypoint" || true)"
+    echo "D2 scope guard: exact re-certified Production deployment entrypoint accepted"
+  fi
+fi
+
 # Mobile Production Rebuild retires three obsolete client/debug Decision paths.
 # Their deletion is safe only while the canonical v13 implementation is the
 # accepted baseline; reintroducing or modifying any of them remains a
