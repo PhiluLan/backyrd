@@ -18,7 +18,7 @@ const evaluationFiles = ["decision-lab/src/contracts.mjs", "decision-lab/src/eva
 const acceptanceFiles = ["decision-lab/src/acceptance.mjs", "decision-lab/src/hard-gate-acceptance.mjs"];
 const absolute = (paths) => paths.map((path) => resolve(repoRoot, path));
 
-const recertificationPath = resolve(repoRoot, "decision-lab/config/decision-v13-production-recertification-v4.json");
+const recertificationPath = resolve(repoRoot, "decision-lab/config/decision-v13-production-recertification-v5.json");
 const requiredRecertificationInvariants = Object.freeze({
   hardEligibilityBeforeRanking: "PASS",
   distributionEligibilityBeforeFusion: "PASS",
@@ -38,20 +38,20 @@ export async function validateEngineRecertification(contractOverride = null) {
   const productionEntrypointSource = await readFile(resolve(repoRoot, contract.production.entrypointPath), "utf8").catch(() => null);
   const productionEntrypointSha256 = productionEntrypointSource === null ? null : createHash("sha256").update(productionEntrypointSource).digest("hex");
   const reasons = [
-    ...(contract.version === "decision-v13-production-recertification-v4" ? [] : ["RECERTIFICATION_VERSION_INVALID"]),
+    ...(contract.version === "decision-v13-production-recertification-v5" ? [] : ["RECERTIFICATION_VERSION_INVALID"]),
     ...(contract.status === "AUTHORIZED" ? [] : ["RECERTIFICATION_NOT_AUTHORIZED"]),
     ...(contract.authorization?.previousEngineSourceHash === "28e178dee7192cb303b07574f31f1e86f58bc80048b23ba00bf032ca02c2bfc4" ? [] : ["PREVIOUS_BASELINE_IDENTITY_MISMATCH"]),
-    ...(contract.authorization?.previousRecertificationVersion === "decision-v13-production-recertification-v3" && contract.authorization?.previousRecertificationHash === "4b3e15f284609157a9276335faa977461b2cec3a5eb3bcc1fc8f0af34e199fed" ? [] : ["PREVIOUS_RECERTIFICATION_IDENTITY_MISMATCH"]),
-    ...(contract.authorization?.changeCommit === "196c111810833528a04e795e73168bb256ba91fb" ? [] : ["AUTHORIZED_CHANGE_COMMIT_MISMATCH"]),
-    ...(contract.authorization?.parentCommit === "9b4536fd8884cacb85332eacd0e0ca0ddb807259" && contract.authorization?.sourceCommit === "ee3d861f4e6e8f91d61fbbc98e2716adb66fe236" ? [] : ["AUTHORIZED_CHANGE_PARENT_MISMATCH"]),
+    ...(contract.authorization?.previousRecertificationVersion === "decision-v13-production-recertification-v4" && contract.authorization?.previousRecertificationHash === "da9e54e14b790079ee6b6d0162359f231a64104fbab11b2bd19aeaa29469c4b9" ? [] : ["PREVIOUS_RECERTIFICATION_IDENTITY_MISMATCH"]),
+    ...(contract.authorization?.changeCommit === "5b213e157f4ca78349359cd8efd6d42dc8f434be" ? [] : ["AUTHORIZED_CHANGE_COMMIT_MISMATCH"]),
+    ...(contract.authorization?.parentCommit === "196c111810833528a04e795e73168bb256ba91fb" && contract.authorization?.sourceCommit === "6fc06e8ab822fd1a73b5b6f4c3cb0f0f10826dc7" ? [] : ["AUTHORIZED_CHANGE_PARENT_MISMATCH"]),
     ...(contract.protectedSemanticSourceSet.hash === protectedSemanticSourceSetHash ? [] : ["PROTECTED_SEMANTIC_SOURCE_SET_MISMATCH"]),
     ...(contract.certificationEvidenceSet.hash === certificationEvidenceSetHash ? [] : ["CERTIFICATION_EVIDENCE_SET_MISMATCH"]),
     ...(engineSourceHash === "28e178dee7192cb303b07574f31f1e86f58bc80048b23ba00bf032ca02c2bfc4" ? [] : ["AUTHORIZED_ENGINE_SOURCE_MISMATCH"]),
     ...(contract.production?.supabaseProjectRef === "hjgcrrzfjchzqoegcywn" &&
       contract.production?.functionSlug === "decision-v13" &&
-      contract.production?.activeVersion === 74 &&
+      contract.production?.activeVersion === 75 &&
       contract.production?.verifyJwt === true &&
-      contract.production?.bundleHash === "1da0bceb47c95f0e6e9ad7b1d3dd28d355852255f19c6ad4ac93b68265ff0d22" &&
+      contract.production?.bundleHash === "b4ba1661c7507c278bcd6bd9b2dba51575991e95cf19ecc7dcedad743a47ab5f" &&
       contract.production?.entrypointPath === "supabase/functions/decision-v13/index.deploy.ts" &&
       contract.production?.entrypointSource === "import \"./live-index.ts\";\n" &&
       contract.production?.entrypointSha256 === "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299" &&

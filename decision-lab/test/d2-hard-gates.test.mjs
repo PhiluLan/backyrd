@@ -96,7 +96,7 @@ test("freeze identity is deterministic and validator rejects tampering", async (
   assert.equal(recertification.valid, true, JSON.stringify(recertification.reasons));
   const changedProduction = await validateEngineRecertification({
     ...recertification.contract,
-    production: { ...recertification.contract.production, activeVersion: 75 }
+    production: { ...recertification.contract.production, activeVersion: 76 }
   });
   assert.equal(changedProduction.valid, false);
   assert.ok(changedProduction.reasons.includes("PRODUCTION_IDENTITY_NOT_CERTIFIED"));
