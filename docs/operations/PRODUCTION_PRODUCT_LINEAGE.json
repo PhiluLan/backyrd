@@ -1,6 +1,6 @@
 {
-  "version": "backyrd-production-product-lineage-v1",
-  "audited_at": "2026-08-28T20:00:00Z",
+  "version": "backyrd-production-product-lineage-v2",
+  "audited_at": "2026-08-29T07:55:00Z",
   "repository": "PhiluLan/backyrd",
   "integration_anchor": {
     "commit": "c425ad1d61186e6d73ed2df1f9686780dcbf0e24",
@@ -20,7 +20,13 @@
       "update_group": "cfda09d4-c6eb-41e2-a57c-01888117e766",
       "android_update": "01a04504-4b86-7031-95b9-5a1dadce10aa",
       "ios_update": "01a04504-4b86-7699-8404-32e9357d259b",
-      "created_at": "2026-08-27T20:58:24.518Z"
+      "created_at": "2026-08-27T20:58:24.518Z",
+      "canonical_source": {
+        "commit": "887221728ca3b6da9be3460386e50ccf6d6164b2",
+        "tree": "57bfd6c064f20b22fe85ff5778d4742edb19d172",
+        "production_verified": false,
+        "reason": "Gate 2 changes only missing-hours presentation and its contract test; Production OTA evidence is recorded after the reviewed merge."
+      }
     },
     "consumer_web": {
       "delivery": "Vercel production",
@@ -28,7 +34,13 @@
       "tree": "bff6828dea506138cd8789fb62171beb6052a72c",
       "path": "web",
       "github_deployment_id": 6146634581,
-      "created_at": "2026-08-28T18:40:07Z"
+      "created_at": "2026-08-28T18:40:07Z",
+      "canonical_source": {
+        "commit": "887221728ca3b6da9be3460386e50ccf6d6164b2",
+        "tree": "f495697d92a8d019ad42e5c748b413a704a07d26",
+        "production_verified": false,
+        "reason": "Gate 2 additively renders existing canonical description and opening-hours truth; Production deployment evidence is recorded after the reviewed merge."
+      }
     },
     "admin_intelligence_web": {
       "delivery": "Vercel production",
@@ -44,9 +56,33 @@
       "postgres_major": 17,
       "migration_tip": "20260828192125_gate1_schema_convergence_v1",
       "migration_count": 90,
-      "source_commit": "eae5abcb7c43e80017d8d0dc948d0caa490dfaa1"
+      "source_commit": "eae5abcb7c43e80017d8d0dc948d0caa490dfaa1",
+      "canonical_source": {
+        "source_commit": "887221728ca3b6da9be3460386e50ccf6d6164b2",
+        "migration_tip": "20260829090000_gate2_public_spot_detail_truth_v1",
+        "migration_count": 91,
+        "production_verified": false,
+        "reason": "Additive public read-contract replacement; apply only after the source commit reaches canonical main."
+      }
     }
   },
+  "recertifications": [
+    {
+      "id": "gate2_spot_detail_truth_v1",
+      "baseline_commit": "f0000f8ac3cb14e0ecd1b43fcff7ff696f2fc21e",
+      "source_commit": "887221728ca3b6da9be3460386e50ccf6d6164b2",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/spot/[id].tsx",
+        "mobile/scripts/test-mobile-product-contracts.mjs",
+        "supabase/migrations/20260829090000_gate2_public_spot_detail_truth_v1.sql",
+        "web/app/spots/[id]/page.tsx",
+        "web/lib/public-spot-detail.ts",
+        "web/tests/consumer-contracts.test.mjs"
+      ],
+      "evidence": "docs/readiness/BASEL_LAUNCH_CORPUS_V1.md"
+    }
+  ],
   "required_ancestry": [
     "b274084d12152d52c9f7f253dab71adad0d70c35",
     "0414bd950ce2450be359352862189904b604f531",
