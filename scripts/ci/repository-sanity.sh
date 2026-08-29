@@ -11,6 +11,12 @@ fail() {
 
 "$repo_root/scripts/ci/validate-migrations.sh"
 
+while IFS= read -r entrypoint; do
+  relative_entrypoint="${entrypoint#./}"
+  test -f "$repo_root/supabase/$relative_entrypoint" \
+    || fail "configured Supabase function entrypoint does not exist: $entrypoint"
+done < <(sed -n 's/^[[:space:]]*entrypoint[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$repo_root/supabase/config.toml")
+
 tracked_audit="$(git ls-files .local-audit)"
 test -z "$tracked_audit" \
   || fail ".local-audit must remain untracked"

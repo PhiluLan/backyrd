@@ -421,12 +421,12 @@ entrypoint = "./functions/public-spot-photo/index.ts"
 [functions.decision-north-star-internal]
 enabled = true
 verify_jwt = true
-entrypoint = "./functions/decision-north-star-internal/index.deploy.ts"
+entrypoint = "./functions/decision-north-star-internal/index.ts"
 
 [functions.decision-engine-worker]
 enabled = true
 verify_jwt = true
-entrypoint = "./functions/decision-engine-worker/index.deploy.ts"
+entrypoint = "./functions/decision-engine-worker/index.ts"
 
 [functions.decision-v13]
 enabled = true
