@@ -1,4 +1,4 @@
-import { googleMatch, selectResearchCohort, selectResearchEligible, type Candidate } from "./index.ts";
+import { googleMatch, planRefreshCandidates, selectResearchCohort, selectResearchEligible, type Candidate } from "./index.ts";
 
 const candidate: Candidate = {
   sourceFamily: "OPENSTREETMAP",
@@ -86,4 +86,20 @@ Deno.test("Independent Research cohort excludes previously researched Spots and 
     { id: "spot-3", website: "https://fresh.example/" },
   ], { spotIds: ["spot-1"], hosts: ["old.example"] });
   if (eligible.map((row) => row.id).join(",") !== "fresh") throw new Error("independent cohort repeated prior Research evidence");
+});
+
+Deno.test("Refresh planning skips unchanged fingerprints and routes changes or new identities", async () => {
+  const unchangedIdentity="e6ffef2167ed623997726ac5ff910b43d755d83702d2d0515a5c85e5117811d2";
+  const unchangedFingerprint="1f70e9b625149d20fe28e053e8dd71f7a3c06c013772c46842d3b7f55bef145a";
+  const changed={...candidate,sourceIdentity:"node/2",name:"Pilot Café Renamed"};
+  const fresh={...candidate,sourceIdentity:"node/3",name:"Fresh Pilot Café"};
+  const changedBaseline={...candidate,sourceIdentity:"node/2"};
+  const baseline=await planRefreshCandidates([candidate,changedBaseline],[]);
+  const decisions=await planRefreshCandidates([candidate,changed,fresh],[
+    {identity_key:unchangedIdentity,source_fingerprint:unchangedFingerprint,matched_spot_id:"spot-1"},
+    {identity_key:baseline[1].identityKey,source_fingerprint:baseline[1].sourceFingerprint,matched_spot_id:"spot-2"},
+  ]);
+  if(decisions[0].identityKey!==unchangedIdentity||decisions[0].sourceFingerprint!==unchangedFingerprint||decisions[0].reason!=="UNCHANGED_SOURCE_SKIP")throw new Error("unchanged source must skip deep work");
+  if(decisions[1].reason!=="SOURCE_CHANGED"||decisions[1].previous?.matched_spot_id!=="spot-2")throw new Error("changed known identity must preserve lineage and route to review");
+  if(decisions[2].reason!=="NEW_CANDIDATE"||decisions[2].previous!==null)throw new Error("new refresh identity must route to identity review");
 });
