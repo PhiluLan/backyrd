@@ -401,7 +401,16 @@ export function validateResearchEvidence(payload, context, passKey = context?.pa
     if (!field || !pass.factKeys.includes(row.fact_key) || field.engine_role === "DISPLAY_ONLY") return { valid: false, reason: `research_field_not_authorized:${index}`, evidence: [] };
     if (!supportStatuses.has(row.support_status) || !sourceTypes.has(row.source_type) || !evidenceScopes.has(row.evidence_scope) || !entityScopes.has(row.entity_scope) || !durabilityValues.has(row.durability)) return { valid: false, reason: `research_evidence_authority_invalid:${index}`, evidence: [] };
     if (!(row.subject_name === null || (typeof row.subject_name === "string" && row.subject_name.trim().length > 0 && row.subject_name.length <= 160))) return { valid: false, reason: `research_subject_invalid:${index}`, evidence: [] };
-    let sourceUrl; try { sourceUrl = normalizePublicHttpsUrl(row.source_url); } catch { return { valid: false, reason: `research_source_invalid:${index}`, evidence: [] }; }
+    let sourceUrl;
+    try { sourceUrl = normalizePublicHttpsUrl(row.source_url); }
+    catch {
+      // A provider may correctly report no supporting page for an UNKNOWN or
+      // UNSUPPORTED coverage row. Bind an empty URL to the audited official
+      // research target; this row cannot create a proposal. Malformed non-empty
+      // URLs and every SUPPORTED row remain fail-closed.
+      if (row.support_status === "SUPPORTED" || String(row.source_url ?? "").trim() !== "") return { valid: false, reason: `research_source_invalid:${index}`, evidence: [] };
+      sourceUrl = normalizePublicHttpsUrl(context.spot.website);
+    }
     if (!sameOfficialDomain(sourceUrl, allowedDomain)) return { valid: false, reason: `research_source_not_official:${index}`, evidence: [] };
     try {
       // UNKNOWN/UNSUPPORTED records are coverage outcomes, not evidence that can
