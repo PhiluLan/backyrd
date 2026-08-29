@@ -106,3 +106,25 @@ files, including the unchanged entrypoint SHA-256
 `4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299`.
 The v74 identity is authorized by the additive v4 contract; v2 and v3 remain
 preserved as forensic lineage. Decision semantics changed: no.
+
+### Evidence-only merge redeploy containment
+
+The canonical evidence merge `5b213e157f4ca78349359cd8efd6d42dc8f434be`
+contained no Supabase Function, configuration, Product, Engine, ranking or
+migration source change. The project Git integration nevertheless rebuilt all
+configured Production Functions because `Deploy to production` applies every
+merge to the configured `main` branch and the Free-plan integration exposes no
+available `Supabase changes only` filter. This created active `decision-v13`
+version 75 with bundle SHA-256
+`b4ba1661c7507c278bcd6bd9b2dba51575991e95cf19ecc7dcedad743a47ab5f`.
+
+A fresh extraction proves all 38 deployed files remain byteidentical to
+canonical repository files. The Engine SHA-256 remains
+`28e178dee7192cb303b07574f31f1e86f58bc80048b23ba00bf032ca02c2bfc4`
+and the exact deployment entrypoint remains `import "./live-index.ts";` plus
+one newline with SHA-256
+`4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299`.
+The Git integration's Production deploy was paused only for the final
+evidence-only re-certification merge and must be restored immediately after
+the live identity is proven unchanged. This contains deployment churn; it does
+not bypass a repository guard or authorize semantic drift.
