@@ -8,6 +8,10 @@ import { getPublicSpotDetailServer } from "@/lib/public-spot-detail-server";
 function maps(address: string | null, name: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || name)}`;
 }
+const weekOrder = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"];
+function shortTime(value: string | null) {
+  return value ? value.slice(0, 5) : null;
+}
 export async function generateMetadata({
   params,
 }: {
@@ -96,8 +100,19 @@ export default async function SpotDetailPage({
       <div className="b-container b-section">
         <div className="b-spot-detail-grid">
           <section aria-label="Erfahrungen und Eindrücke">
+            {spot.description ? (
+              <section aria-label="Über diesen Ort">
+                <p className="b-kicker">Über diesen Ort</p>
+                <h2 className="b-section-title" style={{ marginTop: 9 }}>
+                  Was dich hier erwartet.
+                </h2>
+                <p className="b-body" style={{ marginTop: 18, whiteSpace: "pre-line" }}>
+                  {spot.description}
+                </p>
+              </section>
+            ) : null}
             {data.top_moods.length ? (
-              <section>
+              <section style={{ marginTop: spot.description ? 48 : 0 }}>
                 <p className="b-kicker">So fühlt es sich an</p>
                 <div
                   style={{
@@ -238,6 +253,32 @@ export default async function SpotDetailPage({
                     </dd>
                   </div>
                 ) : null}
+                <div>
+                  <dt className="b-label">Öffnungszeiten</dt>
+                  <dd style={{ margin: "8px 0 0" }}>
+                    {data.opening_hours.length ? (
+                      <div style={{ display: "grid", gap: 6 }}>
+                        {weekOrder.map((day) => {
+                          const slots = data.opening_hours.filter((row) => row.day_of_week === day);
+                          return (
+                            <div key={day} style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
+                              <span>{day.slice(0, 2)}</span>
+                              <span>
+                                {slots.length
+                                  ? slots.map((slot) => slot.open_time && slot.close_time
+                                    ? `${shortTime(slot.open_time)}–${shortTime(slot.close_time)}`
+                                    : "Geschlossen").join(", ")
+                                  : "Nicht bekannt"}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span>Aktuell nicht verlässlich hinterlegt</span>
+                    )}
+                  </dd>
+                </div>
               </dl>
               <a
                 className="b-button b-button-primary"

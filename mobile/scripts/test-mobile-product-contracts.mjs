@@ -9,6 +9,7 @@ const profile = read("lib/profile.ts");
 const config = read("app.config.ts");
 const spotImages = read("lib/spot-images.ts");
 const spotArtwork = read("components/spot/SpotArtwork.tsx");
+const spotDetail = read("app/spot/[id].tsx");
 
 assert.match(decision, /DecisionCardAction = "next" \| "like" \| "dislike"/);
 assert.match(decision, /if \(action !== "next" &&/, "neutral Next must bypass feedback");
@@ -36,5 +37,8 @@ assert.doesNotMatch(profile, /\.insert\(|\.update\(/, "Mobile profile repair mus
 assert.doesNotMatch(`${decision}\n${tabs}`, /decision-debug/, "retired Decision debug route must stay absent");
 assert.match(config, /checkAutomatically: "ON_LOAD"/);
 assert.match(config, /BACKYRD_RELEASE_BUILD/);
+assert.match(spotDetail, /openingStateNow/, "Spot Detail must distinguish unknown opening hours");
+assert.match(spotDetail, /Öffnungszeiten unbekannt/, "missing hours must not be presented as closed");
+assert.match(spotDetail, /Backyrd zeigt keinen Öffnungsstatus/, "hours uncertainty must be explicit");
 
 console.log("Mobile Product contracts passed.");
