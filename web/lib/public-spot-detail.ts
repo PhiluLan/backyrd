@@ -16,7 +16,15 @@ export type PublicSpotDetailDTO = {
       id: string;
       name: string;
     } | null;
+    description: string | null;
+    description_source: string | null;
   };
+  opening_hours: Array<{
+    day_of_week: string;
+    open_time: string | null;
+    close_time: string | null;
+    idx: number;
+  }>;
   photos: Array<{
     id: string | number;
     url: string;

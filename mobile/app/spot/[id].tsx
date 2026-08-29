@@ -91,8 +91,8 @@ function parseTimeToMinutes(t?: string | null) {
   return hh * 60 + mm;
 }
 
-function isOpenNow(rowsForDay?: any[]) {
-  if (!rowsForDay || rowsForDay.length === 0) return { open: false };
+function openingStateNow(rowsForDay?: any[]) {
+  if (!rowsForDay || rowsForDay.length === 0) return { state: "unknown" as const };
   const now = new Date();
   const nowMin = now.getHours() * 60 + now.getMinutes();
 
@@ -100,14 +100,14 @@ function isOpenNow(rowsForDay?: any[]) {
     const open = parseTimeToMinutes(row.open_time);
     const close = parseTimeToMinutes(row.close_time);
     if (open == null || close == null) continue;
-
     if (close <= open) {
-      if (nowMin >= open || nowMin < close) return { open: true };
+      if (nowMin >= open || nowMin < close) return { state: "open" as const };
     } else {
-      if (nowMin >= open && nowMin < close) return { open: true };
+      if (nowMin >= open && nowMin < close) return { state: "open" as const };
     }
   }
-  return { open: false };
+  // A stored row without a time interval is the canonical closed-day marker.
+  return { state: "closed" as const };
 }
 
 function presentMoodToken(value: unknown) {
@@ -509,7 +509,9 @@ export default function SpotDetailScreen() {
     return hours[todayNameNormalized] || [];
   }, [hours, todayNameNormalized]);
 
-  const { open: isOpen } = isOpenNow(todaysHours);
+  const { state: openingState } = openingStateNow(todaysHours);
+  const isOpen = openingState === "open";
+  const openingUnknown = openingState === "unknown";
 
   useEffect(() => {
     if (!userId || !id) return;
@@ -746,10 +748,10 @@ export default function SpotDetailScreen() {
 
             <View style={styles.heroContent}>
               <View style={styles.heroPills}>
-                <View style={[styles.statusPill, isOpen ? styles.statusOpen : styles.statusClosed]}>
-                  <View style={[styles.statusDot, { backgroundColor: isOpen ? theme.colors.greenSoft : theme.colors.danger }]} />
-                  <Text style={[styles.statusText, { color: isOpen ? theme.colors.greenSoft : "#FFB4B4" }]}>
-                    {isOpen ? "Geöffnet" : "Geschlossen"}
+                <View style={[styles.statusPill, isOpen ? styles.statusOpen : openingUnknown ? styles.statusUnknown : styles.statusClosed]}>
+                  <View style={[styles.statusDot, { backgroundColor: isOpen ? theme.colors.greenSoft : openingUnknown ? theme.colors.textSoft : theme.colors.danger }]} />
+                  <Text style={[styles.statusText, { color: isOpen ? theme.colors.greenSoft : openingUnknown ? theme.colors.textSoft : "#FFB4B4" }]}>
+                    {isOpen ? "Geöffnet" : openingUnknown ? "Öffnungszeiten unbekannt" : "Geschlossen"}
                   </Text>
                 </View>
                 {spot.price_level ? <Chip text={priceToSymbols(spot.price_level)} /> : null}
@@ -855,7 +857,7 @@ export default function SpotDetailScreen() {
             )}
           </View>
 
-          {Object.keys(hours).length > 0 && (
+          {Object.keys(hours).length > 0 ? (
             <View style={styles.section}>
               <SectionTitle>Öffnungszeiten</SectionTitle>
               <View style={styles.hoursCard}>
@@ -883,6 +885,11 @@ export default function SpotDetailScreen() {
                   );
                 })}
               </View>
+            </View>
+          ) : (
+            <View style={styles.section}>
+              <SectionTitle>Öffnungszeiten</SectionTitle>
+              <StateView kind="empty" title="Noch nicht bekannt" message="Backyrd zeigt keinen Öffnungsstatus, solange keine verlässlichen Zeiten hinterlegt sind." />
             </View>
           )}
 
@@ -1107,6 +1114,10 @@ const styles = StyleSheet.create({
   statusClosed: {
     backgroundColor: "rgba(239,68,68,0.13)",
     borderColor: "rgba(239,68,68,0.28)",
+  },
+  statusUnknown: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(255,255,255,0.18)",
   },
   statusDot: {
     width: 8,

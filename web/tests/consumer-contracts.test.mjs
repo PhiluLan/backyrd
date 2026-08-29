@@ -151,3 +151,18 @@ test("canonical Owner image failures remain local and fall back without changing
   assert.match(image, /b-spot-fallback/);
   assert.doesNotMatch(image, /spot_photos|gallery|google/i);
 });
+
+test("public Spot Detail exposes useful canonical truth and honest hours uncertainty", async () => {
+  const [page, dto, migration] = await Promise.all([
+    read("web/app/spots/[id]/page.tsx"),
+    read("web/lib/public-spot-detail.ts"),
+    read("supabase/migrations/20260829090000_gate2_public_spot_detail_truth_v1.sql"),
+  ]);
+  assert.match(dto, /description: string \| null/);
+  assert.match(dto, /opening_hours/);
+  assert.match(page, /Was dich hier erwartet/);
+  assert.match(page, /Aktuell nicht verlässlich hinterlegt/);
+  assert.match(migration, /spot_effective_content_v1/);
+  assert.match(migration, /distribution_trust_entity_is_eligible_v1/);
+  assert.match(migration, /data_origin/);
+});
