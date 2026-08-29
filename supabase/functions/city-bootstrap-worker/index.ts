@@ -22,6 +22,39 @@ export function selectResearchEligible<T extends { matched_spot_id?: unknown }>(
   return rows.filter((row)=>readySpotIds.has(clean(row.matched_spot_id)));
 }
 
+export type PilotAcceptanceInput = {
+  publishedCandidateCount: number;
+  publishedSpotIds: string[];
+  googlePlaceIds: string[];
+  openBootstrapReviews: number;
+  incompleteBootstrapJobs: number;
+  researchJobs: Array<{ id: string; state: string; proposal_count: number; failure_code?: string | null }>;
+  proposals: Array<{ id: string; status: string; reviewed_by?: string | null; idempotency_key: string; research_entity_scope?: string | null; research_durability?: string | null; research_scope_resolution?: string | null }>;
+  acceptedProposalIds: string[];
+  auditedProposalIds: string[];
+};
+
+export function evaluatePilotAcceptance(input: PilotAcceptanceInput) {
+  const jobIds=new Set(input.researchJobs.map((job)=>job.id)),proposalIds=new Set(input.proposals.map((proposal)=>proposal.id));
+  const safeFailure=(job:PilotAcceptanceInput["researchJobs"][number])=>job.state==="FAILED"&&/^research_source_not_official:[1-4]$/.test(clean(job.failure_code));
+  const failures:string[]=[];
+  if(input.publishedCandidateCount<20||input.publishedCandidateCount>30)failures.push("pilot_published_count_invalid");
+  if(new Set(input.publishedSpotIds).size!==input.publishedCandidateCount)failures.push("pilot_spot_identity_duplicate");
+  if(new Set(input.googlePlaceIds).size!==input.publishedCandidateCount)failures.push("pilot_google_identity_duplicate");
+  if(input.openBootstrapReviews!==0)failures.push("pilot_bootstrap_reviews_open");
+  if(input.incompleteBootstrapJobs!==0)failures.push("pilot_bootstrap_jobs_incomplete");
+  if(input.researchJobs.length!==10||jobIds.size!==10)failures.push("pilot_research_cohort_invalid");
+  if(input.researchJobs.some((job)=>job.state!=="READY_FOR_REVIEW"&&!safeFailure(job)))failures.push("pilot_research_failure_unexplained");
+  const expectedProposalCount=input.researchJobs.reduce((sum,job)=>sum+job.proposal_count,0);
+  if(input.proposals.length!==expectedProposalCount||proposalIds.size!==expectedProposalCount)failures.push("pilot_proposal_set_incomplete");
+  if(input.proposals.some((proposal)=>proposal.status!=="ACCEPTED"||!clean(proposal.reviewed_by)))failures.push("pilot_human_review_incomplete");
+  if(input.proposals.some((proposal)=>proposal.research_entity_scope!=="SPOT"||proposal.research_durability!=="PERSISTENT"||proposal.research_scope_resolution!=="PASS"))failures.push("pilot_entity_scope_invalid");
+  if(input.proposals.some((proposal)=>![...jobIds].some((jobId)=>proposal.idempotency_key.startsWith(`research-v2.1:${jobId}:`))))failures.push("pilot_proposal_lineage_invalid");
+  if(new Set(input.acceptedProposalIds).size!==proposalIds.size||input.acceptedProposalIds.some((id)=>!proposalIds.has(id)))failures.push("pilot_accepted_fact_incomplete");
+  if(new Set(input.auditedProposalIds).size!==proposalIds.size||input.auditedProposalIds.some((id)=>!proposalIds.has(id)))failures.push("pilot_review_audit_incomplete");
+  return {verdict:failures.length?"FAIL":"PASS",failures,metrics:{publishedCandidates:input.publishedCandidateCount,researchJobs:input.researchJobs.length,researchReady:input.researchJobs.filter((job)=>job.state==="READY_FOR_REVIEW").length,researchSafeFailures:input.researchJobs.filter(safeFailure).length,proposals:input.proposals.length,accepted:input.proposals.filter((proposal)=>proposal.status==="ACCEPTED").length,unsupportedAutomaticCanonicalFacts:input.proposals.filter((proposal)=>proposal.status==="ACCEPTED"&&!clean(proposal.reviewed_by)).length}};
+}
+
 type RefreshPrevious = {
   identity_key?: unknown;
   source_fingerprint?: unknown;
@@ -172,6 +205,34 @@ if (import.meta.main) Deno.serve(async (request) => {
       const researchEligible=selectResearchEligible(publishedRows??[],researchSpots??[],{spotIds:excludedSpotIds,hosts:excludedHosts}),researchCohort=selectResearchCohort(researchEligible,10);
       let researchQueued=0,researchDeduplicated=0;for(const row of researchCohort){const research=await db.rpc("backyrd_city_bootstrap_enqueue_research_v1",{p_candidate_id:row.id});if(research.error)throw research.error;researchQueued++;if(research.data?.deduplicated)researchDeduplicated++;}
       return json({ok:true,runId,publicationAttempts,canonicalSpotsCreated,matchedExisting,publishedTotal:(publishedRows??[]).length,researchEligibleTotal:researchEligible.length,researchQueued,researchDeduplicated,researchDeferred:Math.max(0,researchEligible.length-researchCohort.length),researchIneligible:Math.max(0,(publishedRows??[]).length-researchEligible.length),researchPreviouslySeen:excludedSpotIds.size,researchPilotLimit:10,independentResearchCohort:true,canonicalFactsWritten:0,n4Writes:0});
+    }
+    if(action==="FINALIZE_PILOT") {
+      const runId=clean(body?.runId),requestedBy=clean(body?.requestedBy),researchJobIds=Array.isArray(body?.researchJobIds)?[...new Set(body.researchJobIds.map(clean).filter(Boolean))]:[],proposalIds=Array.isArray(body?.proposalIds)?[...new Set(body.proposalIds.map(clean).filter(Boolean))]:[];
+      if(clean(body?.confirm)!==`FINALIZE:${runId}`||!/^[0-9a-f-]{36}$/.test(runId)||!/^[0-9a-f-]{36}$/.test(requestedBy)||researchJobIds.length!==10||proposalIds.length<1||proposalIds.length>16||[...researchJobIds,...proposalIds].some((id)=>!/^[0-9a-f-]{36}$/.test(id)))return json({ok:false,error:"pilot_finalization_request_invalid"},400);
+      const [{data:run},{data:actor},{data:candidates},{data:reviews},{data:bootstrapJobs},{data:researchJobs},{data:proposals},{data:acceptedFacts},{data:audits}]=await Promise.all([
+        db.from("backyrd_city_bootstrap_runs_v1").select("id,mode,status,requested_by,started_at,stop_reason").eq("id",runId).maybeSingle(),
+        db.from("admin_users").select("user_id,role").eq("user_id",requestedBy).in("role",["admin","super_admin"]).maybeSingle(),
+        db.from("backyrd_city_bootstrap_candidates_v1").select("id,lifecycle_state,matched_spot_id,google_place_id").eq("run_id",runId),
+        db.from("backyrd_city_bootstrap_reviews_v1").select("state").eq("run_id",runId),
+        db.from("backyrd_city_bootstrap_jobs_v1").select("state").eq("run_id",runId),
+        db.from("backyrd_spot_research_jobs_v1").select("id,spot_id,actor_id,state,proposal_count,failure_code,created_at").in("id",researchJobIds),
+        db.from("backyrd_spot_fact_proposals_v1").select("id,spot_id,status,reviewed_by,idempotency_key,research_entity_scope,research_durability,research_scope_resolution").in("id",proposalIds),
+        db.from("backyrd_spot_accepted_facts_v1").select("proposal_id").in("proposal_id",proposalIds).eq("status","ACTIVE"),
+        db.from("backyrd_spot_gold_authoring_audit_v1").select("subject_id,action").in("subject_id",proposalIds),
+      ]);
+      if(!run||run.mode!=="PILOT"||!actor||run.requested_by!==requestedBy)return json({ok:false,error:"pilot_finalization_actor_or_run_invalid"},403);
+      if(run.status==="COMPLETED") { const {data:checkpoint}=await db.from("backyrd_city_bootstrap_checkpoints_v1").select("verdict,snapshot").eq("run_id",runId).eq("batch_number",1).maybeSingle();return json({ok:checkpoint?.verdict==="PASS",runId,status:run.status,replayed:true,verdict:checkpoint?.verdict??"FAIL",snapshot:checkpoint?.snapshot??null},checkpoint?.verdict==="PASS"?200:409); }
+      if(!["RUNNING","PAUSED","REVIEW_REQUIRED"].includes(run.status))return json({ok:false,error:"pilot_not_finalizable",status:run.status},409);
+      const published=(candidates??[]).filter((candidate:any)=>candidate.lifecycle_state==="PUBLISHED"),publishedSpotIds=published.map((candidate:any)=>clean(candidate.matched_spot_id)).filter(Boolean),publishedGoogleIds=published.map((candidate:any)=>clean(candidate.google_place_id)).filter(Boolean),publishedSpotSet=new Set(publishedSpotIds);
+      const cohortValid=(researchJobs??[]).length===10&&(researchJobs??[]).every((job:any)=>publishedSpotSet.has(clean(job.spot_id))&&job.actor_id===requestedBy&&new Date(job.created_at)>=new Date(run.started_at));
+      const proposalsValid=(proposals??[]).length===proposalIds.length&&(proposals??[]).every((proposal:any)=>publishedSpotSet.has(clean(proposal.spot_id)));
+      const evaluation=evaluatePilotAcceptance({publishedCandidateCount:published.length,publishedSpotIds,googlePlaceIds:publishedGoogleIds,openBootstrapReviews:(reviews??[]).filter((review:any)=>review.state==="OPEN").length,incompleteBootstrapJobs:(bootstrapJobs??[]).filter((job:any)=>!["COMPLETE","SKIPPED"].includes(job.state)).length,researchJobs:cohortValid?(researchJobs as any[]):[],proposals:proposalsValid?(proposals as any[]):[],acceptedProposalIds:(acceptedFacts??[]).map((fact:any)=>clean(fact.proposal_id)).filter(Boolean),auditedProposalIds:(audits??[]).filter((audit:any)=>audit.action==="ACCEPT").map((audit:any)=>clean(audit.subject_id)).filter(Boolean)});
+      if(!cohortValid)evaluation.failures.push("pilot_research_lineage_invalid");if(!proposalsValid)evaluation.failures.push("pilot_proposal_spot_invalid");evaluation.verdict=evaluation.failures.length?"FAIL":"PASS";
+      const snapshot={...evaluation.metrics,failures:evaluation.failures,humanReviewPrecision:evaluation.metrics.proposals?evaluation.metrics.accepted/evaluation.metrics.proposals:0,proposalCoverage:evaluation.metrics.researchJobs?evaluation.metrics.proposals/evaluation.metrics.researchJobs:0,priorStopReason:run.stop_reason??null,entitySubentityScopeValidation:evaluation.failures.includes("pilot_entity_scope_invalid")?"FAIL":"PASS",qualityStandardLowered:false};
+      const checkpoint=await db.from("backyrd_city_bootstrap_checkpoints_v1").upsert({run_id:runId,batch_number:1,snapshot,verdict:evaluation.verdict},{onConflict:"run_id,batch_number"});if(checkpoint.error)throw checkpoint.error;
+      if(evaluation.verdict!=="PASS")return json({ok:false,runId,status:run.status,verdict:"FAIL",snapshot},409);
+      const completed=await db.from("backyrd_city_bootstrap_runs_v1").update({status:"COMPLETED",completed_at:new Date().toISOString()}).eq("id",runId).in("status",["RUNNING","PAUSED","REVIEW_REQUIRED"]).select("id,status,completed_at,stop_reason").single();if(completed.error)throw completed.error;
+      return json({ok:true,runId,status:completed.data.status,verdict:"PASS",replayed:false,snapshot});
     }
     if(action==="KICK_RESEARCH") {
       if(!researchKey||!researchEnabled)return json({ok:false,error:"research_provider_unhealthy"},503);const workers=Math.max(1,Math.min(Number(body?.workers??1),3)),statuses:number[]=[];
