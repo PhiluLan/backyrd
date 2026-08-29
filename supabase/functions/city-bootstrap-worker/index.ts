@@ -14,6 +14,11 @@ export function selectResearchCohort<T extends { canonical_category_name?: unkno
   const groups=new Map<string,T[]>();for(const row of rows){const key=clean(row.canonical_category_name)||"UNKNOWN",group=groups.get(key)??[];group.push(row);groups.set(key,group);}const selected:T[]=[];while(selected.length<limit&&[...groups.values()].some((group)=>group.length)){for(const key of [...groups.keys()].sort()){const row=groups.get(key)?.shift();if(row)selected.push(row);if(selected.length>=limit)break;}}return selected;
 }
 
+export function selectResearchEligible<T extends { matched_spot_id?: unknown }>(rows: T[], spots: Array<{ id?: unknown; website?: unknown }>) {
+  const readySpotIds=new Set(spots.filter((spot)=>/^https:\/\/[^\s]+$/.test(clean(spot.website))).map((spot)=>clean(spot.id)).filter(Boolean));
+  return rows.filter((row)=>readySpotIds.has(clean(row.matched_spot_id)));
+}
+
 export async function googleMatch(candidate: Candidate, apiKey: string) {
   const started=Date.now(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15_000);
   try {
@@ -88,10 +93,12 @@ if (import.meta.main) Deno.serve(async (request) => {
       const {data:run}=await db.from("backyrd_city_bootstrap_runs_v1").select("id,mode,status").eq("id",runId).maybeSingle();if(!run||run.mode!=="PILOT"||run.status!=="RUNNING")return json({ok:false,error:"pilot_not_publishable"},409);
       const {data:rows}=await db.from("backyrd_city_bootstrap_candidates_v1").select("id").eq("run_id",runId).eq("lifecycle_state","PRODUCT_ELIGIBLE").order("enrichment_priority",{ascending:false}).limit(30);let publicationAttempts=0,canonicalSpotsCreated=0,matchedExisting=0;
       for(const row of rows??[]){const publication=await db.rpc("backyrd_city_bootstrap_publish_candidate_v1",{p_candidate_id:row.id});if(publication.error)throw publication.error;publicationAttempts++;if(publication.data?.published)canonicalSpotsCreated++;if(publication.data?.matchedExisting)matchedExisting++;}
-      const {data:publishedRows,error:publishedError}=await db.from("backyrd_city_bootstrap_candidates_v1").select("id,canonical_category_name,enrichment_priority,created_at").eq("run_id",runId).eq("lifecycle_state","PUBLISHED").order("enrichment_priority",{ascending:false}).order("created_at",{ascending:true});if(publishedError)throw publishedError;
-      const researchCohort=selectResearchCohort(publishedRows??[],10);
+      const {data:publishedRows,error:publishedError}=await db.from("backyrd_city_bootstrap_candidates_v1").select("id,matched_spot_id,canonical_category_name,enrichment_priority,created_at").eq("run_id",runId).eq("lifecycle_state","PUBLISHED").order("enrichment_priority",{ascending:false}).order("created_at",{ascending:true});if(publishedError)throw publishedError;
+      const publishedSpotIds=[...new Set((publishedRows??[]).map((row:any)=>clean(row.matched_spot_id)).filter(Boolean))];
+      const {data:researchSpots,error:researchSpotsError}=publishedSpotIds.length?await db.from("spots").select("id,website").in("id",publishedSpotIds):{data:[],error:null};if(researchSpotsError)throw researchSpotsError;
+      const researchEligible=selectResearchEligible(publishedRows??[],researchSpots??[]),researchCohort=selectResearchCohort(researchEligible,10);
       let researchQueued=0,researchDeduplicated=0;for(const row of researchCohort){const research=await db.rpc("backyrd_city_bootstrap_enqueue_research_v1",{p_candidate_id:row.id});if(research.error)throw research.error;researchQueued++;if(research.data?.deduplicated)researchDeduplicated++;}
-      return json({ok:true,runId,publicationAttempts,canonicalSpotsCreated,matchedExisting,publishedTotal:(publishedRows??[]).length,researchQueued,researchDeduplicated,researchDeferred:Math.max(0,(publishedRows??[]).length-researchCohort.length),researchPilotLimit:10,canonicalFactsWritten:0,n4Writes:0});
+      return json({ok:true,runId,publicationAttempts,canonicalSpotsCreated,matchedExisting,publishedTotal:(publishedRows??[]).length,researchEligibleTotal:researchEligible.length,researchQueued,researchDeduplicated,researchDeferred:Math.max(0,researchEligible.length-researchCohort.length),researchIneligible:Math.max(0,(publishedRows??[]).length-researchEligible.length),researchPilotLimit:10,canonicalFactsWritten:0,n4Writes:0});
     }
     if(action==="KICK_RESEARCH") {
       if(!researchKey||!researchEnabled)return json({ok:false,error:"research_provider_unhealthy"},503);const workers=Math.max(1,Math.min(Number(body?.workers??1),3)),statuses:number[]=[];
