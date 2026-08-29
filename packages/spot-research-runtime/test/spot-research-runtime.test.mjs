@@ -292,6 +292,41 @@ test("path-scoped venue instances reject generic brand-homepage evidence and val
   assert.equal(urlWithinOfficialInstanceScope("https://www.update-fitness.example/basel/events", branchContext.spot.website), false);
 });
 
+test("same-domain brand homepages may record UNKNOWN coverage but never support a venue fact", () => {
+  const branchContext = {
+    ...context,
+    spot: { ...spot, name: "EVO Fitness", website: "https://evofitness.example/evo-basel" },
+    catalog: [{ field_key: "identity.name", value_kind: "TEXT", allowed_values: [], engine_role: "RAW_FACT" }]
+  };
+  const unknown = {
+    ...evidenceRow,
+    fact_key: "identity.name",
+    typed_value: null,
+    support_status: "UNKNOWN",
+    entity_scope: "AMBIGUOUS",
+    evidence_scope: "UNKNOWN_SCOPE",
+    durability: "UNKNOWN",
+    subject_name: null,
+    source_url: "https://www.evofitness.example/",
+    short_evidence: ""
+  };
+  const unknownResult = validateResearchEvidence({ evidence: [unknown] }, branchContext, "A");
+  assert.equal(unknownResult.valid, true);
+  assert.equal(buildDeterministicProposalPlan(unknownResult.evidence, branchContext).proposals.length, 0);
+
+  const unsupportedClaim = {
+    ...unknown,
+    typed_value: "EVO Fitness",
+    support_status: "SUPPORTED",
+    entity_scope: "SPOT",
+    evidence_scope: "SPOT",
+    durability: "PERSISTENT",
+    subject_name: "EVO Fitness",
+    short_evidence: "EVO Fitness is a fitness provider."
+  };
+  assert.match(validateResearchEvidence({ evidence: [unsupportedClaim] }, branchContext, "A").reason, /instance_scope_mismatch/);
+});
+
 test("redirected localized URLs may retain the complete venue instance identity", () => {
   assert.equal(urlWithinOfficialInstanceScope("https://www.youthhostel.example/de/hostels/jugendherberge-basel", "https://youthhostel.example/basel"), true);
   assert.equal(urlWithinOfficialInstanceScope("https://www.youthhostel.example/de/hostels/zurich", "https://youthhostel.example/basel"), false);

@@ -1,7 +1,7 @@
 import { CANONICAL_FACTS, CATEGORY_PLACE_TYPE, categoryToPlaceType } from "../../canonical-semantics/src/index.mjs";
 
 export const RESEARCH_CONTRACT_VERSION = "backyrd-spot-research-agent-v2.1";
-export const RESEARCH_POLICY_VERSION = "backyrd-spot-research-policy-v2.9";
+export const RESEARCH_POLICY_VERSION = "backyrd-spot-research-policy-v2.10";
 export const DEFAULT_RESEARCH_MODEL = "gpt-5-mini";
 export const MAX_RESEARCH_EVIDENCE_PER_PASS = 8;
 export const RESEARCH_OUTPUT_TOKENS_PER_PASS = 2600;
@@ -404,7 +404,11 @@ export function validateResearchEvidence(payload, context, passKey = context?.pa
     let sourceUrl; try { sourceUrl = normalizePublicHttpsUrl(row.source_url); } catch { return { valid: false, reason: `research_source_invalid:${index}`, evidence: [] }; }
     if (!sameOfficialDomain(sourceUrl, allowedDomain)) return { valid: false, reason: `research_source_not_official:${index}`, evidence: [] };
     try {
-      if (!urlWithinOfficialInstanceScope(sourceUrl, context.spot.website, context.spot.name)) return { valid: false, reason: `research_source_instance_scope_mismatch:${index}`, evidence: [] };
+      // UNKNOWN/UNSUPPORTED records are coverage outcomes, not evidence that can
+      // produce a proposal. They may therefore reference the same-domain brand
+      // homepage when the provider found no instance-level support. Any
+      // SUPPORTED record retains the strict venue-instance boundary.
+      if (row.support_status === "SUPPORTED" && !urlWithinOfficialInstanceScope(sourceUrl, context.spot.website, context.spot.name)) return { valid: false, reason: `research_source_instance_scope_mismatch:${index}`, evidence: [] };
     } catch { return { valid: false, reason: `research_source_invalid:${index}`, evidence: [] }; }
     const value = row.typed_value;
     if (row.support_status === "SUPPORTED" && !validateTypedValue(field, value)) return { valid: false, reason: `research_typed_value_invalid:${index}`, evidence: [] };
