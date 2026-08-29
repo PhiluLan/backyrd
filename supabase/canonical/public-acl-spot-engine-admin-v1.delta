@@ -1,0 +1,3 @@
+FUNCTION|backyrd_admin_spot_engine_operations_v1(text,uuid,text,integer,integer)|authenticated|EXECUTE
+FUNCTION|backyrd_admin_spot_engine_review_v1(uuid,text,text)|authenticated|EXECUTE
+FUNCTION|backyrd_admin_spot_engine_retry_job_v1(uuid)|authenticated|EXECUTE
