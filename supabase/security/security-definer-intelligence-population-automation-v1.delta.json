@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "purpose": "Reviewed service-only delta for the canonical SECURITY DEFINER inventory; no client or Machine Acceptance authority is added.",
+  "functions": [
+    {
+      "signature": "backyrd_intelligence_population_tick_control_v1(uuid,text,uuid)",
+      "classification": "WORKER",
+      "anon": false,
+      "authenticated": false,
+      "serviceRole": true,
+      "rationale": "Lease and fail-closed finalization for the fixed 415-Spot Population run; no caller-controlled actor identity."
+    },
+    {
+      "signature": "backyrd_configure_intelligence_population_worker_v1(text)",
+      "classification": "WORKER",
+      "anon": false,
+      "authenticated": false,
+      "serviceRole": true,
+      "rationale": "Configures only the exact City Bootstrap worker URL and reuses the existing Vault-held internal service credential."
+    }
+  ]
+}

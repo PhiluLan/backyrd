@@ -307,6 +307,24 @@ if psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command "set role authenticated;sel
 fi
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/spot_intelligence_machine_acceptance_v1.sql"
+if psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command "set role anon;select public.backyrd_intelligence_population_tick_control_v1('61000000-0000-4000-8000-000000000099'::uuid,'CLAIM',gen_random_uuid());" >/dev/null 2>&1;then
+  printf 'anon unexpectedly executed Population tick control.\n' >&2;exit 1
+fi
+if ! psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command 'select 1' >/dev/null 2>&1;then
+  printf 'Database backend became unhealthy after the Population anon denial probe.\n' >&2
+  docker logs --tail 120 "supabase_db_$project_id" >&2 || true
+  exit 1
+fi
+if psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command "set role authenticated;select public.backyrd_intelligence_population_tick_control_v1('61000000-0000-4000-8000-000000000099'::uuid,'CLAIM',gen_random_uuid());" >/dev/null 2>&1;then
+  printf 'authenticated/admin browser unexpectedly executed Population tick control.\n' >&2;exit 1
+fi
+if ! psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command 'select 1' >/dev/null 2>&1;then
+  printf 'Database backend became unhealthy after the Population authenticated denial probe.\n' >&2
+  docker logs --tail 120 "supabase_db_$project_id" >&2 || true
+  exit 1
+fi
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/intelligence_population_automation_v1.sql"
 if psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command "set role anon;select public.backyrd_claim_spot_research_job_v2('anon',60,'71000000-0000-4000-8000-000000000006'::uuid);" >/dev/null 2>&1;then
   printf 'anon unexpectedly executed run-scoped research claim.\n' >&2;exit 1
 fi

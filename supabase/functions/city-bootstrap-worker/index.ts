@@ -187,6 +187,27 @@ async function googleHealth(apiKey: string) {
   catch(error){return {ok:false,code:error instanceof DOMException&&error.name==="AbortError"?"google_timeout":"google_transport_error",latency:Date.now()-started};}finally{clearTimeout(timer);}
 }
 
+export function evaluatePopulationTickReadiness(input:{runningRuns:number;activeJobs:number;pendingSpots:number;machineAcceptanceFailures:number}) {
+  const failures:string[]=[];
+  if(input.runningRuns>1)failures.push("MULTIPLE_RUNNING_POPULATION_RUNS");
+  if(input.activeJobs<0||input.pendingSpots<0)failures.push("POPULATION_COUNTS_INVALID");
+  if(input.machineAcceptanceFailures>0)failures.push("MACHINE_ACCEPTANCE_FAILURE");
+  return {ok:failures.length===0,failures,shouldQueue:input.runningRuns===1&&input.activeJobs===0&&input.pendingSpots>0,shouldFinalize:input.runningRuns===1&&input.activeJobs===0&&input.pendingSpots===0};
+}
+
+async function kickPopulationResearch(db:any,url:string,serviceKey:string,populationRunId:string,workers=2) {
+  const statuses:number[]=[];
+  await Promise.all(Array.from({length:workers},async()=>{const response=await fetch(`${url}/functions/v1/research-spot-worker`,{method:"POST",headers:{authorization:`Bearer ${serviceKey}`,"content-type":"application/json"},body:JSON.stringify({populationRunId})});statuses.push(response.status);await response.body?.cancel();}));
+  const {data:jobs,error:jobsError}=await db.from("backyrd_spot_research_jobs_v1").select("id").eq("population_run_id",populationRunId);if(jobsError)throw jobsError;
+  const jobPrefixes=(jobs??[]).map((job:any)=>`research-v2.1:${job.id}:`),machineAccepted:any[]=[];
+  if(jobPrefixes.length){
+    const proposalScope=jobPrefixes.map((prefix:string)=>`idempotency_key.like.${prefix}*`).join(",");
+    const {data:proposals,error:proposalError}=await db.from("backyrd_spot_fact_proposals_v1").select("id,idempotency_key,machine_evidence_fingerprint,field_key,status").eq("status","PENDING").in("field_key",["contact.website","contact.phone","contact.email","opening.regular"]).not("machine_evidence_fingerprint","is",null).or(proposalScope).limit(100);if(proposalError)throw proposalError;
+    for(const proposal of (proposals??[]).filter((proposal:any)=>jobPrefixes.some((prefix:string)=>clean(proposal.idempotency_key).startsWith(prefix)))){const accepted=await db.rpc("backyrd_machine_accept_v1",{p_proposal_id:proposal.id,p_policy_version:"backyrd-machine-acceptance-v1",p_expected_evidence_fingerprint:proposal.machine_evidence_fingerprint});machineAccepted.push({proposalId:proposal.id,fieldKey:proposal.field_key,accepted:!accepted.error,error:accepted.error?.message??null});}
+  }
+  return {ok:statuses.every((status)=>status===200)&&machineAccepted.every((item)=>item.accepted),workers,statuses,machineAccepted};
+}
+
 if (import.meta.main) Deno.serve(async (request) => {
   if(request.method!=="POST") return json({ok:false,error:"method_not_allowed"},405);
   const url=Deno.env.get("CITY_BOOTSTRAP_SUPABASE_URL"),serviceKey=Deno.env.get("CITY_BOOTSTRAP_SUPABASE_SERVICE_KEY"),googleKey=Deno.env.get("GOOGLE_PLACES_API_KEY");
@@ -199,6 +220,41 @@ if (import.meta.main) Deno.serve(async (request) => {
     if(action==="HEALTH") {
       const probe=await googleHealth(googleKey);
       return json({ok:probe.ok,contracts:{googlePlaces:true,cityDatabaseUrl:true,cityServiceKey:true,researchProvider:Boolean(researchKey),researchEnabled,researchModel:Boolean(researchModel)},boundaries:{serverOnly:true,cityUrlMatchesRuntime:url===Deno.env.get("SUPABASE_URL"),cityServiceMatchesRuntime:serviceKey===Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")},googleProbe:{ok:probe.ok,code:probe.ok?null:probe.code,latencyMs:probe.latency}},probe.ok&&researchKey&&researchEnabled?200:503);
+    }
+    if(action==="ACTIVATE_POPULATION_AUTOMATION") {
+      const {data:runs,error:runError}=await db.from("backyrd_city_bootstrap_runs_v1").select("id,mode,status,target_configuration").eq("mode","INTELLIGENCE").eq("status","RUNNING").eq("target_configuration->>phase","FULL_LAUNCH_CURATION").limit(2);if(runError)throw runError;
+      if((runs??[]).length!==1)return json({ok:false,error:"single_running_population_required",runningRuns:(runs??[]).length},409);
+      const configured=await db.rpc("backyrd_configure_intelligence_population_worker_v1",{p_worker_url:`${url}/functions/v1/city-bootstrap-worker`});if(configured.error)throw configured.error;
+      return json({ok:true,runId:runs[0].id,schedule:"*/2 * * * *",researchConcurrencyLimit:2,discoveryEnabled:false});
+    }
+    if(action==="POPULATION_TICK") {
+      if(!researchKey||!researchEnabled)return json({ok:false,error:"research_provider_unhealthy"},503);
+      const {data:runs,error:runError}=await db.from("backyrd_city_bootstrap_runs_v1").select("id,requested_by,target_configuration").eq("mode","INTELLIGENCE").eq("status","RUNNING").eq("target_configuration->>phase","FULL_LAUNCH_CURATION").limit(2);if(runError)throw runError;
+      const preflight=evaluatePopulationTickReadiness({runningRuns:(runs??[]).length,activeJobs:0,pendingSpots:0,machineAcceptanceFailures:0});
+      if(!preflight.ok)return json({ok:false,error:"population_tick_preflight_failed",failures:preflight.failures},409);
+      if(!(runs??[]).length)return json({ok:true,idle:true,reason:"NO_RUNNING_POPULATION"});
+      const run=runs[0],leaseToken=crypto.randomUUID();
+      const claim=await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"CLAIM",p_lease_token:leaseToken});if(claim.error)throw claim.error;
+      if(!claim.data?.claimed)return json({ok:true,idle:true,reason:"LEASE_HELD",runId:run.id});
+      let release=true;
+      try {
+        const [{data:actor},{data:active,error:activeError},{data:failedJobs,error:failedError},{count:pending,error:pendingError}]=await Promise.all([
+          db.from("admin_users").select("user_id,role").eq("user_id",run.requested_by).in("role",["admin","super_admin"]).maybeSingle(),
+          db.from("backyrd_spot_research_jobs_v1").select("id").eq("population_run_id",run.id).in("state",["QUEUED","RUNNING"]),
+          db.from("backyrd_spot_research_jobs_v1").select("failure_code").eq("population_run_id",run.id).eq("state","FAILED"),
+          db.from("backyrd_spot_intelligence_population_v1").select("spot_id",{count:"exact",head:true}).eq("run_id",run.id).eq("terminal_state","PENDING")
+        ]);if(activeError||failedError||pendingError)throw activeError??failedError??pendingError;if(!actor)return json({ok:false,error:"population_tick_actor_lineage_invalid"},403);
+        const failureCounts=(failedJobs??[]).reduce((counts:Record<string,number>,job:any)=>{const code=clean(job.failure_code)||"UNCLASSIFIED";counts[code]=(counts[code]??0)+1;return counts;},{}),systemicFailure=Object.entries(failureCounts).find(([,count])=>count>=3);
+        if(systemicFailure){await db.from("backyrd_city_bootstrap_runs_v1").update({status:"PAUSED",stop_reason:`CIRCUIT_BREAKER:SYSTEMATIC_RESEARCH_FAILURE:${systemicFailure[0]}`.slice(0,500)}).eq("id",run.id).eq("status","RUNNING");const stopped=await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"STOP",p_lease_token:leaseToken});if(stopped.error)throw stopped.error;release=false;return json({ok:false,runId:run.id,status:"PAUSED",error:"systematic_research_failure",failureCode:systemicFailure[0],count:systemicFailure[1]},409);}
+        const readiness=evaluatePopulationTickReadiness({runningRuns:1,activeJobs:(active??[]).length,pendingSpots:pending??0,machineAcceptanceFailures:0});
+        if(readiness.shouldFinalize){const finalized=await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"FINALIZE",p_lease_token:leaseToken});if(finalized.error)throw finalized.error;release=false;return json({ok:true,runId:run.id,status:"COMPLETED",...finalized.data});}
+        let queued=0;
+        if(readiness.shouldQueue){const {data:spots,error:spotsError}=await db.from("backyrd_spot_intelligence_population_v1").select("spot_id").eq("run_id",run.id).eq("terminal_state","PENDING").order("spot_id").limit(5);if(spotsError)throw spotsError;for(const spot of spots??[]){const result=await db.rpc("backyrd_enqueue_spot_intelligence_population_job_v1",{p_run_id:run.id,p_spot_id:spot.spot_id});if(result.error)throw result.error;queued++;}}
+        const kicked=await kickPopulationResearch(db,url,serviceKey,run.id,2);
+        const post=evaluatePopulationTickReadiness({runningRuns:1,activeJobs:(active??[]).length,pendingSpots:pending??0,machineAcceptanceFailures:kicked.machineAccepted.filter((item:any)=>!item.accepted).length});
+        if(!kicked.ok||!post.ok){await db.from("backyrd_city_bootstrap_runs_v1").update({status:"PAUSED",stop_reason:`CIRCUIT_BREAKER:${post.failures.join(",")||"RESEARCH_WORKER_FAILURE"}`.slice(0,500)}).eq("id",run.id).eq("status","RUNNING");const stopped=await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"STOP",p_lease_token:leaseToken});if(stopped.error)throw stopped.error;release=false;return json({ok:false,runId:run.id,status:"PAUSED",failures:post.failures,statuses:kicked.statuses},409);}
+        return json({ok:true,runId:run.id,status:"RUNNING",queued,researchWorkers:2,machineAccepted:kicked.machineAccepted});
+      } finally {if(release)await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"RELEASE",p_lease_token:leaseToken});}
     }
     if(action==="SET_SCALE_STATE") {
       const runId=clean(body?.runId),requestedBy=clean(body?.requestedBy),stateAction=clean(body?.stateAction),reason=clean(body?.reason);
@@ -398,16 +454,9 @@ if (import.meta.main) Deno.serve(async (request) => {
         if(!/^[0-9a-f-]{36}$/.test(populationRunId))return json({ok:false,error:"population_run_invalid"},400);
         const {data:run}=await db.from("backyrd_city_bootstrap_runs_v1").select("id,mode,status").eq("id",populationRunId).maybeSingle();if(!run||run.mode!=="INTELLIGENCE"||run.status!=="RUNNING")return json({ok:false,error:"population_run_not_running"},409);
       }
-      await Promise.all(Array.from({length:workers},async()=>{const response=await fetch(`${url}/functions/v1/research-spot-worker`,{method:"POST",headers:{authorization:`Bearer ${serviceKey}`,"content-type":"application/json"},body:JSON.stringify(populationRunId?{populationRunId}:{})});statuses.push(response.status);await response.body?.cancel();}));
-      if(populationRunId){
-        const {data:jobs,error:jobsError}=await db.from("backyrd_spot_research_jobs_v1").select("id").eq("population_run_id",populationRunId);if(jobsError)throw jobsError;
-        const jobPrefixes=(jobs??[]).map((job:any)=>`research-v2.1:${job.id}:`);if(jobPrefixes.length){
-          const proposalScope=jobPrefixes.map((prefix:string)=>`idempotency_key.like.${prefix}*`).join(",");
-          const {data:proposals,error:proposalError}=await db.from("backyrd_spot_fact_proposals_v1").select("id,idempotency_key,machine_evidence_fingerprint,field_key,status").eq("status","PENDING").in("field_key",["contact.website","contact.phone","contact.email","opening.regular"]).not("machine_evidence_fingerprint","is",null).or(proposalScope).limit(100);if(proposalError)throw proposalError;
-          for(const proposal of (proposals??[]).filter((proposal:any)=>jobPrefixes.some((prefix:string)=>clean(proposal.idempotency_key).startsWith(prefix)))){const accepted=await db.rpc("backyrd_machine_accept_v1",{p_proposal_id:proposal.id,p_policy_version:"backyrd-machine-acceptance-v1",p_expected_evidence_fingerprint:proposal.machine_evidence_fingerprint});machineAccepted.push({proposalId:proposal.id,fieldKey:proposal.field_key,accepted:!accepted.error,error:accepted.error?.message??null});}
-        }
-      }
-      return json({ok:statuses.every((status)=>status===200)&&machineAccepted.every((item)=>item.accepted),workers,statuses,machineAccepted});
+      if(populationRunId){const result=await kickPopulationResearch(db,url,serviceKey,populationRunId,workers);return json(result);}
+      await Promise.all(Array.from({length:workers},async()=>{const response=await fetch(`${url}/functions/v1/research-spot-worker`,{method:"POST",headers:{authorization:`Bearer ${serviceKey}`,"content-type":"application/json"},body:"{}"});statuses.push(response.status);await response.body?.cancel();}));
+      return json({ok:statuses.every((status)=>status===200),workers,statuses,machineAccepted});
     }
     if(action==="START_INTELLIGENCE_CANARY") {
       const sourceRunId=clean(body?.sourceRunId),commit=clean(body?.commit),runKey=clean(body?.runKey),seed=clean(body?.seed),referenceSpotId="545a8ee5-14bd-4887-b4e3-42d3271aa736",sampleSize=Number(body?.sampleSize??10);

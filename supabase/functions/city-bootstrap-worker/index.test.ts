@@ -1,4 +1,4 @@
-import { evaluateIntelligenceCanaryReadiness, evaluatePilotAcceptance, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planRefreshCandidates, selectIntelligenceCanary, selectResearchCohort, selectResearchEligible, websiteIdentityCompatible, type Candidate } from "./index.ts";
+import { evaluateIntelligenceCanaryReadiness, evaluatePilotAcceptance, evaluatePopulationTickReadiness, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planRefreshCandidates, selectIntelligenceCanary, selectResearchCohort, selectResearchEligible, websiteIdentityCompatible, type Candidate } from "./index.ts";
 
 const candidate: Candidate = {
   sourceFamily: "OPENSTREETMAP",
@@ -74,6 +74,22 @@ Deno.test("Intelligence canary cannot pass while either research cohort is still
   const items=Array.from({length:8},()=>({terminal_state:"PROCESSED_WITH_SUPPORTED_FACTS"}));
   const result=evaluateIntelligenceCanaryReadiness({items,jobs:[{state:"READY_FOR_REVIEW",failure_code:null},{state:"QUEUED",failure_code:null}],accepted:[proposal],inspectedProposalIds:[proposal.id]});
   if(!result.failures.includes("CANARY_JOBS_INCOMPLETE"))throw new Error("active continued research cohort did not block canary finalization");
+});
+
+Deno.test("Population tick queues only after the prior cohort is terminal and finalizes only at full coverage", () => {
+  const active=evaluatePopulationTickReadiness({runningRuns:1,activeJobs:1,pendingSpots:405,machineAcceptanceFailures:0});
+  if(active.shouldQueue||active.shouldFinalize)throw new Error("active cohort allowed overlapping Population work");
+  const next=evaluatePopulationTickReadiness({runningRuns:1,activeJobs:0,pendingSpots:405,machineAcceptanceFailures:0});
+  if(!next.ok||!next.shouldQueue||next.shouldFinalize)throw new Error("terminal cohort did not allow the next bounded queue");
+  const done=evaluatePopulationTickReadiness({runningRuns:1,activeJobs:0,pendingSpots:0,machineAcceptanceFailures:0});
+  if(!done.ok||done.shouldQueue||!done.shouldFinalize)throw new Error("complete coverage did not route to finalization");
+});
+
+Deno.test("Population tick fails closed for concurrent runs and Machine Acceptance failures", () => {
+  const concurrent=evaluatePopulationTickReadiness({runningRuns:2,activeJobs:0,pendingSpots:415,machineAcceptanceFailures:0});
+  if(concurrent.ok||!concurrent.failures.includes("MULTIPLE_RUNNING_POPULATION_RUNS"))throw new Error("multiple Population runs were not rejected");
+  const acceptance=evaluatePopulationTickReadiness({runningRuns:1,activeJobs:0,pendingSpots:400,machineAcceptanceFailures:1});
+  if(acceptance.ok||!acceptance.failures.includes("MACHINE_ACCEPTANCE_FAILURE"))throw new Error("Machine Acceptance failure did not trip the circuit breaker");
 });
 
 Deno.test("Research cohort excludes rows without canonical website eligibility", () => {
