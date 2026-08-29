@@ -1,4 +1,4 @@
-import { googleMatch, type Candidate } from "./index.ts";
+import { googleMatch, selectResearchCohort, type Candidate } from "./index.ts";
 
 const candidate: Candidate = {
   sourceFamily: "OPENSTREETMAP",
@@ -47,4 +47,14 @@ Deno.test("Google identity linking fails closed when no result is sufficiently c
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+Deno.test("Research pilot cohort is bounded and category-breadth first", () => {
+  const rows = [
+    { id: "a1", canonical_category_name: "A" }, { id: "a2", canonical_category_name: "A" }, { id: "a3", canonical_category_name: "A" },
+    { id: "b1", canonical_category_name: "B" }, { id: "b2", canonical_category_name: "B" },
+    { id: "c1", canonical_category_name: "C" },
+  ];
+  const selected = selectResearchCohort(rows, 5);
+  if (selected.map((row) => row.id).join(",") !== "a1,b1,c1,a2,b2") throw new Error("research cohort must round-robin categories");
 });
