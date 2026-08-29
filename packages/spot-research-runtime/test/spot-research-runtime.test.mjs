@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildDeterministicProposalPlan, buildResearchRequest, callResearchProvider, canonicalizeResearchResponse, diagnoseLegacyResearchPayload, normalizePublicHttpsUrl, RESEARCH_OUTPUT_TOKENS_PER_PASS, validateResearchEvidence } from "../src/index.mjs";
+import { buildDeterministicProposalPlan, buildResearchRequest, callResearchProvider, canonicalizeResearchResponse, diagnoseLegacyResearchPayload, normalizePublicHttpsUrl, RESEARCH_OUTPUT_TOKENS_PER_PASS, RESEARCH_POLICY_VERSION, validateResearchEvidence } from "../src/index.mjs";
 
 const spot = { id: "11111111-1111-4111-8111-111111111111", name: "Museum Test", city: "Basel", website: "https://museum.example/" };
 const catalog = [
@@ -22,6 +22,7 @@ test("Pass A request is compact, official-domain-only and excludes accepted fact
   assert.deepEqual(request.body.reasoning, { effort: "low" });
   assert.equal(request.body.max_output_tokens, RESEARCH_OUTPUT_TOKENS_PER_PASS);
   assert.ok(request.body.max_output_tokens < 2896);
+  assert.equal(JSON.parse(request.body.input).policy, RESEARCH_POLICY_VERSION);
   assert.ok(request.inputBytes < 2500);
   assert.equal(request.body.input.includes("never-send"), false);
   assert.equal(request.body.input.includes("suitability.conversation"), false);
@@ -70,6 +71,12 @@ test("schema fails closed on foreign source, wrong pass, truncated JSON or inven
   assert.equal(validateResearchEvidence({ evidence: [{ ...evidenceRow, typed_value: ["BAR"] }] }, context, "A").valid, false);
 });
 
+test("official root and www hosts are equivalent but sibling domains remain forbidden", () => {
+  const wwwContext = { ...context, spot: { ...spot, website: "https://www.museum.example/" } };
+  assert.equal(validateResearchEvidence({ evidence: [{ ...evidenceRow, source_url: "https://museum.example/visit" }] }, wwwContext, "A").valid, true);
+  assert.equal(validateResearchEvidence({ evidence: [{ ...evidenceRow, source_url: "https://other-museum.example/visit" }] }, wwwContext, "A").valid, false);
+});
+
 test("UNKNOWN and unsupported evidence cannot carry or create a value", () => {
   const unknown = validateResearchEvidence({ evidence: [{ ...evidenceRow, typed_value: null, support_status: "UNKNOWN", evidence_scope: "UNKNOWN_SCOPE", short_evidence: "" }] }, context, "A");
   assert.equal(unknown.valid, true);
@@ -93,12 +100,12 @@ test("deterministic confidence follows source authority, not model prose", () =>
   assert.equal(buildDeterministicProposalPlan(document, context).proposals[0].deterministicConfidence, 0.95);
 });
 
-test("age and rain require explicit bounded source evidence", () => {
+test("age and rain remain auditable but outside the objective proposal allowlist", () => {
   const ageBase = { ...evidenceRow, fact_key: "suitability.age", typed_value: {min_age:4,max_age:12,adult_supervision_required:"UNKNOWN"}, short_evidence: "Families and children are welcome." };
   const vagueAge = validateResearchEvidence({ evidence: [ageBase] }, context, "A").evidence;
   assert.equal(buildDeterministicProposalPlan(vagueAge, context).proposals.length, 0);
   const explicitAge = validateResearchEvidence({ evidence: [{ ...ageBase, short_evidence: "Programme for children aged 4 to 12." }] }, context, "A").evidence;
-  assert.equal(buildDeterministicProposalPlan(explicitAge, context).proposals.length, 1);
+  assert.equal(buildDeterministicProposalPlan(explicitAge, context).proposals.length, 0);
   const indoorOnlyRain = validateResearchEvidence({ evidence: [{ ...evidenceRow, fact_key: "suitability.rain", typed_value: "SUITABLE", short_evidence: "All exhibitions are indoors." }] }, context, "A").evidence;
   assert.equal(buildDeterministicProposalPlan(indoorOnlyRain, context).proposals.length, 0);
 });
@@ -110,6 +117,16 @@ test("only SPOT evidence creates general proposals", () => {
     assert.equal(plan.proposals.length, 0);
     assert.equal(plan.extractions[0].classification, "UNSUPPORTED");
   }
+});
+
+test("qualitative evidence stays auditable without creating routine proposals", () => {
+  const row = { ...evidenceRow, fact_key: "suitability.conversation", typed_value: "HIGH", evidence_scope: "SPOT", short_evidence: "A calm place for conversation." };
+  const result = validateResearchEvidence({ evidence: [row] }, context, "B");
+  assert.equal(result.valid, true);
+  const plan = buildDeterministicProposalPlan(result.evidence, context);
+  assert.equal(plan.extractions.length, 1);
+  assert.equal(plan.extractions[0].classification, "UNSUPPORTED");
+  assert.equal(plan.proposals.length, 0);
 });
 
 test("event-specific family age remains auditable but cannot become Spot truth", () => {
@@ -134,12 +151,12 @@ test("weekly schedule is distinct from open-now and cannot imply operating OPEN"
   assert.equal(plan.proposals.length, 0);
 });
 
-test("weekly schedule cannot imply qualitative daypart suitability", () => {
+test("qualitative daypart evidence remains extraction-only", () => {
   const daypartContext = { ...context, catalog: [...catalog, { field_key: "time.dayparts", value_kind: "MULTI_SELECT", allowed_values: ["MORNING","AFTERNOON","EVENING","WEEKDAY","WEEKEND"], engine_role: "N4_EVIDENCE" }] };
   const schedule = { ...evidenceRow, fact_key: "time.dayparts", typed_value: ["MORNING","AFTERNOON","WEEKEND"], short_evidence: "Opening hours Tuesday to Sunday 10:00–17:00." };
   assert.equal(buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [schedule] }, daypartContext, "B").evidence, daypartContext).proposals.length,0);
   const explicit = { ...schedule, short_evidence: "The official programme says the museum is especially suited to a weekend afternoon visit." };
-  assert.equal(buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [explicit] }, daypartContext, "B").evidence, daypartContext).proposals.length,1);
+  assert.equal(buildDeterministicProposalPlan(validateResearchEvidence({ evidence: [explicit] }, daypartContext, "B").evidence, daypartContext).proposals.length,0);
 });
 
 test("missing official website and private/local sources fail before provider access", () => {
