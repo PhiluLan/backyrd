@@ -31,6 +31,21 @@ select pg_temp.assert((select lifecycle_state='EVIDENCE_PENDING' from public.bac
 update public.backyrd_city_bootstrap_candidates_v1 set website='https://bridge-bar.ch/',lifecycle_state='PRODUCT_ELIGIBLE' where normalized_name='bridge bar';
 select pg_temp.assert((select lifecycle_state='PRODUCT_ELIGIBLE' from public.backyrd_city_bootstrap_candidates_v1 where normalized_name='bridge bar'),'canonical identity evidence was blocked');
 
+-- The server-only Stage runtime may write an evidence-pending Candidate, but
+-- it still cannot call the helper directly or bypass the eligibility gate.
+set local role service_role;
+insert into public.backyrd_city_bootstrap_candidates_v1(run_id,identity_key,display_name,normalized_name,address,normalized_address,city,country,lat,lng,website,external_types,relevance_state,identity_state,lifecycle_state,source_fingerprint)
+select id,repeat('d',64),'Service Stage Fixture','service stage fixture','Testweg 3','testweg 3','Basel','Switzerland',47.58,7.59,'https://unrelated.example/',array['cafe'],'RELEVANT','NEW_IDENTITY','EVIDENCE_PENDING',repeat('e',64)
+from public.backyrd_city_bootstrap_runs_v1 where run_key='website-identity-gate-v1';
+do $$begin
+  update public.backyrd_city_bootstrap_candidates_v1 set display_name='Bridge Bar',website='https://facebook.com/pg/barbrutbasel/about',lifecycle_state='PRODUCT_ELIGIBLE' where identity_key=repeat('d',64);
+  raise exception 'service role bypassed website identity trigger';
+exception when sqlstate '22023' then
+  if sqlerrm<>'city_bootstrap_website_identity_ambiguous' then raise;end if;
+end$$;
+reset role;
+select pg_temp.assert((select lifecycle_state='EVIDENCE_PENDING' from public.backyrd_city_bootstrap_candidates_v1 where identity_key=repeat('d',64)),'service role failed to stage evidence-pending candidate');
+
 select pg_temp.assert(not has_function_privilege('anon','public.backyrd_city_bootstrap_website_matches_name_v1(text,text)','EXECUTE'),'anonymous client can call identity helper');
 select pg_temp.assert(not has_function_privilege('authenticated','public.backyrd_city_bootstrap_website_matches_name_v1(text,text)','EXECUTE'),'authenticated client can call identity helper');
 select pg_temp.assert(not has_function_privilege('service_role','public.backyrd_city_bootstrap_website_matches_name_v1(text,text)','EXECUTE'),'service can bypass the worker audit through helper');
