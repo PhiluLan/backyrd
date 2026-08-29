@@ -1,4 +1,4 @@
-import { googleMatch, selectResearchCohort, type Candidate } from "./index.ts";
+import { googleMatch, selectResearchCohort, selectResearchEligible, type Candidate } from "./index.ts";
 
 const candidate: Candidate = {
   sourceFamily: "OPENSTREETMAP",
@@ -57,4 +57,19 @@ Deno.test("Research pilot cohort is bounded and category-breadth first", () => {
   ];
   const selected = selectResearchCohort(rows, 5);
   if (selected.map((row) => row.id).join(",") !== "a1,b1,c1,a2,b2") throw new Error("research cohort must round-robin categories");
+});
+
+Deno.test("Research cohort excludes rows without canonical website eligibility", () => {
+  const rows = [
+    { id: "museum-without-site", matched_spot_id: "spot-1", canonical_category_name: "Museum" },
+    { id: "museum-ready", matched_spot_id: "spot-2", canonical_category_name: "Museum" },
+    { id: "cafe-ready", matched_spot_id: "spot-3", canonical_category_name: "Café" },
+  ];
+  const eligible = selectResearchEligible(rows, [
+    { id: "spot-1", website: null },
+    { id: "spot-2", website: "https://museum.example" },
+    { id: "spot-3", website: "http://not-official.example" },
+  ]);
+  const selected = selectResearchCohort(eligible, 10);
+  if (selected.map((row) => row.id).join(",") !== "museum-ready") throw new Error("research cohort included an ineligible row");
 });
