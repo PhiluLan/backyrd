@@ -35,24 +35,27 @@ select pg_temp.assert((select (public.backyrd_city_bootstrap_validate_candidate_
 
 select pg_temp.assert((select (public.backyrd_city_bootstrap_publish_candidate_v1(id)->>'published')::boolean from public.backyrd_city_bootstrap_candidates_v1 where display_name='Pilot Café'),'eligible pilot candidate did not publish');
 select pg_temp.assert((select count(*)=1 from public.spots where google_place_id='test-google-place-1' and status='approved' and data_origin='IMPORT' and google_photo_enabled=false),'canonical Spot identity publication contract failed');
-select pg_temp.assert((select count(*)=1 from public.backyrd_spot_sources_v1 where source_reference like 'city-bootstrap:%' and spot_id=(select id from public.spots where google_place_id='test-google-place-1')),'publication provenance missing');
+insert into public.spots(name,lat,lng,status,city,category_id,data_origin,google_place_id)
+select 'Archived historical copy',47.58,7.61,'archived','Basel',category_id,'IMPORT',google_place_id from public.spots where google_place_id='test-google-place-1' and status='approved';
+select pg_temp.assert((select count(*)=2 from public.spots where google_place_id='test-google-place-1') and (select count(*)=1 from public.spots where google_place_id='test-google-place-1' and status='approved'),'active identity index rejected historical archive coexistence');
+select pg_temp.assert((select count(*)=1 from public.backyrd_spot_sources_v1 where source_reference like 'city-bootstrap:%' and spot_id=(select id from public.spots where google_place_id='test-google-place-1' and status='approved')),'publication provenance missing');
 select pg_temp.assert((select count(*)=1 from public.backyrd_spot_external_identities_v1 where source_family='GOOGLE_PLACE_ID' and source_identity='test-google-place-1'),'external identity missing');
-select pg_temp.assert((select count(*)=0 from public.backyrd_spot_accepted_facts_v1 where spot_id=(select id from public.spots where google_place_id='test-google-place-1')),'publication wrote Accepted Facts directly');
-select pg_temp.assert((select count(*)=0 from public.backyrd_spot_intelligence_evidence_v1 where spot_id=(select id from public.spots where google_place_id='test-google-place-1')),'publication wrote N4 directly');
+select pg_temp.assert((select count(*)=0 from public.backyrd_spot_accepted_facts_v1 where spot_id=(select id from public.spots where google_place_id='test-google-place-1' and status='approved')),'publication wrote Accepted Facts directly');
+select pg_temp.assert((select count(*)=0 from public.backyrd_spot_intelligence_evidence_v1 where spot_id=(select id from public.spots where google_place_id='test-google-place-1' and status='approved')),'publication wrote N4 directly');
 select pg_temp.assert((select (public.backyrd_city_bootstrap_enqueue_research_v1(id)->>'canonicalWrite')::boolean=false from public.backyrd_city_bootstrap_candidates_v1 where display_name='Pilot Café'),'Research adapter reported a canonical write');
-select pg_temp.assert((select count(*)=1 from public.backyrd_spot_research_jobs_v1 where spot_id=(select id from public.spots where google_place_id='test-google-place-1') and actor_id=pg_temp.r_uuid('city-bootstrap-founder') and contract_version='backyrd-spot-research-agent-v2.1'),'canonical Research v2.1 job missing');
-select pg_temp.assert((select count(*)=2 from public.backyrd_spot_research_passes_v2 where job_id=(select id from public.backyrd_spot_research_jobs_v1 where spot_id=(select id from public.spots where google_place_id='test-google-place-1'))),'Research A/B passes missing');
+select pg_temp.assert((select count(*)=1 from public.backyrd_spot_research_jobs_v1 where spot_id=(select id from public.spots where google_place_id='test-google-place-1' and status='approved') and actor_id=pg_temp.r_uuid('city-bootstrap-founder') and contract_version='backyrd-spot-research-agent-v2.1'),'canonical Research v2.1 job missing');
+select pg_temp.assert((select count(*)=2 from public.backyrd_spot_research_passes_v2 where job_id=(select id from public.backyrd_spot_research_jobs_v1 where spot_id=(select id from public.spots where google_place_id='test-google-place-1' and status='approved'))),'Research A/B passes missing');
 select public.backyrd_city_bootstrap_enqueue_research_v1(id) from public.backyrd_city_bootstrap_candidates_v1 where display_name='Pilot Café';
-select pg_temp.assert((select count(*)=1 from public.backyrd_spot_research_jobs_v1 where spot_id=(select id from public.spots where google_place_id='test-google-place-1')),'Research replay duplicated logical job');
+select pg_temp.assert((select count(*)=1 from public.backyrd_spot_research_jobs_v1 where spot_id=(select id from public.spots where google_place_id='test-google-place-1' and status='approved')),'Research replay duplicated logical job');
 
 select public.backyrd_city_bootstrap_publish_candidate_v1(id) from public.backyrd_city_bootstrap_candidates_v1 where display_name='Pilot Café';
-select pg_temp.assert((select count(*)=1 from public.spots where google_place_id='test-google-place-1'),'idempotent replay duplicated Spot');
+select pg_temp.assert((select count(*)=1 from public.spots where google_place_id='test-google-place-1' and status='approved'),'idempotent replay duplicated active Spot');
 
 insert into public.backyrd_city_bootstrap_candidates_v1(run_id,identity_key,display_name,normalized_name,address,normalized_address,city,country,lat,lng,website,google_place_id,external_types,canonical_category_name,relevance_state,relevance_reason,relevance_confidence,identity_state,identity_confidence,lifecycle_state,source_fingerprint)
 select id,repeat('2',64),'Pilot Café Again','pilot cafe again','Otherweg 2','otherweg 2','Basel','Switzerland',47.561,7.591,'https://pilot-again.example/','test-google-place-1',array['cafe'],'Café','RELEVANT','SUPPORTED_TYPE','HIGH','NEW_IDENTITY','STRONG','PRODUCT_ELIGIBLE',repeat('c',64)
 from public.backyrd_city_bootstrap_runs_v1 where run_key='basel-pilot-test-v1';
 select public.backyrd_city_bootstrap_publish_candidate_v1(id) from public.backyrd_city_bootstrap_candidates_v1 where display_name='Pilot Café Again';
-select pg_temp.assert((select count(*)=1 from public.spots where google_place_id='test-google-place-1'),'same provider identity created duplicate Spot');
+select pg_temp.assert((select count(*)=1 from public.spots where google_place_id='test-google-place-1' and status='approved'),'same provider identity created duplicate active Spot');
 
 insert into public.backyrd_city_bootstrap_candidates_v1(run_id,identity_key,display_name,normalized_name,address,normalized_address,city,country,lat,lng,external_types,relevance_state,identity_state,lifecycle_state,source_fingerprint)
 select id,repeat('3',64),'Ambiguous Place','ambiguous place','Shared 1','shared 1','Basel','Switzerland',47.57,7.60,array['tourist_attraction'],'AMBIGUOUS','AMBIGUOUS','REVIEW_REQUIRED',repeat('d',64)

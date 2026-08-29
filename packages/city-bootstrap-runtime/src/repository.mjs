@@ -11,7 +11,7 @@ export function createCityBootstrapRepository({ baseUrl, serviceKey, fetchImpl =
   };
   const insert = (table, rows, resolution = "merge-duplicates", conflict = null) => request(`${table}${conflict ? `?on_conflict=${encodeURIComponent(conflict)}` : ""}`, { method: "POST", headers: { prefer: `return=representation,resolution=${resolution}` }, body: JSON.stringify(rows) });
   return Object.freeze({
-    loadExistingSpots: (city) => selectAll("spots", "id,name,address,lat,lng,website,phone,google_place_id,status,data_origin,category_id", `&city=eq.${encodeURIComponent(city)}&status=neq.archived`),
+    loadExistingSpots: (city) => selectAll("spots", "id,name,address,lat,lng,website,phone,google_place_id,status,data_origin,category_id", `&city=eq.${encodeURIComponent(city)}&status=eq.approved`),
     loadCategories: () => selectAll("categories", "id,name"),
     loadRun: async (runKey) => (await selectAll("backyrd_city_bootstrap_runs_v1", "*", `&run_key=eq.${encodeURIComponent(runKey)}`))[0] ?? null,
     createRun: async (run) => (await insert("backyrd_city_bootstrap_runs_v1", run, "ignore-duplicates"))[0],
