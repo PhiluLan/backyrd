@@ -1,6 +1,36 @@
 # Spot Intelligence Pipeline V1 Acceptance
 
-Measured 2026-08-29. Overall verdict: **FAIL**. The implementation and local database acceptance are green, but the required real pilot, production deployment, scaled corpus, measured AI/provider cost, human-review sample, refresh run, and client validation against 500–600 Spots do not exist. This report does not convert implementation readiness into production proof.
+Final Production closure measured 2026-08-29. Overall verdict: **PASS**.
+
+## Final Production closure
+
+- Canonical Production lineage: `main` through `c2c83f88eae74422952abc3752465b2375e620da`; all required GitHub checks passed and the additive migrations and worker were deployed normally.
+- Spot Engine Admin Operations: PASS. The authenticated Admin surface exposes Basel runs, metrics, pause/circuit-breaker reasons, candidates, failed jobs, telemetry, and auditable review actions through the existing server-side contracts. No client secret or service-role credential is exposed.
+- Founder self-service review: YES. The final Production UI showed the completed scale run and 11 isolated routine Research reviews with Spot, proposed fact, scope, evidence, validation, confidence, conflict context, and authenticated accept/reject actions.
+- Controlled Basel scale run `0b6810dc-c427-48ea-8668-2ec6a85ce588`: COMPLETED / PASS after 13 contiguous small-batch checkpoints; 247 candidates, 246 published, 1 rejected, 0 processing, 0 bootstrap-review-required, and 0 failed.
+- Basel launch corpus: 415 Product Spots, all discovery-ready. The curated eligible selection was exhausted; the numeric 500–600 planning range was not pursued by lowering relevance or truth standards.
+- Corpus integrity: definite identity duplicates 0, fixtures 0, invalid coordinates 0, broken category references 0, invalid canonical facts 0, and unsupported automatic canonical AI facts 0.
+- Human intervention: 15 resolved interventions across 316 newly onboarded Product Spots, or 4.75 per 100. The controlled scale portion required 2 resolved interventions across 246 published Spots, or 0.81 per 100.
+- Research quality: 12 scale proposals, 1 Founder-accepted and 11 safely pending; all canonical acceptance remained human-attributed and auditable. Three Research jobs failed closed on instance-scope mismatch. No new systematic truth-error class was observed.
+- Refresh: the real unchanged-source refresh completed for 30 candidates with 30 skips, 0 provider calls, 0 product writes, 0 canonical facts, and 0 reviews.
+- Retry/resume: the scale resumed safely after an isolated review pause and a server-side ACL fix; checkpoint numbering remained contiguous. Finalization replay was idempotent and returned the original completion timestamp.
+- Operational cost telemetry: 210 Google Text Search Pro requests, 1,962,509 Research input tokens, 225,811 output tokens, and 241 web-search calls were observed for the complete Production workstream. Gross public-list-price estimate was about USD 10.07, or USD 0.032 per newly onboarded Product Spot; actual billed cost was not persisted by the provider telemetry contract.
+- Product verification: Production Search, Map, Places, and Spot Detail smoke passed; the Places surface reported 415 Basel locations. Mobile contract, map-discovery, and canonical-image suites passed. Decision Lab guards, N4 registry checks, and the User Learning firewall passed without semantic changes.
+
+```text
+SPOT ENGINE ADMIN OPERATIONS — PASS
+FOUNDER CAN OPERATE REVIEWS WITHOUT CODEX — YES
+BASEL PRODUCT SPOTS — 415
+HUMAN INTERVENTIONS PER 100 — 4.75
+UNSUPPORTED CANONICAL AI FACTS — 0
+CITY BOOTSTRAP / SPOT INTELLIGENCE PIPELINE V1 — PASS
+```
+
+The remainder of this document is the preserved pre-Production baseline that originally blocked acceptance. It remains as audit history and is not the current verdict.
+
+## Historical pre-Production baseline
+
+Measured earlier on 2026-08-29. Historical verdict: **FAIL**. The implementation and local database acceptance were green, but the required real pilot, production deployment, scaled corpus, measured AI/provider cost, human-review sample, refresh run, and client validation did not yet exist. This section does not convert implementation readiness into production proof.
 
 ## Evidence completed
 
