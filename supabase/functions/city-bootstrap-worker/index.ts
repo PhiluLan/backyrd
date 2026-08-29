@@ -55,6 +55,20 @@ export function evaluatePilotAcceptance(input: PilotAcceptanceInput) {
   return {verdict:failures.length?"FAIL":"PASS",failures,metrics:{publishedCandidates:input.publishedCandidateCount,researchJobs:input.researchJobs.length,researchReady:input.researchJobs.filter((job)=>job.state==="READY_FOR_REVIEW").length,researchSafeFailures:input.researchJobs.filter(safeFailure).length,proposals:input.proposals.length,accepted:input.proposals.filter((proposal)=>proposal.status==="ACCEPTED").length,unsupportedAutomaticCanonicalFacts:input.proposals.filter((proposal)=>proposal.status==="ACCEPTED"&&!clean(proposal.reviewed_by)).length}};
 }
 
+export type ScaleBatchIntegrity = { attemptedCandidateCount:number;publishedSpotIds:string[];googleDuplicateGroups:number;normalizedIdentityDuplicateGroups:number;fixtureLeakage:number;publishedWithoutSpot:number;openReviews:number;failedBootstrapJobs:number;distributionIneligible:number };
+export function evaluateScaleBatchIntegrity(input: ScaleBatchIntegrity) {
+  const failures:string[]=[];
+  if(input.attemptedCandidateCount<1||input.attemptedCandidateCount>20||input.publishedSpotIds.length!==input.attemptedCandidateCount||new Set(input.publishedSpotIds).size!==input.publishedSpotIds.length)failures.push("SCALE_BATCH_IDENTITY_INVALID");
+  if(input.googleDuplicateGroups>0)failures.push("GOOGLE_IDENTITY_DUPLICATE");
+  if(input.normalizedIdentityDuplicateGroups>0)failures.push("NORMALIZED_IDENTITY_DUPLICATE");
+  if(input.fixtureLeakage>0)failures.push("FIXTURE_LEAKAGE");
+  if(input.publishedWithoutSpot>0)failures.push("PUBLISHED_WITHOUT_SPOT");
+  if(input.openReviews>0)failures.push("OPEN_IDENTITY_REVIEW");
+  if(input.failedBootstrapJobs>0)failures.push("BOOTSTRAP_QUEUE_FAILURE");
+  if(input.distributionIneligible>0)failures.push("DISTRIBUTION_GUARD_FAILURE");
+  return {verdict:failures.length?"FAIL":"PASS",failures};
+}
+
 type RefreshPrevious = {
   identity_key?: unknown;
   source_fingerprint?: unknown;
@@ -233,6 +247,40 @@ if (import.meta.main) Deno.serve(async (request) => {
       if(evaluation.verdict!=="PASS")return json({ok:false,runId,status:run.status,verdict:"FAIL",snapshot},409);
       const completed=await db.from("backyrd_city_bootstrap_runs_v1").update({status:"COMPLETED",completed_at:new Date().toISOString()}).eq("id",runId).in("status",["RUNNING","PAUSED","REVIEW_REQUIRED"]).select("id,status,completed_at,stop_reason").single();if(completed.error)throw completed.error;
       return json({ok:true,runId,status:completed.data.status,verdict:"PASS",replayed:false,snapshot});
+    }
+    if(action==="PUBLISH_SCALE_BATCH") {
+      const runId=clean(body?.runId),requestedBy=clean(body?.requestedBy),batchNumber=Number(body?.batchNumber),researchLimit=Number(body?.researchLimit??0);
+      if(clean(body?.confirm)!==`PUBLISH_SCALE:${runId}:${batchNumber}`||!/^[0-9a-f-]{36}$/.test(runId)||!/^[0-9a-f-]{36}$/.test(requestedBy)||!Number.isInteger(batchNumber)||batchNumber<1||batchNumber>50||!Number.isInteger(researchLimit)||researchLimit<0||researchLimit>2)return json({ok:false,error:"scale_batch_request_invalid"},400);
+      const [{data:run},{data:actor},{data:priorCheckpoint}]=await Promise.all([
+        db.from("backyrd_city_bootstrap_runs_v1").select("id,mode,status,requested_by").eq("id",runId).maybeSingle(),
+        db.from("admin_users").select("user_id,role").eq("user_id",requestedBy).in("role",["admin","super_admin"]).maybeSingle(),
+        db.from("backyrd_city_bootstrap_checkpoints_v1").select("verdict,snapshot").eq("run_id",runId).eq("batch_number",batchNumber).maybeSingle(),
+      ]);
+      if(!run||run.mode!=="SCALE"||!actor||run.requested_by!==requestedBy)return json({ok:false,error:"scale_batch_actor_or_run_invalid"},403);
+      if(priorCheckpoint)return json({ok:priorCheckpoint.verdict==="PASS",runId,batchNumber,replayed:true,verdict:priorCheckpoint.verdict,snapshot:priorCheckpoint.snapshot},priorCheckpoint.verdict==="PASS"?200:409);
+      if(run.status!=="RUNNING")return json({ok:false,error:"scale_run_not_running",status:run.status},409);
+      if(batchNumber>1){const {data:previous}=await db.from("backyrd_city_bootstrap_checkpoints_v1").select("verdict").eq("run_id",runId).eq("batch_number",batchNumber-1).maybeSingle();if(previous?.verdict!=="PASS")return json({ok:false,error:"scale_previous_checkpoint_not_pass"},409);}
+      const {data:rows,error:rowsError}=await db.from("backyrd_city_bootstrap_candidates_v1").select("id").eq("run_id",runId).eq("lifecycle_state","PRODUCT_ELIGIBLE").order("enrichment_priority",{ascending:false}).order("created_at",{ascending:true}).limit(20);if(rowsError)throw rowsError;if(!(rows??[]).length)return json({ok:false,error:"scale_batch_empty"},409);
+      const publicationResults:any[]=[];for(const row of rows??[]){const publication=await db.rpc("backyrd_city_bootstrap_publish_candidate_v1",{p_candidate_id:row.id});if(publication.error)throw publication.error;publicationResults.push(publication.data);}
+      const batchSpotIds=[...new Set(publicationResults.map((result:any)=>clean(result?.spotId)).filter(Boolean))];
+      const [allSpotsResult,runCandidatesResult,reviewsResult,bootstrapJobsResult,distributionResult]=await Promise.all([
+        db.from("spots").select("id,name,address,google_place_id,data_origin,status").eq("city","Basel").eq("status","approved").limit(1000),
+        db.from("backyrd_city_bootstrap_candidates_v1").select("lifecycle_state,matched_spot_id").eq("run_id",runId),
+        db.from("backyrd_city_bootstrap_reviews_v1").select("state").eq("run_id",runId),
+        db.from("backyrd_city_bootstrap_jobs_v1").select("state").eq("run_id",runId),
+        batchSpotIds.length?db.rpc("distribution_trust_filter_entities_v1",{p_entity_type:"spot",p_entity_ids:batchSpotIds,p_surface:"decision"}):Promise.resolve({data:[],error:null}),
+      ]);
+      const readError=allSpotsResult.error??runCandidatesResult.error??reviewsResult.error??bootstrapJobsResult.error??distributionResult.error;if(readError)throw readError;
+      const allSpots=allSpotsResult.data,runCandidates=runCandidatesResult.data,reviews=reviewsResult.data,bootstrapJobs=bootstrapJobsResult.data,distribution=distributionResult.data;
+      const duplicateGroupCount=(values:string[])=>{const counts=new Map<string,number>();for(const value of values)counts.set(value,(counts.get(value)??0)+1);return [...counts.values()].filter((count)=>count>1).length;};
+      const googleDuplicateGroups=duplicateGroupCount((allSpots??[]).map((spot:any)=>clean(spot.google_place_id)).filter(Boolean)),normalizedIdentityDuplicateGroups=duplicateGroupCount((allSpots??[]).map((spot:any)=>{const name=normalize(spot.name),address=normalize(spot.address);return name&&address?`${name}|${address}`:"";}).filter(Boolean));
+      const integrity=evaluateScaleBatchIntegrity({attemptedCandidateCount:(rows??[]).length,publishedSpotIds:batchSpotIds,googleDuplicateGroups,normalizedIdentityDuplicateGroups,fixtureLeakage:(allSpots??[]).filter((spot:any)=>["TEST","FIXTURE"].includes(spot.data_origin)).length,publishedWithoutSpot:(runCandidates??[]).filter((candidate:any)=>candidate.lifecycle_state==="PUBLISHED"&&!clean(candidate.matched_spot_id)).length,openReviews:(reviews??[]).filter((review:any)=>review.state==="OPEN").length,failedBootstrapJobs:(bootstrapJobs??[]).filter((job:any)=>job.state==="FAILED").length,distributionIneligible:(distribution??[]).filter((row:any)=>!row.eligible).length});
+      let researchQueued=0,researchDeduplicated=0;
+      if(integrity.verdict==="PASS"&&researchLimit>0){const {data:publishedRows}=await db.from("backyrd_city_bootstrap_candidates_v1").select("id,matched_spot_id,canonical_category_name").in("id",(rows??[]).map((row:any)=>row.id));const {data:researchSpots}=batchSpotIds.length?await db.from("spots").select("id,website").in("id",batchSpotIds):{data:[]};const {data:priorResearch}=await db.from("backyrd_spot_research_jobs_v1").select("spot_id,source_scope").limit(5000);const eligible=selectResearchEligible(publishedRows??[],researchSpots??[],{spotIds:(priorResearch??[]).map((row:any)=>clean(row.spot_id)).filter(Boolean),hosts:(priorResearch??[]).map((row:any)=>publicHost(row.source_scope?.officialWebsite)).filter(Boolean)});for(const row of selectResearchCohort(eligible,researchLimit)){const research=await db.rpc("backyrd_city_bootstrap_enqueue_research_v1",{p_candidate_id:(row as any).id});if(research.error)throw research.error;researchQueued++;if(research.data?.deduplicated)researchDeduplicated++;}}
+      const snapshot={attempted:(rows??[]).length,publishedSpotIds:batchSpotIds,newProductSpots:publicationResults.filter((result:any)=>result?.published===true).length,duplicatesPrevented:publicationResults.filter((result:any)=>result?.matchedExisting===true).length,writeFailures:0,queueFailures:(bootstrapJobs??[]).filter((job:any)=>job.state==="FAILED").length,openReviews:(reviews??[]).filter((review:any)=>review.state==="OPEN").length,distributionIneligible:(distribution??[]).filter((row:any)=>!row.eligible).length,googleDuplicateGroups,normalizedIdentityDuplicateGroups,researchQueued,researchDeduplicated,canonicalFactsWritten:0,n4Writes:0,failures:integrity.failures};
+      const checkpoint=await db.from("backyrd_city_bootstrap_checkpoints_v1").insert({run_id:runId,batch_number:batchNumber,snapshot,verdict:integrity.verdict});if(checkpoint.error)throw checkpoint.error;
+      if(integrity.verdict!=="PASS"){const paused=await db.from("backyrd_city_bootstrap_runs_v1").update({status:"PAUSED",stop_reason:`CIRCUIT_BREAKER:${integrity.failures.join(",")}`.slice(0,500)}).eq("id",runId);if(paused.error)throw paused.error;return json({ok:false,runId,batchNumber,status:"PAUSED",verdict:"FAIL",snapshot},409);}
+      return json({ok:true,runId,batchNumber,status:"RUNNING",verdict:"PASS",replayed:false,snapshot});
     }
     if(action==="KICK_RESEARCH") {
       if(!researchKey||!researchEnabled)return json({ok:false,error:"research_provider_unhealthy"},503);const workers=Math.max(1,Math.min(Number(body?.workers??1),3)),statuses:number[]=[];
