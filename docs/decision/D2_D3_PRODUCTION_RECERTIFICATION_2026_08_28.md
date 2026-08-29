@@ -92,3 +92,17 @@ full contract validates; later modification or deletion remains blocked.
 
 This is repository/deployment-evidence convergence, not a new Decision
 baseline and not a semantic exception.
+
+### Deployed result
+
+The successful canonical Main deployment from merge
+`196c111810833528a04e795e73168bb256ba91fb` produced active Production
+`decision-v13` version 74 with JWT verification enabled and bundle SHA-256
+`1da0bceb47c95f0e6e9ad7b1d3dd28d355852255f19c6ad4ac93b68265ff0d22`.
+The changed bundle identity is the deterministic result of Supabase packaging
+the now repository-backed source tree. A fresh extraction and per-file SHA-256
+comparison proves 38/38 deployed files byteidentical to canonical repository
+files, including the unchanged entrypoint SHA-256
+`4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299`.
+The v74 identity is authorized by the additive v4 contract; v2 and v3 remain
+preserved as forensic lineage. Decision semantics changed: no.
