@@ -7,6 +7,7 @@
 3. Supply dedicated server-side `GOOGLE_PLACES_API_KEY`, `CITY_BOOTSTRAP_SUPABASE_URL`, and `CITY_BOOTSTRAP_SUPABASE_SERVICE_KEY`. Never use browser/mobile credentials.
 4. Confirm the existing Research Agent worker has its server-side model secret and official-domain research capability.
 5. Record the Admin/Founder UUID authorizing non-shadow work.
+6. Deploy `city-bootstrap-worker` with JWT verification. When the dedicated credentials exist only in the Production Edge secret boundary, use this worker rather than copying secrets into a shell.
 
 ## Safe sequence
 
@@ -20,6 +21,8 @@ npm run city-bootstrap -- basel status --run-id <run-uuid>
 ```
 
 Run the existing Research Agent on the staged pilot. Resolve genuine ambiguity in Admin; do not bulk-accept proposals. Verify identity, relevance, category, provenance, unsupported inference rate, review burden, provider usage, retry behavior, and client smoke paths. Only a passing pilot permits `SCALE`.
+
+The Production Edge path exposes only aggregate, secret-free actions: `HEALTH`, `STAGE_PILOT`, `PUBLISH_PILOT`, `KICK_RESEARCH`, and `STATUS`. `HEALTH` checks contract presence and makes a one-result Google identifier probe without retaining provider content. `STAGE_PILOT` accepts 20–80 retainable OSM candidates, uses at most three concurrent Google identity lookups, retains only Place IDs, and pauses below 20 eligible candidates. `PUBLISH_PILOT` requires `PUBLISH:<run-id>` and enqueues the canonical Research Agent v2.1 A/B workflow; it cannot accept facts or write N4.
 
 Publication is deliberately separate and requires an exact confirmation token:
 

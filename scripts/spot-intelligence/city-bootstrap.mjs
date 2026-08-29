@@ -29,7 +29,7 @@ function publicCandidate(row) {
 async function writeArtifact(path, value) { await mkdir(dirname(path), { recursive: true }); await writeFile(path, `${canonicalJson(value)}\n`); }
 
 function usage() {
-  console.log("Usage: node scripts/spot-intelligence/city-bootstrap.mjs <basel|zurich> <config-validate|plan|dry-run|pilot-manifest|select|stage|status|publish-batch> [options]");
+  console.log("Usage: node scripts/spot-intelligence/city-bootstrap.mjs <basel|zurich> <config-validate|plan|dry-run|pilot-manifest|select|stage|status|validate-batch|publish-batch> [options]");
   console.log("dry-run: --source osm|google|both --output <file>; provider data is never persisted by this command");
   console.log("pilot-manifest/select: --input <manifest> --output <file>; status: --run-id <uuid>");
 }
@@ -80,7 +80,12 @@ else if (command === "config-validate") {
   let run = await repository.loadRun(runKey); if (!run) run = await repository.createRun({ run_key: runKey, city_key: config.key, city_name: config.name, geography: config.bounds, source_configuration: { source: manifest.source, legalBoundary: manifest.legalBoundary }, target_configuration: config.target, pipeline_version: PIPELINE_VERSION, canonical_repository_commit: commit, mode, status: "RUNNING", requested_by: requestedBy });
   const rows = (manifest.candidates ?? []).map((row) => ({ run_id: run.id, identity_key: row.identityKey ?? candidateIdentityKey(row), display_name: row.name, normalized_name: row.normalizedName, address: row.address, normalized_address: row.normalizedAddress || null, city: config.name, country: config.country, lat: row.lat, lng: row.lng, website: row.website, phone: row.phone, google_place_id: row.googlePlaceId, external_types: row.externalTypes, canonical_category_name: row.relevance?.categoryName, relevance_state: row.relevance?.state ?? "UNCLASSIFIED", relevance_reason: row.relevance?.reason, relevance_confidence: row.relevance?.confidence, identity_state: row.identity?.state ?? "UNRESOLVED", identity_confidence: row.identity?.confidence, matched_spot_id: row.identity?.spotId, lifecycle_state: row.lifecycleState ?? "DISCOVERED", source_fingerprint: row.sourceFingerprint ?? sha256({ sourceFamily: row.sourceFamily, sourceIdentity: row.sourceIdentity, name: row.normalizedName, address: row.normalizedAddress, lat: row.lat, lng: row.lng, website: row.website, externalTypes: row.externalTypes }), enrichment_priority: Math.min(1000, Math.max(0, Math.round((row.sourceQuality ?? 0) * 100))) }));
   const persisted = await repository.persistCandidates(rows);
-  const evidence = persisted.map((row) => ({ candidate_id: row.id, source_family: row.google_place_id ? "GOOGLE_PLACE_ID" : "OPENSTREETMAP", source_identity: row.google_place_id ?? (manifest.candidates.find((item) => (item.identityKey ?? candidateIdentityKey(item)) === row.identity_key)?.sourceIdentity ?? row.identity_key), fact_family: "IDENTITY", normalized_value: { identityKey: row.identity_key }, evidence_fingerprint: row.source_fingerprint, authority_class: row.google_place_id ? "IDENTIFIER_ONLY" : "STRUCTURED_OPEN_DATA", legal_use_status: row.google_place_id ? "IDENTIFIER_ONLY" : "PERMITTED", observed_at: manifest.generatedAt, pipeline_version: PIPELINE_VERSION }));
+  const evidence = persisted.flatMap((row) => {
+    const candidate = manifest.candidates.find((item) => (item.identityKey ?? candidateIdentityKey(item)) === row.identity_key);
+    const rows = [{ candidate_id: row.id, source_family: "OPENSTREETMAP", source_identity: candidate?.sourceIdentity ?? row.identity_key, fact_family: "IDENTITY", normalized_value: { source: "OPENSTREETMAP" }, evidence_fingerprint: row.source_fingerprint, authority_class: "STRUCTURED_OPEN_DATA", legal_use_status: "PERMITTED", observed_at: manifest.generatedAt, pipeline_version: PIPELINE_VERSION }];
+    if (row.google_place_id) rows.push({ candidate_id: row.id, source_family: "GOOGLE_PLACE_ID", source_identity: row.google_place_id, fact_family: "IDENTITY", normalized_value: { identifierOnly: true }, evidence_fingerprint: sha256({ candidateId: row.id, googlePlaceId: row.google_place_id }), authority_class: "IDENTIFIER_ONLY", legal_use_status: "IDENTIFIER_ONLY", observed_at: manifest.generatedAt, pipeline_version: PIPELINE_VERSION });
+    return rows;
+  });
   await repository.persistEvidence(evidence);
   await repository.enqueueJobs(persisted.filter((row) => row.lifecycle_state === "EVIDENCE_PENDING").map((row) => ({ run_id: run.id, candidate_id: row.id, stage: "EVIDENCE", idempotency_key: `evidence:${row.identity_key}:${row.source_fingerprint}` })));
   console.log(JSON.stringify({ runId: run.id, runKey, mode, candidates: persisted.length, productionSpotsWritten: 0 }, null, 2));
@@ -88,6 +93,13 @@ else if (command === "config-validate") {
   const runId = option("--run-id"), baseUrl = process.env.CITY_BOOTSTRAP_SUPABASE_URL, serviceKey = process.env.CITY_BOOTSTRAP_SUPABASE_SERVICE_KEY;
   if (!runId || !baseUrl || !serviceKey) throw new Error("--run-id and CITY_BOOTSTRAP_SUPABASE_URL/CITY_BOOTSTRAP_SUPABASE_SERVICE_KEY are required");
   const repository = createCityBootstrapRepository({ baseUrl, serviceKey }); console.log(JSON.stringify(await repository.status(runId), null, 2));
+} else if (command === "validate-batch") {
+  const runId = option("--run-id"), limit = Number(option("--limit", "30"));
+  const baseUrl = process.env.CITY_BOOTSTRAP_SUPABASE_URL, serviceKey = process.env.CITY_BOOTSTRAP_SUPABASE_SERVICE_KEY;
+  if (!runId || !baseUrl || !serviceKey) throw new Error("validate-batch requires --run-id and CITY_BOOTSTRAP credentials");
+  const repository = createCityBootstrapRepository({ baseUrl, serviceKey }), rows = await repository.loadCandidatesByState(runId, "EVIDENCE_PENDING", limit), results = [];
+  for (const row of rows) results.push(await repository.rpc("backyrd_city_bootstrap_validate_candidate_v1", { p_candidate_id: row.id }));
+  console.log(JSON.stringify({ runId, attempted: rows.length, eligible: results.filter((row) => row.eligible).length }, null, 2));
 } else if (command === "publish-batch") {
   const runId = option("--run-id"), limit = Number(option("--limit", "20")), confirmation = option("--confirm");
   const baseUrl = process.env.CITY_BOOTSTRAP_SUPABASE_URL, serviceKey = process.env.CITY_BOOTSTRAP_SUPABASE_SERVICE_KEY;
@@ -95,6 +107,10 @@ else if (command === "config-validate") {
   const repository = createCityBootstrapRepository({ baseUrl, serviceKey }), status = await repository.status(runId);
   if (!["PILOT", "SCALE"].includes(status.run?.mode) || status.run?.status !== "RUNNING") throw new Error("run_not_publishable");
   const rows = await repository.loadPublishableCandidates(runId, limit), results = [];
-  for (const row of rows) results.push(await repository.rpc("backyrd_city_bootstrap_publish_candidate_v1", { p_candidate_id: row.id }));
+  for (const row of rows) {
+    const publication = await repository.rpc("backyrd_city_bootstrap_publish_candidate_v1", { p_candidate_id: row.id });
+    const research = await repository.rpc("backyrd_city_bootstrap_enqueue_research_v1", { p_candidate_id: row.id });
+    results.push({ candidateId: row.id, published: publication.published, replayed: publication.replayed, researchState: research.state, researchDeduplicated: research.deduplicated });
+  }
   console.log(JSON.stringify({ runId, attempted: rows.length, results }, null, 2));
 } else { usage(); process.exitCode = 2; }

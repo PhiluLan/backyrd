@@ -34,7 +34,7 @@ Production mutations performed:
 | Review cases | 0 |
 | Other operational records | 0 |
 
-No destructive change occurred. The repository adds nine operational tables, four service-only RPCs, and one unique partial Spot Place-ID index. Local database tests use synthetic records inside a rollback scope.
+No destructive change occurred. The repository adds nine operational tables, six service-only RPCs, one server-only orchestration function, and one unique partial Spot Place-ID index. Local database tests use synthetic records inside a rollback scope.
 
 ## Before / after
 

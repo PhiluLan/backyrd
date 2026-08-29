@@ -261,6 +261,7 @@ begin
  select * into v_run from public.backyrd_city_bootstrap_runs_v1 where id=v_c.run_id for update;
  if v_run.mode not in ('PILOT','SCALE') or v_run.status<>'RUNNING' then raise exception 'city_bootstrap_publication_mode_invalid' using errcode='22023';end if;
  if v_c.lifecycle_state='PUBLISHED' then return jsonb_build_object('spotId',v_c.matched_spot_id,'published',false,'replayed',true);end if;
+ if v_run.mode='PILOT' and (select count(*) from public.backyrd_city_bootstrap_candidates_v1 where run_id=v_run.id and lifecycle_state='PUBLISHED')>=30 then raise exception 'city_bootstrap_pilot_limit_exceeded' using errcode='22023';end if;
  if v_c.lifecycle_state<>'PRODUCT_ELIGIBLE' or v_c.relevance_state<>'RELEVANT' or v_c.identity_state not in ('MATCHED_EXISTING','NEW_IDENTITY') or v_c.identity_confidence not in ('EXACT','STRONG') then raise exception 'city_bootstrap_candidate_not_eligible' using errcode='22023';end if;
  if exists(select 1 from public.backyrd_city_bootstrap_reviews_v1 where candidate_id=v_c.id and state='OPEN') then raise exception 'city_bootstrap_review_open' using errcode='22023';end if;
  if v_c.matched_spot_id is not null then
@@ -287,10 +288,59 @@ begin
  return jsonb_build_object('spotId',v_spot,'sourceId',v_source,'published',true,'matchedExisting',not v_created);
 end $$;
 
-revoke all on function public.backyrd_city_bootstrap_claim_job_v1(uuid,text,integer),public.backyrd_city_bootstrap_finish_job_v1(uuid,uuid,boolean,text,text),public.backyrd_city_bootstrap_open_review_v1(uuid,text,text,text,text),public.backyrd_city_bootstrap_publish_candidate_v1(uuid) from public,anon,authenticated;
-grant execute on function public.backyrd_city_bootstrap_claim_job_v1(uuid,text,integer),public.backyrd_city_bootstrap_finish_job_v1(uuid,uuid,boolean,text,text),public.backyrd_city_bootstrap_open_review_v1(uuid,text,text,text,text),public.backyrd_city_bootstrap_publish_candidate_v1(uuid) to service_role;
+create or replace function public.backyrd_city_bootstrap_validate_candidate_v1(p_candidate_id uuid)
+returns jsonb language plpgsql security definer set search_path=public,pg_catalog as $$
+declare v_c public.backyrd_city_bootstrap_candidates_v1%rowtype;v_run public.backyrd_city_bootstrap_runs_v1%rowtype;
+begin
+ if coalesce(auth.role(),'')<>'service_role' then raise exception 'city_bootstrap_service_only' using errcode='42501';end if;
+ select * into v_c from public.backyrd_city_bootstrap_candidates_v1 where id=p_candidate_id for update;
+ if not found then raise exception 'city_bootstrap_candidate_not_found' using errcode='22023';end if;
+ select * into v_run from public.backyrd_city_bootstrap_runs_v1 where id=v_c.run_id;
+ if v_run.mode not in ('PILOT','SCALE') or v_run.status<>'RUNNING' then raise exception 'city_bootstrap_validation_mode_invalid' using errcode='22023';end if;
+ if v_c.lifecycle_state='PRODUCT_ELIGIBLE' then return jsonb_build_object('candidateId',v_c.id,'eligible',true,'replayed',true);end if;
+ if v_c.lifecycle_state<>'EVIDENCE_PENDING' or v_c.relevance_state<>'RELEVANT' or v_c.relevance_confidence not in ('EXACT','HIGH') or v_c.identity_state not in ('MATCHED_EXISTING','NEW_IDENTITY') or v_c.identity_confidence not in ('EXACT','STRONG') then raise exception 'city_bootstrap_candidate_not_validated' using errcode='22023';end if;
+ if v_c.address is null or v_c.canonical_category_name is null or v_c.website is null or v_c.website!~'^https://[^[:space:]]+$' then raise exception 'city_bootstrap_required_evidence_missing' using errcode='22023';end if;
+ if v_run.mode='PILOT' and v_c.google_place_id is null then raise exception 'city_bootstrap_pilot_google_identity_required' using errcode='22023';end if;
+ if not exists(select 1 from public.backyrd_city_bootstrap_evidence_v1 e where e.candidate_id=v_c.id and e.source_family='OPENSTREETMAP' and e.legal_use_status='PERMITTED' and e.superseded_at is null and e.raw_payload_retained=false) then raise exception 'city_bootstrap_osm_evidence_required' using errcode='22023';end if;
+ if v_c.google_place_id is not null and not exists(select 1 from public.backyrd_city_bootstrap_evidence_v1 e where e.candidate_id=v_c.id and e.source_family='GOOGLE_PLACE_ID' and e.legal_use_status='IDENTIFIER_ONLY' and e.source_identity=v_c.google_place_id and e.superseded_at is null and e.raw_payload_retained=false) then raise exception 'city_bootstrap_google_identity_evidence_required' using errcode='22023';end if;
+ if exists(select 1 from public.backyrd_city_bootstrap_reviews_v1 where candidate_id=v_c.id and state='OPEN') then raise exception 'city_bootstrap_review_open' using errcode='22023';end if;
+ update public.backyrd_city_bootstrap_candidates_v1 set lifecycle_state='PRODUCT_ELIGIBLE',updated_at=now() where id=v_c.id;
+ update public.backyrd_city_bootstrap_jobs_v1 set state='COMPLETE',completed_at=coalesce(completed_at,now()),updated_at=now() where candidate_id=v_c.id and stage='EVIDENCE' and state in ('QUEUED','RUNNING');
+ return jsonb_build_object('candidateId',v_c.id,'eligible',true,'replayed',false);
+end $$;
+
+create or replace function public.backyrd_city_bootstrap_enqueue_research_v1(p_candidate_id uuid)
+returns jsonb language plpgsql security definer set search_path=public,pg_catalog,extensions as $$
+declare v_c public.backyrd_city_bootstrap_candidates_v1%rowtype;v_run public.backyrd_city_bootstrap_runs_v1%rowtype;v_spot record;v_scope jsonb;v_hash text;v_job public.backyrd_spot_research_jobs_v1%rowtype;v_deduplicated boolean:=false;
+begin
+ if coalesce(auth.role(),'')<>'service_role' then raise exception 'city_bootstrap_service_only' using errcode='42501';end if;
+ select * into v_c from public.backyrd_city_bootstrap_candidates_v1 where id=p_candidate_id for update;
+ if not found then raise exception 'city_bootstrap_candidate_not_found' using errcode='22023';end if;
+ select * into v_run from public.backyrd_city_bootstrap_runs_v1 where id=v_c.run_id;
+ if v_run.mode not in ('PILOT','SCALE') or v_run.status<>'RUNNING' or v_run.requested_by is null or not exists(select 1 from public.admin_users a where a.user_id=v_run.requested_by and a.role in ('admin','super_admin')) then raise exception 'city_bootstrap_research_actor_invalid' using errcode='42501';end if;
+ if v_c.lifecycle_state<>'PUBLISHED' or v_c.matched_spot_id is null then raise exception 'city_bootstrap_candidate_not_published' using errcode='22023';end if;
+ if v_run.mode='PILOT' and (select count(*) from public.backyrd_city_bootstrap_candidates_v1 where run_id=v_run.id and lifecycle_state='PUBLISHED')>30 then raise exception 'city_bootstrap_pilot_limit_exceeded' using errcode='22023';end if;
+ select id,name,city,website into v_spot from public.spots where id=v_c.matched_spot_id;
+ if v_spot.website is null or v_spot.website!~'^https://[^[:space:]]+$' then raise exception 'official_website_required' using errcode='22023';end if;
+ v_scope:=jsonb_build_object('officialWebsite',v_spot.website,'spotName',v_spot.name,'city',v_spot.city,'passes',jsonb_build_array('A','B'),'evidenceScopes',jsonb_build_array('SPOT','EVENT','PROGRAM','TEMPORARY','UNKNOWN_SCOPE'));
+ v_hash:=encode(extensions.digest(convert_to(v_scope::text,'UTF8'),'sha256'),'hex');
+ select * into v_job from public.backyrd_spot_research_jobs_v1 where spot_id=v_spot.id and contract_version='backyrd-spot-research-agent-v2.1' and source_scope_hash=v_hash order by created_at desc limit 1;
+ if found then v_deduplicated:=true; else
+  insert into public.backyrd_spot_research_jobs_v1(spot_id,actor_id,contract_version,source_scope,source_scope_hash,current_pass,phase)
+  values(v_spot.id,v_run.requested_by,'backyrd-spot-research-agent-v2.1',v_scope,v_hash,'A','PASS_A_QUEUED') returning * into v_job;
+  insert into public.backyrd_spot_research_passes_v2(job_id,pass_key,state) values(v_job.id,'A','QUEUED'),(v_job.id,'B','PENDING');
+ end if;
+ insert into public.backyrd_city_bootstrap_jobs_v1(run_id,candidate_id,stage,idempotency_key,state,completed_at)
+ values(v_run.id,v_c.id,'RESEARCH','research:'||v_hash,'COMPLETE',now()) on conflict(run_id,idempotency_key) do nothing;
+ return jsonb_build_object('jobId',v_job.id,'state',v_job.state,'phase',v_job.phase,'deduplicated',v_deduplicated,'canonicalWrite',false);
+end $$;
+
+revoke all on function public.backyrd_city_bootstrap_claim_job_v1(uuid,text,integer),public.backyrd_city_bootstrap_finish_job_v1(uuid,uuid,boolean,text,text),public.backyrd_city_bootstrap_open_review_v1(uuid,text,text,text,text),public.backyrd_city_bootstrap_publish_candidate_v1(uuid),public.backyrd_city_bootstrap_validate_candidate_v1(uuid),public.backyrd_city_bootstrap_enqueue_research_v1(uuid) from public,anon,authenticated;
+grant execute on function public.backyrd_city_bootstrap_claim_job_v1(uuid,text,integer),public.backyrd_city_bootstrap_finish_job_v1(uuid,uuid,boolean,text,text),public.backyrd_city_bootstrap_open_review_v1(uuid,text,text,text,text),public.backyrd_city_bootstrap_publish_candidate_v1(uuid),public.backyrd_city_bootstrap_validate_candidate_v1(uuid),public.backyrd_city_bootstrap_enqueue_research_v1(uuid) to service_role;
 
 comment on table public.backyrd_city_bootstrap_candidates_v1 is 'Operational city candidate staging. Never canonical Spot truth or Decision ranking input.';
 comment on table public.backyrd_city_bootstrap_evidence_v1 is 'Normalized permitted bootstrap evidence only; raw provider payload retention is structurally forbidden.';
 comment on table public.backyrd_city_bootstrap_reviews_v1 is 'Focused candidate/identity review queue; accepted canonical fact review remains the existing Gold authoring queue.';
 comment on function public.backyrd_city_bootstrap_publish_candidate_v1(uuid) is 'Service-only, fail-closed identity publication adapter. It writes core Spot identity and provenance, never N4 or Accepted Facts.';
+comment on function public.backyrd_city_bootstrap_validate_candidate_v1(uuid) is 'Service-only deterministic eligibility gate requiring permitted OSM evidence and identifier-only Google evidence for the Pilot.';
+comment on function public.backyrd_city_bootstrap_enqueue_research_v1(uuid) is 'Service-only adapter into the canonical Research Agent v2.1 queue. It creates proposals for human review only and never Accepted Facts or N4.';

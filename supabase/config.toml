@@ -432,3 +432,8 @@ entrypoint = "./functions/decision-engine-worker/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/decision-v13/index.deploy.ts"
+
+[functions.city-bootstrap-worker]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/city-bootstrap-worker/index.ts"
