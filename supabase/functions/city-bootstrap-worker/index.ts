@@ -50,6 +50,17 @@ export function unresolvedResearchFailures(jobs:Array<{failure_code?:unknown;cre
   return jobs.filter((job)=>{const code=clean(job.failure_code),cutoff=Date.parse(clean(resets[code])),createdAt=Date.parse(clean(job.created_at));return !code||!Number.isFinite(cutoff)||!Number.isFinite(createdAt)||createdAt>cutoff;});
 }
 
+export function planProviderCreditCanary(activeJobs:Array<{spot_id?:unknown;state?:unknown}>,pendingSpotIds:unknown[],limit=5){
+  const failures:string[]=[],queuedCounts=new Map<string,number>();
+  for(const job of activeJobs){const state=clean(job.state),spotId=clean(job.spot_id);if(state!=="QUEUED")failures.push("ACTIVE_JOB_NOT_QUEUED");if(!spotId)failures.push("QUEUED_JOB_SPOT_INVALID");else queuedCounts.set(spotId,(queuedCounts.get(spotId)??0)+1);}
+  if(activeJobs.length>limit*2)failures.push("QUEUED_JOB_BOUND_EXCEEDED");
+  if([...queuedCounts.values()].some((count)=>count>2))failures.push("QUEUED_JOB_DUPLICATE_COHORT");
+  const queuedSpotIds=[...queuedCounts.keys()].sort();if(queuedSpotIds.length>limit)failures.push("QUEUED_SPOT_BOUND_EXCEEDED");
+  const canarySpotIds=[...queuedSpotIds];for(const value of pendingSpotIds){const spotId=clean(value);if(spotId&&!canarySpotIds.includes(spotId)&&canarySpotIds.length<limit)canarySpotIds.push(spotId);}
+  if(canarySpotIds.length!==limit)failures.push("CANARY_SIZE_INVALID");
+  return {ok:failures.length===0,failures:[...new Set(failures)],canarySpotIds,queuedSpotIds};
+}
+
 const publicHost = (value: unknown) => { try { const url=new URL(clean(value));return url.protocol==="https:"&&!url.username&&!url.password?url.hostname.toLowerCase().replace(/^www\./,""):"";}catch{return "";} };
 const genericWebsiteNameTokens=new Set(["basel","restaurant","restaurants","cafe","bar","bars","hotel","hotels","hostel","museum","museums","theater","theatre","fitness","studio","club","zentrum","center","centre","schweiz","switzerland","official","page","about","www","com","ch","de","und","and","am","an","der","die","das","zum","zur","im","in","of","at","place","brewery","kitchen","soulfood","pizza","pizzeria","sushi","food","confiserie","konditorei","tea","room","bistrot","gasthof","restauration"]);
 const genericWebsitePathTokens=new Set([...genericWebsiteNameTokens,"angebot","angebote","location","locations","standort","standorte","detail","index","html","php","store","locator","search","spielplatz","spielplaetze","schwimmbad","reservieren","suite","suites","stadt"]);
@@ -250,10 +261,10 @@ if (import.meta.main) Deno.serve(async (request) => {
       const {data:runs,error:runError}=await db.from("backyrd_city_bootstrap_runs_v1").select("id,status,stop_reason,target_configuration").eq("mode","INTELLIGENCE").eq("status","PAUSED").eq("target_configuration->>phase","FULL_LAUNCH_CURATION").limit(2);if(runError)throw runError;
       const matching=(runs??[]).filter((run:any)=>run.stop_reason==="CIRCUIT_BREAKER:SYSTEMATIC_RESEARCH_FAILURE:research_provider_failed");if(matching.length!==1)return json({ok:false,error:"provider_credit_paused_run_invalid",matchingRuns:matching.length},409);
       const run=matching[0],[{data:active,error:activeError},{data:pending,error:pendingError}]=await Promise.all([
-        db.from("backyrd_spot_research_jobs_v1").select("id").eq("population_run_id",run.id).in("state",["QUEUED","RUNNING"]),
+        db.from("backyrd_spot_research_jobs_v1").select("id,spot_id,state").eq("population_run_id",run.id).in("state",["QUEUED","RUNNING"]),
         db.from("backyrd_spot_intelligence_population_v1").select("spot_id").eq("run_id",run.id).eq("terminal_state","PENDING").order("spot_id").limit(5)
-      ]);if(activeError||pendingError)throw activeError??pendingError;if((active??[]).length||pending?.length!==5)return json({ok:false,error:"provider_credit_canary_precondition_failed",activeJobs:(active??[]).length,pendingCanary:pending?.length??0},409);
-      const acknowledgedBefore=new Date().toISOString(),canarySpotIds=(pending??[]).map((item:any)=>item.spot_id),targetConfiguration={...run.target_configuration,providerFailureCircuitReset:{failureCode:"research_provider_failed",acknowledgedBefore,remediation:"CANONICAL_PROVIDER_CREDIT_RESTORED_V1",canarySize:5,canarySpotIds}};
+      ]);if(activeError||pendingError)throw activeError??pendingError;const plan=planProviderCreditCanary(active??[],(pending??[]).map((item:any)=>item.spot_id));if(!plan.ok)return json({ok:false,error:"provider_credit_canary_precondition_failed",failures:plan.failures,queuedJobs:(active??[]).length,pendingCanary:pending?.length??0},409);
+      const acknowledgedBefore=new Date().toISOString(),canarySpotIds=plan.canarySpotIds,targetConfiguration={...run.target_configuration,providerFailureCircuitReset:{failureCode:"research_provider_failed",acknowledgedBefore,remediation:"CANONICAL_PROVIDER_CREDIT_RESTORED_V1",canarySize:5,canarySpotIds,checkpointQueuedSpotIds:plan.queuedSpotIds}};
       const resumed=await db.from("backyrd_city_bootstrap_runs_v1").update({status:"RUNNING",stop_reason:null,target_configuration:targetConfiguration}).eq("id",run.id).eq("status","PAUSED").eq("stop_reason","CIRCUIT_BREAKER:SYSTEMATIC_RESEARCH_FAILURE:research_provider_failed").select("id,status").single();if(resumed.error)throw resumed.error;
       return json({ok:true,runId:run.id,status:"RUNNING",schedulerActivated:false,canarySize:5,providerHealth:"PASS",wroteCanonicalFacts:false});
     }

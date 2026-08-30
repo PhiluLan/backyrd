@@ -1,4 +1,4 @@
-import { evaluateIntelligenceCanaryReadiness, evaluatePilotAcceptance, evaluatePopulationTickReadiness, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planRefreshCandidates, selectIntelligenceCanary, selectResearchCohort, selectResearchEligible, systemicResearchFailure, unresolvedResearchFailures, websiteIdentityCompatible, type Candidate } from "./index.ts";
+import { evaluateIntelligenceCanaryReadiness, evaluatePilotAcceptance, evaluatePopulationTickReadiness, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planProviderCreditCanary, planRefreshCandidates, selectIntelligenceCanary, selectResearchCohort, selectResearchEligible, systemicResearchFailure, unresolvedResearchFailures, websiteIdentityCompatible, type Candidate } from "./index.ts";
 
 const candidate: Candidate = {
   sourceFamily: "OPENSTREETMAP",
@@ -124,6 +124,18 @@ Deno.test("Population systemic failure circuit breaker counts distinct Spots, no
     {failure_code:"research_provider_failed",created_at:"2026-08-29T13:00:00Z"},
   ],{"research_source_invalid:0":"2026-08-29T12:00:00Z","research_provider_failed":"2026-08-29T12:00:00Z"});
   if(independentlyReset.length!==1||independentlyReset[0].created_at!=="2026-08-29T13:00:00Z")throw new Error("failure-class-specific circuit resets are not isolated");
+});
+
+Deno.test("Provider-credit resume preserves bounded queued checkpoint jobs in the canary", () => {
+  const plan=planProviderCreditCanary([
+    {spot_id:"spot-b",state:"QUEUED"},{spot_id:"spot-b",state:"QUEUED"},
+    {spot_id:"spot-a",state:"QUEUED"},{spot_id:"spot-a",state:"QUEUED"},
+  ],["spot-c","spot-d","spot-e","spot-f"]);
+  if(!plan.ok||plan.canarySpotIds.join(",")!=="spot-a,spot-b,spot-c,spot-d,spot-e")throw new Error(`checkpoint canary invalid: ${plan.failures.join(",")}`);
+  const running=planProviderCreditCanary([{spot_id:"spot-a",state:"RUNNING"}], ["spot-b","spot-c","spot-d","spot-e"]);
+  if(running.ok||!running.failures.includes("ACTIVE_JOB_NOT_QUEUED"))throw new Error("RUNNING checkpoint job did not fail closed");
+  const duplicate=planProviderCreditCanary([{spot_id:"spot-a",state:"QUEUED"},{spot_id:"spot-a",state:"QUEUED"},{spot_id:"spot-a",state:"QUEUED"}], ["spot-b","spot-c","spot-d","spot-e"]);
+  if(duplicate.ok||!duplicate.failures.includes("QUEUED_JOB_DUPLICATE_COHORT"))throw new Error("duplicate queued cohort did not fail closed");
 });
 
 Deno.test("Research cohort excludes rows without canonical website eligibility", () => {
