@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildDeterministicProposalPlan, buildResearchRequest, callResearchProvider, canonicalizeResearchResponse, diagnoseLegacyResearchPayload, normalizePublicHttpsUrl, RESEARCH_OUTPUT_TOKENS_PER_PASS, RESEARCH_POLICY_VERSION, urlWithinOfficialInstanceScope, validateResearchEvidence } from "../src/index.mjs";
+import { buildDeterministicProposalPlan, buildResearchRequest, callResearchProvider, canonicalizeResearchResponse, diagnoseLegacyResearchPayload, diagnoseResearchSourcePayload, normalizePublicHttpsUrl, RESEARCH_OUTPUT_TOKENS_PER_PASS, RESEARCH_POLICY_VERSION, urlWithinOfficialInstanceScope, validateResearchEvidence } from "../src/index.mjs";
 
 const spot = { id: "11111111-1111-4111-8111-111111111111", name: "Museum Test", city: "Basel", website: "https://museum.example/" };
 const catalog = [
@@ -70,7 +70,20 @@ test("strict provider schema binds support status to typed-value presence", () =
     assert.deepEqual(variants[index].properties.durability.enum, ["PERSISTENT", "TEMPORARY", "UNKNOWN"]);
     assert.deepEqual(variants[index].properties.observed_at, { type: "null" });
     assert.deepEqual(variants[index + 1].properties.observed_at, { type: "null" });
+    assert.equal(variants[index].properties.source_url.pattern, "^(?:https://[^\\s]+)?$");
+    assert.equal(variants[index + 1].properties.source_url.pattern, "^(?:https://[^\\s]+)?$");
   }
+});
+
+test("service diagnostic classifies source failures without returning source content", () => {
+  const malformed = diagnoseResearchSourcePayload({ evidence: [{ ...evidenceRow, source_url: "not a url" }] }, context, "A");
+  assert.deepEqual(malformed, { found: true, index: 0, factKey: "activity.types", supportStatus: "SUPPORTED", sourceClass: "research_source_url_invalid", sourceLength: 9 });
+  assert.equal(JSON.stringify(malformed).includes("not a url"), false);
+  const encoded = diagnoseResearchSourcePayload({ evidence: [{ ...evidenceRow, source_url: "https://museum.example/%ZZ" }] }, context, "A");
+  assert.equal(encoded.sourceClass, "research_source_url_encoding_invalid");
+  const foreign = diagnoseResearchSourcePayload({ evidence: [{ ...evidenceRow, source_url: "https://other.example/" }] }, context, "A");
+  assert.equal(foreign.sourceClass, "research_source_not_official");
+  assert.deepEqual(diagnoseResearchSourcePayload({ evidence: [evidenceRow] }, context, "A"), { found: false, reason: "research_source_payload_has_no_structural_failure" });
 });
 
 test("strict provider schema uses explicit types for every enum constraint", () => {

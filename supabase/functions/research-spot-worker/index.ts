@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { processOneResearchJob } from "../../../packages/spot-research-runtime/src/worker.mjs";
 import { createSpotResearchRepository } from "../../../packages/spot-research-runtime/src/supabase-repository.mjs";
-import { diagnoseLegacyResearchPayload, retrieveBackgroundResearchResponse } from "../../../packages/spot-research-runtime/src/index.mjs";
+import { diagnoseLegacyResearchPayload, diagnoseResearchSourcePayload, retrieveBackgroundResearchResponse } from "../../../packages/spot-research-runtime/src/index.mjs";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const pause = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -21,7 +21,7 @@ Deno.serve(async (request) => {
   if (populationRunId !== null && !uuidPattern.test(populationRunId)) return json({ error: "population_run_invalid" }, 400);
   const service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const repository = createSpotResearchRepository(service, { populationRunId });
-  if (body.action === "DIAGNOSE_LEGACY_RESPONSE") {
+  if (body.action === "DIAGNOSE_LEGACY_RESPONSE" || body.action === "DIAGNOSE_SOURCE_RESPONSE") {
     const responseId = typeof body.responseId === "string" ? body.responseId : "";
     const { data: pass, error: passError } = await service.from("backyrd_spot_research_passes_v2").select("job_id,pass_key,provider_response_id").eq("provider_response_id", responseId).maybeSingle();
     if (passError || !pass || pass.provider_response_id !== responseId) return json({ error: "research_response_not_registered" }, 404);
@@ -29,7 +29,8 @@ Deno.serve(async (request) => {
     if (jobError || !job) return json({ error: "research_job_not_found" }, 404);
     const context = await repository.loadContext({ spotId: job.spot_id, sourceScope: job.source_scope, passKey: pass.pass_key });
     const response = await retrieveBackgroundResearchResponse(responseId, { apiKey });
-    return json({ responseId, providerStatus: response.providerStatus, diagnostic: diagnoseLegacyResearchPayload(response.payload, context, pass.pass_key) });
+    const diagnostic = body.action === "DIAGNOSE_SOURCE_RESPONSE" ? diagnoseResearchSourcePayload(response.payload, context, pass.pass_key) : diagnoseLegacyResearchPayload(response.payload, context, pass.pass_key);
+    return json({ responseId, providerStatus: response.providerStatus, diagnostic });
   }
   const runnerId = `research-edge:${crypto.randomUUID()}`;
   const started = Date.now();
