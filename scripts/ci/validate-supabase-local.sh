@@ -343,6 +343,8 @@ if ! psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command 'select 1' >/dev/null 2>&
 fi
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/spot_research_run_scoped_claim_v1.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/spot_research_provider_concurrency_bound_v1.sql"
 
 lint_json="$validation_root/db-lint.json"
 "$supabase_cli" db lint \
