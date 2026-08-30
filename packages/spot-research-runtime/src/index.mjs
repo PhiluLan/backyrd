@@ -124,7 +124,24 @@ function hasSubjectAnchor(evidence, subjectName, spotName) {
 }
 
 const officialOperationalAnchorFacts = new Set(["contact.phone", "contact.email", "opening.regular"]);
-const nonVenueHoursEvidence = /\b(?:office|team availability|business hours|opening hours (?:for )?(?:the )?office|buro|buero|sekretariat|theaterkasse|ticketkauf|ticket office|box office|geschaftszeiten buro|geschaeftszeiten buero)\b/i;
+const alwaysNonVenueHoursEvidence = /\b(?:office|team availability|business hours|opening hours (?:for )?(?:the )?office|buro|buero|sekretariat|theaterkasse|ticketkauf|ticket office|box office|geschaftszeiten buro|geschaeftszeiten buero|reception|rezeption|front desk|check[ -]?in|check[ -]?out|telefonzeiten|phone hours|schalterzeiten|counter hours|training|physio(?:therapy)?|physiotherapie|osteopath(?:y|ie)?|breakfast included|included breakfast)\b/i;
+const serviceScheduleEvidence = /\b(?:breakfast|fruhstuck|brunch|lunch|dinner|mittagessen|abendessen|warm(?:e|en|er)? kuche|kitchen hours?|reception|rezeption|front desk|check[ -]?in|check[ -]?out|training|physio(?:therapy)?|physiotherapie|osteopath(?:y|ie)?|course|kurs|class|session|spa|pool|sauna|massage|wellness|ticket|kasse|telefonzeiten|phone hours|schalterzeiten|counter hours)\b/i;
+const venueOpeningCue = /\b(?:offnungszeiten|opening hours|operating hours|venue hours|geoffnet|open daily|taglich geoffnet|geschlossen|closed|rest day|ruhetag)\b/i;
+const weekdayScheduleLead = /^(?:montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i;
+const explicitClockTime = /\b(?:[01]?\d|2[0-3])\s(?:[0-5]\d|uhr)\b/i;
+
+function isVenueRegularHoursEvidence(subjectName, shortEvidence) {
+  const subjectAndEvidence = normalizedText(`${subjectName ?? ""} ${shortEvidence ?? ""}`);
+  const evidence = normalizedText(shortEvidence);
+  if (alwaysNonVenueHoursEvidence.test(subjectAndEvidence)) return false;
+  const service = serviceScheduleEvidence.exec(evidence);
+  if (!service || venueOpeningCue.test(evidence)) return true;
+  // A general weekday/time schedule followed by a secondary kitchen/service
+  // note remains venue evidence. A service label before the first clock time
+  // (for example "Monday-Friday breakfast 07:00-10:00") does not.
+  const prefix = evidence.slice(0, service.index);
+  return weekdayScheduleLead.test(prefix) && explicitClockTime.test(prefix);
+}
 
 function operationalSubjectMatchesSpot(subjectName, spotName) {
   const subject = normalizedText(subjectName); const spot = normalizedText(spotName);
@@ -150,7 +167,7 @@ function hasOfficialOperationalSourceAnchor(item, context) {
     if (!urlWithinOfficialInstanceScope(item.sourceUrl, context.spot.website, context.spot.name)) return false;
     if (urlInstanceTokens(item.sourceUrl).some((token) => nonInstanceRouteTokens.has(token))) return false;
   } catch { return false; }
-  if (item.factKey === "opening.regular" && nonVenueHoursEvidence.test(normalizedText(`${item.subjectName} ${item.shortEvidence}`))) return false;
+  if (item.factKey === "opening.regular" && !isVenueRegularHoursEvidence(item.subjectName, item.shortEvidence)) return false;
   return true;
 }
 

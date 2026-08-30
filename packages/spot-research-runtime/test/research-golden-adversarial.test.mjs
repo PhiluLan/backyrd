@@ -82,7 +82,10 @@ test("Research operational official-source anchoring remains field-specific and 
     { ...safePhone, source_url: "https://golden.example/events/contact" },
     { ...safePhone, subject_name: "Basel Golden Museum SBB" },
     { ...base, fact_key: "opening.regular", typed_value: hours, subject_name: spot.name, source_url: "https://golden.example/contact", short_evidence: "Geschäftszeiten Büro: Dienstag 10:00–16:00" },
-    { ...base, fact_key: "opening.regular", typed_value: hours, subject_name: "Ticket office", source_url: "https://golden.example/tickets", short_evidence: "Ticket office Tuesday 10:00–16:00" }
+    { ...base, fact_key: "opening.regular", typed_value: hours, subject_name: "Ticket office", source_url: "https://golden.example/tickets", short_evidence: "Ticket office Tuesday 10:00–16:00" },
+    { ...base, fact_key: "opening.regular", typed_value: hours, subject_name: spot.name, source_url: "https://golden.example/hostel", short_evidence: "Breakfast included Tuesday 10:00–16:00" },
+    { ...base, fact_key: "opening.regular", typed_value: hours, subject_name: spot.name, source_url: "https://golden.example/contact", short_evidence: "Reception and check-in Tuesday 10:00–16:00" },
+    { ...base, fact_key: "opening.regular", typed_value: hours, subject_name: spot.name, source_url: "https://golden.example/services", short_evidence: "Training and physiotherapy Tuesday 10:00–16:00" }
   ];
   assert.equal(proposalCount({ ...safePhone }), 0, "the base golden catalog does not authorize contact fields");
   const safeValidation = validateResearchEvidence({ evidence: [safePhone] }, operationalContext, "A");
