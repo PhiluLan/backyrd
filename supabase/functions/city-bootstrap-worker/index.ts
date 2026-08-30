@@ -8,7 +8,7 @@ const similarity = (a: unknown, b: unknown) => { const x=tokens(a),y=tokens(b),u
 const distance = (aLat:number,aLng:number,bLat:number,bLng:number) => { const r=6371000,dLat=(bLat-aLat)*Math.PI/180,dLng=(bLng-aLng)*Math.PI/180,s=Math.sin(dLat/2)**2+Math.cos(aLat*Math.PI/180)*Math.cos(bLat*Math.PI/180)*Math.sin(dLng/2)**2;return 2*r*Math.asin(Math.sqrt(s)); };
 async function sha256(value: unknown) { const bytes=new TextEncoder().encode(JSON.stringify(value));return [...new Uint8Array(await crypto.subtle.digest("SHA-256",bytes))].map((byte)=>byte.toString(16).padStart(2,"0")).join(""); }
 const permittedCategory = new Set(["Restaurant","Bar","Café","Museum","Aktivität","Besonderes Erlebnis","Spaziergang","Unterkunft / Hotel","Aussichtspunkt","Wellness / Spa"]);
-export const populationResearchConcurrency = 3;
+export const populationResearchConcurrencyLimit = 4;
 export type Candidate = {sourceFamily:string;sourceIdentity:string;name:string;normalizedName?:string;address:string;normalizedAddress?:string;city:string;country:string;lat:number;lng:number;website:string;phone?:string|null;externalTypes:string[];relevance:{state:string;reason?:string;confidence:string;categoryName:string};identity:{state:string;confidence:string;spotId?:string};lifecycleState:string;sourceQuality?:number};
 
 export function selectResearchCohort<T extends { canonical_category_name?: unknown }>(rows: T[], limit = 10) {
@@ -279,7 +279,7 @@ if (import.meta.main) Deno.serve(async (request) => {
       const {data:runs,error:runError}=await db.from("backyrd_city_bootstrap_runs_v1").select("id,mode,status,target_configuration").eq("mode","INTELLIGENCE").eq("status","RUNNING").eq("target_configuration->>phase","FULL_LAUNCH_CURATION").limit(2);if(runError)throw runError;
       if((runs??[]).length!==1)return json({ok:false,error:"single_running_population_required",runningRuns:(runs??[]).length},409);
       const configured=await db.rpc("backyrd_configure_intelligence_population_worker_v1",{p_worker_url:`${url}/functions/v1/city-bootstrap-worker`});if(configured.error)throw configured.error;
-      return json({ok:true,runId:runs[0].id,schedule:"*/2 * * * *",researchConcurrencyLimit:populationResearchConcurrency,discoveryEnabled:false});
+      return json({ok:true,runId:runs[0].id,schedule:"*/2 * * * *",researchConcurrencyLimit:Number(runs[0].target_configuration?.researchConcurrencyLimit),discoveryEnabled:false});
     }
     if(action==="POPULATION_TICK") {
       if(!researchKey||!researchEnabled)return json({ok:false,error:"research_provider_unhealthy"},503);
@@ -287,7 +287,8 @@ if (import.meta.main) Deno.serve(async (request) => {
       const preflight=evaluatePopulationTickReadiness({runningRuns:(runs??[]).length,activeJobs:0,pendingSpots:0,machineAcceptanceFailures:0});
       if(!preflight.ok)return json({ok:false,error:"population_tick_preflight_failed",failures:preflight.failures},409);
       if(!(runs??[]).length)return json({ok:true,idle:true,reason:"NO_RUNNING_POPULATION"});
-      const run=runs[0],leaseToken=crypto.randomUUID();
+      const run=runs[0],researchConcurrency=Number(run.target_configuration?.researchConcurrencyLimit),leaseToken=crypto.randomUUID();
+      if(!Number.isInteger(researchConcurrency)||researchConcurrency<2||researchConcurrency>populationResearchConcurrencyLimit)return json({ok:false,error:"population_research_concurrency_invalid"},409);
       const claim=await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"CLAIM",p_lease_token:leaseToken});if(claim.error)throw claim.error;
       if(!claim.data?.claimed)return json({ok:true,idle:true,reason:"LEASE_HELD",runId:run.id});
       let release=true;
@@ -304,10 +305,10 @@ if (import.meta.main) Deno.serve(async (request) => {
         if(readiness.shouldFinalize){const finalized=await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"FINALIZE",p_lease_token:leaseToken});if(finalized.error)throw finalized.error;release=false;return json({ok:true,runId:run.id,status:"COMPLETED",...finalized.data});}
         let queued=0;
         if(readiness.shouldQueue){const {data:spots,error:spotsError}=await db.from("backyrd_spot_intelligence_population_v1").select("spot_id").eq("run_id",run.id).eq("terminal_state","PENDING").order("spot_id").limit(5);if(spotsError)throw spotsError;for(const spot of spots??[]){const result=await db.rpc("backyrd_enqueue_spot_intelligence_population_job_v1",{p_run_id:run.id,p_spot_id:spot.spot_id});if(result.error)throw result.error;queued++;}}
-        const kicked=await kickPopulationResearch(db,url,serviceKey,run.id,populationResearchConcurrency);
+        const kicked=await kickPopulationResearch(db,url,serviceKey,run.id,researchConcurrency);
         const post=evaluatePopulationTickReadiness({runningRuns:1,activeJobs:(active??[]).length,pendingSpots:pending??0,machineAcceptanceFailures:kicked.machineAccepted.filter((item:any)=>!item.accepted).length});
         if(!kicked.ok||!post.ok){await db.from("backyrd_city_bootstrap_runs_v1").update({status:"PAUSED",stop_reason:`CIRCUIT_BREAKER:${post.failures.join(",")||"RESEARCH_WORKER_FAILURE"}`.slice(0,500)}).eq("id",run.id).eq("status","RUNNING");const stopped=await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"STOP",p_lease_token:leaseToken});if(stopped.error)throw stopped.error;release=false;return json({ok:false,runId:run.id,status:"PAUSED",failures:post.failures,statuses:kicked.statuses},409);}
-        return json({ok:true,runId:run.id,status:"RUNNING",queued,researchWorkers:populationResearchConcurrency,machineAccepted:kicked.machineAccepted});
+        return json({ok:true,runId:run.id,status:"RUNNING",queued,researchWorkers:researchConcurrency,machineAccepted:kicked.machineAccepted});
       } finally {if(release)await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"RELEASE",p_lease_token:leaseToken});}
     }
     if(action==="SET_SCALE_STATE") {
