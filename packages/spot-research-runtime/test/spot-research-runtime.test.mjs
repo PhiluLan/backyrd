@@ -33,11 +33,11 @@ test("Pass A request is compact, official-domain-only and excludes accepted fact
 test("Pass B is disjoint from Pass A and carries only deep fact keys", () => {
   const a = buildResearchRequest(context, { passKey: "A" });
   const b = buildResearchRequest(context, { passKey: "B" });
-  const aKeys = [...new Set(a.body.text.format.schema.properties.evidence.items.anyOf.map((item) => item.properties.fact_key.enum[0]))];
-  const bKeys = [...new Set(b.body.text.format.schema.properties.evidence.items.anyOf.map((item) => item.properties.fact_key.enum[0]))];
+  const aKeys = Object.keys(a.body.text.format.schema.properties.evidence.properties);
+  const bKeys = Object.keys(b.body.text.format.schema.properties.evidence.properties);
   assert.deepEqual(aKeys.filter((key) => bKeys.includes(key)), []);
   assert.deepEqual(bKeys, ["suitability.conversation"]);
-  const [supported, unsupported] = b.body.text.format.schema.properties.evidence.items.anyOf;
+  const [supported, unsupported] = b.body.text.format.schema.properties.evidence.properties["suitability.conversation"].anyOf;
   assert.deepEqual(supported.properties.support_status.enum, ["SUPPORTED"]);
   assert.deepEqual(supported.properties.typed_value, { type: "string", enum: ["HIGH", "MEDIUM", "LOW", "UNKNOWN"] });
   assert.deepEqual(unsupported.properties.support_status.enum, ["UNKNOWN", "UNSUPPORTED"]);
@@ -53,14 +53,14 @@ test("continued deep cohort covers the four Gold families beyond the eight-row p
   ];
   const continuedContext = { ...context, catalog: continuedCatalog, researchCohort: "DEEP_CONTINUED" };
   const request = buildResearchRequest(continuedContext, { passKey: "B" });
-  assert.equal(request.body.text.format.schema.properties.evidence.minItems, 4);
-  assert.equal(request.body.text.format.schema.properties.evidence.maxItems, 4);
+  assert.deepEqual(request.body.text.format.schema.properties.evidence.required, continuedCatalog.map((fact) => fact.field_key));
+  assert.deepEqual(Object.keys(request.body.text.format.schema.properties.evidence.properties), continuedCatalog.map((fact) => fact.field_key));
   assert.deepEqual(JSON.parse(request.body.input).facts.map((fact) => fact.key), continuedCatalog.map((fact) => fact.field_key));
   assert.equal(validateResearchEvidence({ evidence: [] }, continuedContext, "B", { requireCompleteCoverage: true }).reason, "research_fact_coverage_incomplete");
 });
 
 test("strict provider schema binds support status to typed-value presence", () => {
-  const variants = buildResearchRequest(context, { passKey: "A" }).body.text.format.schema.properties.evidence.items.anyOf;
+  const variants = Object.values(buildResearchRequest(context, { passKey: "A" }).body.text.format.schema.properties.evidence.properties).flatMap((property) => property.anyOf);
   for (let index = 0; index < variants.length; index += 2) {
     assert.deepEqual(variants[index].properties.support_status.enum, ["SUPPORTED"]);
     assert.notEqual(variants[index].properties.typed_value.type, "null");
@@ -108,6 +108,16 @@ test("small evidence schema accepts supported official typed evidence", () => {
   const result = validateResearchEvidence({ evidence: [evidenceRow] }, context, "A");
   assert.equal(result.valid, true);
   assert.deepEqual(result.evidence[0].value, ["MUSEUM"]);
+});
+
+test("keyed provider evidence guarantees one exact row per requested fact", () => {
+  const schema = buildResearchRequest(context, { passKey: "A" }).body.text.format.schema.properties.evidence;
+  assert.equal(schema.type, "object");
+  assert.equal(schema.additionalProperties, false);
+  assert.deepEqual(schema.required, ["activity.types"]);
+  const result = validateResearchEvidence({ evidence: { "activity.types": evidenceRow } }, context, "A", { requireCompleteCoverage: true });
+  assert.equal(result.valid, true);
+  assert.equal(validateResearchEvidence({ evidence: { "activity.types": { ...evidenceRow, fact_key: "suitability.rain" } } }, context, "A", { requireCompleteCoverage: true }).reason, "research_fact_coverage_incomplete");
 });
 
 test("deterministic operational evidence is proposed only when the value is explicit", () => {
