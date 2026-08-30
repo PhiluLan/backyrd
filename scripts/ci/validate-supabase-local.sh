@@ -307,6 +307,26 @@ if psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command "set role authenticated;sel
 fi
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/spot_intelligence_machine_acceptance_v1.sql"
+# Keep the new service-only gateway denial probes outside the fixture
+# transaction so a backend crash can never be mistaken for an ACL PASS.
+if psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command "set role anon;select public.backyrd_revalidate_intelligence_operational_batch_v1('62000000-0000-4000-8000-000000000004'::uuid,'backyrd-machine-acceptance-v1',1);" >/dev/null 2>&1;then
+  printf 'anon unexpectedly executed operational revalidation.\n' >&2;exit 1
+fi
+if ! psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command 'select 1' >/dev/null 2>&1;then
+  printf 'Database backend became unhealthy after the operational revalidation anon denial probe.\n' >&2
+  docker logs --tail 120 "supabase_db_$project_id" >&2 || true
+  exit 1
+fi
+if psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command "set role authenticated;select public.backyrd_revalidate_intelligence_operational_batch_v1('62000000-0000-4000-8000-000000000004'::uuid,'backyrd-machine-acceptance-v1',1);" >/dev/null 2>&1;then
+  printf 'authenticated/admin browser unexpectedly executed operational revalidation.\n' >&2;exit 1
+fi
+if ! psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command 'select 1' >/dev/null 2>&1;then
+  printf 'Database backend became unhealthy after the operational revalidation authenticated denial probe.\n' >&2
+  docker logs --tail 120 "supabase_db_$project_id" >&2 || true
+  exit 1
+fi
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/intelligence_operational_revalidation_v1.sql"
 if psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command "set role anon;select public.backyrd_intelligence_population_tick_control_v1('61000000-0000-4000-8000-000000000099'::uuid,'CLAIM',gen_random_uuid());" >/dev/null 2>&1;then
   printf 'anon unexpectedly executed Population tick control.\n' >&2;exit 1
 fi

@@ -8,6 +8,9 @@ definer_delta="$repo_root/supabase/security/security-definer-spot-intelligence-m
 claim_migration="$repo_root/supabase/migrations/20260829221500_scope_research_claim_to_population_run_v1.sql"
 claim_delta="$repo_root/supabase/canonical/public-acl-spot-research-run-scoped-claim-v1.delta"
 legacy_claim_migration="$repo_root/supabase/migrations/20260829223000_isolate_population_jobs_from_legacy_research_v1.sql"
+revalidation_migration="$repo_root/supabase/migrations/20260830202410_revalidate_intelligence_operational_facts_v1.sql"
+revalidation_delta="$repo_root/supabase/canonical/public-acl-intelligence-operational-revalidation-v1.delta"
+revalidation_definer_delta="$repo_root/supabase/security/security-definer-intelligence-operational-revalidation-v1.delta.json"
 fail(){ printf 'Spot Intelligence Machine Acceptance ACL validation failed: %s\n' "$*" >&2;exit 1;}
 test -f "$migration" || fail 'migration missing'
 test -f "$delta" || fail 'reviewed delta missing'
@@ -15,6 +18,9 @@ test -f "$definer_delta" || fail 'reviewed SECURITY DEFINER delta missing'
 test -f "$claim_migration" || fail 'run-scoped claim migration missing'
 test -f "$claim_delta" || fail 'run-scoped claim reviewed delta missing'
 test -f "$legacy_claim_migration" || fail 'legacy claim isolation migration missing'
+test -f "$revalidation_migration" || fail 'operational revalidation migration missing'
+test -f "$revalidation_delta" || fail 'operational revalidation reviewed ACL delta missing'
+test -f "$revalidation_definer_delta" || fail 'operational revalidation reviewed SECURITY DEFINER delta missing'
 test "$(wc -l < "$delta" | tr -d ' ')" = 6 || fail 'delta must contain exactly six effective grants'
 test "$(grep -c '|service_role|' "$delta")" = 6 || fail 'non-service role in delta'
 if grep -Eq '\|(anon|authenticated)\|' "$delta";then fail 'client role in delta';fi
@@ -39,6 +45,14 @@ test "$(grep -Fc 'population_run_id is null' "$legacy_claim_migration")" -ge 3 |
 grep -Fq 'revoke all on function public.backyrd_claim_spot_research_job_v1(text,integer) from public,anon,authenticated,service_role;' "$legacy_claim_migration" || fail 'legacy claim pre-grant revoke boundary missing'
 grep -Fq 'grant execute on function public.backyrd_claim_spot_research_job_v1(text,integer) to service_role;' "$legacy_claim_migration" || fail 'legacy claim service grant drift'
 if grep -Eqi '^grant .* to (anon|authenticated|public)([,;]|$)' "$legacy_claim_migration";then fail 'legacy claim granted to client role';fi
+test "$(cat "$revalidation_delta")" = 'FUNCTION|backyrd_revalidate_intelligence_operational_batch_v1(uuid,text,integer)|service_role|EXECUTE' || fail 'operational revalidation delta differs from exact reviewed grant'
+test "$(grep -c '^grant execute on function ' "$revalidation_migration")" = 1 || fail 'operational revalidation has unexpected grant count'
+grep -Fq 'revoke all on function public.backyrd_revalidate_intelligence_operational_batch_v1(uuid,text,integer)' "$revalidation_migration" || fail 'operational revalidation gateway pre-grant revoke missing'
+grep -Fq 'grant execute on function public.backyrd_revalidate_intelligence_operational_batch_v1(uuid,text,integer)' "$revalidation_migration" || fail 'operational revalidation service grant drift'
+if grep -Eqi '^grant .* to (anon|authenticated|public)([,;]|$)' "$revalidation_migration";then fail 'operational revalidation granted to client role';fi
+if grep -Eqi '^grant .* on (table|sequence) ' "$revalidation_migration";then fail 'operational revalidation grants table or sequence access';fi
+if rg -q 'p_(actor|user)(_id)?[[:space:]]' "$revalidation_migration";then fail 'operational revalidation accepts caller-controlled actor';fi
+test "$(grep -Fc "coalesce(auth.role(),'')<>'service_role'" "$revalidation_migration")" -ge 2 || fail 'operational revalidation runtime service guards missing'
 test "$(grep -Fc "coalesce(auth.role(),'')<>'service_role'" "$migration")" -ge 4 || fail 'service-only runtime guards missing'
 jq -e '
   .version == 1 and (.functions|length) == 11
@@ -47,4 +61,10 @@ jq -e '
   and ([.functions[]|select(.classification == "WORKER" and (.anon or .authenticated or (.serviceRole|not)))]|length == 0)
   and ([.functions[]|select(.classification == "ADMIN" and (.anon or (.authenticated|not) or .serviceRole))]|length == 0)
 ' "$definer_delta" >/dev/null || fail 'SECURITY DEFINER classification delta invalid'
-printf 'Spot Intelligence Machine Acceptance ACL delta is exactly six service-only grants.\n'
+jq -e '
+  .version == 1 and (.functions|length) == 2
+  and ([.functions[].signature]|length == (unique|length))
+  and ([.functions[]|select(.classification == "SERVICE_INTERNAL" and (.anon or .authenticated or .serviceRole))]|length == 0)
+  and ([.functions[]|select(.classification == "WORKER" and (.anon or .authenticated or (.serviceRole|not)))]|length == 0)
+' "$revalidation_definer_delta" >/dev/null || fail 'operational revalidation SECURITY DEFINER classification delta invalid'
+printf 'Spot Intelligence Machine Acceptance ACL and operational revalidation deltas are exact and service-only.\n'

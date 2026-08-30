@@ -68,3 +68,28 @@ test("Research adversarial brand, branch and co-located instance evidence fails 
     return validation.valid ? buildDeterministicProposalPlan(validation.evidence, instanceContext).proposals.length : 0;
   }), [0, 0, 0, 0]);
 });
+
+test("Research operational official-source anchoring remains field-specific and subentity-safe", () => {
+  const operationalContext = { ...context, catalog: [
+    ...catalog,
+    { field_key: "contact.phone", value_kind: "TEXT", allowed_values: [], engine_role: "OPERATIONAL_FACT" },
+    { field_key: "opening.regular", value_kind: "STRUCTURED_OBJECT", allowed_values: [], engine_role: "OPERATIONAL_FACT" }
+  ] };
+  const hours = { days: [{ day: "Dienstag", intervals: [{ open: "10:00", close: "16:00" }] }] };
+  const safePhone = { ...base, fact_key: "contact.phone", typed_value: "+41 61 555 10 20", subject_name: spot.name, source_url: "https://golden.example/contact", short_evidence: "Telefon +41 61 555 10 20" };
+  const unsafe = [
+    { ...safePhone, entity_scope: "TENANT", subject_name: "Golden Café" },
+    { ...safePhone, source_url: "https://golden.example/events/contact" },
+    { ...safePhone, subject_name: "Basel Golden Museum SBB" },
+    { ...base, fact_key: "opening.regular", typed_value: hours, subject_name: spot.name, source_url: "https://golden.example/contact", short_evidence: "Geschäftszeiten Büro: Dienstag 10:00–16:00" },
+    { ...base, fact_key: "opening.regular", typed_value: hours, subject_name: "Ticket office", source_url: "https://golden.example/tickets", short_evidence: "Ticket office Tuesday 10:00–16:00" }
+  ];
+  assert.equal(proposalCount({ ...safePhone }), 0, "the base golden catalog does not authorize contact fields");
+  const safeValidation = validateResearchEvidence({ evidence: [safePhone] }, operationalContext, "A");
+  assert.equal(buildDeterministicProposalPlan(safeValidation.evidence, operationalContext).proposals.length, 1);
+  for (const row of unsafe) {
+    const validation = validateResearchEvidence({ evidence: [row] }, operationalContext, "A");
+    assert.equal(validation.valid, true);
+    assert.equal(buildDeterministicProposalPlan(validation.evidence, operationalContext).proposals.length, 0);
+  }
+});

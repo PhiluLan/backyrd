@@ -21,6 +21,18 @@ Deno.serve(async (request) => {
   if (populationRunId !== null && !uuidPattern.test(populationRunId)) return json({ error: "population_run_invalid" }, 400);
   const service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const repository = createSpotResearchRepository(service, { populationRunId });
+  if (body.action === "REVALIDATE_OPERATIONAL") {
+    if (populationRunId === null) return json({ error: "population_run_invalid" }, 400);
+    const requestedLimit = typeof body.limit === "number" && Number.isInteger(body.limit) ? body.limit : 5;
+    if (requestedLimit < 1 || requestedLimit > 5) return json({ error: "revalidation_limit_invalid" }, 400);
+    const { data, error } = await service.rpc("backyrd_revalidate_intelligence_operational_batch_v1", {
+      p_run_id: populationRunId,
+      p_policy_version: "backyrd-machine-acceptance-v1",
+      p_limit: requestedLimit
+    });
+    if (error) return json({ error: "operational_revalidation_failed" }, 503);
+    return json(data);
+  }
   if (body.action === "PROVIDER_HEALTH") {
     // Leave enough room for reasoning-model bookkeeping plus the one-token
     // response. A 64-token cap can make a healthy provider return `incomplete`
