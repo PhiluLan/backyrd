@@ -128,6 +128,11 @@ Deno.test("Population systemic failure circuit breaker counts distinct Spots, no
     {failure_code:"research_provider_failed",created_at:"2026-08-29T13:00:00Z"},
   ],{"research_source_invalid:0":"2026-08-29T12:00:00Z","research_provider_failed":"2026-08-29T12:00:00Z"});
   if(independentlyReset.length!==1||independentlyReset[0].created_at!=="2026-08-29T13:00:00Z")throw new Error("failure-class-specific circuit resets are not isolated");
+  const coverageReset=unresolvedResearchFailures([
+    {failure_code:"research_fact_coverage_incomplete",created_at:"2026-08-29T11:00:00Z"},
+    {failure_code:"research_fact_coverage_incomplete",created_at:"2026-08-29T13:00:00Z"},
+  ],{"research_fact_coverage_incomplete":"2026-08-29T12:00:00Z"});
+  if(coverageReset.length!==1||coverageReset[0].created_at!=="2026-08-29T13:00:00Z")throw new Error("coverage remediation reset is not failure-class specific");
 });
 
 Deno.test("Provider-credit resume preserves bounded queued checkpoint jobs in the canary", () => {
