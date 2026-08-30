@@ -22,7 +22,10 @@ Deno.serve(async (request) => {
   const service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const repository = createSpotResearchRepository(service, { populationRunId });
   if (body.action === "PROVIDER_HEALTH") {
-    const response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" }, body: JSON.stringify({ model: DEFAULT_RESEARCH_MODEL, store: false, background: false, reasoning: { effort: "low" }, input: "Return exactly OK.", max_output_tokens: 64 }) });
+    // Leave enough room for reasoning-model bookkeeping plus the one-token
+    // response. A 64-token cap can make a healthy provider return `incomplete`
+    // before it emits `OK`, which must not be mistaken for provider health.
+    const response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" }, body: JSON.stringify({ model: DEFAULT_RESEARCH_MODEL, store: false, background: false, reasoning: { effort: "low" }, input: "Return exactly OK.", max_output_tokens: 256 }) });
     let payload: Record<string, unknown> = {};try { payload = await response.json(); } catch { /* bounded health result below */ }
     const error = payload.error && typeof payload.error === "object" ? payload.error as Record<string, unknown> : {};
     const providerStatus = typeof payload.status === "string" ? payload.status : null,errorCode = typeof error.code === "string" ? error.code : null,ok = response.ok && providerStatus === "completed";
