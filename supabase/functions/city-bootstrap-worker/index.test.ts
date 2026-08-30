@@ -1,4 +1,4 @@
-import { evaluateIntelligenceCanaryReadiness, evaluatePilotAcceptance, evaluatePopulationTickReadiness, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planRefreshCandidates, selectIntelligenceCanary, selectResearchCohort, selectResearchEligible, websiteIdentityCompatible, type Candidate } from "./index.ts";
+import { evaluateIntelligenceCanaryReadiness, evaluatePilotAcceptance, evaluatePopulationTickReadiness, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planRefreshCandidates, selectIntelligenceCanary, selectResearchCohort, selectResearchEligible, systemicResearchFailure, websiteIdentityCompatible, type Candidate } from "./index.ts";
 
 const candidate: Candidate = {
   sourceFamily: "OPENSTREETMAP",
@@ -90,6 +90,21 @@ Deno.test("Population tick fails closed for concurrent runs and Machine Acceptan
   if(concurrent.ok||!concurrent.failures.includes("MULTIPLE_RUNNING_POPULATION_RUNS"))throw new Error("multiple Population runs were not rejected");
   const acceptance=evaluatePopulationTickReadiness({runningRuns:1,activeJobs:0,pendingSpots:400,machineAcceptanceFailures:1});
   if(acceptance.ok||!acceptance.failures.includes("MACHINE_ACCEPTANCE_FAILURE"))throw new Error("Machine Acceptance failure did not trip the circuit breaker");
+});
+
+Deno.test("Population systemic failure circuit breaker counts distinct Spots, not dual research cohorts", () => {
+  const duplicated=systemicResearchFailure([
+    {spot_id:"spot-1",failure_code:"research_source_not_official:0"},
+    {spot_id:"spot-1",failure_code:"research_source_not_official:0"},
+    {spot_id:"spot-2",failure_code:"research_source_not_official:0"},
+  ]);
+  if(duplicated)throw new Error("one Spot with two cohorts incorrectly tripped the systemic circuit breaker");
+  const systemic=systemicResearchFailure([
+    {spot_id:"spot-1",failure_code:"research_source_not_official:0"},
+    {spot_id:"spot-2",failure_code:"research_source_not_official:0"},
+    {spot_id:"spot-3",failure_code:"research_source_not_official:0"},
+  ]);
+  if(systemic?.failureCode!=="research_source_not_official:0"||systemic.count!==3)throw new Error("three distinct Spots did not trip the systemic circuit breaker");
 });
 
 Deno.test("Research cohort excludes rows without canonical website eligibility", () => {

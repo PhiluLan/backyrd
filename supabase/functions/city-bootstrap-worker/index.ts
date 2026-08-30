@@ -38,6 +38,13 @@ export function evaluateIntelligenceCanaryReadiness(input:{items:any[];jobs:any[
   return {failures,actualIds};
 }
 
+export function systemicResearchFailure(jobs:Array<{spot_id?:unknown;failure_code?:unknown}>,threshold=3){
+  const spotsByCode=new Map<string,Set<string>>();
+  for(const job of jobs){const code=clean(job.failure_code),spotId=clean(job.spot_id);if(!code||!spotId)continue;const spots=spotsByCode.get(code)??new Set<string>();spots.add(spotId);spotsByCode.set(code,spots);}
+  for(const [failureCode,spots] of spotsByCode)if(spots.size>=threshold)return {failureCode,count:spots.size};
+  return null;
+}
+
 const publicHost = (value: unknown) => { try { const url=new URL(clean(value));return url.protocol==="https:"&&!url.username&&!url.password?url.hostname.toLowerCase().replace(/^www\./,""):"";}catch{return "";} };
 const genericWebsiteNameTokens=new Set(["basel","restaurant","restaurants","cafe","bar","bars","hotel","hotels","hostel","museum","museums","theater","theatre","fitness","studio","club","zentrum","center","centre","schweiz","switzerland","official","page","about","www","com","ch","de","und","and","am","an","der","die","das","zum","zur","im","in","of","at","place","brewery","kitchen","soulfood","pizza","pizzeria","sushi","food","confiserie","konditorei","tea","room","bistrot","gasthof","restauration"]);
 const genericWebsitePathTokens=new Set([...genericWebsiteNameTokens,"angebot","angebote","location","locations","standort","standorte","detail","index","html","php","store","locator","search","spielplatz","spielplaetze","schwimmbad","reservieren","suite","suites","stadt"]);
@@ -241,11 +248,11 @@ if (import.meta.main) Deno.serve(async (request) => {
         const [{data:actor},{data:active,error:activeError},{data:failedJobs,error:failedError},{count:pending,error:pendingError}]=await Promise.all([
           db.from("admin_users").select("user_id,role").eq("user_id",run.requested_by).in("role",["admin","super_admin"]).maybeSingle(),
           db.from("backyrd_spot_research_jobs_v1").select("id").eq("population_run_id",run.id).in("state",["QUEUED","RUNNING"]),
-          db.from("backyrd_spot_research_jobs_v1").select("failure_code").eq("population_run_id",run.id).eq("state","FAILED"),
+          db.from("backyrd_spot_research_jobs_v1").select("spot_id,failure_code").eq("population_run_id",run.id).eq("state","FAILED"),
           db.from("backyrd_spot_intelligence_population_v1").select("spot_id",{count:"exact",head:true}).eq("run_id",run.id).eq("terminal_state","PENDING")
         ]);if(activeError||failedError||pendingError)throw activeError??failedError??pendingError;if(!actor)return json({ok:false,error:"population_tick_actor_lineage_invalid"},403);
-        const failureCounts=(failedJobs??[]).reduce((counts:Record<string,number>,job:any)=>{const code=clean(job.failure_code)||"UNCLASSIFIED";counts[code]=(counts[code]??0)+1;return counts;},{}),systemicFailure=Object.entries(failureCounts).find(([,count])=>count>=3);
-        if(systemicFailure){await db.from("backyrd_city_bootstrap_runs_v1").update({status:"PAUSED",stop_reason:`CIRCUIT_BREAKER:SYSTEMATIC_RESEARCH_FAILURE:${systemicFailure[0]}`.slice(0,500)}).eq("id",run.id).eq("status","RUNNING");const stopped=await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"STOP",p_lease_token:leaseToken});if(stopped.error)throw stopped.error;release=false;return json({ok:false,runId:run.id,status:"PAUSED",error:"systematic_research_failure",failureCode:systemicFailure[0],count:systemicFailure[1]},409);}
+        const systemicFailure=systemicResearchFailure(failedJobs??[]);
+        if(systemicFailure){await db.from("backyrd_city_bootstrap_runs_v1").update({status:"PAUSED",stop_reason:`CIRCUIT_BREAKER:SYSTEMATIC_RESEARCH_FAILURE:${systemicFailure.failureCode}`.slice(0,500)}).eq("id",run.id).eq("status","RUNNING");const stopped=await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"STOP",p_lease_token:leaseToken});if(stopped.error)throw stopped.error;release=false;return json({ok:false,runId:run.id,status:"PAUSED",error:"systematic_research_failure",failureCode:systemicFailure.failureCode,count:systemicFailure.count},409);}
         const readiness=evaluatePopulationTickReadiness({runningRuns:1,activeJobs:(active??[]).length,pendingSpots:pending??0,machineAcceptanceFailures:0});
         if(readiness.shouldFinalize){const finalized=await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"FINALIZE",p_lease_token:leaseToken});if(finalized.error)throw finalized.error;release=false;return json({ok:true,runId:run.id,status:"COMPLETED",...finalized.data});}
         let queued=0;
