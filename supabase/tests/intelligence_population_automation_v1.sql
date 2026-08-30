@@ -9,16 +9,21 @@ select pg_temp.population_assert(has_function_privilege('service_role','public.b
 select pg_temp.population_assert(not has_function_privilege('anon','public.backyrd_configure_intelligence_population_worker_v1(text)','execute'),'anon can configure Population cron');
 select pg_temp.population_assert(not has_function_privilege('authenticated','public.backyrd_configure_intelligence_population_worker_v1(text)','execute'),'authenticated/admin browser can configure Population cron');
 select pg_temp.population_assert(has_function_privilege('service_role','public.backyrd_configure_intelligence_population_worker_v1(text)','execute'),'service worker cannot configure Population cron');
+select pg_temp.population_assert(not has_function_privilege('anon','public.backyrd_set_intelligence_population_concurrency_v1(uuid,integer)','execute'),'anon can tune Population concurrency');
+select pg_temp.population_assert(not has_function_privilege('authenticated','public.backyrd_set_intelligence_population_concurrency_v1(uuid,integer)','execute'),'authenticated/admin browser can tune Population concurrency');
+select pg_temp.population_assert(has_function_privilege('service_role','public.backyrd_set_intelligence_population_concurrency_v1(uuid,integer)','execute'),'service worker cannot tune Population concurrency');
 
 select pg_temp.population_assert((select p.prosecdef and regexp_replace(array_to_string(p.proconfig,','),'[[:space:]]','','g') like '%search_path=public,pg_catalog%' from pg_proc p where p.oid='public.backyrd_intelligence_population_tick_control_v1(uuid,text,uuid)'::regprocedure),'tick control SECURITY DEFINER classification drift');
 select pg_temp.population_assert((select p.prosecdef and regexp_replace(array_to_string(p.proconfig,','),'[[:space:]]','','g') like '%search_path=public,pg_catalog,vault,cron%' from pg_proc p where p.oid='public.backyrd_configure_intelligence_population_worker_v1(text)'::regprocedure),'cron configure SECURITY DEFINER classification drift');
 select pg_temp.population_assert(pg_get_function_arguments('public.backyrd_intelligence_population_tick_control_v1(uuid,text,uuid)'::regprocedure) not similar to '%(actor|user)%','caller-controlled actor/user argument');
 select pg_temp.population_assert(pg_get_function_arguments('public.backyrd_configure_intelligence_population_worker_v1(text)'::regprocedure) not similar to '%(actor|user|secret|key)%','caller-controlled actor or credential argument');
+select pg_temp.population_assert(pg_get_function_arguments('public.backyrd_set_intelligence_population_concurrency_v1(uuid,integer)'::regprocedure) not similar to '%(actor|user|secret|key)%','caller-controlled actor/user argument on concurrency tuner');
 
 set local role anon;
 do $$begin
   begin perform public.backyrd_intelligence_population_tick_control_v1(gen_random_uuid(),'CLAIM',gen_random_uuid());raise exception 'anon tick control unexpectedly succeeded';exception when insufficient_privilege then null;end;
   begin perform public.backyrd_configure_intelligence_population_worker_v1('https://example.supabase.co/functions/v1/city-bootstrap-worker');raise exception 'anon cron configuration unexpectedly succeeded';exception when insufficient_privilege then null;end;
+  begin perform public.backyrd_set_intelligence_population_concurrency_v1(gen_random_uuid(),4);raise exception 'anon concurrency tuning unexpectedly succeeded';exception when insufficient_privilege then null;end;
 end$$;
 reset role;
 
@@ -26,6 +31,7 @@ set local role authenticated;
 do $$begin
   begin perform public.backyrd_intelligence_population_tick_control_v1(gen_random_uuid(),'CLAIM',gen_random_uuid());raise exception 'authenticated tick control unexpectedly succeeded';exception when insufficient_privilege then null;end;
   begin perform public.backyrd_configure_intelligence_population_worker_v1('https://example.supabase.co/functions/v1/city-bootstrap-worker');raise exception 'authenticated cron configuration unexpectedly succeeded';exception when insufficient_privilege then null;end;
+  begin perform public.backyrd_set_intelligence_population_concurrency_v1(gen_random_uuid(),4);raise exception 'authenticated concurrency tuning unexpectedly succeeded';exception when insufficient_privilege then null;end;
 end$$;
 reset role;
 
@@ -33,10 +39,11 @@ insert into auth.users(instance_id,id,aud,role,email,encrypted_password,raw_app_
 values('00000000-0000-0000-0000-000000000000','62000000-0000-4000-8000-000000000001','authenticated','authenticated','population-automation@invalid','','{}','{}',now(),now());
 insert into public.admin_users(user_id,role) values('62000000-0000-4000-8000-000000000001','super_admin');
 insert into public.backyrd_city_bootstrap_runs_v1(id,run_key,city_key,city_name,geography,source_configuration,target_configuration,pipeline_version,canonical_repository_commit,mode,status,requested_by,started_at)
-values('62000000-0000-4000-8000-000000000002','basel-intelligence-population-automation-test','basel','Basel','{}','{}','{"phase":"FULL_LAUNCH_CURATION","researchConcurrencyLimit":2,"researchCoverageTarget":415,"discoveryEnabled":false}','backyrd-intelligence-population-v1',repeat('e',40),'INTELLIGENCE','RUNNING','62000000-0000-4000-8000-000000000001',now());
+values('62000000-0000-4000-8000-000000000002','basel-intelligence-population-automation-test','basel','Basel','{}','{}','{"phase":"FULL_LAUNCH_CURATION","researchConcurrencyLimit":2,"researchQueueBatchSize":5,"researchCoverageTarget":415,"discoveryEnabled":false}','backyrd-intelligence-population-v1',repeat('e',40),'INTELLIGENCE','RUNNING','62000000-0000-4000-8000-000000000001',now());
 
 set local role service_role;
 select set_config('request.jwt.claims','{"role":"service_role"}',true),set_config('request.jwt.claim.role','service_role',true);
+select pg_temp.population_assert((public.backyrd_set_intelligence_population_concurrency_v1('62000000-0000-4000-8000-000000000002',4)->>'researchConcurrencyLimit')::integer=4,'authorized service worker could not set measured concurrency four');
 select pg_temp.population_assert((public.backyrd_intelligence_population_tick_control_v1('62000000-0000-4000-8000-000000000002','CLAIM','62000000-0000-4000-8000-000000000003')->>'claimed')::boolean,'authorized service worker could not claim tick lease');
 select pg_temp.population_assert(not (public.backyrd_intelligence_population_tick_control_v1('62000000-0000-4000-8000-000000000002','CLAIM','62000000-0000-4000-8000-000000000004')->>'claimed')::boolean,'overlapping service tick acquired a second lease');
 do $$begin
