@@ -1,4 +1,4 @@
-import { classifyPopulationWorkerInvocations, evaluateIntelligenceCanaryReadiness, evaluatePilotAcceptance, evaluatePopulationTickReadiness, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planProviderCreditCanary, planRefreshCandidates, populationResearchConcurrencyLimit, proposalBelongsToResearchJobs, selectIntelligenceCanary, selectResearchCohort, selectResearchEligible, systemicResearchFailure, unresolvedResearchFailures, websiteIdentityCompatible, type Candidate } from "./index.ts";
+import { classifyMachineAcceptanceResult, classifyPopulationWorkerInvocations, evaluateIntelligenceCanaryReadiness, evaluatePilotAcceptance, evaluatePopulationTickReadiness, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planProviderCreditCanary, planRefreshCandidates, populationResearchConcurrencyLimit, proposalBelongsToResearchJobs, selectIntelligenceCanary, selectResearchCohort, selectResearchEligible, systemicResearchFailure, unresolvedResearchFailures, websiteIdentityCompatible, type Candidate } from "./index.ts";
 
 const candidate: Candidate = {
   sourceFamily: "OPENSTREETMAP",
@@ -112,6 +112,17 @@ Deno.test("Population skips isolated transient worker invocation failures withou
     {status:503,errorCode:"research_agent_disabled",transportError:false},
   ])if(classifyPopulationWorkerInvocations([failure],1).ok)throw new Error(`hard worker boundary was skipped: ${failure.errorCode}`);
   if(classifyPopulationWorkerInvocations([],1).ok)throw new Error("missing worker result did not fail closed");
+});
+
+Deno.test("Machine Acceptance isolates explicit truth conflicts for review and keeps all other denials fail-closed", () => {
+  for(const code of ["machine_acceptance_source_conflict","machine_acceptance_existing_truth_conflict"]){
+    const result=classifyMachineAcceptanceResult(code);
+    if(result.disposition!=="REVIEW_REQUIRED"||result.errorCode!==code)throw new Error(`review conflict was not isolated: ${code}`);
+  }
+  for(const code of ["machine_acceptance_fingerprint_stale","machine_acceptance_scope_invalid","machine_acceptance_source_identity_invalid","machine_acceptance_evidence_malformed","machine_acceptance_policy_invalid","forbidden"]){
+    if(classifyMachineAcceptanceResult(code).disposition!=="HARD_FAILURE")throw new Error(`hard Machine Acceptance boundary was weakened: ${code}`);
+  }
+  if(classifyMachineAcceptanceResult(null).disposition!=="ACCEPTED")throw new Error("successful Machine Acceptance was not classified as accepted");
 });
 
 Deno.test("Population systemic failure circuit breaker counts distinct Spots, not dual research cohorts", () => {
