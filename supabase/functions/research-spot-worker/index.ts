@@ -30,7 +30,7 @@ Deno.serve(async (request) => {
     const context = await repository.loadContext({ spotId: job.spot_id, sourceScope: job.source_scope, passKey: pass.pass_key });
     const response = await retrieveBackgroundResearchResponse(responseId, { apiKey });
     const diagnostic = body.action === "DIAGNOSE_SOURCE_RESPONSE" ? diagnoseResearchSourcePayload(response.payload, context, pass.pass_key) : diagnoseLegacyResearchPayload(response.payload, context, pass.pass_key);
-    return json({ responseId, providerStatus: response.providerStatus, diagnostic });
+    return json({ responseId, providerStatus: response.providerStatus, providerErrorCode: response.errorCode, providerIncompleteReason: response.incompleteReason, diagnostic });
   }
   const runnerId = `research-edge:${crypto.randomUUID()}`;
   const started = Date.now();

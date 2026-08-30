@@ -406,9 +406,11 @@ test("missing official website and private/local sources fail before provider ac
 });
 
 test("provider canonicalization allowlists only audit-safe fields", () => {
-  const result = canonicalizeResearchResponse({ id: "resp_1", status: "completed", model: "gpt-5-mini", output: [{ content: [{ type: "output_text", text: JSON.stringify({ evidence: [] }), encrypted_content: "drop" }] }], usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 }, opaque: "drop" });
+  const result = canonicalizeResearchResponse({ id: "resp_1", status: "completed", model: "gpt-5-mini", output: [{ content: [{ type: "output_text", text: JSON.stringify({ evidence: [] }), encrypted_content: "drop" }] }], usage: { input_tokens: 10, output_tokens: 5, total_tokens: 15 }, error: { code: "provider_code", message: "drop-message" }, opaque: "drop" });
   assert.deepEqual(result.payload, { evidence: [] });
+  assert.equal(result.errorCode, "provider_code");
   assert.equal(JSON.stringify(result).includes("encrypted_content"), false);
+  assert.equal(JSON.stringify(result).includes("drop-message"), false);
   assert.equal(JSON.stringify(result).includes("opaque"), false);
 });
 
