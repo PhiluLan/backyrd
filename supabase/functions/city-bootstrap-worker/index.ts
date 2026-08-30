@@ -224,9 +224,26 @@ export function evaluatePopulationTickReadiness(input:{runningRuns:number;active
   return {ok:failures.length===0,failures,shouldQueue:input.runningRuns===1&&input.activeJobs===0&&input.pendingSpots>0,shouldFinalize:input.runningRuns===1&&input.activeJobs===0&&input.pendingSpots===0};
 }
 
+type PopulationWorkerInvocation={status:number;errorCode:string|null;transportError:boolean};
+const populationWorkerHardErrors=new Set(["forbidden","population_run_invalid","research_agent_disabled","server_configuration_missing"]);
+export function classifyPopulationWorkerInvocations(invocations:PopulationWorkerInvocation[],expectedWorkers:number) {
+  const hardFailures:string[]=[],transientSkipped:string[]=[];
+  if(invocations.length!==expectedWorkers)hardFailures.push("WORKER_RESULT_COUNT_INVALID");
+  for(const invocation of invocations){
+    const code=clean(invocation.errorCode);
+    if(invocation.status===200&&!invocation.transportError)continue;
+    if(invocation.transportError){transientSkipped.push("TRANSPORT_ERROR");continue;}
+    if(invocation.status===401||invocation.status===403||populationWorkerHardErrors.has(code)){hardFailures.push(code||`HTTP_${invocation.status}`);continue;}
+    if(invocation.status===0||invocation.status===408||invocation.status===429||invocation.status>=500){transientSkipped.push(code||`HTTP_${invocation.status}`);continue;}
+    hardFailures.push(code||`HTTP_${invocation.status}`);
+  }
+  return {ok:hardFailures.length===0,hardFailures,transientSkipped};
+}
+
 async function kickPopulationResearch(db:any,url:string,serviceKey:string,populationRunId:string,workers=2) {
-  const statuses:number[]=[];
-  await Promise.all(Array.from({length:workers},async()=>{const response=await fetch(`${url}/functions/v1/research-spot-worker`,{method:"POST",headers:{authorization:`Bearer ${serviceKey}`,"content-type":"application/json"},body:JSON.stringify({populationRunId})});statuses.push(response.status);await response.body?.cancel();}));
+  const invocations:PopulationWorkerInvocation[]=[];
+  await Promise.all(Array.from({length:workers},async()=>{try{const response=await fetch(`${url}/functions/v1/research-spot-worker`,{method:"POST",headers:{authorization:`Bearer ${serviceKey}`,"content-type":"application/json"},body:JSON.stringify({populationRunId})});let errorCode:string|null=null;if(response.status!==200){const payload=await response.json().catch(()=>({}));errorCode=clean(payload?.error)||null;}else await response.body?.cancel();invocations.push({status:response.status,errorCode,transportError:false});}catch{invocations.push({status:0,errorCode:null,transportError:true});}}));
+  const workerResult=classifyPopulationWorkerInvocations(invocations,workers),statuses=invocations.map((item)=>item.status);
   const {data:jobs,error:jobsError}=await db.from("backyrd_spot_research_jobs_v1").select("id").eq("population_run_id",populationRunId);if(jobsError)throw jobsError;
   const jobIds=new Set<string>((jobs??[]).map((job:any)=>clean(job.id)).filter(Boolean)),machineAccepted:any[]=[];
   if(jobIds.size){
@@ -235,7 +252,7 @@ async function kickPopulationResearch(db:any,url:string,serviceKey:string,popula
     const {data:proposals,error:proposalError}=await db.from("backyrd_spot_fact_proposals_v1").select("id,idempotency_key,machine_evidence_fingerprint,field_key,status").eq("status","PENDING").in("field_key",["contact.website","contact.phone","contact.email","opening.regular"]).not("machine_evidence_fingerprint","is",null).like("idempotency_key","research-v2.1:%").order("created_at",{ascending:false}).limit(100);if(proposalError)throw proposalError;
     for(const proposal of (proposals??[]).filter((proposal:any)=>proposalBelongsToResearchJobs(proposal.idempotency_key,jobIds))){const accepted=await db.rpc("backyrd_machine_accept_v1",{p_proposal_id:proposal.id,p_policy_version:"backyrd-machine-acceptance-v1",p_expected_evidence_fingerprint:proposal.machine_evidence_fingerprint});machineAccepted.push({proposalId:proposal.id,fieldKey:proposal.field_key,accepted:!accepted.error,error:accepted.error?.message??null});}
   }
-  return {ok:statuses.every((status)=>status===200)&&machineAccepted.every((item)=>item.accepted),workers,statuses,machineAccepted};
+  return {ok:workerResult.ok&&machineAccepted.every((item)=>item.accepted),workers,statuses,machineAccepted,hardFailures:workerResult.hardFailures,transientSkipped:workerResult.transientSkipped};
 }
 
 if (import.meta.main) Deno.serve(async (request) => {
@@ -322,8 +339,8 @@ if (import.meta.main) Deno.serve(async (request) => {
         if(readiness.shouldQueue){const {data:spots,error:spotsError}=await db.from("backyrd_spot_intelligence_population_v1").select("spot_id").eq("run_id",run.id).eq("terminal_state","PENDING").order("spot_id").limit(5);if(spotsError)throw spotsError;for(const spot of spots??[]){const result=await db.rpc("backyrd_enqueue_spot_intelligence_population_job_v1",{p_run_id:run.id,p_spot_id:spot.spot_id});if(result.error)throw result.error;queued++;}}
         const kicked=await kickPopulationResearch(db,url,serviceKey,run.id,researchConcurrency);
         const post=evaluatePopulationTickReadiness({runningRuns:1,activeJobs:(active??[]).length,pendingSpots:pending??0,machineAcceptanceFailures:kicked.machineAccepted.filter((item:any)=>!item.accepted).length});
-        if(!kicked.ok||!post.ok){await db.from("backyrd_city_bootstrap_runs_v1").update({status:"PAUSED",stop_reason:`CIRCUIT_BREAKER:${post.failures.join(",")||"RESEARCH_WORKER_FAILURE"}`.slice(0,500)}).eq("id",run.id).eq("status","RUNNING");const stopped=await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"STOP",p_lease_token:leaseToken});if(stopped.error)throw stopped.error;release=false;return json({ok:false,runId:run.id,status:"PAUSED",failures:post.failures,statuses:kicked.statuses},409);}
-        return json({ok:true,runId:run.id,status:"RUNNING",queued,researchWorkers:researchConcurrency,machineAccepted:kicked.machineAccepted});
+        if(!kicked.ok||!post.ok){await db.from("backyrd_city_bootstrap_runs_v1").update({status:"PAUSED",stop_reason:`CIRCUIT_BREAKER:${post.failures.join(",")||kicked.hardFailures.join(",")||"RESEARCH_WORKER_FAILURE"}`.slice(0,500)}).eq("id",run.id).eq("status","RUNNING");const stopped=await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"STOP",p_lease_token:leaseToken});if(stopped.error)throw stopped.error;release=false;return json({ok:false,runId:run.id,status:"PAUSED",failures:post.failures,workerFailures:kicked.hardFailures,statuses:kicked.statuses},409);}
+        return json({ok:true,runId:run.id,status:"RUNNING",queued,researchWorkers:researchConcurrency,machineAccepted:kicked.machineAccepted,transientWorkerCallsSkipped:kicked.transientSkipped.length});
       } finally {if(release)await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"RELEASE",p_lease_token:leaseToken});}
     }
     if(action==="SET_SCALE_STATE") {
