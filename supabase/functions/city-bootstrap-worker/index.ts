@@ -38,9 +38,10 @@ export function evaluateIntelligenceCanaryReadiness(input:{items:any[];jobs:any[
   return {failures,actualIds};
 }
 
-export function systemicResearchFailure(jobs:Array<{spot_id?:unknown;failure_code?:unknown}>,threshold=3){
+export function systemicResearchFailure(jobs:Array<{spot_id?:unknown;failure_code?:unknown;created_at?:unknown}>,threshold=3,after:unknown=null){
+  const parsedCutoff=Date.parse(clean(after)),cutoff=Number.isFinite(parsedCutoff)?parsedCutoff:null;
   const spotsByCode=new Map<string,Set<string>>();
-  for(const job of jobs){const code=clean(job.failure_code),spotId=clean(job.spot_id);if(!code||!spotId)continue;const spots=spotsByCode.get(code)??new Set<string>();spots.add(spotId);spotsByCode.set(code,spots);}
+  for(const job of jobs){const code=clean(job.failure_code),spotId=clean(job.spot_id),createdAt=Date.parse(clean(job.created_at));if(!code||!spotId||(cutoff!==null&&Number.isFinite(createdAt)&&createdAt<=cutoff))continue;const spots=spotsByCode.get(code)??new Set<string>();spots.add(spotId);spotsByCode.set(code,spots);}
   for(const [failureCode,spots] of spotsByCode)if(spots.size>=threshold)return {failureCode,count:spots.size};
   return null;
 }
@@ -228,6 +229,17 @@ if (import.meta.main) Deno.serve(async (request) => {
       const probe=await googleHealth(googleKey);
       return json({ok:probe.ok,contracts:{googlePlaces:true,cityDatabaseUrl:true,cityServiceKey:true,researchProvider:Boolean(researchKey),researchEnabled,researchModel:Boolean(researchModel)},boundaries:{serverOnly:true,cityUrlMatchesRuntime:url===Deno.env.get("SUPABASE_URL"),cityServiceMatchesRuntime:serviceKey===Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")},googleProbe:{ok:probe.ok,code:probe.ok?null:probe.code,latencyMs:probe.latency}},probe.ok&&researchKey&&researchEnabled?200:503);
     }
+    if(action==="RESUME_SOURCE_URL_REMEDIATION_CANARY") {
+      const {data:runs,error:runError}=await db.from("backyrd_city_bootstrap_runs_v1").select("id,status,stop_reason,target_configuration").eq("mode","INTELLIGENCE").eq("status","PAUSED").eq("target_configuration->>phase","FULL_LAUNCH_CURATION").limit(2);if(runError)throw runError;
+      const matching=(runs??[]).filter((run:any)=>run.stop_reason==="CIRCUIT_BREAKER:SYSTEMATIC_RESEARCH_FAILURE:research_source_invalid:0");if(matching.length!==1)return json({ok:false,error:"source_url_remediation_paused_run_invalid",matchingRuns:matching.length},409);
+      const run=matching[0],[{data:active,error:activeError},{data:pending,error:pendingError}]=await Promise.all([
+        db.from("backyrd_spot_research_jobs_v1").select("id").eq("population_run_id",run.id).in("state",["QUEUED","RUNNING"]),
+        db.from("backyrd_spot_intelligence_population_v1").select("spot_id").eq("run_id",run.id).eq("terminal_state","PENDING").order("spot_id").limit(5)
+      ]);if(activeError||pendingError)throw activeError??pendingError;if((active??[]).length||pending?.length!==5)return json({ok:false,error:"source_url_remediation_canary_precondition_failed",activeJobs:(active??[]).length,pendingCanary:pending?.length??0},409);
+      const acknowledgedBefore=new Date().toISOString(),canarySpotIds=(pending??[]).map((item:any)=>item.spot_id),targetConfiguration={...run.target_configuration,sourceUrlFailureCircuitReset:{failureCode:"research_source_invalid:0",acknowledgedBefore,remediation:"STRICT_SOURCE_URL_SCHEMA_HTTPS_OR_EMPTY_V1",canarySize:5,canarySpotIds}};
+      const resumed=await db.from("backyrd_city_bootstrap_runs_v1").update({status:"RUNNING",stop_reason:null,target_configuration:targetConfiguration}).eq("id",run.id).eq("status","PAUSED").eq("stop_reason","CIRCUIT_BREAKER:SYSTEMATIC_RESEARCH_FAILURE:research_source_invalid:0").select("id,status").single();if(resumed.error)throw resumed.error;
+      return json({ok:true,runId:run.id,status:"RUNNING",schedulerActivated:false,canarySize:5,acknowledgedFailureCode:"research_source_invalid:0"});
+    }
     if(action==="ACTIVATE_POPULATION_AUTOMATION") {
       const {data:runs,error:runError}=await db.from("backyrd_city_bootstrap_runs_v1").select("id,mode,status,target_configuration").eq("mode","INTELLIGENCE").eq("status","RUNNING").eq("target_configuration->>phase","FULL_LAUNCH_CURATION").limit(2);if(runError)throw runError;
       if((runs??[]).length!==1)return json({ok:false,error:"single_running_population_required",runningRuns:(runs??[]).length},409);
@@ -248,10 +260,10 @@ if (import.meta.main) Deno.serve(async (request) => {
         const [{data:actor},{data:active,error:activeError},{data:failedJobs,error:failedError},{count:pending,error:pendingError}]=await Promise.all([
           db.from("admin_users").select("user_id,role").eq("user_id",run.requested_by).in("role",["admin","super_admin"]).maybeSingle(),
           db.from("backyrd_spot_research_jobs_v1").select("id").eq("population_run_id",run.id).in("state",["QUEUED","RUNNING"]),
-          db.from("backyrd_spot_research_jobs_v1").select("spot_id,failure_code").eq("population_run_id",run.id).eq("state","FAILED"),
+          db.from("backyrd_spot_research_jobs_v1").select("spot_id,failure_code,created_at").eq("population_run_id",run.id).eq("state","FAILED"),
           db.from("backyrd_spot_intelligence_population_v1").select("spot_id",{count:"exact",head:true}).eq("run_id",run.id).eq("terminal_state","PENDING")
         ]);if(activeError||failedError||pendingError)throw activeError??failedError??pendingError;if(!actor)return json({ok:false,error:"population_tick_actor_lineage_invalid"},403);
-        const systemicFailure=systemicResearchFailure(failedJobs??[]);
+        const systemicFailure=systemicResearchFailure(failedJobs??[],3,run.target_configuration?.sourceUrlFailureCircuitReset?.acknowledgedBefore);
         if(systemicFailure){await db.from("backyrd_city_bootstrap_runs_v1").update({status:"PAUSED",stop_reason:`CIRCUIT_BREAKER:SYSTEMATIC_RESEARCH_FAILURE:${systemicFailure.failureCode}`.slice(0,500)}).eq("id",run.id).eq("status","RUNNING");const stopped=await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"STOP",p_lease_token:leaseToken});if(stopped.error)throw stopped.error;release=false;return json({ok:false,runId:run.id,status:"PAUSED",error:"systematic_research_failure",failureCode:systemicFailure.failureCode,count:systemicFailure.count},409);}
         const readiness=evaluatePopulationTickReadiness({runningRuns:1,activeJobs:(active??[]).length,pendingSpots:pending??0,machineAcceptanceFailures:0});
         if(readiness.shouldFinalize){const finalized=await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"FINALIZE",p_lease_token:leaseToken});if(finalized.error)throw finalized.error;release=false;return json({ok:true,runId:run.id,status:"COMPLETED",...finalized.data});}

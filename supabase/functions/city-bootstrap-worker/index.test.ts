@@ -105,6 +105,19 @@ Deno.test("Population systemic failure circuit breaker counts distinct Spots, no
     {spot_id:"spot-3",failure_code:"research_source_not_official:0"},
   ]);
   if(systemic?.failureCode!=="research_source_not_official:0"||systemic.count!==3)throw new Error("three distinct Spots did not trip the systemic circuit breaker");
+  const remediated=systemicResearchFailure([
+    {spot_id:"spot-1",failure_code:"research_source_invalid:0",created_at:"2026-08-29T10:00:00Z"},
+    {spot_id:"spot-2",failure_code:"research_source_invalid:0",created_at:"2026-08-29T10:00:00Z"},
+    {spot_id:"spot-3",failure_code:"research_source_invalid:0",created_at:"2026-08-29T12:00:01Z"},
+    {spot_id:"spot-4",failure_code:"research_source_invalid:0",created_at:"2026-08-29T12:00:02Z"},
+  ],3,"2026-08-29T12:00:00Z");
+  if(remediated)throw new Error("acknowledged historical failures incorrectly retripped the circuit breaker");
+  const retripped=systemicResearchFailure([
+    {spot_id:"spot-3",failure_code:"research_source_invalid:0",created_at:"2026-08-29T12:00:01Z"},
+    {spot_id:"spot-4",failure_code:"research_source_invalid:0",created_at:"2026-08-29T12:00:02Z"},
+    {spot_id:"spot-5",failure_code:"research_source_invalid:0",created_at:"2026-08-29T12:00:03Z"},
+  ],3,"2026-08-29T12:00:00Z");
+  if(retripped?.count!==3)throw new Error("three post-remediation Spots did not retrip the circuit breaker");
 });
 
 Deno.test("Research cohort excludes rows without canonical website eligibility", () => {
