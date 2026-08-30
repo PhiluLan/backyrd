@@ -291,7 +291,7 @@ function evidenceVariant(field, supportStatus, typedValue) {
     properties: {
       fact_key: { type: "string", enum: [field.field_key] }, typed_value: typedValue, evidence_scope: { type: "string", enum: RESEARCH_EVIDENCE_SCOPES },
       entity_scope: { type: "string", enum: RESEARCH_ENTITY_SCOPES }, subject_name: { type: ["string", "null"], maxLength: 160 }, durability: { type: "string", enum: RESEARCH_DURABILITY },
-      support_status: { type: "string", enum: supportStatus }, source_url: { type: "string", maxLength: 1200 },
+      support_status: { type: "string", enum: supportStatus }, source_url: { type: "string", pattern: "^(?:https://[^\\s]+)?$", maxLength: 1200 },
       source_type: { type: "string", enum: [...sourceTypes] }, short_evidence: { type: "string", maxLength: 320 }, observed_at: { type: "null" }
     }
   };
@@ -327,6 +327,7 @@ export function buildResearchRequest(context, { model = DEFAULT_RESEARCH_MODEL, 
     "Regular opening hours are a weekly schedule, never proof of OPEN right now; opening.status requires explicit general operating-state evidence.",
     "Use short verbatim evidence and the exact typed_value schema.",
     "SUPPORTED always requires a non-null value matching the exact schema; otherwise return UNKNOWN or UNSUPPORTED with typed_value null.",
+    "source_url must be the exact public https URL from the allowlisted official domain; use an empty string only for UNKNOWN or UNSUPPORTED when no supporting page exists.",
     "Always return observed_at null; Backyrd records the audited system observation time.",
     "Do not classify, recommend, score, infer N4, or create proposals."
   ].join(" ");
@@ -439,6 +440,28 @@ export function validateResearchEvidence(payload, context, passKey = context?.pa
     evidence.push(Object.freeze({ factKey: row.fact_key, value, evidenceScope: row.evidence_scope, entityScope: row.entity_scope, subjectName: row.subject_name?.trim() ?? null, durability: row.durability, supportStatus: row.support_status, sourceUrl, sourceType: row.source_type, shortEvidence: row.short_evidence.trim(), observedAt: observedAt?.toISOString() ?? null, passKey }));
   }
   return { valid: true, reason: null, evidence };
+}
+
+// Service-only diagnostic shape for a registered provider response. It reports
+// only the structural URL failure class, never the URL, page text or evidence.
+export function diagnoseResearchSourcePayload(payload, context, passKey = context?.passKey ?? "A") {
+  const pass = researchPass(context, passKey); const catalog = new Map((context.catalog ?? []).map((field) => [field.field_key, field]));
+  if (!pass || !Array.isArray(payload?.evidence)) return { found: false, reason: "research_payload_unavailable" };
+  let allowedDomain; try { allowedDomain = officialDomain(context.spot.website); } catch { return { found: true, index: null, factKey: null, supportStatus: null, sourceClass: "research_official_source_invalid", sourceLength: 0 }; }
+  for (const [index, row] of payload.evidence.entries()) {
+    if (!row || typeof row !== "object" || !catalog.has(row.fact_key) || !pass.factKeys.includes(row.fact_key)) continue;
+    const raw = row.source_url, sourceLength = typeof raw === "string" ? raw.length : 0;
+    let sourceUrl;
+    try { sourceUrl = normalizePublicHttpsUrl(raw); }
+    catch (error) {
+      if (row.support_status !== "SUPPORTED" && typeof raw === "string" && raw.trim() === "") continue;
+      return { found: true, index, factKey: row.fact_key, supportStatus: row.support_status ?? null, sourceClass: error instanceof Error ? error.message : "research_source_url_invalid", sourceLength };
+    }
+    if (!sameOfficialDomain(sourceUrl, allowedDomain)) return { found: true, index, factKey: row.fact_key, supportStatus: row.support_status ?? null, sourceClass: "research_source_not_official", sourceLength };
+    try { urlWithinOfficialInstanceScope(sourceUrl, context.spot.website, context.spot.name); }
+    catch (error) { return { found: true, index, factKey: row.fact_key, supportStatus: row.support_status ?? null, sourceClass: error instanceof Error ? error.message : "research_source_url_invalid", sourceLength }; }
+  }
+  return { found: false, reason: "research_source_payload_has_no_structural_failure" };
 }
 
 // Service-only operational diagnostic for historical v2 responses. It returns
