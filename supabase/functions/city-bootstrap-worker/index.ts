@@ -61,6 +61,11 @@ export function planProviderCreditCanary(activeJobs:Array<{spot_id?:unknown;stat
   return {ok:failures.length===0,failures:[...new Set(failures)],canarySpotIds,queuedSpotIds};
 }
 
+export function proposalBelongsToResearchJobs(idempotencyKey:unknown,jobIds:ReadonlySet<string>){
+  const match=/^research-v2\.1:([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}):/i.exec(clean(idempotencyKey));
+  return Boolean(match&&jobIds.has(match[1]));
+}
+
 const publicHost = (value: unknown) => { try { const url=new URL(clean(value));return url.protocol==="https:"&&!url.username&&!url.password?url.hostname.toLowerCase().replace(/^www\./,""):"";}catch{return "";} };
 const genericWebsiteNameTokens=new Set(["basel","restaurant","restaurants","cafe","bar","bars","hotel","hotels","hostel","museum","museums","theater","theatre","fitness","studio","club","zentrum","center","centre","schweiz","switzerland","official","page","about","www","com","ch","de","und","and","am","an","der","die","das","zum","zur","im","in","of","at","place","brewery","kitchen","soulfood","pizza","pizzeria","sushi","food","confiserie","konditorei","tea","room","bistrot","gasthof","restauration"]);
 const genericWebsitePathTokens=new Set([...genericWebsiteNameTokens,"angebot","angebote","location","locations","standort","standorte","detail","index","html","php","store","locator","search","spielplatz","spielplaetze","schwimmbad","reservieren","suite","suites","stadt"]);
@@ -222,11 +227,12 @@ async function kickPopulationResearch(db:any,url:string,serviceKey:string,popula
   const statuses:number[]=[];
   await Promise.all(Array.from({length:workers},async()=>{const response=await fetch(`${url}/functions/v1/research-spot-worker`,{method:"POST",headers:{authorization:`Bearer ${serviceKey}`,"content-type":"application/json"},body:JSON.stringify({populationRunId})});statuses.push(response.status);await response.body?.cancel();}));
   const {data:jobs,error:jobsError}=await db.from("backyrd_spot_research_jobs_v1").select("id").eq("population_run_id",populationRunId);if(jobsError)throw jobsError;
-  const jobPrefixes=(jobs??[]).map((job:any)=>`research-v2.1:${job.id}:`),machineAccepted:any[]=[];
-  if(jobPrefixes.length){
-    const proposalScope=jobPrefixes.map((prefix:string)=>`idempotency_key.like.${prefix}*`).join(",");
-    const {data:proposals,error:proposalError}=await db.from("backyrd_spot_fact_proposals_v1").select("id,idempotency_key,machine_evidence_fingerprint,field_key,status").eq("status","PENDING").in("field_key",["contact.website","contact.phone","contact.email","opening.regular"]).not("machine_evidence_fingerprint","is",null).or(proposalScope).limit(100);if(proposalError)throw proposalError;
-    for(const proposal of (proposals??[]).filter((proposal:any)=>jobPrefixes.some((prefix:string)=>clean(proposal.idempotency_key).startsWith(prefix)))){const accepted=await db.rpc("backyrd_machine_accept_v1",{p_proposal_id:proposal.id,p_policy_version:"backyrd-machine-acceptance-v1",p_expected_evidence_fingerprint:proposal.machine_evidence_fingerprint});machineAccepted.push({proposalId:proposal.id,fieldKey:proposal.field_key,accepted:!accepted.error,error:accepted.error?.message??null});}
+  const jobIds=new Set<string>((jobs??[]).map((job:any)=>clean(job.id)).filter(Boolean)),machineAccepted:any[]=[];
+  if(jobIds.size){
+    // Keep the PostgREST request bounded as the Population run grows. Run
+    // lineage is still enforced deterministically before any privileged RPC.
+    const {data:proposals,error:proposalError}=await db.from("backyrd_spot_fact_proposals_v1").select("id,idempotency_key,machine_evidence_fingerprint,field_key,status").eq("status","PENDING").in("field_key",["contact.website","contact.phone","contact.email","opening.regular"]).not("machine_evidence_fingerprint","is",null).like("idempotency_key","research-v2.1:%").order("created_at",{ascending:false}).limit(100);if(proposalError)throw proposalError;
+    for(const proposal of (proposals??[]).filter((proposal:any)=>proposalBelongsToResearchJobs(proposal.idempotency_key,jobIds))){const accepted=await db.rpc("backyrd_machine_accept_v1",{p_proposal_id:proposal.id,p_policy_version:"backyrd-machine-acceptance-v1",p_expected_evidence_fingerprint:proposal.machine_evidence_fingerprint});machineAccepted.push({proposalId:proposal.id,fieldKey:proposal.field_key,accepted:!accepted.error,error:accepted.error?.message??null});}
   }
   return {ok:statuses.every((status)=>status===200)&&machineAccepted.every((item)=>item.accepted),workers,statuses,machineAccepted};
 }

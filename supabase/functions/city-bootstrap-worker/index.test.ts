@@ -1,4 +1,4 @@
-import { evaluateIntelligenceCanaryReadiness, evaluatePilotAcceptance, evaluatePopulationTickReadiness, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planProviderCreditCanary, planRefreshCandidates, selectIntelligenceCanary, selectResearchCohort, selectResearchEligible, systemicResearchFailure, unresolvedResearchFailures, websiteIdentityCompatible, type Candidate } from "./index.ts";
+import { evaluateIntelligenceCanaryReadiness, evaluatePilotAcceptance, evaluatePopulationTickReadiness, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planProviderCreditCanary, planRefreshCandidates, proposalBelongsToResearchJobs, selectIntelligenceCanary, selectResearchCohort, selectResearchEligible, systemicResearchFailure, unresolvedResearchFailures, websiteIdentityCompatible, type Candidate } from "./index.ts";
 
 const candidate: Candidate = {
   sourceFamily: "OPENSTREETMAP",
@@ -136,6 +136,13 @@ Deno.test("Provider-credit resume preserves bounded queued checkpoint jobs in th
   if(running.ok||!running.failures.includes("ACTIVE_JOB_NOT_QUEUED"))throw new Error("RUNNING checkpoint job did not fail closed");
   const duplicate=planProviderCreditCanary([{spot_id:"spot-a",state:"QUEUED"},{spot_id:"spot-a",state:"QUEUED"},{spot_id:"spot-a",state:"QUEUED"}], ["spot-b","spot-c","spot-d","spot-e"]);
   if(duplicate.ok||!duplicate.failures.includes("QUEUED_JOB_DUPLICATE_COHORT"))throw new Error("duplicate queued cohort did not fail closed");
+});
+
+Deno.test("Machine Acceptance proposal scan retains exact Research job lineage", () => {
+  const jobId="61000000-0000-4000-8000-000000000001",jobs=new Set([jobId]);
+  if(!proposalBelongsToResearchJobs(`research-v2.1:${jobId}:A:0`,jobs))throw new Error("exact run job proposal was excluded");
+  if(proposalBelongsToResearchJobs("research-v2.1:61000000-0000-4000-8000-000000000002:A:0",jobs))throw new Error("foreign run job proposal was included");
+  if(proposalBelongsToResearchJobs(`research-v2.1:${jobId}x:A:0`,jobs)||proposalBelongsToResearchJobs(`other:${jobId}:A:0`,jobs))throw new Error("malformed proposal lineage was included");
 });
 
 Deno.test("Research cohort excludes rows without canonical website eligibility", () => {
