@@ -1,4 +1,4 @@
-import { evaluateIntelligenceCanaryReadiness, evaluatePilotAcceptance, evaluatePopulationTickReadiness, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planProviderCreditCanary, planRefreshCandidates, populationResearchConcurrencyLimit, proposalBelongsToResearchJobs, selectIntelligenceCanary, selectResearchCohort, selectResearchEligible, systemicResearchFailure, unresolvedResearchFailures, websiteIdentityCompatible, type Candidate } from "./index.ts";
+import { classifyPopulationWorkerInvocations, evaluateIntelligenceCanaryReadiness, evaluatePilotAcceptance, evaluatePopulationTickReadiness, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planProviderCreditCanary, planRefreshCandidates, populationResearchConcurrencyLimit, proposalBelongsToResearchJobs, selectIntelligenceCanary, selectResearchCohort, selectResearchEligible, systemicResearchFailure, unresolvedResearchFailures, websiteIdentityCompatible, type Candidate } from "./index.ts";
 
 const candidate: Candidate = {
   sourceFamily: "OPENSTREETMAP",
@@ -94,6 +94,24 @@ Deno.test("Population tick fails closed for concurrent runs and Machine Acceptan
 
 Deno.test("Population throughput cannot exceed the Founder-approved concurrency-four canary result", () => {
   if(populationResearchConcurrencyLimit!==4)throw new Error("Population concurrency limit drifted from the measured canary");
+});
+
+Deno.test("Population skips isolated transient worker invocation failures without weakening hard boundaries", () => {
+  const isolated=classifyPopulationWorkerInvocations([
+    {status:200,errorCode:null,transportError:false},
+    {status:200,errorCode:null,transportError:false},
+    {status:200,errorCode:null,transportError:false},
+    {status:503,errorCode:null,transportError:false},
+  ],4);
+  if(!isolated.ok||isolated.transientSkipped.length!==1||isolated.hardFailures.length)throw new Error("isolated platform 503 did not skip safely");
+  const transport=classifyPopulationWorkerInvocations([{status:0,errorCode:null,transportError:true}],1);
+  if(!transport.ok||transport.transientSkipped[0]!=="TRANSPORT_ERROR")throw new Error("isolated transport failure did not defer to the next checkpoint tick");
+  for(const failure of [
+    {status:403,errorCode:"forbidden",transportError:false},
+    {status:503,errorCode:"server_configuration_missing",transportError:false},
+    {status:503,errorCode:"research_agent_disabled",transportError:false},
+  ])if(classifyPopulationWorkerInvocations([failure],1).ok)throw new Error(`hard worker boundary was skipped: ${failure.errorCode}`);
+  if(classifyPopulationWorkerInvocations([],1).ok)throw new Error("missing worker result did not fail closed");
 });
 
 Deno.test("Population systemic failure circuit breaker counts distinct Spots, not dual research cohorts", () => {
