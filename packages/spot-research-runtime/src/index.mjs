@@ -1,7 +1,7 @@
 import { CANONICAL_FACTS, CATEGORY_PLACE_TYPE, categoryToPlaceType } from "../../canonical-semantics/src/index.mjs";
 
 export const RESEARCH_CONTRACT_VERSION = "backyrd-spot-research-agent-v2.1";
-export const RESEARCH_POLICY_VERSION = "backyrd-spot-research-policy-v2.10";
+export const RESEARCH_POLICY_VERSION = "backyrd-spot-research-policy-v2.11";
 export const DEFAULT_RESEARCH_MODEL = "gpt-5-mini";
 export const MAX_RESEARCH_EVIDENCE_PER_PASS = 8;
 export const RESEARCH_OUTPUT_TOKENS_PER_PASS = 2600;
@@ -123,6 +123,37 @@ function hasSubjectAnchor(evidence, subjectName, spotName) {
   return anchors.length > 0 && anchors.every((token) => haystack.split(" ").includes(token));
 }
 
+const officialOperationalAnchorFacts = new Set(["contact.phone", "contact.email", "opening.regular"]);
+const nonVenueHoursEvidence = /\b(?:office|team availability|business hours|opening hours (?:for )?(?:the )?office|buro|buero|sekretariat|theaterkasse|ticketkauf|ticket office|box office|geschaftszeiten buro|geschaeftszeiten buero)\b/i;
+
+function operationalSubjectMatchesSpot(subjectName, spotName) {
+  const subject = normalizedText(subjectName); const spot = normalizedText(spotName);
+  if (!subject || !spot) return false;
+  if (subject === spot) return true;
+  const subjectTokens = new Set(nameTokens(subject)); const spotTokens = new Set(nameTokens(spot));
+  if (!subjectTokens.size || !spotTokens.size) return false;
+  const shared = [...subjectTokens].filter((token) => spotTokens.has(token)).length;
+  return shared / Math.max(subjectTokens.size, spotTokens.size) >= 0.75;
+}
+
+// A canonical official page can provide the missing entity anchor for an
+// objective operational value even when its short excerpt is only the value
+// itself (as is common on contact and hours pages). This is deliberately
+// narrower than general SPOT inference: the provider-declared entity and
+// durability gates still apply, the subject must independently match the
+// canonical Spot, the URL must remain inside the concrete official instance,
+// and event/program/staff routes are never promoted by domain ownership.
+function hasOfficialOperationalSourceAnchor(item, context) {
+  if (!officialOperationalAnchorFacts.has(item.factKey) || !operationalSubjectMatchesSpot(item.subjectName, context.spot.name)) return false;
+  if (!sourceTypes.has(item.sourceType)) return false;
+  try {
+    if (!urlWithinOfficialInstanceScope(item.sourceUrl, context.spot.website, context.spot.name)) return false;
+    if (urlInstanceTokens(item.sourceUrl).some((token) => nonInstanceRouteTokens.has(token))) return false;
+  } catch { return false; }
+  if (item.factKey === "opening.regular" && nonVenueHoursEvidence.test(normalizedText(`${item.subjectName} ${item.shortEvidence}`))) return false;
+  return true;
+}
+
 const nonPersistentEvidence = /\b(?:for this (?:event|performance|concert)|this (?:event|performance|concert) only|bei dieser veranstaltung|nur bei dieser veranstaltung|am \d{1,2}[.\/-]\d{1,2}|\d{1,2}[.\/-]\d{1,2}[.\/-](?:19|20)?\d{2}|temporary|temporar(?:y|ily)?|vorubergehend|pop[ -]?up|bis zum|until)\b/i;
 const attributedOtherEntity = /\b(?:tenant|mieter(?:in)?|third[ -]?party|operated by|betrieben von|veranstaltet von|gastveranstaltung|guest operator)\b/i;
 const promptInjectionEvidence = /\b(?:ignore (?:all |previous |the )?instructions?|system prompt|developer message|assistant message|return json|output (?:the )?(?:value|enum|fact)|classify (?:this|the evidence)|call (?:a )?tool)\b/i;
@@ -212,7 +243,8 @@ export function resolveResearchEntityScope(item, context) {
   if (item.evidenceScope !== "SPOT") return { pass: false, reason: `EVIDENCE_SCOPE_${item.evidenceScope}` };
   if (item.entityScope !== "SPOT") return { pass: false, reason: `ENTITY_SCOPE_${item.entityScope}` };
   if (item.durability !== "PERSISTENT") return { pass: false, reason: `DURABILITY_${item.durability}` };
-  if (!hasSubjectAnchor(item.shortEvidence, item.subjectName, context.spot.name)) return { pass: false, reason: "SUBJECT_NOT_SPOT_ANCHORED" };
+  if (!hasSubjectAnchor(item.shortEvidence, item.subjectName, context.spot.name)
+    && !hasOfficialOperationalSourceAnchor(item, context)) return { pass: false, reason: "SUBJECT_NOT_SPOT_ANCHORED" };
   if (promptInjectionEvidence.test(normalizedText(item.shortEvidence))) return { pass: false, reason: "PROMPT_INJECTION_SIGNAL" };
   if (nonPersistentEvidence.test(item.shortEvidence) || nonPersistentEvidence.test(normalizedText(item.shortEvidence))) return { pass: false, reason: "TEMPORAL_SCOPE_CONFLICT" };
   if (attributedOtherEntity.test(normalizedText(item.shortEvidence))) return { pass: false, reason: "ENTITY_ATTRIBUTION_CONFLICT" };

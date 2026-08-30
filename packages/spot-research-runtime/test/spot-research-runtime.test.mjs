@@ -151,6 +151,48 @@ test("deterministic operational evidence is proposed only when the value is expl
   }
 });
 
+test("verified official instance pages anchor objective contact and regular-hours evidence without repeating the Spot name", () => {
+  const operationalContext = { ...context, catalog: [
+    { field_key: "contact.phone", value_kind: "TEXT", allowed_values: [], engine_role: "OPERATIONAL_FACT" },
+    { field_key: "contact.email", value_kind: "TEXT", allowed_values: [], engine_role: "OPERATIONAL_FACT" },
+    { field_key: "opening.regular", value_kind: "STRUCTURED_OBJECT", allowed_values: [], engine_role: "OPERATIONAL_FACT" }
+  ] };
+  const hours = { days: [{ day: "Montag", intervals: [{ open: "09:00", close: "17:30" }] }] };
+  const rows = [
+    { ...evidenceRow, fact_key: "contact.phone", typed_value: "+41 61 123 45 67", subject_name: "Museum Test", source_url: "https://museum.example/contact", short_evidence: "Telefon +41 61 123 45 67" },
+    { ...evidenceRow, fact_key: "contact.email", typed_value: "info@museum.example", subject_name: "Museum Test", source_url: "https://museum.example/contact", short_evidence: "info@museum.example" },
+    { ...evidenceRow, fact_key: "opening.regular", typed_value: hours, subject_name: "Museum Test", source_url: "https://museum.example/opening-hours", short_evidence: "Montag 09:00–17:30" }
+  ];
+  const result = validateResearchEvidence({ evidence: rows }, operationalContext, "A");
+  assert.equal(result.valid, true);
+  assert.deepEqual(buildDeterministicProposalPlan(result.evidence, operationalContext).proposals.map(({ fieldKey }) => fieldKey), [
+    "contact.phone", "contact.email", "opening.regular"
+  ]);
+});
+
+test("official-domain ownership cannot anchor ambiguous instance, service-hours, event-route or missing-subject evidence", () => {
+  const operationalContext = { ...context, catalog: [
+    { field_key: "contact.phone", value_kind: "TEXT", allowed_values: [], engine_role: "OPERATIONAL_FACT" },
+    { field_key: "opening.regular", value_kind: "STRUCTURED_OBJECT", allowed_values: [], engine_role: "OPERATIONAL_FACT" }
+  ] };
+  const hours = { days: [{ day: "Montag", intervals: [{ open: "09:00", close: "17:30" }] }] };
+  const phone = { ...evidenceRow, fact_key: "contact.phone", typed_value: "+41 61 123 45 67", source_url: "https://museum.example/contact", short_evidence: "Telefon +41 61 123 45 67" };
+  const opening = { ...evidenceRow, fact_key: "opening.regular", typed_value: hours, source_url: "https://museum.example/opening-hours", short_evidence: "Montag 09:00–17:30" };
+  const cases = [
+    { ...phone, subject_name: null },
+    { ...phone, subject_name: "Museum Test Basel SBB" },
+    { ...phone, subject_name: "Museum Test", source_url: "https://museum.example/events/contact" },
+    { ...opening, subject_name: "Museum Test office", short_evidence: "Our team availability: Monday 09:00–17:30" },
+    { ...opening, subject_name: "Museum Test", short_evidence: "Öffnungszeiten Sekretariat: Montag 09:00–17:30" },
+    { ...opening, subject_name: "Tenant Gallery", entity_scope: "TENANT" }
+  ];
+  for (const row of cases) {
+    const validation = validateResearchEvidence({ evidence: [row] }, operationalContext, "A");
+    assert.equal(validation.valid, true);
+    assert.equal(buildDeterministicProposalPlan(validation.evidence, operationalContext).proposals.length, 0);
+  }
+});
+
 test("schema fails closed on foreign source, wrong pass, truncated JSON or invented value", () => {
   assert.equal(validateResearchEvidence({ evidence: [{ ...evidenceRow, source_url: "https://random.example/" }] }, context, "A").valid, false);
   assert.equal(validateResearchEvidence({ evidence: [{ ...evidenceRow, fact_key: "suitability.conversation", typed_value: "HIGH" }] }, context, "A").valid, false);

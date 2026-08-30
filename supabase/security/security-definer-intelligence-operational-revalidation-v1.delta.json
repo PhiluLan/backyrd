@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "purpose": "Reviewed additive delta for the canonical Mission-02 SECURITY DEFINER inventory. This is not a second inventory.",
+  "functions": [
+    {
+      "signature": "backyrd_revalidate_operational_extraction_internal_v1(uuid,uuid,text)",
+      "classification": "SERVICE_INTERNAL",
+      "anon": false,
+      "authenticated": false,
+      "serviceRole": false,
+      "rationale": "Ungrantable per-extraction implementation with deterministic SYSTEM attribution and immutable source-extraction history."
+    },
+    {
+      "signature": "backyrd_revalidate_intelligence_operational_batch_v1(uuid,text,integer)",
+      "classification": "WORKER",
+      "anon": false,
+      "authenticated": false,
+      "serviceRole": true,
+      "rationale": "Bounded service-only gateway for additive revalidation of the exact completed 415-Spot Population run."
+    }
+  ]
+}
