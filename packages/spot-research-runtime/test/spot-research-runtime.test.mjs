@@ -184,9 +184,47 @@ test("official-domain ownership cannot anchor ambiguous instance, service-hours,
     { ...phone, subject_name: "Museum Test", source_url: "https://museum.example/events/contact" },
     { ...opening, subject_name: "Museum Test office", short_evidence: "Our team availability: Monday 09:00–17:30" },
     { ...opening, subject_name: "Museum Test", short_evidence: "Öffnungszeiten Sekretariat: Montag 09:00–17:30" },
+    { ...opening, subject_name: "Museum Test", short_evidence: "Breakfast included: Monday 09:00–17:30" },
+    { ...opening, subject_name: "Museum Test", short_evidence: "Reception and check-in: Monday 09:00–17:30" },
+    { ...opening, subject_name: "Museum Test", short_evidence: "Training and physiotherapy: Monday 09:00–17:30" },
+    { ...opening, subject_name: "Museum Test", short_evidence: "Lunch and warm kitchen: Monday 09:00–17:30" },
     { ...opening, subject_name: "Tenant Gallery", entity_scope: "TENANT" }
   ];
   for (const row of cases) {
+    const validation = validateResearchEvidence({ evidence: [row] }, operationalContext, "A");
+    assert.equal(validation.valid, true);
+    assert.equal(buildDeterministicProposalPlan(validation.evidence, operationalContext).proposals.length, 0);
+  }
+});
+
+test("explicit venue-hour cues preserve legitimate restaurant schedules that also mention food services", () => {
+  const operationalContext = { ...context, catalog: [
+    { field_key: "opening.regular", value_kind: "STRUCTURED_OBJECT", allowed_values: [], engine_role: "OPERATIONAL_FACT" }
+  ] };
+  const hours = { days: [{ day: "Montag", intervals: [{ open: "09:00", close: "17:30" }] }] };
+  for (const short_evidence of [
+    "Öffnungszeiten: Montag 09:00–17:30; warme Küche bis 17:00",
+    "Monday 09:00–17:30; closed Sunday; brunch 10:00–14:00",
+    "Montag bis Samstag 09:00 bis 17:30; warme Küche bis 17:00",
+    "Montag - Sonntag 09:00 - 17:30; durchgehend warme Küche 11:30 - 17:00"
+  ]) {
+    const row = { ...evidenceRow, fact_key: "opening.regular", typed_value: hours, subject_name: "Museum Test", source_url: "https://museum.example/opening-hours", short_evidence };
+    const validation = validateResearchEvidence({ evidence: [row] }, operationalContext, "A");
+    assert.equal(validation.valid, true);
+    assert.equal(buildDeterministicProposalPlan(validation.evidence, operationalContext).proposals.length, 1, short_evidence);
+  }
+});
+
+test("weekday prefix does not rescue a service schedule whose first time belongs to the service", () => {
+  const operationalContext = { ...context, catalog: [
+    { field_key: "opening.regular", value_kind: "STRUCTURED_OBJECT", allowed_values: [], engine_role: "OPERATIONAL_FACT" }
+  ] };
+  const hours = { days: [{ day: "Montag", intervals: [{ open: "07:00", close: "10:00" }] }] };
+  for (const short_evidence of [
+    "Monday-Friday breakfast 07:00-10:00",
+    "Montag bis Freitag Rezeption 07:00-22:00"
+  ]) {
+    const row = { ...evidenceRow, fact_key: "opening.regular", typed_value: hours, subject_name: "Museum Test", source_url: "https://museum.example/opening-hours", short_evidence };
     const validation = validateResearchEvidence({ evidence: [row] }, operationalContext, "A");
     assert.equal(validation.valid, true);
     assert.equal(buildDeterministicProposalPlan(validation.evidence, operationalContext).proposals.length, 0);

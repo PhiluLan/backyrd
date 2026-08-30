@@ -11,6 +11,7 @@ legacy_claim_migration="$repo_root/supabase/migrations/20260829223000_isolate_po
 revalidation_migration="$repo_root/supabase/migrations/20260830202410_revalidate_intelligence_operational_facts_v1.sql"
 revalidation_delta="$repo_root/supabase/canonical/public-acl-intelligence-operational-revalidation-v1.delta"
 revalidation_definer_delta="$repo_root/supabase/security/security-definer-intelligence-operational-revalidation-v1.delta.json"
+hours_scope_migration="$repo_root/supabase/migrations/20260830204938_harden_operational_hours_service_scope_v1.sql"
 fail(){ printf 'Spot Intelligence Machine Acceptance ACL validation failed: %s\n' "$*" >&2;exit 1;}
 test -f "$migration" || fail 'migration missing'
 test -f "$delta" || fail 'reviewed delta missing'
@@ -21,6 +22,7 @@ test -f "$legacy_claim_migration" || fail 'legacy claim isolation migration miss
 test -f "$revalidation_migration" || fail 'operational revalidation migration missing'
 test -f "$revalidation_delta" || fail 'operational revalidation reviewed ACL delta missing'
 test -f "$revalidation_definer_delta" || fail 'operational revalidation reviewed SECURITY DEFINER delta missing'
+test -f "$hours_scope_migration" || fail 'operational hours service-scope hardening migration missing'
 test "$(wc -l < "$delta" | tr -d ' ')" = 6 || fail 'delta must contain exactly six effective grants'
 test "$(grep -c '|service_role|' "$delta")" = 6 || fail 'non-service role in delta'
 if grep -Eq '\|(anon|authenticated)\|' "$delta";then fail 'client role in delta';fi
@@ -53,6 +55,15 @@ if grep -Eqi '^grant .* to (anon|authenticated|public)([,;]|$)' "$revalidation_m
 if grep -Eqi '^grant .* on (table|sequence) ' "$revalidation_migration";then fail 'operational revalidation grants table or sequence access';fi
 if rg -q 'p_(actor|user)(_id)?[[:space:]]' "$revalidation_migration";then fail 'operational revalidation accepts caller-controlled actor';fi
 test "$(grep -Fc "coalesce(auth.role(),'')<>'service_role'" "$revalidation_migration")" -ge 2 || fail 'operational revalidation runtime service guards missing'
+test "$(grep -c '^grant execute on function ' "$hours_scope_migration")" = 1 || fail 'hours service-scope hardening has unexpected grant count'
+grep -Fq 'revoke all on function public.backyrd_research_regular_hours_spot_scope_v1(text,text)' "$hours_scope_migration" || fail 'hours service-scope helper revoke missing'
+grep -Fq 'revoke all on function public.backyrd_revalidate_intelligence_operational_batch_v1(uuid,text,integer)' "$hours_scope_migration" || fail 'hours service-scope gateway pre-grant revoke missing'
+grep -Fq 'grant execute on function public.backyrd_revalidate_intelligence_operational_batch_v1(uuid,text,integer)' "$hours_scope_migration" || fail 'hours service-scope service grant drift'
+grep -Fq "coalesce(auth.role(),'')<>'service_role'" "$hours_scope_migration" || fail 'hours service-scope runtime service guard missing'
+grep -Fq "'reason','SERVICE_SCHEDULE_NOT_VENUE_HOURS'" "$hours_scope_migration" || fail 'hours service-scope fail-closed audit reason missing'
+if grep -Eqi '^grant .* to (anon|authenticated|public)([,;]|$)' "$hours_scope_migration";then fail 'hours service-scope hardening granted to client role';fi
+if grep -Eqi '^grant .* on (table|sequence) ' "$hours_scope_migration";then fail 'hours service-scope hardening grants table or sequence access';fi
+if rg -q 'p_(actor|user)(_id)?[[:space:]]' "$hours_scope_migration";then fail 'hours service-scope hardening accepts caller-controlled actor';fi
 test "$(grep -Fc "coalesce(auth.role(),'')<>'service_role'" "$migration")" -ge 4 || fail 'service-only runtime guards missing'
 jq -e '
   .version == 1 and (.functions|length) == 11
