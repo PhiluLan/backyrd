@@ -1,4 +1,4 @@
-import { evaluateIntelligenceCanaryReadiness, evaluatePilotAcceptance, evaluatePopulationTickReadiness, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planProviderCreditCanary, planRefreshCandidates, proposalBelongsToResearchJobs, selectIntelligenceCanary, selectResearchCohort, selectResearchEligible, systemicResearchFailure, unresolvedResearchFailures, websiteIdentityCompatible, type Candidate } from "./index.ts";
+import { evaluateIntelligenceCanaryReadiness, evaluatePilotAcceptance, evaluatePopulationTickReadiness, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planProviderCreditCanary, planRefreshCandidates, populationResearchConcurrency, proposalBelongsToResearchJobs, selectIntelligenceCanary, selectResearchCohort, selectResearchEligible, systemicResearchFailure, unresolvedResearchFailures, websiteIdentityCompatible, type Candidate } from "./index.ts";
 
 const candidate: Candidate = {
   sourceFamily: "OPENSTREETMAP",
@@ -90,6 +90,10 @@ Deno.test("Population tick fails closed for concurrent runs and Machine Acceptan
   if(concurrent.ok||!concurrent.failures.includes("MULTIPLE_RUNNING_POPULATION_RUNS"))throw new Error("multiple Population runs were not rejected");
   const acceptance=evaluatePopulationTickReadiness({runningRuns:1,activeJobs:0,pendingSpots:400,machineAcceptanceFailures:1});
   if(acceptance.ok||!acceptance.failures.includes("MACHINE_ACCEPTANCE_FAILURE"))throw new Error("Machine Acceptance failure did not trip the circuit breaker");
+});
+
+Deno.test("Population throughput uses only the measured concurrency-three canary result", () => {
+  if(populationResearchConcurrency!==3)throw new Error("Population concurrency drifted from the measured canary");
 });
 
 Deno.test("Population systemic failure circuit breaker counts distinct Spots, not dual research cohorts", () => {

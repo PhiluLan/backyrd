@@ -33,7 +33,7 @@ insert into auth.users(instance_id,id,aud,role,email,encrypted_password,raw_app_
 values('00000000-0000-0000-0000-000000000000','62000000-0000-4000-8000-000000000001','authenticated','authenticated','population-automation@invalid','','{}','{}',now(),now());
 insert into public.admin_users(user_id,role) values('62000000-0000-4000-8000-000000000001','super_admin');
 insert into public.backyrd_city_bootstrap_runs_v1(id,run_key,city_key,city_name,geography,source_configuration,target_configuration,pipeline_version,canonical_repository_commit,mode,status,requested_by,started_at)
-values('62000000-0000-4000-8000-000000000002','basel-intelligence-population-automation-test','basel','Basel','{}','{}','{"phase":"FULL_LAUNCH_CURATION","researchConcurrencyLimit":2,"researchCoverageTarget":415,"discoveryEnabled":false}','backyrd-intelligence-population-v1',repeat('e',40),'INTELLIGENCE','RUNNING','62000000-0000-4000-8000-000000000001',now());
+values('62000000-0000-4000-8000-000000000002','basel-intelligence-population-automation-test','basel','Basel','{}','{}','{"phase":"FULL_LAUNCH_CURATION","researchConcurrencyLimit":3,"researchCoverageTarget":415,"discoveryEnabled":false}','backyrd-intelligence-population-v1',repeat('e',40),'INTELLIGENCE','RUNNING','62000000-0000-4000-8000-000000000001',now());
 
 set local role service_role;
 select set_config('request.jwt.claims','{"role":"service_role"}',true),set_config('request.jwt.claim.role','service_role',true);
