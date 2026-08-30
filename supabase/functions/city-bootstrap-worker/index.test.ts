@@ -1,4 +1,4 @@
-import { evaluateIntelligenceCanaryReadiness, evaluatePilotAcceptance, evaluatePopulationTickReadiness, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planRefreshCandidates, selectIntelligenceCanary, selectResearchCohort, selectResearchEligible, systemicResearchFailure, websiteIdentityCompatible, type Candidate } from "./index.ts";
+import { evaluateIntelligenceCanaryReadiness, evaluatePilotAcceptance, evaluatePopulationTickReadiness, evaluateScaleBatchIntegrity, evaluateScaleFinalization, googleMatch, planRefreshCandidates, selectIntelligenceCanary, selectResearchCohort, selectResearchEligible, systemicResearchFailure, unresolvedResearchFailures, websiteIdentityCompatible, type Candidate } from "./index.ts";
 
 const candidate: Candidate = {
   sourceFamily: "OPENSTREETMAP",
@@ -118,6 +118,12 @@ Deno.test("Population systemic failure circuit breaker counts distinct Spots, no
     {spot_id:"spot-5",failure_code:"research_source_invalid:0",created_at:"2026-08-29T12:00:03Z"},
   ],3,"2026-08-29T12:00:00Z");
   if(retripped?.count!==3)throw new Error("three post-remediation Spots did not retrip the circuit breaker");
+  const independentlyReset=unresolvedResearchFailures([
+    {failure_code:"research_source_invalid:0",created_at:"2026-08-29T10:00:00Z"},
+    {failure_code:"research_provider_failed",created_at:"2026-08-29T11:00:00Z"},
+    {failure_code:"research_provider_failed",created_at:"2026-08-29T13:00:00Z"},
+  ],{"research_source_invalid:0":"2026-08-29T12:00:00Z","research_provider_failed":"2026-08-29T12:00:00Z"});
+  if(independentlyReset.length!==1||independentlyReset[0].created_at!=="2026-08-29T13:00:00Z")throw new Error("failure-class-specific circuit resets are not isolated");
 });
 
 Deno.test("Research cohort excludes rows without canonical website eligibility", () => {

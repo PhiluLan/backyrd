@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { processOneResearchJob } from "../../../packages/spot-research-runtime/src/worker.mjs";
 import { createSpotResearchRepository } from "../../../packages/spot-research-runtime/src/supabase-repository.mjs";
-import { diagnoseLegacyResearchPayload, diagnoseResearchSourcePayload, retrieveBackgroundResearchResponse } from "../../../packages/spot-research-runtime/src/index.mjs";
+import { DEFAULT_RESEARCH_MODEL, diagnoseLegacyResearchPayload, diagnoseResearchSourcePayload, retrieveBackgroundResearchResponse } from "../../../packages/spot-research-runtime/src/index.mjs";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const pause = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -21,6 +21,13 @@ Deno.serve(async (request) => {
   if (populationRunId !== null && !uuidPattern.test(populationRunId)) return json({ error: "population_run_invalid" }, 400);
   const service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const repository = createSpotResearchRepository(service, { populationRunId });
+  if (body.action === "PROVIDER_HEALTH") {
+    const response = await fetch("https://api.openai.com/v1/responses", { method: "POST", headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" }, body: JSON.stringify({ model: DEFAULT_RESEARCH_MODEL, store: false, background: false, reasoning: { effort: "low" }, input: "Return exactly OK.", max_output_tokens: 64 }) });
+    let payload: Record<string, unknown> = {};try { payload = await response.json(); } catch { /* bounded health result below */ }
+    const error = payload.error && typeof payload.error === "object" ? payload.error as Record<string, unknown> : {};
+    const providerStatus = typeof payload.status === "string" ? payload.status : null,errorCode = typeof error.code === "string" ? error.code : null,ok = response.ok && providerStatus === "completed";
+    return json({ ok, providerStatus, errorCode, canonicalProviderSecret: true, wroteCanonicalFacts: false }, ok ? 200 : 503);
+  }
   if (body.action === "DIAGNOSE_LEGACY_RESPONSE" || body.action === "DIAGNOSE_SOURCE_RESPONSE") {
     const responseId = typeof body.responseId === "string" ? body.responseId : "";
     const { data: pass, error: passError } = await service.from("backyrd_spot_research_passes_v2").select("job_id,pass_key,provider_response_id").eq("provider_response_id", responseId).maybeSingle();
