@@ -240,6 +240,14 @@ export function classifyPopulationWorkerInvocations(invocations:PopulationWorker
   return {ok:hardFailures.length===0,hardFailures,transientSkipped};
 }
 
+const machineAcceptanceReviewConflicts=new Set(["machine_acceptance_source_conflict","machine_acceptance_existing_truth_conflict"]);
+export function classifyMachineAcceptanceResult(error:unknown) {
+  const code=clean(error);
+  if(!code)return {disposition:"ACCEPTED" as const,errorCode:null};
+  if(machineAcceptanceReviewConflicts.has(code))return {disposition:"REVIEW_REQUIRED" as const,errorCode:code};
+  return {disposition:"HARD_FAILURE" as const,errorCode:code};
+}
+
 async function kickPopulationResearch(db:any,url:string,serviceKey:string,populationRunId:string,workers=2) {
   const invocations:PopulationWorkerInvocation[]=[];
   await Promise.all(Array.from({length:workers},async()=>{try{const response=await fetch(`${url}/functions/v1/research-spot-worker`,{method:"POST",headers:{authorization:`Bearer ${serviceKey}`,"content-type":"application/json"},body:JSON.stringify({populationRunId})});let errorCode:string|null=null;if(response.status!==200){const payload=await response.json().catch(()=>({}));errorCode=clean(payload?.error)||null;}else await response.body?.cancel();invocations.push({status:response.status,errorCode,transportError:false});}catch{invocations.push({status:0,errorCode:null,transportError:true});}}));
@@ -250,9 +258,9 @@ async function kickPopulationResearch(db:any,url:string,serviceKey:string,popula
     // Keep the PostgREST request bounded as the Population run grows. Run
     // lineage is still enforced deterministically before any privileged RPC.
     const {data:proposals,error:proposalError}=await db.from("backyrd_spot_fact_proposals_v1").select("id,idempotency_key,machine_evidence_fingerprint,field_key,status").eq("status","PENDING").in("field_key",["contact.website","contact.phone","contact.email","opening.regular"]).not("machine_evidence_fingerprint","is",null).like("idempotency_key","research-v2.1:%").order("created_at",{ascending:false}).limit(100);if(proposalError)throw proposalError;
-    for(const proposal of (proposals??[]).filter((proposal:any)=>proposalBelongsToResearchJobs(proposal.idempotency_key,jobIds))){const accepted=await db.rpc("backyrd_machine_accept_v1",{p_proposal_id:proposal.id,p_policy_version:"backyrd-machine-acceptance-v1",p_expected_evidence_fingerprint:proposal.machine_evidence_fingerprint});machineAccepted.push({proposalId:proposal.id,fieldKey:proposal.field_key,accepted:!accepted.error,error:accepted.error?.message??null});}
+    for(const proposal of (proposals??[]).filter((proposal:any)=>proposalBelongsToResearchJobs(proposal.idempotency_key,jobIds))){const accepted=await db.rpc("backyrd_machine_accept_v1",{p_proposal_id:proposal.id,p_policy_version:"backyrd-machine-acceptance-v1",p_expected_evidence_fingerprint:proposal.machine_evidence_fingerprint}),classified=classifyMachineAcceptanceResult(accepted.error?.message);machineAccepted.push({proposalId:proposal.id,fieldKey:proposal.field_key,accepted:classified.disposition==="ACCEPTED",reviewRequired:classified.disposition==="REVIEW_REQUIRED",disposition:classified.disposition,error:classified.errorCode});}
   }
-  return {ok:workerResult.ok&&machineAccepted.every((item)=>item.accepted),workers,statuses,machineAccepted,hardFailures:workerResult.hardFailures,transientSkipped:workerResult.transientSkipped};
+  return {ok:workerResult.ok&&machineAccepted.every((item)=>item.disposition!=="HARD_FAILURE"),workers,statuses,machineAccepted,hardFailures:workerResult.hardFailures,transientSkipped:workerResult.transientSkipped};
 }
 
 if (import.meta.main) Deno.serve(async (request) => {
@@ -338,7 +346,7 @@ if (import.meta.main) Deno.serve(async (request) => {
         let queued=0;
         if(readiness.shouldQueue){const {data:spots,error:spotsError}=await db.from("backyrd_spot_intelligence_population_v1").select("spot_id").eq("run_id",run.id).eq("terminal_state","PENDING").order("spot_id").limit(5);if(spotsError)throw spotsError;for(const spot of spots??[]){const result=await db.rpc("backyrd_enqueue_spot_intelligence_population_job_v1",{p_run_id:run.id,p_spot_id:spot.spot_id});if(result.error)throw result.error;queued++;}}
         const kicked=await kickPopulationResearch(db,url,serviceKey,run.id,researchConcurrency);
-        const post=evaluatePopulationTickReadiness({runningRuns:1,activeJobs:(active??[]).length,pendingSpots:pending??0,machineAcceptanceFailures:kicked.machineAccepted.filter((item:any)=>!item.accepted).length});
+        const post=evaluatePopulationTickReadiness({runningRuns:1,activeJobs:(active??[]).length,pendingSpots:pending??0,machineAcceptanceFailures:kicked.machineAccepted.filter((item:any)=>item.disposition==="HARD_FAILURE").length});
         if(!kicked.ok||!post.ok){await db.from("backyrd_city_bootstrap_runs_v1").update({status:"PAUSED",stop_reason:`CIRCUIT_BREAKER:${post.failures.join(",")||kicked.hardFailures.join(",")||"RESEARCH_WORKER_FAILURE"}`.slice(0,500)}).eq("id",run.id).eq("status","RUNNING");const stopped=await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"STOP",p_lease_token:leaseToken});if(stopped.error)throw stopped.error;release=false;return json({ok:false,runId:run.id,status:"PAUSED",failures:post.failures,workerFailures:kicked.hardFailures,statuses:kicked.statuses},409);}
         return json({ok:true,runId:run.id,status:"RUNNING",queued,researchWorkers:researchConcurrency,machineAccepted:kicked.machineAccepted,transientWorkerCallsSkipped:kicked.transientSkipped.length});
       } finally {if(release)await db.rpc("backyrd_intelligence_population_tick_control_v1",{p_run_id:run.id,p_action:"RELEASE",p_lease_token:leaseToken});}
