@@ -1,8 +1,69 @@
 # Spot Intelligence Pipeline V1 Acceptance
 
-Final Production closure measured 2026-08-29. Overall verdict: **PASS**.
+Final Founder Product Acceptance measured 2026-08-31. Overall verdict:
+**PARTIAL SUCCESS / CLOSED**.
 
-## Final Production closure
+## Final Founder closure — supersedes the earlier technical verdict
+
+The Founder physically inspected the Product result and closed this V1
+workstream. City discovery, identity resolution, duplicate prevention,
+publication, and Admin Operations succeeded. Automated Launch Curation did not
+meet the original Product objective: too many of the 415 Basel Product Spots
+remain materially incomplete in objective basis data, factual description, or
+the existing Gold questions, and the remaining Human Review load is too high.
+Philipp would still need to perform too much routine Spot-by-Spot curation.
+
+This is a Product-acceptance failure, not authorization for further V1
+iteration. Existing Product Spots, accepted truth, UNKNOWN states, Research and
+Evidence lineage, audit history, and open reviews are preserved. No pending or
+conflicting proposal is accepted by this closure.
+
+Production closure state:
+
+- Basel Product Spots: 415.
+- Intelligence ledger: 415/415 terminal; 0 nonterminal Spots.
+- Research jobs for the completed Population run: 0 nonterminal.
+- Population run `d6b5bfb0-4236-44f9-aa80-68be421bc289`: `COMPLETED`, with
+  Discovery disabled.
+- Open Human Reviews: 209 (`203 PENDING`, `6 CONFLICT`).
+- Unsupported auto-accepted canonical facts: 0. Two accepted proposal records
+  flagged by a conservative closure query have no Accepted-Fact record and are
+  therefore not canonical Product truth.
+- Active Basel Research/Population scheduler entries: 0.
+- Further Basel Research scheduled: no.
+- The forward fix merged in PR #160 before the stop directive was not applied
+  to Production. The Founder stop directive takes precedence; no further
+  migration or Canary is authorized.
+
+```text
+BASEL PRODUCT SPOTS — 415
+CITY BOOTSTRAP — PASS
+DISCOVERY — PASS
+IDENTITY RESOLUTION — PASS
+DUPLICATE PREVENTION — PASS
+ADMIN OPERATIONS — PASS
+AUTOMATED LAUNCH CURATION — FAIL
+FOUNDER MUST STILL ROUTINELY CURATE TOO MANY SPOTS — YES
+OPEN HUMAN REVIEWS — 209
+UNSUPPORTED AUTO-ACCEPTED FACTS — 0
+FURTHER BASEL RESEARCH SCHEDULED — NO
+CITY BOOTSTRAP / SPOT INTELLIGENCE PIPELINE V1 — PARTIAL SUCCESS / CLOSED
+```
+
+### Future work
+
+Any future effort may address objective basis-data coverage, factual
+descriptions, Gold-question completion, and bounded review load as a separately
+authorized workstream. It must begin from the preserved 415-Spot corpus and
+existing Trust/Evidence contracts; it must not reinterpret this closed V1 as a
+request for more Basel discovery, automatic acceptance, historical rewriting,
+or silent enrichment.
+
+## Historical technical Production closure — superseded
+
+The following technical closure was measured 2026-08-29 and is retained as
+audit history. Its PASS verdict was superseded by the physical Founder Product
+Acceptance above.
 
 - Canonical Production lineage: `main` through `c2c83f88eae74422952abc3752465b2375e620da`; all required GitHub checks passed and the additive migrations and worker were deployed normally.
 - Spot Engine Admin Operations: PASS. The authenticated Admin surface exposes Basel runs, metrics, pause/circuit-breaker reasons, candidates, failed jobs, telemetry, and auditable review actions through the existing server-side contracts. No client secret or service-role credential is exposed.
