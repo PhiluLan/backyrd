@@ -48,14 +48,24 @@ select set_config('request.jwt.claim.sub',pg_temp.uuid('gold-user')::text,true);
 select set_config('request.jwt.claim.role','authenticated',true);
 insert into public.reviews(spot_id,user_id,mood_a,mood_b,text)
 values(pg_temp.uuid('gold-real'),pg_temp.uuid('gold-user'),'ruhig','gemütlich','valid product review');
-select pg_temp.assert((select data_origin='REAL' and review_origin='STANDARD_REVIEW' and mood_a='leise' and mood_b='gemütlich'
- from public.reviews where text='valid product review'),'server assigns provenance and canonical Moods');
-do $$ begin
- begin
-  insert into public.reviews(spot_id,user_id,mood_a,mood_b,text) values(pg_temp.uuid('gold-real'),pg_temp.uuid('gold-user'),'a','b','invalid product review');
-  raise exception 'placeholder Mood accepted';
- exception when sqlstate '22023' then null; end;
-end $$;
+select pg_temp.assert((select data_origin='REAL' and review_origin='STANDARD_REVIEW' and mood_a='ruhig' and mood_b='gemütlich'
+ from public.reviews where text='valid product review'),'server assigns provenance and preserves raw Mood expressions');
+reset role;
+select pg_temp.assert((select concept_key='mood.quiet' and resolution_status='RESOLVED'
+ from public.backyrd_review_mood_expressions_v1 e join public.reviews r on r.id=e.review_id
+ where r.text='valid product review' and e.slot=1),'raw Mood expression resolves through the canonical layer');
+set local role authenticated;
+insert into public.reviews(spot_id,user_id,mood_a,mood_b,text)
+values(pg_temp.uuid('gold-real'),pg_temp.uuid('gold-user'),'a','b','invalid product review');
+reset role;
+select pg_temp.assert((select count(*)=2 and bool_and(resolution_status='INVALID')
+ from public.backyrd_review_mood_expressions_v1 e join public.reviews r on r.id=e.review_id
+ where r.text='invalid product review'),'invalid Mood evidence is preserved and excluded');
+select pg_temp.assert(not exists(
+ select 1 from public.backyrd_spot_mood_contributions_v1 c join public.reviews r on r.id=c.source_review_id
+ where r.text='invalid product review'
+),'invalid Mood evidence cannot create a community contribution');
+set local role authenticated;
 select pg_temp.assert(not public.distribution_trust_entity_is_eligible_v1('spot',pg_temp.uuid('gold-fixture'),'decision'),'Fixture Spot is isolated from Decisions');
 select pg_temp.assert(
  not has_function_privilege(

@@ -633,7 +633,7 @@ end $$;
 create or replace function public.backyrd_admin_merge_mood_concepts_v1(
   p_source_concept_key text,p_target_concept_key text,p_reason text
 ) returns jsonb language plpgsql security definer set search_path = public, pg_catalog as $$
-declare v_uid uuid:=auth.uid();r record;
+declare v_uid uuid:=auth.uid();v_affected_spots uuid[];v_spot uuid;
 begin
   if v_uid is null or not public.is_admin_v1(v_uid) then raise exception 'admin_required' using errcode='42501'; end if;
   if p_source_concept_key is null or p_target_concept_key is null or p_source_concept_key=p_target_concept_key then
@@ -644,10 +644,8 @@ begin
      not exists(select 1 from public.backyrd_mood_concepts_v1 where concept_key=p_target_concept_key and active) then
     raise exception 'active_concepts_required' using errcode='22023';
   end if;
-  create temporary table if not exists mood_merge_affected_spots(spot_id uuid primary key) on commit drop;
-  truncate mood_merge_affected_spots;
-  insert into mood_merge_affected_spots
-  select distinct spot_id from public.backyrd_review_mood_expressions_v1 where concept_key=p_source_concept_key;
+  select array_agg(distinct spot_id) into v_affected_spots
+  from public.backyrd_review_mood_expressions_v1 where concept_key=p_source_concept_key;
   update public.backyrd_mood_aliases_v1 set concept_key=p_target_concept_key,updated_at=now()
     where concept_key=p_source_concept_key;
   update public.backyrd_review_mood_expressions_v1 set concept_key=p_target_concept_key,
@@ -660,8 +658,8 @@ begin
     where concept_key=p_source_concept_key;
   update public.backyrd_mood_concepts_v1 set active=false,merged_into_concept_key=p_target_concept_key,updated_at=now()
     where concept_key=p_source_concept_key;
-  for r in select spot_id from mood_merge_affected_spots loop
-    perform public.backyrd_rebuild_spot_mood_profile_v1(r.spot_id);
+  foreach v_spot in array coalesce(v_affected_spots,'{}'::uuid[]) loop
+    perform public.backyrd_rebuild_spot_mood_profile_v1(v_spot);
   end loop;
   insert into public.backyrd_mood_governance_audit_v1(actor_user_id,action,source_concept_key,target_concept_key,reason,metadata)
   values(v_uid,'MERGE_CONCEPT',p_source_concept_key,p_target_concept_key,btrim(p_reason),

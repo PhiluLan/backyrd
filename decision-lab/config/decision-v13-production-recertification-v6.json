@@ -38,7 +38,7 @@
       "supabase/migrations/20260825230000_canonical_offering_purpose_v2_1.sql",
       "supabase/migrations/20260831170005_create_canonical_product_mood_v1.sql"
     ],
-    "hash": "fe7f1104b319725d21d775fdf9533d078859bb46a0ff8a2fb50a47e5be32c5df"
+    "hash": "1dee3ccc8c34f390a54e188481ae1c8dd135802e8c362e903c30a1ecc8482e6f"
   },
   "certificationEvidenceSet": {
     "paths": [
