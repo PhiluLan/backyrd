@@ -32,4 +32,4 @@ Supabase PostgreSQL owns shared product state and cross-client invariants. `auth
 
 ## Canonical verification
 
-`scripts/ci/application-schema-fingerprint.sql` hashes 10,245 structural and security facts across Backyrd-owned schemas. `scripts/ci/public-acl-fingerprint.sql` independently certifies effective Public API grants. Both clean bootstrap and Production must equal the committed fingerprints.
+`scripts/ci/application-schema-fingerprint.sql` hashes 10,245 semantic structural and security facts across Backyrd-owned schemas. Physical column-number holes and function line endings are normalized; six exact historical comment-only deltas are certified explicitly. Executable definitions, column contracts and all security facts remain covered. `scripts/ci/public-acl-fingerprint.sql` independently certifies effective Public API grants. Both clean bootstrap and Production must equal the committed fingerprints.

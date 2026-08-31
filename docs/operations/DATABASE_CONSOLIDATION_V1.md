@@ -93,7 +93,7 @@ Negative tests prove rejection of:
 - a new migration inserted into history;
 - Production-only migration truth.
 
-The application schema fingerprint covers schemas, relations/columns, constraints, indexes, views, functions including `SECURITY DEFINER` configuration, triggers, policies, sequences, types/enums, extensions, effective client grants, owners, RLS and default ACLs. The separate Public ACL fingerprint remains an independent security guard.
+The application schema fingerprint covers schemas, relations/columns, constraints, indexes, views, functions including `SECURITY DEFINER` configuration, triggers, policies, sequences, types/enums, extensions, effective client grants, owners, RLS and default ACLs. It intentionally excludes physical PostgreSQL column attribute numbers (which retain invisible holes after a historical `DROP COLUMN`), normalizes CRLFs, and ignores only six exact historical comment lines whose executable definitions were proven equal; column names/types/defaults and all other executable function text remain covered. The separate Public ACL fingerprint remains an independent security guard.
 
 ## Normal database workflow after consolidation
 
