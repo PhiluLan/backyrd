@@ -1,10 +1,40 @@
 "use client";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useId, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createReviewWithPhotos } from "@/lib/backyrd-api";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "./ui";
-const moods = ["Cozy", "Ruhig", "Inspirierend", "Urban", "Chic", "Lebhaft"];
+
+type Suggestion = { concept_key: string; label: string; matched_expression: string };
+
+function MoodField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const id = useId();
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  useEffect(() => {
+    let current = true;
+    const timer = window.setTimeout(async () => {
+      const { data } = await supabase.rpc("backyrd_search_mood_concepts_v1", {
+        p_query: value,
+        p_locale: "de",
+        p_limit: 8,
+      });
+      if (current) setSuggestions((data as Suggestion[] | null) ?? []);
+    }, 120);
+    return () => { current = false; window.clearTimeout(timer); };
+  }, [value]);
+  return (
+    <div className="b-input-group">
+      <label className="b-label" htmlFor={id}>{label}</label>
+      <input id={id} className="b-input" value={value} maxLength={40}
+        placeholder="z. B. gemütlich" autoComplete="off" aria-describedby={`${id}-hint`}
+        onChange={(event) => onChange(event.target.value)} list={`${id}-suggestions`} />
+      <datalist id={`${id}-suggestions`}>
+        {suggestions.map((item) => <option key={item.concept_key} value={item.label}>{item.matched_expression}</option>)}
+      </datalist>
+      <span id={`${id}-hint`} className="b-muted">Vorschlag wählen oder einen eigenen kurzen Eindruck eingeben.</span>
+    </div>
+  );
+}
 export function ReviewForm() {
   const params = useSearchParams();
   const router = useRouter();
@@ -77,40 +107,11 @@ export function ReviewForm() {
             maxLength={2000}
           />
         </div>
-        <div className="b-form-row">
-          <div className="b-input-group">
-            <label className="b-label" htmlFor="mood-a">
-              Stimmung
-            </label>
-            <select
-              id="mood-a"
-              className="b-select"
-              value={a}
-              onChange={(event) => setA(event.target.value)}
-            >
-              <option value="">Keine</option>
-              {moods.map((mood) => (
-                <option key={mood}>{mood}</option>
-              ))}
-            </select>
-          </div>
-          <div className="b-input-group">
-            <label className="b-label" htmlFor="mood-b">
-              Plus
-            </label>
-            <select
-              id="mood-b"
-              className="b-select"
-              value={b}
-              onChange={(event) => setB(event.target.value)}
-            >
-              <option value="">Keine</option>
-              {moods.map((mood) => (
-                <option key={mood}>{mood}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+        <fieldset className="b-form-row" style={{ border: 0, padding: 0 }}>
+          <legend className="b-label">Welche zwei Moods beschreiben diesen Ort am besten?</legend>
+          <MoodField label="Mood 1 (optional)" value={a} onChange={setA} />
+          <MoodField label="Mood 2 (optional)" value={b} onChange={setB} />
+        </fieldset>
         {error ? (
           <p className="b-field-error" role="alert">
             {error}

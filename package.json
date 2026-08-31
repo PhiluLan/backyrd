@@ -63,7 +63,8 @@
     "supabase:stop": "npx supabase stop",
     "supabase:status": "npx supabase status",
     "supabase:reset": "npx supabase db reset",
-    "validate:spot-intelligence-machine-acl": "bash scripts/ci/validate-spot-intelligence-machine-acceptance-acl.sh"
+    "validate:spot-intelligence-machine-acl": "bash scripts/ci/validate-spot-intelligence-machine-acceptance-acl.sh",
+    "validate:canonical-product-mood": "node scripts/ci/validate-canonical-product-mood-v1.mjs"
   },
   "repository": {
     "type": "git",

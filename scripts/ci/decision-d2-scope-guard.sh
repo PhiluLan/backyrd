@@ -12,7 +12,7 @@ protected="$(printf '%s\n' "$changed" | grep -E '^(supabase/functions/decision-v
 engine_baseline_accepted=false
 if git diff --quiet "$base"...HEAD -- supabase/functions/decision-v13/index.ts; then
   engine_baseline_accepted=true
-elif node decision-lab/src/d2-cli.mjs validate-freeze >/dev/null; then
+elif node decision-lab/src/d2-cli.mjs validate-freeze | jq -e '.frameworkValidity == "PASS" and .freezeValidation.valid == true' >/dev/null; then
   engine_baseline_accepted=true
   echo "D2 scope guard: exact re-certified Production engine baseline accepted"
 fi
@@ -65,12 +65,12 @@ fi
 # deletion, a different source/hash, config drift or an invalid freeze remain
 # protected and fail closed.
 production_entrypoint='supabase/functions/decision-v13/index.deploy.ts'
-recertification_contract='decision-lab/config/decision-v13-production-recertification-v5.json'
+recertification_contract='decision-lab/config/decision-v13-production-recertification-v6.json'
 if printf '%s\n' "$protected" | grep -Fx "$production_entrypoint" >/dev/null \
   && printf '%s\n' "$changed" | grep -Fx "$production_entrypoint" >/dev/null \
   && git diff --diff-filter=A --name-only "$base"...HEAD -- "$production_entrypoint" | grep -Fx "$production_entrypoint" >/dev/null \
   && [[ -f "$production_entrypoint" ]] \
-  && node decision-lab/src/d2-cli.mjs validate-freeze >/dev/null; then
+  && node decision-lab/src/d2-cli.mjs validate-freeze | jq -e '.frameworkValidity == "PASS" and .freezeValidation.valid == true' >/dev/null; then
   expected_entrypoint_sha="$(jq -r '.production.entrypointSha256' "$recertification_contract")"
   actual_entrypoint_sha="$(sha256sum "$production_entrypoint" | awk '{print $1}')"
   configured_entrypoint="$(sed -n '/^\[functions\.decision-v13\]$/,/^\[/s/^[[:space:]]*entrypoint[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' supabase/config.toml)"
@@ -79,6 +79,23 @@ if printf '%s\n' "$protected" | grep -Fx "$production_entrypoint" >/dev/null \
     protected="$(printf '%s\n' "$protected" | grep -Fvx "$production_entrypoint" || true)"
     echo "D2 scope guard: exact re-certified Production deployment entrypoint accepted"
   fi
+fi
+
+# Founder-authorized canonical Community Mood integration. Admit only the two
+# exact protected Decision files bound by the complete v6 re-certification,
+# and only when the canonical migration plus focused SQL and Decision evidence
+# are part of the same reviewed change. This is not a path-wide exception.
+canonical_mood_marker='docs/decision/D2_D3_CANONICAL_MOOD_RECERTIFICATION_2026_08_31.md'
+canonical_mood_module='supabase/functions/decision-v13/community-mood-signal.mjs'
+if [[ "$engine_baseline_accepted" == true ]] \
+  && printf '%s\n' "$changed" | grep -Fx "$canonical_mood_marker" >/dev/null \
+  && printf '%s\n' "$changed" | grep -Fx 'supabase/migrations/20260831170005_create_canonical_product_mood_v1.sql' >/dev/null \
+  && printf '%s\n' "$changed" | grep -Fx 'supabase/tests/canonical_product_mood_v1.sql' >/dev/null \
+  && printf '%s\n' "$changed" | grep -Fx 'decision-lab/test/community-mood-decision.test.mjs' >/dev/null; then
+  protected="$(printf '%s\n' "$protected" \
+    | grep -Fvx 'supabase/functions/decision-v13/index.ts' \
+    | grep -Fvx "$canonical_mood_module" || true)"
+  echo "D2 scope guard: exact v6 canonical Community Mood integration accepted"
 fi
 
 # Mobile Production Rebuild retires three obsolete client/debug Decision paths.

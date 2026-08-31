@@ -111,14 +111,14 @@ export default function MapScreen() {
   const [spotMoods, setSpotMoods] = useState<Record<string, string[]>>({});
 
   // Mapping: spotId → [mood_id1, mood_id2, ...]
-  const [spotMoodIds, setSpotMoodIds] = useState<Record<string, number[]>>({});
+  const [spotMoodIds, setSpotMoodIds] = useState<Record<string, string[]>>({});
 
   // Alle Mood-IDs, die in Daten vorkommen → für Fallback-Logik
   const allMoodIdsInData = useMemo(() => {
-    const set = new Set<number>();
+    const set = new Set<string>();
     Object.values(spotMoodIds).forEach((arr) =>
       arr.forEach((id) => {
-        if (typeof id === "number") set.add(id);
+        if (typeof id === "string") set.add(id);
       })
     );
     return set;
@@ -138,10 +138,10 @@ export default function MapScreen() {
 
   // Auswahl: Mood über Chip
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
-  const [selectedMoodId, setSelectedMoodId] = useState<number | null>(null);
+  const [selectedMoodId, setSelectedMoodId] = useState<string | null>(null);
 
   // Mood, der aus der freien Suche kommt
-  const [searchMoodId, setSearchMoodId] = useState<number | null>(null);
+  const [searchMoodId, setSearchMoodId] = useState<string | null>(null);
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -184,32 +184,24 @@ export default function MapScreen() {
         .select("id,name,icon,color")
         .limit(200);
 
-      // Mood Daten aus spot_moods_agg (Engine-kompatibel)
+      // Canonical Community Mood profile.
       const { data: moodRows } = await supabase
-        .from("spot_moods_agg")
-        .select(
-          `
-          spot_id,
-          mood_id,
-          mood_count,
-          rank,
-          mood_tokens ( token )
-        `
-        )
+        .from("backyrd_spot_mood_profile_public_v1")
+        .select("spot_id,concept_key,label,concept_contributors,rank")
         .lte("rank", 5);
 
       const moodMap: Record<string, string[]> = {};
-      const moodIdMap: Record<string, number[]> = {};
+      const moodIdMap: Record<string, string[]> = {};
 
       (moodRows || []).forEach((r: any) => {
-        const token = r.mood_tokens?.token;
+        const token = r.label;
         if (!token) return;
 
         if (!moodMap[r.spot_id]) moodMap[r.spot_id] = [];
         if (!moodIdMap[r.spot_id]) moodIdMap[r.spot_id] = [];
 
         moodMap[r.spot_id].push(token);
-        moodIdMap[r.spot_id].push(r.mood_id);
+        moodIdMap[r.spot_id].push(r.concept_key);
       });
 
       setSpotMoods(moodMap);
@@ -226,14 +218,8 @@ export default function MapScreen() {
       try {
         // Wir holen viele Mood-Aggregate, aggregieren clientseitig
         const { data, error } = await supabase
-          .from("spot_moods_agg")
-          .select(
-            `
-            mood_id,
-            mood_count,
-            mood_tokens ( token )
-          `
-          )
+          .from("backyrd_spot_mood_profile_public_v1")
+          .select("concept_key,label,concept_contributors")
           .limit(2000);
 
         if (error || !data) {
@@ -244,11 +230,11 @@ export default function MapScreen() {
 
         const freq: Record<string, number> = {};
         (data || []).forEach((row: any) => {
-          const token = row.mood_tokens?.token;
+          const token = row.label;
           if (!token) return;
           const key = normalizeText(token);
           if (!key || key.length < 2) return;
-          freq[key] = (freq[key] || 0) + (row.mood_count || 1);
+          freq[key] = (freq[key] || 0) + (row.concept_contributors || 1);
         });
 
         const sorted = Object.entries(freq)
@@ -275,16 +261,16 @@ export default function MapScreen() {
      MOOD ENGINE HOOKS
   ============================================================= */
 
-  // Chip → Mood-ID via match_mood
+  // Chip → canonical Mood concept through the shared resolver.
   async function resolveSelectedMoodId(text: string | null) {
     if (!text) {
       setSelectedMoodId(null);
       return;
     }
     try {
-      const { data, error } = await supabase.rpc("match_mood", { input: text });
-      if (!error && typeof data === "number") {
-        setSelectedMoodId(data);
+      const { data, error } = await supabase.rpc("backyrd_resolve_mood_input_v2", { p_input: text });
+      if (!error && data?.status === "RESOLVED") {
+        setSelectedMoodId(data.conceptKey);
       } else {
         setSelectedMoodId(null);
       }
@@ -307,9 +293,9 @@ export default function MapScreen() {
       }
 
       try {
-        const { data, error } = await supabase.rpc("match_mood", { input: t });
-        if (!error && typeof data === "number") {
-          setSearchMoodId(data);
+        const { data, error } = await supabase.rpc("backyrd_resolve_mood_input_v2", { p_input: t });
+        if (!error && data?.status === "RESOLVED") {
+          setSearchMoodId(data.conceptKey);
         } else {
           setSearchMoodId(null);
         }
@@ -344,7 +330,7 @@ export default function MapScreen() {
 
     // Effektive Mood-IDs aus Chip + Suche
     const combined = [selectedMoodId, searchMoodId].filter(
-      (v): v is number => typeof v === "number"
+      (v): v is string => typeof v === "string"
     );
 
     // Nur IDs verwenden, die überhaupt in den Daten vorkommen → Fallback,

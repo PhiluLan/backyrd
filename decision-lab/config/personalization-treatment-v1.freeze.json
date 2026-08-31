@@ -1,18 +1,18 @@
 {
   "d2Version": "2.2",
   "contractVersion": "personalization-treatment-v1",
-  "contractHash": "739884c8797fc23286527a675bcb1afb3fd1e3abe9dc784491a7bb92f8061aa1",
+  "contractHash": "6c2773023b27521b8b4d576ec815d0ecb07d9d5108fe5e1463c052f72d652f6e",
   "treatmentGeneratorVersion": "personalization-treatment-generator-v1",
   "treatmentGeneratorHash": "d09c93e3e2ce7d4f5757fac6fa14129ec2a8eb8abe0c46ee9624ebded3d5cf14",
-  "scientificValidationHash": "f4102dde70cb8beb5989080ebf0a0209086139eb494bae3810c39d956420923e",
+  "scientificValidationHash": "3924c29db1f052878962cf6a0876238cdd1894922b037e09bb7424dbe63088b6",
   "scientificValidity": "PASS",
-  "parentFreezeManifestHash": "b1b7279feb3bda65f15763b7453d8ecfba24b3b0144cda098689226e60f3e06e",
+  "parentFreezeManifestHash": "faf34197af9dd63f8d083f3381fdf6b6164b3c4d439dd8d44221bce787bafaa3",
   "parentFreezePreserved": true,
-  "engineSourceHash": "28e178dee7192cb303b07574f31f1e86f58bc80048b23ba00bf032ca02c2bfc4",
+  "engineSourceHash": "1fe82c39ad164fa811c2673cd46d8f451d7628c7ddabd1d8c595afd18a54c14f",
   "engineMutation": "NONE",
   "componentInventoryHash": "7b2adb88a93212339d90952dcd47b7cedb738d5888aabf1661c21b9f9157121d",
   "d31Readiness": "READY",
-  "freezeManifestHash": "57a93933647215fc8659c758cc0be38f2e179ac7ceeb4e7004344adbee8f95cd",
+  "freezeManifestHash": "96f58c41e344abac6095cdbc5ff20024dde368bd4bdce756ceb3f74a354f5ee5",
   "frozen": true,
   "validation": {
     "pass": true,
@@ -26,8 +26,8 @@
       "power"
     ],
     "seedCount": 3,
-    "evidenceHash": "f4102dde70cb8beb5989080ebf0a0209086139eb494bae3810c39d956420923e",
-    "validationHash": "e6261a34bce8a766baec7d5ee485e24dbbc86e1a768332acd96ef04f0a8dd756"
+    "evidenceHash": "3924c29db1f052878962cf6a0876238cdd1894922b037e09bb7424dbe63088b6",
+    "validationHash": "7f8573e48561988ff6868abcd84d813f793ff4a74e7d1f8a08e044af565cd57a"
   },
-  "fixtureTreatmentHash": "e9e5d605a8e5458a6062c459e53f964e633e963021805993c92bb231f4b56c46"
+  "fixtureTreatmentHash": "b9525fc9d861f5f74373552c3c85379bd6ea705f643759a1587840e88b14e6e0"
 }

@@ -37,10 +37,14 @@ export type SpotReviewDTO = {
 };
 
 export type SpotTopMoodDTO = {
-  mood_id: number;
-  token: string;
-  mood_count: number;
-  rank: number | null;
+  concept_key: string;
+  label: string;
+  canonical_label: string;
+  concept_contributors: number | null;
+  eligible_contributors: number | null;
+  percentage: number | null;
+  evidence_state: "EARLY" | "ESTABLISHED";
+  rank: number;
 };
 
 export type SpotDetailDTO = {

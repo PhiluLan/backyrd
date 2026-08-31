@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ActivityIndicator,
   Pressable,
-  TextInput,
   Alert,
   ScrollView,
 } from "react-native";
@@ -19,6 +18,7 @@ import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 import { registerSafetySnapshot } from "../../lib/safety-content";
 import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
 import { userFacingError } from "../../lib/userFacingError";
+import { MoodExpressionInput } from "../../components/MoodExpressionInput";
 
 const theme = {
   bg: "#050506",
@@ -345,22 +345,9 @@ export default function QuickReviewScreen() {
         {/* Mood Inputs */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Moods</Text>
-          <Text style={styles.label}>Erste Stimmung</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="z. B. gemütlich"
-            placeholderTextColor="rgba(255,255,255,0.34)"
-            value={moodA}
-            onChangeText={setMoodA}
-          />
-          <Text style={styles.label}>Zweite Stimmung</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="z. B. lebhaft"
-            placeholderTextColor="rgba(255,255,255,0.34)"
-            value={moodB}
-            onChangeText={setMoodB}
-          />
+          <Text style={{ color: theme.soft }}>Welche zwei Moods beschreiben diesen Ort am besten?</Text>
+          <MoodExpressionInput label="Erster Mood (optional)" placeholder="z. B. gemütlich" value={moodA} onChangeText={setMoodA} />
+          <MoodExpressionInput label="Zweiter Mood (optional)" placeholder="z. B. lebhaft" value={moodB} onChangeText={setMoodB} />
         </View>
 
         <Pressable

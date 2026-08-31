@@ -30,9 +30,14 @@ export type PublicSpotDetailDTO = {
     url: string;
   }>;
   top_moods: Array<{
-    mood_id: string;
-    token: string;
-    count: number;
+    concept_key: string;
+    label: string;
+    canonical_label: string;
+    concept_contributors: number | null;
+    eligible_contributors: number | null;
+    percentage: number | null;
+    evidence_state: "EARLY" | "ESTABLISHED";
+    rank: number;
   }>;
   reviews: Array<{
     id: string;
@@ -57,5 +62,12 @@ export async function getPublicSpotDetail(
   });
 
   if (error) throw new Error("Spot konnte nicht geladen werden.");
-  return (data ?? null) as PublicSpotDetailDTO | null;
+  if (!data) return null;
+  const { data: moodProfile, error: moodError } = await supabase
+    .from("backyrd_spot_mood_profile_public_v1")
+    .select("concept_key,label,canonical_label,concept_contributors,eligible_contributors,percentage,evidence_state,rank")
+    .eq("spot_id", spotId)
+    .order("rank", { ascending: true });
+  if (moodError) throw new Error("Community-Moods konnten nicht geladen werden.");
+  return { ...(data as PublicSpotDetailDTO), top_moods: moodProfile ?? [] };
 }

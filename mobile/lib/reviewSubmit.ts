@@ -1,19 +1,5 @@
 import { supabase } from "./supabase";
 
-export async function getMoodId(token: string | null) {
-  if (!token || token.trim() === "") return null;
-
-  // Product Moods are controlled server-side. Clients must never extend the
-  // canonical vocabulary by inserting arbitrary free-text tokens.
-  const { data, error } = await supabase.rpc("backyrd_resolve_product_mood_v1", {
-    p_input: token,
-  });
-  if (error) throw error;
-  const resolved = data as { valid?: boolean; moodTokenId?: number | null } | null;
-  if (!resolved?.valid) throw new Error("Bitte wähle eine gültige Backyrd-Stimmung.");
-  return resolved.moodTokenId ?? null;
-}
-
 export async function uploadReviewImage(uri: string, fileName: string) {
   const res = await fetch(uri);
   const blob = await res.blob();
@@ -46,9 +32,6 @@ export async function createReviewWithPhotos(params: {
 }) {
   const { spotId, userId, moodA, moodB, text, photos = [], decisionContext = null } = params;
 
-  const moodAId = await getMoodId(moodA);
-  const moodBId = await getMoodId(moodB);
-
   const { data: reviewData, error: reviewErr } = await supabase
     .from("reviews")
     .insert({
@@ -57,8 +40,8 @@ export async function createReviewWithPhotos(params: {
       text: text ?? "",
       mood_a: moodA || null,
       mood_b: moodB || null,
-      mood_a_id: moodAId,
-      mood_b_id: moodBId,
+      mood_a_id: null,
+      mood_b_id: null,
     })
     .select()
     .single();

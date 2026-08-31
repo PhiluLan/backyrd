@@ -113,7 +113,8 @@ export default async function SpotDetailPage({
             ) : null}
             {data.top_moods.length ? (
               <section style={{ marginTop: spot.description ? 48 : 0 }}>
-                <p className="b-kicker">So fühlt es sich an</p>
+                <p className="b-kicker">So fühlt es sich hier an</p>
+                {data.top_moods[0]?.evidence_state === "EARLY" ? <p className="b-muted" style={{ marginTop: 8 }}>Erste Eindrücke</p> : null}
                 <div
                   style={{
                     display: "flex",
@@ -125,9 +126,9 @@ export default async function SpotDetailPage({
                   {data.top_moods.slice(0, 8).map((mood) => (
                     <span
                       className="b-chip"
-                      key={`${mood.mood_id}-${mood.token}`}
+                      key={mood.concept_key}
                     >
-                      {mood.token}
+                      {mood.label}{mood.evidence_state === "ESTABLISHED" ? ` ${mood.percentage}%` : ""}
                     </span>
                   ))}
                 </div>

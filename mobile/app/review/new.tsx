@@ -28,6 +28,7 @@ import { AchievementUnlockModal } from "../../components/AchievementUnlockModal"
 import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 import { registerSafetySnapshot } from "../../lib/safety-content";
 import { userFacingError } from "../../lib/userFacingError";
+import { MoodExpressionInput } from "../../components/MoodExpressionInput";
 
 const theme = {
   colors: {
@@ -110,39 +111,6 @@ export default function NewReviewScreen() {
   useEffect(() => {
     void trackAnalyticsEvent({ eventName: "review_started", screenName: "review_new", spotId, decisionId: decisionId ?? null, properties: { source: source ?? "spot" } });
   }, [decisionId, source, spotId]);
-
-  async function getMoodId(token: string | null) {
-    if (!token || token.trim() === "") return null;
-
-    const clean = token.trim().toLowerCase();
-
-    const { data, error } = await supabase
-      .from("mood_tokens")
-      .select("id")
-      .eq("token", clean)
-      .single();
-
-    if (error && error.code !== "PGRST116") {
-      throw error;
-    }
-
-    if (!data) {
-      const { data: newMood, error: insertErr } = await supabase
-        .from("mood_tokens")
-        .insert({
-          token: clean,
-          locale: "de-CH",
-          valid: true,
-        })
-        .select()
-        .single();
-
-      if (insertErr) throw insertErr;
-      return newMood?.id ?? null;
-    }
-
-    return data.id;
-  }
 
   async function pickImage(fromCamera: boolean) {
     try {
@@ -248,9 +216,6 @@ export default function NewReviewScreen() {
     try {
       setUploading(true);
 
-      const moodAId = await getMoodId(moodA);
-      const moodBId = await getMoodId(moodB);
-
       const { data: reviewData, error: reviewErr } = await supabase
         .from("reviews")
         .insert({
@@ -259,8 +224,8 @@ export default function NewReviewScreen() {
           text: text.trim() || null,
           mood_a: moodA.trim() || null,
           mood_b: moodB.trim() || null,
-          mood_a_id: moodAId,
-          mood_b_id: moodBId,
+          mood_a_id: null,
+          mood_b_id: null,
         })
         .select()
         .single();
@@ -431,23 +396,9 @@ export default function NewReviewScreen() {
 
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Moods</Text>
-              <Text style={styles.label}>Erste Stimmung</Text>
-              <TextInput
-                placeholder="z. B. gemütlich"
-                placeholderTextColor={theme.colors.textMuted}
-                value={moodA}
-                onChangeText={setMoodA}
-                style={styles.input}
-              />
-
-              <Text style={styles.label}>Zweite Stimmung</Text>
-              <TextInput
-                placeholder="z. B. authentisch"
-                placeholderTextColor={theme.colors.textMuted}
-                value={moodB}
-                onChangeText={setMoodB}
-                style={styles.input}
-              />
+              <Text style={{ color: theme.colors.textSoft }}>Welche zwei Moods beschreiben diesen Ort am besten?</Text>
+              <MoodExpressionInput label="Erster Mood (optional)" placeholder="z. B. gemütlich" value={moodA} onChangeText={setMoodA} />
+              <MoodExpressionInput label="Zweiter Mood (optional)" placeholder="z. B. authentisch" value={moodB} onChangeText={setMoodB} />
 
               <Text style={styles.label}>Text</Text>
               <TextInput
