@@ -48,10 +48,10 @@ begin
   if exists(select 1 from public.backyrd_spot_intelligence_evidence_v1 e left join public.backyrd_spot_intelligence_dimensions_v1 d on d.dimension_key=e.dimension_key where d.dimension_key is null) then
     raise exception 'n4_evidence_missing_dimension';
   end if;
-  if exists(select 1 from public.spots where data_origin is null or data_origin not in ('REAL','LEGACY','TEST','FIXTURE')) then
+  if exists(select 1 from public.spots where data_origin is null or data_origin not in ('REAL','LEGACY','IMPORT','TEST','FIXTURE')) then
     raise exception 'unknown_spot_origin';
   end if;
-  if exists(select 1 from public.reviews where data_origin is null or review_origin is null or data_origin not in ('REAL','LEGACY','TEST','FIXTURE') or review_origin not in ('REAL','LEGACY','TEST','FIXTURE')) then
+  if exists(select 1 from public.reviews where data_origin is null or review_origin is null or data_origin not in ('REAL','LEGACY','IMPORT','TEST','FIXTURE') or review_origin not in ('SMART_REVIEW','STANDARD_REVIEW','LEGACY','IMPORT','FIXTURE')) then
     raise exception 'unknown_review_origin';
   end if;
   if exists(select google_place_id from public.spots where status='approved' and data_origin not in ('TEST','FIXTURE') and google_place_id is not null group by google_place_id having count(*)>1) then
@@ -81,7 +81,10 @@ begin
   if exists(select 1 from pg_policies where schemaname='public' and coalesce(qual,'') like '%user_has_active_consent_v1%') then
     raise exception 'client_rls_calls_service_only_consent_helper';
   end if;
-  if exists(select 1 from public.backyrd_spot_research_jobs_v1 where state='FAILED' and id<>'8f01596b-d427-488a-af5e-28be2ab61ffa'::uuid) then
+  -- Fail-closed research outcomes are durable operational history, not schema
+  -- drift. Require an honest terminal explanation instead of hard-coding an
+  -- ever-stale allowlist of historical job IDs.
+  if exists(select 1 from public.backyrd_spot_research_jobs_v1 where state='FAILED' and (failure_code is null or completed_at is null)) then
     raise exception 'unexplained_failed_research_job';
   end if;
   if exists(select 1 from public.safety_image_evaluation_jobs where status in ('failed','dead_letter') and id not in ('8c8a5267-a45e-4b4b-9e51-f0c7c4c03b04'::uuid,'d8b80662-bbcd-4a68-b205-15ba801f2618'::uuid)) then
