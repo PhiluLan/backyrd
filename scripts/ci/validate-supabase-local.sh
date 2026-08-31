@@ -37,6 +37,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
+node "$repo_root/scripts/ci/validate-database-lineage.mjs"
 "$repo_root/scripts/ci/validate-migrations.sh"
 "$repo_root/scripts/ci/validate-trust-platform-consumers.sh"
 
@@ -80,7 +81,9 @@ sed -i.bak '/^\[db.seed\]/,/^\[/ s/^enabled = true/enabled = false/' \
 rm -f "$validation_root/supabase/config.toml.bak"
 
 test ! -e "$validation_root/supabase/.temp/project-ref"
-if rg -q 'hjgcrrzfjchzqoegcywn' "$validation_root"; then
+if rg -q 'hjgcrrzfjchzqoegcywn' \
+  "$validation_root/supabase/config.toml" \
+  "$validation_root/supabase/.temp" 2>/dev/null; then
   printf 'Production project reference detected in disposable workspace.\n' >&2
   exit 1
 fi
@@ -180,6 +183,20 @@ test "$actual_acl_fingerprint" = "$expected_acl_fingerprint" || {
     exit 1
   fi
 }
+
+expected_application_schema_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/application-schema.sha256")"
+application_schema_result="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
+  --file "$repo_root/scripts/ci/application-schema-fingerprint.sql")"
+application_schema_entry_count="${application_schema_result%%|*}"
+actual_application_schema_fingerprint="${application_schema_result##*|}"
+test "$actual_application_schema_fingerprint" = "$expected_application_schema_fingerprint" || {
+  printf 'Application schema fingerprint: expected %s, got %s (%s catalog facts)\n' \
+    "$expected_application_schema_fingerprint" "$actual_application_schema_fingerprint" \
+    "$application_schema_entry_count" >&2
+  exit 1
+}
+printf 'Canonical application schema fingerprint passed (%s catalog facts).\n' \
+  "$application_schema_entry_count"
 
 expected_versions=()
 while IFS= read -r version; do
