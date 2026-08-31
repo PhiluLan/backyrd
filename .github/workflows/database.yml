@@ -30,6 +30,16 @@ jobs:
           # path SIGSEGVs for the reserved anon/authenticated roles. Keep the
           # runtime denial tests real and fail-closed on verified image .095.
           version: 2.80.0
+      - name: Validate immutable migration lineage
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if test -n "$BASE_SHA"; then
+            node scripts/ci/validate-database-lineage.mjs --base-sha "$BASE_SHA"
+          else
+            node scripts/ci/validate-database-lineage.mjs
+          fi
+          node --test scripts/ci/validate-database-lineage.test.mjs
       - name: Validate isolated canonical database
         run: scripts/ci/validate-supabase-local.sh
       - name: Validate shipped Product lineage

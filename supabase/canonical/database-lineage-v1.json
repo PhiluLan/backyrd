@@ -1,0 +1,866 @@
+{
+  "version": "backyrd-database-lineage-v1",
+  "audited_at": "2026-08-31T20:30:00Z",
+  "project_ref": "hjgcrrzfjchzqoegcywn",
+  "canonical_base_commit": "2e306dae01d76db1254e18eed1f3d206dad6044f",
+  "locked_tip": "20260831203122",
+  "locked_migration_count": 123,
+  "production_forensic_baseline": {
+    "migration_count": 112,
+    "migration_tip": "20260830212025",
+    "migration_versions": [
+      "20260411100101",
+      "20260411100102",
+      "20260411100103",
+      "20260411100104",
+      "20260411100105",
+      "20260808120517",
+      "20260808134000",
+      "20260808134001",
+      "20260808134002",
+      "20260808134003",
+      "20260808150044",
+      "20260808180458",
+      "20260808183956",
+      "20260809072008",
+      "20260809162356",
+      "20260809190000",
+      "20260810155425",
+      "20260810163500",
+      "20260810165844",
+      "20260810173928",
+      "20260810180822",
+      "20260810183411",
+      "20260810191712",
+      "20260810200030",
+      "20260810203300",
+      "20260810203301",
+      "20260811170256",
+      "20260811210000",
+      "20260811220000",
+      "20260817103000",
+      "20260817193000",
+      "20260817201500",
+      "20260819120000",
+      "20260820120000",
+      "20260820130000",
+      "20260820140000",
+      "20260820150000",
+      "20260820170000",
+      "20260820180000",
+      "20260820190000",
+      "20260820200000",
+      "20260820201000",
+      "20260821100000",
+      "20260821101000",
+      "20260821170000",
+      "20260821173000",
+      "20260821174500",
+      "20260821203000",
+      "20260821220000",
+      "20260821223000",
+      "20260821230000",
+      "20260821231000",
+      "20260821232000",
+      "20260821233000",
+      "20260822090000",
+      "20260822093000",
+      "20260822103000",
+      "20260822120000",
+      "20260822121500",
+      "20260823120000",
+      "20260823150000",
+      "20260823170000",
+      "20260823213000",
+      "20260823220000",
+      "20260823220100",
+      "20260824010000",
+      "20260824020000",
+      "20260824021500",
+      "20260824090000",
+      "20260824170000",
+      "20260824183000",
+      "20260824193000",
+      "20260824213000",
+      "20260824235900",
+      "20260825120000",
+      "20260825160000",
+      "20260825190000",
+      "20260825220000",
+      "20260825223000",
+      "20260825224000",
+      "20260825224100",
+      "20260825224200",
+      "20260825230000",
+      "20260825231000",
+      "20260826120000",
+      "20260826210000",
+      "20260826220000",
+      "20260826221000",
+      "20260827185823",
+      "20260828192125",
+      "20260829080205",
+      "20260829092530",
+      "20260829123000",
+      "20260829140000",
+      "20260829150000",
+      "20260829160000",
+      "20260829170000",
+      "20260829173000",
+      "20260829174500",
+      "20260829190000",
+      "20260829200000",
+      "20260829203000",
+      "20260829204500",
+      "20260829215420",
+      "20260829220912",
+      "20260829221950",
+      "20260829234503",
+      "20260830113718",
+      "20260830145939",
+      "20260830160813",
+      "20260830212016",
+      "20260830212025"
+    ],
+    "schema_dump_sha256": "dee33b990d392631acad0acfdc9fcc8ece8d84fa94c20d88e8144306bee92b44",
+    "full_data_dump_sha256": "1594376dd7f0c3dbc4d5bffab0f5de8cd5fbdf0ba0dee1d89a9b5c20e50a6e44",
+    "product_scope_data_dump_sha256": "5633a9a2a6329e21a5ceadc0bb381de1009eee9eaee9d3cd97b8be90186ac41c",
+    "note": "Read-only baseline before Database Consolidation v1. Dump files are protected operator artifacts and are not committed."
+  },
+  "production_aliases": [
+    {
+      "production_version": "20260829215420",
+      "production_filename": "20260829215420_allow_unknown_same_domain_research_coverage_v2_10.sql",
+      "canonical_version": "20260829215500",
+      "canonical_filename": "20260829215500_allow_unknown_same_domain_research_coverage_v2_10.sql",
+      "canonical_file_sha256": "e6b4f73c9a46b5248af5bd450b353445629ba3d389d3fa95796e6550d3a89546",
+      "production_ledger_bytes": 10633,
+      "production_ledger_sha256": "e6b4f73c9a46b5248af5bd450b353445629ba3d389d3fa95796e6550d3a89546",
+      "ledger_normalization": "exact",
+      "semantic_effect": "Finalize/enqueue research coverage accepts bounded UNKNOWN evidence from the same official domain.",
+      "status": "SEMANTICALLY_IDENTICAL_CERTIFIED_ALIAS"
+    },
+    {
+      "production_version": "20260829220912",
+      "production_filename": "20260829220912_scope_research_claim_to_population_run_v1.sql",
+      "canonical_version": "20260829221500",
+      "canonical_filename": "20260829221500_scope_research_claim_to_population_run_v1.sql",
+      "canonical_file_sha256": "d2719a132ddb7b21fd6de31b07a05b7a2d5cc39d5516bbade452551b1bae9fb1",
+      "production_ledger_bytes": 3832,
+      "production_ledger_sha256": "d2719a132ddb7b21fd6de31b07a05b7a2d5cc39d5516bbade452551b1bae9fb1",
+      "ledger_normalization": "exact",
+      "semantic_effect": "Research-job claim v2 is scoped to one intelligence population run.",
+      "status": "SEMANTICALLY_IDENTICAL_CERTIFIED_ALIAS"
+    },
+    {
+      "production_version": "20260829221950",
+      "production_filename": "20260829221950_isolate_population_jobs_from_legacy_research_v1.sql",
+      "canonical_version": "20260829223000",
+      "canonical_filename": "20260829223000_isolate_population_jobs_from_legacy_research_v1.sql",
+      "canonical_file_sha256": "6d11e85f1b95440f3a1f6e7dcb4a7f25c7136fdb8301d36b56f6219d5c37e6a1",
+      "production_ledger_bytes": 3066,
+      "production_ledger_sha256": "248183aef69507617542f14219e1ecf2a1fc8d0b48719bb11e10532e353988b2",
+      "ledger_normalization": "single_final_lf_not_stored",
+      "semantic_effect": "Legacy research claim v1 excludes population-owned jobs.",
+      "status": "SEMANTICALLY_IDENTICAL_CERTIFIED_ALIAS"
+    },
+    {
+      "production_version": "20260829234503",
+      "production_filename": "20260829234503_automate_intelligence_population_v1.sql",
+      "canonical_version": "20260830010000",
+      "canonical_filename": "20260830010000_automate_intelligence_population_v1.sql",
+      "canonical_file_sha256": "3aed2d58777cf21b85959b8fb04e7137eadbca3435b8f4eff53cafb2ee6c8435",
+      "production_ledger_bytes": 9004,
+      "production_ledger_sha256": "3aed2d58777cf21b85959b8fb04e7137eadbca3435b8f4eff53cafb2ee6c8435",
+      "ledger_normalization": "exact",
+      "semantic_effect": "Intelligence population tick control and worker scheduling are installed.",
+      "status": "SEMANTICALLY_IDENTICAL_CERTIFIED_ALIAS"
+    },
+    {
+      "production_version": "20260830113718",
+      "production_filename": "20260830113718_tune_intelligence_population_throughput_v1.sql",
+      "canonical_version": "20260830082857",
+      "canonical_filename": "20260830082857_tune_intelligence_population_throughput_v1.sql",
+      "canonical_file_sha256": "753f83185666e780ab314b1ec2dbb53b5035f65d2c2cbec05e604df61bf97531",
+      "production_ledger_bytes": 9958,
+      "production_ledger_sha256": "d05449684ed46d715524bf3ffa16902fdff73edcd98ec8458bd4caee136d4c04",
+      "ledger_normalization": "single_final_lf_not_stored",
+      "semantic_effect": "Population throughput and bounded four-worker activation are installed.",
+      "status": "SEMANTICALLY_IDENTICAL_CERTIFIED_ALIAS"
+    },
+    {
+      "production_version": "20260830145939",
+      "production_filename": "20260830145939_bound_population_provider_concurrency_v1.sql",
+      "canonical_version": "20260830135909",
+      "canonical_filename": "20260830135909_bound_population_provider_concurrency_v1.sql",
+      "canonical_file_sha256": "c78e824358ab1b47e2ae8c91fb7af7340749d50f3c6a8f445b74f398456c25d7",
+      "production_ledger_bytes": 5443,
+      "production_ledger_sha256": "c78e824358ab1b47e2ae8c91fb7af7340749d50f3c6a8f445b74f398456c25d7",
+      "ledger_normalization": "exact",
+      "semantic_effect": "Provider concurrency is bounded in run-scoped research claims.",
+      "status": "SEMANTICALLY_IDENTICAL_CERTIFIED_ALIAS"
+    },
+    {
+      "production_version": "20260830160813",
+      "production_filename": "20260830160813_fix_population_same_truth_finalization_v1.sql",
+      "canonical_version": "20260830160500",
+      "canonical_filename": "20260830160500_fix_population_same_truth_finalization_v1.sql",
+      "canonical_file_sha256": "6cc8f3c3c464564fb6eabf1c4b794d339977aa5b065399f44f856faee50b13ff",
+      "production_ledger_bytes": 8762,
+      "production_ledger_sha256": "6cc8f3c3c464564fb6eabf1c4b794d339977aa5b065399f44f856faee50b13ff",
+      "ledger_normalization": "exact",
+      "semantic_effect": "Population completion uses same-truth terminal-state finalization.",
+      "status": "SEMANTICALLY_IDENTICAL_CERTIFIED_ALIAS"
+    },
+    {
+      "production_version": "20260830212016",
+      "production_filename": "20260830212016_revalidate_intelligence_operational_facts_v1.sql",
+      "canonical_version": "20260830202410",
+      "canonical_filename": "20260830202410_revalidate_intelligence_operational_facts_v1.sql",
+      "canonical_file_sha256": "128f6c06012d443f5055803975d71f187bdeecb04ba33fffc9ae14a46cda70de",
+      "production_ledger_bytes": 20181,
+      "production_ledger_sha256": "128f6c06012d443f5055803975d71f187bdeecb04ba33fffc9ae14a46cda70de",
+      "ledger_normalization": "exact",
+      "semantic_effect": "Operational fact revalidation helpers, audit writes, and service-only batch RPC are installed.",
+      "status": "SEMANTICALLY_IDENTICAL_CERTIFIED_ALIAS"
+    },
+    {
+      "production_version": "20260830212025",
+      "production_filename": "20260830212025_harden_operational_hours_service_scope_v1.sql",
+      "canonical_version": "20260830204938",
+      "canonical_filename": "20260830204938_harden_operational_hours_service_scope_v1.sql",
+      "canonical_file_sha256": "3abe4379c3b8cf4acecb9a4a12e8cff3fa5b1f733cd7f8acd1a8869f811c1fdf",
+      "production_ledger_bytes": 7727,
+      "production_ledger_sha256": "3abe4379c3b8cf4acecb9a4a12e8cff3fa5b1f733cd7f8acd1a8869f811c1fdf",
+      "ledger_normalization": "exact",
+      "semantic_effect": "Regular-hours revalidation is fail-closed to the current Spot/service scope.",
+      "status": "SEMANTICALLY_IDENTICAL_CERTIFIED_ALIAS"
+    }
+  ],
+  "pre_mood_migration": {
+    "version": "20260831044934",
+    "filename": "20260831044934_fail_closed_operational_revalidation_invalid_fact_v1.sql",
+    "origin_commit": "5a150cf18ef979549187125c180bdee8b2b5154c",
+    "origin_pull_request": 160,
+    "canonical_main": true,
+    "present_in_production_before_consolidation": false,
+    "disposition": "APPLY_AS_FORWARD_MIGRATION"
+  },
+  "migrations": [
+    {
+      "version": "20260411100101",
+      "filename": "20260411100101_init_extensions.sql",
+      "sha256": "3c086f3c7507ee33371819f8a4b28bbe64202c0ebc2bc3b45ca52a96569e5fd6"
+    },
+    {
+      "version": "20260411100102",
+      "filename": "20260411100102_profiles.sql",
+      "sha256": "ae797dd22c7db5431919ac2a298bd56067b5f23671bdf77d8ba9446ddc55cd7c"
+    },
+    {
+      "version": "20260411100103",
+      "filename": "20260411100103_spots.sql",
+      "sha256": "f4c11f43ca03395a2615ceacbea69738e1a467e08f2b256c1ed0cfef12b16e9d"
+    },
+    {
+      "version": "20260411100104",
+      "filename": "20260411100104_photos.sql",
+      "sha256": "285fca3b36f3d43931e6c56a9471a533c869c4e0d3a94914be2b980fb902cf41"
+    },
+    {
+      "version": "20260411100105",
+      "filename": "20260411100105_reviews.sql",
+      "sha256": "3f2d2ff729404fc0af0e553f6d6ba8752fda4d6e70b6305e6df64d3ffea1b182"
+    },
+    {
+      "version": "20260808120517",
+      "filename": "20260808120517_backyrd_canonical_baseline.sql",
+      "sha256": "08c23142ceda9f02e163e5bcef64f2b809e9868dc32eb5702adc54371504eda3"
+    },
+    {
+      "version": "20260808134000",
+      "filename": "20260808134000_reconcile_product_contracts.sql",
+      "sha256": "2a0ba33cb037bb96484aa5372fd4839dd53e83c7d25ef93ddebe6431a5af9dbb"
+    },
+    {
+      "version": "20260808134001",
+      "filename": "20260808134001_reconcile_rls_and_grants.sql",
+      "sha256": "95ffb8673abf0fe81e3d6e8d7e229454ebdf5fcff46357ad31e7eae85be156f1"
+    },
+    {
+      "version": "20260808134002",
+      "filename": "20260808134002_deprecate_legacy_triggers.sql",
+      "sha256": "e18b8e6365a8d810cb210e1d12dd41c7a3096502810a229e0851487bb47d1a56"
+    },
+    {
+      "version": "20260808134003",
+      "filename": "20260808134003_fix_active_inherited_lint_contracts.sql",
+      "sha256": "a85ffac508c9a28d3a258ac816990a1fbaa998200636ce66ce1010a9abc4ac0a"
+    },
+    {
+      "version": "20260808150044",
+      "filename": "20260808150044_enforce_taxonomy_synonym_weight_contract.sql",
+      "sha256": "f735ebf56539f523de1ac84523fe4e53ace4564fa60a4fb0ca0ac367a73c2482"
+    },
+    {
+      "version": "20260808180458",
+      "filename": "20260808180458_protect_integrity_case_lifecycle.sql",
+      "sha256": "729e8926a38c2fef168cfe405364b42970970a27acce85f88fbd81b4532b4c28"
+    },
+    {
+      "version": "20260808183956",
+      "filename": "20260808183956_harden_sprint8_integrity_execute_grants.sql",
+      "sha256": "9d8c3a175ded008ef6ac27c219723a9cfad150703c106c47a33cabe3f64cfe75"
+    },
+    {
+      "version": "20260809072008",
+      "filename": "20260809072008_create_account_trust_engine.sql",
+      "sha256": "db69c266487d8e5b775917d668cf1faf0e388d767e617f8fc92fd852adb6180e"
+    },
+    {
+      "version": "20260809162356",
+      "filename": "20260809162356_add_identity_trust_signals.sql",
+      "sha256": "33d0e3781f31de2d6e82d834cca39db8d3f38fed37c296ca708eec01a2a9e703"
+    },
+    {
+      "version": "20260809190000",
+      "filename": "20260809190000_create_founder_control_center_v1.sql",
+      "sha256": "ff9cb07e8b674b5ed4ff38eb43fa0f20c7f38af52bc99b091e0c04f323497e46"
+    },
+    {
+      "version": "20260810155425",
+      "filename": "20260810155425_add_behaviour_trust_signals.sql",
+      "sha256": "952ff8f19f5af814d872ca040a7fb24551ac41945f3cc6116aaa975ca98e527b"
+    },
+    {
+      "version": "20260810163500",
+      "filename": "20260810163500_add_network_trust_signals.sql",
+      "sha256": "d837952a3a5dc1c58906b2e9a66c1cea72868bc8e31c203c446122b1da2d13dd"
+    },
+    {
+      "version": "20260810165844",
+      "filename": "20260810165844_add_security_trust_signals.sql",
+      "sha256": "1f0b955d073990b7821da789efef1c5c3acacab8488c86e2d561982dca4c2163"
+    },
+    {
+      "version": "20260810173928",
+      "filename": "20260810173928_add_owner_trust_signals.sql",
+      "sha256": "70ee8fcad56bb52d7d91b3e8cdf99574deb1f7ed4e0243b887a55746e0088a01"
+    },
+    {
+      "version": "20260810180822",
+      "filename": "20260810180822_add_reputation_trust_signals.sql",
+      "sha256": "1ad7018f2c9b6b6b92fac6a8d06684e5409fca1619eb40d3499c10a184e44f1d"
+    },
+    {
+      "version": "20260810183411",
+      "filename": "20260810183411_create_distribution_trust_foundation.sql",
+      "sha256": "1100c645d635f5a219268239672c88740155988a25dc992c3b87e5af7e7e450b"
+    },
+    {
+      "version": "20260810191712",
+      "filename": "20260810191712_add_distribution_policy_and_consumption.sql",
+      "sha256": "4bf3d464517ae49eeed306738303fdde997c7e626e4967639777219eca7a3da9"
+    },
+    {
+      "version": "20260810200030",
+      "filename": "20260810200030_finalize_distribution_restoration_and_health.sql",
+      "sha256": "69644834fd8283a80178767c91276deb64a851361951a99801d364b03cbfaf62"
+    },
+    {
+      "version": "20260810203300",
+      "filename": "20260810203300_create_governance_incident_platform.sql",
+      "sha256": "fc9f849015be4fc43a41b1148f40f2e295a0f1a8606a2399a87e16a52929afaf"
+    },
+    {
+      "version": "20260810203301",
+      "filename": "20260810203301_add_governance_operations_and_founder.sql",
+      "sha256": "2124ffc16f59683047f0d974f3295c1b7192a2d508e3af651a2a21379136d7b8"
+    },
+    {
+      "version": "20260811170256",
+      "filename": "20260811170256_harden_sprint12_adversarial_contracts.sql",
+      "sha256": "0252de10c65e7473c7fc10fb7ad09a60289e09020506c2c787cbe86fc17c7804"
+    },
+    {
+      "version": "20260811210000",
+      "filename": "20260811210000_enforce_decision_product_eligibility.sql",
+      "sha256": "6e9320dd3eda154ed38578305c7188cf3ee10084b27e3c37c975f62c38534823"
+    },
+    {
+      "version": "20260811220000",
+      "filename": "20260811220000_create_decision_lab_foundation.sql",
+      "sha256": "64d79305c1762aba98ffa850fdf21201d3ebc44664449b39690bdf48f2cf62fd"
+    },
+    {
+      "version": "20260817103000",
+      "filename": "20260817103000_create_next_gen_user_taste_foundation.sql",
+      "sha256": "4d9c66c244ea1a3e59cd6c0bbcdedecf40ae6ea1a7b86e70672c98a536892940"
+    },
+    {
+      "version": "20260817193000",
+      "filename": "20260817193000_create_memory_user_intelligence_v1.sql",
+      "sha256": "1e1322c63e33c350d1eb2ad6cb81f78792ef1beb893a2f5ed3380c6e3a279358"
+    },
+    {
+      "version": "20260817201500",
+      "filename": "20260817201500_create_spot_intelligence_v1.sql",
+      "sha256": "b76d8f98351d8a5629a482046751bd9de0c690709b1775e1c140b99a70e28396"
+    },
+    {
+      "version": "20260819120000",
+      "filename": "20260819120000_create_product_memory_bridge_v1.sql",
+      "sha256": "e3fd20baa6840f25d159ba6d903d6c1433ecc7fcbb688febc57ee4e3ed2bbe84"
+    },
+    {
+      "version": "20260820120000",
+      "filename": "20260820120000_create_user_intelligence_runtime_v1.sql",
+      "sha256": "c1e6826f24c13497c9ba336d64a93e713fe66dc4829bee2ddcb8860d8260f03a"
+    },
+    {
+      "version": "20260820130000",
+      "filename": "20260820130000_create_n4_product_read_adapter_v1.sql",
+      "sha256": "392955580470c0241a71db428fc7a24bec503c0ef71f71ed2fdd461ce9fa95bb"
+    },
+    {
+      "version": "20260820140000",
+      "filename": "20260820140000_create_shared_runtime_persistence_v1.sql",
+      "sha256": "a00ad960f3608b81875054c04a35018ba658d91be7d0efc76108423aac3454d3"
+    },
+    {
+      "version": "20260820150000",
+      "filename": "20260820150000_complete_shared_runtime_queue_v1.sql",
+      "sha256": "cb44a77e98ec77e34231a6f8e62b527e140a22c89780ef677abe90591797b132"
+    },
+    {
+      "version": "20260820170000",
+      "filename": "20260820170000_create_decision_input_runtime_v1.sql",
+      "sha256": "316f08d4b75232be4abbc89bce4baeed26add6cd1eb7693bf82c7da0d6ba5d74"
+    },
+    {
+      "version": "20260820180000",
+      "filename": "20260820180000_create_deterministic_decision_orchestrator_v1.sql",
+      "sha256": "75ff1b1d2e9018440f880b4e5095e8a3f58a3eb8e379c7fb074fa317decee0a3"
+    },
+    {
+      "version": "20260820190000",
+      "filename": "20260820190000_create_n6_shadow_service_v1.sql",
+      "sha256": "ee22d5c17e2ff84b7c413ee7750989668e81bb437fbe95fdcd59811985a12398"
+    },
+    {
+      "version": "20260820200000",
+      "filename": "20260820200000_fix_user_intelligence_account_deletion_v1.sql",
+      "sha256": "98077fe7891389e292e50a884028f78d5f4057d3cddcedf9424887c7e154f5d9"
+    },
+    {
+      "version": "20260820201000",
+      "filename": "20260820201000_fix_user_intelligence_own_read_consent_v1.sql",
+      "sha256": "ef7f181c97fe99dd1a151e4be60585bcadc7acbad2c58f6237cb1f7c4534ae68"
+    },
+    {
+      "version": "20260821100000",
+      "filename": "20260821100000_activate_internal_live_user_v1.sql",
+      "sha256": "0a24e1e650ba503a74fc03dd305a29fe0a264af16eedb360fe828f1f6ee27ce9"
+    },
+    {
+      "version": "20260821101000",
+      "filename": "20260821101000_fix_internal_live_worker_secret_rotation_v1.sql",
+      "sha256": "fba2e75c79f6a4e062c779ee74516851df5dff2096d7602d2b72044c916c00b8"
+    },
+    {
+      "version": "20260821170000",
+      "filename": "20260821170000_create_basel_gold_data_foundation_v1.sql",
+      "sha256": "64f5cca8d14ab27b329ba83d0d55b3df6b8ecf2e3ae1d4736d061318a42c35f4"
+    },
+    {
+      "version": "20260821173000",
+      "filename": "20260821173000_harden_review_provenance_internal_writes_v1.sql",
+      "sha256": "7866c91fbc0bc7df3a1c71623cd751fdb15db052e3f18f908ff66ff826e820c9"
+    },
+    {
+      "version": "20260821174500",
+      "filename": "20260821174500_preserve_frozen_n4_registry_v1.sql",
+      "sha256": "937563182a0ddbbf1d5c0b081dbc8a2964120a8a984db0d64c9e819232202712"
+    },
+    {
+      "version": "20260821203000",
+      "filename": "20260821203000_create_gold_spot_authoring_foundation_v1.sql",
+      "sha256": "7a31eda30e9305c8203546c6337a345d774c8d187d57488c7378e3733aa981c1"
+    },
+    {
+      "version": "20260821220000",
+      "filename": "20260821220000_create_canonical_semantic_alignment_v1.sql",
+      "sha256": "1df621104ff7b4a4a02d62d3d20b918fe3b673faff1dd5bed82999b32b7d3e3b"
+    },
+    {
+      "version": "20260821223000",
+      "filename": "20260821223000_harden_gold_fact_revision_v1.sql",
+      "sha256": "4525a4901cc1ed496d1f81a40167c497e057fbaca81bc4af330ca1c09b3304b8"
+    },
+    {
+      "version": "20260821230000",
+      "filename": "20260821230000_allow_canonical_evidence_for_legacy_spot_identity_v1.sql",
+      "sha256": "8db6756b680b5563dcd4a95a02055f63b0ba720a6cc0bb0deeb069d17d18748e"
+    },
+    {
+      "version": "20260821231000",
+      "filename": "20260821231000_filter_onboarding_to_frozen_taste_registry_v1.sql",
+      "sha256": "6ee0e9a69806029fdf82990517c55d4f51f0f3c377c7766014eeaa58a72e8561"
+    },
+    {
+      "version": "20260821232000",
+      "filename": "20260821232000_create_spot_research_agent_foundation_v1.sql",
+      "sha256": "ed65c38ab69447c03cb816dbfe9c18807ba29cc474ccd85793213ce5eedcf8b5"
+    },
+    {
+      "version": "20260821233000",
+      "filename": "20260821233000_atomic_spot_research_trace_v1.sql",
+      "sha256": "dc9198c768408598661d1c7b833b8f3c38735205d07f6f0f1e05c5bef24117c9"
+    },
+    {
+      "version": "20260822090000",
+      "filename": "20260822090000_create_async_spot_research_jobs_v1.sql",
+      "sha256": "37bd6329ed7b02875bd5d3ade8109022a120cd406c2bf743bef4efe94002ab98"
+    },
+    {
+      "version": "20260822093000",
+      "filename": "20260822093000_persist_failed_research_provider_metadata_v1.sql",
+      "sha256": "0186005bd401692786d076e8d18b528d748a64438cd793427524e344bfc489eb"
+    },
+    {
+      "version": "20260822103000",
+      "filename": "20260822103000_create_spot_research_v2_two_pass.sql",
+      "sha256": "e4204ff9017cb5c66472e4ac6abf2a0c22e5cffcf9e31ff7bebc88fb1875caa6"
+    },
+    {
+      "version": "20260822120000",
+      "filename": "20260822120000_harden_spot_research_v2_1.sql",
+      "sha256": "5052d439ca064f2b4f2fec014b072518083efc86a80cb33b4aa3a9ba9a146fec"
+    },
+    {
+      "version": "20260822121500",
+      "filename": "20260822121500_recover_v2_1_schema_failure.sql",
+      "sha256": "65954e29147f3ae323a727660003c81b697647c642b5783b37cd31a90511f0d7"
+    },
+    {
+      "version": "20260823120000",
+      "filename": "20260823120000_create_human_spot_editor_v1.sql",
+      "sha256": "2e304360b428f780603e3a78a31723f5fdb7242b8a0f667e0288f7b754e566e4"
+    },
+    {
+      "version": "20260823150000",
+      "filename": "20260823150000_human_spot_editor_v1_1.sql",
+      "sha256": "5819ebe109e7094fcf8da66e21b4758cbd20a9b87b8f4aff25cf02781de88544"
+    },
+    {
+      "version": "20260823170000",
+      "filename": "20260823170000_admin_dashboard_ux_v1.sql",
+      "sha256": "8e93ad1c28a79ce33ee02c80e4282343cdefc47cd7b6e4c31d1cc1383bcf3bdc"
+    },
+    {
+      "version": "20260823213000",
+      "filename": "20260823213000_fix_admin_spot_basis_persistence_v1.sql",
+      "sha256": "bf476cff7615b120272399631aadd98a8797f596b29888bf55edd45f49b43593"
+    },
+    {
+      "version": "20260823220000",
+      "filename": "20260823220000_fix_admin_delete_persistence_v1.sql",
+      "sha256": "31bb928a7e1f7846d75e5b705dc02178c1598f65763ee258b21f959603742031"
+    },
+    {
+      "version": "20260823220100",
+      "filename": "20260823220100_fix_spot_photo_safety_delete_trigger_v1.sql",
+      "sha256": "4d16027b867dc5261673e2913abf1de1e47736421e95709084b204f30389d54a"
+    },
+    {
+      "version": "20260824010000",
+      "filename": "20260824010000_close_production_decision_engine_v1.sql",
+      "sha256": "4162555ab1dcaa9003c990f053192dad2704b3e74df7922763846bc0f169500e"
+    },
+    {
+      "version": "20260824020000",
+      "filename": "20260824020000_align_internal_live_candidate_window_v1.sql",
+      "sha256": "4815a9ec61a8b2f375510fe4d8e12b24bf47e74ead60872384a473af3a4ed49f"
+    },
+    {
+      "version": "20260824021500",
+      "filename": "20260824021500_align_internal_live_handoff_constraint_v1.sql",
+      "sha256": "d45d1da6f9f67c22681273dd63bf70ed797c68d8d13cb012b42787b3dc0e5a74"
+    },
+    {
+      "version": "20260824090000",
+      "filename": "20260824090000_create_decision_continuation_v1.sql",
+      "sha256": "10e44fe919b245f237038a81a0080cc5abef3da72c24254d7d7aaf246ab7d4de"
+    },
+    {
+      "version": "20260824170000",
+      "filename": "20260824170000_restore_production_user_learning_loop_v1.sql",
+      "sha256": "4316911d45cad27da061a7ef930c6cb4c2be8b6292e337c35be7091633aea7f1"
+    },
+    {
+      "version": "20260824183000",
+      "filename": "20260824183000_fix_fresh_user_profile_onboarding_v1.sql",
+      "sha256": "2bd93acb0adfd98d7e043b3ff32aa3e2697e60d0fae4348b7978bb364acf2ab4"
+    },
+    {
+      "version": "20260824193000",
+      "filename": "20260824193000_fix_fresh_user_gating_and_fixture_visibility_v1.sql",
+      "sha256": "84bf491c1e8098b2fdc5321e65d732b5dbc7a65c9ea8f7153fd077615893b5bc"
+    },
+    {
+      "version": "20260824213000",
+      "filename": "20260824213000_fresh_user_north_star_cutover_v1.sql",
+      "sha256": "300e2fac199f5181cf38b0f4fa3e127f03ad850f10f9699e42f34666eaec1c20"
+    },
+    {
+      "version": "20260824235900",
+      "filename": "20260824235900_harden_mobile_achievement_sync_v1.sql",
+      "sha256": "c1bbc420338c7e4b3dd670c880b78c0dbe9568bc66332924a2b6e49dd763cf06"
+    },
+    {
+      "version": "20260825120000",
+      "filename": "20260825120000_temporal_user_evidence_attribution_v1.sql",
+      "sha256": "d66f3a64d76473f9f1a48972a43178c25f162f29178bf628fea9721e19d9ec66"
+    },
+    {
+      "version": "20260825160000",
+      "filename": "20260825160000_unified_user_learning_final_wiring_v1.sql",
+      "sha256": "d3c5c55adcdf308eab87aeeea6e1c2601d53fbc3d6b1d67a67ef58f07cc35859"
+    },
+    {
+      "version": "20260825190000",
+      "filename": "20260825190000_family_child_moment_scope_v1.sql",
+      "sha256": "f193ad3f48ef299c8d02a7889fb4aa43779851c4e8813b34161dff28df98f6de"
+    },
+    {
+      "version": "20260825220000",
+      "filename": "20260825220000_human_spot_intelligence_v2.sql",
+      "sha256": "b150ed4db054583b07c18bf9298ea3d6eb71a674f8ac6c7a8cdab39baf4a3dc6"
+    },
+    {
+      "version": "20260825223000",
+      "filename": "20260825223000_human_spot_intelligence_v2_summary_lineage.sql",
+      "sha256": "ecb5b78787dfc4dbfdbbfaa9706e6cc3ec56459b8b5f45b8b9cb2d090bab13e4"
+    },
+    {
+      "version": "20260825224000",
+      "filename": "20260825224000_human_spot_intelligence_v2_gastronomy_display_facts.sql",
+      "sha256": "ad6abd7e39bfd4971c4fef8ea43a342778f5f3ef3cf1373f36955d9acabbd79f"
+    },
+    {
+      "version": "20260825224100",
+      "filename": "20260825224100_human_spot_intelligence_v2_gastronomy_summary.sql",
+      "sha256": "8b3b12799d5b7db1a364a26a20c84125947034e2a878a6a6a0a830cf8fcc2f01"
+    },
+    {
+      "version": "20260825224200",
+      "filename": "20260825224200_human_spot_intelligence_v2_legacy_roundtrip.sql",
+      "sha256": "bb46ee867d756ff4f008b42efae35c3330cf521107a4bd535b7aee85cb560ea8"
+    },
+    {
+      "version": "20260825230000",
+      "filename": "20260825230000_canonical_offering_purpose_v2_1.sql",
+      "sha256": "612c677b07476b7b1747e9e11163d56aeaed083c6d67f3c59ef4b129b6f6d7e2"
+    },
+    {
+      "version": "20260825231000",
+      "filename": "20260825231000_allow_isolated_offering_acceptance_fixture_v1.sql",
+      "sha256": "27e59f849827e21fafa975df0076794e1596dee97cfa61fd29661ef6e2c768f8"
+    },
+    {
+      "version": "20260826120000",
+      "filename": "20260826120000_production_decision_fixture_cleanup_v1.sql",
+      "sha256": "15b12d686bb3ed97301671d3ef66502f9afe78342c6c34f729e6f38c4f3eceeb"
+    },
+    {
+      "version": "20260826210000",
+      "filename": "20260826210000_final_admin_four_spot_hard_delete_v1.sql",
+      "sha256": "7cd5b1680cb034a2e18352e8975add3eb5a8686f23684e368d2bfc0a230cf00f"
+    },
+    {
+      "version": "20260826220000",
+      "filename": "20260826220000_add_public_spot_photo_rate_limit_v1.sql",
+      "sha256": "29c79e3e7fa55144b7299b6085768cc2120c0be30ca71d655db25053c544f5e5"
+    },
+    {
+      "version": "20260826221000",
+      "filename": "20260826221000_add_public_canonical_spot_image_headers_v1.sql",
+      "sha256": "666df79e0288426c051bb31178edf27772773c131a4b0266711be5e1b654ff45"
+    },
+    {
+      "version": "20260827185823",
+      "filename": "20260827185823_fix_human_offering_hierarchy_authoring_v2_1.sql",
+      "sha256": "2e66faccb65e1ce44e4d1f5a2c84016182a7fea33de56168d09b5bc7110c2932"
+    },
+    {
+      "version": "20260828192125",
+      "filename": "20260828192125_gate1_schema_convergence_v1.sql",
+      "sha256": "33352a01dfeb9f0479edb37da4eef22dacd9d5fb3a0c1c3a5987c4207c7509ad"
+    },
+    {
+      "version": "20260829080205",
+      "filename": "20260829080205_gate2_public_spot_detail_truth_v1.sql",
+      "sha256": "2d827bcdad4fcadd53d74cb8c919d9cffeccb52248714565c482e74e4b0ca893"
+    },
+    {
+      "version": "20260829092530",
+      "filename": "20260829092530_create_city_bootstrap_spot_intelligence_v1.sql",
+      "sha256": "e525f219cddb00f11004e0073e12b03f33adac54bf84786664903808ae682cc6"
+    },
+    {
+      "version": "20260829123000",
+      "filename": "20260829123000_version_spot_research_policy_v2_2.sql",
+      "sha256": "e9af685a5fae64ec883eed754522b3eb6bd8064affa98609b08b5959ce76372c"
+    },
+    {
+      "version": "20260829140000",
+      "filename": "20260829140000_bind_spot_research_support_schema_v2_3.sql",
+      "sha256": "56d034bb1556fdbed24a31438ebb29a9e2fc7bfddf4b4466e6a6b5d1d5637066"
+    },
+    {
+      "version": "20260829150000",
+      "filename": "20260829150000_narrow_spot_research_objective_contract_v2_4.sql",
+      "sha256": "13f877f0ce6bcc67308aa2eb1f8f60c9e5e9e6e49b33736ebef966b9fd282705"
+    },
+    {
+      "version": "20260829160000",
+      "filename": "20260829160000_harden_research_entity_scope_v2_5.sql",
+      "sha256": "e7c62c644c3fc12264e0bfd10c8fc0500bf852b1e1a327c32c574d7fdc978e46"
+    },
+    {
+      "version": "20260829170000",
+      "filename": "20260829170000_harden_research_entity_instance_scope_v2_6.sql",
+      "sha256": "5697b034c575af4a28c6a02c156e0af90e1cfade7cdfc670ee0ae3cf7b37d1e1"
+    },
+    {
+      "version": "20260829173000",
+      "filename": "20260829173000_allow_verified_research_instance_redirect_v2_7.sql",
+      "sha256": "5ae1b87bcdb0af94ae25f4b69dc532355374241c66aaf36fd29ee3438e6f051c"
+    },
+    {
+      "version": "20260829174500",
+      "filename": "20260829174500_bind_research_redirect_runtime_v2_8.sql",
+      "sha256": "dea9a75d04e6e293427cb10d9ab232538a0ef20ca9f7f784fd38fdf26973da6f"
+    },
+    {
+      "version": "20260829190000",
+      "filename": "20260829190000_harden_city_bootstrap_website_identity_v1.sql",
+      "sha256": "e7feaeea13064bba49a8df8d228b2ccb3506f519076983adcdebb9023364abe1"
+    },
+    {
+      "version": "20260829200000",
+      "filename": "20260829200000_create_spot_engine_admin_operations_v1.sql",
+      "sha256": "d5d166ccd408a60611f0ad95aef65f7fbe9dd267127b877afc156843f8a5d7ed"
+    },
+    {
+      "version": "20260829203000",
+      "filename": "20260829203000_fix_city_bootstrap_website_trigger_boundary_v1.sql",
+      "sha256": "de5542b2de908c61bceb9ce21ae2b3d5f87d6b35eb36bc99b7c9fca7dac173d3"
+    },
+    {
+      "version": "20260829204500",
+      "filename": "20260829204500_spot_intelligence_machine_acceptance_v1.sql",
+      "sha256": "205c74c4b6f38f62e53622deb0dcbdeeb2babfc3e6be93f966ffa7edded46d8d"
+    },
+    {
+      "version": "20260829215420",
+      "filename": "20260829215420_allow_unknown_same_domain_research_coverage_v2_10.sql",
+      "sha256": "e6b4f73c9a46b5248af5bd450b353445629ba3d389d3fa95796e6550d3a89546"
+    },
+    {
+      "version": "20260829215500",
+      "filename": "20260829215500_allow_unknown_same_domain_research_coverage_v2_10.sql",
+      "sha256": "e6b4f73c9a46b5248af5bd450b353445629ba3d389d3fa95796e6550d3a89546"
+    },
+    {
+      "version": "20260829220912",
+      "filename": "20260829220912_scope_research_claim_to_population_run_v1.sql",
+      "sha256": "d2719a132ddb7b21fd6de31b07a05b7a2d5cc39d5516bbade452551b1bae9fb1"
+    },
+    {
+      "version": "20260829221500",
+      "filename": "20260829221500_scope_research_claim_to_population_run_v1.sql",
+      "sha256": "d2719a132ddb7b21fd6de31b07a05b7a2d5cc39d5516bbade452551b1bae9fb1"
+    },
+    {
+      "version": "20260829221950",
+      "filename": "20260829221950_isolate_population_jobs_from_legacy_research_v1.sql",
+      "sha256": "6d11e85f1b95440f3a1f6e7dcb4a7f25c7136fdb8301d36b56f6219d5c37e6a1"
+    },
+    {
+      "version": "20260829223000",
+      "filename": "20260829223000_isolate_population_jobs_from_legacy_research_v1.sql",
+      "sha256": "6d11e85f1b95440f3a1f6e7dcb4a7f25c7136fdb8301d36b56f6219d5c37e6a1"
+    },
+    {
+      "version": "20260829234503",
+      "filename": "20260829234503_automate_intelligence_population_v1.sql",
+      "sha256": "3aed2d58777cf21b85959b8fb04e7137eadbca3435b8f4eff53cafb2ee6c8435"
+    },
+    {
+      "version": "20260830010000",
+      "filename": "20260830010000_automate_intelligence_population_v1.sql",
+      "sha256": "3aed2d58777cf21b85959b8fb04e7137eadbca3435b8f4eff53cafb2ee6c8435"
+    },
+    {
+      "version": "20260830082857",
+      "filename": "20260830082857_tune_intelligence_population_throughput_v1.sql",
+      "sha256": "753f83185666e780ab314b1ec2dbb53b5035f65d2c2cbec05e604df61bf97531"
+    },
+    {
+      "version": "20260830113718",
+      "filename": "20260830113718_tune_intelligence_population_throughput_v1.sql",
+      "sha256": "753f83185666e780ab314b1ec2dbb53b5035f65d2c2cbec05e604df61bf97531"
+    },
+    {
+      "version": "20260830135909",
+      "filename": "20260830135909_bound_population_provider_concurrency_v1.sql",
+      "sha256": "c78e824358ab1b47e2ae8c91fb7af7340749d50f3c6a8f445b74f398456c25d7"
+    },
+    {
+      "version": "20260830145939",
+      "filename": "20260830145939_bound_population_provider_concurrency_v1.sql",
+      "sha256": "c78e824358ab1b47e2ae8c91fb7af7340749d50f3c6a8f445b74f398456c25d7"
+    },
+    {
+      "version": "20260830160500",
+      "filename": "20260830160500_fix_population_same_truth_finalization_v1.sql",
+      "sha256": "6cc8f3c3c464564fb6eabf1c4b794d339977aa5b065399f44f856faee50b13ff"
+    },
+    {
+      "version": "20260830160813",
+      "filename": "20260830160813_fix_population_same_truth_finalization_v1.sql",
+      "sha256": "6cc8f3c3c464564fb6eabf1c4b794d339977aa5b065399f44f856faee50b13ff"
+    },
+    {
+      "version": "20260830202410",
+      "filename": "20260830202410_revalidate_intelligence_operational_facts_v1.sql",
+      "sha256": "128f6c06012d443f5055803975d71f187bdeecb04ba33fffc9ae14a46cda70de"
+    },
+    {
+      "version": "20260830204938",
+      "filename": "20260830204938_harden_operational_hours_service_scope_v1.sql",
+      "sha256": "3abe4379c3b8cf4acecb9a4a12e8cff3fa5b1f733cd7f8acd1a8869f811c1fdf"
+    },
+    {
+      "version": "20260830212016",
+      "filename": "20260830212016_revalidate_intelligence_operational_facts_v1.sql",
+      "sha256": "128f6c06012d443f5055803975d71f187bdeecb04ba33fffc9ae14a46cda70de"
+    },
+    {
+      "version": "20260830212025",
+      "filename": "20260830212025_harden_operational_hours_service_scope_v1.sql",
+      "sha256": "3abe4379c3b8cf4acecb9a4a12e8cff3fa5b1f733cd7f8acd1a8869f811c1fdf"
+    },
+    {
+      "version": "20260831044934",
+      "filename": "20260831044934_fail_closed_operational_revalidation_invalid_fact_v1.sql",
+      "sha256": "a4e61ace5c5e80611eb23cf7f61f493ad548c94136da9e6f9fb5ff68682195b9"
+    },
+    {
+      "version": "20260831203122",
+      "filename": "20260831203122_database_consolidation_v1_remove_dead_proven.sql",
+      "sha256": "79e76741851e5a6fbb735b8ac6f4f592c2f7b802fc2d825062d6c589fd66f465"
+    }
+  ]
+}
