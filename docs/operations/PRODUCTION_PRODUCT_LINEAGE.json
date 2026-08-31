@@ -22,10 +22,10 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "887221728ca3b6da9be3460386e50ccf6d6164b2",
-        "tree": "57bfd6c064f20b22fe85ff5778d4742edb19d172",
-        "production_verified": true,
-        "reason": "Gate 2 changes only missing-hours presentation and its contract test; EAS Production OTA is bound to canonical merge 643723f."
+        "commit": "34d5275f4261d81ac6b215e3aaf29dccfbfe30fe",
+        "tree": "881a6ba2be8162e65953b3425b05ea052e2db522",
+        "production_verified": false,
+        "reason": "Reviewed Canonical Product Mood V1 release candidate; Production OTA remains pending canonical merge and database-lineage convergence."
       }
     },
     "consumer_web": {
@@ -36,10 +36,10 @@
       "vercel_deployment": "BBa9jfxn6s4ZsaDkwSxv4sU2obhD",
       "created_at": "2026-08-29T08:02:02Z",
       "canonical_source": {
-        "commit": "2a08090bb4c417086d3944371566354915874f45",
-        "tree": "e460898a8210792801718dfa99b03312a25708f4",
-        "production_verified": true,
-        "reason": "Gate 2 runtime is deployed from canonical merge 643723f; the later canonical tree changes only the contract test's migration filename to the exact Production identity."
+        "commit": "34d5275f4261d81ac6b215e3aaf29dccfbfe30fe",
+        "tree": "98ffedd73af0b4bbbf8de5b43836e5729c227d05",
+        "production_verified": false,
+        "reason": "Reviewed Canonical Product Mood V1 release candidate; Vercel Production remains bound to the recorded deployed commit until canonical merge."
       }
     },
     "admin_intelligence_web": {
@@ -58,11 +58,11 @@
       "migration_count": 91,
       "source_commit": "643723ff3f732813c96637639f9c5e226eca65fb",
       "canonical_source": {
-        "source_commit": "27a7173a01fc465d7fbb8152cad7ee422d50f126",
-        "migration_tip": "20260829080205_gate2_public_spot_detail_truth_v1",
-        "migration_count": 91,
-        "production_verified": true,
-        "reason": "Additive public read-contract replacement applied after canonical merge; repository filename converged to the server-registered Production version."
+        "source_commit": "34d5275f4261d81ac6b215e3aaf29dccfbfe30fe",
+        "migration_tip": "20260831170005_create_canonical_product_mood_v1",
+        "migration_count": 114,
+        "production_verified": false,
+        "reason": "Reviewed Canonical Product Mood V1 release candidate; Production application remains fail-closed on the documented migration-ledger timestamp divergence."
       }
     }
   },
