@@ -1,6 +1,9 @@
--- Stable structural fingerprint for Backyrd-owned application schemas.
+-- Stable semantic structural fingerprint for Backyrd-owned application schemas.
 -- Managed provider schemas and extension-owned objects are intentionally
 -- excluded. Effective client grants and default privileges remain included.
+-- Physical attribute numbers are excluded because PostgreSQL retains invisible
+-- attnum holes after DROP COLUMN. Function CRLFs and the six forensically
+-- certified historical comment-only deltas are normalized before hashing.
 with application_schemas(schema_name) as (
   values ('public'), ('decision_lab')
 ), client_roles(role_name) as (
@@ -9,6 +12,39 @@ with application_schemas(schema_name) as (
   values ('SELECT'),('INSERT'),('UPDATE'),('DELETE'),('TRUNCATE'),('REFERENCES'),('TRIGGER')
 ), sequence_privileges(privilege_name) as (
   values ('USAGE'),('SELECT'),('UPDATE')
+), normalized_functions(identity, owner_name, definition) as (
+  select
+    p.oid::regprocedure::text,
+    pg_get_userbyid(p.proowner),
+    replace(
+      replace(
+        replace(
+          replace(
+            replace(
+              replace(
+                replace(
+                  replace(pg_get_functiondef(p.oid), E'\r\n', E'\n'),
+                  E'\r', E'\n'
+                ),
+                E'-- optional: very lightweight text scoring (keeps it deterministic & cheap)\n', ''
+              ),
+              E'-- token counts per spot, then mapped to clusters via mood_token_clusters\n', ''
+            ),
+            E'-- filter to selected clusters (primary moods) if provided\n', ''
+          ),
+          E'-- ✅ PATCH: deterministic ordering by strength\n', ''
+        ),
+        E'-- factual evidence per ranked spot: top mood tokens (true from agg)\n', ''
+      ),
+      E'-- ✅ correct counts from reviews (one per review per mood)\n', ''
+    )
+    from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    join application_schemas s on s.schema_name=n.nspname
+   where p.prokind in ('f','p')
+     and not exists (
+       select 1 from pg_depend d
+        where d.classid='pg_proc'::regclass and d.objid=p.oid and d.deptype='e'
+     )
 ), entries(entry) as (
   select format('SCHEMA|%I|owner=%I', n.nspname, pg_get_userbyid(n.nspowner))
     from pg_namespace n join application_schemas s on s.schema_name=n.nspname
@@ -29,8 +65,8 @@ with application_schemas(schema_name) as (
 
   union all
   select format(
-    'COLUMN|%I.%I|%s|%I|type=%s|not_null=%s|identity=%s|generated=%s|collation=%s|default=%s',
-    n.nspname,c.relname,a.attnum,a.attname,format_type(a.atttypid,a.atttypmod),a.attnotnull,
+    'COLUMN|%I.%I|%I|type=%s|not_null=%s|identity=%s|generated=%s|collation=%s|default=%s',
+    n.nspname,c.relname,a.attname,format_type(a.atttypid,a.atttypmod),a.attnotnull,
     a.attidentity,a.attgenerated,coalesce(coll.collname,''),coalesce(pg_get_expr(ad.adbin,ad.adrelid),'')
   )
     from pg_attribute a join pg_class c on c.oid=a.attrelid
@@ -67,14 +103,8 @@ with application_schemas(schema_name) as (
    where c.relkind in ('v','m')
 
   union all
-  select format('FUNCTION|%s|owner=%I|%s',p.oid::regprocedure::text,pg_get_userbyid(p.proowner),pg_get_functiondef(p.oid))
-    from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-    join application_schemas s on s.schema_name=n.nspname
-   where p.prokind in ('f','p')
-     and not exists (
-       select 1 from pg_depend d
-        where d.classid='pg_proc'::regclass and d.objid=p.oid and d.deptype='e'
-     )
+  select format('FUNCTION|%s|owner=%I|%s',identity,owner_name,definition)
+    from normalized_functions
 
   union all
   select format('TRIGGER|%I.%I|%I|%s',n.nspname,c.relname,t.tgname,pg_get_triggerdef(t.oid,true))
