@@ -1,0 +1,100 @@
+name: Supabase Production Deployment
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-production
+  cancel-in-progress: false
+
+jobs:
+  deployment-contract:
+    name: Source-aware deployment contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - name: Set up pinned Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.98.2
+      - name: Verify fail-closed deployment planner
+        run: node --test scripts/deployment/supabase-production-plan.test.mjs
+      - name: Build auditable deployment plan
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node scripts/deployment/supabase-production-plan.mjs --base-sha "$BASE_SHA" --head-sha HEAD --output supabase-production-plan.json
+      - name: Publish plan summary
+        run: |
+          jq '{canonicalMainSha,planHash,deployFunctions,migrations,runtimeDeploymentRequired}' supabase-production-plan.json
+          jq -r '"### Supabase Production Plan\n\n- Main SHA: `\(.canonicalMainSha)`\n- Plan: `\(.planHash)`\n- Functions: \(.deployFunctions|join(", ") // "none")\n- Migrations: \(.migrations|length)\n- Runtime deployment: \(.runtimeDeploymentRequired)"' supabase-production-plan.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify Production credentials and pending migration scope read-only
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          supabase functions list --project-ref hjgcrrzfjchzqoegcywn --output json | jq -e '.[] | select(.slug=="decision-v13" and .status=="ACTIVE" and .verify_jwt==true)'
+          supabase link --project-ref hjgcrrzfjchzqoegcywn
+          supabase db push --dry-run 2>&1 | tee production-migration-dry-run.txt
+          grep -F 'Remote database is up to date.' production-migration-dry-run.txt
+      - name: Retain pull-request deployment plan
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: supabase-production-plan-${{ github.sha }}
+          path: |
+            supabase-production-plan.json
+            production-migration-dry-run.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  production:
+    name: Canonical main production deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: deployment-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: Production
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Set up pinned Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.98.2
+      - name: Rebuild canonical-main deployment plan
+        env:
+          BASE_SHA: ${{ github.event.before }}
+        run: node scripts/deployment/supabase-production-plan.mjs --base-sha "$BASE_SHA" --head-sha HEAD --assert-canonical-main --output supabase-production-plan.json
+      - name: Deploy exact bound Production scope
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: bash scripts/deployment/deploy-supabase-production.sh supabase-production-plan.json
+      - name: Publish deployment audit
+        if: always()
+        run: |
+          test -f .deployment-audit/result.json && jq . .deployment-audit/result.json || true
+          test -f .deployment-audit/result.json && jq -r '"### Supabase Production Result\n\n- Result: \(.result)\n- Canonical main: `\(.canonicalMainSha // "no runtime deploy")`\n- Audit: `\(.auditHash // "not applicable")`"' .deployment-audit/result.json >> "$GITHUB_STEP_SUMMARY" || true
+      - name: Retain immutable deployment audit artifact
+        if: always() && hashFiles('.deployment-audit/**') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: supabase-production-${{ github.sha }}
+          path: .deployment-audit/
+          if-no-files-found: error
+          retention-days: 90
