@@ -58,9 +58,9 @@
       "migration_count": 91,
       "source_commit": "643723ff3f732813c96637639f9c5e226eca65fb",
       "canonical_source": {
-        "source_commit": "34d5275f4261d81ac6b215e3aaf29dccfbfe30fe",
+        "source_commit": "5bb0575ef03ac9132f1467c666aad5ee599a1dd1",
         "migration_tip": "20260831220000_create_canonical_product_mood_v1",
-        "migration_count": 114,
+        "migration_count": 124,
         "production_verified": false,
         "reason": "Reviewed Canonical Product Mood V1 release candidate reconciled onto Database Consolidation V1; Production application remains pending clean bootstrap, canonical merge and forward-only deployment."
       }

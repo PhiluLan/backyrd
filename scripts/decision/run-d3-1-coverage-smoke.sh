@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 lab_root="$(mktemp -d "${TMPDIR:-/tmp}/backyrd-d3-1.XXXXXX")"
 project_id="backyrd-d3-1-${$}"
+port_base=$((57400 + ($$ % 50) * 20))
 started=false
 
 cleanup() {
@@ -19,8 +20,29 @@ mkdir -p "$lab_root/supabase" "$lab_root/generated"
 cp "$repo_root/supabase/config.toml" "$lab_root/supabase/config.toml"
 cp -R "$repo_root/supabase/migrations" "$lab_root/supabase/migrations"
 cp -R "$repo_root/supabase/canonical" "$lab_root/supabase/canonical"
+
+# D3.1 needs the same canonical zero-data bootstrap contract as Database CI.
+# Immutable, hash-certified Production data operations require historical rows
+# by design and are not schema bootstrap steps. Validate their identities before
+# excluding only the registered files from this disposable synthetic database.
+node "$repo_root/scripts/ci/validate-database-lineage.mjs"
+"$repo_root/scripts/ci/validate-migrations.sh"
+while IFS= read -r operation; do
+  rm "$lab_root/supabase/migrations/$operation"
+done < <(jq -r '.[].file' "$repo_root/supabase/historical-data-operations.json")
+printf 'Excluded %s hash-certified historical Production data operations from D3.1 bootstrap.\n' \
+  "$(jq 'length' "$repo_root/supabase/historical-data-operations.json")"
+
 sed -i.bak "s/^project_id = .*/project_id = \"$project_id\"/" "$lab_root/supabase/config.toml"
-sed -i.bak -e 's/port = 54321/port = 57421/' -e 's/port = 54322/port = 57422/' -e 's/shadow_port = 54320/shadow_port = 57420/' -e 's/port = 54329/port = 57429/' -e 's/port = 54323/port = 57423/' -e 's/port = 54324/port = 57424/' -e 's/port = 54327/port = 57427/' "$lab_root/supabase/config.toml"
+sed -i.bak \
+  -e "s/port = 54321/port = $((port_base + 1))/" \
+  -e "s/port = 54322/port = $((port_base + 2))/" \
+  -e "s/shadow_port = 54320/shadow_port = $port_base/" \
+  -e "s/port = 54329/port = $((port_base + 9))/" \
+  -e "s/port = 54323/port = $((port_base + 3))/" \
+  -e "s/port = 54324/port = $((port_base + 4))/" \
+  -e "s/port = 54327/port = $((port_base + 7))/" \
+  "$lab_root/supabase/config.toml"
 sed -i.bak '/^\[db.seed\]/,/^\[/ s/^enabled = true/enabled = false/' "$lab_root/supabase/config.toml"
 rm -f "$lab_root/supabase/config.toml.bak"
 test ! -e "$lab_root/supabase/.temp/project-ref"

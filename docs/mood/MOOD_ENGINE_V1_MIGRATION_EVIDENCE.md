@@ -72,7 +72,7 @@ These are pre-mutation expectations and must be rechecked immediately before app
 | Full Decision Lab | PASS — 318/318 after canonical adapter binding |
 | D2 protected-scope guard | Authorized fixture PASS; one-byte Mood module drift FAIL |
 | Canonical clean bootstrap | PASS — immutable historical Production data operations excluded only through the hash-verified canonical bootstrap contract; all Mood SQL, ACL/IDOR, moderation and DB-lint checks passed |
-| Generic D3.1 `supabase db reset` | PASS after Database Consolidation V1 restored the canonical forward migration path |
+| D3.1 isolated bootstrap | PASS through the same hash-verified historical-data-operation exclusion used by canonical Database CI |
 | Production migration/canary | NOT RUN |
 | Founder physical Mobile/Web/Admin acceptance | NOT RUN |
 | Security CTO adversarial acceptance | NOT RUN |
