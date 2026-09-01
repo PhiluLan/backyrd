@@ -88,13 +88,13 @@ jobs:
       - name: Publish deployment audit
         if: always()
         run: |
-          test -f .deployment-audit/result.json && jq . .deployment-audit/result.json || true
-          test -f .deployment-audit/result.json && jq -r '"### Supabase Production Result\n\n- Result: \(.result)\n- Canonical main: `\(.canonicalMainSha // "no runtime deploy")`\n- Audit: `\(.auditHash // "not applicable")`"' .deployment-audit/result.json >> "$GITHUB_STEP_SUMMARY" || true
+          test -f deployment-audit/result.json && jq . deployment-audit/result.json || true
+          test -f deployment-audit/result.json && jq -r '"### Supabase Production Result\n\n- Result: \(.result)\n- Canonical main: `\(.canonicalMainSha // "no runtime deploy")`\n- Audit: `\(.auditHash // "not applicable")`"' deployment-audit/result.json >> "$GITHUB_STEP_SUMMARY" || true
       - name: Retain immutable deployment audit artifact
-        if: always() && hashFiles('.deployment-audit/**') != ''
+        if: always() && hashFiles('deployment-audit/**') != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: supabase-production-${{ github.sha }}
-          path: .deployment-audit/
+          path: deployment-audit/
           if-no-files-found: error
           retention-days: 90

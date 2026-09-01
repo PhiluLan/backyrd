@@ -12,8 +12,8 @@ test "$(jq -r '.canonicalMainSha' "$plan_path")" = "$GITHUB_SHA" || { echo "plan
 test "$(jq -r '.projectRef' "$plan_path")" = "hjgcrrzfjchzqoegcywn" || { echo "Production project mismatch" >&2; exit 1; }
 test "$(supabase --version)" = "$(jq -r '.supabaseCliVersion' "$plan_path")" || { echo "Supabase CLI identity mismatch" >&2; exit 1; }
 
-mkdir -p .deployment-audit
-cp "$plan_path" .deployment-audit/plan.json
+mkdir -p deployment-audit
+cp "$plan_path" deployment-audit/plan.json
 if test "$(jq -r '.runtimeDeploymentRequired' "$plan_path")" != "true"; then
   jq '{
     result:"NO_RUNTIME_DEPLOY",
@@ -23,22 +23,22 @@ if test "$(jq -r '.runtimeDeploymentRequired' "$plan_path")" != "true"; then
     supabaseCliVersion,
     functions:[.functions[]|{slug,sourceSetHash,configHash,verifyJwt}],
     migrations
-  }' "$plan_path" > .deployment-audit/result.json
+  }' "$plan_path" > deployment-audit/result.json
   exit 0
 fi
 test -n "${SUPABASE_ACCESS_TOKEN:-}" || { echo "SUPABASE_ACCESS_TOKEN required" >&2; exit 1; }
 
-supabase functions list --project-ref hjgcrrzfjchzqoegcywn --output json > .deployment-audit/functions-before.json
+supabase functions list --project-ref hjgcrrzfjchzqoegcywn --output json > deployment-audit/functions-before.json
 
 mapfile -t planned_migrations < <(jq -r '.migrations[].path' "$plan_path")
 if test "${#planned_migrations[@]}" -gt 0; then
-  supabase db push --dry-run 2>&1 | tee .deployment-audit/migration-dry-run.txt
+  supabase db push --dry-run 2>&1 | tee deployment-audit/migration-dry-run.txt
   for migration in "${planned_migrations[@]}"; do
-    grep -F "$(basename "$migration")" .deployment-audit/migration-dry-run.txt >/dev/null || { echo "planned migration absent from dry run: $migration" >&2; exit 1; }
+    grep -F "$(basename "$migration")" deployment-audit/migration-dry-run.txt >/dev/null || { echo "planned migration absent from dry run: $migration" >&2; exit 1; }
   done
-  mapfile -t dry_run_migrations < <(grep -Eo '[0-9]{14}_[a-z0-9_]+\.sql' .deployment-audit/migration-dry-run.txt | sort -u)
+  mapfile -t dry_run_migrations < <(grep -Eo '[0-9]{14}_[a-z0-9_]+\.sql' deployment-audit/migration-dry-run.txt | sort -u)
   test "${#dry_run_migrations[@]}" -eq "${#planned_migrations[@]}" || { echo "remote pending migration scope differs from canonical plan" >&2; exit 1; }
-  supabase db push --yes 2>&1 | tee .deployment-audit/migration-apply.txt
+  supabase db push --yes 2>&1 | tee deployment-audit/migration-apply.txt
 fi
 
 mapfile -t functions < <(jq -r '.functions[] | select(.deploy) | .slug' "$plan_path")
@@ -49,9 +49,9 @@ for slug in "${functions[@]}"; do
   supabase "${args[@]}"
 done
 
-supabase functions list --project-ref hjgcrrzfjchzqoegcywn --output json > .deployment-audit/functions-after.json
+supabase functions list --project-ref hjgcrrzfjchzqoegcywn --output json > deployment-audit/functions-after.json
 node scripts/deployment/verify-supabase-production-audit.mjs \
-  --plan .deployment-audit/plan.json \
-  --before .deployment-audit/functions-before.json \
-  --after .deployment-audit/functions-after.json \
-  --output .deployment-audit/result.json
+  --plan deployment-audit/plan.json \
+  --before deployment-audit/functions-before.json \
+  --after deployment-audit/functions-after.json \
+  --output deployment-audit/result.json
