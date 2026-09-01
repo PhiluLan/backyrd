@@ -3,14 +3,14 @@
   "status": "AUTHORIZED",
   "authorization": {
     "baseCommit": "8e6c04e4b5b87e9f7836fda93074b6d6392e9d1b",
-    "authorizedSourceCommit": "c6aafcdeb65e9d73d71e8f69e652f0d47b1a20ed",
+    "authorizedSourceCommit": "f2220f791c91dd3e54ecdbac5954a590abcd5887",
     "authorizedSemanticSourceCommit": "f91dd269039bba0138a655d0f4050699ccb5f0f4",
     "previousEngineSourceHash": "c80c275b5f09adf0e3081dc10763a06846f81333097fd2a9ead6e8dfb8d7987a",
     "previousRecertificationVersion": "decision-v13-production-recertification-v15",
     "previousRecertificationHash": "420b2cb804e97a19f4e96d79a45438e842d4279d59566a4fe5003a3bd5fab6d7",
     "authorizedEngineSourceHash": "c80c275b5f09adf0e3081dc10763a06846f81333097fd2a9ead6e8dfb8d7987a",
     "changeClass": "GATE5_CANONICAL_DEPLOYMENT_RECOVERY_RECERTIFICATION",
-    "approvalBasis": "The first canonical-main Gate 5 migration deployment failed closed before applying SQL because the Production job had not linked the bound Supabase project. This full operational re-certification preserves Decision semantics and Production v123 while binding the canonical-main-only recovery input, exact audited base SHA, explicit project link, exact pending-migration verifier, immutable audit, and focused negative contracts.",
+    "approvalBasis": "The first canonical-main Gate 5 migration deployment failed closed before applying SQL because the Production job had not linked the bound Supabase project. This full operational re-certification preserves Decision semantics and Production v123 while binding the one-time repository recovery manifest, exact audited base SHA and migration bytes, explicit project link, exact pending-migration verifier, immutable audit, and focused negative contracts.",
     "approvedAt": "2026-09-01T22:05:00+02:00"
   },
   "production": {
@@ -129,6 +129,7 @@
       "supabase/config.toml",
       "supabase/migrations/20260901191833_gate5_harden_user_achievements_privacy.sql",
       "supabase/production/auth-config.json",
+      "supabase/production/pending-migration-recovery.json",
       "supabase/tests/decision_location_admin_contract_v1.sql",
       "supabase/tests/gate3_decision_production_acceptance_v1.sql",
       "supabase/tests/gate5_core_journeys_v1.sql",
@@ -137,7 +138,7 @@
       "web/e2e/consumer.spec.ts",
       "web/tests/consumer-contracts.test.mjs"
     ],
-    "hash": "0ed6b0530c626927278bd7227d1de51bc31f278a0401fba65152ad832d130e3e"
+    "hash": "cafdb896d10b18dc6fd48932eb686e808f2484e8101e23d6d1830bc7f3279ee7"
   },
   "invariants": {
     "hardEligibilityBeforeRanking": "PASS",
