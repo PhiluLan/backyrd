@@ -34,12 +34,23 @@ tracked_paths=(
   'web/docs/WEB_PRODUCT_CONTRACT_MATRIX.md'
   'web/tests/consumer-contracts.test.mjs'
 )
+closure_paths=(
+  'web/app/decision/page.tsx'
+  'web/app/settings/decision-history/page.tsx'
+  'web/components/consumer/decision-experience.tsx'
+  'web/lib/decision-web-api.ts'
+  'web/docs/WEB_PRODUCT_CONTRACT_MATRIX.md'
+  'web/tests/consumer-contracts.test.mjs'
+)
 for path in "${tracked_paths[@]}"; do copy_at_revision "$source_base" "$path"; done
 git -C "$tmp" add -A
 git -C "$tmp" commit -qm baseline
 base="$(git -C "$tmp" rev-parse HEAD)"
 
-for path in "${tracked_paths[@]}"; do copy_at_revision HEAD "$path"; done
+# This fixture verifies the Web closure with the Engine held at its controlled
+# baseline. Engine re-certification has its own fail-closed regression; copying
+# a later re-certified Engine here would conflate the two independent guards.
+for path in "${closure_paths[@]}"; do copy_at_revision HEAD "$path"; done
 mkdir -p "$tmp/scripts/ci"
 cp "$repo_root/scripts/ci/decision-d2-scope-guard.sh" "$tmp/scripts/ci/decision-d2-scope-guard.sh"
 git -C "$tmp" add -A

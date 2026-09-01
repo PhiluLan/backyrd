@@ -18,11 +18,13 @@ export async function loadCanonicalDecisionHandler({ env, embeddingMode, sourceU
   assertEmbeddingMode(embeddingMode, env);
   const source = await readFile(sourceUrl, "utf8");
   const sharedSemanticsUrl = new URL("../../packages/canonical-semantics/src/index.mjs", import.meta.url).href;
+  const communityMoodSignalUrl = new URL("../../supabase/functions/decision-v13/community-mood-signal.mjs", import.meta.url).href;
   const anchor = "Deno.serve(async (request: Request) => {";
   if (!source.includes(anchor)) throw new Error("Canonical decision-v13 handler anchor missing");
   const exportedFunctions = [...source.matchAll(/^export\s+function\s+([A-Za-z0-9_]+)/gm)].map((match) => match[1]);
   const observed = source
     .replace('from "../../../packages/canonical-semantics/src/index.mjs"', `from "${sharedSemanticsUrl}"`)
+    .replace('from "./community-mood-signal.mjs"', `from "${communityMoodSignalUrl}"`)
     .replace(/^export\s+type\s+/gm, "type ")
     .replace(/^export\s+function\s+/gm, "function ")
     .replace(anchor, "globalThis.__backyrdDecisionLabHandler = async (request: Request) => {")

@@ -1,3 +1,5 @@
+import type { MoodResolution } from "./mood";
+
 export type CreateReviewWithPhotosRequest = {
   spot_id: string;
   text?: string | null;
@@ -12,6 +14,7 @@ export type CreateReviewWithPhotosResponse =
       ok: true;
       review_id: string;
       message: string;
+      mood_resolutions: MoodResolution[];
     }
   | {
       ok?: false;

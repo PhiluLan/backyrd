@@ -62,9 +62,28 @@ async function attachCanonicalHeaders(spots: PublicCitySpot[]): Promise<PublicCi
   const ids = spots.map((spot) => spot.spot_id).filter(Boolean);
   if (!ids.length) return spots.map((spot) => ({ ...spot, photo_url: null }));
   const { data, error } = await supabase.rpc("backyrd_web_canonical_spot_image_headers_v1", { p_spot_ids: ids });
-  if (error || !Array.isArray(data)) return spots.map((spot) => ({ ...spot, photo_url: null }));
-  const headers = new Map(data.filter(isRow).map((row) => [String(row.spot_id ?? ""), str(row.header_photo_path)]));
-  return spots.map((spot) => ({ ...spot, photo_url: headers.get(spot.spot_id) ?? null }));
+  const headers = new Map(
+    !error && Array.isArray(data)
+      ? data.filter(isRow).map((row) => [String(row.spot_id ?? ""), str(row.header_photo_path)] as const)
+      : [],
+  );
+  const { data: moods } = await supabase
+    .from("backyrd_spot_mood_profile_public_v1")
+    .select("spot_id,label,rank")
+    .in("spot_id", ids)
+    .lte("rank", 3)
+    .order("rank", { ascending: true });
+  const moodMap = new Map<string, string[]>();
+  for (const row of moods ?? []) {
+    const labels = moodMap.get(row.spot_id) ?? [];
+    labels.push(row.label);
+    moodMap.set(row.spot_id, labels);
+  }
+  return spots.map((spot) => ({
+    ...spot,
+    photo_url: headers.get(spot.spot_id) ?? null,
+    top_moods: moodMap.get(spot.spot_id) ?? [],
+  }));
 }
 
 export async function getPublicCitySpots(

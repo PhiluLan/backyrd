@@ -30,6 +30,7 @@ import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 import { registerSafetySnapshot } from "../../lib/safety-content";
 import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
 import { userFacingError } from "../../lib/userFacingError";
+import { MoodExpressionInput } from "../../components/MoodExpressionInput";
 
 const theme = {
   colors: {
@@ -203,9 +204,7 @@ export default function SmartReviewScreen() {
 
   const canSubmit =
     !!nearest &&
-    !!photoUri &&
-    moodA.trim().length > 0 &&
-    moodB.trim().length > 0;
+    !!photoUri;
 
   useEffect(() => {
     void trackAnalyticsEvent({ eventName: "review_started", screenName: "review_smart", decisionId: decisionId ?? null, properties: { source: source ?? "smart" } });
@@ -348,39 +347,6 @@ export default function SmartReviewScreen() {
     return "Kein Spot gefunden";
   }, [searching, nearest]);
 
-  async function getMoodId(token: string | null) {
-    if (!token || token.trim() === "") return null;
-
-    const clean = token.trim().toLowerCase();
-
-    const { data, error } = await supabase
-      .from("mood_tokens")
-      .select("id")
-      .eq("token", clean)
-      .single();
-
-    if (error && error.code !== "PGRST116") {
-      throw error;
-    }
-
-    if (!data) {
-      const { data: newMood, error: insertErr } = await supabase
-        .from("mood_tokens")
-        .insert({
-          token: clean,
-          locale: "de-CH",
-          valid: true,
-        })
-        .select()
-        .single();
-
-      if (insertErr) throw insertErr;
-      return newMood?.id ?? null;
-    }
-
-    return data.id;
-  }
-
   async function uploadReviewImage(uri: string, reviewId: string) {
     const ext = getSafeImageExtension(uri);
     const contentType = getContentTypeFromExtension(ext);
@@ -464,9 +430,6 @@ export default function SmartReviewScreen() {
     try {
       setSaving(true);
 
-      const moodAId = await getMoodId(moodA);
-      const moodBId = await getMoodId(moodB);
-
       const { data: reviewData, error: reviewErr } = await supabase
         .from("reviews")
         .insert({
@@ -478,8 +441,8 @@ export default function SmartReviewScreen() {
           text: text.trim() || null,
           mood_a: moodA.trim() || null,
           mood_b: moodB.trim() || null,
-          mood_a_id: moodAId,
-          mood_b_id: moodBId,
+          mood_a_id: null,
+          mood_b_id: null,
         })
         .select()
         .single();
@@ -745,23 +708,8 @@ export default function SmartReviewScreen() {
                 <Text style={styles.spotName}>{nearest.name}</Text>
                 {!!nearest.address && <Text style={styles.address}>{nearest.address}</Text>}
 
-                <Text style={styles.label}>Erste Stimmung</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="z. B. gemütlich"
-                  placeholderTextColor="rgba(255,255,255,0.34)"
-                  value={moodA}
-                  onChangeText={setMoodA}
-                />
-
-                <Text style={styles.label}>Zweite Stimmung</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="z. B. lebhaft"
-                  placeholderTextColor="rgba(255,255,255,0.34)"
-                  value={moodB}
-                  onChangeText={setMoodB}
-                />
+                <MoodExpressionInput label="Erster Mood (optional)" placeholder="z. B. gemütlich" value={moodA} onChangeText={setMoodA} />
+                <MoodExpressionInput label="Zweiter Mood (optional)" placeholder="z. B. lebhaft" value={moodB} onChangeText={setMoodB} />
 
                 <Text style={styles.label}>Text</Text>
                 <TextInput
@@ -801,23 +749,8 @@ export default function SmartReviewScreen() {
                   Wir haben in ca. 120 m Umkreis nichts Passendes gefunden.
                 </Text>
 
-                <Text style={styles.label}>Erste Stimmung</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="z. B. gemütlich"
-                  placeholderTextColor="rgba(255,255,255,0.34)"
-                  value={moodA}
-                  onChangeText={setMoodA}
-                />
-
-                <Text style={styles.label}>Zweite Stimmung</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="z. B. lebhaft"
-                  placeholderTextColor="rgba(255,255,255,0.34)"
-                  value={moodB}
-                  onChangeText={setMoodB}
-                />
+                <MoodExpressionInput label="Erster Mood (optional)" placeholder="z. B. gemütlich" value={moodA} onChangeText={setMoodA} />
+                <MoodExpressionInput label="Zweiter Mood (optional)" placeholder="z. B. lebhaft" value={moodB} onChangeText={setMoodB} />
 
                 <Pressable onPress={onConfirmCreate} style={[styles.btn, styles.btnPrimary]}>
                   <Text style={styles.btnPrimaryText}>Neuen Spot anlegen / einreichen</Text>

@@ -345,21 +345,12 @@ export default function SpotDetailScreen() {
 
     setReviews(visibleReviews);
 
-    const counts: Record<string, number> = {};
-
-    for (const review of visibleReviews) {
-      const moodA = (review as any).moodA?.token ?? review.mood_a;
-      const moodB = (review as any).moodB?.token ?? review.mood_b;
-
-      if (moodA) counts[moodA] = (counts[moodA] || 0) + 1;
-      if (moodB) counts[moodB] = (counts[moodB] || 0) + 1;
-    }
-
-    setMoodSummary(
-      Object.entries(counts)
-        .map(([mood, count]) => ({ mood, count }))
-        .sort((a, b) => b.count - a.count),
-    );
+    const { data: profile, error: profileError } = await supabase
+      .from("backyrd_spot_mood_profile_public_v1")
+      .select("concept_key,label,percentage,concept_contributors,eligible_contributors,evidence_state,rank")
+      .eq("spot_id", id)
+      .order("rank", { ascending: true });
+    if (!profileError) setMoodSummary(profile ?? []);
   }, [id]);
 
   useFocusEffect(
@@ -482,18 +473,12 @@ export default function SpotDetailScreen() {
       });
       setHours(grouped);
 
-      const counts: Record<string, number> = {};
-      for (const r of visibleReviews) {
-        const mA = presentMoodToken((r as any).moodA?.token ?? r.mood_a);
-        const mB = presentMoodToken((r as any).moodB?.token ?? r.mood_b);
-        if (mA) counts[mA] = (counts[mA] || 0) + 1;
-        if (mB) counts[mB] = (counts[mB] || 0) + 1;
-      }
-      setMoodSummary(
-        Object.entries(counts)
-          .map(([mood, count]) => ({ mood, count }))
-          .sort((a, b) => b.count - a.count),
-      );
+      const { data: profile, error: profileError } = await supabase
+        .from("backyrd_spot_mood_profile_public_v1")
+        .select("concept_key,label,percentage,concept_contributors,eligible_contributors,evidence_state,rank")
+        .eq("spot_id", id)
+        .order("rank", { ascending: true });
+      if (!profileError) setMoodSummary(profile ?? []);
 
       setLoading(false);
     })();
@@ -790,26 +775,27 @@ export default function SpotDetailScreen() {
 
           <SpotTaxonomyChips items={taxonomyItems} />
 
-          {moodSummary.length > 0 && (
-            <View style={styles.section}>
+          <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <SectionTitle>Stimmungen</SectionTitle>
+                <SectionTitle>So fühlt es sich hier an</SectionTitle>
                 {moodSummary.length > 5 ? (
                   <Pressable onPress={() => setShowAllMoods((s) => !s)}>
                     <Text style={styles.showMoreText}>{showAllMoods ? "Weniger" : "Mehr anzeigen"}</Text>
                   </Pressable>
                 ) : null}
               </View>
+              {moodSummary.length > 0 ? <>
+              {moodSummary[0]?.evidence_state === "EARLY" ? <Text style={styles.bodyText}>Erste Eindrücke</Text> : null}
               <View style={styles.moodWrap}>
                 {(showAllMoods ? moodSummary : moodSummary.slice(0, 5)).map((m) => (
-                  <View key={m.mood} style={styles.moodPill}>
-                    <Text style={styles.moodText}>{m.mood}</Text>
-                    <Text style={styles.moodCount}>{m.count}</Text>
+                  <View key={m.concept_key} style={styles.moodPill}>
+                    <Text style={styles.moodText}>{m.label}</Text>
+                    {m.evidence_state === "ESTABLISHED" ? <Text style={styles.moodCount}>{m.percentage}%</Text> : null}
                   </View>
                 ))}
               </View>
+              </> : <StateView kind="empty" title="Noch keine Stimmung eingefangen." message="Teile nach deinem Besuch deinen Eindruck." />}
             </View>
-          )}
 
           <View style={styles.section}>
             <View style={styles.sectionHeader}>

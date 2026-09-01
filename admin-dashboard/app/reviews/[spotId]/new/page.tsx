@@ -20,50 +20,21 @@ export default function NewReviewPage({ params }: PageProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const MOOD_OPTIONS = [
-    "chillig",
-    "laut",
-    "gemütlich",
-    "stylish",
-    "rustikal",
-    "elegant",
-    "trendy",
-    "fancy",
-  ];
-
-  async function getMoodId(token: string | null) {
-    if (!token) return null;
-
-    const { data, error } = await supabase
-      .from("mood_tokens")
-      .select("id")
-      .eq("token", token)
-      .single();
-
-    if (error) {
-      console.error("Mood lookup error:", error);
-      return null;
-    }
-
-    return data.id;
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
 
     try {
-      const moodAId = await getMoodId(moodA);
-      const moodBId = await getMoodId(moodB);
-
       const { data: reviewData, error: reviewError } = await supabase
         .from("reviews")
         .insert({
           spot_id: spotId,
           text,
-          mood_a_id: moodAId,
-          mood_b_id: moodBId,
+          mood_a: moodA.trim() || null,
+          mood_b: moodB.trim() || null,
+          mood_a_id: null,
+          mood_b_id: null,
         })
         .select("id")
         .single();
@@ -137,34 +108,24 @@ export default function NewReviewPage({ params }: PageProps) {
 
         <div>
           <label className="block mb-1">Mood A</label>
-          <select
+          <input
             value={moodA}
             onChange={(e) => setMoodA(e.target.value)}
+            maxLength={40}
+            placeholder="z. B. gemütlich"
             className="w-full rounded bg-gray-900 border border-gray-700 px-3 py-2 text-gray-200"
-          >
-            <option value="">– auswählen –</option>
-            {MOOD_OPTIONS.map((mood) => (
-              <option key={mood} value={mood}>
-                {mood}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         <div>
           <label className="block mb-1">Mood B (optional)</label>
-          <select
+          <input
             value={moodB}
             onChange={(e) => setMoodB(e.target.value)}
+            maxLength={40}
+            placeholder="z. B. urban"
             className="w-full rounded bg-gray-900 border border-gray-700 px-3 py-2 text-gray-200"
-          >
-            <option value="">– auswählen –</option>
-            {MOOD_OPTIONS.map((mood) => (
-              <option key={mood} value={mood}>
-                {mood}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
         <div>

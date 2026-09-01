@@ -18,7 +18,7 @@ const evaluationFiles = ["decision-lab/src/contracts.mjs", "decision-lab/src/eva
 const acceptanceFiles = ["decision-lab/src/acceptance.mjs", "decision-lab/src/hard-gate-acceptance.mjs"];
 const absolute = (paths) => paths.map((path) => resolve(repoRoot, path));
 
-const recertificationPath = resolve(repoRoot, "decision-lab/config/decision-v13-production-recertification-v5.json");
+const recertificationPath = resolve(repoRoot, "decision-lab/config/decision-v13-production-recertification-v6.json");
 const requiredRecertificationInvariants = Object.freeze({
   hardEligibilityBeforeRanking: "PASS",
   distributionEligibilityBeforeFusion: "PASS",
@@ -27,7 +27,13 @@ const requiredRecertificationInvariants = Object.freeze({
   reasonsRequireConfirmedCandidateFacts: "PASS",
   offeringPurposeIsNotUserTaste: "PASS",
   legacyQueriesWithoutOfferingPurposeIntent: "SEMANTICALLY_UNCHANGED",
-  d2HardGateConstitution: "UNCHANGED"
+  d2HardGateConstitution: "UNCHANGED",
+  communityMoodAfterEligibility: "PASS",
+  communityMoodEvidenceThreshold: "ESTABLISHED_ONLY",
+  communityMoodMaximumComponent: 0.06,
+  missingCommunityMoodEvidence: "NEUTRAL",
+  moodSubmissionTasteN4GoldFirewalls: "PASS",
+  generalRankingArchitecture: "UNCHANGED"
 });
 
 export async function validateEngineRecertification(contractOverride = null) {
@@ -38,15 +44,15 @@ export async function validateEngineRecertification(contractOverride = null) {
   const productionEntrypointSource = await readFile(resolve(repoRoot, contract.production.entrypointPath), "utf8").catch(() => null);
   const productionEntrypointSha256 = productionEntrypointSource === null ? null : createHash("sha256").update(productionEntrypointSource).digest("hex");
   const reasons = [
-    ...(contract.version === "decision-v13-production-recertification-v5" ? [] : ["RECERTIFICATION_VERSION_INVALID"]),
+    ...(contract.version === "decision-v13-production-recertification-v6" ? [] : ["RECERTIFICATION_VERSION_INVALID"]),
     ...(contract.status === "AUTHORIZED" ? [] : ["RECERTIFICATION_NOT_AUTHORIZED"]),
     ...(contract.authorization?.previousEngineSourceHash === "28e178dee7192cb303b07574f31f1e86f58bc80048b23ba00bf032ca02c2bfc4" ? [] : ["PREVIOUS_BASELINE_IDENTITY_MISMATCH"]),
-    ...(contract.authorization?.previousRecertificationVersion === "decision-v13-production-recertification-v4" && contract.authorization?.previousRecertificationHash === "da9e54e14b790079ee6b6d0162359f231a64104fbab11b2bd19aeaa29469c4b9" ? [] : ["PREVIOUS_RECERTIFICATION_IDENTITY_MISMATCH"]),
-    ...(contract.authorization?.changeCommit === "5b213e157f4ca78349359cd8efd6d42dc8f434be" ? [] : ["AUTHORIZED_CHANGE_COMMIT_MISMATCH"]),
-    ...(contract.authorization?.parentCommit === "196c111810833528a04e795e73168bb256ba91fb" && contract.authorization?.sourceCommit === "6fc06e8ab822fd1a73b5b6f4c3cb0f0f10826dc7" ? [] : ["AUTHORIZED_CHANGE_PARENT_MISMATCH"]),
+    ...(contract.authorization?.previousRecertificationVersion === "decision-v13-production-recertification-v5" && contract.authorization?.previousRecertificationHash === "d95fb587e7a1cc0908cbf8382e3fa74b1f85093b0f8921578731624f541e4b21" ? [] : ["PREVIOUS_RECERTIFICATION_IDENTITY_MISMATCH"]),
+    ...(contract.authorization?.baseCommit === "5bbdb1531f0b04c7b25c758d6215081c255b559f" ? [] : ["AUTHORIZED_BASE_COMMIT_MISMATCH"]),
+    ...(contract.authorization?.changeClass === "FOUNDER_AUTHORIZED_MINIMAL_CANONICAL_COMMUNITY_MOOD_SIGNAL" ? [] : ["AUTHORIZED_CHANGE_CLASS_MISMATCH"]),
     ...(contract.protectedSemanticSourceSet.hash === protectedSemanticSourceSetHash ? [] : ["PROTECTED_SEMANTIC_SOURCE_SET_MISMATCH"]),
     ...(contract.certificationEvidenceSet.hash === certificationEvidenceSetHash ? [] : ["CERTIFICATION_EVIDENCE_SET_MISMATCH"]),
-    ...(engineSourceHash === "28e178dee7192cb303b07574f31f1e86f58bc80048b23ba00bf032ca02c2bfc4" ? [] : ["AUTHORIZED_ENGINE_SOURCE_MISMATCH"]),
+    ...(engineSourceHash === contract.authorization?.authorizedEngineSourceHash ? [] : ["AUTHORIZED_ENGINE_SOURCE_MISMATCH"]),
     ...(contract.production?.supabaseProjectRef === "hjgcrrzfjchzqoegcywn" &&
       contract.production?.functionSlug === "decision-v13" &&
       contract.production?.activeVersion === 75 &&
@@ -57,13 +63,13 @@ export async function validateEngineRecertification(contractOverride = null) {
       contract.production?.entrypointSha256 === "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299" &&
       contract.production?.deployedFileCount === 38 &&
       contract.production?.repositoryMatchedFileCount === 38 &&
-      contract.production?.sourceIdentity === "EXACT_REPOSITORY_SOURCE_SET_INCLUDING_PINNED_ENTRYPOINT" ? [] : ["PRODUCTION_IDENTITY_NOT_CERTIFIED"]),
+      contract.production?.sourceIdentity === "PREVIOUS_CERTIFIED_PRODUCTION_BASELINE_DEPLOYMENT_PENDING" ? [] : ["PRODUCTION_IDENTITY_NOT_CERTIFIED"]),
     ...(productionEntrypointSource === contract.production?.entrypointSource && productionEntrypointSha256 === contract.production?.entrypointSha256 ? [] : ["PRODUCTION_ENTRYPOINT_REPOSITORY_MISMATCH"]),
     ...Object.entries(requiredRecertificationInvariants).filter(([key, value]) => contract.invariants?.[key] !== value).map(([key]) => `SEMANTIC_INVARIANT_NOT_CERTIFIED:${key}`)
   ];
   const identity = {
     version: contract.version,
-    authorizationCommit: contract.authorization.changeCommit,
+    authorizationCommit: contract.authorization.baseCommit,
     authorizationHash: contentHash(contract.authorization),
     engineSourceHash,
     protectedSemanticSourceSetHash,

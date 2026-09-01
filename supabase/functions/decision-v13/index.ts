@@ -1,5 +1,6 @@
 // supabase/functions/decision-v13/index.ts
 import { interpretCanonicalCurrentIntent } from "../../../packages/canonical-semantics/src/index.mjs";
+import { COMMUNITY_MOOD_MAX_COMPONENT,communityMoodComponent } from "./community-mood-signal.mjs";
 
 type Env = {
   SUPABASE_URL: string;
@@ -93,6 +94,20 @@ type RecentDecisionMemoryRow = {
   last_event_at: string | null;
 };
 
+type CanonicalDecisionMoodRow = {
+  concept_key: string;
+  label: string;
+  matched_expression: string;
+  match_source: "EXPLICIT" | "QUERY_ALIAS";
+};
+
+type CommunityMoodSignalRow = {
+  spot_id: string;
+  signal_strength: number | string;
+  matched_concepts: Array<{ conceptKey: string; label: string; percentage: number }>;
+  eligible_contributors: number;
+};
+
 type Candidate = {
   spot_id: string;
   name: string;
@@ -143,6 +158,11 @@ type Candidate = {
     place_type_boost: number;
     contextual_taste_component: number;
     recent_memory_component: number;
+    community_mood_component: number;
+    community_mood_signal_strength: number;
+    community_mood_matched_concepts: Array<{ conceptKey: string; label: string; percentage: number }>;
+    community_mood_eligible_contributors: number | null;
+    distribution_priority?: number;
     v12_only_penalty: number;
     weak_intent_penalty: number;
     combined_score: number;
@@ -160,7 +180,7 @@ const EMBEDDING_MODEL = "text-embedding-3-small";
 const EMBEDDING_DIMENSIONS = 1536;
 
 const MODEL_NAME = "backyrd_decision_v13_orchestrator";
-const MODEL_VERSION = "0.1.10";
+const MODEL_VERSION = "0.1.11";
 
 const DEFAULT_LIMIT = 12;
 const DEFAULT_V12_LIMIT = 12;
@@ -468,12 +488,6 @@ function removePlaceTypes(values: string[], excluded: string[]): string[] {
   return values.filter((value) => !excludedSet.has(value));
 }
 
-function hasAnyMoodSignal(joined: string): boolean {
-  return /\b(cozy|cosy|gemutlich|gemuetlich|ruhig|quiet|warm|romantisch|romantic|urban|hidden|chic|stylish|inspirierend|inspiration|entspannt|lebhaft|lively|date|afterwork|sonntag|sunday|regen|rain|solo)\b/.test(
-    joined,
-  );
-}
-
 function detectIntent(input: {
   query: string | null;
   moodA: string | null;
@@ -483,6 +497,7 @@ function detectIntent(input: {
   audience?: string[];
   occasions?: string[];
   strictCategoryIntent?: boolean;
+  canonicalMoodConceptKeys?: string[];
 }): DecisionIntent {
   const joined = normalizeText(
     [input.query, input.moodA, input.moodB].filter(Boolean).join(" "),
@@ -618,7 +633,7 @@ function detectIntent(input: {
     );
 
   const hasExplicitPlaceTypeIntent = primaryPlaceTypes.length > 0;
-  const hasMoodSignal = hasAnyMoodSignal(joined);
+  const hasMoodSignal = (input.canonicalMoodConceptKeys?.length ?? 0) > 0;
   const categoryOnlyMode = hasExplicitPlaceTypeIntent && !input.moodA && !input.moodB && !hasMoodSignal;
   const mustRespectCategory = Boolean(input.strictCategoryIntent) || hasExplicitPlaceTypeIntent || wantsKids;
 
@@ -761,6 +776,26 @@ async function getOfferingCandidates(env:Env,args:{city:string|null;offerings:st
   return await rpc<OfferingRetrievalRow[]>(env,"backyrd_retrieve_spots_by_offering_v1",{
     p_city:args.city,p_offerings:args.offerings,p_purposes:args.purposes,p_limit:args.limit,p_exclude_spot_ids:args.excludeSpotIds,
   },env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+async function getCanonicalDecisionMoods(
+  env: Env,
+  args: { query: string | null; moodA: string | null; moodB: string | null },
+): Promise<CanonicalDecisionMoodRow[]> {
+  return await rpc<CanonicalDecisionMoodRow[]>(env,"backyrd_resolve_decision_mood_query_v1",{
+    p_query:args.query,p_mood_a:args.moodA,p_mood_b:args.moodB,
+  },env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+async function getCommunityMoodSignals(
+  env: Env,
+  args: { spotIds: string[]; query: string | null; moodA: string | null; moodB: string | null },
+): Promise<Map<string,CommunityMoodSignalRow>> {
+  if(args.spotIds.length===0)return new Map();
+  const rows=await rpc<CommunityMoodSignalRow[]>(env,"backyrd_decision_community_mood_signal_v1",{
+    p_spot_ids:args.spotIds,p_query:args.query,p_mood_a:args.moodA,p_mood_b:args.moodB,
+  },env.SUPABASE_SERVICE_ROLE_KEY);
+  return new Map((rows??[]).map((row)=>[row.spot_id,row]));
 }
 
 async function getV12Candidates(
@@ -1907,6 +1942,7 @@ function fuseCandidates(input: {
   contextualTaste: ContextualTasteRow[];
   recentMemory: RecentDecisionMemoryRow[];
   distributionPriority: Map<string, number>;
+  communityMoodSignals: Map<string,CommunityMoodSignalRow>;
   requiredRecallIds?: Set<string>;
 }): Candidate[] {
   const map = new Map<string, Candidate>();
@@ -1964,6 +2000,10 @@ function fuseCandidates(input: {
         place_type_boost: 0,
         contextual_taste_component: 0,
         recent_memory_component: 0,
+        community_mood_component: 0,
+        community_mood_signal_strength: 0,
+        community_mood_matched_concepts: [],
+        community_mood_eligible_contributors: null,
         v12_only_penalty: 0,
         weak_intent_penalty: 0,
         combined_score: 0,
@@ -2013,6 +2053,7 @@ function fuseCandidates(input: {
         semantic_score_norm: semanticNorm,
 
         combined_score: 0,
+        distribution_priority: input.distributionPriority.get(row.spot_id) ?? 100,
 
         matched_tokens: [],
         matched_terms: [],
@@ -2031,7 +2072,7 @@ function fuseCandidates(input: {
           ...(((Array.isArray((row as OfferingRetrievalRow).offering_matches) && (row as OfferingRetrievalRow).offering_matches.length > 0) ||
             (Array.isArray((row as OfferingRetrievalRow).purpose_matches) && (row as OfferingRetrievalRow).purpose_matches.length > 0)
             ? ["canonical_offering_retrieval"] : [])),
-        ],
+        ] as Candidate["sources"],
 
         explanation: {
           model: MODEL_NAME,
@@ -2047,6 +2088,12 @@ function fuseCandidates(input: {
           category_fit_component: 0,
           category_mismatch_penalty: 0,
           place_type_boost: 0,
+          contextual_taste_component: 0,
+          recent_memory_component: 0,
+          community_mood_component: 0,
+          community_mood_signal_strength: 0,
+          community_mood_matched_concepts: [],
+          community_mood_eligible_contributors: null,
           v12_only_penalty: 0,
           weak_intent_penalty: 0,
           combined_score: 0,
@@ -2100,6 +2147,8 @@ function fuseCandidates(input: {
       : calculatePlaceTypeBoost(candidate, input.intent);
     const contextualTasteComponent = calculateContextualTasteComponent(candidate, input.contextualTaste, input.intent);
     const recentMemoryComponent = calculateRecentMemoryComponent(candidate, input.recentMemory, input.intent);
+    const communityMoodEvidence = input.communityMoodSignals.get(candidate.spot_id);
+    const communityMood = communityMoodComponent(communityMoodEvidence);
     const v12Penalty = calculateV12OnlyPenalty(candidate);
     const weakIntentPenalty = calculateWeakIntentPenalty(candidate, input.intent);
 
@@ -2113,6 +2162,7 @@ function fuseCandidates(input: {
       placeTypeBoost +
       contextualTasteComponent +
       recentMemoryComponent +
+      communityMood.component +
       v12Penalty +
       weakIntentPenalty;
 
@@ -2128,6 +2178,10 @@ function fuseCandidates(input: {
     candidate.explanation.place_type_boost = placeTypeBoost;
     candidate.explanation.contextual_taste_component = contextualTasteComponent;
     candidate.explanation.recent_memory_component = recentMemoryComponent;
+    candidate.explanation.community_mood_component = communityMood.component;
+    candidate.explanation.community_mood_signal_strength = communityMood.signalStrength;
+    candidate.explanation.community_mood_matched_concepts = communityMood.matchedConcepts;
+    candidate.explanation.community_mood_eligible_contributors = communityMood.eligibleContributors;
     candidate.explanation.v12_only_penalty = v12Penalty;
     candidate.explanation.weak_intent_penalty = weakIntentPenalty;
     candidate.explanation.combined_score = combined;
@@ -2241,6 +2295,16 @@ Deno.serve(async (request: Request) => {
 
     const contextKey = buildContextKey(moodA, moodB);
 
+    let canonicalQueryMoods: CanonicalDecisionMoodRow[] = [];
+    let moodResolverStatus: "AVAILABLE" | "DEGRADED" = "AVAILABLE";
+    try {
+      canonicalQueryMoods = await getCanonicalDecisionMoods(env,{query,moodA,moodB});
+    } catch {
+      // Mood is additive evidence. Resolver failure must never fabricate a
+      // mapping, block Decision, or turn missing evidence into a penalty.
+      moodResolverStatus = "DEGRADED";
+    }
+
     const intent = detectIntent({
       query,
       moodA,
@@ -2250,6 +2314,7 @@ Deno.serve(async (request: Request) => {
       audience,
       occasions,
       strictCategoryIntent,
+      canonicalMoodConceptKeys:canonicalQueryMoods.map((row)=>row.concept_key),
     });
 
     const queryText = buildQueryText({
@@ -2278,6 +2343,8 @@ Deno.serve(async (request: Request) => {
       occasions: intent.occasions,
       strictCategoryIntent: intent.mustRespectCategory,
       categoryOnlyMode: intent.categoryOnlyMode,
+      canonicalCommunityMoodIntent:canonicalQueryMoods,
+      communityMoodResolverStatus:moodResolverStatus,
     };
 
     const decisionContextKeys = await getDecisionContextKeys(env, {
@@ -2382,6 +2449,15 @@ Deno.serve(async (request: Request) => {
       ...distributedV12.map((row) => row.spot_id),
     ]));
     const meta = await fetchSpotMeta(env, distributedSpotIds);
+    let communityMoodSignals = new Map<string,CommunityMoodSignalRow>();
+    let communityMoodSignalStatus: "AVAILABLE" | "DEGRADED" = moodResolverStatus;
+    if(moodResolverStatus==="AVAILABLE"&&canonicalQueryMoods.length>0){
+      try {
+        communityMoodSignals=await getCommunityMoodSignals(env,{spotIds:distributedSpotIds,query,moodA,moodB});
+      } catch {
+        communityMoodSignalStatus="DEGRADED";
+      }
+    }
 
     const semanticWithMeta = distributedSemantic.map((row) => {
       const metaRow = meta.get(row.spot_id);
@@ -2412,6 +2488,7 @@ Deno.serve(async (request: Request) => {
       placeTypeProfile,
       contextualTaste,
       recentMemory,
+      communityMoodSignals,
       requiredRecallIds:new Set(offeringCandidates.map((row)=>row.spot_id)),
       distributionPriority: new Map(
         Array.from(distribution.entries()).map(([id, row]) => [id, row.distribution_priority]),
@@ -2471,6 +2548,8 @@ Deno.serve(async (request: Request) => {
         place_type_context: placeTypeProfile.context.size,
         contextual_taste: contextualTaste.length,
         recent_memory: recentMemory.length,
+        canonical_query_moods: canonicalQueryMoods.length,
+        community_mood_supported_candidates: communityMoodSignals.size,
       },
       place_type_profile: {
         context_key: contextKey,
@@ -2481,6 +2560,12 @@ Deno.serve(async (request: Request) => {
         context_keys: decisionContextKeys,
         taste: contextualTaste,
         recent: recentMemory,
+      },
+      community_mood: {
+        resolver_status:moodResolverStatus,
+        signal_status:communityMoodSignalStatus,
+        max_component:COMMUNITY_MOOD_MAX_COMPONENT,
+        query_concepts:canonicalQueryMoods,
       },
       candidates: fused.map((candidate, index) => ({
         rank: index + 1,

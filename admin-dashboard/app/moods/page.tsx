@@ -1,120 +1,65 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-type Row = {
-  id: number;
-  label: string;
-  label_norm: string;
-  primary_cluster_id: number | null;
-  primary_cluster_name: string | null;
-  spots_count: number;
-  tokens_count: number;
-};
+type Concept = { concept_key: string; canonical_label: string; cluster_key: string | null; active: boolean };
+type Alias = { concept_key: string; normalized_expression: string };
+type Candidate = { normalized_expression: string; sample_expression: string; usage_count: number; affected_spots: number };
+type Usage = { concept_key: string; concept_contributors: number };
 
 export default function MoodsPage() {
-  const [rows, setRows] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [concepts, setConcepts] = useState<Concept[]>([]);
+  const [aliases, setAliases] = useState<Alias[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [usage, setUsage] = useState<Usage[]>([]);
   const [search, setSearch] = useState("");
+  const [target, setTarget] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    void load();
+  const load = useCallback(async () => {
+    const [conceptResult, aliasResult, candidateResult, usageResult] = await Promise.all([
+      supabase.from("backyrd_mood_concepts_v1").select("concept_key,canonical_label,cluster_key,active").order("canonical_label"),
+      supabase.from("backyrd_mood_aliases_v1").select("concept_key,normalized_expression").eq("active", true),
+      supabase.from("backyrd_mood_unresolved_candidates_v1").select("*").order("usage_count", { ascending: false }),
+      supabase.from("backyrd_spot_mood_profile_v1").select("concept_key,concept_contributors"),
+    ]);
+    const error = conceptResult.error ?? aliasResult.error ?? candidateResult.error ?? usageResult.error;
+    if (error) setMessage(error.message);
+    setConcepts((conceptResult.data ?? []) as Concept[]);
+    setAliases((aliasResult.data ?? []) as Alias[]);
+    setCandidates((candidateResult.data ?? []) as Candidate[]);
+    setUsage((usageResult.data ?? []) as Usage[]);
   }, []);
 
-  async function load() {
-    setLoading(true);
+  // Initial client-side Admin read; subsequent refreshes are explicit actions.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void load(); }, [load]);
+  const filtered = useMemo(() => concepts.filter((concept) =>
+    `${concept.canonical_label} ${concept.concept_key}`.toLowerCase().includes(search.toLowerCase())), [concepts, search]);
+  const aliasCount = (key: string) => aliases.filter((alias) => alias.concept_key === key).length;
+  const usageCount = (key: string) => usage.filter((row) => row.concept_key === key)
+    .reduce((sum, row) => sum + row.concept_contributors, 0);
 
-    const { data, error } = await supabase
-      .from("admin_concepts_overview_v1")
-      .select("*")
-      .order("spots_count", { ascending: false });
-
-    if (error) console.error(error);
-    setRows((data ?? []) as Row[]);
-    setLoading(false);
+  async function resolve(expression: string, action: "MAP_ALIAS" | "MARK_INVALID", targetKey?: string) {
+    setBusy(true); setMessage(null);
+    const { error } = await supabase.rpc("backyrd_admin_resolve_mood_candidate_v1", {
+      p_expression: expression,
+      p_action: action,
+      p_concept_key: action === "MAP_ALIAS" ? targetKey : null,
+      p_reason: action === "MAP_ALIAS" ? "Semantisch geprüfte Alias-Zuordnung" : "Kein gültiger Product Mood",
+    });
+    setBusy(false);
+    if (error) setMessage(error.message);
+    else { setMessage("Aktion gespeichert; betroffene Spot-Profile wurden neu aufgebaut."); await load(); }
   }
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return rows;
-
-    return rows.filter((r) => {
-      const hay = `${r.label} ${r.label_norm} ${r.primary_cluster_name ?? ""} ${r.id}`.toLowerCase();
-      return hay.includes(q);
-    });
-  }, [rows, search]);
-
-  return (
-    <div className="by-page">
-      <div className="by-header">
-        <div>
-          <h1 className="by-title">Moods / Concepts</h1>
-          <div className="by-subtitle">Konzepte, Cluster, Usage in Spots.</div>
-        </div>
-
-        <div className="by-toolbar">
-          <button className="by-btn by-btn-soft" onClick={() => void load()} disabled={loading}>
-            {loading ? "Lade…" : "Neu laden"}
-          </button>
-        </div>
-      </div>
-
-      <div className="by-card by-section">
-        <div className="by-toolbar">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Suche Concept…"
-            className="by-input"
-            style={{ maxWidth: 420 }}
-          />
-          <div className="by-muted by-small" style={{ marginLeft: "auto" }}>
-            {filtered.length} Concepts
-          </div>
-        </div>
-      </div>
-
-      <div className="by-card by-section">
-        {loading ? (
-          <div className="by-muted by-small">Lade…</div>
-        ) : filtered.length === 0 ? (
-          <div className="by-muted by-small">Keine Concepts gefunden.</div>
-        ) : (
-          <div className="by-tableWrap">
-            <table className="by-table">
-              <thead>
-                <tr>
-                  <th>Concept</th>
-                  <th>Cluster</th>
-                  <th>Spots</th>
-                  <th>Tokens</th>
-                  <th style={{ textAlign: "right" }}>Aktion</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((r) => (
-                  <tr key={r.id}>
-                    <td>
-                      <div style={{ fontWeight: 1000 }}>{r.label}</div>
-                      <div className="by-muted by-xs by-mono">{r.id}</div>
-                    </td>
-                    <td className="by-muted">{r.primary_cluster_name ?? "—"}</td>
-                    <td>{r.spots_count ?? 0}</td>
-                    <td>{r.tokens_count ?? 0}</td>
-                    <td style={{ textAlign: "right" }}>
-                      <Link href={`/moods/${r.id}`} className="by-link">
-                        Details
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  return <div className="by-page">
+    <div className="by-header"><div><h1 className="by-title">Mood Engine</h1><div className="by-subtitle">Community-Mood-Konzepte, Aliasse und offene Ausdrücke.</div></div><button className="by-btn by-btn-soft" onClick={() => void load()}>Neu laden</button></div>
+    {message ? <div className="by-card by-section by-small">{message}</div> : null}
+    <div className="by-card by-section"><input className="by-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Konzept suchen…" /></div>
+    <div className="by-card by-section"><h2>Kanonische Konzepte</h2><div className="by-tableWrap"><table className="by-table"><thead><tr><th>Label</th><th>Cluster</th><th>Aliasse</th><th>Beiträge</th></tr></thead><tbody>{filtered.map((concept) => <tr key={concept.concept_key}><td><strong>{concept.canonical_label}</strong><div className="by-muted by-xs by-mono">{concept.concept_key}</div></td><td>{concept.cluster_key ?? "—"}</td><td>{aliasCount(concept.concept_key)}</td><td>{usageCount(concept.concept_key)}</td></tr>)}</tbody></table></div></div>
+    <div className="by-card by-section"><h2>Offene Mood-Ausdrücke</h2>{candidates.length === 0 ? <p className="by-muted">Keine offenen Kandidaten.</p> : <div className="by-tableWrap"><table className="by-table"><thead><tr><th>Ausdruck</th><th>Nutzung</th><th>Zuordnung</th><th>Aktion</th></tr></thead><tbody>{candidates.map((candidate) => <tr key={candidate.normalized_expression}><td><strong>{candidate.sample_expression}</strong><div className="by-muted by-xs">{candidate.affected_spots} Spots</div></td><td>{candidate.usage_count}</td><td><select className="by-input" value={target[candidate.normalized_expression] ?? ""} onChange={(event) => setTarget((current) => ({ ...current, [candidate.normalized_expression]: event.target.value }))}><option value="">Konzept wählen…</option>{concepts.filter((concept) => concept.active).map((concept) => <option key={concept.concept_key} value={concept.concept_key}>{concept.canonical_label}</option>)}</select></td><td><button className="by-btn by-btn-soft" disabled={busy || !target[candidate.normalized_expression]} onClick={() => void resolve(candidate.sample_expression, "MAP_ALIAS", target[candidate.normalized_expression])}>Als Alias</button> <button className="by-btn by-btn-soft" disabled={busy} onClick={() => void resolve(candidate.sample_expression, "MARK_INVALID")}>Ungültig</button></td></tr>)}</tbody></table></div>}</div>
+  </div>;
 }

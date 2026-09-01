@@ -70,29 +70,14 @@ Deno.serve(async (req) => {
     const moodA = payload.mood_a?.trim() || null;
     const moodB = payload.mood_b?.trim() || null;
 
-    let moodAId: number | null = null;
-    let moodBId: number | null = null;
-
-    if (moodA) {
-      const { data, error } = await adminClient.rpc("backyrd_resolve_product_mood_v1", {
-        p_input: moodA,
+    const moodResolutions: unknown[] = [];
+    for (const expression of [moodA, moodB]) {
+      if (!expression) continue;
+      const { data, error } = await adminClient.rpc("backyrd_resolve_mood_input_v2", {
+        p_input: expression,
       });
-      if (error) {
-        return json({ error: error.message }, { status: 400 });
-      }
-      if (!data?.valid) return json({ error: "invalid_product_mood_a" }, { status: 400 });
-      moodAId = data.moodTokenId ?? null;
-    }
-
-    if (moodB) {
-      const { data, error } = await adminClient.rpc("backyrd_resolve_product_mood_v1", {
-        p_input: moodB,
-      });
-      if (error) {
-        return json({ error: error.message }, { status: 400 });
-      }
-      if (!data?.valid) return json({ error: "invalid_product_mood_b" }, { status: 400 });
-      moodBId = data.moodTokenId ?? null;
+      if (error) return json({ error: "mood_resolver_unavailable" }, { status: 503 });
+      moodResolutions.push(data);
     }
 
     const { data: review, error: reviewError } = await adminClient
@@ -106,8 +91,8 @@ Deno.serve(async (req) => {
         text: payload.text?.trim() || null,
         mood_a: moodA,
         mood_b: moodB,
-        mood_a_id: moodAId,
-        mood_b_id: moodBId,
+        mood_a_id: null,
+        mood_b_id: null,
         city: payload.city?.trim() || null,
       })
       .select()
@@ -143,10 +128,25 @@ Deno.serve(async (req) => {
       }
     }
 
+    const { data: storedMoodResolutions } = await adminClient
+      .from("backyrd_review_mood_expressions_v1")
+      .select("slot,raw_expression,normalized_expression,resolution_status,concept_key,resolution_kind,invalid_reason")
+      .eq("review_id", review.id)
+      .order("slot");
+
     return json({
       ok: true,
       review_id: review.id,
       message: "Review created successfully",
+      mood_resolutions: storedMoodResolutions?.map((row) => ({
+        status: row.resolution_status,
+        rawExpression: row.raw_expression,
+        normalizedExpression: row.normalized_expression,
+        conceptKey: row.concept_key ?? undefined,
+        resolutionKind: row.resolution_kind,
+        reason: row.invalid_reason ?? undefined,
+        contractVersion: "backyrd-product-mood-v2",
+      })) ?? moodResolutions,
     });
   } catch (error) {
     console.error("create-review-with-photos error:", error);

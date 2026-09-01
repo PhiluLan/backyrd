@@ -1,0 +1,75 @@
+{
+  "version": "decision-v13-production-recertification-v6",
+  "status": "AUTHORIZED",
+  "authorization": {
+    "baseCommit": "5bbdb1531f0b04c7b25c758d6215081c255b559f",
+    "previousEngineSourceHash": "28e178dee7192cb303b07574f31f1e86f58bc80048b23ba00bf032ca02c2bfc4",
+    "previousRecertificationVersion": "decision-v13-production-recertification-v5",
+    "previousRecertificationHash": "d95fb587e7a1cc0908cbf8382e3fa74b1f85093b0f8921578731624f541e4b21",
+    "authorizedEngineSourceHash": "1fe82c39ad164fa811c2673cd46d8f451d7628c7ddabd1d8c595afd18a54c14f",
+    "changeClass": "FOUNDER_AUTHORIZED_MINIMAL_CANONICAL_COMMUNITY_MOOD_SIGNAL",
+    "approvalBasis": "Founder/CTO authorization dated 2026-08-31: canonical Mood query resolution and ESTABLISHED-only Community Mood as a bounded non-negative soft signal; no general ranking, N3/N4/N5/N6, Taste or Gold semantic change",
+    "approvedAt": "2026-08-31T00:00:00.000+02:00"
+  },
+  "production": {
+    "supabaseProjectRef": "hjgcrrzfjchzqoegcywn",
+    "functionSlug": "decision-v13",
+    "activeVersion": 75,
+    "verifyJwt": true,
+    "bundleHash": "b4ba1661c7507c278bcd6bd9b2dba51575991e95cf19ecc7dcedad743a47ab5f",
+    "entrypointPath": "supabase/functions/decision-v13/index.deploy.ts",
+    "entrypointSource": "import \"./live-index.ts\";\n",
+    "entrypointSha256": "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299",
+    "deployedFileCount": 38,
+    "repositoryMatchedFileCount": 38,
+    "verifiedAt": "2026-08-29T00:00:00.000Z",
+    "sourceIdentity": "PREVIOUS_CERTIFIED_PRODUCTION_BASELINE_DEPLOYMENT_PENDING"
+  },
+  "protectedSemanticSourceSet": {
+    "paths": [
+      "supabase/functions/decision-v13/index.ts",
+      "supabase/functions/decision-v13/community-mood-signal.mjs",
+      "supabase/functions/decision-v13/live-index.ts",
+      "supabase/functions/decision-v13/live-response.mjs",
+      "supabase/functions/decision-v13/north-star-live.ts",
+      "packages/canonical-semantics/src/index.mjs",
+      "packages/decision-input-runtime/src/offering-decision.mjs",
+      "packages/decision-orchestrator-runtime/src/ranking.mjs",
+      "supabase/migrations/20260825230000_canonical_offering_purpose_v2_1.sql",
+      "supabase/migrations/20260831220000_create_canonical_product_mood_v1.sql"
+    ],
+    "hash": "1dee3ccc8c34f390a54e188481ae1c8dd135802e8c362e903c30a1ecc8482e6f"
+  },
+  "certificationEvidenceSet": {
+    "paths": [
+      "docs/decision/D2_D3_CANONICAL_MOOD_RECERTIFICATION_2026_08_31.md",
+      "decision-lab/config/decision-v13-production-recertification-v5.json",
+      "decision-lab/src/d2-freeze.mjs",
+      "decision-lab/test/d2-hard-gates.test.mjs",
+      "decision-lab/test/community-mood-decision.test.mjs",
+      "decision-lab/src/canonical-engine.mjs",
+      "scripts/ci/decision-d2-scope-guard.sh",
+      "supabase/tests/canonical_product_mood_v1.sql",
+      "scripts/ci/repository-sanity.sh",
+      "supabase/config.toml",
+      "supabase/functions/decision-v13/index.deploy.ts"
+    ],
+    "hash": "e6a14ff8017105829af1b7fa721f1a50364625dc7611ae198873e75291a26a01"
+  },
+  "invariants": {
+    "hardEligibilityBeforeRanking": "PASS",
+    "distributionEligibilityBeforeFusion": "PASS",
+    "offeringPurposeRecallAddsNoScore": "PASS",
+    "factualTupleRemainsDeterministicAuthority": "PASS",
+    "reasonsRequireConfirmedCandidateFacts": "PASS",
+    "offeringPurposeIsNotUserTaste": "PASS",
+    "legacyQueriesWithoutOfferingPurposeIntent": "SEMANTICALLY_UNCHANGED",
+    "d2HardGateConstitution": "UNCHANGED",
+    "communityMoodAfterEligibility": "PASS",
+    "communityMoodEvidenceThreshold": "ESTABLISHED_ONLY",
+    "communityMoodMaximumComponent": 0.06,
+    "missingCommunityMoodEvidence": "NEUTRAL",
+    "moodSubmissionTasteN4GoldFirewalls": "PASS",
+    "generalRankingArchitecture": "UNCHANGED"
+  }
+}
