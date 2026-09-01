@@ -26,6 +26,7 @@ test("Gate-3 location and time constraints fail closed on missing or mismatching
   const canonicalIntent={hardConstraints:{location:{latitude:47.54757,longitude:7.58956,maxDistanceKm:.8},temporalEligibility:{weekday:"SUNDAY",start:"05:00",end:"12:00"}}};
   const funnel=buildLiveCandidateFunnel([base,{...base,spot_id:"far",_internal_product_evidence:{...base._internal_product_evidence,coordinates:{latitude:47.58,longitude:7.64}}},{...base,spot_id:"unknown",_internal_product_evidence:{coordinates:null,openingHours:[]}}],{city:"Basel",canonicalIntent});
   assert.deepEqual(funnel.selected.map((row)=>row.spot_id),["near"]);
+  assert.equal(funnel.rows.find((row)=>row.spotId==="near").locationDistanceKm,0);
   assert.ok(funnel.rows.find((row)=>row.spotId==="far").exclusionReasons.includes("LOCATION_MISMATCH"));
   assert.ok(funnel.rows.find((row)=>row.spotId==="unknown").exclusionReasons.includes("LOCATION_EVIDENCE_UNKNOWN"));
   assert.ok(funnel.rows.find((row)=>row.spotId==="unknown").exclusionReasons.includes("OPENING_HOURS_UNKNOWN"));

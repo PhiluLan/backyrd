@@ -3,6 +3,7 @@ import { N6ShadowService } from "../../../packages/n6-shadow-runtime/src/shadow.
 import { SupabaseN6ShadowRepository } from "../../../packages/n6-shadow-runtime/src/supabase-repository.mjs";
 import { composeFrozenContinuationOrder } from "../../../packages/decision-input-runtime/src/continuation.mjs";
 import { selectBestAuthorizedReason } from "../../../packages/decision-orchestrator-runtime/src/ranking.mjs";
+import { locationReason } from "../../../packages/decision-input-runtime/src/location-reference.mjs";
 
 type CandidateSeed = { spotId: string; why: string | null };
 type ServiceClient = {
@@ -18,6 +19,7 @@ type LiveInput = {
   candidates: CandidateSeed[];
   candidateFunnel: Record<string, unknown>;
   openAIKey: string | null;
+  verifiedLocationBySpot: Record<string,{label:string;distanceKm:number;maxDistanceKm:number;referencePoint:{latitude:number;longitude:number};sourceIdentity:string;resolutionSource:string}>;
   learningEligible: boolean;
 };
 
@@ -123,6 +125,14 @@ export async function runInternalLiveDecision(input: LiveInput) {
         // transport, input-shape, budget and validator failures never unwind it.
         n6Disposition = `FAILED:${errorCode(error)}`;
       }
+    }
+
+    for(const spotId of continuationOrder){
+      const evidence=input.verifiedLocationBySpot?.[spotId];
+      if(!evidence)continue;
+      const verifiedReason=locationReason(evidence,reasons[spotId]);
+      if(!verifiedReason)throw new Error("verified_location_reason_invalid");
+      reasons[spotId]=verifiedReason;
     }
 
     if (!(await isInternalLiveUser(input.service, input.userId, "DECISION"))) throw new Error("canonical_product_eligibility_revoked");

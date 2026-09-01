@@ -1,3 +1,5 @@
+import { distanceKm } from "./location-reference.mjs";
+
 const INTERNAL_INSTRUCTION = /(?:respect the user's concrete current intent|old taste patterns|if category or audience is clear|prefer matching categories strongly|find places that match the selected direction|category and current intent are more important|use previous taste only as a soft tie-breaker|find places that match the current intent first|personal taste is only a soft signal)/i;
 
 const clean = (value) => typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
@@ -53,13 +55,6 @@ export const LIVE_ELIGIBLE_HANDOFF_LIMIT=20;
 
 const lower=(value)=>String(value??"").trim().toLocaleLowerCase("de-CH");
 const candidatePlaceType=(candidate)=>lower(candidate?.place_type||candidate?.canonical_place_type);
-const radians=(value)=>Number(value)*Math.PI/180;
-const distanceKm=(left,right)=>{
-  if(!Number.isFinite(Number(left?.latitude))||!Number.isFinite(Number(left?.longitude))||!Number.isFinite(Number(right?.latitude))||!Number.isFinite(Number(right?.longitude)))return null;
-  const dLat=radians(Number(right.latitude)-Number(left.latitude)),dLon=radians(Number(right.longitude)-Number(left.longitude));
-  const a=Math.sin(dLat/2)**2+Math.cos(radians(left.latitude))*Math.cos(radians(right.latitude))*Math.sin(dLon/2)**2;
-  return 6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-};
 const WEEKDAYS=Object.freeze({MONDAY:["monday","montag"],TUESDAY:["tuesday","dienstag"],WEDNESDAY:["wednesday","mittwoch"],THURSDAY:["thursday","donnerstag"],FRIDAY:["friday","freitag"],SATURDAY:["saturday","samstag"],SUNDAY:["sunday","sonntag"]});
 const resolvedWeekday=(value)=>{
   if(value!=="TODAY")return value;
@@ -118,15 +113,15 @@ export function buildLiveCandidateFunnel(candidates,{city=null,canonicalIntent=n
     if(spotId)seen.add(spotId);
     const placeType=candidatePlaceType(candidate);
     const internalEvidence=candidate?._internal_product_evidence??{};
+    const measuredLocationDistanceKm=hard.location?distanceKm(internalEvidence.coordinates,hard.location):null;
     if(hard.unsatisfiable===true)reasons.push("CONTRADICTORY_INTENT");
     if(excluded.has(placeType))reasons.push("EXCLUDED_PLACE_TYPE");
     if(required.size&&!required.has(placeType))reasons.push("REQUIRED_PLACE_TYPE_MISMATCH");
     if(city&&candidate?.city&&lower(candidate.city)!==lower(city))reasons.push("CITY_MISMATCH");
     if(hard.openNow===true&&candidate?.is_open_now!==true)reasons.push(candidate?.is_open_now===false?"CLOSED_NOW":"OPENING_STATUS_UNKNOWN");
     if(hard.location){
-      const measured=distanceKm(internalEvidence.coordinates,hard.location);
-      if(measured===null)reasons.push("LOCATION_EVIDENCE_UNKNOWN");
-      else if(measured>Number(hard.location.maxDistanceKm))reasons.push("LOCATION_MISMATCH");
+      if(measuredLocationDistanceKm===null)reasons.push("LOCATION_EVIDENCE_UNKNOWN");
+      else if(measuredLocationDistanceKm>Number(hard.location.maxDistanceKm))reasons.push("LOCATION_MISMATCH");
     }
     if(hard.temporalEligibility){
       const supported=supportsTemporalWindow(internalEvidence.openingHours,hard.temporalEligibility);
@@ -139,6 +134,7 @@ export function buildLiveCandidateFunnel(candidates,{city=null,canonicalIntent=n
       v12Rank:candidate?.v12_rank??null,v12Score:candidate?.v12_score??null,
       semanticRank:candidate?.semantic_rank??null,semanticSimilarity:candidate?.semantic_similarity??null,
       fusionRank:index+1,fusionScore:candidate?.combined_score??null,
+      locationDistanceKm:measuredLocationDistanceKm,
       hardEligible:reasons.length===0,exclusionReasons:reasons,
       handoffStatus:"NOT_SELECTED",
     };
