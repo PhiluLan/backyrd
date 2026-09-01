@@ -1468,6 +1468,34 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .admin-sectionCard h2{margin:0;font-size:19px}
 .admin-sectionCard header p{margin:6px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
 
+/* Gate 3 · Decision reference-location operations */
+.rl-page small{color:var(--muted);font-size:10px;line-height:1.45}
+.rl-page .admin-summaryGrid article small{display:block;margin-top:8px}
+.rl-notice{padding:13px 16px;border:1px solid rgba(88,214,141,.25);border-radius:13px;background:rgba(88,214,141,.08);color:#9ae6ba;font-size:12px;font-weight:750}
+.rl-config{background:radial-gradient(circle at 92% 5%,rgba(255,59,127,.12),transparent 34%),var(--admin-surface)}
+.rl-configGrid{display:grid;grid-template-columns:minmax(220px,.75fr) minmax(300px,1.25fr);gap:18px}
+.rl-configGrid label{display:grid;align-content:start;gap:8px}
+.rl-configGrid label>span{font-size:11px;font-weight:850}
+.rl-configGrid label>div{display:flex;align-items:center;gap:9px}
+.rl-configGrid input,.rl-configGrid textarea{width:100%;border:1px solid var(--admin-border);border-radius:12px;background:#0c0c0f;color:#fff;font:inherit}
+.rl-configGrid input{min-height:48px;padding:10px 12px;font-size:18px;font-weight:850}
+.rl-configGrid textarea{min-height:92px;padding:12px;resize:vertical;font-size:12px;line-height:1.5}
+.rl-configGrid input:focus,.rl-configGrid textarea:focus{border-color:var(--admin-focus);box-shadow:0 0 0 3px rgba(255,59,127,.1);outline:0}
+.rl-configGrid b{color:#c6c6cd;font-size:11px}
+.rl-config>footer{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-top:20px;padding-top:16px;border-top:1px solid var(--admin-border)}
+.rl-config>footer>div{display:grid;gap:4px}.rl-config>footer span{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.08em}.rl-config>footer code{font-size:10px}
+.rl-config>footer button{min-height:42px;padding:0 15px;border:0;border-radius:11px;background:var(--pink);color:#fff;font-size:11px;font-weight:900;cursor:pointer}
+.rl-config>footer button:disabled{opacity:.38;cursor:not-allowed}
+.rl-sectionHead{padding:19px 20px 15px;border-bottom:1px solid var(--admin-border)}
+.rl-sectionHead span{color:#ff7da7;font-size:9px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}.rl-sectionHead h2{margin:6px 0 4px;font-size:20px}.rl-sectionHead p{margin:0;color:var(--muted);font-size:11px}
+.rl-twoColumn{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.rl-twoColumn dl{display:grid;gap:0;margin:0}.rl-twoColumn dl div{display:flex;justify-content:space-between;gap:16px;padding:11px 0;border-top:1px solid var(--admin-border)}.rl-twoColumn dt{color:var(--muted);font-size:10px}.rl-twoColumn dd{margin:0;text-align:right;font-size:11px;font-weight:800}
+.rl-disambiguation{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;padding:14px;border:1px solid var(--admin-border);border-radius:13px;background:#0e0e11}.rl-disambiguation>div{display:flex;flex-wrap:wrap;gap:5px}.rl-disambiguation span{padding:5px 7px;border-radius:999px;background:#222228;font-size:9px}.rl-disambiguation>b{color:#ff7da7}.rl-disambiguation>strong{font-size:17px}.rl-disambiguation>small{grid-column:1/-1;word-break:break-word}
+.rl-audit>article{padding:12px 0;border-top:1px solid var(--admin-border)}.rl-audit>article>div{display:flex;justify-content:space-between;gap:14px}.rl-audit>article strong{font-size:12px}.rl-audit>article span{color:var(--muted);font-size:10px}.rl-audit>article p{margin:7px 0 5px;font-size:11px}.rl-audit>article small{word-break:break-word}
+.rl-referenceCard{margin:12px;padding:14px;border:1px solid var(--admin-border);border-radius:14px;background:#151519}.rl-referenceCard header{display:flex;justify-content:space-between;gap:12px}.rl-referenceCard h2{margin:0;font-size:15px}.rl-referenceCard p{margin:4px 0 12px;color:var(--muted);font-size:10px}.rl-referenceCard code,.rl-referenceCard small{display:block;margin-top:8px}
+
+@media(max-width:900px){.rl-configGrid,.rl-twoColumn{grid-template-columns:1fr}.rl-config>footer{align-items:stretch;flex-direction:column}.rl-config>footer button{width:100%}}
+
 /* Existing screens inherit a usable product baseline without changing data contracts. */
 .by-header{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:22px}
 .by-title{margin:0;font-size:clamp(32px,4vw,46px);letter-spacing:-.05em}

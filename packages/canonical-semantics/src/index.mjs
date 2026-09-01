@@ -306,7 +306,9 @@ export function interpretCanonicalCurrentIntent(input={}) {
   }:null;
   const locationReference=nearReference?{
     relation:"NEAR",normalizedReference:nearReference.normalizedReference,
-    maxDistanceKm:explicitDistanceKm??.8,source:"request:text:near-reference",
+    maxDistanceKm:explicitDistanceKm,
+    distanceSource:explicitDistanceKm===null?"ADMIN_CONFIG":"REQUEST_EXPLICIT",
+    source:"request:text:near-reference",
   }:null;
   const requestedWeekday=/\b(sonntag\w*|sunday)\b/.test(normalizedText)?"SUNDAY":/\b(samstag\w*|saturday)\b/.test(normalizedText)?"SATURDAY":/\b(freitag\w*|friday)\b/.test(normalizedText)?"FRIDAY":/\b(donnerstag\w*|thursday)\b/.test(normalizedText)?"THURSDAY":/\b(mittwoch\w*|wednesday)\b/.test(normalizedText)?"WEDNESDAY":/\b(dienstag\w*|tuesday)\b/.test(normalizedText)?"TUESDAY":/\b(montag\w*|monday)\b/.test(normalizedText)?"MONDAY":/\b(heute|today)\b/.test(normalizedText)?"TODAY":null;
   const requestedTimeWindow=dayparts.includes("MORNING")?{start:"05:00",end:"12:00"}:dayparts.includes("AFTERNOON")?{start:"12:00",end:"18:00"}:dayparts.includes("EVENING")?{start:"17:00",end:"23:59"}:dayparts.includes("NIGHT")?{start:"21:00",end:"05:00"}:null;

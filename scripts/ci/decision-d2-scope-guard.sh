@@ -3,7 +3,7 @@ set -euo pipefail
 base="${CI_BASE_SHA:-origin/main}"
 changed="$(git diff --name-only "$base"...HEAD)"
 protected="$(printf '%s\n' "$changed" | grep -E '^(supabase/functions/decision-v13/|supabase/migrations/.*(decision|gate3)|packages/(canonical-semantics|decision-input-runtime|decision-orchestrator-runtime|n6-shadow-runtime)/src/|mobile/.*decision|web/.*decision)' || true)"
-recertification_contract='decision-lab/config/decision-v13-production-recertification-v11.json'
+recertification_contract='decision-lab/config/decision-v13-production-recertification-v12.json'
 
 # The current contract names every protected semantic source and every item of
 # certification evidence. Changes to any named path, to the contract itself,
@@ -65,7 +65,7 @@ if [[ -f "$recertification_contract" ]] \
     'decision-lab/src/d3.1-readiness.mjs'; do
     protected="$(printf '%s\n' "$protected" | grep -Fvx "$admitted_path" || true)"
   done
-  echo "D2 scope guard: complete v11 Engine/Source/Evidence/Freeze/Production re-certification accepted"
+  echo "D2 scope guard: complete v12 Engine/Source/Evidence/Freeze/Production re-certification accepted"
 fi
 
 # Sprint 1 intentionally adds a narrowly bounded, behavior-neutral N2 memory
@@ -102,7 +102,7 @@ fi
 
 # The first internal-live activation paths remain named for historical
 # one-time marker checks below. They no longer receive a baseline-wide path
-# exemption; current changes require the complete v11 contract above.
+# exemption; current changes require the complete v12 contract above.
 live_wrapper='supabase/functions/decision-v13/live-index.ts'
 live_adapter='supabase/functions/decision-v13/north-star-live.ts'
 
