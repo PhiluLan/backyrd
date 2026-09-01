@@ -59,8 +59,9 @@ begin
 
   insert into public.reviews(id,spot_id,user_id,mood_a,mood_b,text,created_at) values
     (r2,s,u1,'gemütlich','lebendig','updated',clock_timestamp()-interval '1 minute');
-  perform pg_temp.assert((select source_review_id=r2 from public.backyrd_spot_mood_contributions_v1 where spot_id=s and user_id=u1),'latest eligible perception not current');
-  perform pg_temp.assert((select concept_contributors=1 from public.backyrd_spot_mood_profile_v1 where spot_id=s and concept_key='mood.cozy'),'historical review amplified current profile');
+  perform pg_temp.assert((select source_review_id=r2 from public.backyrd_spot_mood_contributions_v1 where spot_id=s and user_id=u1),'latest eligible lineage anchor not current');
+  perform pg_temp.assert((select eligible_mood_review_count=2 from public.backyrd_spot_mood_contributions_v1 where spot_id=s and user_id=u1),'multi-visit user evidence did not retain both Mood-bearing Reviews');
+  perform pg_temp.assert((select concept_contributors=1 and community_score=1 from public.backyrd_spot_mood_profile_v1 where spot_id=s and concept_key='mood.cozy'),'one user was amplified as multiple contributors');
   perform pg_temp.assert((select count(*)=2 from public.backyrd_spot_mood_contribution_concepts_v1 cc join public.backyrd_spot_mood_contributions_v1 c on c.id=cc.contribution_id where c.spot_id=s and c.user_id=u1),'two distinct Moods not equally retained');
 
   insert into public.reviews(spot_id,user_id,text,created_at) values(s,u1,'newer review without mood',clock_timestamp());
@@ -69,7 +70,7 @@ begin
     (r3,s,u2,'cozy','urban',clock_timestamp()),(r4,s,u3,'heimelig','poetisch',clock_timestamp());
   perform pg_temp.assert((select count(*)=3 from public.backyrd_spot_mood_contributions_v1 where spot_id=s),'denominator is not unique current contributors');
   perform pg_temp.assert((select eligible_contributors=3 and concept_contributors=3 and percentage=100 and evidence_state='ESTABLISHED' from public.backyrd_spot_mood_profile_v1 where spot_id=s and concept_key='mood.cozy'),'established percentage denominator failed');
-  perform pg_temp.assert((select eligible_contributors=3 and concept_contributors=1 and percentage=33.33 from public.backyrd_spot_mood_profile_v1 where spot_id=s and concept_key='mood.lively'),'second Mood denominator incorrectly doubled');
+  perform pg_temp.assert((select eligible_contributors=3 and concept_contributors=1 and community_score=.5 and percentage=16.67 from public.backyrd_spot_mood_profile_v1 where spot_id=s and concept_key='mood.lively'),'normalized multi-visit Mood score was not averaged across unique users');
   perform pg_temp.assert(not exists(select 1 from public.backyrd_spot_mood_profile_v1 where spot_id=s and concept_key='poetisch'),'unresolved expression influenced profile');
   perform pg_temp.assert((select signal_strength=1 and eligible_contributors=3 and matched_concepts->0->>'conceptKey'='mood.cozy' from public.backyrd_decision_community_mood_signal_v1(array[s],'etwas heimeliges',null,null)),'established canonical Mood did not produce bounded Decision signal');
   perform pg_temp.assert(not exists(select 1 from public.backyrd_decision_community_mood_signal_v1(array[pg_temp.id('no-mood-spot')],'gemütlich',null,null)),'missing Mood evidence was not neutral');

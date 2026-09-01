@@ -27,6 +27,9 @@ export function userFacingError(
   fallback = "Das hat gerade nicht geklappt. Bitte versuche es noch einmal.",
 ): string {
   const technical = technicalErrorText(error).toLowerCase();
+  if (technical.includes("review_same_day_limit")) {
+    return "Du hast diesen Ort heute bereits bewertet.";
+  }
   if (/network|fetch|offline|timeout|timed out|internet|connection/.test(technical)) {
     return "Backyrd konnte keine Verbindung herstellen. Prüfe dein Netz und versuche es noch einmal.";
   }

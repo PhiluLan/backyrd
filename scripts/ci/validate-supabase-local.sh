@@ -174,7 +174,8 @@ expected_acl_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/p
 actual_acl_fingerprint="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
   --file "$repo_root/scripts/ci/public-acl-fingerprint.sql")"
 acl_mismatch=false
-test "$actual_acl_fingerprint" = "$expected_acl_fingerprint" || {
+application_schema_mismatch=false
+if test "$actual_acl_fingerprint" != "$expected_acl_fingerprint"; then
   printf 'Public ACL fingerprint: expected %s, got %s\n' \
     "$expected_acl_fingerprint" "$actual_acl_fingerprint" >&2
   if test "${BACKYRD_DIAGNOSTIC_CONTINUE_AFTER_ACL_MISMATCH:-false}" = true; then
@@ -182,19 +183,23 @@ test "$actual_acl_fingerprint" = "$expected_acl_fingerprint" || {
   else
     exit 1
   fi
-}
+fi
 
 expected_application_schema_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/application-schema.sha256")"
 application_schema_result="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
   --file "$repo_root/scripts/ci/application-schema-fingerprint.sql")"
 application_schema_entry_count="${application_schema_result%%|*}"
 actual_application_schema_fingerprint="${application_schema_result##*|}"
-test "$actual_application_schema_fingerprint" = "$expected_application_schema_fingerprint" || {
+if test "$actual_application_schema_fingerprint" != "$expected_application_schema_fingerprint"; then
   printf 'Application schema fingerprint: expected %s, got %s (%s catalog facts)\n' \
     "$expected_application_schema_fingerprint" "$actual_application_schema_fingerprint" \
     "$application_schema_entry_count" >&2
-  exit 1
-}
+  if test "${BACKYRD_DIAGNOSTIC_CONTINUE_AFTER_ACL_MISMATCH:-false}" = true; then
+    application_schema_mismatch=true
+  else
+    exit 1
+  fi
+fi
 printf 'Canonical application schema fingerprint passed (%s catalog facts).\n' \
   "$application_schema_entry_count"
 
@@ -382,6 +387,13 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/spot_research_run_scoped_claim_v1.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/spot_research_provider_concurrency_bound_v1.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/canonical_product_mood_v1.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/mood_founder_acceptance_closure_v1.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/mood_final_founder_closure_v1.sql"
+DB_URL="$DB_URL" bash "$repo_root/scripts/ci/validate-review-same-day-race.sh"
 
 lint_json="$validation_root/db-lint.json"
 "$supabase_cli" db lint \
@@ -401,8 +413,10 @@ public.upsert_my_owned_spot_content_v1	42702	column reference "spot_id" is ambig
 EOF
 
 diff -u "$validation_root/db-lint-expected.txt" "$validation_root/db-lint-actual.txt"
-if test "$acl_mismatch" = true; then
-  printf 'Diagnostic checks completed, but canonical ACL certification still fails closed.\n' >&2
+if test "$acl_mismatch" = true || test "$application_schema_mismatch" = true; then
+  printf 'Diagnostic final fingerprints: ACL=%s SCHEMA=%s\n' \
+    "$actual_acl_fingerprint" "$actual_application_schema_fingerprint" >&2
+  printf 'Diagnostic checks completed, but canonical ACL/schema certification still fails closed.\n' >&2
   exit 1
 fi
 printf 'Fresh canonical database boot and reviewed DB lint baseline passed.\n'

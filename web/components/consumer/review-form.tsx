@@ -81,7 +81,10 @@ export function ReviewForm() {
         },
         data.session.access_token,
       );
-      if (!result.ok) throw new Error();
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
       router.replace(`/spots/${spotId}`);
       router.refresh();
     } catch {

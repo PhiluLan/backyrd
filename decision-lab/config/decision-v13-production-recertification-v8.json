@@ -1,0 +1,78 @@
+{
+  "version": "decision-v13-production-recertification-v8",
+  "status": "AUTHORIZED",
+  "authorization": {
+    "baseCommit": "1b00265f0471682a5d38bcd9f6a3b79ef5e6ef75",
+    "previousEngineSourceHash": "1fe82c39ad164fa811c2673cd46d8f451d7628c7ddabd1d8c595afd18a54c14f",
+    "previousRecertificationVersion": "decision-v13-production-recertification-v7",
+    "previousRecertificationHash": "3dacf1d7112b3c3d471a40c68878ea8c0cf4d83d67a526b2565d8d82309f3a2c",
+    "authorizedEngineSourceHash": "1fe82c39ad164fa811c2673cd46d8f451d7628c7ddabd1d8c595afd18a54c14f",
+    "changeClass": "FOUNDER_AUTHORIZED_MULTI_VISIT_COMMUNITY_MOOD_EVIDENCE",
+    "approvalBasis": "Founder authorization dated 2026-09-01: replace latest-review Mood evidence only with unique-user normalized multi-visit evidence; Decision consumes only the rebuilt canonical established profile with no ranking redesign",
+    "approvedAt": "2026-09-01T11:20:00.000+02:00"
+  },
+  "production": {
+    "supabaseProjectRef": "hjgcrrzfjchzqoegcywn",
+    "functionSlug": "decision-v13",
+    "activeVersion": 110,
+    "verifyJwt": true,
+    "bundleHash": "5bf3dc86c778a4c6d10de5c21165505e2d5d8b4d41dcb0adb5d8829ff0902c7c",
+    "entrypointPath": "supabase/functions/decision-v13/index.deploy.ts",
+    "entrypointSource": "import \"./live-index.ts\";\n",
+    "entrypointSha256": "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299",
+    "deployedFileCount": 39,
+    "repositoryMatchedFileCount": 39,
+    "verifiedAt": "2026-09-01T06:53:24.519Z",
+    "sourceIdentity": "CANONICAL_MAIN_1B491E1_BYTE_MATCHED"
+  },
+  "protectedSemanticSourceSet": {
+    "paths": [
+      "supabase/functions/decision-v13/index.ts",
+      "supabase/functions/decision-v13/community-mood-signal.mjs",
+      "supabase/functions/decision-v13/live-index.ts",
+      "supabase/functions/decision-v13/live-response.mjs",
+      "supabase/functions/decision-v13/north-star-live.ts",
+      "packages/canonical-semantics/src/index.mjs",
+      "packages/decision-input-runtime/src/offering-decision.mjs",
+      "packages/decision-orchestrator-runtime/src/ranking.mjs",
+      "supabase/migrations/20260825230000_canonical_offering_purpose_v2_1.sql",
+      "supabase/migrations/20260831220000_create_canonical_product_mood_v1.sql",
+      "supabase/migrations/20260901084827_mood_final_founder_closure_v1.sql"
+    ],
+    "hash": "0b48473279c9a2907dfcf27f27f06bf0725114be36cf30862bb00af885979677"
+  },
+  "certificationEvidenceSet": {
+    "paths": [
+      "docs/decision/D2_D3_MULTI_VISIT_MOOD_RECERTIFICATION_2026_09_01.md",
+      "decision-lab/config/decision-v13-production-recertification-v7.json",
+      "decision-lab/src/d2-freeze.mjs",
+      "decision-lab/test/d2-hard-gates.test.mjs",
+      "decision-lab/test/community-mood-decision.test.mjs",
+      "decision-lab/src/canonical-engine.mjs",
+      "scripts/ci/decision-d2-scope-guard.sh",
+      "supabase/tests/canonical_product_mood_v1.sql",
+      "supabase/tests/mood_final_founder_closure_v1.sql",
+      "scripts/ci/validate-review-same-day-race.sh",
+      "scripts/ci/repository-sanity.sh",
+      "supabase/config.toml",
+      "supabase/functions/decision-v13/index.deploy.ts"
+    ],
+    "hash": "aafdda8847cf4de7e5a7023641bca6e82742e5fd84082c35ec089e7343ead068"
+  },
+  "invariants": {
+    "hardEligibilityBeforeRanking": "PASS",
+    "distributionEligibilityBeforeFusion": "PASS",
+    "offeringPurposeRecallAddsNoScore": "PASS",
+    "factualTupleRemainsDeterministicAuthority": "PASS",
+    "reasonsRequireConfirmedCandidateFacts": "PASS",
+    "offeringPurposeIsNotUserTaste": "PASS",
+    "legacyQueriesWithoutOfferingPurposeIntent": "SEMANTICALLY_UNCHANGED",
+    "d2HardGateConstitution": "UNCHANGED",
+    "communityMoodAfterEligibility": "PASS",
+    "communityMoodEvidenceThreshold": "ESTABLISHED_ONLY",
+    "communityMoodMaximumComponent": 0.06,
+    "missingCommunityMoodEvidence": "NEUTRAL",
+    "moodSubmissionTasteN4GoldFirewalls": "PASS",
+    "generalRankingArchitecture": "UNCHANGED"
+  }
+}

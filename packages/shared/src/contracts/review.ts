@@ -19,5 +19,6 @@ export type CreateReviewWithPhotosResponse =
   | {
       ok?: false;
       error: string;
+      error_code?: "SAME_DAY_REVIEW_LIMIT";
       review_id?: string;
     };

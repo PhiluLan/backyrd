@@ -14,11 +14,13 @@ select pg_temp.assert(not (public.backyrd_resolve_product_mood_v1('test')->>'val
 select pg_temp.assert((select count(*)=60 from public.backyrd_spot_intelligence_dimensions_v1),'frozen N4 dimension registry remains unchanged');
 
 do $$
-declare u uuid:=pg_temp.uuid('gold-user'); real_spot uuid:=pg_temp.uuid('gold-real'); fixture_spot uuid:=pg_temp.uuid('gold-fixture'); category uuid:=pg_temp.uuid('gold-category');
+declare u uuid:=pg_temp.uuid('gold-user');u_invalid uuid:=pg_temp.uuid('gold-user-invalid'); real_spot uuid:=pg_temp.uuid('gold-real'); fixture_spot uuid:=pg_temp.uuid('gold-fixture'); category uuid:=pg_temp.uuid('gold-category');
 begin
  insert into auth.users(instance_id,id,aud,role,email,encrypted_password,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
- values('00000000-0000-0000-0000-000000000000',u,'authenticated','authenticated','gold@fixture.invalid','','{}','{}',now(),now());
- insert into public.profiles(id) values(u) on conflict do nothing;
+ values
+  ('00000000-0000-0000-0000-000000000000',u,'authenticated','authenticated','gold@fixture.invalid','','{}','{}',now(),now()),
+  ('00000000-0000-0000-0000-000000000000',u_invalid,'authenticated','authenticated','gold-invalid@fixture.invalid','','{}','{}',now(),now());
+ insert into public.profiles(id) values(u),(u_invalid) on conflict do nothing;
  insert into public.categories(id,name) values(category,'Aktivität');
  insert into public.spots(id,name,lat,lng,status,city,category_id,data_origin) values
   (real_spot,'Gold real',47,7,'approved','Basel',category,'REAL'),
@@ -55,8 +57,10 @@ select pg_temp.assert((select concept_key='mood.quiet' and resolution_status='RE
  from public.backyrd_review_mood_expressions_v1 e join public.reviews r on r.id=e.review_id
  where r.text='valid product review' and e.slot=1),'raw Mood expression resolves through the canonical layer');
 set local role authenticated;
+select set_config('request.jwt.claims',jsonb_build_object('sub',pg_temp.uuid('gold-user-invalid'),'role','authenticated')::text,true);
+select set_config('request.jwt.claim.sub',pg_temp.uuid('gold-user-invalid')::text,true);
 insert into public.reviews(spot_id,user_id,mood_a,mood_b,text)
-values(pg_temp.uuid('gold-real'),pg_temp.uuid('gold-user'),'a','b','invalid product review');
+values(pg_temp.uuid('gold-real'),pg_temp.uuid('gold-user-invalid'),'a','b','invalid product review');
 reset role;
 select pg_temp.assert((select count(*)=2 and bool_and(resolution_status='INVALID')
  from public.backyrd_review_mood_expressions_v1 e join public.reviews r on r.id=e.review_id
