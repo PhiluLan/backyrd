@@ -105,7 +105,7 @@ test("freeze identity is deterministic and validator rejects tampering", async (
     { ...recertification.contract.production, entrypointPath: "supabase/functions/decision-v13/index.ts" },
     { ...recertification.contract.production, entrypointSource: "import \"./index.ts\";\n" },
     { ...recertification.contract.production, entrypointSha256: "0".repeat(64) },
-    { ...recertification.contract.production, deployedFileCount: 39 },
+    { ...recertification.contract.production, deployedFileCount: 40 },
     { ...recertification.contract.production, repositoryMatchedFileCount: 37 },
     { ...recertification.contract.production, sourceIdentity: "EXACT_REPOSITORY_SOURCE_SET_PLUS_PINNED_ENTRYPOINT" }
   ]) {

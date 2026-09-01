@@ -18,7 +18,7 @@ const evaluationFiles = ["decision-lab/src/contracts.mjs", "decision-lab/src/eva
 const acceptanceFiles = ["decision-lab/src/acceptance.mjs", "decision-lab/src/hard-gate-acceptance.mjs"];
 const absolute = (paths) => paths.map((path) => resolve(repoRoot, path));
 
-const recertificationPath = resolve(repoRoot, "decision-lab/config/decision-v13-production-recertification-v6.json");
+const recertificationPath = resolve(repoRoot, "decision-lab/config/decision-v13-production-recertification-v7.json");
 const requiredRecertificationInvariants = Object.freeze({
   hardEligibilityBeforeRanking: "PASS",
   distributionEligibilityBeforeFusion: "PASS",
@@ -44,26 +44,26 @@ export async function validateEngineRecertification(contractOverride = null) {
   const productionEntrypointSource = await readFile(resolve(repoRoot, contract.production.entrypointPath), "utf8").catch(() => null);
   const productionEntrypointSha256 = productionEntrypointSource === null ? null : createHash("sha256").update(productionEntrypointSource).digest("hex");
   const reasons = [
-    ...(contract.version === "decision-v13-production-recertification-v6" ? [] : ["RECERTIFICATION_VERSION_INVALID"]),
+    ...(contract.version === "decision-v13-production-recertification-v7" ? [] : ["RECERTIFICATION_VERSION_INVALID"]),
     ...(contract.status === "AUTHORIZED" ? [] : ["RECERTIFICATION_NOT_AUTHORIZED"]),
-    ...(contract.authorization?.previousEngineSourceHash === "28e178dee7192cb303b07574f31f1e86f58bc80048b23ba00bf032ca02c2bfc4" ? [] : ["PREVIOUS_BASELINE_IDENTITY_MISMATCH"]),
-    ...(contract.authorization?.previousRecertificationVersion === "decision-v13-production-recertification-v5" && contract.authorization?.previousRecertificationHash === "d95fb587e7a1cc0908cbf8382e3fa74b1f85093b0f8921578731624f541e4b21" ? [] : ["PREVIOUS_RECERTIFICATION_IDENTITY_MISMATCH"]),
-    ...(contract.authorization?.baseCommit === "5bbdb1531f0b04c7b25c758d6215081c255b559f" ? [] : ["AUTHORIZED_BASE_COMMIT_MISMATCH"]),
-    ...(contract.authorization?.changeClass === "FOUNDER_AUTHORIZED_MINIMAL_CANONICAL_COMMUNITY_MOOD_SIGNAL" ? [] : ["AUTHORIZED_CHANGE_CLASS_MISMATCH"]),
+    ...(contract.authorization?.previousEngineSourceHash === "1fe82c39ad164fa811c2673cd46d8f451d7628c7ddabd1d8c595afd18a54c14f" ? [] : ["PREVIOUS_BASELINE_IDENTITY_MISMATCH"]),
+    ...(contract.authorization?.previousRecertificationVersion === "decision-v13-production-recertification-v6" && contract.authorization?.previousRecertificationHash === "3f49aa7149b193a68b31043ef9b75e25d6f796277a122a713238b689c16d889b" ? [] : ["PREVIOUS_RECERTIFICATION_IDENTITY_MISMATCH"]),
+    ...(contract.authorization?.baseCommit === "1b491e1eaa8c3a6da8a6b7c040bfaf31ae994253" ? [] : ["AUTHORIZED_BASE_COMMIT_MISMATCH"]),
+    ...(contract.authorization?.changeClass === "FOUNDER_AUTHORIZED_PRODUCTION_IDENTITY_RECERTIFICATION" ? [] : ["AUTHORIZED_CHANGE_CLASS_MISMATCH"]),
     ...(contract.protectedSemanticSourceSet.hash === protectedSemanticSourceSetHash ? [] : ["PROTECTED_SEMANTIC_SOURCE_SET_MISMATCH"]),
     ...(contract.certificationEvidenceSet.hash === certificationEvidenceSetHash ? [] : ["CERTIFICATION_EVIDENCE_SET_MISMATCH"]),
     ...(engineSourceHash === contract.authorization?.authorizedEngineSourceHash ? [] : ["AUTHORIZED_ENGINE_SOURCE_MISMATCH"]),
     ...(contract.production?.supabaseProjectRef === "hjgcrrzfjchzqoegcywn" &&
       contract.production?.functionSlug === "decision-v13" &&
-      contract.production?.activeVersion === 75 &&
+      contract.production?.activeVersion === 110 &&
       contract.production?.verifyJwt === true &&
-      contract.production?.bundleHash === "b4ba1661c7507c278bcd6bd9b2dba51575991e95cf19ecc7dcedad743a47ab5f" &&
+      contract.production?.bundleHash === "5bf3dc86c778a4c6d10de5c21165505e2d5d8b4d41dcb0adb5d8829ff0902c7c" &&
       contract.production?.entrypointPath === "supabase/functions/decision-v13/index.deploy.ts" &&
       contract.production?.entrypointSource === "import \"./live-index.ts\";\n" &&
       contract.production?.entrypointSha256 === "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299" &&
-      contract.production?.deployedFileCount === 38 &&
-      contract.production?.repositoryMatchedFileCount === 38 &&
-      contract.production?.sourceIdentity === "PREVIOUS_CERTIFIED_PRODUCTION_BASELINE_DEPLOYMENT_PENDING" ? [] : ["PRODUCTION_IDENTITY_NOT_CERTIFIED"]),
+      contract.production?.deployedFileCount === 39 &&
+      contract.production?.repositoryMatchedFileCount === 39 &&
+      contract.production?.sourceIdentity === "CANONICAL_MAIN_1B491E1_BYTE_MATCHED" ? [] : ["PRODUCTION_IDENTITY_NOT_CERTIFIED"]),
     ...(productionEntrypointSource === contract.production?.entrypointSource && productionEntrypointSha256 === contract.production?.entrypointSha256 ? [] : ["PRODUCTION_ENTRYPOINT_REPOSITORY_MISMATCH"]),
     ...Object.entries(requiredRecertificationInvariants).filter(([key, value]) => contract.invariants?.[key] !== value).map(([key]) => `SEMANTIC_INVARIANT_NOT_CERTIFIED:${key}`)
   ];
@@ -139,7 +139,7 @@ export async function computeD21Identity() {
     frozen: semantic.d3Readiness === "READY",
     frozenAt: recertification.valid ? recertification.contract.authorization.approvedAt : "2026-08-12T19:00:00.000Z",
     supersedes: recertification.valid
-      ? { freezeManifestHash: "6488f3031bb63df482dbff2b2e2c011c1a82781862e1fe532ffdd1c968fffacf", reason: "AUTHORIZED_PRODUCTION_ENGINE_RECERTIFICATION" }
+      ? { freezeManifestHash: "17a81efb6169f230704e96b79d57ec7211301cc791418678b79535a723c54861", reason: "AUTHORIZED_PRODUCTION_IDENTITY_RECERTIFICATION" }
       : { constitutionVersion: "decision-quality-v1", reason: "D3-CONSTITUTION-ISSUE-001" },
     integrity
   };
