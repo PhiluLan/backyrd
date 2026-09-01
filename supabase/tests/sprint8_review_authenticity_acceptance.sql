@@ -89,9 +89,20 @@ as $$
 declare
   v_id uuid := pg_temp.test_uuid('review:' || p_label);
 begin
-  perform pg_temp.set_actor(p_user_id);
+  -- Integrity fixtures intentionally model histories (including abusive
+  -- same-day bursts) that the Product publication gate now prevents. Insert
+  -- them as trusted, rolled-back database fixtures without a request JWT, then
+  -- restore the actor for the detector assertions below.
+  if current_user in ('authenticated','service_role') then
+    perform pg_temp.set_actor(p_user_id);
+  else
+    perform set_config('request.jwt.claims','{}',true);
+    perform set_config('request.jwt.claim.sub','',true);
+    perform set_config('request.jwt.claim.role','',true);
+  end if;
   insert into public.reviews (id, spot_id, user_id, text, created_at, updated_at)
   values (v_id, p_spot_id, p_user_id, p_text, p_created_at, p_created_at);
+  perform pg_temp.set_actor(p_user_id);
   return v_id;
 end;
 $$;

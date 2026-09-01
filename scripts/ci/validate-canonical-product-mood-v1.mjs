@@ -13,6 +13,8 @@ const files = {
   adminMood: "admin-dashboard/app/moods/page.tsx",
   adminNav: "admin-dashboard/components/intelligence/Sidebar.tsx",
   edgeReview: "supabase/functions/create-review-with-photos/index.ts",
+  mobileErrors: "mobile/lib/userFacingError.ts",
+  finalClosureMigration: "supabase/migrations/20260901084827_mood_final_founder_closure_v1.sql",
   shared: "packages/shared/src/contracts/mood.ts",
 };
 const source = Object.fromEntries(await Promise.all(Object.entries(files).map(async ([key, path]) => [key, await readFile(path, "utf8")])));
@@ -33,6 +35,12 @@ assert.match(source.mobileMoodInput, /<Pressable/, "Mobile canonical suggestions
 assert.match(source.adminMood, /Ungültige Mood-Ausdrücke/, "Admin does not expose invalid governance state");
 assert.match(source.adminNav, /href:\s*["']\/moods["']/, "Mood Engine is missing from active Admin navigation");
 assert.match(source.edgeReview, /backyrd_resolve_mood_input_v2/, "Edge Review does not use the governed resolver");
+assert.match(source.edgeReview, /SAME_DAY_REVIEW_LIMIT/, "Edge Review does not return the bounded Product-limit error");
+assert.match(source.mobileErrors, /review_same_day_limit[\s\S]*Du hast diesen Ort heute bereits bewertet/, "Mobile does not translate the server Product limit");
+assert.match(source.webReview, /setError\(result\.error\)/, "Web does not present the server Product-limit message");
+assert.match(source.finalClosureMigration, /primary key \(user_id,spot_id,local_day\)/, "same-day Review limit is not race-safe in the database");
+assert.match(source.finalClosureMigration, /user_mood_score/, "multi-visit user Mood normalization is missing");
+assert.match(source.finalClosureMigration, /sum\(cc\.user_mood_score\)/, "community Mood does not aggregate user-level scores");
 assert.match(source.shared, /PRODUCT_MOOD_MAX_SELECTIONS = 2/, "shared max-two contract changed");
 assert.match(source.shared, /PRODUCT_MOOD_PERCENTAGE_MIN_CONTRIBUTORS = 3/, "low-sample policy changed");
 console.log("canonical Product Mood V1 static contract: PASS");

@@ -99,6 +99,13 @@ Deno.serve(async (req) => {
       .single();
 
     if (reviewError || !review) {
+      if (reviewError?.message?.includes("REVIEW_SAME_DAY_LIMIT")) {
+        return json({
+          ok: false,
+          error_code: "SAME_DAY_REVIEW_LIMIT",
+          error: "Du hast diesen Ort heute bereits bewertet.",
+        });
+      }
       return json(
         { error: reviewError?.message || "Failed to create review" },
         { status: 400 }

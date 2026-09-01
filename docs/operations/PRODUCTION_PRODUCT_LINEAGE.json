@@ -22,10 +22,10 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "34d5275f4261d81ac6b215e3aaf29dccfbfe30fe",
-        "tree": "881a6ba2be8162e65953b3425b05ea052e2db522",
+        "commit": "736dc0652f9c2989415b2fd6ffdaf35a94b2040a",
+        "tree": "d192f0cda39391d4f4791370697052f54f32d111",
         "production_verified": false,
-        "reason": "Reviewed Canonical Product Mood V1 release candidate; Production OTA remains pending canonical merge and database-lineage convergence."
+        "reason": "Reviewed Mood V1 final Founder closure with same-day Review UX; Production OTA remains pending canonical merge."
       }
     },
     "consumer_web": {
@@ -36,10 +36,10 @@
       "vercel_deployment": "BBa9jfxn6s4ZsaDkwSxv4sU2obhD",
       "created_at": "2026-08-29T08:02:02Z",
       "canonical_source": {
-        "commit": "49cd520e8087feebe17c17b3121443dd2d91527a",
-        "tree": "80822a71d70080dce970224de9f3e1a4214d173f",
+        "commit": "736dc0652f9c2989415b2fd6ffdaf35a94b2040a",
+        "tree": "88686d1335a677804531c9bd9df99ef2b140f118",
         "production_verified": false,
-        "reason": "Reviewed Mood V1 Founder acceptance autocomplete fix; Vercel Production remains bound to the recorded deployed commit until canonical merge."
+        "reason": "Reviewed Mood V1 final Founder closure Review error handling; Vercel Production remains pending canonical merge."
       }
     },
     "admin_intelligence_web": {
@@ -58,11 +58,11 @@
       "migration_count": 91,
       "source_commit": "643723ff3f732813c96637639f9c5e226eca65fb",
       "canonical_source": {
-        "source_commit": "49cd520e8087feebe17c17b3121443dd2d91527a",
-        "migration_tip": "20260901074243_mood_founder_acceptance_closure_v1",
-        "migration_count": 125,
+        "source_commit": "736dc0652f9c2989415b2fd6ffdaf35a94b2040a",
+        "migration_tip": "20260901084827_mood_final_founder_closure_v1",
+        "migration_count": 126,
         "production_verified": false,
-        "reason": "Reviewed forward-only Mood V1 Founder acceptance closure; Production application remains pending canonical merge and forward-only deployment."
+        "reason": "Reviewed forward-only Mood V1 final Founder closure; Production application remains pending canonical merge and forward-only deployment."
       }
     }
   },

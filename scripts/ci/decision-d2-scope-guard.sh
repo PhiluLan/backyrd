@@ -65,7 +65,7 @@ fi
 # deletion, a different source/hash, config drift or an invalid freeze remain
 # protected and fail closed.
 production_entrypoint='supabase/functions/decision-v13/index.deploy.ts'
-recertification_contract='decision-lab/config/decision-v13-production-recertification-v7.json'
+recertification_contract='decision-lab/config/decision-v13-production-recertification-v8.json'
 if printf '%s\n' "$protected" | grep -Fx "$production_entrypoint" >/dev/null \
   && printf '%s\n' "$changed" | grep -Fx "$production_entrypoint" >/dev/null \
   && git diff --diff-filter=A --name-only "$base"...HEAD -- "$production_entrypoint" | grep -Fx "$production_entrypoint" >/dev/null \

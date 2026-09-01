@@ -4,7 +4,7 @@
 
 Mood answers one question: **“How does this place feel?”** It is a current, community-contributed qualitative perception of a Spot. It is neither User Taste, Decision Context, Offering/Purpose, N4/Spot Intelligence nor Gold/Accepted Fact.
 
-The truthful aggregate statement is: “Among eligible current community contributors for this Spot, X% described it with canonical Mood Y.” It does not mean X% of visitors. Percentages need not sum to 100 because each contributor may choose up to two Moods.
+The truthful aggregate statement is: “Across unique eligible community contributors for this Spot, the average share of their Mood-bearing visits described it with canonical Mood Y is X%.” It does not mean X% of visitors. Percentages need not sum to 100 because each Review may contain up to two Moods.
 
 Review Mood remains optional: 0, 1 or 2 short expressions. Phase 2 does not make Mood mandatory because that Product change has not been authorized. Mood A and B have equal weight.
 
@@ -25,7 +25,9 @@ The initial registry contains 22 concepts, 63 governed aliases and 6 small clust
 
 `backyrd_review_mood_expressions_v1` stores raw expression, normalized expression, resolution status and optional concept. `RESOLVED`, `UNRESOLVED` and `INVALID` are the only states. Unresolved and invalid expressions remain attributable to the historical Review but never enter the aggregate.
 
-`backyrd_spot_mood_contributions_v1` contains at most one current contribution per non-deleted user and Spot. It selects the latest eligible Mood-bearing Review deterministically by `(created_at DESC, review_id DESC)`. A later Mood-empty Review does not erase the last expressed perception. Historical Reviews are not rewritten or deleted. Duplicate aliases resolving to the same concept produce one concept vote.
+`backyrd_spot_mood_contributions_v1` contains at most one normalized evidence row per non-deleted user and Spot. All eligible Mood-bearing Reviews remain evidence. For each concept, `user_mood_score = Reviews containing that resolved concept / all eligible Mood-bearing Reviews for that user and Spot`. A Review without any resolved Mood does not enter the denominator; unresolved and invalid expressions do not enter a concept numerator. The latest eligible Review ID remains only a lineage anchor. Historical Reviews are not rewritten or deleted, and one frequent visitor still occupies only one community-contributor slot.
+
+Product publication is limited to one `REAL` Review per user, Spot and `Europe/Zurich` calendar day. `backyrd_review_daily_publications_v1` reserves that key transactionally from the database clock before insert, so parallel requests cannot both publish. A second attempt returns `REVIEW_SAME_DAY_LIMIT`, leaves the existing Review untouched and creates no Mood contribution. A different day creates a new historical visit. This is a Product cadence rule, not a Safety violation.
 
 Account deletion inherits the existing Review contract (`user_id ON DELETE SET NULL`): the historical Review and its anonymized contribution may remain, while public aggregates never expose contributor identity. The stable anonymous `contributor_key` preserves denominator integrity. This does not change the existing privacy/legal lifecycle.
 
@@ -39,10 +41,11 @@ The Safety trigger runs after existing lifecycle/distribution triggers. Review w
 
 `backyrd_spot_mood_profile_v1` is the sole active derived truth for community Spot Mood. Source contributions remain authoritative and rebuildable. For each concept:
 
-- denominator: eligible unique current contributors with at least one resolved concept;
-- numerator: those contributors whose current contribution contains the concept;
-- percentage: `100 × numerator / denominator`, rounded to two decimals;
-- rank: contributor count descending, then stable concept key ascending.
+- denominator: eligible unique contributors with at least one resolved Mood across their eligible visits;
+- user score: concept-bearing eligible Reviews divided by all eligible Mood-bearing Reviews for that user and Spot;
+- community score: sum of those user scores, so every unique user has at most total weight 1 per concept;
+- percentage: `100 × community score / unique contributor denominator`, rounded to two decimals;
+- rank: community score, then positive contributor count, then stable concept key.
 
 The launch evidence threshold is 3 eligible contributors. Below 3, the internal model records `EARLY`, while the public view masks exact counts and percentage and clients show “Erste Eindrücke”. At 0, clients show an intentional invitation state. N4, Research, Owner or Admin data never fills missing community Mood.
 
@@ -72,4 +75,4 @@ The forward migration preserves Reviews, raw expressions, photos, ownership and 
 
 Safe deployment order is database → Review Edge/server → Web/Admin → Mobile OTA. Database triggers protect invariants from old Mobile clients. The UI changes are TypeScript/Expo JavaScript only and are OTA-compatible; no native module or native build is introduced. Keep the compatibility window only until the new Edge/Web/Mobile versions are live, then separately retire proven-dead legacy database writers.
 
-New/changed `SECURITY DEFINER` inventory for Security CTO: read-only `backyrd_resolve_mood_input_v2` (keeps the blocked-expression registry private), service-only `backyrd_resolve_decision_mood_query_v1` and `backyrd_decision_community_mood_signal_v1`, `backyrd_validate_review_mood_input_v2`, `backyrd_rebuild_spot_mood_profile_v1`, `backyrd_refresh_current_mood_contribution_v1`, `backyrd_sync_review_mood_expressions_v1`, `backyrd_refresh_mood_for_safety_item_v1`, `backyrd_rebuild_all_spot_mood_profiles_v1`, `backyrd_admin_resolve_mood_candidate_v1`, and `backyrd_admin_merge_mood_concepts_v1`. Internal rebuild/trigger functions are service-role only; governance RPCs require server-side Admin authorization.
+New/changed `SECURITY DEFINER` inventory for Security CTO: read-only `backyrd_resolve_mood_input_v2` (keeps the blocked-expression registry private), service-only `backyrd_resolve_decision_mood_query_v1` and `backyrd_decision_community_mood_signal_v1`, `backyrd_enforce_review_daily_publication_v1`, `backyrd_validate_review_mood_input_v2`, `backyrd_rebuild_spot_mood_profile_v1`, `backyrd_refresh_current_mood_contribution_v1`, `backyrd_sync_review_mood_expressions_v1`, `backyrd_refresh_mood_for_safety_item_v1`, `backyrd_rebuild_all_spot_mood_profiles_v1`, `backyrd_admin_resolve_mood_candidate_v1`, and `backyrd_admin_merge_mood_concepts_v1`. Internal rebuild/trigger functions are service-role only; governance RPCs require server-side Admin authorization.
