@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { SettingsShell } from "@/components/consumer/settings-shell";
-import { Button, StateView, Toast } from "@/components/consumer/ui";
+import { StateView, Toast } from "@/components/consumer/ui";
 import { supabase } from "@/lib/supabase/client";
 export default function PrivacyPage() {
   const [user, setUser] = useState<string | null>(null);
@@ -28,10 +28,9 @@ export default function PrivacyPage() {
     if (!user) return;
     const next = !privateValue;
     setPrivate(next);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ is_private: next })
-      .eq("id", user);
+    const { error } = await supabase.rpc("set_my_profile_privacy_v1", {
+      p_is_private: next,
+    });
     if (error) {
       setPrivate(!next);
       setToast("Die Sichtbarkeit konnte nicht gespeichert werden.");

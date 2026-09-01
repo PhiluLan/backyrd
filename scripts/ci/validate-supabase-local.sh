@@ -173,6 +173,8 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction \
 expected_acl_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/public-acl.sha256")"
 actual_acl_fingerprint="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
   --file "$repo_root/scripts/ci/public-acl-fingerprint.sql")"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$repo_root/scripts/ci/gate5-public-acl-recertification.sql"
 acl_mismatch=false
 application_schema_mismatch=false
 if test "$actual_acl_fingerprint" != "$expected_acl_fingerprint"; then
@@ -188,6 +190,8 @@ fi
 expected_application_schema_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/application-schema.sha256")"
 application_schema_result="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
   --file "$repo_root/scripts/ci/application-schema-fingerprint.sql")"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$repo_root/scripts/ci/gate5-application-schema-recertification.sql"
 application_schema_entry_count="${application_schema_result%%|*}"
 actual_application_schema_fingerprint="${application_schema_result##*|}"
 if test "$actual_application_schema_fingerprint" != "$expected_application_schema_fingerprint"; then

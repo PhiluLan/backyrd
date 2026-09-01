@@ -58,6 +58,10 @@ export function PlacesExperience() {
       }),
     [spots, query, category],
   );
+  const activeSelected =
+    selected && visible.some((spot) => spot.id === selected.id)
+      ? selected
+      : null;
   return (
     <div className="b-places-layout" data-view={view}>
       <section className="b-places-panel">
@@ -189,29 +193,29 @@ export function PlacesExperience() {
         {view === "map" ? (
           <MapCanvas
             spots={visible}
-            selectedId={selected?.id ?? null}
+            selectedId={activeSelected?.id ?? null}
             onSelect={setSelected}
           />
         ) : null}
-        {selected ? (
+        {activeSelected ? (
           <article className="b-map-preview">
             <CanonicalSpotImage
-              ownerAdminImageUrl={selected.header_photo_url}
-              spotId={selected.id}
-              spotName={selected.name}
+              ownerAdminImageUrl={activeSelected.header_photo_url}
+              spotId={activeSelected.id}
+              spotName={activeSelected.name}
             />
             <div className="b-map-preview-body">
               <p className="b-kicker">
-                {selected.category_name || "Backyrd Spot"}
+                {activeSelected.category_name || "Backyrd Spot"}
               </p>
               <h2 className="b-card-title" style={{ marginTop: 7 }}>
-                {selected.name}
+                {activeSelected.name}
               </h2>
               <p className="b-meta" style={{ marginTop: 7 }}>
-                {selected.address || "Basel"}
+                {activeSelected.address || "Basel"}
               </p>
               <Link
-                href={`/spots/${selected.id}`}
+                href={`/spots/${activeSelected.id}`}
                 className="b-button b-button-primary"
                 style={{ marginTop: 14 }}
               >
