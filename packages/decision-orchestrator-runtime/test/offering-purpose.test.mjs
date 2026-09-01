@@ -100,6 +100,7 @@ test("reason relevance is discriminative, not a hard-coded Offering-over-audienc
 
 test("Cocktails fürs Date selects an authorized Cocktail reason when it differentiates the candidate",()=>{
  const value=base();value.requestContext={query:"Cocktails fürs Date",rawFreeText:"Cocktails fürs Date",audience:["date"]};
+ value.n4BySpot[ids[0]]={available:true,placeType:"bar",snapshotIdentity:"n4:date-suitable",concepts:{},suitabilityFacts:{"social.suitability":{value:{date:"SUITABLE"},status:"ACTIVE",confidence:.9,sourceIdentity:"accepted-fact:date-suitable"}}};
  value.offeringBySpot[ids[0]]={offerings:{value:{COCKTAILS:"AVAILABLE"}},purposes:{value:{DRINK:"SUITABLE"}},sourceIdentity:"accepted-facts:cocktails",confidence:.9};
  value.offeringBySpot[ids[1]]={offerings:{value:{}},purposes:{value:{}},sourceIdentity:null,confidence:null};
  value.offeringBySpot[ids[2]]={offerings:{value:{}},purposes:{value:{}},sourceIdentity:null,confidence:null};

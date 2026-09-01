@@ -98,6 +98,7 @@ function exactRequirements(currentMoment){
   if(request.accessibility?.value)requirements.push(["ACCESSIBILITY_MATCH",null]);
   if(request.environment?.value&&request.environment.value!=="UNKNOWN")requirements.push([request.environment.value==="OUTDOOR"?"OUTDOOR_MATCH":"INDOOR_MATCH",null]);
   if(Number.isInteger(request.durationMinutes?.value))requirements.push(["DURATION_MATCH",null]);
+  if(request.socialContext?.value)requirements.push(["SOCIAL_CONTEXT_MATCH",null]);
   if(request.conversation?.value==="HIGH")requirements.push(["CONVERSATION_MATCH",null]);
   if(request.planning?.value==="WALK_IN")requirements.push(["PLANNING_MATCH",null]);
   if(request.dayparts?.value?.length)requirements.push(["DAYPART_MATCH",null]);

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
+import { writeFile } from "node:fs/promises";
 import { contentHash } from "../../packages/decision-input-runtime/src/index.mjs";
 
 if(process.env.BACKYRD_GATE3_PRODUCTION_ACCEPTANCE!=="AUTHORIZED")throw new Error("explicit Gate 3 Production acceptance acknowledgement required");
@@ -154,7 +155,7 @@ const assess=(scenario,payload,trace)=>{
 const recordVisiblePage=async(client,decisionId,spotIds,page)=>{
   for(let index=0;index<spotIds.length;index+=1){
     const recorded=await client.rpc("backyrd_record_visible_decision_impression_v1",{
-      p_decision_id:decisionId,p_spot_id:spotIds[index],p_page:page,p_rank:index+1,
+      p_decision_id:decisionId,p_spot_id:spotIds[index],p_page_number:page,p_position_in_page:index+1,
     });
     ok(recorded.error,`visible impression page=${page} rank=${index+1}`);
   }
@@ -216,7 +217,9 @@ try{
   }
   const byDimension=Object.fromEntries([...new Set(report.results.map((row)=>row.dimension))].map((dimension)=>{const rows=report.results.filter((row)=>row.dimension===dimension);return[dimension,{count:rows.length,machineSafe:rows.filter((row)=>row.machineSafetyPass).length,evidenceLimited:rows.filter((row)=>row.evidenceLimited).length}];}));
   report.summary={machineSafe:report.results.filter((row)=>row.machineSafetyPass).length,machineUnsafe:report.results.filter((row)=>!row.machineSafetyPass).length,evidenceLimited:report.results.filter((row)=>row.evidenceLimited).length,manualProductQualityVerdict:"REQUIRED",byDimension,distinctTopSpots:new Set(report.results.map((row)=>row.results[0]?.spotId).filter(Boolean)).size};
-  process.stdout.write(`${JSON.stringify(report,null,2)}\n`);
+  const serialized=`${JSON.stringify(report,null,2)}\n`;
+  if(process.env.BACKYRD_GATE3_REPORT_PATH)await writeFile(resolve(process.env.BACKYRD_GATE3_REPORT_PATH),serialized,{encoding:"utf8",flag:"wx"});
+  else process.stdout.write(serialized);
 }finally{
   if(userId)await removeFixtureUser(userId).catch((error)=>process.stderr.write(`cleanup_failed:${error.message}\n`));
 }

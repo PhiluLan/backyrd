@@ -88,6 +88,25 @@ test("existing social, conversation, planning, duration, daypart and price facts
  for(const code of ["SOCIAL_CONTEXT_MATCH","CONVERSATION_MATCH","PLANNING_MATCH","DURATION_MATCH","DAYPART_MATCH","PRICE_MATCH","QUIET_MATCH"])assert.ok(observed.has(code),code);
 });
 
+test("explicit social context returns only a verified suitable match",()=>{
+ const value=source();
+ value.requestContext={query:"Budget-Date",rawFreeText:"Budget-Date",strictCategoryIntent:false};
+ value.n4BySpot[spots[0]]={available:true,placeType:"outing",snapshotIdentity:"date-mismatch",concepts:{"vibe.romantic":{presence:1,confidence:.9,provenance:"accepted:romantic"}},suitabilityFacts:{
+  "social.suitability":{value:{date:"NOT_SUITABLE"},status:"ACTIVE",confidence:.9,sourceIdentity:"accepted:date-mismatch"},
+  "price.level":{value:1,status:"ACTIVE",confidence:.9,sourceIdentity:"accepted:price-low"},
+ }};
+ value.n4BySpot[spots[1]]={available:true,placeType:"experience",snapshotIdentity:"date-unknown",concepts:{"vibe.romantic":{presence:1,confidence:.9,provenance:"accepted:romantic"}},suitabilityFacts:{
+  "price.level":{value:1,status:"ACTIVE",confidence:.9,sourceIdentity:"accepted:price-low"},
+ }};
+ const input=buildDecisionInputPackage(value),result=buildDeterministicDecision(input.package,value.candidates.map((row)=>({spotId:row.spotId,name:row.spotId,city:"Basel",category:row.category,headerPhotoPath:null})),{expectedUserId:userId});
+ assert.equal(input.package.n3.currentMoment.currentRequestFacts.socialContext.value,"date");
+ assert.deepEqual(result.internal.finalOrder,[]);
+ assert.equal(result.internal.rankingInputs[spots[0]].verifiedExact,false);
+ assert.equal(result.internal.rankingInputs[spots[1]].verifiedExact,false);
+ assert.equal(result.internal.rankingInputs[spots[0]].factualFit.observations.find((row)=>row.code==="SOCIAL_CONTEXT_MATCH").outcome,"MISMATCH");
+ assert.equal(result.internal.rankingInputs[spots[1]].factualFit.observations.some((row)=>row.code==="SOCIAL_CONTEXT_MATCH"),false);
+});
+
 test("controlled review moods qualify aliases but unsupported/test moods cannot create claims",()=>{
  assert.equal(canonicalizeProductMood("gemütlich").concept,"vibe.cozy");assert.equal(canonicalizeProductMood("cozy").concept,"vibe.cozy");assert.equal(canonicalizeProductMood("unmapped-mood").status,"INVALID");assert.equal(canonicalizeProductMood("test").status,"INVALID");
 });
