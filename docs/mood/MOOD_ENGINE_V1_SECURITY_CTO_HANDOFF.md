@@ -34,7 +34,7 @@ All functions below are in `20260831220000_create_canonical_product_mood_v1.sql`
 
 - `supabase/tests/canonical_product_mood_v1.sql`: ACL/IDOR, resolution, low sample, moderation/restoration, deterministic rebuild, Taste/N4/Gold firewalls.
 - `decision-lab/test/community-mood-decision.test.mjs`: bounded non-negative component and eligibility ordering.
-- `decision-v13-production-recertification-v6.json`: byte-bound authorized semantic state.
+- `decision-v13-production-recertification-v7.json`: byte-bound authorized semantic state and active Production v110 bundle identity.
 - `canonical-mood-decision-canary.mjs`: explicit-ID, read-only Production canary; it emits aggregate evidence only.
 
 Security CTO should return an independent PASS/FAIL plus any effective ACL fingerprint delta. Expected fingerprints must not be updated merely to make a changed catalog pass.
