@@ -21,6 +21,13 @@ const created = [];
 const report = {};
 const ok = (name, detail = true) => { report[name] = detail; };
 
+async function removeIsolatedUser(id) {
+  const safety = await admin.from("safety_content_items").delete().eq("actor_user_id", id);
+  if (safety.error) throw safety.error;
+  const removed = await admin.auth.admin.deleteUser(id);
+  if (removed.error) throw removed.error;
+}
+
 async function generateVerified(email, userPassword) {
   const { data, error } = await admin.auth.admin.generateLink({ type: "signup", email, password: userPassword, options: { redirectTo: "https://www.backyrd.ch/auth/callback?next=/onboarding" } });
   assert.ifError(error);
@@ -33,6 +40,15 @@ async function generateVerified(email, userPassword) {
   assert.ifError(verifyError);
   assert(verified.session?.access_token);
   return { id: data.user.id, token: data.properties.hashed_token };
+}
+
+if (process.argv.includes("--cleanup-stale")) {
+  const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  assert.ifError(error);
+  const isolated = data.users.filter((user) => /^g4-[0-9a-f]{14}-[uvf]@backyrd\.ch$/.test(user.email ?? ""));
+  for (const user of isolated) await removeIsolatedUser(user.id);
+  process.stdout.write(`${JSON.stringify({ result: "PASS", removedIsolatedUsers: isolated.length })}\n`);
+  process.exit(0);
 }
 
 try {
@@ -126,7 +142,10 @@ try {
   process.stdout.write(`${JSON.stringify({ result: "PASS", scenarios: Object.keys(report).length, report }, null, 2)}\n`);
 } finally {
   for (const id of [...new Set(created)]) {
-    const { error } = await admin.auth.admin.deleteUser(id);
-    if (error) process.stderr.write(`cleanup_failed:${id.slice(0, 8)}:${error.message}\n`);
+    try {
+      await removeIsolatedUser(id);
+    } catch (error) {
+      process.stderr.write(`cleanup_failed:${id.slice(0, 8)}:${error instanceof Error ? error.message : "unknown"}\n`);
+    }
   }
 }
