@@ -27,10 +27,21 @@ function MoodField({ label, value, onChange }: { label: string; value: string; o
       <label className="b-label" htmlFor={id}>{label}</label>
       <input id={id} className="b-input" value={value} maxLength={40}
         placeholder="z. B. gemütlich" autoComplete="off" aria-describedby={`${id}-hint`}
-        onChange={(event) => onChange(event.target.value)} list={`${id}-suggestions`} />
-      <datalist id={`${id}-suggestions`}>
-        {suggestions.map((item) => <option key={item.concept_key} value={item.label}>{item.matched_expression}</option>)}
-      </datalist>
+        role="combobox" aria-autocomplete="list"
+        aria-controls={`${id}-suggestions`} aria-expanded={Boolean(value.trim() && suggestions.length)}
+        onChange={(event) => onChange(event.target.value)} />
+      {value.trim() && suggestions.length ? (
+        <div id={`${id}-suggestions`} className="b-mood-suggestions" role="listbox" aria-label={`${label} Vorschläge`}>
+          {suggestions.slice(0, 6).map((item) => (
+            <button key={item.concept_key} type="button" role="option" aria-selected="false" className="b-mood-suggestion"
+              onClick={() => { onChange(item.label); setSuggestions([]); }}>
+              <strong>{item.label}</strong>
+              {item.matched_expression.toLocaleLowerCase("de") !== item.label.toLocaleLowerCase("de")
+                ? <span>{item.matched_expression}</span> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <span id={`${id}-hint`} className="b-muted">Vorschlag wählen oder einen eigenen kurzen Eindruck eingeben.</span>
     </div>
   );

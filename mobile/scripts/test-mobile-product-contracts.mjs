@@ -10,6 +10,7 @@ const config = read("app.config.ts");
 const spotImages = read("lib/spot-images.ts");
 const spotArtwork = read("components/spot/SpotArtwork.tsx");
 const spotDetail = read("app/spot/[id].tsx");
+const moodInput = read("components/MoodExpressionInput.tsx");
 
 assert.match(decision, /DecisionCardAction = "next" \| "like" \| "dislike"/);
 assert.match(decision, /if \(action !== "next" &&/, "neutral Next must bypass feedback");
@@ -40,5 +41,8 @@ assert.match(config, /BACKYRD_RELEASE_BUILD/);
 assert.match(spotDetail, /openingStateNow/, "Spot Detail must distinguish unknown opening hours");
 assert.match(spotDetail, /Öffnungszeiten unbekannt/, "missing hours must not be presented as closed");
 assert.match(spotDetail, /Backyrd zeigt keinen Öffnungsstatus/, "hours uncertainty must be explicit");
+assert.match(moodInput, /backyrd_search_mood_concepts_v1/, "Mood input must query canonical concepts and aliases");
+assert.match(moodInput, /<Pressable/, "canonical Mood suggestions must be selectable");
+assert.match(moodInput, /onChangeText\(item\.label\)/, "selecting a Mood suggestion must retain canonical display language");
 
 console.log("Mobile Product contracts passed.");
