@@ -12,6 +12,7 @@ test("German gastronomy requests produce typed Offering and Purpose facts withou
     ["Brunch",["BRUNCH"],["EAT"]],
     ["Mittagessen",["LUNCH"],["EAT"]],
     ["Abendessen",["DINNER"],["EAT"]],
+    ["Sonntagmorgen frühstücken",["BREAKFAST"],["EAT"]],
     ["Apéro",[],["APERO"]],
     ["Afterwork",[],["AFTERWORK"]],
   ];

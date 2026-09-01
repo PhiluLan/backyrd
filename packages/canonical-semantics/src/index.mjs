@@ -310,7 +310,7 @@ export function interpretCanonicalCurrentIntent(input={}) {
   if(/\b(snacks?)\b/.test(normalizedText))explicitOfferings.push("SNACKS");
   if(/\b(kleine(?:s|n)? (?:gericht|gerichte|essen)|small plates?)\b/.test(normalizedText))explicitOfferings.push("SMALL_PLATES");
   if(/\b(vollstandige(?:s|n)? mahlzeit|full meals?)\b/.test(normalizedText))explicitOfferings.push("FULL_MEALS");
-  if(/\b(fruhstuck|breakfast)\b/.test(normalizedText))explicitOfferings.push("BREAKFAST");
+  if(/\b(fruhstuck\w*|breakfast)\b/.test(normalizedText))explicitOfferings.push("BREAKFAST");
   if(/\b(brunch)\b/.test(normalizedText))explicitOfferings.push("BRUNCH");
   if(/\b(mittagessen|lunch)\b/.test(normalizedText))explicitOfferings.push("LUNCH");
   if(/\b(abendessen|dinner)\b/.test(normalizedText))explicitOfferings.push("DINNER");
