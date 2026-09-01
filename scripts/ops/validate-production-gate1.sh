@@ -29,6 +29,9 @@ psql "$BACKYRD_PRODUCTION_DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-al
   > "$remote_versions"
 diff -u "$local_versions" "$remote_versions" \
   || fail 'repository and Production migration ledgers differ'
+node "$repo_root/scripts/ci/validate-database-lineage.mjs" \
+  --remote-versions "$remote_versions" \
+  --require-remote-equal
 
 psql "$BACKYRD_PRODUCTION_DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$repo_root/scripts/ops/production-gate1-sanity.sql"
@@ -38,5 +41,19 @@ actual_acl_fingerprint="$(psql "$BACKYRD_PRODUCTION_DB_URL" -X --set ON_ERROR_ST
   --file "$repo_root/scripts/ci/public-acl-fingerprint.sql")"
 test "$actual_acl_fingerprint" = "$expected_acl_fingerprint" \
   || fail 'Production public ACL fingerprint differs from the canonical contract'
+
+expected_application_schema_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/application-schema.sha256")"
+application_schema_result="$(psql "$BACKYRD_PRODUCTION_DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
+  --file "$repo_root/scripts/ci/application-schema-fingerprint.sql")"
+actual_application_schema_fingerprint="${application_schema_result##*|}"
+test "$actual_application_schema_fingerprint" = "$expected_application_schema_fingerprint" \
+  || fail 'Production application schema fingerprint differs from the canonical contract'
+
+test "$(psql "$BACKYRD_PRODUCTION_DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
+  --command "select count(*) from pg_tables where schemaname='public' and not rowsecurity;")" = "0" \
+  || fail 'a public application table has RLS disabled'
+test "$(psql "$BACKYRD_PRODUCTION_DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
+  --command "select count(*) from pg_namespace where nspname in ('audit','drizzle');")" = "0" \
+  || fail 'a DEAD_PROVEN technical schema still exists'
 
 printf 'Production Gate-1 read-only sanity passed.\n'
