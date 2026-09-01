@@ -97,12 +97,12 @@ function restrictAuthorization(n6Input, decisionPackage, deterministicInternal) 
 }
 
 function boundedN6View(decisionPackage, deterministicDecision) {
-  if(decisionPackage.candidates.length<=FROZEN_N6_CONFIG.candidateLimit)return{decisionPackage,deterministicDecision,subsetApplied:false};
   const fullOrder=deterministicDecision.internal.fullOrder;
-  const frozenIds=fullOrder?.slice(0,FROZEN_N6_CONFIG.candidateLimit)??[];
-  if(fullOrder?.length!==decisionPackage.candidates.length||frozenIds.length!==FROZEN_N6_CONFIG.candidateLimit||new Set(fullOrder).size!==fullOrder.length)throw new Error("n6_shadow_bounded_order_invalid");
+  if(!Array.isArray(fullOrder)||fullOrder.length<1||new Set(fullOrder).size!==fullOrder.length)throw new Error("n6_shadow_bounded_order_invalid");
   const byId=new Map(decisionPackage.candidates.map((candidate)=>[candidate.spotId,candidate]));
   if(fullOrder.some((spotId)=>!byId.has(spotId)))throw new Error("n6_shadow_bounded_identity_invalid");
+  if(fullOrder.length===decisionPackage.candidates.length&&decisionPackage.candidates.length<=FROZEN_N6_CONFIG.candidateLimit)return{decisionPackage,deterministicDecision,subsetApplied:false};
+  const frozenIds=fullOrder.slice(0,FROZEN_N6_CONFIG.candidateLimit);
   const candidates=frozenIds.map((spotId)=>byId.get(spotId));
   const candidateSetBody={decisionId:decisionPackage.decisionId,candidates:candidates.map(({spotId,retrievalPosition,n4})=>({spotId,retrievalPosition,n4SnapshotHash:n4.snapshotHash}))};
   const candidateSet={...decisionPackage.candidateSet,count:candidates.length,source:"DETERMINISTIC_BOUNDED_N6_SUBSET",candidateSetHash:contentHash(candidateSetBody)};

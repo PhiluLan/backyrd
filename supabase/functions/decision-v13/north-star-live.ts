@@ -90,7 +90,7 @@ export async function runInternalLiveDecision(input: LiveInput) {
     let n6TraceId: string | null = null;
     let n6Disposition = "NOT_RUN";
 
-    if (input.openAIKey && await isInternalLiveUser(input.service, input.userId, "N6")) {
+    if (deterministicFullOrder.length>0&&input.openAIKey && await isInternalLiveUser(input.service, input.userId, "N6")) {
       try {
         const repository = new SupabaseN6ShadowRepository(input.service);
         const shadow = new N6ShadowService({ repository, apiKey: input.openAIKey, fetchImpl: globalThis.fetch });

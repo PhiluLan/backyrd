@@ -36,9 +36,28 @@ type SpotMetaRow = {
   name: string;
   city: string | null;
   category_id: string | null;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
   categories?: {
     name?: string | null;
   } | null;
+};
+
+type DecisionCandidateFactRow = {
+  spot_id: string;
+  status: string;
+  city: string | null;
+  country: string | null;
+  category_name: string | null;
+  open_now: boolean | null;
+};
+
+type SpotHoursRow = {
+  spot_id: string;
+  day_of_week: string;
+  open_time: string;
+  close_time: string;
 };
 
 type DistributionEligibilityRow = {
@@ -840,7 +859,7 @@ async function fetchSpotMeta(
 
   const quotedIds = uniqueIds.map((id) => `"${id}"`).join(",");
   const url =
-    `${env.SUPABASE_URL}/rest/v1/spots?select=id,name,city,category_id,categories(name)&id=in.(${quotedIds})`;
+    `${env.SUPABASE_URL}/rest/v1/spots?select=id,name,city,category_id,address,lat,lng,categories(name)&id=in.(${quotedIds})`;
 
   try {
     const response = await fetch(url, {
@@ -864,6 +883,35 @@ async function fetchSpotMeta(
   } catch {
     return result;
   }
+}
+
+async function getDecisionCandidateFacts(
+  env: Env,
+  spotIds: string[],
+): Promise<Map<string, DecisionCandidateFactRow>> {
+  if (spotIds.length === 0) return new Map();
+  const rows = await rpc<DecisionCandidateFactRow[]>(env,"backyrd_read_decision_candidate_facts_v1",{
+    p_spot_ids:Array.from(new Set(spotIds)),
+  },env.SUPABASE_SERVICE_ROLE_KEY);
+  return new Map((rows??[]).map((row)=>[row.spot_id,row]));
+}
+
+async function getSpotHours(
+  env: Env,
+  spotIds: string[],
+): Promise<Map<string, SpotHoursRow[]>> {
+  const uniqueIds=Array.from(new Set(spotIds.filter(Boolean)));
+  const result=new Map<string,SpotHoursRow[]>();
+  if(uniqueIds.length===0)return result;
+  const quotedIds=uniqueIds.map((id)=>`"${id}"`).join(",");
+  const response=await fetch(`${env.SUPABASE_URL}/rest/v1/spot_hours?select=spot_id,day_of_week,open_time,close_time&spot_id=in.(${quotedIds})&order=spot_id,idx`,{
+    headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,authorization:`Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`},
+  });
+  if(!response.ok)throw new Error(`spot_hours_read_failed:${response.status}`);
+  for(const row of await response.json() as SpotHoursRow[]){
+    const current=result.get(row.spot_id)??[];current.push(row);result.set(row.spot_id,current);
+  }
+  return result;
 }
 
 async function getDistributionEligibility(
@@ -2229,6 +2277,8 @@ Deno.serve(async (request: Request) => {
 
   try {
     const env = getEnv();
+    const configuredWrapperSecret=Deno.env.get("DECISION_ENGINE_INTERNAL_SECRET");
+    const internalProductWrapper=Boolean(configuredWrapperSecret&&request.headers.get("x-backyrd-internal-wrapper")===configuredWrapperSecret);
 
     let body: Record<string, unknown> = {};
     try {
@@ -2448,7 +2498,11 @@ Deno.serve(async (request: Request) => {
       ...distributedSemantic.map((row) => row.spot_id),
       ...distributedV12.map((row) => row.spot_id),
     ]));
-    const meta = await fetchSpotMeta(env, distributedSpotIds);
+    const [meta,candidateFacts,spotHours] = await Promise.all([
+      fetchSpotMeta(env, distributedSpotIds),
+      getDecisionCandidateFacts(env,distributedSpotIds),
+      internalProductWrapper?getSpotHours(env,distributedSpotIds):Promise.resolve(new Map<string,SpotHoursRow[]>()),
+    ]);
     let communityMoodSignals = new Map<string,CommunityMoodSignalRow>();
     let communityMoodSignalStatus: "AVAILABLE" | "DEGRADED" = moodResolverStatus;
     if(moodResolverStatus==="AVAILABLE"&&canonicalQueryMoods.length>0){
@@ -2508,6 +2562,7 @@ Deno.serve(async (request: Request) => {
 
       candidate.place_type = placeTypeFromCategory(candidate.category_name);
       candidate.place_type_label = placeTypeLabel(candidate.place_type);
+      candidate.is_open_now=candidateFacts.get(candidate.spot_id)?.open_now??null;
 
       const contextProfile = placeTypeProfile.context.get(candidate.place_type);
       const globalProfile = placeTypeProfile.global.get(candidate.place_type);
@@ -2593,6 +2648,12 @@ Deno.serve(async (request: Request) => {
         place_type_context_confidence: candidate.place_type_context_confidence,
         place_type_global_confidence: candidate.place_type_global_confidence,
         explanation: candidate.explanation,
+        ...(internalProductWrapper?{_internal_product_evidence:{
+          coordinates:meta.get(candidate.spot_id)?.lat!=null&&meta.get(candidate.spot_id)?.lng!=null
+            ? {latitude:meta.get(candidate.spot_id)!.lat,longitude:meta.get(candidate.spot_id)!.lng,source:"spots.lat_lng"}
+            : null,
+          openingHours:spotHours.get(candidate.spot_id)??[],
+        }}:{}),
       })),
     });
   } catch (error) {

@@ -40,7 +40,7 @@ export function extractCurrentRequestFacts(source,requestText){
     rain:context.rain??intent.rain,childAge:context.childAge??intent.childAge,
     activityTypes:[...(context.activityTypes??[]),...(intent.activityTypes??[])],
     audience:[...(context.audience??[]),...(intent.audience??[])],selectedAudiences:context.selectedAudiences,
-    preferredPlaceTypes:[...(context.preferredPlaceTypes??[]),...(intent.primaryPlaceTypes??[])],
+    preferredPlaceTypes:[...(context.preferredPlaceTypes??[])],
     excludedPlaceTypes:[...(context.excludedPlaceTypes??[]),...(intent.excludedPlaceTypes??[])],
     strictCategoryIntent:context.strictCategoryIntent===true,openNow:context.openNow===true||intent.openNow===true,
   }).currentRequestFacts;
@@ -68,7 +68,7 @@ export function mapProductDecisionToN3Input(source) {
   const canonicalIntent=context.canonicalIntent?.semanticContractVersion===SEMANTIC_CONTRACT_VERSION?context.canonicalIntent:interpretCanonicalCurrentIntent({
     query:requestText,rawFreeText:context.rawFreeText,currentFacts:context.currentFacts,
     audience:[...(context.audience??[]),...(context.selectedAudiences??[]),...(intent.audience??[])],
-    preferredPlaceTypes:[...(context.preferredPlaceTypes??[]),...(intent.primaryPlaceTypes??[])],
+    preferredPlaceTypes:[...(context.preferredPlaceTypes??[])],
     excludedPlaceTypes:[...(context.excludedPlaceTypes??[]),...(intent.excludedPlaceTypes??[])],
     strictCategoryIntent:context.strictCategoryIntent===true,openNow:context.openNow===true||intent.openNow===true,
   });
@@ -81,18 +81,18 @@ export function mapProductDecisionToN3Input(source) {
   if (/\b(kein restaurant|nicht restaurant|no restaurant|ohne restaurant)\b/i.test(requestText)) explicitExcluded.push("restaurant");
   if (/\b(kein club|nicht club|kein nachtleben|keine party|no party)\b/i.test(requestText)) explicitExcluded.push("nightlife");
   const excluded = unique(explicitExcluded);
-  // Only a Product-explicit category selection is hard. Categories inferred
-  // from broad free text (for example "mit meiner Tochter") remain soft.
-  const strict = context.strictCategoryIntent === true;
   return {
     decisionId: source.decision.id,
     userId: source.decision.userId,
     request: { requestId:`product:${source.decision.id}`,query:requestText,rawFreeText:clean(context.rawFreeText) || undefined },
     explicit,
     structuredIntent: {
-      version: "decision-v13-current-intent-v1",
+      version: "decision-v13-current-intent-v2-founder-gate3",
       hardConstraints: {
-        requiredPlaceTypes: strict ? canonicalIntent.preferredPlaceTypes : [],
+        // The canonical interpreter distinguishes explicit natural-language
+        // place types from broad family/context inference. Only the former are
+        // present in hardConstraints.requiredPlaceTypes.
+        requiredPlaceTypes: canonicalIntent.hardConstraints.requiredPlaceTypes,
         excludedPlaceTypes: canonicalIntent.excludedPlaceTypes,
         openNow: canonicalIntent.hardConstraints.openNow,
       },

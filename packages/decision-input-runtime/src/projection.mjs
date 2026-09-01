@@ -19,7 +19,7 @@ export function buildCurrentIntent(moment,requestContext={}) {
       query:requestContext.rawFreeText??requestContext.query,
       currentFacts:requestContext.currentFacts,
       audience:requestContext.audience,selectedAudiences:requestContext.selectedAudiences,
-      preferredPlaceTypes:[...(requestContext.preferredPlaceTypes??[]),...(requestContext.intent?.primaryPlaceTypes??[])],
+      preferredPlaceTypes:[...(requestContext.preferredPlaceTypes??[])],
       excludedPlaceTypes:[...(requestContext.excludedPlaceTypes??[]),...(requestContext.intent?.excludedPlaceTypes??[])],
       strictCategoryIntent:requestContext.strictCategoryIntent===true,
       openNow:requestContext.openNow===true||requestContext.intent?.openNow===true,

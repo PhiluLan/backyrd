@@ -39,3 +39,47 @@ test("all 60 N4 dimensions have one explicit User-evidence authority",()=>{
  assert.equal(classifyN4DimensionForUserEvidence("place_type"),"PLACE_TYPE_ONLY");
  assert.equal(classifyN4DimensionForUserEvidence("invented.dimension"),"NOT_USER_LEARNABLE");
 });
+
+test("Gate-3 German compounds and inflections become explicit verified constraints",()=>{
+  const cocktail=interpretCanonicalCurrentIntent({query:"Eine Cocktailbar in Basel"});
+  assert.deepEqual(cocktail.hardConstraints.requiredPlaceTypes,["bar"]);
+  assert.deepEqual(cocktail.currentRequestFacts.offerings.value,["COCKTAILS"]);
+  assert.deepEqual(interpretCanonicalCurrentIntent({query:"Etwas Kulturelles"}).hardConstraints.requiredPlaceTypes,["culture"]);
+  assert.equal(interpretCanonicalCurrentIntent({query:"Ein preiswerter Kaffee"}).currentRequestFacts.priceMaximum.value,2);
+});
+
+test("Gate-3 unambiguous negations are hard exclusions and contradictions fail closed",()=>{
+  const cafe=interpretCanonicalCurrentIntent({query:"Café, aber bitte kein Café"});
+  assert.deepEqual(cafe.hardConstraints.excludedPlaceTypes,["cafe"]);
+  assert.equal(cafe.hardConstraints.unsatisfiable,true);
+  const noParty=interpretCanonicalCurrentIntent({query:"Lebendig, aber nicht Party"});
+  assert.ok(noParty.hardConstraints.excludedPlaceTypes.includes("nightlife"));
+  assert.equal(noParty.hardConstraints.unsatisfiable,false);
+  const alcoholFree=interpretCanonicalCurrentIntent({query:"Bar ohne Alkohol"});
+  assert.deepEqual(alcoholFree.hardConstraints.requiredPlaceTypes,["bar"]);
+  assert.equal(alcoholFree.hardConstraints.excludedPlaceTypes.includes("bar"),false);
+  assert.deepEqual(alcoholFree.currentRequestFacts.offerings.value,["NON_ALCOHOLIC"]);
+  const ambiguous=interpretCanonicalCurrentIntent({query:"Vielleicht nicht ganz laut, irgendein Ort"});
+  assert.deepEqual(ambiguous.hardConstraints.excludedPlaceTypes,[]);
+});
+
+test("Gate-3 location, temporal and bidirectional price intents are typed without synthetic Spot facts",()=>{
+  const location=interpretCanonicalCurrentIntent({query:"Ein Café nahe Basel SBB, maximal 10 Minuten zu Fuss"});
+  assert.equal(location.currentRequestFacts.location.value.key,"BASEL_SBB");
+  assert.equal(location.currentRequestFacts.location.value.maxDistanceKm,.8);
+  const time=interpretCanonicalCurrentIntent({query:"Sonntagmorgen frühstücken"});
+  assert.deepEqual(time.currentRequestFacts.temporalEligibility.value,{weekday:"SUNDAY",start:"05:00",end:"12:00"});
+  const premium=interpretCanonicalCurrentIntent({query:"Premium Dinner"});
+  assert.equal(premium.currentRequestFacts.priceMinimum.value,3);
+  assert.equal(premium.currentRequestFacts.priceMaximum.value,null);
+  const range=interpretCanonicalCurrentIntent({query:"Preisniveau 2 bis 3"});
+  assert.equal(range.currentRequestFacts.priceMinimum.value,2);
+  assert.equal(range.currentRequestFacts.priceMaximum.value,3);
+  const budget=interpretCanonicalCurrentIntent({query:"Maximal 30 CHF pro Person"});
+  assert.deepEqual(budget.currentRequestFacts.priceBudgetChf.value,{minimum:null,maximum:30});
+  const monetaryRange=interpretCanonicalCurrentIntent({query:"Zwischen 20 Franken bis 45 Franken"});
+  assert.deepEqual(monetaryRange.currentRequestFacts.priceBudgetChf.value,{minimum:20,maximum:45});
+  const missingOrigin=interpretCanonicalCurrentIntent({query:"Maximal 2 km entfernt"});
+  assert.equal(missingOrigin.hardConstraints.unsatisfiable,true);
+  assert.deepEqual(missingOrigin.hardConstraints.contradictions,["DISTANCE_ORIGIN_MISSING"]);
+});

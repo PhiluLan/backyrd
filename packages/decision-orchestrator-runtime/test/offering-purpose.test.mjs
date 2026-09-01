@@ -26,7 +26,7 @@ test("multi-Offering requirements remain independent, exact beats unknown and co
 });
 
 test("more unrelated Offering facts confer no completeness advantage",()=>{
- const value=base();value.requestContext={query:"Craft Beer"};value.offeringBySpot[ids[0]].offerings.value={CRAFT_BEER:"NOT_AVAILABLE",WINE:"AVAILABLE",COCKTAILS:"AVAILABLE",COFFEE:"AVAILABLE",FOOD:"AVAILABLE",SNACKS:"AVAILABLE",FULL_MEALS:"AVAILABLE"};value.offeringBySpot[ids[1]].offerings.value={CRAFT_BEER:"AVAILABLE"};
+ const value=base();value.requestContext={query:"Craft Beer"};value.offeringBySpot[ids[0]].offerings.value={CRAFT_BEER:"NOT_AVAILABLE",WINE:"AVAILABLE",COCKTAILS:"AVAILABLE",COFFEE:"AVAILABLE",FOOD:"AVAILABLE",SNACKS:"AVAILABLE",FULL_MEALS:"AVAILABLE"};value.offeringBySpot[ids[1]].offerings.value={CRAFT_BEER:"AVAILABLE"};value.offeringBySpot[ids[1]].purposes.value={DRINK:"SUITABLE"};
  const result=buildDeterministicDecision(buildDecisionInputPackage(value).package,cards,{expectedUserId:userId});assert.equal(result.internal.finalOrder[0],ids[1]);
 });
 
@@ -39,6 +39,41 @@ test("all-UNKNOWN authoring remains UNKNOWN Decision truth",()=>{
  assert.equal(result.internal.authorizedReasons[ids[0]].some((row)=>row.copy==="Hier gibt es Craft Beer."),false);
 });
 
+test("verified exactness returns two, one or zero results without generic fill",()=>{
+ const two=base();two.requestContext={query:"Craft Beer",rawFreeText:"Craft Beer"};
+ two.offeringBySpot[ids[1]]={offerings:{value:{CRAFT_BEER:"AVAILABLE"}},purposes:{value:{DRINK:"SUITABLE"}},sourceIdentity:"accepted-facts:second-craft",confidence:.9};
+ let result=buildDeterministicDecision(buildDecisionInputPackage(two).package,cards,{expectedUserId:userId});
+ assert.deepEqual(result.response.spots.map((row)=>row.spotId),[ids[0],ids[1]]);
+
+ const one=base();one.requestContext={query:"Craft Beer",rawFreeText:"Craft Beer"};
+ result=buildDeterministicDecision(buildDecisionInputPackage(one).package,cards,{expectedUserId:userId});
+ assert.deepEqual(result.response.spots.map((row)=>row.spotId),[ids[0]]);
+
+ const none=base();none.requestContext={query:"Craft Beer",rawFreeText:"Craft Beer"};
+ for(const spotId of ids)none.offeringBySpot[spotId]={offerings:{value:{CRAFT_BEER:"UNKNOWN"}},purposes:{value:{}},sourceIdentity:`unknown:${spotId}`,confidence:.9};
+ result=buildDeterministicDecision(buildDecisionInputPackage(none).package,cards,{expectedUserId:userId});
+ assert.deepEqual(result.response.spots,[]);
+ assert.deepEqual(result.internal.finalOrder,[]);
+});
+
+test("price levels require verified range evidence and monetary budgets cannot borrow ordinal evidence",()=>{
+ const value=base();value.requestContext={query:"Premium",rawFreeText:"Premium"};value.offeringBySpot={};
+ value.n4BySpot={
+  [ids[0]]:{available:true,placeType:"bar",snapshotIdentity:"price:premium",concepts:{},suitabilityFacts:{"price.level":{value:4,status:"ACTIVE",confidence:.9,sourceIdentity:"accepted:price:4"}}},
+  [ids[1]]:{available:true,placeType:"bar",snapshotIdentity:"price:mid",concepts:{},suitabilityFacts:{"price.level":{value:2,status:"ACTIVE",confidence:.9,sourceIdentity:"accepted:price:2"}}},
+  [ids[2]]:{available:false,placeType:"bar",snapshotIdentity:"price:unknown",concepts:{}},
+ };
+ let result=buildDeterministicDecision(buildDecisionInputPackage(value).package,cards,{expectedUserId:userId});
+ assert.deepEqual(result.response.spots.map((row)=>row.spotId),[ids[0]]);
+ assert.ok(result.internal.authorizedReasons[ids[0]].some((row)=>row.id==="now:fact:PRICE_MATCH:price.level"));
+ assert.equal(result.internal.rankingInputs[ids[1]].verifiedExact,false);
+ assert.equal(result.internal.rankingInputs[ids[2]].verifiedExact,false);
+
+ value.requestContext={query:"Maximal 30 CHF",rawFreeText:"Maximal 30 CHF"};
+ result=buildDeterministicDecision(buildDecisionInputPackage(value).package,cards,{expectedUserId:userId});
+ assert.deepEqual(result.response.spots,[]);
+});
+
 test("a discriminative explicit Offering reason is selected without changing ranking",()=>{
  const value=base();value.requestContext={query:"Gemütliches Craft Beer trinken und etwas essen mit Freunden",rawFreeText:"Gemütliches Craft Beer trinken und etwas essen mit Freunden",audience:["friends"]};
  for(const spotId of ids)value.n4BySpot[spotId]={available:true,placeType:"bar",snapshotIdentity:`n4:${spotId}`,concepts:{"vibe.cozy":{presence:1,confidence:.9,provenance:`n4:${spotId}:cozy`},"vibe.social":{presence:1,confidence:.9,provenance:`n4:${spotId}:social`}},suitabilityFacts:{"social.suitability":{value:{friends:"SUITABLE"},status:"ACTIVE",confidence:.9,sourceIdentity:`accepted-fact:${spotId}:social`}}};
@@ -48,8 +83,9 @@ test("a discriminative explicit Offering reason is selected without changing ran
  assert.equal(result.internal.finalOrder[0],ids[0]);
  assert.equal(result.response.spots[0].reasonId,`now:fact:OFFERING_MATCH:offering.availability:CRAFT_BEER`);
  assert.equal(result.response.spots[0].explanation,"Hier gibt es Craft Beer.");
- assert.equal(result.response.spots[1].reasonId.includes("OFFERING_MATCH"),false);
- assert.ok(result.internal.authorizedReasons[result.response.spots[1].spotId].some((row)=>row.id===result.response.spots[1].reasonId));
+ assert.equal(result.response.spots.length,1);
+ assert.equal(result.internal.rankingInputs[ids[1]].verifiedExact,false);
+ assert.equal(result.internal.rankingInputs[ids[2]].verifiedExact,false);
  assert.equal(result.internal.rankingInputs[ids[0]].factualFit.matches,4);
  assert.equal(result.internal.rankingInputs[ids[1]].factualFit.matches,0);
 });
