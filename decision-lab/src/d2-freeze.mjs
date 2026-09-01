@@ -18,7 +18,7 @@ const evaluationFiles = ["decision-lab/src/contracts.mjs", "decision-lab/src/eva
 const acceptanceFiles = ["decision-lab/src/acceptance.mjs", "decision-lab/src/hard-gate-acceptance.mjs"];
 const absolute = (paths) => paths.map((path) => resolve(repoRoot, path));
 
-const recertificationPath = resolve(repoRoot, "decision-lab/config/decision-v13-production-recertification-v9.json");
+const recertificationPath = resolve(repoRoot, "decision-lab/config/decision-v13-production-recertification-v10.json");
 const requiredRecertificationInvariants = Object.freeze({
   hardEligibilityBeforeRanking: "PASS",
   distributionEligibilityBeforeFusion: "PASS",
@@ -51,27 +51,28 @@ export async function validateEngineRecertification(contractOverride = null) {
   const productionEntrypointSource = await readFile(resolve(repoRoot, contract.production.entrypointPath), "utf8").catch(() => null);
   const productionEntrypointSha256 = productionEntrypointSource === null ? null : createHash("sha256").update(productionEntrypointSource).digest("hex");
   const reasons = [
-    ...(contract.version === "decision-v13-production-recertification-v9" ? [] : ["RECERTIFICATION_VERSION_INVALID"]),
+    ...(contract.version === "decision-v13-production-recertification-v10" ? [] : ["RECERTIFICATION_VERSION_INVALID"]),
     ...(contract.status === "AUTHORIZED" ? [] : ["RECERTIFICATION_NOT_AUTHORIZED"]),
-    ...(contract.authorization?.previousEngineSourceHash === "1fe82c39ad164fa811c2673cd46d8f451d7628c7ddabd1d8c595afd18a54c14f" ? [] : ["PREVIOUS_BASELINE_IDENTITY_MISMATCH"]),
-    ...(contract.authorization?.previousRecertificationVersion === "decision-v13-production-recertification-v8" && contract.authorization?.previousRecertificationHash === "aaabb696c8cc38c344c6ad94fcf95e14dfeb8c4ff2f4036b295b52e4c96b6b95" ? [] : ["PREVIOUS_RECERTIFICATION_IDENTITY_MISMATCH"]),
-    ...(contract.authorization?.baseCommit === "458107a89a85dba535f362e2dc2a137d35505cbc" ? [] : ["AUTHORIZED_BASE_COMMIT_MISMATCH"]),
-    ...(contract.authorization?.authorizedSourceCommit === "a4ceb0043d3723dd318c8aa757a3a275dd7554fe" ? [] : ["AUTHORIZED_SOURCE_COMMIT_MISMATCH"]),
-    ...(contract.authorization?.changeClass === "FOUNDER_AUTHORIZED_GATE3_PRODUCTION_ACCEPTANCE" ? [] : ["AUTHORIZED_CHANGE_CLASS_MISMATCH"]),
+    ...(contract.authorization?.previousEngineSourceHash === "c80c275b5f09adf0e3081dc10763a06846f81333097fd2a9ead6e8dfb8d7987a" ? [] : ["PREVIOUS_BASELINE_IDENTITY_MISMATCH"]),
+    ...(contract.authorization?.previousRecertificationVersion === "decision-v13-production-recertification-v9" && contract.authorization?.previousRecertificationHash === "f6dce46476d78bcefbbf291af1d9a474108cac5cab350235d15ae6f1a6c85e2b" ? [] : ["PREVIOUS_RECERTIFICATION_IDENTITY_MISMATCH"]),
+    ...(contract.authorization?.baseCommit === "8080e337bc409c2778c2ea175a58a295aaf26a64" ? [] : ["AUTHORIZED_BASE_COMMIT_MISMATCH"]),
+    ...(contract.authorization?.authorizedSourceCommit === "8080e337bc409c2778c2ea175a58a295aaf26a64" ? [] : ["AUTHORIZED_SOURCE_COMMIT_MISMATCH"]),
+    ...(contract.authorization?.authorizedSemanticSourceCommit === "a4ceb0043d3723dd318c8aa757a3a275dd7554fe" ? [] : ["AUTHORIZED_SEMANTIC_SOURCE_COMMIT_MISMATCH"]),
+    ...(contract.authorization?.changeClass === "POST_MERGE_PRODUCTION_IDENTITY_RECERTIFICATION" ? [] : ["AUTHORIZED_CHANGE_CLASS_MISMATCH"]),
     ...(contract.protectedSemanticSourceSet.hash === protectedSemanticSourceSetHash ? [] : ["PROTECTED_SEMANTIC_SOURCE_SET_MISMATCH"]),
     ...(contract.certificationEvidenceSet.hash === certificationEvidenceSetHash ? [] : ["CERTIFICATION_EVIDENCE_SET_MISMATCH"]),
     ...(engineSourceHash === contract.authorization?.authorizedEngineSourceHash ? [] : ["AUTHORIZED_ENGINE_SOURCE_MISMATCH"]),
     ...(contract.production?.supabaseProjectRef === "hjgcrrzfjchzqoegcywn" &&
       contract.production?.functionSlug === "decision-v13" &&
-      contract.production?.activeVersion === 116 &&
+      contract.production?.activeVersion === 117 &&
       contract.production?.verifyJwt === true &&
-      contract.production?.bundleHash === "88b4f26919f1e1e98b403b9226e4dbe8562ff7593885e3e5915ccc94944b718e" &&
+      contract.production?.bundleHash === "7776d9a8079fe4d9cd94b28dade0d523f32d9474868c8deae21ba5db106fc89c" &&
       contract.production?.entrypointPath === "supabase/functions/decision-v13/index.deploy.ts" &&
       contract.production?.entrypointSource === "import \"./live-index.ts\";\n" &&
       contract.production?.entrypointSha256 === "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299" &&
       contract.production?.deployedFileCount === 39 &&
       contract.production?.repositoryMatchedFileCount === 39 &&
-      contract.production?.sourceIdentity === "GATE3_A4CEB00_PRODUCTION_V116_39_OF_39_BYTE_MATCHED" ? [] : ["PRODUCTION_IDENTITY_NOT_CERTIFIED"]),
+      contract.production?.sourceIdentity === "CANONICAL_MAIN_8080E33_PRODUCTION_V117_39_OF_39_BYTE_MATCHED" ? [] : ["PRODUCTION_IDENTITY_NOT_CERTIFIED"]),
     ...(productionEntrypointSource === contract.production?.entrypointSource && productionEntrypointSha256 === contract.production?.entrypointSha256 ? [] : ["PRODUCTION_ENTRYPOINT_REPOSITORY_MISMATCH"]),
     ...Object.entries(requiredRecertificationInvariants).filter(([key, value]) => contract.invariants?.[key] !== value).map(([key]) => `SEMANTIC_INVARIANT_NOT_CERTIFIED:${key}`)
   ];
@@ -148,7 +149,7 @@ export async function computeD21Identity() {
     frozen: semantic.d3Readiness === "READY",
     frozenAt: recertification.valid ? recertification.contract.authorization.approvedAt : "2026-08-12T19:00:00.000Z",
     supersedes: recertification.valid
-      ? { freezeManifestHash: "b0f99fca748282d06216764867627330b8d8e6737d2d9ef85e3dd2e569ccabba", reason: "FOUNDER_AUTHORIZED_GATE3_PRODUCTION_ACCEPTANCE_RECERTIFICATION" }
+      ? { freezeManifestHash: "bb3513f9e02ad3c27d000c05d315dbb2f05f5fbe6a2c706c2fc1a1e49c089a5d", reason: "POST_MERGE_PRODUCTION_IDENTITY_RECERTIFICATION" }
       : { constitutionVersion: "decision-quality-v1", reason: "D3-CONSTITUTION-ISSUE-001" },
     integrity
   };
