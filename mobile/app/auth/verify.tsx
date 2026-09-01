@@ -83,6 +83,7 @@ export default function VerifyScreen() {
       const { error } = await supabase.auth.resend({
         type: "signup",
         email: normalizedEmail,
+        options: { emailRedirectTo: "backyrd://auth/callback" },
       });
 
       if (error) throw error;

@@ -38,6 +38,7 @@ export const supabase = createClient(safeSupabaseUrl, safeSupabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false,
+    flowType: "implicit",
   },
   // Erzwinge explizit das "public"-Schema, falls PostgREST auf ein anderes Schema (z. B. "net")
   // ausweichen würde und dadurch Fehler wie „schema "net" does not exist“ verursacht.

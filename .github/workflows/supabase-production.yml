@@ -37,7 +37,7 @@ jobs:
         run: node scripts/deployment/supabase-production-plan.mjs --base-sha "$BASE_SHA" --head-sha HEAD --output supabase-production-plan.json
       - name: Publish plan summary
         run: |
-          jq '{canonicalMainSha,planHash,deployFunctions,migrations,runtimeDeploymentRequired}' supabase-production-plan.json
+          jq '{canonicalMainSha,planHash,deployFunctions,migrations,authConfig:(.authConfig|if . then {deploy,sha256} else null end),runtimeDeploymentRequired}' supabase-production-plan.json
           jq -r '"### Supabase Production Plan\n\n- Main SHA: `\(.canonicalMainSha)`\n- Plan: `\(.planHash)`\n- Functions: \(.deployFunctions|join(", ") // "none")\n- Migrations: \(.migrations|length)\n- Runtime deployment: \(.runtimeDeploymentRequired)"' supabase-production-plan.json >> "$GITHUB_STEP_SUMMARY"
       - name: Verify Production credentials and pending migration scope read-only
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository

@@ -30,6 +30,12 @@ test -n "${SUPABASE_ACCESS_TOKEN:-}" || { echo "SUPABASE_ACCESS_TOKEN required" 
 
 supabase functions list --project-ref hjgcrrzfjchzqoegcywn --output json > deployment-audit/functions-before.json
 
+if test "$(jq -r '.authConfig.deploy // false' "$plan_path")" = "true"; then
+  node scripts/deployment/apply-supabase-auth-config.mjs \
+    --plan "$plan_path" \
+    --audit deployment-audit/auth-config.json
+fi
+
 mapfile -t planned_migrations < <(jq -r '.migrations[].path' "$plan_path")
 if test "${#planned_migrations[@]}" -gt 0; then
   supabase db push --dry-run 2>&1 | tee deployment-audit/migration-dry-run.txt
