@@ -14,12 +14,12 @@
   "generatorVersion": "decision-lab-generator-v1",
   "groundTruthVersion": "latent-utility-v1",
   "engineSourceHash": "c80c275b5f09adf0e3081dc10763a06846f81333097fd2a9ead6e8dfb8d7987a",
-  "sourceGitSha": "f91dd269039bba0138a655d0f4050699ccb5f0f4",
-  "engineRecertificationVersion": "decision-v13-production-recertification-v12",
-  "engineRecertificationHash": "f4403a56c62519d5f3668be99bf0bee36d5c469ef7b308af3559a2112a741196",
+  "sourceGitSha": "8001183fe3ff93f22bc7f644a84976768353d862",
+  "engineRecertificationVersion": "decision-v13-production-recertification-v13",
+  "engineRecertificationHash": "36383f23cf4809b81aeaf564d33b2f6b4dc70f1e50c46dd25b4d4775f5058737",
   "protectedSemanticSourceSetHash": "7c17399ea19f5fe3dfef70bec958170c0cdb195a4043c191f124ceb11a87496b",
-  "productionFunctionVersion": 121,
-  "productionBundleHash": "7f881e938b75fb329d7d201ce89539699958cfe19f0f171977cf21db521e8553",
+  "productionFunctionVersion": 122,
+  "productionBundleHash": "e7fc644676de3eadf719cc3368dd0e2662af62f3a923f8501080ec2938bdd41a",
   "hardGateCount": 9,
   "hardGateCoverage": {
     "rows": [
@@ -139,12 +139,12 @@
   "scientificValidity": "PASS",
   "engineMutation": "AUTHORIZED_RECERTIFICATION",
   "d3Readiness": "READY",
-  "freezeManifestHash": "33484b1fe89650be35e4d845861ad8ae380d9632edce9949fffedd5979a0224f",
+  "freezeManifestHash": "f14c639b1ce3ca3873e9d56ebcc39fff4b09b6571a1500644e065ff0fd2711a2",
   "frozen": true,
-  "frozenAt": "2026-09-01T18:58:00+02:00",
+  "frozenAt": "2026-09-01T19:10:00+02:00",
   "supersedes": {
-    "freezeManifestHash": "8cff5a31433f1a4f926a64ef605915308119a146ed6b721578ab7465e21e4a76",
-    "reason": "FOUNDER_AUTHORIZED_GATE3_REFERENCE_LOCATION_ADMIN_RECERTIFICATION"
+    "freezeManifestHash": "33484b1fe89650be35e4d845861ad8ae380d9632edce9949fffedd5979a0224f",
+    "reason": "POST_MERGE_PRODUCTION_IDENTITY_RECERTIFICATION"
   },
   "integrity": {
     "valid": true,
