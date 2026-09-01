@@ -38,12 +38,9 @@ fi
 
 mapfile -t planned_migrations < <(jq -r '.migrations[].path' "$plan_path")
 if test "${#planned_migrations[@]}" -gt 0; then
+  supabase link --project-ref hjgcrrzfjchzqoegcywn
   supabase db push --dry-run 2>&1 | tee deployment-audit/migration-dry-run.txt
-  for migration in "${planned_migrations[@]}"; do
-    grep -F "$(basename "$migration")" deployment-audit/migration-dry-run.txt >/dev/null || { echo "planned migration absent from dry run: $migration" >&2; exit 1; }
-  done
-  mapfile -t dry_run_migrations < <(grep -Eo '[0-9]{14}_[a-z0-9_]+\.sql' deployment-audit/migration-dry-run.txt | sort -u)
-  test "${#dry_run_migrations[@]}" -eq "${#planned_migrations[@]}" || { echo "remote pending migration scope differs from canonical plan" >&2; exit 1; }
+  node scripts/deployment/verify-supabase-migration-dry-run.mjs "$plan_path" deployment-audit/migration-dry-run.txt
   supabase db push --yes 2>&1 | tee deployment-audit/migration-apply.txt
 fi
 

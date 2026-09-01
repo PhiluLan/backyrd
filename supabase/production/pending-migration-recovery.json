@@ -1,0 +1,13 @@
+{
+  "version": "backyrd-pending-migration-recovery-v1",
+  "projectRef": "hjgcrrzfjchzqoegcywn",
+  "failedCanonicalMainSha": "8e6c04e4b5b87e9f7836fda93074b6d6392e9d1b",
+  "failedDeploymentRunId": 33552000155,
+  "failureStage": "BEFORE_MIGRATION_APPLY",
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260901191833_gate5_harden_user_achievements_privacy.sql",
+      "sha256": "3d4f3ce1e8684a03998479f0c82a62b8c4fbaf08a98bef7f6fba6ce55d01b414"
+    }
+  ]
+}

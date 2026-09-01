@@ -112,6 +112,31 @@ const productionAuthConfig = (tree) => {
   return { path, sha256: sha256(tree.read(path)), values: document.config };
 };
 
+const productionMigrationRecovery = (tree, baseSha) => {
+  const path = "supabase/production/pending-migration-recovery.json";
+  if (!tree.files.has(path)) return null;
+  const document = JSON.parse(tree.text(path));
+  if (document.version !== "backyrd-pending-migration-recovery-v1") throw new Error("unsupported_migration_recovery_version");
+  if (document.projectRef !== "hjgcrrzfjchzqoegcywn") throw new Error("migration_recovery_project_mismatch");
+  if (document.failedCanonicalMainSha !== baseSha) throw new Error("migration_recovery_base_mismatch");
+  if (!Number.isInteger(document.failedDeploymentRunId) || document.failedDeploymentRunId <= 0) throw new Error("migration_recovery_run_invalid");
+  if (document.failureStage !== "BEFORE_MIGRATION_APPLY") throw new Error("migration_recovery_stage_invalid");
+  if (!Array.isArray(document.migrations) || document.migrations.length === 0) throw new Error("migration_recovery_scope_required");
+  const migrations = document.migrations.map((entry) => {
+    if (!entry || typeof entry.path !== "string" || !/^supabase\/migrations\/\d{14}_[a-z0-9_]+\.sql$/.test(entry.path)) throw new Error("migration_recovery_path_invalid");
+    if (typeof entry.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(entry.sha256)) throw new Error("migration_recovery_hash_invalid");
+    if (!tree.files.has(entry.path) || sha256(tree.read(entry.path)) !== entry.sha256) throw new Error(`migration_recovery_bytes_mismatch:${entry.path}`);
+    return { path: entry.path, sha256: entry.sha256 };
+  });
+  if (new Set(migrations.map((entry) => entry.path)).size !== migrations.length) throw new Error("migration_recovery_duplicate_path");
+  return {
+    path,
+    failedCanonicalMainSha: document.failedCanonicalMainSha,
+    failedDeploymentRunId: document.failedDeploymentRunId,
+    migrations,
+  };
+};
+
 const sourceExtensions = ["", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".wasm"];
 const resolveLocalImport = (tree, importer, specifier) => {
   if (specifier.startsWith("/")) throw new Error(`absolute_local_import_forbidden:${importer}:${specifier}`);
@@ -200,6 +225,10 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   if (baseConfig.globalHash !== headConfig.globalHash) throw new Error("ambiguous_global_supabase_config_change");
   const beforeAuthConfig = productionAuthConfig(base);
   const afterAuthConfig = productionAuthConfig(head);
+  const recoveryPath = "supabase/production/pending-migration-recovery.json";
+  const recoveryChanged = changedPaths.has(recoveryPath);
+  const migrationRecovery = recoveryChanged ? productionMigrationRecovery(head, baseSha) : null;
+  if (recoveryChanged && changes.find((entry) => entry.paths.includes(recoveryPath))?.status !== "A") throw new Error("migration_recovery_must_be_additive");
   if (beforeAuthConfig && !afterAuthConfig) throw new Error("production_auth_config_removal_forbidden");
   const authConfig = afterAuthConfig
     ? {
@@ -241,7 +270,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   }
   for (const path of changedPaths) {
     if (!path?.startsWith("supabase/production/")) continue;
-    if (path !== "supabase/production/auth-config.json") throw new Error(`unknown_production_config_scope:${path}`);
+    if (!["supabase/production/auth-config.json", recoveryPath].includes(path)) throw new Error(`unknown_production_config_scope:${path}`);
   }
 
   const migrations = [];
@@ -251,6 +280,10 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
       if (!/^supabase\/migrations\/\d{14}_[a-z0-9_]+\.sql$/.test(path)) throw new Error(`invalid_forward_migration_path:${path}`);
       migrations.push({ path, sha256: sha256(head.read(path)) });
     }
+  }
+  for (const migration of migrationRecovery?.migrations ?? []) {
+    if (!base.files.has(migration.path) || sha256(base.read(migration.path)) !== migration.sha256) throw new Error(`migration_recovery_base_bytes_mismatch:${migration.path}`);
+    if (!migrations.some((entry) => entry.path === migration.path)) migrations.push(migration);
   }
   migrations.sort((left, right) => left.path.localeCompare(right.path));
   const deployFunctions = functions.filter((item) => item.deploy).map((item) => item.slug);
@@ -263,6 +296,10 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     functions,
     deployFunctions,
     migrations,
+    migrationRecovery: migrationRecovery ? {
+      failedCanonicalMainSha: migrationRecovery.failedCanonicalMainSha,
+      failedDeploymentRunId: migrationRecovery.failedDeploymentRunId,
+    } : null,
     authConfig,
     runtimeDeploymentRequired: deployFunctions.length > 0 || migrations.length > 0 || authConfig?.deploy === true,
   };
