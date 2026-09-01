@@ -22,10 +22,10 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "736dc0652f9c2989415b2fd6ffdaf35a94b2040a",
-        "tree": "d192f0cda39391d4f4791370697052f54f32d111",
+        "commit": "2029192b1a72afe8a7472674b494fd213c09275d",
+        "tree": "7e585cb7f07f11cf3c3c30e82f03b595acf33e5e",
         "production_verified": false,
-        "reason": "Reviewed Mood V1 final Founder closure with same-day Review UX; Production OTA remains pending canonical merge."
+        "reason": "Gate 4 Auth lifecycle candidate: Mobile recovery, verification callbacks and password-byte consistency are fully validated; Production OTA remains pending canonical merge."
       }
     },
     "consumer_web": {
@@ -36,10 +36,10 @@
       "vercel_deployment": "BBa9jfxn6s4ZsaDkwSxv4sU2obhD",
       "created_at": "2026-08-29T08:02:02Z",
       "canonical_source": {
-        "commit": "736dc0652f9c2989415b2fd6ffdaf35a94b2040a",
-        "tree": "88686d1335a677804531c9bd9df99ef2b140f118",
+        "commit": "2029192b1a72afe8a7472674b494fd213c09275d",
+        "tree": "e2dee34531a88f46dccd96cc0acac586e04d00d3",
         "production_verified": false,
-        "reason": "Reviewed Mood V1 final Founder closure Review error handling; Vercel Production remains pending canonical merge."
+        "reason": "Gate 4 Auth lifecycle candidate: Web callback failure honesty and enumeration-safe Signup are fully validated; Vercel Production remains pending canonical merge."
       }
     },
     "admin_intelligence_web": {
@@ -101,6 +101,30 @@
         "web/tests/consumer-contracts.test.mjs"
       ],
       "evidence": "docs/readiness/BASEL_LAUNCH_CORPUS_V1.md"
+    },
+    {
+      "id": "gate4_auth_lifecycle_v1",
+      "baseline_commit": "5fb7168708e5841778bd38b551293ff392c11b0a",
+      "source_commit": "2029192b1a72afe8a7472674b494fd213c09275d",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/+native-intent.tsx",
+        "mobile/app/auth/callback.tsx",
+        "mobile/app/auth/forgot-password.tsx",
+        "mobile/app/auth/login.tsx",
+        "mobile/app/auth/register.tsx",
+        "mobile/app/auth/reset-password.tsx",
+        "mobile/app/auth/verify.tsx",
+        "mobile/components/AuthPasswordScreen.tsx",
+        "mobile/lib/authDeepLink.ts",
+        "mobile/lib/pendingAuthRedirect.ts",
+        "mobile/lib/supabase.ts",
+        "supabase/production/auth-config.json",
+        "web/app/auth/callback/route.ts",
+        "web/app/auth/error/page.tsx",
+        "web/components/consumer/auth-form.tsx"
+      ],
+      "evidence": "scripts/auth/gate4-production-acceptance.mjs"
     }
   ],
   "required_ancestry": [

@@ -1,4 +1,4 @@
-// mobile/app/+native-intent.tsx
+import { setPendingAuthRedirect } from "../lib/pendingAuthRedirect";
 
 type RedirectSystemPathOptions = {
   path: string;
@@ -9,8 +9,6 @@ export function redirectSystemPath(options: RedirectSystemPathOptions): string {
   const rawPath = options?.path ?? "";
 
   try {
-    console.log("[native-intent] incoming path:", rawPath);
-
     /**
      * Supabase/AuthSession kann je nach Provider oder Flow solche URLs zurückgeben:
      *
@@ -25,12 +23,20 @@ export function redirectSystemPath(options: RedirectSystemPathOptions): string {
      *
      * Unsere App soll nach jedem Auth-Callback immer zentral durch /gate.
      */
+    if (rawPath.startsWith("backyrd://")) {
+      const url = new URL(rawPath);
+      const route = `${url.hostname}${url.pathname}`.replace(/\/+$/, "");
+      if (route === "auth/callback" || route === "auth/recovery") {
+        setPendingAuthRedirect(rawPath);
+        return "/auth/callback";
+      }
+    }
+
     if (
       rawPath === "" ||
       rawPath === "/" ||
       rawPath === "///" ||
-      rawPath.startsWith("backyrd://") ||
-      rawPath.startsWith("backyrd:///")
+      rawPath.startsWith("backyrd://")
     ) {
       return "/gate";
     }
@@ -53,8 +59,8 @@ export function redirectSystemPath(options: RedirectSystemPathOptions): string {
     }
 
     return "/gate";
-  } catch (error) {
-    console.log("[native-intent] redirect error:", error);
+  } catch {
+    console.log("[native-intent] invalid redirect discarded");
     return "/gate";
   }
 }

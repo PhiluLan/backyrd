@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "./ui";
@@ -14,11 +14,6 @@ function human(error: unknown, mode: Mode) {
   const value = error instanceof Error ? error.message.toLowerCase() : "";
   if (value.includes("invalid login"))
     return "E-Mail oder Passwort stimmen nicht.";
-  if (
-    value.includes("already registered") ||
-    value.includes("already been registered")
-  )
-    return "Für diese E-Mail gibt es bereits ein Konto.";
   if (value.includes("password"))
     return "Das Passwort erfüllt die aktuellen Sicherheitsanforderungen nicht.";
   if (value.includes("rate"))
@@ -37,6 +32,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  useEffect(() => {
+    if (params.get("status") === "invalid") {
+      setError("Der sichere Link ist abgelaufen, wurde bereits verwendet oder ist unvollständig. Fordere bitte einen neuen Link an.");
+    }
+  }, [params]);
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
@@ -77,7 +77,10 @@ export function AuthForm({ mode }: { mode: Mode }) {
             emailRedirectTo: `${location.origin}/auth/callback?next=/onboarding`,
           },
         });
-        if (error) throw error;
+        if (error) {
+          const detail = error.message.toLowerCase();
+          if (!detail.includes("already registered") && !detail.includes("already been registered")) throw error;
+        }
         router.replace(`/verify?email=${encodeURIComponent(cleanEmail)}`);
       } else if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(

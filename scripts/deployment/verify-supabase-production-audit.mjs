@@ -15,6 +15,6 @@ for(const item of plan.functions){
   if(deployed.has(item.slug)&&previous&&Number(next.version)<=Number(previous.version))throw new Error(`planned_function_version_did_not_advance:${item.slug}`);
   if(!deployed.has(item.slug)&&previous&&Number(next.version)!==Number(previous.version))throw new Error(`unplanned_function_version_changed:${item.slug}`);
 }
-const evidence={result:"PASS",canonicalMainSha:plan.canonicalMainSha,planHash:plan.planHash,deployFunctions:plan.deployFunctions,migrations:plan.migrations,activeFunctions:plan.functions.map((item)=>{const row=current.get(item.slug);return{slug:item.slug,version:row.version,verifyJwt:row.verify_jwt,bundleHash:row.ezbr_sha256,sourceSetHash:item.sourceSetHash};})};
+const evidence={result:"PASS",canonicalMainSha:plan.canonicalMainSha,planHash:plan.planHash,deployFunctions:plan.deployFunctions,migrations:plan.migrations,authConfig:plan.authConfig?{deployed:plan.authConfig.deploy,sourceHash:plan.authConfig.sha256}:null,activeFunctions:plan.functions.map((item)=>{const row=current.get(item.slug);return{slug:item.slug,version:row.version,verifyJwt:row.verify_jwt,bundleHash:row.ezbr_sha256,sourceSetHash:item.sourceSetHash};})};
 evidence.auditHash=createHash("sha256").update(JSON.stringify(evidence)).digest("hex");
 writeFileSync(args.output,`${JSON.stringify(evidence,null,2)}\n`,{encoding:"utf8",flag:"wx"});

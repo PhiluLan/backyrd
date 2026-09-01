@@ -82,7 +82,7 @@ export default function LoginScreen() {
 
   async function onLogin() {
     const normalizedEmail = cleanEmail(email);
-    const password = pw.trim();
+    const password = pw;
 
     if (!normalizedEmail || !password) {
       setFormError("Gib bitte E-Mail und Passwort ein.");
@@ -316,6 +316,11 @@ export default function LoginScreen() {
                   </Pressable>
                 </Link>
               </View>
+              <Link href="/auth/forgot-password" asChild>
+                <Pressable style={{ marginTop: 18, alignSelf: "center" }}>
+                  <Text maxFontSizeMultiplier={1.4} style={styles.link}>Passwort vergessen?</Text>
+                </Pressable>
+              </Link>
             </BlurView>
           </ScrollView>
         </LinearGradient>

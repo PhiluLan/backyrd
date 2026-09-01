@@ -85,6 +85,33 @@ const repositoryAt = (repo, ref) => {
   return { files, read, text: (path) => read(path).toString("utf8") };
 };
 
+const productionAuthConfig = (tree) => {
+  const path = "supabase/production/auth-config.json";
+  if (!tree.files.has(path)) return null;
+  const document = JSON.parse(tree.text(path));
+  const allowedKeys = new Set([
+    "site_url",
+    "uri_allow_list",
+    "password_min_length",
+    "mailer_subjects_confirmation",
+    "mailer_subjects_recovery",
+    "mailer_templates_confirmation_content",
+    "mailer_templates_recovery_content",
+  ]);
+  if (document.version !== "backyrd-production-auth-config-v1") throw new Error("unsupported_production_auth_config_version");
+  if (document.projectRef !== "hjgcrrzfjchzqoegcywn") throw new Error("production_auth_project_mismatch");
+  if (!document.config || Array.isArray(document.config) || typeof document.config !== "object") throw new Error("production_auth_config_object_required");
+  for (const key of Object.keys(document.config)) if (!allowedKeys.has(key)) throw new Error(`production_auth_config_key_not_allowed:${key}`);
+  if ([...allowedKeys].some((key) => !(key in document.config))) throw new Error("production_auth_config_required_key_missing");
+  if (document.config.site_url !== "https://www.backyrd.ch") throw new Error("production_auth_site_url_invalid");
+  if (document.config.uri_allow_list !== "https://www.backyrd.ch/auth/callback**,backyrd://auth/**") throw new Error("production_auth_redirect_scope_invalid");
+  if (!Number.isInteger(document.config.password_min_length) || document.config.password_min_length < 8 || document.config.password_min_length > 72) throw new Error("production_auth_password_policy_invalid");
+  for (const key of [...allowedKeys].filter((value) => value !== "password_min_length")) {
+    if (typeof document.config[key] !== "string" || !document.config[key].trim()) throw new Error(`production_auth_config_value_invalid:${key}`);
+  }
+  return { path, sha256: sha256(tree.read(path)), values: document.config };
+};
+
 const sourceExtensions = ["", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".wasm"];
 const resolveLocalImport = (tree, importer, specifier) => {
   if (specifier.startsWith("/")) throw new Error(`absolute_local_import_forbidden:${importer}:${specifier}`);
@@ -171,6 +198,16 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   const changes = diffEntries(repo, baseSha, headSha);
   const changedPaths = new Set(changes.flatMap((entry) => entry.paths));
   if (baseConfig.globalHash !== headConfig.globalHash) throw new Error("ambiguous_global_supabase_config_change");
+  const beforeAuthConfig = productionAuthConfig(base);
+  const afterAuthConfig = productionAuthConfig(head);
+  if (beforeAuthConfig && !afterAuthConfig) throw new Error("production_auth_config_removal_forbidden");
+  const authConfig = afterAuthConfig
+    ? {
+        ...afterAuthConfig,
+        deploy: !beforeAuthConfig || beforeAuthConfig.sha256 !== afterAuthConfig.sha256,
+        previousSha256: beforeAuthConfig?.sha256 ?? null,
+      }
+    : null;
 
   const slugs = [...new Set([...baseConfig.functions.keys(), ...headConfig.functions.keys()])].sort();
   const functions = [];
@@ -202,6 +239,10 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     if (/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(path)) continue;
     throw new Error(`changed_edge_source_has_no_declared_deployment_scope:${path}`);
   }
+  for (const path of changedPaths) {
+    if (!path?.startsWith("supabase/production/")) continue;
+    if (path !== "supabase/production/auth-config.json") throw new Error(`unknown_production_config_scope:${path}`);
+  }
 
   const migrations = [];
   for (const change of changes) {
@@ -222,7 +263,8 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     functions,
     deployFunctions,
     migrations,
-    runtimeDeploymentRequired: deployFunctions.length > 0 || migrations.length > 0,
+    authConfig,
+    runtimeDeploymentRequired: deployFunctions.length > 0 || migrations.length > 0 || authConfig?.deploy === true,
   };
   return { ...plan, planHash: sha256(stable(plan)) };
 };

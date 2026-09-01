@@ -45,10 +45,6 @@ function cleanEmail(value: string) {
 function getAuthErrorMessage(error: any) {
   const message = error?.message ?? String(error);
 
-  if (message.toLowerCase().includes("user already registered")) {
-    return "Für diese E-Mail existiert bereits ein Account. Bitte logge dich ein.";
-  }
-
   if (message.toLowerCase().includes("password")) {
     return "Bitte verwende ein stärkeres Passwort.";
   }
@@ -75,10 +71,14 @@ export default function RegisterScreen() {
     const firstName = first.trim();
     const lastName = last.trim();
     const normalizedEmail = cleanEmail(email);
-    const password = pw.trim();
+    const password = pw;
 
     if (!firstName || !lastName || !normalizedEmail || !password) {
       setFormError("Fülle bitte alle Angaben aus.");
+      return;
+    }
+    if (password.length < 8) {
+      setFormError("Das Passwort braucht mindestens 8 Zeichen.");
       return;
     }
 
@@ -89,6 +89,7 @@ export default function RegisterScreen() {
         email: normalizedEmail,
         password,
         options: {
+          emailRedirectTo: "backyrd://auth/callback",
           data: {
             first_name: firstName,
             last_name: lastName,

@@ -1,0 +1,13 @@
+{
+  "version": "backyrd-production-auth-config-v1",
+  "projectRef": "hjgcrrzfjchzqoegcywn",
+  "config": {
+    "site_url": "https://www.backyrd.ch",
+    "uri_allow_list": "https://www.backyrd.ch/auth/callback**,backyrd://auth/**",
+    "password_min_length": 8,
+    "mailer_subjects_confirmation": "Bestätige deine Backyrd E-Mail",
+    "mailer_subjects_recovery": "Setze dein Backyrd Passwort zurück",
+    "mailer_templates_confirmation_content": "<h2>Willkommen bei Backyrd</h2><p>Bestätige deine E-Mail, damit du deinen Account sicher verwenden kannst.</p><p><a href=\"{{ .ConfirmationURL }}\">E-Mail bestätigen</a></p><p>Alternativ kannst du diesen Code in der App eingeben: <strong>{{ .Token }}</strong></p><p>Wenn du dich nicht bei Backyrd registriert hast, kannst du diese Nachricht ignorieren.</p>",
+    "mailer_templates_recovery_content": "<h2>Backyrd Passwort zurücksetzen</h2><p>Öffne den sicheren Link, um ein neues Passwort zu wählen.</p><p><a href=\"{{ .ConfirmationURL }}\">Neues Passwort wählen</a></p><p>Wenn du das nicht angefordert hast, kannst du diese Nachricht ignorieren.</p>"
+  }
+}
