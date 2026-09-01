@@ -94,10 +94,10 @@ test("freeze identity is deterministic and validator rejects tampering", async (
   assert.deepEqual(first, second);
   const recertification = await validateEngineRecertification();
   assert.equal(recertification.valid, true, JSON.stringify(recertification.reasons));
-  assert.equal(recertification.contract.version, "decision-v13-production-recertification-v10");
-  assert.equal(recertification.identity.authorizedSourceCommit, "8080e337bc409c2778c2ea175a58a295aaf26a64");
-  assert.equal(recertification.identity.productionFunctionVersion, 117);
-  assert.equal(recertification.identity.productionBundleHash, "7776d9a8079fe4d9cd94b28dade0d523f32d9474868c8deae21ba5db106fc89c");
+  assert.equal(recertification.contract.version, "decision-v13-production-recertification-v11");
+  assert.equal(recertification.identity.authorizedSourceCommit, "ec96fb31c6fc75f003f9255e1a8c117d3e5b2d26");
+  assert.equal(recertification.identity.productionFunctionVersion, 119);
+  assert.equal(recertification.identity.productionBundleHash, "ae71d4a701889bd0ddcf91bf7b05ff0d0d0273a14102bc5e863d1d808654cc04");
   const changedProduction = await validateEngineRecertification({
     ...recertification.contract,
     production: { ...recertification.contract.production, activeVersion: 76 }
@@ -109,7 +109,7 @@ test("freeze identity is deterministic and validator rejects tampering", async (
     { ...recertification.contract.production, entrypointPath: "supabase/functions/decision-v13/index.ts" },
     { ...recertification.contract.production, entrypointSource: "import \"./index.ts\";\n" },
     { ...recertification.contract.production, entrypointSha256: "0".repeat(64) },
-    { ...recertification.contract.production, deployedFileCount: 40 },
+    { ...recertification.contract.production, deployedFileCount: 41 },
     { ...recertification.contract.production, repositoryMatchedFileCount: 37 },
     { ...recertification.contract.production, sourceIdentity: "EXACT_REPOSITORY_SOURCE_SET_PLUS_PINNED_ENTRYPOINT" }
   ]) {
