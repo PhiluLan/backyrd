@@ -54,7 +54,7 @@ test "$successes" -eq 1 || {
 }
 
 if test "$status_a" -ne 0; then loser="$race_root/a.out"; else loser="$race_root/b.out"; fi
-rg -q 'REVIEW_SAME_DAY_LIMIT' "$loser" || {
+grep -q 'REVIEW_SAME_DAY_LIMIT' "$loser" || {
   printf 'Parallel loser did not receive REVIEW_SAME_DAY_LIMIT.\n' >&2
   cat "$loser" >&2
   exit 1
