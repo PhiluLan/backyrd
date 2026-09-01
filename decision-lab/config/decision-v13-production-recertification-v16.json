@@ -2,16 +2,16 @@
   "version": "decision-v13-production-recertification-v16",
   "status": "AUTHORIZED",
   "authorization": {
-    "baseCommit": "72c0007debcb7ae46b9c107d6f2e3510dddbef31",
-    "authorizedSourceCommit": "72c0007debcb7ae46b9c107d6f2e3510dddbef31",
+    "baseCommit": "8e6c04e4b5b87e9f7836fda93074b6d6392e9d1b",
+    "authorizedSourceCommit": "c6aafcdeb65e9d73d71e8f69e652f0d47b1a20ed",
     "authorizedSemanticSourceCommit": "f91dd269039bba0138a655d0f4050699ccb5f0f4",
     "previousEngineSourceHash": "c80c275b5f09adf0e3081dc10763a06846f81333097fd2a9ead6e8dfb8d7987a",
     "previousRecertificationVersion": "decision-v13-production-recertification-v15",
     "previousRecertificationHash": "420b2cb804e97a19f4e96d79a45438e842d4279d59566a4fe5003a3bd5fab6d7",
     "authorizedEngineSourceHash": "c80c275b5f09adf0e3081dc10763a06846f81333097fd2a9ead6e8dfb8d7987a",
-    "changeClass": "GATE5_CORE_JOURNEY_OPERATIONAL_RECERTIFICATION",
-    "approvalBasis": "Gate 5 remediation changes no Decision semantic source. Founder requires proven core-journey gaps to be fixed while all Decision, D2, D3, and Production Identity guards remain fail-closed. This full contract binds the unchanged Engine and semantic source set to the reviewed owner-only achievement ACL, canonical schema identities, focused Product regressions, and Production Decision v123.",
-    "approvedAt": "2026-09-01T22:30:00+02:00"
+    "changeClass": "GATE5_CANONICAL_DEPLOYMENT_RECOVERY_RECERTIFICATION",
+    "approvalBasis": "The first canonical-main Gate 5 migration deployment failed closed before applying SQL because the Production job had not linked the bound Supabase project. This full operational re-certification preserves Decision semantics and Production v123 while binding the canonical-main-only recovery input, exact audited base SHA, explicit project link, exact pending-migration verifier, immutable audit, and focused negative contracts.",
+    "approvedAt": "2026-09-01T22:05:00+02:00"
   },
   "production": {
     "supabaseProjectRef": "hjgcrrzfjchzqoegcywn",
@@ -117,6 +117,7 @@
       "scripts/decision/verify-production-eszip-sources.mjs",
       "scripts/deployment/apply-supabase-auth-config.mjs",
       "scripts/deployment/deploy-supabase-production.sh",
+      "scripts/deployment/deploy-supabase-production-contract.test.mjs",
       "scripts/deployment/supabase-production-plan.mjs",
       "scripts/deployment/supabase-production-plan.test.mjs",
       "scripts/deployment/verify-supabase-migration-dry-run.mjs",
@@ -136,7 +137,7 @@
       "web/e2e/consumer.spec.ts",
       "web/tests/consumer-contracts.test.mjs"
     ],
-    "hash": "b9d34091558d43912f5252b180613e57dbed2c8b2f05339ee41cea2fb99fd3d7"
+    "hash": "0ed6b0530c626927278bd7227d1de51bc31f278a0401fba65152ad832d130e3e"
   },
   "invariants": {
     "hardEligibilityBeforeRanking": "PASS",
@@ -180,6 +181,8 @@
     "transitiveDependenciesBound": "PASS",
     "migrationDeploymentFailClosed": "PASS",
     "identityOnlyMergeCausesRuntimeDeploy": "NO",
-    "productionDecisionVersionPreservedAcrossControlMerges": "PASS"
+    "productionDecisionVersionPreservedAcrossControlMerges": "PASS",
+    "canonicalMigrationRecoveryAudited": "PASS",
+    "exactPendingMigrationScopeReverified": "PASS"
   }
 }
