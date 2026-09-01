@@ -18,13 +18,11 @@ test("Production migration deployment links the bound project and reuses exact s
   assert.ok(verify < apply);
 });
 
-test("Recovery deployment remains canonical-main-only and requires an explicit audited base", async () => {
+test("Production deployment remains canonical-main-only", async () => {
   const workflow = await readFile(
     new URL("../../.github/workflows/supabase-production.yml", import.meta.url),
     "utf8",
   );
-  assert.match(workflow, /workflow_dispatch:[\s\S]*recovery_base_sha:[\s\S]*required: true/);
-  assert.match(workflow, /inputs\.recovery_base_sha \|\| github\.event\.before/);
   assert.match(workflow, /github\.ref == 'refs\/heads\/main'/);
   assert.match(workflow, /--assert-canonical-main/);
 });

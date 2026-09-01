@@ -5,12 +5,6 @@ on:
     branches: [main]
   push:
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      recovery_base_sha:
-        description: Canonical main SHA preceding a failed audited deployment
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -39,7 +33,7 @@ jobs:
         run: node --test scripts/deployment/supabase-production-plan.test.mjs
       - name: Build auditable deployment plan
         env:
-          BASE_SHA: ${{ inputs.recovery_base_sha || github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: node scripts/deployment/supabase-production-plan.mjs --base-sha "$BASE_SHA" --head-sha HEAD --output supabase-production-plan.json
       - name: Publish plan summary
         run: |
@@ -68,7 +62,7 @@ jobs:
 
   production:
     name: Canonical main production deploy
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: deployment-contract
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -83,7 +77,7 @@ jobs:
           version: 2.98.2
       - name: Rebuild canonical-main deployment plan
         env:
-          BASE_SHA: ${{ inputs.recovery_base_sha || github.event.before }}
+          BASE_SHA: ${{ github.event.before }}
         run: node scripts/deployment/supabase-production-plan.mjs --base-sha "$BASE_SHA" --head-sha HEAD --assert-canonical-main --output supabase-production-plan.json
       - name: Deploy exact bound Production scope
         env:
