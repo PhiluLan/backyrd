@@ -34,6 +34,7 @@ import { selectSpotImageUrl } from "../../lib/spot-images";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { AppText } from "../../components/foundation/AppText";
 import { StateView } from "../../components/foundation/StateView";
+import { SpotMoodProfile, type SpotMoodProfileItem } from "../../components/spot/SpotMoodProfile";
 import { backyrdTheme as foundationTheme } from "../../theme/backyrd";
 
 import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
@@ -221,7 +222,7 @@ export default function SpotDetailScreen() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [hours, setHours] = useState<Record<string, any[]>>({});
-  const [moodSummary, setMoodSummary] = useState<any[]>([]);
+  const [moodSummary, setMoodSummary] = useState<SpotMoodProfileItem[]>([]);
   const [nearby, setNearby] = useState<any[]>([]);
   const [taxonomyItems, setTaxonomyItems] = useState<MobileSpotTaxonomyItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -246,7 +247,6 @@ export default function SpotDetailScreen() {
     });
   }, [entrySource, id]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  const [showAllMoods, setShowAllMoods] = useState(false);
 
   const [ownerCtx, setOwnerCtx] = useState<any>(null);
 
@@ -776,25 +776,10 @@ export default function SpotDetailScreen() {
           <SpotTaxonomyChips items={taxonomyItems} />
 
           <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <SectionTitle>So fühlt es sich hier an</SectionTitle>
-                {moodSummary.length > 5 ? (
-                  <Pressable onPress={() => setShowAllMoods((s) => !s)}>
-                    <Text style={styles.showMoreText}>{showAllMoods ? "Weniger" : "Mehr anzeigen"}</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-              {moodSummary.length > 0 ? <>
-              {moodSummary[0]?.evidence_state === "EARLY" ? <Text style={styles.bodyText}>Erste Eindrücke</Text> : null}
-              <View style={styles.moodWrap}>
-                {(showAllMoods ? moodSummary : moodSummary.slice(0, 5)).map((m) => (
-                  <View key={m.concept_key} style={styles.moodPill}>
-                    <Text style={styles.moodText}>{m.label}</Text>
-                    {m.evidence_state === "ESTABLISHED" ? <Text style={styles.moodCount}>{m.percentage}%</Text> : null}
-                  </View>
-                ))}
-              </View>
-              </> : <StateView kind="empty" title="Noch keine Stimmung eingefangen." message="Teile nach deinem Besuch deinen Eindruck." />}
+              <View style={styles.sectionHeader}><SectionTitle>So fühlt es sich hier an</SectionTitle></View>
+              {moodSummary.length > 0
+                ? <SpotMoodProfile moods={moodSummary} />
+                : <StateView kind="empty" title="Noch keine Stimmung eingefangen." message="Teile nach deinem Besuch deinen Eindruck." />}
             </View>
 
           <View style={styles.section}>
@@ -1183,36 +1168,6 @@ const styles = StyleSheet.create({
   },
   sectionTitleRow: { flexDirection: "row", alignItems: "center" },
   sectionMarker: { width: 16, height: 4, borderRadius: 999, backgroundColor: foundationTheme.color.pink },
-  showMoreText: {
-    color: theme.colors.pinkSoft,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  moodWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  moodPill: {
-    minHeight: 38,
-    paddingHorizontal: 12,
-    borderRadius: theme.radius.pill,
-    backgroundColor: "rgba(255,255,255,0.055)",
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  moodText: {
-    color: theme.colors.text,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  moodCount: {
-    color: theme.colors.pinkSoft,
-    fontSize: 13,
-    fontWeight: "800",
-  },
   sourcePill: {
     paddingHorizontal: 10,
     paddingVertical: 6,

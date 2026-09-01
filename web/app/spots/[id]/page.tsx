@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { CanonicalSpotImage } from "@/components/canonical-spot-image";
 import { SpotActions } from "@/components/consumer/spot-actions";
 import { ArrowIcon, RouteIcon } from "@/components/consumer/icons";
+import { SpotMoodProfile } from "@/components/consumer/spot-mood-profile";
 import { getPublicSpotDetailServer } from "@/lib/public-spot-detail-server";
 function maps(address: string | null, name: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || name)}`;
@@ -114,24 +115,7 @@ export default async function SpotDetailPage({
             {data.top_moods.length ? (
               <section style={{ marginTop: spot.description ? 48 : 0 }}>
                 <p className="b-kicker">So fühlt es sich hier an</p>
-                {data.top_moods[0]?.evidence_state === "EARLY" ? <p className="b-muted" style={{ marginTop: 8 }}>Erste Eindrücke</p> : null}
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    flexWrap: "wrap",
-                    marginTop: 16,
-                  }}
-                >
-                  {data.top_moods.slice(0, 8).map((mood) => (
-                    <span
-                      className="b-chip"
-                      key={mood.concept_key}
-                    >
-                      {mood.label}{mood.evidence_state === "ESTABLISHED" ? ` ${mood.percentage}%` : ""}
-                    </span>
-                  ))}
-                </div>
+                <SpotMoodProfile moods={data.top_moods} />
               </section>
             ) : null}
             {data.photos.length > 1 ? (

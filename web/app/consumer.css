@@ -287,6 +287,100 @@
   color: var(--lime);
   border-color: rgba(216, 255, 62, 0.28);
 }
+.b-mood-early {
+  margin-top: 9px;
+}
+.b-mood-profile {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 16px;
+}
+.b-mood-pill {
+  --mood-strength: 0%;
+  position: relative;
+  min-width: 108px;
+  min-height: 44px;
+  overflow: hidden;
+  padding: 7px 16px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(247, 243, 233, 0.045);
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 150ms ease, border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+.b-mood-pill:hover,
+.b-mood-pill:focus-visible {
+  border-color: var(--border-strong);
+  color: var(--foreground);
+}
+.b-mood-pill:active {
+  transform: scale(.98);
+}
+.b-mood-pill[data-prominent="true"] {
+  border-color: rgba(255, 79, 145, .35);
+  background: rgba(255, 79, 145, .085);
+  color: var(--foreground);
+  font-weight: 800;
+}
+.b-mood-strength {
+  position: absolute;
+  right: 16px;
+  bottom: 6px;
+  left: 16px;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 79, 145, .12);
+}
+.b-mood-strength::after {
+  content: "";
+  display: block;
+  width: var(--mood-strength);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pink);
+}
+.b-mood-more {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--pink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.b-mood-detail .b-kicker {
+  margin-bottom: 10px;
+  color: var(--lime);
+}
+.b-mood-evidence {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 14px;
+}
+.b-mood-evidence strong {
+  color: var(--foreground);
+  font-size: 22px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .b-mood-pill { transition: none; }
+}
 .b-surface {
   border: 1px solid var(--border);
   background: rgba(247, 243, 233, 0.035);

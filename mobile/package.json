@@ -14,6 +14,7 @@
     "test:map-discovery": "node ./scripts/test-map-discovery-scale.mjs",
     "test:canonical-spot-images": "node ./scripts/test-canonical-spot-images.mjs",
     "test:carousel-geometry": "node ./scripts/test-carousel-geometry.mjs",
+    "test:mood-display": "node ./scripts/test-mood-display.mjs",
     "test:production-images": "node ./scripts/validate-production-images.mjs",
     "release:validate": "node ./scripts/validate-production-release.mjs",
     "release:verify:ios-ipa": "node ./scripts/validate-ios-bundle-identifiers.mjs",
