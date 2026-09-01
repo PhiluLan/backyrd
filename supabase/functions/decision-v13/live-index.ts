@@ -5,7 +5,7 @@ import { interpretCanonicalCurrentIntent } from "../../../packages/canonical-sem
 import { isInternalLiveUser, runInternalLiveDecision } from "./north-star-live.ts";
 import { jsonResponseWithFreshEntityHeaders } from "./live-response.mjs";
 import { alignLiveProductCurrentIntent, buildLiveCandidateFunnel, LIVE_RETRIEVAL_SOURCE_LIMIT, sanitizeLiveProductCandidate, sanitizeLiveProductRequestBody } from "../../../packages/decision-input-runtime/src/live-product-boundary.mjs";
-import { bindResolvedLocationIntent, resolveLocationReference, verifiedLocationEvidence } from "../../../packages/decision-input-runtime/src/location-reference.mjs";
+import { bindResolvedLocationIntent, configuredNearDistanceKm, resolveLocationReference, verifiedLocationEvidence } from "../../../packages/decision-input-runtime/src/location-reference.mjs";
 import { assertUnseenContinuation } from "../../../packages/decision-input-runtime/src/continuation.mjs";
 
 type Handler = (request: Request) => Promise<Response> | Response;
@@ -133,9 +133,23 @@ realServe(async (request: Request) => {
     const initialHard=canonicalIntent.hardConstraints as Record<string,unknown> | undefined;
     const locationReference=initialHard?.locationReference as Record<string,unknown> | null | undefined;
     if(locationReference){
+      let runtimeLocationConfig:Record<string,unknown>|null=null;
+      if(locationReference.distanceSource==="ADMIN_CONFIG"){
+        const configResult=await service.rpc("backyrd_decision_location_runtime_config_v1",{p_city_key:text(body.city)});
+        if(configResult.error||!configResult.data)return honestEmpty({
+          ...payload,
+          location_constraint:{status:"UNRESOLVED",reference:text(locationReference.normalizedReference),reason:"LOCATION_CONFIG_UNAVAILABLE"},
+        },baseResponse);
+        runtimeLocationConfig=configResult.data as Record<string,unknown>;
+      }
+      const configuredDistanceKm=configuredNearDistanceKm({locationReference,runtimeConfig:runtimeLocationConfig});
+      if(configuredDistanceKm===null)return honestEmpty({
+        ...payload,
+        location_constraint:{status:"UNRESOLVED",reference:text(locationReference.normalizedReference),reason:"LOCATION_CONFIG_INVALID"},
+      },baseResponse);
       const resolution=await resolveLocationReference({
         reference:text(locationReference.normalizedReference),city:text(body.city),
-        maxDistanceKm:Number(locationReference.maxDistanceKm),googleApiKey:Deno.env.get("GOOGLE_PLACES_API_KEY")??null,
+        maxDistanceKm:configuredDistanceKm,googleApiKey:Deno.env.get("GOOGLE_PLACES_API_KEY")??null,
       });
       if(resolution.status!=="RESOLVED")return honestEmpty({
         ...payload,

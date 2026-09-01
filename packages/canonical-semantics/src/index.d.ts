@@ -1,6 +1,7 @@
 export type PlaceType="cafe"|"bar"|"restaurant"|"nightlife"|"culture"|"outing"|"activity"|"experience"|"hotel"|"other";
 export declare const SEMANTIC_CONTRACT_VERSION:"backyrd-canonical-semantics-v1";
 export declare const CURRENT_MOMENT_VERSION:"backyrd-current-moment-schema-v2";
+export declare const BASEL_DECISION_LOCATIONS:Readonly<Record<string,{kind:"QUARTER"|"LANDMARK";label:string;latitude:number;longitude:number;defaultRadiusKm:number;aliases:readonly string[]}>>;
 export declare const FROZEN_TASTE_CONCEPTS:readonly string[];
 export declare const FROZEN_N4_DIMENSIONS:readonly string[];
 export declare const N4_USER_EVIDENCE_AUTHORITY:Readonly<Record<string,"ALLOWED_TASTE_CONCEPT"|"FACT_ONLY"|"CONTEXT_ONLY"|"OCCASION_ONLY"|"PLACE_TYPE_ONLY">>;

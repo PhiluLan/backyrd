@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bindResolvedLocationIntent, locationReason, resolveLocationReference, verifiedLocationEvidence } from "../src/location-reference.mjs";
+import { bindResolvedLocationIntent, configuredNearDistanceKm, locationReason, resolveLocationReference, verifiedLocationEvidence } from "../src/location-reference.mjs";
 
 const googleResponse=(places)=>async(_url,options)=>{
   const body=JSON.parse(options.body);
@@ -22,7 +22,7 @@ test("Basel Bahnhof disambiguates deterministically to the canonical main statio
 
 test("unique exact Messeplatz and Kunstmuseum references resolve through bounded server-side Google Places",async()=>{
   for(const [reference,name] of [["Messeplatz","Messeplatz"],["Kunstmuseum Basel","Kunstmuseum Basel"]]){
-    const result=await resolveLocationReference({reference,city:"Basel",googleApiKey:"server-only",fetchImpl:googleResponse([place(`id-${reference}`,name)])});
+    const result=await resolveLocationReference({reference,city:"Basel",maxDistanceKm:.8,googleApiKey:"server-only",fetchImpl:googleResponse([place(`id-${reference}`,name)])});
     assert.equal(result.status,"RESOLVED",reference);
     assert.equal(result.location.label,name);
     assert.equal(result.location.resolutionSource,"GOOGLE_PLACES_TEXT_SEARCH");
@@ -31,10 +31,27 @@ test("unique exact Messeplatz and Kunstmuseum references resolve through bounded
 });
 
 test("unknown and ambiguous reference locations fail closed",async()=>{
-  const unknown=await resolveLocationReference({reference:"Glorpplatz 999",city:"Basel",googleApiKey:"server-only",fetchImpl:googleResponse([])});
+  const unknown=await resolveLocationReference({reference:"Glorpplatz 999",city:"Basel",maxDistanceKm:.8,googleApiKey:"server-only",fetchImpl:googleResponse([])});
   assert.deepEqual({status:unknown.status,reason:unknown.reason},{status:"UNRESOLVED",reason:"REFERENCE_NOT_FOUND"});
-  const ambiguous=await resolveLocationReference({reference:"Kunstmuseum Basel",city:"Basel",googleApiKey:"server-only",fetchImpl:googleResponse([place("a","Kunstmuseum Basel | Hauptbau"),place("b","Kunstmuseum Basel | Neubau")])});
+  const ambiguous=await resolveLocationReference({reference:"Kunstmuseum Basel",city:"Basel",maxDistanceKm:.8,googleApiKey:"server-only",fetchImpl:googleResponse([place("a","Kunstmuseum Basel | Hauptbau"),place("b","Kunstmuseum Basel | Neubau")])});
   assert.deepEqual({status:ambiguous.status,reason:ambiguous.reason},{status:"UNRESOLVED",reason:"REFERENCE_AMBIGUOUS"});
+});
+
+test("admin default Near radius is versioned, bounded and fail-closed",()=>{
+  const reference={distanceSource:"ADMIN_CONFIG",maxDistanceKm:null};
+  const config={version:"backyrd-decision-location-config-v1",cityKey:"basel",defaultNearRadiusM:800,status:"ACTIVE"};
+  assert.equal(configuredNearDistanceKm({locationReference:reference,runtimeConfig:config}),.8);
+  for(const invalid of [
+    {...config,version:"unknown"},{...config,cityKey:"zurich"},{...config,status:"DISABLED"},
+    {...config,defaultNearRadiusM:99},{...config,defaultNearRadiusM:2001},{...config,defaultNearRadiusM:800.5},null,
+  ])assert.equal(configuredNearDistanceKm({locationReference:reference,runtimeConfig:invalid}),null);
+  assert.equal(configuredNearDistanceKm({locationReference:{distanceSource:"REQUEST_EXPLICIT",maxDistanceKm:.5},runtimeConfig:null}),.5);
+  assert.equal(configuredNearDistanceKm({locationReference:{distanceSource:"REQUEST_EXPLICIT",maxDistanceKm:20},runtimeConfig:null}),null);
+});
+
+test("resolver never invents a default radius when runtime configuration is absent",async()=>{
+  const result=await resolveLocationReference({reference:"Bahnhof",city:"Basel",googleApiKey:"unused"});
+  assert.deepEqual({status:result.status,reason:result.reason},{status:"UNRESOLVED",reason:"NEAR_RADIUS_INVALID"});
 });
 
 test("resolved location binding and reason require measured in-radius coordinate evidence",()=>{
