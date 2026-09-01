@@ -6,12 +6,13 @@ const files = {
   mobileMap: "mobile/app/(tabs)/map.tsx",
   mobileSubmit: "mobile/lib/reviewSubmit.ts",
   webDetail: "web/lib/public-spot-detail.ts",
+  webServerDetail: "web/lib/public-spot-detail-server.ts",
   webReview: "web/components/consumer/review-form.tsx",
   edgeReview: "supabase/functions/create-review-with-photos/index.ts",
   shared: "packages/shared/src/contracts/mood.ts",
 };
 const source = Object.fromEntries(await Promise.all(Object.entries(files).map(async ([key, path]) => [key, await readFile(path, "utf8")])));
-for (const key of ["mobileDetail", "mobileMap", "webDetail"]) {
+for (const key of ["mobileDetail", "mobileMap", "webDetail", "webServerDetail"]) {
   assert.match(source[key], /backyrd_spot_mood_profile_public_v1/, `${key} does not read the canonical profile`);
   assert.doesNotMatch(source[key], /spot_moods_agg|\.from\(["']spot_moods["']\)/, `${key} reintroduced a legacy aggregate`);
 }

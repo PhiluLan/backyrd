@@ -36,10 +36,10 @@
       "vercel_deployment": "BBa9jfxn6s4ZsaDkwSxv4sU2obhD",
       "created_at": "2026-08-29T08:02:02Z",
       "canonical_source": {
-        "commit": "34d5275f4261d81ac6b215e3aaf29dccfbfe30fe",
-        "tree": "98ffedd73af0b4bbbf8de5b43836e5729c227d05",
+        "commit": "32d5f1d7224b1a7cdb05eaf8e5082db0d5d501be",
+        "tree": "37aa8dc05c86c741a3746e6d5997f898d21909b1",
         "production_verified": false,
-        "reason": "Reviewed Canonical Product Mood V1 release candidate; Vercel Production remains bound to the recorded deployed commit until canonical merge."
+        "reason": "Reviewed canonical Mood V1 Consumer Web SSR reader fix; Vercel Production remains bound to the recorded deployed commit until canonical merge."
       }
     },
     "admin_intelligence_web": {
