@@ -159,6 +159,13 @@ const normalize = (value) => String(value ?? "").trim().toLocaleLowerCase("de-CH
 const fold = (value) => normalize(value).normalize("NFKD").replace(/[\u0300-\u036f]/g,"");
 const uniqueValues = (values) => [...new Set(values.filter(Boolean))];
 const canonicalFact = (value,provenance,sourceRef) => ({value,provenance,sourceRef,semanticContractVersion:SEMANTIC_CONTRACT_VERSION});
+const NEAR_REFERENCE_PATTERN=/\b(?:in\s+(?:unmittelbarer\s+)?der\s+nahe\s+(?:von|vom|bei|beim|zum)\s+|nahe\s+(?:(?:bei|beim|von|vom|zum)\s+)?)([^,.;!?]+)/;
+const extractNearReference=(normalizedText)=>{
+  const match=normalizedText.match(NEAR_REFERENCE_PATTERN);
+  if(!match)return null;
+  const normalizedReference=String(match[1]??"").replace(/\s+(?:aber|und)\s+(?:bitte\s+)?(?:ruhig|gemutlich|offen|gunstig|preiswert).*$/g,"").trim().slice(0,120);
+  return normalizedReference.length>=2?{relation:"NEAR",normalizedReference,sourceText:match[0].slice(0,160)}:null;
+};
 
 // One shared, deterministic interpretation boundary for current Product input.
 // Retrieval and N3 consume this same result; neither surface owns a competing
@@ -167,6 +174,7 @@ const canonicalFact = (value,provenance,sourceRef) => ({value,provenance,sourceR
 export function interpretCanonicalCurrentIntent(input={}) {
   const text=String(input.query??input.rawFreeText??"").trim();
   const normalizedText=fold(text).replace(/ß/g,"ss");
+  const nearReference=extractNearReference(normalizedText);
   const structured=input.currentFacts??{};
   const suppliedAudience=[...(input.audience??[]),...(input.selectedAudiences??[])].map(fold);
   const suppliedPlaceTypes=[...(input.preferredPlaceTypes??[]),...(input.placeTypes??[])].map(fold);
@@ -192,7 +200,7 @@ export function interpretCanonicalCurrentIntent(input={}) {
       ? canonicalFact("FAMILY_WITH_CHILD",familyFromText?"EXPLICIT":"INFERRED",familyFromText?"request:text:family":"derived:childAge")
       : canonicalFact("UNKNOWN","UNKNOWN",null);
 
-  const positiveText=normalizedText
+  const positiveText=(nearReference?normalizedText.replace(nearReference.normalizedReference," "):normalizedText)
     .replace(/\b(keine? bars?|nicht (?:in )?bars?|no bars?|ohne bar|keine drinks)\b/g," ")
     .replace(/\b(kein(?:e|en|es)? cafe\w*|nicht (?:ins? )?cafe\w*|ohne cafe\w*|no cafe)\b/g," ")
     .replace(/\b(kein restaurant|nicht restaurant|no restaurant|ohne restaurant|kein dinner|kein essen|nicht essen)\b/g," ")
@@ -296,6 +304,10 @@ export function interpretCanonicalCurrentIntent(input={}) {
     latitude:locationEntry[1].latitude,longitude:locationEntry[1].longitude,
     maxDistanceKm:explicitDistanceKm??locationEntry[1].defaultRadiusKm,
   }:null;
+  const locationReference=nearReference?{
+    relation:"NEAR",normalizedReference:nearReference.normalizedReference,
+    maxDistanceKm:explicitDistanceKm??.8,source:"request:text:near-reference",
+  }:null;
   const requestedWeekday=/\b(sonntag\w*|sunday)\b/.test(normalizedText)?"SUNDAY":/\b(samstag\w*|saturday)\b/.test(normalizedText)?"SATURDAY":/\b(freitag\w*|friday)\b/.test(normalizedText)?"FRIDAY":/\b(donnerstag\w*|thursday)\b/.test(normalizedText)?"THURSDAY":/\b(mittwoch\w*|wednesday)\b/.test(normalizedText)?"WEDNESDAY":/\b(dienstag\w*|tuesday)\b/.test(normalizedText)?"TUESDAY":/\b(montag\w*|monday)\b/.test(normalizedText)?"MONDAY":/\b(heute|today)\b/.test(normalizedText)?"TODAY":null;
   const requestedTimeWindow=dayparts.includes("MORNING")?{start:"05:00",end:"12:00"}:dayparts.includes("AFTERNOON")?{start:"12:00",end:"18:00"}:dayparts.includes("EVENING")?{start:"17:00",end:"23:59"}:dayparts.includes("NIGHT")?{start:"21:00",end:"05:00"}:null;
   const explicitOfferings=[];
@@ -340,6 +352,7 @@ export function interpretCanonicalCurrentIntent(input={}) {
     dayparts:canonicalFact(dayparts,dayparts.length?"EXPLICIT":"UNKNOWN",dayparts.length?"request:text:daypart":null),
     temporalEligibility:canonicalFact(requestedWeekday&&requestedTimeWindow?{weekday:requestedWeekday,...requestedTimeWindow}:null,requestedWeekday&&requestedTimeWindow?"EXPLICIT":"UNKNOWN",requestedWeekday&&requestedTimeWindow?"request:text:weekday-window":null),
     location:canonicalFact(location,location?"EXPLICIT":"UNKNOWN",location?"request:text:basel-location":null),
+    locationReference:canonicalFact(locationReference,locationReference?"EXPLICIT":"UNKNOWN",locationReference?"request:text:near-reference":null),
     priceMinimum:canonicalFact(priceMinimum,priceMinimum===null?"UNKNOWN":"EXPLICIT",priceMinimum===null?null:"request:text:price"),
     priceMaximum:canonicalFact(priceMaximum,priceMaximum===null?"UNKNOWN":"EXPLICIT",priceMaximum===null?null:"request:text:price"),
     priceBudgetChf:canonicalFact(priceBudgetChf,priceBudgetChf===null?"UNKNOWN":"EXPLICIT",priceBudgetChf===null?null:"request:text:monetary-price"),
@@ -355,11 +368,12 @@ export function interpretCanonicalCurrentIntent(input={}) {
       excludedPlaceTypes,
       openNow:input.openNow===true||/\b(jetzt offen|jetzt geoffnet|open now)\b/.test(normalizedText),
       location,
+      locationReference,
       temporalEligibility:requestedWeekday&&requestedTimeWindow?{weekday:requestedWeekday,...requestedTimeWindow}:null,
-      unsatisfiable:contradictoryPlaceTypes.length>0||(explicitDistanceKm!==null&&!location),
+      unsatisfiable:contradictoryPlaceTypes.length>0||(explicitDistanceKm!==null&&!location&&!locationReference),
       contradictions:[
         ...contradictoryPlaceTypes.map((placeType)=>`PLACE_TYPE_REQUIRED_AND_EXCLUDED:${placeType}`),
-        ...(explicitDistanceKm!==null&&!location?["DISTANCE_ORIGIN_MISSING"]:[]),
+        ...(explicitDistanceKm!==null&&!location&&!locationReference?["DISTANCE_ORIGIN_MISSING"]:[]),
       ],
     },
     legacyHints:{

@@ -85,4 +85,41 @@ A01 and A05 are not evidence failures. Their requests are logically contradictor
 
 ## Acceptance conclusion
 
-The Product behavior is relevant, explainable, deterministic, and honest under missing evidence. The remaining empty results are bounded evidence limitations rather than Decision defects. The Founder/CTO-authorized semantic change remains bound by the complete D2 chain; the current identity-only v10 successor must validate its unchanged Engine, source set, evidence set, dependent freezes, and Production v117 identity together.
+The original `LOCATION — PASS` conclusion was invalidated by the Founder Production reality check below. It remains here as historical evidence of the acceptance gap, not as the current verdict.
+
+## Founder Location reality-check remediation
+
+The natural query `gemütliches Café in der Nähe vom Bahnhof` exposed a systemic Decision defect in Production v117: the parser recognized only a small static alias set, silently dropped the generic `Bahnhof` reference, and therefore neither applied proximity eligibility nor authorized a Location reason. Café Frühling and Finkmüller St. Johann could consequently pass on café/mood evidence while being implausibly far from Basel SBB. This was a Decision failure, not missing Spot evidence.
+
+Founder authorization dated 2026-09-01 permits the narrowly bounded remediation in source commit `ec96fb31c6fc75f003f9255e1a8c117d3e5b2d26`:
+
+- explicit German near-reference extraction;
+- deterministic Basel disambiguation of bare `Bahnhof`/`Hauptbahnhof` to Basel SBB;
+- bounded, server-only reuse of Google Places Text Search for dynamic Basel reference points;
+- hard 800 m eligibility using the existing `spots.lat`/`spots.lng` coordinates;
+- honest empty output when a reference is unresolved or ambiguous;
+- a Location reason only when both resolved-reference and candidate-coordinate evidence prove the candidate lies within the bound.
+
+No Spot row, landmark tag, database schema, Mood semantics, Spot Engine, or general ranking architecture was changed. Reference resolution is request-time and server-side; Founder-maintained landmark tags are not required.
+
+Production project `hjgcrrzfjchzqoegcywn` runs the remediated `decision-v13` version `119` with JWT verification enabled:
+
+- Production EZBR bundle SHA-256: `ae71d4a701889bd0ddcf91bf7b05ff0d0d0273a14102bc5e863d1d808654cc04`
+- Deployment entrypoint: exactly `import "./live-index.ts";` followed by one newline
+- Entrypoint SHA-256: `4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299`
+- Downloaded deployed sources: 40
+- Repository byte matches against `ec96fb31c6fc75f003f9255e1a8c117d3e5b2d26`: 40/40
+
+The previous v10/v117 Production identity is preserved as forensic history and is stale for the currently running Decision behavior. The v11 contract binds the unchanged core Engine hash, expanded semantic source set, evidence set, dependent freezes, and the actual v119 Production identity together.
+
+Live authenticated validation against v119, with every returned distance independently recomputed from Production `spots.lat`/`spots.lng`, produced:
+
+| Query | Resolved reference | Applied semantics | Returned Production spots and distance |
+| --- | --- | --- | --- |
+| `gemütliches Café in der Nähe vom Bahnhof` | Basel SBB, 47.5475700 / 7.5895600 | deterministic Basel station alias; hard near ≤ 800 m | ViCafe 72 m; Starbucks Centralbahnplatz 140 m |
+| `gemütliches Café in der Nähe vom Basel SBB` | Basel SBB, 47.5475700 / 7.5895600 | canonical station alias; hard near ≤ 800 m | ViCafe 72 m |
+| `Bar in der Nähe vom Messeplatz` | Messeplatz, 47.5636576 / 7.6003903 | bounded Google Places exact-name resolution; hard near ≤ 800 m | KaBar 693 m; Bar Rouge 212 m; Volkshaus 583 m |
+| `Restaurant nahe Kunstmuseum Basel` | Kunstmuseum Basel, 47.5540319 / 7.5941927 | bounded Google Places exact-name resolution; hard near ≤ 800 m | Kunsthalle 243 m; Museumsbistro Rollerhof 428 m; Roter Bären 709 m |
+| `Café in der Nähe vom Glorpplatz 999` | unresolved | fail-closed; no proximity claim | no results; honest unresolved-reference response |
+
+Every returned result reason names the resolved reference and the evidenced meter distance. Candidates outside 800 m cannot fill results. Unresolved or ambiguous references cannot produce either matches or a Location claim.

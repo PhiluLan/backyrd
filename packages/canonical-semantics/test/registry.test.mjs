@@ -83,3 +83,17 @@ test("Gate-3 location, temporal and bidirectional price intents are typed withou
   assert.equal(missingOrigin.hardConstraints.unsatisfiable,true);
   assert.deepEqual(missingOrigin.hardConstraints.contradictions,["DISTANCE_ORIGIN_MISSING"]);
 });
+
+test("Founder near-reference language is explicit and landmark names do not become place-type intent",()=>{
+  const station=interpretCanonicalCurrentIntent({query:"gemütliches Café in der Nähe vom Bahnhof"});
+  assert.deepEqual(station.hardConstraints.requiredPlaceTypes,["cafe"]);
+  assert.equal(station.hardConstraints.locationReference.normalizedReference,"bahnhof");
+  assert.equal(station.hardConstraints.locationReference.maxDistanceKm,.8);
+  assert.equal(station.hardConstraints.unsatisfiable,false);
+  const museum=interpretCanonicalCurrentIntent({query:"Restaurant nahe Kunstmuseum Basel"});
+  assert.deepEqual(museum.hardConstraints.requiredPlaceTypes,["restaurant"]);
+  assert.equal(museum.hardConstraints.locationReference.normalizedReference,"kunstmuseum basel");
+  const fair=interpretCanonicalCurrentIntent({query:"Bar in der Nähe vom Messeplatz"});
+  assert.deepEqual(fair.hardConstraints.requiredPlaceTypes,["bar"]);
+  assert.equal(fair.hardConstraints.locationReference.normalizedReference,"messeplatz");
+});

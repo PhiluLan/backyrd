@@ -5,6 +5,7 @@ import { interpretCanonicalCurrentIntent } from "../../../packages/canonical-sem
 import { isInternalLiveUser, runInternalLiveDecision } from "./north-star-live.ts";
 import { jsonResponseWithFreshEntityHeaders } from "./live-response.mjs";
 import { alignLiveProductCurrentIntent, buildLiveCandidateFunnel, LIVE_RETRIEVAL_SOURCE_LIMIT, sanitizeLiveProductCandidate, sanitizeLiveProductRequestBody } from "../../../packages/decision-input-runtime/src/live-product-boundary.mjs";
+import { bindResolvedLocationIntent, resolveLocationReference, verifiedLocationEvidence } from "../../../packages/decision-input-runtime/src/location-reference.mjs";
 import { assertUnseenContinuation } from "../../../packages/decision-input-runtime/src/continuation.mjs";
 
 type Handler = (request: Request) => Promise<Response> | Response;
@@ -121,7 +122,7 @@ realServe(async (request: Request) => {
     )return baseResponse;
 
     const productQuery=text(body.rawFreeText)??text(body.query)??[text(body.moodA),text(body.moodB)].filter(Boolean).join(" ");
-    const canonicalIntent=alignLiveProductCurrentIntent(interpretCanonicalCurrentIntent({
+    let canonicalIntent=alignLiveProductCurrentIntent(interpretCanonicalCurrentIntent({
       query:productQuery,
       preferredPlaceTypes:body.preferredPlaceTypes??body.placeTypes??body.categories??[],
       excludedPlaceTypes:body.excludedPlaceTypes??body.avoidPlaceTypes??[],
@@ -129,8 +130,27 @@ realServe(async (request: Request) => {
       strictCategoryIntent:body.strictCategoryIntent===true,
       openNow:body.openNow===true,
     }),productQuery) as Record<string, unknown>;
+    const initialHard=canonicalIntent.hardConstraints as Record<string,unknown> | undefined;
+    const locationReference=initialHard?.locationReference as Record<string,unknown> | null | undefined;
+    if(locationReference){
+      const resolution=await resolveLocationReference({
+        reference:text(locationReference.normalizedReference),city:text(body.city),
+        maxDistanceKm:Number(locationReference.maxDistanceKm),googleApiKey:Deno.env.get("GOOGLE_PLACES_API_KEY")??null,
+      });
+      if(resolution.status!=="RESOLVED")return honestEmpty({
+        ...payload,
+        location_constraint:{status:"UNRESOLVED",reference:text(locationReference.normalizedReference),reason:resolution.reason??"REFERENCE_NOT_RESOLVED"},
+      },baseResponse);
+      canonicalIntent=bindResolvedLocationIntent(canonicalIntent,resolution) as Record<string,unknown>;
+    }
     const funnel=buildLiveCandidateFunnel(candidates,{city:text(body.city),canonicalIntent});
     const selected = funnel.selected;
+    const resolvedLocation=(canonicalIntent.hardConstraints as Record<string,unknown> | undefined)?.location as Record<string,unknown> | null | undefined;
+    const verifiedLocationBySpot=resolvedLocation?Object.fromEntries(funnel.rows.flatMap((row)=>{
+      if(row.handoffStatus!=="SELECTED")return[];
+      const evidence=verifiedLocationEvidence({location:resolvedLocation,distanceKm:row.locationDistanceKm});
+      return evidence?[[String(row.spotId),evidence]]:[];
+    })):{};
     const { selected: _selectedCandidates, ...candidateFunnelTrace } = funnel;
     if(selected.length===0)return honestEmpty(payload,baseResponse);
     const live = await runInternalLiveDecision({
@@ -157,6 +177,7 @@ realServe(async (request: Request) => {
       candidates: selected.map((candidate) => ({ spotId: String(candidate.spot_id), why: text(candidate.human_reason) })),
       candidateFunnel:{...candidateFunnelTrace,sourceRetrieval:payload._internal_retrieval_trace??null},
       openAIKey: Deno.env.get("OPENAI_API_KEY") ?? null,
+      verifiedLocationBySpot,
       learningEligible: !internalInvocation,
     });
     if (!live.active) return baseResponse;
