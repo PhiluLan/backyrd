@@ -48,7 +48,7 @@ jobs:
           supabase functions list --project-ref hjgcrrzfjchzqoegcywn --output json | jq -e '.[] | select(.slug=="decision-v13" and .status=="ACTIVE" and .verify_jwt==true)'
           supabase link --project-ref hjgcrrzfjchzqoegcywn
           supabase db push --dry-run 2>&1 | tee production-migration-dry-run.txt
-          grep -F 'Remote database is up to date.' production-migration-dry-run.txt
+          node scripts/deployment/verify-supabase-migration-dry-run.mjs supabase-production-plan.json production-migration-dry-run.txt
       - name: Retain pull-request deployment plan
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

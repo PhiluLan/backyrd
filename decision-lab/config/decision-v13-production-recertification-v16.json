@@ -119,6 +119,8 @@
       "scripts/deployment/deploy-supabase-production.sh",
       "scripts/deployment/supabase-production-plan.mjs",
       "scripts/deployment/supabase-production-plan.test.mjs",
+      "scripts/deployment/verify-supabase-migration-dry-run.mjs",
+      "scripts/deployment/verify-supabase-migration-dry-run.test.mjs",
       "scripts/deployment/verify-supabase-production-audit.mjs",
       "scripts/product/gate5-production-acceptance.mjs",
       "supabase/canonical/application-schema.sha256",
@@ -134,7 +136,7 @@
       "web/e2e/consumer.spec.ts",
       "web/tests/consumer-contracts.test.mjs"
     ],
-    "hash": "92c3adc5b7c4df120654ca1fd65d1bbddf514c9c66df11ea639d4b5029567100"
+    "hash": "b9d34091558d43912f5252b180613e57dbed2c8b2f05339ee41cea2fb99fd3d7"
   },
   "invariants": {
     "hardEligibilityBeforeRanking": "PASS",
