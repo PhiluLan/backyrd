@@ -108,6 +108,25 @@ test("Private mutations remain authenticated Supabase operations", async () => {
   assert.doesNotMatch(api + auth + server, /service[_-]?role/i);
 });
 
+test("Web profile privacy uses the canonical self-only RPC", async () => {
+  const source = await read("web/app/settings/privacy/page.tsx");
+  assert.match(source, /rpc\(["']set_my_profile_privacy_v1["']/);
+  assert.doesNotMatch(
+    source,
+    /from\(["']profiles["']\)[\s\S]{0,160}update\(\{\s*is_private/,
+  );
+});
+
+test("Web map preview cannot retain a spot excluded by active filters", async () => {
+  const source = await read("web/components/consumer/places-experience.tsx");
+  assert.match(
+    source,
+    /activeSelected\s*=\s*[\s\S]{0,180}visible\.some\(\(spot\)\s*=>\s*spot\.id\s*===\s*selected\.id\)/,
+  );
+  assert.match(source, /selectedId=\{activeSelected\?\.id \?\? null\}/);
+  assert.match(source, /\{activeSelected \? \(/);
+});
+
 test("personal Consumer route families share the canonical authentication gate", async () => {
   const families = [
     "settings",

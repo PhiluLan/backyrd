@@ -36,10 +36,10 @@
       "vercel_deployment": "BBa9jfxn6s4ZsaDkwSxv4sU2obhD",
       "created_at": "2026-08-29T08:02:02Z",
       "canonical_source": {
-        "commit": "2029192b1a72afe8a7472674b494fd213c09275d",
-        "tree": "e2dee34531a88f46dccd96cc0acac586e04d00d3",
+        "commit": "7dbe1e5c06db2ab6a29aadc681395fcf5c04bff7",
+        "tree": "d786d147f4ea9270f8527052e5f4d8bc106cf473",
         "production_verified": false,
-        "reason": "Gate 4 Auth lifecycle candidate: Web callback failure honesty and enumeration-safe Signup are fully validated; Vercel Production remains pending canonical merge."
+        "reason": "Gate 5 reviewed candidate: privacy settings use the authorized RPC and filtered map state cannot retain an ineligible Spot; Vercel Production remains pending canonical merge."
       }
     },
     "admin_intelligence_web": {
@@ -58,11 +58,11 @@
       "migration_count": 91,
       "source_commit": "643723ff3f732813c96637639f9c5e226eca65fb",
       "canonical_source": {
-        "source_commit": "736dc0652f9c2989415b2fd6ffdaf35a94b2040a",
-        "migration_tip": "20260901084827_mood_final_founder_closure_v1",
-        "migration_count": 126,
+        "source_commit": "7dbe1e5c06db2ab6a29aadc681395fcf5c04bff7",
+        "migration_tip": "20260901191833_gate5_harden_user_achievements_privacy",
+        "migration_count": 129,
         "production_verified": false,
-        "reason": "Reviewed forward-only Mood V1 final Founder closure; Production application remains pending canonical merge and forward-only deployment."
+        "reason": "Gate 5 reviewed forward-only user-achievement privacy hardening; Production application remains pending canonical merge and source-aware forward-only deployment."
       }
     }
   },
@@ -125,6 +125,23 @@
         "web/components/consumer/auth-form.tsx"
       ],
       "evidence": "scripts/auth/gate4-production-acceptance.mjs"
+    },
+    {
+      "id": "gate5_core_journeys_v1",
+      "baseline_commit": "3c58be88fdcac43285a506596fdbbbcd136d754e",
+      "source_commit": "7dbe1e5c06db2ab6a29aadc681395fcf5c04bff7",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "supabase/canonical/application-schema.sha256",
+        "supabase/canonical/public-acl.sha256",
+        "supabase/migrations/20260901191833_gate5_harden_user_achievements_privacy.sql",
+        "supabase/tests/gate5_core_journeys_v1.sql",
+        "web/app/settings/privacy/page.tsx",
+        "web/components/consumer/places-experience.tsx",
+        "web/e2e/consumer.spec.ts",
+        "web/tests/consumer-contracts.test.mjs"
+      ],
+      "evidence": "scripts/product/gate5-production-acceptance.mjs"
     }
   ],
   "required_ancestry": [

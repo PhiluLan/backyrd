@@ -465,7 +465,32 @@ test("places list/map, selection and browser history work", async ({ page }) => 
   if (await marker.count()) {
     await marker.click();
     await expect(page.locator(".b-map-preview")).toBeVisible();
+    await page.getByLabel("Orte durchsuchen").fill("gate5-no-such-place");
+    await expect(page.locator(".b-map-preview")).toHaveCount(0);
+    await expect(page.getByText("Kein Ort passt zu dieser Suche")).toBeVisible();
   }
+});
+
+test("places exposes an honest request failure and a working retry", async ({ page }) => {
+  let catalogCalls = 0;
+  await page.route("**/rest/v1/rpc/distribution_trust_spot_catalog_v1", async (route) => {
+    catalogCalls += 1;
+    if (catalogCalls === 1) {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "controlled Gate 5 failure" }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto("/places");
+  await expect(page.getByText("Orte konnten nicht geladen werden")).toBeVisible();
+  await page.getByRole("button", { name: "Erneut versuchen" }).click();
+  await expect(page.locator(".b-spot-card").first()).toBeVisible();
+  expect(catalogCalls).toBeGreaterThanOrEqual(2);
 });
 
 test("keyboard navigation reaches controls and closes dialogs with Escape", async ({ page }) => {
