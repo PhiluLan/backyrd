@@ -14,12 +14,12 @@
   "generatorVersion": "decision-lab-generator-v1",
   "groundTruthVersion": "latent-utility-v1",
   "engineSourceHash": "c80c275b5f09adf0e3081dc10763a06846f81333097fd2a9ead6e8dfb8d7987a",
-  "sourceGitSha": "ec96fb31c6fc75f003f9255e1a8c117d3e5b2d26",
-  "engineRecertificationVersion": "decision-v13-production-recertification-v11",
-  "engineRecertificationHash": "dd28973a6130fcf79f038a16d00bd40f249f264ed4920b2617f222de47aa05e4",
-  "protectedSemanticSourceSetHash": "1f1a286cfa2df4fe45a81c9851423a8fef2dc000d6cd4e7d2a941801e245a61e",
-  "productionFunctionVersion": 119,
-  "productionBundleHash": "ae71d4a701889bd0ddcf91bf7b05ff0d0d0273a14102bc5e863d1d808654cc04",
+  "sourceGitSha": "f91dd269039bba0138a655d0f4050699ccb5f0f4",
+  "engineRecertificationVersion": "decision-v13-production-recertification-v12",
+  "engineRecertificationHash": "f4403a56c62519d5f3668be99bf0bee36d5c469ef7b308af3559a2112a741196",
+  "protectedSemanticSourceSetHash": "7c17399ea19f5fe3dfef70bec958170c0cdb195a4043c191f124ceb11a87496b",
+  "productionFunctionVersion": 121,
+  "productionBundleHash": "7f881e938b75fb329d7d201ce89539699958cfe19f0f171977cf21db521e8553",
   "hardGateCount": 9,
   "hardGateCoverage": {
     "rows": [
@@ -139,12 +139,12 @@
   "scientificValidity": "PASS",
   "engineMutation": "AUTHORIZED_RECERTIFICATION",
   "d3Readiness": "READY",
-  "freezeManifestHash": "8cff5a31433f1a4f926a64ef605915308119a146ed6b721578ab7465e21e4a76",
+  "freezeManifestHash": "33484b1fe89650be35e4d845861ad8ae380d9632edce9949fffedd5979a0224f",
   "frozen": true,
-  "frozenAt": "2026-09-01T17:53:10+02:00",
+  "frozenAt": "2026-09-01T18:58:00+02:00",
   "supersedes": {
-    "freezeManifestHash": "621751cfe496301bf3eb598ea4ca877b0abd209afd56783a521c71805040c07e",
-    "reason": "FOUNDER_AUTHORIZED_GATE3_LOCATION_REALITY_CHECK_RECERTIFICATION"
+    "freezeManifestHash": "8cff5a31433f1a4f926a64ef605915308119a146ed6b721578ab7465e21e4a76",
+    "reason": "FOUNDER_AUTHORIZED_GATE3_REFERENCE_LOCATION_ADMIN_RECERTIFICATION"
   },
   "integrity": {
     "valid": true,
