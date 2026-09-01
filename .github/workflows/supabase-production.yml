@@ -25,6 +25,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
+      - name: Set up pinned Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.98.2
       - name: Verify fail-closed deployment planner
         run: node --test scripts/deployment/supabase-production-plan.test.mjs
       - name: Build auditable deployment plan
@@ -35,6 +39,26 @@ jobs:
         run: |
           jq '{canonicalMainSha,planHash,deployFunctions,migrations,runtimeDeploymentRequired}' supabase-production-plan.json
           jq -r '"### Supabase Production Plan\n\n- Main SHA: `\(.canonicalMainSha)`\n- Plan: `\(.planHash)`\n- Functions: \(.deployFunctions|join(", ") // "none")\n- Migrations: \(.migrations|length)\n- Runtime deployment: \(.runtimeDeploymentRequired)"' supabase-production-plan.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Verify Production credentials and pending migration scope read-only
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          supabase functions list --project-ref hjgcrrzfjchzqoegcywn --output json | jq -e '.[] | select(.slug=="decision-v13" and .status=="ACTIVE" and .verify_jwt==true)'
+          supabase link --project-ref hjgcrrzfjchzqoegcywn
+          supabase db push --dry-run 2>&1 | tee production-migration-dry-run.txt
+          grep -F 'Remote database is up to date.' production-migration-dry-run.txt
+      - name: Retain pull-request deployment plan
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: supabase-production-plan-${{ github.sha }}
+          path: |
+            supabase-production-plan.json
+            production-migration-dry-run.txt
+          if-no-files-found: error
+          retention-days: 30
 
   production:
     name: Canonical main production deploy

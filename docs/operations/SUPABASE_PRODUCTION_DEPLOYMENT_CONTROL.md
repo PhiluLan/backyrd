@@ -2,6 +2,8 @@
 
 Production deploys originate only from a `push` to canonical `main`. Pull requests execute the same fail-closed planner but cannot deploy. The workflow has no manual or feature-branch trigger.
 
+Same-repository pull requests additionally authenticate read-only against the fixed Production project, verify the active JWT-protected Decision Function, and execute a real remote migration dry run. This proves the Production credential and database connection before the legacy integration is disabled without permitting a pull request to mutate Production.
+
 Each enabled Edge Function is bound to its configured entrypoint, every transitively reachable repository-local static or literal dynamic import, its import map and ambient Deno/npm configuration, and its complete `[functions.<slug>]` block including `verify_jwt`. The deterministic source-set hash is compared between the exact before and canonical-main SHAs. A changed bound scope deploys only the affected functions. A non-literal dynamic import, unresolved or ambiguous local dependency, undeclared changed Edge source, unsupported static-file scope, ambiguous global Supabase configuration change, or function retirement blocks the deployment plan.
 
 Migration planning permits only newly added, timestamped forward migrations. Production first performs a remote dry run and requires its pending filenames to equal the canonical plan exactly before applying them. Published migration mutation or deletion blocks.
