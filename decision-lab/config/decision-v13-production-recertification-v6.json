@@ -36,7 +36,7 @@
       "packages/decision-input-runtime/src/offering-decision.mjs",
       "packages/decision-orchestrator-runtime/src/ranking.mjs",
       "supabase/migrations/20260825230000_canonical_offering_purpose_v2_1.sql",
-      "supabase/migrations/20260831170005_create_canonical_product_mood_v1.sql"
+      "supabase/migrations/20260831220000_create_canonical_product_mood_v1.sql"
     ],
     "hash": "1dee3ccc8c34f390a54e188481ae1c8dd135802e8c362e903c30a1ecc8482e6f"
   },
@@ -54,7 +54,7 @@
       "supabase/config.toml",
       "supabase/functions/decision-v13/index.deploy.ts"
     ],
-    "hash": "10ffc05657aa6a501e6d37a572fa5695fcbdf0839a3a276d95e1468e389d900a"
+    "hash": "e6a14ff8017105829af1b7fa721f1a50364625dc7611ae198873e75291a26a01"
   },
   "invariants": {
     "hardEligibilityBeforeRanking": "PASS",

@@ -89,7 +89,7 @@ canonical_mood_marker='docs/decision/D2_D3_CANONICAL_MOOD_RECERTIFICATION_2026_0
 canonical_mood_module='supabase/functions/decision-v13/community-mood-signal.mjs'
 if [[ "$engine_baseline_accepted" == true ]] \
   && printf '%s\n' "$changed" | grep -Fx "$canonical_mood_marker" >/dev/null \
-  && printf '%s\n' "$changed" | grep -Fx 'supabase/migrations/20260831170005_create_canonical_product_mood_v1.sql' >/dev/null \
+  && printf '%s\n' "$changed" | grep -Fx 'supabase/migrations/20260831220000_create_canonical_product_mood_v1.sql' >/dev/null \
   && printf '%s\n' "$changed" | grep -Fx 'supabase/tests/canonical_product_mood_v1.sql' >/dev/null \
   && printf '%s\n' "$changed" | grep -Fx 'decision-lab/test/community-mood-decision.test.mjs' >/dev/null; then
   protected="$(printf '%s\n' "$protected" \

@@ -6,7 +6,7 @@ Implementation and local security regressions are ready for independent Security
 
 ## New or changed privileged boundaries
 
-All functions below are in `20260831170005_create_canonical_product_mood_v1.sql`, use a fixed `search_path`, revoke implicit/Public execution, and have explicit grants.
+All functions below are in `20260831220000_create_canonical_product_mood_v1.sql`, use a fixed `search_path`, revoke implicit/Public execution, and have explicit grants.
 
 | Function | Security | Intended caller |
 |---|---|---|

@@ -59,10 +59,10 @@
       "source_commit": "643723ff3f732813c96637639f9c5e226eca65fb",
       "canonical_source": {
         "source_commit": "34d5275f4261d81ac6b215e3aaf29dccfbfe30fe",
-        "migration_tip": "20260831170005_create_canonical_product_mood_v1",
+        "migration_tip": "20260831220000_create_canonical_product_mood_v1",
         "migration_count": 114,
         "production_verified": false,
-        "reason": "Reviewed Canonical Product Mood V1 release candidate; Production application remains fail-closed on the documented migration-ledger timestamp divergence."
+        "reason": "Reviewed Canonical Product Mood V1 release candidate reconciled onto Database Consolidation V1; Production application remains pending clean bootstrap, canonical merge and forward-only deployment."
       }
     }
   },
