@@ -19,6 +19,7 @@ const navigationItems: NavigationItem[] = [
   { href: "/spot-engine", label: "Spot Engine", icon: "◎" },
   { href: "/spot-quality", label: "Qualität & Gold", icon: "◈" },
   { href: "/reviews", label: "Reviews", icon: "✎" },
+  { href: "/moods", label: "Mood Engine", icon: "◌" },
   { href: "/taxonomy", label: "Kategorien", icon: "◆" },
   { href: "/users", label: "Nutzer", icon: "◎", groupLabel: "Menschen" },
   { href: "/claims", label: "Owner-Anfragen", icon: "◇" },

@@ -144,6 +144,15 @@ test("successful auth synchronizes the persistent shell and server-visible navig
   assert.match(account, /window\.location\.replace\("\/"\)/);
 });
 
+test("Review Mood input uses selectable canonical autocomplete without closing free expression", async () => {
+  const source = await read("web/components/consumer/review-form.tsx");
+  assert.match(source, /backyrd_search_mood_concepts_v1/);
+  assert.match(source, /role="listbox"/);
+  assert.match(source, /onClick=\{\(\) => \{ onChange\(item\.label\)/);
+  assert.match(source, /onChange=\{\(event\) => onChange\(event\.target\.value\)\}/);
+  assert.doesNotMatch(source, /const moods\s*=/);
+});
+
 test("canonical Owner image failures remain local and fall back without changing source priority", async () => {
   const image = await read("web/components/canonical-spot-image.tsx");
   assert.match(image, /onError=\{\(\) => setFailed\(true\)\}/);
