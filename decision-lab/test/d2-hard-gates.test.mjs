@@ -94,6 +94,10 @@ test("freeze identity is deterministic and validator rejects tampering", async (
   assert.deepEqual(first, second);
   const recertification = await validateEngineRecertification();
   assert.equal(recertification.valid, true, JSON.stringify(recertification.reasons));
+  assert.equal(recertification.contract.version, "decision-v13-production-recertification-v9");
+  assert.equal(recertification.identity.authorizedSourceCommit, "a4ceb0043d3723dd318c8aa757a3a275dd7554fe");
+  assert.equal(recertification.identity.productionFunctionVersion, 116);
+  assert.equal(recertification.identity.productionBundleHash, "88b4f26919f1e1e98b403b9226e4dbe8562ff7593885e3e5915ccc94944b718e");
   const changedProduction = await validateEngineRecertification({
     ...recertification.contract,
     production: { ...recertification.contract.production, activeVersion: 76 }
@@ -122,6 +126,21 @@ test("freeze identity is deterministic and validator rejects tampering", async (
   });
   assert.equal(changedSourceSet.valid, false);
   assert.ok(changedSourceSet.reasons.includes("PROTECTED_SEMANTIC_SOURCE_SET_MISMATCH"));
+  const changedEvidenceSet = await validateEngineRecertification({
+    ...recertification.contract,
+    certificationEvidenceSet: {
+      ...recertification.contract.certificationEvidenceSet,
+      paths: [...recertification.contract.certificationEvidenceSet.paths, "package.json"]
+    }
+  });
+  assert.equal(changedEvidenceSet.valid, false);
+  assert.ok(changedEvidenceSet.reasons.includes("CERTIFICATION_EVIDENCE_SET_MISMATCH"));
+  const changedAuthorization = await validateEngineRecertification({
+    ...recertification.contract,
+    authorization: { ...recertification.contract.authorization, authorizedSourceCommit: "0".repeat(40) }
+  });
+  assert.equal(changedAuthorization.valid, false);
+  assert.ok(changedAuthorization.reasons.includes("AUTHORIZED_SOURCE_COMMIT_MISMATCH"));
   assert.equal(first.engineMutation, "AUTHORIZED_RECERTIFICATION");
   assert.equal((await validateD21Freeze(first)).valid, true);
   assert.equal((await validateD21Freeze({ ...first, constitutionHash: "tampered" })).valid, false);

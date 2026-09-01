@@ -18,21 +18,28 @@ const evaluationFiles = ["decision-lab/src/contracts.mjs", "decision-lab/src/eva
 const acceptanceFiles = ["decision-lab/src/acceptance.mjs", "decision-lab/src/hard-gate-acceptance.mjs"];
 const absolute = (paths) => paths.map((path) => resolve(repoRoot, path));
 
-const recertificationPath = resolve(repoRoot, "decision-lab/config/decision-v13-production-recertification-v8.json");
+const recertificationPath = resolve(repoRoot, "decision-lab/config/decision-v13-production-recertification-v9.json");
 const requiredRecertificationInvariants = Object.freeze({
   hardEligibilityBeforeRanking: "PASS",
   distributionEligibilityBeforeFusion: "PASS",
-  offeringPurposeRecallAddsNoScore: "PASS",
+  explicitNegationsAreHardExclusions: "PASS",
+  ambiguousNegationsRemainNonExcluding: "PASS",
+  boundedBaselLocationConstraintsUseCanonicalGeoEvidence: "PASS",
+  priceUnknownNeverQualifiesAsMatch: "PASS",
+  verifiedExactConstraintsReturnAtMostAvailableMatches: "PASS",
+  zeroVerifiedMatchesReturnsHonestEmpty: "PASS",
+  openNowAndTimeUseCanonicalSpotHours: "PASS",
+  missingOpeningHoursRemainUnknown: "PASS",
+  visibleImpressionsPersistBeforeContinuation: "PASS",
+  continuationNeverRepeatsVisibleCandidates: "PASS",
   factualTupleRemainsDeterministicAuthority: "PASS",
   reasonsRequireConfirmedCandidateFacts: "PASS",
+  reasonsNeverPromoteUnknownToMatch: "PASS",
   offeringPurposeIsNotUserTaste: "PASS",
-  legacyQueriesWithoutOfferingPurposeIntent: "SEMANTICALLY_UNCHANGED",
   d2HardGateConstitution: "UNCHANGED",
-  communityMoodAfterEligibility: "PASS",
-  communityMoodEvidenceThreshold: "ESTABLISHED_ONLY",
-  communityMoodMaximumComponent: 0.06,
-  missingCommunityMoodEvidence: "NEUTRAL",
-  moodSubmissionTasteN4GoldFirewalls: "PASS",
+  moodSemantics: "UNCHANGED",
+  tasteTrustN4Semantics: "UNCHANGED",
+  offeringPurposeSemantics: "EXTENDED_ONLY_FOR_GERMAN_BREAKFAST_INFLECTION",
   generalRankingArchitecture: "UNCHANGED"
 });
 
@@ -44,32 +51,34 @@ export async function validateEngineRecertification(contractOverride = null) {
   const productionEntrypointSource = await readFile(resolve(repoRoot, contract.production.entrypointPath), "utf8").catch(() => null);
   const productionEntrypointSha256 = productionEntrypointSource === null ? null : createHash("sha256").update(productionEntrypointSource).digest("hex");
   const reasons = [
-    ...(contract.version === "decision-v13-production-recertification-v8" ? [] : ["RECERTIFICATION_VERSION_INVALID"]),
+    ...(contract.version === "decision-v13-production-recertification-v9" ? [] : ["RECERTIFICATION_VERSION_INVALID"]),
     ...(contract.status === "AUTHORIZED" ? [] : ["RECERTIFICATION_NOT_AUTHORIZED"]),
     ...(contract.authorization?.previousEngineSourceHash === "1fe82c39ad164fa811c2673cd46d8f451d7628c7ddabd1d8c595afd18a54c14f" ? [] : ["PREVIOUS_BASELINE_IDENTITY_MISMATCH"]),
-    ...(contract.authorization?.previousRecertificationVersion === "decision-v13-production-recertification-v7" && contract.authorization?.previousRecertificationHash === "3dacf1d7112b3c3d471a40c68878ea8c0cf4d83d67a526b2565d8d82309f3a2c" ? [] : ["PREVIOUS_RECERTIFICATION_IDENTITY_MISMATCH"]),
-    ...(contract.authorization?.baseCommit === "1b00265f0471682a5d38bcd9f6a3b79ef5e6ef75" ? [] : ["AUTHORIZED_BASE_COMMIT_MISMATCH"]),
-    ...(contract.authorization?.changeClass === "FOUNDER_AUTHORIZED_MULTI_VISIT_COMMUNITY_MOOD_EVIDENCE" ? [] : ["AUTHORIZED_CHANGE_CLASS_MISMATCH"]),
+    ...(contract.authorization?.previousRecertificationVersion === "decision-v13-production-recertification-v8" && contract.authorization?.previousRecertificationHash === "aaabb696c8cc38c344c6ad94fcf95e14dfeb8c4ff2f4036b295b52e4c96b6b95" ? [] : ["PREVIOUS_RECERTIFICATION_IDENTITY_MISMATCH"]),
+    ...(contract.authorization?.baseCommit === "458107a89a85dba535f362e2dc2a137d35505cbc" ? [] : ["AUTHORIZED_BASE_COMMIT_MISMATCH"]),
+    ...(contract.authorization?.authorizedSourceCommit === "a4ceb0043d3723dd318c8aa757a3a275dd7554fe" ? [] : ["AUTHORIZED_SOURCE_COMMIT_MISMATCH"]),
+    ...(contract.authorization?.changeClass === "FOUNDER_AUTHORIZED_GATE3_PRODUCTION_ACCEPTANCE" ? [] : ["AUTHORIZED_CHANGE_CLASS_MISMATCH"]),
     ...(contract.protectedSemanticSourceSet.hash === protectedSemanticSourceSetHash ? [] : ["PROTECTED_SEMANTIC_SOURCE_SET_MISMATCH"]),
     ...(contract.certificationEvidenceSet.hash === certificationEvidenceSetHash ? [] : ["CERTIFICATION_EVIDENCE_SET_MISMATCH"]),
     ...(engineSourceHash === contract.authorization?.authorizedEngineSourceHash ? [] : ["AUTHORIZED_ENGINE_SOURCE_MISMATCH"]),
     ...(contract.production?.supabaseProjectRef === "hjgcrrzfjchzqoegcywn" &&
       contract.production?.functionSlug === "decision-v13" &&
-      contract.production?.activeVersion === 110 &&
+      contract.production?.activeVersion === 116 &&
       contract.production?.verifyJwt === true &&
-      contract.production?.bundleHash === "5bf3dc86c778a4c6d10de5c21165505e2d5d8b4d41dcb0adb5d8829ff0902c7c" &&
+      contract.production?.bundleHash === "88b4f26919f1e1e98b403b9226e4dbe8562ff7593885e3e5915ccc94944b718e" &&
       contract.production?.entrypointPath === "supabase/functions/decision-v13/index.deploy.ts" &&
       contract.production?.entrypointSource === "import \"./live-index.ts\";\n" &&
       contract.production?.entrypointSha256 === "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299" &&
       contract.production?.deployedFileCount === 39 &&
       contract.production?.repositoryMatchedFileCount === 39 &&
-      contract.production?.sourceIdentity === "CANONICAL_MAIN_1B491E1_BYTE_MATCHED" ? [] : ["PRODUCTION_IDENTITY_NOT_CERTIFIED"]),
+      contract.production?.sourceIdentity === "GATE3_A4CEB00_PRODUCTION_V116_39_OF_39_BYTE_MATCHED" ? [] : ["PRODUCTION_IDENTITY_NOT_CERTIFIED"]),
     ...(productionEntrypointSource === contract.production?.entrypointSource && productionEntrypointSha256 === contract.production?.entrypointSha256 ? [] : ["PRODUCTION_ENTRYPOINT_REPOSITORY_MISMATCH"]),
     ...Object.entries(requiredRecertificationInvariants).filter(([key, value]) => contract.invariants?.[key] !== value).map(([key]) => `SEMANTIC_INVARIANT_NOT_CERTIFIED:${key}`)
   ];
   const identity = {
     version: contract.version,
     authorizationCommit: contract.authorization.baseCommit,
+    authorizedSourceCommit: contract.authorization.authorizedSourceCommit,
     authorizationHash: contentHash(contract.authorization),
     engineSourceHash,
     protectedSemanticSourceSetHash,
@@ -120,7 +129,7 @@ export async function computeD21Identity() {
     generatorVersion: config.generatorVersion,
     groundTruthVersion: constitution.groundTruthVersion,
     engineSourceHash,
-    sourceGitSha: recertification.valid ? recertification.identity.authorizationCommit : "c324e71e2e4f2e4b6815289d29f681690edbaaac",
+    sourceGitSha: recertification.valid ? recertification.identity.authorizedSourceCommit : "c324e71e2e4f2e4b6815289d29f681690edbaaac",
     engineRecertificationVersion: recertification.valid ? recertification.identity.version : null,
     engineRecertificationHash: recertification.valid ? recertification.recertificationHash : null,
     protectedSemanticSourceSetHash: recertification.valid ? recertification.identity.protectedSemanticSourceSetHash : null,
@@ -139,7 +148,7 @@ export async function computeD21Identity() {
     frozen: semantic.d3Readiness === "READY",
     frozenAt: recertification.valid ? recertification.contract.authorization.approvedAt : "2026-08-12T19:00:00.000Z",
     supersedes: recertification.valid
-      ? { freezeManifestHash: "895cb7b5d6da00201354bc92e9be31135c3dd57a92e5907459db5b4fc4deb857", reason: "AUTHORIZED_MULTI_VISIT_COMMUNITY_MOOD_EVIDENCE_RECERTIFICATION" }
+      ? { freezeManifestHash: "b0f99fca748282d06216764867627330b8d8e6737d2d9ef85e3dd2e569ccabba", reason: "FOUNDER_AUTHORIZED_GATE3_PRODUCTION_ACCEPTANCE_RECERTIFICATION" }
       : { constitutionVersion: "decision-quality-v1", reason: "D3-CONSTITUTION-ISSUE-001" },
     integrity
   };
