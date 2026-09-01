@@ -408,7 +408,6 @@ jq -r '.[] | .function as $function | .issues[] | [$function, .sqlState, .messag
   "$lint_json" | sort > "$validation_root/db-lint-actual.txt"
 cat > "$validation_root/db-lint-expected.txt" <<'EOF'
 public.follow_spot_v1	42702	column reference "spot_id" is ambiguous
-public.spot_is_open_now_safe_v1	42703	column "open_now" does not exist
 public.upsert_my_owned_spot_content_v1	42702	column reference "spot_id" is ambiguous
 EOF
 

@@ -11,13 +11,32 @@ test("free-text Product request never sends internal instructions to retrieval",
 });
 
 test("Mobile candidate serialization strips internal/debug text", () => {
-  const candidate = sanitizeLiveProductCandidate({ spot_id:"spot-a", matched_terms:[leaked,"Tierpark"], matched_tokens:["Familie"], technical_why_this:"debug", document_preview:"private", explanation:{ debug:true } }, "Passt zu deiner aktuellen Suche.");
+  const candidate = sanitizeLiveProductCandidate({ spot_id:"spot-a", matched_terms:[leaked,"Tierpark"], matched_tokens:["Familie"], technical_why_this:"debug", document_preview:"private", explanation:{ debug:true },_internal_product_evidence:{coordinates:{latitude:1,longitude:2}} }, "Passt zu deiner aktuellen Suche.");
   assert.deepEqual(candidate.matched_terms, ["Tierpark"]);
   assert.equal(candidate.human_reason, "Passt zu deiner aktuellen Suche.");
   assert.equal(candidate.technical_why_this, null);
   assert.equal(candidate.document_preview, null);
   assert.equal(candidate.explanation, undefined);
+  assert.equal(candidate._internal_product_evidence,undefined);
   assert.equal(JSON.stringify(candidate).includes("prefer matching categories"), false);
+});
+
+test("Gate-3 location and time constraints fail closed on missing or mismatching Product evidence",()=>{
+  const base={spot_id:"near",name:"Near",place_type:"cafe",city:"Basel",_internal_product_evidence:{coordinates:{latitude:47.54757,longitude:7.58956},openingHours:[{day_of_week:"Sonntag",open_time:"08:00:00",close_time:"12:00:00"}]}};
+  const canonicalIntent={hardConstraints:{location:{latitude:47.54757,longitude:7.58956,maxDistanceKm:.8},temporalEligibility:{weekday:"SUNDAY",start:"05:00",end:"12:00"}}};
+  const funnel=buildLiveCandidateFunnel([base,{...base,spot_id:"far",_internal_product_evidence:{...base._internal_product_evidence,coordinates:{latitude:47.58,longitude:7.64}}},{...base,spot_id:"unknown",_internal_product_evidence:{coordinates:null,openingHours:[]}}],{city:"Basel",canonicalIntent});
+  assert.deepEqual(funnel.selected.map((row)=>row.spot_id),["near"]);
+  assert.ok(funnel.rows.find((row)=>row.spotId==="far").exclusionReasons.includes("LOCATION_MISMATCH"));
+  assert.ok(funnel.rows.find((row)=>row.spotId==="unknown").exclusionReasons.includes("LOCATION_EVIDENCE_UNKNOWN"));
+  assert.ok(funnel.rows.find((row)=>row.spotId==="unknown").exclusionReasons.includes("OPENING_HOURS_UNKNOWN"));
+});
+
+test("Gate-3 contradictory intent and unknown opening status never enter Product handoff",()=>{
+  const candidate={spot_id:"spot",name:"Spot",place_type:"cafe",city:"Basel",is_open_now:null};
+  assert.equal(buildLiveCandidateFunnel([candidate],{canonicalIntent:{hardConstraints:{unsatisfiable:true}}}).selected.length,0);
+  const openNow=buildLiveCandidateFunnel([candidate,{...candidate,spot_id:"open",is_open_now:true}],{canonicalIntent:{hardConstraints:{openNow:true}}});
+  assert.deepEqual(openNow.selected.map((row)=>row.spot_id),["open"]);
+  assert.deepEqual(openNow.rows[0].exclusionReasons,["OPENING_STATUS_UNKNOWN"]);
 });
 
 test("Candidate processing receives a bounded broad universe, not only three rows", () => {

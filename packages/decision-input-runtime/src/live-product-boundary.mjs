@@ -21,9 +21,10 @@ export function sanitizeLiveProductRequestBody(body = {}) {
 }
 
 export function sanitizeLiveProductCandidate(candidate, authorizedReason) {
+  const {_internal_product_evidence:_internalProductEvidence,...publicCandidate}=candidate??{};
   const safeReason = containsInternalDecisionText(authorizedReason) ? null : clean(authorizedReason) || null;
   return {
-    ...candidate,
+    ...publicCandidate,
     human_reason: safeReason,
     technical_why_this: null,
     document_preview: null,
@@ -52,6 +53,30 @@ export const LIVE_ELIGIBLE_HANDOFF_LIMIT=20;
 
 const lower=(value)=>String(value??"").trim().toLocaleLowerCase("de-CH");
 const candidatePlaceType=(candidate)=>lower(candidate?.place_type||candidate?.canonical_place_type);
+const radians=(value)=>Number(value)*Math.PI/180;
+const distanceKm=(left,right)=>{
+  if(!Number.isFinite(Number(left?.latitude))||!Number.isFinite(Number(left?.longitude))||!Number.isFinite(Number(right?.latitude))||!Number.isFinite(Number(right?.longitude)))return null;
+  const dLat=radians(Number(right.latitude)-Number(left.latitude)),dLon=radians(Number(right.longitude)-Number(left.longitude));
+  const a=Math.sin(dLat/2)**2+Math.cos(radians(left.latitude))*Math.cos(radians(right.latitude))*Math.sin(dLon/2)**2;
+  return 6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+};
+const WEEKDAYS=Object.freeze({MONDAY:["monday","montag"],TUESDAY:["tuesday","dienstag"],WEDNESDAY:["wednesday","mittwoch"],THURSDAY:["thursday","donnerstag"],FRIDAY:["friday","freitag"],SATURDAY:["saturday","samstag"],SUNDAY:["sunday","sonntag"]});
+const resolvedWeekday=(value)=>{
+  if(value!=="TODAY")return value;
+  return new Intl.DateTimeFormat("en-US",{weekday:"long",timeZone:"Europe/Zurich"}).format(new Date()).toUpperCase();
+};
+const minutes=(value)=>{const match=String(value??"").match(/^(\d{1,2}):(\d{2})/);return match?Number(match[1])*60+Number(match[2]):null;};
+const segments=(start,end)=>start===null||end===null?[]:end>start?[[start,end]]:[[start,1440],[0,end]];
+const overlaps=(left,right)=>left.some(([a,b])=>right.some(([c,d])=>Math.max(a,c)<Math.min(b,d)));
+const supportsTemporalWindow=(hours,constraint)=>{
+  if(!Array.isArray(hours)||hours.length===0)return null;
+  const weekday=resolvedWeekday(constraint?.weekday);
+  const aliases=WEEKDAYS[weekday]??[];
+  const requested=segments(minutes(constraint?.start),minutes(constraint?.end));
+  const rows=hours.filter((row)=>aliases.includes(lower(row?.day_of_week)));
+  if(rows.length===0)return false;
+  return rows.some((row)=>overlaps(segments(minutes(row?.open_time),minutes(row?.close_time)),requested));
+};
 
 const FRIENDS_CURRENT_INTENT=/\b(freund(?:e|en|eskreis)?|friends?|friend group)\b/;
 
@@ -92,10 +117,22 @@ export function buildLiveCandidateFunnel(candidates,{city=null,canonicalIntent=n
     else if(seen.has(spotId))reasons.push("DUPLICATE_CANDIDATE");
     if(spotId)seen.add(spotId);
     const placeType=candidatePlaceType(candidate);
+    const internalEvidence=candidate?._internal_product_evidence??{};
+    if(hard.unsatisfiable===true)reasons.push("CONTRADICTORY_INTENT");
     if(excluded.has(placeType))reasons.push("EXCLUDED_PLACE_TYPE");
     if(required.size&&!required.has(placeType))reasons.push("REQUIRED_PLACE_TYPE_MISMATCH");
     if(city&&candidate?.city&&lower(candidate.city)!==lower(city))reasons.push("CITY_MISMATCH");
     if(hard.openNow===true&&candidate?.is_open_now!==true)reasons.push(candidate?.is_open_now===false?"CLOSED_NOW":"OPENING_STATUS_UNKNOWN");
+    if(hard.location){
+      const measured=distanceKm(internalEvidence.coordinates,hard.location);
+      if(measured===null)reasons.push("LOCATION_EVIDENCE_UNKNOWN");
+      else if(measured>Number(hard.location.maxDistanceKm))reasons.push("LOCATION_MISMATCH");
+    }
+    if(hard.temporalEligibility){
+      const supported=supportsTemporalWindow(internalEvidence.openingHours,hard.temporalEligibility);
+      if(supported===null)reasons.push("OPENING_HOURS_UNKNOWN");
+      else if(!supported)reasons.push("TIME_WINDOW_MISMATCH");
+    }
     const row={
       spotId:spotId||null,name:clean(candidate?.name)||null,canonicalPlaceType:placeType||null,
       retrievalSources:Array.isArray(candidate?.sources)?candidate.sources:[],

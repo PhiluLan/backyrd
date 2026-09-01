@@ -47,9 +47,18 @@ try{
   ok((await service.from("backyrd_internal_live_users_v1").insert({user_id:userId,enabled:true,n2_enabled:false,user_intelligence_enabled:false,decision_enabled:true,n6_enabled:false,activation_reason:"PRODUCTION_CONTINUATION_VALIDATION"})).error,"fixture allowlist");
   const client=createClient(url,anon,options),signed=await client.auth.signInWithPassword({email,password});ok(signed.error,"fixture sign in");
   const token=signed.data.session?.access_token;assert.ok(token);
+  const recordVisiblePage=async(decisionId,page,candidates)=>{
+    for(const [index,candidate] of candidates.entries()){
+      const recorded=await client.rpc("backyrd_record_visible_decision_impression_v1",{
+        p_decision_id:decisionId,p_spot_id:String(candidate.spot_id),p_page_number:page,p_position_in_page:index+1,
+      });
+      ok(recorded.error,`visible impression page ${page} position ${index+1}`);
+    }
+  };
   const query="Regentag mit meiner 4-jährigen Tochter";
   const initial=await invoke(token,{city:"Basel",moodA:null,moodB:null,query,preferredPlaceTypes:[],audience:[],strictCategoryIntent:false,inputMode:"free",rawFreeText:query,limit:10,v12Limit:12,semanticLimit:18,excludeSpotIds:[]});
   const decisionId=initial.payload.north_star?.decision_id;assert.ok(decisionId);
+  await recordVisiblePage(decisionId,1,initial.payload.candidates??[]);
   const pages=[{page:1,latencyMs:initial.latencyMs,candidates:(initial.payload.candidates??[]).map(compact),exhausted:initial.payload.continuation?.exhausted===true}];
   let exhausted=pages[0].exhausted;
   let previous=ids(initial.payload.candidates??[]);
@@ -60,6 +69,7 @@ try{
     assert.equal(next.payload.continuation?.decision_id,decisionId);
     assert.equal(next.payload.continuation?.page,expectedPage);
     const returned=ids(next.payload.candidates??[]);
+    await recordVisiblePage(decisionId,expectedPage,next.payload.candidates??[]);
     assert.deepEqual(intersection(previous,returned),[]);
     if(expectedPage===2){
       const replay=await invoke(token,{continuationDecisionId:decisionId,continuationRequestId:requestId});

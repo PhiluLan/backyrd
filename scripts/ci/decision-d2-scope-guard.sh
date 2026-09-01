@@ -2,7 +2,32 @@
 set -euo pipefail
 base="${CI_BASE_SHA:-origin/main}"
 changed="$(git diff --name-only "$base"...HEAD)"
-protected="$(printf '%s\n' "$changed" | grep -E '^(supabase/functions/decision-v13/|supabase/migrations/.*decision.*(v11|v12|v13)|mobile/.*decision|web/.*decision)' || true)"
+protected="$(printf '%s\n' "$changed" | grep -E '^(supabase/functions/decision-v13/|supabase/migrations/.*(decision|gate3)|packages/(canonical-semantics|decision-input-runtime|decision-orchestrator-runtime|n6-shadow-runtime)/src/|mobile/.*decision|web/.*decision)' || true)"
+recertification_contract='decision-lab/config/decision-v13-production-recertification-v9.json'
+
+# The current contract names every protected semantic source and every item of
+# certification evidence. Changes to any named path, to the contract itself,
+# or to a dependent freeze are protected even when they sit outside a Product
+# directory. This closes the old wrapper/path gap: admission is by the exact
+# validated source/evidence set, never by directory or glob.
+if [[ -f "$recertification_contract" ]]; then
+  while IFS= read -r bound_path; do
+    if printf '%s\n' "$changed" | grep -Fx "$bound_path" >/dev/null; then
+      protected="$(printf '%s\n%s\n' "$protected" "$bound_path" | sed '/^$/d' | sort -u)"
+    fi
+  done < <(jq -r '.protectedSemanticSourceSet.paths[], .certificationEvidenceSet.paths[]' "$recertification_contract")
+fi
+for bound_path in \
+  "$recertification_contract" \
+  'decision-lab/config/decision-quality-v1.1.freeze.json' \
+  'decision-lab/config/personalization-treatment-v1.json' \
+  'decision-lab/config/personalization-treatment-v1.freeze.json' \
+  'decision-lab/config/d3.1-diagnostic-coverage-v1.json' \
+  'decision-lab/src/d3.1-readiness.mjs'; do
+  if printf '%s\n' "$changed" | grep -Fx "$bound_path" >/dev/null; then
+    protected="$(printf '%s\n%s\n' "$protected" "$bound_path" | sed '/^$/d' | sort -u)"
+  fi
+done
 
 # Downstream, byte-pinned Product integrations may rely on either the original
 # unchanged D2 engine or the exact Production baseline admitted by the full
@@ -15,6 +40,32 @@ if git diff --quiet "$base"...HEAD -- supabase/functions/decision-v13/index.ts; 
 elif node decision-lab/src/d2-cli.mjs validate-freeze | jq -e '.frameworkValidity == "PASS" and .freezeValidation.valid == true' >/dev/null; then
   engine_baseline_accepted=true
   echo "D2 scope guard: exact re-certified Production engine baseline accepted"
+fi
+
+# A Founder-authorized semantic change is admitted only when the complete
+# chain validates together: D2 Engine + source/evidence/Production identity,
+# D2.1 freeze, D2.2 treatment freeze, and D3.1 parent identities. Once valid,
+# remove only the exact paths enumerated by that contract and the exact
+# dependent freeze files. Any additional source remains protected.
+full_recertification_accepted=false
+if [[ -f "$recertification_contract" ]] \
+  && node decision-lab/src/d2-cli.mjs validate-freeze | jq -e '.frameworkValidity == "PASS" and .freezeValidation.valid == true' >/dev/null \
+  && node decision-lab/src/personalization-treatment-freeze.mjs validate | jq -e '.valid == true' >/dev/null \
+  && node decision-lab/src/d3.1-readiness.mjs | jq -e '.status == "PASS"' >/dev/null; then
+  full_recertification_accepted=true
+  while IFS= read -r admitted_path; do
+    protected="$(printf '%s\n' "$protected" | grep -Fvx "$admitted_path" || true)"
+  done < <(jq -r '.protectedSemanticSourceSet.paths[], .certificationEvidenceSet.paths[]' "$recertification_contract")
+  for admitted_path in \
+    "$recertification_contract" \
+    'decision-lab/config/decision-quality-v1.1.freeze.json' \
+    'decision-lab/config/personalization-treatment-v1.json' \
+    'decision-lab/config/personalization-treatment-v1.freeze.json' \
+    'decision-lab/config/d3.1-diagnostic-coverage-v1.json' \
+    'decision-lab/src/d3.1-readiness.mjs'; do
+    protected="$(printf '%s\n' "$protected" | grep -Fvx "$admitted_path" || true)"
+  done
+  echo "D2 scope guard: complete v9 Engine/Source/Evidence/Freeze/Production re-certification accepted"
 fi
 
 # Sprint 1 intentionally adds a narrowly bounded, behavior-neutral N2 memory
@@ -49,15 +100,11 @@ if printf '%s\n' "$protected" | grep -Fx "$memory_bridge_path" >/dev/null; then
   fi
 fi
 
-# The first internal-live activation is a server-only wrapper around the
-# accepted v13 baseline. Permit only these two integration files while the
-# canonical engine is unchanged or exactly re-certified.
+# The first internal-live activation paths remain named for historical
+# one-time marker checks below. They no longer receive a baseline-wide path
+# exemption; current changes require the complete v9 contract above.
 live_wrapper='supabase/functions/decision-v13/live-index.ts'
 live_adapter='supabase/functions/decision-v13/north-star-live.ts'
-if [[ "$engine_baseline_accepted" == true ]]; then
-  protected="$(printf '%s\n' "$protected" | grep -Fvx "$live_wrapper" | grep -Fvx "$live_adapter" || true)"
-  echo "D2 scope guard: accepted v13 baseline; internal-live server wrapper accepted"
-fi
 
 # Git-backed Supabase deployment may add only the exact deployment entrypoint
 # already bound by the complete Production re-certification contract. This is
@@ -65,7 +112,6 @@ fi
 # deletion, a different source/hash, config drift or an invalid freeze remain
 # protected and fail closed.
 production_entrypoint='supabase/functions/decision-v13/index.deploy.ts'
-recertification_contract='decision-lab/config/decision-v13-production-recertification-v8.json'
 if printf '%s\n' "$protected" | grep -Fx "$production_entrypoint" >/dev/null \
   && printf '%s\n' "$changed" | grep -Fx "$production_entrypoint" >/dev/null \
   && git diff --diff-filter=A --name-only "$base"...HEAD -- "$production_entrypoint" | grep -Fx "$production_entrypoint" >/dev/null \

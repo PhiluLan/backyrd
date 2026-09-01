@@ -13,13 +13,13 @@
   "resultSchemaVersion": "decision-evaluation-result-v1.1",
   "generatorVersion": "decision-lab-generator-v1",
   "groundTruthVersion": "latent-utility-v1",
-  "engineSourceHash": "1fe82c39ad164fa811c2673cd46d8f451d7628c7ddabd1d8c595afd18a54c14f",
-  "sourceGitSha": "1b00265f0471682a5d38bcd9f6a3b79ef5e6ef75",
-  "engineRecertificationVersion": "decision-v13-production-recertification-v8",
-  "engineRecertificationHash": "aaabb696c8cc38c344c6ad94fcf95e14dfeb8c4ff2f4036b295b52e4c96b6b95",
-  "protectedSemanticSourceSetHash": "0b48473279c9a2907dfcf27f27f06bf0725114be36cf30862bb00af885979677",
-  "productionFunctionVersion": 110,
-  "productionBundleHash": "5bf3dc86c778a4c6d10de5c21165505e2d5d8b4d41dcb0adb5d8829ff0902c7c",
+  "engineSourceHash": "c80c275b5f09adf0e3081dc10763a06846f81333097fd2a9ead6e8dfb8d7987a",
+  "sourceGitSha": "a4ceb0043d3723dd318c8aa757a3a275dd7554fe",
+  "engineRecertificationVersion": "decision-v13-production-recertification-v9",
+  "engineRecertificationHash": "f6dce46476d78bcefbbf291af1d9a474108cac5cab350235d15ae6f1a6c85e2b",
+  "protectedSemanticSourceSetHash": "fafe12de50671335f8958bc80c34419ab6e63516ab6af56f6005e39c3620867c",
+  "productionFunctionVersion": 116,
+  "productionBundleHash": "88b4f26919f1e1e98b403b9226e4dbe8562ff7593885e3e5915ccc94944b718e",
   "hardGateCount": 9,
   "hardGateCoverage": {
     "rows": [
@@ -139,12 +139,12 @@
   "scientificValidity": "PASS",
   "engineMutation": "AUTHORIZED_RECERTIFICATION",
   "d3Readiness": "READY",
-  "freezeManifestHash": "b0f99fca748282d06216764867627330b8d8e6737d2d9ef85e3dd2e569ccabba",
+  "freezeManifestHash": "bb3513f9e02ad3c27d000c05d315dbb2f05f5fbe6a2c706c2fc1a1e49c089a5d",
   "frozen": true,
-  "frozenAt": "2026-09-01T11:20:00.000+02:00",
+  "frozenAt": "2026-09-01T16:19:54+02:00",
   "supersedes": {
-    "freezeManifestHash": "895cb7b5d6da00201354bc92e9be31135c3dd57a92e5907459db5b4fc4deb857",
-    "reason": "AUTHORIZED_MULTI_VISIT_COMMUNITY_MOOD_EVIDENCE_RECERTIFICATION"
+    "freezeManifestHash": "b0f99fca748282d06216764867627330b8d8e6737d2d9ef85e3dd2e569ccabba",
+    "reason": "FOUNDER_AUTHORIZED_GATE3_PRODUCTION_ACCEPTANCE_RECERTIFICATION"
   },
   "integrity": {
     "valid": true,

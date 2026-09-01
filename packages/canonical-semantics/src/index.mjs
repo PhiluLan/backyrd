@@ -1,5 +1,17 @@
 export const SEMANTIC_CONTRACT_VERSION = "backyrd-canonical-semantics-v1";
 export const CURRENT_MOMENT_VERSION = "backyrd-current-moment-schema-v2";
+export const CURRENT_INTENT_SEMANTIC_VERSION = "backyrd-current-intent-v2-founder-gate3";
+
+// Deliberately small Product registry for explicit Basel Decision language.
+// This is not a general geocoding platform: every entry is a reviewed,
+// deterministic request anchor and every candidate is checked against its
+// existing Product coordinates.
+export const BASEL_DECISION_LOCATIONS = Object.freeze({
+  GUNDELI:Object.freeze({kind:"QUARTER",label:"Gundeli",latitude:47.5414,longitude:7.5894,defaultRadiusKm:1.15,aliases:["gundeli","gundeldingen"]}),
+  KLEINBASEL:Object.freeze({kind:"QUARTER",label:"Kleinbasel",latitude:47.5652,longitude:7.5977,defaultRadiusKm:1.35,aliases:["kleinbasel","klein basel"]}),
+  BASEL_SBB:Object.freeze({kind:"LANDMARK",label:"Basel SBB",latitude:47.54757,longitude:7.58956,defaultRadiusKm:.8,aliases:["basel sbb","bahnhof sbb","beim sbb","nahe sbb"]}),
+  MARKTPLATZ:Object.freeze({kind:"LANDMARK",label:"Marktplatz",latitude:47.55839,longitude:7.58818,defaultRadiusKm:1,aliases:["marktplatz"]}),
+});
 
 export const FROZEN_TASTE_CONCEPTS = Object.freeze([
   "vibe.cozy","vibe.relaxed","vibe.romantic","vibe.lively","vibe.quiet","vibe.social","vibe.inspiring","vibe.playful","vibe.elegant","vibe.authentic","vibe.urban",
@@ -180,23 +192,40 @@ export function interpretCanonicalCurrentIntent(input={}) {
       ? canonicalFact("FAMILY_WITH_CHILD",familyFromText?"EXPLICIT":"INFERRED",familyFromText?"request:text:family":"derived:childAge")
       : canonicalFact("UNKNOWN","UNKNOWN",null);
 
-  const detectedPlaceTypes=[];
-  if(/\b(cafe|kaffee|coffee)\b/.test(normalizedText))detectedPlaceTypes.push("cafe");
-  if(/\b(bar|bars|drinks|cocktail|cocktails|bier|beer|wein|wine|afterwork)\b/.test(normalizedText))detectedPlaceTypes.push("bar");
-  if(/\b(restaurant|restaurants|essen|dinner|lunch|brunch|mittagessen|abendessen|food)\b/.test(normalizedText))detectedPlaceTypes.push("restaurant");
-  if(/\b(nachtleben|nightlife|club|party|tanzen)\b/.test(normalizedText))detectedPlaceTypes.push("nightlife");
-  if(/\b(museum|museen|kultur|culture|galerie|gallery|kunst|art|ausstellung|ausstellungen)\b/.test(normalizedText))detectedPlaceTypes.push("culture");
-  if(/\b(aktivitat|aktivitaten|activity|klettern|bouldern|spielplatz|sport|jump|aquabasilea)\b/.test(normalizedText))detectedPlaceTypes.push("activity");
-  if(/\b(ausflug|outing|aussicht|view|spaziergang|walk|park|tierpark|zoo|raus|draussen|outdoor)\b/.test(normalizedText))detectedPlaceTypes.push("outing");
-  if(/\b(erlebnis|experience|besonderes erlebnis)\b/.test(normalizedText))detectedPlaceTypes.push("experience");
-  if(/\b(hotel|unterkunft|hostel)\b/.test(normalizedText))detectedPlaceTypes.push("hotel");
+  const positiveText=normalizedText
+    .replace(/\b(keine? bars?|nicht (?:in )?bars?|no bars?|ohne bar|keine drinks)\b/g," ")
+    .replace(/\b(kein(?:e|en|es)? cafe\w*|nicht (?:ins? )?cafe\w*|ohne cafe\w*|no cafe)\b/g," ")
+    .replace(/\b(kein restaurant|nicht restaurant|no restaurant|ohne restaurant|kein dinner|kein essen|nicht essen)\b/g," ")
+    .replace(/\b(kein(?:e|en)? clubs?|nicht (?:in )?clubs?|kein nachtleben|nicht nachtleben|keine party|nicht party|ohne party|no party)\b/g," ")
+    .replace(/\b(keine kultur\w*|nicht kultur\w*|ohne kultur\w*|kein museum|keine museen|no culture)\b/g," ");
+  const explicitPlaceTypes=[];
+  if(/\bcafe\w*\b/.test(positiveText))explicitPlaceTypes.push("cafe");
+  if(/\b(?:bars?|cocktailbars?)\b/.test(positiveText))explicitPlaceTypes.push("bar");
+  if(/\brestaurants?\b/.test(positiveText))explicitPlaceTypes.push("restaurant");
+  if(/\b(nachtleben|nightlife|clubs?)\b/.test(positiveText))explicitPlaceTypes.push("nightlife");
+  if(/\b(museum|museen|kultur\w*|culture|galerie\w*|gallery|kunst\w*|art|ausstellung\w*)\b/.test(positiveText))explicitPlaceTypes.push("culture");
+  if(/\b(aktivitat\w*|activity)\b/.test(positiveText))explicitPlaceTypes.push("activity");
+  if(/\b(ausflug|outing)\b/.test(positiveText))explicitPlaceTypes.push("outing");
+  if(/\b(erlebnis|experience|besonderes erlebnis)\b/.test(positiveText))explicitPlaceTypes.push("experience");
+  if(/\b(hotel|unterkunft|hostel)\b/.test(positiveText))explicitPlaceTypes.push("hotel");
+  const inferredPlaceTypes=[];
+  if(/\b(kaffee\w*|coffee)\b/.test(positiveText))inferredPlaceTypes.push("cafe");
+  if(/\b(drinks|cocktails?|bier|beer|wein|wine|afterwork)\b/.test(positiveText))inferredPlaceTypes.push("bar");
+  if(/\b(essen|dinner|lunch|brunch|mittagessen|abendessen|food)\b/.test(positiveText))inferredPlaceTypes.push("restaurant");
+  if(/\b(party|tanzen)\b/.test(positiveText))inferredPlaceTypes.push("nightlife");
+  if(/\b(klettern|bouldern|spielplatz|sport|jump|aquabasilea)\b/.test(positiveText))inferredPlaceTypes.push("activity");
+  if(/\b(aussicht|view|spaziergang|walk|park|tierpark|zoo|raus|draussen|outdoor)\b/.test(positiveText))inferredPlaceTypes.push("outing");
+  const detectedPlaceTypes=uniqueValues([...explicitPlaceTypes,...inferredPlaceTypes]);
 
   const excluded=[...suppliedExcluded];
-  if(/\b(keine? bar|nicht bar|no bar|ohne bar|keine drinks|kein alkohol)\b/.test(normalizedText))excluded.push("bar");
+  if(/\b(keine? bars?|nicht (?:in )?bars?|no bars?|ohne bar|keine drinks)\b/.test(normalizedText))excluded.push("bar");
+  if(/\b(kein(?:e|en|es)? cafe\w*|nicht (?:ins? )?cafe\w*|ohne cafe\w*|no cafe)\b/.test(normalizedText))excluded.push("cafe");
   if(/\b(kein restaurant|nicht restaurant|no restaurant|ohne restaurant|kein dinner|kein essen|nicht essen)\b/.test(normalizedText))excluded.push("restaurant");
-  if(/\b(kein club|nicht club|kein nachtleben|keine party|no party)\b/.test(normalizedText))excluded.push("nightlife");
+  if(/\b(kein(?:e|en)? clubs?|nicht (?:in )?clubs?|kein nachtleben|nicht nachtleben|keine party|nicht party|ohne party|no party)\b/.test(normalizedText))excluded.push("nightlife");
+  if(/\b(keine kultur\w*|nicht kultur\w*|ohne kultur\w*|kein museum|keine museen|no culture)\b/.test(normalizedText))excluded.push("culture");
   if(familyContext.value==="FAMILY_WITH_CHILD")excluded.push("bar","nightlife");
   const excludedPlaceTypes=uniqueValues(excluded);
+  const contradictoryPlaceTypes=uniqueValues(explicitPlaceTypes.filter((value)=>excludedPlaceTypes.includes(value)));
   let preferredPlaceTypes=uniqueValues([...suppliedPlaceTypes,...detectedPlaceTypes]).filter((value)=>!excludedPlaceTypes.includes(value));
   if(familyContext.value==="FAMILY_WITH_CHILD"&&preferredPlaceTypes.length===0)preferredPlaceTypes=["activity","culture","outing","experience"];
 
@@ -212,10 +241,11 @@ export function interpretCanonicalCurrentIntent(input={}) {
     ...(romantic?["vibe.romantic","social_style.romantic_friendly"]:[]),
     ...(socialContext==="friends"?["vibe.social"]:[]),
     ...(socialContext==="family_with_kids"?["social_style.family_friendly"]:[]),
-    ...(/\b(gunstig|preiswert|budget)\b/.test(normalizedText)?["price.budget"]:[]),
+    ...(/\b(gunstig\w*|preiswert\w*|budget|billig\w*)\b/.test(normalizedText)?["price.budget"]:[]),
+    ...(/\b(mittler(?:e|es|en|em)? preisniveau|mittelpreis\w*|moderater? preis)\b/.test(normalizedText)?["price.balanced_price"]:[]),
+    ...(/\b(premium|hochpreisig\w*|gehoben\w*|luxurios\w*)\b/.test(normalizedText)?["price.premium"]:[]),
   ]).map((concept)=>({concept,direction:1,authority:"EXPLICIT_CURRENT_INTENT"}));
   const textActivities=[
-    ...(/\b(museum|museen|ausstellung)\b/.test(normalizedText)?["MUSEUM"]:[]),
     ...(/\b(tiere|tier|animals?|zoo|tierpark)\b/.test(normalizedText)?["ANIMALS"]:[]),
     ...(/\b(klettern|climbing)\b/.test(normalizedText)?["CLIMBING"]:[]),
     ...(/\b(bouldern|bouldering)\b/.test(normalizedText)?["BOULDERING"]:[]),
@@ -231,27 +261,56 @@ export function interpretCanonicalCurrentIntent(input={}) {
   const conversationValue=/\b(reden|gesprach|unterhalten|talk|conversation|nicht zu laut)\b/.test(normalizedText)?"HIGH":"UNKNOWN";
   const planningValue=/\b(spontan\w*|kurzfristig\w*|einfach vorbeikommen|ohne reservierung|walk[ -]?in)\b/.test(normalizedText)?"WALK_IN":"UNKNOWN";
   const dayparts=uniqueValues([
-    ...(/\b(morgen|morgens|fruhstuck|breakfast)\b/.test(normalizedText)?["MORNING"]:[]),
+    ...(/\b((?:sonntag|samstag|montag|dienstag|mittwoch|donnerstag|freitag)?morgen|morgens|fruhstuck|breakfast)\b/.test(normalizedText)?["MORNING"]:[]),
     ...(/\b(nachmittag|nachmittags|afternoon)\b/.test(normalizedText)?["AFTERNOON"]:[]),
     ...(/\b(abend|abends|dinner|evening)\b/.test(normalizedText)?["EVENING"]:[]),
     ...(/\b(nacht|nachts|late night)\b/.test(normalizedText)?["NIGHT"]:[]),
     ...(/\b(wochenende|samstag|sonntag|weekend)\b/.test(normalizedText)?["WEEKEND"]:[]),
     ...(/\b(werktag|werktags|weekday)\b/.test(normalizedText)?["WEEKDAY"]:[]),
   ]);
-  const priceMaximum=/\b(gunstig|preiswert|budget|billig)\b/.test(normalizedText)?2:null;
+  const priceLevelRange=normalizedText.match(/\b(?:preisniveau|preislevel)\s*(\d)\s*(?:bis|[-–])\s*(\d)\b/);
+  const explicitPriceMaximum=normalizedText.match(/\b(?:maximal|hochstens|bis)\s+(?:preisniveau|preislevel)\s*(\d)\b/);
+  const explicitPriceMinimum=normalizedText.match(/\b(?:mindestens|ab)\s+(?:preisniveau|preislevel)\s*(\d)\b/);
+  const monetaryPriceRange=normalizedText.match(/\b(?:zwischen\s+)?(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:chf|franken|fr\.?|sfr)\s*(?:bis|[-–])\s*(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:chf|franken|fr\.?|sfr)?\b/);
+  const monetaryPriceMaximum=normalizedText.match(/\b(?:maximal|max|hochstens|budget(?:\s+von)?|bis zu)\s*(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:chf|franken|fr\.?|sfr)\b/);
+  const monetaryPriceMinimum=normalizedText.match(/\b(?:mindestens|ab)\s*(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:chf|franken|fr\.?|sfr)\b/);
+  const budgetPrice=/\b(gunstig\w*|preiswert\w*|budget|billig\w*)\b/.test(normalizedText);
+  const balancedPrice=/\b(mittler(?:e|es|en|em)? preisniveau|mittelpreis\w*|moderater? preis)\b/.test(normalizedText);
+  const premiumPrice=/\b(premium|hochpreisig\w*|gehoben\w*|luxurios\w*)\b/.test(normalizedText);
+  const priceMinimum=priceLevelRange?Math.min(Number(priceLevelRange[1]),Number(priceLevelRange[2])):explicitPriceMinimum?Number(explicitPriceMinimum[1]):balancedPrice?2:premiumPrice?3:null;
+  const priceMaximum=priceLevelRange?Math.max(Number(priceLevelRange[1]),Number(priceLevelRange[2])):explicitPriceMaximum?Number(explicitPriceMaximum[1]):budgetPrice?2:balancedPrice?3:null;
+  const parseMoney=(value)=>Number(String(value).replace(",","."));
+  const priceBudgetChf=monetaryPriceRange
+    ? {minimum:Math.min(parseMoney(monetaryPriceRange[1]),parseMoney(monetaryPriceRange[2])),maximum:Math.max(parseMoney(monetaryPriceRange[1]),parseMoney(monetaryPriceRange[2]))}
+    : monetaryPriceMaximum?{minimum:null,maximum:parseMoney(monetaryPriceMaximum[1])}
+    : monetaryPriceMinimum?{minimum:parseMoney(monetaryPriceMinimum[1]),maximum:null}:null;
+
+  const locationEntry=Object.entries(BASEL_DECISION_LOCATIONS).find(([,row])=>row.aliases.some((alias)=>normalizedText.includes(alias)));
+  const distanceKmMatch=normalizedText.match(/\b(?:maximal|max|hochstens|bis zu)\s*(\d+(?:[.,]\d+)?)\s*(km|kilometer|meter|m)\b/);
+  const walkingMinutesMatch=normalizedText.match(/\b(?:maximal|max|hochstens|bis zu)?\s*(\d{1,3})\s*minuten?\s*(?:zu fuss|entfernt|vom|von|nahe|radius)?\b/);
+  const explicitDistanceKm=distanceKmMatch
+    ? Number(distanceKmMatch[1].replace(",","."))*(["meter","m"].includes(distanceKmMatch[2])?.001:1)
+    : walkingMinutesMatch?Number(walkingMinutesMatch[1])*.08:null;
+  const location=locationEntry?{
+    key:locationEntry[0],kind:locationEntry[1].kind,label:locationEntry[1].label,
+    latitude:locationEntry[1].latitude,longitude:locationEntry[1].longitude,
+    maxDistanceKm:explicitDistanceKm??locationEntry[1].defaultRadiusKm,
+  }:null;
+  const requestedWeekday=/\b(sonntag\w*|sunday)\b/.test(normalizedText)?"SUNDAY":/\b(samstag\w*|saturday)\b/.test(normalizedText)?"SATURDAY":/\b(freitag\w*|friday)\b/.test(normalizedText)?"FRIDAY":/\b(donnerstag\w*|thursday)\b/.test(normalizedText)?"THURSDAY":/\b(mittwoch\w*|wednesday)\b/.test(normalizedText)?"WEDNESDAY":/\b(dienstag\w*|tuesday)\b/.test(normalizedText)?"TUESDAY":/\b(montag\w*|monday)\b/.test(normalizedText)?"MONDAY":/\b(heute|today)\b/.test(normalizedText)?"TODAY":null;
+  const requestedTimeWindow=dayparts.includes("MORNING")?{start:"05:00",end:"12:00"}:dayparts.includes("AFTERNOON")?{start:"12:00",end:"18:00"}:dayparts.includes("EVENING")?{start:"17:00",end:"23:59"}:dayparts.includes("NIGHT")?{start:"21:00",end:"05:00"}:null;
   const explicitOfferings=[];
   const craftBeer=/\b(craft[ -]?beer|craft[ -]?bier)\b/.test(normalizedText),ownBeer=/\b(eigen(?:es|em|en)? bier|selbst gebraut(?:es|em|en)? bier|hausgebraut(?:es|em|en)? bier|own[ -]?brewed beer)\b/.test(normalizedText);
   if(craftBeer)explicitOfferings.push("CRAFT_BEER");
   if(ownBeer)explicitOfferings.push("OWN_BREWED_BEER");
   if(!craftBeer&&!ownBeer&&/\b(bier|beer)\b/.test(normalizedText))explicitOfferings.push("BEER");
   if(/\b(glas wein|wein|wine)\b/.test(normalizedText))explicitOfferings.push("WINE");
-  if(/\b(cocktails?|cocktail)\b/.test(normalizedText))explicitOfferings.push("COCKTAILS");
+  if(/\b(cocktails?|cocktailbars?)\b/.test(normalizedText))explicitOfferings.push("COCKTAILS");
   if(/\b(kaffee|coffee)\b/.test(normalizedText))explicitOfferings.push("COFFEE");
-  if(/\b(alkoholfrei(?:e|en|es)?|non[ -]?alcoholic)\b/.test(normalizedText))explicitOfferings.push("NON_ALCOHOLIC");
+  if(/\b(alkoholfrei\w*|ohne alkohol|non[ -]?alcoholic)\b/.test(normalizedText))explicitOfferings.push("NON_ALCOHOLIC");
   if(/\b(snacks?)\b/.test(normalizedText))explicitOfferings.push("SNACKS");
   if(/\b(kleine(?:s|n)? (?:gericht|gerichte|essen)|small plates?)\b/.test(normalizedText))explicitOfferings.push("SMALL_PLATES");
   if(/\b(vollstandige(?:s|n)? mahlzeit|full meals?)\b/.test(normalizedText))explicitOfferings.push("FULL_MEALS");
-  if(/\b(fruhstuck|breakfast)\b/.test(normalizedText))explicitOfferings.push("BREAKFAST");
+  if(/\b(fruhstuck\w*|breakfast)\b/.test(normalizedText))explicitOfferings.push("BREAKFAST");
   if(/\b(brunch)\b/.test(normalizedText))explicitOfferings.push("BRUNCH");
   if(/\b(mittagessen|lunch)\b/.test(normalizedText))explicitOfferings.push("LUNCH");
   if(/\b(abendessen|dinner)\b/.test(normalizedText))explicitOfferings.push("DINNER");
@@ -279,15 +338,30 @@ export function interpretCanonicalCurrentIntent(input={}) {
     conversation:canonicalFact(conversationValue,conversationValue==="UNKNOWN"?"UNKNOWN":"EXPLICIT",conversationValue==="UNKNOWN"?null:"request:text:conversation"),
     planning:canonicalFact(planningValue,planningValue==="UNKNOWN"?"UNKNOWN":"EXPLICIT",planningValue==="UNKNOWN"?null:"request:text:planning"),
     dayparts:canonicalFact(dayparts,dayparts.length?"EXPLICIT":"UNKNOWN",dayparts.length?"request:text:daypart":null),
+    temporalEligibility:canonicalFact(requestedWeekday&&requestedTimeWindow?{weekday:requestedWeekday,...requestedTimeWindow}:null,requestedWeekday&&requestedTimeWindow?"EXPLICIT":"UNKNOWN",requestedWeekday&&requestedTimeWindow?"request:text:weekday-window":null),
+    location:canonicalFact(location,location?"EXPLICIT":"UNKNOWN",location?"request:text:basel-location":null),
+    priceMinimum:canonicalFact(priceMinimum,priceMinimum===null?"UNKNOWN":"EXPLICIT",priceMinimum===null?null:"request:text:price"),
     priceMaximum:canonicalFact(priceMaximum,priceMaximum===null?"UNKNOWN":"EXPLICIT",priceMaximum===null?null:"request:text:price"),
+    priceBudgetChf:canonicalFact(priceBudgetChf,priceBudgetChf===null?"UNKNOWN":"EXPLICIT",priceBudgetChf===null?null:"request:text:monetary-price"),
     offerings:canonicalFact(requestedOfferings,requestedOfferings.length?"EXPLICIT":"UNKNOWN",requestedOfferings.length?"request:text:offering":null),
     purposes:canonicalFact(requestedPurposes,requestedPurposes.length?"EXPLICIT":"UNKNOWN",requestedPurposes.length?"request:text:purpose":null),
     boundaries:{durablePreference:false,softTextSignalsAreHardConstraints:false},
   };
   return {
-    version:CURRENT_MOMENT_VERSION,semanticContractVersion:SEMANTIC_CONTRACT_VERSION,currentRequestFacts,
+    version:CURRENT_MOMENT_VERSION,semanticContractVersion:SEMANTIC_CONTRACT_VERSION,currentIntentSemanticVersion:CURRENT_INTENT_SEMANTIC_VERSION,currentRequestFacts,
     preferredPlaceTypes,excludedPlaceTypes,conceptDirections,socialContext,
-    hardConstraints:{requiredPlaceTypes:input.strictCategoryIntent===true?preferredPlaceTypes:[],excludedPlaceTypes,openNow:input.openNow===true||/\b(jetzt offen|jetzt geoffnet|open now)\b/.test(normalizedText)},
+    hardConstraints:{
+      requiredPlaceTypes:uniqueValues([...suppliedPlaceTypes,...explicitPlaceTypes]).filter((value)=>!excludedPlaceTypes.includes(value)),
+      excludedPlaceTypes,
+      openNow:input.openNow===true||/\b(jetzt offen|jetzt geoffnet|open now)\b/.test(normalizedText),
+      location,
+      temporalEligibility:requestedWeekday&&requestedTimeWindow?{weekday:requestedWeekday,...requestedTimeWindow}:null,
+      unsatisfiable:contradictoryPlaceTypes.length>0||(explicitDistanceKm!==null&&!location),
+      contradictions:[
+        ...contradictoryPlaceTypes.map((placeType)=>`PLACE_TYPE_REQUIRED_AND_EXCLUDED:${placeType}`),
+        ...(explicitDistanceKm!==null&&!location?["DISTANCE_ORIGIN_MISSING"]:[]),
+      ],
+    },
     legacyHints:{
       wantsKids:familyContext.value==="FAMILY_WITH_CHILD",wantsFamily:familyContext.value==="FAMILY_WITH_CHILD",
       wantsRainyDay:rain.value!=="UNKNOWN",wantsIndoor:/\b(indoor|drinnen|innen)\b/.test(normalizedText),

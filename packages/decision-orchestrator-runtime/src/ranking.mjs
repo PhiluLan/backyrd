@@ -1,8 +1,8 @@
 import { contentHash } from "../../decision-input-runtime/src/package.mjs";
 import { FACT_KEYS,SEMANTIC_CONTRACT_VERSION } from "../../canonical-semantics/src/index.mjs";
 
-export const DETERMINISTIC_RANKING_VERSION = "backyrd-deterministic-ranking-v4-offering-facts";
-export const REASON_AUTHORIZATION_VERSION = "backyrd-reason-authorization-v5-relevance-selection";
+export const DETERMINISTIC_RANKING_VERSION = "backyrd-deterministic-ranking-v5-verified-exactness";
+export const REASON_AUTHORIZATION_VERSION = "backyrd-reason-authorization-v6-evidence-honesty";
 
 const CONCEPT_LABELS = Object.freeze({
   "vibe.quiet":"ruhige Orte", "energy.calm":"eine ruhige Atmosphäre",
@@ -66,8 +66,11 @@ export function evaluateFactualCurrentIntent(candidate,currentMoment){
   }
   if(request.conversation?.value==="HIGH"&&known(conversation))rows.push(factual("CONVERSATION_MATCH",FACT_KEYS.CONVERSATION,conversation.value==="HIGH"?"MATCH":conversation.value==="MEDIUM"?"PARTIAL":"MISMATCH",conversation,"currentRequestFacts.conversation"));
   if(request.planning?.value==="WALK_IN"&&known(reservation))rows.push(factual("PLANNING_MATCH",FACT_KEYS.RESERVATION,reservation.value==="WALK_IN"?"MATCH":reservation.value==="RECOMMENDED"?"PARTIAL":"MISMATCH",reservation,"currentRequestFacts.planning"));
-  if(request.dayparts?.value?.length&&known(dayparts)){const supported=new Set(Array.isArray(dayparts.value)?dayparts.value:[]);rows.push(factual("DAYPART_MATCH",FACT_KEYS.DAYPART,request.dayparts.value.some((value)=>supported.has(value))?"MATCH":"MISMATCH",dayparts,"currentRequestFacts.dayparts"));}
-  if(Number.isInteger(request.priceMaximum?.value)&&known(price))rows.push(factual("PRICE_MATCH",FACT_KEYS.PRICE,Number(price.value)<=request.priceMaximum.value?"MATCH":"MISMATCH",price,"currentRequestFacts.priceMaximum"));
+  if(request.dayparts?.value?.length&&known(dayparts)){const supported=new Set(Array.isArray(dayparts.value)?dayparts.value:[]);rows.push(factual("DAYPART_MATCH",FACT_KEYS.DAYPART,request.dayparts.value.every((value)=>supported.has(value))?"MATCH":"MISMATCH",dayparts,"currentRequestFacts.dayparts"));}
+  if((Number.isInteger(request.priceMinimum?.value)||Number.isInteger(request.priceMaximum?.value))&&known(price)){
+    const actual=Number(price.value),minimum=Number.isInteger(request.priceMinimum?.value)?request.priceMinimum.value:-Infinity,maximum=Number.isInteger(request.priceMaximum?.value)?request.priceMaximum.value:Infinity;
+    rows.push(factual("PRICE_MATCH",FACT_KEYS.PRICE,actual>=minimum&&actual<=maximum?"MATCH":"MISMATCH",price,"currentRequestFacts.priceRange"));
+  }
   const requestedOfferings=Array.isArray(request.offerings?.value)?request.offerings.value:[];
   const offering=candidate.offering??{},available=new Set(offering.availableWithAncestors??[]),offeringStates=offering.offerings??{};
   for(const requirement of requestedOfferings){
@@ -84,6 +87,36 @@ export function evaluateFactualCurrentIntent(candidate,currentMoment){
   const disposition=mismatches>0?"CONTRADICTED":matches>0?"MATCHED":partials>0?"PARTIAL":"UNKNOWN";
   const tier={CONTRADICTED:0,UNKNOWN:1,PARTIAL:2,MATCHED:3}[disposition];
   return{version:SEMANTIC_CONTRACT_VERSION,observations:rows,matches,partials,mismatches,disposition,tier};
+}
+
+function exactRequirements(currentMoment){
+  const request=currentMoment?.currentRequestFacts??{},requirements=[];
+  if(request.rain?.value&&request.rain.value!=="UNKNOWN")requirements.push(["RAIN_SUITABLE",null]);
+  if(request.familyContext?.value==="FAMILY_WITH_CHILD")requirements.push(["FAMILY_SUITABLE",null]);
+  if(Number.isInteger(request.childAge?.value))requirements.push(["CHILD_AGE_MATCH",null]);
+  if(request.activityTypes?.value?.length)requirements.push(["ACTIVITY_MATCH",null]);
+  if(request.accessibility?.value)requirements.push(["ACCESSIBILITY_MATCH",null]);
+  if(request.environment?.value&&request.environment.value!=="UNKNOWN")requirements.push([request.environment.value==="OUTDOOR"?"OUTDOOR_MATCH":"INDOOR_MATCH",null]);
+  if(Number.isInteger(request.durationMinutes?.value))requirements.push(["DURATION_MATCH",null]);
+  if(request.socialContext?.value)requirements.push(["SOCIAL_CONTEXT_MATCH",null]);
+  if(request.conversation?.value==="HIGH")requirements.push(["CONVERSATION_MATCH",null]);
+  if(request.planning?.value==="WALK_IN")requirements.push(["PLANNING_MATCH",null]);
+  if(request.dayparts?.value?.length)requirements.push(["DAYPART_MATCH",null]);
+  if(Number.isInteger(request.priceMinimum?.value)||Number.isInteger(request.priceMaximum?.value))requirements.push(["PRICE_MATCH",null]);
+  // Monetary budgets are understood but cannot be promoted to a match from
+  // the existing ordinal price-level fact. Until a canonical CHF fact exists,
+  // this deliberately unmatched requirement produces an honest empty result.
+  if(request.priceBudgetChf?.value)requirements.push(["PRICE_BUDGET_MATCH",null]);
+  for(const offering of request.offerings?.value??[])requirements.push(["OFFERING_MATCH",offering]);
+  for(const purpose of request.purposes?.value??[])requirements.push(["PURPOSE_MATCH",purpose]);
+  return requirements;
+}
+
+function satisfiesVerifiedExactness(candidate,currentMoment){
+  const requirements=exactRequirements(currentMoment);
+  if(requirements.length===0)return true;
+  const observations=evaluateFactualCurrentIntent(candidate,currentMoment).observations;
+  return requirements.every(([code,requirement])=>observations.some((row)=>row.code===code&&row.requirement===requirement&&row.outcome==="MATCH"));
 }
 
 function rankCandidate(candidate,decisionPackage) {
@@ -129,7 +162,7 @@ function authorizeReasons(candidate,decisionPackage) {
     reasons.push(reason(`you:${node.nodeKey}`,"WHY_FOR_YOU",node.concept,`Dieser Ort passt zu deiner bisherigen Vorliebe für ${label}.`,{projectionHash:decisionPackage.n5.projectionHash,n4Hash:candidate.n4.snapshotHash,nodeKey:node.nodeKey,nodeConfidence:node.confidence,conceptConfidence:concept.confidence}));
   }
   if(candidate.n4.availability!=="FULL")reasons.push(reason(`uncertainty:n4:${candidate.n4.availability}`,"UNCERTAINTY",null,candidate.n4.availability==="UNKNOWN"?"Zu diesem Ort kennt Backyrd bisher nur die sicheren Basisdaten.":"Zu diesem Ort ist die kanonische Beschreibung noch nicht vollständig.",{n4Hash:candidate.n4.snapshotHash,availability:candidate.n4.availability}));
-  if(decisionPackage.n5.knowledgeMode==="LOW_OR_UNKNOWN")reasons.push(reason("uncertainty:user:low","UNCERTAINTY",null,"Die Auswahl stützt sich auf deine aktuelle Anfrage, nicht auf behauptete persönliche Vorlieben.",{projectionHash:decisionPackage.n5.projectionHash,knowledgeMode:decisionPackage.n5.knowledgeMode}));
+  if(decisionPackage.n5.knowledgeMode==="LOW_OR_UNKNOWN")reasons.push(reason("uncertainty:user:low","UNCERTAINTY",null,"Backyrd nutzt hier nur belegte Angaben zur aktuellen Anfrage und behauptet keine persönliche Passung.",{projectionHash:decisionPackage.n5.projectionHash,knowledgeMode:decisionPackage.n5.knowledgeMode}));
   if(reasons.length===0)reasons.push(reason("uncertainty:no-specific-fit","UNCERTAINTY",null,"Backyrd hat für diesen geeigneten Kandidaten noch keinen spezifischen persönlichen Grund.",{candidateSetHash:decisionPackage.candidateSet.candidateSetHash,n4Hash:candidate.n4.snapshotHash}));
   return reasons;
 }
@@ -171,11 +204,12 @@ export function selectBestAuthorizedReason(candidates,allCandidateReasons=[candi
 }
 
 export function deterministicDecisionStrategy(decisionPackage) {
-  const ranked=decisionPackage.candidates.map((candidate)=>({candidate,ranking:rankCandidate(candidate,decisionPackage),reasons:authorizeReasons(candidate,decisionPackage)})).sort((a,b)=>compareTuple(a.ranking.tuple,b.ranking.tuple)||a.candidate.spotId.localeCompare(b.candidate.spotId));
+  const allEvaluated=decisionPackage.candidates.map((candidate)=>({candidate,ranking:rankCandidate(candidate,decisionPackage),reasons:authorizeReasons(candidate,decisionPackage),verifiedExact:satisfiesVerifiedExactness(candidate,decisionPackage.n3.currentMoment)}));
+  const ranked=allEvaluated.filter((row)=>row.verifiedExact).sort((a,b)=>compareTuple(a.ranking.tuple,b.ranking.tuple)||a.candidate.spotId.localeCompare(b.candidate.spotId));
   const allCandidateReasons=ranked.map((row)=>row.reasons);
   const selected=ranked.slice(0,3).map((row,index)=>{
     const chosen=selectBestAuthorizedReason(row.reasons,allCandidateReasons);
     return {...row,rank:index+1,selectedReasonId:chosen?.id??null,explanation:chosen?.copy??"Passt am besten zu den aktuell verfügbaren, sicheren Informationen."};
   });
-  return {version:DETERMINISTIC_RANKING_VERSION,reasonVersion:REASON_AUTHORIZATION_VERSION,selected,allRanked:ranked,rankingHash:contentHash(ranked.map(({ranking})=>ranking)),reasonSetHashes:Object.fromEntries(ranked.map(({candidate,reasons})=>[candidate.spotId,contentHash(reasons)]))};
+  return {version:DETERMINISTIC_RANKING_VERSION,reasonVersion:REASON_AUTHORIZATION_VERSION,selected,allRanked:ranked,allEvaluated,rankingHash:contentHash(allEvaluated.map(({ranking,verifiedExact})=>({ranking,verifiedExact}))),reasonSetHashes:Object.fromEntries(allEvaluated.map(({candidate,reasons})=>[candidate.spotId,contentHash(reasons)]))};
 }

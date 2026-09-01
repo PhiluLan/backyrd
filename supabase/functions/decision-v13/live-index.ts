@@ -22,6 +22,14 @@ const uuidPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[
 const json=(payload:Record<string,unknown>,status=200)=>new Response(JSON.stringify(payload),{
   status,headers:{"content-type":"application/json; charset=utf-8","access-control-allow-origin":"*","cache-control":"no-store"},
 });
+const honestEmpty=(payload:Record<string,unknown>,baseResponse:Response,decisionId:string|null=null)=>jsonResponseWithFreshEntityHeaders({
+  ...payload,
+  candidates:[],
+  match_disposition:"INSUFFICIENT_VERIFIED_EVIDENCE",
+  match_message:"Für diese konkrete Kombination gibt es aktuell keinen ausreichend belegten Treffer. Bitte passe oder lockere eine Anforderung.",
+  north_star:{active:true,decision_id:decisionId,final_source:"DETERMINISTIC_EMPTY",n6_disposition:"NOT_RUN",personalization_active:false,fallback_error:null},
+  continuation:null,
+},baseResponse);
 
 realServe(async (request: Request) => {
   const body = request.method === "POST" ? await request.clone().json().catch(() => ({})) : {};
@@ -102,7 +110,7 @@ realServe(async (request: Request) => {
   if (!payload?.ok) return baseResponse;
   if(candidates.length===0){
     if(!liveEnabled)return baseResponse;
-    return jsonResponseWithFreshEntityHeaders({...payload,candidates:[],north_star:{active:true,decision_id:null,final_source:"DETERMINISTIC_EMPTY",n6_disposition:"NOT_RUN",fallback_error:null}},baseResponse);
+    return honestEmpty(payload,baseResponse);
   }
 
   try {
@@ -124,7 +132,7 @@ realServe(async (request: Request) => {
     const funnel=buildLiveCandidateFunnel(candidates,{city:text(body.city),canonicalIntent});
     const selected = funnel.selected;
     const { selected: _selectedCandidates, ...candidateFunnelTrace } = funnel;
-    if(selected.length===0)return jsonResponseWithFreshEntityHeaders({...payload,candidates:[],north_star:{active:true,decision_id:null,final_source:"DETERMINISTIC_EMPTY",n6_disposition:"NOT_RUN",fallback_error:null}},baseResponse);
+    if(selected.length===0)return honestEmpty(payload,baseResponse);
     const live = await runInternalLiveDecision({
       service,
       userId,
@@ -141,8 +149,8 @@ realServe(async (request: Request) => {
         preferredPlaceTypes: body.preferredPlaceTypes ?? body.placeTypes ?? body.categories ?? [],
         excludedPlaceTypes: body.excludedPlaceTypes ?? body.avoidPlaceTypes ?? [],
         strictCategoryIntent: body.strictCategoryIntent === true,
-        openNow: (payload.intent as Record<string, unknown> | undefined)?.openNow === true,
-        explicitConstraints: { openNow: (payload.intent as Record<string, unknown> | undefined)?.openNow === true },
+        openNow: (canonicalIntent.hardConstraints as Record<string,unknown> | undefined)?.openNow === true,
+        explicitConstraints: { openNow: (canonicalIntent.hardConstraints as Record<string,unknown> | undefined)?.openNow === true },
         intent: payload.intent ?? {},
         canonicalIntent,
       },
@@ -152,6 +160,22 @@ realServe(async (request: Request) => {
       learningEligible: !internalInvocation,
     });
     if (!live.active) return baseResponse;
+    if(live.continuationOrder.length===0){
+      const safeRequest=sanitizeLiveProductRequestBody(body);
+      const {_internal_retrieval_trace:_internalRetrievalTrace,...safePayload}=payload;
+      return jsonResponseWithFreshEntityHeaders({
+        ...safePayload,query:safeRequest.query,queryText:safeRequest.query,candidates:[],
+        match_disposition:"INSUFFICIENT_VERIFIED_EVIDENCE",
+        match_message:"Für diese konkrete Kombination gibt es aktuell keinen ausreichend belegten Treffer. Bitte passe oder lockere eine Anforderung.",
+        north_star:{
+          active:true,decision_id:live.decisionId,final_source:"DETERMINISTIC_EMPTY",
+          knowledge_mode:live.knowledgeMode,user_card_hash:live.userCardHash,package_hash:live.packageHash,
+          deterministic_trace_id:live.deterministicTraceId,n6_trace_id:live.n6TraceId,
+          n6_disposition:live.n6Disposition,personalization_active:false,fallback_error:null,
+        },
+        continuation:null,
+      },baseResponse);
+    }
     const byId = new Map(selected.map((candidate) => [String(candidate.spot_id), candidate]));
     const orderedAll = live.continuationOrder.map((spotId, index) => {
       const candidate = byId.get(spotId);

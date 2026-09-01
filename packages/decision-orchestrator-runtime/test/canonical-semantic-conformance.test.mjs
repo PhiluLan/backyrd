@@ -36,7 +36,7 @@ test("FAMILY + AGE + RAIN survive N3 V2, package serialization, factual ranking 
  const reasons=result.internal.authorizedReasons[spots[1]];for(const code of ["RAIN_SUITABLE","INDOOR_MATCH","CHILD_AGE_MATCH","FAMILY_SUITABLE"]){const reason=reasons.find((row)=>row.id.includes(code));assert.ok(reason);assert.match(reason.evidence.factSourceIdentity,/accepted-fact:/);}
 });
 
-test("explicit factual contradiction ranks below honest unknown and below a strong canonical match",()=>{
+test("explicit factual constraints return only the verified canonical match",()=>{
  const value=source(),museum=spots[1],tierpark=spots[0],unknown="70000000-0000-4000-8000-000000000103";
  value.candidates.push({spotId:unknown,retrievalPosition:3,status:"approved",city:"Basel",category:"Restaurant",productPlaceType:"restaurant",openNow:null,distributionEligible:true});
  value.n4BySpot[tierpark]={available:true,placeType:"outing",snapshotIdentity:"tierpark",freshness:"2026-08-21T09:00:00.000Z",concepts:{"environment.outdoor":{presence:1,confidence:.9,provenance:"e:outdoor"},"social_style.family_friendly":{presence:1,confidence:1,provenance:"e:family"}},suitabilityFacts:{
@@ -46,22 +46,25 @@ test("explicit factual contradiction ranks below honest unknown and below a stro
  }};
  value.n4BySpot[unknown]={available:false,placeType:"restaurant",snapshotIdentity:"unknown",freshness:"2026-08-21T09:00:00.000Z",concepts:{}};
  const input=buildDecisionInputPackage(value),result=buildDeterministicDecision(input.package,[...value.candidates.map((row)=>({spotId:row.spotId,name:row.spotId,city:"Basel",category:row.category,headerPhotoPath:null}))],{expectedUserId:userId});
- assert.deepEqual(result.internal.finalOrder,[museum,unknown,tierpark]);
+ assert.deepEqual(result.internal.finalOrder,[museum]);
+ assert.equal(result.internal.rankingInputs[unknown].verifiedExact,false);
+ assert.equal(result.internal.rankingInputs[tierpark].verifiedExact,false);
  assert.equal(result.internal.rankingInputs[tierpark].factualFit.disposition,"CONTRADICTED");
  assert.equal(result.internal.rankingInputs[unknown].factualFit.disposition,"UNKNOWN");
  assert.equal(result.internal.rankingInputs[museum].factualFit.matches,4);
 });
 
 test("canonical preferred place type has a bounded deterministic effect before retrieval tie-break",()=>{
- const value=source();value.n4BySpot={[spots[0]]:{available:false,placeType:"restaurant",snapshotIdentity:"restaurant",concepts:{}},[spots[1]]:{available:false,placeType:"culture",snapshotIdentity:"culture",concepts:{}}};
+ const value=source();value.requestContext={query:"Museum",rawFreeText:"Museum",preferredPlaceTypes:["culture"],strictCategoryIntent:true};value.n4BySpot={[spots[0]]:{available:false,placeType:"restaurant",snapshotIdentity:"restaurant",concepts:{}},[spots[1]]:{available:false,placeType:"culture",snapshotIdentity:"culture",concepts:{}}};
  value.candidates=[{...value.candidates[0],category:"Restaurant",productPlaceType:"restaurant"},{...value.candidates[1],category:"Museum",productPlaceType:"culture"}];
- const input=buildDecisionInputPackage(value),result=buildDeterministicDecision(input.package,value.candidates.map((row)=>({spotId:row.spotId,name:row.spotId,city:"Basel",category:row.category,headerPhotoPath:null})),{expectedUserId:userId});
+ const input=buildDecisionInputPackage(value),result=buildDeterministicDecision(input.package,input.package.candidates.map((row)=>({spotId:row.spotId,name:row.spotId,city:"Basel",category:value.candidates.find((candidate)=>candidate.spotId===row.spotId)?.category,headerPhotoPath:null})),{expectedUserId:userId});
  assert.equal(result.internal.finalOrder[0],spots[1]);
- assert.equal(result.internal.rankingInputs[spots[1]].preferredPlaceTypeMatch,1);
+ assert.deepEqual(input.package.n5.currentIntent.requiredPlaceTypes,["culture"]);
+ assert.deepEqual(input.package.candidates.map((row)=>row.spotId),[spots[1]]);
 });
 
 test("quiet is one canonical language and explicit current intent beats retrieval order",()=>{
- const value=source();value.requestContext={query:"ruhige Bar zum Reden",rawFreeText:"ruhige Bar zum Reden",selectedMoods:["ruhig"],preferredPlaceTypes:[],strictCategoryIntent:false};
+ const value=source();value.requestContext={query:"ruhige Bar",rawFreeText:"ruhige Bar",selectedMoods:["ruhig"],preferredPlaceTypes:[],strictCategoryIntent:false};
  value.candidates=value.candidates.map((row,index)=>({...row,category:"Bar",productPlaceType:"bar",retrievalPosition:index+1}));
  value.n4BySpot={[spots[0]]:{available:true,placeType:"bar",snapshotIdentity:"lively",concepts:{"vibe.lively":{presence:1,confidence:.9,provenance:"e:lively"}}},[spots[1]]:{available:true,placeType:"bar",snapshotIdentity:"quiet",concepts:{"vibe.quiet":{presence:1,confidence:.9,provenance:"e:quiet"}}}};
  const input=buildDecisionInputPackage(value),result=buildDeterministicDecision(input.package,spots.map((spotId)=>({spotId,name:spotId,city:"Basel",category:"Bar",headerPhotoPath:null})),{expectedUserId:userId});
@@ -83,6 +86,25 @@ test("existing social, conversation, planning, duration, daypart and price facts
  const facts=input.package.n3.currentMoment.currentRequestFacts;assert.equal(facts.socialContext.value,"date");assert.equal(facts.conversation.value,"HIGH");assert.equal(facts.planning.value,"WALK_IN");assert.equal(facts.durationMinutes.value,60);assert.deepEqual(facts.dayparts.value,["EVENING"]);assert.equal(facts.priceMaximum.value,2);
  const observed=new Set(result.internal.rankingInputs[spots[0]].factualFit.observations.filter((row)=>row.matched).map((row)=>row.code));
  for(const code of ["SOCIAL_CONTEXT_MATCH","CONVERSATION_MATCH","PLANNING_MATCH","DURATION_MATCH","DAYPART_MATCH","PRICE_MATCH","QUIET_MATCH"])assert.ok(observed.has(code),code);
+});
+
+test("explicit social context returns only a verified suitable match",()=>{
+ const value=source();
+ value.requestContext={query:"Budget-Date",rawFreeText:"Budget-Date",strictCategoryIntent:false};
+ value.n4BySpot[spots[0]]={available:true,placeType:"outing",snapshotIdentity:"date-mismatch",concepts:{"vibe.romantic":{presence:1,confidence:.9,provenance:"accepted:romantic"}},suitabilityFacts:{
+  "social.suitability":{value:{date:"NOT_SUITABLE"},status:"ACTIVE",confidence:.9,sourceIdentity:"accepted:date-mismatch"},
+  "price.level":{value:1,status:"ACTIVE",confidence:.9,sourceIdentity:"accepted:price-low"},
+ }};
+ value.n4BySpot[spots[1]]={available:true,placeType:"experience",snapshotIdentity:"date-unknown",concepts:{"vibe.romantic":{presence:1,confidence:.9,provenance:"accepted:romantic"}},suitabilityFacts:{
+  "price.level":{value:1,status:"ACTIVE",confidence:.9,sourceIdentity:"accepted:price-low"},
+ }};
+ const input=buildDecisionInputPackage(value),result=buildDeterministicDecision(input.package,value.candidates.map((row)=>({spotId:row.spotId,name:row.spotId,city:"Basel",category:row.category,headerPhotoPath:null})),{expectedUserId:userId});
+ assert.equal(input.package.n3.currentMoment.currentRequestFacts.socialContext.value,"date");
+ assert.deepEqual(result.internal.finalOrder,[]);
+ assert.equal(result.internal.rankingInputs[spots[0]].verifiedExact,false);
+ assert.equal(result.internal.rankingInputs[spots[1]].verifiedExact,false);
+ assert.equal(result.internal.rankingInputs[spots[0]].factualFit.observations.find((row)=>row.code==="SOCIAL_CONTEXT_MATCH").outcome,"MISMATCH");
+ assert.equal(result.internal.rankingInputs[spots[1]].factualFit.observations.some((row)=>row.code==="SOCIAL_CONTEXT_MATCH"),false);
 });
 
 test("controlled review moods qualify aliases but unsupported/test moods cannot create claims",()=>{
@@ -116,5 +138,5 @@ test("N6 can select only the exact candidate-specific factual reason",()=>{
  const authorized=shadow.n6a2Input.authorizedReasons.candidates.find((row)=>row.spot_id===spots[1]).why_now.find((row)=>row.code==="RAIN_SUITABLE");assert.ok(authorized);
  const payload={ranked_candidates:order.map((spotId,index)=>({spot_id:spotId,rank:index+1,buddy_fit:.5,confidence:.5,why_for_you:[],why_now:spotId===spots[1]?[authorized]:[],uncertainty:[]})),decision_confidence:.5,user_knowledge_sufficiency:base.relevantUserProjection.sufficiency.level,moment_understanding_sufficiency:base.currentMoment.confidenceLevel};
  assert.equal(validateProductionN6Output(payload,shadow).valid,true);
- payload.ranked_candidates.find((row)=>row.spot_id===spots[0]).why_now=[authorized];assert.equal(validateProductionN6Output(payload,shadow).valid,false);
+ payload.ranked_candidates[0].why_now=[{...authorized,evidence_refs:["spot:unauthorized"]}];assert.equal(validateProductionN6Output(payload,shadow).valid,false);
 });
