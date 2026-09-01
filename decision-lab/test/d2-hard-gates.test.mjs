@@ -94,10 +94,10 @@ test("freeze identity is deterministic and validator rejects tampering", async (
   assert.deepEqual(first, second);
   const recertification = await validateEngineRecertification();
   assert.equal(recertification.valid, true, JSON.stringify(recertification.reasons));
-  assert.equal(recertification.contract.version, "decision-v13-production-recertification-v12");
-  assert.equal(recertification.identity.authorizedSourceCommit, "f91dd269039bba0138a655d0f4050699ccb5f0f4");
-  assert.equal(recertification.identity.productionFunctionVersion, 121);
-  assert.equal(recertification.identity.productionBundleHash, "7f881e938b75fb329d7d201ce89539699958cfe19f0f171977cf21db521e8553");
+  assert.equal(recertification.contract.version, "decision-v13-production-recertification-v13");
+  assert.equal(recertification.identity.authorizedSourceCommit, "8001183fe3ff93f22bc7f644a84976768353d862");
+  assert.equal(recertification.identity.productionFunctionVersion, 122);
+  assert.equal(recertification.identity.productionBundleHash, "e7fc644676de3eadf719cc3368dd0e2662af62f3a923f8501080ec2938bdd41a");
   const changedProduction = await validateEngineRecertification({
     ...recertification.contract,
     production: { ...recertification.contract.production, activeVersion: 76 }
