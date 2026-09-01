@@ -40,4 +40,5 @@ assert.match(config, /BACKYRD_RELEASE_BUILD/);
 assert.match(spotDetail, /openingStateNow/, "Spot Detail must distinguish unknown opening hours");
 assert.match(spotDetail, /Öffnungszeiten unbekannt/, "missing hours must not be presented as closed");
 assert.match(spotDetail, /Backyrd zeigt keinen Öffnungsstatus/, "hours uncertainty must be explicit");
+
 console.log("Mobile Product contracts passed.");
