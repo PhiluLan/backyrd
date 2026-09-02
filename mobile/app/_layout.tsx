@@ -3,6 +3,7 @@
 import React from "react";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
+import { StyleSheet, View } from "react-native";
 import { Inter_400Regular } from "@expo-google-fonts/inter/400Regular";
 import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
 import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
@@ -57,14 +58,46 @@ function BootstrappedApp() {
   });
   const { loading: authLoading } = useAuth();
 
-  if (fontError) {
-    return <ProductState title="Darstellung nicht geladen" message="Backyrd konnte seine Schrift gerade nicht vorbereiten. Starte die App bitte noch einmal." />;
-  }
+  const bootstrapState = fontError ? (
+    <ProductState
+      title="Darstellung nicht geladen"
+      message="Backyrd konnte seine Schrift gerade nicht vorbereiten. Starte die App bitte noch einmal."
+    />
+  ) : !fontsLoaded || authLoading ? (
+    <ProductLoading />
+  ) : null;
 
-  if (!fontsLoaded || authLoading) return <ProductLoading />;
-
-  return <AnalyticsProvider><GlobalSafetyEnforcementGuard><LegalGateGuard><ProductDeepLinkRouter /><PushNotificationRouter /><RootStack /></LegalGateGuard></GlobalSafetyEnforcementGuard></AnalyticsProvider>;
+  return (
+    <AnalyticsProvider>
+      <GlobalSafetyEnforcementGuard>
+        <LegalGateGuard>
+          <View style={styles.root}>
+            <RootStack />
+            <ProductDeepLinkRouter />
+            <PushNotificationRouter />
+            {bootstrapState ? (
+              <View
+                accessibilityViewIsModal
+                pointerEvents="auto"
+                style={styles.bootstrapOverlay}
+              >
+                {bootstrapState}
+              </View>
+            ) : null}
+          </View>
+        </LegalGateGuard>
+      </GlobalSafetyEnforcementGuard>
+    </AnalyticsProvider>
+  );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  bootstrapOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10_000,
+  },
+});
 
 export default function RootLayout() {
   if (!runtimeConfigStatus.valid) {
