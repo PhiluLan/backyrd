@@ -15,6 +15,10 @@ const rootLayoutSource = fs.readFileSync(
   new URL("../app/_layout.tsx", import.meta.url),
   "utf8",
 );
+const coldStartRouterSource = fs.readFileSync(
+  new URL("../components/ColdStartProductDeepLinkRouter.tsx", import.meta.url),
+  "utf8",
+);
 const compiled = ts.transpileModule(source, {
   compilerOptions: {
     module: ts.ModuleKind.ESNext,
@@ -54,7 +58,7 @@ test("fails closed for unknown, malformed, and ambiguous routes", () => {
   }
 });
 
-test("uses one native-intent path with a root router mounted during bootstrap", () => {
+test("uses native intent for runtime links and a bounded iOS launch fallback", () => {
   assert.match(
     nativeIntentSource,
     /const productDeepLink = resolveProductDeepLink\(rawPath\)/,
@@ -63,13 +67,26 @@ test("uses one native-intent path with a root router mounted during bootstrap", 
     nativeIntentSource,
     /if \(productDeepLink\) \{\s*return productDeepLink;/,
   );
-  assert.doesNotMatch(rootLayoutSource, /ProductDeepLinkRouter/);
+  assert.match(
+    coldStartRouterSource,
+    /resolveProductDeepLink\(Linking\.getLinkingURL\(\) \?\? ""\)/,
+  );
+  assert.match(coldStartRouterSource, /useRootNavigationState\(\)/);
+  assert.match(coldStartRouterSource, /handledRef\.current = true/);
+  assert.match(
+    coldStartRouterSource,
+    /if \(pathname !== initialRoute\) router\.replace\(initialRoute as never\)/,
+  );
+  assert.doesNotMatch(coldStartRouterSource, /useLinkingURL/);
+  assert.doesNotMatch(coldStartRouterSource, /addEventListener/);
   assert.doesNotMatch(
     rootLayoutSource,
     /if \(!fontsLoaded \|\| authLoading\) return/,
   );
   assert.ok(
     rootLayoutSource.indexOf("<RootStack />") <
+      rootLayoutSource.indexOf("<ColdStartProductDeepLinkRouter />") &&
+      rootLayoutSource.indexOf("<ColdStartProductDeepLinkRouter />") <
       rootLayoutSource.indexOf("<PushNotificationRouter />"),
     "the root navigator must mount before runtime routing effects run",
   );

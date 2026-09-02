@@ -137,3 +137,30 @@ single-path wiring, bootstrap mount, and every prior fail-closed URL case.
 This exact five-file simplification is bound by recertification
 `gate5_ios_single_native_intent_v1`. Final acceptance remains canonical merge,
 Production OTA, and physical foreground/background/cold-start verification.
+
+The single-native-intent candidate was merged as canonical Main
+`5257b0ec4a72824adedfdb5ffca2651088ae885d` and published as iOS Production
+update `01a063a1-cd1c-70f4-8632-7f6f5caf2dc5`. Device-local Expo metadata
+proved one successful launch and zero failed launches. Physical foreground Spot
+and background User links reached the correct Production records. A correctly
+PID-terminated cold-start Spot link no longer crashed, but opened Home instead
+of the requested Spot. Therefore that candidate is explicitly not the Gate-5
+accepted Mobile identity.
+
+Inspection of the installed Expo Router implementation explains the remaining
+iOS-only gap: its initial URL path uses the synchronous native linking value,
+while an iOS custom-scheme launch may expose the URL after that initial state
+has already fallen back to the app root. The runtime URL listener remains the
+correct authority for an already-mounted app, but the cold launch event can
+arrive before a usable root navigation state and is then not replayed.
+
+The bounded follow-up captures only the immutable `Linking.getLinkingURL()`
+value from the component's first render. After the root navigation state has a
+key, it replays a strict UUID-backed Spot/User target at most once and only when
+that target is not already active. It does not subscribe to runtime URLs, so it
+cannot compete with Expo Router for foreground/background events. Unknown,
+malformed, Auth, notification, and non-Product routes are outside this fallback.
+
+The exact three-file change is bound by recertification
+`gate5_ios_cold_launch_fallback_v1`. Canonical merge, Production OTA, and the
+same physical cold-start acceptance remain mandatory before Gate 5 can close.

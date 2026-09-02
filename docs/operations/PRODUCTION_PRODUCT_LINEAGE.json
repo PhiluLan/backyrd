@@ -22,10 +22,10 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "057d53082e90d230c06244b9396ef25be020abdc",
-        "tree": "229feb4dfd77ae6e5e57fa4ab128a2f84ee1714e",
+        "commit": "292f5aec48f99820fd4bd3099fda1559f61415ed",
+        "tree": "a605eb083455030bfa2ab06c7fb4a74f7fc29784",
         "production_verified": false,
-        "reason": "Gate 5 physical iOS single-native-intent candidate: Expo Router +native-intent is the sole strict Spot/User URL authority and the root navigator mounts during bootstrap; Production OTA and post-deploy physical verification remain pending canonical merge."
+        "reason": "Gate 5 physical iOS cold-start fallback candidate: runtime URLs remain owned by Expo Router, while the immutable iOS launch URL is replayed at most once only after root-navigation readiness and only when the strict Spot/User target is not already active; Production OTA and post-deploy physical verification remain pending canonical merge."
       }
     },
     "consumer_web": {
@@ -229,6 +229,18 @@
         "mobile/app/_layout.tsx",
         "mobile/components/ProductDeepLinkRouter.tsx",
         "mobile/lib/native-intent-route.ts",
+        "mobile/scripts/test-native-intent-routing.mjs"
+      ],
+      "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
+    },
+    {
+      "id": "gate5_ios_cold_launch_fallback_v1",
+      "baseline_commit": "5257b0ec4a72824adedfdb5ffca2651088ae885d",
+      "source_commit": "292f5aec48f99820fd4bd3099fda1559f61415ed",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/_layout.tsx",
+        "mobile/components/ColdStartProductDeepLinkRouter.tsx",
         "mobile/scripts/test-native-intent-routing.mjs"
       ],
       "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
