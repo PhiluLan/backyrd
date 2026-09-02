@@ -117,3 +117,23 @@ The exact five-file transition, including full removal of the unneeded guard
 experiment, is bound by recertification `gate5_ios_navigation_ready_v1`.
 Canonical merge, Production OTA, and the final physical acceptance remain
 required before Gate 5 can close.
+
+The navigation-key candidate still entered the global error boundary on a
+correctly PID-terminated cold-start Spot link. This isolated the collision to
+the two independent Product redirects: Expo Router's canonical
+`+native-intent` had already returned the validated Spot route, while
+`ProductDeepLinkRouter` later issued a second `replace` for the same launch URL.
+Foreground/background happened to tolerate the redundant replacement; the
+initial navigation transaction did not.
+
+The final bounded candidate removes the entire duplicate runtime router and its
+in-memory handoff. `+native-intent` is now the single Product URL authority: it
+keeps Auth callbacks first, accepts only UUID-backed Spot/User routes, and sends
+all malformed or unknown routes to the existing gate. The root navigator still
+mounts during bootstrap behind the blocking loading overlay, so the canonical
+initial route has a navigator immediately. Regression coverage proves the
+single-path wiring, bootstrap mount, and every prior fail-closed URL case.
+
+This exact five-file simplification is bound by recertification
+`gate5_ios_single_native_intent_v1`. Final acceptance remains canonical merge,
+Production OTA, and physical foreground/background/cold-start verification.

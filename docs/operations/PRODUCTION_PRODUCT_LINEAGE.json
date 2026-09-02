@@ -22,10 +22,10 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "f2833ff1b5633ab3ed8080356529890329330bf9",
-        "tree": "6c61dc217510007a49de31691e27bc23dd01febc",
+        "commit": "057d53082e90d230c06244b9396ef25be020abdc",
+        "tree": "229feb4dfd77ae6e5e57fa4ab128a2f84ee1714e",
         "production_verified": false,
-        "reason": "Gate 5 physical iOS navigation-ready candidate: the root navigator mounts during bootstrap and the strictly validated Spot/User redirect waits for an initialized root-navigation key; Production OTA and post-deploy physical verification remain pending canonical merge."
+        "reason": "Gate 5 physical iOS single-native-intent candidate: Expo Router +native-intent is the sole strict Spot/User URL authority and the root navigator mounts during bootstrap; Production OTA and post-deploy physical verification remain pending canonical merge."
       }
     },
     "consumer_web": {
@@ -215,6 +215,20 @@
         "mobile/components/ProductDeepLinkRouter.tsx",
         "mobile/components/consent/LegalGateGuard.tsx",
         "mobile/components/safety/GlobalSafetyEnforcementGuard.tsx",
+        "mobile/scripts/test-native-intent-routing.mjs"
+      ],
+      "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
+    },
+    {
+      "id": "gate5_ios_single_native_intent_v1",
+      "baseline_commit": "2a9b1c40665ea22ba447724bf328a58907e7c13e",
+      "source_commit": "057d53082e90d230c06244b9396ef25be020abdc",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/+native-intent.tsx",
+        "mobile/app/_layout.tsx",
+        "mobile/components/ProductDeepLinkRouter.tsx",
+        "mobile/lib/native-intent-route.ts",
         "mobile/scripts/test-native-intent-routing.mjs"
       ],
       "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"

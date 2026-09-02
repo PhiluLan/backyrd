@@ -15,21 +15,13 @@ const rootLayoutSource = fs.readFileSync(
   new URL("../app/_layout.tsx", import.meta.url),
   "utf8",
 );
-const productRouterSource = fs.readFileSync(
-  new URL("../components/ProductDeepLinkRouter.tsx", import.meta.url),
-  "utf8",
-);
 const compiled = ts.transpileModule(source, {
   compilerOptions: {
     module: ts.ModuleKind.ESNext,
     target: ts.ScriptTarget.ES2022,
   },
 }).outputText;
-const {
-  consumeInitialProductDeepLink,
-  rememberInitialProductDeepLink,
-  resolveProductDeepLink,
-} = await import(
+const { resolveProductDeepLink } = await import(
   `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`
 );
 
@@ -62,39 +54,24 @@ test("fails closed for unknown, malformed, and ambiguous routes", () => {
   }
 });
 
-test("retains a validated initial route exactly once across bootstrap", () => {
-  rememberInitialProductDeepLink(`/spot/${spotId}`);
-  assert.equal(consumeInitialProductDeepLink(), `/spot/${spotId}`);
-  assert.equal(consumeInitialProductDeepLink(), null);
-
-  rememberInitialProductDeepLink("/messages/not-allowed");
-  assert.equal(consumeInitialProductDeepLink(), null);
-});
-
-test("binds cold-start retention to a root router mounted during bootstrap", () => {
+test("uses one native-intent path with a root router mounted during bootstrap", () => {
   assert.match(
     nativeIntentSource,
-    /if \(options\.initial\) rememberInitialProductDeepLink\(productDeepLink\)/,
+    /const productDeepLink = resolveProductDeepLink\(rawPath\)/,
   );
-  assert.match(rootLayoutSource, /<ProductDeepLinkRouter \/>/);
-  assert.match(productRouterSource, /Linking\.useLinkingURL\(\)/);
   assert.match(
-    productRouterSource,
-    /resolveProductDeepLink\(linkingUrl \?\? ""\)/,
+    nativeIntentSource,
+    /if \(productDeepLink\) \{\s*return productDeepLink;/,
   );
+  assert.doesNotMatch(rootLayoutSource, /ProductDeepLinkRouter/);
   assert.doesNotMatch(
     rootLayoutSource,
     /if \(!fontsLoaded \|\| authLoading\) return/,
   );
   assert.ok(
     rootLayoutSource.indexOf("<RootStack />") <
-      rootLayoutSource.indexOf("<ProductDeepLinkRouter />"),
-    "the root navigator must mount before initial-link routing effects run",
+      rootLayoutSource.indexOf("<PushNotificationRouter />"),
+    "the root navigator must mount before runtime routing effects run",
   );
   assert.match(rootLayoutSource, /StyleSheet\.absoluteFillObject/);
-  assert.match(productRouterSource, /useRootNavigationState\(\)/);
-  assert.match(
-    productRouterSource,
-    /if \(!rootNavigationState\?\.key\) return;/,
-  );
 });
