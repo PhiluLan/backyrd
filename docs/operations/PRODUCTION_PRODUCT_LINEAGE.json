@@ -22,10 +22,10 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "2029192b1a72afe8a7472674b494fd213c09275d",
-        "tree": "7e585cb7f07f11cf3c3c30e82f03b595acf33e5e",
+        "commit": "7540f05026013dbc77157a65dbc398f226350b43",
+        "tree": "45d1ad0c431bef1f338a2dda3421a5a9de325b47",
         "production_verified": false,
-        "reason": "Gate 4 Auth lifecycle candidate: Mobile recovery, verification callbacks and password-byte consistency are fully validated; Production OTA remains pending canonical merge."
+        "reason": "Gate 5 physical iOS retest candidate: canonical Spot/User OS deep links are explicitly routed while unknown and malformed paths remain fail-closed; Production OTA and post-deploy physical verification remain pending canonical merge."
       }
     },
     "consumer_web": {
@@ -142,6 +142,19 @@
         "web/tests/consumer-contracts.test.mjs"
       ],
       "evidence": "scripts/product/gate5-production-acceptance.mjs"
+    },
+    {
+      "id": "gate5_ios_deep_link_routing_v1",
+      "baseline_commit": "73bc11d2bc1b87504bf6c54ec43c81f3bcc5aa28",
+      "source_commit": "7540f05026013dbc77157a65dbc398f226350b43",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/+native-intent.tsx",
+        "mobile/lib/native-intent-route.ts",
+        "mobile/package.json",
+        "mobile/scripts/test-native-intent-routing.mjs"
+      ],
+      "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
     }
   ],
   "required_ancestry": [

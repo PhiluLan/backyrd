@@ -1,4 +1,5 @@
 import { setPendingAuthRedirect } from "../lib/pendingAuthRedirect";
+import { resolveProductDeepLink } from "../lib/native-intent-route";
 
 type RedirectSystemPathOptions = {
   path: string;
@@ -32,6 +33,9 @@ export function redirectSystemPath(options: RedirectSystemPathOptions): string {
       }
     }
 
+    const productDeepLink = resolveProductDeepLink(rawPath);
+    if (productDeepLink) return productDeepLink;
+
     if (
       rawPath === "" ||
       rawPath === "/" ||
@@ -39,23 +43,6 @@ export function redirectSystemPath(options: RedirectSystemPathOptions): string {
       rawPath.startsWith("backyrd://")
     ) {
       return "/gate";
-    }
-
-    /**
-     * Falls irgendwann echte Deep Links kommen:
-     * backyrd://spot/123
-     * backyrd:///spot/123
-     */
-    const cleaned = rawPath
-      .replace(/^backyrd:\/\//, "")
-      .replace(/^\/+/, "/");
-
-    if (cleaned.startsWith("/spot/")) {
-      return cleaned;
-    }
-
-    if (cleaned.startsWith("spot/")) {
-      return `/${cleaned}`;
     }
 
     return "/gate";
