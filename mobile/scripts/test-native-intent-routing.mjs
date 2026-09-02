@@ -25,7 +25,12 @@ const compiled = ts.transpileModule(source, {
     target: ts.ScriptTarget.ES2022,
   },
 }).outputText;
-const { resolveProductDeepLink } = await import(
+const {
+  markProductDeepLinkRouterNotReady,
+  markProductDeepLinkRouterReady,
+  rememberProductDeepLinkBeforeRouterReady,
+  resolveProductDeepLink,
+} = await import(
   `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`
 );
 
@@ -58,6 +63,20 @@ test("fails closed for unknown, malformed, and ambiguous routes", () => {
   }
 });
 
+test("buffers only validated Product links received before router readiness", () => {
+  rememberProductDeepLinkBeforeRouterReady(`/spot/${spotId}`);
+  assert.equal(markProductDeepLinkRouterReady(), `/spot/${spotId}`);
+  assert.equal(markProductDeepLinkRouterReady(), null);
+
+  rememberProductDeepLinkBeforeRouterReady(`/user/${userId}`);
+  assert.equal(markProductDeepLinkRouterReady(), null);
+
+  markProductDeepLinkRouterNotReady();
+  rememberProductDeepLinkBeforeRouterReady(`/user/${userId}`);
+  assert.equal(markProductDeepLinkRouterReady(), `/user/${userId}`);
+  markProductDeepLinkRouterNotReady();
+});
+
 test("uses native intent for runtime links and a bounded iOS launch fallback", () => {
   assert.match(
     nativeIntentSource,
@@ -65,19 +84,24 @@ test("uses native intent for runtime links and a bounded iOS launch fallback", (
   );
   assert.match(
     nativeIntentSource,
-    /if \(productDeepLink\) \{\s*return productDeepLink;/,
+    /if \(productDeepLink\) \{[\s\S]*?return productDeepLink;/,
   );
+  assert.match(nativeIntentSource, /if \(!options\.initial\)/);
   assert.match(
-    coldStartRouterSource,
-    /resolveProductDeepLink\(Linking\.getLinkingURL\(\) \?\? ""\)/,
+    nativeIntentSource,
+    /rememberProductDeepLinkBeforeRouterReady\(productDeepLink\)/,
   );
   assert.match(coldStartRouterSource, /useRootNavigationState\(\)/);
-  assert.match(coldStartRouterSource, /handledRef\.current = true/);
   assert.match(
     coldStartRouterSource,
-    /if \(pathname !== initialRoute\) router\.replace\(initialRoute as never\)/,
+    /markProductDeepLinkRouterReady\(\)/,
+  );
+  assert.match(
+    coldStartRouterSource,
+    /if \(initialRoute && pathnameRef\.current !== initialRoute\)/,
   );
   assert.doesNotMatch(coldStartRouterSource, /useLinkingURL/);
+  assert.doesNotMatch(coldStartRouterSource, /getLinkingURL/);
   assert.doesNotMatch(coldStartRouterSource, /addEventListener/);
   assert.doesNotMatch(
     rootLayoutSource,

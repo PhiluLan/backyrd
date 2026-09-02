@@ -1,6 +1,9 @@
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+let productRouterReady = false;
+let pendingPreRouterProductDeepLink: string | null = null;
+
 function productRoute(path: string): string | null {
   const normalized = path.replace(/^\/+/, "").replace(/\/+$/, "");
   const match = /^(spot|user)\/([^/]+)$/.exec(normalized);
@@ -25,4 +28,25 @@ export function resolveProductDeepLink(rawPath: string): string | null {
   }
 
   return productRoute(rawPath);
+}
+
+/**
+ * Preserve only the narrow iOS race where the native URL event arrives before
+ * Expo Router has a usable root navigation state. Once ready, Expo Router owns
+ * every runtime URL and this handoff becomes a no-op.
+ */
+export function rememberProductDeepLinkBeforeRouterReady(route: string): void {
+  if (productRouterReady) return;
+  pendingPreRouterProductDeepLink = productRoute(route);
+}
+
+export function markProductDeepLinkRouterReady(): string | null {
+  productRouterReady = true;
+  const route = pendingPreRouterProductDeepLink;
+  pendingPreRouterProductDeepLink = null;
+  return route;
+}
+
+export function markProductDeepLinkRouterNotReady(): void {
+  productRouterReady = false;
 }
