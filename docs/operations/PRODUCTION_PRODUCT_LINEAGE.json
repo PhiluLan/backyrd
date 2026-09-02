@@ -22,10 +22,10 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "00aa9e1b1b15829cb455e5a3262c2820a12a0eef",
-        "tree": "d938ba7d3b8d37f7b287cf01f0a2ad4b5fb17078",
+        "commit": "8fbce2406d4fb387bf4faf4be5fcf04091cc552a",
+        "tree": "5140fb6b9f28339b587d53e8c51c7e15919f9566",
         "production_verified": false,
-        "reason": "Gate 5 physical iOS pre-router intent-buffer candidate: only a strict Spot/User runtime intent received before root-navigation readiness is retained and replayed once; after readiness, Expo Router remains the sole runtime URL owner. Production OTA and post-deploy physical verification remain pending canonical merge."
+        "reason": "Gate 5 physical iOS React-Native initial-URL fallback candidate: after root-navigation readiness, the retained native launch URL is read exactly once and may route only a strict Spot/User UUID target; runtime URL events remain owned by Expo Router. Production OTA and post-deploy physical verification remain pending canonical merge."
       }
     },
     "consumer_web": {
@@ -249,6 +249,19 @@
       "id": "gate5_ios_prerouter_intent_buffer_v1",
       "baseline_commit": "bd22a69527726275e4c33afa7db52400470306ad",
       "source_commit": "00aa9e1b1b15829cb455e5a3262c2820a12a0eef",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/+native-intent.tsx",
+        "mobile/components/ColdStartProductDeepLinkRouter.tsx",
+        "mobile/lib/native-intent-route.ts",
+        "mobile/scripts/test-native-intent-routing.mjs"
+      ],
+      "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
+    },
+    {
+      "id": "gate5_ios_rn_initial_url_v1",
+      "baseline_commit": "a7039476f498ed3e39f3d49351120e4004ebf60a",
+      "source_commit": "8fbce2406d4fb387bf4faf4be5fcf04091cc552a",
       "decision_semantics_changed": false,
       "authorized_surface_changes": [
         "mobile/app/+native-intent.tsx",
