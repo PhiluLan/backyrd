@@ -22,10 +22,10 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "292f5aec48f99820fd4bd3099fda1559f61415ed",
-        "tree": "a605eb083455030bfa2ab06c7fb4a74f7fc29784",
+        "commit": "00aa9e1b1b15829cb455e5a3262c2820a12a0eef",
+        "tree": "d938ba7d3b8d37f7b287cf01f0a2ad4b5fb17078",
         "production_verified": false,
-        "reason": "Gate 5 physical iOS cold-start fallback candidate: runtime URLs remain owned by Expo Router, while the immutable iOS launch URL is replayed at most once only after root-navigation readiness and only when the strict Spot/User target is not already active; Production OTA and post-deploy physical verification remain pending canonical merge."
+        "reason": "Gate 5 physical iOS pre-router intent-buffer candidate: only a strict Spot/User runtime intent received before root-navigation readiness is retained and replayed once; after readiness, Expo Router remains the sole runtime URL owner. Production OTA and post-deploy physical verification remain pending canonical merge."
       }
     },
     "consumer_web": {
@@ -241,6 +241,19 @@
       "authorized_surface_changes": [
         "mobile/app/_layout.tsx",
         "mobile/components/ColdStartProductDeepLinkRouter.tsx",
+        "mobile/scripts/test-native-intent-routing.mjs"
+      ],
+      "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
+    },
+    {
+      "id": "gate5_ios_prerouter_intent_buffer_v1",
+      "baseline_commit": "bd22a69527726275e4c33afa7db52400470306ad",
+      "source_commit": "00aa9e1b1b15829cb455e5a3262c2820a12a0eef",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/+native-intent.tsx",
+        "mobile/components/ColdStartProductDeepLinkRouter.tsx",
+        "mobile/lib/native-intent-route.ts",
         "mobile/scripts/test-native-intent-routing.mjs"
       ],
       "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
