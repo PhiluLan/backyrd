@@ -57,6 +57,7 @@ function BootstrappedApp() {
     Inter_700Bold,
   });
   const { loading: authLoading } = useAuth();
+  const bootstrapReady = fontsLoaded && !authLoading && !fontError;
 
   const bootstrapState = fontError ? (
     <ProductState
@@ -69,8 +70,8 @@ function BootstrappedApp() {
 
   return (
     <AnalyticsProvider>
-      <GlobalSafetyEnforcementGuard>
-        <LegalGateGuard>
+      <GlobalSafetyEnforcementGuard enabled={bootstrapReady}>
+        <LegalGateGuard enabled={bootstrapReady}>
           <View style={styles.root}>
             <RootStack />
             <ProductDeepLinkRouter />
