@@ -89,3 +89,24 @@ The exact two-file Mobile source change is bound by recertification
 `gate5_ios_root_bootstrap_v1`. Canonical merge, Production OTA, and the final
 physical foreground/background/cold-start Spot/User and Push acceptance remain
 required before this Gate can close.
+
+## Auth-guard ordering follow-up
+
+The first root-bootstrap Production OTA reproduced a normal-start regression on
+the physical device: `Backyrd startet` remained visible after both an ordinary
+launch and a restart. Mounting the navigator early had also mounted the Safety
+and Legal guards early. Those guards started independent Supabase Auth requests
+while `AuthProvider` was still restoring the persisted session, creating the
+observed bootstrap contention. Before the root change those guards did not mount
+until Auth and fonts were ready.
+
+The bounded follow-up preserves the required early root navigator and initial
+Spot/User/Push routing, but explicitly disables only the guards' asynchronous
+checks until the same bootstrap-ready condition used by the prior architecture.
+Once ready, their existing authorization, Safety, Legal, foreground-refresh,
+and fail-closed behavior is unchanged. The regression binds this ordering in
+addition to the existing strict URL allowlist and malformed-link tests.
+
+The exact four-file Mobile source change is bound by recertification
+`gate5_ios_bootstrap_guard_order_v1`. Final acceptance still requires canonical
+merge, Production OTA, and physical normal/background/cold-start verification.
