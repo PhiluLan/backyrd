@@ -22,10 +22,10 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "e8af9985c149a9c0439e9d461ed6cbece1f5330c",
-        "tree": "1e8f623bea3cbd946338acc90e06abbd2972a659",
+        "commit": "f2833ff1b5633ab3ed8080356529890329330bf9",
+        "tree": "6c61dc217510007a49de31691e27bc23dd01febc",
         "production_verified": false,
-        "reason": "Gate 5 physical iOS bootstrap-order candidate: the root navigator and initial routing mount immediately, while existing Safety/Legal Auth checks remain deferred until persisted Auth and fonts are ready; Production OTA and post-deploy physical verification remain pending canonical merge."
+        "reason": "Gate 5 physical iOS navigation-ready candidate: the root navigator mounts during bootstrap and the strictly validated Spot/User redirect waits for an initialized root-navigation key; Production OTA and post-deploy physical verification remain pending canonical merge."
       }
     },
     "consumer_web": {
@@ -199,6 +199,20 @@
       "decision_semantics_changed": false,
       "authorized_surface_changes": [
         "mobile/app/_layout.tsx",
+        "mobile/components/consent/LegalGateGuard.tsx",
+        "mobile/components/safety/GlobalSafetyEnforcementGuard.tsx",
+        "mobile/scripts/test-native-intent-routing.mjs"
+      ],
+      "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
+    },
+    {
+      "id": "gate5_ios_navigation_ready_v1",
+      "baseline_commit": "34fe05d037bbf255c6d0cdaeba908371f05e8138",
+      "source_commit": "f2833ff1b5633ab3ed8080356529890329330bf9",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/_layout.tsx",
+        "mobile/components/ProductDeepLinkRouter.tsx",
         "mobile/components/consent/LegalGateGuard.tsx",
         "mobile/components/safety/GlobalSafetyEnforcementGuard.tsx",
         "mobile/scripts/test-native-intent-routing.mjs"

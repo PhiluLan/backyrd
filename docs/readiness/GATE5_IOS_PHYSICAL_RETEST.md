@@ -90,23 +90,30 @@ The exact two-file Mobile source change is bound by recertification
 physical foreground/background/cold-start Spot/User and Push acceptance remain
 required before this Gate can close.
 
-## Auth-guard ordering follow-up
+## Root-navigation readiness follow-up
 
-The first root-bootstrap Production OTA reproduced a normal-start regression on
-the physical device: `Backyrd startet` remained visible after both an ordinary
-launch and a restart. Mounting the navigator early had also mounted the Safety
-and Legal guards early. Those guards started independent Supabase Auth requests
-while `AuthProvider` was still restoring the persisted session, creating the
-observed bootstrap contention. Before the root change those guards did not mount
-until Auth and fonts were ready.
+An initial diagnostic appeared to show a normal-start regression after the root
+navigator change. That conclusion was invalid: Apple `devicectl process
+terminate` requires `--pid`; the prior command supplied a bundle identifier and
+its failure had been discarded, so subsequent launches only reactivated the
+already stuck process. After termination by the verified Backyrd PID, the same
+Production OTA completed a normal cold start to Home. The temporary
+Safety/Legal `enabled` change from `gate5_ios_bootstrap_guard_order_v1` therefore
+had no proven defect basis and is fully reverted in the next candidate.
 
-The bounded follow-up preserves the required early root navigator and initial
-Spot/User/Push routing, but explicitly disables only the guards' asynchronous
-checks until the same bootstrap-ready condition used by the prior architecture.
-Once ready, their existing authorization, Safety, Legal, foreground-refresh,
-and fail-closed behavior is unchanged. The regression binds this ordering in
-addition to the existing strict URL allowlist and malformed-link tests.
+The correctly terminated cold-start Spot flow then exposed the actual remaining
+failure: the strict Spot route was resolved, but `ProductDeepLinkRouter` called
+`router.replace` before Expo Router had assigned a key to the root navigation
+state. Foreground and background flows passed because that state was already
+ready; cold start entered the global render-error boundary.
 
-The exact four-file Mobile source change is bound by recertification
-`gate5_ios_bootstrap_guard_order_v1`. Final acceptance still requires canonical
-merge, Production OTA, and physical normal/background/cold-start verification.
+The bounded correction keeps the root navigator mounted during bootstrap but
+defers the validated redirect until `useRootNavigationState().key` exists. The
+pending URL remains available and still passes the unchanged Spot/User UUID
+allowlist. The existing Auth, Safety, Legal, and foreground-refresh behavior is
+restored byte-for-byte to the root-bootstrap candidate.
+
+The exact five-file transition, including full removal of the unneeded guard
+experiment, is bound by recertification `gate5_ios_navigation_ready_v1`.
+Canonical merge, Production OTA, and the final physical acceptance remain
+required before Gate 5 can close.

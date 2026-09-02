@@ -19,14 +19,6 @@ const productRouterSource = fs.readFileSync(
   new URL("../components/ProductDeepLinkRouter.tsx", import.meta.url),
   "utf8",
 );
-const legalGuardSource = fs.readFileSync(
-  new URL("../components/consent/LegalGateGuard.tsx", import.meta.url),
-  "utf8",
-);
-const safetyGuardSource = fs.readFileSync(
-  new URL("../components/safety/GlobalSafetyEnforcementGuard.tsx", import.meta.url),
-  "utf8",
-);
 const compiled = ts.transpileModule(source, {
   compilerOptions: {
     module: ts.ModuleKind.ESNext,
@@ -100,11 +92,9 @@ test("binds cold-start retention to a root router mounted during bootstrap", () 
     "the root navigator must mount before initial-link routing effects run",
   );
   assert.match(rootLayoutSource, /StyleSheet\.absoluteFillObject/);
+  assert.match(productRouterSource, /useRootNavigationState\(\)/);
   assert.match(
-    rootLayoutSource,
-    /GlobalSafetyEnforcementGuard enabled=\{bootstrapReady\}/,
+    productRouterSource,
+    /if \(!rootNavigationState\?\.key\) return;/,
   );
-  assert.match(rootLayoutSource, /LegalGateGuard enabled=\{bootstrapReady\}/);
-  assert.match(legalGuardSource, /if \(!enabled\) return;/);
-  assert.match(safetyGuardSource, /if \(!enabled\)/);
 });

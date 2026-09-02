@@ -13,16 +13,12 @@ const ALLOWED_WHEN_GATED = new Set([
   "/auth/verify",
 ]);
 
-type Props = PropsWithChildren<{ enabled?: boolean }>;
-
-export default function LegalGateGuard({ children, enabled = true }: Props) {
+export default function LegalGateGuard({ children }: PropsWithChildren) {
   const router = useRouter();
   const pathname = usePathname();
   const checkingRef = useRef(false);
 
   useEffect(() => {
-    if (!enabled) return;
-
     let cancelled = false;
 
     async function checkGate() {
@@ -53,7 +49,7 @@ export default function LegalGateGuard({ children, enabled = true }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [enabled, pathname, router]);
+  }, [pathname, router]);
 
   return <>{children}</>;
 }
