@@ -1,15 +1,22 @@
 import { useEffect } from "react";
+import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 
-import { consumeInitialProductDeepLink } from "../lib/native-intent-route";
+import {
+  consumeInitialProductDeepLink,
+  resolveProductDeepLink,
+} from "../lib/native-intent-route";
 
 export default function ProductDeepLinkRouter() {
   const router = useRouter();
+  const linkingUrl = Linking.useLinkingURL();
 
   useEffect(() => {
-    const initialRoute = consumeInitialProductDeepLink();
+    const initialRoute =
+      consumeInitialProductDeepLink() ??
+      resolveProductDeepLink(linkingUrl ?? "");
     if (initialRoute) router.replace(initialRoute as never);
-  }, [router]);
+  }, [linkingUrl, router]);
 
   return null;
 }

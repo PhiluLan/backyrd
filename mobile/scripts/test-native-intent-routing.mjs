@@ -15,6 +15,10 @@ const rootLayoutSource = fs.readFileSync(
   new URL("../app/_layout.tsx", import.meta.url),
   "utf8",
 );
+const productRouterSource = fs.readFileSync(
+  new URL("../components/ProductDeepLinkRouter.tsx", import.meta.url),
+  "utf8",
+);
 const compiled = ts.transpileModule(source, {
   compilerOptions: {
     module: ts.ModuleKind.ESNext,
@@ -73,4 +77,9 @@ test("binds cold-start retention to the native intent and root router", () => {
     /if \(options\.initial\) rememberInitialProductDeepLink\(productDeepLink\)/,
   );
   assert.match(rootLayoutSource, /<ProductDeepLinkRouter \/>/);
+  assert.match(productRouterSource, /Linking\.useLinkingURL\(\)/);
+  assert.match(
+    productRouterSource,
+    /resolveProductDeepLink\(linkingUrl \?\? ""\)/,
+  );
 });
