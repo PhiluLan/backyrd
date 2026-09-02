@@ -71,7 +71,7 @@ test("retains a validated initial route exactly once across bootstrap", () => {
   assert.equal(consumeInitialProductDeepLink(), null);
 });
 
-test("binds cold-start retention to the native intent and root router", () => {
+test("binds cold-start retention to a root router mounted during bootstrap", () => {
   assert.match(
     nativeIntentSource,
     /if \(options\.initial\) rememberInitialProductDeepLink\(productDeepLink\)/,
@@ -82,4 +82,14 @@ test("binds cold-start retention to the native intent and root router", () => {
     productRouterSource,
     /resolveProductDeepLink\(linkingUrl \?\? ""\)/,
   );
+  assert.doesNotMatch(
+    rootLayoutSource,
+    /if \(!fontsLoaded \|\| authLoading\) return/,
+  );
+  assert.ok(
+    rootLayoutSource.indexOf("<RootStack />") <
+      rootLayoutSource.indexOf("<ProductDeepLinkRouter />"),
+    "the root navigator must mount before initial-link routing effects run",
+  );
+  assert.match(rootLayoutSource, /StyleSheet\.absoluteFillObject/);
 });

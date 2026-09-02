@@ -22,10 +22,10 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "73c508187b3f6f78e746158c8a0a277da5011586",
-        "tree": "d26d9275faeb8c6505a9945dd6b5893c9652d28d",
+        "commit": "56ef66b1266d3219403633e150c5f058b746d57d",
+        "tree": "d96a90904a0464a8e2d0fdda6b9dd9eeebaa6ac5",
         "production_verified": false,
-        "reason": "Gate 5 physical iOS initial-URL candidate: the native launch URL is re-read after delayed Auth/font bootstrap and must pass the same Spot/User UUID allowlist; Production OTA and post-deploy physical verification remain pending canonical merge."
+        "reason": "Gate 5 physical iOS root-bootstrap candidate: the existing root navigator now mounts before initial URL routing while the unchanged bootstrap state remains a blocking overlay; Production OTA and post-deploy physical verification remain pending canonical merge."
       }
     },
     "consumer_web": {
@@ -177,6 +177,17 @@
       "decision_semantics_changed": false,
       "authorized_surface_changes": [
         "mobile/components/ProductDeepLinkRouter.tsx",
+        "mobile/scripts/test-native-intent-routing.mjs"
+      ],
+      "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
+    },
+    {
+      "id": "gate5_ios_root_bootstrap_v1",
+      "baseline_commit": "25c66de2191d4f905cad0963a10a4208e5106dbb",
+      "source_commit": "56ef66b1266d3219403633e150c5f058b746d57d",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/_layout.tsx",
         "mobile/scripts/test-native-intent-routing.mjs"
       ],
       "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"

@@ -66,3 +66,26 @@ bootstrap, then passes that URL through the unchanged Spot/User UUID allowlist
 before routing. Auth callbacks and every unknown URL continue to fall outside
 the Product redirect contract. The implementation and its regression are
 limited to the existing Product deep-link router and test.
+
+The Production OTA for that candidate then exposed the remaining deterministic
+root cause: a valid cold-start Spot link stayed on `Backyrd startet`, while an
+ordinary cold start completed immediately on the same device and OTA. Native
+expo-updates logs showed a successful launch with no asset, update, or crash
+failure. The root layout was returning the bootstrap loading view *instead of*
+mounting Expo Router's root navigator until both fonts and the persisted Auth
+session had loaded. Initial iOS URL routing cannot complete reliably while that
+navigator is absent.
+
+The bounded correction mounts the existing root navigator immediately and
+keeps the existing Auth, Safety, Legal, Analytics, Product-link, and Push
+components in the same provider/guard hierarchy. The unchanged Product loading
+and font-error states are rendered as a blocking full-screen overlay until
+bootstrap completes. No route allowlist, authentication, authorization, legal,
+safety, Product, Decision, Mood, database, or Supabase runtime semantics change.
+Regression coverage binds navigator-before-routing order, rejects the former
+early-return bootstrap, and retains all malformed/unknown URL fail-closed tests.
+
+The exact two-file Mobile source change is bound by recertification
+`gate5_ios_root_bootstrap_v1`. Canonical merge, Production OTA, and the final
+physical foreground/background/cold-start Spot/User and Push acceptance remain
+required before this Gate can close.
