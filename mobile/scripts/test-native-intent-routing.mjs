@@ -25,12 +25,7 @@ const compiled = ts.transpileModule(source, {
     target: ts.ScriptTarget.ES2022,
   },
 }).outputText;
-const {
-  markProductDeepLinkRouterNotReady,
-  markProductDeepLinkRouterReady,
-  rememberProductDeepLinkBeforeRouterReady,
-  resolveProductDeepLink,
-} = await import(
+const { resolveProductDeepLink } = await import(
   `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`
 );
 
@@ -63,21 +58,7 @@ test("fails closed for unknown, malformed, and ambiguous routes", () => {
   }
 });
 
-test("buffers only validated Product links received before router readiness", () => {
-  rememberProductDeepLinkBeforeRouterReady(`/spot/${spotId}`);
-  assert.equal(markProductDeepLinkRouterReady(), `/spot/${spotId}`);
-  assert.equal(markProductDeepLinkRouterReady(), null);
-
-  rememberProductDeepLinkBeforeRouterReady(`/user/${userId}`);
-  assert.equal(markProductDeepLinkRouterReady(), null);
-
-  markProductDeepLinkRouterNotReady();
-  rememberProductDeepLinkBeforeRouterReady(`/user/${userId}`);
-  assert.equal(markProductDeepLinkRouterReady(), `/user/${userId}`);
-  markProductDeepLinkRouterNotReady();
-});
-
-test("uses native intent for runtime links and a bounded iOS launch fallback", () => {
+test("uses native intent for runtime links and one native initial-URL fallback", () => {
   assert.match(
     nativeIntentSource,
     /const productDeepLink = resolveProductDeepLink\(rawPath\)/,
@@ -86,15 +67,10 @@ test("uses native intent for runtime links and a bounded iOS launch fallback", (
     nativeIntentSource,
     /if \(productDeepLink\) \{[\s\S]*?return productDeepLink;/,
   );
-  assert.match(nativeIntentSource, /if \(!options\.initial\)/);
-  assert.match(
-    nativeIntentSource,
-    /rememberProductDeepLinkBeforeRouterReady\(productDeepLink\)/,
-  );
   assert.match(coldStartRouterSource, /useRootNavigationState\(\)/);
   assert.match(
     coldStartRouterSource,
-    /markProductDeepLinkRouterReady\(\)/,
+    /Linking\.getInitialURL\(\)/,
   );
   assert.match(
     coldStartRouterSource,
