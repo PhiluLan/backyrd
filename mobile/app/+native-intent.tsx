@@ -1,8 +1,5 @@
 import { setPendingAuthRedirect } from "../lib/pendingAuthRedirect";
-import {
-  rememberInitialProductDeepLink,
-  resolveProductDeepLink,
-} from "../lib/native-intent-route";
+import { resolveProductDeepLink } from "../lib/native-intent-route";
 
 type RedirectSystemPathOptions = {
   path: string;
@@ -38,7 +35,6 @@ export function redirectSystemPath(options: RedirectSystemPathOptions): string {
 
     const productDeepLink = resolveProductDeepLink(rawPath);
     if (productDeepLink) {
-      if (options.initial) rememberInitialProductDeepLink(productDeepLink);
       return productDeepLink;
     }
 

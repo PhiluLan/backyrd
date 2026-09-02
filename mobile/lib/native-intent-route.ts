@@ -1,8 +1,6 @@
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-let pendingInitialProductDeepLink: string | null = null;
-
 function productRoute(path: string): string | null {
   const normalized = path.replace(/^\/+/, "").replace(/\/+$/, "");
   const match = /^(spot|user)\/([^/]+)$/.exec(normalized);
@@ -27,14 +25,4 @@ export function resolveProductDeepLink(rawPath: string): string | null {
   }
 
   return productRoute(rawPath);
-}
-
-export function rememberInitialProductDeepLink(route: string): void {
-  pendingInitialProductDeepLink = productRoute(route);
-}
-
-export function consumeInitialProductDeepLink(): string | null {
-  const route = pendingInitialProductDeepLink;
-  pendingInitialProductDeepLink = null;
-  return route;
 }
