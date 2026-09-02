@@ -12,6 +12,7 @@ import { AnalyticsProvider } from "../providers/AnalyticsProvider";
 import { AnalyticsErrorBoundary } from "../components/AnalyticsErrorBoundary";
 import GlobalSafetyEnforcementGuard from "../components/safety/GlobalSafetyEnforcementGuard";
 import LegalGateGuard from "../components/consent/LegalGateGuard";
+import ColdStartProductDeepLinkRouter from "../components/ColdStartProductDeepLinkRouter";
 import PushNotificationRouter from "../components/PushNotificationRouter";
 import { ProductLoading, ProductState } from "../components/ui/ProductState";
 import { runtimeConfigStatus } from "../lib/supabase";
@@ -72,6 +73,7 @@ function BootstrappedApp() {
         <LegalGateGuard>
           <View style={styles.root}>
             <RootStack />
+            <ColdStartProductDeepLinkRouter />
             <PushNotificationRouter />
             {bootstrapState ? (
               <View
