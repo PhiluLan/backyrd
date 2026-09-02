@@ -19,7 +19,7 @@ import {
 import { supabase } from "../../lib/supabase";
 import { ProductLoading } from "../ui/ProductState";
 
-type Props = { children: ReactNode };
+type Props = { children: ReactNode; enabled?: boolean };
 const SAFETY_ALLOWED_ROUTES = [
   "/safety-center",
   "/safety-notifications",
@@ -46,7 +46,7 @@ function formatEnd(value: string | null): string | null {
   }).format(date);
 }
 
-export default function GlobalSafetyEnforcementGuard({ children }: Props) {
+export default function GlobalSafetyEnforcementGuard({ children, enabled = true }: Props) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const [status, setStatus] = useState<SafetyWriteStatus | null>(null);
@@ -77,6 +77,12 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
 
   useEffect(() => {
     mounted.current = true;
+    if (!enabled) {
+      return () => {
+        mounted.current = false;
+      };
+    }
+
     void refresh();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(() => {
@@ -88,15 +94,17 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
       mounted.current = false;
       authListener.subscription.unsubscribe();
     };
-  }, [refresh]);
+  }, [enabled, refresh]);
 
   useEffect(() => {
+    if (!enabled) return;
+
     const onStateChange = (nextState: AppStateStatus) => {
       if (nextState === "active") void refresh();
     };
     const subscription = AppState.addEventListener("change", onStateChange);
     return () => subscription.remove();
-  }, [refresh]);
+  }, [enabled, refresh]);
 
   const isWriteSuspension = signedIn && status?.activeMeasureType === "write_suspension" && status.canWrite === false;
   const isFullAccountLock = signedIn && status?.activeMeasureType === "account_restricted";
