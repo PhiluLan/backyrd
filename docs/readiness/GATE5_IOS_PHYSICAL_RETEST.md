@@ -190,3 +190,30 @@ is unchanged.
 The exact four-file change is bound by recertification
 `gate5_ios_prerouter_intent_buffer_v1`. Canonical merge, Production OTA, and the
 same physical cold-start acceptance remain mandatory before Gate 5 can close.
+
+The pre-router buffer was merged as canonical Main
+`a7039476f498ed3e39f3d49351120e4004ebf60a` and published as iOS Production
+update `01a063b2-e7b4-72f9-856b-ece9e2927c0c`. Device-local Expo metadata
+proved one successful launch and zero failed launches. The correctly
+PID-terminated cold-start Spot flow again opened Home. Because the buffer never
+received a value, this proves the Safari-confirmed cold launch is not delivered
+through Expo Router's `+native-intent` callback before navigation readiness.
+
+Local inspection of the installed Expo SDK separates two native APIs. Expo
+Router 6.0.24 uses ExpoLinking's synchronous `getLinkingURL()` for iOS initial
+navigation. Expo Linking also exposes React Native's asynchronous
+`Linking.getInitialURL()`, which is the platform API documented and implemented
+to return the URL that launched the app. The prior candidates exercised only
+the synchronous Expo value and runtime listener.
+
+The next bounded candidate removes the ineffective pre-router buffer. Once the
+root navigator has a key, it reads React Native's retained initial URL exactly
+once, validates it through the unchanged strict Spot/User UUID allowlist, and
+replaces only when the validated target is not already active. It does not
+subscribe to URL events, so foreground/background routing remains exclusively
+with Expo Router. Promise rejection, empty/root, Auth, malformed, unknown, and
+non-Product URLs cannot navigate through this fallback.
+
+The exact four-file change is bound by recertification
+`gate5_ios_rn_initial_url_v1`. Canonical merge, Production OTA, and the same
+physical cold-start acceptance remain mandatory before Gate 5 can close.

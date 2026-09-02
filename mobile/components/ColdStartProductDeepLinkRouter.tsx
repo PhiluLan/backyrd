@@ -1,19 +1,19 @@
 import { useEffect, useRef } from "react";
+import * as Linking from "expo-linking";
 import {
   usePathname,
   useRootNavigationState,
   useRouter,
 } from "expo-router";
 
-import {
-  markProductDeepLinkRouterNotReady,
-  markProductDeepLinkRouterReady,
-} from "../lib/native-intent-route";
+import { resolveProductDeepLink } from "../lib/native-intent-route";
 
 /**
- * Replays only a validated Product URL that reached +native-intent before the
- * root navigator became usable. Once ready, Expo Router exclusively owns every
- * subsequent runtime URL.
+ * Expo Router uses ExpoLinking's synchronous iOS URL value for initial state.
+ * Safari-confirmed custom-scheme launches can reach React Native's retained
+ * initial URL instead. Read that native launch value once, after the root
+ * navigator is ready; runtime URL events remain exclusively owned by Expo
+ * Router.
  */
 export default function ColdStartProductDeepLinkRouter() {
   const router = useRouter();
@@ -28,12 +28,22 @@ export default function ColdStartProductDeepLinkRouter() {
   useEffect(() => {
     if (!rootNavigationState?.key) return;
 
-    const initialRoute = markProductDeepLinkRouterReady();
-    if (initialRoute && pathnameRef.current !== initialRoute) {
-      router.replace(initialRoute as never);
-    }
+    let cancelled = false;
+    void Linking.getInitialURL()
+      .then((rawUrl) => {
+        if (cancelled) return;
+        const initialRoute = resolveProductDeepLink(rawUrl ?? "");
+        if (initialRoute && pathnameRef.current !== initialRoute) {
+          router.replace(initialRoute as never);
+        }
+      })
+      .catch(() => {
+        console.log("[cold-start-link] native initial URL unavailable");
+      });
 
-    return markProductDeepLinkRouterNotReady;
+    return () => {
+      cancelled = true;
+    };
   }, [rootNavigationState?.key, router]);
 
   return null;
