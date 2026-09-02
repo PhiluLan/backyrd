@@ -164,3 +164,29 @@ malformed, Auth, notification, and non-Product routes are outside this fallback.
 The exact three-file change is bound by recertification
 `gate5_ios_cold_launch_fallback_v1`. Canonical merge, Production OTA, and the
 same physical cold-start acceptance remain mandatory before Gate 5 can close.
+
+That fallback was merged as canonical Main
+`bd22a69527726275e4c33afa7db52400470306ad` and published as iOS Production
+update `01a063aa-8cb1-7d0e-81d8-d0c04ed2338b`. Device-local Expo metadata
+proved one successful launch and zero failed launches. A correctly
+PID-terminated cold-start Spot link still opened Home: by first component
+render, `Linking.getLinkingURL()` had already reverted to the root URL. This
+candidate is therefore explicitly not the Gate-5 accepted Mobile identity.
+
+The observed ordering narrows the loss boundary to the interval in which
+`+native-intent` receives a non-initial iOS URL event but the root navigator has
+no key. The next candidate records a strict UUID-backed Spot/User route only in
+that interval. The root router atomically marks itself ready and consumes the
+pending route once. After readiness, remembering becomes a no-op and Expo
+Router remains the sole foreground/background URL owner. Component unmount
+marks the handoff unavailable again; malformed, unknown, Auth, notification,
+and non-Product routes cannot enter the buffer.
+
+Regression coverage now proves the state transition directly: pre-ready route
+is delivered once; the same API is inert while ready; a later pre-ready route
+is accepted only after teardown; and the existing strict URL rejection matrix
+is unchanged.
+
+The exact four-file change is bound by recertification
+`gate5_ios_prerouter_intent_buffer_v1`. Canonical merge, Production OTA, and the
+same physical cold-start acceptance remain mandatory before Gate 5 can close.
