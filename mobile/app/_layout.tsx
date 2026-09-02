@@ -12,6 +12,7 @@ import { AnalyticsErrorBoundary } from "../components/AnalyticsErrorBoundary";
 import GlobalSafetyEnforcementGuard from "../components/safety/GlobalSafetyEnforcementGuard";
 import LegalGateGuard from "../components/consent/LegalGateGuard";
 import PushNotificationRouter from "../components/PushNotificationRouter";
+import ProductDeepLinkRouter from "../components/ProductDeepLinkRouter";
 import { ProductLoading, ProductState } from "../components/ui/ProductState";
 import { runtimeConfigStatus } from "../lib/supabase";
 
@@ -62,7 +63,7 @@ function BootstrappedApp() {
 
   if (!fontsLoaded || authLoading) return <ProductLoading />;
 
-  return <AnalyticsProvider><GlobalSafetyEnforcementGuard><LegalGateGuard><PushNotificationRouter /><RootStack /></LegalGateGuard></GlobalSafetyEnforcementGuard></AnalyticsProvider>;
+  return <AnalyticsProvider><GlobalSafetyEnforcementGuard><LegalGateGuard><ProductDeepLinkRouter /><PushNotificationRouter /><RootStack /></LegalGateGuard></GlobalSafetyEnforcementGuard></AnalyticsProvider>;
 }
 
 export default function RootLayout() {
