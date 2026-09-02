@@ -22,10 +22,10 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "7776323d89620431a6eda31d529c26505771e802",
-        "tree": "c14931eaf9386b056caacaa3dee9c282eb1d0639",
+        "commit": "73c508187b3f6f78e746158c8a0a277da5011586",
+        "tree": "d26d9275faeb8c6505a9945dd6b5893c9652d28d",
         "production_verified": false,
-        "reason": "Gate 5 physical iOS cold-start candidate: validated Spot/User OS deep links survive the delayed Auth/font bootstrap while unknown and malformed paths remain fail-closed; Production OTA and post-deploy physical verification remain pending canonical merge."
+        "reason": "Gate 5 physical iOS initial-URL candidate: the native launch URL is re-read after delayed Auth/font bootstrap and must pass the same Spot/User UUID allowlist; Production OTA and post-deploy physical verification remain pending canonical merge."
       }
     },
     "consumer_web": {
@@ -166,6 +166,17 @@
         "mobile/app/_layout.tsx",
         "mobile/components/ProductDeepLinkRouter.tsx",
         "mobile/lib/native-intent-route.ts",
+        "mobile/scripts/test-native-intent-routing.mjs"
+      ],
+      "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
+    },
+    {
+      "id": "gate5_ios_initial_url_v1",
+      "baseline_commit": "9ed3fdd40456a10d21bdeb34f7d99cb7b06dc6ef",
+      "source_commit": "73c508187b3f6f78e746158c8a0a277da5011586",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/components/ProductDeepLinkRouter.tsx",
         "mobile/scripts/test-native-intent-routing.mjs"
       ],
       "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"

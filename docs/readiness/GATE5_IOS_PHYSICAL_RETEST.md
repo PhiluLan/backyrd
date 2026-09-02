@@ -55,3 +55,14 @@ non-Product routes cannot enter this pending contract.
 Additional regression coverage proves one-time consumption, invalid-route
 rejection, and the wiring between Native Intent and the root router. Physical
 Cold Start is repeated after canonical merge and Production OTA.
+
+The post-deploy Cold Start still returned to Home while the device-local
+expo-updates database proved update `01a06375-051e-7846-8b6b-c87d8c3ae5c4`
+was active, kept, and successfully launched with zero failed launches. This
+proved that relying on Native Intent module timing alone was insufficient.
+
+The final candidate uses Expo SDK 54's native `useLinkingURL()` source after
+bootstrap, then passes that URL through the unchanged Spot/User UUID allowlist
+before routing. Auth callbacks and every unknown URL continue to fall outside
+the Product redirect contract. The implementation and its regression are
+limited to the existing Product deep-link router and test.
