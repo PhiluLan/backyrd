@@ -37,3 +37,21 @@ unchanged.
 
 Post-merge Production OTA identifiers and the final foreground/background/
 cold-start physical results are recorded after canonical deployment.
+
+## Cold-start follow-up
+
+The first Production OTA restored the canonical Safari-to-Spot and
+Safari-to-User routes while Backyrd was running or backgrounded. A fully
+terminated Backyrd process still returned to Home. Device-local expo-updates
+metadata proved that the new update was active with successful launches, so
+the remaining failure was not stale OTA delivery.
+
+The delayed Auth/font bootstrap temporarily renders without the root
+navigator. Expo Router therefore loses the initial route before the navigator
+mounts. The follow-up retains only an already validated initial Spot/User route
+in memory and consumes it exactly once when the root router mounts. Invalid or
+non-Product routes cannot enter this pending contract.
+
+Additional regression coverage proves one-time consumption, invalid-route
+rejection, and the wiring between Native Intent and the root router. Physical
+Cold Start is repeated after canonical merge and Production OTA.

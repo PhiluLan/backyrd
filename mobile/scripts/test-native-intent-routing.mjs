@@ -7,13 +7,25 @@ const source = fs.readFileSync(
   new URL("../lib/native-intent-route.ts", import.meta.url),
   "utf8",
 );
+const nativeIntentSource = fs.readFileSync(
+  new URL("../app/+native-intent.tsx", import.meta.url),
+  "utf8",
+);
+const rootLayoutSource = fs.readFileSync(
+  new URL("../app/_layout.tsx", import.meta.url),
+  "utf8",
+);
 const compiled = ts.transpileModule(source, {
   compilerOptions: {
     module: ts.ModuleKind.ESNext,
     target: ts.ScriptTarget.ES2022,
   },
 }).outputText;
-const { resolveProductDeepLink } = await import(
+const {
+  consumeInitialProductDeepLink,
+  rememberInitialProductDeepLink,
+  resolveProductDeepLink,
+} = await import(
   `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`
 );
 
@@ -44,4 +56,21 @@ test("fails closed for unknown, malformed, and ambiguous routes", () => {
   for (const value of rejected) {
     assert.equal(resolveProductDeepLink(value), null, value);
   }
+});
+
+test("retains a validated initial route exactly once across bootstrap", () => {
+  rememberInitialProductDeepLink(`/spot/${spotId}`);
+  assert.equal(consumeInitialProductDeepLink(), `/spot/${spotId}`);
+  assert.equal(consumeInitialProductDeepLink(), null);
+
+  rememberInitialProductDeepLink("/messages/not-allowed");
+  assert.equal(consumeInitialProductDeepLink(), null);
+});
+
+test("binds cold-start retention to the native intent and root router", () => {
+  assert.match(
+    nativeIntentSource,
+    /if \(options\.initial\) rememberInitialProductDeepLink\(productDeepLink\)/,
+  );
+  assert.match(rootLayoutSource, /<ProductDeepLinkRouter \/>/);
 });
