@@ -31,7 +31,7 @@ public class AppDelegate: ExpoAppDelegate {
 }
 `;
 
-test("native link handoff invokes Expo and React Native without short-circuiting", () => {
+test("authorized cold-start targets wait for root content and dispatch once", () => {
   const patched = patchAppDelegate(generatedAppDelegate);
 
   assert.match(patched, /import OSLog/);
@@ -43,6 +43,19 @@ test("native link handoff invokes Expo and React Native without short-circuiting
   assert.match(patched, /Notification delegate probe installed/);
   assert.match(patched, /Notification response target=/);
   assert.match(patched, /authorizedTargetKind/);
+  assert.match(patched, /authorizedProductTargetKind/);
+  assert.match(patched, /if authorizedTarget != "none" && !rootContentReady/);
+  assert.match(patched, /pendingAuthorizedProductURL = url/);
+  assert.match(patched, /Deferred product URL released target=/);
+  assert.match(patched, /self\.pendingAuthorizedProductURL = nil/);
+  assert.match(
+    patched,
+    /if targetKind != "none" && !rootContentReady/,
+  );
+  assert.match(patched, /pendingAuthorizedResponse = response/);
+  assert.match(patched, /pendingAuthorizedResponse = nil/);
+  assert.match(patched, /Notification response released target=/);
+  assert.match(patched, /once=true/);
   assert.match(
     patched,
     /let expoHandled = super\.application\(app, open: url, options: options\)/,
@@ -59,6 +72,23 @@ test("native link handoff invokes Expo and React Native without short-circuiting
   assert.doesNotMatch(patched, /url\.absoluteString/);
   assert.doesNotMatch(patched, /expo_push_token/i);
   assert.doesNotMatch(patched, /access_token/i);
+});
+
+test("native retention keeps the existing target allowlists fail-closed", () => {
+  const patched = patchAppDelegate(generatedAppDelegate);
+
+  assert.match(patched, /url\.scheme\?\.lowercased\(\) == "backyrd"/);
+  assert.match(patched, /url\.query == nil/);
+  assert.match(patched, /url\.fragment == nil/);
+  assert.match(patched, /components\.count == 2/);
+  assert.match(patched, /\[1-5\]\[0-9a-fA-F\]\{3\}/);
+  assert.match(patched, /\[89aAbB\]\[0-9a-fA-F\]\{3\}/);
+  assert.match(patched, /components\[0\] == "spot" \|\| components\[0\] == "user"/);
+  assert.match(patched, /userInfo\["type"\] as\? String == "test_push"/);
+  assert.match(patched, /userInfo\["route"\] as\? String == "\/privacy-consent"/);
+  assert.match(patched, /userInfo\["type"\] as\? String == "direct_message"/);
+  assert.match(patched, /UUID\(uuidString: chatID\) != nil/);
+  assert.doesNotMatch(patched, /last route/i);
 });
 
 test("native link handoff fails closed when Expo changes the generated delegate", () => {
