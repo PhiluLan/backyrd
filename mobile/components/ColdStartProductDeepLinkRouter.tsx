@@ -8,6 +8,12 @@ import {
 
 import { resolveProductDeepLink } from "../lib/native-intent-route";
 
+function productTargetKind(route: string | null): "spot" | "user" | "none" {
+  if (route?.startsWith("/spot/")) return "spot";
+  if (route?.startsWith("/user/")) return "user";
+  return "none";
+}
+
 /**
  * Expo Router uses ExpoLinking's synchronous iOS URL value for initial state.
  * Safari-confirmed custom-scheme launches can reach React Native's retained
@@ -23,17 +29,27 @@ export default function ColdStartProductDeepLinkRouter() {
 
   useEffect(() => {
     pathnameRef.current = pathname;
+    console.log(
+      `[cold-start-link] navigation target=${productTargetKind(pathname)}`,
+    );
   }, [pathname]);
 
   useEffect(() => {
     if (!rootNavigationState?.key) return;
+
+    console.log("[cold-start-link] root navigation ready=true");
 
     let cancelled = false;
     void Linking.getInitialURL()
       .then((rawUrl) => {
         if (cancelled) return;
         const initialRoute = resolveProductDeepLink(rawUrl ?? "");
+        const targetKind = productTargetKind(initialRoute);
+        console.log(
+          `[cold-start-link] initial-url present=${Boolean(rawUrl)} authorized=${initialRoute !== null} target=${targetKind}`,
+        );
         if (initialRoute && pathnameRef.current !== initialRoute) {
+          console.log(`[cold-start-link] dispatch target=${targetKind}`);
           router.replace(initialRoute as never);
         }
       })

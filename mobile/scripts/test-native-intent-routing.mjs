@@ -68,6 +68,9 @@ test("uses native intent for runtime links and one native initial-URL fallback",
     /if \(productDeepLink\) \{[\s\S]*?return productDeepLink;/,
   );
   assert.match(coldStartRouterSource, /useRootNavigationState\(\)/);
+  assert.match(coldStartRouterSource, /initial-url present=/);
+  assert.match(coldStartRouterSource, /dispatch target=/);
+  assert.doesNotMatch(coldStartRouterSource, /console\.log\([^\n]*rawUrl/);
   assert.match(
     coldStartRouterSource,
     /Linking\.getInitialURL\(\)/,
