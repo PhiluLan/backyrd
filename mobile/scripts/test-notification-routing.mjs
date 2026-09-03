@@ -61,6 +61,7 @@ test("deduplicates responses and clears the consumed cold-start response", () =>
   assert.match(routerSource, /clearLastNotificationResponseAsync\(\)/);
   assert.match(routerSource, /resolveNotificationRoute\(data\)/);
   assert.match(routerSource, /retained response present=/);
+  assert.match(routerSource, /if \(Platform\.OS !== "ios"\)/);
   assert.match(routerSource, /dispatch target=/);
   assert.doesNotMatch(routerSource, /console\.log\([^\n]*responseId/);
   assert.doesNotMatch(routerSource, /console\.log\([^\n]*data/);

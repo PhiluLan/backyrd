@@ -1,6 +1,6 @@
 {
   "version": "backyrd-production-product-lineage-v2",
-  "audited_at": "2026-09-03T18:11:06Z",
+  "audited_at": "2026-09-03T20:30:13Z",
   "repository": "PhiluLan/backyrd",
   "integration_anchor": {
     "commit": "c425ad1d61186e6d73ed2df1f9686780dcbf0e24",
@@ -22,10 +22,10 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "ad1685f6e6795487c991e80e7b8e4ad27b32b945",
-        "tree": "b905ae54d02b08957cf4f7bfdc87e1fd48494534",
+        "commit": "049b6a1b72650283acef61efefae151174f68202",
+        "tree": "c1e48749ca23d8dd1477b1576dde96efe5f2c13e",
         "production_verified": false,
-        "reason": "Signed Production build 53 from canonical Main 5d1e5675c0aaa97f42b832b18acabb5002a4c9ae proved the remaining PID-terminated launch race. A real Production Spot cold link reached the exact Spot once but fell back to Home twice. Native evidence on a failure recorded launch URL present=true and Expo=false/React Native=true, proving that iOS supplied the authorized URL and React Native accepted it before stable root navigation. An allowlisted Production Push cold tap also opened Home. The bounded candidate ad1685f retains only exact UUID-backed Spot/User URLs and existing allowlisted Push responses until React Native's root-content readiness signal, clears each retained value before release, and blocks a second pending value. Runtime links keep the existing Expo/React Native path; malformed and unknown values are never retained. Logs contain booleans and target categories only, never URLs, identifiers, payloads, Push/Auth tokens or personal content. This candidate is explicitly not Production-verified; normal PR merge, a signed Production build from canonical Main, and repeated physical acceptance remain pending."
+        "reason": "Signed Production build 54 from canonical Main 3c03fe73c1219c5f5f1a95512f440305b1c5912b proved that an authorized Product URL reached native iOS and React Native before stable root navigation but was dropped rather than replayed. The bounded candidate 049b6a1 introduces a launch-process-only typed store for strict UUID-backed Spot/User links and the existing allowlisted Notification targets. JavaScript pulls only after bootstrap and root-navigation readiness, dispatches through the existing Expo Router authority, and acknowledges after accepted consumption. A receipt prevents duplicate dispatch; repeated pull before acknowledgement is stable; acknowledgement is idempotent; competing Deep-Link and Notification provenance cannot overwrite one another. The generated Objective-C export registers the Swift bridge in React Native. No UserDefaults, navigation history, arbitrary URL, token, payload content, identifier logging, or last-route fallback exists. Mobile contracts, 16/16 bridge/routing regressions, TypeScript, lint, Production release validation, clean prebuild, and unsigned native Release compilation passed. This candidate is explicitly not Production-verified; normal PR merge, a signed Production build from canonical Main, and repeated physical acceptance remain pending."
       }
     },
     "consumer_web": {
@@ -331,6 +331,23 @@
       "authorized_surface_changes": [
         "mobile/plugins/with-ios-link-handoff.js",
         "mobile/scripts/test-ios-link-handoff.mjs"
+      ],
+      "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
+    },
+    {
+      "id": "gate5_ios_native_initial_target_bridge_v1",
+      "baseline_commit": "3c03fe73c1219c5f5f1a95512f440305b1c5912b",
+      "source_commit": "049b6a1b72650283acef61efefae151174f68202",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/_layout.tsx",
+        "mobile/components/ColdStartProductDeepLinkRouter.tsx",
+        "mobile/components/PushNotificationRouter.tsx",
+        "mobile/lib/native-initial-target.ts",
+        "mobile/plugins/with-ios-link-handoff.js",
+        "mobile/scripts/test-ios-link-handoff.mjs",
+        "mobile/scripts/test-native-intent-routing.mjs",
+        "mobile/scripts/test-notification-routing.mjs"
       ],
       "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
     }

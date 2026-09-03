@@ -404,3 +404,54 @@ validation passes with 149 source files scanned. Candidate
 ad1685f6e6795487c991e80e7b8e4ad27b32b945 remains explicitly not
 Production-verified until normal PR merge, a new signed build from canonical
 Main, and the complete repeated physical acceptance matrix.
+
+## Native initial-target bridge candidate
+
+Signed Production build 54 from canonical Main
+`3c03fe73c1219c5f5f1a95512f440305b1c5912b` retained the prior native
+diagnostics. A correctly terminated physical Cold Start recorded the authorized
+Product URL at native launch and its acceptance by React Native before the root
+navigator became ready, while the visible result was Home. This proves the
+remaining defect is the absence of a replayable acknowledgement boundary—not
+URL parsing, Product authorization, or the Expo Router destination contract.
+
+The Founder/CTO-authorized candidate stores only a typed, already validated
+initial target in process memory. Deep-Link provenance accepts only canonical
+`spot` and `user` UUID targets. Notification provenance accepts only the
+existing `test_push` Privacy target and canonical UUID-backed `direct_message`
+target. The first target cannot be overwritten by another provenance or target.
+Malformed, unknown, ambiguous, query-bearing, fragment-bearing, or otherwise
+non-canonical Product URLs never enter the store.
+
+After Product bootstrap and root-navigation readiness, JavaScript explicitly
+pulls the typed target and revalidates it through the existing Product or
+Notification route resolver. A native receipt permits repeated pulls before
+acknowledgement but only one route dispatch. Native state is cleared only after
+accepted consumption is acknowledged; duplicate acknowledgements are harmless.
+The store uses no `UserDefaults`, disk persistence, route history, or Home
+fallback and therefore cannot become a later-launch route.
+
+The Swift bridge is registered through React Native's explicit Objective-C
+export contract in the generated Xcode target. Runtime foreground/background
+URLs and Notification responses retain their established handlers. Diagnostic
+logs contain only provenance, target category, and booleans; identifiers,
+payload contents, Push/Auth tokens, personal data, and secrets are excluded.
+
+Candidate source commit:
+`049b6a1b72650283acef61efefae151174f68202`; Mobile tree:
+`c1e48749ca23d8dd1477b1576dde96efe5f2c13e`. This candidate is explicitly
+**not Production-verified**. Normal PR review and merge, a signed Production
+build from canonical Main, and repeated physical Cold Start acceptance remain
+mandatory.
+
+Pre-PR validation for this exact source commit:
+
+- initial-target and routing regressions: 16/16 PASS;
+- Mobile Product contracts: PASS;
+- Mobile TypeScript: PASS;
+- Mobile lint: PASS;
+- Production release validation: PASS, 150 source files scanned;
+- clean Expo iOS prebuild: PASS;
+- generated Swift bridge, Objective-C export, and Xcode source membership:
+  PASS;
+- unsigned Release build for generic physical iOS: BUILD SUCCEEDED.
