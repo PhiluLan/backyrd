@@ -301,3 +301,22 @@ and clears a consumed persisted response. It does not alter the cold deep-link
 path. The exact four-file transition is bound by recertification
 `gate5_ios_notification_routing_v1`; canonical merge, Production OTA and the
 physical background/cold Push matrix remain mandatory.
+
+Production OTA `01a067f7-6eee-77b5-8a61-96cdc4a72a30` was verified active
+on signed build 52 from the on-device Expo Updates database with one successful
+launch and zero failed launches. The physical Push matrix then proved
+foreground delivery, background delivery, and background tap routing to the
+exact allowlisted Privacy Center target. The real Expo Push token was not read,
+printed, logged, committed, documented, or transmitted outside the existing
+authenticated Product delivery path.
+
+The PID-terminated Push test delivered the notification but opened Home after
+the tap. Source inspection isolated the separate defect: the notification
+router consumed the persisted response without waiting for Expo Router's root
+navigation key, although the existing cold Product-link router already treats
+that key as the navigation-readiness boundary. Recertification
+`gate5_ios_push_cold_start_readiness_v1` binds only the two-file correction and
+its regression: wait for the existing root navigation key before consuming the
+response, while preserving strict allowlisted target resolution, response-ID
+deduplication, and persisted-response clearing. Canonical merge, Production
+OTA, and physical cold-start Push re-acceptance remain mandatory.
