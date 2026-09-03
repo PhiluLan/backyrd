@@ -7,6 +7,7 @@ import {
   useRootNavigationState,
   useRouter,
 } from "expo-router";
+import { Platform } from "react-native";
 
 import { resolveNotificationRoute } from "../lib/notification-route";
 
@@ -71,12 +72,14 @@ export default function PushNotificationRouter() {
         openResponse(response);
       });
 
-    void Notifications.getLastNotificationResponseAsync().then((response) => {
-      console.log(
-        `[cold-start-push] retained response present=${response !== null}`,
-      );
-      if (response) openResponse(response);
-    });
+    if (Platform.OS !== "ios") {
+      void Notifications.getLastNotificationResponseAsync().then((response) => {
+        console.log(
+          `[cold-start-push] retained response present=${response !== null}`,
+        );
+        if (response) openResponse(response);
+      });
+    }
 
     return () => {
       responseSubscription.remove();

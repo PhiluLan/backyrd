@@ -73,7 +73,7 @@ function BootstrappedApp() {
         <LegalGateGuard>
           <View style={styles.root}>
             <RootStack />
-            <ColdStartProductDeepLinkRouter />
+            <ColdStartProductDeepLinkRouter ready={bootstrapState === null} />
             <PushNotificationRouter />
             {bootstrapState ? (
               <View

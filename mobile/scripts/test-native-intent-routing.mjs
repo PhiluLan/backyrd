@@ -19,6 +19,10 @@ const coldStartRouterSource = fs.readFileSync(
   new URL("../components/ColdStartProductDeepLinkRouter.tsx", import.meta.url),
   "utf8",
 );
+const nativeInitialTargetSource = fs.readFileSync(
+  new URL("../lib/native-initial-target.ts", import.meta.url),
+  "utf8",
+);
 const compiled = ts.transpileModule(source, {
   compilerOptions: {
     module: ts.ModuleKind.ESNext,
@@ -58,7 +62,22 @@ test("fails closed for unknown, malformed, and ambiguous routes", () => {
   }
 });
 
-test("uses native intent for runtime links and one native initial-URL fallback", () => {
+test("revalidates typed native envelopes before Product navigation", () => {
+  assert.match(nativeInitialTargetSource, /typeof receipt !== "string"/);
+  assert.match(nativeInitialTargetSource, /!UUID_PATTERN\.test\(receipt\)/);
+  assert.match(nativeInitialTargetSource, /provenance === "deep_link"/);
+  assert.match(nativeInitialTargetSource, /targetType === "spot" \|\| targetType === "user"/);
+  assert.match(nativeInitialTargetSource, /provenance === "notification"/);
+  assert.match(nativeInitialTargetSource, /targetType === "direct_message"/);
+  assert.match(nativeInitialTargetSource, /targetType === "test_push"/);
+  assert.match(nativeInitialTargetSource, /identifier === "\/privacy-consent"/);
+  assert.match(nativeInitialTargetSource, /resolveProductDeepLink/);
+  assert.match(nativeInitialTargetSource, /resolveNotificationRoute/);
+  assert.match(nativeInitialTargetSource, /return null;/);
+  assert.doesNotMatch(nativeInitialTargetSource, /UserDefaults|AsyncStorage/);
+});
+
+test("uses native intent for runtime links and an acknowledged iOS initial target", () => {
   assert.match(
     nativeIntentSource,
     /const productDeepLink = resolveProductDeepLink\(rawPath\)/,
@@ -68,12 +87,18 @@ test("uses native intent for runtime links and one native initial-URL fallback",
     /if \(productDeepLink\) \{[\s\S]*?return productDeepLink;/,
   );
   assert.match(coldStartRouterSource, /useRootNavigationState\(\)/);
+  assert.match(coldStartRouterSource, /pullNativeInitialTarget\(\)/);
+  assert.match(coldStartRouterSource, /resolveNativeInitialTargetRoute\(target\)/);
+  assert.match(coldStartRouterSource, /acknowledgeNativeInitialTarget/);
+  assert.match(coldStartRouterSource, /acceptedNativeReceipts\.has\(target\.receipt\)/);
+  assert.match(coldStartRouterSource, /duplicate dispatch blocked=true/);
+  assert.match(coldStartRouterSource, /if \(Platform\.OS === "ios"\)/);
   assert.match(coldStartRouterSource, /initial-url present=/);
   assert.match(coldStartRouterSource, /dispatch target=/);
   assert.doesNotMatch(coldStartRouterSource, /console\.log\([^\n]*rawUrl/);
   assert.match(
     coldStartRouterSource,
-    /Linking\.getInitialURL\(\)/,
+    /Non-iOS clients retain the established initial-URL contract[\s\S]*?Linking\.getInitialURL\(\)/,
   );
   assert.match(
     coldStartRouterSource,
@@ -88,10 +113,11 @@ test("uses native intent for runtime links and one native initial-URL fallback",
   );
   assert.ok(
     rootLayoutSource.indexOf("<RootStack />") <
-      rootLayoutSource.indexOf("<ColdStartProductDeepLinkRouter />") &&
-      rootLayoutSource.indexOf("<ColdStartProductDeepLinkRouter />") <
+      rootLayoutSource.indexOf("<ColdStartProductDeepLinkRouter ready={bootstrapState === null} />") &&
+      rootLayoutSource.indexOf("<ColdStartProductDeepLinkRouter ready={bootstrapState === null} />") <
       rootLayoutSource.indexOf("<PushNotificationRouter />"),
     "the root navigator must mount before runtime routing effects run",
   );
+  assert.match(coldStartRouterSource, /if \(!ready \|\| !rootNavigationState\?\.key\) return/);
   assert.match(rootLayoutSource, /StyleSheet\.absoluteFillObject/);
 });
