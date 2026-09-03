@@ -106,7 +106,14 @@ export default (context = { config: {} }) => {
       ],
     },
 
-    plugins: ["expo-router", "expo-camera", "expo-secure-store", "expo-web-browser", "expo-font"],
+    plugins: [
+      "expo-router",
+      "expo-camera",
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-font",
+      "./plugins/with-ios-link-handoff",
+    ],
 
     extra: {
       appVariant: variant,
