@@ -362,3 +362,45 @@ Pre-review validation:
 The candidate is diagnostic, not accepted Production identity. Normal PR merge,
 a signed Production build from canonical Main, and repeated physical tests are
 required before any root cause or Gate-5 closure claim.
+
+## Signed build 53 root-cause proof and bounded native handoff
+
+PR 194 merged normally as canonical Main
+5d1e5675c0aaa97f42b832b18acabb5002a4c9ae after all Required Checks passed.
+EAS Production build 8bf75d59-48c7-44e8-9cfb-2127b093cf85 produced signed App
+Store build 53 from that exact commit and was installed through TestFlight.
+
+With the process terminated before every launch, the same real Production Spot
+link reached Naturhistorisches Museum Basel once and fell back to Home twice.
+The failed run emitted only category/boolean evidence:
+
+- cold launch URL present: true;
+- cold launch remote notification present: false;
+- notification delegate probe installed: true;
+- URL handoff Expo: false, React Native: true.
+
+This proves the URL was neither absent nor rejected by React Native. It was
+accepted before a stable root route existed and was not deterministically
+replayed afterward. An allowlisted real Production Push delivered through the
+existing secure provider path also opened Home when tapped for a terminated
+process. No Push token was read, exported, printed, committed, documented or
+persisted outside the existing Product contract.
+
+The smallest correction is native and readiness-bound. It retains only the
+existing strict UUID-backed spot or user URL shapes while root content is not
+ready. It similarly retains only the two existing authorized Push target
+shapes. React Native's own root-content appearance notification releases each
+pending target after clearing it, so the target can be consumed exactly once.
+A second pending value is blocked. Runtime foreground/background links retain
+their existing Expo plus React Native path. Unknown, malformed, query-bearing,
+fragment-bearing and non-Backyrd URLs are never retained, and unknown Push
+targets continue to the existing fail-closed resolver.
+
+The exact two-file transition is bound by recertification
+gate5_ios_native_cold_start_handoff_v1. Native routing and negative regressions
+pass 10/10, Product contracts pass, TypeScript and lint pass, a clean generated
+iOS project compiles in unsigned Release configuration, and Production release
+validation passes with 149 source files scanned. Candidate
+ad1685f6e6795487c991e80e7b8e4ad27b32b945 remains explicitly not
+Production-verified until normal PR merge, a new signed build from canonical
+Main, and the complete repeated physical acceptance matrix.
