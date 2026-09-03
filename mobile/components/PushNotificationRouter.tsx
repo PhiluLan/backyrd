@@ -1,40 +1,42 @@
 // mobile/components/PushNotificationRouter.tsx
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 
-function chatIdFromNotification(
-  notification: Notifications.Notification,
-): string | null {
-  const data = notification.request.content.data as
-    | Record<string, unknown>
-    | undefined;
-
-  const chatId = data?.chat_id;
-  return typeof chatId === "string" && chatId.length > 0
-    ? chatId
-    : null;
-}
+import { resolveNotificationRoute } from "../lib/notification-route";
 
 export default function PushNotificationRouter() {
   const router = useRouter();
+  const handledResponseIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
-    const openChat = (notification: Notifications.Notification) => {
-      const chatId = chatIdFromNotification(notification);
-      if (!chatId) return;
+    const openResponse = (response: Notifications.NotificationResponse) => {
+      const responseId = response.notification.request.identifier;
+      if (!responseId || handledResponseIdsRef.current.has(responseId)) return;
 
-      router.push(`/messages/${chatId}` as any);
+      handledResponseIdsRef.current.add(responseId);
+
+      const data = response.notification.request.content.data as
+        | Record<string, unknown>
+        | undefined;
+      const route = resolveNotificationRoute(data);
+      if (!route) return;
+
+      router.push(route as any);
+      void Notifications.clearLastNotificationResponseAsync().catch(() => {
+        // Routing already succeeded. A future duplicate remains guarded for
+        // this mounted session and will be retried fail-closed on next launch.
+      });
     };
 
     const responseSubscription =
       Notifications.addNotificationResponseReceivedListener((response) => {
-        openChat(response.notification);
+        openResponse(response);
       });
 
     void Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (response) openChat(response.notification);
+      if (response) openResponse(response);
     });
 
     return () => {
