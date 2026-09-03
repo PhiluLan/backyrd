@@ -262,3 +262,42 @@ The exact four-file Mobile transition is bound by recertification
 `gate5_ios_native_handoff_v1`. A signed Production build and the physical
 Cold Start Spot/User, foreground/background, malformed/unknown, and Push
 acceptance remain mandatory before Gate 5 can close.
+
+## Signed Production build 52 physical result
+
+Canonical Main `ea7e8053ccab841573a3d02a4cc0e136b772ca3a` produced signed EAS
+Production build 52. Its signature, Production APNs entitlement, bundle
+identifier and embedded canonical source were verified before TestFlight
+installation. The physical device then proved:
+
+- foreground Spot and User links reached the exact Production records;
+- background Spot and User links reached the exact Production records;
+- malformed UUID and unknown target types remained on the safe Product root;
+- PID-terminated Spot and User launches both opened Home instead of their
+  requested records.
+
+The native boolean-only instrumentation captured `Cold launch URL present:
+true` and `Open URL handoff expo=false reactNative=true`. This disproves the
+earlier short-circuit hypothesis as the complete root cause: iOS supplies the
+launch URL and React Native accepts the handoff, but the cold Product route is
+still lost after that boundary. Per Founder/CTO instruction, no further
+JavaScript router or OTA deep-link fallback is attempted. Gate 5 remains
+blocked on this P1.
+
+The first real Push attempt also failed after a successful device
+registration. Re-registering the device reproduced the failure. Credential
+inspection found an existing valid Apple APNs key that was not assigned in the
+active EAS Production credential set. Reassigning that same valid key restored
+real Production foreground delivery without rotation, replacement, token
+export or token disclosure.
+
+Inspection then proved a separate tap-routing defect: `send-test-push` sends
+the intended `/privacy-consent` target, while the Mobile router ignored every
+target without `chat_id`, accepted arbitrary non-empty chat identifiers, and
+could replay the persisted last response. The bounded notification correction
+accepts only UUID-backed `direct_message` targets and the exact allowlisted
+test-push route, rejects every other value, deduplicates response identifiers,
+and clears a consumed persisted response. It does not alter the cold deep-link
+path. The exact four-file transition is bound by recertification
+`gate5_ios_notification_routing_v1`; canonical merge, Production OTA and the
+physical background/cold Push matrix remain mandatory.
