@@ -217,3 +217,48 @@ non-Product URLs cannot navigate through this fallback.
 The exact four-file change is bound by recertification
 `gate5_ios_rn_initial_url_v1`. Canonical merge, Production OTA, and the same
 physical cold-start acceptance remain mandatory before Gate 5 can close.
+
+## Native iOS handoff boundary
+
+PR 190 was merged normally as canonical Main
+`503662d074ccefba56cc45d2f986c43710987458` after all checks passed and was
+published as Production iOS update
+`01a063c4-17cb-7541-b951-4c57f6bffc6b`. Device-local expo-updates metadata
+proved that update active, kept, and successfully launched with zero failed
+launches. With the Backyrd process actually terminated by PID, Safari presented
+the expected “In Backyrd öffnen?” confirmation for a real Production Spot URL,
+but confirmation did not reach the requested Spot. Backyrd briefly showed a
+black launch surface and Safari presented the confirmation again. No Backyrd
+crash report was present on the device, and an ordinary app launch remained
+healthy. The PR 190 JavaScript fallback therefore did not close the physical
+Cold Start and is explicitly not the accepted Gate-5 identity.
+
+Per the Founder/CTO stop condition, no further JavaScript router or OTA fallback
+was attempted. A clean Expo SDK 54 native prebuild exposed the remaining native
+boundary: the generated custom-scheme delegate returned
+`super.application(...) || RCTLinkingManager.application(...)`. When the Expo
+delegate reports success, Swift short-circuit evaluation prevents React
+Native's URL handler from receiving that event. This behavior is consistent
+with the physical evidence: Expo accepts the launch while
+`Linking.getInitialURL()` has no retained Product URL to replay.
+
+The bounded native correction evaluates both handlers before combining their
+results. It adds only boolean OSLog diagnostics for launch-URL presence and the
+two handler results; the URL, route payload, account data, and tokens are never
+logged. The config plugin refuses the native build if Expo's generated
+AppDelegate no longer matches the reviewed contract. Product URL validation
+remains the existing strict Spot/User UUID allowlist, and malformed or unknown
+targets remain fail-closed.
+
+Validation completed before review:
+
+- Mobile Product contracts: PASS;
+- native URL and fail-closed regressions: 5/5 PASS;
+- Mobile TypeScript and lint: PASS;
+- clean Expo iOS prebuild with the patched delegate: PASS;
+- unsigned Release build for generic physical iOS: BUILD SUCCEEDED.
+
+The exact four-file Mobile transition is bound by recertification
+`gate5_ios_native_handoff_v1`. A signed Production build and the physical
+Cold Start Spot/User, foreground/background, malformed/unknown, and Push
+acceptance remain mandatory before Gate 5 can close.

@@ -22,10 +22,10 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "8fbce2406d4fb387bf4faf4be5fcf04091cc552a",
-        "tree": "5140fb6b9f28339b587d53e8c51c7e15919f9566",
+        "commit": "59592900953c14ed446b3088a8048a4e7395b0dc",
+        "tree": "137281d6ceb72a1d254b865b7c64ad51d52d3a86",
         "production_verified": false,
-        "reason": "Gate 5 physical iOS React-Native initial-URL fallback candidate: after root-navigation readiness, the retained native launch URL is read exactly once and may route only a strict Spot/User UUID target; runtime URL events remain owned by Expo Router. Production OTA and post-deploy physical verification remain pending canonical merge."
+        "reason": "Gate 5 native iOS handoff candidate after the canonical PR 190 OTA physically failed a terminated-app Spot launch: the generated AppDelegate now invokes both Expo and React Native URL handlers without short-circuiting, keeps the strict Spot/User allowlist unchanged, logs only boolean handoff state, and fails the native build if the generated delegate contract drifts. Signed Production build and post-install physical verification remain pending canonical merge."
       }
     },
     "consumer_web": {
@@ -268,6 +268,19 @@
         "mobile/components/ColdStartProductDeepLinkRouter.tsx",
         "mobile/lib/native-intent-route.ts",
         "mobile/scripts/test-native-intent-routing.mjs"
+      ],
+      "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
+    },
+    {
+      "id": "gate5_ios_native_handoff_v1",
+      "baseline_commit": "503662d074ccefba56cc45d2f986c43710987458",
+      "source_commit": "59592900953c14ed446b3088a8048a4e7395b0dc",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app.config.ts",
+        "mobile/package.json",
+        "mobile/plugins/with-ios-link-handoff.js",
+        "mobile/scripts/test-ios-link-handoff.mjs"
       ],
       "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
     }
