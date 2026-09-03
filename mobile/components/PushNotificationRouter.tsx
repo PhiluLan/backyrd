@@ -2,15 +2,18 @@
 
 import { useEffect, useRef } from "react";
 import * as Notifications from "expo-notifications";
-import { useRouter } from "expo-router";
+import { useRootNavigationState, useRouter } from "expo-router";
 
 import { resolveNotificationRoute } from "../lib/notification-route";
 
 export default function PushNotificationRouter() {
   const router = useRouter();
+  const rootNavigationState = useRootNavigationState();
   const handledResponseIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
+    if (!rootNavigationState?.key) return;
+
     const openResponse = (response: Notifications.NotificationResponse) => {
       const responseId = response.notification.request.identifier;
       if (!responseId || handledResponseIdsRef.current.has(responseId)) return;
@@ -42,7 +45,7 @@ export default function PushNotificationRouter() {
     return () => {
       responseSubscription.remove();
     };
-  }, [router]);
+  }, [rootNavigationState?.key, router]);
 
   return null;
 }
