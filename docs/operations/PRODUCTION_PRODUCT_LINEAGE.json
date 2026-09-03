@@ -22,10 +22,10 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "f40046815ef61bda62907311b25855cc22924e75",
-        "tree": "605e564349d24a357b1dbce861278e9e999b3675",
+        "commit": "497a76a3eaa5e709f1db00f72f54f6e2a49bff90",
+        "tree": "f3bed954e712bdf6c4529937f62102fefbcc315f",
         "production_verified": false,
-        "reason": "Gate 5 signed Production build 52 proved foreground/background Spot and User links, but both PID-terminated cold starts still opened Home even though native logs proved launchOptions URL presence and successful React Native handoff. No further JavaScript/OTA deep-link fallback is authorized. Production OTA 01a067f7-6eee-77b5-8a61-96cdc4a72a30 then proved real Push foreground delivery, background delivery and background tap routing to the exact allowlisted Privacy Center target. The PID-terminated Push tap reproduced a separate readiness defect: the persisted response was consumed before Expo Router exposed a root navigation key and the app opened Home. The bounded candidate waits for that existing readiness signal while retaining strict target validation, deduplication and consumed-response clearing. Canonical merge, Production OTA and physical cold-start Push acceptance remain pending."
+        "reason": "Gate 5 signed Production build 52 proved foreground/background Spot and User links plus foreground/background Push delivery and exact allowlisted tap routing. PID-terminated Spot, User and Push launches still opened Home. The Founder/CTO-authorized candidate adds boolean/category-only native and JavaScript handoff instrumentation to distinguish iOS launch receipt, Expo/React Native forwarding, bridge readiness, retained state, root-navigation readiness and one-time dispatch. It preserves the strict Spot/User and Push target allowlists and logs no URL, identifier, payload, Push/Auth token or personal data. This reviewed but unmerged candidate is explicitly not Production-verified; canonical merge, a new signed Production build, root-cause evidence and physical acceptance remain pending."
       }
     },
     "consumer_web": {
@@ -304,6 +304,21 @@
       "decision_semantics_changed": false,
       "authorized_surface_changes": [
         "mobile/components/PushNotificationRouter.tsx",
+        "mobile/scripts/test-notification-routing.mjs"
+      ],
+      "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
+    },
+    {
+      "id": "gate5_ios_native_cold_start_probe_v1",
+      "baseline_commit": "03110510adb6273d4823eddd52f8dec80c37dc99",
+      "source_commit": "497a76a3eaa5e709f1db00f72f54f6e2a49bff90",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/components/ColdStartProductDeepLinkRouter.tsx",
+        "mobile/components/PushNotificationRouter.tsx",
+        "mobile/plugins/with-ios-link-handoff.js",
+        "mobile/scripts/test-ios-link-handoff.mjs",
+        "mobile/scripts/test-native-intent-routing.mjs",
         "mobile/scripts/test-notification-routing.mjs"
       ],
       "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"

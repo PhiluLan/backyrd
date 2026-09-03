@@ -320,3 +320,45 @@ its regression: wait for the existing root navigation key before consuming the
 response, while preserving strict allowlisted target resolution, response-ID
 deduplication, and persisted-response clearing. Canonical merge, Production
 OTA, and physical cold-start Push re-acceptance remain mandatory.
+
+## Founder/CTO-authorized native Cold Start probe
+
+Production OTA after PR 193 did not alter signed build 52's native launch
+boundary. Its correctly PID-terminated Push tap again opened Home. Together
+with the signed-build evidence above, the one remaining Gate-5 P1 class now
+covers PID-terminated Spot, User, and allowlisted Push target launches.
+
+The authorized diagnostic candidate adds one bounded handoff trace spanning:
+
+- native launch URL and remote-notification presence as booleans;
+- native notification target category and whether Expo's existing delegate was
+  called;
+- React Native JavaScript-load and root-content appearance;
+- initial URL / retained notification presence, allowlist result and target
+  category;
+- root-navigation readiness and actual one-time route dispatch.
+
+It never logs a URL, UUID, notification identifier, payload, Push token, Auth
+token, account value, or personal content. Deep-link and notification launches
+have distinct log categories. The existing UUID-backed Spot/User allowlist,
+exact Push-target allowlist, response-ID deduplication and consumed-response
+clearing are unchanged. Unknown and malformed targets still cannot dispatch.
+
+The native probe wraps and forwards to Expo's installed notification delegate;
+it does not create another notification or navigation path. The build fails
+closed if Expo changes the reviewed AppDelegate launch, delegate or URL-handoff
+anchors. The exact six-file Mobile source transition is bound by recertification
+`gate5_ios_native_cold_start_probe_v1`.
+
+Pre-review validation:
+
+- native link / notification / fail-closed regressions: 9/9 PASS;
+- Mobile TypeScript: PASS;
+- Mobile lint: PASS;
+- clean Expo iOS prebuild: PASS;
+- unsigned generic-device Release compile: PASS;
+- sensitive value logging: 0.
+
+The candidate is diagnostic, not accepted Production identity. Normal PR merge,
+a signed Production build from canonical Main, and repeated physical tests are
+required before any root cause or Gate-5 closure claim.

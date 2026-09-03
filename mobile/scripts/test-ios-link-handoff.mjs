@@ -18,7 +18,7 @@ public class AppDelegate: ExpoAppDelegate {
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
     let delegate = ReactNativeDelegate()
-    return true
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   public override func application(
@@ -35,7 +35,14 @@ test("native link handoff invokes Expo and React Native without short-circuiting
   const patched = patchAppDelegate(generatedAppDelegate);
 
   assert.match(patched, /import OSLog/);
+  assert.match(patched, /import UserNotifications/);
   assert.match(patched, /Cold launch URL present/);
+  assert.match(patched, /Cold launch remote notification present/);
+  assert.match(patched, /React Native JavaScript loaded/);
+  assert.match(patched, /React Native root content appeared/);
+  assert.match(patched, /Notification delegate probe installed/);
+  assert.match(patched, /Notification response target=/);
+  assert.match(patched, /authorizedTargetKind/);
   assert.match(
     patched,
     /let expoHandled = super\.application\(app, open: url, options: options\)/,
@@ -50,11 +57,20 @@ test("native link handoff invokes Expo and React Native without short-circuiting
     /return super\.application\(app, open: url, options: options\) \|\|/,
   );
   assert.doesNotMatch(patched, /url\.absoluteString/);
+  assert.doesNotMatch(patched, /expo_push_token/i);
+  assert.doesNotMatch(patched, /access_token/i);
 });
 
 test("native link handoff fails closed when Expo changes the generated delegate", () => {
   assert.throws(
     () => patchAppDelegate(generatedAppDelegate.replace(" || ", " && ")),
     /implementation is unknown/,
+  );
+});
+
+test("native instrumentation fails closed when the launch completion changes", () => {
+  assert.throws(
+    () => patchAppDelegate(generatedAppDelegate.replace("return super.application(application, didFinishLaunchingWithOptions: launchOptions)", "return true")),
+    /launch completion is unknown/,
   );
 });
