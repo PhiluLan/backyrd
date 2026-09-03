@@ -22,10 +22,10 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "71d53dff061c994cc799e7c64f2ad0f0ba53353f",
-        "tree": "bb7cb7e4d199c7b2239e499aa9d5e0817f9ed2e7",
+        "commit": "f40046815ef61bda62907311b25855cc22924e75",
+        "tree": "605e564349d24a357b1dbce861278e9e999b3675",
         "production_verified": false,
-        "reason": "Gate 5 signed Production build 52 proved foreground/background Spot and User links, but both PID-terminated cold starts still opened Home even though native logs proved launchOptions URL presence and successful React Native handoff. No further JavaScript/OTA deep-link fallback is authorized. The bounded notification candidate adds strict type/UUID routing, the allowlisted test-push target, persisted-response clearing and in-session deduplication after the physical test exposed an unbound EAS APNs credential and an ignored test-push route. Canonical merge, Production OTA and physical Push background/cold-start acceptance remain pending."
+        "reason": "Gate 5 signed Production build 52 proved foreground/background Spot and User links, but both PID-terminated cold starts still opened Home even though native logs proved launchOptions URL presence and successful React Native handoff. No further JavaScript/OTA deep-link fallback is authorized. Production OTA 01a067f7-6eee-77b5-8a61-96cdc4a72a30 then proved real Push foreground delivery, background delivery and background tap routing to the exact allowlisted Privacy Center target. The PID-terminated Push tap reproduced a separate readiness defect: the persisted response was consumed before Expo Router exposed a root navigation key and the app opened Home. The bounded candidate waits for that existing readiness signal while retaining strict target validation, deduplication and consumed-response clearing. Canonical merge, Production OTA and physical cold-start Push acceptance remain pending."
       }
     },
     "consumer_web": {
@@ -293,6 +293,17 @@
         "mobile/components/PushNotificationRouter.tsx",
         "mobile/lib/notification-route.ts",
         "mobile/package.json",
+        "mobile/scripts/test-notification-routing.mjs"
+      ],
+      "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
+    },
+    {
+      "id": "gate5_ios_push_cold_start_readiness_v1",
+      "baseline_commit": "6623a1337ec87c44fe6472ea3f63a32e97bd9c91",
+      "source_commit": "f40046815ef61bda62907311b25855cc22924e75",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/components/PushNotificationRouter.tsx",
         "mobile/scripts/test-notification-routing.mjs"
       ],
       "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"

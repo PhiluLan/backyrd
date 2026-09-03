@@ -53,6 +53,8 @@ test("fails closed for malformed, stale and unknown targets", () => {
 });
 
 test("deduplicates responses and clears the consumed cold-start response", () => {
+  assert.match(routerSource, /useRootNavigationState/);
+  assert.match(routerSource, /if \(!rootNavigationState\?\.key\) return/);
   assert.match(routerSource, /handledResponseIdsRef = useRef\(new Set<string>\(\)\)/);
   assert.match(routerSource, /handledResponseIdsRef\.current\.has\(responseId\)/);
   assert.match(routerSource, /handledResponseIdsRef\.current\.add\(responseId\)/);
