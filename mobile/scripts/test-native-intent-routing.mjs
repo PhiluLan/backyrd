@@ -23,6 +23,14 @@ const nativeInitialTargetSource = fs.readFileSync(
   new URL("../lib/native-initial-target.ts", import.meta.url),
   "utf8",
 );
+const gateSource = fs.readFileSync(
+  new URL("../app/gate.tsx", import.meta.url),
+  "utf8",
+);
+const legalGateSource = fs.readFileSync(
+  new URL("../components/consent/LegalGateGuard.tsx", import.meta.url),
+  "utf8",
+);
 const compiled = ts.transpileModule(source, {
   compilerOptions: {
     module: ts.ModuleKind.ESNext,
@@ -113,11 +121,25 @@ test("uses native intent for runtime links and an acknowledged iOS initial targe
   );
   assert.ok(
     rootLayoutSource.indexOf("<RootStack />") <
-      rootLayoutSource.indexOf("<ColdStartProductDeepLinkRouter ready={bootstrapState === null} />") &&
-      rootLayoutSource.indexOf("<ColdStartProductDeepLinkRouter ready={bootstrapState === null} />") <
+      rootLayoutSource.indexOf("<ColdStartProductDeepLinkRouter ready={bootstrapReady} />") &&
+      rootLayoutSource.indexOf("<ColdStartProductDeepLinkRouter ready={bootstrapReady} />") <
       rootLayoutSource.indexOf("<PushNotificationRouter />"),
     "the root navigator must mount before runtime routing effects run",
   );
   assert.match(coldStartRouterSource, /if \(!ready \|\| !rootNavigationState\?\.key\) return/);
   assert.match(rootLayoutSource, /StyleSheet\.absoluteFillObject/);
+});
+
+test("gives one startup authority priority over the asynchronous default Home writer", () => {
+  assert.match(coldStartRouterSource, /selectTarget\(target\.receipt\)/);
+  assert.match(coldStartRouterSource, /waitForTargetDispatch/);
+  assert.match(coldStartRouterSource, /selectNoTarget\(\)/);
+  assert.match(gateSource, /await rootStartupNavigationAuthority\.waitForSelection\(\)/);
+  assert.match(gateSource, /target === "\/\(tabs\)" && startupSelection\.kind === "target"/);
+  assert.match(gateSource, /allowProductTargetFromEntryGate\(\)/);
+  assert.match(gateSource, /completeDefaultStart\(\)/);
+  assert.match(legalGateSource, /setLegalState\("clear"\)/);
+  assert.match(legalGateSource, /status\?\.gate_required === true \? "required" : "clear"/);
+  assert.doesNotMatch(coldStartRouterSource, /setTimeout|setInterval/);
+  assert.doesNotMatch(gateSource, /setTimeout|setInterval/);
 });

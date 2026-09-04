@@ -258,6 +258,44 @@ Validation completed before review:
 - clean Expo iOS prebuild with the patched delegate: PASS;
 - unsigned Release build for generic physical iOS: BUILD SUCCEEDED.
 
+## Root startup navigation coordination candidate
+
+PR 196 merged normally as canonical Main
+`d3eda080765fc8c779057db2fef1038c54b971da` after all Required Checks passed.
+EAS Production build `a29cf871-6efd-4447-8112-16b22d9c72b2` produced signed
+App Store build 55 from that exact commit. Its IPA SHA-256 is
+`b8c698ca7fdac43e9afbc8c5598556bb7d966dcbe7df413983436bb76123f172`.
+The build was submitted only to TestFlight for internal Gate-5 acceptance.
+
+The first physical PID-terminated Spot launch on build 55 showed the
+Naturhistorisches Museum Basel loading state and then returned to Home. This
+proves the native initial-target store, pull, JavaScript revalidation and route
+dispatch all completed. Source tracing identified the later writer precisely:
+`app/index.tsx` initially redirects to `/gate`; `GateScreen.routeUser()` starts
+the asynchronous verified-user and Product Entry checks; after the initial
+Spot dispatch, that already-running call resolves `nextRoute` to `/(tabs)` and
+executes `router.replace(target)`, overwriting the accepted Spot route.
+
+The Founder/CTO-authorized candidate `a5b9b10ed1f05cbfaef492c4564296ea8997e69c`
+adds one process-local startup authority around that existing writer. On iOS,
+Gate waits for the native pull to select either a typed target receipt or no
+target. No target permits the existing Home transition. A valid target permits
+no Home write and waits for both the existing Product Entry result and Legal
+Gate clearance before the existing Expo Router dispatch. Mandatory Auth,
+onboarding and Legal destinations retain priority.
+
+The coordinator stores no route, Product identifier, payload, token, history
+or personal data. It uses no timeout, retry loop, persistence, extra router or
+fallback and closes after default completion or acknowledged target
+consumption. Mobile contracts and 23/23 routing regressions pass; TypeScript,
+lint, Production release validation, clean Expo prebuild, and the unsigned
+generic-device iOS Release compile also pass.
+
+This source remains explicitly **not Production-verified**. Normal PR review
+and merge, a new signed Production TestFlight build from canonical Main, and
+repeated physical Cold Start plus foreground/background acceptance remain
+mandatory.
+
 The exact four-file Mobile transition is bound by recertification
 `gate5_ios_native_handoff_v1`. A signed Production build and the physical
 Cold Start Spot/User, foreground/background, malformed/unknown, and Push

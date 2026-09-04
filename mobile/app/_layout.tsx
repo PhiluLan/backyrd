@@ -1,6 +1,6 @@
 // mobile/app/_layout.tsx
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import { StyleSheet, View } from "react-native";
@@ -57,6 +57,7 @@ function BootstrappedApp() {
     Inter_700Bold,
   });
   const { loading: authLoading } = useAuth();
+  const bootstrapReady = !fontError && fontsLoaded && !authLoading;
 
   const bootstrapState = fontError ? (
     <ProductState
@@ -67,13 +68,19 @@ function BootstrappedApp() {
     <ProductLoading />
   ) : null;
 
+  useEffect(() => {
+    if (bootstrapReady) {
+      console.log("[startup-authority] bootstrap completed=true");
+    }
+  }, [bootstrapReady]);
+
   return (
     <AnalyticsProvider>
       <GlobalSafetyEnforcementGuard>
         <LegalGateGuard>
           <View style={styles.root}>
             <RootStack />
-            <ColdStartProductDeepLinkRouter ready={bootstrapState === null} />
+            <ColdStartProductDeepLinkRouter ready={bootstrapReady} />
             <PushNotificationRouter />
             {bootstrapState ? (
               <View

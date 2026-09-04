@@ -13,7 +13,7 @@
     "test:contracts": "node ./scripts/test-mobile-product-contracts.mjs && npm run test:native-intent",
     "test:map-discovery": "node ./scripts/test-map-discovery-scale.mjs",
     "test:canonical-spot-images": "node ./scripts/test-canonical-spot-images.mjs",
-    "test:native-intent": "node --test ./scripts/test-native-intent-routing.mjs ./scripts/test-ios-link-handoff.mjs ./scripts/test-notification-routing.mjs",
+    "test:native-intent": "node --test ./scripts/test-native-intent-routing.mjs ./scripts/test-ios-link-handoff.mjs ./scripts/test-notification-routing.mjs ./scripts/test-root-startup-navigation.mjs",
     "test:carousel-geometry": "node ./scripts/test-carousel-geometry.mjs",
     "test:production-images": "node ./scripts/validate-production-images.mjs",
     "release:validate": "node ./scripts/validate-production-release.mjs",

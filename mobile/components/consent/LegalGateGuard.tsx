@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "expo-router";
 
 import { supabase } from "@/lib/supabase";
 import { getMyLegalGateStatus } from "@/lib/consent";
+import { rootStartupNavigationAuthority } from "@/lib/root-startup-navigation";
 
 const ALLOWED_WHEN_GATED = new Set([
   "/legal-consent",
@@ -27,9 +28,18 @@ export default function LegalGateGuard({ children }: PropsWithChildren) {
 
       try {
         const { data } = await supabase.auth.getSession();
-        if (!data.session) return;
+        if (!data.session) {
+          rootStartupNavigationAuthority.setLegalState("clear");
+          console.log("[startup-authority] legal=clear");
+          return;
+        }
 
         const status = await getMyLegalGateStatus();
+        if (!cancelled) {
+          const legalState = status?.gate_required === true ? "required" : "clear";
+          rootStartupNavigationAuthority.setLegalState(legalState);
+          console.log(`[startup-authority] legal=${legalState}`);
+        }
         if (
           !cancelled &&
           status?.gate_required === true &&
