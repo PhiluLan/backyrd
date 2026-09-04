@@ -1,5 +1,6 @@
 // mobile/app/(tabs)/feed.tsx
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import "react-native-get-random-values";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -22,6 +23,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
+import { v4 as uuidv4 } from "uuid";
 
 import CommentsSheet from "../../components/CommentsSheet";
 import SocialPostCard, { SocialFeedPost } from "../../components/PostCard";
@@ -320,14 +322,15 @@ async function uriToUploadBody(uri: string) {
   return arrayBuffer;
 }
 
-function makeUploadPath(userId: string, index: number, uri: string) {
+function makeUploadPath(userId: string, requestId: string, index: number, uri: string) {
   const extFromUri = uri.split("?")[0]?.split(".").pop()?.toLowerCase();
   const safeExt = extFromUri && extFromUri.length <= 5 ? extFromUri : "jpg";
-  return `${userId}/${Date.now()}-${index}.${safeExt}`;
+  return `${userId}/${requestId}-${index}.${safeExt}`;
 }
 
 export default function FeedScreen() {
   const router = useRouter();
+  const pendingPostRequest = useRef<{ fingerprint: string; id: string } | null>(null);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [mode, setMode] = useState<FeedMode>("for_you");
@@ -647,19 +650,25 @@ export default function FeedScreen() {
 
       const userId = userData.user?.id;
       if (!userId) throw new Error("Du bist nicht eingeloggt.");
+      const fingerprint = JSON.stringify({ caption: trimmedCaption, spotId: selectedSpot?.id ?? null, media: media.map((item) => item.uri) });
+      const request = pendingPostRequest.current?.fingerprint === fingerprint
+        ? pendingPostRequest.current
+        : { fingerprint, id: uuidv4() };
+      pendingPostRequest.current = request;
+      const requestId = request.id;
 
       const uploadedMedia = [];
 
       for (let index = 0; index < media.length; index += 1) {
         const item = media[index];
-        const path = makeUploadPath(userId, index, item.uri);
+        const path = makeUploadPath(userId, requestId, index, item.uri);
         const uploadBody = await uriToUploadBody(item.uri);
 
         const { error: uploadError } = await supabase.storage
           .from("social-post-media")
           .upload(path, uploadBody, {
             contentType: item.mimeType ?? "image/jpeg",
-            upsert: false,
+            upsert: true,
           });
 
         if (uploadError) throw uploadError;
@@ -675,13 +684,14 @@ export default function FeedScreen() {
       }
 
       const { data: createdPostData, error } =
-        await supabase.rpc("create_social_post_v1", {
+        await supabase.rpc("create_social_post_v2", {
           p_spot_id: selectedSpot?.id ?? null,
           p_caption: trimmedCaption || null,
           p_visibility: "public",
           p_mood_tags: [],
           p_occasion_tags: [],
           p_media: uploadedMedia,
+          p_client_request_id: requestId,
         });
 
       if (error) throw error;
@@ -713,6 +723,7 @@ export default function FeedScreen() {
       }
 
       resetComposer();
+      pendingPostRequest.current = null;
       setComposerVisible(false);
 
       await Promise.all([
@@ -721,7 +732,7 @@ export default function FeedScreen() {
       ]);
       setMode("for_you");
     } catch (error: any) {
-      console.log("create_social_post_v1 failed:", error);
+      console.log("create_social_post_v2 failed:", error);
       Alert.alert("Moment konnte nicht erstellt werden", userFacingError(error, "Dein Moment konnte gerade nicht geteilt werden. Bitte versuche es noch einmal."));
     } finally {
       setCreating(false);

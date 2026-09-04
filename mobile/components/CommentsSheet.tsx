@@ -1,4 +1,5 @@
 // mobile/components/CommentsSheet.tsx
+import "react-native-get-random-values";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -16,6 +17,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { v4 as uuidv4 } from "uuid";
 
 import Avatar from "./Avatar";
 import { supabase } from "../lib/supabase";
@@ -72,6 +74,7 @@ export default function CommentsSheet({
 }: Props) {
   const insets = useSafeAreaInsets();
   const inputRef = useRef<TextInput>(null);
+  const pendingRequest = useRef<{ postId: string; body: string; id: string } | null>(null);
 
   const [currentUserId, setCurrentUserId] =
     useState<string | null>(null);
@@ -176,9 +179,14 @@ export default function CommentsSheet({
     try {
       setSending(true);
 
-      const { data, error } = await supabase.rpc("create_social_comment_v1", {
+      const request = pendingRequest.current?.postId === postId && pendingRequest.current.body === text
+        ? pendingRequest.current
+        : { postId, body: text, id: uuidv4() };
+      pendingRequest.current = request;
+      const { data, error } = await supabase.rpc("create_social_comment_v2", {
         p_post_id: postId,
         p_body: text,
+        p_client_request_id: request.id,
       });
 
       if (error) throw error;
@@ -192,6 +200,7 @@ export default function CommentsSheet({
       }
 
       setBody("");
+      pendingRequest.current = null;
       onCommentCreated?.(postId);
     } catch (error) {
       const message = technicalErrorText(error);
@@ -215,7 +224,7 @@ export default function CommentsSheet({
         );
       } else {
         console.error(
-          "create_social_comment_v1 failed:",
+          "create_social_comment_v2 failed:",
           error,
         );
 

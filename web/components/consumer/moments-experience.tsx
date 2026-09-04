@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createMoment,
   getCatalog,
@@ -16,6 +16,7 @@ import { Avatar, Button, Dialog, StateView, Toast } from "./ui";
 import { MomentCard } from "./moment-card";
 import { CommentsDialog } from "./comments-dialog";
 export function MomentsExperience() {
+  const pendingPostRequest = useRef<{ fingerprint: string; id: string } | null>(null);
   const router = useRouter();
   const [mode, setMode] = useState<"for_you" | "following">("for_you");
   const [items, setItems] = useState<Moment[]>([]);
@@ -68,7 +69,14 @@ export function MomentsExperience() {
     if (!caption.trim() && !file) return;
     setCreating(true);
     try {
-      await createMoment({ caption, spotId: spotId || null, file });
+      const fingerprint = JSON.stringify({ caption: caption.trim(), spotId: spotId || null, file: file ? [file.name, file.size, file.lastModified] : null });
+      const request = pendingPostRequest.current?.fingerprint === fingerprint
+        ? pendingPostRequest.current
+        : { fingerprint, id: crypto.randomUUID() };
+      pendingPostRequest.current = request;
+      const requestId = request.id;
+      await createMoment({ caption, spotId: spotId || null, file, requestId });
+      pendingPostRequest.current = null;
       setComposer(false);
       setCaption("");
       setSpotId("");

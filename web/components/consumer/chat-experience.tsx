@@ -29,6 +29,7 @@ export function ChatExperience({ chatId }: { chatId: string }) {
   const [error, setError] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const end = useRef<HTMLDivElement | null>(null);
+  const pendingRequest = useRef<{ body: string; id: string } | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     setError(false);
@@ -92,25 +93,29 @@ export function ChatExperience({ chatId }: { chatId: string }) {
     if (!body || !userId || sending) return;
     setSending(true);
     setText("");
-    const { data, error } = await supabase
-      .from("messages")
-      .insert({
-        chat_id: chatId,
-        sender_id: userId,
-        text: body,
-        image_url: null,
-      })
-      .select("id,chat_id,sender_id,text,created_at,seen_at")
-      .single();
+    const request = pendingRequest.current?.body === body
+      ? pendingRequest.current
+      : { body, id: crypto.randomUUID() };
+    pendingRequest.current = request;
+    const response = await supabase.rpc("send_message_v2", {
+      p_chat_id: chatId,
+      p_text: body,
+      p_image_url: null,
+      p_client_request_id: request.id,
+    });
+    const data = Array.isArray(response.data) ? response.data[0] : response.data;
+    const error = response.error;
     if (error) {
       setText(body);
       setToast("Deine Nachricht konnte nicht gesendet werden.");
-    } else
+    } else {
+      pendingRequest.current = null;
       setMessages((rows) =>
         rows.some((row) => row.id === data.id)
           ? rows
           : [...rows, data as Message],
       );
+    }
     setSending(false);
   }
   const name =

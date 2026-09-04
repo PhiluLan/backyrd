@@ -200,12 +200,31 @@ Deno.serve(async (request) => {
 
     const storageSummary: Record<string, number> = {};
 
+    const ownedStorage = await userClient.rpc(
+      "admin_account_owned_storage_paths_v1",
+      { p_user_id: targetUserId },
+    );
+    if (ownedStorage.error) throw ownedStorage.error;
+
     for (const bucket of [
       "profile-photos",
       "review-photos",
       "social-post-media",
-      "data-rights-exports",
+      "chat-uploads",
     ]) {
+      const paths = (ownedStorage.data ?? [])
+        .filter((row: { bucket_id: string }) => row.bucket_id === bucket)
+        .map((row: { object_path: string }) => row.object_path);
+      if (paths.length > 0) {
+        const removal = await admin.storage.from(bucket).remove(paths);
+        if (removal.error) throw new Error(`${bucket}: ${removal.error.message}`);
+      }
+      storageSummary[bucket] = paths.length;
+    }
+
+    // Data exports are service-owned and therefore use the canonical user
+    // prefix rather than storage ownership.
+    for (const bucket of ["data-rights-exports"]) {
       let removed = 0;
       let offset = 0;
 

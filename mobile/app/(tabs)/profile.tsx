@@ -402,8 +402,7 @@ export default function ProfileScreen() {
     const asset = result.assets[0];
     if (!asset.base64) return;
 
-    const ext = asset.fileName?.split(".").pop() || "jpg";
-    const fileName = `avatar_${user.id}_${Date.now()}.${ext}`;
+    const fileName = `${user.id}/avatar`;
     const arrayBuffer = decode(asset.base64);
 
     const { error: uploadError } = await supabase.storage
