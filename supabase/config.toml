@@ -432,3 +432,8 @@ entrypoint = "./functions/decision-engine-worker/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/decision-v13/index.deploy.ts"
+
+[functions.process-account-deletion]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/process-account-deletion/index.ts"

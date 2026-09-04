@@ -171,10 +171,11 @@ export async function getMomentComments(postId: string) {
     created_at: string;
   }>;
 }
-export async function createMomentComment(postId: string, body: string) {
-  const { data, error } = await supabase.rpc("create_social_comment_v1", {
+export async function createMomentComment(postId: string, body: string, requestId: string) {
+  const { data, error } = await supabase.rpc("create_social_comment_v2", {
     p_post_id: postId,
     p_body: body.trim(),
+    p_client_request_id: requestId,
   });
   if (error)
     throw new Error("Dein Kommentar konnte gerade nicht geteilt werden.");
@@ -184,10 +185,12 @@ export async function createMoment({
   caption,
   spotId,
   file,
+  requestId,
 }: {
   caption: string;
   spotId: string | null;
   file: File | null;
+  requestId: string;
 }) {
   const { data: userData, error: userError } = await supabase.auth.getUser();
   if (userError || !userData.user)
@@ -204,10 +207,10 @@ export async function createMoment({
         .pop()
         ?.toLowerCase()
         .replace(/[^a-z0-9]/g, "") || "jpg";
-    const path = `${userData.user.id}/${crypto.randomUUID()}.${extension}`;
+    const path = `${userData.user.id}/${requestId}.${extension}`;
     const { error: uploadError } = await supabase.storage
       .from("social-post-media")
-      .upload(path, file, { contentType: file.type, upsert: false });
+      .upload(path, file, { contentType: file.type, upsert: true });
     if (uploadError)
       throw new Error("Das Bild konnte nicht hochgeladen werden.");
     media.push({
@@ -219,13 +222,14 @@ export async function createMoment({
       sort_order: 0,
     });
   }
-  const { data, error } = await supabase.rpc("create_social_post_v1", {
+  const { data, error } = await supabase.rpc("create_social_post_v2", {
     p_spot_id: spotId,
     p_caption: caption.trim() || null,
     p_visibility: "public",
     p_mood_tags: [],
     p_occasion_tags: [],
     p_media: media,
+    p_client_request_id: requestId,
   });
   if (error) throw new Error("Dein Moment konnte gerade nicht geteilt werden.");
   const created = Array.isArray(data) ? data[0] : data;

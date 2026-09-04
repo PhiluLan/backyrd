@@ -176,6 +176,7 @@ export default function ChatScreen() {
     useState<ChatSummary | null>(null);
   const [text, setText] = useState("");
   const [uid, setUid] = useState<string | null>(null);
+  const pendingTextRequest = useRef<{ body: string; id: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [imageSending, setImageSending] = useState(false);
@@ -372,18 +373,21 @@ export default function ChatScreen() {
     setText("");
 
     try {
-      const { data, error } = await supabase
-        .from("messages")
-        .insert({
-          chat_id: id,
-          sender_id: uid,
-          text: body,
-          image_url: null,
-        })
-        .select("*")
-        .single();
+      const request = pendingTextRequest.current?.body === body
+        ? pendingTextRequest.current
+        : { body, id: uuidv4() };
+      pendingTextRequest.current = request;
+      const response = await supabase.rpc("send_message_v2", {
+        p_chat_id: id,
+        p_text: body,
+        p_image_url: null,
+        p_client_request_id: request.id,
+      });
+      const data = Array.isArray(response.data) ? response.data[0] : response.data;
+      const error = response.error;
 
       if (error) throw error;
+      pendingTextRequest.current = null;
 
       // Realtime kann schneller sein als die INSERT-Antwort.
       // normalizeMessages verhindert deshalb zuverlässig Duplikate.
@@ -427,13 +431,13 @@ export default function ChatScreen() {
         const filePath =
           `chat/${id}/${uuidv4()}.${extension}`;
 
-        const response = await fetch(uri);
+        const uploadResponse = await fetch(uri);
 
-        if (!response.ok) {
+        if (!uploadResponse.ok) {
           throw new Error("local_image_read_failed");
         }
 
-        const arrayBuffer = await response.arrayBuffer();
+        const arrayBuffer = await uploadResponse.arrayBuffer();
         const uploadBody = new Uint8Array(arrayBuffer);
 
         const contentType =
@@ -456,16 +460,14 @@ export default function ChatScreen() {
 
         if (uploadError) throw uploadError;
 
-        const { data, error } = await supabase
-          .from("messages")
-          .insert({
-            chat_id: id,
-            sender_id: uid,
-            text: caption || null,
-            image_url: filePath,
-          })
-          .select("*")
-          .single();
+        const messageResponse = await supabase.rpc("send_message_v2", {
+          p_chat_id: id,
+          p_text: caption || null,
+          p_image_url: filePath,
+          p_client_request_id: uuidv4(),
+        });
+        const data = Array.isArray(messageResponse.data) ? messageResponse.data[0] : messageResponse.data;
+        const error = messageResponse.error;
 
         if (error) throw error;
 

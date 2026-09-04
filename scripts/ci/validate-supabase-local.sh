@@ -175,6 +175,8 @@ actual_acl_fingerprint="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only 
   --file "$repo_root/scripts/ci/public-acl-fingerprint.sql")"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$repo_root/scripts/ci/gate5-public-acl-recertification.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$repo_root/scripts/ci/gate6-public-acl-recertification.sql"
 acl_mismatch=false
 application_schema_mismatch=false
 if test "$actual_acl_fingerprint" != "$expected_acl_fingerprint"; then
@@ -192,6 +194,8 @@ application_schema_result="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-on
   --file "$repo_root/scripts/ci/application-schema-fingerprint.sql")"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$repo_root/scripts/ci/gate5-application-schema-recertification.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$repo_root/scripts/ci/gate6-application-schema-recertification.sql"
 application_schema_entry_count="${application_schema_result%%|*}"
 actual_application_schema_fingerprint="${application_schema_result##*|}"
 if test "$actual_application_schema_fingerprint" != "$expected_application_schema_fingerprint"; then

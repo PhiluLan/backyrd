@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   createMomentComment,
   getMomentComments,
@@ -38,6 +38,7 @@ export function CommentsDialog({
   const [error, setError] = useState(false);
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
+  const pendingRequest = useRef<{ postId: string; body: string; id: string } | null>(null);
   const load = useCallback(async () => {
     if (!moment) return;
     setLoading(true);
@@ -58,10 +59,16 @@ export function CommentsDialog({
     if (!moment || !body.trim()) return;
     setSending(true);
     try {
-      const created = await createMomentComment(moment.post_id, body);
+      const text = body.trim();
+      const request = pendingRequest.current?.postId === moment.post_id && pendingRequest.current.body === text
+        ? pendingRequest.current
+        : { postId: moment.post_id, body: text, id: crypto.randomUUID() };
+      pendingRequest.current = request;
+      const created = await createMomentComment(moment.post_id, text, request.id);
       if (created?.comment_id) setComments((items) => [created, ...items]);
       else await load();
       setBody("");
+      pendingRequest.current = null;
     } catch {
       setError(true);
     } finally {

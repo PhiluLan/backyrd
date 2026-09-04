@@ -26,6 +26,13 @@ select
 -- Reconstruct the prior client grants in a transaction. If this yields the
 -- prior canonical global fingerprint, every other public ACL fact is unchanged.
 begin;
+-- Gate 6 adds five bounded RPC contracts after this Gate 5 baseline. Remove
+-- only those exact later grants while reconstructing the pre-Gate-5 catalog.
+revoke execute on function public.create_social_comment_v2(uuid,text,uuid) from authenticated,service_role;
+revoke execute on function public.create_social_post_v2(uuid,text,text,text[],text[],jsonb,uuid) from authenticated,service_role;
+revoke execute on function public.send_message_v2(uuid,text,text,uuid) from authenticated,service_role;
+revoke execute on function public.spot_accepts_consumer_interactions_v1(uuid) from authenticated,service_role;
+revoke execute on function public.admin_account_owned_storage_paths_v1(uuid) from authenticated,service_role;
 grant select, insert, update, delete on table public.user_achievements to anon;
 grant insert, update, delete on table public.user_achievements to authenticated;
 
