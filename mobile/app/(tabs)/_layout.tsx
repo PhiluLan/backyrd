@@ -1,31 +1,13 @@
 // mobile/app/(tabs)/_layout.tsx
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { Tabs, useGlobalSearchParams, usePathname, useRouter } from "expo-router";
 import React from "react";
 import { Pressable, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { trackAnalyticsEvent } from "../../lib/analytics";
 import { backyrdTheme as theme } from "../../theme/backyrd";
-
-const DEFAULT_TAB_BAR_STYLE = {
-  position: "absolute" as const,
-  left: 12,
-  right: 12,
-  bottom: 8,
-  height: 74,
-  paddingTop: 7,
-  paddingBottom: 10,
-  borderTopWidth: 0,
-  borderRadius: 18,
-  borderWidth: 1,
-  borderColor: "rgba(255,255,255,0.08)",
-  backgroundColor: "rgba(7,7,8,0.96)",
-  elevation: 0,
-  shadowColor: "#000",
-  shadowOpacity: 0.38,
-  shadowRadius: 24,
-  shadowOffset: { width: 0, height: 12 },
-};
 
 function SmartReviewTabButton({ onPress }: { onPress?: () => void }) {
   return (
@@ -39,7 +21,7 @@ function SmartReviewTabButton({ onPress }: { onPress?: () => void }) {
           pressed && styles.plusButtonPressed,
         ]}
       >
-        <Ionicons name="add" size={30} color="#050506" />
+        <Ionicons name="add" size={27} color={theme.color.background} />
       </Pressable>
     </View>
   );
@@ -49,17 +31,23 @@ export default function TabsLayout() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useGlobalSearchParams();
+  const insets = useSafeAreaInsets();
 
   const hideTabs = pathname.includes("/decision") && params.hideTabs === "1";
 
-  const hiddenTabStyle = hideTabs ? ({ display: "none" } as const) : DEFAULT_TAB_BAR_STYLE;
+  const tabBarStyle = hideTabs
+    ? ({ display: "none" } as const)
+    : [styles.tabBar, { bottom: Math.max(8, insets.bottom - 2) }];
 
   return (
     <Tabs
       initialRouteName="index"
       screenOptions={{
         headerShown: false,
-        tabBarStyle: hiddenTabStyle,
+        tabBarStyle,
+        tabBarBackground: () => (
+          <BlurView intensity={54} tint="dark" style={styles.tabBarGlass} />
+        ),
         tabBarActiveTintColor: theme.color.pink,
         tabBarInactiveTintColor: "#808087",
         tabBarHideOnKeyboard: true,
@@ -161,31 +149,55 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   tabItem: {
-    paddingVertical: 4,
+    paddingTop: 7,
+    paddingBottom: 5,
   },
   tabLabel: {
-    marginBottom: 2,
+    marginBottom: 1,
     fontFamily: theme.type.bodyMedium,
-    fontSize: 9,
+    fontSize: 9.5,
+    letterSpacing: -0.1,
+  },
+  tabBar: {
+    position: "absolute",
+    left: 14,
+    right: 14,
+    height: theme.control.tabBarVisual,
+    paddingTop: 0,
+    paddingBottom: 0,
+    borderTopWidth: 0,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: "rgba(246,240,232,0.12)",
+    backgroundColor: "transparent",
+    overflow: "hidden",
+    elevation: 0,
+    shadowColor: "#000",
+    shadowOpacity: 0.34,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+  },
+  tabBarGlass: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(8,8,9,0.72)",
   },
   plusWrap: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: -18,
   },
   plusButton: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 47,
+    height: 47,
+    borderRadius: 24,
     backgroundColor: theme.color.pink,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
     shadowOpacity: 0.34,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
     transform: [{ scale: 1 }],
   },
   plusButtonPressed: {

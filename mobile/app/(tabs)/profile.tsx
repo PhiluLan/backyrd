@@ -10,7 +10,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
+  Text as RNText,
   TextInput,
   View,
 } from "react-native";
@@ -31,6 +31,13 @@ import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { selectSpotImageUrl } from "@/lib/spot-images";
 import Avatar from "@/components/Avatar";
 import { StateView } from "@/components/foundation/StateView";
+import { backyrdTheme as theme } from "@/theme/backyrd";
+
+function Text({ style, ...props }: React.ComponentProps<typeof RNText>) {
+  const weight = String(StyleSheet.flatten(style)?.fontWeight ?? "400");
+  const fontFamily = Number.parseInt(weight, 10) >= 600 ? theme.type.bodyBold : theme.type.body;
+  return <RNText {...props} style={[style, { fontFamily, fontWeight: "normal" }]} />;
+}
 
 const { width } = Dimensions.get("window");
 
@@ -256,13 +263,8 @@ export default function ProfileScreen() {
 
   const displayName = useMemo(() => profileName(profile), [profile]);
   const sinceLabel = useMemo(() => formatSince(profile?.since_date), [profile?.since_date]);
-  const headerImage =
-    profile?.header_photo_url ||
-    profile?.avatar_url ||
-    "https://placehold.co/1000x800/111116/FFFFFF?text=Backyrd";
-
-  const avatarImage =
-    profile?.avatar_url || "https://placehold.co/240x240/22222A/FFFFFF?text=BU";
+  const headerImage = profile?.header_photo_url || profile?.avatar_url || null;
+  const avatarImage = profile?.avatar_url || null;
 
   const interestChips = useMemo(() => splitChips(profile?.interests).slice(0, 5), [profile?.interests]);
   const personalityChips = useMemo(() => splitChips(profile?.personality).slice(0, 4), [profile?.personality]);
@@ -580,9 +582,9 @@ export default function ProfileScreen() {
   return (
     <View style={styles.screen}>
       <Animated.View style={[styles.headerBackdrop, { height: headerHeight }]} pointerEvents="none">
-        <Image source={{ uri: headerImage }} style={styles.headerImage} blurRadius={8} />
+        {headerImage ? <Image source={{ uri: headerImage }} style={styles.headerImage} blurRadius={12} /> : null}
         <LinearGradient
-          colors={["rgba(0,0,0,0.08)", "rgba(10,10,11,0.72)", "#050506"]}
+          colors={headerImage ? ["rgba(5,5,5,0.22)", "rgba(5,5,5,0.72)", theme.color.background] : ["#18131A", "#0D0B0E", theme.color.background]}
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
@@ -615,7 +617,7 @@ export default function ProfileScreen() {
               accessibilityRole="button"
               accessibilityLabel="Profilbild bearbeiten"
             >
-              <Avatar uri={avatarImage} name={displayName} size={90} />
+                <Avatar uri={avatarImage} name={displayName} size={90} />
             </Pressable>
 
             <View style={styles.identityBlock}>
@@ -671,7 +673,7 @@ export default function ProfileScreen() {
             void trackAnalyticsEvent({ eventName: "profile_edit_started", screenName: "profile" });
             setShowEdit(true);
           }}>
-            <Ionicons accessibilityElementsHidden name="pencil" size={18} color="#050506" />
+            <Ionicons accessibilityElementsHidden name="pencil" size={17} color={theme.color.textPrimary} />
             <Text style={styles.editProfileText}>Profil bearbeiten</Text>
           </Pressable>
         </View>
@@ -826,7 +828,7 @@ export default function ProfileScreen() {
                 <Text style={styles.editTitle}>Profil bearbeiten</Text>
 
                 <Pressable onPress={pickImageAndUploadAvatar} style={styles.editAvatarWrap}>
-                  <Image source={{ uri: avatarImage }} style={styles.editAvatar} />
+                  <Avatar uri={avatarImage} name={displayName} size={110} />
                   <View style={styles.editAvatarIcon}>
                     <Ionicons name="camera-outline" size={18} color="#FFFFFF" />
                   </View>
@@ -935,7 +937,7 @@ function ProfileInput({
   return (
     <TextInput
       {...props}
-      placeholderTextColor="#85858B"
+      placeholderTextColor={theme.color.textSecondary}
       style={[styles.input, style]}
     />
   );
@@ -944,11 +946,11 @@ function ProfileInput({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#050507",
+    backgroundColor: theme.color.background,
   },
   center: {
     flex: 1,
-    backgroundColor: "#050506",
+    backgroundColor: theme.color.background,
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
@@ -964,34 +966,36 @@ const styles = StyleSheet.create({
     left: 0,
     width,
     overflow: "hidden",
+    opacity: 0.82,
   },
   headerImage: {
     width,
     height: "100%",
   },
   scrollContent: {
-    paddingTop: 76,
-    paddingHorizontal: 20,
+    paddingTop: 72,
+    paddingHorizontal: theme.spacing.xl,
     paddingBottom: 148,
   },
   topActions: {
-    marginBottom: 26,
+    marginBottom: theme.spacing.xxl,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
   topActionsTitle: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.bodyBold,
     fontSize: 24,
-    fontWeight: "900",
+    letterSpacing: -0.5,
   },
   circleButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(18,18,24,0.72)",
+    backgroundColor: "rgba(5,5,5,0.58)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
+    borderColor: theme.color.border,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1012,9 +1016,9 @@ const styles = StyleSheet.create({
     height: 96,
     borderRadius: 48,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
+    borderColor: "rgba(255,79,145,0.55)",
     padding: 3,
-    backgroundColor: "#111113",
+    backgroundColor: theme.color.surface,
   },
   avatar: {
     width: "100%",
@@ -1027,27 +1031,31 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   displayName: {
-    color: "#FFFFFF",
-    fontSize: 34,
-    fontWeight: "800",
-    letterSpacing: 0,
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.bodyBold,
+    fontSize: 31,
+    lineHeight: 37,
+    letterSpacing: -0.7,
   },
   handleText: {
     marginTop: 5,
-    color: "#8F8F98",
+    color: theme.color.textSecondary,
+    fontFamily: theme.type.bodyMedium,
     fontSize: 16,
     fontWeight: "800",
   },
   bioText: {
     marginTop: 18,
-    color: "#EDEDF2",
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.body,
     fontSize: 17,
     lineHeight: 24,
     fontWeight: "600",
   },
   statsLine: {
     marginTop: 18,
-    color: "#C9C9CF",
+    color: theme.color.textSecondary,
+    fontFamily: theme.type.bodyMedium,
     fontSize: 15,
     lineHeight: 22,
     fontWeight: "700",
@@ -1061,14 +1069,17 @@ const styles = StyleSheet.create({
   softChip: {
     minHeight: 36,
     borderRadius: 999,
-    backgroundColor: "#19191F",
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: theme.color.border,
     paddingHorizontal: 13,
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
   },
   softChipText: {
-    color: "#DADAE0",
+    color: theme.color.textSecondary,
+    fontFamily: theme.type.bodyMedium,
     fontSize: 14,
     fontWeight: "700",
   },
@@ -1082,13 +1093,14 @@ const styles = StyleSheet.create({
     minHeight: 34,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "rgba(255,125,167,0.18)",
+    borderColor: "rgba(169,194,255,0.28)",
     paddingHorizontal: 13,
     alignItems: "center",
     justifyContent: "center",
   },
   tasteChipText: {
-    color: "#EAEAEE",
+    color: theme.color.blue,
+    fontFamily: theme.type.bodyMedium,
     fontSize: 13,
     fontWeight: "700",
   },
@@ -1098,8 +1110,8 @@ const styles = StyleSheet.create({
     minHeight: 46,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.22)",
-    backgroundColor: "rgba(8,8,10,0.48)",
+    borderColor: "rgba(255,79,145,0.48)",
+    backgroundColor: "rgba(5,5,5,0.28)",
     paddingHorizontal: 18,
     alignItems: "center",
     justifyContent: "center",
@@ -1107,7 +1119,8 @@ const styles = StyleSheet.create({
     gap: 9,
   },
   editProfileText: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.bodyBold,
     fontSize: 15,
     fontWeight: "800",
   },
@@ -1189,31 +1202,31 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   tabShell: {
-    marginTop: 20,
-    minHeight: 58,
-    borderRadius: 29,
-    backgroundColor: "#111113",
-    borderWidth: 1,
-    borderColor: "#1B1B20",
+    marginTop: theme.spacing.xxl,
+    minHeight: 52,
+    backgroundColor: "transparent",
+    borderBottomWidth: 1,
+    borderBottomColor: theme.color.border,
     flexDirection: "row",
-    padding: 5,
   },
   tabButton: {
     flex: 1,
-    borderRadius: 999,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
   },
   tabButtonActive: {
-    backgroundColor: "#FFFFFF",
+    borderBottomColor: theme.color.pink,
   },
   tabText: {
-    color: "#8F8F98",
+    color: theme.color.textSecondary,
+    fontFamily: theme.type.bodyMedium,
     fontSize: 15,
     fontWeight: "800",
   },
   tabTextActive: {
-    color: "#050506",
+    color: theme.color.pink,
   },
   contentArea: {
     paddingTop: 18,
@@ -1221,23 +1234,25 @@ const styles = StyleSheet.create({
   emptyState: {
     minHeight: 190,
     borderRadius: 28,
-    backgroundColor: "#111113",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "#1B1B20",
+    borderColor: theme.color.border,
     alignItems: "center",
     justifyContent: "center",
     padding: 22,
   },
   emptyTitle: {
     marginTop: 10,
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.bodyBold,
     fontSize: 20,
     fontWeight: "800",
     textAlign: "center",
   },
   emptyText: {
     marginTop: 7,
-    color: "#8F8F98",
+    color: theme.color.textSecondary,
+    fontFamily: theme.type.body,
     fontSize: 15,
     lineHeight: 21,
     textAlign: "center",
@@ -1248,9 +1263,9 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     overflow: "hidden",
     marginBottom: 16,
-    backgroundColor: "#111113",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "#1B1B20",
+    borderColor: theme.color.border,
   },
   favoriteImage: {
     width: "100%",
@@ -1265,14 +1280,16 @@ const styles = StyleSheet.create({
     bottom: 18,
   },
   favoriteTitle: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.display,
     fontSize: 24,
     fontWeight: "900",
     letterSpacing: -0.4,
   },
   favoriteMeta: {
     marginTop: 4,
-    color: "#C4C4CA",
+    color: theme.color.textSecondary,
+    fontFamily: theme.type.bodyMedium,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -1285,9 +1302,9 @@ const styles = StyleSheet.create({
     width: (width - 52) / 2,
     minHeight: 150,
     borderRadius: 26,
-    backgroundColor: "#111113",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "#1B1B20",
+    borderColor: theme.color.border,
     alignItems: "center",
     justifyContent: "center",
     padding: 16,
@@ -1303,12 +1320,13 @@ const styles = StyleSheet.create({
     height: 62,
     borderRadius: 31,
     marginBottom: 10,
-    backgroundColor: "#191920",
+    backgroundColor: theme.color.surfaceElevated,
     alignItems: "center",
     justifyContent: "center",
   },
   badgeName: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.bodyBold,
     fontSize: 14,
     fontWeight: "800",
     textAlign: "center",
@@ -1319,15 +1337,16 @@ const styles = StyleSheet.create({
     minHeight: 46,
     borderRadius: 999,
     paddingHorizontal: 18,
-    backgroundColor: "#111113",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "#1B1B20",
+    borderColor: theme.color.border,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
   logoutText: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.bodyBold,
     fontSize: 15,
     fontWeight: "800",
   },
@@ -1343,9 +1362,9 @@ const styles = StyleSheet.create({
     height: "91%",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    backgroundColor: "rgba(14,14,18,0.98)",
+    backgroundColor: theme.color.surfaceElevated,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: theme.color.border,
     paddingTop: 8,
   },
   sheetHandle: {
@@ -1361,7 +1380,8 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
   },
   editTitle: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.bodyBold,
     fontSize: 24,
     fontWeight: "900",
     textAlign: "center",
@@ -1393,7 +1413,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   fieldLabel: {
-    color: "#8F8F98",
+    color: theme.color.textSecondary,
+    fontFamily: theme.type.bodyBold,
     fontSize: 13,
     fontWeight: "900",
     letterSpacing: 1,
@@ -1408,10 +1429,11 @@ const styles = StyleSheet.create({
   input: {
     minHeight: 52,
     borderRadius: 18,
-    backgroundColor: "#15151B",
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "#2B2B35",
-    color: "#FFFFFF",
+    borderColor: theme.color.border,
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.body,
     paddingHorizontal: 15,
     paddingVertical: 12,
     fontSize: 16,
@@ -1426,12 +1448,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
     minHeight: 54,
     borderRadius: 999,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: theme.color.pink,
     alignItems: "center",
     justifyContent: "center",
   },
   saveButtonText: {
-    color: "#050506",
+    color: theme.color.background,
+    fontFamily: theme.type.bodyBold,
     fontSize: 17,
     fontWeight: "900",
   },
@@ -1442,7 +1465,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   cancelText: {
-    color: "#A0A0A8",
+    color: theme.color.textSecondary,
+    fontFamily: theme.type.bodyMedium,
     fontSize: 16,
     fontWeight: "800",
   },

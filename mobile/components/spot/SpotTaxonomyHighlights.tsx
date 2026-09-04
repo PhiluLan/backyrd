@@ -4,7 +4,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
+  Text as RNText,
   View,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
@@ -15,6 +15,13 @@ import {
   groupMobileTaxonomy,
   type MobileSpotTaxonomyItem,
 } from "../../lib/taxonomy";
+import { backyrdTheme as theme } from "../../theme/backyrd";
+
+function Text({ style, ...props }: React.ComponentProps<typeof RNText>) {
+  const weight = String(StyleSheet.flatten(style)?.fontWeight ?? "400");
+  const fontFamily = Number.parseInt(weight, 10) >= 600 ? theme.type.bodyBold : theme.type.body;
+  return <RNText {...props} style={[style, { fontFamily, fontWeight: "normal" }]} />;
+}
 
 type Props = {
   items: MobileSpotTaxonomyItem[];
@@ -27,19 +34,6 @@ const GROUP_META = {
   services: { title: "Praktisch", icon: "check-circle" as const },
 };
 
-function hexToRgba(hex: string | null, alpha: number) {
-  if (!hex || !/^#[0-9a-f]{6}$/i.test(hex)) {
-    return `rgba(255,255,255,${alpha})`;
-  }
-
-  const value = hex.slice(1);
-  const red = parseInt(value.slice(0, 2), 16);
-  const green = parseInt(value.slice(2, 4), 16);
-  const blue = parseInt(value.slice(4, 6), 16);
-
-  return `rgba(${red},${green},${blue},${alpha})`;
-}
-
 function SignalChip({
   item,
   compact = false,
@@ -47,17 +41,12 @@ function SignalChip({
   item: MobileSpotTaxonomyItem;
   compact?: boolean;
 }) {
-  const accent = item.color || "#FFC5DA";
-
   return (
     <View
       style={[
         styles.signalChip,
         compact ? styles.signalChipCompact : null,
-        {
-          borderColor: hexToRgba(accent, 0.32),
-          backgroundColor: hexToRgba(accent, 0.1),
-        },
+        { borderColor: theme.color.borderLight, backgroundColor: "transparent" },
       ]}
     >
       <Text
@@ -71,7 +60,7 @@ function SignalChip({
       </Text>
 
       {item.is_verified ? (
-        <Ionicons name="checkmark-circle" size={14} color="#8CE5B2" />
+        <Ionicons name="checkmark-circle" size={14} color={theme.color.openGreen} />
       ) : null}
     </View>
   );
@@ -94,7 +83,7 @@ function GroupPreview({
   return (
     <View style={styles.previewRow}>
       <View style={styles.previewIcon}>
-        <Feather name={icon} size={16} color="rgba(255,255,255,0.72)" />
+        <Feather name={icon} size={16} color={theme.color.textSecondaryLight} />
       </View>
 
       <View style={styles.previewCopy}>
@@ -151,7 +140,7 @@ export function SpotTaxonomyDetails({ items }: Props) {
       <View style={styles.detailsRoot}>
         <Pressable onPress={() => setOpen(true)} style={styles.summaryCard}>
           <LinearGradient
-            colors={["rgba(255,125,167,0.10)", "rgba(255,255,255,0.035)"]}
+            colors={["rgba(255,79,145,0.07)", "rgba(255,255,255,0.55)"]}
             style={StyleSheet.absoluteFill}
           />
 
@@ -163,7 +152,7 @@ export function SpotTaxonomyDetails({ items }: Props) {
 
             <View style={styles.moreButton}>
               <Text style={styles.moreButtonText}>Alle</Text>
-              <Feather name="chevron-right" size={16} color="#FFC5DA" />
+              <Feather name="chevron-right" size={16} color={theme.color.pink} />
             </View>
           </View>
 
@@ -213,7 +202,7 @@ export function SpotTaxonomyDetails({ items }: Props) {
                 onPress={() => setOpen(false)}
                 style={styles.closeButton}
               >
-                <Ionicons name="close" size={20} color="#fff" />
+                <Ionicons name="close" size={20} color={theme.color.textPrimaryLight} />
               </Pressable>
             </View>
 
@@ -228,7 +217,7 @@ export function SpotTaxonomyDetails({ items }: Props) {
                       <Feather
                         name={GROUP_META[key].icon}
                         size={17}
-                        color="#FFC5DA"
+                        color={theme.color.pink}
                       />
                     </View>
 
@@ -249,7 +238,7 @@ export function SpotTaxonomyDetails({ items }: Props) {
                 <Ionicons
                   name="sparkles-outline"
                   size={17}
-                  color="rgba(255,255,255,0.64)"
+                  color={theme.color.textSecondaryLight}
                 />
 
                 <Text style={styles.infoNoteText}>
@@ -295,7 +284,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   signalLabel: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimaryLight,
     fontSize: 13,
     fontWeight: "700",
     maxWidth: 230,
@@ -308,8 +297,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
-    backgroundColor: "#111113",
+    borderColor: theme.color.borderLight,
+    backgroundColor: theme.color.surfaceLightElevated,
     padding: 18,
   },
   summaryHeader: {
@@ -320,13 +309,13 @@ const styles = StyleSheet.create({
     marginBottom: 13,
   },
   eyebrow: {
-    color: "#FF9CBC",
+    color: theme.color.pink,
     fontSize: 9,
     fontWeight: "900",
     letterSpacing: 1.5,
   },
   summaryTitle: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimaryLight,
     fontSize: 20,
     lineHeight: 25,
     fontWeight: "800",
@@ -337,12 +326,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 3,
     borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(23,22,26,0.04)",
     paddingHorizontal: 11,
     paddingVertical: 8,
   },
   moreButtonText: {
-    color: "#FFC5DA",
+    color: theme.color.pink,
     fontSize: 11,
     fontWeight: "800",
   },
@@ -355,13 +344,13 @@ const styles = StyleSheet.create({
     gap: 11,
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.055)",
+    borderTopColor: theme.color.borderLight,
   },
   previewIcon: {
     width: 34,
     height: 34,
     borderRadius: 11,
-    backgroundColor: "rgba(255,255,255,0.055)",
+    backgroundColor: "rgba(23,22,26,0.05)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -370,14 +359,14 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   previewTitle: {
-    color: "rgba(255,255,255,0.46)",
+    color: theme.color.textSecondaryLight,
     fontSize: 10,
     fontWeight: "800",
     textTransform: "uppercase",
     letterSpacing: 0.7,
   },
   previewText: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimaryLight,
     fontSize: 13,
     fontWeight: "700",
     marginTop: 3,
@@ -392,9 +381,9 @@ const styles = StyleSheet.create({
     minHeight: "58%",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    backgroundColor: "#0D0D0F",
+    backgroundColor: theme.color.surfaceLight,
     borderTopWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    borderColor: theme.color.borderLight,
     paddingHorizontal: 20,
   },
   sheetHandle: {
@@ -402,7 +391,7 @@ const styles = StyleSheet.create({
     height: 5,
     borderRadius: 999,
     alignSelf: "center",
-    backgroundColor: "rgba(255,255,255,0.22)",
+    backgroundColor: "rgba(23,22,26,0.22)",
     marginTop: 10,
     marginBottom: 18,
   },
@@ -413,10 +402,10 @@ const styles = StyleSheet.create({
     gap: 18,
     paddingBottom: 17,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.07)",
+    borderBottomColor: theme.color.borderLight,
   },
   sheetTitle: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimaryLight,
     fontSize: 27,
     lineHeight: 32,
     fontWeight: "900",
@@ -424,7 +413,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   sheetSubtitle: {
-    color: "rgba(255,255,255,0.44)",
+    color: theme.color.textSecondaryLight,
     fontSize: 12,
     marginTop: 5,
   },
@@ -432,7 +421,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "rgba(255,255,255,0.07)",
+    backgroundColor: "rgba(23,22,26,0.05)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -443,8 +432,8 @@ const styles = StyleSheet.create({
   groupCard: {
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.075)",
-    backgroundColor: "rgba(255,255,255,0.035)",
+    borderColor: theme.color.borderLight,
+    backgroundColor: theme.color.surfaceLightElevated,
     padding: 15,
   },
   groupHeader: {
@@ -462,7 +451,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   groupTitle: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimaryLight,
     fontSize: 15,
     fontWeight: "800",
   },
@@ -477,11 +466,11 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 15,
     borderRadius: 17,
-    backgroundColor: "rgba(255,255,255,0.035)",
+    backgroundColor: "rgba(23,22,26,0.035)",
   },
   infoNoteText: {
     flex: 1,
-    color: "rgba(255,255,255,0.48)",
+    color: theme.color.textSecondaryLight,
     fontSize: 11,
     lineHeight: 17,
   },

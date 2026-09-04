@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   View,
-  Text,
+  Text as RNText,
   Image,
   Dimensions,
   Pressable,
@@ -32,23 +32,25 @@ import {
 import { getMobileSpotTaxonomy, type MobileSpotTaxonomyItem } from "../../lib/taxonomy";
 import { selectSpotImageUrl } from "../../lib/spot-images";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
+import { SpotMoodProfile, type SpotMoodProfileItem } from "../../components/spot/SpotMoodProfile";
 import { AppText } from "../../components/foundation/AppText";
 import { StateView } from "../../components/foundation/StateView";
+import SharedAvatar from "../../components/Avatar";
 import { backyrdTheme as foundationTheme } from "../../theme/backyrd";
 
 import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
 const theme = {
   colors: {
-    background: foundationTheme.color.background,
-    surface: foundationTheme.color.surface,
-    surfaceElevated: foundationTheme.color.surfaceElevated,
-    border: foundationTheme.color.border,
-    text: foundationTheme.color.textPrimary,
-    textMuted: foundationTheme.color.textSecondary,
-    textSoft: foundationTheme.color.textSecondary,
+    background: foundationTheme.color.backgroundLight,
+    surface: foundationTheme.color.surfaceLightElevated,
+    surfaceElevated: foundationTheme.color.surfaceLight,
+    border: foundationTheme.color.borderLight,
+    text: foundationTheme.color.textPrimaryLight,
+    textMuted: foundationTheme.color.textSecondaryLight,
+    textSoft: foundationTheme.color.textSecondaryLight,
     pink: foundationTheme.color.pink,
     pinkSoft: foundationTheme.color.pink,
-    greenSoft: foundationTheme.color.lime,
+    greenSoft: foundationTheme.color.openGreen,
     success: foundationTheme.color.success,
     danger: foundationTheme.color.danger,
   },
@@ -63,9 +65,16 @@ const theme = {
   },
 };
 
+function Text({ style, ...props }: React.ComponentProps<typeof RNText>) {
+  const weight = String(StyleSheet.flatten(style)?.fontWeight ?? "400");
+  const fontFamily = Number.parseInt(weight, 10) >= 600 ? foundationTheme.type.bodyBold : foundationTheme.type.body;
+  return <RNText {...props} style={[style, { fontFamily, fontWeight: "normal" }]} />;
+}
+
 const { width } = Dimensions.get("window");
-const HEADER_H = Math.round(width * 0.98);
-const HEADER_MAX = Math.round(width * 0.98);
+const HERO_W = width - 24;
+const HEADER_H = Math.round(HERO_W * 1.05);
+const HEADER_MAX = Math.round(HERO_W * 1.05);
 const SLIDE_INTERVAL = 6000;
 const SLIDE_DURATION = 650;
 const IOS_EASE = Easing.bezier(0.4, 0.0, 0.2, 1);
@@ -143,23 +152,6 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-const Avatar = ({ name }: { name?: string }) => (
-  <View
-    style={{
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: "rgba(255,255,255,0.15)",
-      alignItems: "center",
-      justifyContent: "center",
-    }}
-  >
-    <Text style={{ color: "#fff", fontWeight: "800" }}>
-      {(name || "A")[0].toUpperCase()}
-    </Text>
-  </View>
-);
-
 const Chip = ({ text }: { text: string }) => (
   <View
     style={{
@@ -221,7 +213,7 @@ export default function SpotDetailScreen() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [hours, setHours] = useState<Record<string, any[]>>({});
-  const [moodSummary, setMoodSummary] = useState<any[]>([]);
+  const [moodSummary, setMoodSummary] = useState<SpotMoodProfileItem[]>([]);
   const [nearby, setNearby] = useState<any[]>([]);
   const [taxonomyItems, setTaxonomyItems] = useState<MobileSpotTaxonomyItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -246,7 +238,6 @@ export default function SpotDetailScreen() {
     });
   }, [entrySource, id]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  const [showAllMoods, setShowAllMoods] = useState(false);
 
   const [ownerCtx, setOwnerCtx] = useState<any>(null);
 
@@ -515,7 +506,7 @@ export default function SpotDetailScreen() {
     if (timerRef.current || photos.length < 2) return;
     timerRef.current = setInterval(() => {
       Animated.timing(translateX, {
-        toValue: -width,
+        toValue: -HERO_W,
         duration: SLIDE_DURATION,
         easing: IOS_EASE,
         useNativeDriver: true,
@@ -591,7 +582,7 @@ export default function SpotDetailScreen() {
           backgroundColor: theme.colors.background,
         }}
       >
-        <StateView kind="loading" title="Spot wird geladen" message="Backyrd bereitet diesen Ort für dich vor." />
+        <StateView appearance="light" kind="loading" title="Spot wird geladen" message="Backyrd bereitet diesen Ort für dich vor." />
       </View>
     );
   }
@@ -607,7 +598,7 @@ export default function SpotDetailScreen() {
         pointerEvents="box-none"
         style={{
           position: "absolute",
-          top: insets.top + 10,
+          top: insets.top + 18,
           left: 0,
           right: 0,
           zIndex: 9999,
@@ -675,8 +666,11 @@ export default function SpotDetailScreen() {
       >
         <Animated.View
           style={{
-            width: "100%",
+            width: HERO_W,
             height: HEADER_H,
+            marginTop: insets.top + 8,
+            marginHorizontal: 12,
+            borderRadius: foundationTheme.radius.xl,
             overflow: "hidden",
             transform: [{ translateY: headerTranslateY }],
           }}
@@ -695,7 +689,7 @@ export default function SpotDetailScreen() {
               <Animated.View
                 style={{
                   flexDirection: "row",
-                  width: width * 2,
+                  width: HERO_W * 2,
                   height: HEADER_MAX,
                   transform: [{ translateX }],
                 }}
@@ -705,14 +699,14 @@ export default function SpotDetailScreen() {
                   priority="high"
                   spotId={String(spot.id)}
                   spotName={spot.name}
-                  style={{ width, height: HEADER_MAX }}
+                  style={{ width: HERO_W, height: HEADER_MAX }}
                 />
                 <SpotArtwork
                   imageUrl={photos[(index.current + 1) % photos.length]?.url}
                   priority="high"
                   spotId={String(spot.id)}
                   spotName={spot.name}
-                  style={{ width, height: HEADER_MAX }}
+                  style={{ width: HERO_W, height: HEADER_MAX }}
                 />
               </Animated.View>
             ) : (
@@ -721,12 +715,12 @@ export default function SpotDetailScreen() {
                 priority="high"
                 spotId={String(spot.id)}
                 spotName={spot.name}
-                style={{ width, height: HEADER_MAX }}
+                style={{ width: HERO_W, height: HEADER_MAX }}
               />
             )}
 
             <LinearGradient
-              colors={["rgba(0,0,0,0.08)", "rgba(0,0,0,0.12)", "rgba(0,0,0,0.62)", theme.colors.background]}
+              colors={["rgba(0,0,0,0.05)", "rgba(0,0,0,0.12)", "rgba(0,0,0,0.62)", "rgba(0,0,0,0.90)"]}
               locations={[0, 0.45, 0.78, 1]}
               style={StyleSheet.absoluteFill}
             />
@@ -776,37 +770,20 @@ export default function SpotDetailScreen() {
           <SpotTaxonomyChips items={taxonomyItems} />
 
           <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <SectionTitle>So fühlt es sich hier an</SectionTitle>
-                {moodSummary.length > 5 ? (
-                  <Pressable onPress={() => setShowAllMoods((s) => !s)}>
-                    <Text style={styles.showMoreText}>{showAllMoods ? "Weniger" : "Mehr anzeigen"}</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-              {moodSummary.length > 0 ? <>
-              {moodSummary[0]?.evidence_state === "EARLY" ? <Text style={styles.bodyText}>Erste Eindrücke</Text> : null}
-              <View style={styles.moodWrap}>
-                {(showAllMoods ? moodSummary : moodSummary.slice(0, 5)).map((m) => (
-                  <View key={m.concept_key} style={styles.moodPill}>
-                    <Text style={styles.moodText}>{m.label}</Text>
-                    {m.evidence_state === "ESTABLISHED" ? <Text style={styles.moodCount}>{m.percentage}%</Text> : null}
-                  </View>
-                ))}
-              </View>
-              </> : <StateView kind="empty" title="Noch keine Stimmung eingefangen." message="Teile nach deinem Besuch deinen Eindruck." />}
+              <View style={styles.sectionHeader}><SectionTitle>So fühlt es sich hier an</SectionTitle></View>
+              {moodSummary.length > 0 ? <SpotMoodProfile appearance="light" moods={moodSummary} /> : <StateView appearance="light" kind="empty" title="Noch keine Stimmung eingefangen." message="Teile nach deinem Besuch deinen Eindruck." />}
             </View>
 
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <SectionTitle>Beschreibung</SectionTitle>
+              <SectionTitle>Über diesen Spot</SectionTitle>
               {!!descriptionSourceLabel(descSource) ? (
                 <View style={styles.sourcePill}>
                   <Text style={styles.sourceText}>{descriptionSourceLabel(descSource)}</Text>
                 </View>
               ) : null}
             </View>
-            {effectiveDesc ? <Text style={styles.bodyText}>{effectiveDesc}</Text> : <StateView kind="empty" title="Noch ohne Geschichte." message="Für diesen Ort gibt es noch keine Beschreibung – die wichtigsten Infos findest du trotzdem hier." />}
+            {effectiveDesc ? <Text style={styles.bodyText}>{effectiveDesc}</Text> : <StateView appearance="light" kind="empty" title="Noch ohne Geschichte." message="Für diesen Ort gibt es noch keine Beschreibung – die wichtigsten Infos findest du trotzdem hier." />}
           </View>
 
           <View style={styles.section}>
@@ -875,7 +852,7 @@ export default function SpotDetailScreen() {
           ) : (
             <View style={styles.section}>
               <SectionTitle>Öffnungszeiten</SectionTitle>
-              <StateView kind="empty" title="Noch nicht bekannt" message="Backyrd zeigt keinen Öffnungsstatus, solange keine verlässlichen Zeiten hinterlegt sind." />
+              <StateView appearance="light" kind="empty" title="Noch nicht bekannt" message="Backyrd zeigt keinen Öffnungsstatus, solange keine verlässlichen Zeiten hinterlegt sind." />
             </View>
           )}
 
@@ -902,7 +879,7 @@ export default function SpotDetailScreen() {
                 return (
                   <View key={rev.id} style={styles.reviewCard}>
                     <View style={styles.reviewHeader}>
-                      <Avatar name={name} />
+                      <SharedAvatar name={name} size={40} />
 
                       <View style={{ flex: 1 }}>
                         <Text style={styles.reviewName}>
@@ -1115,8 +1092,8 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   heroTitle: {
-    color: theme.colors.text,
-    letterSpacing: -1.2,
+    color: foundationTheme.color.textPrimary,
+    letterSpacing: -1,
   },
   heroAddress: {
     color: "rgba(255,255,255,0.74)",
@@ -1127,7 +1104,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 20,
   },
   quickActions: {
     flexDirection: "row",
@@ -1153,7 +1130,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 54,
     borderRadius: theme.radius.pill,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.border,
     flexDirection: "row",
@@ -1167,7 +1144,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   section: {
-    marginBottom: 26,
+    marginBottom: 34,
   },
   sectionHeader: {
     minHeight: 28,
@@ -1248,13 +1225,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.07)",
+    borderBottomColor: foundationTheme.color.borderLight,
   },
   infoIcon: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.055)",
+    backgroundColor: "rgba(23,22,26,0.05)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1272,7 +1249,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     borderRadius: theme.radius.pill,
     paddingHorizontal: 16,
-    backgroundColor: "rgba(255,255,255,0.055)",
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.border,
     flexDirection: "row",
@@ -1340,9 +1317,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.035)",
+    backgroundColor: "rgba(23,22,26,0.035)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.07)",
+    borderColor: foundationTheme.color.borderLight,
   },
   reviewReportFallbackPressed: {
     opacity: 0.68,
@@ -1425,7 +1402,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.12)",
   },
   distanceText: {
-    color: theme.colors.text,
+    color: foundationTheme.color.textPrimary,
     fontSize: 12,
     fontWeight: "800",
   },
