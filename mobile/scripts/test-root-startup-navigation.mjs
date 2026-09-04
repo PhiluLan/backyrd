@@ -7,6 +7,10 @@ const source = fs.readFileSync(
   new URL("../lib/root-startup-navigation.ts", import.meta.url),
   "utf8",
 );
+const legalGuardSource = fs.readFileSync(
+  new URL("../components/consent/LegalGateGuard.tsx", import.meta.url),
+  "utf8",
+);
 const compiled = ts.transpileModule(source, {
   compilerOptions: {
     module: ts.ModuleKind.ESNext,
@@ -97,4 +101,12 @@ test("source contract contains no delay, retry, persistence, or route storage", 
   assert.doesNotMatch(source, /router\.|\/spot\/|\/user\//);
   assert.match(source, /entryAllowsProductTarget/);
   assert.match(source, /legalState === "clear"/);
+});
+
+test("a pathname transition starts a fresh Legal Gate check", () => {
+  assert.doesNotMatch(legalGuardSource, /checkingRef/);
+  assert.match(legalGuardSource, /useEffect\(\(\) => \{/);
+  assert.match(legalGuardSource, /let cancelled = false/);
+  assert.match(legalGuardSource, /if \(cancelled\) return/);
+  assert.match(legalGuardSource, /\}, \[pathname, router\]\)/);
 });
