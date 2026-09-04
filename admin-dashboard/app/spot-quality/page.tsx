@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 type QualityIssue = {
@@ -50,6 +50,13 @@ type QualitySummary = {
 
 type QualityResponse = {
   summary: QualitySummary;
+  filtered_total: number;
+  population: {
+    contract: "ACTIVE_PRODUCT_SPOTS_V2";
+    statuses: string[];
+    origins: string[];
+    calculated_at: string;
+  };
   rows: QualityRow[];
 };
 
@@ -90,19 +97,11 @@ export default function SpotQualityPage() {
   const [issue, setIssue] = useState("all");
   const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadQuality();
-    }, 250);
-
-    return () => window.clearTimeout(timer);
-  }, [search, issue, refreshKey]);
-
-  async function loadQuality() {
+  const loadQuality = useCallback(async () => {
     setLoading(true);
 
     const { data: result, error: rpcError } = await supabase.rpc(
-      "admin_spot_quality_v1",
+      "admin_spot_quality_v2",
       {
         p_limit: 500,
         p_offset: 0,
@@ -120,7 +119,15 @@ export default function SpotQualityPage() {
     }
 
     setLoading(false);
-  }
+  }, [issue, search]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadQuality();
+    }, 250);
+
+    return () => window.clearTimeout(timer);
+  }, [loadQuality, refreshKey]);
 
   const visibleRows = useMemo(() => data?.rows ?? [], [data]);
 
@@ -131,8 +138,9 @@ export default function SpotQualityPage() {
           <div className="bi-eyebrow">Spot Operations</div>
           <h1>Spot Quality Engine</h1>
           <p>
-            Datenqualität, offene Aufgaben und mögliche Duplikate für jeden
-            Backyrd-Spot.
+            Datenqualität, offene Aufgaben und mögliche Duplikate für aktive
+            Product-Spots. Archivierte und interne Test-Spots bleiben außerhalb
+            dieser Arbeitsliste.
           </p>
         </div>
 
@@ -261,6 +269,7 @@ export default function SpotQualityPage() {
               <div>
                 <span className="bi-kicker">Founder Queue</span>
                 <h3>Spot-Arbeitsliste</h3>
+                <p>{data.filtered_total} passende aktive Product-Spots</p>
               </div>
 
               <div className="sq-toolbar">
