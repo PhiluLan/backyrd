@@ -15,6 +15,7 @@ import {
   resolveNativeInitialTargetRoute,
   type NativeInitialTarget,
 } from "../lib/native-initial-target";
+import { rootStartupNavigationAuthority } from "../lib/root-startup-navigation";
 
 const acceptedNativeReceipts = new Set<string>();
 
@@ -58,6 +59,10 @@ export default function ColdStartProductDeepLinkRouter({
             console.log(
               `[native-initial-target] pulled present=${target !== null}`,
             );
+            if (!cancelled) {
+              rootStartupNavigationAuthority.selectNoTarget();
+              console.log("[startup-authority] selected=default-home");
+            }
             return;
           }
 
@@ -65,7 +70,25 @@ export default function ColdStartProductDeepLinkRouter({
           console.log(
             `[native-initial-target] pulled present=true target=${nativeTargetKind(target)} authorized=${route !== null}`,
           );
-          if (!route) return;
+          if (!route) {
+            rootStartupNavigationAuthority.selectNoTarget();
+            console.log("[startup-authority] selected=default-home");
+            return;
+          }
+
+          if (!rootStartupNavigationAuthority.selectTarget(target.receipt)) {
+            console.log("[startup-authority] target selection accepted=false");
+            return;
+          }
+          console.log(
+            `[startup-authority] selected=target target=${nativeTargetKind(target)}`,
+          );
+
+          await rootStartupNavigationAuthority.waitForTargetDispatch(
+            target.receipt,
+          );
+          if (cancelled) return;
+          console.log("[startup-authority] target dispatch authorized=true");
 
           if (!acceptedNativeReceipts.has(target.receipt)) {
             acceptedNativeReceipts.add(target.receipt);
@@ -95,6 +118,9 @@ export default function ColdStartProductDeepLinkRouter({
           console.log(
             `[native-initial-target] acknowledged=${acknowledged}`,
           );
+          if (acknowledged) {
+            rootStartupNavigationAuthority.acknowledgeTarget(target.receipt);
+          }
           if (acknowledged && target.provenance === "notification") {
             void Notifications.clearLastNotificationResponseAsync().catch(() => {
               // The native receipt remains acknowledged. This best-effort clear
@@ -104,6 +130,8 @@ export default function ColdStartProductDeepLinkRouter({
         })
         .catch(() => {
           console.log("[native-initial-target] pull unavailable");
+          rootStartupNavigationAuthority.selectNoTarget();
+          console.log("[startup-authority] selected=default-home");
         });
       return () => {
         cancelled = true;

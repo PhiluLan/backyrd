@@ -17,6 +17,7 @@ import SplashScreen from "./splash";
 import { supabase } from "../lib/supabase";
 import { getMyProductEntryStatus } from "../lib/onboardingStatus";
 import { useAuth } from "../hooks/useAuth";
+import { rootStartupNavigationAuthority } from "../lib/root-startup-navigation";
 
 function normalizeRoute(route: string | null | undefined): string {
   if (!route) return "/(tabs)";
@@ -161,6 +162,25 @@ export default function GateScreen() {
       }
 
       const target = normalizeRoute(status.nextRoute);
+
+      if (Platform.OS === "ios") {
+        const startupSelection =
+          await rootStartupNavigationAuthority.waitForSelection();
+
+        if (target === "/(tabs)" && startupSelection.kind === "target") {
+          didRouteRef.current = true;
+          rootStartupNavigationAuthority.allowProductTargetFromEntryGate();
+          console.log("[startup-authority] product-entry=target-authorized");
+          return;
+        }
+
+        if (target === "/(tabs)") {
+          rootStartupNavigationAuthority.completeDefaultStart();
+          console.log("[startup-authority] product-entry=default-home");
+        } else {
+          console.log("[startup-authority] product-entry=mandatory-gate");
+        }
+      }
 
       didRouteRef.current = true;
       router.replace(target as any);
