@@ -1,6 +1,6 @@
 {
   "version": "backyrd-production-product-lineage-v2",
-  "audited_at": "2026-09-04T18:18:19Z",
+  "audited_at": "2026-09-04T19:24:00Z",
   "repository": "PhiluLan/backyrd",
   "integration_anchor": {
     "commit": "c425ad1d61186e6d73ed2df1f9686780dcbf0e24",
@@ -13,18 +13,18 @@
   "surfaces": {
     "mobile": {
       "delivery": "EAS production OTA",
-      "commit": "643723ff3f732813c96637639f9c5e226eca65fb",
-      "tree": "57bfd6c064f20b22fe85ff5778d4742edb19d172",
+      "commit": "47858625ab1436c56626b2117573cc0976b460a5",
+      "tree": "6357479adc9e88f95f8528d99bb233f347a39e7c",
       "path": "mobile",
       "runtime_version": "1.1.0",
-      "update_group": "dce4bef4-69d0-47d2-841f-014c287cf5bc",
-      "android_update": "01a04c8c-e5c6-77bc-b98e-cc51f2ab93f1",
-      "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
-      "created_at": "2026-08-29T08:04:00Z",
+      "update_group": "b5e2790d-788a-42eb-a4d8-15d065b9cda4",
+      "android_update": "01a06dde-0f33-7534-910a-33448a2b9561",
+      "ios_update": "01a06dde-0f33-7b71-8ea7-42b1e936b4ff",
+      "created_at": "2026-09-04T19:22:00Z",
       "canonical_source": {
-        "commit": "e8b7f6c31ed668245e3c93e06409ff23db455f8f",
+        "commit": "47858625ab1436c56626b2117573cc0976b460a5",
         "tree": "6357479adc9e88f95f8528d99bb233f347a39e7c",
-        "production_verified": false,
+        "production_verified": true,
         "signed_ios_build": {
           "build_number": "57",
           "eas_build": "9baaf56b-36f2-4799-be18-cce5cf19f09d",
@@ -32,21 +32,21 @@
           "physical_device": "iPhone 16",
           "verified_at": "2026-09-04T18:18:19Z"
         },
-        "reason": "Gate 6 reviewed candidate. Stable idempotency keys, archived-Spot mutation rejection, concurrency-safe social aggregates and account-owned Storage cleanup passed local contracts; Production verification remains pending canonical merge and deployment. Gate 1-5 Product semantics and Decision runtime are unchanged."
+        "reason": "Gate 6 Mobile clients were published as Production OTA group b5e2790d-788a-42eb-a4d8-15d065b9cda4 from canonical Main 47858625ab1436c56626b2117573cc0976b460a5 after release validation. Stable request identities for comments, moments and messages passed Mobile contracts; the server-side three-user Production probe proved exactly-once end state and cross-user denial. Signed native build 57 remains the Gate-5 native runtime baseline. Gate 1-5 Product semantics and Decision runtime are unchanged."
       }
     },
     "consumer_web": {
       "delivery": "Vercel production",
-      "commit": "643723ff3f732813c96637639f9c5e226eca65fb",
-      "tree": "f495697d92a8d019ad42e5c748b413a704a07d26",
+      "commit": "47858625ab1436c56626b2117573cc0976b460a5",
+      "tree": "562613194b8605b081015112509f7f04f5e0781c",
       "path": "web",
-      "vercel_deployment": "BBa9jfxn6s4ZsaDkwSxv4sU2obhD",
-      "created_at": "2026-08-29T08:02:02Z",
+      "vercel_deployment": "6271241379",
+      "created_at": "2026-09-04T19:18:37Z",
       "canonical_source": {
-        "commit": "e8b7f6c31ed668245e3c93e06409ff23db455f8f",
+        "commit": "47858625ab1436c56626b2117573cc0976b460a5",
         "tree": "562613194b8605b081015112509f7f04f5e0781c",
-        "production_verified": false,
-        "reason": "Gate 6 reviewed candidate. Consumer Web uses stable request identities for comments, moments and messages; Production verification remains pending canonical merge."
+        "production_verified": true,
+        "reason": "Gate 6 Consumer Web was deployed successfully by Vercel from canonical Main 47858625ab1436c56626b2117573cc0976b460a5. Stable request identities for comments, moments and messages passed Web contracts and the shared Production acceptance probe."
       }
     },
     "admin_intelligence_web": {
@@ -61,15 +61,15 @@
       "provider": "Supabase",
       "project_ref": "hjgcrrzfjchzqoegcywn",
       "postgres_major": 17,
-      "migration_tip": "20260829080205_gate2_public_spot_detail_truth_v1",
-      "migration_count": 91,
-      "source_commit": "643723ff3f732813c96637639f9c5e226eca65fb",
+      "migration_tip": "20260904184507_gate6_social_data_integrity",
+      "migration_count": 130,
+      "source_commit": "47858625ab1436c56626b2117573cc0976b460a5",
       "canonical_source": {
-        "source_commit": "e8b7f6c31ed668245e3c93e06409ff23db455f8f",
+        "source_commit": "47858625ab1436c56626b2117573cc0976b460a5",
         "migration_tip": "20260904184507_gate6_social_data_integrity",
         "migration_count": 130,
-        "production_verified": false,
-        "reason": "Gate 6 reviewed forward-only data-integrity hardening and bounded process-account-deletion update; Production application remains pending canonical merge and source-aware deployment."
+        "production_verified": true,
+        "reason": "The source-aware canonical-main workflow applied exactly the Gate-6 forward migration and deployed only process-account-deletion. The immutable deployment audit and post-deploy Production probe passed; decision-v13 remained active v123 and was not redeployed."
       }
     }
   },
@@ -438,7 +438,7 @@
     {"slug":"decision-copy","version":44,"verify_jwt":true,"ezbr_sha256":"202df532b6fbd0a820c3a0b949977dcb22d858b07aa20f68f017e875929fb1c4"},
     {"slug":"generate-spot-embeddings","version":43,"verify_jwt":true,"ezbr_sha256":"687d5d78348fd5b8ca6f83c30eb379d403d0a780d1d5b1e4d5d1a7f2de22c474"},
     {"slug":"semantic-spot-search","version":42,"verify_jwt":true,"ezbr_sha256":"53c66d55efb73201b4db141afd6a21a76f4db0522b9070e9b81e0fd67a2640f6"},
-    {"slug":"decision-v13","version":73,"verify_jwt":true,"ezbr_sha256":"e72daec25d320f3733028ad1af6760e68999bfaa341b66462e42dce51a941e65"},
+    {"slug":"decision-v13","version":123,"verify_jwt":true,"ezbr_sha256":"edbccf870a30c850cde97c59444b9a2f8d6e9d212dda257a86adb1fbf4fc088a"},
     {"slug":"send-spot-claim-code","version":42,"verify_jwt":true,"ezbr_sha256":"2f9e83dd0633ca9fdace54ee480563bf1e887015cffd015abe0aac8767bb5b36"},
     {"slug":"send-spot-claim-approved-email","version":37,"verify_jwt":true,"ezbr_sha256":"02f2ad6e30ee9327a5907250095bd384942e927cb45afd3001947da124134abe"},
     {"slug":"google-place-photo","version":40,"verify_jwt":false,"ezbr_sha256":"0e072b61dc16c53db62e629c251eca22d17f29b7d1b76b35b4d98faec9fcff3e"},
@@ -447,7 +447,7 @@
     {"slug":"safety-evaluate","version":45,"verify_jwt":true,"ezbr_sha256":"11345d4521ab1d5c744dcc52969aed1e5b3ac0a35fb44434b927deb6f5ef78f0"},
     {"slug":"send-test-push","version":36,"verify_jwt":true,"ezbr_sha256":"a761565de7bb19fe768b748e0fa16f5be8ceec5f1810ca051cdc246c29c8a6bf"},
     {"slug":"generate-data-export","version":36,"verify_jwt":true,"ezbr_sha256":"4f8b78030aac2cbbbfff5d701d790ce85260ec409a73732300464cba5747b89b"},
-    {"slug":"process-account-deletion","version":42,"verify_jwt":true,"ezbr_sha256":"ca3eb4bda1061fac2abf5567cf0f0d5a37dd74563fd1391fd045d2f90770c329"},
+    {"slug":"process-account-deletion","version":51,"verify_jwt":true,"ezbr_sha256":"b9694582d2e6b37dc573aca32ef0393e00e663e9b450fedf72fb6dd1da972dea"},
     {"slug":"send-message-push","version":37,"verify_jwt":true,"ezbr_sha256":"30bf5ea849dc0a0c51d1acf92e10bec4c548a95bfcac3e16e9bfa5b5521e4e40"},
     {"slug":"safety-text-worker","version":36,"verify_jwt":false,"ezbr_sha256":"aa5bad0df2ddc2af3a38561100156735e2312484f4dc45fea78c9d486c083fdc"},
     {"slug":"safety-image-worker","version":36,"verify_jwt":false,"ezbr_sha256":"c7fc2c5899632b91869e873d07360d3f2fbea5a312206a01989d5f3afdfcfd3c"},
