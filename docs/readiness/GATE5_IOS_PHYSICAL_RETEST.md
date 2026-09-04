@@ -522,3 +522,49 @@ Pre-PR validation for this exact source commit:
 - generated Swift bridge, Objective-C export, and Xcode source membership:
   PASS;
 - unsigned Release build for generic physical iOS: BUILD SUCCEEDED.
+
+## Signed build 57 physical closure
+
+PR 199 merged normally after all Required Checks passed as canonical Main
+`98a8ee872baa4c427dc09da61b45b073ac537760`. EAS Production build
+`9baaf56b-36f2-4799-be18-cce5cf19f09d` produced App Store/TestFlight build 57
+from that exact commit. The downloaded IPA SHA-256 is
+`10554c3602f9fe0f6626955da7dfcbd12ba059af25ab0d2eaf1d247dc366cfcf`.
+Its embedded identity binds bundle `com.philipplanger.backyrd`, Apple Team
+`7B3B8TL6J9`, Production APNs, TestFlight beta reporting and no debug
+entitlement.
+
+Physical Founder acceptance on the iPhone 16 proved:
+
+- ordinary Cold Start without a target reached Home before the matrix;
+- two independently terminated Spot launches reached the exact
+  Naturhistorisches Museum Basel Production record;
+- two independently terminated User launches reached the exact Production
+  profile;
+- foreground and background Spot and User links reached their exact targets;
+- foreground Push delivered exactly once;
+- background Push delivered once and its tap remained on Privacy Center;
+- three current PID-terminated Push runs delivered and remained on Privacy
+  Center after the tap;
+- malformed Spot, malformed User and unknown Product target types returned
+  safely to Home;
+- a stale older notification returned safely to Home;
+- a final ordinary terminated launch reached Home, proving no stale Target;
+- no duplicate navigation was observed.
+
+The first Push tap during this matrix reached Home, but the Founder identified
+that tapped item as likely an older notification rather than the newly emitted
+test notification. It is excluded from the current-run success denominator and
+is retained as positive stale-notification fail-closed evidence. Three
+subsequent current Push runs passed consecutively.
+
+The authenticated server test path always emits only the exact allowlisted
+`test_push` to `/privacy-consent`; it cannot create an unknown target without
+weakening the Production contract. Unknown Push types therefore remain covered
+by the passing native and JavaScript negative regression suite rather than a
+synthetic Production payload. No Push token was read, exported, displayed,
+committed, documented or persisted outside the existing Product contract.
+
+Build 57 is the accepted Gate-5 Mobile Production test identity. The prior
+builds and candidates remain forensic evidence and are not the accepted Mobile
+identity.
