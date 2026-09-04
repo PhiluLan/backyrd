@@ -14,9 +14,9 @@
   "generatorVersion": "decision-lab-generator-v1",
   "groundTruthVersion": "latent-utility-v1",
   "engineSourceHash": "c80c275b5f09adf0e3081dc10763a06846f81333097fd2a9ead6e8dfb8d7987a",
-  "sourceGitSha": "e8b7f6c31ed668245e3c93e06409ff23db455f8f",
-  "engineRecertificationVersion": "decision-v13-production-recertification-v17",
-  "engineRecertificationHash": "b1bcfaf240d21cfe1269273f5deb1f2be8479a461acb2eb2ace1589ddf4f5909",
+  "sourceGitSha": "2324c2db65129515d481f99aa7c8d2b3f18fa29b",
+  "engineRecertificationVersion": "decision-v13-production-recertification-v18",
+  "engineRecertificationHash": "5d7b8ff04d95da52cc6d08c8c59f1743f44e7591c114cb0af3c3afba7dcaeadc",
   "protectedSemanticSourceSetHash": "7c17399ea19f5fe3dfef70bec958170c0cdb195a4043c191f124ceb11a87496b",
   "productionFunctionVersion": 123,
   "productionBundleHash": "edbccf870a30c850cde97c59444b9a2f8d6e9d212dda257a86adb1fbf4fc088a",
@@ -139,12 +139,12 @@
   "scientificValidity": "PASS",
   "engineMutation": "AUTHORIZED_RECERTIFICATION",
   "d3Readiness": "READY",
-  "freezeManifestHash": "105d63eb8f9e9c044031cfbe780d946874e910c242b32f2b873f0f29c715859b",
+  "freezeManifestHash": "8a28ec86ac4ee440db9f81bdedaf57ab8cd050edde581daed238f005f59b2ada",
   "frozen": true,
-  "frozenAt": "2026-09-04T21:09:54+02:00",
+  "frozenAt": "2026-09-04T21:24:00+02:00",
   "supersedes": {
-    "freezeManifestHash": "88109f434dbe016a690803231323384a733076ca930474d0c0f39dd440f03dce",
-    "reason": "GATE6_DATA_INTEGRITY_RECERTIFICATION"
+    "freezeManifestHash": "105d63eb8f9e9c044031cfbe780d946874e910c242b32f2b873f0f29c715859b",
+    "reason": "GATE6_PRODUCTION_CLOSURE_RECERTIFICATION"
   },
   "integrity": {
     "valid": true,
