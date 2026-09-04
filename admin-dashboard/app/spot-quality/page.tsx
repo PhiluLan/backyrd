@@ -60,6 +60,22 @@ type QualityResponse = {
   rows: QualityRow[];
 };
 
+type QualityRpcResponse = {
+  summary: QualitySummary;
+  rows: QualityRow[];
+};
+
+type ActiveProductSpot = {
+  id: string;
+  name: string | null;
+  address: string | null;
+  google_place_id: string | null;
+};
+
+const PAGE_SIZE = 1000;
+const ACTIVE_PRODUCT_STATUSES = ["approved", "pending"] as const;
+const PRODUCT_ORIGINS = ["REAL", "IMPORT", "LEGACY"] as const;
+
 const ISSUE_FILTERS = [
   { value: "all", label: "Alle Spots" },
   { value: "low_quality", label: "Unter 70 %" },
@@ -89,6 +105,109 @@ function issueClass(severity: QualityIssue["severity"]) {
   return `sq-issue sq-issue-${severity}`;
 }
 
+function normalizeDuplicateKey(value: string | null) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "")
+    .toLowerCase();
+}
+
+function reconcileDuplicates(
+  rows: QualityRow[],
+  activeSpots: ActiveProductSpot[],
+) {
+  const googleCounts = new Map<string, number>();
+  const nameAddressCounts = new Map<string, number>();
+
+  for (const spot of activeSpots) {
+    const googlePlaceId = spot.google_place_id?.trim();
+    if (googlePlaceId) {
+      googleCounts.set(googlePlaceId, (googleCounts.get(googlePlaceId) ?? 0) + 1);
+    }
+
+    const name = normalizeDuplicateKey(spot.name);
+    const address = normalizeDuplicateKey(spot.address);
+    if (name && address) {
+      const key = `${name}:${address}`;
+      nameAddressCounts.set(key, (nameAddressCounts.get(key) ?? 0) + 1);
+    }
+  }
+
+  return rows.map((row) => {
+    const googlePlaceId = row.google_place_id?.trim();
+    const duplicateGooglePlaceId = Boolean(
+      googlePlaceId && (googleCounts.get(googlePlaceId) ?? 0) > 1,
+    );
+    const name = normalizeDuplicateKey(row.name);
+    const address = normalizeDuplicateKey(row.address);
+    const duplicateNameAddress = Boolean(
+      name && address && (nameAddressCounts.get(`${name}:${address}`) ?? 0) > 1,
+    );
+    const issues = row.issues.filter((item) => item.key !== "possible_duplicate");
+
+    if (duplicateGooglePlaceId || duplicateNameAddress) {
+      issues.push({
+        key: "possible_duplicate",
+        label: "Mögliches Duplikat",
+        severity: "critical",
+        points: 0,
+      });
+    }
+
+    return {
+      ...row,
+      duplicate_google_place_id: duplicateGooglePlaceId,
+      duplicate_name_address: duplicateNameAddress,
+      issues,
+    };
+  });
+}
+
+function summarize(rows: QualityRow[]): QualitySummary {
+  const issueCount = (key: string) =>
+    rows.filter((row) => row.issues.some((item) => item.key === key)).length;
+  const scoreTotal = rows.reduce((total, row) => total + row.quality_score, 0);
+
+  return {
+    total: rows.length,
+    excellent: rows.filter((row) => row.quality_score >= 90).length,
+    good: rows.filter(
+      (row) => row.quality_score >= 75 && row.quality_score <= 89,
+    ).length,
+    needs_work: rows.filter(
+      (row) => row.quality_score >= 50 && row.quality_score <= 74,
+    ).length,
+    critical: rows.filter((row) => row.quality_score < 50).length,
+    missing_google_place_id: issueCount("missing_google_place_id"),
+    missing_photo: issueCount("missing_photo"),
+    missing_description: issueCount("missing_description"),
+    missing_opening_hours: issueCount("missing_opening_hours"),
+    missing_taxonomies: issueCount("missing_taxonomies"),
+    possible_duplicates: issueCount("possible_duplicate"),
+    average_score: rows.length
+      ? Math.round((scoreTotal / rows.length) * 10) / 10
+      : 0,
+  };
+}
+
+function matchesFilter(row: QualityRow, search: string, issue: string) {
+  const term = search.trim().toLocaleLowerCase("de-CH");
+  const matchesSearch =
+    !term ||
+    [row.name, row.address, row.city].some((value) =>
+      (value ?? "").toLocaleLowerCase("de-CH").includes(term),
+    );
+  const matchesIssue =
+    !issue ||
+    issue === "all" ||
+    (issue === "low_quality"
+      ? row.quality_score < 70
+      : row.issues.some((item) => item.key === issue));
+
+  return matchesSearch && matchesIssue;
+}
+
 export default function SpotQualityPage() {
   const [data, setData] = useState<QualityResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -100,22 +219,70 @@ export default function SpotQualityPage() {
   const loadQuality = useCallback(async () => {
     setLoading(true);
 
-    const { data: result, error: rpcError } = await supabase.rpc(
-      "admin_spot_quality_v2",
-      {
-        p_limit: 500,
-        p_offset: 0,
-        p_search: search.trim() || null,
-        p_issue: issue,
-      },
-    );
+    try {
+      const qualityRows: QualityRow[] = [];
+      const activeSpots: ActiveProductSpot[] = [];
 
-    if (rpcError) {
-      setError(rpcError.message);
-      setData(null);
-    } else {
+      for (let offset = 0; ; offset += PAGE_SIZE) {
+        const { data: result, error: rpcError } = await supabase.rpc(
+          "admin_spot_quality_v1",
+          {
+            p_limit: PAGE_SIZE,
+            p_offset: offset,
+            p_search: null,
+            p_issue: "all",
+          },
+        );
+        if (rpcError) throw rpcError;
+
+        const page = result as QualityRpcResponse;
+        qualityRows.push(...page.rows);
+        if (page.rows.length < PAGE_SIZE) break;
+      }
+
+      for (let offset = 0; ; offset += PAGE_SIZE) {
+        const { data: result, error: spotError } = await supabase
+          .from("spots")
+          .select("id,name,address,google_place_id")
+          .in("status", [...ACTIVE_PRODUCT_STATUSES])
+          .in("data_origin", [...PRODUCT_ORIGINS])
+          .order("id")
+          .range(offset, offset + PAGE_SIZE - 1);
+        if (spotError) throw spotError;
+
+        const page = result as ActiveProductSpot[];
+        activeSpots.push(...page);
+        if (page.length < PAGE_SIZE) break;
+      }
+
+      const activeIds = new Set(activeSpots.map((spot) => spot.id));
+      const productRows = reconcileDuplicates(
+        qualityRows.filter((row) => activeIds.has(row.spot_id)),
+        activeSpots,
+      );
+      const filteredRows = productRows.filter((row) =>
+        matchesFilter(row, search, issue),
+      );
+
       setError("");
-      setData(result as QualityResponse);
+      setData({
+        summary: summarize(productRows),
+        filtered_total: filteredRows.length,
+        population: {
+          contract: "ACTIVE_PRODUCT_SPOTS_V2",
+          statuses: [...ACTIVE_PRODUCT_STATUSES],
+          origins: [...PRODUCT_ORIGINS],
+          calculated_at: new Date().toISOString(),
+        },
+        rows: filteredRows,
+      });
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Spot-Qualität konnte nicht geladen werden.",
+      );
+      setData(null);
     }
 
     setLoading(false);
