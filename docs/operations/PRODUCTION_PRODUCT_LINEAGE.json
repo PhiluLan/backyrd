@@ -1,6 +1,6 @@
 {
   "version": "backyrd-production-product-lineage-v2",
-  "audited_at": "2026-09-04T16:51:43Z",
+  "audited_at": "2026-09-04T18:18:19Z",
   "repository": "PhiluLan/backyrd",
   "integration_anchor": {
     "commit": "c425ad1d61186e6d73ed2df1f9686780dcbf0e24",
@@ -22,10 +22,17 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "bb6fdabca8c0701619aaaed88851cd9155f86a17",
+        "commit": "98a8ee872baa4c427dc09da61b45b073ac537760",
         "tree": "7da7afc95de9f8e9fd29288d9495161aa00e1cf5",
-        "production_verified": false,
-        "reason": "Signed Production build 56 from canonical Main 366542f746abb3b4c6f60a1a226e7e2f3c0962aa proved the Home overwrite was prevented but exposed a deterministic Legal Gate startup race: the / pathname check was cancelled by the initial /gate transition, while checkingRef suppressed the replacement /gate check; the cancelled result could not set legal=clear and no later check remained to release the already authorized target, leaving the physical app on the bootstrap surface for more than 30 seconds. Candidate bb6fdab removes only that overlapping-check suppression. Each pathname owns a cancellable check, stale results remain unable to navigate or clear the gate, and the current pathname always receives a check. Product, Auth, Legal and Safety semantics, the native target bridge, allowlists, exactly-once acknowledgement and default Home authority are unchanged. Mobile contracts and 24/24 routing regressions, TypeScript, lint and Production release validation with 151 source files passed. This candidate is explicitly not Production-verified; normal PR merge, a new signed Production TestFlight build from canonical Main, and repeated physical acceptance remain pending."
+        "production_verified": true,
+        "signed_ios_build": {
+          "build_number": "57",
+          "eas_build": "9baaf56b-36f2-4799-be18-cce5cf19f09d",
+          "ipa_sha256": "10554c3602f9fe0f6626955da7dfcbd12ba059af25ab0d2eaf1d247dc366cfcf",
+          "physical_device": "iPhone 16",
+          "verified_at": "2026-09-04T18:18:19Z"
+        },
+        "reason": "Signed Production TestFlight build 57 was built from canonical Main 98a8ee872baa4c427dc09da61b45b073ac537760 and physically verified on the Founder iPhone 16. Ordinary Cold Start reached Home before and after the target matrix. PID-terminated Spot reached the exact Production Spot twice; PID-terminated User reached the exact Production profile twice; three current allowlisted cold Push runs reached Privacy Center and remained stable. Foreground and background Spot/User and Push routing passed. Malformed Spot, malformed User and unknown link targets failed closed to Home. A stale older notification also failed closed to Home. No duplicate navigation or stale target was observed. The server test path cannot emit an unknown Push target by construction; native and JavaScript negative regressions bind that case fail-closed. Mobile contracts and 24/24 routing regressions, TypeScript, lint, Production release validation with 151 source files, all PR Required Checks and Production lineage validation passed. Product, Auth, Legal, Safety, Decision, Mood, database and Supabase runtime semantics are unchanged."
       }
     },
     "consumer_web": {
