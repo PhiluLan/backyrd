@@ -1,0 +1,13 @@
+# Decision v13 Production identity re-certification v17
+
+Gate 6 changes no Decision semantic source, ranking behavior, Mood, Offering/Purpose, N3/N4/N5/N6 behavior, reason authority, or Production Decision runtime. The protected semantic source set and `decision-v13` Engine are byte-identical to v16.
+
+The certification evidence set changes because Gate 6 closes proven data-integrity defects outside Decision: consumer mutations gain request-scoped idempotency; social reaction/comment counts are recomputed under transaction-scoped locks; archived or non-consumer Spots reject new consumer relations; account deletion enumerates only storage objects owned by the target account; and Mobile/Web clients reuse stable request identities after retry. These are relation, authorization, lifecycle, and retry guarantees, not Decision-semantic changes.
+
+The database re-certification is not a hash-only update. A fresh zero-data boot applies the complete canonical migration lineage. The Gate-6 recertification contracts then reconstruct the complete prior Public ACL and application schema inside rolled-back transactions, prove those historical identities exactly, and independently prove the new grants, policies, triggers, helper and RPC boundaries. Transactional tests cover valid and repeated comments, moments and messages; archived-Spot rejection; reaction relation/count consistency; unauthorized operations; and idempotent acknowledgements. Mobile and Web contracts verify stable request IDs and failure retry behavior.
+
+Read-only Production forensics separately inspected canonical relations, derived counts, Mood state, lifecycle state and Storage references. A controlled three-user acceptance probe established the pre-fix defects without touching Founder data and removes its isolated identities and content. The same probe is required after canonical-main deployment to prove the remediated Production end state.
+
+Production Decision remains active version 123 with bundle SHA-256 `edbccf870a30c850cde97c59444b9a2f8d6e9d212dda257a86adb1fbf4fc088a`, `verify_jwt=true`, the same 40/40 byte-matched deployed source modules, and the exact entrypoint `import "./live-index.ts";` (SHA-256 `4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299`). The source-aware deployment plan requires only the Gate-6 forward migration and the changed `process-account-deletion` function; it does not deploy `decision-v13`.
+
+This is a complete operational evidence re-certification through the existing fail-closed contract. D2.1, D2.2 and D3.1 are regenerated from their validators. The negative guard suite continues to block Engine drift, an additional protected source, Production identity drift, and incomplete re-certification.

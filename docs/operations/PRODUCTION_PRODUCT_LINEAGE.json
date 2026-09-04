@@ -22,9 +22,9 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "98a8ee872baa4c427dc09da61b45b073ac537760",
-        "tree": "7da7afc95de9f8e9fd29288d9495161aa00e1cf5",
-        "production_verified": true,
+        "commit": "e8b7f6c31ed668245e3c93e06409ff23db455f8f",
+        "tree": "6357479adc9e88f95f8528d99bb233f347a39e7c",
+        "production_verified": false,
         "signed_ios_build": {
           "build_number": "57",
           "eas_build": "9baaf56b-36f2-4799-be18-cce5cf19f09d",
@@ -32,7 +32,7 @@
           "physical_device": "iPhone 16",
           "verified_at": "2026-09-04T18:18:19Z"
         },
-        "reason": "Signed Production TestFlight build 57 was built from canonical Main 98a8ee872baa4c427dc09da61b45b073ac537760 and physically verified on the Founder iPhone 16. Ordinary Cold Start reached Home before and after the target matrix. PID-terminated Spot reached the exact Production Spot twice; PID-terminated User reached the exact Production profile twice; three current allowlisted cold Push runs reached Privacy Center and remained stable. Foreground and background Spot/User and Push routing passed. Malformed Spot, malformed User and unknown link targets failed closed to Home. A stale older notification also failed closed to Home. No duplicate navigation or stale target was observed. The server test path cannot emit an unknown Push target by construction; native and JavaScript negative regressions bind that case fail-closed. Mobile contracts and 24/24 routing regressions, TypeScript, lint, Production release validation with 151 source files, all PR Required Checks and Production lineage validation passed. Product, Auth, Legal, Safety, Decision, Mood, database and Supabase runtime semantics are unchanged."
+        "reason": "Gate 6 reviewed candidate. Stable idempotency keys, archived-Spot mutation rejection, concurrency-safe social aggregates and account-owned Storage cleanup passed local contracts; Production verification remains pending canonical merge and deployment. Gate 1-5 Product semantics and Decision runtime are unchanged."
       }
     },
     "consumer_web": {
@@ -43,10 +43,10 @@
       "vercel_deployment": "BBa9jfxn6s4ZsaDkwSxv4sU2obhD",
       "created_at": "2026-08-29T08:02:02Z",
       "canonical_source": {
-        "commit": "7dbe1e5c06db2ab6a29aadc681395fcf5c04bff7",
-        "tree": "d786d147f4ea9270f8527052e5f4d8bc106cf473",
+        "commit": "e8b7f6c31ed668245e3c93e06409ff23db455f8f",
+        "tree": "562613194b8605b081015112509f7f04f5e0781c",
         "production_verified": false,
-        "reason": "Gate 5 reviewed candidate: privacy settings use the authorized RPC and filtered map state cannot retain an ineligible Spot; Vercel Production remains pending canonical merge."
+        "reason": "Gate 6 reviewed candidate. Consumer Web uses stable request identities for comments, moments and messages; Production verification remains pending canonical merge."
       }
     },
     "admin_intelligence_web": {
@@ -65,11 +65,11 @@
       "migration_count": 91,
       "source_commit": "643723ff3f732813c96637639f9c5e226eca65fb",
       "canonical_source": {
-        "source_commit": "7dbe1e5c06db2ab6a29aadc681395fcf5c04bff7",
-        "migration_tip": "20260901191833_gate5_harden_user_achievements_privacy",
-        "migration_count": 129,
+        "source_commit": "e8b7f6c31ed668245e3c93e06409ff23db455f8f",
+        "migration_tip": "20260904184507_gate6_social_data_integrity",
+        "migration_count": 130,
         "production_verified": false,
-        "reason": "Gate 5 reviewed forward-only user-achievement privacy hardening; Production application remains pending canonical merge and source-aware forward-only deployment."
+        "reason": "Gate 6 reviewed forward-only data-integrity hardening and bounded process-account-deletion update; Production application remains pending canonical merge and source-aware deployment."
       }
     }
   },
@@ -385,6 +385,29 @@
         "mobile/scripts/test-root-startup-navigation.mjs"
       ],
       "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
+    },
+    {
+      "id": "gate6_data_integrity_v1",
+      "baseline_commit": "6337c91b7e9e2199353e32e673507d783a9e0e2d",
+      "source_commit": "e8b7f6c31ed668245e3c93e06409ff23db455f8f",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/(tabs)/feed.tsx",
+        "mobile/app/(tabs)/profile.tsx",
+        "mobile/app/messages/[id].tsx",
+        "mobile/components/CommentsSheet.tsx",
+        "supabase/canonical/application-schema.sha256",
+        "supabase/canonical/public-acl.sha256",
+        "supabase/config.toml",
+        "supabase/functions/process-account-deletion/index.ts",
+        "supabase/migrations/20260904184507_gate6_social_data_integrity.sql",
+        "supabase/tests/gate6_social_data_integrity.sql",
+        "web/components/consumer/chat-experience.tsx",
+        "web/components/consumer/comments-dialog.tsx",
+        "web/components/consumer/moments-experience.tsx",
+        "web/lib/consumer-api.ts"
+      ],
+      "evidence": "scripts/data-integrity/gate6-production-multi-user-probe.mjs"
     }
   ],
   "required_ancestry": [

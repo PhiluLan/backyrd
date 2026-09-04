@@ -5,8 +5,8 @@ import { validatePersonalizationTreatmentFreeze } from "./personalization-treatm
 import { hashFiles, readJson, repoRoot } from "./io.mjs";
 
 export const D31_EXPECTED = Object.freeze({
-  parentFreezeManifestHash: "88109f434dbe016a690803231323384a733076ca930474d0c0f39dd440f03dce",
-  personalizationTreatmentFreezeHash: "f4a926e162bc0eee601b58871c6a75a54055090e0da007a76ea60dd384333ce7",
+  parentFreezeManifestHash: "105d63eb8f9e9c044031cfbe780d946874e910c242b32f2b873f0f29c715859b",
+  personalizationTreatmentFreezeHash: "b63fda7026995179a144e15ef697f26c6b1cce93a9b8282021f494118aa61f7a",
   engineSourceHash: "c80c275b5f09adf0e3081dc10763a06846f81333097fd2a9ead6e8dfb8d7987a"
 });
 
