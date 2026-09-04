@@ -301,6 +301,35 @@ The exact four-file Mobile transition is bound by recertification
 Cold Start Spot/User, foreground/background, malformed/unknown, and Push
 acceptance remain mandatory before Gate 5 can close.
 
+## Signed build 56 Legal Gate startup race
+
+PR 197 merged normally as canonical Main
+`366542f746abb3b4c6f60a1a226e7e2f3c0962aa` after all Required Checks passed.
+EAS Production build `7677ac04-106a-4791-ab4b-97c99bbf4fc2` produced signed
+App Store build 56 from that exact commit. Its IPA SHA-256 is
+`a2266b279226582697ba09adc3f937891dc5883efa0995abfd7c082deea92193`.
+
+Physical acceptance first proved ordinary Cold Start reached Home. A subsequent
+correctly terminated Spot launch no longer returned Home, but remained on the
+bootstrap surface for more than 30 seconds. Source tracing proves the exact
+deadlock writer: `LegalGateGuard` begins its pathname-scoped check on `/`; the
+initial Expo Router transition to `/gate` cancels that effect. Its shared
+`checkingRef` then suppresses the replacement `/gate` check. When the old async
+call returns, cancellation correctly discards the stale result, but no active
+check remains to set `legal=clear`. The valid native target consequently waits
+forever even though Product Entry has authorized it.
+
+Candidate `bb6fdabca8c0701619aaaed88851cd9155f86a17` removes only that
+overlapping-check suppression. Each pathname starts its own cancellable Legal
+Gate check; a stale check still cannot set state or navigate, while the current
+pathname always reaches a result. No timeout, retry, persistence, router,
+allowlist, Product, Auth, Legal or Safety semantic changes are introduced.
+Mobile contracts and 24/24 routing regressions, TypeScript, lint and Production
+release validation with 151 source files pass. The exact two-file change is
+bound by recertification `gate5_ios_legal_gate_startup_race_v1` and remains
+explicitly not Production-verified until normal PR merge, a signed build from
+canonical Main and the complete repeated physical acceptance matrix.
+
 ## Signed Production build 52 physical result
 
 Canonical Main `ea7e8053ccab841573a3d02a4cc0e136b772ca3a` produced signed EAS

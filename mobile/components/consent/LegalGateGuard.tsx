@@ -1,6 +1,6 @@
 // mobile/components/consent/LegalGateGuard.tsx
 
-import React, { PropsWithChildren, useEffect, useRef } from "react";
+import React, { PropsWithChildren, useEffect } from "react";
 import { usePathname, useRouter } from "expo-router";
 
 import { supabase } from "@/lib/supabase";
@@ -17,17 +17,15 @@ const ALLOWED_WHEN_GATED = new Set([
 export default function LegalGateGuard({ children }: PropsWithChildren) {
   const router = useRouter();
   const pathname = usePathname();
-  const checkingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
 
     async function checkGate() {
-      if (checkingRef.current) return;
-      checkingRef.current = true;
-
       try {
         const { data } = await supabase.auth.getSession();
+        if (cancelled) return;
+
         if (!data.session) {
           rootStartupNavigationAuthority.setLegalState("clear");
           console.log("[startup-authority] legal=clear");
@@ -48,9 +46,9 @@ export default function LegalGateGuard({ children }: PropsWithChildren) {
           router.replace("/legal-consent" as never);
         }
       } catch (error) {
-        console.warn("[legal-gate] status check failed", error);
-      } finally {
-        checkingRef.current = false;
+        if (!cancelled) {
+          console.warn("[legal-gate] status check failed", error);
+        }
       }
     }
 

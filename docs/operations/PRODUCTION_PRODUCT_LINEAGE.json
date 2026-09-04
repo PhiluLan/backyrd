@@ -1,6 +1,6 @@
 {
   "version": "backyrd-production-product-lineage-v2",
-  "audited_at": "2026-09-04T10:26:54Z",
+  "audited_at": "2026-09-04T16:51:43Z",
   "repository": "PhiluLan/backyrd",
   "integration_anchor": {
     "commit": "c425ad1d61186e6d73ed2df1f9686780dcbf0e24",
@@ -22,10 +22,10 @@
       "ios_update": "01a04c8c-e5c6-7cfd-9308-8459f3b3758b",
       "created_at": "2026-08-29T08:04:00Z",
       "canonical_source": {
-        "commit": "a5b9b10ed1f05cbfaef492c4564296ea8997e69c",
-        "tree": "02e19d38320dbd33fbbf4d640b61edf2169dddf8",
+        "commit": "bb6fdabca8c0701619aaaed88851cd9155f86a17",
+        "tree": "7da7afc95de9f8e9fd29288d9495161aa00e1cf5",
         "production_verified": false,
-        "reason": "Signed Production build 55 from canonical Main d3eda080765fc8c779057db2fef1038c54b971da proved STORE, PULL and JavaScript dispatch: the physical Spot screen showed its loading state. The later asynchronous /gate Product Entry completion then replaced the accepted Spot with /(tabs), visibly returning Home. Candidate a5b9b10 coordinates that proven writer with the existing native bridge: iOS Gate waits for the launch-local target/no-target selection; default Home is completed only for no target; an accepted target waits for both normal Product Entry and the existing Legal Gate to clear before its single dispatch. Mandatory Auth, onboarding and Legal destinations retain priority. The coordinator stores only a native receipt, never a route, identifier, payload, token, history or personal data, and closes after default completion or acknowledged target consumption. No timeout, retry loop, persistence, extra router, or fallback is added. Mobile contracts and 23/23 routing regressions, TypeScript, lint, Production release validation, clean prebuild, and unsigned native Release compilation passed. This candidate is explicitly not Production-verified; normal PR merge, a signed Production build from canonical Main, and repeated physical acceptance remain pending."
+        "reason": "Signed Production build 56 from canonical Main 366542f746abb3b4c6f60a1a226e7e2f3c0962aa proved the Home overwrite was prevented but exposed a deterministic Legal Gate startup race: the / pathname check was cancelled by the initial /gate transition, while checkingRef suppressed the replacement /gate check; the cancelled result could not set legal=clear and no later check remained to release the already authorized target, leaving the physical app on the bootstrap surface for more than 30 seconds. Candidate bb6fdab removes only that overlapping-check suppression. Each pathname owns a cancellable check, stale results remain unable to navigate or clear the gate, and the current pathname always receives a check. Product, Auth, Legal and Safety semantics, the native target bridge, allowlists, exactly-once acknowledgement and default Home authority are unchanged. Mobile contracts and 24/24 routing regressions, TypeScript, lint and Production release validation with 151 source files passed. This candidate is explicitly not Production-verified; normal PR merge, a new signed Production TestFlight build from canonical Main, and repeated physical acceptance remain pending."
       }
     },
     "consumer_web": {
@@ -364,6 +364,17 @@
         "mobile/lib/root-startup-navigation.ts",
         "mobile/package.json",
         "mobile/scripts/test-native-intent-routing.mjs",
+        "mobile/scripts/test-root-startup-navigation.mjs"
+      ],
+      "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
+    },
+    {
+      "id": "gate5_ios_legal_gate_startup_race_v1",
+      "baseline_commit": "366542f746abb3b4c6f60a1a226e7e2f3c0962aa",
+      "source_commit": "bb6fdabca8c0701619aaaed88851cd9155f86a17",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/components/consent/LegalGateGuard.tsx",
         "mobile/scripts/test-root-startup-navigation.mjs"
       ],
       "evidence": "docs/readiness/GATE5_IOS_PHYSICAL_RETEST.md"
