@@ -14,10 +14,16 @@ const embedded=new Map();
 const parser=await Parser.createInstance();
 const specifiers=await parser.parseBytes(body);
 await parser.load();
+const repositoryPathFromSpecifier=(value)=>{
+  const normalized=String(value).replace(/^file:\/\//,"").replace(/^\//,"");
+  if(normalized.startsWith("app/"))return normalized.slice(4);
+  if(normalized.startsWith("source/"))return normalized.slice(7);
+  return null;
+};
 for(const specifier of specifiers){
-  const normalized=String(specifier).replace(/^file:\/\//,"").replace(/^\//,"");
-  if(!normalized.startsWith("app/"))continue;
-  const path=normalized.slice(4),content=await parser.getModuleSource(specifier);
+  const path=repositoryPathFromSpecifier(specifier);
+  if(path===null)continue;
+  const content=await parser.getModuleSource(specifier);
   if(typeof content!=="string")throw new Error(`production_source_content_missing:${path}`);
   if(embedded.has(path)&&embedded.get(path)!==content)throw new Error(`conflicting_embedded_production_source:${path}`);
   embedded.set(path,content);
@@ -49,16 +55,18 @@ while((sourceMapOffset=body.indexOf(sourceMapMarker,sourceMapOffset))!==-1){
   let map;
   try{map=JSON.parse(parseJsonObjectAt(sourceMapOffset));}catch{sourceMapOffset+=sourceMapMarker.length;continue;}
   for(let index=0;index<(map.sources?.length??0);index+=1){
-    const normalized=String(map.sources[index]??"").replace(/^file:\/\//,"").replace(/^\//,"");
-    if(!normalized.startsWith("app/")||typeof map.sourcesContent?.[index]!=="string")continue;
-    embedded.set(normalized.slice(4),map.sourcesContent[index]);
+    const path=repositoryPathFromSpecifier(map.sources[index]??"");
+    if(path===null||typeof map.sourcesContent?.[index]!=="string")continue;
+    embedded.set(path,map.sourcesContent[index]);
   }
   sourceMapOffset+=sourceMapMarker.length;
 }
 
 const manifest=JSON.parse(readFileSync(resolve(args.manifest),"utf8"));
 const decision=manifest.functions?.find((item)=>item.slug==="decision-v13");
-if(!decision||decision.files.length!==40)throw new Error("decision_v13_40_file_manifest_required");
+const expectedFileCount=args["expected-count"]===undefined?40:Number(args["expected-count"]);
+if(!Number.isSafeInteger(expectedFileCount)||![40,41].includes(expectedFileCount))throw new Error("decision_v13_expected_file_count_invalid");
+if(!decision||decision.files.length!==expectedFileCount)throw new Error(`decision_v13_${expectedFileCount}_file_manifest_required`);
 const expected=new Map(decision.files.map((item)=>[item.path,item.sha256]));
 const productionPaths=[...embedded.keys()].filter((path)=>expected.has(path)).sort();
 const missing=[...expected.keys()].filter((path)=>!embedded.has(path)).sort();
@@ -70,7 +78,7 @@ for(const [path,expectedHash] of expected){
   const repositoryHash=sha256(readFileSync(resolve(args.repo,path)));
   if(productionHash!==expectedHash||repositoryHash!==expectedHash)mismatches.push({path,expectedHash,productionHash,repositoryHash});
 }
-if(missing.length||unexpected.length||mismatches.length||productionPaths.length!==40)throw new Error(`production_source_identity_mismatch:${JSON.stringify({missing,unexpected,mismatches,matched:productionPaths.length})}`);
+if(missing.length||unexpected.length||mismatches.length||productionPaths.length!==expectedFileCount)throw new Error(`production_source_identity_mismatch:${JSON.stringify({missing,unexpected,mismatches,matched:productionPaths.length})}`);
 const entrypoint="supabase/functions/decision-v13/index.deploy.ts";
 const entrypointSource=embedded.get(entrypoint);
 if(entrypointSource!=='import "./live-index.ts";\n')throw new Error("production_entrypoint_contract_mismatch");

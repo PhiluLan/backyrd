@@ -47,12 +47,12 @@ if run_guard "$source_case" >/dev/null 2>&1; then
 fi
 
 identity_case="$(new_case production-identity)"
-(cd "$identity_case" && node -e 'const fs=require("node:fs");const p="decision-lab/config/decision-v13-production-recertification-v19.json";const v=JSON.parse(fs.readFileSync(p,"utf8"));v.production.activeVersion=124;fs.writeFileSync(p,JSON.stringify(v,null,2)+"\n")')
-git -C "$identity_case" add decision-lab/config/decision-v13-production-recertification-v19.json
+(cd "$identity_case" && node -e 'const fs=require("node:fs");const p="decision-lab/config/decision-v13-production-recertification-v20.json";const v=JSON.parse(fs.readFileSync(p,"utf8"));v.production.activeVersion=125;fs.writeFileSync(p,JSON.stringify(v,null,2)+"\n")')
+git -C "$identity_case" add decision-lab/config/decision-v13-production-recertification-v20.json
 git -C "$identity_case" commit --quiet -m "test: changed Production identity"
 if run_guard "$identity_case" >/dev/null 2>&1; then
   echo "D2 full re-certification guard unexpectedly accepted Production identity drift" >&2
   exit 1
 fi
 
-echo "D2 full re-certification guard regression: unchanged PASS; Engine drift FAIL; new source FAIL; Production identity drift FAIL; complete v19 re-certification PASS"
+echo "D2 full re-certification guard regression: unchanged PASS; Engine drift FAIL; new source FAIL; Production identity drift FAIL; complete v20 re-certification PASS"
