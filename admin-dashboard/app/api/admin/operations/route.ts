@@ -24,7 +24,7 @@ export async function GET(request: Request) {
       recovery: {
         databaseDailyBackup: "VERIFIED_PROVIDER_DAILY_7_DAYS",
         pointInTimeRecovery: "NOT_ENABLED",
-        storageObjectBackup: "RESTORE_DRILL_VERIFIED_DESTINATION_PENDING",
+        storageObjectBackup: "VERIFIED_AWS_DAILY_AND_WEEKLY",
       },
       runbook: "/founder/operations#runbook",
     }, { headers: { "Cache-Control": "private, no-store" } });

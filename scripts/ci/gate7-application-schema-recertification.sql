@@ -25,6 +25,12 @@ select
   and exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
     where n.nspname='public' and p.proname='backyrd_launch_operations_snapshot_v1'
       and p.proconfig @> array['search_path=public, pg_catalog, storage, cron'])
+  and exists (select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public' and p.proname='backyrd_launch_operations_snapshot_v1'
+      and position('backyrd_embedding_jobs_v1 where status = ''failed''' in pg_get_functiondef(p.oid)) > 0
+      and position('join public.safety_cases c on c.id = j.case_id' in pg_get_functiondef(p.oid)) > 0
+      and position('c.case_status not in (''decided'', ''closed'')' in pg_get_functiondef(p.oid)) > 0
+      and position('status = ''FAILED''' in pg_get_functiondef(p.oid)) = 0)
   as gate7_schema_is_exact
 \gset
 \if :gate7_schema_is_exact

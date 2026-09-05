@@ -36,7 +36,7 @@ export default function FounderOperationsPage() {
 
   const connectionPct = data ? Math.round(data.database.connectionsUsed / Math.max(1, data.database.connectionLimit) * 100) : 0;
   const queueFailures = data ? data.queues.embeddingFailed + data.queues.safetyTextFailed + data.queues.safetyImageFailed : 0;
-  const critical = Boolean(data && (connectionPct >= 80 || data.database.ungrantedLocks > 0 || data.backgroundJobs.failed24h > 0));
+  const critical = Boolean(data && (connectionPct >= 80 || data.database.ungrantedLocks > 0 || data.backgroundJobs.failed24h > 0 || queueFailures > 0));
   const warnings = useMemo(() => data?.providerBoundaries.filter(row => row.blockedCount > 0) ?? [], [data]);
 
   return <div className="bi-page">
@@ -54,7 +54,7 @@ export default function FounderOperationsPage() {
         <Metric label="Kostenlimits aktiv" value={new Set(data.providerBoundaries.map(row => row.operation)).size} meta={`${warnings.length} mit Blockierungen`} />
       </section>
       <section className="bi-card bi-pad"><div className="bi-sectionHead"><div><div className="bi-kicker">Variable Providerkosten</div><h2>Serverseitige Circuit Breaker</h2></div></div><div className="bi-tableWrap"><table className="bi-table"><thead><tr><th>Pfad</th><th>Fenster</th><th>Akzeptiert</th><th>Blockiert</th><th>Zuletzt</th></tr></thead><tbody>{data.providerBoundaries.map(row => <tr key={`${row.operation}-${row.scope}`}><td><strong>{label(row.operation)}</strong></td><td>{scope(row.scope)}</td><td>{row.requestCount}</td><td><span className={`bi-badge ${row.blockedCount ? "warning" : "success"}`}>{row.blockedCount}</span></td><td>{new Date(row.lastRequestAt).toLocaleString("de-CH")}</td></tr>)}</tbody></table></div>{!data.providerBoundaries.length && <div className="bi-emptyInline">Noch keine kostenrelevanten Aufrufe seit Aktivierung.</div>}</section>
-      <section className="bi-card bi-pad"><div className="bi-sectionHead"><div><div className="bi-kicker">Recovery</div><h2>Wiederherstellungsstatus</h2></div></div><div className="bi-list"><Status name="Datenbank" value="Tägliches Provider-Backup · 7 Tage" good/><Status name="PITR" value="Nicht aktiviert · RPO bis 24 Stunden"/><Status name="Storage-Objekte" value="Restore getestet · dauerhafter externer Backup-Ort noch offen"/></div></section>
+      <section className="bi-card bi-pad"><div className="bi-sectionHead"><div><div className="bi-kicker">Recovery</div><h2>Wiederherstellungsstatus</h2></div></div><div className="bi-list"><Status name="Datenbank" value="Tägliches Provider-Backup · 7 Tage" good={data.recovery.databaseDailyBackup === "VERIFIED_PROVIDER_DAILY_7_DAYS"}/><Status name="PITR" value="Nicht aktiviert · RPO bis 24 Stunden"/><Status name="Externer AWS-Export" value="Storage täglich · Datenbank wöchentlich · 30 Tage" good={data.recovery.storageObjectBackup === "VERIFIED_AWS_DAILY_AND_WEEKLY"}/></div></section>
       <section id="runbook" className="bi-card bi-pad"><div className="bi-kicker">Erster Schritt bei Alarm</div><h2>Schreibzugriffe stoppen, Zustand sichern, dann Ursache eingrenzen.</h2><p>Bei DB ≥80%, wartenden Locks, Job-Fehlern oder wiederholten Provider-Blockierungen keine hektische Production-Änderung durchführen. Betroffenen Pfad begrenzen, Deployment-Audit und Systemstatus sichern und den dokumentierten Recovery-/Rollback-Pfad verwenden.</p></section>
     </>}
   </div>;
