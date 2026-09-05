@@ -25,6 +25,10 @@ test("bucket contract binds privacy, KMS encryption and 30-day retention", () =>
   assert.match(template, /Url: https:\/\/token\.actions\.githubusercontent\.com/);
   assert.match(template, /ClientIdList:\s*\n\s*- sts\.amazonaws\.com/);
   assert.match(template, /repo:\$\{Repository\}:ref:refs\/heads\/main/);
+  assert.match(template, /s3:GetEncryptionConfiguration/);
+  assert.match(template, /s3:GetLifecycleConfiguration/);
+  assert.doesNotMatch(template, /s3:GetBucketEncryption/);
+  assert.doesNotMatch(template, /s3:GetBucketLifecycleConfiguration/);
 });
 
 test("backup exporter verifies account, bucket and object contracts before success", () => {

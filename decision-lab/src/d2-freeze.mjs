@@ -18,7 +18,7 @@ const evaluationFiles = ["decision-lab/src/contracts.mjs", "decision-lab/src/eva
 const acceptanceFiles = ["decision-lab/src/acceptance.mjs", "decision-lab/src/hard-gate-acceptance.mjs"];
 const absolute = (paths) => paths.map((path) => resolve(repoRoot, path));
 
-const recertificationPath = resolve(repoRoot, "decision-lab/config/decision-v13-production-recertification-v19.json");
+const recertificationPath = resolve(repoRoot, "decision-lab/config/decision-v13-production-recertification-v20.json");
 const requiredRecertificationInvariants = Object.freeze({
   hardEligibilityBeforeRanking: "PASS",
   distributionEligibilityBeforeFusion: "PASS",
@@ -74,33 +74,33 @@ export async function validateEngineRecertification(contractOverride = null) {
   const productionEntrypointSource = await readFile(resolve(repoRoot, contract.production.entrypointPath), "utf8").catch(() => null);
   const productionEntrypointSha256 = productionEntrypointSource === null ? null : createHash("sha256").update(productionEntrypointSource).digest("hex");
   const reasons = [
-    ...(contract.version === "decision-v13-production-recertification-v19" ? [] : ["RECERTIFICATION_VERSION_INVALID"]),
+    ...(contract.version === "decision-v13-production-recertification-v20" ? [] : ["RECERTIFICATION_VERSION_INVALID"]),
     ...(contract.status === "AUTHORIZED" ? [] : ["RECERTIFICATION_NOT_AUTHORIZED"]),
-    ...(contract.authorization?.previousEngineSourceHash === "c80c275b5f09adf0e3081dc10763a06846f81333097fd2a9ead6e8dfb8d7987a" ? [] : ["PREVIOUS_BASELINE_IDENTITY_MISMATCH"]),
-    ...(contract.authorization?.previousRecertificationVersion === "decision-v13-production-recertification-v18" && contract.authorization?.previousRecertificationHash === "5d7b8ff04d95da52cc6d08c8c59f1743f44e7591c114cb0af3c3afba7dcaeadc" ? [] : ["PREVIOUS_RECERTIFICATION_IDENTITY_MISMATCH"]),
-    ...(contract.authorization?.baseCommit === "7e1096615e0d6a5db14f9f2973e187fd5d3d76e4" ? [] : ["AUTHORIZED_BASE_COMMIT_MISMATCH"]),
-    ...(contract.authorization?.authorizedSourceCommit === "e1043603cba0f6880d74a19d52701510dfc97d48" ? [] : ["AUTHORIZED_SOURCE_COMMIT_MISMATCH"]),
-    ...(contract.authorization?.authorizedSemanticSourceCommit === "f91dd269039bba0138a655d0f4050699ccb5f0f4" ? [] : ["AUTHORIZED_SEMANTIC_SOURCE_COMMIT_MISMATCH"]),
-    ...(contract.authorization?.changeClass === "GATE7_RELIABILITY_CAPACITY_COST_OPERATIONAL_RECERTIFICATION" ? [] : ["AUTHORIZED_CHANGE_CLASS_MISMATCH"]),
+    ...(contract.authorization?.previousEngineSourceHash === "cad2c4ea94817d2facbd54db92f55f3286acecf4d1e8a71dda414431b76cf000" ? [] : ["PREVIOUS_BASELINE_IDENTITY_MISMATCH"]),
+    ...(contract.authorization?.previousRecertificationVersion === "decision-v13-production-recertification-v19" && contract.authorization?.previousRecertificationHash === "a1b07f3cbe6a823402beaab985fd17d2e9241e420d6b871742ee46ea16d100a4" ? [] : ["PREVIOUS_RECERTIFICATION_IDENTITY_MISMATCH"]),
+    ...(contract.authorization?.baseCommit === "c1fcb4ad76e21b52c0d064192e129abe6f554e8e" ? [] : ["AUTHORIZED_BASE_COMMIT_MISMATCH"]),
+    ...(contract.authorization?.authorizedSourceCommit === "c1fcb4ad76e21b52c0d064192e129abe6f554e8e" ? [] : ["AUTHORIZED_SOURCE_COMMIT_MISMATCH"]),
+    ...(contract.authorization?.authorizedSemanticSourceCommit === "e1043603cba0f6880d74a19d52701510dfc97d48" ? [] : ["AUTHORIZED_SEMANTIC_SOURCE_COMMIT_MISMATCH"]),
+    ...(contract.authorization?.changeClass === "GATE7_PRODUCTION_IDENTITY_CLOSURE" ? [] : ["AUTHORIZED_CHANGE_CLASS_MISMATCH"]),
     ...(contract.protectedSemanticSourceSet.hash === protectedSemanticSourceSetHash ? [] : ["PROTECTED_SEMANTIC_SOURCE_SET_MISMATCH"]),
     ...(contract.certificationEvidenceSet.hash === certificationEvidenceSetHash ? [] : ["CERTIFICATION_EVIDENCE_SET_MISMATCH"]),
     ...(engineSourceHash === contract.authorization?.authorizedEngineSourceHash ? [] : ["AUTHORIZED_ENGINE_SOURCE_MISMATCH"]),
     ...(contract.production?.supabaseProjectRef === "hjgcrrzfjchzqoegcywn" &&
       contract.production?.functionSlug === "decision-v13" &&
-      contract.production?.activeVersion === 123 &&
+      contract.production?.activeVersion === 124 &&
       contract.production?.verifyJwt === true &&
-      contract.production?.bundleHash === "edbccf870a30c850cde97c59444b9a2f8d6e9d212dda257a86adb1fbf4fc088a" &&
+      contract.production?.bundleHash === "a920d38405534f8fdd02e13934988b97fcd4dec12e9c93d8f8dd8bed8d4dac13" &&
       contract.production?.entrypointPath === "supabase/functions/decision-v13/index.deploy.ts" &&
       contract.production?.entrypointSource === "import \"./live-index.ts\";\n" &&
       contract.production?.entrypointSha256 === "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299" &&
-      contract.production?.deployedFileCount === 40 &&
-      contract.production?.repositoryMatchedFileCount === 40 &&
-      contract.production?.sourceIdentity === "CANONICAL_MAIN_024D40C_PRODUCTION_V123_40_OF_40_BYTE_MATCHED" &&
-      contract.production?.deploymentSourceSetHash === "79be8bac72b30b7a60b4396c3d3dd63ce8d2b2bc98b190cab356cb7f54e4c03b" &&
+      contract.production?.deployedFileCount === 41 &&
+      contract.production?.repositoryMatchedFileCount === 41 &&
+      contract.production?.sourceIdentity === "CANONICAL_MAIN_C1FCB4A_PRODUCTION_V124_41_OF_41_BYTE_MATCHED" &&
+      contract.production?.deploymentSourceSetHash === "a265e8559d707d8641fc8ea937303bb2cdf521cf86fd3569ff8fff4c17f8c6af" &&
       contract.production?.deploymentConfigHash === "56771eeee30d34f03eaab5a52b161d39d3a2d18e7982343623514e1fade112eb" &&
-      contract.production?.eszipBodySha256 === "397273eb242367acc34031ff05cbd91501e03328c98cf2341283c195feb34e58" &&
-      contract.production?.eszipEvidenceHash === "7f8821b029da7e4c0930fdbdd8380bf3c1bb7f8a1c62544304616f6eb8d7ee72" &&
-      contract.production?.deploymentControlMainSha === "024d40cb021f787e8eaf95ce69a3a0d9052e39bf" &&
+      contract.production?.eszipBodySha256 === "a17f9dabdab92a61baf15045e7434d1290291e694c94a9c49b9f64a2c16d681d" &&
+      contract.production?.eszipEvidenceHash === "e653c2bb322b9ed574d390ac30272651515ceaa45f66db4e65a2f7a5b7d085bc" &&
+      contract.production?.deploymentControlMainSha === "c1fcb4ad76e21b52c0d064192e129abe6f554e8e" &&
       contract.production?.supabaseCliVersion === "2.98.2" ? [] : ["PRODUCTION_IDENTITY_NOT_CERTIFIED"]),
     ...(productionEntrypointSource === contract.production?.entrypointSource && productionEntrypointSha256 === contract.production?.entrypointSha256 ? [] : ["PRODUCTION_ENTRYPOINT_REPOSITORY_MISMATCH"]),
     ...Object.entries(requiredRecertificationInvariants).filter(([key, value]) => contract.invariants?.[key] !== value).map(([key]) => `SEMANTIC_INVARIANT_NOT_CERTIFIED:${key}`)
@@ -184,7 +184,7 @@ export async function computeD21Identity() {
     frozen: semantic.d3Readiness === "READY",
     frozenAt: recertification.valid ? recertification.contract.authorization.approvedAt : "2026-08-12T19:00:00.000Z",
     supersedes: recertification.valid
-      ? { freezeManifestHash: "8a28ec86ac4ee440db9f81bdedaf57ab8cd050edde581daed238f005f59b2ada", reason: "GATE7_RELIABILITY_CAPACITY_COST_OPERATIONAL_RECERTIFICATION" }
+      ? { freezeManifestHash: "e648f26f47a8ce8e5b62e3994ac0c6b59792656ecf9f351cb1dc41996b25e7b5", reason: "GATE7_PRODUCTION_IDENTITY_CLOSURE" }
       : { constitutionVersion: "decision-quality-v1", reason: "D3-CONSTITUTION-ISSUE-001" },
     integrity
   };

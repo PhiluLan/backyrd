@@ -1,0 +1,183 @@
+{
+  "version": "backyrd-production-eszip-source-verification-v1",
+  "eszipFormat": "ESZIP2.3",
+  "eszipBodySha256": "a17f9dabdab92a61baf15045e7434d1290291e694c94a9c49b9f64a2c16d681d",
+  "sourceSetHash": "a265e8559d707d8641fc8ea937303bb2cdf521cf86fd3569ff8fff4c17f8c6af",
+  "configHash": "56771eeee30d34f03eaab5a52b161d39d3a2d18e7982343623514e1fade112eb",
+  "verifyJwt": true,
+  "deployedFileCount": 41,
+  "repositoryMatchedFileCount": 41,
+  "entrypointPath": "supabase/functions/decision-v13/index.deploy.ts",
+  "entrypointSha256": "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299",
+  "missingSources": [],
+  "unexpectedDecisionSources": [],
+  "mismatches": [],
+  "sources": [
+    {
+      "path": "decision-lab/src/canonical-json.mjs",
+      "sha256": "cef8b630af4a82b31f4d1baa359502017be72f88fbb8c357a28149cb74839f6a"
+    },
+    {
+      "path": "decision-lab/src/io.mjs",
+      "sha256": "52183879b65a6f1ebd9b9154f1bff6aae4375a87f7bf4165a3b2081a36ba4182"
+    },
+    {
+      "path": "decision-lab/src/n2-memory-user-intelligence.mjs",
+      "sha256": "79c6b7950486d76b3321b4d32c1789524d567e3438233f63db42c9fe1f39a830"
+    },
+    {
+      "path": "decision-lab/src/n3-moment-intelligence.mjs",
+      "sha256": "a5e9e8b90b3d7e25413d8bccf924279b2809965183997020871061ed26ca0a8e"
+    },
+    {
+      "path": "decision-lab/src/n4-spot-intelligence.mjs",
+      "sha256": "7b969794bb14ef1c102e700e7e02968d0f3f8da07fec4c10af78833eef5a2f5e"
+    },
+    {
+      "path": "decision-lab/src/n5-6-1-moment-aware-projection.mjs",
+      "sha256": "dc278fa248e3ac6375da71688dfea1359bd0accedc4933e4e1e0951c93c9778c"
+    },
+    {
+      "path": "decision-lab/src/n5-6-canonical-user-intelligence.mjs",
+      "sha256": "6437dbf37ac26202ff4717aef5910c10b08611ce5d9b298eea6d1130b50a3020"
+    },
+    {
+      "path": "decision-lab/src/n5-relevant-user-projection.mjs",
+      "sha256": "b1b8bda08999d18d580b65e4fe201d4b8d804b4923d14f913f040db0e26edc51"
+    },
+    {
+      "path": "decision-lab/src/n6a-ai-decision-buddy.mjs",
+      "sha256": "2e5494545048700b0e6e4048af9fb0d6188a7053008098de3eaf2cfbca39a4d8"
+    },
+    {
+      "path": "decision-lab/src/n6a1-reason-evidence-integrity.mjs",
+      "sha256": "b405756e5b7d10d6a38f527dbd35ade4f4ac79fb48f03e5e6e271a6afae6a38e"
+    },
+    {
+      "path": "decision-lab/src/n6a2-reason-authorization.mjs",
+      "sha256": "4317f8d60bf061276b93aaa2fff7172317f476d74e9c5bf9c36c1f5a702ae099"
+    },
+    {
+      "path": "decision-lab/src/n6a7-provider-response.mjs",
+      "sha256": "bff02065a9940b5fccdfcd024f8be05c28c591c17c73fae66fff1facb0bfcb4b"
+    },
+    {
+      "path": "decision-lab/src/taste-engine.mjs",
+      "sha256": "3f9596af60b9ee0e3dddb7e6dcf5d2ff90758b9d3ddf43faebc10248532051a1"
+    },
+    {
+      "path": "packages/canonical-semantics/src/index.mjs",
+      "sha256": "8977807c26a37b7dc40482546be69002be1a08e376fa94ea65573a2ec0fa676a"
+    },
+    {
+      "path": "packages/decision-input-runtime/src/continuation.mjs",
+      "sha256": "ede74afb6d50195bd958d753acb9058c795f273911e3acb26c6358f0082f04e0"
+    },
+    {
+      "path": "packages/decision-input-runtime/src/current-moment.mjs",
+      "sha256": "0e441d6fcbc801a8daea04ea9fcd6616f0b591e861449ed18212dd38dd36d72c"
+    },
+    {
+      "path": "packages/decision-input-runtime/src/evidence-envelope.mjs",
+      "sha256": "56739b37527a6e1fe71bec6805a3f1d1b8c7be7537ead8787175496c485eb17f"
+    },
+    {
+      "path": "packages/decision-input-runtime/src/index.mjs",
+      "sha256": "ab8bec2ad191eee9315cc77fd08c32ed2622894ebae68941d533028160a988e5"
+    },
+    {
+      "path": "packages/decision-input-runtime/src/live-product-boundary.mjs",
+      "sha256": "1e4deae7c58c1354794962b7e621142f0c6daccfa6b0b7a9200e63cfda71eeac"
+    },
+    {
+      "path": "packages/decision-input-runtime/src/location-reference.mjs",
+      "sha256": "1547978971136e021c1b1d385a0317e5e56d14bdbdb30ca75d1a8c444db2c938"
+    },
+    {
+      "path": "packages/decision-input-runtime/src/n4-decision.mjs",
+      "sha256": "df22211aeee4d96037d44fccffc3ec0d5f9e062643243b8c44634d955d3c5157"
+    },
+    {
+      "path": "packages/decision-input-runtime/src/offering-decision.mjs",
+      "sha256": "12d5975f2e966118bc1a85ccc6f4b2b1be1b037d03e3677d3ae8ffe48c37eeda"
+    },
+    {
+      "path": "packages/decision-input-runtime/src/package.mjs",
+      "sha256": "799c4467c4baf1a3c15e75267bb1300c105b700ebb65b086cfad6bbc626f1ffd"
+    },
+    {
+      "path": "packages/decision-input-runtime/src/projection.mjs",
+      "sha256": "af002435a7774ecbd6b47a18e7aee382e15c2740edeab1f27a300637b310a268"
+    },
+    {
+      "path": "packages/decision-input-runtime/src/supabase-repository.mjs",
+      "sha256": "124acb35d0071a00cefa917358eaaba9b9e972c310154ded9d7dd5b994edbe96"
+    },
+    {
+      "path": "packages/decision-orchestrator-runtime/src/orchestrator.mjs",
+      "sha256": "d4246eee517552e585ce95af59bca0edf7e2f79bed24afa8959d9e6483cf062f"
+    },
+    {
+      "path": "packages/decision-orchestrator-runtime/src/ranking.mjs",
+      "sha256": "405ddf084e0dc25acaf178a2dfea35aac88ff72cfc7a83f91f810dc0abb96931"
+    },
+    {
+      "path": "packages/decision-orchestrator-runtime/src/supabase-repository.mjs",
+      "sha256": "ff4c1f5c8ecdf1a6dbd70ea0a62c0976f62017998aec753ed59f590b37674ffe"
+    },
+    {
+      "path": "packages/n6-shadow-runtime/src/config.mjs",
+      "sha256": "88d767d5477bf6db755f7fe149431af5bcdad62644b6a5f866520fc1d111edaf"
+    },
+    {
+      "path": "packages/n6-shadow-runtime/src/input.mjs",
+      "sha256": "e786e74176979f9bbb5d21413990ce473d55035fd17c285080b4383906b1633e"
+    },
+    {
+      "path": "packages/n6-shadow-runtime/src/provider.mjs",
+      "sha256": "8e94112f5bbc404c13fa264847bb24f4613a73bc0d6259967cfc3b77a612eda8"
+    },
+    {
+      "path": "packages/n6-shadow-runtime/src/shadow.mjs",
+      "sha256": "cdcc0304d4c3293ed9ed2df0d37be129e2d391a962588b81b857cb83c606ee30"
+    },
+    {
+      "path": "packages/n6-shadow-runtime/src/supabase-repository.mjs",
+      "sha256": "c2e566b09aea453dba7b79ff47ab4d6528cbc086bc5c52b52cc7f0feda230e3b"
+    },
+    {
+      "path": "packages/n6-shadow-runtime/src/validator.mjs",
+      "sha256": "6514db8bb411464d7848c01f773456d8851ff3613c664b987d89c21d69f29498"
+    },
+    {
+      "path": "supabase/functions/_shared/launch-cost-boundary.ts",
+      "sha256": "89cd617c0846cbdd39f048442e5bb9ee6da9325fc44b49c455f47c396d03acc4"
+    },
+    {
+      "path": "supabase/functions/decision-v13/community-mood-signal.mjs",
+      "sha256": "0f078d8ed9b6fed04512cc9b719eed27acc90eaf5384d14b902d8a4af672d568"
+    },
+    {
+      "path": "supabase/functions/decision-v13/index.deploy.ts",
+      "sha256": "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299"
+    },
+    {
+      "path": "supabase/functions/decision-v13/index.ts",
+      "sha256": "cad2c4ea94817d2facbd54db92f55f3286acecf4d1e8a71dda414431b76cf000"
+    },
+    {
+      "path": "supabase/functions/decision-v13/live-index.ts",
+      "sha256": "138ab0f7a28cd150fb9e1aef366c539406294f3e90f024e68b6362307f363e6d"
+    },
+    {
+      "path": "supabase/functions/decision-v13/live-response.mjs",
+      "sha256": "a39117d13313e5199eb88f2f7cf96ca346127b263e5689aac1653fbb16a9d79d"
+    },
+    {
+      "path": "supabase/functions/decision-v13/north-star-live.ts",
+      "sha256": "d1d982c03a0659ea352df7f316e09f56b6759abe4b8d18ceed99cb8e12ba1858"
+    }
+  ],
+  "result": "PASS",
+  "evidenceHash": "e653c2bb322b9ed574d390ac30272651515ceaa45f66db4e65a2f7a5b7d085bc"
+}
