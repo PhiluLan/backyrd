@@ -1,6 +1,6 @@
 {
   "version": "backyrd-production-product-lineage-v2",
-  "audited_at": "2026-09-04T19:24:00Z",
+  "audited_at": "2026-09-05T16:49:30Z",
   "repository": "PhiluLan/backyrd",
   "integration_anchor": {
     "commit": "c425ad1d61186e6d73ed2df1f9686780dcbf0e24",
@@ -13,56 +13,57 @@
   "surfaces": {
     "mobile": {
       "delivery": "EAS production OTA",
-      "commit": "47858625ab1436c56626b2117573cc0976b460a5",
-      "tree": "6357479adc9e88f95f8528d99bb233f347a39e7c",
+      "commit": "3f09efbbb78f078b971b1a5d4a7840b25169fff3",
+      "tree": "d9bd5eda559116eead59e47b4e811f5e5cdab4de",
       "path": "mobile",
       "runtime_version": "1.1.0",
-      "update_group": "b5e2790d-788a-42eb-a4d8-15d065b9cda4",
-      "android_update": "01a06dde-0f33-7534-910a-33448a2b9561",
-      "ios_update": "01a06dde-0f33-7b71-8ea7-42b1e936b4ff",
-      "created_at": "2026-09-04T19:22:00Z",
+      "update_group": "10d14b5d-34db-4f27-8120-41e800f235a2",
+      "android_update": "01a07263-06bd-7e65-9566-cb6b1e9908c3",
+      "ios_update": "01a07263-06bd-7340-a72e-ee70a4e77ca1",
+      "created_at": "2026-09-05T16:23:00Z",
       "canonical_source": {
-        "commit": "585f61d72a4e7d4d484865817283844fefae96b9",
+        "commit": "832933a78e19be74404be0d1c35c467b23b94852",
         "tree": "d9bd5eda559116eead59e47b4e811f5e5cdab4de",
-        "production_verified": false,
-        "reason": "Founder/CTO authorized the reviewed Gate 7 candidate to be bound without representing it as deployed Production. The candidate changes Mobile only by moving Founder spot geocoding behind the bounded server resolver. Production remains the Gate 6 OTA from canonical Main 47858625ab1436c56626b2117573cc0976b460a5 until normal merge and canonical-main deployment verification."
+        "production_verified": true,
+        "reason": "Production OTA group 10d14b5d-34db-4f27-8120-41e800f235a2 was published from canonical Main 3f09efbbb78f078b971b1a5d4a7840b25169fff3. Current canonical HEAD changes only Admin, evidence and the operations migration; its Mobile tree is byte-identical to the deployed OTA."
       }
     },
     "consumer_web": {
       "delivery": "Vercel production",
-      "commit": "47858625ab1436c56626b2117573cc0976b460a5",
+      "commit": "832933a78e19be74404be0d1c35c467b23b94852",
       "tree": "562613194b8605b081015112509f7f04f5e0781c",
       "path": "web",
-      "vercel_deployment": "6271241379",
-      "created_at": "2026-09-04T19:18:37Z",
+      "vercel_deployment": 6283398055,
+      "created_at": "2026-09-05T16:47:53Z",
       "canonical_source": {
-        "commit": "47858625ab1436c56626b2117573cc0976b460a5",
+        "commit": "832933a78e19be74404be0d1c35c467b23b94852",
         "tree": "562613194b8605b081015112509f7f04f5e0781c",
         "production_verified": true,
-        "reason": "Gate 6 Consumer Web was deployed successfully by Vercel from canonical Main 47858625ab1436c56626b2117573cc0976b460a5. Stable request identities for comments, moments and messages passed Web contracts and the shared Production acceptance probe."
+        "reason": "Vercel Production deployment 6283398055 completed successfully from canonical Main 832933a78e19be74404be0d1c35c467b23b94852."
       }
     },
     "admin_intelligence_web": {
       "delivery": "Vercel production",
-      "commit": "c0b3e0e30b5f29ca518c5bbecb5701dffdcaec92",
+      "commit": "832933a78e19be74404be0d1c35c467b23b94852",
+      "tree": "80b8d22d5bd7de7c1ec490d5dcc5b33e7bbb8801",
       "path": "admin-dashboard",
-      "github_deployment_id": 6089068443,
-      "created_at": "2026-08-25T18:01:26Z",
-      "note": "Later Admin PR 105 is not deployed and is excluded from this integration."
+      "github_deployment_id": 6283403317,
+      "created_at": "2026-09-05T16:48:28Z",
+      "note": "Founder Operations Production deployment completed from canonical Main with actionable queue truth and verified AWS recovery state."
     },
     "database": {
       "provider": "Supabase",
       "project_ref": "hjgcrrzfjchzqoegcywn",
       "postgres_major": 17,
-      "migration_tip": "20260904184507_gate6_social_data_integrity",
-      "migration_count": 130,
-      "source_commit": "47858625ab1436c56626b2117573cc0976b460a5",
+      "migration_tip": "20260905183000_gate7_operations_snapshot_truth",
+      "migration_count": 132,
+      "source_commit": "832933a78e19be74404be0d1c35c467b23b94852",
       "canonical_source": {
-        "source_commit": "585f61d72a4e7d4d484865817283844fefae96b9",
-        "migration_tip": "20260904233000_gate7_launch_cost_boundaries",
-        "migration_count": 131,
-        "production_verified": false,
-        "reason": "Founder/CTO authorized the reviewed Gate 7 migration and Edge source set to be bound as a non-Production candidate. Production remains at the Gate 6 migration tip until the normal PR merge, source-aware canonical-main deployment and post-deploy verification complete."
+        "source_commit": "832933a78e19be74404be0d1c35c467b23b94852",
+        "migration_tip": "20260905183000_gate7_operations_snapshot_truth",
+        "migration_count": 132,
+        "production_verified": true,
+        "reason": "Source-aware Production audit 138eadbcc7222dc78233720cc38eb26ce0938507603eb7db2e86419f9bd05466 applied exactly the pending forward migration and no Edge Function. Live operations RPC verification passed."
       }
     }
   },
@@ -432,6 +433,17 @@
         "supabase/tests/gate7_launch_cost_boundaries.sql"
       ],
       "evidence": "docs/operations/GO_LIVE_GATE_7_REPORT.md"
+    },
+    {
+      "id": "gate7_operations_truth_v1",
+      "baseline_commit": "3f09efbbb78f078b971b1a5d4a7840b25169fff3",
+      "source_commit": "91d453505ed7ede6a8176f70b83594a8aa2f0917",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "supabase/canonical/application-schema-gate7.sha256",
+        "supabase/migrations/20260905183000_gate7_operations_snapshot_truth.sql"
+      ],
+      "evidence": "docs/operations/GO_LIVE_GATE_7_REPORT.md"
     }
   ],
   "required_ancestry": [
@@ -441,7 +453,8 @@
     "93478bcfbcd809d9d349f2e6499026cb469e97bb",
     "9896c7c4cc1b418e15c8f8db41739e838ec20930",
     "c0b3e0e30b5f29ca518c5bbecb5701dffdcaec92",
-    "a6cd7949baddd6635d3430ec6b49f2ae8ae3e6f3"
+    "a6cd7949baddd6635d3430ec6b49f2ae8ae3e6f3",
+    "832933a78e19be74404be0d1c35c467b23b94852"
   ],
   "excluded_unshipped_heads": [
     {
@@ -456,29 +469,173 @@
     }
   ],
   "edge_functions": [
-    {"slug":"cluster-mood","version":49,"verify_jwt":false,"ezbr_sha256":"f7e1358c2c2321dd265016fcd13779d22ddf202c7d3e03c8b0f8d44be77d55b8"},
-    {"slug":"semantic-bridge-decision","version":49,"verify_jwt":false,"ezbr_sha256":"de890b6abd5cb44c6407b30ff382b9b9d7ef334b8da639d9726db4d0f71e9884"},
-    {"slug":"enrich-spot-description","version":45,"verify_jwt":false,"ezbr_sha256":"cd687503ca9d9f363f7c69b679dd7a6b3a4b6ab2179db2f2742e306e1e43468b"},
-    {"slug":"decision-copy","version":44,"verify_jwt":true,"ezbr_sha256":"202df532b6fbd0a820c3a0b949977dcb22d858b07aa20f68f017e875929fb1c4"},
-    {"slug":"generate-spot-embeddings","version":43,"verify_jwt":true,"ezbr_sha256":"687d5d78348fd5b8ca6f83c30eb379d403d0a780d1d5b1e4d5d1a7f2de22c474"},
-    {"slug":"semantic-spot-search","version":42,"verify_jwt":true,"ezbr_sha256":"53c66d55efb73201b4db141afd6a21a76f4db0522b9070e9b81e0fd67a2640f6"},
-    {"slug":"decision-v13","version":123,"verify_jwt":true,"ezbr_sha256":"edbccf870a30c850cde97c59444b9a2f8d6e9d212dda257a86adb1fbf4fc088a"},
-    {"slug":"send-spot-claim-code","version":42,"verify_jwt":true,"ezbr_sha256":"2f9e83dd0633ca9fdace54ee480563bf1e887015cffd015abe0aac8767bb5b36"},
-    {"slug":"send-spot-claim-approved-email","version":37,"verify_jwt":true,"ezbr_sha256":"02f2ad6e30ee9327a5907250095bd384942e927cb45afd3001947da124134abe"},
-    {"slug":"google-place-photo","version":40,"verify_jwt":false,"ezbr_sha256":"0e072b61dc16c53db62e629c251eca22d17f29b7d1b76b35b4d98faec9fcff3e"},
-    {"slug":"spot-google-backfill","version":36,"verify_jwt":false,"ezbr_sha256":"c011a70c1e50772d003b7c10f67bce9ae2a8cfe2170c9ae2c304cd157ac0e635"},
-    {"slug":"spot-google-enrichment","version":37,"verify_jwt":false,"ezbr_sha256":"dbf2ca4394854933423626113359ddb2471f89488e834d6a4929efcf1a267045"},
-    {"slug":"safety-evaluate","version":45,"verify_jwt":true,"ezbr_sha256":"11345d4521ab1d5c744dcc52969aed1e5b3ac0a35fb44434b927deb6f5ef78f0"},
-    {"slug":"send-test-push","version":36,"verify_jwt":true,"ezbr_sha256":"a761565de7bb19fe768b748e0fa16f5be8ceec5f1810ca051cdc246c29c8a6bf"},
-    {"slug":"generate-data-export","version":36,"verify_jwt":true,"ezbr_sha256":"4f8b78030aac2cbbbfff5d701d790ce85260ec409a73732300464cba5747b89b"},
-    {"slug":"process-account-deletion","version":51,"verify_jwt":true,"ezbr_sha256":"b9694582d2e6b37dc573aca32ef0393e00e663e9b450fedf72fb6dd1da972dea"},
-    {"slug":"send-message-push","version":37,"verify_jwt":true,"ezbr_sha256":"30bf5ea849dc0a0c51d1acf92e10bec4c548a95bfcac3e16e9bfa5b5521e4e40"},
-    {"slug":"safety-text-worker","version":36,"verify_jwt":false,"ezbr_sha256":"aa5bad0df2ddc2af3a38561100156735e2312484f4dc45fea78c9d486c083fdc"},
-    {"slug":"safety-image-worker","version":36,"verify_jwt":false,"ezbr_sha256":"c7fc2c5899632b91869e873d07360d3f2fbea5a312206a01989d5f3afdfcfd3c"},
-    {"slug":"generate-journey","version":33,"verify_jwt":true,"ezbr_sha256":"9c4b0bb3006956224394506f06291e37c74727b53d3dee740dfaacbbe816c9bb"},
-    {"slug":"decision-engine-worker","version":39,"verify_jwt":true,"ezbr_sha256":"51f54224f45b7daa5b15ec425ebde26b4e56e614b1aa6d8dfd07ef1f3d806c91"},
-    {"slug":"decision-north-star-internal","version":32,"verify_jwt":true,"ezbr_sha256":"818222a95a11b3c236567cbeb679ef3e5c0c3d3bf41fc527236b9475b5a3ef99"},
-    {"slug":"research-spot","version":17,"verify_jwt":true,"ezbr_sha256":"a41fa5cc44e7bbaf89ce2573eb10ec134042311d4217de3c071651b17c9ef5ff"},
-    {"slug":"research-spot-worker","version":16,"verify_jwt":true,"ezbr_sha256":"9ae7b65ab7304009d4ed5fe0acb974e5d7ed7a00b8be399a062c1f55f487406c"}
+    {
+      "slug": "cluster-mood",
+      "version": 58,
+      "verify_jwt": false,
+      "ezbr_sha256": "6e2bd1b31ce57997cf5951756362f997192cbb9d27580d6391e4acf20cc8e8ed"
+    },
+    {
+      "slug": "semantic-bridge-decision",
+      "version": 58,
+      "verify_jwt": false,
+      "ezbr_sha256": "01d00798f14d225f25b0683cb8af459b54ec0ed9346e7fb07705dde20731b661"
+    },
+    {
+      "slug": "enrich-spot-description",
+      "version": 54,
+      "verify_jwt": false,
+      "ezbr_sha256": "0300605434813de217aed53ca509c7a951c6c653daa30087f972303206cba190"
+    },
+    {
+      "slug": "decision-copy",
+      "version": 53,
+      "verify_jwt": true,
+      "ezbr_sha256": "c061bfacce1f8319f853b01014d0647c6408838e212b167a0a107a3b6cd62f06"
+    },
+    {
+      "slug": "generate-spot-embeddings",
+      "version": 52,
+      "verify_jwt": true,
+      "ezbr_sha256": "23af3f56c452428db97dae5512867269275948487cf433867d515fc0008ba0f9"
+    },
+    {
+      "slug": "semantic-spot-search",
+      "version": 51,
+      "verify_jwt": true,
+      "ezbr_sha256": "9c91b48a004b4a1a09335ca4e4889293b3c08b2e93d1949414d2b5d4e13c028e"
+    },
+    {
+      "slug": "decision-v13",
+      "version": 124,
+      "verify_jwt": true,
+      "ezbr_sha256": "a920d38405534f8fdd02e13934988b97fcd4dec12e9c93d8f8dd8bed8d4dac13"
+    },
+    {
+      "slug": "send-spot-claim-code",
+      "version": 51,
+      "verify_jwt": true,
+      "ezbr_sha256": "8adcb202244a78fa4f402fa975dec2b48aee1d12e75313706f4a28edb05cb5c4"
+    },
+    {
+      "slug": "send-spot-claim-approved-email",
+      "version": 46,
+      "verify_jwt": true,
+      "ezbr_sha256": "5137553469d2b89836bbad9cf1dcb052244805ce2146a1a1dcd6a0f5da800bca"
+    },
+    {
+      "slug": "google-place-photo",
+      "version": 49,
+      "verify_jwt": true,
+      "ezbr_sha256": "c206f2fd27917910322731bac24a580e5c354c35214fe2b90fc39df96202bf6c"
+    },
+    {
+      "slug": "spot-google-backfill",
+      "version": 44,
+      "verify_jwt": false,
+      "ezbr_sha256": "c011a70c1e50772d003b7c10f67bce9ae2a8cfe2170c9ae2c304cd157ac0e635"
+    },
+    {
+      "slug": "spot-google-enrichment",
+      "version": 45,
+      "verify_jwt": false,
+      "ezbr_sha256": "dbf2ca4394854933423626113359ddb2471f89488e834d6a4929efcf1a267045"
+    },
+    {
+      "slug": "safety-evaluate",
+      "version": 54,
+      "verify_jwt": true,
+      "ezbr_sha256": "475824a03c305353448918a5e1029f33df64317e694a2c68f79ad1b91ea6435d"
+    },
+    {
+      "slug": "send-test-push",
+      "version": 45,
+      "verify_jwt": true,
+      "ezbr_sha256": "c748d04d2a9fc6db39f719560e0d031afc893577a161200102d706d9e5e569cc"
+    },
+    {
+      "slug": "generate-data-export",
+      "version": 44,
+      "verify_jwt": true,
+      "ezbr_sha256": "4f8b78030aac2cbbbfff5d701d790ce85260ec409a73732300464cba5747b89b"
+    },
+    {
+      "slug": "process-account-deletion",
+      "version": 51,
+      "verify_jwt": true,
+      "ezbr_sha256": "b9694582d2e6b37dc573aca32ef0393e00e663e9b450fedf72fb6dd1da972dea"
+    },
+    {
+      "slug": "send-message-push",
+      "version": 45,
+      "verify_jwt": true,
+      "ezbr_sha256": "30bf5ea849dc0a0c51d1acf92e10bec4c548a95bfcac3e16e9bfa5b5521e4e40"
+    },
+    {
+      "slug": "safety-text-worker",
+      "version": 44,
+      "verify_jwt": false,
+      "ezbr_sha256": "aa5bad0df2ddc2af3a38561100156735e2312484f4dc45fea78c9d486c083fdc"
+    },
+    {
+      "slug": "safety-image-worker",
+      "version": 44,
+      "verify_jwt": false,
+      "ezbr_sha256": "c7fc2c5899632b91869e873d07360d3f2fbea5a312206a01989d5f3afdfcfd3c"
+    },
+    {
+      "slug": "generate-journey",
+      "version": 42,
+      "verify_jwt": true,
+      "ezbr_sha256": "0d7aa2f3e7a304d57bbf60171ef1f1f2066db88e76d910bb0d58e91bd82519ee"
+    },
+    {
+      "slug": "decision-engine-worker",
+      "version": 86,
+      "verify_jwt": true,
+      "ezbr_sha256": "f7d20811c6fa094193a14d2a8dda1295741df620fe3f0d4ed0467e52ed9f5b49"
+    },
+    {
+      "slug": "decision-north-star-internal",
+      "version": 76,
+      "verify_jwt": true,
+      "ezbr_sha256": "ac4ac51b808d058bac3fe752722e7e372299458fd422dfd0f18bc989afcf13ae"
+    },
+    {
+      "slug": "research-spot",
+      "version": 25,
+      "verify_jwt": true,
+      "ezbr_sha256": "a41fa5cc44e7bbaf89ce2573eb10ec134042311d4217de3c071651b17c9ef5ff"
+    },
+    {
+      "slug": "research-spot-worker",
+      "version": 41,
+      "verify_jwt": true,
+      "ezbr_sha256": "4b751a682b8840d8ba17a037790e6681da8f40295b0dcd597834dd11d6d35a30"
+    },
+    {
+      "slug": "public-spot-photo",
+      "version": 9,
+      "verify_jwt": false,
+      "ezbr_sha256": "abefec32e1d5f5e5d69d588f1826f65c4d26226f8b97c75cd5093835c0167e85"
+    },
+    {
+      "slug": "city-bootstrap-worker",
+      "version": 31,
+      "verify_jwt": true,
+      "ezbr_sha256": "e88a944e437a74de18152a531d630f2f0a4a6ea445f985f23f00581168f2dafc"
+    },
+    {
+      "slug": "create-review-with-photos",
+      "version": 2,
+      "verify_jwt": true,
+      "ezbr_sha256": "9db0f5f5683f2ba0717f1905d5740e2232296644bf39094b59bb8dbd17a0ebd2"
+    },
+    {
+      "slug": "mobile-geocode",
+      "version": 1,
+      "verify_jwt": true,
+      "ezbr_sha256": "a0ed35d9288e0daa876369c8c10a16a5fb883f9fd0c6661cd99478e9b11490a5"
+    }
   ]
 }

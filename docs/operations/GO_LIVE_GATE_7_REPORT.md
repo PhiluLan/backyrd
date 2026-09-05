@@ -1,9 +1,9 @@
 # Go-live Gate 7 — reliability, performance, capacity and cost
 
 Audit date: 2026-09-04/05 (Europe/Zurich)  
-Canonical baseline: `7e1096615e0d6a5db14f9f2973e187fd5d3d76e4`  
+Canonical baseline: `832933a78e19be74404be0d1c35c467b23b94852`
 Production project: Supabase `hjgcrrzfjchzqoegcywn`, Vercel Consumer/Admin, EAS Production runtime `1.1.0`  
-Status: remediation candidate; final Production verification is required after canonical-main deployment.
+Status: **PASS** — canonical-main deployment and final Production verification complete.
 
 ## Actual Production baseline
 
@@ -97,14 +97,35 @@ The Admin dashboard adds **Betriebsstatus** with current DB connections/limit, a
 
 Platform notifications already cover Vercel deployment/error/usage anomalies, Expo build-credit usage at 80/100%, and Resend quota usage. Google supports hard API quotas plus email/SMS/chat/webhook budget alerts; those account-level settings must be verified by an Owner in the provider console. Supabase platform incidents are available through its status feed. No new high-volume telemetry product is introduced.
 
-Database recovery is proven to the Pro daily-backup RPO (up to 24 hours, seven-day retention); PITR is not enabled. Database backups do not contain Storage bytes. Founder/CTO approved and activated a separate-account private AWS S3 contract on 2026-09-05: KMS encryption and key rotation, all four public-access blocks, versioning, 30-day current/noncurrent lifecycle, a canonical-main-only GitHub OIDC role, daily Storage export, weekly logical database export, failure issue owned by Philipp and quarterly isolated restore drill. CloudFormation reached `CREATE_COMPLETE`; the live bucket controls were read back and the non-secret stack outputs were bound as GitHub Actions variables. Final PASS still requires the first successful daily and weekly encrypted exports after the workflow reaches canonical main; configuration is never inferred or bypassed.
+Database recovery is proven to the Pro daily-backup RPO (up to 24 hours, seven-day retention); PITR is not enabled. Database backups do not contain Storage bytes. Founder/CTO approved and activated a separate-account private AWS S3 contract on 2026-09-05: KMS encryption and key rotation, all four public-access blocks, versioning, 30-day current/noncurrent lifecycle, a canonical-main-only GitHub OIDC role, daily Storage export, weekly logical database export, failure issue owned by Philipp and quarterly isolated restore drill. CloudFormation reached `UPDATE_COMPLETE`; the live bucket controls were read back and the non-secret stack outputs were bound as GitHub Actions variables. Daily run `33977314958` exported all 118 Storage objects and weekly run `33977525441` exported all 118 objects plus the logical database; encrypted archives and checksum objects were read back from the private bucket. The current-quarter isolated restore proof remains valid, and the workflow opens the next quarterly evidence task automatically.
 
 Rollback is source-controlled: revert/fix through normal PR and canonical main for Web/Edge/Mobile OTA; promote a previously verified Vercel deployment or EAS update when the matching canonical source identity is known; never roll a migration backward in place—stop after transactional failure and ship a reviewed forward migration. A destructive Production restore or project cutover remains separately Founder-authorized.
 
-## Outstanding blockers before PASS
+## Final Production closure
 
-Three historical deployed Edge Functions are not canonical Product runtime and have no current repository caller: `cluster-mood`, `semantic-bridge-decision`, and `enrich-spot-description`. The read-back of their actual deployed sources proved `verify_jwt=false`; all can spend OpenAI cost, while `cluster-mood` and `enrich-spot-description` use service-role access and the latter accepts a website URL before writing a Spot description. Founder/CTO authorized their retirement on 2026-09-05. The candidate replaces each deployed slug through the normal source-aware canonical-main path with a dependency-free `410 Gone` tombstone. No replacement functionality or new Product path is introduced.
+Three historical deployed Edge Functions were not canonical Product runtime and had no current repository caller: `cluster-mood`, `semantic-bridge-decision`, and `enrich-spot-description`. Founder/CTO authorized their retirement on 2026-09-05. Canonical main deployed dependency-free `410 Gone` tombstones at the same slugs, and direct Production probes confirmed HTTP 410 for all three. No replacement functionality or new Product path was introduced.
 
-The dedicated AWS backup account is now active and its live privacy, encryption, versioning and retention controls match the repository contract. Gate 7 cannot report `BACKUP/RECOVERY — PASS` until one daily plus one weekly export from canonical main is verified in the private bucket. The prior full isolated restore drill is current for the initial quarter; the workflow creates the next quarterly evidence task automatically.
+The dedicated AWS backup account is active and its live privacy, encryption, versioning, 30-day retention and canonical-main OIDC controls match the repository contract. Both required encrypted export modes are verified in the private bucket. The prior full isolated restore drill is current for the initial quarter.
 
-Final evidence will be appended after: AWS activation/export proof, full automated suites, D2/D3 re-certification, normal PR/Required Checks, canonical-main source-aware deployment, Production identity verification, post-deploy bounded load probe, and Founder Admin view verification.
+PR #206 merged normally as `832933a78e19be74404be0d1c35c467b23b94852` after every Required Check passed. The source-aware Production audit `138eadbcc7222dc78233720cc38eb26ce0938507603eb7db2e86419f9bd05466` applied only forward migration `20260905183000_gate7_operations_snapshot_truth` and deployed zero Edge Functions. Production Decision therefore remained v124, `verify_jwt=true`, bundle `a920d38405534f8fdd02e13934988b97fcd4dec12e9c93d8f8dd8bed8d4dac13`. The live service-role Operations snapshot then reported 0 ungranted locks, 0 failed jobs in 24 hours, and 0 actionable embedding/Safety queue failures. Consumer Web and Founder Admin both completed Vercel Production deployment from the same canonical Main SHA.
+
+D2/D3 v21 binds the exact application-schema fingerprint `90c8b5f88b8d5ede0a86822e42558f8186ba0f8b5d33a78d035afc25e7807083`, unchanged Engine, 41/41 Production Decision sources, evidence and dependent freezes. Decision Lab passed 318/318 with zero skip; D2.1, D2.2 and D3.1 passed; the full negative guard proved Engine drift, a new source and Production identity drift remain blocked.
+
+## Final acceptance
+
+- **GO-LIVE GATE 7 — PASS**
+- **50 USERS — PASS**
+- **10 CONCURRENT — PASS**
+- **25 CONCURRENT — PASS**
+- **BURST — PASS**
+- **CORE LATENCY / DECISION / DATABASE CAPACITY — PASS**
+- **CLIENT AMPLIFICATION / RATE LIMITS / COST BOUNDARIES — PASS**
+- **STORAGE / FAILURE DEGRADATION / OBSERVABILITY / ALERTING — PASS**
+- **BACKUP/RECOVERY / DEPLOYMENT ROLLBACK — PASS**
+- **FOUNDER OPERATIONS VIEW — PASS**
+- **UNBOUNDED VARIABLE-COST PATHS — 0**
+- **P0 REMAINING — 0**
+- **P1 REMAINING — 0**
+- **P2 DEFERRED — PITR upgrade; Decision cold-start latency; remeasurement and deliberate quota review before 5,000 users**
+- **CAN BACKYRD SAFELY HANDLE THE FIRST REAL TEST USERS — YES**
+- **CAN FOUNDER DETECT AND RESPOND TO A PRODUCTION PROBLEM — YES**
