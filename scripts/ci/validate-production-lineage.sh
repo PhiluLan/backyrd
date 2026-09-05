@@ -39,8 +39,8 @@ jq -e '
     (.authorized_surface_changes | length >= 1) and
     (.evidence | type == "string")) and
   (.required_ancestry | length >= 7) and
-  (.edge_functions | length == 24) and
-  ([.edge_functions[].slug] | unique | length == 24) and
+  (.edge_functions | length == 28) and
+  ([.edge_functions[].slug] | unique | length == 28) and
   all(.edge_functions[];
     (.version | type == "number" and . > 0) and
     (.verify_jwt | type == "boolean") and
