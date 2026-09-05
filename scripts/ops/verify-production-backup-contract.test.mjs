@@ -21,6 +21,9 @@ test("bucket contract binds privacy, KMS encryption and 30-day retention", () =>
   assert.match(template, /SSEAlgorithm: aws:kms/);
   assert.match(template, /EnableKeyRotation: true/);
   assert.match(template, /ExpirationInDays: 30/);
+  assert.match(template, /Type: AWS::IAM::OIDCProvider/);
+  assert.match(template, /Url: https:\/\/token\.actions\.githubusercontent\.com/);
+  assert.match(template, /ClientIdList:\s*\n\s*- sts\.amazonaws\.com/);
   assert.match(template, /repo:\$\{Repository\}:ref:refs\/heads\/main/);
 });
 

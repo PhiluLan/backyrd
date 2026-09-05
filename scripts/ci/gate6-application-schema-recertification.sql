@@ -39,6 +39,12 @@ select
 \endif
 
 begin;
+-- Gate 7 is a later service-only operational schema delta. Remove it first so
+-- this transaction continues to prove the exact pre-Gate-6 application state.
+drop function public.backyrd_launch_operations_snapshot_v1();
+drop function public.backyrd_has_claimable_embedding_job_v1();
+drop function public.backyrd_consume_launch_cost_boundary_v1(text,text,integer,integer,integer,integer);
+drop table public.backyrd_launch_cost_counters_v1;
 drop policy "Users can insert their own favorites" on public.favorites;
 create policy "Users can insert their own favorites" on public.favorites for insert with check (auth.uid() = user_id);
 drop policy social_posts_insert_own_v1 on public.social_posts;

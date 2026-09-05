@@ -81,7 +81,7 @@
       "supabase/migrations/20260901164414_create_decision_location_admin_contract_v1.sql",
       "supabase/migrations/20260904233000_gate7_launch_cost_boundaries.sql"
     ],
-    "hash": "f7f805b8c4dac2258068b23adf4d54a9e1f605de6da780a48fbb21ec8ea57171"
+    "hash": "e7e30ac69f03fca479e75cb9e17def687e58635f7549760c3fbcdbda78d88909"
   },
   "certificationEvidenceSet": {
     "paths": [
@@ -130,6 +130,8 @@
       "scripts/ci/gate5-public-acl-recertification.sql",
       "scripts/ci/gate6-application-schema-recertification.sql",
       "scripts/ci/gate6-public-acl-recertification.sql",
+      "scripts/ci/gate7-application-schema-recertification.sql",
+      "scripts/ci/gate7-public-acl-recertification.sql",
       "scripts/ci/test-decision-d2-full-recertification-guard.sh",
       "scripts/ci/validate-supabase-local.sh",
       "scripts/data-integrity/gate6-production-diagnostics.mjs",
@@ -156,7 +158,9 @@
       "scripts/ops/verify-production-backup-contract.test.mjs",
       "scripts/product/gate5-production-acceptance.mjs",
       "supabase/canonical/application-schema.sha256",
+      "supabase/canonical/application-schema-gate7.sha256",
       "supabase/canonical/public-acl.sha256",
+      "supabase/canonical/public-acl-gate7.sha256",
       "supabase/config.toml",
       "supabase/functions/cluster-mood/index.ts",
       "supabase/functions/decision-copy/index.ts",
@@ -189,7 +193,7 @@
       "web/lib/consumer-api.ts",
       "web/tests/consumer-contracts.test.mjs"
     ],
-    "hash": "d201f891b74e95d469a2e633a211651c14f83ce791f8dfca5a72747521ce56d1"
+    "hash": "e41ebb346ae0e30f1ca5b1691e6d31b84f723fd2f1d5546240917d517d566d5d"
   },
   "invariants": {
     "hardEligibilityBeforeRanking": "PASS",

@@ -14,7 +14,7 @@ create table if not exists public.backyrd_launch_cost_counters_v1 (
 );
 
 alter table public.backyrd_launch_cost_counters_v1 enable row level security;
-revoke all on table public.backyrd_launch_cost_counters_v1 from public, anon, authenticated;
+revoke all on table public.backyrd_launch_cost_counters_v1 from public, anon, authenticated, service_role;
 grant select, insert, update, delete on table public.backyrd_launch_cost_counters_v1 to service_role;
 
 create or replace function public.backyrd_consume_launch_cost_boundary_v1(

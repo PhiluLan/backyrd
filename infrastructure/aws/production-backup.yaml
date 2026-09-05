@@ -2,9 +2,6 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: Backyrd Production off-provider backup boundary
 
 Parameters:
-  GitHubOidcProviderArn:
-    Type: String
-    Description: Existing GitHub Actions OIDC provider ARN in the dedicated backup account
   Repository:
     Type: String
     Default: PhiluLan/backyrd
@@ -13,6 +10,13 @@ Parameters:
     Description: Globally unique private bucket name
 
 Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+
   BackupKey:
     Type: AWS::KMS::Key
     Properties:
@@ -73,7 +77,7 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Federated: !Ref GitHubOidcProviderArn
+              Federated: !Ref GitHubOidcProvider
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals:
@@ -141,6 +145,8 @@ Resources:
                 s3:x-amz-server-side-encryption-aws-kms-key-id: !GetAtt BackupKey.Arn
 
 Outputs:
+  GitHubOidcProviderArn:
+    Value: !Ref GitHubOidcProvider
   BackupAccountId:
     Value: !Ref AWS::AccountId
   BackupBucketName:

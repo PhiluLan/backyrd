@@ -34,6 +34,10 @@ revoke execute on function public.create_social_post_v2(uuid,text,text,text[],te
 revoke execute on function public.send_message_v2(uuid,text,text,uuid) from authenticated,service_role;
 revoke execute on function public.spot_accepts_consumer_interactions_v1(uuid) from authenticated,service_role;
 revoke execute on function public.admin_account_owned_storage_paths_v1(uuid) from authenticated,service_role;
+revoke select, insert, update, delete on table public.backyrd_launch_cost_counters_v1 from service_role;
+revoke execute on function public.backyrd_consume_launch_cost_boundary_v1(text,text,integer,integer,integer,integer) from service_role;
+revoke execute on function public.backyrd_has_claimable_embedding_job_v1() from service_role;
+revoke execute on function public.backyrd_launch_operations_snapshot_v1() from service_role;
 
 with roles(role_name) as (
   values ('anon'),('authenticated'),('service_role')

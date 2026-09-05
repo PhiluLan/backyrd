@@ -170,13 +170,23 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction \
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction \
   --file "$validation_root/supabase/canonical/webhooks.sql"
 
-expected_acl_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/public-acl.sha256")"
+gate6_acl_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/public-acl.sha256")"
+expected_acl_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/public-acl-gate7.sha256")"
 actual_acl_fingerprint="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
   --file "$repo_root/scripts/ci/public-acl-fingerprint.sql")"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$repo_root/scripts/ci/gate5-public-acl-recertification.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$repo_root/scripts/ci/gate6-public-acl-recertification.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$repo_root/scripts/ci/gate7-public-acl-recertification.sql"
+gate7_recertified_acl_fingerprint="$expected_acl_fingerprint"
+if test "$actual_acl_fingerprint" != "$gate7_recertified_acl_fingerprint"; then
+  printf 'Gate 7 ACL candidate differs from the exact re-certified delta: expected %s, got %s\n' \
+    "$gate7_recertified_acl_fingerprint" "$actual_acl_fingerprint" >&2
+  exit 1
+fi
+printf 'Gate 7 current Public ACL candidate fingerprint passed exact re-certification.\n'
 acl_mismatch=false
 application_schema_mismatch=false
 if test "$actual_acl_fingerprint" != "$expected_acl_fingerprint"; then
@@ -189,13 +199,49 @@ if test "$actual_acl_fingerprint" != "$expected_acl_fingerprint"; then
   fi
 fi
 
-expected_application_schema_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/application-schema.sha256")"
+gate6_application_schema_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/application-schema.sha256")"
+expected_application_schema_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/application-schema-gate7.sha256")"
 application_schema_result="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
   --file "$repo_root/scripts/ci/application-schema-fingerprint.sql")"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$repo_root/scripts/ci/gate5-application-schema-recertification.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$repo_root/scripts/ci/gate6-application-schema-recertification.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$repo_root/scripts/ci/gate7-application-schema-recertification.sql"
+
+# Independently remove exactly the Gate 7 schema delta and require the frozen
+# Gate 6 application fingerprint. This prevents a current-fingerprint update
+# from normalizing unrelated catalog drift.
+gate7_prior_application_schema_result="$(psql "$DB_URL" -X --quiet --tuples-only --no-align --set ON_ERROR_STOP=1 <<SQL
+begin;
+drop function public.backyrd_launch_operations_snapshot_v1();
+drop function public.backyrd_has_claimable_embedding_job_v1();
+drop function public.backyrd_consume_launch_cost_boundary_v1(text,text,integer,integer,integer,integer);
+drop table public.backyrd_launch_cost_counters_v1;
+\ir $repo_root/scripts/ci/application-schema-fingerprint.sql
+rollback;
+SQL
+)"
+gate7_prior_application_schema_fingerprint="${gate7_prior_application_schema_result##*|}"
+if test "$gate7_prior_application_schema_fingerprint" != \
+  "$gate6_application_schema_fingerprint"; then
+  printf 'Gate 7 prior application schema reconstruction failed: expected Gate 6 %s, got %s\n' \
+    "$gate6_application_schema_fingerprint" \
+    "$gate7_prior_application_schema_fingerprint" >&2
+  exit 1
+fi
+printf 'Gate 7 prior application schema fingerprint reconstructed exactly.\n'
+gate7_recertified_application_schema_fingerprint="$expected_application_schema_fingerprint"
+actual_application_schema_candidate="${application_schema_result##*|}"
+if test "$actual_application_schema_candidate" != \
+  "$gate7_recertified_application_schema_fingerprint"; then
+  printf 'Gate 7 schema candidate differs from the exact re-certified delta: expected %s, got %s\n' \
+    "$gate7_recertified_application_schema_fingerprint" \
+    "$actual_application_schema_candidate" >&2
+  exit 1
+fi
+printf 'Gate 7 current application schema candidate fingerprint passed exact re-certification.\n'
 application_schema_entry_count="${application_schema_result%%|*}"
 actual_application_schema_fingerprint="${application_schema_result##*|}"
 if test "$actual_application_schema_fingerprint" != "$expected_application_schema_fingerprint"; then
