@@ -1,0 +1,157 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Backyrd Production off-provider backup boundary
+
+Parameters:
+  Repository:
+    Type: String
+    Default: PhiluLan/backyrd
+  BucketName:
+    Type: String
+    Description: Globally unique private bucket name
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+
+  BackupKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: Backyrd Production backup encryption
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AccountAdministration
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: "*"
+
+  BackupKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/backyrd-production-backup
+      TargetKeyId: !Ref BackupKey
+
+  BackupBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Ref BucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - BucketKeyEnabled: true
+            ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !GetAtt BackupKey.Arn
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireBackupsAfter30Days
+            Status: Enabled
+            ExpirationInDays: 30
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+
+  BackupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Canonical-main GitHub Actions access to the dedicated Backyrd backup bucket
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidcProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${Repository}:ref:refs/heads/main
+      Policies:
+        - PolicyName: BackyrdBackupObjectAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetBucketEncryption
+                  - s3:GetBucketLifecycleConfiguration
+                  - s3:GetBucketLocation
+                  - s3:GetBucketPublicAccessBlock
+                  - s3:GetBucketVersioning
+                  - s3:ListBucket
+                Resource: !GetAtt BackupBucket.Arn
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub ${BackupBucket.Arn}/backyrd-production/*
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:DescribeKey
+                  - kms:Encrypt
+                  - kms:GenerateDataKey
+                Resource: !GetAtt BackupKey.Arn
+
+  BackupBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BackupBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - !GetAtt BackupBucket.Arn
+              - !Sub ${BackupBucket.Arn}/*
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+          - Sid: DenyUnencryptedBackupWrites
+            Effect: Deny
+            Principal: "*"
+            Action: s3:PutObject
+            Resource: !Sub ${BackupBucket.Arn}/backyrd-production/*
+            Condition:
+              StringNotEquals:
+                s3:x-amz-server-side-encryption: aws:kms
+          - Sid: DenyWrongBackupKey
+            Effect: Deny
+            Principal: "*"
+            Action: s3:PutObject
+            Resource: !Sub ${BackupBucket.Arn}/backyrd-production/*
+            Condition:
+              StringNotEquals:
+                s3:x-amz-server-side-encryption-aws-kms-key-id: !GetAtt BackupKey.Arn
+
+Outputs:
+  GitHubOidcProviderArn:
+    Value: !Ref GitHubOidcProvider
+  BackupAccountId:
+    Value: !Ref AWS::AccountId
+  BackupBucketName:
+    Value: !Ref BackupBucket
+  BackupKmsKeyArn:
+    Value: !GetAtt BackupKey.Arn
+  GitHubBackupRoleArn:
+    Value: !GetAtt BackupRole.Arn

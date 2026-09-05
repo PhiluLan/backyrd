@@ -18,7 +18,7 @@ const evaluationFiles = ["decision-lab/src/contracts.mjs", "decision-lab/src/eva
 const acceptanceFiles = ["decision-lab/src/acceptance.mjs", "decision-lab/src/hard-gate-acceptance.mjs"];
 const absolute = (paths) => paths.map((path) => resolve(repoRoot, path));
 
-const recertificationPath = resolve(repoRoot, "decision-lab/config/decision-v13-production-recertification-v18.json");
+const recertificationPath = resolve(repoRoot, "decision-lab/config/decision-v13-production-recertification-v19.json");
 const requiredRecertificationInvariants = Object.freeze({
   hardEligibilityBeforeRanking: "PASS",
   distributionEligibilityBeforeFusion: "PASS",
@@ -74,14 +74,14 @@ export async function validateEngineRecertification(contractOverride = null) {
   const productionEntrypointSource = await readFile(resolve(repoRoot, contract.production.entrypointPath), "utf8").catch(() => null);
   const productionEntrypointSha256 = productionEntrypointSource === null ? null : createHash("sha256").update(productionEntrypointSource).digest("hex");
   const reasons = [
-    ...(contract.version === "decision-v13-production-recertification-v18" ? [] : ["RECERTIFICATION_VERSION_INVALID"]),
+    ...(contract.version === "decision-v13-production-recertification-v19" ? [] : ["RECERTIFICATION_VERSION_INVALID"]),
     ...(contract.status === "AUTHORIZED" ? [] : ["RECERTIFICATION_NOT_AUTHORIZED"]),
     ...(contract.authorization?.previousEngineSourceHash === "c80c275b5f09adf0e3081dc10763a06846f81333097fd2a9ead6e8dfb8d7987a" ? [] : ["PREVIOUS_BASELINE_IDENTITY_MISMATCH"]),
-    ...(contract.authorization?.previousRecertificationVersion === "decision-v13-production-recertification-v17" && contract.authorization?.previousRecertificationHash === "b1bcfaf240d21cfe1269273f5deb1f2be8479a461acb2eb2ace1589ddf4f5909" ? [] : ["PREVIOUS_RECERTIFICATION_IDENTITY_MISMATCH"]),
-    ...(contract.authorization?.baseCommit === "47858625ab1436c56626b2117573cc0976b460a5" ? [] : ["AUTHORIZED_BASE_COMMIT_MISMATCH"]),
-    ...(contract.authorization?.authorizedSourceCommit === "2324c2db65129515d481f99aa7c8d2b3f18fa29b" ? [] : ["AUTHORIZED_SOURCE_COMMIT_MISMATCH"]),
+    ...(contract.authorization?.previousRecertificationVersion === "decision-v13-production-recertification-v18" && contract.authorization?.previousRecertificationHash === "5d7b8ff04d95da52cc6d08c8c59f1743f44e7591c114cb0af3c3afba7dcaeadc" ? [] : ["PREVIOUS_RECERTIFICATION_IDENTITY_MISMATCH"]),
+    ...(contract.authorization?.baseCommit === "7e1096615e0d6a5db14f9f2973e187fd5d3d76e4" ? [] : ["AUTHORIZED_BASE_COMMIT_MISMATCH"]),
+    ...(contract.authorization?.authorizedSourceCommit === "e1043603cba0f6880d74a19d52701510dfc97d48" ? [] : ["AUTHORIZED_SOURCE_COMMIT_MISMATCH"]),
     ...(contract.authorization?.authorizedSemanticSourceCommit === "f91dd269039bba0138a655d0f4050699ccb5f0f4" ? [] : ["AUTHORIZED_SEMANTIC_SOURCE_COMMIT_MISMATCH"]),
-    ...(contract.authorization?.changeClass === "GATE6_PRODUCTION_CLOSURE_RECERTIFICATION" ? [] : ["AUTHORIZED_CHANGE_CLASS_MISMATCH"]),
+    ...(contract.authorization?.changeClass === "GATE7_RELIABILITY_CAPACITY_COST_OPERATIONAL_RECERTIFICATION" ? [] : ["AUTHORIZED_CHANGE_CLASS_MISMATCH"]),
     ...(contract.protectedSemanticSourceSet.hash === protectedSemanticSourceSetHash ? [] : ["PROTECTED_SEMANTIC_SOURCE_SET_MISMATCH"]),
     ...(contract.certificationEvidenceSet.hash === certificationEvidenceSetHash ? [] : ["CERTIFICATION_EVIDENCE_SET_MISMATCH"]),
     ...(engineSourceHash === contract.authorization?.authorizedEngineSourceHash ? [] : ["AUTHORIZED_ENGINE_SOURCE_MISMATCH"]),
@@ -184,7 +184,7 @@ export async function computeD21Identity() {
     frozen: semantic.d3Readiness === "READY",
     frozenAt: recertification.valid ? recertification.contract.authorization.approvedAt : "2026-08-12T19:00:00.000Z",
     supersedes: recertification.valid
-      ? { freezeManifestHash: "105d63eb8f9e9c044031cfbe780d946874e910c242b32f2b873f0f29c715859b", reason: "GATE6_PRODUCTION_CLOSURE_RECERTIFICATION" }
+      ? { freezeManifestHash: "8a28ec86ac4ee440db9f81bdedaf57ab8cd050edde581daed238f005f59b2ada", reason: "GATE7_RELIABILITY_CAPACITY_COST_OPERATIONAL_RECERTIFICATION" }
       : { constitutionVersion: "decision-quality-v1", reason: "D3-CONSTITUTION-ISSUE-001" },
     integrity
   };

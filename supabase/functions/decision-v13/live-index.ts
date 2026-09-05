@@ -7,6 +7,7 @@ import { jsonResponseWithFreshEntityHeaders } from "./live-response.mjs";
 import { alignLiveProductCurrentIntent, buildLiveCandidateFunnel, LIVE_RETRIEVAL_SOURCE_LIMIT, sanitizeLiveProductCandidate, sanitizeLiveProductRequestBody } from "../../../packages/decision-input-runtime/src/live-product-boundary.mjs";
 import { bindResolvedLocationIntent, configuredNearDistanceKm, resolveLocationReference, verifiedLocationEvidence } from "../../../packages/decision-input-runtime/src/location-reference.mjs";
 import { assertUnseenContinuation } from "../../../packages/decision-input-runtime/src/continuation.mjs";
+import { consumeLaunchCostBoundary } from "../_shared/launch-cost-boundary.ts";
 
 type Handler = (request: Request) => Promise<Response> | Response;
 let canonicalHandler: Handler | null = null;
@@ -84,6 +85,24 @@ realServe(async (request: Request) => {
       continuation:{decision_id:continuationDecisionId,page:page.page,request_id:requestId,exhausted:page.exhausted===true,remaining_count:page.remainingCount??0},
       north_star:{active:true,decision_id:continuationDecisionId,final_source:page.finalSource??null,n6_disposition:page.n6Disposition??null},
     });
+  }
+
+  if (request.method === "POST") {
+    if (!service || !userId) return json({ ok: false, error: "decision_cost_boundary_unavailable" }, 503);
+    const boundary = await consumeLaunchCostBoundary(service, {
+      operation: "decision_v13",
+      subjectKey: userId,
+      subjectMinute: 100,
+      subjectDay: 100,
+      globalMinute: 300,
+      globalDay: 2000,
+    });
+    if (!boundary.allowed) {
+      return json(
+        { ok: false, error: boundary.reason === "LIMITED" ? "decision_rate_limited" : "decision_cost_boundary_unavailable" },
+        boundary.reason === "LIMITED" ? 429 : 503,
+      );
+    }
   }
 
   const canonicalHeaders = new Headers(request.headers);

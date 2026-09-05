@@ -1,5 +1,8 @@
 // supabase/functions/send-spot-claim-code/index.ts
 
+import { consumeLaunchCostBoundary } from "../_shared/launch-cost-boundary.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
 type Env = {
   SUPABASE_URL: string;
   BACKYRD_SERVICE_ROLE_KEY: string;
@@ -240,6 +243,7 @@ async function sendEmail(params: {
         businessEmail: params.to,
       }),
     }),
+    signal: AbortSignal.timeout(10_000),
   });
 
   const text = await response.text();
@@ -262,6 +266,9 @@ Deno.serve(async (request: Request) => {
     const env = getEnv();
     const userJwt = getBearerToken(request);
     const user = await getUserFromJwt(env, userJwt);
+    const service = createClient(env.SUPABASE_URL, env.BACKYRD_SERVICE_ROLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
 
     let body: RequestBody = {};
     try {
@@ -272,6 +279,20 @@ Deno.serve(async (request: Request) => {
 
     const spotId = assertUuid(body.spotId, "spot_id");
     const businessEmail = assertBusinessEmail(body.businessEmail);
+    const boundary = await consumeLaunchCostBoundary(service, {
+      operation: "spot_claim_email",
+      subjectKey: user.id ?? "invalid-user",
+      subjectMinute: 3,
+      subjectDay: 10,
+      globalMinute: 30,
+      globalDay: 200,
+    });
+    if (!boundary.allowed) {
+      return jsonResponse(
+        { ok: false, error: boundary.reason === "LIMITED" ? "claim_email_rate_limited" : "claim_email_unavailable" },
+        boundary.reason === "LIMITED" ? 429 : 503,
+      );
+    }
 
     const rows = await supabaseRpc<VerificationStartRow[]>(
       env,

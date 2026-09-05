@@ -1,6 +1,7 @@
 // supabase/functions/send-test-push/index.ts
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { consumeLaunchCostBoundary } from "../_shared/launch-cost-boundary.ts";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
@@ -88,6 +89,20 @@ Deno.serve(async (request) => {
       autoRefreshToken: false,
     },
   });
+  const boundary = await consumeLaunchCostBoundary(adminClient, {
+    operation: "test_push",
+    subjectKey: user.id,
+    subjectMinute: 5,
+    subjectDay: 20,
+    globalMinute: 100,
+    globalDay: 1000,
+  });
+  if (!boundary.allowed) {
+    return json(
+      { error: boundary.reason === "LIMITED" ? "test_push_rate_limited" : "test_push_unavailable" },
+      boundary.reason === "LIMITED" ? 429 : 503,
+    );
+  }
 
   const { data: devices, error: devicesError } = await adminClient
     .from("user_push_devices")
@@ -135,6 +150,7 @@ Deno.serve(async (request) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(messages),
+    signal: AbortSignal.timeout(10_000),
   });
 
   const expoPayload = await expoResponse.json().catch(() => null);

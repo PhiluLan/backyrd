@@ -2,17 +2,27 @@
 
 ## Recovery boundary
 
-The Backyrd Supabase project is currently on the Free plan. It has no provider
-daily database backup or PITR entitlement. A Supabase logical database dump
+The Backyrd Supabase project was verified on 2026-09-04 as a Pro project with
+daily provider database backups retained for seven days. Point-in-time recovery
+is not enabled. A Supabase logical database dump
 contains database-resident Auth users and Storage metadata, but not Storage
 object bytes, Auth provider/JWT configuration, Edge Functions, project secrets,
 or external-provider configuration. Those are separate recovery dependencies.
 
-Until a provider backup tier is enabled and verified, take a protected logical
-database dump and separate Storage export immediately before every Production
-mutation. This is a pre-change recovery point, not an acceptable long-term RPO
-for a live Product. The launch owner must establish the ongoing schedule and
-protected off-provider destination.
+The verified database RPO is therefore at most 24 hours; do not claim PITR.
+Continue taking a protected logical database dump and separate Storage export
+before a high-risk Production mutation. Founder/CTO approved the durable AWS S3
+contract on 2026-09-05: a private KMS-encrypted bucket in a separate account,
+daily Storage export, weekly logical database export, 30-day retention and a
+quarterly isolated restore drill owned by Philipp. A database backup alone does
+not recover user-media bytes.
+
+The canonical infrastructure contract is
+`infrastructure/aws/production-backup.yaml`; the canonical scheduled control is
+`.github/workflows/production-backup.yml`. GitHub uses short-lived OIDC
+credentials restricted to canonical `main`. Static AWS credentials are not
+part of the contract. The workflow must fail before export if account identity,
+public-access block, KMS key, versioning or 30-day lifecycle differs.
 
 ## Backup
 
@@ -30,6 +40,13 @@ command line, write them to the repository, or include them in reports.
 6. Confirm the database dump and Storage object counts match the same bounded
    forensic snapshot. Preserve the snapshot immutably in the approved backup
    destination.
+
+The AWS stack outputs are bound to the GitHub Actions variables
+`AWS_BACKUP_ACCOUNT_ID`, `AWS_BACKUP_BUCKET`, `AWS_BACKUP_KMS_KEY_ARN`,
+`AWS_BACKUP_REGION` and `AWS_BACKUP_ROLE_ARN`. `SUPABASE_ACCESS_TOKEN` remains a
+GitHub secret. Never place their values in Mobile/Web code, Git, reports or
+workflow output. Failed scheduled backups create or update the repository issue
+`Production backup failed`, owned operationally by Philipp.
 
 The 2026-08-28 Gate-1 drill produced a 49,368,930-byte logical database backup
 and a 118-object, 118,472,337-byte Storage export. These temporary local drill
@@ -64,6 +81,12 @@ Accepted Facts, 60 N4 dimensions, 1,022 N4 evidence rows, 234 Memory events, 50
 User Intelligence snapshots, 651 Decision sessions, 1,110 impressions, 762
 actions, 88 Reviews, 1,770 Analytics events, 18 Auth users, and 118 Storage
 metadata rows.
+
+On 1 January, April, July and October, the repository creates one tracked
+restore-drill task. Restore the latest weekly database export and the latest
+daily Storage export into an isolated, non-delivering environment and attach
+the invariant/object-manifest evidence to that task. A checksum-only download
+is not a restore drill.
 
 ## Isolated media restore drill
 

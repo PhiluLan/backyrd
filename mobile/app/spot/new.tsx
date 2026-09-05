@@ -1,5 +1,5 @@
 // app/spot/new.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -116,7 +116,13 @@ export default function NewSpotScreen() {
     { id: string; place_name: string; coords: [number, number] }[]
   >([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const addressRequest = useRef(0);
+  const addressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
+
+  useEffect(() => () => {
+    if (addressTimer.current) clearTimeout(addressTimer.current);
+  }, []);
 
   /* ========= 📥 Kategorien laden ========= */
   useEffect(() => {
@@ -153,19 +159,22 @@ export default function NewSpotScreen() {
   }
 
   /* ========= 🗺️ Adresse suchen ========= */
-  async function onAddressChange(text: string) {
+  function onAddressChange(text: string) {
     setAddress(text);
     setGooglePlaceId(null);
     setCoords(null);
+    addressRequest.current += 1;
+    const request = addressRequest.current;
+    if (addressTimer.current) clearTimeout(addressTimer.current);
 
     if (text.length > 3) {
-      try {
-        const res = await searchAddress(text);
-        setSuggestions(res);
-      } catch (e) {
-        console.error("Geocoding error:", e);
-        setSuggestions([]);
-      }
+      addressTimer.current = setTimeout(() => {
+        void searchAddress(text).then((res) => {
+          if (request === addressRequest.current) setSuggestions(res);
+        }).catch(() => {
+          if (request === addressRequest.current) setSuggestions([]);
+        });
+      }, 350);
     } else {
       setSuggestions([]);
     }

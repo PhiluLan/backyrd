@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { consumeLaunchCostBoundary } from "../_shared/launch-cost-boundary.ts";
 
 type GoogleAuthorAttribution = {
   displayName?: string;
@@ -97,6 +98,7 @@ async function getPlaceDetails(placeId: string, apiKey: string): Promise<GoogleP
         "X-Goog-Api-Key": apiKey,
         "X-Goog-FieldMask": "id,displayName,formattedAddress,location,photos",
       },
+      signal: AbortSignal.timeout(8_000),
     },
   );
 
@@ -137,6 +139,7 @@ async function searchBusinessPlace(spot: SpotRow, apiKey: string): Promise<Googl
         "places.id,places.displayName,places.formattedAddress,places.location,places.photos",
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(8_000),
   });
 
   if (!response.ok) {
@@ -210,6 +213,7 @@ async function getPhotoUri(photo: GooglePhoto, apiKey: string): Promise<string |
 
   const response = await fetch(mediaUrl, {
     headers: { "X-Goog-Api-Key": apiKey },
+    signal: AbortSignal.timeout(8_000),
   });
 
   if (!response.ok) {
@@ -276,9 +280,24 @@ Deno.serve(async (request) => {
 
     // Mobile may only resolve the pre-existing Backyrd → Google Place binding.
     // It must neither search Google nor mutate Spot identity during rendering.
-    const selectedPlace = spot.google_place_id
-      ? await getPlaceDetails(spot.google_place_id, googleApiKey)
-      : null;
+    let selectedPlace: GooglePlace | null = null;
+    if (spot.google_place_id) {
+      const boundary = await consumeLaunchCostBoundary(admin, {
+        operation: "google_place_photo",
+        subjectKey: user.id,
+        subjectMinute: 60,
+        subjectDay: 200,
+        globalMinute: 300,
+        globalDay: 3000,
+      });
+      if (!boundary.allowed) {
+        return json(
+          { ok: false, error: boundary.reason === "LIMITED" ? "Google photo limit reached." : "Google photo is temporarily unavailable." },
+          boundary.reason === "LIMITED" ? 429 : 503,
+        );
+      }
+      selectedPlace = await getPlaceDetails(spot.google_place_id, googleApiKey);
+    }
 
     const selectedPhoto = selectedPlace?.photos?.find((photo) => Boolean(photo?.name));
     if (!selectedPhoto) {

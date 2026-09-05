@@ -1,48 +1,21 @@
 // mobile/lib/geocode.ts
-import { GOOGLE_KEY } from "./config";
+import { supabase } from "./supabase";
+
+type AddressResult = { id: string; place_name: string; coords: [number, number] };
+type ReverseResult = { name: string | null; place_name: string | null; address: string | null };
 
 export async function searchAddress(query: string) {
-  if (!GOOGLE_KEY) throw new Error("Google API Key fehlt");
-
-  const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
-    query
-  )}&types=geocode&language=de&key=${GOOGLE_KEY}`;
-
-  const resp = await fetch(url);
-  const data = await resp.json();
-
-  if (data.status !== "OK") {
-    console.warn("Google Places error:", data.status, data.error_message);
-    return [];
-  }
-
-  const results = await Promise.all(
-    data.predictions.map(async (p: any) => {
-      const detailUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${p.place_id}&fields=geometry,formatted_address&key=${GOOGLE_KEY}`;
-      const detailResp = await fetch(detailUrl);
-      const detailData = await detailResp.json();
-      const loc = detailData.result.geometry.location;
-      return {
-        id: p.place_id,
-        place_name: detailData.result.formatted_address,
-        coords: [loc.lng, loc.lat] as [number, number],
-      };
-    })
-  );
-
-  return results;
+  const { data, error } = await supabase.functions.invoke<{ ok: boolean; results?: AddressResult[] }>("mobile-geocode", {
+    body: { action: "search_address", query },
+  });
+  if (error || !data?.ok) throw new Error("address_search_unavailable");
+  return Array.isArray(data.results) ? data.results : [];
 }
 
 export async function reverseGeocode(lng: number, lat: number) {
-  if (!GOOGLE_KEY) throw new Error("Google API Key fehlt");
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${encodeURIComponent(`${lat},${lng}`)}&language=de&key=${GOOGLE_KEY}`;
-  const response = await fetch(url);
-  if (!response.ok) throw new Error("reverse_geocode_unavailable");
-  const data = await response.json();
-  const first = Array.isArray(data.results) ? data.results[0] : null;
-  return {
-    name: first?.address_components?.[0]?.long_name ?? first?.formatted_address ?? null,
-    place_name: first?.formatted_address ?? null,
-    address: first?.formatted_address ?? null,
-  };
+  const { data, error } = await supabase.functions.invoke<{ ok: boolean; result?: ReverseResult }>("mobile-geocode", {
+    body: { action: "reverse_geocode", longitude: lng, latitude: lat },
+  });
+  if (error || !data?.ok || !data.result) throw new Error("reverse_geocode_unavailable");
+  return data.result;
 }

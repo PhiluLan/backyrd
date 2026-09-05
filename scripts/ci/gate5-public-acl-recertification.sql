@@ -20,7 +20,7 @@ select
 \if :gate5_current_acl_is_exact
   \echo 'Gate 5 hardened achievement ACL facts passed.'
 \else
-  \quit 1
+  select 1/0;
 \endif
 
 -- Reconstruct the prior client grants in a transaction. If this yields the
@@ -33,6 +33,12 @@ revoke execute on function public.create_social_post_v2(uuid,text,text,text[],te
 revoke execute on function public.send_message_v2(uuid,text,text,uuid) from authenticated,service_role;
 revoke execute on function public.spot_accepts_consumer_interactions_v1(uuid) from authenticated,service_role;
 revoke execute on function public.admin_account_owned_storage_paths_v1(uuid) from authenticated,service_role;
+-- Gate 7 adds a service-only operational table and three bounded RPCs.
+-- Remove only those exact later grants from the historical reconstruction.
+revoke select, insert, update, delete on table public.backyrd_launch_cost_counters_v1 from service_role;
+revoke execute on function public.backyrd_consume_launch_cost_boundary_v1(text,text,integer,integer,integer,integer) from service_role;
+revoke execute on function public.backyrd_has_claimable_embedding_job_v1() from service_role;
+revoke execute on function public.backyrd_launch_operations_snapshot_v1() from service_role;
 grant select, insert, update, delete on table public.user_achievements to anon;
 grant insert, update, delete on table public.user_achievements to authenticated;
 
@@ -73,7 +79,7 @@ from entries
 \if :gate5_prior_acl_reconstructed
   \echo 'Gate 5 prior canonical ACL fingerprint reconstructed exactly.'
 \else
-  \quit 1
+  select 1/0;
 \endif
 rollback;
 
@@ -87,5 +93,5 @@ select
 \if :gate5_acl_rollback_preserved
   \echo 'Gate 5 hardened achievement ACL survived proof rollback.'
 \else
-  \quit 1
+  select 1/0;
 \endif
