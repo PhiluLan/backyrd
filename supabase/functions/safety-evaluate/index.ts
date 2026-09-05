@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { consumeLaunchCostBoundary } from "../_shared/launch-cost-boundary.ts";
 import {
   orchestrate,
   type ImageSymbolSignal,
@@ -103,6 +104,7 @@ async function evaluateProhibitedSymbols(input: {
         Authorization: `Bearer ${input.openaiKey}`,
         "Content-Type": "application/json",
       },
+      signal: AbortSignal.timeout(10_000),
       body: JSON.stringify({
         model: "gpt-5-mini",
         reasoning: {
@@ -363,6 +365,21 @@ Deno.serve(async (req) => {
     }
   }
 
+  const boundary = await consumeLaunchCostBoundary(admin, {
+    operation: "safety_evaluate",
+    subjectKey: content.actor_user_id ?? authenticatedUserId ?? "internal-worker",
+    subjectMinute: 30,
+    subjectDay: 100,
+    globalMinute: 120,
+    globalDay: 1000,
+  });
+  if (!boundary.allowed) {
+    return json(
+      { ok: false, error: boundary.reason === "LIMITED" ? "safety_evaluation_rate_limited" : "safety_cost_boundary_unavailable" },
+      boundary.reason === "LIMITED" ? 429 : 503,
+    );
+  }
+
   await admin
     .from("safety_cases")
     .update({
@@ -414,6 +431,7 @@ Deno.serve(async (req) => {
         Authorization: `Bearer ${openaiKey}`,
         "Content-Type": "application/json",
       },
+      signal: AbortSignal.timeout(10_000),
       body: JSON.stringify({
         model: "omni-moderation-latest",
         input:
@@ -430,11 +448,20 @@ Deno.serve(async (req) => {
     imageUrls,
   });
 
-  const [moderationResponse, symbolEvaluation] =
-    await Promise.all([
+  let moderationResponse: Response;
+  let symbolEvaluation: Awaited<ReturnType<typeof evaluateProhibitedSymbols>>;
+  try {
+    [moderationResponse, symbolEvaluation] = await Promise.all([
       moderationPromise,
       symbolPromise,
     ]);
+  } catch {
+    await admin
+      .from("safety_cases")
+      .update({ case_status: "failed", updated_at: new Date().toISOString() })
+      .eq("id", caseId);
+    return json({ ok: false, error: "moderation_provider_unavailable" }, 503);
+  }
 
   const raw = await moderationResponse
     .json()

@@ -31,6 +31,7 @@ const navigationItems: NavigationItem[] = [
   { href: "/moments", label: "Moments", icon: "◉" },
   { href: "/errors", label: "Fehler", icon: "!" },
   { href: "/system", label: "Systemstatus", icon: "⚙" },
+  { href: "/founder/operations", label: "Betriebsstatus", icon: "◉" },
   { href: "/founder/launch-readiness", label: "Launch-Status", icon: "◎" },
   { href: "/founder/engineering", label: "Entwicklung", icon: "⌘" },
 ];

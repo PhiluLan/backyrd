@@ -1,4 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { consumeLaunchCostBoundary } from "../_shared/launch-cost-boundary.ts";
 
 type ReviewSnippet = {
   text?: string | null;
@@ -282,6 +284,29 @@ Deno.serve(async (req) => {
 
   if (!OPENAI_API_KEY) {
     return jsonResponse(fallbackCopy(payload));
+  }
+
+  const url = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const bearer = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+  if (!url || !serviceKey) return jsonResponse({ error: "decision_copy_unavailable" }, 503);
+  if (!bearer) return jsonResponse({ error: "authentication_required" }, 401);
+  const service = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  const { data: auth, error: authError } = await service.auth.getUser(bearer);
+  if (authError || !auth.user) return jsonResponse({ error: "authentication_required" }, 401);
+  const boundary = await consumeLaunchCostBoundary(service, {
+    operation: "legacy_decision_copy",
+    subjectKey: auth.user.id,
+    subjectMinute: 10,
+    subjectDay: 50,
+    globalMinute: 50,
+    globalDay: 500,
+  });
+  if (!boundary.allowed) {
+    return jsonResponse(
+      { error: boundary.reason === "LIMITED" ? "decision_copy_rate_limited" : "decision_copy_unavailable" },
+      boundary.reason === "LIMITED" ? 429 : 503,
+    );
   }
 
   const systemPrompt = `

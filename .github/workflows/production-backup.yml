@@ -1,0 +1,91 @@
+name: Production Backup
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+    - cron: "7 5 1 1,4,7,10 *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Backup or recovery-control action
+        required: true
+        default: daily
+        type: choice
+        options:
+          - daily
+          - weekly
+          - restore-drill-reminder
+
+permissions:
+  contents: read
+  id-token: write
+  issues: write
+
+concurrency:
+  group: production-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Encrypted off-provider export
+    if: github.event.schedule != '7 5 1 1,4,7,10 *' && inputs.mode != 'restore-drill-reminder'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Validate canonical-main execution
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main"
+          test -n "${{ vars.AWS_BACKUP_ACCOUNT_ID }}"
+          test -n "${{ vars.AWS_BACKUP_BUCKET }}"
+          test -n "${{ vars.AWS_BACKUP_KMS_KEY_ARN }}"
+          test -n "${{ vars.AWS_BACKUP_REGION }}"
+          test -n "${{ vars.AWS_BACKUP_ROLE_ARN }}"
+          test -n "${{ secrets.SUPABASE_ACCESS_TOKEN }}"
+      - name: Configure short-lived AWS identity
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: ${{ vars.AWS_BACKUP_REGION }}
+          role-to-assume: ${{ vars.AWS_BACKUP_ROLE_ARN }}
+          allowed-account-ids: ${{ vars.AWS_BACKUP_ACCOUNT_ID }}
+          role-session-name: backyrd-production-backup
+      - name: Set up pinned Supabase CLI
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.116.0
+      - name: Export, encrypt and verify Production snapshot
+        env:
+          AWS_BACKUP_ACCOUNT_ID: ${{ vars.AWS_BACKUP_ACCOUNT_ID }}
+          AWS_BACKUP_BUCKET: ${{ vars.AWS_BACKUP_BUCKET }}
+          AWS_BACKUP_KMS_KEY_ARN: ${{ vars.AWS_BACKUP_KMS_KEY_ARN }}
+          AWS_BACKUP_REGION: ${{ vars.AWS_BACKUP_REGION }}
+          BACKUP_MODE: ${{ inputs.mode || 'daily' }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: bash scripts/ops/export-production-backup.sh
+      - name: Alert Philipp on backup failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          existing="$(gh issue list --state open --search 'Production backup failed in:title' --json number --jq '.[0].number // empty')"
+          if test -n "$existing"; then
+            gh issue comment "$existing" --body "Production backup failed again: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          else
+            gh issue create --title "Production backup failed" --body "Owner: Philipp. Start with the failed workflow, stop risky Production writes if recovery coverage is uncertain, and follow docs/operations/DATABASE_AND_MEDIA_RECOVERY_RUNBOOK.md. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          fi
+
+  quarterly-restore-control:
+    name: Quarterly isolated restore drill is due
+    if: github.event.schedule == '7 5 1 1,4,7,10 *' || inputs.mode == 'restore-drill-reminder'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create one tracked Founder restore-drill task
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          quarter="$(date -u +%Y-Q$(( (10#$(date -u +%m) - 1) / 3 + 1 )))"
+          title="Quarterly Production restore drill: $quarter"
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state all --search "$title in:title" --json number --jq '.[0].number // empty')"
+          if test -z "$existing"; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "Owner: Philipp. Restore the latest weekly database plus daily Storage snapshot into an isolated non-delivering environment, verify DB invariants and the full normalized media SHA-256 manifest, record the evidence, then close this task. Follow docs/operations/DATABASE_AND_MEDIA_RECOVERY_RUNBOOK.md."
+          fi

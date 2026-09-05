@@ -1,5 +1,8 @@
 // supabase/functions/generate-spot-embeddings/index.ts
 
+import { consumeLaunchCostBoundary } from "../_shared/launch-cost-boundary.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
 type Env = {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
@@ -63,7 +66,7 @@ function jsonResponse(payload: unknown, status = 200): Response {
 function sanitizeLimit(value: unknown): number {
   const parsed = Number(value ?? DEFAULT_LIMIT);
   if (!Number.isFinite(parsed)) return DEFAULT_LIMIT;
-  return Math.max(1, Math.min(Math.floor(parsed), 100));
+  return Math.max(1, Math.min(Math.floor(parsed), 25));
 }
 
 function embeddingToSqlVector(embedding: number[]): string {
@@ -178,6 +181,7 @@ async function createEmbedding(env: Env, input: string): Promise<number[]> {
       input,
       dimensions: EMBEDDING_DIMENSIONS,
     }),
+    signal: AbortSignal.timeout(10_000),
   });
 
   const payload = await response.json();
@@ -294,6 +298,9 @@ Deno.serve(async (request: Request) => {
 
   try {
     const env = getEnv();
+    const service = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
 
     let body: Record<string, unknown> = {};
     try {
@@ -314,6 +321,27 @@ Deno.serve(async (request: Request) => {
 
     const useLegacy = mode === "legacy";
     const useQueue = !useLegacy;
+
+    if (useQueue) {
+      const { data: hasClaimable, error: claimableError } = await service.rpc("backyrd_has_claimable_embedding_job_v1");
+      if (claimableError) return jsonResponse({ ok: false, error: "embedding_queue_state_unavailable" }, 503);
+      if (hasClaimable !== true) return jsonResponse({ ok: true, mode: "queue", processed_count: 0, embedded_count: 0, failed_count: 0, processed: [] });
+    }
+
+    const boundary = await consumeLaunchCostBoundary(service, {
+      operation: "spot_embedding",
+      subjectKey: "canonical-worker",
+      subjectMinute: 10,
+      subjectDay: 100,
+      globalMinute: 10,
+      globalDay: 100,
+    });
+    if (!boundary.allowed) {
+      return jsonResponse(
+        { ok: false, error: boundary.reason === "LIMITED" ? "embedding_rate_limited" : "embedding_cost_boundary_unavailable" },
+        boundary.reason === "LIMITED" ? 429 : 503,
+      );
+    }
 
     const pending = useLegacy
       ? await fetchLegacyPendingDocuments(env, limit)

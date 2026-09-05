@@ -413,6 +413,11 @@ entrypoint = "./functions/generate-journey/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/generate-journey/*.html" ]
 
+[functions.generate-spot-embeddings]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/generate-spot-embeddings/index.ts"
+
 [functions.public-spot-photo]
 enabled = true
 verify_jwt = false
@@ -433,7 +438,62 @@ enabled = true
 verify_jwt = true
 entrypoint = "./functions/decision-v13/index.deploy.ts"
 
+[functions.decision-copy]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/decision-copy/index.ts"
+
+[functions.google-place-photo]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/google-place-photo/index.ts"
+
+[functions.mobile-geocode]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/mobile-geocode/index.ts"
+
+[functions.safety-evaluate]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/safety-evaluate/index.ts"
+
+[functions.send-spot-claim-code]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/send-spot-claim-code/index.ts"
+
+[functions.send-spot-claim-approved-email]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/send-spot-claim-approved-email/index.ts"
+
+[functions.send-test-push]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/send-test-push/index.ts"
+
+[functions.semantic-spot-search]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/semantic-spot-search/index.ts"
+
 [functions.process-account-deletion]
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/process-account-deletion/index.ts"
+
+[functions.cluster-mood]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/cluster-mood/index.ts"
+
+[functions.semantic-bridge-decision]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/semantic-bridge-decision/index.ts"
+
+[functions.enrich-spot-description]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/enrich-spot-description/index.ts"

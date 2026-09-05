@@ -713,6 +713,7 @@ async function createEmbedding(env: Env, input: string): Promise<number[]> {
       input,
       dimensions: EMBEDDING_DIMENSIONS,
     }),
+    signal: AbortSignal.timeout(8_000),
   });
 
   const payload = await response.json();
@@ -752,6 +753,7 @@ async function rpc<T>(
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(12_000),
   });
 
   const text = await response.text();
@@ -869,6 +871,7 @@ async function fetchSpotMeta(
         authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
         "Content-Type": "application/json",
       },
+      signal: AbortSignal.timeout(12_000),
     });
 
     if (!response.ok) return result;
@@ -906,6 +909,7 @@ async function getSpotHours(
   const quotedIds=uniqueIds.map((id)=>`"${id}"`).join(",");
   const response=await fetch(`${env.SUPABASE_URL}/rest/v1/spot_hours?select=spot_id,day_of_week,open_time,close_time&spot_id=in.(${quotedIds})&order=spot_id,idx`,{
     headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,authorization:`Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`},
+    signal:AbortSignal.timeout(12_000),
   });
   if(!response.ok)throw new Error(`spot_hours_read_failed:${response.status}`);
   for(const row of await response.json() as SpotHoursRow[]){

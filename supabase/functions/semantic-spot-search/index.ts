@@ -1,5 +1,8 @@
 // supabase/functions/semantic-spot-search/index.ts
 
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { consumeLaunchCostBoundary } from "../_shared/launch-cost-boundary.ts";
+
 type Env = {
   SUPABASE_URL: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
@@ -80,6 +83,7 @@ async function createEmbedding(env: Env, input: string): Promise<number[]> {
       input,
       dimensions: EMBEDDING_DIMENSIONS,
     }),
+    signal: AbortSignal.timeout(10_000),
   });
 
   const payload = await response.json();
@@ -208,6 +212,13 @@ Deno.serve(async (request: Request) => {
 
   try {
     const env = getEnv();
+    const bearer = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
+    if (!bearer) return jsonResponse({ ok: false, error: "authentication_required" }, 401);
+    const service = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data: auth, error: authError } = await service.auth.getUser(bearer);
+    if (authError || !auth.user) return jsonResponse({ ok: false, error: "authentication_required" }, 401);
 
     let body: Record<string, unknown> = {};
     try {
@@ -241,6 +252,21 @@ Deno.serve(async (request: Request) => {
       moodA,
       moodB,
     });
+
+    const boundary = await consumeLaunchCostBoundary(service, {
+      operation: "legacy_semantic_search",
+      subjectKey: auth.user.id,
+      subjectMinute: 20,
+      subjectDay: 100,
+      globalMinute: 100,
+      globalDay: 1000,
+    });
+    if (!boundary.allowed) {
+      return jsonResponse(
+        { ok: false, error: boundary.reason === "LIMITED" ? "semantic_search_rate_limited" : "semantic_search_unavailable" },
+        boundary.reason === "LIMITED" ? 429 : 503,
+      );
+    }
 
     const embedding = await createEmbedding(env, queryText);
 

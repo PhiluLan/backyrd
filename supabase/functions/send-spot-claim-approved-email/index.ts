@@ -1,3 +1,6 @@
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { consumeLaunchCostBoundary } from "../_shared/launch-cost-boundary.ts";
+
 type Env = {
   SUPABASE_URL: string;
   BACKYRD_SERVICE_ROLE_KEY: string;
@@ -157,6 +160,7 @@ async function sendEmail(env: Env, params: {
       subject: `${params.spotName} wurde auf backyrd verifiziert`,
       html,
     }),
+    signal: AbortSignal.timeout(10_000),
   });
 
   const text = await response.text();
@@ -186,7 +190,24 @@ Deno.serve(async (request) => {
       return jsonResponse({ ok: false, error: "missing_authorization" }, 401);
     }
 
-    await assertAdmin(env, userJwt);
+    const actor = await assertAdmin(env, userJwt);
+    const service = createClient(env.SUPABASE_URL, env.BACKYRD_SERVICE_ROLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const boundary = await consumeLaunchCostBoundary(service, {
+      operation: "claim_approved_email",
+      subjectKey: actor.id,
+      subjectMinute: 10,
+      subjectDay: 100,
+      globalMinute: 20,
+      globalDay: 200,
+    });
+    if (!boundary.allowed) {
+      return jsonResponse(
+        { ok: false, error: boundary.reason === "LIMITED" ? "claim_approved_email_rate_limited" : "claim_approved_email_unavailable" },
+        boundary.reason === "LIMITED" ? 429 : 503,
+      );
+    }
 
     const body = await request.json().catch(() => ({}));
     const claimId = Number(body.claimId);

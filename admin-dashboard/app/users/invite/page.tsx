@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function InviteUserPage() {
   const [email, setEmail] = useState("");
@@ -12,9 +13,16 @@ export default function InviteUserPage() {
     setLoading(true);
     setMsg(null);
 
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setMsg("Deine Admin-Sitzung ist abgelaufen. Bitte melde dich erneut an.");
+      setLoading(false);
+      return;
+    }
     const res = await fetch("/api/admin/invite-user", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ email }),
     });
 
