@@ -25,7 +25,7 @@ new_case() {
 # Unchanged repository state must remain accepted.
 (cd "$repo_root" && CI_BASE_SHA="$source_head" bash scripts/ci/decision-d2-scope-guard.sh >/dev/null)
 
-# The complete current v21 re-certification must be admitted against its base.
+# The complete current v22 re-certification must be admitted against its base.
 run_guard "$repo_root" >/dev/null
 
 engine_case="$(new_case engine-byte)"
@@ -47,12 +47,12 @@ if run_guard "$source_case" >/dev/null 2>&1; then
 fi
 
 identity_case="$(new_case production-identity)"
-(cd "$identity_case" && node -e 'const fs=require("node:fs");const p="decision-lab/config/decision-v13-production-recertification-v21.json";const v=JSON.parse(fs.readFileSync(p,"utf8"));v.production.activeVersion=125;fs.writeFileSync(p,JSON.stringify(v,null,2)+"\n")')
-git -C "$identity_case" add decision-lab/config/decision-v13-production-recertification-v21.json
+(cd "$identity_case" && node -e 'const fs=require("node:fs");const p="decision-lab/config/decision-v13-production-recertification-v22.json";const v=JSON.parse(fs.readFileSync(p,"utf8"));v.production.activeVersion=125;fs.writeFileSync(p,JSON.stringify(v,null,2)+"\n")')
+git -C "$identity_case" add decision-lab/config/decision-v13-production-recertification-v22.json
 git -C "$identity_case" commit --quiet -m "test: changed Production identity"
 if run_guard "$identity_case" >/dev/null 2>&1; then
   echo "D2 full re-certification guard unexpectedly accepted Production identity drift" >&2
   exit 1
 fi
 
-echo "D2 full re-certification guard regression: unchanged PASS; Engine drift FAIL; new source FAIL; Production identity drift FAIL; complete v21 re-certification PASS"
+echo "D2 full re-certification guard regression: unchanged PASS; Engine drift FAIL; new source FAIL; Production identity drift FAIL; complete v22 re-certification PASS"
