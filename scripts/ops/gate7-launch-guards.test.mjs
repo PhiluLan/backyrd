@@ -88,6 +88,17 @@ test("retired unauthenticated legacy functions are inert 410 tombstones", () => 
   }
 });
 
+test("Founder operations reports actionable queue failures and verified recovery truth", () => {
+  const migration = read("supabase/migrations/20260905183000_gate7_operations_snapshot_truth.sql");
+  const route = read("admin-dashboard/app/api/admin/operations/route.ts");
+  const page = read("admin-dashboard/app/founder/operations/page.tsx");
+  assert.match(migration, /backyrd_embedding_jobs_v1 where status = 'failed'/);
+  assert.match(migration, /c\.case_status not in \('decided', 'closed'\)/);
+  assert.match(route, /VERIFIED_AWS_DAILY_AND_WEEKLY/);
+  assert.match(page, /queueFailures > 0/);
+  assert.match(page, /data\.recovery\.storageObjectBackup === "VERIFIED_AWS_DAILY_AND_WEEKLY"/);
+});
+
 test("Mobile geocoding never calls Google REST APIs directly and address typing is debounced", () => {
   const geocode = read("mobile/lib/geocode.ts");
   assert.doesNotMatch(geocode, /googleapis\.com|GOOGLE_KEY/);
