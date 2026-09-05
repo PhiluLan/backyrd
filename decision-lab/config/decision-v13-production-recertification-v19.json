@@ -193,7 +193,7 @@
       "web/lib/consumer-api.ts",
       "web/tests/consumer-contracts.test.mjs"
     ],
-    "hash": "e41ebb346ae0e30f1ca5b1691e6d31b84f723fd2f1d5546240917d517d566d5d"
+    "hash": "20869a60b43c33729e02e836f71a5e97e15ea9e9e3bc6fcebe6b5c81a2ce1a49"
   },
   "invariants": {
     "hardEligibilityBeforeRanking": "PASS",

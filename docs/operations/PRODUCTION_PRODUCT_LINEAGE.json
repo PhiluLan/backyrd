@@ -22,17 +22,10 @@
       "ios_update": "01a06dde-0f33-7b71-8ea7-42b1e936b4ff",
       "created_at": "2026-09-04T19:22:00Z",
       "canonical_source": {
-        "commit": "47858625ab1436c56626b2117573cc0976b460a5",
-        "tree": "6357479adc9e88f95f8528d99bb233f347a39e7c",
-        "production_verified": true,
-        "signed_ios_build": {
-          "build_number": "57",
-          "eas_build": "9baaf56b-36f2-4799-be18-cce5cf19f09d",
-          "ipa_sha256": "10554c3602f9fe0f6626955da7dfcbd12ba059af25ab0d2eaf1d247dc366cfcf",
-          "physical_device": "iPhone 16",
-          "verified_at": "2026-09-04T18:18:19Z"
-        },
-        "reason": "Gate 6 Mobile clients were published as Production OTA group b5e2790d-788a-42eb-a4d8-15d065b9cda4 from canonical Main 47858625ab1436c56626b2117573cc0976b460a5 after release validation. Stable request identities for comments, moments and messages passed Mobile contracts; the server-side three-user Production probe proved exactly-once end state and cross-user denial. Signed native build 57 remains the Gate-5 native runtime baseline. Gate 1-5 Product semantics and Decision runtime are unchanged."
+        "commit": "585f61d72a4e7d4d484865817283844fefae96b9",
+        "tree": "d9bd5eda559116eead59e47b4e811f5e5cdab4de",
+        "production_verified": false,
+        "reason": "Founder/CTO authorized the reviewed Gate 7 candidate to be bound without representing it as deployed Production. The candidate changes Mobile only by moving Founder spot geocoding behind the bounded server resolver. Production remains the Gate 6 OTA from canonical Main 47858625ab1436c56626b2117573cc0976b460a5 until normal merge and canonical-main deployment verification."
       }
     },
     "consumer_web": {
@@ -65,11 +58,11 @@
       "migration_count": 130,
       "source_commit": "47858625ab1436c56626b2117573cc0976b460a5",
       "canonical_source": {
-        "source_commit": "47858625ab1436c56626b2117573cc0976b460a5",
-        "migration_tip": "20260904184507_gate6_social_data_integrity",
-        "migration_count": 130,
-        "production_verified": true,
-        "reason": "The source-aware canonical-main workflow applied exactly the Gate-6 forward migration and deployed only process-account-deletion. The immutable deployment audit and post-deploy Production probe passed; decision-v13 remained active v123 and was not redeployed."
+        "source_commit": "585f61d72a4e7d4d484865817283844fefae96b9",
+        "migration_tip": "20260904233000_gate7_launch_cost_boundaries",
+        "migration_count": 131,
+        "production_verified": false,
+        "reason": "Founder/CTO authorized the reviewed Gate 7 migration and Edge source set to be bound as a non-Production candidate. Production remains at the Gate 6 migration tip until the normal PR merge, source-aware canonical-main deployment and post-deploy verification complete."
       }
     }
   },
@@ -408,6 +401,37 @@
         "web/lib/consumer-api.ts"
       ],
       "evidence": "scripts/data-integrity/gate6-production-multi-user-probe.mjs"
+    },
+    {
+      "id": "gate7_reliability_candidate_v1",
+      "baseline_commit": "7e1096615e0d6a5db14f9f2973e187fd5d3d76e4",
+      "source_commit": "585f61d72a4e7d4d484865817283844fefae96b9",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/spot/new.tsx",
+        "mobile/lib/geocode.ts",
+        "supabase/canonical/application-schema-gate7.sha256",
+        "supabase/canonical/public-acl-gate7.sha256",
+        "supabase/config.toml",
+        "supabase/functions/_shared/launch-cost-boundary.ts",
+        "supabase/functions/cluster-mood/index.ts",
+        "supabase/functions/decision-copy/index.ts",
+        "supabase/functions/decision-v13/index.ts",
+        "supabase/functions/decision-v13/live-index.ts",
+        "supabase/functions/enrich-spot-description/index.ts",
+        "supabase/functions/generate-spot-embeddings/index.ts",
+        "supabase/functions/google-place-photo/index.ts",
+        "supabase/functions/mobile-geocode/index.ts",
+        "supabase/functions/safety-evaluate/index.ts",
+        "supabase/functions/semantic-bridge-decision/index.ts",
+        "supabase/functions/semantic-spot-search/index.ts",
+        "supabase/functions/send-spot-claim-approved-email/index.ts",
+        "supabase/functions/send-spot-claim-code/index.ts",
+        "supabase/functions/send-test-push/index.ts",
+        "supabase/migrations/20260904233000_gate7_launch_cost_boundaries.sql",
+        "supabase/tests/gate7_launch_cost_boundaries.sql"
+      ],
+      "evidence": "docs/operations/GO_LIVE_GATE_7_REPORT.md"
     }
   ],
   "required_ancestry": [
