@@ -548,12 +548,17 @@
     {
       "id": "founder_mobile_start_home_polish_v1",
       "baseline_commit": "3e93c15a32f55ffd1cc9e77aaa8965a7088e32fe",
-      "source_commit": "1323b0a1fc9b8f737d82fc16790f7c01c78c2413",
+      "source_commit": "793ed1dab7a27701434bb036f268c5a3d9b24485",
       "decision_semantics_changed": false,
       "authorized_surface_changes": [
-        "mobile/app/splash.tsx",
+        "mobile/app/(tabs)/index.tsx",
+        "mobile/app/_layout.tsx",
         "mobile/app/gate.tsx",
-        "mobile/app/(tabs)/index.tsx"
+        "mobile/app/splash.tsx",
+        "mobile/components/events/HomeEventsSection.tsx",
+        "mobile/lib/home-rail.ts",
+        "mobile/scripts/test-mobile-product-contracts.mjs",
+        "mobile/scripts/test-native-intent-routing.mjs"
       ],
       "evidence": "docs/operations/PRODUCTION_PRODUCT_LINEAGE.json"
     }
