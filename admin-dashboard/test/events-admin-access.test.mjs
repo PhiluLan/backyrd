@@ -49,7 +49,9 @@ test("Create and edit routes keep the complete Manual Admin editor", async () =>
   assert.match(editor, /Termin absagen/);
   assert.match(editor, /storage\.from\("event-images"\)\.upload/);
   assert.match(editor, /\.from\("spots"\)/);
-  assert.match(editor, /Kein Spot \/ unmatched/);
+  assert.match(editor, /role="combobox"/);
+  assert.match(editor, /als freien Veranstaltungsort verwenden/);
+  assert.match(editor, /spotId: ""/);
 });
 
 test("Events remain behind the existing Admin authorization boundary", async () => {
