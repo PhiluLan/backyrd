@@ -17,6 +17,7 @@ import {
 
 import type { EventDiscoveryDTO } from "../../../packages/shared/src/dto/event";
 import { eventImageUrl, loadEvents } from "../../lib/events-v1";
+import { HOME_RAIL, homeRailCardWidth } from "../../lib/home-rail";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 import { EditorialSectionHeader } from "../brand/Editorial";
 
@@ -101,13 +102,12 @@ export function HomeEventsSection() {
     void load();
   }, [load]);
 
-  const carouselCardWidth = Math.min(Math.max(width - theme.spacing.xxl - 52, 240), 520);
+  const carouselCardWidth = homeRailCardWidth(width, { minimum: 240, maximum: 520 });
 
   return (
     <View style={styles.section}>
       <EditorialSectionHeader
         actionLabel="Alle ansehen"
-        index="01"
         onAction={() => router.push("/events" as never)}
         title="Was läuft?"
       />
@@ -134,9 +134,12 @@ export function HomeEventsSection() {
       ) : (
         <ScrollView
           accessibilityLabel="Kommende Events"
-          contentContainerStyle={styles.carouselContent}
+          contentContainerStyle={[styles.carouselContent, { gap: HOME_RAIL.gap }]}
           horizontal
+          decelerationRate={HOME_RAIL.decelerationRate}
+          disableIntervalMomentum={HOME_RAIL.disableIntervalMomentum}
           showsHorizontalScrollIndicator={false}
+          snapToInterval={carouselCardWidth + HOME_RAIL.gap}
         >
           {events.map((event) => (
             <EventCard
@@ -177,14 +180,13 @@ const styles = StyleSheet.create({
     borderColor: theme.color.borderStrong,
     backgroundColor: theme.color.surface,
   },
-  singleCard: { marginHorizontal: theme.spacing.xxl },
+  singleCard: { marginHorizontal: HOME_RAIL.horizontalInset },
   carouselContent: {
-    paddingHorizontal: theme.spacing.xxl,
+    paddingHorizontal: HOME_RAIL.horizontalInset,
     paddingBottom: 2,
-    gap: theme.spacing.sm,
   },
   pressed: { opacity: 0.9, transform: [{ scale: theme.motion.pressScale }] },
-  imageWrap: { height: 250, justifyContent: "flex-end", backgroundColor: theme.color.surfaceElevated },
+  imageWrap: { height: 224, justifyContent: "flex-end", backgroundColor: theme.color.surfaceElevated },
   imageCopy: { padding: theme.spacing.lg },
   kicker: { color: theme.color.acid, fontFamily: theme.type.bodyMedium, fontSize: 11, letterSpacing: 1.2 },
   title: { marginTop: 8, color: theme.color.textPrimary, fontFamily: theme.type.display, fontSize: 34, lineHeight: 34, letterSpacing: -1 },

@@ -46,7 +46,11 @@ assert.match(homeEvents, /<ScrollView[\s\S]*horizontal/, "multiple Home events m
 assert.match(homeEvents, /events\.length === 1[\s\S]*styles\.singleCard/, "one Home event must retain the full-width card fallback");
 assert.match(homeEvents, /events\.length === 0[\s\S]*Aktuell sind noch keine Events bestätigt/, "zero Home events must retain the empty state");
 assert.match(homeEvents, /\.slice\(0, 8\)/, "the chronological discovery result must expose several upcoming events");
-assert.doesNotMatch(homeEvents, /snapTo|pagingEnabled|autoplay|setInterval/, "the Home carousel must remain manually scrollable without forced paging");
+assert.match(homeEvents, /HOME_RAIL/, "Events must use the shared Home rail contract");
+assert.match(homeEvents, /snapToInterval/, "Events must use the shared Home rail snap contract");
+assert.match(home, /HOME_RAIL/, "Spots must use the shared Home rail contract");
+assert.match(home, /snapToInterval/, "Spots must use the shared Home rail snap contract");
+assert.doesNotMatch(homeEvents, /pagingEnabled|autoplay|setInterval/, "Home rails must remain manually scrollable without autoplay");
 assert.match(eventDiscovery, /\.order\("start_at", \{ ascending: true \}\)/, "Home events must remain chronologically ordered");
 
 console.log("Mobile Product contracts passed.");

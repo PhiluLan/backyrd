@@ -119,6 +119,11 @@ test("uses native intent for runtime links and an acknowledged iOS initial targe
     rootLayoutSource,
     /if \(!fontsLoaded \|\| authLoading\) return/,
   );
+  assert.match(rootLayoutSource, /preventAutoHideAsync\(\)/);
+  assert.match(rootLayoutSource, /hideAsync\(\)/);
+  assert.match(rootLayoutSource, /showStartupSplash/);
+  assert.match(rootLayoutSource, /<SplashScreen onAnimationSettled=/);
+  assert.match(rootLayoutSource, /bootstrapReady.*splashSettled/);
   assert.ok(
     rootLayoutSource.indexOf("<RootStack />") <
       rootLayoutSource.indexOf("<ColdStartProductDeepLinkRouter ready={bootstrapReady} />") &&

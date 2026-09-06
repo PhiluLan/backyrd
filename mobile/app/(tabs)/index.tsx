@@ -24,6 +24,7 @@ import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { useAuth } from "../../hooks/useAuth";
 import { loadDiscoverySpots, type DiscoverySpot } from "../../lib/spot-images";
 import { supabase } from "../../lib/supabase";
+import { HOME_RAIL, homeRailCardWidth } from "../../lib/home-rail";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
 type MoodRow = {
@@ -110,10 +111,9 @@ export default function HomeScreen() {
 
   const topSpots = useMemo(() => spots.slice(0, 6), [spots]);
   const newSpots = useMemo(() => [...spots].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).slice(0, 6), [spots]);
-  const heroCardGap = theme.spacing.md;
-  const heroCardWidth = Math.min(356, Math.max(272, width - 54));
+  const heroCardGap = HOME_RAIL.gap;
+  const heroCardWidth = homeRailCardWidth(width, { minimum: 248, maximum: 356 });
   const heroCardHeight = Math.round(heroCardWidth * 1.08);
-  const heroCarouselInset = (width - heroCardWidth) / 2;
   const heroCarouselOffsets = useMemo(
     () => topSpots.map((_, index) => index * (heroCardWidth + heroCardGap)),
     [heroCardGap, heroCardWidth, topSpots],
@@ -168,15 +168,13 @@ export default function HomeScreen() {
             </View>
           ) : null}
 
-          <HomeEventsSection />
-
           <View style={styles.sectionHeader}>
             <View>
               <AppText role="label" tone="pink" style={styles.eyebrow}>FÜR DICH AUSGEWÄHLT</AppText>
               <AppText role="sectionTitle">Top Spots in deiner Nähe</AppText>
             </View>
             <Pressable accessibilityRole="button" hitSlop={10} onPress={() => router.push({ pathname: "/(tabs)/map", params: { view: "list" } } as never)}>
-              <AppText role="label" tone="pink">Alle</AppText>
+              <AppText role="label" tone="pink">Alle ansehen</AppText>
             </Pressable>
           </View>
 
@@ -187,10 +185,11 @@ export default function HomeScreen() {
           ) : topSpots.length ? (
             <ScrollView
               horizontal
-              contentContainerStyle={[styles.heroCards, { paddingHorizontal: heroCarouselInset, gap: heroCardGap }]}
-              decelerationRate="fast"
-              disableIntervalMomentum
+              contentContainerStyle={[styles.heroCards, { paddingHorizontal: HOME_RAIL.horizontalInset, gap: heroCardGap }]}
+              decelerationRate={HOME_RAIL.decelerationRate}
+              disableIntervalMomentum={HOME_RAIL.disableIntervalMomentum}
               showsHorizontalScrollIndicator={false}
+              snapToInterval={heroCardWidth + heroCardGap}
               snapToOffsets={heroCarouselOffsets}
             >
               {topSpots.map((spot, index) => (
@@ -208,6 +207,8 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.stateWrap}><StateView kind="empty" title="Noch keine Spots hier" message={`Sobald es in ${city} Neues zu entdecken gibt, findest du es hier.`} /></View>
           )}
+
+          <HomeEventsSection />
 
           {!loading && !error && newSpots.length ? (
             <View style={styles.newSection}>
@@ -235,7 +236,7 @@ const styles = StyleSheet.create({
   header: { minHeight: 64, paddingHorizontal: theme.spacing.xl, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.md },
   greetingBlock: { flex: 1, minWidth: 0 },
   greeting: { color: theme.color.textPrimary },
-  greetingName: { color: theme.color.pink },
+  greetingName: { color: theme.color.textPrimary },
   headerActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
   headerIcon: { backgroundColor: "rgba(246,240,232,0.06)", borderWidth: 1, borderColor: theme.color.border },
   searchShell: { marginTop: theme.spacing.lg, marginHorizontal: theme.spacing.xl, minHeight: 54, paddingLeft: theme.spacing.md, paddingRight: 6, flexDirection: "row", alignItems: "center", gap: theme.spacing.sm, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.pill, backgroundColor: "rgba(246,240,232,0.055)" },

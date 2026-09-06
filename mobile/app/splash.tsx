@@ -1,13 +1,20 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, View } from "react-native";
 
-export default function SplashScreen({ compact = false }: { compact?: boolean }) {
+type SplashScreenProps = { compact?: boolean; onAnimationSettled?: () => void };
+
+export default function SplashScreen({ compact = false, onAnimationSettled }: SplashScreenProps) {
   const fullOpacity = useRef(new Animated.Value(1)).current;
   const fullScale = useRef(new Animated.Value(1)).current;
   const fullTranslateY = useRef(new Animated.Value(0)).current;
   const compactOpacity = useRef(new Animated.Value(compact ? 1 : 0)).current;
   const compactScale = useRef(new Animated.Value(compact ? 1 : 0.9)).current;
   const compactTranslateY = useRef(new Animated.Value(compact ? 0 : 12)).current;
+  const onAnimationSettledRef = useRef(onAnimationSettled);
+
+  useEffect(() => {
+    onAnimationSettledRef.current = onAnimationSettled;
+  }, [onAnimationSettled]);
 
   useEffect(() => {
     if (compact) {
@@ -28,7 +35,7 @@ export default function SplashScreen({ compact = false }: { compact?: boolean })
         Animated.timing(compactOpacity, { toValue: 1, duration: 220, delay: 160, useNativeDriver: true }),
         Animated.spring(compactScale, { toValue: 1, damping: 12, stiffness: 180, mass: 0.8, useNativeDriver: true }),
         Animated.timing(compactTranslateY, { toValue: 0, duration: 200, delay: 120, useNativeDriver: true }),
-      ]).start();
+      ]).start(() => onAnimationSettledRef.current?.());
     }, 55);
 
     return () => {
