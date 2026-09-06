@@ -194,3 +194,29 @@ test("public Spot Detail exposes useful canonical truth and honest hours uncerta
   assert.match(migration, /distribution_trust_entity_is_eligible_v1/);
   assert.match(migration, /data_origin/);
 });
+
+test("Event consumer surfaces share localized presentation and never render internal provenance", async () => {
+  const [webDetail, webList, mobileDetail, mobileList, presentation] = await Promise.all([
+    read("web/app/events/[id]/page.tsx"),
+    read("web/app/events/page.tsx"),
+    read("mobile/app/events/[id].tsx"),
+    read("mobile/app/events/index.tsx"),
+    read("packages/shared/src/presentation/event.ts"),
+  ]);
+  const consumer = [webDetail, webList, mobileDetail, mobileList].join("\n");
+  for (const helper of [
+    "eventCategoryLabel",
+    "formatEventDateTime",
+    "formatEventAddress",
+    "humanizeRecurrence",
+    "eventPropertyLabels",
+  ]) {
+    assert.match(consumer, new RegExp(`\\b${helper}\\b`));
+  }
+  assert.match(presentation, /ACTIVITY:\s*"Aktivität"/);
+  assert.match(presentation, /return `Jeden zweiten \$\{weekdays\[0\]\}`/);
+  assert.match(mobileDetail, /Nächste Termine/);
+  assert.match(webDetail, /Nächste Termine/);
+  assert.doesNotMatch(consumer, /event\.source\.toUpperCase|Mindestalter:|Familiengeeignet:/);
+  assert.doesNotMatch(consumer, /Weitere \/ kommende Events/);
+});

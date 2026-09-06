@@ -15,7 +15,23 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { EventDiscoveryDTO } from "../../../packages/shared/src/dto/event";
-import { eventImageUrl, loadEventOccurrence, loadUpcomingEvents } from "../../lib/events-v1";
+import {
+  eventCategoryLabel,
+  eventImageCredit,
+  eventPropertyLabels,
+  eventSourceDisclaimer,
+  eventSourceLabel,
+  formatCompactOccurrenceDate,
+  formatEventAddress,
+  formatEventDateTime,
+  humanizeRecurrence,
+} from "../../../packages/shared/src/presentation/event";
+import {
+  eventImageUrl,
+  loadEventOccurrence,
+  loadUpcomingEvents,
+  type UpcomingEventGroups,
+} from "../../lib/events-v1";
 
 function safeExternalUrl(value: string | null): string | null {
   if (!value) return null;
@@ -25,11 +41,6 @@ function safeExternalUrl(value: string | null): string | null {
   } catch {
     return null;
   }
-}
-
-function fullAddress(event: EventDiscoveryDTO): string | null {
-  const locality = [event.postal_code, event.city].filter(Boolean).join(" ");
-  return [event.address_line, locality].filter(Boolean).join(", ") || null;
 }
 
 export default function EventDetailScreen() {
@@ -42,7 +53,11 @@ export default function EventDetailScreen() {
   const [event, setEvent] = useState<EventDiscoveryDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [upcoming, setUpcoming] = useState<EventDiscoveryDTO[]>([]);
+  const [upcoming, setUpcoming] = useState<UpcomingEventGroups>({
+    sameEvent: [],
+    sameVenue: [],
+  });
+  const [showAllOccurrences, setShowAllOccurrences] = useState(false);
 
   const load = useCallback(async () => {
     if (!eventId) { setError(true); setLoading(false); return; }
@@ -51,7 +66,11 @@ export default function EventDetailScreen() {
     try {
       const loaded = await loadEventOccurrence(eventId, occurrenceId);
       setEvent(loaded);
-      setUpcoming(loaded ? await loadUpcomingEvents(loaded) : []);
+      setUpcoming(
+        loaded
+          ? await loadUpcomingEvents(loaded)
+          : { sameEvent: [], sameVenue: [] },
+      );
     } catch {
       setError(true);
     } finally {
@@ -80,8 +99,24 @@ export default function EventDetailScreen() {
   const sourceUrl = ticketUrl ?? safeExternalUrl(event.source_url);
   const cancelled = event.event_status === "CANCELLED" || event.occurrence_status === "CANCELLED";
   const postponed = event.event_status === "POSTPONED" || event.occurrence_status === "POSTPONED";
-  const address = fullAddress(event);
+  const address = formatEventAddress({
+    addressLine: event.address_line,
+    postalCode: event.postal_code,
+    city: event.city,
+    countryCode: event.country_code,
+  });
   const image = eventImageUrl(event.image_storage_path);
+  const imageCredit = eventImageCredit(event.source, event.image_credit);
+  const recurrence = humanizeRecurrence(event.recurrence_summary);
+  const properties = eventPropertyLabels(event.minimum_age, event.family_friendly);
+  const visibleOccurrences = showAllOccurrences
+    ? upcoming.sameEvent
+    : upcoming.sameEvent.slice(0, 3);
+  const spotAddress = formatEventAddress({
+    addressLine: event.matched_spot_address,
+    city: event.city,
+    countryCode: event.country_code,
+  });
   const routeDestination =
     event.latitude !== null && event.longitude !== null
       ? `${event.latitude},${event.longitude}`
@@ -99,7 +134,7 @@ export default function EventDetailScreen() {
             </Pressable>
           </SafeAreaView>
           <View style={styles.heroGlow} />
-          {image && event.image_credit ? <Text style={styles.imagePolicy}>{event.image_credit}</Text> : null}
+          {image && imageCredit ? <Text style={styles.imagePolicy}>{imageCredit}</Text> : null}
           {!image ? <View style={styles.calendarGlyph}>
             <Text style={styles.day}>{new Intl.DateTimeFormat("de-CH", { day: "2-digit", timeZone: "Europe/Zurich" }).format(new Date(event.start_at))}</Text>
             <Text style={styles.month}>{new Intl.DateTimeFormat("de-CH", { month: "long", timeZone: "Europe/Zurich" }).format(new Date(event.start_at))}</Text>
@@ -108,16 +143,16 @@ export default function EventDetailScreen() {
 
         <View style={styles.body}>
           <View style={styles.kickerRow}>
-            <Text style={styles.kicker}>{event.source.toUpperCase()}</Text>
+            <Text style={styles.kicker}>{eventSourceLabel(event.source)}</Text>
             {cancelled ? <View style={styles.cancelled}><Text style={styles.cancelledText}>ABGESAGT</Text></View> : null}
             {!cancelled && postponed ? <View style={styles.postponed}><Text style={styles.postponedText}>VERSCHOBEN</Text></View> : null}
           </View>
           <Text style={styles.title}>{event.title}</Text>
-          <View style={styles.badges}>{event.categories.map(category => <Text key={category} style={styles.category}>{category}</Text>)}</View>
+          <View style={styles.badges}>{event.categories.map(category => <Text key={category} style={styles.category}>{eventCategoryLabel(category)}</Text>)}</View>
           <View style={styles.factCard}>
             <View style={styles.factRow}>
               <Ionicons name="calendar-outline" size={21} color="#FF9ABA" />
-              <View style={styles.factCopy}><Text style={styles.factLabel}>Wann</Text><Text style={styles.factValue}>{new Intl.DateTimeFormat("de-CH", { timeZone: "Europe/Zurich", weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(new Date(event.start_at))}</Text></View>
+              <View style={styles.factCopy}><Text style={styles.factLabel}>Wann</Text><Text style={styles.factValue}>{formatEventDateTime(event.start_at, event.end_at)}</Text></View>
             </View>
             <View style={styles.divider} />
             <View style={styles.factRow}>
@@ -127,8 +162,8 @@ export default function EventDetailScreen() {
             {event.is_free === true || event.price_min !== null ? <><View style={styles.divider} /><View style={styles.factRow}><Ionicons name="ticket-outline" size={21} color="#C9B1F4" /><View style={styles.factCopy}><Text style={styles.factLabel}>Eintritt</Text><Text style={styles.factValue}>{event.is_free === true ? "Kostenlos" : `ab ${event.price_currency} ${event.price_min?.toFixed(2)}`}</Text></View></View></> : null}
           </View>
 
-          {event.recurrence_summary ? <Text style={styles.description}>{event.recurrence_summary}</Text> : null}
-          <Text style={styles.description}>Mindestalter: {event.minimum_age ?? "keine Angabe"} · Familiengeeignet: {event.family_friendly === null ? "unbekannt" : event.family_friendly ? "Ja" : "Nein"}</Text>
+          {recurrence ? <View style={styles.recurrence}><Ionicons name="repeat-outline" size={18} color="#FF9ABA" /><Text style={styles.recurrenceText}>{recurrence}</Text></View> : null}
+          {properties.length ? <View style={styles.properties}>{properties.map(property => <View key={property} style={styles.property}><Text style={styles.propertyText}>{property}</Text></View>)}</View> : null}
 
           {event.short_description ? <View style={styles.section}><Text style={styles.sectionTitle}>Darum geht’s</Text><Text style={styles.description}>{event.short_description}</Text></View> : null}
           {event.organizer ? <Text style={styles.description}>Veranstalter: {event.organizer}</Text> : null}
@@ -136,7 +171,7 @@ export default function EventDetailScreen() {
           {event.matched_spot_id ? (
             <View style={styles.venueActions}>
               <Pressable onPress={() => router.push(`/spot/${event.matched_spot_id}`)} style={styles.spotButton}>
-                {event.matched_spot_photo ? <Image source={{uri:event.matched_spot_photo}} style={styles.spotImage}/> : null}<View style={{flex:1}}><Text style={styles.spotKicker}>AUF BACKYRD</Text><Text style={styles.spotButtonText}>{event.matched_spot_name || "Spot ansehen"}</Text><Text style={styles.factSecondary}>{event.matched_spot_address}</Text></View>
+                {event.matched_spot_photo ? <Image source={{uri:event.matched_spot_photo}} style={styles.spotImage}/> : null}<View style={{flex:1}}><Text style={styles.spotKicker}>AUF BACKYRD</Text><Text style={styles.spotButtonText}>{event.matched_spot_name || "Spot ansehen"}</Text>{spotAddress ? <Text style={styles.factSecondary}>{spotAddress}</Text> : null}</View>
                 <Ionicons name="arrow-forward" size={21} color="#F4EFE4" />
               </Pressable>
               <Pressable onPress={() => void Linking.openURL(routeUrl)} style={styles.routeButton}>
@@ -154,8 +189,48 @@ export default function EventDetailScreen() {
               <Ionicons name="open-outline" size={18} color="#171719" />
             </Pressable>
           ) : null}
-          <Text style={styles.sourceNote}>Zeiten, Verfügbarkeit und Änderungen stammen von {event.source}. Bitte prüfe vor dem Losgehen die Originalquelle.</Text>
-          {upcoming.length ? <View style={styles.section}><Text style={styles.sectionTitle}>Weitere / kommende Events</Text>{upcoming.map(item=><Pressable key={item.occurrence_id} onPress={()=>router.push({pathname:"/events/[id]",params:{id:item.event_id,occurrenceId:item.occurrence_id}})} style={styles.unmatchedNote}><Text style={styles.factValue}>{item.title} · {new Date(item.start_at).toLocaleDateString("de-CH")}</Text></Pressable>)}</View>:null}
+          <Text style={styles.sourceNote}>{eventSourceDisclaimer(event.source)}</Text>
+
+          {upcoming.sameEvent.length ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Nächste Termine</Text>
+              <View style={styles.occurrences}>
+                {visibleOccurrences.map((item) => (
+                  <Pressable
+                    key={item.occurrence_id}
+                    onPress={() => router.push({ pathname: "/events/[id]", params: { id: item.event_id, occurrenceId: item.occurrence_id } })}
+                    style={styles.occurrence}
+                  >
+                    <Text style={styles.occurrenceText}>{formatCompactOccurrenceDate(item.start_at)}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              {upcoming.sameEvent.length > 3 ? (
+                <Pressable onPress={() => setShowAllOccurrences(value => !value)} accessibilityRole="button">
+                  <Text style={styles.allOccurrences}>{showAllOccurrences ? "Weniger Termine" : "Alle Termine"}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+
+          {upcoming.sameVenue.length ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Weitere Events im {event.matched_spot_name || event.venue_name || "Veranstaltungsort"}</Text>
+              {upcoming.sameVenue.map((item) => (
+                <Pressable
+                  key={item.occurrence_id}
+                  onPress={() => router.push({ pathname: "/events/[id]", params: { id: item.event_id, occurrenceId: item.occurrence_id } })}
+                  style={styles.venueEvent}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.factValue}>{item.title}</Text>
+                    <Text style={styles.factSecondary}>{formatEventDateTime(item.start_at, item.end_at)}</Text>
+                  </View>
+                  <Ionicons name="arrow-forward" size={19} color="#F4EFE4" />
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </View>
@@ -197,6 +272,16 @@ const styles = StyleSheet.create({
   section: { gap: 9 },
   sectionTitle: { color: "#F4EFE4", fontSize: 20, fontWeight: "900" },
   description: { color: "#B8B4B8", fontSize: 15, lineHeight: 23 },
+  recurrence: { flexDirection: "row", alignItems: "center", gap: 9 },
+  recurrenceText: { color: "#D6D0C7", fontSize: 14, lineHeight: 20, fontWeight: "800" },
+  properties: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  property: { paddingHorizontal: 11, paddingVertical: 8, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.055)", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+  propertyText: { color: "#D6D0C7", fontSize: 12, fontWeight: "800" },
+  occurrences: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  occurrence: { paddingHorizontal: 13, paddingVertical: 10, borderRadius: 999, backgroundColor: "rgba(255,125,167,0.10)", borderWidth: 1, borderColor: "rgba(255,125,167,0.22)" },
+  occurrenceText: { color: "#FFAAC4", fontSize: 13, fontWeight: "900" },
+  allOccurrences: { color: "#FF9ABA", fontSize: 13, fontWeight: "800", paddingVertical: 5 },
+  venueEvent: { padding: 15, borderRadius: 18, flexDirection: "row", gap: 10, alignItems: "center", backgroundColor: "rgba(255,255,255,0.035)" },
   spotButton: { minHeight: 76, paddingHorizontal: 18, paddingVertical: 15, borderRadius: 22, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(187,199,160,0.09)", borderWidth: 1, borderColor: "rgba(187,199,160,0.18)" },
   venueActions: { gap: 9 },
   routeButton: { minHeight: 46, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
