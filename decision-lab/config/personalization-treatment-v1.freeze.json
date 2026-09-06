@@ -1,18 +1,18 @@
 {
   "d2Version": "2.2",
   "contractVersion": "personalization-treatment-v1",
-  "contractHash": "5010d9bdeb366667559d5a0734e8cfa79e92ad9a0e40e5889d5a0f74881cac37",
+  "contractHash": "80f0a5a300837b00cbbb7a116f7e1d700bb11711da6d5b6b5c3259f97f304e6a",
   "treatmentGeneratorVersion": "personalization-treatment-generator-v1",
   "treatmentGeneratorHash": "d09c93e3e2ce7d4f5757fac6fa14129ec2a8eb8abe0c46ee9624ebded3d5cf14",
-  "scientificValidationHash": "0fb088a5b3bb7440cace4227861c86736a6f68cc8439141e028dc02e734eb5d6",
+  "scientificValidationHash": "ac6638209bc1eb0a396b67cfc4358818fc58abd0bca637e78319646bd0b4bd46",
   "scientificValidity": "PASS",
-  "parentFreezeManifestHash": "ae51f0a92c38b0355c61f7f5adc76eefdcab4d11366687accc2619515bafd5b0",
+  "parentFreezeManifestHash": "c43e496835246dba55d7cfc7102dc55431873adfb7881094cb9ed263dd727e7c",
   "parentFreezePreserved": true,
   "engineSourceHash": "cad2c4ea94817d2facbd54db92f55f3286acecf4d1e8a71dda414431b76cf000",
   "engineMutation": "NONE",
   "componentInventoryHash": "7b2adb88a93212339d90952dcd47b7cedb738d5888aabf1661c21b9f9157121d",
   "d31Readiness": "READY",
-  "freezeManifestHash": "06320a6325ecd7da49bc0e1a5bf9a25c04c779f4d5f71d09df670e09c65df3cb",
+  "freezeManifestHash": "558bd489c23f72ab13b5f69430442215d55869f6c55e8db15a2ad472b6e44b36",
   "frozen": true,
   "validation": {
     "pass": true,
@@ -26,8 +26,8 @@
       "power"
     ],
     "seedCount": 3,
-    "evidenceHash": "0fb088a5b3bb7440cace4227861c86736a6f68cc8439141e028dc02e734eb5d6",
-    "validationHash": "07824d2c714eff67d49596439847026824a704b38fa6629b8ca9e40553de33d5"
+    "evidenceHash": "ac6638209bc1eb0a396b67cfc4358818fc58abd0bca637e78319646bd0b4bd46",
+    "validationHash": "f77931068c18893ae93e5d3b1e60f3ebad27e29844c24fd1bf403ff61f8cfdaf"
   },
-  "fixtureTreatmentHash": "cbf2abaf7d054c38c8dcfdcf8dad1484077f51d3fbd3a2a3d3d088d6382fabe5"
+  "fixtureTreatmentHash": "11cfebf372de27786657e05e910a032301e849289a6f23281bc6375491048c14"
 }
