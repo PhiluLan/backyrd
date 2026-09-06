@@ -35,6 +35,9 @@ function RootStack() {
 
       <Stack.Screen name="onboarding/index" />
 
+      <Stack.Screen name="events/index" />
+      <Stack.Screen name="events/[id]" />
+
       <Stack.Screen
         name="spot/[id]"
         options={{

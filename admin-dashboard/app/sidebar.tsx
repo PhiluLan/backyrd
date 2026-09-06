@@ -14,6 +14,7 @@ export function Sidebar() {
   const links = [
     { href: "/dashboard", label: "Dashboard", icon: "🏠" },
     { href: "/spots", label: "Spots", icon: "📍" },
+    { href: "/events", label: "Events", icon: "📅" },
     { href: "/claims", label: "Claims", icon: "✅" },
     { href: "/moods", label: "Moods", icon: "🧠" },
     { href: "/reviews", label: "Reviews", icon: "📝" },
