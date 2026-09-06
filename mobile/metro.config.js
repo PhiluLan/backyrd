@@ -4,6 +4,14 @@ const { getDefaultConfig } = require("expo/metro-config");
 const config = getDefaultConfig(__dirname);
 const originalResolveRequest = config.resolver.resolveRequest;
 
+// Mobile consumes the canonical, runtime Event presentation helpers from the
+// repository shared package. Type-only imports do not reach Metro, so keep the
+// shared source inside the explicit watch graph for native production exports.
+config.watchFolders = [
+  ...(config.watchFolders ?? []),
+  path.resolve(__dirname, "../packages/shared"),
+];
+
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (platform === "web") {
     if (moduleName === "react-native-maps") {
