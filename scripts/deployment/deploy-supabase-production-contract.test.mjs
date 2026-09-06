@@ -16,7 +16,6 @@ test("Production migration deployment links the bound project and reuses exact s
   assert.ok(link < dryRun);
   assert.ok(dryRun < verify);
   assert.ok(verify < apply);
-  assert.match(script, /\.pendingMigrations \/\/ \.migrations/);
 });
 
 test("Production deployment remains canonical-main-only", async () => {

@@ -36,7 +36,7 @@ if test "$(jq -r '.authConfig.deploy // false' "$plan_path")" = "true"; then
     --audit deployment-audit/auth-config.json
 fi
 
-mapfile -t planned_migrations < <(jq -r '(.pendingMigrations // .migrations)[].path' "$plan_path")
+mapfile -t planned_migrations < <(jq -r '.migrations[].path' "$plan_path")
 if test "${#planned_migrations[@]}" -gt 0; then
   supabase link --project-ref hjgcrrzfjchzqoegcywn
   supabase db push --dry-run 2>&1 | tee deployment-audit/migration-dry-run.txt

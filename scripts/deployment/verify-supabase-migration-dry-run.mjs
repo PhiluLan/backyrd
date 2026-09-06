@@ -5,7 +5,7 @@ import { basename, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export function verifyMigrationDryRun(plan, output) {
-  const expected = (plan.pendingMigrations ?? plan.migrations ?? []).map((entry) => {
+  const expected = (plan.migrations ?? []).map((entry) => {
     if (
       typeof entry?.path !== "string" ||
       !/^supabase\/migrations\/\d{14}_[a-z0-9_]+\.sql$/.test(entry.path)
