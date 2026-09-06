@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { eventCategoryLabel } from "@backyrd/shared";
 import { events, imageUrl, type EventRow } from "@/lib/events-public";
 import styles from "./events.module.css";
 
@@ -15,7 +16,7 @@ const rangeLinks: Array<{ key: Range; label: string }> = [
 
 const categoryLinks = [
   { key: "SPORT", label: "Sport" },
-  { key: "ACTIVITY", label: "Aktivitäten" },
+  { key: "ACTIVITY", label: "Aktivität" },
   { key: "LEISURE", label: "Freizeit" },
 ];
 
@@ -131,7 +132,7 @@ export default async function EventsPage({
                 <div className={styles.body}>
                   <div className={styles.tags}>
                     {event.categories.map((item) => (
-                      <span key={item}>{item}</span>
+                      <span key={item}>{eventCategoryLabel(item)}</span>
                     ))}
                   </div>
                   <h2>{event.title}</h2>

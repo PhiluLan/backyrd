@@ -23,6 +23,7 @@ export type EventRow = {
   address_line: string | null;
   postal_code: string | null;
   city: string | null;
+  country_code: string | null;
   latitude: number | null;
   longitude: number | null;
   matched_spot_id: string | null;

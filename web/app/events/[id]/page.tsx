@@ -1,5 +1,14 @@
 import Link from "next/link";
 import {
+  eventCategoryLabel,
+  eventPropertyLabels,
+  eventSourceDisclaimer,
+  formatCompactOccurrenceDate,
+  formatEventAddress,
+  formatEventDateTime,
+  humanizeRecurrence,
+} from "@backyrd/shared";
+import {
   eventDetail,
   events,
   imageUrl,
@@ -9,27 +18,34 @@ import styles from "../events.module.css";
 
 export const dynamic = "force-dynamic";
 
-function upcoming(current: EventRow, rows: EventRow[]): EventRow[] {
+function upcoming(current: EventRow, rows: EventRow[]) {
   const available = rows.filter(
-    (row) => row.occurrence_id !== current.occurrence_id,
+    (row) =>
+      row.occurrence_id !== current.occurrence_id &&
+      row.start_at > current.start_at &&
+      row.event_status !== "CANCELLED" &&
+      row.occurrence_status !== "CANCELLED",
   );
   const sameEvent = available.filter((row) => row.event_id === current.event_id);
   const sameVenue = available.filter(
     (row) =>
       row.event_id !== current.event_id &&
-      current.venue_id !== null &&
-      row.venue_id === current.venue_id,
+      ((current.matched_spot_id !== null &&
+        row.matched_spot_id === current.matched_spot_id) ||
+        (current.matched_spot_id === null &&
+          current.venue_id !== null &&
+          row.venue_id === current.venue_id)),
   );
-  const other = available.filter(
-    (row) => !sameEvent.includes(row) && !sameVenue.includes(row),
-  );
-  return [...sameEvent, ...sameVenue, ...other].slice(0, 4);
+  return { sameEvent, sameVenue: sameVenue.slice(0, 6) };
 }
 
 function routeUrl(event: EventRow): string {
-  const fallbackAddress = [event.address_line, event.postal_code, event.city]
-    .filter(Boolean)
-    .join(", ");
+  const fallbackAddress = formatEventAddress({
+    addressLine: event.address_line,
+    postalCode: event.postal_code,
+    city: event.city,
+    countryCode: event.country_code,
+  });
   const destination =
     event.latitude !== null && event.longitude !== null
       ? `${event.latitude},${event.longitude}`
@@ -73,6 +89,19 @@ export default async function EventDetailPage({
   }
 
   const more = upcoming(event, allEvents);
+  const recurrence = humanizeRecurrence(event.recurrence_summary);
+  const properties = eventPropertyLabels(event.minimum_age, event.family_friendly);
+  const eventAddress = formatEventAddress({
+    addressLine: event.address_line,
+    postalCode: event.postal_code,
+    city: event.city,
+    countryCode: event.country_code,
+  });
+  const spotAddress = formatEventAddress({
+    addressLine: event.matched_spot_address,
+    city: event.matched_spot_city,
+    countryCode: event.country_code,
+  });
   const eventImage = imageUrl(
     event.image_storage_path,
     event.image_rights_verified,
@@ -91,18 +120,18 @@ export default async function EventDetailPage({
           <h1>{event.title}</h1>
           <div className={styles.tags}>
             {event.categories.map((category) => (
-              <span key={category}>{category}</span>
+              <span key={category}>{eventCategoryLabel(category)}</span>
             ))}
           </div>
           <div className={styles.facts}>
             <strong>
-              {new Date(event.start_at).toLocaleString("de-CH", {
-                timeZone: "Europe/Zurich",
-                dateStyle: "full",
-                timeStyle: "short",
-              })}
+              {formatEventDateTime(event.start_at, event.end_at)}
             </strong>
-            {event.recurrence_summary && <span>{event.recurrence_summary}</span>}
+            {recurrence && <span className={styles.recurrence}>{recurrence}</span>}
+            <div className={styles.where}>
+              <strong>{event.venue_name ?? "Ort noch nicht bestätigt"}</strong>
+              {eventAddress && <span>{eventAddress}</span>}
+            </div>
             <span>
               {event.is_free
                 ? "Gratis"
@@ -110,15 +139,11 @@ export default async function EventDetailPage({
                   ? `ab CHF ${event.price_min}`
                   : "Preis unbekannt"}
             </span>
-            {event.minimum_age !== null && <span>Ab {event.minimum_age} Jahren</span>}
-            <span>
-              Familiengeeignet:{" "}
-              {event.family_friendly === null
-                ? "Unbekannt"
-                : event.family_friendly
-                  ? "Ja"
-                  : "Nein"}
-            </span>
+            {properties.length > 0 && (
+              <div className={styles.properties}>
+                {properties.map((property) => <span key={property}>{property}</span>)}
+              </div>
+            )}
             <p>{event.short_description}</p>
           </div>
 
@@ -136,9 +161,7 @@ export default async function EventDetailPage({
                 <div className={styles.pink}>VENUE AUF BACKYRD</div>
                 <strong>{event.matched_spot_name}</strong>
                 <p>
-                  {[event.matched_spot_address, event.matched_spot_city]
-                    .filter(Boolean)
-                    .join(" · ")}
+                  {spotAddress}
                 </p>
                 <Link href={`/spots/${event.matched_spot_id}`}>Spot ansehen →</Link>
                 <br />
@@ -156,14 +179,48 @@ export default async function EventDetailPage({
               </a>
             </p>
           )}
+          <p className={styles.sourceNote}>{eventSourceDisclaimer(event.source)}</p>
         </article>
       </div>
 
-      {more.length > 0 && (
+      {more.sameEvent.length > 0 && (
         <section className={styles.more}>
-          <h2>Weitere / kommende Events</h2>
+          <h2>Nächste Termine</h2>
+          <div className={styles.occurrences}>
+            {more.sameEvent.slice(0, 3).map((item) => (
+              <Link
+                className={styles.occurrence}
+                href={`/events/${item.event_id}?occurrence=${item.occurrence_id}`}
+                key={item.occurrence_id}
+              >
+                {formatCompactOccurrenceDate(item.start_at)}
+              </Link>
+            ))}
+          </div>
+          {more.sameEvent.length > 3 && (
+            <details className={styles.allOccurrences}>
+              <summary>Alle Termine</summary>
+              <div className={styles.occurrences}>
+                {more.sameEvent.slice(3).map((item) => (
+                  <Link
+                    className={styles.occurrence}
+                    href={`/events/${item.event_id}?occurrence=${item.occurrence_id}`}
+                    key={item.occurrence_id}
+                  >
+                    {formatCompactOccurrenceDate(item.start_at)}
+                  </Link>
+                ))}
+              </div>
+            </details>
+          )}
+        </section>
+      )}
+
+      {more.sameVenue.length > 0 && (
+        <section className={styles.more}>
+          <h2>Weitere Events im {event.matched_spot_name || event.venue_name || "Veranstaltungsort"}</h2>
           <div className={styles.grid}>
-            {more.map((item) => (
+            {more.sameVenue.map((item) => (
               <Link
                 className={styles.card}
                 href={`/events/${item.event_id}?occurrence=${item.occurrence_id}`}
@@ -171,11 +228,7 @@ export default async function EventDetailPage({
               >
                 <div className={styles.body}>
                   <h2>{item.title}</h2>
-                  <p>
-                    {new Date(item.start_at).toLocaleDateString("de-CH", {
-                      timeZone: "Europe/Zurich",
-                    })}
-                  </p>
+                  <p>{formatEventDateTime(item.start_at, item.end_at)}</p>
                 </div>
               </Link>
             ))}

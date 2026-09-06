@@ -10,6 +10,11 @@ export type EventDateRange = {
   end: Date;
 };
 
+export type UpcomingEventGroups = {
+  sameEvent: EventDiscoveryDTO[];
+  sameVenue: EventDiscoveryDTO[];
+};
+
 const BASEL_TIME_ZONE = "Europe/Zurich";
 
 type CalendarDate = { year: number; month: number; day: number };
@@ -175,13 +180,51 @@ export function eventImageUrl(path: string | null): string | null {
   return path ? supabase.storage.from("event-images").getPublicUrl(path).data.publicUrl : null;
 }
 
-export async function loadUpcomingEvents(current: EventDiscoveryDTO): Promise<EventDiscoveryDTO[]> {
-  const { data, error } = await supabase.from("event_discovery_v1").select("*")
-    .gt("start_at", new Date().toISOString()).neq("occurrence_id", current.occurrence_id)
-    .order("start_at").limit(40);
-  if (error) throw new Error(error.message);
-  return (data ?? []).map(row => normalizeRow(row as Record<string, unknown>)).sort((a, b) => {
-    const rank = (x: EventDiscoveryDTO) => x.event_id === current.event_id ? 0 : x.venue_id && x.venue_id === current.venue_id ? 1 : 2;
-    return rank(a) - rank(b) || a.start_at.localeCompare(b.start_at);
-  }).slice(0, 6);
+export async function loadUpcomingEvents(current: EventDiscoveryDTO): Promise<UpcomingEventGroups> {
+  const after = current.start_at;
+  const sameEventQuery = supabase
+    .from("event_discovery_v1")
+    .select("*")
+    .eq("event_id", current.event_id)
+    .gt("start_at", after)
+    .order("start_at")
+    .limit(40);
+  const sameVenueQuery = current.matched_spot_id
+    ? supabase
+        .from("event_discovery_v1")
+        .select("*")
+        .eq("matched_spot_id", current.matched_spot_id)
+        .neq("event_id", current.event_id)
+        .gt("start_at", after)
+        .order("start_at")
+        .limit(6)
+    : current.venue_id
+      ? supabase
+          .from("event_discovery_v1")
+          .select("*")
+          .eq("venue_id", current.venue_id)
+          .neq("event_id", current.event_id)
+          .gt("start_at", after)
+          .order("start_at")
+          .limit(6)
+      : null;
+
+  const [sameEventResult, sameVenueResult] = await Promise.all([
+    sameEventQuery,
+    sameVenueQuery ?? Promise.resolve({ data: [], error: null }),
+  ]);
+  if (sameEventResult.error) throw new Error(sameEventResult.error.message);
+  if (sameVenueResult.error) throw new Error(sameVenueResult.error.message);
+
+  const available = (rows: unknown[] | null) =>
+    (rows ?? [])
+      .map((row) => normalizeRow(row as Record<string, unknown>))
+      .filter(
+        (event) =>
+          event.event_status !== "CANCELLED" && event.occurrence_status !== "CANCELLED",
+      );
+  return {
+    sameEvent: available(sameEventResult.data),
+    sameVenue: available(sameVenueResult.data),
+  };
 }

@@ -19,6 +19,7 @@ import type {
   EventDiscoveryDTO,
   EventTimeFilter,
 } from "../../../packages/shared/src/dto/event";
+import { eventCategoryLabel } from "../../../packages/shared/src/presentation/event";
 import { eventImageUrl, loadEvents } from "../../lib/events-v1";
 
 const timeFilters: { key: EventTimeFilter; label: string }[] = [
@@ -38,30 +39,13 @@ const categories: { key: EventCategoryDTO | null; label: string }[] = [
   { key: "FOOD_DRINK", label: "Food & Drinks" },
   { key: "FAMILY", label: "Familie" },
   { key: "SPORT", label: "Sport" },
-  { key: "ACTIVITY", label: "Aktivitäten" },
+  { key: "ACTIVITY", label: "Aktivität" },
   { key: "LEISURE", label: "Freizeit" },
   { key: "MARKET", label: "Märkte" },
   { key: "WORKSHOP", label: "Workshops" },
   { key: "COMMUNITY", label: "Quartier & Community" },
   { key: "OTHER", label: "Weitere" },
 ];
-
-const categoryLabels: Record<EventCategoryDTO, string> = {
-  MUSIC: "Musik",
-  NIGHTLIFE: "Nightlife",
-  ART: "Kunst",
-  THEATRE: "Bühne",
-  FILM: "Film",
-  FOOD_DRINK: "Food & Drinks",
-  FAMILY: "Familie",
-  SPORT: "Sport",
-  ACTIVITY: "Aktivitäten",
-  LEISURE: "Freizeit",
-  MARKET: "Markt",
-  WORKSHOP: "Workshop",
-  COMMUNITY: "Community",
-  OTHER: "Event",
-};
 
 function formatWhen(startAt: string): string {
   return new Intl.DateTimeFormat("de-CH", {
@@ -130,7 +114,7 @@ function EventCard({ event }: { event: EventDiscoveryDTO }) {
       <View style={styles.cardBody}>
         <View style={styles.badgeRow}>
           <View style={styles.categoryBadge}>
-            <Text style={styles.categoryText}>{categoryLabels[event.category]}</Text>
+            <Text style={styles.categoryText}>{eventCategoryLabel(event.category)}</Text>
           </View>
           {cancelled ? (
             <View style={styles.cancelledBadge}>
