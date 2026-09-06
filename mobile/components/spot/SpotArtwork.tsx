@@ -76,7 +76,7 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
         <LinearGradient colors={["#242126", "#111113", "#070708"]} style={StyleSheet.absoluteFill}>
           <View style={styles.fallbackPattern} />
           <Ionicons color="rgba(247,243,233,0.28)" name="location-outline" size={30} style={styles.fallbackIcon} />
-          <Text numberOfLines={2} style={styles.fallbackName}>{spotName.toUpperCase()}</Text>
+          <Text numberOfLines={2} style={styles.fallbackName}>{spotName}</Text>
         </LinearGradient>
       ) : null}
       {status === "loading" || !googleResolved ? <View accessibilityLabel="Bild wird geladen" style={styles.loading}><ActivityIndicator color={theme.color.pink} size="small" /></View> : null}
@@ -105,5 +105,5 @@ const styles = StyleSheet.create({
   googleAttributionText: { color: "rgba(255,255,255,0.9)", fontSize: 9, lineHeight: 12 },
   fallbackPattern: { position: "absolute", width: "145%", height: 92, left: "-18%", top: "38%", backgroundColor: "rgba(255,79,145,0.08)", transform: [{ rotate: "-11deg" }] },
   fallbackIcon: { position: "absolute", left: 18, top: 18 },
-  fallbackName: { position: "absolute", left: 18, right: 18, bottom: 18, color: theme.color.textPrimary, fontFamily: theme.type.display, fontWeight: "900", fontSize: 34, lineHeight: 33, letterSpacing: -0.6 },
+  fallbackName: { position: "absolute", left: 18, right: 18, bottom: 18, color: theme.color.textPrimary, fontFamily: theme.type.display, fontSize: 34, lineHeight: 38, letterSpacing: -0.6 },
 });

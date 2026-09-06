@@ -7,10 +7,9 @@ export type TextRole = "displayXL" | "displayL" | "displayM" | "screenTitle" | "
 type Props = Omit<TextProps, "style" | "role"> & { role?: TextRole; tone?: "primary" | "secondary" | "muted" | "pink" | "lime" | "error"; style?: StyleProp<TextStyle> };
 
 const roles: Record<TextRole, TextStyle> = {
-  // Deliberately generous line heights: the condensed display face has tight glyph metrics on iOS.
-  displayXL: { fontFamily: theme.type.display, fontWeight: "900", fontSize: 58, lineHeight: 64, letterSpacing: -1.2 },
-  displayL: { fontFamily: theme.type.display, fontWeight: "900", fontSize: 46, lineHeight: 52, letterSpacing: -0.9 },
-  displayM: { fontFamily: theme.type.display, fontWeight: "900", fontSize: 38, lineHeight: 44, letterSpacing: -0.6 },
+  displayXL: { fontFamily: theme.type.display, fontSize: 54, lineHeight: 59, letterSpacing: -1.3 },
+  displayL: { fontFamily: theme.type.display, fontSize: 44, lineHeight: 49, letterSpacing: -1 },
+  displayM: { fontFamily: theme.type.display, fontSize: 36, lineHeight: 41, letterSpacing: -0.7 },
   screenTitle: { fontFamily: theme.type.bodyBold, fontSize: 28, lineHeight: 34, letterSpacing: -0.45 },
   sectionTitle: { fontFamily: theme.type.bodyBold, fontSize: 22, lineHeight: 28, letterSpacing: -0.3 },
   cardTitle: { fontFamily: theme.type.bodyBold, fontSize: 20, lineHeight: 26, letterSpacing: -0.25 },
@@ -31,7 +30,7 @@ function responsiveDisplay(role: TextRole, width: number): TextStyle | undefined
   return { fontSize: Math.round((base.fontSize as number) * factor), lineHeight: Math.round((base.lineHeight as number) * factor) };
 }
 
-/** Typography primitive with metric-safe display roles and bounded Dynamic Type. */
+/** Canonical Libre Franklin UI typography with deliberately scarce DM Serif display roles. */
 export function AppText({ role = "body", tone = "primary", maxFontSizeMultiplier, style, ...props }: Props) {
   const { width } = useWindowDimensions();
   return <Text {...props} maxFontSizeMultiplier={maxFontSizeMultiplier ?? maximumScale[role]} style={[{ color: tones[tone] }, roles[role], responsiveDisplay(role, width), style]} />;

@@ -4,9 +4,10 @@ import React, { useEffect } from "react";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import { StyleSheet, View } from "react-native";
-import { Inter_400Regular } from "@expo-google-fonts/inter/400Regular";
-import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
-import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
+import { DMSerifDisplay_400Regular } from "@expo-google-fonts/dm-serif-display/400Regular";
+import { LibreFranklin_400Regular } from "@expo-google-fonts/libre-franklin/400Regular";
+import { LibreFranklin_600SemiBold } from "@expo-google-fonts/libre-franklin/600SemiBold";
+import { LibreFranklin_700Bold } from "@expo-google-fonts/libre-franklin/700Bold";
 import { AuthProvider, useAuth } from "../hooks/useAuth";
 import { AnalyticsProvider } from "../providers/AnalyticsProvider";
 import { AnalyticsErrorBoundary } from "../components/AnalyticsErrorBoundary";
@@ -55,9 +56,10 @@ function RootStack() {
 
 function BootstrappedApp() {
   const [fontsLoaded, fontError] = useFonts({
-    Inter_400Regular,
-    Inter_600SemiBold,
-    Inter_700Bold,
+    DMSerifDisplay_400Regular,
+    LibreFranklin_400Regular,
+    LibreFranklin_600SemiBold,
+    LibreFranklin_700Bold,
   });
   const { loading: authLoading } = useAuth();
   const bootstrapReady = !fontError && fontsLoaded && !authLoading;
