@@ -1,7 +1,8 @@
 // mobile/app/_layout.tsx
 
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Stack } from "expo-router";
+import * as ExpoSplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { StyleSheet, View } from "react-native";
 import { DMSerifDisplay_400Regular } from "@expo-google-fonts/dm-serif-display/400Regular";
@@ -17,6 +18,9 @@ import ColdStartProductDeepLinkRouter from "../components/ColdStartProductDeepLi
 import PushNotificationRouter from "../components/PushNotificationRouter";
 import { ProductLoading, ProductState } from "../components/ui/ProductState";
 import { runtimeConfigStatus } from "../lib/supabase";
+import SplashScreen from "./splash";
+
+void ExpoSplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 function RootStack() {
   return (
@@ -63,6 +67,8 @@ function BootstrappedApp() {
   });
   const { loading: authLoading } = useAuth();
   const bootstrapReady = !fontError && fontsLoaded && !authLoading;
+  const [splashSettled, setSplashSettled] = useState(false);
+  const [nativeSplashHidden, setNativeSplashHidden] = useState(false);
 
   const bootstrapState = fontError ? (
     <ProductState
@@ -79,6 +85,18 @@ function BootstrappedApp() {
     }
   }, [bootstrapReady]);
 
+  const onSplashSettled = useCallback(() => setSplashSettled(true), []);
+
+  useEffect(() => {
+    if ((!bootstrapReady && !fontError) || (!splashSettled && !fontError) || nativeSplashHidden) return;
+
+    void ExpoSplashScreen.hideAsync()
+      .catch(() => undefined)
+      .finally(() => setNativeSplashHidden(true));
+  }, [bootstrapReady, fontError, nativeSplashHidden, splashSettled]);
+
+  const showStartupSplash = !fontError && (!bootstrapReady || !splashSettled || !nativeSplashHidden);
+
   return (
     <AnalyticsProvider>
       <GlobalSafetyEnforcementGuard>
@@ -87,13 +105,21 @@ function BootstrappedApp() {
             <RootStack />
             <ColdStartProductDeepLinkRouter ready={bootstrapReady} />
             <PushNotificationRouter />
-            {bootstrapState ? (
+            {fontError ? (
               <View
                 accessibilityViewIsModal
                 pointerEvents="auto"
                 style={styles.bootstrapOverlay}
               >
                 {bootstrapState}
+              </View>
+            ) : showStartupSplash ? (
+              <View
+                accessibilityViewIsModal
+                pointerEvents="auto"
+                style={styles.bootstrapOverlay}
+              >
+                <SplashScreen onAnimationSettled={onSplashSettled} />
               </View>
             ) : null}
           </View>
@@ -112,6 +138,10 @@ const styles = StyleSheet.create({
 });
 
 export default function RootLayout() {
+  useEffect(() => {
+    if (!runtimeConfigStatus.valid) void ExpoSplashScreen.hideAsync();
+  }, []);
+
   if (!runtimeConfigStatus.valid) {
     return (
       <ProductState

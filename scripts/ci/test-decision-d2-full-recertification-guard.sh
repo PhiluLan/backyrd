@@ -47,12 +47,21 @@ if run_guard "$source_case" >/dev/null 2>&1; then
 fi
 
 identity_case="$(new_case production-identity)"
-(cd "$identity_case" && node -e 'const fs=require("node:fs");const p="decision-lab/config/decision-v13-production-recertification-v30.json";const v=JSON.parse(fs.readFileSync(p,"utf8"));v.production.activeVersion=125;fs.writeFileSync(p,JSON.stringify(v,null,2)+"\n")')
-git -C "$identity_case" add decision-lab/config/decision-v13-production-recertification-v30.json
+(cd "$identity_case" && node -e 'const fs=require("node:fs");const p="decision-lab/config/decision-v13-production-recertification-v31.json";const v=JSON.parse(fs.readFileSync(p,"utf8"));v.production.activeVersion=125;fs.writeFileSync(p,JSON.stringify(v,null,2)+"\n")')
+git -C "$identity_case" add decision-lab/config/decision-v13-production-recertification-v31.json
 git -C "$identity_case" commit --quiet -m "test: changed Production identity"
 if run_guard "$identity_case" >/dev/null 2>&1; then
   echo "D2 full re-certification guard unexpectedly accepted Production identity drift" >&2
   exit 1
 fi
 
-echo "D2 full re-certification guard regression: unchanged PASS; Engine drift FAIL; new source FAIL; Production identity drift FAIL; complete v30 re-certification PASS"
+future_case="$(new_case future-recertification)"
+(cd "$future_case" && node -e 'const fs=require("node:fs");const p="decision-lab/config/decision-v13-production-recertification-v31.json";const v=JSON.parse(fs.readFileSync(p,"utf8"));v.version="decision-v13-production-recertification-v32";fs.writeFileSync(p,JSON.stringify(v,null,2)+"\n")')
+git -C "$future_case" add decision-lab/config/decision-v13-production-recertification-v31.json
+git -C "$future_case" commit --quiet -m "test: unknown future recertification"
+if run_guard "$future_case" >/dev/null 2>&1; then
+  echo "D2 full re-certification guard unexpectedly accepted unknown future recertification" >&2
+  exit 1
+fi
+
+echo "D2 full re-certification guard regression: unchanged PASS; Engine drift FAIL; new source FAIL; Production identity drift FAIL; unknown future recertification FAIL; complete v31 re-certification PASS"
