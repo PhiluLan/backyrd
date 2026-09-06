@@ -132,7 +132,8 @@ export default function HomeScreen() {
         <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} tintColor={theme.color.pink} onRefresh={() => void load(true)} />} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <View style={styles.greetingBlock}>
-              <AppText role="displayM" numberOfLines={1} style={styles.greeting}>Hey{firstName ? `, ${firstName}` : ""}!</AppText>
+              <AppText role="displayM" style={styles.greeting}>Hey,</AppText>
+              <AppText role="displayM" ellipsizeMode="tail" numberOfLines={1} style={styles.greetingName}>{firstName ?? ""}</AppText>
               <AppText role="meta" tone="secondary">{city} · Heute</AppText>
             </View>
             <View style={styles.headerActions}>
@@ -234,9 +235,10 @@ const styles = StyleSheet.create({
   header: { minHeight: 64, paddingHorizontal: theme.spacing.xl, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.md },
   greetingBlock: { flex: 1, minWidth: 0 },
   greeting: { color: theme.color.textPrimary },
+  greetingName: { color: theme.color.pink },
   headerActions: { flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
   headerIcon: { backgroundColor: "rgba(246,240,232,0.06)", borderWidth: 1, borderColor: theme.color.border },
-  searchShell: { marginTop: theme.spacing.xl, marginHorizontal: theme.spacing.xl, minHeight: 54, paddingLeft: theme.spacing.md, paddingRight: 6, flexDirection: "row", alignItems: "center", gap: theme.spacing.sm, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.pill, backgroundColor: "rgba(246,240,232,0.055)" },
+  searchShell: { marginTop: theme.spacing.lg, marginHorizontal: theme.spacing.xl, minHeight: 54, paddingLeft: theme.spacing.md, paddingRight: 6, flexDirection: "row", alignItems: "center", gap: theme.spacing.sm, borderWidth: 1, borderColor: theme.color.border, borderRadius: theme.radius.pill, backgroundColor: "rgba(246,240,232,0.055)" },
   searchInput: { flex: 1, minHeight: 52, color: theme.color.textPrimary, fontFamily: theme.type.body, fontSize: 15, paddingVertical: 10 },
   searchSubmit: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: theme.color.pink },
   searchSubmitDisabled: { opacity: 0.38 },
@@ -248,7 +250,7 @@ const styles = StyleSheet.create({
   moodLink: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
   moodDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.color.blue },
   moodDotPrimary: { width: 10, height: 10, borderRadius: 5, backgroundColor: theme.color.pink },
-  sectionHeader: { marginTop: theme.spacing.xxxl, paddingHorizontal: theme.spacing.xl, minHeight: 52, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: theme.spacing.md },
+  sectionHeader: { marginTop: theme.spacing.xxl, paddingHorizontal: theme.spacing.xl, minHeight: 52, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", gap: theme.spacing.md },
   heroCards: { paddingTop: theme.spacing.lg },
   heroCard: { overflow: "hidden", borderRadius: theme.radius.xl, justifyContent: "flex-end", backgroundColor: theme.color.surface },
   heroCardContent: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.lg },
