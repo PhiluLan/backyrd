@@ -22,10 +22,10 @@
       "ios_update": "01a07263-06bd-7340-a72e-ee70a4e77ca1",
       "created_at": "2026-09-05T16:23:00Z",
       "canonical_source": {
-        "commit": "c528634dafdce069299233fe85c167c6c02f1313",
-        "tree": "2356f0d4e041b054cf6ae050147562e3eda4e634",
+        "commit": "0e6930dfd3b8547bef4813a8f5fa8bfd18688472",
+        "tree": "7c47ad192c4d2b776ba6c932c0c9cca9d612e24d",
         "production_verified": false,
-        "reason": "Founder-authorized Events V1 Mobile candidate. Exact source tree is bound before merge; Production OTA verification remains deliberately false until deployment."
+        "reason": "Founder-authorized Phase 1 Mobile design recovery rebased onto the Events V1 canonical Product line. Exact source tree is bound before merge; Production OTA verification remains deliberately false until deployment."
       }
     },
     "consumer_web": {
@@ -481,6 +481,28 @@
         "web/lib/events-public.ts"
       ],
       "evidence": "docs/decision/D2_D3_EVENTS_V1_EVIDENCE_RECERTIFICATION_V23_2026_09_06.md"
+    },
+    {
+      "id": "mobile_design_phase1_canonical_recovery_v1",
+      "baseline_commit": "fbaca4422eba56cb337e4565b90b8612b732ef9a",
+      "source_commit": "0e6930dfd3b8547bef4813a8f5fa8bfd18688472",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/(tabs)/_layout.tsx",
+        "mobile/app/(tabs)/index.tsx",
+        "mobile/app/(tabs)/profile.tsx",
+        "mobile/app/_layout.tsx",
+        "mobile/app/spot/[id].tsx",
+        "mobile/components/foundation/AppText.tsx",
+        "mobile/components/foundation/StateView.tsx",
+        "mobile/components/spot/SpotArtwork.tsx",
+        "mobile/components/spot/SpotMoodProfile.tsx",
+        "mobile/components/spot/SpotTaxonomyHighlights.tsx",
+        "mobile/package-lock.json",
+        "mobile/package.json",
+        "mobile/theme/backyrd.ts"
+      ],
+      "evidence": "docs/readiness/MOBILE_DESIGN_PHASE1_CANONICAL_RECOVERY_2026_09_06.md"
     }
   ],
   "required_ancestry": [
