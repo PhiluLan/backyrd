@@ -277,7 +277,7 @@ begin
     and (select not public from storage.buckets where id='data-rights-exports')
     and (select not public from storage.buckets where id='social-post-media'),
     'private Storage buckets remain private');
-  perform pg_temp.s12_assert((select count(*)=19 from pg_policies
+  perform pg_temp.s12_assert((select count(*)=22 from pg_policies
     where schemaname='storage' and tablename in('objects','buckets')),
     'canonical Storage policy set is complete');
   perform pg_temp.s12_assert(not exists(

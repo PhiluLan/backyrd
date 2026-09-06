@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CanonicalSpotImage } from "@/components/canonical-spot-image";
+import { HomeEvents } from "@/components/home-events";
 import {
   getPublicCitySpots,
   getPublicTopMoments,
@@ -175,6 +176,7 @@ export function HomeExperience() {
           )}
         </div>
       </section>
+      <HomeEvents />
       <section className="b-section b-section-contrast">
         <div className="b-container">
           <div className="b-section-header">

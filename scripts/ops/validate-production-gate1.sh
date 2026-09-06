@@ -36,13 +36,13 @@ node "$repo_root/scripts/ci/validate-database-lineage.mjs" \
 psql "$BACKYRD_PRODUCTION_DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$repo_root/scripts/ops/production-gate1-sanity.sql"
 
-expected_acl_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/public-acl.sha256")"
+expected_acl_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/public-acl-events-v1.sha256")"
 actual_acl_fingerprint="$(psql "$BACKYRD_PRODUCTION_DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
   --file "$repo_root/scripts/ci/public-acl-fingerprint.sql")"
 test "$actual_acl_fingerprint" = "$expected_acl_fingerprint" \
   || fail 'Production public ACL fingerprint differs from the canonical contract'
 
-expected_application_schema_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/application-schema.sha256")"
+expected_application_schema_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/application-schema-events-v1.sha256")"
 application_schema_result="$(psql "$BACKYRD_PRODUCTION_DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
   --file "$repo_root/scripts/ci/application-schema-fingerprint.sql")"
 actual_application_schema_fingerprint="${application_schema_result##*|}"

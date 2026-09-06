@@ -1231,6 +1231,7 @@
 
 /* Backyrd Sprint 2 – Privacy & Legal */
 .privacyAdmin{gap:22px}
+.eventForm{display:flex;flex-direction:column;gap:16px}.eventForm label,.eventForm legend{display:flex;flex-direction:column;gap:7px;color:#aaaab4;font-size:12px;font-weight:750}.eventForm input,.eventForm textarea,.eventForm select,.bi-input{width:100%;border:1px solid var(--line);background:#0b0b0d;color:white;border-radius:11px;padding:11px}.eventGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.eventChecks{display:flex;flex-wrap:wrap;gap:8px}.eventChecks label{flex-direction:row;align-items:center;background:#18181c;padding:8px 10px;border-radius:9px}.eventChecks input{width:auto}@media(max-width:760px){.eventGrid{grid-template-columns:1fr}}
 .privacyPrimary,.privacySecondary{appearance:none;border:0;border-radius:13px;padding:11px 15px;font-weight:850;cursor:pointer}
 .privacyPrimary{background:#ff7da7;color:#111114}
 .privacySecondary{background:rgba(255,255,255,.08);color:#fff;border:1px solid var(--line)}

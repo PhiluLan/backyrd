@@ -1,0 +1,41 @@
+{
+  "version": "backyrd-preapplied-migration-import-v2",
+  "projectRef": "hjgcrrzfjchzqoegcywn",
+  "canonicalBaseSha": "b59d7bcbf57b1b282c65583a18583706ecf6a6ef",
+  "remoteState": "REMOTE_UP_TO_DATE",
+  "verifiedAt": "2026-09-06T08:09:34Z",
+  "authorization": "Founder-authorized Events V1 evidence re-certification",
+  "productionEvidence": {
+    "migrationLedger": "STATEMENT_CONTENT_MATCH",
+    "applicationSchemaEntryCount": 11023,
+    "applicationSchemaSha256": "1335d79ea194ba39e89ea56891f27b62c6134c4343446f7f83197e78126379dd",
+    "publicAclSha256": "ce26543378b1e9c67cf89e29a0af2e4a434f5ca6aaf0afe679cebcac961e562e",
+    "externalEventSourcesEnabled": false
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260905193445_create_events_v1_basel_pilot.sql",
+      "sha256": "69975ac8f4f9b04f218412fb260412c0b4940013c61a97b77d8f7d680475650d",
+      "productionStatementCount": 54,
+      "productionStatementSha256": "8427ea390bf8a45bef6acbd1a7fe9ddbc89c7e0e50cee3e69d1ac4f8f8a55482"
+    },
+    {
+      "path": "supabase/migrations/20260905203748_extend_events_v1_manual_admin.sql",
+      "sha256": "030d5b72fe0879390feb63ab448145ac62d6061d692660da8b82c94ec7f1da89",
+      "productionStatementCount": 31,
+      "productionStatementSha256": "1bea4917ba7a1975509377f5927c57a331ffc4a53d74d806d449a82763387dc6"
+    },
+    {
+      "path": "supabase/migrations/20260905212123_bound_manual_event_recurrence_horizon.sql",
+      "sha256": "4b3a9b881a3e9dd562b40afa510b17c2d465d086c6f2e4616baab210bcae4a18",
+      "productionStatementCount": 6,
+      "productionStatementSha256": "7a50e7960ccab611e29ddcc64289d8c4aef4bc031b8c4fe1482bd19e77535e4f"
+    },
+    {
+      "path": "supabase/migrations/20260905212627_keep_external_event_sources_disabled_for_manual_pilot.sql",
+      "sha256": "0a7814ce964860fb3c6cab4e0adc89c57588d9083064788660a125b86b8f71bc",
+      "productionStatementCount": 1,
+      "productionStatementSha256": "7421d12d21d2f4c275931999280f159dc85381acdc46ae2e839ba8cdc30dee8f"
+    }
+  ]
+}

@@ -25,6 +25,11 @@ jq -e '
   (.surfaces.consumer_web.canonical_source.commit | test("^[0-9a-f]{40}$")) and
   (.surfaces.consumer_web.canonical_source.tree | test("^[0-9a-f]{40}$")) and
   (.surfaces.consumer_web.canonical_source.production_verified | type == "boolean") and
+  (.surfaces.admin_intelligence_web.commit | test("^[0-9a-f]{40}$")) and
+  (.surfaces.admin_intelligence_web.tree | test("^[0-9a-f]{40}$")) and
+  (.surfaces.admin_intelligence_web.canonical_source.commit | test("^[0-9a-f]{40}$")) and
+  (.surfaces.admin_intelligence_web.canonical_source.tree | test("^[0-9a-f]{40}$")) and
+  (.surfaces.admin_intelligence_web.canonical_source.production_verified | type == "boolean") and
   (.surfaces.database.migration_tip | test("^[0-9]{14}_[a-z0-9_]+$")) and
   (.surfaces.database.canonical_source.source_commit | test("^[0-9a-f]{40}$")) and
   (.surfaces.database.canonical_source.migration_tip | test("^[0-9]{14}_[a-z0-9_]+$")) and
@@ -81,7 +86,7 @@ test "$actual_parents" = "$expected_parents" \
 git -C "$repo_root" merge-base --is-ancestor "$anchor" HEAD \
   || fail "audited integration anchor is not reachable from HEAD"
 
-for surface in mobile consumer_web; do
+for surface in mobile consumer_web admin_intelligence_web; do
   path="$(jq -r ".surfaces.${surface}.path" "$manifest")"
   source_commit="$(jq -r ".surfaces.${surface}.canonical_source.commit" "$manifest")"
   expected_tree="$(jq -r ".surfaces.${surface}.canonical_source.tree" "$manifest")"

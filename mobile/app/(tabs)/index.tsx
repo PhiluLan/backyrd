@@ -6,6 +6,7 @@ import { KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, 
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { EditorialMeta, EditorialSectionHeader, MarkerStroke } from "../../components/brand/Editorial";
+import { HomeEventsSection } from "../../components/events/HomeEventsSection";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { AppText } from "../../components/foundation/AppText";
 import { IconButton } from "../../components/foundation/Button";
@@ -144,8 +145,10 @@ export default function HomeScreen() {
             </ScrollView>
           </View>
 
+          <HomeEventsSection />
+
           <View style={styles.discoverySection}>
-            <EditorialSectionHeader index="01" actionLabel="Karte" onAction={() => router.push({ pathname: "/(tabs)/map", params: { view: "map" } } as never)} title={`${city} entdecken`} />
+            <EditorialSectionHeader index="02" actionLabel="Karte" onAction={() => router.push({ pathname: "/(tabs)/map", params: { view: "map" } } as never)} title={`${city} entdecken`} />
             {loading ? (
               <View accessibilityLabel="Spots werden geladen" style={[styles.skeletonCard, { width: cardWidth, height: cardHeight }]}>
                 <View style={styles.skeletonAccent} /><View style={styles.skeletonTitle} /><View style={styles.skeletonMeta} />

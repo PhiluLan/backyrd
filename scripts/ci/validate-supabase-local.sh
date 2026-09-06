@@ -171,7 +171,7 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction \
   --file "$validation_root/supabase/canonical/webhooks.sql"
 
 gate6_acl_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/public-acl.sha256")"
-expected_acl_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/public-acl-gate7.sha256")"
+expected_acl_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/public-acl-events-v1.sha256")"
 actual_acl_fingerprint="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
   --file "$repo_root/scripts/ci/public-acl-fingerprint.sql")"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
@@ -200,7 +200,7 @@ if test "$actual_acl_fingerprint" != "$expected_acl_fingerprint"; then
 fi
 
 gate6_application_schema_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/application-schema.sha256")"
-expected_application_schema_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/application-schema-gate7.sha256")"
+expected_application_schema_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/application-schema-events-v1.sha256")"
 application_schema_result="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
   --file "$repo_root/scripts/ci/application-schema-fingerprint.sql")"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
@@ -215,6 +215,7 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
 # from normalizing unrelated catalog drift.
 gate7_prior_application_schema_result="$(psql "$DB_URL" -X --quiet --tuples-only --no-align --set ON_ERROR_STOP=1 <<SQL
 begin;
+\ir $repo_root/scripts/ci/events-v1-later-application-schema-reconstruction.sql
 drop function public.backyrd_launch_operations_snapshot_v1();
 drop function public.backyrd_has_claimable_embedding_job_v1();
 drop function public.backyrd_consume_launch_cost_boundary_v1(text,text,integer,integer,integer,integer);
@@ -275,6 +276,22 @@ diff -u \
   <(printf '%s\n' "${expected_versions[@]}") \
   <(printf '%s\n' "${actual_versions[@]}")
 
+# The four Events V1 migrations were applied to Production before their PR was
+# merged. Production's immutable ledger stores the split SQL statements. Match
+# those statement counts and content hashes against this fresh repository boot;
+# the source-file hashes are independently enforced by the deployment planner.
+while IFS=$'\t' read -r migration_path expected_statement_count expected_statement_hash; do
+  migration_version="$(basename "$migration_path" | cut -d_ -f1)"
+  actual_statement_identity="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align --command \
+    "select cardinality(statements)||'|'||encode(extensions.digest(convert_to(array_to_string(statements,E'\\n--statement-boundary--\\n'),'UTF8'),'sha256'),'hex') from supabase_migrations.schema_migrations where version='$migration_version';")"
+  test "$actual_statement_identity" = "$expected_statement_count|$expected_statement_hash" || {
+    printf 'Events V1 migration statement identity mismatch for %s\n' "$migration_path" >&2
+    exit 1
+  }
+done < <(jq -r '.migrations[] | [.path,.productionStatementCount,.productionStatementSha256] | @tsv' \
+  "$repo_root/supabase/production/preapplied-migration-import.json")
+printf 'Events V1 Production statement identities match the fresh repository boot.\n'
+
 assert_count() {
   local expected="$1"
   local label="$2"
@@ -295,9 +312,9 @@ assert_count 1 'message push webhook trigger' \
   "select count(*) from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace join pg_proc p on p.oid=t.tgfoid where n.nspname='public' and c.relname='message_push_outbox' and not t.tgisinternal and t.tgenabled <> 'D' and p.proname='send_message_push_webhook_v1';"
 assert_count 1 'Realtime messages publication' \
   "select count(*) from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='messages';"
-assert_count 7 'canonical Storage buckets' \
-  "select count(*) from storage.buckets where id in ('badges','chat-uploads','data-rights-exports','profile-photos','review-photos','social-post-media','spot-photos');"
-assert_count 19 'canonical Storage policies' \
+assert_count 8 'canonical Storage buckets' \
+  "select count(*) from storage.buckets where id in ('badges','chat-uploads','data-rights-exports','event-images','profile-photos','review-photos','social-post-media','spot-photos');"
+assert_count 22 'canonical Storage policies' \
   "select count(*) from pg_policies where schemaname='storage' and tablename in ('buckets','objects');"
 assert_count 1 'User Intelligence runtime settings RLS' \
   "select count(*) from pg_class where oid='public.backyrd_user_intelligence_runtime_settings_v1'::regclass and relrowsecurity;"
@@ -447,6 +464,10 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/mood_founder_acceptance_closure_v1.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
   --file "$validation_root/supabase/tests/mood_final_founder_closure_v1.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/events_v1_basel_pilot.sql"
+psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
+  --file "$validation_root/supabase/tests/events_v1_manual_recurrence_horizon.sql"
 DB_URL="$DB_URL" bash "$repo_root/scripts/ci/validate-review-same-day-race.sh"
 
 lint_json="$validation_root/db-lint.json"

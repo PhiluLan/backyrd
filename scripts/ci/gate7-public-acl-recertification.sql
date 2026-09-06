@@ -37,6 +37,7 @@ select
 
 -- Revoke exactly the Gate 7 delta and prove the Gate 6 canonical ACL returns.
 begin;
+\ir events-v1-later-public-acl-reconstruction.sql
 revoke select, insert, update, delete on table public.backyrd_launch_cost_counters_v1 from service_role;
 revoke execute on function public.backyrd_consume_launch_cost_boundary_v1(text,text,integer,integer,integer,integer) from service_role;
 revoke execute on function public.backyrd_has_claimable_embedding_job_v1() from service_role;

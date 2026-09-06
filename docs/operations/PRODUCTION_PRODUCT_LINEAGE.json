@@ -22,10 +22,10 @@
       "ios_update": "01a07263-06bd-7340-a72e-ee70a4e77ca1",
       "created_at": "2026-09-05T16:23:00Z",
       "canonical_source": {
-        "commit": "832933a78e19be74404be0d1c35c467b23b94852",
-        "tree": "d9bd5eda559116eead59e47b4e811f5e5cdab4de",
-        "production_verified": true,
-        "reason": "Production OTA group 10d14b5d-34db-4f27-8120-41e800f235a2 was published from canonical Main 3f09efbbb78f078b971b1a5d4a7840b25169fff3. Current canonical HEAD changes only Admin, evidence and the operations migration; its Mobile tree is byte-identical to the deployed OTA."
+        "commit": "c528634dafdce069299233fe85c167c6c02f1313",
+        "tree": "2356f0d4e041b054cf6ae050147562e3eda4e634",
+        "production_verified": false,
+        "reason": "Founder-authorized Events V1 Mobile candidate. Exact source tree is bound before merge; Production OTA verification remains deliberately false until deployment."
       }
     },
     "consumer_web": {
@@ -36,10 +36,10 @@
       "vercel_deployment": 6283398055,
       "created_at": "2026-09-05T16:47:53Z",
       "canonical_source": {
-        "commit": "832933a78e19be74404be0d1c35c467b23b94852",
-        "tree": "562613194b8605b081015112509f7f04f5e0781c",
-        "production_verified": true,
-        "reason": "Vercel Production deployment 6283398055 completed successfully from canonical Main 832933a78e19be74404be0d1c35c467b23b94852."
+        "commit": "c528634dafdce069299233fe85c167c6c02f1313",
+        "tree": "fa335c1202006187d60979952f03a400677cc152",
+        "production_verified": false,
+        "reason": "Founder-authorized Events V1 Consumer Web candidate. Exact source tree is bound before merge; Vercel Production verification remains deliberately false until deployment."
       }
     },
     "admin_intelligence_web": {
@@ -49,21 +49,27 @@
       "path": "admin-dashboard",
       "github_deployment_id": 6283403317,
       "created_at": "2026-09-05T16:48:28Z",
-      "note": "Founder Operations Production deployment completed from canonical Main with actionable queue truth and verified AWS recovery state."
+      "note": "Founder Operations Production deployment completed from canonical Main with actionable queue truth and verified AWS recovery state.",
+      "canonical_source": {
+        "commit": "c528634dafdce069299233fe85c167c6c02f1313",
+        "tree": "1fc6b151515beda27ffb71ffe9bc508f8d1ee890",
+        "production_verified": false,
+        "reason": "Founder-authorized Events V1 Admin candidate. Exact source tree is bound before merge; Vercel Production verification remains deliberately false until deployment."
+      }
     },
     "database": {
       "provider": "Supabase",
       "project_ref": "hjgcrrzfjchzqoegcywn",
       "postgres_major": 17,
-      "migration_tip": "20260905183000_gate7_operations_snapshot_truth",
-      "migration_count": 132,
-      "source_commit": "832933a78e19be74404be0d1c35c467b23b94852",
+      "migration_tip": "20260905212627_keep_external_event_sources_disabled_for_manual_pilot",
+      "migration_count": 136,
+      "source_commit": "c528634dafdce069299233fe85c167c6c02f1313",
       "canonical_source": {
-        "source_commit": "832933a78e19be74404be0d1c35c467b23b94852",
-        "migration_tip": "20260905183000_gate7_operations_snapshot_truth",
-        "migration_count": 132,
+        "source_commit": "c528634dafdce069299233fe85c167c6c02f1313",
+        "migration_tip": "20260905212627_keep_external_event_sources_disabled_for_manual_pilot",
+        "migration_count": 136,
         "production_verified": true,
-        "reason": "Source-aware Production audit 138eadbcc7222dc78233720cc38eb26ce0938507603eb7db2e86419f9bd05466 applied exactly the pending forward migration and no Edge Function. Live operations RPC verification passed."
+        "reason": "Four Events V1 versions and their ordered statement-content hashes match the fresh canonical repository boot; full Production application-schema and public-ACL fingerprints converge exactly. No migration was reapplied and external event sources remain disabled."
       }
     }
   },
@@ -444,6 +450,37 @@
         "supabase/migrations/20260905183000_gate7_operations_snapshot_truth.sql"
       ],
       "evidence": "docs/operations/GO_LIVE_GATE_7_REPORT.md"
+    },
+    {
+      "id": "events_v1_production_schema_recertification",
+      "baseline_commit": "b59d7bcbf57b1b282c65583a18583706ecf6a6ef",
+      "source_commit": "c528634dafdce069299233fe85c167c6c02f1313",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/(tabs)/index.tsx",
+        "mobile/app/_layout.tsx",
+        "mobile/app/events/[id].tsx",
+        "mobile/app/events/index.tsx",
+        "mobile/components/events/HomeEventsSection.tsx",
+        "mobile/lib/events-v1.ts",
+        "supabase/canonical/application-schema-events-v1.sha256",
+        "supabase/canonical/public-acl-events-v1.sha256",
+        "supabase/migrations/20260905193445_create_events_v1_basel_pilot.sql",
+        "supabase/migrations/20260905203748_extend_events_v1_manual_admin.sql",
+        "supabase/migrations/20260905212123_bound_manual_event_recurrence_horizon.sql",
+        "supabase/migrations/20260905212627_keep_external_event_sources_disabled_for_manual_pilot.sql",
+        "supabase/production/preapplied-migration-import.json",
+        "supabase/tests/events_v1_basel_pilot.sql",
+        "supabase/tests/events_v1_manual_recurrence_horizon.sql",
+        "supabase/tests/sprint12_adversarial_platform_validation.sql",
+        "web/app/events/[id]/page.tsx",
+        "web/app/events/events.module.css",
+        "web/app/events/page.tsx",
+        "web/components/consumer/home-experience.tsx",
+        "web/components/home-events.tsx",
+        "web/lib/events-public.ts"
+      ],
+      "evidence": "docs/decision/D2_D3_EVENTS_V1_EVIDENCE_RECERTIFICATION_V23_2026_09_06.md"
     }
   ],
   "required_ancestry": [
@@ -454,7 +491,8 @@
     "9896c7c4cc1b418e15c8f8db41739e838ec20930",
     "c0b3e0e30b5f29ca518c5bbecb5701dffdcaec92",
     "a6cd7949baddd6635d3430ec6b49f2ae8ae3e6f3",
-    "832933a78e19be74404be0d1c35c467b23b94852"
+    "832933a78e19be74404be0d1c35c467b23b94852",
+    "c528634dafdce069299233fe85c167c6c02f1313"
   ],
   "excluded_unshipped_heads": [
     {
