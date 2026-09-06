@@ -1,7 +1,18 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { formatAdminError, safeSerializeError } from "../lib/adminErrors.ts";
-import { buildVenuePayload, filterEventSpots, normalizeSpotSearch, validateEventInput, venueFieldsAfterTyping } from "../lib/eventAdmin.ts";
+import ts from "typescript";
+
+async function importTypeScript(relativePath) {
+  const source = await readFile(new URL(relativePath, import.meta.url), "utf8");
+  const javascript = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
+  }).outputText;
+  return import(`data:text/javascript;base64,${Buffer.from(javascript).toString("base64")}`);
+}
+
+const { formatAdminError, safeSerializeError } = await importTypeScript("../lib/adminErrors.ts");
+const { buildVenuePayload, filterEventSpots, normalizeSpotSearch, validateEventInput, venueFieldsAfterTyping } = await importTypeScript("../lib/eventAdmin.ts");
 
 const spots = [
   { id: "volta", name: "Volta Bräu", address: "Elsässerstrasse 215", city: "Basel" },
