@@ -232,7 +232,7 @@
       "web/app/events/page.tsx",
       "web/lib/events-public.ts"
     ],
-    "hash": "d82a8ab4e9bf3df2165c6fd236e3259ca0ac6d6a92664a143a1a1d1eb688f701"
+    "hash": "c88401e4f0d65a0f0146945599acbfba6de2942239db7265db46fef89a3cbe9a"
   },
   "invariants": {
     "hardEligibilityBeforeRanking": "PASS",
