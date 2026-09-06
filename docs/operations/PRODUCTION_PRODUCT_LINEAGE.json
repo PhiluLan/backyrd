@@ -22,10 +22,10 @@
       "ios_update": "01a07263-06bd-7340-a72e-ee70a4e77ca1",
       "created_at": "2026-09-05T16:23:00Z",
       "canonical_source": {
-        "commit": "37b7f610f006ae8f55de76edb014d45654d252cd",
-        "tree": "481389503d8c51c833c6deb8b8b0a4821dafd099",
+        "commit": "1323b0a1fc9b8f737d82fc16790f7c01c78c2413",
+        "tree": "899e140cfbc50338b59da4ebf72a5300a9efab45",
         "production_verified": false,
-        "reason": "Founder-authorized Events Home horizontal carousel candidate. Exact Mobile source tree is bound before merge; Production verification remains deliberately false until deployment."
+        "reason": "Founder-authorized bounded Mobile startup/Home UX polish candidate. Exact Mobile source tree is bound before merge; Production verification remains false until canonical-main OTA deployment and physical Founder validation."
       }
     },
     "consumer_web": {
@@ -544,6 +544,18 @@
         "web/tests/home-events-carousel.test.mjs"
       ],
       "evidence": "docs/decision/D2_D3_EVENTS_HOME_CAROUSEL_RECERTIFICATION_V29_2026_09_06.md"
+    },
+    {
+      "id": "founder_mobile_start_home_polish_v1",
+      "baseline_commit": "3e93c15a32f55ffd1cc9e77aaa8965a7088e32fe",
+      "source_commit": "1323b0a1fc9b8f737d82fc16790f7c01c78c2413",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/splash.tsx",
+        "mobile/app/gate.tsx",
+        "mobile/app/(tabs)/index.tsx"
+      ],
+      "evidence": "docs/operations/PRODUCTION_PRODUCT_LINEAGE.json"
     }
   ],
   "required_ancestry": [

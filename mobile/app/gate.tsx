@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Platform,
   Pressable,
   ScrollView,
@@ -36,15 +35,7 @@ function normalizeRoute(route: string | null | undefined): string {
 }
 
 function LoadingFallback() {
-  if (Platform.OS !== "web") {
-    return <SplashScreen />;
-  }
-
-  return (
-    <View style={styles.loadingFallback}>
-      <ActivityIndicator color="#fff" />
-    </View>
-  );
+  return <SplashScreen compact />;
 }
 
 function LoggedOutGate() {
@@ -229,12 +220,6 @@ export default function GateScreen() {
 }
 
 const styles = StyleSheet.create({
-  loadingFallback: {
-    flex: 1,
-    backgroundColor: "#050506",
-    alignItems: "center",
-    justifyContent: "center",
-  },
   authContainer: {
     flex: 1,
   },
