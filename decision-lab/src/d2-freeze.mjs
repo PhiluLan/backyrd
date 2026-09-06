@@ -18,7 +18,7 @@ const evaluationFiles = ["decision-lab/src/contracts.mjs", "decision-lab/src/eva
 const acceptanceFiles = ["decision-lab/src/acceptance.mjs", "decision-lab/src/hard-gate-acceptance.mjs"];
 const absolute = (paths) => paths.map((path) => resolve(repoRoot, path));
 
-const recertificationPath = resolve(repoRoot, "decision-lab/config/decision-v13-production-recertification-v23.json");
+const recertificationPath = resolve(repoRoot, "decision-lab/config/decision-v13-production-recertification-v24.json");
 const requiredRecertificationInvariants = Object.freeze({
   hardEligibilityBeforeRanking: "PASS",
   distributionEligibilityBeforeFusion: "PASS",
@@ -78,14 +78,14 @@ export async function validateEngineRecertification(contractOverride = null) {
   const productionEntrypointSource = await readFile(resolve(repoRoot, contract.production.entrypointPath), "utf8").catch(() => null);
   const productionEntrypointSha256 = productionEntrypointSource === null ? null : createHash("sha256").update(productionEntrypointSource).digest("hex");
   const reasons = [
-    ...(contract.version === "decision-v13-production-recertification-v23" ? [] : ["RECERTIFICATION_VERSION_INVALID"]),
+    ...(contract.version === "decision-v13-production-recertification-v24" ? [] : ["RECERTIFICATION_VERSION_INVALID"]),
     ...(contract.status === "AUTHORIZED" ? [] : ["RECERTIFICATION_NOT_AUTHORIZED"]),
     ...(contract.authorization?.previousEngineSourceHash === "cad2c4ea94817d2facbd54db92f55f3286acecf4d1e8a71dda414431b76cf000" ? [] : ["PREVIOUS_BASELINE_IDENTITY_MISMATCH"]),
-    ...(contract.authorization?.previousRecertificationVersion === "decision-v13-production-recertification-v22" && contract.authorization?.previousRecertificationHash === "5f0d7bac4884b0df712a8071e374fe86c899ad9c52b6d0fb9621a53bfac22710" ? [] : ["PREVIOUS_RECERTIFICATION_IDENTITY_MISMATCH"]),
-    ...(contract.authorization?.baseCommit === "b59d7bcbf57b1b282c65583a18583706ecf6a6ef" ? [] : ["AUTHORIZED_BASE_COMMIT_MISMATCH"]),
-    ...(contract.authorization?.authorizedSourceCommit === "c528634dafdce069299233fe85c167c6c02f1313" ? [] : ["AUTHORIZED_SOURCE_COMMIT_MISMATCH"]),
+    ...(contract.authorization?.previousRecertificationVersion === "decision-v13-production-recertification-v23" && contract.authorization?.previousRecertificationHash === "1a48164da2831ab112ddf46d1e1520e4970e5de2d29d47bdd096290bcd2bea5d" ? [] : ["PREVIOUS_RECERTIFICATION_IDENTITY_MISMATCH"]),
+    ...(contract.authorization?.baseCommit === "fbaca4422eba56cb337e4565b90b8612b732ef9a" ? [] : ["AUTHORIZED_BASE_COMMIT_MISMATCH"]),
+    ...(contract.authorization?.authorizedSourceCommit === "0e6930dfd3b8547bef4813a8f5fa8bfd18688472" ? [] : ["AUTHORIZED_SOURCE_COMMIT_MISMATCH"]),
     ...(contract.authorization?.authorizedSemanticSourceCommit === "e1043603cba0f6880d74a19d52701510dfc97d48" ? [] : ["AUTHORIZED_SEMANTIC_SOURCE_COMMIT_MISMATCH"]),
-    ...(contract.authorization?.changeClass === "EVENTS_V1_PRODUCTION_EVIDENCE_RECERTIFICATION" ? [] : ["AUTHORIZED_CHANGE_CLASS_MISMATCH"]),
+    ...(contract.authorization?.changeClass === "MOBILE_DESIGN_PHASE1_CANONICAL_RECOVERY" ? [] : ["AUTHORIZED_CHANGE_CLASS_MISMATCH"]),
     ...(contract.protectedSemanticSourceSet.hash === protectedSemanticSourceSetHash ? [] : ["PROTECTED_SEMANTIC_SOURCE_SET_MISMATCH"]),
     ...(contract.certificationEvidenceSet.hash === certificationEvidenceSetHash ? [] : ["CERTIFICATION_EVIDENCE_SET_MISMATCH"]),
     ...(engineSourceHash === contract.authorization?.authorizedEngineSourceHash ? [] : ["AUTHORIZED_ENGINE_SOURCE_MISMATCH"]),
@@ -188,7 +188,7 @@ export async function computeD21Identity() {
     frozen: semantic.d3Readiness === "READY",
     frozenAt: recertification.valid ? recertification.contract.authorization.approvedAt : "2026-08-12T19:00:00.000Z",
     supersedes: recertification.valid
-      ? { freezeManifestHash: "fe65d216392f166810202037418ba703ac7ac4cdc32bb6b696fbfee8113adddd", reason: "EVENTS_V1_PRODUCTION_EVIDENCE_RECERTIFICATION" }
+      ? { freezeManifestHash: "57d4927f77db97a4e9413309d7308c4f789134b3e5773574b1c191fcb98037d4", reason: "MOBILE_DESIGN_PHASE1_CANONICAL_RECOVERY" }
       : { constitutionVersion: "decision-quality-v1", reason: "D3-CONSTITUTION-ISSUE-001" },
     integrity
   };
