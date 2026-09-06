@@ -1,6 +1,6 @@
 {
   "version": "backyrd-production-product-lineage-v2",
-  "audited_at": "2026-09-06T10:45:51Z",
+  "audited_at": "2026-09-06T14:08:40Z",
   "repository": "PhiluLan/backyrd",
   "integration_anchor": {
     "commit": "c425ad1d61186e6d73ed2df1f9686780dcbf0e24",
@@ -51,10 +51,10 @@
       "created_at": "2026-09-05T16:48:28Z",
       "note": "Founder Operations Production deployment completed from canonical Main with actionable queue truth and verified AWS recovery state.",
       "canonical_source": {
-        "commit": "c528634dafdce069299233fe85c167c6c02f1313",
-        "tree": "1fc6b151515beda27ffb71ffe9bc508f8d1ee890",
+        "commit": "8bcb691c16d5f15bc6ec9598244c580fd55373dc",
+        "tree": "14e1bf73c06c4a20b89ed76ee1718344c6233a63",
         "production_verified": false,
-        "reason": "Founder-authorized Events V1 Admin candidate. Exact source tree is bound before merge; Vercel Production verification remains deliberately false until deployment."
+        "reason": "Founder-authorized Events V1 Admin navigation candidate. Exact Admin source tree is bound before merge; Production verification remains deliberately false until deployment."
       }
     },
     "database": {

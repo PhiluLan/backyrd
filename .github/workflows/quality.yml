@@ -139,6 +139,8 @@ jobs:
           cache: npm
           cache-dependency-path: admin-dashboard/package-lock.json
       - run: npm ci
+      - name: Admin navigation and Events access contracts
+        run: npm run test:contracts
       - name: Typecheck Admin
         run: npm exec tsc -- --noEmit --pretty false
       - name: Build Admin

@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:contracts": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "@backyrd/canonical-semantics": "file:../packages/canonical-semantics",
