@@ -51,3 +51,61 @@ test("Changed undeclared Edge source -> fail closed", () => { const f=fixture();
 test("Published migration mutation -> fail closed", () => { const f=fixture(); write(f.repo,"supabase/migrations/20260901000000_existing.sql","select 1;\n"); const withMigration=commit(f.repo,"migration"); write(f.repo,"supabase/migrations/20260901000000_existing.sql","select 2;\n"); const head=commit(f.repo,"mutate"); assert.throws(()=>buildProductionPlan({repo:f.repo,baseSha:withMigration,headSha:head}),/published_migration_is_not_immutable/); });
 test("Audited failed canonical migration -> recover exact unchanged scope once", () => { const f=fixture(); const migration="supabase/migrations/20260901191833_gate5_forward.sql"; const source="select 1;\n"; write(f.repo,migration,source); const failedMain=commit(f.repo,"failed canonical main"); const digest=execFileSync("sha256sum",[join(f.repo,migration)],{encoding:"utf8"}).split(/\s+/)[0]; write(f.repo,"supabase/production/pending-migration-recovery.json",`${JSON.stringify({version:"backyrd-pending-migration-recovery-v1",projectRef:"hjgcrrzfjchzqoegcywn",failedCanonicalMainSha:failedMain,failedDeploymentRunId:33552000155,failureStage:"BEFORE_MIGRATION_APPLY",migrations:[{path:migration,sha256:digest}]},null,2)}\n`); const head=commit(f.repo,"recovery"); const result=buildProductionPlan({repo:f.repo,baseSha:failedMain,headSha:head}); assert.deepEqual(result.migrations,[{path:migration,sha256:digest}]); assert.equal(result.migrationRecovery.failedCanonicalMainSha,failedMain); assert.equal(result.runtimeDeploymentRequired,true); });
 test("Migration recovery with a different base or bytes fails closed", () => { const f=fixture(); const migration="supabase/migrations/20260901191833_gate5_forward.sql"; write(f.repo,migration,"select 1;\n"); const failedMain=commit(f.repo,"failed canonical main"); const document={version:"backyrd-pending-migration-recovery-v1",projectRef:"hjgcrrzfjchzqoegcywn",failedCanonicalMainSha:"0".repeat(40),failedDeploymentRunId:33552000155,failureStage:"BEFORE_MIGRATION_APPLY",migrations:[{path:migration,sha256:"0".repeat(64)}]}; write(f.repo,"supabase/production/pending-migration-recovery.json",`${JSON.stringify(document,null,2)}\n`); const head=commit(f.repo,"invalid recovery"); assert.throws(()=>buildProductionPlan({repo:f.repo,baseSha:failedMain,headSha:head}),/migration_recovery_base_mismatch/); });
+
+const preappliedDocument = (base, migration, digest) => ({
+  version: "backyrd-preapplied-migration-import-v2",
+  projectRef: "hjgcrrzfjchzqoegcywn",
+  canonicalBaseSha: base,
+  remoteState: "REMOTE_UP_TO_DATE",
+  verifiedAt: "2026-09-06T08:09:34Z",
+  authorization: "Founder-authorized Events V1 evidence re-certification",
+  productionEvidence: {
+    migrationLedger: "STATEMENT_CONTENT_MATCH",
+    applicationSchemaEntryCount: 1,
+    applicationSchemaSha256: "1".repeat(64),
+    publicAclSha256: "2".repeat(64),
+    externalEventSourcesEnabled: false,
+  },
+  migrations: [{
+    path: migration,
+    sha256: digest,
+    productionStatementCount: 1,
+    productionStatementSha256: "3".repeat(64),
+  }],
+});
+
+test("Founder-authorized pre-applied migrations require exact bytes and Production evidence", () => {
+  const f=fixture();
+  const migration="supabase/migrations/20260905193445_events_v1.sql";
+  write(f.repo,migration,"select 1;\n");
+  const digest=execFileSync("sha256sum",[join(f.repo,migration)],{encoding:"utf8"}).split(/\s+/)[0];
+  write(f.repo,"supabase/canonical/application-schema-events-v1.sha256",`${"1".repeat(64)}\n`);
+  write(f.repo,"supabase/canonical/public-acl-events-v1.sha256",`${"2".repeat(64)}\n`);
+  write(f.repo,"supabase/production/preapplied-migration-import.json",`${JSON.stringify(preappliedDocument(f.base,migration,digest),null,2)}\n`);
+  const result=plan(f,commit(f.repo,"pre-applied import"));
+  assert.equal(result.migrations.length,1);
+  assert.deepEqual(result.pendingMigrations,[]);
+  assert.equal(result.preappliedMigrationImport.migrations[0].productionStatementSha256,"3".repeat(64));
+  assert.equal(result.runtimeDeploymentRequired,false);
+});
+
+test("Pre-applied migration import fails closed on base, bytes, schema, ACL or evidence mismatch", () => {
+  for (const mutation of [
+    (document) => { document.canonicalBaseSha="0".repeat(40); },
+    (document) => { document.migrations[0].sha256="0".repeat(64); },
+    (document) => { document.productionEvidence.applicationSchemaSha256="0".repeat(64); },
+    (document) => { document.productionEvidence.publicAclSha256="0".repeat(64); },
+    (document) => { document.productionEvidence.externalEventSourcesEnabled=true; },
+  ]) {
+    const f=fixture();
+    const migration="supabase/migrations/20260905193445_events_v1.sql";
+    write(f.repo,migration,"select 1;\n");
+    const digest=execFileSync("sha256sum",[join(f.repo,migration)],{encoding:"utf8"}).split(/\s+/)[0];
+    write(f.repo,"supabase/canonical/application-schema-events-v1.sha256",`${"1".repeat(64)}\n`);
+    write(f.repo,"supabase/canonical/public-acl-events-v1.sha256",`${"2".repeat(64)}\n`);
+    const document=preappliedDocument(f.base,migration,digest);
+    mutation(document);
+    write(f.repo,"supabase/production/preapplied-migration-import.json",`${JSON.stringify(document,null,2)}\n`);
+    assert.throws(()=>plan(f,commit(f.repo,"invalid pre-applied import")),/preapplied_migration_/);
+  }
+});

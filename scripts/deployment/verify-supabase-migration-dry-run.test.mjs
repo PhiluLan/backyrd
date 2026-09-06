@@ -25,6 +25,21 @@ test("the exact planned forward migration is accepted", () => {
   );
 });
 
+test("an exactly attested pre-applied plan requires Production to be up to date", () => {
+  const preappliedPlan = {
+    migrations: [{ path: `supabase/migrations/${migration}` }],
+    pendingMigrations: [],
+  };
+  assert.deepEqual(
+    verifyMigrationDryRun(preappliedPlan, "Remote database is up to date.\n"),
+    { result: "PASS", migrations: [] },
+  );
+  assert.throws(() => verifyMigrationDryRun(
+    preappliedPlan,
+    `Would push these migrations:\n • ${migration}\n`,
+  ));
+});
+
 test("missing, extra, duplicate, malformed and contradictory scopes fail closed", () => {
   const pending = (lines) => `Would push these migrations:\n${lines.join("\n")}\n`;
   assert.throws(() => verifyMigrationDryRun(plan([migration]), pending([])));

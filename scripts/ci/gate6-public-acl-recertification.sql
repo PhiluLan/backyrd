@@ -29,6 +29,7 @@ select
 \endif
 
 begin;
+\ir events-v1-later-public-acl-reconstruction.sql
 revoke execute on function public.create_social_comment_v2(uuid,text,uuid) from authenticated,service_role;
 revoke execute on function public.create_social_post_v2(uuid,text,text,text[],text[],jsonb,uuid) from authenticated,service_role;
 revoke execute on function public.send_message_v2(uuid,text,text,uuid) from authenticated,service_role;

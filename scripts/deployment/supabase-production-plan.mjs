@@ -137,6 +137,42 @@ const productionMigrationRecovery = (tree, baseSha) => {
   };
 };
 
+const productionPreappliedMigrationImport = (tree, baseSha) => {
+  const path = "supabase/production/preapplied-migration-import.json";
+  if (!tree.files.has(path)) return null;
+  const document = JSON.parse(tree.text(path));
+  if (document.version !== "backyrd-preapplied-migration-import-v2") throw new Error("unsupported_preapplied_migration_import_version");
+  if (document.projectRef !== "hjgcrrzfjchzqoegcywn") throw new Error("preapplied_migration_project_mismatch");
+  if (document.canonicalBaseSha !== baseSha) throw new Error("preapplied_migration_base_mismatch");
+  if (document.remoteState !== "REMOTE_UP_TO_DATE") throw new Error("preapplied_migration_remote_state_invalid");
+  if (document.authorization !== "Founder-authorized Events V1 evidence re-certification") throw new Error("preapplied_migration_authorization_invalid");
+  if (typeof document.verifiedAt !== "string" || !/^2026-09-06T\d{2}:\d{2}:\d{2}Z$/.test(document.verifiedAt)) throw new Error("preapplied_migration_verified_at_invalid");
+  const evidence = document.productionEvidence;
+  if (!evidence || evidence.migrationLedger !== "STATEMENT_CONTENT_MATCH" || evidence.externalEventSourcesEnabled !== false) throw new Error("preapplied_migration_production_evidence_invalid");
+  if (!Number.isInteger(evidence.applicationSchemaEntryCount) || evidence.applicationSchemaEntryCount <= 0) throw new Error("preapplied_migration_schema_count_invalid");
+  for (const key of ["applicationSchemaSha256", "publicAclSha256"]) {
+    if (typeof evidence[key] !== "string" || !/^[0-9a-f]{64}$/.test(evidence[key])) throw new Error(`preapplied_migration_${key}_invalid`);
+  }
+  if (tree.text("supabase/canonical/application-schema-events-v1.sha256").trim() !== evidence.applicationSchemaSha256) throw new Error("preapplied_migration_schema_contract_mismatch");
+  if (tree.text("supabase/canonical/public-acl-events-v1.sha256").trim() !== evidence.publicAclSha256) throw new Error("preapplied_migration_acl_contract_mismatch");
+  if (!Array.isArray(document.migrations) || document.migrations.length === 0) throw new Error("preapplied_migration_scope_required");
+  const migrations = document.migrations.map((entry) => {
+    if (!entry || typeof entry.path !== "string" || !/^supabase\/migrations\/\d{14}_[a-z0-9_]+\.sql$/.test(entry.path)) throw new Error("preapplied_migration_path_invalid");
+    if (typeof entry.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(entry.sha256)) throw new Error("preapplied_migration_hash_invalid");
+    if (!Number.isInteger(entry.productionStatementCount) || entry.productionStatementCount <= 0) throw new Error("preapplied_migration_statement_count_invalid");
+    if (typeof entry.productionStatementSha256 !== "string" || !/^[0-9a-f]{64}$/.test(entry.productionStatementSha256)) throw new Error("preapplied_migration_statement_hash_invalid");
+    if (!tree.files.has(entry.path) || sha256(tree.read(entry.path)) !== entry.sha256) throw new Error(`preapplied_migration_bytes_mismatch:${entry.path}`);
+    return {
+      path: entry.path,
+      sha256: entry.sha256,
+      productionStatementCount: entry.productionStatementCount,
+      productionStatementSha256: entry.productionStatementSha256,
+    };
+  });
+  if (new Set(migrations.map((entry) => entry.path)).size !== migrations.length) throw new Error("preapplied_migration_duplicate_path");
+  return { path, evidence, migrations };
+};
+
 const sourceExtensions = ["", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".wasm"];
 const resolveLocalImport = (tree, importer, specifier) => {
   if (specifier.startsWith("/")) throw new Error(`absolute_local_import_forbidden:${importer}:${specifier}`);
@@ -226,9 +262,14 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   const beforeAuthConfig = productionAuthConfig(base);
   const afterAuthConfig = productionAuthConfig(head);
   const recoveryPath = "supabase/production/pending-migration-recovery.json";
+  const preappliedImportPath = "supabase/production/preapplied-migration-import.json";
   const recoveryChanged = changedPaths.has(recoveryPath);
+  const preappliedImportChanged = changedPaths.has(preappliedImportPath);
   const migrationRecovery = recoveryChanged ? productionMigrationRecovery(head, baseSha) : null;
+  const preappliedMigrationImport = preappliedImportChanged ? productionPreappliedMigrationImport(head, baseSha) : null;
   if (recoveryChanged && changes.find((entry) => entry.paths.includes(recoveryPath))?.status !== "A") throw new Error("migration_recovery_must_be_additive");
+  if (preappliedImportChanged && changes.find((entry) => entry.paths.includes(preappliedImportPath))?.status !== "A") throw new Error("preapplied_migration_import_must_be_additive");
+  if (migrationRecovery && preappliedMigrationImport) throw new Error("migration_recovery_modes_conflict");
   if (beforeAuthConfig && !afterAuthConfig) throw new Error("production_auth_config_removal_forbidden");
   const authConfig = afterAuthConfig
     ? {
@@ -270,7 +311,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   }
   for (const path of changedPaths) {
     if (!path?.startsWith("supabase/production/")) continue;
-    if (!["supabase/production/auth-config.json", recoveryPath].includes(path)) throw new Error(`unknown_production_config_scope:${path}`);
+    if (!["supabase/production/auth-config.json", recoveryPath, preappliedImportPath].includes(path)) throw new Error(`unknown_production_config_scope:${path}`);
   }
 
   const migrations = [];
@@ -286,6 +327,14 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     if (!migrations.some((entry) => entry.path === migration.path)) migrations.push(migration);
   }
   migrations.sort((left, right) => left.path.localeCompare(right.path));
+  const preappliedMigrations = preappliedMigrationImport?.migrations ?? [];
+  if (preappliedMigrationImport) {
+    const planned = migrations.map((entry) => `${entry.path}:${entry.sha256}`).sort();
+    const attested = preappliedMigrations.map((entry) => `${entry.path}:${entry.sha256}`).sort();
+    if (JSON.stringify(planned) !== JSON.stringify(attested)) throw new Error("preapplied_migration_scope_mismatch");
+  }
+  const preappliedPaths = new Set(preappliedMigrations.map((entry) => entry.path));
+  const pendingMigrations = migrations.filter((entry) => !preappliedPaths.has(entry.path));
   const deployFunctions = functions.filter((item) => item.deploy).map((item) => item.slug);
   const plan = {
     version: "backyrd-supabase-production-deployment-plan-v1",
@@ -296,12 +345,19 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     functions,
     deployFunctions,
     migrations,
+    pendingMigrations,
+    preappliedMigrationImport: preappliedMigrationImport ? {
+      path: preappliedMigrationImport.path,
+      canonicalBaseSha: baseSha,
+      productionEvidence: preappliedMigrationImport.evidence,
+      migrations: preappliedMigrations,
+    } : null,
     migrationRecovery: migrationRecovery ? {
       failedCanonicalMainSha: migrationRecovery.failedCanonicalMainSha,
       failedDeploymentRunId: migrationRecovery.failedDeploymentRunId,
     } : null,
     authConfig,
-    runtimeDeploymentRequired: deployFunctions.length > 0 || migrations.length > 0 || authConfig?.deploy === true,
+    runtimeDeploymentRequired: deployFunctions.length > 0 || pendingMigrations.length > 0 || authConfig?.deploy === true,
   };
   return { ...plan, planHash: sha256(stable(plan)) };
 };
