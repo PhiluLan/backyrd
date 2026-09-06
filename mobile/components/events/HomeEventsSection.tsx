@@ -2,7 +2,18 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 
 import type { EventDiscoveryDTO } from "../../../packages/shared/src/dto/event";
 import { eventImageUrl, loadEvents } from "../../lib/events-v1";
@@ -20,24 +31,68 @@ function when(startAt: string): string {
   }).format(new Date(startAt));
 }
 
+function EventCard({ event, style }: { event: EventDiscoveryDTO; style?: StyleProp<ViewStyle> }) {
+  const router = useRouter();
+  const image = eventImageUrl(event.image_storage_path);
+
+  return (
+    <Pressable
+      accessibilityLabel={`${event.title}, ${when(event.start_at)}`}
+      accessibilityRole="button"
+      onPress={() =>
+        router.push({
+          pathname: "/events/[id]",
+          params: { id: event.event_id, occurrenceId: event.occurrence_id },
+        })
+      }
+      style={({ pressed }) => [styles.card, style, pressed && styles.pressed]}
+    >
+      <View style={styles.imageWrap}>
+        {image ? <Image resizeMode="cover" source={{ uri: image }} style={StyleSheet.absoluteFillObject} /> : null}
+        <LinearGradient
+          colors={["transparent", "rgba(5,5,6,.88)"]}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <View style={styles.imageCopy}>
+          <Text style={styles.kicker}>{when(event.start_at).toUpperCase()}</Text>
+          <Text numberOfLines={2} style={styles.title}>{event.title.toUpperCase()}</Text>
+        </View>
+      </View>
+      <View style={styles.meta}>
+        <View style={styles.metaLine}>
+          <Ionicons color={theme.color.textSecondary} name="location-outline" size={16} />
+          <Text numberOfLines={1} style={styles.metaText}>{event.venue_name ?? "Ort noch nicht bestätigt"}</Text>
+        </View>
+        <View style={styles.freeBadge}>
+          <Text style={styles.freeText}>{event.is_free ? "GRATIS" : "EVENT"}</Text>
+        </View>
+        <Ionicons color={theme.color.textPrimary} name="arrow-forward" size={20} />
+      </View>
+    </Pressable>
+  );
+}
+
 export function HomeEventsSection() {
   const router = useRouter();
-  const [event, setEvent] = useState<EventDiscoveryDTO | null>(null);
+  const { width } = useWindowDimensions();
+  const [events, setEvents] = useState<EventDiscoveryDTO[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
 
   const load = useCallback(async () => {
     setState("loading");
     try {
       const rows = await loadEvents({ filter: "all" });
-      setEvent(
-        rows.find(
-          (row) =>
-            row.event_status !== "CANCELLED" && row.occurrence_status !== "CANCELLED",
-        ) ?? null,
+      setEvents(
+        rows
+          .filter(
+            (row) =>
+              row.event_status !== "CANCELLED" && row.occurrence_status !== "CANCELLED",
+          )
+          .slice(0, 8),
       );
       setState("ready");
     } catch {
-      setEvent(null);
+      setEvents([]);
       setState("error");
     }
   }, []);
@@ -46,12 +101,12 @@ export function HomeEventsSection() {
     void load();
   }, [load]);
 
-  const image = event ? eventImageUrl(event.image_storage_path) : null;
+  const carouselCardWidth = Math.min(Math.max(width - theme.spacing.xxl - 52, 240), 520);
 
   return (
     <View style={styles.section}>
       <EditorialSectionHeader
-        actionLabel="Alle"
+        actionLabel="Alle ansehen"
         index="01"
         onAction={() => router.push("/events" as never)}
         title="Was läuft?"
@@ -69,45 +124,28 @@ export function HomeEventsSection() {
             <Text style={styles.stateText}>Tippe, um es nochmals zu versuchen.</Text>
           </View>
         </Pressable>
-      ) : !event ? (
+      ) : events.length === 0 ? (
         <View style={styles.state}>
           <Ionicons color={theme.color.textSecondary} name="calendar-outline" size={24} />
           <Text style={styles.stateText}>Aktuell sind noch keine Events bestätigt.</Text>
         </View>
+      ) : events.length === 1 ? (
+        <EventCard event={events[0]} style={styles.singleCard} />
       ) : (
-        <Pressable
-          accessibilityLabel={`${event.title}, ${when(event.start_at)}`}
-          accessibilityRole="button"
-          onPress={() =>
-            router.push({
-              pathname: "/events/[id]",
-              params: { id: event.event_id, occurrenceId: event.occurrence_id },
-            })
-          }
-          style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+        <ScrollView
+          accessibilityLabel="Kommende Events"
+          contentContainerStyle={styles.carouselContent}
+          horizontal
+          showsHorizontalScrollIndicator={false}
         >
-          <View style={styles.imageWrap}>
-            {image ? <Image resizeMode="cover" source={{ uri: image }} style={StyleSheet.absoluteFillObject} /> : null}
-            <LinearGradient
-              colors={["transparent", "rgba(5,5,6,.88)"]}
-              style={StyleSheet.absoluteFillObject}
+          {events.map((event) => (
+            <EventCard
+              event={event}
+              key={event.occurrence_id}
+              style={{ width: carouselCardWidth }}
             />
-            <View style={styles.imageCopy}>
-              <Text style={styles.kicker}>{when(event.start_at).toUpperCase()}</Text>
-              <Text numberOfLines={2} style={styles.title}>{event.title.toUpperCase()}</Text>
-            </View>
-          </View>
-          <View style={styles.meta}>
-            <View style={styles.metaLine}>
-              <Ionicons color={theme.color.textSecondary} name="location-outline" size={16} />
-              <Text numberOfLines={1} style={styles.metaText}>{event.venue_name ?? "Ort noch nicht bestätigt"}</Text>
-            </View>
-            <View style={styles.freeBadge}>
-              <Text style={styles.freeText}>{event.is_free ? "GRATIS" : "EVENT"}</Text>
-            </View>
-            <Ionicons color={theme.color.textPrimary} name="arrow-forward" size={20} />
-          </View>
-        </Pressable>
+          ))}
+        </ScrollView>
       )}
     </View>
   );
@@ -132,13 +170,18 @@ const styles = StyleSheet.create({
   stateTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyMedium, fontSize: 15 },
   stateText: { color: theme.color.textSecondary, fontFamily: theme.type.body, fontSize: 13, lineHeight: 19 },
   card: {
-    marginHorizontal: theme.spacing.xxl,
     marginTop: theme.spacing.sm,
     overflow: "hidden",
     borderRadius: theme.radius.lg,
     borderWidth: 1,
     borderColor: theme.color.borderStrong,
     backgroundColor: theme.color.surface,
+  },
+  singleCard: { marginHorizontal: theme.spacing.xxl },
+  carouselContent: {
+    paddingHorizontal: theme.spacing.xxl,
+    paddingBottom: 2,
+    gap: theme.spacing.sm,
   },
   pressed: { opacity: 0.9, transform: [{ scale: theme.motion.pressScale }] },
   imageWrap: { height: 250, justifyContent: "flex-end", backgroundColor: theme.color.surfaceElevated },
