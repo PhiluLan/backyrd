@@ -22,7 +22,7 @@
       "ios_update": "01a07263-06bd-7340-a72e-ee70a4e77ca1",
       "created_at": "2026-09-05T16:23:00Z",
       "canonical_source": {
-        "commit": "1323b0a1fc9b8f737d82fc16790f7c01c78c2413",
+        "commit": "793ed1dab7a27701434bb036f268c5a3d9b24485",
         "tree": "a6f417bc8c2664627a16af3dae6e363968ae8564",
         "production_verified": false,
         "reason": "Founder-authorized bounded Mobile startup/Home UX polish candidate. Exact Mobile source tree is bound before merge; Production verification remains false until canonical-main OTA deployment and physical Founder validation."
