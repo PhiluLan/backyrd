@@ -553,8 +553,7 @@
       "authorized_surface_changes": [
         "mobile/app/splash.tsx",
         "mobile/app/gate.tsx",
-        "mobile/app/(tabs)/index.tsx",
-        "docs/operations/PRODUCTION_PRODUCT_LINEAGE.json"
+        "mobile/app/(tabs)/index.tsx"
       ],
       "evidence": "docs/operations/PRODUCTION_PRODUCT_LINEAGE.json"
     }
