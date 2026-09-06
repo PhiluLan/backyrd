@@ -1,6 +1,6 @@
 {
   "version": "backyrd-production-product-lineage-v2",
-  "audited_at": "2026-09-06T10:33:45Z",
+  "audited_at": "2026-09-06T10:45:51Z",
   "repository": "PhiluLan/backyrd",
   "integration_anchor": {
     "commit": "c425ad1d61186e6d73ed2df1f9686780dcbf0e24",
@@ -22,10 +22,10 @@
       "ios_update": "01a07263-06bd-7340-a72e-ee70a4e77ca1",
       "created_at": "2026-09-05T16:23:00Z",
       "canonical_source": {
-        "commit": "fc002f8a4d7e71b231504d1238e7c24744847bbb",
-        "tree": "010d789a68dc6b0d1202e04adc2d420976eb2f64",
+        "commit": "95ba3174787a4f40d6d81dcf107a34eab292a383",
+        "tree": "633e3ea533ef30c11e509a3663909cc54e7bb636",
         "production_verified": false,
-        "reason": "Founder-authorized Events V1 Consumer Product Polish on the canonical Product line. Exact Mobile source tree is bound before merge; Production OTA verification remains deliberately false until deployment."
+        "reason": "Necessary Metro packaging correction for the Founder-authorized Events V1 Consumer Product Polish. Exact Mobile source tree is bound before merge; Production OTA verification remains deliberately false until deployment."
       }
     },
     "consumer_web": {
@@ -520,6 +520,16 @@
         "web/tests/consumer-contracts.test.mjs"
       ],
       "evidence": "docs/decision/D2_D3_EVENTS_V1_CONSUMER_POLISH_RECERTIFICATION_V25_2026_09_06.md"
+    },
+    {
+      "id": "events_v1_consumer_polish_metro_packaging_v1",
+      "baseline_commit": "3454f012c9c1d70b71dafda5e0b2cd31c8d9b234",
+      "source_commit": "95ba3174787a4f40d6d81dcf107a34eab292a383",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/metro.config.js"
+      ],
+      "evidence": "docs/decision/D2_D3_EVENTS_V1_METRO_PACKAGING_RECERTIFICATION_V26_2026_09_06.md"
     }
   ],
   "required_ancestry": [
@@ -532,7 +542,8 @@
     "a6cd7949baddd6635d3430ec6b49f2ae8ae3e6f3",
     "832933a78e19be74404be0d1c35c467b23b94852",
     "c528634dafdce069299233fe85c167c6c02f1313",
-    "fc002f8a4d7e71b231504d1238e7c24744847bbb"
+    "fc002f8a4d7e71b231504d1238e7c24744847bbb",
+    "95ba3174787a4f40d6d81dcf107a34eab292a383"
   ],
   "excluded_unshipped_heads": [
     {
