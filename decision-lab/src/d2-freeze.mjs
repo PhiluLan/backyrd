@@ -83,7 +83,7 @@ export async function validateEngineRecertification(contractOverride = null) {
     ...(contract.authorization?.previousEngineSourceHash === "cad2c4ea94817d2facbd54db92f55f3286acecf4d1e8a71dda414431b76cf000" ? [] : ["PREVIOUS_BASELINE_IDENTITY_MISMATCH"]),
     ...(contract.authorization?.previousRecertificationVersion === "decision-v13-production-recertification-v22" && contract.authorization?.previousRecertificationHash === "5f0d7bac4884b0df712a8071e374fe86c899ad9c52b6d0fb9621a53bfac22710" ? [] : ["PREVIOUS_RECERTIFICATION_IDENTITY_MISMATCH"]),
     ...(contract.authorization?.baseCommit === "b59d7bcbf57b1b282c65583a18583706ecf6a6ef" ? [] : ["AUTHORIZED_BASE_COMMIT_MISMATCH"]),
-    ...(contract.authorization?.authorizedSourceCommit === "c5286345c6962a780886d2afe186618897fd0d21" ? [] : ["AUTHORIZED_SOURCE_COMMIT_MISMATCH"]),
+    ...(contract.authorization?.authorizedSourceCommit === "c528634dafdce069299233fe85c167c6c02f1313" ? [] : ["AUTHORIZED_SOURCE_COMMIT_MISMATCH"]),
     ...(contract.authorization?.authorizedSemanticSourceCommit === "e1043603cba0f6880d74a19d52701510dfc97d48" ? [] : ["AUTHORIZED_SEMANTIC_SOURCE_COMMIT_MISMATCH"]),
     ...(contract.authorization?.changeClass === "EVENTS_V1_PRODUCTION_EVIDENCE_RECERTIFICATION" ? [] : ["AUTHORIZED_CHANGE_CLASS_MISMATCH"]),
     ...(contract.protectedSemanticSourceSet.hash === protectedSemanticSourceSetHash ? [] : ["PROTECTED_SEMANTIC_SOURCE_SET_MISMATCH"]),

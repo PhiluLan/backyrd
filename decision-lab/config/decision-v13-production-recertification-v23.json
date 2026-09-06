@@ -3,7 +3,7 @@
   "status": "AUTHORIZED",
   "authorization": {
     "baseCommit": "b59d7bcbf57b1b282c65583a18583706ecf6a6ef",
-    "authorizedSourceCommit": "c5286345c6962a780886d2afe186618897fd0d21",
+    "authorizedSourceCommit": "c528634dafdce069299233fe85c167c6c02f1313",
     "authorizedSemanticSourceCommit": "e1043603cba0f6880d74a19d52701510dfc97d48",
     "previousEngineSourceHash": "cad2c4ea94817d2facbd54db92f55f3286acecf4d1e8a71dda414431b76cf000",
     "previousRecertificationVersion": "decision-v13-production-recertification-v22",
@@ -217,7 +217,7 @@
       "web/lib/consumer-api.ts",
       "web/tests/consumer-contracts.test.mjs"
     ],
-    "hash": "2177fbb94502ebf6c22e5a5fd50a11782febc4f0b7552dda38f5bbe88313a7db"
+    "hash": "a95a109fd361014bc4be2dc4824c938084d3955044ec4fceffaacbb7a0697f48"
   },
   "invariants": {
     "hardEligibilityBeforeRanking": "PASS",
