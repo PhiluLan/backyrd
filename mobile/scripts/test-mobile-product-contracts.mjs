@@ -10,6 +10,8 @@ const config = read("app.config.ts");
 const spotImages = read("lib/spot-images.ts");
 const spotArtwork = read("components/spot/SpotArtwork.tsx");
 const spotDetail = read("app/spot/[id].tsx");
+const homeEvents = read("components/events/HomeEventsSection.tsx");
+const eventDiscovery = read("lib/events-v1.ts");
 
 assert.match(decision, /DecisionCardAction = "next" \| "like" \| "dislike"/);
 assert.match(decision, /if \(action !== "next" &&/, "neutral Next must bypass feedback");
@@ -40,5 +42,11 @@ assert.match(config, /BACKYRD_RELEASE_BUILD/);
 assert.match(spotDetail, /openingStateNow/, "Spot Detail must distinguish unknown opening hours");
 assert.match(spotDetail, /Öffnungszeiten unbekannt/, "missing hours must not be presented as closed");
 assert.match(spotDetail, /Backyrd zeigt keinen Öffnungsstatus/, "hours uncertainty must be explicit");
+assert.match(homeEvents, /<ScrollView[\s\S]*horizontal/, "multiple Home events must be horizontally scrollable");
+assert.match(homeEvents, /events\.length === 1[\s\S]*styles\.singleCard/, "one Home event must retain the full-width card fallback");
+assert.match(homeEvents, /events\.length === 0[\s\S]*Aktuell sind noch keine Events bestätigt/, "zero Home events must retain the empty state");
+assert.match(homeEvents, /\.slice\(0, 8\)/, "the chronological discovery result must expose several upcoming events");
+assert.doesNotMatch(homeEvents, /snapTo|pagingEnabled|autoplay|setInterval/, "the Home carousel must remain manually scrollable without forced paging");
+assert.match(eventDiscovery, /\.order\("start_at", \{ ascending: true \}\)/, "Home events must remain chronologically ordered");
 
 console.log("Mobile Product contracts passed.");
