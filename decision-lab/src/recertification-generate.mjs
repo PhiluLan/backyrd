@@ -46,7 +46,7 @@ const parentIdentities = (root, sha) => {
   };
 };
 const classifyScope = (path, protectedPaths) => {
-  if (protectedPaths.includes(path) || /^(packages\/(canonical-semantics|decision-input-runtime|decision-orchestrator-runtime|n6-shadow-runtime)\/src\/|supabase\/functions\/decision-v13\/)/.test(path)) return "decision-source";
+  if (protectedPaths.includes(path) || /^(packages\/(canonical-semantics|decision-input-runtime|decision-orchestrator-runtime|n6-shadow-runtime)\/src\/|supabase\/functions\/decision-v13\/|decision-lab\/config\/(?:decision-quality-v1\.1(?:\.freeze)?|personalization-treatment-v1(?:\.freeze)?|d3\.1-diagnostic-coverage-v1)\.json$)/.test(path)) return "decision-source";
   if (/^(supabase\/(?:migrations|production|functions)\/|mobile\/.*auth|web\/.*auth|admin-dashboard\/.*(?:auth|security)|legal\/)/.test(path)) return "db-auth-security";
   if (/^(mobile\/|web\/|admin-dashboard\/)/.test(path)) return "presentation";
   if (/^(decision-lab\/(?:config|test)\/|docs\/(?:decision|operations|readiness)\/|scripts\/(?:ci|decision)\/)/.test(path)) return "evidence-only";

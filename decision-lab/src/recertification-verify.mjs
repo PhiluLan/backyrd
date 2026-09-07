@@ -6,13 +6,13 @@ import { contentHash } from "./canonical-json.mjs";
 
 export const VERIFIER_VERSION = "backyrd-recertification-verifier-v1";
 const ALLOWED_SCOPES = new Set(["evidence-only", "presentation"]);
-const FORBIDDEN_SCOPE = /^(supabase\/migrations\/|supabase\/production\/|supabase\/functions\/|packages\/(canonical-semantics|decision-input-runtime|decision-orchestrator-runtime|n6-shadow-runtime)\/src\/|mobile\/.*auth|web\/.*auth|admin-dashboard\/.*(?:auth|security)|legal\/)/;
+const FORBIDDEN_SCOPE = /^(supabase\/migrations\/|supabase\/production\/|supabase\/functions\/|packages\/(canonical-semantics|decision-input-runtime|decision-orchestrator-runtime|n6-shadow-runtime)\/src\/|decision-lab\/config\/(?:decision-quality-v1\.1(?:\.freeze)?|personalization-treatment-v1(?:\.freeze)?|d3\.1-diagnostic-coverage-v1)\.json$|mobile\/.*auth|web\/.*auth|admin-dashboard\/.*(?:auth|security)|legal\/)/;
 const EVIDENCE_SCOPE = /^(decision-lab\/(?:config|test)\/|docs\/(?:decision|operations|readiness)\/|scripts\/(?:ci|decision)\/)/;
 const PRESENTATION_SCOPE = /^(mobile\/|web\/|admin-dashboard\/)/;
 const SAFE_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9._@()+\-\/[\] ]+$/;
 const PRODUCTION_KEYS = ["supabaseProjectRef", "functionSlug", "activeVersion", "verifyJwt", "bundleHash", "entrypointPath", "entrypointSha256", "sourceIdentity", "deploymentSourceSetHash", "deploymentConfigHash", "eszipBodySha256", "eszipEvidenceHash", "deploymentControlMainSha"];
-const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024 }).trim();
-const blob = (root, sha, path) => execFileSync("git", ["show", `${sha}:${path}`], { cwd: root, maxBuffer: 50 * 1024 * 1024 });
+const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] }).trim();
+const blob = (root, sha, path) => execFileSync("git", ["show", `${sha}:${path}`], { cwd: root, maxBuffer: 50 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] });
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const hashTreeFiles = (root, sha, paths) => { const hash = createHash("sha256"); for (const path of [...paths].sort()) hash.update(blob(root, sha, path)); return hash.digest("hex"); };
 const jsonAt = (root, sha, path) => JSON.parse(blob(root, sha, path).toString("utf8"));
@@ -24,7 +24,7 @@ const parentIdentities = (root, sha) => {
 };
 const same = (a, b) => contentHash(a) === contentHash(b);
 const classifyScope = (path, protectedPaths) => {
-  if (protectedPaths.includes(path) || /^(packages\/(canonical-semantics|decision-input-runtime|decision-orchestrator-runtime|n6-shadow-runtime)\/src\/|supabase\/functions\/decision-v13\/)/.test(path)) return "decision-source";
+  if (protectedPaths.includes(path) || /^(packages\/(canonical-semantics|decision-input-runtime|decision-orchestrator-runtime|n6-shadow-runtime)\/src\/|supabase\/functions\/decision-v13\/|decision-lab\/config\/(?:decision-quality-v1\.1(?:\.freeze)?|personalization-treatment-v1(?:\.freeze)?|d3\.1-diagnostic-coverage-v1)\.json$)/.test(path)) return "decision-source";
   if (FORBIDDEN_SCOPE.test(path)) return "db-auth-security";
   if (PRESENTATION_SCOPE.test(path)) return "presentation";
   if (EVIDENCE_SCOPE.test(path)) return "evidence-only";

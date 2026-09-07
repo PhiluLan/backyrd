@@ -40,6 +40,8 @@ export async function applyCandidateEvidence({ root, artifact, receipt, trustedB
     generationToolVersion: artifact.generationToolVersion,
     verifierVersion: receipt.verifierVersion,
     applierVersion: APPLIER_VERSION,
+    candidateArtifact: artifact,
+    verificationReceipt: receipt,
     decisionSemanticsRecertified: false,
     productionMutation: "NONE"
   };
