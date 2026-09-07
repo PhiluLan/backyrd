@@ -12,11 +12,11 @@ const PRESENTATION_SCOPE = /^(mobile\/|web\/|admin-dashboard\/)/;
 const SAFE_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9._@()+\-\/[\] ]+$/;
 const PRODUCTION_KEYS = ["supabaseProjectRef", "functionSlug", "activeVersion", "verifyJwt", "bundleHash", "entrypointPath", "entrypointSha256", "sourceIdentity", "deploymentSourceSetHash", "deploymentConfigHash", "eszipBodySha256", "eszipEvidenceHash", "deploymentControlMainSha"];
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] }).trim();
-const blob = (root, sha, path) => execFileSync("git", ["show", `${sha}:${path}`], { cwd: root, maxBuffer: 50 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] });
-const sha256 = (value) => createHash("sha256").update(value).digest("hex");
-const hashTreeFiles = (root, sha, paths) => { const hash = createHash("sha256"); for (const path of [...paths].sort()) hash.update(blob(root, sha, path)); return hash.digest("hex"); };
+export const blob = (root, sha, path) => execFileSync("git", ["show", `${sha}:${path}`], { cwd: root, maxBuffer: 50 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] });
+export const sha256 = (value) => createHash("sha256").update(value).digest("hex");
+export const hashTreeFiles = (root, sha, paths) => { const hash = createHash("sha256"); for (const path of [...paths].sort()) hash.update(blob(root, sha, path)); return hash.digest("hex"); };
 const jsonAt = (root, sha, path) => JSON.parse(blob(root, sha, path).toString("utf8"));
-const parentIdentities = (root, sha) => {
+export const parentIdentities = (root, sha) => {
   const d2 = jsonAt(root, sha, "decision-lab/config/decision-quality-v1.1.freeze.json");
   const d22 = jsonAt(root, sha, "decision-lab/config/personalization-treatment-v1.freeze.json");
   const d3 = jsonAt(root, sha, "decision-lab/config/d3.1-diagnostic-coverage-v1.json");

@@ -2,9 +2,9 @@ import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { contentHash } from "./canonical-json.mjs";
-import { verifyCandidateEvidence } from "./recertification-verify.mjs";
+import { blob, hashTreeFiles, parentIdentities, sha256, verifyCandidateEvidence } from "./recertification-verify.mjs";
 
-export const CONSUMER_VERSION = "backyrd-recertification-consumer-v1.1";
+export const CONSUMER_VERSION = "backyrd-recertification-consumer-v1.2";
 const ANCHOR_VERSION = "decision-v13-production-recertification-v44";
 const FREEZE_PATH = "decision-lab/config/additive-recertification-v1.freeze.json";
 const LINEAGE_PATH = "docs/operations/DECISION_RECERTIFICATION_LINEAGE_V1.json";
@@ -15,6 +15,11 @@ const readJson = async (root, ref, path) => ref
   : JSON.parse(await readFile(resolve(root, path), "utf8"));
 const maybeJson = async (root, ref, path) => { try { return await readJson(root, ref, path); } catch { return null; } };
 const same = (left, right) => contentHash(left) === contentHash(right);
+const isAncestor = (root, ancestor, descendant) => {
+  try { return git(root, ["merge-base", "--is-ancestor", ancestor, descendant]) === ""; }
+  catch { return false; }
+};
+const isCanonicalMainCommit = (root, sha) => git(root, ["rev-list", "--first-parent", "refs/remotes/origin/main"]).split("\n").includes(sha);
 const versionNumber = (version) => Number(version?.match(/^decision-v13-production-recertification-v(\d+)$/)?.[1]);
 const recordProjection = (artifact, receipt) => ({
   parent: artifact.parent,
@@ -59,7 +64,7 @@ async function validateState({ root, ref, trustedBaseSha, seen }) {
   if (contentHash(body) !== record.recertificationHash || record.recertificationHash !== freeze.currentRecertificationHash) reasons.push("APPLIED_RECERTIFICATION_HASH_MISMATCH");
   if (freeze.currentVersion !== record.version || freeze.parentDecisionRecertificationVersion !== record.parent?.version || !same(freeze.d2D3Parents, record.d2D3Parents)) reasons.push("ACTIVE_FREEZE_MISMATCH");
   if (artifact && receipt) {
-    const verification = await verifyCandidateEvidence({ root, artifact, trustedBaseSha: trustedBaseSha ?? record.baseMainSha });
+    const verification = await verifyCandidateEvidence({ root, artifact, trustedBaseSha: record.baseMainSha });
     if (!verification.valid || !same(verification, receipt)) reasons.push("VERIFICATION_RECEIPT_INVALID");
     const projection = recordProjection(artifact, receipt);
     if (Object.entries(projection).some(([key, value]) => !same(record[key], value))) reasons.push("APPLIED_RECERTIFICATION_CONTENT_MISMATCH");
@@ -78,7 +83,28 @@ async function validateState({ root, ref, trustedBaseSha, seen }) {
   if (!lineage || lineage.schemaVersion !== "backyrd-decision-recertification-lineage-v1" || !same(lineage.entries, expectedChain)) reasons.push("LINEAGE_CHAIN_INVALID");
   const versions = lineage?.entries?.map((entry) => entry.version) ?? [];
   if (new Set(versions).size !== versions.length) reasons.push("FORK_CHAIN_DETECTED");
-  if (trustedBaseSha && git(root, ["rev-parse", `${trustedBaseSha}^{commit}`]) !== record.baseMainSha) reasons.push("NON_CANONICAL_BASE");
+  if (trustedBaseSha) {
+    try {
+      const canonicalBase = git(root, ["rev-parse", `${trustedBaseSha}^{commit}`]);
+      const historicalBase = git(root, ["rev-parse", `${record.baseMainSha}^{commit}`]);
+      const candidate = git(root, ["rev-parse", `${record.candidateSha}^{commit}`]);
+      if (!isCanonicalMainCommit(root, canonicalBase)) reasons.push("NON_CANONICAL_BASE");
+      if (!isAncestor(root, historicalBase, canonicalBase)) reasons.push("HISTORICAL_BASE_NOT_ANCESTOR");
+      if (!isAncestor(root, candidate, canonicalBase)) reasons.push("CANDIDATE_NOT_CANONICALLY_INTEGRATED");
+      const currentParent = await maybeJson(root, canonicalBase, record.parent?.path);
+      if (!currentParent || contentHash(currentParent) !== record.parent?.manifestHash) reasons.push("CURRENT_PARENT_MANIFEST_DRIFT");
+      const currentProduction = currentParent?.production?.identity ?? currentParent?.production;
+      const expectedProduction = record.production?.identity;
+      const currentProductionProjection = currentProduction && expectedProduction
+        ? Object.fromEntries(Object.keys(expectedProduction).map((key) => [key, currentProduction[key]]))
+        : null;
+      if (!currentProductionProjection || !same(currentProductionProjection, expectedProduction)) reasons.push("CURRENT_PRODUCTION_IDENTITY_DRIFT");
+      if (hashTreeFiles(root, canonicalBase, record.protectedSemanticSourceSet.paths) !== record.protectedSemanticSourceSet.hash) reasons.push("CURRENT_PROTECTED_SOURCE_DRIFT");
+      if (sha256(blob(root, canonicalBase, record.decisionEngineIdentity.path)) !== record.decisionEngineIdentity.candidateSha256) reasons.push("CURRENT_DECISION_ENGINE_DRIFT");
+      if (sha256(blob(root, canonicalBase, record.production.identity.entrypointPath)) !== record.production.identity.entrypointSha256) reasons.push("CURRENT_PRODUCTION_ENTRYPOINT_DRIFT");
+      if (!same(parentIdentities(root, canonicalBase), record.d2D3Parents)) reasons.push("CURRENT_D2_D3_PARENT_DRIFT");
+    } catch { reasons.push("CANONICAL_CONTINUATION_UNREADABLE"); }
+  }
   return { valid: reasons.length === 0, reasons: [...new Set(reasons)], chain: expectedChain, activeVersion: record.version, activeManifestHash: contentHash(record), record };
 }
 

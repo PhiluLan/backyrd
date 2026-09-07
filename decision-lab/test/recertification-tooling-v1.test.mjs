@@ -14,6 +14,8 @@ import { validateEngineRecertification } from "../src/d2-freeze.mjs";
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
 const put = async (root, path, value) => { const target = join(root, path); await mkdir(dirname(target), { recursive: true }); await writeFile(target, typeof value === "string" ? value : `${JSON.stringify(value, null, 2)}\n`); };
 const commit = (root, message) => { git(root, ["add", "."]); git(root, ["commit", "-m", message]); return git(root, ["rev-parse", "HEAD"]); };
+const setCanonicalMain = (root, sha) => git(root, ["update-ref", "refs/remotes/origin/main", sha]);
+const commitTree = (root, tree, parent, message) => git(root, ["commit-tree", tree, ...(parent ? ["-p", parent] : []), "-m", message]);
 const mutateJson = async (root, path, mutate) => { const value = JSON.parse(await readFile(join(root, path), "utf8")); mutate(value); await put(root, path, value); };
 const V45_PATH = "decision-lab/config/decision-v13-production-recertification-v45.json";
 
@@ -73,15 +75,27 @@ test("an applied additive record is a valid parent for the next version", async 
   await put(x.root, "web/app/home.tsx", "v46\n"); const v46Candidate = commit(x.root, "v46 candidate");
   const v46 = await generateCandidateEvidence({ root: x.root, baseVersion: "v45", baseMainSha: v45Base, candidateSha: v46Candidate, evidencePaths: ["docs/decision/evidence.md"], requestedScope: "presentation" });
   const v46Receipt = await verifyCandidateEvidence({ root: x.root, artifact: v46, trustedBaseSha: v45Base }); assert.equal(v46Receipt.valid, true, v46Receipt.reasons.join(",")); assert.match(v46.version, /v46$/);
-  await applyCandidateEvidence({ root: x.root, artifact: v46, receipt: v46Receipt, trustedBaseSha: v45Base }); commit(x.root, "apply v46"); const consumed = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: v45Base }); assert.equal(consumed.valid, true, consumed.reasons.join(",")); assert.equal(consumed.chainLength, 2);
+  await applyCandidateEvidence({ root: x.root, artifact: v46, receipt: v46Receipt, trustedBaseSha: v45Base }); const applied = commit(x.root, "apply v46"); setCanonicalMain(x.root, applied); const consumed = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: applied }); assert.equal(consumed.valid, true, consumed.reasons.join(",")); assert.equal(consumed.chainLength, 2);
 });
 
 async function appliedFixture() {
-  const x = await fixture((root) => put(root, "mobile/app/home.tsx", "consumed v45\n")); const receipt = await verifyCandidateEvidence({ root: x.root, artifact: x.artifact, trustedBaseSha: x.base }); await applyCandidateEvidence({ root: x.root, artifact: x.artifact, receipt, trustedBaseSha: x.base }); commit(x.root, "apply consumed v45"); return { ...x, receipt };
+  const x = await fixture((root) => put(root, "mobile/app/home.tsx", "consumed v45\n")); const receipt = await verifyCandidateEvidence({ root: x.root, artifact: x.artifact, trustedBaseSha: x.base }); await applyCandidateEvidence({ root: x.root, artifact: x.artifact, receipt, trustedBaseSha: x.base }); const applied = commit(x.root, "apply consumed v45"); setCanonicalMain(x.root, applied); return { ...x, receipt, applied };
+}
+
+async function cloneWithConsumerUnderTest(prefix) {
+  const source = new URL("../..", import.meta.url).pathname; const root = await mkdtemp(join(tmpdir(), prefix));
+  execFileSync("git", ["clone", "--quiet", "--shared", source, root]); git(root, ["config", "user.email", "fixture@example.invalid"]); git(root, ["config", "user.name", "Fixture"]); if (process.env.CI_BASE_SHA) git(root, ["checkout", "--quiet", "--detach", process.env.CI_BASE_SHA]);
+  for (const path of ["decision-lab/src/recertification-consumer.mjs", "decision-lab/src/recertification-verify.mjs"]) await writeFile(join(root, path), await readFile(join(source, path)));
+  const base = commit(root, "install consumer under test"); setCanonicalMain(root, base); return { root, base };
 }
 
 test("consumer accepts valid synthetic v44 to v45 presentation chain", async () => {
-  const x = await appliedFixture(); const result = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: x.base }); assert.equal(result.valid, true, result.reasons.join(",")); assert.equal(result.activeVersion, "decision-v13-production-recertification-v45");
+  const x = await appliedFixture(); const result = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: x.applied }); assert.equal(result.valid, true, result.reasons.join(",")); assert.equal(result.activeVersion, "decision-v13-production-recertification-v45");
+});
+
+test("consumer accepts an independent canonical-main descendant after v45", async () => {
+  const x = await appliedFixture(); await put(x.root, "web/app/independent.tsx", "independent\n"); const laterMain = commit(x.root, "independent canonical main change"); setCanonicalMain(x.root, laterMain);
+  const result = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: laterMain }); assert.equal(result.valid, true, result.reasons.join(","));
 });
 
 for (const [name, mutate, expectedReason] of [
@@ -95,26 +109,64 @@ for (const [name, mutate, expectedReason] of [
   ["D3 parent freeze drift claim", (record) => { record.candidateArtifact.d2D3Parents.candidate.d3ParentFreezeManifestHash = "wrong"; }, "VERIFICATION_RECEIPT_INVALID"],
   ["stale candidate", (record) => { record.candidateArtifact.candidateSha = "0".repeat(40); record.candidateSha = "0".repeat(40); }, "STALE_CANDIDATE"]
 ]) test(`consumer rejects ${name}`, async () => {
-  const x = await appliedFixture(); await mutateJson(x.root, V45_PATH, mutate); const result = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: x.base }); assert.equal(result.valid, false); assert.ok(result.reasons.includes(expectedReason), result.reasons.join(","));
+  const x = await appliedFixture(); await mutateJson(x.root, V45_PATH, mutate); const result = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: x.applied }); assert.equal(result.valid, false); assert.ok(result.reasons.includes(expectedReason), result.reasons.join(","));
 });
 
 test("consumer rejects competing fork entries", async () => {
-  const x = await appliedFixture(); await mutateJson(x.root, "docs/operations/DECISION_RECERTIFICATION_LINEAGE_V1.json", (lineage) => lineage.entries.push({ ...lineage.entries[0], recertificationHash: "fork" })); const result = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: x.base }); assert.equal(result.valid, false); assert.ok(result.reasons.includes("FORK_CHAIN_DETECTED"), result.reasons.join(","));
+  const x = await appliedFixture(); await mutateJson(x.root, "docs/operations/DECISION_RECERTIFICATION_LINEAGE_V1.json", (lineage) => lineage.entries.push({ ...lineage.entries[0], recertificationHash: "fork" })); const result = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: x.applied }); assert.equal(result.valid, false); assert.ok(result.reasons.includes("FORK_CHAIN_DETECTED"), result.reasons.join(","));
+});
+
+test("consumer rejects a replayed lineage entry", async () => {
+  const x = await appliedFixture(); await mutateJson(x.root, "docs/operations/DECISION_RECERTIFICATION_LINEAGE_V1.json", (lineage) => lineage.entries.push(structuredClone(lineage.entries[0]))); const result = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: x.applied }); assert.equal(result.valid, false); assert.ok(result.reasons.includes("FORK_CHAIN_DETECTED"), result.reasons.join(","));
+});
+
+test("consumer rejects a canonical parent from before candidate integration", async () => {
+  const x = await appliedFixture(); const result = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: x.base }); assert.equal(result.valid, false); assert.ok(result.reasons.includes("CANDIDATE_NOT_CANONICALLY_INTEGRATED"), result.reasons.join(","));
+});
+
+test("consumer rejects a sibling commit as CI base", async () => {
+  const x = await appliedFixture(); const sibling = commitTree(x.root, git(x.root, ["rev-parse", `${x.base}^{tree}`]), x.base, "sibling"); const result = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: sibling }); assert.equal(result.valid, false); assert.ok(result.reasons.includes("NON_CANONICAL_BASE"), result.reasons.join(","));
+});
+
+test("consumer rejects a commit from a foreign branch as CI base", async () => {
+  const x = await appliedFixture(); const foreign = commitTree(x.root, git(x.root, ["rev-parse", `${x.applied}^{tree}`]), null, "foreign"); const result = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: foreign }); assert.equal(result.valid, false); assert.ok(result.reasons.includes("NON_CANONICAL_BASE"), result.reasons.join(","));
+});
+
+test("consumer rejects a candidate that was not integrated into canonical main", async () => {
+  const x = await appliedFixture(); const alternateMain = commitTree(x.root, git(x.root, ["rev-parse", `${x.base}^{tree}`]), x.base, "canonical without candidate"); setCanonicalMain(x.root, alternateMain); const result = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: alternateMain }); assert.equal(result.valid, false); assert.ok(result.reasons.includes("CANDIDATE_NOT_CANONICALLY_INTEGRATED"), result.reasons.join(","));
+});
+
+for (const [name, path, mutate, expectedReason] of [
+  ["current parent manifest drift", "decision-lab/config/decision-v13-production-recertification-v44.json", (value) => { value.authorization.authorizedEngineSourceHash = "0".repeat(64); }, "CURRENT_PARENT_MANIFEST_DRIFT"],
+  ["current Production identity drift", "decision-lab/config/decision-v13-production-recertification-v44.json", (value) => { value.production.activeVersion = 125; }, "CURRENT_PRODUCTION_IDENTITY_DRIFT"],
+  ["current D2 parent drift", "decision-lab/config/decision-quality-v1.1.freeze.json", (value) => { value.freezeManifestHash = "wrong"; }, "CURRENT_D2_D3_PARENT_DRIFT"],
+  ["current D2/D3 parent drift", "decision-lab/config/d3.1-diagnostic-coverage-v1.json", (value) => { value.parentFreezeManifestHash = "wrong"; }, "CURRENT_D2_D3_PARENT_DRIFT"]
+]) test(`consumer rejects ${name}`, async () => {
+  const x = await appliedFixture(); await mutateJson(x.root, path, mutate); const drift = commit(x.root, name); setCanonicalMain(x.root, drift); const result = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: drift }); assert.equal(result.valid, false); assert.ok(result.reasons.includes(expectedReason), result.reasons.join(","));
+});
+
+test("consumer rejects current protected Decision source and Production entrypoint drift", async () => {
+  const x = await appliedFixture(); await put(x.root, "supabase/functions/decision-v13/index.deploy.ts", "drift\n"); const drift = commit(x.root, "current Production entrypoint drift"); setCanonicalMain(x.root, drift); const result = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: drift }); assert.equal(result.valid, false); assert.ok(result.reasons.includes("CURRENT_PROTECTED_SOURCE_DRIFT"), result.reasons.join(",")); assert.ok(result.reasons.includes("CURRENT_PRODUCTION_ENTRYPOINT_DRIFT"), result.reasons.join(","));
+});
+
+test("consumer rejects current Decision Engine drift", async () => {
+  const x = await appliedFixture(); await put(x.root, "supabase/functions/decision-v13/index.ts", "drift\n"); const drift = commit(x.root, "current Decision Engine drift"); setCanonicalMain(x.root, drift); const result = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: drift }); assert.equal(result.valid, false); assert.ok(result.reasons.includes("CURRENT_PROTECTED_SOURCE_DRIFT"), result.reasons.join(",")); assert.ok(result.reasons.includes("CURRENT_DECISION_ENGINE_DRIFT"), result.reasons.join(","));
 });
 
 test("D2 and D3 consume a valid additive presentation chain while legacy v44 evidence drifts", async () => {
-  const source = new URL("../..", import.meta.url).pathname; const root = await mkdtemp(join(tmpdir(), "backyrd-recert-consumer-integration-"));
-  execFileSync("git", ["clone", "--quiet", "--shared", source, root]); git(root, ["config", "user.email", "fixture@example.invalid"]); git(root, ["config", "user.name", "Fixture"]); if (process.env.CI_BASE_SHA) git(root, ["checkout", "--quiet", "--detach", process.env.CI_BASE_SHA]); const base = git(root, ["rev-parse", "HEAD"]);
+  const { root, base } = await cloneWithConsumerUnderTest("backyrd-recert-consumer-integration-");
   const presentationPath = "mobile/app/(tabs)/feed.tsx"; await writeFile(join(root, presentationPath), `${await readFile(join(root, presentationPath), "utf8")}\n// synthetic presentation-only recertification fixture\n`); const candidate = commit(root, "synthetic presentation candidate");
-  const artifact = await generateCandidateEvidence({ root, baseVersion: "v44", baseMainSha: base, candidateSha: candidate, evidencePaths: [presentationPath], requestedScope: "presentation" }); const receipt = await verifyCandidateEvidence({ root, artifact, trustedBaseSha: base }); assert.equal(receipt.valid, true, receipt.reasons.join(",")); await applyCandidateEvidence({ root, artifact, receipt, trustedBaseSha: base }); commit(root, "apply synthetic additive recertification");
-  const d2 = JSON.parse(execFileSync(process.execPath, ["decision-lab/src/d2-cli.mjs", "validate-freeze", "--trusted-base", base], { cwd: root, encoding: "utf8", maxBuffer: 20 * 1024 * 1024 })); assert.equal(d2.freezeValidation.legacyV44Valid, false); assert.equal(d2.freezeValidation.additiveContinuityValid, true); assert.equal(d2.frameworkValidity, "PASS");
-  const d3 = JSON.parse(execFileSync(process.execPath, ["decision-lab/src/d3.1-readiness.mjs"], { cwd: root, encoding: "utf8", maxBuffer: 20 * 1024 * 1024, env: { ...process.env, CI_BASE_SHA: base } })); assert.equal(d3.legacyParentFreezeValid, false); assert.equal(d3.additiveRecertification.valid, true, d3.additiveRecertification.reasons.join(",")); assert.equal(d3.status, "PASS");
+  const active = JSON.parse(await readFile(join(root, "decision-lab/config/additive-recertification-v1.freeze.json"), "utf8")).currentVersion.match(/v(\d+)$/)[1];
+  const artifact = await generateCandidateEvidence({ root, baseVersion: `v${active}`, baseMainSha: base, candidateSha: candidate, evidencePaths: [presentationPath], requestedScope: "presentation" }); const receipt = await verifyCandidateEvidence({ root, artifact, trustedBaseSha: base }); assert.equal(receipt.valid, true, receipt.reasons.join(",")); await applyCandidateEvidence({ root, artifact, receipt, trustedBaseSha: base }); const applied = commit(root, "apply synthetic additive recertification"); setCanonicalMain(root, applied);
+  const d2 = JSON.parse(execFileSync(process.execPath, ["decision-lab/src/d2-cli.mjs", "validate-freeze", "--trusted-base", applied], { cwd: root, encoding: "utf8", maxBuffer: 20 * 1024 * 1024 })); assert.equal(d2.freezeValidation.legacyV44Valid, false); assert.equal(d2.freezeValidation.additiveContinuityValid, true); assert.equal(d2.frameworkValidity, "PASS");
+  const d3 = JSON.parse(execFileSync(process.execPath, ["decision-lab/src/d3.1-readiness.mjs"], { cwd: root, encoding: "utf8", maxBuffer: 20 * 1024 * 1024, env: { ...process.env, CI_BASE_SHA: applied } })); assert.equal(d3.legacyParentFreezeValid, false); assert.equal(d3.additiveRecertification.valid, true, d3.additiveRecertification.reasons.join(",")); assert.equal(d3.status, "PASS");
 });
 
 test("current repository v44 or its valid additive successor remains valid", async () => {
+  const { root: repositoryRoot, base: trustedBase } = await cloneWithConsumerUnderTest("backyrd-recert-current-");
   const args = ["decision-lab/src/d2-cli.mjs", "validate-freeze"];
-  if (process.env.CI_BASE_SHA) args.push("--trusted-base", process.env.CI_BASE_SHA);
-  const result = JSON.parse(execFileSync(process.execPath, args, { cwd: new URL("../..", import.meta.url), encoding: "utf8", maxBuffer: 20 * 1024 * 1024 }));
+  args.push("--trusted-base", trustedBase);
+  const result = JSON.parse(execFileSync(process.execPath, args, { cwd: repositoryRoot, encoding: "utf8", maxBuffer: 20 * 1024 * 1024 }));
   if (result.additiveRecertification.mode === "ADDITIVE_CHAIN") {
     const legacy = await validateEngineRecertification();
     assert.equal(legacy.valid, false);
