@@ -59,8 +59,9 @@ assert.match(artwork, /Google Maps/, "Google display must retain visible attribu
 assert.match(googlePhoto, /supabase\.auth\.getSession\(\)/, "Google fallback must wait for the native session restoration");
 assert.match(googlePhoto, /Authorization:\s*`Bearer \$\{accessToken\}`/, "Google fallback must bind the restored session token explicitly");
 assert.match(googlePhoto, /cached\.accessToken === accessToken/, "Google fallback cache must not reuse an older auth token");
-assert.match(artwork, /onAuthStateChange/, "missing-image fallback must retry after auth restoration");
-assert.match(artwork, /authAccessToken/, "missing-image fallback must retry when the concrete auth token changes");
+assert.match(artwork, /useAuth\(\)/, "Spot artwork must use the canonical AuthProvider session");
+assert.match(artwork, /session\?\.access_token \?\? null/, "missing-image fallback must follow the concrete canonical auth token");
+assert.doesNotMatch(artwork, /supabase\.auth\.(?:getSession|onAuthStateChange)/, "Spot cards must not create a parallel auth lifecycle");
 assert.doesNotMatch(decision, /photo_url: selectSpotImageUrl\(\{ photoUrl/, "Decision must not select a generic gallery cover");
 assert.doesNotMatch(detail, /getGooglePlacePhotoFallback/, "Spot Detail must use the shared renderer resolver");
 

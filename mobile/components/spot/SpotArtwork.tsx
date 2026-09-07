@@ -4,18 +4,19 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
+import { useAuth } from "../../hooks/useAuth";
 import { getGooglePlacePhotoFallback, type GooglePlacePhotoResult } from "../../lib/google-place-photo";
 import { imageDiagnosticContext, resolveCanonicalSpotImage, type CanonicalSpotImageProvenance } from "../../lib/spot-images";
-import { supabase } from "../../lib/supabase";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
 type Props = { spotId: string; spotName: string; imageUrl?: string | null; style?: StyleProp<ViewStyle>; accessibilityLabel?: string; priority?: "low" | "normal" | "high"; onResolvedImage?: (image: { provenance: CanonicalSpotImageProvenance; identity: string }) => void };
 
 export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLabel, priority = "normal", onResolvedImage }: Props) {
+  const { session } = useAuth();
   const ownerImage = useMemo(() => resolveCanonicalSpotImage({ headerPhotoUrl: imageUrl }), [imageUrl]);
   const [googleImage, setGoogleImage] = useState<GooglePlacePhotoResult | null>(null);
   const [ownerImageFailed, setOwnerImageFailed] = useState(false);
-  const [authAccessToken, setAuthAccessToken] = useState<string | null>(null);
+  const authAccessToken = session?.access_token ?? null;
   const [googleResolved, setGoogleResolved] = useState(Boolean(ownerImage.imageUrl));
   const googleRequestGeneration = useRef(0);
   const activeOwnerUrl = ownerImageFailed ? null : ownerImage.imageUrl;
@@ -32,23 +33,6 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
     setGoogleResolved(true);
     setStatus(result?.source === "google" && result.imageUrl ? "loading" : "empty");
   }, [spotId]);
-
-  useEffect(() => {
-    let mounted = true;
-    const bindAccessToken = (session: { access_token?: string } | null) => {
-      if (mounted) setAuthAccessToken(session?.access_token ?? null);
-    };
-
-    void supabase.auth.getSession().then(({ data }) => bindAccessToken(data.session));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      bindAccessToken(session);
-    });
-
-    return () => {
-      mounted = false;
-      listener.subscription.unsubscribe();
-    };
-  }, []);
 
   useEffect(() => {
     googleRequestGeneration.current += 1;

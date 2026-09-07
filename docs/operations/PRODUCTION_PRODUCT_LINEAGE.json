@@ -22,10 +22,10 @@
       "ios_update": "01a07263-06bd-7340-a72e-ee70a4e77ca1",
       "created_at": "2026-09-05T16:23:00Z",
       "canonical_source": {
-        "commit": "a4b6b791c1c5406721e48abe4a5fdb0de2fea69e",
-        "tree": "2908b16bdfb22b0fb005a8bbe01bf5c42abe4b2a",
+        "commit": "ada5f00b5f5fdb8efe9fcc00be7626a14907a70a",
+        "tree": "88e5e167a1b78f7779df80bfd59f666f8f8bd051",
         "production_verified": false,
-        "reason": "Founder-authorized P0 Spot image URL/token retry candidate. Production verification remains false until canonical-main OTA deployment and physical confirmation."
+        "reason": "Founder-authorized P0 Google Spot image canonical AuthProvider session candidate. Production verification remains false until canonical-main OTA deployment and physical confirmation."
       }
     },
     "consumer_web": {
@@ -668,6 +668,17 @@
         "mobile/scripts/test-canonical-spot-images.mjs"
       ],
       "evidence": "decision-lab/config/decision-v13-production-recertification-v40.json"
+    },
+    {
+      "id": "p0_google_spot_image_canonical_auth_session_v3",
+      "baseline_commit": "73f56e0487d1a56085f5396449ef74ff1e19dc96",
+      "source_commit": "ada5f00b5f5fdb8efe9fcc00be7626a14907a70a",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/components/spot/SpotArtwork.tsx",
+        "mobile/scripts/test-canonical-spot-images.mjs"
+      ],
+      "evidence": "decision-lab/config/decision-v13-production-recertification-v41.json"
     }
   ],
   "required_ancestry": [
