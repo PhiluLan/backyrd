@@ -1,7 +1,7 @@
 {
   "contractVersion": "personalization-treatment-v1",
   "treatmentGeneratorVersion": "personalization-treatment-generator-v1",
-  "parentFreezeManifestHash": "1460bc97bf89c7e2238cd6ab203ca545a932ad14d688ce9f2923be034c01320e",
+  "parentFreezeManifestHash": "e14184fa7bf12d82d78ea9ae5e9f579b3175cd1782c1d8831a8eca2a18e4412d",
   "engineSourceHash": "cad2c4ea94817d2facbd54db92f55f3286acecf4d1e8a71dda414431b76cf000",
   "arms": ["ACTUAL", "NEUTRAL", "OPPOSING"],
   "treatmentVariable": "observed_personal_history",
