@@ -159,7 +159,9 @@ test("freeze identity is deterministic and validator rejects tampering", async (
     const baselineRoot = await mkdtemp(join(tmpdir(), "backyrd-d2-v44-baseline-"));
     execFileSync("git", ["clone", "--quiet", "--shared", root, baselineRoot]);
     execFileSync("git", ["checkout", "--quiet", "--detach", process.env.CI_BASE_SHA], { cwd: baselineRoot });
-    const baselineD2 = JSON.parse(execFileSync(process.execPath, ["decision-lab/src/d2-cli.mjs", "validate-freeze"], { cwd: baselineRoot, encoding: "utf8", maxBuffer: 20 * 1024 * 1024 }));
+    const baselineAdditiveFreeze = JSON.parse(await readFile(join(baselineRoot, "decision-lab/config/additive-recertification-v1.freeze.json"), "utf8"));
+    const baselineAdditiveRecord = JSON.parse(await readFile(join(baselineRoot, "decision-lab/config", `${baselineAdditiveFreeze.currentVersion}.json`), "utf8"));
+    const baselineD2 = JSON.parse(execFileSync(process.execPath, ["decision-lab/src/d2-cli.mjs", "validate-freeze", "--trusted-base", baselineAdditiveRecord.baseMainSha], { cwd: baselineRoot, encoding: "utf8", maxBuffer: 20 * 1024 * 1024 }));
     assert.equal(baselineD2.freeze.engineMutation, "AUTHORIZED_RECERTIFICATION");
     assert.equal(baselineD2.freezeValidation.valid, true);
   } else {
