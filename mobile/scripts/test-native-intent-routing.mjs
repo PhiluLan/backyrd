@@ -136,8 +136,11 @@ test("uses native intent for runtime links and an acknowledged iOS initial targe
   assert.match(rootLayoutSource, /if \(\(!reactSplashReady && !fontError\) \|\| nativeSplashHidden\) return/);
   assert.doesNotMatch(rootLayoutSource, /splashSettled && !fontError/);
   assert.match(splashSource, /const WORDMARK_HOLD_MS = 1_450/);
-  assert.match(splashSource, /const TRANSITION_MS = 500/);
+  assert.match(splashSource, /const TRANSITION_MS = 760/);
   assert.match(splashSource, /const COMPACT_HOLD_MS = 1_000/);
+  assert.match(splashSource, /Animated\.timing\(bTranslateX/);
+  assert.match(splashSource, /Animated\.timing\(tailOpacity/);
+  assert.match(splashSource, /Animated\.timing\(dotTranslateX/);
   assert.match(splashSource, /onLayout=\{onLayout\}/);
   assert.match(safetyGuardSource, /authReady = true/);
   assert.match(safetyGuardSource, /onStartupCheckSettled/);
