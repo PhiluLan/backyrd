@@ -6,8 +6,17 @@ import ts from "typescript";
 const source = fs.readFileSync(path.resolve("lib/spot-images.ts"), "utf8");
 const artwork = fs.readFileSync(path.resolve("components/spot/SpotArtwork.tsx"), "utf8");
 const googlePhoto = fs.readFileSync(path.resolve("lib/google-place-photo.ts"), "utf8");
+const photoPolicy = fs.readFileSync(path.resolve("lib/spot-photo-policy.ts"), "utf8");
 const decision = fs.readFileSync(path.resolve("app/(tabs)/decision.tsx"), "utf8");
 const detail = fs.readFileSync(path.resolve("app/spot/[id].tsx"), "utf8");
+const sharedSurfaceSources = [
+  "app/(tabs)/index.tsx", // Home
+  "app/(tabs)/map.tsx", // Orte list + Map preview
+  "app/(tabs)/decision.tsx", // Decision
+  "app/(tabs)/profile.tsx", // Favorites
+  "app/(tabs)/journey.tsx", // additional Spot cards
+  "app/spot/[id].tsx", // Spot Detail + Nearby rail
+].map((file) => ({ file, source: fs.readFileSync(path.resolve(file), "utf8") }));
 const module = { exports: {} };
 const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
@@ -44,13 +53,28 @@ const googleMocks = {
   },
 };
 
-function loadGooglePhotoModule() {
+function loadPhotoPolicyModule(googlePlacePhotosEnabled = false) {
+  const target = { exports: {} };
+  const output = ts.transpileModule(photoPolicy, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+  }).outputText;
+  new Function("exports", "require", "module", output)(target.exports, () => {
+    throw new Error("Photo policy must not have runtime dependencies");
+  }, target);
+  if (googlePlacePhotosEnabled) {
+    target.exports.SPOT_PHOTO_POLICY = Object.freeze({ googlePlacePhotosEnabled: true });
+  }
+  return target.exports;
+}
+
+function loadGooglePhotoModule({ googlePlacePhotosEnabled = false } = {}) {
   const target = { exports: {} };
   const output = ts.transpileModule(googlePhoto, {
     compilerOptions: { esModuleInterop: true, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   }).outputText;
   new Function("exports", "require", "module", output)(target.exports, (specifier) => {
     if (specifier === "@react-native-async-storage/async-storage") return { __esModule: true, default: googleMocks.asyncStorage };
+    if (specifier === "./spot-photo-policy") return loadPhotoPolicyModule(googlePlacePhotosEnabled);
     if (specifier === "./supabase") return { supabase: googleMocks.supabase };
     throw new Error(`Unexpected Google photo dependency: ${specifier}`);
   }, target);
@@ -81,6 +105,11 @@ assert.deepEqual(resolve({ photoUrl: "https://images.example/unverified-gallery.
   identity: "backyrd:fallback",
 });
 assert.equal(resolve({}).provenance, "BACKYRD_FALLBACK");
+assert.equal(loadPhotoPolicyModule().SPOT_PHOTO_POLICY.googlePlacePhotosEnabled, false, "Google Place Photos must be globally disabled for the Founder/Basel test phase");
+for (const surface of sharedSurfaceSources) {
+  assert.match(surface.source, /<SpotArtwork/, `${surface.file} must use the shared canonical Spot artwork renderer`);
+  assert.doesNotMatch(surface.source, /getGooglePlacePhotoFallback/, `${surface.file} must not bypass the central Photo policy`);
+}
 
 // E + F are covered at the renderer boundary: owner <Image onError> requests
 // Google with preferredOwnerImageFailed, and a missing/broken Google response
@@ -89,7 +118,9 @@ const surfaceInputs = ["Home", "List", "Map Preview", "Decision", "Spot Detail",
 const canonical = surfaceInputs.map(() => resolve({ headerPhotoUrl: owner }));
 assert.ok(canonical.every((image) => image.identity === canonical[0].identity && image.provenance === canonical[0].provenance));
 assert.match(source, /backyrd_web_canonical_spot_image_headers_v1/, "Home catalog must project the authoritative header, not a gallery row");
-assert.match(artwork, /preferredOwnerImageFailed/, "broken Owner/Admin images must request the Google fallback");
+assert.match(artwork, /SPOT_PHOTO_POLICY\.googlePlacePhotosEnabled/, "all Spot surfaces must follow the central Google photo policy");
+assert.match(googlePhoto, /if \(!SPOT_PHOTO_POLICY\.googlePlacePhotosEnabled\) return null;/, "the resolver must fail closed before Auth or network work");
+assert.match(artwork, /preferredOwnerImageFailed/, "the dormant broken Owner/Admin fallback path must remain available for a controlled re-enable");
 assert.match(artwork, /Google Maps/, "Google display must retain visible attribution");
 assert.match(googlePhoto, /supabase\.auth\.getSession\(\)/, "Google fallback must wait for the native session restoration");
 assert.match(googlePhoto, /Authorization:\s*`Bearer \$\{accessToken\}`/, "Google fallback must bind the restored session token explicitly");
@@ -104,12 +135,27 @@ assert.doesNotMatch(artwork, /supabase\.auth\.(?:getSession|onAuthStateChange)/,
 assert.doesNotMatch(decision, /photo_url: selectSpotImageUrl\(\{ photoUrl/, "Decision must not select a generic gallery cover");
 assert.doesNotMatch(detail, /getGooglePlacePhotoFallback/, "Spot Detail must use the shared renderer resolver");
 
-const googleResolverA = loadGooglePhotoModule();
+// Disabled production policy: rendering ten missing-image cards, remounting,
+// re-entering, Nearby, and Spot Detail must never invoke the Edge resolver.
+const disabledResolver = loadGooglePhotoModule();
+for (let index = 0; index < 10; index += 1) {
+  await disabledResolver.getGooglePlacePhotoFallback(`visible-spot-${index}`, { accessToken: "token-a", cacheNamespace: "user-a" });
+}
+await disabledResolver.getGooglePlacePhotoFallback("visible-spot-0", { accessToken: "token-a", cacheNamespace: "user-a" });
+const disabledResolverAfterReentry = loadGooglePhotoModule();
+await disabledResolverAfterReentry.getGooglePlacePhotoFallback("visible-spot-0", { accessToken: "token-a", cacheNamespace: "user-a" });
+await disabledResolverAfterReentry.getGooglePlacePhotoFallback("nearby-spot", { accessToken: "token-a", cacheNamespace: "user-a" });
+await disabledResolverAfterReentry.getGooglePlacePhotoFallback("spot-detail", { accessToken: "token-a", cacheNamespace: "user-a" });
+assert.equal(googleInvokeCount, 0, "disabled Google photos must produce zero Edge resolver calls across surfaces and re-entry");
+
+// The dormant resolver/cache implementation remains regression-covered so a
+// future reviewed re-enable does not require rebuilding the infrastructure.
+const googleResolverA = loadGooglePhotoModule({ googlePlacePhotosEnabled: true });
 await googleResolverA.getGooglePlacePhotoFallback("spot-a", { accessToken: "token-a", cacheNamespace: "user-a" });
 await googleResolverA.getGooglePlacePhotoFallback("spot-a", { accessToken: "token-a", cacheNamespace: "user-a" });
 assert.equal(googleInvokeCount, 1, "concurrent/remounted artwork must share one successful resolver request");
 
-const googleResolverAfterRestart = loadGooglePhotoModule();
+const googleResolverAfterRestart = loadGooglePhotoModule({ googlePlacePhotosEnabled: true });
 await googleResolverAfterRestart.getGooglePlacePhotoFallback("spot-a", { accessToken: "token-a", cacheNamespace: "user-a" });
 assert.equal(googleInvokeCount, 1, "a short user-isolated cache must prevent immediate cold-restart fan-out");
 

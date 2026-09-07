@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test:contracts": "node ./scripts/test-mobile-product-contracts.mjs && npm run test:native-intent",
+    "test:contracts": "node ./scripts/test-mobile-product-contracts.mjs && npm run test:canonical-spot-images && npm run test:native-intent",
     "test:map-discovery": "node ./scripts/test-map-discovery-scale.mjs",
     "test:canonical-spot-images": "node ./scripts/test-canonical-spot-images.mjs",
     "test:native-intent": "node --test ./scripts/test-native-intent-routing.mjs ./scripts/test-ios-link-handoff.mjs ./scripts/test-notification-routing.mjs ./scripts/test-root-startup-navigation.mjs",

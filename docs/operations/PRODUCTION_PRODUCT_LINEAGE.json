@@ -22,10 +22,10 @@
       "ios_update": "01a07263-06bd-7340-a72e-ee70a4e77ca1",
       "created_at": "2026-09-05T16:23:00Z",
       "canonical_source": {
-        "commit": "f875a7beabdcf77a8c721a31edd54432a0c387e4",
-        "tree": "08baf04e32ecc8ede82ab77178109a22e7443c54",
+        "commit": "82ef03ee2768561d0ef881e8d6944c854b027461",
+        "tree": "71a856f142ce8e1b6ee3ad0fe91a8f88eff03a00",
         "production_verified": false,
-        "reason": "Founder-authorized P0 Google Spot image request fan-out repair candidate. Production verification remains false until canonical-main OTA deployment and physical confirmation."
+        "reason": "Founder/CTO-authorized Basel test-phase Mobile candidate with Google Place Photos centrally disabled. Owner/Admin images and the Backyrd fallback remain canonical; Production verification remains false until canonical-main OTA deployment and physical confirmation."
       }
     },
     "consumer_web": {
@@ -691,6 +691,21 @@
         "mobile/scripts/test-canonical-spot-images.mjs"
       ],
       "evidence": "decision-lab/config/decision-v13-production-recertification-v42.json"
+    },
+    {
+      "id": "founder_basel_google_place_photos_disabled_v1",
+      "baseline_commit": "e5c01ca891047473f8b0c61b75d3e37f21fc5d0a",
+      "source_commit": "82ef03ee2768561d0ef881e8d6944c854b027461",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/components/spot/SpotArtwork.tsx",
+        "mobile/docs/GOOGLE_PLACE_PHOTOS_TEST_PHASE.md",
+        "mobile/lib/google-place-photo.ts",
+        "mobile/lib/spot-photo-policy.ts",
+        "mobile/package.json",
+      "mobile/scripts/test-canonical-spot-images.mjs"
+      ],
+      "evidence": "decision-lab/config/decision-v13-production-recertification-v43.json"
     }
   ],
   "required_ancestry": [
