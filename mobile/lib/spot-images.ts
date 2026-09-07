@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import type { SpotHoursRow } from "./spot-opening-status";
 
 export type CanonicalSpotImageInput = {
   /** `header_photo_path` is the existing Owner/Admin-selected product image. */
@@ -28,6 +29,9 @@ export type DiscoverySpot = {
   created_at: string;
   header_photo_url: string | null;
   distribution_priority: number;
+  lat: number | null;
+  lng: number | null;
+  hours: SpotHoursRow[];
 };
 
 function normalizedUrl(value: string | null | undefined) {
@@ -74,17 +78,30 @@ export async function loadDiscoverySpots(city: string, limit = 120) {
   if (error) throw error;
   const spots = (data ?? []) as DiscoverySpot[];
   const ids = spots.map((spot) => spot.id).filter(Boolean);
-  const { data: headers, error: headersError } = await supabase.rpc(
-    "backyrd_web_canonical_spot_image_headers_v1",
-    { p_spot_ids: ids },
-  );
+  const [{ data: headers, error: headersError }, { data: locationRows }, { data: hoursRows }] = await Promise.all([
+    supabase.rpc("backyrd_web_canonical_spot_image_headers_v1", { p_spot_ids: ids }),
+    supabase.from("spots").select("id,lat,lng").in("id", ids),
+    supabase.from("spot_hours").select("spot_id,day_of_week,open_time,close_time").in("spot_id", ids),
+  ]);
   if (headersError) throw headersError;
   const headerBySpotId = new Map<string, string | null>(
     (headers ?? []).map((row: { spot_id: string; header_photo_path: string | null }) => [row.spot_id, row.header_photo_path]),
   );
+  const locationBySpotId = new Map<string, { lat: number | null; lng: number | null }>(
+    (locationRows ?? []).map((row: { id: string; lat: number | null; lng: number | null }) => [row.id, { lat: Number.isFinite(Number(row.lat)) ? Number(row.lat) : null, lng: Number.isFinite(Number(row.lng)) ? Number(row.lng) : null }]),
+  );
+  const hoursBySpotId = new Map<string, SpotHoursRow[]>();
+  for (const row of hoursRows ?? []) {
+    const current = hoursBySpotId.get(row.spot_id) ?? [];
+    current.push({ day_of_week: row.day_of_week ?? null, open_time: row.open_time ?? null, close_time: row.close_time ?? null });
+    hoursBySpotId.set(row.spot_id, current);
+  }
   return spots.map((spot) => ({
     ...spot,
     header_photo_url: selectSpotImageUrl({ headerPhotoPath: headerBySpotId.get(spot.id) ?? null }),
+    lat: locationBySpotId.get(spot.id)?.lat ?? null,
+    lng: locationBySpotId.get(spot.id)?.lng ?? null,
+    hours: hoursBySpotId.get(spot.id) ?? [],
   }));
 }
 
