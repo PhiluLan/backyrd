@@ -37,17 +37,18 @@ import { AppText } from "../../components/foundation/AppText";
 import { StateView } from "../../components/foundation/StateView";
 import SharedAvatar from "../../components/Avatar";
 import { backyrdTheme as foundationTheme } from "../../theme/backyrd";
+import { SPOT_OPENING_STATUS_COPY, spotOpeningStatusNow } from "../../lib/spot-opening-status";
 
 import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
 const theme = {
   colors: {
-    background: foundationTheme.color.backgroundLight,
-    surface: foundationTheme.color.surfaceLightElevated,
-    surfaceElevated: foundationTheme.color.surfaceLight,
-    border: foundationTheme.color.borderLight,
-    text: foundationTheme.color.textPrimaryLight,
-    textMuted: foundationTheme.color.textSecondaryLight,
-    textSoft: foundationTheme.color.textSecondaryLight,
+    background: foundationTheme.color.background,
+    surface: foundationTheme.color.surface,
+    surfaceElevated: foundationTheme.color.surfaceElevated,
+    border: foundationTheme.color.border,
+    text: foundationTheme.color.textPrimary,
+    textMuted: foundationTheme.color.textSecondary,
+    textSoft: foundationTheme.color.textSecondary,
     pink: foundationTheme.color.pink,
     pinkSoft: foundationTheme.color.pink,
     greenSoft: foundationTheme.color.openGreen,
@@ -92,31 +93,6 @@ const WEEK_ORDER = [
 function priceToSymbols(n?: number | null) {
   if (!n || n < 1) return "—";
   return "$".repeat(Math.min(5, Math.max(1, n)));
-}
-
-function parseTimeToMinutes(t?: string | null) {
-  if (!t) return null;
-  const [hh, mm] = t.split(":").map(Number);
-  return hh * 60 + mm;
-}
-
-function openingStateNow(rowsForDay?: any[]) {
-  if (!rowsForDay || rowsForDay.length === 0) return { state: "unknown" as const };
-  const now = new Date();
-  const nowMin = now.getHours() * 60 + now.getMinutes();
-
-  for (const row of rowsForDay) {
-    const open = parseTimeToMinutes(row.open_time);
-    const close = parseTimeToMinutes(row.close_time);
-    if (open == null || close == null) continue;
-    if (close <= open) {
-      if (nowMin >= open || nowMin < close) return { state: "open" as const };
-    } else {
-      if (nowMin >= open && nowMin < close) return { state: "open" as const };
-    }
-  }
-  // A stored row without a time interval is the canonical closed-day marker.
-  return { state: "closed" as const };
 }
 
 function presentMoodToken(value: unknown) {
@@ -217,6 +193,8 @@ export default function SpotDetailScreen() {
   const [nearby, setNearby] = useState<any[]>([]);
   const [taxonomyItems, setTaxonomyItems] = useState<MobileSpotTaxonomyItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [hoursExpanded, setHoursExpanded] = useState(false);
   const productOpenLogged = useRef(false);
 
   const [userId, setUserId] = useState<string | null>(null);
@@ -485,8 +463,8 @@ export default function SpotDetailScreen() {
     return hours[todayNameNormalized] || [];
   }, [hours, todayNameNormalized]);
 
-  const { state: openingState } = openingStateNow(todaysHours);
-  const isOpen = openingState === "open";
+  const openingStatus = useMemo(() => spotOpeningStatusNow(Object.values(hours).flat()), [hours]);
+  const openingState = openingStatus === "open" ? "open" : openingStatus === "openingSoon" ? "openingSoon" : openingStatus === "closingSoon" ? "closingSoon" : openingStatus === "unknown" ? "unknown" : "closed";
   const openingUnknown = openingState === "unknown";
 
   useEffect(() => {
@@ -582,7 +560,7 @@ export default function SpotDetailScreen() {
           backgroundColor: theme.colors.background,
         }}
       >
-        <StateView appearance="light" kind="loading" title="Spot wird geladen" message="Backyrd bereitet diesen Ort für dich vor." />
+        <StateView appearance="dark" kind="loading" title="Spot wird geladen" message="Backyrd bereitet diesen Ort für dich vor." />
       </View>
     );
   }
@@ -727,10 +705,10 @@ export default function SpotDetailScreen() {
 
             <View style={styles.heroContent}>
               <View style={styles.heroPills}>
-                <View style={[styles.statusPill, isOpen ? styles.statusOpen : openingUnknown ? styles.statusUnknown : styles.statusClosed]}>
-                  <View style={[styles.statusDot, { backgroundColor: isOpen ? theme.colors.greenSoft : openingUnknown ? theme.colors.textSoft : theme.colors.danger }]} />
-                  <Text style={[styles.statusText, { color: isOpen ? theme.colors.greenSoft : openingUnknown ? theme.colors.textSoft : "#FFB4B4" }]}>
-                    {isOpen ? "Geöffnet" : openingUnknown ? "Öffnungszeiten unbekannt" : "Geschlossen"}
+                <View style={[styles.statusPill, openingState === "open" ? styles.statusOpen : openingState === "openingSoon" ? styles.statusOpeningSoon : openingState === "closingSoon" ? styles.statusClosingSoon : openingUnknown ? styles.statusUnknown : styles.statusClosed]}>
+                  <View style={[styles.statusDot, { backgroundColor: openingState === "open" ? theme.colors.greenSoft : openingState === "openingSoon" ? foundationTheme.color.warning : openingState === "closingSoon" ? foundationTheme.color.closingSoon : openingUnknown ? theme.colors.textSoft : theme.colors.danger }]} />
+                  <Text style={[styles.statusText, { color: openingState === "open" ? theme.colors.greenSoft : openingState === "openingSoon" ? foundationTheme.color.warning : openingState === "closingSoon" ? foundationTheme.color.closingSoon : openingUnknown ? theme.colors.textSoft : "#FFB4B4" }]}>
+                    {SPOT_OPENING_STATUS_COPY[openingStatus]}
                   </Text>
                 </View>
                 {spot.price_level ? <Chip text={priceToSymbols(spot.price_level)} /> : null}
@@ -767,11 +745,20 @@ export default function SpotDetailScreen() {
             </Pressable>
           </View>
 
-          <SpotTaxonomyChips items={taxonomyItems} />
+          <View style={styles.profileSection}>
+            <SpotTaxonomyDetails items={taxonomyItems} />
+          </View>
+
+          {taxonomyItems.length > 0 ? (
+            <View style={styles.compactSection}>
+              <AppText role="meta" style={styles.compactLabel}>EIGENSCHAFTEN</AppText>
+              <SpotTaxonomyChips items={taxonomyItems} />
+            </View>
+          ) : null}
 
           <View style={styles.section}>
               <View style={styles.sectionHeader}><SectionTitle>So fühlt es sich hier an</SectionTitle></View>
-              {moodSummary.length > 0 ? <SpotMoodProfile appearance="light" moods={moodSummary} /> : <StateView appearance="light" kind="empty" title="Noch keine Stimmung eingefangen." message="Teile nach deinem Besuch deinen Eindruck." />}
+              {moodSummary.length > 0 ? <SpotMoodProfile moods={moodSummary} /> : <StateView appearance="dark" kind="empty" title="Noch keine Stimmung eingefangen." message="Teile nach deinem Besuch deinen Eindruck." />}
             </View>
 
           <View style={styles.section}>
@@ -783,7 +770,17 @@ export default function SpotDetailScreen() {
                 </View>
               ) : null}
             </View>
-            {effectiveDesc ? <Text style={styles.bodyText}>{effectiveDesc}</Text> : <StateView appearance="light" kind="empty" title="Noch ohne Geschichte." message="Für diesen Ort gibt es noch keine Beschreibung – die wichtigsten Infos findest du trotzdem hier." />}
+            {effectiveDesc ? (
+              <>
+                <Text numberOfLines={descriptionExpanded ? undefined : 4} style={styles.bodyText}>{effectiveDesc}</Text>
+                {effectiveDesc.length > 180 ? (
+                  <Pressable accessibilityRole="button" accessibilityState={{ expanded: descriptionExpanded }} onPress={() => setDescriptionExpanded((value) => !value)} style={styles.textAction}>
+                    <Text style={styles.textActionLabel}>{descriptionExpanded ? "Weniger anzeigen" : "Mehr lesen"}</Text>
+                    <Feather name={descriptionExpanded ? "chevron-up" : "chevron-down"} size={16} color={theme.colors.pink} />
+                  </Pressable>
+                ) : null}
+              </>
+            ) : <StateView appearance="dark" kind="empty" title="Noch ohne Geschichte." message="Für diesen Ort gibt es noch keine Beschreibung – die wichtigsten Infos findest du trotzdem hier." />}
           </View>
 
           <View style={styles.section}>
@@ -822,9 +819,20 @@ export default function SpotDetailScreen() {
 
           {Object.keys(hours).length > 0 ? (
             <View style={styles.section}>
-              <SectionTitle>Öffnungszeiten</SectionTitle>
+              <View style={styles.sectionHeader}>
+                <SectionTitle>Heute</SectionTitle>
+                <Text style={styles.todayState}>{SPOT_OPENING_STATUS_COPY[openingStatus]}</Text>
+              </View>
               <View style={styles.hoursCard}>
-                {WEEK_ORDER.map((day) => {
+                <View style={styles.todayHoursRow}>
+                  <Text style={styles.todayHoursLabel}>{todayNameNormalized}</Text>
+                  <Text style={styles.todayHoursValue}>{todaysHours.length > 0 ? todaysHours.map((slot) => slot.open_time && slot.close_time ? `${slot.open_time.slice(0, 5)}–${slot.close_time.slice(0, 5)}` : "–").join(" · ") : "Heute geschlossen"}</Text>
+                </View>
+                <Pressable accessibilityRole="button" accessibilityState={{ expanded: hoursExpanded }} onPress={() => setHoursExpanded((value) => !value)} style={styles.hoursToggle}>
+                  <Text style={styles.hoursToggleText}>{hoursExpanded ? "Alle Öffnungszeiten ausblenden" : "Alle Öffnungszeiten"}</Text>
+                  <Feather name={hoursExpanded ? "chevron-up" : "chevron-down"} size={16} color={theme.colors.pink} />
+                </Pressable>
+                {hoursExpanded ? WEEK_ORDER.map((day) => {
                   const slots = hours[day] || [];
                   const isToday = day === todayNameNormalized;
 
@@ -846,22 +854,20 @@ export default function SpotDetailScreen() {
                       </View>
                     </View>
                   );
-                })}
+                }) : null}
               </View>
             </View>
           ) : (
             <View style={styles.section}>
               <SectionTitle>Öffnungszeiten</SectionTitle>
-              <StateView appearance="light" kind="empty" title="Noch nicht bekannt" message="Backyrd zeigt keinen Öffnungsstatus, solange keine verlässlichen Zeiten hinterlegt sind." />
+              <StateView appearance="dark" kind="empty" title="Noch nicht bekannt" message="Backyrd zeigt keinen Öffnungsstatus, solange keine verlässlichen Zeiten hinterlegt sind." />
             </View>
           )}
 
-
-          <SpotTaxonomyDetails items={taxonomyItems} />
           {reviews.length > 0 && (
             <View style={styles.section}>
-              <SectionTitle>Momente</SectionTitle>
-              {reviews.slice(0, 6).map((rev) => {
+              <View style={styles.sectionHeader}><SectionTitle>Momente</SectionTitle>{reviews.length > 3 ? <Text style={styles.previewMeta}>Aktuell</Text> : null}</View>
+              {reviews.slice(0, 3).map((rev) => {
                 const moods = [
                   presentMoodToken(rev.moodA?.token ?? rev.mood_a),
                   presentMoodToken(rev.moodB?.token ?? rev.mood_b),
@@ -877,7 +883,7 @@ export default function SpotDetailScreen() {
                     : null);
 
                 return (
-                  <View key={rev.id} style={styles.reviewCard}>
+                  <View key={rev.id} style={[styles.reviewCard, !reviewPhotoUrl && !rev.text ? styles.reviewCardCompact : null]}>
                     <View style={styles.reviewHeader}>
                       <SharedAvatar name={name} size={40} />
 
@@ -936,7 +942,7 @@ export default function SpotDetailScreen() {
                       ) : null}
                     </View>
                     {rev.text ? <Text style={styles.reviewText}>{rev.text}</Text> : null}
-                    {moods.length > 0 && (
+                    {moods.length > 0 && (reviewPhotoUrl || rev.text) && (
                       <View style={styles.reviewMoods}>
                         {moods.map((m: string) => <Chip key={m} text={m} />)}
                       </View>
@@ -945,6 +951,7 @@ export default function SpotDetailScreen() {
                   </View>
                 );
               })}
+              {reviews.length > 3 ? <Text style={styles.momentsMore}>Weitere Momente findest du im Moments-Feed.</Text> : null}
             </View>
           )}
 
@@ -986,7 +993,7 @@ export default function SpotDetailScreen() {
           </View>
         </View>
 
-        <View style={{ height: 44 + insets.bottom }} />
+        <View style={{ height: foundationTheme.control.tabBar + foundationTheme.spacing.xxl + insets.bottom }} />
       </Animated.ScrollView>
 
       <LoginPromptModal visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
@@ -1082,6 +1089,14 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.08)",
     borderColor: "rgba(255,255,255,0.18)",
   },
+  statusOpeningSoon: {
+    backgroundColor: "rgba(247,198,92,0.13)",
+    borderColor: "rgba(247,198,92,0.30)",
+  },
+  statusClosingSoon: {
+    backgroundColor: "rgba(255,155,94,0.13)",
+    borderColor: "rgba(255,155,94,0.30)",
+  },
   statusDot: {
     width: 8,
     height: 8,
@@ -1105,6 +1120,17 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingTop: 20,
+  },
+  profileSection: {
+    marginBottom: 24,
+  },
+  compactSection: {
+    marginBottom: 26,
+  },
+  compactLabel: {
+    color: theme.colors.textMuted,
+    marginBottom: 8,
+    letterSpacing: 1.2,
   },
   quickActions: {
     flexDirection: "row",
@@ -1209,29 +1235,38 @@ const styles = StyleSheet.create({
     lineHeight: 23,
     fontWeight: "500",
   },
+  textAction: {
+    minHeight: 44,
+    marginTop: 8,
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  textActionLabel: {
+    color: theme.colors.pink,
+    fontSize: 14,
+    fontWeight: "800",
+  },
   infoCard: {
     marginTop: 12,
-    borderRadius: 24,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    overflow: "hidden",
+    gap: 2,
   },
   infoRow: {
-    minHeight: 56,
-    paddingHorizontal: 14,
+    minHeight: 52,
+    paddingHorizontal: 2,
     paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: foundationTheme.color.borderLight,
+    borderBottomColor: theme.colors.border,
   },
   infoIcon: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(23,22,26,0.05)",
+    backgroundColor: "rgba(255,255,255,0.07)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1243,13 +1278,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   ownerBlock: {
+    marginTop: -14,
     marginBottom: 26,
   },
   ownerButton: {
-    minHeight: 52,
+    minHeight: 44,
     borderRadius: theme.radius.pill,
     paddingHorizontal: 16,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: theme.colors.border,
     flexDirection: "row",
@@ -1263,9 +1299,9 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   hoursCard: {
-    marginTop: 12,
-    borderRadius: 24,
-    padding: 16,
+    marginTop: 2,
+    borderRadius: theme.radius.lg,
+    padding: 14,
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -1275,6 +1311,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 18,
     paddingVertical: 7,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.border,
   },
   hoursDay: {
     width: 104,
@@ -1292,6 +1330,41 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontWeight: "800",
   },
+  todayState: {
+    color: theme.colors.pink,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  todayHoursRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 16,
+  },
+  todayHoursLabel: {
+    color: theme.colors.textMuted,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  todayHoursValue: {
+    flex: 1,
+    color: theme.colors.text,
+    textAlign: "right",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  hoursToggle: {
+    minHeight: 44,
+    marginTop: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  hoursToggleText: {
+    color: theme.colors.pink,
+    fontSize: 13,
+    fontWeight: "800",
+  },
   reviewCard: {
     marginTop: 12,
     padding: 14,
@@ -1299,6 +1372,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.border,
+  },
+  reviewCardCompact: {
+    paddingVertical: 12,
   },
   reviewHeader: {
     flexDirection: "row",
@@ -1317,9 +1393,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(23,22,26,0.035)",
+    backgroundColor: "rgba(255,255,255,0.06)",
     borderWidth: 1,
-    borderColor: foundationTheme.color.borderLight,
+    borderColor: theme.colors.border,
   },
   reviewReportFallbackPressed: {
     opacity: 0.68,
@@ -1355,6 +1431,17 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: "#111",
     marginTop: 12,
+  },
+  previewMeta: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  momentsMore: {
+    marginTop: 12,
+    color: theme.colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
   },
   nearbyCard: {
     marginRight: 14,

@@ -46,7 +46,7 @@ function SignalChip({
       style={[
         styles.signalChip,
         compact ? styles.signalChipCompact : null,
-        { borderColor: theme.color.borderLight, backgroundColor: "transparent" },
+        { borderColor: theme.color.border, backgroundColor: "rgba(255,255,255,0.035)" },
       ]}
     >
       <Text
@@ -83,7 +83,7 @@ function GroupPreview({
   return (
     <View style={styles.previewRow}>
       <View style={styles.previewIcon}>
-        <Feather name={icon} size={16} color={theme.color.textSecondaryLight} />
+        <Feather name={icon} size={16} color={theme.color.textSecondary} />
       </View>
 
       <View style={styles.previewCopy}>
@@ -140,7 +140,7 @@ export function SpotTaxonomyDetails({ items }: Props) {
       <View style={styles.detailsRoot}>
         <Pressable onPress={() => setOpen(true)} style={styles.summaryCard}>
           <LinearGradient
-            colors={["rgba(255,79,145,0.07)", "rgba(255,255,255,0.55)"]}
+            colors={["rgba(255,79,145,0.15)", "rgba(255,255,255,0.025)"]}
             style={StyleSheet.absoluteFill}
           />
 
@@ -202,7 +202,7 @@ export function SpotTaxonomyDetails({ items }: Props) {
                 onPress={() => setOpen(false)}
                 style={styles.closeButton}
               >
-                <Ionicons name="close" size={20} color={theme.color.textPrimaryLight} />
+                <Ionicons name="close" size={20} color={theme.color.textPrimary} />
               </Pressable>
             </View>
 
@@ -238,7 +238,7 @@ export function SpotTaxonomyDetails({ items }: Props) {
                 <Ionicons
                   name="sparkles-outline"
                   size={17}
-                  color={theme.color.textSecondaryLight}
+                  color={theme.color.textSecondary}
                 />
 
                 <Text style={styles.infoNoteText}>
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   signalLabel: {
-    color: theme.color.textPrimaryLight,
+    color: theme.color.textPrimary,
     fontSize: 13,
     fontWeight: "700",
     maxWidth: 230,
@@ -297,8 +297,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: theme.color.borderLight,
-    backgroundColor: theme.color.surfaceLightElevated,
+    borderColor: theme.color.border,
+    backgroundColor: theme.color.surfaceElevated,
     padding: 18,
   },
   summaryHeader: {
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   summaryTitle: {
-    color: theme.color.textPrimaryLight,
+    color: theme.color.textPrimary,
     fontSize: 20,
     lineHeight: 25,
     fontWeight: "800",
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 3,
     borderRadius: 999,
-    backgroundColor: "rgba(23,22,26,0.04)",
+    backgroundColor: "rgba(255,255,255,0.06)",
     paddingHorizontal: 11,
     paddingVertical: 8,
   },
@@ -344,13 +344,13 @@ const styles = StyleSheet.create({
     gap: 11,
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: theme.color.borderLight,
+    borderTopColor: theme.color.border,
   },
   previewIcon: {
     width: 34,
     height: 34,
     borderRadius: 11,
-    backgroundColor: "rgba(23,22,26,0.05)",
+    backgroundColor: "rgba(255,255,255,0.06)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -359,14 +359,14 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   previewTitle: {
-    color: theme.color.textSecondaryLight,
+    color: theme.color.textSecondary,
     fontSize: 10,
     fontWeight: "800",
     textTransform: "uppercase",
     letterSpacing: 0.7,
   },
   previewText: {
-    color: theme.color.textPrimaryLight,
+    color: theme.color.textPrimary,
     fontSize: 13,
     fontWeight: "700",
     marginTop: 3,
@@ -381,9 +381,9 @@ const styles = StyleSheet.create({
     minHeight: "58%",
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    backgroundColor: theme.color.surfaceLight,
+    backgroundColor: theme.color.surface,
     borderTopWidth: 1,
-    borderColor: theme.color.borderLight,
+    borderColor: theme.color.border,
     paddingHorizontal: 20,
   },
   sheetHandle: {
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     height: 5,
     borderRadius: 999,
     alignSelf: "center",
-    backgroundColor: "rgba(23,22,26,0.22)",
+    backgroundColor: theme.color.borderStrong,
     marginTop: 10,
     marginBottom: 18,
   },
@@ -402,10 +402,10 @@ const styles = StyleSheet.create({
     gap: 18,
     paddingBottom: 17,
     borderBottomWidth: 1,
-    borderBottomColor: theme.color.borderLight,
+    borderBottomColor: theme.color.border,
   },
   sheetTitle: {
-    color: theme.color.textPrimaryLight,
+    color: theme.color.textPrimary,
     fontSize: 27,
     lineHeight: 32,
     fontWeight: "900",
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   sheetSubtitle: {
-    color: theme.color.textSecondaryLight,
+    color: theme.color.textSecondary,
     fontSize: 12,
     marginTop: 5,
   },
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "rgba(23,22,26,0.05)",
+    backgroundColor: "rgba(255,255,255,0.06)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -432,8 +432,8 @@ const styles = StyleSheet.create({
   groupCard: {
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: theme.color.borderLight,
-    backgroundColor: theme.color.surfaceLightElevated,
+    borderColor: theme.color.border,
+    backgroundColor: theme.color.surfaceElevated,
     padding: 15,
   },
   groupHeader: {
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   groupTitle: {
-    color: theme.color.textPrimaryLight,
+    color: theme.color.textPrimary,
     fontSize: 15,
     fontWeight: "800",
   },
@@ -466,11 +466,11 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 15,
     borderRadius: 17,
-    backgroundColor: "rgba(23,22,26,0.035)",
+    backgroundColor: "rgba(255,255,255,0.045)",
   },
   infoNoteText: {
     flex: 1,
-    color: theme.color.textSecondaryLight,
+    color: theme.color.textSecondary,
     fontSize: 11,
     lineHeight: 17,
   },

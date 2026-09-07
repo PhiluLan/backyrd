@@ -40,9 +40,14 @@ assert.doesNotMatch(profile, /\.insert\(|\.update\(/, "Mobile profile repair mus
 assert.doesNotMatch(`${decision}\n${tabs}`, /decision-debug/, "retired Decision debug route must stay absent");
 assert.match(config, /checkAutomatically: "ON_LOAD"/);
 assert.match(config, /BACKYRD_RELEASE_BUILD/);
-assert.match(spotDetail, /openingStateNow/, "Spot Detail must distinguish unknown opening hours");
-assert.match(spotDetail, /Öffnungszeiten unbekannt/, "missing hours must not be presented as closed");
+assert.match(spotDetail, /spotOpeningStatusNow/, "Spot Detail must use the canonical opening-hours presentation helper");
+assert.match(spotOpeningStatus, /unknown: "Öffnungszeiten unbekannt"/, "missing hours must not be presented as closed");
 assert.match(spotDetail, /Backyrd zeigt keinen Öffnungsstatus/, "hours uncertainty must be explicit");
+assert.match(spotDetail, /SPOT_OPENING_STATUS_COPY/, "Spot Detail must use canonical opening-status copy");
+assert.match(spotDetail, /reviews\.slice\(0, 3\)/, "Spot Detail must keep the Moment preview bounded");
+assert.match(spotDetail, /descriptionExpanded/, "Spot Detail must keep long descriptions collapsed initially");
+assert.match(spotDetail, /hoursExpanded/, "Spot Detail must keep full weekly hours opt-in");
+assert.doesNotMatch(spotDetail, /appearance="light"/, "Spot Detail must not reintroduce a light state surface");
 assert.match(homeEvents, /<ScrollView[\s\S]*horizontal/, "multiple Home events must be horizontally scrollable");
 assert.match(homeEvents, /events\.length === 1[\s\S]*styles\.singleCard/, "one Home event must retain the full-width card fallback");
 assert.match(homeEvents, /events\.length === 0[\s\S]*Aktuell sind noch keine Events bestätigt/, "zero Home events must retain the empty state");
