@@ -6,6 +6,7 @@ import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View, type Sty
 
 import { getGooglePlacePhotoFallback, type GooglePlacePhotoResult } from "../../lib/google-place-photo";
 import { imageDiagnosticContext, resolveCanonicalSpotImage, type CanonicalSpotImageProvenance } from "../../lib/spot-images";
+import { supabase } from "../../lib/supabase";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
 type Props = { spotId: string; spotName: string; imageUrl?: string | null; style?: StyleProp<ViewStyle>; accessibilityLabel?: string; priority?: "low" | "normal" | "high"; onResolvedImage?: (image: { provenance: CanonicalSpotImageProvenance; identity: string }) => void };
@@ -14,6 +15,7 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
   const ownerImage = useMemo(() => resolveCanonicalSpotImage({ headerPhotoUrl: imageUrl }), [imageUrl]);
   const [googleImage, setGoogleImage] = useState<GooglePlacePhotoResult | null>(null);
   const [ownerImageFailed, setOwnerImageFailed] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
   const [googleResolved, setGoogleResolved] = useState(Boolean(ownerImage.imageUrl));
   const activeOwnerUrl = ownerImageFailed ? null : ownerImage.imageUrl;
   const activeUrl = activeOwnerUrl ?? googleImage?.imageUrl ?? null;
@@ -29,12 +31,35 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
   }, [spotId]);
 
   useEffect(() => {
+    let mounted = true;
+    const markAuthReady = (session: { access_token?: string } | null) => {
+      if (mounted) setAuthReady(Boolean(session?.access_token));
+    };
+
+    void supabase.auth.getSession().then(({ data }) => markAuthReady(data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      markAuthReady(session);
+    });
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
     setGoogleImage(null);
     setOwnerImageFailed(false);
-    setGoogleResolved(Boolean(ownerImage.imageUrl));
+    setGoogleResolved(Boolean(ownerImage.imageUrl) || !authReady);
     setStatus("loading");
-    if (!ownerImage.imageUrl) void resolveGoogle(false);
-  }, [ownerImage.imageUrl, resolveGoogle]);
+    if (!ownerImage.imageUrl) {
+      if (authReady) {
+        void resolveGoogle(false);
+      } else {
+        setStatus("empty");
+      }
+    }
+  }, [authReady, ownerImage.imageUrl, resolveGoogle]);
 
   useEffect(() => {
     onResolvedImage?.({
