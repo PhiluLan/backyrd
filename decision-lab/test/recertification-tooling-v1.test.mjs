@@ -86,7 +86,9 @@ async function cloneWithConsumerUnderTest(prefix) {
   const source = new URL("../..", import.meta.url).pathname; const root = await mkdtemp(join(tmpdir(), prefix));
   execFileSync("git", ["clone", "--quiet", "--shared", source, root]); git(root, ["config", "user.email", "fixture@example.invalid"]); git(root, ["config", "user.name", "Fixture"]); if (process.env.CI_BASE_SHA) git(root, ["checkout", "--quiet", "--detach", process.env.CI_BASE_SHA]);
   for (const path of ["decision-lab/src/recertification-consumer.mjs", "decision-lab/src/recertification-verify.mjs"]) await writeFile(join(root, path), await readFile(join(source, path)));
-  const base = commit(root, "install consumer under test"); setCanonicalMain(root, base); return { root, base };
+  git(root, ["add", "."]); const stagedConsumerFiles = git(root, ["diff", "--cached", "--name-only"]);
+  if (stagedConsumerFiles) git(root, ["commit", "-m", "install consumer under test"]);
+  const base = git(root, ["rev-parse", "HEAD"]); setCanonicalMain(root, base); return { root, base };
 }
 
 test("consumer accepts valid synthetic v44 to v45 presentation chain", async () => {
