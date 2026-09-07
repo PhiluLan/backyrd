@@ -278,9 +278,9 @@ export default function SocialPostCard({
               ) : null}
             </View>
 
-            {handle || post.spot_city ? (
+            {handle ? (
               <Text style={styles.authorMeta} numberOfLines={1}>
-                {[handle, post.spot_city].filter(Boolean).join(" · ")}
+                {handle}
               </Text>
             ) : null}
           </View>
@@ -382,52 +382,34 @@ export default function SocialPostCard({
         </View>
       ) : null}
 
-      <View style={[styles.content, !hasImage ? styles.contentWithoutImage : null]}>
-        {post.caption ? (
-          <Text style={[styles.caption, !hasImage ? styles.captionWithoutImage : null]}>
-            {post.caption}
-          </Text>
-        ) : null}
+      {!hasImage && (Boolean(post.caption) || tagPreview.visible.length > 0) ? (
+        <View style={styles.textMoment}>
+          <View style={styles.textMomentAccent} />
+          <Ionicons
+            name="sparkles-outline"
+            size={18}
+            color={theme.color.pink}
+          />
+          {post.caption ? (
+            <Text style={styles.captionWithoutImage}>{post.caption}</Text>
+          ) : null}
 
-        {post.spot_name ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${post.spot_name} ansehen`}
-            style={styles.spotRow}
-            onPress={() => onOpenSpot(post)}
-          >
-            <View style={styles.spotIcon}>
-              <Ionicons name="location" size={14} color={theme.color.background} />
-            </View>
-            <View style={styles.spotCopy}>
-              <Text style={styles.spotName} numberOfLines={1}>
-                {post.spot_name}
-              </Text>
-              {[post.category_name, post.spot_city].filter(Boolean).length > 0 ? (
-                <Text style={styles.spotMeta} numberOfLines={1}>
-                  {[post.category_name, post.spot_city].filter(Boolean).join(" · ")}
-                </Text>
+          {tagPreview.visible.length > 0 ? (
+            <View style={styles.tags}>
+              {tagPreview.visible.map((tag, index) => (
+                <View key={`${post.post_id}-${tag}-${index}`} style={styles.tag}>
+                  <Text style={styles.tagText}>{tag}</Text>
+                </View>
+              ))}
+              {tagPreview.hiddenCount > 0 ? (
+                <View style={styles.tagMore}>
+                  <Text style={styles.tagMoreText}>+{tagPreview.hiddenCount}</Text>
+                </View>
               ) : null}
             </View>
-            <Text style={styles.spotLink}>Ansehen</Text>
-          </Pressable>
-        ) : null}
-
-        {tagPreview.visible.length > 0 ? (
-          <View style={styles.tags}>
-            {tagPreview.visible.map((tag, index) => (
-              <View key={`${post.post_id}-${tag}-${index}`} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
-            ))}
-            {tagPreview.hiddenCount > 0 ? (
-              <View style={styles.tagMore}>
-                <Text style={styles.tagMoreText}>+{tagPreview.hiddenCount}</Text>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-      </View>
+          ) : null}
+        </View>
+      ) : null}
 
       <View style={styles.actionBar}>
         <View style={styles.leftActions}>
@@ -477,6 +459,50 @@ export default function SocialPostCard({
           </Text>
         ) : null}
 
+        {hasImage && post.caption ? (
+          <Text style={styles.caption}>
+            <Text style={styles.captionAuthor}>{displayName} </Text>
+            {post.caption}
+          </Text>
+        ) : null}
+
+        {hasImage && tagPreview.visible.length > 0 ? (
+          <View style={styles.tags}>
+            {tagPreview.visible.map((tag, index) => (
+              <View key={`${post.post_id}-${tag}-${index}`} style={styles.tag}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+            {tagPreview.hiddenCount > 0 ? (
+              <View style={styles.tagMore}>
+                <Text style={styles.tagMoreText}>+{tagPreview.hiddenCount}</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {post.spot_name ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${post.spot_name} ansehen`}
+            style={styles.spotRow}
+            onPress={() => onOpenSpot(post)}
+          >
+            <Ionicons name="location-outline" size={16} color={theme.color.pink} />
+            <View style={styles.spotCopy}>
+              <Text style={styles.spotName} numberOfLines={1}>
+                {post.spot_name}
+              </Text>
+              {[post.category_name, post.spot_city].filter(Boolean).length > 0 ? (
+                <Text style={styles.spotMeta} numberOfLines={1}>
+                  {[post.category_name, post.spot_city].filter(Boolean).join(" · ")}
+                </Text>
+              ) : null}
+            </View>
+            <Text style={styles.spotLink}>Ansehen</Text>
+          </Pressable>
+        ) : null}
+
         {commentCount > 0 ? (
           <Pressable accessibilityRole="button" accessibilityLabel={`Alle ${commentCount} Kommentare öffnen`} onPress={() => onOpenComments(post)}>
             <Text style={styles.commentsLink}>
@@ -493,13 +519,11 @@ export default function SocialPostCard({
 
 const styles = StyleSheet.create({
   post: {
-    marginHorizontal: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
-    backgroundColor: theme.color.surface,
-    borderWidth: 1,
-    borderColor: theme.color.border,
-    borderRadius: theme.radius.lg,
-    overflow: "hidden",
+    marginBottom: theme.spacing.sm,
+    paddingBottom: theme.spacing.md,
+    backgroundColor: theme.color.background,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.color.border,
   },
   header: {
     minHeight: 68,
@@ -624,7 +648,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF4F91",
   },
   actionBar: {
-    minHeight: 48,
+    minHeight: 50,
     paddingHorizontal: theme.spacing.sm,
     flexDirection: "row",
     alignItems: "center",
@@ -641,16 +665,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  content: {
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: theme.spacing.md,
-  },
-  contentWithoutImage: {
-    paddingTop: theme.spacing.xs,
-  },
   metaBlock: {
     paddingHorizontal: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
   },
   engagement: {
     color: theme.color.textPrimary,
@@ -659,34 +675,47 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   caption: {
+    marginTop: 5,
     color: theme.color.textPrimary,
     fontFamily: theme.type.body,
     fontSize: 15,
     lineHeight: 22,
   },
+  captionAuthor: {
+    fontFamily: theme.type.bodyBold,
+  },
+  textMoment: {
+    position: "relative",
+    marginHorizontal: theme.spacing.md,
+    padding: theme.spacing.lg,
+    borderRadius: theme.radius.lg,
+    backgroundColor: theme.color.surface,
+    borderWidth: 1,
+    borderColor: theme.color.border,
+    overflow: "hidden",
+    gap: theme.spacing.sm,
+  },
+  textMomentAccent: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: 3,
+    backgroundColor: theme.color.pink,
+  },
   captionWithoutImage: {
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.bodyMedium,
     fontSize: 18,
     lineHeight: 26,
   },
   spotRow: {
     marginTop: theme.spacing.sm,
-    minHeight: 52,
-    paddingHorizontal: 10,
-    borderRadius: theme.radius.md,
-    backgroundColor: "rgba(246,240,232,0.045)",
-    borderWidth: 1,
-    borderColor: theme.color.border,
+    minHeight: 42,
+    paddingVertical: 5,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-  },
-  spotIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: theme.color.pink,
-    alignItems: "center",
-    justifyContent: "center",
+    gap: 8,
   },
   spotCopy: { flex: 1, minWidth: 0 },
   spotName: {
