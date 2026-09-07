@@ -1,8 +1,8 @@
 {
   "schemaVersion": "backyrd-additive-recertification-freeze-v1",
-  "currentVersion": "decision-v13-production-recertification-v45",
-  "currentRecertificationHash": "da7a95e2b9d7a3673141423ef6114e5af70152a2c7ec4c4fef01b618012246c9",
-  "parentDecisionRecertificationVersion": "decision-v13-production-recertification-v44",
+  "currentVersion": "decision-v13-production-recertification-v46",
+  "currentRecertificationHash": "8fce16732b78e6e69ee4ace3e5219b70e6663837febb9c94e31601713f380b85",
+  "parentDecisionRecertificationVersion": "decision-v13-production-recertification-v45",
   "d2D3Parents": {
     "d2FreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
     "d2EngineRecertificationVersion": "decision-v13-production-recertification-v44",
