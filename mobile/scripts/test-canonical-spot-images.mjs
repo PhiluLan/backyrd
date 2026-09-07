@@ -5,6 +5,7 @@ import ts from "typescript";
 
 const source = fs.readFileSync(path.resolve("lib/spot-images.ts"), "utf8");
 const artwork = fs.readFileSync(path.resolve("components/spot/SpotArtwork.tsx"), "utf8");
+const googlePhoto = fs.readFileSync(path.resolve("lib/google-place-photo.ts"), "utf8");
 const decision = fs.readFileSync(path.resolve("app/(tabs)/decision.tsx"), "utf8");
 const detail = fs.readFileSync(path.resolve("app/spot/[id].tsx"), "utf8");
 const module = { exports: {} };
@@ -50,6 +51,10 @@ assert.ok(canonical.every((image) => image.identity === canonical[0].identity &&
 assert.match(source, /backyrd_web_canonical_spot_image_headers_v1/, "Home catalog must project the authoritative header, not a gallery row");
 assert.match(artwork, /preferredOwnerImageFailed/, "broken Owner/Admin images must request the Google fallback");
 assert.match(artwork, /Google Maps/, "Google display must retain visible attribution");
+assert.match(googlePhoto, /supabase\.auth\.getSession\(\)/, "Google fallback must wait for the native session restoration");
+assert.match(googlePhoto, /Authorization:\s*`Bearer \$\{accessToken\}`/, "Google fallback must bind the restored session token explicitly");
+assert.match(artwork, /onAuthStateChange/, "missing-image fallback must retry after auth restoration");
+assert.match(artwork, /authReady/, "missing-image fallback must not cache the pre-auth render as final");
 assert.doesNotMatch(decision, /photo_url: selectSpotImageUrl\(\{ photoUrl/, "Decision must not select a generic gallery cover");
 assert.doesNotMatch(detail, /getGooglePlacePhotoFallback/, "Spot Detail must use the shared renderer resolver");
 

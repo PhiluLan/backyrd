@@ -30,6 +30,14 @@ export async function getGooglePlacePhotoFallback(
     return null;
   }
 
+  // The fallback is deliberately authenticated. On native, the first visual
+  // render can precede SecureStore session restoration, so read the session
+  // here and bind its current token explicitly instead of allowing an anon
+  // invocation to be cached as a missing photo.
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) return null;
+
   const cacheKey = `${cleanSpotId}:${options.preferredOwnerImageFailed ? "owner-failed" : "missing-owner"}`;
   const cached = googlePhotoRequests.get(cacheKey);
   if (cached) return cached;
@@ -39,6 +47,9 @@ export async function getGooglePlacePhotoFallback(
       body: {
         spotId: cleanSpotId,
         preferredOwnerImageFailed: Boolean(options.preferredOwnerImageFailed),
+      },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
       },
     })
     .then(({ data, error }) => {
