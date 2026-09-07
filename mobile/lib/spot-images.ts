@@ -37,8 +37,20 @@ export type DiscoverySpot = {
 function normalizedUrl(value: string | null | undefined) {
   const clean = value?.trim();
   if (!clean) return null;
-  if (/^https?:\/\//i.test(clean)) return encodeURI(clean);
-  return supabase.storage.from("spot-photos").getPublicUrl(clean.replace(/^\/+/, "")).data.publicUrl;
+
+  const encodeOnce = (url: string) => {
+    try {
+      // Canonical image URLs pass through the loader and SpotArtwork. Decode
+      // existing escapes before encoding so `%20` never becomes `%2520`.
+      return encodeURI(decodeURI(url));
+    } catch {
+      return encodeURI(url);
+    }
+  };
+
+  if (/^https?:\/\//i.test(clean)) return encodeOnce(clean);
+  const publicUrl = supabase.storage.from("spot-photos").getPublicUrl(clean.replace(/^\/+/, "")).data.publicUrl;
+  return encodeOnce(publicUrl);
 }
 
 /**
