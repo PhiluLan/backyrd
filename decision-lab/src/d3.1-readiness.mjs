@@ -3,6 +3,7 @@ import { contentHash } from "./canonical-json.mjs";
 import { validateD21Freeze } from "./d2-freeze.mjs";
 import { validatePersonalizationTreatmentFreeze } from "./personalization-treatment-freeze.mjs";
 import { hashFiles, readJson, repoRoot } from "./io.mjs";
+import { validateActiveAdditiveRecertification } from "./recertification-consumer.mjs";
 
 export const D38_EXPECTED = Object.freeze({
   parentFreezeManifestHash: "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
@@ -17,19 +18,22 @@ export async function d31Preflight() {
   const parentValidation = await validateD21Freeze(parent);
   const treatmentValidation = await validatePersonalizationTreatmentFreeze(treatment);
   const engineSourceHash = await hashFiles([resolve(repoRoot, "supabase/functions/decision-v13/index.ts")]);
+  const additiveRecertification = await validateActiveAdditiveRecertification({ root: repoRoot, trustedBaseSha: process.env.CI_BASE_SHA ?? null });
+  const parentContinuityValid = parentValidation.valid || (additiveRecertification.mode === "ADDITIVE_CHAIN" && additiveRecertification.valid);
   const identities = { parentFreezeManifestHash: parent.freezeManifestHash, personalizationTreatmentFreezeHash: treatment.freezeManifestHash, engineSourceHash };
   const mismatches = Object.entries(D38_EXPECTED).filter(([key, value]) => identities[key] !== value).map(([key, expected]) => ({ key, expected, actual: identities[key] }));
   const reasons = [
-    ...parentValidation.reasons.map((reason) => `PARENT:${reason}`),
+    ...(parentContinuityValid ? [] : parentValidation.reasons.map((reason) => `PARENT:${reason}`)),
     ...treatmentValidation.reasons.map((reason) => `TREATMENT:${reason}`),
     ...mismatches.map(({ key }) => `IDENTITY_MISMATCH:${key}`),
+    ...additiveRecertification.reasons.map((reason) => `ADDITIVE_RECERTIFICATION:${reason}`),
     ...(parent.scientificValidity === "PASS" && treatment.scientificValidity === "PASS" ? [] : ["SCIENTIFIC_VALIDITY_NOT_PASS"]),
     ...(coverage.parentFreezeManifestHash === D38_EXPECTED.parentFreezeManifestHash ? [] : ["COVERAGE_PARENT_FREEZE_MISMATCH"]),
     ...(coverage.personalizationTreatmentFreezeHash === D38_EXPECTED.personalizationTreatmentFreezeHash ? [] : ["COVERAGE_TREATMENT_FREEZE_MISMATCH"]),
     ...(coverage.engineSourceHash === D38_EXPECTED.engineSourceHash ? [] : ["COVERAGE_ENGINE_MISMATCH"]),
     ...(coverage.executionPath === "CANONICAL_V13_AUTHENTICATED" ? [] : ["NON_CANONICAL_EXECUTION_PATH"])
   ];
-  const body = { version: "d3.1-readiness-preflight-v1", status: reasons.length ? "FAIL" : "PASS", reasons, identities, parentFreezeValid: parentValidation.valid, treatmentFreezeValid: treatmentValidation.valid, scientificValidity: reasons.includes("SCIENTIFIC_VALIDITY_NOT_PASS") ? "FAIL" : "PASS", engineMutation: engineSourceHash === D38_EXPECTED.engineSourceHash ? "NONE" : "DETECTED", coverageContractHash: contentHash(coverage), productionAccess: "NONE" };
+  const body = { version: "d3.1-readiness-preflight-v1", status: reasons.length ? "FAIL" : "PASS", reasons, identities, additiveRecertification, parentFreezeValid: parentContinuityValid, legacyParentFreezeValid: parentValidation.valid, treatmentFreezeValid: treatmentValidation.valid, scientificValidity: reasons.includes("SCIENTIFIC_VALIDITY_NOT_PASS") ? "FAIL" : "PASS", engineMutation: engineSourceHash === D38_EXPECTED.engineSourceHash ? "NONE" : "DETECTED", coverageContractHash: contentHash(coverage), productionAccess: "NONE" };
   return { ...body, preflightHash: contentHash(body) };
 }
 
