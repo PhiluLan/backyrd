@@ -4,9 +4,9 @@ import { validateD21Freeze } from "./d2-freeze.mjs";
 import { validatePersonalizationTreatmentFreeze } from "./personalization-treatment-freeze.mjs";
 import { hashFiles, readJson, repoRoot } from "./io.mjs";
 
-export const D32_EXPECTED = Object.freeze({
-  parentFreezeManifestHash: "fc3fbb23e9f2aa455fabe37238d039367e6c138fb0437cd8992e0350a19aacf8",
-  personalizationTreatmentFreezeHash: "9c55250b3b38d6917ef44059d4071e3bbdba15fbf98c8c57f18cc481c647ff53",
+export const D33_EXPECTED = Object.freeze({
+  parentFreezeManifestHash: "1460bc97bf89c7e2238cd6ab203ca545a932ad14d688ce9f2923be034c01320e",
+  personalizationTreatmentFreezeHash: "90afb6585408da3854e802fc4d469ac7d138e32c0cc22ab8ce6205a99f1bf8c0",
   engineSourceHash: "cad2c4ea94817d2facbd54db92f55f3286acecf4d1e8a71dda414431b76cf000"
 });
 
@@ -18,18 +18,18 @@ export async function d31Preflight() {
   const treatmentValidation = await validatePersonalizationTreatmentFreeze(treatment);
   const engineSourceHash = await hashFiles([resolve(repoRoot, "supabase/functions/decision-v13/index.ts")]);
   const identities = { parentFreezeManifestHash: parent.freezeManifestHash, personalizationTreatmentFreezeHash: treatment.freezeManifestHash, engineSourceHash };
-  const mismatches = Object.entries(D32_EXPECTED).filter(([key, value]) => identities[key] !== value).map(([key, expected]) => ({ key, expected, actual: identities[key] }));
+  const mismatches = Object.entries(D33_EXPECTED).filter(([key, value]) => identities[key] !== value).map(([key, expected]) => ({ key, expected, actual: identities[key] }));
   const reasons = [
     ...parentValidation.reasons.map((reason) => `PARENT:${reason}`),
     ...treatmentValidation.reasons.map((reason) => `TREATMENT:${reason}`),
     ...mismatches.map(({ key }) => `IDENTITY_MISMATCH:${key}`),
     ...(parent.scientificValidity === "PASS" && treatment.scientificValidity === "PASS" ? [] : ["SCIENTIFIC_VALIDITY_NOT_PASS"]),
-    ...(coverage.parentFreezeManifestHash === D32_EXPECTED.parentFreezeManifestHash ? [] : ["COVERAGE_PARENT_FREEZE_MISMATCH"]),
-    ...(coverage.personalizationTreatmentFreezeHash === D32_EXPECTED.personalizationTreatmentFreezeHash ? [] : ["COVERAGE_TREATMENT_FREEZE_MISMATCH"]),
-    ...(coverage.engineSourceHash === D32_EXPECTED.engineSourceHash ? [] : ["COVERAGE_ENGINE_MISMATCH"]),
+    ...(coverage.parentFreezeManifestHash === D33_EXPECTED.parentFreezeManifestHash ? [] : ["COVERAGE_PARENT_FREEZE_MISMATCH"]),
+    ...(coverage.personalizationTreatmentFreezeHash === D33_EXPECTED.personalizationTreatmentFreezeHash ? [] : ["COVERAGE_TREATMENT_FREEZE_MISMATCH"]),
+    ...(coverage.engineSourceHash === D33_EXPECTED.engineSourceHash ? [] : ["COVERAGE_ENGINE_MISMATCH"]),
     ...(coverage.executionPath === "CANONICAL_V13_AUTHENTICATED" ? [] : ["NON_CANONICAL_EXECUTION_PATH"])
   ];
-  const body = { version: "d3.1-readiness-preflight-v1", status: reasons.length ? "FAIL" : "PASS", reasons, identities, parentFreezeValid: parentValidation.valid, treatmentFreezeValid: treatmentValidation.valid, scientificValidity: reasons.includes("SCIENTIFIC_VALIDITY_NOT_PASS") ? "FAIL" : "PASS", engineMutation: engineSourceHash === D32_EXPECTED.engineSourceHash ? "NONE" : "DETECTED", coverageContractHash: contentHash(coverage), productionAccess: "NONE" };
+  const body = { version: "d3.1-readiness-preflight-v1", status: reasons.length ? "FAIL" : "PASS", reasons, identities, parentFreezeValid: parentValidation.valid, treatmentFreezeValid: treatmentValidation.valid, scientificValidity: reasons.includes("SCIENTIFIC_VALIDITY_NOT_PASS") ? "FAIL" : "PASS", engineMutation: engineSourceHash === D33_EXPECTED.engineSourceHash ? "NONE" : "DETECTED", coverageContractHash: contentHash(coverage), productionAccess: "NONE" };
   return { ...body, preflightHash: contentHash(body) };
 }
 

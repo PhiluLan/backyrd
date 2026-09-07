@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef } from "react";
-import { Animated, StyleSheet, View } from "react-native";
+import { Animated, Easing, StyleSheet, View } from "react-native";
 
 type SplashScreenProps = {
   compact?: boolean;
@@ -13,16 +13,24 @@ type SplashScreenProps = {
  * then remains still if bootstrap needs longer.
  */
 const WORDMARK_HOLD_MS = 1_450;
-const TRANSITION_MS = 500;
+const TRANSITION_MS = 760;
 const COMPACT_HOLD_MS = 1_000;
 
+// The wordmark is deliberately built from one continuous set of glyphs. The
+// previous overlay of two complete marks made the three-second sequence look
+// like a hard replacement on a physical device.
+const MARK_STAGE_WIDTH = 272;
+const INITIAL_B_LEFT = 13;
+const FINAL_B_LEFT = 111;
+const INITIAL_TAIL_LEFT = 45;
+const INITIAL_DOT_LEFT = 245;
+const FINAL_DOT_LEFT = 143;
+
 export default function SplashScreen({ compact = false, onAnimationSettled, onReadyToReveal }: SplashScreenProps) {
-  const fullOpacity = useRef(new Animated.Value(1)).current;
-  const fullScale = useRef(new Animated.Value(1)).current;
-  const fullTranslateY = useRef(new Animated.Value(0)).current;
-  const compactOpacity = useRef(new Animated.Value(compact ? 1 : 0)).current;
-  const compactScale = useRef(new Animated.Value(compact ? 1 : 0.9)).current;
-  const compactTranslateY = useRef(new Animated.Value(compact ? 0 : 12)).current;
+  const bTranslateX = useRef(new Animated.Value(compact ? FINAL_B_LEFT - INITIAL_B_LEFT : 0)).current;
+  const tailOpacity = useRef(new Animated.Value(compact ? 0 : 1)).current;
+  const tailTranslateX = useRef(new Animated.Value(0)).current;
+  const dotTranslateX = useRef(new Animated.Value(compact ? FINAL_DOT_LEFT - INITIAL_DOT_LEFT : 0)).current;
   const onAnimationSettledRef = useRef(onAnimationSettled);
   const onReadyToRevealRef = useRef(onReadyToReveal);
   const hasReportedLayoutRef = useRef(false);
@@ -43,24 +51,40 @@ export default function SplashScreen({ compact = false, onAnimationSettled, onRe
 
   useEffect(() => {
     if (compact) {
-      fullOpacity.setValue(0);
-      fullScale.setValue(0.96);
-      fullTranslateY.setValue(4);
-      compactOpacity.setValue(1);
-      compactScale.setValue(1);
-      compactTranslateY.setValue(0);
+      bTranslateX.setValue(FINAL_B_LEFT - INITIAL_B_LEFT);
+      tailOpacity.setValue(0);
+      tailTranslateX.setValue(-20);
+      dotTranslateX.setValue(FINAL_DOT_LEFT - INITIAL_DOT_LEFT);
       return;
     }
 
     let compactHold: ReturnType<typeof setTimeout> | undefined;
     const token = setTimeout(() => {
       Animated.parallel([
-        Animated.timing(fullOpacity, { toValue: 0, duration: TRANSITION_MS, useNativeDriver: true }),
-        Animated.timing(fullScale, { toValue: 0.96, duration: TRANSITION_MS, useNativeDriver: true }),
-        Animated.timing(fullTranslateY, { toValue: -6, duration: TRANSITION_MS, useNativeDriver: true }),
-        Animated.timing(compactOpacity, { toValue: 1, duration: TRANSITION_MS, delay: 110, useNativeDriver: true }),
-        Animated.timing(compactScale, { toValue: 1, duration: TRANSITION_MS, delay: 110, useNativeDriver: true }),
-        Animated.timing(compactTranslateY, { toValue: 0, duration: TRANSITION_MS, delay: 110, useNativeDriver: true }),
+        Animated.timing(bTranslateX, {
+          toValue: FINAL_B_LEFT - INITIAL_B_LEFT,
+          duration: TRANSITION_MS,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(tailOpacity, {
+          toValue: 0,
+          duration: 430,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(tailTranslateX, {
+          toValue: -22,
+          duration: TRANSITION_MS,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(dotTranslateX, {
+          toValue: FINAL_DOT_LEFT - INITIAL_DOT_LEFT,
+          duration: TRANSITION_MS,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
       ]).start(({ finished }) => {
         if (!finished) return;
         compactHold = setTimeout(() => onAnimationSettledRef.current?.(), COMPACT_HOLD_MS);
@@ -70,33 +94,29 @@ export default function SplashScreen({ compact = false, onAnimationSettled, onRe
     return () => {
       clearTimeout(token);
       if (compactHold) clearTimeout(compactHold);
-      fullOpacity.stopAnimation();
-      fullScale.stopAnimation();
-      fullTranslateY.stopAnimation();
-      compactOpacity.stopAnimation();
-      compactScale.stopAnimation();
-      compactTranslateY.stopAnimation();
+      bTranslateX.stopAnimation();
+      tailOpacity.stopAnimation();
+      tailTranslateX.stopAnimation();
+      dotTranslateX.stopAnimation();
     };
-  }, [compact, compactOpacity, compactScale, compactTranslateY, fullOpacity, fullScale, fullTranslateY]);
+  }, [bTranslateX, compact, dotTranslateX, tailOpacity, tailTranslateX]);
 
   return (
     <View onLayout={onLayout} style={styles.container}>
-      <Animated.View style={[styles.brandMark, { opacity: fullOpacity, transform: [{ scale: fullScale }, { translateY: fullTranslateY }] }]}>
-        <Animated.Text style={styles.brandWord}>backyrd<Animated.Text style={styles.brandDot}>.</Animated.Text></Animated.Text>
-      </Animated.View>
-      <Animated.View style={[styles.compactMark, { opacity: compactOpacity, transform: [{ scale: compactScale }, { translateY: compactTranslateY }] }]}>
-        <Animated.Text style={styles.compactWord}>b<Animated.Text style={styles.compactDot}>.</Animated.Text></Animated.Text>
-      </Animated.View>
+      <View style={styles.markStage} pointerEvents="none">
+        <Animated.Text style={[styles.brandGlyph, styles.bGlyph, { transform: [{ translateX: bTranslateX }] }]}>b</Animated.Text>
+        <Animated.Text style={[styles.brandGlyph, styles.tailGlyph, { opacity: tailOpacity, transform: [{ translateX: tailTranslateX }] }]}>ackyrd</Animated.Text>
+        <Animated.Text style={[styles.brandGlyph, styles.brandDot, { transform: [{ translateX: dotTranslateX }] }]}>.</Animated.Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#050505", alignItems: "center", justifyContent: "center" },
-  brandMark: { position: "absolute" },
-  compactMark: { position: "absolute" },
-  brandWord: { color: "#F3EDE5", fontSize: 46, lineHeight: 56, fontWeight: "700", letterSpacing: 1.2 },
-  brandDot: { color: "#FF4F91", letterSpacing: 0 },
-  compactWord: { color: "#F3EDE5", fontSize: 42, lineHeight: 46, fontWeight: "700", letterSpacing: -1 },
-  compactDot: { color: "#FF4F91", letterSpacing: -2 },
+  markStage: { width: MARK_STAGE_WIDTH, height: 64, position: "relative" },
+  brandGlyph: { position: "absolute", top: 0, color: "#F3EDE5", fontSize: 46, lineHeight: 56, fontWeight: "700", letterSpacing: 1.2 },
+  bGlyph: { left: INITIAL_B_LEFT },
+  tailGlyph: { left: INITIAL_TAIL_LEFT },
+  brandDot: { left: INITIAL_DOT_LEFT, color: "#FF4F91", letterSpacing: 0 },
 });

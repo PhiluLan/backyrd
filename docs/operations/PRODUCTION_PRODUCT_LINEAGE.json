@@ -22,10 +22,10 @@
       "ios_update": "01a07263-06bd-7340-a72e-ee70a4e77ca1",
       "created_at": "2026-09-05T16:23:00Z",
       "canonical_source": {
-    "commit": "2d06b01ba1e9891bfad33e953141ad5a0b23ec67",
-    "tree": "43b579d2baad3436c0ba83a8fca98744572f8d35",
+    "commit": "1f472040f626e313dd17dadc6ecc3c3d9ee04939",
+    "tree": "48564c8f088946b3d7f363b12576259f2fcbb726",
         "production_verified": false,
-    "reason": "Founder-authorized bounded Native/React Splash handoff continuity fix candidate. Exact Mobile source tree is bound before merge; Production verification remains false until canonical-main OTA deployment and physical Founder validation."
+    "reason": "Founder-authorized bounded Splash wordmark motion correction candidate. Exact Mobile source tree is bound before merge; Production verification remains false until canonical-main OTA deployment and physical Founder validation."
       }
     },
     "consumer_web": {
@@ -574,6 +574,17 @@
       "mobile/scripts/test-native-intent-routing.mjs"
     ],
     "evidence": "decision-lab/config/decision-v13-production-recertification-v32.json"
+  },
+  {
+    "id": "founder_splash_wordmark_motion_v1",
+    "baseline_commit": "f1e3c79eb46dcc5efabcdfccd9c3364eaa551674",
+    "source_commit": "1f472040f626e313dd17dadc6ecc3c3d9ee04939",
+    "decision_semantics_changed": false,
+    "authorized_surface_changes": [
+      "mobile/app/splash.tsx",
+      "mobile/scripts/test-native-intent-routing.mjs"
+    ],
+    "evidence": "decision-lab/config/decision-v13-production-recertification-v33.json"
   }
   ],
   "required_ancestry": [
