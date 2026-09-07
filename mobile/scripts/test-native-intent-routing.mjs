@@ -31,6 +31,14 @@ const legalGateSource = fs.readFileSync(
   new URL("../components/consent/LegalGateGuard.tsx", import.meta.url),
   "utf8",
 );
+const safetyGuardSource = fs.readFileSync(
+  new URL("../components/safety/GlobalSafetyEnforcementGuard.tsx", import.meta.url),
+  "utf8",
+);
+const splashSource = fs.readFileSync(
+  new URL("../app/splash.tsx", import.meta.url),
+  "utf8",
+);
 const compiled = ts.transpileModule(source, {
   compilerOptions: {
     module: ts.ModuleKind.ESNext,
@@ -122,8 +130,18 @@ test("uses native intent for runtime links and an acknowledged iOS initial targe
   assert.match(rootLayoutSource, /preventAutoHideAsync\(\)/);
   assert.match(rootLayoutSource, /hideAsync\(\)/);
   assert.match(rootLayoutSource, /showStartupSplash/);
-  assert.match(rootLayoutSource, /<SplashScreen onAnimationSettled=/);
+  assert.match(rootLayoutSource, /onReadyToReveal=\{onReactSplashReady\}/);
+  assert.match(rootLayoutSource, /onStartupCheckSettled=\{onSafetyStartupReady\}/);
   assert.match(rootLayoutSource, /bootstrapReady.*splashSettled/);
+  assert.match(rootLayoutSource, /if \(\(!reactSplashReady && !fontError\) \|\| nativeSplashHidden\) return/);
+  assert.doesNotMatch(rootLayoutSource, /splashSettled && !fontError/);
+  assert.match(splashSource, /const WORDMARK_HOLD_MS = 1_450/);
+  assert.match(splashSource, /const TRANSITION_MS = 500/);
+  assert.match(splashSource, /const COMPACT_HOLD_MS = 1_000/);
+  assert.match(splashSource, /onLayout=\{onLayout\}/);
+  assert.match(safetyGuardSource, /authReady = true/);
+  assert.match(safetyGuardSource, /onStartupCheckSettled/);
+  assert.match(safetyGuardSource, /if \(!authReady\) return/);
   assert.ok(
     rootLayoutSource.indexOf("<RootStack />") <
       rootLayoutSource.indexOf("<ColdStartProductDeepLinkRouter ready={bootstrapReady} />") &&

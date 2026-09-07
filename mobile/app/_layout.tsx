@@ -66,8 +66,10 @@ function BootstrappedApp() {
     LibreFranklin_700Bold,
   });
   const { loading: authLoading } = useAuth();
-  const bootstrapReady = !fontError && fontsLoaded && !authLoading;
+  const [safetyStartupReady, setSafetyStartupReady] = useState(false);
+  const bootstrapReady = !fontError && fontsLoaded && !authLoading && safetyStartupReady;
   const [splashSettled, setSplashSettled] = useState(false);
+  const [reactSplashReady, setReactSplashReady] = useState(false);
   const [nativeSplashHidden, setNativeSplashHidden] = useState(false);
 
   const bootstrapState = fontError ? (
@@ -86,45 +88,56 @@ function BootstrappedApp() {
   }, [bootstrapReady]);
 
   const onSplashSettled = useCallback(() => setSplashSettled(true), []);
+  const onReactSplashReady = useCallback(() => setReactSplashReady(true), []);
+  const onSafetyStartupReady = useCallback(() => setSafetyStartupReady(true), []);
 
   useEffect(() => {
-    if ((!bootstrapReady && !fontError) || (!splashSettled && !fontError) || nativeSplashHidden) return;
+    // Do not hide the native launch screen until the React splash has a real
+    // layout. Hiding it after the animation would run that animation behind
+    // the native screen and leave only the final b. mark visible.
+    if ((!reactSplashReady && !fontError) || nativeSplashHidden) return;
 
     void ExpoSplashScreen.hideAsync()
       .catch(() => undefined)
       .finally(() => setNativeSplashHidden(true));
-  }, [bootstrapReady, fontError, nativeSplashHidden, splashSettled]);
+  }, [fontError, nativeSplashHidden, reactSplashReady]);
 
-  const showStartupSplash = !fontError && (!bootstrapReady || !splashSettled || !nativeSplashHidden);
+  const showStartupSplash = !fontError && (!bootstrapReady || !splashSettled);
 
   return (
     <AnalyticsProvider>
-      <GlobalSafetyEnforcementGuard>
-        <LegalGateGuard>
-          <View style={styles.root}>
+      <View style={styles.root}>
+        <GlobalSafetyEnforcementGuard
+          authReady={!authLoading}
+          onStartupCheckSettled={onSafetyStartupReady}
+        >
+          <LegalGateGuard>
             <RootStack />
             <ColdStartProductDeepLinkRouter ready={bootstrapReady} />
             <PushNotificationRouter />
-            {fontError ? (
-              <View
-                accessibilityViewIsModal
-                pointerEvents="auto"
-                style={styles.bootstrapOverlay}
-              >
-                {bootstrapState}
-              </View>
-            ) : showStartupSplash ? (
-              <View
-                accessibilityViewIsModal
-                pointerEvents="auto"
-                style={styles.bootstrapOverlay}
-              >
-                <SplashScreen onAnimationSettled={onSplashSettled} />
-              </View>
-            ) : null}
+          </LegalGateGuard>
+        </GlobalSafetyEnforcementGuard>
+        {fontError ? (
+          <View
+            accessibilityViewIsModal
+            pointerEvents="auto"
+            style={styles.bootstrapOverlay}
+          >
+            {bootstrapState}
           </View>
-        </LegalGateGuard>
-      </GlobalSafetyEnforcementGuard>
+        ) : showStartupSplash ? (
+          <View
+            accessibilityViewIsModal
+            pointerEvents="auto"
+            style={styles.bootstrapOverlay}
+          >
+            <SplashScreen
+              onAnimationSettled={onSplashSettled}
+              onReadyToReveal={onReactSplashReady}
+            />
+          </View>
+        ) : null}
+      </View>
     </AnalyticsProvider>
   );
 }

@@ -19,7 +19,12 @@ import {
 import { supabase } from "../../lib/supabase";
 import { ProductLoading } from "../ui/ProductState";
 
-type Props = { children: ReactNode };
+type Props = {
+  children: ReactNode;
+  /** Allows the root splash to remain the only visible bootstrap surface. */
+  authReady?: boolean;
+  onStartupCheckSettled?: () => void;
+};
 const SAFETY_ALLOWED_ROUTES = [
   "/safety-center",
   "/safety-notifications",
@@ -46,15 +51,31 @@ function formatEnd(value: string | null): string | null {
   }).format(date);
 }
 
-export default function GlobalSafetyEnforcementGuard({ children }: Props) {
+export default function GlobalSafetyEnforcementGuard({
+  children,
+  authReady = true,
+  onStartupCheckSettled,
+}: Props) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const [status, setStatus] = useState<SafetyWriteStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [signedIn, setSignedIn] = useState(false);
   const shownWriteNoticeKey = useRef<string | null>(null);
+  const onStartupCheckSettledRef = useRef(onStartupCheckSettled);
+  const startupCheckSettledRef = useRef(false);
   const mounted = useRef(true);
   const isSafetyRoute = isAllowedSafetyRoute(pathname);
+
+  useEffect(() => {
+    onStartupCheckSettledRef.current = onStartupCheckSettled;
+  }, [onStartupCheckSettled]);
+
+  const settleStartupCheck = useCallback(() => {
+    if (startupCheckSettledRef.current) return;
+    startupCheckSettledRef.current = true;
+    onStartupCheckSettledRef.current?.();
+  }, []);
 
   const refresh = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -65,6 +86,7 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
       setStatus(null);
       setLoading(false);
       shownWriteNoticeKey.current = null;
+      settleStartupCheck();
       return;
     }
 
@@ -73,10 +95,12 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
     if (!mounted.current) return;
     setStatus(nextStatus);
     setLoading(false);
-  }, []);
+    settleStartupCheck();
+  }, [settleStartupCheck]);
 
   useEffect(() => {
     mounted.current = true;
+    if (!authReady) return;
     void refresh();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(() => {
@@ -88,7 +112,7 @@ export default function GlobalSafetyEnforcementGuard({ children }: Props) {
       mounted.current = false;
       authListener.subscription.unsubscribe();
     };
-  }, [refresh]);
+  }, [authReady, refresh]);
 
   useEffect(() => {
     const onStateChange = (nextState: AppStateStatus) => {
