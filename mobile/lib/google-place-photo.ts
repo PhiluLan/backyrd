@@ -1,3 +1,5 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import { supabase } from "./supabase";
 
 export type GooglePhotoAttribution = {
@@ -25,10 +27,56 @@ type GooglePhotoRequest = {
 
 const googlePhotoRequests = new Map<string, GooglePhotoRequest>();
 const GOOGLE_PHOTO_REQUEST_TTL_MS = 5 * 60 * 1000;
+const GOOGLE_PHOTO_FAILURE_TTL_MS = 30 * 1000;
+const GOOGLE_PHOTO_STORAGE_PREFIX = "@backyrd/google-place-photo/v1";
+
+type StoredGooglePhoto = {
+  storedAt: number;
+  result: GooglePlacePhotoResult;
+};
+
+function persistentCacheKey(namespace: string, cacheKey: string) {
+  return `${GOOGLE_PHOTO_STORAGE_PREFIX}:${namespace}:${cacheKey}`;
+}
+
+async function readStoredGooglePhoto(namespace: string | null | undefined, cacheKey: string) {
+  if (!namespace) return null;
+  try {
+    const raw = await AsyncStorage.getItem(persistentCacheKey(namespace, cacheKey));
+    if (!raw) return null;
+    const stored = JSON.parse(raw) as StoredGooglePhoto;
+    if (
+      !stored ||
+      !Number.isFinite(stored.storedAt) ||
+      Date.now() - stored.storedAt >= GOOGLE_PHOTO_REQUEST_TTL_MS ||
+      stored.result?.source !== "google" ||
+      typeof stored.result.imageUrl !== "string" ||
+      !stored.result.imageUrl.startsWith("https://")
+    ) {
+      await AsyncStorage.removeItem(persistentCacheKey(namespace, cacheKey));
+      return null;
+    }
+    return stored.result;
+  } catch {
+    return null;
+  }
+}
+
+async function storeGooglePhoto(namespace: string | null | undefined, cacheKey: string, result: GooglePlacePhotoResult) {
+  if (!namespace) return;
+  try {
+    await AsyncStorage.setItem(
+      persistentCacheKey(namespace, cacheKey),
+      JSON.stringify({ storedAt: Date.now(), result } satisfies StoredGooglePhoto),
+    );
+  } catch {
+    // A cache write must never turn an available canonical image into an error.
+  }
+}
 
 export async function getGooglePlacePhotoFallback(
   spotId: string,
-  options: { preferredOwnerImageFailed?: boolean; accessToken?: string | null } = {},
+  options: { preferredOwnerImageFailed?: boolean; accessToken?: string | null; cacheNamespace?: string | null } = {},
 ): Promise<GooglePlacePhotoResult | null> {
   const cleanSpotId = spotId.trim();
 
@@ -48,9 +96,14 @@ export async function getGooglePlacePhotoFallback(
 
   const cacheKey = `${cleanSpotId}:${options.preferredOwnerImageFailed ? "owner-failed" : "missing-owner"}`;
   const cached = googlePhotoRequests.get(cacheKey);
-  if (cached && cached.accessToken === accessToken && Date.now() - cached.createdAt < GOOGLE_PHOTO_REQUEST_TTL_MS) {
-    return cached.request;
+  if (cached && cached.accessToken === accessToken) {
+    const cachedResult = await cached.request;
+    const ttl = cachedResult ? GOOGLE_PHOTO_REQUEST_TTL_MS : GOOGLE_PHOTO_FAILURE_TTL_MS;
+    if (Date.now() - cached.createdAt < ttl) return cachedResult;
   }
+
+  const stored = await readStoredGooglePhoto(options.cacheNamespace, cacheKey);
+  if (stored) return stored;
 
   const request = supabase.functions
     .invoke<GooglePlacePhotoResult>("google-place-photo", {
@@ -82,6 +135,8 @@ export async function getGooglePlacePhotoFallback(
 
   googlePhotoRequests.set(cacheKey, { accessToken, createdAt: Date.now(), request });
   const result = await request;
-  if (!result && googlePhotoRequests.get(cacheKey)?.request === request) googlePhotoRequests.delete(cacheKey);
+  if (result?.source === "google" && result.imageUrl) {
+    await storeGooglePhoto(options.cacheNamespace, cacheKey, result);
+  }
   return result;
 }
