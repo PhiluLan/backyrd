@@ -13,7 +13,7 @@ import { validateEngineRecertification } from "../src/d2-freeze.mjs";
 
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
 const put = async (root, path, value) => { const target = join(root, path); await mkdir(dirname(target), { recursive: true }); await writeFile(target, typeof value === "string" ? value : `${JSON.stringify(value, null, 2)}\n`); };
-const commit = (root, message) => { git(root, ["add", "."]); git(root, ["commit", "-m", message]); return git(root, ["rev-parse", "HEAD"]); };
+const commit = (root, message) => { git(root, ["add", "."]); git(root, ["commit", "--allow-empty", "-m", message]); return git(root, ["rev-parse", "HEAD"]); };
 const setCanonicalMain = (root, sha) => git(root, ["update-ref", "refs/remotes/origin/main", sha]);
 const commitTree = (root, tree, parent, message) => git(root, ["commit-tree", tree, ...(parent ? ["-p", parent] : []), "-m", message]);
 const integrateOnCanonicalMain = (root, base, branchTip, message = "merge candidate to canonical main") => {
