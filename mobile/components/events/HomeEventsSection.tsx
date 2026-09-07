@@ -108,6 +108,7 @@ export function HomeEventsSection() {
     <View style={styles.section}>
       <EditorialSectionHeader
         actionLabel="Alle ansehen"
+        actionVariant="quietPink"
         onAction={() => router.push("/events" as never)}
         title="Was läuft?"
       />
