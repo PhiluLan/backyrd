@@ -12,6 +12,7 @@ const spotArtwork = read("components/spot/SpotArtwork.tsx");
 const spotDetail = read("app/spot/[id].tsx");
 const homeEvents = read("components/events/HomeEventsSection.tsx");
 const eventDiscovery = read("lib/events-v1.ts");
+const spotOpeningStatus = read("lib/spot-opening-status.ts");
 
 assert.match(decision, /DecisionCardAction = "next" \| "like" \| "dislike"/);
 assert.match(decision, /if \(action !== "next" &&/, "neutral Next must bypass feedback");
@@ -50,6 +51,12 @@ assert.match(homeEvents, /HOME_RAIL/, "Events must use the shared Home rail cont
 assert.match(homeEvents, /snapToInterval/, "Events must use the shared Home rail snap contract");
 assert.match(home, /HOME_RAIL/, "Spots must use the shared Home rail contract");
 assert.match(home, /snapToInterval/, "Spots must use the shared Home rail snap contract");
+assert.match(home, /resolveLocationContext\(\{ purpose: "nearby_discovery", requestPermission: false/, "Home must never prompt for location merely to decorate a card");
+assert.match(home, /SPOT_OPENING_STATUS_COPY/, "Home cards must present the canonical opening status");
+assert.match(home, /spot\.category_name.*spot\.address/, "Home cards must fall back to the address when no current location is available");
+assert.match(spotOpeningStatus, /openingSoon: "Öffnet bald"/, "opening-soon status must remain explicit");
+assert.match(spotOpeningStatus, /closingSoon: "Schließt bald"/, "closing-soon status must remain explicit");
+assert.match(spotOpeningStatus, /SOON_WINDOW_MINUTES = 30/, "opening-status urgency must remain bounded to 30 minutes");
 assert.doesNotMatch(homeEvents, /pagingEnabled|autoplay|setInterval/, "Home rails must remain manually scrollable without autoplay");
 assert.match(eventDiscovery, /\.order\("start_at", \{ ascending: true \}\)/, "Home events must remain chronologically ordered");
 

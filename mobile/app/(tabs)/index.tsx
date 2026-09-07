@@ -23,6 +23,9 @@ import { StateView } from "../../components/foundation/StateView";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { useAuth } from "../../hooks/useAuth";
 import { loadDiscoverySpots, type DiscoverySpot } from "../../lib/spot-images";
+import { resolveLocationContext, type LocationCoordinates } from "../../lib/locationContext";
+import { SPOT_OPENING_STATUS_COPY, spotOpeningStatusNow, type SpotOpeningStatus } from "../../lib/spot-opening-status";
+import { haversineKm } from "../../lib/utils/haversine";
 import { supabase } from "../../lib/supabase";
 import { HOME_RAIL, homeRailCardWidth } from "../../lib/home-rail";
 import { backyrdTheme as theme } from "../../theme/backyrd";
@@ -46,11 +49,11 @@ export default function HomeScreen() {
   const [city, setCity] = useState("Basel");
   const [firstName, setFirstName] = useState<string | null>(null);
   const [spots, setSpots] = useState<DiscoverySpot[]>([]);
-  const [moodsBySpot, setMoodsBySpot] = useState<Record<string, string[]>>({});
   const [popularMoods, setPopularMoods] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<LocationCoordinates | null>(null);
 
   const loadMoodContext = useCallback(async (catalog: DiscoverySpot[]) => {
     const spotIds = catalog.map((spot) => spot.id);
@@ -63,15 +66,11 @@ export default function HomeScreen() {
     // Mood context enriches the cards but may never fail the Discovery surface.
     if (moodError || !Array.isArray(data)) return;
     const rows = data as MoodRow[];
-    const nextBySpot: Record<string, string[]> = {};
     const strength = new Map<string, number>();
     for (const row of rows) {
       if (!row.spot_id || !row.label) continue;
-      const current = nextBySpot[row.spot_id] ?? [];
-      if (current.length < 2) nextBySpot[row.spot_id] = [...current, row.label];
       strength.set(row.label, (strength.get(row.label) ?? 0) + Math.max(1, Number(row.concept_contributors ?? 0)));
     }
-    setMoodsBySpot(nextBySpot);
     setPopularMoods([...strength.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([label]) => label));
   }, []);
 
@@ -109,6 +108,15 @@ export default function HomeScreen() {
 
   useEffect(() => { void load(); }, [load]);
 
+  useEffect(() => {
+    let active = true;
+    void resolveLocationContext({ purpose: "nearby_discovery", requestPermission: false, allowCityFallback: false, timeoutMs: 2_500 })
+      .then((context) => {
+        if (active && context.source === "current") setCurrentLocation(context.coordinates);
+      });
+    return () => { active = false; };
+  }, []);
+
   const topSpots = useMemo(() => spots.slice(0, 6), [spots]);
   const newSpots = useMemo(() => [...spots].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).slice(0, 6), [spots]);
   const heroCardGap = HOME_RAIL.gap;
@@ -119,6 +127,22 @@ export default function HomeScreen() {
     [heroCardGap, heroCardWidth, topSpots],
   );
   const compactCardWidth = Math.min(190, Math.max(154, width * 0.44));
+
+  function spotMeta(spot: DiscoverySpot) {
+    if (currentLocation && spot.lat !== null && spot.lng !== null) {
+      const distance = haversineKm(currentLocation, { latitude: spot.lat, longitude: spot.lng });
+      return `${spot.category_name ?? "Spot"} · ${distance < 1 ? `${Math.round(distance * 1000)} m` : `${distance.toFixed(1)} km`}`;
+    }
+    return [spot.category_name, spot.address ?? spot.city].filter(Boolean).join(" · ");
+  }
+
+  function openingStatusStyle(status: SpotOpeningStatus) {
+    if (status === "open") return [styles.statusPillOpen, styles.statusDotOpen] as const;
+    if (status === "closed") return [styles.statusPillClosed, styles.statusDotClosed] as const;
+    if (status === "openingSoon") return [styles.statusPillOpeningSoon, styles.statusDotOpeningSoon] as const;
+    if (status === "closingSoon") return [styles.statusPillClosingSoon, styles.statusDotClosingSoon] as const;
+    return [styles.statusPillUnknown, styles.statusDotUnknown] as const;
+  }
 
   function submitDecision(value = query) {
     const normalized = value.trim();
@@ -195,10 +219,14 @@ export default function HomeScreen() {
                 <Pressable accessibilityLabel={`${spot.name} öffnen`} key={spot.id} onPress={() => router.push(`/spot/${spot.id}` as never)} style={({ pressed }) => [styles.heroCard, { width: heroCardWidth, height: heroCardHeight }, pressed && styles.cardPressed]}>
                   <SpotArtwork imageUrl={spot.header_photo_url} priority={index < 2 ? "high" : "normal"} spotId={spot.id} spotName={spot.name} style={StyleSheet.absoluteFill} />
                   <LinearGradient colors={["rgba(5,5,5,0.02)", "rgba(5,5,5,0.18)", "rgba(5,5,5,0.92)"]} locations={[0.2, 0.54, 1]} style={StyleSheet.absoluteFill} />
+                  {(() => {
+                    const status = spotOpeningStatusNow(spot.hours);
+                    const [pillStyle, dotStyle] = openingStatusStyle(status);
+                    return <View style={[styles.statusPill, pillStyle]}><View style={[styles.statusDot, dotStyle]} /><AppText role="caption" style={styles.statusText}>{SPOT_OPENING_STATUS_COPY[status]}</AppText></View>;
+                  })()}
                   <View style={styles.heroCardContent}>
-                    <View style={styles.spotStatus}><View style={styles.openDot} /><AppText role="caption" style={styles.statusText}>Auf Backyrd</AppText></View>
                     <AppText role="displayL" adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={2} style={styles.spotName}>{spot.name}</AppText>
-                    <AppText role="meta" numberOfLines={1} style={styles.spotMeta}>{[...(moodsBySpot[spot.id] ?? []), spot.category_name, spot.city].filter(Boolean).slice(0, 3).join(" · ")}</AppText>
+                    <AppText role="meta" numberOfLines={1} style={styles.spotMeta}>{spotMeta(spot)}</AppText>
                   </View>
                 </Pressable>
               ))}
@@ -254,8 +282,18 @@ const styles = StyleSheet.create({
   heroCards: { paddingTop: theme.spacing.lg },
   heroCard: { overflow: "hidden", borderRadius: theme.radius.xl, justifyContent: "flex-end", backgroundColor: theme.color.surface },
   heroCardContent: { paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.lg },
-  spotStatus: { marginBottom: theme.spacing.sm, flexDirection: "row", alignItems: "center", gap: 7 },
-  openDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.color.openGreen },
+  statusPill: { position: "absolute", top: theme.spacing.md, left: theme.spacing.md, zIndex: 1, minHeight: 28, paddingHorizontal: 10, borderRadius: theme.radius.pill, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(5,5,5,0.72)", borderWidth: 1 },
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  statusPillOpen: { borderColor: "rgba(154,230,122,0.48)" },
+  statusPillClosed: { borderColor: "rgba(255,104,104,0.5)" },
+  statusPillOpeningSoon: { borderColor: "rgba(247,198,92,0.52)" },
+  statusPillClosingSoon: { borderColor: "rgba(255,155,94,0.52)" },
+  statusPillUnknown: { borderColor: theme.color.borderStrong },
+  statusDotOpen: { backgroundColor: theme.color.openGreen },
+  statusDotClosed: { backgroundColor: theme.color.danger },
+  statusDotOpeningSoon: { backgroundColor: theme.color.warning },
+  statusDotClosingSoon: { backgroundColor: theme.color.closingSoon },
+  statusDotUnknown: { backgroundColor: theme.color.textSecondary },
   statusText: { color: theme.color.textPrimary },
   spotName: { color: theme.color.textPrimary },
   spotMeta: { marginTop: 8, color: "rgba(246,240,232,0.78)" },

@@ -23,6 +23,7 @@ export const backyrdTheme = {
     borderLight: "rgba(23,22,26,0.14)",
     success: "#9AE67A",
     warning: "#F7C65C",
+    closingSoon: "#FF9B5E",
     danger: "#FF6868",
   },
   spacing: { xxs: 4, xs: 8, sm: 12, md: 16, lg: 20, xl: 24, xxl: 32, xxxl: 40, display: 48 },
