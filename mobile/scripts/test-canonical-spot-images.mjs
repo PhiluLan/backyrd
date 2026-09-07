@@ -32,6 +32,11 @@ assert.deepEqual(resolve({ headerPhotoUrl: owner, photoUrl: "https://images.exam
   identity: `owner-admin:${owner}`,
 });
 assert.equal(resolve({ headerPhotoPath: "owner/header.jpg" }).provenance, "OWNER_ADMIN");
+assert.equal(
+  resolve({ headerPhotoUrl: "https://images.example/hero%20photo.jpg" }).imageUrl,
+  "https://images.example/hero%20photo.jpg",
+  "already encoded Owner/Admin URLs must not be encoded a second time",
+);
 
 // C + D: without a verified header, the renderer asks the authenticated Google
 // resolver; failing that, it renders Backyrd's designed fallback.
@@ -53,8 +58,9 @@ assert.match(artwork, /preferredOwnerImageFailed/, "broken Owner/Admin images mu
 assert.match(artwork, /Google Maps/, "Google display must retain visible attribution");
 assert.match(googlePhoto, /supabase\.auth\.getSession\(\)/, "Google fallback must wait for the native session restoration");
 assert.match(googlePhoto, /Authorization:\s*`Bearer \$\{accessToken\}`/, "Google fallback must bind the restored session token explicitly");
+assert.match(googlePhoto, /cached\.accessToken === accessToken/, "Google fallback cache must not reuse an older auth token");
 assert.match(artwork, /onAuthStateChange/, "missing-image fallback must retry after auth restoration");
-assert.match(artwork, /authReady/, "missing-image fallback must not cache the pre-auth render as final");
+assert.match(artwork, /authAccessToken/, "missing-image fallback must retry when the concrete auth token changes");
 assert.doesNotMatch(decision, /photo_url: selectSpotImageUrl\(\{ photoUrl/, "Decision must not select a generic gallery cover");
 assert.doesNotMatch(detail, /getGooglePlacePhotoFallback/, "Spot Detail must use the shared renderer resolver");
 

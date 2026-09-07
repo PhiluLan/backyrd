@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { getGooglePlacePhotoFallback, type GooglePlacePhotoResult } from "../../lib/google-place-photo";
@@ -15,16 +15,19 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
   const ownerImage = useMemo(() => resolveCanonicalSpotImage({ headerPhotoUrl: imageUrl }), [imageUrl]);
   const [googleImage, setGoogleImage] = useState<GooglePlacePhotoResult | null>(null);
   const [ownerImageFailed, setOwnerImageFailed] = useState(false);
-  const [authReady, setAuthReady] = useState(false);
+  const [authAccessToken, setAuthAccessToken] = useState<string | null>(null);
   const [googleResolved, setGoogleResolved] = useState(Boolean(ownerImage.imageUrl));
+  const googleRequestGeneration = useRef(0);
   const activeOwnerUrl = ownerImageFailed ? null : ownerImage.imageUrl;
   const activeUrl = activeOwnerUrl ?? googleImage?.imageUrl ?? null;
   const provenance: CanonicalSpotImageProvenance = activeOwnerUrl ? "OWNER_ADMIN" : googleImage?.imageUrl ? "GOOGLE_PLACES" : "BACKYRD_FALLBACK";
   const [status, setStatus] = useState<"loading" | "loaded" | "error" | "empty">("loading");
 
-  const resolveGoogle = useCallback(async (preferredOwnerImageFailed: boolean) => {
+  const resolveGoogle = useCallback(async (preferredOwnerImageFailed: boolean, accessToken: string | null) => {
+    const generation = ++googleRequestGeneration.current;
     setGoogleResolved(false);
-    const result = await getGooglePlacePhotoFallback(spotId, { preferredOwnerImageFailed });
+    const result = await getGooglePlacePhotoFallback(spotId, { preferredOwnerImageFailed, accessToken });
+    if (generation !== googleRequestGeneration.current) return;
     setGoogleImage(result?.source === "google" && result.imageUrl ? result : null);
     setGoogleResolved(true);
     setStatus(result?.source === "google" && result.imageUrl ? "loading" : "empty");
@@ -32,13 +35,13 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
 
   useEffect(() => {
     let mounted = true;
-    const markAuthReady = (session: { access_token?: string } | null) => {
-      if (mounted) setAuthReady(Boolean(session?.access_token));
+    const bindAccessToken = (session: { access_token?: string } | null) => {
+      if (mounted) setAuthAccessToken(session?.access_token ?? null);
     };
 
-    void supabase.auth.getSession().then(({ data }) => markAuthReady(data.session));
+    void supabase.auth.getSession().then(({ data }) => bindAccessToken(data.session));
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      markAuthReady(session);
+      bindAccessToken(session);
     });
 
     return () => {
@@ -48,18 +51,19 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
   }, []);
 
   useEffect(() => {
+    googleRequestGeneration.current += 1;
     setGoogleImage(null);
     setOwnerImageFailed(false);
-    setGoogleResolved(Boolean(ownerImage.imageUrl) || !authReady);
+    setGoogleResolved(Boolean(ownerImage.imageUrl) || !authAccessToken);
     setStatus("loading");
     if (!ownerImage.imageUrl) {
-      if (authReady) {
-        void resolveGoogle(false);
+      if (authAccessToken) {
+        void resolveGoogle(false, authAccessToken);
       } else {
         setStatus("empty");
       }
     }
-  }, [authReady, ownerImage.imageUrl, resolveGoogle]);
+  }, [authAccessToken, ownerImage.imageUrl, resolveGoogle]);
 
   useEffect(() => {
     onResolvedImage?.({
@@ -83,7 +87,7 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
             console.warn("Spot image failed", { spotId, ...imageDiagnosticContext(activeUrl), error: event.error });
             if (provenance === "OWNER_ADMIN") {
               setOwnerImageFailed(true);
-              void resolveGoogle(true);
+              void resolveGoogle(true, authAccessToken);
               return;
             }
             setStatus("error");
