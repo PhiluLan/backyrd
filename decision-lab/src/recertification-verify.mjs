@@ -5,6 +5,9 @@ import { dirname } from "node:path";
 import { contentHash } from "./canonical-json.mjs";
 
 export const VERIFIER_VERSION = "backyrd-recertification-verifier-v1";
+export const PRE_MERGE_VERIFIER_VERSION = "backyrd-recertification-pre-merge-verifier-v1.3";
+export const SUPPORTED_VERIFIER_VERSIONS = Object.freeze([VERIFIER_VERSION, PRE_MERGE_VERIFIER_VERSION]);
+const CANONICAL_MAIN_REF = "refs/remotes/origin/main";
 const ALLOWED_SCOPES = new Set(["evidence-only", "presentation"]);
 const FORBIDDEN_SCOPE = /^(supabase\/migrations\/|supabase\/production\/|supabase\/functions\/|packages\/(canonical-semantics|decision-input-runtime|decision-orchestrator-runtime|n6-shadow-runtime)\/src\/|decision-lab\/config\/(?:decision-quality-v1\.1(?:\.freeze)?|personalization-treatment-v1(?:\.freeze)?|d3\.1-diagnostic-coverage-v1)\.json$|mobile\/.*auth|web\/.*auth|admin-dashboard\/.*(?:auth|security)|legal\/)/;
 const EVIDENCE_SCOPE = /^(decision-lab\/(?:config|test)\/|docs\/(?:decision|operations|readiness)\/|scripts\/(?:ci|decision)\/)/;
@@ -23,6 +26,11 @@ export const parentIdentities = (root, sha) => {
   return { d2FreezeManifestHash: d2.freezeManifestHash, d2EngineRecertificationVersion: d2.engineRecertificationVersion, d2EngineRecertificationHash: d2.engineRecertificationHash, d22FreezeManifestHash: d22.freezeManifestHash, d22ParentFreezeManifestHash: d22.parentFreezeManifestHash, d3ParentFreezeManifestHash: d3.parentFreezeManifestHash, d3PersonalizationTreatmentFreezeHash: d3.personalizationTreatmentFreezeHash };
 };
 const same = (a, b) => contentHash(a) === contentHash(b);
+const isAncestor = (root, ancestor, descendant) => {
+  try { return git(root, ["merge-base", "--is-ancestor", ancestor, descendant]) === ""; }
+  catch { return false; }
+};
+const isFirstParentCommit = (root, sha) => git(root, ["rev-list", "--first-parent", CANONICAL_MAIN_REF]).split("\n").includes(sha);
 const classifyScope = (path, protectedPaths) => {
   if (protectedPaths.includes(path) || /^(packages\/(canonical-semantics|decision-input-runtime|decision-orchestrator-runtime|n6-shadow-runtime)\/src\/|supabase\/functions\/decision-v13\/|decision-lab\/config\/(?:decision-quality-v1\.1(?:\.freeze)?|personalization-treatment-v1(?:\.freeze)?|d3\.1-diagnostic-coverage-v1)\.json$)/.test(path)) return "decision-source";
   if (FORBIDDEN_SCOPE.test(path)) return "db-auth-security";
@@ -31,8 +39,9 @@ const classifyScope = (path, protectedPaths) => {
   return "outside-allowlist";
 };
 
-export async function verifyCandidateEvidence({ root, artifact, trustedBaseSha }) {
+export async function verifyCandidateEvidence({ root, artifact, trustedBaseSha, verifierVersion = VERIFIER_VERSION }) {
   const reasons = [];
+  if (!SUPPORTED_VERIFIER_VERSIONS.includes(verifierVersion)) reasons.push("VERIFIER_VERSION_UNSUPPORTED");
   const unsigned = { ...artifact }; delete unsigned.artifactHash;
   if (artifact.schemaVersion !== "backyrd-recertification-candidate-evidence-v1") reasons.push("SCHEMA_VERSION_INVALID");
   if (contentHash(unsigned) !== artifact.artifactHash) reasons.push("ARTIFACT_HASH_MISMATCH");
@@ -88,7 +97,26 @@ export async function verifyCandidateEvidence({ root, artifact, trustedBaseSha }
     else if (artifact.requestedScope === "presentation" && !PRESENTATION_SCOPE.test(path) && !EVIDENCE_SCOPE.test(path)) reasons.push(`SCOPE_OUTSIDE_ALLOWLIST:${path}`);
   }
   const uniqueReasons = [...new Set(reasons)];
-  const body = { schemaVersion: "backyrd-recertification-verification-v1", verifierVersion: VERIFIER_VERSION, artifactHash: artifact.artifactHash, baseMainSha: artifact.baseMainSha, candidateSha: artifact.candidateSha, valid: uniqueReasons.length === 0, reasons: uniqueReasons };
+  const body = { schemaVersion: "backyrd-recertification-verification-v1", verifierVersion, artifactHash: artifact.artifactHash, baseMainSha: artifact.baseMainSha, candidateSha: artifact.candidateSha, valid: uniqueReasons.length === 0, reasons: uniqueReasons };
+  return { ...body, verificationHash: contentHash(body) };
+}
+
+export async function verifyPreMergeCandidate({ root, artifact, prBaseSha, prHeadSha }) {
+  const receipt = await verifyCandidateEvidence({ root, artifact, trustedBaseSha: prBaseSha, verifierVersion: PRE_MERGE_VERIFIER_VERSION });
+  const reasons = [...receipt.reasons];
+  try {
+    const canonicalMainSha = git(root, ["rev-parse", `${CANONICAL_MAIN_REF}^{commit}`]);
+    const baseSha = git(root, ["rev-parse", `${prBaseSha}^{commit}`]);
+    const headSha = git(root, ["rev-parse", `${prHeadSha}^{commit}`]);
+    if (artifact.baseMainSha !== baseSha) reasons.push("PR_BASE_BINDING_MISMATCH");
+    if (artifact.candidateSha !== headSha) reasons.push("PR_HEAD_BINDING_MISMATCH");
+    if (!isFirstParentCommit(root, baseSha)) reasons.push("PR_BASE_NOT_CANONICAL_FIRST_PARENT");
+    if (!isAncestor(root, baseSha, canonicalMainSha)) reasons.push("PR_BASE_NOT_CANONICAL_ANCESTOR");
+    if (isAncestor(root, headSha, canonicalMainSha)) reasons.push("CANDIDATE_ALREADY_CANONICALLY_INTEGRATED");
+  } catch (error) { reasons.push(`CANONICAL_PR_CONTEXT_UNREADABLE:${error.code ?? error.message}`); }
+  const uniqueReasons = [...new Set(reasons)];
+  if (uniqueReasons.length === receipt.reasons.length && uniqueReasons.every((reason, index) => reason === receipt.reasons[index])) return receipt;
+  const body = { schemaVersion: receipt.schemaVersion, verifierVersion: receipt.verifierVersion, artifactHash: receipt.artifactHash, baseMainSha: receipt.baseMainSha, candidateSha: receipt.candidateSha, valid: false, reasons: uniqueReasons };
   return { ...body, verificationHash: contentHash(body) };
 }
 

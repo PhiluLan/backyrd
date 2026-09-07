@@ -98,12 +98,13 @@ test("freeze identity is deterministic and validator rejects tampering", async (
   assert.deepEqual(first, second);
   const recertification = await validateEngineRecertification();
   const root = new URL("../..", import.meta.url).pathname;
-  const additive = await validateActiveAdditiveRecertification({ root, trustedBaseSha: process.env.CI_BASE_SHA ?? null });
-  if (additive.mode === "ADDITIVE_CHAIN") {
+  const canonicalMainSha = process.env.CANONICAL_MAIN_SHA ?? process.env.CI_BASE_SHA ?? execFileSync("git", ["rev-parse", "origin/main"], { cwd: root, encoding: "utf8" }).trim();
+  const additive = await validateActiveAdditiveRecertification({ root, trustedBaseSha: canonicalMainSha });
+  if (additive.mode === "POST_MERGE_ACTIVE_CHAIN") {
     assert.equal(recertification.valid, false);
     assert.deepEqual(recertification.reasons, ["CERTIFICATION_EVIDENCE_SET_MISMATCH"]);
     assert.equal(additive.valid, true, JSON.stringify(additive.reasons));
-    const d2 = JSON.parse(execFileSync(process.execPath, ["decision-lab/src/d2-cli.mjs", "validate-freeze", "--trusted-base", process.env.CI_BASE_SHA], { cwd: root, encoding: "utf8", maxBuffer: 20 * 1024 * 1024 }));
+    const d2 = JSON.parse(execFileSync(process.execPath, ["decision-lab/src/d2-cli.mjs", "validate-freeze", "--canonical-main", canonicalMainSha], { cwd: root, encoding: "utf8", maxBuffer: 20 * 1024 * 1024 }));
     assert.equal(d2.freezeValidation.legacyV44Valid, false);
     assert.equal(d2.freezeValidation.additiveContinuityValid, true);
     assert.equal(d2.freezeValidation.valid, true);
@@ -155,14 +156,14 @@ test("freeze identity is deterministic and validator rejects tampering", async (
   });
   assert.equal(changedAuthorization.valid, false);
   assert.ok(changedAuthorization.reasons.includes("AUTHORIZED_SOURCE_COMMIT_MISMATCH"));
-  if (additive.mode === "ADDITIVE_CHAIN") {
+  if (additive.mode === "POST_MERGE_ACTIVE_CHAIN") {
     const baselineRoot = await mkdtemp(join(tmpdir(), "backyrd-d2-v44-baseline-"));
     execFileSync("git", ["clone", "--quiet", "--shared", root, baselineRoot]);
-    execFileSync("git", ["checkout", "--quiet", "--detach", process.env.CI_BASE_SHA], { cwd: baselineRoot });
-    for (const path of ["decision-lab/src/recertification-consumer.mjs", "decision-lab/src/recertification-verify.mjs"]) await writeFile(join(baselineRoot, path), await readFile(join(root, path)));
+    execFileSync("git", ["checkout", "--quiet", "--detach", canonicalMainSha], { cwd: baselineRoot });
+    for (const path of ["decision-lab/src/d2-cli.mjs", "decision-lab/src/recertification-consumer.mjs", "decision-lab/src/recertification-verify.mjs"]) await writeFile(join(baselineRoot, path), await readFile(join(root, path)));
     execFileSync("git", ["config", "user.email", "fixture@example.invalid"], { cwd: baselineRoot }); execFileSync("git", ["config", "user.name", "Fixture"], { cwd: baselineRoot }); execFileSync("git", ["add", "."], { cwd: baselineRoot }); execFileSync("git", ["commit", "-m", "install consumer under test"], { cwd: baselineRoot });
     const baselineSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: baselineRoot, encoding: "utf8" }).trim(); execFileSync("git", ["update-ref", "refs/remotes/origin/main", baselineSha], { cwd: baselineRoot });
-    const baselineD2 = JSON.parse(execFileSync(process.execPath, ["decision-lab/src/d2-cli.mjs", "validate-freeze"], { cwd: baselineRoot, encoding: "utf8", maxBuffer: 20 * 1024 * 1024, env: { ...process.env, CI_BASE_SHA: baselineSha } }));
+    const baselineD2 = JSON.parse(execFileSync(process.execPath, ["decision-lab/src/d2-cli.mjs", "validate-freeze"], { cwd: baselineRoot, encoding: "utf8", maxBuffer: 20 * 1024 * 1024, env: { ...process.env, CI_BASE_SHA: baselineSha, CANONICAL_MAIN_SHA: baselineSha } }));
     assert.equal(baselineD2.freeze.engineMutation, "AUTHORIZED_RECERTIFICATION");
     assert.equal(baselineD2.freezeValidation.valid, true);
   } else {
