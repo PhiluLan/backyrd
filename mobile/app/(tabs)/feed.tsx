@@ -34,6 +34,7 @@ import { filterDistributedSpots } from "../../lib/distributionTrust";
 import { registerSafetySnapshot } from "../../lib/safety-content";
 import { userFacingError } from "../../lib/userFacingError";
 import { StateView } from "../../components/foundation/StateView";
+import { backyrdTheme as theme } from "../../theme/backyrd";
 
 type FeedMode = "for_you" | "following";
 
@@ -742,35 +743,29 @@ export default function FeedScreen() {
   const renderHeader = (
     <View style={styles.headerWrap}>
       <View style={styles.appBar}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Moment erstellen"
-          style={styles.smallCreateButton}
-          onPress={() => setComposerVisible(true)}
-        >
-          <Ionicons name="add" size={27} color="#FFFFFF" />
-        </Pressable>
+        <Text style={styles.appBarTitle}>Momente</Text>
 
-        <View style={styles.appBarTitleWrap}>
-          <Text style={styles.kicker}>LOCAL / JETZT</Text>
-          <Text style={styles.appBarTitle}>Momente</Text>
+        <View style={styles.appBarActions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Leute entdecken"
+            style={styles.communityButton}
+            onPress={() => router.push("/users/search" as any)}
+          >
+            <Ionicons name="people-outline" size={21} color={theme.color.textSecondary} />
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Moment erstellen"
+            style={styles.createButton}
+            onPress={() => setComposerVisible(true)}
+          >
+            <Ionicons name="add" size={18} color={theme.color.background} />
+            <Text style={styles.createButtonText}>Moment</Text>
+          </Pressable>
         </View>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Leute entdecken"
-          style={styles.communityButton}
-          onPress={() => router.push("/users/search" as any)}
-        >
-          <Ionicons name="people-outline" size={24} color="#FFFFFF" />
-        </Pressable>
       </View>
-
-      <Pressable accessibilityRole="button" accessibilityLabel="Moment aus deiner Stadt teilen" style={styles.localPrompt} onPress={() => setComposerVisible(true)}>
-        <Ionicons name="location-outline" size={18} color="#C9ED4B" />
-        <Text style={styles.localPromptText}>Teile, was gerade in deiner Stadt passiert.</Text>
-        <Ionicons name="arrow-forward" size={18} color="#C9ED4B" />
-      </Pressable>
 
       <View style={styles.modeShell}>
         <Pressable
@@ -1066,10 +1061,10 @@ export default function FeedScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#050506",
+    backgroundColor: theme.color.background,
   },
   feedContent: {
-    paddingBottom: 120,
+    paddingBottom: theme.control.tabBar + theme.spacing.display,
   },
   fullWidthPost: {
     width: "100%",
@@ -1086,148 +1081,133 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   headerWrap: {
-    paddingTop: 4,
-    paddingBottom: 12,
-    backgroundColor: "#050506",
+    paddingTop: theme.spacing.xs,
+    paddingBottom: theme.spacing.md,
+    backgroundColor: theme.color.background,
   },
   appBar: {
-    minHeight: 72,
-    paddingHorizontal: 16,
+    minHeight: 64,
+    paddingHorizontal: theme.spacing.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  smallCreateButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#111113",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-  },
-  appBarTitleWrap: {
-    alignItems: "center",
-  },
-  kicker: {
-    color: "#FF4F91",
-    fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 2.2,
-  },
   appBarTitle: {
-    marginTop: 2,
-    color: "#FFFFFF",
-    fontSize: 29,
-    lineHeight: 33,
-    fontWeight: "900",
-    letterSpacing: -0.8,
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.bodyBold,
+    fontSize: 30,
+    lineHeight: 36,
+    letterSpacing: -0.6,
+  },
+  appBarActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
   },
   communityButton: {
     width: 44,
     height: 44,
-    borderRadius: 18,
+    borderRadius: theme.radius.pill,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#111113",
+    backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    borderColor: theme.color.border,
   },
-  localPrompt: {
-    minHeight: 48,
-    marginHorizontal: 16,
-    marginBottom: 14,
-    paddingHorizontal: 14,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "rgba(201,237,75,0.26)",
-    backgroundColor: "rgba(201,237,75,0.06)",
+  createButton: {
+    height: 44,
+    paddingHorizontal: 15,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.color.pink,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    justifyContent: "center",
+    gap: 6,
   },
-  localPromptText: {
-    flex: 1,
-    color: "#E9E7E1",
+  createButtonText: {
+    color: theme.color.background,
+    fontFamily: theme.type.bodyBold,
     fontSize: 13,
-    fontWeight: "700",
   },
   modeShell: {
-    marginHorizontal: 16,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#111113",
+    marginHorizontal: theme.spacing.md,
+    height: 42,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.09)",
-    padding: 4,
+    borderColor: theme.color.border,
+    padding: 3,
     flexDirection: "row",
   },
   modeButton: {
     flex: 1,
-    borderRadius: 20,
+    borderRadius: theme.radius.pill,
     alignItems: "center",
     justifyContent: "center",
   },
   modeButtonActive: {
-    backgroundColor: "#FFB5CB",
+    backgroundColor: "rgba(255,79,145,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(255,79,145,0.34)",
   },
   modeText: {
-    color: "#8E8E95",
-    fontSize: 14,
-    fontWeight: "900",
+    color: theme.color.textSecondary,
+    fontFamily: theme.type.bodyMedium,
+    fontSize: 13,
   },
   modeTextActive: {
-    color: "#161116",
+    color: theme.color.pink,
   },
   emptyCard: {
-    minHeight: 380,
-    borderRadius: 34,
-    backgroundColor: "#111113",
+    minHeight: 260,
+    marginHorizontal: theme.spacing.md,
+    marginTop: theme.spacing.sm,
+    borderRadius: theme.radius.lg,
+    backgroundColor: theme.color.surface,
     borderWidth: 1,
-    borderColor: "#24242B",
+    borderColor: theme.color.border,
     alignItems: "center",
     justifyContent: "center",
-    padding: 28,
+    padding: theme.spacing.xl,
   },
   emptyIcon: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    backgroundColor: "#111113",
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: theme.color.surfaceElevated,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 22,
+    marginBottom: theme.spacing.md,
   },
   emptyTitle: {
-    color: "#FFFFFF",
-    fontSize: 25,
-    lineHeight: 30,
-    fontWeight: "900",
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.bodyBold,
+    fontSize: 22,
+    lineHeight: 27,
     textAlign: "center",
     letterSpacing: -0.5,
   },
   emptyText: {
     marginTop: 10,
-    color: "#8E8E95",
-    fontSize: 16,
-    lineHeight: 23,
-    fontWeight: "600",
+    color: theme.color.textSecondary,
+    fontFamily: theme.type.body,
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: "center",
   },
   emptyButton: {
-    marginTop: 22,
-    height: 48,
+    marginTop: theme.spacing.lg,
+    height: 44,
     paddingHorizontal: 22,
-    borderRadius: 24,
-    backgroundColor: "#FF4F91",
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.color.pink,
     alignItems: "center",
     justifyContent: "center",
   },
   emptyButtonText: {
-    color: "#111113",
-    fontSize: 15,
-    fontWeight: "900",
+    color: theme.color.background,
+    fontFamily: theme.type.bodyBold,
+    fontSize: 14,
   },
   composerScreen: {
     flex: 1,
