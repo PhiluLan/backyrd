@@ -1,11 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { HARD_GATE_REGISTRY, aggregateHardGates, evaluateHardGates, hardGateCoverage } from "../src/hard-gates.mjs";
 import { d3Readiness, frameworkGuards, independentHardGateFixture, independentScenario, runHardGateAdversarialSuite, traceFor } from "../src/hard-gate-acceptance.mjs";
 import { assertEvaluationResult } from "../src/contracts.mjs";
 import { computeD21Identity, validateD21Freeze, validateEngineRecertification } from "../src/d2-freeze.mjs";
 import { evaluateTrace } from "../src/evaluator.mjs";
+import { validateActiveAdditiveRecertification } from "../src/recertification-consumer.mjs";
 
 const constitution = JSON.parse(await readFile(new URL("../config/decision-quality-v1.1.json", import.meta.url)));
 
@@ -93,7 +97,17 @@ test("freeze identity is deterministic and validator rejects tampering", async (
   const first = await computeD21Identity(); const second = await computeD21Identity();
   assert.deepEqual(first, second);
   const recertification = await validateEngineRecertification();
-  assert.equal(recertification.valid, true, JSON.stringify(recertification.reasons));
+  const root = new URL("../..", import.meta.url).pathname;
+  const additive = await validateActiveAdditiveRecertification({ root, trustedBaseSha: process.env.CI_BASE_SHA ?? null });
+  if (additive.mode === "ADDITIVE_CHAIN") {
+    assert.equal(recertification.valid, false);
+    assert.deepEqual(recertification.reasons, ["CERTIFICATION_EVIDENCE_SET_MISMATCH"]);
+    assert.equal(additive.valid, true, JSON.stringify(additive.reasons));
+    const d2 = JSON.parse(execFileSync(process.execPath, ["decision-lab/src/d2-cli.mjs", "validate-freeze", "--trusted-base", process.env.CI_BASE_SHA], { cwd: root, encoding: "utf8", maxBuffer: 20 * 1024 * 1024 }));
+    assert.equal(d2.freezeValidation.legacyV44Valid, false);
+    assert.equal(d2.freezeValidation.additiveContinuityValid, true);
+    assert.equal(d2.freezeValidation.valid, true);
+  } else assert.equal(recertification.valid, true, JSON.stringify(recertification.reasons));
   assert.equal(recertification.contract.version, "decision-v13-production-recertification-v44");
   assert.equal(recertification.identity.authorizedSourceCommit, "ee93b657a9d68533cfc69d85ae49ccbddc95b2b9");
   assert.equal(recertification.identity.productionFunctionVersion, 124);
@@ -141,8 +155,17 @@ test("freeze identity is deterministic and validator rejects tampering", async (
   });
   assert.equal(changedAuthorization.valid, false);
   assert.ok(changedAuthorization.reasons.includes("AUTHORIZED_SOURCE_COMMIT_MISMATCH"));
-  assert.equal(first.engineMutation, "AUTHORIZED_RECERTIFICATION");
-  assert.equal((await validateD21Freeze(first)).valid, true);
+  if (additive.mode === "ADDITIVE_CHAIN") {
+    const baselineRoot = await mkdtemp(join(tmpdir(), "backyrd-d2-v44-baseline-"));
+    execFileSync("git", ["clone", "--quiet", "--shared", root, baselineRoot]);
+    execFileSync("git", ["checkout", "--quiet", "--detach", process.env.CI_BASE_SHA], { cwd: baselineRoot });
+    const baselineD2 = JSON.parse(execFileSync(process.execPath, ["decision-lab/src/d2-cli.mjs", "validate-freeze"], { cwd: baselineRoot, encoding: "utf8", maxBuffer: 20 * 1024 * 1024 }));
+    assert.equal(baselineD2.freeze.engineMutation, "AUTHORIZED_RECERTIFICATION");
+    assert.equal(baselineD2.freezeValidation.valid, true);
+  } else {
+    assert.equal(first.engineMutation, "AUTHORIZED_RECERTIFICATION");
+    assert.equal((await validateD21Freeze(first)).valid, true);
+  }
   assert.equal((await validateD21Freeze({ ...first, constitutionHash: "tampered" })).valid, false);
   assert.equal((await validateD21Freeze({ ...first, engineRecertificationHash: "tampered" })).valid, false);
 });
