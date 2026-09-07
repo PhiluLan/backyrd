@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HARD_GATE_REGISTRY, aggregateHardGates, evaluateHardGates, hardGateCoverage } from "../src/hard-gates.mjs";
@@ -159,7 +159,10 @@ test("freeze identity is deterministic and validator rejects tampering", async (
     const baselineRoot = await mkdtemp(join(tmpdir(), "backyrd-d2-v44-baseline-"));
     execFileSync("git", ["clone", "--quiet", "--shared", root, baselineRoot]);
     execFileSync("git", ["checkout", "--quiet", "--detach", process.env.CI_BASE_SHA], { cwd: baselineRoot });
-    const baselineD2 = JSON.parse(execFileSync(process.execPath, ["decision-lab/src/d2-cli.mjs", "validate-freeze"], { cwd: baselineRoot, encoding: "utf8", maxBuffer: 20 * 1024 * 1024 }));
+    for (const path of ["decision-lab/src/recertification-consumer.mjs", "decision-lab/src/recertification-verify.mjs"]) await writeFile(join(baselineRoot, path), await readFile(join(root, path)));
+    execFileSync("git", ["config", "user.email", "fixture@example.invalid"], { cwd: baselineRoot }); execFileSync("git", ["config", "user.name", "Fixture"], { cwd: baselineRoot }); execFileSync("git", ["add", "."], { cwd: baselineRoot }); execFileSync("git", ["commit", "-m", "install consumer under test"], { cwd: baselineRoot });
+    const baselineSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: baselineRoot, encoding: "utf8" }).trim(); execFileSync("git", ["update-ref", "refs/remotes/origin/main", baselineSha], { cwd: baselineRoot });
+    const baselineD2 = JSON.parse(execFileSync(process.execPath, ["decision-lab/src/d2-cli.mjs", "validate-freeze"], { cwd: baselineRoot, encoding: "utf8", maxBuffer: 20 * 1024 * 1024, env: { ...process.env, CI_BASE_SHA: baselineSha } }));
     assert.equal(baselineD2.freeze.engineMutation, "AUTHORIZED_RECERTIFICATION");
     assert.equal(baselineD2.freezeValidation.valid, true);
   } else {
