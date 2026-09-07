@@ -267,7 +267,7 @@
       "web/tests/consumer-contracts.test.mjs",
       "web/tests/home-events-carousel.test.mjs"
     ],
-    "hash": "7a598b765751e44fde54ad162199456566cb9ba14b8cd5adcf2741b3c255c0e8"
+    "hash": "a4e3742822b1ffbdfeb22de98498ea2fd1e44247299a7c5469a2900d135769b1"
   },
   "invariants": {
     "hardEligibilityBeforeRanking": "PASS",
