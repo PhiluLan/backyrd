@@ -1,9 +1,13 @@
 {
   "contractVersion": "personalization-treatment-v1",
   "treatmentGeneratorVersion": "personalization-treatment-generator-v1",
-  "parentFreezeManifestHash": "9500cb2fefd6b1fa9145d777387d6f98f06dc250d9576bfbcc832c808ab813bb",
+  "parentFreezeManifestHash": "52817fae953d254496f39ee0c5a7d8e95406ad31e4a975cff652a62fcef6f78e",
   "engineSourceHash": "cad2c4ea94817d2facbd54db92f55f3286acecf4d1e8a71dda414431b76cf000",
-  "arms": ["ACTUAL", "NEUTRAL", "OPPOSING"],
+  "arms": [
+    "ACTUAL",
+    "NEUTRAL",
+    "OPPOSING"
+  ],
   "treatmentVariable": "observed_personal_history",
   "controlMode": "authenticated_synthetic_twins",
   "historyMaterialization": "canonical_product_learning_calls_only",
@@ -28,10 +32,22 @@
     "backyrd_log_taste_event_v3",
     "backyrd_log_decision_action_v1"
   ],
-  "semanticSnapshotIgnoredFields": ["created_at", "updated_at", "last_event_at", "last_rebuild_at"],
+  "semanticSnapshotIgnoredFields": [
+    "created_at",
+    "updated_at",
+    "last_event_at",
+    "last_rebuild_at"
+  ],
   "minimumCoverage": {
     "armsPerPair": 3,
-    "maturities": ["cold", "onboarding", "sparse", "developing", "mature", "power"],
+    "maturities": [
+      "cold",
+      "onboarding",
+      "sparse",
+      "developing",
+      "mature",
+      "power"
+    ],
     "pairedSample": 8
   },
   "metrics": [

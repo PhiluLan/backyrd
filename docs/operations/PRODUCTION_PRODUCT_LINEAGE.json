@@ -22,10 +22,10 @@
       "ios_update": "01a07263-06bd-7340-a72e-ee70a4e77ca1",
       "created_at": "2026-09-05T16:23:00Z",
       "canonical_source": {
-    "commit": "25dbe87561595d705ec8d77105ac92f82c004f60",
-    "tree": "554f8b1d7ae8a90e8c9128ba19b2d8c374b01372",
+        "commit": "c17ccd5d78450b0b92b7ffe72e362d09e812c0ac",
+        "tree": "f0cc3937b50f3ddc54f6d2a5d6c6e45450830f8e",
         "production_verified": false,
-    "reason": "Founder-authorized bounded Spot Detail full-bleed Hero candidate. Exact Mobile source tree is bound before merge; Production verification remains false until canonical-main OTA deployment and physical Founder validation."
+        "reason": "P0 Mobile authenticated image fallback candidate. Production verification remains false until canonical-main OTA deployment and physical confirmation."
       }
     },
     "consumer_web": {
@@ -545,8 +545,8 @@
       ],
       "evidence": "docs/decision/D2_D3_EVENTS_HOME_CAROUSEL_RECERTIFICATION_V29_2026_09_06.md"
     },
-  {
-    "id": "founder_mobile_start_home_polish_v1",
+    {
+      "id": "founder_mobile_start_home_polish_v1",
       "baseline_commit": "3e93c15a32f55ffd1cc9e77aaa8965a7088e32fe",
       "source_commit": "793ed1dab7a27701434bb036f268c5a3d9b24485",
       "decision_semantics_changed": false,
@@ -560,90 +560,102 @@
         "mobile/scripts/test-mobile-product-contracts.mjs",
         "mobile/scripts/test-native-intent-routing.mjs"
       ],
-    "evidence": "docs/operations/PRODUCTION_PRODUCT_LINEAGE.json"
-  },
-  {
-    "id": "founder_splash_handoff_continuity_v1",
-    "baseline_commit": "1425f3e58d9b6bffc6ac4ad222708f9a2a2f7cff",
-    "source_commit": "2d06b01ba1e9891bfad33e953141ad5a0b23ec67",
-    "decision_semantics_changed": false,
-    "authorized_surface_changes": [
-      "mobile/app/_layout.tsx",
-      "mobile/app/splash.tsx",
-      "mobile/components/safety/GlobalSafetyEnforcementGuard.tsx",
-      "mobile/scripts/test-native-intent-routing.mjs"
-    ],
-    "evidence": "decision-lab/config/decision-v13-production-recertification-v32.json"
-  },
-  {
-    "id": "founder_splash_wordmark_motion_v1",
-    "baseline_commit": "f1e3c79eb46dcc5efabcdfccd9c3364eaa551674",
-    "source_commit": "1f472040f626e313dd17dadc6ecc3c3d9ee04939",
-    "decision_semantics_changed": false,
-    "authorized_surface_changes": [
-      "mobile/app/splash.tsx",
-      "mobile/scripts/test-native-intent-routing.mjs"
-    ],
-    "evidence": "decision-lab/config/decision-v13-production-recertification-v33.json"
-  },
-  {
-    "id": "founder_home_header_hierarchy_v1",
-    "baseline_commit": "26cb9b258c1ddb8074fb340d4be7e8699371f1f0",
-    "source_commit": "0ac81d0a23fd3cdead1efd9adeadff2fd93f1e26",
-    "decision_semantics_changed": false,
-    "authorized_surface_changes": [
-      "mobile/app/(tabs)/index.tsx",
-      "mobile/components/brand/Editorial.tsx",
-      "mobile/components/events/HomeEventsSection.tsx"
-    ],
-    "evidence": "decision-lab/config/decision-v13-production-recertification-v34.json"
-  },
-  {
-    "id": "founder_home_events_card_density_v1",
-    "baseline_commit": "4902da5f70203427dabd7e6939a0beedda90eedc",
-    "source_commit": "0899310e82550889149afd4cfeb0e9b84ebb5edc",
-    "decision_semantics_changed": false,
-    "authorized_surface_changes": [
-      "mobile/components/events/HomeEventsSection.tsx"
-    ],
-    "evidence": "decision-lab/config/decision-v13-production-recertification-v35.json"
-  },
-  {
-    "id": "founder_home_spot_card_status_v1",
-    "baseline_commit": "f0a31a863e0710445e75d2b3c1874eb80245f557",
-    "source_commit": "dca30e43dcd51aec8b2827900928f335783e5ace",
-    "decision_semantics_changed": false,
-    "authorized_surface_changes": [
-      "mobile/app/(tabs)/index.tsx",
-      "mobile/lib/spot-images.ts",
-      "mobile/lib/spot-opening-status.ts",
-      "mobile/scripts/test-mobile-product-contracts.mjs",
-      "mobile/theme/backyrd.ts"
-    ],
-    "evidence": "decision-lab/config/decision-v13-production-recertification-v36.json"
-  },
-  {
-    "id": "founder_spot_detail_ux_closure_v1",
-    "baseline_commit": "e9325e8ebdf067e6936edb5c04b095ce07ab917c",
-    "source_commit": "91f2a508cec74c342adbc3cf766e8bb65e0597f2",
-    "decision_semantics_changed": false,
-    "authorized_surface_changes": [
-      "mobile/app/spot/[id].tsx",
-      "mobile/components/spot/SpotTaxonomyHighlights.tsx",
-      "mobile/scripts/test-mobile-product-contracts.mjs"
-    ],
-    "evidence": "decision-lab/config/decision-v13-production-recertification-v37.json"
-  },
-  {
-    "id": "founder_spot_detail_full_bleed_hero_v1",
-    "baseline_commit": "b1c3679c3644c385f0bd024580c41dd300c2f841",
-    "source_commit": "25dbe87561595d705ec8d77105ac92f82c004f60",
-    "decision_semantics_changed": false,
-    "authorized_surface_changes": [
-      "mobile/app/spot/[id].tsx"
-    ],
-    "evidence": "decision-lab/config/decision-v13-production-recertification-v38.json"
-  }
+      "evidence": "docs/operations/PRODUCTION_PRODUCT_LINEAGE.json"
+    },
+    {
+      "id": "founder_splash_handoff_continuity_v1",
+      "baseline_commit": "1425f3e58d9b6bffc6ac4ad222708f9a2a2f7cff",
+      "source_commit": "2d06b01ba1e9891bfad33e953141ad5a0b23ec67",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/_layout.tsx",
+        "mobile/app/splash.tsx",
+        "mobile/components/safety/GlobalSafetyEnforcementGuard.tsx",
+        "mobile/scripts/test-native-intent-routing.mjs"
+      ],
+      "evidence": "decision-lab/config/decision-v13-production-recertification-v32.json"
+    },
+    {
+      "id": "founder_splash_wordmark_motion_v1",
+      "baseline_commit": "f1e3c79eb46dcc5efabcdfccd9c3364eaa551674",
+      "source_commit": "1f472040f626e313dd17dadc6ecc3c3d9ee04939",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/splash.tsx",
+        "mobile/scripts/test-native-intent-routing.mjs"
+      ],
+      "evidence": "decision-lab/config/decision-v13-production-recertification-v33.json"
+    },
+    {
+      "id": "founder_home_header_hierarchy_v1",
+      "baseline_commit": "26cb9b258c1ddb8074fb340d4be7e8699371f1f0",
+      "source_commit": "0ac81d0a23fd3cdead1efd9adeadff2fd93f1e26",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/(tabs)/index.tsx",
+        "mobile/components/brand/Editorial.tsx",
+        "mobile/components/events/HomeEventsSection.tsx"
+      ],
+      "evidence": "decision-lab/config/decision-v13-production-recertification-v34.json"
+    },
+    {
+      "id": "founder_home_events_card_density_v1",
+      "baseline_commit": "4902da5f70203427dabd7e6939a0beedda90eedc",
+      "source_commit": "0899310e82550889149afd4cfeb0e9b84ebb5edc",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/components/events/HomeEventsSection.tsx"
+      ],
+      "evidence": "decision-lab/config/decision-v13-production-recertification-v35.json"
+    },
+    {
+      "id": "founder_home_spot_card_status_v1",
+      "baseline_commit": "f0a31a863e0710445e75d2b3c1874eb80245f557",
+      "source_commit": "dca30e43dcd51aec8b2827900928f335783e5ace",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/(tabs)/index.tsx",
+        "mobile/lib/spot-images.ts",
+        "mobile/lib/spot-opening-status.ts",
+        "mobile/scripts/test-mobile-product-contracts.mjs",
+        "mobile/theme/backyrd.ts"
+      ],
+      "evidence": "decision-lab/config/decision-v13-production-recertification-v36.json"
+    },
+    {
+      "id": "founder_spot_detail_ux_closure_v1",
+      "baseline_commit": "e9325e8ebdf067e6936edb5c04b095ce07ab917c",
+      "source_commit": "91f2a508cec74c342adbc3cf766e8bb65e0597f2",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/spot/[id].tsx",
+        "mobile/components/spot/SpotTaxonomyHighlights.tsx",
+        "mobile/scripts/test-mobile-product-contracts.mjs"
+      ],
+      "evidence": "decision-lab/config/decision-v13-production-recertification-v37.json"
+    },
+    {
+      "id": "founder_spot_detail_full_bleed_hero_v1",
+      "baseline_commit": "b1c3679c3644c385f0bd024580c41dd300c2f841",
+      "source_commit": "25dbe87561595d705ec8d77105ac92f82c004f60",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/app/spot/[id].tsx"
+      ],
+      "evidence": "decision-lab/config/decision-v13-production-recertification-v38.json"
+    },
+    {
+      "id": "p0_mobile_image_auth_handoff_v1",
+      "baseline_commit": "62b56029b4aaeedef2f35ea766c34b633df3420b",
+      "source_commit": "c17ccd5d78450b0b92b7ffe72e362d09e812c0ac",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "mobile/components/spot/SpotArtwork.tsx",
+        "mobile/lib/google-place-photo.ts",
+        "mobile/scripts/test-canonical-spot-images.mjs"
+      ],
+      "evidence": "decision-lab/config/decision-v13-production-recertification-v39.json"
+    }
   ],
   "required_ancestry": [
     "b274084d12152d52c9f7f253dab71adad0d70c35",
@@ -727,9 +739,9 @@
     },
     {
       "slug": "google-place-photo",
-      "version": 49,
+      "version": 50,
       "verify_jwt": true,
-      "ezbr_sha256": "c206f2fd27917910322731bac24a580e5c354c35214fe2b90fc39df96202bf6c"
+      "ezbr_sha256": "8ec16e7c1a6c6825f810984fcce5e4b2be6614f91c735b5392b2573db3387ce1"
     },
     {
       "slug": "spot-google-backfill",
