@@ -73,7 +73,9 @@ function Text({ style, ...props }: React.ComponentProps<typeof RNText>) {
 }
 
 const { width } = Dimensions.get("window");
-const HERO_W = width - 24;
+// Spot imagery is the opening decision context, just like an Event hero: it
+// deliberately reaches the screen edges rather than sitting in a card.
+const HERO_W = width;
 const HEADER_H = Math.round(HERO_W * 1.05);
 const HEADER_MAX = Math.round(HERO_W * 1.05);
 const SLIDE_INTERVAL = 6000;
@@ -646,9 +648,9 @@ export default function SpotDetailScreen() {
           style={{
             width: HERO_W,
             height: HEADER_H,
-            marginTop: insets.top + 8,
-            marginHorizontal: 12,
-            borderRadius: foundationTheme.radius.xl,
+            marginTop: 0,
+            marginHorizontal: 0,
+            borderRadius: 0,
             overflow: "hidden",
             transform: [{ translateY: headerTranslateY }],
           }}
