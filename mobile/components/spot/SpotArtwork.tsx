@@ -6,6 +6,7 @@ import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View, type Sty
 
 import { useAuth } from "../../hooks/useAuth";
 import { getGooglePlacePhotoFallback, type GooglePlacePhotoResult } from "../../lib/google-place-photo";
+import { SPOT_PHOTO_POLICY } from "../../lib/spot-photo-policy";
 import { imageDiagnosticContext, resolveCanonicalSpotImage, type CanonicalSpotImageProvenance } from "../../lib/spot-images";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
@@ -17,7 +18,8 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
   const [googleImage, setGoogleImage] = useState<GooglePlacePhotoResult | null>(null);
   const [ownerImageFailed, setOwnerImageFailed] = useState(false);
   const authAccessToken = session?.access_token ?? null;
-  const [googleResolved, setGoogleResolved] = useState(Boolean(ownerImage.imageUrl));
+  const googlePlacePhotosEnabled = SPOT_PHOTO_POLICY.googlePlacePhotosEnabled;
+  const [googleResolved, setGoogleResolved] = useState(Boolean(ownerImage.imageUrl) || !googlePlacePhotosEnabled);
   const googleRequestGeneration = useRef(0);
   const activeOwnerUrl = ownerImageFailed ? null : ownerImage.imageUrl;
   const activeUrl = activeOwnerUrl ?? googleImage?.imageUrl ?? null;
@@ -26,6 +28,12 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
 
   const resolveGoogle = useCallback(async (preferredOwnerImageFailed: boolean, accessToken: string | null) => {
     const generation = ++googleRequestGeneration.current;
+    if (!googlePlacePhotosEnabled) {
+      setGoogleImage(null);
+      setGoogleResolved(true);
+      setStatus("empty");
+      return;
+    }
     setGoogleResolved(false);
     const result = await getGooglePlacePhotoFallback(spotId, {
       preferredOwnerImageFailed,
@@ -36,22 +44,22 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
     setGoogleImage(result?.source === "google" && result.imageUrl ? result : null);
     setGoogleResolved(true);
     setStatus(result?.source === "google" && result.imageUrl ? "loading" : "empty");
-  }, [spotId, user?.id]);
+  }, [googlePlacePhotosEnabled, spotId, user?.id]);
 
   useEffect(() => {
     googleRequestGeneration.current += 1;
     setGoogleImage(null);
     setOwnerImageFailed(false);
-    setGoogleResolved(Boolean(ownerImage.imageUrl) || !authAccessToken);
+    setGoogleResolved(Boolean(ownerImage.imageUrl) || !googlePlacePhotosEnabled || !authAccessToken);
     setStatus("loading");
     if (!ownerImage.imageUrl) {
-      if (authAccessToken) {
+      if (googlePlacePhotosEnabled && authAccessToken) {
         void resolveGoogle(false, authAccessToken);
       } else {
         setStatus("empty");
       }
     }
-  }, [authAccessToken, ownerImage.imageUrl, resolveGoogle]);
+  }, [authAccessToken, googlePlacePhotosEnabled, ownerImage.imageUrl, resolveGoogle]);
 
   useEffect(() => {
     onResolvedImage?.({

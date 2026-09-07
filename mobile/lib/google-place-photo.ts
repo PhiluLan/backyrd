@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { SPOT_PHOTO_POLICY } from "./spot-photo-policy";
 import { supabase } from "./supabase";
 
 export type GooglePhotoAttribution = {
@@ -78,6 +79,10 @@ export async function getGooglePlacePhotoFallback(
   spotId: string,
   options: { preferredOwnerImageFailed?: boolean; accessToken?: string | null; cacheNamespace?: string | null } = {},
 ): Promise<GooglePlacePhotoResult | null> {
+  // Defense in depth: even a future call site cannot reach Auth, Supabase, or
+  // Google while the canonical Product policy is disabled.
+  if (!SPOT_PHOTO_POLICY.googlePlacePhotosEnabled) return null;
+
   const cleanSpotId = spotId.trim();
 
   if (!cleanSpotId) {
