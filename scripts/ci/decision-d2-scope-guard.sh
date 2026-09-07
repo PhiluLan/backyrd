@@ -68,6 +68,15 @@ if [[ -f "$recertification_contract" ]] \
   echo "D2 scope guard: complete v44 Engine/Source/Evidence/Freeze/Production re-certification accepted"
 fi
 
+# An active additive chain treats v44 as an immutable historical trust anchor.
+# Legacy full-recertification admission above must never authorize a later byte
+# change to that parent contract, even when the additive child itself verifies.
+if [[ -f 'decision-lab/config/additive-recertification-v1.freeze.json' ]] \
+  && printf '%s\n' "$changed" | grep -Fx "$recertification_contract" >/dev/null; then
+  protected="$(printf '%s\n%s\n' "$protected" "$recertification_contract" | sed '/^$/d' | sort -u)"
+  echo "D2 scope guard: active additive chain keeps historical v44 trust anchor protected"
+fi
+
 # Sprint 1 intentionally adds a narrowly bounded, behavior-neutral N2 memory
 # bridge to the existing Decision screen. Keep the historical D2 guard strict:
 # only this exact provenance patch is exempt; any other Product/Decision change
