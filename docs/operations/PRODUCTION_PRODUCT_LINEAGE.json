@@ -597,6 +597,16 @@
       "mobile/components/events/HomeEventsSection.tsx"
     ],
     "evidence": "decision-lab/config/decision-v13-production-recertification-v34.json"
+  },
+  {
+    "id": "founder_home_events_card_density_v1",
+    "baseline_commit": "4902da5f70203427dabd7e6939a0beedda90eedc",
+    "source_commit": "0899310e82550889149afd4cfeb0e9b84ebb5edc",
+    "decision_semantics_changed": false,
+    "authorized_surface_changes": [
+      "mobile/components/events/HomeEventsSection.tsx"
+    ],
+    "evidence": "decision-lab/config/decision-v13-production-recertification-v35.json"
   }
   ],
   "required_ancestry": [
