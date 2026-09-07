@@ -40,6 +40,7 @@ select
 
 begin;
 \ir events-v1-later-application-schema-reconstruction.sql
+\ir restaurant-v1-prior-application-schema-reconstruction.sql
 -- Gate 7 is a later service-only operational schema delta. Remove it first so
 -- this transaction continues to prove the exact pre-Gate-6 application state.
 drop function public.backyrd_launch_operations_snapshot_v1();

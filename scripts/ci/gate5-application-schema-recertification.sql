@@ -19,6 +19,7 @@ where schemaname = 'public'
 
 begin;
 \ir events-v1-later-application-schema-reconstruction.sql
+\ir restaurant-v1-prior-application-schema-reconstruction.sql
 drop policy user_achievements_select_own_v2 on public.user_achievements;
 create policy "Allow all read during dev"
   on public.user_achievements for select using (true);

@@ -27,6 +27,7 @@ select
 -- prior canonical global fingerprint, every other public ACL fact is unchanged.
 begin;
 \ir events-v1-later-public-acl-reconstruction.sql
+\ir restaurant-v1-prior-public-acl-reconstruction.sql
 -- Gate 6 adds five bounded RPC contracts after this Gate 5 baseline. Remove
 -- only those exact later grants while reconstructing the pre-Gate-5 catalog.
 revoke execute on function public.create_social_comment_v2(uuid,text,uuid) from authenticated,service_role;
@@ -42,7 +43,7 @@ revoke execute on function public.backyrd_has_claimable_embedding_job_v1() from 
 revoke execute on function public.backyrd_launch_operations_snapshot_v1() from service_role;
 grant select, insert, update, delete on table public.user_achievements to anon;
 grant insert, update, delete on table public.user_achievements to authenticated;
-
+\ir public-acl-fingerprint.sql
 with roles(role_name) as (
   values ('anon'),('authenticated'),('service_role')
 ), table_privileges(privilege_name) as (

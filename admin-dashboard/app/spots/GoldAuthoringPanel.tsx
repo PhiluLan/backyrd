@@ -14,6 +14,9 @@ function defaultValue(question: AuthoringQuestion): unknown {
   if (question.control_type === "MULTI_CHOICE") return [];
   if (["TRI_STATE_MAP", "AVAILABILITY_MAP", "PURPOSE_MAP", "ACCESSIBILITY_MAP"].includes(question.control_type)) return Object.fromEntries(question.options.map((option) => [String(option.value), "UNKNOWN"]));
   if (question.control_type === "AGE_RANGE") return { min_age: null, max_age: null, adult_supervision_required: "UNKNOWN" };
+  if (question.control_type === "CAPACITY") return { total: null, indoor: null, outdoor: null };
+  if (question.control_type === "SPECIAL_HOURS") return { overrides: [] };
+  if (["TEXT_INPUT", "URL_INPUT"].includes(question.control_type)) return "";
   return "UNKNOWN";
 }
 function stableEqual(a: unknown, b: unknown): boolean { return JSON.stringify(a) === JSON.stringify(b); }
@@ -73,7 +76,7 @@ export function GoldAuthoringPanel({ spotId, refreshToken = 0 }: { spotId: strin
     setBusy(sectionId); setMessage(null);
     setSectionFeedback((current) => { const next = { ...current }; delete next[sectionId]; return next; });
     try {
-      const { data, error } = await supabase.rpc("backyrd_human_spot_save_section_v2", {
+      const { data, error } = await supabase.rpc("backyrd_human_spot_save_section_v3", {
         p_spot_id: spotId, p_section_id: sectionId,
         p_answers: changed.map((question) => ({ questionId: question.question_id, value: drafts[question.question_id] })),
         p_source_type: sourceType, p_source_url: sourceUrl.trim() || null, p_source_reference: sourceReference.trim() || null,
@@ -132,6 +135,14 @@ export function GoldAuthoringPanel({ spotId, refreshToken = 0 }: { spotId: strin
 
   if (!profile) return <section className="spot-editor-section hsi-v2"><h2>Backyrd Intelligence</h2><p>{message ?? "Wird geladen …"}</p></section>;
   const isGastronomy = GASTRONOMY.has(profile.authoring.primaryArchetype);
+  const isRestaurant = profile.authoring.primaryArchetype === "RESTAURANT";
+  const restaurantSectionCopy: Partial<Record<AuthoringSectionId, { label: string; description: string }>> = {
+    IDENTITY: { label: "Basis", description: "Identity, Kontakt, Quartier und die faktische Besonderheit." },
+    PURPOSE: { label: "Angebot", description: "Küche, Speisen und Getränke – strukturiert und belegt." },
+    FIT: { label: "Passt für", description: "Für wen und zu welchen Zeiten dieser Restaurantbesuch passt." },
+    EXPERIENCE: { label: "Erlebnis", description: "Atmosphäre, Lautstärke, Aufenthaltsdauer und Familien-Eignung." },
+    PRACTICAL: { label: "Betrieb & Ort", description: "Reservierung, Service, Take-away, Bezahlung, Kapazität, Bereiche und Barrierefreiheit." },
+  };
   const missing = profile.humanReadiness.missing.filter((item) => item.priority !== "OPTIONAL").slice(0, 6);
 
   return <section className="spot-editor-section hsi-v2">
@@ -148,11 +159,12 @@ export function GoldAuthoringPanel({ spotId, refreshToken = 0 }: { spotId: strin
     {AUTHORING_SECTIONS.map((section) => {
       const sectionQuestions = questions.filter((question) => question.section_id === section.id);
       if (!sectionQuestions.length) return null;
+      const sectionCopy = isRestaurant ? restaurantSectionCopy[section.id] ?? section : section;
       const changed = sectionQuestions.filter((question) => dirtyQuestions.has(question.question_id)).length;
       const hasOfferingConflict = sectionQuestions.some((question) => question.control_type === "AVAILABILITY_MAP" && offeringHierarchyConflicts(drafts[question.question_id] ?? facts.get(question.canonical_field_key)?.value ?? defaultValue(question)).length > 0);
       const feedback = sectionFeedback[section.id];
       const saved = feedback?.tone === "success" && changed === 0;
-      return <section className="hsi-section" id={`hsi-section-${section.id}`} key={section.id}><header><div><span>{changed ? `${changed} ungespeichert` : saved ? "Gespeichert" : "Aktuell"}</span><h3>{section.label}</h3><p>{section.description}</p></div><div className="hsi-section-actions"><button type="button" className={saved ? "is-saved" : ""} disabled={busy !== null || changed === 0 || hasOfferingConflict} onClick={() => void saveSection(section.id)}>{busy === section.id ? "Wird gespeichert …" : saved ? "Gespeichert ✓" : scope === "SPOT" ? "Abschnitt speichern" : "Zur Prüfung speichern"}</button>{feedback && <p className={`hsi-section-feedback ${feedback.tone}`} role="status">{feedback.text}</p>}</div></header><div className="hsi-question-list">{sectionQuestions.map((question) => {
+      return <section className="hsi-section" id={`hsi-section-${section.id}`} key={section.id}><header><div><span>{changed ? `${changed} ungespeichert` : saved ? "Gespeichert" : "Aktuell"}</span><h3>{sectionCopy.label}</h3><p>{sectionCopy.description}</p></div><div className="hsi-section-actions"><button type="button" className={saved ? "is-saved" : ""} disabled={busy !== null || changed === 0 || hasOfferingConflict} onClick={() => void saveSection(section.id)}>{busy === section.id ? "Wird gespeichert …" : saved ? "Gespeichert ✓" : scope === "SPOT" ? "Abschnitt speichern" : "Zur Prüfung speichern"}</button>{feedback && <p className={`hsi-section-feedback ${feedback.tone}`} role="status">{feedback.text}</p>}</div></header><div className="hsi-question-list">{sectionQuestions.map((question) => {
         const fact = facts.get(question.canonical_field_key); const source = fact ? sources.get(fact.source_id) : undefined;
         const value = drafts[question.question_id] ?? fact?.value ?? defaultValue(question);
         const provenance = fact ? `${source?.source_type === "ADMIN_VERIFIED" ? "Von dir bestätigt" : source?.source_type === "OFFICIAL_WEBSITE" ? "Offizielle Website" : "Bestätigte Quelle"}${fact.last_checked_at || fact.accepted_at ? ` · ${new Date(fact.last_checked_at ?? fact.accepted_at ?? "").toLocaleDateString("de-CH")}` : ""}` : undefined;

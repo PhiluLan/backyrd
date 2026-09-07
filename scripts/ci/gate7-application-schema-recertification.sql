@@ -41,6 +41,7 @@ select
 
 begin;
 \ir events-v1-later-application-schema-reconstruction.sql
+\ir restaurant-v1-prior-application-schema-reconstruction.sql
 drop function public.backyrd_launch_operations_snapshot_v1();
 drop function public.backyrd_has_claimable_embedding_job_v1();
 drop function public.backyrd_consume_launch_cost_boundary_v1(text,text,integer,integer,integer,integer);
