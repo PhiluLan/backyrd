@@ -33,6 +33,12 @@ import { trackAnalyticsEvent } from "../../lib/analytics";
 import { filterDistributedSpots } from "../../lib/distributionTrust";
 import { registerSafetySnapshot } from "../../lib/safety-content";
 import { userFacingError } from "../../lib/userFacingError";
+import {
+  MOMENT_MEDIA_BUCKET,
+  MomentMediaUploadError,
+  safeStorageErrorIdentity,
+  uploadMomentMedia,
+} from "../../lib/moment-media-upload";
 import { StateView } from "../../components/foundation/StateView";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
@@ -323,15 +329,74 @@ async function uriToUploadBody(uri: string) {
   return arrayBuffer;
 }
 
-function makeUploadPath(userId: string, requestId: string, index: number, uri: string) {
-  const extFromUri = uri.split("?")[0]?.split(".").pop()?.toLowerCase();
-  const safeExt = extFromUri && extFromUri.length <= 5 ? extFromUri : "jpg";
-  return `${userId}/${requestId}-${index}.${safeExt}`;
+type MomentCreateStage =
+  | "auth"
+  | "media_upload"
+  | "moment_mutation"
+  | "safety_snapshot"
+  | "feed_refresh";
+
+function logMomentCreateFailure(
+  stage: MomentCreateStage,
+  error: unknown,
+  mediaCount: number,
+) {
+  if (error instanceof MomentMediaUploadError) {
+    console.warn("moment_create_failed", {
+      stage: error.stage,
+      code: error.safeCode,
+      httpStatus: error.httpStatus,
+      context: {
+        bucket: MOMENT_MEDIA_BUCKET,
+        mediaCount,
+        mediaIndex: error.mediaIndex,
+      },
+    });
+    return;
+  }
+
+  const identity = safeStorageErrorIdentity(error);
+  console.warn("moment_create_failed", {
+    stage,
+    code: identity.code,
+    httpStatus: identity.httpStatus,
+    context: { mediaCount },
+  });
+}
+
+function momentCreateErrorMessage(error: unknown) {
+  if (!(error instanceof MomentMediaUploadError)) {
+    return userFacingError(
+      error,
+      "Dein Moment konnte gerade nicht geteilt werden. Bitte versuche es noch einmal.",
+    );
+  }
+
+  if (error.safeCode === "IMAGE_TOO_LARGE") {
+    return "Das Foto ist größer als 12 MB. Bitte wähle ein kleineres Bild.";
+  }
+
+  if (error.safeCode === "UNSUPPORTED_IMAGE_TYPE") {
+    return "Dieses Bildformat wird nicht unterstützt. Verwende JPEG, PNG, WebP, HEIC, HEIF oder AVIF.";
+  }
+
+  if (
+    error.safeCode === "LOCAL_IMAGE_READ_FAILED" ||
+    error.safeCode === "EMPTY_IMAGE_FILE"
+  ) {
+    return "Das Foto konnte auf diesem Gerät nicht gelesen werden. Bitte wähle es erneut aus.";
+  }
+
+  return "Das Foto konnte gerade nicht hochgeladen werden. Bitte versuche es noch einmal.";
 }
 
 export default function FeedScreen() {
   const router = useRouter();
-  const pendingPostRequest = useRef<{ fingerprint: string; id: string } | null>(null);
+  const pendingPostRequest = useRef<{
+    fingerprint: string;
+    id: string;
+    uploadedPaths: Set<string>;
+  } | null>(null);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [mode, setMode] = useState<FeedMode>("for_you");
@@ -637,6 +702,7 @@ export default function FeedScreen() {
 
   const createPost = useCallback(async () => {
     const trimmedCaption = caption.trim();
+    let createStage: MomentCreateStage = "auth";
 
     if (!trimmedCaption && media.length === 0) {
       Alert.alert("Noch leer", "Schreib etwas oder füge ein Foto hinzu.");
@@ -654,36 +720,26 @@ export default function FeedScreen() {
       const fingerprint = JSON.stringify({ caption: trimmedCaption, spotId: selectedSpot?.id ?? null, media: media.map((item) => item.uri) });
       const request = pendingPostRequest.current?.fingerprint === fingerprint
         ? pendingPostRequest.current
-        : { fingerprint, id: uuidv4() };
+        : { fingerprint, id: uuidv4(), uploadedPaths: new Set<string>() };
       pendingPostRequest.current = request;
       const requestId = request.id;
 
-      const uploadedMedia = [];
+      createStage = "media_upload";
+      const uploadedMedia = await uploadMomentMedia({
+        assets: media,
+        userId,
+        requestId,
+        alreadyUploadedPaths: request.uploadedPaths,
+        readUri: uriToUploadBody,
+        upload: async (path, body, options) => {
+          const { error } = await supabase.storage
+            .from(MOMENT_MEDIA_BUCKET)
+            .upload(path, body, options);
+          return { error };
+        },
+      });
 
-      for (let index = 0; index < media.length; index += 1) {
-        const item = media[index];
-        const path = makeUploadPath(userId, requestId, index, item.uri);
-        const uploadBody = await uriToUploadBody(item.uri);
-
-        const { error: uploadError } = await supabase.storage
-          .from("social-post-media")
-          .upload(path, uploadBody, {
-            contentType: item.mimeType ?? "image/jpeg",
-            upsert: true,
-          });
-
-        if (uploadError) throw uploadError;
-
-        uploadedMedia.push({
-          storage_path: path,
-          public_url: null,
-          media_type: "image",
-          width: item.width ?? null,
-          height: item.height ?? null,
-          sort_order: index,
-        });
-      }
-
+      createStage = "moment_mutation";
       const { data: createdPostData, error } =
         await supabase.rpc("create_social_post_v2", {
           p_spot_id: selectedSpot?.id ?? null,
@@ -706,6 +762,7 @@ export default function FeedScreen() {
         null;
 
       if (createdPostId) {
+        createStage = "safety_snapshot";
         await registerSafetySnapshot({
           entityType: "social_post",
           entityId: createdPostId,
@@ -727,14 +784,18 @@ export default function FeedScreen() {
       pendingPostRequest.current = null;
       setComposerVisible(false);
 
+      createStage = "feed_refresh";
       await Promise.all([
         loadFeed("for_you", { silent: true }),
         loadFeed("following", { silent: true }),
       ]);
       setMode("for_you");
-    } catch (error: any) {
-      console.log("create_social_post_v2 failed:", error);
-      Alert.alert("Moment konnte nicht erstellt werden", userFacingError(error, "Dein Moment konnte gerade nicht geteilt werden. Bitte versuche es noch einmal."));
+    } catch (error: unknown) {
+      logMomentCreateFailure(createStage, error, media.length);
+      Alert.alert(
+        "Moment konnte nicht erstellt werden",
+        momentCreateErrorMessage(error),
+      );
     } finally {
       setCreating(false);
     }
