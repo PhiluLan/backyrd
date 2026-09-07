@@ -2,7 +2,7 @@ import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { contentHash } from "./canonical-json.mjs";
-import { verifyCandidateEvidence } from "./recertification-verify.mjs";
+import { verifyPreMergeCandidate } from "./recertification-verify.mjs";
 
 export const APPLIER_VERSION = "backyrd-recertification-applier-v1";
 const writeIdempotent = async (path, value) => {
@@ -16,7 +16,7 @@ const replaceJson = async (path, value) => { await mkdir(dirname(path), { recurs
 export async function applyCandidateEvidence({ root, artifact, receipt, trustedBaseSha }) {
   const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim();
   if (head !== artifact.candidateSha) throw new Error(`CANDIDATE_NOT_CHECKED_OUT:${head}`);
-  const fresh = await verifyCandidateEvidence({ root, artifact, trustedBaseSha });
+  const fresh = await verifyPreMergeCandidate({ root, artifact, prBaseSha: trustedBaseSha, prHeadSha: artifact.candidateSha });
   if (!fresh.valid || !receipt.valid || receipt.artifactHash !== artifact.artifactHash || receipt.verificationHash !== fresh.verificationHash) throw new Error(`VERIFICATION_REQUIRED:${fresh.reasons.join(",")}`);
   const recordBody = {
     schemaVersion: "backyrd-additive-recertification-v1",

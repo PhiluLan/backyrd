@@ -2,12 +2,13 @@ import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { contentHash } from "./canonical-json.mjs";
-import { blob, hashTreeFiles, parentIdentities, sha256, verifyCandidateEvidence } from "./recertification-verify.mjs";
+import { blob, hashTreeFiles, parentIdentities, sha256, SUPPORTED_VERIFIER_VERSIONS, verifyCandidateEvidence } from "./recertification-verify.mjs";
 
-export const CONSUMER_VERSION = "backyrd-recertification-consumer-v1.2";
+export const CONSUMER_VERSION = "backyrd-recertification-consumer-v1.3";
 const ANCHOR_VERSION = "decision-v13-production-recertification-v44";
 const FREEZE_PATH = "decision-lab/config/additive-recertification-v1.freeze.json";
 const LINEAGE_PATH = "docs/operations/DECISION_RECERTIFICATION_LINEAGE_V1.json";
+const CANONICAL_MAIN_REF = "refs/remotes/origin/main";
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] }).trim();
 const recordPath = (version) => `decision-lab/config/${version}.json`;
 const readJson = async (root, ref, path) => ref
@@ -19,7 +20,7 @@ const isAncestor = (root, ancestor, descendant) => {
   try { return git(root, ["merge-base", "--is-ancestor", ancestor, descendant]) === ""; }
   catch { return false; }
 };
-const isCanonicalMainCommit = (root, sha) => git(root, ["rev-list", "--first-parent", "refs/remotes/origin/main"]).split("\n").includes(sha);
+const isCanonicalMainCommit = (root, sha) => git(root, ["rev-list", "--first-parent", CANONICAL_MAIN_REF]).split("\n").includes(sha);
 const versionNumber = (version) => Number(version?.match(/^decision-v13-production-recertification-v(\d+)$/)?.[1]);
 const recordProjection = (artifact, receipt) => ({
   parent: artifact.parent,
@@ -64,7 +65,8 @@ async function validateState({ root, ref, trustedBaseSha, seen }) {
   if (contentHash(body) !== record.recertificationHash || record.recertificationHash !== freeze.currentRecertificationHash) reasons.push("APPLIED_RECERTIFICATION_HASH_MISMATCH");
   if (freeze.currentVersion !== record.version || freeze.parentDecisionRecertificationVersion !== record.parent?.version || !same(freeze.d2D3Parents, record.d2D3Parents)) reasons.push("ACTIVE_FREEZE_MISMATCH");
   if (artifact && receipt) {
-    const verification = await verifyCandidateEvidence({ root, artifact, trustedBaseSha: record.baseMainSha });
+    const verification = await verifyCandidateEvidence({ root, artifact, trustedBaseSha: record.baseMainSha, verifierVersion: receipt.verifierVersion });
+    if (!SUPPORTED_VERIFIER_VERSIONS.includes(receipt.verifierVersion)) reasons.push("VERIFIER_VERSION_UNSUPPORTED");
     if (!verification.valid || !same(verification, receipt)) reasons.push("VERIFICATION_RECEIPT_INVALID");
     const projection = recordProjection(artifact, receipt);
     if (Object.entries(projection).some(([key, value]) => !same(record[key], value))) reasons.push("APPLIED_RECERTIFICATION_CONTENT_MISMATCH");
@@ -88,7 +90,8 @@ async function validateState({ root, ref, trustedBaseSha, seen }) {
       const canonicalBase = git(root, ["rev-parse", `${trustedBaseSha}^{commit}`]);
       const historicalBase = git(root, ["rev-parse", `${record.baseMainSha}^{commit}`]);
       const candidate = git(root, ["rev-parse", `${record.candidateSha}^{commit}`]);
-      if (!isCanonicalMainCommit(root, canonicalBase)) reasons.push("NON_CANONICAL_BASE");
+      if (!isCanonicalMainCommit(root, canonicalBase)) reasons.push("NON_CANONICAL_MAIN");
+      if (!isCanonicalMainCommit(root, historicalBase)) reasons.push("HISTORICAL_BASE_NOT_CANONICAL_FIRST_PARENT");
       if (!isAncestor(root, historicalBase, canonicalBase)) reasons.push("HISTORICAL_BASE_NOT_ANCESTOR");
       if (!isAncestor(root, candidate, canonicalBase)) reasons.push("CANDIDATE_NOT_CANONICALLY_INTEGRATED");
       const currentParent = await maybeJson(root, canonicalBase, record.parent?.path);
@@ -108,16 +111,30 @@ async function validateState({ root, ref, trustedBaseSha, seen }) {
   return { valid: reasons.length === 0, reasons: [...new Set(reasons)], chain: expectedChain, activeVersion: record.version, activeManifestHash: contentHash(record), record };
 }
 
-export async function validateActiveAdditiveRecertification({ root, trustedBaseSha = null }) {
-  const freeze = await maybeJson(root, null, FREEZE_PATH);
-  if (!freeze) {
-    const anchor = await maybeJson(root, null, recordPath(ANCHOR_VERSION));
-    const valid = anchor?.version === ANCHOR_VERSION && anchor?.status === "AUTHORIZED";
-    return { consumerVersion: CONSUMER_VERSION, valid, mode: "V44_TRUST_ANCHOR", activeVersion: ANCHOR_VERSION, reasons: valid ? [] : ["V44_TRUST_ANCHOR_MISSING"], chainLength: 0 };
+export async function validatePostMergeActiveChain({ root, canonicalMainSha = null, candidateSha = null }) {
+  let canonicalTip;
+  try { canonicalTip = git(root, ["rev-parse", `${CANONICAL_MAIN_REF}^{commit}`]); }
+  catch { return { consumerVersion: CONSUMER_VERSION, valid: false, mode: "POST_MERGE_ACTIVE_CHAIN", activeVersion: null, reasons: ["CANONICAL_MAIN_UNAVAILABLE"], chainLength: 0 }; }
+  const contextReasons = [];
+  let expectedCandidate = null;
+  if (canonicalMainSha) {
+    try { if (git(root, ["rev-parse", `${canonicalMainSha}^{commit}`]) !== canonicalTip) contextReasons.push("CANONICAL_MAIN_TIP_MISMATCH"); }
+    catch { contextReasons.push("CANONICAL_MAIN_SHA_UNREADABLE"); }
   }
-  if (!trustedBaseSha) return { consumerVersion: CONSUMER_VERSION, valid: false, mode: "ADDITIVE_CHAIN", activeVersion: freeze.currentVersion, reasons: ["TRUSTED_BASE_REQUIRED"], chainLength: 0 };
-  const result = await validateState({ root, ref: null, trustedBaseSha, seen: new Set() });
-  const dirty = git(root, ["status", "--porcelain"]);
-  const reasons = [...result.reasons, ...(dirty ? ["WORKTREE_NOT_CLEAN"] : [])];
-  return { consumerVersion: CONSUMER_VERSION, valid: reasons.length === 0, mode: "ADDITIVE_CHAIN", activeVersion: result.activeVersion, reasons, chainLength: result.chain.length };
+  if (candidateSha) {
+    try { expectedCandidate = git(root, ["rev-parse", `${candidateSha}^{commit}`]); if (!isAncestor(root, expectedCandidate, canonicalTip)) contextReasons.push("CANDIDATE_NOT_CANONICALLY_INTEGRATED"); }
+    catch { contextReasons.push("CANDIDATE_NOT_CANONICALLY_INTEGRATED"); }
+  }
+  const freeze = await maybeJson(root, canonicalTip, FREEZE_PATH);
+  if (!freeze) {
+    const anchor = await maybeJson(root, canonicalTip, recordPath(ANCHOR_VERSION));
+    const reasons = [...contextReasons, ...(expectedCandidate ? ["CANDIDATE_NOT_IN_ACTIVE_CHAIN"] : []), ...(anchor?.version === ANCHOR_VERSION && anchor?.status === "AUTHORIZED" ? [] : ["V44_TRUST_ANCHOR_MISSING"])];
+    return { consumerVersion: CONSUMER_VERSION, valid: reasons.length === 0, mode: "POST_MERGE_V44_TRUST_ANCHOR", activeVersion: ANCHOR_VERSION, reasons, chainLength: 0 };
+  }
+  const result = await validateState({ root, ref: canonicalTip, trustedBaseSha: canonicalTip, seen: new Set() });
+  if (expectedCandidate && !result.chain.some((entry) => entry.candidateSha === expectedCandidate)) contextReasons.push("CANDIDATE_NOT_IN_ACTIVE_CHAIN");
+  const reasons = [...new Set([...contextReasons, ...result.reasons])];
+  return { consumerVersion: CONSUMER_VERSION, valid: reasons.length === 0, mode: "POST_MERGE_ACTIVE_CHAIN", activeVersion: result.activeVersion, reasons, chainLength: result.chain.length };
 }
+
+export const validateActiveAdditiveRecertification = ({ root, trustedBaseSha = null, candidateSha = null }) => validatePostMergeActiveChain({ root, canonicalMainSha: trustedBaseSha, candidateSha });

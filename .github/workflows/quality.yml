@@ -24,6 +24,7 @@ jobs:
     timeout-minutes: 8
     env:
       CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+      CANONICAL_MAIN_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:

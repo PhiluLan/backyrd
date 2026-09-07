@@ -3,7 +3,7 @@ import { contentHash } from "./canonical-json.mjs";
 import { validateD21Freeze } from "./d2-freeze.mjs";
 import { validatePersonalizationTreatmentFreeze } from "./personalization-treatment-freeze.mjs";
 import { hashFiles, readJson, repoRoot } from "./io.mjs";
-import { validateActiveAdditiveRecertification } from "./recertification-consumer.mjs";
+import { validatePostMergeActiveChain } from "./recertification-consumer.mjs";
 
 export const D38_EXPECTED = Object.freeze({
   parentFreezeManifestHash: "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
@@ -18,8 +18,8 @@ export async function d31Preflight() {
   const parentValidation = await validateD21Freeze(parent);
   const treatmentValidation = await validatePersonalizationTreatmentFreeze(treatment);
   const engineSourceHash = await hashFiles([resolve(repoRoot, "supabase/functions/decision-v13/index.ts")]);
-  const additiveRecertification = await validateActiveAdditiveRecertification({ root: repoRoot, trustedBaseSha: process.env.CI_BASE_SHA ?? null });
-  const parentContinuityValid = parentValidation.valid || (additiveRecertification.mode === "ADDITIVE_CHAIN" && additiveRecertification.valid);
+  const additiveRecertification = await validatePostMergeActiveChain({ root: repoRoot, canonicalMainSha: process.env.CANONICAL_MAIN_SHA ?? process.env.CI_BASE_SHA ?? null });
+  const parentContinuityValid = parentValidation.valid || (additiveRecertification.mode === "POST_MERGE_ACTIVE_CHAIN" && additiveRecertification.valid);
   const identities = { parentFreezeManifestHash: parent.freezeManifestHash, personalizationTreatmentFreezeHash: treatment.freezeManifestHash, engineSourceHash };
   const mismatches = Object.entries(D38_EXPECTED).filter(([key, value]) => identities[key] !== value).map(([key, expected]) => ({ key, expected, actual: identities[key] }));
   const reasons = [
