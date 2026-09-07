@@ -22,10 +22,10 @@
       "ios_update": "01a07263-06bd-7340-a72e-ee70a4e77ca1",
       "created_at": "2026-09-05T16:23:00Z",
       "canonical_source": {
-    "commit": "dca30e43dcd51aec8b2827900928f335783e5ace",
-    "tree": "34aad534680a0b6cae2dd5b227c28059559086eb",
+    "commit": "91f2a508cec74c342adbc3cf766e8bb65e0597f2",
+    "tree": "701a0df1208ce0d97f8dd2fd7f330790e4e8f799",
         "production_verified": false,
-    "reason": "Founder-authorized bounded Home Spot Card status and metadata polish candidate. Exact Mobile source tree is bound before merge; Production verification remains false until canonical-main OTA deployment and physical Founder validation."
+    "reason": "Founder-authorized bounded Spot Detail UX closure candidate. Exact Mobile source tree is bound before merge; Production verification remains false until canonical-main OTA deployment and physical Founder validation."
       }
     },
     "consumer_web": {
@@ -621,6 +621,18 @@
       "mobile/theme/backyrd.ts"
     ],
     "evidence": "decision-lab/config/decision-v13-production-recertification-v36.json"
+  },
+  {
+    "id": "founder_spot_detail_ux_closure_v1",
+    "baseline_commit": "e9325e8ebdf067e6936edb5c04b095ce07ab917c",
+    "source_commit": "91f2a508cec74c342adbc3cf766e8bb65e0597f2",
+    "decision_semantics_changed": false,
+    "authorized_surface_changes": [
+      "mobile/app/spot/[id].tsx",
+      "mobile/components/spot/SpotTaxonomyHighlights.tsx",
+      "mobile/scripts/test-mobile-product-contracts.mjs"
+    ],
+    "evidence": "decision-lab/config/decision-v13-production-recertification-v37.json"
   }
   ],
   "required_ancestry": [
