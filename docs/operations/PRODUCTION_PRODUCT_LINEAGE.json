@@ -22,10 +22,10 @@
       "ios_update": "01a07263-06bd-7340-a72e-ee70a4e77ca1",
       "created_at": "2026-09-05T16:23:00Z",
       "canonical_source": {
-        "commit": "793ed1dab7a27701434bb036f268c5a3d9b24485",
-        "tree": "a6f417bc8c2664627a16af3dae6e363968ae8564",
+    "commit": "2d06b01ba1e9891bfad33e953141ad5a0b23ec67",
+    "tree": "43b579d2baad3436c0ba83a8fca98744572f8d35",
         "production_verified": false,
-        "reason": "Founder-authorized bounded Mobile startup/Home UX polish candidate. Exact Mobile source tree is bound before merge; Production verification remains false until canonical-main OTA deployment and physical Founder validation."
+    "reason": "Founder-authorized bounded Native/React Splash handoff continuity fix candidate. Exact Mobile source tree is bound before merge; Production verification remains false until canonical-main OTA deployment and physical Founder validation."
       }
     },
     "consumer_web": {
@@ -545,8 +545,8 @@
       ],
       "evidence": "docs/decision/D2_D3_EVENTS_HOME_CAROUSEL_RECERTIFICATION_V29_2026_09_06.md"
     },
-    {
-      "id": "founder_mobile_start_home_polish_v1",
+  {
+    "id": "founder_mobile_start_home_polish_v1",
       "baseline_commit": "3e93c15a32f55ffd1cc9e77aaa8965a7088e32fe",
       "source_commit": "793ed1dab7a27701434bb036f268c5a3d9b24485",
       "decision_semantics_changed": false,
@@ -560,8 +560,21 @@
         "mobile/scripts/test-mobile-product-contracts.mjs",
         "mobile/scripts/test-native-intent-routing.mjs"
       ],
-      "evidence": "docs/operations/PRODUCTION_PRODUCT_LINEAGE.json"
-    }
+    "evidence": "docs/operations/PRODUCTION_PRODUCT_LINEAGE.json"
+  },
+  {
+    "id": "founder_splash_handoff_continuity_v1",
+    "baseline_commit": "1425f3e58d9b6bffc6ac4ad222708f9a2a2f7cff",
+    "source_commit": "2d06b01ba1e9891bfad33e953141ad5a0b23ec67",
+    "decision_semantics_changed": false,
+    "authorized_surface_changes": [
+      "mobile/app/_layout.tsx",
+      "mobile/app/splash.tsx",
+      "mobile/components/safety/GlobalSafetyEnforcementGuard.tsx",
+      "mobile/scripts/test-native-intent-routing.mjs"
+    ],
+    "evidence": "decision-lab/config/decision-v13-production-recertification-v32.json"
+  }
   ],
   "required_ancestry": [
     "b274084d12152d52c9f7f253dab71adad0d70c35",
