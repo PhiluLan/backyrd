@@ -102,7 +102,9 @@ export function HomeEventsSection() {
     void load();
   }, [load]);
 
-  const carouselCardWidth = homeRailCardWidth(width, { minimum: 240, maximum: 520 });
+  // Events stay recognisable as a rail on every phone width: smaller than the
+  // primary Spot cards, but with the same snap physics and intentional peek.
+  const carouselCardWidth = homeRailCardWidth(width, { minimum: 220, maximum: 272 });
 
   return (
     <View style={styles.section}>
@@ -187,13 +189,13 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   pressed: { opacity: 0.9, transform: [{ scale: theme.motion.pressScale }] },
-  imageWrap: { height: 224, justifyContent: "flex-end", backgroundColor: theme.color.surfaceElevated },
-  imageCopy: { padding: theme.spacing.lg },
-  kicker: { color: theme.color.acid, fontFamily: theme.type.bodyMedium, fontSize: 11, letterSpacing: 1.2 },
-  title: { marginTop: 8, color: theme.color.textPrimary, fontFamily: theme.type.display, fontSize: 34, lineHeight: 34, letterSpacing: -1 },
-  meta: { minHeight: 62, paddingHorizontal: theme.spacing.lg, flexDirection: "row", alignItems: "center", gap: theme.spacing.sm },
+  imageWrap: { height: 178, justifyContent: "flex-end", backgroundColor: theme.color.surfaceElevated },
+  imageCopy: { padding: theme.spacing.md },
+  kicker: { color: theme.color.acid, fontFamily: theme.type.bodyMedium, fontSize: 10, letterSpacing: 1.05 },
+  title: { marginTop: 6, color: theme.color.textPrimary, fontFamily: theme.type.display, fontSize: 25, lineHeight: 27, letterSpacing: -0.65 },
+  meta: { minHeight: 54, paddingHorizontal: theme.spacing.md, flexDirection: "row", alignItems: "center", gap: theme.spacing.xs },
   metaLine: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 6 },
-  metaText: { flex: 1, color: theme.color.textSecondary, fontFamily: theme.type.body, fontSize: 13 },
-  freeBadge: { borderRadius: theme.radius.pill, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: "rgba(216,255,62,.12)" },
+  metaText: { flex: 1, color: theme.color.textSecondary, fontFamily: theme.type.body, fontSize: 12 },
+  freeBadge: { borderRadius: theme.radius.pill, paddingHorizontal: 8, paddingVertical: 5, backgroundColor: "rgba(216,255,62,.12)" },
   freeText: { color: theme.color.acid, fontFamily: theme.type.bodyMedium, fontSize: 10, letterSpacing: 1 },
 });
