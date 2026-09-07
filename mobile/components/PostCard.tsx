@@ -7,7 +7,6 @@ import {
   Share,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +16,14 @@ import Avatar from "./Avatar";
 import { supabase } from "../lib/supabase";
 import ReportContentButton from "./safety/ReportContentButton";
 import { userFacingError } from "../lib/userFacingError";
+import {
+  formatMomentTime,
+  momentHasRenderableImage,
+  momentMediaAspectRatio,
+  momentTagPreview,
+  presentMomentTags,
+} from "../lib/moment-presentation";
+import { backyrdTheme as theme } from "../theme/backyrd";
 
 export type SocialFeedPost = {
   post_id: string;
@@ -69,38 +76,6 @@ type Props = {
   showFollowAction?: boolean;
 };
 
-function timeAgo(value: string) {
-  const diff = Math.max(0, Date.now() - new Date(value).getTime());
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "gerade eben";
-  if (minutes < 60) return `${minutes} Min.`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} Std.`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} Tg.`;
-  return new Date(value).toLocaleDateString("de-CH", {
-    day: "2-digit",
-    month: "2-digit",
-  });
-}
-
-const PRESENTED_TAGS: Record<string, string> = {
-  cozy: "Gemütlich",
-  calm: "Ruhig",
-  inspiring: "Inspirierend",
-  lively: "Lebhaft",
-};
-
-function cleanTags(value?: string[] | null) {
-  return Array.isArray(value)
-    ? value
-        .map((tag) => String(tag ?? "").trim())
-        .filter((tag) => tag.length >= 2)
-        .map((tag) => PRESENTED_TAGS[tag.toLowerCase()] ?? tag)
-        .slice(0, 4)
-    : [];
-}
-
 function mediaUrls(post: SocialFeedPost) {
   return Array.isArray(post.media)
     ? post.media
@@ -128,7 +103,6 @@ export default function SocialPostCard({
   showFollowAction = true,
 }: Props) {
   const router = useRouter();
-  const { width: viewportWidth } = useWindowDimensions();
   const [liked, setLiked] = useState(Boolean(post.viewer_has_liked));
   const [saved, setSaved] = useState(Boolean(post.viewer_has_saved));
   const [following, setFollowing] = useState(
@@ -162,15 +136,20 @@ export default function SocialPostCard({
   const handle = post.username?.trim() ? `@${post.username.trim()}` : null;
   const images = useMemo(() => mediaUrls(post), [post]);
   const imageUrl = images[0] ?? null;
+  const primaryMedia = post.media?.find(
+    (item) => item.public_url || item.storage_path,
+  );
   useEffect(() => setMediaFailed(false), [post.post_id, imageUrl]);
   const tags = useMemo(
-    () =>
-      [...cleanTags(post.mood_tags), ...cleanTags(post.occasion_tags)].slice(
-        0,
-        4,
-      ),
+    () => presentMomentTags(post.mood_tags, post.occasion_tags),
     [post.mood_tags, post.occasion_tags],
   );
+  const tagPreview = useMemo(() => momentTagPreview(tags), [tags]);
+  const mediaAspectRatio = momentMediaAspectRatio(
+    primaryMedia?.width,
+    primaryMedia?.height,
+  );
+  const hasImage = momentHasRenderableImage(imageUrl, mediaFailed);
   const ownPost = Boolean(currentUserId && post.user_id === currentUserId);
   const reviewMoment = isReviewMoment(post);
 
@@ -299,11 +278,11 @@ export default function SocialPostCard({
               ) : null}
             </View>
 
-            <Text style={styles.authorMeta} numberOfLines={1}>
-              {[handle, post.spot_city, timeAgo(post.created_at)]
-                .filter(Boolean)
-                .join(" · ")}
-            </Text>
+            {handle || post.spot_city ? (
+              <Text style={styles.authorMeta} numberOfLines={1}>
+                {[handle, post.spot_city].filter(Boolean).join(" · ")}
+              </Text>
+            ) : null}
           </View>
         </Pressable>
 
@@ -317,6 +296,7 @@ export default function SocialPostCard({
                 styles.followButton,
                 following && styles.followButtonActive,
               ]}
+              hitSlop={6}
               onPress={toggleFollow}
               disabled={busyFollow}
             >
@@ -367,18 +347,14 @@ export default function SocialPostCard({
         </View>
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={post.spot_name ? `${post.spot_name} öffnen` : `${displayName} Profil öffnen`}
-        style={
-          imageUrl && !mediaFailed
-            ? styles.media
-            : [styles.mediaWithoutImage, { width: viewportWidth }]
-        }
-        onPress={() => (post.spot_id ? onOpenSpot(post) : openUser())}
-        onLongPress={toggleLike}
-      >
-        {imageUrl && !mediaFailed ? (
+      {hasImage ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Moment von ${displayName}`}
+          style={[styles.media, { aspectRatio: mediaAspectRatio }]}
+          onPress={() => (post.spot_id ? onOpenSpot(post) : openUser())}
+          onLongPress={toggleLike}
+        >
           <Image
             source={{ uri: imageUrl }}
             style={styles.mediaImage}
@@ -386,36 +362,16 @@ export default function SocialPostCard({
             onError={() => setMediaFailed(true)}
             accessibilityLabel={`Moment von ${displayName}`}
           />
-        ) : (
-          <View style={styles.placeholder}>
-            <Ionicons
-              accessibilityElementsHidden
-              name="images-outline"
-              size={28}
-              color="rgba(255,255,255,0.26)"
-            />
-            <Text style={styles.placeholderText}>Moment ohne Bild</Text>
-          </View>
-        )}
+          {images.length > 1 ? (
+            <View style={styles.mediaCount}>
+              <Ionicons name="copy-outline" size={14} color={theme.color.textPrimary} />
+              <Text style={styles.mediaCountText}>{images.length}</Text>
+            </View>
+          ) : null}
+        </Pressable>
+      ) : null}
 
-        {images.length > 1 ? (
-          <View style={styles.mediaCount}>
-            <Ionicons name="copy-outline" size={14} color="#FFFFFF" />
-            <Text style={styles.mediaCountText}>{images.length}</Text>
-          </View>
-        ) : null}
-
-        {post.spot_name ? (
-          <View style={styles.spotOverlay}>
-            <Ionicons name="location" size={14} color="#FFFFFF" />
-            <Text style={styles.spotOverlayText} numberOfLines={1}>
-              {post.spot_name}
-            </Text>
-          </View>
-        ) : null}
-      </Pressable>
-
-      {images.length > 1 ? (
+      {hasImage && images.length > 1 ? (
         <View style={styles.dots}>
           {images.map((_, index) => (
             <View
@@ -426,13 +382,60 @@ export default function SocialPostCard({
         </View>
       ) : null}
 
+      <View style={[styles.content, !hasImage ? styles.contentWithoutImage : null]}>
+        {post.caption ? (
+          <Text style={[styles.caption, !hasImage ? styles.captionWithoutImage : null]}>
+            {post.caption}
+          </Text>
+        ) : null}
+
+        {post.spot_name ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${post.spot_name} ansehen`}
+            style={styles.spotRow}
+            onPress={() => onOpenSpot(post)}
+          >
+            <View style={styles.spotIcon}>
+              <Ionicons name="location" size={14} color={theme.color.background} />
+            </View>
+            <View style={styles.spotCopy}>
+              <Text style={styles.spotName} numberOfLines={1}>
+                {post.spot_name}
+              </Text>
+              {[post.category_name, post.spot_city].filter(Boolean).length > 0 ? (
+                <Text style={styles.spotMeta} numberOfLines={1}>
+                  {[post.category_name, post.spot_city].filter(Boolean).join(" · ")}
+                </Text>
+              ) : null}
+            </View>
+            <Text style={styles.spotLink}>Ansehen</Text>
+          </Pressable>
+        ) : null}
+
+        {tagPreview.visible.length > 0 ? (
+          <View style={styles.tags}>
+            {tagPreview.visible.map((tag, index) => (
+              <View key={`${post.post_id}-${tag}-${index}`} style={styles.tag}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+            {tagPreview.hiddenCount > 0 ? (
+              <View style={styles.tagMore}>
+                <Text style={styles.tagMoreText}>+{tagPreview.hiddenCount}</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
+
       <View style={styles.actionBar}>
         <View style={styles.leftActions}>
           <Pressable accessibilityRole="button" accessibilityLabel={liked ? "Gefällt mir entfernen" : "Gefällt mir"} accessibilityState={{ selected: liked, busy: busyReaction === "like" }} style={styles.action} onPress={toggleLike}>
             <Ionicons
               name={liked ? "heart" : "heart-outline"}
-              size={29}
-              color={liked ? "#FF4F91" : "#FFFFFF"}
+              size={23}
+              color={liked ? theme.color.pink : theme.color.textPrimary}
             />
           </Pressable>
 
@@ -444,16 +447,16 @@ export default function SocialPostCard({
           >
             <Ionicons
               name="chatbubble-outline"
-              size={27}
-              color="#FFFFFF"
+              size={22}
+              color={theme.color.textPrimary}
             />
           </Pressable>
 
           <Pressable accessibilityRole="button" accessibilityLabel="Moment teilen" style={styles.action} onPress={sharePost}>
             <Ionicons
               name="paper-plane-outline"
-              size={27}
-              color="#FFFFFF"
+              size={22}
+              color={theme.color.textPrimary}
             />
           </Pressable>
         </View>
@@ -461,59 +464,17 @@ export default function SocialPostCard({
         <Pressable accessibilityRole="button" accessibilityLabel={saved ? "Aus Gespeichert entfernen" : "Moment speichern"} accessibilityState={{ selected: saved, busy: busyReaction === "save" }} style={styles.action} onPress={toggleSave}>
           <Ionicons
             name={saved ? "bookmark" : "bookmark-outline"}
-            size={28}
-            color="#FFFFFF"
+            size={22}
+            color={theme.color.textPrimary}
           />
         </Pressable>
       </View>
 
-      <View style={styles.content}>
+      <View style={styles.metaBlock}>
         {likeCount > 0 ? (
           <Text style={styles.engagement}>
             {likeCount} {likeCount === 1 ? "Gefällt mir" : "Gefällt mir"}
           </Text>
-        ) : null}
-
-        {post.caption ? (
-          <Text style={styles.caption}>
-            <Text style={styles.captionAuthor}>{displayName} </Text>
-            {post.caption}
-          </Text>
-        ) : null}
-
-        {post.spot_name ? (
-          <Pressable
-            style={styles.spotRow}
-            onPress={() => onOpenSpot(post)}
-          >
-            <View style={styles.spotIcon}>
-              <Ionicons name="location" size={14} color="#050506" />
-            </View>
-            <View style={styles.spotCopy}>
-              <Text style={styles.spotName} numberOfLines={1}>
-                {post.spot_name}
-              </Text>
-              <Text style={styles.spotMeta} numberOfLines={1}>
-                {[post.category_name, post.spot_city]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </Text>
-            </View>
-            <Text style={styles.spotLink}>Ansehen</Text>
-          </Pressable>
-        ) : null}
-
-        {tags.length > 0 ? (
-          <View style={styles.tags}>
-            {tags.map((tag, index) => (
-              <View
-                key={`${post.post_id}-${tag}-${index}`}
-                style={styles.tag}
-              >
-                <Text style={styles.tagText}>#{tag}</Text>
-              </View>
-            ))}
-          </View>
         ) : null}
 
         {commentCount > 0 ? (
@@ -524,7 +485,7 @@ export default function SocialPostCard({
           </Pressable>
         ) : null}
 
-        <Text style={styles.timestamp}>{timeAgo(post.created_at)}</Text>
+        <Text style={styles.timestamp}>{formatMomentTime(post.created_at)}</Text>
       </View>
     </View>
   );
@@ -532,14 +493,17 @@ export default function SocialPostCard({
 
 const styles = StyleSheet.create({
   post: {
-    marginBottom: 28,
-    backgroundColor: "#050506",
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255,255,255,0.10)",
+    marginHorizontal: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+    backgroundColor: theme.color.surface,
+    borderWidth: 1,
+    borderColor: theme.color.border,
+    borderRadius: theme.radius.lg,
+    overflow: "hidden",
   },
   header: {
-    minHeight: 70,
-    paddingHorizontal: 16,
+    minHeight: 68,
+    paddingHorizontal: theme.spacing.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -553,11 +517,11 @@ const styles = StyleSheet.create({
     gap: 11,
   },
   avatarRing: {
-    width: 49,
-    height: 49,
-    borderRadius: 25,
-    padding: 2,
-    backgroundColor: "#FF4F91",
+    width: 45,
+    height: 45,
+    borderRadius: 23,
+    padding: 1,
+    backgroundColor: "rgba(255,79,145,0.48)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -568,16 +532,16 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   authorName: {
-    maxWidth: "88%",
-    color: "#FFFFFF",
+    flexShrink: 1,
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.bodyBold,
     fontSize: 16,
-    fontWeight: "900",
   },
   authorMeta: {
     marginTop: 3,
-    color: "#9A9AA2",
+    color: theme.color.textSecondary,
+    fontFamily: theme.type.body,
     fontSize: 13,
-    fontWeight: "600",
   },
   headerActions: {
     flexDirection: "row",
@@ -592,55 +556,34 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   followButton: {
-    minWidth: 74,
-    height: 36,
-    paddingHorizontal: 14,
-    borderRadius: 11,
-    backgroundColor: "#FF4F91",
+    minWidth: 66,
+    height: 34,
+    paddingHorizontal: 12,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "rgba(255,79,145,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,79,145,0.56)",
     alignItems: "center",
     justifyContent: "center",
   },
   followButtonActive: {
-    backgroundColor: "#24242A",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(246,240,232,0.06)",
+    borderColor: theme.color.border,
   },
   followText: {
-    color: "#050506",
+    color: theme.color.pink,
+    fontFamily: theme.type.bodyBold,
     fontSize: 13,
-    fontWeight: "900",
   },
-  followTextActive: { color: "#FFFFFF" },
+  followTextActive: { color: theme.color.textSecondary },
   media: {
     width: "100%",
-    aspectRatio: 0.86,
-    backgroundColor: "#111113",
+    backgroundColor: theme.color.surfaceElevated,
     overflow: "hidden",
   },
   mediaImage: {
     width: "100%",
     height: "100%",
-  },
-  mediaWithoutImage: {
-    alignSelf: "stretch",
-    height: 148,
-    backgroundColor: "#111113",
-    overflow: "hidden",
-  },
-  placeholder: {
-    width: "100%",
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    backgroundColor: "#111115",
-  },
-  placeholderText: {
-    color: "#6F6F77",
-    fontSize: 13,
-    fontWeight: "900",
-    letterSpacing: 1,
-    textTransform: "uppercase",
   },
   mediaCount: {
     position: "absolute",
@@ -657,30 +600,9 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   mediaCountText: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.bodyBold,
     fontSize: 12,
-    fontWeight: "900",
-  },
-  spotOverlay: {
-    position: "absolute",
-    left: 14,
-    bottom: 14,
-    maxWidth: "72%",
-    height: 36,
-    paddingHorizontal: 12,
-    borderRadius: 18,
-    backgroundColor: "rgba(8,8,10,0.72)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.20)",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-  },
-  spotOverlayText: {
-    flexShrink: 1,
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "800",
   },
   dots: {
     height: 18,
@@ -702,8 +624,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#FF4F91",
   },
   actionBar: {
-    minHeight: 55,
-    paddingHorizontal: 12,
+    minHeight: 48,
+    paddingHorizontal: theme.spacing.sm,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -714,95 +636,121 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   action: {
-    width: 43,
-    height: 43,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
   content: {
-    paddingHorizontal: 16,
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+  },
+  contentWithoutImage: {
+    paddingTop: theme.spacing.xs,
+  },
+  metaBlock: {
+    paddingHorizontal: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
   },
   engagement: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "900",
-    marginBottom: 6,
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.bodyBold,
+    fontSize: 13,
+    marginBottom: 4,
   },
   caption: {
-    color: "#E8E8EC",
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.body,
     fontSize: 15,
-    lineHeight: 21,
+    lineHeight: 22,
   },
-  captionAuthor: {
-    color: "#FFFFFF",
-    fontWeight: "900",
+  captionWithoutImage: {
+    fontSize: 18,
+    lineHeight: 26,
   },
   spotRow: {
-    marginTop: 12,
-    minHeight: 58,
-    paddingHorizontal: 11,
-    borderRadius: 16,
-    backgroundColor: "#111115",
+    marginTop: theme.spacing.sm,
+    minHeight: 52,
+    paddingHorizontal: 10,
+    borderRadius: theme.radius.md,
+    backgroundColor: "rgba(246,240,232,0.045)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: theme.color.border,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
   spotIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#FF4F91",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: theme.color.pink,
     alignItems: "center",
     justifyContent: "center",
   },
   spotCopy: { flex: 1, minWidth: 0 },
   spotName: {
-    color: "#FFFFFF",
+    color: theme.color.textPrimary,
+    fontFamily: theme.type.bodyBold,
     fontSize: 14,
-    fontWeight: "900",
   },
   spotMeta: {
     marginTop: 2,
-    color: "#85858D",
+    color: theme.color.textSecondary,
+    fontFamily: theme.type.body,
     fontSize: 12,
-    fontWeight: "600",
   },
   spotLink: {
-    color: "#FF4F91",
+    color: theme.color.pink,
+    fontFamily: theme.type.bodyBold,
     fontSize: 12,
-    fontWeight: "900",
   },
   tags: {
-    marginTop: 10,
+    marginTop: theme.spacing.sm,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 7,
+    gap: 6,
   },
   tag: {
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 10,
-    backgroundColor: "rgba(255,125,167,0.10)",
+    minHeight: 28,
+    paddingHorizontal: 10,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "rgba(255,79,145,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,79,145,0.24)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   tagText: {
-    color: "#FF4F91",
+    color: theme.color.pink,
+    fontFamily: theme.type.bodyMedium,
     fontSize: 12,
-    fontWeight: "800",
+  },
+  tagMore: {
+    minWidth: 28,
+    minHeight: 28,
+    borderRadius: theme.radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(246,240,232,0.06)",
+    borderWidth: 1,
+    borderColor: theme.color.border,
+  },
+  tagMoreText: {
+    color: theme.color.textSecondary,
+    fontFamily: theme.type.bodyMedium,
+    fontSize: 12,
   },
   commentsLink: {
-    marginTop: 10,
-    color: "#8F8F98",
-    fontSize: 14,
-    fontWeight: "600",
+    marginTop: 5,
+    color: theme.color.textSecondary,
+    fontFamily: theme.type.body,
+    fontSize: 13,
   },
   timestamp: {
-    marginTop: 8,
-    marginBottom: 3,
-    color: "#62626A",
-    fontSize: 11,
-    fontWeight: "700",
-    textTransform: "uppercase",
+    marginTop: 5,
+    color: theme.color.textMuted,
+    fontFamily: theme.type.body,
+    fontSize: 12,
   },
 });
