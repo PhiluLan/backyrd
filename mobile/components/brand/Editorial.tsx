@@ -14,7 +14,7 @@ export function MarkerStroke({ width = 184, inset = 20 }: { width?: number; inse
   );
 }
 
-export function EditorialSectionHeader({ index, title, actionLabel, onAction }: { index?: string; title: string; actionLabel?: string; onAction?: () => void }) {
+export function EditorialSectionHeader({ index, title, actionLabel, onAction, actionVariant = "default" }: { index?: string; title: string; actionLabel?: string; onAction?: () => void; actionVariant?: "default" | "quietPink" }) {
   return (
     <View style={styles.sectionHeader}>
       <View style={styles.sectionTitleRow}>
@@ -23,8 +23,8 @@ export function EditorialSectionHeader({ index, title, actionLabel, onAction }: 
       </View>
       {actionLabel && onAction ? (
         <Pressable accessibilityRole="button" hitSlop={10} onPress={onAction} style={styles.sectionAction}>
-          <Text style={styles.sectionActionText}>{actionLabel}</Text>
-          <Ionicons color={theme.color.acid} name="arrow-forward" size={17} />
+          <Text style={[styles.sectionActionText, actionVariant === "quietPink" && styles.sectionActionTextQuietPink]}>{actionLabel}</Text>
+          {actionVariant === "default" ? <Ionicons color={theme.color.acid} name="arrow-forward" size={17} /> : null}
         </Pressable>
       ) : null}
     </View>
@@ -51,6 +51,7 @@ const styles = StyleSheet.create({
   sectionTitle: { flexShrink: 1, color: theme.color.textPrimary, fontFamily: theme.type.bodyMedium, fontSize: 18, letterSpacing: -0.35, textTransform: "uppercase" },
   sectionAction: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 7 },
   sectionActionText: { color: theme.color.acid, fontFamily: theme.type.bodyMedium, fontSize: 13, letterSpacing: 0.3, textTransform: "uppercase" },
+  sectionActionTextQuietPink: { color: theme.color.pink, fontFamily: theme.type.bodyBold, letterSpacing: 0.1, textTransform: "none" },
   rule: { height: 9, justifyContent: "center" },
   rulePrimary: { height: 2, backgroundColor: theme.color.pink, transform: [{ rotate: "0.35deg" }] },
   ruleSecondary: { marginTop: 2, marginHorizontal: 5, height: 1, backgroundColor: theme.color.pink, opacity: 0.58, transform: [{ rotate: "-0.25deg" }] },

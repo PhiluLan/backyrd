@@ -132,9 +132,9 @@ export default function HomeScreen() {
         <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="interactive" keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} tintColor={theme.color.pink} onRefresh={() => void load(true)} />} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <View style={styles.greetingBlock}>
-              <AppText role="displayM" style={styles.greeting}>Hey,</AppText>
-              <AppText role="displayM" ellipsizeMode="tail" numberOfLines={1} style={styles.greetingName}>{firstName ?? ""}</AppText>
-              <AppText role="meta" tone="secondary">{city} · Heute</AppText>
+              <AppText role="displayL" style={styles.greeting}>Hey,</AppText>
+              <AppText role="displayL" ellipsizeMode="tail" numberOfLines={1} style={styles.greetingName}>{firstName ?? ""}</AppText>
+              <AppText role="meta" tone="secondary">{city}</AppText>
             </View>
             <View style={styles.headerActions}>
               <IconButton accessibilityLabel="Benachrichtigungen" onPress={() => router.push("/safety-notifications" as never)} style={styles.headerIcon}>
@@ -148,7 +148,7 @@ export default function HomeScreen() {
 
           <View style={styles.searchShell}>
             <Ionicons color={theme.color.textSecondary} name="search-outline" size={20} />
-            <TextInput accessibilityLabel="Heute: Was hast du vor?" onChangeText={setQuery} onSubmitEditing={() => submitDecision()} placeholder="Heute: Was hast du vor?" placeholderTextColor={theme.color.textSecondary} returnKeyType="go" style={styles.searchInput} value={query} />
+            <TextInput accessibilityLabel="Was hast du heute vor?" onChangeText={setQuery} onSubmitEditing={() => submitDecision()} placeholder="Was hast du heute vor?" placeholderTextColor={theme.color.textSecondary} returnKeyType="go" style={styles.searchInput} value={query} />
             <Pressable accessibilityLabel="Decision starten" accessibilityRole="button" disabled={query.trim().length < 3} onPress={() => submitDecision()} style={({ pressed }) => [styles.searchSubmit, query.trim().length < 3 && styles.searchSubmitDisabled, pressed && styles.pressed]}>
               <Ionicons color={theme.color.background} name="arrow-forward" size={21} />
             </Pressable>
@@ -170,7 +170,6 @@ export default function HomeScreen() {
 
           <View style={styles.sectionHeader}>
             <View>
-              <AppText role="label" tone="pink" style={styles.eyebrow}>FÜR DICH AUSGEWÄHLT</AppText>
               <AppText role="sectionTitle">Top Spots in deiner Nähe</AppText>
             </View>
             <Pressable accessibilityRole="button" hitSlop={10} onPress={() => router.push({ pathname: "/(tabs)/map", params: { view: "list" } } as never)}>
@@ -232,8 +231,8 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: theme.color.background },
-  content: { paddingTop: theme.spacing.sm, paddingBottom: theme.control.tabBar + theme.spacing.display },
-  header: { minHeight: 64, paddingHorizontal: theme.spacing.xl, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.md },
+  content: { paddingTop: theme.spacing.lg, paddingBottom: theme.control.tabBar + theme.spacing.display },
+  header: { minHeight: 104, paddingHorizontal: theme.spacing.xl, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: theme.spacing.md },
   greetingBlock: { flex: 1, minWidth: 0 },
   greeting: { color: theme.color.textPrimary },
   greetingName: { color: theme.color.textPrimary },

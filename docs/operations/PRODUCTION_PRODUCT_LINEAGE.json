@@ -22,10 +22,10 @@
       "ios_update": "01a07263-06bd-7340-a72e-ee70a4e77ca1",
       "created_at": "2026-09-05T16:23:00Z",
       "canonical_source": {
-    "commit": "1f472040f626e313dd17dadc6ecc3c3d9ee04939",
-    "tree": "48564c8f088946b3d7f363b12576259f2fcbb726",
+    "commit": "0ac81d0a23fd3cdead1efd9adeadff2fd93f1e26",
+    "tree": "38d8a878fd5689ed4242b31c9ffd23607c2e5450",
         "production_verified": false,
-    "reason": "Founder-authorized bounded Splash wordmark motion correction candidate. Exact Mobile source tree is bound before merge; Production verification remains false until canonical-main OTA deployment and physical Founder validation."
+    "reason": "Founder-authorized bounded Home header and section-action hierarchy polish candidate. Exact Mobile source tree is bound before merge; Production verification remains false until canonical-main OTA deployment and physical Founder validation."
       }
     },
     "consumer_web": {
@@ -585,6 +585,18 @@
       "mobile/scripts/test-native-intent-routing.mjs"
     ],
     "evidence": "decision-lab/config/decision-v13-production-recertification-v33.json"
+  },
+  {
+    "id": "founder_home_header_hierarchy_v1",
+    "baseline_commit": "26cb9b258c1ddb8074fb340d4be7e8699371f1f0",
+    "source_commit": "0ac81d0a23fd3cdead1efd9adeadff2fd93f1e26",
+    "decision_semantics_changed": false,
+    "authorized_surface_changes": [
+      "mobile/app/(tabs)/index.tsx",
+      "mobile/components/brand/Editorial.tsx",
+      "mobile/components/events/HomeEventsSection.tsx"
+    ],
+    "evidence": "decision-lab/config/decision-v13-production-recertification-v34.json"
   }
   ],
   "required_ancestry": [
