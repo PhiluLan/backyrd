@@ -9,6 +9,7 @@ import { generateCandidateEvidence } from "../src/recertification-generate.mjs";
 import { verifyCandidateEvidence } from "../src/recertification-verify.mjs";
 import { applyCandidateEvidence } from "../src/recertification-apply.mjs";
 import { validateActiveAdditiveRecertification } from "../src/recertification-consumer.mjs";
+import { validateEngineRecertification } from "../src/d2-freeze.mjs";
 
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
 const put = async (root, path, value) => { const target = join(root, path); await mkdir(dirname(target), { recursive: true }); await writeFile(target, typeof value === "string" ? value : `${JSON.stringify(value, null, 2)}\n`); };
@@ -110,6 +111,16 @@ test("D2 and D3 consume a valid additive presentation chain while legacy v44 evi
   const d3 = JSON.parse(execFileSync(process.execPath, ["decision-lab/src/d3.1-readiness.mjs"], { cwd: root, encoding: "utf8", maxBuffer: 20 * 1024 * 1024, env: { ...process.env, CI_BASE_SHA: base } })); assert.equal(d3.legacyParentFreezeValid, false); assert.equal(d3.additiveRecertification.valid, true, d3.additiveRecertification.reasons.join(",")); assert.equal(d3.status, "PASS");
 });
 
-test("current repository v44 remains valid", async () => {
-  const result = JSON.parse(execFileSync(process.execPath, ["decision-lab/src/d2-cli.mjs", "validate-freeze"], { cwd: new URL("../..", import.meta.url), encoding: "utf8", maxBuffer: 20 * 1024 * 1024 })); assert.equal(result.freezeValidation.valid, true, result.freezeValidation.reasons.join(","));
+test("current repository v44 or its valid additive successor remains valid", async () => {
+  const args = ["decision-lab/src/d2-cli.mjs", "validate-freeze"];
+  if (process.env.CI_BASE_SHA) args.push("--trusted-base", process.env.CI_BASE_SHA);
+  const result = JSON.parse(execFileSync(process.execPath, args, { cwd: new URL("../..", import.meta.url), encoding: "utf8", maxBuffer: 20 * 1024 * 1024 }));
+  if (result.additiveRecertification.mode === "ADDITIVE_CHAIN") {
+    const legacy = await validateEngineRecertification();
+    assert.equal(legacy.valid, false);
+    assert.deepEqual(legacy.reasons, ["CERTIFICATION_EVIDENCE_SET_MISMATCH"]);
+    assert.equal(result.freezeValidation.legacyV44Valid, false);
+    assert.equal(result.freezeValidation.additiveContinuityValid, true);
+  }
+  assert.equal(result.freezeValidation.valid, true, result.freezeValidation.reasons.join(","));
 });
