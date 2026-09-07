@@ -51,6 +51,10 @@ assert.equal(
 assert.doesNotMatch(cardSource, /Moment ohne Bild/i);
 assert.doesNotMatch(cardSource, /mediaWithoutImage|placeholderText/);
 assert.match(cardSource, /\{hasImage \? \(/);
+assert.match(cardSource, /styles\.textMoment/);
+assert.match(cardSource, /styles\.captionAuthor/);
+assert.match(cardSource, /borderBottomWidth: 1/);
+assert.doesNotMatch(cardSource, /styles\.spotIcon/);
 
 // Portrait, square and landscape media preserve useful editorial geometry.
 assert.equal(momentMediaAspectRatio(800, 1200), 0.8);
