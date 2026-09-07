@@ -12,7 +12,7 @@ import { backyrdTheme as theme } from "../../theme/backyrd";
 type Props = { spotId: string; spotName: string; imageUrl?: string | null; style?: StyleProp<ViewStyle>; accessibilityLabel?: string; priority?: "low" | "normal" | "high"; onResolvedImage?: (image: { provenance: CanonicalSpotImageProvenance; identity: string }) => void };
 
 export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLabel, priority = "normal", onResolvedImage }: Props) {
-  const { session } = useAuth();
+  const { session, user } = useAuth();
   const ownerImage = useMemo(() => resolveCanonicalSpotImage({ headerPhotoUrl: imageUrl }), [imageUrl]);
   const [googleImage, setGoogleImage] = useState<GooglePlacePhotoResult | null>(null);
   const [ownerImageFailed, setOwnerImageFailed] = useState(false);
@@ -27,12 +27,16 @@ export function SpotArtwork({ spotId, spotName, imageUrl, style, accessibilityLa
   const resolveGoogle = useCallback(async (preferredOwnerImageFailed: boolean, accessToken: string | null) => {
     const generation = ++googleRequestGeneration.current;
     setGoogleResolved(false);
-    const result = await getGooglePlacePhotoFallback(spotId, { preferredOwnerImageFailed, accessToken });
+    const result = await getGooglePlacePhotoFallback(spotId, {
+      preferredOwnerImageFailed,
+      accessToken,
+      cacheNamespace: user?.id ?? null,
+    });
     if (generation !== googleRequestGeneration.current) return;
     setGoogleImage(result?.source === "google" && result.imageUrl ? result : null);
     setGoogleResolved(true);
     setStatus(result?.source === "google" && result.imageUrl ? "loading" : "empty");
-  }, [spotId]);
+  }, [spotId, user?.id]);
 
   useEffect(() => {
     googleRequestGeneration.current += 1;
