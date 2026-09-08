@@ -44,6 +44,7 @@ jobs:
             node scripts/ci/validate-database-lineage.mjs
           fi
           node --test scripts/ci/validate-database-lineage.test.mjs
+          node --test scripts/ci/validate-lockfile-install.test.mjs
       - name: Validate isolated canonical database
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
