@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "backyrd-production-lineage-candidate-v1",
+  "id": "restaurant-information-v1",
+  "deployedSourceCommit": "fd6c09422cefa92de3ea7c62b3fcb625e9c95dd3",
+  "deploymentAudit": {
+    "runId": 34238157524,
+    "result": "PASS",
+    "completedAt": "2026-09-08T14:26:10Z",
+    "planHash": "49704c41208fb2e5dd48ee2d77830964f9135f137983d14745fab578389b0098",
+    "auditHash": "d44f8e02070015d8511e5cdf2d17c7d2583d7c9b9abe40926903c44ab99dd137"
+  },
+  "admin": {
+    "tree": "4aeaf3ca25df744a6ecd56818467ad808e6f6b81",
+    "githubDeploymentId": 6329850271,
+    "createdAt": "2026-09-08T14:26:29Z"
+  },
+  "database": {
+    "migrationTip": "20260907170853_restaurant_information_v1",
+    "migrationCount": 137,
+    "migrationSha256": "d1fa28e2ab07e977ace3041f19cfe1b4357ddcff308dcec9b6a587ee4c9cd3c3"
+  }
+}

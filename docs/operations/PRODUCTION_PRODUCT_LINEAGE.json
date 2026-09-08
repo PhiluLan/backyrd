@@ -1,6 +1,6 @@
 {
   "version": "backyrd-production-product-lineage-v2",
-  "audited_at": "2026-09-06T17:52:00Z",
+  "audited_at": "2026-09-08T14:26:10Z",
   "repository": "PhiluLan/backyrd",
   "integration_anchor": {
     "commit": "c425ad1d61186e6d73ed2df1f9686780dcbf0e24",
@@ -44,32 +44,32 @@
     },
     "admin_intelligence_web": {
       "delivery": "Vercel production",
-      "commit": "832933a78e19be74404be0d1c35c467b23b94852",
-      "tree": "80b8d22d5bd7de7c1ec490d5dcc5b33e7bbb8801",
+      "commit": "fd6c09422cefa92de3ea7c62b3fcb625e9c95dd3",
+      "tree": "4aeaf3ca25df744a6ecd56818467ad808e6f6b81",
       "path": "admin-dashboard",
-      "github_deployment_id": 6283403317,
-      "created_at": "2026-09-05T16:48:28Z",
-      "note": "Founder Operations Production deployment completed from canonical Main with actionable queue truth and verified AWS recovery state.",
+      "github_deployment_id": 6329850271,
+      "created_at": "2026-09-08T14:26:29Z",
+      "note": "Restaurant Information V1 Admin/Data was deployed from canonical Main; the source-aware deployment audit passed with no Edge Function or auth deployment.",
       "canonical_source": {
-        "commit": "f20f5a5ea8fea0b2e3874ac67c71311fab9253b9",
-        "tree": "605d15bef4047d5eec49e7539cf263fa0ecbbefb",
-        "production_verified": false,
-        "reason": "Founder-authorized Event Admin form reliability candidate. Exact Admin source tree is bound before merge; Production verification remains deliberately false until deployment."
+        "commit": "fd6c09422cefa92de3ea7c62b3fcb625e9c95dd3",
+        "tree": "4aeaf3ca25df744a6ecd56818467ad808e6f6b81",
+        "production_verified": true,
+        "reason": "Vercel Production deployment 6329850271 binds the exact Admin tree from canonical Main fd6c094 after the successful Restaurant Information V1 deployment audit."
       }
     },
     "database": {
       "provider": "Supabase",
       "project_ref": "hjgcrrzfjchzqoegcywn",
       "postgres_major": 17,
-      "migration_tip": "20260905212627_keep_external_event_sources_disabled_for_manual_pilot",
-      "migration_count": 136,
-      "source_commit": "c528634dafdce069299233fe85c167c6c02f1313",
+      "migration_tip": "20260907170853_restaurant_information_v1",
+      "migration_count": 137,
+      "source_commit": "fd6c09422cefa92de3ea7c62b3fcb625e9c95dd3",
       "canonical_source": {
-        "source_commit": "c528634dafdce069299233fe85c167c6c02f1313",
-        "migration_tip": "20260905212627_keep_external_event_sources_disabled_for_manual_pilot",
-        "migration_count": 136,
+        "source_commit": "fd6c09422cefa92de3ea7c62b3fcb625e9c95dd3",
+        "migration_tip": "20260907170853_restaurant_information_v1",
+        "migration_count": 137,
         "production_verified": true,
-        "reason": "Four Events V1 versions and their ordered statement-content hashes match the fresh canonical repository boot; full Production application-schema and public-ACL fingerprints converge exactly. No migration was reapplied and external event sources remain disabled."
+        "reason": "Source-aware deployment audit run 34238157524 passed for canonical Main fd6c094 and applied only migration 20260907170853_restaurant_information_v1; audit d44f8e02070015d8511e5cdf2d17c7d2583d7c9b9abe40926903c44ab99dd137."
       }
     }
   },
@@ -744,6 +744,20 @@
         "mobile/scripts/test-moment-media-upload.mjs"
       ],
       "evidence": "decision-lab/config/decision-v13-production-recertification-v46.json"
+    },
+    {
+      "id": "founder_restaurant_information_v1",
+      "baseline_commit": "5bf6bd992af95e92421705a3576b28e60994f709",
+      "source_commit": "0bfa9b511c1aad3b8355b6bee3b7c57347f13b95",
+      "decision_semantics_changed": false,
+      "authorized_surface_changes": [
+        "supabase/canonical/admin-data-additive/restaurant-information-v1/application-schema.sha256",
+        "supabase/canonical/admin-data-additive/restaurant-information-v1/public-acl.sha256",
+        "supabase/migrations/20260907170853_restaurant_information_v1.sql",
+        "supabase/tests/restaurant_information_v1_negative.sql",
+        "supabase/tests/restaurant_information_v1_positive.sql"
+      ],
+      "evidence": "decision-lab/config/decision-v13-production-recertification-v47.json"
     }
   ],
   "required_ancestry": [
@@ -757,7 +771,8 @@
     "832933a78e19be74404be0d1c35c467b23b94852",
     "c528634dafdce069299233fe85c167c6c02f1313",
     "fc002f8a4d7e71b231504d1238e7c24744847bbb",
-    "95ba3174787a4f40d6d81dcf107a34eab292a383"
+    "95ba3174787a4f40d6d81dcf107a34eab292a383",
+    "fd6c09422cefa92de3ea7c62b3fcb625e9c95dd3"
   ],
   "excluded_unshipped_heads": [
     {
