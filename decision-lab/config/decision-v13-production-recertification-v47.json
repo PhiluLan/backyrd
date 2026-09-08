@@ -1,0 +1,367 @@
+{
+  "schemaVersion": "backyrd-additive-recertification-v1",
+  "version": "decision-v13-production-recertification-v47",
+  "status": "VERIFIED_ADDITIVE_EVIDENCE",
+  "parent": {
+    "version": "decision-v13-production-recertification-v46",
+    "manifestHash": "4e43ac08d8b6bce8a9a256ca10aec89464be848348a76515bf4db62289250c42",
+    "path": "decision-lab/config/decision-v13-production-recertification-v46.json"
+  },
+  "baseMainSha": "5bf6bd992af95e92421705a3576b28e60994f709",
+  "candidateSha": "0bfa9b511c1aad3b8355b6bee3b7c57347f13b95",
+  "candidateProductTree": "d9a57e9514fbe64d1c037b8c31a275125615df84",
+  "scope": "admin-data-additive",
+  "scopeInventory": {
+    "admin-dashboard/app/globals.css": "presentation",
+    "admin-dashboard/app/spots/GoldAuthoringPanel.tsx": "presentation",
+    "admin-dashboard/app/spots/HumanSpotQuestion.tsx": "presentation",
+    "admin-dashboard/lib/humanSpotV2.ts": "presentation",
+    "docs/operations/RESTAURANT_INFORMATION_V1_MAPPING.md": "evidence-only",
+    "docs/operations/admin-data-additive/RESTAURANT_INFORMATION_V1.json": "admin-data-evidence",
+    "scripts/ci/admin-data-additive/restaurant-information-v1/application-schema-reconstruction.sql": "admin-data-evidence",
+    "scripts/ci/admin-data-additive/restaurant-information-v1/public-acl-reconstruction.sql": "admin-data-evidence",
+    "supabase/canonical/admin-data-additive/restaurant-information-v1/application-schema.sha256": "admin-data-evidence",
+    "supabase/canonical/admin-data-additive/restaurant-information-v1/public-acl.sha256": "admin-data-evidence",
+    "supabase/migrations/20260907170853_restaurant_information_v1.sql": "admin-data-migration",
+    "supabase/tests/restaurant_information_v1_negative.sql": "admin-data-acceptance",
+    "supabase/tests/restaurant_information_v1_positive.sql": "admin-data-acceptance"
+  },
+  "changedFiles": [
+    "admin-dashboard/app/globals.css",
+    "admin-dashboard/app/spots/GoldAuthoringPanel.tsx",
+    "admin-dashboard/app/spots/HumanSpotQuestion.tsx",
+    "admin-dashboard/lib/humanSpotV2.ts",
+    "docs/operations/RESTAURANT_INFORMATION_V1_MAPPING.md",
+    "docs/operations/admin-data-additive/RESTAURANT_INFORMATION_V1.json",
+    "scripts/ci/admin-data-additive/restaurant-information-v1/application-schema-reconstruction.sql",
+    "scripts/ci/admin-data-additive/restaurant-information-v1/public-acl-reconstruction.sql",
+    "supabase/canonical/admin-data-additive/restaurant-information-v1/application-schema.sha256",
+    "supabase/canonical/admin-data-additive/restaurant-information-v1/public-acl.sha256",
+    "supabase/migrations/20260907170853_restaurant_information_v1.sql",
+    "supabase/tests/restaurant_information_v1_negative.sql",
+    "supabase/tests/restaurant_information_v1_positive.sql"
+  ],
+  "changedProtectedFiles": [],
+  "protectedSemanticSourceSet": {
+    "paths": [
+      "admin-dashboard/app/api/admin/reference-locations/route.ts",
+      "decision-lab/src/canonical-json.mjs",
+      "decision-lab/src/io.mjs",
+      "decision-lab/src/n2-memory-user-intelligence.mjs",
+      "decision-lab/src/n3-moment-intelligence.mjs",
+      "decision-lab/src/n4-spot-intelligence.mjs",
+      "decision-lab/src/n5-6-1-moment-aware-projection.mjs",
+      "decision-lab/src/n5-6-canonical-user-intelligence.mjs",
+      "decision-lab/src/n5-relevant-user-projection.mjs",
+      "decision-lab/src/n6a-ai-decision-buddy.mjs",
+      "decision-lab/src/n6a1-reason-evidence-integrity.mjs",
+      "decision-lab/src/n6a2-reason-authorization.mjs",
+      "decision-lab/src/n6a7-provider-response.mjs",
+      "decision-lab/src/taste-engine.mjs",
+      "packages/canonical-semantics/src/index.mjs",
+      "packages/decision-input-runtime/src/continuation.mjs",
+      "packages/decision-input-runtime/src/current-moment.mjs",
+      "packages/decision-input-runtime/src/evidence-envelope.mjs",
+      "packages/decision-input-runtime/src/index.mjs",
+      "packages/decision-input-runtime/src/live-product-boundary.mjs",
+      "packages/decision-input-runtime/src/location-reference.mjs",
+      "packages/decision-input-runtime/src/n4-decision.mjs",
+      "packages/decision-input-runtime/src/offering-decision.mjs",
+      "packages/decision-input-runtime/src/package.mjs",
+      "packages/decision-input-runtime/src/projection.mjs",
+      "packages/decision-input-runtime/src/supabase-repository.mjs",
+      "packages/decision-orchestrator-runtime/src/orchestrator.mjs",
+      "packages/decision-orchestrator-runtime/src/ranking.mjs",
+      "packages/decision-orchestrator-runtime/src/supabase-repository.mjs",
+      "packages/n6-shadow-runtime/src/config.mjs",
+      "packages/n6-shadow-runtime/src/input.mjs",
+      "packages/n6-shadow-runtime/src/provider.mjs",
+      "packages/n6-shadow-runtime/src/shadow.mjs",
+      "packages/n6-shadow-runtime/src/supabase-repository.mjs",
+      "packages/n6-shadow-runtime/src/validator.mjs",
+      "supabase/functions/_shared/launch-cost-boundary.ts",
+      "supabase/functions/decision-v13/community-mood-signal.mjs",
+      "supabase/functions/decision-v13/index.deploy.ts",
+      "supabase/functions/decision-v13/index.ts",
+      "supabase/functions/decision-v13/live-index.ts",
+      "supabase/functions/decision-v13/live-response.mjs",
+      "supabase/functions/decision-v13/north-star-live.ts",
+      "supabase/migrations/20260901141014_gate3_decision_production_acceptance_v1.sql",
+      "supabase/migrations/20260901164414_create_decision_location_admin_contract_v1.sql",
+      "supabase/migrations/20260904233000_gate7_launch_cost_boundaries.sql"
+    ],
+    "hash": "e7e30ac69f03fca479e75cb9e17def687e58635f7549760c3fbcdbda78d88909"
+  },
+  "decisionEngineIdentity": {
+    "path": "supabase/functions/decision-v13/index.ts",
+    "baseSha256": "cad2c4ea94817d2facbd54db92f55f3286acecf4d1e8a71dda414431b76cf000",
+    "candidateSha256": "cad2c4ea94817d2facbd54db92f55f3286acecf4d1e8a71dda414431b76cf000"
+  },
+  "production": {
+    "identity": {
+      "supabaseProjectRef": "hjgcrrzfjchzqoegcywn",
+      "functionSlug": "decision-v13",
+      "activeVersion": 124,
+      "verifyJwt": true,
+      "bundleHash": "a920d38405534f8fdd02e13934988b97fcd4dec12e9c93d8f8dd8bed8d4dac13",
+      "entrypointPath": "supabase/functions/decision-v13/index.deploy.ts",
+      "entrypointSha256": "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299",
+      "sourceIdentity": "CANONICAL_MAIN_C1FCB4A_PRODUCTION_V124_41_OF_41_BYTE_MATCHED",
+      "deploymentSourceSetHash": "a265e8559d707d8641fc8ea937303bb2cdf521cf86fd3569ff8fff4c17f8c6af",
+      "deploymentConfigHash": "56771eeee30d34f03eaab5a52b161d39d3a2d18e7982343623514e1fade112eb",
+      "eszipBodySha256": "a17f9dabdab92a61baf15045e7434d1290291e694c94a9c49b9f64a2c16d681d",
+      "eszipEvidenceHash": "e653c2bb322b9ed574d390ac30272651515ceaa45f66db4e65a2f7a5b7d085bc",
+      "deploymentControlMainSha": "c1fcb4ad76e21b52c0d064192e129abe6f554e8e"
+    },
+    "identityHash": "dfdc90c423f295970f451cad117d5091a68ece750842fa18603d30da3f336288",
+    "candidateEntrypointSha256": "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299"
+  },
+  "d2D3Parents": {
+    "d2FreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+    "d2EngineRecertificationVersion": "decision-v13-production-recertification-v44",
+    "d2EngineRecertificationHash": "a1929bc75912114521074e6e8d8d57a61a31409b8403cdfe1af161272dff8883",
+    "d22FreezeManifestHash": "26c5d0e4cee3e80eef5a080436a017aeeab47e32caf9615310ddb6d8341c7796",
+    "d22ParentFreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+    "d3ParentFreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+    "d3PersonalizationTreatmentFreezeHash": "26c5d0e4cee3e80eef5a080436a017aeeab47e32caf9615310ddb6d8341c7796"
+  },
+  "adminData": {
+    "schemaVersion": "backyrd-admin-data-additive-evidence-v1",
+    "manifestPath": "docs/operations/admin-data-additive/RESTAURANT_INFORMATION_V1.json",
+    "manifestSha256": "f91b76176314e0ed75fc3f549b7ffaa561257465eb5bff95f7a9e5710252a269",
+    "migrationSha256": {
+      "supabase/migrations/20260907170853_restaurant_information_v1.sql": "d1fa28e2ab07e977ace3041f19cfe1b4357ddcff308dcec9b6a587ee4c9cd3c3"
+    },
+    "acceptanceTestSha256": {
+      "supabase/tests/restaurant_information_v1_positive.sql": "02d8535b5a28c65c0164e3efd3d20ff7be625d7f5efb17dcf6618bef75339f71",
+      "supabase/tests/restaurant_information_v1_negative.sql": "84b67de35e9b6402dab663c66251654a3bb2de397462a5a9a1ed0eb6c58db253"
+    },
+    "reconstructionSha256": {
+      "scripts/ci/admin-data-additive/restaurant-information-v1/application-schema-reconstruction.sql": "5dd488fe97c5783c84b3704d4340b6bbfd0766b690b28c41df0bc67401be7bbc",
+      "scripts/ci/admin-data-additive/restaurant-information-v1/public-acl-reconstruction.sql": "40a97f3a6bdc25552242ecd0a9766c65356aa06c6980c8dbee36c3bf0e0100f1"
+    },
+    "candidateFingerprints": {
+      "applicationSchema": "87d30a65648a92bc85adcec0c6a8b9184a6143184c6b896888efef3d9d727f62",
+      "publicAcl": "79442549e44cbd126c2d52e3bfe8ff9d229933d350ea4c3da178201795325af6"
+    },
+    "baselineFingerprints": {
+      "applicationSchema": "1335d79ea194ba39e89ea56891f27b62c6134c4343446f7f83197e78126379dd",
+      "publicAcl": "ce26543378b1e9c67cf89e29a0af2e4a434f5ca6aaf0afe679cebcac961e562e"
+    },
+    "paths": [
+      "docs/operations/admin-data-additive/RESTAURANT_INFORMATION_V1.json",
+      "scripts/ci/admin-data-additive/restaurant-information-v1/application-schema-reconstruction.sql",
+      "scripts/ci/admin-data-additive/restaurant-information-v1/public-acl-reconstruction.sql",
+      "supabase/canonical/admin-data-additive/restaurant-information-v1/application-schema.sha256",
+      "supabase/canonical/admin-data-additive/restaurant-information-v1/public-acl.sha256",
+      "supabase/migrations/20260907170853_restaurant_information_v1.sql",
+      "supabase/tests/restaurant_information_v1_negative.sql",
+      "supabase/tests/restaurant_information_v1_positive.sql"
+    ]
+  },
+  "evidence": {
+    "paths": [
+      "docs/operations/admin-data-additive/RESTAURANT_INFORMATION_V1.json"
+    ],
+    "derivedHash": "f91b76176314e0ed75fc3f549b7ffaa561257465eb5bff95f7a9e5710252a269"
+  },
+  "candidateArtifactHash": "e90e4932f4855d7000800701bda0719ca0aefded27a3140c244c96851f7d6116",
+  "verificationHash": "b0c48c6b2d12f79f357ff8795ab5e336109c23ff1173e4ee74e01e85012db144",
+  "generationToolVersion": "backyrd-recertification-generator-v1.5",
+  "verifierVersion": "backyrd-recertification-pre-merge-verifier-v1.4",
+  "applierVersion": "backyrd-recertification-applier-v1.5",
+  "candidateArtifact": {
+    "schemaVersion": "backyrd-recertification-candidate-evidence-v1",
+    "version": "decision-v13-production-recertification-v47",
+    "parent": {
+      "version": "decision-v13-production-recertification-v46",
+      "manifestHash": "4e43ac08d8b6bce8a9a256ca10aec89464be848348a76515bf4db62289250c42",
+      "path": "decision-lab/config/decision-v13-production-recertification-v46.json"
+    },
+    "baseMainSha": "5bf6bd992af95e92421705a3576b28e60994f709",
+    "candidateSha": "0bfa9b511c1aad3b8355b6bee3b7c57347f13b95",
+    "candidateProductTree": "d9a57e9514fbe64d1c037b8c31a275125615df84",
+    "requestedScope": "admin-data-additive",
+    "changedFiles": [
+      "admin-dashboard/app/globals.css",
+      "admin-dashboard/app/spots/GoldAuthoringPanel.tsx",
+      "admin-dashboard/app/spots/HumanSpotQuestion.tsx",
+      "admin-dashboard/lib/humanSpotV2.ts",
+      "docs/operations/RESTAURANT_INFORMATION_V1_MAPPING.md",
+      "docs/operations/admin-data-additive/RESTAURANT_INFORMATION_V1.json",
+      "scripts/ci/admin-data-additive/restaurant-information-v1/application-schema-reconstruction.sql",
+      "scripts/ci/admin-data-additive/restaurant-information-v1/public-acl-reconstruction.sql",
+      "supabase/canonical/admin-data-additive/restaurant-information-v1/application-schema.sha256",
+      "supabase/canonical/admin-data-additive/restaurant-information-v1/public-acl.sha256",
+      "supabase/migrations/20260907170853_restaurant_information_v1.sql",
+      "supabase/tests/restaurant_information_v1_negative.sql",
+      "supabase/tests/restaurant_information_v1_positive.sql"
+    ],
+    "scopeInventory": {
+      "admin-dashboard/app/globals.css": "presentation",
+      "admin-dashboard/app/spots/GoldAuthoringPanel.tsx": "presentation",
+      "admin-dashboard/app/spots/HumanSpotQuestion.tsx": "presentation",
+      "admin-dashboard/lib/humanSpotV2.ts": "presentation",
+      "docs/operations/RESTAURANT_INFORMATION_V1_MAPPING.md": "evidence-only",
+      "docs/operations/admin-data-additive/RESTAURANT_INFORMATION_V1.json": "admin-data-evidence",
+      "scripts/ci/admin-data-additive/restaurant-information-v1/application-schema-reconstruction.sql": "admin-data-evidence",
+      "scripts/ci/admin-data-additive/restaurant-information-v1/public-acl-reconstruction.sql": "admin-data-evidence",
+      "supabase/canonical/admin-data-additive/restaurant-information-v1/application-schema.sha256": "admin-data-evidence",
+      "supabase/canonical/admin-data-additive/restaurant-information-v1/public-acl.sha256": "admin-data-evidence",
+      "supabase/migrations/20260907170853_restaurant_information_v1.sql": "admin-data-migration",
+      "supabase/tests/restaurant_information_v1_negative.sql": "admin-data-acceptance",
+      "supabase/tests/restaurant_information_v1_positive.sql": "admin-data-acceptance"
+    },
+    "protectedSourceSet": {
+      "paths": [
+        "admin-dashboard/app/api/admin/reference-locations/route.ts",
+        "decision-lab/src/canonical-json.mjs",
+        "decision-lab/src/io.mjs",
+        "decision-lab/src/n2-memory-user-intelligence.mjs",
+        "decision-lab/src/n3-moment-intelligence.mjs",
+        "decision-lab/src/n4-spot-intelligence.mjs",
+        "decision-lab/src/n5-6-1-moment-aware-projection.mjs",
+        "decision-lab/src/n5-6-canonical-user-intelligence.mjs",
+        "decision-lab/src/n5-relevant-user-projection.mjs",
+        "decision-lab/src/n6a-ai-decision-buddy.mjs",
+        "decision-lab/src/n6a1-reason-evidence-integrity.mjs",
+        "decision-lab/src/n6a2-reason-authorization.mjs",
+        "decision-lab/src/n6a7-provider-response.mjs",
+        "decision-lab/src/taste-engine.mjs",
+        "packages/canonical-semantics/src/index.mjs",
+        "packages/decision-input-runtime/src/continuation.mjs",
+        "packages/decision-input-runtime/src/current-moment.mjs",
+        "packages/decision-input-runtime/src/evidence-envelope.mjs",
+        "packages/decision-input-runtime/src/index.mjs",
+        "packages/decision-input-runtime/src/live-product-boundary.mjs",
+        "packages/decision-input-runtime/src/location-reference.mjs",
+        "packages/decision-input-runtime/src/n4-decision.mjs",
+        "packages/decision-input-runtime/src/offering-decision.mjs",
+        "packages/decision-input-runtime/src/package.mjs",
+        "packages/decision-input-runtime/src/projection.mjs",
+        "packages/decision-input-runtime/src/supabase-repository.mjs",
+        "packages/decision-orchestrator-runtime/src/orchestrator.mjs",
+        "packages/decision-orchestrator-runtime/src/ranking.mjs",
+        "packages/decision-orchestrator-runtime/src/supabase-repository.mjs",
+        "packages/n6-shadow-runtime/src/config.mjs",
+        "packages/n6-shadow-runtime/src/input.mjs",
+        "packages/n6-shadow-runtime/src/provider.mjs",
+        "packages/n6-shadow-runtime/src/shadow.mjs",
+        "packages/n6-shadow-runtime/src/supabase-repository.mjs",
+        "packages/n6-shadow-runtime/src/validator.mjs",
+        "supabase/functions/_shared/launch-cost-boundary.ts",
+        "supabase/functions/decision-v13/community-mood-signal.mjs",
+        "supabase/functions/decision-v13/index.deploy.ts",
+        "supabase/functions/decision-v13/index.ts",
+        "supabase/functions/decision-v13/live-index.ts",
+        "supabase/functions/decision-v13/live-response.mjs",
+        "supabase/functions/decision-v13/north-star-live.ts",
+        "supabase/migrations/20260901141014_gate3_decision_production_acceptance_v1.sql",
+        "supabase/migrations/20260901164414_create_decision_location_admin_contract_v1.sql",
+        "supabase/migrations/20260904233000_gate7_launch_cost_boundaries.sql"
+      ],
+      "baseHash": "e7e30ac69f03fca479e75cb9e17def687e58635f7549760c3fbcdbda78d88909",
+      "candidateHash": "e7e30ac69f03fca479e75cb9e17def687e58635f7549760c3fbcdbda78d88909",
+      "changedProtectedFiles": []
+    },
+    "decisionEngineIdentity": {
+      "path": "supabase/functions/decision-v13/index.ts",
+      "baseSha256": "cad2c4ea94817d2facbd54db92f55f3286acecf4d1e8a71dda414431b76cf000",
+      "candidateSha256": "cad2c4ea94817d2facbd54db92f55f3286acecf4d1e8a71dda414431b76cf000"
+    },
+    "production": {
+      "identity": {
+        "supabaseProjectRef": "hjgcrrzfjchzqoegcywn",
+        "functionSlug": "decision-v13",
+        "activeVersion": 124,
+        "verifyJwt": true,
+        "bundleHash": "a920d38405534f8fdd02e13934988b97fcd4dec12e9c93d8f8dd8bed8d4dac13",
+        "entrypointPath": "supabase/functions/decision-v13/index.deploy.ts",
+        "entrypointSha256": "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299",
+        "sourceIdentity": "CANONICAL_MAIN_C1FCB4A_PRODUCTION_V124_41_OF_41_BYTE_MATCHED",
+        "deploymentSourceSetHash": "a265e8559d707d8641fc8ea937303bb2cdf521cf86fd3569ff8fff4c17f8c6af",
+        "deploymentConfigHash": "56771eeee30d34f03eaab5a52b161d39d3a2d18e7982343623514e1fade112eb",
+        "eszipBodySha256": "a17f9dabdab92a61baf15045e7434d1290291e694c94a9c49b9f64a2c16d681d",
+        "eszipEvidenceHash": "e653c2bb322b9ed574d390ac30272651515ceaa45f66db4e65a2f7a5b7d085bc",
+        "deploymentControlMainSha": "c1fcb4ad76e21b52c0d064192e129abe6f554e8e"
+      },
+      "identityHash": "dfdc90c423f295970f451cad117d5091a68ece750842fa18603d30da3f336288",
+      "candidateEntrypointSha256": "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299"
+    },
+    "d2D3Parents": {
+      "base": {
+        "d2FreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+        "d2EngineRecertificationVersion": "decision-v13-production-recertification-v44",
+        "d2EngineRecertificationHash": "a1929bc75912114521074e6e8d8d57a61a31409b8403cdfe1af161272dff8883",
+        "d22FreezeManifestHash": "26c5d0e4cee3e80eef5a080436a017aeeab47e32caf9615310ddb6d8341c7796",
+        "d22ParentFreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+        "d3ParentFreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+        "d3PersonalizationTreatmentFreezeHash": "26c5d0e4cee3e80eef5a080436a017aeeab47e32caf9615310ddb6d8341c7796"
+      },
+      "candidate": {
+        "d2FreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+        "d2EngineRecertificationVersion": "decision-v13-production-recertification-v44",
+        "d2EngineRecertificationHash": "a1929bc75912114521074e6e8d8d57a61a31409b8403cdfe1af161272dff8883",
+        "d22FreezeManifestHash": "26c5d0e4cee3e80eef5a080436a017aeeab47e32caf9615310ddb6d8341c7796",
+        "d22ParentFreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+        "d3ParentFreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+        "d3PersonalizationTreatmentFreezeHash": "26c5d0e4cee3e80eef5a080436a017aeeab47e32caf9615310ddb6d8341c7796"
+      }
+    },
+    "adminData": {
+      "schemaVersion": "backyrd-admin-data-additive-evidence-v1",
+      "manifestPath": "docs/operations/admin-data-additive/RESTAURANT_INFORMATION_V1.json",
+      "manifestSha256": "f91b76176314e0ed75fc3f549b7ffaa561257465eb5bff95f7a9e5710252a269",
+      "migrationSha256": {
+        "supabase/migrations/20260907170853_restaurant_information_v1.sql": "d1fa28e2ab07e977ace3041f19cfe1b4357ddcff308dcec9b6a587ee4c9cd3c3"
+      },
+      "acceptanceTestSha256": {
+        "supabase/tests/restaurant_information_v1_positive.sql": "02d8535b5a28c65c0164e3efd3d20ff7be625d7f5efb17dcf6618bef75339f71",
+        "supabase/tests/restaurant_information_v1_negative.sql": "84b67de35e9b6402dab663c66251654a3bb2de397462a5a9a1ed0eb6c58db253"
+      },
+      "reconstructionSha256": {
+        "scripts/ci/admin-data-additive/restaurant-information-v1/application-schema-reconstruction.sql": "5dd488fe97c5783c84b3704d4340b6bbfd0766b690b28c41df0bc67401be7bbc",
+        "scripts/ci/admin-data-additive/restaurant-information-v1/public-acl-reconstruction.sql": "40a97f3a6bdc25552242ecd0a9766c65356aa06c6980c8dbee36c3bf0e0100f1"
+      },
+      "candidateFingerprints": {
+        "applicationSchema": "87d30a65648a92bc85adcec0c6a8b9184a6143184c6b896888efef3d9d727f62",
+        "publicAcl": "79442549e44cbd126c2d52e3bfe8ff9d229933d350ea4c3da178201795325af6"
+      },
+      "baselineFingerprints": {
+        "applicationSchema": "1335d79ea194ba39e89ea56891f27b62c6134c4343446f7f83197e78126379dd",
+        "publicAcl": "ce26543378b1e9c67cf89e29a0af2e4a434f5ca6aaf0afe679cebcac961e562e"
+      },
+      "paths": [
+        "docs/operations/admin-data-additive/RESTAURANT_INFORMATION_V1.json",
+        "scripts/ci/admin-data-additive/restaurant-information-v1/application-schema-reconstruction.sql",
+        "scripts/ci/admin-data-additive/restaurant-information-v1/public-acl-reconstruction.sql",
+        "supabase/canonical/admin-data-additive/restaurant-information-v1/application-schema.sha256",
+        "supabase/canonical/admin-data-additive/restaurant-information-v1/public-acl.sha256",
+        "supabase/migrations/20260907170853_restaurant_information_v1.sql",
+        "supabase/tests/restaurant_information_v1_negative.sql",
+        "supabase/tests/restaurant_information_v1_positive.sql"
+      ]
+    },
+    "evidence": {
+      "paths": [
+        "docs/operations/admin-data-additive/RESTAURANT_INFORMATION_V1.json"
+      ],
+      "derivedHash": "f91b76176314e0ed75fc3f549b7ffaa561257465eb5bff95f7a9e5710252a269"
+    },
+    "generationToolVersion": "backyrd-recertification-generator-v1.5",
+    "artifactHash": "e90e4932f4855d7000800701bda0719ca0aefded27a3140c244c96851f7d6116"
+  },
+  "verificationReceipt": {
+    "schemaVersion": "backyrd-recertification-verification-v1",
+    "verifierVersion": "backyrd-recertification-pre-merge-verifier-v1.4",
+    "artifactHash": "e90e4932f4855d7000800701bda0719ca0aefded27a3140c244c96851f7d6116",
+    "baseMainSha": "5bf6bd992af95e92421705a3576b28e60994f709",
+    "candidateSha": "0bfa9b511c1aad3b8355b6bee3b7c57347f13b95",
+    "valid": true,
+    "reasons": [],
+    "verificationHash": "b0c48c6b2d12f79f357ff8795ab5e336109c23ff1173e4ee74e01e85012db144"
+  },
+  "decisionSemanticsRecertified": false,
+  "productionMutation": "NONE",
+  "recertificationHash": "d42810a0e2efd7b1a7609bd54fc93d5b786026efe135b995778edc727a47db53"
+}
