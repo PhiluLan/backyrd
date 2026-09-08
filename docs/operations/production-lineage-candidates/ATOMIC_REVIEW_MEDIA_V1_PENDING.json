@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "backyrd-production-lineage-pending-release-v1",
+  "id": "atomic-review-media-v1",
+  "sourceCommit": "82117093cbfde9d780c669f965d2ea98afe3e783",
+  "mobileTree": "4b540970984b4463db734ab38d075cfeba2a00c4",
+  "requiredMigration": "supabase/migrations/20260908045502_create_atomic_review_media_contract_v1.sql",
+  "runtimeVersion": "1.1.0",
+  "channel": "production",
+  "releaseState": "AWAITING_EXPLICIT_RELEASE"
+}

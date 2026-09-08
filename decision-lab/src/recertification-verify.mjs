@@ -12,10 +12,17 @@ export const ADMIN_DATA_VERIFIER_VERSION = "backyrd-recertification-pre-merge-ve
 export const MOBILE_STORAGE_ATOMIC_VERIFIER_VERSION = "backyrd-recertification-pre-merge-verifier-v1.5";
 export const SUPPORTED_VERIFIER_VERSIONS = Object.freeze([VERIFIER_VERSION, PRE_MERGE_VERIFIER_VERSION, ADMIN_DATA_VERIFIER_VERSION, MOBILE_STORAGE_ATOMIC_VERIFIER_VERSION]);
 const CANONICAL_MAIN_REF = "refs/remotes/origin/main";
-const ALLOWED_SCOPES = new Set(["evidence-only", "presentation", "admin-data-additive", "mobile-storage-atomic"]);
+const ALLOWED_SCOPES = new Set(["evidence-only", "presentation", "admin-data-additive", "mobile-storage-atomic", "release-control"]);
 const FORBIDDEN_SCOPE = /^(supabase\/(?:production|functions)\/|packages\/(canonical-semantics|decision-input-runtime|decision-orchestrator-runtime|n6-shadow-runtime)\/src\/|decision-lab\/config\/(?:decision-quality-v1\.1(?:\.freeze)?|personalization-treatment-v1(?:\.freeze)?|d3\.1-diagnostic-coverage-v1)\.json$|mobile\/.*auth|web\/.*auth|admin-dashboard\/.*(?:auth|security)|legal\/)/;
 const EVIDENCE_SCOPE = /^(decision-lab\/(?:config|test)\/|docs\/(?:decision|operations|readiness)\/|scripts\/(?:ci|decision)\/)/;
 const PRESENTATION_SCOPE = /^(mobile\/|web\/|admin-dashboard\/)/;
+const RELEASE_CONTROL_PATHS = new Set([
+  ".github/workflows/supabase-production.yml",
+  "decision-lab/src/recertification-generate.mjs",
+  "decision-lab/src/recertification-verify.mjs",
+  "scripts/deployment/verify-supabase-migration-dry-run.mjs",
+  "scripts/deployment/verify-supabase-migration-dry-run.test.mjs",
+]);
 const SAFE_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9._@()+\-\/[\] ]+$/;
 const PRODUCTION_KEYS = ["supabaseProjectRef", "functionSlug", "activeVersion", "verifyJwt", "bundleHash", "entrypointPath", "entrypointSha256", "sourceIdentity", "deploymentSourceSetHash", "deploymentConfigHash", "eszipBodySha256", "eszipEvidenceHash", "deploymentControlMainSha"];
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] }).trim();
@@ -45,6 +52,7 @@ const classifyScope = (path, protectedPaths) => {
   if (path === "supabase/canonical/storage.sql") return "mobile-storage-policy";
   if (PRESENTATION_SCOPE.test(path)) return "presentation";
   if (EVIDENCE_SCOPE.test(path)) return "evidence-only";
+  if (RELEASE_CONTROL_PATHS.has(path)) return "release-control";
   return "outside-allowlist";
 };
 
@@ -140,6 +148,7 @@ export async function verifyCandidateEvidence({ root, artifact, trustedBaseSha, 
     else if (/^supabase\/migrations\//.test(path) && !new Set(["admin-data-additive", "mobile-storage-atomic"]).has(artifact.requestedScope)) reasons.push(`FORBIDDEN_SCOPE:${path}`);
     else if (artifact.requestedScope === "evidence-only" && !EVIDENCE_SCOPE.test(path)) reasons.push(`SCOPE_OUTSIDE_ALLOWLIST:${path}`);
     else if (artifact.requestedScope === "presentation" && !PRESENTATION_SCOPE.test(path) && !EVIDENCE_SCOPE.test(path)) reasons.push(`SCOPE_OUTSIDE_ALLOWLIST:${path}`);
+    else if (artifact.requestedScope === "release-control" && !RELEASE_CONTROL_PATHS.has(path) && !EVIDENCE_SCOPE.test(path)) reasons.push(`SCOPE_OUTSIDE_ALLOWLIST:${path}`);
     else if (artifact.requestedScope === "admin-data-additive" && !adminDataAllowedPath(path, artifact.adminData)) reasons.push(`SCOPE_OUTSIDE_ALLOWLIST:${path}`);
     else if (artifact.requestedScope === "mobile-storage-atomic" && !mobileStorageAtomicAllowedPath(path, artifact.mobileStorageAtomic)) reasons.push(`SCOPE_OUTSIDE_ALLOWLIST:${path}`);
   }

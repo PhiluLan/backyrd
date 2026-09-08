@@ -14,12 +14,22 @@ export function activeAdminDataEvidenceProblems({
   baseDescendsToCandidate,
   candidateIntegrated,
   candidateTree,
+  readRecord,
 }) {
   const problems = [];
   const unsignedRecord = { ...record };
   delete unsignedRecord.recertificationHash;
   if (record.status !== "VERIFIED_ADDITIVE_EVIDENCE" || record.scope !== "admin-data-additive") problems.push("record is not active Admin/data evidence");
-  if (freeze.currentVersion !== record.version || freeze.currentRecertificationHash !== record.recertificationHash) problems.push("freeze does not bind the record");
+  if (freeze.currentVersion !== record.version || freeze.currentRecertificationHash !== record.recertificationHash) {
+    try {
+      const historicalRecord = resolveHistoricalAdminDataRecord({ freeze, readRecord });
+      if (historicalRecord.version !== record.version || contentHash(historicalRecord) !== contentHash(record)) {
+        problems.push("active additive chain does not bind the record");
+      }
+    } catch {
+      problems.push("active additive chain does not bind the record");
+    }
+  }
   if (contentHash(unsignedRecord) !== record.recertificationHash) problems.push("record content hash differs");
   if (!record.candidateArtifact || !record.verificationReceipt || !record.adminData) problems.push("record payload is incomplete");
   if (record.candidateArtifact && record.candidateArtifactHash !== record.candidateArtifact.artifactHash) problems.push("artifact hash binding differs");
@@ -33,6 +43,31 @@ export function activeAdminDataEvidenceProblems({
   return problems;
 }
 
+export function resolveHistoricalAdminDataRecord({ freeze, readRecord }) {
+  let record = readRecord(freeze.currentVersion);
+  if (freeze.currentVersion !== record.version || freeze.currentRecertificationHash !== record.recertificationHash) {
+    throw new Error("active freeze does not bind current additive record");
+  }
+  const seen = new Set();
+  while (record.scope !== "admin-data-additive") {
+    if (seen.has(record.version)) throw new Error("active additive parent cycle");
+    seen.add(record.version);
+    if (record.status !== "VERIFIED_ADDITIVE_EVIDENCE") throw new Error("active additive parent is not verified");
+    const unsigned = { ...record };
+    delete unsigned.recertificationHash;
+    if (contentHash(unsigned) !== record.recertificationHash) throw new Error("active additive record content hash differs");
+    const currentVersion = Number(record.version?.match(/^decision-v13-production-recertification-v(\d+)$/)?.[1]);
+    const parentVersion = Number(record.parent?.version?.match(/^decision-v13-production-recertification-v(\d+)$/)?.[1]);
+    if (!Number.isInteger(currentVersion) || parentVersion !== currentVersion - 1) throw new Error("active additive parent version is not contiguous");
+    const parent = readRecord(record.parent.version);
+    if (record.parent.path !== `decision-lab/config/${parent.version}.json` || record.parent.manifestHash !== contentHash(parent)) {
+      throw new Error("active additive parent identity differs");
+    }
+    record = parent;
+  }
+  return record;
+}
+
 const self = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (self) {
   const value = (name) => {
@@ -44,9 +79,18 @@ if (self) {
   const git = (args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] }).trim();
   const isAncestor = (ancestor, descendant) => spawnSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], { cwd: root, stdio: "ignore" }).status === 0;
   const freeze = JSON.parse(readFileSync(resolve(root, "decision-lab/config/additive-recertification-v1.freeze.json"), "utf8"));
-  const recordPath = resolve(root, `decision-lab/config/${freeze.currentVersion}.json`);
-  const record = JSON.parse(readFileSync(recordPath, "utf8"));
-  if (record.scope !== "admin-data-additive") {
+  const readRecord = (version) => JSON.parse(readFileSync(resolve(root, `decision-lab/config/${version}.json`), "utf8"));
+  let record;
+  try {
+    record = resolveHistoricalAdminDataRecord({ freeze, readRecord });
+  } catch (error) {
+    if (readRecord(freeze.currentVersion).scope !== "admin-data-additive") {
+      process.stderr.write(`active_admin_data_parent_blocked:${error.message}\n`);
+      process.exit(1);
+    }
+    throw error;
+  }
+  if (!record) {
     process.stdout.write(`${JSON.stringify({ mode: "inactive" })}\n`);
     process.exit(0);
   }
@@ -65,6 +109,7 @@ if (self) {
     baseDescendsToCandidate: isAncestor(record.baseMainSha, record.candidateSha),
     candidateIntegrated: isAncestor(record.candidateSha, headCommit),
     candidateTree,
+    readRecord,
   });
   if (problems.length) throw new Error(`active Admin/data evidence is invalid: ${problems.join(", ")}`);
   process.stdout.write(`${JSON.stringify({

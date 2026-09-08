@@ -3,12 +3,24 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { activeAdminDataEvidenceProblems } from "../../scripts/ci/resolve-active-admin-data-validation.mjs";
-import { productionLineageCandidateProblems } from "../../scripts/ci/resolve-production-lineage-target.mjs";
+import { contentHash } from "../src/canonical-json.mjs";
+import {
+  activeAdminDataEvidenceProblems,
+  resolveHistoricalAdminDataRecord,
+} from "../../scripts/ci/resolve-active-admin-data-validation.mjs";
+import {
+  pendingProductionLineageCandidateProblems,
+  productionLineageCandidateProblems,
+} from "../../scripts/ci/resolve-production-lineage-target.mjs";
 
 const root = new URL("../..", import.meta.url).pathname;
 const record = JSON.parse(await readFile(join(root, "decision-lab/config/decision-v13-production-recertification-v47.json"), "utf8"));
-const freeze = JSON.parse(await readFile(join(root, "decision-lab/config/additive-recertification-v1.freeze.json"), "utf8"));
+const currentFreeze = JSON.parse(await readFile(join(root, "decision-lab/config/additive-recertification-v1.freeze.json"), "utf8"));
+const freeze = {
+  ...currentFreeze,
+  currentVersion: record.version,
+  currentRecertificationHash: record.recertificationHash,
+};
 
 function activeProblems(overrides = {}) {
   return activeAdminDataEvidenceProblems({
@@ -24,7 +36,37 @@ function activeProblems(overrides = {}) {
 
 test("V1.4.5 active Admin/data evidence binds exact artifact, receipt, base, candidate, tree, and ancestry", () => {
   assert.deepEqual(activeProblems(), []);
-  assert.deepEqual(JSON.parse(execFileSync("node", ["scripts/ci/resolve-active-admin-data-validation.mjs", "--head-sha", "HEAD"], { cwd: root, encoding: "utf8" })).mode, "admin-data-additive-active");
+  const currentMode = JSON.parse(execFileSync("node", ["scripts/ci/resolve-active-admin-data-validation.mjs", "--head-sha", "HEAD"], { cwd: root, encoding: "utf8" })).mode;
+  assert.equal(currentMode, "admin-data-additive-active");
+});
+
+test("V1.4.5 resolves active Admin v47 through an exact additive child chain and fails closed on drift", () => {
+  const child = {
+    version: "decision-v13-production-recertification-v48",
+    status: "VERIFIED_ADDITIVE_EVIDENCE",
+    scope: "release-control",
+    parent: {
+      version: record.version,
+      path: `decision-lab/config/${record.version}.json`,
+      manifestHash: contentHash(record),
+    },
+  };
+  child.recertificationHash = contentHash(child);
+  const childFreeze = {
+    currentVersion: child.version,
+    currentRecertificationHash: child.recertificationHash,
+  };
+  const records = new Map([[child.version, child], [record.version, record]]);
+  assert.equal(
+    resolveHistoricalAdminDataRecord({ freeze: childFreeze, readRecord: (version) => records.get(version) }).version,
+    record.version,
+  );
+  assert.throws(() => resolveHistoricalAdminDataRecord({
+    freeze: childFreeze,
+    readRecord: (version) => version === child.version
+      ? { ...child, parent: { ...child.parent, manifestHash: "0".repeat(64) } }
+      : records.get(version),
+  }));
 });
 
 test("V1.4.5 active Admin/data evidence fails closed for every identity or ancestry mismatch", () => {
@@ -96,6 +138,55 @@ test("V1.4.5 Production lineage candidate fails closed without correlated manife
   const changedManifest = structuredClone(manifest);
   changedManifest.surfaces.database.migration_count = 136;
   assert.ok(lineageProblems({ manifest: changedManifest }).includes("database shipped lineage differs from marker"));
+});
+
+test("pending Product lineage binds exact unreleased Mobile source without changing shipped identities", () => {
+  const pendingMarkerPath = "docs/operations/production-lineage-candidates/ATOMIC_REVIEW_MEDIA_V1_PENDING.json";
+  const pendingMarker = {
+    schemaVersion: "backyrd-production-lineage-pending-release-v1",
+    id: "atomic-review-media-v1",
+    sourceCommit: "a".repeat(40),
+    mobileTree: "b".repeat(40),
+    requiredMigration: "supabase/migrations/20990101000000_atomic_review_media_v1.sql",
+    runtimeVersion: "1.1.0",
+    channel: "production",
+    releaseState: "AWAITING_EXPLICIT_RELEASE",
+  };
+  const baseManifest = {
+    required_ancestry: ["c".repeat(40)],
+    surfaces: {
+      mobile: { commit: "d".repeat(40), tree: "e".repeat(40), update_group: "group", canonical_source: { commit: "d".repeat(40), tree: "e".repeat(40), production_verified: true } },
+      database: { source_commit: "f".repeat(40), migration_count: 1 },
+    },
+  };
+  const pendingManifest = structuredClone(baseManifest);
+  pendingManifest.surfaces.mobile.canonical_source = {
+    commit: pendingMarker.sourceCommit,
+    tree: pendingMarker.mobileTree,
+    production_verified: false,
+    reason: "awaiting explicit release",
+  };
+  const input = {
+    marker: pendingMarker,
+    manifest: pendingManifest,
+    baseManifest,
+    markerPath: pendingMarkerPath,
+    markerChanges: [{ status: "A", path: pendingMarkerPath }],
+    manifestChanged: true,
+    sourceMobileTree: pendingMarker.mobileTree,
+    sourceIntegrated: true,
+    migrationExistsAtSource: true,
+  };
+  assert.deepEqual(pendingProductionLineageCandidateProblems(input), []);
+  for (const [override, expected] of [
+    [{ sourceIntegrated: false }, "pending source is not an ancestor"],
+    [{ sourceMobileTree: "0".repeat(40) }, "pending Mobile tree does not match source"],
+    [{ migrationExistsAtSource: false }, "pending migration is absent"],
+    [{ marker: { ...pendingMarker, releaseState: "DEPLOYED" } }, "pending release state differs"],
+    [{ manifest: { ...pendingManifest, surfaces: { ...pendingManifest.surfaces, database: { migration_count: 2 } } } }, "database lineage changed before release"],
+  ]) {
+    assert.ok(pendingProductionLineageCandidateProblems({ ...input, ...override }).some((problem) => problem.includes(expected)), expected);
+  }
 });
 
 test("V1.4.5 canonical database reconstructs active additive Base before Candidate", async () => {
