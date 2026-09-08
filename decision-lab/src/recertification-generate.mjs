@@ -51,6 +51,8 @@ const RELEASE_CONTROL_PATHS = new Set([
   ".github/workflows/supabase-production.yml",
   "decision-lab/src/recertification-generate.mjs",
   "decision-lab/src/recertification-verify.mjs",
+  "scripts/deployment/supabase-production-plan.mjs",
+  "scripts/deployment/supabase-production-plan.test.mjs",
   "scripts/deployment/verify-supabase-migration-dry-run.mjs",
   "scripts/deployment/verify-supabase-migration-dry-run.test.mjs",
 ]);

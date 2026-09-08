@@ -54,6 +54,8 @@ async function fixture(mutate = async () => {}) {
   for (const path of ["decision-lab/src/admin-data-additive.mjs", "decision-lab/src/mobile-storage-atomic.mjs", "decision-lab/src/recertification-generate.mjs", "decision-lab/src/recertification-verify.mjs"]) await writeFile(join(root, path), await readFile(join(source, path)));
   const base = commit(root, "install V1.4 tooling under test");
   git(root, ["update-ref", "refs/remotes/origin/main", base]);
+  const activeFreeze = JSON.parse(await readFile(join(root, "decision-lab/config/additive-recertification-v1.freeze.json"), "utf8"));
+  const baseVersion = activeFreeze.currentVersion.replace(/^decision-v13-production-recertification-/, "");
   await put(root, PATHS.migration, "create table public.synthetic_admin_data_v1(id uuid primary key);\nalter table public.synthetic_admin_data_v1 enable row level security;\n");
   await put(root, PATHS.positive, "begin; create function pg_temp.assert(p boolean) returns void language plpgsql as $$ begin if p is not true then raise exception 'positive failed'; end if; end $$; select pg_temp.assert(true); rollback;\n");
   await put(root, PATHS.negative, "begin; set local role authenticated; do $$ begin if has_table_privilege('authenticated','public.profiles','truncate') then raise exception 'negative denial failed'; end if; end $$; rollback;\n");
@@ -75,16 +77,16 @@ async function fixture(mutate = async () => {}) {
   await mutate({ root, manifest });
   await put(root, PATHS.manifest, manifest);
   const candidate = commit(root, "synthetic admin-data-additive candidate");
-  const artifact = await generateCandidateEvidence({ root, baseVersion: "v47", baseMainSha: base, candidateSha: candidate, evidencePaths: [PATHS.manifest], requestedScope: "admin-data-additive", adminDataManifestPath: PATHS.manifest });
-  return { root, base, candidate, artifact };
+  const artifact = await generateCandidateEvidence({ root, baseVersion, baseMainSha: base, candidateSha: candidate, evidencePaths: [PATHS.manifest], requestedScope: "admin-data-additive", adminDataManifestPath: PATHS.manifest });
+  return { root, base, baseVersion, candidate, artifact };
 }
 
-test("V47 active parent chain permits an exact V48 admin-data-additive candidate", async () => {
+test("active parent chain permits the exact next admin-data-additive candidate", async () => {
   const x = await fixture();
   const receipt = await verifyPreMergeCandidate({ root: x.root, artifact: x.artifact, prBaseSha: x.base, prHeadSha: x.candidate });
   assert.equal(receipt.valid, true, receipt.reasons.join(","));
   assert.equal(receipt.verifierVersion, "backyrd-recertification-pre-merge-verifier-v1.4");
-  assert.match(x.artifact.version, /v48$/);
+  assert.equal(Number(x.artifact.version.match(/v(\d+)$/)?.[1]), Number(x.baseVersion.slice(1)) + 1);
   assert.equal(x.artifact.scopeInventory[PATHS.migration], "admin-data-migration");
 });
 

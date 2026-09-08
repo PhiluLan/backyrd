@@ -21,6 +21,31 @@ const fixture = () => {
 };
 const commit = (repo, message = "change") => { git(repo, ["add", "."]); git(repo, ["commit", "-qm", message]); return git(repo, ["rev-parse", "HEAD"]); };
 const plan = ({ repo, base }, head) => buildProductionPlan({ repo, baseSha: base, headSha: head });
+const pendingReleaseFixture = (mutateMarker = () => {}) => {
+  const f = fixture();
+  const migration = "supabase/migrations/20260908045502_create_atomic_review_media_contract_v1.sql";
+  write(f.repo, "mobile/app.tsx", "export default null;\n");
+  write(f.repo, migration, "select 1;\n");
+  const sourceCommit = commit(f.repo, "atomic review media product");
+  const mobileTree = git(f.repo, ["rev-parse", `${sourceCommit}:mobile`]);
+  write(f.repo, "docs/operations/PRODUCTION_PRODUCT_LINEAGE.json", `${JSON.stringify({ surfaces: { mobile: { canonical_source: { commit: sourceCommit, tree: mobileTree, production_verified: false } } } }, null, 2)}\n`);
+  const base = commit(f.repo, "bind pending product lineage");
+  const marker = {
+    schemaVersion: "backyrd-production-lineage-pending-release-v1",
+    id: "atomic-review-media-v1",
+    sourceCommit,
+    mobileTree,
+    requiredMigration: migration,
+    runtimeVersion: "1.1.0",
+    channel: "production",
+    releaseState: "AWAITING_EXPLICIT_RELEASE",
+  };
+  mutateMarker(marker);
+  const markerPath = "docs/operations/production-lineage-candidates/ATOMIC_REVIEW_MEDIA_V1_PENDING.json";
+  write(f.repo, markerPath, `${JSON.stringify(marker, null, 2)}\n`);
+  const head = commit(f.repo, "manual release gate");
+  return { ...f, base, head, markerPath, migration, sourceCommit };
+};
 const authConfig = (password_min_length = 8) => `${JSON.stringify({
   version: "backyrd-production-auth-config-v1",
   projectRef: "hjgcrrzfjchzqoegcywn",
@@ -42,6 +67,29 @@ test("Unrelated declared Edge Function changed -> only affected scope", () => { 
 test("New Forward Migration -> apply", () => { const f=fixture(); write(f.repo,"supabase/migrations/20260902000000_forward.sql","select 1;\n"); const result=plan(f,commit(f.repo)); assert.equal(result.migrations.length,1); assert.deepEqual(result.deployFunctions,[]); });
 test("Identity-only -> no Decision deploy", () => { const f=fixture(); write(f.repo,"docs/identity.json",`{"version":2}\n`); const result=plan(f,commit(f.repo)); assert.equal(result.runtimeDeploymentRequired,false); });
 test("Evidence/docs-only -> no runtime deploy", () => { const f=fixture(); write(f.repo,"docs/evidence.md","evidence\n"); const result=plan(f,commit(f.repo)); assert.equal(result.runtimeDeploymentRequired,false); });
+test("manual release binds the exact canonical pending Review Media migration while ordinary planning remains deploy-free", () => {
+  const f = pendingReleaseFixture();
+  const ordinary = buildProductionPlan({ repo: f.repo, baseSha: f.base, headSha: f.head });
+  assert.equal(ordinary.runtimeDeploymentRequired, false);
+  const manual = buildProductionPlan({ repo: f.repo, baseSha: f.base, headSha: f.head, pendingReleaseMarkerPath: f.markerPath });
+  assert.equal(manual.runtimeDeploymentRequired, true);
+  assert.deepEqual(manual.pendingMigrations.map(({ path }) => path), [f.migration]);
+  assert.equal(manual.pendingRelease.sourceCommit, f.sourceCommit);
+});
+test("manual pending release fails closed for an unknown marker, altered identity, source, tree, migration or release state", () => {
+  const valid = pendingReleaseFixture();
+  assert.throws(() => buildProductionPlan({ repo: valid.repo, baseSha: valid.base, headSha: valid.head, pendingReleaseMarkerPath: "docs/operations/production-lineage-candidates/OTHER.json" }), /pending_release_marker_not_allowed/);
+  for (const [mutation, expected] of [
+    [(marker) => { marker.id = "other"; }, /pending_release_marker_identity_invalid/],
+    [(marker) => { marker.sourceCommit = "0".repeat(40); }, /pending_release_source_not_integrated/],
+    [(marker) => { marker.mobileTree = "0".repeat(40); }, /pending_release_mobile_tree_mismatch/],
+    [(marker) => { marker.requiredMigration = "supabase/migrations/20260908045503_other.sql"; }, /pending_release_migration_invalid/],
+    [(marker) => { marker.releaseState = "DEPLOYED"; }, /pending_release_state_invalid/],
+  ]) {
+    const f = pendingReleaseFixture(mutation);
+    assert.throws(() => buildProductionPlan({ repo: f.repo, baseSha: f.base, headSha: f.head, pendingReleaseMarkerPath: f.markerPath }), expected);
+  }
+});
 test("Production Auth config -> bounded config deploy only", () => { const f=fixture(); write(f.repo,"supabase/production/auth-config.json",authConfig()); const result=plan(f,commit(f.repo)); assert.equal(result.authConfig.deploy,true); assert.equal(result.runtimeDeploymentRequired,true); assert.deepEqual(result.deployFunctions,[]); });
 test("Unchanged Production Auth config -> no runtime deploy", () => { const f=fixture(); write(f.repo,"supabase/production/auth-config.json",authConfig()); const configured=commit(f.repo); write(f.repo,"docs/evidence.md","evidence\n"); const head=commit(f.repo); const result=buildProductionPlan({repo:f.repo,baseSha:configured,headSha:head}); assert.equal(result.authConfig.deploy,false); assert.equal(result.runtimeDeploymentRequired,false); });
 test("Weak Production password policy -> fail closed", () => { const f=fixture(); write(f.repo,"supabase/production/auth-config.json",authConfig(6)); const head=commit(f.repo); assert.throws(()=>plan(f,head),/password_policy_invalid/); });
