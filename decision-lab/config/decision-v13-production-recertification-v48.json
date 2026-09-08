@@ -1,0 +1,251 @@
+{
+  "schemaVersion": "backyrd-additive-recertification-v1",
+  "version": "decision-v13-production-recertification-v48",
+  "status": "VERIFIED_ADDITIVE_EVIDENCE",
+  "parent": {
+    "version": "decision-v13-production-recertification-v47",
+    "manifestHash": "504feb8564e044a51ef8375ca21f8e797d4366ba78458e4148409a171ff4be8d",
+    "path": "decision-lab/config/decision-v13-production-recertification-v47.json"
+  },
+  "baseMainSha": "20e3d5774041e9d1561667d81389d5eef30a457b",
+  "candidateSha": "3e3c2c127cd33d4314d105df86779946411ed7c7",
+  "candidateProductTree": "ab5af3148b18b560e00759e2d6ee093a6b2088d7",
+  "scope": "evidence-only",
+  "scopeInventory": {
+    "docs/operations/PRODUCTION_PRODUCT_LINEAGE.json": "evidence-only"
+  },
+  "changedFiles": [
+    "docs/operations/PRODUCTION_PRODUCT_LINEAGE.json"
+  ],
+  "changedProtectedFiles": [],
+  "protectedSemanticSourceSet": {
+    "paths": [
+      "admin-dashboard/app/api/admin/reference-locations/route.ts",
+      "decision-lab/src/canonical-json.mjs",
+      "decision-lab/src/io.mjs",
+      "decision-lab/src/n2-memory-user-intelligence.mjs",
+      "decision-lab/src/n3-moment-intelligence.mjs",
+      "decision-lab/src/n4-spot-intelligence.mjs",
+      "decision-lab/src/n5-6-1-moment-aware-projection.mjs",
+      "decision-lab/src/n5-6-canonical-user-intelligence.mjs",
+      "decision-lab/src/n5-relevant-user-projection.mjs",
+      "decision-lab/src/n6a-ai-decision-buddy.mjs",
+      "decision-lab/src/n6a1-reason-evidence-integrity.mjs",
+      "decision-lab/src/n6a2-reason-authorization.mjs",
+      "decision-lab/src/n6a7-provider-response.mjs",
+      "decision-lab/src/taste-engine.mjs",
+      "packages/canonical-semantics/src/index.mjs",
+      "packages/decision-input-runtime/src/continuation.mjs",
+      "packages/decision-input-runtime/src/current-moment.mjs",
+      "packages/decision-input-runtime/src/evidence-envelope.mjs",
+      "packages/decision-input-runtime/src/index.mjs",
+      "packages/decision-input-runtime/src/live-product-boundary.mjs",
+      "packages/decision-input-runtime/src/location-reference.mjs",
+      "packages/decision-input-runtime/src/n4-decision.mjs",
+      "packages/decision-input-runtime/src/offering-decision.mjs",
+      "packages/decision-input-runtime/src/package.mjs",
+      "packages/decision-input-runtime/src/projection.mjs",
+      "packages/decision-input-runtime/src/supabase-repository.mjs",
+      "packages/decision-orchestrator-runtime/src/orchestrator.mjs",
+      "packages/decision-orchestrator-runtime/src/ranking.mjs",
+      "packages/decision-orchestrator-runtime/src/supabase-repository.mjs",
+      "packages/n6-shadow-runtime/src/config.mjs",
+      "packages/n6-shadow-runtime/src/input.mjs",
+      "packages/n6-shadow-runtime/src/provider.mjs",
+      "packages/n6-shadow-runtime/src/shadow.mjs",
+      "packages/n6-shadow-runtime/src/supabase-repository.mjs",
+      "packages/n6-shadow-runtime/src/validator.mjs",
+      "supabase/functions/_shared/launch-cost-boundary.ts",
+      "supabase/functions/decision-v13/community-mood-signal.mjs",
+      "supabase/functions/decision-v13/index.deploy.ts",
+      "supabase/functions/decision-v13/index.ts",
+      "supabase/functions/decision-v13/live-index.ts",
+      "supabase/functions/decision-v13/live-response.mjs",
+      "supabase/functions/decision-v13/north-star-live.ts",
+      "supabase/migrations/20260901141014_gate3_decision_production_acceptance_v1.sql",
+      "supabase/migrations/20260901164414_create_decision_location_admin_contract_v1.sql",
+      "supabase/migrations/20260904233000_gate7_launch_cost_boundaries.sql"
+    ],
+    "hash": "e7e30ac69f03fca479e75cb9e17def687e58635f7549760c3fbcdbda78d88909"
+  },
+  "decisionEngineIdentity": {
+    "path": "supabase/functions/decision-v13/index.ts",
+    "baseSha256": "cad2c4ea94817d2facbd54db92f55f3286acecf4d1e8a71dda414431b76cf000",
+    "candidateSha256": "cad2c4ea94817d2facbd54db92f55f3286acecf4d1e8a71dda414431b76cf000"
+  },
+  "production": {
+    "identity": {
+      "supabaseProjectRef": "hjgcrrzfjchzqoegcywn",
+      "functionSlug": "decision-v13",
+      "activeVersion": 124,
+      "verifyJwt": true,
+      "bundleHash": "a920d38405534f8fdd02e13934988b97fcd4dec12e9c93d8f8dd8bed8d4dac13",
+      "entrypointPath": "supabase/functions/decision-v13/index.deploy.ts",
+      "entrypointSha256": "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299",
+      "sourceIdentity": "CANONICAL_MAIN_C1FCB4A_PRODUCTION_V124_41_OF_41_BYTE_MATCHED",
+      "deploymentSourceSetHash": "a265e8559d707d8641fc8ea937303bb2cdf521cf86fd3569ff8fff4c17f8c6af",
+      "deploymentConfigHash": "56771eeee30d34f03eaab5a52b161d39d3a2d18e7982343623514e1fade112eb",
+      "eszipBodySha256": "a17f9dabdab92a61baf15045e7434d1290291e694c94a9c49b9f64a2c16d681d",
+      "eszipEvidenceHash": "e653c2bb322b9ed574d390ac30272651515ceaa45f66db4e65a2f7a5b7d085bc",
+      "deploymentControlMainSha": "c1fcb4ad76e21b52c0d064192e129abe6f554e8e"
+    },
+    "identityHash": "dfdc90c423f295970f451cad117d5091a68ece750842fa18603d30da3f336288",
+    "candidateEntrypointSha256": "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299"
+  },
+  "d2D3Parents": {
+    "d2FreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+    "d2EngineRecertificationVersion": "decision-v13-production-recertification-v44",
+    "d2EngineRecertificationHash": "a1929bc75912114521074e6e8d8d57a61a31409b8403cdfe1af161272dff8883",
+    "d22FreezeManifestHash": "26c5d0e4cee3e80eef5a080436a017aeeab47e32caf9615310ddb6d8341c7796",
+    "d22ParentFreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+    "d3ParentFreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+    "d3PersonalizationTreatmentFreezeHash": "26c5d0e4cee3e80eef5a080436a017aeeab47e32caf9615310ddb6d8341c7796"
+  },
+  "evidence": {
+    "paths": [
+      "docs/operations/PRODUCTION_PRODUCT_LINEAGE.json"
+    ],
+    "derivedHash": "f8bff4a8b08a4264eb5948b8eeccd0090947812f3f87df5dfa5bb72b284a0552"
+  },
+  "candidateArtifactHash": "899150ffb701c36ac8f21a612c55559c4f8e495f2af8aa55831fc0ea5530a89c",
+  "verificationHash": "c09b44dc305b55ad17a2de4e6ee9391b3a6abe8df22f5146bbf4fb7fdee1528b",
+  "generationToolVersion": "backyrd-recertification-generator-v1.5",
+  "verifierVersion": "backyrd-recertification-pre-merge-verifier-v1.3",
+  "applierVersion": "backyrd-recertification-applier-v1.5",
+  "candidateArtifact": {
+    "schemaVersion": "backyrd-recertification-candidate-evidence-v1",
+    "version": "decision-v13-production-recertification-v48",
+    "parent": {
+      "version": "decision-v13-production-recertification-v47",
+      "manifestHash": "504feb8564e044a51ef8375ca21f8e797d4366ba78458e4148409a171ff4be8d",
+      "path": "decision-lab/config/decision-v13-production-recertification-v47.json"
+    },
+    "baseMainSha": "20e3d5774041e9d1561667d81389d5eef30a457b",
+    "candidateSha": "3e3c2c127cd33d4314d105df86779946411ed7c7",
+    "candidateProductTree": "ab5af3148b18b560e00759e2d6ee093a6b2088d7",
+    "requestedScope": "evidence-only",
+    "changedFiles": [
+      "docs/operations/PRODUCTION_PRODUCT_LINEAGE.json"
+    ],
+    "scopeInventory": {
+      "docs/operations/PRODUCTION_PRODUCT_LINEAGE.json": "evidence-only"
+    },
+    "protectedSourceSet": {
+      "paths": [
+        "admin-dashboard/app/api/admin/reference-locations/route.ts",
+        "decision-lab/src/canonical-json.mjs",
+        "decision-lab/src/io.mjs",
+        "decision-lab/src/n2-memory-user-intelligence.mjs",
+        "decision-lab/src/n3-moment-intelligence.mjs",
+        "decision-lab/src/n4-spot-intelligence.mjs",
+        "decision-lab/src/n5-6-1-moment-aware-projection.mjs",
+        "decision-lab/src/n5-6-canonical-user-intelligence.mjs",
+        "decision-lab/src/n5-relevant-user-projection.mjs",
+        "decision-lab/src/n6a-ai-decision-buddy.mjs",
+        "decision-lab/src/n6a1-reason-evidence-integrity.mjs",
+        "decision-lab/src/n6a2-reason-authorization.mjs",
+        "decision-lab/src/n6a7-provider-response.mjs",
+        "decision-lab/src/taste-engine.mjs",
+        "packages/canonical-semantics/src/index.mjs",
+        "packages/decision-input-runtime/src/continuation.mjs",
+        "packages/decision-input-runtime/src/current-moment.mjs",
+        "packages/decision-input-runtime/src/evidence-envelope.mjs",
+        "packages/decision-input-runtime/src/index.mjs",
+        "packages/decision-input-runtime/src/live-product-boundary.mjs",
+        "packages/decision-input-runtime/src/location-reference.mjs",
+        "packages/decision-input-runtime/src/n4-decision.mjs",
+        "packages/decision-input-runtime/src/offering-decision.mjs",
+        "packages/decision-input-runtime/src/package.mjs",
+        "packages/decision-input-runtime/src/projection.mjs",
+        "packages/decision-input-runtime/src/supabase-repository.mjs",
+        "packages/decision-orchestrator-runtime/src/orchestrator.mjs",
+        "packages/decision-orchestrator-runtime/src/ranking.mjs",
+        "packages/decision-orchestrator-runtime/src/supabase-repository.mjs",
+        "packages/n6-shadow-runtime/src/config.mjs",
+        "packages/n6-shadow-runtime/src/input.mjs",
+        "packages/n6-shadow-runtime/src/provider.mjs",
+        "packages/n6-shadow-runtime/src/shadow.mjs",
+        "packages/n6-shadow-runtime/src/supabase-repository.mjs",
+        "packages/n6-shadow-runtime/src/validator.mjs",
+        "supabase/functions/_shared/launch-cost-boundary.ts",
+        "supabase/functions/decision-v13/community-mood-signal.mjs",
+        "supabase/functions/decision-v13/index.deploy.ts",
+        "supabase/functions/decision-v13/index.ts",
+        "supabase/functions/decision-v13/live-index.ts",
+        "supabase/functions/decision-v13/live-response.mjs",
+        "supabase/functions/decision-v13/north-star-live.ts",
+        "supabase/migrations/20260901141014_gate3_decision_production_acceptance_v1.sql",
+        "supabase/migrations/20260901164414_create_decision_location_admin_contract_v1.sql",
+        "supabase/migrations/20260904233000_gate7_launch_cost_boundaries.sql"
+      ],
+      "baseHash": "e7e30ac69f03fca479e75cb9e17def687e58635f7549760c3fbcdbda78d88909",
+      "candidateHash": "e7e30ac69f03fca479e75cb9e17def687e58635f7549760c3fbcdbda78d88909",
+      "changedProtectedFiles": []
+    },
+    "decisionEngineIdentity": {
+      "path": "supabase/functions/decision-v13/index.ts",
+      "baseSha256": "cad2c4ea94817d2facbd54db92f55f3286acecf4d1e8a71dda414431b76cf000",
+      "candidateSha256": "cad2c4ea94817d2facbd54db92f55f3286acecf4d1e8a71dda414431b76cf000"
+    },
+    "production": {
+      "identity": {
+        "supabaseProjectRef": "hjgcrrzfjchzqoegcywn",
+        "functionSlug": "decision-v13",
+        "activeVersion": 124,
+        "verifyJwt": true,
+        "bundleHash": "a920d38405534f8fdd02e13934988b97fcd4dec12e9c93d8f8dd8bed8d4dac13",
+        "entrypointPath": "supabase/functions/decision-v13/index.deploy.ts",
+        "entrypointSha256": "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299",
+        "sourceIdentity": "CANONICAL_MAIN_C1FCB4A_PRODUCTION_V124_41_OF_41_BYTE_MATCHED",
+        "deploymentSourceSetHash": "a265e8559d707d8641fc8ea937303bb2cdf521cf86fd3569ff8fff4c17f8c6af",
+        "deploymentConfigHash": "56771eeee30d34f03eaab5a52b161d39d3a2d18e7982343623514e1fade112eb",
+        "eszipBodySha256": "a17f9dabdab92a61baf15045e7434d1290291e694c94a9c49b9f64a2c16d681d",
+        "eszipEvidenceHash": "e653c2bb322b9ed574d390ac30272651515ceaa45f66db4e65a2f7a5b7d085bc",
+        "deploymentControlMainSha": "c1fcb4ad76e21b52c0d064192e129abe6f554e8e"
+      },
+      "identityHash": "dfdc90c423f295970f451cad117d5091a68ece750842fa18603d30da3f336288",
+      "candidateEntrypointSha256": "4a4af963c4c30821be7b0d2b021f3a232520c104acfd34079a6284daea9e8299"
+    },
+    "d2D3Parents": {
+      "base": {
+        "d2FreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+        "d2EngineRecertificationVersion": "decision-v13-production-recertification-v44",
+        "d2EngineRecertificationHash": "a1929bc75912114521074e6e8d8d57a61a31409b8403cdfe1af161272dff8883",
+        "d22FreezeManifestHash": "26c5d0e4cee3e80eef5a080436a017aeeab47e32caf9615310ddb6d8341c7796",
+        "d22ParentFreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+        "d3ParentFreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+        "d3PersonalizationTreatmentFreezeHash": "26c5d0e4cee3e80eef5a080436a017aeeab47e32caf9615310ddb6d8341c7796"
+      },
+      "candidate": {
+        "d2FreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+        "d2EngineRecertificationVersion": "decision-v13-production-recertification-v44",
+        "d2EngineRecertificationHash": "a1929bc75912114521074e6e8d8d57a61a31409b8403cdfe1af161272dff8883",
+        "d22FreezeManifestHash": "26c5d0e4cee3e80eef5a080436a017aeeab47e32caf9615310ddb6d8341c7796",
+        "d22ParentFreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+        "d3ParentFreezeManifestHash": "d88bac03bbf29d8436cef720ea4beb29bdc55de77e266e7ece25926bdcc1e6d0",
+        "d3PersonalizationTreatmentFreezeHash": "26c5d0e4cee3e80eef5a080436a017aeeab47e32caf9615310ddb6d8341c7796"
+      }
+    },
+    "evidence": {
+      "paths": [
+        "docs/operations/PRODUCTION_PRODUCT_LINEAGE.json"
+      ],
+      "derivedHash": "f8bff4a8b08a4264eb5948b8eeccd0090947812f3f87df5dfa5bb72b284a0552"
+    },
+    "generationToolVersion": "backyrd-recertification-generator-v1.5",
+    "artifactHash": "899150ffb701c36ac8f21a612c55559c4f8e495f2af8aa55831fc0ea5530a89c"
+  },
+  "verificationReceipt": {
+    "schemaVersion": "backyrd-recertification-verification-v1",
+    "verifierVersion": "backyrd-recertification-pre-merge-verifier-v1.3",
+    "artifactHash": "899150ffb701c36ac8f21a612c55559c4f8e495f2af8aa55831fc0ea5530a89c",
+    "baseMainSha": "20e3d5774041e9d1561667d81389d5eef30a457b",
+    "candidateSha": "3e3c2c127cd33d4314d105df86779946411ed7c7",
+    "valid": true,
+    "reasons": [],
+    "verificationHash": "c09b44dc305b55ad17a2de4e6ee9391b3a6abe8df22f5146bbf4fb7fdee1528b"
+  },
+  "decisionSemanticsRecertified": false,
+  "productionMutation": "NONE",
+  "recertificationHash": "478da6f78752c12994477fdc55c47d5485ee181edc09bcc90e9fda32e55d0d90"
+}
