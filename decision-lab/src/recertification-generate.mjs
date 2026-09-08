@@ -5,8 +5,9 @@ import { dirname, resolve } from "node:path";
 import { mkdir } from "node:fs/promises";
 import { contentHash } from "./canonical-json.mjs";
 import { buildAdminDataEvidence } from "./admin-data-additive.mjs";
+import { buildMobileStorageAtomicEvidence } from "./mobile-storage-atomic.mjs";
 
-export const GENERATOR_VERSION = "backyrd-recertification-generator-v1.4";
+export const GENERATOR_VERSION = "backyrd-recertification-generator-v1.5";
 
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024 }).trim();
 const blob = (root, sha, path) => execFileSync("git", ["show", `${sha}:${path}`], { cwd: root, maxBuffer: 50 * 1024 * 1024 });
@@ -51,13 +52,15 @@ const classifyScope = (path, protectedPaths) => {
   if (/^supabase\/migrations\//.test(path)) return "admin-data-migration";
   if (/^supabase\/tests\//.test(path)) return "admin-data-acceptance";
   if (/^supabase\/canonical\/admin-data-additive\//.test(path) || /^scripts\/ci\/admin-data-additive\//.test(path) || /^docs\/operations\/admin-data-additive\//.test(path)) return "admin-data-evidence";
+  if (/^supabase\/canonical\/mobile-storage-atomic\//.test(path) || /^scripts\/ci\/mobile-storage-atomic\//.test(path) || /^docs\/operations\/mobile-storage-atomic\//.test(path)) return "mobile-storage-evidence";
+  if (path === "supabase/canonical/storage.sql") return "mobile-storage-policy";
   if (/^(supabase\/(?:production|functions)\/|mobile\/.*auth|web\/.*auth|admin-dashboard\/.*(?:auth|security)|legal\/)/.test(path)) return "db-auth-security";
   if (/^(mobile\/|web\/|admin-dashboard\/)/.test(path)) return "presentation";
   if (/^(decision-lab\/(?:config|test)\/|docs\/(?:decision|operations|readiness)\/|scripts\/(?:ci|decision)\/)/.test(path)) return "evidence-only";
   return "outside-allowlist";
 };
 
-export async function generateCandidateEvidence({ root, baseVersion, baseMainSha, candidateSha, evidencePaths, requestedScope, adminDataManifestPath = null }) {
+export async function generateCandidateEvidence({ root, baseVersion, baseMainSha, candidateSha, evidencePaths, requestedScope, adminDataManifestPath = null, mobileStorageManifestPath = null }) {
   if (!root || !baseVersion || !baseMainSha || !candidateSha || !requestedScope || !evidencePaths?.length) throw new Error("All generation inputs are required");
   const basePath = `decision-lab/config/decision-v13-production-recertification-${baseVersion}.json`;
   const baseCommit = git(root, ["rev-parse", `${baseMainSha}^{commit}`]);
@@ -69,6 +72,9 @@ export async function generateCandidateEvidence({ root, baseVersion, baseMainSha
   const observedProduction = productionIdentity(base.production.identity ?? base.production);
   const adminData = requestedScope === "admin-data-additive"
     ? buildAdminDataEvidence({ root, baseSha: baseCommit, candidateSha: candidateCommit, manifestPath: adminDataManifestPath })
+    : null;
+  const mobileStorageAtomic = requestedScope === "mobile-storage-atomic"
+    ? buildMobileStorageAtomicEvidence({ root, baseSha: baseCommit, candidateSha: candidateCommit, manifestPath: mobileStorageManifestPath })
     : null;
   const artifact = {
     schemaVersion: "backyrd-recertification-candidate-evidence-v1",
@@ -98,6 +104,7 @@ export async function generateCandidateEvidence({ root, baseVersion, baseMainSha
     },
     d2D3Parents: { base: parentIdentities(root, baseCommit), candidate: parentIdentities(root, candidateCommit) },
     ...(adminData ? { adminData } : {}),
+    ...(mobileStorageAtomic ? { mobileStorageAtomic } : {}),
     evidence: { paths: [...new Set(evidencePaths)].sort(), derivedHash: hashTreeFiles(root, candidateCommit, evidencePaths) },
     generationToolVersion: GENERATOR_VERSION
   };

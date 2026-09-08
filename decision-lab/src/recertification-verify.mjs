@@ -4,13 +4,15 @@ import { writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { contentHash } from "./canonical-json.mjs";
 import { adminDataAllowedPath, verifyAdminDataEvidence } from "./admin-data-additive.mjs";
+import { mobileStorageAtomicAllowedPath, verifyMobileStorageAtomicEvidence } from "./mobile-storage-atomic.mjs";
 
 export const VERIFIER_VERSION = "backyrd-recertification-verifier-v1";
 export const PRE_MERGE_VERIFIER_VERSION = "backyrd-recertification-pre-merge-verifier-v1.3";
 export const ADMIN_DATA_VERIFIER_VERSION = "backyrd-recertification-pre-merge-verifier-v1.4";
-export const SUPPORTED_VERIFIER_VERSIONS = Object.freeze([VERIFIER_VERSION, PRE_MERGE_VERIFIER_VERSION, ADMIN_DATA_VERIFIER_VERSION]);
+export const MOBILE_STORAGE_ATOMIC_VERIFIER_VERSION = "backyrd-recertification-pre-merge-verifier-v1.5";
+export const SUPPORTED_VERIFIER_VERSIONS = Object.freeze([VERIFIER_VERSION, PRE_MERGE_VERIFIER_VERSION, ADMIN_DATA_VERIFIER_VERSION, MOBILE_STORAGE_ATOMIC_VERIFIER_VERSION]);
 const CANONICAL_MAIN_REF = "refs/remotes/origin/main";
-const ALLOWED_SCOPES = new Set(["evidence-only", "presentation", "admin-data-additive"]);
+const ALLOWED_SCOPES = new Set(["evidence-only", "presentation", "admin-data-additive", "mobile-storage-atomic"]);
 const FORBIDDEN_SCOPE = /^(supabase\/(?:production|functions)\/|packages\/(canonical-semantics|decision-input-runtime|decision-orchestrator-runtime|n6-shadow-runtime)\/src\/|decision-lab\/config\/(?:decision-quality-v1\.1(?:\.freeze)?|personalization-treatment-v1(?:\.freeze)?|d3\.1-diagnostic-coverage-v1)\.json$|mobile\/.*auth|web\/.*auth|admin-dashboard\/.*(?:auth|security)|legal\/)/;
 const EVIDENCE_SCOPE = /^(decision-lab\/(?:config|test)\/|docs\/(?:decision|operations|readiness)\/|scripts\/(?:ci|decision)\/)/;
 const PRESENTATION_SCOPE = /^(mobile\/|web\/|admin-dashboard\/)/;
@@ -39,6 +41,8 @@ const classifyScope = (path, protectedPaths) => {
   if (/^supabase\/migrations\//.test(path)) return "admin-data-migration";
   if (/^supabase\/tests\//.test(path)) return "admin-data-acceptance";
   if (/^supabase\/canonical\/admin-data-additive\//.test(path) || /^scripts\/ci\/admin-data-additive\//.test(path) || /^docs\/operations\/admin-data-additive\//.test(path)) return "admin-data-evidence";
+  if (/^supabase\/canonical\/mobile-storage-atomic\//.test(path) || /^scripts\/ci\/mobile-storage-atomic\//.test(path) || /^docs\/operations\/mobile-storage-atomic\//.test(path)) return "mobile-storage-evidence";
+  if (path === "supabase/canonical/storage.sql") return "mobile-storage-policy";
   if (PRESENTATION_SCOPE.test(path)) return "presentation";
   if (EVIDENCE_SCOPE.test(path)) return "evidence-only";
   return "outside-allowlist";
@@ -126,15 +130,18 @@ export async function verifyCandidateEvidence({ root, artifact, trustedBaseSha, 
     if (!same(baseParents, artifact.d2D3Parents.base) || !same(candidateParents, artifact.d2D3Parents.candidate) || !same(baseParents, candidateParents) || baseParents.d2EngineRecertificationVersion !== parentChain.anchorVersion || baseParents.d22ParentFreezeManifestHash !== baseParents.d2FreezeManifestHash || baseParents.d3ParentFreezeManifestHash !== baseParents.d2FreezeManifestHash || baseParents.d3PersonalizationTreatmentFreezeHash !== baseParents.d22FreezeManifestHash) reasons.push("D2_D3_PARENT_FREEZE_DRIFT");
     if (artifact.requestedScope === "admin-data-additive") reasons.push(...verifyAdminDataEvidence({ root, baseSha, candidateSha, evidence: artifact.adminData }));
     else if (artifact.adminData) reasons.push("UNEXPECTED_ADMIN_DATA_EVIDENCE");
+    if (artifact.requestedScope === "mobile-storage-atomic") reasons.push(...verifyMobileStorageAtomicEvidence({ root, baseSha, candidateSha, evidence: artifact.mobileStorageAtomic }));
+    else if (artifact.mobileStorageAtomic) reasons.push("UNEXPECTED_MOBILE_STORAGE_EVIDENCE");
     if (!artifact.evidence.paths.length || !artifact.evidence.paths.every((path) => SAFE_PATH.test(path)) || new Set(artifact.evidence.paths).size !== artifact.evidence.paths.length) reasons.push("EVIDENCE_PATH_INVALID");
     if (hashTreeFiles(root, candidateSha, artifact.evidence.paths) !== artifact.evidence.derivedHash) reasons.push("EVIDENCE_HASH_MISMATCH");
   } catch (error) { reasons.push(`INPUT_UNREADABLE:${error.code ?? error.message}`); }
   for (const path of changed) {
     if (FORBIDDEN_SCOPE.test(path)) reasons.push(`FORBIDDEN_SCOPE:${path}`);
-    else if (/^supabase\/migrations\//.test(path) && artifact.requestedScope !== "admin-data-additive") reasons.push(`FORBIDDEN_SCOPE:${path}`);
+    else if (/^supabase\/migrations\//.test(path) && !new Set(["admin-data-additive", "mobile-storage-atomic"]).has(artifact.requestedScope)) reasons.push(`FORBIDDEN_SCOPE:${path}`);
     else if (artifact.requestedScope === "evidence-only" && !EVIDENCE_SCOPE.test(path)) reasons.push(`SCOPE_OUTSIDE_ALLOWLIST:${path}`);
     else if (artifact.requestedScope === "presentation" && !PRESENTATION_SCOPE.test(path) && !EVIDENCE_SCOPE.test(path)) reasons.push(`SCOPE_OUTSIDE_ALLOWLIST:${path}`);
     else if (artifact.requestedScope === "admin-data-additive" && !adminDataAllowedPath(path, artifact.adminData)) reasons.push(`SCOPE_OUTSIDE_ALLOWLIST:${path}`);
+    else if (artifact.requestedScope === "mobile-storage-atomic" && !mobileStorageAtomicAllowedPath(path, artifact.mobileStorageAtomic)) reasons.push(`SCOPE_OUTSIDE_ALLOWLIST:${path}`);
   }
   const uniqueReasons = [...new Set(reasons)];
   const body = { schemaVersion: "backyrd-recertification-verification-v1", verifierVersion, artifactHash: artifact.artifactHash, baseMainSha: artifact.baseMainSha, candidateSha: artifact.candidateSha, valid: uniqueReasons.length === 0, reasons: uniqueReasons };
@@ -142,7 +149,11 @@ export async function verifyCandidateEvidence({ root, artifact, trustedBaseSha, 
 }
 
 export async function verifyPreMergeCandidate({ root, artifact, prBaseSha, prHeadSha }) {
-  const verifierVersion = artifact.requestedScope === "admin-data-additive" ? ADMIN_DATA_VERIFIER_VERSION : PRE_MERGE_VERIFIER_VERSION;
+  const verifierVersion = artifact.requestedScope === "admin-data-additive"
+    ? ADMIN_DATA_VERIFIER_VERSION
+    : artifact.requestedScope === "mobile-storage-atomic"
+      ? MOBILE_STORAGE_ATOMIC_VERIFIER_VERSION
+      : PRE_MERGE_VERIFIER_VERSION;
   const receipt = await verifyCandidateEvidence({ root, artifact, trustedBaseSha: prBaseSha, verifierVersion });
   const reasons = [...receipt.reasons];
   try {
@@ -151,6 +162,7 @@ export async function verifyPreMergeCandidate({ root, artifact, prBaseSha, prHea
     const headSha = git(root, ["rev-parse", `${prHeadSha}^{commit}`]);
     if (artifact.baseMainSha !== baseSha) reasons.push("PR_BASE_BINDING_MISMATCH");
     if (artifact.candidateSha !== headSha) reasons.push("PR_HEAD_BINDING_MISMATCH");
+    if (artifact.requestedScope === "mobile-storage-atomic" && baseSha !== canonicalMainSha) reasons.push("MOBILE_STORAGE_BASE_NOT_CANONICAL_TIP");
     if (!isFirstParentCommit(root, baseSha)) reasons.push("PR_BASE_NOT_CANONICAL_FIRST_PARENT");
     if (!isAncestor(root, baseSha, canonicalMainSha)) reasons.push("PR_BASE_NOT_CANONICAL_ANCESTOR");
     if (isAncestor(root, headSha, canonicalMainSha)) reasons.push("CANDIDATE_ALREADY_CANONICALLY_INTEGRATED");

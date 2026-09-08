@@ -41,6 +41,11 @@ jobs:
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node scripts/ci/validate-admin-data-additive-candidate.mjs
+      - name: V1.5 mobile-storage-atomic exact PR candidate gate
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/ci/validate-mobile-storage-atomic-candidate.mjs
       - run: npm run decision-lab:smoke
       - name: D2 framework acceptance
         run: npm run decision-lab:d2:acceptance
