@@ -60,12 +60,26 @@ test("V1.4.2 orders isolated canonical base proof before candidate apply and exi
   const validator = await readFile(join(source, "scripts/ci/validate-supabase-local.sh"), "utf8");
   const baseCheckout = validator.indexOf("Recertification isolated canonical base checkout bound");
   const candidateCheckout = validator.indexOf("Recertification isolated candidate checkout bound to exact PR head");
+  const dependencyProof = validator.indexOf("validate-lockfile-install.mjs");
   const historicalProof = validator.indexOf("Gate 7 current application schema candidate fingerprint passed");
   const candidateApply = validator.indexOf("V1.4.2 exact manifest-bound candidate migrations applied");
   const existingContract = validator.indexOf("validate-admin-data-additive.mjs");
   assert.ok(baseCheckout >= 0 && baseCheckout < historicalProof);
   assert.ok(candidateCheckout >= 0 && candidateCheckout < historicalProof);
+  assert.ok(dependencyProof >= 0 && dependencyProof < historicalProof);
   assert.ok(historicalProof < candidateApply && candidateApply < existingContract);
+});
+
+test("V1.4.3 Database CI installs candidate dependencies only inside the exact checkout", async () => {
+  const workflow = await readFile(join(source, ".github/workflows/database.yml"), "utf8");
+  const validator = await readFile(join(source, "scripts/ci/validate-supabase-local.sh"), "utf8");
+  const nodeSetup = workflow.indexOf("Set up Node.js for lockfile installation");
+  const database = workflow.indexOf("Validate isolated canonical database");
+  assert.ok(nodeSetup >= 0 && nodeSetup < database);
+  assert.doesNotMatch(workflow, /cache: npm/);
+  assert.match(validator, /cmp "\$base_checkout\/package-lock\.json" "\$candidate_checkout\/package-lock\.json"/);
+  assert.match(validator, /cd "\$candidate_checkout" && npm ci/);
+  assert.match(validator, /npm ls --all --json/);
 });
 
 test("V1.4.2 rejects a noncanonical PR base", async () => {
