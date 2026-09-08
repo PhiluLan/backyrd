@@ -10,6 +10,7 @@ import { applyCandidateEvidence } from "../src/recertification-apply.mjs";
 import { validatePostMergeActiveChain } from "../src/recertification-consumer.mjs";
 import { generateCandidateEvidence } from "../src/recertification-generate.mjs";
 import { verifyPreMergeCandidate } from "../src/recertification-verify.mjs";
+import { resolveCanonicalFixtureBase } from "../../scripts/ci/mobile-storage-atomic-validation-order.mjs";
 
 const source = new URL("../..", import.meta.url).pathname;
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
@@ -47,7 +48,12 @@ const mirror = "with check (public.review_media_upload_is_reserved_v1(bucket_id,
 
 async function fixture(mutate = async () => {}) {
   const root = await mkdtemp(join(tmpdir(), "backyrd-recert-v15-"));
+  const canonicalBase = resolveCanonicalFixtureBase({
+    root: source,
+    explicitBaseSha: process.env.CI_BASE_SHA,
+  });
   execFileSync("git", ["clone", "--quiet", "--shared", source, root]);
+  git(root, ["checkout", "--quiet", "--detach", canonicalBase]);
   git(root, ["config", "user.email", "fixture@example.invalid"]);
   git(root, ["config", "user.name", "Fixture"]);
   for (const path of [
@@ -100,6 +106,21 @@ create policy review_photos_upload_own_review on storage.objects for insert to a
   const artifact = await generateCandidateEvidence({ root, baseVersion: "v46", baseMainSha: base, candidateSha: candidate, evidencePaths: [PATHS.manifest], requestedScope: "mobile-storage-atomic", mobileStorageManifestPath: PATHS.manifest });
   return { root, base, candidate, artifact };
 }
+
+test("V1.5 fixture base resolves the real canonical Base tree instead of candidate HEAD", async () => {
+  const root = await mkdtemp(join(tmpdir(), "backyrd-recert-v15-base-"));
+  git(root, ["init", "--quiet"]);
+  git(root, ["config", "user.email", "fixture@example.invalid"]);
+  git(root, ["config", "user.name", "Fixture"]);
+  await put(root, "canonical.txt", "base\n");
+  const base = commit(root, "canonical base");
+  git(root, ["update-ref", "refs/remotes/origin/main", base]);
+  await put(root, PATHS.migration, "select true;\n");
+  const candidate = commit(root, "candidate head");
+  assert.equal(git(root, ["rev-parse", "HEAD"]), candidate);
+  assert.equal(resolveCanonicalFixtureBase({ root }), base);
+  assert.notEqual(resolveCanonicalFixtureBase({ root }), candidate);
+});
 
 test("V46 active parent chain permits an exact V47 mobile-storage-atomic candidate", async () => {
   const x = await fixture();

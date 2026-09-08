@@ -58,8 +58,8 @@ test("V1.4.2 orders isolated canonical base proof before candidate apply and exi
   assert.equal(plan.mode, "admin-data-additive");
   assert.deepEqual(plan.migrations, ["supabase/migrations/20270101000000_restaurant_v1.sql"]);
   const validator = await readFile(join(source, "scripts/ci/validate-supabase-local.sh"), "utf8");
-  const baseCheckout = validator.indexOf("V1.4.2 isolated canonical base checkout bound");
-  const candidateCheckout = validator.indexOf("V1.4.2 isolated candidate checkout bound to exact PR head");
+  const baseCheckout = validator.indexOf("Recertification isolated canonical base checkout bound");
+  const candidateCheckout = validator.indexOf("Recertification isolated candidate checkout bound to exact PR head");
   const historicalProof = validator.indexOf("Gate 7 current application schema candidate fingerprint passed");
   const candidateApply = validator.indexOf("V1.4.2 exact manifest-bound candidate migrations applied");
   const existingContract = validator.indexOf("validate-admin-data-additive.mjs");

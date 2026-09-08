@@ -53,9 +53,23 @@ admin_validation_plan="$(node "$repo_root/scripts/ci/admin-data-additive-validat
   --head-sha "$head_sha" \
   --canonical-main-ref refs/remotes/origin/main)"
 admin_validation_mode="$(jq -r '.mode' <<<"$admin_validation_plan")"
+mobile_validation_plan="$(node "$repo_root/scripts/ci/mobile-storage-atomic-validation-order.mjs" \
+  --base-sha "$comparison_base" \
+  --head-sha "$head_sha" \
+  --canonical-main-ref refs/remotes/origin/main)"
+mobile_validation_mode="$(jq -r '.mode' <<<"$mobile_validation_plan")"
+if test "$admin_validation_mode" != canonical && \
+  test "$mobile_validation_mode" != canonical; then
+  printf 'A candidate cannot combine admin-data-additive and mobile-storage-atomic scopes.\n' >&2
+  exit 1
+fi
+validation_mode="$admin_validation_mode"
+if test "$mobile_validation_mode" = mobile-storage-atomic; then
+  validation_mode="$mobile_validation_mode"
+fi
 bootstrap_root="$repo_root"
 candidate_root="$repo_root"
-if test "$admin_validation_mode" = admin-data-additive; then
+if test "$validation_mode" != canonical; then
   base_checkout="$validation_root/base-checkout"
   candidate_checkout="$validation_root/candidate-checkout"
   git clone --quiet --no-hardlinks --no-checkout "$repo_root" "$base_checkout"
@@ -68,13 +82,14 @@ if test "$admin_validation_mode" = admin-data-additive; then
   test -z "$(git -C "$candidate_checkout" status --porcelain)"
   bootstrap_root="$base_checkout"
   candidate_root="$candidate_checkout"
-  printf 'V1.4.2 isolated canonical base checkout bound to %s.\n' "$comparison_base"
-  printf 'V1.4.2 isolated candidate checkout bound to exact PR head %s.\n' "$head_sha"
+  printf 'Recertification isolated canonical base checkout bound to %s for %s.\n' \
+    "$comparison_base" "$validation_mode"
+  printf 'Recertification isolated candidate checkout bound to exact PR head %s.\n' "$head_sha"
 fi
 
-node "$repo_root/scripts/ci/validate-database-lineage.mjs"
-"$repo_root/scripts/ci/validate-migrations.sh"
-"$repo_root/scripts/ci/validate-trust-platform-consumers.sh"
+node "$candidate_root/scripts/ci/validate-database-lineage.mjs"
+"$candidate_root/scripts/ci/validate-migrations.sh"
+"$candidate_root/scripts/ci/validate-trust-platform-consumers.sh"
 
 mkdir -p "$validation_root/supabase"
 cp "$bootstrap_root/supabase/config.toml" "$validation_root/supabase/config.toml"
@@ -293,8 +308,8 @@ fi
 printf 'Canonical application schema fingerprint passed (%s catalog facts).\n' \
   "$application_schema_entry_count"
 
-# V1.4.2 ORDER 3: Gate-5/6/7 history has passed on the isolated base. Only now
-# may the exact manifest-bound additive candidate migrations enter the database.
+# ORDER 3: Gate-5/6/7 history has passed on the isolated base. Only now may an
+# exact manifest-bound additive candidate migration enter the database.
 if test "$admin_validation_mode" = admin-data-additive; then
   while IFS= read -r candidate_migration; do
     test -f "$candidate_root/$candidate_migration"
@@ -304,13 +319,23 @@ if test "$admin_validation_mode" = admin-data-additive; then
   "$supabase_cli" migration up --workdir "$validation_root" --local --include-all --agent=no
   printf 'V1.4.2 exact manifest-bound candidate migrations applied after historical proofs.\n'
 fi
+if test "$mobile_validation_mode" = mobile-storage-atomic; then
+  mobile_candidate_migration="$(jq -r '.migration' <<<"$mobile_validation_plan")"
+  test -f "$candidate_root/$mobile_candidate_migration"
+  test ! -e "$validation_root/supabase/migrations/$(basename "$mobile_candidate_migration")"
+  cp "$candidate_root/$mobile_candidate_migration" "$validation_root/supabase/migrations/"
+  "$supabase_cli" migration up --workdir "$validation_root" --local --include-all --agent=no
+  psql "$ADMIN_DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction \
+    --file "$candidate_root/supabase/canonical/storage.sql"
+  printf 'V1.5.1 exact manifest-bound migration and canonical Storage policy applied after historical proofs.\n'
+fi
 
-# V1.4.2 ORDER 4: preserve the existing manifest, candidate fingerprint,
+# ORDER 4: preserve each existing manifest, candidate fingerprint,
 # positive/negative acceptance, and historical reconstruction contract.
 node "$candidate_root/scripts/ci/validate-admin-data-additive.mjs" \
   --base-sha "$comparison_base"
-node "$repo_root/scripts/ci/validate-mobile-storage-atomic.mjs" \
-  --base-sha "${BASE_SHA:-}"
+node "$candidate_root/scripts/ci/validate-mobile-storage-atomic.mjs" \
+  --base-sha "$comparison_base"
 
 expected_versions=()
 while IFS= read -r version; do
