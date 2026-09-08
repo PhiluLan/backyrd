@@ -115,9 +115,7 @@ on storage."objects"
 as permissive
 for insert
 to "authenticated"
-with check ((bucket_id = 'review-photos'::text) AND (owner = auth.uid()) AND (privacy_is_admin_v1() OR (((storage.foldername(name))[1] ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'::text) AND (EXISTS ( SELECT 1
-   FROM reviews r
-  WHERE ((r.id = ((storage.foldername(objects.name))[1])::uuid) AND (r.user_id = auth.uid())))))));
+with check (public.review_media_upload_is_reserved_v1(bucket_id, name, owner, metadata));
 
 drop policy if exists "social_post_media_authenticated_visible_read_v1" on storage."objects";
 create policy "social_post_media_authenticated_visible_read_v1"

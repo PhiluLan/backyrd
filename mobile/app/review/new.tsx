@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   Platform,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as Crypto from "expo-crypto";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../../lib/supabase";
@@ -29,6 +30,13 @@ import { trackAnalyticsEvent, reportAnalyticsError } from "../../lib/analytics";
 import { registerSafetySnapshot } from "../../lib/safety-content";
 import { userFacingError } from "../../lib/userFacingError";
 import { MoodExpressionInput } from "../../components/MoodExpressionInput";
+import {
+  finalizeReviewWithMedia,
+  reviewMediaErrorContext,
+  reviewMediaUserMessage,
+  type ReviewMediaAsset,
+  uploadReservedReviewMedia,
+} from "../../lib/review-media-upload";
 
 const theme = {
   colors: {
@@ -46,32 +54,6 @@ const theme = {
   radius: { md: 12, lg: 16, xl: 24, pill: 999 },
   spacing: (n: number) => n * 8,
 };
-
-function getSafeImageExtension(uri: string) {
-  const cleanUri = uri.split("?")[0].toLowerCase();
-
-  if (cleanUri.endsWith(".png")) return "png";
-  if (cleanUri.endsWith(".webp")) return "webp";
-  if (cleanUri.endsWith(".jpg")) return "jpg";
-  if (cleanUri.endsWith(".jpeg")) return "jpeg";
-  if (cleanUri.endsWith(".heic")) return "jpg";
-  if (cleanUri.endsWith(".heif")) return "jpg";
-
-  return "jpg";
-}
-
-function getContentTypeFromExtension(ext: string) {
-  switch (ext) {
-    case "png":
-      return "image/png";
-    case "webp":
-      return "image/webp";
-    case "jpg":
-    case "jpeg":
-    default:
-      return "image/jpeg";
-  }
-}
 
 export default function NewReviewScreen() {
   const {
@@ -101,7 +83,8 @@ export default function NewReviewScreen() {
   const [moodA, setMoodA] = useState("");
   const [moodB, setMoodB] = useState("");
   const [text, setText] = useState("");
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<ReviewMediaAsset[]>([]);
+  const pendingMediaReviewId = useRef<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [unlockedAchievements, setUnlockedAchievements] = useState<any[]>([]);
 
@@ -131,50 +114,19 @@ export default function NewReviewScreen() {
           return;
         }
 
-        setPhotos((prev) => [...prev, result.assets[0].uri]);
+        const asset = result.assets[0];
+        setPhotos((prev) => [...prev, {
+          uri: asset.uri,
+          fileName: asset.fileName,
+          fileSize: asset.fileSize,
+          mimeType: asset.mimeType,
+        }]);
         void trackAnalyticsEvent({ eventName: "review_photo_added", screenName: "review_new", spotId, properties: { source: fromCamera ? "camera" : "library" } });
       }
     } catch (e: any) {
       console.error("pickImage error:", e);
       Alert.alert("Bild nicht ausgewählt", userFacingError(e, "Das Bild konnte gerade nicht ausgewählt werden."));
     }
-  }
-
-  async function uploadReviewImage(uri: string, reviewId: string) {
-    const ext = getSafeImageExtension(uri);
-    const contentType = getContentTypeFromExtension(ext);
-
-    const objectPath = `${reviewId}/${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}.${ext}`;
-
-    const response = await fetch(uri);
-    if (!response.ok) {
-      throw new Error(`Bild konnte nicht gelesen werden (${response.status})`);
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    if (!arrayBuffer || arrayBuffer.byteLength === 0) {
-      throw new Error("Bilddatei ist leer (0 Bytes).");
-    }
-
-    const { error: uploadError } = await supabase.storage
-      .from("review-photos")
-      .upload(objectPath, arrayBuffer, {
-        contentType,
-        upsert: false,
-      });
-
-    if (uploadError) throw uploadError;
-
-    const { data } = supabase.storage.from("review-photos").getPublicUrl(objectPath);
-
-    if (!data?.publicUrl) {
-      throw new Error("Public URL für Bild konnte nicht erzeugt werden.");
-    }
-
-
-    return data.publicUrl;
   }
 
   async function linkDecisionReview(reviewId: string) {
@@ -216,36 +168,31 @@ export default function NewReviewScreen() {
     try {
       setUploading(true);
 
-      const { data: reviewData, error: reviewErr } = await supabase
-        .from("reviews")
-        .insert({
-          spot_id: spotId,
-          user_id: user.id,
-          text: text.trim() || null,
-          mood_a: moodA.trim() || null,
-          mood_b: moodB.trim() || null,
-          mood_a_id: null,
-          mood_b_id: null,
-        })
-        .select()
-        .single();
-
-      if (reviewErr) throw reviewErr;
-      const reviewId = reviewData.id as string;
-
       const uploadedPhotoUrls: string[] = [];
-
-      for (const uri of photos) {
-        const photoUrl = await uploadReviewImage(uri, reviewId);
-        uploadedPhotoUrls.push(photoUrl);
-
-        const { error: photoErr } = await supabase.from("review_photos").insert({
-          review_id: reviewId,
-          url: photoUrl,
-          uploaded_by: user.id,
+      let reviewId: string;
+      if (photos.length > 0) {
+        reviewId = pendingMediaReviewId.current ?? Crypto.randomUUID();
+        pendingMediaReviewId.current = reviewId;
+        const media = await uploadReservedReviewMedia({
+          reviewId, spotId, smartReview: false, assets: photos,
         });
-
-        if (photoErr) throw photoErr;
+        uploadedPhotoUrls.push(...media.publicUrls);
+        await finalizeReviewWithMedia({
+          reviewId, spotId, text: text.trim() || null,
+          moodA: moodA.trim() || null, moodB: moodB.trim() || null,
+          ...media, smartReview: false,
+        });
+      } else {
+        const { data: reviewData, error: reviewErr } = await supabase
+          .from("reviews")
+          .insert({
+            spot_id: spotId, user_id: user.id, text: text.trim() || null,
+            mood_a: moodA.trim() || null, mood_b: moodB.trim() || null,
+            mood_a_id: null, mood_b_id: null,
+          })
+          .select().single();
+        if (reviewErr) throw reviewErr;
+        reviewId = reviewData.id as string;
       }
 
       await linkDecisionReview(reviewId);
@@ -269,6 +216,7 @@ export default function NewReviewScreen() {
         },
       });
 
+      pendingMediaReviewId.current = null;
       void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_new", entityType: "review", entityId: reviewId, spotId, decisionId: decisionId ?? null, properties: { photo_count: photos.length, has_text: Boolean(text.trim()), source: source ?? "spot" } });
 
       const newlyUnlocked = await awardAchievementsForUser(user.id);
@@ -288,6 +236,7 @@ export default function NewReviewScreen() {
       const errorMessage = String(e?.message ?? e ?? "");
       const isOwnerSelfReview = errorMessage.includes("SAFETY_OWNER_SELF_REVIEW");
       const safetyMessage = getSafetyRestrictionMessage(e);
+      const mediaError = reviewMediaErrorContext(e);
 
       if (isOwnerSelfReview) {
         void trackAnalyticsEvent({
@@ -326,6 +275,19 @@ export default function NewReviewScreen() {
             },
           ],
         );
+      } else if (mediaError) {
+        console.warn("[review-media] publish failed", {
+          surface: "review_new",
+          spot_id: spotId,
+          ...mediaError,
+        });
+        void reportAnalyticsError({
+          error: new Error(`${mediaError.stage}:${mediaError.code}`),
+          screenName: "review_new",
+          errorType: "review_media_submit_failed",
+          context: { spot_id: spotId, ...mediaError },
+        });
+        Alert.alert("Review nicht gespeichert", reviewMediaUserMessage(e) ?? "Bitte versuche es nochmals.");
       } else {
         void reportAnalyticsError({
           error: e,
@@ -417,8 +379,8 @@ export default function NewReviewScreen() {
               <Text style={styles.cardTitle}>Fotos</Text>
               <Text style={styles.cardHint}>Optional, maximal 3 Bilder.</Text>
               <View style={styles.photoContainer}>
-                {photos.map((uri, idx) => (
-                  <Image key={idx} source={{ uri }} style={styles.preview} />
+                {photos.map((asset, idx) => (
+                  <Image key={idx} source={{ uri: asset.uri }} style={styles.preview} />
                 ))}
               </View>
 

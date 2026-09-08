@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   Linking,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as Crypto from "expo-crypto";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -31,6 +32,13 @@ import { registerSafetySnapshot } from "../../lib/safety-content";
 import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
 import { userFacingError } from "../../lib/userFacingError";
 import { MoodExpressionInput } from "../../components/MoodExpressionInput";
+import {
+  finalizeReviewWithMedia,
+  reviewMediaErrorContext,
+  reviewMediaUserMessage,
+  type ReviewMediaAsset,
+  uploadReservedReviewMedia,
+} from "../../lib/review-media-upload";
 
 const theme = {
   colors: {
@@ -140,32 +148,6 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function getSafeImageExtension(uri: string) {
-  const cleanUri = uri.split("?")[0].toLowerCase();
-
-  if (cleanUri.endsWith(".png")) return "png";
-  if (cleanUri.endsWith(".webp")) return "webp";
-  if (cleanUri.endsWith(".jpg")) return "jpg";
-  if (cleanUri.endsWith(".jpeg")) return "jpeg";
-  if (cleanUri.endsWith(".heic")) return "jpg";
-  if (cleanUri.endsWith(".heif")) return "jpg";
-
-  return "jpg";
-}
-
-function getContentTypeFromExtension(ext: string) {
-  switch (ext) {
-    case "png":
-      return "image/png";
-    case "webp":
-      return "image/webp";
-    case "jpg":
-    case "jpeg":
-    default:
-      return "image/jpeg";
-  }
-}
-
 export default function SmartReviewScreen() {
   const router = useRouter();
   const {
@@ -186,7 +168,9 @@ export default function SmartReviewScreen() {
 
   const isDecisionReview = source === "decision" || Boolean(decisionId);
 
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<ReviewMediaAsset | null>(null);
+  const pendingMediaReviewId = useRef<string | null>(null);
+  const photoUri = photo?.uri ?? null;
   const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [nearest, setNearest] = useState<SpotRow | null>(null);
 
@@ -216,7 +200,7 @@ export default function SmartReviewScreen() {
     (async () => {
       setSearching(true);
       setGateFailure(null);
-      setPhotoUri(null);
+      setPhoto(null);
       setCoords(null);
       setNearest(null);
 
@@ -286,7 +270,13 @@ export default function SmartReviewScreen() {
 
         if (!active) return;
 
-        setPhotoUri(result.assets[0].uri);
+        const asset = result.assets[0];
+        setPhoto({
+          uri: asset.uri,
+          fileName: asset.fileName,
+          fileSize: asset.fileSize,
+          mimeType: asset.mimeType,
+        });
 
         void trackAnalyticsEvent({
           eventName: "review_photo_added",
@@ -347,42 +337,6 @@ export default function SmartReviewScreen() {
     return "Kein Spot gefunden";
   }, [searching, nearest]);
 
-  async function uploadReviewImage(uri: string, reviewId: string) {
-    const ext = getSafeImageExtension(uri);
-    const contentType = getContentTypeFromExtension(ext);
-
-    const objectPath = `${reviewId}/${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2)}.${ext}`;
-
-    const response = await fetch(uri);
-    if (!response.ok) {
-      throw new Error(`Bild konnte nicht gelesen werden (${response.status})`);
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    if (!arrayBuffer || arrayBuffer.byteLength === 0) {
-      throw new Error("Bilddatei ist leer (0 Bytes).");
-    }
-
-    const { error: uploadError } = await supabase.storage
-      .from("review-photos")
-      .upload(objectPath, arrayBuffer, {
-        contentType,
-        upsert: false,
-      });
-
-    if (uploadError) throw uploadError;
-
-    const { data } = supabase.storage.from("review-photos").getPublicUrl(objectPath);
-
-    if (!data?.publicUrl) {
-      throw new Error("Public URL für Bild konnte nicht erzeugt werden.");
-    }
-
-    return data.publicUrl;
-  }
-
   async function linkDecisionReview(reviewId: string) {
     const shouldLink = source === "decision" || Boolean(decisionId);
     if (!shouldLink) return;
@@ -413,7 +367,7 @@ export default function SmartReviewScreen() {
       return;
     }
 
-    if (!photoUri) {
+    if (!photo) {
       Alert.alert("Kein Foto", "Bitte zuerst ein Foto aufnehmen.");
       return;
     }
@@ -430,35 +384,17 @@ export default function SmartReviewScreen() {
     try {
       setSaving(true);
 
-      const { data: reviewData, error: reviewErr } = await supabase
-        .from("reviews")
-        .insert({
-          spot_id: nearest.id,
-          user_id: user.id,
-          // The database bridge only treats this explicit Smart Review origin plus
-          // its user-owned photo as qualified Experience evidence.
-          product_evidence_origin: "smart_review_v1",
-          text: text.trim() || null,
-          mood_a: moodA.trim() || null,
-          mood_b: moodB.trim() || null,
-          mood_a_id: null,
-          mood_b_id: null,
-        })
-        .select()
-        .single();
-
-      if (reviewErr) throw reviewErr;
-      const reviewId = reviewData.id as string;
-
-      const photoUrl = await uploadReviewImage(photoUri, reviewId);
-
-      const { error: photoErr } = await supabase.from("review_photos").insert({
-        review_id: reviewId,
-        url: photoUrl,
-        uploaded_by: user.id,
+      const reviewId = pendingMediaReviewId.current ?? Crypto.randomUUID();
+      pendingMediaReviewId.current = reviewId;
+      const media = await uploadReservedReviewMedia({
+        reviewId, spotId: nearest.id, smartReview: true, assets: [photo],
       });
-
-      if (photoErr) throw photoErr;
+      await finalizeReviewWithMedia({
+        reviewId, spotId: nearest.id, text: text.trim() || null,
+        moodA: moodA.trim() || null, moodB: moodB.trim() || null,
+        ...media, smartReview: true,
+      });
+      const photoUrl = media.publicUrls[0];
 
       await registerSafetySnapshot({
         entityType: "review",
@@ -480,6 +416,7 @@ export default function SmartReviewScreen() {
       });
 
       await linkDecisionReview(reviewId);
+      pendingMediaReviewId.current = null;
       void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_smart", entityType: "review", entityId: reviewId, spotId: nearest.id, decisionId: decisionId ?? null, properties: { photo_count: 1, has_text: Boolean(text.trim()), source: source ?? "smart" } });
 
       const newlyUnlocked = await awardAchievementsForUser(user.id);
@@ -499,6 +436,7 @@ export default function SmartReviewScreen() {
       const errorMessage = String(e?.message ?? e ?? "");
       const isOwnerSelfReview = errorMessage.includes("SAFETY_OWNER_SELF_REVIEW");
       const safetyMessage = getSafetyRestrictionMessage(e);
+      const mediaError = reviewMediaErrorContext(e);
 
       if (isOwnerSelfReview) {
         void trackAnalyticsEvent({
@@ -526,6 +464,19 @@ export default function SmartReviewScreen() {
           safetyMessage,
           [{ text: "OK", onPress: () => router.replace("/") }],
         );
+      } else if (mediaError) {
+        console.warn("[review-media] publish failed", {
+          surface: "review_smart",
+          spot_id: nearest?.id ?? null,
+          ...mediaError,
+        });
+        void reportAnalyticsError({
+          error: new Error(`${mediaError.stage}:${mediaError.code}`),
+          screenName: "review_smart",
+          errorType: "review_media_submit_failed",
+          context: { spot_id: nearest?.id ?? null, ...mediaError },
+        });
+        Alert.alert("Review nicht gespeichert", reviewMediaUserMessage(e) ?? "Bitte versuche es nochmals.");
       } else {
         void reportAnalyticsError({
           error: e,
