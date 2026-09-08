@@ -14,7 +14,7 @@ const load = async (path) => JSON.parse(await readFile(resolve(root, path), "utf
 
 if (command === "generate") {
   const out = required("out");
-  const artifact = await generateCandidateEvidence({ root, baseVersion: required("base"), baseMainSha: required("base-sha"), candidateSha: required("candidate"), requestedScope: required("scope"), evidencePaths: required("evidence").split(",").filter(Boolean), adminDataManifestPath: option("admin-data-manifest") });
+  const artifact = await generateCandidateEvidence({ root, baseVersion: required("base"), baseMainSha: required("base-sha"), candidateSha: required("candidate"), requestedScope: required("scope"), evidencePaths: required("evidence").split(",").filter(Boolean), adminDataManifestPath: option("admin-data-manifest"), mobileStorageManifestPath: option("mobile-storage-manifest") });
   await writeCandidateEvidence(resolve(root, out), artifact);
   process.stdout.write(`${JSON.stringify({ generated: true, out, artifactHash: artifact.artifactHash }, null, 2)}\n`);
 } else if (command === "verify-candidate") {
@@ -30,6 +30,6 @@ if (command === "generate") {
   const result = await validatePostMergeActiveChain({ root, canonicalMainSha: option("canonical-main", null), candidateSha: option("candidate", null) });
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`); if (!result.valid) process.exitCode = 1;
 } else {
-  process.stdout.write("Usage:\n  recertification generate --base v44 --base-sha <canonical-pr-base> --candidate <exact-pr-head> --scope evidence-only|presentation|admin-data-additive --evidence <path,...> [--admin-data-manifest <path>] --out <artifact>\n  recertification verify-candidate <artifact> --pr-base <canonical-pr-base> --pr-head <exact-pr-head> --receipt <receipt>\n  recertification apply <artifact> --pr-base <canonical-pr-base> --receipt <receipt>\n  recertification consume-active [--canonical-main <exact-origin-main-tip>] [--candidate <merged-candidate>]\n");
+  process.stdout.write("Usage:\n  recertification generate --base v44 --base-sha <canonical-pr-base> --candidate <exact-pr-head> --scope evidence-only|presentation|admin-data-additive|mobile-storage-atomic --evidence <path,...> [--admin-data-manifest <path>] [--mobile-storage-manifest <path>] --out <artifact>\n  recertification verify-candidate <artifact> --pr-base <canonical-pr-base> --pr-head <exact-pr-head> --receipt <receipt>\n  recertification apply <artifact> --pr-base <canonical-pr-base> --receipt <receipt>\n  recertification consume-active [--canonical-main <exact-origin-main-tip>] [--candidate <merged-candidate>]\n");
   if (command) process.exitCode = 1;
 }

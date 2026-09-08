@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { contentHash } from "./canonical-json.mjs";
 import { verifyPreMergeCandidate } from "./recertification-verify.mjs";
 
-export const APPLIER_VERSION = "backyrd-recertification-applier-v1.4";
+export const APPLIER_VERSION = "backyrd-recertification-applier-v1.5";
 const writeIdempotent = async (path, value) => {
   const body = `${JSON.stringify(value, null, 2)}\n`;
   const existing = await readFile(path, "utf8").catch(() => null);
@@ -35,6 +35,7 @@ export async function applyCandidateEvidence({ root, artifact, receipt, trustedB
     production: artifact.production,
     d2D3Parents: artifact.d2D3Parents.candidate,
     ...(artifact.adminData ? { adminData: artifact.adminData } : {}),
+    ...(artifact.mobileStorageAtomic ? { mobileStorageAtomic: artifact.mobileStorageAtomic } : {}),
     evidence: artifact.evidence,
     candidateArtifactHash: artifact.artifactHash,
     verificationHash: receipt.verificationHash,

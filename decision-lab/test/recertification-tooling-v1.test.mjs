@@ -103,7 +103,7 @@ async function appliedFixture() {
 async function cloneWithConsumerUnderTest(prefix) {
   const source = new URL("../..", import.meta.url).pathname; const root = await mkdtemp(join(tmpdir(), prefix));
   execFileSync("git", ["clone", "--quiet", "--shared", source, root]); git(root, ["config", "user.email", "fixture@example.invalid"]); git(root, ["config", "user.name", "Fixture"]); if (process.env.CI_BASE_SHA) git(root, ["checkout", "--quiet", "--detach", process.env.CI_BASE_SHA]);
-  for (const path of ["decision-lab/src/admin-data-additive.mjs", "decision-lab/src/d2-cli.mjs", "decision-lab/src/d3.1-readiness.mjs", "decision-lab/src/recertification-apply.mjs", "decision-lab/src/recertification-cli.mjs", "decision-lab/src/recertification-consumer.mjs", "decision-lab/src/recertification-verify.mjs"]) await writeFile(join(root, path), await readFile(join(source, path)));
+  for (const path of ["decision-lab/src/admin-data-additive.mjs", "decision-lab/src/mobile-storage-atomic.mjs", "decision-lab/src/d2-cli.mjs", "decision-lab/src/d3.1-readiness.mjs", "decision-lab/src/recertification-apply.mjs", "decision-lab/src/recertification-cli.mjs", "decision-lab/src/recertification-consumer.mjs", "decision-lab/src/recertification-verify.mjs"]) await writeFile(join(root, path), await readFile(join(source, path)));
   const base = commit(root, "install consumer under test"); setCanonicalMain(root, base); return { root, base };
 }
 
