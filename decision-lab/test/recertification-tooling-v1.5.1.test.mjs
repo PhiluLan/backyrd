@@ -8,6 +8,7 @@ import {
   planMobileStorageAtomicValidation,
   resolveCanonicalFixtureBase,
 } from "../../scripts/ci/mobile-storage-atomic-validation-order.mjs";
+import { selectDatabaseValidationScope } from "../../scripts/ci/database-validation-scope.mjs";
 
 const source = new URL("../..", import.meta.url).pathname;
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
@@ -109,6 +110,29 @@ test("V1.5.2 keeps canonical main pushes out of PR candidate mode", async () => 
   assert.match(v15Fixture, /"update-ref", "refs\/remotes\/origin\/main", canonicalBase/);
   assert.match(v15Fixture, /resolveCanonicalFixtureBase\(\{ root, explicitBaseSha: canonicalBase \}\)/);
   assert.doesNotMatch(v15Fixture, /process\.env\.(?:PR_BASE_SHA|CI_BASE_SHA)/);
+});
+
+test("V1.5.4 distinguishes an integrated active parent from new candidate scopes", () => {
+  assert.deepEqual(selectDatabaseValidationScope({
+    adminValidationMode: "canonical",
+    mobileValidationMode: "mobile-storage-atomic",
+    activeAdminMode: "admin-data-additive-active",
+  }), { validationMode: "mobile-storage-atomic", consumeActiveAdmin: false });
+  assert.deepEqual(selectDatabaseValidationScope({
+    adminValidationMode: "canonical",
+    mobileValidationMode: "canonical",
+    activeAdminMode: "admin-data-additive-active",
+  }), { validationMode: "admin-data-additive", consumeActiveAdmin: true });
+  assert.throws(() => selectDatabaseValidationScope({
+    adminValidationMode: "admin-data-additive",
+    mobileValidationMode: "mobile-storage-atomic",
+    activeAdminMode: "admin-data-additive-active",
+  }), /cannot combine/);
+  assert.throws(() => selectDatabaseValidationScope({
+    adminValidationMode: "future-admin-scope",
+    mobileValidationMode: "canonical",
+    activeAdminMode: "inactive",
+  }), /unknown admin validation mode/);
 });
 
 for (const [name, path, value] of [

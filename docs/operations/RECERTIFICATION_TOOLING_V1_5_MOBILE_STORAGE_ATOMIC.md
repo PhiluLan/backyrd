@@ -92,6 +92,8 @@ For a canonical `main` push, the workflow may expose the previous commit as `git
 
 V1.5.3 applies the same event boundary to the synthetic Decision Lab matrix: its fixture accepts an explicit base only from `PR_BASE_SHA`. On canonical `main` pushes it resolves the exact `origin/main` tip directly, so `github.event.before` cannot be mistaken for a candidate base. The validator's exact base/head and first-parent checks remain unchanged.
 
+V1.5.4 keeps a previously verified active Admin/data record as part of the exact canonical PR base when a new Mobile/Storage candidate is evaluated. A strict scope selector consumes the active-record reconstruction path only when no new pre-merge candidate exists. It admits one exact new Admin/data or Mobile/Storage candidate above that parent, rejects two new candidate scopes together, and rejects unknown modes fail-closed.
+
 ## Positive and negative matrix
 
 | Case | Required result |

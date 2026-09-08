@@ -70,12 +70,12 @@ mobile_validation_mode="$(jq -r '.mode' <<<"$mobile_validation_plan")"
 active_admin_plan="$(node "$repo_root/scripts/ci/resolve-active-admin-data-validation.mjs" \
   --head-sha "$(git -C "$repo_root" rev-parse HEAD)")"
 active_admin_mode="$(jq -r '.mode' <<<"$active_admin_plan")"
-if test "$active_admin_mode" = admin-data-additive-active; then
-  if test "$admin_validation_mode" != canonical || \
-    test "$mobile_validation_mode" != canonical; then
-    printf 'Active Admin/data evidence cannot overlap another database candidate scope.\n' >&2
-    exit 1
-  fi
+validation_selection="$(node "$repo_root/scripts/ci/database-validation-scope.mjs" \
+  --admin-mode "$admin_validation_mode" \
+  --mobile-mode "$mobile_validation_mode" \
+  --active-admin-mode "$active_admin_mode")"
+consume_active_admin="$(jq -r '.consumeActiveAdmin' <<<"$validation_selection")"
+if test "$consume_active_admin" = true; then
   comparison_base="$(jq -r '.baseSha' <<<"$active_admin_plan")"
   head_sha="$(jq -r '.candidateSha' <<<"$active_admin_plan")"
   admin_validation_plan="$(node "$repo_root/scripts/ci/admin-data-additive-validation-order.mjs" \
@@ -91,15 +91,7 @@ if test "$active_admin_mode" = admin-data-additive-active; then
     "$head_sha" \
     "$(jq -r '.candidateTree' <<<"$active_admin_plan")"
 fi
-if test "$admin_validation_mode" != canonical && \
-  test "$mobile_validation_mode" != canonical; then
-  printf 'A candidate cannot combine admin-data-additive and mobile-storage-atomic scopes.\n' >&2
-  exit 1
-fi
-validation_mode="$admin_validation_mode"
-if test "$mobile_validation_mode" = mobile-storage-atomic; then
-  validation_mode="$mobile_validation_mode"
-fi
+validation_mode="$(jq -r '.validationMode' <<<"$validation_selection")"
 bootstrap_root="$repo_root"
 candidate_root="$repo_root"
 if test "$validation_mode" != canonical; then
