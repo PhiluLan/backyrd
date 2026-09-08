@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { contentHash } from "../src/canonical-json.mjs";
+import { adminDataAllowedPath } from "../src/admin-data-additive.mjs";
 import { generateCandidateEvidence } from "../src/recertification-generate.mjs";
 import { verifyPreMergeCandidate } from "../src/recertification-verify.mjs";
 
@@ -36,6 +37,13 @@ const PATHS = {
   schemaReconstruction: "scripts/ci/admin-data-additive/synthetic-v1/application-schema-reconstruction.sql",
   aclReconstruction: "scripts/ci/admin-data-additive/synthetic-v1/public-acl-reconstruction.sql",
 };
+
+test("V1.4 admin-dashboard scope recognizes security terms as path tokens", () => {
+  assert.equal(adminDataAllowedPath("admin-dashboard/components/GoldAuthoringPanel.tsx"), true);
+  assert.equal(adminDataAllowedPath("admin-dashboard/lib/auth.ts"), false);
+  assert.equal(adminDataAllowedPath("admin-dashboard/lib/adminAuthorization.ts"), false);
+  assert.equal(adminDataAllowedPath("admin-dashboard/components/SecurityPanel.tsx"), false);
+});
 
 async function fixture(mutate = async () => {}) {
   const root = await mkdtemp(join(tmpdir(), "backyrd-recert-v14-"));
