@@ -38,6 +38,15 @@ cleanup() {
 trap cleanup EXIT
 
 comparison_base="${CI_BASE_SHA:-${BASE_SHA:-}}"
+if test -z "${PR_BASE_SHA:-}" && test -z "${PR_HEAD_SHA:-}"; then
+  # A main push carries github.event.before as CI_BASE_SHA, but it is not a
+  # pre-merge candidate context. Canonical boot must validate the checked-out
+  # main tip instead of reinterpreting the previous main commit as a PR base.
+  comparison_base=""
+elif test -z "${PR_BASE_SHA:-}" || test -z "${PR_HEAD_SHA:-}"; then
+  printf 'PR candidate validation requires an exact base/head pair.\n' >&2
+  exit 1
+fi
 if test -n "${CI_BASE_SHA:-}" && test -n "${BASE_SHA:-}" && \
   test "$CI_BASE_SHA" != "$BASE_SHA"; then
   printf 'CI_BASE_SHA and PR base disagree.\n' >&2

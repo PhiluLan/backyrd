@@ -99,6 +99,13 @@ test("V1.5.1 fixture base rejects a caller-supplied candidate commit", async () 
   }), /not the exact canonical-main tip/);
 });
 
+test("V1.5.2 keeps canonical main pushes out of PR candidate mode", async () => {
+  const validator = await readFile(join(source, "scripts/ci/validate-supabase-local.sh"), "utf8");
+  assert.match(validator, /test -z "\$\{PR_BASE_SHA:-\}" && test -z "\$\{PR_HEAD_SHA:-\}"/);
+  assert.match(validator, /comparison_base=""/);
+  assert.match(validator, /PR candidate validation requires an exact base\/head pair/);
+});
+
 for (const [name, path, value] of [
   ["historical migration", "supabase/migrations/20260101000000_history.sql", "select 2;\n"],
   ["historical fingerprint", "supabase/canonical/application-schema-events-v1.sha256", `${"3".repeat(64)}\n`],
