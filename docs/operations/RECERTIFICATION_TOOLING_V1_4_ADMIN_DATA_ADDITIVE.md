@@ -4,6 +4,8 @@
 
 `admin-data-additive` is the fail-closed pre-merge scope for additive Admin/data contracts. It does not authorize a runtime deployment, an Edge Function change, a Decision change, or a security-boundary relaxation.
 
+Database CI keeps deployed Product lineage and candidate evidence separate. On pull requests, shipped Product lineage is reconstructed from the exact trusted PR base. The undeployed Admin/data head is independently verified by the V1.4 candidate gate and isolated database boot. On canonical `main`, Product lineage continues to be validated directly at `HEAD`.
+
 The scope accepts only a correlated candidate set:
 
 - one or more newly added, forward-only `supabase/migrations/*.sql` files;
