@@ -19,11 +19,29 @@ test("Production migration deployment links the bound project and reuses exact s
   assert.match(script, /\.pendingMigrations \/\/ \.migrations/);
 });
 
-test("Production deployment remains canonical-main-only", async () => {
+test("Production deployment remains explicit-manual and canonical-main-only", async () => {
   const workflow = await readFile(
     new URL("../../.github/workflows/supabase-production.yml", import.meta.url),
     "utf8",
   );
-  assert.match(workflow, /github\.ref == 'refs\/heads\/main'/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /canonical_main_sha:/);
+  assert.match(workflow, /release_confirmation:/);
+  assert.match(workflow, /github\.event_name == 'workflow_dispatch' && inputs\.release_confirmation == 'DEPLOY_SUPABASE_PRODUCTION'/);
+  assert.doesNotMatch(workflow, /github\.event_name == 'push' && github\.ref == 'refs\/heads\/main'/);
+  assert.match(workflow, /verify-manual-production-release\.mjs/);
+  assert.match(workflow, /AWAITING_EXPLICIT_RELEASE/);
+  assert.match(workflow, /release-authority\.json/);
   assert.match(workflow, /--assert-canonical-main/);
+});
+
+test("main pushes retain the source-aware plan but cannot execute Production", async () => {
+  const workflow = await readFile(
+    new URL("../../.github/workflows/supabase-production.yml", import.meta.url),
+    "utf8",
+  );
+  assert.match(workflow, /push:\n\s+branches: \[main\]/);
+  assert.match(workflow, /Build auditable deployment plan/);
+  assert.match(workflow, /Retain deployment plan and gate audit/);
+  assert.equal((workflow.match(/run: bash scripts\/deployment\/deploy-supabase-production\.sh/g) ?? []).length, 1);
 });

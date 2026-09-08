@@ -5,6 +5,16 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      canonical_main_sha:
+        description: Exact current canonical main SHA to release
+        required: true
+        type: string
+      release_confirmation:
+        description: Type DEPLOY_SUPABASE_PRODUCTION to authorize the bound release
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -22,6 +32,20 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.canonical_main_sha || github.sha }}
+      - name: Refresh canonical main identity
+        if: github.event_name == 'workflow_dispatch'
+        run: git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+      - name: Verify explicit manual release authority
+        if: github.event_name == 'workflow_dispatch'
+        id: manual_release
+        run: |
+          node scripts/deployment/verify-manual-production-release.mjs \
+            --event-name "$GITHUB_EVENT_NAME" \
+            --requested-sha "${{ inputs.canonical_main_sha }}" \
+            --confirmation "${{ inputs.release_confirmation }}" \
+            --output manual-production-release.json
+          echo "base_sha=$(jq -r '.baseSha' manual-production-release.json)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
@@ -30,17 +54,37 @@ jobs:
         with:
           version: 2.98.2
       - name: Verify fail-closed deployment planner
-        run: node --test scripts/deployment/supabase-production-plan.test.mjs
+        run: node --test scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs
       - name: Build auditable deployment plan
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ steps.manual_release.outputs.base_sha || github.event.pull_request.base.sha || github.event.before }}
         run: node scripts/deployment/supabase-production-plan.mjs --base-sha "$BASE_SHA" --head-sha HEAD --output supabase-production-plan.json
       - name: Publish plan summary
         run: |
+          release_state="AWAITING_EXPLICIT_RELEASE"
+          execution_authorized=false
+          if test "$GITHUB_EVENT_NAME" = "workflow_dispatch"; then
+            release_state="EXPLICIT_RELEASE_REQUESTED"
+            execution_authorized=true
+          fi
+          jq \
+            --arg eventName "$GITHUB_EVENT_NAME" \
+            --arg releaseState "$release_state" \
+            --argjson executionAuthorized "$execution_authorized" \
+            '{
+              version:"backyrd-production-deployment-gate-audit-v1",
+              eventName:$eventName,
+              releaseState:$releaseState,
+              executionAuthorized:$executionAuthorized,
+              canonicalMainSha,
+              baseSha,
+              planHash,
+              runtimeDeploymentRequired
+            }' supabase-production-plan.json > supabase-production-gate.json
           jq '{canonicalMainSha,planHash,deployFunctions,migrations,pendingMigrations,preappliedMigrationImport,authConfig:(.authConfig|if . then {deploy,sha256} else null end),runtimeDeploymentRequired}' supabase-production-plan.json
-          jq -r '"### Supabase Production Plan\n\n- Main SHA: `\(.canonicalMainSha)`\n- Plan: `\(.planHash)`\n- Functions: \(.deployFunctions|join(", ") // "none")\n- Migrations in canonical change: \(.migrations|length)\n- Pending migrations: \(.pendingMigrations|length)\n- Pre-applied migrations: \(.preappliedMigrationImport.migrations|length // 0)\n- Runtime deployment: \(.runtimeDeploymentRequired)"' supabase-production-plan.json >> "$GITHUB_STEP_SUMMARY"
+          jq -r --slurpfile gate supabase-production-gate.json '"### Supabase Production Plan\n\n- Main SHA: `\(.canonicalMainSha)`\n- Plan: `\(.planHash)`\n- Functions: \(.deployFunctions|join(", ") // "none")\n- Migrations in canonical change: \(.migrations|length)\n- Pending migrations: \(.pendingMigrations|length)\n- Pre-applied migrations: \(.preappliedMigrationImport.migrations|length // 0)\n- Runtime deployment: \(.runtimeDeploymentRequired)\n- Release state: \($gate[0].releaseState)"' supabase-production-plan.json >> "$GITHUB_STEP_SUMMARY"
       - name: Verify Production credentials and pending migration scope read-only
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'workflow_dispatch'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
@@ -49,20 +93,22 @@ jobs:
           supabase link --project-ref hjgcrrzfjchzqoegcywn
           supabase db push --dry-run 2>&1 | tee production-migration-dry-run.txt
           node scripts/deployment/verify-supabase-migration-dry-run.mjs supabase-production-plan.json production-migration-dry-run.txt
-      - name: Retain pull-request deployment plan
+      - name: Retain deployment plan and gate audit
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: supabase-production-plan-${{ github.sha }}
           path: |
             supabase-production-plan.json
+            supabase-production-gate.json
             production-migration-dry-run.txt
+            manual-production-release.json
           if-no-files-found: error
           retention-days: 30
 
   production:
-    name: Canonical main production deploy
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: Explicit canonical main production deploy
+    if: github.event_name == 'workflow_dispatch' && inputs.release_confirmation == 'DEPLOY_SUPABASE_PRODUCTION'
     needs: deployment-contract
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -71,19 +117,36 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          ref: ${{ inputs.canonical_main_sha }}
+      - name: Refresh and revalidate canonical main release authority
+        id: manual_release
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          node scripts/deployment/verify-manual-production-release.mjs \
+            --event-name "$GITHUB_EVENT_NAME" \
+            --requested-sha "${{ inputs.canonical_main_sha }}" \
+            --confirmation "${{ inputs.release_confirmation }}" \
+            --output manual-production-release.json
+          echo "base_sha=$(jq -r '.baseSha' manual-production-release.json)" >> "$GITHUB_OUTPUT"
       - name: Set up pinned Supabase CLI
         uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with:
           version: 2.98.2
       - name: Rebuild canonical-main deployment plan
         env:
-          BASE_SHA: ${{ github.event.before }}
+          BASE_SHA: ${{ steps.manual_release.outputs.base_sha }}
+          GITHUB_REF: refs/heads/main
+          GITHUB_SHA: ${{ inputs.canonical_main_sha }}
         run: node scripts/deployment/supabase-production-plan.mjs --base-sha "$BASE_SHA" --head-sha HEAD --assert-canonical-main --output supabase-production-plan.json
+      - name: Bind explicit release authority to immutable audit
+        run: |
+          mkdir -p deployment-audit
+          cp manual-production-release.json deployment-audit/release-authority.json
       - name: Deploy exact bound Production scope
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          GITHUB_REF: ${{ github.ref }}
-          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: refs/heads/main
+          GITHUB_SHA: ${{ inputs.canonical_main_sha }}
         run: bash scripts/deployment/deploy-supabase-production.sh supabase-production-plan.json
       - name: Publish deployment audit
         if: always()
