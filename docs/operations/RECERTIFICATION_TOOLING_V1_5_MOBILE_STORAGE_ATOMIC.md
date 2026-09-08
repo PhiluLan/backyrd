@@ -73,12 +73,18 @@ Each assertion target must contain its exact `V15_ASSERT:<assertion-name>` marke
 
 ## Required verification
 
-1. The Quality gate derives the exact Git diff from the GitHub PR base/head, binds the candidate tree, and verifies the base is on the first-parent history of real `origin/main`.
+1. The Quality gate derives the exact Git diff from the GitHub PR base/head, binds the candidate tree, and verifies that the base is the exact tip and a first-parent commit of real `origin/main`.
 2. The V1.5 verifier hashes every admitted file from Git objects. It rejects missing, extra, renamed, modified-historical, foreign-Mobile, Production, Auth, Edge, Decision, D2/D3, or unbound files.
 3. The Database workflow creates a clean canonical Supabase boot, validates immutable migration lineage, applies the canonical Storage policy, and runs the complete Review-media database and client acceptance matrix.
 4. Candidate application-schema and Public-ACL fingerprints must match the fresh boot. New inverse reconstruction SQL must recover the exact baseline fingerprints inside rolled-back transactions.
 5. The runtime matrix proves reservation ownership and review/path/bucket/MIME/size/expiry bindings, denial for missing/expired/consumed/foreign authority, direct `review_photos` insert denial, atomic Review and Smart-evidence publication, and exact retry idempotency.
 6. The normal Decision Lab, D2, D2.1, D2.2, D3.1, D3-A, protected-source, Database, Security, Repository, and source-aware deployment checks remain mandatory.
+
+### V1.5.1 clean-boot ordering
+
+For a detected `mobile-storage-atomic` candidate, the Database workflow creates two clean detached checkouts. The first is bound to the exact canonical PR base and contains no candidate diff. Gate 5/6/7 lineage, ACL, application-schema, and historical reconstruction are proved exclusively from this checkout and its frozen fingerprints. Only after those proofs pass does the workflow apply the one manifest-bound migration and the candidate's canonical Storage-policy mirror from the exact PR-head checkout. The existing V1.5 candidate fingerprints, database/client acceptance, and rollback-only reconstruction then run against that candidate state.
+
+The regression fixture follows the same boundary: its initial repository state is checked out from the real canonical base tree before the tooling under test and synthetic forward-only candidate are committed. A candidate HEAD can therefore never normalize its own migration or reconstruction into the fixture baseline. Existing migrations, global Gate 5/6/7 fingerprints, and historical reconstruction remain immutable and fail closed. After the detached candidate is proven clean, its client acceptance uses the repository's lockfile-installed dependencies through an explicit test-local link; the isolated checkout cannot silently fall back to globally installed packages.
 
 Pre-merge receipts remain candidate-only evidence. They are never interpreted as an Active Consumer result. After a separately authorized regular merge, the Active Consumer still reads only the exact canonical `refs/remotes/origin/main` tip and validates the entire additive parent chain.
 
