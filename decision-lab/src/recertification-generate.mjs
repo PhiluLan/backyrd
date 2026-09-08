@@ -4,8 +4,9 @@ import { writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { mkdir } from "node:fs/promises";
 import { contentHash } from "./canonical-json.mjs";
+import { buildAdminDataEvidence } from "./admin-data-additive.mjs";
 
-export const GENERATOR_VERSION = "backyrd-recertification-generator-v1";
+export const GENERATOR_VERSION = "backyrd-recertification-generator-v1.4";
 
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024 }).trim();
 const blob = (root, sha, path) => execFileSync("git", ["show", `${sha}:${path}`], { cwd: root, maxBuffer: 50 * 1024 * 1024 });
@@ -47,13 +48,16 @@ const parentIdentities = (root, sha) => {
 };
 const classifyScope = (path, protectedPaths) => {
   if (protectedPaths.includes(path) || /^(packages\/(canonical-semantics|decision-input-runtime|decision-orchestrator-runtime|n6-shadow-runtime)\/src\/|supabase\/functions\/decision-v13\/|decision-lab\/config\/(?:decision-quality-v1\.1(?:\.freeze)?|personalization-treatment-v1(?:\.freeze)?|d3\.1-diagnostic-coverage-v1)\.json$)/.test(path)) return "decision-source";
-  if (/^(supabase\/(?:migrations|production|functions)\/|mobile\/.*auth|web\/.*auth|admin-dashboard\/.*(?:auth|security)|legal\/)/.test(path)) return "db-auth-security";
+  if (/^supabase\/migrations\//.test(path)) return "admin-data-migration";
+  if (/^supabase\/tests\//.test(path)) return "admin-data-acceptance";
+  if (/^supabase\/canonical\/admin-data-additive\//.test(path) || /^scripts\/ci\/admin-data-additive\//.test(path) || /^docs\/operations\/admin-data-additive\//.test(path)) return "admin-data-evidence";
+  if (/^(supabase\/(?:production|functions)\/|mobile\/.*auth|web\/.*auth|admin-dashboard\/.*(?:auth|security)|legal\/)/.test(path)) return "db-auth-security";
   if (/^(mobile\/|web\/|admin-dashboard\/)/.test(path)) return "presentation";
   if (/^(decision-lab\/(?:config|test)\/|docs\/(?:decision|operations|readiness)\/|scripts\/(?:ci|decision)\/)/.test(path)) return "evidence-only";
   return "outside-allowlist";
 };
 
-export async function generateCandidateEvidence({ root, baseVersion, baseMainSha, candidateSha, evidencePaths, requestedScope }) {
+export async function generateCandidateEvidence({ root, baseVersion, baseMainSha, candidateSha, evidencePaths, requestedScope, adminDataManifestPath = null }) {
   if (!root || !baseVersion || !baseMainSha || !candidateSha || !requestedScope || !evidencePaths?.length) throw new Error("All generation inputs are required");
   const basePath = `decision-lab/config/decision-v13-production-recertification-${baseVersion}.json`;
   const baseCommit = git(root, ["rev-parse", `${baseMainSha}^{commit}`]);
@@ -63,6 +67,9 @@ export async function generateCandidateEvidence({ root, baseVersion, baseMainSha
   const protectedPaths = [...base.protectedSemanticSourceSet.paths].sort();
   const changedProtectedFiles = changedFiles.filter((path) => protectedPaths.includes(path));
   const observedProduction = productionIdentity(base.production.identity ?? base.production);
+  const adminData = requestedScope === "admin-data-additive"
+    ? buildAdminDataEvidence({ root, baseSha: baseCommit, candidateSha: candidateCommit, manifestPath: adminDataManifestPath })
+    : null;
   const artifact = {
     schemaVersion: "backyrd-recertification-candidate-evidence-v1",
     version: `decision-v13-production-recertification-v${Number(baseVersion.replace(/^v/, "")) + 1}`,
@@ -90,6 +97,7 @@ export async function generateCandidateEvidence({ root, baseVersion, baseMainSha
       candidateEntrypointSha256: sha256(blob(root, candidateCommit, observedProduction.entrypointPath))
     },
     d2D3Parents: { base: parentIdentities(root, baseCommit), candidate: parentIdentities(root, candidateCommit) },
+    ...(adminData ? { adminData } : {}),
     evidence: { paths: [...new Set(evidencePaths)].sort(), derivedHash: hashTreeFiles(root, candidateCommit, evidencePaths) },
     generationToolVersion: GENERATOR_VERSION
   };

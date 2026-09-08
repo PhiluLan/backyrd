@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { contentHash } from "./canonical-json.mjs";
 import { blob, hashTreeFiles, parentIdentities, sha256, SUPPORTED_VERIFIER_VERSIONS, verifyCandidateEvidence } from "./recertification-verify.mjs";
 
-export const CONSUMER_VERSION = "backyrd-recertification-consumer-v1.3";
+export const CONSUMER_VERSION = "backyrd-recertification-consumer-v1.4";
 const ANCHOR_VERSION = "decision-v13-production-recertification-v44";
 const FREEZE_PATH = "decision-lab/config/additive-recertification-v1.freeze.json";
 const LINEAGE_PATH = "docs/operations/DECISION_RECERTIFICATION_LINEAGE_V1.json";
@@ -35,6 +35,7 @@ const recordProjection = (artifact, receipt) => ({
   decisionEngineIdentity: artifact.decisionEngineIdentity,
   production: artifact.production,
   d2D3Parents: artifact.d2D3Parents.candidate,
+  ...(artifact.adminData ? { adminData: artifact.adminData } : {}),
   evidence: artifact.evidence,
   candidateArtifactHash: artifact.artifactHash,
   verificationHash: receipt.verificationHash,
