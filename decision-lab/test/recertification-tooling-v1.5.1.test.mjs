@@ -81,6 +81,26 @@ test("V1.5.1 orders canonical Base gates before candidate migration, Storage mir
   assert.ok(historicalProof < candidateApply && candidateApply < existingContract);
 });
 
+test("V1.5.4 validates an active Admin/data parent before an exact mobile-storage candidate", async () => {
+  const validator = await readFile(join(source, "scripts/ci/validate-supabase-local.sh"), "utf8");
+  const activeParent = validator.indexOf("Active V1.4 Admin/data evidence will be validated before");
+  const adminApply = validator.indexOf("V1.4.2 exact manifest-bound candidate migrations applied");
+  const adminContract = validator.indexOf('node "$candidate_root/scripts/ci/validate-admin-data-additive.mjs"');
+  const mobileApply = validator.indexOf("V1.5.1 exact manifest-bound migration and canonical Storage policy applied");
+  const mobileContract = validator.indexOf('node "$candidate_root/scripts/ci/validate-mobile-storage-atomic.mjs"');
+  assert.ok(activeParent >= 0 && activeParent < adminApply);
+  assert.ok(adminApply < adminContract && adminContract < mobileApply && mobileApply < mobileContract);
+  assert.match(validator, /mobile_comparison_base="\$comparison_base"/);
+  assert.match(validator, /--base-sha "\$mobile_comparison_base"/);
+});
+
+test("V1.5.4 keeps overlapping candidate scopes fail-closed", async () => {
+  const validator = await readFile(join(source, "scripts/ci/validate-supabase-local.sh"), "utf8");
+  assert.match(validator, /Active Admin\/data evidence cannot overlap another Admin\/data candidate/);
+  assert.match(validator, /A candidate cannot combine admin-data-additive and mobile-storage-atomic scopes/);
+  assert.match(validator, /test "\$active_admin_mode" != admin-data-additive-active/);
+});
+
 test("V1.5.1 rejects a stale or noncanonical Base", async () => {
   const x = await fixture();
   git(x.root, ["checkout", "--quiet", "--detach", x.base]);

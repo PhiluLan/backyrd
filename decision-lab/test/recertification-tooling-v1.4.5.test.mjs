@@ -104,7 +104,7 @@ test("V1.4.5 canonical database reconstructs active additive Base before Candida
   const baseCheckout = script.indexOf("base_checkout=");
   const candidateMigration = script.indexOf("exact manifest-bound candidate migrations applied");
   assert.ok(resolver > 0 && baseCheckout > resolver && candidateMigration > baseCheckout);
-  assert.match(script, /Active Admin\/data evidence cannot overlap another database candidate scope/);
+  assert.match(script, /Active Admin\/data evidence cannot overlap another Admin\/data candidate/);
 });
 
 test("V1.4.5 workflow supplies exact PR head while ordinary PRs remain base-bound", async () => {
