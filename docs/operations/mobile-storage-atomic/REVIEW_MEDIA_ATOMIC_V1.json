@@ -32,8 +32,8 @@
   },
   "fingerprints": {
     "baseline": {
-      "applicationSchema": "supabase/canonical/application-schema-events-v1.sha256",
-      "publicAcl": "supabase/canonical/public-acl-events-v1.sha256"
+      "applicationSchema": "supabase/canonical/admin-data-additive/restaurant-information-v1/application-schema.sha256",
+      "publicAcl": "supabase/canonical/admin-data-additive/restaurant-information-v1/public-acl.sha256"
     },
     "candidate": {
       "applicationSchema": "supabase/canonical/mobile-storage-atomic/review-media-atomic-v1/application-schema.sha256",
