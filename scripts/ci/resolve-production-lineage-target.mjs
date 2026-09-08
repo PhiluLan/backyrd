@@ -40,6 +40,42 @@ export function productionLineageCandidateProblems({ marker, manifest, markerPat
   return problems;
 }
 
+export function pendingProductionLineageCandidateProblems({
+  marker,
+  manifest,
+  baseManifest,
+  markerPath,
+  markerChanges,
+  manifestChanged,
+  sourceMobileTree,
+  sourceIntegrated,
+  migrationExistsAtSource,
+}) {
+  const problems = [];
+  if (markerChanges.length !== 1 || markerChanges[0]?.status !== "A" || markerChanges[0]?.path !== markerPath) problems.push("exactly one new versioned pending marker is required");
+  if (!manifestChanged) problems.push("Production lineage manifest is unchanged");
+  if (marker.schemaVersion !== "backyrd-production-lineage-pending-release-v1") problems.push("pending marker schema version differs");
+  if (!/^[a-z0-9-]+$/.test(marker.id ?? "")) problems.push("pending marker id is invalid");
+  if (!isSha(marker.sourceCommit) || !isSha(marker.mobileTree)) problems.push("pending source or Mobile tree identity is invalid");
+  if (marker.releaseState !== "AWAITING_EXPLICIT_RELEASE") problems.push("pending release state differs");
+  if (marker.channel !== "production" || marker.runtimeVersion !== "1.1.0") problems.push("pending Mobile release contract differs");
+  if (!/^supabase\/migrations\/\d{14}_[a-z0-9_]+\.sql$/.test(marker.requiredMigration ?? "")) problems.push("pending migration path is invalid");
+  if (!sourceIntegrated) problems.push("pending source is not an ancestor of the exact PR head");
+  if (marker.mobileTree !== sourceMobileTree) problems.push("pending Mobile tree does not match source");
+  if (!migrationExistsAtSource) problems.push("pending migration is absent from source");
+
+  const mobile = manifest.surfaces?.mobile;
+  if (mobile?.canonical_source?.commit !== marker.sourceCommit || mobile?.canonical_source?.tree !== marker.mobileTree || mobile?.canonical_source?.production_verified !== false) problems.push("pending Mobile canonical source differs from marker");
+  const shippedMobile = structuredClone(mobile ?? {});
+  const baseShippedMobile = structuredClone(baseManifest.surfaces?.mobile ?? {});
+  delete shippedMobile.canonical_source;
+  delete baseShippedMobile.canonical_source;
+  if (JSON.stringify(shippedMobile) !== JSON.stringify(baseShippedMobile)) problems.push("shipped Mobile identity changed before release");
+  if (JSON.stringify(manifest.surfaces?.database) !== JSON.stringify(baseManifest.surfaces?.database)) problems.push("database lineage changed before release");
+  if (JSON.stringify(manifest.required_ancestry ?? []) !== JSON.stringify(baseManifest.required_ancestry ?? [])) problems.push("required ancestry changed before release");
+  return problems;
+}
+
 const self = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (self) {
   const value = (name) => {
@@ -70,6 +106,32 @@ if (self) {
   const markerPath = markerChanges[0].path;
   const marker = JSON.parse(git(["show", `${headCommit}:${markerPath}`]));
   const manifest = JSON.parse(git(["show", `${headCommit}:${MANIFEST}`]));
+  const baseManifest = JSON.parse(git(["show", `${baseCommit}:${MANIFEST}`]));
+  if (marker.schemaVersion === "backyrd-production-lineage-pending-release-v1") {
+    let sourceMobileTree = null;
+    let migrationExistsAtSource = false;
+    try {
+      sourceMobileTree = git(["rev-parse", `${marker.sourceCommit}:mobile`]);
+      git(["cat-file", "-e", `${marker.sourceCommit}:${marker.requiredMigration}`]);
+      migrationExistsAtSource = true;
+    } catch {
+      // Stable fail-closed problems are emitted below.
+    }
+    const problems = pendingProductionLineageCandidateProblems({
+      marker,
+      manifest,
+      baseManifest,
+      markerPath,
+      markerChanges,
+      manifestChanged,
+      sourceMobileTree,
+      sourceIntegrated: isSha(marker.sourceCommit) && isAncestor(marker.sourceCommit, headCommit),
+      migrationExistsAtSource,
+    });
+    if (problems.length) throw new Error(`Pending Production lineage candidate is invalid: ${problems.join(", ")}`);
+    process.stdout.write(`${JSON.stringify({ mode: "candidate", releaseState: marker.releaseState, targetSha: headCommit, markerPath, pendingSourceCommit: marker.sourceCommit })}\n`);
+    process.exit(0);
+  }
   const migrationPath = `supabase/migrations/${marker.database?.migrationTip}.sql`;
   let deployedAdminTree = null;
   let deployedMigrationCount = null;
