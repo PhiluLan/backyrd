@@ -258,6 +258,9 @@ fi
 printf 'Canonical application schema fingerprint passed (%s catalog facts).\n' \
   "$application_schema_entry_count"
 
+node "$repo_root/scripts/ci/validate-admin-data-additive.mjs" \
+  --base-sha "${BASE_SHA:-}"
+
 expected_versions=()
 while IFS= read -r version; do
   expected_versions+=("$version")

@@ -36,6 +36,11 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm run decision-lab:test
+      - name: V1.4 admin-data-additive exact PR candidate gate
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/ci/validate-admin-data-additive-candidate.mjs
       - run: npm run decision-lab:smoke
       - name: D2 framework acceptance
         run: npm run decision-lab:d2:acceptance
