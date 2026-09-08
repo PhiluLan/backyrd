@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "backyrd-admin-data-additive-evidence-v1",
+  "id": "restaurant-information-v1",
+  "migrations": [
+    "supabase/migrations/20260907170853_restaurant_information_v1.sql"
+  ],
+  "acceptanceTests": {
+    "positive": [
+      "supabase/tests/restaurant_information_v1_positive.sql"
+    ],
+    "negative": [
+      "supabase/tests/restaurant_information_v1_negative.sql"
+    ]
+  },
+  "fingerprints": {
+    "baseline": {
+      "applicationSchema": "supabase/canonical/application-schema-events-v1.sha256",
+      "publicAcl": "supabase/canonical/public-acl-events-v1.sha256"
+    },
+    "candidate": {
+      "applicationSchema": "supabase/canonical/admin-data-additive/restaurant-information-v1/application-schema.sha256",
+      "publicAcl": "supabase/canonical/admin-data-additive/restaurant-information-v1/public-acl.sha256"
+    }
+  },
+  "reconstruction": {
+    "applicationSchema": "scripts/ci/admin-data-additive/restaurant-information-v1/application-schema-reconstruction.sql",
+    "publicAcl": "scripts/ci/admin-data-additive/restaurant-information-v1/public-acl-reconstruction.sql"
+  }
+}

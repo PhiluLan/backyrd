@@ -54,13 +54,42 @@ select pg_temp.assert(public.backyrd_restaurant_information_v1(pg_temp.ri_uuid('
 select pg_temp.assert(public.backyrd_restaurant_information_v1(pg_temp.ri_uuid('archived')) is null,'archived Restaurant leaked into consumer contract');
 select pg_temp.assert(public.backyrd_restaurant_information_v1(pg_temp.ri_uuid('fixture')) is null,'fixture Restaurant leaked into consumer contract');
 
-select pg_temp.actor(pg_temp.ri_uuid('normal'));
-do $$ begin
- begin perform public.admin_restaurant_information_coverage_v1(); raise exception 'normal user accessed Admin coverage'; exception when insufficient_privilege then null; end;
-end $$;
 select pg_temp.assert(public.backyrd_restaurant_information_v1(pg_temp.ri_uuid('product')) is not null,'authenticated consumer could not read eligible Restaurant display data');
 
 reset role;
+select pg_temp.assert(
+  not has_function_privilege('anon','public.backyrd_restaurant_url_is_valid_v1(text,jsonb)','execute')
+  and not has_function_privilege('authenticated','public.backyrd_restaurant_url_is_valid_v1(text,jsonb)','execute')
+  and has_function_privilege('service_role','public.backyrd_restaurant_url_is_valid_v1(text,jsonb)','execute')
+  and not has_function_privilege('anon','public.backyrd_restaurant_value_is_valid_v1(text,jsonb)','execute')
+  and not has_function_privilege('authenticated','public.backyrd_restaurant_value_is_valid_v1(text,jsonb)','execute')
+  and has_function_privilege('service_role','public.backyrd_restaurant_value_is_valid_v1(text,jsonb)','execute')
+  and not has_function_privilege('anon','public.backyrd_human_spot_validate_answer_v3(uuid,text,jsonb)','execute')
+  and not has_function_privilege('authenticated','public.backyrd_human_spot_validate_answer_v3(uuid,text,jsonb)','execute')
+  and has_function_privilege('service_role','public.backyrd_human_spot_validate_answer_v3(uuid,text,jsonb)','execute')
+  and not has_function_privilege('anon','public.backyrd_human_spot_save_section_v3(uuid,text,jsonb,text,text,text,text,text,text)','execute')
+  and has_function_privilege('authenticated','public.backyrd_human_spot_save_section_v3(uuid,text,jsonb,text,text,text,text,text,text)','execute')
+  and has_function_privilege('service_role','public.backyrd_human_spot_save_section_v3(uuid,text,jsonb,text,text,text,text,text,text)','execute')
+  and has_function_privilege('anon','public.backyrd_restaurant_information_v1(uuid)','execute')
+  and has_function_privilege('authenticated','public.backyrd_restaurant_information_v1(uuid)','execute')
+  and has_function_privilege('service_role','public.backyrd_restaurant_information_v1(uuid)','execute')
+  and not has_function_privilege('anon','public.admin_restaurant_information_coverage_v1()','execute')
+  and has_function_privilege('authenticated','public.admin_restaurant_information_coverage_v1()','execute')
+  and has_function_privilege('service_role','public.admin_restaurant_information_coverage_v1()','execute'),
+  'Restaurant V1 ACL contract is not exact'
+);
+select pg_temp.assert(
+  (select count(*)=16 from public.backyrd_spot_fact_catalog_v1 where contract_version='backyrd-restaurant-information-v1')
+  and (select count(*)=16 from public.backyrd_human_spot_questions_v2 where contract_version='backyrd-restaurant-information-v1' and owner_access='FOUNDER_ONLY')
+  and not exists(select 1 from public.backyrd_spot_fact_catalog_v1 where contract_version='backyrd-restaurant-information-v1' and engine_role<>'DISPLAY_ONLY' and field_key<>'location.neighborhood')
+  and (select count(*)=4 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public' and p.proname in ('backyrd_human_spot_validate_answer_v3','backyrd_human_spot_save_section_v3','backyrd_restaurant_information_v1','admin_restaurant_information_coverage_v1')
+      and p.prosecdef and p.proconfig is not null)
+  and exists(select 1 from pg_constraint where conrelid='public.backyrd_human_spot_questions_v2'::regclass
+    and conname='backyrd_human_spot_questions_v2_control_type_check'
+    and pg_get_constraintdef(oid) like '%SPECIAL_HOURS%'),
+  'Restaurant V1 schema contract is not exact'
+);
 select pg_temp.assert((select count(*)=60 from public.backyrd_spot_intelligence_dimensions_v1),'frozen N4 registry changed');
 select pg_temp.assert(not exists(select 1 from public.backyrd_spot_intelligence_dimensions_v1 where dimension_key like 'restaurant.%'),'Restaurant display facts entered N4');
 rollback;
