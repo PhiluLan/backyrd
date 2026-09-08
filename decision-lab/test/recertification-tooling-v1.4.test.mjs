@@ -74,16 +74,16 @@ async function fixture(mutate = async () => {}) {
   await mutate({ root, manifest });
   await put(root, PATHS.manifest, manifest);
   const candidate = commit(root, "synthetic admin-data-additive candidate");
-  const artifact = await generateCandidateEvidence({ root, baseVersion: "v46", baseMainSha: base, candidateSha: candidate, evidencePaths: [PATHS.manifest], requestedScope: "admin-data-additive", adminDataManifestPath: PATHS.manifest });
+  const artifact = await generateCandidateEvidence({ root, baseVersion: "v47", baseMainSha: base, candidateSha: candidate, evidencePaths: [PATHS.manifest], requestedScope: "admin-data-additive", adminDataManifestPath: PATHS.manifest });
   return { root, base, candidate, artifact };
 }
 
-test("V46 active parent chain permits an exact V47 admin-data-additive candidate", async () => {
+test("V47 active parent chain permits an exact V48 admin-data-additive candidate", async () => {
   const x = await fixture();
   const receipt = await verifyPreMergeCandidate({ root: x.root, artifact: x.artifact, prBaseSha: x.base, prHeadSha: x.candidate });
   assert.equal(receipt.valid, true, receipt.reasons.join(","));
   assert.equal(receipt.verifierVersion, "backyrd-recertification-pre-merge-verifier-v1.4");
-  assert.match(x.artifact.version, /v47$/);
+  assert.match(x.artifact.version, /v48$/);
   assert.equal(x.artifact.scopeInventory[PATHS.migration], "admin-data-migration");
 });
 
@@ -119,5 +119,5 @@ for (const [name, mutate, expected] of [
 
 test("admin-data-additive generation fails closed without its explicit manifest", async () => {
   const x = await fixture();
-  await assert.rejects(() => generateCandidateEvidence({ root: x.root, baseVersion: "v46", baseMainSha: x.base, candidateSha: x.candidate, evidencePaths: [PATHS.positive], requestedScope: "admin-data-additive" }));
+  await assert.rejects(() => generateCandidateEvidence({ root: x.root, baseVersion: "v47", baseMainSha: x.base, candidateSha: x.candidate, evidencePaths: [PATHS.positive], requestedScope: "admin-data-additive" }));
 });
