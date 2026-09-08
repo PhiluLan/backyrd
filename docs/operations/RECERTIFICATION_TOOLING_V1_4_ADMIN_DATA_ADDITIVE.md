@@ -55,6 +55,13 @@ The reconstruction files contain the exact inverse of the candidate-owned schema
 4. The database workflow starts a fresh pinned Supabase stack, validates immutable migration lineage, computes the candidate schema/ACL fingerprints, executes positive and negative acceptance, and reconstructs both historical baselines.
 5. Apply the immutable recertification record only from the valid exact-head receipt. No candidate receipt is an Active Consumer result.
 6. After an authorized regular merge, the Active Consumer reads only `refs/remotes/origin/main` and recursively validates V44 and every active additive parent through the new record.
+7. Canonical database boot recognizes an active `admin-data-additive` record only after independently revalidating its record hash, artifact, receipt, exact base/candidate/tree identities, and both real Git ancestry links. It then reconstructs the bound historical Base, applies only the manifest-derived Candidate delta, and runs the positive/negative acceptance and candidate fingerprints. Any overlap with another database candidate scope fails closed.
+
+## Post-merge Production lineage closure
+
+Ordinary pull requests continue to validate shipped Product lineage at their exact trusted PR base. A PR may validate its exact head only when it adds one explicit, versioned marker below `docs/operations/production-lineage-candidates/` together with the correlated `PRODUCTION_PRODUCT_LINEAGE.json` update. The marker must bind an already successful deployment audit, deployed canonical source commit, Admin tree, migration tip/count/bytes, and the real ancestor relationship to the exact PR head. A lineage-manifest change without that marker, a marker without the manifest change, or any identity mismatch fails closed.
+
+This exception closes documentary lineage after an already completed deployment; it is not deployment authority. Post-merge Active Consumer behavior is unchanged and continues to read only canonical `refs/remotes/origin/main`, never a pull-request head.
 
 The deployment result for this tooling and for an additive database contract remains `NO_RUNTIME_DEPLOY`: no OTA and no manual Production runtime deployment.
 

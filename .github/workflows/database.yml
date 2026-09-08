@@ -55,4 +55,5 @@ jobs:
       - name: Validate shipped Product lineage
         env:
           PRODUCTION_LINEAGE_TARGET_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+          PRODUCTION_LINEAGE_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: scripts/ci/validate-production-lineage-at-ref.sh

@@ -24,6 +24,18 @@
       "scope": "presentation",
       "decisionSemanticsRecertified": false,
       "productionMutation": "NONE"
+    },
+    {
+      "version": "decision-v13-production-recertification-v47",
+      "parentVersion": "decision-v13-production-recertification-v46",
+      "parentHash": "4e43ac08d8b6bce8a9a256ca10aec89464be848348a76515bf4db62289250c42",
+      "recertificationHash": "d42810a0e2efd7b1a7609bd54fc93d5b786026efe135b995778edc727a47db53",
+      "baseMainSha": "5bf6bd992af95e92421705a3576b28e60994f709",
+      "candidateSha": "0bfa9b511c1aad3b8355b6bee3b7c57347f13b95",
+      "candidateProductTree": "d9a57e9514fbe64d1c037b8c31a275125615df84",
+      "scope": "admin-data-additive",
+      "decisionSemanticsRecertified": false,
+      "productionMutation": "NONE"
     }
   ]
 }

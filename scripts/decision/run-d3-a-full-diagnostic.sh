@@ -30,6 +30,19 @@ mkdir -p "$lab_root/supabase" "$lab_root/generated" "$lab_root/output" "$lab_roo
 cp "$repo_root/supabase/config.toml" "$lab_root/supabase/config.toml"
 cp -R "$repo_root/supabase/migrations" "$lab_root/supabase/migrations"
 cp -R "$repo_root/supabase/canonical" "$lab_root/supabase/canonical"
+
+# D3-A uses a zero-data synthetic database. Immutable, hash-certified
+# Production data operations require their audited historical rows and are not
+# schema bootstrap steps. Prove the registry before excluding only those exact
+# files, matching Database CI and the D3.1 coverage runner.
+node "$repo_root/scripts/ci/validate-database-lineage.mjs"
+"$repo_root/scripts/ci/validate-migrations.sh"
+while IFS= read -r operation; do
+  rm "$lab_root/supabase/migrations/$operation"
+done < <(jq -r '.[].file' "$repo_root/supabase/historical-data-operations.json")
+printf 'Excluded %s hash-certified historical Production data operations from D3-A bootstrap.\n' \
+  "$(jq 'length' "$repo_root/supabase/historical-data-operations.json")"
+
 sed -i.bak "s/^project_id = .*/project_id = \"$project_id\"/" "$lab_root/supabase/config.toml"
 sed -i.bak -e 's/port = 54321/port = 58421/' -e 's/port = 54322/port = 58422/' -e 's/shadow_port = 54320/shadow_port = 58420/' -e 's/port = 54329/port = 58429/' -e 's/port = 54323/port = 58423/' -e 's/port = 54324/port = 58424/' -e 's/port = 54327/port = 58427/' "$lab_root/supabase/config.toml"
 sed -i.bak '/^\[db.seed\]/,/^\[/ s/^enabled = true/enabled = false/' "$lab_root/supabase/config.toml"
