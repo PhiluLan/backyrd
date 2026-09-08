@@ -36,6 +36,18 @@
       "scope": "admin-data-additive",
       "decisionSemanticsRecertified": false,
       "productionMutation": "NONE"
+    },
+    {
+      "version": "decision-v13-production-recertification-v48",
+      "parentVersion": "decision-v13-production-recertification-v47",
+      "parentHash": "504feb8564e044a51ef8375ca21f8e797d4366ba78458e4148409a171ff4be8d",
+      "recertificationHash": "8f636fc35e66497238eba3d5a7881a4f8bc8740c9c47a13cab356f29a55bee17",
+      "baseMainSha": "20e3d5774041e9d1561667d81389d5eef30a457b",
+      "candidateSha": "92b69d1c9ed585d6e59e9d18f659426e8e9a318d",
+      "candidateProductTree": "f4b08bbd9346313a6bcdfa52e9f5ba0c8c4c9ba2",
+      "scope": "release-control",
+      "decisionSemanticsRecertified": false,
+      "productionMutation": "NONE"
     }
   ]
 }
