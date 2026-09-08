@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { activeAdminDataEvidenceProblems } from "../../scripts/ci/resolve-active-admin-data-validation.mjs";
+import { contentHash } from "../src/canonical-json.mjs";
+import {
+  activeAdminDataEvidenceProblems,
+  resolveHistoricalAdminDataRecord,
+} from "../../scripts/ci/resolve-active-admin-data-validation.mjs";
 import {
   pendingProductionLineageCandidateProblems,
   productionLineageCandidateProblems,
@@ -33,7 +37,36 @@ function activeProblems(overrides = {}) {
 test("V1.4.5 active Admin/data evidence binds exact artifact, receipt, base, candidate, tree, and ancestry", () => {
   assert.deepEqual(activeProblems(), []);
   const currentMode = JSON.parse(execFileSync("node", ["scripts/ci/resolve-active-admin-data-validation.mjs", "--head-sha", "HEAD"], { cwd: root, encoding: "utf8" })).mode;
-  assert.equal(currentMode, currentFreeze.currentVersion === record.version ? "admin-data-additive-active" : "inactive");
+  assert.equal(currentMode, "admin-data-additive-active");
+});
+
+test("V1.4.5 resolves active Admin v47 through an exact additive child chain and fails closed on drift", () => {
+  const child = {
+    version: "decision-v13-production-recertification-v48",
+    status: "VERIFIED_ADDITIVE_EVIDENCE",
+    scope: "release-control",
+    parent: {
+      version: record.version,
+      path: `decision-lab/config/${record.version}.json`,
+      manifestHash: contentHash(record),
+    },
+  };
+  child.recertificationHash = contentHash(child);
+  const childFreeze = {
+    currentVersion: child.version,
+    currentRecertificationHash: child.recertificationHash,
+  };
+  const records = new Map([[child.version, child], [record.version, record]]);
+  assert.equal(
+    resolveHistoricalAdminDataRecord({ freeze: childFreeze, readRecord: (version) => records.get(version) }).version,
+    record.version,
+  );
+  assert.throws(() => resolveHistoricalAdminDataRecord({
+    freeze: childFreeze,
+    readRecord: (version) => version === child.version
+      ? { ...child, parent: { ...child.parent, manifestHash: "0".repeat(64) } }
+      : records.get(version),
+  }));
 });
 
 test("V1.4.5 active Admin/data evidence fails closed for every identity or ancestry mismatch", () => {
