@@ -88,6 +88,8 @@ The regression fixture follows the same boundary: its initial repository state i
 
 Pre-merge receipts remain candidate-only evidence. They are never interpreted as an Active Consumer result. After a separately authorized regular merge, the Active Consumer still reads only the exact canonical `refs/remotes/origin/main` tip and validates the entire additive parent chain.
 
+For a canonical `main` push, the workflow may expose the previous commit as `github.event.before`; that value is lineage context, not a PR base. V1.5.2 enters candidate mode only when both exact PR base and PR head are present. A missing half of that pair fails closed, while a normal main push performs the unchanged canonical clean boot on the checked-out main tip.
+
 ## Positive and negative matrix
 
 | Case | Required result |
