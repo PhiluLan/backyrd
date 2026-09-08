@@ -30,6 +30,18 @@ const jsonAt = (root, sha, path) => JSON.parse(blob(root, sha, path).toString("u
 const unique = (values) => Array.isArray(values) && new Set(values).size === values.length;
 const sorted = (values) => [...values].sort();
 const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+const SECURITY_PATH_TOKENS = new Set(["auth", "authentication", "authorization", "authorize", "authorized", "security"]);
+
+const pathTokens = (path) => path
+  .split(/[\/._@()+\-\[\] ]+/)
+  .flatMap((segment) => segment
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+    .split(" "))
+  .filter(Boolean)
+  .map((token) => token.toLowerCase());
+
+export const adminDataPathHasSecurityToken = (path) => pathTokens(path).some((token) => SECURITY_PATH_TOKENS.has(token));
 
 const diffEntries = (root, baseSha, candidateSha) => {
   const output = git(root, ["diff", "--name-status", baseSha, candidateSha]);
@@ -157,7 +169,7 @@ export function verifyAdminDataEvidence({ root, baseSha, candidateSha, evidence 
 
 export function adminDataAllowedPath(path, evidence) {
   if (evidence?.paths?.includes(path)) return true;
-  if (/^admin-dashboard\//.test(path) && !/(?:auth|security)/i.test(path)) return true;
+  if (/^admin-dashboard\//.test(path) && !adminDataPathHasSecurityToken(path)) return true;
   if (/^docs\/(?:operations|readiness)\//.test(path)) return true;
   return false;
 }
