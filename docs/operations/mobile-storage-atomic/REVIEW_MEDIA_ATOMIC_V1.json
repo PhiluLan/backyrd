@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "backyrd-mobile-storage-atomic-evidence-v1",
+  "id": "review-media-atomic-v1",
+  "migration": "supabase/migrations/20260908045502_create_atomic_review_media_contract_v1.sql",
+  "storagePolicy": "supabase/canonical/storage.sql",
+  "mobile": {
+    "consumers": [
+      "mobile/app/review/new.tsx",
+      "mobile/app/review/quick.tsx",
+      "mobile/app/review/smart.tsx"
+    ],
+    "helper": "mobile/lib/review-media-upload.ts",
+    "tests": ["mobile/scripts/test-review-media-upload.mjs"],
+    "packageManifest": "mobile/package.json"
+  },
+  "acceptanceTests": ["supabase/tests/review_media_atomic_v1.sql"],
+  "assertions": {
+    "positive_atomic_publish": "supabase/tests/review_media_atomic_v1.sql",
+    "reservation_user_review_path_bucket_mime_expiry_bound": "supabase/tests/review_media_atomic_v1.sql",
+    "direct_review_photos_insert_denied": "supabase/tests/review_media_atomic_v1.sql",
+    "foreign_user_denied": "supabase/tests/review_media_atomic_v1.sql",
+    "foreign_review_denied": "supabase/tests/review_media_atomic_v1.sql",
+    "foreign_path_denied": "supabase/tests/review_media_atomic_v1.sql",
+    "foreign_bucket_denied": "supabase/tests/review_media_atomic_v1.sql",
+    "mime_mismatch_denied": "supabase/tests/review_media_atomic_v1.sql",
+    "missing_reservation_denied": "supabase/tests/review_media_atomic_v1.sql",
+    "expired_reservation_denied": "supabase/tests/review_media_atomic_v1.sql",
+    "consumed_reservation_denied": "supabase/tests/review_media_atomic_v1.sql",
+    "upload_failure_no_review_or_smart_evidence": "mobile/scripts/test-review-media-upload.mjs",
+    "bind_failure_no_review_or_smart_evidence": "supabase/tests/review_media_atomic_v1.sql",
+    "exact_retry_idempotent": "mobile/scripts/test-review-media-upload.mjs"
+  },
+  "fingerprints": {
+    "baseline": {
+      "applicationSchema": "supabase/canonical/admin-data-additive/restaurant-information-v1/application-schema.sha256",
+      "publicAcl": "supabase/canonical/admin-data-additive/restaurant-information-v1/public-acl.sha256"
+    },
+    "candidate": {
+      "applicationSchema": "supabase/canonical/mobile-storage-atomic/review-media-atomic-v1/application-schema.sha256",
+      "publicAcl": "supabase/canonical/mobile-storage-atomic/review-media-atomic-v1/public-acl.sha256"
+    }
+  },
+  "reconstruction": {
+    "applicationSchema": "scripts/ci/mobile-storage-atomic/review-media-atomic-v1/application-schema-reconstruction.sql",
+    "publicAcl": "scripts/ci/mobile-storage-atomic/review-media-atomic-v1/public-acl-reconstruction.sql"
+  },
+  "documentation": ["docs/operations/REVIEW_MEDIA_ATOMIC_V1.md"]
+}
