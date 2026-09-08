@@ -100,11 +100,13 @@ test("V1.4.5 Production lineage candidate fails closed without correlated manife
 
 test("V1.4.5 canonical database reconstructs active additive Base before Candidate", async () => {
   const script = await readFile(join(root, "scripts/ci/validate-supabase-local.sh"), "utf8");
+  const scopeSelector = await readFile(join(root, "scripts/ci/database-validation-scope.mjs"), "utf8");
   const resolver = script.indexOf("resolve-active-admin-data-validation.mjs");
+  const scopeSelection = script.indexOf("database-validation-scope.mjs");
   const baseCheckout = script.indexOf("base_checkout=");
   const candidateMigration = script.indexOf("exact manifest-bound candidate migrations applied");
-  assert.ok(resolver > 0 && baseCheckout > resolver && candidateMigration > baseCheckout);
-  assert.match(script, /Active Admin\/data evidence cannot overlap another database candidate scope/);
+  assert.ok(resolver > 0 && scopeSelection > resolver && baseCheckout > scopeSelection && candidateMigration > baseCheckout);
+  assert.match(scopeSelector, /A candidate cannot combine admin-data-additive and mobile-storage-atomic scopes/);
 });
 
 test("V1.4.5 workflow supplies exact PR head while ordinary PRs remain base-bound", async () => {
