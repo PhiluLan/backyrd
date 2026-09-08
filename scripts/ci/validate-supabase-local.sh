@@ -57,6 +57,8 @@ if test -n "${PR_BASE_SHA:-}" && test "$comparison_base" != "$PR_BASE_SHA"; then
   exit 1
 fi
 head_sha="${PR_HEAD_SHA:-$(git -C "$repo_root" rev-parse HEAD)}"
+candidate_head_sha="$head_sha"
+mobile_comparison_base="$comparison_base"
 admin_validation_plan="$(node "$repo_root/scripts/ci/admin-data-additive-validation-order.mjs" \
   --base-sha "$comparison_base" \
   --head-sha "$head_sha" \
@@ -71,9 +73,8 @@ active_admin_plan="$(node "$repo_root/scripts/ci/resolve-active-admin-data-valid
   --head-sha "$(git -C "$repo_root" rev-parse HEAD)")"
 active_admin_mode="$(jq -r '.mode' <<<"$active_admin_plan")"
 if test "$active_admin_mode" = admin-data-additive-active; then
-  if test "$admin_validation_mode" != canonical || \
-    test "$mobile_validation_mode" != canonical; then
-    printf 'Active Admin/data evidence cannot overlap another database candidate scope.\n' >&2
+  if test "$admin_validation_mode" != canonical; then
+    printf 'Active Admin/data evidence cannot overlap another Admin/data candidate.\n' >&2
     exit 1
   fi
   comparison_base="$(jq -r '.baseSha' <<<"$active_admin_plan")"
@@ -90,8 +91,13 @@ if test "$active_admin_mode" = admin-data-additive-active; then
     "$(jq -r '.version' <<<"$active_admin_plan")" \
     "$head_sha" \
     "$(jq -r '.candidateTree' <<<"$active_admin_plan")"
+  if test "$mobile_validation_mode" = mobile-storage-atomic; then
+    head_sha="$candidate_head_sha"
+    printf 'Active V1.4 Admin/data evidence will be validated before the exact V1.5 mobile-storage-atomic candidate.\n'
+  fi
 fi
-if test "$admin_validation_mode" != canonical && \
+if test "$active_admin_mode" != admin-data-additive-active && \
+  test "$admin_validation_mode" != canonical && \
   test "$mobile_validation_mode" != canonical; then
   printf 'A candidate cannot combine admin-data-additive and mobile-storage-atomic scopes.\n' >&2
   exit 1
@@ -356,6 +362,8 @@ if test "$admin_validation_mode" = admin-data-additive; then
   done < <(jq -r '.migrations[]' <<<"$admin_validation_plan")
   "$supabase_cli" migration up --workdir "$validation_root" --local --include-all --agent=no
   printf 'V1.4.2 exact manifest-bound candidate migrations applied after historical proofs.\n'
+  node "$candidate_root/scripts/ci/validate-admin-data-additive.mjs" \
+    --base-sha "$comparison_base"
 fi
 if test "$mobile_validation_mode" = mobile-storage-atomic; then
   mobile_candidate_migration="$(jq -r '.migration' <<<"$mobile_validation_plan")"
@@ -366,14 +374,20 @@ if test "$mobile_validation_mode" = mobile-storage-atomic; then
   psql "$ADMIN_DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction \
     --file "$candidate_root/supabase/canonical/storage.sql"
   printf 'V1.5.1 exact manifest-bound migration and canonical Storage policy applied after historical proofs.\n'
+  node "$candidate_root/scripts/ci/validate-mobile-storage-atomic.mjs" \
+    --base-sha "$mobile_comparison_base"
 fi
 
 # ORDER 4: preserve each existing manifest, candidate fingerprint,
 # positive/negative acceptance, and historical reconstruction contract.
-node "$candidate_root/scripts/ci/validate-admin-data-additive.mjs" \
-  --base-sha "$comparison_base"
-node "$candidate_root/scripts/ci/validate-mobile-storage-atomic.mjs" \
-  --base-sha "$comparison_base"
+if test "$admin_validation_mode" = canonical; then
+  node "$candidate_root/scripts/ci/validate-admin-data-additive.mjs" \
+    --base-sha "$comparison_base"
+fi
+if test "$mobile_validation_mode" = canonical; then
+  node "$candidate_root/scripts/ci/validate-mobile-storage-atomic.mjs" \
+    --base-sha "$mobile_comparison_base"
+fi
 
 expected_versions=()
 while IFS= read -r version; do
