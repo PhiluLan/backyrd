@@ -105,8 +105,10 @@ test("V1.5.2 keeps canonical main pushes out of PR candidate mode", async () => 
   assert.match(validator, /test -z "\$\{PR_BASE_SHA:-\}" && test -z "\$\{PR_HEAD_SHA:-\}"/);
   assert.match(validator, /comparison_base=""/);
   assert.match(validator, /PR candidate validation requires an exact base\/head pair/);
-  assert.match(v15Fixture, /explicitBaseSha: process\.env\.PR_BASE_SHA/);
-  assert.doesNotMatch(v15Fixture, /explicitBaseSha: process\.env\.CI_BASE_SHA/);
+  assert.match(v15Fixture, /const canonicalBase = v47\.baseMainSha/);
+  assert.match(v15Fixture, /"update-ref", "refs\/remotes\/origin\/main", canonicalBase/);
+  assert.match(v15Fixture, /resolveCanonicalFixtureBase\(\{ root, explicitBaseSha: canonicalBase \}\)/);
+  assert.doesNotMatch(v15Fixture, /process\.env\.(?:PR_BASE_SHA|CI_BASE_SHA)/);
 });
 
 for (const [name, path, value] of [
