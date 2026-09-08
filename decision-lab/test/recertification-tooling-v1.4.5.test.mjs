@@ -113,6 +113,7 @@ test("V1.4.5 workflow supplies exact PR head while ordinary PRs remain base-boun
   assert.match(workflow, /PRODUCTION_LINEAGE_TARGET_SHA: \$\{\{ github\.event\.pull_request\.base\.sha \|\| github\.sha \}\}/);
   assert.match(workflow, /PRODUCTION_LINEAGE_PR_HEAD_SHA: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/);
   assert.match(wrapper, /resolve-production-lineage-target\.mjs/);
-  assert.match(wrapper, /PR head does not match the reviewed checkout/);
+  assert.match(wrapper, /reviewed checkout is not the exact PR head or its exact base\/head synthetic merge/);
+  assert.match(wrapper, /worktree add --quiet --detach "\$checkout" "\$target_commit"/);
   assert.match(wrapper, /validation_mode="base"/);
 });
