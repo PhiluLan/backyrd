@@ -50,6 +50,7 @@ async function fixture(mutate = async () => {}) {
   execFileSync("git", ["clone", "--quiet", "--shared", source, root]);
   git(root, ["config", "user.email", "fixture@example.invalid"]);
   git(root, ["config", "user.name", "Fixture"]);
+  if (process.env.CI_BASE_SHA) git(root, ["checkout", "--quiet", "--detach", process.env.CI_BASE_SHA]);
   for (const path of ["decision-lab/src/admin-data-additive.mjs", "decision-lab/src/mobile-storage-atomic.mjs", "decision-lab/src/recertification-generate.mjs", "decision-lab/src/recertification-verify.mjs"]) await writeFile(join(root, path), await readFile(join(source, path)));
   const base = commit(root, "install V1.4 tooling under test");
   git(root, ["update-ref", "refs/remotes/origin/main", base]);
