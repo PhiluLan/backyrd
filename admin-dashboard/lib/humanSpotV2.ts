@@ -1,5 +1,5 @@
 export type AuthoringSectionId = "IDENTITY" | "PURPOSE" | "FIT" | "EXPERIENCE" | "PRACTICAL";
-export type AuthoringControlType = "SINGLE_CHOICE" | "MULTI_CHOICE" | "TRI_STATE_MAP" | "AVAILABILITY_MAP" | "PURPOSE_MAP" | "AGE_RANGE" | "DURATION_RANGE" | "ACCESSIBILITY_MAP";
+export type AuthoringControlType = "SINGLE_CHOICE" | "MULTI_CHOICE" | "TRI_STATE_MAP" | "AVAILABILITY_MAP" | "PURPOSE_MAP" | "AGE_RANGE" | "DURATION_RANGE" | "ACCESSIBILITY_MAP" | "TEXT_INPUT" | "URL_INPUT" | "CAPACITY" | "SPECIAL_HOURS";
 
 export type AuthoringOption = {
   id: string;
@@ -131,6 +131,20 @@ export function normalizeOfferingHierarchy(value: unknown): Record<string, unkno
     }
   }
   return normalized;
+}
+
+export function normalizeRestaurantSocialUrl(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const url = new URL(withScheme);
+    url.protocol = "https:";
+    url.hash = "";
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return trimmed;
+  }
 }
 
 export function humanError(error: unknown): string {
