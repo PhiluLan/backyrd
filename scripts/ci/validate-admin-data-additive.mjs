@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ADMIN_DATA_EVIDENCE_VERSION } from "../../decision-lab/src/admin-data-additive.mjs";
+import { candidateFingerprintFailures, reconstructionFailures } from "./admin-data-additive-validation-order.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const baseSha = process.argv[process.argv.indexOf("--base-sha") + 1];
@@ -33,8 +34,13 @@ const readFingerprint = (path) => readFileSync(resolve(root, path), "utf8").trim
 const baseFingerprint = (path) => git(["show", `${baseSha}:${path}`]).trim();
 const currentSchema = psql(["--tuples-only", "--no-align", "--file", resolve(root, "scripts/ci/application-schema-fingerprint.sql")]).split("|").at(-1);
 const currentAcl = psql(["--tuples-only", "--no-align", "--file", resolve(root, "scripts/ci/public-acl-fingerprint.sql")]);
-if (currentSchema !== readFingerprint(manifest.fingerprints.candidate.applicationSchema)) fail(`candidate application schema fingerprint mismatch: ${currentSchema}`);
-if (currentAcl !== readFingerprint(manifest.fingerprints.candidate.publicAcl)) fail(`candidate Public ACL fingerprint mismatch: ${currentAcl}`);
+const candidateFailures = candidateFingerprintFailures({
+  currentSchema,
+  currentAcl,
+  expectedSchema: readFingerprint(manifest.fingerprints.candidate.applicationSchema),
+  expectedAcl: readFingerprint(manifest.fingerprints.candidate.publicAcl),
+});
+if (candidateFailures.length) fail(`${candidateFailures[0]}: ${candidateFailures[0].includes("schema") ? currentSchema : currentAcl}`);
 
 for (const path of manifest.acceptanceTests.positive) {
   psql(["--file", resolve(root, path)]);
@@ -50,7 +56,7 @@ const reconstructedAcl = psql(["--tuples-only", "--no-align"], `begin;\n\\ir ${r
 const reconstructedSchema = reconstructedSchemaLine?.split("|").at(-1);
 const expectedSchema = baseFingerprint(manifest.fingerprints.baseline.applicationSchema);
 const expectedAcl = baseFingerprint(manifest.fingerprints.baseline.publicAcl);
-if (reconstructedSchema !== expectedSchema) fail(`historical application schema reconstruction mismatch: ${reconstructedSchema}`);
-if (reconstructedAcl !== expectedAcl) fail(`historical Public ACL reconstruction mismatch: ${reconstructedAcl}`);
+const reconstructionProblems = reconstructionFailures({ reconstructedSchema, reconstructedAcl, expectedSchema, expectedAcl });
+if (reconstructionProblems.length) fail(`${reconstructionProblems[0]}: ${reconstructionProblems[0].includes("schema") ? reconstructedSchema : reconstructedAcl}`);
 
 process.stdout.write(`Admin-data-additive fresh-boot verification passed for ${manifest.id}: candidate fingerprints and positive/negative acceptance are exact; schema and ACL reconstruct to the historical baseline.\n`);

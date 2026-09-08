@@ -37,24 +37,59 @@ cleanup() {
 }
 trap cleanup EXIT
 
+comparison_base="${CI_BASE_SHA:-${BASE_SHA:-}}"
+if test -n "${CI_BASE_SHA:-}" && test -n "${BASE_SHA:-}" && \
+  test "$CI_BASE_SHA" != "$BASE_SHA"; then
+  printf 'CI_BASE_SHA and PR base disagree.\n' >&2
+  exit 1
+fi
+if test -n "${PR_BASE_SHA:-}" && test "$comparison_base" != "$PR_BASE_SHA"; then
+  printf 'CI_BASE_SHA and exact PR base disagree.\n' >&2
+  exit 1
+fi
+head_sha="${PR_HEAD_SHA:-$(git -C "$repo_root" rev-parse HEAD)}"
+admin_validation_plan="$(node "$repo_root/scripts/ci/admin-data-additive-validation-order.mjs" \
+  --base-sha "$comparison_base" \
+  --head-sha "$head_sha" \
+  --canonical-main-ref refs/remotes/origin/main)"
+admin_validation_mode="$(jq -r '.mode' <<<"$admin_validation_plan")"
+bootstrap_root="$repo_root"
+candidate_root="$repo_root"
+if test "$admin_validation_mode" = admin-data-additive; then
+  base_checkout="$validation_root/base-checkout"
+  candidate_checkout="$validation_root/candidate-checkout"
+  git clone --quiet --no-hardlinks --no-checkout "$repo_root" "$base_checkout"
+  git -C "$base_checkout" checkout --quiet --detach "$comparison_base"
+  test "$(git -C "$base_checkout" rev-parse HEAD)" = "$comparison_base"
+  test -z "$(git -C "$base_checkout" status --porcelain)"
+  git clone --quiet --no-hardlinks --no-checkout "$repo_root" "$candidate_checkout"
+  git -C "$candidate_checkout" checkout --quiet --detach "$head_sha"
+  test "$(git -C "$candidate_checkout" rev-parse HEAD)" = "$head_sha"
+  test -z "$(git -C "$candidate_checkout" status --porcelain)"
+  bootstrap_root="$base_checkout"
+  candidate_root="$candidate_checkout"
+  printf 'V1.4.2 isolated canonical base checkout bound to %s.\n' "$comparison_base"
+  printf 'V1.4.2 isolated candidate checkout bound to exact PR head %s.\n' "$head_sha"
+fi
+
 node "$repo_root/scripts/ci/validate-database-lineage.mjs"
 "$repo_root/scripts/ci/validate-migrations.sh"
 "$repo_root/scripts/ci/validate-trust-platform-consumers.sh"
 
 mkdir -p "$validation_root/supabase"
-cp "$repo_root/supabase/config.toml" "$validation_root/supabase/config.toml"
-cp -R "$repo_root/supabase/migrations" "$validation_root/supabase/migrations"
-cp -R "$repo_root/supabase/canonical" "$validation_root/supabase/canonical"
-cp -R "$repo_root/supabase/tests" "$validation_root/supabase/tests"
+cp "$bootstrap_root/supabase/config.toml" "$validation_root/supabase/config.toml"
+cp -R "$bootstrap_root/supabase/migrations" "$validation_root/supabase/migrations"
+cp -R "$bootstrap_root/supabase/canonical" "$validation_root/supabase/canonical"
+cp -R "$bootstrap_root/supabase/tests" "$validation_root/supabase/tests"
 
 # Exact-row Production cleanups are immutable historical evidence, not schema
 # bootstrap steps. Their hashes and later schema reconciliation are validated by
 # validate-migrations.sh before this disposable zero-data bootstrap is built.
 while IFS= read -r operation; do
   rm "$validation_root/supabase/migrations/$operation"
-done < <(jq -r '.[].file' "$repo_root/supabase/historical-data-operations.json")
+done < <(jq -r '.[].file' "$bootstrap_root/supabase/historical-data-operations.json")
 printf 'Excluded %s immutable historical Production data operations from zero-data bootstrap.\n' \
-  "$(jq 'length' "$repo_root/supabase/historical-data-operations.json")"
+  "$(jq 'length' "$bootstrap_root/supabase/historical-data-operations.json")"
 
 # A pg_dump-style canonical baseline encodes ACL differences from PostgreSQL's
 # standard defaults. Supabase local adds broad anon/authenticated defaults before
@@ -170,16 +205,16 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction \
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction \
   --file "$validation_root/supabase/canonical/webhooks.sql"
 
-gate6_acl_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/public-acl.sha256")"
-expected_acl_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/public-acl-events-v1.sha256")"
+gate6_acl_fingerprint="$(tr -d '[:space:]' < "$bootstrap_root/supabase/canonical/public-acl.sha256")"
+expected_acl_fingerprint="$(tr -d '[:space:]' < "$bootstrap_root/supabase/canonical/public-acl-events-v1.sha256")"
 actual_acl_fingerprint="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
-  --file "$repo_root/scripts/ci/public-acl-fingerprint.sql")"
+  --file "$bootstrap_root/scripts/ci/public-acl-fingerprint.sql")"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
-  --file "$repo_root/scripts/ci/gate5-public-acl-recertification.sql"
+  --file "$bootstrap_root/scripts/ci/gate5-public-acl-recertification.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
-  --file "$repo_root/scripts/ci/gate6-public-acl-recertification.sql"
+  --file "$bootstrap_root/scripts/ci/gate6-public-acl-recertification.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
-  --file "$repo_root/scripts/ci/gate7-public-acl-recertification.sql"
+  --file "$bootstrap_root/scripts/ci/gate7-public-acl-recertification.sql"
 gate7_recertified_acl_fingerprint="$expected_acl_fingerprint"
 if test "$actual_acl_fingerprint" != "$gate7_recertified_acl_fingerprint"; then
   printf 'Gate 7 ACL candidate differs from the exact re-certified delta: expected %s, got %s\n' \
@@ -199,28 +234,28 @@ if test "$actual_acl_fingerprint" != "$expected_acl_fingerprint"; then
   fi
 fi
 
-gate6_application_schema_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/application-schema.sha256")"
-expected_application_schema_fingerprint="$(tr -d '[:space:]' < "$repo_root/supabase/canonical/application-schema-events-v1.sha256")"
+gate6_application_schema_fingerprint="$(tr -d '[:space:]' < "$bootstrap_root/supabase/canonical/application-schema.sha256")"
+expected_application_schema_fingerprint="$(tr -d '[:space:]' < "$bootstrap_root/supabase/canonical/application-schema-events-v1.sha256")"
 application_schema_result="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align \
-  --file "$repo_root/scripts/ci/application-schema-fingerprint.sql")"
+  --file "$bootstrap_root/scripts/ci/application-schema-fingerprint.sql")"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
-  --file "$repo_root/scripts/ci/gate5-application-schema-recertification.sql"
+  --file "$bootstrap_root/scripts/ci/gate5-application-schema-recertification.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
-  --file "$repo_root/scripts/ci/gate6-application-schema-recertification.sql"
+  --file "$bootstrap_root/scripts/ci/gate6-application-schema-recertification.sql"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 \
-  --file "$repo_root/scripts/ci/gate7-application-schema-recertification.sql"
+  --file "$bootstrap_root/scripts/ci/gate7-application-schema-recertification.sql"
 
 # Independently remove exactly the Gate 7 schema delta and require the frozen
 # Gate 6 application fingerprint. This prevents a current-fingerprint update
 # from normalizing unrelated catalog drift.
 gate7_prior_application_schema_result="$(psql "$DB_URL" -X --quiet --tuples-only --no-align --set ON_ERROR_STOP=1 <<SQL
 begin;
-\ir $repo_root/scripts/ci/events-v1-later-application-schema-reconstruction.sql
+\ir $bootstrap_root/scripts/ci/events-v1-later-application-schema-reconstruction.sql
 drop function public.backyrd_launch_operations_snapshot_v1();
 drop function public.backyrd_has_claimable_embedding_job_v1();
 drop function public.backyrd_consume_launch_cost_boundary_v1(text,text,integer,integer,integer,integer);
 drop table public.backyrd_launch_cost_counters_v1;
-\ir $repo_root/scripts/ci/application-schema-fingerprint.sql
+\ir $bootstrap_root/scripts/ci/application-schema-fingerprint.sql
 rollback;
 SQL
 )"
@@ -258,8 +293,22 @@ fi
 printf 'Canonical application schema fingerprint passed (%s catalog facts).\n' \
   "$application_schema_entry_count"
 
-node "$repo_root/scripts/ci/validate-admin-data-additive.mjs" \
-  --base-sha "${BASE_SHA:-}"
+# V1.4.2 ORDER 3: Gate-5/6/7 history has passed on the isolated base. Only now
+# may the exact manifest-bound additive candidate migrations enter the database.
+if test "$admin_validation_mode" = admin-data-additive; then
+  while IFS= read -r candidate_migration; do
+    test -f "$candidate_root/$candidate_migration"
+    test ! -e "$validation_root/supabase/migrations/$(basename "$candidate_migration")"
+    cp "$candidate_root/$candidate_migration" "$validation_root/supabase/migrations/"
+  done < <(jq -r '.migrations[]' <<<"$admin_validation_plan")
+  "$supabase_cli" migration up --workdir "$validation_root" --local --include-all --agent=no
+  printf 'V1.4.2 exact manifest-bound candidate migrations applied after historical proofs.\n'
+fi
+
+# V1.4.2 ORDER 4: preserve the existing manifest, candidate fingerprint,
+# positive/negative acceptance, and historical reconstruction contract.
+node "$candidate_root/scripts/ci/validate-admin-data-additive.mjs" \
+  --base-sha "$comparison_base"
 node "$repo_root/scripts/ci/validate-mobile-storage-atomic.mjs" \
   --base-sha "${BASE_SHA:-}"
 
