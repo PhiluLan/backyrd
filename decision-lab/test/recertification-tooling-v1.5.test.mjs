@@ -48,11 +48,11 @@ const mirror = "with check (public.review_media_upload_is_reserved_v1(bucket_id,
 
 async function fixture(mutate = async () => {}) {
   const root = await mkdtemp(join(tmpdir(), "backyrd-recert-v15-"));
-  const canonicalBase = resolveCanonicalFixtureBase({
-    root: source,
-    explicitBaseSha: process.env.PR_BASE_SHA,
-  });
+  const v47 = JSON.parse(await readFile(join(source, "decision-lab/config/decision-v13-production-recertification-v47.json"), "utf8"));
+  const canonicalBase = v47.baseMainSha;
   execFileSync("git", ["clone", "--quiet", "--shared", source, root]);
+  git(root, ["update-ref", "refs/remotes/origin/main", canonicalBase]);
+  assert.equal(resolveCanonicalFixtureBase({ root, explicitBaseSha: canonicalBase }), canonicalBase);
   git(root, ["checkout", "--quiet", "--detach", canonicalBase]);
   git(root, ["config", "user.email", "fixture@example.invalid"]);
   git(root, ["config", "user.name", "Fixture"]);
