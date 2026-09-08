@@ -52,6 +52,55 @@ test("v44 to synthetic v45 presentation-only passes with a changed Product tree"
   const active = await validateActiveAdditiveRecertification({ root: x.root, trustedBaseSha: x.base, candidateSha: x.candidate }); assert.equal(active.valid, false); assert.ok(active.reasons.includes("CANDIDATE_NOT_CANONICALLY_INTEGRATED"), active.reasons.join(","));
 });
 
+test("release-control scope accepts only the exact versioned deployment guard paths", async () => {
+  const x = await fixture((root) => put(
+    root,
+    "scripts/deployment/verify-supabase-migration-dry-run.mjs",
+    "export const verified = true;\n",
+  ));
+  const artifact = await generateCandidateEvidence({
+    root: x.root,
+    baseVersion: "v44",
+    baseMainSha: x.base,
+    candidateSha: x.candidate,
+    evidencePaths: ["docs/decision/evidence.md"],
+    requestedScope: "release-control",
+  });
+  const receipt = await verifyPreMergeCandidate({
+    root: x.root,
+    artifact,
+    prBaseSha: x.base,
+    prHeadSha: x.candidate,
+  });
+  assert.equal(receipt.valid, true, receipt.reasons.join(","));
+  assert.equal(
+    artifact.scopeInventory["scripts/deployment/verify-supabase-migration-dry-run.mjs"],
+    "release-control",
+  );
+
+  await put(x.root, "scripts/deployment/unapproved-release-path.mjs", "export default true;\n");
+  const unapprovedCandidate = commit(x.root, "unapproved release path");
+  const blockedArtifact = await generateCandidateEvidence({
+    root: x.root,
+    baseVersion: "v44",
+    baseMainSha: x.base,
+    candidateSha: unapprovedCandidate,
+    evidencePaths: ["docs/decision/evidence.md"],
+    requestedScope: "release-control",
+  });
+  const blocked = await verifyPreMergeCandidate({
+    root: x.root,
+    artifact: blockedArtifact,
+    prBaseSha: x.base,
+    prHeadSha: unapprovedCandidate,
+  });
+  assert.equal(blocked.valid, false);
+  assert.ok(
+    blocked.reasons.includes("SCOPE_OUTSIDE_ALLOWLIST:scripts/deployment/unapproved-release-path.mjs"),
+    blocked.reasons.join(","),
+  );
+});
+
 test("pre-merge verification rejects a foreign PR base and a non-exact PR head", async () => {
   const x = await fixture((root) => put(root, "mobile/app/home.tsx", "changed\n"));
   const foreign = commitTree(x.root, git(x.root, ["rev-parse", `${x.base}^{tree}`]), null, "foreign base");
