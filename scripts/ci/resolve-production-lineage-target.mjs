@@ -13,7 +13,7 @@ const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const isSha = (value) => typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
 const isHash = (value) => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
 
-export function productionLineageCandidateProblems({ marker, manifest, markerPath, markerChanges, manifestChanged, deployedAdminTree, deployedMigrationSha256, deployedSourceIntegrated }) {
+export function productionLineageCandidateProblems({ marker, manifest, markerPath, markerChanges, manifestChanged, deployedAdminTree, deployedMigrationCount, deployedMigrationSha256, deployedSourceIntegrated }) {
   const problems = [];
   if (markerChanges.length !== 1 || markerChanges[0]?.status !== "A" || markerChanges[0]?.path !== markerPath) problems.push("exactly one new versioned candidate marker is required");
   if (!manifestChanged) problems.push("Production lineage manifest is unchanged");
@@ -27,6 +27,7 @@ export function productionLineageCandidateProblems({ marker, manifest, markerPat
   if (!Number.isInteger(marker.database?.migrationCount) || marker.database.migrationCount <= 0) problems.push("migration count is invalid");
   if (!deployedSourceIntegrated) problems.push("deployed source is not an ancestor of the exact PR head");
   if (marker.admin?.tree !== deployedAdminTree) problems.push("Admin tree does not match deployed source");
+  if (marker.database?.migrationCount !== deployedMigrationCount) problems.push("migration count does not match deployed source");
   if (marker.database?.migrationSha256 !== deployedMigrationSha256) problems.push("migration bytes do not match deployed source");
 
   const admin = manifest.surfaces?.admin_intelligence_web;
@@ -71,9 +72,12 @@ if (self) {
   const manifest = JSON.parse(git(["show", `${headCommit}:${MANIFEST}`]));
   const migrationPath = `supabase/migrations/${marker.database?.migrationTip}.sql`;
   let deployedAdminTree = null;
+  let deployedMigrationCount = null;
   let deployedMigrationSha256 = null;
   try {
     deployedAdminTree = git(["rev-parse", `${marker.deployedSourceCommit}:admin-dashboard`]);
+    deployedMigrationCount = git(["ls-tree", "-r", "--name-only", marker.deployedSourceCommit, "--", "supabase/migrations"])
+      .split("\n").filter((path) => path.endsWith(".sql")).length;
     deployedMigrationSha256 = sha256(execFileSync("git", ["show", `${marker.deployedSourceCommit}:${migrationPath}`], { cwd: root }));
   } catch {
     // Report stable validation problems below rather than exposing raw Git errors.
@@ -85,6 +89,7 @@ if (self) {
     markerChanges,
     manifestChanged,
     deployedAdminTree,
+    deployedMigrationCount,
     deployedMigrationSha256,
     deployedSourceIntegrated: isSha(marker.deployedSourceCommit) && isAncestor(marker.deployedSourceCommit, headCommit),
   });

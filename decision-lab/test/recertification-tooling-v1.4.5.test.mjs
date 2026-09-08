@@ -75,6 +75,7 @@ function lineageProblems(overrides = {}) {
     markerChanges: [{ status: "A", path: markerPath }],
     manifestChanged: true,
     deployedAdminTree: marker.admin.tree,
+    deployedMigrationCount: marker.database.migrationCount,
     deployedMigrationSha256: marker.database.migrationSha256,
     deployedSourceIntegrated: true,
     ...overrides,
@@ -89,6 +90,7 @@ test("V1.4.5 Production lineage candidate fails closed without correlated manife
   assert.ok(lineageProblems({ manifestChanged: false }).includes("Production lineage manifest is unchanged"));
   assert.ok(lineageProblems({ markerChanges: [] }).includes("exactly one new versioned candidate marker is required"));
   assert.ok(lineageProblems({ deployedAdminTree: "0".repeat(40) }).includes("Admin tree does not match deployed source"));
+  assert.ok(lineageProblems({ deployedMigrationCount: 136 }).includes("migration count does not match deployed source"));
   assert.ok(lineageProblems({ deployedMigrationSha256: "0".repeat(64) }).includes("migration bytes do not match deployed source"));
   assert.ok(lineageProblems({ deployedSourceIntegrated: false }).includes("deployed source is not an ancestor of the exact PR head"));
   const changedManifest = structuredClone(manifest);
