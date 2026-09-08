@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { contentHash } from "./canonical-json.mjs";
 
 export const MOBILE_STORAGE_ATOMIC_EVIDENCE_VERSION = "backyrd-mobile-storage-atomic-evidence-v1";
 
@@ -12,6 +13,8 @@ const DOCUMENTATION_PATH = /^docs\/operations\/[A-Z0-9_\-]+\.md$/;
 const FINGERPRINT_PATH = /^supabase\/canonical\/mobile-storage-atomic\/[a-z0-9-]+\/(application-schema|public-acl)\.sha256$/;
 const BASELINE_SCHEMA_PATH = /^supabase\/canonical\/application-schema(?:-[a-z0-9-]+)?\.sha256$/;
 const BASELINE_ACL_PATH = /^supabase\/canonical\/public-acl(?:-[a-z0-9-]+)?\.sha256$/;
+const ACTIVE_ADMIN_SCHEMA_PATH = /^supabase\/canonical\/admin-data-additive\/[a-z0-9-]+\/application-schema\.sha256$/;
+const ACTIVE_ADMIN_ACL_PATH = /^supabase\/canonical\/admin-data-additive\/[a-z0-9-]+\/public-acl\.sha256$/;
 const RECONSTRUCTION_PATH = /^scripts\/ci\/mobile-storage-atomic\/[a-z0-9-]+\/(application-schema|public-acl)-reconstruction\.sql$/;
 const STORAGE_POLICY_PATH = "supabase/canonical/storage.sql";
 const REQUIRED_CONSUMERS = Object.freeze([
@@ -56,6 +59,40 @@ const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const sorted = (values) => [...values].sort();
 const unique = (values) => Array.isArray(values) && new Set(values).size === values.length;
 const same = (left, right) => JSON.stringify(left) === JSON.stringify(right);
+
+export function resolveMobileStorageBaselineFingerprintPaths({ root, baseSha }) {
+  const freeze = jsonAt(root, baseSha, "decision-lab/config/additive-recertification-v1.freeze.json");
+  const record = jsonAt(root, baseSha, `decision-lab/config/${freeze.currentVersion}.json`);
+  if (record.scope !== "admin-data-additive") return null;
+  const unsignedRecord = { ...record };
+  delete unsignedRecord.recertificationHash;
+  if (record.status !== "VERIFIED_ADDITIVE_EVIDENCE"
+    || freeze.currentRecertificationHash !== record.recertificationHash
+    || contentHash(unsignedRecord) !== record.recertificationHash) {
+    throw new Error("active Admin/data record is not exactly freeze-bound");
+  }
+  git(root, ["merge-base", "--is-ancestor", record.baseMainSha, record.candidateSha]);
+  git(root, ["merge-base", "--is-ancestor", record.candidateSha, baseSha]);
+  if (git(root, ["rev-parse", `${record.candidateSha}^{tree}`]) !== record.candidateProductTree) {
+    throw new Error("active Admin/data candidate tree binding differs");
+  }
+  const adminData = record.adminData;
+  const manifest = jsonAt(root, baseSha, adminData.manifestPath);
+  if (sha256(blob(root, baseSha, adminData.manifestPath)) !== adminData.manifestSha256) {
+    throw new Error("active Admin/data manifest hash differs");
+  }
+  const applicationSchema = manifest.fingerprints?.candidate?.applicationSchema;
+  const publicAcl = manifest.fingerprints?.candidate?.publicAcl;
+  if (!ACTIVE_ADMIN_SCHEMA_PATH.test(applicationSchema ?? "")
+    || !ACTIVE_ADMIN_ACL_PATH.test(publicAcl ?? "")
+    || !adminData.paths?.includes(applicationSchema)
+    || !adminData.paths?.includes(publicAcl)
+    || textAt(root, baseSha, applicationSchema).trim() !== adminData.candidateFingerprints?.applicationSchema
+    || textAt(root, baseSha, publicAcl).trim() !== adminData.candidateFingerprints?.publicAcl) {
+    throw new Error("active Admin/data fingerprint binding differs");
+  }
+  return { applicationSchema, publicAcl };
+}
 
 const diffEntries = (root, baseSha, candidateSha) => {
   const output = git(root, ["diff", "--name-status", baseSha, candidateSha]);
@@ -156,8 +193,21 @@ export function verifyMobileStorageAtomicEvidence({ root, baseSha, candidateSha,
 
   const candidateFingerprints = manifest.fingerprints?.candidate ?? {};
   const baselineFingerprints = manifest.fingerprints?.baseline ?? {};
+  let activeBaselineFingerprints = null;
+  let activeBaselineInvalid = false;
+  try {
+    activeBaselineFingerprints = resolveMobileStorageBaselineFingerprintPaths({ root, baseSha });
+  } catch {
+    activeBaselineInvalid = true;
+    reasons.push("MOBILE_STORAGE_ACTIVE_BASELINE_INVALID");
+  }
   if (!FINGERPRINT_PATH.test(candidateFingerprints.applicationSchema ?? "") || !FINGERPRINT_PATH.test(candidateFingerprints.publicAcl ?? "") || candidateFingerprints.applicationSchema !== `${candidateDirectory}/application-schema.sha256` || candidateFingerprints.publicAcl !== `${candidateDirectory}/public-acl.sha256`) reasons.push("MOBILE_STORAGE_CANDIDATE_FINGERPRINT_PATH_INVALID");
-  if (!BASELINE_SCHEMA_PATH.test(baselineFingerprints.applicationSchema ?? "") || !BASELINE_ACL_PATH.test(baselineFingerprints.publicAcl ?? "")) reasons.push("MOBILE_STORAGE_BASELINE_FINGERPRINT_PATH_INVALID");
+  const baselinePathsValid = !activeBaselineInvalid && (activeBaselineFingerprints
+    ? baselineFingerprints.applicationSchema === activeBaselineFingerprints.applicationSchema
+      && baselineFingerprints.publicAcl === activeBaselineFingerprints.publicAcl
+    : BASELINE_SCHEMA_PATH.test(baselineFingerprints.applicationSchema ?? "")
+      && BASELINE_ACL_PATH.test(baselineFingerprints.publicAcl ?? ""));
+  if (!baselinePathsValid) reasons.push("MOBILE_STORAGE_BASELINE_FINGERPRINT_PATH_INVALID");
   if (!RECONSTRUCTION_PATH.test(manifest.reconstruction?.applicationSchema ?? "") || !RECONSTRUCTION_PATH.test(manifest.reconstruction?.publicAcl ?? "") || manifest.reconstruction?.applicationSchema !== `${reconstructionDirectory}/application-schema-reconstruction.sql` || manifest.reconstruction?.publicAcl !== `${reconstructionDirectory}/public-acl-reconstruction.sql`) reasons.push("MOBILE_STORAGE_RECONSTRUCTION_PATH_INVALID");
 
   const entries = diffEntries(root, baseSha, candidateSha);

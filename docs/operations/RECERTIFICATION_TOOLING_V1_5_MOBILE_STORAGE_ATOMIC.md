@@ -94,6 +94,8 @@ V1.5.3 applies the same event boundary to the synthetic Decision Lab matrix: its
 
 V1.5.4 composes an already active, fully reverified `admin-data-additive` parent with one exact `mobile-storage-atomic` PR candidate serially. The clean boot starts from the active Admin/data record's bound historical base, applies and fully validates that Admin/data candidate, and only then applies and validates the Mobile Storage candidate against its separate exact canonical PR base. A second Admin/data candidate or any unbound combination remains rejected.
 
+V1.5.5 requires a Mobile Storage candidate based on an active Admin/data parent to use that parent's exact versioned Candidate fingerprints as its reconstruction baseline. Those paths are accepted only when the canonical Base's freeze, active record hash, manifest hash, candidate ancestry/tree, evidence path set, and fingerprint values all bind; otherwise verification fails closed. Without an active Admin/data parent, the original global Gate-7 baseline paths remain the only accepted form.
+
 ## Positive and negative matrix
 
 | Case | Required result |
