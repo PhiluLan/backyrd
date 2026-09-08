@@ -58,7 +58,12 @@ jobs:
       - name: Build auditable deployment plan
         env:
           BASE_SHA: ${{ steps.manual_release.outputs.base_sha || github.event.pull_request.base.sha || github.event.before }}
-        run: node scripts/deployment/supabase-production-plan.mjs --base-sha "$BASE_SHA" --head-sha HEAD --output supabase-production-plan.json
+        run: |
+          pending_release_args=()
+          if test "$GITHUB_EVENT_NAME" = "workflow_dispatch"; then
+            pending_release_args+=(--pending-release-marker docs/operations/production-lineage-candidates/ATOMIC_REVIEW_MEDIA_V1_PENDING.json)
+          fi
+          node scripts/deployment/supabase-production-plan.mjs --base-sha "$BASE_SHA" --head-sha HEAD "${pending_release_args[@]}" --output supabase-production-plan.json
       - name: Publish plan summary
         run: |
           release_state="AWAITING_EXPLICIT_RELEASE"
@@ -142,7 +147,7 @@ jobs:
           BASE_SHA: ${{ steps.manual_release.outputs.base_sha }}
           GITHUB_REF: refs/heads/main
           GITHUB_SHA: ${{ inputs.canonical_main_sha }}
-        run: node scripts/deployment/supabase-production-plan.mjs --base-sha "$BASE_SHA" --head-sha HEAD --assert-canonical-main --output supabase-production-plan.json
+        run: node scripts/deployment/supabase-production-plan.mjs --base-sha "$BASE_SHA" --head-sha HEAD --assert-canonical-main --pending-release-marker docs/operations/production-lineage-candidates/ATOMIC_REVIEW_MEDIA_V1_PENDING.json --output supabase-production-plan.json
       - name: Bind explicit release authority to immutable audit
         run: |
           mkdir -p deployment-audit
