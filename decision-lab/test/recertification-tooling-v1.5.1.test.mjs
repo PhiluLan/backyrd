@@ -101,9 +101,12 @@ test("V1.5.1 fixture base rejects a caller-supplied candidate commit", async () 
 
 test("V1.5.2 keeps canonical main pushes out of PR candidate mode", async () => {
   const validator = await readFile(join(source, "scripts/ci/validate-supabase-local.sh"), "utf8");
+  const v15Fixture = await readFile(join(source, "decision-lab/test/recertification-tooling-v1.5.test.mjs"), "utf8");
   assert.match(validator, /test -z "\$\{PR_BASE_SHA:-\}" && test -z "\$\{PR_HEAD_SHA:-\}"/);
   assert.match(validator, /comparison_base=""/);
   assert.match(validator, /PR candidate validation requires an exact base\/head pair/);
+  assert.match(v15Fixture, /explicitBaseSha: process\.env\.PR_BASE_SHA/);
+  assert.doesNotMatch(v15Fixture, /explicitBaseSha: process\.env\.CI_BASE_SHA/);
 });
 
 for (const [name, path, value] of [

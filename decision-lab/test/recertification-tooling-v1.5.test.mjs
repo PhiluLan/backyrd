@@ -50,7 +50,7 @@ async function fixture(mutate = async () => {}) {
   const root = await mkdtemp(join(tmpdir(), "backyrd-recert-v15-"));
   const canonicalBase = resolveCanonicalFixtureBase({
     root: source,
-    explicitBaseSha: process.env.CI_BASE_SHA,
+    explicitBaseSha: process.env.PR_BASE_SHA,
   });
   execFileSync("git", ["clone", "--quiet", "--shared", source, root]);
   git(root, ["checkout", "--quiet", "--detach", canonicalBase]);
