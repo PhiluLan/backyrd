@@ -117,3 +117,11 @@ test("V1.4.5 workflow supplies exact PR head while ordinary PRs remain base-boun
   assert.match(wrapper, /worktree add --quiet --detach "\$checkout" "\$target_commit"/);
   assert.match(wrapper, /validation_mode="base"/);
 });
+
+test("V1.4.5 D3-A zero-data boot excludes only the certified historical operations", async () => {
+  const runner = await readFile(join(root, "scripts/decision/run-d3-a-full-diagnostic.sh"), "utf8");
+  assert.match(runner, /validate-database-lineage\.mjs/);
+  assert.match(runner, /validate-migrations\.sh/);
+  assert.match(runner, /historical-data-operations\.json/);
+  assert.match(runner, /Excluded %s hash-certified historical Production data operations from D3-A bootstrap/);
+});
