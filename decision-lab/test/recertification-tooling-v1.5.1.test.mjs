@@ -72,7 +72,7 @@ test("V1.5.1 orders canonical Base gates before candidate migration, Storage mir
   assert.equal(plan.migration, PATHS.migration);
   const validator = await readFile(join(source, "scripts/ci/validate-supabase-local.sh"), "utf8");
   const baseCheckout = validator.indexOf("Recertification isolated canonical base checkout bound");
-  const candidateDependencies = validator.indexOf("lockfile-installed repository dependencies");
+  const candidateDependencies = validator.indexOf("verified dependencies installed inside the exact checkout");
   const historicalProof = validator.indexOf("Gate 7 current application schema candidate fingerprint passed");
   const candidateApply = validator.indexOf("V1.5.1 exact manifest-bound migration and canonical Storage policy applied");
   const existingContract = validator.lastIndexOf("validate-mobile-storage-atomic.mjs");

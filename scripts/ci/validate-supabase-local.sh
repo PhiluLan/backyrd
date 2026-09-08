@@ -89,17 +89,16 @@ if test "$validation_mode" != canonical; then
   git -C "$candidate_checkout" checkout --quiet --detach "$head_sha"
   test "$(git -C "$candidate_checkout" rev-parse HEAD)" = "$head_sha"
   test -z "$(git -C "$candidate_checkout" status --porcelain)"
-  if test ! -d "$repo_root/node_modules"; then
-    printf 'Repository dependencies are missing for isolated candidate acceptance.\n' >&2
-    exit 1
-  fi
-  ln -s "$repo_root/node_modules" "$candidate_checkout/node_modules"
+  cmp "$base_checkout/package-lock.json" "$candidate_checkout/package-lock.json"
+  (cd "$candidate_checkout" && npm ci)
+  node "$candidate_checkout/scripts/ci/validate-lockfile-install.mjs" --root "$candidate_checkout"
+  (cd "$candidate_checkout" && npm ls --all --json >/dev/null)
   bootstrap_root="$base_checkout"
   candidate_root="$candidate_checkout"
   printf 'Recertification isolated canonical base checkout bound to %s for %s.\n' \
     "$comparison_base" "$validation_mode"
   printf 'Recertification isolated candidate checkout bound to exact PR head %s.\n' "$head_sha"
-  printf 'Recertification isolated candidate uses the lockfile-installed repository dependencies.\n'
+  printf 'Recertification isolated candidate uses verified dependencies installed inside the exact checkout from its canonical-bound lockfile.\n'
 fi
 
 node "$candidate_root/scripts/ci/validate-database-lineage.mjs"

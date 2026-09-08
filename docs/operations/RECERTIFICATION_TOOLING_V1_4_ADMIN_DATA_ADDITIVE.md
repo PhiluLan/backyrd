@@ -56,6 +56,12 @@ The reconstruction files contain the exact inverse of the candidate-owned schema
 
 The deployment result for this tooling and for an additive database contract remains `NO_RUNTIME_DEPLOY`: no OTA and no manual Production runtime deployment.
 
+### V1.4.3 isolated-checkout dependencies
+
+The Database workflow runs `npm ci` inside the exact detached candidate checkout and does not use an npm cache as an identity source. Before an isolated V1.4 candidate can run, CI proves that the candidate lockfile is byte-identical to the bound canonical-base lockfile, then verifies installed package versions, resolved identities, and integrity metadata against that lockfile. `npm ls --all` additionally proves that the candidate dependency graph is complete. A missing package, modified installed identity, unreadable install record, or Base/Candidate lockfile drift fails closed before any candidate migration or acceptance test runs.
+
+This dependency preparation does not change V1.4.2 ordering: the isolated canonical Base still proves historical Gate-5/6/7 ACL/schema baselines first; only then are the manifest-bound candidate migrations applied and the existing positive/negative acceptance, candidate fingerprints, and reconstruction contracts executed. Shipped Product Lineage remains the subsequent independent workflow step.
+
 ## Positive and negative matrix
 
 | Case | Expected result |
