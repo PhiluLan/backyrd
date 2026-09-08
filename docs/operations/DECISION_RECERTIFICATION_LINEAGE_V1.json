@@ -48,6 +48,18 @@
       "scope": "release-control",
       "decisionSemanticsRecertified": false,
       "productionMutation": "NONE"
+    },
+    {
+      "version": "decision-v13-production-recertification-v49",
+      "parentVersion": "decision-v13-production-recertification-v48",
+      "parentHash": "06e40e679200a20da59321e3599304990e0e4ddae5975eb3217859dccc961849",
+      "recertificationHash": "42864ecddf4225514837cd71c78cfeab9c349ebad19876cd8a42c2ca6292f5c5",
+      "baseMainSha": "be488f10293b1b3f7ac0eca506d2c99044a20191",
+      "candidateSha": "8f51309a15689175a5beb2296d5906875bbc918c",
+      "candidateProductTree": "6d8ebf16985ab33d2c7d5d0525f0b8699154da2c",
+      "scope": "release-control",
+      "decisionSemanticsRecertified": false,
+      "productionMutation": "NONE"
     }
   ]
 }
