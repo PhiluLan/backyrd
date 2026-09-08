@@ -8,7 +8,12 @@ import { productionLineageCandidateProblems } from "../../scripts/ci/resolve-pro
 
 const root = new URL("../..", import.meta.url).pathname;
 const record = JSON.parse(await readFile(join(root, "decision-lab/config/decision-v13-production-recertification-v47.json"), "utf8"));
-const freeze = JSON.parse(await readFile(join(root, "decision-lab/config/additive-recertification-v1.freeze.json"), "utf8"));
+const currentFreeze = JSON.parse(await readFile(join(root, "decision-lab/config/additive-recertification-v1.freeze.json"), "utf8"));
+const freeze = {
+  ...currentFreeze,
+  currentVersion: record.version,
+  currentRecertificationHash: record.recertificationHash,
+};
 
 function activeProblems(overrides = {}) {
   return activeAdminDataEvidenceProblems({
@@ -24,7 +29,8 @@ function activeProblems(overrides = {}) {
 
 test("V1.4.5 active Admin/data evidence binds exact artifact, receipt, base, candidate, tree, and ancestry", () => {
   assert.deepEqual(activeProblems(), []);
-  assert.deepEqual(JSON.parse(execFileSync("node", ["scripts/ci/resolve-active-admin-data-validation.mjs", "--head-sha", "HEAD"], { cwd: root, encoding: "utf8" })).mode, "admin-data-additive-active");
+  const currentMode = JSON.parse(execFileSync("node", ["scripts/ci/resolve-active-admin-data-validation.mjs", "--head-sha", "HEAD"], { cwd: root, encoding: "utf8" })).mode;
+  assert.equal(currentMode, currentFreeze.currentVersion === record.version ? "admin-data-additive-active" : "inactive");
 });
 
 test("V1.4.5 active Admin/data evidence fails closed for every identity or ancestry mismatch", () => {
