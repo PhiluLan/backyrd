@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -8,6 +9,8 @@ import {
   planMobileStorageAtomicValidation,
   resolveCanonicalFixtureBase,
 } from "../../scripts/ci/mobile-storage-atomic-validation-order.mjs";
+import { contentHash } from "../src/canonical-json.mjs";
+import { resolveMobileStorageBaselineFingerprintPaths } from "../src/mobile-storage-atomic.mjs";
 
 const source = new URL("../..", import.meta.url).pathname;
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
@@ -21,6 +24,7 @@ const commit = (root, message) => {
   git(root, ["commit", "--allow-empty", "-m", message]);
   return git(root, ["rev-parse", "HEAD"]);
 };
+const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
 const PATHS = {
   manifest: "docs/operations/mobile-storage-atomic/review-media-atomic-v1.json",
@@ -65,6 +69,48 @@ async function fixture({ manifest = true, mutateBase = async () => {}, mutateCan
   return { root, base, head };
 }
 
+async function activeAdminBaselineFixture() {
+  const root = await mkdtemp(join(tmpdir(), "backyrd-v154-baseline-"));
+  git(root, ["init", "--quiet"]);
+  git(root, ["config", "user.email", "fixture@example.invalid"]);
+  git(root, ["config", "user.name", "Fixture"]);
+  await put(root, "historical.txt", "canonical history\n");
+  const historicalBase = commit(root, "historical base");
+  const schemaPath = "supabase/canonical/admin-data-additive/restaurant-information-v1/application-schema.sha256";
+  const aclPath = "supabase/canonical/admin-data-additive/restaurant-information-v1/public-acl.sha256";
+  const manifestPath = "docs/operations/admin-data-additive/RESTAURANT_INFORMATION_V1.json";
+  const schema = "a".repeat(64);
+  const acl = "b".repeat(64);
+  const manifestBody = `${JSON.stringify({ fingerprints: { candidate: { applicationSchema: schemaPath, publicAcl: aclPath } } })}\n`;
+  await put(root, schemaPath, `${schema}\n`);
+  await put(root, aclPath, `${acl}\n`);
+  await put(root, manifestPath, manifestBody);
+  const adminCandidate = commit(root, "admin candidate");
+  const adminData = {
+    manifestPath,
+    manifestSha256: sha256(manifestBody),
+    candidateFingerprints: { applicationSchema: schema, publicAcl: acl },
+    paths: [manifestPath, schemaPath, aclPath],
+  };
+  const unsignedRecord = {
+    version: "decision-v13-production-recertification-v47",
+    status: "VERIFIED_ADDITIVE_EVIDENCE",
+    scope: "admin-data-additive",
+    baseMainSha: historicalBase,
+    candidateSha: adminCandidate,
+    candidateProductTree: git(root, ["rev-parse", `${adminCandidate}^{tree}`]),
+    adminData,
+  };
+  const record = { ...unsignedRecord, recertificationHash: contentHash(unsignedRecord) };
+  await put(root, `decision-lab/config/${record.version}.json`, `${JSON.stringify(record)}\n`);
+  await put(root, "decision-lab/config/additive-recertification-v1.freeze.json", `${JSON.stringify({
+    currentVersion: record.version,
+    currentRecertificationHash: record.recertificationHash,
+  })}\n`);
+  const activeBase = commit(root, "activate admin evidence");
+  return { root, activeBase, schemaPath, aclPath };
+}
+
 test("V1.5.1 orders canonical Base gates before candidate migration, Storage mirror, and V1.5 contract", async () => {
   const x = await fixture();
   const plan = planMobileStorageAtomicValidation({ root: x.root, baseSha: x.base, headSha: x.head });
@@ -99,6 +145,20 @@ test("V1.5.4 keeps overlapping candidate scopes fail-closed", async () => {
   assert.match(validator, /Active Admin\/data evidence cannot overlap another Admin\/data candidate/);
   assert.match(validator, /A candidate cannot combine admin-data-additive and mobile-storage-atomic scopes/);
   assert.match(validator, /test "\$active_admin_mode" != admin-data-additive-active/);
+});
+
+test("V1.5.5 resolves baseline fingerprints only from the exact active Admin/data record", async () => {
+  const x = await activeAdminBaselineFixture();
+  assert.deepEqual(resolveMobileStorageBaselineFingerprintPaths({ root: x.root, baseSha: x.activeBase }), {
+    applicationSchema: x.schemaPath,
+    publicAcl: x.aclPath,
+  });
+  await put(x.root, x.schemaPath, `${"c".repeat(64)}\n`);
+  const tamperedBase = commit(x.root, "tamper active fingerprint");
+  assert.throws(
+    () => resolveMobileStorageBaselineFingerprintPaths({ root: x.root, baseSha: tamperedBase }),
+    /fingerprint binding differs/,
+  );
 });
 
 test("V1.5.1 rejects a stale or noncanonical Base", async () => {
