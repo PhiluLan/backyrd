@@ -45,17 +45,36 @@ const PATHS = {
   documentation: "docs/operations/REVIEW_MEDIA_ATOMIC_V1.md",
 };
 const mirror = "with check (public.review_media_upload_is_reserved_v1(bucket_id, name, owner, metadata));";
+const V46 = "decision-v13-production-recertification-v46";
 
-async function fixture(mutate = async () => {}) {
-  const root = await mkdtemp(join(tmpdir(), "backyrd-recert-v15-"));
-  const canonicalBase = resolveCanonicalFixtureBase({
+const resolveActiveV46FixtureBase = () => {
+  const canonicalTip = resolveCanonicalFixtureBase({
     root: source,
     explicitBaseSha: process.env.PR_BASE_SHA,
   });
+  for (const commitSha of git(source, ["rev-list", "--first-parent", canonicalTip]).split("\n")) {
+    try {
+      const freeze = JSON.parse(git(source, ["show", `${commitSha}:decision-lab/config/additive-recertification-v1.freeze.json`]));
+      if (freeze.currentVersion === V46) return commitSha;
+    } catch {
+      // A canonical ancestor without an additive freeze cannot be the V46 fixture base.
+    }
+  }
+  throw new Error("canonical main history has no active V46 parent");
+};
+
+async function fixture(mutate = async () => {}) {
+  const root = await mkdtemp(join(tmpdir(), "backyrd-recert-v15-"));
+  const canonicalBase = resolveActiveV46FixtureBase();
   execFileSync("git", ["clone", "--quiet", "--shared", source, root]);
   git(root, ["checkout", "--quiet", "--detach", canonicalBase]);
   git(root, ["config", "user.email", "fixture@example.invalid"]);
   git(root, ["config", "user.name", "Fixture"]);
+  git(root, ["update-ref", "refs/remotes/origin/main", canonicalBase]);
+  const activeParent = await validatePostMergeActiveChain({ root, canonicalMainSha: canonicalBase });
+  assert.equal(activeParent.valid, true, activeParent.reasons.join(","));
+  assert.equal(activeParent.activeVersion, V46);
+  assert.equal(activeParent.chainLength, 2);
   for (const path of [
     "decision-lab/src/mobile-storage-atomic.mjs",
     "decision-lab/src/recertification-generate.mjs",
