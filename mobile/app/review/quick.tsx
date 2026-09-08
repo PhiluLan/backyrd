@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import * as Crypto from "expo-crypto";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,6 +20,13 @@ import { registerSafetySnapshot } from "../../lib/safety-content";
 import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
 import { userFacingError } from "../../lib/userFacingError";
 import { MoodExpressionInput } from "../../components/MoodExpressionInput";
+import {
+  finalizeReviewWithMedia,
+  reviewMediaErrorContext,
+  reviewMediaUserMessage,
+  type ReviewMediaAsset,
+  uploadReservedReviewMedia,
+} from "../../lib/review-media-upload";
 
 const theme = {
   bg: "#050506",
@@ -32,36 +40,6 @@ const theme = {
   pinkSoft: "#FFC5DA",
   ink: "#111113",
 };
-
-/* ======================================================
-   🔧 Helper: Sicherer Upload zu Supabase
-====================================================== */
-async function uploadImageToSupabase(uri: string, pathPrefix: string) {
-  const ext = uri.split(".").pop()?.toLowerCase() || "jpg";
-  const contentType =
-    ext === "png"
-      ? "image/png"
-      : ext === "webp"
-      ? "image/webp"
-      : "image/jpeg";
-  const fileName = `${pathPrefix}_${Date.now()}.${ext}`;
-
-  const resp = await fetch(uri);
-  const blob = await resp.blob();
-  const file = new File([blob], fileName, { type: contentType });
-
-  const { error: uploadErr } = await supabase.storage
-    .from("spot-photos") // 👈 dein echter Bucket
-    .upload(fileName, file, { contentType });
-
-  if (uploadErr) throw uploadErr;
-
-  const { data: publicUrlData } = supabase.storage
-    .from("spot-photos")
-    .getPublicUrl(fileName);
-
-  return publicUrlData.publicUrl;
-}
 
 /* ======================================================
    📸 Quick Review Screen
@@ -86,7 +64,9 @@ export default function QuickReviewScreen() {
   }>();
 
   const isDecisionReview = source === "decision" || Boolean(decisionId);
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photo, setPhoto] = useState<ReviewMediaAsset | null>(null);
+  const photoUri = photo?.uri ?? null;
+  const pendingMediaReviewId = useRef<string | null>(null);
   const [moodA, setMoodA] = useState("");
   const [moodB, setMoodB] = useState("");
   const [loading, setLoading] = useState(false);
@@ -109,7 +89,7 @@ export default function QuickReviewScreen() {
     if (!cameraRef) return;
     try {
       const photo = await cameraRef.takePictureAsync({ quality: 0.8 });
-      setPhotoUri(photo.uri);
+      setPhoto({ uri: photo.uri, fileName: "camera.jpg", mimeType: "image/jpeg" });
       void trackAnalyticsEvent({ eventName: "review_photo_added", screenName: "review_quick", spotId, properties: { source: "camera" } });
     } catch (err) {
       Alert.alert("Fehler", "Kamera konnte kein Bild aufnehmen.");
@@ -153,32 +133,24 @@ export default function QuickReviewScreen() {
       return;
     }
 
-    if (!photoUri) {
+    if (!photo) {
       Alert.alert("Fehler", "Bitte zuerst ein Foto aufnehmen.");
       return;
     }
 
     setLoading(true);
     try {
-      const publicUrl = await uploadImageToSupabase(
-        photoUri,
-        `review_${spotId}`
-      );
-
-      const { data: reviewData, error: insertError } = await supabase
-        .from("reviews")
-        .insert({
-          spot_id: spotId,
-          user_id: user.id,
-          mood_a: moodA || null,
-          mood_b: moodB || null,
-          photo_path: publicUrl,
-          text: null,
-        })
-        .select()
-        .single();
-
-      if (insertError) throw insertError;
+      const reviewId = pendingMediaReviewId.current ?? Crypto.randomUUID();
+      pendingMediaReviewId.current = reviewId;
+      const media = await uploadReservedReviewMedia({
+        reviewId, spotId, smartReview: false, assets: [photo],
+      });
+      await finalizeReviewWithMedia({
+        reviewId, spotId, text: null, moodA: moodA || null,
+        moodB: moodB || null, ...media, smartReview: false,
+      });
+      const publicUrl = media.publicUrls[0];
+      const reviewData = { id: reviewId };
 
       if (reviewData?.id) {
         await registerSafetySnapshot({
@@ -219,12 +191,14 @@ export default function QuickReviewScreen() {
         if (linkError) console.log("link_decision_review_v1 failed", linkError);
       }
 
-      void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_quick", entityType: "review", entityId: reviewData?.id ?? null, spotId, decisionId: decisionId ?? null, properties: { photo_count: 1, source: source ?? "spot" } });
+      pendingMediaReviewId.current = null;
+      void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_quick", entityType: "review", entityId: reviewData.id, spotId, decisionId: decisionId ?? null, properties: { photo_count: 1, source: source ?? "spot" } });
       router.replace(`/spot/${spotId}`);
     } catch (e: any) {
       const errorMessage = String(e?.message ?? e ?? "");
       const isOwnerSelfReview = errorMessage.includes("SAFETY_OWNER_SELF_REVIEW");
       const safetyMessage = getSafetyRestrictionMessage(e);
+      const mediaError = reviewMediaErrorContext(e);
 
       if (isOwnerSelfReview) {
         void trackAnalyticsEvent({
@@ -252,6 +226,19 @@ export default function QuickReviewScreen() {
           safetyMessage,
           [{ text: "OK", onPress: () => router.replace("/") }],
         );
+      } else if (mediaError) {
+        console.warn("[review-media] publish failed", {
+          surface: "review_quick",
+          spot_id: spotId,
+          ...mediaError,
+        });
+        void reportAnalyticsError({
+          error: new Error(`${mediaError.stage}:${mediaError.code}`),
+          screenName: "review_quick",
+          errorType: "review_media_submit_failed",
+          context: { spot_id: spotId, ...mediaError },
+        });
+        Alert.alert("Review nicht gespeichert", reviewMediaUserMessage(e) ?? "Bitte versuche es nochmals.");
       } else {
         void reportAnalyticsError({
           error: e,
@@ -331,7 +318,7 @@ export default function QuickReviewScreen() {
             <Ionicons name="chevron-back" size={24} color={theme.text} />
           </Pressable>
           <Text style={styles.reviewHeaderTitle}>Neuer Moment</Text>
-          <Pressable onPress={() => setPhotoUri(null)} style={styles.iconButton}>
+          <Pressable onPress={() => setPhoto(null)} style={styles.iconButton}>
             <Ionicons name="camera-outline" size={21} color={theme.text} />
           </Pressable>
         </View>
