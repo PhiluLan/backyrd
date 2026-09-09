@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "baseline",
+  "id": "production-20260908045502",
+  "sourceSha": "399b275361b23252ce1b8b4bbe7bf4287f86b3be",
+  "migrationTip": "20260908045502_create_atomic_review_media_contract_v1",
+  "fingerprints": {
+    "publicAclSha256": "84280377bb1e2d91088e126e287b8ed797b63e5acd26ea7ea0f72fd9f6805e17",
+    "applicationSchemaSha256": "040bfa3a82cfb57245399c30c93ebccff6c0b9302527800ab23ba47898f83d1d"
+  }
+}

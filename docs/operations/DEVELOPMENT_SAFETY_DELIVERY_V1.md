@@ -1,6 +1,6 @@
 # Development Safety & Delivery V1
 
-Status: staged rollout started 2026-09-09. This document is the operative contract for the risk gate; older release reports remain historical evidence.
+Status: risk gate active and additively required since 2026-09-09; shipped-baseline and isolated-environment rollout is in progress. This document is the operative contract; older release reports remain historical evidence.
 
 ## Purpose
 
@@ -51,9 +51,23 @@ Final required check: `Risk-based merge gate`.
 
 The aggregator cannot turn a failed selected job green. A missing result, skipped selected job, foreign merge checkout, changed historical migration, destructive migration, leaked secret, or missing Decision release record is a hard failure with a named reason.
 
+The older named contexts stay required only during the staged proof window. They are removed after the replacement has passed representative Mobile, database, authorization, Decision and deployment cases on GitHub; old workflows then become manual historical diagnostics. This preserves continuous protection while eliminating duplicated merge blockers.
+
 ## Decision releases
 
 Unrelated UI, Admin, Storage, ordinary database, documentation and release-evidence changes do not create a new Decision generation. Genuine protected-semantic changes require one record under `decision-lab/releases/`; `generate-decision-release.mjs` derives its file list and hash. CI independently derives them again and runs the fixed evaluation list. The record cannot declare its own tests successful.
+
+The V44 trust anchor and V45-V49 records remain immutable research/audit history. The active scope guard is a thin caller of the generic validator; byte patches, line counts, feature names and cumulative additive generations no longer grant permission.
+
+## Database and Production delivery
+
+The risk gate runs the current candidate clean boot only for database/control changes. It keeps migration immutability, ordered replay, Auth/Storage/Realtime/cron/webhook application, semantic schema/ACL fingerprints, core SQL behavior, changed migration tests, negative authorization checks and DB lint. Historic Gate 5/6/7 rollback reconstruction continues to exist in Git but is not on this path.
+
+Production planning starts at the technically shipped Supabase SHA in `delivery/production-state.json`, not at the newest Main commit's parent. Consequently a Product migration followed by evidence commits is still pending. Production credentials exist only in the manually dispatched, protected release context.
+
+## Mobile development isolation
+
+Development, simulator and preview profiles bind explicit EAS `development`/`preview` environments and the dev application identity. Configuration fails if either points at Production Supabase. Production remains bound to the `production` environment and channel. Creating the external Supabase project and EAS variables is a one-time Founder/provider action; repository-side enforcement is already in place.
 
 ## Authority and STOP conditions
 

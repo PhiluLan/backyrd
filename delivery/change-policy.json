@@ -12,9 +12,25 @@
     "supabase/canonical/",
     "supabase/tests/"
   ],
+  "databaseControlPrefixes": [
+    "scripts/ci/application-schema-fingerprint.sql",
+    "scripts/ci/public-acl-fingerprint.sql",
+    "scripts/ci/validate-database-lineage.mjs",
+    "scripts/ci/generate-database-release.mjs",
+    "scripts/ci/validate-database-release.mjs",
+    "scripts/ci/validate-database-test-coverage.mjs",
+    "scripts/ci/validate-migrations.sh",
+    "scripts/ci/validate-supabase-current.sh",
+    "scripts/ci/validate-supabase-local.sh"
+  ],
   "authorizationPrefixes": [
     "supabase/canonical/auth_hooks.sql",
     "supabase/canonical/storage.sql",
+    "supabase/production/auth-config.json"
+  ],
+  "privilegedServerPrefixes": [
+    "supabase/functions/",
+    "supabase/config.toml",
     "supabase/production/auth-config.json"
   ],
   "decisionSemanticPrefixes": [

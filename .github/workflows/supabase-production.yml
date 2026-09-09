@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       canonical_main_sha:
-        description: Exact current canonical main SHA to release
+        description: Exact canonical Main candidate SHA to release (tip or immutable ancestor)
         required: true
         type: string
       release_confirmation:
@@ -54,16 +54,18 @@ jobs:
         with:
           version: 2.98.2
       - name: Verify fail-closed deployment planner
-        run: node --test scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs
+        run: node --test scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/verify-supabase-migration-dry-run.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs scripts/ci/validate-production-state.test.mjs
+      - name: Validate shipped Production baseline
+        run: node scripts/ci/validate-production-state.mjs
       - name: Build auditable deployment plan
         env:
-          BASE_SHA: ${{ steps.manual_release.outputs.base_sha || github.event.pull_request.base.sha || github.event.before }}
+          AUTHORIZED_BASE_SHA: ${{ steps.manual_release.outputs.base_sha }}
         run: |
-          pending_release_args=()
-          if test "$GITHUB_EVENT_NAME" = "workflow_dispatch"; then
-            pending_release_args+=(--pending-release-marker docs/operations/production-lineage-candidates/ATOMIC_REVIEW_MEDIA_V1_PENDING.json)
+          base_sha="$AUTHORIZED_BASE_SHA"
+          if test -z "$base_sha"; then
+            base_sha="$(jq -r '.supabase.shippedSourceSha' delivery/production-state.json)"
           fi
-          node scripts/deployment/supabase-production-plan.mjs --base-sha "$BASE_SHA" --head-sha HEAD "${pending_release_args[@]}" --output supabase-production-plan.json
+          node scripts/deployment/supabase-production-plan.mjs --base-sha "$base_sha" --head-sha HEAD --output supabase-production-plan.json
       - name: Publish plan summary
         run: |
           release_state="AWAITING_EXPLICIT_RELEASE"
@@ -89,25 +91,20 @@ jobs:
           jq '{canonicalMainSha,planHash,deployFunctions,migrations,pendingMigrations,preappliedMigrationImport,authConfig:(.authConfig|if . then {deploy,sha256} else null end),runtimeDeploymentRequired}' supabase-production-plan.json
           jq -r --slurpfile gate supabase-production-gate.json '"### Supabase Production Plan\n\n- Main SHA: `\(.canonicalMainSha)`\n- Plan: `\(.planHash)`\n- Functions: \(.deployFunctions|join(", ") // "none")\n- Migrations in canonical change: \(.migrations|length)\n- Pending migrations: \(.pendingMigrations|length)\n- Pre-applied migrations: \(.preappliedMigrationImport.migrations|length // 0)\n- Runtime deployment: \(.runtimeDeploymentRequired)\n- Release state: \($gate[0].releaseState)"' supabase-production-plan.json >> "$GITHUB_STEP_SUMMARY"
       - name: Verify Production credentials and pending migration scope read-only
-        if: (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           test -n "$SUPABASE_ACCESS_TOKEN"
           supabase functions list --project-ref hjgcrrzfjchzqoegcywn --output json | jq -e '.[] | select(.slug=="decision-v13" and .status=="ACTIVE" and .verify_jwt==true)'
           supabase link --project-ref hjgcrrzfjchzqoegcywn
           supabase db push --dry-run 2>&1 | tee production-migration-dry-run.txt
-          verifier_args=()
-          if test "$GITHUB_EVENT_NAME" = "pull_request"; then
-            verifier_args+=(--allow-inherited-from-base "$PR_BASE_SHA")
-          fi
-          node scripts/deployment/verify-supabase-migration-dry-run.mjs supabase-production-plan.json production-migration-dry-run.txt "${verifier_args[@]}"
+          node scripts/deployment/verify-supabase-migration-dry-run.mjs supabase-production-plan.json production-migration-dry-run.txt
       - name: Retain deployment plan and gate audit
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: supabase-production-plan-${{ github.sha }}
+          name: supabase-production-plan-${{ inputs.canonical_main_sha || github.sha }}
           path: |
             supabase-production-plan.json
             supabase-production-gate.json
@@ -147,7 +144,7 @@ jobs:
           BASE_SHA: ${{ steps.manual_release.outputs.base_sha }}
           GITHUB_REF: refs/heads/main
           GITHUB_SHA: ${{ inputs.canonical_main_sha }}
-        run: node scripts/deployment/supabase-production-plan.mjs --base-sha "$BASE_SHA" --head-sha HEAD --assert-canonical-main --pending-release-marker docs/operations/production-lineage-candidates/ATOMIC_REVIEW_MEDIA_V1_PENDING.json --output supabase-production-plan.json
+        run: node scripts/deployment/supabase-production-plan.mjs --base-sha "$BASE_SHA" --head-sha HEAD --assert-canonical-main --output supabase-production-plan.json
       - name: Bind explicit release authority to immutable audit
         run: |
           mkdir -p deployment-audit
@@ -167,7 +164,7 @@ jobs:
         if: always() && hashFiles('deployment-audit/**') != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: supabase-production-${{ github.sha }}
+          name: supabase-production-${{ inputs.canonical_main_sha }}
           path: deployment-audit/
           if-no-files-found: error
           retention-days: 90

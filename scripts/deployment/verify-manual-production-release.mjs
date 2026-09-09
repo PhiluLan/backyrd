@@ -25,26 +25,40 @@ const parseArgs = (argv) => {
   return values;
 };
 
+const isAncestor = (repo, ancestor, descendant) => {
+  try {
+    execFileSync("git", ["-C", repo, "merge-base", "--is-ancestor", ancestor, descendant], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const verifyManualProductionRelease = ({ repo, eventName, requestedSha, confirmation }) => {
   if (eventName !== "workflow_dispatch") throw new Error("manual_release_event_required");
   if (confirmation !== RELEASE_CONFIRMATION) throw new Error("manual_release_confirmation_invalid");
   if (!/^[0-9a-f]{40}$/.test(requestedSha)) throw new Error("manual_release_sha_invalid");
 
-  const canonicalMainSha = git(repo, ["rev-parse", "refs/remotes/origin/main^{commit}"]);
-  if (canonicalMainSha !== requestedSha) throw new Error("manual_release_not_current_canonical_main");
+  const canonicalMainTipSha = git(repo, ["rev-parse", "refs/remotes/origin/main^{commit}"]);
+  if (!isAncestor(repo, requestedSha, canonicalMainTipSha)) throw new Error("manual_release_candidate_not_in_canonical_main_lineage");
 
   const checkoutSha = git(repo, ["rev-parse", "HEAD^{commit}"]);
   if (checkoutSha !== requestedSha) throw new Error("manual_release_checkout_mismatch");
 
-  const parents = git(repo, ["rev-list", "--parents", "-n", "1", requestedSha]).split(/\s+/);
-  if (parents.length < 2) throw new Error("manual_release_base_missing");
-  const baseSha = parents[1];
+  const state = JSON.parse(git(repo, ["show", `${requestedSha}:delivery/production-state.json`]));
+  if (state.schemaVersion !== "backyrd-production-state-v1") throw new Error("manual_release_production_state_invalid");
+  const baseSha = state.supabase?.shippedSourceSha;
+  if (!/^[0-9a-f]{40}$/.test(baseSha ?? "") || !isAncestor(repo, baseSha, requestedSha)) {
+    throw new Error("manual_release_shipped_baseline_invalid");
+  }
   const evidence = {
-    version: "backyrd-manual-production-release-authority-v1",
+    version: "backyrd-manual-production-release-authority-v2",
     eventName,
-    canonicalMainSha,
+    canonicalMainTipSha,
+    canonicalMainSha: requestedSha,
     checkoutSha,
     baseSha,
+    baselineKind: "LAST_TECHNICALLY_SHIPPED_PRODUCTION",
     confirmation: RELEASE_CONFIRMATION,
   };
   return {

@@ -26,4 +26,4 @@ The replacement must be green and required before any active blocker below is re
 - One shipped Production baseline with all pending changes computed from shipped baseline to selected canonical candidate.
 - Behavior tests for RLS/ACL, migrations, clean boot, secrets and deploy completeness instead of feature-name or line-count exceptions.
 
-Retirement means removal from active merge/deploy execution. Historical files may remain where needed to explain an already executed release, but they do not define a new candidate's permission.
+Retirement means removal from active merge/deploy execution. Historical files may remain where needed to explain an already executed release, but they do not define a new candidate's permission. The staged rollout first proves replacement jobs while legacy workflows still run; only the later workflow/Branch-Protection cutover completes active retirement.

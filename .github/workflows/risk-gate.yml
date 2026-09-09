@@ -93,6 +93,10 @@ jobs:
         run: scripts/ci/repository-sanity.sh
       - name: Canonical SQL secret guard
         run: scripts/ci/scan-canonical-secrets.sh
+      - name: Client/service-role and public-secret boundary
+        run: node scripts/ci/validate-client-secret-boundary.mjs
+      - name: Shipped Production state and immutable migration bytes
+        run: node scripts/ci/validate-production-state.mjs
       - name: Scan changed repository content
         uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
         env:
@@ -239,14 +243,13 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           node scripts/ci/validate-database-lineage.mjs --base-sha "$BASE_SHA"
-          node --test scripts/ci/validate-database-lineage.test.mjs scripts/ci/validate-lockfile-install.test.mjs
+          node scripts/ci/validate-database-test-coverage.mjs --base-sha "$BASE_SHA" --head-sha "${{ github.event.pull_request.head.sha || github.sha }}" --output "$RUNNER_TEMP/database-tests.txt"
+          node --test scripts/ci/validate-database-lineage.test.mjs scripts/ci/validate-database-test-coverage.test.mjs scripts/ci/validate-database-release.test.mjs scripts/ci/validate-lockfile-install.test.mjs
       - name: Isolated canonical clean boot and SQL authorization tests
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: scripts/ci/validate-supabase-local.sh
+          BACKYRD_CHANGED_DATABASE_TESTS_FILE: ${{ runner.temp }}/database-tests.txt
+        run: scripts/ci/validate-supabase-current.sh
 
   delivery-contract:
     name: Candidate and deployment contract tests
@@ -263,7 +266,7 @@ jobs:
           node-version: 20
       - name: Risk, identity, Decision and deployment contract regressions
         run: |
-          node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/validate-decision-change.test.mjs scripts/ci/verify-risk-gate.test.mjs
+          node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/validate-client-secret-boundary.test.mjs scripts/ci/validate-decision-change.test.mjs scripts/ci/validate-production-state.test.mjs scripts/ci/verify-risk-gate.test.mjs
           node --test scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/verify-supabase-migration-dry-run.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs
 
   risk-gate:

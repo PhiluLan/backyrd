@@ -8,62 +8,50 @@
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development",
+      "environment": "development",
       "env": {
-        "APP_VARIANT": "dev",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://hjgcrrzfjchzqoegcywn.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ2NycnpmamNoenFvZWdjeXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MjQ3NDYsImV4cCI6MjA3NDEwMDc0Nn0._ZUo--CgdS9jlhIEMTH908_V_3VZ7MfU2GxEZx9Aewo",
-        "EXPO_PUBLIC_MAPBOX_TOKEN": "$MAPBOX_DOWNLOADS_TOKEN",
-        "MAPBOX_DOWNLOADS_TOKEN": "$MAPBOX_DOWNLOADS_TOKEN"
+        "APP_VARIANT": "dev"
       }
     },
     "development-sim": {
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development",
+      "environment": "development",
       "ios": {
         "simulator": true
       },
       "env": {
-        "APP_VARIANT": "dev",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://hjgcrrzfjchzqoegcywn.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ2NycnpmamNoenFvZWdjeXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MjQ3NDYsImV4cCI6MjA3NDEwMDc0Nn0._ZUo--CgdS9jlhIEMTH908_V_3VZ7MfU2GxEZx9Aewo",
-        "EXPO_PUBLIC_MAPBOX_TOKEN": "$MAPBOX_DOWNLOADS_TOKEN",
-        "MAPBOX_DOWNLOADS_TOKEN": "$MAPBOX_DOWNLOADS_TOKEN"
+        "APP_VARIANT": "dev"
       }
     },
     "map-validation-sim": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "production",
-      "environment": "production",
+      "channel": "preview",
+      "environment": "preview",
       "ios": {
         "simulator": true
       },
       "env": {
-        "APP_VARIANT": "prod"
+        "APP_VARIANT": "dev"
       }
     },
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "environment": "preview",
       "env": {
-        "APP_VARIANT": "dev",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://hjgcrrzfjchzqoegcywn.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ2NycnpmamNoenFvZWdjeXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MjQ3NDYsImV4cCI6MjA3NDEwMDc0Nn0._ZUo--CgdS9jlhIEMTH908_V_3VZ7MfU2GxEZx9Aewo",
-        "EXPO_PUBLIC_MAPBOX_TOKEN": "$MAPBOX_DOWNLOADS_TOKEN",
-        "MAPBOX_DOWNLOADS_TOKEN": "$MAPBOX_DOWNLOADS_TOKEN"
+        "APP_VARIANT": "dev"
       }
     },
     "production": {
       "distribution": "store",
       "channel": "production",
+      "environment": "production",
       "autoIncrement": true,
       "env": {
-        "APP_VARIANT": "prod",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://hjgcrrzfjchzqoegcywn.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhqZ2NycnpmamNoenFvZWdjeXduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg1MjQ3NDYsImV4cCI6MjA3NDEwMDc0Nn0._ZUo--CgdS9jlhIEMTH908_V_3VZ7MfU2GxEZx9Aewo",
-        "EXPO_PUBLIC_MAPBOX_TOKEN": "$MAPBOX_DOWNLOADS_TOKEN",
-        "MAPBOX_DOWNLOADS_TOKEN": "$MAPBOX_DOWNLOADS_TOKEN"
+        "APP_VARIANT": "prod"
       }
     }
   },
