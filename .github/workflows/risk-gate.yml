@@ -196,6 +196,10 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm exec tsc -- --noEmit --pretty false -p packages/shared/tsconfig.json
+      - name: Validate User Intelligence vNext contract foundation
+        run: |
+          npm run user-intelligence-vnext:typecheck
+          npm run user-intelligence-vnext:test
 
   decision:
     name: Versioned Decision semantics and evaluation

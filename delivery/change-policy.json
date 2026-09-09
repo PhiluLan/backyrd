@@ -5,7 +5,7 @@
     "mobile": ["mobile/"],
     "web": ["web/"],
     "admin": ["admin-dashboard/"],
-    "shared": ["packages/shared/"]
+    "shared": ["packages/shared/", "packages/user-intelligence-vnext-core/"]
   },
   "databasePrefixes": [
     "supabase/migrations/",
