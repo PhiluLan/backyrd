@@ -20,9 +20,11 @@ const fixture = () => {
   git(repo, ["config", "user.name", "Backyrd CI"]);
   write(repo, "supabase/config.toml", `[functions.test]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/test/index.ts"\n`);
   write(repo, "supabase/functions/test/index.ts", `console.log("test");\n`);
+  write(repo, "delivery/production-state.json", "{}\n");
   git(repo, ["add", "."]);
   git(repo, ["commit", "-qm", "base"]);
   const base = git(repo, ["rev-parse", "HEAD"]);
+  write(repo, "delivery/production-state.json", `${JSON.stringify({ schemaVersion: "backyrd-production-state-v1", supabase: { shippedSourceSha: base } }, null, 2)}\n`);
   write(repo, "supabase/migrations/20260908000000_release.sql", "select 1;\n");
   git(repo, ["add", "."]);
   git(repo, ["commit", "-qm", "runtime change"]);
@@ -31,7 +33,7 @@ const fixture = () => {
   return { repo, base, head };
 };
 
-test("exact current canonical main manual release is bound and only plans in verification", () => {
+test("canonical Main candidate is bound to the last shipped baseline and only plans in verification", () => {
   const f = fixture();
   const authority = verifyManualProductionRelease({
     repo: f.repo,
@@ -42,6 +44,7 @@ test("exact current canonical main manual release is bound and only plans in ver
   const plan = buildProductionPlan({ repo: f.repo, baseSha: authority.baseSha, headSha: authority.canonicalMainSha });
   assert.equal(authority.baseSha, f.base);
   assert.equal(authority.checkoutSha, f.head);
+  assert.equal(authority.canonicalMainTipSha, f.head);
   assert.equal(plan.canonicalMainSha, f.head);
   assert.equal(plan.runtimeDeploymentRequired, true);
   assert.equal(plan.migrations.length, 1);
@@ -57,16 +60,31 @@ test("push cannot authorize a Production release", () => {
   }), /manual_release_event_required/);
 });
 
-test("wrong or noncanonical SHA fails closed", () => {
+test("invalid or noncanonical SHA fails closed", () => {
   const f = fixture();
-  for (const requestedSha of ["invalid", f.base]) {
+  for (const requestedSha of ["invalid"]) {
     assert.throws(() => verifyManualProductionRelease({
       repo: f.repo,
       eventName: "workflow_dispatch",
       requestedSha,
       confirmation: "DEPLOY_SUPABASE_PRODUCTION",
-    }), /manual_release_sha_invalid|manual_release_not_current_canonical_main/);
+    }), /manual_release_sha_invalid/);
   }
+  write(f.repo, "foreign.txt", "foreign\n"); git(f.repo, ["add", "."]); git(f.repo, ["commit", "-qm", "foreign"]);
+  const foreign = git(f.repo, ["rev-parse", "HEAD"]);
+  git(f.repo, ["update-ref", "refs/remotes/origin/main", f.head]);
+  assert.throws(() => verifyManualProductionRelease({ repo: f.repo, eventName: "workflow_dispatch", requestedSha: foreign, confirmation: "DEPLOY_SUPABASE_PRODUCTION" }), /candidate_not_in_canonical_main_lineage/);
+});
+
+test("an immutable earlier canonical candidate remains releasable after unrelated Main evidence", () => {
+  const f = fixture();
+  write(f.repo, "docs/evidence.md", "later\n"); git(f.repo, ["add", "."]); git(f.repo, ["commit", "-qm", "later evidence"]);
+  const laterMain = git(f.repo, ["rev-parse", "HEAD"]); git(f.repo, ["update-ref", "refs/remotes/origin/main", laterMain]);
+  git(f.repo, ["checkout", "-q", f.head]);
+  const authority = verifyManualProductionRelease({ repo: f.repo, eventName: "workflow_dispatch", requestedSha: f.head, confirmation: "DEPLOY_SUPABASE_PRODUCTION" });
+  assert.equal(authority.canonicalMainSha, f.head);
+  assert.equal(authority.canonicalMainTipSha, laterMain);
+  assert.equal(authority.baseSha, f.base);
 });
 
 test("wrong confirmation fails closed", () => {

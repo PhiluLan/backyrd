@@ -26,4 +26,11 @@ The replacement must be green and required before any active blocker below is re
 - One shipped Production baseline with all pending changes computed from shipped baseline to selected canonical candidate.
 - Behavior tests for RLS/ACL, migrations, clean boot, secrets and deploy completeness instead of feature-name or line-count exceptions.
 
-Retirement means removal from active merge/deploy execution. Historical files may remain where needed to explain an already executed release, but they do not define a new candidate's permission.
+Retirement means removal from active merge/deploy execution. Historical files may remain where needed to explain an already executed release, but they do not define a new candidate's permission. The feature-specific database boot and Product-lineage calls were removed from the stable `Canonical database boot` context after the current clean boot passed the complete local candidate. The later workflow/Branch-Protection cutover removes the remaining duplicate contexts after their replacements pass GitHub.
+
+The global `Decision Lab deterministic smoke` job was also removed from the
+ordinary Quality workflow after GitHub proved that the required risk gate skipped
+Decision for a Mobile/DB-Control candidate while retaining its independently
+tested fail-closed semantic path. Its 431 passing domain tests remain invoked by
+that selected path; the two removed failures asserted obsolete V1.4.4/V1.4.5
+workflow strings rather than Product behavior.

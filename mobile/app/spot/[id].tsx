@@ -876,13 +876,14 @@ export default function SpotDetailScreen() {
                 ].filter((mood): mood is string => Boolean(mood));
                 const name = rev.profiles?.first_name || "User";
                 const isLocal = rev.profiles?.is_local;
+                const publicReviewPhotoUrl = rev.photo_path
+                  ? supabase.storage.from("spot-photos").getPublicUrl(rev.photo_path).data.publicUrl
+                  : null;
                 const reviewPhotoUrl =
                   rev.review_photos?.[0]?.url ||
                   (rev.photo_path?.startsWith("http")
                     ? rev.photo_path
-                    : rev.photo_path
-                    ? `https://hjgcrrzfjchzqoegcywn.supabase.co/storage/v1/object/public/spot-photos/${rev.photo_path}`
-                    : null);
+                    : publicReviewPhotoUrl);
 
                 return (
                   <View key={rev.id} style={[styles.reviewCard, !reviewPhotoUrl && !rev.text ? styles.reviewCardCompact : null]}>

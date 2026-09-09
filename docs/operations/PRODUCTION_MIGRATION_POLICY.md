@@ -37,14 +37,20 @@ Every database pull request must pass:
 
 1. filename and version uniqueness;
 2. immutable historical-operation hash validation;
-3. clean zero-data bootstrap and migration-order comparison;
+3. clean zero-data bootstrap of the exact candidate and migration-order comparison;
 4. canonical Auth hook, Storage, Realtime, cron, webhook, RLS, and grant checks;
 5. domain acceptance tests and reviewed DB-lint baseline;
-6. destructive SQL review for `DELETE`, `TRUNCATE`, unsafe `DROP`, identity
-   rewrites, history rewrites, or unbounded backfills.
+6. changed SQL acceptance evidence for every forward migration; Auth/RLS/Storage
+   changes must carry both `backyrd:authorization-positive` and
+   `backyrd:authorization-negative` test markers;
+7. an automatic hard stop for `DELETE`, `TRUNCATE`, unsafe `DROP`, identity
+   rewrites, history rewrites, or unbounded backfills until the separate
+   destructive-operation authorization and recovery plan exist.
 
-Before Production application, compare the repository ledger with Production,
-list every pending migration, take and verify a database plus Storage backup,
+Before Production application, compute the complete ledger range from
+`delivery/production-state.json` to the selected canonical Main candidate,
+compare that plan with Production's remote dry run, take and verify a database
+plus Storage backup when the change risk requires it,
 rehearse the exact forward migration on a restored snapshot, and record the
 operator, time, migration, pre/post counts, and outcome. Never use migration
 repair as a deployment shortcut. On failure, stop, preserve logs and database
@@ -56,5 +62,21 @@ ACL differences from standard defaults, while Supabase local configures broad
 `anon`/`authenticated` defaults. CI therefore applies the baseline phase with
 those provider defaults neutralized, restores the Supabase defaults, and then
 applies forward-authored migrations. The resulting effective Public ACL must
-match `supabase/canonical/public-acl.sha256`; changing that fingerprint requires
-an explicit privilege review.
+match the current semantic schema and ACL fingerprints. A changed hash is not
+itself a security verdict: the
+migration diff, risk classification, positive/negative SQL behavior and remote
+deployment plan determine whether the change is safe. Historical Gate 5/6/7
+reconstruction remains audit evidence and is not a new migration's admission
+contract.
+
+## Deterministic database evidence
+
+`delivery/database-baseline.json` anchors the current independently reproduced
+schema and ACL. A forward migration adds one generated record under
+`delivery/database-releases/`; `generate-database-release.mjs` derives its
+migration/test set and byte hashes from the staged candidate and a disposable
+clean-boot snapshot. CI then reproduces the snapshot and verifies the record's
+chain, exact source bytes and behavior tests. An ACL change additionally requires
+both positive and negative authorization tests even if the SQL spelling evades a
+path or keyword heuristic. No developer or Founder manually approves a computed
+hash.

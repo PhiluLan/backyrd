@@ -3,6 +3,7 @@ import "dotenv/config";
 const APP_VERSION = "1.1.0";
 const IOS_PRODUCTION_BUNDLE_IDENTIFIER = "com.philipplanger.backyrd";
 const IOS_DEVELOPMENT_BUNDLE_IDENTIFIER = `${IOS_PRODUCTION_BUNDLE_IDENTIFIER}.dev`;
+const PRODUCTION_SUPABASE_PROJECT_REF = "hjgcrrzfjchzqoegcywn";
 
 function requiredReleaseValue(name = "", value = "", nativeBuildOnly = false) {
   const isNativeProductionBuild =
@@ -45,6 +46,17 @@ export default (context = { config: {} }) => {
     process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "",
     true
   );
+
+  const isEasBuild = process.env.EAS_BUILD === "true";
+  if (isDev && isEasBuild && (!supabaseUrl || !supabaseAnonKey)) {
+    throw new Error("Development and preview builds require isolated Supabase public configuration from their EAS environment.");
+  }
+  if (isDev && supabaseUrl?.includes(PRODUCTION_SUPABASE_PROJECT_REF)) {
+    throw new Error("Development and preview builds must not use the Production Supabase project.");
+  }
+  if (!isDev && (isEasBuild || process.env.BACKYRD_RELEASE_BUILD === "1") && !supabaseUrl?.includes(PRODUCTION_SUPABASE_PROJECT_REF)) {
+    throw new Error("Production releases must use the bound Production Supabase project.");
+  }
 
   return {
     ...config,

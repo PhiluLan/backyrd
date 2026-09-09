@@ -3,8 +3,6 @@ name: CI / Database
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
 
 permissions:
   contents: read
@@ -37,23 +35,13 @@ jobs:
       - name: Validate immutable migration lineage
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          if test -n "$BASE_SHA"; then
-            node scripts/ci/validate-database-lineage.mjs --base-sha "$BASE_SHA"
-          else
-            node scripts/ci/validate-database-lineage.mjs
-          fi
-          node --test scripts/ci/validate-database-lineage.test.mjs
-          node --test scripts/ci/validate-lockfile-install.test.mjs
+          node scripts/ci/validate-database-lineage.mjs --base-sha "$BASE_SHA"
+          node scripts/ci/validate-database-test-coverage.mjs --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA" --output "$RUNNER_TEMP/database-tests.txt"
+          node --test scripts/ci/validate-database-lineage.test.mjs scripts/ci/validate-database-test-coverage.test.mjs scripts/ci/validate-database-release.test.mjs scripts/ci/validate-lockfile-install.test.mjs
       - name: Validate isolated canonical database
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: scripts/ci/validate-supabase-local.sh
-      - name: Validate shipped Product lineage
-        env:
-          PRODUCTION_LINEAGE_TARGET_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
-          PRODUCTION_LINEAGE_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: scripts/ci/validate-production-lineage-at-ref.sh
+          BACKYRD_CHANGED_DATABASE_TESTS_FILE: ${{ runner.temp }}/database-tests.txt
+        run: scripts/ci/validate-supabase-current.sh

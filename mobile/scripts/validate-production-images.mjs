@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const eas = JSON.parse(fs.readFileSync(new URL("../eas.json", import.meta.url), "utf8"));
-const production = eas.build?.production?.env ?? {};
-const baseUrl = production.EXPO_PUBLIC_SUPABASE_URL;
-const anonKey = production.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const production = eas.build?.production ?? {};
+const baseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 assert.ok(baseUrl && anonKey, "Production Supabase public configuration is required");
+assert.equal(production.environment, "production", "Production validation must use the EAS production environment");
 
 async function loadCatalog(query, city = "Basel", limit = 160) {
   const response = await fetch(`${baseUrl}/rest/v1/rpc/distribution_trust_spot_catalog_v1`, {

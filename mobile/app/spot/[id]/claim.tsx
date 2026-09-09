@@ -15,14 +15,11 @@ import {
 } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { supabase } from "@/lib/supabase";
+import { supabase, supabaseRuntimeAnonKey, supabaseRuntimeUrl } from "@/lib/supabase";
 import { technicalErrorText, userFacingError } from "@/lib/userFacingError";
 import { StateView } from "@/components/foundation/StateView";
 
-const FUNCTION_URL =
-  "https://hjgcrrzfjchzqoegcywn.supabase.co/functions/v1/send-spot-claim-code";
-
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "";
+const FUNCTION_URL = `${supabaseRuntimeUrl}/functions/v1/send-spot-claim-code`;
 
 type OwnerContext = {
   spot_id: string;
@@ -216,7 +213,7 @@ export default function SpotClaimScreen() {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
-          apikey: SUPABASE_ANON_KEY,
+          apikey: supabaseRuntimeAnonKey,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

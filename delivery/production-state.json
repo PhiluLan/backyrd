@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "backyrd-production-state-v1",
+  "projectRef": "hjgcrrzfjchzqoegcywn",
+  "supabase": {
+    "shippedSourceSha": "399b275361b23252ce1b8b4bbe7bf4287f86b3be",
+    "migrationTip": "20260908045502_create_atomic_review_media_contract_v1",
+    "migrationCount": 138,
+    "deploymentRunId": 34266244093,
+    "technicalStatus": "SHIPPED"
+  },
+  "mobile": {
+    "shippedSourceSha": "399b275361b23252ce1b8b4bbe7bf4287f86b3be",
+    "productSourceSha": "82117093cbfde9d780c669f965d2ea98afe3e783",
+    "tree": "4b540970984b4463db734ab38d075cfeba2a00c4",
+    "runtimeVersion": "1.1.0",
+    "channel": "production",
+    "otaGroupId": "bddf50b5-fcb1-4d1d-bdd4-e0bf46f1c3cd",
+    "iosUpdateId": "01a08267-10b9-74fd-b597-b6aac72fd86f",
+    "androidUpdateId": "01a08267-10b9-7002-a2df-a8b3f1e80d8b",
+    "technicalStatus": "SHIPPED_PRODUCT_UNVERIFIED",
+    "productionVerified": false
+  },
+  "reviewMediaIncident": {
+    "id": "review-media-founder-iphone-failure-2026-09-09",
+    "status": "OPEN_PAUSED",
+    "productionVerified": false,
+    "historicalPartialTestStatesPreserved": true,
+    "productFixInScope": false
+  }
+}

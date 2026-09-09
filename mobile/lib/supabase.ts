@@ -32,7 +32,10 @@ const safeSupabaseAnonKey = runtimeConfigStatus.valid
   ? (supabaseAnonKey as string)
   : "invalid-public-key";
 
-export const supabase = createClient(safeSupabaseUrl, safeSupabaseAnonKey, {
+export const supabaseRuntimeUrl = safeSupabaseUrl;
+export const supabaseRuntimeAnonKey = safeSupabaseAnonKey;
+
+export const supabase = createClient(supabaseRuntimeUrl, supabaseRuntimeAnonKey, {
   auth: {
     storage: secureStoreAdapter,
     persistSession: true,

@@ -11,6 +11,7 @@ const policy = {
   surfacePrefixes: { mobile: ["mobile/"], web: ["web/"], admin: ["admin-dashboard/"], shared: ["packages/shared/"] },
   databasePrefixes: ["supabase/migrations/", "supabase/canonical/", "supabase/tests/"],
   authorizationPrefixes: ["supabase/canonical/auth_hooks.sql", "supabase/canonical/storage.sql"],
+  privilegedServerPrefixes: ["supabase/functions/", "supabase/config.toml", "supabase/production/auth-config.json"],
   decisionSemanticPrefixes: ["supabase/functions/decision-v13/"],
   decisionEvaluationPrefixes: ["decision-lab/"],
   deliveryControlPrefixes: [".github/workflows/", "scripts/ci/", "scripts/deployment/", "docs/operations/"],
@@ -71,6 +72,13 @@ test("protected source changes select Decision recertification while evaluator-o
   const evaluator = plan({ files: { "decision-lab/test/new.test.mjs": "// test\n" } });
   assert.equal(evaluator.flags.decisionSemantics, false);
   assert.equal(evaluator.flags.decisionEvaluation, true);
+});
+
+test("privileged Edge Function source selects the server deployment contract", () => {
+  const result = plan({ files: { "supabase/functions/example/index.ts": "Deno.serve(() => new Response('ok'));\n" } });
+  assert.equal(result.flags.privilegedServer, true);
+  assert.ok(result.classes.includes("privileged-server"));
+  assert.ok(result.requiredGates.includes("delivery-contract"));
 });
 
 test("published migration mutation is identified independently", () => {

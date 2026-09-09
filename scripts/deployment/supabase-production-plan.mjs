@@ -6,7 +6,6 @@ import { fileURLToPath } from "node:url";
 import { writeFileSync } from "node:fs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
-const ATOMIC_REVIEW_MEDIA_PENDING_MARKER = "docs/operations/production-lineage-candidates/ATOMIC_REVIEW_MEDIA_V1_PENDING.json";
 const stable = (value) => {
   if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
   if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stable(value[key])}`).join(",")}}`;
@@ -174,35 +173,6 @@ const productionPreappliedMigrationImport = (tree, baseSha) => {
   return { path, evidence, migrations };
 };
 
-const productionPendingRelease = (repo, tree, headSha, markerPath) => {
-  if (markerPath !== ATOMIC_REVIEW_MEDIA_PENDING_MARKER) throw new Error("pending_release_marker_not_allowed");
-  if (!tree.files.has(markerPath)) throw new Error("pending_release_marker_missing");
-  const marker = JSON.parse(tree.text(markerPath));
-  if (marker.schemaVersion !== "backyrd-production-lineage-pending-release-v1" || marker.id !== "atomic-review-media-v1") throw new Error("pending_release_marker_identity_invalid");
-  if (!/^[0-9a-f]{40}$/.test(marker.sourceCommit ?? "")) throw new Error("pending_release_source_invalid");
-  if (!/^[0-9a-f]{40}$/.test(marker.mobileTree ?? "")) throw new Error("pending_release_mobile_tree_invalid");
-  if (marker.requiredMigration !== "supabase/migrations/20260908045502_create_atomic_review_media_contract_v1.sql") throw new Error("pending_release_migration_invalid");
-  if (marker.runtimeVersion !== "1.1.0" || marker.channel !== "production" || marker.releaseState !== "AWAITING_EXPLICIT_RELEASE") throw new Error("pending_release_state_invalid");
-  try { git(repo, ["merge-base", "--is-ancestor", marker.sourceCommit, headSha]); }
-  catch { throw new Error("pending_release_source_not_integrated"); }
-  if (git(repo, ["rev-parse", `${marker.sourceCommit}:mobile`]) !== marker.mobileTree) throw new Error("pending_release_mobile_tree_mismatch");
-  const lineagePath = "docs/operations/PRODUCTION_PRODUCT_LINEAGE.json";
-  const lineage = JSON.parse(tree.text(lineagePath));
-  const mobile = lineage.surfaces?.mobile?.canonical_source;
-  if (mobile?.commit !== marker.sourceCommit || mobile?.tree !== marker.mobileTree || mobile?.production_verified !== false) throw new Error("pending_release_lineage_mismatch");
-  if (!tree.files.has(marker.requiredMigration)) throw new Error("pending_release_migration_missing");
-  const source = repositoryAt(repo, marker.sourceCommit);
-  if (!source.files.has(marker.requiredMigration) || sha256(source.read(marker.requiredMigration)) !== sha256(tree.read(marker.requiredMigration))) throw new Error("pending_release_migration_bytes_mismatch");
-  return {
-    markerPath,
-    sourceCommit: marker.sourceCommit,
-    mobileTree: marker.mobileTree,
-    runtimeVersion: marker.runtimeVersion,
-    channel: marker.channel,
-    migration: { path: marker.requiredMigration, sha256: sha256(tree.read(marker.requiredMigration)) },
-  };
-};
-
 const sourceExtensions = ["", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".wasm"];
 const resolveLocalImport = (tree, importer, specifier) => {
   if (specifier.startsWith("/")) throw new Error(`absolute_local_import_forbidden:${importer}:${specifier}`);
@@ -281,7 +251,7 @@ const diffEntries = (repo, base, head) => git(repo, ["diff", "--name-status", "-
     return { status, paths: [first, second].filter(Boolean) };
   });
 
-export const buildProductionPlan = ({ repo, baseSha, headSha, pendingReleaseMarkerPath = null }) => {
+export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   const base = repositoryAt(repo, baseSha);
   const head = repositoryAt(repo, headSha);
   const baseConfig = parseSupabaseFunctionConfig(base.text("supabase/config.toml"));
@@ -297,10 +267,9 @@ export const buildProductionPlan = ({ repo, baseSha, headSha, pendingReleaseMark
   const preappliedImportChanged = changedPaths.has(preappliedImportPath);
   const migrationRecovery = recoveryChanged ? productionMigrationRecovery(head, baseSha) : null;
   const preappliedMigrationImport = preappliedImportChanged ? productionPreappliedMigrationImport(head, baseSha) : null;
-  const pendingRelease = pendingReleaseMarkerPath ? productionPendingRelease(repo, head, headSha, pendingReleaseMarkerPath) : null;
   if (recoveryChanged && changes.find((entry) => entry.paths.includes(recoveryPath))?.status !== "A") throw new Error("migration_recovery_must_be_additive");
   if (preappliedImportChanged && changes.find((entry) => entry.paths.includes(preappliedImportPath))?.status !== "A") throw new Error("preapplied_migration_import_must_be_additive");
-  if ([migrationRecovery, preappliedMigrationImport, pendingRelease].filter(Boolean).length > 1) throw new Error("migration_release_modes_conflict");
+  if ([migrationRecovery, preappliedMigrationImport].filter(Boolean).length > 1) throw new Error("migration_release_modes_conflict");
   if (beforeAuthConfig && !afterAuthConfig) throw new Error("production_auth_config_removal_forbidden");
   const authConfig = afterAuthConfig
     ? {
@@ -357,7 +326,6 @@ export const buildProductionPlan = ({ repo, baseSha, headSha, pendingReleaseMark
     if (!base.files.has(migration.path) || sha256(base.read(migration.path)) !== migration.sha256) throw new Error(`migration_recovery_base_bytes_mismatch:${migration.path}`);
     if (!migrations.some((entry) => entry.path === migration.path)) migrations.push(migration);
   }
-  if (pendingRelease && !migrations.some((entry) => entry.path === pendingRelease.migration.path)) migrations.push(pendingRelease.migration);
   migrations.sort((left, right) => left.path.localeCompare(right.path));
   const preappliedMigrations = preappliedMigrationImport?.migrations ?? [];
   if (preappliedMigrationImport) {
@@ -388,7 +356,6 @@ export const buildProductionPlan = ({ repo, baseSha, headSha, pendingReleaseMark
       failedCanonicalMainSha: migrationRecovery.failedCanonicalMainSha,
       failedDeploymentRunId: migrationRecovery.failedDeploymentRunId,
     } : null,
-    pendingRelease,
     authConfig,
     runtimeDeploymentRequired: deployFunctions.length > 0 || pendingMigrations.length > 0 || authConfig?.deploy === true,
   };
@@ -407,7 +374,7 @@ if (isMain) {
     if (!/^[0-9a-f]{40}$/.test(resolvedHead)) throw new Error("valid_head_sha_required");
     if (args["assert-canonical-main"] && process.env.GITHUB_REF !== "refs/heads/main") throw new Error("production_deployment_requires_canonical_main_ref");
     if (args["assert-canonical-main"] && process.env.GITHUB_SHA !== resolvedHead) throw new Error("production_deployment_sha_mismatch");
-    const plan = buildProductionPlan({ repo, baseSha, headSha: resolvedHead, pendingReleaseMarkerPath: args["pending-release-marker"] ?? null });
+    const plan = buildProductionPlan({ repo, baseSha, headSha: resolvedHead });
     const serialized = `${JSON.stringify(plan, null, 2)}\n`;
     if (args.output) writeFileSync(resolve(args.output), serialized, { encoding: "utf8", flag: "wx" });
     else process.stdout.write(serialized);
