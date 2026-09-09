@@ -192,11 +192,15 @@ select public.reserve_review_media_upload_v2(
   array[repeat('f',64)],false
 );
 select public.cancel_review_media_upload_v2('92000000-0000-4000-8000-000000000024');
+reset role;
 select pg_temp.review_capture_assert(
   (select expires_at <= now() from public.review_media_upload_reservations_v1
     where review_id='92000000-0000-4000-8000-000000000024'),
   'object-free reservation was not cancelled'
 );
+set local role authenticated;
+select set_config('request.jwt.claim.sub','92000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
 
 -- Another user cannot attach a different fingerprint or cancel this user's
 -- reservation.
