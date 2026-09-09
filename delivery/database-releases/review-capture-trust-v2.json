@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "review-capture-trust-v2",
+  "previousEvidence": "production-20260908045502",
+  "previousFingerprints": {
+    "publicAclSha256": "84280377bb1e2d91088e126e287b8ed797b63e5acd26ea7ea0f72fd9f6805e17",
+    "applicationSchemaSha256": "040bfa3a82cfb57245399c30c93ebccff6c0b9302527800ab23ba47898f83d1d"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260909073004_close_review_capture_trust_v2.sql",
+      "sha256": "0389dc16edaa6ccb666ecc5e3f1f4c3e0a39a7f3bc1400838acca929a37753e0"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/review_capture_trust_v2.sql",
+      "sha256": "0274684038c11d7e1072e38676eea91a78e913245e2f56767b40da9186ab9e4e"
+    },
+    {
+      "path": "supabase/tests/review_media_atomic_v1.sql",
+      "sha256": "c1388920534fc22e3bcfa1cb915503edbd487298922cb2229119569809a8fb7d"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "097c34637cecd413bccb112f663adfc3d2092defdb6f0d04015fe9b0f8e393fd",
+    "applicationSchemaSha256": "898210dbedce247f82b45e44657cfe0e759c05ce9ce6fa3cd65823c311333d37"
+  }
+}

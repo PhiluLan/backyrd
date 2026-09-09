@@ -7,6 +7,7 @@ import {
   Pressable,
   Alert,
   ScrollView,
+  AccessibilityInfo,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -20,11 +21,15 @@ import { registerSafetySnapshot } from "../../lib/safety-content";
 import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
 import { userFacingError } from "../../lib/userFacingError";
 import { MoodExpressionInput } from "../../components/MoodExpressionInput";
+import { ReviewSubmissionStatus } from "../../components/reviews/ReviewMediaField";
 import {
+  discardReviewMediaAttempt,
   finalizeReviewWithMedia,
   reviewMediaErrorContext,
   reviewMediaUserMessage,
+  ReviewMediaError,
   type ReviewMediaAsset,
+  type ReviewMediaProgress,
   uploadReservedReviewMedia,
 } from "../../lib/review-media-upload";
 
@@ -67,9 +72,13 @@ export default function QuickReviewScreen() {
   const [photo, setPhoto] = useState<ReviewMediaAsset | null>(null);
   const photoUri = photo?.uri ?? null;
   const pendingMediaReviewId = useRef<string | null>(null);
+  const pendingUploadedPaths = useRef<string[]>([]);
+  const submittingRef = useRef(false);
   const [moodA, setMoodA] = useState("");
   const [moodB, setMoodB] = useState("");
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<ReviewMediaProgress | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraReady, setCameraReady] = useState(false);
@@ -90,6 +99,7 @@ export default function QuickReviewScreen() {
     try {
       const photo = await cameraRef.takePictureAsync({ quality: 0.8 });
       setPhoto({ uri: photo.uri, fileName: "camera.jpg", mimeType: "image/jpeg" });
+      setSubmitError(null);
       void trackAnalyticsEvent({ eventName: "review_photo_added", screenName: "review_quick", spotId, properties: { source: "camera" } });
     } catch (err) {
       Alert.alert("Fehler", "Kamera konnte kein Bild aufnehmen.");
@@ -97,8 +107,41 @@ export default function QuickReviewScreen() {
     }
   }
 
+  async function retakePhoto() {
+    if (pendingMediaReviewId.current) {
+      try {
+        await discardReviewMediaAttempt({
+          reviewId: pendingMediaReviewId.current,
+          storagePaths: pendingUploadedPaths.current,
+          onProgress: setProgress,
+        });
+      } catch (error) {
+        const message = reviewMediaUserMessage(error) ?? "Das vorherige Bild konnte noch nicht sicher entfernt werden.";
+        setSubmitError(message);
+        setProgress(null);
+        AccessibilityInfo.announceForAccessibility(message);
+        return;
+      }
+      pendingMediaReviewId.current = null;
+      pendingUploadedPaths.current = [];
+    }
+    setPhoto(null);
+    setProgress(null);
+    setSubmitError(null);
+  }
+
   /* ======= Hochladen & Review speichern ======= */
   async function submitReview() {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    try {
+      await submitReviewOnce();
+    } finally {
+      submittingRef.current = false;
+    }
+  }
+
+  async function submitReviewOnce() {
     if (!spotId) {
       Alert.alert("Fehler", "Spot-ID fehlt.");
       return;
@@ -139,15 +182,18 @@ export default function QuickReviewScreen() {
     }
 
     setLoading(true);
+    setSubmitError(null);
+    setProgress({ stage: "auth", completed: 0, total: 1 });
     try {
       const reviewId = pendingMediaReviewId.current ?? Crypto.randomUUID();
       pendingMediaReviewId.current = reviewId;
       const media = await uploadReservedReviewMedia({
-        reviewId, spotId, smartReview: false, assets: [photo],
+        reviewId, spotId, smartReview: false, assets: [photo], onProgress: setProgress,
       });
+      pendingUploadedPaths.current = media.storagePaths;
       await finalizeReviewWithMedia({
         reviewId, spotId, text: null, moodA: moodA || null,
-        moodB: moodB || null, ...media, smartReview: false,
+        moodB: moodB || null, ...media, smartReview: false, onProgress: setProgress,
       });
       const publicUrl = media.publicUrls[0];
       const reviewData = { id: reviewId };
@@ -192,6 +238,8 @@ export default function QuickReviewScreen() {
       }
 
       pendingMediaReviewId.current = null;
+      pendingUploadedPaths.current = [];
+      setProgress(null);
       void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_quick", entityType: "review", entityId: reviewData.id, spotId, decisionId: decisionId ?? null, properties: { photo_count: 1, source: source ?? "spot" } });
       router.replace(`/spot/${spotId}`);
     } catch (e: any) {
@@ -227,6 +275,7 @@ export default function QuickReviewScreen() {
           [{ text: "OK", onPress: () => router.replace("/") }],
         );
       } else if (mediaError) {
+        pendingUploadedPaths.current = e instanceof ReviewMediaError ? e.uploadedPaths : [];
         console.warn("[review-media] publish failed", {
           surface: "review_quick",
           spot_id: spotId,
@@ -238,7 +287,10 @@ export default function QuickReviewScreen() {
           errorType: "review_media_submit_failed",
           context: { spot_id: spotId, ...mediaError },
         });
-        Alert.alert("Review nicht gespeichert", reviewMediaUserMessage(e) ?? "Bitte versuche es nochmals.");
+        const message = reviewMediaUserMessage(e) ?? "Bitte versuche es nochmals.";
+        setSubmitError(message);
+        setProgress(null);
+        AccessibilityInfo.announceForAccessibility(message);
       } else {
         void reportAnalyticsError({
           error: e,
@@ -265,8 +317,10 @@ export default function QuickReviewScreen() {
     return (
       <SafeAreaView style={styles.center}>
         <Text style={styles.permissionTitle}>Kamera freigeben</Text>
-        <Text style={styles.permissionBody}>Für einen schnellen Backyrd Moment brauchen wir kurz Zugriff auf deine Kamera.</Text>
+        <Text style={styles.permissionBody}>Für eine schnelle Review mit Bild brauchen wir Zugriff auf deine Kamera.</Text>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Kamerazugriff erlauben"
           style={styles.permissionBtn}
           onPress={() => requestPermission()}
         >
@@ -287,17 +341,20 @@ export default function QuickReviewScreen() {
           onCameraReady={() => setCameraReady(true)}
         />
         <View style={styles.cameraTop}>
-          <Pressable onPress={() => router.back()} style={styles.iconButton}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Kamera schließen" onPress={() => router.back()} style={styles.iconButton}>
             <Ionicons name="chevron-back" size={24} color={theme.text} />
           </Pressable>
           <View style={styles.cameraTitlePill}>
-            <Text style={styles.cameraTitle}>Moment aufnehmen</Text>
+            <Text style={styles.cameraTitle}>Bild aufnehmen</Text>
           </View>
           <View style={styles.iconButtonPlaceholder} />
         </View>
         <View style={styles.cameraOverlay}>
           <Text style={styles.cameraHint}>Foto machen. Moods danach ergänzen.</Text>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Foto aufnehmen"
+            accessibilityState={{ disabled: !cameraReady }}
             onPress={takePhoto}
             style={[styles.captureBtn, { opacity: cameraReady ? 1 : 0.5 }]}
             disabled={!cameraReady}
@@ -314,11 +371,11 @@ export default function QuickReviewScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.reviewHeader}>
-          <Pressable onPress={() => router.back()} style={styles.iconButton}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Review schließen" onPress={() => router.back()} style={styles.iconButton}>
             <Ionicons name="chevron-back" size={24} color={theme.text} />
           </Pressable>
-          <Text style={styles.reviewHeaderTitle}>Neuer Moment</Text>
-          <Pressable onPress={() => setPhoto(null)} style={styles.iconButton}>
+          <Text style={styles.reviewHeaderTitle}>Schnelle Review</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Bild ersetzen" onPress={() => void retakePhoto()} style={styles.iconButton}>
             <Ionicons name="camera-outline" size={21} color={theme.text} />
           </Pressable>
         </View>
@@ -337,7 +394,16 @@ export default function QuickReviewScreen() {
           <MoodExpressionInput label="Zweiter Mood (optional)" placeholder="z. B. lebhaft" value={moodB} onChangeText={setMoodB} />
         </View>
 
+        <ReviewSubmissionStatus
+          progress={progress}
+          error={submitError}
+          onRetry={() => void submitReview()}
+        />
+
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Review veröffentlichen"
+          accessibilityState={{ disabled: loading, busy: loading }}
           onPress={submitReview}
           style={[styles.submitBtn, loading && { opacity: 0.6 }]}
           disabled={loading}
@@ -345,7 +411,7 @@ export default function QuickReviewScreen() {
           {loading ? (
             <ActivityIndicator color={theme.ink} />
           ) : (
-            <Text style={styles.submitText}>Moment speichern</Text>
+            <Text style={styles.submitText}>Review veröffentlichen</Text>
           )}
         </Pressable>
       </ScrollView>
