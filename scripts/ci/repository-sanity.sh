@@ -11,6 +11,13 @@ fail() {
 
 "$repo_root/scripts/ci/validate-migrations.sh"
 
+while IFS= read -r action_use; do
+  action_ref="${action_use##*@}"
+  action_ref="${action_ref%%[[:space:]#]*}"
+  [[ "$action_ref" =~ ^[0-9a-f]{40}$ ]] \
+    || fail "GitHub Actions must use an immutable 40-character commit SHA: $action_use"
+done < <(git grep -hE 'uses:[[:space:]]*[^[:space:]]+@[^[:space:]#]+' -- .github/workflows)
+
 while IFS= read -r entrypoint; do
   relative_entrypoint="${entrypoint#./}"
   test -f "$repo_root/supabase/$relative_entrypoint" \
