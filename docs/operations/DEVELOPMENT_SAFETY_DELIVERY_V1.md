@@ -9,7 +9,7 @@ older release reports remain historical evidence.
 
 The changed system boundary, not the age of the repository, selects the checks. Git preserves historical approvals. Active CI proves current behavior and fails closed only on a concrete invariant violation.
 
-The open Review Media founder-iPhone incident remains `production_verified:false`. This rollout neither changes that Product code nor treats its partial test states as a successful baseline.
+The Review Media founder-iPhone incident remained `production_verified:false` throughout this delivery rollout and its failed physical attempts. The later explicit Founder PASS on 2026-09-09 is recorded separately in `delivery/production-state.json`; historical partial test states remain preserved.
 
 ## Candidate identity
 
