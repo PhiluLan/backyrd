@@ -1,7 +1,7 @@
 import {
-  CanonicalUserEvent, EventReferencesSchema, JourneyBindingSchema, parseCanonicalUserEvent, withEventHash,
+  CanonicalUserEvent, EventReferencesSchema, JourneyBindingSchema, parseCanonicalUserEvent, ServerReferenceBindingSchema, withEventHash,
 } from "./contracts.js";
-import { ContractValidationError, identifier, Infer, schema, sha256, timestamp } from "./schema.js";
+import { ContractValidationError, identifier, Infer, schema, timestamp } from "./schema.js";
 import { TemporalValidationPolicy, validateTemporalIntegrity } from "./temporal.js";
 
 export const ClientObservationInputSchema = schema.object({
@@ -19,8 +19,6 @@ export const VerifiedProductStateInputSchema = schema.object({
 });
 export type VerifiedProductStateInput = Infer<typeof VerifiedProductStateInputSchema>;
 
-export const ServerReferenceBindingSchema = schema.object({ authority: schema.literal("SERVER_PRODUCT_TRUTH"), boundUserId: identifier, resolutionRecordHash: sha256 });
-
 export interface ServerBindingContext {
   readonly authenticatedUserId: string;
   readonly authenticatedActorId: string;
@@ -33,7 +31,7 @@ export interface ServerBindingContext {
   readonly references: CanonicalUserEvent["references"];
   readonly journey: CanonicalUserEvent["journey"];
   readonly referencePolicyVersion: string;
-  readonly referenceBinding: Infer<typeof ServerReferenceBindingSchema>;
+  readonly referenceBinding: Omit<Infer<typeof ServerReferenceBindingSchema>, "referencePolicyVersion">;
   readonly temporal: {
     readonly occurredAt: string; readonly observedAt: string; readonly ingestedAt: string; readonly serverNow: string;
     readonly timeAuthority: CanonicalUserEvent["temporalBinding"]["timeAuthority"];
@@ -53,7 +51,7 @@ const productMapping = Object.freeze({
 function parseServerBinding(server: ServerBindingContext, eventType: string): ServerBindingContext {
   EventReferencesSchema.parse(server.references);
   JourneyBindingSchema.parse(server.journey);
-  const referenceBinding = ServerReferenceBindingSchema.parse(server.referenceBinding);
+  const referenceBinding = ServerReferenceBindingSchema.parse({ ...server.referenceBinding, referencePolicyVersion: server.referencePolicyVersion });
   if (referenceBinding.boundUserId !== server.authenticatedUserId) throw new ContractValidationError("$.referenceBinding.boundUserId", "product references are bound to another user");
   validateTemporalIntegrity({ eventType, ...server.temporal });
   return server;
@@ -72,7 +70,7 @@ function commonBody(server: ServerBindingContext) {
     contractVersion: "backyrd.user-intelligence.canonical-user-event@1.0" as const,
     eventId: server.eventId, occurredAt: server.temporal.occurredAt, observedAt: server.temporal.observedAt,
     ingestedAt: server.temporal.ingestedAt, userId: server.authenticatedUserId, references: server.references,
-    journey: server.journey, referencePolicyVersion: server.referencePolicyVersion,
+    journey: server.journey, referenceResolution: { ...server.referenceBinding, referencePolicyVersion: server.referencePolicyVersion },
     temporalBinding: { contractVersion: "backyrd.user-intelligence.temporal-validation@1.0" as const, policyVersion: server.temporal.policy.policyVersion, timeAuthority: server.temporal.timeAuthority, validatedAt: server.temporal.serverNow },
     consent: server.consent, retentionClass: server.retentionClass, idempotencyKey: server.idempotencyKey,
   };

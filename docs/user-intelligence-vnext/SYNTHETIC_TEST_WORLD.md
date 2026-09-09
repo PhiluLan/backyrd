@@ -14,9 +14,11 @@ Abgedeckt sind:
 - Multi-Concept-Attribution ohne zusätzliche Experience;
 - Cross-User-Abweisung;
 - gefälschte Journeys sowie fremde Decision-/Spot-Referenzen;
+- fehlende, falsche, fremde und nachträglich manipulierte Reference Resolution;
+- unterschiedliche Resolution-Record-Hashes bei identischen sichtbaren Referenzen;
 - Client-Save/-Reservation ohne verifizierten Product State;
 - Event-Reference-Matrix einschließlich Visit, Review, Satisfaction und Correction;
-- Future-Skew, inkonsistente Zeitreihenfolge und explizit erlaubtes Offline-Event;
+- Future-Skew für Occurrence/Ingestion, inkonsistente Zeitreihenfolge und explizit erlaubtes Offline-Event;
 - unbekannte Contract-/Registry-Version und unbekanntes Concept;
 - getrennte Direct-Spot-, Practical- und Taste-Contracts;
 - Item-/Bytebudget und neutrale Projection;

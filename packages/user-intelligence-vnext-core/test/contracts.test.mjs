@@ -10,7 +10,7 @@ import {
   REQUIRED_LIFECYCLE_STORES, validateTemporalIntegrity, withEventHash,
 } from "../dist/index.js";
 
-const temporalPolicy = { contractVersion: "backyrd.user-intelligence.temporal-policy@1.0", policyVersion: "synthetic-temporal-policy-v1", maxFutureSkewMs: 1_000, delayedEventPolicy: "ALLOW_WITHIN_BOUND", maxDelayMs: 86_400_000, observationOrderExceptionEventTypes: [] };
+const temporalPolicy = { contractVersion: "backyrd.user-intelligence.temporal-policy@1.0", policyVersion: "synthetic-temporal-policy-v1", maxFutureSkewMs: 1_000, maxServerClockSkewMs: 1_000, delayedEventPolicy: "ALLOW_WITHIN_BOUND", maxDelayMs: 86_400_000, observationOrderExceptionEventTypes: [] };
 const serverBinding = (overrides = {}) => ({
   authenticatedUserId: "synthetic-user-a", authenticatedActorId: "actor-a", producer: "test-endpoint", sourceRecordId: "source-1", eventId: "bound-event-1",
   consent: GRANTED_CONSENT, retentionClass: "synthetic-tbd", idempotencyKey: "bound-key-1",
@@ -20,6 +20,7 @@ const serverBinding = (overrides = {}) => ({
   temporal: { occurredAt: "2026-01-15T12:00:00.000Z", observedAt: "2026-01-15T12:00:00.000Z", ingestedAt: "2026-01-15T12:00:00.000Z", serverNow: "2026-01-15T12:00:00.000Z", timeAuthority: "SERVER_CLOCK", policy: temporalPolicy },
   ...overrides,
 });
+const rehashEvent = (event, change) => { const body = { ...structuredClone(event), ...change }; delete body.eventHash; return withEventHash(body); };
 
 test("valid synthetic contracts are accepted with bound identities and hashes", () => {
   assert.equal(parseCanonicalUserEvent(SYNTHETIC_EVENTS.visit, "synthetic-user-a").eventType, "VERIFIED_VISIT");
@@ -87,6 +88,21 @@ test("server authority binds journey and product references fail closed", () => 
   assert.notEqual(bound.eventHash, bindClientObservation({ ...base, observedTarget: { spotId: "spot-2" } }, serverBinding({ references: { spotId: "spot-2" } })).eventHash);
 });
 
+test("reference resolution is durable, user-bound and part of the event hash", () => {
+  const input = { clientEventId: "client-resolution", eventType: "SPOT_OPENED", clientOccurredAt: "2026-01-15T12:00:00.000Z", observedTarget: { spotId: "spot-1" } };
+  const first = bindClientObservation(input, serverBinding());
+  const second = bindClientObservation(input, serverBinding({ referenceBinding: { authority: "SERVER_PRODUCT_TRUTH", boundUserId: "synthetic-user-a", resolutionRecordHash: "1".repeat(64) } }));
+  assert.deepEqual(first.references, second.references);
+  assert.notEqual(first.referenceResolution.resolutionRecordHash, second.referenceResolution.resolutionRecordHash);
+  assert.notEqual(first.eventHash, second.eventHash);
+
+  const missingBody = structuredClone(first); delete missingBody.referenceResolution; delete missingBody.eventHash;
+  assert.throws(() => parseCanonicalUserEvent(withEventHash(missingBody)), /requires server product truth resolution/);
+  assert.throws(() => parseCanonicalUserEvent(rehashEvent(first, { referenceResolution: { ...first.referenceResolution, authority: "CLIENT_ASSERTED" } })), /SERVER_PRODUCT_TRUTH/);
+  assert.throws(() => parseCanonicalUserEvent(rehashEvent(first, { referenceResolution: { ...first.referenceResolution, boundUserId: "synthetic-user-b" } })), /another user/);
+  assert.throws(() => parseCanonicalUserEvent({ ...first, referenceResolution: { ...first.referenceResolution, resolutionRecordHash: "2".repeat(64) } }), /hash mismatch/);
+});
+
 test("product-state assertions require the verified adapter and authoritative record", () => {
   const client = { clientEventId: "client-1", eventType: "SAVED", clientOccurredAt: "2026-01-15T12:00:00.000Z", observedTarget: { spotId: "spot-1" } };
   assert.throws(() => bindClientObservation(client, serverBinding()), /expected one of/);
@@ -96,13 +112,12 @@ test("product-state assertions require the verified adapter and authoritative re
 });
 
 test("event reference matrix rejects missing and contradictory references", () => {
-  const mutate = (event, change) => { const body = { ...structuredClone(event), ...change }; delete body.eventHash; return withEventHash(body); };
-  assert.throws(() => parseCanonicalUserEvent(mutate(SYNTHETIC_EVENTS.visit, { references: {} })), /spotId/);
-  assert.throws(() => parseCanonicalUserEvent(mutate(SYNTHETIC_EVENTS.standardReview, { references: {} })), /spotId/);
-  assert.throws(() => parseCanonicalUserEvent(mutate(SYNTHETIC_EVENTS.positive, { references: {}, journey: { resolution: "UNRESOLVED", journeyId: null, resolutionPolicyVersion: "journey-policy-v1", independenceEligible: false } })), /experience target/);
-  assert.throws(() => parseCanonicalUserEvent(mutate(SYNTHETIC_EVENTS.correction, { references: { spotId: "spot-1" } })), /forbids/);
-  assert.throws(() => parseCanonicalUserEvent(mutate(SYNTHETIC_EVENTS.correction, { supersedesEventId: "event-negative" })), /must be identical/);
-  assert.throws(() => parseCanonicalUserEvent(mutate(SYNTHETIC_EVENTS.save, { payload: { kind: "INTENT", action: "RESERVATION" } })), /inconsistent intent/);
+  assert.throws(() => parseCanonicalUserEvent(rehashEvent(SYNTHETIC_EVENTS.visit, { references: {} })), /spotId/);
+  assert.throws(() => parseCanonicalUserEvent(rehashEvent(SYNTHETIC_EVENTS.standardReview, { references: {} })), /spotId/);
+  assert.throws(() => parseCanonicalUserEvent(rehashEvent(SYNTHETIC_EVENTS.positive, { references: {}, journey: { resolution: "UNRESOLVED", journeyId: null, resolutionPolicyVersion: "journey-policy-v1", independenceEligible: false } })), /experience target/);
+  assert.throws(() => parseCanonicalUserEvent(rehashEvent(SYNTHETIC_EVENTS.correction, { references: { spotId: "spot-1" } })), /forbids/);
+  assert.throws(() => parseCanonicalUserEvent(rehashEvent(SYNTHETIC_EVENTS.correction, { supersedesEventId: "event-negative" })), /must be identical/);
+  assert.throws(() => parseCanonicalUserEvent(rehashEvent(SYNTHETIC_EVENTS.save, { payload: { kind: "INTENT", action: "RESERVATION" } })), /inconsistent intent/);
 });
 
 test("temporal integrity is injected, deterministic and explicit for offline events", () => {
@@ -114,6 +129,14 @@ test("temporal integrity is injected, deterministic and explicit for offline eve
   assert.throws(() => validateTemporalIntegrity({ ...valid, ingestedAt: "2026-01-15T10:59:59.000Z" }), /ingestion precedes/);
   assert.throws(() => validateTemporalIntegrity({ ...valid, policy: { ...temporalPolicy, delayedEventPolicy: "REJECT" } }), /not allowed/);
   assert.doesNotThrow(() => validateTemporalIntegrity({ ...valid, eventType: "DOCUMENTED_IMPORT", observedAt: "2026-01-15T10:59:59.000Z", policy: { ...temporalPolicy, observationOrderExceptionEventTypes: ["DOCUMENTED_IMPORT"] } }));
+});
+
+test("server ingestion time is bounded by injected clock skew", () => {
+  const base = { eventType: "SPOT_OPENED", occurredAt: "2026-01-15T12:00:00.000Z", observedAt: "2026-01-15T12:00:00.000Z", ingestedAt: "2026-01-15T12:00:00.500Z", serverNow: "2026-01-15T12:00:00.000Z", timeAuthority: "SERVER_CLOCK", policy: temporalPolicy };
+  assert.doesNotThrow(() => validateTemporalIntegrity(base));
+  assert.doesNotThrow(() => validateTemporalIntegrity(structuredClone(base)));
+  assert.throws(() => validateTemporalIntegrity({ ...base, ingestedAt: "2026-01-16T12:00:00.000Z" }), /server-clock skew/);
+  assert.throws(() => validateTemporalIntegrity({ ...base, observedAt: "2026-01-16T12:00:00.000Z", ingestedAt: "2026-01-16T12:00:00.000Z" }), /server-clock skew/);
 });
 
 test("opaque concepts require exact registry and known identifiers", () => {

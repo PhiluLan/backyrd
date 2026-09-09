@@ -4,9 +4,9 @@ Normative Exports liegen in `packages/user-intelligence-vnext-core/src`. Jeder O
 
 | Contract | Zweck | Zentrale Invarianten |
 |---|---|---|
-| `CanonicalUserEvent` | servergebundene Beobachtung | Hash, Idempotency, servergelöste Journey/Referenzen, Temporal Binding, Authority, Consent |
+| `CanonicalUserEvent` | servergebundene Beobachtung | Hash, Idempotency, servergelöste Journey/Referenzen, hashgebundener Resolution-Record, Temporal Binding, Authority, Consent |
 | `EVENT_REFERENCE_MATRIX` | Event-spezifische Referenzregeln | required/allowed References, Journey- und Source-Authority fail-closed |
-| `TemporalValidationPolicy` | injizierbare Zeitprüfung | Future Skew, Reihenfolge, Ingestion und explizite Offline-Policy |
+| `TemporalValidationPolicy` | injizierbare Zeitprüfung | Occurrence- und Server-Clock-Skew, Reihenfolge, Ingestion und explizite Offline-Policy |
 | `UserEventAuthority` | Wer darf was behaupten? | User-ID und Binding serverseitig; Client Observation kann kein starkes Outcome behaupten |
 | `ConsentEnvelope` | Purpose und Processing-Recht | UNKNOWN/DENIED/WITHDRAWN autorisieren keine Personalization Evidence |
 | `EvidenceChain` | gemeinsame Journey-Evidence | getrennte Exposure-, Intent-, Experience-, Satisfaction-, Correction-, Direct-, Taste- und Practical-Segmente |

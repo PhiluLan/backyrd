@@ -3,6 +3,7 @@ import { ContractValidationError, identifier, Infer, schema, timestamp } from ".
 export const TEMPORAL_VALIDATION_CONTRACT_VERSION = "backyrd.user-intelligence.temporal-policy@1.0";
 export const TemporalValidationPolicySchema = schema.object({
   contractVersion: schema.literal(TEMPORAL_VALIDATION_CONTRACT_VERSION), policyVersion: identifier, maxFutureSkewMs: schema.number({ min: 0, integer: true }),
+  maxServerClockSkewMs: schema.number({ min: 0, integer: true }),
   delayedEventPolicy: schema.enum(["REJECT", "ALLOW_WITHIN_BOUND"] as const), maxDelayMs: schema.number({ min: 0, integer: true }),
   observationOrderExceptionEventTypes: schema.array(identifier, { max: 16 }),
 });
@@ -21,6 +22,7 @@ export function validateTemporalIntegrity(value: TemporalValidationInput): void 
   if (occurred > now + policy.maxFutureSkewMs) throw new ContractValidationError("$.occurredAt", "occurrence is beyond the injected future-skew policy");
   if (observed < occurred && !policy.observationOrderExceptionEventTypes.includes(input.eventType)) throw new ContractValidationError("$.observedAt", "observation precedes occurrence without a documented exception");
   if (ingested < observed) throw new ContractValidationError("$.ingestedAt", "ingestion precedes the accepted observation time");
+  if (ingested > now + policy.maxServerClockSkewMs) throw new ContractValidationError("$.ingestedAt", "ingestion is beyond the injected server-clock skew policy");
   if (input.timeAuthority === "CLIENT_REPORTED_ACCEPTED_OFFLINE") {
     if (policy.delayedEventPolicy !== "ALLOW_WITHIN_BOUND") throw new ContractValidationError("$.timeAuthority", "offline client time is not allowed by the injected policy");
     if (now - occurred > policy.maxDelayMs) throw new ContractValidationError("$.occurredAt", "offline occurrence exceeds the injected delay bound");

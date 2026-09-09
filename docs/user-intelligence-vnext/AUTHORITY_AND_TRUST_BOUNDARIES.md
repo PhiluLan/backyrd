@@ -21,11 +21,11 @@ Client Observations können nur Exposure, Spot Open und Navigation abbilden. `SA
 | `USER_CORRECTION` | identische `targetEventId` und `supersedesEventId` | Ziel-Ownership-/Zeit-Lookup ist Phase-2-Port |
 | `ONBOARDING_DECLARATION` | keine Spot-/Decision-Referenz, keine Journey | authentifizierte User Action/Product State |
 
-Irrelevante Referenzen werden abgelehnt. Referenzen, Journey-Bindung, Reference-Policy und Temporal-Bindung liegen im gehashten Eventkörper.
+Irrelevante Referenzen werden abgelehnt. Referenzen, Journey-Bindung und `referenceResolution` liegen im gehashten Eventkörper. `referenceResolution` hält `SERVER_PRODUCT_TRUTH`, die gebundene User-ID, den Hash des autoritativen Resolution Records und die Reference-Policy-Version dauerhaft fest. Identische sichtbare Referenzen mit einem anderen Resolution Record erzeugen deshalb einen anderen Event-Hash.
 
 ## Zeitautorität
 
-`TemporalValidationPolicy` ist versioniert und vollständig injizierbar. Sie begrenzt Zukunfts-Skew, erlaubt oder verbietet Offline-/Delayed Events explizit, begrenzt deren Alter und listet dokumentierte Reihenfolge-Ausnahmen. Kanonische Occurrence-, Observation- und Ingestion-Zeit kommen aus der serverseitigen Bindung; die Client-Uhr kann nur unter der expliziten Offline-Policy als gemeldeter Zeitpunkt akzeptiert werden. Phase 1 definiert keine Product-Retention- oder Decay-Dauer.
+`TemporalValidationPolicy` ist versioniert und vollständig injizierbar. Sie begrenzt Zukunfts-Skew für Occurrence und serverseitige Ingestion, erlaubt oder verbietet Offline-/Delayed Events explizit, begrenzt deren Alter und listet dokumentierte Reihenfolge-Ausnahmen. Weil Observation nicht nach Ingestion liegen kann, ist damit auch ein weit zukünftiger Observation-Zeitpunkt ausgeschlossen. Kanonische Occurrence-, Observation- und Ingestion-Zeit kommen aus der serverseitigen Bindung; die Client-Uhr kann nur unter der expliziten Offline-Policy als gemeldeter Zeitpunkt akzeptiert werden. Phase 1 definiert keine Product-Retention- oder Decay-Dauer.
 
 ## Consent
 

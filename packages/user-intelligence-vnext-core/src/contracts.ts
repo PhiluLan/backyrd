@@ -116,6 +116,11 @@ export const JourneyBindingSchema = schema.union([
   schema.object({ resolution: schema.literal("UNRESOLVED"), journeyId: schema.literal(null), resolutionPolicyVersion: identifier, independenceEligible: schema.literal(false) }),
 ]);
 
+export const ServerReferenceBindingSchema = schema.object({
+  authority: schema.literal("SERVER_PRODUCT_TRUTH"), boundUserId: identifier,
+  resolutionRecordHash: sha256, referencePolicyVersion: identifier,
+});
+
 export const TemporalBindingSchema = schema.object({
   contractVersion: version(CONTRACT_VERSIONS.temporalValidation), policyVersion: identifier,
   timeAuthority: schema.enum(["SERVER_CLOCK", "CLIENT_REPORTED_ACCEPTED_OFFLINE"] as const), validatedAt: timestamp,
@@ -143,7 +148,7 @@ export const CanonicalUserEventSchema = schema.object({
   userId: identifier,
   references: EventReferencesSchema,
   journey: JourneyBindingSchema,
-  referencePolicyVersion: identifier,
+  referenceResolution: schema.optional(ServerReferenceBindingSchema),
   temporalBinding: TemporalBindingSchema,
   source: SourceSchema,
   authority: UserEventAuthoritySchema,
@@ -157,18 +162,18 @@ export const CanonicalUserEventSchema = schema.object({
 export type CanonicalUserEvent = Infer<typeof CanonicalUserEventSchema>;
 
 export const EVENT_REFERENCE_MATRIX = Object.freeze({
-  DECISION_REQUESTED: { required: ["decisionId"], allowed: ["sessionId", "decisionId"], journey: "OPTIONAL", authority: ["SERVER_VERIFIED_PRODUCT_STATE", "DATABASE_DERIVED_EVENT"] },
-  CANDIDATE_EXPOSED: { required: ["decisionId", "spotId", "candidateId"], allowed: ["sessionId", "decisionId", "spotId", "candidateId"], journey: "REQUIRED", authority: ["CLIENT_OBSERVATION"] },
-  SPOT_OPENED: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId", "candidateId"], journey: "REQUIRED", authority: ["CLIENT_OBSERVATION", "AUTHENTICATED_USER_ACTION"] },
-  SAVED: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId"], journey: "REQUIRED", authority: ["SERVER_VERIFIED_PRODUCT_STATE", "DATABASE_DERIVED_EVENT"] },
-  SAVE_REMOVED: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId"], journey: "REQUIRED", authority: ["SERVER_VERIFIED_PRODUCT_STATE", "DATABASE_DERIVED_EVENT"] },
-  NAVIGATION_INTENT: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId"], journey: "REQUIRED", authority: ["CLIENT_OBSERVATION", "AUTHENTICATED_USER_ACTION"] },
-  RESERVATION_INTENT: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId"], journey: "REQUIRED", authority: ["SERVER_VERIFIED_PRODUCT_STATE", "DATABASE_DERIVED_EVENT"] },
-  VERIFIED_VISIT: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId", "experienceEventId"], journey: "REQUIRED", authority: ["VERIFIED_OUTCOME"] },
-  REVIEW_RECORDED: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId", "experienceEventId"], journey: "REQUIRED", authority: ["SERVER_VERIFIED_PRODUCT_STATE", "DATABASE_DERIVED_EVENT"] },
-  SATISFACTION_RECORDED: { required: [], allowed: ["spotId", "experienceEventId"], journey: "QUALIFIED_EXPERIENCE", authority: ["AUTHENTICATED_USER_ACTION", "SERVER_VERIFIED_PRODUCT_STATE"] },
-  USER_CORRECTION: { required: [], allowed: [], journey: "OPTIONAL", authority: ["AUTHENTICATED_USER_ACTION", "SERVER_VERIFIED_PRODUCT_STATE"] },
-  ONBOARDING_DECLARATION: { required: [], allowed: [], journey: "FORBIDDEN", authority: ["AUTHENTICATED_USER_ACTION", "SERVER_VERIFIED_PRODUCT_STATE"] },
+  DECISION_REQUESTED: { required: ["decisionId"], allowed: ["sessionId", "decisionId"], journey: "OPTIONAL", referenceResolution: "REQUIRED", authority: ["SERVER_VERIFIED_PRODUCT_STATE", "DATABASE_DERIVED_EVENT"] },
+  CANDIDATE_EXPOSED: { required: ["decisionId", "spotId", "candidateId"], allowed: ["sessionId", "decisionId", "spotId", "candidateId"], journey: "REQUIRED", referenceResolution: "REQUIRED", authority: ["CLIENT_OBSERVATION"] },
+  SPOT_OPENED: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId", "candidateId"], journey: "REQUIRED", referenceResolution: "REQUIRED", authority: ["CLIENT_OBSERVATION", "AUTHENTICATED_USER_ACTION"] },
+  SAVED: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId"], journey: "REQUIRED", referenceResolution: "REQUIRED", authority: ["SERVER_VERIFIED_PRODUCT_STATE", "DATABASE_DERIVED_EVENT"] },
+  SAVE_REMOVED: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId"], journey: "REQUIRED", referenceResolution: "REQUIRED", authority: ["SERVER_VERIFIED_PRODUCT_STATE", "DATABASE_DERIVED_EVENT"] },
+  NAVIGATION_INTENT: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId"], journey: "REQUIRED", referenceResolution: "REQUIRED", authority: ["CLIENT_OBSERVATION", "AUTHENTICATED_USER_ACTION"] },
+  RESERVATION_INTENT: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId"], journey: "REQUIRED", referenceResolution: "REQUIRED", authority: ["SERVER_VERIFIED_PRODUCT_STATE", "DATABASE_DERIVED_EVENT"] },
+  VERIFIED_VISIT: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId", "experienceEventId"], journey: "REQUIRED", referenceResolution: "REQUIRED", authority: ["VERIFIED_OUTCOME"] },
+  REVIEW_RECORDED: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId", "experienceEventId"], journey: "REQUIRED", referenceResolution: "REQUIRED", authority: ["SERVER_VERIFIED_PRODUCT_STATE", "DATABASE_DERIVED_EVENT"] },
+  SATISFACTION_RECORDED: { required: [], allowed: ["spotId", "experienceEventId"], journey: "QUALIFIED_EXPERIENCE", referenceResolution: "REQUIRED", authority: ["AUTHENTICATED_USER_ACTION", "SERVER_VERIFIED_PRODUCT_STATE"] },
+  USER_CORRECTION: { required: [], allowed: [], journey: "OPTIONAL", referenceResolution: "REQUIRED", authority: ["AUTHENTICATED_USER_ACTION", "SERVER_VERIFIED_PRODUCT_STATE"] },
+  ONBOARDING_DECLARATION: { required: [], allowed: [], journey: "FORBIDDEN", referenceResolution: "FORBIDDEN", authority: ["AUTHENTICATED_USER_ACTION", "SERVER_VERIFIED_PRODUCT_STATE"] },
 } as const);
 
 const EVENT_SEMANTICS: Readonly<Record<CanonicalUserEvent["eventType"], { eventClass: CanonicalUserEvent["eventClass"]; payloadKind: CanonicalUserEvent["payload"]["kind"] }>> = Object.freeze({
@@ -196,6 +201,9 @@ function validateEventReferences(parsed: CanonicalUserEvent): void {
   for (const required of rule.required) if (references[required] === undefined) throw new ContractValidationError(`$.references.${required}`, `${parsed.eventType} requires this authoritative reference`);
   for (const [name, value] of Object.entries(references)) if (value !== undefined && !(rule.allowed as readonly string[]).includes(name)) throw new ContractValidationError(`$.references.${name}`, `${parsed.eventType} forbids this reference`);
   if (!(rule.authority as readonly string[]).includes(parsed.authority.kind)) throw new ContractValidationError("$.authority.kind", `${parsed.eventType} requires its declared source authority`);
+  if (rule.referenceResolution === "REQUIRED" && parsed.referenceResolution === undefined) throw new ContractValidationError("$.referenceResolution", `${parsed.eventType} requires server product truth resolution`);
+  if (rule.referenceResolution === "FORBIDDEN" && parsed.referenceResolution !== undefined) throw new ContractValidationError("$.referenceResolution", `${parsed.eventType} forbids product reference resolution`);
+  if (parsed.referenceResolution !== undefined && parsed.referenceResolution.boundUserId !== parsed.userId) throw new ContractValidationError("$.referenceResolution.boundUserId", "reference resolution is bound to another user");
   if (rule.journey === "REQUIRED" && parsed.journey.resolution !== "SERVER_RESOLVED") throw new ContractValidationError("$.journey", `${parsed.eventType} requires a server-resolved journey`);
   if (rule.journey === "FORBIDDEN" && parsed.journey.resolution !== "UNRESOLVED") throw new ContractValidationError("$.journey", `${parsed.eventType} forbids a journey`);
   if (rule.journey === "QUALIFIED_EXPERIENCE" && parsed.references.experienceEventId === undefined && parsed.journey.resolution !== "SERVER_RESOLVED") throw new ContractValidationError("$.references.experienceEventId", "satisfaction requires an experience target or qualified journey");

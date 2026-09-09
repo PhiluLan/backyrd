@@ -30,7 +30,7 @@ export function syntheticEvent(spec: EventSpec): CanonicalUserEvent {
     contractVersion: "backyrd.user-intelligence.canonical-user-event@1.0", eventId: spec.id, eventType: spec.eventType, eventClass: spec.eventClass,
     occurredAt: SYNTHETIC_NOW, observedAt: SYNTHETIC_NOW, ingestedAt: SYNTHETIC_NOW, userId,
     references, journey: { resolution: "SERVER_RESOLVED", journeyId: "synthetic-journey-1", resolutionPolicyVersion: "synthetic-journey-policy-v1", independenceEligible: true },
-    referencePolicyVersion: "synthetic-reference-policy-v1",
+    ...(spec.eventType === "ONBOARDING_DECLARATION" ? {} : { referenceResolution: { authority: "SERVER_PRODUCT_TRUTH" as const, boundUserId: userId, resolutionRecordHash: contentHash(`resolution-${spec.id}`), referencePolicyVersion: "synthetic-reference-policy-v1" } }),
     temporalBinding: { contractVersion: "backyrd.user-intelligence.temporal-validation@1.0", policyVersion: "synthetic-temporal-policy-v1", timeAuthority: "SERVER_CLOCK", validatedAt: SYNTHETIC_NOW },
     source: { system: "synthetic-fixture", producer: "phase1-harness", sourceRecordId: `source-${spec.id}`, provenance: authorityKind === "CLIENT_OBSERVATION" ? "CLIENT_OBSERVED" : authorityKind === "AUTHENTICATED_USER_ACTION" ? "USER_DECLARED" : authorityKind === "VERIFIED_OUTCOME" ? "SERVER_VERIFIED" : authorityKind === "DATABASE_DERIVED_EVENT" ? "DATABASE_TRIGGER" : "PRODUCT_STATE" },
     authority: { contractVersion: "backyrd.user-intelligence.user-event-authority@1.0", kind: authorityKind, boundUserId: userId, binding: "SERVER_BOUND", assertedBy: "phase1-harness", ...(authorityKind === "CLIENT_OBSERVATION" || authorityKind === "AUTHENTICATED_USER_ACTION" ? { authenticatedActorId: "synthetic-actor-a" } : {}), sourceTrust },
