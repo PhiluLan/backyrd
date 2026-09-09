@@ -54,11 +54,21 @@ export function validateProductionState({ repo, headSha = "HEAD", statePath = "d
   if (!SHA.test(state.mobile.productSourceSha ?? "") || !isAncestor(repo, state.mobile.productSourceSha, mobileSource)) {
     throw new Error("mobile_product_source_invalid");
   }
-  if (state.mobile.productionVerified !== false || state.mobile.technicalStatus !== "SHIPPED_PRODUCT_UNVERIFIED") {
-    throw new Error("review_media_product_failure_must_remain_unverified");
-  }
   const incident = state.reviewMediaIncident;
-  if (incident?.status !== "OPEN_PAUSED" || incident.productionVerified !== false || incident.historicalPartialTestStatesPreserved !== true || incident.productFixInScope !== true) {
+  const isUnverified = state.mobile.productionVerified === false &&
+    state.mobile.technicalStatus === "SHIPPED_PRODUCT_UNVERIFIED" &&
+    incident?.status === "OPEN_PAUSED" && incident.productionVerified === false;
+  const founderEvidence = incident?.founderEvidence;
+  const isFounderVerified = state.mobile.productionVerified === true &&
+    state.mobile.technicalStatus === "SHIPPED_PRODUCT_VERIFIED" &&
+    incident?.status === "CLOSED" && incident.productionVerified === true &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(incident.founderPassAt ?? "") &&
+    founderEvidence?.bothReviewsVisible === true && founderEvidence?.bothMediaReachable === true &&
+    typeof founderEvidence.standardReviewSpot === "string" && founderEvidence.standardReviewSpot.length > 0 &&
+    typeof founderEvidence.smartReviewSpotReported === "string" && founderEvidence.smartReviewSpotReported.length > 0 &&
+    /^[0-9a-f]{12}$/.test(founderEvidence.standardReviewRef ?? "") &&
+    /^[0-9a-f]{12}$/.test(founderEvidence.smartReviewRef ?? "");
+  if ((!isUnverified && !isFounderVerified) || incident?.historicalPartialTestStatesPreserved !== true || incident.productFixInScope !== true) {
     throw new Error("review_media_incident_state_invalid");
   }
   return {
@@ -69,7 +79,7 @@ export function validateProductionState({ repo, headSha = "HEAD", statePath = "d
     migrationTip: state.supabase.migrationTip,
     migrationCount: state.supabase.migrationCount,
     productIncident: incident.id,
-    productionVerified: false,
+    productionVerified: state.mobile.productionVerified,
   };
 }
 

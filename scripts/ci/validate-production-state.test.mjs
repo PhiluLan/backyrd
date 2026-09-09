@@ -45,5 +45,29 @@ test("cannot turn the paused Review Media incident into self-declared success", 
   f.state.mobile.productionVerified = true;
   f.state.reviewMediaIncident.productionVerified = true;
   write(f.repo, "delivery/production-state.json", `${JSON.stringify(f.state, null, 2)}\n`); git(f.repo, ["add", "."]); git(f.repo, ["commit", "-qm", "false success"]);
-  assert.throws(() => validateProductionState({ repo: f.repo }), /review_media_product_failure_must_remain_unverified/);
+  assert.throws(() => validateProductionState({ repo: f.repo }), /review_media_incident_state_invalid/);
+});
+
+test("accepts explicit Founder physical PASS with complete sanitized evidence", () => {
+  const f = fixture();
+  f.state.mobile.productionVerified = true;
+  f.state.mobile.technicalStatus = "SHIPPED_PRODUCT_VERIFIED";
+  f.state.reviewMediaIncident = {
+    ...f.state.reviewMediaIncident,
+    status: "CLOSED",
+    productionVerified: true,
+    founderPassAt: "2026-09-09T11:37:15Z",
+    founderEvidence: {
+      standardReviewSpot: "Bohemia",
+      smartReviewSpotReported: "Restaurant Mansur",
+      productionSmartReviewSpot: "Mandir",
+      bothReviewsVisible: true,
+      bothMediaReachable: true,
+      standardReviewRef: "57d05f4ea3d1",
+      smartReviewRef: "928c85066a28",
+    },
+  };
+  write(f.repo, "delivery/production-state.json", `${JSON.stringify(f.state, null, 2)}\n`);
+  git(f.repo, ["add", "."]); git(f.repo, ["commit", "-qm", "founder pass"]);
+  assert.equal(validateProductionState({ repo: f.repo }).productionVerified, true);
 });

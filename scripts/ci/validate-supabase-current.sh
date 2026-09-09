@@ -114,7 +114,7 @@ actual_acl="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align -
 schema_result="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align --file "$repo_root/scripts/ci/application-schema-fingerprint.sql")"
 actual_schema="${schema_result##*|}"
 test "$(jq -r '.supabase.migrationTip' "$repo_root/delivery/production-state.json")" = "20260909073004_close_review_capture_trust_v2"
-test "$(jq -r '.mobile.productionVerified' "$repo_root/delivery/production-state.json")" = false
+test "$(jq -r '.mobile.productionVerified' "$repo_root/delivery/production-state.json")" = "$(jq -r '.reviewMediaIncident.productionVerified' "$repo_root/delivery/production-state.json")"
 if test -n "${BACKYRD_DATABASE_SNAPSHOT_OUTPUT:-}"; then
   jq -n --arg publicAclSha256 "$actual_acl" --arg applicationSchemaSha256 "$actual_schema" \
     '{schemaVersion:"backyrd-database-clean-boot-snapshot-v1",publicAclSha256:$publicAclSha256,applicationSchemaSha256:$applicationSchemaSha256}' \

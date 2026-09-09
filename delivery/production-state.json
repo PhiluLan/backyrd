@@ -17,14 +17,24 @@
     "otaGroupId": "6fcce4b9-1cfa-452d-a8f1-e83a2fba1cf4",
     "iosUpdateId": "01a085bf-9f8b-7fac-bd90-e3cae9310c3a",
     "androidUpdateId": "01a085bf-9f8b-71f0-b5ff-8e8ab1784226",
-    "technicalStatus": "SHIPPED_PRODUCT_UNVERIFIED",
-    "productionVerified": false
+    "technicalStatus": "SHIPPED_PRODUCT_VERIFIED",
+    "productionVerified": true
   },
   "reviewMediaIncident": {
     "id": "review-media-founder-iphone-failure-2026-09-09",
-    "status": "OPEN_PAUSED",
-    "productionVerified": false,
+    "status": "CLOSED",
+    "productionVerified": true,
     "historicalPartialTestStatesPreserved": true,
-    "productFixInScope": true
+    "productFixInScope": true,
+    "founderPassAt": "2026-09-09T11:37:15Z",
+    "founderEvidence": {
+      "standardReviewSpot": "Bohemia",
+      "smartReviewSpotReported": "Restaurant Mansur",
+      "productionSmartReviewSpot": "Mandir",
+      "bothReviewsVisible": true,
+      "bothMediaReachable": true,
+      "standardReviewRef": "57d05f4ea3d1",
+      "smartReviewRef": "928c85066a28"
+    }
   }
 }
