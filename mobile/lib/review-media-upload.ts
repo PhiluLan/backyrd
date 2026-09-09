@@ -1,5 +1,5 @@
 import * as Crypto from "expo-crypto";
-import { File } from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
 
 import { supabase } from "./supabase";
 
@@ -15,14 +15,24 @@ const MIME_TO_EXTENSION = {
   "image/avif": "avif",
 } as const;
 
-type ReviewMime = keyof typeof MIME_TO_EXTENSION;
+export type ReviewMime = keyof typeof MIME_TO_EXTENSION;
+
+export type PreparedReviewMedia = {
+  byteLength: number;
+  mimeType: ReviewMime;
+  sha256: string;
+  localUri: string;
+};
 
 export type ReviewMediaAsset = {
   uri: string;
   fileName?: string | null;
   fileSize?: number | null;
   mimeType?: string | null;
+  prepared?: PreparedReviewMedia;
 };
+
+export const REVIEW_MEDIA_PREPARATION_TIMEOUT_MS = 25_000;
 
 export type ReviewMediaStage = "auth" | "media_read" | "media_validation" |
   "reservation" | "storage_upload" | "finalization" | "cleanup";
@@ -92,6 +102,8 @@ export function reviewMediaUserMessage(error: unknown) {
   }
   if (error.safeCode === "IMAGE_TOO_LARGE") return "Das Bild ist zu gross. Bitte wähle ein Bild mit maximal 12 MB.";
   if (error.safeCode === "EMPTY_IMAGE_FILE") return "Das ausgewählte Bild enthält keine lesbaren Bilddaten. Bitte wähle es erneut aus.";
+  if (error.safeCode === "IMAGE_PREPARATION_TIMEOUT") return "Das Bild ist noch nicht vollständig auf diesem Gerät verfügbar. Prüfe deine iCloud-Verbindung und versuche die Bildprüfung erneut.";
+  if (error.safeCode === "IMAGE_HASH_FAILED") return "Die Sicherheitsprüfung des Bildes ist fehlgeschlagen. Dein Entwurf und das ausgewählte Bild bleiben erhalten.";
   if (error.stage === "auth") return "Deine Anmeldung ist nicht mehr aktuell. Melde dich bitte erneut an; dein Entwurf bleibt erhalten.";
   if (error.stage === "media_read") return "Das Bild konnte auf deinem Gerät nicht gelesen werden. Bitte wähle es erneut aus.";
   if (error.stage === "storage_upload") {
@@ -117,8 +129,7 @@ export function reviewMediaProgressLabel(progress: ReviewMediaProgress | null) {
   }
 }
 
-function detectImageMime(body: ArrayBuffer): ReviewMime | null {
-  const bytes = new Uint8Array(body);
+export function detectReviewImageMime(bytes: Uint8Array<ArrayBufferLike>): ReviewMime | null {
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
   if (bytes.length >= 8 && [137, 80, 78, 71, 13, 10, 26, 10].every((value, index) => bytes[index] === value)) return "image/png";
   const ascii = (start: number, length: number) => String.fromCharCode(...bytes.slice(start, start + length));
@@ -132,23 +143,96 @@ function detectImageMime(body: ArrayBuffer): ReviewMime | null {
   return null;
 }
 
-async function readLocalAsset(uri: string) {
+function timeout<T>(promise: Promise<T>, timeoutMs: number) {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("IMAGE_PREPARATION_TIMEOUT")), timeoutMs);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error) => { clearTimeout(timer); reject(error); },
+    );
+  });
+}
+
+async function readAssetBytes(uri: string): Promise<Uint8Array<ArrayBuffer>> {
   try {
-    return await new File(uri).arrayBuffer();
-  } catch {
-    try {
-      const response = await fetch(uri);
-      if (!response.ok) throw new Error("LOCAL_IMAGE_READ_FAILED");
-      return await response.arrayBuffer();
-    } catch {
-      throw new Error("LOCAL_IMAGE_READ_FAILED");
-    }
+    if (uri.startsWith("file://")) return await new File(uri).bytes();
+    const response = await fetch(uri);
+    if (!response.ok) throw new Error("LOCAL_IMAGE_READ_FAILED");
+    return new Uint8Array(await response.arrayBuffer());
+  } catch (error) {
+    if (error instanceof Error && error.message === "IMAGE_PREPARATION_TIMEOUT") throw error;
+    throw new Error("LOCAL_IMAGE_READ_FAILED");
   }
 }
 
-async function sha256Hex(body: ArrayBuffer) {
-  const digest = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, body);
+async function sha256Hex(bytes: Uint8Array<ArrayBuffer>) {
+  const digest = await Crypto.digest(Crypto.CryptoDigestAlgorithm.SHA256, bytes);
   return Array.from(new Uint8Array(digest)).map((value) => value.toString(16).padStart(2, "0")).join("");
+}
+
+function materializePreparedAsset(bytes: Uint8Array<ArrayBuffer>, mimeType: ReviewMime, sha256: string) {
+  try {
+    const directory = new Directory(Paths.cache, "backyrd-review-media");
+    directory.create({ idempotent: true, intermediates: true });
+    const file = new File(directory, `${sha256}.${MIME_TO_EXTENSION[mimeType]}`);
+    file.create({ overwrite: true, intermediates: true });
+    file.write(bytes);
+    return file.uri;
+  } catch {
+    throw new ReviewMediaError("media_read", "LOCAL_IMAGE_MATERIALIZATION_FAILED");
+  }
+}
+
+export async function prepareReviewMediaAsset(
+  asset: ReviewMediaAsset,
+  options: { timeoutMs?: number } = {},
+): Promise<ReviewMediaAsset> {
+  if (asset.prepared) return asset;
+  if (asset.fileSize && asset.fileSize > REVIEW_MEDIA_MAX_BYTES) {
+    throw new ReviewMediaError("media_validation", "IMAGE_TOO_LARGE");
+  }
+
+  let bytes: Uint8Array<ArrayBuffer>;
+  try {
+    bytes = await timeout(readAssetBytes(asset.uri), options.timeoutMs ?? REVIEW_MEDIA_PREPARATION_TIMEOUT_MS);
+  } catch (error) {
+    if (error instanceof Error && error.message === "IMAGE_PREPARATION_TIMEOUT") {
+      throw new ReviewMediaError("media_read", "IMAGE_PREPARATION_TIMEOUT");
+    }
+    throw new ReviewMediaError("media_read", "LOCAL_IMAGE_READ_FAILED");
+  }
+  if (!bytes.byteLength) throw new ReviewMediaError("media_validation", "EMPTY_IMAGE_FILE");
+  if (bytes.byteLength > REVIEW_MEDIA_MAX_BYTES) throw new ReviewMediaError("media_validation", "IMAGE_TOO_LARGE");
+
+  const detectedMime = detectReviewImageMime(bytes);
+  const declaredMime = resolveReviewMediaMime(asset);
+  const suppliedMime = asset.mimeType?.trim().toLowerCase().split(";")[0];
+  if (suppliedMime && suppliedMime !== "image/jpg" && !(suppliedMime in MIME_TO_EXTENSION)) {
+    throw new ReviewMediaError("media_validation", "UNSUPPORTED_IMAGE_TYPE");
+  }
+  if (!detectedMime) throw new ReviewMediaError("media_validation", "UNSUPPORTED_IMAGE_TYPE");
+  if (declaredMime && declaredMime !== detectedMime) {
+    throw new ReviewMediaError("media_validation", "IMAGE_CONTENT_TYPE_MISMATCH");
+  }
+
+  let sha256: string;
+  try {
+    sha256 = await timeout(sha256Hex(bytes), options.timeoutMs ?? REVIEW_MEDIA_PREPARATION_TIMEOUT_MS);
+  } catch (error) {
+    if (error instanceof Error && error.message === "IMAGE_PREPARATION_TIMEOUT") {
+      throw new ReviewMediaError("media_validation", "IMAGE_PREPARATION_TIMEOUT");
+    }
+    throw new ReviewMediaError("media_validation", "IMAGE_HASH_FAILED");
+  }
+  const localUri = materializePreparedAsset(bytes, detectedMime, sha256);
+  return {
+    ...asset,
+    uri: localUri,
+    fileName: `${sha256}.${MIME_TO_EXTENSION[detectedMime]}`,
+    fileSize: bytes.byteLength,
+    mimeType: detectedMime,
+    prepared: { byteLength: bytes.byteLength, mimeType: detectedMime, sha256, localUri },
+  };
 }
 
 function exactDuplicate(error: unknown) {
@@ -180,22 +264,33 @@ export async function uploadReservedReviewMedia(input: {
   input.onProgress?.({ stage: "auth", completed: 0, total: input.assets.length });
   await requireCurrentSession();
 
-  const prepared: Array<{ body: ArrayBuffer; mime: ReviewMime; path: string; sha256: string }> = [];
+  const prepared: Array<{ body: Uint8Array<ArrayBuffer>; mime: ReviewMime; path: string; sha256: string }> = [];
   for (let index = 0; index < input.assets.length; index += 1) {
     const asset = input.assets[index];
-    const declaredMime = resolveReviewMediaMime(asset);
-    if (!declaredMime) throw new ReviewMediaError("media_validation", "UNSUPPORTED_IMAGE_TYPE", index);
-    if (asset.fileSize && asset.fileSize > REVIEW_MEDIA_MAX_BYTES) throw new ReviewMediaError("media_validation", "IMAGE_TOO_LARGE", index);
     input.onProgress?.({ stage: "media_read", completed: index, total: input.assets.length });
-    let body: ArrayBuffer;
-    try { body = await readLocalAsset(asset.uri); }
-    catch { throw new ReviewMediaError("media_read", "LOCAL_IMAGE_READ_FAILED", index); }
     input.onProgress?.({ stage: "media_validation", completed: index, total: input.assets.length });
-    if (!body.byteLength) throw new ReviewMediaError("media_validation", "EMPTY_IMAGE_FILE", index);
-    if (body.byteLength > REVIEW_MEDIA_MAX_BYTES) throw new ReviewMediaError("media_validation", "IMAGE_TOO_LARGE", index);
-    const detectedMime = detectImageMime(body);
-    if (!detectedMime || detectedMime !== declaredMime) throw new ReviewMediaError("media_validation", "IMAGE_CONTENT_TYPE_MISMATCH", index);
-    prepared.push({ body, mime: detectedMime, path: `${input.reviewId}/${index}.${MIME_TO_EXTENSION[detectedMime]}`, sha256: await sha256Hex(body) });
+    let ready: ReviewMediaAsset;
+    try { ready = await prepareReviewMediaAsset(asset); }
+    catch (error) {
+      if (error instanceof ReviewMediaError) {
+        throw new ReviewMediaError(error.stage, error.safeCode, index, error.httpStatus, error.uploadedPaths);
+      }
+      throw error;
+    }
+    const media = ready.prepared;
+    if (!media) throw new ReviewMediaError("media_validation", "IMAGE_PREPARATION_INCOMPLETE", index);
+    let body: Uint8Array<ArrayBuffer>;
+    try { body = await new File(media.localUri).bytes(); }
+    catch { throw new ReviewMediaError("media_read", "LOCAL_IMAGE_READ_FAILED", index); }
+    if (body.byteLength !== media.byteLength) {
+      throw new ReviewMediaError("media_validation", "IMAGE_BYTES_CHANGED", index);
+    }
+    prepared.push({
+      body,
+      mime: media.mimeType,
+      path: `${input.reviewId}/${index}.${MIME_TO_EXTENSION[media.mimeType]}`,
+      sha256: media.sha256,
+    });
   }
 
   input.onProgress?.({ stage: "reservation", completed: 0, total: prepared.length });

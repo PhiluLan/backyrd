@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -14,10 +14,16 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
 import {
+  prepareReviewMediaAsset,
   reviewMediaProgressLabel,
+  reviewMediaUserMessage,
   type ReviewMediaAsset,
   type ReviewMediaProgress,
 } from "../../lib/review-media-upload";
+import {
+  ReviewMediaValidationCoordinator,
+  type ReviewMediaValidationState,
+} from "../../lib/review-media-validation";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
 type Source = "camera" | "library";
@@ -28,6 +34,8 @@ type Props = {
   disabled?: boolean;
   onChange: (assets: ReviewMediaAsset[]) => boolean | void | Promise<boolean | void>;
   onError?: (message: string) => void;
+  onValidationError?: (error: Error) => void;
+  onValidationStateChange?: (state: ReviewMediaValidationState) => void;
 };
 
 function pickerAsset(asset: ImagePicker.ImagePickerAsset): ReviewMediaAsset {
@@ -45,9 +53,32 @@ export function ReviewMediaField({
   disabled = false,
   onChange,
   onError,
+  onValidationError,
+  onValidationStateChange,
 }: Props) {
   const [picking, setPicking] = useState(false);
   const [permissionMessage, setPermissionMessage] = useState<string | null>(null);
+  const [validation, setValidation] = useState<ReviewMediaValidationState>({ status: "idle" });
+  const coordinator = useRef(new ReviewMediaValidationCoordinator(prepareReviewMediaAsset));
+
+  useEffect(() => () => coordinator.current.cancel(), []);
+
+  function publishValidationState(state: ReviewMediaValidationState) {
+    setValidation(state);
+    onValidationStateChange?.(state);
+    if (state.status === "failed") onValidationError?.(state.error);
+  }
+
+  async function validate(next: ReviewMediaAsset[]) {
+    const prepared = await coordinator.current.validate(next, publishValidationState);
+    if (!prepared) return;
+    const changed = await onChange(prepared);
+    if (changed === false) {
+      coordinator.current.cancel(publishValidationState);
+      return;
+    }
+    AccessibilityInfo.announceForAccessibility("Bildprüfung abgeschlossen. Das Bild ist bereit.");
+  }
 
   async function pick(source: Source, replaceIndex: number | null = null) {
     if (disabled || picking) return;
@@ -90,9 +121,8 @@ export function ReviewMediaField({
       }
       const changed = await onChange(next);
       if (changed === false) return;
-      AccessibilityInfo.announceForAccessibility(
-        replaceIndex === null ? "Bild hinzugefügt." : "Bild ersetzt.",
-      );
+      AccessibilityInfo.announceForAccessibility(replaceIndex === null ? "Bild hinzugefügt und wird geprüft." : "Bild ersetzt und wird geprüft.");
+      void validate(next);
     } catch {
       const message = "Das Bild konnte gerade nicht ausgewählt werden. Dein Entwurf bleibt erhalten.";
       onError?.(message);
@@ -112,9 +142,16 @@ export function ReviewMediaField({
 
   async function remove(index: number) {
     if (disabled) return;
-    const changed = await onChange(assets.filter((_, assetIndex) => assetIndex !== index));
+    coordinator.current.cancel();
+    const next = assets.filter((_, assetIndex) => assetIndex !== index);
+    const changed = await onChange(next);
     if (changed === false) return;
+    publishValidationState(next.length ? { status: "ready", assets: next } : { status: "idle" });
     AccessibilityInfo.announceForAccessibility("Bild entfernt.");
+  }
+
+  function retryValidation() {
+    void validate(assets.map(({ prepared: _prepared, ...asset }) => asset));
   }
 
   return (
@@ -210,6 +247,23 @@ export function ReviewMediaField({
           </Pressable>
         </View>
       ) : null}
+
+      {validation.status === "validating" ? (
+        <View accessibilityLiveRegion="polite" style={styles.validationState}>
+          <ActivityIndicator color={theme.color.pink} />
+          <Text style={styles.validationText}>Bild wird geprüft…</Text>
+        </View>
+      ) : null}
+      {validation.status === "failed" ? (
+        <View accessibilityRole="alert" accessibilityLiveRegion="assertive" style={[styles.validationState, styles.validationError]}>
+          <Text style={[styles.validationText, styles.validationErrorText]}>
+            {reviewMediaUserMessage(validation.error) ?? "Das Bild konnte nicht geprüft werden. Dein Entwurf bleibt erhalten."}
+          </Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Bild erneut prüfen" onPress={retryValidation} style={styles.retryButton}>
+            <Text style={styles.retryText}>Bild erneut prüfen</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -266,6 +320,10 @@ const styles = StyleSheet.create({
   permissionText: { color: theme.color.textPrimary, fontSize: 14, lineHeight: 21 },
   settingsButton: { minHeight: 44, justifyContent: "center", alignSelf: "flex-start" },
   settingsText: { color: theme.color.pink, fontSize: 14, fontWeight: "800" },
+  validationState: { minHeight: 48, marginTop: theme.spacing.sm, padding: theme.spacing.sm, borderRadius: theme.radius.md, backgroundColor: theme.color.surfaceElevated, flexDirection: "row", alignItems: "center", gap: theme.spacing.sm },
+  validationError: { borderWidth: 1, borderColor: theme.color.danger },
+  validationText: { flex: 1, color: theme.color.textSecondary, fontSize: 14, lineHeight: 20 },
+  validationErrorText: { color: theme.color.textPrimary },
   status: { marginTop: theme.spacing.md, minHeight: 56, padding: theme.spacing.md, borderRadius: theme.radius.md, backgroundColor: theme.color.surfaceElevated, flexDirection: "row", alignItems: "center", gap: theme.spacing.sm },
   statusError: { alignItems: "flex-start", flexWrap: "wrap", backgroundColor: "rgba(255,104,104,0.10)", borderWidth: 1, borderColor: "rgba(255,104,104,0.35)" },
   statusText: { flex: 1, color: theme.color.textPrimary, fontSize: 14, lineHeight: 20 },
