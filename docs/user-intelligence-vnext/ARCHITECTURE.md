@@ -22,9 +22,11 @@ World Knowledge besitzt Spot-Wahrheit, Situational Context den aktuellen Moment 
 
 - TypeScript-Contracts und strikte Runtime-Schemas;
 - kanonische JSON-Serialisierung und SHA-256-Hashes;
-- serverseitige Client-Observation-Bindung;
+- serverseitige Journey-/Reference-/Temporal-Bindung für Client Observations;
+- getrennte Adapterverträge für Client Observation und server-verifizierten Product State;
+- zentrale Event-Reference-Matrix und Correction-Konsistenz;
 - getrennte Evidence-Chain-Segmente;
-- Snapshot-, Projection-, Transparency- und Lifecycle-Contracts;
+- Snapshot-, datensparsame Projection-, Transparency- und Account-Erasure-Contracts;
 - maschinenlesbares Lifecycle- und Schema-Manifest;
 - reine Memory-, World-, Context- und Decision-Ports;
 - synthetische Fixtures und Negativtests.

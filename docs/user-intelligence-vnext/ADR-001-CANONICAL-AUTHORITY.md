@@ -8,6 +8,8 @@ Beobachtungen gehören ausschließlich in Canonical Memory. Ableitungen entstehe
 
 World Knowledge, Situational Context und Decision behalten Spot-Wahrheit, aktuellen Moment, Eligibility und Gewinnerauswahl.
 
+Ein Client liefert nur eine beobachtete Zielbehauptung und lokale Korrelation. Canonical Journey, Session, Decision, Candidate und Spot werden aus serverseitiger Product Truth gebunden; Abweichungen scheitern fail-closed. Eine ungelöste Journey ist ausdrücklich nicht independence-fähig. Persistierter Save-/Reservation-State besitzt einen getrennten server-verifizierten Adaptervertrag und kann nicht durch die Wahl eines Client-Eventnamens erzeugt werden.
+
 ## Konsequenzen
 
 - kein Full User Card Payload für Decision;

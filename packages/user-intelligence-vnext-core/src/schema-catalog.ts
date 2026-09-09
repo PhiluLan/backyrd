@@ -12,6 +12,9 @@ export const USER_INTELLIGENCE_VNEXT_SCHEMA_CATALOG = Object.freeze({
   },
   contracts: Object.freeze([
     ["CanonicalUserEvent", CONTRACT_VERSIONS.canonicalUserEvent, "CanonicalUserEventSchema", "parseCanonicalUserEvent"],
+    ["EventReferencePolicy", CONTRACT_VERSIONS.eventReferencePolicy, "EVENT_REFERENCE_MATRIX", null],
+    ["TemporalBinding", CONTRACT_VERSIONS.temporalValidation, "TemporalBindingSchema", null],
+    ["TemporalValidationPolicy", CONTRACT_VERSIONS.temporalPolicy, "TemporalValidationPolicySchema", "validateTemporalIntegrity"],
     ["UserEventAuthority", CONTRACT_VERSIONS.userEventAuthority, "UserEventAuthoritySchema", "parseUserEventAuthority"],
     ["ConsentEnvelope", CONTRACT_VERSIONS.consentEnvelope, "ConsentEnvelopeSchema", "parseConsentEnvelope"],
     ["EvidenceChain", CONTRACT_VERSIONS.evidenceChain, "EvidenceChainSchema", "parseEvidenceChain"],

@@ -16,4 +16,6 @@ Die folgenden Werte sind nicht entschieden und werden in Phase 1 nur als version
 - Onboarding-Stärke;
 - finale Retention-Zeiträume.
 
+Auch konkrete Temporal-Grenzwerte sind Product-/Operations-Policy und werden nicht als Default festgelegt. Der Contract verlangt stattdessen eine injizierte, versionierte Policy; numerische Werte in Tests sind ausschließlich synthetisch.
+
 `synthetic-*` dient ausschließlich der Testidentität. `UNRESOLVED_PRODUCT_POLICY` und `UNRESOLVED_PRIVACY_POLICY` verhindern, dass eine Fixture-Zahl als Product Truth missverstanden wird. Ein späterer Reducer muss jede Policy über den `UserIntelligenceManifest`-Hash binden.

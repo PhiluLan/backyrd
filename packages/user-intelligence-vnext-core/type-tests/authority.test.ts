@@ -1,14 +1,14 @@
 import type { ClientObservationInput, RelevantUserProjectionRequest } from "../src/index.js";
 
 const validClientObservation: ClientObservationInput = {
-  clientEventId: "client-1", eventType: "SPOT_OPENED", occurredAt: "2026-01-15T12:00:00.000Z",
-  observedAt: "2026-01-15T12:00:00.000Z", journeyId: "journey-1", references: { spotId: "spot-1" },
+  clientEventId: "client-1", eventType: "SPOT_OPENED", clientOccurredAt: "2026-01-15T12:00:00.000Z",
+  observedTarget: { spotId: "spot-1" },
 };
 void validClientObservation;
 
 const forbiddenClientIdentity: ClientObservationInput = {
-  clientEventId: "client-2", eventType: "SPOT_OPENED", occurredAt: "2026-01-15T12:00:00.000Z",
-  observedAt: "2026-01-15T12:00:00.000Z", journeyId: "journey-1", references: { spotId: "spot-1" },
+  clientEventId: "client-2", eventType: "SPOT_OPENED", clientOccurredAt: "2026-01-15T12:00:00.000Z",
+  observedTarget: { spotId: "spot-1" },
   // @ts-expect-error user identity is server-bound and absent from client input
   userId: "forged-user",
 };
@@ -18,8 +18,7 @@ const forbiddenClientOutcome: ClientObservationInput = {
   clientEventId: "client-3",
   // @ts-expect-error clients cannot declare verified outcomes
   eventType: "VERIFIED_VISIT",
-  occurredAt: "2026-01-15T12:00:00.000Z", observedAt: "2026-01-15T12:00:00.000Z",
-  journeyId: "journey-1", references: { spotId: "spot-1" },
+  clientOccurredAt: "2026-01-15T12:00:00.000Z", observedTarget: { spotId: "spot-1" },
 };
 void forbiddenClientOutcome;
 

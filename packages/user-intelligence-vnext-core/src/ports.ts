@@ -5,6 +5,13 @@ export interface ExistingMemoryAdapterPort {
   readAuthorizedObservations(input: { readonly userId: string; readonly afterEventId?: string; readonly limit: number }): Promise<readonly CanonicalUserEvent[]>;
 }
 
+// Phase 2 must implement this lookup before a correction may be applied. The
+// Phase 1 contract already requires one unambiguous target identifier.
+export interface CorrectionTargetAuthorityPort {
+  readonly contractVersion: "backyrd.user-intelligence.correction-target-authority-port@1.0";
+  verifyPriorOwnedEvent(input: { readonly authenticatedUserId: string; readonly targetEventId: string; readonly correctionOccurredAt: string }): Promise<{ readonly authorized: true; readonly targetEventHash: string }>;
+}
+
 export interface WorldConceptEvidence {
   readonly concept: UserConceptReference;
   readonly strength: number;

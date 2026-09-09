@@ -4,7 +4,9 @@ Normative Exports liegen in `packages/user-intelligence-vnext-core/src`. Jeder O
 
 | Contract | Zweck | Zentrale Invarianten |
 |---|---|---|
-| `CanonicalUserEvent` | servergebundene Beobachtung | Hash, Idempotency, Journey, Authority, Consent; keine freie Interpretation |
+| `CanonicalUserEvent` | servergebundene Beobachtung | Hash, Idempotency, servergelöste Journey/Referenzen, Temporal Binding, Authority, Consent |
+| `EVENT_REFERENCE_MATRIX` | Event-spezifische Referenzregeln | required/allowed References, Journey- und Source-Authority fail-closed |
+| `TemporalValidationPolicy` | injizierbare Zeitprüfung | Future Skew, Reihenfolge, Ingestion und explizite Offline-Policy |
 | `UserEventAuthority` | Wer darf was behaupten? | User-ID und Binding serverseitig; Client Observation kann kein starkes Outcome behaupten |
 | `ConsentEnvelope` | Purpose und Processing-Recht | UNKNOWN/DENIED/WITHDRAWN autorisieren keine Personalization Evidence |
 | `EvidenceChain` | gemeinsame Journey-Evidence | getrennte Exposure-, Intent-, Experience-, Satisfaction-, Correction-, Direct-, Taste- und Practical-Segmente |
@@ -15,10 +17,12 @@ Normative Exports liegen in `packages/user-intelligence-vnext-core/src`. Jeder O
 | `UserIntelligenceManifest` | Replay-Identität | Contract-, Reducer-, Code-, Registry- und Policy-Referenzen |
 | `UserIntelligenceSnapshot` | vollständiges internes Read Model | Source Watermark, Manifest, Lifecycle und kanonischer Hash |
 | `RelevantUserProjectionRequest` | serverseitiger Projection-Aufruf | Actor servergebunden, minimierter Context, Item-/Bytebudget, Kill Switch |
-| `RelevantUserProjection` | einzige Decision-User-Schnittstelle | keine Raw Events, Texte, Rohstandorte, Eligibility oder Ranking Authority |
+| `RelevantUserProjection` | einzige interne Decision-User-Schnittstelle | servergebundener Subject Hash statt direkter User-ID; keine Raw Events, Texte, Rohstandorte, Eligibility oder Ranking Authority |
 | `UserTransparencyView` | spätere userlesbare Sicht | Herkunft/Unsicherheit/Korrekturbarkeit ohne Security- oder Fremddaten |
 | `LifecycleCommand` | Export/Korrektur/Reset/Purge/Rebuild | Authority, Idempotency, Scope, Zielstores, Completion und Fehler |
 
 `USER_INTELLIGENCE_VNEXT_SCHEMA_CATALOG` macht Contract-, Validator- und Kompatibilitätsidentitäten maschinenlesbar. Die Runtime-Schemas sind die normative funktionale Entsprechung zu statischen JSON-Schemas; eine zweite, driftanfällige Validator-Implementierung wird bewusst vermieden.
 
-Technische Erstellungszeit steht bei Snapshot und Projection unter `technicalMetadata` und wird nicht in den fachlichen Hash aufgenommen. Eventzeiten und Source Watermarks bleiben Bestandteil des Hashes, weil sie fachliche Inputs sind. Arrayreihenfolge wird erhalten; nur Objektkeys werden kanonisch sortiert.
+`ProjectionBuildInputSchema` ist die externe/runtime-validierte Builder-Grenze. Danach arbeiten die Builder-Teile nur mit dem daraus abgeleiteten internen Typ. Unbekannte kommerzielle Felder werden damit vor der Projektion abgewiesen.
+
+Technische Erstellungszeit steht bei Snapshot und Projection unter `technicalMetadata` und wird nicht in den fachlichen Hash aufgenommen. Eventzeiten, servergebundene Referenzen und Source Watermarks bleiben Bestandteil des Hashes, weil sie fachliche Inputs sind. Arrayreihenfolge wird erhalten; nur Objektkeys werden kanonisch sortiert.

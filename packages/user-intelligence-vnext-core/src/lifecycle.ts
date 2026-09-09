@@ -86,7 +86,8 @@ export function planLifecycleImpact(action: LifecycleAction): readonly Lifecycle
   return USER_INTELLIGENCE_LIFECYCLE_MANIFEST.stores.map((row) => {
     if (row.privacyClass === "NON_PERSONAL_TECHNICAL") return { store: row.store, effect: "RETAIN_NON_PERSONAL" as const };
     if (action === "EXPORT") return { store: row.store, effect: "EXPORT" as const };
-    if (["ACCOUNT_ERASURE", "CONSENT_WITHDRAWAL", "FULL_PERSONALIZATION_RESET"].includes(action)) {
+    if (action === "ACCOUNT_ERASURE") return { store: row.store, effect: "DELETE" as const };
+    if (["CONSENT_WITHDRAWAL", "FULL_PERSONALIZATION_RESET"].includes(action)) {
       return { store: row.store, effect: row.store === "projections" || row.store === "latest_pointer" || row.store === "caches" ? "INVALIDATE" as const : "DELETE" as const };
     }
     if (action === "RETENTION_EXPIRY" && row.stateKind === "SOURCE_OF_TRUTH") return { store: row.store, effect: "DELETE" as const };

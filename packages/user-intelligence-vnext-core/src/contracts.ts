@@ -4,6 +4,9 @@ import { ContractValidationError, identifier, Infer, schema, sha256, timestamp }
 
 export const CONTRACT_VERSIONS = Object.freeze({
   canonicalUserEvent: "backyrd.user-intelligence.canonical-user-event@1.0",
+  temporalValidation: "backyrd.user-intelligence.temporal-validation@1.0",
+  temporalPolicy: "backyrd.user-intelligence.temporal-policy@1.0",
+  eventReferencePolicy: "backyrd.user-intelligence.event-reference-policy@1.0",
   userEventAuthority: "backyrd.user-intelligence.user-event-authority@1.0",
   consentEnvelope: "backyrd.user-intelligence.consent-envelope@1.0",
   evidenceChain: "backyrd.user-intelligence.evidence-chain@1.0",
@@ -100,10 +103,22 @@ const SourceSchema = schema.object({
   sourceRecordId: identifier,
   provenance: schema.enum(["CLIENT_OBSERVED", "USER_DECLARED", "PRODUCT_STATE", "DATABASE_TRIGGER", "SERVER_VERIFIED", "ADMINISTRATIVE"] as const),
 });
-const EventReferencesSchema = schema.object({
+export const EventReferencesSchema = schema.object({
   sessionId: schema.optional(identifier),
   decisionId: schema.optional(identifier),
   spotId: schema.optional(identifier),
+  candidateId: schema.optional(identifier),
+  experienceEventId: schema.optional(identifier),
+});
+
+export const JourneyBindingSchema = schema.union([
+  schema.object({ resolution: schema.literal("SERVER_RESOLVED"), journeyId: identifier, resolutionPolicyVersion: identifier, independenceEligible: schema.literal(true) }),
+  schema.object({ resolution: schema.literal("UNRESOLVED"), journeyId: schema.literal(null), resolutionPolicyVersion: identifier, independenceEligible: schema.literal(false) }),
+]);
+
+export const TemporalBindingSchema = schema.object({
+  contractVersion: version(CONTRACT_VERSIONS.temporalValidation), policyVersion: identifier,
+  timeAuthority: schema.enum(["SERVER_CLOCK", "CLIENT_REPORTED_ACCEPTED_OFFLINE"] as const), validatedAt: timestamp,
 });
 
 const ObservationPayloadSchema = schema.union([
@@ -127,7 +142,9 @@ export const CanonicalUserEventSchema = schema.object({
   ingestedAt: timestamp,
   userId: identifier,
   references: EventReferencesSchema,
-  journeyId: identifier,
+  journey: JourneyBindingSchema,
+  referencePolicyVersion: identifier,
+  temporalBinding: TemporalBindingSchema,
   source: SourceSchema,
   authority: UserEventAuthoritySchema,
   consent: ConsentEnvelopeSchema,
@@ -138,6 +155,21 @@ export const CanonicalUserEventSchema = schema.object({
   eventHash: sha256,
 });
 export type CanonicalUserEvent = Infer<typeof CanonicalUserEventSchema>;
+
+export const EVENT_REFERENCE_MATRIX = Object.freeze({
+  DECISION_REQUESTED: { required: ["decisionId"], allowed: ["sessionId", "decisionId"], journey: "OPTIONAL", authority: ["SERVER_VERIFIED_PRODUCT_STATE", "DATABASE_DERIVED_EVENT"] },
+  CANDIDATE_EXPOSED: { required: ["decisionId", "spotId", "candidateId"], allowed: ["sessionId", "decisionId", "spotId", "candidateId"], journey: "REQUIRED", authority: ["CLIENT_OBSERVATION"] },
+  SPOT_OPENED: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId", "candidateId"], journey: "REQUIRED", authority: ["CLIENT_OBSERVATION", "AUTHENTICATED_USER_ACTION"] },
+  SAVED: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId"], journey: "REQUIRED", authority: ["SERVER_VERIFIED_PRODUCT_STATE", "DATABASE_DERIVED_EVENT"] },
+  SAVE_REMOVED: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId"], journey: "REQUIRED", authority: ["SERVER_VERIFIED_PRODUCT_STATE", "DATABASE_DERIVED_EVENT"] },
+  NAVIGATION_INTENT: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId"], journey: "REQUIRED", authority: ["CLIENT_OBSERVATION", "AUTHENTICATED_USER_ACTION"] },
+  RESERVATION_INTENT: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId"], journey: "REQUIRED", authority: ["SERVER_VERIFIED_PRODUCT_STATE", "DATABASE_DERIVED_EVENT"] },
+  VERIFIED_VISIT: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId", "experienceEventId"], journey: "REQUIRED", authority: ["VERIFIED_OUTCOME"] },
+  REVIEW_RECORDED: { required: ["spotId"], allowed: ["sessionId", "decisionId", "spotId", "experienceEventId"], journey: "REQUIRED", authority: ["SERVER_VERIFIED_PRODUCT_STATE", "DATABASE_DERIVED_EVENT"] },
+  SATISFACTION_RECORDED: { required: [], allowed: ["spotId", "experienceEventId"], journey: "QUALIFIED_EXPERIENCE", authority: ["AUTHENTICATED_USER_ACTION", "SERVER_VERIFIED_PRODUCT_STATE"] },
+  USER_CORRECTION: { required: [], allowed: [], journey: "OPTIONAL", authority: ["AUTHENTICATED_USER_ACTION", "SERVER_VERIFIED_PRODUCT_STATE"] },
+  ONBOARDING_DECLARATION: { required: [], allowed: [], journey: "FORBIDDEN", authority: ["AUTHENTICATED_USER_ACTION", "SERVER_VERIFIED_PRODUCT_STATE"] },
+} as const);
 
 const EVENT_SEMANTICS: Readonly<Record<CanonicalUserEvent["eventType"], { eventClass: CanonicalUserEvent["eventClass"]; payloadKind: CanonicalUserEvent["payload"]["kind"] }>> = Object.freeze({
   DECISION_REQUESTED: { eventClass: "REQUEST_CONTEXT", payloadKind: "DECISION_REQUEST" },
@@ -158,6 +190,18 @@ function withoutHash(value: Record<string, unknown>, field: string): Record<stri
   return Object.fromEntries(Object.entries(value).filter(([key]) => key !== field));
 }
 
+function validateEventReferences(parsed: CanonicalUserEvent): void {
+  const rule = EVENT_REFERENCE_MATRIX[parsed.eventType];
+  const references = parsed.references as Readonly<Record<string, string | undefined>>;
+  for (const required of rule.required) if (references[required] === undefined) throw new ContractValidationError(`$.references.${required}`, `${parsed.eventType} requires this authoritative reference`);
+  for (const [name, value] of Object.entries(references)) if (value !== undefined && !(rule.allowed as readonly string[]).includes(name)) throw new ContractValidationError(`$.references.${name}`, `${parsed.eventType} forbids this reference`);
+  if (!(rule.authority as readonly string[]).includes(parsed.authority.kind)) throw new ContractValidationError("$.authority.kind", `${parsed.eventType} requires its declared source authority`);
+  if (rule.journey === "REQUIRED" && parsed.journey.resolution !== "SERVER_RESOLVED") throw new ContractValidationError("$.journey", `${parsed.eventType} requires a server-resolved journey`);
+  if (rule.journey === "FORBIDDEN" && parsed.journey.resolution !== "UNRESOLVED") throw new ContractValidationError("$.journey", `${parsed.eventType} forbids a journey`);
+  if (rule.journey === "QUALIFIED_EXPERIENCE" && parsed.references.experienceEventId === undefined && parsed.journey.resolution !== "SERVER_RESOLVED") throw new ContractValidationError("$.references.experienceEventId", "satisfaction requires an experience target or qualified journey");
+  if (parsed.references.candidateId !== undefined && (parsed.references.decisionId === undefined || parsed.references.spotId === undefined)) throw new ContractValidationError("$.references.candidateId", "candidate requires decision and spot references");
+}
+
 export function parseCanonicalUserEvent(value: unknown, expectedUserId?: string): CanonicalUserEvent {
   const parsed = CanonicalUserEventSchema.parse(value);
   parseUserEventAuthority(parsed.authority);
@@ -165,12 +209,24 @@ export function parseCanonicalUserEvent(value: unknown, expectedUserId?: string)
   const expected = EVENT_SEMANTICS[parsed.eventType];
   if (parsed.eventClass !== expected.eventClass || parsed.payload.kind !== expected.payloadKind) throw new ContractValidationError("$.eventType", "event type, class and payload are inconsistent");
   if (parsed.userId !== parsed.authority.boundUserId || (expectedUserId !== undefined && parsed.userId !== expectedUserId)) throw new ContractValidationError("$.userId", "identity is not bound to the authenticated server context");
+  const expectedProvenance = parsed.authority.kind === "CLIENT_OBSERVATION" ? "CLIENT_OBSERVED"
+    : parsed.authority.kind === "AUTHENTICATED_USER_ACTION" ? "USER_DECLARED"
+    : parsed.authority.kind === "SERVER_VERIFIED_PRODUCT_STATE" ? "PRODUCT_STATE"
+    : parsed.authority.kind === "DATABASE_DERIVED_EVENT" ? "DATABASE_TRIGGER"
+    : parsed.authority.kind === "VERIFIED_OUTCOME" ? "SERVER_VERIFIED" : "ADMINISTRATIVE";
+  if (parsed.source.provenance !== expectedProvenance) throw new ContractValidationError("$.source.provenance", "source provenance and authority are inconsistent");
+  validateEventReferences(parsed);
   if (["EXPERIENCE", "EXPLICIT_SATISFACTION"].includes(parsed.eventClass) && ["CLIENT_OBSERVATION"].includes(parsed.authority.kind)) throw new ContractValidationError("$.authority.kind", "client observation cannot assert experience or satisfaction");
   if (parsed.eventType === "VERIFIED_VISIT" && parsed.authority.kind !== "VERIFIED_OUTCOME") throw new ContractValidationError("$.authority.kind", "verified visit requires verified outcome authority");
+  if (parsed.eventType === "VERIFIED_VISIT" && (parsed.payload.kind !== "EXPERIENCE" || parsed.payload.experienceType !== "VERIFIED_VISIT")) throw new ContractValidationError("$.payload", "verified visit payload is required");
   if (parsed.eventType === "REVIEW_RECORDED") {
     if (parsed.payload.kind !== "EXPERIENCE" || parsed.payload.experienceType !== "REVIEW" || parsed.payload.reviewOrigin === undefined) throw new ContractValidationError("$.payload", "review origin is required");
   }
-  if (parsed.eventType === "SAVE_REMOVED" && (parsed.payload.kind !== "INTENT" || parsed.payload.action !== "SAVE_REMOVED")) throw new ContractValidationError("$.payload", "save removal must remain a state-change intent observation");
+  if (parsed.eventType === "USER_CORRECTION") {
+    if (parsed.payload.kind !== "CORRECTION" || parsed.supersedesEventId === undefined || parsed.payload.targetEventId !== parsed.supersedesEventId) throw new ContractValidationError("$.supersedesEventId", "correction target and supersedes event must be identical");
+  } else if (parsed.supersedesEventId !== undefined) throw new ContractValidationError("$.supersedesEventId", "only a user correction may supersede an event");
+  const expectedIntentAction = parsed.eventType === "SAVED" ? "SAVED" : parsed.eventType === "SAVE_REMOVED" ? "SAVE_REMOVED" : parsed.eventType === "NAVIGATION_INTENT" ? "NAVIGATION" : parsed.eventType === "RESERVATION_INTENT" ? "RESERVATION" : null;
+  if (expectedIntentAction !== null && (parsed.payload.kind !== "INTENT" || parsed.payload.action !== expectedIntentAction)) throw new ContractValidationError("$.payload", `${parsed.eventType} has inconsistent intent semantics`);
   if (contentHash(withoutHash(parsed as unknown as Record<string, unknown>, "eventHash")) !== parsed.eventHash) throw new ContractValidationError("$.eventHash", "hash mismatch");
   return parsed;
 }
@@ -278,7 +334,7 @@ export function parseUserIntelligenceManifest(value: unknown): UserIntelligenceM
   return parsed;
 }
 
-const DomainSufficiencySchema = schema.object({ domain: identifier, sufficiency: SufficiencySchema });
+export const DomainSufficiencySchema = schema.object({ domain: identifier, sufficiency: SufficiencySchema });
 const ContradictionSummarySchema = schema.object({ conflictId: identifier, state: schema.enum(["UNRESOLVED", "CORRECTED", "SUPERSEDED"] as const), domain: identifier });
 
 export const UserIntelligenceSnapshotSchema = schema.object({
@@ -305,12 +361,12 @@ export function parseUserIntelligenceSnapshot(value: unknown, expectedUserId?: s
   return parsed;
 }
 
-const AuthenticatedActorSchema = schema.object({ kind: schema.literal("AUTHENTICATED_USER"), userId: identifier, authenticationContextHash: sha256, boundBy: schema.literal("SERVER") });
+export const AuthenticatedActorSchema = schema.object({ kind: schema.literal("AUTHENTICATED_USER"), userId: identifier, subjectBindingHash: sha256, authenticationContextHash: sha256, boundBy: schema.literal("SERVER") });
 const MinimizedContextSchema = schema.object({ contextContractVersion: identifier, contextHash: sha256, placeTypes: schema.array(identifier, { max: 12 }), domainKeys: schema.array(identifier, { max: 24 }), rawLocationIncluded: schema.literal(false), socialDetailsIncluded: schema.literal(false) });
 
 export const RelevantUserProjectionRequestSchema = schema.object({
   contractVersion: version(CONTRACT_VERSIONS.projectionRequest), requestId: identifier, actor: AuthenticatedActorSchema,
-  decisionId: identifier, snapshot: schema.object({ snapshotId: identifier, snapshotHash: sha256 }), context: MinimizedContextSchema,
+  decisionId: identifier, snapshot: schema.nullable(schema.object({ snapshotId: identifier, snapshotHash: sha256 })), context: MinimizedContextSchema,
   requestedDomains: schema.array(identifier, { max: 24 }), budgets: schema.object({ maxItems: schema.number({ min: 0, max: 64, integer: true }), maxBytes: schema.number({ min: 256, max: 65536, integer: true }) }),
   projectionPolicyVersion: identifier, killSwitch: schema.boolean(),
 });
@@ -318,14 +374,14 @@ export type RelevantUserProjectionRequest = Infer<typeof RelevantUserProjectionR
 
 export const PROJECTION_REASON_CODES = Object.freeze(["EXACT_CONTEXT", "PLACE_TYPE_MATCH", "PORTABLE_GLOBAL", "DIRECT_SPOT_RELATIONSHIP", "PRACTICAL_CONTEXT_MATCH"] as const);
 export const SUPPRESSION_REASON_CODES = Object.freeze(["NO_CONSENT", "INSUFFICIENT_CONFIDENCE", "WRONG_DOMAIN", "CONTEXT_MISMATCH", "ITEM_BUDGET", "BYTE_BUDGET", "UNKNOWN_CONCEPT", "CONFLICT", "EXPIRED_EVIDENCE", "COLD_START", "MISSING_SNAPSHOT", "INCOMPATIBLE_VERSION", "KILL_SWITCH"] as const);
-const ProjectionReasonSchema = schema.object({ code: schema.enum(PROJECTION_REASON_CODES), subjectRef: identifier, policyRef: identifier });
-const SuppressionSummarySchema = schema.object({ total: count, byReason: schema.array(schema.object({ code: schema.enum(SUPPRESSION_REASON_CODES), count }), { max: 16 }) });
-const ProjectedTasteSchema = schema.object({ concept: UserConceptReferenceSchema, scope: ScopeSchema, affinity, confidence, reason: ProjectionReasonSchema });
-const ProjectedPracticalSchema = schema.object({ preferenceId: identifier, dimension: identifier, knowledgeState, confidence, reason: ProjectionReasonSchema });
-const ProjectedDirectSpotSchema = schema.object({ relationshipId: identifier, spotId: identifier, state: identifier, confidence, reason: ProjectionReasonSchema });
+export const ProjectionReasonSchema = schema.object({ code: schema.enum(PROJECTION_REASON_CODES), subjectRef: identifier, policyRef: identifier });
+export const SuppressionSummarySchema = schema.object({ total: count, byReason: schema.array(schema.object({ code: schema.enum(SUPPRESSION_REASON_CODES), count }), { max: 16 }) });
+export const ProjectedTasteSchema = schema.object({ concept: UserConceptReferenceSchema, scope: ScopeSchema, affinity, confidence, reason: ProjectionReasonSchema });
+export const ProjectedPracticalSchema = schema.object({ preferenceId: identifier, dimension: identifier, knowledgeState, confidence, reason: ProjectionReasonSchema });
+export const ProjectedDirectSpotSchema = schema.object({ relationshipId: identifier, spotId: identifier, state: identifier, confidence, reason: ProjectionReasonSchema });
 
 export const RelevantUserProjectionSchema = schema.object({
-  contractVersion: version(CONTRACT_VERSIONS.projection), projectionId: identifier, decisionId: identifier, userId: identifier,
+  contractVersion: version(CONTRACT_VERSIONS.projection), projectionId: identifier, decisionId: identifier, subjectBindingHash: sha256,
   snapshot: schema.nullable(schema.object({ snapshotId: identifier, snapshotHash: sha256 })),
   manifest: schema.object({ manifestId: identifier, manifestHash: sha256 }),
   status: schema.enum(["ACTIVE", "NEUTRAL"] as const), neutralReason: schema.nullable(schema.enum(SUPPRESSION_REASON_CODES)),
@@ -354,7 +410,10 @@ export function parseRelevantUserProjection(value: unknown, request?: RelevantUs
   if (contentHash(projectionHashBody(parsed)) !== parsed.projectionHash) throw new ContractValidationError("$.projectionHash", "hash mismatch");
   if (parsed.status === "NEUTRAL" && (items !== 0 || parsed.neutralReason === null)) throw new ContractValidationError("$.status", "neutral projection must be empty and explained");
   if (parsed.status === "ACTIVE" && parsed.neutralReason !== null) throw new ContractValidationError("$.neutralReason", "active projection cannot have a neutral reason");
-  if (request && (parsed.userId !== request.actor.userId || parsed.decisionId !== request.decisionId || parsed.budgets.maxItems !== request.budgets.maxItems || parsed.budgets.maxBytes !== request.budgets.maxBytes)) throw new ContractValidationError("$", "projection does not match server request");
+  if (["NO_CONSENT", "MISSING_SNAPSHOT", "KILL_SWITCH"].includes(parsed.neutralReason ?? "")) {
+    if (parsed.snapshot !== null || parsed.domainSufficiency.length > 0 || parsed.suppression.total !== 0 || parsed.suppression.byReason.length > 0) throw new ContractValidationError("$", "privacy-neutral projection must not expose snapshot or profile-derived details");
+  }
+  if (request && (parsed.subjectBindingHash !== request.actor.subjectBindingHash || parsed.decisionId !== request.decisionId || parsed.budgets.maxItems !== request.budgets.maxItems || parsed.budgets.maxBytes !== request.budgets.maxBytes)) throw new ContractValidationError("$", "projection does not match server request binding");
   return parsed;
 }
 
@@ -372,8 +431,9 @@ export const LifecycleCommandSchema = schema.object({
   action: schema.enum(["EXPORT", "CORRECTION", "ACTIVITY_EXCLUSION", "PARTIAL_RESET", "FULL_PERSONALIZATION_RESET", "CONSENT_WITHDRAWAL", "RETENTION_EXPIRY", "ACCOUNT_ERASURE", "REBUILD"] as const),
   userId: identifier, authority: UserEventAuthoritySchema, idempotencyKey: identifier,
   scope: schema.object({ domains: schema.array(identifier, { max: 64 }), eventIds: schema.array(identifier, { max: 256 }), allPersonalization: schema.boolean() }),
-  targetStores: schema.array(schema.enum(REQUIRED_LIFECYCLE_STORES), { min: 1, max: 32 }), expectedEffect: schema.enum(["EXPORT_ONLY", "CORRECT_AND_REBUILD", "EXCLUDE_AND_REBUILD", "PURGE_AND_INVALIDATE", "REBUILD_DERIVED"] as const),
+  targetStores: schema.array(schema.enum(REQUIRED_LIFECYCLE_STORES), { min: 1, max: 32 }), expectedEffect: schema.enum(["EXPORT_ONLY", "CORRECT_AND_REBUILD", "EXCLUDE_AND_REBUILD", "PURGE_AND_INVALIDATE", "PURGE_AND_DELETE", "REBUILD_DERIVED"] as const),
   completion: schema.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "FAILED", "PARTIAL"] as const), failureCode: schema.nullable(identifier),
+  storeResults: schema.array(schema.object({ store: schema.enum(REQUIRED_LIFECYCLE_STORES), effect: schema.enum(["DELETED", "INVALIDATED", "REBUILT", "EXPORTED", "NO_CHANGE"] as const), completion: schema.enum(["PENDING", "COMPLETED", "FAILED"] as const) }), { max: 32 }),
   auditId: identifier, requestedAt: timestamp,
 });
 export type LifecycleCommand = Infer<typeof LifecycleCommandSchema>;
@@ -383,6 +443,16 @@ export function parseLifecycleCommand(value: unknown, expectedUserId?: string): 
   parseUserEventAuthority(parsed.authority);
   if (parsed.userId !== parsed.authority.boundUserId || (expectedUserId !== undefined && parsed.userId !== expectedUserId)) throw new ContractValidationError("$.userId", "lifecycle command identity mismatch");
   if (["FAILED", "PARTIAL"].includes(parsed.completion) !== (parsed.failureCode !== null)) throw new ContractValidationError("$.failureCode", "failure code must exist exactly for failed or partial commands");
+  if (new Set(parsed.targetStores).size !== parsed.targetStores.length || new Set(parsed.storeResults.map(({ store }) => store)).size !== parsed.storeResults.length) throw new ContractValidationError("$.targetStores", "lifecycle stores must be unique");
+  if (parsed.action === "ACCOUNT_ERASURE") {
+    if (parsed.expectedEffect !== "PURGE_AND_DELETE") throw new ContractValidationError("$.expectedEffect", "account erasure requires purge-and-delete semantics");
+    const personalStores = REQUIRED_LIFECYCLE_STORES.filter((store) => store !== "technical_audit_manifests");
+    for (const store of personalStores) if (!parsed.targetStores.includes(store)) throw new ContractValidationError("$.targetStores", `account erasure must target ${store}`);
+    if (parsed.completion === "COMPLETED") for (const store of personalStores) {
+      const result = parsed.storeResults.find((entry) => entry.store === store);
+      if (!result || result.effect !== "DELETED" || result.completion !== "COMPLETED") throw new ContractValidationError("$.storeResults", `completed account erasure must prove deletion of ${store}`);
+    }
+  }
   return parsed;
 }
 

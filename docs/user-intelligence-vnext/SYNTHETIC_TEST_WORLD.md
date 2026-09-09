@@ -13,10 +13,16 @@ Abgedeckt sind:
 - wiederholte Spotinteraktionen als eine Journey-Einheit;
 - Multi-Concept-Attribution ohne zusätzliche Experience;
 - Cross-User-Abweisung;
+- gefälschte Journeys sowie fremde Decision-/Spot-Referenzen;
+- Client-Save/-Reservation ohne verifizierten Product State;
+- Event-Reference-Matrix einschließlich Visit, Review, Satisfaction und Correction;
+- Future-Skew, inkonsistente Zeitreihenfolge und explizit erlaubtes Offline-Event;
 - unbekannte Contract-/Registry-Version und unbekanntes Concept;
 - getrennte Direct-Spot-, Practical- und Taste-Contracts;
 - Item-/Bytebudget und neutrale Projection;
-- Lifecycle-Vollständigkeit und Erasure-Plan.
+- No-Consent-Minimierung ohne Snapshot-Referenz oder Profil-Suppression;
+- tatsächliches Delete aller personenbezogenen Stores bei abgeschlossener Account Erasure;
+- runtime-validierte Abweisung kommerzieller Felder.
 
 Der Concept-Slice `backyrd.synthetic-user-concepts@1.0` enthält ausschließlich Café, Bar, Restaurant, cozy/quiet/lively, calm/energetic, budget/premium und indoor/outdoor. Er ist Testvokabular, keine World- oder Founder-Freigabe.
 
