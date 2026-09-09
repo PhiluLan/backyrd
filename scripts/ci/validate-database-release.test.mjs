@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -53,4 +53,12 @@ test("an ACL change cannot be blessed without positive and negative tests", () =
   put(fixture.root, "delivery/database-releases/20260102-grant-note.json", `${JSON.stringify({ schemaVersion: "backyrd-database-evidence-v1", kind: "release", id: "20260102-grant-note", previousEvidence: "baseline-v1", previousFingerprints: { publicAclSha256: fixture.acl, applicationSchemaSha256: fixture.schema }, migrations: [{ path: migrationPath, sha256: hash(migration) }], tests: [{ path: testPath, sha256: hash(acceptance) }], fingerprints: { publicAclSha256: candidateAcl, applicationSchemaSha256: fixture.schema } })}\n`);
   git(fixture.root, ["add", "."]); git(fixture.root, ["commit", "-qm", "candidate"]);
   assert.throws(() => validateDatabaseRelease({ root: fixture.root, baseSha: fixture.base, headSha: "HEAD", actualPublicAcl: candidateAcl, actualApplicationSchema: fixture.schema }), /acl_change_requires_positive_and_negative/);
+});
+
+test("database jobs consume the one resolved base and head for PR and push events", () => {
+  const workflow = readFileSync(new URL("../../.github/workflows/risk-gate.yml", import.meta.url), "utf8");
+  assert.match(workflow, /base-sha: \$\{\{ steps\.plan\.outputs\.base-sha \}\}/);
+  assert.match(workflow, /head-sha: \$\{\{ steps\.plan\.outputs\.head-sha \}\}/);
+  assert.match(workflow, /BASE_SHA: \$\{\{ needs\.classify\.outputs\.base-sha \}\}/);
+  assert.match(workflow, /HEAD_SHA: \$\{\{ needs\.classify\.outputs\.head-sha \}\}/);
 });

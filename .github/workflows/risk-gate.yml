@@ -23,6 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
+      base-sha: ${{ steps.plan.outputs.base-sha }}
+      head-sha: ${{ steps.plan.outputs.head-sha }}
       required-gates: ${{ steps.plan.outputs.required-gates }}
       mobile: ${{ steps.plan.outputs.mobile }}
       web: ${{ steps.plan.outputs.web }}
@@ -56,6 +58,8 @@ jobs:
           const plan = JSON.parse(readFileSync(process.argv[2], "utf8"));
           const selected = new Set(plan.requiredGates);
           const lines = [
+            `base-sha=${plan.context.baseSha}`,
+            `head-sha=${plan.context.headSha}`,
             `required-gates=${JSON.stringify(plan.requiredGates)}`,
             ...["mobile", "web", "admin", "shared", "database", "decision", "delivery-contract"]
               .map((gate) => `${gate}=${selected.has(gate)}`),
@@ -211,8 +215,8 @@ jobs:
       - run: npm ci
       - name: Validate independently derived semantic release record
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE_SHA: ${{ needs.classify.outputs.base-sha }}
+          HEAD_SHA: ${{ needs.classify.outputs.head-sha }}
         run: node scripts/ci/validate-decision-change.mjs --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"
       - run: npm run decision-lab:test
       - run: npm run decision-lab:smoke
@@ -240,14 +244,15 @@ jobs:
           version: 2.80.0
       - name: Migration immutability and harness contracts
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ needs.classify.outputs.base-sha }}
+          HEAD_SHA: ${{ needs.classify.outputs.head-sha }}
         run: |
           node scripts/ci/validate-database-lineage.mjs --base-sha "$BASE_SHA"
-          node scripts/ci/validate-database-test-coverage.mjs --base-sha "$BASE_SHA" --head-sha "${{ github.event.pull_request.head.sha || github.sha }}" --output "$RUNNER_TEMP/database-tests.txt"
+          node scripts/ci/validate-database-test-coverage.mjs --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA" --output "$RUNNER_TEMP/database-tests.txt"
           node --test scripts/ci/validate-database-lineage.test.mjs scripts/ci/validate-database-test-coverage.test.mjs scripts/ci/validate-database-release.test.mjs scripts/ci/validate-lockfile-install.test.mjs
       - name: Isolated canonical clean boot and SQL authorization tests
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          BASE_SHA: ${{ needs.classify.outputs.base-sha }}
           BACKYRD_CHANGED_DATABASE_TESTS_FILE: ${{ runner.temp }}/database-tests.txt
         run: scripts/ci/validate-supabase-current.sh
 
