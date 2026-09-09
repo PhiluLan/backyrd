@@ -2,7 +2,7 @@
 
 This inventory records controls found active on canonical Main at the start of Development Safety & Delivery V1. It is not an instruction to reproduce them in future releases. Git and the historical reports retain their evidence.
 
-The replacement must be green and required before any active blocker below is retired.
+The replacement was green and required before any active blocker below was retired.
 
 ## Historical one-off mechanisms
 
@@ -26,7 +26,7 @@ The replacement must be green and required before any active blocker below is re
 - One shipped Production baseline with all pending changes computed from shipped baseline to selected canonical candidate.
 - Behavior tests for RLS/ACL, migrations, clean boot, secrets and deploy completeness instead of feature-name or line-count exceptions.
 
-Retirement means removal from active merge/deploy execution. Historical files may remain where needed to explain an already executed release, but they do not define a new candidate's permission. The feature-specific database boot and Product-lineage calls were removed from the stable `Canonical database boot` context after the current clean boot passed the complete local candidate. The later workflow/Branch-Protection cutover removes the remaining duplicate contexts after their replacements pass GitHub.
+Retirement means removal from active merge/deploy execution. Historical files may remain where needed to explain an already executed release, but they do not define a new candidate's permission. The feature-specific database boot and Product-lineage calls were removed from the stable `Canonical database boot` context after the current clean boot passed the complete local candidate. Branch Protection now requires only the aggregate risk gate; legacy Quality, Security and Database workflows are manual diagnostics.
 
 The global `Decision Lab deterministic smoke` job was also removed from the
 ordinary Quality workflow after GitHub proved that the required risk gate skipped
