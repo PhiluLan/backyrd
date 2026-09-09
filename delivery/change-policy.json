@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "backyrd-change-policy-v1",
+  "decisionTrustAnchor": "decision-lab/config/decision-v13-production-recertification-v44.json",
+  "surfacePrefixes": {
+    "mobile": ["mobile/"],
+    "web": ["web/"],
+    "admin": ["admin-dashboard/"],
+    "shared": ["packages/shared/"]
+  },
+  "databasePrefixes": [
+    "supabase/migrations/",
+    "supabase/canonical/",
+    "supabase/tests/"
+  ],
+  "authorizationPrefixes": [
+    "supabase/canonical/auth_hooks.sql",
+    "supabase/canonical/storage.sql",
+    "supabase/production/auth-config.json"
+  ],
+  "decisionSemanticPrefixes": [
+    "packages/canonical-semantics/src/",
+    "packages/decision-input-runtime/src/",
+    "packages/decision-orchestrator-runtime/src/",
+    "packages/n6-shadow-runtime/src/",
+    "supabase/functions/decision-v13/"
+  ],
+  "decisionEvaluationPrefixes": [
+    "decision-lab/src/",
+    "decision-lab/config/",
+    "decision-lab/baselines/",
+    "decision-lab/test/",
+    "scripts/decision/"
+  ],
+  "deliveryControlPrefixes": [
+    ".github/workflows/",
+    "delivery/",
+    "scripts/ci/",
+    "scripts/deployment/",
+    "docs/operations/"
+  ],
+  "releaseEvidencePrefixes": [
+    "docs/operations/releases/",
+    "docs/operations/production-lineage-candidates/"
+  ]
+}

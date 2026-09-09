@@ -1,0 +1,282 @@
+name: CI / Risk Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: risk-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI: true
+  NEXT_TELEMETRY_DISABLED: 1
+
+jobs:
+  classify:
+    name: Change risk classification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      required-gates: ${{ steps.plan.outputs.required-gates }}
+      mobile: ${{ steps.plan.outputs.mobile }}
+      web: ${{ steps.plan.outputs.web }}
+      admin: ${{ steps.plan.outputs.admin }}
+      shared: ${{ steps.plan.outputs.shared }}
+      database: ${{ steps.plan.outputs.database }}
+      decision: ${{ steps.plan.outputs.decision }}
+      delivery-contract: ${{ steps.plan.outputs.delivery-contract }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - id: plan
+        name: Resolve immutable candidate and classify risk
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CHECKOUT_SHA: ${{ github.sha }}
+          CANONICAL_MAIN_REF: ${{ github.event.pull_request.base.sha || github.sha }}
+        run: |
+          node scripts/ci/classify-change.mjs \
+            --event-name "$EVENT_NAME" \
+            --base-sha "$BASE_SHA" \
+            --head-sha "$HEAD_SHA" \
+            --checkout-sha "$CHECKOUT_SHA" \
+            --canonical-main-ref "$CANONICAL_MAIN_REF" \
+            --output "$RUNNER_TEMP/change-plan.json"
+          node - "$RUNNER_TEMP/change-plan.json" "$GITHUB_OUTPUT" <<'NODE'
+          const { appendFileSync, readFileSync } = require("node:fs");
+          const plan = JSON.parse(readFileSync(process.argv[2], "utf8"));
+          const selected = new Set(plan.requiredGates);
+          const lines = [
+            `required-gates=${JSON.stringify(plan.requiredGates)}`,
+            ...["mobile", "web", "admin", "shared", "database", "decision", "delivery-contract"]
+              .map((gate) => `${gate}=${selected.has(gate)}`),
+          ];
+          appendFileSync(process.argv[3], `${lines.join("\n")}\n`);
+          NODE
+          node - "$RUNNER_TEMP/change-plan.json" "$GITHUB_STEP_SUMMARY" <<'NODE'
+          const { appendFileSync, readFileSync } = require("node:fs");
+          const plan = JSON.parse(readFileSync(process.argv[2], "utf8"));
+          appendFileSync(process.argv[3], [
+            "## Risk-based change plan",
+            "",
+            `- Candidate: \`${plan.context.headSha}\``,
+            `- Base: \`${plan.context.baseSha}\``,
+            `- Checkout: \`${plan.context.checkoutKind}\``,
+            `- Stale base: \`${plan.context.staleBase}\``,
+            `- Classes: ${plan.classes.join(", ")}`,
+            `- Required gates: ${plan.requiredGates.join(", ")}`,
+            "",
+          ].join("\n"));
+          NODE
+
+  repository-security:
+    name: Repository and secret invariants
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Repository and migration structure
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: scripts/ci/repository-sanity.sh
+      - name: Canonical SQL secret guard
+        run: scripts/ci/scan-canonical-secrets.sh
+      - name: Scan changed repository content
+        uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
+  mobile:
+    name: Mobile contracts, lint and advisory typecheck
+    if: needs.classify.outputs.mobile == 'true'
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npm run test:contracts
+      - run: npm run lint
+      - name: Mobile TypeScript baseline (advisory inherited debt)
+        continue-on-error: true
+        run: npm run typecheck
+
+  web:
+    name: Web contracts, typecheck and build
+    if: needs.classify.outputs.web == 'true'
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.invalid
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-public-placeholder
+      NEXT_PUBLIC_SITE_URL: https://example.invalid
+      NEXT_PUBLIC_APP_DOWNLOAD_URL: https://example.invalid
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288ca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run test:contracts --workspace web
+      - run: npm exec --workspace web tsc -- --noEmit --pretty false
+      - run: npm run build --workspace web
+
+  admin:
+    name: Admin contracts, typecheck and build
+    if: needs.classify.outputs.admin == 'true'
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.invalid
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-public-placeholder
+      NEXT_PUBLIC_SITE_URL: https://example.invalid
+      NEXT_PUBLIC_GOOGLE_API_KEY: ci-public-placeholder
+      SUPABASE_SERVICE_ROLE_KEY: ci-server-placeholder
+    defaults:
+      run:
+        working-directory: admin-dashboard
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: admin-dashboard/package-lock.json
+      - run: npm ci
+      - run: npm run test:contracts
+      - run: npm exec tsc -- --noEmit --pretty false
+      - run: npm run build
+
+  shared:
+    name: Shared contract typecheck
+    if: needs.classify.outputs.shared == 'true'
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm exec tsc -- --noEmit --pretty false -p packages/shared/tsconfig.json
+
+  decision:
+    name: Versioned Decision semantics and evaluation
+    if: needs.classify.outputs.decision == 'true'
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - name: Validate independently derived semantic release record
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/ci/validate-decision-change.mjs --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"
+      - run: npm run decision-lab:test
+      - run: npm run decision-lab:smoke
+      - run: npm run decision-lab:d2:acceptance
+      - run: npm run decision-lab:d2:recertify
+      - run: npm run decision-lab:d2.2:validate
+      - run: npm run decision-lab:d3.1:preflight
+      - run: npm run decision-lab:d3-a:validate
+
+  database:
+    name: Database lineage, clean boot and authorization
+    if: needs.classify.outputs.database == 'true'
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.80.0
+      - name: Migration immutability and harness contracts
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          node scripts/ci/validate-database-lineage.mjs --base-sha "$BASE_SHA"
+          node --test scripts/ci/validate-database-lineage.test.mjs scripts/ci/validate-lockfile-install.test.mjs
+      - name: Isolated canonical clean boot and SQL authorization tests
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: scripts/ci/validate-supabase-local.sh
+
+  delivery-contract:
+    name: Candidate and deployment contract tests
+    if: needs.classify.outputs.delivery-contract == 'true'
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+      - name: Risk, identity, Decision and deployment contract regressions
+        run: |
+          node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/validate-decision-change.test.mjs scripts/ci/verify-risk-gate.test.mjs
+          node --test scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/verify-supabase-migration-dry-run.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs
+
+  risk-gate:
+    name: Risk-based merge gate
+    if: always()
+    needs: [classify, repository-security, mobile, web, admin, shared, decision, database, delivery-contract]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      REQUIRED_GATES: ${{ needs.classify.outputs.required-gates }}
+      RESULTS: >-
+        {"repository-security":"${{ needs.repository-security.result }}","mobile":"${{ needs.mobile.result }}","web":"${{ needs.web.result }}","admin":"${{ needs.admin.result }}","shared":"${{ needs.shared.result }}","decision":"${{ needs.decision.result }}","database":"${{ needs.database.result }}","delivery-contract":"${{ needs.delivery-contract.result }}"}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Require every risk-selected gate and ignore irrelevant skipped gates
+        run: node scripts/ci/verify-risk-gate.mjs --required-gates "$REQUIRED_GATES" --results "$RESULTS"
