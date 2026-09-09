@@ -1,0 +1,25 @@
+# Lifecycle Manifest und Privacy Data Inventory
+
+`USER_INTELLIGENCE_LIFECYCLE_MANIFEST` ist das maschinenlesbare Gate für alle geplanten vNext-Stores. Ein fehlender Store oder ein unvollständiger Export-, Retention-, Purge-, Consent-, Erasure- oder Rebuild-Vertrag lässt die Validierung scheitern.
+
+| Store | Klasse | Wahrheit | Export | Lifecycle |
+|---|---|---|---|---|
+| Canonical Memory Events | personal raw | Source of Truth | Beobachtungen | Product-Policy noch offen |
+| Evidence Chains | personal derived | Derived | userlesbar | source-bound |
+| Taste Nodes | personal derived | Derived | userlesbar | source-bound |
+| Practical Preferences | personal derived | Derived | userlesbar | source-bound |
+| Direct Spot Affinities | personal derived | Derived | userlesbar | source-bound |
+| Snapshots | personal derived | Derived | userlesbar | source-bound, spätere Kompaktierung nötig |
+| Latest Pointer | personal pointer | Pointer | Metadaten | nur solange referenziert |
+| Change Records | personal derived | Audit | userlesbar | source-bound |
+| Projections | personal derived | Derived | Metadaten | ephemer |
+| Work Items | personal derived | Work | Metadaten | ephemer |
+| Caches | personal derived | Cache | Metadaten | ephemer |
+| Transparency Views | personal derived | Derived | userlesbar | ephemer |
+| Technical Audit Manifests | non-personal | Audit | nicht als Userdatenexport | dauerhaft nur ohne Userbezug |
+
+Finale Aufbewahrungsfristen sind bewusst nicht definiert. Consent Withdrawal und Full Personalization Reset dürfen personenbezogene Derived-/Pointer-Zustände invalidieren, sofern ihre jeweils dokumentierte Purge-Wirkung erfüllt wird. Account Erasure ist strenger: `planLifecycleImpact` verlangt für jeden personenbezogenen Store `DELETE`, einschließlich Projections, Caches, Latest Pointer und Work Items. Ein `LifecycleCommand` darf für `ACCOUNT_ERASURE` nur `COMPLETED` sein, wenn `storeResults` die abgeschlossene Löschung jedes personenbezogenen Stores beweist. Eine bloße Invalidierung ist höchstens ein interner Zwischenschritt. Nur strukturell nicht-personenbezogene Contract-, Code- und Policy-Manifeste dürfen verbleiben.
+
+Bei UNKNOWN, DENIED, WITHDRAWN, fehlendem Snapshot oder Kill Switch ist die Projection neutral: keine Taste-/Practical-/Direct-Spot-Nodes, keine Domain Sufficiency, keine Snapshot-ID/-Hash und keine profilabgeleiteten Suppression-Details. Die direkte User-ID wurde aus dem Projection-Payload entfernt. Die serverseitige Request-Authority bleibt intern über `subjectBindingHash` gebunden; Decision darf diese Bindung weder aus Clientdaten erzeugen noch als öffentliche Identität exponieren.
+
+Raw Events, Reviewtexte, Rohstandorte, private Social-Daten und vollständige User Cards sind im Decision-Payload nicht repräsentierbar. Diese Foundation repariert den bestehenden Product Export noch nicht; sie definiert lediglich den vollständigen zukünftigen Vertrag.

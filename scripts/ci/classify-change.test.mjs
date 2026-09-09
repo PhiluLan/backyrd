@@ -8,7 +8,7 @@ import { classifyChange } from "./classify-change.mjs";
 
 const policy = {
   decisionTrustAnchor: "decision-lab/config/anchor.json",
-  surfacePrefixes: { mobile: ["mobile/"], web: ["web/"], admin: ["admin-dashboard/"], shared: ["packages/shared/"] },
+  surfacePrefixes: { mobile: ["mobile/"], web: ["web/"], admin: ["admin-dashboard/"], shared: ["packages/shared/", "packages/user-intelligence-vnext-core/"] },
   databasePrefixes: ["supabase/migrations/", "supabase/canonical/", "supabase/tests/"],
   authorizationPrefixes: ["supabase/canonical/auth_hooks.sql", "supabase/canonical/storage.sql"],
   privilegedServerPrefixes: ["supabase/functions/", "supabase/config.toml", "supabase/production/auth-config.json"],
@@ -41,6 +41,7 @@ for (const [label, path, flag] of [
   ["Web presentation", "web/components/Card.tsx", "web"],
   ["Admin presentation", "admin-dashboard/components/Card.tsx", "admin"],
   ["shared Product contract", "packages/shared/src/contract.ts", "shared"],
+  ["User Intelligence vNext contract", "packages/user-intelligence-vnext-core/src/contracts.ts", "shared"],
 ]) test(`${label} selects only its relevant surface gate`, () => {
   const result = plan({ files: { [path]: "export const value = true;\n" } });
   assert.equal(result.flags[flag], true);
