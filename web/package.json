@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prototype:world-knowledge": "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:59999 NEXT_PUBLIC_SUPABASE_ANON_KEY=local-prototype-placeholder next dev --hostname 127.0.0.1 --port 3217",
     "build": "next build",
     "start": "next start",
     "lint": "eslint app components lib proxy.ts --ignore-pattern 'app/owner/**' --ignore-pattern 'components/owner/**' --ignore-pattern 'lib/owner-*.ts'",

@@ -34,6 +34,7 @@ export function ConsumerShell({ children }: { children: ReactNode }) {
     name?: string | null;
   } | null>(null);
   useEffect(() => {
+    if (pathname === "/world-knowledge-prototype") return;
     let active = true;
     async function syncUser() {
       const { data } = await supabase.auth.getUser();
@@ -84,12 +85,12 @@ export function ConsumerShell({ children }: { children: ReactNode }) {
       active = false;
       subscription.unsubscribe();
     };
-  }, [router]);
+  }, [pathname, router]);
   const displayName = useMemo(
     () => user?.name || user?.email || "Profil",
     [user],
   );
-  if (pathname.startsWith("/owner")) return children;
+  if (pathname.startsWith("/owner") || pathname === "/world-knowledge-prototype") return children;
   return (
     <div className="b-app">
       <header className="b-header">

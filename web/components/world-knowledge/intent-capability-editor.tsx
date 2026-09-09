@@ -1,0 +1,13 @@
+"use client";
+import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { catalog, type PrototypeState } from "@/lib/world-knowledge/model";
+
+export function IntentCapabilityEditor({state,setState}:{state:PrototypeState;setState:Dispatch<SetStateAction<PrototypeState>>}) {
+  const selected=useMemo(()=>new Set([state.spot.primaryCategory,...state.spot.secondaryCategories]),[state.spot.primaryCategory,state.spot.secondaryCategories]);
+  const intents=useMemo(()=>catalog.definitions.filter((item)=>item.semanticClass==="DECISION_INTENT"&&item.applicableCategories.some((key)=>selected.has(key))),[selected]);
+  const capabilities=useMemo(()=>catalog.definitions.filter((item)=>item.semanticClass==="CAPABILITY"&&item.applicableCategories.some((key)=>selected.has(key))),[selected]);
+  const [intentId,setIntentId]=useState(""); const [capabilityId,setCapabilityId]=useState("");
+  const label=(id:string)=>catalog.definitions.find((item)=>item.id===id)?.label??id;
+  const add=()=>{if(!intentId||!capabilityId)return;if(state.intentCapabilityLinks.some((item)=>item.intentId===intentId&&item.capabilityId===capabilityId))return;setState((current)=>({...current,intentCapabilityLinks:[...current.intentCapabilityLinks,{id:crypto.randomUUID(),intentId,capabilityId}]}));};
+  return <section className="wk-relation-card"><div><span className="wk-kicker">INTENT ≠ CAPABILITY</span><h3>Welche Capability unterstützt welchen Intent?</h3><p>Der Nutzer besitzt den Intent. Der Spot besitzt die Capability. Die Relation verbindet beide, ohne sie gleichzusetzen.</p></div><div className="wk-relation-form"><select aria-label="Decision Intent" value={intentId} onChange={(event)=>setIntentId(event.target.value)}><option value="">Decision Intent wählen</option>{intents.map((item)=><option key={item.id} value={item.id}>{item.label}</option>)}</select><span>← unterstützt durch ←</span><select aria-label="Capability" value={capabilityId} onChange={(event)=>setCapabilityId(event.target.value)}><option value="">Capability wählen</option>{capabilities.map((item)=><option key={item.id} value={item.id}>{item.label}</option>)}</select><button onClick={add}>Relation hinzufügen</button></div>{state.intentCapabilityLinks.length>0&&<div className="wk-relations">{state.intentCapabilityLinks.map((item)=><div key={item.id}><strong>{label(item.intentId)}</strong><span>unterstützt durch</span><strong>{label(item.capabilityId)}</strong><button aria-label="Relation entfernen" onClick={()=>setState((current)=>({...current,intentCapabilityLinks:current.intentCapabilityLinks.filter((link)=>link.id!==item.id)}))}>×</button></div>)}</div>}</section>;
+}
