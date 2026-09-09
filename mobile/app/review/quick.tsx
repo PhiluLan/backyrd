@@ -25,6 +25,7 @@ import { ReviewSubmissionStatus } from "../../components/reviews/ReviewMediaFiel
 import {
   discardReviewMediaAttempt,
   finalizeReviewWithMedia,
+  prepareReviewMediaAsset,
   reviewMediaErrorContext,
   reviewMediaUserMessage,
   ReviewMediaError,
@@ -32,6 +33,7 @@ import {
   type ReviewMediaProgress,
   uploadReservedReviewMedia,
 } from "../../lib/review-media-upload";
+import { ReviewMediaValidationCoordinator } from "../../lib/review-media-validation";
 
 const theme = {
   bg: "#050506",
@@ -74,11 +76,13 @@ export default function QuickReviewScreen() {
   const pendingMediaReviewId = useRef<string | null>(null);
   const pendingUploadedPaths = useRef<string[]>([]);
   const submittingRef = useRef(false);
+  const validationCoordinator = useRef(new ReviewMediaValidationCoordinator(prepareReviewMediaAsset));
   const [moodA, setMoodA] = useState("");
   const [moodB, setMoodB] = useState("");
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState<ReviewMediaProgress | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const mediaReady = Boolean(photo?.prepared);
 
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraReady, setCameraReady] = useState(false);
@@ -93,13 +97,38 @@ export default function QuickReviewScreen() {
     void trackAnalyticsEvent({ eventName: "review_started", screenName: "review_quick", spotId, decisionId: decisionId ?? null, properties: { source: source ?? "spot" } });
   }, [decisionId, source, spotId]);
 
+  useEffect(() => () => validationCoordinator.current.cancel(), []);
+
+  async function validatePhoto(asset: ReviewMediaAsset) {
+    const prepared = await validationCoordinator.current.validate([asset], (state) => {
+      if (state.status === "validating") {
+        setProgress({ stage: "media_validation", completed: 0, total: 1 });
+        setSubmitError(null);
+      } else if (state.status === "failed") {
+        setProgress(null);
+        const context = reviewMediaErrorContext(state.error) ?? { stage: "media_validation", code: "UNKNOWN_VALIDATION_FAILURE" };
+        void reportAnalyticsError({ error: new Error(`${context.stage}:${context.code}`), screenName: "review_quick", errorType: "review_media_validation_failed", context: { ...context, uri_scheme: asset.uri.split(":")[0] ?? "unknown", asset_count: 1 } });
+        const message = reviewMediaUserMessage(state.error) ?? "Das Bild konnte nicht geprüft werden. Dein Entwurf bleibt erhalten.";
+        setSubmitError(message);
+        AccessibilityInfo.announceForAccessibility(message);
+      }
+    });
+    if (!prepared?.[0]) return;
+    setPhoto(prepared[0]);
+    setProgress(null);
+    setSubmitError(null);
+    AccessibilityInfo.announceForAccessibility("Bildprüfung abgeschlossen. Das Bild ist bereit.");
+  }
+
   /* ======= Foto aufnehmen ======= */
   async function takePhoto() {
     if (!cameraRef) return;
     try {
       const photo = await cameraRef.takePictureAsync({ quality: 0.8 });
-      setPhoto({ uri: photo.uri, fileName: "camera.jpg", mimeType: "image/jpeg" });
+      const asset = { uri: photo.uri, fileName: "camera.jpg", mimeType: "image/jpeg" };
+      setPhoto(asset);
       setSubmitError(null);
+      void validatePhoto(asset);
       void trackAnalyticsEvent({ eventName: "review_photo_added", screenName: "review_quick", spotId, properties: { source: "camera" } });
     } catch (err) {
       Alert.alert("Fehler", "Kamera konnte kein Bild aufnehmen.");
@@ -108,6 +137,7 @@ export default function QuickReviewScreen() {
   }
 
   async function retakePhoto() {
+    validationCoordinator.current.cancel();
     if (pendingMediaReviewId.current) {
       try {
         await discardReviewMediaAttempt({
@@ -178,6 +208,12 @@ export default function QuickReviewScreen() {
 
     if (!photo) {
       Alert.alert("Fehler", "Bitte zuerst ein Foto aufnehmen.");
+      return;
+    }
+    if (!mediaReady) {
+      const message = "Bitte warte, bis die Bildprüfung abgeschlossen ist, oder nimm das Bild erneut auf.";
+      setSubmitError(message);
+      AccessibilityInfo.announceForAccessibility(message);
       return;
     }
 
@@ -397,16 +433,16 @@ export default function QuickReviewScreen() {
         <ReviewSubmissionStatus
           progress={progress}
           error={submitError}
-          onRetry={() => void submitReview()}
+          onRetry={() => photo && !mediaReady ? void validatePhoto(photo) : void submitReview()}
         />
 
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Review veröffentlichen"
-          accessibilityState={{ disabled: loading, busy: loading }}
+          accessibilityState={{ disabled: loading || !mediaReady, busy: loading }}
           onPress={submitReview}
-          style={[styles.submitBtn, loading && { opacity: 0.6 }]}
-          disabled={loading}
+          style={[styles.submitBtn, (loading || !mediaReady) && { opacity: 0.6 }]}
+          disabled={loading || !mediaReady}
         >
           {loading ? (
             <ActivityIndicator color={theme.ink} />

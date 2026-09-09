@@ -98,6 +98,7 @@ export default function NewReviewScreen() {
   const [progress, setProgress] = useState<ReviewMediaProgress | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [unlockedAchievements, setUnlockedAchievements] = useState<any[]>([]);
+  const mediaReady = photos.length === 0 || photos.every((photo) => Boolean(photo.prepared));
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
@@ -174,6 +175,12 @@ export default function NewReviewScreen() {
 
     if (!user?.id) {
       Alert.alert("Login benötigt", "Bitte melde dich an, um eine Review zu schreiben.");
+      return;
+    }
+    if (!mediaReady) {
+      const message = "Bitte warte, bis die Bildprüfung abgeschlossen ist, oder entferne das Bild.";
+      setSubmitError(message);
+      AccessibilityInfo.announceForAccessibility(message);
       return;
     }
 
@@ -406,6 +413,10 @@ export default function NewReviewScreen() {
                 disabled={uploading}
                 onChange={changePhotos}
                 onError={setSubmitError}
+                onValidationError={(error) => {
+                  const context = reviewMediaErrorContext(error) ?? { stage: "media_validation", code: "UNKNOWN_VALIDATION_FAILURE" };
+                  void reportAnalyticsError({ error: new Error(`${context.stage}:${context.code}`), screenName: "review_new", errorType: "review_media_validation_failed", context: { ...context, uri_scheme: photos[0]?.uri.split(":")[0] ?? "unknown", asset_count: photos.length } });
+                }}
               />
             </View>
 
@@ -423,10 +434,10 @@ export default function NewReviewScreen() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Review veröffentlichen"
-                  accessibilityState={{ disabled: uploading, busy: uploading }}
+                  accessibilityState={{ disabled: uploading || !mediaReady, busy: uploading }}
                   onPress={submitReview}
                   style={styles.submitBtn}
-                  disabled={uploading}
+                  disabled={uploading || !mediaReady}
                 >
                   {uploading ? (
                     <ActivityIndicator color={theme.colors.ink} />

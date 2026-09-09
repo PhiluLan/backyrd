@@ -197,7 +197,8 @@ export default function SmartReviewScreen() {
 
   const [unlockedAchievements, setUnlockedAchievements] = useState<any[]>([]);
 
-  const canSubmit = !!nearest;
+  const mediaReady = !photo || Boolean(photo.prepared);
+  const canSubmit = !!nearest && mediaReady;
 
   useEffect(() => {
     void trackAnalyticsEvent({ eventName: "review_started", screenName: "review_smart", decisionId: decisionId ?? null, properties: { source: source ?? "smart" } });
@@ -361,6 +362,12 @@ export default function SmartReviewScreen() {
   async function submitSmartReviewOnce() {
     if (!nearest?.id) {
       Alert.alert("Kein Spot", "Es wurde kein passender Spot erkannt.");
+      return;
+    }
+    if (!mediaReady) {
+      const message = "Bitte warte, bis die Bildprüfung abgeschlossen ist, oder entferne das Bild.";
+      setSubmitError(message);
+      AccessibilityInfo.announceForAccessibility(message);
       return;
     }
 
@@ -695,6 +702,10 @@ export default function SmartReviewScreen() {
                   disabled={saving}
                   onChange={changePhoto}
                   onError={setSubmitError}
+                  onValidationError={(error) => {
+                    const context = reviewMediaErrorContext(error) ?? { stage: "media_validation", code: "UNKNOWN_VALIDATION_FAILURE" };
+                    void reportAnalyticsError({ error: new Error(`${context.stage}:${context.code}`), screenName: "review_smart", errorType: "review_media_validation_failed", context: { ...context, uri_scheme: photo?.uri.split(":")[0] ?? "unknown", asset_count: photo ? 1 : 0 } });
+                  }}
                 />
 
                 <ReviewSubmissionStatus

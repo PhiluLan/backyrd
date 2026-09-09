@@ -15,6 +15,9 @@ let uploadError = null;
 let reservationState = "OPEN";
 let reservationError = null;
 let finalizationError = null;
+let digestError = null;
+let digestInput = null;
+const materializedFiles = new Map();
 const supabase = {
   auth: {
     getSession: async () => ({ data: { session: { user: { id: "user" }, expires_at: Math.floor(Date.now() / 1000) + 3600 } }, error: null }),
@@ -57,13 +60,30 @@ new Function("exports", "require", "module", output)(
     if (specifier === "./supabase") return { supabase };
     if (specifier === "expo-crypto") return {
       CryptoDigestAlgorithm: { SHA256: "SHA256" },
-      digest: async () => new Uint8Array(32).buffer,
+      digest: async (_algorithm, input) => {
+        digestInput = input;
+        if (digestError) throw digestError;
+        if (!(input instanceof Uint8Array)) throw new Error("TypedArray required");
+        return new Uint8Array(32).buffer;
+      },
     };
     if (specifier === "expo-file-system") return {
       File: class {
-        constructor(uri) { this.uri = uri; }
-        async arrayBuffer() { return (await globalThis.fetch(this.uri)).arrayBuffer(); }
+        constructor(...parts) { this.uri = parts.map((part) => part?.uri ?? part).join("/").replace("file:////", "file:///"); }
+        async bytes() {
+          if (this.uri.includes("never-resolves")) return new Promise(() => {});
+          if (this.uri.includes("byte-read-error")) throw new Error("read failed");
+          if (materializedFiles.has(this.uri)) return materializedFiles.get(this.uri);
+          return new Uint8Array(await (await globalThis.fetch(this.uri)).arrayBuffer());
+        }
+        create() {}
+        write(bytes) { materializedFiles.set(this.uri, Uint8Array.from(bytes)); }
       },
+      Directory: class {
+        constructor(...parts) { this.uri = parts.map((part) => part?.uri ?? part).join("/").replace("file:////", "file:///"); }
+        create() {}
+      },
+      Paths: { cache: { uri: "file:///cache" } },
     };
     throw new Error(specifier);
   },
@@ -72,6 +92,7 @@ new Function("exports", "require", "module", output)(
 const {
   REVIEW_MEDIA_MAX_BYTES,
   ReviewMediaError,
+  prepareReviewMediaAsset,
   reviewMediaErrorContext,
   resolveReviewMediaMime,
   uploadReservedReviewMedia,
@@ -90,6 +111,85 @@ const bytesFor = (uri) => {
   return new ArrayBuffer(0);
 };
 globalThis.fetch = async (uri) => ({ ok: true, arrayBuffer: async () => bytesFor(uri) });
+
+const preparedJpeg = await prepareReviewMediaAsset({ uri: "file:///gallery.jpg", mimeType: "image/jpeg" });
+assert.ok(digestInput instanceof Uint8Array, "expo-crypto must receive a native-compatible TypedArray");
+assert.equal(preparedJpeg.prepared.byteLength, 4);
+assert.match(preparedJpeg.uri, /^file:\/\/\/cache\/backyrd-review-media\//);
+
+let cloudReads = 0;
+globalThis.fetch = async (uri) => {
+  if (uri === "ph://icloud-photo" || uri === "ph://extensionless") {
+    cloudReads += 1;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    return { ok: true, arrayBuffer: async () => bytesFor("photo.jpg") };
+  }
+  return { ok: true, arrayBuffer: async () => bytesFor(uri) };
+};
+const cloudAsset = await prepareReviewMediaAsset({ uri: "ph://icloud-photo", fileName: null, mimeType: "image/jpeg" });
+assert.equal(cloudReads, 1, "a delayed Photo Library asset must materialize through the provider");
+assert.ok(cloudAsset.uri.startsWith("file:///cache/"));
+
+const extensionless = await prepareReviewMediaAsset({ uri: "ph://extensionless", fileName: null, mimeType: null });
+assert.equal(extensionless.mimeType, "image/jpeg", "file signatures are canonical when metadata is absent");
+assert.equal(calls.length, 0, "validation must not reserve, upload, or create a review");
+
+await assert.rejects(
+  prepareReviewMediaAsset({ uri: "file:///byte-read-error.jpg", mimeType: "image/jpeg" }),
+  (error) => error instanceof ReviewMediaError && error.stage === "media_read" && error.safeCode === "LOCAL_IMAGE_READ_FAILED",
+);
+digestError = new Error("native hash failed");
+await assert.rejects(
+  prepareReviewMediaAsset({ uri: "file:///gallery.jpg", mimeType: "image/jpeg" }),
+  (error) => error instanceof ReviewMediaError && error.stage === "media_validation" && error.safeCode === "IMAGE_HASH_FAILED",
+);
+digestError = null;
+await assert.rejects(
+  prepareReviewMediaAsset({ uri: "file:///never-resolves.jpg", mimeType: "image/jpeg" }, { timeoutMs: 5 }),
+  (error) => error instanceof ReviewMediaError && error.safeCode === "IMAGE_PREPARATION_TIMEOUT",
+);
+
+const validationSource = fs.readFileSync(path.resolve("lib/review-media-validation.ts"), "utf8");
+const validationModule = { exports: {} };
+const validationOutput = ts.transpileModule(validationSource, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText;
+new Function("exports", "require", "module", validationOutput)(
+  validationModule.exports,
+  (specifier) => specifier === "./review-media-upload" ? module.exports : (() => { throw new Error(specifier); })(),
+  validationModule,
+);
+const { ReviewMediaValidationCoordinator } = validationModule.exports;
+const deferred = new Map();
+const coordinator = new ReviewMediaValidationCoordinator((asset) => new Promise((resolve, reject) => {
+  deferred.set(asset.uri, { resolve, reject, asset });
+}));
+const stateHistory = [];
+const firstValidation = coordinator.validate([{ uri: "file:///first.jpg" }], (state) => stateHistory.push(state.status));
+const secondValidation = coordinator.validate([{ uri: "file:///second.jpg" }], (state) => stateHistory.push(state.status));
+deferred.get("file:///first.jpg").resolve({ uri: "file:///first-ready.jpg", prepared: {} });
+assert.equal(await firstValidation, null, "an older validation must not win after replacement");
+deferred.get("file:///second.jpg").resolve({ uri: "file:///second-ready.jpg", prepared: {} });
+assert.equal((await secondValidation)[0].uri, "file:///second-ready.jpg");
+assert.equal(stateHistory.at(-1), "ready");
+
+const removalStates = [];
+const removedValidation = coordinator.validate([{ uri: "file:///removed.jpg" }], (state) => removalStates.push(state.status));
+coordinator.cancel((state) => removalStates.push(state.status));
+deferred.get("file:///removed.jpg").resolve({ uri: "file:///should-not-return.jpg", prepared: {} });
+assert.equal(await removedValidation, null, "removal must invalidate an in-flight validation");
+assert.equal(removalStates.at(-1), "idle");
+
+const failedStates = [];
+const failedValidation = coordinator.validate([{ uri: "file:///failure.jpg" }], (state) => failedStates.push(state.status));
+deferred.get("file:///failure.jpg").reject(new Error("failed"));
+assert.equal(await failedValidation, null);
+assert.deepEqual(failedStates, ["validating", "failed"], "every active failure must terminate checking deterministically");
+const retryStates = [];
+const retriedValidation = coordinator.validate([{ uri: "file:///retry.jpg" }], (state) => retryStates.push(state.status));
+deferred.get("file:///retry.jpg").resolve({ uri: "file:///retry-ready.jpg", prepared: {} });
+assert.equal((await retriedValidation)[0].uri, "file:///retry-ready.jpg");
+assert.deepEqual(retryStates, ["validating", "ready"], "a retry can recover into a ready state");
 
 assert.equal(resolveReviewMediaMime({ uri: "file:///a.heic", mimeType: "image/heic" }), "image/heic");
 assert.equal(resolveReviewMediaMime({ uri: "file:///a.heif" }), "image/heif");
@@ -231,6 +331,13 @@ for (const screen of screens) {
   assert.match(screen, /finalizeReviewWithMedia/);
   assert.doesNotMatch(screen, /from\(["']review_photos["']\)\.insert/);
   assert.doesNotMatch(screen, /from\(["']spot-photos["']\)/);
+  assert.match(screen, /mediaReady/, "every review capture path must gate publication on validated media");
+  assert.match(screen, /disabled=\{[^}]*(?:!mediaReady|!canSubmit)/, "publish must remain disabled while media is validating");
 }
+
+const mediaField = fs.readFileSync(path.resolve("components/reviews/ReviewMediaField.tsx"), "utf8");
+assert.match(mediaField, /useRef\(new ReviewMediaValidationCoordinator/, "validation identity must survive React re-renders");
+assert.match(mediaField, /coordinator\.current\.cancel/, "replace and remove must invalidate stale validation work");
+assert.match(mediaField, /Bild erneut prüfen/, "failed validation must offer an explicit retry");
 
 console.log("Review media upload contract passed.");
