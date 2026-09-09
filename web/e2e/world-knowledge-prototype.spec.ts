@@ -14,7 +14,7 @@ test("Founder erfasst Philipps Casa geführt und prüft die mobile Vorschau", as
   await page.getByLabel("Webseite", { exact: true }).fill("https://philipps-casa.test");
   await page.getByLabel("Besonderheit").fill("Hausgemachte Spezialitäten und eine ruhige Terrasse.");
   await page.getByLabel("Preislevel").selectOption("$$");
-  await page.getByRole("button", { name: "Italienisch" }).click();
+  await expect(page.getByText("Art der Küche", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Kartenzahlung" }).click();
   await page.getByLabel("Ja", { exact: true }).check();
   await page.getByRole("button", { name: "Sondertag hinzufügen" }).click();
@@ -28,6 +28,11 @@ test("Founder erfasst Philipps Casa geführt und prüft die mobile Vorschau", as
   await page.getByRole("button", { name: "Restaurant", exact: true }).click();
   await page.getByRole("button", { name: "Pub", exact: true }).click();
   await expect(page.locator(".wk-selected-chips")).toContainText("Brasserie");
+
+  await page.getByRole("button", { name: /Küche und Angebot/ }).click();
+  await expect(page.getByRole("heading", { name: "Art der Küche" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Angebot und Stil" })).toBeVisible();
+  await page.getByRole("button", { name: "Italienisch", exact: true }).click();
 
   await page.getByRole("button", { name: /Was kann man dort machen/ }).click();
   await expect(page.getByRole("heading", { name: "Essen und Trinken" })).toBeVisible();
@@ -44,6 +49,20 @@ test("Founder erfasst Philipps Casa geführt und prüft die mobile Vorschau", as
   await expect(page.getByRole("heading", { name: "Barrierefreiheit" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Komfort und Infrastruktur" })).toBeVisible();
   await page.getByRole("button", { name: "Terrasse", exact: true }).click();
+  const areaSearch = page.getByLabel("In diesem Bereich suchen");
+  await areaSearch.fill("Geeignete Gruppengröße");
+  await page.getByRole("button", { name: /Geeignete Gruppengröße/ }).click();
+  await page.getByLabel("Gruppen von").fill("2");
+  await page.getByLabel("bis").fill("12");
+  await page.getByRole("button", { name: "Übernehmen" }).click();
+  await expect(page.locator(".wk-selected-chips")).toContainText("2–12 Personen");
+  await areaSearch.fill("Raumtypen");
+  await page.getByRole("button", { name: /Raumtypen/ }).click();
+  await page.getByLabel("Innenraum").check();
+  await page.getByLabel("Separee").check();
+  await page.getByRole("button", { name: "Übernehmen" }).click();
+  await areaSearch.fill("Strukturierter Raumplan");
+  await expect(page.getByText("Strukturierter Raumplan", { exact: true })).toHaveCount(0);
 
   await page.getByRole("button", { name: /Vorschau und Analyse/ }).click();
   await expect(page.getByRole("heading", { name: "So könnte Philipps Casa in der App aussehen" })).toBeVisible();
@@ -51,6 +70,8 @@ test("Founder erfasst Philipps Casa geführt und prüft die mobile Vorschau", as
   await expect(page.locator(".wk-phone")).toContainText("Brasserie · Pub · Restaurant");
   await expect(page.locator(".wk-phone")).toContainText("Kreis 4");
   await expect(page.locator(".wk-phone")).toContainText("Heute");
+  await expect(page.locator(".wk-phone")).toContainText("Hausgemachte Spezialitäten und eine ruhige Terrasse.");
+  await expect(page.locator(".wk-phone")).not.toContainText("Alkohol nur ab bestimmtem Alter");
 
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
   await page.reload();

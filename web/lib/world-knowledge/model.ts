@@ -1,6 +1,6 @@
 import generatedCatalog from "./catalog.generated.json" with { type: "json" };
 
-export const PROTOTYPE_VERSION = "philipps-casa-prototype-2.1.0";
+export const PROTOTYPE_VERSION = "philipps-casa-prototype-2.2.0";
 export const STORAGE_KEY = "backyrd:world-knowledge-prototype:philipps-casa:v1";
 
 export type Role = "ADMIN" | "OWNER_BASIC" | "OWNER_PRO";
