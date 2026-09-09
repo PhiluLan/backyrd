@@ -4,6 +4,7 @@ export const CONTRACT_VERSIONS = Object.freeze({
   decisionRequest: "backyrd-vnext-decision-request-v1",
   executionEnvelope: "backyrd-vnext-execution-envelope-v1",
   contextSnapshot: "backyrd-vnext-context-snapshot-v1",
+  worldKnowledgePort: "backyrd-vnext-world-knowledge-port-v1",
   worldCandidate: "backyrd-vnext-world-candidate-v1",
   candidatePool: "backyrd-vnext-candidate-pool-v1",
   eligibility: "backyrd-vnext-eligibility-result-v1",
@@ -20,6 +21,7 @@ const bounded = schema.number({ min: 0, max: 1 });
 const city = schema.string({ min: 1, max: 120 });
 const spotId = identifier;
 const evidenceId = schema.string({ pattern: /^ev-[a-z0-9-]+$/ });
+const factId = schema.string({ pattern: /^fact-[a-z0-9-]+$/ });
 
 export const HardConstraintSchema = schema.union([
   schema.object({ kind: schema.literal("open_now"), value: schema.boolean() }),
@@ -57,6 +59,7 @@ export const EngineManifestSchema = schema.object({
   engineVersion: identifier,
   sourceSha: schema.string({ pattern: /^(?:[a-f0-9]{40}|phase1-[a-z0-9-]+)$/ }),
   sandboxWorldVersion: identifier,
+  worldRegistryVersion: identifier,
   contextVersion: identifier,
   candidateGeneratorVersion: identifier,
   eligibilityRulesetVersion: identifier,
@@ -102,6 +105,29 @@ export const DecisionContextSnapshotSchema = schema.object({
 });
 export type DecisionContextSnapshot = Infer<typeof DecisionContextSnapshotSchema>;
 
+export const WorldConceptRefSchema = schema.object({
+  registryVersion: identifier,
+  conceptId: identifier,
+});
+export type WorldConceptRef = Infer<typeof WorldConceptRefSchema>;
+
+export const WorldEntityRefSchema = schema.object({
+  entityType: schema.enum(["spot", "event", "temporary_place"]),
+  entityId: identifier,
+});
+export type WorldEntityRef = Infer<typeof WorldEntityRefSchema>;
+
+const WorldSourceSchema = schema.union([
+  schema.object({ kind: schema.literal("synthetic_fixture"), sourceId: identifier, sourceVersion: identifier }),
+  schema.object({ kind: schema.literal("world_knowledge_port"), sourceId: identifier, sourceVersion: identifier }),
+]);
+
+const VerificationSchema = schema.object({
+  status: schema.enum(["unverified", "source_asserted", "independently_verified", "synthetic_fixture"]),
+  methodVersion: identifier,
+  verifiedAt: schema.union([timestamp, schema.literal(null)]),
+});
+
 const EvidenceSourceSchema = schema.object({
   kind: schema.literal("synthetic_world"),
   sourceId: identifier,
@@ -126,9 +152,116 @@ export const EvidenceItemSchema = schema.union([
   schema.object({ ...evidenceBase, kind: schema.literal("intent_tags"), value: schema.object({ keys: schema.array(key, { max: 20 }) }) }),
   schema.object({ ...evidenceBase, kind: schema.literal("mood_tags"), value: schema.object({ keys: schema.array(key, { max: 20 }) }) }),
   schema.object({ ...evidenceBase, kind: schema.literal("data_quality"), value: schema.object({ normalized: bounded, state: schema.enum(["complete", "partial", "weak"]) }) }),
+  schema.object({ ...evidenceBase, kind: schema.literal("world_concept"), value: schema.object({ concept: WorldConceptRefSchema }) }),
+  schema.object({ ...evidenceBase, kind: schema.literal("world_relation"), value: schema.object({ relationConcept: WorldConceptRefSchema }) }),
   schema.object({ ...evidenceBase, kind: schema.literal("uncertainty"), value: schema.object({ limitationCode: key }) }),
 ]);
 export type EvidenceItem = Infer<typeof EvidenceItemSchema>;
+
+const WorldAssertedValueSchema = schema.union([
+  schema.object({ kind: schema.literal("boolean"), value: schema.literal(true) }),
+  schema.object({ kind: schema.literal("number"), value: schema.number(), unit: key }),
+  schema.object({ kind: schema.literal("text"), value: schema.string({ max: 500 }) }),
+  schema.object({ kind: schema.literal("concept"), value: WorldConceptRefSchema }),
+  schema.object({ kind: schema.literal("concept_set"), values: schema.array(WorldConceptRefSchema, { max: 50 }) }),
+  schema.object({ kind: schema.literal("open_status"), value: schema.enum(["open", "closed", "unknown"]) }),
+]);
+
+const WorldReportedValueSchema = schema.union([
+  schema.object({ kind: schema.literal("boolean"), value: schema.boolean() }),
+  schema.object({ kind: schema.literal("number"), value: schema.number(), unit: key }),
+  schema.object({ kind: schema.literal("text"), value: schema.string({ max: 500 }) }),
+  schema.object({ kind: schema.literal("concept"), value: WorldConceptRefSchema }),
+  schema.object({ kind: schema.literal("concept_set"), values: schema.array(WorldConceptRefSchema, { max: 50 }) }),
+  schema.object({ kind: schema.literal("open_status"), value: schema.enum(["open", "closed"]) }),
+]);
+
+export const WorldFactValueSchema = schema.union([
+  WorldReportedValueSchema,
+  schema.object({ kind: schema.literal("unavailable") }),
+]);
+export type WorldFactValue = Infer<typeof WorldFactValueSchema>;
+
+const worldFactBase = {
+  factId,
+  concept: WorldConceptRefSchema,
+  source: WorldSourceSchema,
+  verification: VerificationSchema,
+  observedAt: timestamp,
+  validFrom: schema.union([timestamp, schema.literal(null)]),
+  validUntil: schema.union([timestamp, schema.literal(null)]),
+  confidence: bounded,
+  evidenceIds: schema.array(evidenceId, { max: 20 }),
+  factHash: sha256,
+} as const;
+
+export const WorldFactSchema = schema.union([
+  schema.object({ ...worldFactBase, state: schema.literal("known"), value: WorldAssertedValueSchema }),
+  schema.object({ ...worldFactBase, state: schema.literal("known_false"), value: schema.object({ kind: schema.literal("boolean"), value: schema.literal(false) }) }),
+  schema.object({ ...worldFactBase, state: schema.literal("unknown"), value: schema.object({ kind: schema.literal("unavailable") }) }),
+  schema.object({ ...worldFactBase, state: schema.literal("not_applicable"), value: schema.object({ kind: schema.literal("unavailable") }) }),
+  schema.object({ ...worldFactBase, state: schema.literal("disputed"), value: WorldReportedValueSchema }),
+  schema.object({ ...worldFactBase, state: schema.literal("expired"), value: WorldReportedValueSchema }),
+]);
+export type WorldFact = Infer<typeof WorldFactSchema>;
+
+export const WorldConceptRelationSchema = schema.object({
+  relationId: identifier,
+  relationConcept: WorldConceptRefSchema,
+  fromConcept: WorldConceptRefSchema,
+  toConcept: WorldConceptRefSchema,
+  evidenceIds: schema.array(evidenceId, { max: 20 }),
+  relationHash: sha256,
+});
+export type WorldConceptRelation = Infer<typeof WorldConceptRelationSchema>;
+
+export const DerivedSituationFitSchema = schema.object({
+  derivedFitId: identifier,
+  fitConcept: WorldConceptRefSchema,
+  derivationVersion: identifier,
+  derivedFromFactIds: schema.array(factId, { max: 50 }),
+  evidenceIds: schema.array(evidenceId, { max: 50 }),
+  confidence: bounded,
+  derivedFitHash: sha256,
+});
+export type DerivedSituationFit = Infer<typeof DerivedSituationFitSchema>;
+
+export const WorldEntityRelationSchema = schema.object({
+  relationId: identifier,
+  relationConcept: WorldConceptRefSchema,
+  fromEntity: WorldEntityRefSchema,
+  toEntity: WorldEntityRefSchema,
+  evidenceIds: schema.array(evidenceId, { max: 20 }),
+  relationHash: sha256,
+});
+export type WorldEntityRelation = Infer<typeof WorldEntityRelationSchema>;
+
+export const WorldKnowledgeSchema = schema.object({
+  registryVersion: identifier,
+  spotEntity: schema.object({ entityType: schema.literal("spot"), entityId: identifier }),
+  categoryAssignments: schema.array(WorldFactSchema, { max: 40 }),
+  subcategories: schema.array(WorldFactSchema, { max: 100 }),
+  decisionIntents: schema.object({
+    facts: schema.array(WorldFactSchema, { max: 100 }),
+    capabilityRelations: schema.array(WorldConceptRelationSchema, { max: 200 }),
+  }),
+  capabilities: schema.array(WorldFactSchema, { max: 100 }),
+  situationFit: schema.object({
+    directClaims: schema.array(WorldFactSchema, { max: 100 }),
+    derivedFits: schema.array(DerivedSituationFitSchema, { max: 100 }),
+  }),
+  amenitiesAndConstraints: schema.array(WorldFactSchema, { max: 200 }),
+  temporalAndCurrentState: schema.array(WorldFactSchema, { max: 200 }),
+  evidenceAndConfidence: schema.object({
+    evidence: schema.array(EvidenceItemSchema, { max: 200 }),
+    status: schema.literal("uncalibrated-phase1"),
+    coverage: bounded,
+    limitations: schema.array(key, { max: 50 }),
+  }),
+  relatedEntities: schema.array(WorldEntityRelationSchema, { max: 100 }),
+  knowledgeHash: sha256,
+});
+export type WorldKnowledge = Infer<typeof WorldKnowledgeSchema>;
 
 export const WorldCandidateSchema = schema.object({
   contractVersion: version(CONTRACT_VERSIONS.worldCandidate),
@@ -137,12 +270,9 @@ export const WorldCandidateSchema = schema.object({
   distanceMeters: schema.number({ min: 0 }),
   distributionAllowed: schema.boolean(),
   openStatus: schema.enum(["open", "closed", "unknown"]),
-  fixturePlaceType: key,
-  fixtureIntentKeys: schema.array(key, { max: 20 }),
-  fixtureMoodKeys: schema.array(key, { max: 20 }),
   fixturePopularity: bounded,
   fixtureDataQuality: bounded,
-  evidence: schema.array(EvidenceItemSchema, { max: 30 }),
+  worldKnowledge: WorldKnowledgeSchema,
   candidateHash: sha256,
 });
 export type WorldCandidate = Infer<typeof WorldCandidateSchema>;

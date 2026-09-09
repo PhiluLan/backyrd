@@ -2,9 +2,10 @@ import { assertContentHash, withContentHash } from "./canonical.js";
 import { brandEligibleCandidate, CONTRACT_VERSIONS, EligibilityResultSchema, type CandidatePoolSnapshot, type DecisionContextSnapshot, type EligibilityResult, type EligibleCandidate, type EvidenceItem } from "./contracts.js";
 import { evidenceMap } from "./evidence.js";
 import { PHASE1_VERSIONS } from "./manifest.js";
+import { candidateEvidence } from "./world-knowledge.js";
 
 const evidenceOf = (candidate: CandidatePoolSnapshot["candidates"][number]["candidate"], kind: EvidenceItem["kind"]): EvidenceItem => {
-  const item = candidate.evidence.find((entry) => entry.kind === kind);
+  const item = candidateEvidence(candidate).find((entry) => entry.kind === kind);
   if (!item) throw new Error(`eligibility_evidence_missing:${kind}`);
   return item;
 };

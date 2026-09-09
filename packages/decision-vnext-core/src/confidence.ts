@@ -1,8 +1,9 @@
 import { withContentHash } from "./canonical.js";
 import { ConfidenceSchema, CONTRACT_VERSIONS, type Confidence, type DecisionContextSnapshot, type EligibleCandidate } from "./contracts.js";
+import { candidateEvidence } from "./world-knowledge.js";
 
 const evidence = (candidate: EligibleCandidate, kind: string) => {
-  const item = candidate.candidate.evidence.find((entry) => entry.kind === kind);
+  const item = candidateEvidence(candidate.candidate).find((entry) => entry.kind === kind);
   if (!item) throw new Error(`confidence_evidence_missing:${kind}`);
   return item.evidenceId;
 };

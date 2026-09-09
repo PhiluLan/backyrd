@@ -1,5 +1,6 @@
 import { assertContentHash, withContentHash } from "./canonical.js";
 import { CONTRACT_VERSIONS, EngineManifestSchema, type EngineManifest } from "./contracts.js";
+import { PHASE1_WORLD_REGISTRY_VERSION } from "./world-knowledge.js";
 
 export const PHASE1_VERSIONS = Object.freeze({
   engine: "backyrd-decision-vnext-phase1-spine-v1",
@@ -27,6 +28,7 @@ export function createEngineManifest(input: {
     engineVersion: PHASE1_VERSIONS.engine,
     sourceSha: input.sourceSha,
     sandboxWorldVersion: input.sandboxWorldVersion,
+    worldRegistryVersion: PHASE1_WORLD_REGISTRY_VERSION,
     contextVersion: PHASE1_VERSIONS.context,
     candidateGeneratorVersion: PHASE1_VERSIONS.candidateGenerator,
     eligibilityRulesetVersion: PHASE1_VERSIONS.eligibility,

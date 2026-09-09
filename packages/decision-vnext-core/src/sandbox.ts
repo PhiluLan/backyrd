@@ -26,9 +26,11 @@ export interface SyntheticSpot {
   readonly distanceMeters: number;
   readonly distributionAllowed: boolean;
   readonly openStatus: "open" | "closed" | "unknown";
-  readonly placeType: string;
+  readonly categoryKeys: readonly string[];
+  readonly subcategoryKeys: readonly string[];
   readonly intentKeys: readonly string[];
-  readonly moodKeys: readonly string[];
+  readonly capabilityKeys: readonly string[];
+  readonly situationFitKeys: readonly string[];
   readonly popularity: number;
   readonly dataQuality: number;
   readonly commercialProbe: SyntheticCommercialProbe;
@@ -71,6 +73,7 @@ export function generateSyntheticWorld(raw: unknown): SyntheticWorld {
   const placeTypes = ["fixture.cafe", "fixture.restaurant", "fixture.bar", "fixture.activity"] as const;
   const intents = ["fixture.eat", "fixture.drink", "fixture.talk", "fixture.explore"] as const;
   const moods = ["fixture.calm", "fixture.lively", "fixture.cozy", "fixture.outdoors"] as const;
+  const capabilities = ["fixture.capability.food", "fixture.capability.drinks", "fixture.capability.conversation", "fixture.capability.outdoors"] as const;
   const spots: SyntheticSpot[] = Array.from({ length: config.spotCount }, (_, index) => ({
     id: `syn-spot-${String(index + 1).padStart(4, "0")}`,
     sourceId: `synthetic-source-${String(index + 1).padStart(4, "0")}`,
@@ -78,9 +81,13 @@ export function generateSyntheticWorld(raw: unknown): SyntheticWorld {
     distanceMeters: Math.round(100 + random() * 19_900),
     distributionAllowed: index % 17 !== 0,
     openStatus: pick(["open", "closed", "unknown"] as const, index + config.seed),
-    placeType: pick(placeTypes, index + config.seed),
+    categoryKeys: index % 7 === 0
+      ? [pick(placeTypes, index + config.seed), pick(placeTypes, index + config.seed + 1)].sort()
+      : [pick(placeTypes, index + config.seed)],
+    subcategoryKeys: [`fixture.subcategory.${index % 6}`],
     intentKeys: [pick(intents, index), pick(intents, index + 1)].sort(),
-    moodKeys: [pick(moods, index + config.seed), pick(moods, index + config.seed + 1)].sort(),
+    capabilityKeys: [pick(capabilities, index), pick(capabilities, index + 1)].sort(),
+    situationFitKeys: [pick(moods, index + config.seed), pick(moods, index + config.seed + 1)].sort(),
     popularity: rounded(random()),
     dataQuality: rounded(0.2 + random() * 0.8),
     commercialProbe: {

@@ -49,7 +49,7 @@ export const schema = {
       return value;
     }};
   },
-  literal<const T extends string | number | boolean>(expected: T): Schema<T> {
+  literal<const T extends string | number | boolean | null>(expected: T): Schema<T> {
     return { parse(value, path) {
       if (value !== expected) throw new ContractValidationError(location(path), `expected ${JSON.stringify(expected)}`);
       return expected;

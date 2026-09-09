@@ -8,6 +8,7 @@ import { applyPhase1Eligibility } from "./eligibility.js";
 import { authorizeReasons, renderAuthorizedReasons, validateExplanation } from "./explanation.js";
 import { validateEngineManifest } from "./manifest.js";
 import type { SyntheticWorld } from "./sandbox.js";
+import { candidateEvidence } from "./world-knowledge.js";
 
 function assertBaselineManifest(baseline: BaselineId, execution: DecisionExecutionEnvelope): void {
   const fixture = baseline === "baseline-a-open-distance-popularity" ? BASELINE_FIXTURES.a : BASELINE_FIXTURES.b;
@@ -33,6 +34,9 @@ export function runPhase1Decision(input: {
   const context = resolvePhase1Context(request, execution);
   const candidatePool = generateNeutralCandidatePool({ world: input.world, context, serverRequestId: execution.serverRequestId, ...(input.candidatePoolSize === undefined ? {} : { limit: input.candidatePoolSize }) });
   validateCandidatePool(candidatePool);
+  if (candidatePool.candidates.some((entry) => entry.candidate.worldKnowledge.registryVersion !== execution.engineManifest.worldRegistryVersion)) {
+    throw new Error("engine_manifest_world_registry_mismatch");
+  }
   const eligibility = applyPhase1Eligibility(candidatePool, context);
   const ranked: readonly RankedCandidate[] = input.baseline === "baseline-a-open-distance-popularity"
     ? rankBaselineA(eligibility.eligible)
@@ -42,7 +46,7 @@ export function runPhase1Decision(input: {
     const next = ranked[index + 1];
     const confidence = buildPhase1Confidence({ candidate: entry.eligibleCandidate, context, fixtureScore: entry.fixtureScore, ...(next === undefined ? {} : { nextFixtureScore: next.fixtureScore }) });
     const claims = authorizeReasons(entry.eligibleCandidate.candidate, entry.fit, confidence);
-    const reasons = renderAuthorizedReasons(claims, entry.eligibleCandidate.candidate.evidence);
+    const reasons = renderAuthorizedReasons(claims, candidateEvidence(entry.eligibleCandidate.candidate));
     validateExplanation(reasons, entry.eligibleCandidate.candidate);
     return DecisionRecommendationSchema.parse(withContentHash({
       contractVersion: CONTRACT_VERSIONS.recommendation,

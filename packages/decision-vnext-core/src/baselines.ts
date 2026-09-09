@@ -1,5 +1,6 @@
 import { withContentHash } from "./canonical.js";
 import { CONTRACT_VERSIONS, FitDimensionsSchema, type DecisionContextSnapshot, type EligibleCandidate, type FitDimensions } from "./contracts.js";
+import { candidateEvidence, knownConceptIds } from "./world-knowledge.js";
 
 export type BaselineId = "baseline-a-open-distance-popularity" | "baseline-b-mood-intent";
 
@@ -24,7 +25,7 @@ interface RankedCandidate {
 }
 
 const evidence = (candidate: EligibleCandidate, kind: string) => {
-  const item = candidate.candidate.evidence.find((entry) => entry.kind === kind);
+  const item = candidateEvidence(candidate.candidate).find((entry) => entry.kind === kind);
   if (!item) throw new Error(`baseline_evidence_missing:${kind}`);
   return item.evidenceId;
 };
@@ -60,8 +61,8 @@ export function rankBaselineB(candidates: readonly EligibleCandidate[], context:
   const fixture = BASELINE_FIXTURES.b;
   return candidates.map((eligibleCandidate) => {
     const candidate = eligibleCandidate.candidate;
-    const intent = ratio(context.intentKeys, candidate.fixtureIntentKeys);
-    const mood = ratio(context.moodKeys, candidate.fixtureMoodKeys);
+    const intent = ratio(context.intentKeys, knownConceptIds(candidate.worldKnowledge.decisionIntents.facts));
+    const mood = ratio(context.moodKeys, knownConceptIds(candidate.worldKnowledge.situationFit.directClaims));
     const dimensions = [
       { key: "fixture.intent_match" as const, rawValue: intent, evidenceIds: [evidence(eligibleCandidate, "intent_tags")], status: "unapproved-product-placeholder" as const },
       { key: "fixture.mood_match" as const, rawValue: mood, evidenceIds: [evidence(eligibleCandidate, "mood_tags")], status: "unapproved-product-placeholder" as const },

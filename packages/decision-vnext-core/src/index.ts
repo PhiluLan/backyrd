@@ -11,3 +11,5 @@ export * from "./manifest.js";
 export * from "./pipeline.js";
 export * from "./sandbox.js";
 export * from "./schema.js";
+export * from "./world-knowledge.js";
+export * from "./world-knowledge-port.js";

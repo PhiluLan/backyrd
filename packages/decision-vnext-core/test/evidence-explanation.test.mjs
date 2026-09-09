@@ -4,6 +4,7 @@ import {
   applyPhase1Eligibility,
   authorizeReasons,
   buildPhase1Confidence,
+  candidateEvidence,
   generateNeutralCandidatePool,
   rankBaselineA,
   renderAuthorizedReasons,
@@ -28,7 +29,7 @@ const rankedFixture = () => {
 test("every rendered reason is authorized and evidence-bound", () => {
   const { entry, confidence } = rankedFixture();
   const claims = authorizeReasons(entry.eligibleCandidate.candidate, entry.fit, confidence);
-  const reasons = renderAuthorizedReasons(claims, entry.eligibleCandidate.candidate.evidence);
+  const reasons = renderAuthorizedReasons(claims, candidateEvidence(entry.eligibleCandidate.candidate));
   assert.ok(reasons.length > 0);
   assert.ok(reasons.every((reason) => reason.evidenceIds.length > 0));
   validateExplanation(reasons, entry.eligibleCandidate.candidate);
@@ -37,10 +38,11 @@ test("every rendered reason is authorized and evidence-bound", () => {
 test("unknown, wrong-kind and changed evidence fail closed", () => {
   const { entry } = rankedFixture();
   const candidate = entry.eligibleCandidate.candidate;
-  assert.throws(() => renderAuthorizedReasons([{ reasonCode: "popularity_fixture", evidenceIds: ["ev-does-not-exist"] }], candidate.evidence), /unknown_evidence_id/);
-  const distance = candidate.evidence.find((item) => item.kind === "distance");
+  const evidence = candidateEvidence(candidate);
+  assert.throws(() => renderAuthorizedReasons([{ reasonCode: "popularity_fixture", evidenceIds: ["ev-does-not-exist"] }], evidence), /unknown_evidence_id/);
+  const distance = evidence.find((item) => item.kind === "distance");
   assert.ok(distance);
-  assert.throws(() => renderAuthorizedReasons([{ reasonCode: "popularity_fixture", evidenceIds: [distance.evidenceId] }], candidate.evidence), /evidence_kind_not_authorized/);
+  assert.throws(() => renderAuthorizedReasons([{ reasonCode: "popularity_fixture", evidenceIds: [distance.evidenceId] }], evidence), /evidence_kind_not_authorized/);
   const changed = { ...distance, value: { meters: distance.value.meters + 1 } };
   assert.throws(() => validateEvidence(changed), /evidenceHash_mismatch/);
 });
@@ -48,7 +50,7 @@ test("unknown, wrong-kind and changed evidence fail closed", () => {
 test("renderer cannot add or change a claim", () => {
   const { entry, confidence } = rankedFixture();
   const candidate = entry.eligibleCandidate.candidate;
-  const reasons = renderAuthorizedReasons(authorizeReasons(candidate, entry.fit, confidence), candidate.evidence);
+  const reasons = renderAuthorizedReasons(authorizeReasons(candidate, entry.fit, confidence), candidateEvidence(candidate));
   assert.throws(() => validateExplanation([{ ...reasons[0], renderedText: "A newly invented claim." }], candidate), /renderer_introduced_or_changed_claim/);
 });
 

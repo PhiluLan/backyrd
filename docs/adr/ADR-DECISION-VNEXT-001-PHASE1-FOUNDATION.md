@@ -37,6 +37,15 @@ not freeze legacy taxonomies, weights or scores as product truth.
    always semantically relevant.
 10. Commercial probe fields are present only on pre-contract synthetic spots.
     The World Candidate adapter discards them.
+11. World Knowledge concepts are opaque, versioned registry references. Phase
+    1 fixes no canonical World vocabulary.
+12. Intent, Capability, direct Situation Fit and derived Situation Fit are
+    separate structures. Facts and relations are content-addressed and retain
+    provenance, verification, time, confidence and Evidence references.
+13. A real World source may enter vNext only through `WorldKnowledgePort`.
+    Phase 1 contains no Production implementation of that port.
+14. Events and Temporary Places remain separate entity kinds referenced by
+    relations; they are not collapsed into Spot facts.
 
 ## Technical Phase-1 choices
 
@@ -50,6 +59,8 @@ not freeze legacy taxonomies, weights or scores as product truth.
   exposed as a long-term Decision Result score contract.
 - Confidence contains uncalibrated evaluation components and limitations. It
   is not a probability and does not affect rank.
+- The synthetic registry vocabulary is an unapproved fixture used only to
+  exercise generic registry, fact and relation contracts.
 
 ## Rejected alternatives
 

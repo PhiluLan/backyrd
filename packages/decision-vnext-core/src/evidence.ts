@@ -1,5 +1,6 @@
 import { assertContentHash, contentHash, withContentHash } from "./canonical.js";
 import { CONTRACT_VERSIONS, EvidenceItemSchema, type EvidenceItem, type WorldCandidate } from "./contracts.js";
+import { candidateEvidence } from "./world-knowledge.js";
 
 type EvidenceWithoutHash = Omit<EvidenceItem, "evidenceHash">;
 
@@ -13,7 +14,7 @@ export function validateEvidence(item: EvidenceItem): void {
 }
 
 export function evidenceMap(candidate: WorldCandidate): ReadonlyMap<string, EvidenceItem> {
-  const entries = candidate.evidence.map((item) => {
+  const entries = candidateEvidence(candidate).map((item) => {
     validateEvidence(item);
     if (item.spotId !== candidate.spotId) throw new Error("cross_spot_evidence");
     return [item.evidenceId, item] as const;
