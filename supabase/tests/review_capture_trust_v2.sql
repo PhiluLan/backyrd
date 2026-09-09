@@ -177,22 +177,26 @@ select pg_temp.review_capture_assert(
   'failed finalization left partial Product state'
 );
 
--- Cancellation is fail-closed until the object has been removed through the
--- Storage API. The SQL delete below represents that API's metadata result in
--- this transactional acceptance test only.
+-- Cancellation is fail-closed while an object exists. A separate reservation
+-- with no uploaded object proves the successful cleanup path without bypassing
+-- the Storage service's protected metadata tables.
 do $$begin
   begin
     perform public.cancel_review_media_upload_v2('92000000-0000-4000-8000-000000000022');
     raise exception 'reservation cancelled while object still existed';
   exception when object_not_in_prerequisite_state then null; end;
 end$$;
-reset role;
-delete from storage.objects
-where bucket_id='review-photos' and name='92000000-0000-4000-8000-000000000022/0.png';
-set local role authenticated;
-select set_config('request.jwt.claim.sub','92000000-0000-4000-8000-000000000001',true);
-select set_config('request.jwt.claim.role','authenticated',true);
-select public.cancel_review_media_upload_v2('92000000-0000-4000-8000-000000000022');
+select public.reserve_review_media_upload_v2(
+  '92000000-0000-4000-8000-000000000024','92000000-0000-4000-8000-000000000013',
+  array['92000000-0000-4000-8000-000000000024/0.jpg'],array['image/jpeg'],array[4::bigint],
+  array[repeat('f',64)],false
+);
+select public.cancel_review_media_upload_v2('92000000-0000-4000-8000-000000000024');
+select pg_temp.review_capture_assert(
+  (select expires_at <= now() from public.review_media_upload_reservations_v1
+    where review_id='92000000-0000-4000-8000-000000000024'),
+  'object-free reservation was not cancelled'
+);
 
 -- Another user cannot attach a different fingerprint or cancel this user's
 -- reservation.
