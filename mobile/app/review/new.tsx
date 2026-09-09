@@ -4,17 +4,16 @@ import {
   Text,
   TextInput,
   Pressable,
-  Image,
   StyleSheet,
   ActivityIndicator,
   Alert,
+  AccessibilityInfo,
   KeyboardAvoidingView,
   ScrollView,
   TouchableWithoutFeedback,
   Keyboard,
   Platform,
 } from "react-native";
-import * as ImagePicker from "expo-image-picker";
 import * as Crypto from "expo-crypto";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,10 +30,18 @@ import { registerSafetySnapshot } from "../../lib/safety-content";
 import { userFacingError } from "../../lib/userFacingError";
 import { MoodExpressionInput } from "../../components/MoodExpressionInput";
 import {
+  ReviewMediaField,
+  ReviewSubmissionStatus,
+} from "../../components/reviews/ReviewMediaField";
+import {
+  discardReviewMediaAttempt,
   finalizeReviewWithMedia,
+  finalizeReviewWithoutMedia,
   reviewMediaErrorContext,
   reviewMediaUserMessage,
+  ReviewMediaError,
   type ReviewMediaAsset,
+  type ReviewMediaProgress,
   uploadReservedReviewMedia,
 } from "../../lib/review-media-upload";
 
@@ -85,7 +92,11 @@ export default function NewReviewScreen() {
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<ReviewMediaAsset[]>([]);
   const pendingMediaReviewId = useRef<string | null>(null);
+  const pendingUploadedPaths = useRef<string[]>([]);
+  const submittingRef = useRef(false);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<ReviewMediaProgress | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [unlockedAchievements, setUnlockedAchievements] = useState<any[]>([]);
 
   useEffect(() => {
@@ -95,37 +106,38 @@ export default function NewReviewScreen() {
     void trackAnalyticsEvent({ eventName: "review_started", screenName: "review_new", spotId, decisionId: decisionId ?? null, properties: { source: source ?? "spot" } });
   }, [decisionId, source, spotId]);
 
-  async function pickImage(fromCamera: boolean) {
-    try {
-      const options: any = {
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.85,
-      };
-
-      const result = fromCamera
-        ? await ImagePicker.launchCameraAsync(options)
-        : await ImagePicker.launchImageLibraryAsync(options);
-
-      if (!result.canceled && result.assets?.length) {
-        if (photos.length >= 3) {
-          Alert.alert("Limit erreicht", "Du kannst maximal 3 Fotos hochladen.");
-          return;
-        }
-
-        const asset = result.assets[0];
-        setPhotos((prev) => [...prev, {
-          uri: asset.uri,
-          fileName: asset.fileName,
-          fileSize: asset.fileSize,
-          mimeType: asset.mimeType,
-        }]);
-        void trackAnalyticsEvent({ eventName: "review_photo_added", screenName: "review_new", spotId, properties: { source: fromCamera ? "camera" : "library" } });
+  async function changePhotos(next: ReviewMediaAsset[]) {
+    if (pendingMediaReviewId.current) {
+      try {
+        setSubmitError(null);
+        await discardReviewMediaAttempt({
+          reviewId: pendingMediaReviewId.current,
+          storagePaths: pendingUploadedPaths.current,
+          onProgress: setProgress,
+        });
+      } catch (error) {
+        const message = reviewMediaUserMessage(error) ?? "Das vorherige Bild konnte noch nicht sicher entfernt werden.";
+        setSubmitError(message);
+        setProgress(null);
+        AccessibilityInfo.announceForAccessibility(message);
+        return false;
       }
-    } catch (e: any) {
-      console.error("pickImage error:", e);
-      Alert.alert("Bild nicht ausgewählt", userFacingError(e, "Das Bild konnte gerade nicht ausgewählt werden."));
+      pendingMediaReviewId.current = null;
+      pendingUploadedPaths.current = [];
+    }
+    setSubmitError(null);
+    setProgress(null);
+    setPhotos(next);
+    return true;
+  }
+
+  async function submitReview() {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    try {
+      await submitReviewOnce();
+    } finally {
+      submittingRef.current = false;
     }
   }
 
@@ -154,7 +166,7 @@ export default function NewReviewScreen() {
     }
   }
 
-  async function submitReview() {
+  async function submitReviewOnce() {
     if (!spotId) {
       Alert.alert("Fehler", "Kein Spot ausgewählt");
       return;
@@ -167,32 +179,29 @@ export default function NewReviewScreen() {
 
     try {
       setUploading(true);
+      setSubmitError(null);
+      setProgress({ stage: "auth", completed: 0, total: photos.length });
 
       const uploadedPhotoUrls: string[] = [];
-      let reviewId: string;
+      const reviewId = pendingMediaReviewId.current ?? Crypto.randomUUID();
+      pendingMediaReviewId.current = reviewId;
       if (photos.length > 0) {
-        reviewId = pendingMediaReviewId.current ?? Crypto.randomUUID();
-        pendingMediaReviewId.current = reviewId;
         const media = await uploadReservedReviewMedia({
-          reviewId, spotId, smartReview: false, assets: photos,
+          reviewId, spotId, smartReview: false, assets: photos, onProgress: setProgress,
         });
+        pendingUploadedPaths.current = media.storagePaths;
         uploadedPhotoUrls.push(...media.publicUrls);
         await finalizeReviewWithMedia({
           reviewId, spotId, text: text.trim() || null,
           moodA: moodA.trim() || null, moodB: moodB.trim() || null,
-          ...media, smartReview: false,
+          ...media, smartReview: false, onProgress: setProgress,
         });
       } else {
-        const { data: reviewData, error: reviewErr } = await supabase
-          .from("reviews")
-          .insert({
-            spot_id: spotId, user_id: user.id, text: text.trim() || null,
-            mood_a: moodA.trim() || null, mood_b: moodB.trim() || null,
-            mood_a_id: null, mood_b_id: null,
-          })
-          .select().single();
-        if (reviewErr) throw reviewErr;
-        reviewId = reviewData.id as string;
+        await finalizeReviewWithoutMedia({
+          reviewId, spotId, text: text.trim() || null,
+          moodA: moodA.trim() || null, moodB: moodB.trim() || null,
+          smartReview: false, onProgress: setProgress,
+        });
       }
 
       await linkDecisionReview(reviewId);
@@ -217,9 +226,14 @@ export default function NewReviewScreen() {
       });
 
       pendingMediaReviewId.current = null;
+      pendingUploadedPaths.current = [];
+      setProgress(null);
       void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_new", entityType: "review", entityId: reviewId, spotId, decisionId: decisionId ?? null, properties: { photo_count: photos.length, has_text: Boolean(text.trim()), source: source ?? "spot" } });
 
-      const newlyUnlocked = await awardAchievementsForUser(user.id);
+      const newlyUnlocked = await awardAchievementsForUser(user.id).catch((error) => {
+        console.info("Achievement sync after review publish failed", error);
+        return [];
+      });
 
       if (newlyUnlocked.length > 0) {
         setUnlockedAchievements(newlyUnlocked);
@@ -276,6 +290,7 @@ export default function NewReviewScreen() {
           ],
         );
       } else if (mediaError) {
+        pendingUploadedPaths.current = e instanceof ReviewMediaError ? e.uploadedPaths : [];
         console.warn("[review-media] publish failed", {
           surface: "review_new",
           spot_id: spotId,
@@ -287,7 +302,10 @@ export default function NewReviewScreen() {
           errorType: "review_media_submit_failed",
           context: { spot_id: spotId, ...mediaError },
         });
-        Alert.alert("Review nicht gespeichert", reviewMediaUserMessage(e) ?? "Bitte versuche es nochmals.");
+        const message = reviewMediaUserMessage(e) ?? "Bitte versuche es nochmals.";
+        setSubmitError(message);
+        setProgress(null);
+        AccessibilityInfo.announceForAccessibility(message);
       } else {
         void reportAnalyticsError({
           error: e,
@@ -327,7 +345,13 @@ export default function NewReviewScreen() {
         <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
           <View style={[styles.headerWrap, { paddingTop: insets.top + 4 }]}>
             <BlurView intensity={40} tint="dark" style={styles.header}>
-              <Pressable onPress={() => router.back()} hitSlop={10} style={styles.headerBtn}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Review schließen"
+                onPress={() => router.back()}
+                hitSlop={10}
+                style={styles.headerBtn}
+              >
                 <Ionicons name="chevron-back" size={24} color="#fff" />
               </Pressable>
               <Text style={styles.headerTitle}>{isDecisionReview ? "Backyrd Treffer bewerten" : "Neue Review"}</Text>
@@ -337,17 +361,17 @@ export default function NewReviewScreen() {
 
           <ScrollView contentContainerStyle={styles.container}>
             <View style={styles.hero}>
-              <Text style={styles.kicker}>BACKYRD MOMENT</Text>
+              <Text style={styles.kicker}>DEINE REVIEW</Text>
               <Text style={styles.title}>Wie war es?</Text>
               <Text style={styles.subtitle}>
-                Zwei Moods reichen. Ein kurzer Satz und Foto machen den Moment wertvoller.
+                Zwei Moods reichen. Ein kurzer Satz oder Bild kann deine Erfahrung ergänzen.
               </Text>
             </View>
 
             {isDecisionReview && (
               <View style={styles.decisionCard}>
                 <Text style={styles.decisionKicker}>Gefunden mit Backyrd</Text>
-                <Text style={styles.decisionTitle}>Mach aus deiner Decision einen echten Moment.</Text>
+                <Text style={styles.decisionTitle}>Halte fest, wie der Backyrd Treffer für dich war.</Text>
                 {!!decisionQuery && (
                   <Text style={styles.decisionText} numberOfLines={2}>
                     “{decisionQuery}”
@@ -364,7 +388,7 @@ export default function NewReviewScreen() {
 
               <Text style={styles.label}>Text</Text>
               <TextInput
-                placeholder="Was sollte man über diesen Moment wissen?"
+                placeholder="Was sollte man über deine Erfahrung wissen?"
                 placeholderTextColor={theme.colors.textMuted}
                 value={text}
                 onChangeText={setText}
@@ -376,45 +400,38 @@ export default function NewReviewScreen() {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Fotos</Text>
-              <Text style={styles.cardHint}>Optional, maximal 3 Bilder.</Text>
-              <View style={styles.photoContainer}>
-                {photos.map((asset, idx) => (
-                  <Image key={idx} source={{ uri: asset.uri }} style={styles.preview} />
-                ))}
-              </View>
-
-              <View style={styles.photoButtons}>
-                <LinearGradient
-                  colors={["rgba(255,255,255,0.065)", "rgba(255,255,255,0.04)"]}
-                  style={styles.photoBtnGradient}
-                >
-                  <Pressable onPress={() => pickImage(false)} style={styles.photoBtn}>
-                    <Text style={styles.photoBtnText}>Galerie</Text>
-                  </Pressable>
-                </LinearGradient>
-
-                <LinearGradient
-                  colors={["rgba(255,125,167,0.18)", "rgba(255,125,167,0.1)"]}
-                  style={styles.photoBtnGradient}
-                >
-                  <Pressable onPress={() => pickImage(true)} style={styles.photoBtn}>
-                    <Text style={styles.photoBtnText}>Kamera</Text>
-                  </Pressable>
-                </LinearGradient>
-              </View>
+              <ReviewMediaField
+                assets={photos}
+                maxAssets={3}
+                disabled={uploading}
+                onChange={changePhotos}
+                onError={setSubmitError}
+              />
             </View>
+
+            <ReviewSubmissionStatus
+              progress={progress}
+              error={submitError}
+              onRetry={() => void submitReview()}
+            />
 
             <BlurView intensity={30} tint="dark" style={styles.submitWrap}>
               <LinearGradient
                 colors={[theme.colors.primary, theme.colors.primary]}
                 style={styles.submitGradient}
               >
-                <Pressable onPress={submitReview} style={styles.submitBtn} disabled={uploading}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Review veröffentlichen"
+                  accessibilityState={{ disabled: uploading, busy: uploading }}
+                  onPress={submitReview}
+                  style={styles.submitBtn}
+                  disabled={uploading}
+                >
                   {uploading ? (
                     <ActivityIndicator color={theme.colors.ink} />
                   ) : (
-                    <Text style={styles.submitText}>Moment speichern</Text>
+                    <Text style={styles.submitText}>Review veröffentlichen</Text>
                   )}
                 </Pressable>
               </LinearGradient>

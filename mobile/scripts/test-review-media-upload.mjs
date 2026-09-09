@@ -16,13 +16,17 @@ let reservationState = "OPEN";
 let reservationError = null;
 let finalizationError = null;
 const supabase = {
+  auth: {
+    getSession: async () => ({ data: { session: { user: { id: "user" }, expires_at: Math.floor(Date.now() / 1000) + 3600 } }, error: null }),
+    refreshSession: async () => ({ data: { session: { user: { id: "user" } } }, error: null }),
+  },
   rpc: async (name, args) => {
     calls.push({ kind: "rpc", name, args });
     return {
-      data: name === "reserve_review_media_upload_v1"
+      data: name === "reserve_review_media_upload_v2"
         ? { review_id: args.p_review_id, state: reservationState }
         : args.p_review_id,
-      error: name === "reserve_review_media_upload_v1"
+      error: name === "reserve_review_media_upload_v2"
         ? reservationError
         : finalizationError,
     };
@@ -36,6 +40,10 @@ const supabase = {
       getPublicUrl: (storagePath) => ({
         data: { publicUrl: `https://project.invalid/storage/v1/object/public/${bucket}/${storagePath}` },
       }),
+      remove: async (storagePaths) => {
+        calls.push({ kind: "remove", bucket, storagePaths });
+        return { error: null };
+      },
     }),
   },
 };
@@ -45,7 +53,20 @@ const output = ts.transpileModule(source, {
 }).outputText;
 new Function("exports", "require", "module", output)(
   module.exports,
-  (specifier) => specifier === "./supabase" ? { supabase } : (() => { throw new Error(specifier); })(),
+  (specifier) => {
+    if (specifier === "./supabase") return { supabase };
+    if (specifier === "expo-crypto") return {
+      CryptoDigestAlgorithm: { SHA256: "SHA256" },
+      digest: async () => new Uint8Array(32).buffer,
+    };
+    if (specifier === "expo-file-system") return {
+      File: class {
+        constructor(uri) { this.uri = uri; }
+        async arrayBuffer() { return (await globalThis.fetch(this.uri)).arrayBuffer(); }
+      },
+    };
+    throw new Error(specifier);
+  },
   module,
 );
 const {
@@ -55,6 +76,8 @@ const {
   resolveReviewMediaMime,
   uploadReservedReviewMedia,
   finalizeReviewWithMedia,
+  finalizeReviewWithoutMedia,
+  discardReviewMediaAttempt,
 } = module.exports;
 
 const reviewId = "91000000-0000-4000-8000-000000000020";
@@ -81,10 +104,11 @@ for (const asset of [
 ]) {
   calls.length = 0;
   const result = await uploadReservedReviewMedia({ reviewId, spotId, smartReview: false, assets: [asset] });
-  assert.equal(calls[0].name, "reserve_review_media_upload_v1");
+  assert.equal(calls[0].name, "reserve_review_media_upload_v2");
   assert.equal(calls[0].args.p_max_sizes_bytes[0], bytesFor(asset.uri).byteLength);
   assert.equal(calls[1].kind, "upload");
   assert.equal(calls[1].options.upsert, false);
+  assert.equal(calls[1].options.metadata.review_content_sha256, "0".repeat(64));
   assert.match(result.storagePaths[0], new RegExp(`^${reviewId}/0\\.`));
   if (asset.mimeType === "image/heic" || asset.mimeType === "image/heif") {
     assert.equal(calls[1].options.contentType, asset.mimeType);
@@ -131,7 +155,7 @@ await assert.rejects(
   uploadReservedReviewMedia({ reviewId, spotId, smartReview: true, assets: [{ uri: "file:///denied.jpg", mimeType: "image/jpeg" }] }),
   (error) => error instanceof ReviewMediaError && error.stage === "storage_upload",
 );
-assert.equal(calls.some((call) => call.name === "finalize_review_with_media_v1"), false);
+assert.equal(calls.some((call) => call.name === "finalize_review_with_media_v2"), false);
 const safeFailure = reviewMediaErrorContext(await uploadReservedReviewMedia({
   reviewId, spotId, smartReview: false,
   assets: [{ uri: "file:///gallery.jpg", mimeType: "image/jpeg" }],
@@ -176,7 +200,17 @@ await finalizeReviewWithMedia({
   publicUrls: [`https://project.invalid/storage/v1/object/public/review-photos/${reviewId}/0.jpg`],
   smartReview: true,
 });
-assert.equal(calls.at(-1).name, "finalize_review_with_media_v1");
+assert.equal(calls.at(-1).name, "finalize_review_with_media_v2");
+
+await finalizeReviewWithoutMedia({
+  reviewId, spotId, text: "ohne Bild", moodA: "ruhig", moodB: null,
+  smartReview: true,
+});
+assert.equal(calls.at(-1).name, "finalize_review_without_media_v1");
+
+await discardReviewMediaAttempt({ reviewId, storagePaths: [`${reviewId}/0.jpg`] });
+assert.equal(calls.at(-2).kind, "remove");
+assert.equal(calls.at(-1).name, "cancel_review_media_upload_v2");
 
 finalizationError = { status: 403, code: "42501", message: "REVIEW_MEDIA_OBJECT_INVALID" };
 await assert.rejects(

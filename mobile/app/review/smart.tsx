@@ -5,15 +5,14 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
-  Image,
   Alert,
+  AccessibilityInfo,
   TextInput,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   Linking,
 } from "react-native";
-import * as ImagePicker from "expo-image-picker";
 import * as Crypto from "expo-crypto";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -33,10 +32,18 @@ import { getSafetyRestrictionMessage } from "../../lib/safety-enforcement";
 import { userFacingError } from "../../lib/userFacingError";
 import { MoodExpressionInput } from "../../components/MoodExpressionInput";
 import {
+  ReviewMediaField,
+  ReviewSubmissionStatus,
+} from "../../components/reviews/ReviewMediaField";
+import {
+  discardReviewMediaAttempt,
   finalizeReviewWithMedia,
+  finalizeReviewWithoutMedia,
   reviewMediaErrorContext,
   reviewMediaUserMessage,
+  ReviewMediaError,
   type ReviewMediaAsset,
+  type ReviewMediaProgress,
   uploadReservedReviewMedia,
 } from "../../lib/review-media-upload";
 
@@ -83,7 +90,7 @@ function smartReviewGateCopy(
         reason,
         title: "Login erforderlich",
         body:
-          "Smart Reviews sind mit deinem Backyrd-Konto verbunden. Melde dich an, bevor du einen Moment vor Ort erstellst.",
+          "Smart Reviews sind mit deinem Backyrd-Konto verbunden. Melde dich an, bevor du deine Erfahrung festhältst.",
       };
 
     case "consent_not_granted":
@@ -170,6 +177,8 @@ export default function SmartReviewScreen() {
 
   const [photo, setPhoto] = useState<ReviewMediaAsset | null>(null);
   const pendingMediaReviewId = useRef<string | null>(null);
+  const pendingUploadedPaths = useRef<string[]>([]);
+  const submittingRef = useRef(false);
   const photoUri = photo?.uri ?? null;
   const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [nearest, setNearest] = useState<SpotRow | null>(null);
@@ -179,6 +188,8 @@ export default function SmartReviewScreen() {
     useState<SmartReviewGateFailure | null>(null);
   const [bootstrapNonce, setBootstrapNonce] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [progress, setProgress] = useState<ReviewMediaProgress | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [moodA, setMoodA] = useState("");
   const [moodB, setMoodB] = useState("");
@@ -186,9 +197,7 @@ export default function SmartReviewScreen() {
 
   const [unlockedAchievements, setUnlockedAchievements] = useState<any[]>([]);
 
-  const canSubmit =
-    !!nearest &&
-    !!photoUri;
+  const canSubmit = !!nearest;
 
   useEffect(() => {
     void trackAnalyticsEvent({ eventName: "review_started", screenName: "review_smart", decisionId: decisionId ?? null, properties: { source: source ?? "smart" } });
@@ -200,7 +209,6 @@ export default function SmartReviewScreen() {
     (async () => {
       setSearching(true);
       setGateFailure(null);
-      setPhoto(null);
       setCoords(null);
       setNearest(null);
 
@@ -238,52 +246,6 @@ export default function SmartReviewScreen() {
           });
           return;
         }
-
-        const cam = await ImagePicker.requestCameraPermissionsAsync();
-
-        if (cam.status !== "granted") {
-          Alert.alert(
-            "Kamera erforderlich",
-            "Smart Review benötigt ein aktuelles Foto. Erlaube Backyrd den Kamerazugriff in den Geräteeinstellungen.",
-            [
-              { text: "Zurück", style: "cancel", onPress: () => router.back() },
-              {
-                text: "Einstellungen öffnen",
-                onPress: () => void Linking.openSettings(),
-              },
-            ],
-          );
-          return;
-        }
-
-        const result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          quality: 0.85,
-          allowsEditing: true,
-          aspect: [4, 3],
-        });
-
-        if (result.canceled || result.assets.length === 0) {
-          router.back();
-          return;
-        }
-
-        if (!active) return;
-
-        const asset = result.assets[0];
-        setPhoto({
-          uri: asset.uri,
-          fileName: asset.fileName,
-          fileSize: asset.fileSize,
-          mimeType: asset.mimeType,
-        });
-
-        void trackAnalyticsEvent({
-          eventName: "review_photo_added",
-          screenName: "review_smart",
-          decisionId: decisionId ?? null,
-          properties: { source: "camera" },
-        });
 
         const lat = locationResult.location.coords.latitude;
         const lon = locationResult.location.coords.longitude;
@@ -361,14 +323,44 @@ export default function SmartReviewScreen() {
     }
   }
 
+  async function changePhoto(next: ReviewMediaAsset[]) {
+    if (pendingMediaReviewId.current) {
+      try {
+        setSubmitError(null);
+        await discardReviewMediaAttempt({
+          reviewId: pendingMediaReviewId.current,
+          storagePaths: pendingUploadedPaths.current,
+          onProgress: setProgress,
+        });
+      } catch (error) {
+        const message = reviewMediaUserMessage(error) ?? "Das vorherige Bild konnte noch nicht sicher entfernt werden.";
+        setSubmitError(message);
+        setProgress(null);
+        AccessibilityInfo.announceForAccessibility(message);
+        return false;
+      }
+      pendingMediaReviewId.current = null;
+      pendingUploadedPaths.current = [];
+    }
+    setPhoto(next[0] ?? null);
+    setSubmitError(null);
+    setProgress(null);
+    return true;
+  }
+
   async function submitSmartReview() {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    try {
+      await submitSmartReviewOnce();
+    } finally {
+      submittingRef.current = false;
+    }
+  }
+
+  async function submitSmartReviewOnce() {
     if (!nearest?.id) {
       Alert.alert("Kein Spot", "Es wurde kein passender Spot erkannt.");
-      return;
-    }
-
-    if (!photo) {
-      Alert.alert("Kein Foto", "Bitte zuerst ein Foto aufnehmen.");
       return;
     }
 
@@ -383,18 +375,30 @@ export default function SmartReviewScreen() {
 
     try {
       setSaving(true);
+      setSubmitError(null);
+      setProgress({ stage: "auth", completed: 0, total: photo ? 1 : 0 });
 
       const reviewId = pendingMediaReviewId.current ?? Crypto.randomUUID();
       pendingMediaReviewId.current = reviewId;
-      const media = await uploadReservedReviewMedia({
-        reviewId, spotId: nearest.id, smartReview: true, assets: [photo],
-      });
-      await finalizeReviewWithMedia({
-        reviewId, spotId: nearest.id, text: text.trim() || null,
-        moodA: moodA.trim() || null, moodB: moodB.trim() || null,
-        ...media, smartReview: true,
-      });
-      const photoUrl = media.publicUrls[0];
+      let photoUrls: string[] = [];
+      if (photo) {
+        const media = await uploadReservedReviewMedia({
+          reviewId, spotId: nearest.id, smartReview: true, assets: [photo], onProgress: setProgress,
+        });
+        pendingUploadedPaths.current = media.storagePaths;
+        photoUrls = media.publicUrls;
+        await finalizeReviewWithMedia({
+          reviewId, spotId: nearest.id, text: text.trim() || null,
+          moodA: moodA.trim() || null, moodB: moodB.trim() || null,
+          ...media, smartReview: true, onProgress: setProgress,
+        });
+      } else {
+        await finalizeReviewWithoutMedia({
+          reviewId, spotId: nearest.id, text: text.trim() || null,
+          moodA: moodA.trim() || null, moodB: moodB.trim() || null,
+          smartReview: true, onProgress: setProgress,
+        });
+      }
 
       await registerSafetySnapshot({
         entityType: "review",
@@ -407,7 +411,7 @@ export default function SmartReviewScreen() {
           moodA.trim() || null,
           moodB.trim() || null,
         ].filter(Boolean).join("\n"),
-        imageUrls: [photoUrl],
+        imageUrls: photoUrls,
         sourceSurface: "review_smart",
         sourceContext: {
           source: source ?? "smart",
@@ -417,9 +421,14 @@ export default function SmartReviewScreen() {
 
       await linkDecisionReview(reviewId);
       pendingMediaReviewId.current = null;
-      void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_smart", entityType: "review", entityId: reviewId, spotId: nearest.id, decisionId: decisionId ?? null, properties: { photo_count: 1, has_text: Boolean(text.trim()), source: source ?? "smart" } });
+      pendingUploadedPaths.current = [];
+      setProgress(null);
+      void trackAnalyticsEvent({ eventName: "review_submitted", screenName: "review_smart", entityType: "review", entityId: reviewId, spotId: nearest.id, decisionId: decisionId ?? null, properties: { photo_count: photo ? 1 : 0, has_text: Boolean(text.trim()), source: source ?? "smart" } });
 
-      const newlyUnlocked = await awardAchievementsForUser(user.id);
+      const newlyUnlocked = await awardAchievementsForUser(user.id).catch((error) => {
+        console.info("Achievement sync after smart review publish failed", error);
+        return [];
+      });
 
       if (newlyUnlocked.length > 0) {
         setUnlockedAchievements(newlyUnlocked);
@@ -465,6 +474,7 @@ export default function SmartReviewScreen() {
           [{ text: "OK", onPress: () => router.replace("/") }],
         );
       } else if (mediaError) {
+        pendingUploadedPaths.current = e instanceof ReviewMediaError ? e.uploadedPaths : [];
         console.warn("[review-media] publish failed", {
           surface: "review_smart",
           spot_id: nearest?.id ?? null,
@@ -476,7 +486,10 @@ export default function SmartReviewScreen() {
           errorType: "review_media_submit_failed",
           context: { spot_id: nearest?.id ?? null, ...mediaError },
         });
-        Alert.alert("Review nicht gespeichert", reviewMediaUserMessage(e) ?? "Bitte versuche es nochmals.");
+        const message = reviewMediaUserMessage(e) ?? "Bitte versuche es nochmals.";
+        setSubmitError(message);
+        setProgress(null);
+        AccessibilityInfo.announceForAccessibility(message);
       } else {
         void reportAnalyticsError({
           error: e,
@@ -531,7 +544,7 @@ export default function SmartReviewScreen() {
     return (
       <SafeAreaView style={styles.gateSafe}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={10}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Smart Review schließen" onPress={() => router.back()} hitSlop={10}>
             <Ionicons name="chevron-back" size={26} color="#fff" />
           </Pressable>
           <Text style={styles.headerTitle}>Smart Review</Text>
@@ -571,6 +584,8 @@ export default function SmartReviewScreen() {
 
           {consentMissing ? (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Privacy Center öffnen"
               style={[styles.btn, styles.btnPrimary]}
               onPress={() => router.push("/privacy-consents" as any)}
             >
@@ -580,6 +595,8 @@ export default function SmartReviewScreen() {
             </Pressable>
           ) : loginRequired ? (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Anmelden"
               style={[styles.btn, styles.btnPrimary]}
               onPress={() => router.push("/login" as any)}
             >
@@ -587,6 +604,8 @@ export default function SmartReviewScreen() {
             </Pressable>
           ) : canOpenDeviceSettings ? (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Geräteeinstellungen öffnen"
               style={[styles.btn, styles.btnPrimary]}
               onPress={() => void Linking.openSettings()}
             >
@@ -598,6 +617,8 @@ export default function SmartReviewScreen() {
 
           {!loginRequired && !consentMissing ? (
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Standort erneut prüfen"
               style={[styles.btn, styles.btnGhost]}
               onPress={() => setBootstrapNonce((value) => value + 1)}
             >
@@ -606,6 +627,8 @@ export default function SmartReviewScreen() {
           ) : null}
 
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Smart Review schließen"
             style={styles.gateBack}
             onPress={() => router.back()}
           >
@@ -625,7 +648,7 @@ export default function SmartReviewScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={10}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Smart Review schließen" onPress={() => router.back()} hitSlop={10}>
             <Ionicons name="chevron-back" size={26} color="#fff" />
           </Pressable>
           <Text style={styles.headerTitle}>{headerTitle}</Text>
@@ -635,17 +658,9 @@ export default function SmartReviewScreen() {
         <ScrollView contentContainerStyle={styles.container}>
           <View style={styles.hero}>
             <Text style={styles.kicker}>SMART REVIEW</Text>
-            <Text style={styles.heroTitle}>Moment erkennen</Text>
-            <Text style={styles.heroText}>Backyrd erkennt den Spot über dein aktuelles Foto und deinen Standort.</Text>
+            <Text style={styles.heroTitle}>Deine Erfahrung</Text>
+            <Text style={styles.heroText}>Backyrd erkennt den passenden Spot über deinen aktuellen Standort. Ein Bild ist optional.</Text>
           </View>
-
-          {photoUri ? (
-            <Image source={{ uri: photoUri }} style={styles.photo} />
-          ) : (
-            <View style={[styles.photo, styles.photoPlaceholder]}>
-              <Text style={{ color: theme.colors.textMuted }}>Kein Foto</Text>
-            </View>
-          )}
 
           <View style={styles.card}>
             {searching ? (
@@ -664,6 +679,7 @@ export default function SmartReviewScreen() {
 
                 <Text style={styles.label}>Text</Text>
                 <TextInput
+                  accessibilityLabel="Text zur Review"
                   style={[styles.input, { minHeight: 88, textAlignVertical: "top" }]}
                   placeholder="Was sollte man wissen?"
                   placeholderTextColor="rgba(255,255,255,0.34)"
@@ -673,7 +689,24 @@ export default function SmartReviewScreen() {
                   maxLength={100}
                 />
 
+                <ReviewMediaField
+                  assets={photo ? [photo] : []}
+                  maxAssets={1}
+                  disabled={saving}
+                  onChange={changePhoto}
+                  onError={setSubmitError}
+                />
+
+                <ReviewSubmissionStatus
+                  progress={progress}
+                  error={submitError}
+                  onRetry={() => void submitSmartReview()}
+                />
+
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Smart Review veröffentlichen"
+                  accessibilityState={{ disabled: !canSubmit || saving, busy: saving }}
                   onPress={submitSmartReview}
                   disabled={!canSubmit || saving}
                   style={[
@@ -685,11 +718,11 @@ export default function SmartReviewScreen() {
                   {saving ? (
                     <ActivityIndicator color={theme.colors.ink} />
                   ) : (
-                    <Text style={styles.btnPrimaryText}>Moment speichern</Text>
+                    <Text style={styles.btnPrimaryText}>Review veröffentlichen</Text>
                   )}
                 </Pressable>
 
-                <Pressable onPress={onConfirmCreate} style={[styles.btn, styles.btnGhost]}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Falschen Spot melden" onPress={onConfirmCreate} style={[styles.btn, styles.btnGhost]}>
                   <Text style={styles.btnGhostText}>Das ist nicht der richtige Spot</Text>
                 </Pressable>
               </>
@@ -703,7 +736,7 @@ export default function SmartReviewScreen() {
                 <MoodExpressionInput label="Erster Mood (optional)" placeholder="z. B. gemütlich" value={moodA} onChangeText={setMoodA} />
                 <MoodExpressionInput label="Zweiter Mood (optional)" placeholder="z. B. lebhaft" value={moodB} onChangeText={setMoodB} />
 
-                <Pressable onPress={onConfirmCreate} style={[styles.btn, styles.btnPrimary]}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Neuen Spot einreichen" onPress={onConfirmCreate} style={[styles.btn, styles.btnPrimary]}>
                   <Text style={styles.btnPrimaryText}>Neuen Spot anlegen / einreichen</Text>
                 </Pressable>
               </>

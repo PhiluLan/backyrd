@@ -13,7 +13,7 @@ function SmartReviewTabButton({ onPress }: { onPress?: () => void }) {
   return (
     <View style={styles.plusWrap}>
       <Pressable
-        accessibilityLabel="Mood abgeben"
+        accessibilityLabel="Smart Review erstellen"
         hitSlop={8}
         onPress={onPress}
         style={({ pressed }) => [

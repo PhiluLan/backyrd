@@ -115,7 +115,7 @@ on storage."objects"
 as permissive
 for insert
 to "authenticated"
-with check (public.review_media_upload_is_reserved_v1(bucket_id, name, owner, metadata));
+with check (public.review_media_upload_is_reserved_v2(bucket_id, name, owner, metadata, user_metadata));
 
 drop policy if exists "social_post_media_authenticated_visible_read_v1" on storage."objects";
 create policy "social_post_media_authenticated_visible_read_v1"
