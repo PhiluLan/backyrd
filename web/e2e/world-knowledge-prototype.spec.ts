@@ -1,50 +1,70 @@
 import { expect, test } from "@playwright/test";
 
-test("Founder can classify, author, resolve, analyze, persist and export Philipps Casa", async ({ page }) => {
+test("Founder completes the guided Philipps Casa classification without technical knowledge", async ({ page }) => {
   await page.goto("/world-knowledge-prototype");
   await page.evaluate(() => localStorage.clear());
   await page.reload();
 
-  await expect(page.getByRole("heading", { name: "Philipps Casa", exact: true }).first()).toBeVisible();
-  await expect(page.locator(".wk-category-choice")).toHaveCount(16);
+  await expect(page.getByText("PHILIPPS CASA BESCHREIBEN")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welchen Spot beschreibst du?" })).toBeVisible();
+  await expect(page.getByText("Du musst nicht alles ausfüllen.")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Analyse starten/ }).first()).toBeVisible();
 
-  await page.getByRole("button", { name: "Drinks", exact: true }).click();
-  await expect(page.locator('.wk-category-choice[data-primary="true"]')).toContainText("Drinks");
-  const eat = page.locator(".wk-category-choice").filter({ hasText: "Eat" });
-  await eat.getByRole("checkbox").check();
-  await expect(eat).toHaveAttribute("data-secondary", "true");
+  await page.getByRole("button", { name: /Art des Ortes/ }).click();
+  await expect(page.getByRole("heading", { name: "Was für ein Ort ist Philipps Casa?" })).toBeVisible();
+  await page.getByRole("button", { name: "Brasserie" }).click();
+  await page.getByRole("button", { name: "Restaurant" }).click();
+  await expect(page.locator(".wk-selected-chips")).toContainText("Brasserie");
+  await expect(page.locator(".wk-selected-chips")).toContainText("Restaurant");
+  await expect(page.getByText("2 Angaben ausgewählt")).toBeVisible();
 
-  await page.getByRole("button", { name: "Verified Owner Basic" }).click();
-  await page.getByRole("searchbox").fill("Typisches Geräuschniveau");
-  await page.locator(".wk-definition").first().click();
-  await expect(page.getByText("In dieser Draft-Rolle gesperrt")).toBeVisible();
-  await page.getByRole("button", { name: "Editor schließen" }).click();
+  await page.getByRole("button", { name: /^Weiter/ }).click();
+  await expect(page.getByRole("heading", { name: "Welche Küche und welches Angebot gibt es?" })).toBeVisible();
+  await page.getByRole("button", { name: "Italian" }).click();
+  await expect(page.locator(".wk-selected-chips")).toContainText("Italian");
 
-  await page.getByRole("button", { name: "Admin", exact: true }).click();
-  for (const label of ["WLAN", "Steckdosen"]) {
-    await page.getByRole("searchbox").fill(label);
-    await page.locator(".wk-definition").first().click();
-    await page.getByRole("button", { name: "Claim hinzufügen" }).click();
-  }
+  await page.getByRole("button", { name: /^Weiter/ }).click();
+  await page.getByRole("button", { name: "Später ausfüllen" }).click();
+  await expect(page.getByRole("heading", { name: "Was ermöglicht Philipps Casa konkret?" })).toBeVisible();
+  await expect(page.locator(".wk-guide-steps small").filter({ hasText: "Später ausfüllen" })).toBeVisible();
+
+  await page.getByRole("button", { name: /Art des Ortes/ }).click();
+  await page.locator(".wk-selected-chips").getByRole("button", { name: /Brasserie.*entfernen/ }).click();
+  await expect(page.locator(".wk-selected-chips")).not.toContainText("Brasserie");
+  await expect(page.locator(".wk-selected-chips")).toContainText("Restaurant");
+
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
   await page.reload();
-  await expect(page.getByText(/Lokal gespeichert/)).toBeVisible();
-
-  await page.getByRole("button", { name: "Resolved", exact: true }).click();
-  await expect(page.getByText("Geeignet zum Arbeiten")).toBeVisible();
-  await expect(page.getByText(/WLAN = true.*Steckdosen = true/)).toBeVisible();
+  await expect(page.getByText(/Gespeichert/).first()).toBeVisible();
+  await page.getByRole("button", { name: /Art des Ortes/ }).click();
+  await expect(page.locator(".wk-selected-chips")).toContainText("Restaurant");
+  await expect(page.locator(".wk-selected-chips")).not.toContainText("Brasserie");
 
   await page.getByRole("button", { name: /Analyse starten/ }).first().click();
-  await expect(page.getByRole("heading", { name: /qualitative Vorprüfung/ })).toBeVisible();
-  await expect(page.getByText("Darf Engine nicht erhalten")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Das weiß Backyrd über Philipps Casa." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Das ist bereits besonders nützlich" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Hilfreiche Ergänzungen" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Widersprüche" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Möglicherweise veraltet" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "So wird der Spot aktuell übergeben" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Engine Snapshot", exact: true }).click();
-  const snapshot = page.locator(".wk-json");
-  await expect(snapshot).toContainText("WorldKnowledgePort.preview.v1");
-  await expect(snapshot).not.toContainText("OWNER_BASIC");
-  await expect(snapshot).not.toContainText("subscription");
+  await page.getByRole("button", { name: /Technische Vorschau öffnen/ }).click();
+  await expect(page.getByRole("heading", { name: "Angaben und Quellen" })).toBeVisible();
+  await page.getByRole("button", { name: "Vorschau für die Decision Engine" }).click();
+  await expect(page.locator(".wk-json")).toContainText("WorldKnowledgePort.preview.v1");
+  await expect(page.locator(".wk-json")).not.toContainText("OWNER_BASIC");
+  await expect(page.locator(".wk-json")).not.toContainText("subscription");
+});
 
-  const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export", exact: true }).click();
-  await expect(await download).toBeTruthy();
+test("standard flow stays usable on a narrow screen and hides internal vocabulary", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/world-knowledge-prototype");
+  await expect(page.getByRole("heading", { name: "Welchen Spot beschreibst du?" })).toBeVisible();
+  await page.getByRole("button", { name: /Art des Ortes/ }).click();
+  await expect(page.getByRole("button", { name: "Brasserie" })).toBeVisible();
+  const visibleText = await page.locator(".wk-guide-layout").innerText();
+  for (const term of ["KNOWN_TRUE", "BOOLEAN", "ADMIN_OBSERVATION", "Confidence simulation", "Claim hinzufügen"]) {
+    expect(visibleText).not.toContain(term);
+  }
+  await expect(page.getByRole("button", { name: /^Weiter/ })).toBeVisible();
 });

@@ -62,6 +62,15 @@ test("competing values remain disputed and historical claims remain available", 
   assert.equal(engineSnapshot(state, fixedNow).facts.some((fact) => fact.key === terrace.id), false);
 });
 
+test("guided deselection appends a retraction without deleting history or creating false", () => {
+  const state = emptyState(); const restaurant = definition("Restaurant");
+  const asserted = claim(restaurant, "KNOWN_TRUE", true, { id: "guided-assertion" });
+  state.claims.push(asserted, { ...claim(restaurant, "UNKNOWN", null, { id: "guided-retraction" }), operation: "RETRACT", supersedesClaimId: asserted.id });
+  assert.equal(state.claims.length, 2);
+  assert.equal(resolveKnowledge(state, fixedNow).some((item) => item.definition.id === restaurant.id), false);
+  assert.equal(resolveKnowledge(state, fixedNow).some((item) => item.status === "KNOWN_FALSE"), false);
+});
+
 test("raw facts and derived fits remain separate and derivations expose their inputs", () => {
   const state = emptyState(); const covered = definition("überdachte Außenplätze"); const wlan = definition("WLAN"); const outlets = definition("Steckdosen");
   state.claims.push(claim(covered, "KNOWN_TRUE", true), claim(wlan, "KNOWN_TRUE", true), claim(outlets, "KNOWN_TRUE", true));

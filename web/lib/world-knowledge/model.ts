@@ -1,6 +1,6 @@
 import generatedCatalog from "./catalog.generated.json" with { type: "json" };
 
-export const PROTOTYPE_VERSION = "philipps-casa-prototype-1.0.0";
+export const PROTOTYPE_VERSION = "philipps-casa-prototype-2.0.0";
 export const STORAGE_KEY = "backyrd:world-knowledge-prototype:philipps-casa:v1";
 
 export type Role = "ADMIN" | "OWNER_BASIC" | "OWNER_PRO";
@@ -48,6 +48,8 @@ export interface Claim {
   actor: Role;
   createdAt: string;
   evidence: Evidence;
+  operation?: "ASSERT" | "RETRACT";
+  supersedesClaimId?: string;
 }
 
 export interface OpeningDay { day: string; enabled: boolean; open: string; close: string }
@@ -71,6 +73,7 @@ export interface PrototypeState {
   schedule: OpeningDay[];
   exceptions: Array<{ id: string; date: string; state: string; note: string }>;
   currentState: { service: string; availability: string; area: string; temporaryClosureUntil: string };
+  guidedProgress: { visitedSteps: string[]; skippedSteps: string[] };
   savedAt: string | null;
 }
 
@@ -125,6 +128,7 @@ export const emptyState = (): PrototypeState => ({
   schedule: ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"].map((day, index) => ({ day, enabled: index < 6, open: index === 5 ? "10:00" : "08:00", close: index === 5 ? "23:00" : "22:00" })),
   exceptions: [],
   currentState: { service: "NORMAL", availability: "UNKNOWN", area: "ALL_OPEN", temporaryClosureUntil: "" },
+  guidedProgress: { visitedSteps: ["basics"], skippedSteps: [] },
   savedAt: null,
 });
 
@@ -152,7 +156,11 @@ export function confidenceFor(claim: Claim, now = new Date()): number {
 
 export function resolveKnowledge(state: PrototypeState, now = new Date()): ResolvedItem[] {
   const byDefinition = new Map<string, Claim[]>();
-  for (const claim of state.claims) byDefinition.set(claim.definitionId, [...(byDefinition.get(claim.definitionId) ?? []), claim]);
+  const superseded = new Set(state.claims.filter((claim) => claim.operation === "RETRACT").map((claim) => claim.supersedesClaimId).filter(Boolean));
+  for (const claim of state.claims) {
+    if (claim.operation === "RETRACT" || superseded.has(claim.id)) continue;
+    byDefinition.set(claim.definitionId, [...(byDefinition.get(claim.definitionId) ?? []), claim]);
+  }
   const result: ResolvedItem[] = [];
   for (const [definitionId, claims] of byDefinition) {
     const definition = catalog.definitions.find((item) => item.id === definitionId);
@@ -264,5 +272,6 @@ export function validateImport(value: unknown): PrototypeState {
   const state = (candidate.prototypeState ?? (candidate.spotState && candidate.claims ? { ...emptyState(), spot: candidate.spotState, claims: candidate.claims } : candidate)) as Partial<PrototypeState>;
   if (state.schemaVersion !== 1 && !candidate.spotState) throw new Error("Unbekannte Prototype-Schemaversion.");
   if (!state.spot || state.spot.name !== "Philipps Casa" || !Array.isArray(state.claims)) throw new Error("Nur ein gültiger Export für Philipps Casa kann importiert werden.");
-  return { ...emptyState(), ...state, schemaVersion: 1, prototypeVersion: PROTOTYPE_VERSION, catalogVersion: catalog.catalogVersion } as PrototypeState;
+  const defaults = emptyState();
+  return { ...defaults, ...state, guidedProgress: state.guidedProgress ?? defaults.guidedProgress, schemaVersion: 1, prototypeVersion: PROTOTYPE_VERSION, catalogVersion: catalog.catalogVersion } as PrototypeState;
 }

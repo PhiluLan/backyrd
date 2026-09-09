@@ -4,7 +4,7 @@ import "./prototype.css";
 
 export const metadata: Metadata = {
   title: "Philipps Casa · World Knowledge Lab",
-  description: "Lokaler World-Knowledge-Authoring-Prototyp für Philipps Casa.",
+  description: "Geführte lokale Spot-Erfassung für Philipps Casa.",
 };
 
 export default function WorldKnowledgePrototypePage() {

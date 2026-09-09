@@ -12,11 +12,13 @@ Danach `http://127.0.0.1:3217/world-knowledge-prototype` in einem aktuellen Chro
 
 ## Bedienung
 
+- Die Standardansicht führt in neun verständlichen Schritten durch den Spot.
+- In „Art des Ortes“ können beispielsweise Restaurant, Brasserie und Bistro direkt mehrfach ausgewählt werden.
+- Nicht ausgewählte Begriffe erzeugen keine negative Aussage und zählen nicht als unerledigte Pflichtaufgabe.
+- „Später ausfüllen“ überspringt jeden optionalen Abschnitt ohne Datenverlust.
 - Rolle oben zwischen Admin, Verified Owner Basic und Verified Owner Pro wechseln.
-- Kategorien und Eigenschaftsgruppe wählen oder alle 727 Parameter durchsuchen.
-- Einen Parameter öffnen, Wissensstatus, Wert und Evidence als neuen Claim speichern.
-- In `Resolved`, `Data Quality` und `Engine Snapshot` die Live-Auflösung prüfen.
-- `Analyse starten` erzeugt den deterministischen Bericht.
+- „Erweiterte Angaben und Quellen“ öffnet den vollständigen Katalog mit Claims, Evidence, Konflikten, Historie und Rohvorschau.
+- `Analyse starten` zeigt zuerst eine verständliche deutsche Zusammenfassung; technische Details bleiben optional.
 - `Speichern` schreibt unter `backyrd:world-knowledge-prototype:philipps-casa:v1` in `localStorage`.
 - `Export` lädt das komplette Analysepaket als JSON; `Import` nimmt denselben Export wieder an.
 - `Reset` löscht den lokalen Stand erst nach Browser-Bestätigung.
