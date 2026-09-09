@@ -1,6 +1,9 @@
 # Development Safety & Delivery V1
 
-Status: risk gate active and additively required since 2026-09-09; shipped-baseline and isolated-environment rollout is in progress. This document is the operative contract; older release reports remain historical evidence.
+Status: active on canonical Main since 2026-09-09. `Risk-based merge gate`
+is the sole required status context; legacy Quality, Security and Database
+workflows are manual diagnostics. This document is the operative contract;
+older release reports remain historical evidence.
 
 ## Purpose
 
@@ -39,9 +42,7 @@ Every change also runs repository structure, migration-name, canonical SQL secre
 
 ## Required check contract
 
-During staged rollout the existing required checks remain active. After the new gate has passed on canonical Main, Branch Protection can add `Risk-based merge gate` before any old context is removed.
-
-Final required check: `Risk-based merge gate`.
+Required check: `Risk-based merge gate`.
 
 - Prevents: merging a candidate without every check selected by its independently classified risk.
 - Applies to: every PR and every canonical Main push.
@@ -51,7 +52,10 @@ Final required check: `Risk-based merge gate`.
 
 The aggregator cannot turn a failed selected job green. A missing result, skipped selected job, foreign merge checkout, changed historical migration, destructive migration, leaked secret, or missing Decision release record is a hard failure with a named reason.
 
-The older named contexts stay required only during the staged proof window. They are removed after the replacement has passed representative Mobile, database, authorization, Decision and deployment cases on GitHub; old workflows then become manual historical diagnostics. This preserves continuous protection while eliminating duplicated merge blockers.
+The former named contexts are available as manual diagnostics but are not merge
+requirements. Their active proofs live inside the risk-selected jobs, so a
+surface or database suite is neither omitted when relevant nor run merely
+because some unrelated file changed.
 
 ## Decision releases
 
@@ -73,12 +77,13 @@ Development, simulator and preview profiles bind explicit EAS `development`/`pre
 
 A Senior Engineer may update deterministic fixtures, generated hashes, forward migrations, tests, workflows and release evidence as routine implementation. Stop for intentional Security/Trust-boundary relaxation, protected Product-semantic change without explicit Product authorization, destructive Production impact, historical migration/ledger rewriting, new credentials/costs, or a materially new architecture outside the assignment.
 
-## Rollout order
+## Completed rollout
 
-1. Add the risk gate without modifying legacy guard inputs.
-2. Prove it on a PR and canonical Main.
-3. Add it to Branch Protection while old required checks still apply.
-4. Retire the legacy required contexts only after the replacement is active.
-5. Remove historical one-off rules from active execution and activate shipped-baseline release planning in a separate PR.
+1. The risk gate was added and proved beside every legacy required context.
+2. Shipped-baseline planning, current DB proof and Mobile environment separation
+   were merged only after both old and new checks passed.
+3. Branch Protection was atomically narrowed to the already-green risk gate.
+4. Duplicate workflows became manual diagnostics; Production retained only Main
+   plan-only and explicit manual release triggers.
 
-This ordering creates no unprotected interval.
+There was no interval without an active required gate.
