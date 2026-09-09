@@ -12,8 +12,8 @@ const policy = {
   databasePrefixes: ["supabase/migrations/", "supabase/canonical/", "supabase/tests/"],
   authorizationPrefixes: ["supabase/canonical/auth_hooks.sql", "supabase/canonical/storage.sql"],
   privilegedServerPrefixes: ["supabase/functions/", "supabase/config.toml", "supabase/production/auth-config.json"],
-  decisionSemanticPrefixes: ["supabase/functions/decision-v13/"],
-  decisionEvaluationPrefixes: ["decision-lab/"],
+  decisionSemanticPrefixes: ["packages/decision-vnext-core/src/", "supabase/functions/decision-v13/"],
+  decisionEvaluationPrefixes: ["packages/decision-vnext-core/test/", "packages/decision-vnext-core/sandbox/", "decision-lab/"],
   deliveryControlPrefixes: [".github/workflows/", "scripts/ci/", "scripts/deployment/", "docs/operations/"],
   releaseEvidencePrefixes: ["docs/operations/releases/"],
 };
@@ -74,6 +74,15 @@ test("protected source changes select Decision recertification while evaluator-o
   const evaluator = plan({ files: { "decision-lab/test/new.test.mjs": "// test\n" } });
   assert.equal(evaluator.flags.decisionSemantics, false);
   assert.equal(evaluator.flags.decisionEvaluation, true);
+});
+
+test("independent vNext core and sandbox select the Decision gate", () => {
+  const core = plan({ files: { "packages/decision-vnext-core/src/index.ts": "export const spine = true;\n" } });
+  assert.equal(core.flags.decisionSemantics, true);
+  assert.ok(core.requiredGates.includes("decision"));
+  const sandbox = plan({ files: { "packages/decision-vnext-core/sandbox/config.json": "{}\n" } });
+  assert.equal(sandbox.flags.decisionEvaluation, true);
+  assert.ok(sandbox.requiredGates.includes("decision"));
 });
 
 test("privileged Edge Function source selects the server deployment contract", () => {

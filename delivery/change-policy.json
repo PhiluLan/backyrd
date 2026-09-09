@@ -34,6 +34,7 @@
     "supabase/production/auth-config.json"
   ],
   "decisionSemanticPrefixes": [
+    "packages/decision-vnext-core/src/",
     "packages/canonical-semantics/src/",
     "packages/decision-input-runtime/src/",
     "packages/decision-orchestrator-runtime/src/",
@@ -41,6 +42,9 @@
     "supabase/functions/decision-v13/"
   ],
   "decisionEvaluationPrefixes": [
+    "packages/decision-vnext-core/test/",
+    "packages/decision-vnext-core/type-tests/",
+    "packages/decision-vnext-core/sandbox/",
     "decision-lab/src/",
     "decision-lab/config/",
     "decision-lab/baselines/",
