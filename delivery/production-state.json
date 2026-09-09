@@ -9,14 +9,14 @@
     "technicalStatus": "SHIPPED"
   },
   "mobile": {
-    "shippedSourceSha": "d63c5ae66aa30aa017cc54c2ed8be47944b84889",
-    "productSourceSha": "d63c5ae66aa30aa017cc54c2ed8be47944b84889",
-    "tree": "1351642cc7e5d2ea1680ff9b06149173aa850853",
+    "shippedSourceSha": "4810711a663efc75dbb03450b7864c277b7f0fb8",
+    "productSourceSha": "4810711a663efc75dbb03450b7864c277b7f0fb8",
+    "tree": "6201763ecb98e51802c8365b7f088a9e2bd49f80",
     "runtimeVersion": "1.1.0",
     "channel": "production",
-    "otaGroupId": "998f1092-cc40-4aa1-aca4-ef98a8ca6a82",
-    "iosUpdateId": "01a08546-6cdc-7f6f-bba2-fb89bb5829b2",
-    "androidUpdateId": "01a08546-6cdc-7fb4-b813-780af0953bfc",
+    "otaGroupId": "6fcce4b9-1cfa-452d-a8f1-e83a2fba1cf4",
+    "iosUpdateId": "01a085bf-9f8b-7fac-bd90-e3cae9310c3a",
+    "androidUpdateId": "01a085bf-9f8b-71f0-b5ff-8e8ab1784226",
     "technicalStatus": "SHIPPED_PRODUCT_UNVERIFIED",
     "productionVerified": false
   },
