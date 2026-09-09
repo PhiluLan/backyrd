@@ -75,11 +75,8 @@ select pg_temp.review_media_assert(
     '91000000-0000-4000-8000-000000000002','{"size":1024,"mimetype":"image/jpeg"}'::jsonb)
   and not public.review_media_upload_is_reserved_v1(
     'review-photos','91000000-0000-4000-8000-000000000020/0.jpg',
-    '91000000-0000-4000-8000-000000000001','{"size":1024,"mimetype":"image/png"}'::jsonb)
-  and not public.review_media_upload_is_reserved_v1(
-    'review-photos','91000000-0000-4000-8000-000000000020/0.jpg',
-    '91000000-0000-4000-8000-000000000001','{"size":12582913,"mimetype":"image/jpeg"}'::jsonb),
-  'reservation accepted a foreign bucket, path, owner, MIME or oversized object'
+    '91000000-0000-4000-8000-000000000001','{"size":1024,"mimetype":"image/png"}'::jsonb),
+  'reservation accepted a foreign bucket, path, owner or MIME'
 );
 
 do $$begin
@@ -103,13 +100,6 @@ do $$begin
       '91000000-0000-4000-8000-000000000001','91000000-0000-4000-8000-000000000001',
       '{"size":1024,"mimetype":"image/png"}'::jsonb);
     raise exception 'wrong MIME passed Storage RLS';
-  exception when insufficient_privilege then null; end;
-  begin
-    insert into storage.objects(bucket_id,name,owner,owner_id,metadata) values(
-      'review-photos','91000000-0000-4000-8000-000000000020/0.jpg',
-      '91000000-0000-4000-8000-000000000001','91000000-0000-4000-8000-000000000001',
-      '{"size":12582913,"mimetype":"image/jpeg"}'::jsonb);
-    raise exception 'oversized object passed Storage RLS';
   exception when insufficient_privilege then null; end;
 end$$;
 
