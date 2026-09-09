@@ -58,7 +58,7 @@ export function validateProductionState({ repo, headSha = "HEAD", statePath = "d
     throw new Error("review_media_product_failure_must_remain_unverified");
   }
   const incident = state.reviewMediaIncident;
-  if (incident?.status !== "OPEN_PAUSED" || incident.productionVerified !== false || incident.historicalPartialTestStatesPreserved !== true || incident.productFixInScope !== false) {
+  if (incident?.status !== "OPEN_PAUSED" || incident.productionVerified !== false || incident.historicalPartialTestStatesPreserved !== true || incident.productFixInScope !== true) {
     throw new Error("review_media_incident_state_invalid");
   }
   return {

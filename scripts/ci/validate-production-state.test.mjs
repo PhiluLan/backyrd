@@ -19,7 +19,7 @@ const fixture = () => {
     schemaVersion: "backyrd-production-state-v1", projectRef: "hjgcrrzfjchzqoegcywn",
     supabase: { shippedSourceSha: shipped, migrationTip: "20260101000000_base", migrationCount: 1, deploymentRunId: 1, technicalStatus: "SHIPPED" },
     mobile: { shippedSourceSha: shipped, productSourceSha: shipped, tree, technicalStatus: "SHIPPED_PRODUCT_UNVERIFIED", productionVerified: false },
-    reviewMediaIncident: { id: "incident", status: "OPEN_PAUSED", productionVerified: false, historicalPartialTestStatesPreserved: true, productFixInScope: false },
+    reviewMediaIncident: { id: "incident", status: "OPEN_PAUSED", productionVerified: false, historicalPartialTestStatesPreserved: true, productFixInScope: true },
   };
   write(repo, "delivery/production-state.json", `${JSON.stringify(state, null, 2)}\n`);
   git(repo, ["add", "."]); git(repo, ["commit", "-qm", "state"]);

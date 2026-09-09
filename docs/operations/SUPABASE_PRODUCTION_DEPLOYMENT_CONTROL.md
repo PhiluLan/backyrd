@@ -2,7 +2,7 @@
 
 ## Source model
 
-`delivery/production-state.json` records the last technically shipped Supabase source, migration tip and deployment run. It also records the technically shipped Mobile OTA without turning the failed Review Media founder-iPhone test into success: that Product state remains `productionVerified:false` and `OPEN_PAUSED`.
+`delivery/production-state.json` records the last technically shipped Supabase source, migration tip and deployment run. It also records the technically shipped Mobile OTA without turning the failed Review Media founder-iPhone test into success: that Product state remains `productionVerified:false` and `OPEN_PAUSED` until the Founder explicitly passes the physical retest. `productFixInScope:true` records that the authorized fix is now technically shipped; it is not Product acceptance.
 
 Candidate, Pending and Shipped are separate:
 

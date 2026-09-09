@@ -113,7 +113,7 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction --file "$validation
 actual_acl="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align --file "$repo_root/scripts/ci/public-acl-fingerprint.sql")"
 schema_result="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align --file "$repo_root/scripts/ci/application-schema-fingerprint.sql")"
 actual_schema="${schema_result##*|}"
-test "$(jq -r '.supabase.migrationTip' "$repo_root/delivery/production-state.json")" = "20260908045502_create_atomic_review_media_contract_v1"
+test "$(jq -r '.supabase.migrationTip' "$repo_root/delivery/production-state.json")" = "20260909073004_close_review_capture_trust_v2"
 test "$(jq -r '.mobile.productionVerified' "$repo_root/delivery/production-state.json")" = false
 if test -n "${BACKYRD_DATABASE_SNAPSHOT_OUTPUT:-}"; then
   jq -n --arg publicAclSha256 "$actual_acl" --arg applicationSchemaSha256 "$actual_schema" \
