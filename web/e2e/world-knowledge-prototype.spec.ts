@@ -1,70 +1,80 @@
 import { expect, test } from "@playwright/test";
 
-test("Founder completes the guided Philipps Casa classification without technical knowledge", async ({ page }) => {
+test("Founder erfasst Philipps Casa geführt und prüft die mobile Vorschau", async ({ page }) => {
   await page.goto("/world-knowledge-prototype");
   await page.evaluate(() => localStorage.clear());
   await page.reload();
 
-  await expect(page.getByText("PHILIPPS CASA BESCHREIBEN")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Welchen Spot beschreibst du?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Philipps Casa erfassen" })).toBeVisible();
   await expect(page.getByText("Du musst nicht alles ausfüllen.")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Analyse starten/ }).first()).toBeVisible();
+  await expect(page.getByLabel(/^Name/)).toHaveValue("Philipps Casa");
+  await expect(page.getByLabel("Webseite", { exact: true })).toHaveCount(1);
+  await page.getByLabel("Quartier").fill("Kreis 4");
+  await page.getByLabel("Telefonnummer").fill("+41 44 555 01 23");
+  await page.getByLabel("Webseite", { exact: true }).fill("https://philipps-casa.test");
+  await page.getByLabel("Besonderheit").fill("Hausgemachte Spezialitäten und eine ruhige Terrasse.");
+  await page.getByLabel("Preislevel").selectOption("$$");
+  await page.getByRole("button", { name: "Italienisch" }).click();
+  await page.getByRole("button", { name: "Kartenzahlung" }).click();
+  await page.getByLabel("Ja", { exact: true }).check();
+  await page.getByRole("button", { name: "Sondertag hinzufügen" }).click();
+  await page.getByLabel("Name des Sondertags").fill("Neujahr");
 
   await page.getByRole("button", { name: /Art des Ortes/ }).click();
-  await expect(page.getByRole("heading", { name: "Was für ein Ort ist Philipps Casa?" })).toBeVisible();
-  await page.getByRole("button", { name: "Brasserie" }).click();
-  await page.getByRole("button", { name: "Restaurant" }).click();
+  for (const placeType of ["Brasserie", "Restaurant", "Pub", "Imbiss", "Take Away", "Fast-Food"]) {
+    await expect(page.getByRole("button", { name: placeType, exact: true })).toBeVisible();
+  }
+  await page.getByRole("button", { name: "Brasserie", exact: true }).click();
+  await page.getByRole("button", { name: "Restaurant", exact: true }).click();
+  await page.getByRole("button", { name: "Pub", exact: true }).click();
   await expect(page.locator(".wk-selected-chips")).toContainText("Brasserie");
-  await expect(page.locator(".wk-selected-chips")).toContainText("Restaurant");
-  await expect(page.getByText("2 Angaben ausgewählt")).toBeVisible();
 
-  await page.getByRole("button", { name: /^Weiter/ }).click();
-  await expect(page.getByRole("heading", { name: "Welche Küche und welches Angebot gibt es?" })).toBeVisible();
-  await page.getByRole("button", { name: "Italian" }).click();
-  await expect(page.locator(".wk-selected-chips")).toContainText("Italian");
+  await page.getByRole("button", { name: /Was kann man dort machen/ }).click();
+  await expect(page.getByRole("heading", { name: "Essen und Trinken" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Frühstück", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Breakfast", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Praktisch beim Besuch" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Gemeinsam und sozial" })).toBeVisible();
 
-  await page.getByRole("button", { name: /^Weiter/ }).click();
-  await page.getByRole("button", { name: "Später ausfüllen" }).click();
-  await expect(page.getByRole("heading", { name: "Was ermöglicht Philipps Casa konkret?" })).toBeVisible();
-  await expect(page.locator(".wk-guide-steps small").filter({ hasText: "Später ausfüllen" })).toBeVisible();
+  await page.getByRole("button", { name: /Atmosphäre und Situation/ }).click();
+  await expect(page.getByRole("heading", { name: "Dauer" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Gruppengröße" })).toBeVisible();
 
-  await page.getByRole("button", { name: /Art des Ortes/ }).click();
-  await page.locator(".wk-selected-chips").getByRole("button", { name: /Brasserie.*entfernen/ }).click();
-  await expect(page.locator(".wk-selected-chips")).not.toContainText("Brasserie");
-  await expect(page.locator(".wk-selected-chips")).toContainText("Restaurant");
+  await page.getByRole("button", { name: /Ausstattung und Einschränkungen/ }).click();
+  await expect(page.getByRole("heading", { name: "Barrierefreiheit" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Komfort und Infrastruktur" })).toBeVisible();
+  await page.getByRole("button", { name: "Terrasse", exact: true }).click();
+
+  await page.getByRole("button", { name: /Vorschau und Analyse/ }).click();
+  await expect(page.getByRole("heading", { name: "So könnte Philipps Casa in der App aussehen" })).toBeVisible();
+  await expect(page.locator(".wk-phone")).toContainText("Philipps Casa");
+  await expect(page.locator(".wk-phone")).toContainText("Brasserie · Pub · Restaurant");
+  await expect(page.locator(".wk-phone")).toContainText("Kreis 4");
+  await expect(page.locator(".wk-phone")).toContainText("Heute");
 
   await page.getByRole("button", { name: "Speichern", exact: true }).click();
   await page.reload();
   await expect(page.getByText(/Gespeichert/).first()).toBeVisible();
-  await page.getByRole("button", { name: /Art des Ortes/ }).click();
-  await expect(page.locator(".wk-selected-chips")).toContainText("Restaurant");
-  await expect(page.locator(".wk-selected-chips")).not.toContainText("Brasserie");
+  await expect(page.getByLabel("Quartier")).toHaveValue("Kreis 4");
 
   await page.getByRole("button", { name: /Analyse starten/ }).first().click();
   await expect(page.getByRole("heading", { name: "Das weiß Backyrd über Philipps Casa." })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Das ist bereits besonders nützlich" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Hilfreiche Ergänzungen" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Widersprüche" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Möglicherweise veraltet" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "So wird der Spot aktuell übergeben" })).toBeVisible();
-
   await page.getByRole("button", { name: /Technische Vorschau öffnen/ }).click();
-  await expect(page.getByRole("heading", { name: "Angaben und Quellen" })).toBeVisible();
   await page.getByRole("button", { name: "Vorschau für die Decision Engine" }).click();
   await expect(page.locator(".wk-json")).toContainText("WorldKnowledgePort.preview.v1");
   await expect(page.locator(".wk-json")).not.toContainText("OWNER_BASIC");
   await expect(page.locator(".wk-json")).not.toContainText("subscription");
 });
 
-test("standard flow stays usable on a narrow screen and hides internal vocabulary", async ({ page }) => {
+test("der Standardweg bleibt auf schmalen Bildschirmen verständlich", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/world-knowledge-prototype");
-  await expect(page.getByRole("heading", { name: "Welchen Spot beschreibst du?" })).toBeVisible();
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Philipps Casa erfassen" })).toBeVisible();
   await page.getByRole("button", { name: /Art des Ortes/ }).click();
-  await expect(page.getByRole("button", { name: "Brasserie" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Brasserie", exact: true })).toBeVisible();
   const visibleText = await page.locator(".wk-guide-layout").innerText();
-  for (const term of ["KNOWN_TRUE", "BOOLEAN", "ADMIN_OBSERVATION", "Confidence simulation", "Claim hinzufügen"]) {
-    expect(visibleText).not.toContain(term);
-  }
+  for (const term of ["KNOWN_TRUE", "BOOLEAN", "ADMIN_OBSERVATION", "Confidence simulation", "Claim hinzufügen", "Weitere passende Kategorien"]) expect(visibleText).not.toContain(term);
   await expect(page.getByRole("button", { name: /^Weiter/ })).toBeVisible();
 });

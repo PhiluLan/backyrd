@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { analysisReport, catalog, confidenceFor, deriveFits, emptyState, engineSnapshot, qualityFor, resolveKnowledge } from "../lib/world-knowledge/model.ts";
+import { analysisReport, catalog, confidenceFor, deriveFits, emptyState, engineSnapshot, qualityFor, resolveKnowledge, validateImport } from "../lib/world-knowledge/model.ts";
 
 const fixedNow = new Date("2026-09-09T12:00:00.000Z");
 const definition = (label) => {
@@ -32,8 +32,9 @@ const claim = (item, status, value, overrides = {}) => ({
 
 test("catalog preserves the complete draft inventory and all canonical categories", () => {
   assert.equal(catalog.categories.length, 16);
-  assert.equal(catalog.definitions.length, 727);
-  assert.equal(new Set(catalog.definitions.map((item) => item.id)).size, 727);
+  assert.equal(catalog.definitions.length, 731);
+  assert.equal(new Set(catalog.definitions.map((item) => item.id)).size, 731);
+  for (const label of ["Pub", "Imbiss", "Take Away", "Fast-Food"]) assert.ok(catalog.definitions.some((item) => item.label === label && item.reviewState === "REVIEW_NEEDED"));
   assert.deepEqual(catalog.categories.map((item) => item.label), [
     "Eat", "Drinks", "Coffee & Daytime", "Nightlife", "Culture & Arts", "Entertainment", "Activities & Play", "Sport & Movement", "Outdoor & Nature", "Wellness & Relaxation", "Shopping & Markets", "Stay", "Community & Social Spaces", "Attractions & Landmarks", "Temporary Places", "Services & Special Experiences",
   ]);
@@ -92,6 +93,19 @@ test("identical input and as-of date produce identical analysis and engine snaps
   const state = emptyState(); state.claims.push(claim(definition("WLAN"), "KNOWN_TRUE", true));
   assert.deepEqual(engineSnapshot(state, fixedNow), engineSnapshot(structuredClone(state), fixedNow));
   assert.deepEqual(analysisReport(state, fixedNow), analysisReport(structuredClone(state), fixedNow));
+});
+
+test("older local exports receive the new optional profile fields without losing claims", () => {
+  const old = emptyState();
+  delete old.spot.neighborhood;
+  delete old.spot.website;
+  delete old.spot.takeaway;
+  old.claims.push(claim(definition("Restaurant"), "KNOWN_TRUE", true));
+  const migrated = validateImport(old);
+  assert.equal(migrated.spot.neighborhood, "");
+  assert.equal(migrated.spot.website, "");
+  assert.equal(migrated.spot.takeaway, "UNKNOWN");
+  assert.equal(migrated.claims.length, 1);
 });
 
 test("prototype is explicitly isolated from Supabase and Production paths", async () => {

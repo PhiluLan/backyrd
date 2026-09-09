@@ -1,6 +1,6 @@
 import generatedCatalog from "./catalog.generated.json" with { type: "json" };
 
-export const PROTOTYPE_VERSION = "philipps-casa-prototype-2.0.0";
+export const PROTOTYPE_VERSION = "philipps-casa-prototype-2.1.0";
 export const STORAGE_KEY = "backyrd:world-knowledge-prototype:philipps-casa:v1";
 
 export type Role = "ADMIN" | "OWNER_BASIC" | "OWNER_PRO";
@@ -65,13 +65,23 @@ export interface PrototypeState {
     latitude: number;
     longitude: number;
     timezone: string;
+    neighborhood: string;
+    website: string;
+    phone: string;
+    instagram: string;
+    facebook: string;
+    linkedin: string;
+    tiktok: string;
+    specialFeature: string;
+    priceLevel: string;
+    takeaway: "YES" | "NO" | "UNKNOWN";
     primaryCategory: string;
     secondaryCategories: string[];
   };
   claims: Claim[];
   intentCapabilityLinks: Array<{ id: string; intentId: string; capabilityId: string }>;
   schedule: OpeningDay[];
-  exceptions: Array<{ id: string; date: string; state: string; note: string }>;
+  exceptions: Array<{ id: string; date: string; state: string; note: string; open?: string; close?: string }>;
   currentState: { service: string; availability: string; area: string; temporaryClosureUntil: string };
   guidedProgress: { visitedSteps: string[]; skippedSteps: string[] };
   savedAt: string | null;
@@ -99,11 +109,23 @@ const manualDefinitions: CatalogDefinition[] = [
   options: id === "character-room-type" ? ["Innenraum", "Außenbereich", "Separee", "Saal", "Offene Fläche"] : id === "character-service-model" ? ["Bedienung", "Self-Service", "Hybrid", "Terminbasiert"] : id === "character-noise" ? ["Sehr ruhig", "Ruhig", "Moderat", "Lebhaft", "Laut"] : undefined,
 }));
 
+const guidedPlaceDefinitions: CatalogDefinition[] = [
+  ["subcategory-pub", "Pub", ["EAT", "DRINKS", "NIGHTLIFE"]],
+  ["subcategory-snack-bar", "Imbiss", ["EAT"]],
+  ["subcategory-take-away", "Take Away", ["EAT", "COFFEE_DAYTIME"]],
+  ["subcategory-fast-food", "Fast-Food", ["EAT"]],
+].map(([id, label, applicableCategories]) => ({
+  id: String(id), label: String(label), group: "CLASSIFICATION", family: "Subcategories", semanticClass: "SUBCATEGORY",
+  valueType: "BOOLEAN", unit: null, applicableCategories: applicableCategories as string[], importance: "STANDARD", ownerAccess: "BASIC",
+  reviewState: "REVIEW_NEEDED", occurrences: 1, source: "Founder UX feedback · 2026-09-09",
+  description: "Im UX-Test ergänzt; kanonische Benennung und Abgrenzung vor Production-Übernahme prüfen.",
+}));
+
 const generatedDefinitions = generatedCatalog.definitions as CatalogDefinition[];
 export const catalog = {
   catalogVersion: generatedCatalog.catalogVersion,
   categories: generatedCatalog.categories.map((category, index) => ({ ...category, sourceLabel: index === 14 ? "15. Events & Temporary Places" : category.sourceLabel })),
-  definitions: [...generatedDefinitions, ...manualDefinitions],
+  definitions: [...generatedDefinitions, ...manualDefinitions, ...guidedPlaceDefinitions],
   source: generatedCatalog.source,
 };
 
@@ -122,7 +144,11 @@ export const emptyState = (): PrototypeState => ({
   schemaVersion: 1,
   prototypeVersion: PROTOTYPE_VERSION,
   catalogVersion: catalog.catalogVersion,
-  spot: { name: "Philipps Casa", address: "Casaweg 7", city: "Zürich", country: "CH", latitude: 47.3769, longitude: 8.5417, timezone: "Europe/Zurich", primaryCategory: "EAT", secondaryCategories: ["COFFEE_DAYTIME"] },
+  spot: {
+    name: "Philipps Casa", address: "Casaweg 7", city: "Zürich", neighborhood: "", country: "CH", latitude: 47.3769, longitude: 8.5417,
+    timezone: "Europe/Zurich", website: "", phone: "", instagram: "", facebook: "", linkedin: "", tiktok: "", specialFeature: "",
+    priceLevel: "", takeaway: "UNKNOWN", primaryCategory: "EAT", secondaryCategories: [],
+  },
   claims: [],
   intentCapabilityLinks: [],
   schedule: ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"].map((day, index) => ({ day, enabled: index < 6, open: index === 5 ? "10:00" : "08:00", close: index === 5 ? "23:00" : "22:00" })),
@@ -228,7 +254,12 @@ export function engineSnapshot(state: PrototypeState, now = new Date()) {
     contract: "WorldKnowledgePort.preview.v1",
     catalogVersion: state.catalogVersion,
     resolvedAsOfDate: now.toISOString().slice(0, 10),
-    spot: { name: state.spot.name, location: { city: state.spot.city, country: state.spot.country, latitude: state.spot.latitude, longitude: state.spot.longitude, timezone: state.spot.timezone } },
+    spot: {
+      name: state.spot.name,
+      location: { address: state.spot.address, neighborhood: state.spot.neighborhood, city: state.spot.city, country: state.spot.country, latitude: state.spot.latitude, longitude: state.spot.longitude, timezone: state.spot.timezone },
+      publicContact: { website: state.spot.website, phone: state.spot.phone, instagram: state.spot.instagram, facebook: state.spot.facebook, linkedin: state.spot.linkedin, tiktok: state.spot.tiktok },
+      profile: { specialFeature: state.spot.specialFeature, priceLevel: state.spot.priceLevel, takeaway: state.spot.takeaway },
+    },
     classification: { primaryCategory: state.spot.primaryCategory, secondaryCategories: state.spot.secondaryCategories, subcategories: resolved.filter((item) => item.definition.semanticClass === "SUBCATEGORY" && item.status === "KNOWN_TRUE").map((item) => item.definition.label) },
     facts: resolved.filter((item) => allowedResolved(item) && !["DIRECT_FIT", "DECISION_INTENT"].includes(item.definition.semanticClass)).map((item) => ({ key: item.definition.id, label: item.definition.label, status: item.status, value: item.value, confidence: item.confidence })),
     intentCapabilityLinks: state.intentCapabilityLinks.map((link) => ({ intentKey: link.intentId, capabilityKey: link.capabilityId })),
@@ -273,5 +304,14 @@ export function validateImport(value: unknown): PrototypeState {
   if (state.schemaVersion !== 1 && !candidate.spotState) throw new Error("Unbekannte Prototype-Schemaversion.");
   if (!state.spot || state.spot.name !== "Philipps Casa" || !Array.isArray(state.claims)) throw new Error("Nur ein gültiger Export für Philipps Casa kann importiert werden.");
   const defaults = emptyState();
-  return { ...defaults, ...state, guidedProgress: state.guidedProgress ?? defaults.guidedProgress, schemaVersion: 1, prototypeVersion: PROTOTYPE_VERSION, catalogVersion: catalog.catalogVersion } as PrototypeState;
+  return {
+    ...defaults,
+    ...state,
+    spot: { ...defaults.spot, ...state.spot, secondaryCategories: state.spot.secondaryCategories ?? [] },
+    currentState: { ...defaults.currentState, ...state.currentState },
+    guidedProgress: state.guidedProgress ?? defaults.guidedProgress,
+    schemaVersion: 1,
+    prototypeVersion: PROTOTYPE_VERSION,
+    catalogVersion: catalog.catalogVersion,
+  } as PrototypeState;
 }
