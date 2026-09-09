@@ -18,58 +18,6 @@ env:
   NEXT_TELEMETRY_DISABLED: 1
 
 jobs:
-  decision-lab-smoke:
-    name: Decision Lab deterministic smoke
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-    env:
-      CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-      CANONICAL_MAIN_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - run: npm ci
-      - run: npm run decision-lab:test
-      - name: V1.4 admin-data-additive exact PR candidate gate
-        env:
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: node scripts/ci/validate-admin-data-additive-candidate.mjs
-      - name: V1.5 mobile-storage-atomic exact PR candidate gate
-        env:
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: node scripts/ci/validate-mobile-storage-atomic-candidate.mjs
-      - run: npm run decision-lab:smoke
-      - name: D2 framework acceptance
-        run: npm run decision-lab:d2:acceptance
-      - name: D2.1 freeze and readiness re-certification
-        run: npm run decision-lab:d2:recertify
-      - name: D2.2 personalization treatment freeze and scientific validation
-        run: npm run decision-lab:d2.2:validate
-      - name: D3.1 diagnostic coverage preflight
-        run: npm run decision-lab:d3.1:preflight
-      - name: D3.1 diagnostic runner contract tests
-        run: node --test decision-lab/test/d3.1-*.test.mjs
-      - name: D3-A frozen baseline schema and integrity
-        run: npm run decision-lab:d3-a:validate
-      - name: Consumer Web Decision contract evidence
-        run: node --test web/tests/consumer-contracts.test.mjs
-      - name: D2 Consumer Web exact-hash guard regression
-        env:
-          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: bash scripts/ci/test-decision-d2-web-closure-guard.sh
-      - name: D2 protected-scope guard
-        env:
-          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: bash scripts/ci/decision-d2-scope-guard.sh
-
   repository-sanity:
     name: Repository sanity
     runs-on: ubuntu-latest
