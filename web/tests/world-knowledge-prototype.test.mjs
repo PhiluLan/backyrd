@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
-import { analysisReport, catalog, confidenceFor, deriveFits, emptyState, engineSnapshot, qualityFor, resolveKnowledge, validateImport } from "../lib/world-knowledge/model.ts";
+import { analysisReport, catalog, confidenceFor, deriveFits, emptyState, engineSnapshot, qualityFor, registryIdentity, resolveKnowledge, semanticIssues, validateImport } from "../lib/world-knowledge/model.ts";
 
 const fixedNow = new Date("2026-09-09T12:00:00.000Z");
 const definition = (label) => {
@@ -32,8 +32,10 @@ const claim = (item, status, value, overrides = {}) => ({
 
 test("catalog preserves the complete draft inventory and all canonical categories", () => {
   assert.equal(catalog.categories.length, 16);
-  assert.equal(catalog.definitions.length, 731);
-  assert.equal(new Set(catalog.definitions.map((item) => item.id)).size, 731);
+  assert.equal(catalog.definitions.length, 741);
+  assert.equal(new Set(catalog.definitions.map((item) => item.id)).size, 741);
+  assert.equal(registryIdentity.previousPrototypeCount, 731);
+  assert.match(registryIdentity.hash, /^fnv1a-/);
   for (const label of ["Pub", "Imbiss", "Take Away", "Fast-Food"]) assert.ok(catalog.definitions.some((item) => item.label === label && item.reviewState === "REVIEW_NEEDED"));
   assert.deepEqual(catalog.categories.map((item) => item.label), [
     "Eat", "Drinks", "Coffee & Daytime", "Nightlife", "Culture & Arts", "Entertainment", "Activities & Play", "Sport & Movement", "Outdoor & Nature", "Wellness & Relaxation", "Shopping & Markets", "Stay", "Community & Social Spaces", "Attractions & Landmarks", "Temporary Places", "Services & Special Experiences",
@@ -51,8 +53,8 @@ test("missing is not false, N/A is excluded from completeness, and expired claim
   assert.equal(resolved.find((item) => item.definition.id === wlan.id)?.status, "NOT_APPLICABLE");
   assert.equal(resolved.find((item) => item.definition.id === outlets.id)?.status, "EXPIRED");
   assert.equal(resolved.some((item) => item.status === "KNOWN_FALSE"), false);
-  assert.equal(engineSnapshot(state, fixedNow).facts.some((item) => item.key === outlets.id), false);
-  assert.ok(qualityFor(state, fixedNow).completeness >= 0);
+  assert.equal(engineSnapshot(state, fixedNow).amenities.some((item) => item.key === outlets.id), false);
+  assert.ok(qualityFor(state, fixedNow).technicalCatalogCoverage >= 0);
 });
 
 test("competing values remain disputed and historical claims remain available", () => {
@@ -60,7 +62,7 @@ test("competing values remain disputed and historical claims remain available", 
   state.claims.push(claim(terrace, "KNOWN_TRUE", true, { id: "one" }), claim(terrace, "KNOWN_FALSE", false, { id: "two", actor: "ADMIN" }));
   const item = resolveKnowledge(state, fixedNow).find((candidate) => candidate.definition.id === terrace.id);
   assert.equal(item?.status, "DISPUTED"); assert.equal(item?.claims.length, 2);
-  assert.equal(engineSnapshot(state, fixedNow).facts.some((fact) => fact.key === terrace.id), false);
+  assert.equal(engineSnapshot(state, fixedNow).amenities.some((fact) => fact.key === terrace.id), false);
 });
 
 test("guided deselection appends a retraction without deleting history or creating false", () => {
@@ -76,10 +78,10 @@ test("raw facts and derived fits remain separate and derivations expose their in
   const state = emptyState(); const covered = definition("überdachte Außenplätze"); const wlan = definition("WLAN"); const outlets = definition("Steckdosen");
   state.claims.push(claim(covered, "KNOWN_TRUE", true), claim(wlan, "KNOWN_TRUE", true), claim(outlets, "KNOWN_TRUE", true));
   const resolved = resolveKnowledge(state, fixedNow); const derived = deriveFits(resolved); const snapshot = engineSnapshot(state, fixedNow);
-  assert.ok(derived.some((item) => item.label === "Regentauglich" && item.inputs.includes("überdachte Außenplätze = true")));
-  assert.ok(derived.some((item) => item.label === "Geeignet zum Arbeiten" && item.inputs.length === 2));
-  assert.equal(snapshot.facts.some((item) => item.label === "Regentauglich"), false);
-  assert.ok(snapshot.derivedFits.some((item) => item.label === "Regentauglich"));
+  assert.ok(derived.some((item) => item.ruleId === "wk.rule.weather_protected.v1" && item.sourceFacts.includes(covered.id)));
+  assert.ok(derived.some((item) => item.ruleId === "wk.rule.work_infrastructure.v1" && item.sourceFacts.length === 2));
+  assert.ok(snapshot.derivedKnowledge.some((item) => item.ruleId === "wk.rule.weather_protected.v1"));
+  assert.equal(snapshot.directSubjectiveClaims.some((item) => item.key === "Regentauglich"), false);
 });
 
 test("owner subscription role cannot increase confidence or leak into engine output", () => {
@@ -97,6 +99,7 @@ test("identical input and as-of date produce identical analysis and engine snaps
 
 test("older local exports receive the new optional profile fields without losing claims", () => {
   const old = emptyState();
+  old.schemaVersion = 1;
   delete old.spot.neighborhood;
   delete old.spot.website;
   delete old.spot.takeaway;
@@ -106,6 +109,41 @@ test("older local exports receive the new optional profile fields without losing
   assert.equal(migrated.spot.website, "");
   assert.equal(migrated.spot.takeaway, "UNKNOWN");
   assert.equal(migrated.claims.length, 1);
+  assert.equal(migrated.schemaVersion, 2);
+});
+
+test("legacy boolean pseudo-facts require typed detail and never reach the engine", () => {
+  const state = emptyState(); const legacy = definition("maximale Gruppengröße");
+  state.claims.push(claim(legacy, "KNOWN_TRUE", true));
+  assert.ok(semanticIssues(state, fixedNow).some((item) => item.ruleId === "wk.conflict.legacy_group_limit.v1"));
+  assert.ok(engineSnapshot(state, fixedNow).excluded.incompleteLegacyClaims.includes(legacy.id));
+});
+
+test("typed ranges, conditional rules and expiring current states stay structured", () => {
+  const state = emptyState(); const range = definition("Geeignete Gruppengröße"); const age = definition("Altersregel");
+  state.claims.push(claim(range, "KNOWN_VALUE", { min: 2, max: 12, unit: "Personen" }), claim(age, "KNOWN_VALUE", { minimumAge: 18, timing: "FROM_TIME", fromTime: "22:00", days: ["Fr", "Sa"], area: "Bar" }));
+  state.currentObservations.push({ id: "old", type: "FULL", area: "Gesamter Spot", observedAt: "2026-09-08T10:00:00.000Z", validFrom: "2026-09-08T10:00:00.000Z", validUntil: "2026-09-08T12:00:00.000Z", sourceName: "Admin" });
+  const snapshot = engineSnapshot(state, fixedNow);
+  assert.deepEqual(snapshot.operationalModel.facts.find((item) => item.key === range.id)?.value, { min: 2, max: 12, unit: "Personen" });
+  assert.deepEqual(snapshot.hardConstraints.find((item) => item.key === age.id)?.value, { minimumAge: 18, timing: "FROM_TIME", fromTime: "22:00", days: ["Fr", "Sa"], area: "Bar" });
+  assert.equal(snapshot.currentState.length, 0);
+});
+
+test("cross-key tensions are classified with a resolution hint", () => {
+  const state = emptyState(); const range = definition("Geeignete Gruppengröße"); const large = definition("große Gruppe 10+");
+  state.claims.push(claim(range, "KNOWN_VALUE", { min: 2, max: 8, unit: "Personen" }), claim(large, "KNOWN_TRUE", true));
+  const issue = semanticIssues(state, fixedNow).find((item) => item.ruleId === "wk.conflict.group_range_large_fit.v1");
+  assert.equal(issue?.type, "HARD_CONTRADICTION");
+  assert.ok(issue?.resolution);
+});
+
+test("spot intents are excluded while capabilities remain engine-readable", () => {
+  const state = emptyState(); const capability = definition("Dinner"); const intent = definition("Business");
+  state.claims.push(claim(capability, "KNOWN_TRUE", true), claim(intent, "KNOWN_TRUE", true));
+  const snapshot = engineSnapshot(state, fixedNow); const serialized = JSON.stringify(snapshot);
+  assert.ok(snapshot.capabilities.some((item) => item.key === capability.id));
+  assert.equal(serialized.includes(intent.id), false);
+  assert.equal(snapshot.excluded.directUserIntents, true);
 });
 
 test("prototype is explicitly isolated from Supabase and Production paths", async () => {
