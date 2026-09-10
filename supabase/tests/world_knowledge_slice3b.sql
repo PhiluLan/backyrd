@@ -231,6 +231,11 @@ select (select count(*) from world_knowledge_private.claims) claim_count,
        (select encode(extensions.digest(convert_to(coalesce(string_agg(result_hash,',' order by result_hash),''),'UTF8'),'sha256'),'hex') from world_knowledge_private.verification_records) verification_digest,
        (select count(*) from world_knowledge_private.identity_events) identity_count,
        (select encode(extensions.digest(convert_to(coalesce(string_agg(event_hash,',' order by event_hash),''),'UTF8'),'sha256'),'hex') from world_knowledge_private.identity_events) identity_digest;
+-- Remove synthetic profile-safety registry rows first; the canonical account-deletion path
+-- owns that separate lifecycle and the World ledger must not depend on those fixtures.
+delete from public.safety_content_items
+where actor_user_id in (pg_temp.id('wk-detach-owner-1'),pg_temp.id('wk-detach-owner-2'))
+   or (entity_type='profile' and entity_id in (pg_temp.id('wk-detach-owner-1'),pg_temp.id('wk-detach-owner-2')));
 delete from auth.users where id in (pg_temp.id('wk-detach-owner-1'),pg_temp.id('wk-detach-owner-2'));
 select pg_temp.assert((select count(*)=2 and count(distinct actor_pseudonym_id)=2 and bool_and(actor_id is null and detached_at is not null) from world_knowledge_private.actor_bindings where actor_type='VERIFIED_OWNER' and actor_id is null),'multiple owner bindings did not detach independently');
 select pg_temp.assert(not exists(select 1 from world_knowledge_private.actor_bindings b cross join (values(pg_temp.id('wk-detach-owner-1')), (pg_temp.id('wk-detach-owner-2'))) old(id) where to_jsonb(b)::text like '%'||encode(extensions.digest(convert_to(old.id::text||':world-knowledge-actor-v1','UTF8'),'sha256'),'hex')||'%'),'detached binding retained reproducible user-id hash');

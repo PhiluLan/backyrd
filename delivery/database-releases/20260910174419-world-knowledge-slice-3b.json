@@ -16,7 +16,7 @@
   "tests": [
     {
       "path": "supabase/tests/world_knowledge_slice3b.sql",
-      "sha256": "2dd396d219062d642522c2a4222aec018614022861d8f63cec1ee9bbaa4255a6"
+      "sha256": "2b31a9f44e203b9712a41c3972da9a413f660e7630e7e260cf2a3347b75f07d1"
     }
   ],
   "fingerprints": {
