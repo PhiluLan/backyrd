@@ -81,12 +81,15 @@ create table world_knowledge_private.entitlement_attribute_rules (
 create table world_knowledge_private.actor_bindings (
   id uuid primary key default gen_random_uuid(),
   actor_id uuid references auth.users(id) on delete set null,
-  actor_pseudonym_hash text not null check (actor_pseudonym_hash ~ '^[0-9a-f]{64}$'),
+  actor_pseudonym_id uuid not null default gen_random_uuid() unique,
   actor_type text not null check (actor_type in ('VERIFIED_OWNER','ADMIN','SYSTEM','PUBLIC_CONTRIBUTOR')),
   detached_at timestamptz,
   created_at timestamptz not null default clock_timestamp(),
-  unique nulls not distinct(actor_id,actor_type)
+  check ((actor_id is null) = (detached_at is not null))
 );
+create unique index world_actor_bindings_active_identity_unique
+  on world_knowledge_private.actor_bindings(actor_id,actor_type)
+  where actor_id is not null;
 
 create table world_knowledge_private.source_references (
   id uuid primary key default gen_random_uuid(),
@@ -138,6 +141,7 @@ create table world_knowledge_private.verification_records (
   claim_hash text not null check (claim_hash ~ '^[0-9a-f]{64}$'),
   spot_id uuid not null references public.spots(id) on delete restrict,
   attribute_key text not null,
+  scope text not null,
   policy_version text not null references world_knowledge_private.source_policy_releases(policy_version),
   verification_method text not null check (verification_method in ('OWNER_CONFIRMED','ADMIN_CONFIRMED','INDEPENDENT_PROCESS')),
   execution_authority text not null check (execution_authority in ('SERVER_BOUND_OWNER_WRITE','SERVER_BOUND_ADMIN_WRITE','ACCEPTED_INDEPENDENT_PROCESS')),
@@ -157,25 +161,34 @@ create table world_knowledge_private.confirmation_records (
   claim_hash text not null check (claim_hash ~ '^[0-9a-f]{64}$'),
   actor_binding_id uuid not null references world_knowledge_private.actor_bindings(id) on delete restrict,
   confirmation_method text not null check (confirmation_method in ('OWNER_CONFIRMED','ADMIN_CONFIRMED')),
+  policy_version text not null references world_knowledge_private.source_policy_releases(policy_version),
+  reconfirmation_policy_ref text not null,
   confirmed_at timestamptz not null,
   confirmation_due_at timestamptz not null,
+  idempotency_key text not null,
   record_hash text not null unique check (record_hash ~ '^[0-9a-f]{64}$'),
   created_at timestamptz not null default clock_timestamp(),
+  unique(actor_binding_id,idempotency_key),
   check (confirmation_due_at > confirmed_at)
 );
 
 create table world_knowledge_private.identity_events (
   id uuid primary key default gen_random_uuid(),
-  event_type text not null check (event_type in ('CREATED','EXTERNAL_REFERENCE_ADDED','ALIAS_ADDED','DUPLICATE_SUSPECTED','DUPLICATE_CONFIRMED','MERGE_PROPOSED','MERGE_CONFIRMED','ARCHIVED','RESTORED','SPLIT','MERGE_REVERSED','TOMBSTONED')),
+  event_type text not null check (event_type in ('DUPLICATE_SUSPECTED','MERGE_PROPOSED')),
   subject_spot_id uuid not null references public.spots(id) on delete restrict,
   related_spot_id uuid references public.spots(id) on delete restrict,
   external_namespace text,
   external_reference_hash text check (external_reference_hash is null or external_reference_hash ~ '^[0-9a-f]{64}$'),
   authority_record_id uuid references world_knowledge_private.governance_approval_records(id) on delete restrict,
+  recorded_by_binding_id uuid not null references world_knowledge_private.actor_bindings(id) on delete restrict,
+  idempotency_key text not null,
   occurred_at timestamptz not null,
   reason_codes text[] not null,
   event_hash text not null unique check (event_hash ~ '^[0-9a-f]{64}$'),
-  check (subject_spot_id is distinct from related_spot_id)
+  unique(recorded_by_binding_id,idempotency_key),
+  check (subject_spot_id is distinct from related_spot_id),
+  check (related_spot_id is not null),
+  check (authority_record_id is null)
 );
 
 create table world_knowledge_private.review_work_items (
@@ -211,7 +224,8 @@ create table world_knowledge_private.resolution_manifests (
   policy_version text not null references world_knowledge_private.source_policy_releases(policy_version),
   as_of timestamptz not null,
   input_hash text not null check (input_hash ~ '^[0-9a-f]{64}$'),
-  resolution_hash text not null unique check (resolution_hash ~ '^[0-9a-f]{64}$'),
+  resolution_hash text not null check (resolution_hash ~ '^[0-9a-f]{64}$'),
+  manifest_hash text not null unique check (manifest_hash ~ '^[0-9a-f]{64}$'),
   world_snapshot jsonb not null check (jsonb_typeof(world_snapshot)='object'),
   decision_projection jsonb not null check (jsonb_typeof(decision_projection)='object'),
   created_at timestamptz not null default clock_timestamp(),
@@ -272,19 +286,54 @@ alter table public.world_knowledge_public_projection_v1 enable row level securit
 revoke all on table public.world_knowledge_public_projection_v1 from public, anon, authenticated;
 grant all on table public.world_knowledge_public_projection_v1 to service_role;
 
--- Private ledgers are not Data API surfaces. RLS is still enabled as defense in depth.
+-- Private ledgers are not Data API surfaces. Discover every World Knowledge
+-- relation from the catalog so a newly added table cannot fall out of the
+-- defense-in-depth configuration through an incomplete hand-maintained list.
 do $world_rls$
-declare table_name text;
+declare relation record;
 begin
-  foreach table_name in array array[
-    'registry_releases','governance_approval_records','attribute_definitions','source_policy_releases','entitlement_policy_releases','entitlement_attribute_rules','actor_bindings','source_references','claims','verification_records','confirmation_records','identity_events','review_work_items','review_work_item_events','resolution_manifests','resolution_entries','current_projection_pointers','shadow_spot_allowlist','rebuild_jobs'
-  ] loop
-    execute format('alter table world_knowledge_private.%I enable row level security',table_name);
-    execute format('revoke all on table world_knowledge_private.%I from public, anon, authenticated',table_name);
-    execute format('grant all on table world_knowledge_private.%I to service_role',table_name);
+  for relation in
+    select n.nspname as schema_name,c.relname as relation_name
+    from pg_catalog.pg_class c
+    join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+    where c.relkind in ('r','p')
+      and (n.nspname='world_knowledge_private' or (n.nspname='public' and c.relname like 'world_knowledge_%'))
+    order by n.nspname,c.relname
+  loop
+    execute format('alter table %I.%I enable row level security',relation.schema_name,relation.relation_name);
+    execute format('revoke all on table %I.%I from public, anon, authenticated',relation.schema_name,relation.relation_name);
+    execute format('grant all on table %I.%I to service_role',relation.schema_name,relation.relation_name);
   end loop;
 end
 $world_rls$;
+
+create view world_knowledge_private.security_inventory_v1
+with (security_invoker=true)
+as
+select
+  n.nspname::text as schema_name,
+  c.relname::text as object_name,
+  case c.relkind when 'r' then 'TABLE' when 'p' then 'PARTITIONED_TABLE' when 'v' then 'VIEW' when 'm' then 'MATERIALIZED_VIEW' end::text as object_type,
+  (n.nspname='public') as data_api_schema,
+  case when c.relkind in ('r','p') then c.relrowsecurity else null end as rls_enabled,
+  (pg_catalog.has_table_privilege('public',c.oid,'SELECT') or pg_catalog.has_table_privilege('public',c.oid,'INSERT') or pg_catalog.has_table_privilege('public',c.oid,'UPDATE') or pg_catalog.has_table_privilege('public',c.oid,'DELETE')) as public_dml,
+  (pg_catalog.has_table_privilege('anon',c.oid,'SELECT') or pg_catalog.has_table_privilege('anon',c.oid,'INSERT') or pg_catalog.has_table_privilege('anon',c.oid,'UPDATE') or pg_catalog.has_table_privilege('anon',c.oid,'DELETE')) as anon_dml,
+  (pg_catalog.has_table_privilege('authenticated',c.oid,'SELECT') or pg_catalog.has_table_privilege('authenticated',c.oid,'INSERT') or pg_catalog.has_table_privilege('authenticated',c.oid,'UPDATE') or pg_catalog.has_table_privilege('authenticated',c.oid,'DELETE')) as authenticated_dml,
+  (pg_catalog.has_table_privilege('service_role',c.oid,'SELECT') and (c.relkind in ('v','m') or (pg_catalog.has_table_privilege('service_role',c.oid,'INSERT') and pg_catalog.has_table_privilege('service_role',c.oid,'UPDATE') and pg_catalog.has_table_privilege('service_role',c.oid,'DELETE')))) as service_role_access,
+  coalesce((select jsonb_agg(p.polname order by p.polname) from pg_catalog.pg_policy p where p.polrelid=c.oid),'[]'::jsonb) as policies,
+  case
+    when n.nspname='public' then 'SERVICE_ROLE_SHADOW_ONLY'
+    when c.relname in ('claims','source_references','verification_records','confirmation_records') then 'AUTHORIZED_SERVER_RPC_APPEND_ONLY'
+    when c.relname='identity_events' then 'ADMIN_PREPARATORY_EVENT_ONLY'
+    when c.relname in ('resolution_manifests','resolution_entries','current_projection_pointers','rebuild_jobs') then 'SERVICE_ROLE_SHADOW_RESOLVER'
+    else 'SERVICE_ROLE_INTERNAL'
+  end::text as expected_mutation_authority
+from pg_catalog.pg_class c
+join pg_catalog.pg_namespace n on n.oid=c.relnamespace
+where c.relkind in ('r','p','v','m')
+  and (n.nspname='world_knowledge_private' or (n.nspname='public' and c.relname like 'world_knowledge_%'));
+revoke all on world_knowledge_private.security_inventory_v1 from public,anon,authenticated;
+grant select on world_knowledge_private.security_inventory_v1 to service_role;
 
 insert into world_knowledge_private.registry_releases(registry_version,registry_hash,predecessor_version,change_class,definitions,release_hash,approved_at,created_at) values
 ('backyrd.world-knowledge.registry@1.0','eba49eab117007ce6f8fca5cc5114e615d6cf8fb1a32547465149db8c84e922b',null,'ADDITIVE_DEFINITION','[]',encode(extensions.digest(convert_to('registry-release:1.0','UTF8'),'sha256'),'hex'),'2026-09-10T11:01:01Z','2026-09-10T11:01:01Z'),
@@ -389,9 +438,38 @@ begin
   raise exception 'world_knowledge_append_only' using errcode='55000';
 end $$;
 
+create or replace function world_knowledge_private.detach_actor_binding_v1()
+returns trigger language plpgsql security definer set search_path='' as $$
+begin
+  if old.actor_id is not null and new.actor_id is null
+     and new.id=old.id and new.actor_type=old.actor_type and new.created_at=old.created_at then
+    new.actor_pseudonym_id:=gen_random_uuid();
+    new.detached_at:=pg_catalog.clock_timestamp();
+    return new;
+  end if;
+  raise exception 'actor_binding_mutation_forbidden' using errcode='55000';
+end $$;
+
+create trigger world_actor_binding_detach
+before update on world_knowledge_private.actor_bindings
+for each row execute function world_knowledge_private.detach_actor_binding_v1();
+create trigger world_actor_binding_delete_forbidden
+before delete on world_knowledge_private.actor_bindings
+for each row execute function world_knowledge_private.reject_immutable_mutation_v1();
+
 create or replace function public.world_confirm_claim_v1(p_claim_id uuid,p_idempotency_key text)
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare actor_id uuid:=auth.uid(); actor_type text; binding_id uuid; claim world_knowledge_private.claims%rowtype; record_id uuid; v_record_hash text;
+declare
+  actor_id uuid:=auth.uid();
+  actor_type text;
+  binding_id uuid;
+  claim world_knowledge_private.claims%rowtype;
+  record_id uuid;
+  confirmed_at_value timestamptz:=pg_catalog.clock_timestamp();
+  confirmation_due_at_value timestamptz;
+  method text;
+  reconfirmation_ref text:='confirmation:quarterly-request-v1';
+  v_record_hash text;
 begin
   if actor_id is null then raise exception 'authentication_required' using errcode='42501'; end if;
   select * into claim from world_knowledge_private.claims where id=p_claim_id;
@@ -400,11 +478,21 @@ begin
   elsif exists(select 1 from public.spots where id=claim.spot_id and owner_id=actor_id) then actor_type:='VERIFIED_OWNER';
   else raise exception 'confirmation_scope_denied' using errcode='42501'; end if;
   binding_id:=world_knowledge_private.get_actor_binding_v1(actor_id,actor_type);
-  v_record_hash:=encode(extensions.digest(pg_catalog.convert_to(claim.content_hash||':'||binding_id::text||':'||p_idempotency_key,'UTF8'),'sha256'),'hex');
-  select id into record_id from world_knowledge_private.confirmation_records c where c.record_hash=v_record_hash;
-  if found then return jsonb_build_object('confirmationId',record_id,'created',false,'claimUnchanged',true); end if;
-  insert into world_knowledge_private.confirmation_records(claim_id,claim_hash,actor_binding_id,confirmation_method,confirmed_at,confirmation_due_at,record_hash)
-  values(claim.id,claim.content_hash,binding_id,case when actor_type='ADMIN' then 'ADMIN_CONFIRMED' else 'OWNER_CONFIRMED' end,pg_catalog.clock_timestamp(),pg_catalog.clock_timestamp()+interval '3 months',v_record_hash) returning id into record_id;
+  method:=case when actor_type='ADMIN' then 'ADMIN_CONFIRMED' else 'OWNER_CONFIRMED' end;
+  select id into record_id from world_knowledge_private.confirmation_records c where c.actor_binding_id=binding_id and c.idempotency_key=p_idempotency_key;
+  if found then
+    if not exists(select 1 from world_knowledge_private.confirmation_records c where c.id=record_id and c.claim_id=claim.id and c.claim_hash=claim.content_hash) then raise exception 'confirmation_idempotency_conflict' using errcode='23505'; end if;
+    return jsonb_build_object('confirmationId',record_id,'created',false,'claimUnchanged',true);
+  end if;
+  if length(trim(coalesce(p_idempotency_key,''))) not between 1 and 180 then raise exception 'invalid_confirmation_idempotency' using errcode='22023'; end if;
+  confirmation_due_at_value:=confirmed_at_value+interval '3 months';
+  v_record_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object(
+    'claimId',claim.id,'claimHash',claim.content_hash,'actorBinding',binding_id,'confirmationMethod',method,
+    'confirmedAt',confirmed_at_value,'confirmationDueAt',confirmation_due_at_value,'policyVersion',claim.policy_version,
+    'reconfirmationPolicyRef',reconfirmation_ref,'idempotencyIdentity',p_idempotency_key
+  )::text,'UTF8'),'sha256'),'hex');
+  insert into world_knowledge_private.confirmation_records(claim_id,claim_hash,actor_binding_id,confirmation_method,policy_version,reconfirmation_policy_ref,confirmed_at,confirmation_due_at,idempotency_key,record_hash)
+  values(claim.id,claim.content_hash,binding_id,method,claim.policy_version,reconfirmation_ref,confirmed_at_value,confirmation_due_at_value,p_idempotency_key,v_record_hash) returning id into record_id;
   return jsonb_build_object('confirmationId',record_id,'created',true,'claimUnchanged',true);
 end $$;
 
@@ -427,28 +515,28 @@ end $$;
 
 create or replace function public.world_admin_record_identity_event_v1(p_event_type text,p_subject_spot_id uuid,p_related_spot_id uuid,p_external_namespace text,p_external_reference_hash text,p_reason_codes text[],p_idempotency_key text)
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare actor_id uuid:=auth.uid(); event_id uuid; v_event_hash text; approval_id uuid;
+declare actor_id uuid:=auth.uid(); binding_id uuid; event_id uuid; v_event_hash text;
 begin
   if actor_id is null or not public.is_admin_v1(actor_id) then raise exception 'admin_required' using errcode='42501'; end if;
-  if p_event_type not in ('DUPLICATE_SUSPECTED','MERGE_PROPOSED','MERGE_CONFIRMED','SPLIT','MERGE_REVERSED','ARCHIVED','RESTORED') then raise exception 'unsupported_identity_event' using errcode='22023'; end if;
-  if p_subject_spot_id=p_related_spot_id then raise exception 'identity_self_reference' using errcode='22023'; end if;
-  if p_event_type in ('MERGE_CONFIRMED','SPLIT','MERGE_REVERSED') then
-    select id into approval_id from world_knowledge_private.governance_approval_records where authority_class='PRODUCT_CTO' order by approved_at desc limit 1;
-    if approval_id is null then raise exception 'identity_authority_required' using errcode='42501'; end if;
+  if p_event_type not in ('DUPLICATE_SUSPECTED','MERGE_PROPOSED') then raise exception 'IDENTITY_OPERATION_AUTHORITY_NOT_CONFIGURED' using errcode='42501'; end if;
+  if p_related_spot_id is null or p_subject_spot_id=p_related_spot_id or not exists(select 1 from public.spots s where s.id=p_subject_spot_id) or not exists(select 1 from public.spots s where s.id=p_related_spot_id) then raise exception 'invalid_identity_event_pair' using errcode='22023'; end if;
+  if length(trim(coalesce(p_idempotency_key,''))) not between 1 and 180 or coalesce(pg_catalog.array_length(p_reason_codes,1),0)=0 then raise exception 'invalid_identity_event_metadata' using errcode='22023'; end if;
+  binding_id:=world_knowledge_private.get_actor_binding_v1(actor_id,'ADMIN');
+  v_event_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object('eventType',p_event_type,'subjectSpotId',p_subject_spot_id,'relatedSpotId',p_related_spot_id,'externalNamespace',p_external_namespace,'externalReferenceHash',p_external_reference_hash,'recordedByBinding',binding_id,'reasonCodes',to_jsonb(p_reason_codes),'idempotencyIdentity',p_idempotency_key)::text,'UTF8'),'sha256'),'hex');
+  select id into event_id from world_knowledge_private.identity_events e where e.recorded_by_binding_id=binding_id and e.idempotency_key=p_idempotency_key;
+  if found then
+    if not exists(select 1 from world_knowledge_private.identity_events e where e.id=event_id and e.event_hash=v_event_hash) then raise exception 'identity_event_idempotency_conflict' using errcode='23505'; end if;
+    return jsonb_build_object('identityEventId',event_id,'created',false,'automaticMerge',false);
   end if;
-  v_event_hash:=encode(extensions.digest(pg_catalog.convert_to(p_subject_spot_id::text||':'||coalesce(p_related_spot_id::text,'')||':'||p_event_type||':'||p_idempotency_key,'UTF8'),'sha256'),'hex');
-  select id into event_id from world_knowledge_private.identity_events e where e.event_hash=v_event_hash;
-  if found then return jsonb_build_object('identityEventId',event_id,'created',false,'automaticMerge',false); end if;
-  insert into world_knowledge_private.identity_events(event_type,subject_spot_id,related_spot_id,external_namespace,external_reference_hash,authority_record_id,occurred_at,reason_codes,event_hash)
-  values(p_event_type,p_subject_spot_id,p_related_spot_id,p_external_namespace,p_external_reference_hash,approval_id,pg_catalog.clock_timestamp(),coalesce(p_reason_codes,array['ADMIN_RECORDED']),v_event_hash) returning id into event_id;
+  insert into world_knowledge_private.identity_events(event_type,subject_spot_id,related_spot_id,external_namespace,external_reference_hash,authority_record_id,recorded_by_binding_id,idempotency_key,occurred_at,reason_codes,event_hash)
+  values(p_event_type,p_subject_spot_id,p_related_spot_id,p_external_namespace,p_external_reference_hash,null,binding_id,p_idempotency_key,pg_catalog.clock_timestamp(),p_reason_codes,v_event_hash) returning id into event_id;
   return jsonb_build_object('identityEventId',event_id,'created',true,'automaticMerge',false);
 end $$;
 
 create or replace function public.world_shadow_rebuild_spot_v1(p_spot_id uuid,p_as_of timestamptz,p_mode text,p_idempotency_key text)
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare v_input_hash text; v_resolution_hash text; manifest_id uuid; snapshot jsonb; decision jsonb;
+declare v_input_hash text; v_resolution_hash text; v_manifest_hash text; manifest_id uuid; snapshot jsonb; decision jsonb;
 begin
-  if coalesce(auth.role(),'')<>'service_role' then raise exception 'shadow_rebuild_service_only' using errcode='42501'; end if;
   if p_mode not in ('FULL','INCREMENTAL') or p_as_of is null or p_as_of>pg_catalog.clock_timestamp()+interval '60 seconds' then raise exception 'invalid_rebuild_request' using errcode='22023'; end if;
   if not exists(select 1 from public.spots s where s.id=p_spot_id and s.data_origin in ('TEST','FIXTURE')) and not exists(select 1 from world_knowledge_private.shadow_spot_allowlist a where a.spot_id=p_spot_id and a.valid_until>pg_catalog.clock_timestamp()) then raise exception 'shadow_spot_not_allowlisted' using errcode='42501'; end if;
   select encode(extensions.digest(pg_catalog.convert_to(coalesce(string_agg(c.content_hash,',' order by c.content_hash),'')||':backyrd.world-knowledge.registry@1.1:backyrd.world-knowledge.source-policy@3b.1:'||p_as_of::text,'UTF8'),'sha256'),'hex') into v_input_hash from world_knowledge_private.claims c where c.spot_id=p_spot_id and c.observed_at<=p_as_of;
@@ -476,15 +564,16 @@ begin
   -- Public contact is World information; Decision projection deliberately omits every contact key.
   select jsonb_build_object('contractVersion','backyrd.world-knowledge.shadow-decision-projection@1.0','spotId',p_spot_id,'registryVersion',snapshot->>'registryVersion','policyVersion',snapshot->>'policyVersion','facts',coalesce(jsonb_agg(item order by item->>'key') filter(where item->>'key' not like 'contact.%' and item->>'key'<>'description.highlight'),'[]'::jsonb),'explicitUnknowns',snapshot->'explicitUnknowns','conflicts',snapshot->'conflicts') into decision from jsonb_array_elements(snapshot->'facts') item;
   v_resolution_hash:=encode(extensions.digest(pg_catalog.convert_to(snapshot::text,'UTF8'),'sha256'),'hex');
+  v_manifest_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object('spotId',p_spot_id,'registryVersion','backyrd.world-knowledge.registry@1.1','policyVersion','backyrd.world-knowledge.source-policy@3b.1','asOf',p_as_of,'inputHash',v_input_hash,'resolutionHash',v_resolution_hash)::text,'UTF8'),'sha256'),'hex');
   select m.id into manifest_id from world_knowledge_private.resolution_manifests m where m.spot_id=p_spot_id and m.registry_version='backyrd.world-knowledge.registry@1.1' and m.policy_version='backyrd.world-knowledge.source-policy@3b.1' and m.input_hash=v_input_hash;
   if not found then
-    insert into world_knowledge_private.resolution_manifests(spot_id,registry_version,policy_version,as_of,input_hash,resolution_hash,world_snapshot,decision_projection) values(p_spot_id,'backyrd.world-knowledge.registry@1.1','backyrd.world-knowledge.source-policy@3b.1',p_as_of,v_input_hash,v_resolution_hash,snapshot,decision) returning id into manifest_id;
+    insert into world_knowledge_private.resolution_manifests(spot_id,registry_version,policy_version,as_of,input_hash,resolution_hash,manifest_hash,world_snapshot,decision_projection) values(p_spot_id,'backyrd.world-knowledge.registry@1.1','backyrd.world-knowledge.source-policy@3b.1',p_as_of,v_input_hash,v_resolution_hash,v_manifest_hash,snapshot,decision) returning id into manifest_id;
     insert into world_knowledge_private.resolution_entries(manifest_id,attribute_key,scope,resolution,value,trust,freshness,basis_claim_hashes,conflict_claim_hashes,entry_hash)
     select manifest_id,item->>'key',item->>'scope',item->>'resolution',item->'value',item->>'trust',item->>'freshness',array(select jsonb_array_elements_text(item->'basisClaimHashes')),case when item->>'resolution'='DISPUTED' then array(select jsonb_array_elements_text(item->'basisClaimHashes')) else '{}' end,encode(extensions.digest(pg_catalog.convert_to(item::text,'UTF8'),'sha256'),'hex') from jsonb_array_elements(snapshot->'facts') item;
   end if;
   insert into world_knowledge_private.current_projection_pointers(spot_id,manifest_id) values(p_spot_id,manifest_id) on conflict(spot_id) do update set manifest_id=excluded.manifest_id,updated_at=pg_catalog.clock_timestamp();
   insert into world_knowledge_private.rebuild_jobs(spot_id,idempotency_key,mode,status,completed_at,manifest_id) values(p_spot_id,p_idempotency_key,p_mode,'SUCCEEDED',pg_catalog.clock_timestamp(),manifest_id) on conflict(idempotency_key) do nothing;
-  return jsonb_build_object('manifestId',manifest_id,'resolutionHash',v_resolution_hash,'inputHash',v_input_hash,'mode',p_mode,'worldSnapshot',snapshot,'decisionProjection',decision);
+  return jsonb_build_object('manifestId',manifest_id,'manifestHash',v_manifest_hash,'resolutionHash',v_resolution_hash,'inputHash',v_input_hash,'mode',p_mode,'worldSnapshot',snapshot,'decisionProjection',decision);
 end $$;
 
 comment on schema world_knowledge_private is 'Slice 3B private, append-only World Knowledge ledger and shadow resolver internals; not a Data API surface.';
@@ -570,27 +659,67 @@ create trigger world_validate_claim_insert before insert on world_knowledge_priv
 
 create or replace function world_knowledge_private.validate_verification_insert_v1()
 returns trigger language plpgsql security definer set search_path='' as $$
-declare claim world_knowledge_private.claims%rowtype; binding world_knowledge_private.actor_bindings%rowtype; expected_hash text;
+declare
+  claim world_knowledge_private.claims%rowtype;
+  binding world_knowledge_private.actor_bindings%rowtype;
+  expected_freshness_ref text;
+  expected_hash text;
 begin
   select * into claim from world_knowledge_private.claims where id=new.claim_id;
   select * into binding from world_knowledge_private.actor_bindings where id=new.verifier_binding_id;
-  if claim.id is null or binding.id is null or new.claim_hash<>claim.content_hash or new.spot_id<>claim.spot_id or new.attribute_key<>claim.attribute_key or new.policy_version<>claim.policy_version or new.checked_at<claim.observed_at then raise exception 'verification_binding_invalid' using errcode='22023'; end if;
-  if (new.verification_method='OWNER_CONFIRMED' and (new.execution_authority<>'SERVER_BOUND_OWNER_WRITE' or binding.actor_type<>'VERIFIED_OWNER' or claim.actor_type<>'VERIFIED_OWNER')) or (new.verification_method='ADMIN_CONFIRMED' and (new.execution_authority<>'SERVER_BOUND_ADMIN_WRITE' or binding.actor_type<>'ADMIN' or claim.actor_type<>'ADMIN')) then raise exception 'verification_authority_invalid' using errcode='42501'; end if;
+  if claim.id is null or binding.id is null or new.claim_hash<>claim.content_hash or new.spot_id<>claim.spot_id or new.attribute_key<>claim.attribute_key or new.scope<>claim.scope or new.policy_version<>claim.policy_version or new.checked_at<claim.observed_at or new.checked_at>pg_catalog.clock_timestamp()+interval '60 seconds' then raise exception 'verification_binding_invalid' using errcode='22023'; end if;
+  expected_freshness_ref:=case when claim.attribute_key='state.current' then 'freshness:current-state:explicit-valid-until' when claim.attribute_key='hours.special' then 'freshness:special-hours:date-bound' when claim.attribute_key like 'hours.%' then 'freshness:opening-hours:confirmed-until-changed' else 'freshness:durable-until-contradicted' end;
+  if new.reverification_policy_ref<>expected_freshness_ref or new.reason_codes<>array['SERVER_ACTOR_SCOPE_AND_PAYLOAD_CONFIRMED']::text[] or new.result<>'VERIFIED' then raise exception 'verification_policy_binding_invalid' using errcode='22023'; end if;
+  if new.verification_method='OWNER_CONFIRMED' then
+    if new.execution_authority<>'SERVER_BOUND_OWNER_WRITE' or binding.actor_type<>'VERIFIED_OWNER' or binding.actor_id is null or claim.actor_type<>'VERIFIED_OWNER' or claim.actor_binding_id<>binding.id or not exists(select 1 from public.spots s where s.id=claim.spot_id and s.owner_id=binding.actor_id) then raise exception 'verification_authority_invalid' using errcode='42501'; end if;
+  elsif new.verification_method='ADMIN_CONFIRMED' then
+    if new.execution_authority<>'SERVER_BOUND_ADMIN_WRITE' or binding.actor_type<>'ADMIN' or binding.actor_id is null or claim.actor_type<>'ADMIN' or claim.actor_binding_id<>binding.id or not public.is_admin_v1(binding.actor_id) then raise exception 'verification_authority_invalid' using errcode='42501'; end if;
+  else
+    raise exception 'independent_process_authority_not_configured' using errcode='42501';
+  end if;
   if claim.source_type='AI_INFERENCE' and new.result='VERIFIED' then raise exception 'ai_cannot_self_verify' using errcode='42501'; end if;
-  expected_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object('claimId',new.claim_id,'claimHash',new.claim_hash,'spotId',new.spot_id,'attributeKey',new.attribute_key,'policyVersion',new.policy_version,'method',new.verification_method,'authority',new.execution_authority,'verifierBinding',new.verifier_binding_id,'result',new.result,'checkedAt',new.checked_at,'reverificationPolicyRef',new.reverification_policy_ref,'reasonCodes',to_jsonb(new.reason_codes))::text,'UTF8'),'sha256'),'hex');
+  expected_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object('claimId',new.claim_id,'claimHash',new.claim_hash,'spotId',new.spot_id,'attributeKey',new.attribute_key,'scope',new.scope,'policyVersion',new.policy_version,'method',new.verification_method,'authority',new.execution_authority,'verifierBinding',new.verifier_binding_id,'result',new.result,'checkedAt',new.checked_at,'reverificationPolicyRef',new.reverification_policy_ref,'reasonCodes',to_jsonb(new.reason_codes))::text,'UTF8'),'sha256'),'hex');
   if new.result_hash<>expected_hash then raise exception 'verification_result_hash_mismatch' using errcode='22023'; end if;
   return new;
 end $$;
 create trigger world_validate_verification_insert before insert on world_knowledge_private.verification_records for each row execute function world_knowledge_private.validate_verification_insert_v1();
+
+create or replace function world_knowledge_private.validate_confirmation_insert_v1()
+returns trigger language plpgsql security definer set search_path='' as $$
+declare
+  claim world_knowledge_private.claims%rowtype;
+  binding world_knowledge_private.actor_bindings%rowtype;
+  expected_hash text;
+begin
+  select * into claim from world_knowledge_private.claims where id=new.claim_id;
+  select * into binding from world_knowledge_private.actor_bindings where id=new.actor_binding_id;
+  if claim.id is null or binding.id is null or new.claim_hash<>claim.content_hash or new.policy_version<>claim.policy_version or new.confirmed_at<claim.observed_at or new.confirmed_at>pg_catalog.clock_timestamp()+interval '60 seconds' or new.confirmation_due_at<>new.confirmed_at+interval '3 months' or new.reconfirmation_policy_ref<>'confirmation:quarterly-request-v1' or length(trim(coalesce(new.idempotency_key,''))) not between 1 and 180 then raise exception 'confirmation_binding_invalid' using errcode='22023'; end if;
+  if new.confirmation_method='OWNER_CONFIRMED' then
+    if binding.actor_type<>'VERIFIED_OWNER' or binding.actor_id is null or claim.actor_type<>'VERIFIED_OWNER' or claim.actor_binding_id<>binding.id or not exists(select 1 from public.spots s where s.id=claim.spot_id and s.owner_id=binding.actor_id) then raise exception 'confirmation_authority_invalid' using errcode='42501'; end if;
+  elsif new.confirmation_method='ADMIN_CONFIRMED' then
+    if binding.actor_type<>'ADMIN' or binding.actor_id is null or not public.is_admin_v1(binding.actor_id) then raise exception 'confirmation_authority_invalid' using errcode='42501'; end if;
+  else
+    raise exception 'confirmation_authority_invalid' using errcode='42501';
+  end if;
+  expected_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object(
+    'claimId',new.claim_id,'claimHash',new.claim_hash,'actorBinding',new.actor_binding_id,'confirmationMethod',new.confirmation_method,
+    'confirmedAt',new.confirmed_at,'confirmationDueAt',new.confirmation_due_at,'policyVersion',new.policy_version,
+    'reconfirmationPolicyRef',new.reconfirmation_policy_ref,'idempotencyIdentity',new.idempotency_key
+  )::text,'UTF8'),'sha256'),'hex');
+  if new.record_hash<>expected_hash then raise exception 'confirmation_record_hash_mismatch' using errcode='22023'; end if;
+  return new;
+end $$;
+create trigger world_validate_confirmation_insert before insert on world_knowledge_private.confirmation_records for each row execute function world_knowledge_private.validate_confirmation_insert_v1();
 
 create or replace function world_knowledge_private.get_actor_binding_v1(p_actor_id uuid,p_actor_type text)
 returns uuid language plpgsql security definer set search_path='' as $$
 declare binding_id uuid;
 begin
   if p_actor_id is null or p_actor_type not in ('VERIFIED_OWNER','ADMIN','SYSTEM','PUBLIC_CONTRIBUTOR') then raise exception 'invalid_actor_binding' using errcode='22023'; end if;
-  insert into world_knowledge_private.actor_bindings(actor_id,actor_pseudonym_hash,actor_type)
-  values(p_actor_id,encode(extensions.digest(pg_catalog.convert_to(p_actor_id::text||':world-knowledge-actor','UTF8'),'sha256'),'hex'),p_actor_type)
-  on conflict(actor_id,actor_type) do update set actor_id=excluded.actor_id returning id into binding_id;
+  select id into binding_id from world_knowledge_private.actor_bindings where actor_id=p_actor_id and actor_type=p_actor_type;
+  if found then return binding_id; end if;
+  insert into world_knowledge_private.actor_bindings(actor_id,actor_type)
+  values(p_actor_id,p_actor_type) returning id into binding_id;
   return binding_id;
 end $$;
 
@@ -631,9 +760,9 @@ begin
     reason_values text[]:=array['SERVER_ACTOR_SCOPE_AND_PAYLOAD_CONFIRMED'];
     verification_hash text;
   begin
-    verification_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object('claimId',v_claim_id,'claimHash',content_hash,'spotId',p_spot_id,'attributeKey',p_attribute_key,'policyVersion','backyrd.world-knowledge.source-policy@3b.1','method',method,'authority',authority,'verifierBinding',binding_id,'result','VERIFIED','checkedAt',checked_at_value,'reverificationPolicyRef',freshness_ref,'reasonCodes',to_jsonb(reason_values))::text,'UTF8'),'sha256'),'hex');
-    insert into world_knowledge_private.verification_records(claim_id,claim_hash,spot_id,attribute_key,policy_version,verification_method,execution_authority,verifier_binding_id,result,checked_at,reverification_policy_ref,reason_codes,result_hash)
-    values(v_claim_id,content_hash,p_spot_id,p_attribute_key,'backyrd.world-knowledge.source-policy@3b.1',method,authority,binding_id,'VERIFIED',checked_at_value,freshness_ref,reason_values,verification_hash);
+    verification_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object('claimId',v_claim_id,'claimHash',content_hash,'spotId',p_spot_id,'attributeKey',p_attribute_key,'scope','SPOT','policyVersion','backyrd.world-knowledge.source-policy@3b.1','method',method,'authority',authority,'verifierBinding',binding_id,'result','VERIFIED','checkedAt',checked_at_value,'reverificationPolicyRef',freshness_ref,'reasonCodes',to_jsonb(reason_values))::text,'UTF8'),'sha256'),'hex');
+    insert into world_knowledge_private.verification_records(claim_id,claim_hash,spot_id,attribute_key,scope,policy_version,verification_method,execution_authority,verifier_binding_id,result,checked_at,reverification_policy_ref,reason_codes,result_hash)
+    values(v_claim_id,content_hash,p_spot_id,p_attribute_key,'SPOT','backyrd.world-knowledge.source-policy@3b.1',method,authority,binding_id,'VERIFIED',checked_at_value,freshness_ref,reason_values,verification_hash);
   end;
   if shadow_hold then insert into world_knowledge_private.review_work_items(spot_id,work_class,priority,attribute_key,candidate_payload,reason_codes) values(p_spot_id,'CONTENT_SAFETY','HIGH',p_attribute_key,jsonb_build_object('claimId',v_claim_id),array['NEW_TEXT_SHADOW_HELD']); end if;
   if exists(select 1 from world_knowledge_private.claims c join world_knowledge_private.verification_records v on v.claim_id=c.id and v.result='VERIFIED' where c.spot_id=p_spot_id and c.attribute_key=p_attribute_key and c.id<>v_claim_id and c.value is distinct from p_value and c.observed_at between p_observed_at-interval '5 minutes' and p_observed_at+interval '5 minutes') then insert into world_knowledge_private.review_work_items(spot_id,work_class,priority,attribute_key,candidate_payload,reason_codes) values(p_spot_id,'AUTHORITY_CONFLICT','HIGH',p_attribute_key,jsonb_build_object('claimId',v_claim_id),array['CONCURRENT_AUTHORITATIVE_CONFLICT']); end if;
@@ -650,7 +779,7 @@ returns jsonb language sql security definer set search_path='' as $$
   select world_knowledge_private.submit_authoritative_claim_v1('ADMIN',p_spot_id,p_attribute_key,p_knowledge_state,p_value,p_observed_at,p_valid_from,p_valid_until,p_visibility,p_supersedes_claim_id,p_idempotency_key);
 $$;
 
-revoke execute on function world_knowledge_private.reject_immutable_mutation_v1(),world_knowledge_private.attribute_value_valid_v1(text,text,text,jsonb),world_knowledge_private.text_requires_shadow_v1(text,jsonb),world_knowledge_private.validate_claim_insert_v1(),world_knowledge_private.validate_verification_insert_v1(),world_knowledge_private.get_actor_binding_v1(uuid,text),world_knowledge_private.submit_authoritative_claim_v1(text,uuid,text,text,jsonb,timestamptz,timestamptz,timestamptz,text,uuid,text) from public,anon,authenticated;
+revoke execute on function world_knowledge_private.reject_immutable_mutation_v1(),world_knowledge_private.detach_actor_binding_v1(),world_knowledge_private.attribute_value_valid_v1(text,text,text,jsonb),world_knowledge_private.text_requires_shadow_v1(text,jsonb),world_knowledge_private.validate_claim_insert_v1(),world_knowledge_private.validate_verification_insert_v1(),world_knowledge_private.validate_confirmation_insert_v1(),world_knowledge_private.get_actor_binding_v1(uuid,text),world_knowledge_private.submit_authoritative_claim_v1(text,uuid,text,text,jsonb,timestamptz,timestamptz,timestamptz,text,uuid,text) from public,anon,authenticated,service_role;
 revoke execute on function public.world_owner_submit_claim_v1(uuid,text,text,jsonb,timestamptz,timestamptz,timestamptz,text,uuid,text),public.world_admin_submit_claim_v1(uuid,text,text,jsonb,timestamptz,timestamptz,timestamptz,text,uuid,text),public.world_confirm_claim_v1(uuid,text),public.world_submit_user_report_v1(uuid,text,jsonb,text),public.world_admin_record_identity_event_v1(text,uuid,uuid,text,text,text[],text),public.world_shadow_rebuild_spot_v1(uuid,timestamptz,text,text) from public,anon,authenticated;
 grant execute on function public.world_owner_submit_claim_v1(uuid,text,text,jsonb,timestamptz,timestamptz,timestamptz,text,uuid,text),public.world_confirm_claim_v1(uuid,text),public.world_submit_user_report_v1(uuid,text,jsonb,text) to authenticated;
 grant execute on function public.world_admin_submit_claim_v1(uuid,text,text,jsonb,timestamptz,timestamptz,timestamptz,text,uuid,text),public.world_admin_record_identity_event_v1(text,uuid,uuid,text,text,text[],text) to authenticated;

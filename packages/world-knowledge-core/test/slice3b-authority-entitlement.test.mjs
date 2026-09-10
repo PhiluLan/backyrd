@@ -70,16 +70,17 @@ test("price levels are typed without currency conversion and public email is del
 test("current state expires, confirmation is append-only metadata", () => {
   assert.throws(() => createServerVerifiedClaim(baseRequest({ attributeKey: "state.current", knowledgeState: "KNOWN_VALUE", value: { kind: "OPEN", scope: "VENUE" }, idempotencyKey: "state-no-expiry" }), context()), /requires expiry/);
   const owner = createServerVerifiedClaim(baseRequest(), context());
-  const confirmation = createConfirmationRecord({ recordId: "confirmation:1", claimId: owner.claim.claimId, claimHash: owner.claim.contentHash, spotId: owner.claim.scope.spotId, confirmedAt: "2026-12-10T18:00:00.000Z", confirmedByActorType: "VERIFIED_OWNER", method: "OWNER_CONFIRMED", changesSemanticValue: false }, owner.claim);
+  const confirmation = createConfirmationRecord({ recordId: "confirmation:1", claimId: owner.claim.claimId, claimHash: owner.claim.contentHash, spotId: owner.claim.scope.spotId, actorBindingId: "binding:owner", confirmedAt: "2026-12-10T18:00:00.000Z", confirmationDueAt: "2027-03-10T18:00:00.000Z", confirmedByActorType: "VERIFIED_OWNER", method: "OWNER_CONFIRMED", policyVersion: ACCEPTED_POLICY_VERSION, reconfirmationPolicyRef: "confirmation:quarterly-request-v1", idempotencyKey: "confirmation:owner:1", changesSemanticValue: false }, owner.claim);
   assert.equal(confirmation.claimHash, owner.claim.contentHash);
   assert.equal(confirmation.changesSemanticValue, false);
   assert.throws(() => createConfirmationRecord({ ...confirmation, recordHash: undefined, changesSemanticValue: true }, owner.claim), /unknown field|unchanged/);
 });
 
 test("identity mutation and holiday reminders require explicit authority and exact scope", () => {
-  assert.throws(() => createIdentityEvent({ eventId: "identity:merge", eventType: "MERGE_CONFIRMED", subjectSpotId: "spot:a", relatedSpotId: "spot:b", externalNamespace: null, externalReferenceHash: null, authorityRecordId: null, occurredAt: "2026-09-10T18:00:00.000Z", reasonCodes: ["DUPLICATE_CONFIRMED"] }), /accepted authority/);
+  assert.throws(() => createIdentityEvent({ eventId: "identity:merge", eventType: "MERGE_CONFIRMED", subjectSpotId: "spot:a", relatedSpotId: "spot:b", externalNamespace: null, externalReferenceHash: null, authorityRecordId: "registry:approval", occurredAt: "2026-09-10T18:00:00.000Z", reasonCodes: ["DUPLICATE_CONFIRMED"] }), /IDENTITY_OPERATION_AUTHORITY_NOT_CONFIGURED/);
   const event = createIdentityEvent({ eventId: "identity:candidate", eventType: "DUPLICATE_SUSPECTED", subjectSpotId: "spot:a", relatedSpotId: "spot:b", externalNamespace: null, externalReferenceHash: null, authorityRecordId: null, occurredAt: "2026-09-10T18:00:00.000Z", reasonCodes: ["PROVIDER_REFERENCE_MATCH"] });
   assert.equal(event.eventType, "DUPLICATE_SUSPECTED");
+  assert.throws(() => createIdentityEvent({ eventId: "identity:missing-pair", eventType: "MERGE_PROPOSED", subjectSpotId: "spot:a", relatedSpotId: null, externalNamespace: null, externalReferenceHash: null, authorityRecordId: null, occurredAt: "2026-09-10T18:00:00.000Z", reasonCodes: ["PAIR_REQUIRED"] }), /distinct pair/);
   assert.throws(() => createHolidayReminder({ workItemId: "holiday:1", spotId: "spot:a", holidayCalendarVersion: "ch-zh:1", countryCode: "CH", regionCode: "ZH", holidayDate: "2026-12-25", holidayKey: "christmas", askAt: "2026-12-19T00:00:00.000Z", state: "PLANNED" }), /seven days/);
 });
 
