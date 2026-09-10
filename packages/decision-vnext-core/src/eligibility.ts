@@ -31,6 +31,18 @@ function result(candidate: CandidatePoolSnapshot["candidates"][number]["candidat
   }, "resultHash"));
 }
 
+export function validateEligibilityResult(resultValue: EligibilityResult): void {
+  const parsed = EligibilityResultSchema.parse(resultValue);
+  assertContentHash(parsed as unknown as Record<string, unknown>, "resultHash");
+  if (parsed.checks.length !== 3 || new Set(parsed.checks.map((check) => check.ruleId)).size !== parsed.checks.length) throw new Error("eligibility_rule_identity_invalid");
+  for (const check of parsed.checks) {
+    assertContentHash(check as unknown as Record<string, unknown>, "proofHash");
+    if (check.rulesetVersion !== PHASE1_VERSIONS.eligibility) throw new Error("eligibility_ruleset_unsupported");
+    if (check.outcome === "unknown" && check.unknownPolicy === "not-applicable") throw new Error("eligibility_unknown_policy_invalid");
+  }
+  if (parsed.eligible !== parsed.checks.every((check) => check.outcome === "pass")) throw new Error("eligibility_boolean_mismatch");
+}
+
 export function applyPhase1Eligibility(pool: CandidatePoolSnapshot, context: DecisionContextSnapshot): {
   readonly eligible: readonly EligibleCandidate[];
   readonly rejected: readonly EligibilityResult[];

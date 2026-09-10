@@ -1,10 +1,10 @@
 import { identifier, schema, sha256, timestamp, version, type Infer } from "./schema.js";
 
 export const CONTRACT_VERSIONS = Object.freeze({
-  decisionRequest: "backyrd-vnext-decision-request-v2", executionEnvelope: "backyrd-vnext-execution-envelope-v2", contextSnapshot: "backyrd-vnext-situational-context-v1",
-  worldAdapter: "backyrd-vnext-world-adapter-v1", userAdapter: "backyrd-vnext-user-adapter-v1", worldCandidate: "backyrd-vnext-world-candidate-v2", candidatePool: "backyrd-vnext-candidate-pool-v2",
+  decisionRequest: "backyrd-vnext-decision-request-v2", executionEnvelope: "backyrd-vnext-execution-envelope-v3", contextSnapshot: "backyrd-vnext-situational-context-v2",
+  worldAdapter: "backyrd-vnext-world-adapter-v2", userAdapter: "backyrd-vnext-user-adapter-v1", worldCandidate: "backyrd-vnext-world-candidate-v2", candidatePool: "backyrd-vnext-candidate-pool-v2",
   eligibility: "backyrd-vnext-eligibility-result-v2", fitDimensions: "backyrd-vnext-fit-dimensions-v2", confidence: "backyrd-vnext-confidence-v2", evidence: "backyrd-vnext-evidence-v2",
-  recommendation: "backyrd-vnext-recommendation-v2", decisionResult: "backyrd-vnext-decision-result-v2", engineManifest: "backyrd-vnext-engine-manifest-v2",
+  recommendation: "backyrd-vnext-recommendation-v2", decisionResult: "backyrd-vnext-decision-result-v3", engineManifest: "backyrd-vnext-engine-manifest-v3",
 } as const);
 
 const key = schema.string({ min: 1, max: 180, pattern: /^[A-Za-z0-9][A-Za-z0-9_.:@/-]*$/ });
@@ -31,30 +31,35 @@ export type DecisionRequest = Infer<typeof DecisionRequestSchema>;
 
 export const SourceBindingSchema = schema.object({ contractVersion: key, id: identifier, hash: sha256 });
 export const WorldBindingSchema = schema.object({ portContractVersion: key, registryVersion: key, registryHash: sha256, ruleRegistryVersion: key, ruleRegistryHash: sha256, snapshotSetHash: sha256 });
-export const UserBindingSchema = schema.object({ projectionContractVersion: key, projectionId: identifier, projectionHash: sha256, manifestId: identifier, manifestHash: sha256, subjectBindingHash: sha256 });
+const UserNeutralReasonSchema = schema.enum(["NO_CONSENT", "INSUFFICIENT_CONFIDENCE", "WRONG_DOMAIN", "CONTEXT_MISMATCH", "ITEM_BUDGET", "BYTE_BUDGET", "UNKNOWN_CONCEPT", "CONFLICT", "EXPIRED_EVIDENCE", "COLD_START", "MISSING_SNAPSHOT", "INCOMPATIBLE_VERSION", "KILL_SWITCH"]);
+export const UserBindingSchema = schema.object({ projectionContractVersion: key, projectionId: identifier, projectionHash: sha256, manifestId: identifier, manifestHash: sha256, subjectBindingHash: sha256, status: schema.enum(["ACTIVE", "NEUTRAL"]), neutralReason: schema.union([UserNeutralReasonSchema, schema.literal(null)]) });
 
 export const SituationalContextSnapshotSchema = schema.object({
   contractVersion: version(CONTRACT_VERSIONS.contextSnapshot), decisionId: identifier, sessionId: identifier, resolvedAt: timestamp,
-  explicit: schema.object({ location: schema.object({ kind: schema.literal("city"), city }), intentKeys: schema.array(key, { max: 20 }), moodKeys: schema.array(key, { max: 20 }), socialContext: schema.optional(key), occasion: schema.optional(key), hardConstraints: schema.array(HardConstraintSchema, { max: 20 }), softPreferences: schema.array(SoftPreferenceSchema, { max: 20 }), shownCandidateIds: schema.array(identifier, { max: 100 }), rejectedCandidateIds: schema.array(identifier, { max: 100 }) }),
-  serverBound: schema.object({ actorSubjectBindingHash: sha256, authorizedLocationScope: schema.object({ kind: schema.literal("city"), city }), canonicalTime: timestamp }),
-  derived: schema.array(schema.object({ namespace: key, state: schema.enum(["DERIVED", "UNKNOWN", "NOT_CONFIGURED"]), sourceHashes: schema.array(sha256, { max: 20 }) }), { max: 30 }),
+  explicit: schema.object({ location: schema.object({ kind: schema.literal("city"), city }), intentKeys: schema.array(key, { max: 20 }), moodKeys: schema.array(key, { max: 20 }), socialContext: schema.optional(key), occasion: schema.optional(key), budget: PlaceholderDimensionSchema, availableTime: PlaceholderDimensionSchema, weather: PlaceholderDimensionSchema, exploration: PlaceholderDimensionSchema, hardConstraints: schema.array(HardConstraintSchema, { max: 20 }), softPreferences: schema.array(SoftPreferenceSchema, { max: 20 }), shownCandidateIds: schema.array(identifier, { max: 100 }), rejectedCandidateIds: schema.array(identifier, { max: 100 }) }),
+  serverBound: schema.object({ actorSubjectBindingHash: sha256, authorizedLocationScope: schema.object({ kind: schema.literal("city"), city }), canonicalTime: timestamp, locationAuthority: schema.object({ clientLocationHash: sha256, authorizedScopeHash: sha256, comparison: schema.literal("MATCH") }) }),
+  derived: schema.array(schema.union([
+    schema.object({ namespace: key, state: schema.literal("DERIVED"), sourceHashes: schema.array(sha256, { min: 1, max: 20 }) }),
+    schema.object({ namespace: key, state: schema.enum(["UNKNOWN", "NOT_CONFIGURED"]), sourceHashes: schema.array(sha256, { max: 20 }) }),
+  ]), { max: 30 }),
   limitations: schema.array(key, { max: 30 }), rawLocationPersisted: schema.literal(false), writesUserIntelligence: schema.literal(false), contextHash: sha256,
 });
 export type SituationalContextSnapshot = Infer<typeof SituationalContextSnapshotSchema>;
 export type DecisionContextSnapshot = SituationalContextSnapshot;
 
 export const EngineManifestSchema = schema.object({
-  contractVersion: version(CONTRACT_VERSIONS.engineManifest), contractSetVersion: schema.literal("backyrd-vnext-contract-set-v2"), decisionRequestVersion: schema.literal(CONTRACT_VERSIONS.decisionRequest), executionEnvelopeVersion: schema.literal(CONTRACT_VERSIONS.executionEnvelope), decisionResultVersion: schema.literal(CONTRACT_VERSIONS.decisionResult),
+  contractVersion: version(CONTRACT_VERSIONS.engineManifest), contractSetVersion: schema.literal("backyrd-vnext-contract-set-v3"), decisionRequestVersion: schema.literal(CONTRACT_VERSIONS.decisionRequest), executionEnvelopeVersion: schema.literal(CONTRACT_VERSIONS.executionEnvelope), decisionResultVersion: schema.literal(CONTRACT_VERSIONS.decisionResult),
   engineVersion: identifier, sourceSha: schema.string({ pattern: /^(?:[a-f0-9]{40}|phase1-[a-z0-9-]+)$/ }), sandboxWorldVersion: identifier,
   worldPortVersion: key, worldRegistryVersion: key, worldRegistryHash: sha256, worldRuleRegistryVersion: key, worldRuleRegistryHash: sha256, userProjectionVersion: key, userManifestVersion: key,
   contextVersion: key, candidateGeneratorVersion: identifier, candidatePoolVersion: key, eligibilityRulesetVersion: identifier, unknownPolicyVersion: identifier, featureSetVersion: identifier,
-  rankingVersion: identifier, weightFixtureVersion: key, confidenceVersion: identifier, evidenceVersion: identifier, explanationVersion: identifier, explorationPolicyVersion: key, manifestHash: sha256,
+  openingStateVersion: identifier, openingSourcePolicyVersion: key, rankingVersion: identifier, weightFixtureVersion: key, confidenceVersion: identifier, evidenceVersion: identifier, explanationVersion: identifier, explorationPolicyVersion: key, manifestHash: sha256,
 });
 export type EngineManifest = Infer<typeof EngineManifestSchema>;
 
 export const DecisionExecutionEnvelopeSchema = schema.object({
   contractVersion: version(CONTRACT_VERSIONS.executionEnvelope), authenticatedActor: schema.union([schema.object({ kind: schema.literal("user"), userId: identifier, subjectBindingHash: sha256 }), schema.object({ kind: schema.literal("anonymous"), subjectBindingHash: sha256 })]),
   decisionId: identifier, serverRequestId: identifier, sessionId: identifier, executedAt: timestamp, rolloutMode: schema.enum(["evaluation", "shadow"]), deadlineAt: timestamp, serverIdempotencyKey: identifier,
+  authorizedLocationScope: schema.object({ kind: schema.literal("city"), city }),
   contextBinding: SourceBindingSchema, worldBinding: WorldBindingSchema, userBinding: UserBindingSchema, candidatePoolBinding: SourceBindingSchema, engineManifest: EngineManifestSchema,
   degradationState: schema.array(key, { max: 30 }), personalizationKillSwitch: schema.boolean(), commercialInfluence: schema.literal("FORBIDDEN"), envelopeHash: sha256,
 });
@@ -90,7 +95,7 @@ export const AuthorizedReasonSchema = schema.object({ reasonCode: schema.enum(["
 export type AuthorizedReason = Infer<typeof AuthorizedReasonSchema>;
 export const DecisionRecommendationSchema = schema.object({ contractVersion: version(CONTRACT_VERSIONS.recommendation), spotId: identifier, rank: schema.number({ integer: true, min: 1 }), eligibility: EligibilityResultSchema, fit: FitDimensionsSchema, confidence: ConfidenceSchema, reasons: schema.array(AuthorizedReasonSchema, { max: 10 }), recommendationHash: sha256 });
 export type DecisionRecommendation = Infer<typeof DecisionRecommendationSchema>;
-export const DecisionResultSchema = schema.object({ contractVersion: version(CONTRACT_VERSIONS.decisionResult), decisionId: identifier, serverRequestId: identifier, mode: schema.enum(["evaluation", "shadow"]), createdAt: timestamp, requestHash: sha256, executionEnvelopeHash: sha256, contextSnapshot: SituationalContextSnapshotSchema, worldBinding: WorldBindingSchema, userBinding: UserBindingSchema, candidatePool: CandidatePoolSnapshotSchema, engineManifest: EngineManifestSchema, baseline: schema.enum(["baseline-a-open-distance-popularity", "baseline-b-mood-intent"]), eligibilityResults: schema.array(EligibilityResultSchema, { max: 500 }), recommendations: schema.array(DecisionRecommendationSchema, { max: 20 }), limitations: schema.array(key, { max: 50 }), resultHash: sha256 });
+export const DecisionResultSchema = schema.object({ contractVersion: version(CONTRACT_VERSIONS.decisionResult), decisionId: identifier, serverRequestId: identifier, mode: schema.enum(["evaluation", "shadow"]), createdAt: timestamp, requestHash: sha256, executionEnvelopeHash: sha256, contextSnapshot: SituationalContextSnapshotSchema, contextBinding: SourceBindingSchema, worldBinding: WorldBindingSchema, userBinding: UserBindingSchema, candidatePool: CandidatePoolSnapshotSchema, candidatePoolBinding: SourceBindingSchema, engineManifest: EngineManifestSchema, baseline: schema.enum(["baseline-a-open-distance-popularity", "baseline-b-mood-intent"]), eligibilityResults: schema.array(EligibilityResultSchema, { max: 500 }), recommendations: schema.array(DecisionRecommendationSchema, { max: 20 }), limitations: schema.array(key, { max: 50 }), resultHash: sha256 });
 export type DecisionResult = Infer<typeof DecisionResultSchema>;
 
 const eligibleCandidateBrand: unique symbol = Symbol("EligibleCandidate");

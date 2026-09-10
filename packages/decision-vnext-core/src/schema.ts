@@ -62,9 +62,10 @@ export const schema = {
       return value as T[number];
     }};
   },
-  array<S extends Schema<unknown>>(item: S, options: { max?: number } = {}): Schema<readonly Infer<S>[]> {
+  array<S extends Schema<unknown>>(item: S, options: { min?: number; max?: number } = {}): Schema<readonly Infer<S>[]> {
     return { parse(value, path) {
       if (!Array.isArray(value)) throw new ContractValidationError(location(path), "expected array");
+      if (options.min !== undefined && value.length < options.min) throw new ContractValidationError(location(path), `minimum items ${options.min}`);
       if (options.max !== undefined && value.length > options.max) throw new ContractValidationError(location(path), `maximum items ${options.max}`);
       return value.map((entry, index) => item.parse(entry, `${location(path)}[${index}]`) as Infer<S>);
     }};

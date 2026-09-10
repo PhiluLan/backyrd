@@ -28,7 +28,7 @@ const request = {
 };
 
 for (const baseline of ["baseline-a-open-distance-popularity", "baseline-b-mood-intent"]) {
-  const execution = createSyntheticExecution({ request, world, baseline, sourceSha, candidatePoolSize: config.candidatePoolSize });
+  const execution = createSyntheticExecution({ request, world, baseline, sourceSha, authorizedLocationScope: request.location, candidatePoolSize: config.candidatePoolSize });
   const result = runPhase1Decision({ request, execution, world, baseline, candidatePoolSize: config.candidatePoolSize, resultLimit: 3 });
   validateDecisionResultIntegrity(result);
   process.stdout.write(`${JSON.stringify({ baseline, worldHash: world.worldHash, candidatePoolHash: result.candidatePool.candidatePoolHash, resultHash: result.resultHash, recommendations: result.recommendations.map(({ spotId }) => spotId) })}\n`);

@@ -49,7 +49,7 @@ test("both baselines consume an identical frozen neutral pool", () => {
   assert.equal(resultA.candidatePool.candidatePoolHash, resultB.candidatePool.candidatePoolHash);
   assert.ok(Object.isFrozen(resultA.candidatePool));
   assert.deepEqual(resultA.candidatePool.candidates.map(({ candidate }) => candidate.spotId), resultB.candidatePool.candidates.map(({ candidate }) => candidate.spotId));
-  assert.ok(resultA.candidatePool.candidates.every((entry) => entry.retrievalSource.sourceId === "synthetic-neutral-world-adapter-v1" && entry.retrievalSource.personalized === false));
+  assert.ok(resultA.candidatePool.candidates.every((entry) => entry.retrievalSource.sourceId === "synthetic-neutral-world-adapter-v2" && entry.retrievalSource.personalized === false));
 });
 
 test("commercial counterfactual fields cannot cross the engine contract boundary", () => {

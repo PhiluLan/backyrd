@@ -31,5 +31,6 @@ export const request = () => ({
 });
 
 export const execution = (baseline = "baseline-a-open-distance-popularity", syntheticWorld = world()) => {
-  return createSyntheticExecution({ request: request(), world: syntheticWorld, baseline: baseline ?? "baseline-a-open-distance-popularity", sourceSha: "phase1-test-source", candidatePoolSize: 36 });
+  const value = request();
+  return createSyntheticExecution({ request: value, world: syntheticWorld, baseline: baseline ?? "baseline-a-open-distance-popularity", sourceSha: "phase1-test-source", authorizedLocationScope: value.location, candidatePoolSize: 36 });
 };

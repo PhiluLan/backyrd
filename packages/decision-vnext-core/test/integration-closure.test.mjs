@@ -46,9 +46,9 @@ test("context, world, user and candidate-pool bindings fail closed", () => {
 test("context flip and subject flip change authoritative identities without mutating World", () => {
   const synthetic = world(); const before = synthetic.worldHash; const first = execution(undefined, synthetic);
   const flippedRequest = { ...request(), location: { kind: "city", city: "Fixture Zurich" } };
-  const second = createSyntheticExecution({ request: flippedRequest, world: synthetic, baseline: "baseline-a-open-distance-popularity", sourceSha: "phase1-test-source", candidatePoolSize: 36 });
+  const second = createSyntheticExecution({ request: flippedRequest, world: synthetic, baseline: "baseline-a-open-distance-popularity", sourceSha: "phase1-test-source", authorizedLocationScope: flippedRequest.location, candidatePoolSize: 36 });
   assert.notEqual(first.contextBinding.hash, second.contextBinding.hash);
-  const userBound = createSyntheticExecution({ request: request(), world: synthetic, baseline: "baseline-a-open-distance-popularity", sourceSha: "phase1-test-source", candidatePoolSize: 36, actor: { kind: "user", userId: "syn-user-0001", subjectBindingHash: synthetic.users[0].subjectBindingHash } });
+  const userBound = createSyntheticExecution({ request: request(), world: synthetic, baseline: "baseline-a-open-distance-popularity", sourceSha: "phase1-test-source", authorizedLocationScope: request().location, candidatePoolSize: 36, actor: { kind: "user", userId: "syn-user-0001", subjectBindingHash: synthetic.users[0].subjectBindingHash } });
   assert.notEqual(first.userBinding.subjectBindingHash, userBound.userBinding.subjectBindingHash); assert.equal(synthetic.worldHash, before);
 });
 
@@ -56,5 +56,5 @@ test("unknown manifest and duplicated privileged client bindings are rejected", 
   const synthetic = world(); const envelope = execution(undefined, synthetic);
   assert.throws(() => DecisionExecutionEnvelopeSchema.parse({ ...envelope, contractVersion: "unknown" }), /expected|unknown contract version/);
   assert.throws(() => CandidatePoolSnapshotSchema.parse({ contractVersion: "unknown" }), /expected|required field/);
-  assert.throws(() => createSyntheticExecution({ request: { ...request(), worldSnapshot: synthetic.spots[0].snapshot }, world: synthetic, baseline: "baseline-a-open-distance-popularity", sourceSha: "phase1-test-source" }), /unknown field/);
+  assert.throws(() => createSyntheticExecution({ request: { ...request(), worldSnapshot: synthetic.spots[0].snapshot }, world: synthetic, baseline: "baseline-a-open-distance-popularity", sourceSha: "phase1-test-source", authorizedLocationScope: request().location }), /unknown field/);
 });

@@ -5,9 +5,9 @@ created by Phase 1.
 
 | Contract/data | Personal? / sensitivity | Source and purpose | Phase-1 persistence | Future retention direction | Export / deletion | Access | Replay / forensic alternative |
 |---|---|---|---|---|---|---|---|
-| `DecisionRequest` | potentially personal; location, social context and free text may be sensitive | explicit client input for one decision | memory/test only, synthetic | minimize precise location; short free-text retention | export and delete | owning user + server | retain normalized facts/hash after raw expiry |
+| `DecisionRequest` | potentially personal; location, social context, budget/time/weather/exploration placeholders and free text may be sensitive | explicit client input for one decision | memory/test only, synthetic | minimize precise location; short free-text and situational-value retention | export and delete | owning user + server | retain normalized facts/hash after raw expiry |
 | `DecisionExecutionEnvelope` | personal when authenticated; operational | server auth/session/rollout authority | memory/test only | bounded operational retention | actor/session mapping export/delete where personal | server only | manifest and pseudonymous execution ID |
-| `SituationalContextSnapshot` | personal; inferred situational context can be sensitive | explicit request plus server authority for one decision | embedded in synthetic result | bounded exact-replay window; raw location never retained in projection | export and delete | owning user + authorized service | later keep coarse facts, limitations, evidence and hash |
+| `SituationalContextSnapshot` | personal; explicit and inferred situational context can be sensitive | explicit request plus independently server-authorized location scope for one decision | embedded in synthetic result | bounded exact-replay window; raw location never retained in projection | export and delete | owning user + authorized service | later keep coarse facts, authority comparison, limitations, evidence and hash |
 | `WorldCandidate` | normally non-personal spot data | World adapter for candidacy | embedded synthetic | source-dependent | generally not user export; delete with source where required | engine/read adapter | content-addressed fact snapshot |
 | Canonical `WorldKnowledgeSnapshot` reference | normally non-personal; provenance may identify a contributor upstream | read-only canonical World port | snapshot generated synthetically; Decision stores hashes/readiness/evidence refs | source- and fact-class-specific outside Decision | contributor rights handled by World authority | World reader + engine adapter | registry/rule/snapshot identities and authorized evidence |
 | Canonical `RelevantUserProjection` | personal, minimized inference | consent-aware User Intelligence port | synthetic neutral projection in memory/result binding | no unlimited full projections; exact replay bounded | export/delete by User authority | server-only Decision adapter | manifest/projection hash and neutral reason |
@@ -28,6 +28,7 @@ created by Phase 1.
 - Production exact replay, if introduced, is time-limited and access-controlled.
 - Long-term forensic explanation is preferred over permanent raw snapshots.
 - Precise coordinates and raw free text are minimized.
+- Client location is never treated as server authorization; the current city-scope fixture binds both inputs separately without writing either into User Intelligence.
 - Ranking and future AI receive projections and evidence, never raw user history.
 - Every future persistent personal type must be assigned retention, export,
   deletion and consent behavior before its migration is approved.
