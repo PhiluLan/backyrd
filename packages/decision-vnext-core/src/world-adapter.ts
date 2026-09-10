@@ -17,12 +17,12 @@ function ev(base: Omit<EvidenceItem, "evidenceHash" | "evidenceId" | "signal" | 
   return EvidenceItemSchema.parse(withContentHash({ ...base, evidenceId: `ev-${base.spotId.slice(4)}-${suffix}`, signal, sourceReference, value, influence }, "evidenceHash"));
 }
 
-export function adaptWorldKnowledgeSnapshot(snapshotValue: unknown, fixture: SyntheticRetrievalFacts): WorldCandidate {
+export function adaptWorldKnowledgeSnapshot(snapshotValue: unknown, fixture: SyntheticRetrievalFacts, evaluationTime?: string): WorldCandidate {
   const snapshot = parseWorldKnowledgeSnapshot(snapshotValue, [SYNTHETIC_WORLD_SOURCE_POLICY]);
   if (snapshot.registryVersion !== REGISTRY_VERSION || snapshot.registryHash !== REGISTRY_HASH || snapshot.ruleRegistryVersion !== RULE_REGISTRY_VERSION || snapshot.ruleRegistryHash !== RULE_REGISTRY_HASH) throw new Error("world_registry_binding_mismatch");
   const city = snapshot.spot.location.locality; if (!city) throw new Error("world_location_not_ready");
   const base = { contractVersion: CONTRACT_VERSIONS.evidence, spotId: snapshot.spot.spotId, sourceDomain: "WORLD" as const, sourceHash: snapshot.snapshotHash, observedAt: snapshot.resolvedAt, confidenceState: "FIXTURE" as const, trustState: "CANONICAL_WORLD_SNAPSHOT", policyVersion: WORLD_ADAPTER_VERSION, limitations: ["phase1-synthetic-adapter-policy"] };
-  const opening = evaluateOpeningState(snapshot, snapshot.resolvedAt, SYNTHETIC_OPENING_SOURCE_POLICY);
+  const opening = evaluateOpeningState(snapshot, evaluationTime ?? snapshot.resolvedAt, SYNTHETIC_OPENING_SOURCE_POLICY);
   const open = opening.status;
   const hoursRef = opening.basisEntryHashes.length ? contentHash(opening.basisEntryHashes) : snapshot.snapshotHash;
   const evidence = [

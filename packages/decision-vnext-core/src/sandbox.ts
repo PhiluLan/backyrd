@@ -41,7 +41,7 @@ export class SyntheticWorldKnowledgeReader implements WorldKnowledgeReaderPort {
 
 export class SyntheticUserProjectionReader implements DecisionVNextUserProjectionPort {
   readonly contractVersion = "backyrd.user-intelligence.decision-projection-port@1.0" as const;
-  constructor(private readonly mode: "NO_CONSENT" | "MISSING_SNAPSHOT" | "KILL_SWITCH" = "MISSING_SNAPSHOT") {}
+  constructor(private readonly mode: "NO_CONSENT" | "MISSING_SNAPSHOT" | "COLD_START" | "KILL_SWITCH" = "MISSING_SNAPSHOT") {}
   async project(request: RelevantUserProjectionRequest): Promise<RelevantUserProjection> {
     const effectiveRequest = { ...request, contractVersion: USER_CONTRACT_VERSIONS.projectionRequest, snapshot: null, killSwitch: this.mode === "KILL_SWITCH" };
     return buildRelevantUserProjection({ request: effectiveRequest, consent: this.mode === "NO_CONSENT" ? NO_CONSENT : GRANTED_CONSENT, manifest: { manifestId: SYNTHETIC_MANIFEST.manifestId, manifestHash: SYNTHETIC_MANIFEST.manifestHash }, snapshot: null, content: { taste: [], practical: [], directSpot: [], domainSufficiency: [], knowledgeLevel: "UNKNOWN", suppression: { total: 0, byReason: [] } }, identity: { projectionId: `projection-${request.requestId}` }, clock: { now: "2026-01-15T12:00:00.000Z" }, forcedNeutralReason: this.mode });

@@ -16,6 +16,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test test/*.test.mjs",
     "sandbox:smoke": "npm run build && node sandbox/run.mjs sandbox/config/world-smoke-v1.json",
-    "sandbox:full": "npm run build && node sandbox/run.mjs sandbox/config/world-phase1-v1.json && node sandbox/run.mjs sandbox/config/world-phase1-seed-1002-v1.json"
+    "sandbox:full": "npm run build && node sandbox/run.mjs sandbox/config/world-phase1-v1.json && node sandbox/run.mjs sandbox/config/world-phase1-seed-1002-v1.json",
+    "phase2:evaluate": "npm run build && node sandbox/evaluate-phase2.mjs sandbox/config/world-smoke-v1.json",
+    "phase2:full": "npm run build && node sandbox/evaluate-phase2.mjs sandbox/config/world-phase1-v1.json && node sandbox/evaluate-phase2.mjs sandbox/config/world-phase1-seed-1002-v1.json"
   }
 }
