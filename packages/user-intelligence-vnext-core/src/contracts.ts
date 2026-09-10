@@ -20,6 +20,15 @@ export const CONTRACT_VERSIONS = Object.freeze({
   projection: "backyrd.user-intelligence.projection@1.0",
   transparencyView: "backyrd.user-intelligence.transparency-view@1.0",
   lifecycleCommand: "backyrd.user-intelligence.lifecycle-command@1.0",
+  canonicalEventCatalog: "backyrd.user-intelligence.canonical-event-catalog@2.0",
+  journeyResolution: "backyrd.user-intelligence.journey-resolution@2.0",
+  deduplication: "backyrd.user-intelligence.deduplication@2.0",
+  evidenceChainV2: "backyrd.user-intelligence.evidence-chain@2.0",
+  worldEvidenceConsumer: "backyrd.user-intelligence.world-evidence-consumer@2.0",
+  contextEvidence: "backyrd.user-intelligence.context-evidence@2.0",
+  correctionResolution: "backyrd.user-intelligence.correction-resolution@2.0",
+  evidenceEngineState: "backyrd.user-intelligence.evidence-engine-state@2.0",
+  evidenceBuilderInput: "backyrd.user-intelligence.evidence-builder-input@2.0",
 } as const);
 
 export const SYNTHETIC_CONCEPT_REGISTRY_VERSION = "backyrd.synthetic-user-concepts@1.0";

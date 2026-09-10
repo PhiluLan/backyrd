@@ -8,3 +8,7 @@ export * from "./projection.js";
 export * from "./schema.js";
 export * from "./schema-catalog.js";
 export * from "./temporal.js";
+export * from "./event-catalog.js";
+export * from "./journey-resolver.js";
+export * from "./evidence-chain.js";
+export * from "./evidence-lifecycle.js";
