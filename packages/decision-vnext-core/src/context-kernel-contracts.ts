@@ -16,8 +16,10 @@ export const CONTEXT_KERNEL_VERSIONS = Object.freeze({
   consumerProjection: "backyrd-vnext-context-consumer-projection-v1",
   oracle: "backyrd-vnext-context-oracle-v1",
   oracleAuthority: "backyrd-vnext-context-oracle-authority-v1",
-  oracleTrustAnchor: "backyrd-vnext-context-oracle-trust-anchor-v1",
-  flipReport: "backyrd-vnext-context-flip-report-v1",
+  oracleAuthorityCatalog: "backyrd-vnext-context-oracle-authority-catalog-v1",
+  oracleTrustAnchorCatalog: "backyrd-vnext-context-oracle-trust-anchor-catalog-v1",
+  oracleRelease: "backyrd-vnext-context-oracle-release-v1",
+  flipReport: "backyrd-vnext-context-flip-report-v2",
   degradation: "backyrd-vnext-context-degradation-v1",
 } as const);
 
@@ -366,31 +368,87 @@ export const OracleAuthorityRecordSchema = schema.object({
 });
 export type OracleAuthorityRecord = Infer<typeof OracleAuthorityRecordSchema>;
 
-export const OracleAuthorityTrustAnchorSchema = schema.object({
-  contractVersion: version(CONTEXT_KERNEL_VERSIONS.oracleTrustAnchor),
+export const OracleAuthorityCatalogEntrySchema = schema.object({
+  scenarioId: identifier,
+  oracleId: identifier,
+  oracleVersion: schema.literal("backyrd-vnext-context-structural-oracle-v1"),
+  authorityRecordId: identifier,
+  authorityRecordHash: sha256,
+  baseScenarioIdentity: sha256,
+  flippedScenarioIdentity: sha256,
+  expectedStructuralChanges: schema.array(key, { min: 1, max: 100 }),
+  expectedInputChanges: schema.array(schema.enum(CONTEXT_FLIP_INPUT_CLASSES), { min: 1, max: 10 }),
+  expectedHardConstraintSetChanged: schema.boolean(),
+  expectedSoftPreferenceSetChanged: schema.boolean(),
+  eligibilityExpectation: schema.enum(["UNCHANGED", "MAY_CHANGE_BY_CONFIGURED_HARD_CONSTRAINT", "NOT_CONFIGURED"] as const),
+  rankingExpectation: schema.literal("NOT_CONFIGURED"),
+  approvalClass: schema.literal("NOT_REQUIRED_STRUCTURAL"),
+  validFrom: timestamp,
+  validUntil: timestamp,
+  allowedScenarioIds: schema.array(identifier, { min: 1, max: 100 }),
+  registryVersion: key,
+  registryHash: sha256,
+  contextPolicyVersion: key,
+  contextPolicyHash: sha256,
+  workbenchVersion: key,
+  productionAuthorized: schema.literal(false),
+  productQualityClaim: schema.literal(false),
+  authority: OracleAuthorityRecordSchema,
+  entryHash: sha256,
+});
+export type OracleAuthorityCatalogEntry = Infer<typeof OracleAuthorityCatalogEntrySchema>;
+
+export const OracleAuthorityCatalogSchema = schema.object({
+  contractVersion: version(CONTEXT_KERNEL_VERSIONS.oracleAuthorityCatalog),
+  catalogVersion: schema.literal("backyrd-vnext-context-oracle-authority-catalog-phase3a-v1"),
+  scenarioAllowlist: schema.array(identifier, { min: 15, max: 15 }),
+  entries: schema.array(OracleAuthorityCatalogEntrySchema, { min: 15, max: 15 }),
+  catalogHash: sha256,
+});
+export type OracleAuthorityCatalog = Infer<typeof OracleAuthorityCatalogSchema>;
+
+export const OracleTrustAnchorCatalogEntrySchema = schema.object({
   trustAnchorId: identifier,
-  acceptedAuthorityRecordId: identifier,
+  scenarioId: identifier,
+  authorityRecordId: identifier,
   acceptedAuthorityHash: sha256,
   acceptedIssuer: schema.literal("BACKYRD_TECHNICAL_EVALUATION_FIXTURE"),
   acceptedOracleId: identifier,
   acceptedOracleVersion: schema.literal("backyrd-vnext-context-structural-oracle-v1"),
-  acceptedScenarioId: identifier,
-  acceptedBaseContextIdentity: sha256,
-  acceptedFlippedContextIdentity: sha256,
-  acceptedBaseEnvelopeHash: sha256,
-  acceptedFlippedEnvelopeHash: sha256,
-  acceptedExpectationClass: schema.literal("STRUCTURAL_INVARIANT"),
-  acceptedStructuralChanges: schema.array(key, { min: 1, max: 100 }),
-  acceptedInputChanges: schema.array(schema.enum(CONTEXT_FLIP_INPUT_CLASSES), { min: 1, max: 10 }),
-  acceptedEligibilityExpectation: schema.enum(["UNCHANGED", "MAY_CHANGE_BY_CONFIGURED_HARD_CONSTRAINT", "NOT_CONFIGURED"] as const),
-  acceptedRankingExpectation: schema.literal("NOT_CONFIGURED"),
-  acceptedApprovalClass: schema.literal("NOT_REQUIRED_STRUCTURAL"),
-  acceptedValidFrom: timestamp,
-  acceptedValidUntil: timestamp,
-  acceptedScenarioIds: schema.array(identifier, { min: 1, max: 100 }),
+  authorityClass: schema.literal("SYNTHETIC_FIXTURE_ONLY"),
   productionCapable: schema.literal(false),
+  productApproved: schema.literal(false),
+  anchorHash: sha256,
 });
-export type OracleAuthorityTrustAnchor = Infer<typeof OracleAuthorityTrustAnchorSchema>;
+export type OracleTrustAnchorCatalogEntry = Infer<typeof OracleTrustAnchorCatalogEntrySchema>;
+
+export const OracleTrustAnchorCatalogSchema = schema.object({
+  contractVersion: version(CONTEXT_KERNEL_VERSIONS.oracleTrustAnchorCatalog),
+  catalogVersion: schema.literal("backyrd-vnext-context-oracle-trust-anchor-catalog-phase3a-v1"),
+  authorityCatalogVersion: schema.literal("backyrd-vnext-context-oracle-authority-catalog-phase3a-v1"),
+  authorityCatalogHash: sha256,
+  scenarioAllowlist: schema.array(identifier, { min: 15, max: 15 }),
+  entries: schema.array(OracleTrustAnchorCatalogEntrySchema, { min: 15, max: 15 }),
+  catalogHash: sha256,
+});
+export type OracleTrustAnchorCatalog = Infer<typeof OracleTrustAnchorCatalogSchema>;
+
+export const OracleCatalogReleaseRecordSchema = schema.object({
+  contractVersion: version(CONTEXT_KERNEL_VERSIONS.oracleRelease),
+  releaseId: schema.literal("backyrd-vnext-context-oracle-release-phase3a-v1"),
+  authorityCatalogVersion: schema.literal("backyrd-vnext-context-oracle-authority-catalog-phase3a-v1"),
+  authorityCatalogHash: sha256,
+  trustAnchorCatalogVersion: schema.literal("backyrd-vnext-context-oracle-trust-anchor-catalog-phase3a-v1"),
+  trustAnchorCatalogHash: sha256,
+  workbenchVersion: schema.literal("backyrd-vnext-context-flip-workbench-phase3a-v1"),
+  reportContractVersion: version(CONTEXT_KERNEL_VERSIONS.flipReport),
+  scenarioAllowlist: schema.array(identifier, { min: 15, max: 15 }),
+  authorityClass: schema.literal("SYNTHETIC_FIXTURE_ONLY"),
+  productionCapable: schema.literal(false),
+  productApproved: schema.literal(false),
+  releaseHash: sha256,
+});
+export type OracleCatalogReleaseRecord = Infer<typeof OracleCatalogReleaseRecordSchema>;
 
 export const ScenarioOracleSchema = schema.object({
   contractVersion: version(CONTEXT_KERNEL_VERSIONS.oracle),
@@ -424,6 +482,9 @@ export const ContextFlipReportSchema = schema.object({
   baseEnvelopeHash: sha256,
   flippedEnvelopeHash: sha256,
   oracleAuthorityHash: sha256,
+  oracleAuthorityCatalogHash: sha256,
+  oracleTrustAnchorCatalogHash: sha256,
+  oracleReleaseHash: sha256,
   changedDimensionKeys: schema.array(key, { max: 100 }),
   unchangedDimensionKeys: schema.array(key, { max: 100 }),
   changedInputClasses: schema.array(schema.enum(CONTEXT_FLIP_INPUT_CLASSES), { max: 10 }),

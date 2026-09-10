@@ -9,6 +9,7 @@ export * from "./context-kernel.js";
 export * from "./context-degradation.js";
 export * from "./context-fixtures.js";
 export * from "./context-oracle.js";
+export * from "./context-oracle-catalog.js";
 export * from "./context-flip-harness.js";
 export * from "./eligibility.js";
 export * from "./evidence.js";

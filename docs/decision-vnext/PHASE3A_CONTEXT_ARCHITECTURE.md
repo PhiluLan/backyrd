@@ -71,7 +71,15 @@ The local command `npm run decision-vnext:phase3a:context` evaluates fifteen det
 
 Each report contains changed and unchanged dimensions, changed input classes, verified envelope identities, hard/soft-set changes and a structural Oracle. Product ranking direction is always `NOT_CONFIGURED`; `rankingQualityClaim` is always false. Only `STRUCTURAL_INVARIANT` is asserted without Founder approval.
 
-Oracle authority is external to the Oracle and report. A separately injected synthetic evaluation trust anchor binds issuer, Oracle/scenario identity, base and flip identities, exact permitted input/dimension changes, validity and approval class. The report is reconstructed from two verified Context capabilities. Exact-set comparison rejects omitted or additional changes, swapped contexts and changed World/User/Pool/registry/policy bindings. This anchor is explicitly local-only and `productionCapable:false`; Founder-approved expectations remain unconfigured.
+Oracle authority is external to the Oracle, report, and active workbench run. The 15 structural expectations are fixed in a versioned Authority Catalog before execution. A separately hashed Trust-Anchor Catalog accepts the exact Authority record hashes, and a review-pinned release record binds both catalog hashes, the closed scenario allowlist, and the fixture workbench version. All three artifacts are loaded and validated before Base or Flip is evaluated. The workbench cannot mint an Authority, derive a matching Anchor, add a scenario, or silently accept changed expectations.
+
+The catalogs are synthetic evaluation artifacts only: `SYNTHETIC_FIXTURE_ONLY`, `productionCapable:false`, `productApproved:false`, `productQualityClaim:false`. Authority and Anchor catalogs have independent versions and hashes; changing either requires a new review-pinned release hash. Provisioning helpers live in a non-exported fixture module. The public runtime core exposes validation and consumption only; it does not expose a helper that can trust an arbitrary Authority.
+
+Each report binds Authority Catalog, Trust-Anchor Catalog, and release hashes. It is reconstructed from two verified Context capabilities. Exact-set comparison rejects omitted or additional changes, swapped contexts and changed World/User/Pool/registry/policy bindings. Founder-approved expectations remain unconfigured.
+
+Both the verified Context capability and the accepted Oracle-catalog capability are process-local and non-serializable. Crossing a process, worker, queue, or service boundary requires complete envelope and catalog-release verification again; a parsed object or TypeScript cast does not carry authority.
+
+Phase-3A release identities are `backyrd-vnext-context-oracle-authority-catalog-phase3a-v1`, `backyrd-vnext-context-oracle-trust-anchor-catalog-phase3a-v1`, and `backyrd-vnext-context-oracle-release-phase3a-v1`. The release pins the `backyrd-vnext-context-flip-report-v2` contract. These are technical fixtures, not Product approval.
 
 ## Privacy and retention
 

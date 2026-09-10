@@ -3,14 +3,14 @@ import {
   CONTEXT_KERNEL_VERSIONS,
   ContextFlipReportSchema,
   OracleAuthorityRecordSchema,
-  OracleAuthorityTrustAnchorSchema,
+  OracleTrustAnchorCatalogEntrySchema,
   ScenarioOracleSchema,
   type ContextFlipReport,
   type OracleAuthorityRecord,
-  type OracleAuthorityTrustAnchor,
   type ScenarioOracle,
 } from "./context-kernel-contracts.js";
 import { contextExecutionIdentity, requireVerifiedContext, type VerifiedContextSnapshot } from "./context-kernel.js";
+import { selectAcceptedOracleArtifacts, type AcceptedOracleCatalogs } from "./context-oracle-catalog.js";
 
 const STRUCTURAL_ORACLE_VERSION = "backyrd-vnext-context-structural-oracle-v1" as const;
 
@@ -27,75 +27,18 @@ export interface StructuralOracleExpectation {
   readonly allowedScenarioIds: readonly string[];
 }
 
-export function createStructuralOracleAuthority(input: StructuralOracleExpectation & { readonly base: VerifiedContextSnapshot; readonly flipped: VerifiedContextSnapshot }): OracleAuthorityRecord {
-  const base = requireVerifiedContext(input.base); const flipped = requireVerifiedContext(input.flipped);
-  const body = {
-    contractVersion: CONTEXT_KERNEL_VERSIONS.oracleAuthority,
-    authorityRecordId: `technical-authority-${input.oracleId}`,
-    issuer: "BACKYRD_TECHNICAL_EVALUATION_FIXTURE" as const,
-    oracleId: input.oracleId,
-    oracleVersion: STRUCTURAL_ORACLE_VERSION,
-    scenarioId: input.scenarioId,
-    baseContextHash: base.snapshot.contextHash,
-    flippedContextHash: flipped.snapshot.contextHash,
-    baseContextIdentity: contextExecutionIdentity(base.snapshot),
-    flippedContextIdentity: contextExecutionIdentity(flipped.snapshot),
-    baseEnvelopeHash: base.envelope.envelopeHash,
-    flippedEnvelopeHash: flipped.envelope.envelopeHash,
-    expectationClass: "STRUCTURAL_INVARIANT" as const,
-    allowedStructuralChanges: [...new Set(input.expectedStructuralChanges)].sort(),
-    allowedInputChanges: [...new Set(input.expectedInputChanges)].sort(),
-    expectedHardConstraintSetChanged: input.expectedHardConstraintSetChanged,
-    expectedSoftPreferenceSetChanged: input.expectedSoftPreferenceSetChanged,
-    eligibilityExpectation: input.expectedEligibilityEffect ?? "NOT_CONFIGURED",
-    rankingExpectation: "NOT_CONFIGURED" as const,
-    approvalClass: "NOT_REQUIRED_STRUCTURAL" as const,
-    validFrom: input.validFrom,
-    validUntil: input.validUntil,
-    allowedScenarioIds: [...new Set(input.allowedScenarioIds)].sort(),
-  };
-  return deepFreeze(OracleAuthorityRecordSchema.parse(withContentHash(body, "authorityHash"))) as OracleAuthorityRecord;
-}
-
-/** Local-only provisioning helper. The anchor is injected and is never read from an Oracle or report. */
-export function trustSyntheticOracleAuthorityForLocalEvaluation(authorityValue: unknown, trustAnchorId = "phase3a-local-oracle-trust-anchor"): OracleAuthorityTrustAnchor {
-  const authority = OracleAuthorityRecordSchema.parse(authorityValue); assertContentHash(authority as unknown as Record<string, unknown>, "authorityHash");
-  return OracleAuthorityTrustAnchorSchema.parse({
-    contractVersion: CONTEXT_KERNEL_VERSIONS.oracleTrustAnchor, trustAnchorId,
-    acceptedAuthorityRecordId: authority.authorityRecordId, acceptedAuthorityHash: authority.authorityHash, acceptedIssuer: authority.issuer,
-    acceptedOracleId: authority.oracleId, acceptedOracleVersion: authority.oracleVersion, acceptedScenarioId: authority.scenarioId,
-    acceptedBaseContextIdentity: authority.baseContextIdentity, acceptedFlippedContextIdentity: authority.flippedContextIdentity,
-    acceptedBaseEnvelopeHash: authority.baseEnvelopeHash, acceptedFlippedEnvelopeHash: authority.flippedEnvelopeHash,
-    acceptedExpectationClass: authority.expectationClass, acceptedStructuralChanges: authority.allowedStructuralChanges,
-    acceptedInputChanges: authority.allowedInputChanges, acceptedEligibilityExpectation: authority.eligibilityExpectation,
-    acceptedRankingExpectation: authority.rankingExpectation, acceptedApprovalClass: authority.approvalClass,
-    acceptedValidFrom: authority.validFrom, acceptedValidUntil: authority.validUntil, acceptedScenarioIds: authority.allowedScenarioIds,
-    productionCapable: false,
-  });
-}
-
 export function validateOracleAuthority(authorityValue: unknown, trustAnchorValue: unknown): OracleAuthorityRecord {
-  const authority = OracleAuthorityRecordSchema.parse(authorityValue); const trust = OracleAuthorityTrustAnchorSchema.parse(trustAnchorValue);
+  const authority = OracleAuthorityRecordSchema.parse(authorityValue); const trust = OracleTrustAnchorCatalogEntrySchema.parse(trustAnchorValue);
   assertContentHash(authority as unknown as Record<string, unknown>, "authorityHash");
-  const expected = {
-    acceptedAuthorityRecordId: authority.authorityRecordId, acceptedAuthorityHash: authority.authorityHash, acceptedIssuer: authority.issuer,
-    acceptedOracleId: authority.oracleId, acceptedOracleVersion: authority.oracleVersion, acceptedScenarioId: authority.scenarioId,
-    acceptedBaseContextIdentity: authority.baseContextIdentity, acceptedFlippedContextIdentity: authority.flippedContextIdentity,
-    acceptedBaseEnvelopeHash: authority.baseEnvelopeHash, acceptedFlippedEnvelopeHash: authority.flippedEnvelopeHash,
-    acceptedExpectationClass: authority.expectationClass, acceptedStructuralChanges: authority.allowedStructuralChanges,
-    acceptedInputChanges: authority.allowedInputChanges, acceptedEligibilityExpectation: authority.eligibilityExpectation,
-    acceptedRankingExpectation: authority.rankingExpectation, acceptedApprovalClass: authority.approvalClass,
-    acceptedValidFrom: authority.validFrom, acceptedValidUntil: authority.validUntil, acceptedScenarioIds: authority.allowedScenarioIds,
-  };
-  const actual = Object.fromEntries(Object.entries(trust).filter(([field]) => !["contractVersion", "trustAnchorId", "productionCapable"].includes(field)));
-  if (trust.productionCapable || canonicalJson(actual) !== canonicalJson(expected)) throw new Error("context_oracle_authority_not_trusted");
+  assertContentHash(trust as unknown as Record<string, unknown>, "anchorHash");
+  if (trust.productionCapable || trust.productApproved || trust.authorityClass !== "SYNTHETIC_FIXTURE_ONLY" || trust.authorityRecordId !== authority.authorityRecordId || trust.acceptedAuthorityHash !== authority.authorityHash || trust.acceptedIssuer !== authority.issuer || trust.acceptedOracleId !== authority.oracleId || trust.acceptedOracleVersion !== authority.oracleVersion || trust.scenarioId !== authority.scenarioId) throw new Error("context_oracle_authority_not_trusted");
   if (authority.oracleVersion !== STRUCTURAL_ORACLE_VERSION || !authority.allowedScenarioIds.includes(authority.scenarioId)) throw new Error("context_oracle_scenario_not_authorized");
   if (Date.parse(authority.validFrom) > Date.parse(authority.validUntil)) throw new Error("context_oracle_authority_validity_invalid");
   return authority;
 }
 
-export function createStructuralOracle(input: StructuralOracleExpectation, authorityValue: unknown, trustAnchorValue: unknown): ScenarioOracle {
-  const authority = validateOracleAuthority(authorityValue, trustAnchorValue); const eligibility = input.expectedEligibilityEffect ?? "NOT_CONFIGURED";
+export function createStructuralOracle(input: StructuralOracleExpectation, catalogs: AcceptedOracleCatalogs): ScenarioOracle {
+  const selected = selectAcceptedOracleArtifacts(catalogs, input.scenarioId); const authority = validateOracleAuthority(selected.authorityEntry.authority, selected.trustAnchor); const eligibility = input.expectedEligibilityEffect ?? "NOT_CONFIGURED";
   if (input.oracleId !== authority.oracleId || input.scenarioId !== authority.scenarioId || canonicalJson([...new Set(input.expectedStructuralChanges)].sort()) !== canonicalJson(authority.allowedStructuralChanges) || canonicalJson([...new Set(input.expectedInputChanges)].sort()) !== canonicalJson(authority.allowedInputChanges) || input.expectedHardConstraintSetChanged !== authority.expectedHardConstraintSetChanged || input.expectedSoftPreferenceSetChanged !== authority.expectedSoftPreferenceSetChanged || eligibility !== authority.eligibilityExpectation || canonicalJson([...new Set(input.allowedScenarioIds)].sort()) !== canonicalJson(authority.allowedScenarioIds) || input.validFrom !== authority.validFrom || input.validUntil !== authority.validUntil) throw new Error("context_oracle_expectation_not_authorized");
   const body = {
     contractVersion: CONTEXT_KERNEL_VERSIONS.oracle, oracleId: input.oracleId, scenarioId: input.scenarioId,
@@ -110,8 +53,8 @@ export function createStructuralOracle(input: StructuralOracleExpectation, autho
   return deepFreeze(ScenarioOracleSchema.parse(withContentHash(body, "oracleHash"))) as ScenarioOracle;
 }
 
-export function validateScenarioOracle(oracleValue: unknown, authorityValue: unknown, trustAnchorValue: unknown): ScenarioOracle {
-  const oracle = ScenarioOracleSchema.parse(oracleValue); const authority = validateOracleAuthority(authorityValue, trustAnchorValue);
+export function validateScenarioOracle(oracleValue: unknown, catalogs: AcceptedOracleCatalogs): ScenarioOracle {
+  const oracle = ScenarioOracleSchema.parse(oracleValue); const selected = selectAcceptedOracleArtifacts(catalogs, oracle.scenarioId); const authority = validateOracleAuthority(selected.authorityEntry.authority, selected.trustAnchor);
   assertContentHash(oracle as unknown as Record<string, unknown>, "oracleHash");
   if (oracle.oracleVersion !== STRUCTURAL_ORACLE_VERSION) throw new Error("context_oracle_version_unknown");
   if (oracle.authorityBinding.authorityRecordId !== authority.authorityRecordId || oracle.authorityBinding.authorityHash !== authority.authorityHash || oracle.oracleId !== authority.oracleId || oracle.scenarioId !== authority.scenarioId || oracle.baseContextHash !== authority.baseContextHash || oracle.flippedContextHash !== authority.flippedContextHash || canonicalJson(oracle.expectedStructuralChanges) !== canonicalJson(authority.allowedStructuralChanges) || canonicalJson(oracle.expectedInputChanges) !== canonicalJson(authority.allowedInputChanges) || oracle.expectedHardConstraintSetChanged !== authority.expectedHardConstraintSetChanged || oracle.expectedSoftPreferenceSetChanged !== authority.expectedSoftPreferenceSetChanged || oracle.expectedEligibilityEffect !== authority.eligibilityExpectation) throw new Error("context_oracle_authority_binding_mismatch");
@@ -142,9 +85,11 @@ function assertStableFlipBindings(base: VerifiedContextSnapshot, flipped: Verifi
   if (canonicalJson(stable(base)) !== canonicalJson(stable(flipped))) throw new Error("context_flip_cross_domain_binding_changed");
 }
 
-export function buildContextFlipReport(baseValue: VerifiedContextSnapshot, flippedValue: VerifiedContextSnapshot, oracleValue: unknown, authorityValue: unknown, trustAnchorValue: unknown): ContextFlipReport {
-  const base = requireVerifiedContext(baseValue); const flipped = requireVerifiedContext(flippedValue); const authority = validateOracleAuthority(authorityValue, trustAnchorValue); const oracle = validateScenarioOracle(oracleValue, authority, trustAnchorValue);
+export function buildContextFlipReport(baseValue: VerifiedContextSnapshot, flippedValue: VerifiedContextSnapshot, oracleValue: unknown, catalogs: AcceptedOracleCatalogs): ContextFlipReport {
+  const base = requireVerifiedContext(baseValue); const flipped = requireVerifiedContext(flippedValue); const oracleInput = ScenarioOracleSchema.parse(oracleValue); const selected = selectAcceptedOracleArtifacts(catalogs, oracleInput.scenarioId); const authority = validateOracleAuthority(selected.authorityEntry.authority, selected.trustAnchor); const oracle = validateScenarioOracle(oracleInput, catalogs);
   assertStableFlipBindings(base, flipped);
+  const entry = selected.authorityEntry;
+  if (entry.registryVersion !== base.registry.registryVersion || entry.registryHash !== base.registry.registryHash || entry.registryVersion !== flipped.registry.registryVersion || entry.registryHash !== flipped.registry.registryHash || entry.contextPolicyVersion !== base.policy.policyVersion || entry.contextPolicyHash !== base.policy.policyHash || entry.contextPolicyVersion !== flipped.policy.policyVersion || entry.contextPolicyHash !== flipped.policy.policyHash || entry.workbenchVersion !== catalogs.release.workbenchVersion) throw new Error("context_oracle_fixture_binding_mismatch");
   const validFrom = Date.parse(authority.validFrom), validUntil = Date.parse(authority.validUntil);
   if ([base.snapshot.temporal.serverTime, flipped.snapshot.temporal.serverTime].some((at) => Date.parse(at) < validFrom || Date.parse(at) > validUntil)) throw new Error("context_oracle_authority_not_valid_for_context");
   if (authority.baseEnvelopeHash !== base.envelope.envelopeHash || authority.flippedEnvelopeHash !== flipped.envelope.envelopeHash || authority.baseContextIdentity !== contextExecutionIdentity(base.snapshot) || authority.flippedContextIdentity !== contextExecutionIdentity(flipped.snapshot) || oracle.baseContextHash !== base.snapshot.contextHash || oracle.flippedContextHash !== flipped.snapshot.contextHash) throw new Error("context_oracle_snapshot_binding_mismatch");
@@ -154,13 +99,14 @@ export function buildContextFlipReport(baseValue: VerifiedContextSnapshot, flipp
   if (canonicalJson(changedDimensionKeys) !== canonicalJson(oracle.expectedStructuralChanges) || canonicalJson(inputChanges) !== canonicalJson(oracle.expectedInputChanges) || hardConstraintSetChanged !== oracle.expectedHardConstraintSetChanged || softPreferenceSetChanged !== oracle.expectedSoftPreferenceSetChanged) {
     throw new Error(`context_oracle_structural_expectation_failed:${canonicalJson({ actual: { changedDimensionKeys, inputChanges, hardConstraintSetChanged, softPreferenceSetChanged }, expected: { changedDimensionKeys: oracle.expectedStructuralChanges, inputChanges: oracle.expectedInputChanges, hardConstraintSetChanged: oracle.expectedHardConstraintSetChanged, softPreferenceSetChanged: oracle.expectedSoftPreferenceSetChanged } })}`);
   }
-  const body = { contractVersion: CONTEXT_KERNEL_VERSIONS.flipReport, scenarioId: oracle.scenarioId, baseContextHash: base.snapshot.contextHash, flippedContextHash: flipped.snapshot.contextHash, baseDecisionIdentity: contextExecutionIdentity(base.snapshot), flippedDecisionIdentity: contextExecutionIdentity(flipped.snapshot), baseEnvelopeHash: base.envelope.envelopeHash, flippedEnvelopeHash: flipped.envelope.envelopeHash, oracleAuthorityHash: authority.authorityHash, changedDimensionKeys, unchangedDimensionKeys, changedInputClasses: inputChanges, hardConstraintSetChanged, softPreferenceSetChanged, writesUserIntelligence: false as const, rankingQualityClaim: false as const, oracle };
+  const body = { contractVersion: CONTEXT_KERNEL_VERSIONS.flipReport, scenarioId: oracle.scenarioId, baseContextHash: base.snapshot.contextHash, flippedContextHash: flipped.snapshot.contextHash, baseDecisionIdentity: contextExecutionIdentity(base.snapshot), flippedDecisionIdentity: contextExecutionIdentity(flipped.snapshot), baseEnvelopeHash: base.envelope.envelopeHash, flippedEnvelopeHash: flipped.envelope.envelopeHash, oracleAuthorityHash: authority.authorityHash, oracleAuthorityCatalogHash: catalogs.authorityCatalog.catalogHash, oracleTrustAnchorCatalogHash: catalogs.trustAnchorCatalog.catalogHash, oracleReleaseHash: catalogs.release.releaseHash, changedDimensionKeys, unchangedDimensionKeys, changedInputClasses: inputChanges, hardConstraintSetChanged, softPreferenceSetChanged, writesUserIntelligence: false as const, rankingQualityClaim: false as const, oracle };
   return deepFreeze(ContextFlipReportSchema.parse(withContentHash(body, "reportHash"))) as ContextFlipReport;
 }
 
-export function validateContextFlipReport(reportValue: unknown, baseValue: VerifiedContextSnapshot, flippedValue: VerifiedContextSnapshot, authorityValue: unknown, trustAnchorValue: unknown): ContextFlipReport {
+export function validateContextFlipReport(reportValue: unknown, baseValue: VerifiedContextSnapshot, flippedValue: VerifiedContextSnapshot, catalogs: AcceptedOracleCatalogs): ContextFlipReport {
   const report = ContextFlipReportSchema.parse(reportValue); assertContentHash(report as unknown as Record<string, unknown>, "reportHash");
-  const expected = buildContextFlipReport(baseValue, flippedValue, report.oracle, authorityValue, trustAnchorValue);
+  if (report.oracleAuthorityCatalogHash !== catalogs.authorityCatalog.catalogHash || report.oracleTrustAnchorCatalogHash !== catalogs.trustAnchorCatalog.catalogHash || report.oracleReleaseHash !== catalogs.release.releaseHash) throw new Error("context_flip_report_release_binding_mismatch");
+  const expected = buildContextFlipReport(baseValue, flippedValue, report.oracle, catalogs);
   if (canonicalJson(expected) !== canonicalJson(report)) throw new Error("context_flip_replay_mismatch");
   return report;
 }
