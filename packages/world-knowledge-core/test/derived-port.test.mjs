@@ -18,9 +18,17 @@ test("work, group and step-free derivations require every concrete prerequisite"
     make("d:amenities", "amenity.features", ["HIGH_CHAIR", "POWER_OUTLETS", "STROLLER_SPACE", "WIFI", "WORK_TABLES"]), make("d:laptop", "operation.laptop_policy", true), make("d:stay", "operation.stay_policy", "ALLOWED"),
     make("d:total", "capacity.seats_total", 80), make("d:group", "capacity.group_size_supported", { min: 2, max: 20 }), make("d:reservation", "rule.reservation", { mode: "RECOMMENDED", minimumPartySize: 8, days: [], fromTime: null, toTime: null }),
     ...["step_free_entrance", "wheelchair_paths", "accessible_seating", "accessible_toilet"].map((name) => make(`d:${name}`, `accessibility.${name}`, true)),
+    make("d:age", "rule.age_access", { policy: "ALL_AGES", minimumAge: null, appliesFromTime: null }),
   ];
   const derived = deriveKnowledge(resolveWorldKnowledge(resolutionRequest(claims))); const statuses = Object.fromEntries(derived.map((item) => [item.outputKey, item.status]));
   assert.equal(statuses["capability.work_infrastructure"], "DERIVED"); assert.equal(statuses["capability.supported_group_range"], "DERIVED"); assert.equal(statuses["capability.family_infrastructure"], "DERIVED"); assert.equal(statuses["capability.step_free_visit_path"], "DERIVED");
+  const family = derived.find((item) => item.outputKey === "capability.family_infrastructure"); assert.equal(family.weakestTrust, "REFERENCED"); assert.equal(family.limitingFreshness, "CURRENT"); assert.ok(family.factRefs.every((ref) => ref.claimHashes.length === ref.claimRefs.length && ref.trust === "REFERENCED" && ref.freshness === "CURRENT"));
+});
+
+test("family infrastructure requires equipment, access and no contradictory age rule", () => {
+  const base = [make("family:amenities", "amenity.features", ["HIGH_CHAIR", "STROLLER_SPACE"]), make("family:entrance", "accessibility.step_free_entrance", true), make("family:paths", "accessibility.wheelchair_paths", true)];
+  const missingAge = deriveKnowledge(resolveWorldKnowledge(resolutionRequest(base))).find((item) => item.outputKey === "capability.family_infrastructure"); assert.equal(missingAge.status, "NOT_DERIVED"); assert.ok(missingAge.reasonCodes.includes("FAMILY_AGE_RULE_MISSING"));
+  const restricted = deriveKnowledge(resolveWorldKnowledge(resolutionRequest([...base, make("family:age", "rule.age_access", { policy: "MINIMUM_AGE", minimumAge: 18, appliesFromTime: "20:00" })]))).find((item) => item.outputKey === "capability.family_infrastructure"); assert.equal(restricted.status, "NOT_DERIVED"); assert.ok(restricted.reasonCodes.includes("FAMILY_AGE_RULE_CONFLICT"));
 });
 
 test("port is deterministic, validated and strips non-world and private context", () => {
@@ -28,6 +36,7 @@ test("port is deterministic, validated and strips non-world and private context"
   assert.equal(canonicalJson(first), canonicalJson(second)); assert.equal(first.snapshotHash, second.snapshotHash); assert.doesNotThrow(() => parseWorldKnowledgeSnapshot(first));
   const serialized = canonicalJson(first); for (const forbidden of ["\"PRO\"", "\"PAID\"", "\"CAMPAIGN\"", "\"FEATURED\"", "private moderation note", "private.invalid", "untrusted model output", "intent.afterwork", "vibe.cozy"]) assert.ok(!serialized.includes(forbidden), forbidden);
   assert.equal(first.currentStates.length, 0); assert.ok(first.exclusions.some((item) => item.code === "CURRENT_STATE_WITHOUT_EXPIRY")); assert.ok(first.exclusions.some((item) => item.code === "ASSERTED_OPENING_HOURS")); assert.equal(first.operationalRules.some((item) => item.key === "hours.regular"), false);
+  const outdoor = first.capabilities.find((item) => item.key === "capability.outdoor_infrastructure"); assert.equal(outdoor.weakestTrust, "ASSERTED"); assert.equal(outdoor.limitingFreshness, "CURRENT"); assert.ok(outdoor.basisClaimHashes.length > 0);
   assert.throws(() => parseWorldKnowledgeSnapshot({ ...first, contractVersion: "backyrd.world-knowledge.port@2.0" }), /unknown/); assert.throws(() => parseWorldKnowledgeSnapshot({ ...first, ruleRegistryVersion: "unknown" }), /unknown/);
 });
 

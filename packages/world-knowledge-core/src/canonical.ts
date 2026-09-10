@@ -10,6 +10,9 @@ function normalize(value: unknown, path: string): unknown {
   }
   if (Array.isArray(value)) return value.map((entry, index) => normalize(entry, `${path}[${index}]`));
   if (typeof value === "object") {
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) throw new Error(`canonical_non_plain_object:${path}`);
+    if (Object.getOwnPropertySymbols(value).length) throw new Error(`canonical_symbol_key:${path}`);
     const input = value as Record<string, unknown>;
     return Object.fromEntries(Object.keys(input).sort().map((key) => [key, normalize(input[key], `${path}.${key}`)]));
   }

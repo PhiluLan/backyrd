@@ -45,6 +45,7 @@ All object hashes use canonical NFC-normalized JSON, lexicographically sorted ob
 - Resolution, freshness, and trust are separate dimensions.
 - Actor type and source type are separate. No Actor ID exists in the engine contract.
 - Admin or Owner status does not raise trust.
+- A source reference alone does not authorize a trust-dependent readiness result.
 - A session provenance identifier is not evidence.
 - No numerical confidence exists.
 - Historical claims are append-only; correction creates a new claim with `supersedesClaimId`.
@@ -52,6 +53,7 @@ All object hashes use canonical NFC-normalized JSON, lexicographically sorted ob
 - Current State without `validUntil` is excluded.
 - Asserted-only opening hours are excluded from eligibility truth.
 - Secondary Categories do not exist in the Slice 1 contract.
+- The 16th primary category is `OTHER` (`Sonstiges` / `Other`).
 - No Production table, migration, policy, RPC, deployment, or Decision consumer changes in this slice.
 
 See the remaining documents in this directory for the normative key, trust, temporal, port, compatibility, ADR, deferred taxonomy, and Slice 2 decisions.

@@ -1,7 +1,7 @@
 import { canonicalJson, hashBody } from "./canonical.js";
 import {
   CONSUMPTION_POLICIES, CURRENT_STATE_KINDS, getAttributeDefinition, PET_ACCESS_STATES,
-  REGISTRY_VERSION, RESERVATION_MODES, type AttributeDefinition,
+  REGISTRY_VERSION, RESERVATION_MODES,
 } from "./registry.js";
 import { array, boolean, ContractValidationError, date, enumValue, hash, identifier, number, object, required, string, timestamp } from "./schema.js";
 
@@ -39,8 +39,9 @@ export interface IntegerRange { readonly min: number; readonly max: number }
 export interface ReservationRule { readonly mode: typeof RESERVATION_MODES[number]; readonly minimumPartySize: number | null; readonly days: readonly Weekday[]; readonly fromTime: string | null; readonly toTime: string | null }
 export interface ConsumptionRule { readonly policy: typeof CONSUMPTION_POLICIES[number]; readonly exceptions: readonly string[] }
 export interface PetAccessRule { readonly indoor: typeof PET_ACCESS_STATES[number]; readonly outdoor: typeof PET_ACCESS_STATES[number]; readonly assistanceAnimals: typeof PET_ACCESS_STATES[number]; readonly notes: string | null }
+export interface AgeAccessRule { readonly policy: "ALL_AGES" | "MINIMUM_AGE"; readonly minimumAge: number | null; readonly appliesFromTime: string | null }
 export interface CurrentStateValue { readonly kind: typeof CURRENT_STATE_KINDS[number]; readonly scope: string }
-export type ClaimValue = string | number | boolean | null | readonly string[] | MoneyRange | IntegerRange | ReservationRule | ConsumptionRule | PetAccessRule | readonly WeeklyScheduleDay[] | readonly SpecialHoursDay[] | CurrentStateValue;
+export type ClaimValue = string | number | boolean | null | readonly string[] | MoneyRange | IntegerRange | ReservationRule | ConsumptionRule | PetAccessRule | AgeAccessRule | readonly WeeklyScheduleDay[] | readonly SpecialHoursDay[] | CurrentStateValue;
 
 export interface WorldKnowledgeClaim {
   readonly contractVersion: typeof CLAIM_CONTRACT_VERSION;
@@ -100,14 +101,16 @@ function parseSpecialHours(value: unknown, path: string): readonly SpecialHoursD
   return [...days].sort((left, right) => left.date.localeCompare(right.date));
 }
 
-function parseEnumSet(value: unknown, definition: AttributeDefinition, path: string): readonly string[] {
+function parseEnumSet(value: unknown, definition: ReturnType<typeof getAttributeDefinition>, path: string): readonly string[] {
   const allowed = definition.allowedValues ?? [];
   const values = array(value, path, { max: allowed.length }).map((entry, index) => enumValue(entry, allowed, `${path}[${index}]`));
   if (new Set(values).size !== values.length) throw new ContractValidationError(path, "duplicate enum value");
   return sortedUnique(values);
 }
 
-export function parseAttributeValue(definition: AttributeDefinition, value: unknown, path = "$.value"): ClaimValue {
+export function parseAttributeValue(attributeKeyValue: unknown, value: unknown, path = "$.value"): ClaimValue {
+  const attributeKey = identifier(attributeKeyValue, `${path}.attributeKey`);
+  const definition = getAttributeDefinition(attributeKey);
   const numericBounds = { ...(definition.min !== undefined ? { min: definition.min } : {}), ...(definition.max !== undefined ? { max: definition.max } : {}) };
   switch (definition.valueType) {
     case "TEXT": return string(value, path, numericBounds);
@@ -159,6 +162,16 @@ export function parseAttributeValue(definition: AttributeDefinition, value: unkn
       const input = object(value, path, ["indoor", "outdoor", "assistanceAnimals", "notes"]); const notes = required(input, "notes", path);
       return { indoor: enumValue(required(input, "indoor", path), PET_ACCESS_STATES, `${path}.indoor`), outdoor: enumValue(required(input, "outdoor", path), PET_ACCESS_STATES, `${path}.outdoor`), assistanceAnimals: enumValue(required(input, "assistanceAnimals", path), PET_ACCESS_STATES, `${path}.assistanceAnimals`), notes: notes === null ? null : string(notes, `${path}.notes`, { min: 1, max: 500 }) };
     }
+    case "AGE_ACCESS_RULE": {
+      const input = object(value, path, ["policy", "minimumAge", "appliesFromTime"]);
+      const policy = enumValue(required(input, "policy", path), ["ALL_AGES", "MINIMUM_AGE"] as const, `${path}.policy`);
+      const minimumAgeValue = required(input, "minimumAge", path); const appliesFromTimeValue = required(input, "appliesFromTime", path);
+      const minimumAge = minimumAgeValue === null ? null : number(minimumAgeValue, `${path}.minimumAge`, { min: 0, max: 120, integer: true });
+      const appliesFromTime = appliesFromTimeValue === null ? null : parseTime(appliesFromTimeValue, `${path}.appliesFromTime`);
+      if (policy === "ALL_AGES" && (minimumAge !== null || appliesFromTime !== null)) throw new ContractValidationError(path, "ALL_AGES cannot contain a minimum age or time restriction");
+      if (policy === "MINIMUM_AGE" && minimumAge === null) throw new ContractValidationError(path, "MINIMUM_AGE requires minimumAge");
+      return { policy, minimumAge, appliesFromTime };
+    }
     case "WEEKLY_SCHEDULE": return parseWeeklySchedule(value, path);
     case "SPECIAL_HOURS": return parseSpecialHours(value, path);
     case "CURRENT_STATE": {
@@ -170,21 +183,40 @@ export function parseAttributeValue(definition: AttributeDefinition, value: unkn
 
 export type ClaimDraft = Omit<WorldKnowledgeClaim, "contractVersion" | "registryVersion" | "contentHash">;
 
-function normalizeDraft(draft: ClaimDraft): Omit<WorldKnowledgeClaim, "contentHash"> {
-  const definition = getAttributeDefinition(draft.attributeKey);
-  if (draft.sourceType === "AI_INFERENCE" && draft.verificationState === "VERIFIED") throw new ContractValidationError("$.verificationState", "AI inference cannot be a verified source");
-  if (draft.sourceReferenceId !== null && !draft.sourceReferenceId.startsWith("source:")) throw new ContractValidationError("$.sourceReferenceId", "bound evidence reference must use source namespace");
-  if (draft.verificationState === "VERIFIED" && draft.sourceReferenceId === null) throw new ContractValidationError("$.sourceReferenceId", "verified claim requires a bound verification source");
-  const value = draft.knowledgeState === "UNKNOWN" ? null : parseAttributeValue(definition, draft.value);
-  if (draft.knowledgeState === "KNOWN_TRUE" && value !== true) throw new ContractValidationError("$.value", "KNOWN_TRUE requires true");
-  if (draft.knowledgeState === "KNOWN_FALSE" && value !== false) throw new ContractValidationError("$.value", "KNOWN_FALSE requires false");
-  if (["KNOWN_TRUE", "KNOWN_FALSE"].includes(draft.knowledgeState) && definition.valueType !== "BOOLEAN") throw new ContractValidationError("$.knowledgeState", "boolean knowledge state requires BOOLEAN attribute");
-  if (draft.knowledgeState === "KNOWN_VALUE" && value === null) throw new ContractValidationError("$.value", "KNOWN_VALUE requires value");
-  if (draft.validFrom && draft.validUntil && draft.validFrom > draft.validUntil) throw new ContractValidationError("$.validUntil", "precedes validFrom");
-  return { ...draft, contractVersion: CLAIM_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, value };
+function normalizeDraft(draftValue: unknown): Omit<WorldKnowledgeClaim, "contentHash"> {
+  const path = "$";
+  const draft = object(draftValue, path, ["claimId", "attributeKey", "scope", "knowledgeState", "value", "actorType", "sourceType", "sourceReferenceId", "provenanceSessionId", "verificationState", "observedAt", "validFrom", "validUntil", "stance", "visibility", "supersedesClaimId"]);
+  const nullableIdentifier = (key: string) => { const item = required(draft, key, path); return item === null ? null : identifier(item, `$.${key}`); };
+  const nullableTimestamp = (key: string) => { const item = required(draft, key, path); return item === null ? null : timestamp(item, `$.${key}`); };
+  const claimId = identifier(required(draft, "claimId", path), "$.claimId");
+  const attributeKey = identifier(required(draft, "attributeKey", path), "$.attributeKey"); const definition = getAttributeDefinition(attributeKey);
+  const scopeInput = object(required(draft, "scope", path), "$.scope", ["spotId", "area"]);
+  const knowledgeState = enumValue(required(draft, "knowledgeState", path), KNOWLEDGE_STATES, "$.knowledgeState");
+  const actorType = enumValue(required(draft, "actorType", path), ACTOR_TYPES, "$.actorType");
+  const sourceType = enumValue(required(draft, "sourceType", path), SOURCE_TYPES, "$.sourceType");
+  const sourceReferenceId = nullableIdentifier("sourceReferenceId"); const provenanceSessionId = nullableIdentifier("provenanceSessionId");
+  const verificationState = enumValue(required(draft, "verificationState", path), VERIFICATION_STATES, "$.verificationState");
+  const observedAt = timestamp(required(draft, "observedAt", path), "$.observedAt"); const validFrom = nullableTimestamp("validFrom"); const validUntil = nullableTimestamp("validUntil");
+  const stance = enumValue(required(draft, "stance", path), STANCES, "$.stance"); const visibility = enumValue(required(draft, "visibility", path), VISIBILITIES, "$.visibility"); const supersedesClaimId = nullableIdentifier("supersedesClaimId");
+  if (sourceType === "AI_INFERENCE" && verificationState === "VERIFIED") throw new ContractValidationError("$.verificationState", "AI inference cannot be a verified source");
+  if (sourceReferenceId !== null && !sourceReferenceId.startsWith("source:")) throw new ContractValidationError("$.sourceReferenceId", "bound evidence reference must use source namespace");
+  if (verificationState === "VERIFIED" && sourceReferenceId === null) throw new ContractValidationError("$.sourceReferenceId", "verified claim requires a bound verification source");
+  if (supersedesClaimId === claimId) throw new ContractValidationError("$.supersedesClaimId", "claim cannot supersede itself");
+  const value = knowledgeState === "UNKNOWN" ? (required(draft, "value", path) === null ? null : (() => { throw new ContractValidationError("$.value", "UNKNOWN requires null"); })()) : parseAttributeValue(attributeKey, required(draft, "value", path));
+  if (knowledgeState === "KNOWN_TRUE" && value !== true) throw new ContractValidationError("$.value", "KNOWN_TRUE requires true");
+  if (knowledgeState === "KNOWN_FALSE" && value !== false) throw new ContractValidationError("$.value", "KNOWN_FALSE requires false");
+  if (["KNOWN_TRUE", "KNOWN_FALSE"].includes(knowledgeState) && definition.valueType !== "BOOLEAN") throw new ContractValidationError("$.knowledgeState", "boolean knowledge state requires BOOLEAN attribute");
+  if (knowledgeState === "KNOWN_VALUE" && value === null) throw new ContractValidationError("$.value", "KNOWN_VALUE requires value");
+  if (validFrom && validUntil && validFrom > validUntil) throw new ContractValidationError("$.validUntil", "precedes validFrom");
+  return {
+    contractVersion: CLAIM_CONTRACT_VERSION, claimId, registryVersion: REGISTRY_VERSION, attributeKey,
+    scope: { spotId: identifier(required(scopeInput, "spotId", "$.scope"), "$.scope.spotId"), area: identifier(required(scopeInput, "area", "$.scope"), "$.scope.area") },
+    knowledgeState, value, actorType, sourceType, sourceReferenceId, provenanceSessionId, verificationState, observedAt, validFrom, validUntil, stance, visibility, supersedesClaimId,
+  };
 }
 
-export function createClaim(draft: ClaimDraft): WorldKnowledgeClaim {
+export function createClaim(draft: ClaimDraft): WorldKnowledgeClaim;
+export function createClaim(draft: unknown): WorldKnowledgeClaim {
   const body = normalizeDraft(draft);
   return { ...body, contentHash: hashBody(body, []) };
 }

@@ -1,4 +1,4 @@
-import { canonicalSort, hashBody } from "./canonical.js";
+import { canonicalJson, canonicalSort, hashBody } from "./canonical.js";
 import {
   FRESHNESS_STATES, parseAttributeValue, parseClaim, RESOLUTION_CONTRACT_VERSION, RESOLUTION_STATES, SOURCE_TYPES, TRUST_STATES,
   type ClaimValue, type FreshnessState, type ResolutionState, type TrustState, type WorldKnowledgeClaim,
@@ -45,6 +45,9 @@ export interface ResolutionRequest {
   readonly asOf: string;
   readonly claims: readonly WorldKnowledgeClaim[];
 }
+
+export const RESOLUTION_REASON_CODES = ["OVERLAPPING_CONTRADICTORY_CLAIMS", "EXPLICIT_UNKNOWN", "CONSISTENT_ACTIVE_CLAIMS", "VALIDITY_WINDOW_ENDED_LAST_KNOWN_RETAINED", "CURRENT_STATE_VALIDITY_ENDED", "CURRENT_STATE_MISSING_VALID_UNTIL"] as const;
+export const KNOWLEDGE_CONFLICT_CODES = ["OVERLAPPING_CONTRADICTORY_CLAIMS", "OVERLAPPING_CLAIMS_IN_HISTORY", "CAPACITY_COMPONENTS_EXCEED_TOTAL", "GROUP_RANGE_EXCEEDS_TOTAL_CAPACITY", "RESERVATION_THRESHOLD_OUTSIDE_SUPPORTED_GROUP_RANGE", "TAKEAWAY_EXCLUDED_BUT_OFFERED", "OUTDOOR_AREA_TEMPORARILY_UNAVAILABLE", "KITCHEN_OPEN_WHILE_VENUE_CLOSED", "KITCHEN_HOURS_OUTSIDE_VENUE_HOURS", "UNUSUAL_CATEGORY_PLACE_TYPE_COMBINATION", "CURRENT_STATE_MISSING_VALID_UNTIL"] as const;
 
 const stateValue = (claim: WorldKnowledgeClaim): string => `${claim.knowledgeState}:${JSON.stringify(claim.value)}`;
 const end = (claim: WorldKnowledgeClaim) => claim.validUntil ?? "9999-12-31T23:59:59.999Z";
@@ -145,10 +148,19 @@ export function parseResolutionRequest(value: unknown): ResolutionRequest {
   const input = object(value, "$", ["contractVersion", "registryVersion", "asOf", "claims"]);
   if (required(input, "contractVersion") !== RESOLUTION_CONTRACT_VERSION) throw new ContractValidationError("$.contractVersion", "unknown resolution contract version");
   if (required(input, "registryVersion") !== REGISTRY_VERSION) throw new ContractValidationError("$.registryVersion", "unknown registry version");
-  return { contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf: timestamp(required(input, "asOf"), "$.asOf"), claims: array(required(input, "claims"), "$.claims").map(parseClaim) };
+  const claims = array(required(input, "claims"), "$.claims").map(parseClaim); const byId = new Map(claims.map((claim) => [claim.claimId, claim]));
+  if (byId.size !== claims.length) throw new ContractValidationError("$.claims", "duplicate claim id");
+  for (const claim of claims) if (claim.supersedesClaimId) {
+    const prior = byId.get(claim.supersedesClaimId); if (!prior) throw new ContractValidationError("$.claims", `superseded claim not found:${claim.supersedesClaimId}`);
+    if (prior.attributeKey !== claim.attributeKey || prior.scope.spotId !== claim.scope.spotId || prior.scope.area !== claim.scope.area) throw new ContractValidationError("$.claims", "supersedes relationship crosses attribute or scope");
+    if (claim.observedAt < prior.observedAt) throw new ContractValidationError("$.claims", "correction predates superseded claim");
+    const visited = new Set([claim.claimId]); let cursor: WorldKnowledgeClaim | undefined = prior; while (cursor?.supersedesClaimId) { if (visited.has(cursor.claimId)) throw new ContractValidationError("$.claims", "cyclic supersedes relationship"); visited.add(cursor.claimId); cursor = byId.get(cursor.supersedesClaimId); }
+  }
+  return { contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf: timestamp(required(input, "asOf"), "$.asOf"), claims };
 }
 
-export function resolveWorldKnowledge(requestValue: ResolutionRequest): ResolutionResult {
+export function resolveWorldKnowledge(requestValue: ResolutionRequest): ResolutionResult;
+export function resolveWorldKnowledge(requestValue: unknown): ResolutionResult {
   const request = parseResolutionRequest(requestValue); const parsed = canonicalSort(request.claims, (claim) => claim.claimId);
   const superseded = new Set(parsed.map((claim) => claim.supersedesClaimId).filter((value): value is string => value !== null));
   const eligible = parsed.filter((claim) => !superseded.has(claim.claimId) && claim.verificationState !== "REJECTED" && (claim.validFrom === null || claim.validFrom <= request.asOf));
@@ -165,20 +177,36 @@ export function parseResolvedKnowledge(value: unknown): ResolvedKnowledge {
   if (required(input, "contractVersion") !== RESOLUTION_CONTRACT_VERSION) throw new ContractValidationError("$.contractVersion", "unknown resolution contract version");
   if (required(input, "registryVersion") !== REGISTRY_VERSION) throw new ContractValidationError("$.registryVersion", "unknown registry version");
   const scope = object(required(input, "scope"), "$.scope", ["spotId", "area"]); const definition = getAttributeDefinition(identifier(required(input, "attributeKey"), "$.attributeKey")); const resolution = enumValue(required(input, "resolution"), RESOLUTION_STATES, "$.resolution");
-  if (resolution === "UNKNOWN" && required(input, "value") !== null) throw new ContractValidationError("$.value", "UNKNOWN requires null");
-  if (!["UNKNOWN", "DISPUTED"].includes(resolution)) parseAttributeValue(definition, required(input, "value"), "$.value");
+  const rawValue = required(input, "value");
+  let parsedValue: ClaimValue | readonly ClaimValue[];
+  if (resolution === "UNKNOWN") {
+    if (rawValue !== null) throw new ContractValidationError("$.value", "UNKNOWN requires null"); parsedValue = null;
+  } else if (resolution === "DISPUTED") {
+    parsedValue = array(rawValue, "$.value", { min: 2 }).map((item, index) => parseAttributeValue(definition.key, item, `$.value[${index}]`));
+    if (new Set(parsedValue.map((item) => canonicalJson(item))).size < 2) throw new ContractValidationError("$.value", "DISPUTED requires distinct competing values");
+  } else {
+    parsedValue = parseAttributeValue(definition.key, rawValue, "$.value");
+    if (resolution === "KNOWN_TRUE" && parsedValue !== true) throw new ContractValidationError("$.value", "KNOWN_TRUE requires true");
+    if (resolution === "KNOWN_FALSE" && parsedValue !== false) throw new ContractValidationError("$.value", "KNOWN_FALSE requires false");
+    if (["KNOWN_TRUE", "KNOWN_FALSE"].includes(resolution) && definition.valueType !== "BOOLEAN") throw new ContractValidationError("$.resolution", "boolean resolution requires BOOLEAN attribute");
+  }
+  if (canonicalJson(parsedValue) !== canonicalJson(rawValue)) throw new ContractValidationError("$.value", "value is not canonical");
+  const trust = enumValue(required(input, "trust"), TRUST_STATES, "$.trust");
+  if ((resolution === "DISPUTED") !== (trust === "CONFLICTING")) throw new ContractValidationError("$.trust", "CONFLICTING trust must match DISPUTED resolution");
   const resultWithoutHash: Omit<ResolvedKnowledge, "resolutionHash"> = {
     contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, attributeKey: definition.key,
     scope: { spotId: identifier(required(scope, "spotId", "$.scope"), "$.scope.spotId"), area: identifier(required(scope, "area", "$.scope"), "$.scope.area") },
-    resolution, freshness: enumValue(required(input, "freshness"), FRESHNESS_STATES, "$.freshness"), trust: enumValue(required(input, "trust"), TRUST_STATES, "$.trust"),
-    value: required(input, "value") as ClaimValue | readonly ClaimValue[], claimRefs: array(required(input, "claimRefs"), "$.claimRefs").map((item, index) => identifier(item, `$.claimRefs[${index}]`)), sourceTypes: array(required(input, "sourceTypes"), "$.sourceTypes").map((item, index) => enumValue(item, SOURCE_TYPES, `$.sourceTypes[${index}]`)), reasonCodes: array(required(input, "reasonCodes"), "$.reasonCodes").map((item, index) => identifier(item, `$.reasonCodes[${index}]`)),
+    resolution, freshness: enumValue(required(input, "freshness"), FRESHNESS_STATES, "$.freshness"), trust,
+    value: parsedValue, claimRefs: array(required(input, "claimRefs"), "$.claimRefs", { min: 1 }).map((item, index) => identifier(item, `$.claimRefs[${index}]`)), sourceTypes: array(required(input, "sourceTypes"), "$.sourceTypes", { min: 1 }).map((item, index) => enumValue(item, SOURCE_TYPES, `$.sourceTypes[${index}]`)), reasonCodes: array(required(input, "reasonCodes"), "$.reasonCodes", { min: 1 }).map((item, index) => enumValue(item, RESOLUTION_REASON_CODES, `$.reasonCodes[${index}]`)),
   };
+  const primaryReason = resolution === "DISPUTED" ? "OVERLAPPING_CONTRADICTORY_CLAIMS" : resolution === "UNKNOWN" ? "EXPLICIT_UNKNOWN" : "CONSISTENT_ACTIVE_CLAIMS"; if (!resultWithoutHash.reasonCodes.includes(primaryReason)) throw new ContractValidationError("$.reasonCodes", "resolution reason does not match resolution state");
+  if (resultWithoutHash.freshness === "STALE" && !resultWithoutHash.reasonCodes.includes("VALIDITY_WINDOW_ENDED_LAST_KNOWN_RETAINED") || resultWithoutHash.freshness === "EXPIRED" && !resultWithoutHash.reasonCodes.includes("CURRENT_STATE_VALIDITY_ENDED")) throw new ContractValidationError("$.reasonCodes", "freshness reason does not match freshness state");
   const expected = resolvedHash(resultWithoutHash); if (expected.resolutionHash !== hash(required(input, "resolutionHash"), "$.resolutionHash")) throw new ContractValidationError("$.resolutionHash", "resolution hash mismatch"); return expected;
 }
 
 function parseConflict(value: unknown, path: string): KnowledgeConflict {
   const input = object(value, path, ["code", "severity", "attributeKeys", "claimRefs", "explanation"]);
-  return { code: identifier(required(input, "code", path), `${path}.code`), severity: enumValue(required(input, "severity", path), ["INFO", "WARNING", "BLOCKING"] as const, `${path}.severity`), attributeKeys: array(required(input, "attributeKeys", path), `${path}.attributeKeys`).map((item, index) => identifier(item, `${path}.attributeKeys[${index}]`)), claimRefs: array(required(input, "claimRefs", path), `${path}.claimRefs`).map((item, index) => identifier(item, `${path}.claimRefs[${index}]`)), explanation: string(required(input, "explanation", path), `${path}.explanation`, { min: 1 }) };
+  return { code: enumValue(required(input, "code", path), KNOWLEDGE_CONFLICT_CODES, `${path}.code`), severity: enumValue(required(input, "severity", path), ["INFO", "WARNING", "BLOCKING"] as const, `${path}.severity`), attributeKeys: array(required(input, "attributeKeys", path), `${path}.attributeKeys`, { min: 1 }).map((item, index) => getAttributeDefinition(identifier(item, `${path}.attributeKeys[${index}]`)).key), claimRefs: array(required(input, "claimRefs", path), `${path}.claimRefs`).map((item, index) => identifier(item, `${path}.claimRefs[${index}]`)), explanation: string(required(input, "explanation", path), `${path}.explanation`, { min: 1 }) };
 }
 
 export function parseResolutionResult(value: unknown): ResolutionResult {
@@ -189,5 +217,9 @@ export function parseResolutionResult(value: unknown): ResolutionResult {
     contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf: timestamp(required(input, "asOf"), "$.asOf"),
     resolved: array(required(input, "resolved"), "$.resolved").map(parseResolvedKnowledge), conflicts: array(required(input, "conflicts"), "$.conflicts").map((item, index) => parseConflict(item, `$.conflicts[${index}]`)), history: array(required(input, "history"), "$.history").map(parseClaim),
   };
-  const supplied = hash(required(input, "resultHash"), "$.resultHash"); if (hashBody(body, []) !== supplied) throw new ContractValidationError("$.resultHash", "resolution result hash mismatch"); return { ...body, resultHash: supplied };
+  const supplied = hash(required(input, "resultHash"), "$.resultHash"); if (hashBody(body, []) !== supplied) throw new ContractValidationError("$.resultHash", "resolution result hash mismatch");
+  const recomputed = resolveWorldKnowledge({ contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf: body.asOf, claims: body.history });
+  const { resultHash: _recomputedHash, ...recomputedBody } = recomputed;
+  if (canonicalJson(recomputedBody) !== canonicalJson(body)) throw new ContractValidationError("$", "resolution payload does not match deterministic resolution of its history");
+  return { ...body, resultHash: supplied };
 }

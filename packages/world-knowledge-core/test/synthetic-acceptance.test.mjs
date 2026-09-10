@@ -20,6 +20,11 @@ test("Philipps Casa proves the Founder and trust boundaries", () => {
   assert.equal("secondaryCategories" in snapshot.spot.classification, false); assert.equal("confidence" in snapshot, false); assert.equal("readinessPercentage" in snapshot, false);
 });
 
+test("Philipps Casa resolution and snapshot identities are golden SHA-256 values", () => {
+  const resolution = resolveWorldKnowledge(resolutionRequest(PHILIPPS_CASA_CLAIMS)); const snapshot = buildWorldKnowledgeSnapshot(snapshotInput("synthetic-spot-philipps-casa", resolution));
+  assert.equal(resolution.resultHash, "ae2e192185876fbdcb611cd200581edcb87c1ba141e4bf9a3c7e4cc1e96f481d"); assert.equal(snapshot.snapshotHash, "b85a1d96b0c778476edc9f7f5c4383329efc13665c29d5597981f2abfae4c48e");
+});
+
 test("unknown spot stays empty and minimal spot never fabricates false", () => {
   for (const name of ["unknown", "minimal"]) {
     const world = SYNTHETIC_WORLDS[name]; const resolution = resolveWorldKnowledge(resolutionRequest(world.claims)); const snapshot = buildWorldKnowledgeSnapshot(snapshotInput(world.spotId, resolution));

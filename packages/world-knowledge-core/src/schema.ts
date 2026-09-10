@@ -61,7 +61,8 @@ export function timestamp(value: unknown, path: string): string {
 
 export function date(value: unknown, path: string): string {
   const parsed = string(value, path, { pattern: /^\d{4}-\d{2}-\d{2}$/ });
-  if (Number.isNaN(Date.parse(`${parsed}T00:00:00.000Z`))) throw new ContractValidationError(path, "expected calendar date");
+  const instant = new Date(`${parsed}T00:00:00.000Z`);
+  if (Number.isNaN(instant.getTime()) || instant.toISOString().slice(0, 10) !== parsed) throw new ContractValidationError(path, "expected calendar date");
   return parsed;
 }
 

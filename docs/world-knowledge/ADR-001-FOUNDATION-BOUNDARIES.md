@@ -11,6 +11,7 @@ Current Spot, canonical-semantics, N4, and prototype contracts contain useful bu
 Create an independent `@backyrd/world-knowledge-core` package with:
 
 - one primary category and no Secondary Categories in Slice 1
+- exactly 16 Founder categories, ending with neutral `OTHER` (`Sonstiges` / `Other`)
 - separated Cuisine, Food Speciality, Offering, service model, and service format
 - append-only source-bound claims
 - independent resolution, freshness, and qualitative trust dimensions
@@ -18,6 +19,8 @@ Create an independent `@backyrd/world-knowledge-core` package with:
 - component-level accessibility
 - separate durable facts, operational rules, Current State, capabilities, and explanation-only research
 - a sanitized versioned consumer port
+- fail-closed runtime parsing at every public domain construction boundary
+- no trust-dependent `READY` result before a fact-type-specific Source policy exists
 - no final Capability→Intent registry
 
 ## Consequences

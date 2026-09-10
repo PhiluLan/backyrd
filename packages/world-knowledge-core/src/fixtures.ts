@@ -1,6 +1,7 @@
 import { CLAIM_CONTRACT_VERSION, RESOLUTION_CONTRACT_VERSION, WORLD_KNOWLEDGE_PORT_VERSION, createClaim, type ClaimDraft, type ClaimValue, type KnowledgeState, type WorldKnowledgeClaim } from "./contracts.js";
 import { REGISTRY_VERSION } from "./registry.js";
-import type { BuildWorldKnowledgeInput, NonKnowledgeContext } from "./port.js";
+import { parseBuildWorldKnowledgeInput, type BuildWorldKnowledgeInput, type NonKnowledgeContext } from "./port.js";
+import { parseResolutionRequest } from "./resolver.js";
 
 export const SYNTHETIC_AS_OF = "2026-01-15T12:00:00.000Z";
 const observedAt = "2026-01-10T12:00:00.000Z";
@@ -99,11 +100,11 @@ export const SYNTHETIC_WORLDS = Object.freeze({
 });
 
 export function resolutionRequest(claims: readonly WorldKnowledgeClaim[], asOf = SYNTHETIC_AS_OF) {
-  return { contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf, claims } as const;
+  return parseResolutionRequest({ contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf, claims });
 }
 
 export function snapshotInput(spotId: string, resolution: BuildWorldKnowledgeInput["resolution"], nonKnowledgeContext?: NonKnowledgeContext): BuildWorldKnowledgeInput {
-  return nonKnowledgeContext ? { contractVersion: WORLD_KNOWLEDGE_PORT_VERSION, spotId, resolution, nonKnowledgeContext } : { contractVersion: WORLD_KNOWLEDGE_PORT_VERSION, spotId, resolution };
+  return parseBuildWorldKnowledgeInput(nonKnowledgeContext ? { contractVersion: WORLD_KNOWLEDGE_PORT_VERSION, spotId, resolution, nonKnowledgeContext } : { contractVersion: WORLD_KNOWLEDGE_PORT_VERSION, spotId, resolution });
 }
 
 export const FIXTURE_CONTRACT_IDENTITY = Object.freeze({ claim: CLAIM_CONTRACT_VERSION, resolution: RESOLUTION_CONTRACT_VERSION, port: WORLD_KNOWLEDGE_PORT_VERSION, registry: REGISTRY_VERSION });

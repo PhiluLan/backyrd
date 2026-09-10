@@ -2,10 +2,10 @@
 
 Registry version: `backyrd.world-knowledge.registry@1.0`
 
-- Explicit typed child definitions: 46
-- Registry SHA-256: `a0e9b00400e3be6faa33fdf289d630bb61799a12d49201d03384ed1f5329a7ee`
+- Explicit typed child definitions: 47
+- Registry SHA-256: `eba49eab117007ce6f8fca5cc5114e615d6cf8fb1a32547465149db8c84e922b`
 - Derived rule registry: `backyrd.world-knowledge.derived-rules@1.0`
-- Rule registry SHA-256: `e4550ce93b23d4a217bd296e8b83a01363a4459433309c953efae15def917e27`
+- Rule registry SHA-256: `ce6b70c6f3ebc7c114af1fc2a24c79b415e552996e5db7d6f352e7e5867d61f8`
 
 ## Rules
 
@@ -13,12 +13,15 @@ Keys are lowercase, language-neutral dot paths. Labels are bilingual metadata an
 
 One Spot has exactly one `classification.primary_category`. `classification.place_types` cannot select or rewrite it. There is no Secondary Category field in Slice 1.
 
+The registry contains exactly the 16 Founder categories. The final neutral key is `OTHER`, labelled `Sonstiges` in German and `Other` in English. `SERVICES_SPECIAL_EXPERIENCES` is not a valid category.
+
 Large areas use typed child keys rather than opaque objects:
 
 - location: address, locality, neighborhood, country, latitude, longitude, time zone
 - public contact: website, phone and individual social links
 - capacity: total, indoor, outdoor and supported group range
 - accessibility: step-free entrance, wheelchair paths, accessible seating, accessible toilet, accessible outdoor area
+- age access: explicit all-ages or minimum-age operational rule with an optional start time
 - time: regular venue hours, dated exceptions, kitchen hours and scoped Current State
 
 Offering is separated into:

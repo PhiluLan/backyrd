@@ -7,19 +7,29 @@ export const PRIMARY_CATEGORIES = [
   "EAT", "DRINKS", "COFFEE_DAYTIME", "NIGHTLIFE", "CULTURE_ARTS", "ENTERTAINMENT",
   "ACTIVITIES_PLAY", "SPORT_MOVEMENT", "OUTDOOR_NATURE", "WELLNESS_RELAXATION",
   "SHOPPING_MARKETS", "STAY", "COMMUNITY_SOCIAL", "ATTRACTIONS_LANDMARKS",
-  "TEMPORARY_PLACES", "SERVICES_SPECIAL_EXPERIENCES",
+  "TEMPORARY_PLACES", "OTHER",
 ] as const;
 export type PrimaryCategory = typeof PRIMARY_CATEGORIES[number];
+
+export const PRIMARY_CATEGORY_LABELS: Readonly<Record<PrimaryCategory, { readonly de: string; readonly en: string }>> = Object.freeze({
+  EAT: { de: "Essen", en: "Eat" }, DRINKS: { de: "Getränke", en: "Drinks" }, COFFEE_DAYTIME: { de: "Kaffee & tagsüber", en: "Coffee & Daytime" },
+  NIGHTLIFE: { de: "Nachtleben", en: "Nightlife" }, CULTURE_ARTS: { de: "Kultur & Kunst", en: "Culture & Arts" }, ENTERTAINMENT: { de: "Unterhaltung", en: "Entertainment" },
+  ACTIVITIES_PLAY: { de: "Aktivitäten & Spiel", en: "Activities & Play" }, SPORT_MOVEMENT: { de: "Sport & Bewegung", en: "Sport & Movement" }, OUTDOOR_NATURE: { de: "Draußen & Natur", en: "Outdoor & Nature" },
+  WELLNESS_RELAXATION: { de: "Wellness & Entspannung", en: "Wellness & Relaxation" }, SHOPPING_MARKETS: { de: "Shopping & Märkte", en: "Shopping & Markets" }, STAY: { de: "Übernachten", en: "Stay" },
+  COMMUNITY_SOCIAL: { de: "Community & soziale Orte", en: "Community & Social Spaces" }, ATTRACTIONS_LANDMARKS: { de: "Attraktionen & Wahrzeichen", en: "Attractions & Landmarks" }, TEMPORARY_PLACES: { de: "Temporäre Orte", en: "Temporary Places" },
+  OTHER: { de: "Sonstiges", en: "Other" },
+});
 
 export const FOUNDATION_AREAS = [
   "SPOT_IDENTITY", "LOCATION", "PUBLIC_CONTACT", "DESCRIPTION", "PRIMARY_CATEGORY", "PLACE_TYPES",
   "CUISINES", "FOOD_SPECIALITIES", "OFFERING_GROUPS", "PRICE", "PAYMENT", "TAKEAWAY",
   "SERVICE", "CAPACITY", "GROUP_SIZE", "RESERVATION", "EXTERNAL_CONSUMPTION", "AMENITIES",
-  "ACCESSIBILITY", "PET_ACCESS", "REGULAR_HOURS", "SPECIAL_HOURS", "SERVICE_HOURS", "CURRENT_STATE",
+  "ACCESSIBILITY", "PET_ACCESS", "AGE_ACCESS", "REGULAR_HOURS", "SPECIAL_HOURS", "SERVICE_HOURS", "CURRENT_STATE",
 ] as const;
 export type FoundationArea = typeof FOUNDATION_AREAS[number];
 
 export const PLACE_TYPES = ["RESTAURANT", "BRASSERIE", "BISTRO", "CAFE", "BAR", "PUB", "SNACK_BAR", "TAKEAWAY", "FAST_FOOD"] as const;
+export type PlaceType = typeof PLACE_TYPES[number];
 export const CUISINES = ["ITALIAN", "INDIAN", "SWISS", "FRENCH", "JAPANESE", "MEDITERRANEAN", "ASIAN"] as const;
 export const FOOD_SPECIALITIES = ["PIZZA", "BURGER", "SUSHI"] as const;
 export const OFFERING_GROUPS = ["BEER", "WINE", "COCKTAILS", "NON_ALCOHOLIC_DRINKS", "COFFEE", "SNACKS", "FULL_MEALS", "BREAKFAST", "BRUNCH", "LUNCH", "DINNER", "TAKEAWAY_MEALS"] as const;
@@ -34,7 +44,7 @@ export const CONSUMPTION_POLICIES = ["ALLOWED", "NOT_ALLOWED", "CONDITIONAL"] as
 export const CURRENT_STATE_KINDS = ["OPEN", "CLOSED", "TEMPORARILY_CLOSED", "LIMITED", "FULL", "KITCHEN_CLOSED", "AREA_CLOSED"] as const;
 
 export type AttributeKind = "FACT" | "OPERATIONAL_RULE" | "CURRENT_STATE" | "EXPLANATION_ONLY";
-export type ValueType = "TEXT" | "URL" | "PHONE" | "COUNTRY_CODE" | "IANA_TIMEZONE" | "DECIMAL" | "BOOLEAN" | "ENUM" | "ENUM_SET" | "MONEY_RANGE" | "INTEGER" | "INTEGER_RANGE" | "RESERVATION_RULE" | "CONSUMPTION_RULE" | "PET_ACCESS_RULE" | "WEEKLY_SCHEDULE" | "SPECIAL_HOURS" | "CURRENT_STATE";
+export type ValueType = "TEXT" | "URL" | "PHONE" | "COUNTRY_CODE" | "IANA_TIMEZONE" | "DECIMAL" | "BOOLEAN" | "ENUM" | "ENUM_SET" | "MONEY_RANGE" | "INTEGER" | "INTEGER_RANGE" | "RESERVATION_RULE" | "CONSUMPTION_RULE" | "PET_ACCESS_RULE" | "AGE_ACCESS_RULE" | "WEEKLY_SCHEDULE" | "SPECIAL_HOURS" | "CURRENT_STATE";
 export type ExpiryBehavior = "STATIC" | "STALE_AFTER_VALID_UNTIL" | "EXPIRES_AT_VALID_UNTIL";
 
 export interface AttributeDefinition {
@@ -87,6 +97,7 @@ export const ATTRIBUTE_DEFINITIONS: readonly AttributeDefinition[] = Object.free
   definition({ key: "amenity.features", version: 1, area: "AMENITIES", labels: { de: "Ausstattung", en: "Amenities" }, kind: "FACT", valueType: "ENUM_SET", allowedValues: AMENITY_FEATURES, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   ...(["step_free_entrance", "wheelchair_paths", "accessible_seating", "accessible_toilet", "accessible_outdoor"] as const).map((feature) => definition({ key: `accessibility.${feature}`, version: 1, area: "ACCESSIBILITY", labels: { de: ({ step_free_entrance: "Stufenloser Eingang", wheelchair_paths: "Rollstuhlgängige Wege", accessible_seating: "Zugängliche Sitzplätze", accessible_toilet: "Rollstuhl-WC", accessible_outdoor: "Zugänglicher Außenbereich" } as const)[feature], en: ({ step_free_entrance: "Step-free entrance", wheelchair_paths: "Wheelchair paths", accessible_seating: "Accessible seating", accessible_toilet: "Accessible toilet", accessible_outdoor: "Accessible outdoor area" } as const)[feature] }, kind: "FACT", valueType: "BOOLEAN", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" })),
   definition({ key: "rule.pet_access", version: 1, area: "PET_ACCESS", labels: { de: "Tierzugangsregel", en: "Pet access rule" }, kind: "OPERATIONAL_RULE", valueType: "PET_ACCESS_RULE", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
+  definition({ key: "rule.age_access", version: 1, area: "AGE_ACCESS", labels: { de: "Alterszugangsregel", en: "Age access rule" }, kind: "OPERATIONAL_RULE", valueType: "AGE_ACCESS_RULE", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "hours.regular", version: 1, area: "REGULAR_HOURS", labels: { de: "Reguläre Öffnungszeiten", en: "Regular opening hours" }, kind: "OPERATIONAL_RULE", valueType: "WEEKLY_SCHEDULE", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "hours.special", version: 1, area: "SPECIAL_HOURS", labels: { de: "Sonderöffnungszeiten", en: "Special opening hours" }, kind: "OPERATIONAL_RULE", valueType: "SPECIAL_HOURS", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "hours.kitchen", version: 1, area: "SERVICE_HOURS", labels: { de: "Küchenzeiten", en: "Kitchen service hours" }, kind: "OPERATIONAL_RULE", valueType: "WEEKLY_SCHEDULE", applicability: ["EAT", "DRINKS", "COFFEE_DAYTIME", "NIGHTLIFE", "STAY", "TEMPORARY_PLACES"], expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
@@ -102,6 +113,7 @@ export const VALIDITY_POLICIES = Object.freeze([
 ] as const);
 
 function assertRegistry(): void {
+  if (Object.keys(PRIMARY_CATEGORY_LABELS).sort().join("|") !== [...PRIMARY_CATEGORIES].sort().join("|")) throw new Error("primary_category_labels_do_not_match_category_registry");
   const keys = new Set<string>();
   for (const item of ATTRIBUTE_DEFINITIONS) {
     if (!/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/.test(item.key)) throw new Error(`invalid_attribute_key:${item.key}`);
@@ -113,10 +125,12 @@ function assertRegistry(): void {
 }
 assertRegistry();
 
-export const REGISTRY_HASH = sha256({ version: REGISTRY_VERSION, definitions: ATTRIBUTE_DEFINITIONS, validityPolicyVersion: VALIDITY_POLICY_VERSION, validityPolicies: VALIDITY_POLICIES });
-export const REGISTRY_CANONICAL_JSON = canonicalJson({ version: REGISTRY_VERSION, definitions: ATTRIBUTE_DEFINITIONS, validityPolicyVersion: VALIDITY_POLICY_VERSION, validityPolicies: VALIDITY_POLICIES });
+export const REGISTRY_HASH = sha256({ version: REGISTRY_VERSION, primaryCategoryLabels: PRIMARY_CATEGORY_LABELS, definitions: ATTRIBUTE_DEFINITIONS, validityPolicyVersion: VALIDITY_POLICY_VERSION, validityPolicies: VALIDITY_POLICIES });
+export const REGISTRY_CANONICAL_JSON = canonicalJson({ version: REGISTRY_VERSION, primaryCategoryLabels: PRIMARY_CATEGORY_LABELS, definitions: ATTRIBUTE_DEFINITIONS, validityPolicyVersion: VALIDITY_POLICY_VERSION, validityPolicies: VALIDITY_POLICIES });
 
-export function getAttributeDefinition(key: string): AttributeDefinition {
+export function getAttributeDefinition(keyValue: unknown): AttributeDefinition {
+  if (typeof keyValue !== "string" || !/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/.test(keyValue)) throw new Error("invalid_attribute_key");
+  const key = keyValue;
   const definitionValue = ATTRIBUTE_DEFINITIONS.find((item) => item.key === key);
   if (!definitionValue) throw new Error(`unknown_attribute_key:${key}`);
   return definitionValue;
