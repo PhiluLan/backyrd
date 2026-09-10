@@ -1,0 +1,943 @@
+{
+  "artifactVersion": "backyrd.world-knowledge.slice-3a-calibration-artifact@1.0",
+  "calibrationContractVersion": "backyrd.world-knowledge.policy-calibration@1.0",
+  "canonicalBase": "983cd7b3a3c11dd3e549c256850749b07b52eadf",
+  "generatedAt": "2026-09-10T16:00:00.000Z",
+  "status": "DRAFT_CANDIDATE",
+  "productionDataUsed": false,
+  "results": [
+    {
+      "scenarioId": "balanced_reference:owner-asserted-hours",
+      "policyVersion": "draft:world-knowledge-slice-3a:balanced_reference:1",
+      "policyHash": "d39fb5d6b50e9f17948c1b92b043f27c4de03731aa2f3b33477958983f5dc1cd",
+      "resolutionHash": "c16eb582e8374d21303d1a622d145dd315d612c7d8c836aa8283d61cb67f7dd8",
+      "snapshotHash": "ee893c339b9707b570b070804f64a817bca08310735e5140a2cc8d99c1bef3d9",
+      "projectionHash": "22ed53085e2164c369c02aef10c73503fe219c290da7dc5670fdc73d34a161a0",
+      "sourceAssessments": [
+        {
+          "claimId": "claim:s3a:owner-hours",
+          "attributeKey": "hours.regular",
+          "status": "AUTHORIZED",
+          "trust": "ASSERTED",
+          "useCaseAuthorizations": {
+            "GENERAL_WORLD": "REQUIRES_POLICY",
+            "DISCOVERY": "PROHIBITED",
+            "OPENING_HOURS_ELIGIBILITY": "REQUIRES_POLICY",
+            "PRICE": "PROHIBITED",
+            "HARD_CONSTRAINTS": "PROHIBITED",
+            "ACCESSIBILITY": "PROHIBITED",
+            "INTENT_MATCHING": "PROHIBITED",
+            "EXPLANATION": "PROHIBITED",
+            "RESEARCH": "REQUIRES_POLICY"
+          },
+          "reasonCodes": [
+            "AUTHORIZED_ASSERTION"
+          ],
+          "assessmentHash": "cbf155a67a6d17a044aab47edcd932c8378d324896a1548cee25a23d847a3049"
+        }
+      ],
+      "readiness": [
+        {
+          "useCase": "BASE_PROFILE",
+          "state": "PARTIAL",
+          "reasonCodes": [
+            "CORE_IDENTITY_INCOMPLETE"
+          ]
+        },
+        {
+          "useCase": "CLASSIFICATION",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLASSIFICATION_INCOMPLETE"
+          ]
+        },
+        {
+          "useCase": "DISCOVERY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "DISCOVERY_CORE_MISSING"
+          ]
+        },
+        {
+          "useCase": "OPENING_HOURS_ELIGIBILITY",
+          "state": "PARTIAL",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "OPENING_HOURS_ASSERTED_ONLY"
+          ]
+        },
+        {
+          "useCase": "PRICE",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "PRICE_MISSING"
+          ]
+        },
+        {
+          "useCase": "HARD_CONSTRAINTS",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "CORE_CONSTRAINTS_MISSING"
+          ]
+        },
+        {
+          "useCase": "ACCESSIBILITY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "ACCESSIBILITY_COMPONENTS_MISSING",
+            "CLAIM_POLICY_REQUIREMENTS_UNMET"
+          ]
+        },
+        {
+          "useCase": "INTENT_MATCHING",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CAPABILITY_INTENT_REGISTRY_NOT_CONFIGURED"
+          ]
+        },
+        {
+          "useCase": "TRUST_FRESHNESS",
+          "state": "PARTIAL",
+          "reasonCodes": [
+            "ASSERTED_ONLY_KNOWLEDGE_PRESENT",
+            "CLAIM_POLICY_REQUIREMENTS_UNMET"
+          ]
+        }
+      ],
+      "conflicts": [],
+      "exclusions": [
+        {
+          "code": "ASSERTED_OPENING_HOURS",
+          "count": 1
+        }
+      ],
+      "resultHash": "9762e86a7e7b658250779b88d5fc147a3f727eab727f48ccc8e9aae16b319a4c"
+    },
+    {
+      "scenarioId": "balanced_reference:official-referenced-hours",
+      "policyVersion": "draft:world-knowledge-slice-3a:balanced_reference:1",
+      "policyHash": "d39fb5d6b50e9f17948c1b92b043f27c4de03731aa2f3b33477958983f5dc1cd",
+      "resolutionHash": "aea4884e1cdb0b1e549b0d9919cf83fb26f182a07e6d3a27106b01cbb2ff6a5b",
+      "snapshotHash": "2ed7737b8fdcacc4cd20c7e78441e6a762f5146bc9529eb00b8609aac0ed3200",
+      "projectionHash": "2291b1eef009e47d4a848a2f87c09b1bd8a71ae3ae2a08e279057fb774ac546e",
+      "sourceAssessments": [
+        {
+          "claimId": "claim:s3a:official-hours",
+          "attributeKey": "hours.regular",
+          "status": "AUTHORIZED",
+          "trust": "REFERENCED",
+          "useCaseAuthorizations": {
+            "GENERAL_WORLD": "AUTHORIZED",
+            "DISCOVERY": "PROHIBITED",
+            "OPENING_HOURS_ELIGIBILITY": "AUTHORIZED",
+            "PRICE": "PROHIBITED",
+            "HARD_CONSTRAINTS": "PROHIBITED",
+            "ACCESSIBILITY": "PROHIBITED",
+            "INTENT_MATCHING": "PROHIBITED",
+            "EXPLANATION": "PROHIBITED",
+            "RESEARCH": "AUTHORIZED"
+          },
+          "reasonCodes": [
+            "AUTHORIZED_BOUND_REFERENCE"
+          ],
+          "assessmentHash": "fc0c6aba27ccfa56efd1aaf5711064e53a0ad729cef0dfb4200baa15e2f42d4a"
+        }
+      ],
+      "readiness": [
+        {
+          "useCase": "BASE_PROFILE",
+          "state": "PARTIAL",
+          "reasonCodes": [
+            "CORE_IDENTITY_INCOMPLETE"
+          ]
+        },
+        {
+          "useCase": "CLASSIFICATION",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLASSIFICATION_INCOMPLETE"
+          ]
+        },
+        {
+          "useCase": "DISCOVERY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "DISCOVERY_CORE_MISSING"
+          ]
+        },
+        {
+          "useCase": "OPENING_HOURS_ELIGIBILITY",
+          "state": "READY",
+          "reasonCodes": [
+            "CLAIMS_POLICY_AUTHORIZED",
+            "OPENING_HOURS_PRESENT"
+          ]
+        },
+        {
+          "useCase": "PRICE",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "PRICE_MISSING"
+          ]
+        },
+        {
+          "useCase": "HARD_CONSTRAINTS",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "CORE_CONSTRAINTS_MISSING"
+          ]
+        },
+        {
+          "useCase": "ACCESSIBILITY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "ACCESSIBILITY_COMPONENTS_MISSING",
+            "CLAIM_POLICY_REQUIREMENTS_UNMET"
+          ]
+        },
+        {
+          "useCase": "INTENT_MATCHING",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CAPABILITY_INTENT_REGISTRY_NOT_CONFIGURED"
+          ]
+        },
+        {
+          "useCase": "TRUST_FRESHNESS",
+          "state": "READY",
+          "reasonCodes": [
+            "CLAIMS_POLICY_AUTHORIZED",
+            "CURRENT_KNOWLEDGE_PRESENT"
+          ]
+        }
+      ],
+      "conflicts": [],
+      "exclusions": [],
+      "resultHash": "d50bd47150f634fc9670d6237aee0d980aca50dda5a7561cf39e240cc4e66348"
+    },
+    {
+      "scenarioId": "balanced_reference:current-state-without-expiry",
+      "policyVersion": "draft:world-knowledge-slice-3a:balanced_reference:1",
+      "policyHash": "d39fb5d6b50e9f17948c1b92b043f27c4de03731aa2f3b33477958983f5dc1cd",
+      "resolutionHash": "e0eb18bd13d1985e329a41c7a28a12d78bcdcee5cb66fd4be6c2285524dfd2eb",
+      "snapshotHash": "3fdd57b396d9011bdf160af3f9bc46a481f55f2cf5426995997cc6dbd22cd952",
+      "projectionHash": "9cc06f9b62fd3e63eaded298868e5ffc866f589b2b5bed4b9ba27ac860e1de5d",
+      "sourceAssessments": [
+        {
+          "claimId": "claim:s3a:current-state",
+          "attributeKey": "state.current",
+          "status": "AUTHORIZED",
+          "trust": "ASSERTED",
+          "useCaseAuthorizations": {
+            "GENERAL_WORLD": "REQUIRES_POLICY",
+            "DISCOVERY": "PROHIBITED",
+            "OPENING_HOURS_ELIGIBILITY": "REQUIRES_POLICY",
+            "PRICE": "PROHIBITED",
+            "HARD_CONSTRAINTS": "PROHIBITED",
+            "ACCESSIBILITY": "PROHIBITED",
+            "INTENT_MATCHING": "PROHIBITED",
+            "EXPLANATION": "PROHIBITED",
+            "RESEARCH": "REQUIRES_POLICY"
+          },
+          "reasonCodes": [
+            "AUTHORIZED_ASSERTION",
+            "VALID_UNTIL_REQUIRED"
+          ],
+          "assessmentHash": "ce871c6e5267c7505795697aaebad1070a8389ef615948e689c4a328b5c95feb"
+        }
+      ],
+      "readiness": [
+        {
+          "useCase": "BASE_PROFILE",
+          "state": "PARTIAL",
+          "reasonCodes": [
+            "CORE_IDENTITY_INCOMPLETE"
+          ]
+        },
+        {
+          "useCase": "CLASSIFICATION",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLASSIFICATION_INCOMPLETE"
+          ]
+        },
+        {
+          "useCase": "DISCOVERY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "DISCOVERY_CORE_MISSING"
+          ]
+        },
+        {
+          "useCase": "OPENING_HOURS_ELIGIBILITY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "OPENING_HOURS_MISSING"
+          ]
+        },
+        {
+          "useCase": "PRICE",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "PRICE_MISSING"
+          ]
+        },
+        {
+          "useCase": "HARD_CONSTRAINTS",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "CORE_CONSTRAINTS_MISSING"
+          ]
+        },
+        {
+          "useCase": "ACCESSIBILITY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "ACCESSIBILITY_COMPONENTS_MISSING",
+            "CLAIM_POLICY_REQUIREMENTS_UNMET"
+          ]
+        },
+        {
+          "useCase": "INTENT_MATCHING",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CAPABILITY_INTENT_REGISTRY_NOT_CONFIGURED"
+          ]
+        },
+        {
+          "useCase": "TRUST_FRESHNESS",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "BLOCKING_CONFLICT_PRESENT",
+            "CLAIM_POLICY_REQUIREMENTS_UNMET"
+          ]
+        }
+      ],
+      "conflicts": [
+        "CURRENT_STATE_MISSING_VALID_UNTIL"
+      ],
+      "exclusions": [
+        {
+          "code": "CURRENT_STATE_WITHOUT_EXPIRY",
+          "count": 1
+        },
+        {
+          "code": "BLOCKING_CONFLICT_VALUES",
+          "count": 1
+        }
+      ],
+      "resultHash": "4816ca10c2be892e695ddad34c968b2faeab10f52a8c6a691b9efeb0a52a55fd"
+    },
+    {
+      "scenarioId": "balanced_reference:conflicting-official-takeaway",
+      "policyVersion": "draft:world-knowledge-slice-3a:balanced_reference:1",
+      "policyHash": "d39fb5d6b50e9f17948c1b92b043f27c4de03731aa2f3b33477958983f5dc1cd",
+      "resolutionHash": "3c74fa0d2f38b7f485107fddb3cf272c9ac38e371801c9ebfee0c5fd12513765",
+      "snapshotHash": "1878728d7821aa84af54a7b50e39775b7343d8cb58b03a19234e3a932496692d",
+      "projectionHash": "b8b04d3b4b9cc535f23a78edc333bc9e509beedf313bd0183faa34505873013f",
+      "sourceAssessments": [
+        {
+          "claimId": "claim:s3a:takeaway-no",
+          "attributeKey": "operation.takeaway",
+          "status": "AUTHORIZED",
+          "trust": "REFERENCED",
+          "useCaseAuthorizations": {
+            "GENERAL_WORLD": "AUTHORIZED",
+            "DISCOVERY": "PROHIBITED",
+            "OPENING_HOURS_ELIGIBILITY": "PROHIBITED",
+            "PRICE": "PROHIBITED",
+            "HARD_CONSTRAINTS": "AUTHORIZED",
+            "ACCESSIBILITY": "PROHIBITED",
+            "INTENT_MATCHING": "PROHIBITED",
+            "EXPLANATION": "PROHIBITED",
+            "RESEARCH": "AUTHORIZED"
+          },
+          "reasonCodes": [
+            "AUTHORIZED_BOUND_REFERENCE"
+          ],
+          "assessmentHash": "7edae6c81ab00a8c993d4f00231feface0df50d9c7ae4f7c4b32eb8e821e5f00"
+        },
+        {
+          "claimId": "claim:s3a:takeaway-yes",
+          "attributeKey": "operation.takeaway",
+          "status": "AUTHORIZED",
+          "trust": "REFERENCED",
+          "useCaseAuthorizations": {
+            "GENERAL_WORLD": "AUTHORIZED",
+            "DISCOVERY": "PROHIBITED",
+            "OPENING_HOURS_ELIGIBILITY": "PROHIBITED",
+            "PRICE": "PROHIBITED",
+            "HARD_CONSTRAINTS": "AUTHORIZED",
+            "ACCESSIBILITY": "PROHIBITED",
+            "INTENT_MATCHING": "PROHIBITED",
+            "EXPLANATION": "PROHIBITED",
+            "RESEARCH": "AUTHORIZED"
+          },
+          "reasonCodes": [
+            "AUTHORIZED_BOUND_REFERENCE"
+          ],
+          "assessmentHash": "954a7fda9611f462ca4fb7122c0a0dbe808c6beabd2d523da0fabde306be0d65"
+        }
+      ],
+      "readiness": [
+        {
+          "useCase": "BASE_PROFILE",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CORE_IDENTITY_INCOMPLETE"
+          ]
+        },
+        {
+          "useCase": "CLASSIFICATION",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLASSIFICATION_INCOMPLETE"
+          ]
+        },
+        {
+          "useCase": "DISCOVERY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "DISCOVERY_CORE_MISSING"
+          ]
+        },
+        {
+          "useCase": "OPENING_HOURS_ELIGIBILITY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "OPENING_HOURS_MISSING"
+          ]
+        },
+        {
+          "useCase": "PRICE",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "PRICE_MISSING"
+          ]
+        },
+        {
+          "useCase": "HARD_CONSTRAINTS",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "HARD_CONSTRAINT_CONFLICT_PRESENT"
+          ]
+        },
+        {
+          "useCase": "ACCESSIBILITY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "ACCESSIBILITY_COMPONENTS_MISSING",
+            "CLAIM_POLICY_REQUIREMENTS_UNMET"
+          ]
+        },
+        {
+          "useCase": "INTENT_MATCHING",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CAPABILITY_INTENT_REGISTRY_NOT_CONFIGURED"
+          ]
+        },
+        {
+          "useCase": "TRUST_FRESHNESS",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "BLOCKING_CONFLICT_PRESENT",
+            "CLAIM_POLICY_REQUIREMENTS_UNMET"
+          ]
+        }
+      ],
+      "conflicts": [
+        "OVERLAPPING_CLAIMS_IN_HISTORY",
+        "OVERLAPPING_CONTRADICTORY_CLAIMS"
+      ],
+      "exclusions": [
+        {
+          "code": "BLOCKING_CONFLICT_VALUES",
+          "count": 1
+        }
+      ],
+      "resultHash": "5212d9f008406d313b241e7f7792dcd8b99fb90de96a5a4523ee6701a99cf8b6"
+    },
+    {
+      "scenarioId": "conservative_verification:owner-asserted-hours",
+      "policyVersion": "draft:world-knowledge-slice-3a:conservative_verification:1",
+      "policyHash": "4367ff697f776a4e03749d4e39a3ab93a969edcc2d0c0c768e8a535efdc8c3e9",
+      "resolutionHash": "de4255e0c018781ecf618c4a83a82c3186b660063dad7eba2875847afd9cb4ea",
+      "snapshotHash": "9b5dc287df5ebaf7401de78f28f377dcf373acbaf82a33fa7b307543786bc2aa",
+      "projectionHash": "39b5d34fa4560a5a3c07f8e95cff742c60920529362b68ff8f59520fe13ff390",
+      "sourceAssessments": [
+        {
+          "claimId": "claim:s3a:owner-hours",
+          "attributeKey": "hours.regular",
+          "status": "AUTHORIZED",
+          "trust": "ASSERTED",
+          "useCaseAuthorizations": {
+            "GENERAL_WORLD": "REQUIRES_POLICY",
+            "DISCOVERY": "PROHIBITED",
+            "OPENING_HOURS_ELIGIBILITY": "REQUIRES_POLICY",
+            "PRICE": "PROHIBITED",
+            "HARD_CONSTRAINTS": "PROHIBITED",
+            "ACCESSIBILITY": "PROHIBITED",
+            "INTENT_MATCHING": "PROHIBITED",
+            "EXPLANATION": "PROHIBITED",
+            "RESEARCH": "REQUIRES_POLICY"
+          },
+          "reasonCodes": [
+            "AUTHORIZED_ASSERTION"
+          ],
+          "assessmentHash": "0226cfd7e1b9269e1ce57d502c8cca4729bae51694917e7bb577e72308a4ec9e"
+        }
+      ],
+      "readiness": [
+        {
+          "useCase": "BASE_PROFILE",
+          "state": "PARTIAL",
+          "reasonCodes": [
+            "CORE_IDENTITY_INCOMPLETE"
+          ]
+        },
+        {
+          "useCase": "CLASSIFICATION",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLASSIFICATION_INCOMPLETE"
+          ]
+        },
+        {
+          "useCase": "DISCOVERY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "DISCOVERY_CORE_MISSING"
+          ]
+        },
+        {
+          "useCase": "OPENING_HOURS_ELIGIBILITY",
+          "state": "PARTIAL",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "OPENING_HOURS_ASSERTED_ONLY"
+          ]
+        },
+        {
+          "useCase": "PRICE",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "PRICE_MISSING"
+          ]
+        },
+        {
+          "useCase": "HARD_CONSTRAINTS",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "CORE_CONSTRAINTS_MISSING"
+          ]
+        },
+        {
+          "useCase": "ACCESSIBILITY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "ACCESSIBILITY_COMPONENTS_MISSING",
+            "CLAIM_POLICY_REQUIREMENTS_UNMET"
+          ]
+        },
+        {
+          "useCase": "INTENT_MATCHING",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CAPABILITY_INTENT_REGISTRY_NOT_CONFIGURED"
+          ]
+        },
+        {
+          "useCase": "TRUST_FRESHNESS",
+          "state": "PARTIAL",
+          "reasonCodes": [
+            "ASSERTED_ONLY_KNOWLEDGE_PRESENT",
+            "CLAIM_POLICY_REQUIREMENTS_UNMET"
+          ]
+        }
+      ],
+      "conflicts": [],
+      "exclusions": [
+        {
+          "code": "ASSERTED_OPENING_HOURS",
+          "count": 1
+        }
+      ],
+      "resultHash": "ef6b293475becb9bb3d7c1c25910e834709be6a922ef410ad523174fd2dc74de"
+    },
+    {
+      "scenarioId": "conservative_verification:official-referenced-hours",
+      "policyVersion": "draft:world-knowledge-slice-3a:conservative_verification:1",
+      "policyHash": "4367ff697f776a4e03749d4e39a3ab93a969edcc2d0c0c768e8a535efdc8c3e9",
+      "resolutionHash": "958fc9cf5074d0b7bb49370774bd87b1317fe4f32bb85fb43ccdec930e3d2b30",
+      "snapshotHash": "49e4c2d906bbad2a93a516759ec4cd21f7a17978a2a0d99aa2dfa96dc93f9fcc",
+      "projectionHash": "7d39df94f4bbca905aae6aad21e5b2fcb0a20fc00caf4bd01b77ec0c89853351",
+      "sourceAssessments": [
+        {
+          "claimId": "claim:s3a:official-hours",
+          "attributeKey": "hours.regular",
+          "status": "AUTHORIZED",
+          "trust": "REFERENCED",
+          "useCaseAuthorizations": {
+            "GENERAL_WORLD": "REQUIRES_POLICY",
+            "DISCOVERY": "PROHIBITED",
+            "OPENING_HOURS_ELIGIBILITY": "REQUIRES_POLICY",
+            "PRICE": "PROHIBITED",
+            "HARD_CONSTRAINTS": "PROHIBITED",
+            "ACCESSIBILITY": "PROHIBITED",
+            "INTENT_MATCHING": "PROHIBITED",
+            "EXPLANATION": "PROHIBITED",
+            "RESEARCH": "REQUIRES_POLICY"
+          },
+          "reasonCodes": [
+            "AUTHORIZED_BOUND_REFERENCE"
+          ],
+          "assessmentHash": "32ef284b68c2b707a0a173919a6052f0250811726b67753b84895e62d1582c5c"
+        }
+      ],
+      "readiness": [
+        {
+          "useCase": "BASE_PROFILE",
+          "state": "PARTIAL",
+          "reasonCodes": [
+            "CORE_IDENTITY_INCOMPLETE"
+          ]
+        },
+        {
+          "useCase": "CLASSIFICATION",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLASSIFICATION_INCOMPLETE"
+          ]
+        },
+        {
+          "useCase": "DISCOVERY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "DISCOVERY_CORE_MISSING"
+          ]
+        },
+        {
+          "useCase": "OPENING_HOURS_ELIGIBILITY",
+          "state": "PARTIAL",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "OPENING_HOURS_PRESENT"
+          ]
+        },
+        {
+          "useCase": "PRICE",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "PRICE_MISSING"
+          ]
+        },
+        {
+          "useCase": "HARD_CONSTRAINTS",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "CORE_CONSTRAINTS_MISSING"
+          ]
+        },
+        {
+          "useCase": "ACCESSIBILITY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "ACCESSIBILITY_COMPONENTS_MISSING",
+            "CLAIM_POLICY_REQUIREMENTS_UNMET"
+          ]
+        },
+        {
+          "useCase": "INTENT_MATCHING",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CAPABILITY_INTENT_REGISTRY_NOT_CONFIGURED"
+          ]
+        },
+        {
+          "useCase": "TRUST_FRESHNESS",
+          "state": "PARTIAL",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "CURRENT_KNOWLEDGE_PRESENT"
+          ]
+        }
+      ],
+      "conflicts": [],
+      "exclusions": [],
+      "resultHash": "0cfd48fe45b7503b5d1ede9006d01f7f228b637e2f94195c73c4453e32b19e55"
+    },
+    {
+      "scenarioId": "conservative_verification:current-state-without-expiry",
+      "policyVersion": "draft:world-knowledge-slice-3a:conservative_verification:1",
+      "policyHash": "4367ff697f776a4e03749d4e39a3ab93a969edcc2d0c0c768e8a535efdc8c3e9",
+      "resolutionHash": "a1b0eb9f387b460ce9ced4afac3df163e05ed5edd022fa7e0dceb0c1b141f51c",
+      "snapshotHash": "cdeb69ace3280e383f2e94f557f26dc56f02fe54ce625bd610952e6a5a94745c",
+      "projectionHash": "2c2690b9ab0f3ae992056144c4c6743d47ccb5708dadd89cfa7215580b7b61eb",
+      "sourceAssessments": [
+        {
+          "claimId": "claim:s3a:current-state",
+          "attributeKey": "state.current",
+          "status": "AUTHORIZED",
+          "trust": "ASSERTED",
+          "useCaseAuthorizations": {
+            "GENERAL_WORLD": "REQUIRES_POLICY",
+            "DISCOVERY": "PROHIBITED",
+            "OPENING_HOURS_ELIGIBILITY": "REQUIRES_POLICY",
+            "PRICE": "PROHIBITED",
+            "HARD_CONSTRAINTS": "PROHIBITED",
+            "ACCESSIBILITY": "PROHIBITED",
+            "INTENT_MATCHING": "PROHIBITED",
+            "EXPLANATION": "PROHIBITED",
+            "RESEARCH": "REQUIRES_POLICY"
+          },
+          "reasonCodes": [
+            "AUTHORIZED_ASSERTION",
+            "VALID_UNTIL_REQUIRED"
+          ],
+          "assessmentHash": "cd317f2115e1f46de4338cf273e2a5c36f9c2aae0e71447c3988e278d17b938b"
+        }
+      ],
+      "readiness": [
+        {
+          "useCase": "BASE_PROFILE",
+          "state": "PARTIAL",
+          "reasonCodes": [
+            "CORE_IDENTITY_INCOMPLETE"
+          ]
+        },
+        {
+          "useCase": "CLASSIFICATION",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLASSIFICATION_INCOMPLETE"
+          ]
+        },
+        {
+          "useCase": "DISCOVERY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "DISCOVERY_CORE_MISSING"
+          ]
+        },
+        {
+          "useCase": "OPENING_HOURS_ELIGIBILITY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "OPENING_HOURS_MISSING"
+          ]
+        },
+        {
+          "useCase": "PRICE",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "PRICE_MISSING"
+          ]
+        },
+        {
+          "useCase": "HARD_CONSTRAINTS",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "CORE_CONSTRAINTS_MISSING"
+          ]
+        },
+        {
+          "useCase": "ACCESSIBILITY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "ACCESSIBILITY_COMPONENTS_MISSING",
+            "CLAIM_POLICY_REQUIREMENTS_UNMET"
+          ]
+        },
+        {
+          "useCase": "INTENT_MATCHING",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CAPABILITY_INTENT_REGISTRY_NOT_CONFIGURED"
+          ]
+        },
+        {
+          "useCase": "TRUST_FRESHNESS",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "BLOCKING_CONFLICT_PRESENT",
+            "CLAIM_POLICY_REQUIREMENTS_UNMET"
+          ]
+        }
+      ],
+      "conflicts": [
+        "CURRENT_STATE_MISSING_VALID_UNTIL"
+      ],
+      "exclusions": [
+        {
+          "code": "CURRENT_STATE_WITHOUT_EXPIRY",
+          "count": 1
+        },
+        {
+          "code": "BLOCKING_CONFLICT_VALUES",
+          "count": 1
+        }
+      ],
+      "resultHash": "5d12da383513606d2e363e57f3e370c7d73240335b500e6c5cd7f804a4e18202"
+    },
+    {
+      "scenarioId": "conservative_verification:conflicting-official-takeaway",
+      "policyVersion": "draft:world-knowledge-slice-3a:conservative_verification:1",
+      "policyHash": "4367ff697f776a4e03749d4e39a3ab93a969edcc2d0c0c768e8a535efdc8c3e9",
+      "resolutionHash": "28667fb2df05571219b5819adfbac0b9a18a577f7ce6a9d4cd37e81c2c36b6d3",
+      "snapshotHash": "e07f69eb1f4566400c454ab721770592553012a462b99a7647cd3ca1158c515a",
+      "projectionHash": "34603f6e399799a14e8539abbf35d75e1d2d3ea2e9763cf20fcb187d02c09d73",
+      "sourceAssessments": [
+        {
+          "claimId": "claim:s3a:takeaway-no",
+          "attributeKey": "operation.takeaway",
+          "status": "AUTHORIZED",
+          "trust": "REFERENCED",
+          "useCaseAuthorizations": {
+            "GENERAL_WORLD": "REQUIRES_POLICY",
+            "DISCOVERY": "PROHIBITED",
+            "OPENING_HOURS_ELIGIBILITY": "PROHIBITED",
+            "PRICE": "PROHIBITED",
+            "HARD_CONSTRAINTS": "REQUIRES_POLICY",
+            "ACCESSIBILITY": "PROHIBITED",
+            "INTENT_MATCHING": "PROHIBITED",
+            "EXPLANATION": "PROHIBITED",
+            "RESEARCH": "REQUIRES_POLICY"
+          },
+          "reasonCodes": [
+            "AUTHORIZED_BOUND_REFERENCE"
+          ],
+          "assessmentHash": "4421ab66d3c47b5ad05e64e29d6c0d63cf44dcb449f570066fdc0402ec02348e"
+        },
+        {
+          "claimId": "claim:s3a:takeaway-yes",
+          "attributeKey": "operation.takeaway",
+          "status": "AUTHORIZED",
+          "trust": "REFERENCED",
+          "useCaseAuthorizations": {
+            "GENERAL_WORLD": "REQUIRES_POLICY",
+            "DISCOVERY": "PROHIBITED",
+            "OPENING_HOURS_ELIGIBILITY": "PROHIBITED",
+            "PRICE": "PROHIBITED",
+            "HARD_CONSTRAINTS": "REQUIRES_POLICY",
+            "ACCESSIBILITY": "PROHIBITED",
+            "INTENT_MATCHING": "PROHIBITED",
+            "EXPLANATION": "PROHIBITED",
+            "RESEARCH": "REQUIRES_POLICY"
+          },
+          "reasonCodes": [
+            "AUTHORIZED_BOUND_REFERENCE"
+          ],
+          "assessmentHash": "b5295f1ccdcc5ca8ccc0d44f5ce0c3b1c45315ac054fb705beaad9cf7a1a617c"
+        }
+      ],
+      "readiness": [
+        {
+          "useCase": "BASE_PROFILE",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CORE_IDENTITY_INCOMPLETE"
+          ]
+        },
+        {
+          "useCase": "CLASSIFICATION",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLASSIFICATION_INCOMPLETE"
+          ]
+        },
+        {
+          "useCase": "DISCOVERY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "DISCOVERY_CORE_MISSING"
+          ]
+        },
+        {
+          "useCase": "OPENING_HOURS_ELIGIBILITY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "OPENING_HOURS_MISSING"
+          ]
+        },
+        {
+          "useCase": "PRICE",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "PRICE_MISSING"
+          ]
+        },
+        {
+          "useCase": "HARD_CONSTRAINTS",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CLAIM_POLICY_REQUIREMENTS_UNMET",
+            "HARD_CONSTRAINT_CONFLICT_PRESENT"
+          ]
+        },
+        {
+          "useCase": "ACCESSIBILITY",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "ACCESSIBILITY_COMPONENTS_MISSING",
+            "CLAIM_POLICY_REQUIREMENTS_UNMET"
+          ]
+        },
+        {
+          "useCase": "INTENT_MATCHING",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "CAPABILITY_INTENT_REGISTRY_NOT_CONFIGURED"
+          ]
+        },
+        {
+          "useCase": "TRUST_FRESHNESS",
+          "state": "NOT_READY",
+          "reasonCodes": [
+            "BLOCKING_CONFLICT_PRESENT",
+            "CLAIM_POLICY_REQUIREMENTS_UNMET"
+          ]
+        }
+      ],
+      "conflicts": [
+        "OVERLAPPING_CLAIMS_IN_HISTORY",
+        "OVERLAPPING_CONTRADICTORY_CLAIMS"
+      ],
+      "exclusions": [
+        {
+          "code": "BLOCKING_CONFLICT_VALUES",
+          "count": 1
+        }
+      ],
+      "resultHash": "3d8a8f8443739b0692f33611f187d860d41d815786ecf345d27f2bd81bcf2fd4"
+    }
+  ],
+  "artifactHash": "91f3c049cb2b20083d9b4c3d43fcb9627785049af4e0c4c54896ebb68e2764e4"
+}
