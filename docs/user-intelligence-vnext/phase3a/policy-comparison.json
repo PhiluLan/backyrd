@@ -1,0 +1,11 @@
+{
+  "contractVersion": "backyrd.user-intelligence.synthetic-policy-comparison@1.0",
+  "authority": "SYNTHETIC_FIXTURE_ONLY",
+  "productionAuthorized": false,
+  "variants": [
+    {"id":"conservative","navigation":"NO_STATEMENT","satisfaction":"DIRECT_SPOT_AND_COMPETING_CONCEPT_HYPOTHESES","contextTransfer":"FORBIDDEN","numericStrength":"NOT_CONFIGURED"},
+    {"id":"practical-navigation","navigation":"PRACTICAL_HYPOTHESIS","satisfaction":"NOT_CONFIGURED","contextTransfer":"FORBIDDEN","numericStrength":"NOT_CONFIGURED"},
+    {"id":"contextual-satisfaction","navigation":"NO_STATEMENT","satisfaction":"CONTEXTUAL_COMPETING_CONCEPT_HYPOTHESES","contextTransfer":"FORBIDDEN","numericStrength":"NOT_CONFIGURED"}
+  ],
+  "sharedInvariants":["OBSERVATION_NOT_INTERPRETATION","ONE_ATTRIBUTION_UNIT_PER_EXPERIENCE","NO_RANKING_AUTHORITY","NO_PRODUCTION_POLICY","NO_COMMERCIAL_INPUT"]
+}

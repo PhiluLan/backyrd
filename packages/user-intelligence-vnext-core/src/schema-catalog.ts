@@ -37,5 +37,13 @@ export const USER_INTELLIGENCE_VNEXT_SCHEMA_CATALOG = Object.freeze({
     ["CorrectionResolution", CONTRACT_VERSIONS.correctionResolution, "CorrectionAuthorityRecordSchema", "parseCorrectionAuthorityRecord"],
     ["EvidenceEngineState", CONTRACT_VERSIONS.evidenceEngineState, "EvidenceEngineStateSchema", "parseEvidenceEngineState"],
     ["EvidenceBuilderInput", CONTRACT_VERSIONS.evidenceBuilderInput, "EvidenceChainBuildInputSchema", "buildEvidenceChains"],
+    ["InterpretationPolicy", CONTRACT_VERSIONS.interpretationPolicy, "InterpretationPolicySchema", "parseInterpretationPolicy"],
+    ["ObservationRecord", CONTRACT_VERSIONS.observationRecord, "ObservationRecordSchema", null],
+    ["InterpretationRecord", CONTRACT_VERSIONS.interpretationRecord, "InterpretationRecordSchema", null],
+    ["UserModelManifestV3", CONTRACT_VERSIONS.userModelManifest, "UserModelManifestV3Schema", null],
+    ["UserModelSnapshotV3", CONTRACT_VERSIONS.userModelSnapshot, "UserModelSnapshotV3Schema", null],
+    ["UserModelState", CONTRACT_VERSIONS.userModelState, "UserModelStateSchema", "verifyUserModelState"],
+    ["UserModelCommand", CONTRACT_VERSIONS.userModelCommand, "UserModelCommandSchema", "buildUserModel"],
+    ["UserModelAuthority", CONTRACT_VERSIONS.userModelAuthority, "UserModelAuthoritySchema", null],
   ].map(([name, contractVersion, runtimeSchemaExport, semanticValidatorExport]) => ({ name, contractVersion, runtimeSchemaExport, semanticValidatorExport }))),
 });
