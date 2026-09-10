@@ -3,7 +3,7 @@
 ## Canonical now
 
 - Phase 1: versioned deterministic core, synthetic World, central eligibility, two baselines, evidence/explanation and recursive replay.
-- Phase 2: canonical World/User/Context integration harness, four-engine registry, degradation policy and deterministic comparison report.
+- Phase 2: canonical World/User/Context integration harness, externally anchored synthetic execution provenance, four-engine registry, degradation policy and deterministic comparison report with recursive semantic replay.
 
 ## Phase 3 readiness
 

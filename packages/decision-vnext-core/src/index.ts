@@ -8,6 +8,7 @@ export * from "./eligibility.js";
 export * from "./evidence.js";
 export * from "./degradation.js";
 export * from "./engine-registry.js";
+export * from "./evaluation-authority.js";
 export * from "./execution.js";
 export * from "./explanation.js";
 export * from "./manifest.js";

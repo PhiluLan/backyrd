@@ -29,7 +29,9 @@ WorldKnowledgeReaderPort --->+<--- RelevantUserProjection port
 
 ## Canonical execution envelope
 
-`CanonicalIntegrationExecutionEnvelopeSchema` is server constructed and strict. It binds Decision/session/idempotency identities, actor binding, request hash, server time and location authority, Context snapshot, accepted World identities and every snapshot hash, minimized User projection identity and value, frozen pool, four engine manifests, eligibility/unknown/ranking/confidence/evidence/explanation/degradation versions, and the no-commercial/no-write invariants.
+`CanonicalIntegrationExecutionEnvelopeSchema` is server constructed and strict. It binds Decision/session/idempotency identities, actor binding, request hash, server time and location authority, Context snapshot, accepted World identities and every snapshot hash, the canonical minimized User projection value plus an exactly derived binding, frozen pool, four engine manifests, eligibility/unknown/ranking/confidence/evidence/explanation/degradation versions, and the no-commercial/no-write invariants.
+
+An `EvaluationAuthorityRecord` additionally binds the complete semantic fixture execution: Scenario ID, seed, `SyntheticWorldConfig`, generated World hash/version, pool origin and exact engine registry. Its source SHA, Git tree and artifact identity are accepted only when they match a separately supplied `EvaluationAuthorityTrustAnchor`. This prevents the report, envelope or engine manifests from self-authorizing their provenance. The built-in trust-anchor constructor is named and restricted as a synthetic local/CI helper; a later Production runner requires an independent deployment-attestation design.
 
 The client has no schema channel for actor identity, snapshots, policies, pool, eligibility, engine, weights, confidence, evidence or commercial influence.
 
@@ -58,7 +60,11 @@ Confidence has seven components and the overall component is `NOT_CONFIGURED`. N
 
 ## Evaluation and replay
 
-`npm run decision-vnext:phase2:evaluate` emits canonical JSON for the smoke seed. `npm run decision-vnext:phase2:full` runs both 300-spot/50-user seeds. Metrics needing acceptance labels return `NOT_CONFIGURED`; only mechanical hard-constraint compliance and explanation consistency are calculated. Replay is byte-identical for semantic inputs.
+`npm run decision-vnext:phase2:evaluate` derives the checked-out Git commit and tree, creates an explicitly synthetic authority/trust pair, and emits canonical JSON for the smoke seed. `npm run decision-vnext:phase2:full` runs both 300-spot/50-user seeds. Replay reconstructs Scenario, seed, World and pool origin from the authoritative envelope rather than trusting report labels.
+
+Product-quality metrics remain `NOT_CONFIGURED` without Scenario Oracles. Two separately named technical integrity measurements are deterministic: eligible-output membership (no ranked hard-constraint violation) and explanation-reference integrity (all rendered reasons resolve to authorized evidence). Neither claims Product relevance or linguistic explanation quality.
+
+Recursive integrity validation requires exactly the registered four unique engines, a single externally accepted source identity, exact envelope/result manifests, exact Top-1/Top-3 derivation, and unique candidate, ranking, evidence and explanation references. Fixture-only and `productWeightsConfigured:false` are part of the replayed manifest semantics; the frozen Legacy comparator remains `legacy-v13-frozen-fixture` and explicitly makes no v13 parity claim.
 
 ## Degradation summary
 

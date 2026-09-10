@@ -23,6 +23,9 @@ const ENGINE_FIXTURES: Readonly<Record<Phase2EngineId, { readonly engineVersion:
 
 export interface EngineRegistryIdentity {
   readonly sourceSha: string;
+  readonly sourceTreeHash: string;
+  readonly artifactIdentityHash: string;
+  readonly evaluationAuthorityHash: string;
   readonly worldPortVersion: string;
   readonly worldRegistryVersion: string;
   readonly worldRegistryHash: string;
@@ -47,6 +50,7 @@ export function createEvaluationEngineManifests(identity: EngineRegistryIdentity
       userProjectionVersion: identity.userProjectionVersion, contextVersion: identity.contextVersion,
       confidenceVersion: PHASE2_CONFIDENCE_VERSION, evidenceVersion: PHASE2_EVIDENCE_VERSION, explanationVersion: PHASE2_EXPLANATION_VERSION,
       degradationPolicyVersion: PHASE2_CONTRACT_VERSIONS.degradation, sourceSha: identity.sourceSha,
+      sourceTreeHash: identity.sourceTreeHash, artifactIdentityHash: identity.artifactIdentityHash, evaluationAuthorityHash: identity.evaluationAuthorityHash,
       fixtureOnly: true, productWeightsConfigured: false,
     }, "manifestHash"));
   });
@@ -54,7 +58,7 @@ export function createEvaluationEngineManifests(identity: EngineRegistryIdentity
 
 export function validateEvaluationEngineManifest(manifest: EvaluationEngineManifest): void {
   EvaluationEngineManifestSchema.parse(manifest); assertContentHash(manifest as unknown as Record<string, unknown>, "manifestHash");
-  const expected = createEvaluationEngineManifests({ sourceSha: manifest.sourceSha, worldPortVersion: manifest.worldPortVersion, worldRegistryVersion: manifest.worldRegistryVersion, worldRegistryHash: manifest.worldRegistryHash, worldRuleRegistryVersion: manifest.worldRuleRegistryVersion, worldRuleRegistryHash: manifest.worldRuleRegistryHash, worldSourcePolicyVersion: manifest.worldSourcePolicyVersion, worldSourcePolicyHash: manifest.worldSourcePolicyHash, userProjectionVersion: manifest.userProjectionVersion, contextVersion: manifest.contextVersion }).find((item) => item.engineId === manifest.engineId);
+  const expected = createEvaluationEngineManifests({ sourceSha: manifest.sourceSha, sourceTreeHash: manifest.sourceTreeHash, artifactIdentityHash: manifest.artifactIdentityHash, evaluationAuthorityHash: manifest.evaluationAuthorityHash, worldPortVersion: manifest.worldPortVersion, worldRegistryVersion: manifest.worldRegistryVersion, worldRegistryHash: manifest.worldRegistryHash, worldRuleRegistryVersion: manifest.worldRuleRegistryVersion, worldRuleRegistryHash: manifest.worldRuleRegistryHash, worldSourcePolicyVersion: manifest.worldSourcePolicyVersion, worldSourcePolicyHash: manifest.worldSourcePolicyHash, userProjectionVersion: manifest.userProjectionVersion, contextVersion: manifest.contextVersion }).find((item) => item.engineId === manifest.engineId);
   if (!expected || canonicalJson(expected) !== canonicalJson(manifest)) throw new Error("phase2_engine_manifest_unsupported_version");
 }
 

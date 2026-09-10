@@ -8,7 +8,9 @@ Allowed for a later separately approved shadow design: pseudonymous subject bind
 
 Forbidden in evaluation reports and logs: real user data, raw events, raw review/search/free text, precise raw location, private social data, complete User snapshots, secrets/tokens, private source URLs, Payment, Subscription, Owner or Advertising state, and raw AI output.
 
-The current machine report contains no actor, request body or raw location. It contains only hashes, synthetic candidate references, counts, reason codes, fixture evidence, versions and a nullable non-semantic duration.
+The current machine report contains no actor, request body or raw location. It contains only hashes, synthetic candidate references, counts, reason codes, fixture evidence, versions and a nullable non-semantic duration. Scenario and seed are derived display values whose authority is the hashed evaluation record; the complete synthetic config remains in the server execution envelope, not the report.
+
+The local/CI trust anchor contains Git source/tree and artifact identities but no credentials. It proves consistency against an explicitly accepted synthetic execution record, not deployment provenance. A future shadow or Production runner must obtain its trust anchor from independently controlled build/deployment attestation and must not construct it from the artifact under validation.
 
 ## Retention and deletion direction
 

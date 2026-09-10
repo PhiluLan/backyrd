@@ -1,16 +1,19 @@
-import { CandidatePoolSnapshotSchema, DecisionRequestSchema, EligibilityResultSchema, SituationalContextSnapshotSchema, UserBindingSchema } from "./contracts.js";
+import { CandidatePoolSnapshotSchema, DecisionRequestSchema, EligibilityResultSchema, SituationalContextSnapshotSchema } from "./contracts.js";
 import { RelevantUserProjectionSchema } from "@backyrd/user-intelligence-vnext-core";
+import { SyntheticWorldConfigSchema } from "./sandbox.js";
 import { identifier, schema, sha256, timestamp, version, type Infer } from "./schema.js";
 
 const contractRef = schema.string({ min: 1, max: 200, pattern: /^[A-Za-z0-9][A-Za-z0-9_.:@/-]*$/ });
 const gitSha = schema.string({ pattern: /^[a-f0-9]{40}$/ });
 
 export const PHASE2_CONTRACT_VERSIONS = Object.freeze({
-  executionEnvelope: "backyrd-vnext-integration-execution-envelope-v1",
-  engineManifest: "backyrd-vnext-evaluation-engine-manifest-v1",
-  engineResult: "backyrd-vnext-evaluation-engine-result-v1",
-  report: "backyrd-vnext-evaluation-report-v1",
+  executionEnvelope: "backyrd-vnext-integration-execution-envelope-v2",
+  engineManifest: "backyrd-vnext-evaluation-engine-manifest-v2",
+  engineResult: "backyrd-vnext-evaluation-engine-result-v2",
+  report: "backyrd-vnext-evaluation-report-v2",
   degradation: "backyrd-vnext-degradation-policy-v1",
+  evaluationAuthority: "backyrd-vnext-synthetic-evaluation-authority-v1",
+  evaluationTrustAnchor: "backyrd-vnext-synthetic-evaluation-trust-anchor-v1",
 } as const);
 
 export const PHASE2_ENGINE_IDS = [
@@ -42,6 +45,73 @@ export const DegradationEntrySchema = schema.object({
 });
 export type DegradationEntry = Infer<typeof DegradationEntrySchema>;
 
+const gitObjectId = schema.string({ pattern: /^[a-f0-9]{40}$/ });
+
+export const EvaluationAuthorityRecordSchema = schema.object({
+  contractVersion: version(PHASE2_CONTRACT_VERSIONS.evaluationAuthority),
+  authorityId: identifier,
+  authorityKind: schema.literal("SYNTHETIC_LOCAL_EVALUATION"),
+  scenario: schema.object({
+    scenarioId: identifier,
+    seed: schema.number({ integer: true, min: 1 }),
+    sandboxConfig: SyntheticWorldConfigSchema,
+    sandboxConfigHash: sha256,
+    worldVersion: contractRef,
+    worldHash: sha256,
+  }),
+  sourceIdentity: schema.object({
+    sourceSha: gitObjectId,
+    sourceTreeHash: gitObjectId,
+    artifactIdentityHash: sha256,
+  }),
+  worldIdentity: schema.object({
+    portVersion: contractRef,
+    registryVersion: contractRef,
+    registryHash: sha256,
+    ruleRegistryVersion: contractRef,
+    ruleRegistryHash: sha256,
+    sourcePolicyVersion: contractRef,
+    sourcePolicyHash: sha256,
+  }),
+  userProjectionContractVersion: contractRef,
+  contextContractVersion: contractRef,
+  candidatePoolOrigin: schema.object({ generatorVersion: contractRef, sourceId: identifier, limit: schema.number({ integer: true, min: 0, max: 500 }) }),
+  engineRegistryVersion: contractRef,
+  engineIds: schema.array(schema.enum(PHASE2_ENGINE_IDS), { min: 4, max: 4 }),
+  productionCapable: schema.literal(false),
+  authorityHash: sha256,
+});
+export type EvaluationAuthorityRecord = Infer<typeof EvaluationAuthorityRecordSchema>;
+
+export const EvaluationAuthorityTrustAnchorSchema = schema.object({
+  contractVersion: version(PHASE2_CONTRACT_VERSIONS.evaluationTrustAnchor),
+  trustAnchorId: identifier,
+  acceptedAuthorityId: identifier,
+  acceptedAuthorityHash: sha256,
+  acceptedSourceSha: gitObjectId,
+  acceptedSourceTreeHash: gitObjectId,
+  acceptedArtifactIdentityHash: sha256,
+  acceptedEngineRegistryVersion: contractRef,
+  authorityKind: schema.literal("SYNTHETIC_LOCAL_EVALUATION"),
+  productionCapable: schema.literal(false),
+});
+export type EvaluationAuthorityTrustAnchor = Infer<typeof EvaluationAuthorityTrustAnchorSchema>;
+
+export const UserProjectionExecutionBindingSchema = schema.object({
+  projectionContractVersion: contractRef,
+  projectionId: identifier,
+  projectionHash: sha256,
+  manifestId: identifier,
+  manifestHash: sha256,
+  subjectBindingHash: sha256,
+  actorKind: schema.enum(["AUTHENTICATED_USER", "ANONYMOUS"] as const),
+  authenticationContextHash: schema.union([sha256, schema.literal(null)]),
+  status: schema.enum(["ACTIVE", "NEUTRAL"] as const),
+  neutralReason: schema.union([identifier, schema.literal(null)]),
+  killSwitchRequested: schema.boolean(),
+});
+export type UserProjectionExecutionBinding = Infer<typeof UserProjectionExecutionBindingSchema>;
+
 export const EvaluationEngineManifestSchema = schema.object({
   contractVersion: version(PHASE2_CONTRACT_VERSIONS.engineManifest),
   engineId: schema.enum(PHASE2_ENGINE_IDS),
@@ -64,6 +134,9 @@ export const EvaluationEngineManifestSchema = schema.object({
   explanationVersion: contractRef,
   degradationPolicyVersion: version(PHASE2_CONTRACT_VERSIONS.degradation),
   sourceSha: gitSha,
+  sourceTreeHash: gitSha,
+  artifactIdentityHash: sha256,
+  evaluationAuthorityHash: sha256,
   fixtureOnly: schema.literal(true),
   productWeightsConfigured: schema.literal(false),
   manifestHash: sha256,
@@ -79,6 +152,7 @@ const WorldSnapshotBindingSchema = schema.object({
 
 export const CanonicalIntegrationExecutionEnvelopeSchema = schema.object({
   contractVersion: version(PHASE2_CONTRACT_VERSIONS.executionEnvelope),
+  evaluationAuthority: EvaluationAuthorityRecordSchema,
   decisionId: identifier,
   serverRequestId: identifier,
   sessionId: identifier,
@@ -104,11 +178,8 @@ export const CanonicalIntegrationExecutionEnvelopeSchema = schema.object({
     snapshots: schema.array(WorldSnapshotBindingSchema, { max: 500 }),
     snapshotSetHash: sha256,
   }),
-  userProjection: UserBindingSchema,
-  userProjectionValue: schema.union([
-    schema.object({ state: schema.literal("AVAILABLE"), projection: RelevantUserProjectionSchema }),
-    schema.object({ state: schema.literal("NEUTRAL"), reason: identifier }),
-  ]),
+  userProjection: UserProjectionExecutionBindingSchema,
+  userProjectionValue: RelevantUserProjectionSchema,
   candidatePool: CandidatePoolSnapshotSchema,
   engineManifests: schema.array(EvaluationEngineManifestSchema, { min: 4, max: 4 }),
   eligibilityPolicyVersion: contractRef,
@@ -178,16 +249,21 @@ export const EvaluationEngineResultSchema = schema.object({
 export type EvaluationEngineResult = Infer<typeof EvaluationEngineResultSchema>;
 
 const EvaluationMetricSchema = schema.object({
-  metricId: schema.enum(["TOP_1_RELEVANCE", "TOP_3_RELEVANCE", "BAD_RECOMMENDATION_RATE", "HARD_CONSTRAINT_VIOLATION_RATE", "CONTEXT_SENSITIVITY", "PERSONALIZATION_LIFT", "DIVERSITY_EXPLORATION", "CONFIDENCE_CALIBRATION", "EXPLANATION_CONSISTENCY", "RANKING_STABILITY", "DATA_QUALITY_SENSITIVITY"] as const),
-  state: schema.enum(["DETERMINISTIC", "NOT_CONFIGURED"] as const),
+  metricId: schema.enum(["TOP_1_RELEVANCE", "TOP_3_RELEVANCE", "BAD_RECOMMENDATION_RATE", "HARD_CONSTRAINT_VIOLATION_RATE", "CONTEXT_SENSITIVITY", "PERSONALIZATION_LIFT", "DIVERSITY_EXPLORATION", "CONFIDENCE_CALIBRATION", "EXPLANATION_CONSISTENCY", "EXPLANATION_REFERENCE_INTEGRITY_RATE", "RANKING_STABILITY", "DATA_QUALITY_SENSITIVITY"] as const),
+  state: schema.enum(["TECHNICAL_DETERMINISTIC", "NOT_CONFIGURED"] as const),
   value: schema.union([schema.number({ min: 0, max: 1 }), schema.literal(null)]),
   oracleVersion: schema.union([identifier, schema.literal(null)]),
+  definitionVersion: schema.union([identifier, schema.literal(null)]),
+  productQualityClaim: schema.literal(false),
 });
 
 export const EvaluationReportSchema = schema.object({
   contractVersion: version(PHASE2_CONTRACT_VERSIONS.report),
+  evaluationAuthorityHash: sha256,
   scenarioId: identifier,
   seed: schema.number({ integer: true, min: 1 }),
+  sandboxConfigHash: sha256,
+  sandboxWorldHash: sha256,
   requestHash: sha256,
   contextHash: sha256,
   worldSnapshotHashes: schema.array(sha256, { max: 500 }),
@@ -198,7 +274,7 @@ export const EvaluationReportSchema = schema.object({
   eligibilityResults: schema.array(EligibilityResultSchema, { max: 500 }),
   eligibilityExclusions: schema.array(schema.object({ candidateId: identifier, reasonCodes: schema.array(identifier, { min: 1, max: 10 }) }), { max: 500 }),
   engineResults: schema.array(EvaluationEngineResultSchema, { min: 4, max: 4 }),
-  metrics: schema.array(EvaluationMetricSchema, { min: 11, max: 11 }),
+  metrics: schema.array(EvaluationMetricSchema, { min: 12, max: 12 }),
   runtime: schema.object({ classification: schema.literal("NON_SEMANTIC_DIAGNOSTIC"), measuredMilliseconds: schema.union([schema.number({ min: 0 }), schema.literal(null)]) }),
   reportHash: sha256,
 });

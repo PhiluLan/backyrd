@@ -10,11 +10,16 @@ One neutral pool is materialized through the canonical World reader before centr
 
 ## Integrity model
 
+- A strict, content-addressed `EvaluationAuthorityRecord` binds Scenario ID, seed, the complete semantic sandbox configuration, generated World identity, pool origin and the exact four-engine registry. The report repeats only derived display fields; it is never their authority.
+- Validation requires a separately injected `EvaluationAuthorityTrustAnchor`. The anchor binds the accepted authority hash, Git source SHA, Git tree identity, artifact identity and engine registry. Manifests cannot authorize themselves. The provided synthetic trust helper is explicitly local/CI-only and is not a Production authority mechanism.
 - Every source policy is selected by server configuration. Phase 2 accepts exactly the explicitly non-Product synthetic policy.
 - World snapshot, registry, rule-registry, source-policy, User projection, Context, pool, engine and policy identities are bound in the envelope.
+- The User binding is a minimized derivative of the one canonical `RelevantUserProjection` value. Contract, projection, manifest, subject, actor/authentication, state, neutral reason and kill-switch state are checked against that value; there is no second projection truth.
 - The report and each nested manifest, eligibility check/result, fit, confidence, evidence item and engine result are content addressed.
-- Recursive validation replays eligibility and all four engines from the bound envelope. Recalculating outer hashes cannot legitimize changed inner semantics.
+- Recursive validation replays eligibility and the exact four registered engines from the bound envelope. It rejects duplicate identities, missing/extra results, manifest divergence, ranking/evidence/explanation reference ambiguity and incorrect Top-1/Top-3 summaries. Recalculating outer hashes cannot legitimize changed inner semantics.
 - Runtime duration is a non-semantic diagnostic. It is deliberately excluded from `reportHash`; changing it cannot change the decision identity.
+
+The external trust anchor is deliberately an execution input to validation and is not serialized into the artifact being trusted. Production artifact attestation remains deferred; using the local synthetic helper as Production authority is prohibited.
 
 ## Alternatives rejected
 
