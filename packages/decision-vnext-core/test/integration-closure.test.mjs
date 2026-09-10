@@ -23,14 +23,15 @@ test("canonical User projection port is privacy-neutral and has no eligibility a
   assert.equal(parseRelevantUserProjection(projection).neutralReason, "NO_CONSENT"); assert.equal(projection.boundaries.eligibilityAuthority, false); assert.deepEqual(projection.taste, []);
 });
 
-test("missing World and User degradation modes are explicit and subject-bound", async () => {
+test("missing World degradation fails closed while privacy-neutral User degradation has no personal subject binding", async () => {
   const synthetic = world(); const envelope = execution(undefined, synthetic);
   await assert.rejects(() => readCanonicalWorld(new SyntheticWorldKnowledgeReader(synthetic), "syn-spot-missing"), /world_snapshot_missing/);
   const baseRequest = { contractVersion: "backyrd.user-intelligence.projection-request@1.0", requestId: envelope.serverRequestId, actor: { kind: "AUTHENTICATED_USER", userId: "synthetic-user", subjectBindingHash: envelope.authenticatedActor.subjectBindingHash, authenticationContextHash: "0".repeat(64), boundBy: "SERVER" }, decisionId: envelope.decisionId, snapshot: null, context: { contextContractVersion: envelope.contextBinding.contractVersion, contextHash: envelope.contextBinding.hash, placeTypes: [], domainKeys: [], rawLocationIncluded: false, socialDetailsIncluded: false }, requestedDomains: [], budgets: { maxItems: 16, maxBytes: 8192 }, projectionPolicyVersion: "phase1-projection-policy-not-configured", killSwitch: false };
   const missing = await readRelevantUserProjection(new SyntheticUserProjectionReader("MISSING_SNAPSHOT"), baseRequest); assert.equal(missing.neutralReason, "MISSING_SNAPSHOT");
   const killed = await readRelevantUserProjection(new SyntheticUserProjectionReader("KILL_SWITCH"), { ...baseRequest, killSwitch: true }); assert.equal(killed.neutralReason, "KILL_SWITCH");
   const fixed = { contractVersion: "backyrd.user-intelligence.decision-projection-port@1.0", project: async () => missing };
-  await assert.rejects(() => readRelevantUserProjection(fixed, { ...baseRequest, actor: { ...baseRequest.actor, subjectBindingHash: "1".repeat(64) } }), /projection does not match server request binding/);
+  const otherSubject = await readRelevantUserProjection(fixed, { ...baseRequest, actor: { ...baseRequest.actor, subjectBindingHash: "1".repeat(64) } });
+  assert.equal(otherSubject.subjectBindingHash, missing.subjectBindingHash); assert.notEqual(otherSubject.subjectBindingHash, baseRequest.actor.subjectBindingHash);
 });
 
 test("context, world, user and candidate-pool bindings fail closed", () => {
@@ -49,7 +50,8 @@ test("context flip and subject flip change authoritative identities without muta
   const second = createSyntheticExecution({ request: flippedRequest, world: synthetic, baseline: "baseline-a-open-distance-popularity", sourceSha: "phase1-test-source", authorizedLocationScope: flippedRequest.location, candidatePoolSize: 36 });
   assert.notEqual(first.contextBinding.hash, second.contextBinding.hash);
   const userBound = createSyntheticExecution({ request: request(), world: synthetic, baseline: "baseline-a-open-distance-popularity", sourceSha: "phase1-test-source", authorizedLocationScope: request().location, candidatePoolSize: 36, actor: { kind: "user", userId: "syn-user-0001", subjectBindingHash: synthetic.users[0].subjectBindingHash } });
-  assert.notEqual(first.userBinding.subjectBindingHash, userBound.userBinding.subjectBindingHash); assert.equal(synthetic.worldHash, before);
+  assert.notEqual(first.authenticatedActor.subjectBindingHash, userBound.authenticatedActor.subjectBindingHash);
+  assert.equal(first.userBinding.subjectBindingHash, userBound.userBinding.subjectBindingHash, "canonical neutral projections intentionally share the non-personal neutral subject binding"); assert.equal(synthetic.worldHash, before);
 });
 
 test("unknown manifest and duplicated privileged client bindings are rejected", () => {

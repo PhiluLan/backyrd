@@ -1,0 +1,26 @@
+{
+  "version": "backyrd-decision-vnext-phase3a-context-compatibility-v1",
+  "canonicalBase": "5ddd15eaf75ceb8448dbf59667c14ffb2ffdac0e",
+  "productionAuditedReadOnly": false,
+  "entries": [
+    { "component": "decision-vnext-phase2-context", "location": "packages/decision-vnext-core/src/context.ts", "classification": "KEEP", "reason": "Existing Phase-1/2 replay contract remains supported and unchanged." },
+    { "component": "phase3a-context-kernel", "location": "packages/decision-vnext-core/src/context-kernel.ts", "classification": "EXTEND", "reason": "Additive canonical successor boundary for future harness integration; no ranking effect." },
+    { "component": "decision-vnext-client-request", "location": "packages/decision-vnext-core/src/contracts.ts", "classification": "EXTEND", "reason": "The canonical client request remains the source of explicit inputs; Phase 3A adds typed dimension and constraint declarations without copying it." },
+    { "component": "decision-vnext-execution-envelope", "location": "packages/decision-vnext-core/src/phase2-contracts.ts", "classification": "ADAPT", "reason": "Future phase may bind the Phase-3A snapshot; Phase 3A does not rewrite the validated Phase-2 envelope." },
+    { "component": "mobile-decision-v13-flow", "location": "mobile/app/(tabs)/decision.tsx", "classification": "ADAPT", "reason": "Current client inputs are legacy transport evidence; no Phase-3A wiring." },
+    { "component": "web-decision-v13-flow", "location": "web/lib/decision-web-api.ts", "classification": "ADAPT", "reason": "Current web payload remains a legacy consumer contract; no Phase-3A wiring." },
+    { "component": "create_decision_session_v1", "location": "supabase/migrations/20260821100000_activate_internal_live_user_v1.sql", "classification": "REPLACE", "reason": "City plus two mood strings cannot represent authority, privacy, constraints, provenance, or registry identity. Production remains unchanged." },
+    { "component": "get_decision_context_v1", "location": "supabase/migrations/20260808120517_backyrd_canonical_baseline.sql", "classification": "DEPRECATE", "reason": "Presentation-oriented mode/title/time-bucket result is not a vNext Context authority. No deprecation action in this slice." },
+    { "component": "decision-v13-context-detection", "location": "supabase/functions/decision-v13/index.ts", "classification": "REPLACE", "reason": "Retrieval, intent interpretation, context and score behavior are coupled. It remains frozen Production behavior." },
+    { "component": "decision-v13-live-input", "location": "supabase/functions/decision-v13/live-index.ts", "classification": "ADAPT", "reason": "Useful legacy input evidence, not a canonical vNext contract." },
+    { "component": "decision-v13-context-key-resolution", "location": "supabase/functions/decision-v13/index.ts", "classification": "REPLACE", "reason": "Legacy context-key lookup is coupled to retrieval and scoring and cannot establish per-dimension vNext provenance. Production remains unchanged." },
+    { "component": "decision-orchestrator-current-moment", "location": "packages/decision-orchestrator-runtime/src", "classification": "ADAPT", "reason": "Current request facts and conservative budget behavior are audit evidence, not a canonical vNext Context contract or policy." },
+    { "component": "decision-lab-n3-current-moment", "location": "decision-lab/src", "classification": "KEEP", "reason": "Historical deterministic evaluation evidence stays intact and is not imported as the vNext Context domain model." },
+    { "component": "admin-reference-location-configuration", "location": "admin-dashboard/app/reference-locations/page.tsx", "classification": "PROHIBITED", "reason": "The v13 operational radius cannot choose Phase-3A Context authority or policy." },
+    { "component": "legacy-decision-context-analytics", "location": "supabase/functions/decision-v13/index.ts", "classification": "PROHIBITED", "reason": "Persisted query, mood, audience and context-key records are not Context authority and are not consumed by the kernel." },
+    { "component": "mobile-location-context", "location": "mobile/lib/locationContext.ts", "classification": "ADAPT", "reason": "Device coordinates require server authorization and minimization before entering vNext Context." },
+    { "component": "review-decision-context", "location": "mobile/lib/reviewSubmit.ts", "classification": "PROHIBITED", "reason": "Review submission context must not become an implicit User Intelligence writeback." },
+    { "component": "weather-provider", "location": "packages/decision-vnext-core/src/context-kernel-contracts.ts", "classification": "UNKNOWN_NEEDS_PRODUCT_DECISION", "reason": "Only a port exists; no provider, taxonomy, cost, or production authority is selected." },
+    { "component": "context-taxonomies", "location": "packages/decision-vnext-core/src/context-kernel.ts", "classification": "UNKNOWN_NEEDS_PRODUCT_DECISION", "reason": "Fixture registry is explicitly non-canonical and product semantics remain not configured." }
+  ]
+}

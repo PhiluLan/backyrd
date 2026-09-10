@@ -148,7 +148,6 @@ export async function runPhase2Evaluation(input: Phase2EvaluationInput, trustAnc
   catch (error) { fail(error instanceof Error && /required/.test(error.message) ? "LOCATION_AUTHORITY_MISSING" : "LOCATION_AUTHORITY_MISMATCH", "REJECT_REQUEST"); }
   const { pool, snapshotBindings } = await neutralPool(input, request, context);
   const user = await userProjection(input, context);
-  if (user.projection.subjectBindingHash !== input.authority.actor.subjectBindingHash) fail("USER_PROJECTION_SUBJECT_BINDING_MISMATCH");
   const manifests = createEvaluationEngineManifests({ sourceSha: evaluationAuthority.sourceIdentity.sourceSha, sourceTreeHash: evaluationAuthority.sourceIdentity.sourceTreeHash, artifactIdentityHash: evaluationAuthority.sourceIdentity.artifactIdentityHash, evaluationAuthorityHash: evaluationAuthority.authorityHash, worldPortVersion: WORLD_KNOWLEDGE_PORT_VERSION, worldRegistryVersion: REGISTRY_VERSION, worldRegistryHash: REGISTRY_HASH, worldRuleRegistryVersion: RULE_REGISTRY_VERSION, worldRuleRegistryHash: RULE_REGISTRY_HASH, worldSourcePolicyVersion: input.acceptedWorldSourcePolicy.policyVersion, worldSourcePolicyHash: input.acceptedWorldSourcePolicy.policyHash, userProjectionVersion: USER_CONTRACT_VERSIONS.projection, contextVersion: CONTRACT_VERSIONS.contextSnapshot });
   const body = {
     contractVersion: PHASE2_CONTRACT_VERSIONS.executionEnvelope, evaluationAuthority, decisionId: input.authority.decisionId, serverRequestId: input.authority.serverRequestId, sessionId: input.authority.sessionId, idempotencyIdentity: input.authority.idempotencyIdentity,
@@ -178,9 +177,19 @@ export function validatePhase2ExecutionEnvelope(envelopeValue: unknown, trustAnc
   if (envelope.candidatePool.candidates.length !== envelope.world.snapshots.length) fail("WORLD_SNAPSHOT_BINDING_MISMATCH");
   if (envelope.candidatePool.worldVersion !== evaluationAuthority.scenario.worldVersion || envelope.candidatePool.candidateGeneratorVersion !== evaluationAuthority.candidatePoolOrigin.generatorVersion || envelope.candidatePool.candidates.length !== evaluationAuthority.candidatePoolOrigin.limit || envelope.candidatePool.candidates.some((entry) => entry.retrievalSource.sourceId !== evaluationAuthority.candidatePoolOrigin.sourceId)) fail("CANDIDATE_POOL_AUTHORITY_MISMATCH");
   envelope.candidatePool.candidates.forEach((entry, index) => { const binding = envelope.world.snapshots[index]; if (!binding || binding.spotId !== entry.candidate.spotId || binding.snapshotHash !== entry.candidate.worldReference.snapshotHash || binding.sourcePolicyVersion !== envelope.world.sourcePolicyVersion || binding.sourcePolicyHash !== envelope.world.sourcePolicyHash) fail("WORLD_SNAPSHOT_BINDING_MISMATCH"); });
-  const projection = parseRelevantUserProjection(envelope.userProjectionValue);
+  const projectionRequestForValidation = projectionRequest({
+    requestId: envelope.serverRequestId,
+    decisionId: envelope.decisionId,
+    userId: envelope.actor.kind === "AUTHENTICATED_USER" ? envelope.actor.userId : "synthetic-anonymous-user",
+    subjectBindingHash: envelope.actor.subjectBindingHash,
+    authenticationContextHash: envelope.actor.kind === "AUTHENTICATED_USER" ? envelope.actor.authenticationContextHash : contentHash("synthetic-anonymous-auth-context"),
+    context: envelope.context,
+    killSwitch: envelope.userProjection.killSwitchRequested,
+    snapshot: envelope.userProjectionValue.snapshot,
+  });
+  const projection = parseRelevantUserProjection(envelope.userProjectionValue, projectionRequestForValidation);
   const expectedUserBinding = userBinding(projection, { decisionId: envelope.decisionId, serverRequestId: envelope.serverRequestId, sessionId: envelope.sessionId, serverTime: envelope.serverTime, idempotencyIdentity: envelope.idempotencyIdentity, authorizedLocationScope: envelope.authorizedLocationScope, actor: envelope.actor, userKillSwitch: envelope.userProjection.killSwitchRequested });
-  if (canonicalJson(expectedUserBinding) !== canonicalJson(envelope.userProjection) || projection.subjectBindingHash !== envelope.actor.subjectBindingHash || (envelope.actor.kind === "AUTHENTICATED_USER" && envelope.userProjection.authenticationContextHash !== envelope.actor.authenticationContextHash) || (envelope.actor.kind === "ANONYMOUS" && envelope.userProjection.authenticationContextHash !== null)) fail("USER_PROJECTION_BINDING_MISMATCH");
+  if (canonicalJson(expectedUserBinding) !== canonicalJson(envelope.userProjection) || (envelope.actor.kind === "AUTHENTICATED_USER" && envelope.userProjection.authenticationContextHash !== envelope.actor.authenticationContextHash) || (envelope.actor.kind === "ANONYMOUS" && envelope.userProjection.authenticationContextHash !== null)) fail("USER_PROJECTION_BINDING_MISMATCH");
   if (envelope.userProjection.killSwitchRequested !== (projection.neutralReason === "KILL_SWITCH")) fail("USER_PROJECTION_KILL_SWITCH_BINDING_MISMATCH");
   if (envelope.engineManifests.length !== PHASE2_ENGINE_IDS.length || new Set(envelope.engineManifests.map((item) => item.engineId)).size !== PHASE2_ENGINE_IDS.length) fail("ENGINE_REGISTRY_INCOMPLETE");
   envelope.engineManifests.forEach((manifest, index) => { EvaluationEngineManifestSchema.parse(manifest); try { validateEvaluationEngineManifest(manifest); } catch { fail("ENGINE_MANIFEST_BINDING_MISMATCH"); } if (manifest.engineId !== PHASE2_ENGINE_IDS[index] || manifest.worldSourcePolicyHash !== envelope.world.sourcePolicyHash || manifest.sourceSha !== evaluationAuthority.sourceIdentity.sourceSha || manifest.sourceTreeHash !== evaluationAuthority.sourceIdentity.sourceTreeHash || manifest.artifactIdentityHash !== evaluationAuthority.sourceIdentity.artifactIdentityHash || manifest.evaluationAuthorityHash !== evaluationAuthority.authorityHash) fail("ENGINE_MANIFEST_BINDING_MISMATCH"); });
