@@ -1,6 +1,7 @@
 import { canonicalJson, sha256 } from "./canonical.js";
 
-export const REGISTRY_VERSION = "backyrd.world-knowledge.registry@1.0" as const;
+export const REGISTRY_VERSION = "backyrd.world-knowledge.registry@1.1" as const;
+export const PREVIOUS_REGISTRY_VERSION = "backyrd.world-knowledge.registry@1.0" as const;
 export const VALIDITY_POLICY_VERSION = "backyrd.world-knowledge.validity-policy@1.0" as const;
 
 export const PRIMARY_CATEGORIES = [
@@ -42,9 +43,18 @@ export const PET_ACCESS_STATES = ["ALLOWED", "NOT_ALLOWED", "UNKNOWN"] as const;
 export const RESERVATION_MODES = ["NOT_REQUIRED", "RECOMMENDED", "REQUIRED", "CONDITIONAL"] as const;
 export const CONSUMPTION_POLICIES = ["ALLOWED", "NOT_ALLOWED", "CONDITIONAL"] as const;
 export const CURRENT_STATE_KINDS = ["OPEN", "CLOSED", "TEMPORARILY_CLOSED", "LIMITED", "FULL", "KITCHEN_CLOSED", "AREA_CLOSED"] as const;
+export const PRICE_LEVELS = ["VERY_LOW", "LOW", "MEDIUM", "HIGH", "PREMIUM"] as const;
+export type PriceLevel = typeof PRICE_LEVELS[number];
+export const PRICE_LEVEL_LABELS: Readonly<Record<PriceLevel, { readonly de: string; readonly en: string }>> = Object.freeze({
+  VERY_LOW: { de: "sehr günstig", en: "very low" },
+  LOW: { de: "günstig", en: "low" },
+  MEDIUM: { de: "mittel", en: "medium" },
+  HIGH: { de: "gehoben", en: "high" },
+  PREMIUM: { de: "Premium", en: "premium" },
+});
 
 export type AttributeKind = "FACT" | "OPERATIONAL_RULE" | "CURRENT_STATE" | "EXPLANATION_ONLY";
-export type ValueType = "TEXT" | "URL" | "PHONE" | "COUNTRY_CODE" | "IANA_TIMEZONE" | "DECIMAL" | "BOOLEAN" | "ENUM" | "ENUM_SET" | "MONEY_RANGE" | "INTEGER" | "INTEGER_RANGE" | "RESERVATION_RULE" | "CONSUMPTION_RULE" | "PET_ACCESS_RULE" | "AGE_ACCESS_RULE" | "WEEKLY_SCHEDULE" | "SPECIAL_HOURS" | "CURRENT_STATE";
+export type ValueType = "TEXT" | "EMAIL" | "URL" | "PHONE" | "COUNTRY_CODE" | "IANA_TIMEZONE" | "DECIMAL" | "BOOLEAN" | "ENUM" | "ENUM_SET" | "MONEY_RANGE" | "INTEGER" | "INTEGER_RANGE" | "RESERVATION_RULE" | "CONSUMPTION_RULE" | "PET_ACCESS_RULE" | "AGE_ACCESS_RULE" | "WEEKLY_SCHEDULE" | "SPECIAL_HOURS" | "CURRENT_STATE";
 export type ExpiryBehavior = "STATIC" | "STALE_AFTER_VALID_UNTIL" | "EXPIRES_AT_VALID_UNTIL";
 
 export interface AttributeDefinition {
@@ -76,6 +86,7 @@ export const ATTRIBUTE_DEFINITIONS: readonly AttributeDefinition[] = Object.free
   definition({ key: "location.timezone", version: 1, area: "LOCATION", labels: { de: "Zeitzone", en: "Time zone" }, kind: "FACT", valueType: "IANA_TIMEZONE", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   ...(["website", "instagram", "facebook", "linkedin", "tiktok"] as const).map((field) => definition({ key: `contact.${field}`, version: 1, area: "PUBLIC_CONTACT", labels: { de: ({ website: "Webseite", instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn", tiktok: "TikTok" } as const)[field], en: ({ website: "Website", instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn", tiktok: "TikTok" } as const)[field] }, kind: "FACT", valueType: "URL", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" })),
   definition({ key: "contact.phone", version: 1, area: "PUBLIC_CONTACT", labels: { de: "Telefonnummer", en: "Phone number" }, kind: "FACT", valueType: "PHONE", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
+  definition({ key: "contact.public_email", version: 1, area: "PUBLIC_CONTACT", labels: { de: "Öffentliche Spot-E-Mail", en: "Public spot email" }, kind: "FACT", valueType: "EMAIL", min: 3, max: 254, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "description.highlight", version: 1, area: "DESCRIPTION", labels: { de: "Besonderheit", en: "Special feature" }, kind: "EXPLANATION_ONLY", valueType: "TEXT", min: 1, max: 800, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "EXPLANATION_ONLY" }),
   definition({ key: "classification.primary_category", version: 1, area: "PRIMARY_CATEGORY", labels: { de: "Hauptkategorie", en: "Primary category" }, kind: "FACT", valueType: "ENUM", allowedValues: PRIMARY_CATEGORIES, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "classification.place_types", version: 1, area: "PLACE_TYPES", labels: { de: "Art des Ortes", en: "Place types" }, kind: "FACT", valueType: "ENUM_SET", allowedValues: PLACE_TYPES, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
@@ -83,6 +94,7 @@ export const ATTRIBUTE_DEFINITIONS: readonly AttributeDefinition[] = Object.free
   definition({ key: "offering.food_specialities", version: 1, area: "FOOD_SPECIALITIES", labels: { de: "Food Specialities", en: "Food specialities" }, kind: "FACT", valueType: "ENUM_SET", allowedValues: FOOD_SPECIALITIES, applicability: ["EAT", "COFFEE_DAYTIME", "NIGHTLIFE", "STAY", "TEMPORARY_PLACES"], expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "offering.groups", version: 1, area: "OFFERING_GROUPS", labels: { de: "Angebotsgruppen", en: "Offering groups" }, kind: "FACT", valueType: "ENUM_SET", allowedValues: OFFERING_GROUPS, applicability: ["EAT", "DRINKS", "COFFEE_DAYTIME", "NIGHTLIFE", "STAY", "TEMPORARY_PLACES"], expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "operation.price_range", version: 1, area: "PRICE", labels: { de: "Preisbereich pro Person", en: "Price range per person" }, kind: "FACT", valueType: "MONEY_RANGE", min: 0, max: 100000, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
+  definition({ key: "operation.price_level", version: 1, area: "PRICE", labels: { de: "Preislevel", en: "Price level" }, kind: "FACT", valueType: "ENUM", allowedValues: PRICE_LEVELS, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "operation.payment_methods", version: 1, area: "PAYMENT", labels: { de: "Bezahlarten", en: "Payment methods" }, kind: "FACT", valueType: "ENUM_SET", allowedValues: PAYMENT_METHODS, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "operation.takeaway", version: 1, area: "TAKEAWAY", labels: { de: "Take-away verfügbar", en: "Takeaway available" }, kind: "FACT", valueType: "BOOLEAN", applicability: ["EAT", "DRINKS", "COFFEE_DAYTIME", "NIGHTLIFE", "STAY", "TEMPORARY_PLACES"], expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "operation.service_model", version: 1, area: "SERVICE", labels: { de: "Service-Modell", en: "Service model" }, kind: "FACT", valueType: "ENUM", allowedValues: SERVICE_MODELS, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
@@ -96,6 +108,8 @@ export const ATTRIBUTE_DEFINITIONS: readonly AttributeDefinition[] = Object.free
   definition({ key: "rule.external_drink", version: 1, area: "EXTERNAL_CONSUMPTION", labels: { de: "Eigene Getränke", en: "External drinks" }, kind: "OPERATIONAL_RULE", valueType: "CONSUMPTION_RULE", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "amenity.features", version: 1, area: "AMENITIES", labels: { de: "Ausstattung", en: "Amenities" }, kind: "FACT", valueType: "ENUM_SET", allowedValues: AMENITY_FEATURES, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   ...(["step_free_entrance", "wheelchair_paths", "accessible_seating", "accessible_toilet", "accessible_outdoor"] as const).map((feature) => definition({ key: `accessibility.${feature}`, version: 1, area: "ACCESSIBILITY", labels: { de: ({ step_free_entrance: "Stufenloser Eingang", wheelchair_paths: "Rollstuhlgängige Wege", accessible_seating: "Zugängliche Sitzplätze", accessible_toilet: "Rollstuhl-WC", accessible_outdoor: "Zugänglicher Außenbereich" } as const)[feature], en: ({ step_free_entrance: "Step-free entrance", wheelchair_paths: "Wheelchair paths", accessible_seating: "Accessible seating", accessible_toilet: "Accessible toilet", accessible_outdoor: "Accessible outdoor area" } as const)[feature] }, kind: "FACT", valueType: "BOOLEAN", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" })),
+  definition({ key: "accessibility.elevator", version: 1, area: "ACCESSIBILITY", labels: { de: "Aufzug", en: "Elevator" }, kind: "FACT", valueType: "BOOLEAN", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
+  definition({ key: "accessibility.accessible_indoor", version: 1, area: "ACCESSIBILITY", labels: { de: "Zugänglicher Innenbereich", en: "Accessible indoor area" }, kind: "FACT", valueType: "BOOLEAN", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "rule.pet_access", version: 1, area: "PET_ACCESS", labels: { de: "Tierzugangsregel", en: "Pet access rule" }, kind: "OPERATIONAL_RULE", valueType: "PET_ACCESS_RULE", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "rule.age_access", version: 1, area: "AGE_ACCESS", labels: { de: "Alterszugangsregel", en: "Age access rule" }, kind: "OPERATIONAL_RULE", valueType: "AGE_ACCESS_RULE", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "hours.regular", version: 1, area: "REGULAR_HOURS", labels: { de: "Reguläre Öffnungszeiten", en: "Regular opening hours" }, kind: "OPERATIONAL_RULE", valueType: "WEEKLY_SCHEDULE", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
@@ -127,6 +141,8 @@ assertRegistry();
 
 export const REGISTRY_HASH = sha256({ version: REGISTRY_VERSION, primaryCategoryLabels: PRIMARY_CATEGORY_LABELS, definitions: ATTRIBUTE_DEFINITIONS, validityPolicyVersion: VALIDITY_POLICY_VERSION, validityPolicies: VALIDITY_POLICIES });
 export const REGISTRY_CANONICAL_JSON = canonicalJson({ version: REGISTRY_VERSION, primaryCategoryLabels: PRIMARY_CATEGORY_LABELS, definitions: ATTRIBUTE_DEFINITIONS, validityPolicyVersion: VALIDITY_POLICY_VERSION, validityPolicies: VALIDITY_POLICIES });
+export const PREVIOUS_REGISTRY_DEFINITIONS = Object.freeze(ATTRIBUTE_DEFINITIONS.filter((definitionValue) => !["contact.public_email", "operation.price_level", "accessibility.elevator", "accessibility.accessible_indoor"].includes(definitionValue.key)));
+export const PREVIOUS_REGISTRY_HASH = "eba49eab117007ce6f8fca5cc5114e615d6cf8fb1a32547465149db8c84e922b" as const;
 
 export function getAttributeDefinition(keyValue: unknown): AttributeDefinition {
   if (typeof keyValue !== "string" || !/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/.test(keyValue)) throw new Error("invalid_attribute_key");

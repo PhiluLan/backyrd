@@ -99,7 +99,7 @@ export const CONFLICT_SENSITIVITY_CANDIDATES = Object.freeze([
 const useCasesForKey = (key: string): readonly SourceUseCase[] => {
   if (key.startsWith("contact.")) return ["GENERAL_WORLD", "EXPLANATION", "RESEARCH"];
   if (key.startsWith("hours.") || key === "state.current") return ["GENERAL_WORLD", "OPENING_HOURS_ELIGIBILITY", "RESEARCH"];
-  if (key === "operation.price_range") return ["GENERAL_WORLD", "PRICE", "RESEARCH"];
+  if (["operation.price_range", "operation.price_level"].includes(key)) return ["GENERAL_WORLD", "PRICE", "RESEARCH"];
   if (key.startsWith("accessibility.")) return ["GENERAL_WORLD", "ACCESSIBILITY", "HARD_CONSTRAINTS", "RESEARCH"];
   if (["operation.takeaway", "rule.reservation", "rule.external_food", "rule.external_drink", "rule.age_access", "rule.pet_access"].includes(key)) return ["GENERAL_WORLD", "HARD_CONSTRAINTS", "RESEARCH"];
   if (key === "description.highlight" || key === "research.subjective_fits") return ["EXPLANATION", "RESEARCH"];
@@ -109,7 +109,7 @@ const useCasesForKey = (key: string): readonly SourceUseCase[] => {
 function freshnessModeFor(key: string): SourcePolicy["entries"][number]["freshness"]["mode"] {
   if (key === "state.current") return "REQUIRES_VALID_UNTIL";
   if (key.startsWith("hours.")) return "SCHEDULE_BOUND";
-  if (["operation.price_range", "operation.payment_methods", "operation.takeaway", "rule.reservation", "rule.pet_access", "rule.age_access"].includes(key)) return "REVERIFICATION_REQUIRED";
+  if (["operation.price_range", "operation.price_level", "operation.payment_methods", "operation.takeaway", "rule.reservation", "rule.pet_access", "rule.age_access"].includes(key)) return "REVERIFICATION_REQUIRED";
   return "PERMANENT_UNTIL_CONTRADICTED";
 }
 

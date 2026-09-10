@@ -1,6 +1,6 @@
 # World Knowledge Foundation
 
-Status: Slice 1 is canonical. Slice 2 adds a local governance/source-policy/verification and compatibility-adapter candidate; no Production storage or consumer is connected. See [`slice-2/README.md`](slice-2/README.md).
+Status: Slices 1–3A are canonical. Slice 3B adds the accepted policy contracts and a forward migration for private append-only persistence, fail-closed authority, and allowlisted shadow resolution. It is not Production applied or consumer activated. See [`slice-3b/README.md`](slice-3b/README.md).
 
 ## Purpose
 
@@ -44,7 +44,7 @@ All object hashes use canonical NFC-normalized JSON, lexicographically sorted ob
 - Missing is absent; it is not `UNKNOWN` and never `FALSE`.
 - Resolution, freshness, and trust are separate dimensions.
 - Actor type and source type are separate. No Actor ID exists in the engine contract.
-- Admin or Owner status does not raise trust.
+- Admin/Owner status alone does not raise trust; only the accepted server-side authority and verification process can produce a verified claim.
 - A source reference alone does not authorize a trust-dependent readiness result.
 - A session provenance identifier is not evidence.
 - No numerical confidence exists.
@@ -54,6 +54,6 @@ All object hashes use canonical NFC-normalized JSON, lexicographically sorted ob
 - Asserted-only opening hours are excluded from eligibility truth.
 - Secondary Categories do not exist in the Slice 1 contract.
 - The 16th primary category is `OTHER` (`Sonstiges` / `Other`).
-- No Production table, migration, policy, RPC, deployment, or Decision consumer changes in this slice.
+- Slice 3B supplies a forward migration, but no Production application, backfill, deployment, client activation, or Decision consumer change.
 
 See the remaining documents in this directory for the normative key, trust, temporal, port, compatibility, ADR, deferred taxonomy, and Slice 2 decisions.

@@ -114,6 +114,7 @@ export function parseAttributeValue(attributeKeyValue: unknown, value: unknown, 
   const numericBounds = { ...(definition.min !== undefined ? { min: definition.min } : {}), ...(definition.max !== undefined ? { max: definition.max } : {}) };
   switch (definition.valueType) {
     case "TEXT": return string(value, path, numericBounds);
+    case "EMAIL": return string(value, path, { min: 3, max: 254, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ });
     case "URL": {
       const parsed = string(value, path, { min: 1, max: 500 });
       let url: URL; try { url = new URL(parsed); } catch { throw new ContractValidationError(path, "expected absolute URL"); }
