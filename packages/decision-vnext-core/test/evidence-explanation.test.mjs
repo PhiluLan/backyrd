@@ -40,10 +40,10 @@ test("unknown, wrong-kind and changed evidence fail closed", () => {
   const candidate = entry.eligibleCandidate.candidate;
   const evidence = candidateEvidence(candidate);
   assert.throws(() => renderAuthorizedReasons([{ reasonCode: "popularity_fixture", evidenceIds: ["ev-does-not-exist"] }], evidence), /unknown_evidence_id/);
-  const distance = evidence.find((item) => item.kind === "distance");
+  const distance = evidence.find((item) => item.signal === "location.distance");
   assert.ok(distance);
   assert.throws(() => renderAuthorizedReasons([{ reasonCode: "popularity_fixture", evidenceIds: [distance.evidenceId] }], evidence), /evidence_kind_not_authorized/);
-  const changed = { ...distance, value: { meters: distance.value.meters + 1 } };
+  const changed = { ...distance, value: { kind: "number", value: distance.value.value + 1, unit: "meters" } };
   assert.throws(() => validateEvidence(changed), /evidenceHash_mismatch/);
 });
 

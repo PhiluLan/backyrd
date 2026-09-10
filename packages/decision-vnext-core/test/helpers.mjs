@@ -1,7 +1,6 @@
 import {
-  BASELINE_FIXTURES,
   CONTRACT_VERSIONS,
-  createEngineManifest,
+  createSyntheticExecution,
   generateSyntheticWorld,
 } from "../dist/index.js";
 
@@ -22,29 +21,15 @@ export const request = () => ({
   idempotencyKey: "fixture-request-1",
   clientRequestedAt: config.observedAt,
   location: { kind: "city", city: "Fixture Basel" },
-  intentKeys: ["fixture.eat"],
-  moodKeys: ["fixture.calm"],
+  intentKeys: ["fixture.intent.eat"],
+  moodKeys: ["fixture.mood.calm"],
+  shownCandidateIds: [],
+  rejectedCandidateIds: [],
   hardConstraints: [{ kind: "open_now", value: true }],
   softPreferences: [],
   client: { surface: "synthetic", version: "phase1-test-v1" },
 });
 
 export const execution = (baseline = "baseline-a-open-distance-popularity", syntheticWorld = world()) => {
-  const fixture = baseline === "baseline-a-open-distance-popularity" ? BASELINE_FIXTURES.a : BASELINE_FIXTURES.b;
-  return {
-    contractVersion: CONTRACT_VERSIONS.executionEnvelope,
-    authenticatedActor: { kind: "anonymous" },
-    serverRequestId: "server-request-fixture-1",
-    sessionId: "session-fixture-1",
-    executedAt: config.observedAt,
-    rolloutMode: "evaluation",
-    deadlineAt: "2026-01-15T12:00:05.000Z",
-    serverIdempotencyKey: "server-idempotency-fixture-1",
-    engineManifest: createEngineManifest({
-      sourceSha: "phase1-test-source",
-      sandboxWorldVersion: syntheticWorld.version,
-      rankingVersion: fixture.rankingVersion,
-      weightFixtureVersion: fixture.weightFixtureVersion,
-    }),
-  };
+  return createSyntheticExecution({ request: request(), world: syntheticWorld, baseline: baseline ?? "baseline-a-open-distance-popularity", sourceSha: "phase1-test-source", candidatePoolSize: 36 });
 };

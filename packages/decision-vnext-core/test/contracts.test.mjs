@@ -32,6 +32,6 @@ test("execution authority is a distinct server-only contract", () => {
 
 test("discriminated evidence and optional values fail closed", async () => {
   const { EvidenceItemSchema } = await import("../dist/index.js");
-  assert.throws(() => EvidenceItemSchema.parse({ kind: "popularity", value: { city: "wrong" } }), /no union variant matched/);
+  assert.throws(() => EvidenceItemSchema.parse({ kind: "popularity", value: { city: "wrong" } }), /unknown field|no union variant matched/);
   assert.throws(() => DecisionRequestSchema.parse({ ...request(), freeText: undefined }), /undefined is not a contract value/);
 });

@@ -1,223 +1,91 @@
-# Decision vNext Phase 1: Foundation and deterministic evaluation spine
+# Decision vNext Phase 1 integration closure
 
-## Classification legend
+Status: Draft-PR foundation only. No Production adapter, traffic, database object, deployment or product recommendation is created.
 
-- **Binding:** architecture invariant for vNext.
-- **Phase-1 technical:** reversible implementation for proving the spine.
-- **Fixture:** synthetic evaluation value with no product authority.
-- **Placeholder:** typed extension point whose domain meaning is not approved.
-- **Decision required:** Founder/CTO product decision deferred to a later phase.
-
-## Purpose
-
-The Phase-1 package proves this isolated flow:
+## Executive architecture
 
 ```text
-DecisionRequest + server DecisionExecutionEnvelope
-  -> ContextSnapshot
-  -> neutral CandidatePoolSnapshot
-  -> central Eligibility
-  -> fixture Fit Dimensions
-  -> deterministic Baseline Ranking
-  -> structural Confidence
-  -> Evidence Assembly
-  -> Reason Authorization
-  -> deterministic Rendering
-  -> DecisionResult + EngineManifest
+canonical WorldKnowledgeReaderPort -> WorldKnowledgeSnapshot --\
+canonical DecisionVNextUserProjectionPort -> RelevantUserProjection ----> server-bound execution
+DecisionRequest -> SituationalContextSnapshot ----------------------/          |
+                                                                               v
+neutral frozen CandidatePool -> central Eligibility -> EligibleCandidate[]
+  -> Baseline/Target RankingPort -> Confidence -> Evidence authorization
+  -> deterministic Explanation -> versioned DecisionResult
 ```
 
-It does not make a production recommendation and does not integrate with
-`decision-v13`, Supabase, Mobile, Web or learning.
+World, User and Context are separate authorities. Decision owns neither the World registry nor user-memory semantics. The package imports canonical contracts from `@backyrd/world-knowledge-core` and `@backyrd/user-intelligence-vnext-core`; it contains no copied World snapshot, User projection or competing port definition.
 
-## Package structure and ownership
+## Component disposition after rebase
 
-`packages/decision-vnext-core/src/contracts.ts` owns every public contract.
-Each type is inferred from the corresponding runtime schema in the same
-declaration. There is no handwritten duplicate JSON Schema or generated type
-file. Contract version literals fail closed.
-
-Key modules:
-
-- `schema.ts`: strict schema-first validation primitives.
-- `canonical.ts`: canonical serialization, hashes and freezing.
-- `contracts.ts`: the 13 required contracts and `EligibleCandidate` brand.
-- `sandbox.ts`: deterministic synthetic World/User generation.
-- `candidate-pool.ts`: World adapter and neutral candidate snapshot.
-- `world-knowledge.ts`: registry-neutral facts, relations and integrity checks.
-- `world-knowledge-port.ts`: the only authorized future real-World boundary;
-  Phase 1 provides no implementation.
-- `eligibility.ts`: the sole Phase-1 eligibility authority.
-- `baselines.ts`: transparent Baseline A and B fixture rankers.
-- `confidence.ts`: uncalibrated structural confidence.
-- `evidence.ts` and `explanation.ts`: evidence integrity and authorized copy.
-- `pipeline.ts`: orchestration and manifest-bound replay.
-
-## Domain boundaries
-
-| Domain | May contain | Must not contain |
+| Component | Decision | Reason |
 |---|---|---|
-| World | synthetic spot facts, provenance, quality | user score or preference |
-| User | synthetic user taste/aversion fixtures | spot truth or rank |
-| Context | explicit request projection | long-term preference mutation |
-| Candidate generation | stable candidates, source, position | recommendation or user model |
-| Eligibility | checks and eligible boolean | fit or ranking score |
-| Fit/Ranking | fixture dimensions for eligible candidates | eligibility mutation, commercial data |
-| Confidence | evidence sufficiency limitations | ranking influence or success probability |
-| Explanation | authorized claims and evidence references | new facts, AI output |
+| Canonical serializer/hash and schema DSL | KEEP | deterministic, strict and package-local infrastructure |
+| Decision request / result / eligible brand | EXTEND | v2 adds cross-domain bindings and fail-closed hashes |
+| Local WorldKnowledge model and port from pre-alignment PR | REPLACE | canonical World package is now authoritative |
+| Synthetic spot/user generator | EXTEND | now emits canonical World snapshots and canonical neutral User projections |
+| Neutral candidate pool / three eligibility rules | EXTEND | retains behavior; binds canonical snapshot evidence and per-rule proof hashes |
+| Baseline A/B | EXTEND | same fixture semantics; consumes adapter projections and the same pool |
+| Legacy-v13 comparator | KEEP | comparison only; untouched and outside the core |
+| Final target ranker, weights and context taxonomies | UNKNOWN / NEEDS PRODUCT DECISION | intentionally `NOT_CONFIGURED` |
 
-The synthetic User domain exists to prove isolation and future extensibility;
-neither baseline reads it. Personal retrieval is therefore impossible in this
-phase.
+## Contract and authority boundaries
 
-### World Knowledge compatibility envelope
+`DecisionRequest` is strict and rejects server authority such as user ID, snapshots, manifests, pool, ranking, confidence, evidence and commercial influence. `DecisionExecutionEnvelope` binds the pseudonymous subject, Decision/session identity, canonical time, Context hash, World port/registry/rule/snapshot-set identities, User projection/manifest/subject identities, Candidate Pool hash, engine/policy versions, degradation state and the commercial-influence prohibition. The envelope itself is content-hashed and every mismatch fails closed.
 
-`WorldCandidate.worldKnowledge` structurally separates category assignments,
-subcategories, Decision Intents, Capabilities, Situation Fit, Amenities &
-Constraints, Temporal & Current State, and Evidence & Confidence. Intent facts
-and Capability facts are different collections connected only through typed,
-content-hashed concept relations.
+`SituationalContextSnapshot` has three sections: explicit one-decision input, server-bound authority and derived values. Unapproved dimensions use namespaced `UNKNOWN`/`NOT_CONFIGURED` states. It declares `rawLocationPersisted: false` and `writesUserIntelligence: false`; only an independently authorized User observation may later create durable learning.
 
-Concepts are opaque `{ registryVersion, conceptId }` references. The schema
-does not enumerate the 16 categories or any intent, capability, fit, amenity or
-relation vocabulary. Phase-1 fixture IDs use the explicit
-`*-fixture-*-unapproved` registry and prove shape only.
+## World integration
 
-World Facts use discriminated typed values and preserve source, source version,
-verification, `observedAt`, nullable `validFrom`/`validUntil`, confidence,
-Evidence IDs and a fact hash. `known_false`, `unknown`, `not_applicable`,
-`disputed` and `expired` are separate contract states. Direct Situation Fit
-claims are World Facts; derived fits carry a derivation version and source Fact
-IDs. Events and temporary places are distinct entity references connected to a
-spot through relations rather than being embedded as spot facts.
+`world-adapter.ts` accepts only a runtime-validated canonical `WorldKnowledgeSnapshot`, validates registry and rule-registry hashes, and retains readiness, conflicts/exclusions, freshness-sensitive open evidence and the snapshot hash. The canonical port already removes explanation-only knowledge, expired current states, asserted-only hours and commercial/non-knowledge context. Decision does not invent Capability-to-Intent relations: `CAPABILITY_INTENT_REGISTRY_NOT_CONFIGURED` remains in readiness and Result limitations. The synthetic intent/mood arrays are an explicitly non-canonical Baseline-B fixture policy.
 
-The compatibility audit and deferred World Knowledge decisions are recorded in
-`docs/decision-vnext/WORLD_KNOWLEDGE_COMPATIBILITY.md`.
+Payment, owner tier, sponsored, advertising and subscription are absent even from the synthetic engine input. Counterfactual boundary tests attempt to inject each field and require strict rejection by `WorldCandidate`; canonical World tests separately prove that non-knowledge context is stripped before the reader port.
 
-## Candidate-pool neutrality
+## User integration
 
-The fixture generator sorts synthetic spot IDs, selects the configured count,
-adds a non-personalized `synthetic-neutral-rule-v1` attribution and assigns stable positions. The
-same frozen pool is passed to both baselines. Request identity, world version,
-candidate facts and order are content-hashed.
+`user-adapter.ts` consumes only `DecisionVNextUserProjectionPort` and validates the result against its server request. Raw events, review text, raw location and private social data are forbidden by the canonical projection boundary. Taste, Practical Preferences and Direct Spot Affinity remain separate canonical collections. The projection has no eligibility/ranking authority. No consent, missing snapshot, cold start and kill switch resolve to neutral personalization with explicit reasons; no weight, reducer or sufficiency threshold is introduced.
 
-Payment status, owner tier and sponsored state exist only on `SyntheticSpot` as
-neutrality probes. `toWorldCandidate()` and `WorldKnowledgePort` deliberately
-exclude them. Counterfactual
-tests flip all three and require byte-identical candidate pools and decisions.
+## Candidate pool, eligibility and ranking
 
-## Eligibility
+Candidate generation sorts synthetic IDs, freezes one pool and records a stable non-personalized adapter source. All engines receive the same pool hash. Rankers cannot add candidates and accept only the private branded `EligibleCandidate[]` created by central Eligibility.
 
-Ruleset `backyrd-vnext-eligibility-phase1-v1` contains exactly:
+The only rules are distribution allowed, explicit city and explicit open-now. Each check binds rule/ruleset, evidence, outcome, reason, local unknown policy and proof hash. For `openNow=true`, anything other than authoritatively open fails; unknown is recorded as unknown and handled by the rule's fixture `fail` policy. Missing future Product policy is represented as `NOT_CONFIGURED`, never silent pass.
 
-1. `distribution-allowed-v1`
-2. `explicit-city-match-v1`
-3. `explicit-open-now-v1`
+`RankingPort` is the target boundary. Baseline A and B retain transparent, unapproved fixture weights. Confidence remains uncalibrated and uses structural states; unavailable policy components carry `null/NOT_CONFIGURED`, never a claimed probability.
 
-When `open_now=true`, open passes, closed fails, and unknown produces an
-`unknown` check whose explicit policy is `fail`. Without that explicit request,
-the rule records `pass/not-applicable`. Every check cites typed evidence and has
-a deterministic result hash.
+## Evidence, explanation, manifest and replay
 
-`EligibleCandidate` has a private unique-symbol brand. Its constructor is kept
-inside the contracts module and refuses `eligible !== true`. The compile-time
-type test proves that a plain ineligible object cannot be supplied to a ranker;
-runtime tests prove rejected IDs never reappear after high fit.
+Evidence identifies World/User/Context source domain, source reference/hash, signal, influence, trust/confidence state, limitations and policy version. Reasons can reference only allowed evidence signals. Rendering uses fixed templates and cannot create evidence or claims. World explanation-only material cannot enter because the canonical World port excludes it before adaptation.
 
-## Baselines and fixture values
+The v2 manifest binds Decision contracts, World port/registry/rules, User projection/manifest, Context, generator/pool, eligibility/unknown policy, ranking adapter, fixture weight or `NOT_CONFIGURED`, confidence, evidence, explanation and exploration state. Request, envelope, snapshots, pool, checks, recommendations and result are content-addressed. Complete synthetic inputs replay byte-identically; altered bindings, evidence or manifest fail closed.
 
-Baseline A uses three fixture dimensions:
+## Deterministic degradation matrix
 
-- known open state: weight `0.50`
-- normalized distance: weight `0.35`
-- normalized popularity: weight `0.15`, contribution capped at `0.15`
+| Condition | Phase-1 behavior |
+|---|---|
+| missing/invalid World snapshot or registry hash | fail closed before candidacy; no fabricated spot fact |
+| World not ready / conflict / expired or unauthorized time fact | preserve readiness/limitation; hard rule cannot silently pass |
+| Capability-to-Intent registry missing | Baseline-B fixture only; target policy remains `NOT_CONFIGURED` |
+| no consent / missing or cold User projection / kill switch | neutral personalization and explicit limitation |
+| incomplete Context | namespaced `UNKNOWN`/`NOT_CONFIGURED`; no long-term User mutation |
+| semantic retrieval unavailable | deterministic neutral synthetic pool; Production behavior deferred |
+| Legacy comparator unavailable | vNext evaluation continues; Legacy is never presented as vNext |
+| ranking/exploration/confidence policy absent | structural limitation, no invented score/probability |
 
-Baseline B uses:
+## Sandbox and validation
 
-- exact synthetic intent-tag overlap: weight `0.50`
-- exact synthetic mood-tag overlap: weight `0.50`
-
-All values are **Fixture**, named `*-fixture-weights-*-unapproved`. They exist
-only to prove replaceable dimensions and deterministic ordering. They are not
-approved product weights or taxonomies. Stable spot ID is the final tie-break.
-
-## Evidence and explanation integrity
-
-Evidence values use discriminated schemas for distribution, city, open status,
-distance, popularity, intent tags, mood tags, World concepts, World relations,
-data quality and uncertainty.
-Every Evidence Item includes a synthetic source, observation time, confidence
-and hash.
-
-Reason authorization maps each reason code to allowed evidence kinds. The
-renderer receives only authorized reason objects and an evidence set. It emits
-fixed copy. Validation fails on missing IDs, wrong evidence kinds, changed
-evidence hashes, unknown reason codes or changed rendering.
-
-## Confidence
-
-Confidence is always `uncalibrated-phase1`. Its raw values are evaluation-only:
-world coverage, freshness, context completeness, user knowledge, ranking
-separation and retrieval agreement. Limitations explicitly include uncalibrated
-confidence and the absence of a User Model. Weak data quality adds evidence-
-bound `weak-world-evidence`.
-
-## Determinism and replay
-
-Objects are canonically key-sorted; arrays retain order. Optional absent fields
-are omitted by schema parsing, while explicit `undefined` fails. Unicode is NFC
-normalized and non-finite numbers fail. All IDs and versions use constrained
-formats. Hashes are SHA-256 over canonical JSON.
-
-Replay requires the expected manifest hash and expected result hash. A wrong
-manifest fails before execution. A complete Phase-1 Decision can therefore be
-recomputed byte-identically from request, execution envelope, synthetic world,
-baseline and limits.
-
-## Sandbox isolation
-
-Configurations live under
-`packages/decision-vnext-core/sandbox/config/`. The smoke profile uses 24 spots
-and six users. Two full fixed-seed profiles each use 300 spots and 50 users.
-Cities, distances, open/closed/unknown status, multiple fixture category
-assignments, fixture subcategories, intents, capabilities, direct/derived
-situation fits, popularity and quality are generated without network or
-database access. IDs use `syn-*` namespaces.
-
-The isolation test scans code/config for Supabase imports, credentials, the
-Production project ref, network calls and UUID-shaped Production IDs. It also
-runs a Decision after replacing global `fetch` with a throwing function.
-
-## Local execution
+Smoke uses 24 spots/six users; full profiles use two fixed seeds with 300 canonical synthetic World snapshots and 50 synthetic user identities. It has no Supabase, network, Production credentials/IDs or Production data. Run:
 
 ```bash
 npm ci
+npm run world-knowledge:test
+npm run user-intelligence-vnext:test
 npm run decision-vnext:typecheck
 npm run decision-vnext:test
 npm run decision-vnext:smoke
 npm run decision-vnext:full
 ```
 
-The PR Risk Gate classifies `packages/decision-vnext-core/src/` as Decision
-semantics and its tests/sandbox as Decision evaluation. The Decision job runs
-the vNext typecheck, tests and smoke path before the inherited Decision Lab
-checks.
+## Deferred Product decisions / Phase 2 readiness
 
-## Deferred product decisions
-
-- canonical intent, mood and fit taxonomies
-- canonical category, subcategory, capability, amenity, temporal and relation
-  registries, including the 16 main-category values
-- registry governance, verification/source precedence and derived-fit policy
-- Event and Temporary Place entity schemas and lifecycle
-- production candidate-generation sources and budgets
-- constraints beyond distribution, explicit city and explicit open-now
-- treatment of unknown facts per future constraint
-- approved weights, optimization target and exploration policy
-- calibrated confidence model and product presentation
-- User Model contract and allowed personal signals
-- persistence/retention periods and production replay authorization
-- production adapters, API, rollout and fallback behavior
-- learning semantics and AI role
-
-Historical Decision documentation remains historical evidence. This document
-describes only the independent vNext Phase-1 foundation.
+Canonical Capability-to-Intent policy, final Context vocabularies, Product unknown policies, target objective/dimensions/weights, exploration, confidence calibration/UI copy, Production candidate sources/budgets, retention windows, real adapters and rollout remain deferred. The first Phase-2 slice should implement a read-only, non-serving integration harness around the canonical ports, compare one target shell against both baselines on the frozen pool, and keep all unresolved policies visible.

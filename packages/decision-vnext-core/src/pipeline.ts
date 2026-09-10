@@ -8,7 +8,9 @@ import { applyPhase1Eligibility } from "./eligibility.js";
 import { authorizeReasons, renderAuthorizedReasons, validateExplanation } from "./explanation.js";
 import { validateEngineManifest } from "./manifest.js";
 import type { SyntheticWorld } from "./sandbox.js";
-import { candidateEvidence } from "./world-knowledge.js";
+import { buildSyntheticNeutralProjection } from "./sandbox.js";
+import { candidateEvidence } from "./evidence.js";
+import { createSyntheticExecution } from "./execution.js";
 
 function assertBaselineManifest(baseline: BaselineId, execution: DecisionExecutionEnvelope): void {
   const fixture = baseline === "baseline-a-open-distance-popularity" ? BASELINE_FIXTURES.a : BASELINE_FIXTURES.b;
@@ -27,24 +29,29 @@ export function runPhase1Decision(input: {
 }): DecisionResult {
   const request = DecisionRequestSchema.parse(input.request);
   const execution = DecisionExecutionEnvelopeSchema.parse(input.execution);
+  assertContentHash(execution as unknown as Record<string, unknown>, "envelopeHash");
   validateEngineManifest(execution.engineManifest);
   if (execution.deadlineAt < execution.executedAt) throw new Error("execution_deadline_invalid");
   assertBaselineManifest(input.baseline, execution);
   if (execution.engineManifest.sandboxWorldVersion !== input.world.version) throw new Error("engine_manifest_world_mismatch");
-  const context = resolvePhase1Context(request, execution);
+  const expectedExecution = createSyntheticExecution({ request, world: input.world, baseline: input.baseline, sourceSha: execution.engineManifest.sourceSha, ...(input.candidatePoolSize === undefined ? {} : { candidatePoolSize: input.candidatePoolSize }), actor: execution.authenticatedActor, personalizationKillSwitch: execution.personalizationKillSwitch });
+  if (execution.envelopeHash !== expectedExecution.envelopeHash) throw new Error("execution_binding_mismatch");
+  if (request.location.kind !== "city") throw new Error("phase1_city_location_required");
+  const context = resolvePhase1Context(request, { decisionId: execution.decisionId, sessionId: execution.sessionId, executedAt: execution.executedAt, actorSubjectBindingHash: execution.authenticatedActor.subjectBindingHash, authorizedLocationScope: request.location });
   const candidatePool = generateNeutralCandidatePool({ world: input.world, context, serverRequestId: execution.serverRequestId, ...(input.candidatePoolSize === undefined ? {} : { limit: input.candidatePoolSize }) });
   validateCandidatePool(candidatePool);
-  if (candidatePool.candidates.some((entry) => entry.candidate.worldKnowledge.registryVersion !== execution.engineManifest.worldRegistryVersion)) {
+  if (candidatePool.candidates.some((entry) => entry.candidate.worldReference.registryVersion !== execution.engineManifest.worldRegistryVersion)) {
     throw new Error("engine_manifest_world_registry_mismatch");
   }
   const eligibility = applyPhase1Eligibility(candidatePool, context);
+  const projection = buildSyntheticNeutralProjection({ requestId: execution.serverRequestId, decisionId: execution.decisionId, userId: execution.authenticatedActor.kind === "user" ? execution.authenticatedActor.userId : "synthetic-anonymous-user", subjectBindingHash: execution.authenticatedActor.subjectBindingHash, contextHash: context.contextHash, intentKeys: context.explicit.intentKeys, killSwitch: execution.personalizationKillSwitch });
   const ranked: readonly RankedCandidate[] = input.baseline === "baseline-a-open-distance-popularity"
     ? rankBaselineA(eligibility.eligible)
     : rankBaselineB(eligibility.eligible, context);
   const selected = ranked.slice(0, input.resultLimit ?? 3);
   const recommendations: DecisionRecommendation[] = selected.map((entry, index) => {
     const next = ranked[index + 1];
-    const confidence = buildPhase1Confidence({ candidate: entry.eligibleCandidate, context, fixtureScore: entry.fixtureScore, ...(next === undefined ? {} : { nextFixtureScore: next.fixtureScore }) });
+    const confidence = buildPhase1Confidence({ candidate: entry.eligibleCandidate, context, fixtureScore: entry.fixtureScore, userProjection: projection, ...(next === undefined ? {} : { nextFixtureScore: next.fixtureScore }) });
     const claims = authorizeReasons(entry.eligibleCandidate.candidate, entry.fit, confidence);
     const reasons = renderAuthorizedReasons(claims, candidateEvidence(entry.eligibleCandidate.candidate));
     validateExplanation(reasons, entry.eligibleCandidate.candidate);
@@ -60,16 +67,21 @@ export function runPhase1Decision(input: {
   });
   const result = DecisionResultSchema.parse(withContentHash({
     contractVersion: CONTRACT_VERSIONS.decisionResult,
-    decisionId: `decision-${execution.serverRequestId}`,
+    decisionId: execution.decisionId,
     serverRequestId: execution.serverRequestId,
     mode: execution.rolloutMode,
     createdAt: execution.executedAt,
     requestHash: contentHash(request),
+    executionEnvelopeHash: execution.envelopeHash,
     contextSnapshot: context,
+    worldBinding: execution.worldBinding,
+    userBinding: execution.userBinding,
     candidatePool,
     engineManifest: execution.engineManifest,
     baseline: input.baseline,
+    eligibilityResults: [...eligibility.eligible.map((entry) => entry.eligibility), ...eligibility.rejected].sort((a, b) => a.spotId.localeCompare(b.spotId)),
     recommendations,
+    limitations: execution.degradationState,
   }, "resultHash"));
   return deepFreeze(result) as DecisionResult;
 }

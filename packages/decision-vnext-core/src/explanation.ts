@@ -4,13 +4,9 @@ import { evidenceMap, validateEvidence } from "./evidence.js";
 
 type Claim = Omit<AuthorizedReason, "renderedText">;
 
-const allowedEvidenceKinds: Readonly<Record<Claim["reasonCode"], readonly EvidenceItem["kind"][]>> = Object.freeze({
-  verified_open: ["open_status"],
-  nearby_fixture: ["distance"],
-  popularity_fixture: ["popularity"],
-  intent_match_fixture: ["intent_tags"],
-  mood_match_fixture: ["mood_tags"],
-  weak_world_evidence: ["data_quality"],
+const allowedEvidenceSignals: Readonly<Record<Claim["reasonCode"], readonly string[]>> = Object.freeze({
+  verified_open: ["temporal.open_status"], nearby_fixture: ["location.distance"], popularity_fixture: ["fixture.popularity"],
+  intent_match_fixture: ["fixture.intent_tags"], mood_match_fixture: ["fixture.mood_tags"], weak_world_evidence: ["world.data_quality"],
 });
 
 export function authorizeReasons(candidate: WorldCandidate, fit: FitDimensions, confidence: Confidence): readonly Claim[] {
@@ -21,7 +17,7 @@ export function authorizeReasons(candidate: WorldCandidate, fit: FitDimensions, 
     for (const id of evidenceIds) {
       const item = byId.get(id);
       if (!item) throw new Error(`unknown_evidence_id:${id}`);
-      if (!allowedEvidenceKinds[reasonCode].includes(item.kind)) throw new Error(`evidence_kind_not_authorized:${reasonCode}:${item.kind}`);
+      if (!allowedEvidenceSignals[reasonCode].includes(item.signal)) throw new Error(`evidence_kind_not_authorized:${reasonCode}:${item.signal}`);
     }
     claims.push({ reasonCode, evidenceIds });
   };
@@ -55,7 +51,7 @@ export function renderAuthorizedReasons(claims: readonly Claim[], evidence: read
     for (const id of claim.evidenceIds) {
       const item = byId.get(id);
       if (!item) throw new Error(`unknown_evidence_id:${id}`);
-      if (!allowedEvidenceKinds[claim.reasonCode].includes(item.kind)) throw new Error(`evidence_kind_not_authorized:${claim.reasonCode}:${item.kind}`);
+      if (!allowedEvidenceSignals[claim.reasonCode].includes(item.signal)) throw new Error(`evidence_kind_not_authorized:${claim.reasonCode}:${item.signal}`);
     }
     return AuthorizedReasonSchema.parse({ ...claim, renderedText: renderers[claim.reasonCode] });
   });
@@ -70,7 +66,7 @@ export function validateExplanation(reasons: readonly AuthorizedReason[], candid
       const item = byId.get(id);
       if (!item) throw new Error(`unknown_evidence_id:${id}`);
       assertContentHash(item as unknown as Record<string, unknown>, "evidenceHash");
-      if (!allowedEvidenceKinds[reason.reasonCode].includes(item.kind)) throw new Error("reason_claim_not_supported");
+      if (!allowedEvidenceSignals[reason.reasonCode].includes(item.signal)) throw new Error("reason_claim_not_supported");
     }
     if (reason.renderedText !== renderers[reason.reasonCode]) throw new Error("renderer_introduced_or_changed_claim");
   }

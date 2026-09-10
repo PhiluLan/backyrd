@@ -2,9 +2,8 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
-  BASELINE_FIXTURES,
   CONTRACT_VERSIONS,
-  createEngineManifest,
+  createSyntheticExecution,
   generateSyntheticWorld,
   runPhase1Decision,
   validateDecisionResultIntegrity,
@@ -19,29 +18,17 @@ const request = {
   idempotencyKey: `sandbox-${config.seed}`,
   clientRequestedAt: config.observedAt,
   location: { kind: "city", city: config.cities[0] },
-  intentKeys: ["fixture.eat"],
-  moodKeys: ["fixture.calm"],
+  intentKeys: ["fixture.intent.eat"],
+  moodKeys: ["fixture.mood.calm"],
+  shownCandidateIds: [],
+  rejectedCandidateIds: [],
   hardConstraints: [{ kind: "open_now", value: true }],
   softPreferences: [],
   client: { surface: "synthetic", version: "phase1-cli-v1" },
 };
 
-for (const [baseline, fixture] of [
-  ["baseline-a-open-distance-popularity", BASELINE_FIXTURES.a],
-  ["baseline-b-mood-intent", BASELINE_FIXTURES.b],
-]) {
-  const manifest = createEngineManifest({ sourceSha, sandboxWorldVersion: world.version, rankingVersion: fixture.rankingVersion, weightFixtureVersion: fixture.weightFixtureVersion });
-  const execution = {
-    contractVersion: CONTRACT_VERSIONS.executionEnvelope,
-    authenticatedActor: { kind: "anonymous" },
-    serverRequestId: `sandbox-request-${config.seed}`,
-    sessionId: `sandbox-session-${config.seed}`,
-    executedAt: config.observedAt,
-    rolloutMode: "evaluation",
-    deadlineAt: "2026-01-15T12:00:05.000Z",
-    serverIdempotencyKey: `server-sandbox-${config.seed}`,
-    engineManifest: manifest,
-  };
+for (const baseline of ["baseline-a-open-distance-popularity", "baseline-b-mood-intent"]) {
+  const execution = createSyntheticExecution({ request, world, baseline, sourceSha, candidatePoolSize: config.candidatePoolSize });
   const result = runPhase1Decision({ request, execution, world, baseline, candidatePoolSize: config.candidatePoolSize, resultLimit: 3 });
   validateDecisionResultIntegrity(result);
   process.stdout.write(`${JSON.stringify({ baseline, worldHash: world.worldHash, candidatePoolHash: result.candidatePool.candidatePoolHash, resultHash: result.resultHash, recommendations: result.recommendations.map(({ spotId }) => spotId) })}\n`);

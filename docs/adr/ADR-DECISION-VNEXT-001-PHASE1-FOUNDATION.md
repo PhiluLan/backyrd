@@ -1,6 +1,6 @@
 # ADR: Decision vNext Phase-1 Foundation
 
-- Status: accepted for Phase 1 implementation
+- Status: superseded for World/User integration by ADR-DECISION-VNEXT-002; retained as historical Phase-1 rationale
 - Date: 2026-09-09
 - Canonical base: `964ed9abe15d1385d7967a7ab24e0012c4f15eed`
 - Scope: local and CI-only foundation; no production integration
@@ -35,8 +35,8 @@ not freeze legacy taxonomies, weights or scores as product truth.
 9. Phase-1 fixture arrays are ordered unless their producer explicitly sorts
    them before contract construction. Candidate and recommendation order is
    always semantically relevant.
-10. Commercial probe fields are present only on pre-contract synthetic spots.
-    The World Candidate adapter discards them.
+10. Commercial probe fields are outside the synthetic engine input and strict
+    Decision contracts reject them.
 11. World Knowledge concepts are opaque, versioned registry references. Phase
     1 fixes no canonical World vocabulary.
 12. Intent, Capability, direct Situation Fit and derived Situation Fit are

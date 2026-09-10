@@ -1,48 +1,12 @@
+import { CONTRACT_VERSIONS as USER_VERSIONS } from "@backyrd/user-intelligence-vnext-core";
+import { REGISTRY_HASH, REGISTRY_VERSION, RULE_REGISTRY_HASH, RULE_REGISTRY_VERSION, WORLD_KNOWLEDGE_PORT_VERSION } from "@backyrd/world-knowledge-core";
 import { assertContentHash, withContentHash } from "./canonical.js";
 import { CONTRACT_VERSIONS, EngineManifestSchema, type EngineManifest } from "./contracts.js";
-import { PHASE1_WORLD_REGISTRY_VERSION } from "./world-knowledge.js";
 
-export const PHASE1_VERSIONS = Object.freeze({
-  engine: "backyrd-decision-vnext-phase1-spine-v1",
-  context: "backyrd-vnext-context-resolver-phase1-v1",
-  candidateGenerator: "backyrd-vnext-synthetic-neutral-candidates-v1",
-  eligibility: "backyrd-vnext-eligibility-phase1-v1",
-  features: "backyrd-vnext-phase1-fixture-features-v1",
-  confidence: "backyrd-vnext-confidence-uncalibrated-v1",
-  evidence: "backyrd-vnext-evidence-assembly-v1",
-  explanation: "backyrd-vnext-deterministic-explanation-v1",
-  taxonomyFixture: "backyrd-vnext-taxonomy-fixture-v1-unapproved",
-} as const);
+export const PHASE1_VERSIONS = Object.freeze({ engine: "backyrd-decision-vnext-phase1-integration-v2", context: CONTRACT_VERSIONS.contextSnapshot, candidateGenerator: "backyrd-vnext-synthetic-neutral-candidates-v2", eligibility: "backyrd-vnext-eligibility-phase1-v1", unknownPolicy: "backyrd-vnext-rule-local-unknown-policies-v1", features: "backyrd-vnext-phase1-fixture-features-v1", confidence: "backyrd-vnext-confidence-uncalibrated-v2", evidence: "backyrd-vnext-evidence-assembly-v2", explanation: "backyrd-vnext-deterministic-explanation-v2" } as const);
 
-export function createEngineManifest(input: {
-  sourceSha: string;
-  sandboxWorldVersion: string;
-  rankingVersion: string;
-  weightFixtureVersion: string;
-}): EngineManifest {
-  return EngineManifestSchema.parse(withContentHash({
-    contractVersion: CONTRACT_VERSIONS.engineManifest,
-    contractSetVersion: "backyrd-vnext-contract-set-v1",
-    decisionRequestVersion: CONTRACT_VERSIONS.decisionRequest,
-    decisionResultVersion: CONTRACT_VERSIONS.decisionResult,
-    engineVersion: PHASE1_VERSIONS.engine,
-    sourceSha: input.sourceSha,
-    sandboxWorldVersion: input.sandboxWorldVersion,
-    worldRegistryVersion: PHASE1_WORLD_REGISTRY_VERSION,
-    contextVersion: PHASE1_VERSIONS.context,
-    candidateGeneratorVersion: PHASE1_VERSIONS.candidateGenerator,
-    eligibilityRulesetVersion: PHASE1_VERSIONS.eligibility,
-    featureSetVersion: PHASE1_VERSIONS.features,
-    rankingVersion: input.rankingVersion,
-    weightFixtureVersion: input.weightFixtureVersion,
-    taxonomyFixtureVersion: PHASE1_VERSIONS.taxonomyFixture,
-    confidenceVersion: PHASE1_VERSIONS.confidence,
-    evidenceVersion: PHASE1_VERSIONS.evidence,
-    explanationVersion: PHASE1_VERSIONS.explanation,
-  }, "manifestHash"));
+export function createEngineManifest(input: { sourceSha: string; sandboxWorldVersion: string; rankingVersion: string; weightFixtureVersion: string }): EngineManifest {
+  return EngineManifestSchema.parse(withContentHash({ contractVersion: CONTRACT_VERSIONS.engineManifest, contractSetVersion: "backyrd-vnext-contract-set-v2", decisionRequestVersion: CONTRACT_VERSIONS.decisionRequest, executionEnvelopeVersion: CONTRACT_VERSIONS.executionEnvelope, decisionResultVersion: CONTRACT_VERSIONS.decisionResult, engineVersion: PHASE1_VERSIONS.engine, sourceSha: input.sourceSha, sandboxWorldVersion: input.sandboxWorldVersion, worldPortVersion: WORLD_KNOWLEDGE_PORT_VERSION, worldRegistryVersion: REGISTRY_VERSION, worldRegistryHash: REGISTRY_HASH, worldRuleRegistryVersion: RULE_REGISTRY_VERSION, worldRuleRegistryHash: RULE_REGISTRY_HASH, userProjectionVersion: USER_VERSIONS.projection, userManifestVersion: USER_VERSIONS.manifest, contextVersion: PHASE1_VERSIONS.context, candidateGeneratorVersion: PHASE1_VERSIONS.candidateGenerator, candidatePoolVersion: CONTRACT_VERSIONS.candidatePool, eligibilityRulesetVersion: PHASE1_VERSIONS.eligibility, unknownPolicyVersion: PHASE1_VERSIONS.unknownPolicy, featureSetVersion: PHASE1_VERSIONS.features, rankingVersion: input.rankingVersion, weightFixtureVersion: input.weightFixtureVersion, confidenceVersion: PHASE1_VERSIONS.confidence, evidenceVersion: PHASE1_VERSIONS.evidence, explanationVersion: PHASE1_VERSIONS.explanation, explorationPolicyVersion: "NOT_CONFIGURED" }, "manifestHash"));
 }
 
-export function validateEngineManifest(manifest: EngineManifest): void {
-  EngineManifestSchema.parse(manifest);
-  assertContentHash(manifest as unknown as Record<string, unknown>, "manifestHash");
-}
+export function validateEngineManifest(manifest: EngineManifest): void { EngineManifestSchema.parse(manifest); assertContentHash(manifest as unknown as Record<string, unknown>, "manifestHash"); if (manifest.worldRegistryHash !== REGISTRY_HASH || manifest.worldRuleRegistryHash !== RULE_REGISTRY_HASH) throw new Error("engine_manifest_world_binding_mismatch"); }

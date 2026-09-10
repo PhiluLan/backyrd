@@ -1,10 +1,11 @@
 import { withContentHash } from "./canonical.js";
 import { ConfidenceSchema, CONTRACT_VERSIONS, type Confidence, type DecisionContextSnapshot, type EligibleCandidate } from "./contracts.js";
-import { candidateEvidence } from "./world-knowledge.js";
+import { candidateEvidence } from "./evidence.js";
+import type { RelevantUserProjection } from "@backyrd/user-intelligence-vnext-core";
 
-const evidence = (candidate: EligibleCandidate, kind: string) => {
-  const item = candidateEvidence(candidate.candidate).find((entry) => entry.kind === kind);
-  if (!item) throw new Error(`confidence_evidence_missing:${kind}`);
+const evidence = (candidate: EligibleCandidate, signal: string) => {
+  const item = candidateEvidence(candidate.candidate).find((entry) => entry.signal === signal);
+  if (!item) throw new Error(`confidence_evidence_missing:${signal}`);
   return item.evidenceId;
 };
 
@@ -13,25 +14,28 @@ export function buildPhase1Confidence(input: {
   context: DecisionContextSnapshot;
   fixtureScore: number;
   nextFixtureScore?: number;
+  userProjection?: RelevantUserProjection;
 }): Confidence {
   const quality = input.candidate.candidate.fixtureDataQuality;
-  const contextCompleteness = input.context.intentKeys.length + input.context.moodKeys.length > 0 ? 1 : 0.5;
+  const contextCompleteness = input.context.explicit.intentKeys.length + input.context.explicit.moodKeys.length > 0 ? 1 : 0.5;
   const separation = input.nextFixtureScore === undefined ? 1 : Math.min(1, Math.abs(input.fixtureScore - input.nextFixtureScore));
   const limitations = [
-    { code: "phase1-confidence-not-calibrated", evidenceIds: [evidence(input.candidate, "data_quality")] },
-    ...(quality < 0.4 ? [{ code: "weak-world-evidence", evidenceIds: [evidence(input.candidate, "data_quality")] }] : []),
-    { code: "phase1-user-model-not-used", evidenceIds: [] },
+    { code: "phase1-confidence-not-calibrated", evidenceIds: [evidence(input.candidate, "world.data_quality")] },
+    ...(quality < 0.4 ? [{ code: "weak-world-evidence", evidenceIds: [evidence(input.candidate, "world.data_quality")] }] : []),
+    { code: input.userProjection?.status === "ACTIVE" ? "phase1-target-ranking-not-configured" : `user-${(input.userProjection?.neutralReason ?? "projection-missing").toLowerCase()}`, evidenceIds: [] },
+    { code: "capability-intent-registry-not-configured", evidenceIds: [] },
   ];
   return ConfidenceSchema.parse(withContentHash({
     contractVersion: CONTRACT_VERSIONS.confidence,
     status: "uncalibrated-phase1",
     components: [
-      { key: "world_fact_coverage", evaluationValue: quality },
-      { key: "world_freshness", evaluationValue: 1 },
-      { key: "context_completeness", evaluationValue: contextCompleteness },
-      { key: "user_knowledge", evaluationValue: 0 },
-      { key: "ranking_separation", evaluationValue: separation },
-      { key: "retrieval_agreement", evaluationValue: 1 },
+      { key: "world_data_sufficiency", state: "FIXTURE_VALUE", evaluationValue: quality },
+      { key: "world_trust_freshness", state: "NOT_CONFIGURED", evaluationValue: null },
+      { key: "user_sufficiency", state: input.userProjection?.status === "ACTIVE" ? "UNASSESSED" : "NOT_CONFIGURED", evaluationValue: null },
+      { key: "context_completeness", state: "FIXTURE_VALUE", evaluationValue: contextCompleteness },
+      { key: "eligibility_certainty", state: "FIXTURE_VALUE", evaluationValue: 1 },
+      { key: "ranking_separation", state: "FIXTURE_VALUE", evaluationValue: separation },
+      { key: "evidence_coverage", state: "FIXTURE_VALUE", evaluationValue: quality },
     ],
     limitations,
   }, "confidenceHash"));

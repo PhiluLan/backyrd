@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   canonicalJson,
   contentHash,
+  createSyntheticExecution,
   decisionResultBytes,
   generateSyntheticWorld,
   replayPhase1Decision,
@@ -47,7 +48,9 @@ test("relevant request changes identity and pool mutation is detected", () => {
   const syntheticWorld = world();
   const executionValue = execution(undefined, syntheticWorld);
   const base = runPhase1Decision({ request: request(), execution: executionValue, world: syntheticWorld, baseline: "baseline-a-open-distance-popularity", candidatePoolSize: 36 });
-  const changed = runPhase1Decision({ request: { ...request(), moodKeys: ["fixture.lively"] }, execution: executionValue, world: syntheticWorld, baseline: "baseline-a-open-distance-popularity", candidatePoolSize: 36 });
+  const changedRequest = { ...request(), moodKeys: ["fixture.mood.lively"] };
+  const changedExecution = createSyntheticExecution({ request: changedRequest, world: syntheticWorld, baseline: "baseline-a-open-distance-popularity", sourceSha: executionValue.engineManifest.sourceSha, candidatePoolSize: 36 });
+  const changed = runPhase1Decision({ request: changedRequest, execution: changedExecution, world: syntheticWorld, baseline: "baseline-a-open-distance-popularity", candidatePoolSize: 36 });
   assert.notEqual(base.requestHash, changed.requestHash);
   assert.notEqual(base.resultHash, changed.resultHash);
   const tampered = structuredClone(base.candidatePool);
