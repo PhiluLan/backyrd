@@ -59,6 +59,11 @@ begin
     (pg_temp.id('wk-other-spot'),'Other synthetic',47.3,8.3,'approved','Zürich',pg_temp.id('wk-other'),'TEST');
   insert into public.backyrd_spot_owner_intelligence_entitlements_v1(spot_id,owner_id,tier,source,valid_from,contract_version)
   values(pg_temp.id('wk-pro-spot'),pg_temp.id('wk-pro'),'PREMIUM','TEST_FIXTURE',clock_timestamp()-interval '1 day','backyrd-owner-free-premium-boundary-v1');
+  foreach u in array array['wk-detach-owner-1','wk-detach-owner-2'] loop
+    insert into auth.users(instance_id,id,aud,role,email,encrypted_password,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
+    values('00000000-0000-0000-0000-000000000000',pg_temp.id(u),'authenticated','authenticated',u||'@test.invalid','','{}','{}',clock_timestamp(),clock_timestamp());
+    insert into world_knowledge_private.actor_bindings(actor_id,actor_type) values(pg_temp.id(u),'VERIFIED_OWNER');
+  end loop;
 end$$;
 
 -- Basic and Pro owner authority.
@@ -226,9 +231,9 @@ select (select count(*) from world_knowledge_private.claims) claim_count,
        (select encode(extensions.digest(convert_to(coalesce(string_agg(result_hash,',' order by result_hash),''),'UTF8'),'sha256'),'hex') from world_knowledge_private.verification_records) verification_digest,
        (select count(*) from world_knowledge_private.identity_events) identity_count,
        (select encode(extensions.digest(convert_to(coalesce(string_agg(event_hash,',' order by event_hash),''),'UTF8'),'sha256'),'hex') from world_knowledge_private.identity_events) identity_digest;
-delete from auth.users where id in (pg_temp.id('wk-basic'),pg_temp.id('wk-other'));
+delete from auth.users where id in (pg_temp.id('wk-detach-owner-1'),pg_temp.id('wk-detach-owner-2'));
 select pg_temp.assert((select count(*)=2 and count(distinct actor_pseudonym_id)=2 and bool_and(actor_id is null and detached_at is not null) from world_knowledge_private.actor_bindings where actor_type='VERIFIED_OWNER' and actor_id is null),'multiple owner bindings did not detach independently');
-select pg_temp.assert(not exists(select 1 from world_knowledge_private.actor_bindings b cross join (values(pg_temp.id('wk-basic')), (pg_temp.id('wk-other'))) old(id) where to_jsonb(b)::text like '%'||encode(extensions.digest(convert_to(old.id::text||':world-knowledge-actor-v1','UTF8'),'sha256'),'hex')||'%'),'detached binding retained reproducible user-id hash');
+select pg_temp.assert(not exists(select 1 from world_knowledge_private.actor_bindings b cross join (values(pg_temp.id('wk-detach-owner-1')), (pg_temp.id('wk-detach-owner-2'))) old(id) where to_jsonb(b)::text like '%'||encode(extensions.digest(convert_to(old.id::text||':world-knowledge-actor-v1','UTF8'),'sha256'),'hex')||'%'),'detached binding retained reproducible user-id hash');
 select pg_temp.assert((select claim_count=(select count(*) from world_knowledge_private.claims) and claim_digest=(select encode(extensions.digest(convert_to(coalesce(string_agg(content_hash,',' order by content_hash),''),'UTF8'),'sha256'),'hex') from world_knowledge_private.claims) and verification_count=(select count(*) from world_knowledge_private.verification_records) and verification_digest=(select encode(extensions.digest(convert_to(coalesce(string_agg(result_hash,',' order by result_hash),''),'UTF8'),'sha256'),'hex') from world_knowledge_private.verification_records) and identity_count=(select count(*) from world_knowledge_private.identity_events) and identity_digest=(select encode(extensions.digest(convert_to(coalesce(string_agg(event_hash,',' order by event_hash),''),'UTF8'),'sha256'),'hex') from world_knowledge_private.identity_events) from wk_history_before),'detachment mutated historical records');
 insert into world_knowledge_private.actor_bindings(actor_id,actor_type) values(pg_temp.id('wk-new-owner'),'VERIFIED_OWNER');
 select pg_temp.expect_error(format('insert into world_knowledge_private.actor_bindings(actor_id,actor_type) values(%L,%L)',pg_temp.id('wk-new-owner'),'VERIFIED_OWNER'),'23505','duplicate active actor binding accepted');
