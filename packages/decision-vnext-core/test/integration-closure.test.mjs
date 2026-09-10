@@ -2,12 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { REGISTRY_HASH, REGISTRY_VERSION, WORLD_KNOWLEDGE_PORT_VERSION, parseWorldKnowledgeSnapshot } from "@backyrd/world-knowledge-core";
 import { parseRelevantUserProjection } from "@backyrd/user-intelligence-vnext-core";
-import { CandidatePoolSnapshotSchema, DecisionExecutionEnvelopeSchema, SyntheticUserProjectionReader, SyntheticWorldKnowledgeReader, adaptWorldKnowledgeSnapshot, createSyntheticExecution, readCanonicalWorld, readRelevantUserProjection, runPhase1Decision } from "../dist/index.js";
+import { CandidatePoolSnapshotSchema, DecisionExecutionEnvelopeSchema, SYNTHETIC_WORLD_SOURCE_POLICY, SyntheticUserProjectionReader, SyntheticWorldKnowledgeReader, adaptWorldKnowledgeSnapshot, createSyntheticExecution, readCanonicalWorld, readRelevantUserProjection, runPhase1Decision } from "../dist/index.js";
 import { execution, request, world } from "./helpers.mjs";
 
 test("Decision consumes canonical World snapshots and preserves not-configured intent readiness", async () => {
-  const synthetic = world(); const reader = new SyntheticWorldKnowledgeReader(synthetic); const snapshot = await readCanonicalWorld(reader, synthetic.spots[0].id);
-  assert.equal(parseWorldKnowledgeSnapshot(snapshot).contractVersion, WORLD_KNOWLEDGE_PORT_VERSION);
+  const synthetic = world(); const reader = new SyntheticWorldKnowledgeReader(synthetic); const acceptedPolicies = [SYNTHETIC_WORLD_SOURCE_POLICY]; const snapshot = await readCanonicalWorld(reader, synthetic.spots[0].id, acceptedPolicies);
+  assert.equal(parseWorldKnowledgeSnapshot(snapshot, acceptedPolicies).contractVersion, WORLD_KNOWLEDGE_PORT_VERSION);
   assert.equal(snapshot.registryVersion, REGISTRY_VERSION); assert.equal(snapshot.registryHash, REGISTRY_HASH);
   assert.ok(snapshot.readiness.find((row) => row.useCase === "INTENT_MATCHING")?.reasonCodes.includes("CAPABILITY_INTENT_REGISTRY_NOT_CONFIGURED"));
   const candidate = adaptWorldKnowledgeSnapshot(snapshot, synthetic.spots[0].retrieval);

@@ -4,6 +4,7 @@ import { contentHash, deepFreeze } from "./canonical.js";
 import { CONTRACT_VERSIONS as DECISION_CONTRACT_VERSIONS } from "./contracts.js";
 import { schema, type Infer } from "./schema.js";
 import type { SyntheticRetrievalFacts } from "./world-adapter.js";
+import { SYNTHETIC_WORLD_SOURCE_POLICY } from "./synthetic-world-policy.js";
 
 export const SyntheticWorldConfigSchema = schema.object({ configVersion: schema.literal("backyrd-vnext-sandbox-config-v1"), worldVersion: schema.string({ pattern: /^backyrd-vnext-synthetic-world-[a-z0-9-]+$/ }), seed: schema.number({ integer: true, min: 1 }), observedAt: schema.string({ pattern: /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/ }), spotCount: schema.number({ integer: true, min: 8, max: 2_000 }), userCount: schema.number({ integer: true, min: 1, max: 1_000 }), cities: schema.array(schema.string({ min: 1, max: 80 }), { max: 20 }), candidatePoolSize: schema.number({ integer: true, min: 4, max: 500 }) });
 export type SyntheticWorldConfig = Infer<typeof SyntheticWorldConfigSchema>;
@@ -23,8 +24,9 @@ function snapshotFor(id: string, city: string, status: "open" | "closed" | "unkn
   const day = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"][new Date(observedAt).getUTCDay()]! as Weekday;
   const claims = [claim(id, "identity.name", `Synthetic Spot ${id}`, observedAt, 1), claim(id, "location.address_line1", `Fixture Street ${id}`, observedAt, 2), claim(id, "location.locality", city, observedAt, 3), claim(id, "location.country_code", "CH", observedAt, 4), claim(id, "location.latitude", 47.0, observedAt, 5), claim(id, "location.longitude", 8.0, observedAt, 6), claim(id, "location.timezone", "UTC", observedAt, 7), claim(id, "classification.primary_category", "EAT", observedAt, 8), claim(id, "classification.place_types", ["CAFE"], observedAt, 9)];
   if (status !== "unknown") claims.push(claim(id, "hours.regular", [{ day, intervals: status === "open" ? [{ start: "00:00", end: "23:59" }] : [{ start: "00:00", end: "00:01" }] }] as readonly WeeklyScheduleDay[], observedAt, 10));
-  const resolution = resolveWorldKnowledge({ contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf: observedAt, claims });
-  return buildWorldKnowledgeSnapshot({ contractVersion: WORLD_KNOWLEDGE_PORT_VERSION, spotId: id, resolution });
+  const acceptedPolicies = [SYNTHETIC_WORLD_SOURCE_POLICY];
+  const resolution = resolveWorldKnowledge({ contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf: observedAt, claims, sourcePolicy: SYNTHETIC_WORLD_SOURCE_POLICY, verificationRecords: [] }, acceptedPolicies);
+  return buildWorldKnowledgeSnapshot({ contractVersion: WORLD_KNOWLEDGE_PORT_VERSION, spotId: id, resolution }, acceptedPolicies);
 }
 
 export function generateSyntheticWorld(raw: unknown): SyntheticWorld {

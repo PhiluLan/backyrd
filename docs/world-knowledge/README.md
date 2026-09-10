@@ -1,6 +1,6 @@
-# World Knowledge Foundation Slice 1
+# World Knowledge Foundation
 
-Status: local foundation candidate; no Production storage or consumer is connected.
+Status: Slice 1 is canonical. Slice 2 adds a local governance/source-policy/verification and compatibility-adapter candidate; no Production storage or consumer is connected. See [`slice-2/README.md`](slice-2/README.md).
 
 ## Purpose
 

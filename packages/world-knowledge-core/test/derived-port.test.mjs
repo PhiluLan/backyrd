@@ -22,7 +22,7 @@ test("work, group and step-free derivations require every concrete prerequisite"
   ];
   const derived = deriveKnowledge(resolveWorldKnowledge(resolutionRequest(claims))); const statuses = Object.fromEntries(derived.map((item) => [item.outputKey, item.status]));
   assert.equal(statuses["capability.work_infrastructure"], "DERIVED"); assert.equal(statuses["capability.supported_group_range"], "DERIVED"); assert.equal(statuses["capability.family_infrastructure"], "DERIVED"); assert.equal(statuses["capability.step_free_visit_path"], "DERIVED");
-  const family = derived.find((item) => item.outputKey === "capability.family_infrastructure"); assert.equal(family.weakestTrust, "REFERENCED"); assert.equal(family.limitingFreshness, "CURRENT"); assert.ok(family.factRefs.every((ref) => ref.claimHashes.length === ref.claimRefs.length && ref.trust === "REFERENCED" && ref.freshness === "CURRENT"));
+  const family = derived.find((item) => item.outputKey === "capability.family_infrastructure"); assert.equal(family.weakestTrust, "ASSERTED"); assert.equal(family.limitingFreshness, "CURRENT"); assert.ok(family.factRefs.every((ref) => ref.claimHashes.length === ref.claimRefs.length && ref.trust === "ASSERTED" && ref.freshness === "CURRENT"));
 });
 
 test("family infrastructure requires equipment, access and no contradictory age rule", () => {
@@ -35,7 +35,7 @@ test("port is deterministic, validated and strips non-world and private context"
   const resolution = resolveWorldKnowledge(resolutionRequest(PHILIPPS_CASA_CLAIMS)); const first = buildWorldKnowledgeSnapshot(snapshotInput("synthetic-spot-philipps-casa", resolution, COMMERCIAL_CONTEXT)); const second = buildWorldKnowledgeSnapshot(snapshotInput("synthetic-spot-philipps-casa", resolution, COMMERCIAL_CONTEXT));
   assert.equal(canonicalJson(first), canonicalJson(second)); assert.equal(first.snapshotHash, second.snapshotHash); assert.doesNotThrow(() => parseWorldKnowledgeSnapshot(first));
   const serialized = canonicalJson(first); for (const forbidden of ["\"PRO\"", "\"PAID\"", "\"CAMPAIGN\"", "\"FEATURED\"", "private moderation note", "private.invalid", "untrusted model output", "intent.afterwork", "vibe.cozy"]) assert.ok(!serialized.includes(forbidden), forbidden);
-  assert.equal(first.currentStates.length, 0); assert.ok(first.exclusions.some((item) => item.code === "CURRENT_STATE_WITHOUT_EXPIRY")); assert.ok(first.exclusions.some((item) => item.code === "ASSERTED_OPENING_HOURS")); assert.equal(first.operationalRules.some((item) => item.key === "hours.regular"), false);
+  assert.equal(first.currentStates.length, 0); assert.ok(first.exclusions.some((item) => item.code === "CURRENT_STATE_WITHOUT_EXPIRY")); assert.ok(first.exclusions.some((item) => item.code === "ASSERTED_OPENING_HOURS")); assert.equal(first.operationalRules.some((item) => item.key === "hours.regular"), true);
   const outdoor = first.capabilities.find((item) => item.key === "capability.outdoor_infrastructure"); assert.equal(outdoor.weakestTrust, "ASSERTED"); assert.equal(outdoor.limitingFreshness, "CURRENT"); assert.ok(outdoor.basisClaimHashes.length > 0);
   assert.throws(() => parseWorldKnowledgeSnapshot({ ...first, contractVersion: "backyrd.world-knowledge.port@2.0" }), /unknown/); assert.throws(() => parseWorldKnowledgeSnapshot({ ...first, ruleRegistryVersion: "unknown" }), /unknown/);
 });
