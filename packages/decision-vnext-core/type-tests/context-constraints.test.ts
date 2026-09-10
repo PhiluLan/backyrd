@@ -1,4 +1,5 @@
-import type { BoundHardConstraint, BoundSoftPreference, ContextKernelClientInput } from "../src/context-kernel-contracts.js";
+import { projectContextForConsumer, type VerifiedContextSnapshot } from "../src/context-kernel.js";
+import type { BoundHardConstraint, BoundSoftPreference, ContextKernelClientInput, ContextSnapshot } from "../src/context-kernel-contracts.js";
 
 declare const hard: BoundHardConstraint;
 declare const soft: BoundSoftPreference;
@@ -13,3 +14,9 @@ const client: ContextKernelClientInput = {} as ContextKernelClientInput;
 client.serverTime;
 // @ts-expect-error client cannot choose an unknown policy
 client.unknownPolicy;
+
+declare const verified: VerifiedContextSnapshot;
+declare const rawSnapshot: ContextSnapshot;
+projectContextForConsumer(verified, "RANKING");
+// @ts-expect-error a parsed or cast Context snapshot is not a verified consumer capability
+projectContextForConsumer(rawSnapshot, "RANKING");

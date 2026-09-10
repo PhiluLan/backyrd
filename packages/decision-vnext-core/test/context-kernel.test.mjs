@@ -4,11 +4,14 @@ import {
   CONTEXT_AUTHORITIES, CONTEXT_DEGRADATION_MATRIX, CONTEXT_KERNEL_VERSIONS,
   ContextAuthorityRecordSchema, ContextDimensionValueSchema, ContextKernelClientInputSchema,
   SyntheticContextWeatherProvider, canonicalJson, contentHash, createFixtureContextPolicy,
-  createFixtureContextRegistry, createServerSessionState, createStructuralOracle,
+  buildContextFlipReport, createFixtureContextRegistry, createServerSessionState, createStructuralOracle,
+  createStructuralOracleAuthority,
   createSyntheticContextAuthority, phase3AClientInput, phase3ARequest, projectContextForConsumer,
   resolveContextKernel, runContextFlipScenario, runContextFlipWorkbench, runPhase3AContextFixture,
-  trustSyntheticContextAuthority, unknownConstraintDisposition, validateContextFlipReport,
+  trustSyntheticContextAuthority, trustSyntheticOracleAuthorityForLocalEvaluation,
+  unknownConstraintDisposition, validateContextFlipReport, validateOracleAuthority,
   validateContextSnapshotIntegrity, validateScenarioOracle, validateContextExecutionEnvelope,
+  verifyContextForConsumers,
 } from "../dist/index.js";
 
 const rehash = (value, field) => { value[field] = contentHash(Object.fromEntries(Object.entries(value).filter(([key]) => key !== field))); };
@@ -107,8 +110,59 @@ test("irrelevant UNKNOWN does not create a hard constraint or ranking value", as
 });
 
 test("consumer projection follows registry permissions without granting Context ranking authority", async () => {
-  const run = await runPhase3AContextFixture(); const eligibility = projectContextForConsumer(run.snapshot, run.registry, "ELIGIBILITY"); const ranking = projectContextForConsumer(run.snapshot, run.registry, "RANKING");
-  assert.ok(eligibility.some((item) => item.dimensionKey === "context.constraint.open-now")); assert.ok(!ranking.some((item) => item.dimensionKey === "context.constraint.open-now")); assert.equal(run.snapshot.writesUserIntelligence, false);
+  const run = await runPhase3AContextFixture(); const verified = verifyContextForConsumers(run.envelope, run.trustAnchor, run.registry, run.policy, run.client);
+  const eligibility = projectContextForConsumer(verified, "ELIGIBILITY"); const ranking = projectContextForConsumer(verified, "RANKING"); const explanation = projectContextForConsumer(verified, "EXPLANATION");
+  assert.ok(eligibility.dimensions.some((item) => item.dimensionKey === "context.constraint.open-now")); assert.ok(!ranking.dimensions.some((item) => item.dimensionKey === "context.constraint.open-now"));
+  assert.equal(ranking.dimensions.length, 0); assert.equal(explanation.dimensions.length, 0); assert.equal(run.snapshot.writesUserIntelligence, false);
+});
+
+test("consumer projection requires a process-local recursively verified capability", async () => {
+  const run = await runPhase3AContextFixture(); const verified = verifyContextForConsumers(run.envelope, run.trustAnchor, run.registry, run.policy, run.client);
+  assert.throws(() => projectContextForConsumer(run.snapshot, "RANKING"), /context_consumer_requires_verified_envelope/);
+  assert.throws(() => projectContextForConsumer(structuredClone(verified), "RANKING"), /context_consumer_requires_verified_envelope/);
+  assert.throws(() => projectContextForConsumer({ ...verified }, "RANKING"), /context_consumer_requires_verified_envelope/);
+  const stale = structuredClone(run.envelope); stale.contextSnapshot.dimensions.find((item) => item.dimensionKey === "context.budget.explicit").value.conceptIds = ["fixture.budget.broad"];
+  assert.throws(() => verifyContextForConsumers(stale, run.trustAnchor, run.registry, run.policy, run.client), /Hash_mismatch|hash_mismatch/);
+  const changed = structuredClone(run.envelope); const budget = changed.contextSnapshot.dimensions.find((item) => item.dimensionKey === "context.budget.explicit"); budget.value.conceptIds = ["fixture.budget.broad"]; rehash(budget, "dimensionHash"); rehash(changed.contextSnapshot, "contextHash"); rehash(changed, "envelopeHash");
+  assert.throws(() => verifyContextForConsumers(changed, run.trustAnchor, run.registry, run.policy, run.client), /context_explicit_claim_binding_mismatch/);
+  const registry = structuredClone(run.registry); registry.registryVersion = "attacker-registry"; rehash(registry, "registryHash"); assert.throws(() => verifyContextForConsumers(run.envelope, run.trustAnchor, registry, run.policy, run.client), /context_policy_registry_mismatch|context_authority_not_trusted/);
+  const policy = structuredClone(run.policy); policy.policyVersion = "attacker-policy"; rehash(policy, "policyHash"); assert.throws(() => verifyContextForConsumers(run.envelope, run.trustAnchor, run.registry, policy, run.client), /context_authority_not_trusted/);
+});
+
+test("per-dimension policy decisions preserve fixture, state and consumer boundaries", async () => {
+  const hard = { constraintId: "fixture-accessibility", dimensionKey: "fixture.constraint.accessibility", operator: "REQUIRE_TRUE", expectedValue: { kind: "BOOLEAN", value: true } };
+  const soft = { preferenceId: "fixture-distance-soft", dimensionKey: "context.distance-willingness.explicit", preferredValue: { kind: "DISTANCE_METERS", meters: 3_000 } };
+  const run = await runPhase3AContextFixture({ client: phase3AClientInput({ hardConstraints: [hard], softPreferences: [soft] }) }); const verified = verifyContextForConsumers(run.envelope, run.trustAnchor, run.registry, run.policy, run.client);
+  const ranking = projectContextForConsumer(verified, "RANKING"); const eligibility = projectContextForConsumer(verified, "ELIGIBILITY"); const evaluation = projectContextForConsumer(verified, "EVALUATION");
+  for (const key of ["context.intent.explicit", "context.mood.current.explicit", "context.budget.explicit"]) assert.equal(ranking.decisions.find((item) => item.dimensionKey === key).decision, "WITHHELD_NOT_CONFIGURED", key);
+  assert.equal(ranking.fixtureOnly, true); assert.equal(ranking.productSemanticsConfigured, false); assert.equal(ranking.dimensions.length, 0);
+  assert.deepEqual(ranking.limitations, run.snapshot.limitations);
+  assert.equal(eligibility.softPreferencesIncluded, false); assert.ok(!eligibility.dimensions.some((item) => item.dimensionKey === soft.dimensionKey)); assert.ok(!eligibility.hardConstraints.some((item) => item.constraintId === hard.constraintId), "DRAFT fixture accessibility is not product-authorized Eligibility");
+  assert.equal(eligibility.decisions.find((item) => item.dimensionKey === soft.dimensionKey).decision, "WITHHELD_POLICY");
+  assert.ok(evaluation.decisions.some((item) => item.decision === "EVALUATION_ONLY")); assert.equal(evaluation.productSemanticsConfigured, false);
+});
+
+test("verified consumer boundary rejects rebound authority and cross-domain identities after rehash", async () => {
+  const run = await runPhase3AContextFixture();
+  const mutations = [
+    ["decision", (value) => { value.authority.decisionId = "attacker-decision"; value.contextSnapshot.decisionId = "attacker-decision"; }],
+    ["session", (value) => { value.authority.sessionId = "attacker-session"; value.contextSnapshot.sessionId = "attacker-session"; }],
+    ["subject", (value) => { value.authority.actorSubjectBindingHash = "1".repeat(64); value.contextSnapshot.actorSubjectBindingHash = "1".repeat(64); }],
+    ["world", (value) => { value.authority.worldSnapshotBindingHash = "2".repeat(64); value.worldSnapshotBindingHash = "2".repeat(64); value.contextSnapshot.sourceBindings.worldSnapshotBindingHash = "2".repeat(64); }],
+    ["user", (value) => { value.authority.userProjectionBindingHash = "3".repeat(64); value.userProjectionBindingHash = "3".repeat(64); value.contextSnapshot.sourceBindings.userProjectionBindingHash = "3".repeat(64); }],
+    ["pool", (value) => { value.authority.candidatePoolBindingHash = "4".repeat(64); value.candidatePoolBindingHash = "4".repeat(64); value.contextSnapshot.sourceBindings.candidatePoolBindingHash = "4".repeat(64); }],
+    ["eligibility", (value) => { value.authority.eligibilityPolicyBindingHash = "5".repeat(64); value.eligibilityPolicyBindingHash = "5".repeat(64); value.contextSnapshot.sourceBindings.eligibilityPolicyBindingHash = "5".repeat(64); }],
+  ];
+  for (const [label, mutate] of mutations) {
+    const value = structuredClone(run.envelope); mutate(value); rehash(value.authority, "authorityHash"); rehash(value.contextSnapshot, "contextHash"); rehash(value, "envelopeHash");
+    assert.throws(() => verifyContextForConsumers(value, run.trustAnchor, run.registry, run.policy, run.client), /context_authority_not_trusted|context_snapshot_source_binding_mismatch|context_snapshot_identity_mismatch/, label);
+  }
+});
+
+test("unknown derived rules and Context-to-User writes cannot cross a consumer boundary", async () => {
+  const run = await runPhase3AContextFixture(); const derived = structuredClone(run.envelope); const local = derived.contextSnapshot.dimensions.find((item) => item.dimensionKey === "context.time.local"); local.ruleId = "attacker-derived-rule"; const proof = { dimensionKey: local.dimensionKey, value: local.value, ruleId: local.ruleId, ruleVersion: local.ruleVersion, sourceHashes: [...local.sourceHashes].sort(), derivedAt: local.derivedAt, limitations: [...local.limitations].sort() }; local.proofHash = contentHash(proof); rehash(local, "dimensionHash"); rehash(derived.contextSnapshot, "contextHash"); rehash(derived, "envelopeHash");
+  assert.throws(() => verifyContextForConsumers(derived, run.trustAnchor, run.registry, run.policy, run.client), /context_derived_proof_invalid|context_derived_rule_not_accepted|context_local_time_dimension_mismatch/);
+  const write = structuredClone(run.envelope); write.writesUserIntelligence = true; rehash(write, "envelopeHash"); assert.throws(() => verifyContextForConsumers(write, run.trustAnchor, run.registry, run.policy, run.client), /expected false/);
 });
 
 test("DST, timezone, day rollover and local clock are deterministic", async () => {
@@ -157,10 +211,50 @@ test("all fifteen Context flips are deterministic, structural-only, and produce 
 });
 
 test("structural Oracle replay is recursive and unapproved Oracles cannot claim ranking direction", async () => {
-  const { base, flipped, report } = await runContextFlipScenario("budget-narrow-vs-broad"); validateContextFlipReport(report, base, flipped);
-  const tampered = structuredClone(report); tampered.changedDimensionKeys = []; rehash(tampered, "reportHash"); assert.throws(() => validateContextFlipReport(tampered, base, flipped), /context_flip_replay_mismatch|context_oracle_structural_expectation_failed/);
-  const oracle = structuredClone(report.oracle); oracle.rankingDirection = "FOUNDER_APPROVED_DIRECTION"; rehash(oracle, "oracleHash"); assert.throws(() => validateScenarioOracle(oracle), /context_oracle_ranking_claim_not_authorized/);
-  const forged = structuredClone(report.oracle); forged.expectationClass = "FOUNDER_APPROVED_EXPECTATION"; forged.productApprovalStatus = "FOUNDER_APPROVED"; forged.authorityRecord.authorityKind = "FOUNDER_PRODUCT"; rehash(forged.authorityRecord, "authorityHash"); rehash(forged, "oracleHash"); assert.throws(() => validateScenarioOracle(forged), /context_oracle_founder_authority_not_configured/);
+  const { baseVerified, flippedVerified, oracleAuthority, oracleTrustAnchor, report } = await runContextFlipScenario("budget-narrow-vs-broad"); validateContextFlipReport(report, baseVerified, flippedVerified, oracleAuthority, oracleTrustAnchor);
+  const tampered = structuredClone(report); tampered.changedDimensionKeys = []; rehash(tampered, "reportHash"); assert.throws(() => validateContextFlipReport(tampered, baseVerified, flippedVerified, oracleAuthority, oracleTrustAnchor), /context_flip_replay_mismatch|context_oracle_structural_expectation_failed/);
+  const oracle = structuredClone(report.oracle); oracle.rankingDirection = "FOUNDER_APPROVED_DIRECTION"; rehash(oracle, "oracleHash"); assert.throws(() => validateScenarioOracle(oracle, oracleAuthority, oracleTrustAnchor), /context_oracle_product_claim_not_authorized|expected/);
+  const forged = structuredClone(report.oracle); forged.expectationClass = "FOUNDER_APPROVED_EXPECTATION"; forged.productApprovalStatus = "FOUNDER_APPROVED"; rehash(forged, "oracleHash"); assert.throws(() => validateScenarioOracle(forged, oracleAuthority, oracleTrustAnchor), /context_oracle_product_claim_not_authorized|expected/);
+});
+
+test("Oracle authority is external, injected and cannot self-authorize", async () => {
+  const run = await runContextFlipScenario("budget-narrow-vs-broad"); validateOracleAuthority(run.oracleAuthority, run.oracleTrustAnchor);
+  const forgedAuthority = structuredClone(run.oracleAuthority); forgedAuthority.scenarioId = "attacker-scenario"; forgedAuthority.allowedScenarioIds = ["attacker-scenario"]; rehash(forgedAuthority, "authorityHash");
+  const attackerAnchor = trustSyntheticOracleAuthorityForLocalEvaluation(forgedAuthority, "attacker-local-anchor");
+  assert.throws(() => validateOracleAuthority(forgedAuthority, run.oracleTrustAnchor), /context_oracle_authority_not_trusted/);
+  assert.throws(() => validateOracleAuthority(run.oracleAuthority, attackerAnchor), /context_oracle_authority_not_trusted/);
+  const embedded = { ...run.report, oracleTrustAnchor: attackerAnchor }; assert.throws(() => validateContextFlipReport(embedded, run.baseVerified, run.flippedVerified, run.oracleAuthority, run.oracleTrustAnchor), /unknown field/);
+  const expired = structuredClone(run.oracleAuthority); expired.validFrom = "2025-01-01T00:00:00.000Z"; expired.validUntil = "2025-12-31T23:59:59.000Z"; rehash(expired, "authorityHash"); const expiredAnchor = trustSyntheticOracleAuthorityForLocalEvaluation(expired, "expired-local-anchor");
+  const expectation = { oracleId: expired.oracleId, scenarioId: expired.scenarioId, expectedStructuralChanges: expired.allowedStructuralChanges, expectedInputChanges: expired.allowedInputChanges, expectedHardConstraintSetChanged: expired.expectedHardConstraintSetChanged, expectedSoftPreferenceSetChanged: expired.expectedSoftPreferenceSetChanged, expectedEligibilityEffect: expired.eligibilityExpectation, validFrom: expired.validFrom, validUntil: expired.validUntil, allowedScenarioIds: expired.allowedScenarioIds };
+  const expiredOracle = createStructuralOracle(expectation, expired, expiredAnchor); assert.throws(() => buildContextFlipReport(run.baseVerified, run.flippedVerified, expiredOracle, expired, expiredAnchor), /context_oracle_authority_not_valid_for_context/);
+});
+
+test("rehashing Oracle and report cannot authorize changed expectations or Product claims", async () => {
+  const run = await runContextFlipScenario("budget-narrow-vs-broad");
+  const mutations = [
+    ["scenario", (oracle) => { oracle.scenarioId = "renamed-scenario"; }],
+    ["dimensions", (oracle) => { oracle.expectedStructuralChanges = []; }],
+    ["eligibility", (oracle) => { oracle.expectedEligibilityEffect = "UNCHANGED"; }],
+    ["explanation", (oracle) => { oracle.expectedExplanationEvidence = ["invented-evidence"]; }],
+    ["founder", (oracle) => { oracle.expectationClass = "FOUNDER_APPROVED_EXPECTATION"; oracle.productApprovalStatus = "FOUNDER_APPROVED"; }],
+    ["version", (oracle) => { oracle.oracleVersion = "syntactically-valid-unknown-version"; }],
+  ];
+  for (const [label, mutate] of mutations) {
+    const report = structuredClone(run.report); mutate(report.oracle); rehash(report.oracle, "oracleHash"); rehash(report, "reportHash");
+    assert.throws(() => validateContextFlipReport(report, run.baseVerified, run.flippedVerified, run.oracleAuthority, run.oracleTrustAnchor), /context_oracle_|expected/, label);
+  }
+});
+
+test("flip comparison accepts only verified contexts and exact authorized changes", async () => {
+  const run = await runContextFlipScenario("budget-narrow-vs-broad");
+  assert.throws(() => buildContextFlipReport(run.base.snapshot, run.flipped.snapshot, run.report.oracle, run.oracleAuthority, run.oracleTrustAnchor), /context_consumer_requires_verified_envelope/);
+  assert.throws(() => buildContextFlipReport(run.flippedVerified, run.baseVerified, run.report.oracle, run.oracleAuthority, run.oracleTrustAnchor), /context_oracle_snapshot_binding_mismatch/);
+  const other = await runContextFlipScenario("weather-dry-vs-rain");
+  assert.throws(() => buildContextFlipReport(run.baseVerified, other.flippedVerified, run.report.oracle, run.oracleAuthority, run.oracleTrustAnchor), /context_flip_cross_domain_binding_changed|context_oracle_snapshot_binding_mismatch/);
+  const authority = structuredClone(run.oracleAuthority); authority.allowedStructuralChanges = ["context.budget.explicit", "context.intent.explicit"]; rehash(authority, "authorityHash"); const anchor = trustSyntheticOracleAuthorityForLocalEvaluation(authority, "local-exact-set-test");
+  const expectation = { oracleId: authority.oracleId, scenarioId: authority.scenarioId, expectedStructuralChanges: authority.allowedStructuralChanges, expectedInputChanges: authority.allowedInputChanges, expectedHardConstraintSetChanged: authority.expectedHardConstraintSetChanged, expectedSoftPreferenceSetChanged: authority.expectedSoftPreferenceSetChanged, expectedEligibilityEffect: authority.eligibilityExpectation, validFrom: authority.validFrom, validUntil: authority.validUntil, allowedScenarioIds: authority.allowedScenarioIds };
+  const oracle = createStructuralOracle(expectation, authority, anchor);
+  assert.throws(() => buildContextFlipReport(run.baseVerified, run.flippedVerified, oracle, authority, anchor), /context_oracle_structural_expectation_failed/);
 });
 
 test("recursive integrity rejects rehashed inner semantic manipulation", async () => {

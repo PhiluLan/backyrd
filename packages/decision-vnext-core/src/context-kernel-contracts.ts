@@ -13,8 +13,10 @@ export const CONTEXT_KERNEL_VERSIONS = Object.freeze({
   executionEnvelope: "backyrd-vnext-context-execution-envelope-v1",
   snapshot: "backyrd-vnext-situational-context-kernel-v1",
   weatherPort: "backyrd-vnext-context-weather-port-v1",
+  consumerProjection: "backyrd-vnext-context-consumer-projection-v1",
   oracle: "backyrd-vnext-context-oracle-v1",
   oracleAuthority: "backyrd-vnext-context-oracle-authority-v1",
+  oracleTrustAnchor: "backyrd-vnext-context-oracle-trust-anchor-v1",
   flipReport: "backyrd-vnext-context-flip-report-v1",
   degradation: "backyrd-vnext-context-degradation-v1",
 } as const);
@@ -94,6 +96,14 @@ export const ContextPolicySchema = schema.object({
   maximumWeatherAgeSeconds: schema.number({ integer: true, min: 0, max: 604_800 }),
   maximumSessionCandidates: schema.number({ integer: true, min: 1, max: 1_000 }),
   acceptedDerivedRules: schema.array(schema.object({ ruleId: identifier, ruleVersion: key }), { max: 30 }),
+  consumerAuthorizations: schema.array(schema.object({
+    authorizationId: identifier,
+    dimensionKey: key,
+    consumer: schema.enum(CONTEXT_CONSUMERS),
+    allowedAuthorities: schema.array(schema.enum(CONTEXT_AUTHORITIES), { min: 1, max: 7 }),
+    fixtureOnly: schema.boolean(),
+    productApproved: schema.literal(false),
+  }), { max: 200 }),
   constraintPolicies: schema.array(ContextConstraintPolicySchema, { max: 30 }),
   policyHash: sha256,
 });
@@ -290,6 +300,98 @@ export const ContextDegradationEntrySchema = schema.object({
 });
 export type ContextDegradationEntry = Infer<typeof ContextDegradationEntrySchema>;
 
+export const ContextProjectionDecisionSchema = schema.object({
+  dimensionKey: key,
+  consumer: schema.enum(CONTEXT_CONSUMERS),
+  decision: schema.enum(["AUTHORIZED", "WITHHELD_NOT_CONFIGURED", "WITHHELD_DRAFT", "WITHHELD_POLICY", "WITHHELD_AUTHORITY", "WITHHELD_STATE", "EVALUATION_ONLY"] as const),
+  definitionStatus: schema.enum(["ACTIVE", "DRAFT", "DEPRECATED", "NOT_CONFIGURED"] as const),
+  valueState: schema.enum(["KNOWN", "UNKNOWN", "NOT_CONFIGURED", "NOT_AVAILABLE", "DENIED"] as const),
+  valueAuthority: schema.enum(CONTEXT_AUTHORITIES),
+  authorizationId: schema.union([identifier, schema.literal(null)]),
+  fixtureOnly: schema.boolean(),
+  productSemanticsConfigured: schema.literal(false),
+  reasonCodes: schema.array(key, { min: 1, max: 10 }),
+  dimensionHash: sha256,
+  decisionHash: sha256,
+});
+export type ContextProjectionDecision = Infer<typeof ContextProjectionDecisionSchema>;
+
+export const ContextConsumerProjectionSchema = schema.object({
+  contractVersion: version(CONTEXT_KERNEL_VERSIONS.consumerProjection),
+  consumer: schema.enum(CONTEXT_CONSUMERS),
+  verifiedEnvelopeHash: sha256,
+  contextHash: sha256,
+  registryBinding: schema.object({ registryVersion: key, registryHash: sha256 }),
+  policyBinding: schema.object({ policyVersion: key, policyHash: sha256 }),
+  fixtureOnly: schema.boolean(),
+  productSemanticsConfigured: schema.literal(false),
+  decisions: schema.array(ContextProjectionDecisionSchema, { min: 1, max: 100 }),
+  dimensions: schema.array(ContextDimensionValueSchema, { max: 100 }),
+  hardConstraints: schema.array(BoundHardConstraintSchema, { max: 30 }),
+  softPreferencesIncluded: schema.literal(false),
+  limitations: schema.array(key, { max: 100 }),
+  writesUserIntelligence: schema.literal(false),
+  commercialInfluence: schema.literal("FORBIDDEN"),
+  projectionHash: sha256,
+});
+export type ContextConsumerProjection = Infer<typeof ContextConsumerProjectionSchema>;
+
+export const CONTEXT_FLIP_INPUT_CLASSES = ["CLIENT_REQUEST", "CLIENT_EXPLICIT_DIMENSIONS", "CLIENT_HARD_CONSTRAINTS", "CLIENT_SOFT_PREFERENCES", "AUTHORITY_SERVER_TIME", "AUTHORITY_LOCATION", "AUTHORITY_PERMISSION", "AUTHORITY_TIME_ZONE", "AUTHORITY_WEATHER", "AUTHORITY_SESSION_STATE"] as const;
+
+export const OracleAuthorityRecordSchema = schema.object({
+  contractVersion: version(CONTEXT_KERNEL_VERSIONS.oracleAuthority),
+  authorityRecordId: identifier,
+  issuer: schema.literal("BACKYRD_TECHNICAL_EVALUATION_FIXTURE"),
+  oracleId: identifier,
+  oracleVersion: schema.literal("backyrd-vnext-context-structural-oracle-v1"),
+  scenarioId: identifier,
+  baseContextHash: sha256,
+  flippedContextHash: sha256,
+  baseContextIdentity: sha256,
+  flippedContextIdentity: sha256,
+  baseEnvelopeHash: sha256,
+  flippedEnvelopeHash: sha256,
+  expectationClass: schema.literal("STRUCTURAL_INVARIANT"),
+  allowedStructuralChanges: schema.array(key, { min: 1, max: 100 }),
+  allowedInputChanges: schema.array(schema.enum(CONTEXT_FLIP_INPUT_CLASSES), { min: 1, max: 10 }),
+  expectedHardConstraintSetChanged: schema.boolean(),
+  expectedSoftPreferenceSetChanged: schema.boolean(),
+  eligibilityExpectation: schema.enum(["UNCHANGED", "MAY_CHANGE_BY_CONFIGURED_HARD_CONSTRAINT", "NOT_CONFIGURED"] as const),
+  rankingExpectation: schema.literal("NOT_CONFIGURED"),
+  approvalClass: schema.literal("NOT_REQUIRED_STRUCTURAL"),
+  validFrom: timestamp,
+  validUntil: timestamp,
+  allowedScenarioIds: schema.array(identifier, { min: 1, max: 100 }),
+  authorityHash: sha256,
+});
+export type OracleAuthorityRecord = Infer<typeof OracleAuthorityRecordSchema>;
+
+export const OracleAuthorityTrustAnchorSchema = schema.object({
+  contractVersion: version(CONTEXT_KERNEL_VERSIONS.oracleTrustAnchor),
+  trustAnchorId: identifier,
+  acceptedAuthorityRecordId: identifier,
+  acceptedAuthorityHash: sha256,
+  acceptedIssuer: schema.literal("BACKYRD_TECHNICAL_EVALUATION_FIXTURE"),
+  acceptedOracleId: identifier,
+  acceptedOracleVersion: schema.literal("backyrd-vnext-context-structural-oracle-v1"),
+  acceptedScenarioId: identifier,
+  acceptedBaseContextIdentity: sha256,
+  acceptedFlippedContextIdentity: sha256,
+  acceptedBaseEnvelopeHash: sha256,
+  acceptedFlippedEnvelopeHash: sha256,
+  acceptedExpectationClass: schema.literal("STRUCTURAL_INVARIANT"),
+  acceptedStructuralChanges: schema.array(key, { min: 1, max: 100 }),
+  acceptedInputChanges: schema.array(schema.enum(CONTEXT_FLIP_INPUT_CLASSES), { min: 1, max: 10 }),
+  acceptedEligibilityExpectation: schema.enum(["UNCHANGED", "MAY_CHANGE_BY_CONFIGURED_HARD_CONSTRAINT", "NOT_CONFIGURED"] as const),
+  acceptedRankingExpectation: schema.literal("NOT_CONFIGURED"),
+  acceptedApprovalClass: schema.literal("NOT_REQUIRED_STRUCTURAL"),
+  acceptedValidFrom: timestamp,
+  acceptedValidUntil: timestamp,
+  acceptedScenarioIds: schema.array(identifier, { min: 1, max: 100 }),
+  productionCapable: schema.literal(false),
+});
+export type OracleAuthorityTrustAnchor = Infer<typeof OracleAuthorityTrustAnchorSchema>;
+
 export const ScenarioOracleSchema = schema.object({
   contractVersion: version(CONTEXT_KERNEL_VERSIONS.oracle),
   oracleId: identifier,
@@ -297,6 +399,9 @@ export const ScenarioOracleSchema = schema.object({
   baseContextHash: sha256,
   flippedContextHash: sha256,
   expectedStructuralChanges: schema.array(key, { min: 1, max: 30 }),
+  expectedInputChanges: schema.array(schema.enum(CONTEXT_FLIP_INPUT_CLASSES), { min: 1, max: 10 }),
+  expectedHardConstraintSetChanged: schema.boolean(),
+  expectedSoftPreferenceSetChanged: schema.boolean(),
   expectedEligibilityEffect: schema.enum(["UNCHANGED", "MAY_CHANGE_BY_CONFIGURED_HARD_CONSTRAINT", "NOT_CONFIGURED"] as const),
   rankingDirection: schema.enum(["NOT_CONFIGURED", "FOUNDER_APPROVED_DIRECTION"] as const),
   allowedUncertainty: schema.array(key, { max: 20 }),
@@ -304,7 +409,7 @@ export const ScenarioOracleSchema = schema.object({
   expectationClass: schema.enum(["STRUCTURAL_INVARIANT", "FOUNDER_APPROVED_EXPECTATION", "SYNTHETIC_FIXTURE_EXPECTATION", "NOT_CONFIGURED"] as const),
   productApprovalStatus: schema.enum(["NOT_REQUIRED_STRUCTURAL", "FOUNDER_APPROVED", "NOT_APPROVED", "NOT_CONFIGURED"] as const),
   oracleVersion: key,
-  authorityRecord: schema.object({ contractVersion: version(CONTEXT_KERNEL_VERSIONS.oracleAuthority), authorityId: identifier, authorityKind: schema.enum(["TECHNICAL_ARCHITECTURE", "FOUNDER_PRODUCT"] as const), approvedAt: timestamp, authorityHash: sha256 }),
+  authorityBinding: schema.object({ authorityRecordId: identifier, authorityHash: sha256 }),
   oracleHash: sha256,
 });
 export type ScenarioOracle = Infer<typeof ScenarioOracleSchema>;
@@ -316,8 +421,12 @@ export const ContextFlipReportSchema = schema.object({
   flippedContextHash: sha256,
   baseDecisionIdentity: sha256,
   flippedDecisionIdentity: sha256,
+  baseEnvelopeHash: sha256,
+  flippedEnvelopeHash: sha256,
+  oracleAuthorityHash: sha256,
   changedDimensionKeys: schema.array(key, { max: 100 }),
   unchangedDimensionKeys: schema.array(key, { max: 100 }),
+  changedInputClasses: schema.array(schema.enum(CONTEXT_FLIP_INPUT_CLASSES), { max: 10 }),
   hardConstraintSetChanged: schema.boolean(),
   softPreferenceSetChanged: schema.boolean(),
   writesUserIntelligence: schema.literal(false),

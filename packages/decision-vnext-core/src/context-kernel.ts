@@ -8,6 +8,8 @@ import {
   ContextAuthorityTrustAnchorSchema,
   ContextDimensionRegistrySchema,
   ContextDimensionValueSchema,
+  ContextConsumerProjectionSchema,
+  ContextProjectionDecisionSchema,
   ContextExecutionEnvelopeSchema,
   ContextKernelClientInputSchema,
   ContextPolicySchema,
@@ -20,6 +22,7 @@ import {
   type ContextDimensionDefinition,
   type ContextDimensionRegistry,
   type ContextDimensionValue,
+  type ContextConsumerProjection,
   type ContextExecutionEnvelope,
   type ContextKernelClientInput,
   type ContextPolicy,
@@ -32,6 +35,22 @@ import {
 
 const FIXTURE_REGISTRY_VERSION = "backyrd-vnext-context-fixture-registry-v1";
 const FIXTURE_POLICY_VERSION = "backyrd-vnext-context-fixture-policy-v1";
+const VERIFIED_CONTEXT_BRAND: unique symbol = Symbol("backyrd.verified-context-snapshot");
+const verifiedContextArtifacts = new WeakSet<object>();
+
+/**
+ * Process-local capability returned only after recursive envelope verification.
+ * It is intentionally not serializable; a cast or parsed object is rejected by
+ * the module-private WeakSet at every consumer boundary.
+ */
+export interface VerifiedContextSnapshot {
+  readonly snapshot: ContextSnapshot;
+  readonly envelope: ContextExecutionEnvelope;
+  readonly registry: ContextDimensionRegistry;
+  readonly policy: ContextPolicy;
+  readonly client: ContextKernelClientInput;
+  readonly [VERIFIED_CONTEXT_BRAND]: true;
+}
 
 const definition = (value: ContextDimensionDefinition): ContextDimensionDefinition => value;
 const common = {
@@ -69,11 +88,14 @@ export function createFixtureContextRegistry(): ContextDimensionRegistry {
 
 export function createFixtureContextPolicy(registry: ContextDimensionRegistry = createFixtureContextRegistry()): ContextPolicy {
   validateContextRegistry(registry);
+  const evaluationAuthorizations = registry.definitions.filter((item) => item.allowedConsumers.includes("EVALUATION")).map((item) => ({ authorizationId: `fixture-evaluation-${item.dimensionKey.replace(/[^A-Za-z0-9]+/g, "-")}`, dimensionKey: item.dimensionKey, consumer: "EVALUATION" as const, allowedAuthorities: item.allowedAuthorities, fixtureOnly: true, productApproved: false as const }));
+  const eligibilityAuthorizations = registry.definitions.filter((item) => item.status === "ACTIVE" && item.eligibilityRelevance === "POLICY_GATED" && item.allowedConsumers.includes("ELIGIBILITY")).map((item) => ({ authorizationId: `fixture-eligibility-${item.dimensionKey.replace(/[^A-Za-z0-9]+/g, "-")}`, dimensionKey: item.dimensionKey, consumer: "ELIGIBILITY" as const, allowedAuthorities: item.allowedAuthorities, fixtureOnly: true, productApproved: false as const }));
+  const consumerAuthorizations = [...evaluationAuthorizations, ...eligibilityAuthorizations].sort((left, right) => left.authorizationId.localeCompare(right.authorizationId));
   const constraintPolicies = [
     { policyId: "fixture-open-now-policy", dimensionKey: "context.constraint.open-now", operator: "REQUIRE_TRUE" as const, unknownPolicy: "EXCLUDE_IF_UNKNOWN" as const, fixtureOnly: true, productApproved: false as const },
     { policyId: "fixture-accessibility-policy", dimensionKey: "fixture.constraint.accessibility", operator: "REQUIRE_TRUE" as const, unknownPolicy: "EXCLUDE_IF_UNKNOWN" as const, fixtureOnly: true, productApproved: false as const },
   ];
-  return deepFreeze(ContextPolicySchema.parse(withContentHash({ contractVersion: CONTEXT_KERNEL_VERSIONS.policy, policyId: "decision-vnext-context-fixture-policy", policyVersion: FIXTURE_POLICY_VERSION, registryVersion: registry.registryVersion, registryHash: registry.registryHash, fixtureOnly: true, productSemanticsConfigured: false, maximumClientClockSkewSeconds: 300, maximumOfflineAgeSeconds: 86_400, maximumWeatherAgeSeconds: 7_200, maximumSessionCandidates: 500, acceptedDerivedRules: [{ ruleId: "derive-local-time", ruleVersion: "derive-local-time-v1" }], constraintPolicies }, "policyHash"))) as ContextPolicy;
+  return deepFreeze(ContextPolicySchema.parse(withContentHash({ contractVersion: CONTEXT_KERNEL_VERSIONS.policy, policyId: "decision-vnext-context-fixture-policy", policyVersion: FIXTURE_POLICY_VERSION, registryVersion: registry.registryVersion, registryHash: registry.registryHash, fixtureOnly: true, productSemanticsConfigured: false, maximumClientClockSkewSeconds: 300, maximumOfflineAgeSeconds: 86_400, maximumWeatherAgeSeconds: 7_200, maximumSessionCandidates: 500, acceptedDerivedRules: [{ ruleId: "derive-local-time", ruleVersion: "derive-local-time-v1" }], consumerAuthorizations, constraintPolicies }, "policyHash"))) as ContextPolicy;
 }
 
 export function validateContextRegistry(registryValue: unknown): ContextDimensionRegistry {
@@ -89,8 +111,14 @@ export function validateContextPolicy(policyValue: unknown, registryValue: unkno
   assertContentHash(policy as unknown as Record<string, unknown>, "policyHash");
   if (policy.registryVersion !== registry.registryVersion || policy.registryHash !== registry.registryHash) throw new Error("context_policy_registry_mismatch");
   if (new Set(policy.constraintPolicies.map((item) => item.policyId)).size !== policy.constraintPolicies.length) throw new Error("context_policy_duplicate_constraint_policy");
-  const definitions = new Set(registry.definitions.map((item) => item.dimensionKey));
+  if (new Set(policy.consumerAuthorizations.map((item) => item.authorizationId)).size !== policy.consumerAuthorizations.length) throw new Error("context_policy_duplicate_consumer_authorization");
+  if (new Set(policy.consumerAuthorizations.map((item) => `${item.dimensionKey}:${item.consumer}`)).size !== policy.consumerAuthorizations.length) throw new Error("context_policy_duplicate_consumer_binding");
+  const definitions = new Map(registry.definitions.map((item) => [item.dimensionKey, item]));
   if (policy.constraintPolicies.some((item) => !definitions.has(item.dimensionKey))) throw new Error("context_policy_unknown_dimension");
+  if (policy.consumerAuthorizations.some((item) => {
+    const registered = definitions.get(item.dimensionKey);
+    return !registered || !registered.allowedConsumers.includes(item.consumer) || new Set(item.allowedAuthorities).size !== item.allowedAuthorities.length || item.allowedAuthorities.some((authority) => !registered.allowedAuthorities.includes(authority)) || (registry.fixtureOnly && !item.fixtureOnly);
+  })) throw new Error("context_policy_invalid_consumer_authorization");
   return policy;
 }
 
@@ -331,9 +359,47 @@ export function validateContextExecutionEnvelope(envelopeValue: unknown, trustAn
   return envelope;
 }
 
-export function projectContextForConsumer(snapshotValue: unknown, registryValue: unknown, consumer: "ELIGIBILITY" | "RANKING" | "EXPLANATION" | "EVALUATION"): readonly ContextDimensionValue[] {
-  const snapshot = ContextSnapshotSchema.parse(snapshotValue); const registry = validateContextRegistry(registryValue); const allowed = new Set(registry.definitions.filter((item) => item.allowedConsumers.includes(consumer)).map((item) => item.dimensionKey));
-  return deepFreeze(snapshot.dimensions.filter((item) => allowed.has(item.dimensionKey)));
+export function verifyContextForConsumers(envelopeValue: unknown, trustAnchorValue: unknown, registryValue: unknown, policyValue: unknown, clientValue: unknown): VerifiedContextSnapshot {
+  const registry = validateContextRegistry(registryValue); const policy = validateContextPolicy(policyValue, registry); const client = ContextKernelClientInputSchema.parse(clientValue);
+  const envelope = validateContextExecutionEnvelope(envelopeValue, trustAnchorValue, registry, policy, client);
+  const artifact = deepFreeze({ snapshot: envelope.contextSnapshot, envelope, registry, policy, client, [VERIFIED_CONTEXT_BRAND]: true as const });
+  verifiedContextArtifacts.add(artifact);
+  return artifact;
+}
+
+export function requireVerifiedContext(value: VerifiedContextSnapshot): VerifiedContextSnapshot {
+  if (!value || typeof value !== "object" || !verifiedContextArtifacts.has(value) || value[VERIFIED_CONTEXT_BRAND] !== true) throw new Error("context_consumer_requires_verified_envelope");
+  return value;
+}
+
+export function projectContextForConsumer(verifiedValue: VerifiedContextSnapshot, consumer: "ELIGIBILITY" | "RANKING" | "EXPLANATION" | "EVALUATION"): ContextConsumerProjection {
+  const verified = requireVerifiedContext(verifiedValue); const { snapshot, registry, policy, envelope } = verified;
+  const definitions = new Map(registry.definitions.map((item) => [item.dimensionKey, item]));
+  const decisions = snapshot.dimensions.map((dimension) => {
+    const definitionValue = definitions.get(dimension.dimensionKey); if (!definitionValue) throw new Error("context_consumer_unregistered_dimension");
+    const authorization = policy.consumerAuthorizations.find((item) => item.dimensionKey === dimension.dimensionKey && item.consumer === consumer) ?? null;
+    let decision: "AUTHORIZED" | "WITHHELD_NOT_CONFIGURED" | "WITHHELD_DRAFT" | "WITHHELD_POLICY" | "WITHHELD_AUTHORITY" | "WITHHELD_STATE" | "EVALUATION_ONLY";
+    const reasons: string[] = [];
+    if (!definitionValue.allowedConsumers.includes(consumer)) { decision = "WITHHELD_POLICY"; reasons.push("consumer-not-registered"); }
+    else if (definitionValue.status === "NOT_CONFIGURED") { decision = consumer === "EVALUATION" && authorization ? "EVALUATION_ONLY" : "WITHHELD_NOT_CONFIGURED"; reasons.push("dimension-product-semantics-not-configured"); }
+    else if (definitionValue.status === "DRAFT") { decision = consumer === "EVALUATION" && authorization ? "EVALUATION_ONLY" : "WITHHELD_DRAFT"; reasons.push("draft-dimension-has-no-product-authority"); }
+    else if (definitionValue.status === "DEPRECATED") { decision = "WITHHELD_POLICY"; reasons.push("dimension-deprecated"); }
+    else if (!definitionValue.allowedAuthorities.includes(dimension.authority)) { decision = "WITHHELD_AUTHORITY"; reasons.push("value-authority-not-registered"); }
+    else if (dimension.state !== "KNOWN") { decision = consumer === "EVALUATION" && authorization ? "EVALUATION_ONLY" : "WITHHELD_STATE"; reasons.push(`value-state-${dimension.state.toLowerCase()}`); }
+    else if (dimension.authority === "DERIVED" && !policy.acceptedDerivedRules.some((item) => item.ruleId === dimension.ruleId && item.ruleVersion === dimension.ruleVersion)) { decision = "WITHHELD_AUTHORITY"; reasons.push("derived-rule-not-authorized"); }
+    else if (!authorization || !authorization.allowedAuthorities.includes(dimension.authority)) { decision = "WITHHELD_POLICY"; reasons.push("consumer-policy-not-authorized"); }
+    else if (consumer === "RANKING" && (!registry.productTaxonomyConfigured || !policy.productSemanticsConfigured || definitionValue.rankingRelevance !== "POLICY_GATED")) { decision = "WITHHELD_NOT_CONFIGURED"; reasons.push("product-ranking-semantics-not-configured"); }
+    else if (consumer === "ELIGIBILITY" && definitionValue.eligibilityRelevance !== "POLICY_GATED") { decision = "WITHHELD_POLICY"; reasons.push("dimension-has-no-eligibility-relevance"); }
+    else if (consumer === "EXPLANATION" && definitionValue.explanationRelevance !== "AUTHORIZED_EVIDENCE_ONLY") { decision = "WITHHELD_POLICY"; reasons.push("dimension-has-no-explanation-relevance"); }
+    else if (consumer === "EVALUATION") { decision = "EVALUATION_ONLY"; reasons.push("synthetic-fixture-evaluation-only"); }
+    else { decision = "AUTHORIZED"; reasons.push("registry-and-policy-authorized"); }
+    const body = { dimensionKey: dimension.dimensionKey, consumer, decision, definitionStatus: definitionValue.status, valueState: dimension.state, valueAuthority: dimension.authority, authorizationId: authorization?.authorizationId ?? null, fixtureOnly: registry.fixtureOnly || authorization?.fixtureOnly === true, productSemanticsConfigured: false as const, reasonCodes: reasons.sort(), dimensionHash: dimension.dimensionHash };
+    return ContextProjectionDecisionSchema.parse(withContentHash(body, "decisionHash"));
+  }).sort((left, right) => left.dimensionKey.localeCompare(right.dimensionKey));
+  const visible = new Set(decisions.filter((item) => item.decision === "AUTHORIZED" || item.decision === "EVALUATION_ONLY").map((item) => item.dimensionKey));
+  const hardConstraints = consumer === "ELIGIBILITY" ? snapshot.hardConstraints.filter((constraint) => constraint.status === "ACTIVE_FIXTURE" && decisions.some((item) => item.dimensionKey === constraint.dimensionKey && item.decision === "AUTHORIZED") && policy.constraintPolicies.some((item) => item.policyId === constraint.policyId && item.dimensionKey === constraint.dimensionKey && item.unknownPolicy === constraint.unknownPolicy)) : [];
+  const body = { contractVersion: CONTEXT_KERNEL_VERSIONS.consumerProjection, consumer, verifiedEnvelopeHash: envelope.envelopeHash, contextHash: snapshot.contextHash, registryBinding: snapshot.registryBinding, policyBinding: snapshot.policyBinding, fixtureOnly: registry.fixtureOnly, productSemanticsConfigured: false as const, decisions, dimensions: snapshot.dimensions.filter((item) => visible.has(item.dimensionKey)), hardConstraints, softPreferencesIncluded: false as const, limitations: snapshot.limitations, writesUserIntelligence: false as const, commercialInfluence: "FORBIDDEN" as const };
+  return deepFreeze(ContextConsumerProjectionSchema.parse(withContentHash(body, "projectionHash"))) as ContextConsumerProjection;
 }
 
 export function unknownConstraintDisposition(constraint: BoundHardConstraint): "EXCLUDE" | "ALLOW_WITH_LIMITATION" | "CLARIFY" | "NOT_CONFIGURED" | "FAIL_CLOSED" {

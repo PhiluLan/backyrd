@@ -19,7 +19,7 @@ consumer-specific read projection
   Eligibility | Ranking | Explanation | Evaluation
 ```
 
-There is no write edge to World Knowledge or User Intelligence. “Ranking” in the registry means only that a future approved adapter may read that dimension; it grants neither weights nor ranking authority.
+There is no write edge to World Knowledge or User Intelligence. “Ranking” in the registry means only that a future approved adapter may read that dimension; it grants neither weights nor ranking authority. A registry declaration is capability metadata, not sufficient authorization.
 
 ## Contract ownership
 
@@ -39,6 +39,8 @@ The server authority binds actor subject, decision/session, server clock, IANA t
 ## Dimension registry
 
 Every definition declares data type, allowed authority, privacy class, persistence, maximum precision, validity, allowed consumers, eligibility/ranking/explanation relevance, learning policy, unknown-policy requirement and lifecycle status. The included vocabulary is a technical fixture, has `productTaxonomyConfigured:false`, and does not define final intent, mood, companion, occasion, budget, weather or exploration semantics.
+
+The policy separately lists consumer authorizations. Projection is allowed only after recursive envelope verification has produced a process-local `VerifiedContextSnapshot`. The returned projection records a deterministic decision and reason codes for every dimension. `NOT_CONFIGURED` remains withheld, `DRAFT` remains non-Product, fixture values can be evaluation-only, and the Phase-3A fixture grants no Ranking or Explanation path. Eligibility receives only centrally bound hard constraints whose dimension and rule policy are both authorized; soft preferences are never projected to Eligibility.
 
 ## Time and location
 
@@ -67,7 +69,9 @@ The versioned matrix distinguishes `FAIL_CLOSED`, `REQUEST_REJECTED`, `USER_CLAR
 
 The local command `npm run decision-vnext:phase3a:context` evaluates fifteen deterministic pairs: companion, time, available time, distance willingness, weather, budget, exploration, accessibility constraint, location permission, weather availability, unknown/not-configured, alternative request, rejection history, authorized location and timezone.
 
-Each report contains changed and unchanged dimensions, decision identities, hard/soft-set changes and a structural Oracle. Product ranking direction is always `NOT_CONFIGURED`; `rankingQualityClaim` is always false. Only `STRUCTURAL_INVARIANT` is asserted without Founder approval.
+Each report contains changed and unchanged dimensions, changed input classes, verified envelope identities, hard/soft-set changes and a structural Oracle. Product ranking direction is always `NOT_CONFIGURED`; `rankingQualityClaim` is always false. Only `STRUCTURAL_INVARIANT` is asserted without Founder approval.
+
+Oracle authority is external to the Oracle and report. A separately injected synthetic evaluation trust anchor binds issuer, Oracle/scenario identity, base and flip identities, exact permitted input/dimension changes, validity and approval class. The report is reconstructed from two verified Context capabilities. Exact-set comparison rejects omitted or additional changes, swapped contexts and changed World/User/Pool/registry/policy bindings. This anchor is explicitly local-only and `productionCapable:false`; Founder-approved expectations remain unconfigured.
 
 ## Privacy and retention
 

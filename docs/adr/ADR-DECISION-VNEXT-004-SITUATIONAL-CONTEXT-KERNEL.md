@@ -8,6 +8,10 @@ Introduce an additive, schema-first Context kernel inside `@backyrd/decision-vne
 
 Context dimensions use exactly one of `EXPLICIT`, `SERVER_AUTHORIZED`, `DERIVED`, `UNKNOWN`, `NOT_CONFIGURED`, `NOT_AVAILABLE` or `DENIED`. Derived values require an accepted deterministic rule, source hashes and a proof hash. Hard constraints and soft preferences are distinct schemas; only hard constraints can carry a per-rule unknown policy. Context has no World or User write capability and no ranking implementation.
 
+Consumer access is capability-based. A caller first recursively verifies the complete execution envelope against the external Context trust anchor, registry, policy and original client input. Only the resulting process-local, non-forgeable `VerifiedContextSnapshot` can be projected. A raw snapshot, schema parse, object spread, structured clone or TypeScript cast cannot create that capability. Projection then emits a hashed decision for every dimension (`AUTHORIZED`, a precise withheld state, or `EVALUATION_ONLY`) instead of treating registry visibility as Product authorization. The fixture policy grants no Ranking or Explanation authorization.
+
+Structural Oracles use a second, externally injected evaluation trust anchor. The Oracle contains only an authority binding, never its own trust root. The authority binds scenario, base/flip contexts and envelopes, exact allowed input and dimension changes, hard/soft set changes, eligibility expectation, validity and approval class. Reports are rebuilt from verified contexts and must match those sets exactly.
+
 ## Why
 
 Phase 2 safely bound a small context shape but could not express provider outages, denied permission, unconfigured semantics, registry governance, rule-level unknown policy, session provenance or pairwise Product evaluation. Extending the old shape in place would invalidate existing replay artifacts and couple Product decisions to a technical closure.
@@ -22,6 +26,9 @@ Phase 2 safely bound a small context shape but could not express provider outage
 - Session lists are canonical, deduplicated and server-bound.
 - Commercial fields have no schema path and fail strict validation.
 - Context explicitly promises no World or User Intelligence writes.
+- Fixture registries and `DRAFT`/`NOT_CONFIGURED` dimensions cannot be relabelled as Product Ranking inputs.
+- Soft preferences never enter Eligibility; hard constraints remain subject to the central rule-wise policy.
+- Oracle self-authorization and partially matching flip reports fail closed, even after outer hashes are recomputed.
 
 ## Rejected alternatives
 
