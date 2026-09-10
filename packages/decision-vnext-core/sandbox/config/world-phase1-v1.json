@@ -1,0 +1,10 @@
+{
+  "configVersion": "backyrd-vnext-sandbox-config-v1",
+  "worldVersion": "backyrd-vnext-synthetic-world-phase1-seed-1001-v1",
+  "seed": 1001,
+  "observedAt": "2026-01-15T12:00:00.000Z",
+  "spotCount": 300,
+  "userCount": 50,
+  "cities": ["Fixture Basel", "Fixture Zurich", "Fixture Bern", "Fixture Lucerne"],
+  "candidatePoolSize": 300
+}

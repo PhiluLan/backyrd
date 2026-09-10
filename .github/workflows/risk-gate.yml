@@ -221,6 +221,11 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
       - run: npm ci
+      - name: Validate Decision vNext foundation
+        run: |
+          npm run decision-vnext:typecheck
+          npm run decision-vnext:test
+          npm run decision-vnext:smoke
       - name: Validate independently derived semantic release record
         env:
           BASE_SHA: ${{ needs.classify.outputs.base-sha }}

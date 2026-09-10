@@ -31,6 +31,11 @@ jobs:
           # path SIGSEGVs for the reserved anon/authenticated roles. Keep the
           # runtime denial tests real and fail-closed on verified image .095.
           version: 2.80.0
+      - name: Validate shipped Production lineage at the trusted event base
+        env:
+          PRODUCTION_LINEAGE_TARGET_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+          PRODUCTION_LINEAGE_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: scripts/ci/validate-production-lineage-at-ref.sh
       - name: Validate immutable migration lineage
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}

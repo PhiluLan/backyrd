@@ -1,0 +1,21 @@
+{
+  "name": "@backyrd/decision-vnext-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "dependencies": {
+    "@backyrd/user-intelligence-vnext-core": "0.1.0",
+    "@backyrd/world-knowledge-core": "0.1.0"
+  },
+  "scripts": {
+    "prebuild": "npm run build --workspace @backyrd/world-knowledge-core && npm run build --workspace @backyrd/user-intelligence-vnext-core",
+    "build": "tsc -p tsconfig.build.json",
+    "pretypecheck": "npm run build --workspace @backyrd/world-knowledge-core && npm run build --workspace @backyrd/user-intelligence-vnext-core",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "sandbox:smoke": "npm run build && node sandbox/run.mjs sandbox/config/world-smoke-v1.json",
+    "sandbox:full": "npm run build && node sandbox/run.mjs sandbox/config/world-phase1-v1.json && node sandbox/run.mjs sandbox/config/world-phase1-seed-1002-v1.json"
+  }
+}
