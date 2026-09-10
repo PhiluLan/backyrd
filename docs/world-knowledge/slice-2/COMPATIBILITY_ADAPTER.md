@@ -12,6 +12,6 @@ Guarantees:
 - owner/commercial context is accepted only to produce explicit exclusions and cannot enter claims/snapshot;
 - replay is byte-identical; changing source binding changes claim/result hashes;
 - public contact remains in the general snapshot;
-- `projectForDecision` intentionally omits public contact, owner/commercial context and research data, so contact cannot affect eligibility, ranking, confidence or personalization.
+- `projectForDecision` parses the snapshot against an explicitly accepted source policy and emits only entries authorized for the corresponding Decision use case. It omits unconfigured, rejected and review-only knowledge, public contact, owner/commercial context and research data, so contact cannot affect eligibility, ranking, trust or personalization.
 
-The adapter is not exported to any app or Edge Function and performs no reads/writes. It is a compatibility experiment, not migration code.
+The adapter is not exported to any app or Edge Function and performs no reads/writes. It is a compatibility experiment, not migration code or a production Decision adapter.

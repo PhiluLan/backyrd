@@ -9,7 +9,7 @@ const draft = (id, key, value, overrides = {}) => ({ claimId: id, attributeKey: 
 test("actor role and session provenance do not elevate trust", () => {
   const admin = createClaim(draft("trust:admin", "operation.takeaway", true)); const owner = createClaim(draft("trust:owner", "operation.takeaway", true, { actorType: "VERIFIED_OWNER", sourceType: "OWNER_ASSERTION" }));
   assert.equal(resolveWorldKnowledge(resolutionRequest([admin, owner])).resolved[0].trust, "ASSERTED");
-  const referenced = createClaim(draft("trust:referenced", "operation.takeaway", true, { sourceReferenceId: "source:official" })); assert.equal(resolveWorldKnowledge(resolutionRequest([referenced])).resolved[0].trust, "REFERENCED");
+  const referenced = createClaim(draft("trust:referenced", "operation.takeaway", true, { sourceReferenceId: "source:official" })); assert.equal(resolveWorldKnowledge(resolutionRequest([referenced])).resolved[0].trust, "ASSERTED");
   const claimedVerified = createClaim(draft("trust:verified", "operation.takeaway", true, { sourceReferenceId: "source:official", verificationState: "VERIFIED" })); assert.throws(() => resolveWorldKnowledge(resolutionRequest([claimedVerified])), /lacks valid verification record/);
   assert.throws(() => createClaim(draft("trust:fake-reference", "operation.takeaway", true, { sourceReferenceId: "session:automatic-name" })), /source namespace/);
   assert.throws(() => createClaim(draft("trust:unbound-verification", "operation.takeaway", true, { verificationState: "VERIFIED" })), /verification source/);

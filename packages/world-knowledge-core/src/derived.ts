@@ -2,6 +2,8 @@ import { canonicalJson, canonicalSort, hashBody, sha256 } from "./canonical.js";
 import { FRESHNESS_STATES, TRUST_STATES, type ClaimValue, type FreshnessState, type TrustState } from "./contracts.js";
 import { getAttributeDefinition } from "./registry.js";
 import { parseResolutionResult, type KnowledgeConflict, type ResolvedKnowledge, type ResolutionResult } from "./resolver.js";
+import { UNCONFIGURED_SOURCE_POLICY, type SourcePolicy } from "./source-policy.js";
+import type { AcceptedVerificationContext } from "./verification.js";
 import { ContractValidationError, array, boolean, enumValue, hash, identifier, number, object, required, string, timestamp } from "./schema.js";
 
 export const RULE_REGISTRY_VERSION = "backyrd.world-knowledge.derived-rules@1.0" as const;
@@ -70,9 +72,9 @@ function rule(ruleId: DerivedRuleId, resolution: ResolutionResult, evaluator: (f
 const arrayValue = (facts: Map<string, ResolvedKnowledge>, key: string): readonly string[] => facts.get(key)?.value as readonly string[] ?? [];
 const booleanTrue = (facts: Map<string, ResolvedKnowledge>, key: string) => facts.get(key)?.resolution === "KNOWN_TRUE" && facts.get(key)?.value === true;
 
-export function deriveKnowledge(resolution: ResolutionResult): readonly DerivedKnowledgeResult[];
-export function deriveKnowledge(resolutionValue: unknown): readonly DerivedKnowledgeResult[] {
-  const resolution = parseResolutionResult(resolutionValue);
+export function deriveKnowledge(resolution: ResolutionResult, acceptedPolicies?: readonly Pick<SourcePolicy, "policyVersion" | "policyHash">[], verificationContext?: AcceptedVerificationContext): readonly DerivedKnowledgeResult[];
+export function deriveKnowledge(resolutionValue: unknown, acceptedPolicies: readonly Pick<SourcePolicy, "policyVersion" | "policyHash">[] = [UNCONFIGURED_SOURCE_POLICY], verificationContext?: AcceptedVerificationContext): readonly DerivedKnowledgeResult[] {
+  const resolution = parseResolutionResult(resolutionValue, acceptedPolicies, verificationContext);
   return [
     rule("world.derived.outdoor_infrastructure@1.0", resolution, (facts) => {
       const amenities = facts.get("amenity.features"); const hasOutdoor = arrayValue(facts, "amenity.features").some((value) => ["TERRACE", "GARDEN", "OUTDOOR_SEATING"].includes(value));

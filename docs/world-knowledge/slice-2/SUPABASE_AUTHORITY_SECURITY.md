@@ -1,6 +1,6 @@
 # Supabase Authority and Security Inventory
 
-Read-only repository audit only; no schema, policy, grant, function or production change.
+Read-only repository/migration audit only; no schema, policy, grant, function or production change. Production was not queried. The inventory therefore reports repository-declared SQL, not proof of the effective live grants, policies, ownership, function settings or deployment state.
 
 ## Relevant findings
 
@@ -13,6 +13,6 @@ Read-only repository audit only; no schema, policy, grant, function or productio
 - Future `SECURITY DEFINER` functions need fixed `search_path`, explicit role checks, revoked default/public execute and least-privilege re-grants.
 - JWT `user_metadata` is user-editable and is not an authorization source. Current/future authority must use server-controlled claims/tables/functions.
 
-Official references checked on 2026-09-10: [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [database functions](https://supabase.com/docs/guides/database/functions), [tables/views](https://supabase.com/docs/guides/database/tables), [API security](https://supabase.com/docs/guides/api/securing-your-api), [Auth users](https://supabase.com/docs/guides/auth/users), and the [current breaking-change changelog](https://supabase.com/changelog?types=breaking-change). No current changelog item changes this Slice 2 read-only conclusion.
+Official references checked on 2026-09-10: [RLS](https://supabase.com/docs/guides/database/postgres/row-level-security), [database functions](https://supabase.com/docs/guides/database/functions), [tables/views](https://supabase.com/docs/guides/database/tables), [API security](https://supabase.com/docs/guides/api/securing-your-api), [Auth users](https://supabase.com/docs/guides/auth/users), and the [current breaking-change changelog](https://supabase.com/changelog?types=breaking-change). No current documentation finding changes this Slice 2 repository-only conclusion.
 
 Security work discovered here is deliberately deferred to a separately authorized RLS/ACL/function audit; this PR contains contract/test code only.

@@ -1,12 +1,38 @@
-import { hashBody, sha256 } from "./canonical.js";
-import { ATTRIBUTE_DEFINITIONS, PRIMARY_CATEGORY_LABELS, REGISTRY_HASH, REGISTRY_VERSION, type AttributeDefinition } from "./registry.js";
-import { array, ContractValidationError, enumValue, hash, identifier, object, required, string, timestamp } from "./schema.js";
+import { canonicalJson, hashBody, sha256 } from "./canonical.js";
+import { ATTRIBUTE_DEFINITIONS, FOUNDATION_AREAS, PRIMARY_CATEGORIES, PRIMARY_CATEGORY_LABELS, REGISTRY_HASH, REGISTRY_VERSION, type AttributeDefinition } from "./registry.js";
+import { array, boolean, ContractValidationError, enumValue, hash, identifier, number, object, required, string, timestamp } from "./schema.js";
 
 export const REGISTRY_GOVERNANCE_VERSION = "backyrd.world-knowledge.registry-governance@1.0" as const;
+export const REGISTRY_APPROVAL_AUTHORITY_VERSION = "backyrd.world-knowledge.registry-approval-authority@1.0" as const;
+export const REGISTRY_APPROVAL_RECORD_VERSION = "backyrd.world-knowledge.registry-approval-record@1.0" as const;
 export const CHANGE_CLASSES = ["LABEL_ONLY", "ADDITIVE_DEFINITION", "ADDITIVE_ALLOWED_VALUE", "SEMANTIC_CHANGE", "DEPRECATION", "REMOVAL", "KEY_REPLACEMENT"] as const;
 export const COMPATIBILITY_STATUSES = ["BACKWARD_COMPATIBLE", "REQUIRES_ADAPTER", "BREAKING"] as const;
 export const APPROVER_ROLES = ["WORLD_KNOWLEDGE_MAINTAINER", "PRODUCT_CTO"] as const;
 export type ChangeClass = typeof CHANGE_CLASSES[number];
+
+export interface RegistryApprovalAuthority {
+  readonly contractVersion: typeof REGISTRY_APPROVAL_AUTHORITY_VERSION;
+  readonly authorityId: string;
+  readonly allowedRoles: readonly typeof APPROVER_ROLES[number][];
+  readonly allowedChangeClasses: readonly ChangeClass[];
+  readonly semanticEquivalenceApproval: boolean;
+  readonly validFrom: string;
+  readonly validUntil: string;
+  readonly authorityHash: string;
+}
+
+export interface RegistryApprovalRecord {
+  readonly contractVersion: typeof REGISTRY_APPROVAL_RECORD_VERSION;
+  readonly recordId: string;
+  readonly authorityId: string;
+  readonly authorityHash: string;
+  readonly role: typeof APPROVER_ROLES[number];
+  readonly registryVersion: string;
+  readonly registryHash: string;
+  readonly changeClass: ChangeClass;
+  readonly approvedAt: string;
+  readonly approvalHash: string;
+}
 
 export interface RegistryRelease {
   readonly governanceVersion: typeof REGISTRY_GOVERNANCE_VERSION;
@@ -15,7 +41,7 @@ export interface RegistryRelease {
   readonly predecessorVersion: string | null;
   readonly changeClass: ChangeClass;
   readonly createdAt: string;
-  readonly approval: { readonly recordId: string; readonly role: typeof APPROVER_ROLES[number]; readonly approvedAt: string };
+  readonly approval: { readonly recordId: string; readonly approvalHash: string; readonly role: typeof APPROVER_ROLES[number]; readonly approvedAt: string; readonly authorityId: string; readonly authorityHash: string };
   readonly changeSummary: readonly string[];
   readonly compatibilityStatus: typeof COMPATIBILITY_STATUSES[number];
   readonly deprecations: readonly { readonly key: string; readonly replacementKey: string | null; readonly removalNotBeforeVersion: string | null; readonly compatibilityPlan: string }[];
@@ -23,73 +49,90 @@ export interface RegistryRelease {
   readonly releaseHash: string;
 }
 
-export interface RegistryShape {
-  readonly version: string;
-  readonly hash: string;
-  readonly definitions: readonly AttributeDefinition[];
-  readonly categoryLabels: Readonly<Record<string, { readonly de: string; readonly en: string }>>;
+export interface RegistryShape { readonly version: string; readonly hash: string; readonly definitions: readonly AttributeDefinition[]; readonly categoryLabels: Readonly<Record<string, { readonly de: string; readonly en: string }>> }
+export interface RegistryHistoryEntry { readonly shape: RegistryShape; readonly release: RegistryRelease }
+export interface RegistryTransitionContext { readonly acceptedApprovalAuthorities: readonly RegistryApprovalAuthority[]; readonly acceptedApprovalRecords: readonly RegistryApprovalRecord[]; readonly history: readonly RegistryHistoryEntry[] }
+
+const parseVersion = (value: unknown, path = "$.registryVersion"): { value: string; major: number; minor: number } => {
+  const version = string(value, path, { min: 1 }); const match = /^(.*)@(\d+)\.(\d+)$/.exec(version); if (!match) throw new ContractValidationError(path, "expected version ending in @major.minor"); return { value: version, major: Number(match[2]), minor: Number(match[3]) };
+};
+const versionCompare = (left: string, right: string): number => { const a = parseVersion(left); const b = parseVersion(right); return a.major === b.major ? a.minor - b.minor : a.major - b.major; };
+const semanticDefinition = (item: AttributeDefinition) => { const { labels: _labels, ...semantic } = item; return semantic; };
+const equivalentDefinition = (item: AttributeDefinition) => { const { key: _key, labels: _labels, ...semantic } = item; return semantic; };
+
+function parseDefinition(value: unknown, path: string): AttributeDefinition {
+  const item = object(value, path, ["key", "version", "area", "labels", "kind", "valueType", "allowedValues", "min", "max", "applicability", "expiryBehavior", "engineAuthorization"]); const labels = object(required(item, "labels", path), `${path}.labels`, ["de", "en"]); const applicabilityRaw = required(item, "applicability", path);
+  const applicability = applicabilityRaw === "ALL" ? "ALL" as const : array(applicabilityRaw, `${path}.applicability`, { min: 1 }).map((entry, index) => enumValue(entry, PRIMARY_CATEGORIES, `${path}.applicability[${index}]`));
+  const result: AttributeDefinition = { key: identifier(required(item, "key", path), `${path}.key`), version: number(required(item, "version", path), `${path}.version`, { min: 1, max: 1, integer: true }) as 1, area: enumValue(required(item, "area", path), FOUNDATION_AREAS, `${path}.area`), labels: { de: string(required(labels, "de", `${path}.labels`), `${path}.labels.de`, { min: 1 }), en: string(required(labels, "en", `${path}.labels`), `${path}.labels.en`, { min: 1 }) }, kind: enumValue(required(item, "kind", path), ["FACT", "OPERATIONAL_RULE", "CURRENT_STATE", "EXPLANATION_ONLY"] as const, `${path}.kind`), valueType: enumValue(required(item, "valueType", path), ["TEXT", "URL", "PHONE", "COUNTRY_CODE", "IANA_TIMEZONE", "DECIMAL", "BOOLEAN", "ENUM", "ENUM_SET", "MONEY_RANGE", "INTEGER", "INTEGER_RANGE", "RESERVATION_RULE", "CONSUMPTION_RULE", "PET_ACCESS_RULE", "AGE_ACCESS_RULE", "WEEKLY_SCHEDULE", "SPECIAL_HOURS", "CURRENT_STATE"] as const, `${path}.valueType`), applicability, expiryBehavior: enumValue(required(item, "expiryBehavior", path), ["STATIC", "STALE_AFTER_VALID_UNTIL", "EXPIRES_AT_VALID_UNTIL"] as const, `${path}.expiryBehavior`), engineAuthorization: enumValue(required(item, "engineAuthorization", path), ["AUTHORIZED", "EXPLANATION_ONLY"] as const, `${path}.engineAuthorization`), ...("allowedValues" in item ? { allowedValues: array(required(item, "allowedValues", path), `${path}.allowedValues`, { min: 1 }).map((entry, index) => identifier(entry, `${path}.allowedValues[${index}]`)) } : {}), ...("min" in item ? { min: number(required(item, "min", path), `${path}.min`) } : {}), ...("max" in item ? { max: number(required(item, "max", path), `${path}.max`) } : {}) };
+  if (result.min !== undefined && result.max !== undefined && result.min > result.max) throw new ContractValidationError(path, "definition min exceeds max");
+  return result;
 }
 
-const versionMajor = (value: string): number => {
-  const match = /@(\d+)\.\d+$/.exec(value);
-  if (!match) throw new ContractValidationError("$.registryVersion", "expected version ending in @major.minor");
-  return Number(match[1]);
-};
-const semanticDefinition = (item: AttributeDefinition) => { const { labels: _labels, ...semantic } = item; return semantic; };
+function expectedShapeHash(shape: Omit<RegistryShape, "hash">): string {
+  if (shape.version === REGISTRY_VERSION && canonicalJson(shape.definitions) === canonicalJson(ATTRIBUTE_DEFINITIONS) && canonicalJson(shape.categoryLabels) === canonicalJson(PRIMARY_CATEGORY_LABELS)) return REGISTRY_HASH;
+  return sha256({ version: shape.version, definitions: shape.definitions, categoryLabels: shape.categoryLabels });
+}
+
+export function parseRegistryShape(value: unknown): RegistryShape {
+  const input = object(value, "$", ["version", "hash", "definitions", "categoryLabels"]); const version = parseVersion(required(input, "version")).value; const definitions = array(required(input, "definitions"), "$.definitions", { min: 1 }).map((entry, index) => parseDefinition(entry, `$.definitions[${index}]`));
+  if (new Set(definitions.map((item) => item.key)).size !== definitions.length) throw new ContractValidationError("$.definitions", "duplicate registry key");
+  const labelInput = object(required(input, "categoryLabels"), "$.categoryLabels", PRIMARY_CATEGORIES); const categoryLabels = Object.fromEntries(PRIMARY_CATEGORIES.map((key) => { const labels = object(required(labelInput, key, "$.categoryLabels"), `$.categoryLabels.${key}`, ["de", "en"]); return [key, { de: string(required(labels, "de", `$.categoryLabels.${key}`), `$.categoryLabels.${key}.de`, { min: 1 }), en: string(required(labels, "en", `$.categoryLabels.${key}`), `$.categoryLabels.${key}.en`, { min: 1 }) }]; }));
+  const body = { version, definitions, categoryLabels }; const supplied = hash(required(input, "hash"), "$.hash"); if (expectedShapeHash(body) !== supplied) throw new ContractValidationError("$.hash", "registry content hash mismatch"); return { ...body, hash: supplied };
+}
+
+export function createRegistryApprovalAuthority(inputValue: unknown): RegistryApprovalAuthority {
+  const input = object(inputValue, "$", ["authorityId", "allowedRoles", "allowedChangeClasses", "semanticEquivalenceApproval", "validFrom", "validUntil"]); const validFrom = timestamp(required(input, "validFrom"), "$.validFrom"); const validUntil = timestamp(required(input, "validUntil"), "$.validUntil"); if (validUntil < validFrom) throw new ContractValidationError("$.validUntil", "authority ends before it begins");
+  const body = { contractVersion: REGISTRY_APPROVAL_AUTHORITY_VERSION, authorityId: identifier(required(input, "authorityId"), "$.authorityId"), allowedRoles: array(required(input, "allowedRoles"), "$.allowedRoles", { min: 1 }).map((entry, index) => enumValue(entry, APPROVER_ROLES, `$.allowedRoles[${index}]`)).sort(), allowedChangeClasses: array(required(input, "allowedChangeClasses"), "$.allowedChangeClasses", { min: 1 }).map((entry, index) => enumValue(entry, CHANGE_CLASSES, `$.allowedChangeClasses[${index}]`)).sort(), semanticEquivalenceApproval: boolean(required(input, "semanticEquivalenceApproval"), "$.semanticEquivalenceApproval"), validFrom, validUntil };
+  return { ...body, authorityHash: hashBody(body, []) };
+}
+
+export function parseRegistryApprovalAuthority(value: unknown): RegistryApprovalAuthority {
+  const input = object(value, "$", ["contractVersion", "authorityId", "allowedRoles", "allowedChangeClasses", "semanticEquivalenceApproval", "validFrom", "validUntil", "authorityHash"]); if (required(input, "contractVersion") !== REGISTRY_APPROVAL_AUTHORITY_VERSION) throw new ContractValidationError("$.contractVersion", "unknown registry approval authority contract"); const { contractVersion: _contract, authorityHash: supplied, ...draft } = input; const parsed = createRegistryApprovalAuthority(draft); if (parsed.authorityHash !== hash(supplied, "$.authorityHash")) throw new ContractValidationError("$.authorityHash", "approval authority hash mismatch"); return parsed;
+}
+
+export function createRegistryApprovalRecord(inputValue: unknown, authorityValue: unknown): RegistryApprovalRecord {
+  const authority = parseRegistryApprovalAuthority(authorityValue); const input = object(inputValue, "$", ["recordId", "authorityId", "authorityHash", "role", "registryVersion", "registryHash", "changeClass", "approvedAt"]); if (required(input, "authorityId") !== authority.authorityId || hash(required(input, "authorityHash"), "$.authorityHash") !== authority.authorityHash) throw new ContractValidationError("$.authorityId", "approval record does not bind accepted authority"); const role = enumValue(required(input, "role"), APPROVER_ROLES, "$.role"); const changeClass = enumValue(required(input, "changeClass"), CHANGE_CLASSES, "$.changeClass"); const approvedAt = timestamp(required(input, "approvedAt"), "$.approvedAt"); if (!authority.allowedRoles.includes(role) || !authority.allowedChangeClasses.includes(changeClass) || approvedAt < authority.validFrom || approvedAt > authority.validUntil) throw new ContractValidationError("$", "approval record is outside accepted authority"); const body = { contractVersion: REGISTRY_APPROVAL_RECORD_VERSION, recordId: identifier(required(input, "recordId"), "$.recordId"), authorityId: authority.authorityId, authorityHash: authority.authorityHash, role, registryVersion: parseVersion(required(input, "registryVersion")).value, registryHash: hash(required(input, "registryHash"), "$.registryHash"), changeClass, approvedAt }; return { ...body, approvalHash: hashBody(body, []) };
+}
+
+export function parseRegistryApprovalRecord(value: unknown, authority: RegistryApprovalAuthority): RegistryApprovalRecord { const input = object(value, "$", ["contractVersion", "recordId", "authorityId", "authorityHash", "role", "registryVersion", "registryHash", "changeClass", "approvedAt", "approvalHash"]); if (required(input, "contractVersion") !== REGISTRY_APPROVAL_RECORD_VERSION) throw new ContractValidationError("$.contractVersion", "unknown registry approval record contract"); const { contractVersion: _contract, approvalHash: supplied, ...draft } = input; const parsed = createRegistryApprovalRecord(draft, authority); if (parsed.approvalHash !== hash(supplied, "$.approvalHash")) throw new ContractValidationError("$.approvalHash", "approval record hash mismatch"); return parsed; }
 
 export function createRegistryRelease(inputValue: unknown): RegistryRelease {
-  const input = object(inputValue, "$", ["registryVersion", "registryHash", "predecessorVersion", "changeClass", "createdAt", "approval", "changeSummary", "compatibilityStatus", "deprecations", "aliases"]);
-  const approvalInput = object(required(input, "approval"), "$.approval", ["recordId", "role", "approvedAt"]);
-  const deprecations = array(required(input, "deprecations"), "$.deprecations").map((value, index) => {
-    const path = `$.deprecations[${index}]`; const item = object(value, path, ["key", "replacementKey", "removalNotBeforeVersion", "compatibilityPlan"]);
-    const replacement = required(item, "replacementKey", path); const removal = required(item, "removalNotBeforeVersion", path);
-    return { key: identifier(required(item, "key", path), `${path}.key`), replacementKey: replacement === null ? null : identifier(replacement, `${path}.replacementKey`), removalNotBeforeVersion: removal === null ? null : string(removal, `${path}.removalNotBeforeVersion`, { min: 1 }), compatibilityPlan: string(required(item, "compatibilityPlan", path), `${path}.compatibilityPlan`, { min: 1 }) };
-  });
-  const aliases = array(required(input, "aliases"), "$.aliases").map((value, index) => {
-    const path = `$.aliases[${index}]`; const item = object(value, path, ["fromKey", "toKey", "relation"]);
-    const fromKey = identifier(required(item, "fromKey", path), `${path}.fromKey`); const toKey = identifier(required(item, "toKey", path), `${path}.toKey`);
-    if (fromKey === toKey) throw new ContractValidationError(path, "alias must be directed between distinct keys");
-    return { fromKey, toKey, relation: enumValue(required(item, "relation", path), ["NAVIGATION_ONLY", "SEMANTICALLY_EQUIVALENT"] as const, `${path}.relation`) };
-  });
-  const predecessor = required(input, "predecessorVersion");
-  const body = {
-    governanceVersion: REGISTRY_GOVERNANCE_VERSION, registryVersion: string(required(input, "registryVersion"), "$.registryVersion", { min: 1 }), registryHash: hash(required(input, "registryHash"), "$.registryHash"),
-    predecessorVersion: predecessor === null ? null : string(predecessor, "$.predecessorVersion", { min: 1 }), changeClass: enumValue(required(input, "changeClass"), CHANGE_CLASSES, "$.changeClass"), createdAt: timestamp(required(input, "createdAt"), "$.createdAt"),
-    approval: { recordId: identifier(required(approvalInput, "recordId", "$.approval"), "$.approval.recordId"), role: enumValue(required(approvalInput, "role", "$.approval"), APPROVER_ROLES, "$.approval.role"), approvedAt: timestamp(required(approvalInput, "approvedAt", "$.approval"), "$.approval.approvedAt") },
-    changeSummary: array(required(input, "changeSummary"), "$.changeSummary", { min: 1 }).map((value, index) => string(value, `$.changeSummary[${index}]`, { min: 1, max: 240 })).sort(),
-    compatibilityStatus: enumValue(required(input, "compatibilityStatus"), COMPATIBILITY_STATUSES, "$.compatibilityStatus"), deprecations: [...deprecations].sort((a, b) => a.key.localeCompare(b.key)), aliases: [...aliases].sort((a, b) => a.fromKey.localeCompare(b.fromKey)),
-  };
+  const input = object(inputValue, "$", ["registryVersion", "registryHash", "predecessorVersion", "changeClass", "createdAt", "approval", "changeSummary", "compatibilityStatus", "deprecations", "aliases"]); const approvalInput = object(required(input, "approval"), "$.approval", ["recordId", "approvalHash", "role", "approvedAt", "authorityId", "authorityHash"]);
+  const deprecations = array(required(input, "deprecations"), "$.deprecations").map((value, index) => { const path = `$.deprecations[${index}]`; const item = object(value, path, ["key", "replacementKey", "removalNotBeforeVersion", "compatibilityPlan"]); const replacement = required(item, "replacementKey", path); const removal = required(item, "removalNotBeforeVersion", path); return { key: identifier(required(item, "key", path), `${path}.key`), replacementKey: replacement === null ? null : identifier(replacement, `${path}.replacementKey`), removalNotBeforeVersion: removal === null ? null : parseVersion(removal, `${path}.removalNotBeforeVersion`).value, compatibilityPlan: string(required(item, "compatibilityPlan", path), `${path}.compatibilityPlan`, { min: 1 }) }; });
+  const aliases = array(required(input, "aliases"), "$.aliases").map((value, index) => { const path = `$.aliases[${index}]`; const item = object(value, path, ["fromKey", "toKey", "relation"]); const fromKey = identifier(required(item, "fromKey", path), `${path}.fromKey`); const toKey = identifier(required(item, "toKey", path), `${path}.toKey`); if (fromKey === toKey) throw new ContractValidationError(path, "alias must be directed between distinct keys"); return { fromKey, toKey, relation: enumValue(required(item, "relation", path), ["NAVIGATION_ONLY", "SEMANTICALLY_EQUIVALENT"] as const, `${path}.relation`) }; });
+  const predecessor = required(input, "predecessorVersion"); const body = { governanceVersion: REGISTRY_GOVERNANCE_VERSION, registryVersion: parseVersion(required(input, "registryVersion")).value, registryHash: hash(required(input, "registryHash"), "$.registryHash"), predecessorVersion: predecessor === null ? null : parseVersion(predecessor, "$.predecessorVersion").value, changeClass: enumValue(required(input, "changeClass"), CHANGE_CLASSES, "$.changeClass"), createdAt: timestamp(required(input, "createdAt"), "$.createdAt"), approval: { recordId: identifier(required(approvalInput, "recordId", "$.approval"), "$.approval.recordId"), approvalHash: hash(required(approvalInput, "approvalHash", "$.approval"), "$.approval.approvalHash"), role: enumValue(required(approvalInput, "role", "$.approval"), APPROVER_ROLES, "$.approval.role"), approvedAt: timestamp(required(approvalInput, "approvedAt", "$.approval"), "$.approval.approvedAt"), authorityId: identifier(required(approvalInput, "authorityId", "$.approval"), "$.approval.authorityId"), authorityHash: hash(required(approvalInput, "authorityHash", "$.approval"), "$.approval.authorityHash") }, changeSummary: array(required(input, "changeSummary"), "$.changeSummary", { min: 1 }).map((value, index) => string(value, `$.changeSummary[${index}]`, { min: 1, max: 240 })).sort(), compatibilityStatus: enumValue(required(input, "compatibilityStatus"), COMPATIBILITY_STATUSES, "$.compatibilityStatus"), deprecations: [...deprecations].sort((a, b) => a.key.localeCompare(b.key)), aliases: [...aliases].sort((a, b) => `${a.fromKey}:${a.toKey}`.localeCompare(`${b.fromKey}:${b.toKey}`)) };
   return { ...body, releaseHash: hashBody(body, []) };
 }
 
-export function parseRegistryRelease(value: unknown): RegistryRelease {
-  const input = object(value, "$", ["governanceVersion", "registryVersion", "registryHash", "predecessorVersion", "changeClass", "createdAt", "approval", "changeSummary", "compatibilityStatus", "deprecations", "aliases", "releaseHash"]);
-  if (required(input, "governanceVersion") !== REGISTRY_GOVERNANCE_VERSION) throw new ContractValidationError("$.governanceVersion", "unknown governance version");
-  const { governanceVersion: _ignored, releaseHash: supplied, ...draft } = input;
-  const parsed = createRegistryRelease(draft); if (parsed.releaseHash !== hash(supplied, "$.releaseHash")) throw new ContractValidationError("$.releaseHash", "release hash mismatch");
-  return parsed;
+export function parseRegistryRelease(value: unknown): RegistryRelease { const input = object(value, "$", ["governanceVersion", "registryVersion", "registryHash", "predecessorVersion", "changeClass", "createdAt", "approval", "changeSummary", "compatibilityStatus", "deprecations", "aliases", "releaseHash"]); if (required(input, "governanceVersion") !== REGISTRY_GOVERNANCE_VERSION) throw new ContractValidationError("$.governanceVersion", "unknown governance version"); const { governanceVersion: _ignored, releaseHash: supplied, ...draft } = input; const parsed = createRegistryRelease(draft); if (parsed.releaseHash !== hash(supplied, "$.releaseHash")) throw new ContractValidationError("$.releaseHash", "release hash mismatch"); return parsed; }
+
+function validateVersionTransition(previous: string, next: string, changeClass: ChangeClass): void {
+  const before = parseVersion(previous); const after = parseVersion(next); if (versionCompare(next, previous) <= 0) throw new ContractValidationError("$.registryVersion", "registry version must move forward"); const breaking = ["SEMANTIC_CHANGE", "REMOVAL", "KEY_REPLACEMENT"].includes(changeClass); if (breaking ? after.major <= before.major : after.major !== before.major || after.minor <= before.minor) throw new ContractValidationError("$.registryVersion", breaking ? "breaking change requires a major version increase" : "compatible change requires a later minor version");
 }
 
-export function validateRegistryTransition(previous: RegistryShape, next: RegistryShape, releaseValue: unknown): RegistryRelease {
-  const release = parseRegistryRelease(releaseValue);
+function validateAliases(release: RegistryRelease, before: Map<string, AttributeDefinition>, after: Map<string, AttributeDefinition>, removed: readonly string[], authority: RegistryApprovalAuthority): void {
+  const targets = new Map<string, string>(); const graph = new Map<string, string>();
+  for (const alias of release.aliases) { if (!after.has(alias.toKey)) throw new ContractValidationError("$.aliases", `alias target does not exist:${alias.toKey}`); if (!removed.includes(alias.fromKey) && !release.deprecations.some((item) => item.key === alias.fromKey)) throw new ContractValidationError("$.aliases", `alias source is not replaced or deprecated:${alias.fromKey}`); const existing = targets.get(alias.fromKey); if (existing && existing !== alias.toKey) throw new ContractValidationError("$.aliases", `alias has conflicting targets:${alias.fromKey}`); targets.set(alias.fromKey, alias.toKey); graph.set(alias.fromKey, alias.toKey); if (alias.relation === "SEMANTICALLY_EQUIVALENT") { const oldDefinition = before.get(alias.fromKey); const newDefinition = after.get(alias.toKey); if (!authority.semanticEquivalenceApproval) throw new ContractValidationError("$.aliases", "semantic equivalence lacks accepted approval authority"); if (!oldDefinition || !newDefinition || canonicalJson(equivalentDefinition(oldDefinition)) !== canonicalJson(equivalentDefinition(newDefinition))) throw new ContractValidationError("$.aliases", "definitions are not semantically equivalent"); } }
+  for (const start of graph.keys()) { const seen = new Set<string>(); let cursor: string | undefined = start; while (cursor && graph.has(cursor)) { if (seen.has(cursor)) throw new ContractValidationError("$.aliases", "alias cycle detected"); seen.add(cursor); cursor = graph.get(cursor); } }
+}
+
+export function validateRegistryTransition(previousValue: unknown, nextValue: unknown, releaseValue: unknown, context: RegistryTransitionContext): RegistryRelease {
+  const previous = parseRegistryShape(previousValue); const next = parseRegistryShape(nextValue); const release = parseRegistryRelease(releaseValue); validateVersionTransition(previous.version, next.version, release.changeClass);
   if (release.registryVersion !== next.version || release.registryHash !== next.hash || release.predecessorVersion !== previous.version) throw new ContractValidationError("$", "release identity does not bind transition");
-  const expectedHash = next.version === REGISTRY_VERSION && sha256(next.definitions) === sha256(ATTRIBUTE_DEFINITIONS) && sha256(next.categoryLabels) === sha256(PRIMARY_CATEGORY_LABELS) ? REGISTRY_HASH : sha256({ version: next.version, definitions: next.definitions, categoryLabels: next.categoryLabels });
-  if (expectedHash !== next.hash) throw new ContractValidationError("$.registryHash", "next registry content hash mismatch");
-  const before = new Map(previous.definitions.map((item) => [item.key, item])); const after = new Map(next.definitions.map((item) => [item.key, item]));
-  const removed = [...before.keys()].filter((key) => !after.has(key)); const added = [...after.keys()].filter((key) => !before.has(key));
-  const changed = [...before.keys()].filter((key) => after.has(key) && sha256(semanticDefinition(before.get(key)!)) !== sha256(semanticDefinition(after.get(key)!)));
+  const authorityCandidate = context.acceptedApprovalAuthorities.find((item) => item.authorityId === release.approval.authorityId && item.authorityHash === release.approval.authorityHash); if (!authorityCandidate) throw new ContractValidationError("$.approval", "approval authority was not accepted by caller"); const authority = parseRegistryApprovalAuthority(authorityCandidate); if (!authority.allowedRoles.includes(release.approval.role) || !authority.allowedChangeClasses.includes(release.changeClass) || release.approval.approvedAt < authority.validFrom || release.approval.approvedAt > authority.validUntil || release.approval.approvedAt > release.createdAt) throw new ContractValidationError("$.approval", "approval is not authorized for this release");
+  const approvalCandidate = context.acceptedApprovalRecords.find((item) => item.recordId === release.approval.recordId && item.approvalHash === release.approval.approvalHash); if (!approvalCandidate) throw new ContractValidationError("$.approval", "approval record was not accepted by caller"); const approval = parseRegistryApprovalRecord(approvalCandidate, authority); if (approval.registryVersion !== release.registryVersion || approval.registryHash !== release.registryHash || approval.changeClass !== release.changeClass || approval.role !== release.approval.role || approval.approvedAt !== release.approval.approvedAt || approval.authorityId !== release.approval.authorityId || approval.authorityHash !== release.approval.authorityHash) throw new ContractValidationError("$.approval", "approval record does not bind this release");
+  const history = context.history.map((entry, index) => { const shape = parseRegistryShape(entry.shape); const historicalRelease = parseRegistryRelease(entry.release); if (historicalRelease.registryVersion !== shape.version || historicalRelease.registryHash !== shape.hash) throw new ContractValidationError(`$.history[${index}]`, "historical release does not bind historical registry"); const historicalAuthorityCandidate = context.acceptedApprovalAuthorities.find((item) => item.authorityId === historicalRelease.approval.authorityId && item.authorityHash === historicalRelease.approval.authorityHash); if (!historicalAuthorityCandidate) throw new ContractValidationError(`$.history[${index}].approval`, "historical approval authority was not accepted"); const historicalAuthority = parseRegistryApprovalAuthority(historicalAuthorityCandidate); const historicalApprovalCandidate = context.acceptedApprovalRecords.find((item) => item.recordId === historicalRelease.approval.recordId && item.approvalHash === historicalRelease.approval.approvalHash); if (!historicalApprovalCandidate) throw new ContractValidationError(`$.history[${index}].approval`, "historical approval record was not accepted"); const historicalApproval = parseRegistryApprovalRecord(historicalApprovalCandidate, historicalAuthority); if (historicalApproval.registryVersion !== shape.version || historicalApproval.registryHash !== shape.hash || historicalApproval.changeClass !== historicalRelease.changeClass) throw new ContractValidationError(`$.history[${index}].approval`, "historical approval does not bind artifact"); return { shape, release: historicalRelease }; });
+  const before = new Map(previous.definitions.map((item) => [item.key, item])); const after = new Map(next.definitions.map((item) => [item.key, item])); const removed = [...before.keys()].filter((key) => !after.has(key)); const added = [...after.keys()].filter((key) => !before.has(key)); const changed = [...before.keys()].filter((key) => after.has(key) && sha256(semanticDefinition(before.get(key)!)) !== sha256(semanticDefinition(after.get(key)!)));
   if (release.changeClass === "LABEL_ONLY" && (removed.length || added.length || changed.length)) throw new ContractValidationError("$.changeClass", "label-only release changed registry semantics");
   if (release.changeClass === "ADDITIVE_DEFINITION" && (!added.length || removed.length || changed.length)) throw new ContractValidationError("$.changeClass", "additive definition release must only add stable keys");
-  if (release.changeClass === "ADDITIVE_ALLOWED_VALUE") {
-    if (added.length || removed.length || !changed.length) throw new ContractValidationError("$.changeClass", "allowed-value release may only extend existing definitions");
-    for (const key of changed) { const oldDef = before.get(key)!; const newDef = after.get(key)!; const oldValues = oldDef.allowedValues ?? []; if (sha256({ ...semanticDefinition(oldDef), allowedValues: undefined }) !== sha256({ ...semanticDefinition(newDef), allowedValues: undefined }) || oldValues.some((value) => !(newDef.allowedValues ?? []).includes(value))) throw new ContractValidationError("$.changeClass", "allowed-value release removed or changed semantics"); }
-  }
-  if (release.changeClass === "SEMANTIC_CHANGE" && versionMajor(next.version) <= versionMajor(previous.version)) throw new ContractValidationError("$.registryVersion", "semantic changes require a major version increase");
+  if (release.changeClass === "ADDITIVE_ALLOWED_VALUE") { if (added.length || removed.length || !changed.length) throw new ContractValidationError("$.changeClass", "allowed-value release may only extend existing definitions"); for (const key of changed) { const oldDef = before.get(key)!; const newDef = after.get(key)!; const oldValues = oldDef.allowedValues ?? []; if (sha256({ ...semanticDefinition(oldDef), allowedValues: undefined }) !== sha256({ ...semanticDefinition(newDef), allowedValues: undefined }) || oldValues.some((value) => !(newDef.allowedValues ?? []).includes(value))) throw new ContractValidationError("$.changeClass", "allowed-value release removed or changed semantics"); } }
   if (release.changeClass === "DEPRECATION" && (!release.deprecations.length || removed.length)) throw new ContractValidationError("$.deprecations", "deprecation must retain keys and provide a plan");
-  if (release.changeClass === "REMOVAL") for (const key of removed) if (!release.deprecations.some((item) => item.key === key && item.compatibilityPlan.length > 0)) throw new ContractValidationError("$.deprecations", `removal lacks prior deprecation plan:${key}`);
+  if (release.changeClass === "REMOVAL") for (const key of removed) { const prior = history.flatMap((entry) => entry.release.deprecations.map((deprecation) => ({ entry, deprecation }))).find((item) => item.deprecation.key === key && versionCompare(item.entry.shape.version, next.version) < 0 && item.entry.shape.definitions.some((definition) => definition.key === key)); if (!prior) throw new ContractValidationError("$.deprecations", `removal lacks deprecation in an earlier registry version:${key}`); if (!prior.deprecation.removalNotBeforeVersion || versionCompare(next.version, prior.deprecation.removalNotBeforeVersion) < 0 || !prior.deprecation.compatibilityPlan) throw new ContractValidationError("$.deprecations", `removal violates prior compatibility plan:${key}`); }
   if (release.changeClass === "KEY_REPLACEMENT" && (!removed.length || !added.length || !release.aliases.length)) throw new ContractValidationError("$.aliases", "key replacement requires directed aliases, removal, and addition");
-  return release;
+  validateAliases(release, before, after, removed, authority); return release;
 }
 
 export const FOUNDATION_REGISTRY_SHAPE: RegistryShape = Object.freeze({ version: REGISTRY_VERSION, hash: REGISTRY_HASH, definitions: ATTRIBUTE_DEFINITIONS, categoryLabels: PRIMARY_CATEGORY_LABELS });
-export const FOUNDATION_REGISTRY_RELEASE = createRegistryRelease({ registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, predecessorVersion: null, changeClass: "ADDITIVE_DEFINITION", createdAt: "2026-09-10T11:01:01.000Z", approval: { recordId: "approval:pr-271-cto", role: "PRODUCT_CTO", approvedAt: "2026-09-10T11:01:01.000Z" }, changeSummary: ["Foundation Slice 1 registry accepted"], compatibilityStatus: "BACKWARD_COMPATIBLE", deprecations: [], aliases: [] });
+export const FOUNDATION_APPROVAL_AUTHORITY = createRegistryApprovalAuthority({ authorityId: "authority:foundation-cto-acceptance", allowedRoles: ["PRODUCT_CTO"], allowedChangeClasses: CHANGE_CLASSES, semanticEquivalenceApproval: true, validFrom: "2026-09-10T11:00:00.000Z", validUntil: "2026-09-10T11:02:00.000Z" });
+export const FOUNDATION_APPROVAL_RECORD = createRegistryApprovalRecord({ recordId: "approval:pr-271-cto", authorityId: FOUNDATION_APPROVAL_AUTHORITY.authorityId, authorityHash: FOUNDATION_APPROVAL_AUTHORITY.authorityHash, role: "PRODUCT_CTO", registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, changeClass: "ADDITIVE_DEFINITION", approvedAt: "2026-09-10T11:01:01.000Z" }, FOUNDATION_APPROVAL_AUTHORITY);
+export const FOUNDATION_REGISTRY_RELEASE = createRegistryRelease({ registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, predecessorVersion: null, changeClass: "ADDITIVE_DEFINITION", createdAt: "2026-09-10T11:01:01.000Z", approval: { recordId: FOUNDATION_APPROVAL_RECORD.recordId, approvalHash: FOUNDATION_APPROVAL_RECORD.approvalHash, role: FOUNDATION_APPROVAL_RECORD.role, approvedAt: FOUNDATION_APPROVAL_RECORD.approvedAt, authorityId: FOUNDATION_APPROVAL_AUTHORITY.authorityId, authorityHash: FOUNDATION_APPROVAL_AUTHORITY.authorityHash }, changeSummary: ["Foundation Slice 1 registry accepted"], compatibilityStatus: "BACKWARD_COMPATIBLE", deprecations: [], aliases: [] });

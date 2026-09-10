@@ -13,5 +13,6 @@ export * from "./opening-state.js";
 export * from "./pipeline.js";
 export * from "./sandbox.js";
 export * from "./schema.js";
+export * from "./synthetic-world-policy.js";
 export * from "./user-adapter.js";
 export * from "./world-adapter.js";
