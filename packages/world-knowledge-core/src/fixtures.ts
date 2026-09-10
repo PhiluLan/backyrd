@@ -2,6 +2,7 @@ import { CLAIM_CONTRACT_VERSION, RESOLUTION_CONTRACT_VERSION, WORLD_KNOWLEDGE_PO
 import { REGISTRY_VERSION } from "./registry.js";
 import { parseBuildWorldKnowledgeInput, type BuildWorldKnowledgeInput, type NonKnowledgeContext } from "./port.js";
 import { parseResolutionRequest } from "./resolver.js";
+import { UNCONFIGURED_SOURCE_POLICY } from "./source-policy.js";
 
 export const SYNTHETIC_AS_OF = "2026-01-15T12:00:00.000Z";
 const observedAt = "2026-01-10T12:00:00.000Z";
@@ -32,7 +33,6 @@ function claim(spotId: string, attributeKey: string, value: ClaimValue, options:
 }
 
 const referenced = { sourceReferenceId: "source:official-fixture", verificationState: "UNVERIFIED" as const, sourceType: "OFFICIAL_SOURCE" as const };
-const verified = { sourceReferenceId: "source:verified-fixture", verificationState: "VERIFIED" as const, sourceType: "OFFICIAL_SOURCE" as const };
 
 export const PHILIPPS_CASA_CLAIMS = Object.freeze([
   claim("synthetic-spot-philipps-casa", "identity.name", "Philipps Casa"),
@@ -75,7 +75,7 @@ export const EXPIRED_STATE_CLAIMS = Object.freeze([
 
 export const SPECIAL_HOURS_CLAIMS = Object.freeze([
   claim("synthetic-spot-special-hours", "hours.regular", [{ day: "THURSDAY", intervals: [{ start: "09:00", end: "18:00" }] }], referenced),
-  claim("synthetic-spot-special-hours", "hours.special", [{ date: "2026-01-15", status: "CLOSED", intervals: [] }], verified),
+  claim("synthetic-spot-special-hours", "hours.special", [{ date: "2026-01-15", status: "CLOSED", intervals: [] }], referenced),
 ]);
 
 export const VENUE_KITCHEN_HOURS_CLAIMS = Object.freeze([
@@ -100,7 +100,7 @@ export const SYNTHETIC_WORLDS = Object.freeze({
 });
 
 export function resolutionRequest(claims: readonly WorldKnowledgeClaim[], asOf = SYNTHETIC_AS_OF) {
-  return parseResolutionRequest({ contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf, claims });
+  return parseResolutionRequest({ contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf, claims, sourcePolicy: UNCONFIGURED_SOURCE_POLICY, verificationRecords: [] });
 }
 
 export function snapshotInput(spotId: string, resolution: BuildWorldKnowledgeInput["resolution"], nonKnowledgeContext?: NonKnowledgeContext): BuildWorldKnowledgeInput {

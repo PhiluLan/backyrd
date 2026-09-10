@@ -5,6 +5,8 @@ import {
 } from "./contracts.js";
 import { getAttributeDefinition, REGISTRY_VERSION, type AttributeDefinition } from "./registry.js";
 import { array, ContractValidationError, enumValue, hash, identifier, object, required, string, timestamp } from "./schema.js";
+import { parseSourcePolicy, UNCONFIGURED_SOURCE_POLICY, type SourcePolicy } from "./source-policy.js";
+import { parseVerificationRecord, verifiedClaimIds, type VerificationRecord } from "./verification.js";
 
 export interface ResolvedKnowledge {
   readonly contractVersion: typeof RESOLUTION_CONTRACT_VERSION;
@@ -36,6 +38,8 @@ export interface ResolutionResult {
   readonly resolved: readonly ResolvedKnowledge[];
   readonly conflicts: readonly KnowledgeConflict[];
   readonly history: readonly WorldKnowledgeClaim[];
+  readonly sourcePolicy: SourcePolicy;
+  readonly verificationRecords: readonly VerificationRecord[];
   readonly resultHash: string;
 }
 
@@ -44,6 +48,8 @@ export interface ResolutionRequest {
   readonly registryVersion: typeof REGISTRY_VERSION;
   readonly asOf: string;
   readonly claims: readonly WorldKnowledgeClaim[];
+  readonly sourcePolicy: SourcePolicy;
+  readonly verificationRecords: readonly VerificationRecord[];
 }
 
 export const RESOLUTION_REASON_CODES = ["OVERLAPPING_CONTRADICTORY_CLAIMS", "EXPLICIT_UNKNOWN", "CONSISTENT_ACTIVE_CLAIMS", "VALIDITY_WINDOW_ENDED_LAST_KNOWN_RETAINED", "CURRENT_STATE_VALIDITY_ENDED", "CURRENT_STATE_MISSING_VALID_UNTIL"] as const;
@@ -60,9 +66,9 @@ function freshnessFor(claim: WorldKnowledgeClaim, definition: AttributeDefinitio
   return definition.expiryBehavior === "EXPIRES_AT_VALID_UNTIL" ? "EXPIRED" : "STALE";
 }
 
-function trustFor(claims: readonly WorldKnowledgeClaim[], conflicting = false): TrustState {
+function trustFor(claims: readonly WorldKnowledgeClaim[], verified: ReadonlySet<string>, conflicting = false): TrustState {
   if (conflicting) return "CONFLICTING";
-  if (claims.some((claim) => claim.verificationState === "VERIFIED")) return "VERIFIED";
+  if (claims.some((claim) => verified.has(claim.claimId))) return "VERIFIED";
   if (claims.some((claim) => claim.sourceReferenceId !== null)) return "REFERENCED";
   return "ASSERTED";
 }
@@ -76,7 +82,7 @@ function latest(claims: readonly WorldKnowledgeClaim[]): WorldKnowledgeClaim {
   const value = sorted[0]; if (!value) throw new Error("latest_claim_missing"); return value;
 }
 
-function resolveGroup(claims: readonly WorldKnowledgeClaim[], asOf: string): ResolvedKnowledge {
+function resolveGroup(claims: readonly WorldKnowledgeClaim[], asOf: string, verified: ReadonlySet<string>): ResolvedKnowledge {
   const first = claims[0]; if (!first) throw new Error("empty_claim_group"); const definition = getAttributeDefinition(first.attributeKey);
   const current = claims.filter((claim) => isAt(claim, asOf));
   const fallback = current.length ? current : claims.filter((claim) => claim.validUntil !== null && claim.validUntil < asOf);
@@ -97,7 +103,7 @@ function resolveGroup(claims: readonly WorldKnowledgeClaim[], asOf: string): Res
   ].sort();
   return resolvedHash({
     contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, attributeKey: first.attributeKey, scope: first.scope,
-    resolution, freshness, trust: trustFor(considered, disputed), value,
+    resolution, freshness, trust: trustFor(considered, verified, disputed), value,
     claimRefs: considered.map((claim) => claim.claimId).sort(), sourceTypes: [...new Set(considered.map((claim) => claim.sourceType))].sort(), reasonCodes,
   });
 }
@@ -144,8 +150,8 @@ function semanticConflicts(resolved: readonly ResolvedKnowledge[], claims: reado
   return canonicalSort(conflicts, (item) => `${item.code}:${item.attributeKeys.join(",")}:${item.claimRefs.join(",")}`);
 }
 
-export function parseResolutionRequest(value: unknown): ResolutionRequest {
-  const input = object(value, "$", ["contractVersion", "registryVersion", "asOf", "claims"]);
+export function parseResolutionRequest(value: unknown, acceptedPolicies: readonly Pick<SourcePolicy, "policyVersion" | "policyHash">[] = [UNCONFIGURED_SOURCE_POLICY]): ResolutionRequest {
+  const input = object(value, "$", ["contractVersion", "registryVersion", "asOf", "claims", "sourcePolicy", "verificationRecords"]);
   if (required(input, "contractVersion") !== RESOLUTION_CONTRACT_VERSION) throw new ContractValidationError("$.contractVersion", "unknown resolution contract version");
   if (required(input, "registryVersion") !== REGISTRY_VERSION) throw new ContractValidationError("$.registryVersion", "unknown registry version");
   const claims = array(required(input, "claims"), "$.claims").map(parseClaim); const byId = new Map(claims.map((claim) => [claim.claimId, claim]));
@@ -156,19 +162,28 @@ export function parseResolutionRequest(value: unknown): ResolutionRequest {
     if (claim.observedAt < prior.observedAt) throw new ContractValidationError("$.claims", "correction predates superseded claim");
     const visited = new Set([claim.claimId]); let cursor: WorldKnowledgeClaim | undefined = prior; while (cursor?.supersedesClaimId) { if (visited.has(cursor.claimId)) throw new ContractValidationError("$.claims", "cyclic supersedes relationship"); visited.add(cursor.claimId); cursor = byId.get(cursor.supersedesClaimId); }
   }
-  return { contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf: timestamp(required(input, "asOf"), "$.asOf"), claims };
+  const sourcePolicy = parseSourcePolicy(required(input, "sourcePolicy"));
+  if (!acceptedPolicies.some((policy) => policy.policyVersion === sourcePolicy.policyVersion && policy.policyHash === sourcePolicy.policyHash)) throw new ContractValidationError("$.sourcePolicy", "unknown source policy identity");
+  const verificationRecords = array(required(input, "verificationRecords"), "$.verificationRecords").map((value, index) => {
+    const recordInput = object(value, `$.verificationRecords[${index}]`); const claimId = identifier(required(recordInput, "claimId", `$.verificationRecords[${index}]`), `$.verificationRecords[${index}].claimId`); const claim = byId.get(claimId);
+    if (!claim) throw new ContractValidationError(`$.verificationRecords[${index}].claimId`, "verification record claim not found");
+    return parseVerificationRecord(value, claim, sourcePolicy);
+  });
+  if (new Set(verificationRecords.map((record) => record.recordId)).size !== verificationRecords.length) throw new ContractValidationError("$.verificationRecords", "duplicate verification record id");
+  for (const claim of claims) if (claim.verificationState === "VERIFIED" && !verificationRecords.some((record) => record.claimId === claim.claimId && record.result === "VERIFIED")) throw new ContractValidationError("$.verificationRecords", `VERIFIED claim lacks valid verification record:${claim.claimId}`);
+  return { contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf: timestamp(required(input, "asOf"), "$.asOf"), claims, sourcePolicy, verificationRecords };
 }
 
-export function resolveWorldKnowledge(requestValue: ResolutionRequest): ResolutionResult;
-export function resolveWorldKnowledge(requestValue: unknown): ResolutionResult {
-  const request = parseResolutionRequest(requestValue); const parsed = canonicalSort(request.claims, (claim) => claim.claimId);
+export function resolveWorldKnowledge(requestValue: ResolutionRequest, acceptedPolicies?: readonly Pick<SourcePolicy, "policyVersion" | "policyHash">[]): ResolutionResult;
+export function resolveWorldKnowledge(requestValue: unknown, acceptedPolicies: readonly Pick<SourcePolicy, "policyVersion" | "policyHash">[] = [UNCONFIGURED_SOURCE_POLICY]): ResolutionResult {
+  const request = parseResolutionRequest(requestValue, acceptedPolicies); const parsed = canonicalSort(request.claims, (claim) => claim.claimId); const verified = verifiedClaimIds(request.verificationRecords);
   const superseded = new Set(parsed.map((claim) => claim.supersedesClaimId).filter((value): value is string => value !== null));
   const eligible = parsed.filter((claim) => !superseded.has(claim.claimId) && claim.verificationState !== "REJECTED" && (claim.validFrom === null || claim.validFrom <= request.asOf));
   const groups = new Map<string, WorldKnowledgeClaim[]>();
   for (const claim of eligible) { const key = `${claim.scope.spotId}\u0000${claim.scope.area}\u0000${claim.attributeKey}`; groups.set(key, [...(groups.get(key) ?? []), claim]); }
-  const resolved = canonicalSort([...groups.values()].map((claims) => resolveGroup(claims, request.asOf)), (item) => `${item.scope.spotId}:${item.scope.area}:${item.attributeKey}`);
+  const resolved = canonicalSort([...groups.values()].map((claims) => resolveGroup(claims, request.asOf, verified)), (item) => `${item.scope.spotId}:${item.scope.area}:${item.attributeKey}`);
   const conflicts = semanticConflicts(resolved, parsed);
-  const body = { contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf: request.asOf, resolved, conflicts, history: parsed };
+  const body = { contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf: request.asOf, resolved, conflicts, history: parsed, sourcePolicy: request.sourcePolicy, verificationRecords: request.verificationRecords };
   return { ...body, resultHash: hashBody(body, []) };
 }
 
@@ -210,15 +225,16 @@ function parseConflict(value: unknown, path: string): KnowledgeConflict {
 }
 
 export function parseResolutionResult(value: unknown): ResolutionResult {
-  const input = object(value, "$", ["contractVersion", "registryVersion", "asOf", "resolved", "conflicts", "history", "resultHash"]);
+  const input = object(value, "$", ["contractVersion", "registryVersion", "asOf", "resolved", "conflicts", "history", "sourcePolicy", "verificationRecords", "resultHash"]);
   if (required(input, "contractVersion") !== RESOLUTION_CONTRACT_VERSION) throw new ContractValidationError("$.contractVersion", "unknown resolution contract version");
   if (required(input, "registryVersion") !== REGISTRY_VERSION) throw new ContractValidationError("$.registryVersion", "unknown registry version");
   const body = {
     contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf: timestamp(required(input, "asOf"), "$.asOf"),
-    resolved: array(required(input, "resolved"), "$.resolved").map(parseResolvedKnowledge), conflicts: array(required(input, "conflicts"), "$.conflicts").map((item, index) => parseConflict(item, `$.conflicts[${index}]`)), history: array(required(input, "history"), "$.history").map(parseClaim),
+    resolved: array(required(input, "resolved"), "$.resolved").map(parseResolvedKnowledge), conflicts: array(required(input, "conflicts"), "$.conflicts").map((item, index) => parseConflict(item, `$.conflicts[${index}]`)), history: array(required(input, "history"), "$.history").map(parseClaim), sourcePolicy: parseSourcePolicy(required(input, "sourcePolicy")), verificationRecords: [] as readonly VerificationRecord[],
   };
+  const byId = new Map(body.history.map((claim) => [claim.claimId, claim])); body.verificationRecords = array(required(input, "verificationRecords"), "$.verificationRecords").map((item, index) => { const itemObject = object(item, `$.verificationRecords[${index}]`); const claimId = identifier(required(itemObject, "claimId", `$.verificationRecords[${index}]`), `$.verificationRecords[${index}].claimId`); const claim = byId.get(claimId); if (!claim) throw new ContractValidationError(`$.verificationRecords[${index}]`, "claim not found"); return parseVerificationRecord(item, claim, body.sourcePolicy); });
   const supplied = hash(required(input, "resultHash"), "$.resultHash"); if (hashBody(body, []) !== supplied) throw new ContractValidationError("$.resultHash", "resolution result hash mismatch");
-  const recomputed = resolveWorldKnowledge({ contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf: body.asOf, claims: body.history });
+  const recomputed = resolveWorldKnowledge({ contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf: body.asOf, claims: body.history, sourcePolicy: body.sourcePolicy, verificationRecords: body.verificationRecords }, [body.sourcePolicy]);
   const { resultHash: _recomputedHash, ...recomputedBody } = recomputed;
   if (canonicalJson(recomputedBody) !== canonicalJson(body)) throw new ContractValidationError("$", "resolution payload does not match deterministic resolution of its history");
   return { ...body, resultHash: supplied };

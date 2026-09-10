@@ -10,7 +10,7 @@ test("actor role and session provenance do not elevate trust", () => {
   const admin = createClaim(draft("trust:admin", "operation.takeaway", true)); const owner = createClaim(draft("trust:owner", "operation.takeaway", true, { actorType: "VERIFIED_OWNER", sourceType: "OWNER_ASSERTION" }));
   assert.equal(resolveWorldKnowledge(resolutionRequest([admin, owner])).resolved[0].trust, "ASSERTED");
   const referenced = createClaim(draft("trust:referenced", "operation.takeaway", true, { sourceReferenceId: "source:official" })); assert.equal(resolveWorldKnowledge(resolutionRequest([referenced])).resolved[0].trust, "REFERENCED");
-  const verified = createClaim(draft("trust:verified", "operation.takeaway", true, { sourceReferenceId: "source:official", verificationState: "VERIFIED" })); assert.equal(resolveWorldKnowledge(resolutionRequest([verified])).resolved[0].trust, "VERIFIED");
+  const claimedVerified = createClaim(draft("trust:verified", "operation.takeaway", true, { sourceReferenceId: "source:official", verificationState: "VERIFIED" })); assert.throws(() => resolveWorldKnowledge(resolutionRequest([claimedVerified])), /lacks valid verification record/);
   assert.throws(() => createClaim(draft("trust:fake-reference", "operation.takeaway", true, { sourceReferenceId: "session:automatic-name" })), /source namespace/);
   assert.throws(() => createClaim(draft("trust:unbound-verification", "operation.takeaway", true, { verificationState: "VERIFIED" })), /verification source/);
   assert.throws(() => createClaim(draft("trust:ai", "operation.takeaway", true, { sourceType: "AI_INFERENCE", verificationState: "VERIFIED" })), /AI inference/);
@@ -40,8 +40,8 @@ test("strict port validation rejects recomputed nested unknown fields", () => {
   assert.throws(() => buildWorldKnowledgeSnapshot(snapshotInput("another-spot", resolution)), /claim scope/);
 });
 
-test("referenced and verified facts cannot become READY without a source policy", () => {
-  const evidence = { sourceReferenceId: "source:verified", sourceType: "OFFICIAL_SOURCE", verificationState: "VERIFIED" };
+test("referenced facts cannot become READY without a source policy", () => {
+  const evidence = { sourceReferenceId: "source:official", sourceType: "OFFICIAL_SOURCE", verificationState: "UNVERIFIED" };
   const claims = [
     createClaim(draft("policy:name", "identity.name", "Policy Spot", evidence)), createClaim(draft("policy:address", "location.address_line1", "Testweg 1", evidence)), createClaim(draft("policy:locality", "location.locality", "Basel", evidence)), createClaim(draft("policy:lat", "location.latitude", 47.55, evidence)), createClaim(draft("policy:lon", "location.longitude", 7.59, evidence)), createClaim(draft("policy:zone", "location.timezone", "Europe/Zurich", evidence)), createClaim(draft("policy:category", "classification.primary_category", "EAT", evidence)), createClaim(draft("policy:types", "classification.place_types", ["RESTAURANT"], evidence)),
     createClaim(draft("policy:hours", "hours.regular", [{ day: "THURSDAY", intervals: [{ start: "10:00", end: "22:00" }] }], evidence)), createClaim(draft("policy:price", "operation.price_range", { currency: "CHF", min: 20, max: 50 }, evidence)),

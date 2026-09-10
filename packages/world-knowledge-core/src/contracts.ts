@@ -6,7 +6,7 @@ import {
 import { array, boolean, ContractValidationError, date, enumValue, hash, identifier, number, object, required, string, timestamp } from "./schema.js";
 
 export const CLAIM_CONTRACT_VERSION = "backyrd.world-knowledge.claim@1.0" as const;
-export const RESOLUTION_CONTRACT_VERSION = "backyrd.world-knowledge.resolution@1.0" as const;
+export const RESOLUTION_CONTRACT_VERSION = "backyrd.world-knowledge.resolution@2.0" as const;
 export const WORLD_KNOWLEDGE_PORT_VERSION = "backyrd.world-knowledge.port@1.0" as const;
 
 export const KNOWLEDGE_STATES = ["KNOWN_TRUE", "KNOWN_FALSE", "KNOWN_VALUE", "UNKNOWN"] as const;
@@ -14,7 +14,7 @@ export const RESOLUTION_STATES = [...KNOWLEDGE_STATES, "DISPUTED"] as const;
 export const FRESHNESS_STATES = ["CURRENT", "STALE", "EXPIRED"] as const;
 export const TRUST_STATES = ["ASSERTED", "REFERENCED", "VERIFIED", "CONFLICTING"] as const;
 export const ACTOR_TYPES = ["ADMIN", "VERIFIED_OWNER", "SYSTEM", "PUBLIC_CONTRIBUTOR"] as const;
-export const SOURCE_TYPES = ["OWNER_ASSERTION", "ADMIN_OBSERVATION", "OFFICIAL_SOURCE", "PUBLIC_SOURCE", "USER_REPORT", "SYSTEM_DERIVATION", "AI_INFERENCE"] as const;
+export const SOURCE_TYPES = ["OWNER_ASSERTION", "ADMIN_OBSERVATION", "OFFICIAL_SOURCE", "PUBLIC_SOURCE", "USER_REPORT", "SYSTEM_DERIVATION", "AI_INFERENCE", "LEGACY_IMPORT"] as const;
 export const VERIFICATION_STATES = ["UNVERIFIED", "PENDING", "VERIFIED", "REJECTED"] as const;
 export const STANCES = ["SUPPORTS", "CONTRADICTS"] as const;
 export const VISIBILITIES = ["PUBLIC", "INTERNAL", "PRIVATE"] as const;

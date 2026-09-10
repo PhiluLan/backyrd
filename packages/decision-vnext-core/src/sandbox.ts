@@ -1,4 +1,4 @@
-import { buildWorldKnowledgeSnapshot, createClaim, REGISTRY_VERSION, RESOLUTION_CONTRACT_VERSION, resolveWorldKnowledge, WORLD_KNOWLEDGE_PORT_VERSION, type ClaimValue, type Weekday, type WeeklyScheduleDay, type WorldKnowledgeReaderPort, type WorldKnowledgeSnapshot } from "@backyrd/world-knowledge-core";
+import { buildWorldKnowledgeSnapshot, createClaim, REGISTRY_VERSION, RESOLUTION_CONTRACT_VERSION, resolveWorldKnowledge, UNCONFIGURED_SOURCE_POLICY, WORLD_KNOWLEDGE_PORT_VERSION, type ClaimValue, type Weekday, type WeeklyScheduleDay, type WorldKnowledgeReaderPort, type WorldKnowledgeSnapshot } from "@backyrd/world-knowledge-core";
 import { buildRelevantUserProjection, CONTRACT_VERSIONS as USER_CONTRACT_VERSIONS, GRANTED_CONSENT, NO_CONSENT, SYNTHETIC_MANIFEST, type DecisionVNextUserProjectionPort, type RelevantUserProjection, type RelevantUserProjectionRequest } from "@backyrd/user-intelligence-vnext-core";
 import { contentHash, deepFreeze } from "./canonical.js";
 import { CONTRACT_VERSIONS as DECISION_CONTRACT_VERSIONS } from "./contracts.js";
@@ -23,7 +23,7 @@ function snapshotFor(id: string, city: string, status: "open" | "closed" | "unkn
   const day = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"][new Date(observedAt).getUTCDay()]! as Weekday;
   const claims = [claim(id, "identity.name", `Synthetic Spot ${id}`, observedAt, 1), claim(id, "location.address_line1", `Fixture Street ${id}`, observedAt, 2), claim(id, "location.locality", city, observedAt, 3), claim(id, "location.country_code", "CH", observedAt, 4), claim(id, "location.latitude", 47.0, observedAt, 5), claim(id, "location.longitude", 8.0, observedAt, 6), claim(id, "location.timezone", "UTC", observedAt, 7), claim(id, "classification.primary_category", "EAT", observedAt, 8), claim(id, "classification.place_types", ["CAFE"], observedAt, 9)];
   if (status !== "unknown") claims.push(claim(id, "hours.regular", [{ day, intervals: status === "open" ? [{ start: "00:00", end: "23:59" }] : [{ start: "00:00", end: "00:01" }] }] as readonly WeeklyScheduleDay[], observedAt, 10));
-  const resolution = resolveWorldKnowledge({ contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf: observedAt, claims });
+  const resolution = resolveWorldKnowledge({ contractVersion: RESOLUTION_CONTRACT_VERSION, registryVersion: REGISTRY_VERSION, asOf: observedAt, claims, sourcePolicy: UNCONFIGURED_SOURCE_POLICY, verificationRecords: [] });
   return buildWorldKnowledgeSnapshot({ contractVersion: WORLD_KNOWLEDGE_PORT_VERSION, spotId: id, resolution });
 }
 
