@@ -643,21 +643,27 @@ declare
   v_resolver_contract constant text:='backyrd.world-knowledge.shadow-resolver@1.0'; v_resolver_version constant text:='1.1.0';
   v_cutoff timestamptz; v_components jsonb; v_input_hash text; v_request_hash text; v_resolution_hash text; v_manifest_hash text;
   v_manifest_id uuid; job world_knowledge_private.rebuild_jobs%rowtype; current_pointer world_knowledge_private.current_projection_pointers%rowtype;
-  snapshot jsonb; decision jsonb; stored jsonb; pointer_updated boolean:=false;
+  snapshot jsonb; decision jsonb; stored jsonb; pointer_updated boolean:=false; manifest_reused boolean:=false;
 begin
   if p_mode not in ('FULL','INCREMENTAL') or p_as_of is null or p_as_of>pg_catalog.clock_timestamp()+interval '60 seconds' or length(trim(coalesce(p_idempotency_key,''))) not between 1 and 180 then raise exception 'invalid_rebuild_request' using errcode='22023'; end if;
-  if not exists(select 1 from public.spots s where s.id=p_spot_id and s.data_origin in ('TEST','FIXTURE')) and not exists(select 1 from world_knowledge_private.shadow_spot_allowlist a where a.spot_id=p_spot_id and a.valid_until>pg_catalog.clock_timestamp()) then raise exception 'shadow_spot_not_allowlisted' using errcode='42501'; end if;
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('world-rebuild-request:'||p_idempotency_key,0));
+  -- Request identity deliberately excludes ledger state and wall-clock values. A retry
+  -- binds to the original request/result even when the append-only ledger has advanced.
+  v_request_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object('spotId',p_spot_id,'mode',p_mode,'asOf',p_as_of,'registryVersion',v_registry_version,'policyVersion',v_policy_version,'resolverContract',v_resolver_contract,'resolverVersion',v_resolver_version,'idempotencyIdentity',p_idempotency_key)::text,'UTF8'),'sha256'),'hex');
+  select * into job from world_knowledge_private.rebuild_jobs j where j.idempotency_key=p_idempotency_key for update;
+  if found then
+    if job.spot_id<>p_spot_id or job.mode<>p_mode or job.as_of<>p_as_of or job.request_hash<>v_request_hash or job.registry_version<>v_registry_version or job.policy_version<>v_policy_version or job.resolver_contract<>v_resolver_contract or job.resolver_version<>v_resolver_version then raise exception 'rebuild_idempotency_conflict' using errcode='23505'; end if;
+    if job.status='PENDING' then raise exception 'rebuild_request_pending' using errcode='55000'; end if;
+    if job.status='RUNNING' then raise exception 'rebuild_request_in_progress' using errcode='55000'; end if;
+    if job.status='FAILED' then raise exception 'rebuild_request_failed' using errcode='55000'; end if;
+    if job.status<>'SUCCEEDED' or job.manifest_id is null then raise exception 'rebuild_request_invalid_state' using errcode='55000'; end if;
+    if not exists(select 1 from world_knowledge_private.resolution_manifests m where m.id=job.manifest_id and m.spot_id=job.spot_id and m.registry_version=job.registry_version and m.policy_version=job.policy_version and m.resolver_contract=job.resolver_contract and m.resolver_version=job.resolver_version and m.input_hash=job.input_hash) then raise exception 'rebuild_job_manifest_binding_mismatch' using errcode='22023'; end if;
+    return world_knowledge_private.validate_resolution_manifest_v1(job.manifest_id)||jsonb_build_object('mode',p_mode,'reused',true,'manifestReused',true,'pointerUpdated',false);
+  end if;
+  if not exists(select 1 from public.spots s where s.id=p_spot_id and s.data_origin in ('TEST','FIXTURE')) and not exists(select 1 from world_knowledge_private.shadow_spot_allowlist a where a.spot_id=p_spot_id and a.valid_until>pg_catalog.clock_timestamp()) then raise exception 'shadow_spot_not_allowlisted' using errcode='42501'; end if;
   v_cutoff:=pg_catalog.clock_timestamp();
   v_components:=world_knowledge_private.resolution_input_components_v1(p_spot_id,p_as_of,v_cutoff);
   v_input_hash:=encode(extensions.digest(pg_catalog.convert_to(v_components::text,'UTF8'),'sha256'),'hex');
-  v_request_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object('spotId',p_spot_id,'mode',p_mode,'asOf',p_as_of,'inputHash',v_input_hash,'registryVersion',v_registry_version,'policyVersion',v_policy_version,'resolverContract',v_resolver_contract,'resolverVersion',v_resolver_version,'idempotencyIdentity',p_idempotency_key)::text,'UTF8'),'sha256'),'hex');
-  select * into job from world_knowledge_private.rebuild_jobs j where j.idempotency_key=p_idempotency_key for update;
-  if found then
-    if job.spot_id<>p_spot_id or job.mode<>p_mode or job.as_of<>p_as_of or job.request_hash<>v_request_hash or job.input_hash<>v_input_hash or job.registry_version<>v_registry_version or job.policy_version<>v_policy_version or job.resolver_contract<>v_resolver_contract or job.resolver_version<>v_resolver_version then raise exception 'rebuild_idempotency_conflict' using errcode='23505'; end if;
-    if job.status<>'SUCCEEDED' or job.manifest_id is null then raise exception 'rebuild_request_not_complete' using errcode='55000'; end if;
-    return world_knowledge_private.validate_resolution_manifest_v1(job.manifest_id)||jsonb_build_object('mode',p_mode,'reused',true,'pointerUpdated',false);
-  end if;
   insert into world_knowledge_private.rebuild_jobs(spot_id,idempotency_key,mode,as_of,request_hash,input_hash,registry_version,policy_version,resolver_contract,resolver_version,status)
   values(p_spot_id,p_idempotency_key,p_mode,p_as_of,v_request_hash,v_input_hash,v_registry_version,v_policy_version,v_resolver_contract,v_resolver_version,'RUNNING') returning * into job;
   with eligible as (
@@ -682,8 +688,13 @@ begin
   ) into snapshot from resolved;
   decision:=world_knowledge_private.decision_projection_v1(snapshot);
   v_resolution_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object('worldSnapshot',snapshot,'decisionProjection',decision)::text,'UTF8'),'sha256'),'hex');
-  select m.id into v_manifest_id from world_knowledge_private.resolution_manifests m where m.spot_id=p_spot_id and m.registry_version=v_registry_version and m.policy_version=v_policy_version and m.resolver_version=v_resolver_version and m.input_hash=v_input_hash;
+  -- A second, semantic lock is scoped to Spot + accepted versions + complete input.
+  -- Different idempotency keys for the same resolver input therefore converge on one
+  -- canonical manifest without serializing unrelated Spots or inputs.
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('world-rebuild-manifest:'||p_spot_id::text||':'||v_registry_version||':'||v_policy_version||':'||v_resolver_contract||':'||v_resolver_version||':'||v_input_hash,0));
+  select m.id into v_manifest_id from world_knowledge_private.resolution_manifests m where m.spot_id=p_spot_id and m.registry_version=v_registry_version and m.policy_version=v_policy_version and m.resolver_contract=v_resolver_contract and m.resolver_version=v_resolver_version and m.input_hash=v_input_hash;
   if found then
+    manifest_reused:=true;
     stored:=world_knowledge_private.validate_resolution_manifest_v1(v_manifest_id);
     if stored->'worldSnapshot'<>snapshot or stored->'decisionProjection'<>decision or stored->>'resolutionHash'<>v_resolution_hash then raise exception 'resolution_manifest_reuse_mismatch' using errcode='22023'; end if;
   else
@@ -713,7 +724,7 @@ begin
     end if;
   end if;
   update world_knowledge_private.rebuild_jobs set status='SUCCEEDED',completed_at=pg_catalog.clock_timestamp(),manifest_id=v_manifest_id where id=job.id;
-  return stored||jsonb_build_object('mode',p_mode,'reused',false,'pointerUpdated',pointer_updated);
+  return stored||jsonb_build_object('mode',p_mode,'reused',false,'manifestReused',manifest_reused,'pointerUpdated',pointer_updated);
 end $$;
 
 comment on schema world_knowledge_private is 'Slice 3B private, append-only World Knowledge ledger and shadow resolver internals; not a Data API surface.';

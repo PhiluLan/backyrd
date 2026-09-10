@@ -22,6 +22,15 @@ begin
   end;
   raise exception '% (statement unexpectedly succeeded)',p_message;
 end$$;
+create function pg_temp.rebuild_request_hash(p_spot_id uuid,p_mode text,p_as_of timestamptz,p_key text) returns text language sql immutable as $$
+  select encode(extensions.digest(convert_to(jsonb_build_object(
+    'spotId',p_spot_id,'mode',p_mode,'asOf',p_as_of,
+    'registryVersion','backyrd.world-knowledge.registry@1.1',
+    'policyVersion','backyrd.world-knowledge.source-policy@3b.1',
+    'resolverContract','backyrd.world-knowledge.shadow-resolver@1.0',
+    'resolverVersion','1.1.0','idempotencyIdentity',p_key
+  )::text,'UTF8'),'sha256'),'hex')
+$$;
 
 select pg_temp.assert((select registry_hash='e51e78f929d8d11ca149a50eaba250cf484e916ef38f2d447d3c8d881bb203be' from world_knowledge_private.registry_releases where registry_version='backyrd.world-knowledge.registry@1.1'),'registry release/hash mismatch');
 select pg_temp.assert((select policy_hash='029582851b57914ce8f360e27dd7d6697fa6144cdf1febcf38d866290f4da95b' from world_knowledge_private.source_policy_releases where policy_version='backyrd.world-knowledge.source-policy@3b.1'),'source policy mismatch');
@@ -208,6 +217,44 @@ select pg_temp.assert((select jsonb_array_length(input_components->'claims')>0 a
 select pg_temp.assert((select count(*)=2 and bool_and(status='SUCCEEDED' and manifest_id is not null and request_hash~'^[0-9a-f]{64}$') from world_knowledge_private.rebuild_jobs),'rebuild requests were not persisted exactly once');
 reset role;
 
+-- Persisted request identity is independently validated and incomplete states never
+-- trigger an uncontrolled second execution under the same key.
+create temporary table wk_baseline_job_backup as select * from world_knowledge_private.rebuild_jobs where idempotency_key='full-baseline';
+update world_knowledge_private.rebuild_jobs set request_hash=repeat('a',64) where idempotency_key='full-baseline';
+set local role service_role;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'),'23505','rehashed stored job request identity was accepted');
+reset role;
+update world_knowledge_private.rebuild_jobs j set request_hash=b.request_hash from wk_baseline_job_backup b where j.id=b.id;
+update world_knowledge_private.rebuild_jobs set input_hash=repeat('b',64) where idempotency_key='full-baseline';
+set local role service_role;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'),'22023','stored job was rebound to another input');
+reset role;
+update world_knowledge_private.rebuild_jobs j set input_hash=b.input_hash from wk_baseline_job_backup b where j.id=b.id;
+update world_knowledge_private.rebuild_jobs set registry_version='tampered.registry@9' where idempotency_key='full-baseline';
+set local role service_role;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'),'23505','stored job accepted a different Registry version');
+reset role;
+update world_knowledge_private.rebuild_jobs j set registry_version=b.registry_version from wk_baseline_job_backup b where j.id=b.id;
+update world_knowledge_private.rebuild_jobs set policy_version='tampered.policy@9' where idempotency_key='full-baseline';
+set local role service_role;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'),'23505','stored job accepted a different Policy version');
+reset role;
+update world_knowledge_private.rebuild_jobs j set policy_version=b.policy_version from wk_baseline_job_backup b where j.id=b.id;
+update world_knowledge_private.rebuild_jobs set resolver_version='9.9.9' where idempotency_key='full-baseline';
+set local role service_role;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'),'23505','stored job accepted a different Resolver version');
+reset role;
+update world_knowledge_private.rebuild_jobs j set resolver_version=b.resolver_version from wk_baseline_job_backup b where j.id=b.id;
+
+insert into world_knowledge_private.rebuild_jobs(spot_id,idempotency_key,mode,as_of,request_hash,input_hash,registry_version,policy_version,resolver_contract,resolver_version,status)
+select pg_temp.id('wk-basic-spot'),state_key,'FULL',(select as_of from wk_clock),pg_temp.rebuild_request_hash(pg_temp.id('wk-basic-spot'),'FULL',(select as_of from wk_clock),state_key),repeat('c',64),'backyrd.world-knowledge.registry@1.1','backyrd.world-knowledge.source-policy@3b.1','backyrd.world-knowledge.shadow-resolver@1.0','1.1.0',state
+from (values('job-pending','PENDING'),('job-running','RUNNING'),('job-failed','FAILED')) states(state_key,state);
+set local role service_role;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','job-pending'),'55000','PENDING request was recomputed');
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','job-running'),'55000','RUNNING request was recomputed');
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','job-failed'),'55000','FAILED request was recomputed');
+reset role;
+
 -- A second valid Verification is part of resolver input identity but does not duplicate or change the fact.
 do $$
 declare c world_knowledge_private.claims%rowtype; binding_id uuid; checked timestamptz:=(select as_of-interval '1 second' from wk_clock); h text;
@@ -221,6 +268,8 @@ end$$;
 set local role service_role;
 insert into wk_resolution_results values('verification-input',public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-verification-input'));
 select pg_temp.assert((select a.payload->'worldSnapshot'=b.payload->'worldSnapshot' and a.payload->'decisionProjection'=b.payload->'decisionProjection' and a.payload->>'resolutionHash'=b.payload->>'resolutionHash' and a.payload->>'inputHash'<>b.payload->>'inputHash' and a.payload->>'manifestHash'<>b.payload->>'manifestHash' from wk_resolution_results a,wk_resolution_results b where a.label='baseline' and b.label='verification-input'),'verification ledger change was not bound independently from identical resolution output');
+insert into wk_resolution_results values('baseline-after-verification',public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'));
+select pg_temp.assert((select retry.payload->>'manifestHash'=original.payload->>'manifestHash' and (retry.payload->>'reused')::boolean from wk_resolution_results retry,wk_resolution_results original where retry.label='baseline-after-verification' and original.label='baseline'),'Verification added after completion changed idempotent replay');
 reset role;
 
 set local role authenticated;
@@ -234,6 +283,8 @@ reset role;
 set local role service_role;
 insert into wk_resolution_results values('excluded-inputs',public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-excluded'));
 select pg_temp.assert((select a.payload->'worldSnapshot'=b.payload->'worldSnapshot' and a.payload->'decisionProjection'=b.payload->'decisionProjection' and a.payload->>'resolutionHash'=b.payload->>'resolutionHash' and a.payload->>'inputHash'<>b.payload->>'inputHash' and a.payload->>'manifestHash'<>b.payload->>'manifestHash' from wk_resolution_results a,wk_resolution_results b where a.label='verification-input' and b.label='excluded-inputs'),'excluded inputs changed snapshot or failed to change manifest identity');
+insert into wk_resolution_results values('baseline-after-excluded',public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'));
+select pg_temp.assert((select retry.payload->>'manifestHash'=original.payload->>'manifestHash' and (retry.payload->>'reused')::boolean from wk_resolution_results retry,wk_resolution_results original where retry.label='baseline-after-excluded' and original.label='baseline'),'excluded/future Claims added after completion changed idempotent replay');
 reset role;
 
 set local role authenticated;
@@ -249,6 +300,11 @@ select pg_temp.assert(not ((select payload->'decisionProjection'->'facts' from w
 select pg_temp.assert((select payload->'worldSnapshot'->'facts' @> '[{"key":"contact.public_email"}]' from wk_resolution_results where label='authorized-change'),'public email missing from World snapshot');
 select pg_temp.assert(not (select payload->'worldSnapshot'->'facts' @> '[{"key":"description.highlight","value":"Illegal shadow candidate"}]' from wk_resolution_results where label='authorized-change'),'shadow-held text leaked to World snapshot');
 select pg_temp.expect_error(format($q$insert into world_knowledge_private.identity_events(event_type,subject_spot_id,related_spot_id,recorded_by_binding_id,idempotency_key,occurred_at,reason_codes,event_hash) select 'MERGE_CONFIRMED',%L,%L,id,'direct-merge',clock_timestamp(),array['UNAUTHORIZED'],encode(extensions.digest(convert_to('direct-merge','UTF8'),'sha256'),'hex') from world_knowledge_private.actor_bindings where actor_id=%L and actor_type='ADMIN'$q$,pg_temp.id('wk-basic-spot'),pg_temp.id('wk-pro-spot'),pg_temp.id('wk-admin')),'23514','service role directly recorded a mutating identity event');
+
+create temporary table wk_pointer_before_retry as select * from world_knowledge_private.current_projection_pointers where spot_id=pg_temp.id('wk-basic-spot');
+insert into wk_resolution_results values('baseline-after-current-claim',public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'));
+select pg_temp.assert((select retry.payload->>'manifestHash'=original.payload->>'manifestHash' and (retry.payload->>'reused')::boolean from wk_resolution_results retry,wk_resolution_results original where retry.label='baseline-after-current-claim' and original.label='baseline'),'relevant Claim added after completion changed idempotent replay');
+select pg_temp.assert((select p.manifest_id=b.manifest_id and p.manifest_hash=b.manifest_hash and p.as_of=b.as_of and p.ledger_cutoff_at=b.ledger_cutoff_at from world_knowledge_private.current_projection_pointers p,wk_pointer_before_retry b where p.spot_id=b.spot_id),'idempotent replay changed current projection pointer');
 
 -- The current projection pointer is monotone by semantic time and ledger cutoff.
 create temporary table wk_pointer_before as select * from world_knowledge_private.current_projection_pointers where spot_id=pg_temp.id('wk-basic-spot');

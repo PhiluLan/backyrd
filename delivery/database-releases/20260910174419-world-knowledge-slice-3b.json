@@ -10,17 +10,17 @@
   "migrations": [
     {
       "path": "supabase/migrations/20260910174419_world_knowledge_slice_3b_foundation.sql",
-      "sha256": "aed6baefe67f271240696fd2dc55faba25be379b2d12f32f8176a963bae3f121"
+      "sha256": "11ec437c394d452a5b5d152ab342f18316fdfdcc4fec074fb723d0c8710c6be2"
     }
   ],
   "tests": [
     {
       "path": "supabase/tests/world_knowledge_slice3b.sql",
-      "sha256": "56be36e0afde335574e84f23152aa8531c8a758761740230bfebcd9bde677f9f"
+      "sha256": "63dc8d9281be3a7efea8ef2b8f5db4365450b27fc79822e605f3abe115d99c4e"
     }
   ],
   "fingerprints": {
     "publicAclSha256": "00f4ba7cab4f2f4e3d74bcfe2f757fcf0931b0d4a88b469b849aacf9cbb5bcf3",
-    "applicationSchemaSha256": "7b1dd58e7f53c91e30c3035257afa02d3e41b27eb9a17122019ef5aecc6f2de7"
+    "applicationSchemaSha256": "dbaa8f2112148ea76a503ab64e921889b70b2a5f905e75a552a97902d1bfb40a"
   }
 }
