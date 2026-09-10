@@ -48,10 +48,10 @@ select pg_temp.assert(not exists(select 1 from pg_proc p join pg_namespace n on 
 do $$
 declare u text;
 begin
-  foreach u in array array['wk-basic','wk-pro','wk-admin','wk-other','wk-reporter','wk-new-owner'] loop
+  foreach u in array array['wk-basic','wk-pro','wk-admin','wk-revoked-admin','wk-other','wk-reporter','wk-new-owner'] loop
     insert into auth.users(instance_id,id,aud,role,email,encrypted_password,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
     values('00000000-0000-0000-0000-000000000000',pg_temp.id(u),'authenticated','authenticated',u||'@test.invalid','','{}','{}',clock_timestamp(),clock_timestamp());
-    insert into public.profiles(id,is_admin) values(pg_temp.id(u),u='wk-admin') on conflict(id) do update set is_admin=excluded.is_admin;
+    insert into public.profiles(id,is_admin) values(pg_temp.id(u),u in ('wk-admin','wk-revoked-admin')) on conflict(id) do update set is_admin=excluded.is_admin;
   end loop;
   insert into public.spots(id,name,lat,lng,status,city,owner_id,data_origin) values
     (pg_temp.id('wk-basic-spot'),'Basic synthetic',47.1,8.1,'approved','Zürich',pg_temp.id('wk-basic'),'TEST'),
@@ -97,7 +97,13 @@ select pg_temp.expect_error(format('select public.world_admin_record_identity_ev
 select pg_temp.expect_error(format('select public.world_admin_record_identity_event_v1(%L,%L,%L,null,null,array[%L],%L)','MERGE_PROPOSED',pg_temp.id('wk-pro-spot'),pg_temp.id('wk-basic-spot'),'SYNTHETIC_DUPLICATE_SIGNAL','proposal-ab'),'23505','reversed merge direction reused authority');
 reset role;
 
-select pg_temp.assert((select count(*)=5 from world_knowledge_private.claims),'unexpected authoritative claim count');
+set local role authenticated;
+select set_config('request.jwt.claim.sub',pg_temp.id('wk-revoked-admin')::text,true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select public.world_admin_submit_claim_v1(pg_temp.id('wk-other-spot'),'identity.name','KNOWN_VALUE','"Other Casa"',clock_timestamp(),null,null,'PUBLIC',null,'revoked-admin-claim');
+reset role;
+
+select pg_temp.assert((select count(*)=6 from world_knowledge_private.claims),'unexpected authoritative claim count');
 select pg_temp.assert((select count(*)=1 and bool_and(confirmation_due_at=confirmed_at+interval '3 months') from world_knowledge_private.confirmation_records),'confirmation record missing or invalid');
 select pg_temp.assert((select count(*)=1 from world_knowledge_private.identity_events where event_type='MERGE_PROPOSED'),'preparatory identity event missing');
 select pg_temp.assert((select count(*)=1 from world_knowledge_private.review_work_items where work_class='CONTENT_SAFETY'),'content-safety work item missing');
@@ -135,11 +141,10 @@ end$$;
 do $$
 declare c world_knowledge_private.claims%rowtype; checked timestamptz:=clock_timestamp(); h text;
 begin
-  select * into c from world_knowledge_private.claims where idempotency_key='admin-access';
-  update public.profiles set is_admin=false where id=pg_temp.id('wk-admin');
+  select * into c from world_knowledge_private.claims where idempotency_key='revoked-admin-claim';
+  update public.profiles set is_admin=false where id=pg_temp.id('wk-revoked-admin');
   h:=encode(extensions.digest(convert_to(jsonb_build_object('claimId',c.id,'claimHash',c.content_hash,'spotId',c.spot_id,'attributeKey',c.attribute_key,'scope',c.scope,'policyVersion',c.policy_version,'method','ADMIN_CONFIRMED','authority','SERVER_BOUND_ADMIN_WRITE','verifierBinding',c.actor_binding_id,'result','VERIFIED','checkedAt',checked,'reverificationPolicyRef','freshness:durable-until-contradicted','reasonCodes',to_jsonb(array['SERVER_ACTOR_SCOPE_AND_PAYLOAD_CONFIRMED']::text[]))::text,'UTF8'),'sha256'),'hex');
   perform pg_temp.expect_error(format($q$insert into world_knowledge_private.verification_records(claim_id,claim_hash,spot_id,attribute_key,scope,policy_version,verification_method,execution_authority,verifier_binding_id,result,checked_at,reverification_policy_ref,reason_codes,result_hash) values(%L,%L,%L,%L,%L,%L,'ADMIN_CONFIRMED','SERVER_BOUND_ADMIN_WRITE',%L,'VERIFIED',%L,'freshness:durable-until-contradicted',array['SERVER_ACTOR_SCOPE_AND_PAYLOAD_CONFIRMED'],%L)$q$,c.id,c.content_hash,c.spot_id,c.attribute_key,c.scope,c.policy_version,c.actor_binding_id,checked,h),'42501','revoked admin verification accepted');
-  update public.profiles set is_admin=true where id=pg_temp.id('wk-admin');
 end$$;
 
 -- AI-only verification cannot become authoritative even with matching hashes.
@@ -163,7 +168,7 @@ select set_config('request.jwt.claim.role','authenticated',true);
 select pg_temp.assert((public.world_submit_user_report_v1(pg_temp.id('wk-basic-spot'),'identity.name','{"message":"wrong name"}','report-1')->>'factChanged')::boolean=false,'user report changed fact');
 reset role;
 select pg_temp.assert((select count(*)=1 from world_knowledge_private.review_work_items where work_class='USER_REPORT'),'user report did not create review work item');
-select pg_temp.assert((select count(*)=6 from world_knowledge_private.claims),'user report created claim');
+select pg_temp.assert((select count(*)=7 from world_knowledge_private.claims),'user report created claim');
 
 -- Actual database-role boundary, not a caller-controlled JWT role string.
 create temporary table wk_resolution_results(label text primary key,payload jsonb);
