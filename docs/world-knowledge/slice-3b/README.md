@@ -28,7 +28,7 @@ An accepted write creates, in one transaction:
 
 The `world_knowledge_private` schema holds registry/policy releases, normalized source and entitlement rules, source references, actor bindings, claims, verification and confirmation records, identity events, review events, immutable resolution manifests, entries, projection pointers, allowlists, and rebuild jobs. Ledger tables reject update and delete. Corrections and confirmations are additive.
 
-The resolver accepts only locally synthetic `TEST`/`FIXTURE` spots or explicitly allowlisted non-production spots. It joins claims to accepted per-attribute Source Policy and valid Verification Records. Full and incremental modes share one deterministic implementation and converge on the same manifest/hash for the same inputs. The rebuildable current pointer is not a source of truth.
+The resolver accepts only locally synthetic `TEST`/`FIXTURE` spots or explicitly allowlisted non-production spots. It joins claims to accepted per-attribute Source Policy and valid Verification Records. Full and incremental modes share one deterministic implementation. Input identity (`input_hash`), resolved output identity (`resolution_hash`) and audit-manifest identity (`manifest_hash`) are distinct: excluded, future or expired claims can change the input and manifest without forcing a different current World snapshot. The canonical idempotency key remains Spot + Registry + Policy + input hash. The rebuildable current pointer is not a source of truth.
 
 World snapshots may contain deliberate public contact data. The Decision candidate projection always removes all `contact.*` values and explanation-only descriptions. Subscription, payment, Owner tier, private sources, actor IDs, private payloads, user intents, ranking weights, and subjective fits have no projection path.
 
@@ -43,7 +43,7 @@ World snapshots may contain deliberate public contact data. The Decision candida
 
 ## Identity and legacy
 
-`public.spots.id` remains the World subject identifier. Provider IDs are namespaced references. Duplicate candidates never merge automatically. Merge/split/reversal/archive/restore are append-only identity events; mutating identity events require server-authorized Admin action and an accepted approval reference. No legacy values or Production spots are migrated in this slice.
+`public.spots.id` remains the World subject identifier. Provider IDs are namespaced references. Duplicate detection may write only `DUPLICATE_SUSPECTED` or `MERGE_PROPOSED`; both preserve both Spot identities and change no claims. `MERGE_CONFIRMED`, `SPLIT`, `MERGE_REVERSED` and every other identity-changing operation fail with `IDENTITY_OPERATION_AUTHORITY_NOT_CONFIGURED`. A Registry/Slice approval has no identity-operation authority. Final event-specific, direction-bound and single-use Duplicate authority is intentionally deferred. No legacy values or Production spots are migrated in this slice.
 
 The Slice 2 adapter remains conservative: only explicit direct/normalized mappings can emit candidate claims; ambiguous, subjective, missing-provenance, prohibited, and no-target data do not become verified World truth.
 
@@ -59,5 +59,5 @@ The migration is code only until a separately authorized release. The local proo
 - notification/cron operation and holiday calendars;
 - human content-safety operations and SLA commitments;
 - Capability→Intent mappings, hard-constraint policy, ranking and Decision runtime integration;
-- complete taxonomy, subjective moods, public spot page, and final duplicate authority;
-- Legal/CTO retention durations and actor-deletion implementation.
+- complete taxonomy, subjective moods, public spot page, and final event-specific duplicate authority;
+- Legal/CTO retention durations, anonymization criteria, and operational account-deletion policy.

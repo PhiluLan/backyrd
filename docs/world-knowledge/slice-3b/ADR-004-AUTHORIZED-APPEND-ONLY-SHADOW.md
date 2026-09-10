@@ -4,7 +4,7 @@ Status: accepted for Slice 3B repository implementation; not Production activate
 
 ## Decision
 
-Use a private append-only ledger, server-derived Owner/Admin authority, versioned Source/Entitlement policies, separately bound verification records, and immutable resolution manifests. Keep public World and Decision candidate projections separate. Restrict resolution to synthetic/allowlisted shadow subjects.
+Use a private append-only ledger, server-derived Owner/Admin authority, versioned Source/Entitlement policies, separately bound verification records, and immutable resolution manifests. Bind verification and confirmation to the exact current actor/Spot relationship. Separate input, resolution-output and manifest identities. Keep public World and Decision candidate projections separate. Restrict resolution to synthetic/allowlisted shadow subjects.
 
 ## Why
 
@@ -13,5 +13,7 @@ Direct client trust fields make self-verification possible. Mutable facts erase 
 ## Consequences
 
 Writes require server scope checks and append multiple records atomically. Current projections are rebuildable and historical claims remain stable. Owners/Admins can author the accepted objective scope, but reports/imports/AI cannot self-verify. Subscription can unlock an input surface without changing the meaning or weight of any fact.
+
+Actor deletion detaches the Auth identity and rotates an opaque pseudonym while preserving historical ledger references; this is pseudonymization, not an assertion of anonymization. Identity-changing merge/split/reversal operations remain disabled until a concrete event-scoped authority contract is approved.
 
 Production activation needs a separate migration/release plan, retention approval, operational moderation, real identity/duplicate authority, monitoring, rollback rehearsal and consumer compatibility review.
