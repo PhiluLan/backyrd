@@ -166,6 +166,10 @@ select pg_temp.assert((select count(*)=1 from world_knowledge_private.review_wor
 select pg_temp.assert((select count(*)=6 from world_knowledge_private.claims),'user report created claim');
 
 -- Actual database-role boundary, not a caller-controlled JWT role string.
+create temporary table wk_resolution_results(label text primary key,payload jsonb);
+create temporary table wk_clock as select clock_timestamp() as as_of;
+grant select on wk_clock to authenticated,service_role;
+grant all on wk_resolution_results to service_role;
 set local role anon;
 select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,clock_timestamp(),%L,%L)',pg_temp.id('wk-basic-spot'),'FULL','anon-rebuild'),'42501','anon executed shadow rebuild');
 reset role;
@@ -176,8 +180,6 @@ set local role service_role;
 select pg_temp.expect_error(format('select world_knowledge_private.get_actor_binding_v1(%L,%L)',pg_temp.id('wk-new-owner'),'VERIFIED_OWNER'),'42501','service role called internal helper directly');
 
 -- Manifest identity: excluded inputs change input/manifest identity, not the resolved output.
-create temporary table wk_resolution_results(label text primary key,payload jsonb);
-create temporary table wk_clock as select clock_timestamp() as as_of;
 insert into wk_resolution_results values('baseline',public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'));
 insert into wk_resolution_results values('baseline-replay',public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'INCREMENTAL','replay-baseline'));
 select pg_temp.assert((select (a.payload->>'manifestHash')=(b.payload->>'manifestHash') and (a.payload->>'inputHash')=(b.payload->>'inputHash') from wk_resolution_results a,wk_resolution_results b where a.label='baseline' and b.label='baseline-replay'),'identical request was not idempotent');
