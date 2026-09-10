@@ -2,6 +2,8 @@
 
 Phase 3A ergänzt Observation Records, Interpretation Records, User Model Snapshots, Latest Pointer, Incremental Reducer State, Projection Cache, Model Rebuild Material, Attribution Work Items und subject-gebundene Evaluation Fixtures. Alle sind personenbezogen und müssen bei Account Erasure tatsächlich gelöscht werden; nur strikt nicht-personenbezogene technische Manifeste dürfen bestehen bleiben. Retention-Zeiträume sind weiterhin nicht freigegeben.
 
+Phase 3B ergänzt `calibration_reports_subject_bound` und `calibration_rebuild_material` als personenbezogene abgeleitete Stores. Consent Withdrawal und Full Reset entfernen sie; Account Erasure verlangt `DELETE`. Der Repository-Report verwendet ausschließlich synthetische Subjects und Events und besitzt keine Production-Autorität.
+
 `USER_INTELLIGENCE_LIFECYCLE_MANIFEST` ist das maschinenlesbare Gate für alle geplanten vNext-Stores. Ein fehlender Store oder ein unvollständiger Export-, Retention-, Purge-, Consent-, Erasure- oder Rebuild-Vertrag lässt die Validierung scheitern.
 
 | Store | Klasse | Wahrheit | Export | Lifecycle |

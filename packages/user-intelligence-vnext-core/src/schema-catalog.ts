@@ -52,5 +52,12 @@ export const USER_INTELLIGENCE_VNEXT_SCHEMA_CATALOG = Object.freeze({
     ["UserModelLifecycleExecution", CONTRACT_VERSIONS.userModelLifecycleExecution, "UserModelLifecycleExecutionRecordSchema", "verifyUserModelLifecycleCompletion"],
     ["UserModelLifecycleTrustAnchor", CONTRACT_VERSIONS.userModelLifecycleTrustAnchor, "UserModelLifecycleTrustAnchorSchema", "verifyUserModelLifecycleCompletion"],
     ["UserModelLifecycleCompletion", CONTRACT_VERSIONS.userModelLifecycleCompletion, "UserModelLifecycleCompletionSchema", "verifyUserModelLifecycleCompletion"],
+    ["SignalSemanticsRegistry", CONTRACT_VERSIONS.signalSemanticsRegistry, "SignalSemanticsRegistrySchema", "parseSignalSemanticsRegistry"],
+    ["CalibrationPolicy", CONTRACT_VERSIONS.calibrationPolicy, "CalibrationPolicySchema", "verifyCalibrationPolicy"],
+    ["CalibrationPolicyTrustAnchor", CONTRACT_VERSIONS.calibrationPolicyTrustAnchor, "CalibrationPolicyTrustAnchorSchema", "verifyCalibrationPolicy"],
+    ["CalibrationEvidence", CONTRACT_VERSIONS.calibrationEvidence, "CalibrationEvidenceSchema", "verifyCalibrationEvidence"],
+    ["CalibrationEvidenceTrustAnchor", CONTRACT_VERSIONS.calibrationEvidenceTrustAnchor, "CalibrationEvidenceTrustAnchorSchema", "verifyCalibrationEvidence"],
+    ["CalibrationScenario", CONTRACT_VERSIONS.calibrationScenario, "CalibrationScenarioSchema", "runCalibrationScenario"],
+    ["CalibrationReport", CONTRACT_VERSIONS.calibrationReport, "CalibrationReportSchema", "verifyCalibrationReport"],
   ].map(([name, contractVersion, runtimeSchemaExport, semanticValidatorExport]) => ({ name, contractVersion, runtimeSchemaExport, semanticValidatorExport }))),
 });

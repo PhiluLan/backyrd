@@ -44,6 +44,13 @@ export const CONTRACT_VERSIONS = Object.freeze({
   userModelLifecycleExecution: "backyrd.user-intelligence.user-model-lifecycle-execution@3a.1",
   userModelLifecycleTrustAnchor: "backyrd.user-intelligence.user-model-lifecycle-trust-anchor@3a.1",
   userModelLifecycleCompletion: "backyrd.user-intelligence.user-model-lifecycle-completion@3a.1",
+  signalSemanticsRegistry: "backyrd.user-intelligence.signal-semantics-registry@3b.0",
+  calibrationPolicy: "backyrd.user-intelligence.calibration-policy@3b.0",
+  calibrationPolicyTrustAnchor: "backyrd.user-intelligence.calibration-policy-trust-anchor@3b.0",
+  calibrationEvidence: "backyrd.user-intelligence.calibration-evidence@3b.0",
+  calibrationEvidenceTrustAnchor: "backyrd.user-intelligence.calibration-evidence-trust-anchor@3b.0",
+  calibrationScenario: "backyrd.user-intelligence.calibration-scenario@3b.0",
+  calibrationReport: "backyrd.user-intelligence.calibration-report@3b.0",
 } as const);
 
 export const SYNTHETIC_CONCEPT_REGISTRY_VERSION = "backyrd.synthetic-user-concepts@1.0";

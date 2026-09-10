@@ -2,6 +2,8 @@
 
 Phase 3A ergänzt diesen kanonischen Evidence-Layer additiv um den in [`phase3a/ADR-003-USER-MODEL-LEARNING-KERNEL.md`](phase3a/ADR-003-USER-MODEL-LEARNING-KERNEL.md) beschriebenen Learning Kernel. Es existiert weiterhin keine Production Interpretation Policy und kein Product Wiring.
 
+Phase 3B ergänzt oberhalb dieses Kernels eine versionierte Signal-Semantics-Registry, drei extern akzeptierte Calibration-Policy-Kandidaten und ein deterministisches 34-Szenarien-Lab. Die echte `RelevantUserProjection` bleibt neutral; die getrennte Calibration Projection besitzt keine Eligibility- oder Ranking-Autorität. Details stehen in [`phase3b/README.md`](phase3b/README.md) und [`phase3b/ADR-004-PHASE3B-CALIBRATION-FOUNDATION.md`](phase3b/ADR-004-PHASE3B-CALIBRATION-FOUNDATION.md).
+
 Status: Event-Semantik- und Evidence-Chain-Foundation, ausschließlich synthetisch. Keine Product-Integration und keine neue Speicherung.
 
 ## Autoritäten

@@ -1,0 +1,24 @@
+{
+  "version": "backyrd.user-intelligence.phase3b-compatibility@1.0",
+  "canonicalBase": "5ddd15eaf75ceb8448dbf59667c14ffb2ffdac0e",
+  "productionAuthorized": false,
+  "entries": [
+    { "component": "phase2_evidence_chains", "classification": "KEEP", "reason": "authoritative observation source" },
+    { "component": "observation_records", "classification": "KEEP", "reason": "immutable fact layer" },
+    { "component": "interpretation_records", "classification": "EXTEND", "reason": "calibration interpretations add separate identities and hashes" },
+    { "component": "model_authority", "classification": "KEEP", "reason": "external trust anchor remains mandatory" },
+    { "component": "phase3a_incremental_reducer", "classification": "KEEP", "reason": "genuine checkpoint-bound delta reducer" },
+    { "component": "interpretation_policy", "classification": "EXTEND", "reason": "three calibration-only candidates" },
+    { "component": "global_sufficiency", "classification": "REPLACE", "reason": "calibration uses multidimensional domain sufficiency" },
+    { "component": "relevant_user_projection", "classification": "KEEP", "reason": "canonical production projection remains neutral" },
+    { "component": "calibration_projection", "classification": "EXTEND", "reason": "separate lab-only artifact without decision authority" },
+    { "component": "lifecycle_manifest", "classification": "EXTEND", "reason": "calibration reports and rebuild material are personal stores" },
+    { "component": "legacy_numeric_taste_factors", "classification": "PROHIBITED", "reason": "not product-authorized evidence semantics" },
+    { "component": "dwell_quick_skip_reject", "classification": "UNKNOWN_NEEDS_PRODUCT_DECISION", "reason": "ambiguous behavior" },
+    { "component": "search_moment_review_mood", "classification": "UNKNOWN_NEEDS_PRODUCT_DECISION", "reason": "research-only and not projectable" },
+    { "component": "world_knowledge_boundary", "classification": "KEEP", "reason": "event-time registry references and uncertainty preserved" },
+    { "component": "context_boundary", "classification": "KEEP", "reason": "context remains separate from long-term taste" },
+    { "component": "decision_vnext_boundary", "classification": "KEEP", "reason": "no eligibility or ranking authority" },
+    { "component": "production_wiring", "classification": "PROHIBITED", "reason": "explicitly outside Phase 3B" }
+  ]
+}
