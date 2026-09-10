@@ -47,8 +47,8 @@ Admin-Lifecycle-Autorität ist modelliert, aber nicht produktiv implementiert. S
 
 ## Phase‑2-Verarbeitung
 
-Der `EvidenceChainBuilder` akzeptiert nur bereits geparste Canonical Events sowie separat gehashte Journey-, World-, Context- und Correction-Authority-Records. Er besitzt keine Client-Grenze. Sein strict Runtime-Input lehnt unbekannte Felder einschließlich User-, Journey-, Signalstärke-, Payment-, Owner-, Advertising- und Sponsorship-Behauptungen ab.
+Der `EvidenceChainBuilder` akzeptiert nur bereits geparste Canonical Events und verlangt zusätzlich einen separat injizierten `EvidenceAuthorityContext`. Hash und Authority-Label im Payload reichen ausdrücklich nicht aus. Der Server-Port bindet Authentication/Subject, Consent, Lifecycle, Builder-/Retention-Policy sowie die vollständigen Journey-, World-, Context- und Correction-Records. Jedes Set muss exakt und ohne Duplikate oder verwaiste Records zum Runtime-Input passen. Sein strict Runtime-Input lehnt unbekannte Felder einschließlich User-, Journey-, Signalstärke-, Payment-, Owner-, Advertising- und Sponsorship-Behauptungen ab.
 
-Journey Resolution kennt `SAME_JOURNEY`, `PROBABLE_RELATED`, `INDEPENDENT_NEW_JOURNEY`, `UNRESOLVED` und `CONFLICT`. Nur autoritative, usergebundene Product-Links können eine Journey-ID oder Independence liefern. Same Spot, zeitliche Nähe und geteilter Context bleiben nicht independence-fähige Korrelation.
+Journey Resolution kennt `SAME_JOURNEY`, `PROBABLE_RELATED`, `INDEPENDENT_NEW_JOURNEY`, `UNRESOLVED` und `CONFLICT`. Nur Links, die ein injizierter `JourneyAuthorityVerifier` gegen einen gültigen Product-/Outcome-Record exakt bestätigt, können eine Journey-ID oder Independence liefern. Same Spot, zeitliche Nähe und geteilter Context bleiben nicht independence-fähige Korrelation.
 
 Die Chain exponiert nur einen serverseitigen `subjectBindingHash`, nie die direkte User-ID. Source Reliability ist ein diskreter Herkunftszustand, keine Stärke. Evidence Direction ist ausschließlich bei einem expliziten Satisfaction-Event positiv oder negativ; alle anderen freigegebenen Events bleiben `NOT_APPLICABLE`.

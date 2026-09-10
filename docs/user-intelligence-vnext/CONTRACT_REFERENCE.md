@@ -21,12 +21,12 @@ Normative Exports liegen in `packages/user-intelligence-vnext-core/src`. Jeder O
 | `UserTransparencyView` | spätere userlesbare Sicht | Herkunft/Unsicherheit/Korrekturbarkeit ohne Security- oder Fremddaten |
 | `LifecycleCommand` | Export/Korrektur/Reset/Purge/Rebuild | Authority, Idempotency, Scope, Zielstores, Completion und Fehler |
 | `CANONICAL_EVENT_CATALOG` | Phase‑2-Semantik | Klasse, Authority, References, Product State, Journey, Slots, verbotene Interpretationen, Purpose, Retention-Verantwortung, Correction und Dedupe |
-| `JourneyResolution` | deterministische serverseitige Journey-Zuordnung | fünf Resolution States, Reason Codes, Input-/Proof-Hash; Same-Spot allein bleibt ungelöst |
+| `JourneyResolution` | deterministische serverseitige Journey-Zuordnung | fünf Resolution States, Reason Codes, externe Authority-Proofs, Input-/Proof-Hash; Same-Spot allein bleibt ungelöst |
 | `DeduplicationRecord` | Retry-/Idempotency-Audit | Event-ID, Idempotency Key und Product Source Record; Konflikte fail-closed |
 | `EvidenceChainV2` | aktive und historische Journey-Evidence | pseudonymes Subject, Event Hashes, zehn Slots, World/Context, Reliability State, Independence, Uncertainty, Limitations, Corrections und Chain Hash |
 | `WorldEvidenceBinding` | event-time World Consumer Port | opaque Registry-/State-Hashes, Trust/Freshness/Provenance, Conflicts/Unknowns/Exclusions; kein World-Type-Duplikat |
 | `ContextEvidenceBinding` | minimierter damaliger Context | explizit/serverautorisiert/abgeleitet/unknown; kein Rohstandort, keine privaten Social-Daten, kein Long-Term-Taste |
-| `CorrectionAuthorityRecord` | serverseitiger Correction Lookup | Ziel-User/-Spot/-Zeit und Resolution Hash; keine Cross-User/-Spot-Correction |
+| `CorrectionAuthorityRecord` | serverseitiger Correction Lookup | Record-ID, Gültigkeit, Policy, Ziel-User/-Spot/-Zeit und Resolution Hash; exakter Abgleich mit injiziertem Ledger-Port |
 | `EvidenceEngineState` | deterministischer Rebuild-/Lifecycle-State | Chains, Ledger-Hashes, Pointer, Caches und Work Items; neutrale/gelöschte States enthalten keine Personenbindung |
 
 `USER_INTELLIGENCE_VNEXT_SCHEMA_CATALOG` macht Contract-, Validator- und Kompatibilitätsidentitäten maschinenlesbar. Die Runtime-Schemas sind die normative funktionale Entsprechung zu statischen JSON-Schemas; eine zweite, driftanfällige Validator-Implementierung wird bewusst vermieden.
@@ -35,4 +35,4 @@ Normative Exports liegen in `packages/user-intelligence-vnext-core/src`. Jeder O
 
 Technische Erstellungszeit steht bei Snapshot und Projection unter `technicalMetadata` und wird nicht in den fachlichen Hash aufgenommen. Eventzeiten, servergebundene Referenzen und Source Watermarks bleiben Bestandteil des Hashes, weil sie fachliche Inputs sind. Arrayreihenfolge wird erhalten; nur Objektkeys werden kanonisch sortiert.
 
-`verifyEvidenceChainV2` prüft nicht nur den äußeren Hash. Es bindet jedes innere Item erneut an Canonical Event, Katalog, Journey-Resolution, World-/Context-Proof, Correction Authority, Reliability, Reference Index, Independence und Limitations. Ein Angreifer kann deshalb eine innere Bedeutungsänderung nicht durch Neuberechnung von Chain- oder State-Hash legitimieren.
+`verifyEvidenceChainV2` prüft nicht nur den äußeren Hash. Es bindet Subject, Consent/Purpose/Version, erlaubte Verarbeitung, Builder-/Lifecycle-/Retention-Policy und jedes innere Item erneut an Canonical Event, Katalog, Journey-Resolution, World-/Context-Proof, Correction Authority, Reliability, Reference Index, Independence und Limitations. `verifyEvidenceEngineState` rekonstruiert anschließend den vollständigen State aus autorisiertem Rebuild-Material. Eine innere Bedeutungsänderung, falsche Pointer oder ein ausgelassener Ledger-Eintrag werden daher auch mit neu berechneten Chain- und State-Hashes abgewiesen.

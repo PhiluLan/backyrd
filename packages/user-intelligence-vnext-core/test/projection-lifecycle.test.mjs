@@ -70,7 +70,7 @@ test("projection strict schema rejects raw, ranking and commercial fields", () =
 });
 
 test("lifecycle manifest and completed account erasure require deletion of every personal store", () => {
-  assert.equal(validateLifecycleManifest().stores.length, 13);
+  assert.equal(validateLifecycleManifest().stores.length, REQUIRED_LIFECYCLE_STORES.length);
   const incomplete = { ...USER_INTELLIGENCE_LIFECYCLE_MANIFEST, stores: USER_INTELLIGENCE_LIFECYCLE_MANIFEST.stores.filter((row) => row.store !== "snapshots") };
   assert.throws(() => validateLifecycleManifest(incomplete), /missing lifecycle policy for snapshots/);
   const erasure = planLifecycleImpact("ACCOUNT_ERASURE");

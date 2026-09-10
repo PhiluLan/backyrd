@@ -15,6 +15,14 @@ Phase 2 führt vier getrennte Autoritäten ein:
 
 Unklare Legacy-Events sind im Katalog sichtbar, aber `NOT_CONFIGURED`. Das ist ein Fail-closed-Zustand, kein unfertiger Alias.
 
+## CTO Review Closure: externe Authority und rekursive Integrität
+
+Ein Authority-Label oder ein vom Payload selbst berechneter Hash ist kein Herkunftsnachweis. `resolveJourney` verlangt deshalb einen separat durch die Server-Komposition injizierten `JourneyAuthorityVerifier`. Er liefert den autoritativen Record aus einem Product-/Outcome-System; Record-ID, Hash, User, Spot, Decision, Session, Experience, Authority, Policy und Gültigkeit müssen exakt mit dem Link übereinstimmen. Ohne Lookup-Treffer wird fail-closed abgebrochen.
+
+Der `EvidenceChainBuilder` verlangt analog einen injizierten `EvidenceAuthorityContext`. Dieser liefert Authentication/Subject, Consent, Lifecycle, Builder- und Retention-Policy sowie die vollständigen autoritativen Journey-, World-, Context- und Correction-Sets. Payload und Authority müssen eins zu eins übereinstimmen; doppelte, widersprüchliche oder verwaiste Records werden vor jeder Map-Konstruktion abgewiesen. Der Port ist eine Server-Composition-Boundary, kein serialisierbares Client-Feld.
+
+`verifyEvidenceChainV2` rekonstruiert Subject, Processing Authorization, Lifecycle, Journey, semantische Items, Bindings, Corrections, Independence, Limits, Chain-ID und Hash. `verifyEvidenceEngineState` baut aus autorisiertem Rebuild-Material byte-identisch neu auf und vergleicht den vollständigen State. Damit legitimiert auch ein vollständig neu berechneter äußerer Hash keine manipulierte innere Chain, keinen falschen Pointer und keinen ausgelassenen Ledger-Eintrag.
+
 ## Deduplizierung
 
 Event-ID, Idempotency Key und Product Source Record werden getrennt geprüft. Konfligierende Wiederverwendung scheitert. Standard-/Smart-Review desselben Review-Datensatzes wird als eine Product-Erfahrung dedupliziert. Verschiedene servergelöste Journeys werden auch am selben Spot nie zusammengelegt.

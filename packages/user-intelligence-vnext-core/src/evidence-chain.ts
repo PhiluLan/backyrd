@@ -14,7 +14,7 @@ const byEvent = (left: CanonicalUserEvent, right: CanonicalUserEvent) => left.oc
 const WorldFactReferenceSchema = schema.object({ referenceId: identifier, kind: schema.enum(["CONCEPT", "FACT"] as const), trust: schema.enum(["VERIFIED", "SUPPORTED", "CONTESTED", "UNKNOWN"] as const), freshness: schema.enum(["CURRENT_AT_EVENT", "STALE_AT_EVENT", "UNKNOWN"] as const), provenanceSummary: identifier });
 export const WorldEvidenceBindingSchema = schema.object({
   contractVersion: schema.literal(CONTRACT_VERSIONS.worldEvidenceConsumer), bindingId: identifier,
-  eventId: identifier, eventHash: sha256, spotId: identifier,
+  eventId: identifier, eventHash: sha256, spotId: identifier, bindingScope: schema.literal("EVENT_TIME_WORLD"),
   worldRegistryVersion: identifier, worldRegistryHash: sha256,
   stateKind: schema.enum(["EVENT_TIME_SNAPSHOT", "EVENT_TIME_PROJECTION"] as const), stateHash: sha256,
   evidenceAt: timestamp, resolvedAt: timestamp,
@@ -51,7 +51,7 @@ export function resolveEventTimeWorldEvidence(provider: EventTimeWorldEvidencePr
 
 export const ContextEvidenceBindingSchema = schema.object({
   contractVersion: schema.literal(CONTRACT_VERSIONS.contextEvidence), bindingId: identifier,
-  eventId: identifier, eventHash: sha256, source: schema.enum(["USER_EXPLICIT", "SERVER_AUTHORIZED", "CAUTIOUSLY_INFERRED", "UNKNOWN", "NOT_CONFIGURED"] as const),
+  eventId: identifier, eventHash: sha256, bindingScope: schema.literal("EVENT_TIME_CONTEXT"), source: schema.enum(["USER_EXPLICIT", "SERVER_AUTHORIZED", "CAUTIOUSLY_INFERRED", "UNKNOWN", "NOT_CONFIGURED"] as const),
   contextContractVersion: identifier, contextHash: sha256, evidenceAt: timestamp,
   dimensions: schema.array(identifier, { max: 24 }), rawLocationIncluded: schema.literal(false), privateSocialDataIncluded: schema.literal(false),
   longTermTasteEligible: schema.literal(false), limitations: schema.array(identifier, { max: 24 }), bindingHash: sha256,
@@ -66,10 +66,10 @@ export function parseContextEvidenceBinding(value: unknown): ContextEvidenceBind
 }
 
 export const CorrectionAuthorityRecordSchema = schema.object({
-  contractVersion: schema.literal(CONTRACT_VERSIONS.correctionResolution), authority: schema.literal("SERVER_EVENT_LEDGER"),
+  contractVersion: schema.literal(CONTRACT_VERSIONS.correctionResolution), recordId: identifier, authority: schema.literal("SERVER_EVENT_LEDGER"),
   correctionEventId: identifier, targetEventId: identifier, boundUserId: identifier, targetUserId: identifier,
   targetSpotId: schema.nullable(identifier), correctionSpotId: schema.nullable(identifier), targetOccurredAt: timestamp,
-  policyVersion: identifier, resolutionRecordHash: sha256,
+  policyVersion: identifier, validUntil: timestamp, resolutionRecordHash: sha256,
 });
 export type CorrectionAuthorityRecord = Infer<typeof CorrectionAuthorityRecordSchema>;
 export function withCorrectionResolutionHash(value: Omit<CorrectionAuthorityRecord, "resolutionRecordHash">): CorrectionAuthorityRecord { return CorrectionAuthorityRecordSchema.parse({ ...value, resolutionRecordHash: contentHash(value) }); }
@@ -176,6 +176,26 @@ export const EvidenceChainBuildInputSchema = schema.object({
 });
 export type EvidenceChainBuildInput = Infer<typeof EvidenceChainBuildInputSchema>;
 
+export const EvidenceProcessingAuthoritySchema = schema.object({
+  contextVersion: identifier,
+  subject: schema.object({ boundUserId: identifier, subjectBindingHash: sha256, authority: schema.literal("SERVER_AUTHENTICATION"), userIdExternallyExposed: schema.literal(false) }),
+  consent: ConsentEnvelopeSchema, builderPolicyVersion: identifier,
+  lifecycleState: schema.enum(["ACTIVE", "WITHDRAWN", "ERASED"] as const),
+  retentionClass: identifier, retentionDurationDefined: schema.literal(false), verifiedAt: timestamp,
+  journeyAuthorityContextVersion: identifier, acceptedJourneyPolicyVersions: schema.array(identifier, { min: 1, max: 16 }),
+  correctionAuthority: schema.literal("SERVER_EVENT_LEDGER"), acceptedCorrectionPolicyVersions: schema.array(identifier, { min: 1, max: 16 }),
+});
+export type EvidenceProcessingAuthority = Infer<typeof EvidenceProcessingAuthoritySchema>;
+
+/** Injected server adapter. Its lookups are deliberately outside the runtime payload contract. */
+export interface EvidenceAuthorityContext {
+  getProcessingAuthority(): unknown;
+  listJourneyResolutions(): readonly unknown[];
+  listWorldEvidence(): readonly unknown[];
+  listContextEvidence(): readonly unknown[];
+  listCorrectionRecords(): readonly unknown[];
+}
+
 export const EvidenceEngineStateSchema = schema.object({
   contractVersion: schema.literal(CONTRACT_VERSIONS.evidenceEngineState), status: schema.enum(["ACTIVE", "SUPPRESSED_NO_CONSENT", "WITHDRAWN", "RESET", "ERASED"] as const),
   subjectBindingHash: schema.nullable(sha256), ledgerEventHashes: schema.array(sha256, { max: 1024 }), chains: schema.array(EvidenceChainV2Schema, { max: 1024 }),
@@ -183,11 +203,18 @@ export const EvidenceEngineStateSchema = schema.object({
   caches: schema.array(sha256, { max: 1024 }), workItems: schema.array(identifier, { max: 1024 }), stateHash: sha256,
 });
 export type EvidenceEngineState = Infer<typeof EvidenceEngineStateSchema>;
-export interface EvidenceBuildResult { readonly state: EvidenceEngineState; readonly acceptedEvents: readonly CanonicalUserEvent[]; readonly deduplication: readonly DeduplicationRecord[]; readonly input: EvidenceChainBuildInput; }
+export interface EvidenceBuildResult {
+  readonly state: EvidenceEngineState;
+  readonly acceptedEvents: readonly CanonicalUserEvent[];
+  readonly deduplication: readonly DeduplicationRecord[];
+  readonly rebuildMaterial: EvidenceChainBuildInput | null;
+}
 
 function parseEngineState(value: unknown): EvidenceEngineState {
   const parsed = EvidenceEngineStateSchema.parse(value);
   if (parsed.status !== "ACTIVE" && (parsed.subjectBindingHash !== null || parsed.ledgerEventHashes.length || parsed.chains.length || parsed.latestPointers.length || parsed.caches.length || parsed.workItems.length)) throw new ContractValidationError("$.status", "suppressed or erased evidence state must contain no personal data");
+  assertUnique(parsed.ledgerEventHashes, (hash) => hash, "$.ledgerEventHashes"); assertUnique(parsed.chains, (chain) => chain.chainId, "$.chains.chainId"); assertUnique(parsed.chains, (chain) => chain.chainHash, "$.chains.chainHash");
+  assertUnique(parsed.latestPointers, (pointer) => pointer.journeyKey, "$.latestPointers.journeyKey"); assertUnique(parsed.latestPointers, (pointer) => pointer.chainId, "$.latestPointers.chainId"); assertUnique(parsed.caches, (cache) => cache, "$.caches"); assertUnique(parsed.workItems, (item) => item, "$.workItems");
   if (contentHash(without(parsed as unknown as Record<string, unknown>, ["stateHash"])) !== parsed.stateHash) throw new ContractValidationError("$.stateHash", "evidence engine state hash mismatch");
   return parsed;
 }
@@ -204,8 +231,12 @@ function directionOf(event: CanonicalUserEvent): EvidenceItem["direction"] {
 }
 function slotKey(slot: EvidenceSlot): keyof EvidenceChainV2["slots"] { return ({ EXPOSURE: "exposure", INTERACTION: "interaction", SEARCH: "search", INTENT: "intent", DECISION: "decision", EXPERIENCE: "experience", SATISFACTION: "satisfaction", STATE_CHANGE: "stateChange", CORRECTION: "correction", SOCIAL_OBSERVATION: "socialObservation" } as const)[slot]; }
 function uniqueSorted(values: readonly (string | undefined)[]): string[] { return [...new Set(values.filter((value): value is string => value !== undefined))].sort(); }
+function assertUnique<T>(values: readonly T[], key: (value: T) => string, path: string): void {
+  const seen = new Set<string>(); for (const value of values) { const identity = key(value); if (seen.has(identity)) throw new ContractValidationError(path, `duplicate or conflicting identity ${identity}`); seen.add(identity); }
+}
 
 function validateCorrections(events: readonly CanonicalUserEvent[], records: readonly CorrectionAuthorityRecord[]): ReadonlySet<string> {
+  assertUnique(records, (record) => record.recordId, "$.corrections.recordId"); assertUnique(records, (record) => record.resolutionRecordHash, "$.corrections.resolutionRecordHash"); assertUnique(records, (record) => record.correctionEventId, "$.corrections.correctionEventId");
   const eventMap = new Map(events.map((event) => [event.eventId, event])); const recordMap = new Map(records.map((record) => [record.correctionEventId, parseCorrectionAuthorityRecord(record)]));
   const inactive = new Set<string>(); const edges = new Map<string, string>();
   for (const correction of events.filter((event) => event.eventType === "USER_CORRECTION")) {
@@ -218,17 +249,20 @@ function validateCorrections(events: readonly CanonicalUserEvent[], records: rea
     if (authority.targetOccurredAt !== target.occurredAt || Date.parse(correction.occurredAt) <= Date.parse(target.occurredAt)) throw new ContractValidationError("$.corrections", "correction must occur after its target event");
     edges.set(correction.eventId, targetId); inactive.add(targetId);
   }
+  if (recordMap.size !== events.filter((event) => event.eventType === "USER_CORRECTION").length) throw new ContractValidationError("$.corrections", "orphan correction authority record");
   for (const start of edges.keys()) { const seen = new Set<string>(); let cursor: string | undefined = start; while (cursor && edges.has(cursor)) { if (seen.has(cursor)) throw new ContractValidationError("$.corrections", "cyclic supersedes chain"); seen.add(cursor); cursor = edges.get(cursor); } }
   return inactive;
 }
 
 function validateBindings(events: readonly CanonicalUserEvent[], world: readonly WorldEvidenceBinding[], context: readonly ContextEvidenceBinding[]): void {
+  assertUnique(world, (binding) => binding.bindingId, "$.worldEvidence.bindingId"); assertUnique(world, (binding) => binding.bindingHash, "$.worldEvidence.bindingHash"); assertUnique(world, (binding) => `${binding.eventId}|${binding.bindingScope}`, "$.worldEvidence");
+  assertUnique(context, (binding) => binding.bindingId, "$.contextEvidence.bindingId"); assertUnique(context, (binding) => binding.bindingHash, "$.contextEvidence.bindingHash"); assertUnique(context, (binding) => `${binding.eventId}|${binding.bindingScope}`, "$.contextEvidence");
   const eventMap = new Map(events.map((event) => [event.eventId, event]));
   for (const binding of world) { const parsed = parseWorldEvidenceBinding(binding); const event = eventMap.get(parsed.eventId); if (!event || event.eventHash !== parsed.eventHash || event.references.spotId !== parsed.spotId) throw new ContractValidationError("$.worldEvidence", "world binding does not match its canonical event"); if (Date.parse(parsed.evidenceAt) > Date.parse(event.occurredAt)) throw new ContractValidationError("$.worldEvidence.evidenceAt", "world evidence is newer than the event"); }
   for (const binding of context) { const parsed = parseContextEvidenceBinding(binding); const event = eventMap.get(parsed.eventId); if (!event || event.eventHash !== parsed.eventHash) throw new ContractValidationError("$.contextEvidence", "context binding does not match its canonical event"); if (Date.parse(parsed.evidenceAt) > Date.parse(event.occurredAt)) throw new ContractValidationError("$.contextEvidence.evidenceAt", "context evidence is newer than the event"); }
 }
 
-function chainFor(group: readonly CanonicalUserEvent[], resolution: JourneyResolution, input: EvidenceChainBuildInput, inactive: ReadonlySet<string>, worldMap: ReadonlyMap<string, WorldEvidenceBinding>, contextMap: ReadonlyMap<string, ContextEvidenceBinding>, correctionMap: ReadonlyMap<string, CorrectionAuthorityRecord>): EvidenceChainV2 {
+function chainFor(group: readonly CanonicalUserEvent[], resolution: JourneyResolution, input: EvidenceChainBuildInput, processingAuthority: EvidenceProcessingAuthority, inactive: ReadonlySet<string>, worldMap: ReadonlyMap<string, WorldEvidenceBinding>, contextMap: ReadonlyMap<string, ContextEvidenceBinding>, correctionMap: ReadonlyMap<string, CorrectionAuthorityRecord>): EvidenceChainV2 {
   const sorted = [...group].sort(byEvent); const slots: Record<keyof EvidenceChainV2["slots"], EvidenceItem[]> = { exposure: [], interaction: [], search: [], intent: [], decision: [], experience: [], satisfaction: [], stateChange: [], correction: [], socialObservation: [] };
   const reliability: Array<{ eventId: string; state: "UNTRUSTED_OBSERVATION" | "AUTHENTICATED" | "SERVER_VERIFIED" | "UNKNOWN" }> = [];
   for (const event of sorted) {
@@ -262,18 +296,35 @@ function chainFor(group: readonly CanonicalUserEvent[], resolution: JourneyResol
     uncertainty: { state: uncertaintyReasons.length ? "MATERIAL" as const : "BOUNDED" as const, reasonCodes: uncertaintyReasons.length ? uncertaintyReasons : ["NO_MATERIAL_UNCERTAINTY_RECORDED"] },
     limitations: uniqueSorted(["NO_TASTE_SCORE", "NO_ATTRIBUTION", "NO_EVENT_WEIGHT", "NO_TEMPORAL_DECAY", "NO_RANKING_AUTHORITY", "CURRENT_CONTEXT_NOT_LONG_TERM_TASTE", "WORLD_CONCEPTS_NOT_INDEPENDENT_EXPERIENCES", ...sorted.flatMap((event) => CANONICAL_EVENT_CATALOG[event.eventType].forbiddenInterpretations)]), corrections,
     processingAuthorization: { purpose: "PERSONALIZED_RECOMMENDATIONS" as const, consentState: "GRANTED" as const, consentVersion: input.consent.consentVersion },
-    lifecycle: { state: "ACTIVE" as const, retentionClass: "UNRESOLVED_PRIVACY_POLICY", retentionDurationDefined: false as const }, builderPolicyVersion: input.builderPolicyVersion,
+    lifecycle: { state: "ACTIVE" as const, retentionClass: processingAuthority.retentionClass, retentionDurationDefined: processingAuthority.retentionDurationDefined }, builderPolicyVersion: input.builderPolicyVersion,
   };
   return EvidenceChainV2Schema.parse({ ...body, chainHash: contentHash(body) });
 }
 
-export interface EvidenceVerificationContext { readonly events: readonly CanonicalUserEvent[]; readonly journeyResolutions: readonly JourneyResolution[]; readonly worldEvidence: readonly WorldEvidenceBinding[]; readonly contextEvidence: readonly ContextEvidenceBinding[]; readonly corrections: readonly CorrectionAuthorityRecord[]; }
+export interface EvidenceVerificationContext {
+  readonly processingAuthority: EvidenceProcessingAuthority;
+  readonly events: readonly CanonicalUserEvent[];
+  readonly journeyResolutions: readonly JourneyResolution[];
+  readonly worldEvidence: readonly WorldEvidenceBinding[];
+  readonly contextEvidence: readonly ContextEvidenceBinding[];
+  readonly corrections: readonly CorrectionAuthorityRecord[];
+}
 export function verifyEvidenceChainV2(value: unknown, context: EvidenceVerificationContext): EvidenceChainV2 {
   const chain = EvidenceChainV2Schema.parse(value);
   if (contentHash(without(chain as unknown as Record<string, unknown>, ["chainHash"])) !== chain.chainHash) throw new ContractValidationError("$.chainHash", "evidence chain hash mismatch");
   parseJourneyResolution(chain.journey);
-  const ledger = new Map(context.events.map((event) => [event.eventId, parseCanonicalUserEvent(event)]));
+  const authority = EvidenceProcessingAuthoritySchema.parse(context.processingAuthority);
+  if (chain.subject.subjectBindingHash !== authority.subject.subjectBindingHash) throw new ContractValidationError("$.subject", "chain subject differs from server authentication");
+  const expectedAuthorization = { purpose: authority.consent.purpose, consentState: authority.consent.state, consentVersion: authority.consent.consentVersion };
+  if (canonicalComparable(chain.processingAuthorization) !== canonicalComparable(expectedAuthorization) || authority.consent.state !== "GRANTED" || !authority.consent.allowedProcessing.includes("PERSONALIZATION_EVIDENCE")) throw new ContractValidationError("$.processingAuthorization", "chain processing authorization differs from authoritative consent");
+  const expectedLifecycle = { state: authority.lifecycleState, retentionClass: authority.retentionClass, retentionDurationDefined: authority.retentionDurationDefined };
+  if (canonicalComparable(chain.lifecycle) !== canonicalComparable(expectedLifecycle) || authority.lifecycleState !== "ACTIVE") throw new ContractValidationError("$.lifecycle", "chain lifecycle differs from authoritative lifecycle");
+  if (chain.builderPolicyVersion !== authority.builderPolicyVersion) throw new ContractValidationError("$.builderPolicyVersion", "chain builder policy is not authorized");
+  if (chain.journey.authorityContextVersion !== authority.journeyAuthorityContextVersion || !authority.acceptedJourneyPolicyVersions.includes(chain.journey.policyVersion)) throw new ContractValidationError("$.journey", "chain journey authority or policy is not accepted");
+  assertUnique(context.events, (event) => event.eventId, "$.events.eventId"); assertUnique(context.events, (event) => event.eventHash, "$.events.eventHash");
+  const ledger = new Map(context.events.map((event) => [event.eventId, parseCanonicalUserEvent(event, authority.subject.boundUserId)]));
   const allItems = Object.values(chain.slots).flat();
+  assertUnique(allItems, (item) => item.eventId, "$.slots.eventId");
   if (allItems.length !== chain.eventHashes.length) throw new ContractValidationError("$.slots", "every canonical event must appear in exactly one evidence slot");
   const expectedEventHashes = allItems.map((item) => ({ eventId: item.eventId, eventHash: item.eventHash })).sort((left, right) => left.eventId.localeCompare(right.eventId));
   if (canonicalComparable([...chain.eventHashes].sort((left, right) => left.eventId.localeCompare(right.eventId))) !== canonicalComparable(expectedEventHashes)) throw new ContractValidationError("$.eventHashes", "event hash index differs from evidence slots");
@@ -283,11 +334,14 @@ export function verifyEvidenceChainV2(value: unknown, context: EvidenceVerificat
     if (item.eventType !== event.eventType || item.semanticClass !== catalog.semanticClass || item.slot !== expectedSlot || item.direction !== directionOf(event)) throw new ContractValidationError("$.slots", "inner evidence semantics do not match the canonical event catalog");
     if (item.spotId !== event.references.spotId || item.decisionId !== event.references.decisionId || item.candidateId !== event.references.candidateId) throw new ContractValidationError("$.slots", "inner evidence references do not match the canonical ledger");
   }
+  validateBindings([...ledger.values()], context.worldEvidence, context.contextEvidence);
   const expectedWorld = new Map(context.worldEvidence.map((binding) => [binding.eventId, parseWorldEvidenceBinding(binding)]));
   const expectedContext = new Map(context.contextEvidence.map((binding) => [binding.eventId, parseContextEvidenceBinding(binding)]));
   for (const item of allItems) { if (item.worldBindingHash !== expectedWorld.get(item.eventId)?.bindingHash && (item.worldBindingHash !== undefined || expectedWorld.has(item.eventId))) throw new ContractValidationError("$.worldEvidence", "inner world binding differs from authoritative evidence"); if (item.contextBindingHash !== expectedContext.get(item.eventId)?.bindingHash && (item.contextBindingHash !== undefined || expectedContext.has(item.eventId))) throw new ContractValidationError("$.contextEvidence", "inner context binding differs from authoritative evidence"); }
+  for (const record of context.corrections) if (record.authority !== authority.correctionAuthority || !authority.acceptedCorrectionPolicyVersions.includes(record.policyVersion) || Date.parse(record.validUntil) < Date.parse(authority.verifiedAt)) throw new ContractValidationError("$.corrections", "correction authority, policy or validity is not accepted");
   const inactive = validateCorrections([...ledger.values()], context.corrections);
   for (const item of allItems) if (item.active === inactive.has(item.eventId)) throw new ContractValidationError("$.slots.active", "correction activity state differs from the canonical ledger");
+  assertUnique(context.journeyResolutions, (resolution) => resolution.eventId, "$.journeyResolutions.eventId"); assertUnique(context.journeyResolutions, (resolution) => resolution.proofHash, "$.journeyResolutions.proofHash");
   const authoritativeResolutions = new Map(context.journeyResolutions.map((resolution) => [resolution.eventId, parseJourneyResolution(resolution)]));
   const chainResolution = authoritativeResolutions.get(chain.journey.eventId);
   if (!chainResolution || canonicalComparable(chainResolution) !== canonicalComparable(chain.journey)) throw new ContractValidationError("$.journey", "chain journey differs from the authoritative resolver output");
@@ -325,28 +379,83 @@ export function verifyEvidenceChainV2(value: unknown, context: EvidenceVerificat
 
 function canonicalComparable(value: unknown): string { return canonicalJson(value); }
 
-export function buildEvidenceChains(value: unknown): EvidenceBuildResult {
-  const input = EvidenceChainBuildInputSchema.parse(value); parseConsentEnvelope(input.consent);
+function canonicalArray(values: readonly unknown[]): string { return canonicalJson([...values].sort((left, right) => canonicalJson(left).localeCompare(canonicalJson(right)))); }
+
+function resolveAuthority(input: EvidenceChainBuildInput, context: EvidenceAuthorityContext): EvidenceVerificationContext {
+  const processingAuthority = EvidenceProcessingAuthoritySchema.parse(context.getProcessingAuthority()); parseConsentEnvelope(processingAuthority.consent);
+  if (canonicalComparable(input.subject) !== canonicalComparable(processingAuthority.subject)) throw new ContractValidationError("$.subject", "builder subject differs from injected server authentication");
+  if (canonicalComparable(input.consent) !== canonicalComparable(processingAuthority.consent)) throw new ContractValidationError("$.consent", "builder consent differs from the authoritative consent record");
+  if (input.builderPolicyVersion !== processingAuthority.builderPolicyVersion) throw new ContractValidationError("$.builderPolicyVersion", "builder policy is not accepted by the authority context");
+  if (input.lifecycleState !== processingAuthority.lifecycleState) throw new ContractValidationError("$.lifecycleState", "builder lifecycle differs from authoritative lifecycle");
+  const journeyResolutions = context.listJourneyResolutions().map(parseJourneyResolution);
+  const worldEvidence = context.listWorldEvidence().map(parseWorldEvidenceBinding);
+  const contextEvidence = context.listContextEvidence().map(parseContextEvidenceBinding);
+  const corrections = context.listCorrectionRecords().map(parseCorrectionAuthorityRecord);
+  assertUnique(journeyResolutions, (row) => row.eventId, "$.authority.journeyResolutions.eventId"); assertUnique(journeyResolutions, (row) => row.proofHash, "$.authority.journeyResolutions.proofHash");
+  assertUnique(corrections, (row) => row.recordId, "$.authority.corrections.recordId"); assertUnique(corrections, (row) => row.resolutionRecordHash, "$.authority.corrections.resolutionRecordHash"); assertUnique(corrections, (row) => row.correctionEventId, "$.authority.corrections.correctionEventId");
+  assertUnique([
+    ...worldEvidence.map((row) => ({ id: row.bindingId, hash: row.bindingHash })),
+    ...contextEvidence.map((row) => ({ id: row.bindingId, hash: row.bindingHash })),
+    ...corrections.map((row) => ({ id: row.recordId, hash: row.resolutionRecordHash })),
+  ], (row) => row.id, "$.authority.recordId");
+  assertUnique([
+    ...worldEvidence.map((row) => ({ id: row.bindingId, hash: row.bindingHash })),
+    ...contextEvidence.map((row) => ({ id: row.bindingId, hash: row.bindingHash })),
+    ...corrections.map((row) => ({ id: row.recordId, hash: row.resolutionRecordHash })),
+  ], (row) => row.hash, "$.authority.recordHash");
+  for (const resolution of journeyResolutions) if (resolution.authorityContextVersion !== processingAuthority.journeyAuthorityContextVersion || !processingAuthority.acceptedJourneyPolicyVersions.includes(resolution.policyVersion)) throw new ContractValidationError("$.authority.journeyResolutions", "journey authority or policy version is not accepted");
+  for (const record of corrections) {
+    if (record.authority !== processingAuthority.correctionAuthority || !processingAuthority.acceptedCorrectionPolicyVersions.includes(record.policyVersion)) throw new ContractValidationError("$.authority.corrections", "correction authority or policy version is not accepted");
+    if (Date.parse(record.validUntil) < Date.parse(processingAuthority.verifiedAt)) throw new ContractValidationError("$.authority.corrections.validUntil", "correction authority record is expired");
+  }
+  if (canonicalArray(input.journeyResolutions) !== canonicalArray(journeyResolutions)) throw new ContractValidationError("$.journeyResolutions", "payload resolutions are not a one-to-one match for authoritative resolver outputs");
+  if (canonicalArray(input.worldEvidence) !== canonicalArray(worldEvidence)) throw new ContractValidationError("$.worldEvidence", "payload world bindings are not a one-to-one match for authoritative inputs");
+  if (canonicalArray(input.contextEvidence) !== canonicalArray(contextEvidence)) throw new ContractValidationError("$.contextEvidence", "payload context bindings are not a one-to-one match for authoritative inputs");
+  if (canonicalArray(input.corrections) !== canonicalArray(corrections)) throw new ContractValidationError("$.corrections", "payload correction records are not a one-to-one match for authoritative ledger outputs");
+  return { processingAuthority, events: [], journeyResolutions, worldEvidence, contextEvidence, corrections };
+}
+
+export function buildEvidenceChains(value: unknown, authorityContext: EvidenceAuthorityContext): EvidenceBuildResult {
+  const input = EvidenceChainBuildInputSchema.parse(value); parseConsentEnvelope(input.consent); const authoritative = resolveAuthority(input, authorityContext);
   const status = input.lifecycleState === "ERASED" ? "ERASED" : input.lifecycleState === "WITHDRAWN" ? "WITHDRAWN" : input.consent.state !== "GRANTED" || !input.consent.allowedProcessing.includes("PERSONALIZATION_EVIDENCE") ? "SUPPRESSED_NO_CONSENT" : null;
-  if (status) return { state: emptyEvidenceEngineState(status), acceptedEvents: [], deduplication: [], input };
+  if (status) {
+    if (authoritative.journeyResolutions.length || authoritative.worldEvidence.length || authoritative.contextEvidence.length || authoritative.corrections.length) throw new ContractValidationError("$.authority", "suppressed processing cannot carry personal authority records");
+    return { state: emptyEvidenceEngineState(status), acceptedEvents: [], deduplication: [], rebuildMaterial: null };
+  }
   const deduped = deduplicateCanonicalEvents(input.events, input.subject.boundUserId); const events = deduped.events;
   for (const event of events) assertConfiguredEventSemantics(event);
   const resolutions = new Map<string, JourneyResolution>();
-  for (const raw of input.journeyResolutions) { const resolution = parseJourneyResolution(raw); if (resolution.subjectBindingHash !== input.subject.subjectBindingHash || resolutions.has(resolution.eventId)) throw new ContractValidationError("$.journeyResolutions", "foreign or duplicate journey resolution"); resolutions.set(resolution.eventId, resolution); }
+  for (const resolution of authoritative.journeyResolutions) { if (resolution.subjectBindingHash !== input.subject.subjectBindingHash || resolutions.has(resolution.eventId)) throw new ContractValidationError("$.journeyResolutions", "foreign or duplicate journey resolution"); resolutions.set(resolution.eventId, resolution); }
   for (const event of events) { const resolution = resolutions.get(event.eventId); if (!resolution) throw new ContractValidationError("$.journeyResolutions", "every event requires a journey resolution result"); if (event.journey.resolution === "SERVER_RESOLVED" && (resolution.journeyId !== event.journey.journeyId || !resolution.independenceEligible)) throw new ContractValidationError("$.journeyResolutions", "resolver output conflicts with server-bound event journey"); if (event.journey.resolution === "UNRESOLVED" && resolution.journeyId !== null) throw new ContractValidationError("$.journeyResolutions", "resolver invented a journey for an unresolved event"); }
-  const worlds = input.worldEvidence.map(parseWorldEvidenceBinding); const contexts = input.contextEvidence.map(parseContextEvidenceBinding); const correctionRecords = input.corrections.map(parseCorrectionAuthorityRecord);
+  if (resolutions.size !== events.length) throw new ContractValidationError("$.journeyResolutions", "orphan journey resolution");
+  const worlds = authoritative.worldEvidence; const contexts = authoritative.contextEvidence; const correctionRecords = authoritative.corrections;
   validateBindings(events, worlds, contexts); const inactive = validateCorrections(events, correctionRecords);
   const worldMap = new Map(worlds.map((row) => [row.eventId, row])); const contextMap = new Map(contexts.map((row) => [row.eventId, row])); const correctionMap = new Map(correctionRecords.map((row) => [row.correctionEventId, row]));
   const groupMap = new Map<string, CanonicalUserEvent[]>();
   for (const event of events) { let resolution = resolutions.get(event.eventId)!; if (event.eventType === "USER_CORRECTION" && event.supersedesEventId) resolution = resolutions.get(event.supersedesEventId) ?? resolution; const key = resolution.journeyId ?? `unresolved-${event.eventId}`; const group = groupMap.get(key) ?? []; group.push(event); groupMap.set(key, group); }
-  const chains = [...groupMap.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([, group]) => { const first = group.find((event) => event.eventType !== "USER_CORRECTION") ?? group[0]!; const resolution = resolutions.get(first.eventId)!; return chainFor(group, resolution, input, inactive, worldMap, contextMap, correctionMap); });
-  for (const chain of chains) verifyEvidenceChainV2(chain, { events, journeyResolutions: [...resolutions.values()], worldEvidence: worlds, contextEvidence: contexts, corrections: correctionRecords });
+  const chains = [...groupMap.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([, group]) => { const first = group.find((event) => event.eventType !== "USER_CORRECTION") ?? group[0]!; const resolution = resolutions.get(first.eventId)!; return chainFor(group, resolution, input, authoritative.processingAuthority, inactive, worldMap, contextMap, correctionMap); });
+  const verification = { ...authoritative, events };
+  for (const chain of chains) verifyEvidenceChainV2(chain, verification);
   const body = { contractVersion: CONTRACT_VERSIONS.evidenceEngineState, status: "ACTIVE" as const, subjectBindingHash: input.subject.subjectBindingHash, ledgerEventHashes: events.map((event) => event.eventHash).sort(), chains, latestPointers: chains.map((chain) => ({ journeyKey: chain.journey.journeyId ?? `unresolved-${chain.journey.eventId}`, chainId: chain.chainId, chainHash: chain.chainHash })).sort((left, right) => left.journeyKey.localeCompare(right.journeyKey)), caches: [], workItems: [] };
-  return { state: parseEngineState({ ...body, stateHash: contentHash(body) }), acceptedEvents: events, deduplication: deduped.records, input };
+  return { state: parseEngineState({ ...body, stateHash: contentHash(body) }), acceptedEvents: events, deduplication: deduped.records, rebuildMaterial: input };
 }
 
-export function updateEvidenceChains(previous: EvidenceBuildResult, delta: unknown): EvidenceBuildResult {
+export function verifyEvidenceEngineState(value: unknown, rebuildMaterial: unknown, authorityContext: EvidenceAuthorityContext): EvidenceEngineState {
+  const state = parseEngineState(value);
+  if (rebuildMaterial === null) {
+    if (state.status === "ACTIVE") throw new ContractValidationError("$.rebuildMaterial", "active state requires authoritative rebuild material");
+    return state;
+  }
+  const material = EvidenceChainBuildInputSchema.parse(rebuildMaterial);
+  const rebuilt = buildEvidenceChains(material, authorityContext);
+  if (canonicalComparable(state) !== canonicalComparable(rebuilt.state)) throw new ContractValidationError("$.state", "state differs from recursive authoritative rebuild");
+  return state;
+}
+
+export function updateEvidenceChains(previous: EvidenceBuildResult, delta: unknown, authorityContext: EvidenceAuthorityContext): EvidenceBuildResult {
   const next = EvidenceChainBuildInputSchema.parse(delta);
-  if (previous.input.subject.subjectBindingHash !== next.subject.subjectBindingHash || previous.input.subject.boundUserId !== next.subject.boundUserId || previous.input.builderPolicyVersion !== next.builderPolicyVersion) throw new ContractValidationError("$.subject", "incremental update cannot change subject or builder policy");
-  return buildEvidenceChains({ ...next, events: [...previous.acceptedEvents, ...next.events], journeyResolutions: [...previous.input.journeyResolutions, ...next.journeyResolutions], worldEvidence: [...previous.input.worldEvidence, ...next.worldEvidence], contextEvidence: [...previous.input.contextEvidence, ...next.contextEvidence], corrections: [...previous.input.corrections, ...next.corrections] });
+  if (previous.rebuildMaterial === null) throw new ContractValidationError("$.rebuildMaterial", "suppressed or erased state has no reusable personal rebuild material");
+  const prior = previous.rebuildMaterial;
+  if (prior.subject.subjectBindingHash !== next.subject.subjectBindingHash || prior.subject.boundUserId !== next.subject.boundUserId || prior.builderPolicyVersion !== next.builderPolicyVersion) throw new ContractValidationError("$.subject", "incremental update cannot change subject or builder policy");
+  return buildEvidenceChains({ ...next, events: [...previous.acceptedEvents, ...next.events], journeyResolutions: [...prior.journeyResolutions, ...next.journeyResolutions], worldEvidence: [...prior.worldEvidence, ...next.worldEvidence], contextEvidence: [...prior.contextEvidence, ...next.contextEvidence], corrections: [...prior.corrections, ...next.corrections] }, authorityContext);
 }
