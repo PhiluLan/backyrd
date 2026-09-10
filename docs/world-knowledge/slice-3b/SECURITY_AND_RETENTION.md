@@ -29,11 +29,21 @@ This follows current Supabase guidance that RLS and table privileges are separat
 
 The opaque pseudonym is not derived from the former Auth UUID. The database tests delete two same-type actors consecutively, prove distinct rotated identifiers, and prove that all claim, verification and identity-event hashes remain unchanged.
 
+User-report events follow the same boundary: their append-only hash uses the random Actor Binding ID and the complete report semantics, never the Auth UUID. Idempotency is unique per binding, so two reporters can use the same client key without collision, while a changed body under one reporter's key fails closed. Detachment preserves the event through the opaque binding and removes the direct Auth relationship. A regression scan checks every Slice-3B ledger hash family against reproducible hashes of the deleted synthetic account IDs.
+
 ## Verification and confirmation integrity
 
 Owner verification requires the verifier binding to be exactly the claim's active Owner binding and to own the bound Spot at `checked_at`. Admin verification requires the exact claim actor binding and currently active server-side Admin authority. Spot, key, scope, policy, method, execution authority, time, reason codes and full record hash are revalidated on insert. `INDEPENDENT_PROCESS` remains fail-closed until a separate accepted process exists.
 
 Confirmations similarly bind claim ID/hash, actor binding, method, policy, quarterly-request reference, confirmed/due timestamps and idempotency identity. They are append-only operational metadata: missing a future confirmation never changes a durable fact to false and never deletes it.
+
+## Resolver integrity and concurrency
+
+The shadow resolver persists a full request envelope before producing output. Request-level advisory locking and a unique idempotency identity serialize concurrent retries. The stored request hash binds Spot, mode, `as_of`, accepted Registry/Policy, resolver contract/version and the complete input hash; mismatches fail before a manifest or current-pointer effect.
+
+Manifest validation is not a checksum-only assertion. It recomputes the bounded input at the stored ledger cutoff, derives the Decision-safe projection again, verifies the joint World/Decision resolution hash, verifies the manifest hash, and reconciles the complete materialized-entry set and every entry hash. Stored artifacts are returned on reuse only after those checks. This detects altered JSON, altered Decision output, missing or additional entries, and fully rehashed but semantically inconsistent records.
+
+Current projection updates are serialized separately per Spot and compare accepted versions, `as_of`, and ledger cutoff. An older historical rebuild cannot replace a newer pointer; same-time re-resolution can advance only for a later input cutoff. The SQL suite proves both execution orders. The lock plus unique persisted request supplies the concurrency invariant without claiming that the shadow path is Production-enabled.
 
 ## Retention
 

@@ -182,6 +182,7 @@ if test -n "${BACKYRD_CHANGED_DATABASE_TESTS_FILE:-}" && test -f "$BACKYRD_CHANG
     grep -Fx "$test_path" "$executed_tests" >/dev/null || psql "$DB_URL" -X --set ON_ERROR_STOP=1 --file "$validation_root/$test_path"
   done <"$BACKYRD_CHANGED_DATABASE_TESTS_FILE"
 fi
+DB_URL="$DB_URL" bash "$repo_root/scripts/ci/validate-world-knowledge-rebuild-race.sh"
 DB_URL="$DB_URL" bash "$repo_root/scripts/ci/validate-review-same-day-race.sh"
 
 lint_json="$validation_root/db-lint.json"

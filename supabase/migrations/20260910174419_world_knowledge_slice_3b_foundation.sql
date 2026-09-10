@@ -211,10 +211,12 @@ create table world_knowledge_private.review_work_item_events (
   id uuid primary key default gen_random_uuid(),
   work_item_id uuid not null references world_knowledge_private.review_work_items(id) on delete restrict,
   event_type text not null,
-  actor_binding_id uuid references world_knowledge_private.actor_bindings(id) on delete set null,
+  actor_binding_id uuid not null references world_knowledge_private.actor_bindings(id) on delete restrict,
+  idempotency_key text not null,
   occurred_at timestamptz not null default clock_timestamp(),
   detail jsonb not null default '{}'::jsonb,
-  event_hash text not null unique check (event_hash ~ '^[0-9a-f]{64}$')
+  event_hash text not null unique check (event_hash ~ '^[0-9a-f]{64}$'),
+  unique(actor_binding_id,idempotency_key)
 );
 
 create table world_knowledge_private.resolution_manifests (
@@ -222,14 +224,24 @@ create table world_knowledge_private.resolution_manifests (
   spot_id uuid not null references public.spots(id) on delete restrict,
   registry_version text not null references world_knowledge_private.registry_releases(registry_version),
   policy_version text not null references world_knowledge_private.source_policy_releases(policy_version),
+  registry_release_hash text not null check (registry_release_hash ~ '^[0-9a-f]{64}$'),
+  policy_release_hash text not null check (policy_release_hash ~ '^[0-9a-f]{64}$'),
+  attribute_policy_hash text not null check (attribute_policy_hash ~ '^[0-9a-f]{64}$'),
+  resolver_contract text not null,
+  resolver_version text not null,
+  conflict_policy_ref text not null,
+  freshness_policy_ref text not null,
+  shadow_policy_ref text not null,
   as_of timestamptz not null,
+  ledger_cutoff_at timestamptz not null,
+  input_components jsonb not null check (jsonb_typeof(input_components)='object'),
   input_hash text not null check (input_hash ~ '^[0-9a-f]{64}$'),
   resolution_hash text not null check (resolution_hash ~ '^[0-9a-f]{64}$'),
   manifest_hash text not null unique check (manifest_hash ~ '^[0-9a-f]{64}$'),
   world_snapshot jsonb not null check (jsonb_typeof(world_snapshot)='object'),
   decision_projection jsonb not null check (jsonb_typeof(decision_projection)='object'),
   created_at timestamptz not null default clock_timestamp(),
-  unique(spot_id,registry_version,policy_version,input_hash)
+  unique(spot_id,registry_version,policy_version,resolver_version,input_hash)
 );
 
 create table world_knowledge_private.resolution_entries (
@@ -249,6 +261,12 @@ create table world_knowledge_private.resolution_entries (
 create table world_knowledge_private.current_projection_pointers (
   spot_id uuid primary key references public.spots(id) on delete restrict,
   manifest_id uuid not null references world_knowledge_private.resolution_manifests(id) on delete restrict,
+  manifest_hash text not null check (manifest_hash ~ '^[0-9a-f]{64}$'),
+  as_of timestamptz not null,
+  ledger_cutoff_at timestamptz not null,
+  registry_version text not null,
+  policy_version text not null,
+  resolver_version text not null,
   updated_at timestamptz not null default clock_timestamp()
 );
 
@@ -265,6 +283,13 @@ create table world_knowledge_private.rebuild_jobs (
   spot_id uuid not null references public.spots(id) on delete restrict,
   idempotency_key text not null unique,
   mode text not null check (mode in ('FULL','INCREMENTAL')),
+  as_of timestamptz not null,
+  request_hash text not null check (request_hash ~ '^[0-9a-f]{64}$'),
+  input_hash text not null check (input_hash ~ '^[0-9a-f]{64}$'),
+  registry_version text not null,
+  policy_version text not null,
+  resolver_contract text not null,
+  resolver_version text not null,
   status text not null check (status in ('PENDING','RUNNING','SUCCEEDED','FAILED')),
   requested_at timestamptz not null default clock_timestamp(),
   completed_at timestamptz,
@@ -498,18 +523,24 @@ end $$;
 
 create or replace function public.world_submit_user_report_v1(p_spot_id uuid,p_attribute_key text,p_report jsonb,p_idempotency_key text)
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare actor_id uuid:=auth.uid(); binding_id uuid; work_id uuid; v_event_hash text;
+declare actor_id uuid:=auth.uid(); binding_id uuid; work_id uuid; v_event_hash text; existing_hash text;
 begin
   if actor_id is null then raise exception 'authentication_required' using errcode='42501'; end if;
   if not exists(select 1 from public.spots where id=p_spot_id) or not exists(select 1 from world_knowledge_private.attribute_definitions where registry_version='backyrd.world-knowledge.registry@1.1' and attribute_key=p_attribute_key) then raise exception 'invalid_report_target' using errcode='22023'; end if;
   if jsonb_typeof(p_report)<>'object' or length(p_report::text)>4000 or length(trim(coalesce(p_idempotency_key,''))) not between 1 and 180 then raise exception 'invalid_report_payload' using errcode='22023'; end if;
   binding_id:=world_knowledge_private.get_actor_binding_v1(actor_id,'PUBLIC_CONTRIBUTOR');
-  v_event_hash:=encode(extensions.digest(pg_catalog.convert_to(actor_id::text||':'||p_spot_id::text||':'||p_idempotency_key,'UTF8'),'sha256'),'hex');
-  select work_item_id into work_id from world_knowledge_private.review_work_item_events e where e.event_hash=v_event_hash;
-  if found then return jsonb_build_object('workItemId',work_id,'created',false,'factChanged',false); end if;
+  v_event_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object(
+    'actorBinding',binding_id,'spotId',p_spot_id,'attributeKey',p_attribute_key,
+    'report',p_report,'idempotencyIdentity',p_idempotency_key
+  )::text,'UTF8'),'sha256'),'hex');
+  select e.work_item_id,e.event_hash into work_id,existing_hash from world_knowledge_private.review_work_item_events e where e.actor_binding_id=binding_id and e.idempotency_key=p_idempotency_key;
+  if found then
+    if existing_hash<>v_event_hash then raise exception 'user_report_idempotency_conflict' using errcode='23505'; end if;
+    return jsonb_build_object('workItemId',work_id,'created',false,'factChanged',false);
+  end if;
   insert into world_knowledge_private.review_work_items(spot_id,work_class,priority,attribute_key,candidate_payload,reporter_binding_id,reason_codes)
   values(p_spot_id,'USER_REPORT','NORMAL',p_attribute_key,p_report,binding_id,array['USER_REPORT_REQUIRES_ADMIN_REVIEW']) returning id into work_id;
-  insert into world_knowledge_private.review_work_item_events(work_item_id,event_type,actor_binding_id,detail,event_hash) values(work_id,'CREATED',binding_id,'{}',v_event_hash);
+  insert into world_knowledge_private.review_work_item_events(work_item_id,event_type,actor_binding_id,idempotency_key,detail,event_hash) values(work_id,'CREATED',binding_id,p_idempotency_key,'{}',v_event_hash);
   return jsonb_build_object('workItemId',work_id,'created',true,'factChanged',false);
 end $$;
 
@@ -533,47 +564,156 @@ begin
   return jsonb_build_object('identityEventId',event_id,'created',true,'automaticMerge',false);
 end $$;
 
+create or replace function world_knowledge_private.resolution_input_components_v1(p_spot_id uuid,p_as_of timestamptz,p_ledger_cutoff_at timestamptz)
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare registry_record world_knowledge_private.registry_releases%rowtype; policy_record world_knowledge_private.source_policy_releases%rowtype; attribute_policy jsonb; attribute_policy_hash text;
+begin
+  select * into strict registry_record from world_knowledge_private.registry_releases where registry_version='backyrd.world-knowledge.registry@1.1';
+  select * into strict policy_record from world_knowledge_private.source_policy_releases where policy_version='backyrd.world-knowledge.source-policy@3b.1' and state='ACCEPTED' and registry_version=registry_record.registry_version and registry_hash=registry_record.registry_hash;
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'attributeKey',r.attribute_key,'allowedSourceTypes',to_jsonb(r.allowed_source_types),'allowedActorTypes',to_jsonb(r.allowed_actor_types),
+    'sourceReferenceRequirement',r.source_reference_requirement,'selfAssertionAllowed',r.self_assertion_allowed,
+    'verificationProcessIds',to_jsonb(r.verification_process_ids),'freshnessPolicyRef',r.freshness_policy_ref,
+    'allowedUseCases',to_jsonb(r.allowed_use_cases)
+  ) order by r.attribute_key),'[]'::jsonb) into attribute_policy
+  from world_knowledge_private.source_policy_attribute_rules r where r.policy_version=policy_record.policy_version;
+  attribute_policy_hash:=encode(extensions.digest(pg_catalog.convert_to(attribute_policy::text,'UTF8'),'sha256'),'hex');
+  return jsonb_build_object(
+    'spotId',p_spot_id,'asOf',p_as_of,
+    'claims',(select coalesce(jsonb_agg(jsonb_build_object('claimId',c.id,'claimHash',c.content_hash) order by c.id),'[]'::jsonb) from world_knowledge_private.claims c where c.spot_id=p_spot_id and c.observed_at<=p_as_of and c.created_at<=p_ledger_cutoff_at),
+    'verifications',(select coalesce(jsonb_agg(jsonb_build_object('verificationId',v.id,'verificationHash',v.result_hash) order by v.id),'[]'::jsonb) from world_knowledge_private.verification_records v join world_knowledge_private.claims c on c.id=v.claim_id where c.spot_id=p_spot_id and c.created_at<=p_ledger_cutoff_at and v.created_at<=p_ledger_cutoff_at and v.checked_at<=p_as_of),
+    'registry',jsonb_build_object('version',registry_record.registry_version,'registryHash',registry_record.registry_hash,'releaseHash',registry_record.release_hash),
+    'sourcePolicy',jsonb_build_object('version',policy_record.policy_version,'releaseHash',policy_record.policy_hash,'attributePolicyHash',attribute_policy_hash),
+    'resolver',jsonb_build_object('contract','backyrd.world-knowledge.shadow-resolver@1.0','version','1.1.0'),
+    'conflictPolicyRef','conflict:latest-authoritative-change-review@3b.1',
+    'freshnessPolicyRef','freshness:attribute-policy-bound@3b.1',
+    'shadowPolicyRef','shadow:excluded-inputs-bind-manifest@3b.1'
+  );
+exception when no_data_found then raise exception 'resolver_release_not_accepted' using errcode='22023';
+end $$;
+
+create or replace function world_knowledge_private.decision_projection_v1(p_snapshot jsonb)
+returns jsonb language sql immutable security definer set search_path='' as $$
+  select jsonb_build_object(
+    'contractVersion','backyrd.world-knowledge.shadow-decision-projection@1.0','spotId',p_snapshot->>'spotId',
+    'registryVersion',p_snapshot->>'registryVersion','policyVersion',p_snapshot->>'policyVersion',
+    'facts',coalesce(jsonb_agg(item order by item->>'key',item->>'scope') filter(where item->>'key' not like 'contact.%' and item->>'key'<>'description.highlight'),'[]'::jsonb),
+    'explicitUnknowns',p_snapshot->'explicitUnknowns','conflicts',p_snapshot->'conflicts'
+  ) from jsonb_array_elements(p_snapshot->'facts') item;
+$$;
+
+create or replace function world_knowledge_private.validate_resolution_manifest_v1(p_manifest_id uuid)
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare m world_knowledge_private.resolution_manifests%rowtype; expected_components jsonb; expected_input_hash text; expected_resolution_hash text; expected_manifest_hash text; expected_decision jsonb; entry_facts jsonb; entry_unknowns jsonb; entry_conflicts jsonb; entries_valid boolean;
+begin
+  select * into strict m from world_knowledge_private.resolution_manifests where id=p_manifest_id;
+  expected_components:=world_knowledge_private.resolution_input_components_v1(m.spot_id,m.as_of,m.ledger_cutoff_at);
+  expected_input_hash:=encode(extensions.digest(pg_catalog.convert_to(m.input_components::text,'UTF8'),'sha256'),'hex');
+  if m.input_components<>expected_components or m.input_hash<>expected_input_hash then raise exception 'resolution_manifest_input_integrity_mismatch' using errcode='22023'; end if;
+  expected_decision:=world_knowledge_private.decision_projection_v1(m.world_snapshot);
+  if m.decision_projection<>expected_decision then raise exception 'resolution_manifest_decision_integrity_mismatch' using errcode='22023'; end if;
+  expected_resolution_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object('worldSnapshot',m.world_snapshot,'decisionProjection',m.decision_projection)::text,'UTF8'),'sha256'),'hex');
+  if m.resolution_hash<>expected_resolution_hash then raise exception 'resolution_manifest_output_integrity_mismatch' using errcode='22023'; end if;
+  expected_manifest_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object(
+    'spotId',m.spot_id,'registryVersion',m.registry_version,'registryReleaseHash',m.registry_release_hash,
+    'policyVersion',m.policy_version,'policyReleaseHash',m.policy_release_hash,'attributePolicyHash',m.attribute_policy_hash,
+    'resolverContract',m.resolver_contract,'resolverVersion',m.resolver_version,'conflictPolicyRef',m.conflict_policy_ref,
+    'freshnessPolicyRef',m.freshness_policy_ref,'shadowPolicyRef',m.shadow_policy_ref,'asOf',m.as_of,
+    'ledgerCutoffAt',m.ledger_cutoff_at,'inputHash',m.input_hash,'resolutionHash',m.resolution_hash
+  )::text,'UTF8'),'sha256'),'hex');
+  if m.manifest_hash<>expected_manifest_hash then raise exception 'resolution_manifest_identity_mismatch' using errcode='22023'; end if;
+  select coalesce(jsonb_agg(f.fact order by f.fact->>'key',f.fact->>'scope'),'[]'::jsonb),
+         coalesce(jsonb_agg(jsonb_build_object('key',e.attribute_key,'scope',e.scope) order by e.attribute_key,e.scope) filter(where e.resolution='UNKNOWN'),'[]'::jsonb),
+         coalesce(jsonb_agg(jsonb_build_object('key',e.attribute_key,'scope',e.scope,'claimHashes',to_jsonb(e.conflict_claim_hashes)) order by e.attribute_key,e.scope) filter(where e.resolution='DISPUTED'),'[]'::jsonb),
+         coalesce(bool_and(e.entry_hash=encode(extensions.digest(pg_catalog.convert_to(f.fact::text,'UTF8'),'sha256'),'hex')),true)
+    into entry_facts,entry_unknowns,entry_conflicts,entries_valid
+  from world_knowledge_private.resolution_entries e
+  cross join lateral (select jsonb_build_object('key',e.attribute_key,'scope',e.scope,'resolution',e.resolution,'value',e.value,'trust',e.trust,'freshness',e.freshness,'basisClaimHashes',to_jsonb(e.basis_claim_hashes)) as fact) f
+  where e.manifest_id=m.id;
+  if not entries_valid or m.world_snapshot->'facts'<>entry_facts or m.world_snapshot->'explicitUnknowns'<>entry_unknowns or m.world_snapshot->'conflicts'<>entry_conflicts then raise exception 'resolution_manifest_entries_integrity_mismatch' using errcode='22023'; end if;
+  if m.world_snapshot->>'spotId'<>m.spot_id::text or m.world_snapshot->>'resolvedAt'<>to_jsonb(m.as_of)#>>'{}' or m.world_snapshot->>'registryVersion'<>m.registry_version or m.world_snapshot->>'policyVersion'<>m.policy_version then raise exception 'resolution_manifest_snapshot_binding_mismatch' using errcode='22023'; end if;
+  return jsonb_build_object('manifestId',m.id,'manifestHash',m.manifest_hash,'resolutionHash',m.resolution_hash,'inputHash',m.input_hash,'worldSnapshot',m.world_snapshot,'decisionProjection',m.decision_projection);
+exception when no_data_found then raise exception 'resolution_manifest_not_found' using errcode='22023';
+end $$;
+
 create or replace function public.world_shadow_rebuild_spot_v1(p_spot_id uuid,p_as_of timestamptz,p_mode text,p_idempotency_key text)
 returns jsonb language plpgsql security definer set search_path='' as $$
-declare v_input_hash text; v_resolution_hash text; v_manifest_hash text; manifest_id uuid; snapshot jsonb; decision jsonb;
+declare
+  v_registry_version constant text:='backyrd.world-knowledge.registry@1.1'; v_policy_version constant text:='backyrd.world-knowledge.source-policy@3b.1';
+  v_resolver_contract constant text:='backyrd.world-knowledge.shadow-resolver@1.0'; v_resolver_version constant text:='1.1.0';
+  v_cutoff timestamptz; v_components jsonb; v_input_hash text; v_request_hash text; v_resolution_hash text; v_manifest_hash text;
+  v_manifest_id uuid; job world_knowledge_private.rebuild_jobs%rowtype; current_pointer world_knowledge_private.current_projection_pointers%rowtype;
+  snapshot jsonb; decision jsonb; stored jsonb; pointer_updated boolean:=false;
 begin
-  if p_mode not in ('FULL','INCREMENTAL') or p_as_of is null or p_as_of>pg_catalog.clock_timestamp()+interval '60 seconds' then raise exception 'invalid_rebuild_request' using errcode='22023'; end if;
+  if p_mode not in ('FULL','INCREMENTAL') or p_as_of is null or p_as_of>pg_catalog.clock_timestamp()+interval '60 seconds' or length(trim(coalesce(p_idempotency_key,''))) not between 1 and 180 then raise exception 'invalid_rebuild_request' using errcode='22023'; end if;
   if not exists(select 1 from public.spots s where s.id=p_spot_id and s.data_origin in ('TEST','FIXTURE')) and not exists(select 1 from world_knowledge_private.shadow_spot_allowlist a where a.spot_id=p_spot_id and a.valid_until>pg_catalog.clock_timestamp()) then raise exception 'shadow_spot_not_allowlisted' using errcode='42501'; end if;
-  select encode(extensions.digest(pg_catalog.convert_to(coalesce(string_agg(c.content_hash,',' order by c.content_hash),'')||':backyrd.world-knowledge.registry@1.1:backyrd.world-knowledge.source-policy@3b.1:'||p_as_of::text,'UTF8'),'sha256'),'hex') into v_input_hash from world_knowledge_private.claims c where c.spot_id=p_spot_id and c.observed_at<=p_as_of;
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('world-rebuild-request:'||p_idempotency_key,0));
+  v_cutoff:=pg_catalog.clock_timestamp();
+  v_components:=world_knowledge_private.resolution_input_components_v1(p_spot_id,p_as_of,v_cutoff);
+  v_input_hash:=encode(extensions.digest(pg_catalog.convert_to(v_components::text,'UTF8'),'sha256'),'hex');
+  v_request_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object('spotId',p_spot_id,'mode',p_mode,'asOf',p_as_of,'inputHash',v_input_hash,'registryVersion',v_registry_version,'policyVersion',v_policy_version,'resolverContract',v_resolver_contract,'resolverVersion',v_resolver_version,'idempotencyIdentity',p_idempotency_key)::text,'UTF8'),'sha256'),'hex');
+  select * into job from world_knowledge_private.rebuild_jobs j where j.idempotency_key=p_idempotency_key for update;
+  if found then
+    if job.spot_id<>p_spot_id or job.mode<>p_mode or job.as_of<>p_as_of or job.request_hash<>v_request_hash or job.input_hash<>v_input_hash or job.registry_version<>v_registry_version or job.policy_version<>v_policy_version or job.resolver_contract<>v_resolver_contract or job.resolver_version<>v_resolver_version then raise exception 'rebuild_idempotency_conflict' using errcode='23505'; end if;
+    if job.status<>'SUCCEEDED' or job.manifest_id is null then raise exception 'rebuild_request_not_complete' using errcode='55000'; end if;
+    return world_knowledge_private.validate_resolution_manifest_v1(job.manifest_id)||jsonb_build_object('mode',p_mode,'reused',true,'pointerUpdated',false);
+  end if;
+  insert into world_knowledge_private.rebuild_jobs(spot_id,idempotency_key,mode,as_of,request_hash,input_hash,registry_version,policy_version,resolver_contract,resolver_version,status)
+  values(p_spot_id,p_idempotency_key,p_mode,p_as_of,v_request_hash,v_input_hash,v_registry_version,v_policy_version,v_resolver_contract,v_resolver_version,'RUNNING') returning * into job;
   with eligible as (
-    select c.*,v.verification_method,row_number() over(partition by c.attribute_key,c.scope order by c.last_changed_at desc,c.id desc) rn,
+    select c.*,row_number() over(partition by c.attribute_key,c.scope order by c.last_changed_at desc,c.id desc) rn,
       count(*) over(partition by c.attribute_key,c.scope,c.last_changed_at) same_time
     from world_knowledge_private.claims c
-    join world_knowledge_private.verification_records v on v.claim_id=c.id and v.claim_hash=c.content_hash and v.result='VERIFIED'
     join world_knowledge_private.source_policy_attribute_rules policy on policy.policy_version=c.policy_version and policy.attribute_key=c.attribute_key
       and c.source_type=any(policy.allowed_source_types) and c.actor_type=any(policy.allowed_actor_types)
       and c.source_reference_id is not null and 'GENERAL_WORLD'=any(policy.allowed_use_cases)
-      and ((v.verification_method='OWNER_CONFIRMED' and 'process:owner-confirmed'=any(policy.verification_process_ids)) or (v.verification_method='ADMIN_CONFIRMED' and 'process:admin-confirmed'=any(policy.verification_process_ids)))
-    where c.spot_id=p_spot_id and c.observed_at<=p_as_of and c.visibility<>'SHADOW_HELD' and (c.valid_from is null or c.valid_from<=p_as_of) and (c.valid_until is null or c.valid_until>p_as_of)
+    where c.spot_id=p_spot_id and c.created_at<=v_cutoff and c.observed_at<=p_as_of and c.visibility<>'SHADOW_HELD' and (c.valid_from is null or c.valid_from<=p_as_of) and (c.valid_until is null or c.valid_until>p_as_of)
+      and exists(select 1 from world_knowledge_private.verification_records v where v.claim_id=c.id and v.claim_hash=c.content_hash and v.result='VERIFIED' and v.created_at<=v_cutoff and v.checked_at<=p_as_of and ((v.verification_method='OWNER_CONFIRMED' and 'process:owner-confirmed'=any(policy.verification_process_ids)) or (v.verification_method='ADMIN_CONFIRMED' and 'process:admin-confirmed'=any(policy.verification_process_ids))))
   ), resolved as (
     select e.attribute_key,e.scope,case when e.same_time>1 then 'DISPUTED' else e.knowledge_state end resolution,case when e.same_time>1 then null else e.value end value,case when e.same_time>1 then 'CONFLICTING' else 'VERIFIED' end trust,'CURRENT' freshness,
       array(select e2.content_hash from eligible e2 where e2.attribute_key=e.attribute_key and e2.scope=e.scope and e2.last_changed_at=e.last_changed_at order by e2.content_hash) basis_hashes,e.same_time
     from eligible e where e.rn=1
   )
   select jsonb_build_object(
-    'contractVersion','backyrd.world-knowledge.shadow-snapshot@1.0','registryVersion','backyrd.world-knowledge.registry@1.1','registryHash','e51e78f929d8d11ca149a50eaba250cf484e916ef38f2d447d3c8d881bb203be','policyVersion','backyrd.world-knowledge.source-policy@3b.1','spotId',p_spot_id,'resolvedAt',p_as_of,
+    'contractVersion','backyrd.world-knowledge.shadow-snapshot@1.0','registryVersion',v_registry_version,'registryHash',v_components#>>'{registry,registryHash}','policyVersion',v_policy_version,'spotId',p_spot_id,'resolvedAt',p_as_of,
     'facts',coalesce(jsonb_agg(jsonb_build_object('key',attribute_key,'scope',scope,'resolution',resolution,'value',value,'trust',trust,'freshness',freshness,'basisClaimHashes',basis_hashes) order by attribute_key,scope),'[]'::jsonb),
     'explicitUnknowns',coalesce(jsonb_agg(jsonb_build_object('key',attribute_key,'scope',scope) order by attribute_key,scope) filter(where resolution='UNKNOWN'),'[]'::jsonb),
     'conflicts',coalesce(jsonb_agg(jsonb_build_object('key',attribute_key,'scope',scope,'claimHashes',basis_hashes) order by attribute_key,scope) filter(where resolution='DISPUTED'),'[]'::jsonb)
   ) into snapshot from resolved;
-  -- Public contact is World information; Decision projection deliberately omits every contact key.
-  select jsonb_build_object('contractVersion','backyrd.world-knowledge.shadow-decision-projection@1.0','spotId',p_spot_id,'registryVersion',snapshot->>'registryVersion','policyVersion',snapshot->>'policyVersion','facts',coalesce(jsonb_agg(item order by item->>'key') filter(where item->>'key' not like 'contact.%' and item->>'key'<>'description.highlight'),'[]'::jsonb),'explicitUnknowns',snapshot->'explicitUnknowns','conflicts',snapshot->'conflicts') into decision from jsonb_array_elements(snapshot->'facts') item;
-  v_resolution_hash:=encode(extensions.digest(pg_catalog.convert_to(snapshot::text,'UTF8'),'sha256'),'hex');
-  v_manifest_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object('spotId',p_spot_id,'registryVersion','backyrd.world-knowledge.registry@1.1','policyVersion','backyrd.world-knowledge.source-policy@3b.1','asOf',p_as_of,'inputHash',v_input_hash,'resolutionHash',v_resolution_hash)::text,'UTF8'),'sha256'),'hex');
-  select m.id into manifest_id from world_knowledge_private.resolution_manifests m where m.spot_id=p_spot_id and m.registry_version='backyrd.world-knowledge.registry@1.1' and m.policy_version='backyrd.world-knowledge.source-policy@3b.1' and m.input_hash=v_input_hash;
-  if not found then
-    insert into world_knowledge_private.resolution_manifests(spot_id,registry_version,policy_version,as_of,input_hash,resolution_hash,manifest_hash,world_snapshot,decision_projection) values(p_spot_id,'backyrd.world-knowledge.registry@1.1','backyrd.world-knowledge.source-policy@3b.1',p_as_of,v_input_hash,v_resolution_hash,v_manifest_hash,snapshot,decision) returning id into manifest_id;
+  decision:=world_knowledge_private.decision_projection_v1(snapshot);
+  v_resolution_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object('worldSnapshot',snapshot,'decisionProjection',decision)::text,'UTF8'),'sha256'),'hex');
+  select m.id into v_manifest_id from world_knowledge_private.resolution_manifests m where m.spot_id=p_spot_id and m.registry_version=v_registry_version and m.policy_version=v_policy_version and m.resolver_version=v_resolver_version and m.input_hash=v_input_hash;
+  if found then
+    stored:=world_knowledge_private.validate_resolution_manifest_v1(v_manifest_id);
+    if stored->'worldSnapshot'<>snapshot or stored->'decisionProjection'<>decision or stored->>'resolutionHash'<>v_resolution_hash then raise exception 'resolution_manifest_reuse_mismatch' using errcode='22023'; end if;
+  else
+    v_manifest_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object(
+      'spotId',p_spot_id,'registryVersion',v_registry_version,'registryReleaseHash',v_components#>>'{registry,releaseHash}',
+      'policyVersion',v_policy_version,'policyReleaseHash',v_components#>>'{sourcePolicy,releaseHash}','attributePolicyHash',v_components#>>'{sourcePolicy,attributePolicyHash}',
+      'resolverContract',v_resolver_contract,'resolverVersion',v_resolver_version,'conflictPolicyRef',v_components->>'conflictPolicyRef',
+      'freshnessPolicyRef',v_components->>'freshnessPolicyRef','shadowPolicyRef',v_components->>'shadowPolicyRef','asOf',p_as_of,
+      'ledgerCutoffAt',v_cutoff,'inputHash',v_input_hash,'resolutionHash',v_resolution_hash
+    )::text,'UTF8'),'sha256'),'hex');
+    insert into world_knowledge_private.resolution_manifests(spot_id,registry_version,policy_version,registry_release_hash,policy_release_hash,attribute_policy_hash,resolver_contract,resolver_version,conflict_policy_ref,freshness_policy_ref,shadow_policy_ref,as_of,ledger_cutoff_at,input_components,input_hash,resolution_hash,manifest_hash,world_snapshot,decision_projection)
+    values(p_spot_id,v_registry_version,v_policy_version,v_components#>>'{registry,releaseHash}',v_components#>>'{sourcePolicy,releaseHash}',v_components#>>'{sourcePolicy,attributePolicyHash}',v_resolver_contract,v_resolver_version,v_components->>'conflictPolicyRef',v_components->>'freshnessPolicyRef',v_components->>'shadowPolicyRef',p_as_of,v_cutoff,v_components,v_input_hash,v_resolution_hash,v_manifest_hash,snapshot,decision) returning id into v_manifest_id;
     insert into world_knowledge_private.resolution_entries(manifest_id,attribute_key,scope,resolution,value,trust,freshness,basis_claim_hashes,conflict_claim_hashes,entry_hash)
-    select manifest_id,item->>'key',item->>'scope',item->>'resolution',item->'value',item->>'trust',item->>'freshness',array(select jsonb_array_elements_text(item->'basisClaimHashes')),case when item->>'resolution'='DISPUTED' then array(select jsonb_array_elements_text(item->'basisClaimHashes')) else '{}' end,encode(extensions.digest(pg_catalog.convert_to(item::text,'UTF8'),'sha256'),'hex') from jsonb_array_elements(snapshot->'facts') item;
+    select v_manifest_id,item->>'key',item->>'scope',item->>'resolution',item->'value',item->>'trust',item->>'freshness',array(select jsonb_array_elements_text(item->'basisClaimHashes')),case when item->>'resolution'='DISPUTED' then array(select jsonb_array_elements_text(item->'basisClaimHashes')) else '{}' end,encode(extensions.digest(pg_catalog.convert_to(item::text,'UTF8'),'sha256'),'hex') from jsonb_array_elements(snapshot->'facts') item;
+    stored:=world_knowledge_private.validate_resolution_manifest_v1(v_manifest_id);
   end if;
-  insert into world_knowledge_private.current_projection_pointers(spot_id,manifest_id) values(p_spot_id,manifest_id) on conflict(spot_id) do update set manifest_id=excluded.manifest_id,updated_at=pg_catalog.clock_timestamp();
-  insert into world_knowledge_private.rebuild_jobs(spot_id,idempotency_key,mode,status,completed_at,manifest_id) values(p_spot_id,p_idempotency_key,p_mode,'SUCCEEDED',pg_catalog.clock_timestamp(),manifest_id) on conflict(idempotency_key) do nothing;
-  return jsonb_build_object('manifestId',manifest_id,'manifestHash',v_manifest_hash,'resolutionHash',v_resolution_hash,'inputHash',v_input_hash,'mode',p_mode,'worldSnapshot',snapshot,'decisionProjection',decision);
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('world-current-pointer:'||p_spot_id::text,0));
+  select * into current_pointer from world_knowledge_private.current_projection_pointers p where p.spot_id=p_spot_id for update;
+  if not found then
+    insert into world_knowledge_private.current_projection_pointers(spot_id,manifest_id,manifest_hash,as_of,ledger_cutoff_at,registry_version,policy_version,resolver_version) select m.spot_id,m.id,m.manifest_hash,m.as_of,m.ledger_cutoff_at,m.registry_version,m.policy_version,m.resolver_version from world_knowledge_private.resolution_manifests m where m.id=v_manifest_id;
+    pointer_updated:=true;
+  elsif current_pointer.manifest_id<>v_manifest_id then
+    if current_pointer.registry_version<>v_registry_version or current_pointer.policy_version<>v_policy_version or current_pointer.resolver_version<>v_resolver_version then raise exception 'current_projection_version_order_not_configured' using errcode='22023'; end if;
+    if p_as_of>current_pointer.as_of or (p_as_of=current_pointer.as_of and (select m.ledger_cutoff_at from world_knowledge_private.resolution_manifests m where m.id=v_manifest_id)>current_pointer.ledger_cutoff_at) then
+      update world_knowledge_private.current_projection_pointers p set manifest_id=m.id,manifest_hash=m.manifest_hash,as_of=m.as_of,ledger_cutoff_at=m.ledger_cutoff_at,registry_version=m.registry_version,policy_version=m.policy_version,resolver_version=m.resolver_version,updated_at=pg_catalog.clock_timestamp() from world_knowledge_private.resolution_manifests m where p.spot_id=p_spot_id and m.id=v_manifest_id;
+      pointer_updated:=true;
+    end if;
+  end if;
+  update world_knowledge_private.rebuild_jobs set status='SUCCEEDED',completed_at=pg_catalog.clock_timestamp(),manifest_id=v_manifest_id where id=job.id;
+  return stored||jsonb_build_object('mode',p_mode,'reused',false,'pointerUpdated',pointer_updated);
 end $$;
 
 comment on schema world_knowledge_private is 'Slice 3B private, append-only World Knowledge ledger and shadow resolver internals; not a Data API surface.';
@@ -779,7 +919,7 @@ returns jsonb language sql security definer set search_path='' as $$
   select world_knowledge_private.submit_authoritative_claim_v1('ADMIN',p_spot_id,p_attribute_key,p_knowledge_state,p_value,p_observed_at,p_valid_from,p_valid_until,p_visibility,p_supersedes_claim_id,p_idempotency_key);
 $$;
 
-revoke execute on function world_knowledge_private.reject_immutable_mutation_v1(),world_knowledge_private.detach_actor_binding_v1(),world_knowledge_private.attribute_value_valid_v1(text,text,text,jsonb),world_knowledge_private.text_requires_shadow_v1(text,jsonb),world_knowledge_private.validate_claim_insert_v1(),world_knowledge_private.validate_verification_insert_v1(),world_knowledge_private.validate_confirmation_insert_v1(),world_knowledge_private.get_actor_binding_v1(uuid,text),world_knowledge_private.submit_authoritative_claim_v1(text,uuid,text,text,jsonb,timestamptz,timestamptz,timestamptz,text,uuid,text) from public,anon,authenticated,service_role;
+revoke execute on function world_knowledge_private.reject_immutable_mutation_v1(),world_knowledge_private.detach_actor_binding_v1(),world_knowledge_private.attribute_value_valid_v1(text,text,text,jsonb),world_knowledge_private.text_requires_shadow_v1(text,jsonb),world_knowledge_private.validate_claim_insert_v1(),world_knowledge_private.validate_verification_insert_v1(),world_knowledge_private.validate_confirmation_insert_v1(),world_knowledge_private.get_actor_binding_v1(uuid,text),world_knowledge_private.submit_authoritative_claim_v1(text,uuid,text,text,jsonb,timestamptz,timestamptz,timestamptz,text,uuid,text),world_knowledge_private.resolution_input_components_v1(uuid,timestamptz,timestamptz),world_knowledge_private.decision_projection_v1(jsonb),world_knowledge_private.validate_resolution_manifest_v1(uuid) from public,anon,authenticated,service_role;
 revoke execute on function public.world_owner_submit_claim_v1(uuid,text,text,jsonb,timestamptz,timestamptz,timestamptz,text,uuid,text),public.world_admin_submit_claim_v1(uuid,text,text,jsonb,timestamptz,timestamptz,timestamptz,text,uuid,text),public.world_confirm_claim_v1(uuid,text),public.world_submit_user_report_v1(uuid,text,jsonb,text),public.world_admin_record_identity_event_v1(text,uuid,uuid,text,text,text[],text),public.world_shadow_rebuild_spot_v1(uuid,timestamptz,text,text) from public,anon,authenticated;
 grant execute on function public.world_owner_submit_claim_v1(uuid,text,text,jsonb,timestamptz,timestamptz,timestamptz,text,uuid,text),public.world_confirm_claim_v1(uuid,text),public.world_submit_user_report_v1(uuid,text,jsonb,text) to authenticated;
 grant execute on function public.world_admin_submit_claim_v1(uuid,text,text,jsonb,timestamptz,timestamptz,timestamptz,text,uuid,text),public.world_admin_record_identity_event_v1(text,uuid,uuid,text,text,text[],text) to authenticated;

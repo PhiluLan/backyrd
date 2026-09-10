@@ -9,10 +9,10 @@
     {
       "scenarioId": "balanced_reference:owner-asserted-hours",
       "policyVersion": "draft:world-knowledge-slice-3a:balanced_reference:1",
-      "policyHash": "d39fb5d6b50e9f17948c1b92b043f27c4de03731aa2f3b33477958983f5dc1cd",
-      "resolutionHash": "c16eb582e8374d21303d1a622d145dd315d612c7d8c836aa8283d61cb67f7dd8",
-      "snapshotHash": "ee893c339b9707b570b070804f64a817bca08310735e5140a2cc8d99c1bef3d9",
-      "projectionHash": "22ed53085e2164c369c02aef10c73503fe219c290da7dc5670fdc73d34a161a0",
+      "policyHash": "639d3dfce6b7fba6bc7a5447181f91c80ed3a68f22ccbe32f1faece8f2ebafbd",
+      "resolutionHash": "2597154d2def7a6d090c2d539da40c0009ff69b7cba93697be4c6db2799b31da",
+      "snapshotHash": "a458f34c322d87f0a4929e51930f46514e97303d24b3096ff743b27008bbc2cd",
+      "projectionHash": "65d750fd4364a076f6b214aae5c21c0bf22bd0b340f32a1bd3f76079abba22b0",
       "sourceAssessments": [
         {
           "claimId": "claim:s3a:owner-hours",
@@ -33,7 +33,7 @@
           "reasonCodes": [
             "AUTHORIZED_ASSERTION"
           ],
-          "assessmentHash": "cbf155a67a6d17a044aab47edcd932c8378d324896a1548cee25a23d847a3049"
+          "assessmentHash": "3fe883b3999c96f0a42ffa29ef3f054b2e9f31ebcfb182d45237f489499c19d6"
         }
       ],
       "readiness": [
@@ -114,15 +114,15 @@
           "count": 1
         }
       ],
-      "resultHash": "9762e86a7e7b658250779b88d5fc147a3f727eab727f48ccc8e9aae16b319a4c"
+      "resultHash": "9df1175a4f72b3c88158d5b8ec122e90f629bdc3d7649dc9640d114dff368f23"
     },
     {
       "scenarioId": "balanced_reference:official-referenced-hours",
       "policyVersion": "draft:world-knowledge-slice-3a:balanced_reference:1",
-      "policyHash": "d39fb5d6b50e9f17948c1b92b043f27c4de03731aa2f3b33477958983f5dc1cd",
-      "resolutionHash": "aea4884e1cdb0b1e549b0d9919cf83fb26f182a07e6d3a27106b01cbb2ff6a5b",
-      "snapshotHash": "2ed7737b8fdcacc4cd20c7e78441e6a762f5146bc9529eb00b8609aac0ed3200",
-      "projectionHash": "2291b1eef009e47d4a848a2f87c09b1bd8a71ae3ae2a08e279057fb774ac546e",
+      "policyHash": "639d3dfce6b7fba6bc7a5447181f91c80ed3a68f22ccbe32f1faece8f2ebafbd",
+      "resolutionHash": "f2fe40de40e02372e68fddef8eadb9d2491e37b0d5a3905b1c2e1491634fca75",
+      "snapshotHash": "067e23582c8cb4c237f8b708a69e9fd6d856478b7dea1325c63941f117b742c8",
+      "projectionHash": "db4170ae594c8498de22030496e998edc9a7a77fa20408e3a48f77f1d3f73736",
       "sourceAssessments": [
         {
           "claimId": "claim:s3a:official-hours",
@@ -143,7 +143,7 @@
           "reasonCodes": [
             "AUTHORIZED_BOUND_REFERENCE"
           ],
-          "assessmentHash": "fc0c6aba27ccfa56efd1aaf5711064e53a0ad729cef0dfb4200baa15e2f42d4a"
+          "assessmentHash": "9f7a5abc46ba2c63a8b48b56b44dfcd0da59029eee46c01c9e347b109372dc9f"
         }
       ],
       "readiness": [
@@ -219,15 +219,15 @@
       ],
       "conflicts": [],
       "exclusions": [],
-      "resultHash": "d50bd47150f634fc9670d6237aee0d980aca50dda5a7561cf39e240cc4e66348"
+      "resultHash": "657b23c8e99e10065bdabc4a263c5e0340cfd59cb158bb3fc24983c5e7f380cc"
     },
     {
       "scenarioId": "balanced_reference:current-state-without-expiry",
       "policyVersion": "draft:world-knowledge-slice-3a:balanced_reference:1",
-      "policyHash": "d39fb5d6b50e9f17948c1b92b043f27c4de03731aa2f3b33477958983f5dc1cd",
-      "resolutionHash": "e0eb18bd13d1985e329a41c7a28a12d78bcdcee5cb66fd4be6c2285524dfd2eb",
-      "snapshotHash": "3fdd57b396d9011bdf160af3f9bc46a481f55f2cf5426995997cc6dbd22cd952",
-      "projectionHash": "9cc06f9b62fd3e63eaded298868e5ffc866f589b2b5bed4b9ba27ac860e1de5d",
+      "policyHash": "639d3dfce6b7fba6bc7a5447181f91c80ed3a68f22ccbe32f1faece8f2ebafbd",
+      "resolutionHash": "8cce7c11a18f4e76842ddb82f0e511df94196fd2d73b1b75c3368bbe59c8f24c",
+      "snapshotHash": "3c1a0bdf1302945ea304f3a7294e37077c7d653f54036566faa2ec4a8598d00f",
+      "projectionHash": "79f0f877594e9175e8a77a7843903f5bc3194be6d1eb6fdd95e57c04d8e4c558",
       "sourceAssessments": [
         {
           "claimId": "claim:s3a:current-state",
@@ -249,7 +249,7 @@
             "AUTHORIZED_ASSERTION",
             "VALID_UNTIL_REQUIRED"
           ],
-          "assessmentHash": "ce871c6e5267c7505795697aaebad1070a8389ef615948e689c4a328b5c95feb"
+          "assessmentHash": "5aa15bf7ad1589199039bc634d52b930f109154772e498de4e4663fdb3fca288"
         }
       ],
       "readiness": [
@@ -336,15 +336,15 @@
           "count": 1
         }
       ],
-      "resultHash": "4816ca10c2be892e695ddad34c968b2faeab10f52a8c6a691b9efeb0a52a55fd"
+      "resultHash": "b4aca75e101964856347a017f4283383bd7e450699a3ccf58741ef1c33a57e44"
     },
     {
       "scenarioId": "balanced_reference:conflicting-official-takeaway",
       "policyVersion": "draft:world-knowledge-slice-3a:balanced_reference:1",
-      "policyHash": "d39fb5d6b50e9f17948c1b92b043f27c4de03731aa2f3b33477958983f5dc1cd",
-      "resolutionHash": "3c74fa0d2f38b7f485107fddb3cf272c9ac38e371801c9ebfee0c5fd12513765",
-      "snapshotHash": "1878728d7821aa84af54a7b50e39775b7343d8cb58b03a19234e3a932496692d",
-      "projectionHash": "b8b04d3b4b9cc535f23a78edc333bc9e509beedf313bd0183faa34505873013f",
+      "policyHash": "639d3dfce6b7fba6bc7a5447181f91c80ed3a68f22ccbe32f1faece8f2ebafbd",
+      "resolutionHash": "99dd1b5c3ffeb7676b795eb390ab8c8eb3ca8d4a59ae7521faf026e014288815",
+      "snapshotHash": "e83a7882d8598db9fd6ec66f33caf503c2e55c33bda95368cfe63cee841377c3",
+      "projectionHash": "ef639cf757a53d828538c1b8e226c9b28f96a21bb0751d1ba40cfdaad6fef559",
       "sourceAssessments": [
         {
           "claimId": "claim:s3a:takeaway-no",
@@ -365,7 +365,7 @@
           "reasonCodes": [
             "AUTHORIZED_BOUND_REFERENCE"
           ],
-          "assessmentHash": "7edae6c81ab00a8c993d4f00231feface0df50d9c7ae4f7c4b32eb8e821e5f00"
+          "assessmentHash": "b06066e615ebfa1f988328dc363404b4c80f4101667a93d7ce67f4dfb22b2a6b"
         },
         {
           "claimId": "claim:s3a:takeaway-yes",
@@ -386,7 +386,7 @@
           "reasonCodes": [
             "AUTHORIZED_BOUND_REFERENCE"
           ],
-          "assessmentHash": "954a7fda9611f462ca4fb7122c0a0dbe808c6beabd2d523da0fabde306be0d65"
+          "assessmentHash": "87aaa2fe4d05dc056fde3e4436e91e2cdfd4ddd1f31746e49ed9a722e50c3a27"
         }
       ],
       "readiness": [
@@ -470,15 +470,15 @@
           "count": 1
         }
       ],
-      "resultHash": "5212d9f008406d313b241e7f7792dcd8b99fb90de96a5a4523ee6701a99cf8b6"
+      "resultHash": "0076761150aba8972a929a74757bbb7f28e3a65416843d0306eafe2eb21769c8"
     },
     {
       "scenarioId": "conservative_verification:owner-asserted-hours",
       "policyVersion": "draft:world-knowledge-slice-3a:conservative_verification:1",
-      "policyHash": "4367ff697f776a4e03749d4e39a3ab93a969edcc2d0c0c768e8a535efdc8c3e9",
-      "resolutionHash": "de4255e0c018781ecf618c4a83a82c3186b660063dad7eba2875847afd9cb4ea",
-      "snapshotHash": "9b5dc287df5ebaf7401de78f28f377dcf373acbaf82a33fa7b307543786bc2aa",
-      "projectionHash": "39b5d34fa4560a5a3c07f8e95cff742c60920529362b68ff8f59520fe13ff390",
+      "policyHash": "3449c78e2b9cf3551159b34399f2cc9346ec02f14b4f79060b01fbfd87707640",
+      "resolutionHash": "6ae40aeb2e992134eb934dadb56eb5750c1bc4be84f50f09cad7d5c80fb2b0b7",
+      "snapshotHash": "61347f389a6f740c20eeb504492e2ad155729fe9c894f586eac41c93f6dd7ea8",
+      "projectionHash": "ffa0b4fd85b9de657d5828d5c9ad853b89590ca7a7a88f77e4ea412fe150bd5f",
       "sourceAssessments": [
         {
           "claimId": "claim:s3a:owner-hours",
@@ -499,7 +499,7 @@
           "reasonCodes": [
             "AUTHORIZED_ASSERTION"
           ],
-          "assessmentHash": "0226cfd7e1b9269e1ce57d502c8cca4729bae51694917e7bb577e72308a4ec9e"
+          "assessmentHash": "6e106515a2a43462fa3de368df52b16c8918b102f57bfb9633fd8a6c5104435e"
         }
       ],
       "readiness": [
@@ -580,15 +580,15 @@
           "count": 1
         }
       ],
-      "resultHash": "ef6b293475becb9bb3d7c1c25910e834709be6a922ef410ad523174fd2dc74de"
+      "resultHash": "e0cc1e2df138e8f2f059a36d3cded90102c84e231ff7eee10dccb72f917e6cce"
     },
     {
       "scenarioId": "conservative_verification:official-referenced-hours",
       "policyVersion": "draft:world-knowledge-slice-3a:conservative_verification:1",
-      "policyHash": "4367ff697f776a4e03749d4e39a3ab93a969edcc2d0c0c768e8a535efdc8c3e9",
-      "resolutionHash": "958fc9cf5074d0b7bb49370774bd87b1317fe4f32bb85fb43ccdec930e3d2b30",
-      "snapshotHash": "49e4c2d906bbad2a93a516759ec4cd21f7a17978a2a0d99aa2dfa96dc93f9fcc",
-      "projectionHash": "7d39df94f4bbca905aae6aad21e5b2fcb0a20fc00caf4bd01b77ec0c89853351",
+      "policyHash": "3449c78e2b9cf3551159b34399f2cc9346ec02f14b4f79060b01fbfd87707640",
+      "resolutionHash": "b9e90b90f61da35e471c1598f21917d60f3d0d1d160867f733e591e9f180a372",
+      "snapshotHash": "0b6d9314be5a54a71f7fae3d2a9c5d0da4498353cb5af6b77becf1e2874a51a5",
+      "projectionHash": "7e3530ed7229b52a8443d0ae585c2c24ab9db0a1f9d8250708efe9d422f625b6",
       "sourceAssessments": [
         {
           "claimId": "claim:s3a:official-hours",
@@ -609,7 +609,7 @@
           "reasonCodes": [
             "AUTHORIZED_BOUND_REFERENCE"
           ],
-          "assessmentHash": "32ef284b68c2b707a0a173919a6052f0250811726b67753b84895e62d1582c5c"
+          "assessmentHash": "e0a3712b78bb9c5a15d021cc3b689803b16b4d87cca67d1565ded41ccfba4841"
         }
       ],
       "readiness": [
@@ -685,15 +685,15 @@
       ],
       "conflicts": [],
       "exclusions": [],
-      "resultHash": "0cfd48fe45b7503b5d1ede9006d01f7f228b637e2f94195c73c4453e32b19e55"
+      "resultHash": "9a1966f9373fda2c11f76c08fdf2419f903b1e3d48b703da2e52f15eae05729b"
     },
     {
       "scenarioId": "conservative_verification:current-state-without-expiry",
       "policyVersion": "draft:world-knowledge-slice-3a:conservative_verification:1",
-      "policyHash": "4367ff697f776a4e03749d4e39a3ab93a969edcc2d0c0c768e8a535efdc8c3e9",
-      "resolutionHash": "a1b0eb9f387b460ce9ced4afac3df163e05ed5edd022fa7e0dceb0c1b141f51c",
-      "snapshotHash": "cdeb69ace3280e383f2e94f557f26dc56f02fe54ce625bd610952e6a5a94745c",
-      "projectionHash": "2c2690b9ab0f3ae992056144c4c6743d47ccb5708dadd89cfa7215580b7b61eb",
+      "policyHash": "3449c78e2b9cf3551159b34399f2cc9346ec02f14b4f79060b01fbfd87707640",
+      "resolutionHash": "1b9bedb88ee92570bd16b19811c9b52c311ac9702d7aa36889a06e038f7b916a",
+      "snapshotHash": "4cdb09c16b3e5f711f5cee61b3843883ec041e397cc2b4130153048ec57afbcb",
+      "projectionHash": "27855759278843174a09435a68a59bc4b9b73973a3c7232518727842e53fecce",
       "sourceAssessments": [
         {
           "claimId": "claim:s3a:current-state",
@@ -715,7 +715,7 @@
             "AUTHORIZED_ASSERTION",
             "VALID_UNTIL_REQUIRED"
           ],
-          "assessmentHash": "cd317f2115e1f46de4338cf273e2a5c36f9c2aae0e71447c3988e278d17b938b"
+          "assessmentHash": "95fa4ccc6363609d276f63a027c5702a83c881e2ca6288ef01013402317123bd"
         }
       ],
       "readiness": [
@@ -802,15 +802,15 @@
           "count": 1
         }
       ],
-      "resultHash": "5d12da383513606d2e363e57f3e370c7d73240335b500e6c5cd7f804a4e18202"
+      "resultHash": "04b4f037af9ba554624cb85f1f7f48c435dbc11e580cfcf0c0428949ccdd24c0"
     },
     {
       "scenarioId": "conservative_verification:conflicting-official-takeaway",
       "policyVersion": "draft:world-knowledge-slice-3a:conservative_verification:1",
-      "policyHash": "4367ff697f776a4e03749d4e39a3ab93a969edcc2d0c0c768e8a535efdc8c3e9",
-      "resolutionHash": "28667fb2df05571219b5819adfbac0b9a18a577f7ce6a9d4cd37e81c2c36b6d3",
-      "snapshotHash": "e07f69eb1f4566400c454ab721770592553012a462b99a7647cd3ca1158c515a",
-      "projectionHash": "34603f6e399799a14e8539abbf35d75e1d2d3ea2e9763cf20fcb187d02c09d73",
+      "policyHash": "3449c78e2b9cf3551159b34399f2cc9346ec02f14b4f79060b01fbfd87707640",
+      "resolutionHash": "1a112667540aa8ddb6020779c64746e4fcabeb6076d4a0095251955ebe1897ab",
+      "snapshotHash": "1c3a5a0e3ee67a4f8856aa14bdd8d0c36f898369c06fad13cec75be09bd32b94",
+      "projectionHash": "821e8985557e64381ebcec97c95dc8c131210529f803532837a940675c2ee6ec",
       "sourceAssessments": [
         {
           "claimId": "claim:s3a:takeaway-no",
@@ -831,7 +831,7 @@
           "reasonCodes": [
             "AUTHORIZED_BOUND_REFERENCE"
           ],
-          "assessmentHash": "4421ab66d3c47b5ad05e64e29d6c0d63cf44dcb449f570066fdc0402ec02348e"
+          "assessmentHash": "8c1c66227e34dd86299bc467a13dc43ae3541f9067b858f3229a370dc4e9fdc9"
         },
         {
           "claimId": "claim:s3a:takeaway-yes",
@@ -852,7 +852,7 @@
           "reasonCodes": [
             "AUTHORIZED_BOUND_REFERENCE"
           ],
-          "assessmentHash": "b5295f1ccdcc5ca8ccc0d44f5ce0c3b1c45315ac054fb705beaad9cf7a1a617c"
+          "assessmentHash": "a80ab9e3eeea40bf689bc0f0bc31ccfcbc29ed37598025c209725d18bc8a2970"
         }
       ],
       "readiness": [
@@ -936,8 +936,8 @@
           "count": 1
         }
       ],
-      "resultHash": "3d8a8f8443739b0692f33611f187d860d41d815786ecf345d27f2bd81bcf2fd4"
+      "resultHash": "7dda21cbbccfdf05a137bbb21bd06e0a835aed75a6bd5215bacfc32c3fff6035"
     }
   ],
-  "artifactHash": "91f3c049cb2b20083d9b4c3d43fcb9627785049af4e0c4c54896ebb68e2764e4"
+  "artifactHash": "9e6688855ca3397a578095588e7a70c5c9185b79e8595ec0b05431f57931ac52"
 }
