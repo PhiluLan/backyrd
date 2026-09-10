@@ -1,5 +1,7 @@
 # Lifecycle Manifest und Privacy Data Inventory
 
+Phase 3A ergänzt Observation Records, Interpretation Records, User Model Snapshots, Latest Pointer, Incremental Reducer State, Projection Cache, Model Rebuild Material, Attribution Work Items und subject-gebundene Evaluation Fixtures. Alle sind personenbezogen und müssen bei Account Erasure tatsächlich gelöscht werden; nur strikt nicht-personenbezogene technische Manifeste dürfen bestehen bleiben. Retention-Zeiträume sind weiterhin nicht freigegeben.
+
 `USER_INTELLIGENCE_LIFECYCLE_MANIFEST` ist das maschinenlesbare Gate für alle geplanten vNext-Stores. Ein fehlender Store oder ein unvollständiger Export-, Retention-, Purge-, Consent-, Erasure- oder Rebuild-Vertrag lässt die Validierung scheitern.
 
 | Store | Klasse | Wahrheit | Export | Lifecycle |

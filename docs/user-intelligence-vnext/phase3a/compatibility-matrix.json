@@ -1,0 +1,25 @@
+{
+  "contractVersion": "backyrd.user-intelligence.phase3a-compatibility-matrix@1.0",
+  "canonicalBase": "219b5cd268c55cf06252cc0a71db387e476428c9",
+  "entries": [
+    {"component":"user-intelligence-vnext-core/phase2","surfaces":["shared-contract"],"classification":"KEEP","authority":"SERVER_BOUND","numericPolicy":false,"phase3aTarget":"exclusive evidence input"},
+    {"component":"backyrd_taste_evidence_v1","surfaces":["supabase"],"classification":"REPLACE","authority":"LEGACY_SERVER","numericPolicy":true,"phase3aTarget":"no migration or read path"},
+    {"component":"backyrd_user_taste_map_v1","surfaces":["supabase","decision"],"classification":"REPLACE","authority":"LEGACY_DERIVED","numericPolicy":true,"phase3aTarget":"versioned non-numeric model foundation"},
+    {"component":"backyrd_memory_events_v1","surfaces":["supabase","worker"],"classification":"ADAPT","authority":"MIXED_LEGACY","numericPolicy":false,"phase3aTarget":"future phase2 authority adapter only"},
+    {"component":"product-memory-bridge-v1","surfaces":["supabase","mobile"],"classification":"ADAPT","authority":"SERVER_PRODUCT_STATE","numericPolicy":false,"phase3aTarget":"producer inventory; no wiring"},
+    {"component":"user-intelligence-runtime","surfaces":["worker","supabase"],"classification":"DEPRECATE","authority":"SERVER_WORKER","numericPolicy":true,"phase3aTarget":"not invoked by new kernel"},
+    {"component":"decision-lab/taste-engine","surfaces":["lab"],"classification":"PROHIBITED","authority":"EXPERIMENT_ONLY","numericPolicy":true,"phase3aTarget":"historical comparison only"},
+    {"component":"decision-lab/n2-memory-user-intelligence","surfaces":["lab"],"classification":"REPLACE","authority":"EXPERIMENT_ONLY","numericPolicy":true,"phase3aTarget":"no thresholds or retention copied"},
+    {"component":"RelevantUserProjection","surfaces":["shared-contract","decision-vnext"],"classification":"KEEP","authority":"SERVER_BOUND","numericPolicy":false,"phase3aTarget":"neutral compatibility adapter"},
+    {"component":"decision-vnext/user-adapter","surfaces":["decision-vnext"],"classification":"KEEP","authority":"CONTRACT_VALIDATED","numericPolicy":false,"phase3aTarget":"unchanged and unwired"},
+    {"component":"mobile/memory-bridge","surfaces":["mobile","rpc"],"classification":"ADAPT","authority":"CLIENT_ACTION_TO_SERVER_RPC","numericPolicy":false,"phase3aTarget":"future canonical producer adapter"},
+    {"component":"standard-review","surfaces":["mobile","web","supabase"],"classification":"ADAPT","authority":"SERVER_PRODUCT_STATE","numericPolicy":false,"phase3aTarget":"experience only; same learning semantics as smart review"},
+    {"component":"smart-review","surfaces":["mobile","supabase"],"classification":"ADAPT","authority":"SERVER_PRODUCT_STATE","numericPolicy":false,"phase3aTarget":"experience only; no implicit satisfaction"},
+    {"component":"favorites","surfaces":["mobile","web","supabase"],"classification":"UNKNOWN_NEEDS_PRODUCT_DECISION","authority":"SERVER_PRODUCT_STATE","numericPolicy":false,"phase3aTarget":"save/removal interpretation not configured"},
+    {"component":"navigation","surfaces":["mobile","product-memory-bridge"],"classification":"UNKNOWN_NEEDS_PRODUCT_DECISION","authority":"AUTHENTICATED_ACTION","numericPolicy":false,"phase3aTarget":"intent; synthetic practical variant only"},
+    {"component":"moments-and-review-moods","surfaces":["mobile","web","supabase"],"classification":"UNKNOWN_NEEDS_PRODUCT_DECISION","authority":"MIXED_PRODUCT_CONTENT","numericPolicy":false,"phase3aTarget":"no interpretation configured"},
+    {"component":"dwell-quick-skip-search","surfaces":["analytics","mobile","web"],"classification":"UNKNOWN_NEEDS_PRODUCT_DECISION","authority":"CLIENT_OBSERVATION","numericPolicy":false,"phase3aTarget":"fail closed"},
+    {"component":"social-follow-share-profile","surfaces":["mobile","web"],"classification":"PROHIBITED","authority":"SOCIAL_OBSERVATION","numericPolicy":false,"phase3aTarget":"no taste or cross-user propagation"},
+    {"component":"consent-reset-erasure","surfaces":["shared-contract","supabase"],"classification":"KEEP","authority":"SERVER_LIFECYCLE","numericPolicy":false,"phase3aTarget":"extended to every model store"}
+  ]
+}

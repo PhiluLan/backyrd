@@ -1,5 +1,7 @@
 # User Intelligence & Memory vNext — Phase-2-Architektur
 
+Phase 3A ergänzt diesen kanonischen Evidence-Layer additiv um den in [`phase3a/ADR-003-USER-MODEL-LEARNING-KERNEL.md`](phase3a/ADR-003-USER-MODEL-LEARNING-KERNEL.md) beschriebenen Learning Kernel. Es existiert weiterhin keine Production Interpretation Policy und kein Product Wiring.
+
 Status: Event-Semantik- und Evidence-Chain-Foundation, ausschließlich synthetisch. Keine Product-Integration und keine neue Speicherung.
 
 ## Autoritäten

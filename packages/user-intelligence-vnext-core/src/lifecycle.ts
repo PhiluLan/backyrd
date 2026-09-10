@@ -6,6 +6,8 @@ export const REQUIRED_LIFECYCLE_STORES = Object.freeze([
   "canonical_memory_events", "event_ledger", "deduplication_records", "evidence_bindings", "rebuild_material",
   "evidence_chains", "taste_nodes", "practical_preferences", "direct_spot_affinities",
   "snapshots", "latest_pointer", "change_records", "projections", "work_items", "caches", "transparency_views", "technical_audit_manifests",
+  "observation_records", "interpretation_records", "user_model_snapshots", "user_model_latest_pointer",
+  "incremental_reducer_state", "projection_cache", "model_rebuild_material", "attribution_work_items", "evaluation_fixtures_subject_bound",
 ] as const);
 
 export type LifecycleStoreName = typeof REQUIRED_LIFECYCLE_STORES[number];
@@ -56,6 +58,15 @@ export const USER_INTELLIGENCE_LIFECYCLE_MANIFEST = Object.freeze({
     personal("work_items", "PLATFORM_OPERATIONS", "WORK", "EXPORT_METADATA", "EPHEMERAL", ["canonical_memory_events"]),
     personal("caches", "PLATFORM_OPERATIONS", "CACHE", "EXPORT_METADATA", "EPHEMERAL", ["snapshots", "projections"]),
     personal("transparency_views", "USER_INTELLIGENCE", "DERIVED", "EXPORT_USER_READABLE", "EPHEMERAL", ["snapshots"]),
+    personal("observation_records", "USER_INTELLIGENCE", "DERIVED", "EXPORT_USER_READABLE", "SOURCE_BOUND", ["evidence_chains"]),
+    personal("interpretation_records", "USER_INTELLIGENCE", "DERIVED", "EXPORT_USER_READABLE", "SOURCE_BOUND", ["observation_records"]),
+    personal("user_model_snapshots", "USER_INTELLIGENCE", "DERIVED", "EXPORT_USER_READABLE", "SOURCE_BOUND", ["interpretation_records"]),
+    personal("user_model_latest_pointer", "USER_INTELLIGENCE", "POINTER", "EXPORT_METADATA", "WHILE_REFERENCED", ["user_model_snapshots"]),
+    personal("incremental_reducer_state", "USER_INTELLIGENCE", "DERIVED", "EXPORT_METADATA", "SOURCE_BOUND", ["interpretation_records", "user_model_snapshots"]),
+    personal("projection_cache", "PLATFORM_OPERATIONS", "CACHE", "EXPORT_METADATA", "EPHEMERAL", ["user_model_snapshots"]),
+    personal("model_rebuild_material", "USER_INTELLIGENCE", "DERIVED", "EXPORT_METADATA", "SOURCE_BOUND", ["evidence_chains", "interpretation_records"]),
+    personal("attribution_work_items", "PLATFORM_OPERATIONS", "WORK", "EXPORT_METADATA", "EPHEMERAL", ["evidence_chains"]),
+    personal("evaluation_fixtures_subject_bound", "USER_INTELLIGENCE", "DERIVED", "EXPORT_METADATA", "EPHEMERAL", ["interpretation_records"]),
     {
       store: "technical_audit_manifests", owner: "PLATFORM_OPERATIONS", privacyClass: "NON_PERSONAL_TECHNICAL", stateKind: "AUDIT",
       exportBehavior: "NOT_USER_EXPORTABLE_NON_PERSONAL", retentionOwner: "platform-operations:technical-audit-policy",
