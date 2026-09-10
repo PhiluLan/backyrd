@@ -72,6 +72,8 @@
     "decision-vnext:test": "npm run test --workspace @backyrd/decision-vnext-core",
     "decision-vnext:smoke": "npm run sandbox:smoke --workspace @backyrd/decision-vnext-core",
     "decision-vnext:full": "npm run sandbox:full --workspace @backyrd/decision-vnext-core",
+    "decision-vnext:phase2:evaluate": "npm run phase2:evaluate --workspace @backyrd/decision-vnext-core",
+    "decision-vnext:phase2:full": "npm run phase2:full --workspace @backyrd/decision-vnext-core",
     "supabase:start": "npx supabase start",
     "supabase:stop": "npx supabase stop",
     "supabase:status": "npx supabase status",
