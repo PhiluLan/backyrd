@@ -3,7 +3,8 @@ import { ContractValidationError } from "./schema.js";
 
 export const LIFECYCLE_MANIFEST_VERSION = "backyrd.user-intelligence.lifecycle-manifest@1.0";
 export const REQUIRED_LIFECYCLE_STORES = Object.freeze([
-  "canonical_memory_events", "evidence_chains", "taste_nodes", "practical_preferences", "direct_spot_affinities",
+  "canonical_memory_events", "event_ledger", "deduplication_records", "evidence_bindings", "rebuild_material",
+  "evidence_chains", "taste_nodes", "practical_preferences", "direct_spot_affinities",
   "snapshots", "latest_pointer", "change_records", "projections", "work_items", "caches", "transparency_views", "technical_audit_manifests",
 ] as const);
 
@@ -40,6 +41,10 @@ export const USER_INTELLIGENCE_LIFECYCLE_MANIFEST = Object.freeze({
   sourceLifecycleDominatesDerivedState: true,
   stores: Object.freeze([
     personal("canonical_memory_events", "MEMORY", "SOURCE_OF_TRUTH", "EXPORT_OBSERVATIONS", "PRODUCT_POLICY_TBD"),
+    personal("event_ledger", "MEMORY", "SOURCE_OF_TRUTH", "EXPORT_OBSERVATIONS", "PRODUCT_POLICY_TBD"),
+    personal("deduplication_records", "USER_INTELLIGENCE", "DERIVED", "EXPORT_METADATA", "SOURCE_BOUND", ["event_ledger"]),
+    personal("evidence_bindings", "USER_INTELLIGENCE", "DERIVED", "EXPORT_METADATA", "SOURCE_BOUND", ["event_ledger"]),
+    personal("rebuild_material", "USER_INTELLIGENCE", "DERIVED", "EXPORT_METADATA", "SOURCE_BOUND", ["event_ledger"]),
     personal("evidence_chains", "USER_INTELLIGENCE", "DERIVED", "EXPORT_USER_READABLE", "SOURCE_BOUND", ["canonical_memory_events"]),
     personal("taste_nodes", "USER_INTELLIGENCE", "DERIVED", "EXPORT_USER_READABLE", "SOURCE_BOUND", ["evidence_chains"]),
     personal("practical_preferences", "USER_INTELLIGENCE", "DERIVED", "EXPORT_USER_READABLE", "SOURCE_BOUND", ["evidence_chains"]),

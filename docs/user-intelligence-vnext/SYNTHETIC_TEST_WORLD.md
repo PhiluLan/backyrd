@@ -25,6 +25,16 @@ Abgedeckt sind:
 - No-Consent-Minimierung ohne Snapshot-Referenz oder Profil-Suppression;
 - tatsächliches Delete aller personenbezogenen Stores bei abgeschlossener Account Erasure;
 - runtime-validierte Abweisung kommerzieller Felder.
+- fünf deterministische Journey-Resolution-Zustände mit Reason-/Proof-Hashes;
+- Event-ID-, Idempotency-, Offline-Retry- und Product-Source-Dedupe;
+- Standard-/Smart-Review-Parität einschließlich Cross-Journey-Konflikt;
+- event-time World Provider, historische Stabilität, Conflicts und Future-State-Abweisung;
+- expliziter, abgeleiteter und fehlender Context ohne Long-Term-Taste-Propagation;
+- append-only Correction mit Cross-User/-Spot- und Zeitprüfung;
+- unabhängige Repeat Visits nur über getrennte servergelöste Journeys;
+- byte-identischer Full-/Incremental-Rebuild bei Out-of-order Delivery;
+- innere Semantik-Manipulation trotz neu berechnetem äußeren Hash;
+- Evidence-State-Purge bei Withdrawal, Full Reset und Account Erasure.
 
 Der Concept-Slice `backyrd.synthetic-user-concepts@1.0` enthält ausschließlich Café, Bar, Restaurant, cozy/quiet/lively, calm/energetic, budget/premium und indoor/outdoor. Er ist Testvokabular, keine World- oder Founder-Freigabe.
 

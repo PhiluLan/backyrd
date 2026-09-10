@@ -29,7 +29,9 @@ export function syntheticEvent(spec: EventSpec): CanonicalUserEvent {
   const body: Omit<CanonicalUserEvent, "eventHash"> = {
     contractVersion: "backyrd.user-intelligence.canonical-user-event@1.0", eventId: spec.id, eventType: spec.eventType, eventClass: spec.eventClass,
     occurredAt: SYNTHETIC_NOW, observedAt: SYNTHETIC_NOW, ingestedAt: SYNTHETIC_NOW, userId,
-    references, journey: { resolution: "SERVER_RESOLVED", journeyId: "synthetic-journey-1", resolutionPolicyVersion: "synthetic-journey-policy-v1", independenceEligible: true },
+    references, journey: spec.eventType === "ONBOARDING_DECLARATION"
+      ? { resolution: "UNRESOLVED", journeyId: null, resolutionPolicyVersion: "synthetic-journey-policy-v1", independenceEligible: false }
+      : { resolution: "SERVER_RESOLVED", journeyId: "synthetic-journey-1", resolutionPolicyVersion: "synthetic-journey-policy-v1", independenceEligible: true },
     ...(spec.eventType === "ONBOARDING_DECLARATION" ? {} : { referenceResolution: { authority: "SERVER_PRODUCT_TRUTH" as const, boundUserId: userId, resolutionRecordHash: contentHash(`resolution-${spec.id}`), referencePolicyVersion: "synthetic-reference-policy-v1" } }),
     temporalBinding: { contractVersion: "backyrd.user-intelligence.temporal-validation@1.0", policyVersion: "synthetic-temporal-policy-v1", timeAuthority: "SERVER_CLOCK", validatedAt: SYNTHETIC_NOW },
     source: { system: "synthetic-fixture", producer: "phase1-harness", sourceRecordId: `source-${spec.id}`, provenance: authorityKind === "CLIENT_OBSERVATION" ? "CLIENT_OBSERVED" : authorityKind === "AUTHENTICATED_USER_ACTION" ? "USER_DECLARED" : authorityKind === "VERIFIED_OUTCOME" ? "SERVER_VERIFIED" : authorityKind === "DATABASE_DERIVED_EVENT" ? "DATABASE_TRIGGER" : "PRODUCT_STATE" },

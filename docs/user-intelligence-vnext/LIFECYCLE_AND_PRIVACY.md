@@ -5,6 +5,10 @@
 | Store | Klasse | Wahrheit | Export | Lifecycle |
 |---|---|---|---|---|
 | Canonical Memory Events | personal raw | Source of Truth | Beobachtungen | Product-Policy noch offen |
+| Event Ledger | personal raw | Source of Truth | Beobachtungen | Product-Policy noch offen |
+| Dedupe Records | personal derived | Derived | Metadaten | source-bound |
+| Evidence Bindings | personal derived | Derived | Metadaten | source-bound |
+| Rebuild Material | personal derived | Derived | Metadaten | source-bound |
 | Evidence Chains | personal derived | Derived | userlesbar | source-bound |
 | Taste Nodes | personal derived | Derived | userlesbar | source-bound |
 | Practical Preferences | personal derived | Derived | userlesbar | source-bound |
@@ -23,3 +27,7 @@ Finale Aufbewahrungsfristen sind bewusst nicht definiert. Consent Withdrawal und
 Bei UNKNOWN, DENIED, WITHDRAWN, fehlendem Snapshot oder Kill Switch ist die Projection neutral: keine Taste-/Practical-/Direct-Spot-Nodes, keine Domain Sufficiency, keine Snapshot-ID/-Hash und keine profilabgeleiteten Suppression-Details. Die direkte User-ID wurde aus dem Projection-Payload entfernt. Die serverseitige Request-Authority bleibt intern über `subjectBindingHash` gebunden; Decision darf diese Bindung weder aus Clientdaten erzeugen noch als öffentliche Identität exponieren.
 
 Raw Events, Reviewtexte, Rohstandorte, private Social-Daten und vollständige User Cards sind im Decision-Payload nicht repräsentierbar. Diese Foundation repariert den bestehenden Product Export noch nicht; sie definiert lediglich den vollständigen zukünftigen Vertrag.
+
+Phase 2 ergänzt `EvidenceEngineState` und `applyEvidenceLifecycle`. Bei fehlendem Consent, Withdrawal, Reset oder Erasure werden Subject Binding, Ledger-Hashes, Chains, Latest Pointer, Caches und Work Items gemeinsam entfernt. `ACCOUNT_ERASURE` übernimmt zusätzlich das vollständige Phase‑1-Store-Manifest und verlangt `DELETE` für jeden personenbezogenen Store; `RETAIN_NON_PERSONAL` ist ausschließlich für das technische Manifest zulässig. Es gibt weiterhin keine Production-Speicherung oder Retention-Ausführung.
+
+Kurzlebiger Command-Input und persistierbares Resultat sind getrennt. Unterdrückte oder gelöschte Build-/Lifecycle-Resultate besitzen `rebuildMaterial: null` sowie leere Event- und Dedupe-Arrays. Das Manifest führt Event Ledger, Dedupe Records, Evidence Bindings und Rebuild Material explizit als personenbezogene Stores; Account Erasure kann mit Restmaterial nicht `COMPLETED` verifiziert werden.
