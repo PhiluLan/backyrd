@@ -200,6 +200,10 @@ jobs:
         run: |
           npm run user-intelligence-vnext:typecheck
           npm run user-intelligence-vnext:test
+      - name: Validate World Knowledge foundation
+        run: |
+          npm run world-knowledge:typecheck
+          npm run world-knowledge:test
 
   decision:
     name: Versioned Decision semantics and evaluation
