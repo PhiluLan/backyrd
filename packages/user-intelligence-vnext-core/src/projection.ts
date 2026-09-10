@@ -21,6 +21,7 @@ export const ProjectionBuildInputSchema = schema.object({
   forcedNeutralReason: schema.optional(schema.enum(SUPPRESSION_REASON_CODES)),
 });
 export type ProjectionBuildInput = Infer<typeof ProjectionBuildInputSchema>;
+export const NEUTRAL_SUBJECT_BINDING_HASH = contentHash("backyrd.user-intelligence.neutral-subject-binding@1.0");
 
 const boundaries: RelevantUserProjection["boundaries"] = Object.freeze({
   rawEventsIncluded: false, reviewTextIncluded: false, rawLocationIncluded: false, privateSocialDataIncluded: false,
@@ -36,7 +37,7 @@ function assemble(input: ProjectionBuildInput, status: "ACTIVE" | "NEUTRAL", neu
   const privacyNeutral = isPrivacyNeutral(neutralReason);
   const withoutHash: Omit<RelevantUserProjection, "projectionHash"> = {
     contractVersion: "backyrd.user-intelligence.projection@1.0", projectionId: input.identity.projectionId,
-    decisionId: input.request.decisionId, subjectBindingHash: input.request.actor.subjectBindingHash,
+    decisionId: input.request.decisionId, subjectBindingHash: privacyNeutral || status === "NEUTRAL" ? NEUTRAL_SUBJECT_BINDING_HASH : input.request.actor.subjectBindingHash,
     snapshot: privacyNeutral || !input.snapshot ? null : { snapshotId: input.snapshot.snapshotId, snapshotHash: input.snapshot.snapshotHash },
     manifest: input.manifest, status, neutralReason,
     taste: content.taste, practical: content.practical, directSpot: content.directSpot,

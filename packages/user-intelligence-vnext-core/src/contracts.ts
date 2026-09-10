@@ -37,6 +37,13 @@ export const CONTRACT_VERSIONS = Object.freeze({
   userModelState: "backyrd.user-intelligence.user-model-state@3a.0",
   userModelCommand: "backyrd.user-intelligence.user-model-command@3a.0",
   userModelAuthority: "backyrd.user-intelligence.user-model-authority@3a.0",
+  userModelAuthorityRecord: "backyrd.user-intelligence.user-model-authority-record@3a.1",
+  userModelAuthorityTrustAnchor: "backyrd.user-intelligence.user-model-authority-trust-anchor@3a.1",
+  userModelEvidenceCheckpoint: "backyrd.user-intelligence.user-model-evidence-checkpoint@3a.1",
+  userModelLifecyclePlan: "backyrd.user-intelligence.user-model-lifecycle-plan@3a.1",
+  userModelLifecycleExecution: "backyrd.user-intelligence.user-model-lifecycle-execution@3a.1",
+  userModelLifecycleTrustAnchor: "backyrd.user-intelligence.user-model-lifecycle-trust-anchor@3a.1",
+  userModelLifecycleCompletion: "backyrd.user-intelligence.user-model-lifecycle-completion@3a.1",
 } as const);
 
 export const SYNTHETIC_CONCEPT_REGISTRY_VERSION = "backyrd.synthetic-user-concepts@1.0";
@@ -438,7 +445,8 @@ export function parseRelevantUserProjection(value: unknown, request?: RelevantUs
   if (["NO_CONSENT", "MISSING_SNAPSHOT", "KILL_SWITCH"].includes(parsed.neutralReason ?? "")) {
     if (parsed.snapshot !== null || parsed.domainSufficiency.length > 0 || parsed.suppression.total !== 0 || parsed.suppression.byReason.length > 0) throw new ContractValidationError("$", "privacy-neutral projection must not expose snapshot or profile-derived details");
   }
-  if (request && (parsed.subjectBindingHash !== request.actor.subjectBindingHash || parsed.decisionId !== request.decisionId || parsed.budgets.maxItems !== request.budgets.maxItems || parsed.budgets.maxBytes !== request.budgets.maxBytes)) throw new ContractValidationError("$", "projection does not match server request binding");
+  const expectedSubject = parsed.status === "NEUTRAL" ? contentHash("backyrd.user-intelligence.neutral-subject-binding@1.0") : request?.actor.subjectBindingHash;
+  if (request && (parsed.subjectBindingHash !== expectedSubject || parsed.decisionId !== request.decisionId || parsed.budgets.maxItems !== request.budgets.maxItems || parsed.budgets.maxBytes !== request.budgets.maxBytes)) throw new ContractValidationError("$", "projection does not match server request binding");
   return parsed;
 }
 

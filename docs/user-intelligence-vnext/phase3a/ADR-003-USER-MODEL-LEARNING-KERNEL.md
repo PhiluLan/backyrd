@@ -8,7 +8,7 @@ Phase 3A führt nach der kanonischen Evidence Engine eine eigene deterministisch
 
 `Canonical Event → Evidence Chain → Observation Record → Interpretation Record → User Model Snapshot → RelevantUserProjection`
 
-Observation und Interpretation sind getrennte, unveränderliche und hashgebundene Artefakte. Ein Interpretation Record ist nur gültig, wenn die serverseitig injizierte Authority exakt Subject, Consent, Lifecycle, Evidence State, Interpretation Policy, Concept Registry, Reducer und Temporal Policy bindet. Ein selbst erzeugter Hash oder ein Policy-Label ist keine Herkunftsautorität.
+Observation und Interpretation sind getrennte, unveränderliche und hashgebundene Artefakte. Ein Interpretation Record ist nur gültig, wenn die serverseitig injizierte Authority exakt Subject, Consent, Lifecycle, Evidence State, Interpretation Policy, Concept Registry, Reducer und Temporal Policy bindet. Ein selbst erzeugter Hash oder ein Policy-Label ist keine Herkunftsautorität. Der Authority Record benötigt eine exakte Akzeptanz durch einen unabhängig injizierten Trust Anchor.
 
 ## Policy-Grenze
 
@@ -20,7 +20,7 @@ Long-Term Concept Taste, Recent Preference, Contextual Taste, Aversion, Practica
 
 ## Integrität
 
-Der rekursive Verifier baut den gesamten Zustand erneut aus dem autoritativ verifizierten Phase-2-Evidence-State. Dadurch scheitern innere Manipulationen auch dann, wenn Interpretation-, Snapshot- und State-Hashes neu berechnet wurden. Full Rebuild und Incremental Update benutzen denselben Reducer und sind bei identischen semantischen Inputs byte-identisch.
+Der rekursive Verifier baut den gesamten Zustand erneut aus dem autoritativ verifizierten Phase-2-Evidence-State. Dadurch scheitern innere Manipulationen auch dann, wenn Interpretation-, Snapshot- und State-Hashes neu berechnet wurden. Der echte Incremental Reducer verifiziert Previous State und Checkpoint, übernimmt unveränderte Artefakte und interpretiert nur neue oder autorisiert korrigierte Chains. Er delegiert nicht an den Full Rebuild; beide Pfade erzeugen bei identischen semantischen Inputs dennoch byte-identische Ergebnisse.
 
 ## Decision-Grenze
 

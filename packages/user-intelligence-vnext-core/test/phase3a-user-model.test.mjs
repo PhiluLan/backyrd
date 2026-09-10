@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  applyUserModelLifecycle, buildEvidenceChains, buildUserModel, buildUserModelDecisionProjection, canonicalJson, contentHash, deduplicateCanonicalEvents,
+  buildEvidenceChains, buildUserModel, buildUserModelDecisionProjection, canonicalJson, contentHash, deduplicateCanonicalEvents,
   CONTRACT_VERSIONS, GRANTED_CONSENT, NO_CONSENT, REQUIRED_LIFECYCLE_STORES, resolveJourney, SYNTHETIC_EVENTS,
   SYNTHETIC_PROJECTION_REQUEST, SYNTHETIC_SUBJECT_BINDING_HASH, SYNTHETIC_USER_A, SYNTHETIC_USER_B,
-  updateUserModel, verifyUserModelLifecycleCompletion, verifyUserModelState, withContextEvidenceHash,
-  withCorrectionResolutionHash, withEventHash, withInterpretationPolicyHash, withJourneyAuthorityRecordHash, withWorldEvidenceHash,
+  planUserModelLifecycle, updateUserModel, verifyUserModelIntegrity, verifyUserModelLifecycleCompletion, verifyUserModelState, withContextEvidenceHash,
+  withCorrectionResolutionHash, withEventHash, withInterpretationPolicyHash, withJourneyAuthorityRecordHash, withUserModelAuthorityRecordHash,
+  withUserModelAuthorityTrustAnchorHash, withUserModelLifecycleExecutionRecordHash, withUserModelLifecycleTrustAnchorHash, withWorldEvidenceHash,
 } from "../dist/index.js";
 
 const BUILDER_POLICY = "synthetic-phase3a-evidence-builder-v1";
@@ -50,7 +51,7 @@ function evidenceInput(events, options = {}) {
   const consent = options.consent ?? GRANTED_CONSENT;
   const lifecycleState = options.lifecycleState ?? "ACTIVE";
   const suppressed = consent.state !== "GRANTED" || lifecycleState !== "ACTIVE";
-  return { contractVersion: CONTRACT_VERSIONS.evidenceBuilderInput, builderPolicyVersion: BUILDER_POLICY, subject: { boundUserId: options.userId ?? SYNTHETIC_USER_A, subjectBindingHash: SYNTHETIC_SUBJECT_BINDING_HASH, authority: "SERVER_AUTHENTICATION", userIdExternallyExposed: false }, consent, events, journeyResolutions: suppressed ? [] : events.map(resolutionFor), worldEvidence: options.worldEvidence ?? [], contextEvidence: options.contextEvidence ?? [], corrections: options.corrections ?? [], lifecycleState };
+  return { contractVersion: CONTRACT_VERSIONS.evidenceBuilderInput, builderPolicyVersion: BUILDER_POLICY, subject: { boundUserId: options.userId ?? SYNTHETIC_USER_A, subjectBindingHash: options.subjectBindingHash ?? SYNTHETIC_SUBJECT_BINDING_HASH, authority: "SERVER_AUTHENTICATION", userIdExternallyExposed: false }, consent, events, journeyResolutions: suppressed ? [] : events.map(resolutionFor), worldEvidence: options.worldEvidence ?? [], contextEvidence: options.contextEvidence ?? [], corrections: options.corrections ?? [], lifecycleState };
 }
 
 function evidenceAuthority(value) {
@@ -61,7 +62,8 @@ function policy(options = {}) {
   const rules = options.rules ?? [
     { eventType: "SATISFACTION_RECORDED", evidenceSlot: "SATISFACTION", action: "CONCEPT_FROM_WORLD_SATISFACTION", requiredDirection: "ANY", requiresIndependentJourney: true, requiresWorldEvidence: false },
   ];
-  return withInterpretationPolicyHash({ contractVersion: CONTRACT_VERSIONS.interpretationPolicy, policyVersion: options.version ?? "synthetic-phase3a-interpretation-v1", authority: "SYNTHETIC_FIXTURE_ONLY", productionAuthorized: false, validFrom: "2026-01-01T00:00:00.000Z", validUntil: options.validUntil ?? "2026-12-31T23:59:59.999Z", rules, allowedContextDimensions: ["company.friends", "daypart.evening"], attributionMode: "WORLD_CONCEPTS_AS_COMPETING_EXPLANATIONS", repetitionMode: "COUNT_INDEPENDENT_JOURNEYS_ONLY", correctionMode: "ACTIVE_EVIDENCE_ONLY_APPEND_HISTORY", recencyWindow: "NOT_CONFIGURED", decay: "NOT_CONFIGURED", retention: "NOT_CONFIGURED", syntheticSufficiency: { partialIndependentJourneys: 1, sufficientIndependentJourneys: 2 } });
+  const sufficiencyBody = { policyId: options.sufficiencyPolicyId ?? "synthetic-phase3a-sufficiency-v1", authority: "SYNTHETIC_FIXTURE_ONLY", productCalibrated: false, productionAuthorized: false, limitations: ["SYNTHETIC_THRESHOLDS_ONLY", "NOT_PRODUCT_CALIBRATED"], thresholds: { partialIndependentJourneys: 1, sufficientIndependentJourneys: 2 } };
+  return withInterpretationPolicyHash({ contractVersion: CONTRACT_VERSIONS.interpretationPolicy, policyId: options.policyId ?? "synthetic-phase3a-policy-id", policyVersion: options.version ?? "synthetic-phase3a-interpretation-v1", authority: "SYNTHETIC_FIXTURE_ONLY", productionAuthorized: false, validFrom: "2026-01-01T00:00:00.000Z", validUntil: options.validUntil ?? "2026-12-31T23:59:59.999Z", rules, allowedContextDimensions: ["company.friends", "daypart.evening"], attributionMode: "WORLD_CONCEPTS_AS_COMPETING_EXPLANATIONS", repetitionMode: "COUNT_INDEPENDENT_JOURNEYS_ONLY", correctionMode: "ACTIVE_EVIDENCE_ONLY_APPEND_HISTORY", recencyWindow: "NOT_CONFIGURED", decay: "NOT_CONFIGURED", retention: "NOT_CONFIGURED", syntheticSufficiency: { ...sufficiencyBody, policyHash: contentHash(sufficiencyBody) } });
 }
 
 function command(activePolicy = policy(), changes = {}) {
@@ -70,7 +72,11 @@ function command(activePolicy = policy(), changes = {}) {
 
 function modelAuthority(activePolicy, options = {}) {
   const consent = options.consent ?? GRANTED_CONSENT;
-  return { getAuthority: () => ({ contractVersion: CONTRACT_VERSIONS.userModelAuthority, contextVersion: "synthetic-phase3a-model-authority-v1", authority: "SERVER_USER_MODEL_ORCHESTRATOR", subject: { boundUserId: options.userId ?? SYNTHETIC_USER_A, subjectBindingHash: SYNTHETIC_SUBJECT_BINDING_HASH, boundBy: "SERVER_AUTHENTICATION" }, consent, lifecycleState: options.lifecycleState ?? "ACTIVE", interpretationPolicy: { policyVersion: activePolicy.policyVersion, policyHash: activePolicy.policyHash, acceptedAuthority: "SYNTHETIC_FIXTURE_ONLY", productionPolicyConfigured: false }, conceptRegistry: { registryVersion: REGISTRY, registryHash: contentHash({ registryVersion: REGISTRY, conceptIds: [...CONCEPTS].sort() }), conceptIds: CONCEPTS, authority: "SERVER_REGISTRY" }, reducer: { reducerVersion: "synthetic-phase3a-reducer-v1", codeHash: contentHash("synthetic-phase3a-reducer-code-v1"), authority: "SERVER_RELEASE" }, temporalPolicyVersion: "synthetic-phase3a-temporal-v1", projectionPolicyVersion: "synthetic-phase3a-projection-v1", retentionConfigured: false, verifiedAt: NOW }), getInterpretationPolicy: () => activePolicy };
+  const authority = { contractVersion: CONTRACT_VERSIONS.userModelAuthority, contextVersion: "synthetic-phase3a-model-authority-v1", authority: "SERVER_USER_MODEL_ORCHESTRATOR", subject: { boundUserId: options.userId ?? SYNTHETIC_USER_A, subjectBindingHash: options.subjectBindingHash ?? SYNTHETIC_SUBJECT_BINDING_HASH, boundBy: "SERVER_AUTHENTICATION" }, consent, lifecycleState: options.lifecycleState ?? "ACTIVE", interpretationPolicy: { policyId: activePolicy.policyId, policyVersion: activePolicy.policyVersion, policyHash: activePolicy.policyHash, acceptedAuthority: "SYNTHETIC_FIXTURE_ONLY", productionPolicyConfigured: false }, conceptRegistry: { registryVersion: options.registryVersion ?? REGISTRY, registryHash: contentHash({ registryVersion: options.registryVersion ?? REGISTRY, conceptIds: [...CONCEPTS].sort() }), conceptIds: CONCEPTS, authority: "SERVER_REGISTRY" }, reducer: { reducerVersion: options.reducerVersion ?? "synthetic-phase3a-reducer-v1", codeHash: contentHash(options.reducerCode ?? "synthetic-phase3a-reducer-code-v1"), authority: "SERVER_RELEASE" }, temporalPolicyVersion: options.temporalPolicyVersion ?? "synthetic-phase3a-temporal-v1", projectionPolicyVersion: options.projectionPolicyVersion ?? "synthetic-phase3a-projection-v1", retentionConfigured: false, verifiedAt: NOW };
+  const record = withUserModelAuthorityRecordHash({ contractVersion: CONTRACT_VERSIONS.userModelAuthorityRecord, recordId: options.recordId ?? "synthetic-phase3a-authority-record", issuer: "SYNTHETIC_SERVER_AUTHORITY_FIXTURE", authorityContractVersion: CONTRACT_VERSIONS.userModelAuthority, authorityHash: contentHash(authority), subject: { boundUserId: authority.subject.boundUserId, subjectBindingHash: authority.subject.subjectBindingHash }, consentHash: contentHash(consent), lifecycleState: authority.lifecycleState, interpretationPolicy: { policyId: activePolicy.policyId, policyVersion: activePolicy.policyVersion, policyHash: activePolicy.policyHash }, conceptRegistry: { registryVersion: authority.conceptRegistry.registryVersion, registryHash: authority.conceptRegistry.registryHash }, reducer: { reducerVersion: authority.reducer.reducerVersion, codeHash: authority.reducer.codeHash }, temporalPolicyVersion: authority.temporalPolicyVersion, projectionPolicyVersion: authority.projectionPolicyVersion, retentionConfigured: false, validFrom: "2026-01-01T00:00:00.000Z", validUntil: options.recordValidUntil ?? "2026-12-31T23:59:59.999Z", issuedAt: NOW, verifiedAt: NOW });
+  const anchor = withUserModelAuthorityTrustAnchorHash({ contractVersion: CONTRACT_VERSIONS.userModelAuthorityTrustAnchor, anchorId: "synthetic-phase3a-model-trust-anchor", acceptedIssuer: "SYNTHETIC_SERVER_AUTHORITY_FIXTURE", acceptedRecordId: record.recordId, acceptedRecordHash: record.recordHash, environment: "SYNTHETIC_FIXTURE_ONLY", productionAuthorized: false, validFrom: "2026-01-01T00:00:00.000Z", validUntil: "2026-12-31T23:59:59.999Z", verifiedAt: NOW });
+  const context = { getAuthority: () => authority, getAuthorityRecord: () => record, getInterpretationPolicy: () => activePolicy };
+  return Object.assign(context, { authority, record, trustContext: { getAcceptedTrustAnchor: (recordId) => recordId === record.recordId ? anchor : null }, anchor });
 }
 
 function build(events, options = {}) {
@@ -79,7 +85,17 @@ function build(events, options = {}) {
   const evidenceAuth = evidenceAuthority(value);
   const evidence = buildEvidenceChains(value, evidenceAuth);
   const modelAuth = modelAuthority(activePolicy, options);
-  return { result: buildUserModel(evidence, command(activePolicy, options.command), evidenceAuth, modelAuth), evidence, evidenceAuth, modelAuth, command: command(activePolicy, options.command), policy: activePolicy };
+  return { result: buildUserModel(evidence, command(activePolicy, options.command), evidenceAuth, modelAuth, modelAuth.trustContext), evidence, evidenceAuth, modelAuth, trustContext: modelAuth.trustContext, command: command(activePolicy, options.command), policy: activePolicy };
+}
+
+function lifecycleExecution(plan, mutate = (record) => record) {
+  const records = plan.requirements.map((requirement) => mutate(withUserModelLifecycleExecutionRecordHash({ contractVersion: CONTRACT_VERSIONS.userModelLifecycleExecution, recordId: `execution-${requirement.store}`, operationId: plan.operationId, action: plan.action, manifestVersion: plan.manifestVersion, manifestHash: plan.manifestHash, subject: plan.subject, store: requirement.store, effect: requirement.effect, executedAt: NOW, executorAuthority: "SYNTHETIC_AUTHORIZED_STORE_EXECUTOR", personalDataRemaining: false })));
+  const anchors = new Map(records.map((record) => [record.recordId, withUserModelLifecycleTrustAnchorHash({ contractVersion: CONTRACT_VERSIONS.userModelLifecycleTrustAnchor, anchorId: `anchor-${record.store}`, recordId: record.recordId, recordHash: record.recordHash, acceptedExecutorAuthority: "SYNTHETIC_AUTHORIZED_STORE_EXECUTOR", environment: "SYNTHETIC_FIXTURE_ONLY", productionAuthorized: false, verifiedAt: NOW })]));
+  return { records, context: { listExecutionRecords: (operationId) => operationId === plan.operationId ? records : [], getAcceptedTrustAnchor: (recordId) => anchors.get(recordId) ?? null } };
+}
+
+function incremental(prior, next, changes = {}) {
+  return updateUserModel({ previous: prior.result, previousEvidence: prior.evidence, nextEvidence: next.evidence, previousCommand: prior.command, command: next.command, previousEvidenceAuthority: prior.evidenceAuth, nextEvidenceAuthority: next.evidenceAuth, previousModelContext: prior.modelAuth, previousTrustContext: prior.trustContext, modelContext: next.modelAuth, trustContext: next.trustContext, ...changes });
 }
 
 function satisfaction(direction, id, second, journeyId = "synthetic-journey-1") {
@@ -93,12 +109,12 @@ test("1 cold user has a hashed but statement-free model", () => {
 
 test("2 no consent yields no persistable personal model input", () => {
   const value = evidenceInput([], { consent: NO_CONSENT }); const evidenceAuth = evidenceAuthority(value); const evidence = buildEvidenceChains(value, evidenceAuth); const p = policy();
-  const result = buildUserModel(evidence, command(p), evidenceAuth, modelAuthority(p, { consent: NO_CONSENT })); assert.equal(result.state.status, "SUPPRESSED_NO_CONSENT"); assert.equal(canonicalJson(result).includes(SYNTHETIC_USER_A), false); assert.equal(result.state.rebuildMaterial, null);
+  const auth = modelAuthority(p, { consent: NO_CONSENT }); const result = buildUserModel(evidence, command(p), evidenceAuth, auth, auth.trustContext); assert.equal(result.state.status, "SUPPRESSED_NO_CONSENT"); assert.equal(canonicalJson(result).includes(SYNTHETIC_USER_A), false); assert.equal(result.state.rebuildMaterial, null);
 });
 
 test("3 withdrawn consent yields no subject, statements or rebuild material", () => {
   const value = evidenceInput([], { lifecycleState: "WITHDRAWN" }); const evidenceAuth = evidenceAuthority(value); const evidence = buildEvidenceChains(value, evidenceAuth); const p = policy();
-  const result = buildUserModel(evidence, command(p), evidenceAuth, modelAuthority(p, { lifecycleState: "WITHDRAWN" })); assert.equal(result.state.status, "WITHDRAWN"); assert.equal(result.state.subjectBindingHash, null); assert.deepEqual(result.state.interpretations, []);
+  const auth = modelAuthority(p, { lifecycleState: "WITHDRAWN" }); const result = buildUserModel(evidence, command(p), evidenceAuth, auth, auth.trustContext); assert.equal(result.state.status, "WITHDRAWN"); assert.equal(result.state.subjectBindingHash, null); assert.deepEqual(result.state.interpretations, []);
 });
 
 test("4 kill switch produces the canonical neutral Decision projection", () => {
@@ -187,11 +203,11 @@ test("20 multiple concepts share one attribution and independence unit", () => {
 });
 
 test("21 unknown concept registry fails closed", () => {
-  const p = policy(); const empty = build([]); assert.throws(() => buildUserModel(empty.evidence, command(p, { conceptRegistryVersion: "unknown-registry" }), empty.evidenceAuth, modelAuthority(p)), /unauthorized policy, registry/);
+  const p = policy(); const empty = build([]); const auth = modelAuthority(p); assert.throws(() => buildUserModel(empty.evidence, command(p, { conceptRegistryVersion: "unknown-registry" }), empty.evidenceAuth, auth, auth.trustContext), /unauthorized policy, registry/);
 });
 
 test("22 unknown interpretation policy fails closed", () => {
-  const built = build([]); assert.throws(() => buildUserModel(built.evidence, { ...built.command, interpretationPolicyVersion: "unknown-policy" }, built.evidenceAuth, built.modelAuth), /unauthorized policy/);
+  const built = build([]); assert.throws(() => buildUserModel(built.evidence, { ...built.command, interpretationPolicyVersion: "unknown-policy" }, built.evidenceAuth, built.modelAuth, built.trustContext), /unauthorized policy/);
 });
 
 test("23 little evidence remains partial under an explicitly synthetic policy", () => {
@@ -203,11 +219,11 @@ test("24 contradictory evidence remains explicitly unresolved", () => {
 });
 
 test("25 temporally inapplicable policy is rejected", () => {
-  const expired = policy({ version: "synthetic-expired-policy", validUntil: "2026-01-10T00:00:00.000Z" }); const value = evidenceInput([]); const evidenceAuth = evidenceAuthority(value); const evidence = buildEvidenceChains(value, evidenceAuth); assert.throws(() => buildUserModel(evidence, command(expired), evidenceAuth, modelAuthority(expired)), /not temporally applicable/);
+  const expired = policy({ version: "synthetic-expired-policy", validUntil: "2026-01-10T00:00:00.000Z" }); const value = evidenceInput([]); const evidenceAuth = evidenceAuthority(value); const evidence = buildEvidenceChains(value, evidenceAuth); const auth = modelAuthority(expired); assert.throws(() => buildUserModel(evidence, command(expired), evidenceAuth, auth, auth.trustContext), /not temporally applicable/);
 });
 
 test("26 full and incremental reducers are byte-identical", () => {
-  const positive = satisfaction("POSITIVE", "p3-parity", 4); const built = build([positive], { worldEvidence: [worldFor(positive, [CONCEPTS[0]])] }); const incremental = updateUserModel(build([]).result, built.evidence, built.command, built.evidenceAuth, built.modelAuth); assert.equal(canonicalJson(incremental.state), canonicalJson(built.result.state));
+  const prior = build([]); const positive = satisfaction("POSITIVE", "p3-parity", 4); const built = build([positive], { worldEvidence: [worldFor(positive, [CONCEPTS[0]])] }); const incremental = updateUserModel({ previous: prior.result, previousEvidence: prior.evidence, nextEvidence: built.evidence, previousCommand: prior.command, command: built.command, previousEvidenceAuthority: prior.evidenceAuth, nextEvidenceAuthority: built.evidenceAuth, previousModelContext: prior.modelAuth, previousTrustContext: prior.trustContext, modelContext: built.modelAuth, trustContext: built.trustContext }); assert.equal(canonicalJson(incremental.state), canonicalJson(built.result.state));
 });
 
 test("27 inner interpretation manipulation fails after complete outer rehash", () => {
@@ -218,19 +234,19 @@ test("27 inner interpretation manipulation fails after complete outer rehash", (
   state.latestSnapshotPointer.snapshotHash = state.snapshot.snapshotHash;
   state.incrementalReducerStateHash = contentHash({ snapshotHash: state.snapshot.snapshotHash, evidenceStateHash: built.evidence.state.stateHash });
   const stateBody = { ...state }; delete stateBody.stateHash; state.stateHash = contentHash(stateBody);
-  assert.throws(() => verifyUserModelState(state, built.evidence, built.command, built.evidenceAuth, built.modelAuth), /authoritative rebuild/);
+  assert.throws(() => verifyUserModelState(state, built.evidence, built.command, built.evidenceAuth, built.modelAuth, built.trustContext), /authoritative rebuild/);
 });
 
 test("28 foreign subject or evidence chain binding is rejected", () => {
-  const positive = satisfaction("POSITIVE", "p3-foreign", 4); const built = build([positive]); assert.throws(() => buildUserModel(built.evidence, built.command, built.evidenceAuth, modelAuthority(built.policy, { userId: SYNTHETIC_USER_B })), /foreign evidence/);
+  const positive = satisfaction("POSITIVE", "p3-foreign", 4); const built = build([positive]); const auth = modelAuthority(built.policy, { userId: SYNTHETIC_USER_B }); assert.throws(() => buildUserModel(built.evidence, built.command, built.evidenceAuth, auth, auth.trustContext), /foreign evidence/);
 });
 
 test("29 commercial fields are rejected and have no model path", () => {
-  const built = build([]); for (const field of ["ownerTier", "payment", "advertising", "subscription", "signalStrength", "maturity"]) assert.throws(() => buildUserModel(built.evidence, { ...built.command, [field]: "forged" }, built.evidenceAuth, built.modelAuth), /unknown field/); assert.equal(built.result.state.manifest.boundaries.commercialInputsAccepted, false);
+  const built = build([]); for (const field of ["ownerTier", "payment", "advertising", "subscription", "signalStrength", "maturity"]) assert.throws(() => buildUserModel(built.evidence, { ...built.command, [field]: "forged" }, built.evidenceAuth, built.modelAuth, built.trustContext), /unknown field/); assert.equal(built.result.state.manifest.boundaries.commercialInputsAccepted, false);
 });
 
 test("30 account erasure deletes every personal model store and rebuild material", () => {
-  const positive = satisfaction("POSITIVE", "p3-erasure", 4); const built = build([positive]); const erased = applyUserModelLifecycle("ACCOUNT_ERASURE", REQUIRED_LIFECYCLE_STORES); verifyUserModelLifecycleCompletion(erased, REQUIRED_LIFECYCLE_STORES); assert.equal(erased.state.status, "ERASED"); assert.equal(erased.state.rebuildMaterial, null); assert.equal(erased.storeResults.filter((row) => row.store !== "technical_audit_manifests").every((row) => row.effect === "DELETE"), true); assert.throws(() => verifyUserModelLifecycleCompletion({ ...erased, storeResults: erased.storeResults.filter((row) => row.store !== "model_rebuild_material") }, REQUIRED_LIFECYCLE_STORES), /every store/); void built;
+  const plan = planUserModelLifecycle("ACCOUNT_ERASURE", "operation-erasure", SYNTHETIC_USER_A, SYNTHETIC_SUBJECT_BINDING_HASH, NOW); const execution = lifecycleExecution(plan); const completed = verifyUserModelLifecycleCompletion(plan, execution.context, NOW); assert.equal(completed.state.status, "ERASED"); assert.equal(completed.state.rebuildMaterial, null); assert.equal(execution.records.filter((row) => row.store !== "technical_audit_manifests").every((row) => row.effect === "DELETE"), true); assert.throws(() => verifyUserModelLifecycleCompletion(plan, { ...execution.context, listExecutionRecords: () => execution.records.filter((row) => row.store !== "model_rebuild_material") }, NOW), /every canonical lifecycle store/);
 });
 
 test("save removal, missing evidence and reviews never become negative preference", () => {
@@ -238,7 +254,7 @@ test("save removal, missing evidence and reviews never become negative preferenc
 });
 
 test("server authority, not a self-hash, chooses policy, registry and reducer", () => {
-  const built = build([]); const forged = policy({ version: "synthetic-forged-policy" }); const context = { ...built.modelAuth, getInterpretationPolicy: () => forged }; assert.throws(() => buildUserModel(built.evidence, built.command, built.evidenceAuth, context), /not bound by server authority/); assert.throws(() => buildUserModel(built.evidence, { ...built.command, reducerVersion: "client-reducer" }, built.evidenceAuth, built.modelAuth), /unauthorized/);
+  const built = build([]); const forged = policy({ version: "synthetic-forged-policy" }); const context = { ...built.modelAuth, getInterpretationPolicy: () => forged }; assert.throws(() => buildUserModel(built.evidence, built.command, built.evidenceAuth, context, built.trustContext), /not bound by server authority/); assert.throws(() => buildUserModel(built.evidence, { ...built.command, reducerVersion: "client-reducer" }, built.evidenceAuth, built.modelAuth, built.trustContext), /unauthorized/);
 });
 
 test("phase 3A manifests expose no production policy, ranking or eligibility authority", () => {
@@ -253,4 +269,122 @@ test("weak repeated observations cannot erase explicit negative evidence without
   const negative = satisfaction("NEGATIVE", "p3-strong-negative", 5); const open1 = event(SYNTHETIC_EVENTS.open, "p3-weak-open-1", 1, { journey: { ...SYNTHETIC_EVENTS.open.journey, resolutionPolicyVersion: JOURNEY_POLICY } }); const open2 = event(SYNTHETIC_EVENTS.open, "p3-weak-open-2", 2, { journey: { ...SYNTHETIC_EVENTS.open.journey, resolutionPolicyVersion: JOURNEY_POLICY } });
   const state = build([open1, open2, negative], { worldEvidence: [worldFor(negative, [CONCEPTS[0]])] }).result.state;
   assert.equal(state.snapshot.dimensions.aversions.length, 1); assert.equal(state.snapshot.dimensions.longTermConceptTaste.length, 0);
+});
+
+test("closure: a fully consistent forged authority stack fails against the unchanged external trust anchor", () => {
+  const accepted = build([]); const forgedPolicy = policy({ policyId: "forged-policy-id", version: "forged-policy-v1" }); const forged = modelAuthority(forgedPolicy, { recordId: "forged-record", registryVersion: "forged-registry", reducerVersion: "forged-reducer", reducerCode: "forged-code", temporalPolicyVersion: "forged-temporal", projectionPolicyVersion: "forged-projection" });
+  const forgedCommand = command(forgedPolicy, { conceptRegistryVersion: "forged-registry", reducerVersion: "forged-reducer", temporalPolicyVersion: "forged-temporal" });
+  assert.throws(() => buildUserModel(accepted.evidence, forgedCommand, accepted.evidenceAuth, forged, accepted.trustContext), /trust anchor|expected object/i);
+});
+
+test("closure: authority record identity, hash, subject, consent, lifecycle and validity fail closed", () => {
+  const built = build([]); const cases = [
+    { ...built.modelAuth.authority, subject: { ...built.modelAuth.authority.subject, boundUserId: SYNTHETIC_USER_B } },
+    { ...built.modelAuth.authority, subject: { ...built.modelAuth.authority.subject, subjectBindingHash: contentHash("foreign-subject") } },
+    { ...built.modelAuth.authority, consent: { ...built.modelAuth.authority.consent, consentVersion: "foreign-consent" } },
+    { ...built.modelAuth.authority, lifecycleState: "RESET" },
+  ];
+  for (const authority of cases) assert.throws(() => buildUserModel(built.evidence, built.command, built.evidenceAuth, { ...built.modelAuth, getAuthority: () => authority }, built.trustContext), /accepted record/);
+  assert.throws(() => buildUserModel(built.evidence, built.command, built.evidenceAuth, { ...built.modelAuth, getAuthorityRecord: () => ({ ...built.modelAuth.record, recordHash: contentHash("wrong") }) }, built.trustContext), /record hash/);
+  const expired = modelAuthority(built.policy, { recordValidUntil: "2026-01-10T00:00:00.000Z" }); assert.throws(() => buildUserModel(built.evidence, built.command, built.evidenceAuth, expired, expired.trustContext), /not temporally valid/);
+  assert.throws(() => buildUserModel(built.evidence, built.command, built.evidenceAuth, built.modelAuth, { getAcceptedTrustAnchor: () => null }), /expected object/i);
+});
+
+test("closure: policy, registry, reducer, temporal and projection bindings are exact", () => {
+  const built = build([]);
+  for (const authority of [
+    { ...built.modelAuth.authority, interpretationPolicy: { ...built.modelAuth.authority.interpretationPolicy, policyHash: contentHash("foreign-policy") } },
+    { ...built.modelAuth.authority, conceptRegistry: { ...built.modelAuth.authority.conceptRegistry, registryHash: contentHash("foreign-registry") } },
+    { ...built.modelAuth.authority, reducer: { ...built.modelAuth.authority.reducer, codeHash: contentHash("foreign-reducer") } },
+    { ...built.modelAuth.authority, temporalPolicyVersion: "foreign-temporal" },
+    { ...built.modelAuth.authority, projectionPolicyVersion: "foreign-projection" },
+  ]) assert.throws(() => buildUserModel(built.evidence, built.command, built.evidenceAuth, { ...built.modelAuth, getAuthority: () => authority }, built.trustContext), /accepted record/);
+});
+
+test("closure: genuine incremental path matches full rebuild for a non-empty state and one new event", () => {
+  const one = satisfaction("POSITIVE", "inc-one", 2, "inc-journey-one"); const two = satisfaction("POSITIVE", "inc-two", 4, "inc-journey-two"); const prior = build([one], { worldEvidence: [worldFor(one, [CONCEPTS[0]])] }); const next = build([one, two], { worldEvidence: [worldFor(one, [CONCEPTS[0]]), worldFor(two, [CONCEPTS[0]])] }); assert.deepEqual(incremental(prior, next).state, next.result.state);
+});
+
+test("closure: incremental parity covers multiple journeys, duplicate checkpoint and late evidence", () => {
+  const one = satisfaction("POSITIVE", "inc-multi-one", 6, "inc-multi-journey-one"); const two = satisfaction("POSITIVE", "inc-multi-two", 8, "inc-multi-journey-two"); const late = satisfaction("POSITIVE", "inc-late", 2, "inc-multi-journey-one");
+  const prior = build([one], { worldEvidence: [worldFor(one, [CONCEPTS[0]])] }); const multi = build([one, two], { worldEvidence: [worldFor(one, [CONCEPTS[0]]), worldFor(two, [CONCEPTS[0]])] }); const delayed = build([late, one], { worldEvidence: [worldFor(late, [CONCEPTS[0]]), worldFor(one, [CONCEPTS[0]])] });
+  assert.deepEqual(incremental(prior, multi).state, multi.result.state); assert.deepEqual(incremental(prior, prior).state, prior.result.state); assert.deepEqual(incremental(prior, delayed).state, delayed.result.state);
+});
+
+test("closure: incremental parity covers correction and positive-negative delta", () => {
+  const positive = satisfaction("POSITIVE", "inc-correct-positive", 2); const correction = event(SYNTHETIC_EVENTS.correction, "inc-correction", 9, { journey: { resolution: "UNRESOLVED", journeyId: null, resolutionPolicyVersion: JOURNEY_POLICY, independenceEligible: false }, supersedesEventId: positive.eventId, payload: { kind: "CORRECTION", targetEventId: positive.eventId, correction: "RETRACT" } });
+  const prior = build([positive], { worldEvidence: [worldFor(positive, [CONCEPTS[0]])] }); const corrected = build([positive, correction], { corrections: [correctionFor(correction, positive)], worldEvidence: [worldFor(positive, [CONCEPTS[0]])] }); assert.deepEqual(incremental(prior, corrected).state, corrected.result.state);
+  const negative = satisfaction("NEGATIVE", "inc-negative", 7, "inc-negative-journey"); const mixed = build([positive, negative], { worldEvidence: [worldFor(positive, [CONCEPTS[0]]), worldFor(negative, [CONCEPTS[0]])] }); assert.deepEqual(incremental(prior, mixed).state, mixed.result.state);
+});
+
+test("closure: incremental parity covers context-bound and direct-spot interpretations", () => {
+  const contextualPolicy = policy({ version: "synthetic-context-incremental", rules: [{ eventType: "SATISFACTION_RECORDED", evidenceSlot: "SATISFACTION", action: "CONTEXTUAL_CONCEPT_FROM_WORLD_SATISFACTION", requiredDirection: "ANY", requiresIndependentJourney: true, requiresWorldEvidence: true }] });
+  const contextual = satisfaction("POSITIVE", "inc-context", 4); const contextPrior = build([], { policy: contextualPolicy }); const contextNext = build([contextual], { policy: contextualPolicy, worldEvidence: [worldFor(contextual, [CONCEPTS[0]])], contextEvidence: [contextFor(contextual)] }); assert.deepEqual(incremental(contextPrior, contextNext).state, contextNext.result.state);
+  const direct = satisfaction("POSITIVE", "inc-direct", 5); const directPrior = build([]); const directNext = build([direct]); assert.deepEqual(incremental(directPrior, directNext).state, directNext.result.state);
+});
+
+test("closure: incremental rejects missing or removed history and manipulated previous bindings", () => {
+  const one = satisfaction("POSITIVE", "inc-history", 3); const prior = build([one]); const empty = build([]);
+  assert.throws(() => incremental(prior, empty), /removed or replaced historical ledger evidence|removed a historical chain/);
+  const badEvidence = structuredClone(prior.evidence); badEvidence.state.ledgerEventHashes = []; const evidenceBody = { ...badEvidence.state }; delete evidenceBody.stateHash; badEvidence.state.stateHash = contentHash(evidenceBody); assert.throws(() => incremental(prior, prior, { previousEvidence: badEvidence }), /authoritative rebuild|ledger checkpoint/);
+  const badPrevious = structuredClone(prior.result); badPrevious.state.subjectBindingHash = contentHash("tampered-subject"); const stateBody = { ...badPrevious.state }; delete stateBody.stateHash; badPrevious.state.stateHash = contentHash(stateBody); assert.throws(() => incremental(prior, prior, { previous: badPrevious }), /authoritative rebuild/);
+  const worldPrior = build([one], { worldEvidence: [worldFor(one, [CONCEPTS[0]])] }); const replacedWorld = build([one], { worldEvidence: [worldFor(one, [CONCEPTS[1]])] }); assert.throws(() => incremental(worldPrior, replacedWorld), /replaced historical/);
+});
+
+test("closure: incremental requires full rebuild for policy, registry or reducer changes and rejects foreign user", () => {
+  const prior = build([]); const changedPolicy = policy({ policyId: "changed-policy-id", version: "changed-policy-v1" }); const policyNext = build([], { policy: changedPolicy }); assert.throws(() => incremental(prior, policyNext), /requires a full rebuild/);
+  const registryNext = build([], { command: { conceptRegistryVersion: "changed-registry" }, registryVersion: "changed-registry" }); assert.throws(() => incremental(prior, registryNext), /requires a full rebuild/);
+  const reducerNext = build([], { command: { reducerVersion: "changed-reducer" }, reducerVersion: "changed-reducer", reducerCode: "changed-code" }); assert.throws(() => incremental(prior, reducerNext), /requires a full rebuild/);
+  const foreign = build([], { userId: SYNTHETIC_USER_B, subjectBindingHash: contentHash("foreign-user-binding") }); assert.throws(() => incremental(prior, foreign), /foreign evidence|checkpoint|subject/);
+});
+
+test("closure: lifecycle plan cannot claim completion or shorten the canonical store set", () => {
+  const plan = planUserModelLifecycle("ACCOUNT_ERASURE", "closure-erasure", SYNTHETIC_USER_A, SYNTHETIC_SUBJECT_BINDING_HASH, NOW); assert.equal(plan.status, "PLANNED"); assert.equal(plan.requirements.length, REQUIRED_LIFECYCLE_STORES.length);
+  const shortened = { ...plan, requirements: plan.requirements.slice(1) }; const body = { ...shortened }; delete body.planHash; shortened.planHash = contentHash(body); const execution = lifecycleExecution(plan); assert.throws(() => verifyUserModelLifecycleCompletion(shortened, { ...execution.context, listExecutionRecords: () => execution.records.slice(1) }, NOW), /complete canonical manifest/);
+});
+
+test("closure: lifecycle completion rejects duplicate, missing, invalidated, foreign and self-declared execution", () => {
+  const plan = planUserModelLifecycle("ACCOUNT_ERASURE", "closure-execution", SYNTHETIC_USER_A, SYNTHETIC_SUBJECT_BINDING_HASH, NOW); const valid = lifecycleExecution(plan);
+  assert.throws(() => verifyUserModelLifecycleCompletion(plan, { ...valid.context, listExecutionRecords: () => [...valid.records, valid.records[0]] }, NOW), /duplicate identity/);
+  assert.throws(() => verifyUserModelLifecycleCompletion(plan, { ...valid.context, listExecutionRecords: () => valid.records.slice(1) }, NOW), /every canonical lifecycle store/);
+  for (const change of [{ effect: "INVALIDATE" }, { operationId: "foreign-operation" }, { action: "CONSENT_WITHDRAWAL" }, { subject: { boundUserId: SYNTHETIC_USER_B, subjectBindingHash: SYNTHETIC_SUBJECT_BINDING_HASH } }, { subject: { boundUserId: SYNTHETIC_USER_A, subjectBindingHash: contentHash("foreign") } }]) {
+    const forged = lifecycleExecution(plan, (record) => { if (record.store !== "event_ledger") return record; const body = { ...record, ...change }; delete body.recordHash; return withUserModelLifecycleExecutionRecordHash(body); }); assert.throws(() => verifyUserModelLifecycleCompletion(plan, forged.context, NOW), /invalid or missing|Expected one of/);
+  }
+  const selfDeclared = { ...valid.records[0], executorAuthority: "SELF_DECLARED" }; assert.throws(() => verifyUserModelLifecycleCompletion(plan, { ...valid.context, listExecutionRecords: () => [selfDeclared, ...valid.records.slice(1)] }, NOW), /expected/i);
+});
+
+test("closure: lifecycle rejects tampering, unknown manifest, remaining rebuild material and personal audit residue", () => {
+  const plan = planUserModelLifecycle("ACCOUNT_ERASURE", "closure-residue", SYNTHETIC_USER_A, SYNTHETIC_SUBJECT_BINDING_HASH, NOW); const valid = lifecycleExecution(plan);
+  const tampered = { ...valid.records[0], executedAt: "2026-01-15T13:00:00.000Z" }; assert.throws(() => verifyUserModelLifecycleCompletion(plan, { ...valid.context, listExecutionRecords: () => [tampered, ...valid.records.slice(1)] }, NOW), /record hash/);
+  const unknownManifest = { ...plan, manifestHash: contentHash("unknown-manifest") }; assert.throws(() => verifyUserModelLifecycleCompletion(unknownManifest, valid.context, NOW), /expected/i);
+  const residue = lifecycleExecution(plan, (record) => { if (record.store !== "model_rebuild_material" && record.store !== "technical_audit_manifests") return record; const body = { ...record, personalDataRemaining: true }; delete body.recordHash; return withUserModelLifecycleExecutionRecordHash(body); }); assert.throws(() => verifyUserModelLifecycleCompletion(plan, residue.context, NOW), /still contains personal data/);
+});
+
+test("closure: privacy-neutral projection identity is independent of all personal model state", () => {
+  const request = { ...SYNTHETIC_PROJECTION_REQUEST, snapshot: null }; const cold = build([]).result; const positive = satisfaction("POSITIVE", "projection-rich", 4); const rich = build([positive], { worldEvidence: [worldFor(positive, [CONCEPTS[0]])] }).result;
+  const fromCold = buildUserModelDecisionProjection(request, NO_CONSENT, cold, NOW); const fromRich = buildUserModelDecisionProjection(request, NO_CONSENT, rich, NOW);
+  assert.equal(fromCold.projectionId, fromRich.projectionId); assert.equal(fromCold.projectionHash, fromRich.projectionHash); assert.equal(fromCold.subjectBindingHash, contentHash("backyrd.user-intelligence.neutral-subject-binding@1.0")); assert.equal(canonicalJson(fromRich).includes(rich.state.stateHash), false);
+});
+
+test("closure: active request, consent, subject, snapshot and projection policy must agree", () => {
+  const built = build([]); const request = { ...SYNTHETIC_PROJECTION_REQUEST, projectionPolicyVersion: "synthetic-phase3a-projection-v1", snapshot: { snapshotId: built.result.state.snapshot.snapshotId, snapshotHash: built.result.state.snapshot.snapshotHash } };
+  assert.doesNotThrow(() => buildUserModelDecisionProjection(request, GRANTED_CONSENT, built.result, NOW));
+  assert.throws(() => buildUserModelDecisionProjection({ ...request, actor: { ...request.actor, subjectBindingHash: contentHash("foreign") } }, GRANTED_CONSENT, built.result, NOW), /subject binding/);
+  assert.throws(() => buildUserModelDecisionProjection(request, { ...GRANTED_CONSENT, consentVersion: "stale-consent" }, built.result, NOW), /stale/);
+  assert.throws(() => buildUserModelDecisionProjection({ ...request, snapshot: { ...request.snapshot, snapshotHash: contentHash("stale") } }, GRANTED_CONSENT, built.result, NOW), /stale model snapshot/);
+  assert.throws(() => buildUserModelDecisionProjection({ ...request, projectionPolicyVersion: "foreign-projection-policy" }, GRANTED_CONSENT, built.result, NOW), /projection policy/);
+});
+
+test("closure: synthetic sufficiency is visibly non-product and cannot activate a projection", () => {
+  const one = satisfaction("POSITIVE", "suff-one", 3, "suff-journey-one"); const two = satisfaction("POSITIVE", "suff-two", 5, "suff-journey-two"); const built = build([one, two], { worldEvidence: [worldFor(one, [CONCEPTS[0]]), worldFor(two, [CONCEPTS[0]])] }); const sufficiency = built.result.state.snapshot.overallSufficiency;
+  assert.equal(sufficiency.state, "SUFFICIENT"); assert.equal(sufficiency.policy.authority, "SYNTHETIC_FIXTURE_ONLY"); assert.equal(sufficiency.policy.productCalibrated, false); assert.equal(sufficiency.policy.productionAuthorized, false);
+  const request = { ...SYNTHETIC_PROJECTION_REQUEST, projectionPolicyVersion: "synthetic-phase3a-projection-v1", snapshot: { snapshotId: built.result.state.snapshot.snapshotId, snapshotHash: built.result.state.snapshot.snapshotHash } }; assert.equal(buildUserModelDecisionProjection(request, GRANTED_CONSENT, built.result, NOW).status, "NEUTRAL");
+  const state = structuredClone(built.result.state); state.snapshot.overallSufficiency.policy.authority = "PRODUCT_CALIBRATED"; const snapshotBody = { ...state.snapshot }; delete snapshotBody.snapshotHash; state.snapshot.snapshotHash = contentHash(snapshotBody); state.latestSnapshotPointer.snapshotHash = state.snapshot.snapshotHash; const stateBody = { ...state }; delete stateBody.stateHash; state.stateHash = contentHash(stateBody); assert.throws(() => verifyUserModelState(state, built.evidence, built.command, built.evidenceAuth, built.modelAuth, built.trustContext), /expected/i);
+});
+
+test("closure: canonical integrity entry point recursively verifies state, projection and lifecycle completion", () => {
+  const built = build([]); const request = { ...SYNTHETIC_PROJECTION_REQUEST, projectionPolicyVersion: "synthetic-phase3a-projection-v1", snapshot: { snapshotId: built.result.state.snapshot.snapshotId, snapshotHash: built.result.state.snapshot.snapshotHash } }; const projection = buildUserModelDecisionProjection(request, GRANTED_CONSENT, built.result, NOW);
+  const plan = planUserModelLifecycle("ACCOUNT_ERASURE", "integrity-erasure", SYNTHETIC_USER_A, SYNTHETIC_SUBJECT_BINDING_HASH, NOW); const execution = lifecycleExecution(plan); const completion = verifyUserModelLifecycleCompletion(plan, execution.context, NOW);
+  assert.equal(verifyUserModelIntegrity({ state: built.result.state, evidence: built.evidence, command: built.command, evidenceAuthority: built.evidenceAuth, modelContext: built.modelAuth, trustContext: built.trustContext, projection: { value: projection, request, consent: GRANTED_CONSENT, now: NOW }, lifecycle: { value: completion, plan, executionContext: execution.context, completedAt: NOW } }).stateHash, built.result.state.stateHash);
+  assert.throws(() => verifyUserModelIntegrity({ state: built.result.state, evidence: built.evidence, command: built.command, evidenceAuthority: built.evidenceAuth, modelContext: built.modelAuth, trustContext: built.trustContext, projection: { value: { ...projection, projectionId: "forged-projection" }, request, consent: GRANTED_CONSENT, now: NOW } }), /authoritative model projection/);
 });
