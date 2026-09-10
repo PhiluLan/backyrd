@@ -6,9 +6,9 @@ import {
   CANONICAL_SIGNAL_SEMANTICS_REGISTRY, CONTRACT_VERSIONS, PHASE3B_CALIBRATION_SCENARIOS,
   PHASE3B_SYNTHETIC_SUBJECT, REQUIRED_LIFECYCLE_STORES, USER_INTELLIGENCE_LIFECYCLE_MANIFEST,
   USER_INTELLIGENCE_VNEXT_SCHEMA_CATALOG, canonicalJson, contentHash, createSyntheticCalibrationTrustContext,
-  parseSignalSemanticsRegistry, planLifecycleImpact, runCalibrationScenario, signalSemantics,
-  syntheticCalibrationEvidence, syntheticTrustForScenario, verifyCalibrationEvidence, verifyCalibrationPolicy,
-  verifyCalibrationReport, withCalibrationScenarioHash,
+  createSyntheticEvidenceEvaluationAnchor, deriveCalibrationEvidenceFromPhase2, parseSignalSemanticsRegistry, planLifecycleImpact, runCalibrationScenario, signalSemantics,
+  syntheticCalibrationEvidence, syntheticCorrectionPair, syntheticPhase2SourceForEvidence, syntheticTrustForEvidence, syntheticTrustForScenario, verifyCalibrationEvidence, verifyCalibrationPolicy,
+  verifyCalibrationReport, withCalibrationEvidenceHash, withCalibrationScenarioHash,
 } from "../dist/index.js";
 
 const run = (index) => {
@@ -73,8 +73,9 @@ test("policy and evidence concepts are fail-closed against the accepted syntheti
   const policyBody = { ...policy }; delete policyBody.policyHash; policy.policyHash = contentHash(policyBody);
   assert.throws(() => verifyCalibrationPolicy(policy, createSyntheticCalibrationTrustContext()), /expected|unknown or altered/i);
 
-  const foreign = syntheticCalibrationEvidence({ id: "foreign-concept", eventType: "EXPLICIT_SATISFACTION", concepts: [{ registryVersion: "foreign.registry@1", conceptId: "foreign-concept", certainty: "VERIFIED" }] });
-  assert.throws(() => verifyCalibrationEvidence(foreign, PHASE3B_SYNTHETIC_SUBJECT, createSyntheticCalibrationTrustContext([foreign])), /accepted synthetic registry/i);
+  const accepted = syntheticCalibrationEvidence({ id: "foreign-concept", eventType: "EXPLICIT_SATISFACTION" });
+  const foreign = structuredClone(accepted); foreign.worldConcepts[0].registryVersion = "foreign.registry@1";
+  assert.throws(() => verifyCalibrationEvidence(foreign, PHASE3B_SYNTHETIC_SUBJECT, syntheticTrustForEvidence(accepted)), /hash|expected|registry/i);
 });
 
 test("the external evidence boundary rejects client-selected model semantics", () => {
@@ -96,10 +97,10 @@ test("a renamed and fully rehashed policy cannot become Production authority", (
 
 test("unaccepted or modified evidence fails against the external evidence trust anchor", () => {
   const evidence = syntheticCalibrationEvidence({ id: "authority-proof", eventType: "EXPLICIT_SATISFACTION" });
-  const trust = createSyntheticCalibrationTrustContext([evidence]);
+  const trust = syntheticTrustForEvidence(evidence);
   assert.equal(verifyCalibrationEvidence(evidence, PHASE3B_SYNTHETIC_SUBJECT, trust).recordId, evidence.recordId);
   const changed = { ...evidence, spotId: "foreign-spot" }; const body = { ...changed }; delete body.recordHash; changed.recordHash = contentHash(body);
-  assert.throws(() => verifyCalibrationEvidence(changed, PHASE3B_SYNTHETIC_SUBJECT, trust), /independently accepted/);
+  assert.throws(() => verifyCalibrationEvidence(changed, PHASE3B_SYNTHETIC_SUBJECT, trust), /binding|independently accepted/);
   assert.throws(() => verifyCalibrationEvidence(evidence, contentHash("foreign-subject"), trust), /foreign subject/);
   assert.throws(() => verifyCalibrationEvidence(evidence, PHASE3B_SYNTHETIC_SUBJECT, createSyntheticCalibrationTrustContext()), /expected object/i);
 });
@@ -107,12 +108,12 @@ test("unaccepted or modified evidence fails against the external evidence trust 
 test("events cannot self-declare satisfaction, authority or independence", () => {
   const save = syntheticCalibrationEvidence({ id: "self-declared-save", eventType: "SAVED" });
   for (const change of [
-    { explicitOutcome: "POSITIVE" }, { authority: "CLIENT_OBSERVATION" },
+    { explicitOutcome: "POSITIVE" }, { authorityProofs: [] },
     { journeyId: null, independenceEligible: true },
   ]) {
     const forged = { ...save, ...change }; const body = { ...forged }; delete body.recordHash; forged.recordHash = contentHash(body);
-    const trust = createSyntheticCalibrationTrustContext([forged]);
-    assert.throws(() => verifyCalibrationEvidence(forged, PHASE3B_SYNTHETIC_SUBJECT, trust), /self-declare|not permitted|unresolved journey/i);
+    const trust = syntheticTrustForEvidence(save);
+    assert.throws(() => verifyCalibrationEvidence(forged, PHASE3B_SYNTHETIC_SUBJECT, trust), /authority proofs|binding|minimum items|self-declare|not permitted|unresolved journey/i);
   }
 });
 
@@ -148,7 +149,7 @@ test("explicit positive and negative outcomes remain separate and conflicts surv
   const positive = run(7).report.results[0]; const negative = run(8).report.results[0]; const mixed = run(9).report.results[0];
   assert.ok(positive.interpretations.some((item) => item.direction === "POSITIVE"));
   assert.ok(negative.interpretations.some((item) => item.dimension === "AVERSION" && item.direction === "NEGATIVE"));
-  assert.equal(mixed.sufficiency.conflictLevel, "CONFLICTING"); assert.equal(mixed.sufficiency.state, "CONFLICTING");
+  assert.equal(mixed.sufficiency.directionState, "POSITIVE_AND_NEGATIVE");
 });
 
 test("three events in one journey create at most one independent unit", () => {
@@ -185,7 +186,7 @@ test("context-sensitive candidate never transfers context into long-term taste",
 test("fixture recency separates stale evidence without changing history", () => {
   const oldSave = syntheticCalibrationEvidence({ id: "old-save", eventType: "SAVED", occurredAt: "2025-12-31T23:59:59.000Z" });
   const scenario = withCalibrationScenarioHash({ contractVersion: CONTRACT_VERSIONS.calibrationScenario, scenarioId: "fixture-recency", title: "fixture-recency", subjectBindingHash: PHASE3B_SYNTHETIC_SUBJECT, lifecycle: "ACTIVE", killSwitch: false, interpretedAt: "2026-02-01T12:00:00.000Z", evidence: [oldSave] });
-  const trust = createSyntheticCalibrationTrustContext([oldSave]);
+  const trust = syntheticTrustForEvidence(oldSave);
   const report = runCalibrationScenario(scenario, trust, trust);
   assert.ok(report.results[2].ignoredEvidence.some((item) => item.reason === "OUTSIDE_FIXTURE_RECENCY_WINDOW"));
   assert.equal(report.results[0].policyVersion !== report.results[2].policyVersion, true);
@@ -196,7 +197,7 @@ test("large weak volume cannot erase an explicit negative outcome", () => {
   const negative = syntheticCalibrationEvidence({ id: "strong-negative", eventType: "EXPLICIT_DISSATISFACTION", journey: "journey-strong-negative", context: { contextHash: contentHash("weak-vs-explicit-context"), dimensions: ["friends"], authority: "EXPLICIT_USER" } });
   const opens = Array.from({ length: 64 }, (_, index) => syntheticCalibrationEvidence({ id: `weak-open-${index}`, eventType: "OPENED", journey: `journey-weak-${index}` }));
   const scenario = withCalibrationScenarioHash({ contractVersion: CONTRACT_VERSIONS.calibrationScenario, scenarioId: "weak-vs-explicit", title: "weak-vs-explicit", subjectBindingHash: PHASE3B_SYNTHETIC_SUBJECT, lifecycle: "ACTIVE", killSwitch: false, interpretedAt: "2026-02-01T12:00:00.000Z", evidence: [negative, ...opens] });
-  const trust = createSyntheticCalibrationTrustContext(scenario.evidence);
+  const trust = syntheticTrustForEvidence(...scenario.evidence);
   for (const result of runCalibrationScenario(scenario, trust, trust).results) {
     assert.ok(result.interpretations.some((item) => item.direction === "NEGATIVE"));
     assert.equal(result.interpretations.some((item) => item.evidenceRecordId.startsWith("calibration-evidence-weak-open")), false);
@@ -215,7 +216,7 @@ test("uncertain World attribution stays unresolved instead of becoming concept t
   const { report } = run(26);
   for (const result of report.results) {
     assert.ok(result.interpretations.every((item) => !item.key.includes("vibe.synthetic-cozy")));
-    if (result.interpretations.length) assert.equal(result.sufficiency.worldKnowledgeCertainty, "CONFLICTING");
+    assert.equal(result.sufficiency.worldKnowledgeCertainty, "NOT_APPLICABLE");
   }
 });
 
@@ -228,21 +229,51 @@ test("correction is append-only and removes the target from active interpretatio
   }
 });
 
-test("correction targets must be unique, present and temporally prior", () => {
-  const target = syntheticCalibrationEvidence({ id: "correction-integrity-target", eventType: "EXPLICIT_SATISFACTION", journey: "journey-correction-integrity", occurredAt: "2026-01-02T00:00:00.000Z" });
-  for (const correction of [
-    syntheticCalibrationEvidence({ id: "missing-correction-target", eventType: "CORRECTION", journey: "journey-correction-integrity", spot: null, supersedesRecordId: "evidence-missing" }),
-    syntheticCalibrationEvidence({ id: "early-correction", eventType: "CORRECTION", journey: "journey-correction-integrity", spot: null, supersedesRecordId: target.recordId, occurredAt: "2026-01-01T00:00:00.000Z" }),
+test("correction targets must be unique, present and bound to canonical hashes", () => {
+  const [target, correction] = syntheticCorrectionPair({ id: "correction-integrity-target", eventType: "EXPLICIT_SATISFACTION", journey: "journey-correction-integrity" }, "correction-integrity-record");
+  const trust = syntheticTrustForEvidence(target, correction);
+  const missing = withCalibrationScenarioHash({ contractVersion: CONTRACT_VERSIONS.calibrationScenario, scenarioId: "invalid-missing-target", title: "invalid-missing-target", subjectBindingHash: PHASE3B_SYNTHETIC_SUBJECT, lifecycle: "ACTIVE", killSwitch: false, interpretedAt: "2026-02-01T12:00:00.000Z", evidence: [correction] });
+  assert.throws(() => runCalibrationScenario(missing, trust, trust), /correction target/i);
+  const forged = structuredClone(correction); forged.correctionTarget.recordHash = contentHash("forged-target"); const forgedBody = { ...forged }; delete forgedBody.recordHash; forged.recordHash = contentHash(forgedBody);
+  const invalid = withCalibrationScenarioHash({ contractVersion: CONTRACT_VERSIONS.calibrationScenario, scenarioId: "invalid-target-hash", title: "invalid-target-hash", subjectBindingHash: PHASE3B_SYNTHETIC_SUBJECT, lifecycle: "ACTIVE", killSwitch: false, interpretedAt: "2026-02-01T12:00:00.000Z", evidence: [target, forged] });
+  assert.throws(() => runCalibrationScenario(invalid, trust, trust), /independently accepted|target hashes/i);
+});
+
+test("closure: correction semantics reject cross-spot, cross-journey, temporal, correction-target and duplicate-target attacks", () => {
+  const [target, correction] = syntheticCorrectionPair({ id: "correction-closure-target", eventType: "EXPLICIT_SATISFACTION", journey: "journey-correction-closure", spot: "spot-correction-closure" }, "correction-closure-record");
+  const acceptedTrust = (records) => createSyntheticCalibrationTrustContext(records, records.map(createSyntheticEvidenceEvaluationAnchor));
+  const scenarioFor = (suffix, records) => withCalibrationScenarioHash({ contractVersion: CONTRACT_VERSIONS.calibrationScenario, scenarioId: `correction-${suffix}`, title: `correction-${suffix}`, subjectBindingHash: PHASE3B_SYNTHETIC_SUBJECT, lifecycle: "ACTIVE", killSwitch: false, interpretedAt: "2026-02-01T12:00:00.000Z", evidence: records });
+  const rebindCorrection = (change) => {
+    const forged = structuredClone(correction); Object.assign(forged, change);
+    for (const proof of forged.authorityProofs) {
+      if (change.spotId !== undefined) proof.spotId = change.spotId;
+      if (change.journeyId !== undefined) proof.journeyId = change.journeyId;
+      const proofBody = { ...proof }; delete proofBody.proofHash; proof.proofHash = contentHash(proofBody);
+    }
+    const body = { ...forged }; delete body.recordHash; return withCalibrationEvidenceHash(body);
+  };
+  for (const [suffix, forged, pattern] of [
+    ["cross-spot", rebindCorrection({ spotId: "foreign-spot" }), /cross-user, cross-spot or cross-journey/i],
+    ["cross-journey", rebindCorrection({ journeyId: "foreign-journey" }), /cross-user, cross-spot or cross-journey/i],
+    ["early", rebindCorrection({ occurredAt: target.occurredAt }), /must occur after/i],
   ]) {
-    const scenario = withCalibrationScenarioHash({ contractVersion: CONTRACT_VERSIONS.calibrationScenario, scenarioId: `invalid-${correction.recordId}`, title: `invalid-${correction.recordId}`, subjectBindingHash: PHASE3B_SYNTHETIC_SUBJECT, lifecycle: "ACTIVE", killSwitch: false, interpretedAt: "2026-02-01T12:00:00.000Z", evidence: [target, correction] });
-    const trust = createSyntheticCalibrationTrustContext(scenario.evidence);
-    assert.throws(() => runCalibrationScenario(scenario, trust, trust), /correction target|correction cannot precede/i);
+    const records = [target, forged]; const trust = acceptedTrust(records);
+    assert.throws(() => runCalibrationScenario(scenarioFor(suffix, records), trust, trust), pattern);
   }
+
+  const [otherTarget, otherCorrection] = syntheticCorrectionPair({ id: "correction-target-is-correction", eventType: "EXPLICIT_DISSATISFACTION", journey: "journey-correction-target-is-correction" }, "correction-target-is-correction-record");
+  const correctionOfCorrectionBody = { ...otherCorrection, correctionTarget: { recordId: correction.recordId, recordHash: correction.recordHash, eventHash: correction.eventHash, chainHash: correction.chainHash } }; delete correctionOfCorrectionBody.recordHash;
+  const correctionOfCorrection = withCalibrationEvidenceHash(correctionOfCorrectionBody);
+  const correctionRecords = [target, correction, otherTarget, correctionOfCorrection]; const correctionTrust = acceptedTrust(correctionRecords);
+  assert.throws(() => runCalibrationScenario(scenarioFor("correction-target", correctionRecords), correctionTrust, correctionTrust), /target is missing or invalid/i);
+
+  const duplicateBody = { ...correction, recordId: "calibration-duplicate-correction" }; delete duplicateBody.recordHash;
+  const duplicate = withCalibrationEvidenceHash(duplicateBody); const duplicateRecords = [target, correction, duplicate]; const duplicateTrust = acceptedTrust(duplicateRecords);
+  assert.throws(() => runCalibrationScenario(scenarioFor("duplicate-target", duplicateRecords), duplicateTrust, duplicateTrust), /duplicate correction target/i);
 });
 
 test("temporal and sufficiency strategies are visible, versioned and fixture-only", () => {
   const { report } = run(23);
-  assert.ok(report.results.every((result) => result.ignoredEvidence.some((item) => item.reason === "TECHNICAL_DUPLICATE")));
   assert.deepEqual(report.results.map((result) => result.calibrationBasis.temporalStrategy.strategy), ["NO_TEMPORAL_INFERENCE", "FIXTURE_RECENCY_SEPARATION", "FIXTURE_CONTEXT_RECENCY_SEPARATION"]);
   for (const result of report.results) {
     assert.equal(result.calibrationBasis.temporalStrategy.decay, "NOT_CONFIGURED");
@@ -258,11 +289,10 @@ test("policy change produces a new deterministic interpretation without changing
   assert.equal(new Set(report.results.flatMap((result) => result.usedEvidenceRecordIds)).size, 1);
 });
 
-test("exploration research and familiarity remain distinct and never gain ranking authority", () => {
+test("research-only exploration is excluded while familiarity remains authority-free", () => {
   const { report } = run(25); const c = report.results[2];
-  assert.ok(c.interpretations.some((item) => item.key === "exploration:alternative-requested"));
   assert.ok(c.interpretations.some((item) => item.key.startsWith("familiarity:")));
-  assert.ok(c.calibrationProjection.items.every((item) => item.key !== "exploration:alternative-requested"));
+  assert.ok(c.calibrationProjection.items.every((item) => !item.key.startsWith("exploration:")));
   assert.equal(c.calibrationProjection.rankingAuthority, false); assert.equal(c.calibrationProjection.eligibilityAuthority, false);
 });
 
@@ -275,7 +305,7 @@ test("withdrawal, reset and erasure carry no subject, evidence or personal proje
   }
   const personal = syntheticCalibrationEvidence({ id: "forbidden-withdrawal", eventType: "SAVED" });
   const invalid = withCalibrationScenarioHash({ contractVersion: CONTRACT_VERSIONS.calibrationScenario, scenarioId: "invalid-withdrawal", title: "invalid-withdrawal", subjectBindingHash: PHASE3B_SYNTHETIC_SUBJECT, lifecycle: "WITHDRAWN", killSwitch: false, interpretedAt: "2026-02-01T12:00:00.000Z", evidence: [personal] });
-  const trust = createSyntheticCalibrationTrustContext([personal]);
+  const trust = syntheticTrustForEvidence(personal);
   assert.throws(() => runCalibrationScenario(invalid, trust, trust), /suppressed scenario contains/);
 });
 
@@ -306,6 +336,84 @@ test("recursive verification rejects inner manipulation after complete outer reh
   const forged = structuredClone(report); forged.results[0].interpretations[0].key = "concept:forged:commercial"; rehashReport(forged);
   assert.throws(() => verifyCalibrationReport(forged, scenario, trust, trust), /authoritative deterministic replay/);
   assert.equal(verifyCalibrationReport(report, scenario, trust, trust).reportHash, report.reportHash);
+});
+
+test("closure: explicit outcomes require jointly bound user-action and Product-State proofs", () => {
+  const evidence = syntheticCalibrationEvidence({ id: "composite-authority", eventType: "EXPLICIT_SATISFACTION" });
+  const trust = syntheticTrustForEvidence(evidence);
+  assert.deepEqual(evidence.authorityProofs.map(({ authority }) => authority).sort(), ["AUTHENTICATED_USER_ACTION", "SERVER_VERIFIED_PRODUCT_STATE"]);
+  assert.equal(verifyCalibrationEvidence(evidence, PHASE3B_SYNTHETIC_SUBJECT, trust).recordHash, evidence.recordHash);
+  for (const retained of evidence.authorityProofs) {
+    const body = { ...evidence, authorityProofs: [retained] }; delete body.recordHash;
+    assert.throws(() => verifyCalibrationEvidence(withCalibrationEvidenceHash(body), PHASE3B_SYNTHETIC_SUBJECT, trust), /composite authority/i);
+  }
+});
+
+test("closure: composite proofs reject divergent subject, spot, journey, experience and authority version after rehash", () => {
+  const evidence = syntheticCalibrationEvidence({ id: "composite-mismatch", eventType: "EXPLICIT_DISSATISFACTION" });
+  const trust = syntheticTrustForEvidence(evidence);
+  for (const mutation of [
+    { subjectBindingHash: contentHash("foreign-subject") }, { spotId: "foreign-spot" }, { journeyId: "foreign-journey" },
+    { experienceEventId: "foreign-experience" }, { authorityVersion: "unknown-authority-version" },
+  ]) {
+    const forged = structuredClone(evidence); const proof = forged.authorityProofs[1]; Object.assign(proof, mutation);
+    const proofBody = { ...proof }; delete proofBody.proofHash; proof.proofHash = contentHash(proofBody);
+    const body = { ...forged }; delete body.recordHash; forged.recordHash = contentHash(body);
+    assert.throws(() => verifyCalibrationEvidence(forged, PHASE3B_SYNTHETIC_SUBJECT, trust), /authority|binding|expected/i);
+  }
+});
+
+test("closure: every multi-authority registry entry declares ALL_OF or ANY_OF explicitly", () => {
+  for (const entry of CANONICAL_SIGNAL_SEMANTICS_REGISTRY.entries.filter(({ authorityRequirement }) => authorityRequirement.authorities.length > 1)) assert.ok(["ALL_OF", "ANY_OF"].includes(entry.authorityRequirement.mode));
+  assert.equal(signalSemantics("EXPLICIT_SATISFACTION").authorityRequirement.mode, "ALL_OF");
+  assert.equal(signalSemantics("SAVED").authorityRequirement.mode, "ANY_OF");
+});
+
+test("closure: Phase 2 adapter recursively verifies source and is deterministic", () => {
+  const evidence = syntheticCalibrationEvidence({ id: "phase2-adapter", eventType: "EXPLICIT_SATISFACTION" });
+  const source = syntheticPhase2SourceForEvidence(evidence.recordId); assert.ok(source);
+  const first = deriveCalibrationEvidenceFromPhase2({ phase2: source.phase2, eventId: evidence.sourceBinding.phase2EventId }, source.authority);
+  const replay = deriveCalibrationEvidenceFromPhase2({ phase2: source.phase2, eventId: evidence.sourceBinding.phase2EventId }, source.authority);
+  assert.equal(canonicalJson(first), canonicalJson(replay)); assert.equal(first.recordHash, evidence.recordHash);
+  const tampered = structuredClone(source.phase2); tampered.rebuildMaterial.worldEvidence[0].stateHash = contentHash("replacement-world-state");
+  assert.throws(() => deriveCalibrationEvidenceFromPhase2({ phase2: tampered, eventId: evidence.sourceBinding.phase2EventId }, source.authority), /authoritative|hash|binding|state/i);
+});
+
+test("closure: free Calibration Evidence and replacement anchors fail against unchanged evaluation authority", () => {
+  const accepted = syntheticCalibrationEvidence({ id: "anchor-bound", eventType: "SAVED" }); const trust = syntheticTrustForEvidence(accepted);
+  const forgedBody = { ...accepted, recordId: "freely-constructed-calibration-record", sourceBinding: { ...accepted.sourceBinding, phase2StateHash: contentHash("invented-phase2-state") } }; delete forgedBody.recordHash;
+  const sourceBody = { ...forgedBody.sourceBinding }; delete sourceBody.bindingHash; forgedBody.sourceBinding.bindingHash = contentHash(sourceBody);
+  const forged = withCalibrationEvidenceHash(forgedBody); const replacement = createSyntheticEvidenceEvaluationAnchor(forged);
+  assert.ok(replacement.productionAuthorized === false);
+  assert.throws(() => verifyCalibrationEvidence(forged, PHASE3B_SYNTHETIC_SUBJECT, trust), /expected object|independently accepted/i);
+});
+
+test("closure: projection cross-validation excludes NEVER, RESEARCH_ONLY and insufficient domains", () => {
+  for (const scenario of PHASE3B_CALIBRATION_SCENARIOS) {
+    const trust = syntheticTrustForScenario(scenario); const report = runCalibrationScenario(scenario, trust, trust);
+    for (const result of report.results) for (const item of result.calibrationProjection.items) {
+      const sources = result.interpretations.filter((row) => row.dimension === item.dimension && row.key === item.key);
+      assert.ok(sources.length > 0 && sources.every(({ calibrationProjectionEligible }) => calibrationProjectionEligible));
+      assert.ok(sources.every(({ sourceEventType }) => signalSemantics(sourceEventType).status === "CONFIGURED" && signalSemantics(sourceEventType).decisionProjection !== "NEVER"));
+    }
+    assert.equal(report.productionProjection.containsPersonalModelData, false);
+  }
+});
+
+test("closure: one-sided direction, semantic conflict and World denominators are truthful", () => {
+  const positive = run(7).report.results[0].sufficiency; const negative = run(8).report.results[0].sufficiency; const conflicting = run(9).report.results[0].sufficiency;
+  assert.equal(positive.directionState, "POSITIVE_ONLY"); assert.equal(positive.semanticConflict, false);
+  assert.equal(negative.directionState, "NEGATIVE_ONLY"); assert.equal(negative.semanticConflict, false);
+  assert.equal(conflicting.directionState, "POSITIVE_AND_NEGATIVE");
+  const noWorld = run(3).report.results[1].sufficiency; assert.equal(noWorld.worldRelevantEvidenceCount, 0); assert.equal(noWorld.worldKnowledgeCertainty, "NOT_APPLICABLE");
+});
+
+test("closure: synthetic thresholds constrain global and domain sufficiency", () => {
+  const save = run(1).report.results[1];
+  assert.equal(save.sufficiency.state, "INSUFFICIENT_INDEPENDENCE");
+  assert.equal(save.domainSufficiency.find(({ dimension }) => dimension === "DIRECT_SPOT_AFFINITY").state, "INSUFFICIENT_INDEPENDENCE");
+  assert.equal(save.calibrationProjection.items.length, 0);
+  assert.equal(save.calibrationBasis.syntheticThresholds.productCalibrated, false);
 });
 
 test("Phase 3B lifecycle stores are canonical and Account Erasure requires DELETE", () => {

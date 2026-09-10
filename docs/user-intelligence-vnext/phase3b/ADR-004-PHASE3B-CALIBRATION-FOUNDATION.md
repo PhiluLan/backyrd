@@ -34,6 +34,12 @@ Phase 3A beweist die technische Lernarchitektur, darf aber keine Backyrd-Signals
 
 Der echte Phase-3A-Incremental-Reducer bleibt für unveränderte Policy-/Registry-/Reducer-Identitäten zuständig. Jeder Wechsel eines Phase-3B-Kandidaten ist absichtlich ein neuer vollständiger Rebuild aus unveränderter Evidence. Das Calibration Lab ist ein Offline-Vergleich vollständiger synthetischer Szenarien und wird nicht als zweiter Runtime-Reducer ausgegeben.
 
+## CTO Closure 3B.1
+
+Calibration Evidence wird nicht mehr frei als autoritativ wirkendes Objekt konstruiert. Ein Adapter verifiziert zuerst den vollständigen Phase-2-Evidence-State und bindet State-, Chain-, Event-, Journey-, Authority-, World-, Context-, Consent-, Lifecycle- und Correction-Hashes. Eine getrennte synthetische Evaluation Authority akzeptiert anschließend exakt diesen minimierten Datensatz; weder Adapter noch Fixture behaupten Production Authority.
+
+Authority-Anforderungen unterscheiden `ALL_OF` von `ANY_OF`. Projection-Fähigkeit ist ausdrücklich auf das Calibration Lab begrenzt und wird mit der Signal Registry cross-validiert. Sufficiency unterscheidet positive, negative, bidirektionale und tatsächlich konfliktbehaftete Evidence sowie Independence, Vielfalt und World-Relevanz.
+
 ## Folgen
 
 Founder und CTO können anhand identischer Evidence konkrete semantische Unterschiede entscheiden. Bis zu einer separaten Freigabe bleibt jede Policy `CALIBRATION_ONLY`; Retention, Gewichte, Decay und Product-Sufficiency bleiben unkonfiguriert.

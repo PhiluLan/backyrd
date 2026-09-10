@@ -13,6 +13,11 @@
 
 - Clientgewählte Policy, Signalband, Satisfaction, Independence oder Long-Term-Umklassifizierung: abgewiesen.
 - unbekannte, umbenannte oder vollständig neu gehashte Policy: abgewiesen.
+- explizite Outcomes mit nur einem Teil des `ALL_OF`-Authority-Beweises: abgewiesen;
+- Calibration Evidence ohne rekursiv verifizierte Phase-2-Chain und unabhängigen Evaluation-Anchor: abgewiesen;
+- abweichende Phase-2-Event-, Chain-, Journey-, World-, Context-, Consent- oder Lifecycle-Hashes: abgewiesen;
+- `decisionProjection: NEVER`, `RESEARCH_ONLY` und `NOT_CONFIGURED`: nicht projectable;
+- unsichere World Attribution bei `requiresCertainWorldAttribution:true`: keine Concept-Hypothese;
 - fremde Concept-Registry, unbekannte Concept-ID oder abweichender Registry-Hash: abgewiesen.
 - manipulierte oder fremde Evidence mit neuem Eigenhash: gegen unveränderten Trust Anchor abgewiesen.
 - `ownerTier`, Payment, Subscription, Advertising, Sponsoring, Eligibility- oder Ranking-Anweisung: an der Runtime-Grenze abgewiesen.

@@ -55,6 +55,8 @@ export const USER_INTELLIGENCE_VNEXT_SCHEMA_CATALOG = Object.freeze({
     ["SignalSemanticsRegistry", CONTRACT_VERSIONS.signalSemanticsRegistry, "SignalSemanticsRegistrySchema", "parseSignalSemanticsRegistry"],
     ["CalibrationPolicy", CONTRACT_VERSIONS.calibrationPolicy, "CalibrationPolicySchema", "verifyCalibrationPolicy"],
     ["CalibrationPolicyTrustAnchor", CONTRACT_VERSIONS.calibrationPolicyTrustAnchor, "CalibrationPolicyTrustAnchorSchema", "verifyCalibrationPolicy"],
+    ["CalibrationAuthorityProof", CONTRACT_VERSIONS.calibrationAuthorityProof, "CalibrationAuthorityProofSchema", "verifyCalibrationEvidence"],
+    ["Phase2CalibrationSourceBinding", CONTRACT_VERSIONS.calibrationEvidenceAdapter, "Phase2CalibrationSourceBindingSchema", "deriveCalibrationEvidenceFromPhase2"],
     ["CalibrationEvidence", CONTRACT_VERSIONS.calibrationEvidence, "CalibrationEvidenceSchema", "verifyCalibrationEvidence"],
     ["CalibrationEvidenceTrustAnchor", CONTRACT_VERSIONS.calibrationEvidenceTrustAnchor, "CalibrationEvidenceTrustAnchorSchema", "verifyCalibrationEvidence"],
     ["CalibrationScenario", CONTRACT_VERSIONS.calibrationScenario, "CalibrationScenarioSchema", "runCalibrationScenario"],

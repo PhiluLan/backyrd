@@ -14,7 +14,11 @@ Phase 3B ergänzt den kanonischen Phase-3A-Kernel um eine ausschließlich synthe
 - rekonstruktive Report-Verifikation gegen Policy- und Evidence-Trust-Anker;
 - Lifecycle-Abdeckung für personenbezogene Calibration Reports und Rebuild-Materialien.
 
-Normative Runtime-Verträge liegen in `packages/user-intelligence-vnext-core/src/calibration.ts`. Das Lab wird mit `npm run user-intelligence-vnext:calibration` ausgeführt. Der eingecheckte maschinenlesbare Nachweis ist `calibration-report.json`.
+Normative Runtime-Verträge liegen in `packages/user-intelligence-vnext-core/src/calibration.ts`; die rekursiv verifizierte Phase-2-Adaptergrenze liegt in `calibration-adapter.ts`. Das Lab wird mit `npm run user-intelligence-vnext:calibration` ausgeführt. Im Repository bleibt nur `calibration-release-summary.json` als kompakter, hashgebundener Release-Beleg. Der vollständige Report wird reproduzierbar erzeugt und im Risk Gate als kurzlebiges Workflow-Artefakt bereitgestellt.
+
+Mehrfach-Authorities sind ausdrücklich als `ALL_OF` oder `ANY_OF` modelliert. Explizite Satisfaction und Dissatisfaction benötigen gemeinsam authentifizierte User-Aktion und serververifizierten Product-State-Bezug. Ein einzelnes Authority-Label kann die Kombination nicht ersetzen.
+
+`decisionProjection` und `calibrationProjectionEligible` werden gemeinsam durchgesetzt: `NEVER`, `RESEARCH_ONLY` und `NOT_CONFIGURED` erzeugen keine Projection Items. `ELIGIBLE_AFTER_PRODUCT_APPROVAL` bleibt ohne separat autorisierte Product Policy ausschließlich im synthetischen Calibration Lab sichtbar; die Production Projection bleibt neutral.
 
 Das Lab berechnet pro Kandidat einen vollständigen deterministischen Rebuild. Es wird nicht als zweiter inkrementeller Reducer bezeichnet: Full-/Incremental-Parität bleibt Aufgabe des bereits kanonischen, checkpoint-gebundenen Phase-3A-Reducers und seiner Regressionen. Ein Policy-, Registry- oder Reducer-Wechsel verlangt weiterhin einen Full Rebuild.
 

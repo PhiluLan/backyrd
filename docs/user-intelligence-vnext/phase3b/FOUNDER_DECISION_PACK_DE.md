@@ -1,6 +1,6 @@
 # Founder Decision Pack – Phase 3B
 
-Dieses Pack beschreibt offene Product-Entscheidungen. A, B und C sind Calibration-Kandidaten, keine Production Policies. „Dev“ bezeichnet die sicherste technische Empfehlung; „CTO“ bezeichnet eine architektonisch eindeutige Empfehlung, nicht die Founder-Entscheidung über Product-Wirkung.
+Dieses Pack beschreibt offene Product-Entscheidungen. A, B und C sind synthetische Calibration-Kandidaten, keine Production Policies; keiner besitzt finale Gewichte oder gilt als Gewinner. `ALL_OF`-Authority, Phase-2-Provenienz, Projection-Grenzen und mehrdimensionale Sufficiency sind technische Sicherheitsbedingungen, keine Product-Kalibrierung. Review Moods, Moments, Dwell, Quick Skip und Search bleiben bis zu einer eigenen Entscheidung `RESEARCH_ONLY` beziehungsweise `NOT_CONFIGURED`. „Dev“ bezeichnet die sicherste technische Empfehlung; „CTO“ bezeichnet eine architektonisch eindeutige Empfehlung, nicht die Founder-Entscheidung über Product-Wirkung.
 
 ## 1. Welche UI-Aktion bedeutet Satisfaction?
 

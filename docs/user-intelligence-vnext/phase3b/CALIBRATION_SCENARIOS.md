@@ -1,6 +1,6 @@
 # Calibration Scenario Matrix
 
-Alle Szenarien sind synthetisch, deterministisch und in `calibration-report.json` vollständig mit Evidence-, Interpretation-, Sufficiency- und Projection-Hashes enthalten.
+Alle Szenarien sind synthetisch und deterministisch. `calibration-release-summary.json` bindet Scenario-Set, Registry, Policies, Einzelreports und den vollständigen Report per Hash. Der vollständige Evidence-, Interpretation-, Sufficiency- und Projection-Report wird durch den Generator rekonstruiert und in CI als Workflow-Artefakt aufbewahrt.
 
 | # | Verlauf | Candidate A | Candidate B | Candidate C | zentrale Grenze |
 |---:|---|---|---|---|---|
