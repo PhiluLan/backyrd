@@ -1,0 +1,53 @@
+{
+  "contractVersion": "backyrd.world-knowledge.repository-coverage@1.0",
+  "profiledAt": "2026-09-10T16:00:00.000Z",
+  "canonicalBase": "983cd7b3a3c11dd3e549c256850749b07b52eadf",
+  "basis": "CANONICAL_REPOSITORY_AND_MIGRATIONS_ONLY",
+  "productionQueried": false,
+  "productionMetricsStatus": "NOT_EMPIRICALLY_CONFIRMED_NO_AUTHORIZED_CONNECTION",
+  "registry": {
+    "foundationAreas": 25,
+    "attributeDefinitions": 47
+  },
+  "legacyMapping": {
+    "rows": 36,
+    "byStatus": {
+      "AMBIGUOUS": 4,
+      "DIRECT": 1,
+      "MISSING_PROVENANCE": 9,
+      "NORMALIZED": 10,
+      "NO_TARGET_KEY": 4,
+      "PROHIBITED": 6,
+      "SUBJECTIVE": 1,
+      "UNSUPPORTED": 1
+    },
+    "byRecommendation": {
+      "ADAPT": 20,
+      "DO_NOT_MIGRATE": 8,
+      "EXTEND": 2,
+      "KEEP": 4,
+      "REPLACE": 1,
+      "UNKNOWN_NEEDS_DECISION": 1
+    }
+  },
+  "repository": {
+    "migrationFiles": 139,
+    "migrationTip": "20260909073004_close_review_capture_trust_v2.sql",
+    "createTableStatements": 292,
+    "createViewStatements": 17,
+    "securityDefinerMentions": 822,
+    "enableRlsStatements": 278,
+    "publicExecuteGrants": 0,
+    "anonExecuteGrants": 10,
+    "authenticatedExecuteGrants": 113
+  },
+  "empiricalUnknowns": [
+    "production spot counts",
+    "field null distribution",
+    "live grants and RLS",
+    "live source coverage",
+    "live duplicate candidates",
+    "live migration tip"
+  ],
+  "reportHash": "25c0b5cf35b7ccda54db69413894b4d9dbc5b0c8d83a27c0563a9f5c5b8b0ea3"
+}
