@@ -4,10 +4,12 @@ Slice 3B turns the accepted Slice 1–3A contracts into an append-only, locally 
 
 ## Accepted identities
 
-- Base: current canonical Main used for the final implementation (`219b5cd268c55cf06252cc0a71db387e476428c9` after the required rebase).
+- Base: current canonical Main used for the final closure (`5ddd15eaf75ceb8448dbf59667c14ffb2ffdac0e` after the required rebase).
 - Registry: `backyrd.world-knowledge.registry@1.1`, SHA-256 `e51e78f929d8d11ca149a50eaba250cf484e916ef38f2d447d3c8d881bb203be`.
 - Source policy: `backyrd.world-knowledge.source-policy@3b.1`, SHA-256 `029582851b57914ce8f360e27dd7d6697fa6144cdf1febcf38d866290f4da95b`.
 - Entitlement policy: `backyrd.world-knowledge.entitlement-policy@3b.1`, SHA-256 `ba8032f09eafc0ac561f0fdab112b457aca84bf69c94c85c4ad34396c7649575`.
+
+The rebase also aligns Decision's synthetic integration harness with Main's privacy-neutral User projection binding. Neutral projections use the canonical unlinkable neutral subject hash; active projections remain bound to the authenticated subject. This is a compatibility correction only and does not activate World Knowledge in Decision runtime.
 
 Registry 1.0 remains immutable and independently valid. Registry 1.1 adds `contact.public_email`, `operation.price_level`, `accessibility.elevator`, and `accessibility.accessible_indoor`. It does not reinterpret `operation.price_range`.
 
