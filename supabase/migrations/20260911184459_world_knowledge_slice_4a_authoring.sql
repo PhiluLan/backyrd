@@ -10,9 +10,11 @@ create table world_knowledge_private.founder_evaluation_spots_v1 (
     check (lifecycle_status in ('ACTIVE','ARCHIVED')),
   cohort_key text not null default 'founder-world-cohort-draft',
   created_by_binding_id uuid not null references world_knowledge_private.actor_bindings(id) on delete restrict,
+  creation_idempotency_key text not null check (length(creation_idempotency_key) between 1 and 180),
   created_at timestamptz not null default pg_catalog.clock_timestamp(),
   archived_at timestamptz,
-  check ((lifecycle_status='ARCHIVED') = (archived_at is not null))
+  check ((lifecycle_status='ARCHIVED') = (archived_at is not null)),
+  unique(created_by_binding_id,creation_idempotency_key)
 );
 
 create table world_knowledge_private.authoring_applicability_events_v1 (
@@ -85,11 +87,11 @@ begin
   binding_id:=world_knowledge_private.get_actor_binding_v1(actor_id,'ADMIN');
   select f.spot_id into existing_id from world_knowledge_private.founder_evaluation_spots_v1 f
   join public.spots s on s.id=f.spot_id
-  where f.created_by_binding_id=binding_id and s.data_origin='TEST' and s.slug='founder-eval-'||encode(extensions.digest(pg_catalog.convert_to(p_idempotency_key,'UTF8'),'sha256'),'hex');
+  where f.created_by_binding_id=binding_id and f.creation_idempotency_key=p_idempotency_key and s.data_origin='TEST';
   if found then return jsonb_build_object('spotId',existing_id,'created',false,'scope','FOUNDER_EVALUATION_ONLY'); end if;
-  insert into public.spots(name,slug,status,owner_id,created_by,data_origin)
-  values(trim(p_name),'founder-eval-'||encode(extensions.digest(pg_catalog.convert_to(p_idempotency_key,'UTF8'),'sha256'),'hex'),'archived',p_owner_id,actor_id,'TEST') returning id into spot_id;
-  insert into world_knowledge_private.founder_evaluation_spots_v1(spot_id,created_by_binding_id) values(spot_id,binding_id);
+  insert into public.spots(name,status,owner_id,created_by,data_origin)
+  values(trim(p_name),'archived',p_owner_id,actor_id,'TEST') returning id into spot_id;
+  insert into world_knowledge_private.founder_evaluation_spots_v1(spot_id,created_by_binding_id,creation_idempotency_key) values(spot_id,binding_id,p_idempotency_key);
   insert into world_knowledge_private.shadow_spot_allowlist(spot_id,reason,valid_until)
   values(spot_id,'FOUNDER_EVALUATION_ONLY',pg_catalog.clock_timestamp()+interval '180 days');
   receipt:=world_knowledge_private.submit_authoritative_claim_v1('ADMIN',spot_id,'identity.name','KNOWN_VALUE',to_jsonb(trim(p_name)),pg_catalog.clock_timestamp(),null,null,'PUBLIC',null,p_idempotency_key||':identity.name');
