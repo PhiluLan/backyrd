@@ -46,7 +46,7 @@ select pg_temp.assert((select count(*)=2 and bool_and(s.status='archived' and s.
 set local role authenticated;
 select set_config('request.jwt.claim.sub',pg_temp.id('wk4a-basic')::text,true);
 select set_config('request.jwt.claim.role','authenticated',true);
-select pg_temp.assert((public.world_owner_submit_claim_v1((select (payload->>'spotId')::uuid from wk4a_created limit 1),'operation.takeaway','UNKNOWN','null',clock_timestamp(),null,null,'PUBLIC',null,'basic-unknown')->>'verificationMethod')='OWNER_CONFIRMED','Basic owner unknown claim failed');
+select pg_temp.assert((public.world_owner_submit_claim_v1((select (payload->>'spotId')::uuid from wk4a_created limit 1),'operation.takeaway','UNKNOWN',null,clock_timestamp(),null,null,'PUBLIC',null,'basic-unknown')->>'verificationMethod')='OWNER_CONFIRMED','Basic owner unknown claim failed');
 select pg_temp.assert((public.world_authoring_set_applicability_v1((select (payload->>'spotId')::uuid from wk4a_created limit 1),'rule.external_food','NOT_APPLICABLE','basic-na')->>'applicability')='NOT_APPLICABLE','not-applicable authoring event failed');
 select pg_temp.expect_error(format('select public.world_owner_submit_claim_v1(%L,%L,%L,%L::jsonb,clock_timestamp(),null,null,%L,null,%L)',(select payload->>'spotId' from wk4a_created offset 1 limit 1),'identity.name','KNOWN_VALUE','"Foreign"','PUBLIC','foreign-spot'),'42501','owner wrote foreign spot');
 select pg_temp.expect_error(format('select public.world_owner_submit_claim_v1(%L,%L,%L,%L::jsonb,clock_timestamp(),null,null,%L,null,%L)',(select payload->>'spotId' from wk4a_created limit 1),'accessibility.accessible_toilet','KNOWN_TRUE','true','PUBLIC','basic-pro'),'42501','Basic owner wrote Pro key');
