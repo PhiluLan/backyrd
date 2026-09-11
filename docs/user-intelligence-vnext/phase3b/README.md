@@ -8,7 +8,8 @@ Phase 3B ergänzt den kanonischen Phase-3A-Kernel um eine ausschließlich synthe
 - drei extern gebundene Policy-Kandidaten A, B und C;
 - explizite Bindung jeder Concept-Referenz an die synthetische Registry-Version und ihren Hash;
 - 34 deterministische synthetische Nutzerverläufe (die geforderten 32 plus No Consent und Kill Switch);
-- multidimensionale Sufficiency-/Uncertainty-Auswertung;
+- multidimensionale Sufficiency-/Uncertainty-Auswertung mit getrennten Zuständen für einseitige, gemischte und tatsächlich konfliktbehaftete Evidence;
+- dimensionsunabhängige, registry- und contextgebundene Semantic Targets sowie rekonstruktiv geprüfte Conflict-/Ambivalence-Records;
 - getrennte Attribution, Independence, Context, Direct Spot und Exploration/Familiarity;
 - strikt neutrale Production Projection und separate Calibration Projection;
 - rekonstruktive Report-Verifikation gegen Policy- und Evidence-Trust-Anker;
@@ -19,6 +20,8 @@ Normative Runtime-Verträge liegen in `packages/user-intelligence-vnext-core/src
 Mehrfach-Authorities sind ausdrücklich als `ALL_OF` oder `ANY_OF` modelliert. Explizite Satisfaction und Dissatisfaction benötigen gemeinsam authentifizierte User-Aktion und serververifizierten Product-State-Bezug. Ein einzelnes Authority-Label kann die Kombination nicht ersetzen.
 
 `decisionProjection` und `calibrationProjectionEligible` werden gemeinsam durchgesetzt: `NEVER`, `RESEARCH_ONLY` und `NOT_CONFIGURED` erzeugen keine Projection Items. `ELIGIBLE_AFTER_PRODUCT_APPROVAL` bleibt ohne separat autorisierte Product Policy ausschließlich im synthetischen Calibration Lab sichtbar; die Production Projection bleibt neutral.
+
+Positive Concept-Taste- und negative Aversion-Interpretationen bleiben getrennte append-only Artefakte. Ihre Konfliktprüfung verwendet jedoch eine gemeinsame kanonische Zielidentität aus Entity-Typ, stabilem Target-Key, Concept-Registry, Context Scope und Attribution Scope. Nur dasselbe Ziel im selben belegten Context erzeugt `SEMANTIC_CONFLICT`; unterschiedliche Ziele oder klar getrennte Contexts ergeben `MIXED_NON_CONFLICTING`. Ungelöste Konfliktziele werden aus der Calibration Projection zurückgehalten und über hashgebundene Conflict-IDs ausgewiesen.
 
 Das Lab berechnet pro Kandidat einen vollständigen deterministischen Rebuild. Es wird nicht als zweiter inkrementeller Reducer bezeichnet: Full-/Incremental-Parität bleibt Aufgabe des bereits kanonischen, checkpoint-gebundenen Phase-3A-Reducers und seiner Regressionen. Ein Policy-, Registry- oder Reducer-Wechsel verlangt weiterhin einen Full Rebuild.
 

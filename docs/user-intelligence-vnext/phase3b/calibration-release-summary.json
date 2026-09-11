@@ -1,341 +1,341 @@
 {
-  "contractVersion": "backyrd.user-intelligence.calibration-release-summary@3b.1",
+  "contractVersion": "backyrd.user-intelligence.calibration-release-summary@3b.2",
   "classification": "SYNTHETIC_FIXTURE_ONLY",
   "productionAuthorized": false,
   "productionDataUsed": false,
-  "generatorVersion": "backyrd.user-intelligence.calibration-report-generator@3b.1",
-  "scenarioSetVersion": "backyrd.user-intelligence.calibration-scenarios@3b.1",
-  "scenarioSetHash": "7d939470fab1016b1c7774e2b7a283b75b05869ce3dccfeec310979c1d7c2fa3",
+  "generatorVersion": "backyrd.user-intelligence.calibration-report-generator@3b.2",
+  "scenarioSetVersion": "backyrd.user-intelligence.calibration-scenarios@3b.2",
+  "scenarioSetHash": "3ea3a16ddd3f06bfb1deea456a01e4bbe951b0daf1226f51708b42433b799998",
   "scenarioCount": 34,
   "signalRegistry": {
-    "registryVersion": "backyrd.user-intelligence.signal-semantics@3b-candidate-2",
-    "registryHash": "00015536eababd854b396743217ede00457ac7084717ea023e74b07d1123fef9"
+    "registryVersion": "backyrd.user-intelligence.signal-semantics@3b-candidate-3",
+    "registryHash": "d64afd3e76b1d9c7d064985bcba83db4b363f84d39470f19a35193add3dabadd"
   },
   "policies": [
     {
       "policyId": "candidate-a-conservative",
-      "policyVersion": "backyrd.user-intelligence.policy-candidate-a@3b.1",
-      "policyHash": "ebb46ebf58e098ee69e4e34869fbf62eb240810e9636d8e6becb9c090738ed0b"
+      "policyVersion": "backyrd.user-intelligence.policy-candidate-a@3b.2",
+      "policyHash": "23fadf8efb2166d0eaab2dc428cec63eac36e46b6e458a7b98ac78073cf8b013"
     },
     {
       "policyId": "candidate-b-balanced",
-      "policyVersion": "backyrd.user-intelligence.policy-candidate-b@3b.1",
-      "policyHash": "7eb3f0e7c42ce97fa4fbe57502f19180d7dc154256948262348d00b730d80996"
+      "policyVersion": "backyrd.user-intelligence.policy-candidate-b@3b.2",
+      "policyHash": "02eb546464c3c7940792244b79528a40d71d56875534212a8e5940d860bbf887"
     },
     {
       "policyId": "candidate-c-context",
-      "policyVersion": "backyrd.user-intelligence.policy-candidate-c@3b.1",
-      "policyHash": "cbeda5ca1de9693c1c233913fc7dee7c73865740f5884cd01afb113704187d1d"
+      "policyVersion": "backyrd.user-intelligence.policy-candidate-c@3b.2",
+      "policyHash": "6af5bf3e941e6b7226ef244f2b5eb69b1ddcbde18f726d9af596456df7e1dfc8"
     }
   ],
   "centralComparisons": [
     {
       "scenarioId": "01-cold-start-user",
-      "reportHash": "5b0685d4e79e5986ff9b2c59066bbfbdcca41b70d51ea8b1a1b2459bc92ff792",
+      "reportHash": "0b45dc6d60eb4633a152251808a9d3c27805a2a227ef2992f030d8c919ee3b97",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "02-single-save",
-      "reportHash": "b8c492adabd7000626d3566c3b5127ca8f157b3146b4e388029907e84b453c9a",
+      "reportHash": "c77417d13c2c2e37869e5ad1f7b89263054c59dd7541acf02807291942d38a7c",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:1/1/0:INSUFFICIENT_INDEPENDENCE:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:1/1/0:INSUFFICIENT_INDEPENDENCE:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:1/1/0:INSUFFICIENT_INDEPENDENCE:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:1/1/0:INSUFFICIENT_INDEPENDENCE:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "03-save-and-remove",
-      "reportHash": "be4f252205b234d0a10b523d7375391821ceae3b4ef9f0d2f97de81414c07acf",
+      "reportHash": "0074f871bdde9454e7e0d262c5780644f9d5c3e87c565ec4d8849c354b3af32f",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:1/1/0:INSUFFICIENT_INDEPENDENCE:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:1/1/0:INSUFFICIENT_INDEPENDENCE:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:1/1/0:INSUFFICIENT_INDEPENDENCE:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:1/1/0:INSUFFICIENT_INDEPENDENCE:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "04-navigation-without-visit",
-      "reportHash": "e39f68870d20b2e52f4ce87b88f96cbedb195810edf1235d76ff5a767fba96ae",
+      "reportHash": "4548480fb9d5f63ea89d54abee7b9425aa6707160f0dd299f837d474ad09668a",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:1/1/0:INSUFFICIENT_INDEPENDENCE:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:1/1/0:INSUFFICIENT_INDEPENDENCE:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "05-visit-without-satisfaction",
-      "reportHash": "2d5516ab5a5a0c0bdc9e8011eec1f0af639c6bc4a6b571c00e807ae79d31ad85",
+      "reportHash": "796b26caad30b5c5da9f28a2ee45505e2b5f1c6ca39b2cc19826ae32dd21e311",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:1/1/0:INSUFFICIENT_DIVERSITY:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:1/1/0:INSUFFICIENT_DIVERSITY:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "06-review-without-satisfaction",
-      "reportHash": "55b74f755d50263392ec304a8b18e790b04f3ff7944fd6dd512e2ff4f3b093ec",
+      "reportHash": "de20c6368e2522aea3cf8115c7a120df390f1ac0f87913fe44eb3bde10565b6b",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "07-standard-versus-smart-review",
-      "reportHash": "aa2386535518c9e37a04e84a68bf3ac2fbc229cfcc642690f5c59c2550abb2f1",
+      "reportHash": "e42aa9883918de45cf16c17613ba16846b904559cd51abf5a396a2f228c10c71",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "08-explicit-satisfaction",
-      "reportHash": "bd4ca8a149144ba1a16c81572129d28a13253fe6bcdbdeda67e24c285dd37a99",
+      "reportHash": "690361b49ac00963b0d73debb975c3ec139725b852a0a35bdf89793df72fd8e0",
       "signatures": [
-        "candidate-a-conservative:1/1/1:FIRST_HINTS:POSITIVE_ONLY",
-        "candidate-b-balanced:1/1/0:INSUFFICIENT_DIVERSITY:POSITIVE_ONLY",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:1/1/1:FIRST_HINTS:POSITIVE_ONLY:NONE",
+        "candidate-b-balanced:1/1/0:INSUFFICIENT_DIVERSITY:POSITIVE_ONLY:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "09-explicit-dissatisfaction",
-      "reportHash": "6ddd2dac484cd7f8819a54cb73fd10ac5c1782488260610cc9306af1676e4fd3",
+      "reportHash": "3c214a732181b5fdc1567e7c920a650f12c6e71fcf967de68e84532741d328f9",
       "signatures": [
-        "candidate-a-conservative:1/1/1:FIRST_HINTS:NEGATIVE_ONLY",
-        "candidate-b-balanced:1/1/0:INSUFFICIENT_DIVERSITY:NEGATIVE_ONLY",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:1/1/1:FIRST_HINTS:NEGATIVE_ONLY:NONE",
+        "candidate-b-balanced:1/1/0:INSUFFICIENT_DIVERSITY:NEGATIVE_ONLY:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "10-positive-and-negative-parallel",
-      "reportHash": "dd88d3bf7604c26d45b57b87d85b9b2f5f1b8fbf94e75b726637094c6b6f7879",
+      "reportHash": "60402a27f94920c69c27d97adee6c79e5993460ff28a00a94be3171c7075f372",
       "signatures": [
-        "candidate-a-conservative:2/2/2:REPEATED_ONE_SIDED:POSITIVE_AND_NEGATIVE",
-        "candidate-b-balanced:2/2/0:REPEATED_ONE_SIDED:POSITIVE_AND_NEGATIVE",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:2/2/2:MIXED_NON_CONFLICTING:POSITIVE_AND_NEGATIVE:MIXED_NON_CONFLICTING",
+        "candidate-b-balanced:2/2/0:MIXED_NON_CONFLICTING:POSITIVE_AND_NEGATIVE:MIXED_NON_CONFLICTING",
+        "candidate-c-context:2/2/2:MIXED_NON_CONFLICTING:POSITIVE_AND_NEGATIVE:MIXED_NON_CONFLICTING"
       ]
     },
     {
       "scenarioId": "11-three-events-same-journey",
-      "reportHash": "7ec815cff09fe87fdf4fb50e2007bb528b59756cf826e1ddc58681f2e7c5a400",
+      "reportHash": "e10543912c393a902dbe95d39914c25d0a70699ff82df25810c12cea4a1332fe",
       "signatures": [
-        "candidate-a-conservative:1/1/1:FIRST_HINTS:POSITIVE_ONLY",
-        "candidate-b-balanced:1/1/0:INSUFFICIENT_DIVERSITY:POSITIVE_ONLY",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:1/1/1:FIRST_HINTS:POSITIVE_ONLY:NONE",
+        "candidate-b-balanced:1/1/0:INSUFFICIENT_DIVERSITY:POSITIVE_ONLY:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "12-three-independent-visits",
-      "reportHash": "0e4ababbfb9e899f1fcc62e27536657075551d5020ec6e08b7f8f37a22f60e1a",
+      "reportHash": "fc6baa8f05205d68cf520eed8ad33ebe8c8de4b711da9b7d7d1193b216b8a205",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:3/3/0:INSUFFICIENT_DIVERSITY:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:3/3/0:INSUFFICIENT_DIVERSITY:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "13-repeat-same-spot",
-      "reportHash": "bc819a28927cda981c0afc49be6327de7ee9430257f0fb79d7a65e87760becf3",
+      "reportHash": "2853f2a872bf38b1390e9d4f63a182d0fa4881ef89a7ec65f5abd2682cad584c",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:3/3/0:INSUFFICIENT_DIVERSITY:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:3/3/0:INSUFFICIENT_DIVERSITY:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "14-many-spots-same-concept",
-      "reportHash": "2f43ca8d21fefbd2e5b1aace0506fc922058a258e0673ed86bd886b114b92b03",
+      "reportHash": "2a887b8a4c215a04d41f024a4cd4e9162339e0419b4f4407ef5d0cd7c0d1deda",
       "signatures": [
-        "candidate-a-conservative:3/3/1:LIMITED_CALIBRATION_ONLY:POSITIVE_ONLY",
-        "candidate-b-balanced:3/3/0:INSUFFICIENT_DIVERSITY:POSITIVE_ONLY",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:3/3/1:LIMITED_CALIBRATION_ONLY:POSITIVE_ONLY:NONE",
+        "candidate-b-balanced:3/3/0:INSUFFICIENT_DIVERSITY:POSITIVE_ONLY:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "15-one-spot-many-concepts",
-      "reportHash": "624495b9c0aa88d5e941e3376f11f826c74fd3800b1f0c38d373aee4c431e9e6",
+      "reportHash": "df233c95975f9ec61253e3c6ee9951e18dcf5fca6dd3a2f397beddc6439362e1",
       "signatures": [
-        "candidate-a-conservative:1/3/3:FIRST_HINTS:POSITIVE_ONLY",
-        "candidate-b-balanced:1/3/0:INSUFFICIENT_DIVERSITY:POSITIVE_ONLY",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:1/3/3:FIRST_HINTS:POSITIVE_ONLY:NONE",
+        "candidate-b-balanced:1/3/0:INSUFFICIENT_DIVERSITY:POSITIVE_ONLY:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "16-context-flip",
-      "reportHash": "deb759ee410cfc18b460b15a45309a40db8c1d8be52726116be3e6b51f202ffe",
+      "reportHash": "16167e6b28d2037d3380f8dd87c59f4670635183c3659b10d5d691b287e2f82a",
       "signatures": [
-        "candidate-a-conservative:2/2/2:REPEATED_ONE_SIDED:POSITIVE_AND_NEGATIVE",
-        "candidate-b-balanced:2/2/0:REPEATED_ONE_SIDED:POSITIVE_AND_NEGATIVE",
-        "candidate-c-context:2/2/2:LIMITED_CALIBRATION_ONLY:POSITIVE_AND_NEGATIVE"
+        "candidate-a-conservative:2/2/2:MIXED_NON_CONFLICTING:POSITIVE_AND_NEGATIVE:MIXED_NON_CONFLICTING",
+        "candidate-b-balanced:2/2/0:MIXED_NON_CONFLICTING:POSITIVE_AND_NEGATIVE:MIXED_NON_CONFLICTING",
+        "candidate-c-context:2/2/2:MIXED_NON_CONFLICTING:POSITIVE_AND_NEGATIVE:MIXED_NON_CONFLICTING"
       ]
     },
     {
       "scenarioId": "17-long-term-versus-current-context",
-      "reportHash": "c6a72fdcc10a294cb653ab5e2ffe92269b2fec5f80a5c118ac72dfbf4f32742b",
+      "reportHash": "71e42a5d968049ab7acf89903d29390adf920c5c63972b6fa39e9c90e49a32e7",
       "signatures": [
-        "candidate-a-conservative:2/2/2:REPEATED_ONE_SIDED:POSITIVE_AND_NEGATIVE",
-        "candidate-b-balanced:2/2/0:REPEATED_ONE_SIDED:POSITIVE_AND_NEGATIVE",
-        "candidate-c-context:1/1/0:INSUFFICIENT_DIVERSITY:NEGATIVE_ONLY"
+        "candidate-a-conservative:2/2/2:MIXED_NON_CONFLICTING:POSITIVE_AND_NEGATIVE:MIXED_NON_CONFLICTING",
+        "candidate-b-balanced:2/2/0:MIXED_NON_CONFLICTING:POSITIVE_AND_NEGATIVE:MIXED_NON_CONFLICTING",
+        "candidate-c-context:1/1/0:INSUFFICIENT_DIVERSITY:NEGATIVE_ONLY:NONE"
       ]
     },
     {
       "scenarioId": "18-practical-versus-concept",
-      "reportHash": "136aeeb7d6370e8739b64b3cc153d45bfe309a115d7c1d72c9c3c51e1783cb83",
+      "reportHash": "348062bfa87a123bfe8ba8022042bb85265f253cabc9bde0d70a37d0237161e2",
       "signatures": [
-        "candidate-a-conservative:1/1/1:FIRST_HINTS:POSITIVE_ONLY",
-        "candidate-b-balanced:2/2/0:FIRST_HINTS:POSITIVE_ONLY",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:1/1/1:FIRST_HINTS:POSITIVE_ONLY:NONE",
+        "candidate-b-balanced:2/2/0:FIRST_HINTS:POSITIVE_ONLY:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "19-direct-spot-no-concept",
-      "reportHash": "dd9bc6ca0d961b4bb17fb647134e61baf966454024851e4ab16191975d95edb9",
+      "reportHash": "3a0e0b392e85c595069333e9ce9f8007cb2f1bcbdb0ceaf2c9e9c5b19f2cccfe",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:1/1/0:INSUFFICIENT_INDEPENDENCE:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:1/1/0:INSUFFICIENT_INDEPENDENCE:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:1/1/0:INSUFFICIENT_INDEPENDENCE:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:1/1/0:INSUFFICIENT_INDEPENDENCE:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "20-aversion-strong-evidence",
-      "reportHash": "ae77a5549f3f12ec20b41a37d323ab62f1140334dcc50996d3f124fc17d97f9b",
+      "reportHash": "2aa77731c2ff0a1bfcc7050b08ee570ec99788478f04baa3f2d9392e74d6c9c2",
       "signatures": [
-        "candidate-a-conservative:3/3/1:LIMITED_CALIBRATION_ONLY:NEGATIVE_ONLY",
-        "candidate-b-balanced:3/3/0:INSUFFICIENT_DIVERSITY:NEGATIVE_ONLY",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:3/3/1:LIMITED_CALIBRATION_ONLY:NEGATIVE_ONLY:NONE",
+        "candidate-b-balanced:3/3/0:INSUFFICIENT_DIVERSITY:NEGATIVE_ONLY:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "21-missing-evidence",
-      "reportHash": "c342168a62e844a5a69a07888897d8a61a8ce257deeb37a9cb7aa6fd9b2efbe2",
+      "reportHash": "bd6710e9b48af56901f90e03bf28b854cdff820dd230db0e682df80498df1d8f",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "22-conflicting-evidence",
-      "reportHash": "c47cb6fa996b17ff4bf9d3d2f3ea87e7e9b03d5417d6376d53a18fee0a221505",
+      "reportHash": "51ba8ac03d910e1b1c8d33a48947b66ac766b357163bb77b929fb9b7cdec42b4",
       "signatures": [
-        "candidate-a-conservative:2/2/2:REPEATED_ONE_SIDED:POSITIVE_AND_NEGATIVE",
-        "candidate-b-balanced:2/2/0:REPEATED_ONE_SIDED:POSITIVE_AND_NEGATIVE",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:2/2/0:CONFLICTING:POSITIVE_AND_NEGATIVE:SEMANTIC_CONFLICT",
+        "candidate-b-balanced:2/2/0:CONFLICTING:POSITIVE_AND_NEGATIVE:SEMANTIC_CONFLICT",
+        "candidate-c-context:2/2/0:CONFLICTING:POSITIVE_AND_NEGATIVE:SEMANTIC_CONFLICT"
       ]
     },
     {
       "scenarioId": "23-correction",
-      "reportHash": "51c83665e3755a9052f6ebaa0dd95d9e5323ada553f2593e826f85740013c09c",
+      "reportHash": "32c65930437be4c6752e23e095cdb3cb25b33a5d9246eb323f4189e8037680c6",
       "signatures": [
-        "candidate-a-conservative:1/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:1/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:1/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:1/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:1/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:1/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "24-late-offline-event-and-retry",
-      "reportHash": "2d10de6cd898894313f9bf32ad316e5da3922c5b7de0acc6052846daf22c9707",
+      "reportHash": "0472e7e9d537405cb874180d984e27ba1c67e4c5d9e31c5be56643aa8635f664",
       "signatures": [
-        "candidate-a-conservative:1/1/1:FIRST_HINTS:POSITIVE_ONLY",
-        "candidate-b-balanced:1/1/0:INSUFFICIENT_DIVERSITY:POSITIVE_ONLY",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:1/1/1:FIRST_HINTS:POSITIVE_ONLY:NONE",
+        "candidate-b-balanced:1/1/0:INSUFFICIENT_DIVERSITY:POSITIVE_ONLY:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "25-policy-change-full-rebuild",
-      "reportHash": "62447ad95d3c84ddf9988fa1fcbcb6025d6bd48961b3d1d77e8b7dc48a6aefde",
+      "reportHash": "00c7ca6f34d8daad02196fcc31cf6646b2cc518ecdb294ffb1e1a372d12dff53",
       "signatures": [
-        "candidate-a-conservative:1/1/1:FIRST_HINTS:POSITIVE_ONLY",
-        "candidate-b-balanced:1/1/0:INSUFFICIENT_DIVERSITY:POSITIVE_ONLY",
-        "candidate-c-context:1/1/0:INSUFFICIENT_DIVERSITY:POSITIVE_ONLY"
+        "candidate-a-conservative:1/1/1:FIRST_HINTS:POSITIVE_ONLY:NONE",
+        "candidate-b-balanced:1/1/0:INSUFFICIENT_DIVERSITY:POSITIVE_ONLY:NONE",
+        "candidate-c-context:1/1/0:INSUFFICIENT_DIVERSITY:POSITIVE_ONLY:NONE"
       ]
     },
     {
       "scenarioId": "26-exploration-versus-familiarity",
-      "reportHash": "5c541ff1545e05b6479739c61c401cbbf6ba5ed763c1222f5670593db0aedd72",
+      "reportHash": "a477c6d5820486ee347bd1279ec75138e5b4a6568d8b8d58d96308eacddad1ab",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:1/1/0:INSUFFICIENT_DIVERSITY:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:1/1/0:INSUFFICIENT_DIVERSITY:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:1/1/0:INSUFFICIENT_DIVERSITY:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:1/1/0:INSUFFICIENT_DIVERSITY:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "27-uncertain-world-attribution",
-      "reportHash": "12a0e6b8ece9b40215c6ea0f5808b3d19234e94260b67ee2e718b638d6f69c03",
+      "reportHash": "08f6792e3025bb5363b85ff69ba5708d11a3e45093effc93dcf6e8ccadd02ffe",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "28-consent-withdrawal",
-      "reportHash": "64f59f4a274733bb2e36eb5b0f0f6f801008384df7fdf748377b6a05df34826b",
+      "reportHash": "048389fec6c1a9eee05be70185b9d78b02e5a6e94d36cdf4e046aa688e0d4f15",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "29-full-reset",
-      "reportHash": "b4b8ed89c13960fcdddc8fa3a71fd82ab0d889a841c2bb6a148734ba5d2037b1",
+      "reportHash": "7c997a4c3c77f22b3ae311675ec93402b92b3a0b024ce732a22e7aab0fa0150e",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "30-account-erasure",
-      "reportHash": "1b35389f9842970ae22fa6e15f5d936f094089671b43e0e8d0ba876781b1346e",
+      "reportHash": "9c0cfacfdc50c115d27e16687ab80559645bbf397bfc7051c4c598218d2c9b01",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "31-commercial-counterfactual",
-      "reportHash": "918f34d28e989b78fd69b837526f36e56cc5ac797912c381216d8eb04a6b456b",
+      "reportHash": "202e12696e0c201390d2b7211fe3333e08f80c287355c09d44ce8b92413c6109",
       "signatures": [
-        "candidate-a-conservative:1/1/1:FIRST_HINTS:POSITIVE_ONLY",
-        "candidate-b-balanced:1/1/0:INSUFFICIENT_DIVERSITY:POSITIVE_ONLY",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:1/1/1:FIRST_HINTS:POSITIVE_ONLY:NONE",
+        "candidate-b-balanced:1/1/0:INSUFFICIENT_DIVERSITY:POSITIVE_ONLY:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "32-large-low-diversity",
-      "reportHash": "23b92b8746a8f0d3d3252e5989e7a39a4898db78bf64d2ce191ef042d6907ecf",
+      "reportHash": "d5e32318bb9759db480f595e0e0f592ea354865ed7cdb470e4936a7dbf804db3",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "33-no-consent",
-      "reportHash": "b2ba52e53550c80ee3e60b440b4dd12942bdc3115f6b891f98f08fdf15f016f4",
+      "reportHash": "d5caa36ffdd094b04e0d6b3ac14ff91ec9d738f8656c0b4d324e94bdb1b7e323",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     },
     {
       "scenarioId": "34-kill-switch",
-      "reportHash": "237d2dfea005ed540d1d7b4849e25d0bfc1396ff5dc7b58c4ed57937e8abc841",
+      "reportHash": "aa1672386f700869cfa67d77ee73e779bf087b53528e749d0fed520a89fcbd87",
       "signatures": [
-        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE",
-        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE"
+        "candidate-a-conservative:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-b-balanced:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE",
+        "candidate-c-context:0/0/0:NOTHING_KNOWN:NO_DIRECTED_EVIDENCE:NONE"
       ]
     }
   ],
-  "fullReportHash": "7577cabb92255785975a12ed0fee6ce34ef0f601d77f4905b76f7cde143a0fe4",
-  "summaryHash": "25c0e7fa3d5d75d2a049270c8a95a79067436642e08f9e57815707129821e340"
+  "fullReportHash": "3fc2178d7a073407759eda14e777ec40b35304df7d48269abbc9aca49bf24e7a",
+  "summaryHash": "ca8ef2effe63474e5a130cfdef7eed551310942a2374fd1637362b0d44e875c4"
 }

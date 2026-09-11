@@ -40,6 +40,12 @@ Calibration Evidence wird nicht mehr frei als autoritativ wirkendes Objekt konst
 
 Authority-Anforderungen unterscheiden `ALL_OF` von `ANY_OF`. Projection-Fähigkeit ist ausdrücklich auf das Calibration Lab begrenzt und wird mit der Signal Registry cross-validiert. Sufficiency unterscheidet positive, negative, bidirektionale und tatsächlich konfliktbehaftete Evidence sowie Independence, Vielfalt und World-Relevanz.
 
+## Semantic Closure 3B.2
+
+Konflikte werden nicht mehr über `dimension + key` erkannt. Jede Interpretation bindet ein versioniertes Semantic Target aus Entity-Typ, stabilem Target-Key, Registry-Version, Context Scope und Attribution Scope. Dadurch können `LONG_TERM_CONCEPT_TASTE` und `AVERSION` für dasselbe Concept dimensionsübergreifend kollidieren, während unterschiedliche Concepts oder autoritativ getrennte Contexts als `MIXED_NON_CONFLICTING` erhalten bleiben.
+
+Conflict-/Ambivalence-Records referenzieren beide gerichteten Interpretation- und Evidence-Hashes, tragen `UNRESOLVED` und werden rekonstruktiv gegen die aktiven Interpretationen geprüft. Ein ungelöstes `SEMANTIC_CONFLICT`-Target wird nicht gerichtet projiziert; die Calibration Projection enthält stattdessen ausschließlich die zurückgehaltene Conflict-ID. `REPEATED_ONE_SIDED` ist runtime-seitig auf `POSITIVE_ONLY` oder `NEGATIVE_ONLY` begrenzt.
+
 ## Folgen
 
 Founder und CTO können anhand identischer Evidence konkrete semantische Unterschiede entscheiden. Bis zu einer separaten Freigabe bleibt jede Policy `CALIBRATION_ONLY`; Retention, Gewichte, Decay und Product-Sufficiency bleiben unkonfiguriert.

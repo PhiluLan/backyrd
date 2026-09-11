@@ -17,7 +17,7 @@ const reports = PHASE3B_CALIBRATION_SCENARIOS.map((scenario) => {
   return first;
 });
 const artifact = {
-  contractVersion: "backyrd.user-intelligence.calibration-artifact@3b.1",
+  contractVersion: "backyrd.user-intelligence.calibration-artifact@3b.2",
   classification: "SYNTHETIC_FIXTURE_ONLY",
   productionAuthorized: false,
   productionDataUsed: false,
@@ -31,11 +31,11 @@ const fullReportHash = contentHash(artifact);
 const scenarioSet = PHASE3B_CALIBRATION_SCENARIOS.map(({ scenarioId, scenarioHash }) => ({ scenarioId, scenarioHash }));
 const summaryBody = {
   contractVersion: CONTRACT_VERSIONS.calibrationReleaseSummary, classification: "SYNTHETIC_FIXTURE_ONLY", productionAuthorized: false, productionDataUsed: false,
-  generatorVersion: "backyrd.user-intelligence.calibration-report-generator@3b.1", scenarioSetVersion: "backyrd.user-intelligence.calibration-scenarios@3b.1",
+  generatorVersion: "backyrd.user-intelligence.calibration-report-generator@3b.2", scenarioSetVersion: "backyrd.user-intelligence.calibration-scenarios@3b.2",
   scenarioSetHash: contentHash(scenarioSet), scenarioCount: reports.length,
   signalRegistry: { registryVersion: CANONICAL_SIGNAL_SEMANTICS_REGISTRY.registryVersion, registryHash: CANONICAL_SIGNAL_SEMANTICS_REGISTRY.registryHash },
   policies: CALIBRATION_POLICY_CANDIDATES.map(({ policyId, policyVersion, policyHash }) => ({ policyId, policyVersion, policyHash })),
-  centralComparisons: reports.map((report) => ({ scenarioId: report.scenarioId, reportHash: report.reportHash, signatures: report.results.map((result) => `${result.policyId}:${result.usedEvidenceRecordIds.length}/${result.interpretations.length}/${result.calibrationProjection.items.length}:${result.sufficiency.state}:${result.sufficiency.directionState}`) })),
+  centralComparisons: reports.map((report) => ({ scenarioId: report.scenarioId, reportHash: report.reportHash, signatures: report.results.map((result) => `${result.policyId}:${result.usedEvidenceRecordIds.length}/${result.interpretations.length}/${result.calibrationProjection.items.length}:${result.sufficiency.state}:${result.sufficiency.directionState}:${result.conflictsAndAmbivalences.map(({ classification }) => classification).join("+") || "NONE"}`) })),
   fullReportHash,
 };
 const summary = { ...summaryBody, summaryHash: contentHash(summaryBody) };

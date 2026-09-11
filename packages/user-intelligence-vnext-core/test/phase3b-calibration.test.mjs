@@ -22,11 +22,22 @@ function rehashReport(report) {
     for (const interpretation of result.interpretations) {
       const body = { ...interpretation }; delete body.interpretationHash; interpretation.interpretationHash = contentHash(body);
     }
+    for (const conflict of result.conflictsAndAmbivalences) {
+      const body = { ...conflict }; delete body.conflictHash; conflict.conflictHash = contentHash(body);
+    }
+    const projectionBody = { ...result.calibrationProjection }; delete projectionBody.projectionHash; result.calibrationProjection.projectionHash = contentHash(projectionBody);
     const body = { ...result }; delete body.resultHash; result.resultHash = contentHash(body);
   }
   const body = { ...report }; delete body.reportHash; report.reportHash = contentHash(body);
   return report;
 }
+
+const calibrationContext = (name) => ({ contextHash: contentHash(`semantic-context:${name}`), dimensions: [name], authority: "EXPLICIT_USER" });
+const scenarioForEvidence = (id, evidence) => withCalibrationScenarioHash({ contractVersion: CONTRACT_VERSIONS.calibrationScenario, scenarioId: id, title: id, subjectBindingHash: PHASE3B_SYNTHETIC_SUBJECT, lifecycle: "ACTIVE", killSwitch: false, interpretedAt: "2026-02-01T12:00:00.000Z", evidence });
+const runEvidence = (id, evidence) => {
+  const scenario = scenarioForEvidence(id, evidence); const trust = syntheticTrustForEvidence(...evidence);
+  return { scenario, trust, report: runCalibrationScenario(scenario, trust, trust) };
+};
 
 test("Phase 3B registry covers every requested signal exactly once and is canonical", () => {
   const registry = parseSignalSemanticsRegistry(CANONICAL_SIGNAL_SEMANTICS_REGISTRY);
@@ -145,7 +156,7 @@ test("save removal, open, navigation, visit and review never manufacture satisfa
   }
 });
 
-test("explicit positive and negative outcomes remain separate and conflicts survive", () => {
+test("explicit positive and negative outcomes remain separate without forced conflict", () => {
   const positive = run(7).report.results[0]; const negative = run(8).report.results[0]; const mixed = run(9).report.results[0];
   assert.ok(positive.interpretations.some((item) => item.direction === "POSITIVE"));
   assert.ok(negative.interpretations.some((item) => item.dimension === "AVERSION" && item.direction === "NEGATIVE"));
@@ -416,6 +427,124 @@ test("closure: synthetic thresholds constrain global and domain sufficiency", ()
   assert.equal(save.calibrationBasis.syntheticThresholds.productCalibrated, false);
 });
 
+test("semantic closure: scenarios 10 and 22 distinguish mixed evidence from a true conflict", () => {
+  const mixed = run(9).report; const conflicting = run(21).report;
+  assert.notEqual(mixed.scenarioHash, conflicting.scenarioHash);
+  for (const result of mixed.results) {
+    assert.equal(result.sufficiency.directionState, "POSITIVE_AND_NEGATIVE");
+    assert.equal(result.sufficiency.semanticConflict, false);
+    assert.equal(result.sufficiency.state, "MIXED_NON_CONFLICTING");
+    assert.deepEqual(result.conflictsAndAmbivalences.map(({ classification }) => classification), ["MIXED_NON_CONFLICTING"]);
+  }
+  for (const result of conflicting.results) {
+    assert.equal(result.sufficiency.directionState, "POSITIVE_AND_NEGATIVE");
+    assert.equal(result.sufficiency.semanticConflict, true);
+    assert.equal(result.sufficiency.state, "CONFLICTING");
+    assert.deepEqual(result.conflictsAndAmbivalences.map(({ classification }) => classification), ["SEMANTIC_CONFLICT"]);
+    assert.equal(result.calibrationProjection.items.length, 0);
+    assert.deepEqual(result.calibrationProjection.withheldConflictIds, result.conflictsAndAmbivalences.map(({ conflictId }) => conflictId));
+  }
+});
+
+test("semantic closure: cross-dimensional positive taste and negative aversion share a canonical conflict target", () => {
+  const result = run(21).report.results[0]; const record = result.conflictsAndAmbivalences[0];
+  assert.deepEqual(record.dimensions, ["AVERSION", "LONG_TERM_CONCEPT_TASTE"]);
+  assert.equal(record.semanticTargets.length, 1);
+  assert.ok(record.positiveInterpretations.length > 0 && record.negativeInterpretations.length > 0);
+  const positive = result.interpretations.find(({ direction }) => direction === "POSITIVE");
+  const negative = result.interpretations.find(({ direction }) => direction === "NEGATIVE");
+  assert.notEqual(positive.dimension, negative.dimension);
+  assert.equal(positive.semanticTarget.targetHash, negative.semanticTarget.targetHash);
+});
+
+test("semantic closure: same concept conflicts without context but distinct contexts remain non-conflicting", () => {
+  const noContext = runEvidence("same-concept-no-context", [
+    syntheticCalibrationEvidence({ id: "same-concept-positive", eventType: "EXPLICIT_SATISFACTION", journey: "journey-same-concept-positive" }),
+    syntheticCalibrationEvidence({ id: "same-concept-negative", eventType: "EXPLICIT_DISSATISFACTION", journey: "journey-same-concept-negative" }),
+  ]).report;
+  assert.ok(noContext.results.slice(0, 2).every(({ sufficiency }) => sufficiency.state === "CONFLICTING"));
+  assert.equal(noContext.results[2].sufficiency.state, "NOTHING_KNOWN");
+
+  const distinctContexts = runEvidence("same-concept-distinct-context", [
+    syntheticCalibrationEvidence({ id: "context-positive", eventType: "EXPLICIT_SATISFACTION", journey: "journey-context-positive", context: calibrationContext("friends") }),
+    syntheticCalibrationEvidence({ id: "context-negative", eventType: "EXPLICIT_DISSATISFACTION", journey: "journey-context-negative", context: calibrationContext("alone") }),
+  ]).report;
+  for (const result of distinctContexts.results) {
+    assert.equal(result.sufficiency.state, "MIXED_NON_CONFLICTING");
+    assert.equal(result.sufficiency.semanticConflict, false);
+    assert.equal(result.conflictsAndAmbivalences[0].classification, "MIXED_NON_CONFLICTING");
+  }
+});
+
+test("semantic closure: repeated one-sided is restricted to one direction", () => {
+  const positive = runEvidence("two-positive", [
+    syntheticCalibrationEvidence({ id: "two-positive-a", eventType: "EXPLICIT_SATISFACTION", journey: "journey-two-positive-a" }),
+    syntheticCalibrationEvidence({ id: "two-positive-b", eventType: "EXPLICIT_SATISFACTION", journey: "journey-two-positive-b" }),
+  ]).report.results[0].sufficiency;
+  const negative = runEvidence("two-negative", [
+    syntheticCalibrationEvidence({ id: "two-negative-a", eventType: "EXPLICIT_DISSATISFACTION", journey: "journey-two-negative-a" }),
+    syntheticCalibrationEvidence({ id: "two-negative-b", eventType: "EXPLICIT_DISSATISFACTION", journey: "journey-two-negative-b" }),
+  ]).report.results[0].sufficiency;
+  assert.deepEqual([positive.state, positive.directionState], ["REPEATED_ONE_SIDED", "POSITIVE_ONLY"]);
+  assert.deepEqual([negative.state, negative.directionState], ["REPEATED_ONE_SIDED", "NEGATIVE_ONLY"]);
+
+  const { scenario, trust, report } = run(9); const forged = structuredClone(report);
+  forged.results[0].sufficiency.state = "REPEATED_ONE_SIDED"; rehashReport(forged);
+  assert.throws(() => verifyCalibrationReport(forged, scenario, trust, trust), /REPEATED_ONE_SIDED requires/);
+});
+
+test("semantic closure: corrected and inactive directed evidence cannot create an active conflict", () => {
+  const [negativeTarget, correction] = syntheticCorrectionPair({ id: "corrected-negative", eventType: "EXPLICIT_DISSATISFACTION", journey: "journey-corrected-negative" }, "corrected-negative-correction");
+  const positive = syntheticCalibrationEvidence({ id: "remaining-positive", eventType: "EXPLICIT_SATISFACTION", journey: "journey-remaining-positive" });
+  for (const result of runEvidence("corrected-conflict-side", [negativeTarget, correction, positive]).report.results) {
+    assert.equal(result.sufficiency.semanticConflict, false);
+    assert.equal(result.conflictsAndAmbivalences.length, 0);
+  }
+
+  const activeNegative = syntheticCalibrationEvidence({ id: "inactive-negative", eventType: "EXPLICIT_DISSATISFACTION", journey: "journey-inactive-negative" });
+  const inactiveBody = { ...activeNegative, active: false }; delete inactiveBody.recordHash;
+  const inactiveNegative = withCalibrationEvidenceHash(inactiveBody);
+  const records = [positive, inactiveNegative]; const scenario = scenarioForEvidence("inactive-conflict-side", records);
+  const trust = createSyntheticCalibrationTrustContext(records, records.map(createSyntheticEvidenceEvaluationAnchor));
+  for (const result of runCalibrationScenario(scenario, trust, trust).results) {
+    assert.equal(result.sufficiency.semanticConflict, false);
+    assert.equal(result.conflictsAndAmbivalences.length, 0);
+  }
+});
+
+test("semantic closure: recursive verification rejects incomplete or foreign conflict records after full rehash", () => {
+  const { scenario, trust, report } = run(21);
+  const missing = structuredClone(report); missing.results[0].conflictsAndAmbivalences[0].positiveInterpretations = []; rehashReport(missing);
+  assert.throws(() => verifyCalibrationReport(missing, scenario, trust, trust), /expected at least|conflict/i);
+
+  for (const mutation of [
+    (record) => { record.subjectBindingHash = contentHash("foreign-conflict-subject"); },
+    (record) => { record.policyHash = contentHash("foreign-conflict-policy"); },
+    (record) => { record.semanticTargets[0].targetKey = "concept:foreign-registry:foreign-target"; const target = { ...record.semanticTargets[0] }; delete target.targetHash; record.semanticTargets[0].targetHash = contentHash(target); for (const reference of [...record.positiveInterpretations, ...record.negativeInterpretations]) reference.semanticTargetHash = record.semanticTargets[0].targetHash; },
+    (record) => { record.semanticTargets[0].contextHash = contentHash("foreign-conflict-context"); const target = { ...record.semanticTargets[0] }; delete target.targetHash; record.semanticTargets[0].targetHash = contentHash(target); for (const reference of [...record.positiveInterpretations, ...record.negativeInterpretations]) reference.semanticTargetHash = record.semanticTargets[0].targetHash; },
+  ]) {
+    const forged = structuredClone(report); mutation(forged.results[0].conflictsAndAmbivalences[0]); rehashReport(forged);
+    assert.throws(() => verifyCalibrationReport(forged, scenario, trust, trust), /conflict|semantic target|authoritative deterministic replay/i);
+  }
+});
+
+test("semantic closure: research-only, unconfigured and privacy-suppressed paths emit no personal conflict", () => {
+  for (const index of [25, 30]) assert.ok(run(index).report.results.every(({ conflictsAndAmbivalences }) => conflictsAndAmbivalences.length === 0));
+  for (const index of [27, 28, 29, 32, 33]) {
+    const { report } = run(index);
+    assert.ok(report.results.every(({ conflictsAndAmbivalences, calibrationProjection }) => conflictsAndAmbivalences.length === 0 && calibrationProjection.withheldConflictIds.length === 0));
+    assert.equal(canonicalJson(report).includes(PHASE3B_SYNTHETIC_SUBJECT), false);
+  }
+});
+
+test("semantic closure: conflict, result and report hashes replay byte-identically", () => {
+  const first = run(21); const replay = run(21);
+  assert.equal(canonicalJson(first.report), canonicalJson(replay.report));
+  assert.equal(first.report.reportHash, replay.report.reportHash);
+  assert.deepEqual(first.report.results.map(({ resultHash }) => resultHash), replay.report.results.map(({ resultHash }) => resultHash));
+  assert.deepEqual(first.report.results.map(({ conflictsAndAmbivalences }) => conflictsAndAmbivalences.map(({ conflictHash }) => conflictHash)), replay.report.results.map(({ conflictsAndAmbivalences }) => conflictsAndAmbivalences.map(({ conflictHash }) => conflictHash)));
+});
+
 test("Phase 3B lifecycle stores are canonical and Account Erasure requires DELETE", () => {
   for (const store of ["calibration_reports_subject_bound", "calibration_rebuild_material"]) {
     assert.ok(REQUIRED_LIFECYCLE_STORES.includes(store));
@@ -426,6 +555,6 @@ test("Phase 3B lifecycle stores are canonical and Account Erasure requires DELET
 
 test("schema catalog exposes each new runtime and authority boundary", () => {
   const names = new Set(USER_INTELLIGENCE_VNEXT_SCHEMA_CATALOG.contracts.map(({ name }) => name));
-  for (const name of ["SignalSemanticsRegistry", "CalibrationPolicy", "CalibrationPolicyTrustAnchor", "CalibrationEvidence", "CalibrationEvidenceTrustAnchor", "CalibrationScenario", "CalibrationReport"]) assert.ok(names.has(name));
+  for (const name of ["SignalSemanticsRegistry", "CalibrationPolicy", "CalibrationPolicyTrustAnchor", "CalibrationEvidence", "CalibrationEvidenceTrustAnchor", "CalibrationScenario", "CalibrationSemanticTarget", "CalibrationConflictRecord", "CalibrationReport"]) assert.ok(names.has(name));
   assert.equal(CALIBRATION_MODEL_DIMENSIONS.length, 7);
 });

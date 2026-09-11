@@ -13,19 +13,19 @@ Alle Szenarien sind synthetisch und deterministisch. `calibration-release-summar
 | 7 | Standard vs. Smart Review | identisch ignoriert | identisch ignoriert | identisch ignoriert | Einstieg ändert Learning nicht |
 | 8 | explizite Satisfaction | Long-Term-Hypothese | Long-Term-Hypothese | ohne Context unterdrückt | explizites positives Outcome |
 | 9 | explizite Dissatisfaction | Aversion | Aversion | ohne Context unterdrückt | negative Evidence bleibt eigenständig |
-| 10 | positiv + negativ | Conflict | Conflict | ohne Context unterdrückt | keine Verrechnung zu einem Score |
+| 10 | positiv für Concept A + negativ für Concept B | Mixed, nicht konfliktbehaftet | Mixed, nicht konfliktbehaftet | Mixed, contextgebunden | beide Richtungen ohne falschen Widerspruch |
 | 11 | drei Events derselben Journey | eine Unit | höchstens eine Unit | höchstens eine Unit | keine künstliche Independence |
 | 12 | drei unabhängige Visits | ignoriert | drei Direct-Spot-Units | ignoriert | Wiederholung nur serveraufgelöst |
 | 13 | Repeat Visits desselben Spots | ignoriert | Familiarity | Context fehlt | Familiarity ist nicht Taste |
 | 14 | mehrere Spots, ein Concept | wiederholte Concept-Evidence | wiederholte Concept-Evidence | Context fehlt | Spot-Dominanz wird reduziert |
 | 15 | ein Spot, mehrere Concepts | konkurrierende Concepts, eine Unit | dito | Context fehlt | keine fünffache Experience |
-| 16 | Context Flip | globaler Conflict | globaler Conflict | zwei Context-Hypothesen | situative Unterschiede bleiben erhalten |
-| 17 | Long-Term vs. aktueller Context | globaler Conflict | globaler Conflict | nur contextgebundener Teil | kein unkontrollierter Transfer |
+| 16 | Context Flip | Mixed, getrennte Context Targets | Mixed, getrennte Context Targets | zwei Context-Hypothesen | situative Unterschiede bleiben erhalten |
+| 17 | Long-Term vs. aktueller Context | Mixed, getrennte Context Scopes | Mixed, getrennte Context Scopes | nur contextgebundener Teil | kein unkontrollierter Transfer |
 | 18 | Practical vs. Concept | Concept | Practical + Concept | Context fehlt | Domänen bleiben getrennt |
 | 19 | Direct Spot ohne Concept | ignoriert | Direct Spot | Recent Spot | keine Concept-Propagation |
 | 20 | starke Aversion-Evidence | wiederholte Aversion | wiederholte Aversion | Context fehlt | negative Evidence separat |
 | 21 | fehlende Evidence | neutral | neutral | neutral | nichts wissen bleibt sichtbar |
-| 22 | widersprüchliche Evidence | Conflict | Conflict | Context fehlt | Ambivalenz bleibt erhalten |
+| 22 | dasselbe Concept im selben Context, positiv + negativ | Conflict, Target zurückgehalten | Conflict, Target zurückgehalten | Conflict, Target zurückgehalten | echter Widerspruch bleibt ungelöst und ungerichtet |
 | 23 | Correction | Ziel inaktiv | Ziel inaktiv | Ziel inaktiv | append-only, keine Historienumschreibung |
 | 24 | verspätetes/offline Event | kein Zeiturteil | Fixture-Recency sichtbar | Fixture-Context-Recency sichtbar | kein Product-Decay |
 | 25 | Policy-Wechsel | eigener Full Rebuild | eigener Full Rebuild | eigener Full Rebuild | historische Evidence unverändert |

@@ -60,6 +60,8 @@ export const USER_INTELLIGENCE_VNEXT_SCHEMA_CATALOG = Object.freeze({
     ["CalibrationEvidence", CONTRACT_VERSIONS.calibrationEvidence, "CalibrationEvidenceSchema", "verifyCalibrationEvidence"],
     ["CalibrationEvidenceTrustAnchor", CONTRACT_VERSIONS.calibrationEvidenceTrustAnchor, "CalibrationEvidenceTrustAnchorSchema", "verifyCalibrationEvidence"],
     ["CalibrationScenario", CONTRACT_VERSIONS.calibrationScenario, "CalibrationScenarioSchema", "runCalibrationScenario"],
+    ["CalibrationSemanticTarget", CONTRACT_VERSIONS.calibrationSemanticTarget, "CalibrationSemanticTargetSchema", "verifyCalibrationReport"],
+    ["CalibrationConflictRecord", CONTRACT_VERSIONS.calibrationConflictRecord, "CalibrationConflictRecordSchema", "verifyCalibrationReport"],
     ["CalibrationReport", CONTRACT_VERSIONS.calibrationReport, "CalibrationReportSchema", "verifyCalibrationReport"],
   ].map(([name, contractVersion, runtimeSchemaExport, semanticValidatorExport]) => ({ name, contractVersion, runtimeSchemaExport, semanticValidatorExport }))),
 });
