@@ -16,7 +16,7 @@ do $$ declare u text; begin
   foreach u in array array['wk4a-admin','wk4a-basic','wk4a-pro','wk4a-other'] loop
     insert into auth.users(instance_id,id,aud,role,email,encrypted_password,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
     values('00000000-0000-0000-0000-000000000000',pg_temp.id(u),'authenticated','authenticated',u||'@test.invalid','','{}','{"is_admin":true}',clock_timestamp(),clock_timestamp());
-    insert into public.profiles(id,is_admin) values(pg_temp.id(u),u='wk4a-admin');
+    update public.profiles set is_admin=(u='wk4a-admin') where id=pg_temp.id(u);
   end loop;
 end$$;
 
@@ -69,6 +69,7 @@ select pg_temp.assert((public.world_admin_submit_claim_v1((select (payload->>'sp
 select pg_temp.assert(jsonb_array_length(public.world_founder_list_spots_v1(null,null,true)->'spots')=2,'Admin list omitted Founder spots');
 select pg_temp.assert((public.world_authoring_get_spot_v1((select (payload->>'spotId')::uuid from wk4a_created limit 1))#>>'{applicability,rule.external_food}')='NOT_APPLICABLE','applicability not restored');
 select pg_temp.assert((public.world_founder_set_spot_lifecycle_v1((select (payload->>'spotId')::uuid from wk4a_created limit 1),'ARCHIVED','FOUNDER TESTSET ÄNDERN')->>'historyPreserved')::boolean,'archive destroyed history');
+select pg_temp.assert((public.world_founder_set_spot_lifecycle_v1((select (payload->>'spotId')::uuid from wk4a_created limit 1),'ACTIVE','FOUNDER TESTSET ÄNDERN')->>'historyPreserved')::boolean,'reactivation destroyed history');
 reset role;
 
 select pg_temp.assert((select count(*)=6 from world_knowledge_private.claims),'append-only claim count mismatch');
