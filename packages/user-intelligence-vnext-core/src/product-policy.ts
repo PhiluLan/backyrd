@@ -424,7 +424,7 @@ export function verifyProductPolicyState(value: unknown, releaseTrust: Phase3CRe
   return parsed;
 }
 
-/** Genuine delta path: verifies the previous checkpoint, applies only supplied upserts/retractions, then canonicalizes the resulting ledger. */
+/** Verified delta path: verifies the prior checkpoint, applies only supplied upserts/retractions, then canonically reconciles the ledger; it never delegates to buildUserModel. */
 export function updateProductPolicyState(previousValue: unknown, delta: readonly unknown[], releaseTrust: Phase3CReleaseTrustContext, evidenceTrust: Phase3CEvidenceTrustContext): ProductPolicyReducerState {
   const previous = verifyProductPolicyState(previousValue, releaseTrust, evidenceTrust);
   const ledger = new Map(previous.observations.map((row) => [row.recordId, row] as const));

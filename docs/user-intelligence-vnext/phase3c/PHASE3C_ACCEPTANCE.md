@@ -6,4 +6,6 @@ Die maschinenlesbare Datei `PHASE3C_TRACEABILITY_MATRIX.json` bindet jeden der 4
 
 Zusätzlich geprüft werden unbekannte Policy/Registry-Versionen, fehlende Composite Authority, fremde Subjects und Phase-2-Hashes, doppelte Observation IDs, ungültige Correction Targets, Release-Gültigkeitsfenster, der separat autorisierte Privacy Export sowie deterministischer Replay.
 
+Der Phase-3C-Updatepfad verifiziert den vorherigen Checkpoint, übernimmt ausschließlich autorisierte Upserts beziehungsweise Retractions und rekonsiliert danach den kanonischen Ledger. Er ruft weder `buildUserModel` noch einen Phase-3A-Full-Rebuild auf. Die semantische Delta-Matrix vergleicht Satisfaction, Dissatisfaction, dritte neutrale Antwort, dritten Visit, Duplicate, Out-of-order, Save Removal, Moment, Dwell, Skip, Spot-not-fit, Search, Context, Correction und Conflict byte-identisch mit einem unabhängigen Phase-3C-Rebuild.
+
 Die vollständige Phase-1–3C-Suite und die Cross-Domain-Gates sind vor Review auszuführen. Nicht ausgeführte Checks werden nicht als PASS berichtet.
