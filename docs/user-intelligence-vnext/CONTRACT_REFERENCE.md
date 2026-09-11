@@ -2,6 +2,8 @@
 
 Phase-3A-Contracts und Authority-/Hash-Invarianten sind in [`phase3a/ADR-003-USER-MODEL-LEARNING-KERNEL.md`](phase3a/ADR-003-USER-MODEL-LEARNING-KERNEL.md) dokumentiert. `interpretation-policy@3a.0`, `observation-record@3a.0`, `interpretation-record@3a.0`, `user-model-manifest@3a.0`, `user-model-snapshot@3a.0` und `user-model-state@3a.0` sind additiv; Phase 1/2 bleibt kompatibel.
 
+Phase 3B ergänzt `SignalSemanticsRegistry`, `CalibrationPolicy`/`CalibrationPolicyTrustAnchor`, `CalibrationEvidence`/`CalibrationEvidenceTrustAnchor`, `CalibrationScenario` und `CalibrationReport`. Die semantischen Validatoren sind im Schema Catalog gelistet. Eigenhashes reichen nicht: Policy und Evidence benötigen getrennte externe Acceptance-Anker; Reports werden vollständig aus denselben Inputs rekonstruiert.
+
 Normative Exports liegen in `packages/user-intelligence-vnext-core/src`. Jeder Object-Contract ist strict: unbekannte Felder werden abgelehnt. Unterstützte Versionen sind explizit gelistet; unbekannte Major- und nicht gelistete Minor-Versionen scheitern fail-closed.
 
 | Contract | Zweck | Zentrale Invarianten |
