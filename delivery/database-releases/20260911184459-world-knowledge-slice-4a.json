@@ -10,7 +10,7 @@
   "migrations": [
     {
       "path": "supabase/migrations/20260911184459_world_knowledge_slice_4a_authoring.sql",
-      "sha256": "9056ab19f64285ee2fa692a2fe15976757c40523fe74ee3f45b9232e15a0bf5d"
+      "sha256": "ace27a232abb8bdf5eef2d170468d3d668d5c3848848975775bfd49839ced8a3"
     }
   ],
   "tests": [
@@ -21,6 +21,6 @@
   ],
   "fingerprints": {
     "publicAclSha256": "3177ab149e617bf76c69d575e445ec0622886bc0c5eb640e864c7c7cad5351ca",
-    "applicationSchemaSha256": "232612ed5c6fe1ce3ecddaacff3d14aa89702a45f4fd3d2127ebcdaab8b3ad20"
+    "applicationSchemaSha256": "97f2d645989a7133a11270f8123aeb04f0a57ad0b0e5bbd603024920fd7ae066"
   }
 }
