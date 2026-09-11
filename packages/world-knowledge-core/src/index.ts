@@ -7,6 +7,7 @@ export * from "./fixtures.js";
 export * from "./governance.js";
 export * from "./legacy-adapter.js";
 export * from "./legacy-mapping.js";
+export * from "./legacy-rehearsal.js";
 export * from "./port.js";
 export * from "./registry.js";
 export * from "./resolver.js";

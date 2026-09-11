@@ -11,16 +11,24 @@
     {
       "path": "supabase/migrations/20260911184459_world_knowledge_slice_4a_authoring.sql",
       "sha256": "ace27a232abb8bdf5eef2d170468d3d668d5c3848848975775bfd49839ced8a3"
+    },
+    {
+      "path": "supabase/migrations/20260911214533_world_knowledge_slice_4a_legacy_import_rehearsal.sql",
+      "sha256": "d233311f443dcbb8fd09023420639e4019ee04ac304153c55b3decad3a61530b"
     }
   ],
   "tests": [
     {
       "path": "supabase/tests/world_knowledge_slice4a_authoring.sql",
       "sha256": "64c867a2e97e7be573d45d828b7db74bce569333e84af3455fbb428a0f60ac8a"
+    },
+    {
+      "path": "supabase/tests/world_knowledge_slice4a_legacy_import.sql",
+      "sha256": "11377def0b6269f51207a12f8d046dc2e395b51bc5909ab8dcbb7792f77471ab"
     }
   ],
   "fingerprints": {
-    "publicAclSha256": "3177ab149e617bf76c69d575e445ec0622886bc0c5eb640e864c7c7cad5351ca",
-    "applicationSchemaSha256": "97f2d645989a7133a11270f8123aeb04f0a57ad0b0e5bbd603024920fd7ae066"
+    "publicAclSha256": "34ad6c957c48766a46540515b545814287c4c7659d0081fd43b6fa8ac5f20f66",
+    "applicationSchemaSha256": "a9122c5e853f2f213e0bcf388b35c33e9c8e0caf7778e754295a6a46658108f0"
   }
 }

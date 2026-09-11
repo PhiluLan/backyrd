@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "backyrd.world-knowledge.legacy-import-rehearsal-evidence@1.0",
+  "productionConnection": "NOT_AVAILABLE",
+  "productionExportExecuted": false,
+  "productionCoverage": "UNKNOWN",
+  "productionSpotsFound": "UNKNOWN",
+  "localProductionSpotsImported": "UNKNOWN",
+  "manifestHashes": {
+    "export": "UNKNOWN_UNTIL_AUTHORIZED_RUN",
+    "transform": "UNKNOWN_UNTIL_AUTHORIZED_RUN",
+    "import": "UNKNOWN_UNTIL_AUTHORIZED_RUN"
+  },
+  "excludedDataClasses": ["ACTOR_IDENTITIES","ADMIN_NOTES","ADVERTISING","ANALYTICS","AUTH_USERS","BILLING","OWNER_TIER","PAYMENT","PRIVATE_OWNER_CONTACTS","PRIVATE_SOURCE_REFERENCES","RAW_AI_OUTPUTS","SPONSORING","SUBSCRIPTION","USER_INTELLIGENCE"],
+  "productionMutation": "NONE",
+  "deployment": "NONE"
+}

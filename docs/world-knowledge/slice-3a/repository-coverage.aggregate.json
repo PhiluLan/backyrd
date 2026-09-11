@@ -31,15 +31,15 @@
     }
   },
   "repository": {
-    "migrationFiles": 140,
-    "migrationTip": "20260910174419_world_knowledge_slice_3b_foundation.sql",
-    "createTableStatements": 313,
+    "migrationFiles": 142,
+    "migrationTip": "20260911214533_world_knowledge_slice_4a_legacy_import_rehearsal.sql",
+    "createTableStatements": 318,
     "createViewStatements": 18,
-    "securityDefinerMentions": 837,
-    "enableRlsStatements": 280,
+    "securityDefinerMentions": 851,
+    "enableRlsStatements": 285,
     "publicExecuteGrants": 0,
     "anonExecuteGrants": 10,
-    "authenticatedExecuteGrants": 115
+    "authenticatedExecuteGrants": 117
   },
   "empiricalUnknowns": [
     "production spot counts",
@@ -49,5 +49,5 @@
     "live duplicate candidates",
     "live migration tip"
   ],
-  "reportHash": "157eb878d8720d369c519cbb9f370b8a0a4aca4b9032ea5ce2ad21e69465e29e"
+  "reportHash": "3109983aadd5334297f55cfdc4ef2c8e9e0f13def2e555f898e01fc6f6a05adf"
 }
