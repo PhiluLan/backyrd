@@ -7,7 +7,7 @@ From the repository root:
 ```sh
 npm install
 BACKYRD_KEEP_SUPABASE_RUNNING=true \
-  BASE_SHA=903a2ec953d372b928ee9724215cadb8e4541352 \
+  BASE_SHA=cd0f598dffd4b9ffc093bc7ec666c15a61522457 \
   BACKYRD_CHANGED_DATABASE_TESTS_FILE=/private/tmp/wk4a-database-tests.txt \
   bash scripts/ci/validate-supabase-current.sh
 set -a; source "${TMPDIR:-/tmp}/backyrd-world-authoring-local.env"; set +a

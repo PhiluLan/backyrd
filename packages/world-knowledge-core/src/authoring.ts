@@ -1,13 +1,15 @@
 import { canonicalSort, hashBody } from "./canonical.js";
+import { WORLD_KNOWLEDGE_PORT_VERSION } from "./contracts.js";
 import { ACCEPTED_ENTITLEMENT_POLICY } from "./slice3b.js";
 import { ATTRIBUTE_DEFINITIONS, PRICE_LEVEL_LABELS, PRIMARY_CATEGORY_LABELS, REGISTRY_HASH, REGISTRY_VERSION } from "./registry.js";
-import { parseWorldKnowledgeSnapshot, type WorldKnowledgeSnapshot } from "./port.js";
+import { parseWorldKnowledgeSnapshot, type WorldKnowledgeReaderPort, type WorldKnowledgeSnapshot } from "./port.js";
 import { ACCEPTED_SOURCE_POLICY } from "./slice3b.js";
 
 export const FOUNDER_EVALUATION_SCOPE = "FOUNDER_EVALUATION_ONLY" as const;
 export const AUTHORING_CATALOG_VERSION = "backyrd.world-knowledge.authoring-catalog@4a.1" as const;
 export const FOUNDER_EXPORT_VERSION = "backyrd.world-knowledge.founder-export@1.0" as const;
 export const FOUNDER_COHORT_VERSION = "backyrd.world-knowledge.founder-cohort@1.0" as const;
+export const FOUNDER_READER_VERSION = "backyrd.world-knowledge.reader-port@1.0" as const;
 
 export type AuthoringRole = "OWNER_BASIC" | "OWNER_PRO" | "ADMIN";
 export type AuthoringControl = "TEXT" | "TEXTAREA" | "EMAIL" | "URL" | "PHONE" | "NUMBER" | "SINGLE_SELECT" | "MULTI_SELECT" | "YES_NO" | "INTEGER_RANGE" | "WEEKLY_SCHEDULE" | "SPECIAL_HOURS" | "RESERVATION_RULE" | "CONSUMPTION_RULE" | "PET_ACCESS_RULE" | "AGE_ACCESS_RULE" | "CURRENT_STATE";
@@ -115,6 +117,36 @@ export function createFounderSpotExport(input: { readonly manifestHash: string; 
   const snapshot = parseWorldKnowledgeSnapshot(input.snapshot, [ACCEPTED_SOURCE_POLICY]);
   const body = { contractVersion: FOUNDER_EXPORT_VERSION, scope: FOUNDER_EVALUATION_SCOPE, spotId: snapshot.spot.spotId, registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, policyVersion: snapshot.sourcePolicyVersion, policyHash: snapshot.sourcePolicyHash, manifestHash: input.manifestHash, snapshot };
   return { ...body, exportHash: hashBody(body, []) };
+}
+
+export type FounderSnapshotLoader = (input: {
+  readonly spotId: string;
+  readonly scope: typeof FOUNDER_EVALUATION_SCOPE;
+  readonly registryVersion: typeof REGISTRY_VERSION;
+  readonly registryHash: string;
+}) => Promise<unknown>;
+
+/**
+ * Read-only boundary for Decision Lab fixtures. The loader is deliberately injected:
+ * this package cannot connect to a database or activate a Decision runtime.
+ */
+export function createFounderWorldKnowledgeReader(loadSnapshot: FounderSnapshotLoader): WorldKnowledgeReaderPort {
+  return Object.freeze({
+    contractVersion: FOUNDER_READER_VERSION,
+    async readSnapshot(input: Parameters<WorldKnowledgeReaderPort["readSnapshot"]>[0]) {
+      if (input.contractVersion !== WORLD_KNOWLEDGE_PORT_VERSION || input.registryVersion !== REGISTRY_VERSION || input.registryHash !== REGISTRY_HASH) {
+        throw new Error("founder_reader_contract_identity_mismatch");
+      }
+      const snapshot = parseWorldKnowledgeSnapshot(await loadSnapshot({
+        spotId: input.spotId,
+        scope: FOUNDER_EVALUATION_SCOPE,
+        registryVersion: REGISTRY_VERSION,
+        registryHash: REGISTRY_HASH,
+      }), [ACCEPTED_SOURCE_POLICY]);
+      if (snapshot.spot.spotId !== input.spotId) throw new Error("founder_reader_spot_identity_mismatch");
+      return snapshot;
+    },
+  });
 }
 
 export interface FounderWorldCohortManifest {

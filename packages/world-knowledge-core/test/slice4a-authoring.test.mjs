@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   ACCEPTED_ENTITLEMENT_POLICY,
+  ACCEPTED_SOURCE_POLICY,
   AUTHORING_CATALOG_HASH,
   AUTHORING_FIELDS,
   AUTHORING_STEPS,
@@ -9,7 +10,15 @@ import {
   OWNER_BASIC_KEYS,
   OWNER_PRO_ONLY_KEYS,
   PRIMARY_CATEGORIES,
+  REGISTRY_HASH,
+  REGISTRY_VERSION,
+  WORLD_KNOWLEDGE_PORT_VERSION,
+  buildWorldKnowledgeSnapshot,
+  createFounderWorldKnowledgeReader,
   createFounderWorldCohortManifest,
+  parseBuildWorldKnowledgeInput,
+  resolveWorldKnowledge,
+  resolutionRequest,
 } from "../dist/index.js";
 
 test("guided German catalog covers canonical fields without creating false tasks", () => {
@@ -20,6 +29,20 @@ test("guided German catalog covers canonical fields without creating false tasks
   assert.equal(AUTHORING_FIELDS.some((field) => field.attributeKey === "operation.price_range"), false);
   assert.equal(AUTHORING_FIELDS.some((field) => field.attributeKey === "research.subjective_fits"), false);
   assert.equal(AUTHORING_FIELDS.find((field) => field.attributeKey === "classification.primary_category")?.allowedValues.length, PRIMARY_CATEGORIES.length);
+});
+
+test("Founder reader is isolated, fail-closed and returns only a validated canonical snapshot", async () => {
+  const request = { ...resolutionRequest([]), sourcePolicy: ACCEPTED_SOURCE_POLICY };
+  const resolution = resolveWorldKnowledge(request, [ACCEPTED_SOURCE_POLICY]);
+  const snapshotInput = parseBuildWorldKnowledgeInput({ contractVersion: WORLD_KNOWLEDGE_PORT_VERSION, spotId: "synthetic-spot-founder-reader", resolution }, [ACCEPTED_SOURCE_POLICY]);
+  const snapshot = buildWorldKnowledgeSnapshot(snapshotInput, [ACCEPTED_SOURCE_POLICY]);
+  let observed;
+  const reader = createFounderWorldKnowledgeReader(async (input) => { observed = input; return snapshot; });
+  const result = await reader.readSnapshot({ spotId: snapshot.spot.spotId, contractVersion: WORLD_KNOWLEDGE_PORT_VERSION, registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH });
+  assert.equal(result.snapshotHash, snapshot.snapshotHash);
+  assert.equal(observed.scope, FOUNDER_EVALUATION_SCOPE);
+  await assert.rejects(() => reader.readSnapshot({ spotId: "spot:wrong", contractVersion: WORLD_KNOWLEDGE_PORT_VERSION, registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH }), /spot_identity_mismatch/);
+  await assert.rejects(() => reader.readSnapshot({ spotId: snapshot.spot.spotId, contractVersion: WORLD_KNOWLEDGE_PORT_VERSION, registryVersion: REGISTRY_VERSION, registryHash: "0".repeat(64) }), /contract_identity_mismatch/);
 });
 
 test("Basic, Pro and Admin presentation exactly reflect accepted entitlement keys", () => {
