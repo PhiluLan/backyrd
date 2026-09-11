@@ -1,7 +1,24 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
-import { assertWorldKnowledgeLocalEndpoints, authorizedWorldKnowledgePost } from "../lib/worldKnowledgeSession.ts";
-import { sessionRecoveringAuthoringClient } from "../../packages/world-knowledge-authoring-ui/src/session.ts";
+import ts from "typescript";
+
+async function importTypeScript(path) {
+  const source = await readFile(new URL(path, import.meta.url), "utf8");
+  const output = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 },
+    fileName: path,
+  }).outputText;
+  const directory = await mkdtemp(join(tmpdir(), "backyrd-world-session-test-"));
+  const modulePath = join(directory, "module.mjs");
+  await writeFile(modulePath, output, { mode: 0o600 });
+  return import(modulePath);
+}
+
+const { assertWorldKnowledgeLocalEndpoints, authorizedWorldKnowledgePost } = await importTypeScript("../lib/worldKnowledgeSession.ts");
+const { sessionRecoveringAuthoringClient } = await importTypeScript("../../packages/world-knowledge-authoring-ui/src/session.ts");
 
 const response = (status, body) => ({ status, ok: status >= 200 && status < 300, async json() { return body; } });
 
