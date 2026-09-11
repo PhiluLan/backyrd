@@ -87,6 +87,7 @@ select pg_temp.assert(not has_function_privilege('anon','public.world_founder_cr
 select pg_temp.assert(not has_function_privilege('authenticated','public.world_founder_export_cohort_v1(text)','execute'),'client cohort export access');
 
 -- Only the actual server role can rebuild/export; snapshots contain no commercial/private fields.
+grant select on wk4a_created to service_role;
 set local role authenticated;
 select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,clock_timestamp(),%L,%L)',(select payload->>'spotId' from wk4a_created limit 1),'FULL','client-rebuild'),'42501','client called rebuild');
 reset role;
