@@ -8,11 +8,11 @@ import { classifyChange } from "./classify-change.mjs";
 
 const policy = {
   decisionTrustAnchor: "decision-lab/config/anchor.json",
-  surfacePrefixes: { mobile: ["mobile/"], web: ["web/"], admin: ["admin-dashboard/"], shared: ["packages/shared/", "packages/user-intelligence-vnext-core/", "packages/world-knowledge-core/"] },
+  surfacePrefixes: { mobile: ["mobile/"], web: ["web/", "packages/world-knowledge-authoring-ui/"], admin: ["admin-dashboard/", "packages/world-knowledge-authoring-ui/"], shared: ["packages/shared/", "packages/user-intelligence-vnext-core/", "packages/world-knowledge-core/"] },
   databasePrefixes: ["supabase/migrations/", "supabase/canonical/", "supabase/tests/"],
   authorizationPrefixes: ["supabase/canonical/auth_hooks.sql", "supabase/canonical/storage.sql"],
   privilegedServerPrefixes: ["supabase/functions/", "supabase/config.toml", "supabase/production/auth-config.json"],
-  decisionSemanticPrefixes: ["packages/decision-vnext-core/src/", "supabase/functions/decision-v13/"],
+  decisionSemanticPrefixes: ["packages/decision-vnext-core/src/", "packages/world-knowledge-core/src/port.ts", "supabase/functions/decision-v13/"],
   decisionEvaluationPrefixes: ["packages/decision-vnext-core/test/", "packages/decision-vnext-core/sandbox/", "decision-lab/"],
   decisionConsumerPrefixes: ["packages/shared/", "packages/user-intelligence-vnext-core/", "packages/world-knowledge-core/"],
   decisionPipelineControlPrefixes: [".github/workflows/", "package.json", "package-lock.json", "scripts/ci/classify-change.mjs", "scripts/ci/decision-", "scripts/ci/verify-decision-shards.mjs"],
@@ -120,6 +120,20 @@ test("unknown files and deleted tests cannot silently bypass routing", () => {
   assert.equal(result.flags.testDeletion, true);
   assert.ok(result.classes.includes("test-routing-change"));
   assert.notEqual(base, head);
+});
+
+test("shared authoring UI selects web and admin fast lanes without Decision recertification", () => {
+  const result = plan({ files: { "packages/world-knowledge-authoring-ui/src/index.tsx": "export const authoring = true;\n" } });
+  assert.equal(result.flags.web, true);
+  assert.equal(result.flags.admin, true);
+  assert.equal(result.flags.decisionSemantics, false);
+});
+
+test("WorldKnowledgePort changes still select relevant Decision checks", () => {
+  const result = plan({ files: { "packages/world-knowledge-core/src/port.ts": "export const port = true;\n" } });
+  assert.equal(result.flags.shared, true);
+  assert.equal(result.flags.decisionSemantics, true);
+  assert.ok(result.requiredGates.includes("decision"));
 });
 
 test("privileged Edge Function source selects the server deployment contract", () => {

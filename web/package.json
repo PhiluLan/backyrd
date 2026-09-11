@@ -16,6 +16,8 @@
   "dependencies": {
     "@backyrd/canonical-semantics": "*",
     "@backyrd/shared": "*",
+    "@backyrd/world-knowledge-authoring-ui": "*",
+    "@backyrd/world-knowledge-core": "*",
     "@supabase/ssr": "^0.12.5",
     "@supabase/supabase-js": "^2.112.4",
     "@types/supercluster": "^7.1.3",

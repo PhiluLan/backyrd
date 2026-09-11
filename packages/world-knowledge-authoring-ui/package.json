@@ -1,0 +1,14 @@
+{
+  "name": "@backyrd/world-knowledge-authoring-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.tsx",
+    "./styles.css": "./src/styles.css"
+  },
+  "peerDependencies": {
+    "@backyrd/world-knowledge-core": "0.1.0",
+    "react": "^19.0.0"
+  }
+}

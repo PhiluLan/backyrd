@@ -3,8 +3,8 @@
   "decisionTrustAnchor": "decision-lab/config/decision-v13-production-recertification-v44.json",
   "surfacePrefixes": {
     "mobile": ["mobile/"],
-    "web": ["web/"],
-    "admin": ["admin-dashboard/"],
+    "web": ["web/", "packages/world-knowledge-authoring-ui/"],
+    "admin": ["admin-dashboard/", "packages/world-knowledge-authoring-ui/"],
     "shared": ["packages/shared/", "packages/user-intelligence-vnext-core/", "packages/world-knowledge-core/"]
   },
   "databasePrefixes": [
@@ -39,6 +39,7 @@
     "packages/decision-input-runtime/src/",
     "packages/decision-orchestrator-runtime/src/",
     "packages/n6-shadow-runtime/src/",
+    "packages/world-knowledge-core/src/port.ts",
     "supabase/functions/decision-v13/"
   ],
   "decisionEvaluationPrefixes": [

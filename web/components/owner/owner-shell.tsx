@@ -21,6 +21,7 @@ const nav: NavItem[] = [
   { href: "/owner/analytics/decision", label: "Decision", icon: "✦" },
   { href: "/owner/analytics/moments", label: "Moments", icon: "◉" },
   { href: "/owner/spots", label: "Meine Spots", icon: "⌖" },
+  { href: "/owner/world-knowledge", label: "Spot-Wissen", icon: "◎" },
 ];
 
 export function OwnerShell({ children, title, subtitle, eyebrow = "OWNER INTELLIGENCE", actions }: Props) {

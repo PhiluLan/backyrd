@@ -21,7 +21,7 @@ const privateRoutePrefixes = [
 
 const nextConfig: NextConfig = {
   agentRules: false,
-  transpilePackages: ["@backyrd/shared", "@backyrd/canonical-semantics"],
+  transpilePackages: ["@backyrd/shared", "@backyrd/canonical-semantics", "@backyrd/world-knowledge-authoring-ui", "@backyrd/world-knowledge-core"],
   turbopack: { root: path.resolve(process.cwd(), "..") },
   async headers() {
     return [
