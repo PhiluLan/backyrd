@@ -15,12 +15,16 @@
     {
       "path": "supabase/migrations/20260911214533_world_knowledge_slice_4a_legacy_import_rehearsal.sql",
       "sha256": "d233311f443dcbb8fd09023420639e4019ee04ac304153c55b3decad3a61530b"
+    },
+    {
+      "path": "supabase/migrations/20260912103000_world_knowledge_slice_4a_authoring_reliability.sql",
+      "sha256": "ef21cf5f1829bc06509d8b063fa8cc4ac1fcbd2a7997f38722112b744737ada9"
     }
   ],
   "tests": [
     {
       "path": "supabase/tests/world_knowledge_slice4a_authoring.sql",
-      "sha256": "64c867a2e97e7be573d45d828b7db74bce569333e84af3455fbb428a0f60ac8a"
+      "sha256": "9b69e281cbc12be82c3e6a065eaf616c4db2d9f25460913e84a52509fe5f53e7"
     },
     {
       "path": "supabase/tests/world_knowledge_slice4a_legacy_import.sql",

@@ -17,6 +17,14 @@ The repository already contained a mature legacy Admin editor, Owner editor, Gol
 
 See [compatibility-matrix.md](./compatibility-matrix.md), [security.md](./security.md), and [local-runbook.md](./local-runbook.md).
 
+## Authoring reliability closure
+
+The Founder pass against Volta Bräu exposed drift between the original form serializer and Registry 1.1: abbreviated weekdays, `from`/`to` intervals and unregistered rule values reached an RPC whose canonical contract requires full weekday names, `start`/`end` intervals and the registered enums. The UI now validates every field through `parseAttributeValue` before a write, sends the canonical value, and the database validator enforces the same shapes. Existing Claims are not rewritten.
+
+Browser RPCs refresh an expired local session once and replay the exact request. Server-only rebuild/export actions additionally require an explicit loopback endpoint binding. Expected validation, session and RPC failures stay inside the form with a German correction and preserve the entered value; technical details remain in the opt-in expert view.
+
+Legacy review now uses German labels and structured displays. It compares the old value with the canonical candidate, prevents re-confirmation of already answered fields, and withholds imported values whose shape is not Registry-valid. The imported audit trail is preserved unchanged.
+
 ## Deferred
 
 Secondary categories, the full draft taxonomy, Capability→Intent relations, ranking, production backfill, public projections, automatic duplicate merges, holiday calendars/notifications, final retention periods, and the final mobile Spot page remain outside Slice 4A.

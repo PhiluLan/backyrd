@@ -1,0 +1,49 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { assertWorldKnowledgeLocalEndpoints, authorizedWorldKnowledgePost } from "../lib/worldKnowledgeSession.ts";
+import { sessionRecoveringAuthoringClient } from "../../packages/world-knowledge-authoring-ui/src/session.ts";
+
+const response = (status, body) => ({ status, ok: status >= 200 && status < 300, async json() { return body; } });
+
+test("expired local session refreshes before the server action", async () => {
+  let refreshed = 0; const tokens = [];
+  const auth = { async getSession() { return { data: { session: { access_token: "old", expires_at: 1 } }, error: null }; }, async refreshSession() { refreshed += 1; return { data: { session: { access_token: "fresh", expires_at: 4_000_000_000 } }, error: null }; } };
+  const result = await authorizedWorldKnowledgePost({ auth, body: { action: "rebuild" }, fetcher: async (_url, init) => { tokens.push(init.headers.authorization); return response(200, { ok: true }); } });
+  assert.deepEqual(result, { ok: true }); assert.equal(refreshed, 1); assert.deepEqual(tokens, ["Bearer fresh"]);
+});
+
+test("invalid_session refreshes once and retries without changing the request", async () => {
+  let refreshes = 0; const bodies = [];
+  const auth = { async getSession() { return { data: { session: { access_token: "old", expires_at: 4_000_000_000 } }, error: null }; }, async refreshSession() { refreshes += 1; return { data: { session: { access_token: "new", expires_at: 4_000_000_000 } }, error: null }; } };
+  let calls = 0; const result = await authorizedWorldKnowledgePost({ auth, body: { action: "rebuild", spotId: "stable" }, fetcher: async (_url, init) => { calls += 1; bodies.push(init.body); return calls === 1 ? response(401, { error: "invalid_session" }) : response(200, { rebuilt: true }); } });
+  assert.deepEqual(result, { rebuilt: true }); assert.equal(refreshes, 1); assert.equal(calls, 2); assert.equal(bodies[0], bodies[1]);
+});
+
+test("unrecoverable session returns a controlled reauthentication error", async () => {
+  const auth = { async getSession() { return { data: { session: null }, error: null }; }, async refreshSession() { return { data: { session: null }, error: { message: "expired" } }; } };
+  await assert.rejects(() => authorizedWorldKnowledgePost({ auth, body: {}, fetcher: async () => response(500, {}) }), /invalid_session/);
+});
+
+test("client and server must bind the same loopback Supabase endpoint", () => {
+  assert.equal(assertWorldKnowledgeLocalEndpoints("http://127.0.0.1:57261", "http://127.0.0.1:57261/"), "http://127.0.0.1:57261");
+  assert.throws(() => assertWorldKnowledgeLocalEndpoints("http://127.0.0.1:57261", "http://127.0.0.1:54321"), /local_world_knowledge_endpoint_mismatch/);
+  assert.throws(() => assertWorldKnowledgeLocalEndpoints("https://production.example", "https://production.example"), /local_world_knowledge_endpoint_mismatch/);
+});
+
+test("direct authoring RPC refreshes once and replays the exact typed request", async () => {
+  const parameters = { p_attribute_key: "hours.regular", p_value: [{ day: "MONDAY", intervals: [{ start: "17:00", end: "23:00" }] }] };
+  const calls = [];
+  const client = {
+    async rpc(name, body) {
+      calls.push({ name, body });
+      return calls.length === 1 ? { data: null, error: { message: "invalid_session" } } : { data: { created: true }, error: null };
+    },
+  };
+  let refreshes = 0;
+  const auth = { async refreshSession() { refreshes += 1; return { data: { session: { access_token: "local-token" } }, error: null }; } };
+  const result = await sessionRecoveringAuthoringClient(client, auth).rpc("world_owner_submit_claim_v1", parameters);
+  assert.deepEqual(result, { data: { created: true }, error: null });
+  assert.equal(refreshes, 1);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[0], calls[1]);
+});

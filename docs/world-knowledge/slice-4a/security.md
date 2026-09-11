@@ -6,6 +6,8 @@ Reviewed 2026-09-11 against the current official Supabase guidance:
 - [Database Functions](https://supabase.com/docs/guides/database/functions): invoker is preferred; privileged functions need an explicit empty `search_path`, qualified relations, revoked default execution and narrow grants.
 - [Tables and Views](https://supabase.com/docs/guides/database/tables): views are definer by default; client-facing views require an intentional invoker boundary.
 - [Changelog](https://supabase.com/changelog): no 2026 change reviewed for this slice weakens these constraints.
+- [Sessions](https://supabase.com/docs/guides/auth/sessions): browser sessions use short-lived access tokens plus refresh tokens; a protected action refreshes once and never derives authority from client metadata.
+- [JavaScript `getUser`](https://supabase.com/docs/reference/javascript/auth-getuser): the server route validates the presented token against Auth before checking the database-backed Admin role.
 
 Slice 4A adds no client-readable ledger table or view. Both new private tables use RLS as defense in depth and deny `PUBLIC`, `anon`, and `authenticated`. Authenticated clients can invoke only the narrow authoring functions; those functions re-check environment, identity, Spot ownership/Admin authority, entitlement, key and value. The server-only cohort export and Shadow Rebuild remain granted only to `service_role`, which exists only in Next.js route handlers marked `server-only`.
 

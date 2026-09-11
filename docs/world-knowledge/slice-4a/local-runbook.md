@@ -19,7 +19,7 @@ The mode-0600 result is written below `.local/world-knowledge-import/`, which is
 
 ### LOCAL WRITE — preview and import
 
-Start/reset the isolated stack below. Provide `WK_LOCAL_SUPABASE_URL`, `WK_LOCAL_SUPABASE_ANON_KEY`, `WK_LOCAL_ADMIN_EMAIL`, and `WK_LOCAL_ADMIN_PASSWORD` through the local environment, never command arguments. Run `npm run world-knowledge:legacy:import-local`. The importer refuses non-loopback Supabase URLs.
+Start the isolated stack below. A reset destroys local Founder work and therefore requires explicit Founder approval once real review data exists. Provide `WK_LOCAL_SUPABASE_URL`, `WK_LOCAL_SUPABASE_ANON_KEY`, `WK_LOCAL_ADMIN_EMAIL`, and `WK_LOCAL_ADMIN_PASSWORD` through the local environment, never command arguments. Run `npm run world-knowledge:legacy:import-local`. The importer refuses non-loopback Supabase URLs.
 
 It stages approved spots without Claims; Draft/archived/unclear rows stay reported but are not activated. A replay reuses the batch. At `http://127.0.0.1:3218/world-knowledge`, filter “Legacy-Werte prüfen”, compare each prefill, deselect unwanted values, and confirm. Only this Admin action creates `ADMIN_CONFIRMED` Claims. Select 20–40 spots explicitly for the Founder Cohort and export its manifest.
 
@@ -38,6 +38,7 @@ BACKYRD_KEEP_SUPABASE_RUNNING=true \
   BACKYRD_CHANGED_DATABASE_TESTS_FILE=/private/tmp/wk4a-database-tests.txt \
   bash scripts/ci/validate-supabase-current.sh
 set -a; source "${TMPDIR:-/tmp}/backyrd-world-authoring-local.env"; set +a
+export WORLD_KNOWLEDGE_LOCAL_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL"
 npm --workspace web run dev -- --hostname 127.0.0.1 --port 3219
 ```
 
@@ -61,6 +62,8 @@ npm --prefix admin-dashboard run dev -- --hostname 127.0.0.1 --port 3218
 ```
 
 Then open `http://127.0.0.1:3218/world-knowledge`.
+
+Both processes must inherit `WORLD_KNOWLEDGE_LOCAL_SUPABASE_URL`. Rebuild/export routes reject a missing, non-loopback or different endpoint before using the server-only key. When a session expires, sign in again with the local fixture account and repeat the action; field values remain in the form. Do not reset Supabase as a session-recovery step.
 
 ## Roles and workflow
 

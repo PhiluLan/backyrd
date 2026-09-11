@@ -1,7 +1,7 @@
 import { canonicalSort, hashBody } from "./canonical.js";
-import { WORLD_KNOWLEDGE_PORT_VERSION } from "./contracts.js";
+import { parseAttributeValue, WORLD_KNOWLEDGE_PORT_VERSION, type ClaimValue, type KnowledgeState } from "./contracts.js";
 import { ACCEPTED_ENTITLEMENT_POLICY } from "./slice3b.js";
-import { ATTRIBUTE_DEFINITIONS, PRICE_LEVEL_LABELS, PRIMARY_CATEGORY_LABELS, REGISTRY_HASH, REGISTRY_VERSION } from "./registry.js";
+import { ATTRIBUTE_DEFINITIONS, PRICE_LEVEL_LABELS, PRIMARY_CATEGORY_LABELS, REGISTRY_HASH, REGISTRY_VERSION, type ValueType } from "./registry.js";
 import { parseWorldKnowledgeSnapshot, type WorldKnowledgeReaderPort, type WorldKnowledgeSnapshot } from "./port.js";
 import { ACCEPTED_SOURCE_POLICY } from "./slice3b.js";
 
@@ -25,6 +25,8 @@ export interface AuthoringStep {
 
 export interface AuthoringField {
   readonly attributeKey: string;
+  readonly attributeVersion: 1;
+  readonly valueType: ValueType;
   readonly label: string;
   readonly help: string;
   readonly group: string;
@@ -86,16 +88,64 @@ export const AUTHORING_FIELDS: readonly AuthoringField[] = Object.freeze(AUTHORI
   ].filter(Boolean) as AuthoringRole[]);
   return {
     attributeKey,
+    attributeVersion: definition.version,
+    valueType: definition.valueType,
     label: definition.labels.de,
     help: help[attributeKey] ?? "Optional. Nicht beantwortet bedeutet weder Nein noch unbekannt.",
     group: groupFor(attributeKey),
-    control: controlFor(definition.valueType),
+    control: attributeKey === "description.highlight" ? "TEXTAREA" : controlFor(definition.valueType),
     allowedValues: (definition.allowedValues ?? []).map((value) => ({ value, label: germanValues[value] ?? value.replaceAll("_", " ").toLocaleLowerCase("de-CH") })),
     roles,
     optional: true as const,
     explanationOnly: definition.engineAuthorization === "EXPLANATION_ONLY",
   };
 })));
+
+export type AuthoringValidationResult =
+  | { readonly ok: true; readonly value: ClaimValue }
+  | { readonly ok: false; readonly code: string; readonly message: string };
+
+const correctionFor = (valueType: ValueType): string => ({
+  TEXT: "Bitte gib einen nicht leeren Text im erlaubten Umfang ein.",
+  EMAIL: "Bitte gib eine vollständige E-Mail-Adresse wie kontakt@spot.ch ein.",
+  URL: "Bitte gib eine vollständige Webadresse mit https:// ein.",
+  PHONE: "Bitte nutze das internationale Format, zum Beispiel +41781234567.",
+  COUNTRY_CODE: "Bitte verwende den zweistelligen Ländercode, zum Beispiel CH.",
+  IANA_TIMEZONE: "Bitte wähle eine gültige Zeitzone, zum Beispiel Europe/Zurich.",
+  DECIMAL: "Bitte gib eine Zahl innerhalb des angezeigten Wertebereichs ein.",
+  INTEGER: "Bitte gib eine ganze Zahl innerhalb des angezeigten Wertebereichs ein.",
+  BOOLEAN: "Bitte wähle Ja, Nein oder Noch unbekannt.",
+  ENUM: "Bitte wähle einen der angebotenen Werte.",
+  ENUM_SET: "Bitte wähle nur Werte aus der angebotenen Liste.",
+  MONEY_RANGE: "Bitte gib einen vollständigen gültigen Preisbereich ein.",
+  INTEGER_RANGE: "Bitte gib eine kleinste und größte ganze Zahl ein; Von darf Bis nicht überschreiten.",
+  RESERVATION_RULE: "Bitte vervollständige die Reservationsregel. Ein Zeitfenster benötigt Von und Bis.",
+  CONSUMPTION_RULE: "Bitte wähle eine Regel; Ausnahmen dürfen nicht leer sein.",
+  PET_ACCESS_RULE: "Bitte beantworte Innen, Außen und Assistenztiere mit den angebotenen Werten.",
+  AGE_ACCESS_RULE: "Bitte gib bei Mindestalter auch ein Alter zwischen 0 und 120 an.",
+  WEEKLY_SCHEDULE: "Bitte prüfe Wochentage und Zeitintervalle. Beginn und Ende müssen verschieden sein.",
+  SPECIAL_HOURS: "Bitte prüfe Datum, Status und Zeitintervalle des Sondertags.",
+  CURRENT_STATE: "Bitte wähle Zustand und Bereich und gib ein Gültig-bis-Datum an.",
+} satisfies Record<ValueType, string>)[valueType];
+
+/** Runtime boundary shared by every Admin/Owner authoring field before an RPC write. */
+export function validateAuthoringSubmission(attributeKey: unknown, knowledgeState: unknown, rawValue: unknown): AuthoringValidationResult {
+  const field = AUTHORING_FIELDS.find((item) => item.attributeKey === attributeKey);
+  if (!field) return { ok: false, code: "UNKNOWN_ATTRIBUTE", message: "Dieses Feld gehört nicht zur freigegebenen Erfassung." };
+  if (!(["KNOWN_TRUE", "KNOWN_FALSE", "KNOWN_VALUE", "UNKNOWN"] as const).includes(knowledgeState as KnowledgeState)) return { ok: false, code: "INVALID_KNOWLEDGE_STATE", message: `${field.label}: Bitte wähle einen gültigen Wissenszustand.` };
+  try {
+    if (knowledgeState === "UNKNOWN") {
+      if (rawValue !== null) throw new Error("UNKNOWN_REQUIRES_NULL");
+      return { ok: true, value: null };
+    }
+    const value = parseAttributeValue(field.attributeKey, rawValue, `$.${field.attributeKey}`);
+    if ((knowledgeState === "KNOWN_TRUE" && value !== true) || (knowledgeState === "KNOWN_FALSE" && value !== false)) throw new Error("BOOLEAN_STATE_MISMATCH");
+    if ((knowledgeState === "KNOWN_TRUE" || knowledgeState === "KNOWN_FALSE") && field.valueType !== "BOOLEAN") throw new Error("BOOLEAN_ATTRIBUTE_REQUIRED");
+    return { ok: true, value };
+  } catch {
+    return { ok: false, code: `INVALID_${field.valueType}`, message: `${field.label}: ${correctionFor(field.valueType)}` };
+  }
+}
 
 export const AUTHORING_CATALOG_HASH = hashBody({ version: AUTHORING_CATALOG_VERSION, steps: AUTHORING_STEPS, fields: AUTHORING_FIELDS }, []);
 

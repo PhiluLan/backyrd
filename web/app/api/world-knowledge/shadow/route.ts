@@ -6,6 +6,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 export async function POST(request: Request) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL; const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY; const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !anonKey || !serviceKey) return Response.json({ error: "local_world_knowledge_not_configured" }, { status: 503 });
+  const localBinding = process.env.WORLD_KNOWLEDGE_LOCAL_SUPABASE_URL ?? process.env.WK_LOCAL_SUPABASE_URL;
+  try {
+    if (!localBinding) throw new Error("missing_local_binding");
+    const configured = new URL(url); const expected = new URL(localBinding);
+    if (!['127.0.0.1', 'localhost', '::1'].includes(configured.hostname) || `${configured.protocol}//${configured.host}` !== `${expected.protocol}//${expected.host}`) throw new Error("local_endpoint_mismatch");
+  } catch { return Response.json({ error: "local_world_knowledge_endpoint_mismatch" }, { status: 503 }); }
   const authorization = request.headers.get("authorization") ?? ""; const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
   if (!token) return Response.json({ error: "authentication_required" }, { status: 401 });
   const actor = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false }, global: { headers: { Authorization: `Bearer ${token}` } } });

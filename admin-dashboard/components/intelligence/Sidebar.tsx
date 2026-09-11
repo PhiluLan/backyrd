@@ -16,6 +16,7 @@ const navigationItems: NavigationItem[] = [
   { href: "/founder", label: "Founder Cockpit", icon: "B" },
   { href: "/growth", label: "Wachstum", icon: "↗" },
   { href: "/spots", label: "Spots", icon: "⌖", groupLabel: "Spots" },
+  { href: "/world-knowledge", label: "World Knowledge", icon: "◇" },
   { href: "/events", label: "Events", icon: "◷" },
   { href: "/spot-engine", label: "Spot Engine", icon: "◎" },
   { href: "/spot-quality", label: "Qualität & Gold", icon: "◈" },

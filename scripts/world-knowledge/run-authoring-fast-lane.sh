@@ -14,6 +14,7 @@ npx tsc --noEmit -p admin-dashboard/tsconfig.json
 )
 (
   cd admin-dashboard
-  npx eslint app/world-knowledge/page.tsx app/api/world-knowledge/shadow/route.ts
+  npx eslint app/world-knowledge/page.tsx app/api/world-knowledge/shadow/route.ts components/intelligence/Sidebar.tsx lib/worldKnowledgeSession.ts
 )
+node --test admin-dashboard/test/world-knowledge-*.test.mjs
 node --test scripts/ci/classify-change.test.mjs
