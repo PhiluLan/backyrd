@@ -77,6 +77,10 @@ The catalogs are synthetic evaluation artifacts only: `SYNTHETIC_FIXTURE_ONLY`, 
 
 Each report binds Authority Catalog, Trust-Anchor Catalog, and release hashes. It is reconstructed from two verified Context capabilities. Exact-set comparison rejects omitted or additional changes, swapped contexts and changed World/User/Pool/registry/policy bindings. Founder-approved expectations remain unconfigured.
 
+Workbench replay is a semantic rebuild, not stored-hash verification. The replay parser first checks the closed 15-report shape and outer hash, then reloads the pinned release, independently reruns every Base/Flip fixture, recreates its verified capabilities, Oracle and report, and requires byte identity for every report and for the rebuilt workbench. Rehashing a changed inner report therefore cannot authorize it.
+
+Structural catalog validation is deliberately separate from acceptance. A runtime caller may validate catalog syntax, hashes and cross-bindings, but this returns no accepted capability. Only `loadAcceptedPhase3AOracleRelease()` can mint that process-local capability; it accepts no caller artifacts or caller-selected release hash and uses the review-pinned Phase-3A release. Provisioning remains outside the public runtime API.
+
 Both the verified Context capability and the accepted Oracle-catalog capability are process-local and non-serializable. Crossing a process, worker, queue, or service boundary requires complete envelope and catalog-release verification again; a parsed object or TypeScript cast does not carry authority.
 
 Phase-3A release identities are `backyrd-vnext-context-oracle-authority-catalog-phase3a-v1`, `backyrd-vnext-context-oracle-trust-anchor-catalog-phase3a-v1`, and `backyrd-vnext-context-oracle-release-phase3a-v1`. The release pins the `backyrd-vnext-context-flip-report-v2` contract. These are technical fixtures, not Product approval.

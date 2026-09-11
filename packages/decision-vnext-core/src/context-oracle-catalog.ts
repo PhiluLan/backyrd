@@ -9,6 +9,13 @@ import {
   type OracleTrustAnchorCatalog,
   type OracleTrustAnchorCatalogEntry,
 } from "./context-kernel-contracts.js";
+import {
+  ACCEPTED_PHASE3A_ORACLE_RELEASE_HASH,
+  PHASE3A_ORACLE_AUTHORITY_CATALOG,
+  PHASE3A_ORACLE_RELEASE,
+  PHASE3A_ORACLE_TRUST_ANCHOR_CATALOG,
+  PHASE3A_RELEASE_SCENARIO_IDS,
+} from "./context-oracle-release-fixture.js";
 
 const PHASE3A_ORACLE_SUPPORTED_BINDINGS = Object.freeze({
   registryVersion: "backyrd-vnext-context-fixture-registry-v1",
@@ -27,6 +34,12 @@ export interface AcceptedOracleCatalogs {
 }
 
 const acceptedCatalogCapabilities = new WeakSet<object>();
+
+export interface StructurallyValidOracleCatalogs {
+  readonly authorityCatalog: OracleAuthorityCatalog;
+  readonly trustAnchorCatalog: OracleTrustAnchorCatalog;
+  readonly release: OracleCatalogReleaseRecord;
+}
 
 function assertExactSet(actual: readonly string[], expected: readonly string[], code: string): void {
   if (new Set(actual).size !== actual.length || canonicalJson(actual) !== canonicalJson(expected)) throw new Error(code);
@@ -73,20 +86,18 @@ function validateAnchorEntry(entry: OracleTrustAnchorCatalogEntry): void {
   if (entry.productionCapable || entry.productApproved || entry.authorityClass !== "SYNTHETIC_FIXTURE_ONLY") throw new Error("context_oracle_anchor_scope_invalid");
 }
 
-export function validateAcceptedOracleCatalogs(
+export function validateOracleCatalogStructure(
   authorityValue: unknown,
   trustAnchorValue: unknown,
   releaseValue: unknown,
-  acceptedReleaseHash: string,
   expectedScenarioIds: readonly string[],
-): AcceptedOracleCatalogs {
+): StructurallyValidOracleCatalogs {
   const authorityCatalog = OracleAuthorityCatalogSchema.parse(authorityValue);
   const trustAnchorCatalog = OracleTrustAnchorCatalogSchema.parse(trustAnchorValue);
   const release = OracleCatalogReleaseRecordSchema.parse(releaseValue);
   assertContentHash(authorityCatalog as unknown as Record<string, unknown>, "catalogHash");
   assertContentHash(trustAnchorCatalog as unknown as Record<string, unknown>, "catalogHash");
   assertContentHash(release as unknown as Record<string, unknown>, "releaseHash");
-  if (release.releaseHash !== acceptedReleaseHash) throw new Error("context_oracle_release_not_accepted");
   assertExactSet(authorityCatalog.scenarioAllowlist, expectedScenarioIds, "context_oracle_authority_catalog_scenario_set_mismatch");
   assertExactSet(trustAnchorCatalog.scenarioAllowlist, expectedScenarioIds, "context_oracle_anchor_catalog_scenario_set_mismatch");
   assertExactSet(release.scenarioAllowlist, expectedScenarioIds, "context_oracle_release_scenario_set_mismatch");
@@ -106,9 +117,28 @@ export function validateAcceptedOracleCatalogs(
     const authority = authorityCatalog.entries[index]; const anchor = trustAnchorCatalog.entries[index];
     if (!authority || !anchor || authority.scenarioId !== anchor.scenarioId || authority.authorityRecordId !== anchor.authorityRecordId || authority.authorityRecordHash !== anchor.acceptedAuthorityHash || authority.oracleId !== anchor.acceptedOracleId || authority.oracleVersion !== anchor.acceptedOracleVersion || authority.authority.issuer !== anchor.acceptedIssuer) throw new Error("context_oracle_anchor_authority_binding_mismatch");
   }
-  const accepted = deepFreeze({ authorityCatalog, trustAnchorCatalog, release }) as unknown as AcceptedOracleCatalogs;
+  return deepFreeze({ authorityCatalog, trustAnchorCatalog, release });
+}
+
+function mintAcceptedPhase3AOracleCatalogs(): AcceptedOracleCatalogs {
+  const validated = validateOracleCatalogStructure(
+    PHASE3A_ORACLE_AUTHORITY_CATALOG,
+    PHASE3A_ORACLE_TRUST_ANCHOR_CATALOG,
+    PHASE3A_ORACLE_RELEASE,
+    PHASE3A_RELEASE_SCENARIO_IDS,
+  );
+  if (validated.release.releaseHash !== ACCEPTED_PHASE3A_ORACLE_RELEASE_HASH) throw new Error("context_oracle_release_not_accepted");
+  const accepted = deepFreeze(validated) as unknown as AcceptedOracleCatalogs;
   acceptedCatalogCapabilities.add(accepted);
   return accepted;
+}
+
+/**
+ * The only capability-minting entry point. It accepts no caller artifacts or
+ * caller-selected hash; all trust roots are review-pinned in the fixture release.
+ */
+export function loadAcceptedPhase3AOracleRelease(): AcceptedOracleCatalogs {
+  return mintAcceptedPhase3AOracleCatalogs();
 }
 
 export function selectAcceptedOracleArtifacts(catalogs: AcceptedOracleCatalogs, scenarioId: string): { readonly authorityEntry: OracleAuthorityCatalogEntry; readonly trustAnchor: OracleTrustAnchorCatalogEntry } {

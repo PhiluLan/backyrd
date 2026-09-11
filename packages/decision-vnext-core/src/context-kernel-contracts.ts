@@ -496,3 +496,14 @@ export const ContextFlipReportSchema = schema.object({
   reportHash: sha256,
 });
 export type ContextFlipReport = Infer<typeof ContextFlipReportSchema>;
+
+export const ContextFlipWorkbenchSchema = schema.object({
+  contractVersion: version(CONTEXT_KERNEL_VERSIONS.flipReport),
+  oracleAuthorityCatalogHash: sha256,
+  oracleTrustAnchorCatalogHash: sha256,
+  oracleReleaseHash: sha256,
+  scenarios: schema.array(ContextFlipReportSchema, { min: 15, max: 15 }),
+  productRankingQualityConfigured: schema.literal(false),
+  workbenchHash: sha256,
+});
+export type ContextFlipWorkbench = Infer<typeof ContextFlipWorkbenchSchema>;

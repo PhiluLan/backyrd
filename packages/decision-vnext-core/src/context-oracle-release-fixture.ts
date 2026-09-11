@@ -2,8 +2,6 @@
  * Reviewed Phase 3A synthetic evaluation release. This is fixture provisioning,
  * not a Product policy and not part of the package's public runtime API.
  */
-import { deepFreeze } from "./canonical.js";
-import { validateAcceptedOracleCatalogs, type AcceptedOracleCatalogs } from "./context-oracle-catalog.js";
 import {
   provisionSyntheticAuthorityCatalog,
   provisionSyntheticOracleRelease,
@@ -62,13 +60,3 @@ export const PHASE3A_ORACLE_RELEASE = provisionSyntheticOracleRelease(PHASE3A_OR
 
 // Review-pinned separately from all three generated artifacts. Updating the release requires an explicit diff here.
 export const ACCEPTED_PHASE3A_ORACLE_RELEASE_HASH = "88d9863ae794f2dc5f6156c4b294da80ff485cd32335d33ece7dbec3cc668efa";
-
-export function loadAcceptedPhase3AOracleRelease(): AcceptedOracleCatalogs {
-  return deepFreeze(validateAcceptedOracleCatalogs(
-    PHASE3A_ORACLE_AUTHORITY_CATALOG,
-    PHASE3A_ORACLE_TRUST_ANCHOR_CATALOG,
-    PHASE3A_ORACLE_RELEASE,
-    ACCEPTED_PHASE3A_ORACLE_RELEASE_HASH,
-    PHASE3A_RELEASE_SCENARIO_IDS,
-  ));
-}

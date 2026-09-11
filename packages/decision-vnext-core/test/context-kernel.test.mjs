@@ -7,21 +7,21 @@ import {
   buildContextFlipReport, createFixtureContextRegistry, createServerSessionState, createStructuralOracle,
   createSyntheticContextAuthority, phase3AClientInput, phase3ARequest, projectContextForConsumer,
   replayContextFlipWorkbench, resolveContextKernel, runContextFlipScenario, runContextFlipWorkbench, runPhase3AContextFixture,
-  trustSyntheticContextAuthority, validateAcceptedOracleCatalogs,
+  loadAcceptedPhase3AOracleRelease, selectAcceptedOracleArtifacts, trustSyntheticContextAuthority, validateOracleCatalogStructure,
   unknownConstraintDisposition, validateContextFlipReport, validateOracleAuthority,
   validateContextSnapshotIntegrity, validateScenarioOracle, validateContextExecutionEnvelope,
   verifyContextForConsumers,
 } from "../dist/index.js";
 import {
-  ACCEPTED_PHASE3A_ORACLE_RELEASE_HASH,
   PHASE3A_ORACLE_AUTHORITY_CATALOG,
   PHASE3A_ORACLE_RELEASE,
   PHASE3A_ORACLE_TRUST_ANCHOR_CATALOG,
   PHASE3A_RELEASE_SCENARIO_IDS,
-  loadAcceptedPhase3AOracleRelease,
 } from "../dist/context-oracle-release-fixture.js";
 
 const rehash = (value, field) => { value[field] = contentHash(Object.fromEntries(Object.entries(value).filter(([key]) => key !== field))); };
+const rehashWorkbench = (value) => rehash(value, "workbenchHash");
+const rehashReportAndWorkbench = (value, index = 5) => { rehash(value.scenarios[index], "reportHash"); rehashWorkbench(value); return value; };
 const acceptedOracleCatalogs = () => loadAcceptedPhase3AOracleRelease();
 const cloneOracleRelease = () => ({ authority: structuredClone(PHASE3A_ORACLE_AUTHORITY_CATALOG), trust: structuredClone(PHASE3A_ORACLE_TRUST_ANCHOR_CATALOG), release: structuredClone(PHASE3A_ORACLE_RELEASE) });
 const fullyRehashOracleRelease = (value, index = 5) => {
@@ -248,12 +248,14 @@ test("structural Oracle replay is recursive and unapproved Oracles cannot claim 
 test("accepted Oracle catalogs are separately hashed, closed, and cannot self-authorize", async () => {
   const catalogs = acceptedOracleCatalogs(); const run = await runContextFlipScenario("budget-narrow-vs-broad"); validateOracleAuthority(run.oracleAuthority, run.oracleTrustAnchor);
   assert.equal(catalogs.authorityCatalog.entries.length, 15); assert.equal(catalogs.trustAnchorCatalog.entries.length, 15); assert.deepEqual(catalogs.release.scenarioAllowlist, PHASE3A_RELEASE_SCENARIO_IDS);
-  const publicCore = await import("../dist/index.js"); assert.equal("trustSyntheticOracleAuthorityForLocalEvaluation" in publicCore, false); assert.equal("createStructuralOracleAuthority" in publicCore, false);
+  const publicCore = await import("../dist/index.js"); assert.equal("trustSyntheticOracleAuthorityForLocalEvaluation" in publicCore, false); assert.equal("createStructuralOracleAuthority" in publicCore, false); assert.equal("validateAcceptedOracleCatalogs" in publicCore, false);
   const forgedAuthority = structuredClone(run.oracleAuthority); forgedAuthority.scenarioId = "attacker-scenario"; forgedAuthority.allowedScenarioIds = ["attacker-scenario"]; rehash(forgedAuthority, "authorityHash");
   assert.throws(() => validateOracleAuthority(forgedAuthority, run.oracleTrustAnchor), /context_oracle_authority_not_trusted/);
   const fakeAnchor = structuredClone(run.oracleTrustAnchor); fakeAnchor.acceptedAuthorityHash = "0".repeat(64); rehash(fakeAnchor, "anchorHash"); assert.throws(() => validateOracleAuthority(run.oracleAuthority, fakeAnchor), /context_oracle_authority_not_trusted/);
   const selfAuthorized = cloneOracleRelease(); selfAuthorized.authority.entries[5].authority.allowedStructuralChanges = ["context.budget.explicit", "context.intent.explicit"]; const fullyRehashed = fullyRehashOracleRelease(selfAuthorized);
-  assert.throws(() => validateAcceptedOracleCatalogs(fullyRehashed.authority, fullyRehashed.trust, fullyRehashed.release, ACCEPTED_PHASE3A_ORACLE_RELEASE_HASH, PHASE3A_RELEASE_SCENARIO_IDS), /context_oracle_release_not_accepted/);
+  const structural = validateOracleCatalogStructure(fullyRehashed.authority, fullyRehashed.trust, fullyRehashed.release, PHASE3A_RELEASE_SCENARIO_IDS);
+  assert.throws(() => selectAcceptedOracleArtifacts(structural, "budget-narrow-vs-broad"), /require_verified_release_capability/);
+  assert.throws(() => createStructuralOracle({ oracleId: structural.authorityCatalog.entries[5].oracleId, scenarioId: "budget-narrow-vs-broad", expectedStructuralChanges: structural.authorityCatalog.entries[5].expectedStructuralChanges, expectedInputChanges: structural.authorityCatalog.entries[5].expectedInputChanges, expectedHardConstraintSetChanged: false, expectedSoftPreferenceSetChanged: false, expectedEligibilityEffect: "NOT_CONFIGURED", validFrom: structural.authorityCatalog.entries[5].validFrom, validUntil: structural.authorityCatalog.entries[5].validUntil, allowedScenarioIds: ["budget-narrow-vs-broad"] }, structural), /require_verified_release_capability/);
 });
 
 test("rehashing Oracle and report cannot authorize changed expectations or Product claims", async () => {
@@ -284,11 +286,11 @@ test("flip comparison accepts only verified contexts and exact authorized change
 });
 
 test("catalog release rejects missing, additional, duplicate, unknown, and relabeled artifacts", () => {
-  const validate = (value, acceptedHash = ACCEPTED_PHASE3A_ORACLE_RELEASE_HASH) => validateAcceptedOracleCatalogs(value.authority, value.trust, value.release, acceptedHash, PHASE3A_RELEASE_SCENARIO_IDS);
+  const validate = (value) => validateOracleCatalogStructure(value.authority, value.trust, value.release, PHASE3A_RELEASE_SCENARIO_IDS);
   const missingAuthority = cloneOracleRelease(); missingAuthority.authority.entries.pop(); rehash(missingAuthority.authority, "catalogHash"); assert.throws(() => validate(missingAuthority), /minimum items|entry_count|release_catalog/);
   const missingAnchor = cloneOracleRelease(); missingAnchor.trust.entries.pop(); rehash(missingAnchor.trust, "catalogHash"); assert.throws(() => validate(missingAnchor), /minimum items|entry_count|release_catalog/);
   const additional = cloneOracleRelease(); additional.authority.entries.push(structuredClone(additional.authority.entries[0])); rehash(additional.authority, "catalogHash"); assert.throws(() => validate(additional), /maximum items/);
-  for (const field of ["scenarioId", "oracleId", "authorityRecordId"]) { const duplicate = cloneOracleRelease(); duplicate.authority.entries[1][field] = duplicate.authority.entries[0][field]; rehash(duplicate.authority.entries[1], "entryHash"); rehash(duplicate.authority, "catalogHash"); duplicate.trust.authorityCatalogHash = duplicate.authority.catalogHash; rehash(duplicate.trust, "catalogHash"); duplicate.release.authorityCatalogHash = duplicate.authority.catalogHash; duplicate.release.trustAnchorCatalogHash = duplicate.trust.catalogHash; rehash(duplicate.release, "releaseHash"); assert.throws(() => validate(duplicate, duplicate.release.releaseHash), /duplicate|entry_binding|catalog_order/); }
+  for (const field of ["scenarioId", "oracleId", "authorityRecordId"]) { const duplicate = cloneOracleRelease(); duplicate.authority.entries[1][field] = duplicate.authority.entries[0][field]; rehash(duplicate.authority.entries[1], "entryHash"); rehash(duplicate.authority, "catalogHash"); duplicate.trust.authorityCatalogHash = duplicate.authority.catalogHash; rehash(duplicate.trust, "catalogHash"); duplicate.release.authorityCatalogHash = duplicate.authority.catalogHash; duplicate.release.trustAnchorCatalogHash = duplicate.trust.catalogHash; rehash(duplicate.release, "releaseHash"); assert.throws(() => validate(duplicate), /duplicate|entry_binding|catalog_order/); }
   const unknown = cloneOracleRelease(); unknown.authority.catalogVersion = "unknown-authority-catalog-version"; rehash(unknown.authority, "catalogHash"); assert.throws(() => validate(unknown), /expected/);
   const relabeled = cloneOracleRelease(); relabeled.authority.entries[5].authority.rankingExpectation = "FOUNDER_APPROVED_DIRECTION"; assert.throws(() => validate(relabeled), /expected/);
   const production = cloneOracleRelease(); production.release.productionCapable = true; rehash(production.release, "releaseHash"); assert.throws(() => validate(production), /expected/);
@@ -305,7 +307,8 @@ test("accepted release pins expectations, inputs, sides, constraints, and approv
   ];
   for (const [label, mutate] of mutations) {
     const value = cloneOracleRelease(); mutate(value.authority.entries[5]); fullyRehashOracleRelease(value);
-    assert.throws(() => validateAcceptedOracleCatalogs(value.authority, value.trust, value.release, ACCEPTED_PHASE3A_ORACLE_RELEASE_HASH, PHASE3A_RELEASE_SCENARIO_IDS), /context_oracle_release_not_accepted/, label);
+    const structural = validateOracleCatalogStructure(value.authority, value.trust, value.release, PHASE3A_RELEASE_SCENARIO_IDS);
+    assert.throws(() => selectAcceptedOracleArtifacts(structural, "budget-narrow-vs-broad"), /require_verified_release_capability/, label);
   }
   for (const [label, mutate, error] of [
     ["registry", (entry) => { entry.registryVersion = "unknown-registry-version"; }, /registry_version_unknown/],
@@ -313,10 +316,10 @@ test("accepted release pins expectations, inputs, sides, constraints, and approv
     ["workbench", (entry) => { entry.workbenchVersion = "unknown-workbench-version"; }, /workbench_version_unknown/],
   ]) {
     const value = cloneOracleRelease(); mutate(value.authority.entries[5]); fullyRehashOracleRelease(value);
-    assert.throws(() => validateAcceptedOracleCatalogs(value.authority, value.trust, value.release, value.release.releaseHash, PHASE3A_RELEASE_SCENARIO_IDS), error, label);
+    assert.throws(() => validateOracleCatalogStructure(value.authority, value.trust, value.release, PHASE3A_RELEASE_SCENARIO_IDS), error, label);
   }
-  const product = cloneOracleRelease(); product.authority.entries[5].productQualityClaim = true; rehash(product.authority.entries[5], "entryHash"); rehash(product.authority, "catalogHash"); assert.throws(() => validateAcceptedOracleCatalogs(product.authority, product.trust, product.release, ACCEPTED_PHASE3A_ORACLE_RELEASE_HASH, PHASE3A_RELEASE_SCENARIO_IDS), /expected/);
-  const approvedAnchor = cloneOracleRelease(); approvedAnchor.trust.entries[5].productApproved = true; rehash(approvedAnchor.trust.entries[5], "anchorHash"); rehash(approvedAnchor.trust, "catalogHash"); assert.throws(() => validateAcceptedOracleCatalogs(approvedAnchor.authority, approvedAnchor.trust, approvedAnchor.release, ACCEPTED_PHASE3A_ORACLE_RELEASE_HASH, PHASE3A_RELEASE_SCENARIO_IDS), /expected/);
+  const product = cloneOracleRelease(); product.authority.entries[5].productQualityClaim = true; rehash(product.authority.entries[5], "entryHash"); rehash(product.authority, "catalogHash"); assert.throws(() => validateOracleCatalogStructure(product.authority, product.trust, product.release, PHASE3A_RELEASE_SCENARIO_IDS), /expected/);
+  const approvedAnchor = cloneOracleRelease(); approvedAnchor.trust.entries[5].productApproved = true; rehash(approvedAnchor.trust.entries[5], "anchorHash"); rehash(approvedAnchor.trust, "catalogHash"); assert.throws(() => validateOracleCatalogStructure(approvedAnchor.authority, approvedAnchor.trust, approvedAnchor.release, PHASE3A_RELEASE_SCENARIO_IDS), /expected/);
 });
 
 test("catalog, report, side, and release identities are recursively bound", async () => {
@@ -325,7 +328,75 @@ test("catalog, report, side, and release identities are recursively bound", asyn
   assert.throws(() => validateContextFlipReport(run.report, run.flippedVerified, run.baseVerified, catalogs), /context_oracle_snapshot_binding_mismatch/);
   const oldReportNewCatalog = structuredClone(catalogs); oldReportNewCatalog.authorityCatalog.catalogHash = "0".repeat(64); assert.throws(() => validateContextFlipReport(run.report, run.baseVerified, run.flippedVerified, oldReportNewCatalog), /release_binding_mismatch/);
   const newReportOldAnchor = structuredClone(run.report); newReportOldAnchor.oracleTrustAnchorCatalogHash = "0".repeat(64); rehash(newReportOldAnchor, "reportHash"); assert.throws(() => validateContextFlipReport(newReportOldAnchor, run.baseVerified, run.flippedVerified, catalogs), /release_binding_mismatch/);
-  const workbench = await runContextFlipWorkbench(); replayContextFlipWorkbench(workbench); const replay = await runContextFlipWorkbench(); assert.equal(canonicalJson(workbench), canonicalJson(replay));
+  const workbench = await runContextFlipWorkbench(); const replay = await replayContextFlipWorkbench(workbench); assert.equal(canonicalJson(workbench), canonicalJson(replay));
+});
+
+test("recursive Workbench replay rejects inner semantic manipulation after every reachable rehash", async () => {
+  const canonical = await runContextFlipWorkbench();
+  const mutations = [
+    ["dimension with outer hash only", (value) => { value.scenarios[5].changedDimensionKeys = []; rehashWorkbench(value); }],
+    ["dimension with report and outer hash", (value) => { value.scenarios[5].changedDimensionKeys = []; rehashReportAndWorkbench(value); }],
+    ["input classes", (value) => { value.scenarios[5].changedInputClasses = ["AUTHORITY_LOCATION"]; rehashReportAndWorkbench(value); }],
+    ["hard constraint set", (value) => { value.scenarios[5].hardConstraintSetChanged = true; rehashReportAndWorkbench(value); }],
+    ["soft preference set", (value) => { value.scenarios[5].softPreferenceSetChanged = true; rehashReportAndWorkbench(value); }],
+    ["base and flip identities", (value) => { value.scenarios[5].baseDecisionIdentity = "1".repeat(64); value.scenarios[5].flippedDecisionIdentity = "2".repeat(64); rehashReportAndWorkbench(value); }],
+    ["swapped base and flip", (value) => {
+      const report = value.scenarios[5];
+      for (const [baseKey, flipKey] of [["baseContextHash", "flippedContextHash"], ["baseDecisionIdentity", "flippedDecisionIdentity"], ["baseEnvelopeHash", "flippedEnvelopeHash"]]) [report[baseKey], report[flipKey]] = [report[flipKey], report[baseKey]];
+      [report.oracle.baseContextHash, report.oracle.flippedContextHash] = [report.oracle.flippedContextHash, report.oracle.baseContextHash]; rehash(report.oracle, "oracleHash"); rehashReportAndWorkbench(value);
+    }],
+    ["oracle expectation", (value) => { value.scenarios[5].oracle.expectedStructuralChanges = ["context.intent.explicit"]; rehash(value.scenarios[5].oracle, "oracleHash"); rehashReportAndWorkbench(value); }],
+    ["authority binding", (value) => { value.scenarios[5].oracle.authorityBinding.authorityHash = "3".repeat(64); value.scenarios[5].oracleAuthorityHash = "3".repeat(64); rehash(value.scenarios[5].oracle, "oracleHash"); rehashReportAndWorkbench(value); }],
+    ["report from another scenario", (value) => { value.scenarios[5] = structuredClone(value.scenarios[4]); rehashWorkbench(value); }],
+    ["unchanged inner report hash", (value) => { value.scenarios[5].changedDimensionKeys = []; rehashWorkbench(value); }],
+    ["new runtime-valid report", (value) => { value.scenarios[5].unchangedDimensionKeys = value.scenarios[5].unchangedDimensionKeys.slice(1); rehashReportAndWorkbench(value); }],
+  ];
+  for (const [label, mutate] of mutations) {
+    const forged = structuredClone(canonical); mutate(forged);
+    await assert.rejects(replayContextFlipWorkbench(forged), /context_(?:flip|oracle)_|Hash_mismatch|content hash mismatch|expected/, label);
+  }
+});
+
+test("recursive Workbench replay requires the exact released Scenario order and unique inner identities", async () => {
+  const canonical = await runContextFlipWorkbench();
+  const mutations = [
+    ["missing", (value) => { value.scenarios.pop(); rehashWorkbench(value); }],
+    ["additional", (value) => { value.scenarios.push(structuredClone(value.scenarios[0])); rehashWorkbench(value); }],
+    ["duplicate", (value) => { value.scenarios[5] = structuredClone(value.scenarios[4]); rehashWorkbench(value); }],
+    ["reordered", (value) => { [value.scenarios[4], value.scenarios[5]] = [value.scenarios[5], value.scenarios[4]]; rehashWorkbench(value); }],
+    ["foreign", (value) => { value.scenarios[5].scenarioId = "foreign-context-scenario"; rehashReportAndWorkbench(value); }],
+    ["duplicate report identity", (value) => { value.scenarios[5].reportHash = value.scenarios[4].reportHash; rehashWorkbench(value); }],
+    ["duplicate oracle and authority", (value) => { const target = value.scenarios[5]; const source = value.scenarios[4]; target.oracle.oracleId = source.oracle.oracleId; target.oracle.authorityBinding.authorityRecordId = source.oracle.authorityBinding.authorityRecordId; rehash(target.oracle, "oracleHash"); rehashReportAndWorkbench(value); }],
+  ];
+  for (const [label, mutate] of mutations) {
+    const forged = structuredClone(canonical); mutate(forged);
+    await assert.rejects(replayContextFlipWorkbench(forged), /context_flip_|items|expected/, label);
+  }
+});
+
+test("only the pinned loader can mint an Accepted Oracle capability", async () => {
+  const attacker = cloneOracleRelease(); attacker.authority.entries[5].authority.allowedStructuralChanges = ["context.budget.explicit", "context.intent.explicit"];
+  const selfSigned = fullyRehashOracleRelease(attacker);
+  const structural = validateOracleCatalogStructure(selfSigned.authority, selfSigned.trust, selfSigned.release, PHASE3A_RELEASE_SCENARIO_IDS);
+  for (const [label, candidate] of [
+    ["structural", structural],
+    ["cast-shaped", { authorityCatalog: structural.authorityCatalog, trustAnchorCatalog: structural.trustAnchorCatalog, release: structural.release }],
+    ["spread", { ...loadAcceptedPhase3AOracleRelease() }],
+    ["structured clone", structuredClone(loadAcceptedPhase3AOracleRelease())],
+    ["serialized", JSON.parse(JSON.stringify(loadAcceptedPhase3AOracleRelease()))],
+  ]) assert.throws(() => selectAcceptedOracleArtifacts(candidate, "budget-narrow-vs-broad"), /require_verified_release_capability/, label);
+  assert.equal(loadAcceptedPhase3AOracleRelease.length, 0, "the capability loader accepts no caller-selected artifacts or hash");
+  const accepted = loadAcceptedPhase3AOracleRelease(); assert.equal(selectAcceptedOracleArtifacts(accepted, "budget-narrow-vs-broad").authorityEntry.scenarioId, "budget-narrow-vs-broad");
+  const stale = cloneOracleRelease(); stale.release.releaseId = "backyrd-vnext-context-oracle-release-phase3a-v0"; rehash(stale.release, "releaseHash"); assert.throws(() => validateOracleCatalogStructure(stale.authority, stale.trust, stale.release, PHASE3A_RELEASE_SCENARIO_IDS), /expected/);
+});
+
+test("positive Workbench replay rebuilds all fifteen reports byte-identically", async () => {
+  const first = await runContextFlipWorkbench(); const rebuilt = await replayContextFlipWorkbench(first); const second = await runContextFlipWorkbench();
+  assert.equal(canonicalJson(rebuilt), canonicalJson(first)); assert.equal(canonicalJson(second), canonicalJson(first));
+  assert.equal(new Set(rebuilt.scenarios.map((report) => report.reportHash)).size, 15);
+  assert.equal(new Set(rebuilt.scenarios.map((report) => report.oracle.oracleHash)).size, 15);
+  assert.equal(new Set(rebuilt.scenarios.map((report) => report.oracleAuthorityHash)).size, 15);
+  assert.ok(rebuilt.scenarios.every((report) => report.oracleReleaseHash === rebuilt.oracleReleaseHash));
 });
 
 test("recursive integrity rejects rehashed inner semantic manipulation", async () => {

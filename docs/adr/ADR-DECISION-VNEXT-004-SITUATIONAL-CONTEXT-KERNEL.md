@@ -12,6 +12,8 @@ Consumer access is capability-based. A caller first recursively verifies the com
 
 Structural Oracles consume a pre-released Authority Catalog and a separately released Trust-Anchor Catalog. A review-pinned synthetic release record binds both catalog hashes, the exact 15-scenario allowlist, and the fixture workbench version before a run starts. The Oracle contains only an authority binding, never its own trust root. The authority binds scenario, base/flip contexts and envelopes, exact allowed input and dimension changes, hard/soft set changes, eligibility expectation, validity and approval class. Reports bind all release hashes, are rebuilt from verified contexts, and must match those sets exactly.
 
+Catalog structure validation cannot mint acceptance. The sole capability loader has no artifact or accepted-hash parameters and is internally pinned to the reviewed synthetic release. Workbench replay is asynchronous because it reruns all 15 scenarios, recursively verifies both contexts, rebuilds every Oracle/report, and compares each report and the complete workbench byte-for-byte. A report hash or rehashed outer workbench is never a substitute for reconstruction.
+
 Authority/Anchor provisioning is fixture tooling and is not exported from the runtime package API. A workbench run can validate and consume an accepted release but cannot generate or trust an arbitrary Authority. Any expectation change requires a reviewed catalog/release hash change.
 
 ## Why
@@ -31,6 +33,7 @@ Phase 2 safely bound a small context shape but could not express provider outage
 - Fixture registries and `DRAFT`/`NOT_CONFIGURED` dimensions cannot be relabelled as Product Ranking inputs.
 - Soft preferences never enter Eligibility; hard constraints remain subject to the central rule-wise policy.
 - Oracle self-authorization and partially matching flip reports fail closed, even after outer hashes are recomputed.
+- Inner Workbench report manipulation fails closed even after every reachable report and Workbench hash is recomputed.
 - Verified Context and accepted-catalog capabilities are process-local, non-serializable authorities. Full verification is required again after any process, worker, queue, or service boundary.
 
 ## Rejected alternatives
