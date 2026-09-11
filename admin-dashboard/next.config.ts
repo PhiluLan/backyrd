@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@backyrd/canonical-semantics", "@backyrd/world-knowledge-authoring-ui", "@backyrd/world-knowledge-core"],
   turbopack: {
     root: path.resolve(process.cwd(), ".."),
+    resolveAlias: {
+      "@backyrd/world-knowledge-core": path.resolve(process.cwd(), "../packages/world-knowledge-core/dist/index.js"),
+    },
   },
 };
 
