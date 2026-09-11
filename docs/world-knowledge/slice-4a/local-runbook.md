@@ -11,12 +11,12 @@ BACKYRD_KEEP_SUPABASE_RUNNING=true \
   BACKYRD_CHANGED_DATABASE_TESTS_FILE=/private/tmp/wk4a-database-tests.txt \
   bash scripts/ci/validate-supabase-current.sh
 set -a; source "${TMPDIR:-/tmp}/backyrd-world-authoring-local.env"; set +a
-npm --workspace web run dev -- --hostname 127.0.0.1 --port 3217
+npm --workspace web run dev -- --hostname 127.0.0.1 --port 3219
 ```
 
 Create the selected-test file once with `printf '%s\n' 'supabase/tests/world_knowledge_slice4a_authoring.sql' > /private/tmp/wk4a-database-tests.txt`. This is the canonical clean-room reset: it excludes certified one-time historical data operations, runs the complete database safety gate, enables authoring only in that disposable local database, seeds three local identities, and leaves the isolated stack running. The owner-only environment file contains local secrets and is never committed. Stop the stack with `npx supabase stop --workdir "$BACKYRD_LOCAL_SUPABASE_WORKDIR" --no-backup` after sourcing that file.
 
-Owner URL: `http://127.0.0.1:3217/owner/world-knowledge`
+Owner URL: `http://127.0.0.1:3219/owner/world-knowledge`
 
 Admin URL (second process):
 

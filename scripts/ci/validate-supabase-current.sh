@@ -199,7 +199,20 @@ printf '%s\n' \
 diff -u "$validation_root/db-lint-expected.txt" "$validation_root/db-lint-actual.txt"
 printf 'Current candidate clean boot passed: migration lineage, semantic schema/ACL, SQL behavior, negative authorization and DB lint.\n'
 if test "$keep_running" = true; then
-  psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command "alter database postgres set app.world_knowledge_founder_authoring_enabled='on'" >/dev/null
+  # The disposable database is owned by supabase_admin. Use that local-only
+  # administrative connection for the opt-in database setting; application
+  # roles still cannot alter or bypass the gate.
+  psql "$ADMIN_DB_URL" -X --set ON_ERROR_STOP=1 --command "alter database postgres set app.world_knowledge_founder_authoring_enabled='on'" >/dev/null
+  # PostgREST keeps pooled database sessions. Restart only this disposable
+  # project's REST container so every new request inherits the opt-in setting.
+  docker restart "supabase_rest_$project_id" >/dev/null
+  for attempt in {1..20}; do
+    # The image does not declare a Docker healthcheck. Any HTTP response from
+    # the local REST endpoint proves that the listener and DB pool are ready.
+    if curl --silent --output /dev/null "$REST_URL/"; then break; fi
+    if test "$attempt" = 20; then printf 'Local PostgREST did not become ready after enabling Founder authoring.\n' >&2; exit 1; fi
+    sleep 0.5
+  done
   env API_URL="$API_URL" SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" ANON_KEY="$ANON_KEY" node "$repo_root/scripts/world-knowledge/seed-local-authoring.mjs"
   runtime_env="${TMPDIR:-/tmp}/backyrd-world-authoring-local.env"
   umask 077
