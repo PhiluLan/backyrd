@@ -14,7 +14,7 @@ select jsonb_build_object(
       'lifecycle',case s.status when 'approved' then 'ACTIVE_PUBLISHED' when 'pending' then 'DRAFT' when 'archived' then 'ARCHIVED' else 'UNCLEAR' end,
       'fields',jsonb_strip_nulls(jsonb_build_object(
         'name',s.name,'address',s.address,'city',s.city,'country',s.country,
-        'lat',s.lat,'lng',s.lng,'category',c.slug,'description',s.description,
+        'lat',s.lat,'lng',s.lng,'category',c.name,
         'website',s.website,'phone',s.phone,'email',s.email,'price_level',s.price_level,
         'hours_regular',(select jsonb_agg(jsonb_build_object('day',h.day_of_week,'open',h.open_time,'close',h.close_time) order by h.day_of_week,h.idx,h.open_time) from public.spot_hours h where h.spot_id=s.id)
       ))

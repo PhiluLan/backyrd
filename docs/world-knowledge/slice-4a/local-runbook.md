@@ -9,7 +9,7 @@ The stages below are deliberately separate:
 - **NO PRODUCTION WRITE** — the import command refuses a non-loopback target.
 - **NO DEPLOYMENT** — none of these commands deploy migrations, Functions, Web, Mobile, or OTA.
 
-Never place a database URL, password, token, or service key in a command argument. The export requires an already configured libpq service profile name in `WK_LEGACY_EXPORT_PGSERVICE`. If no authorized profile exists, stop after validating the query and report Production coverage as `UNKNOWN`; do not search for credentials.
+Never place a database URL, password, token, or service key in a command argument. The export accepts either an already configured libpq service profile in `WK_LEGACY_EXPORT_PGSERVICE`, or one exact JSON result line from an authenticated, explicitly read-only Supabase MCP transaction through `WK_LEGACY_EXPORT_STDIN=1`. The stdin mode exists so the MCP result can flow directly into the mode-0600 artifact without a second plaintext staging file. If neither authorized route exists, stop and report Production coverage as `UNKNOWN`; do not search for credentials.
 
 ### PRODUCTION READ ONLY — inventory and export
 
