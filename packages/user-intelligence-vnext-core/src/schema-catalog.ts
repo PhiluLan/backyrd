@@ -74,5 +74,9 @@ export const USER_INTELLIGENCE_VNEXT_SCHEMA_CATALOG = Object.freeze({
     ["ProductPolicyEvidenceAnchor", CONTRACT_VERSIONS.productPolicyEvidenceAnchor, "ProductPolicyEvidenceAnchorSchema", "verifyProductPolicyEvaluation"],
     ["ProductPolicyEvaluation", CONTRACT_VERSIONS.productPolicyEvaluation, "ProductPolicyEvaluationSchema", "verifyProductPolicyEvaluation"],
     ["ProductPolicyReducerState", CONTRACT_VERSIONS.productPolicyReducerState, "ProductPolicyReducerStateSchema", "verifyProductPolicyState"],
+    ["Phase3DCalibrationCandidate", CONTRACT_VERSIONS.phase3dCalibrationCandidate, "Phase3DCalibrationCandidateSchema", "verifyPhase3DCalibrationCandidates"],
+    ["Phase3DCalibrationRelease", CONTRACT_VERSIONS.phase3dCalibrationRelease, "Phase3DCalibrationReleaseSchema", "verifyPhase3DCalibrationCandidates"],
+    ["Phase3DCalibrationTrustAnchor", CONTRACT_VERSIONS.phase3dCalibrationTrustAnchor, "Phase3DCalibrationTrustAnchorSchema", "verifyPhase3DCalibrationCandidates"],
+    ["Phase3DFounderLabReport", CONTRACT_VERSIONS.phase3dReport, "Phase3DFounderLabReportSchema", "verifyPhase3DFounderLabReport"],
   ].map(([name, contractVersion, runtimeSchemaExport, semanticValidatorExport]) => ({ name, contractVersion, runtimeSchemaExport, semanticValidatorExport }))),
 });

@@ -17,3 +17,4 @@ export * from "./calibration.js";
 export * from "./calibration-adapter.js";
 export * from "./calibration-fixtures.js";
 export * from "./product-policy.js";
+export * from "./phase3d-lab.js";

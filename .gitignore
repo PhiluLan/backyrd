@@ -149,6 +149,7 @@ dist
 
 # Local editor settings
 .vscode/
+.local/
 
 # Next / web caches
 .next/

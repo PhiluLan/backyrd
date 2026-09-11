@@ -1,0 +1,19 @@
+{
+  "contractVersion": "backyrd.user-intelligence.founder-lab-scenario-matrix@3d-1",
+  "scenarioSetVersion": "backyrd.user-intelligence.founder-lab-scenarios@3d-1",
+  "productionAuthorized": false,
+  "families": {
+    "search": ["search-single-intent", "search-repeated-context", "search-travel-one-off", "search-for-other-person", "search-duplicate-retry", "search-same-journey", "search-negative-outcome", "search-context-flip", "search-uncertain-world", "search-without-visit", "search-positive-experience"],
+    "skip": ["skip-single", "skip-same-journey", "skip-different-decisions", "skip-stable-target", "skip-time-pressure", "skip-then-positive", "spot-not-fit", "alternative-neutral"],
+    "concept": ["concept-one-spot-many-concepts", "concept-same-spot-repeated", "concept-distinct-spots", "concept-context-split", "concept-uncertain-world", "concept-conflict", "concept-corrected", "concept-different-targets"],
+    "boundaries": ["dwell-attention-only", "three-independent-visits", "full-incremental-parity", "consent-withdrawal", "full-reset", "account-erasure", "commercial-counterfactual", "authority-tampering"]
+  },
+  "oracles": [
+    { "id": "no-raw-search", "expected": "raw-search-never-enters-model" },
+    { "id": "no-global-skip-aversion", "expected": "skip-remains-spot-decision-context-bound" },
+    { "id": "no-dwell-taste", "expected": "attention-only" },
+    { "id": "no-production-projection", "expected": "zero-personal-items" },
+    { "id": "no-false-independence", "expected": "same-journey-counts-once" },
+    { "id": "conflict-preserved", "expected": "no-automatic-winner" }
+  ]
+}

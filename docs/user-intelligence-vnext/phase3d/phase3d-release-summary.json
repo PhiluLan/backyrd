@@ -1,0 +1,61 @@
+{
+  "contractVersion": "backyrd.user-intelligence.founder-lab-release-summary@3d-1",
+  "generatorVersion": "backyrd.user-intelligence.phase3d-report-generator@1.0",
+  "scenarioSetVersion": "backyrd.user-intelligence.founder-lab-scenarios@3d-1",
+  "scenarioSetHash": "4e94fe381f05447065a78a8ff337fc15f2560710b5231e216155b4604f9d69e8",
+  "scenarioCount": 35,
+  "candidateSetHash": "5591c9869c5555055914557361de0a83212e411369b969186571eb67c507b4d4",
+  "candidateHashes": [
+    {
+      "candidateId": "CONSERVATIVE",
+      "candidateHash": "185ff3e740e4c09a1228114f1907003dd70747f16f76435c1a28529de5415107"
+    },
+    {
+      "candidateId": "BALANCED",
+      "candidateHash": "93ac7ea454f5d21136d8ca073c8c18a1a27563c7e5fb4b9b975a3be103b1659d"
+    },
+    {
+      "candidateId": "LEARNING_ORIENTED",
+      "candidateHash": "4478bbcfba4b679a5e0bacd6b1fcbbaa705f092d502227ca41b18aa92ef58f3b"
+    }
+  ],
+  "sourceProductPolicyHash": "e6cecdd5107285eae1cb91b9ff29d2b4b8f2756cc3fff05bda14eb0fd6bb7be4",
+  "sourceRegistryHash": "2b6b502d14d68edb0f060708d456c119103e1af4823d37e67d18b674be6f4f13",
+  "calibrationReleaseHash": "382b46b0c50f9c0cef793f0e9eb5878137340b10c04e4866e9b5ca286146349a",
+  "calibrationTrustAnchorHash": "38924e4e74f6d85230a8b582ba419335dcd9972cff447e6e411faeafbf36bd61",
+  "fullReportHash": "beb6346495834b0bce4cb3405c7180cf3a7bff5dafe754f1e8246ccd43873a30",
+  "productionAuthorized": false,
+  "runtimeActivated": false,
+  "rankingAuthorized": false,
+  "eligibilityAuthorized": false,
+  "executionAuthorized": false,
+  "centralResults": {
+    "searchContextualPromotionsByCandidate": [
+      {
+        "candidateId": "CONSERVATIVE",
+        "count": 0
+      },
+      {
+        "candidateId": "BALANCED",
+        "count": 2
+      },
+      {
+        "candidateId": "LEARNING_ORIENTED",
+        "count": 2
+      }
+    ],
+    "searchLongTermPromotionRemainsEvaluationOnly": true,
+    "skipGlobalAversionCount": 0,
+    "productionProjectionPersonalItems": 0,
+    "retentionDurationsConfigured": false
+  },
+  "productionPlan": {
+    "migrations": [],
+    "functions": [],
+    "authChanges": [],
+    "productWiring": [],
+    "runtimeDeploymentRequired": false,
+    "executionAuthorized": false
+  },
+  "summaryHash": "5f934abdd99fdda0647247948d335ac3d1d97af6fa21fa53e602b994b08e498f"
+}
