@@ -75,6 +75,8 @@ test("no consent, missing projection, cold user, and kill switch deterministical
     const { envelope, report } = await execute({ authority: bound, userProjectionPort: port });
     assert.equal(envelope.userProjection.status, "NEUTRAL");
     assert.equal(envelope.userProjection.neutralReason, reason);
+    assert.notEqual(envelope.userProjection.subjectBindingHash, envelope.actor.subjectBindingHash, "neutral projections use the canonical privacy-neutral subject binding");
+    assert.equal(envelope.userProjection.authenticationContextHash, envelope.actor.authenticationContextHash, "server actor authority remains independently bound");
     assert.equal(envelope.userProjectionValue.taste.length, 0);
     assert.ok(report.engineResults.every((engine) => engine.confidence.components.find((item) => item.key === "USER_SUFFICIENCY")?.state === "UNKNOWN"));
   }

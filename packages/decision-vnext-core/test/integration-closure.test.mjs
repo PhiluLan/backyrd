@@ -23,7 +23,7 @@ test("canonical User projection port is privacy-neutral and has no eligibility a
   assert.equal(parseRelevantUserProjection(projection).neutralReason, "NO_CONSENT"); assert.equal(projection.boundaries.eligibilityAuthority, false); assert.deepEqual(projection.taste, []);
 });
 
-test("missing World and User degradation modes are explicit and subject-bound", async () => {
+test("missing World degradation fails closed while privacy-neutral User degradation has no personal subject binding", async () => {
   const synthetic = world(); const envelope = execution(undefined, synthetic);
   await assert.rejects(() => readCanonicalWorld(new SyntheticWorldKnowledgeReader(synthetic), "syn-spot-missing"), /world_snapshot_missing/);
   const baseRequest = { contractVersion: "backyrd.user-intelligence.projection-request@1.0", requestId: envelope.serverRequestId, actor: { kind: "AUTHENTICATED_USER", userId: "synthetic-user", subjectBindingHash: envelope.authenticatedActor.subjectBindingHash, authenticationContextHash: "0".repeat(64), boundBy: "SERVER" }, decisionId: envelope.decisionId, snapshot: null, context: { contextContractVersion: envelope.contextBinding.contractVersion, contextHash: envelope.contextBinding.hash, placeTypes: [], domainKeys: [], rawLocationIncluded: false, socialDetailsIncluded: false }, requestedDomains: [], budgets: { maxItems: 16, maxBytes: 8192 }, projectionPolicyVersion: "phase1-projection-policy-not-configured", killSwitch: false };

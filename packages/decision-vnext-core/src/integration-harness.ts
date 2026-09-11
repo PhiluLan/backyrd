@@ -183,7 +183,17 @@ export function validatePhase2ExecutionEnvelope(envelopeValue: unknown, trustAnc
   if (envelope.candidatePool.candidates.length !== envelope.world.snapshots.length) fail("WORLD_SNAPSHOT_BINDING_MISMATCH");
   if (envelope.candidatePool.worldVersion !== evaluationAuthority.scenario.worldVersion || envelope.candidatePool.candidateGeneratorVersion !== evaluationAuthority.candidatePoolOrigin.generatorVersion || envelope.candidatePool.candidates.length !== evaluationAuthority.candidatePoolOrigin.limit || envelope.candidatePool.candidates.some((entry) => entry.retrievalSource.sourceId !== evaluationAuthority.candidatePoolOrigin.sourceId)) fail("CANDIDATE_POOL_AUTHORITY_MISMATCH");
   envelope.candidatePool.candidates.forEach((entry, index) => { const binding = envelope.world.snapshots[index]; if (!binding || binding.spotId !== entry.candidate.spotId || binding.snapshotHash !== entry.candidate.worldReference.snapshotHash || binding.sourcePolicyVersion !== envelope.world.sourcePolicyVersion || binding.sourcePolicyHash !== envelope.world.sourcePolicyHash) fail("WORLD_SNAPSHOT_BINDING_MISMATCH"); });
-  const projection = parseRelevantUserProjection(envelope.userProjectionValue);
+  const projectionRequestForValidation = projectionRequest({
+    requestId: envelope.serverRequestId,
+    decisionId: envelope.decisionId,
+    userId: envelope.actor.kind === "AUTHENTICATED_USER" ? envelope.actor.userId : "synthetic-anonymous-user",
+    subjectBindingHash: envelope.actor.subjectBindingHash,
+    authenticationContextHash: envelope.actor.kind === "AUTHENTICATED_USER" ? envelope.actor.authenticationContextHash : contentHash("synthetic-anonymous-auth-context"),
+    context: envelope.context,
+    killSwitch: envelope.userProjection.killSwitchRequested,
+    snapshot: envelope.userProjectionValue.snapshot,
+  });
+  const projection = parseRelevantUserProjection(envelope.userProjectionValue, projectionRequestForValidation);
   const envelopeAuthority = { decisionId: envelope.decisionId, serverRequestId: envelope.serverRequestId, sessionId: envelope.sessionId, serverTime: envelope.serverTime, idempotencyIdentity: envelope.idempotencyIdentity, authorizedLocationScope: envelope.authorizedLocationScope, actor: envelope.actor, userKillSwitch: envelope.userProjection.killSwitchRequested };
   const expectedUserBinding = userBinding(projection, envelopeAuthority);
   if (canonicalJson(expectedUserBinding) !== canonicalJson(envelope.userProjection) || projection.subjectBindingHash !== expectedProjectionSubject(projection, envelopeAuthority) || (envelope.actor.kind === "AUTHENTICATED_USER" && envelope.userProjection.authenticationContextHash !== envelope.actor.authenticationContextHash) || (envelope.actor.kind === "ANONYMOUS" && envelope.userProjection.authenticationContextHash !== null)) fail("USER_PROJECTION_BINDING_MISMATCH");
