@@ -3,9 +3,9 @@
   "founderDecisionRecordVersion": "backyrd.user-intelligence.founder-decisions@3c-1",
   "founderDecisionHash": "d40822c2e03d00c68b00c554fdc6f65304cd9c1b3b66650f835fbe22eb6eafb6",
   "productPolicyVersion": "backyrd.user-intelligence.interpretation-policy@3c-1",
-  "productPolicyHash": "286c55acb2bcb3011f45a7b1cf57f69cbd54ac54d9b003f62d5de25006225d2c",
+  "productPolicyHash": "e6cecdd5107285eae1cb91b9ff29d2b4b8f2756cc3fff05bda14eb0fd6bb7be4",
   "signalRegistryVersion": "backyrd.user-intelligence.signal-semantics@3c-1",
-  "signalRegistryHash": "190c3dad71d4b859c9be6b90820599cefd7e706f95707aeba99ee7d653a8b5de",
+  "signalRegistryHash": "2b6b502d14d68edb0f060708d456c119103e1af4823d37e67d18b674be6f4f13",
   "lifecycleManifestHash": "ebb6d7291709e05eb65325591637762da2df7d775cea2818f1e0740eff54bb6a",
   "eventTypeCount": 26,
   "frozenDecisionCount": 20,
@@ -16,7 +16,7 @@
     "searchLongTermPromotion",
     "skipMaturity"
   ],
-  "artifactHash": "409771037a0df17bbe60e56699da0233ab4365006ed51c2e658c121187ec8f1c",
+  "artifactHash": "1794cf55c7a8436a209cb05fbe4d4a81e81dae334c69da2cf7a1be786ad7fb9c",
   "productionPlan": {
     "migrations": [],
     "functions": [],
@@ -24,5 +24,5 @@
     "runtimeDeploymentRequired": false,
     "executionAuthorized": false
   },
-  "summaryHash": "28bea6a93b4b867d1d9709b881efe3f4b991d30c98994fa6e6cd84dde02dba17"
+  "summaryHash": "effc6da65d376c946a8f55027156443bfc376225763084c9933f83bb4e092f6c"
 }

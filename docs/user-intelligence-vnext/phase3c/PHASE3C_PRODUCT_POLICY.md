@@ -14,10 +14,10 @@ Alle Aktivierungsfelder bleiben `false`: `productionAuthorized`, `runtimeActivat
 - Familiarity entsteht exakt ab drei unabhängigen serververifizierten Visits desselben Spots und ist keine Präferenz.
 - Ein Moment stützt nur eine separat autorisierte Experience. Dwell bleibt getrennte, nicht Decision-autorisierte Attention Research Observation.
 - Skip und explizites Spot-„passt nicht“ bleiben schwache Spot×Decision×Context-Evidence. Die Reifeschwelle ist nicht konfiguriert.
-- Search übernimmt nur minimierte Concept-/Context-IDs. Einzelne Suche ist aktuelle Absicht; weitere Promotionsschwellen bleiben nicht konfiguriert.
+- Search übernimmt nur minimierte Concept-/Context-IDs. Eine einzelne Suche erzeugt ausschließlich `RECENT_SEARCH_INTENT`; Wiederholung höchstens `CONTEXTUAL_SEARCH_READINESS`. Beide sind neutral und nicht projectable, solange die Promotionsschwellen nicht konfiguriert sind.
 - Pro Journey wirkt für gerichtetes Learning nur das stärkste autorisierte Signal. Schwächere Beobachtungen bleiben im Audit.
 - Context bleibt gebunden; es gibt kein automatisches Decay und kein „Newest wins“.
-- Sicherer allgemeiner Concept Taste verlangt mehrere unabhängige Spots und sichere World Attribution. Die konkrete Mindestanzahl ist nicht konfiguriert.
+- Sichere World Attribution über mehrere unabhängige Spots erzeugt ausschließlich `CONCEPT_PROMOTION_READINESS`. Solange die konkrete Mindestanzahl nicht konfiguriert ist, entsteht daraus ausdrücklich kein allgemeiner Concept Taste.
 - Semantische Konflikte bleiben append-only, ungelöst und gerichtet aus dem Evaluation Preview zurückgehalten.
 
 ## Qualitative Evidenzklassen
@@ -27,6 +27,8 @@ Die Policy kennt ausschließlich `EXPLICIT_STRONG`, `CONTEXTUAL_REPEATED`, `WEAK
 ## Authority und Verarbeitung
 
 Bestehende kanonische Events passieren zuerst die rekursive Phase-2-Verifikation und den Phase-3B-Adapter. Phase 3C minimiert erst danach. Neue, noch nicht kanonisch produzierte Eventarten existieren ausschließlich als klar markierte synthetische Fixtures mit separater Evaluation Authority. Ein Eigenhash, TypeScript-Cast oder selbst erzeugter Ersatz-Trust-Anchor autorisiert weder Founder Record noch Policy oder Evidence.
+
+Release und Trust Anchors binden zusätzlich Gültigkeitsfenster, Registry-, Founder-, Policy- und Release-Artifact-Hash. Der Verifikationszeitpunkt wird injiziert; eine Release Summary ist niemals Authority.
 
 `RelevantUserProjection` bleibt der einzige Decision-Port. Phase 3C erzeugt nur einen ausdrücklich nicht produktiven Evaluation Preview und eine leere Production-Boundary-Assertion. Eine spätere echte Projection benötigt einen eigenen Aktivierungsauftrag.
 

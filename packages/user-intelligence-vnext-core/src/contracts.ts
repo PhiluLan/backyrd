@@ -67,6 +67,9 @@ export const CONTRACT_VERSIONS = Object.freeze({
   productPolicyEvidenceAnchor: "backyrd.user-intelligence.product-policy-evidence-anchor@3c-1",
   productPolicyEvaluation: "backyrd.user-intelligence.product-policy-evaluation@3c-1",
   productPolicyReducerState: "backyrd.user-intelligence.product-policy-reducer-state@3c-1",
+  productPolicyPrivacyExportAuthority: "backyrd.user-intelligence.product-policy-privacy-export-authority@3c-1",
+  productPolicyPrivacyExportTrustAnchor: "backyrd.user-intelligence.product-policy-privacy-export-trust-anchor@3c-1",
+  productPolicyPrivacyExport: "backyrd.user-intelligence.product-policy-privacy-export@3c-1",
 } as const);
 
 export const SYNTHETIC_CONCEPT_REGISTRY_VERSION = "backyrd.synthetic-user-concepts@1.0";

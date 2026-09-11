@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import {
   CONTRACT_VERSIONS, FOUNDER_DECISION_RECORD_3C, FOUNDER_DECISION_RELEASE_3C,
+  PHASE3C_RELEASE_ARTIFACT_BODY, PHASE3C_RELEASE_ARTIFACT_HASH,
   PRODUCT_INTERPRETATION_POLICY_3C, PRODUCT_POLICY_RELEASE_3C,
   PRODUCT_SIGNAL_SEMANTICS_REGISTRY_3C, USER_INTELLIGENCE_LIFECYCLE_MANIFEST_HASH,
   canonicalJson, contentHash, parseProductSignalSemanticsRegistry,
@@ -10,14 +11,9 @@ import {
 const argument = (name) => { const index = process.argv.indexOf(name); return index < 0 ? null : process.argv[index + 1]; };
 const registry = parseProductSignalSemanticsRegistry(PRODUCT_SIGNAL_SEMANTICS_REGISTRY_3C);
 const policy = verifyProductInterpretationPolicy(PRODUCT_INTERPRETATION_POLICY_3C, createPhase3CRepositoryReleaseTrust());
-const artifactBody = {
-  contractVersion: "backyrd.user-intelligence.product-policy-release-artifact@3c-1",
-  productionAuthorized: false, runtimeActivated: false, shadowTrafficAuthorized: false, rankingAuthorized: false, eligibilityAuthorized: false,
-  founderDecisionRecord: FOUNDER_DECISION_RECORD_3C, founderDecisionRelease: FOUNDER_DECISION_RELEASE_3C,
-  productPolicy: policy, productPolicyRelease: PRODUCT_POLICY_RELEASE_3C,
-  signalRegistry: registry, lifecycleManifestHash: USER_INTELLIGENCE_LIFECYCLE_MANIFEST_HASH,
-};
+const artifactBody = PHASE3C_RELEASE_ARTIFACT_BODY;
 const artifact = { ...artifactBody, artifactHash: contentHash(artifactBody) };
+if (artifact.artifactHash !== PHASE3C_RELEASE_ARTIFACT_HASH) throw new Error("phase3c_release_artifact_trust_anchor_mismatch");
 const summaryBody = {
   contractVersion: "backyrd.user-intelligence.product-policy-release-summary@3c-1",
   founderDecisionRecordVersion: CONTRACT_VERSIONS.founderDecisionRecord,
