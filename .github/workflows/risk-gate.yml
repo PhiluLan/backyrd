@@ -246,6 +246,7 @@ jobs:
           npm run decision-vnext:smoke
           npm run decision-vnext:phase2:evaluate
           npm run decision-vnext:phase3a:context
+          npm run decision-vnext:phase3b:context
       - name: Validate independently derived semantic release record
         env:
           BASE_SHA: ${{ needs.classify.outputs.base-sha }}

@@ -1,0 +1,14 @@
+{
+  "contractVersion": "backyrd.decision-vnext.context-compatibility@3b-1",
+  "productionAuthorized": false,
+  "items": [
+    { "component": "phase3a-context-kernel", "classification": "KEEP", "reason": "Authority, privacy and consumer capability invariants remain unchanged." },
+    { "component": "phase3a-fixture-registry", "classification": "KEEP", "reason": "Historical synthetic evaluation only; not promoted to Product truth." },
+    { "component": "phase3b-product-context-release", "classification": "EXTEND", "reason": "Additive signed Product policy boundary; runtime inactive." },
+    { "component": "world-price-contract", "classification": "ADAPT", "reason": "Consumed from canonical World registry without copying." },
+    { "component": "relevant-user-projection", "classification": "KEEP", "reason": "Canonical minimized read-only boundary; no Context writeback." },
+    { "component": "external-resolvers", "classification": "UNKNOWN_NEEDS_DECISION", "reason": "Ports exist, providers remain NOT_CONFIGURED." },
+    { "component": "decision-v13-context", "classification": "DEPRECATE", "reason": "Historical Production behavior remains unchanged and is not imported into vNext." },
+    { "component": "commercial-context-signals", "classification": "PROHIBITED", "reason": "No Contract or Engine channel." }
+  ]
+}
