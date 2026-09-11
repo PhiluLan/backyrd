@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(process.cwd(), ".."),
     resolveAlias: {
-      "@backyrd/world-knowledge-core": path.resolve(process.cwd(), "../packages/world-knowledge-core/dist/index.js"),
+      "@backyrd/world-knowledge-core": "../packages/world-knowledge-core/dist/index.js",
     },
   },
 };
