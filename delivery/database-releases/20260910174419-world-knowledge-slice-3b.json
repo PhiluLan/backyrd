@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260910174419-world-knowledge-slice-3b",
+  "previousEvidence": "review-capture-trust-v2",
+  "previousFingerprints": {
+    "publicAclSha256": "097c34637cecd413bccb112f663adfc3d2092defdb6f0d04015fe9b0f8e393fd",
+    "applicationSchemaSha256": "898210dbedce247f82b45e44657cfe0e759c05ce9ce6fa3cd65823c311333d37"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260910174419_world_knowledge_slice_3b_foundation.sql",
+      "sha256": "11ec437c394d452a5b5d152ab342f18316fdfdcc4fec074fb723d0c8710c6be2"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/world_knowledge_slice3b.sql",
+      "sha256": "63dc8d9281be3a7efea8ef2b8f5db4365450b27fc79822e605f3abe115d99c4e"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "00f4ba7cab4f2f4e3d74bcfe2f757fcf0931b0d4a88b469b849aacf9cbb5bcf3",
+    "applicationSchemaSha256": "dbaa8f2112148ea76a503ab64e921889b70b2a5f905e75a552a97902d1bfb40a"
+  }
+}

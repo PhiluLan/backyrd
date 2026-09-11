@@ -7,7 +7,7 @@
   "productionMetricsStatus": "NOT_EMPIRICALLY_CONFIRMED_NO_AUTHORIZED_CONNECTION",
   "registry": {
     "foundationAreas": 25,
-    "attributeDefinitions": 47
+    "attributeDefinitions": 51
   },
   "legacyMapping": {
     "rows": 36,
@@ -31,15 +31,15 @@
     }
   },
   "repository": {
-    "migrationFiles": 139,
-    "migrationTip": "20260909073004_close_review_capture_trust_v2.sql",
-    "createTableStatements": 292,
-    "createViewStatements": 17,
-    "securityDefinerMentions": 822,
-    "enableRlsStatements": 278,
+    "migrationFiles": 140,
+    "migrationTip": "20260910174419_world_knowledge_slice_3b_foundation.sql",
+    "createTableStatements": 313,
+    "createViewStatements": 18,
+    "securityDefinerMentions": 837,
+    "enableRlsStatements": 280,
     "publicExecuteGrants": 0,
     "anonExecuteGrants": 10,
-    "authenticatedExecuteGrants": 113
+    "authenticatedExecuteGrants": 115
   },
   "empiricalUnknowns": [
     "production spot counts",
@@ -49,5 +49,5 @@
     "live duplicate candidates",
     "live migration tip"
   ],
-  "reportHash": "25c0b5cf35b7ccda54db69413894b4d9dbc5b0c8d83a27c0563a9f5c5b8b0ea3"
+  "reportHash": "157eb878d8720d369c519cbb9f370b8a0a4aca4b9032ea5ce2ad21e69465e29e"
 }

@@ -1,6 +1,6 @@
 import {
-  CONTRACT_VERSIONS as USER_CONTRACT_VERSIONS, RelevantUserProjectionSchema, SYNTHETIC_CONCEPT_REGISTRY_VERSION, SYNTHETIC_MANIFEST,
-  NEUTRAL_SUBJECT_BINDING_HASH, canonicalBytes, contentHash as userContentHash, projectionHashBody,
+  CONTRACT_VERSIONS as USER_CONTRACT_VERSIONS, NEUTRAL_SUBJECT_BINDING_HASH, RelevantUserProjectionSchema, SYNTHETIC_CONCEPT_REGISTRY_VERSION, SYNTHETIC_MANIFEST,
+  canonicalBytes, contentHash as userContentHash, projectionHashBody,
   type DecisionVNextUserProjectionPort, type RelevantUserProjection, type RelevantUserProjectionRequest,
 } from "@backyrd/user-intelligence-vnext-core";
 import { SyntheticUserProjectionReader } from "./sandbox.js";

@@ -1,0 +1,419 @@
+\set ON_ERROR_STOP on
+-- backyrd:authorization-positive
+-- backyrd:authorization-negative
+begin;
+
+create function pg_temp.assert(p_ok boolean,p_message text) returns void language plpgsql as $$
+begin
+  if p_ok is not true then raise exception 'world knowledge slice3b failed: %',p_message; end if;
+end$$;
+create function pg_temp.id(p text) returns uuid language sql immutable as $$
+  select (substr(md5(p),1,8)||'-'||substr(md5(p),9,4)||'-4'||substr(md5(p),14,3)||'-8'||substr(md5(p),18,3)||'-'||substr(md5(p),21,12))::uuid
+$$;
+create function pg_temp.expect_error(p_sql text,p_state text,p_message text) returns void language plpgsql as $$
+declare actual_state text;
+begin
+  begin
+    execute p_sql;
+  exception when others then
+    get stacked diagnostics actual_state=returned_sqlstate;
+    if actual_state=p_state then return; end if;
+    raise exception '% (expected %, received %)',p_message,p_state,actual_state;
+  end;
+  raise exception '% (statement unexpectedly succeeded)',p_message;
+end$$;
+create function pg_temp.rebuild_request_hash(p_spot_id uuid,p_mode text,p_as_of timestamptz,p_key text) returns text language sql immutable as $$
+  select encode(extensions.digest(convert_to(jsonb_build_object(
+    'spotId',p_spot_id,'mode',p_mode,'asOf',p_as_of,
+    'registryVersion','backyrd.world-knowledge.registry@1.1',
+    'policyVersion','backyrd.world-knowledge.source-policy@3b.1',
+    'resolverContract','backyrd.world-knowledge.shadow-resolver@1.0',
+    'resolverVersion','1.1.0','idempotencyIdentity',p_key
+  )::text,'UTF8'),'sha256'),'hex')
+$$;
+
+select pg_temp.assert((select registry_hash='e51e78f929d8d11ca149a50eaba250cf484e916ef38f2d447d3c8d881bb203be' from world_knowledge_private.registry_releases where registry_version='backyrd.world-knowledge.registry@1.1'),'registry release/hash mismatch');
+select pg_temp.assert((select policy_hash='029582851b57914ce8f360e27dd7d6697fa6144cdf1febcf38d866290f4da95b' from world_knowledge_private.source_policy_releases where policy_version='backyrd.world-knowledge.source-policy@3b.1'),'source policy mismatch');
+select pg_temp.assert((select policy_hash='ba8032f09eafc0ac561f0fdab112b457aca84bf69c94c85c4ad34396c7649575' from world_knowledge_private.entitlement_policy_releases where policy_version='backyrd.world-knowledge.entitlement-policy@3b.1'),'entitlement policy mismatch');
+select pg_temp.assert((select count(*)=4 from world_knowledge_private.attribute_definitions where registry_version='backyrd.world-knowledge.registry@1.1' and attribute_key in ('contact.public_email','operation.price_level','accessibility.elevator','accessibility.accessible_indoor')),'additive keys missing');
+
+-- Catalog-derived inventory: every World table must be represented; no hand-maintained allowlist.
+select pg_temp.assert(not exists(
+  select 1
+  from pg_class c join pg_namespace n on n.oid=c.relnamespace
+  where c.relkind in ('r','p')
+    and (n.nspname='world_knowledge_private' or (n.nspname='public' and c.relname like 'world_knowledge_%'))
+    and not exists(select 1 from world_knowledge_private.security_inventory_v1 i where i.schema_name=n.nspname and i.object_name=c.relname and i.object_type='TABLE')
+),'security inventory omitted a World table');
+select pg_temp.assert((select count(*)=1 from world_knowledge_private.security_inventory_v1 where schema_name='world_knowledge_private' and object_name='source_policy_attribute_rules'),'source policy rules absent from inventory');
+select pg_temp.assert(not exists(
+  select 1 from world_knowledge_private.security_inventory_v1
+  where object_type in ('TABLE','PARTITIONED_TABLE') and (rls_enabled is not true or public_dml or anon_dml or authenticated_dml or not service_role_access)
+),'World table lacks RLS or exposes a client grant');
+select pg_temp.assert(not has_schema_privilege('anon','world_knowledge_private','usage') and not has_schema_privilege('authenticated','world_knowledge_private','usage'),'private schema exposed');
+select pg_temp.assert(not has_table_privilege('anon','public.world_knowledge_public_projection_v1','select') and not has_table_privilege('authenticated','public.world_knowledge_public_projection_v1','select'),'unactivated projection exposed');
+select pg_temp.assert(not exists(select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace where p.prosecdef and n.nspname in ('public','world_knowledge_private') and p.proname like 'world_%' and has_function_privilege('public',p.oid,'execute')),'security definer executable by PUBLIC');
+
+do $$
+declare u text;
+begin
+  foreach u in array array['wk-basic','wk-pro','wk-admin','wk-revoked-admin','wk-other','wk-reporter','wk-reporter-2','wk-new-owner'] loop
+    insert into auth.users(instance_id,id,aud,role,email,encrypted_password,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
+    values('00000000-0000-0000-0000-000000000000',pg_temp.id(u),'authenticated','authenticated',u||'@test.invalid','','{}','{}',clock_timestamp(),clock_timestamp());
+    insert into public.profiles(id,is_admin) values(pg_temp.id(u),u in ('wk-admin','wk-revoked-admin')) on conflict(id) do update set is_admin=excluded.is_admin;
+  end loop;
+  insert into public.spots(id,name,lat,lng,status,city,owner_id,data_origin) values
+    (pg_temp.id('wk-basic-spot'),'Basic synthetic',47.1,8.1,'approved','Zürich',pg_temp.id('wk-basic'),'TEST'),
+    (pg_temp.id('wk-pro-spot'),'Pro synthetic',47.2,8.2,'approved','Zürich',pg_temp.id('wk-pro'),'TEST'),
+    (pg_temp.id('wk-other-spot'),'Other synthetic',47.3,8.3,'approved','Zürich',pg_temp.id('wk-other'),'TEST');
+  insert into public.backyrd_spot_owner_intelligence_entitlements_v1(spot_id,owner_id,tier,source,valid_from,contract_version)
+  values(pg_temp.id('wk-pro-spot'),pg_temp.id('wk-pro'),'PREMIUM','TEST_FIXTURE',clock_timestamp()-interval '1 day','backyrd-owner-free-premium-boundary-v1');
+  foreach u in array array['wk-detach-owner-1','wk-detach-owner-2'] loop
+    insert into auth.users(instance_id,id,aud,role,email,encrypted_password,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
+    values('00000000-0000-0000-0000-000000000000',pg_temp.id(u),'authenticated','authenticated',u||'@test.invalid','','{}','{}',clock_timestamp(),clock_timestamp());
+    insert into world_knowledge_private.actor_bindings(actor_id,actor_type) values(pg_temp.id(u),'VERIFIED_OWNER');
+  end loop;
+end$$;
+
+-- Basic and Pro owner authority.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',pg_temp.id('wk-basic')::text,true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select pg_temp.assert((public.world_owner_submit_claim_v1(pg_temp.id('wk-basic-spot'),'identity.name','KNOWN_VALUE','"Basic Casa"',transaction_timestamp(),null,null,'PUBLIC',null,'basic-name')->>'verificationMethod')='OWNER_CONFIRMED','Basic owner write failed');
+select pg_temp.assert((public.world_confirm_claim_v1(((public.world_owner_submit_claim_v1(pg_temp.id('wk-basic-spot'),'identity.name','KNOWN_VALUE','"Basic Casa"',transaction_timestamp(),null,null,'PUBLIC',null,'basic-name')->>'claimId')::uuid),'basic-name-confirmation')->>'claimUnchanged')::boolean,'confirmation did not preserve claim semantics');
+select pg_temp.expect_error(format('select public.world_owner_submit_claim_v1(%L,%L,%L,%L::jsonb,clock_timestamp(),null,null,%L,null,%L)',pg_temp.id('wk-other-spot'),'identity.name','KNOWN_VALUE','"Foreign"','PUBLIC','foreign'),'42501','foreign owner write accepted');
+select pg_temp.expect_error(format('select public.world_owner_submit_claim_v1(%L,%L,%L,%L::jsonb,clock_timestamp(),null,null,%L,null,%L)',pg_temp.id('wk-basic-spot'),'accessibility.accessible_toilet','KNOWN_TRUE','true','PUBLIC','basic-pro-key'),'42501','Basic Pro key accepted');
+select pg_temp.expect_error('insert into world_knowledge_private.claims default values','42501','direct authenticated claim insert accepted');
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub',pg_temp.id('wk-pro')::text,true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select pg_temp.assert((public.world_owner_submit_claim_v1(pg_temp.id('wk-pro-spot'),'accessibility.accessible_toilet','KNOWN_TRUE','true',clock_timestamp(),null,null,'PUBLIC',null,'pro-access')->>'verificationMethod')='OWNER_CONFIRMED','Pro accessibility write failed');
+select pg_temp.expect_error(format('select public.world_owner_submit_claim_v1(%L,%L,%L,%L::jsonb,clock_timestamp(),null,null,%L,null,%L)',pg_temp.id('wk-pro-spot'),'state.current','KNOWN_VALUE','{"kind":"OPEN","scope":"VENUE"}','PUBLIC','state-no-expiry'),'22023','current state without expiry accepted');
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub',pg_temp.id('wk-admin')::text,true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select pg_temp.assert((public.world_admin_submit_claim_v1(pg_temp.id('wk-basic-spot'),'accessibility.accessible_toilet','KNOWN_TRUE','true',clock_timestamp(),null,null,'PUBLIC',null,'admin-access')->>'verificationMethod')='ADMIN_CONFIRMED','server-bound Admin write failed');
+select pg_temp.assert((public.world_admin_submit_claim_v1(pg_temp.id('wk-basic-spot'),'contact.public_email','KNOWN_VALUE','"public@basic.example"',clock_timestamp(),null,null,'PUBLIC',null,'public-email')->>'verificationMethod')='ADMIN_CONFIRMED','public email write failed');
+select pg_temp.assert((public.world_admin_submit_claim_v1(pg_temp.id('wk-basic-spot'),'description.highlight','KNOWN_VALUE','"Hass und verbotener Inhalt"',clock_timestamp(),null,null,'PUBLIC',null,'unsafe-description')->>'visibility')='SHADOW_HELD','problematic new text was not shadow-held');
+
+-- A registry approval is not identity-event authority; only preparatory events exist in Slice 3B.
+select pg_temp.expect_error(format('select public.world_admin_record_identity_event_v1(%L,%L,%L,null,null,array[%L],%L)','MERGE_CONFIRMED',pg_temp.id('wk-basic-spot'),pg_temp.id('wk-pro-spot'),'GENERAL_APPROVAL_MUST_NOT_AUTHORIZE','merge-1'),'42501','general approval authorized merge');
+select pg_temp.expect_error(format('select public.world_admin_record_identity_event_v1(%L,%L,%L,null,null,array[%L],%L)','SPLIT',pg_temp.id('wk-basic-spot'),pg_temp.id('wk-pro-spot'),'NOT_CONFIGURED','split-1'),'42501','split authority unexpectedly configured');
+select pg_temp.expect_error(format('select public.world_admin_record_identity_event_v1(%L,%L,%L,null,null,array[%L],%L)','MERGE_REVERSED',pg_temp.id('wk-basic-spot'),pg_temp.id('wk-pro-spot'),'NOT_CONFIGURED','reverse-1'),'42501','reversal authority unexpectedly configured');
+select pg_temp.expect_error(format('select public.world_admin_record_identity_event_v1(%L,%L,null,null,null,array[%L],%L)','MERGE_PROPOSED',pg_temp.id('wk-basic-spot'),'PAIR_REQUIRED','proposal-no-pair'),'22023','pairless proposal accepted');
+select pg_temp.assert((public.world_admin_record_identity_event_v1('MERGE_PROPOSED',pg_temp.id('wk-basic-spot'),pg_temp.id('wk-pro-spot'),null,null,array['SYNTHETIC_DUPLICATE_SIGNAL'],'proposal-ab')->>'automaticMerge')::boolean=false,'proposal mutated identity');
+select pg_temp.assert((public.world_admin_record_identity_event_v1('MERGE_PROPOSED',pg_temp.id('wk-basic-spot'),pg_temp.id('wk-pro-spot'),null,null,array['SYNTHETIC_DUPLICATE_SIGNAL'],'proposal-ab')->>'created')::boolean=false,'identical proposal was not idempotent');
+select pg_temp.expect_error(format('select public.world_admin_record_identity_event_v1(%L,%L,%L,null,null,array[%L],%L)','MERGE_PROPOSED',pg_temp.id('wk-basic-spot'),pg_temp.id('wk-other-spot'),'SYNTHETIC_DUPLICATE_SIGNAL','proposal-ab'),'23505','A/B idempotency authorized A/C');
+select pg_temp.expect_error(format('select public.world_admin_record_identity_event_v1(%L,%L,%L,null,null,array[%L],%L)','MERGE_PROPOSED',pg_temp.id('wk-pro-spot'),pg_temp.id('wk-basic-spot'),'SYNTHETIC_DUPLICATE_SIGNAL','proposal-ab'),'23505','reversed merge direction reused authority');
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub',pg_temp.id('wk-revoked-admin')::text,true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select public.world_admin_submit_claim_v1(pg_temp.id('wk-other-spot'),'identity.name','KNOWN_VALUE','"Other Casa"',clock_timestamp(),null,null,'PUBLIC',null,'revoked-admin-claim');
+reset role;
+
+select pg_temp.assert((select count(*)=6 from world_knowledge_private.claims),'unexpected authoritative claim count');
+select pg_temp.assert((select count(*)=1 and bool_and(confirmation_due_at=confirmed_at+interval '3 months') from world_knowledge_private.confirmation_records),'confirmation record missing or invalid');
+select pg_temp.assert((select count(*)=1 from world_knowledge_private.identity_events where event_type='MERGE_PROPOSED'),'preparatory identity event missing');
+select pg_temp.assert((select count(*)=1 from world_knowledge_private.review_work_items where work_class='CONTENT_SAFETY'),'content-safety work item missing');
+select pg_temp.assert(not exists(select 1 from world_knowledge_private.claims c left join world_knowledge_private.verification_records v on v.claim_id=c.id where v.id is null or v.result<>'VERIFIED'),'verified write missing bound verification');
+select pg_temp.assert((select bool_and((actor_type='VERIFIED_OWNER' and verification_method='OWNER_CONFIRMED' and execution_authority='SERVER_BOUND_OWNER_WRITE') or (actor_type='ADMIN' and verification_method='ADMIN_CONFIRMED' and execution_authority='SERVER_BOUND_ADMIN_WRITE')) from world_knowledge_private.claims c join world_knowledge_private.verification_records v on v.claim_id=c.id),'verification method/authority mismatch');
+
+-- Fully rehashed hostile verification and confirmation records remain invalid.
+do $$
+declare
+  owner_claim world_knowledge_private.claims%rowtype;
+  owner_b_binding uuid;
+  checked timestamptz:=clock_timestamp();
+  hostile_hash text;
+begin
+  select * into owner_claim from world_knowledge_private.claims where idempotency_key='basic-name';
+  insert into world_knowledge_private.actor_bindings(actor_id,actor_type) values(pg_temp.id('wk-other'),'VERIFIED_OWNER') returning id into owner_b_binding;
+  hostile_hash:=encode(extensions.digest(convert_to(jsonb_build_object('claimId',owner_claim.id,'claimHash',owner_claim.content_hash,'spotId',owner_claim.spot_id,'attributeKey',owner_claim.attribute_key,'scope',owner_claim.scope,'policyVersion',owner_claim.policy_version,'method','OWNER_CONFIRMED','authority','SERVER_BOUND_OWNER_WRITE','verifierBinding',owner_b_binding,'result','VERIFIED','checkedAt',checked,'reverificationPolicyRef','freshness:durable-until-contradicted','reasonCodes',to_jsonb(array['SERVER_ACTOR_SCOPE_AND_PAYLOAD_CONFIRMED']::text[]))::text,'UTF8'),'sha256'),'hex');
+  perform pg_temp.expect_error(format($q$insert into world_knowledge_private.verification_records(claim_id,claim_hash,spot_id,attribute_key,scope,policy_version,verification_method,execution_authority,verifier_binding_id,result,checked_at,reverification_policy_ref,reason_codes,result_hash) values(%L,%L,%L,%L,%L,%L,'OWNER_CONFIRMED','SERVER_BOUND_OWNER_WRITE',%L,'VERIFIED',%L,'freshness:durable-until-contradicted',array['SERVER_ACTOR_SCOPE_AND_PAYLOAD_CONFIRMED'],%L)$q$,owner_claim.id,owner_claim.content_hash,owner_claim.spot_id,owner_claim.attribute_key,owner_claim.scope,owner_claim.policy_version,owner_b_binding,checked,hostile_hash),'42501','Owner B verified Owner A claim');
+
+  hostile_hash:=encode(extensions.digest(convert_to(jsonb_build_object('claimId',owner_claim.id,'claimHash',owner_claim.content_hash,'actorBinding',owner_b_binding,'confirmationMethod','OWNER_CONFIRMED','confirmedAt',checked,'confirmationDueAt',checked+interval '3 months','policyVersion',owner_claim.policy_version,'reconfirmationPolicyRef','confirmation:quarterly-request-v1','idempotencyIdentity','foreign-confirm')::text,'UTF8'),'sha256'),'hex');
+  perform pg_temp.expect_error(format($q$insert into world_knowledge_private.confirmation_records(claim_id,claim_hash,actor_binding_id,confirmation_method,policy_version,reconfirmation_policy_ref,confirmed_at,confirmation_due_at,idempotency_key,record_hash) values(%L,%L,%L,'OWNER_CONFIRMED',%L,'confirmation:quarterly-request-v1',%L,%L,'foreign-confirm',%L)$q$,owner_claim.id,owner_claim.content_hash,owner_b_binding,owner_claim.policy_version,checked,checked+interval '3 months',hostile_hash),'42501','foreign owner confirmation accepted');
+end$$;
+
+-- Ownership at verification time is mandatory, even for the original claim actor.
+do $$
+declare c world_knowledge_private.claims%rowtype; checked timestamptz:=clock_timestamp(); h text;
+begin
+  select * into c from world_knowledge_private.claims where idempotency_key='basic-name';
+  update public.spots set owner_id=pg_temp.id('wk-new-owner') where id=c.spot_id;
+  h:=encode(extensions.digest(convert_to(jsonb_build_object('claimId',c.id,'claimHash',c.content_hash,'spotId',c.spot_id,'attributeKey',c.attribute_key,'scope',c.scope,'policyVersion',c.policy_version,'method','OWNER_CONFIRMED','authority','SERVER_BOUND_OWNER_WRITE','verifierBinding',c.actor_binding_id,'result','VERIFIED','checkedAt',checked,'reverificationPolicyRef','freshness:durable-until-contradicted','reasonCodes',to_jsonb(array['SERVER_ACTOR_SCOPE_AND_PAYLOAD_CONFIRMED']::text[]))::text,'UTF8'),'sha256'),'hex');
+  perform pg_temp.expect_error(format($q$insert into world_knowledge_private.verification_records(claim_id,claim_hash,spot_id,attribute_key,scope,policy_version,verification_method,execution_authority,verifier_binding_id,result,checked_at,reverification_policy_ref,reason_codes,result_hash) values(%L,%L,%L,%L,%L,%L,'OWNER_CONFIRMED','SERVER_BOUND_OWNER_WRITE',%L,'VERIFIED',%L,'freshness:durable-until-contradicted',array['SERVER_ACTOR_SCOPE_AND_PAYLOAD_CONFIRMED'],%L)$q$,c.id,c.content_hash,c.spot_id,c.attribute_key,c.scope,c.policy_version,c.actor_binding_id,checked,h),'42501','former owner verification accepted');
+end$$;
+
+-- Revoking server-side admin authority invalidates a fully rehashed admin verification.
+do $$
+declare c world_knowledge_private.claims%rowtype; checked timestamptz:=clock_timestamp(); h text;
+begin
+  select * into c from world_knowledge_private.claims where idempotency_key='revoked-admin-claim';
+  update public.profiles set is_admin=false where id=pg_temp.id('wk-revoked-admin');
+  h:=encode(extensions.digest(convert_to(jsonb_build_object('claimId',c.id,'claimHash',c.content_hash,'spotId',c.spot_id,'attributeKey',c.attribute_key,'scope',c.scope,'policyVersion',c.policy_version,'method','ADMIN_CONFIRMED','authority','SERVER_BOUND_ADMIN_WRITE','verifierBinding',c.actor_binding_id,'result','VERIFIED','checkedAt',checked,'reverificationPolicyRef','freshness:durable-until-contradicted','reasonCodes',to_jsonb(array['SERVER_ACTOR_SCOPE_AND_PAYLOAD_CONFIRMED']::text[]))::text,'UTF8'),'sha256'),'hex');
+  perform pg_temp.expect_error(format($q$insert into world_knowledge_private.verification_records(claim_id,claim_hash,spot_id,attribute_key,scope,policy_version,verification_method,execution_authority,verifier_binding_id,result,checked_at,reverification_policy_ref,reason_codes,result_hash) values(%L,%L,%L,%L,%L,%L,'ADMIN_CONFIRMED','SERVER_BOUND_ADMIN_WRITE',%L,'VERIFIED',%L,'freshness:durable-until-contradicted',array['SERVER_ACTOR_SCOPE_AND_PAYLOAD_CONFIRMED'],%L)$q$,c.id,c.content_hash,c.spot_id,c.attribute_key,c.scope,c.policy_version,c.actor_binding_id,checked,h),'42501','revoked admin verification accepted');
+end$$;
+
+-- AI-only verification cannot become authoritative even with matching hashes.
+do $$
+declare binding_id uuid; source_id uuid; claim_id uuid:=gen_random_uuid(); observed timestamptz:=clock_timestamp(); checked timestamptz; claim_hash text; verification_hash text;
+begin
+  insert into world_knowledge_private.actor_bindings(actor_id,actor_type) values(pg_temp.id('wk-reporter'),'SYSTEM') returning id into binding_id;
+  insert into world_knowledge_private.source_references(spot_id,source_type,visibility,source_hash) values(pg_temp.id('wk-other-spot'),'AI_INFERENCE','INTERNAL',encode(extensions.digest(convert_to('ai-source','UTF8'),'sha256'),'hex')) returning id into source_id;
+  claim_hash:=encode(extensions.digest(convert_to(jsonb_build_object('spotId',pg_temp.id('wk-other-spot'),'key','operation.takeaway','state','KNOWN_TRUE','value','true'::jsonb,'actorBinding',binding_id,'observedAt',observed,'validFrom',null,'validUntil',null,'supersedes',null,'registry','backyrd.world-knowledge.registry@1.1','policy','backyrd.world-knowledge.source-policy@3b.1')::text,'UTF8'),'sha256'),'hex');
+  insert into world_knowledge_private.claims(id,idempotency_key,spot_id,registry_version,policy_version,attribute_key,knowledge_state,value,actor_binding_id,actor_type,source_reference_id,source_type,observed_at,last_changed_at,stance,visibility,content_hash)
+  values(claim_id,'ai-candidate',pg_temp.id('wk-other-spot'),'backyrd.world-knowledge.registry@1.1','backyrd.world-knowledge.source-policy@3b.1','operation.takeaway','KNOWN_TRUE','true',binding_id,'SYSTEM',source_id,'AI_INFERENCE',observed,observed,'SUPPORTS','INTERNAL',claim_hash);
+  checked:=clock_timestamp();
+  verification_hash:=encode(extensions.digest(convert_to(jsonb_build_object('claimId',claim_id,'claimHash',claim_hash,'spotId',pg_temp.id('wk-other-spot'),'attributeKey','operation.takeaway','scope','SPOT','policyVersion','backyrd.world-knowledge.source-policy@3b.1','method','INDEPENDENT_PROCESS','authority','ACCEPTED_INDEPENDENT_PROCESS','verifierBinding',binding_id,'result','VERIFIED','checkedAt',checked,'reverificationPolicyRef','freshness:durable-until-contradicted','reasonCodes',to_jsonb(array['SERVER_ACTOR_SCOPE_AND_PAYLOAD_CONFIRMED']::text[]))::text,'UTF8'),'sha256'),'hex');
+  perform pg_temp.expect_error(format($q$insert into world_knowledge_private.verification_records(claim_id,claim_hash,spot_id,attribute_key,scope,policy_version,verification_method,execution_authority,verifier_binding_id,result,checked_at,reverification_policy_ref,reason_codes,result_hash) values(%L,%L,%L,'operation.takeaway','SPOT','backyrd.world-knowledge.source-policy@3b.1','INDEPENDENT_PROCESS','ACCEPTED_INDEPENDENT_PROCESS',%L,'VERIFIED',%L,'freshness:durable-until-contradicted',array['SERVER_ACTOR_SCOPE_AND_PAYLOAD_CONFIRMED'],%L)$q$,claim_id,claim_hash,pg_temp.id('wk-other-spot'),binding_id,checked,verification_hash),'42501','AI-only verification accepted');
+end$$;
+
+-- User reports create review work only.
+set local role authenticated;
+select set_config('request.jwt.claim.sub',pg_temp.id('wk-reporter')::text,true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select pg_temp.assert((public.world_submit_user_report_v1(pg_temp.id('wk-basic-spot'),'identity.name','{"message":"wrong name"}','report-1')->>'factChanged')::boolean=false,'user report changed fact');
+select pg_temp.assert((public.world_submit_user_report_v1(pg_temp.id('wk-basic-spot'),'identity.name','{"message":"wrong name"}','report-1')->>'created')::boolean=false,'identical user-report retry was not idempotent');
+select pg_temp.expect_error(format('select public.world_submit_user_report_v1(%L,%L,%L::jsonb,%L)',pg_temp.id('wk-basic-spot'),'identity.name','{"message":"different body"}','report-1'),'23505','changed user-report body reused idempotency identity');
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',pg_temp.id('wk-reporter-2')::text,true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select pg_temp.assert((public.world_submit_user_report_v1(pg_temp.id('wk-basic-spot'),'identity.name','{"message":"independent report"}','report-1')->>'created')::boolean=true,'different reporter collided on opaque idempotency identity');
+reset role;
+select pg_temp.assert((select count(*)=2 from world_knowledge_private.review_work_items where work_class='USER_REPORT'),'user reports did not create independent review work items');
+select pg_temp.assert((select count(*)=7 from world_knowledge_private.claims),'user report created claim');
+
+-- Actual database-role boundary, not a caller-controlled JWT role string.
+create temporary table wk_resolution_results(label text primary key,payload jsonb);
+create temporary table wk_clock as select clock_timestamp()+interval '30 seconds' as as_of;
+grant select on wk_clock to authenticated,service_role;
+grant all on wk_resolution_results to service_role;
+set local role anon;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,clock_timestamp(),%L,%L)',pg_temp.id('wk-basic-spot'),'FULL','anon-rebuild'),'42501','anon executed shadow rebuild');
+reset role;
+set local role authenticated;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,clock_timestamp(),%L,%L)',pg_temp.id('wk-basic-spot'),'FULL','authenticated-rebuild'),'42501','authenticated executed shadow rebuild');
+reset role;
+set local role service_role;
+select pg_temp.expect_error(format('select world_knowledge_private.get_actor_binding_v1(%L,%L)',pg_temp.id('wk-new-owner'),'VERIFIED_OWNER'),'42501','service role called internal helper directly');
+
+-- Manifest identity: excluded inputs change input/manifest identity, not the resolved output.
+insert into wk_resolution_results values('baseline',public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'));
+insert into wk_resolution_results values('baseline-replay',public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'INCREMENTAL','replay-baseline'));
+select pg_temp.assert((select (a.payload->>'manifestHash')=(b.payload->>'manifestHash') and (a.payload->>'inputHash')=(b.payload->>'inputHash') from wk_resolution_results a,wk_resolution_results b where a.label='baseline' and b.label='baseline-replay'),'identical request was not idempotent');
+select pg_temp.assert((public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline')->>'reused')::boolean,'exact rebuild request did not reuse persisted result');
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'INCREMENTAL','full-baseline'),'23505','rebuild idempotency key accepted a different mode');
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-pro-spot'),(select as_of from wk_clock),'FULL','full-baseline'),'23505','rebuild idempotency key accepted a different spot');
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of+interval '1 second' from wk_clock),'FULL','full-baseline'),'23505','rebuild idempotency key accepted a different as_of');
+select pg_temp.assert((select jsonb_array_length(input_components->'claims')>0 and jsonb_array_length(input_components->'verifications')>0 and input_components#>>'{registry,releaseHash}'=registry_release_hash and input_components#>>'{sourcePolicy,releaseHash}'=policy_release_hash and input_components#>>'{sourcePolicy,attributePolicyHash}'=attribute_policy_hash and input_components#>>'{resolver,version}'=resolver_version from world_knowledge_private.resolution_manifests where id=((select payload->>'manifestId' from wk_resolution_results where label='baseline')::uuid)),'resolver input identity omitted claims, verifications, releases or applied policy');
+select pg_temp.assert((select count(*)=2 and bool_and(status='SUCCEEDED' and manifest_id is not null and request_hash~'^[0-9a-f]{64}$') from world_knowledge_private.rebuild_jobs),'rebuild requests were not persisted exactly once');
+reset role;
+
+-- Persisted request identity is independently validated and incomplete states never
+-- trigger an uncontrolled second execution under the same key.
+create temporary table wk_baseline_job_backup as select * from world_knowledge_private.rebuild_jobs where idempotency_key='full-baseline';
+update world_knowledge_private.rebuild_jobs set request_hash=repeat('a',64) where idempotency_key='full-baseline';
+set local role service_role;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'),'23505','rehashed stored job request identity was accepted');
+reset role;
+update world_knowledge_private.rebuild_jobs j set request_hash=b.request_hash from wk_baseline_job_backup b where j.id=b.id;
+update world_knowledge_private.rebuild_jobs set input_hash=repeat('b',64) where idempotency_key='full-baseline';
+set local role service_role;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'),'22023','stored job was rebound to another input');
+reset role;
+update world_knowledge_private.rebuild_jobs j set input_hash=b.input_hash from wk_baseline_job_backup b where j.id=b.id;
+update world_knowledge_private.rebuild_jobs set registry_version='tampered.registry@9' where idempotency_key='full-baseline';
+set local role service_role;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'),'23505','stored job accepted a different Registry version');
+reset role;
+update world_knowledge_private.rebuild_jobs j set registry_version=b.registry_version from wk_baseline_job_backup b where j.id=b.id;
+update world_knowledge_private.rebuild_jobs set policy_version='tampered.policy@9' where idempotency_key='full-baseline';
+set local role service_role;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'),'23505','stored job accepted a different Policy version');
+reset role;
+update world_knowledge_private.rebuild_jobs j set policy_version=b.policy_version from wk_baseline_job_backup b where j.id=b.id;
+update world_knowledge_private.rebuild_jobs set resolver_version='9.9.9' where idempotency_key='full-baseline';
+set local role service_role;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'),'23505','stored job accepted a different Resolver version');
+reset role;
+update world_knowledge_private.rebuild_jobs j set resolver_version=b.resolver_version from wk_baseline_job_backup b where j.id=b.id;
+
+insert into world_knowledge_private.rebuild_jobs(spot_id,idempotency_key,mode,as_of,request_hash,input_hash,registry_version,policy_version,resolver_contract,resolver_version,status)
+select pg_temp.id('wk-basic-spot'),state_key,'FULL',(select as_of from wk_clock),pg_temp.rebuild_request_hash(pg_temp.id('wk-basic-spot'),'FULL',(select as_of from wk_clock),state_key),repeat('c',64),'backyrd.world-knowledge.registry@1.1','backyrd.world-knowledge.source-policy@3b.1','backyrd.world-knowledge.shadow-resolver@1.0','1.1.0',state
+from (values('job-pending','PENDING'),('job-running','RUNNING'),('job-failed','FAILED')) states(state_key,state);
+set local role service_role;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','job-pending'),'55000','PENDING request was recomputed');
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','job-running'),'55000','RUNNING request was recomputed');
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','job-failed'),'55000','FAILED request was recomputed');
+reset role;
+
+-- A second valid Verification is part of resolver input identity but does not duplicate or change the fact.
+do $$
+declare c world_knowledge_private.claims%rowtype; binding_id uuid; checked timestamptz:=(select as_of-interval '1 second' from wk_clock); h text;
+begin
+  select * into c from world_knowledge_private.claims where idempotency_key='admin-access';
+  binding_id:=c.actor_binding_id;
+  h:=encode(extensions.digest(convert_to(jsonb_build_object('claimId',c.id,'claimHash',c.content_hash,'spotId',c.spot_id,'attributeKey',c.attribute_key,'scope',c.scope,'policyVersion',c.policy_version,'method','ADMIN_CONFIRMED','authority','SERVER_BOUND_ADMIN_WRITE','verifierBinding',binding_id,'result','VERIFIED','checkedAt',checked,'reverificationPolicyRef','freshness:durable-until-contradicted','reasonCodes',to_jsonb(array['SERVER_ACTOR_SCOPE_AND_PAYLOAD_CONFIRMED']::text[]))::text,'UTF8'),'sha256'),'hex');
+  insert into world_knowledge_private.verification_records(claim_id,claim_hash,spot_id,attribute_key,scope,policy_version,verification_method,execution_authority,verifier_binding_id,result,checked_at,reverification_policy_ref,reason_codes,result_hash)
+  values(c.id,c.content_hash,c.spot_id,c.attribute_key,c.scope,c.policy_version,'ADMIN_CONFIRMED','SERVER_BOUND_ADMIN_WRITE',binding_id,'VERIFIED',checked,'freshness:durable-until-contradicted',array['SERVER_ACTOR_SCOPE_AND_PAYLOAD_CONFIRMED'],h);
+end$$;
+set local role service_role;
+insert into wk_resolution_results values('verification-input',public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-verification-input'));
+select pg_temp.assert((select a.payload->'worldSnapshot'=b.payload->'worldSnapshot' and a.payload->'decisionProjection'=b.payload->'decisionProjection' and a.payload->>'resolutionHash'=b.payload->>'resolutionHash' and a.payload->>'inputHash'<>b.payload->>'inputHash' and a.payload->>'manifestHash'<>b.payload->>'manifestHash' from wk_resolution_results a,wk_resolution_results b where a.label='baseline' and b.label='verification-input'),'verification ledger change was not bound independently from identical resolution output');
+insert into wk_resolution_results values('baseline-after-verification',public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'));
+select pg_temp.assert((select retry.payload->>'manifestHash'=original.payload->>'manifestHash' and (retry.payload->>'reused')::boolean from wk_resolution_results retry,wk_resolution_results original where retry.label='baseline-after-verification' and original.label='baseline'),'Verification added after completion changed idempotent replay');
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub',pg_temp.id('wk-admin')::text,true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select public.world_admin_submit_claim_v1(pg_temp.id('wk-basic-spot'),'description.highlight','KNOWN_VALUE','"Illegal shadow candidate"',(select as_of-interval '1 minute' from wk_clock),null,null,'PUBLIC',null,'excluded-shadow');
+select public.world_admin_submit_claim_v1(pg_temp.id('wk-basic-spot'),'operation.takeaway','KNOWN_TRUE','true',(select as_of-interval '1 minute' from wk_clock),(select as_of+interval '1 day' from wk_clock),null,'PUBLIC',null,'excluded-future');
+select public.world_admin_submit_claim_v1(pg_temp.id('wk-basic-spot'),'operation.takeaway','KNOWN_FALSE','false',(select as_of-interval '2 minutes' from wk_clock),null,(select as_of-interval '1 minute' from wk_clock),'PUBLIC',null,'excluded-expired');
+reset role;
+
+set local role service_role;
+insert into wk_resolution_results values('excluded-inputs',public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-excluded'));
+select pg_temp.assert((select a.payload->'worldSnapshot'=b.payload->'worldSnapshot' and a.payload->'decisionProjection'=b.payload->'decisionProjection' and a.payload->>'resolutionHash'=b.payload->>'resolutionHash' and a.payload->>'inputHash'<>b.payload->>'inputHash' and a.payload->>'manifestHash'<>b.payload->>'manifestHash' from wk_resolution_results a,wk_resolution_results b where a.label='verification-input' and b.label='excluded-inputs'),'excluded inputs changed snapshot or failed to change manifest identity');
+insert into wk_resolution_results values('baseline-after-excluded',public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'));
+select pg_temp.assert((select retry.payload->>'manifestHash'=original.payload->>'manifestHash' and (retry.payload->>'reused')::boolean from wk_resolution_results retry,wk_resolution_results original where retry.label='baseline-after-excluded' and original.label='baseline'),'excluded/future Claims added after completion changed idempotent replay');
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub',pg_temp.id('wk-admin')::text,true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select public.world_admin_submit_claim_v1(pg_temp.id('wk-basic-spot'),'operation.takeaway','KNOWN_TRUE','true',(select as_of-interval '30 seconds' from wk_clock),null,null,'PUBLIC',null,'current-takeaway');
+reset role;
+set local role service_role;
+insert into wk_resolution_results values('authorized-change',public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'INCREMENTAL','incremental-current'));
+select pg_temp.assert((select a.payload->>'resolutionHash'<>b.payload->>'resolutionHash' and a.payload->'worldSnapshot'<>b.payload->'worldSnapshot' from wk_resolution_results a,wk_resolution_results b where a.label='excluded-inputs' and b.label='authorized-change'),'authorized fact did not change resolution');
+select pg_temp.assert((select count(*)=4 and count(distinct input_hash)=4 and count(distinct manifest_hash)=4 and count(distinct resolution_hash)=2 from world_knowledge_private.resolution_manifests where spot_id=pg_temp.id('wk-basic-spot')),'manifest/input/output identities are not distinct as required');
+select pg_temp.assert(not ((select payload->'decisionProjection'->'facts' from wk_resolution_results where label='authorized-change') @> '[{"key":"contact.public_email"}]'),'public contact leaked to Decision projection');
+select pg_temp.assert((select payload->'worldSnapshot'->'facts' @> '[{"key":"contact.public_email"}]' from wk_resolution_results where label='authorized-change'),'public email missing from World snapshot');
+select pg_temp.assert(not (select payload->'worldSnapshot'->'facts' @> '[{"key":"description.highlight","value":"Illegal shadow candidate"}]' from wk_resolution_results where label='authorized-change'),'shadow-held text leaked to World snapshot');
+select pg_temp.expect_error(format($q$insert into world_knowledge_private.identity_events(event_type,subject_spot_id,related_spot_id,recorded_by_binding_id,idempotency_key,occurred_at,reason_codes,event_hash) select 'MERGE_CONFIRMED',%L,%L,id,'direct-merge',clock_timestamp(),array['UNAUTHORIZED'],encode(extensions.digest(convert_to('direct-merge','UTF8'),'sha256'),'hex') from world_knowledge_private.actor_bindings where actor_id=%L and actor_type='ADMIN'$q$,pg_temp.id('wk-basic-spot'),pg_temp.id('wk-pro-spot'),pg_temp.id('wk-admin')),'23514','service role directly recorded a mutating identity event');
+
+create temporary table wk_pointer_before_retry as select * from world_knowledge_private.current_projection_pointers where spot_id=pg_temp.id('wk-basic-spot');
+insert into wk_resolution_results values('baseline-after-current-claim',public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','full-baseline'));
+select pg_temp.assert((select retry.payload->>'manifestHash'=original.payload->>'manifestHash' and (retry.payload->>'reused')::boolean from wk_resolution_results retry,wk_resolution_results original where retry.label='baseline-after-current-claim' and original.label='baseline'),'relevant Claim added after completion changed idempotent replay');
+select pg_temp.assert((select p.manifest_id=b.manifest_id and p.manifest_hash=b.manifest_hash and p.as_of=b.as_of and p.ledger_cutoff_at=b.ledger_cutoff_at from world_knowledge_private.current_projection_pointers p,wk_pointer_before_retry b where p.spot_id=b.spot_id),'idempotent replay changed current projection pointer');
+
+-- The current projection pointer is monotone by semantic time and ledger cutoff.
+create temporary table wk_pointer_before as select * from world_knowledge_private.current_projection_pointers where spot_id=pg_temp.id('wk-basic-spot');
+insert into wk_resolution_results values('historical',public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of-interval '10 seconds' from wk_clock),'FULL','historical-after-current'));
+select pg_temp.assert((select p.manifest_id=b.manifest_id and p.as_of=b.as_of from world_knowledge_private.current_projection_pointers p,wk_pointer_before b where p.spot_id=b.spot_id),'historical rebuild rolled back current projection pointer');
+insert into wk_resolution_results values('newer',public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of+interval '10 seconds' from wk_clock),'FULL','newer-pointer'));
+select pg_temp.assert((select p.manifest_id=(select (payload->>'manifestId')::uuid from wk_resolution_results where label='newer') and p.as_of=(select as_of+interval '10 seconds' from wk_clock) from world_knowledge_private.current_projection_pointers p where p.spot_id=pg_temp.id('wk-basic-spot')),'newer rebuild did not advance current pointer');
+select public.world_shadow_rebuild_spot_v1(pg_temp.id('wk-basic-spot'),(select as_of-interval '10 seconds' from wk_clock),'INCREMENTAL','historical-after-newer');
+select pg_temp.assert((select p.manifest_id=(select (payload->>'manifestId')::uuid from wk_resolution_results where label='newer') from world_knowledge_private.current_projection_pointers p where p.spot_id=pg_temp.id('wk-basic-spot')),'old/new rebuild order was not monotone');
+reset role;
+
+-- Stored manifest tampering fails closed even when outer hashes are syntactically valid.
+create temporary table wk_manifest_backup as select * from world_knowledge_private.resolution_manifests where id=((select payload->>'manifestId' from wk_resolution_results where label='newer')::uuid);
+alter table world_knowledge_private.resolution_manifests disable trigger world_immutable_resolution_manifests;
+update world_knowledge_private.resolution_manifests set resolution_hash=repeat('a',64) where id=(select id from wk_manifest_backup);
+set local role service_role;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of+interval '10 seconds' from wk_clock),'FULL','tampered-resolution'),'22023','tampered stored resolution hash was reused');
+reset role;
+update world_knowledge_private.resolution_manifests m set resolution_hash=b.resolution_hash from wk_manifest_backup b where m.id=b.id;
+update world_knowledge_private.resolution_manifests set decision_projection=decision_projection||'{"tampered":true}'::jsonb where id=(select id from wk_manifest_backup);
+set local role service_role;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of+interval '10 seconds' from wk_clock),'FULL','tampered-decision'),'22023','tampered stored Decision projection was reused');
+reset role;
+update world_knowledge_private.resolution_manifests m set decision_projection=b.decision_projection from wk_manifest_backup b where m.id=b.id;
+-- Recompute every outer hash around a semantically altered snapshot; entry consistency still detects it.
+do $$
+declare m world_knowledge_private.resolution_manifests%rowtype; changed_snapshot jsonb; changed_decision jsonb; changed_resolution text; changed_manifest text;
+begin
+  select * into m from wk_manifest_backup;
+  changed_snapshot:=m.world_snapshot||jsonb_build_object('facts',(m.world_snapshot->'facts')||jsonb_build_array(jsonb_build_object('key','tamper.extra','scope','SPOT','resolution','KNOWN_TRUE','value',true,'trust','VERIFIED','freshness','CURRENT','basisClaimHashes',jsonb_build_array(repeat('f',64)))));
+  changed_decision:=world_knowledge_private.decision_projection_v1(changed_snapshot);
+  changed_resolution:=encode(extensions.digest(convert_to(jsonb_build_object('worldSnapshot',changed_snapshot,'decisionProjection',changed_decision)::text,'UTF8'),'sha256'),'hex');
+  changed_manifest:=encode(extensions.digest(convert_to(jsonb_build_object('spotId',m.spot_id,'registryVersion',m.registry_version,'registryReleaseHash',m.registry_release_hash,'policyVersion',m.policy_version,'policyReleaseHash',m.policy_release_hash,'attributePolicyHash',m.attribute_policy_hash,'resolverContract',m.resolver_contract,'resolverVersion',m.resolver_version,'conflictPolicyRef',m.conflict_policy_ref,'freshnessPolicyRef',m.freshness_policy_ref,'shadowPolicyRef',m.shadow_policy_ref,'asOf',m.as_of,'ledgerCutoffAt',m.ledger_cutoff_at,'inputHash',m.input_hash,'resolutionHash',changed_resolution)::text,'UTF8'),'sha256'),'hex');
+  update world_knowledge_private.resolution_manifests set world_snapshot=changed_snapshot,decision_projection=changed_decision,resolution_hash=changed_resolution,manifest_hash=changed_manifest where id=m.id;
+end$$;
+set local role service_role;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of+interval '10 seconds' from wk_clock),'FULL','tampered-rehashed-output'),'22023','fully rehashed stored output bypassed entry validation');
+reset role;
+update world_knowledge_private.resolution_manifests m set world_snapshot=b.world_snapshot,decision_projection=b.decision_projection,resolution_hash=b.resolution_hash,manifest_hash=b.manifest_hash from wk_manifest_backup b where m.id=b.id;
+alter table world_knowledge_private.resolution_manifests enable trigger world_immutable_resolution_manifests;
+
+-- Missing and additional materialized entries are both rejected.
+create temporary table wk_entry_backup as select * from world_knowledge_private.resolution_entries where manifest_id=(select id from wk_manifest_backup) order by attribute_key,scope limit 1;
+alter table world_knowledge_private.resolution_entries disable trigger world_immutable_resolution_entries;
+delete from world_knowledge_private.resolution_entries where (manifest_id,attribute_key,scope)=(select manifest_id,attribute_key,scope from wk_entry_backup);
+set local role service_role;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of+interval '10 seconds' from wk_clock),'FULL','tampered-missing-entry'),'22023','manifest with missing entry was reused');
+reset role;
+insert into world_knowledge_private.resolution_entries select * from wk_entry_backup;
+insert into world_knowledge_private.resolution_entries(manifest_id,attribute_key,scope,resolution,value,trust,freshness,basis_claim_hashes,conflict_claim_hashes,entry_hash)
+select id,'tamper.extra','SPOT','KNOWN_TRUE','true','VERIFIED','CURRENT',array[repeat('f',64)],'{}',encode(extensions.digest(convert_to(jsonb_build_object('key','tamper.extra','scope','SPOT','resolution','KNOWN_TRUE','value',true,'trust','VERIFIED','freshness','CURRENT','basisClaimHashes',to_jsonb(array[repeat('f',64)]::text[]))::text,'UTF8'),'sha256'),'hex') from wk_manifest_backup;
+set local role service_role;
+select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of+interval '10 seconds' from wk_clock),'FULL','tampered-additional-entry'),'22023','manifest with additional entry was reused');
+reset role;
+delete from world_knowledge_private.resolution_entries where manifest_id=(select id from wk_manifest_backup) and attribute_key='tamper.extra';
+alter table world_knowledge_private.resolution_entries enable trigger world_immutable_resolution_entries;
+
+-- The exact applied attribute-policy rows, not only a release label, affect input identity.
+create temporary table wk_policy_before as select allowed_use_cases from world_knowledge_private.source_policy_attribute_rules where policy_version='backyrd.world-knowledge.source-policy@3b.1' and attribute_key='identity.name';
+create temporary table wk_policy_input_before as select world_knowledge_private.resolution_input_components_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),clock_timestamp())#>>'{sourcePolicy,attributePolicyHash}' as policy_hash;
+alter table world_knowledge_private.source_policy_attribute_rules disable trigger world_immutable_source_policy_attribute_rules;
+update world_knowledge_private.source_policy_attribute_rules set allowed_use_cases=allowed_use_cases||array['SYNTHETIC_POLICY_TAMPER'] where policy_version='backyrd.world-knowledge.source-policy@3b.1' and attribute_key='identity.name';
+select pg_temp.assert((select policy_hash<>world_knowledge_private.resolution_input_components_v1(pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),clock_timestamp())#>>'{sourcePolicy,attributePolicyHash}' from wk_policy_input_before),'applied attribute-policy change did not change resolver input identity');
+update world_knowledge_private.source_policy_attribute_rules r set allowed_use_cases=b.allowed_use_cases from wk_policy_before b where r.policy_version='backyrd.world-knowledge.source-policy@3b.1' and r.attribute_key='identity.name';
+alter table world_knowledge_private.source_policy_attribute_rules enable trigger world_immutable_source_policy_attribute_rules;
+
+-- Two account deletions detach without collision and retain immutable evidence.
+create temporary table wk_history_before as
+select (select count(*) from world_knowledge_private.claims) claim_count,
+       (select encode(extensions.digest(convert_to(coalesce(string_agg(content_hash,',' order by content_hash),''),'UTF8'),'sha256'),'hex') from world_knowledge_private.claims) claim_digest,
+       (select count(*) from world_knowledge_private.verification_records) verification_count,
+       (select encode(extensions.digest(convert_to(coalesce(string_agg(result_hash,',' order by result_hash),''),'UTF8'),'sha256'),'hex') from world_knowledge_private.verification_records) verification_digest,
+       (select count(*) from world_knowledge_private.identity_events) identity_count,
+       (select encode(extensions.digest(convert_to(coalesce(string_agg(event_hash,',' order by event_hash),''),'UTF8'),'sha256'),'hex') from world_knowledge_private.identity_events) identity_digest,
+       (select count(*) from world_knowledge_private.review_work_item_events) review_event_count,
+       (select encode(extensions.digest(convert_to(coalesce(string_agg(event_hash,',' order by event_hash),''),'UTF8'),'sha256'),'hex') from world_knowledge_private.review_work_item_events) review_event_digest;
+-- Remove synthetic profile-safety registry rows first; the canonical account-deletion path
+-- owns that separate lifecycle and the World ledger must not depend on those fixtures.
+delete from public.safety_content_items
+where actor_user_id in (pg_temp.id('wk-detach-owner-1'),pg_temp.id('wk-detach-owner-2'))
+   or actor_user_id in (pg_temp.id('wk-reporter'),pg_temp.id('wk-reporter-2'))
+   or (entity_type='profile' and entity_id in (pg_temp.id('wk-detach-owner-1'),pg_temp.id('wk-detach-owner-2'),pg_temp.id('wk-reporter'),pg_temp.id('wk-reporter-2')));
+delete from auth.users where id in (pg_temp.id('wk-detach-owner-1'),pg_temp.id('wk-detach-owner-2'),pg_temp.id('wk-reporter'),pg_temp.id('wk-reporter-2'));
+select pg_temp.assert((select count(*)=2 and count(distinct actor_pseudonym_id)=2 and bool_and(actor_id is null and detached_at is not null) from world_knowledge_private.actor_bindings where actor_type='VERIFIED_OWNER' and actor_id is null),'multiple owner bindings did not detach independently');
+select pg_temp.assert((select count(*)=2 and count(distinct actor_pseudonym_id)=2 and bool_and(actor_id is null and detached_at is not null) from world_knowledge_private.actor_bindings where actor_type='PUBLIC_CONTRIBUTOR' and actor_id is null),'reporter bindings did not detach independently');
+select pg_temp.assert(not exists(select 1 from world_knowledge_private.actor_bindings b cross join (values(pg_temp.id('wk-detach-owner-1')), (pg_temp.id('wk-detach-owner-2'))) old(id) where to_jsonb(b)::text like '%'||encode(extensions.digest(convert_to(old.id::text||':world-knowledge-actor-v1','UTF8'),'sha256'),'hex')||'%'),'detached binding retained reproducible user-id hash');
+select pg_temp.assert(not exists(
+  select 1 from (
+    select event_hash as hash_value from world_knowledge_private.review_work_item_events
+    union all select content_hash from world_knowledge_private.claims
+    union all select result_hash from world_knowledge_private.verification_records
+    union all select record_hash from world_knowledge_private.confirmation_records
+    union all select event_hash from world_knowledge_private.identity_events
+  ) hashes cross join (values(pg_temp.id('wk-reporter')), (pg_temp.id('wk-reporter-2'))) old(id)
+  where hashes.hash_value in (
+    encode(extensions.digest(convert_to(old.id::text,'UTF8'),'sha256'),'hex'),
+    encode(extensions.digest(convert_to(old.id::text||':world-knowledge-actor-v1','UTF8'),'sha256'),'hex')
+  )
+),'World ledger retained a directly reproducible deleted-user hash');
+select pg_temp.assert((select claim_count=(select count(*) from world_knowledge_private.claims) and claim_digest=(select encode(extensions.digest(convert_to(coalesce(string_agg(content_hash,',' order by content_hash),''),'UTF8'),'sha256'),'hex') from world_knowledge_private.claims) and verification_count=(select count(*) from world_knowledge_private.verification_records) and verification_digest=(select encode(extensions.digest(convert_to(coalesce(string_agg(result_hash,',' order by result_hash),''),'UTF8'),'sha256'),'hex') from world_knowledge_private.verification_records) and identity_count=(select count(*) from world_knowledge_private.identity_events) and identity_digest=(select encode(extensions.digest(convert_to(coalesce(string_agg(event_hash,',' order by event_hash),''),'UTF8'),'sha256'),'hex') from world_knowledge_private.identity_events) and review_event_count=(select count(*) from world_knowledge_private.review_work_item_events) and review_event_digest=(select encode(extensions.digest(convert_to(coalesce(string_agg(event_hash,',' order by event_hash),''),'UTF8'),'sha256'),'hex') from world_knowledge_private.review_work_item_events) from wk_history_before),'detachment mutated historical records');
+insert into world_knowledge_private.actor_bindings(actor_id,actor_type) values(pg_temp.id('wk-new-owner'),'VERIFIED_OWNER');
+select pg_temp.expect_error(format('insert into world_knowledge_private.actor_bindings(actor_id,actor_type) values(%L,%L)',pg_temp.id('wk-new-owner'),'VERIFIED_OWNER'),'23505','duplicate active actor binding accepted');
+select pg_temp.expect_error(format('update world_knowledge_private.actor_bindings set actor_id=%L where actor_id=%L and actor_type=%L',pg_temp.id('wk-reporter'),pg_temp.id('wk-new-owner'),'VERIFIED_OWNER'),'55000','foreign actor binding takeover accepted');
+
+do $$declare claim_id uuid; before_value jsonb; begin
+  select id,value into claim_id,before_value from world_knowledge_private.claims where idempotency_key='basic-name';
+  perform pg_temp.expect_error(format('update world_knowledge_private.claims set value=%L::jsonb where id=%L','"mutated"',claim_id),'55000','append-only update accepted');
+  perform pg_temp.assert((select value=before_value from world_knowledge_private.claims where id=claim_id),'claim history mutated');
+end$$;
+
+select pg_temp.assert(not exists(select 1 from world_knowledge_private.resolution_manifests where decision_projection::text ~* '(subscription|payment|owner[_ ]?tier|actor_id|private_payload)'),'commercial/private data leaked to projection');
+rollback;

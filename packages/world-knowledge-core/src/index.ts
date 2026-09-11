@@ -10,6 +10,7 @@ export * from "./port.js";
 export * from "./registry.js";
 export * from "./resolver.js";
 export * from "./schema.js";
+export * from "./slice3b.js";
 export * from "./source-policy.js";
 export * from "./temporal.js";
 export * from "./verification.js";
