@@ -1,0 +1,791 @@
+{
+  "contractVersion": "backyrd.user-intelligence.phase3c-event-semantics-matrix@3c-1",
+  "registryVersion": "backyrd.user-intelligence.signal-semantics@3c-1",
+  "registryHash": "190c3dad71d4b859c9be6b90820599cefd7e706f95707aeba99ee7d653a8b5de",
+  "entries": [
+    {
+      "eventType": "SHOWN",
+      "observationMeaning": "Candidate shown",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "CLIENT_OBSERVATION"
+        ]
+      },
+      "experienceRequirement": "NONE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "NONE",
+      "contextRequirement": "OPTIONAL_PRESERVED",
+      "independenceRule": "NEVER",
+      "journeyPriority": 0,
+      "evidenceClass": "NO_TASTE_EFFECT",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "NEVER",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "EXPOSURE_IS_INTEREST"
+      ],
+      "reasonCodes": [
+        "EXPOSURE_NEUTRAL"
+      ]
+    },
+    {
+      "eventType": "OPENED",
+      "observationMeaning": "Spot opened",
+      "authorityRequirement": {
+        "mode": "ANY_OF",
+        "authorities": [
+          "CLIENT_OBSERVATION",
+          "AUTHENTICATED_USER_ACTION"
+        ]
+      },
+      "experienceRequirement": "NONE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "NONE",
+      "contextRequirement": "OPTIONAL_PRESERVED",
+      "independenceRule": "NEVER",
+      "journeyPriority": 0,
+      "evidenceClass": "NO_TASTE_EFFECT",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "NEVER",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "OPEN_IS_LIKE",
+        "OPEN_IS_EXPERIENCE"
+      ],
+      "reasonCodes": [
+        "OPEN_NEUTRAL"
+      ]
+    },
+    {
+      "eventType": "DISMISSED",
+      "observationMeaning": "Presentation dismissed",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "AUTHENTICATED_USER_ACTION"
+        ]
+      },
+      "experienceRequirement": "NONE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "NONE",
+      "contextRequirement": "OPTIONAL_PRESERVED",
+      "independenceRule": "NEVER",
+      "journeyPriority": 0,
+      "evidenceClass": "NO_TASTE_EFFECT",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "NEVER",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "DISMISS_IS_DISLIKE"
+      ],
+      "reasonCodes": [
+        "DISMISS_NEUTRAL"
+      ]
+    },
+    {
+      "eventType": "REJECTED",
+      "observationMeaning": "Candidate not selected",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "AUTHENTICATED_USER_ACTION"
+        ]
+      },
+      "experienceRequirement": "NONE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "NONE",
+      "contextRequirement": "OPTIONAL_PRESERVED",
+      "independenceRule": "NEVER",
+      "journeyPriority": 0,
+      "evidenceClass": "NO_TASTE_EFFECT",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "NEVER",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "REJECT_IS_AVERSION"
+      ],
+      "reasonCodes": [
+        "REJECT_UNCONFIGURED"
+      ]
+    },
+    {
+      "eventType": "REJECT_REASON",
+      "observationMeaning": "Structured reject reason",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "AUTHENTICATED_USER_ACTION"
+        ]
+      },
+      "experienceRequirement": "NONE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "CURRENT_DECISION_CONTEXT",
+      "contextRequirement": "REQUIRED",
+      "independenceRule": "NEVER",
+      "journeyPriority": 0,
+      "evidenceClass": "WEAK_CONTEXTUAL_NEGATIVE",
+      "sufficiencyContribution": "WEAK_PENDING_THRESHOLD",
+      "projectionEligibility": "POLICY_EVALUATION_ONLY",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "REASON_IS_GLOBAL_TASTE"
+      ],
+      "reasonCodes": [
+        "REJECT_REASON_CONTEXT_BOUND"
+      ]
+    },
+    {
+      "eventType": "ALTERNATIVE_REQUESTED",
+      "observationMeaning": "Alternative requested",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "AUTHENTICATED_USER_ACTION"
+        ]
+      },
+      "experienceRequirement": "NONE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "EXPLORATION_REQUEST",
+      "contextRequirement": "CURRENT_DECISION_ONLY",
+      "independenceRule": "NEVER",
+      "journeyPriority": 0,
+      "evidenceClass": "NO_TASTE_EFFECT",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "NEVER",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "ALTERNATIVE_IS_REJECTION",
+        "ALTERNATIVE_IS_EXPLORATION_PREFERENCE"
+      ],
+      "reasonCodes": [
+        "ALTERNATIVE_NEUTRAL"
+      ]
+    },
+    {
+      "eventType": "SAVED",
+      "observationMeaning": "Save persisted",
+      "authorityRequirement": {
+        "mode": "ANY_OF",
+        "authorities": [
+          "SERVER_VERIFIED_PRODUCT_STATE",
+          "DATABASE_DERIVED_EVENT"
+        ]
+      },
+      "experienceRequirement": "NONE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "DIRECT_SPOT_PLANNING",
+      "contextRequirement": "OPTIONAL_PRESERVED",
+      "independenceRule": "ONE_PER_RESOLVED_JOURNEY",
+      "journeyPriority": 0,
+      "evidenceClass": "NEUTRAL_STATE",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "ELIGIBLE_WHEN_RUNTIME_SEPARATELY_AUTHORIZED",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "SAVE_IS_SATISFACTION",
+        "SAVE_IS_CONCEPT_TASTE"
+      ],
+      "reasonCodes": [
+        "PLANNING_STATE_ACTIVE"
+      ]
+    },
+    {
+      "eventType": "SAVE_REMOVED",
+      "observationMeaning": "Save state removed",
+      "authorityRequirement": {
+        "mode": "ANY_OF",
+        "authorities": [
+          "SERVER_VERIFIED_PRODUCT_STATE",
+          "DATABASE_DERIVED_EVENT"
+        ]
+      },
+      "experienceRequirement": "NONE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "DIRECT_SPOT_PLANNING",
+      "contextRequirement": "OPTIONAL_PRESERVED",
+      "independenceRule": "NEVER",
+      "journeyPriority": 0,
+      "evidenceClass": "NO_TASTE_EFFECT",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "NEVER",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "REMOVAL_IS_DISLIKE",
+        "REMOVAL_CHANGES_EXPERIENCE_EVIDENCE"
+      ],
+      "reasonCodes": [
+        "PLANNING_STATE_ENDED"
+      ]
+    },
+    {
+      "eventType": "NAVIGATION_STARTED",
+      "observationMeaning": "Navigation intent started",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "AUTHENTICATED_USER_ACTION"
+        ]
+      },
+      "experienceRequirement": "NONE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "NONE",
+      "contextRequirement": "CURRENT_DECISION_ONLY",
+      "independenceRule": "NEVER",
+      "journeyPriority": 0,
+      "evidenceClass": "NO_TASTE_EFFECT",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "NEVER",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "NAVIGATION_IS_VISIT",
+        "NAVIGATION_IS_SATISFACTION"
+      ],
+      "reasonCodes": [
+        "NAVIGATION_INTENT_ONLY"
+      ]
+    },
+    {
+      "eventType": "RESERVATION_INTENT",
+      "observationMeaning": "Reservation intent persisted",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "SERVER_VERIFIED_PRODUCT_STATE"
+        ]
+      },
+      "experienceRequirement": "NONE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "NONE",
+      "contextRequirement": "OPTIONAL_PRESERVED",
+      "independenceRule": "NEVER",
+      "journeyPriority": 0,
+      "evidenceClass": "NO_TASTE_EFFECT",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "NEVER",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "RESERVATION_IS_VISIT"
+      ],
+      "reasonCodes": [
+        "RESERVATION_INTENT_ONLY"
+      ]
+    },
+    {
+      "eventType": "VISITED",
+      "observationMeaning": "Verified visit",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "VERIFIED_OUTCOME"
+        ]
+      },
+      "experienceRequirement": "QUALIFIED_EXPERIENCE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "FAMILIARITY",
+      "contextRequirement": "OPTIONAL_PRESERVED",
+      "independenceRule": "INDEPENDENT_QUALIFIED_ONLY",
+      "journeyPriority": 0,
+      "evidenceClass": "NEUTRAL_STATE",
+      "sufficiencyContribution": "FAMILIARITY_COUNT",
+      "projectionEligibility": "ELIGIBLE_WHEN_RUNTIME_SEPARATELY_AUTHORIZED",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "VISIT_IS_SATISFACTION",
+        "VISIT_IS_POSITIVE_TASTE"
+      ],
+      "reasonCodes": [
+        "VERIFIED_EXPERIENCE",
+        "FAMILIARITY_AFTER_THREE"
+      ]
+    },
+    {
+      "eventType": "STANDARD_REVIEW",
+      "observationMeaning": "Review experience",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "SERVER_VERIFIED_PRODUCT_STATE"
+        ]
+      },
+      "experienceRequirement": "QUALIFIED_EXPERIENCE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "NONE",
+      "contextRequirement": "OPTIONAL_PRESERVED",
+      "independenceRule": "ONE_PER_RESOLVED_JOURNEY",
+      "journeyPriority": 0,
+      "evidenceClass": "NO_TASTE_EFFECT",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "NEVER",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "REVIEW_IS_SATISFACTION",
+        "REVIEW_ENTRY_CHANGES_SEMANTICS"
+      ],
+      "reasonCodes": [
+        "REVIEW_EXPERIENCE_ONLY"
+      ]
+    },
+    {
+      "eventType": "SMART_REVIEW",
+      "observationMeaning": "Review experience",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "SERVER_VERIFIED_PRODUCT_STATE"
+        ]
+      },
+      "experienceRequirement": "QUALIFIED_EXPERIENCE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "NONE",
+      "contextRequirement": "OPTIONAL_PRESERVED",
+      "independenceRule": "ONE_PER_RESOLVED_JOURNEY",
+      "journeyPriority": 0,
+      "evidenceClass": "NO_TASTE_EFFECT",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "NEVER",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "REVIEW_IS_SATISFACTION",
+        "REVIEW_ENTRY_CHANGES_SEMANTICS"
+      ],
+      "reasonCodes": [
+        "REVIEW_EXPERIENCE_ONLY"
+      ]
+    },
+    {
+      "eventType": "EXPLICIT_SATISFACTION",
+      "observationMeaning": "Explicit has fitted outcome",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "AUTHENTICATED_USER_ACTION",
+          "SERVER_VERIFIED_PRODUCT_STATE"
+        ]
+      },
+      "experienceRequirement": "QUALIFIED_EXPERIENCE",
+      "direction": "POSITIVE",
+      "semanticTarget": "DIRECT_SPOT_AFFINITY",
+      "contextRequirement": "OPTIONAL_PRESERVED",
+      "independenceRule": "ONE_PER_RESOLVED_JOURNEY",
+      "journeyPriority": 100,
+      "evidenceClass": "EXPLICIT_STRONG",
+      "sufficiencyContribution": "EXPLICIT_DIRECTED",
+      "projectionEligibility": "ELIGIBLE_WHEN_RUNTIME_SEPARATELY_AUTHORIZED",
+      "longTermTransfer": "MULTI_SPOT_CERTAIN_ATTRIBUTION_REQUIRED",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "SATISFACTION_ATTRIBUTES_ALL_CONCEPTS",
+        "SATISFACTION_IS_RANKING_AUTHORITY"
+      ],
+      "reasonCodes": [
+        "EXPLICIT_POSITIVE_OUTCOME"
+      ]
+    },
+    {
+      "eventType": "EXPLICIT_DISSATISFACTION",
+      "observationMeaning": "Explicit has not fitted outcome",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "AUTHENTICATED_USER_ACTION",
+          "SERVER_VERIFIED_PRODUCT_STATE"
+        ]
+      },
+      "experienceRequirement": "QUALIFIED_EXPERIENCE",
+      "direction": "NEGATIVE",
+      "semanticTarget": "AVERSION",
+      "contextRequirement": "OPTIONAL_PRESERVED",
+      "independenceRule": "ONE_PER_RESOLVED_JOURNEY",
+      "journeyPriority": 100,
+      "evidenceClass": "EXPLICIT_STRONG",
+      "sufficiencyContribution": "EXPLICIT_DIRECTED",
+      "projectionEligibility": "ELIGIBLE_WHEN_RUNTIME_SEPARATELY_AUTHORIZED",
+      "longTermTransfer": "MULTI_SPOT_CERTAIN_ATTRIBUTION_REQUIRED",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "DISSATISFACTION_IS_OBJECTIVE_QUALITY",
+        "DISSATISFACTION_IS_ELIGIBILITY"
+      ],
+      "reasonCodes": [
+        "EXPLICIT_NEGATIVE_PERSONAL_FIT"
+      ]
+    },
+    {
+      "eventType": "EXPLICIT_UNDECIDED",
+      "observationMeaning": "Explicit cannot assess response",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "AUTHENTICATED_USER_ACTION"
+        ]
+      },
+      "experienceRequirement": "QUALIFIED_EXPERIENCE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "NONE",
+      "contextRequirement": "OPTIONAL_PRESERVED",
+      "independenceRule": "NEVER",
+      "journeyPriority": 0,
+      "evidenceClass": "NO_TASTE_EFFECT",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "NEVER",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "UNDECIDED_HAS_DIRECTION"
+      ],
+      "reasonCodes": [
+        "SATISFACTION_UNKNOWN"
+      ]
+    },
+    {
+      "eventType": "REVIEW_MOODS",
+      "observationMeaning": "Review mood describes spot experience",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "SERVER_VERIFIED_PRODUCT_STATE"
+        ]
+      },
+      "experienceRequirement": "QUALIFIED_EXPERIENCE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "NONE",
+      "contextRequirement": "OPTIONAL_PRESERVED",
+      "independenceRule": "NEVER",
+      "journeyPriority": 0,
+      "evidenceClass": "NO_TASTE_EFFECT",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "NEVER",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "REVIEW_MOOD_IS_USER_TASTE",
+        "REVIEW_MOOD_INCREASES_TASTE_SUFFICIENCY"
+      ],
+      "reasonCodes": [
+        "WORLD_EXPERIENCE_DESCRIPTION_ONLY"
+      ]
+    },
+    {
+      "eventType": "MOMENT_CREATED",
+      "observationMeaning": "Moment content created",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "SERVER_VERIFIED_PRODUCT_STATE",
+          "VERIFIED_OUTCOME"
+        ]
+      },
+      "experienceRequirement": "SEPARATE_EXPERIENCE_AUTHORITY",
+      "direction": "NEUTRAL",
+      "semanticTarget": "NONE",
+      "contextRequirement": "OPTIONAL_PRESERVED",
+      "independenceRule": "NEVER",
+      "journeyPriority": 0,
+      "evidenceClass": "NO_TASTE_EFFECT",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "NEVER",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "MOMENT_IS_SATISFACTION",
+        "MOMENT_IS_TASTE",
+        "MOMENT_PROPAGATES_SOCIAL"
+      ],
+      "reasonCodes": [
+        "EXPERIENCE_SUPPORT_ONLY"
+      ]
+    },
+    {
+      "eventType": "SEARCH",
+      "observationMeaning": "Minimized structured search intent",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "AUTHENTICATED_USER_ACTION",
+          "SERVER_MINIMIZATION_SERVICE"
+        ]
+      },
+      "experienceRequirement": "NONE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "CONTEXTUAL_CONCEPT_TASTE",
+      "contextRequirement": "REQUIRED",
+      "independenceRule": "INDEPENDENT_QUALIFIED_ONLY",
+      "journeyPriority": 40,
+      "evidenceClass": "CONTEXTUAL_REPEATED",
+      "sufficiencyContribution": "SEARCH_CONTEXTUAL_PENDING_THRESHOLD",
+      "projectionEligibility": "POLICY_EVALUATION_ONLY",
+      "longTermTransfer": "NOT_CONFIGURED",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "RAW_SEARCH_IS_PROFILE",
+        "SINGLE_SEARCH_IS_LONG_TERM_TASTE"
+      ],
+      "reasonCodes": [
+        "CURRENT_SEARCH_INTENT",
+        "SEARCH_PROMOTION_NOT_CONFIGURED"
+      ]
+    },
+    {
+      "eventType": "DWELL",
+      "observationMeaning": "Interaction attention duration",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "CLIENT_OBSERVATION",
+          "SERVER_MINIMIZATION_SERVICE"
+        ]
+      },
+      "experienceRequirement": "NONE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "INTERACTION_ATTENTION",
+      "contextRequirement": "OPTIONAL_PRESERVED",
+      "independenceRule": "NEVER",
+      "journeyPriority": 0,
+      "evidenceClass": "RESEARCH_ONLY",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "NEVER",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "ATTENTION_RESEARCH_OBSERVATION",
+      "retentionClass": "ATTENTION_RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "DWELL_IS_TASTE",
+        "DWELL_IS_EXPERIENCE",
+        "DWELL_INCREASES_TASTE_SUFFICIENCY"
+      ],
+      "reasonCodes": [
+        "ATTENTION_SEPARATE_NOT_AUTHORIZED"
+      ]
+    },
+    {
+      "eventType": "QUICK_SKIP",
+      "observationMeaning": "Weak contextual skip",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "AUTHENTICATED_USER_ACTION"
+        ]
+      },
+      "experienceRequirement": "NONE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "DIRECT_SPOT_AFFINITY",
+      "contextRequirement": "REQUIRED",
+      "independenceRule": "ONE_PER_RESOLVED_JOURNEY",
+      "journeyPriority": 10,
+      "evidenceClass": "WEAK_CONTEXTUAL_NEGATIVE",
+      "sufficiencyContribution": "WEAK_PENDING_THRESHOLD",
+      "projectionEligibility": "POLICY_EVALUATION_ONLY",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "SKIP_IS_GLOBAL_AVERSION",
+        "SKIP_IS_CONCEPT_AVERSION"
+      ],
+      "reasonCodes": [
+        "WEAK_SPOT_DECISION_CONTEXT_NEGATIVE",
+        "SKIP_MATURITY_NOT_CONFIGURED"
+      ]
+    },
+    {
+      "eventType": "REPEAT_VISIT",
+      "observationMeaning": "Independent verified repeat visit",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "VERIFIED_OUTCOME"
+        ]
+      },
+      "experienceRequirement": "QUALIFIED_EXPERIENCE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "FAMILIARITY",
+      "contextRequirement": "OPTIONAL_PRESERVED",
+      "independenceRule": "INDEPENDENT_QUALIFIED_ONLY",
+      "journeyPriority": 0,
+      "evidenceClass": "NEUTRAL_STATE",
+      "sufficiencyContribution": "FAMILIARITY_COUNT",
+      "projectionEligibility": "ELIGIBLE_WHEN_RUNTIME_SEPARATELY_AUTHORIZED",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "REPEAT_IS_LIKE"
+      ],
+      "reasonCodes": [
+        "FAMILIARITY_AFTER_THREE"
+      ]
+    },
+    {
+      "eventType": "CORRECTION",
+      "observationMeaning": "Append-only correction",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "AUTHENTICATED_USER_ACTION",
+          "SERVER_EVENT_LEDGER"
+        ]
+      },
+      "experienceRequirement": "TARGET_INHERITS",
+      "direction": "NEUTRAL",
+      "semanticTarget": "NONE",
+      "contextRequirement": "TARGET_INHERITS",
+      "independenceRule": "TARGET_INHERITS",
+      "journeyPriority": 0,
+      "evidenceClass": "NO_TASTE_EFFECT",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "NEVER",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "CORRECTION_REWRITES_HISTORY"
+      ],
+      "reasonCodes": [
+        "TARGET_ACTIVE_INFLUENCE_REMOVED"
+      ]
+    },
+    {
+      "eventType": "MOOD_CONTEXT_SELECTED",
+      "observationMeaning": "Mood selected for current decision",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "AUTHENTICATED_USER_ACTION"
+        ]
+      },
+      "experienceRequirement": "NONE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "CURRENT_DECISION_CONTEXT",
+      "contextRequirement": "CURRENT_DECISION_ONLY",
+      "independenceRule": "NEVER",
+      "journeyPriority": 0,
+      "evidenceClass": "NEUTRAL_STATE",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "POLICY_EVALUATION_ONLY",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "SEARCHED_MOOD_IS_LONG_TERM_TASTE"
+      ],
+      "reasonCodes": [
+        "CURRENT_DECISION_CONTEXT_ONLY"
+      ]
+    },
+    {
+      "eventType": "EXPLORATION_CONTROL_SELECTED",
+      "observationMeaning": "Explicit current exploration control",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "AUTHENTICATED_USER_ACTION"
+        ]
+      },
+      "experienceRequirement": "NONE",
+      "direction": "NEUTRAL",
+      "semanticTarget": "EXPLORATION_REQUEST",
+      "contextRequirement": "CURRENT_DECISION_ONLY",
+      "independenceRule": "NEVER",
+      "journeyPriority": 0,
+      "evidenceClass": "NEUTRAL_STATE",
+      "sufficiencyContribution": "NONE",
+      "projectionEligibility": "ELIGIBLE_WHEN_RUNTIME_SEPARATELY_AUTHORIZED",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "EXPLORATION_CONTROL_IS_PERSONALITY"
+      ],
+      "reasonCodes": [
+        "CURRENT_EXPLORATION_INTENT"
+      ]
+    },
+    {
+      "eventType": "SPOT_NOT_FIT",
+      "observationMeaning": "Explicit spot does not fit current request",
+      "authorityRequirement": {
+        "mode": "ALL_OF",
+        "authorities": [
+          "AUTHENTICATED_USER_ACTION",
+          "SERVER_VERIFIED_PRODUCT_STATE"
+        ]
+      },
+      "experienceRequirement": "NONE",
+      "direction": "CONTEXTUAL_WEAK_NEGATIVE",
+      "semanticTarget": "DIRECT_SPOT_AFFINITY",
+      "contextRequirement": "REQUIRED",
+      "independenceRule": "ONE_PER_RESOLVED_JOURNEY",
+      "journeyPriority": 70,
+      "evidenceClass": "WEAK_CONTEXTUAL_NEGATIVE",
+      "sufficiencyContribution": "WEAK_PENDING_THRESHOLD",
+      "projectionEligibility": "POLICY_EVALUATION_ONLY",
+      "longTermTransfer": "FORBIDDEN",
+      "correctable": true,
+      "lifecycleClass": "PERSONAL_OBSERVATION",
+      "retentionClass": "RETENTION_NOT_CONFIGURED",
+      "prohibitedInterpretations": [
+        "SPOT_NOT_FIT_IS_GLOBAL_AVERSION"
+      ],
+      "reasonCodes": [
+        "SPOT_DECISION_CONTEXT_NEGATIVE"
+      ]
+    }
+  ]
+}

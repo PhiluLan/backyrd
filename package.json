@@ -63,6 +63,7 @@
     "user-intelligence-vnext:typecheck": "npm run typecheck --workspace @backyrd/user-intelligence-vnext-core",
     "user-intelligence-vnext:test": "npm run test --workspace @backyrd/user-intelligence-vnext-core",
     "user-intelligence-vnext:calibration": "npm run user-intelligence-vnext:build && node scripts/user-intelligence/run-phase3b-calibration.mjs",
+    "user-intelligence-vnext:phase3c": "npm run user-intelligence-vnext:build && node scripts/user-intelligence/run-phase3c-product-policy.mjs",
     "world-knowledge:build": "npm run build --workspace @backyrd/world-knowledge-core",
     "world-knowledge:typecheck": "npm run typecheck --workspace @backyrd/world-knowledge-core",
     "world-knowledge:test": "npm run test --workspace @backyrd/world-knowledge-core",

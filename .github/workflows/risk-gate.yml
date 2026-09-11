@@ -209,6 +209,15 @@ jobs:
           path: ${{ runner.temp }}/user-intelligence-phase3b-full-report.json
           if-no-files-found: error
           retention-days: 14
+      - name: Reproduce Phase 3C Product Policy release
+        run: npm run user-intelligence-vnext:phase3c -- --full-output "$RUNNER_TEMP/user-intelligence-phase3c-product-policy.json" --verify-summary docs/user-intelligence-vnext/phase3c/product-policy-release-summary.json
+      - name: Retain Phase 3C non-production Product Policy proof
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: user-intelligence-phase3c-product-policy-${{ github.sha }}
+          path: ${{ runner.temp }}/user-intelligence-phase3c-product-policy.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Validate World Knowledge foundation
         run: |
           npm run world-knowledge:typecheck
