@@ -16,3 +16,4 @@ export * from "./user-model.js";
 export * from "./calibration.js";
 export * from "./calibration-adapter.js";
 export * from "./calibration-fixtures.js";
+export * from "./product-policy.js";

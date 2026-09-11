@@ -1,7 +1,7 @@
 import { contentHash } from "./canonical.js";
 import { ContractValidationError } from "./schema.js";
 
-export const LIFECYCLE_MANIFEST_VERSION = "backyrd.user-intelligence.lifecycle-manifest@1.0";
+export const LIFECYCLE_MANIFEST_VERSION = "backyrd.user-intelligence.lifecycle-manifest@1.1";
 export const REQUIRED_LIFECYCLE_STORES = Object.freeze([
   "canonical_memory_events", "event_ledger", "deduplication_records", "evidence_bindings", "rebuild_material",
   "evidence_chains", "taste_nodes", "practical_preferences", "direct_spot_affinities",
@@ -9,6 +9,7 @@ export const REQUIRED_LIFECYCLE_STORES = Object.freeze([
   "observation_records", "interpretation_records", "user_model_snapshots", "user_model_latest_pointer",
   "incremental_reducer_state", "projection_cache", "model_rebuild_material", "attribution_work_items", "evaluation_fixtures_subject_bound",
   "calibration_reports_subject_bound", "calibration_rebuild_material",
+  "product_policy_evaluations_subject_bound", "product_policy_rebuild_material", "privacy_export_material",
 ] as const);
 
 export type LifecycleStoreName = typeof REQUIRED_LIFECYCLE_STORES[number];
@@ -70,6 +71,9 @@ export const USER_INTELLIGENCE_LIFECYCLE_MANIFEST = Object.freeze({
     personal("evaluation_fixtures_subject_bound", "USER_INTELLIGENCE", "DERIVED", "EXPORT_METADATA", "EPHEMERAL", ["interpretation_records"]),
     personal("calibration_reports_subject_bound", "USER_INTELLIGENCE", "DERIVED", "EXPORT_USER_READABLE", "EPHEMERAL", ["evidence_chains", "interpretation_records"]),
     personal("calibration_rebuild_material", "USER_INTELLIGENCE", "DERIVED", "EXPORT_METADATA", "SOURCE_BOUND", ["evidence_chains", "calibration_reports_subject_bound"]),
+    personal("product_policy_evaluations_subject_bound", "USER_INTELLIGENCE", "DERIVED", "EXPORT_USER_READABLE", "SOURCE_BOUND", ["evidence_chains", "interpretation_records"]),
+    personal("product_policy_rebuild_material", "USER_INTELLIGENCE", "DERIVED", "EXPORT_METADATA", "SOURCE_BOUND", ["evidence_chains", "product_policy_evaluations_subject_bound"]),
+    personal("privacy_export_material", "USER_INTELLIGENCE", "DERIVED", "EXPORT_USER_READABLE", "EPHEMERAL", ["product_policy_evaluations_subject_bound"]),
     {
       store: "technical_audit_manifests", owner: "PLATFORM_OPERATIONS", privacyClass: "NON_PERSONAL_TECHNICAL", stateKind: "AUDIT",
       exportBehavior: "NOT_USER_EXPORTABLE_NON_PERSONAL", retentionOwner: "platform-operations:technical-audit-policy",
