@@ -29,3 +29,8 @@ export * from "./schema.js";
 export * from "./synthetic-world-policy.js";
 export * from "./user-adapter.js";
 export * from "./world-adapter.js";
+export * from "./phase3b-contracts.js";
+export * from "./phase3b-release.js";
+export * from "./phase3b-resolvers.js";
+export * from "./phase3b-policy.js";
+export * from "./phase3b-oracle-workbench.js";

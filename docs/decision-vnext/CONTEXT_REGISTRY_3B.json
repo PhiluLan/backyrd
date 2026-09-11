@@ -1,0 +1,17 @@
+{
+  "contractVersion": "backyrd.decision-vnext.context-registry-document@3b-1",
+  "canonicalSource": "packages/decision-vnext-core/src/phase3b-artifacts.ts",
+  "registryVersion": "backyrd.decision-vnext.context-registry@3b-1",
+  "registryHash": "e4f10ed4aeeb55df5a17cb3b4d7b0f87a6d30a1ddc1b3b28e0f755b86cc36799",
+  "worldRegistryVersion": "backyrd.world-knowledge.registry@1.1",
+  "lifecycle": "DRAFT_PRODUCT_RELEASE",
+  "unresolved": [
+    "intent-full-taxonomy",
+    "occasion-full-taxonomy",
+    "mood-full-taxonomy",
+    "stay-duration-minute-boundaries",
+    "legal-age-unknown-policy"
+  ],
+  "productionAuthorized": false,
+  "runtimeActivated": false
+}
