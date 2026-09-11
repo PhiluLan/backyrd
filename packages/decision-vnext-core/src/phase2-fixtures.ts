@@ -1,5 +1,5 @@
 import {
-  CONTRACT_VERSIONS as USER_CONTRACT_VERSIONS, RelevantUserProjectionSchema, SYNTHETIC_CONCEPT_REGISTRY_VERSION, SYNTHETIC_MANIFEST,
+  CONTRACT_VERSIONS as USER_CONTRACT_VERSIONS, NEUTRAL_SUBJECT_BINDING_HASH, RelevantUserProjectionSchema, SYNTHETIC_CONCEPT_REGISTRY_VERSION, SYNTHETIC_MANIFEST,
   canonicalBytes, contentHash as userContentHash, projectionHashBody,
   type DecisionVNextUserProjectionPort, type RelevantUserProjection, type RelevantUserProjectionRequest,
 } from "@backyrd/user-intelligence-vnext-core";
@@ -16,7 +16,7 @@ export class SyntheticPhase2UserProjectionPort implements DecisionVNextUserProje
     if (this.mode === "COLD_USER") {
       if (!request.snapshot) throw new Error("synthetic_cold_projection_requires_snapshot_binding");
       const withoutHash = {
-        contractVersion: USER_CONTRACT_VERSIONS.projection, projectionId: `projection-${request.requestId}`, decisionId: request.decisionId, subjectBindingHash: request.actor.subjectBindingHash,
+        contractVersion: USER_CONTRACT_VERSIONS.projection, projectionId: `projection-${request.requestId}`, decisionId: request.decisionId, subjectBindingHash: NEUTRAL_SUBJECT_BINDING_HASH,
         snapshot: request.snapshot, manifest: { manifestId: SYNTHETIC_MANIFEST.manifestId, manifestHash: SYNTHETIC_MANIFEST.manifestHash }, status: "NEUTRAL" as const, neutralReason: "COLD_START" as const,
         taste: [], practical: [], directSpot: [], domainSufficiency: [{ domain: "synthetic-fixture", sufficiency: { level: "LOW" as const, policyRef: "phase2-synthetic-sufficiency-v1", reasons: ["COLD_START"] } }], knowledgeLevel: "LOW" as const,
         suppression: { total: 1, byReason: [{ code: "COLD_START" as const, count: 1 }] }, boundaries: { rawEventsIncluded: false as const, reviewTextIncluded: false as const, rawLocationIncluded: false as const, privateSocialDataIncluded: false as const, eligibilityAuthority: false as const, rankingAuthority: false as const },
