@@ -151,7 +151,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - run: npm run test:contracts --workspace web
-      - run: npm exec --workspace web tsc -- --noEmit --pretty false
+      - run: npm run typecheck --workspace web -- --pretty false
       - run: npm run build --workspace web
 
   admin:
@@ -176,9 +176,12 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: admin-dashboard/package-lock.json
+      - name: Install repository workspace dependencies
+        working-directory: ${{ github.workspace }}
+        run: npm ci
       - run: npm ci
       - run: npm run test:contracts
-      - run: npm exec tsc -- --noEmit --pretty false
+      - run: npm run typecheck -- --pretty false
       - run: npm run build
 
   shared:

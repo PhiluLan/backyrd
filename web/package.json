@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "npm run build --workspace @backyrd/world-knowledge-core",
     "build": "next build",
     "start": "next start",
     "lint": "eslint app components lib proxy.ts --ignore-pattern 'app/owner/**' --ignore-pattern 'components/owner/**' --ignore-pattern 'lib/owner-*.ts'",
     "lint:all": "eslint",
+    "pretypecheck": "npm run build --workspace @backyrd/world-knowledge-core",
     "typecheck": "tsc --noEmit",
     "test:contracts": "node --test tests/*.test.mjs",
     "test:e2e": "playwright test",

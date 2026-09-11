@@ -4,10 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "prepare:world-knowledge": "tsc -p ../packages/world-knowledge-core/tsconfig.build.json --typeRoots ./node_modules/@types",
+    "prebuild": "npm run prepare:world-knowledge",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:contracts": "node --test test/*.test.mjs"
+    "test:contracts": "node --test test/*.test.mjs",
+    "pretypecheck": "npm run prepare:world-knowledge",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@backyrd/canonical-semantics": "file:../packages/canonical-semantics",
