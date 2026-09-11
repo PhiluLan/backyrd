@@ -3,6 +3,7 @@
 | Component | Classification | Slice 4A treatment |
 | --- | --- | --- |
 | `public.spots.id` | KEEP | Canonical Spot identity; cohort rows point to it. |
+| Legacy mandatory coordinates | ADAPT | New isolated rows receive a non-authoritative `0/0` compatibility sentinel. It never enters World Knowledge; only explicit location Claims enter a snapshot. |
 | `public.spots.owner_id` | ADAPT | Server-side current ownership check; never emitted as World knowledge. |
 | Admin `SpotForm` | KEEP | Existing production authoring remains unchanged. A separate cohort route is added. |
 | Owner spot/profile form | KEEP | Existing production form remains unchanged. A separate cohort route is added. |

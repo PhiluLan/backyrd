@@ -6,13 +6,15 @@ From the repository root:
 
 ```sh
 npm install
-npx supabase start
-npx supabase db reset
-npm run world-knowledge:build
+BACKYRD_KEEP_SUPABASE_RUNNING=true \
+  BASE_SHA=903a2ec953d372b928ee9724215cadb8e4541352 \
+  BACKYRD_CHANGED_DATABASE_TESTS_FILE=/private/tmp/wk4a-database-tests.txt \
+  bash scripts/ci/validate-supabase-current.sh
+set -a; source "${TMPDIR:-/tmp}/backyrd-world-authoring-local.env"; set +a
 npm --workspace web run dev -- --hostname 127.0.0.1 --port 3217
 ```
 
-The ordinary reset includes historical data operations and can fail on an empty database. The canonical clean-room command is `scripts/ci/validate-supabase-current.sh`; it excludes those certified one-time operations. For interactive authoring, apply the active migrations to a clean local database and then run `supabase/seed.sql`, which enables the local-only authoring flag.
+Create the selected-test file once with `printf '%s\n' 'supabase/tests/world_knowledge_slice4a_authoring.sql' > /private/tmp/wk4a-database-tests.txt`. This is the canonical clean-room reset: it excludes certified one-time historical data operations, runs the complete database safety gate, enables authoring only in that disposable local database, seeds three local identities, and leaves the isolated stack running. The owner-only environment file contains local secrets and is never committed. Stop the stack with `npx supabase stop --workdir "$BACKYRD_LOCAL_SUPABASE_WORKDIR" --no-backup` after sourcing that file.
 
 Owner URL: `http://127.0.0.1:3217/owner/world-knowledge`
 
@@ -25,6 +27,12 @@ npm --prefix admin-dashboard run dev -- --hostname 127.0.0.1 --port 3218
 Then open `http://127.0.0.1:3218/world-knowledge`.
 
 ## Roles and workflow
+
+All three local accounts use the password `FounderLocal4A!`:
+
+- Admin: `founder-admin@local.backyrd.test`
+- Owner Basic: `owner-basic@local.backyrd.test`
+- Owner Pro: `owner-pro@local.backyrd.test`
 
 - Admin creates and manages the 20–40 cohort spots and can edit all approved keys.
 - Owner Basic sees only the stable Basic key set for an owned cohort Spot.

@@ -25,7 +25,12 @@ project_id="backyrd-current-${project_suffix//[^a-zA-Z0-9-]/-}"
 numeric_suffix="${project_suffix//[^0-9]/}"; numeric_suffix="${numeric_suffix:-$$}"
 port_base=$((57000 + (numeric_suffix % 30) * 20))
 started=false
+keep_running="${BACKYRD_KEEP_SUPABASE_RUNNING:-false}"
 cleanup() {
+  if test "$keep_running" = true; then
+    printf 'Disposable local Supabase kept running at %s. Stop it with: %s stop --workdir %s --no-backup\n' "$API_URL" "$supabase_cli" "$validation_root"
+    return
+  fi
   if test "$started" = true; then "$supabase_cli" stop --workdir "$validation_root" --no-backup >/dev/null 2>&1 || true; fi
   case "$validation_root" in
     "${TMPDIR:-/tmp}"/backyrd-current-db.*|/tmp/backyrd-current-db.*) rm -rf "$validation_root" ;;
@@ -193,3 +198,16 @@ printf '%s\n' \
   $'public.upsert_my_owned_spot_content_v1\t42702\tcolumn reference "spot_id" is ambiguous' >"$validation_root/db-lint-expected.txt"
 diff -u "$validation_root/db-lint-expected.txt" "$validation_root/db-lint-actual.txt"
 printf 'Current candidate clean boot passed: migration lineage, semantic schema/ACL, SQL behavior, negative authorization and DB lint.\n'
+if test "$keep_running" = true; then
+  psql "$DB_URL" -X --set ON_ERROR_STOP=1 --command "alter database postgres set app.world_knowledge_founder_authoring_enabled='on'" >/dev/null
+  env API_URL="$API_URL" SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" ANON_KEY="$ANON_KEY" node "$repo_root/scripts/world-knowledge/seed-local-authoring.mjs"
+  runtime_env="${TMPDIR:-/tmp}/backyrd-world-authoring-local.env"
+  umask 077
+  {
+    printf 'NEXT_PUBLIC_SUPABASE_URL=%q\n' "$API_URL"
+    printf 'NEXT_PUBLIC_SUPABASE_ANON_KEY=%q\n' "$ANON_KEY"
+    printf 'SUPABASE_SERVICE_ROLE_KEY=%q\n' "$SERVICE_ROLE_KEY"
+    printf 'BACKYRD_LOCAL_SUPABASE_WORKDIR=%q\n' "$validation_root"
+  } >"$runtime_env"
+  printf 'Local app environment written with owner-only permissions: %s\n' "$runtime_env"
+fi

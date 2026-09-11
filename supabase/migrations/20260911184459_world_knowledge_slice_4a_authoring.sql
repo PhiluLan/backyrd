@@ -89,8 +89,10 @@ begin
   join public.spots s on s.id=f.spot_id
   where f.created_by_binding_id=binding_id and f.creation_idempotency_key=p_idempotency_key and s.data_origin='TEST';
   if found then return jsonb_build_object('spotId',existing_id,'created',false,'scope','FOUNDER_EVALUATION_ONLY'); end if;
-  insert into public.spots(name,status,owner_id,created_by,data_origin)
-  values(trim(p_name),'archived',p_owner_id,actor_id,'TEST') returning id into spot_id;
+  -- The legacy table still requires coordinates. These isolated, archived rows use a
+  -- non-authoritative sentinel; location becomes World truth only after an explicit Claim.
+  insert into public.spots(name,lat,lng,status,owner_id,created_by,data_origin)
+  values(trim(p_name),0,0,'archived',p_owner_id,actor_id,'TEST') returning id into spot_id;
   insert into world_knowledge_private.founder_evaluation_spots_v1(spot_id,created_by_binding_id,creation_idempotency_key) values(spot_id,binding_id,p_idempotency_key);
   insert into world_knowledge_private.shadow_spot_allowlist(spot_id,reason,valid_until)
   values(spot_id,'FOUNDER_EVALUATION_ONLY',pg_catalog.clock_timestamp()+interval '180 days');
