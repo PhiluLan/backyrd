@@ -13,6 +13,7 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    "preserveSymlinks": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
@@ -23,6 +24,9 @@
       }
     ],
     "paths": {
+      "@backyrd/canonical-semantics": [
+        "../packages/canonical-semantics/src/index.mjs"
+      ],
       "@/*": [
         "./*"
       ]
