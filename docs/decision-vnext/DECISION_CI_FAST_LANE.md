@@ -1,6 +1,6 @@
 # Decision CI Fast Lane
 
-Status: technische CI-/Testarchitektur, keine Product- oder Production-Semantik.  
+Status: technische CI-/Testarchitektur, keine Product- oder Production-Semantik.
 Canonical Base: `8744d34e99413ea1f89f6df5fbc3814061abca39`.
 
 ## Existing system audit and measured root cause
