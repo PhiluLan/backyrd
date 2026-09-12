@@ -57,6 +57,7 @@ if (isMain) {
   const port = Number(readArg("--port") ?? 3221); const statePath = readArg("--state") ? path.resolve(readArg("--state")) : defaultStatePath; const localRoot = path.join(root, ".local");
   if (!Number.isInteger(port) || port < 0 || port > 65535) { process.stderr.write("Ungültiger lokaler Port.\n"); process.exit(1); }
   if (statePath !== localRoot && !statePath.startsWith(`${localRoot}${path.sep}`)) { process.stderr.write("Der lokale Lab-Store muss unter .local/ liegen.\n"); process.exit(1); }
+  if (process.argv.includes("--reset-state")) { fs.rmSync(statePath, { force: true }); process.stdout.write(`Lokale Founder-Lab-Testdaten wurden zurückgesetzt: ${statePath}\n`); process.exit(0); }
   startFounderLabUiServer({ port, statePath }).then(({ url }) => {
     process.stdout.write(`\nBackyrd Founder User Lab ist bereit.\n${url}\n\nNur lokal · keine Production-Verbindung · keine Migration · kein Ranking.\n`);
   }).catch((error) => { process.stderr.write(`Founder Lab konnte nicht starten: ${error.message}\n`); process.exit(1); });

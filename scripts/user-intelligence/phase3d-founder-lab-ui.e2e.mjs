@@ -14,7 +14,7 @@ const ok = (value, message) => { assert.ok(value, message); assertions += 1; };
 const equal = (a, b, message) => { assert.equal(a, b, message); assertions += 1; };
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 
-async function createUser(label) { page.once("dialog", (dialog) => dialog.accept(label)); await page.click("#new-user"); await page.waitForFunction((expected) => document.querySelector("#user-status")?.textContent.includes(expected), label); }
+async function createUser(label) { await page.fill("#new-user-label", label); await page.click("#new-user"); await page.waitForFunction((expected) => document.querySelector("#user-status")?.textContent.includes(expected), label); }
 async function newJourney(overrides = {}) { if (overrides.spot) await page.selectOption("#spot", overrides.spot); if (overrides.dayPhase) await page.selectOption("#day-phase", overrides.dayPhase); if (overrides.company) await page.selectOption("#company", overrides.company); await page.click("#new-journey"); await page.waitForFunction(() => document.querySelector("#journey-status")?.textContent.includes("Aktive Journey")); }
 async function action(name) { const before = await page.locator(".timeline-item").count(); await page.click(`[data-action="${name}"]`); await page.waitForFunction((count) => document.querySelectorAll(".timeline-item").length > count, before); }
 async function state() { return page.evaluate(() => fetch("/api/state").then((response) => response.json()).then(({ data }) => data)); }
@@ -54,6 +54,7 @@ try {
 
   // 9. Lifecycle: withdrawal, reset, erasure
   await page.click('[data-lifecycle="WITHDRAW"]'); await page.waitForSelector("#confirm-dialog[open]"); await page.click('#confirm-dialog button[value="confirm"]'); await page.waitForFunction(() => document.querySelector("#user-status")?.textContent.includes("Consent widerrufen")); current = await state(); equal(current.timeline.length, 0, "withdrawal removes observations"); equal(current.internalModel.interpretations.length, 0, "withdrawal removes model");
+  await createUser("Reset Test"); await newJourney(); await action("save"); await page.click('[data-lifecycle="RESET"]'); await page.waitForSelector("#confirm-dialog[open]"); await page.click('#confirm-dialog button[value="confirm"]'); await page.waitForFunction(() => document.querySelector("#user-status")?.textContent.includes("Zurückgesetzt")); current = await state(); equal(current.timeline.length, 0, "reset removes observations"); equal(current.selectedUser.checkpoint.observationCount, 0, "reset removes rebuild material");
   await createUser("Erase Test"); await newJourney(); await action("save"); const userCount = (await state()).users.length; await page.click('[data-lifecycle="ERASE"]'); await page.waitForSelector("#confirm-dialog[open]"); await page.click('#confirm-dialog button[value="confirm"]'); await page.waitForFunction((count) => document.querySelectorAll("#user-select option").length === count, userCount); equal((await state()).users.length, userCount - 1, "erasure removes user");
 
   // 10. Narrow view remains operable

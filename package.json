@@ -68,6 +68,7 @@
     "user-intelligence-vnext:phase3d:fast": "npm run user-intelligence-vnext:build && node --test packages/user-intelligence-vnext-core/test/phase3d-founder-lab.test.mjs scripts/user-intelligence/phase3d-founder-lab-ui.test.mjs",
     "user-intelligence-vnext:phase3d:lab": "npm run user-intelligence-vnext:build && node scripts/user-intelligence/phase3d-founder-lab.mjs",
     "user-intelligence-vnext:phase3d:lab:ui": "npm run user-intelligence-vnext:build && node scripts/user-intelligence/phase3d-founder-lab-ui-server.mjs",
+    "user-intelligence-vnext:phase3d:lab:ui:reset": "node scripts/user-intelligence/phase3d-founder-lab-ui-server.mjs --reset-state",
     "user-intelligence-vnext:phase3d:ui:test": "npm run user-intelligence-vnext:build && node --test scripts/user-intelligence/phase3d-founder-lab-ui.test.mjs",
     "user-intelligence-vnext:phase3d:ui:e2e": "npm run user-intelligence-vnext:build && node scripts/user-intelligence/phase3d-founder-lab-ui.e2e.mjs",
     "world-knowledge:build": "npm run build --workspace @backyrd/world-knowledge-core",
