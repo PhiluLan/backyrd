@@ -77,6 +77,8 @@ export const CONTRACT_VERSIONS = Object.freeze({
   phase3dReport: "backyrd.user-intelligence.founder-lab-report@3d-1",
   phase3dReleaseSummary: "backyrd.user-intelligence.founder-lab-release-summary@3d-2",
   phase3dWorldCohortManifest: "backyrd.user-intelligence.world-cohort-consumer@3d-1",
+  phase3dDecisionTaskBinding: "backyrd.user-intelligence.decision-task-binding@3d-1",
+  phase3dCalibrationDecisionRecord: "backyrd.user-intelligence.calibration-decisions@3d-1",
 } as const);
 
 export const SYNTHETIC_CONCEPT_REGISTRY_VERSION = "backyrd.synthetic-user-concepts@1.0";

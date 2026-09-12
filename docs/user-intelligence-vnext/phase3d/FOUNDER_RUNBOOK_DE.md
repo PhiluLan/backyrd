@@ -14,7 +14,9 @@ npm run user-intelligence-vnext:phase3d:lab:ui
 
 Danach ist das Lab unter `http://127.0.0.1:3221` vollständig im Browser bedienbar. Es werden keine externen Services, Production-Daten oder Admin-Routen verwendet. Testnutzer, Situationen, Handlungen, Rebuild, Replay, Privacy-Export, Withdrawal, Reset und Erasure sind in der Oberfläche erreichbar. Destruktive lokale Aktionen verlangen eine Bestätigung.
 
-Die UI verarbeitet ausschließlich drei deterministische Fixture-Suchformulierungen: „gemütliches Café am Vormittag“, „ruhig essen beim ersten Date“ und „etwas Neues“. Nicht erkannter Freitext wird fail-closed abgewiesen. Der Rohtext wird weder im Store noch im User Model persistiert.
+Die Decision-Aufgabe ist bewusst kein Freitextfeld. Die UI bietet ausschließlich die vier deterministischen Fixture-Aufgaben „Ort finden“, „Café finden“, „Ruhig essen“ und „Etwas Neues entdecken“ als Auswahlliste an. Die Auswahl wird serverseitig an eine versionierte semantische Aufgaben-ID gebunden; technische Decision-Ausführungen bleiben davon getrennte Provenance. Nicht erlaubte Werte werden fail-closed abgewiesen, und Rohtext wird weder im Store noch im User Model persistiert.
+
+Für den Skip-Vergleich gruppiert das Lab nur semantisch passende aktive Skips desselben Testnutzers: gleicher Spot, gleiche Fixture-Aufgabe und gleicher relevanter Context. Unterschiedliche technische Decision-IDs bleiben sichtbar, gehören aber nicht zum Reife-Target. Die normale Ansicht zeigt pro Kandidat beispielsweise „3 von 3 unabhängigen passenden Journeys“ und stellt ausdrücklich klar, dass daraus keine globale Spot- oder Concept-Abneigung entsteht.
 
 ## Bestehende CLI
 

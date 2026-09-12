@@ -1,35 +1,37 @@
 {
   "contractVersion": "backyrd.user-intelligence.founder-lab-release-summary@3d-2",
-  "generatorVersion": "backyrd.user-intelligence.phase3d-report-generator@1.1",
-  "scenarioSetVersion": "backyrd.user-intelligence.founder-lab-scenarios@3d-2",
-  "scenarioSetHash": "6527291c4ea78823c240ffc31023896eb8f0b8dfea69ecd9f8f742f9b48abffe",
-  "scenarioCount": 45,
-  "candidateSetHash": "5591c9869c5555055914557361de0a83212e411369b969186571eb67c507b4d4",
+  "generatorVersion": "backyrd.user-intelligence.phase3d-report-generator@1.2",
+  "scenarioSetVersion": "backyrd.user-intelligence.founder-lab-scenarios@3d-3",
+  "scenarioSetHash": "ba1fb20246d494f3f8b6a33dad3bd952bfc6ced2f95b098b30b006759a0e3320",
+  "scenarioCount": 55,
+  "candidateSetHash": "5530b4cbc873ed10b76b838c1f93584f891be0872a2c5bc01b8ce654b2e95177",
   "candidateHashes": [
     {
       "candidateId": "CONSERVATIVE",
-      "candidateHash": "185ff3e740e4c09a1228114f1907003dd70747f16f76435c1a28529de5415107"
+      "candidateHash": "650fea059405f7216391848682d55dd2e4d80913cfdc4741b0b248ced07f6701"
     },
     {
       "candidateId": "BALANCED",
-      "candidateHash": "93ac7ea454f5d21136d8ca073c8c18a1a27563c7e5fb4b9b975a3be103b1659d"
+      "candidateHash": "32c7adeb72d78ac4f5ef8eef6bd551b4a4301eccb3964ff6abe8d0d5022009b2"
     },
     {
       "candidateId": "LEARNING_ORIENTED",
       "candidateHash": "4478bbcfba4b679a5e0bacd6b1fcbbaa705f092d502227ca41b18aa92ef58f3b"
     }
   ],
+  "calibrationDecisionRecordHash": "95cb5372a7a490067f9c614d6b834d22b0bd308149994b2a257eff8d4be98cc7",
+  "decisionTaskRegistryHash": "93c093dcdabbfa65f1c2d8fc4230821743bd57c06c8ebb6ee72a8316d1c72cd9",
   "sourceProductPolicyHash": "e6cecdd5107285eae1cb91b9ff29d2b4b8f2756cc3fff05bda14eb0fd6bb7be4",
   "sourceRegistryHash": "2b6b502d14d68edb0f060708d456c119103e1af4823d37e67d18b674be6f4f13",
-  "calibrationReleaseHash": "382b46b0c50f9c0cef793f0e9eb5878137340b10c04e4866e9b5ca286146349a",
-  "calibrationTrustAnchorHash": "38924e4e74f6d85230a8b582ba419335dcd9972cff447e6e411faeafbf36bd61",
-  "fullReportHash": "40b14ae43319687b19ebf113cc605b8496eaf78714bc52843c7eb338f7860513",
+  "calibrationReleaseHash": "e347e4e226ee1a5b3a02658c3bd896e3032336675ec907068a79a86325cdd0bf",
+  "calibrationTrustAnchorHash": "3a454d7d4258959d57c109bfaa2387b2d49c4b2dd32d8209d522e8b32a23454d",
+  "fullReportHash": "a9c81a9d9dab77f1284313818e52e7ae4833b79341ba5de964f7d88f30f4c427",
   "productionAuthorized": false,
   "runtimeActivated": false,
   "rankingAuthorized": false,
   "eligibilityAuthorized": false,
   "executionAuthorized": false,
-  "interactiveUiHash": "e1d8cb3620be779b156e53fdf69647c6e40f88c6e5ce8accd6a33424bfd31303",
+  "interactiveUiHash": "5253d10a58c2193070a72ae837ffe5dd84cd918efaf1ac2f861bb427b10292bc",
   "centralResults": {
     "searchContextualPromotionsByCandidate": [
       {
@@ -45,6 +47,26 @@
         "count": 2
       }
     ],
+    "skipMaturityByCandidate": [
+      {
+        "candidateId": "CONSERVATIVE",
+        "independentJourneys": 8,
+        "requiredJourneys": 8,
+        "status": "REACHED"
+      },
+      {
+        "candidateId": "BALANCED",
+        "independentJourneys": 8,
+        "requiredJourneys": 5,
+        "status": "REACHED"
+      },
+      {
+        "candidateId": "LEARNING_ORIENTED",
+        "independentJourneys": 8,
+        "requiredJourneys": 3,
+        "status": "REACHED"
+      }
+    ],
     "searchLongTermPromotionRemainsEvaluationOnly": true,
     "skipGlobalAversionCount": 0,
     "productionProjectionPersonalItems": 0,
@@ -58,5 +80,5 @@
     "runtimeDeploymentRequired": false,
     "executionAuthorized": false
   },
-  "summaryHash": "a8abd426cc83a3de9cebdd24d79836e0bb6506fe8ca682cb705ebb50755b6de8"
+  "summaryHash": "f60469f5fef43620bad96b14fd2a52815ea79ff746adf32bb07d8102e33a7a83"
 }

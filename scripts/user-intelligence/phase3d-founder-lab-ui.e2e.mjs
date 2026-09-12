@@ -18,9 +18,10 @@ async function createUser(label) { await page.fill("#new-user-label", label); aw
 async function newJourney(overrides = {}) { if (overrides.spot) await page.selectOption("#spot", overrides.spot); if (overrides.dayPhase) await page.selectOption("#day-phase", overrides.dayPhase); if (overrides.company) await page.selectOption("#company", overrides.company); await page.click("#new-journey"); await page.waitForFunction(() => document.querySelector("#journey-status")?.textContent.includes("Aktive Journey")); }
 async function action(name) { const before = await page.locator(".timeline-item").count(); await page.click(`[data-action="${name}"]`); await page.waitForFunction((count) => document.querySelectorAll(".timeline-item").length > count, before); }
 async function state() { return page.evaluate(() => fetch("/api/state").then((response) => response.json()).then(({ data }) => data)); }
+async function skipThreshold(amount, expectedCandidate, expectedStatus) { await createUser(`Skip ${amount}`); for (let index = 0; index < amount; index++) { await page.selectOption("#time-budget", "short"); await page.selectOption("#intent", { label: "Café finden" }); await newJourney({ spot: "fixture-cafe-cozy", dayPhase: "morning", company: "alone" }); await action("skip"); } await page.click('[data-rule="skipMaturity"]'); const cards = page.locator(".candidate"); const card = cards.filter({ hasText: expectedCandidate }); await page.waitForFunction(({ amount, expectedStatus }) => document.body.innerText.includes(`${amount} von`) && document.body.innerText.includes(expectedStatus), { amount, expectedStatus }); return { cardText: await card.innerText(), data: await state() }; }
 
 try {
-  await page.goto(url); equal(await page.title(), "Backyrd Founder User Lab", "UI title"); ok((await page.locator("body").innerText()).includes("NOT_PRODUCTION_AUTHORIZED"), "boundary label visible");
+  await page.goto(url); equal(await page.title(), "Backyrd Founder User Lab", "UI title"); ok((await page.locator("body").innerText()).includes("NOT_PRODUCTION_AUTHORIZED"), "boundary label visible"); equal(await page.locator("#intent").evaluate((element) => element.tagName), "SELECT", "decision task is a closed selection"); equal(await page.locator("#intent option").count(), 4, "all allowed fixture tasks are visible");
 
   // 1. Search pattern and reload
   await createUser("Search Muster"); await newJourney(); await page.fill("#search-text", "gemütliches Café am Vormittag"); await action("search");
@@ -28,7 +29,15 @@ try {
   let current = await state(); equal(current.timeline.length, 3, "three browser searches"); equal(current.candidates[0].current.searchContextualTargets.length, 0, "conservative withholds"); equal(current.candidates[1].current.searchContextualTargets.length, 2, "balanced hypothetical maturity"); ok(!fs.readFileSync(statePath, "utf8").includes("gemütliches Café am Vormittag"), "raw search absent from storage");
   await page.reload(); await page.waitForSelector(".timeline-item"); equal(await page.locator(".timeline-item").count(), 3, "reload preserves without duplication");
 
-  // 2. Familiarity
+  // 2. Skip aggregation across independent Decision executions
+  let threshold = await skipThreshold(2, "Lernfreudig", "noch nicht erreicht"); ok(threshold.cardText.includes("2 von 3"), "two matching skips remain withheld");
+  threshold = await skipThreshold(3, "Lernfreudig", "Schwelle erreicht"); ok(threshold.cardText.includes("3 von 3"), "learning-oriented reaches three of three"); equal(new Set(threshold.data.timeline.map(({ decisionId }) => decisionId)).size, 3, "decision execution IDs remain distinct"); ok(threshold.cardText.includes("Keine globale Abneigung"), "weak contextual boundary visible");
+  const founderCandidateText = await page.locator("#candidates-section").innerText(); ok(!/CALIBRATION_ONLY|LOW_FALSE_PROMOTION_RISK|REQUIRES_STRONG_EVALUATION_ORACLES|spot:.*:decision:/i.test(founderCandidateText), "normal Founder view hides internal codes and technical targets");
+  await page.click('[data-special="correct"]'); await page.waitForFunction(() => document.querySelectorAll(".timeline-item").length === 4); await page.waitForFunction(() => document.body.innerText.includes("2 von 3 unabhängigen passenden Journeys")); ok((await page.locator(".candidate").filter({ hasText: "Lernfreudig" }).innerText()).includes("noch nicht erreicht"), "correction removes only active skip influence");
+  threshold = await skipThreshold(5, "Ausgewogen", "Schwelle erreicht"); ok(threshold.cardText.includes("5 von 5"), "balanced reaches five of five");
+  threshold = await skipThreshold(8, "Konservativ", "Schwelle erreicht"); ok(threshold.cardText.includes("8 von 8"), "conservative reaches eight of eight");
+
+  // 3. Familiarity
   await createUser("Familiarity"); await newJourney(); await action("visit"); ok(!(await page.locator("#interpretations").innerText()).includes("Drei unabhängige"), "one visit no familiarity");
   await newJourney(); await action("visit"); ok(!(await page.locator("#interpretations").innerText()).includes("Drei unabhängige"), "two visits no familiarity");
   await newJourney(); await action("visit"); ok((await page.locator("#interpretations").innerText()).includes("Drei unabhängige Besuche"), "third visit familiarity");
@@ -60,7 +69,7 @@ try {
   // 10. Narrow view remains operable
   await page.setViewportSize({ width: 390, height: 844 }); await page.reload(); await page.waitForSelector("#new-user"); const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1); equal(overflow, false, "no horizontal clipping on narrow viewport"); ok(await page.locator("#new-user").isVisible(), "central control visible on narrow viewport");
 
-  process.stdout.write(JSON.stringify({ suite: "phase3d-founder-lab-browser-e2e", scenarios: 10, assertions, outcome: "PASS", url: "loopback-ephemeral" }) + "\n");
+  process.stdout.write(JSON.stringify({ suite: "phase3d-founder-lab-browser-e2e", scenarios: 11, assertions, outcome: "PASS", url: "loopback-ephemeral" }) + "\n");
 } finally {
   await browser.close(); await new Promise((resolve) => server.close(resolve)); fs.rmSync(directory, { recursive: true, force: true });
 }
