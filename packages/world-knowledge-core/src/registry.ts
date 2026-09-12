@@ -1,7 +1,7 @@
 import { canonicalJson, sha256 } from "./canonical.js";
 
-export const REGISTRY_VERSION = "backyrd.world-knowledge.registry@1.1" as const;
-export const PREVIOUS_REGISTRY_VERSION = "backyrd.world-knowledge.registry@1.0" as const;
+export const REGISTRY_VERSION = "backyrd.world-knowledge.registry@2.0" as const;
+export const PREVIOUS_REGISTRY_VERSION = "backyrd.world-knowledge.registry@1.1" as const;
 export const VALIDITY_POLICY_VERSION = "backyrd.world-knowledge.validity-policy@1.0" as const;
 
 export const PRIMARY_CATEGORIES = [
@@ -29,16 +29,16 @@ export const FOUNDATION_AREAS = [
 ] as const;
 export type FoundationArea = typeof FOUNDATION_AREAS[number];
 
-export const PLACE_TYPES = ["RESTAURANT", "BRASSERIE", "BISTRO", "CAFE", "BAR", "PUB", "SNACK_BAR", "TAKEAWAY", "FAST_FOOD"] as const;
+export const PLACE_TYPES = ["RESTAURANT", "BRASSERIE", "BISTRO", "CAFE", "BAR", "PUB", "SNACK_BAR", "TAKEAWAY", "FAST_FOOD", "BAKERY", "PATISSERIE", "FOOD_HALL", "BREWERY", "TAPROOM", "WINE_BAR", "COCKTAIL_BAR", "NIGHTCLUB", "MUSIC_CLUB", "LOUNGE", "MUSEUM", "GALLERY", "THEATRE", "CINEMA", "CONCERT_VENUE", "CULTURAL_CENTRE", "LIBRARY", "COMEDY_CLUB", "ARCADE", "ESCAPE_ROOM", "BOWLING_ALLEY", "MINI_GOLF", "WORKSHOP_STUDIO", "AMUSEMENT_PARK", "GYM", "SPORTS_CENTRE", "CLIMBING_GYM", "SWIMMING_POOL", "ICE_RINK", "SPORTS_COURT", "STADIUM", "PARK", "TRAIL", "VIEWPOINT", "WATERFRONT", "BOTANICAL_GARDEN", "NATURE_RESERVE", "SPA", "SAUNA", "THERMAL_BATH", "MASSAGE_STUDIO", "YOGA_STUDIO", "SHOP", "MARKET", "SHOPPING_CENTRE", "CONCEPT_STORE", "HOTEL", "HOSTEL", "GUESTHOUSE", "CAMPGROUND", "HOLIDAY_APARTMENT", "COMMUNITY_CENTRE", "COWORKING_SPACE", "CLUBHOUSE", "YOUTH_CENTRE", "LANDMARK", "ZOO", "AQUARIUM", "VISITOR_CENTRE", "EVENT_VENUE", "POP_UP", "FESTIVAL_SITE", "SEASONAL_MARKET", "OTHER_PLACE"] as const;
 export type PlaceType = typeof PLACE_TYPES[number];
-export const CUISINES = ["ITALIAN", "INDIAN", "SWISS", "FRENCH", "JAPANESE", "MEDITERRANEAN", "ASIAN"] as const;
-export const FOOD_SPECIALITIES = ["PIZZA", "BURGER", "SUSHI"] as const;
-export const OFFERING_GROUPS = ["BEER", "WINE", "COCKTAILS", "NON_ALCOHOLIC_DRINKS", "COFFEE", "SNACKS", "FULL_MEALS", "BREAKFAST", "BRUNCH", "LUNCH", "DINNER", "TAKEAWAY_MEALS"] as const;
+export const CUISINES = ["ITALIAN", "INDIAN", "SWISS", "FRENCH", "JAPANESE", "MEDITERRANEAN", "ASIAN", "GERMAN", "AUSTRIAN", "SPANISH", "PORTUGUESE", "GREEK", "TURKISH", "LEVANTINE", "MIDDLE_EASTERN", "CHINESE", "THAI", "VIETNAMESE", "KOREAN", "INDONESIAN", "MALAYSIAN", "MEXICAN", "LATIN_AMERICAN", "AMERICAN", "AFRICAN", "ETHIOPIAN", "MOROCCAN", "INTERNATIONAL", "FUSION", "VEGETARIAN", "VEGAN"] as const;
+export const FOOD_SPECIALITIES = ["PIZZA", "BURGER", "SUSHI", "PASTA", "STEAK", "SEAFOOD", "RAMEN", "CURRY", "TACOS", "KEBAB", "FALAFEL", "SANDWICHES", "SALADS", "SOUPS", "BREAKFAST_DISHES", "BRUNCH_DISHES", "BAKED_GOODS", "DESSERTS", "ICE_CREAM", "CHEESE", "FONDUE", "RACLETTE", "TAPAS", "DUMPLINGS", "FRIED_CHICKEN", "VEGETARIAN_DISHES", "VEGAN_DISHES"] as const;
+export const OFFERING_GROUPS = ["BEER", "WINE", "COCKTAILS", "NON_ALCOHOLIC_DRINKS", "COFFEE", "TEA", "SPIRITS", "CRAFT_BEER", "NATURAL_WINE", "SNACKS", "FULL_MEALS", "TAKEAWAY_MEALS", "BAKED_GOODS", "DESSERTS", "TASTING_MENU", "BREAKFAST", "BRUNCH", "LUNCH", "DINNER", "LATE_NIGHT_FOOD"] as const;
 export const PAYMENT_METHODS = ["CASH", "DEBIT_CARD", "CREDIT_CARD", "MOBILE_PAYMENT"] as const;
 export const SERVICE_MODELS = ["TABLE_SERVICE", "SELF_SERVICE", "HYBRID"] as const;
 export const SERVICE_FORMATS = ["CASUAL_DINING", "FINE_DINING", "FAST_CASUAL", "COUNTER_SERVICE"] as const;
 export const STAY_POLICIES = ["ALLOWED", "WITH_ACTIVE_CONSUMPTION", "TIME_LIMITED", "NOT_ALLOWED"] as const;
-export const AMENITY_FEATURES = ["WIFI", "POWER_OUTLETS", "TOILET", "HIGH_CHAIR", "STROLLER_SPACE", "TERRACE", "GARDEN", "OUTDOOR_SEATING", "WATER_BOWL", "WORK_TABLES"] as const;
+export const AMENITY_FEATURES = ["WIFI", "POWER_OUTLETS", "TOILET", "HIGH_CHAIR", "STROLLER_SPACE", "TERRACE", "GARDEN", "OUTDOOR_SEATING", "WATER_BOWL", "WORK_TABLES", "CLOAKROOM", "LOCKERS", "CHANGING_ROOM", "SHOWER", "PARKING", "BICYCLE_PARKING", "PUBLIC_TRANSPORT_NEARBY", "CHANGING_TABLE", "PLAY_AREA", "COVERED_OUTDOOR", "HEATED_OUTDOOR", "LIVE_MUSIC_EQUIPMENT", "PRIVATE_ROOM", "DANCE_FLOOR"] as const;
 export const PET_ACCESS_STATES = ["ALLOWED", "NOT_ALLOWED", "UNKNOWN"] as const;
 export const RESERVATION_MODES = ["NOT_REQUIRED", "RECOMMENDED", "REQUIRED", "CONDITIONAL"] as const;
 export const CONSUMPTION_POLICIES = ["ALLOWED", "NOT_ALLOWED", "CONDITIONAL"] as const;
@@ -54,7 +54,7 @@ export const PRICE_LEVEL_LABELS: Readonly<Record<PriceLevel, { readonly de: stri
 });
 
 export type AttributeKind = "FACT" | "OPERATIONAL_RULE" | "CURRENT_STATE" | "EXPLANATION_ONLY";
-export type ValueType = "TEXT" | "EMAIL" | "URL" | "PHONE" | "COUNTRY_CODE" | "IANA_TIMEZONE" | "DECIMAL" | "BOOLEAN" | "ENUM" | "ENUM_SET" | "MONEY_RANGE" | "INTEGER" | "INTEGER_RANGE" | "RESERVATION_RULE" | "CONSUMPTION_RULE" | "PET_ACCESS_RULE" | "AGE_ACCESS_RULE" | "WEEKLY_SCHEDULE" | "SPECIAL_HOURS" | "CURRENT_STATE";
+export type ValueType = "TEXT" | "EMAIL" | "URL" | "PHONE" | "COUNTRY_CODE" | "IANA_TIMEZONE" | "DECIMAL" | "BOOLEAN" | "ENUM" | "ENUM_SET" | "MONEY_RANGE" | "INTEGER" | "INTEGER_RANGE" | "RESERVATION_RULE" | "CONSUMPTION_RULE" | "PET_ACCESS_RULE" | "AGE_ACCESS_RULE" | "AGE_ACCESS_RULE_V2" | "WEEKLY_SCHEDULE" | "SPECIAL_HOURS" | "CURRENT_STATE";
 export type ExpiryBehavior = "STATIC" | "STALE_AFTER_VALID_UNTIL" | "EXPIRES_AT_VALID_UNTIL";
 
 export interface AttributeDefinition {
@@ -112,9 +112,11 @@ export const ATTRIBUTE_DEFINITIONS: readonly AttributeDefinition[] = Object.free
   definition({ key: "accessibility.accessible_indoor", version: 1, area: "ACCESSIBILITY", labels: { de: "Zugänglicher Innenbereich", en: "Accessible indoor area" }, kind: "FACT", valueType: "BOOLEAN", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "rule.pet_access", version: 1, area: "PET_ACCESS", labels: { de: "Tierzugangsregel", en: "Pet access rule" }, kind: "OPERATIONAL_RULE", valueType: "PET_ACCESS_RULE", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "rule.age_access", version: 1, area: "AGE_ACCESS", labels: { de: "Alterszugangsregel", en: "Age access rule" }, kind: "OPERATIONAL_RULE", valueType: "AGE_ACCESS_RULE", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
+  definition({ key: "rule.age_access_conditions", version: 1, area: "AGE_ACCESS", labels: { de: "Alters- und Begleitregeln", en: "Age and accompaniment rules" }, kind: "OPERATIONAL_RULE", valueType: "AGE_ACCESS_RULE_V2", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "hours.regular", version: 1, area: "REGULAR_HOURS", labels: { de: "Reguläre Öffnungszeiten", en: "Regular opening hours" }, kind: "OPERATIONAL_RULE", valueType: "WEEKLY_SCHEDULE", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "hours.special", version: 1, area: "SPECIAL_HOURS", labels: { de: "Sonderöffnungszeiten", en: "Special opening hours" }, kind: "OPERATIONAL_RULE", valueType: "SPECIAL_HOURS", applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "hours.kitchen", version: 1, area: "SERVICE_HOURS", labels: { de: "Küchenzeiten", en: "Kitchen service hours" }, kind: "OPERATIONAL_RULE", valueType: "WEEKLY_SCHEDULE", applicability: ["EAT", "DRINKS", "COFFEE_DAYTIME", "NIGHTLIFE", "STAY", "TEMPORARY_PLACES"], expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
+  definition({ key: "hours.kitchen_special", version: 1, area: "SERVICE_HOURS", labels: { de: "Besondere Küchenzeiten", en: "Special kitchen service hours" }, kind: "OPERATIONAL_RULE", valueType: "SPECIAL_HOURS", applicability: ["EAT", "DRINKS", "COFFEE_DAYTIME", "NIGHTLIFE", "STAY", "TEMPORARY_PLACES"], expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "state.current", version: 1, area: "CURRENT_STATE", labels: { de: "Aktueller Betriebszustand", en: "Current operational state" }, kind: "CURRENT_STATE", valueType: "CURRENT_STATE", allowedValues: CURRENT_STATE_KINDS, applicability: all, expiryBehavior: "EXPIRES_AT_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "research.subjective_fits", version: 1, area: "DESCRIPTION", labels: { de: "Subjektive Fits (Research)", en: "Subjective fits (research)" }, kind: "EXPLANATION_ONLY", valueType: "ENUM_SET", allowedValues: ["AFTERWORK", "ROMANTIC", "SPONTANEOUS", "BIRTHDAY", "COZY"], applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "EXPLANATION_ONLY" }),
 ]);
@@ -141,8 +143,13 @@ assertRegistry();
 
 export const REGISTRY_HASH = sha256({ version: REGISTRY_VERSION, primaryCategoryLabels: PRIMARY_CATEGORY_LABELS, definitions: ATTRIBUTE_DEFINITIONS, validityPolicyVersion: VALIDITY_POLICY_VERSION, validityPolicies: VALIDITY_POLICIES });
 export const REGISTRY_CANONICAL_JSON = canonicalJson({ version: REGISTRY_VERSION, primaryCategoryLabels: PRIMARY_CATEGORY_LABELS, definitions: ATTRIBUTE_DEFINITIONS, validityPolicyVersion: VALIDITY_POLICY_VERSION, validityPolicies: VALIDITY_POLICIES });
-export const PREVIOUS_REGISTRY_DEFINITIONS = Object.freeze(ATTRIBUTE_DEFINITIONS.filter((definitionValue) => !["contact.public_email", "operation.price_level", "accessibility.elevator", "accessibility.accessible_indoor"].includes(definitionValue.key)));
-export const PREVIOUS_REGISTRY_HASH = "eba49eab117007ce6f8fca5cc5114e615d6cf8fb1a32547465149db8c84e922b" as const;
+const LEGACY_PLACE_TYPES = ["RESTAURANT", "BRASSERIE", "BISTRO", "CAFE", "BAR", "PUB", "SNACK_BAR", "TAKEAWAY", "FAST_FOOD"] as const;
+const LEGACY_CUISINES = ["ITALIAN", "INDIAN", "SWISS", "FRENCH", "JAPANESE", "MEDITERRANEAN", "ASIAN"] as const;
+const LEGACY_SPECIALITIES = ["PIZZA", "BURGER", "SUSHI"] as const;
+const LEGACY_OFFERINGS = ["BEER", "WINE", "COCKTAILS", "NON_ALCOHOLIC_DRINKS", "COFFEE", "SNACKS", "FULL_MEALS", "BREAKFAST", "BRUNCH", "LUNCH", "DINNER", "TAKEAWAY_MEALS"] as const;
+const LEGACY_AMENITIES = ["WIFI", "POWER_OUTLETS", "TOILET", "HIGH_CHAIR", "STROLLER_SPACE", "TERRACE", "GARDEN", "OUTDOOR_SEATING", "WATER_BOWL", "WORK_TABLES"] as const;
+export const PREVIOUS_REGISTRY_DEFINITIONS = Object.freeze(ATTRIBUTE_DEFINITIONS.filter((definitionValue) => !["rule.age_access_conditions", "hours.kitchen_special"].includes(definitionValue.key)).map((item) => item.key === "classification.place_types" ? { ...item, allowedValues: LEGACY_PLACE_TYPES } : item.key === "offering.cuisines" ? { ...item, allowedValues: LEGACY_CUISINES } : item.key === "offering.food_specialities" ? { ...item, allowedValues: LEGACY_SPECIALITIES } : item.key === "offering.groups" ? { ...item, allowedValues: LEGACY_OFFERINGS } : item.key === "amenity.features" ? { ...item, allowedValues: LEGACY_AMENITIES } : item));
+export const PREVIOUS_REGISTRY_HASH = "e51e78f929d8d11ca149a50eaba250cf484e916ef38f2d447d3c8d881bb203be" as const;
 
 export function getAttributeDefinition(keyValue: unknown): AttributeDefinition {
   if (typeof keyValue !== "string" || !/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/.test(keyValue)) throw new Error("invalid_attribute_key");

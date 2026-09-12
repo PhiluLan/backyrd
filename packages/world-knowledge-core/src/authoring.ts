@@ -7,13 +7,14 @@ import { ACCEPTED_SOURCE_POLICY } from "./slice3b.js";
 import { AMENITY_AUTHORING_OPTIONS, CATEGORY_AUTHORING_MATRIX, CUISINE_AUTHORING_OPTIONS, FOOD_SPECIALITY_AUTHORING_OPTIONS, OFFERING_AUTHORING_OPTIONS, PLACE_TYPE_AUTHORING_OPTIONS, assessPlaceTypeCompatibility, getCategoryPlaceTypes, type AuthoringTaxonomyState } from "./authoring-taxonomy.js";
 
 export const FOUNDER_EVALUATION_SCOPE = "FOUNDER_EVALUATION_ONLY" as const;
-export const AUTHORING_CATALOG_VERSION = "backyrd.world-knowledge.authoring-catalog@4a.1" as const;
+export const AUTHORING_CATALOG_VERSION = "backyrd.world-knowledge.authoring-catalog@4a.2" as const;
 export const FOUNDER_EXPORT_VERSION = "backyrd.world-knowledge.founder-export@1.0" as const;
 export const FOUNDER_COHORT_VERSION = "backyrd.world-knowledge.founder-cohort@1.0" as const;
 export const FOUNDER_READER_VERSION = "backyrd.world-knowledge.reader-port@1.0" as const;
 
 export type AuthoringRole = "OWNER_BASIC" | "OWNER_PRO" | "ADMIN";
-export type AuthoringControl = "TEXT" | "TEXTAREA" | "EMAIL" | "URL" | "PHONE" | "NUMBER" | "SINGLE_SELECT" | "MULTI_SELECT" | "YES_NO" | "INTEGER_RANGE" | "WEEKLY_SCHEDULE" | "SPECIAL_HOURS" | "RESERVATION_RULE" | "CONSUMPTION_RULE" | "PET_ACCESS_RULE" | "AGE_ACCESS_RULE" | "CURRENT_STATE";
+export type AuthoringControl = "TEXT" | "TEXTAREA" | "EMAIL" | "URL" | "PHONE" | "NUMBER" | "SINGLE_SELECT" | "MULTI_SELECT" | "YES_NO" | "INTEGER_RANGE" | "WEEKLY_SCHEDULE" | "KITCHEN_HOURS" | "SPECIAL_HOURS" | "RESERVATION_RULE" | "CONSUMPTION_RULE" | "PET_ACCESS_RULE" | "AGE_ACCESS_RULE" | "AGE_ACCESS_RULE_V2" | "CURRENT_STATE";
+export type AuthoringRequirementClass = "REQUIRED" | "CONDITIONALLY_REQUIRED" | "OPTIONAL" | "NOT_RELEVANT";
 
 export interface AuthoringStep {
   readonly id: string;
@@ -35,6 +36,8 @@ export interface AuthoringField {
   readonly allowedValues: readonly { readonly value: string; readonly label: string; readonly group?: string; readonly state?: AuthoringTaxonomyState }[];
   readonly roles: readonly AuthoringRole[];
   readonly optional: true;
+  readonly requirementClass: AuthoringRequirementClass;
+  readonly requirementReason: string;
   readonly explanationOnly: boolean;
 }
 
@@ -43,11 +46,10 @@ export const AUTHORING_STEPS: readonly AuthoringStep[] = Object.freeze([
   { id: "classification", order: 2, title: "Einordnung", explanation: "Wähle genau eine Hauptkategorie und nur die Ortstypen, die wirklich zutreffen.", primaryAction: "Einordnung übernehmen", attributeKeys: ["classification.primary_category", "classification.place_types"] },
   { id: "offering", order: 3, title: "Küche und Angebot", explanation: "Küchenrichtungen, Spezialitäten und konkrete Angebotsgruppen bleiben fachlich getrennt.", primaryAction: "Angebot übernehmen", attributeKeys: ["offering.cuisines", "offering.food_specialities", "offering.groups", "operation.service_model", "operation.service_format", "operation.takeaway"] },
   { id: "price", order: 4, title: "Preise und Bezahlung", explanation: "Das Preislevel ist kategoriebezogen; es wird nicht in einen erfundenen Preis pro Person umgerechnet.", primaryAction: "Preisangaben übernehmen", attributeKeys: ["operation.price_level", "operation.payment_methods"] },
-  { id: "hours", order: 5, title: "Öffnungszeiten", explanation: "Reguläre Zeiten, Sondertage, Küchenzeiten und kurzfristige Zustände werden getrennt erfasst.", primaryAction: "Zeiten übernehmen", attributeKeys: ["hours.regular", "hours.special", "hours.kitchen", "state.current"] },
-  { id: "activities", order: 6, title: "Was kann man dort machen?", explanation: "Dieser Foundation Slice leitet nur vorsichtige Möglichkeiten aus konkreten Fakten ab. Subjektive Eignung wird nicht als Wahrheit gespeichert.", primaryAction: "Weiter zu objektiven Angaben", attributeKeys: [] },
-  { id: "objective", order: 7, title: "Objektive Eigenschaften und Nutzungsmöglichkeiten", explanation: "Erfasse konkrete Kapazitäten und Regeln statt pauschaler Aussagen.", primaryAction: "Nutzungsangaben übernehmen", attributeKeys: ["capacity.seats_indoor", "capacity.seats_outdoor", "capacity.seats_total", "capacity.group_size_supported", "rule.reservation", "operation.laptop_policy", "operation.stay_policy"] },
-  { id: "amenities", order: 8, title: "Ausstattung und Einschränkungen", explanation: "Ausstattung, Zugang und Regeln werden einzeln und überprüfbar beschrieben.", primaryAction: "Ausstattung übernehmen", attributeKeys: ["amenity.features", "accessibility.step_free_entrance", "accessibility.wheelchair_paths", "accessibility.accessible_seating", "accessibility.accessible_toilet", "accessibility.elevator", "accessibility.accessible_indoor", "accessibility.accessible_outdoor", "rule.pet_access", "rule.age_access", "rule.external_food", "rule.external_drink"] },
-  { id: "review", order: 9, title: "Prüfen und Datenvorschau", explanation: "Prüfe bekannte, offene und nicht freigegebene Angaben und erzeuge anschließend den bereinigten Test-Snapshot.", primaryAction: "Datenvorschau aktualisieren", attributeKeys: [] },
+  { id: "hours", order: 5, title: "Öffnungszeiten", explanation: "Reguläre Zeiten, Sondertage, Küchenzeiten und kurzfristige Zustände werden getrennt erfasst.", primaryAction: "Zeiten übernehmen", attributeKeys: ["hours.regular", "hours.special", "hours.kitchen", "hours.kitchen_special", "state.current"] },
+  { id: "objective", order: 6, title: "Objektive Eigenschaften und Nutzungsmöglichkeiten", explanation: "Erfasse konkrete Kapazitäten und Regeln statt pauschaler Aussagen.", primaryAction: "Nutzungsangaben übernehmen", attributeKeys: ["capacity.seats_indoor", "capacity.seats_outdoor", "capacity.seats_total", "capacity.group_size_supported", "rule.reservation", "operation.laptop_policy", "operation.stay_policy"] },
+  { id: "amenities", order: 7, title: "Ausstattung und Einschränkungen", explanation: "Ausstattung, Zugang und Regeln werden einzeln und überprüfbar beschrieben.", primaryAction: "Ausstattung übernehmen", attributeKeys: ["amenity.features", "accessibility.step_free_entrance", "accessibility.wheelchair_paths", "accessibility.accessible_seating", "accessibility.accessible_toilet", "accessibility.elevator", "accessibility.accessible_indoor", "accessibility.accessible_outdoor", "rule.pet_access", "rule.age_access_conditions", "rule.external_food", "rule.external_drink"] },
+  { id: "review", order: 8, title: "Prüfen und Datenvorschau", explanation: "Prüfe bekannte, offene und nicht freigegebene Angaben, vorsichtige Ableitungen und den bereinigten Test-Snapshot.", primaryAction: "Datenvorschau aktualisieren", attributeKeys: [] },
 ]);
 
 const germanValues: Readonly<Record<string, string>> = Object.freeze({
@@ -72,12 +74,14 @@ const help: Readonly<Record<string, string>> = Object.freeze({
   "capacity.group_size_supported": "Gib die kleinste und größte sinnvoll unterstützte Gruppengröße an.",
   "hours.special": "Ein Sondertag überschreibt nur das angegebene Datum.",
   "hours.kitchen": "Küchenzeiten ändern die Öffnung des Ortes nicht.",
+  "hours.kitchen_special": "Ein besonderer Küchentag verändert weder die regulären Küchenzeiten noch die Öffnung des Ortes.",
+  "rule.age_access_conditions": "Erfasse allgemeine Altersgrenzen und Ausnahmen mit Begleitung getrennt. Personenbezogene Identitäten werden nicht gespeichert.",
   "state.current": "Kurzfristiger Zustand mit Beobachtungszeit und zwingendem Ende.",
   "description.highlight": "Öffentlicher Beschreibungstext. Problematische neue Inhalte werden zur Prüfung zurückgehalten.",
 });
 
 const groupFor = (key: string): string => key.startsWith("contact.") ? "Öffentliche Kontakte" : key.startsWith("location.") ? "Standort" : key.startsWith("offering.") ? "Angebot" : key.startsWith("capacity.") ? "Kapazität" : key.startsWith("accessibility.") ? "Zugänglichkeit" : key.startsWith("hours.") ? "Zeiten" : key.startsWith("rule.") ? "Regeln" : key.startsWith("amenity.") ? "Ausstattung" : "Allgemein";
-const controlFor = (valueType: string): AuthoringControl => ({ TEXT: "TEXT", EMAIL: "EMAIL", URL: "URL", PHONE: "PHONE", COUNTRY_CODE: "TEXT", IANA_TIMEZONE: "TEXT", DECIMAL: "NUMBER", INTEGER: "NUMBER", BOOLEAN: "YES_NO", ENUM: "SINGLE_SELECT", ENUM_SET: "MULTI_SELECT", INTEGER_RANGE: "INTEGER_RANGE", WEEKLY_SCHEDULE: "WEEKLY_SCHEDULE", SPECIAL_HOURS: "SPECIAL_HOURS", RESERVATION_RULE: "RESERVATION_RULE", CONSUMPTION_RULE: "CONSUMPTION_RULE", PET_ACCESS_RULE: "PET_ACCESS_RULE", AGE_ACCESS_RULE: "AGE_ACCESS_RULE", CURRENT_STATE: "CURRENT_STATE" } as Partial<Record<string, AuthoringControl>>)[valueType] ?? "TEXT";
+const controlFor = (valueType: string): AuthoringControl => ({ TEXT: "TEXT", EMAIL: "EMAIL", URL: "URL", PHONE: "PHONE", COUNTRY_CODE: "TEXT", IANA_TIMEZONE: "TEXT", DECIMAL: "NUMBER", INTEGER: "NUMBER", BOOLEAN: "YES_NO", ENUM: "SINGLE_SELECT", ENUM_SET: "MULTI_SELECT", INTEGER_RANGE: "INTEGER_RANGE", WEEKLY_SCHEDULE: "WEEKLY_SCHEDULE", SPECIAL_HOURS: "SPECIAL_HOURS", RESERVATION_RULE: "RESERVATION_RULE", CONSUMPTION_RULE: "CONSUMPTION_RULE", PET_ACCESS_RULE: "PET_ACCESS_RULE", AGE_ACCESS_RULE: "AGE_ACCESS_RULE", AGE_ACCESS_RULE_V2: "AGE_ACCESS_RULE_V2", CURRENT_STATE: "CURRENT_STATE" } as Partial<Record<string, AuthoringControl>>)[valueType] ?? "TEXT";
 
 export const AUTHORING_FIELDS: readonly AuthoringField[] = Object.freeze(AUTHORING_STEPS.flatMap((step) => step.attributeKeys.map((attributeKey) => {
   const definition = ATTRIBUTE_DEFINITIONS.find((item) => item.key === attributeKey);
@@ -94,7 +98,7 @@ export const AUTHORING_FIELDS: readonly AuthoringField[] = Object.freeze(AUTHORI
     label: definition.labels.de,
     help: help[attributeKey] ?? "Optional. Nicht beantwortet bedeutet weder Nein noch unbekannt.",
     group: groupFor(attributeKey),
-    control: attributeKey === "description.highlight" ? "TEXTAREA" : controlFor(definition.valueType),
+    control: attributeKey === "description.highlight" ? "TEXTAREA" : attributeKey === "hours.kitchen" ? "KITCHEN_HOURS" : controlFor(definition.valueType),
     allowedValues: (attributeKey === "classification.place_types" ? PLACE_TYPE_AUTHORING_OPTIONS
       : attributeKey === "offering.cuisines" ? CUISINE_AUTHORING_OPTIONS
       : attributeKey === "offering.food_specialities" ? FOOD_SPECIALITY_AUTHORING_OPTIONS
@@ -103,11 +107,13 @@ export const AUTHORING_FIELDS: readonly AuthoringField[] = Object.freeze(AUTHORI
       : (definition.allowedValues ?? []).map((value) => ({ value, label: germanValues[value] ?? value.replaceAll("_", " ").toLocaleLowerCase("de-CH"), state: "CANONICAL" as const }))),
     roles,
     optional: true as const,
+    requirementClass: attributeKey === "identity.name" || attributeKey === "classification.primary_category" ? "REQUIRED" as const : attributeKey === "classification.place_types" ? "CONDITIONALLY_REQUIRED" as const : "OPTIONAL" as const,
+    requirementReason: attributeKey === "identity.name" ? "Der Spot benötigt eine erkennbare Identität." : attributeKey === "classification.primary_category" ? "Die Evaluation benötigt genau eine Hauptkategorie." : attributeKey === "classification.place_types" ? "Sobald eine Hauptkategorie gewählt ist, braucht die Einordnung mindestens eine passende Art des Ortes." : "Diese Angabe verbessert den Wissensstand, blockiert die lokale Evaluation aber nicht.",
     explanationOnly: definition.engineAuthorization === "EXPLANATION_ONLY",
   };
 })));
 
-export type AuthoringSectionState = "NOT_VIEWED" | "STARTED" | "REVIEWED" | "INTENTIONALLY_INCOMPLETE" | "NOT_RELEVANT" | "ERROR";
+export type AuthoringSectionState = "NOT_STARTED" | "IN_PROGRESS" | "ERRORS" | "REQUIRED_COMPLETE" | "INTENTIONALLY_INCOMPLETE" | "NOT_RELEVANT" | "FULLY_REVIEWED";
 
 export function getAuthoringFieldsForContext(stepId: string, primaryCategory: unknown): readonly AuthoringField[] {
   const step = AUTHORING_STEPS.find((entry) => entry.id === stepId);
@@ -124,6 +130,52 @@ export function getPlaceTypeConflict(primaryCategory: unknown, placeTypes: unkno
   const category = typeof primaryCategory === "string" && (PRIMARY_CATEGORIES as readonly string[]).includes(primaryCategory) ? primaryCategory as typeof PRIMARY_CATEGORIES[number] : null;
   const values = Array.isArray(placeTypes) ? placeTypes.filter((value): value is string => typeof value === "string") : [];
   return assessPlaceTypeCompatibility(category, values);
+}
+
+export type AuthoringIssueKind = "INVALID_VALUE" | "MISSING_REQUIRED" | "CONFLICT" | "UNAPPROVED" | "KNOWN_GAP";
+export type AuthoringIssueSeverity = "BLOCKING" | "INFORMATION";
+export interface AuthoringIssue { readonly id: string; readonly attributeKey: string; readonly stepId: string; readonly label: string; readonly kind: AuthoringIssueKind; readonly severity: AuthoringIssueSeverity; readonly explanation: string; readonly correction: string }
+export type AuthoringReadiness = "NOT_READY" | "READY_WITH_GAPS" | "FULLY_REVIEWED";
+export interface AuthoringReadinessReport { readonly readiness: AuthoringReadiness; readonly blocking: readonly AuthoringIssue[]; readonly gaps: readonly AuthoringIssue[]; readonly issues: readonly AuthoringIssue[]; readonly sectionStates: Readonly<Record<string, AuthoringSectionState>> }
+
+export function evaluateAuthoringReadiness(input: {
+  readonly answers: Readonly<Record<string, { readonly knowledgeState: string; readonly value: unknown }>>;
+  readonly applicability?: Readonly<Record<string, string>>;
+  readonly fieldErrors?: Readonly<Record<string, string>>;
+  readonly reviewedSteps?: readonly string[];
+}): AuthoringReadinessReport {
+  const category = input.answers["classification.primary_category"]?.value;
+  const issues: AuthoringIssue[] = [];
+  for (const field of AUTHORING_FIELDS) {
+    const stepId = AUTHORING_STEPS.find((step) => step.attributeKeys.includes(field.attributeKey))?.id ?? "review";
+    const relevantFields = getAuthoringFieldsForContext(stepId, category);
+    if (!relevantFields.some((item) => item.attributeKey === field.attributeKey)) continue;
+    const message = input.fieldErrors?.[field.attributeKey];
+    if (message) issues.push({ id: `INVALID_VALUE:${field.attributeKey}`, attributeKey: field.attributeKey, stepId, label: field.label, kind: "INVALID_VALUE", severity: "BLOCKING", explanation: message, correction: "Öffne das Feld und korrigiere den markierten Wert." });
+    const answer = input.answers[field.attributeKey];
+    const notApplicable = input.applicability?.[field.attributeKey] === "NOT_APPLICABLE";
+    const required = field.requirementClass === "REQUIRED" || (field.requirementClass === "CONDITIONALLY_REQUIRED" && typeof category === "string");
+    if (required && !answer && !notApplicable) issues.push({ id: `MISSING_REQUIRED:${field.attributeKey}`, attributeKey: field.attributeKey, stepId, label: field.label, kind: "MISSING_REQUIRED", severity: "BLOCKING", explanation: field.requirementReason, correction: "Gib einen Wert ein oder wähle bewusst „Noch unbekannt“ beziehungsweise „Nicht relevant“." });
+    if (answer?.knowledgeState === "UNKNOWN") issues.push({ id: `KNOWN_GAP:${field.attributeKey}`, attributeKey: field.attributeKey, stepId, label: field.label, kind: "KNOWN_GAP", severity: "INFORMATION", explanation: "Diese Angabe wurde bewusst als unbekannt gespeichert.", correction: "Kein Fehler. Ergänze sie nur, wenn du eine verlässliche Angabe kennst." });
+  }
+  const placeTypes = input.answers["classification.place_types"]?.value;
+  const compatibility = getPlaceTypeConflict(category, placeTypes);
+  if (placeTypes && compatibility.state !== "COMPATIBLE") issues.push({ id: `CONFLICT:classification.place_types`, attributeKey: "classification.place_types", stepId: "classification", label: "Art des Ortes", kind: compatibility.state === "NOT_CONFIGURED" ? "UNAPPROVED" : "CONFLICT", severity: "BLOCKING", explanation: compatibility.state === "NOT_CONFIGURED" ? "Für diese Kombination ist noch keine freigegebene Zuordnung vorhanden." : `Nicht passende gespeicherte Werte: ${compatibility.incompatible.join(", ")}.`, correction: "Wähle bewusst einen passenden Ortstyp. Der frühere Claim bleibt historisch erhalten." });
+  const uniqueIssues = [...new Map(issues.map((issue) => [issue.id, issue])).values()].sort((left, right) => left.id.localeCompare(right.id));
+  const sectionStates = Object.fromEntries(AUTHORING_STEPS.map((step) => {
+    if (step.id === "review") return [step.id, "IN_PROGRESS"];
+    const fields = getAuthoringFieldsForContext(step.id, category);
+    if (!fields.length) return [step.id, "NOT_RELEVANT"];
+    const stepIssues = uniqueIssues.filter((issue) => issue.stepId === step.id && issue.severity === "BLOCKING");
+    if (stepIssues.length) return [step.id, "ERRORS"];
+    const answered = fields.filter((field) => input.answers[field.attributeKey] || input.applicability?.[field.attributeKey] === "NOT_APPLICABLE");
+    if (!answered.length) return [step.id, "NOT_STARTED"];
+    if (input.reviewedSteps?.includes(step.id)) return [step.id, answered.length === fields.length ? "FULLY_REVIEWED" : "INTENTIONALLY_INCOMPLETE"];
+    return [step.id, fields.filter((field) => field.requirementClass !== "OPTIONAL").every((field) => input.answers[field.attributeKey] || input.applicability?.[field.attributeKey] === "NOT_APPLICABLE") ? "REQUIRED_COMPLETE" : "IN_PROGRESS"];
+  })) as Record<string, AuthoringSectionState>;
+  const blocking = uniqueIssues.filter((issue) => issue.severity === "BLOCKING"); const gaps = uniqueIssues.filter((issue) => issue.severity === "INFORMATION");
+  const allRelevantReviewed = AUTHORING_STEPS.filter((step) => !["review"].includes(step.id) && sectionStates[step.id] !== "NOT_RELEVANT").every((step) => ["FULLY_REVIEWED", "INTENTIONALLY_INCOMPLETE"].includes(sectionStates[step.id]!));
+  return { readiness: blocking.length ? "NOT_READY" : allRelevantReviewed ? "FULLY_REVIEWED" : "READY_WITH_GAPS", blocking, gaps, issues: uniqueIssues, sectionStates };
 }
 
 export type AuthoringValidationResult =
@@ -148,6 +200,7 @@ const correctionFor = (valueType: ValueType): string => ({
   CONSUMPTION_RULE: "Bitte wähle eine Regel; Ausnahmen dürfen nicht leer sein.",
   PET_ACCESS_RULE: "Bitte beantworte Innen, Außen und Assistenztiere mit den angebotenen Werten.",
   AGE_ACCESS_RULE: "Bitte gib bei Mindestalter auch ein Alter zwischen 0 und 120 an.",
+  AGE_ACCESS_RULE_V2: "Bitte vervollständige jede Altersregel. Eine Grenze benötigt Alter; Begleitausnahmen benötigen eine erlaubte Begleitperson.",
   WEEKLY_SCHEDULE: "Bitte prüfe Wochentage und Zeitintervalle. Beginn und Ende müssen verschieden sein.",
   SPECIAL_HOURS: "Bitte prüfe Datum, Status und Zeitintervalle des Sondertags.",
   CURRENT_STATE: "Bitte wähle Zustand und Bereich und gib ein Gültig-bis-Datum an.",

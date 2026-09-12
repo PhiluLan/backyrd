@@ -5,9 +5,9 @@ import { ATTRIBUTE_DEFINITIONS, PREVIOUS_REGISTRY_VERSION, REGISTRY_HASH, REGIST
 import { ContractValidationError, array, enumValue, hash, identifier, object, required, string, timestamp } from "./schema.js";
 import { SOURCE_USE_CASES, createSourcePolicy, type SourcePolicy, type SourceUseCase } from "./source-policy.js";
 
-export const ACCEPTED_POLICY_VERSION = "backyrd.world-knowledge.source-policy@3b.1" as const;
+export const ACCEPTED_POLICY_VERSION = "backyrd.world-knowledge.source-policy@4a.2" as const;
 export const ENTITLEMENT_POLICY_CONTRACT_VERSION = "backyrd.world-knowledge.entitlement-policy@1.0" as const;
-export const ENTITLEMENT_POLICY_VERSION = "backyrd.world-knowledge.entitlement-policy@3b.1" as const;
+export const ENTITLEMENT_POLICY_VERSION = "backyrd.world-knowledge.entitlement-policy@4a.2" as const;
 export const SERVER_WRITE_CONTRACT_VERSION = "backyrd.world-knowledge.server-write@1.0" as const;
 export const CONFIRMATION_RECORD_CONTRACT_VERSION = "backyrd.world-knowledge.confirmation-record@1.1" as const;
 export const REVIEW_WORK_ITEM_CONTRACT_VERSION = "backyrd.world-knowledge.review-work-item@1.0" as const;
@@ -15,21 +15,28 @@ export const IDENTITY_EVENT_CONTRACT_VERSION = "backyrd.world-knowledge.identity
 export const HOLIDAY_REMINDER_CONTRACT_VERSION = "backyrd.world-knowledge.holiday-reminder@1.0" as const;
 export const RETENTION_POLICY_CONTRACT_VERSION = "backyrd.world-knowledge.retention-policy@1.0" as const;
 
-export const SLICE3B_REGISTRY_APPROVAL_AUTHORITY = createRegistryApprovalAuthority({ authorityId: "authority:slice-3b-founder-accepted-policy", allowedRoles: ["PRODUCT_CTO"], allowedChangeClasses: ["ADDITIVE_DEFINITION"], semanticEquivalenceApproval: false, validFrom: "2026-09-10T17:59:00.000Z", validUntil: "2026-09-10T18:01:00.000Z" });
-export const SLICE3B_REGISTRY_APPROVAL_RECORD = createRegistryApprovalRecord({ recordId: "approval:slice-3b-founder-policy", authorityId: SLICE3B_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE3B_REGISTRY_APPROVAL_AUTHORITY.authorityHash, role: "PRODUCT_CTO", registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, changeClass: "ADDITIVE_DEFINITION", approvedAt: "2026-09-10T18:00:00.000Z" }, SLICE3B_REGISTRY_APPROVAL_AUTHORITY);
-export const SLICE3B_REGISTRY_RELEASE = createRegistryRelease({ registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, predecessorVersion: PREVIOUS_REGISTRY_VERSION, changeClass: "ADDITIVE_DEFINITION", createdAt: "2026-09-10T18:00:00.000Z", approval: { recordId: SLICE3B_REGISTRY_APPROVAL_RECORD.recordId, approvalHash: SLICE3B_REGISTRY_APPROVAL_RECORD.approvalHash, role: SLICE3B_REGISTRY_APPROVAL_RECORD.role, approvedAt: SLICE3B_REGISTRY_APPROVAL_RECORD.approvedAt, authorityId: SLICE3B_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE3B_REGISTRY_APPROVAL_AUTHORITY.authorityHash }, changeSummary: ["Add public spot email, five-level category-relative price, elevator and accessible indoor component"], compatibilityStatus: "BACKWARD_COMPATIBLE", deprecations: [], aliases: [] });
+export const SLICE4A_REGISTRY_APPROVAL_AUTHORITY = createRegistryApprovalAuthority({ authorityId: "authority:slice-4a-founder-authoring-readiness", allowedRoles: ["PRODUCT_CTO"], allowedChangeClasses: ["SEMANTIC_CHANGE"], semanticEquivalenceApproval: false, validFrom: "2026-09-12T09:59:00.000Z", validUntil: "2026-09-12T10:01:00.000Z" });
+export const SLICE4A_REGISTRY_APPROVAL_RECORD = createRegistryApprovalRecord({ recordId: "approval:slice-4a-authoring-readiness", authorityId: SLICE4A_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4A_REGISTRY_APPROVAL_AUTHORITY.authorityHash, role: "PRODUCT_CTO", registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, changeClass: "SEMANTIC_CHANGE", approvedAt: "2026-09-12T10:00:00.000Z" }, SLICE4A_REGISTRY_APPROVAL_AUTHORITY);
+export const SLICE4A_REGISTRY_RELEASE = createRegistryRelease({ registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, predecessorVersion: PREVIOUS_REGISTRY_VERSION, changeClass: "SEMANTIC_CHANGE", createdAt: "2026-09-12T10:00:00.000Z", approval: { recordId: SLICE4A_REGISTRY_APPROVAL_RECORD.recordId, approvalHash: SLICE4A_REGISTRY_APPROVAL_RECORD.approvalHash, role: SLICE4A_REGISTRY_APPROVAL_RECORD.role, approvedAt: SLICE4A_REGISTRY_APPROVAL_RECORD.approvedAt, authorityId: SLICE4A_REGISTRY_APPROVAL_AUTHORITY.authorityId, authorityHash: SLICE4A_REGISTRY_APPROVAL_AUTHORITY.authorityHash }, changeSummary: ["Expand objective authoring taxonomies", "Add special kitchen hours", "Add scoped age and accompaniment rules"], compatibilityStatus: "REQUIRES_ADAPTER", deprecations: [], aliases: [] });
+
+/** @deprecated Compatibility aliases for pre-closure consumers; use SLICE4A_* for Registry 2.0. */
+export const SLICE3B_REGISTRY_APPROVAL_AUTHORITY = SLICE4A_REGISTRY_APPROVAL_AUTHORITY;
+/** @deprecated Compatibility alias; use SLICE4A_REGISTRY_APPROVAL_RECORD. */
+export const SLICE3B_REGISTRY_APPROVAL_RECORD = SLICE4A_REGISTRY_APPROVAL_RECORD;
+/** @deprecated Compatibility alias; use SLICE4A_REGISTRY_RELEASE. */
+export const SLICE3B_REGISTRY_RELEASE = SLICE4A_REGISTRY_RELEASE;
 
 export const OWNER_BASIC_KEYS = Object.freeze([
   "identity.name", "location.address_line1", "location.locality", "location.neighborhood", "location.country_code", "location.latitude", "location.longitude", "location.timezone",
   "classification.primary_category", "classification.place_types", "contact.public_email", "contact.website", "contact.phone", "contact.instagram", "contact.facebook", "contact.linkedin", "contact.tiktok",
   "description.highlight", "operation.price_level", "operation.payment_methods", "operation.takeaway", "operation.service_model", "operation.service_format",
-  "offering.cuisines", "offering.food_specialities", "offering.groups", "hours.regular", "hours.special", "hours.kitchen", "state.current",
+  "offering.cuisines", "offering.food_specialities", "offering.groups", "hours.regular", "hours.special", "hours.kitchen", "hours.kitchen_special", "state.current",
 ] as const);
 
 export const OWNER_PRO_KEYS = Object.freeze([
   ...OWNER_BASIC_KEYS,
   "operation.laptop_policy", "operation.stay_policy", "capacity.seats_total", "capacity.seats_indoor", "capacity.seats_outdoor", "capacity.group_size_supported",
-  "rule.reservation", "rule.external_food", "rule.external_drink", "amenity.features", "rule.pet_access", "rule.age_access",
+  "rule.reservation", "rule.external_food", "rule.external_drink", "amenity.features", "rule.pet_access", "rule.age_access", "rule.age_access_conditions",
   "accessibility.step_free_entrance", "accessibility.wheelchair_paths", "accessibility.accessible_seating", "accessibility.accessible_toilet", "accessibility.accessible_outdoor", "accessibility.accessible_indoor", "accessibility.elevator",
 ] as const);
 
@@ -81,14 +88,14 @@ const usesFor = (key: string): readonly SourceUseCase[] => {
   if (key.startsWith("hours.") || key === "state.current") return ["GENERAL_WORLD", "OPENING_HOURS_ELIGIBILITY", "RESEARCH"];
   if (["operation.price_level", "operation.price_range"].includes(key)) return ["GENERAL_WORLD", "PRICE", "RESEARCH"];
   if (key.startsWith("accessibility.")) return ["GENERAL_WORLD", "ACCESSIBILITY", "HARD_CONSTRAINTS", "RESEARCH"];
-  if (["operation.takeaway", "rule.reservation", "rule.external_food", "rule.external_drink", "rule.age_access", "rule.pet_access"].includes(key)) return ["GENERAL_WORLD", "HARD_CONSTRAINTS", "RESEARCH"];
+  if (["operation.takeaway", "rule.reservation", "rule.external_food", "rule.external_drink", "rule.age_access", "rule.age_access_conditions", "rule.pet_access"].includes(key)) return ["GENERAL_WORLD", "HARD_CONSTRAINTS", "RESEARCH"];
   if (key === "description.highlight" || key === "research.subjective_fits") return ["EXPLANATION", "RESEARCH"];
   return ["GENERAL_WORLD", "DISCOVERY", "RESEARCH"];
 };
 
 const freshnessFor = (key: string): SourcePolicy["entries"][number]["freshness"] => key === "state.current"
   ? { policyRef: "freshness:current-state:explicit-valid-until", mode: "REQUIRES_VALID_UNTIL" }
-  : key === "hours.special" ? { policyRef: "freshness:special-hours:date-bound", mode: "SCHEDULE_BOUND" }
+  : ["hours.special", "hours.kitchen_special"].includes(key) ? { policyRef: "freshness:special-hours:date-bound", mode: "SCHEDULE_BOUND" }
   : key.startsWith("hours.") ? { policyRef: "freshness:opening-hours:confirmed-until-changed", mode: "SCHEDULE_BOUND" }
   : { policyRef: "freshness:durable-until-contradicted", mode: "PERMANENT_UNTIL_CONTRADICTED" };
 

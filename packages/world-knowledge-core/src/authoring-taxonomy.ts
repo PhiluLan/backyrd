@@ -50,9 +50,9 @@ const always = ["basics", "classification", "price", "hours", "objective", "amen
 export const CATEGORY_AUTHORING_MATRIX = Object.freeze(Object.fromEntries(PRIMARY_CATEGORIES.map((category) => [category, Object.freeze({
   category,
   placeTypes: categoryPlaces[category],
-  relevantSteps: category === "OTHER" ? [...always] : gastronomic.includes(category as typeof gastronomic[number]) ? [...always, "offering"] : [...always, "activities"],
+  relevantSteps: category === "OTHER" ? [...always] : gastronomic.includes(category as typeof gastronomic[number]) ? [...always, "offering"] : [...always],
   relevantAttributeKeys: category === "OTHER" ? "NOT_CONFIGURED" : gastronomic.includes(category as typeof gastronomic[number])
-    ? ["offering.cuisines", "offering.food_specialities", "offering.groups", "operation.service_model", "operation.service_format", "operation.takeaway", "hours.kitchen"]
+    ? ["offering.cuisines", "offering.food_specialities", "offering.groups", "operation.service_model", "operation.service_format", "operation.takeaway", "hours.kitchen", "hours.kitchen_special"]
     : ["classification.place_types", "operation.price_level", "operation.payment_methods", "hours.regular", "amenity.features", "capacity.group_size_supported"],
 })])) as unknown as Record<PrimaryCategory, { readonly category: PrimaryCategory; readonly placeTypes: readonly string[] | "NOT_CONFIGURED"; readonly relevantSteps: readonly string[]; readonly relevantAttributeKeys: readonly string[] | "NOT_CONFIGURED" }>);
 

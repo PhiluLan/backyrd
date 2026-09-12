@@ -21,6 +21,7 @@ const samples = {
   CONSUMPTION_RULE: { policy: "CONDITIONAL", exceptions: ["Babynahrung"] },
   PET_ACCESS_RULE: { indoor: "NOT_ALLOWED", outdoor: "ALLOWED", assistanceAnimals: "ALLOWED", notes: null },
   AGE_ACCESS_RULE: { policy: "MINIMUM_AGE", minimumAge: 18, appliesFromTime: "22:00" },
+  AGE_ACCESS_RULE_V2: { rules: [{ mode: "UNACCOMPANIED_MINIMUM", minimumAge: 12, accompaniment: "ADULT", appliesFromTime: null, days: [], area: null, event: null }, { mode: "GENERAL_MINIMUM", minimumAge: 18, accompaniment: "NONE", appliesFromTime: "22:00", days: [], area: null, event: null }] },
   CURRENT_STATE: { kind: "AREA_CLOSED", scope: "TERRACE" },
 };
 
@@ -36,6 +37,7 @@ test("weekly and special hours accept multiple and overnight intervals", () => {
   assert.equal(validateAuthoringSubmission("hours.regular", "KNOWN_VALUE", samples.WEEKLY_SCHEDULE).ok, true);
   assert.equal(validateAuthoringSubmission("hours.kitchen", "KNOWN_VALUE", [{ day: "SATURDAY", intervals: [{ start: "22:00", end: "02:00" }] }]).ok, true);
   assert.equal(validateAuthoringSubmission("hours.special", "KNOWN_VALUE", samples.SPECIAL_HOURS).ok, true);
+  assert.equal(validateAuthoringSubmission("hours.kitchen_special", "KNOWN_VALUE", samples.SPECIAL_HOURS).ok, true);
 });
 
 test("legacy UI shapes and unregistered rule values fail closed", () => {

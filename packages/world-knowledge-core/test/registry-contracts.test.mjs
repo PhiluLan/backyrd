@@ -7,7 +7,7 @@ import {
 } from "../dist/index.js";
 
 test("registry is bilingual, language-neutral, unique and SHA-256 bound", () => {
-  assert.equal(REGISTRY_HASH, "e51e78f929d8d11ca149a50eaba250cf484e916ef38f2d447d3c8d881bb203be");
+  assert.equal(REGISTRY_HASH, "e93a7399c41535f7da2987c46343fbe82d1e3c07bca345b076d604f8d39f5a72");
   assert.equal(RULE_REGISTRY_HASH, "ce6b70c6f3ebc7c114af1fc2a24c79b415e552996e5db7d6f352e7e5867d61f8");
   assert.match(REGISTRY_CANONICAL_JSON, /classification\.primary_category/);
   assert.equal(new Set(ATTRIBUTE_DEFINITIONS.map((item) => item.key)).size, ATTRIBUTE_DEFINITIONS.length);
@@ -16,6 +16,8 @@ test("registry is bilingual, language-neutral, unique and SHA-256 bound", () => 
   assert.deepEqual(PRIMARY_CATEGORIES, ["EAT", "DRINKS", "COFFEE_DAYTIME", "NIGHTLIFE", "CULTURE_ARTS", "ENTERTAINMENT", "ACTIVITIES_PLAY", "SPORT_MOVEMENT", "OUTDOOR_NATURE", "WELLNESS_RELAXATION", "SHOPPING_MARKETS", "STAY", "COMMUNITY_SOCIAL", "ATTRACTIONS_LANDMARKS", "TEMPORARY_PLACES", "OTHER"]); assert.deepEqual(PRIMARY_CATEGORY_LABELS.OTHER, { de: "Sonstiges", en: "Other" });
   assert.ok(ATTRIBUTE_DEFINITIONS.find((item) => item.key === "offering.food_specialities").allowedValues.includes("BURGER"));
   assert.ok(!ATTRIBUTE_DEFINITIONS.find((item) => item.key === "offering.cuisines").allowedValues.includes("BURGER"));
+  assert.ok(ATTRIBUTE_DEFINITIONS.find((item) => item.key === "offering.cuisines").allowedValues.includes("THAI"));
+  assert.equal(ATTRIBUTE_DEFINITIONS.find((item) => item.key === "rule.age_access_conditions").valueType, "AGE_ACCESS_RULE_V2");
 });
 
 test("claims are strict, canonical, hashed and fail closed on unknown versions", () => {
