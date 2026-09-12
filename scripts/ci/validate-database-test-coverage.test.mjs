@@ -26,6 +26,15 @@ test("authorization change requires explicit positive and negative evidence", ()
   assert.equal(validateDatabaseTestCoverage({ root: f.root, baseSha: f.base, headSha: commit(f) }).authorizationBoundary, true);
 });
 
+test("additive ALTER TABLE and a later DROP TRIGGER remain non-destructive", () => {
+  const f = fixture();
+  write(f.root, "supabase/migrations/20260102000000_rls.sql", "alter table public.example enable row level security;\ndrop trigger if exists example_guard on public.example;\n");
+  write(f.root, "supabase/tests/example.sql", "-- backyrd:authorization-positive\n-- backyrd:authorization-negative\nbegin; select 1; rollback;\n");
+  const plan = validateDatabaseTestCoverage({ root: f.root, baseSha: f.base, headSha: commit(f) });
+  assert.equal(plan.authorizationBoundary, true);
+  assert.deepEqual(plan.newMigrations, ["supabase/migrations/20260102000000_rls.sql"]);
+});
+
 test("missing tests, missing negative proof, destructive SQL and historical mutation fail closed", () => {
   for (const scenario of ["missing", "negative", "destructive", "mutation"]) {
     const f = fixture();
