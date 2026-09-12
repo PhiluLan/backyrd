@@ -32,7 +32,7 @@
     },
     {
       "group": "core-context",
-      "requiredPrJob": "functional",
+      "requiredPrJob": "core-consumers",
       "purpose": "Contracts, authority, eligibility, evidence, explanation, integrity and isolation",
       "script": "npm run decision-ci:group -- --group core-context",
       "observedLocalSeconds": 12.6,
@@ -46,7 +46,7 @@
     },
     {
       "group": "phase2",
-      "requiredPrJob": "functional",
+      "requiredPrJob": "phase2",
       "purpose": "All 21 canonical integration, authority, replay and full-rehash tests",
       "script": "npm run decision-ci:group -- --group phase2-all",
       "observedLocalSeconds": 60.3,
@@ -60,7 +60,7 @@
     },
     {
       "group": "oracles-workbenches",
-      "requiredPrJob": "functional",
+      "requiredPrJob": "core-consumers",
       "purpose": "Context Kernel, 15 Phase-3A flips, 28 Founder Oracles and recursive replay",
       "script": "npm run decision-ci:group -- --group oracles-workbenches",
       "observedLocalSeconds": 4.9,
@@ -106,7 +106,7 @@
     },
     {
       "group": "consumer-contracts",
-      "requiredPrJob": "functional",
+      "requiredPrJob": "core-consumers",
       "purpose": "Shared typecheck and complete canonical User/World consumer regressions",
       "script": "npm run decision-ci:group -- --group consumer-contracts",
       "observedLocalSeconds": 8.6,

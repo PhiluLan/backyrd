@@ -60,7 +60,8 @@ function testsUnder(directory) {
 function runGroup(group) {
   if (group === "full") return [
     ...runGroup("preflight"),
-    ...runGroup("functional"),
+    ...runGroup("core-consumers"),
+    ...runGroup("phase2-all"),
     ...runGroup("sandbox-worlds"),
     ...runGroup("sandbox-profiles"),
     ...runGroup("decision-lab"),
@@ -109,9 +110,8 @@ function runGroup(group) {
     run("World Knowledge typecheck", "npm", ["exec", "tsc", "--", "-p", "packages/world-knowledge-core/tsconfig.json", "--noEmit"]),
     nodeTest("World Knowledge canonical regression", testsUnder("packages/world-knowledge-core/test")),
   ];
-  if (group === "functional") return [
+  if (group === "core-consumers") return [
     ...runGroup("core-context"),
-    ...runGroup("phase2-all"),
     ...runGroup("oracles-workbenches"),
     ...runGroup("consumer-contracts"),
   ];

@@ -27,11 +27,12 @@ Gezielte Gruppe:
 
 Ein kurzer Preflight installiert strikt aus dem Lockfile (`npm ci --ignore-scripts`), prüft Routing/Aggregation, baut einmal und erzeugt ein SHA-256-gebundenes Artefakt. Danach laufen parallel:
 
-- Decision Core, Context, alle 21 Phase-2-Tests, Founder Oracles, beide Workbench-Replays und vollständige World-/User-/Shared-Consumer-Regression in einem setup-effizienten Functional-Job;
+- Decision Core, Context, Founder Oracles, beide Workbench-Replays und vollständige World-/User-/Shared-Consumer-Regression in einem setup-effizienten Core-/Consumer-Job;
+- alle 21 rekursiven Phase-2-Integrationstests in einem eigenen Prozess und Pflichtjob;
 - beide vollständigen Welten sowie beide Phase-2-Profile in zwei getrennten Sandbox-Jobs;
 - Decision Lab;
 
-Der stabile Check `Versioned Decision semantics and evaluation` ist nur erfolgreich, wenn jede Pflichtgruppe erfolgreich ist. Ein fehlender, übersprungener oder unbekannter Job scheitert. Der geschlossene Phase-2-Plan enthält exakt die 21 kanonischen Tests; neue, gelöschte oder umbenannte Titel erfordern eine explizite Änderung des versionierten Plans. Die Sandbox-Matrix ist absichtlich die einzige PR-Matrix: Sie verkürzt den großen Critical Path, während das Zusammenfassen kleinerer Gruppen vier redundante Installationen und wiederholte Fixture-Prozesse vermeidet.
+Der stabile Check `Versioned Decision semantics and evaluation` ist nur erfolgreich, wenn jede Pflichtgruppe erfolgreich ist. Ein fehlender, übersprungener oder unbekannter Job scheitert. Der geschlossene Phase-2-Plan enthält exakt die 21 kanonischen Tests; neue, gelöschte oder umbenannte Titel erfordern eine explizite Änderung des versionierten Plans. Ein erster finaler Messlauf mit gebündeltem Functional-Job war vollständig grün, benötigte aber 5:56 Wall Clock, weil dieser Job auf GitHub 277 Sekunden dauerte. Deshalb ist die gemessene Phase-2-Rekursion ein eigener Pflichtjob; die kleineren Gruppen bleiben zur Begrenzung redundanter Installationen gebündelt.
 
 ### Post-merge / recertification
 

@@ -33,7 +33,8 @@ export const PHASE2_TEST_SHARDS = Object.freeze({
 });
 
 export const REQUIRED_DECISION_SHARDS = Object.freeze([
-  "functional",
+  "core-consumers",
+  "phase2",
   "large-sandbox",
   "decision-lab",
 ]);

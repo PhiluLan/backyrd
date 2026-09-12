@@ -262,8 +262,8 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  decision-functional:
-    name: Decision functional, replay and consumer integrity
+  decision-core-consumers:
+    name: Decision core, replay and consumer integrity
     if: needs.classify.outputs.decision == 'true'
     needs: [classify, decision-preflight]
     runs-on: ubuntu-latest
@@ -281,7 +281,28 @@ jobs:
           name: decision-build-${{ needs.classify.outputs.head-sha }}
           path: .
       - run: node scripts/ci/decision-build-artifact.mjs --verify decision-ci-artifact.json
-      - run: npm run decision-ci:group -- --group functional --output "$RUNNER_TEMP/decision-functional.json"
+      - run: npm run decision-ci:group -- --group core-consumers --output "$RUNNER_TEMP/decision-core-consumers.json"
+
+  decision-phase2:
+    name: Decision Phase-2 recursive integration
+    if: needs.classify.outputs.decision == 'true'
+    needs: [classify, decision-preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: decision-build-${{ needs.classify.outputs.head-sha }}
+          path: .
+      - run: node scripts/ci/decision-build-artifact.mjs --verify decision-ci-artifact.json
+      - run: npm run decision-ci:group -- --group phase2-all --output "$RUNNER_TEMP/decision-phase2.json"
 
   decision-sandbox:
     name: Decision synthetic validation (${{ matrix.group }})
@@ -334,12 +355,12 @@ jobs:
   decision:
     name: Versioned Decision semantics and evaluation
     if: always() && needs.classify.outputs.decision == 'true'
-    needs: [classify, decision-preflight, decision-functional, decision-sandbox, decision-lab]
+    needs: [classify, decision-preflight, decision-core-consumers, decision-phase2, decision-sandbox, decision-lab]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
       SHARD_RESULTS: >-
-        {"functional":"${{ needs.decision-functional.result }}","large-sandbox":"${{ needs.decision-sandbox.result }}","decision-lab":"${{ needs.decision-lab.result }}"}
+        {"core-consumers":"${{ needs.decision-core-consumers.result }}","phase2":"${{ needs.decision-phase2.result }}","large-sandbox":"${{ needs.decision-sandbox.result }}","decision-lab":"${{ needs.decision-lab.result }}"}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Require every Decision shard; skipped or missing is failure

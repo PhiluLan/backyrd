@@ -70,7 +70,7 @@ test("CI runner has no Production execution or commercial input channel", () => 
 test("GitHub transfers the non-hidden immutable manifest to every Decision shard", () => {
   const workflow = readFileSync(new URL("../../.github/workflows/risk-gate.yml", import.meta.url), "utf8");
   assert.match(workflow, /--create decision-ci-artifact\.json/);
-  assert.equal((workflow.match(/--verify decision-ci-artifact\.json/g) ?? []).length, 3);
+  assert.equal((workflow.match(/--verify decision-ci-artifact\.json/g) ?? []).length, 4);
   assert.doesNotMatch(workflow, /\.decision-ci-artifact\.json/);
 });
 
@@ -80,12 +80,13 @@ test("Decision Lab retains full Git history required by lineage and freeze tests
   assert.match(decisionLab, /actions\/checkout@[a-f0-9]+[^]*fetch-depth: 0/);
 });
 
-test("PR topology shares setup for functional coverage and splits only the sandbox critical path", () => {
+test("PR topology isolates the measured Phase-2 critical path and shares smaller setup", () => {
   const workflow = readFileSync(new URL("../../.github/workflows/risk-gate.yml", import.meta.url), "utf8");
   const runner = readFileSync(new URL("./run-decision-ci.mjs", import.meta.url), "utf8");
-  assert.match(workflow, /--group functional/);
-  assert.match(runner, /group === "functional"[^]*runGroup\("phase2-all"\)/);
+  assert.match(workflow, /--group core-consumers/);
+  assert.match(workflow, /--group phase2-all/);
+  assert.match(runner, /group === "core-consumers"/);
+  assert.doesNotMatch(runner.split('group === "core-consumers"')[1] ?? "", /runGroup\("phase2-all"\)/);
   assert.match(workflow, /group: \[sandbox-worlds, sandbox-profiles\]/);
   assert.doesNotMatch(workflow, /matrix:\n\s+shard: \[phase2-/);
-  assert.doesNotMatch(workflow, /--group phase2-all/);
 });
