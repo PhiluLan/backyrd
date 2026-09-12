@@ -154,3 +154,9 @@ test("published migration mutation is identified independently", () => {
   assert.ok(result.blockedReasons.includes("published_migration_mutation"));
   assert.notEqual(base, head);
 });
+
+test("additive ALTER TABLE and later DROP TRIGGER are not joined into a destructive operation", () => {
+  const result = plan({ files: { "supabase/migrations/20260102120000_additive_rls.sql": "alter table private.example enable row level security;\ndrop trigger if exists old_trigger on private.example;\n" } });
+  assert.equal(result.flags.destructive, false);
+  assert.ok(!result.blockedReasons.includes("destructive_migration_requires_separate_founder_cto_authorization"));
+});

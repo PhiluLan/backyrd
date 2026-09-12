@@ -16,7 +16,7 @@ const startsWithAny = (path, prefixes) => prefixes.some((prefix) => path === pre
 const unique = (values) => [...new Set(values)].sort();
 
 const migrationSecurityPattern = /\b(?:create|alter|drop)\s+policy\b|\brow\s+level\s+security\b|\b(?:grant|revoke)\b|\bsecurity\s+definer\b|\bauth\.|\bstorage\./i;
-const destructivePattern = /\btruncate\b|\bdrop\s+(?:table|schema|column|type)\b|\bdelete\s+from\b|\balter\s+table\b[\s\S]*?\bdrop\b/i;
+const destructivePattern = /\btruncate\b|\bdrop\s+(?:table|schema|column|type)\b|\bdelete\s+from\b|\balter\s+table\b[^;]*\bdrop\b/i;
 
 export function classifyChange({ root, context, policy }) {
   const statusLines = git(root, ["diff", "--name-status", `${context.baseSha}..${context.headSha}`]).split("\n").filter(Boolean);
@@ -29,7 +29,8 @@ export function classifyChange({ root, context, policy }) {
   const protectedDecisionPaths = new Set(trustAnchor.protectedSemanticSourceSet?.paths ?? []);
   const newMigrations = changes.filter(({ status, path }) => status === "A" && path.startsWith("supabase/migrations/"));
   const migrationMutations = changes.filter(({ status, path }) => status !== "A" && path.startsWith("supabase/migrations/"));
-  const migrationText = newMigrations.map(({ path }) => git(root, ["show", `${context.headSha}:${path}`])).join("\n");
+  const migrationTexts = newMigrations.map(({ path }) => git(root, ["show", `${context.headSha}:${path}`]));
+  const migrationText = migrationTexts.join("\n");
   const testDeletion = changes.some(({ status, path }) => status === "D" && (path.includes("/test/") || /(?:^|\.)test\.[cm]?[jt]sx?$/.test(path)));
   const decisionConsumer = changedFiles.some((path) => startsWithAny(path, policy.decisionConsumerPrefixes ?? []));
   const pipelineControl = changedFiles.some((path) => startsWithAny(path, policy.decisionPipelineControlPrefixes ?? []));
@@ -51,7 +52,7 @@ export function classifyChange({ root, context, policy }) {
     unknown,
     deliveryControl: changedFiles.some((path) => startsWithAny(path, policy.deliveryControlPrefixes)),
     releaseEvidence: changedFiles.some((path) => startsWithAny(path, policy.releaseEvidencePrefixes)),
-    destructive: destructivePattern.test(migrationText),
+    destructive: migrationTexts.some((text) => destructivePattern.test(text)),
     migrationMutation: migrationMutations.length > 0,
   };
   const classes = [
