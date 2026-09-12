@@ -9,7 +9,7 @@ Der bisherige Required-Decision-Job war ein einzelner serieller Job. Der Main-La
 
 Die lokale Einzelmessung zeigte den dominanten Engpass: 21 Tests in `phase2-evaluation-harness.test.mjs` benötigten seriell 177,8 Sekunden. Die übrigen 85 Decision-vNext-Tests lagen zusammen deutlich unter einer Minute. Zusätzlich starteten `typecheck`, `test`, `sandbox:smoke`, `phase2:evaluate`, `phase3a:context` und `phase3b:context` jeweils erneut TypeScript-Builds der World-, User- und Decision-Packages. Die großen Welten, Evaluationsprofile und Decision-Lab-Gruppen waren unabhängig, wurden aber seriell ausgeführt.
 
-Die maschinenlesbare Bestands- und Zielmatrix liegt in `DECISION_CI_EXECUTION_MATRIX.json`. Die Optimierung entfernt keine Assertion: Sie baut einmal, bindet das Artefakt an Lockfile, Node-Major, Source-Set und geschlossenen Testplan und verteilt anschließend unabhängige vollständige Gruppen. Innerhalb der Phase-2-Testdatei wird die unveränderliche Standard-Evaluation einmal erzeugt; getrennte Assertions prüfen dasselbe tief eingefrorene Result, während jede abweichende Authority-, Context-, World-, User- oder Manipulationsvariante weiterhin neu ausgeführt wird. Damit sank diese Datei lokal von 177,8 auf 60,2 Sekunden; die vier vollständigen Shards benötigen 36,3 / 19,1 / 16,4 / 19,2 Sekunden.
+Die maschinenlesbare Bestands- und Zielmatrix liegt in `DECISION_CI_EXECUTION_MATRIX.json`. Die Optimierung entfernt keine Assertion: Sie baut einmal, bindet das Artefakt an Lockfile, Node-Major, Source-Set und geschlossenen Testplan und verteilt anschließend unabhängige vollständige Gruppen. Innerhalb der Phase-2-Testdatei wird die unveränderliche Standard-Evaluation einmal erzeugt; getrennte Assertions prüfen dasselbe tief eingefrorene Result, während jede abweichende Authority-, Context-, World-, User- oder Manipulationsvariante weiterhin neu ausgeführt wird. Damit sank diese Datei lokal von 177,8 auf 60,2 Sekunden. Sie läuft bewusst in einem Prozess, damit diese sichere Wiederverwendung nicht durch vier Prozesse und vier Dependency-Setups wieder verloren geht; der geschlossene Vierfach-Plan bleibt als Vollständigkeitskontrolle erhalten.
 
 ## Drei Ebenen
 
@@ -21,20 +21,17 @@ Der Befehl baut World/User/Decision genau einmal, führt den Decision-Typecheck,
 
 Gezielte Gruppe:
 
-`npm run decision-ci:group -- --group phase2-2`
+`npm run decision-ci:group -- --group phase2-all`
 
 ### Required PR Decision Gate
 
 Ein kurzer Preflight installiert strikt aus dem Lockfile (`npm ci --ignore-scripts`), prüft Routing/Aggregation, baut einmal und erzeugt ein SHA-256-gebundenes Artefakt. Danach laufen parallel:
 
-- Decision Core und Context Integrity;
-- vier geschlossene Phase-2-Shards;
-- Founder Oracles und beide Workbench-Replays;
-- beide vollständigen Welten und Phase-2-Profile;
+- Decision Core, Context, alle 21 Phase-2-Tests, Founder Oracles, beide Workbench-Replays und vollständige World-/User-/Shared-Consumer-Regression in einem setup-effizienten Functional-Job;
+- beide vollständigen Welten sowie beide Phase-2-Profile in zwei getrennten Sandbox-Jobs;
 - Decision Lab;
-- vollständige World-/User-/Shared-Consumer-Regression.
 
-Der stabile Check `Versioned Decision semantics and evaluation` ist nur erfolgreich, wenn jede Pflichtgruppe erfolgreich ist. Ein fehlender, übersprungener oder unbekannter Shard scheitert. Die vier Phase-2-Shards enthalten zusammen exakt die 21 kanonischen Tests; neue, gelöschte oder umbenannte Titel erfordern eine explizite Änderung des versionierten Plans.
+Der stabile Check `Versioned Decision semantics and evaluation` ist nur erfolgreich, wenn jede Pflichtgruppe erfolgreich ist. Ein fehlender, übersprungener oder unbekannter Job scheitert. Der geschlossene Phase-2-Plan enthält exakt die 21 kanonischen Tests; neue, gelöschte oder umbenannte Titel erfordern eine explizite Änderung des versionierten Plans. Die Sandbox-Matrix ist absichtlich die einzige PR-Matrix: Sie verkürzt den großen Critical Path, während das Zusammenfassen kleinerer Gruppen vier redundante Installationen und wiederholte Fixture-Prozesse vermeidet.
 
 ### Post-merge / recertification
 
@@ -85,4 +82,4 @@ Fehler tragen die Gruppe und eine stabile Ursache, etwa `decision_test_not_route
 
 Unverändert bleiben sämtliche Source-/Release-/Manifest-, Oracle-, Context-, World-/User-, Candidate-, Eligibility-, Ranking-Fixture-, Confidence-, Evidence-, Explanation-, Replay-, Privacy- und Commercial-Neutrality-Prüfungen. Phase 3C wurde nicht begonnen.
 
-Der einmalige vollständige serielle Referenzlauf aller neuen Gruppen benötigte vor der sicheren Phase-2-Fixture-Wiederverwendung 481,6 Sekunden. Danach sank die vollständige unveränderte Decision-vNext-Suite mit allen 106 Tests von zuvor 197,6 auf 60,9 Sekunden. Der verbleibende Unterbau ist CPU-gebunden: abweichende Phase-2-Integrationsläufe erzeugen und validieren absichtlich vollständige rekursive Results; Decision Lab (190,8 Sekunden einschließlich aller Untergates) und die zwei großen Welten/Profile (101,0 Sekunden) bleiben eigenständige Beweise. Diese Arbeit wird parallelisiert, nicht abgeschwächt. Ein Cold Cache trägt zusätzlich die strikt gelockte npm-Installation. Reine nicht ausführbare Dokumentation löst diese großen Gruppen nicht aus. GitHub-Wall-Clock und kumulierte Runner-Zeit der optimierten Pipeline werden erst aus dem finalen unveränderten PR-Head eingetragen; bis dahin werden keine modellierten Werte als Messung ausgegeben.
+Der einmalige vollständige serielle Referenzlauf aller neuen Gruppen benötigte vor der sicheren Phase-2-Fixture-Wiederverwendung 481,6 Sekunden. Danach sank die vollständige unveränderte Decision-vNext-Suite mit allen 106 Tests von zuvor 197,6 auf 60,9 Sekunden. Der verbleibende Unterbau ist CPU-gebunden: abweichende Phase-2-Integrationsläufe erzeugen und validieren absichtlich vollständige rekursive Results; Decision Lab benötigte lokal 190,8 Sekunden einschließlich aller Untergates. Die beiden Sandbox-Jobs benötigten lokal 34,2 Sekunden für Smoke plus beide 300-Spot-/50-User-Welten und 62,0 Sekunden für Smoke plus beide vollständigen Evaluationsprofile. Welten und Profile werden getrennt parallelisiert; die kleineren Beweise teilen dagegen ein Setup, um nicht nur Wall Clock, sondern auch Runner-Verbrauch zu begrenzen. Ein Cold Cache trägt zusätzlich die strikt gelockte npm-Installation. Reine nicht ausführbare Dokumentation löst diese großen Gruppen nicht aus. GitHub-Wall-Clock und kumulierte Runner-Zeit der optimierten Pipeline werden erst aus dem finalen unveränderten PR-Head eingetragen; bis dahin werden keine modellierten Werte als Messung ausgegeben.

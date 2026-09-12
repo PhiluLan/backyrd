@@ -60,15 +60,10 @@ function testsUnder(directory) {
 function runGroup(group) {
   if (group === "full") return [
     ...runGroup("preflight"),
-    ...runGroup("core-context"),
-    ...runGroup("phase2-1"),
-    ...runGroup("phase2-2"),
-    ...runGroup("phase2-3"),
-    ...runGroup("phase2-4"),
-    ...runGroup("oracles-workbenches"),
-    ...runGroup("large-sandbox"),
+    ...runGroup("functional"),
+    ...runGroup("sandbox-worlds"),
+    ...runGroup("sandbox-profiles"),
     ...runGroup("decision-lab"),
-    ...runGroup("consumer-contracts"),
   ];
   if (group === "preflight") return [
     run("build canonical World, User and Decision artifacts", "npm", ["run", "decision-vnext:build"]),
@@ -81,16 +76,19 @@ function runGroup(group) {
     run("small deterministic smoke world", process.execPath, ["packages/decision-vnext-core/sandbox/run.mjs", "packages/decision-vnext-core/sandbox/config/world-smoke-v1.json"]),
   ];
   if (group === "core-context") return [nodeTest("Decision core, integrity and contract tests", coreTests)];
+  if (group === "phase2-all") return [nodeTest("Phase-2 complete integration", ["packages/decision-vnext-core/test/phase2-evaluation-harness.test.mjs"])];
   if (group.startsWith("phase2-")) return [nodeTest(`Phase-2 integration ${group}`, ["packages/decision-vnext-core/test/phase2-evaluation-harness.test.mjs"], ["--test-name-pattern", phase2Pattern(group)])];
   if (group === "oracles-workbenches") return [
     nodeTest("Context kernel and Founder Oracle contracts", ["packages/decision-vnext-core/test/context-kernel.test.mjs", "packages/decision-vnext-core/test/phase3b-product-context.test.mjs"]),
     run("Phase-3A recursive Workbench replay", process.execPath, ["packages/decision-vnext-core/sandbox/evaluate-context-phase3a.mjs"]),
     run("Phase-3B Product Context Workbench replay", process.execPath, ["packages/decision-vnext-core/sandbox/evaluate-context-phase3b.mjs"]),
   ];
-  if (group === "large-sandbox") return [
+  if (group === "sandbox-worlds") return [
     run("small deterministic smoke world", process.execPath, ["packages/decision-vnext-core/sandbox/run.mjs", "packages/decision-vnext-core/sandbox/config/world-smoke-v1.json"], {}, true),
     run("full synthetic world seed 1001", process.execPath, ["packages/decision-vnext-core/sandbox/run.mjs", "packages/decision-vnext-core/sandbox/config/world-phase1-v1.json"], {}, true),
     run("full synthetic world seed 1002", process.execPath, ["packages/decision-vnext-core/sandbox/run.mjs", "packages/decision-vnext-core/sandbox/config/world-phase1-seed-1002-v1.json"], {}, true),
+  ];
+  if (group === "sandbox-profiles") return [
     run("Phase-2 smoke evaluation", process.execPath, ["packages/decision-vnext-core/sandbox/evaluate-phase2.mjs", "packages/decision-vnext-core/sandbox/config/world-smoke-v1.json"], {}, true),
     run("Phase-2 full evaluation seed 1001", process.execPath, ["packages/decision-vnext-core/sandbox/evaluate-phase2.mjs", "packages/decision-vnext-core/sandbox/config/world-phase1-v1.json"], {}, true),
     run("Phase-2 full evaluation seed 1002", process.execPath, ["packages/decision-vnext-core/sandbox/evaluate-phase2.mjs", "packages/decision-vnext-core/sandbox/config/world-phase1-seed-1002-v1.json"], {}, true),
@@ -110,6 +108,12 @@ function runGroup(group) {
     nodeTest("User Intelligence canonical regression", testsUnder("packages/user-intelligence-vnext-core/test")),
     run("World Knowledge typecheck", "npm", ["exec", "tsc", "--", "-p", "packages/world-knowledge-core/tsconfig.json", "--noEmit"]),
     nodeTest("World Knowledge canonical regression", testsUnder("packages/world-knowledge-core/test")),
+  ];
+  if (group === "functional") return [
+    ...runGroup("core-context"),
+    ...runGroup("phase2-all"),
+    ...runGroup("oracles-workbenches"),
+    ...runGroup("consumer-contracts"),
   ];
   throw new Error(`unknown_decision_ci_group:${group}`);
 }

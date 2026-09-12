@@ -32,6 +32,7 @@
     },
     {
       "group": "core-context",
+      "requiredPrJob": "functional",
       "purpose": "Contracts, authority, eligibility, evidence, explanation, integrity and isolation",
       "script": "npm run decision-ci:group -- --group core-context",
       "observedLocalSeconds": 12.6,
@@ -45,19 +46,21 @@
     },
     {
       "group": "phase2",
+      "requiredPrJob": "functional",
       "purpose": "All 21 canonical integration, authority, replay and full-rehash tests",
-      "script": "npm run decision-ci:group -- --group phase2-{1..4}",
-      "observedLocalSecondsByShard": [36.3, 19.1, 16.4, 19.2],
-      "setupSecondsPerShard": 13.0,
+      "script": "npm run decision-ci:group -- --group phase2-all",
+      "observedLocalSeconds": 60.3,
+      "setupSeconds": 0,
       "buildDependencies": ["verified Decision build artifact"],
       "fixtures": ["48-spot/12-user Phase-2 integration world"],
       "overlapRemoved": ["one serial 177.8 second test file", "identical immutable default evaluation rebuilt for independent assertions"],
-      "parallelizable": true,
-      "cacheSuitability": "no semantic result cache; exact title routing is closed and versioned",
+      "parallelizable": false,
+      "cacheSuitability": "one process safely reuses its deep-frozen standard evaluation; exact title routing remains closed and versioned",
       "trigger": "required Decision gate"
     },
     {
       "group": "oracles-workbenches",
+      "requiredPrJob": "functional",
       "purpose": "Context Kernel, 15 Phase-3A flips, 28 Founder Oracles and recursive replay",
       "script": "npm run decision-ci:group -- --group oracles-workbenches",
       "observedLocalSeconds": 4.9,
@@ -71,10 +74,15 @@
     },
     {
       "group": "large-sandbox",
+      "requiredPrJob": "sandbox-worlds and sandbox-profiles matrix",
       "purpose": "Smoke plus both 300-spot/50-user worlds and both full Phase-2 profiles",
-      "script": "npm run decision-ci:group -- --group large-sandbox",
-      "observedLocalSeconds": 101.0,
-      "setupSeconds": 13.0,
+      "script": "npm run decision-ci:group -- --group sandbox-worlds; npm run decision-ci:group -- --group sandbox-profiles",
+      "observedLocalSecondsByJob": {
+        "sandbox-worlds": 34.2,
+        "sandbox-profiles": 62.0
+      },
+      "observedSequentialTotalSeconds": 96.2,
+      "setupSecondsPerJob": 13.0,
       "buildDependencies": ["verified Decision build artifact"],
       "fixtures": ["world-phase1-v1", "world-phase1-seed-1002-v1", "world-smoke-v1"],
       "overlapRemoved": ["build before each sandbox command"],
@@ -84,6 +92,7 @@
     },
     {
       "group": "decision-lab",
+      "requiredPrJob": "decision-lab",
       "purpose": "Legacy baseline, smoke, D2, D2.2, D3.1 and D3-A acceptance",
       "script": "npm run decision-ci:group -- --group decision-lab",
       "observedLocalSeconds": 190.8,
@@ -97,6 +106,7 @@
     },
     {
       "group": "consumer-contracts",
+      "requiredPrJob": "functional",
       "purpose": "Shared typecheck and complete canonical User/World consumer regressions",
       "script": "npm run decision-ci:group -- --group consumer-contracts",
       "observedLocalSeconds": 8.6,

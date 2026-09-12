@@ -33,12 +33,9 @@ export const PHASE2_TEST_SHARDS = Object.freeze({
 });
 
 export const REQUIRED_DECISION_SHARDS = Object.freeze([
-  "core-context",
-  "phase2",
-  "oracles-workbenches",
+  "functional",
   "large-sandbox",
   "decision-lab",
-  "consumer-contracts",
 ]);
 
 export function phase2Pattern(shard) {
