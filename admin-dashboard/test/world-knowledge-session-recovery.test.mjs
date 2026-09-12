@@ -80,3 +80,12 @@ test("the canonical local start command derives one endpoint for both servers wi
   assert.doesNotMatch(source, /migration", "up"/);
   assert.doesNotMatch(source, /console\.log\([^\n]*(?:ANON_KEY|SERVICE_ROLE_KEY)/);
 });
+
+test("both local authoring surfaces allow the canonical 127.0.0.1 dev origin", async () => {
+  const adminConfig = await readFile(new URL("../next.config.ts", import.meta.url), "utf8");
+  const ownerConfig = await readFile(new URL("../../web/next.config.ts", import.meta.url), "utf8");
+  for (const source of [adminConfig, ownerConfig]) {
+    assert.match(source, /allowedDevOrigins:\s*\["127\.0\.0\.1"\]/);
+    assert.doesNotMatch(source, /allowedDevOrigins:\s*\["\*"\]/);
+  }
+});
