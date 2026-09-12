@@ -107,8 +107,10 @@ set local role authenticated;
 select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,clock_timestamp(),%L,%L)',(select payload->>'spotId' from wk4a_created limit 1),'FULL','client-rebuild'),'42501','client called rebuild');
 reset role;
 set local role service_role;
-create temporary table wk4a_manifest as select public.world_shadow_rebuild_spot_v1((select (payload->>'spotId')::uuid from wk4a_created limit 1),clock_timestamp()+interval '1 second','FULL','service-rebuild') payload;
-select pg_temp.assert((select payload->>'manifestHash' ~ '^[0-9a-f]{64}$' from wk4a_manifest),'service rebuild failed');
+create temporary table wk4a_manifest as
+select public.world_shadow_rebuild_spot_v1(created.spot_id,clock_timestamp()+interval '1 second','FULL','service-rebuild-'||created.spot_id::text) payload
+from (select (payload->>'spotId')::uuid spot_id from wk4a_created) created;
+select pg_temp.assert((select count(*)=2 and bool_and(payload->>'manifestHash' ~ '^[0-9a-f]{64}$') from wk4a_manifest),'service rebuild failed');
 select pg_temp.assert((public.world_founder_export_cohort_v1('founder-test')->>'scope')='FOUNDER_EVALUATION_ONLY','cohort export failed');
 reset role;
 select pg_temp.assert((select m.world_snapshot::text !~* 'subscription|payment|owner[_ ]?tier|actor_id|private_source' from world_knowledge_private.resolution_manifests m join wk4a_manifest r on m.id=(r.payload->>'manifestId')::uuid),'private/commercial material leaked into snapshot');
