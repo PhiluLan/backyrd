@@ -1,11 +1,23 @@
 -- Slice 4A authoring readiness: preserve audited, non-canonical selections as
 -- private review candidates. These rows never become claims or engine facts.
 
-alter table world_knowledge_private.authoring_taxonomy_candidates_v1
-  drop constraint authoring_taxonomy_candidates_v1_attribute_key_check;
+-- A local pre-review build briefly exercised this migration before publication.
+-- Keep the v1 invariant explicit without removing or rewriting any persisted row.
+do $$ begin
+  if not exists (
+    select 1 from pg_catalog.pg_constraint
+    where conname='authoring_taxonomy_candidates_v1_attribute_key_check'
+      and conrelid='world_knowledge_private.authoring_taxonomy_candidates_v1'::regclass
+  ) then
+    alter table world_knowledge_private.authoring_taxonomy_candidates_v1
+      add constraint authoring_taxonomy_candidates_v1_attribute_key_check check (attribute_key='classification.place_types');
+  end if;
+end $$;
 
-alter table world_knowledge_private.authoring_taxonomy_candidates_v1
-  add constraint authoring_taxonomy_candidates_v1_attribute_key_check check (
+create table world_knowledge_private.authoring_taxonomy_candidates_v2 (
+  id uuid primary key default gen_random_uuid(),
+  spot_id uuid not null references public.spots(id) on delete restrict,
+  attribute_key text not null check (
     attribute_key in (
       'classification.place_types',
       'offering.cuisines',
@@ -13,7 +25,23 @@ alter table world_knowledge_private.authoring_taxonomy_candidates_v1
       'offering.groups',
       'amenity.features'
     )
-  );
+  ),
+  primary_category text not null,
+  candidate_value jsonb not null,
+  taxonomy_version text not null check (taxonomy_version = 'backyrd.world-knowledge.authoring-taxonomy@4a.2'),
+  actor_binding_id uuid not null references world_knowledge_private.actor_bindings(id) on delete restrict,
+  idempotency_key text not null,
+  occurred_at timestamptz not null default pg_catalog.clock_timestamp(),
+  candidate_hash text not null unique check (candidate_hash ~ '^[0-9a-f]{64}$'),
+  unique (actor_binding_id, idempotency_key)
+);
+
+alter table world_knowledge_private.authoring_taxonomy_candidates_v2 enable row level security;
+revoke all on table world_knowledge_private.authoring_taxonomy_candidates_v2 from public,anon,authenticated;
+grant select,insert on table world_knowledge_private.authoring_taxonomy_candidates_v2 to service_role;
+create trigger world_authoring_taxonomy_candidates_v2_immutable
+before update or delete on world_knowledge_private.authoring_taxonomy_candidates_v2
+for each row execute function world_knowledge_private.reject_immutable_mutation_v1();
 
 create or replace function world_knowledge_private.authoring_taxonomy_candidate_allowed_v1(
   p_attribute_key text,
@@ -54,7 +82,7 @@ create or replace function public.world_authoring_submit_taxonomy_candidate_v1(
   p_idempotency_key text
 ) returns jsonb language plpgsql security definer set search_path='' as $$
 declare
-  actor_id uuid:=auth.uid(); access jsonb; binding_id uuid; existing world_knowledge_private.authoring_taxonomy_candidates_v1%rowtype;
+  actor_id uuid:=auth.uid(); access jsonb; binding_id uuid; existing world_knowledge_private.authoring_taxonomy_candidates_v2%rowtype;
   current_category text; candidate_hash text;
 begin
   access:=world_knowledge_private.authoring_actor_v1(p_spot_id);
@@ -69,17 +97,37 @@ begin
   if length(trim(coalesce(p_idempotency_key,''))) not between 1 and 180 then raise exception 'invalid_idempotency_key' using errcode='22023'; end if;
   binding_id:=world_knowledge_private.get_actor_binding_v1(actor_id,access->>'role');
   candidate_hash:=encode(extensions.digest(pg_catalog.convert_to(jsonb_build_object('spotId',p_spot_id,'attributeKey',p_attribute_key,'primaryCategory',p_primary_category,'candidateValue',p_candidate_value,'taxonomyVersion',p_taxonomy_version,'actorBinding',binding_id,'idempotencyIdentity',p_idempotency_key)::text,'UTF8'),'sha256'),'hex');
-  select * into existing from world_knowledge_private.authoring_taxonomy_candidates_v1 c where c.actor_binding_id=binding_id and c.idempotency_key=p_idempotency_key;
+  select * into existing from world_knowledge_private.authoring_taxonomy_candidates_v2 c where c.actor_binding_id=binding_id and c.idempotency_key=p_idempotency_key;
   if found then
     if existing.candidate_hash<>candidate_hash then raise exception 'taxonomy_candidate_idempotency_conflict' using errcode='23505'; end if;
     return jsonb_build_object('candidateId',existing.id,'created',false,'candidateHash',existing.candidate_hash,'engineAuthorized',false);
   end if;
-  insert into world_knowledge_private.authoring_taxonomy_candidates_v1(spot_id,attribute_key,primary_category,candidate_value,taxonomy_version,actor_binding_id,idempotency_key,candidate_hash)
+  insert into world_knowledge_private.authoring_taxonomy_candidates_v2(spot_id,attribute_key,primary_category,candidate_value,taxonomy_version,actor_binding_id,idempotency_key,candidate_hash)
   values(p_spot_id,p_attribute_key,p_primary_category,p_candidate_value,p_taxonomy_version,binding_id,p_idempotency_key,candidate_hash) returning * into existing;
   return jsonb_build_object('candidateId',existing.id,'created',true,'candidateHash',existing.candidate_hash,'engineAuthorized',false);
 end $$;
 
+create or replace function public.world_authoring_get_taxonomy_candidates_v1(p_spot_id uuid)
+returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare result jsonb;
+begin
+  perform world_knowledge_private.authoring_actor_v1(p_spot_id);
+  select coalesce(jsonb_object_agg(attribute_key,jsonb_build_object('candidateId',id,'primaryCategory',primary_category,'value',candidate_value,'taxonomyVersion',taxonomy_version,'occurredAt',occurred_at,'engineAuthorized',false)),'{}'::jsonb)
+    into result
+  from (
+    select distinct on (attribute_key) *
+    from (
+      select id,spot_id,attribute_key,primary_category,candidate_value,taxonomy_version,occurred_at from world_knowledge_private.authoring_taxonomy_candidates_v1 where spot_id=p_spot_id
+      union all
+      select id,spot_id,attribute_key,primary_category,candidate_value,taxonomy_version,occurred_at from world_knowledge_private.authoring_taxonomy_candidates_v2 where spot_id=p_spot_id
+    ) history
+    order by attribute_key,occurred_at desc,id desc
+  ) latest;
+  return result;
+end $$;
+
 revoke execute on function world_knowledge_private.authoring_taxonomy_candidate_allowed_v1(text,text,jsonb) from public,anon,authenticated,service_role;
+revoke all on table world_knowledge_private.authoring_taxonomy_candidates_v2 from public,anon,authenticated;
 revoke execute on function public.world_authoring_submit_taxonomy_candidate_v1(uuid,text,text,jsonb,text,text) from public,anon;
 grant execute on function public.world_authoring_submit_taxonomy_candidate_v1(uuid,text,text,jsonb,text,text) to authenticated;
 
