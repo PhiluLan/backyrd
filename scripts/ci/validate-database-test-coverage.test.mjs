@@ -35,6 +35,26 @@ test("additive ALTER TABLE and a later DROP TRIGGER remain non-destructive", () 
   assert.deepEqual(plan.newMigrations, ["supabase/migrations/20260102000000_rls.sql"]);
 });
 
+test("an atomic same-name CHECK replacement retains SQL acceptance coverage", () => {
+  const f = fixture();
+  write(f.root, "supabase/migrations/20260102000000_expand_check.sql", "alter table public.example drop constraint example_kind_check;\nalter table public.example add constraint example_kind_check check (kind in ('A','B'));\n");
+  write(f.root, "supabase/tests/example.sql", "begin; select 1; rollback;\n");
+  const plan = validateDatabaseTestCoverage({ root: f.root, baseSha: f.base, headSha: commit(f) });
+  assert.deepEqual(plan.changedTests, ["supabase/tests/example.sql"]);
+});
+
+test("an unpaired or differently named constraint drop remains destructive", () => {
+  for (const sql of [
+    "alter table public.example drop constraint example_kind_check;\n",
+    "alter table public.example drop constraint example_kind_check;\nalter table public.example add constraint other_check check (kind in ('A','B'));\n",
+  ]) {
+    const f = fixture();
+    write(f.root, "supabase/migrations/20260102000000_drop_check.sql", sql);
+    write(f.root, "supabase/tests/example.sql", "begin; select 1; rollback;\n");
+    assert.throws(() => validateDatabaseTestCoverage({ root: f.root, baseSha: f.base, headSha: commit(f) }), /destructive_database/);
+  }
+});
+
 test("missing tests, missing negative proof, destructive SQL and historical mutation fail closed", () => {
   for (const scenario of ["missing", "negative", "destructive", "mutation"]) {
     const f = fixture();

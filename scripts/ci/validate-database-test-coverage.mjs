@@ -4,10 +4,10 @@ import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDestructiveMigration } from "./classify-change.mjs";
 
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024 }).trim();
 const securityPattern = /\b(?:create|alter|drop)\s+policy\b|\brow\s+level\s+security\b|\b(?:grant|revoke)\b|\bsecurity\s+definer\b|\bauth\.|\bstorage\./i;
-const destructivePattern = /\btruncate\b|\bdrop\s+(?:table|schema|column|type)\b|\bdelete\s+from\b|\balter\s+table\b[^;]*\bdrop\b/i;
 
 export function validateDatabaseTestCoverage({ root, baseSha, headSha }) {
   const changes = git(root, ["diff", "--name-status", baseSha, headSha]).split("\n").filter(Boolean).map((line) => {
@@ -18,7 +18,7 @@ export function validateDatabaseTestCoverage({ root, baseSha, headSha }) {
   if (migrationMutations.length) throw new Error(`published_migration_mutation:${migrationMutations.map(({ path }) => path).join(",")}`);
   const newMigrationSources = newMigrations.map((path) => git(root, ["show", `${headSha}:${path}`]));
   const newMigrationSource = newMigrationSources.join("\n");
-  if (newMigrationSources.some((source) => destructivePattern.test(source))) throw new Error("destructive_database_change_requires_separate_authorization");
+  if (newMigrationSources.some(isDestructiveMigration)) throw new Error("destructive_database_change_requires_separate_authorization");
   const changedTests = changes.filter(({ status, path }) => status !== "D" && /^supabase\/tests\/.+\.sql$/.test(path)).map(({ path }) => path).sort();
   const authorizationFiles = changes.filter(({ path }) => ["supabase/canonical/auth_hooks.sql", "supabase/canonical/storage.sql"].includes(path));
   const authorizationBoundary = authorizationFiles.length > 0 || securityPattern.test(newMigrationSource);
