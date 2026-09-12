@@ -223,12 +223,12 @@ jobs:
           npm run world-knowledge:typecheck
           npm run world-knowledge:test
 
-  decision:
-    name: Versioned Decision semantics and evaluation
+  decision-preflight:
+    name: Decision preflight and immutable build
     if: needs.classify.outputs.decision == 'true'
     needs: classify
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -238,27 +238,173 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: package-lock.json
-      - run: npm ci
-      - name: Validate Decision vNext foundation
-        run: |
-          npm run decision-vnext:typecheck
-          npm run decision-vnext:test
-          npm run decision-vnext:smoke
-          npm run decision-vnext:phase2:evaluate
-          npm run decision-vnext:phase3a:context
-          npm run decision-vnext:phase3b:context
+      - run: npm ci --ignore-scripts
+      - name: Validate fast-lane routing and aggregation contracts
+        run: npm run decision-ci:test
+      - name: Build once, typecheck and verify the closed test plan
+        run: npm run decision-ci:group -- --group preflight --output "$RUNNER_TEMP/decision-preflight.json"
       - name: Validate independently derived semantic release record
         env:
           BASE_SHA: ${{ needs.classify.outputs.base-sha }}
           HEAD_SHA: ${{ needs.classify.outputs.head-sha }}
         run: node scripts/ci/validate-decision-change.mjs --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"
-      - run: npm run decision-lab:test
-      - run: npm run decision-lab:smoke
-      - run: npm run decision-lab:d2:acceptance
-      - run: npm run decision-lab:d2:recertify
-      - run: npm run decision-lab:d2.2:validate
-      - run: npm run decision-lab:d3.1:preflight
-      - run: npm run decision-lab:d3-a:validate
+      - name: Bind immutable build to lockfile, runtime, source tree and test plan
+        run: node scripts/ci/decision-build-artifact.mjs --create .decision-ci-artifact.json
+      - name: Retain verified Decision build
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: decision-build-${{ needs.classify.outputs.head-sha }}
+          path: |
+            .decision-ci-artifact.json
+            packages/world-knowledge-core/dist
+            packages/user-intelligence-vnext-core/dist
+            packages/decision-vnext-core/dist
+          if-no-files-found: error
+          retention-days: 1
+
+  decision-core-context:
+    name: Decision core and Context integrity
+    if: needs.classify.outputs.decision == 'true'
+    needs: [classify, decision-preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: decision-build-${{ needs.classify.outputs.head-sha }}
+          path: .
+      - run: node scripts/ci/decision-build-artifact.mjs --verify .decision-ci-artifact.json
+      - run: npm run decision-ci:group -- --group core-context --output "$RUNNER_TEMP/decision-core-context.json"
+
+  decision-phase2:
+    name: Decision Phase-2 integration (${{ matrix.shard }})
+    if: needs.classify.outputs.decision == 'true'
+    needs: [classify, decision-preflight]
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [phase2-1, phase2-2, phase2-3, phase2-4]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: decision-build-${{ needs.classify.outputs.head-sha }}
+          path: .
+      - run: node scripts/ci/decision-build-artifact.mjs --verify .decision-ci-artifact.json
+      - run: npm run decision-ci:group -- --group "${{ matrix.shard }}" --output "$RUNNER_TEMP/${{ matrix.shard }}.json"
+
+  decision-oracles:
+    name: Decision Founder Oracles and Workbench replay
+    if: needs.classify.outputs.decision == 'true'
+    needs: [classify, decision-preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: decision-build-${{ needs.classify.outputs.head-sha }}
+          path: .
+      - run: node scripts/ci/decision-build-artifact.mjs --verify .decision-ci-artifact.json
+      - run: npm run decision-ci:group -- --group oracles-workbenches --output "$RUNNER_TEMP/decision-oracles.json"
+
+  decision-sandbox:
+    name: Decision full synthetic worlds and evaluation profiles
+    if: needs.classify.outputs.decision == 'true'
+    needs: [classify, decision-preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: decision-build-${{ needs.classify.outputs.head-sha }}
+          path: .
+      - run: node scripts/ci/decision-build-artifact.mjs --verify .decision-ci-artifact.json
+      - run: npm run decision-ci:group -- --group large-sandbox --output "$RUNNER_TEMP/decision-sandbox.json"
+
+  decision-lab:
+    name: Decision Lab acceptance and recertification
+    if: needs.classify.outputs.decision == 'true'
+    needs: [classify, decision-preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: decision-build-${{ needs.classify.outputs.head-sha }}
+          path: .
+      - run: node scripts/ci/decision-build-artifact.mjs --verify .decision-ci-artifact.json
+      - run: npm run decision-ci:group -- --group decision-lab --output "$RUNNER_TEMP/decision-lab.json"
+
+  decision-consumers:
+    name: Decision World and User consumer compatibility
+    if: needs.classify.outputs.decision == 'true'
+    needs: [classify, decision-preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: decision-build-${{ needs.classify.outputs.head-sha }}
+          path: .
+      - run: node scripts/ci/decision-build-artifact.mjs --verify .decision-ci-artifact.json
+      - run: npm run decision-ci:group -- --group consumer-contracts --output "$RUNNER_TEMP/decision-consumers.json"
+
+  decision:
+    name: Versioned Decision semantics and evaluation
+    if: always() && needs.classify.outputs.decision == 'true'
+    needs: [classify, decision-preflight, decision-core-context, decision-phase2, decision-oracles, decision-sandbox, decision-lab, decision-consumers]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SHARD_RESULTS: >-
+        {"core-context":"${{ needs.decision-core-context.result }}","phase2":"${{ needs.decision-phase2.result }}","oracles-workbenches":"${{ needs.decision-oracles.result }}","large-sandbox":"${{ needs.decision-sandbox.result }}","decision-lab":"${{ needs.decision-lab.result }}","consumer-contracts":"${{ needs.decision-consumers.result }}"}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Require every Decision shard; skipped or missing is failure
+        run: node scripts/ci/verify-decision-shards.mjs --results "$SHARD_RESULTS"
 
   database:
     name: Database lineage, clean boot and authorization

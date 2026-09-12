@@ -13,13 +13,18 @@ const artifactIdentityHash = contentHash({ package: "@backyrd/decision-vnext-cor
 const request = (overrides = {}) => ({ contractVersion: CONTRACT_VERSIONS.decisionRequest, idempotencyKey: "phase2-test-request", clientRequestedAt: config.observedAt, location: { kind: "city", city: "Fixture Zurich" }, intentKeys: ["fixture.intent.eat"], moodKeys: ["fixture.mood.calm"], budget: { state: "KNOWN", namespace: "fixture.context.budget", values: ["fixture.budget.flexible"] }, availableTime: { state: "KNOWN", namespace: "fixture.context.available-time", values: ["fixture.time.90-minutes"] }, weather: { state: "NOT_CONFIGURED", namespace: "fixture.context.weather" }, exploration: { state: "UNKNOWN", namespace: "fixture.context.exploration" }, shownCandidateIds: [], rejectedCandidateIds: [], hardConstraints: [{ kind: "open_now", value: true }], softPreferences: [], client: { surface: "synthetic", version: "phase2-test-v1" }, ...overrides });
 const authority = (overrides = {}) => ({ decisionId: "phase2-decision-test", serverRequestId: "phase2-server-test", sessionId: "phase2-session-test", serverTime: config.observedAt, idempotencyIdentity: "phase2-server-idempotency", authorizedLocationScope: { kind: "city", city: "Fixture Zurich" }, actor: { kind: "AUTHENTICATED_USER", userId: "syn-user-0001", subjectBindingHash: contentHash("phase2-subject"), authenticationContextHash: contentHash("phase2-auth") }, userSnapshot: { snapshotId: "phase2-snapshot", snapshotHash: contentHash("phase2-snapshot") }, ...overrides });
 
-const execute = async (overrides = {}) => {
+const defaultWorld = generateSyntheticWorld(config);
+let defaultExecution;
+const executeFresh = async (overrides = {}) => {
   const sandboxConfig = overrides.sandboxConfig ?? config;
-  const world = overrides.world ?? generateSyntheticWorld(sandboxConfig);
+  const world = overrides.world ?? (sandboxConfig === config ? defaultWorld : generateSyntheticWorld(sandboxConfig));
   const evaluationAuthority = overrides.evaluationAuthority ?? createSyntheticEvaluationAuthority({ authorityId: overrides.authorityId ?? "phase2-evaluation-authority", scenarioId: overrides.scenarioId ?? "phase2-integration", sandboxConfig, worldHash: world.worldHash, sourceSha: overrides.sourceSha ?? sourceSha, sourceTreeHash: overrides.sourceTreeHash ?? sourceTreeHash, artifactIdentityHash: overrides.artifactIdentityHash ?? artifactIdentityHash, candidatePoolLimit: overrides.candidatePoolSize ?? 48 });
   const trustAnchor = overrides.trustAnchor ?? trustSyntheticEvaluationAuthorityForLocalExecution(evaluationAuthority, "phase2-test-trust-anchor");
   return { ...(await runPhase2Evaluation({ evaluationAuthority, request: overrides.request ?? request(), authority: overrides.authority ?? authority(), world, worldReader: overrides.worldReader ?? new SyntheticWorldKnowledgeReader(world), acceptedWorldSourcePolicy: overrides.acceptedWorldSourcePolicy ?? SYNTHETIC_WORLD_SOURCE_POLICY, userProjectionPort: "userProjectionPort" in overrides ? overrides.userProjectionPort : new SyntheticPhase2UserProjectionPort("ACTIVE", "syn-spot-0013") }, trustAnchor)), trustAnchor };
 };
+const execute = (overrides = {}) => Object.keys(overrides).length === 0
+  ? (defaultExecution ??= executeFresh())
+  : executeFresh(overrides);
 const rehash = (value, field) => { value[field] = contentHash(Object.fromEntries(Object.entries(value).filter(([key]) => key !== field))); };
 const rehashReport = (report) => { report.reportHash = contentHash(Object.fromEntries(Object.entries(report).filter(([key]) => key !== "reportHash" && key !== "runtime"))); };
 
