@@ -14,6 +14,9 @@ const policy = {
   privilegedServerPrefixes: ["supabase/functions/", "supabase/config.toml", "supabase/production/auth-config.json"],
   decisionSemanticPrefixes: ["packages/decision-vnext-core/src/", "supabase/functions/decision-v13/"],
   decisionEvaluationPrefixes: ["packages/decision-vnext-core/test/", "packages/decision-vnext-core/sandbox/", "decision-lab/"],
+  decisionConsumerPrefixes: ["packages/shared/", "packages/user-intelligence-vnext-core/", "packages/world-knowledge-core/"],
+  decisionPipelineControlPrefixes: [".github/workflows/", "package.json", "package-lock.json", "scripts/ci/classify-change.mjs", "scripts/ci/decision-", "scripts/ci/verify-decision-shards.mjs"],
+  knownRepositoryPrefixes: [".github/", "README.md", "admin-dashboard/", "decision-lab/", "docs/", "mobile/", "package.json", "package-lock.json", "packages/", "scripts/", "supabase/", "web/"],
   deliveryControlPrefixes: [".github/workflows/", "scripts/ci/", "scripts/deployment/", "docs/operations/"],
   releaseEvidencePrefixes: ["docs/operations/releases/"],
 };
@@ -83,6 +86,40 @@ test("independent vNext core and sandbox select the Decision gate", () => {
   const sandbox = plan({ files: { "packages/decision-vnext-core/sandbox/config.json": "{}\n" } });
   assert.equal(sandbox.flags.decisionEvaluation, true);
   assert.ok(sandbox.requiredGates.includes("decision"));
+});
+
+test("World, User and shared contract changes select Decision consumer regression", () => {
+  for (const path of ["packages/world-knowledge-core/src/contracts.ts", "packages/user-intelligence-vnext-core/src/contracts.ts", "packages/shared/src/contracts.ts"]) {
+    const result = plan({ files: { [path]: "export const changed = true;\n" } });
+    assert.equal(result.flags.decisionConsumer, true);
+    assert.ok(result.requiredGates.includes("decision"));
+  }
+});
+
+test("workflow and package routing changes force the complete Decision pipeline self-test", () => {
+  for (const path of [".github/workflows/risk-gate.yml", "package.json", "scripts/ci/decision-test-plan.mjs"]) {
+    const result = plan({ files: { [path]: "changed\n" } });
+    assert.equal(result.flags.pipelineControl, true);
+    assert.ok(result.requiredGates.includes("decision"));
+    assert.ok(result.requiredGates.includes("delivery-contract"));
+  }
+});
+
+test("unknown files and deleted tests cannot silently bypass routing", () => {
+  const unknown = plan({ files: { "unclassified-surface/value.bin": "opaque\n" } });
+  assert.equal(unknown.flags.unknown, true);
+  assert.ok(unknown.requiredGates.includes("decision"));
+  assert.ok(unknown.requiredGates.includes("delivery-contract"));
+
+  const { root, base } = fixture();
+  put(root, "packages/decision-vnext-core/test/deleted.test.mjs", "test('required',()=>{});\n");
+  const withTest = commit(root, "test exists");
+  execFileSync("git", ["rm", "packages/decision-vnext-core/test/deleted.test.mjs"], { cwd: root });
+  const head = commit(root, "test deleted");
+  const result = classifyChange({ root, context: { baseSha: withTest, headSha: head }, policy });
+  assert.equal(result.flags.testDeletion, true);
+  assert.ok(result.classes.includes("test-routing-change"));
+  assert.notEqual(base, head);
 });
 
 test("privileged Edge Function source selects the server deployment contract", () => {

@@ -30,6 +30,10 @@ export function classifyChange({ root, context, policy }) {
   const newMigrations = changes.filter(({ status, path }) => status === "A" && path.startsWith("supabase/migrations/"));
   const migrationMutations = changes.filter(({ status, path }) => status !== "A" && path.startsWith("supabase/migrations/"));
   const migrationText = newMigrations.map(({ path }) => git(root, ["show", `${context.headSha}:${path}`])).join("\n");
+  const testDeletion = changes.some(({ status, path }) => status === "D" && (path.includes("/test/") || /(?:^|\.)test\.[cm]?[jt]sx?$/.test(path)));
+  const decisionConsumer = changedFiles.some((path) => startsWithAny(path, policy.decisionConsumerPrefixes ?? []));
+  const pipelineControl = changedFiles.some((path) => startsWithAny(path, policy.decisionPipelineControlPrefixes ?? []));
+  const unknown = changedFiles.some((path) => !startsWithAny(path, policy.knownRepositoryPrefixes ?? []));
 
   const flags = {
     mobile: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.mobile)),
@@ -40,7 +44,11 @@ export function classifyChange({ root, context, policy }) {
     privilegedServer: changedFiles.some((path) => startsWithAny(path, policy.privilegedServerPrefixes ?? [])),
     authorizationBoundary: changedFiles.some((path) => startsWithAny(path, policy.authorizationPrefixes)) || migrationSecurityPattern.test(migrationText),
     decisionSemantics: changedFiles.some((path) => protectedDecisionPaths.has(path) || startsWithAny(path, policy.decisionSemanticPrefixes)),
-    decisionEvaluation: changedFiles.some((path) => startsWithAny(path, policy.decisionEvaluationPrefixes)),
+    decisionEvaluation: changedFiles.some((path) => startsWithAny(path, policy.decisionEvaluationPrefixes)) || decisionConsumer || pipelineControl || testDeletion || unknown,
+    decisionConsumer,
+    pipelineControl,
+    testDeletion,
+    unknown,
     deliveryControl: changedFiles.some((path) => startsWithAny(path, policy.deliveryControlPrefixes)),
     releaseEvidence: changedFiles.some((path) => startsWithAny(path, policy.releaseEvidencePrefixes)),
     destructive: destructivePattern.test(migrationText),
@@ -55,6 +63,10 @@ export function classifyChange({ root, context, policy }) {
     ...(flags.privilegedServer ? ["privileged-server"] : []),
     ...(flags.decisionSemantics ? ["decision-semantics"] : []),
     ...(!flags.decisionSemantics && flags.decisionEvaluation ? ["decision-evaluation"] : []),
+    ...(flags.decisionConsumer ? ["decision-consumer-contract"] : []),
+    ...(flags.pipelineControl ? ["decision-pipeline-control"] : []),
+    ...(flags.testDeletion ? ["test-routing-change"] : []),
+    ...(flags.unknown ? ["unknown-change"] : []),
     ...(flags.deliveryControl ? ["delivery-control"] : []),
     ...(flags.releaseEvidence ? ["release-evidence"] : []),
     ...(flags.destructive ? ["destructive-production-operation"] : []),
@@ -75,7 +87,7 @@ export function classifyChange({ root, context, policy }) {
       ...(flags.shared ? ["shared"] : []),
       ...(flags.database ? ["database"] : []),
       ...(flags.decisionSemantics || flags.decisionEvaluation ? ["decision"] : []),
-      ...(flags.deliveryControl || flags.releaseEvidence || flags.database || flags.privilegedServer ? ["delivery-contract"] : []),
+      ...(flags.deliveryControl || flags.releaseEvidence || flags.database || flags.privilegedServer || flags.pipelineControl || flags.testDeletion || flags.unknown ? ["delivery-contract"] : []),
     ]),
     blockedReasons: unique([
       ...(flags.migrationMutation ? ["published_migration_mutation"] : []),

@@ -51,6 +51,41 @@
     "decision-lab/test/",
     "scripts/decision/"
   ],
+  "decisionConsumerPrefixes": [
+    "packages/shared/",
+    "packages/user-intelligence-vnext-core/",
+    "packages/world-knowledge-core/"
+  ],
+  "decisionPipelineControlPrefixes": [
+    ".github/workflows/",
+    "package.json",
+    "package-lock.json",
+    "scripts/ci/classify-change.mjs",
+    "scripts/ci/classify-change.test.mjs",
+    "scripts/ci/decision-",
+    "scripts/ci/validate-decision-test-plan.mjs",
+    "scripts/ci/verify-decision-shards.mjs",
+    "scripts/ci/verify-risk-gate.mjs",
+    "scripts/ci/verify-risk-gate.test.mjs"
+  ],
+  "knownRepositoryPrefixes": [
+    ".github/",
+    ".gitignore",
+    "AGENTS.md",
+    "README.md",
+    "admin-dashboard/",
+    "decision-lab/",
+    "delivery/",
+    "docs/",
+    "legal/",
+    "mobile/",
+    "package-lock.json",
+    "package.json",
+    "packages/",
+    "scripts/",
+    "supabase/",
+    "web/"
+  ],
   "deliveryControlPrefixes": [
     ".github/workflows/",
     "delivery/",
