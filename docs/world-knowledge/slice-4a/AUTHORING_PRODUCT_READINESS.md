@@ -14,7 +14,7 @@ The retained export contains 447 identities: 410 active/published and 37 archive
 | Unterkunft/Hotel, Aktivität | NEEDS_PRODUCT_DECISION | The broad legacy term can span several World place types; it remains a visible manual choice. |
 | Besonderes Erlebnis, Aussichtspunkt | NEEDS_PRODUCT_DECISION | More than one canonical primary category can be defensible; no automatic mapping is invented. |
 | Restaurant, Brasserie, Bistro, Café, Bar, Pub, Imbiss, Take-away, Fast Food | CANONICAL | Existing Registry 1.1 place types. |
-| Wider non-gastronomic place-type catalog | NOT_CONFIGURED | Grouped, category-specific authoring candidates; they do not become World facts until a governed Registry release approves exact keys. |
+| Wider non-gastronomic place-type catalog | NOT_CONFIGURED | Grouped, category-specific choices can be saved append-only in the private local candidate ledger. They do not become Claims, Verification, resolution input or World facts until a governed Registry release approves exact keys. |
 | Existing seven cuisines; Pizza, Burger, Sushi; existing offering groups | CANONICAL | Registry 1.1 values remain saveable and are displayed in separate concepts. |
 | Wider cuisine, speciality, meal, drinks and amenity catalog | NOT_CONFIGURED | Audited discovery vocabulary is visible/searchable but cannot bypass the canonical Registry. |
 | Mood, suitability, popularity and quality labels | PROHIBITED | Subjective/contextual statements are not objective World facts. |
@@ -53,5 +53,4 @@ Weekly venue and kitchen schedules use the same canonical `{ day, intervals: [{ 
 
 ## Remaining Product/CTO decision
 
-Registry 1.1 intentionally remains historically unchanged. The broader non-gastronomic place types, cuisines, specialties, meals, drinks and amenities in the authoring audit are `NOT_CONFIGURED`, not fake canonical facts. A governed Registry release must decide their exact stable keys, English/German labels, category applicability and legacy normalization before they may enter World snapshots. This is the only honest path that both avoids dead semantic invention and preserves historical snapshots.
-
+Registry 1.1 intentionally remains historically unchanged. The broader non-gastronomic place types, cuisines, specialties, meals, drinks and amenities in the authoring audit are `NOT_CONFIGURED`, not fake canonical facts. Place-type choices can nevertheless be retained as local, review-only authoring candidates so the Founder does not lose work. A governed Registry release must decide their exact stable keys, English/German labels, category applicability and legacy normalization before they may enter Claims or World snapshots. This is the only honest path that both avoids a product dead end and preserves historical semantics.

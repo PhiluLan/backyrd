@@ -9,7 +9,7 @@
 | Owner spot/profile form | KEEP | Existing production form remains unchanged. A separate cohort route is added. |
 | Gold proposals/accepted facts | ADAPT | Research evidence only; no implicit migration or trust elevation. |
 | Legacy categories/offerings | ADAPT | Only mappings already classified `DIRECT`/`NORMALIZED` may be imported later. |
-| Category-dependent authoring taxonomy | EXTEND | Versioned UI matrix filters place types and sections. Registry-1.1 values remain canonical; wider audited candidates stay `NOT_CONFIGURED`. |
+| Category-dependent authoring taxonomy | EXTEND | Versioned UI matrix filters place types and sections. Registry-1.1 values remain canonical; wider audited choices are stored only in an append-only, private review-candidate ledger and stay `NOT_CONFIGURED`. |
 | Legacy numeric confidence | PROHIBITED | Never mapped to World trust. |
 | Atmosphere, moods and suitability | PROHIBITED | Not objective authoring; excluded from authorized facts. |
 | Slice 3B Claims/Verification/Confirmation | KEEP | Canonical append-only write model. |

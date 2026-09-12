@@ -44,6 +44,8 @@ test("category-dependent taxonomy, section states and resilient schedules are vi
   assert.match(source, /Bewusst als unbekannt gespeichert/);
   assert.match(source, /Für die lokale Evaluation ausreichend/);
   assert.match(source, /Durch neue Angabe erledigt/);
+  assert.match(source, /Als offenen Vorschlag speichern/);
+  assert.match(source, /engineAuthorized: false/);
 });
 
 test("normal rendering translates structured codes and reserves JSON for expert mode", async () => {
