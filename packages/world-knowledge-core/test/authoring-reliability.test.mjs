@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { AUTHORING_FIELDS, validateAuthoringSubmission } from "../dist/index.js";
+import { AUTHORING_FIELDS, evaluateAuthoringReadiness, validateAuthoringSubmission } from "../dist/index.js";
 
 const samples = {
   TEXT: "Volta Bräu",
@@ -61,4 +61,21 @@ test("country, timezone, contact and numeric values are typed before RPC", () =>
   assert.equal(validateAuthoringSubmission("contact.phone", "KNOWN_VALUE", "+41 78 123 45 67").ok, false);
   assert.equal(validateAuthoringSubmission("contact.website", "KNOWN_VALUE", "volta.example").ok, false);
   assert.equal(validateAuthoringSubmission("location.latitude", "KNOWN_VALUE", "47.5").ok, false);
+});
+
+test("review readiness counts each actionable problem once and never accepts unknown identity", () => {
+  const answers = {
+    "identity.name": { knowledgeState: "UNKNOWN", value: null },
+    "classification.primary_category": { knowledgeState: "KNOWN_VALUE", value: "DRINKS" },
+    "classification.place_types": { knowledgeState: "KNOWN_VALUE", value: ["RESTAURANT"] },
+  };
+  const report = evaluateAuthoringReadiness({ answers, reviewedSteps: ["basics", "classification", "offering"] });
+  assert.equal(report.readiness, "NOT_READY");
+  assert.equal(report.blocking.filter((issue) => issue.attributeKey === "identity.name").length, 1);
+  assert.equal(report.blocking.filter((issue) => issue.attributeKey === "classification.place_types").length, 1);
+  assert.ok(report.gaps.some((issue) => issue.attributeKey === "offering.cuisines"));
+  assert.equal(report.sectionStates.basics, "ERRORS");
+  assert.equal(report.sectionStates.classification, "ERRORS");
+  assert.equal(report.sectionStates.offering, "INTENTIONALLY_INCOMPLETE");
+  assert.deepEqual(report.blocking.map((issue) => issue.id), [...new Set(report.blocking.map((issue) => issue.id))]);
 });

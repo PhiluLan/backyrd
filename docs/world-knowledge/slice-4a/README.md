@@ -25,6 +25,8 @@ Browser RPCs refresh an expired local session once and replay the exact request.
 
 Legacy review now uses German labels and structured displays. It compares the old value with the canonical candidate, prevents re-confirmation of already answered fields, and withholds imported values whose shape is not Registry-valid. The imported audit trail is preserved unchanged.
 
+The product-readiness closure removes the redundant activity page, ships eight coherent sections, and governs the expanded objective taxonomy through Registry 2.0. Main category immediately filters place types; an older incompatible value stays visible as a blocking, correctable conflict. Venue, kitchen and exceptional kitchen hours remain distinct. The review page derives exact blocking issues and known gaps from the same runtime-valid values used at the RPC boundary, while a private append-only review ledger preserves section progress across sessions.
+
 ## Deferred
 
-Secondary categories, the full draft taxonomy, Capability→Intent relations, ranking, production backfill, public projections, automatic duplicate merges, holiday calendars/notifications, final retention periods, and the final mobile Spot page remain outside Slice 4A.
+Secondary categories, the remaining draft taxonomy, Capability→Intent relations, ranking, production backfill, public projections, automatic duplicate merges, holiday calendars/notifications, final retention periods, and the final mobile Spot page remain outside Slice 4A.

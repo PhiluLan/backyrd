@@ -76,6 +76,7 @@ test("the canonical local start command derives one endpoint for both servers wi
   assert.match(source, /20260912084654/);
   assert.match(source, /20260912103000/);
   assert.match(source, /20260912121000/);
+  assert.match(source, /20260912165043/);
   assert.doesNotMatch(source, /supabase", "db", "reset"/);
   assert.doesNotMatch(source, /migration", "up"/);
   assert.doesNotMatch(source, /console\.log\([^\n]*(?:ANON_KEY|SERVICE_ROLE_KEY)/);

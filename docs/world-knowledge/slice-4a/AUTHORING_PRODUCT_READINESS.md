@@ -14,9 +14,9 @@ The retained export contains 447 identities: 410 active/published and 37 archive
 | Unterkunft/Hotel, Aktivität | NEEDS_PRODUCT_DECISION | The broad legacy term can span several World place types; it remains a visible manual choice. |
 | Besonderes Erlebnis, Aussichtspunkt | NEEDS_PRODUCT_DECISION | More than one canonical primary category can be defensible; no automatic mapping is invented. |
 | Restaurant, Brasserie, Bistro, Café, Bar, Pub, Imbiss, Take-away, Fast Food | CANONICAL | Existing Registry 1.1 place types. |
-| Wider non-gastronomic place-type catalog | NOT_CONFIGURED | Grouped, category-specific choices can be saved append-only in the private local candidate ledger. They do not become Claims, Verification, resolution input or World facts until a governed Registry release approves exact keys. |
+| Wider non-gastronomic place-type catalog | CANONICAL IN REGISTRY 2.0 | The governed 1.1→2.0 transition adds stable bilingual keys and category-specific allowlists. Historical 1.1 snapshots remain validated against their original registry. |
 | Existing seven cuisines; Pizza, Burger, Sushi; existing offering groups | CANONICAL | Registry 1.1 values remain saveable and are displayed in separate concepts. |
-| Wider cuisine, speciality, meal, drinks and amenity catalog | NOT_CONFIGURED | Audited vocabulary is visible/searchable and can be retained in the private local candidate ledger. It cannot bypass the canonical Registry or enter Claims, verification, resolution or snapshots. |
+| Wider cuisine, speciality, meal, drinks and amenity catalog | CANONICAL IN REGISTRY 2.0 | The audited objective vocabulary is now separated by concept, runtime validated and category-aware. Subjective or ambiguous legacy values remain excluded. |
 | Mood, suitability, popularity and quality labels | PROHIBITED | Subjective/contextual statements are not objective World facts. |
 | Numeric N4 confidence | PROHIBITED | It is not World Trust. |
 | Legacy email | AMBIGUOUS | Public-contact semantics are unproven. |
@@ -43,7 +43,7 @@ The machine-readable source is `AUTHORING_TAXONOMY_VERSION = backyrd.world-knowl
 | Community & social | Community/coworking/club/youth/cultural centre | Place type, hours, capacity, access rules and facilities |
 | Attractions & landmarks | Landmark, viewpoint, zoo, aquarium, amusement park, visitor centre | Place type, hours, price, access and facilities |
 | Temporary places | Event venue, pop-up, festival site, seasonal market | Date-bound operation plus offerings only when applicable |
-| Other | Other place (`NOT_CONFIGURED`) | The Founder can preserve an explicit review candidate; no canonical place-type meaning is invented. |
+| Other | Other place | Neutral fallback only; no additional category meaning is inferred. |
 
 Switching the category changes the visible place-type allowlist immediately. A previously stored incompatible type is not deleted: the UI exposes a conflict and requires an intentional replacement. The server rejects a new incompatible Registry-1.1 combination.
 
@@ -51,6 +51,8 @@ Switching the category changes the visible place-type allowlist immediately. A p
 
 Weekly venue and kitchen schedules use the same canonical `{ day, intervals: [{ start, end }] }` representation. A missing weekday is not answered; a weekday with an empty interval list is explicitly closed; a non-empty list is open and can contain up to eight intervals, including overnight intervals. Special dates use `{ date, status, intervals }`, remain separate, and require intervals only when open. Runtime validation happens before the RPC and at the database boundary.
 
-## Remaining Product/CTO decision
+## Registry and review state
 
-Registry 1.1 intentionally remains historically unchanged. The broader non-gastronomic place types, cuisines, specialties, meals, drinks and amenities in the authoring audit are `NOT_CONFIGURED`, not fake canonical facts. These choices can nevertheless be retained as local, review-only authoring candidates so the Founder does not lose work. Candidate submission is server-authorized, category-aware, allowlisted, append-only and private; it never creates a Claim or enters a World snapshot. A governed Registry release must decide exact stable keys, English/German labels, category applicability and legacy normalization before any candidate may become World truth.
+Registry 1.1 remains immutable historical evidence. Registry 2.0 is an explicit, approved semantic release with its own SHA-256 identity; it adds the objective taxonomy, scoped age rules and separate special kitchen hours without reinterpreting old snapshots. Any future unapproved option still remains `NOT_CONFIGURED` and cannot enter Claims or snapshots.
+
+Section review is also append-only. Moving forward records that the Founder reviewed the section; changing a value records a later reopening. It does not rewrite a Fact, fabricate completeness or turn an unanswered optional field into `UNKNOWN`.

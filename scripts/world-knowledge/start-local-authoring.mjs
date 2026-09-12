@@ -46,6 +46,7 @@ if (process.argv.includes("--apply-authoring-closure")) {
     ["20260912084654", "world_knowledge_slice_4a_authoring_product_readiness"],
     ["20260912103000", "world_knowledge_slice_4a_authoring_reliability"],
     ["20260912121000", "world_knowledge_slice_4a_taxonomy_candidate_expansion"],
+    ["20260912165043", "world_knowledge_slice_4a_authoring_registry_2"],
   ];
   for (const [version, name] of closureMigrations) {
     const applied = execFileSync("docker", ["exec", container, "psql", "-U", "postgres", "-d", "postgres", "-X", "-Atc", `select exists(select 1 from supabase_migrations.schema_migrations where version='${version}')`], { encoding: "utf8" }).trim() === "t";

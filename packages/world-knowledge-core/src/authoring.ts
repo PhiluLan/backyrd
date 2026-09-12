@@ -134,7 +134,7 @@ export function getPlaceTypeConflict(primaryCategory: unknown, placeTypes: unkno
 
 export type AuthoringIssueKind = "INVALID_VALUE" | "MISSING_REQUIRED" | "CONFLICT" | "UNAPPROVED" | "KNOWN_GAP";
 export type AuthoringIssueSeverity = "BLOCKING" | "INFORMATION";
-export interface AuthoringIssue { readonly id: string; readonly attributeKey: string; readonly stepId: string; readonly label: string; readonly kind: AuthoringIssueKind; readonly severity: AuthoringIssueSeverity; readonly explanation: string; readonly correction: string }
+export interface AuthoringIssue { readonly id: string; readonly attributeKey: string; readonly stepId: string; readonly label: string; readonly kind: AuthoringIssueKind; readonly severity: AuthoringIssueSeverity; readonly explanation: string; readonly correction: string; readonly currentValue?: unknown }
 export type AuthoringReadiness = "NOT_READY" | "READY_WITH_GAPS" | "FULLY_REVIEWED";
 export interface AuthoringReadinessReport { readonly readiness: AuthoringReadiness; readonly blocking: readonly AuthoringIssue[]; readonly gaps: readonly AuthoringIssue[]; readonly issues: readonly AuthoringIssue[]; readonly sectionStates: Readonly<Record<string, AuthoringSectionState>> }
 
@@ -151,16 +151,17 @@ export function evaluateAuthoringReadiness(input: {
     const relevantFields = getAuthoringFieldsForContext(stepId, category);
     if (!relevantFields.some((item) => item.attributeKey === field.attributeKey)) continue;
     const message = input.fieldErrors?.[field.attributeKey];
-    if (message) issues.push({ id: `INVALID_VALUE:${field.attributeKey}`, attributeKey: field.attributeKey, stepId, label: field.label, kind: "INVALID_VALUE", severity: "BLOCKING", explanation: message, correction: "Öffne das Feld und korrigiere den markierten Wert." });
+    if (message) issues.push({ id: `INVALID_VALUE:${field.attributeKey}`, attributeKey: field.attributeKey, stepId, label: field.label, kind: "INVALID_VALUE", severity: "BLOCKING", explanation: message, correction: "Öffne das Feld und korrigiere den markierten Wert.", currentValue: input.answers[field.attributeKey]?.value });
     const answer = input.answers[field.attributeKey];
     const notApplicable = input.applicability?.[field.attributeKey] === "NOT_APPLICABLE";
     const required = field.requirementClass === "REQUIRED" || (field.requirementClass === "CONDITIONALLY_REQUIRED" && typeof category === "string");
-    if (required && !answer && !notApplicable) issues.push({ id: `MISSING_REQUIRED:${field.attributeKey}`, attributeKey: field.attributeKey, stepId, label: field.label, kind: "MISSING_REQUIRED", severity: "BLOCKING", explanation: field.requirementReason, correction: "Gib einen Wert ein oder wähle bewusst „Noch unbekannt“ beziehungsweise „Nicht relevant“." });
-    if (answer?.knowledgeState === "UNKNOWN") issues.push({ id: `KNOWN_GAP:${field.attributeKey}`, attributeKey: field.attributeKey, stepId, label: field.label, kind: "KNOWN_GAP", severity: "INFORMATION", explanation: "Diese Angabe wurde bewusst als unbekannt gespeichert.", correction: "Kein Fehler. Ergänze sie nur, wenn du eine verlässliche Angabe kennst." });
+    if (required && (!answer || answer.knowledgeState === "UNKNOWN" || notApplicable)) issues.push({ id: `MISSING_REQUIRED:${field.attributeKey}`, attributeKey: field.attributeKey, stepId, label: field.label, kind: "MISSING_REQUIRED", severity: "BLOCKING", explanation: field.requirementReason, correction: "Gib für dieses Pflichtfeld einen konkreten, verlässlichen Wert ein.", currentValue: answer?.value });
+    if (!required && answer?.knowledgeState === "UNKNOWN") issues.push({ id: `KNOWN_GAP:${field.attributeKey}`, attributeKey: field.attributeKey, stepId, label: field.label, kind: "KNOWN_GAP", severity: "INFORMATION", explanation: "Diese Angabe wurde bewusst als unbekannt gespeichert.", correction: "Kein Fehler. Ergänze sie nur, wenn du eine verlässliche Angabe kennst." });
+    if (!required && !answer && !notApplicable && input.reviewedSteps?.includes(stepId)) issues.push({ id: `KNOWN_GAP:${field.attributeKey}`, attributeKey: field.attributeKey, stepId, label: field.label, kind: "KNOWN_GAP", severity: "INFORMATION", explanation: "Dieses optionale Feld wurde bewusst offen gelassen.", correction: "Kein Fehler. Ergänze die Angabe später oder markiere sie bewusst als unbekannt beziehungsweise nicht relevant." });
   }
   const placeTypes = input.answers["classification.place_types"]?.value;
   const compatibility = getPlaceTypeConflict(category, placeTypes);
-  if (placeTypes && compatibility.state !== "COMPATIBLE") issues.push({ id: `CONFLICT:classification.place_types`, attributeKey: "classification.place_types", stepId: "classification", label: "Art des Ortes", kind: compatibility.state === "NOT_CONFIGURED" ? "UNAPPROVED" : "CONFLICT", severity: "BLOCKING", explanation: compatibility.state === "NOT_CONFIGURED" ? "Für diese Kombination ist noch keine freigegebene Zuordnung vorhanden." : `Nicht passende gespeicherte Werte: ${compatibility.incompatible.join(", ")}.`, correction: "Wähle bewusst einen passenden Ortstyp. Der frühere Claim bleibt historisch erhalten." });
+  if (placeTypes && compatibility.state !== "COMPATIBLE") issues.push({ id: `CONFLICT:classification.place_types`, attributeKey: "classification.place_types", stepId: "classification", label: "Art des Ortes", kind: compatibility.state === "NOT_CONFIGURED" ? "UNAPPROVED" : "CONFLICT", severity: "BLOCKING", explanation: compatibility.state === "NOT_CONFIGURED" ? "Für diese Kombination ist noch keine freigegebene Zuordnung vorhanden." : `Nicht passende gespeicherte Werte: ${compatibility.incompatible.join(", ")}.`, correction: "Wähle bewusst einen passenden Ortstyp. Der frühere Claim bleibt historisch erhalten.", currentValue: placeTypes });
   const uniqueIssues = [...new Map(issues.map((issue) => [issue.id, issue])).values()].sort((left, right) => left.id.localeCompare(right.id));
   const sectionStates = Object.fromEntries(AUTHORING_STEPS.map((step) => {
     if (step.id === "review") return [step.id, "IN_PROGRESS"];
@@ -169,8 +170,8 @@ export function evaluateAuthoringReadiness(input: {
     const stepIssues = uniqueIssues.filter((issue) => issue.stepId === step.id && issue.severity === "BLOCKING");
     if (stepIssues.length) return [step.id, "ERRORS"];
     const answered = fields.filter((field) => input.answers[field.attributeKey] || input.applicability?.[field.attributeKey] === "NOT_APPLICABLE");
-    if (!answered.length) return [step.id, "NOT_STARTED"];
     if (input.reviewedSteps?.includes(step.id)) return [step.id, answered.length === fields.length ? "FULLY_REVIEWED" : "INTENTIONALLY_INCOMPLETE"];
+    if (!answered.length) return [step.id, "NOT_STARTED"];
     return [step.id, fields.filter((field) => field.requirementClass !== "OPTIONAL").every((field) => input.answers[field.attributeKey] || input.applicability?.[field.attributeKey] === "NOT_APPLICABLE") ? "REQUIRED_COMPLETE" : "IN_PROGRESS"];
   })) as Record<string, AuthoringSectionState>;
   const blocking = uniqueIssues.filter((issue) => issue.severity === "BLOCKING"); const gaps = uniqueIssues.filter((issue) => issue.severity === "INFORMATION");
