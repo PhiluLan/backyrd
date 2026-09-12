@@ -1,9 +1,10 @@
 # Registry and key convention
 
-Current registry version: `backyrd.world-knowledge.registry@1.1`
+Current registry version: `backyrd.world-knowledge.registry@2.0`
 
-- Explicit typed child definitions: 47
-- Current Registry SHA-256: `e51e78f929d8d11ca149a50eaba250cf484e916ef38f2d447d3c8d881bb203be`
+- Explicit typed child definitions: 53
+- Current Registry SHA-256: `e93a7399c41535f7da2987c46343fbe82d1e3c07bca345b076d604f8d39f5a72`
+- Retained 1.1 Registry SHA-256: `e51e78f929d8d11ca149a50eaba250cf484e916ef38f2d447d3c8d881bb203be`
 - Retained 1.0 Registry SHA-256: `eba49eab117007ce6f8fca5cc5114e615d6cf8fb1a32547465149db8c84e922b`
 - Derived rule registry: `backyrd.world-knowledge.derived-rules@1.0`
 - Rule registry SHA-256: `ce6b70c6f3ebc7c114af1fc2a24c79b415e552996e5db7d6f352e7e5867d61f8`

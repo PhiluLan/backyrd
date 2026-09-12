@@ -1,4 +1,10 @@
-import { PRICE_LEVELS, REGISTRY_HASH as WORLD_REGISTRY_HASH, REGISTRY_VERSION as WORLD_REGISTRY_VERSION } from "@backyrd/world-knowledge-core";
+import {
+  // Phase 3B is a signed, immutable fixture release. Keep its original World
+  // binding when the active authoring registry advances additively.
+  REGISTRY_V1_1_HASH as WORLD_REGISTRY_HASH,
+  REGISTRY_V1_1_VERSION as WORLD_REGISTRY_VERSION,
+  PRICE_LEVELS,
+} from "@backyrd/world-knowledge-core";
 import { assertContentHash, canonicalJson, contentHash, deepFreeze, withContentHash } from "./canonical.js";
 import {
   ContextRegistryReleaseRecordSchema, ContextRegistryReleaseSchema, FounderDecisionAuthoritySchema,

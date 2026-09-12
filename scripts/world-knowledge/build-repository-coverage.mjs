@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { ATTRIBUTE_DEFINITIONS, FOUNDATION_AREAS, LEGACY_MAPPING_MATRIX } from "../../packages/world-knowledge-core/dist/index.js";
 
@@ -34,4 +34,10 @@ const body = {
 };
 const canonicalize = (value) => Array.isArray(value) ? `[${value.map(canonicalize).join(",")}]` : value && typeof value === "object" ? `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalize(value[key])}`).join(",")}}` : JSON.stringify(value);
 const reportHash = createHash("sha256").update(canonicalize(body)).digest("hex");
-process.stdout.write(`${JSON.stringify({ ...body, reportHash }, null, 2)}\n`);
+const output = `${JSON.stringify({ ...body, reportHash }, null, 2)}\n`;
+const outputIndex = process.argv.indexOf("--output");
+if (outputIndex >= 0) {
+  const outputPath = process.argv[outputIndex + 1];
+  if (!outputPath) throw new Error("--output requires a path");
+  writeFileSync(outputPath, output);
+} else process.stdout.write(output);

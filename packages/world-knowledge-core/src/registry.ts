@@ -1,7 +1,8 @@
 import { canonicalJson, sha256 } from "./canonical.js";
 
 export const REGISTRY_VERSION = "backyrd.world-knowledge.registry@2.0" as const;
-export const PREVIOUS_REGISTRY_VERSION = "backyrd.world-knowledge.registry@1.1" as const;
+export const REGISTRY_V1_1_VERSION = "backyrd.world-knowledge.registry@1.1" as const;
+export const PREVIOUS_REGISTRY_VERSION = REGISTRY_V1_1_VERSION;
 export const VALIDITY_POLICY_VERSION = "backyrd.world-knowledge.validity-policy@1.0" as const;
 
 export const PRIMARY_CATEGORIES = [
@@ -149,7 +150,8 @@ const LEGACY_SPECIALITIES = ["PIZZA", "BURGER", "SUSHI"] as const;
 const LEGACY_OFFERINGS = ["BEER", "WINE", "COCKTAILS", "NON_ALCOHOLIC_DRINKS", "COFFEE", "SNACKS", "FULL_MEALS", "BREAKFAST", "BRUNCH", "LUNCH", "DINNER", "TAKEAWAY_MEALS"] as const;
 const LEGACY_AMENITIES = ["WIFI", "POWER_OUTLETS", "TOILET", "HIGH_CHAIR", "STROLLER_SPACE", "TERRACE", "GARDEN", "OUTDOOR_SEATING", "WATER_BOWL", "WORK_TABLES"] as const;
 export const PREVIOUS_REGISTRY_DEFINITIONS = Object.freeze(ATTRIBUTE_DEFINITIONS.filter((definitionValue) => !["rule.age_access_conditions", "hours.kitchen_special"].includes(definitionValue.key)).map((item) => item.key === "classification.place_types" ? { ...item, allowedValues: LEGACY_PLACE_TYPES } : item.key === "offering.cuisines" ? { ...item, allowedValues: LEGACY_CUISINES } : item.key === "offering.food_specialities" ? { ...item, allowedValues: LEGACY_SPECIALITIES } : item.key === "offering.groups" ? { ...item, allowedValues: LEGACY_OFFERINGS } : item.key === "amenity.features" ? { ...item, allowedValues: LEGACY_AMENITIES } : item));
-export const PREVIOUS_REGISTRY_HASH = "e51e78f929d8d11ca149a50eaba250cf484e916ef38f2d447d3c8d881bb203be" as const;
+export const REGISTRY_V1_1_HASH = "e51e78f929d8d11ca149a50eaba250cf484e916ef38f2d447d3c8d881bb203be" as const;
+export const PREVIOUS_REGISTRY_HASH = REGISTRY_V1_1_HASH;
 
 export function getAttributeDefinition(keyValue: unknown): AttributeDefinition {
   if (typeof keyValue !== "string" || !/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/.test(keyValue)) throw new Error("invalid_attribute_key");
