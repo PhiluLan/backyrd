@@ -200,6 +200,11 @@ jobs:
         run: |
           npm run user-intelligence-vnext:typecheck
           npm run user-intelligence-vnext:test
+          npm run user-intelligence-vnext:phase3d:ui:test
+      - name: Install isolated Founder Lab browser
+        run: npx playwright install --with-deps chromium
+      - name: Validate Phase 3D interactive Founder Lab
+        run: npm run user-intelligence-vnext:phase3d:ui:e2e
       - name: Reproduce Phase 3B calibration report
         run: npm run user-intelligence-vnext:calibration -- --full-output "$RUNNER_TEMP/user-intelligence-phase3b-full-report.json" --verify-summary docs/user-intelligence-vnext/phase3b/calibration-release-summary.json
       - name: Retain Phase 3B synthetic calibration report

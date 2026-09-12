@@ -20,9 +20,23 @@ const rows = [
 ];
 const evidenceTrust = createPhase3DLocalEvidenceTrust(rows); const input = { evaluationId: "phase3d-release-evaluation", subjectBindingHash: subject, lifecycle: "ACTIVE", observations: rows.map(({ observation }) => observation) };
 const report = buildPhase3DFounderLabReport(input, createPhase3DCanonicalReleaseTrust(), evidenceTrust, createPhase3DRepositoryTrust());
-const artifact = { contractVersion: "backyrd.user-intelligence.founder-lab-artifact@3d-1", labels: ["FOUNDER_EVALUATION_ONLY", "LOCAL_ONLY", "NOT_PRODUCTION_AUTHORIZED"], candidates: PHASE3D_CALIBRATION_CANDIDATES, calibrationRelease: PHASE3D_CALIBRATION_RELEASE, calibrationTrustAnchor: PHASE3D_CALIBRATION_TRUST_ANCHOR, scenarioIds: PHASE3D_SCENARIO_IDS, report, productionPlan: { migrations: [], functions: [], authChanges: [], productWiring: [], runtimeDeploymentRequired: false, executionAuthorized: false } };
+const interactiveUiFiles = [
+  "scripts/user-intelligence/phase3d-founder-lab-service.mjs",
+  "scripts/user-intelligence/phase3d-founder-lab-ui-server.mjs",
+  "scripts/user-intelligence/phase3d-founder-lab-ui/index.html",
+  "scripts/user-intelligence/phase3d-founder-lab-ui/styles.css",
+  "scripts/user-intelligence/phase3d-founder-lab-ui/app.js",
+];
+const interactiveUi = {
+  contractVersion: "backyrd.user-intelligence.founder-lab-ui-release@3d-1",
+  bindAddress: "127.0.0.1",
+  productionAuthorized: false,
+  sourceFiles: interactiveUiFiles.map((file) => ({ file, contentHash: contentHash(fs.readFileSync(file, "utf8")) })),
+};
+const interactiveUiHash = contentHash(interactiveUi);
+const artifact = { contractVersion: "backyrd.user-intelligence.founder-lab-artifact@3d-2", labels: ["FOUNDER_EVALUATION_ONLY", "LOCAL_ONLY", "NOT_PRODUCTION_AUTHORIZED"], candidates: PHASE3D_CALIBRATION_CANDIDATES, calibrationRelease: PHASE3D_CALIBRATION_RELEASE, calibrationTrustAnchor: PHASE3D_CALIBRATION_TRUST_ANCHOR, scenarioIds: PHASE3D_SCENARIO_IDS, interactiveUi: { ...interactiveUi, interactiveUiHash }, report, productionPlan: { migrations: [], functions: [], authChanges: [], productWiring: [], runtimeDeploymentRequired: false, executionAuthorized: false } };
 const artifactHash = contentHash(artifact); const full = { ...artifact, artifactHash };
-const summaryBody = { ...PHASE3D_RELEASE_SUMMARY_BODY, fullReportHash: artifactHash, centralResults: { searchContextualPromotionsByCandidate: report.candidateOutcomes.map(({ candidateId, searchContextualTargets }) => ({ candidateId, count: searchContextualTargets.length })), searchLongTermPromotionRemainsEvaluationOnly: true, skipGlobalAversionCount: 0, productionProjectionPersonalItems: 0, retentionDurationsConfigured: false }, productionPlan: artifact.productionPlan };
+const summaryBody = { ...PHASE3D_RELEASE_SUMMARY_BODY, interactiveUiHash, fullReportHash: artifactHash, centralResults: { searchContextualPromotionsByCandidate: report.candidateOutcomes.map(({ candidateId, searchContextualTargets }) => ({ candidateId, count: searchContextualTargets.length })), searchLongTermPromotionRemainsEvaluationOnly: true, skipGlobalAversionCount: 0, productionProjectionPersonalItems: 0, retentionDurationsConfigured: false }, productionPlan: artifact.productionPlan };
 const summary = { ...summaryBody, summaryHash: contentHash(summaryBody) };
 const write = (file, value) => { if (file) { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`); } };
 write(argument("--full-output"), full); write(argument("--write-summary"), summary);

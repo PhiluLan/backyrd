@@ -1,9 +1,9 @@
 {
-  "contractVersion": "backyrd.user-intelligence.founder-lab-release-summary@3d-1",
-  "generatorVersion": "backyrd.user-intelligence.phase3d-report-generator@1.0",
-  "scenarioSetVersion": "backyrd.user-intelligence.founder-lab-scenarios@3d-1",
-  "scenarioSetHash": "4e94fe381f05447065a78a8ff337fc15f2560710b5231e216155b4604f9d69e8",
-  "scenarioCount": 35,
+  "contractVersion": "backyrd.user-intelligence.founder-lab-release-summary@3d-2",
+  "generatorVersion": "backyrd.user-intelligence.phase3d-report-generator@1.1",
+  "scenarioSetVersion": "backyrd.user-intelligence.founder-lab-scenarios@3d-2",
+  "scenarioSetHash": "6527291c4ea78823c240ffc31023896eb8f0b8dfea69ecd9f8f742f9b48abffe",
+  "scenarioCount": 45,
   "candidateSetHash": "5591c9869c5555055914557361de0a83212e411369b969186571eb67c507b4d4",
   "candidateHashes": [
     {
@@ -23,12 +23,13 @@
   "sourceRegistryHash": "2b6b502d14d68edb0f060708d456c119103e1af4823d37e67d18b674be6f4f13",
   "calibrationReleaseHash": "382b46b0c50f9c0cef793f0e9eb5878137340b10c04e4866e9b5ca286146349a",
   "calibrationTrustAnchorHash": "38924e4e74f6d85230a8b582ba419335dcd9972cff447e6e411faeafbf36bd61",
-  "fullReportHash": "beb6346495834b0bce4cb3405c7180cf3a7bff5dafe754f1e8246ccd43873a30",
+  "fullReportHash": "fe5d49645f250cf1d015f5e347a1fe98ebfbd7b5699d6a3c9922e7774b89392c",
   "productionAuthorized": false,
   "runtimeActivated": false,
   "rankingAuthorized": false,
   "eligibilityAuthorized": false,
   "executionAuthorized": false,
+  "interactiveUiHash": "4399f97d47d37a551475ec1e6ddc85e26d0644940ba93c4a2634d658cf7f9477",
   "centralResults": {
     "searchContextualPromotionsByCandidate": [
       {
@@ -57,5 +58,5 @@
     "runtimeDeploymentRequired": false,
     "executionAuthorized": false
   },
-  "summaryHash": "5f934abdd99fdda0647247948d335ac3d1d97af6fa21fa53e602b994b08e498f"
+  "summaryHash": "7b8cd828187f9bf6510f2655f2084997e155d9f8d103314ad4673f05f7f96c27"
 }

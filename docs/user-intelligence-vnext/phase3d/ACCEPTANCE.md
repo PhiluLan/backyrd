@@ -10,3 +10,8 @@
 - World-Cohort-Integration nutzt ausschließlich den kanonischen Reader-Port und synthetischen Fallback.
 - Vollbericht bleibt CI-Artefakt; kompakter Release-Beleg wird reproduziert.
 - Keine Production-Ausführung, Migration, Function, RPC, Auth-Änderung, Ranking- oder Eligibility-Verbindung.
+- Browser-App startet mit einem Befehl ausschließlich auf `127.0.0.1:3221`; Fremd-Host und Fremd-Origin scheitern fail-closed.
+- Alle Presets, Situation/Journey, Timeline, interne Ableitung, Kandidatenvergleich, Rebuild/Replay und Lifecycle sind ohne weitere Terminalbefehle bedienbar.
+- Zehn Browser-E2E-Abläufe decken Search, Familiarity, Satisfaction, negative Situation, Conflict, Dwell, Retry/Correction, Lifecycle, Reload und schmalen Viewport ab.
+- UI-Store ist atomar, versions- und hashgebunden; manipulierte Zustände sowie clientgewählte Policy, Authority, Signalstärke oder Independence werden abgewiesen.
+- Normale Ansicht enthält kein Roh-JSON; Expertensicht ist standardmäßig geschlossen und enthält keine Secrets.

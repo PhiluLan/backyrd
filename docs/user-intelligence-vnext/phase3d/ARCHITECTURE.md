@@ -6,11 +6,14 @@ Das Lab ist `FOUNDER_EVALUATION_ONLY`, `LOCAL_ONLY` und `NOT_PRODUCTION_AUTHORIZ
 
 ## Datenfluss
 
-1. Ein Preset erzeugt eine streng validierte lokale Handlung ohne Rohsuchtext oder private Daten.
-2. Die Handlung durchläuft dieselbe Phase-3C-Observation- und externe Evidence-Anchor-Grenze wie alle synthetischen Product-Policy-Fixtures.
-3. Der kanonische Phase-3C-Reducer erzeugt Observation, Interpretation, Conflict, Sufficiency und eine neutrale Production Boundary.
-4. Drei Phase-3D-Kandidaten vergleichen ausschließlich die fünf `NOT_CONFIGURED`-Übergänge.
-5. Ein verständlicher Founder-Bericht und eine optionale Expertensicht werden erzeugt. Der vollständige Bericht ist ein CI-Artefakt; nur sein kompakter Hashbeleg liegt im Repository.
+1. Ein isolierter Node-Loopback-Server bindet ausschließlich an `127.0.0.1`. Seine Browser-API akzeptiert nur allowlist-validierte Handlungen; Policy, Authority, Signalstärke und Independence sind nicht clientwählbar.
+2. Die deutschsprachige Browser-App sendet kontrollierte Aktionen. Freie Suchtexte werden flüchtig durch eine kleine deterministische Fixture-Minimierung in freigegebene Concept- und Context-IDs übersetzt oder als `NOT_CONFIGURED` abgewiesen.
+3. Der versionierte lokale Store schreibt atomar unter `.local/`, besitzt einen Integritäts-Hash und enthält keinen Suchrohtext.
+4. Ein Preset erzeugt eine streng validierte lokale Handlung ohne Rohsuchtext oder private Daten.
+5. Die Handlung durchläuft dieselbe Phase-3C-Observation- und externe Evidence-Anchor-Grenze wie alle synthetischen Product-Policy-Fixtures.
+6. Der kanonische Phase-3C-Reducer erzeugt Observation, Interpretation, Conflict, Sufficiency und eine neutrale Production Boundary.
+7. Drei Phase-3D-Kandidaten vergleichen ausschließlich die fünf `NOT_CONFIGURED`-Übergänge.
+8. Founder-Primäransicht, Timeline, Policy-Vergleich und Rebuild-Kontrollen bleiben verständlich; IDs und Hashes stehen nur in der geschlossenen Expertensicht. Der vollständige Bericht ist ein CI-Artefakt.
 
 ## Trust
 
@@ -22,4 +25,4 @@ Ohne explizites Cohort-Manifest nutzt das Lab drei synthetische Spots. Ein spät
 
 ## Lifecycle
 
-Lokale Testdaten verwenden bestehende Lifecycle-Klassen für subject-bound Evaluation Fixtures, Reports und Rebuild-Material. Withdrawal leert den aktiven lokalen Zustand, Reset stellt einen frischen pseudonymen Zustand her, Erasure löscht die lokale Datei. Der Legal-Export-Pfad bleibt von einer Product-Profilansicht getrennt.
+Lokale Testdaten verwenden bestehende Lifecycle-Klassen für subject-bound Evaluation Fixtures, Reports und Rebuild-Material. Withdrawal und Reset entfernen Subject Binding, Events, Checkpoint und Rebuild-Material; Erasure entfernt den vollständigen ausgewählten Testnutzer-Record. Der getrennte Privacy-/Legal-Testexport ist keine Product-Profilansicht.

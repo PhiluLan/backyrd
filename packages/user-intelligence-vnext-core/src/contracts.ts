@@ -75,7 +75,7 @@ export const CONTRACT_VERSIONS = Object.freeze({
   phase3dCalibrationTrustAnchor: "backyrd.user-intelligence.calibration-trust-anchor@3d-1",
   phase3dScenario: "backyrd.user-intelligence.founder-lab-scenario@3d-1",
   phase3dReport: "backyrd.user-intelligence.founder-lab-report@3d-1",
-  phase3dReleaseSummary: "backyrd.user-intelligence.founder-lab-release-summary@3d-1",
+  phase3dReleaseSummary: "backyrd.user-intelligence.founder-lab-release-summary@3d-2",
   phase3dWorldCohortManifest: "backyrd.user-intelligence.world-cohort-consumer@3d-1",
 } as const);
 

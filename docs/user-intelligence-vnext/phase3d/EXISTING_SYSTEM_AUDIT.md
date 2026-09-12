@@ -12,6 +12,9 @@ Phase 3C ist die einzige fachliche Product-Policy-Wahrheit. Phase 3D ersetzt wed
 | Phase-3A Full-/Incremental-Reducer | KEEP | Paritätsbeweis und Checkpoint bleiben kanonisch |
 | Phase-3B Calibration Harness | EXTEND | Muster für deterministische Reports und Artefakte |
 | Phase-3C Founder Decisions, Registry, Product Policy | KEEP | Unveränderte fachliche Quelle |
+| Lokaler CLI-Testnutzer und Report | KEEP | Rückwärtskompatibler Expert-/Automationspfad |
+| Isolierte Founder-Lab-Browser-App | EXTEND | Deutsche Browsersteuerung auf `127.0.0.1`; kein Admin- oder Product-Surface |
+| Lokaler Lab-State unter `.local/` | EXTEND | Versioniert, hashgebunden, atomar gespeichert und vollständig löschbar |
 | `RelevantUserProjection` | KEEP | Einziger künftiger Decision-Port; nicht aktiviert |
 | Legacy Taste-Faktoren/Eventgewichte | PROHIBITED | Kein Pfad in Kandidaten oder Lab |
 | Admin-Navigation aus offenem World-PR #280 | PROHIBITED | Keine Übernahme; Lab bleibt isoliert |
@@ -21,4 +24,4 @@ Phase 3C ist die einzige fachliche Product-Policy-Wahrheit. Phase 3D ersetzt wed
 
 ## Legacy-Lücken
 
-Vor Phase 3D fehlten ein kontrollierter Testnutzer-Pfad, ein schneller Policy-Vergleich für die fünf offenen Regeln, verständliche Founder-Ausgaben und eine World-Cohort-Consumer-Grenze. Diese Lücken werden ohne Production-Daten, Migration, Ranking oder Eligibility geschlossen.
+Vor Phase 3D fehlten ein kontrollierter Testnutzer-Pfad, ein schneller Policy-Vergleich für die fünf offenen Regeln, verständliche Founder-Ausgaben und eine World-Cohort-Consumer-Grenze. Der erste Phase-3D-Stand stellte diese Funktionen nur über CLI und einen lesenden HTML-Report bereit. Die UI-Closure ergänzt die fehlende interaktive Browsersteuerung, ohne einen zweiten fachlichen Core, ein Admin-Wiring oder eine Production-Verbindung einzuführen.

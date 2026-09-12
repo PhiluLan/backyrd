@@ -4,7 +4,21 @@
 
 Das Lab ist nur für Founder, CTO und Entwicklung. Es ist kein Nutzerprofil, keine Product-Oberfläche und keine Qualitätsmessung.
 
-## Start
+## Empfohlener Browser-Start
+
+Ein einziger Befehl prüft den Build, initialisiert bei Bedarf den versionierten lokalen Store und startet ausschließlich auf der Loopback-Adresse:
+
+```bash
+npm run user-intelligence-vnext:phase3d:lab:ui
+```
+
+Danach ist das Lab unter `http://127.0.0.1:3221` vollständig im Browser bedienbar. Es werden keine externen Services, Production-Daten oder Admin-Routen verwendet. Testnutzer, Situationen, Handlungen, Rebuild, Replay, Privacy-Export, Withdrawal, Reset und Erasure sind in der Oberfläche erreichbar. Destruktive lokale Aktionen verlangen eine Bestätigung.
+
+Die UI verarbeitet ausschließlich drei deterministische Fixture-Suchformulierungen: „gemütliches Café am Vormittag“, „ruhig essen beim ersten Date“ und „etwas Neues“. Nicht erkannter Freitext wird fail-closed abgewiesen. Der Rohtext wird weder im Store noch im User Model persistiert.
+
+## Bestehende CLI
+
+Die CLI bleibt für automatisierte Reproduktion und Entwicklung rückwärtskompatibel:
 
 ```bash
 npm run user-intelligence-vnext:phase3d:lab -- init
@@ -31,6 +45,6 @@ npm run user-intelligence-vnext:phase3d:lab -- erase
 - `withdraw`: widerruft lokalen Evaluation-Consent und entfernt aktive personenbezogene Lab-Daten.
 - `reset`: verwirft Modell, Events und Rebuild-Material und startet frisch.
 - `erase`: löscht den pseudonymen Testnutzer und seine lokale Datei.
-- Privacy-/Legal-Export wird nicht über die normale Lab-Ansicht angeboten; dafür bleibt der getrennte autorisierte Phase-3C-Pfad maßgeblich.
+- Privacy-/Legal-Testexport ist in der Browser-App als bewusst getrennter Download verfügbar. Er ist kein Taste-Dashboard und besitzt ausschließlich lokale Test-Authority.
 
-Alle Dateien liegen unter `.local/`, werden nicht committed und sind keine Production-Daten.
+Alle Dateien liegen atomar und mit restriktiven Dateirechten unter `.local/`, werden nicht committed oder synchronisiert und sind keine Production-Daten. Unbekannte Versionen oder manipulierte Integritäts-Hashes werden fail-closed abgewiesen.

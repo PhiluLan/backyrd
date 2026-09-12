@@ -184,6 +184,7 @@ decision-lab/.ai-cache/
 
 # Local one-off files
 index.html
+!scripts/user-intelligence/phase3d-founder-lab-ui/index.html
 
 # Local secret EAS config
 mobile/eas.local.secret.json
