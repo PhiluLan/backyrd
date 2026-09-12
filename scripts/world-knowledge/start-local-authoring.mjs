@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -20,6 +20,11 @@ function localSupabaseEnvironment() {
   writeFileSync(join(statusSupabase, "config.toml"), canonicalConfig, { mode: 0o600 });
   let output;
   try {
+    if (process.argv.includes("--apply-pending-migrations")) {
+      symlinkSync(new URL("../../supabase/migrations", import.meta.url), join(statusSupabase, "migrations"));
+      console.log(`Wende ausschließlich ausstehende Forward-Migrationen auf ${localProjectId} (${expectedUrl}) an. Kein Reset.`);
+      execFileSync("npx", ["supabase", "migration", "up", "--workdir", statusRoot, "--local", "--include-all", "--agent=no"], { stdio: "inherit" });
+    }
     output = execFileSync("npx", ["supabase", "status", "--workdir", statusRoot, "-o", "env"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   } catch {
     throw new Error("Lokales Supabase läuft nicht. Starte es zuerst mit: npx supabase start");
