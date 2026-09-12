@@ -36,7 +36,7 @@
   "tests": [
     {
       "path": "supabase/tests/world_knowledge_slice4a_authoring.sql",
-      "sha256": "c6e2ee98cf6a3c0b995bf6576c02df074622d67e61b33f2f09fe195fa98d5067"
+      "sha256": "f96d83c19eda9cdd46f9253852a60ea1fbe1557de45f6c73c686455af58efc76"
     },
     {
       "path": "supabase/tests/world_knowledge_slice4a_legacy_import.sql",

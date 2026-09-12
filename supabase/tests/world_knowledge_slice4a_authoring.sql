@@ -113,6 +113,6 @@ from (select (payload->>'spotId')::uuid spot_id from wk4a_created) created;
 select pg_temp.assert((select count(*)=2 and bool_and(payload->>'manifestHash' ~ '^[0-9a-f]{64}$') from wk4a_manifest),'service rebuild failed');
 select pg_temp.assert((public.world_founder_export_cohort_v1('founder-test')->>'scope')='FOUNDER_EVALUATION_ONLY','cohort export failed');
 reset role;
-select pg_temp.assert((select m.world_snapshot::text !~* 'subscription|payment|owner[_ ]?tier|actor_id|private_source' from world_knowledge_private.resolution_manifests m join wk4a_manifest r on m.id=(r.payload->>'manifestId')::uuid),'private/commercial material leaked into snapshot');
+select pg_temp.assert((select count(*)=2 and bool_and(m.world_snapshot::text !~* 'subscription|payment|owner[_ ]?tier|actor_id|private_source') from world_knowledge_private.resolution_manifests m join wk4a_manifest r on m.id=(r.payload->>'manifestId')::uuid),'private/commercial material leaked into snapshot');
 
 rollback;
