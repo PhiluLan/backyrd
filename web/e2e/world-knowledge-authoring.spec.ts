@@ -27,8 +27,9 @@ for (const viewport of [{ name: "desktop", width: 1440, height: 1000 }, { name: 
     await page.getByRole("button", { name: "Restaurant" }).click();
     await page.getByRole("button", { name: "Auswahl übernehmen" }).click();
     await page.getByRole("button", { name: /3 Küche und Angebot/ }).click();
-    await page.getByRole("button", { name: "Italienisch" }).click();
-    await page.getByRole("button", { name: "Auswahl übernehmen" }).click();
+    const cuisines = page.getByRole("group", { name: "Küchenrichtungen" });
+    await cuisines.getByRole("button", { name: "Italienisch" }).click();
+    await cuisines.getByRole("button", { name: "Auswahl übernehmen" }).click();
     await page.getByRole("button", { name: /4 Preise und Bezahlung/ }).click();
     await page.getByLabel("Preislevel").selectOption("MEDIUM");
     await page.getByRole("button", { name: /8 Ausstattung und Einschränkungen/ }).click();

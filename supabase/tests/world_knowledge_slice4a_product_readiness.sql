@@ -39,13 +39,25 @@ select pg_temp.expect_error(
   format('select public.world_authoring_submit_taxonomy_candidate_v1(%L,%L,%L,%L::jsonb,%L,%L)',(select id from wk_readiness_spot),'classification.place_types','ACTIVITIES_PLAY','["RESTAURANT"]','backyrd.world-knowledge.authoring-taxonomy@4a.2','readiness-invalid-candidate'),
   'gastronomic candidate crossed into activities'
 );
+select public.world_admin_submit_claim_v1((select id from wk_readiness_spot),'classification.primary_category','KNOWN_VALUE','"EAT"',clock_timestamp(),null,null,'PUBLIC',null,'readiness-category-eat');
+select public.world_authoring_submit_taxonomy_candidate_v1(
+  (select id from wk_readiness_spot),'offering.cuisines','EAT','["THAI"]',
+  'backyrd.world-knowledge.authoring-taxonomy@4a.2','readiness-cuisine-candidate'
+);
+select pg_temp.expect_error(
+  format('select public.world_authoring_submit_taxonomy_candidate_v1(%L,%L,%L,%L::jsonb,%L,%L)',(select id from wk_readiness_spot),'offering.cuisines','EAT','["MADE_UP"]','backyrd.world-knowledge.authoring-taxonomy@4a.2','readiness-invalid-cuisine'),
+  'unknown cuisine candidate bypassed the audited allowlist'
+);
 reset role;
 select pg_temp.assert((select count(*)=0 from world_knowledge_private.claims where spot_id=(select id from wk_readiness_spot) and attribute_key='classification.place_types'), 'failed place type left a partial claim or verification');
-select pg_temp.assert((select count(*)=1 from world_knowledge_private.authoring_taxonomy_candidates_v1 where spot_id=(select id from wk_readiness_spot)), 'valid non-canonical choice was not preserved as one review-only candidate');
-select pg_temp.assert((select candidate_value='["ARCADE"]'::jsonb from world_knowledge_private.authoring_taxonomy_candidates_v1 where spot_id=(select id from wk_readiness_spot)), 'candidate value changed');
+select pg_temp.assert((select count(*)=2 from world_knowledge_private.authoring_taxonomy_candidates_v1 where spot_id=(select id from wk_readiness_spot)), 'valid non-canonical choices were not preserved as review-only candidates');
+select pg_temp.assert((select candidate_value='["ARCADE"]'::jsonb from world_knowledge_private.authoring_taxonomy_candidates_v1 where spot_id=(select id from wk_readiness_spot) and attribute_key='classification.place_types'), 'place-type candidate value changed');
+select pg_temp.assert((select candidate_value='["THAI"]'::jsonb from world_knowledge_private.authoring_taxonomy_candidates_v1 where spot_id=(select id from wk_readiness_spot) and attribute_key='offering.cuisines'), 'cuisine candidate value changed');
+select pg_temp.assert((select count(*)=0 from world_knowledge_private.claims where spot_id=(select id from wk_readiness_spot) and attribute_key='offering.cuisines'), 'review-only cuisine became a World fact');
 
 select pg_temp.assert(not has_function_privilege('anon','world_knowledge_private.category_place_types_allowed_v1(text,jsonb)','execute'), 'anon can call private taxonomy validator');
 select pg_temp.assert(not has_function_privilege('authenticated','world_knowledge_private.category_place_types_allowed_v1(text,jsonb)','execute'), 'authenticated can call private taxonomy validator');
+select pg_temp.assert(not has_function_privilege('authenticated','world_knowledge_private.authoring_taxonomy_candidate_allowed_v1(text,text,jsonb)','execute'), 'authenticated can call private general taxonomy validator');
 select pg_temp.assert(not has_table_privilege('authenticated','world_knowledge_private.authoring_taxonomy_candidates_v1','select'), 'authenticated can read private taxonomy candidates directly');
 select pg_temp.assert(not has_table_privilege('authenticated','world_knowledge_private.authoring_taxonomy_candidates_v1','insert'), 'authenticated can write private taxonomy candidates directly');
 select pg_temp.assert(not has_function_privilege('anon','public.world_authoring_submit_taxonomy_candidate_v1(uuid,text,text,jsonb,text,text)','execute'), 'anon can submit taxonomy candidates');

@@ -76,7 +76,7 @@
     "world-knowledge:test": "npm run test --workspace @backyrd/world-knowledge-core",
     "world-knowledge:authoring:fast": "bash scripts/world-knowledge/run-authoring-fast-lane.sh",
     "world-knowledge:authoring:preflight": "node scripts/world-knowledge/start-local-authoring.mjs --check-only",
-    "world-knowledge:authoring:migrate-local": "node scripts/world-knowledge/start-local-authoring.mjs --apply-pending-migrations --check-only",
+    "world-knowledge:authoring:migrate-local": "node scripts/world-knowledge/start-local-authoring.mjs --apply-authoring-closure --check-only",
     "world-knowledge:authoring:build-admin": "node scripts/world-knowledge/start-local-authoring.mjs --build-admin",
     "world-knowledge:authoring:start": "node scripts/world-knowledge/start-local-authoring.mjs",
     "world-knowledge:coverage-repository": "npm run world-knowledge:build && node scripts/world-knowledge/build-repository-coverage.mjs",

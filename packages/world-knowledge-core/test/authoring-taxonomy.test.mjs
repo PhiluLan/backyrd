@@ -32,7 +32,9 @@ test("place types update by category and existing incompatible values remain exp
   assert.ok(!getCategoryPlaceTypes("ACTIVITIES_PLAY").some((entry) => entry.value === "RESTAURANT"));
   assert.ok(getCategoryPlaceTypes("ACTIVITIES_PLAY").some((entry) => entry.value === "ESCAPE_ROOM" && entry.state === "NOT_CONFIGURED"));
   assert.deepEqual(assessPlaceTypeCompatibility("ACTIVITIES_PLAY", ["RESTAURANT"]), { compatible: [], incompatible: ["RESTAURANT"], state: "CONFLICT" });
-  assert.equal(assessPlaceTypeCompatibility("OTHER", ["PUB"]).state, "NOT_CONFIGURED");
+  assert.ok(getCategoryPlaceTypes("OTHER").some((entry) => entry.value === "OTHER_PLACE" && entry.state === "NOT_CONFIGURED"));
+  assert.equal(assessPlaceTypeCompatibility("OTHER", ["OTHER_PLACE"]).state, "NOT_CONFIGURED");
+  assert.equal(assessPlaceTypeCompatibility("OTHER", ["PUB"]).state, "CONFLICT");
 });
 
 test("audited wider taxonomy is grouped but cannot bypass Registry 1.1", () => {
@@ -50,4 +52,3 @@ test("gastronomic sections do not appear as required for non-gastronomic categor
   assert.ok(getAuthoringFieldsForContext("offering", "EAT").length > 0);
   assert.ok(getAuthoringFieldsForContext("activities", "CULTURE_ARTS").length === 0);
 });
-

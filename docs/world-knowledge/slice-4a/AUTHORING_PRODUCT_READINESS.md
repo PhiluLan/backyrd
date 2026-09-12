@@ -16,7 +16,7 @@ The retained export contains 447 identities: 410 active/published and 37 archive
 | Restaurant, Brasserie, Bistro, Café, Bar, Pub, Imbiss, Take-away, Fast Food | CANONICAL | Existing Registry 1.1 place types. |
 | Wider non-gastronomic place-type catalog | NOT_CONFIGURED | Grouped, category-specific choices can be saved append-only in the private local candidate ledger. They do not become Claims, Verification, resolution input or World facts until a governed Registry release approves exact keys. |
 | Existing seven cuisines; Pizza, Burger, Sushi; existing offering groups | CANONICAL | Registry 1.1 values remain saveable and are displayed in separate concepts. |
-| Wider cuisine, speciality, meal, drinks and amenity catalog | NOT_CONFIGURED | Audited discovery vocabulary is visible/searchable but cannot bypass the canonical Registry. |
+| Wider cuisine, speciality, meal, drinks and amenity catalog | NOT_CONFIGURED | Audited vocabulary is visible/searchable and can be retained in the private local candidate ledger. It cannot bypass the canonical Registry or enter Claims, verification, resolution or snapshots. |
 | Mood, suitability, popularity and quality labels | PROHIBITED | Subjective/contextual statements are not objective World facts. |
 | Numeric N4 confidence | PROHIBITED | It is not World Trust. |
 | Legacy email | AMBIGUOUS | Public-contact semantics are unproven. |
@@ -43,7 +43,7 @@ The machine-readable source is `AUTHORING_TAXONOMY_VERSION = backyrd.world-knowl
 | Community & social | Community/coworking/club/youth/cultural centre | Place type, hours, capacity, access rules and facilities |
 | Attractions & landmarks | Landmark, viewpoint, zoo, aquarium, amusement park, visitor centre | Place type, hours, price, access and facilities |
 | Temporary places | Event venue, pop-up, festival site, seasonal market | Date-bound operation plus offerings only when applicable |
-| Other | NOT_CONFIGURED | Basic facts remain available; no place-type meaning is invented. |
+| Other | Other place (`NOT_CONFIGURED`) | The Founder can preserve an explicit review candidate; no canonical place-type meaning is invented. |
 
 Switching the category changes the visible place-type allowlist immediately. A previously stored incompatible type is not deleted: the UI exposes a conflict and requires an intentional replacement. The server rejects a new incompatible Registry-1.1 combination.
 
@@ -53,4 +53,4 @@ Weekly venue and kitchen schedules use the same canonical `{ day, intervals: [{ 
 
 ## Remaining Product/CTO decision
 
-Registry 1.1 intentionally remains historically unchanged. The broader non-gastronomic place types, cuisines, specialties, meals, drinks and amenities in the authoring audit are `NOT_CONFIGURED`, not fake canonical facts. Place-type choices can nevertheless be retained as local, review-only authoring candidates so the Founder does not lose work. A governed Registry release must decide their exact stable keys, English/German labels, category applicability and legacy normalization before they may enter Claims or World snapshots. This is the only honest path that both avoids a product dead end and preserves historical semantics.
+Registry 1.1 intentionally remains historically unchanged. The broader non-gastronomic place types, cuisines, specialties, meals, drinks and amenities in the authoring audit are `NOT_CONFIGURED`, not fake canonical facts. These choices can nevertheless be retained as local, review-only authoring candidates so the Founder does not lose work. Candidate submission is server-authorized, category-aware, allowlisted, append-only and private; it never creates a Claim or enters a World snapshot. A governed Registry release must decide exact stable keys, English/German labels, category applicability and legacy normalization before any candidate may become World truth.

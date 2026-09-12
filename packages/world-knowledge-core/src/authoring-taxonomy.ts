@@ -42,7 +42,7 @@ const categoryPlaces: Readonly<Record<PrimaryCategory, readonly string[] | "NOT_
   STAY: ["HOTEL", "HOSTEL", "GUESTHOUSE", "CAMPGROUND", "HOLIDAY_APARTMENT"],
   COMMUNITY_SOCIAL: ["COMMUNITY_CENTRE", "COWORKING_SPACE", "CLUBHOUSE", "YOUTH_CENTRE", "CULTURAL_CENTRE"],
   ATTRACTIONS_LANDMARKS: ["LANDMARK", "VIEWPOINT", "ZOO", "AQUARIUM", "AMUSEMENT_PARK", "VISITOR_CENTRE"],
-  TEMPORARY_PLACES: ["EVENT_VENUE", "POP_UP", "FESTIVAL_SITE", "SEASONAL_MARKET"], OTHER: "NOT_CONFIGURED",
+  TEMPORARY_PLACES: ["EVENT_VENUE", "POP_UP", "FESTIVAL_SITE", "SEASONAL_MARKET"], OTHER: ["OTHER_PLACE"],
 });
 
 const gastronomic = ["EAT", "DRINKS", "COFFEE_DAYTIME", "NIGHTLIFE", "STAY", "TEMPORARY_PLACES"] as const;
@@ -81,11 +81,12 @@ export const getCategoryPlaceTypes = (category: PrimaryCategory | null | undefin
 };
 
 export const assessPlaceTypeCompatibility = (category: PrimaryCategory | null | undefined, placeTypes: readonly string[]): { readonly compatible: readonly string[]; readonly incompatible: readonly string[]; readonly state: "COMPATIBLE" | "CONFLICT" | "NOT_CONFIGURED" } => {
-  if (!category || CATEGORY_AUTHORING_MATRIX[category].placeTypes === "NOT_CONFIGURED") return { compatible: [], incompatible: [...placeTypes], state: "NOT_CONFIGURED" };
+  if (!category) return { compatible: [], incompatible: [...placeTypes], state: "NOT_CONFIGURED" };
   const allowed = CATEGORY_AUTHORING_MATRIX[category].placeTypes as readonly string[];
   const compatible = placeTypes.filter((value) => allowed.includes(value));
   const incompatible = placeTypes.filter((value) => !allowed.includes(value));
-  return { compatible, incompatible, state: incompatible.length ? "CONFLICT" : "COMPATIBLE" };
+  const containsUnreleased = compatible.some((value) => PLACE_TYPE_AUTHORING_OPTIONS.find((entry) => entry.value === value)?.state === "NOT_CONFIGURED");
+  return { compatible, incompatible, state: incompatible.length ? "CONFLICT" : containsUnreleased ? "NOT_CONFIGURED" : "COMPATIBLE" };
 };
 
 export const AUTHORING_TAXONOMY_HASH = hashBody({ version: AUTHORING_TAXONOMY_VERSION, categoryMatrix: CATEGORY_AUTHORING_MATRIX, placeTypes: PLACE_TYPE_AUTHORING_OPTIONS, cuisines: CUISINE_AUTHORING_OPTIONS, foodSpecialities: FOOD_SPECIALITY_AUTHORING_OPTIONS, offerings: OFFERING_AUTHORING_OPTIONS, amenities: AMENITY_AUTHORING_OPTIONS }, []);

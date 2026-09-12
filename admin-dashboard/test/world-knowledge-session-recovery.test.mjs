@@ -72,8 +72,11 @@ test("the canonical local start command derives one endpoint for both servers wi
   assert.match(source, /NEXT_PUBLIC_SUPABASE_URL: normalize\(values\.API_URL\)/);
   assert.match(source, /WORLD_KNOWLEDGE_LOCAL_SUPABASE_URL: normalize\(values\.API_URL\)/);
   assert.match(source, /WORLD_KNOWLEDGE_EXPECTED_LOCAL_URL/);
-  assert.match(source, /--apply-pending-migrations/);
-  assert.match(source, /migration", "up"/);
+  assert.match(source, /--apply-authoring-closure/);
+  assert.match(source, /20260912084654/);
+  assert.match(source, /20260912103000/);
+  assert.match(source, /20260912121000/);
   assert.doesNotMatch(source, /supabase", "db", "reset"/);
+  assert.doesNotMatch(source, /migration", "up"/);
   assert.doesNotMatch(source, /console\.log\([^\n]*(?:ANON_KEY|SERVICE_ROLE_KEY)/);
 });
