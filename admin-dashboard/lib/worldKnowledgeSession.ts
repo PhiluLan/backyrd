@@ -1,10 +1,20 @@
-type Session = { access_token: string; refresh_token?: string; expires_at?: number };
+type Session = { access_token: string; refresh_token?: string; expires_at?: number; user?: { id: string } };
 type AuthResult = { data: { session: Session | null }; error: { message: string } | null };
 
 export interface WorldKnowledgeBrowserAuth {
   getSession(): Promise<AuthResult>;
   refreshSession(): Promise<AuthResult>;
 }
+
+const bounded = async <T>(operation: Promise<T>, timeoutMs: number): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new WorldKnowledgeSessionError("REAUTH_REQUIRED")), timeoutMs); }),
+    ]);
+  } finally { if (timer) clearTimeout(timer); }
+};
 
 export class WorldKnowledgeSessionError extends Error {
   readonly code: "REAUTH_REQUIRED" | "LOCAL_ENDPOINT_MISMATCH";
@@ -25,12 +35,19 @@ export function assertWorldKnowledgeLocalEndpoints(clientEndpoint: string | unde
   return client;
 }
 
-async function accessToken(auth: WorldKnowledgeBrowserAuth, forceRefresh: boolean): Promise<string> {
-  const initial = forceRefresh ? null : await auth.getSession();
+export async function recoverWorldKnowledgeSession(auth: WorldKnowledgeBrowserAuth, forceRefresh = false, timeoutMs = 4_000): Promise<Session> {
+  let initial: AuthResult | null = null;
+  if (!forceRefresh) {
+    try { initial = await bounded(auth.getSession(), timeoutMs); } catch { initial = null; }
+  }
   const nearExpiry = initial?.data.session?.expires_at !== undefined && initial.data.session.expires_at <= Math.floor(Date.now() / 1000) + 60;
-  const result = forceRefresh || initial?.error || !initial?.data.session || nearExpiry ? await auth.refreshSession() : initial;
+  const result = forceRefresh || initial?.error || !initial?.data.session || nearExpiry ? await bounded(auth.refreshSession(), timeoutMs) : initial;
   if (result.error || !result.data.session?.access_token) throw new WorldKnowledgeSessionError("REAUTH_REQUIRED");
-  return result.data.session.access_token;
+  return result.data.session;
+}
+
+async function accessToken(auth: WorldKnowledgeBrowserAuth, forceRefresh: boolean): Promise<string> {
+  return (await recoverWorldKnowledgeSession(auth, forceRefresh)).access_token;
 }
 
 export async function authorizedWorldKnowledgePost(input: { auth: WorldKnowledgeBrowserAuth; body: unknown; fetcher?: typeof fetch }): Promise<unknown> {

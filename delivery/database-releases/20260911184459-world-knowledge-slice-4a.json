@@ -30,7 +30,7 @@
     },
     {
       "path": "supabase/migrations/20260912165043_world_knowledge_slice_4a_authoring_registry_2.sql",
-      "sha256": "f9487ddc28ab0ca0fb4a1f1f0a91f5f6a82e5d809c7d6c80489856b5d9026982"
+      "sha256": "f93b40c657fea27cbc95982d62344ad267c456b8a7c2a135866a351fd1b48642"
     }
   ],
   "tests": [
@@ -48,11 +48,11 @@
     },
     {
       "path": "supabase/tests/world_knowledge_slice4a_registry2.sql",
-      "sha256": "91396e5d48756682f6032592619dfe7c53f630891275c1134aaef3240cab8091"
+      "sha256": "1a97e9aeca130171d14f6fa6bbe83ecd7162f65158673b6e743afe1aff09848b"
     }
   ],
   "fingerprints": {
     "publicAclSha256": "9daf4329618f2a2b6ae445f60b5044cf9d2a87d2acd9abcf34428eb11aab3ee1",
-    "applicationSchemaSha256": "3099f56bee3c55d5f3d275e884cd184a7b6ed89564704645e816e3c8c9947901"
+    "applicationSchemaSha256": "9eb43c971e5ce194e6bc500ada0ffeedd4ae7510bcf3d299fdf6ac8bf963991f"
   }
 }

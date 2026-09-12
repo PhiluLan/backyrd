@@ -116,7 +116,7 @@ test("Altersregeln speichern Mindestalter, Begleitung, Zeit, Tage und Bereich st
   await page.getByRole("button", { name: /7 Ausstattung und Einschränkungen/ }).click();
   const age = page.getByRole("group", { name: "Alters- und Begleitregeln" });
   await age.getByLabel("Art der Regel").selectOption("UNACCOMPANIED_MINIMUM");
-  await age.getByLabel("Mindestalter").fill("16");
+  await age.getByRole("spinbutton", { name: "Mindestalter" }).fill("16");
   await age.getByLabel("Gilt ab Uhrzeit \(optional\)").fill("20:00");
   await age.getByRole("button", { name: "Fr" }).click();
   await age.getByLabel("Bereich \(optional\)").fill("Barbereich");

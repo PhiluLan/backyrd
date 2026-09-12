@@ -36,6 +36,7 @@ select pg_temp.assert(public.world_authoring_get_section_reviews_v1((select id f
 select pg_temp.assert((public.world_authoring_set_section_review_v1((select id from r2_spot),'classification','REVIEWED','r2-review')->>'created')::boolean=false,'section review replay not idempotent');
 select pg_temp.assert((public.world_authoring_set_section_review_v1((select id from r2_spot),'classification','REOPENED','r2-reopen')->>'created')::boolean,'section reopen failed');
 select pg_temp.assert(public.world_authoring_get_section_reviews_v1((select id from r2_spot))#>'{reviewedSections}'='[]'::jsonb,'reopened section remained reviewed');
+select pg_temp.assert(pg_get_functiondef('public.world_founder_list_spots_v1(text,text,boolean)'::regprocedure) like '%v.source_field=''email'' then ''contact.public_email''%','ambiguous public-email workflow cannot be resolved');
 select pg_temp.expect_error(format('select public.world_admin_submit_claim_v1(%L,%L,%L,%L::jsonb,clock_timestamp(),null,null,%L,null,%L)',(select id from r2_spot),'rule.age_access_conditions','KNOWN_VALUE','{"rules":[{"mode":"GENERAL_MINIMUM","minimumAge":null,"accompaniment":"NONE","appliesFromTime":null,"days":[],"area":null,"event":null}],"notes":null}','PUBLIC','r2-invalid-age'),'22023','invalid rehashed age value accepted');
 reset role;
 

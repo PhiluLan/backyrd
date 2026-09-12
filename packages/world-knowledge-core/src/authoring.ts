@@ -66,6 +66,7 @@ const germanValues: Readonly<Record<string, string>> = Object.freeze({
 });
 
 const help: Readonly<Record<string, string>> = Object.freeze({
+  "identity.name": "Der öffentliche Name, unter dem der Spot im lokalen Testkatalog gefunden wird.",
   "classification.primary_category": "Genau eine Hauptkategorie. Danach zeigt Backyrd nur fachlich passende Arten des Ortes.",
   "classification.place_types": "Die Auswahl hängt von der Hauptkategorie ab. Bestehende unpassende Werte bleiben als Konflikt sichtbar, bis du sie bewusst korrigierst.",
   "offering.cuisines": "Pizza und Burger sind Spezialitäten, keine Küchenrichtungen.",

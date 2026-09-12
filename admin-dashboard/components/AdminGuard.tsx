@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { recoverWorldKnowledgeSession } from "@/lib/worldKnowledgeSession";
 
 type GuardState = "checking" | "ok" | "blocked";
 
@@ -21,13 +22,14 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
         return;
       }
 
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      let session;
+      try { session = await recoverWorldKnowledgeSession(supabase.auth); } catch { session = null; }
       if (cancelled) return;
 
-      if (sessionError || !sessionData.session?.user) {
-        setReason(sessionError ? "session_error" : "no_session");
+      if (!session?.user) {
+        setReason("session_expired");
         setState("blocked");
-        router.replace("/login");
+        router.replace("/login?reason=session_expired");
         return;
       }
 

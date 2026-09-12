@@ -17,7 +17,7 @@ async function importTypeScript(path) {
   return import(modulePath);
 }
 
-const { assertWorldKnowledgeLocalEndpoints, authorizedWorldKnowledgePost } = await importTypeScript("../lib/worldKnowledgeSession.ts");
+const { assertWorldKnowledgeLocalEndpoints, authorizedWorldKnowledgePost, recoverWorldKnowledgeSession } = await importTypeScript("../lib/worldKnowledgeSession.ts");
 const { sessionRecoveringAuthoringClient } = await importTypeScript("../../packages/world-knowledge-authoring-ui/src/session.ts");
 
 const response = (status, body) => ({ status, ok: status >= 200 && status < 300, async json() { return body; } });
@@ -39,6 +39,17 @@ test("invalid_session refreshes once and retries without changing the request", 
 test("unrecoverable session returns a controlled reauthentication error", async () => {
   const auth = { async getSession() { return { data: { session: null }, error: null }; }, async refreshSession() { return { data: { session: null }, error: { message: "expired" } }; } };
   await assert.rejects(() => authorizedWorldKnowledgePost({ auth, body: {}, fetcher: async () => response(500, {}) }), /invalid_session/);
+});
+
+test("a stuck session lookup is bounded and gets exactly one controlled refresh", async () => {
+  let refreshes = 0;
+  const auth = {
+    async getSession() { return new Promise(() => {}); },
+    async refreshSession() { refreshes += 1; return { data: { session: { access_token: "fresh", expires_at: 4_000_000_000, user: { id: "local-admin" } } }, error: null }; },
+  };
+  const session = await recoverWorldKnowledgeSession(auth, false, 5);
+  assert.equal(session.user.id, "local-admin");
+  assert.equal(refreshes, 1);
 });
 
 test("client and server must bind the same loopback Supabase endpoint", () => {
