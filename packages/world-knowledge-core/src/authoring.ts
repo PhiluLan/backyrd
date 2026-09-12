@@ -1,9 +1,10 @@
 import { canonicalSort, hashBody } from "./canonical.js";
 import { parseAttributeValue, WORLD_KNOWLEDGE_PORT_VERSION, type ClaimValue, type KnowledgeState } from "./contracts.js";
 import { ACCEPTED_ENTITLEMENT_POLICY } from "./slice3b.js";
-import { ATTRIBUTE_DEFINITIONS, PRICE_LEVEL_LABELS, PRIMARY_CATEGORY_LABELS, REGISTRY_HASH, REGISTRY_VERSION, type ValueType } from "./registry.js";
+import { ATTRIBUTE_DEFINITIONS, PRICE_LEVEL_LABELS, PRIMARY_CATEGORIES, PRIMARY_CATEGORY_LABELS, REGISTRY_HASH, REGISTRY_VERSION, type ValueType } from "./registry.js";
 import { parseWorldKnowledgeSnapshot, type WorldKnowledgeReaderPort, type WorldKnowledgeSnapshot } from "./port.js";
 import { ACCEPTED_SOURCE_POLICY } from "./slice3b.js";
+import { AMENITY_AUTHORING_OPTIONS, CATEGORY_AUTHORING_MATRIX, CUISINE_AUTHORING_OPTIONS, FOOD_SPECIALITY_AUTHORING_OPTIONS, OFFERING_AUTHORING_OPTIONS, PLACE_TYPE_AUTHORING_OPTIONS, assessPlaceTypeCompatibility, getCategoryPlaceTypes, type AuthoringTaxonomyState } from "./authoring-taxonomy.js";
 
 export const FOUNDER_EVALUATION_SCOPE = "FOUNDER_EVALUATION_ONLY" as const;
 export const AUTHORING_CATALOG_VERSION = "backyrd.world-knowledge.authoring-catalog@4a.1" as const;
@@ -31,7 +32,7 @@ export interface AuthoringField {
   readonly help: string;
   readonly group: string;
   readonly control: AuthoringControl;
-  readonly allowedValues: readonly { readonly value: string; readonly label: string }[];
+  readonly allowedValues: readonly { readonly value: string; readonly label: string; readonly group?: string; readonly state?: AuthoringTaxonomyState }[];
   readonly roles: readonly AuthoringRole[];
   readonly optional: true;
   readonly explanationOnly: boolean;
@@ -63,8 +64,8 @@ const germanValues: Readonly<Record<string, string>> = Object.freeze({
 });
 
 const help: Readonly<Record<string, string>> = Object.freeze({
-  "classification.primary_category": "Genau eine Hauptkategorie. Ortstypen ändern sie nicht automatisch.",
-  "classification.place_types": "Mehrfachauswahl. Wähle nur, was tatsächlich zutrifft.",
+  "classification.primary_category": "Genau eine Hauptkategorie. Danach zeigt Backyrd nur fachlich passende Arten des Ortes.",
+  "classification.place_types": "Die Auswahl hängt von der Hauptkategorie ab. Bestehende unpassende Werte bleiben als Konflikt sichtbar, bis du sie bewusst korrigierst.",
   "offering.cuisines": "Pizza und Burger sind Spezialitäten, keine Küchenrichtungen.",
   "offering.food_specialities": "Konkrete Speisen, für die der Spot bekannt ist.",
   "offering.groups": "Konkrete Angebotsgruppen, keine Nutzerabsichten.",
@@ -94,12 +95,36 @@ export const AUTHORING_FIELDS: readonly AuthoringField[] = Object.freeze(AUTHORI
     help: help[attributeKey] ?? "Optional. Nicht beantwortet bedeutet weder Nein noch unbekannt.",
     group: groupFor(attributeKey),
     control: attributeKey === "description.highlight" ? "TEXTAREA" : controlFor(definition.valueType),
-    allowedValues: (definition.allowedValues ?? []).map((value) => ({ value, label: germanValues[value] ?? value.replaceAll("_", " ").toLocaleLowerCase("de-CH") })),
+    allowedValues: (attributeKey === "classification.place_types" ? PLACE_TYPE_AUTHORING_OPTIONS
+      : attributeKey === "offering.cuisines" ? CUISINE_AUTHORING_OPTIONS
+      : attributeKey === "offering.food_specialities" ? FOOD_SPECIALITY_AUTHORING_OPTIONS
+      : attributeKey === "offering.groups" ? OFFERING_AUTHORING_OPTIONS
+      : attributeKey === "amenity.features" ? AMENITY_AUTHORING_OPTIONS
+      : (definition.allowedValues ?? []).map((value) => ({ value, label: germanValues[value] ?? value.replaceAll("_", " ").toLocaleLowerCase("de-CH"), state: "CANONICAL" as const }))),
     roles,
     optional: true as const,
     explanationOnly: definition.engineAuthorization === "EXPLANATION_ONLY",
   };
 })));
+
+export type AuthoringSectionState = "NOT_VIEWED" | "STARTED" | "REVIEWED" | "INTENTIONALLY_INCOMPLETE" | "NOT_RELEVANT" | "ERROR";
+
+export function getAuthoringFieldsForContext(stepId: string, primaryCategory: unknown): readonly AuthoringField[] {
+  const step = AUTHORING_STEPS.find((entry) => entry.id === stepId);
+  if (!step) return [];
+  const category = typeof primaryCategory === "string" && (PRIMARY_CATEGORIES as readonly string[]).includes(primaryCategory) ? primaryCategory as typeof PRIMARY_CATEGORIES[number] : null;
+  if (category && !CATEGORY_AUTHORING_MATRIX[category].relevantSteps.includes(stepId) && !["basics", "classification", "review"].includes(stepId)) return [];
+  return AUTHORING_FIELDS.filter((field) => step.attributeKeys.includes(field.attributeKey)).map((field) => {
+    if (field.attributeKey !== "classification.place_types") return field;
+    return Object.freeze({ ...field, allowedValues: getCategoryPlaceTypes(category) });
+  });
+}
+
+export function getPlaceTypeConflict(primaryCategory: unknown, placeTypes: unknown): ReturnType<typeof assessPlaceTypeCompatibility> {
+  const category = typeof primaryCategory === "string" && (PRIMARY_CATEGORIES as readonly string[]).includes(primaryCategory) ? primaryCategory as typeof PRIMARY_CATEGORIES[number] : null;
+  const values = Array.isArray(placeTypes) ? placeTypes.filter((value): value is string => typeof value === "string") : [];
+  return assessPlaceTypeCompatibility(category, values);
+}
 
 export type AuthoringValidationResult =
   | { readonly ok: true; readonly value: ClaimValue }

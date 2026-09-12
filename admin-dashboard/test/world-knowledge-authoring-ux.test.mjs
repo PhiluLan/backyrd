@@ -33,3 +33,23 @@ test("validation and session errors stay inside the German authoring UI", async 
   assert.match(page, /authorizedWorldKnowledgePost/);
   assert.match(page, /sessionRecoveringAuthoringClient\(supabase, supabase\.auth\)/);
 });
+
+test("category-dependent taxonomy, section states and resilient schedules are visible product behavior", async () => {
+  const source = await read("packages/world-knowledge-authoring-ui/src/index.tsx");
+  assert.match(source, /getAuthoringFieldsForContext/);
+  assert.match(source, /getPlaceTypeConflict/);
+  assert.match(source, /Bisher gespeicherte Auswahl passt nicht/);
+  assert.match(source, /safeWeeklyRows/);
+  assert.match(source, /FieldErrorBoundary/);
+  assert.match(source, /Bewusst als unbekannt gespeichert/);
+  assert.match(source, /Für die lokale Evaluation ausreichend/);
+  assert.match(source, /Durch neue Angabe erledigt/);
+});
+
+test("normal rendering translates structured codes and reserves JSON for expert mode", async () => {
+  const source = await read("packages/world-knowledge-authoring-ui/src/index.tsx");
+  assert.match(source, /TEMPORARILY_CLOSED: "Vorübergehend geschlossen"/);
+  assert.match(source, /CONDITIONAL: "Unter Bedingungen"/);
+  assert.match(source, /Hashes sind nur in der Expertensicht sichtbar/);
+  assert.equal((source.match(/JSON\.stringify\(detail, null, 2\)/g) ?? []).length, 1);
+});

@@ -1,5 +1,6 @@
 export * from "./canonical.js";
 export * from "./authoring.js";
+export * from "./authoring-taxonomy.js";
 export * from "./calibration.js";
 export * from "./contracts.js";
 export * from "./derived.js";

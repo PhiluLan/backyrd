@@ -64,3 +64,13 @@ test("direct authoring RPC refreshes once and replays the exact typed request", 
   assert.equal(calls.length, 2);
   assert.deepEqual(calls[0], calls[1]);
 });
+
+test("the canonical local start command derives one endpoint for both servers without printing credentials", async () => {
+  const source = await readFile(new URL("../../scripts/world-knowledge/start-local-authoring.mjs", import.meta.url), "utf8");
+  assert.match(source, /\["supabase", "status", "--workdir", statusRoot, "-o", "env"\]/);
+  assert.match(source, /backyrd-current-85423/);
+  assert.match(source, /NEXT_PUBLIC_SUPABASE_URL: normalize\(values\.API_URL\)/);
+  assert.match(source, /WORLD_KNOWLEDGE_LOCAL_SUPABASE_URL: normalize\(values\.API_URL\)/);
+  assert.match(source, /WORLD_KNOWLEDGE_EXPECTED_LOCAL_URL/);
+  assert.doesNotMatch(source, /console\.log\([^\n]*(?:ANON_KEY|SERVICE_ROLE_KEY)/);
+});

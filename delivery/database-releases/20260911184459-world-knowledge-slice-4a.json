@@ -17,6 +17,10 @@
       "sha256": "d233311f443dcbb8fd09023420639e4019ee04ac304153c55b3decad3a61530b"
     },
     {
+      "path": "supabase/migrations/20260912084654_world_knowledge_slice_4a_authoring_product_readiness.sql",
+      "sha256": "95303cad28b6583780f4665a809e1406f93381a6c0acc07b1272e29f494f996a"
+    },
+    {
       "path": "supabase/migrations/20260912103000_world_knowledge_slice_4a_authoring_reliability.sql",
       "sha256": "ef21cf5f1829bc06509d8b063fa8cc4ac1fcbd2a7997f38722112b744737ada9"
     }
@@ -29,10 +33,14 @@
     {
       "path": "supabase/tests/world_knowledge_slice4a_legacy_import.sql",
       "sha256": "11377def0b6269f51207a12f8d046dc2e395b51bc5909ab8dcbb7792f77471ab"
+    },
+    {
+      "path": "supabase/tests/world_knowledge_slice4a_product_readiness.sql",
+      "sha256": "a401c7e1916570d5695573e5fbc61d19736ca2f574e715b6501f0afd757b30e7"
     }
   ],
   "fingerprints": {
     "publicAclSha256": "34ad6c957c48766a46540515b545814287c4c7659d0081fd43b6fa8ac5f20f66",
-    "applicationSchemaSha256": "a9122c5e853f2f213e0bcf388b35c33e9c8e0caf7778e754295a6a46658108f0"
+    "applicationSchemaSha256": "d5b57a0e0513679b793c786ccecc985bab2276704a9a9dc132695ea5578b8b50"
   }
 }

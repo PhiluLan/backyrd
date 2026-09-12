@@ -29,6 +29,17 @@ The UI reset archives the local test catalog and retains World history. A full l
 
 ## Start
 
+For the existing Founder database, never reset. The canonical start command derives the API and server-only keys from the already-running local Supabase project `backyrd-current-85423`, verifies the exact loopback endpoint, and starts Admin and Owner with one shared binding:
+
+```sh
+npm run world-knowledge:authoring:preflight
+npm run world-knowledge:authoring:start
+```
+
+The expected endpoint is `http://127.0.0.1:57261`. A different or non-loopback endpoint fails before either UI starts. Secrets are neither accepted as arguments nor printed. The service key is passed only to the server processes; the browser receives the local anon key.
+
+The clean-room instructions below are only for a new disposable acceptance stack. They must not be used on the Founder database that contains imported and edited spots.
+
 From the repository root:
 
 ```sh
@@ -48,6 +59,7 @@ Create the selected-test file once with both Slice-4A suites:
 printf '%s\n' \
   'supabase/tests/world_knowledge_slice4a_authoring.sql' \
   'supabase/tests/world_knowledge_slice4a_legacy_import.sql' \
+  'supabase/tests/world_knowledge_slice4a_product_readiness.sql' \
   > /private/tmp/wk4a-database-tests.txt
 ```
 
