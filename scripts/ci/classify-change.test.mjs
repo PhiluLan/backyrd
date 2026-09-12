@@ -160,3 +160,21 @@ test("additive ALTER TABLE and later DROP TRIGGER are not joined into a destruct
   assert.equal(result.flags.destructive, false);
   assert.ok(!result.blockedReasons.includes("destructive_migration_requires_separate_founder_cto_authorization"));
 });
+
+test("an atomic named CHECK replacement is an authorization change, not a destructive data operation", () => {
+  const result = plan({ files: { "supabase/migrations/20260102120000_expand_check.sql": "alter table private.example drop constraint example_kind_check;\nalter table private.example add constraint example_kind_check check (kind in ('A','B'));\n" } });
+  assert.equal(result.flags.destructive, false);
+  assert.equal(result.flags.database, true);
+  assert.ok(!result.blockedReasons.includes("destructive_migration_requires_separate_founder_cto_authorization"));
+});
+
+test("an unpaired or differently named constraint drop remains fail-closed", () => {
+  for (const sql of [
+    "alter table private.example drop constraint example_kind_check;\n",
+    "alter table private.example drop constraint example_kind_check;\nalter table private.example add constraint other_check check (kind in ('A','B'));\n",
+  ]) {
+    const result = plan({ files: { "supabase/migrations/20260102120000_drop_check.sql": sql } });
+    assert.equal(result.flags.destructive, true);
+    assert.ok(result.blockedReasons.includes("destructive_migration_requires_separate_founder_cto_authorization"));
+  }
+});
