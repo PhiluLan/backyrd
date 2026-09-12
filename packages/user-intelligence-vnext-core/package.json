@@ -5,8 +5,13 @@
   "type": "module",
   "exports": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "dependencies": {
+    "@backyrd/world-knowledge-core": "0.1.0"
+  },
   "scripts": {
+    "prebuild": "npm run build --workspace @backyrd/world-knowledge-core",
     "build": "tsc -p tsconfig.build.json",
+    "pretypecheck": "npm run build --workspace @backyrd/world-knowledge-core",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test test/*.test.mjs"
   }

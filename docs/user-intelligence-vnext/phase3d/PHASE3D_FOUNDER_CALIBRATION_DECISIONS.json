@@ -1,0 +1,67 @@
+{
+  "contractVersion": "backyrd.user-intelligence.calibration-decisions@3d-2",
+  "recordId": "backyrd-user-intelligence-phase3d-founder-calibration-decisions-2",
+  "previousRecordId": "backyrd-user-intelligence-phase3d-founder-calibration-decisions-1",
+  "previousRecordHash": "95cb5372a7a490067f9c614d6b834d22b0bd308149994b2a257eff8d4be98cc7",
+  "authority": "CALIBRATION_ONLY",
+  "decisions": {
+    "searchContextualMaturity": {
+      "status": { "founder": "FOUNDER_SELECTED", "calibration": "CALIBRATION_APPROVED", "activation": "PRODUCT_ACTIVATION_NOT_AUTHORIZED" },
+      "independentJourneys": 3,
+      "semanticMatchRequired": true,
+      "contextPreserved": true,
+      "rawTextStored": false,
+      "longTermTransfer": false
+    },
+    "searchLongTermPromotion": {
+      "status": { "founder": "FOUNDER_SELECTED", "calibration": "CALIBRATION_APPROVED", "activation": "PRODUCT_ACTIVATION_NOT_AUTHORIZED" },
+      "independentJourneys": 6,
+      "selfSearchOnly": true,
+      "oneOffTravelExcluded": true,
+      "otherPersonExcluded": true,
+      "minimizedIdsOnly": true,
+      "contextPreserved": true,
+      "contextlessTasteForbidden": true,
+      "conflictsPreserved": true,
+      "automaticDecay": false
+    },
+    "skipMaturity": {
+      "status": { "founder": "FOUNDER_SELECTED", "calibration": "CALIBRATION_APPROVED", "activation": "PRODUCT_ACTIVATION_NOT_AUTHORIZED" },
+      "independentJourneys": 3,
+      "target": "SUBJECT_SPOT_DECISION_TASK_CONTEXT",
+      "oneActivePerJourney": true,
+      "correctedOrInactiveExcluded": true,
+      "globalSpotAversionForbidden": true,
+      "conceptAversionForbidden": true,
+      "rankingAuthorized": false,
+      "eligibilityAuthorized": false
+    },
+    "conceptTasteMinimumDistinctSpots": {
+      "status": { "founder": "FOUNDER_SELECTED", "calibration": "CALIBRATION_APPROVED", "activation": "PRODUCT_ACTIVATION_NOT_AUTHORIZED" },
+      "distinctSpots": 3,
+      "independentQualifiedExperiences": 3,
+      "explicitDirectedOutcomeRequired": true,
+      "certainEventTimeWorldAttributionRequired": true,
+      "oneAttributionUnitPerExperience": true,
+      "conflictsPreserved": true,
+      "strongCertaintyForbidden": true
+    },
+    "retention": {
+      "status": { "founder": "FOUNDER_SELECTED", "calibration": "CALIBRATION_APPROVED", "activation": "PRODUCT_ACTIVATION_NOT_AUTHORIZED" },
+      "strategy": "PURPOSE_TIERED_RETENTION",
+      "classes": ["SEARCH_MINIMIZED", "SKIP_CONTEXTUAL", "CONTEXT_MINIMIZED", "EVIDENCE_LEDGER", "USER_MODEL_DERIVED", "CORRECTION_GUARD", "NON_PERSONAL_AUDIT"],
+      "durations": "NOT_CONFIGURED_PENDING_LEGAL_AND_CTO_APPROVAL",
+      "pseudonymousRemainsPersonal": true,
+      "withdrawalRemovesDerivedPersonalization": true,
+      "resetDeletesModelProjectionCacheAndRebuild": true,
+      "erasureDeletesAllPersonalStores": true,
+      "nonPersonalAuditMustBeNonReidentifiable": true
+    }
+  },
+  "productionAuthorized": false,
+  "runtimeActivated": false,
+  "rankingAuthorized": false,
+  "eligibilityAuthorized": false,
+  "shadowTrafficAuthorized": false,
+  "recordHash": "c7242a47ec14d71255f3a2b0db17918e1cc7d179683480399623723aab0d115f"
+}

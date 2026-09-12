@@ -1,0 +1,31 @@
+{
+  "contractVersion": "backyrd.user-intelligence.calibration-decisions@3d-1",
+  "recordId": "backyrd-user-intelligence-phase3d-founder-calibration-decisions-1",
+  "authority": "CALIBRATION_ONLY",
+  "decisions": {
+    "searchContextualMaturity": {
+      "status": "FOUNDER_SELECTED_FOR_FUTURE_RELEASE",
+      "independentJourneys": 3,
+      "contextPreserved": true,
+      "longTermTransfer": false
+    },
+    "searchLongTermPromotion": {
+      "status": "FOUNDER_SELECTED_FOR_FUTURE_RELEASE",
+      "independentJourneys": 6,
+      "selfSearchOnly": true,
+      "minimizedIdsOnly": true,
+      "contextlessTasteForbidden": true,
+      "automaticDecay": false
+    },
+    "skipMaturity": {
+      "status": "NOT_SELECTED",
+      "evaluatedThresholds": [3, 5, 8]
+    }
+  },
+  "productionAuthorized": false,
+  "runtimeActivated": false,
+  "rankingAuthorized": false,
+  "eligibilityAuthorized": false,
+  "shadowTrafficAuthorized": false,
+  "recordHash": "95cb5372a7a490067f9c614d6b834d22b0bd308149994b2a257eff8d4be98cc7"
+}

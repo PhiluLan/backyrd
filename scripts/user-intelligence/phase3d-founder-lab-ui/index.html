@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Backyrd Founder User Lab</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">B</span><div><strong>Founder User Lab</strong><small>User Intelligence · Phase 3D</small></div></div>
+    <div class="status-row"><span>FOUNDER_EVALUATION_ONLY</span><span>LOCAL_ONLY</span><span>NOT_PRODUCTION_AUTHORIZED</span></div>
+  </header>
+  <main>
+    <section class="hero panel">
+      <div><p class="eyebrow">Kontrollierte lokale Auswertung</p><h1>Verstehen, was Backyrd vorsichtig lernt.</h1><p class="lead">Teste echte Abläufe mit synthetischen Spots. Keine Product-Qualitätsbehauptung, keine Ranking- oder Eligibility-Autorität.</p></div>
+      <div class="boundary"><b>Production bleibt geschlossen</b><span>Keine echten Nutzer · keine Cloud · keine Aktivierung</span></div>
+    </section>
+
+    <div id="notice" class="notice" role="status" hidden></div>
+
+    <section class="panel" id="users-section">
+      <div class="section-head"><div><p class="eyebrow">01 · Testnutzer</p><h2>Lokale Testidentität</h2></div><div class="new-user-controls"><label>Lokaler Name<input id="new-user-label" maxlength="60" value="Founder Testnutzer" autocomplete="off"></label><button class="secondary" id="new-user">Testnutzer anlegen</button></div></div>
+      <div class="user-row"><label>Ausgewählter Testnutzer<select id="user-select"><option value="">Noch keiner angelegt</option></select></label><div id="user-status" class="status-card">Kein aktiver Testnutzer</div></div>
+    </section>
+
+    <section class="panel" id="situation-section">
+      <div class="section-head"><div><p class="eyebrow">02 · Aktuelle Situation</p><h2>Worum geht es gerade?</h2></div><span class="fixture-pill">Synthetische Fixture-Spots</span></div>
+      <div class="form-grid">
+        <label>Spot<select id="spot"></select></label>
+        <label>Tagesphase<select id="day-phase"><option value="morning">Vormittag</option><option value="midday">Mittag</option><option value="evening">Abend</option><option value="night">Nacht</option></select></label>
+        <label>Begleitung<select id="company"><option value="alone">Allein</option><option value="friends">Mit Freunden</option><option value="partner">Mit Partner:in</option><option value="family">Mit Familie</option><option value="first_date">Erstes Date</option></select></label>
+        <label>Zeitbudget<select id="time-budget"><option value="short">Kurz</option><option value="medium">Mittel</option><option value="open">Offen</option></select></label>
+        <label class="wide">Decision-Aufgabe<select id="intent"><option>Einen passenden Ort finden</option><option>Café finden</option><option>Ruhig essen</option><option>Etwas Neues entdecken</option></select><small>Geschlossene lokale Fixture-Auswahl; kein Freitext wird gespeichert.</small></label>
+      </div>
+      <div class="button-row"><button id="new-journey">Neue unabhängige Journey starten</button><button class="secondary" id="continue-journey">Dieselbe Journey fortsetzen</button></div>
+      <div id="journey-status" class="context-strip">Noch keine Situation gestartet.</div>
+    </section>
+
+    <section class="panel" id="actions-section">
+      <div class="section-head"><div><p class="eyebrow">03 · Nutzerhandlung</p><h2>Was macht der Testnutzer?</h2></div></div>
+      <div class="search-box">
+        <label>Testsuche<input id="search-text" placeholder="z. B. gemütliches Café am Vormittag"></label>
+        <label>Suchkontext<select id="search-scope"><option value="SELF_CURRENT">Für mich, jetzt</option><option value="TRAVEL_ONE_OFF">Einmalige Reisesuche</option><option value="FOR_OTHER_PERSON">Suche für eine andere Person</option></select></label>
+        <button data-action="search">Suche durchführen</button>
+        <p>Der Freitext wird nur kurzzeitig zur Fixture-Zuordnung verwendet. Gespeichert werden ausschließlich freigegebene Concept- und Context-IDs.</p>
+      </div>
+      <div id="action-grid" class="action-grid"></div>
+      <div class="utility-row"><button class="secondary" data-special="retry">Retry / doppelte Übermittlung</button><button class="secondary" data-special="late">Nächste Handlung verspätet simulieren</button><button class="secondary" data-special="correct">Letzte Handlung korrigieren</button><button class="secondary" data-special="momentWithoutAuthority">Moment ohne Authority testen</button></div>
+    </section>
+
+    <section class="panel" id="timeline-section">
+      <div class="section-head"><div><p class="eyebrow">04 · Evidence-Verlauf</p><h2>Was wurde wirklich beobachtet?</h2></div><span id="timeline-count" class="count"></span></div>
+      <div id="timeline" class="timeline empty">Noch keine Beobachtung.</div>
+    </section>
+
+    <section class="panel" id="model-section">
+      <div class="section-head"><div><p class="eyebrow">05 · Founder-interne Auswertung</p><h2>Was Backyrd vorsichtig ableitet</h2></div><span class="warning-pill">Keine Endnutzeransicht</span></div>
+      <div id="model-summary" class="model-grid"></div>
+      <div id="interpretations" class="interpretation-list"></div>
+    </section>
+
+    <section class="panel" id="founder-selections-section">
+      <div class="section-head"><div><p class="eyebrow">06 · Founder-Auswahl</p><h2>Fünf Kalibrierungsentscheidungen</h2></div><span class="warning-pill">Ausgewählt · nicht für Production aktiviert</span></div>
+      <div id="founder-selections" class="selection-grid"></div>
+      <p class="footnote">Diese Auswahl ist eine versionierte Grundlage für einen späteren separaten Policy-Auftrag. Phase 3C und die Production Runtime bleiben unverändert.</p>
+    </section>
+
+    <section class="panel" id="candidates-section">
+      <div class="section-head"><div><p class="eyebrow">07 · Historischer Policy-Vergleich</p><h2>Drei Blickwinkel auf die Kalibrierungsregeln</h2></div></div>
+      <div class="rule-tabs" id="rule-tabs"></div>
+      <div id="candidate-grid" class="candidate-grid"></div>
+      <p class="footnote">Kein Kandidat ist Gewinner. Alle Ergebnisse sind synthetische Kalibrierung ohne Product-Qualitätsbehauptung.</p>
+    </section>
+
+    <section class="panel" id="integrity-section">
+      <div class="section-head"><div><p class="eyebrow">08 · Rebuild & Integrität</p><h2>Ist das Ergebnis reproduzierbar?</h2></div></div>
+      <div class="button-row"><button data-rebuild="FULL">Full Rebuild</button><button class="secondary" data-rebuild="INCREMENTAL">Incremental Update</button><button class="secondary" data-rebuild="REPLAY">Replay prüfen</button></div>
+      <div id="integrity-status" class="context-strip">Noch kein Browser-Rebuild ausgeführt.</div>
+    </section>
+
+    <section class="panel danger-zone" id="privacy-section">
+      <div class="section-head"><div><p class="eyebrow">09 · Datenschutz & Lifecycle</p><h2>Lokale Daten kontrollieren</h2></div></div>
+      <p>Diese Funktionen betreffen ausschließlich den ausgewählten lokalen Testnutzer. Vor dem Löschen ist eine Bestätigung erforderlich.</p>
+      <div class="button-row"><a class="button secondary" href="/api/privacy-export" download>Privacy-/Legal-Testexport</a><button class="secondary" data-lifecycle="WITHDRAW">Consent widerrufen</button><button class="secondary" data-lifecycle="RESET">Testmodell vollständig zurücksetzen</button><button class="danger" data-lifecycle="ERASE">Testnutzer löschen</button></div>
+    </section>
+
+    <details class="panel expert">
+      <summary>Expertensicht: IDs, Authority, Hashes und Reason Codes</summary>
+      <pre id="expert-view">Noch keine Daten.</pre>
+    </details>
+  </main>
+
+  <dialog id="confirm-dialog"><form method="dialog"><p class="eyebrow">Lokale destructive action</p><h2 id="confirm-title">Aktion bestätigen</h2><p id="confirm-copy"></p><div class="button-row"><button value="cancel" class="secondary">Abbrechen</button><button value="confirm" class="danger">Lokal ausführen</button></div></form></dialog>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

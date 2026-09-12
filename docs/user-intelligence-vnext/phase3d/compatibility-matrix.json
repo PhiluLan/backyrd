@@ -1,0 +1,17 @@
+{
+  "contractVersion": "backyrd.user-intelligence.phase3d-compatibility@1.0",
+  "canonicalBase": "8744d34e99413ea1f89f6df5fbc3814061abca39",
+  "productionAuthorized": false,
+  "entries": [
+    { "component": "phase2-evidence-authority", "classification": "KEEP", "boundary": "recursive-verification-required" },
+    { "component": "phase3a-full-incremental-reducer", "classification": "KEEP", "boundary": "byte-identical-parity" },
+    { "component": "phase3b-calibration-harness", "classification": "EXTEND", "boundary": "synthetic-only" },
+    { "component": "phase3c-product-policy", "classification": "KEEP", "boundary": "semantics-frozen-runtime-inactive" },
+    { "component": "relevant-user-projection", "classification": "KEEP", "boundary": "only-canonical-decision-port" },
+    { "component": "legacy-taste-weights", "classification": "PROHIBITED", "boundary": "no-path" },
+    { "component": "world-pr-280-admin-authoring", "classification": "PROHIBITED", "boundary": "not-canonical" },
+    { "component": "decision-pr-282-contracts", "classification": "PROHIBITED", "boundary": "not-canonical" },
+    { "component": "direct-spot-table-access", "classification": "REPLACE", "boundary": "WorldKnowledgeReaderPort-only" },
+    { "component": "retention-durations", "classification": "UNKNOWN_NEEDS_LEGAL_CTO_DECISION", "boundary": "NOT_CONFIGURED" }
+  ]
+}

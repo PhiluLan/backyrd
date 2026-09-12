@@ -1,0 +1,86 @@
+{
+  "contractVersion": "backyrd.user-intelligence.founder-lab-release-summary@3d-2",
+  "generatorVersion": "backyrd.user-intelligence.phase3d-report-generator@1.3",
+  "scenarioSetVersion": "backyrd.user-intelligence.founder-lab-scenarios@3d-4",
+  "scenarioSetHash": "cd9cce8b68074afb5820b4731f47c9c3c8a2d12a7c18d7f26cccd3acb5a626ea",
+  "scenarioCount": 64,
+  "candidateSetHash": "5530b4cbc873ed10b76b838c1f93584f891be0872a2c5bc01b8ce654b2e95177",
+  "candidateHashes": [
+    {
+      "candidateId": "CONSERVATIVE",
+      "candidateHash": "650fea059405f7216391848682d55dd2e4d80913cfdc4741b0b248ced07f6701"
+    },
+    {
+      "candidateId": "BALANCED",
+      "candidateHash": "32c7adeb72d78ac4f5ef8eef6bd551b4a4301eccb3964ff6abe8d0d5022009b2"
+    },
+    {
+      "candidateId": "LEARNING_ORIENTED",
+      "candidateHash": "4478bbcfba4b679a5e0bacd6b1fcbbaa705f092d502227ca41b18aa92ef58f3b"
+    }
+  ],
+  "previousCalibrationDecisionRecordHash": "95cb5372a7a490067f9c614d6b834d22b0bd308149994b2a257eff8d4be98cc7",
+  "calibrationDecisionRecordHash": "c7242a47ec14d71255f3a2b0db17918e1cc7d179683480399623723aab0d115f",
+  "calibrationTraceabilityHash": "3d8e1a77413f3485f9d3819f6747322f280d0b7dcf875758cac86475b2d7862b",
+  "decisionTaskRegistryHash": "93c093dcdabbfa65f1c2d8fc4230821743bd57c06c8ebb6ee72a8316d1c72cd9",
+  "sourceProductPolicyHash": "e6cecdd5107285eae1cb91b9ff29d2b4b8f2756cc3fff05bda14eb0fd6bb7be4",
+  "sourceRegistryHash": "2b6b502d14d68edb0f060708d456c119103e1af4823d37e67d18b674be6f4f13",
+  "calibrationReleaseHash": "0f9d5acc5df99061a0bbf09e03b9d4feeaa3f9a149f23d65371cc5e855363527",
+  "calibrationTrustAnchorHash": "f069545dcadde2b45fad59cc6932a48124cab74c51f206540d59de2a73d6dd05",
+  "fullReportHash": "a02cdac37a1c317581985ee3626c138c0825f2ae11645cfc30e81d9e223b9fe6",
+  "productionAuthorized": false,
+  "runtimeActivated": false,
+  "rankingAuthorized": false,
+  "eligibilityAuthorized": false,
+  "executionAuthorized": false,
+  "interactiveUiHash": "453c47c7658c8518f228db8126d51c2feb60fe5724de4d783de2eac5cfdc4958",
+  "centralResults": {
+    "searchContextualPromotionsByCandidate": [
+      {
+        "candidateId": "CONSERVATIVE",
+        "count": 0
+      },
+      {
+        "candidateId": "BALANCED",
+        "count": 2
+      },
+      {
+        "candidateId": "LEARNING_ORIENTED",
+        "count": 2
+      }
+    ],
+    "skipMaturityByCandidate": [
+      {
+        "candidateId": "CONSERVATIVE",
+        "independentJourneys": 8,
+        "requiredJourneys": 8,
+        "status": "REACHED"
+      },
+      {
+        "candidateId": "BALANCED",
+        "independentJourneys": 8,
+        "requiredJourneys": 5,
+        "status": "REACHED"
+      },
+      {
+        "candidateId": "LEARNING_ORIENTED",
+        "independentJourneys": 8,
+        "requiredJourneys": 3,
+        "status": "REACHED"
+      }
+    ],
+    "searchLongTermPromotionRemainsEvaluationOnly": true,
+    "skipGlobalAversionCount": 0,
+    "productionProjectionPersonalItems": 0,
+    "retentionDurationsConfigured": false
+  },
+  "productionPlan": {
+    "migrations": [],
+    "functions": [],
+    "authChanges": [],
+    "productWiring": [],
+    "runtimeDeploymentRequired": false,
+    "executionAuthorized": false
+  },
+  "summaryHash": "f50ef346d6013cca8e7605eb43d4946c3bf0b7fa879864ba1dac0838071d1345"
+}

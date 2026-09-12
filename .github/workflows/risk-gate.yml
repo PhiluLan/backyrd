@@ -200,6 +200,11 @@ jobs:
         run: |
           npm run user-intelligence-vnext:typecheck
           npm run user-intelligence-vnext:test
+          npm run user-intelligence-vnext:phase3d:ui:test
+      - name: Install isolated Founder Lab browser
+        run: npx playwright install --with-deps chromium
+      - name: Validate Phase 3D interactive Founder Lab
+        run: npm run user-intelligence-vnext:phase3d:ui:e2e
       - name: Reproduce Phase 3B calibration report
         run: npm run user-intelligence-vnext:calibration -- --full-output "$RUNNER_TEMP/user-intelligence-phase3b-full-report.json" --verify-summary docs/user-intelligence-vnext/phase3b/calibration-release-summary.json
       - name: Retain Phase 3B synthetic calibration report
@@ -216,6 +221,15 @@ jobs:
         with:
           name: user-intelligence-phase3c-product-policy-${{ github.sha }}
           path: ${{ runner.temp }}/user-intelligence-phase3c-product-policy.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Reproduce Phase 3D offline Founder Lab report
+        run: npm run user-intelligence-vnext:phase3d -- --full-output "$RUNNER_TEMP/user-intelligence-phase3d-founder-lab.json" --verify-summary docs/user-intelligence-vnext/phase3d/phase3d-release-summary.json
+      - name: Retain Phase 3D offline Founder Lab report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: user-intelligence-phase3d-founder-lab-${{ github.sha }}
+          path: ${{ runner.temp }}/user-intelligence-phase3d-founder-lab.json
           if-no-files-found: error
           retention-days: 14
       - name: Validate World Knowledge foundation
