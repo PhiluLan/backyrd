@@ -40,7 +40,7 @@ select pg_temp.expect_error(
   'gastronomic candidate crossed into activities'
 );
 reset role;
-select pg_temp.assert((select count(*)=1 from world_knowledge_private.claims where spot_id=(select id from wk_readiness_spot)), 'failed place type left a partial claim or verification');
+select pg_temp.assert((select count(*)=0 from world_knowledge_private.claims where spot_id=(select id from wk_readiness_spot) and attribute_key='classification.place_types'), 'failed place type left a partial claim or verification');
 select pg_temp.assert((select count(*)=1 from world_knowledge_private.authoring_taxonomy_candidates_v1 where spot_id=(select id from wk_readiness_spot)), 'valid non-canonical choice was not preserved as one review-only candidate');
 select pg_temp.assert((select candidate_value='["ARCADE"]'::jsonb from world_knowledge_private.authoring_taxonomy_candidates_v1 where spot_id=(select id from wk_readiness_spot)), 'candidate value changed');
 
