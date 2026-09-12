@@ -66,3 +66,10 @@ test("CI runner has no Production execution or commercial input channel", () => 
   const runner = readFileSync(new URL("./run-decision-ci.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(runner, /supabase-production|production-plan|payment|subscription|sponsor|ownerTier/i);
 });
+
+test("GitHub transfers the non-hidden immutable manifest to every Decision shard", () => {
+  const workflow = readFileSync(new URL("../../.github/workflows/risk-gate.yml", import.meta.url), "utf8");
+  assert.match(workflow, /--create decision-ci-artifact\.json/);
+  assert.equal((workflow.match(/--verify decision-ci-artifact\.json/g) ?? []).length, 6);
+  assert.doesNotMatch(workflow, /\.decision-ci-artifact\.json/);
+});

@@ -249,13 +249,13 @@ jobs:
           HEAD_SHA: ${{ needs.classify.outputs.head-sha }}
         run: node scripts/ci/validate-decision-change.mjs --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"
       - name: Bind immutable build to lockfile, runtime, source tree and test plan
-        run: node scripts/ci/decision-build-artifact.mjs --create .decision-ci-artifact.json
+        run: node scripts/ci/decision-build-artifact.mjs --create decision-ci-artifact.json
       - name: Retain verified Decision build
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: decision-build-${{ needs.classify.outputs.head-sha }}
           path: |
-            .decision-ci-artifact.json
+            decision-ci-artifact.json
             packages/world-knowledge-core/dist
             packages/user-intelligence-vnext-core/dist
             packages/decision-vnext-core/dist
@@ -280,7 +280,7 @@ jobs:
         with:
           name: decision-build-${{ needs.classify.outputs.head-sha }}
           path: .
-      - run: node scripts/ci/decision-build-artifact.mjs --verify .decision-ci-artifact.json
+      - run: node scripts/ci/decision-build-artifact.mjs --verify decision-ci-artifact.json
       - run: npm run decision-ci:group -- --group core-context --output "$RUNNER_TEMP/decision-core-context.json"
 
   decision-phase2:
@@ -305,7 +305,7 @@ jobs:
         with:
           name: decision-build-${{ needs.classify.outputs.head-sha }}
           path: .
-      - run: node scripts/ci/decision-build-artifact.mjs --verify .decision-ci-artifact.json
+      - run: node scripts/ci/decision-build-artifact.mjs --verify decision-ci-artifact.json
       - run: npm run decision-ci:group -- --group "${{ matrix.shard }}" --output "$RUNNER_TEMP/${{ matrix.shard }}.json"
 
   decision-oracles:
@@ -326,7 +326,7 @@ jobs:
         with:
           name: decision-build-${{ needs.classify.outputs.head-sha }}
           path: .
-      - run: node scripts/ci/decision-build-artifact.mjs --verify .decision-ci-artifact.json
+      - run: node scripts/ci/decision-build-artifact.mjs --verify decision-ci-artifact.json
       - run: npm run decision-ci:group -- --group oracles-workbenches --output "$RUNNER_TEMP/decision-oracles.json"
 
   decision-sandbox:
@@ -347,7 +347,7 @@ jobs:
         with:
           name: decision-build-${{ needs.classify.outputs.head-sha }}
           path: .
-      - run: node scripts/ci/decision-build-artifact.mjs --verify .decision-ci-artifact.json
+      - run: node scripts/ci/decision-build-artifact.mjs --verify decision-ci-artifact.json
       - run: npm run decision-ci:group -- --group large-sandbox --output "$RUNNER_TEMP/decision-sandbox.json"
 
   decision-lab:
@@ -368,7 +368,7 @@ jobs:
         with:
           name: decision-build-${{ needs.classify.outputs.head-sha }}
           path: .
-      - run: node scripts/ci/decision-build-artifact.mjs --verify .decision-ci-artifact.json
+      - run: node scripts/ci/decision-build-artifact.mjs --verify decision-ci-artifact.json
       - run: npm run decision-ci:group -- --group decision-lab --output "$RUNNER_TEMP/decision-lab.json"
 
   decision-consumers:
@@ -389,7 +389,7 @@ jobs:
         with:
           name: decision-build-${{ needs.classify.outputs.head-sha }}
           path: .
-      - run: node scripts/ci/decision-build-artifact.mjs --verify .decision-ci-artifact.json
+      - run: node scripts/ci/decision-build-artifact.mjs --verify decision-ci-artifact.json
       - run: npm run decision-ci:group -- --group consumer-contracts --output "$RUNNER_TEMP/decision-consumers.json"
 
   decision:
