@@ -22,6 +22,7 @@ async function skipThreshold(amount, expectedCandidate, expectedStatus) { await 
 
 try {
   await page.goto(url); equal(await page.title(), "Backyrd Founder User Lab", "UI title"); ok((await page.locator("body").innerText()).includes("NOT_PRODUCTION_AUTHORIZED"), "boundary label visible"); equal(await page.locator("#intent").evaluate((element) => element.tagName), "SELECT", "decision task is a closed selection"); equal(await page.locator("#intent option").count(), 4, "all allowed fixture tasks are visible");
+  const founderSelections = await page.locator("#founder-selections-section").innerText(); equal(await page.locator("#founder-selections .selection-card").count(), 5, "five Founder selections visible"); ok(founderSelections.includes("3 unabhängige") && founderSelections.includes("6 unabhängige") && /3 (verschiedene|unterschiedliche) Spots/.test(founderSelections), "selected thresholds explained in plain German"); ok(!/CALIBRATION_ONLY|PRODUCT_ACTIVATION_NOT_AUTHORIZED|[a-f0-9]{64}/.test(founderSelections), "normal Founder selection view hides authority codes and hashes");
 
   // 1. Search pattern and reload
   await createUser("Search Muster"); await newJourney(); await page.fill("#search-text", "gemütliches Café am Vormittag"); await action("search");
@@ -69,7 +70,7 @@ try {
   // 10. Narrow view remains operable
   await page.setViewportSize({ width: 390, height: 844 }); await page.reload(); await page.waitForSelector("#new-user"); const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1); equal(overflow, false, "no horizontal clipping on narrow viewport"); ok(await page.locator("#new-user").isVisible(), "central control visible on narrow viewport");
 
-  process.stdout.write(JSON.stringify({ suite: "phase3d-founder-lab-browser-e2e", scenarios: 11, assertions, outcome: "PASS", url: "loopback-ephemeral" }) + "\n");
+  process.stdout.write(JSON.stringify({ suite: "phase3d-founder-lab-browser-e2e", scenarios: 12, assertions, outcome: "PASS", url: "loopback-ephemeral" }) + "\n");
 } finally {
   await browser.close(); await new Promise((resolve) => server.close(resolve)); fs.rmSync(directory, { recursive: true, force: true });
 }

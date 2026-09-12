@@ -16,7 +16,7 @@ Die erste Lab-Version gruppierte `QUICK_SKIP` nach `spotId + decisionId + contex
 
 Die drei weiterhin nicht produktiven Kandidaten vergleichen 8, 5 und 3 unabhängige passende Journeys. Ein erreichtes Ziel ist ausschließlich eine sehr schwache, situationsgebundene Calibration-Hypothese; globale Spot-/Concept-Aversion, Ranking und Eligibility bleiben ausgeschlossen.
 
-Die Founder-Auswahl für Search Contextual Maturity (3) und Search Long-Term Promotion (6) ist separat in `PHASE3D_CALIBRATION_DECISIONS.json` gebunden. Skip Maturity bleibt `NOT_SELECTED`. Phase 3C bleibt unverändert.
+Der historische Teilentscheidungsstand bleibt unverändert in `PHASE3D_CALIBRATION_DECISIONS.json`. Die spätere Founder-Auswahl für Search Contextual Maturity (3), Search Long-Term Promotion (6), Skip Maturity (3), Concept Taste (3 Spots/3 Experiences) und zweckgetrennte Retention ist append-only in `PHASE3D_FOUNDER_CALIBRATION_DECISIONS.json` gebunden. Phase 3C bleibt unverändert; keine Auswahl ist für Production aktiviert.
 
 ## Founder-Ansicht
 

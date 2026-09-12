@@ -3,7 +3,7 @@ import path from "node:path";
 import {
   buildPhase3DFounderLabReport, canonicalJson, contentHash, createPhase3DCanonicalReleaseTrust,
   createPhase3DDecisionTaskBinding, createPhase3DLocalEvidenceTrust, createPhase3DLocalObservation, createPhase3DRepositoryTrust,
-  PHASE3D_CALIBRATION_CANDIDATES, PHASE3D_CALIBRATION_DECISION_RECORD, PHASE3D_CALIBRATION_RELEASE, PHASE3D_CALIBRATION_TRUST_ANCHOR,
+  PHASE3D_CALIBRATION_CANDIDATES, PHASE3D_CALIBRATION_DECISION_RECORD, PHASE3D_FOUNDER_CALIBRATION_DECISION_RECORD, PHASE3D_CALIBRATION_TRACEABILITY, PHASE3D_CALIBRATION_RELEASE, PHASE3D_CALIBRATION_TRUST_ANCHOR,
   PHASE3D_CANDIDATE_SET_HASH, PHASE3D_RELEASE_SUMMARY_BODY, PHASE3D_SCENARIO_IDS,
   PHASE3D_SCENARIO_SET_HASH, PHASE3D_SCENARIO_SET_VERSION,
 } from "../../packages/user-intelligence-vnext-core/dist/index.js";
@@ -37,7 +37,7 @@ const interactiveUi = {
   sourceFiles: interactiveUiFiles.map((file) => ({ file, contentHash: contentHash(fs.readFileSync(file, "utf8")) })),
 };
 const interactiveUiHash = contentHash(interactiveUi);
-const artifact = { contractVersion: "backyrd.user-intelligence.founder-lab-artifact@3d-3", labels: ["FOUNDER_EVALUATION_ONLY", "LOCAL_ONLY", "NOT_PRODUCTION_AUTHORIZED"], candidates: PHASE3D_CALIBRATION_CANDIDATES, calibrationDecisionRecord: PHASE3D_CALIBRATION_DECISION_RECORD, calibrationRelease: PHASE3D_CALIBRATION_RELEASE, calibrationTrustAnchor: PHASE3D_CALIBRATION_TRUST_ANCHOR, scenarioIds: PHASE3D_SCENARIO_IDS, interactiveUi: { ...interactiveUi, interactiveUiHash }, report, productionPlan: { migrations: [], functions: [], authChanges: [], productWiring: [], runtimeDeploymentRequired: false, executionAuthorized: false } };
+const artifact = { contractVersion: "backyrd.user-intelligence.founder-lab-artifact@3d-4", labels: ["FOUNDER_EVALUATION_ONLY", "LOCAL_ONLY", "NOT_PRODUCTION_AUTHORIZED"], candidates: PHASE3D_CALIBRATION_CANDIDATES, historicalCalibrationDecisionRecord: PHASE3D_CALIBRATION_DECISION_RECORD, founderCalibrationDecisionRecord: PHASE3D_FOUNDER_CALIBRATION_DECISION_RECORD, calibrationTraceability: PHASE3D_CALIBRATION_TRACEABILITY, calibrationRelease: PHASE3D_CALIBRATION_RELEASE, calibrationTrustAnchor: PHASE3D_CALIBRATION_TRUST_ANCHOR, scenarioIds: PHASE3D_SCENARIO_IDS, interactiveUi: { ...interactiveUi, interactiveUiHash }, report, productionPlan: { migrations: [], functions: [], authChanges: [], productWiring: [], runtimeDeploymentRequired: false, executionAuthorized: false } };
 const artifactHash = contentHash(artifact); const full = { ...artifact, artifactHash };
 const summaryBody = { ...PHASE3D_RELEASE_SUMMARY_BODY, interactiveUiHash, fullReportHash: artifactHash, centralResults: { searchContextualPromotionsByCandidate: report.candidateOutcomes.map(({ candidateId, searchContextualTargets }) => ({ candidateId, count: searchContextualTargets.length })), skipMaturityByCandidate: report.candidateOutcomes.map(({ candidateId, skipMaturityEvaluations }) => ({ candidateId, independentJourneys: skipMaturityEvaluations[0]?.independentJourneys ?? 0, requiredJourneys: skipMaturityEvaluations[0]?.requiredJourneys ?? 0, status: skipMaturityEvaluations[0]?.status ?? "WITHHELD" })), searchLongTermPromotionRemainsEvaluationOnly: true, skipGlobalAversionCount: 0, productionProjectionPersonalItems: 0, retentionDurationsConfigured: false }, productionPlan: artifact.productionPlan };
 const summary = { ...summaryBody, summaryHash: contentHash(summaryBody) };

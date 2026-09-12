@@ -1,6 +1,6 @@
 # Phase 3D – Founder-/CTO-Decision-Pack
 
-Alle Zahlen sind austauschbare Lab-Kandidaten, keine Product-Wahrheit. Kein Kandidat wird automatisch Gewinner.
+Dieses Dokument bewahrt den ursprünglichen Kandidatenvergleich. Der Founder hat anschließend alle fünf Kalibrierungsentscheidungen im append-only Record `backyrd.user-intelligence.calibration-decisions@3d-2` ausgewählt. Die Auswahl ist für die weitere Kalibrierung freigegeben, aber weder Product- noch Runtime-Aktivierung.
 
 ## 1. Search Contextual Maturity
 
@@ -44,6 +44,12 @@ Alle Zahlen sind austauschbare Lab-Kandidaten, keine Product-Wahrheit. Kein Kand
 - Dev-Empfehlung: purpose-getrennte Klassen; keine Dauer ohne Legal Review.
 - Founder-/CTO-/Legal-Frage: Welche fachliche Notwendigkeit und gesetzliche Basis gilt je Event Ledger, Evidence, Modell, Report, Attention und Export?
 
-## Empfehlung für den nächsten begrenzten Slice
+## Eingefrorene Auswahl für den nächsten begrenzten Slice
 
-Als Nächstes ausschließlich Oracles und Fehlerkosten für diese fünf Entscheidungen festlegen. Keine Runtime-Aktivierung, kein Ranking-Wiring und keine Retention-Zeiträume, bevor Founder, CTO und bei Retention Legal eine versionierte Freigabe erteilen.
+- Search Contextual Maturity: drei unabhängige semantisch passende Journeys.
+- Search Long-Term Readiness: sechs unabhängige Eigennutzer-Journeys; Context bleibt erhalten.
+- Skip Maturity: drei unabhängige passende Journeys; nur sehr schwach und situationsgebunden.
+- Concept Taste: drei unterschiedliche Spots und drei qualifizierte, gerichtete Experiences mit sicherer Event-time-Attribution.
+- Retention: zweckgetrennte Klassen; konkrete Fristen bleiben bis Legal-/CTO-Freigabe unkonfiguriert.
+
+Keine dieser Auswahlen aktiviert Runtime, Ranking, Eligibility, Shadow Traffic oder Production.

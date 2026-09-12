@@ -1,9 +1,9 @@
 {
   "contractVersion": "backyrd.user-intelligence.founder-lab-release-summary@3d-2",
-  "generatorVersion": "backyrd.user-intelligence.phase3d-report-generator@1.2",
-  "scenarioSetVersion": "backyrd.user-intelligence.founder-lab-scenarios@3d-3",
-  "scenarioSetHash": "ba1fb20246d494f3f8b6a33dad3bd952bfc6ced2f95b098b30b006759a0e3320",
-  "scenarioCount": 55,
+  "generatorVersion": "backyrd.user-intelligence.phase3d-report-generator@1.3",
+  "scenarioSetVersion": "backyrd.user-intelligence.founder-lab-scenarios@3d-4",
+  "scenarioSetHash": "cd9cce8b68074afb5820b4731f47c9c3c8a2d12a7c18d7f26cccd3acb5a626ea",
+  "scenarioCount": 64,
   "candidateSetHash": "5530b4cbc873ed10b76b838c1f93584f891be0872a2c5bc01b8ce654b2e95177",
   "candidateHashes": [
     {
@@ -19,19 +19,21 @@
       "candidateHash": "4478bbcfba4b679a5e0bacd6b1fcbbaa705f092d502227ca41b18aa92ef58f3b"
     }
   ],
-  "calibrationDecisionRecordHash": "95cb5372a7a490067f9c614d6b834d22b0bd308149994b2a257eff8d4be98cc7",
+  "previousCalibrationDecisionRecordHash": "95cb5372a7a490067f9c614d6b834d22b0bd308149994b2a257eff8d4be98cc7",
+  "calibrationDecisionRecordHash": "c7242a47ec14d71255f3a2b0db17918e1cc7d179683480399623723aab0d115f",
+  "calibrationTraceabilityHash": "3d8e1a77413f3485f9d3819f6747322f280d0b7dcf875758cac86475b2d7862b",
   "decisionTaskRegistryHash": "93c093dcdabbfa65f1c2d8fc4230821743bd57c06c8ebb6ee72a8316d1c72cd9",
   "sourceProductPolicyHash": "e6cecdd5107285eae1cb91b9ff29d2b4b8f2756cc3fff05bda14eb0fd6bb7be4",
   "sourceRegistryHash": "2b6b502d14d68edb0f060708d456c119103e1af4823d37e67d18b674be6f4f13",
-  "calibrationReleaseHash": "e347e4e226ee1a5b3a02658c3bd896e3032336675ec907068a79a86325cdd0bf",
-  "calibrationTrustAnchorHash": "3a454d7d4258959d57c109bfaa2387b2d49c4b2dd32d8209d522e8b32a23454d",
-  "fullReportHash": "a9c81a9d9dab77f1284313818e52e7ae4833b79341ba5de964f7d88f30f4c427",
+  "calibrationReleaseHash": "0f9d5acc5df99061a0bbf09e03b9d4feeaa3f9a149f23d65371cc5e855363527",
+  "calibrationTrustAnchorHash": "f069545dcadde2b45fad59cc6932a48124cab74c51f206540d59de2a73d6dd05",
+  "fullReportHash": "3b5ff144673a81dc44fdeb6dd57cdc0e687925f91ab42dccaffc941b77116749",
   "productionAuthorized": false,
   "runtimeActivated": false,
   "rankingAuthorized": false,
   "eligibilityAuthorized": false,
   "executionAuthorized": false,
-  "interactiveUiHash": "5253d10a58c2193070a72ae837ffe5dd84cd918efaf1ac2f861bb427b10292bc",
+  "interactiveUiHash": "b5a1a0ab1da8d8739840724a1bc124af554692e788dd277d44fba94257c98577",
   "centralResults": {
     "searchContextualPromotionsByCandidate": [
       {
@@ -80,5 +82,5 @@
     "runtimeDeploymentRequired": false,
     "executionAuthorized": false
   },
-  "summaryHash": "f60469f5fef43620bad96b14fd2a52815ea79ff746adf32bb07d8102e33a7a83"
+  "summaryHash": "ade610ca67d3369fabbe92ec4503502f509e5fa676f29a39c076d72ecf8b8eca"
 }

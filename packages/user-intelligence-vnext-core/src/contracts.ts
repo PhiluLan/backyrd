@@ -79,6 +79,10 @@ export const CONTRACT_VERSIONS = Object.freeze({
   phase3dWorldCohortManifest: "backyrd.user-intelligence.world-cohort-consumer@3d-1",
   phase3dDecisionTaskBinding: "backyrd.user-intelligence.decision-task-binding@3d-1",
   phase3dCalibrationDecisionRecord: "backyrd.user-intelligence.calibration-decisions@3d-1",
+  phase3dFounderCalibrationDecisionRecord: "backyrd.user-intelligence.calibration-decisions@3d-2",
+  phase3dCalibrationTraceability: "backyrd.user-intelligence.calibration-traceability@3d-1",
+  phase3dCalibrationReleaseFinal: "backyrd.user-intelligence.calibration-release@3d-2",
+  phase3dCalibrationTrustAnchorFinal: "backyrd.user-intelligence.calibration-trust-anchor@3d-2",
 } as const);
 
 export const SYNTHETIC_CONCEPT_REGISTRY_VERSION = "backyrd.synthetic-user-concepts@1.0";

@@ -60,21 +60,27 @@
       <div id="interpretations" class="interpretation-list"></div>
     </section>
 
+    <section class="panel" id="founder-selections-section">
+      <div class="section-head"><div><p class="eyebrow">06 · Founder-Auswahl</p><h2>Fünf Kalibrierungsentscheidungen</h2></div><span class="warning-pill">Ausgewählt · nicht für Production aktiviert</span></div>
+      <div id="founder-selections" class="selection-grid"></div>
+      <p class="footnote">Diese Auswahl ist eine versionierte Grundlage für einen späteren separaten Policy-Auftrag. Phase 3C und die Production Runtime bleiben unverändert.</p>
+    </section>
+
     <section class="panel" id="candidates-section">
-      <div class="section-head"><div><p class="eyebrow">06 · Policy-Vergleich</p><h2>Drei Blickwinkel auf fünf offene Regeln</h2></div></div>
+      <div class="section-head"><div><p class="eyebrow">07 · Historischer Policy-Vergleich</p><h2>Drei Blickwinkel auf die Kalibrierungsregeln</h2></div></div>
       <div class="rule-tabs" id="rule-tabs"></div>
       <div id="candidate-grid" class="candidate-grid"></div>
       <p class="footnote">Kein Kandidat ist Gewinner. Alle Ergebnisse sind synthetische Kalibrierung ohne Product-Qualitätsbehauptung.</p>
     </section>
 
     <section class="panel" id="integrity-section">
-      <div class="section-head"><div><p class="eyebrow">07 · Rebuild & Integrität</p><h2>Ist das Ergebnis reproduzierbar?</h2></div></div>
+      <div class="section-head"><div><p class="eyebrow">08 · Rebuild & Integrität</p><h2>Ist das Ergebnis reproduzierbar?</h2></div></div>
       <div class="button-row"><button data-rebuild="FULL">Full Rebuild</button><button class="secondary" data-rebuild="INCREMENTAL">Incremental Update</button><button class="secondary" data-rebuild="REPLAY">Replay prüfen</button></div>
       <div id="integrity-status" class="context-strip">Noch kein Browser-Rebuild ausgeführt.</div>
     </section>
 
     <section class="panel danger-zone" id="privacy-section">
-      <div class="section-head"><div><p class="eyebrow">08 · Datenschutz & Lifecycle</p><h2>Lokale Daten kontrollieren</h2></div></div>
+      <div class="section-head"><div><p class="eyebrow">09 · Datenschutz & Lifecycle</p><h2>Lokale Daten kontrollieren</h2></div></div>
       <p>Diese Funktionen betreffen ausschließlich den ausgewählten lokalen Testnutzer. Vor dem Löschen ist eine Bestätigung erforderlich.</p>
       <div class="button-row"><a class="button secondary" href="/api/privacy-export" download>Privacy-/Legal-Testexport</a><button class="secondary" data-lifecycle="WITHDRAW">Consent widerrufen</button><button class="secondary" data-lifecycle="RESET">Testmodell vollständig zurücksetzen</button><button class="danger" data-lifecycle="ERASE">Testnutzer löschen</button></div>
     </section>
