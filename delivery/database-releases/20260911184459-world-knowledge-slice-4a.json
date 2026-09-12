@@ -48,7 +48,7 @@
     },
     {
       "path": "supabase/tests/world_knowledge_slice4a_registry2.sql",
-      "sha256": "1a97e9aeca130171d14f6fa6bbe83ecd7162f65158673b6e743afe1aff09848b"
+      "sha256": "bd6d37e7db33cb99499d5fc2bee048ef7c3436d0b542716501b217a375554395"
     }
   ],
   "fingerprints": {
