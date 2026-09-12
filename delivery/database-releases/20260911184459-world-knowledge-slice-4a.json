@@ -40,7 +40,7 @@
     }
   ],
   "fingerprints": {
-    "publicAclSha256": "34ad6c957c48766a46540515b545814287c4c7659d0081fd43b6fa8ac5f20f66",
-    "applicationSchemaSha256": "d5b57a0e0513679b793c786ccecc985bab2276704a9a9dc132695ea5578b8b50"
+    "publicAclSha256": "4d8eb81b0c6ff087a51466f705b6f7a71a690abe70a0e8f6aec1a9453f688941",
+    "applicationSchemaSha256": "d46313b0d157e34d05ef022948a520ecf3590dd1e010ffafbc58b4d2f9dfe081"
   }
 }
