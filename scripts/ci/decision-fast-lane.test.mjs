@@ -73,3 +73,9 @@ test("GitHub transfers the non-hidden immutable manifest to every Decision shard
   assert.equal((workflow.match(/--verify decision-ci-artifact\.json/g) ?? []).length, 6);
   assert.doesNotMatch(workflow, /\.decision-ci-artifact\.json/);
 });
+
+test("Decision Lab retains full Git history required by lineage and freeze tests", () => {
+  const workflow = readFileSync(new URL("../../.github/workflows/risk-gate.yml", import.meta.url), "utf8");
+  const decisionLab = workflow.split("\n  decision-lab:\n")[1]?.split("\n  decision-consumers:\n")[0] ?? "";
+  assert.match(decisionLab, /actions\/checkout@[a-f0-9]+[^]*fetch-depth: 0/);
+});
