@@ -159,6 +159,20 @@ export async function inspectFounderLabCohort(cohortHandoff?: FounderWorldCohort
   return deepFreeze({ cohort, names: rows.map((row) => row.name), spotCount: rows.length });
 }
 
+export function founderLabEvaluationGaps(interpretationInput: unknown): readonly string[] {
+  const interpretation = FounderLabInterpretationSchema.parse(interpretationInput);
+  const gaps = [
+    !interpretation.primaryIntent ? "PRIMARY_INTENT_REQUIRED" : "",
+    interpretation.locationAuthority.state !== "KNOWN" || !interpretation.locationAuthority.authorizedCity ? "LOCATION_AUTHORITY_REQUIRED" : "",
+  ].filter(Boolean);
+  return deepFreeze(unique(gaps));
+}
+
+export function assertFounderLabEvaluable(interpretationInput: unknown): void {
+  const gaps = founderLabEvaluationGaps(interpretationInput);
+  if (gaps.length) throw new Error(`phase3c_founder_lab_not_evaluable:${gaps.join(",")}`);
+}
+
 function userProjection(request: FounderLabRequest, contextHash: string): RelevantUserProjection {
   const projectionRequest = {
     contractVersion: USER_VERSIONS.projectionRequest, requestId: `projection-${request.requestId}`, actor: { kind: "AUTHENTICATED_USER" as const, userId: SYNTHETIC_USER_A, subjectBindingHash: SYNTHETIC_SUBJECT_BINDING_HASH, authenticationContextHash: contentHash("phase3c-lab-auth"), boundBy: "SERVER" as const }, decisionId: `decision-${request.requestId}`,

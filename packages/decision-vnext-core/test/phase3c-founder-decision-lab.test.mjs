@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   FounderLabRequestSchema, PHASE3C_FOUNDER_LAB_RELEASE, PHASE3C_FOUNDER_ORACLES, PHASE3C_FOUNDER_SCENARIO_IDS,
   PHASE3C_LAB_COMPATIBILITY, PHASE3C_LAB_VERSIONS, canonicalJson, contentHash, replayFounderDecisionLab,
-  replayFounderLabReport, resolveFounderLabText, runFounderDecisionLab, runFounderLabOracles,
+  assertFounderLabEvaluable, founderLabEvaluationGaps, replayFounderLabReport, resolveFounderLabText, runFounderDecisionLab, runFounderLabOracles,
 } from "../dist/index.js";
 import { makeFounderCohortHandoff } from "../../../scripts/decision/phase3c-founder-cohort-fixture.mjs";
 
@@ -41,6 +41,19 @@ test("prepared Founder family and coffee tasks expose complete, correction-ready
   assert.deepEqual(family.group, { size: null, minimumAge: 12, adultPresent: true, companionType: "family" }); assert.ok(family.hardConstraints.includes("AGE_OR_LEGAL"));
   const coffee = resolveFounderLabText(request("Ich möchte in Basel gemütlich Kaffee trinken und brauche einen rollstuhlgerechten Zugang."));
   assert.equal(coffee.primaryIntent, "context.intent.coffee"); assert.ok(coffee.hardConstraints.includes("ACCESSIBILITY"));
+});
+
+test("incomplete free text is fail-closed until primary intent and an explicit authorized target are supplied", async () => {
+  const incompleteRequest = request("Ich suche einen Ort für mich und meine zwölfjährige Tochter.", { deviceLocation: { state: "DENIED", city: null } });
+  const incomplete = resolveFounderLabText(incompleteRequest);
+  assert.deepEqual(founderLabEvaluationGaps(incomplete), ["LOCATION_AUTHORITY_REQUIRED", "PRIMARY_INTENT_REQUIRED"]);
+  assert.throws(() => assertFounderLabEvaluable(incomplete), /phase3c_founder_lab_not_evaluable:LOCATION_AUTHORITY_REQUIRED,PRIMARY_INTENT_REQUIRED/);
+  const corrected = resolveFounderLabText(incompleteRequest, { primaryIntent: "context.intent.food", targetCity: "Basel" });
+  assert.deepEqual(founderLabEvaluationGaps(corrected), []);
+  assert.doesNotThrow(() => assertFounderLabEvaluable(corrected));
+  const result = await runFounderDecisionLab({ request: incompleteRequest, corrections: { primaryIntent: "context.intent.food", targetCity: "Basel" } });
+  assert.equal(result.interpretation.primaryIntent, "context.intent.food");
+  assert.equal(result.interpretation.locationAuthority.authorizedCity, "Basel");
 });
 
 test("explicit target city wins over device location and denied tracking still permits explicit city", async () => {

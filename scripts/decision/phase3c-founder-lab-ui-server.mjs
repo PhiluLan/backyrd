@@ -2,7 +2,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { PHASE3C_LAB_VERSIONS, contentHash, inspectFounderLabCohort, replayFounderDecisionLab, resolveFounderLabText, runFounderDecisionLab } from "../../packages/decision-vnext-core/dist/index.js";
+import { PHASE3C_LAB_VERSIONS, assertFounderLabEvaluable, contentHash, inspectFounderLabCohort, replayFounderDecisionLab, resolveFounderLabText, runFounderDecisionLab } from "../../packages/decision-vnext-core/dist/index.js";
 import { parseFounderWorldCohortHandoff } from "../../packages/world-knowledge-core/dist/index.js";
 import { createFounderLabStateStore } from "./phase3c-founder-lab-state.mjs";
 
@@ -40,7 +40,7 @@ export function startPhase3CFounderLabServer({ port = 3223, host = "127.0.0.1", 
         if (url.pathname === "/api/cohort/synthetic" || url.pathname === "/api/cohort/reset") { assertOnly(body, new Set()); state.reset(); return send(res, 200, { ok: true, data: await cohortStatus() }); }
         const input = request(body);
         if (url.pathname === "/api/resolve") { assertOnly(body, requestFields); return send(res, 200, { ok: true, data: resolveFounderLabText(input) }); }
-        if (url.pathname === "/api/evaluate") { assertOnly(body, new Set([...requestFields, "corrections"])); return send(res, 200, { ok: true, data: await runFounderDecisionLab({ request: input, ...(body.corrections ? { corrections: body.corrections } : {}), ...(activeHandoff() ? { cohortHandoff: activeHandoff() } : {}) }) }); }
+        if (url.pathname === "/api/evaluate") { assertOnly(body, new Set([...requestFields, "corrections"])); assertFounderLabEvaluable(resolveFounderLabText(input, body.corrections)); return send(res, 200, { ok: true, data: await runFounderDecisionLab({ request: input, ...(body.corrections ? { corrections: body.corrections } : {}), ...(activeHandoff() ? { cohortHandoff: activeHandoff() } : {}) }) }); }
         if (url.pathname === "/api/replay") { assertOnly(body, new Set([...requestFields, "corrections", "result"])); return send(res, 200, { ok: true, data: await replayFounderDecisionLab(input, body.result, { ...(body.corrections ? { corrections: body.corrections } : {}), ...(activeHandoff() ? { cohortHandoff: activeHandoff() } : {}) }) }); }
       }
       return send(res, 404, { ok: false, code: "NOT_FOUND" });
