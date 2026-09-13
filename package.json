@@ -95,6 +95,7 @@
     "decision-vnext:phase3b:context": "npm run phase3b:context --workspace @backyrd/decision-vnext-core",
     "decision-vnext:phase3c:lab": "npm run phase3c:lab --workspace @backyrd/decision-vnext-core",
     "decision-vnext:phase3c:lab:ui": "npm run decision-vnext:build && node scripts/decision/phase3c-founder-lab-ui-server.mjs",
+    "decision-vnext:phase3c:lab:reset": "npm run decision-vnext:build && node scripts/decision/reset-phase3c-founder-lab.mjs",
     "decision-vnext:phase3c:ui:test": "npm run decision-vnext:build && node --test scripts/decision/phase3c-founder-lab-ui.test.mjs",
     "decision-vnext:phase3c:ui:e2e": "npm run decision-vnext:build && node scripts/decision/phase3c-founder-lab-ui.e2e.mjs",
     "decision-ci:fast": "node scripts/ci/run-decision-ci.mjs --group fast",

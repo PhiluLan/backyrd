@@ -66,6 +66,7 @@ export type FounderLabInterpretation = Infer<typeof FounderLabInterpretationSche
 export const FounderLabCohortSchema = schema.object({
   contractVersion: version(PHASE3C_LAB_VERSIONS.cohort), cohortId: identifier, source: schema.enum(["FOUNDER_WORLD_COHORT", "SYNTHETIC_FALLBACK"] as const),
   worldRegistryVersion: schema.string({ min: 1, max: 160 }), worldRegistryHash: sha256, sourcePolicyVersion: schema.string({ min: 1, max: 160 }),
+  sourceHandoffHash: schema.union([sha256, schema.literal(null)] as const),
   spotBindings: schema.array(schema.object({ spotId: identifier, snapshotHash: sha256, fixtureProfileHash: sha256 }), { min: 1, max: 40 }),
   limitations: schema.array(identifier, { max: 20 }), mixedSources: schema.literal(false), cohortHash: sha256,
 });
@@ -111,6 +112,7 @@ export const FounderLabReleaseSchema = schema.object({
   contractVersion: version(PHASE3C_LAB_VERSIONS.release), releaseId: identifier, canonicalBaseSha: schema.string({ pattern: /^[a-f0-9]{40}$/ }),
   phase3BReleaseHash: sha256, compatibilityHash: sha256, worldFounderEvidenceHash: sha256, userFounderRecordHash: sha256,
   userProductPolicyHash: sha256, userSignalRegistryHash: sha256, scenarioSetHash: sha256,
+  founderCohortHandoffContract: schema.literal("backyrd.world-knowledge.founder-cohort-handoff@1.0"),
   trustRoot: schema.literal("INHERITED_PHASE3B_SIGNED_RELEASE_PLUS_REPOSITORY_SOURCE_IDENTITY"), ...labFlags, releaseHash: sha256,
 });
 export type FounderLabRelease = Infer<typeof FounderLabReleaseSchema>;

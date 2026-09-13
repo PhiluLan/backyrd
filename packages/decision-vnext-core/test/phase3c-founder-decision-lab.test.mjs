@@ -5,6 +5,7 @@ import {
   PHASE3C_LAB_COMPATIBILITY, PHASE3C_LAB_VERSIONS, canonicalJson, contentHash, replayFounderDecisionLab,
   replayFounderLabReport, resolveFounderLabText, runFounderDecisionLab, runFounderLabOracles,
 } from "../dist/index.js";
+import { makeFounderCohortHandoff } from "../../../scripts/decision/phase3c-founder-cohort-fixture.mjs";
 
 const request = (text, overrides = {}) => ({ contractVersion: PHASE3C_LAB_VERSIONS.request, requestId: "lab-test", ephemeralText: text, deviceLocation: { state: "AVAILABLE", city: "Basel" }, userMode: "NEUTRAL_MISSING", alternativeRequested: false, rejectedCandidateIds: [], ...overrides });
 const rehash = (value, field) => { const body = structuredClone(value); delete body[field]; return { ...body, [field]: contentHash(body) }; };
@@ -84,6 +85,14 @@ test("missing Founder cohort degrades only to an unmixed synthetic fallback; inc
   await assert.rejects(() => runFounderDecisionLab({ request: request("Café in Zürich"), worldReader: { contractVersion: "backyrd.world-knowledge.reader-port@1.0", readSnapshot: async () => ({}) } }), /cohort_binding_incomplete/);
   const fake = { contractVersion: "backyrd.world-knowledge.founder-cohort@1.0", scope: "FOUNDER_EVALUATION_ONLY", cohortId: "fake", frozenAt: "2026-09-12T00:00:00.000Z", registryVersion: "backyrd.world-knowledge.registry@2.0", registryHash: "0".repeat(64), policyVersion: "fake", policyHash: "0".repeat(64), spots: [], exclusions: [], cohortHash: "0".repeat(64) };
   await assert.rejects(() => runFounderDecisionLab({ request: request("Café in Zürich"), worldReader: { contractVersion: "backyrd.world-knowledge.reader-port@1.0", readSnapshot: async () => ({}) }, cohortManifest: fake }), /manifest_invalid/);
+});
+
+test("local World handoff evaluates exactly the imported cohort and binds replay to it", async () => {
+  const handoff = makeFounderCohortHandoff(["Volta Bräu"]); const input = request("Rollstuhlgerechtes Café in Zürich");
+  const result = await runFounderDecisionLab({ request: input, cohortHandoff: handoff });
+  assert.equal(result.worldCohort.source, "FOUNDER_WORLD_COHORT"); assert.equal(result.worldCohort.sourceHandoffHash, handoff.handoffHash); assert.deepEqual(result.candidates.map((row) => row.label), ["Volta Bräu"]); assert.ok(result.limitations.includes("single-spot-cohort-comparison-not-representative"));
+  assert.equal((await replayFounderDecisionLab(input, result, { cohortHandoff: handoff })).resultHash, result.resultHash);
+  await assert.rejects(() => runFounderDecisionLab({ request: input, cohortHandoff: handoff, worldReader: {} }), /sources_must_not_mix/);
 });
 
 test("incompatible intents, World conflict, and session state remain explicit", async () => {

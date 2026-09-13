@@ -1,0 +1,8 @@
+.source-panel { border-color: #4a4051; }
+.guide { columns: 2; line-height: 1.6; color: #c8c5cc; }
+.file-button { display: inline-flex !important; background: var(--pink); color: #160b10; padding: .8rem 1rem; border-radius: 14px; font-weight: 800; cursor: pointer; }
+.file-button input { position: absolute; width: 1px !important; height: 1px; opacity: 0; }
+.presets { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.plain-summary, #comparison, #cohort-preview { border: 1px solid var(--line); border-radius: 16px; background: #0f0f13; padding: 1rem; margin: 1rem 0; }
+.plain-summary h3, #cohort-preview h3 { margin-top: 0; }
+@media (max-width: 760px) { .guide { columns: 1; } .presets > * { width: 100%; } }

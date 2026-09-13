@@ -6,6 +6,7 @@ export * from "./contracts.js";
 export * from "./contextual.js";
 export * from "./derived.js";
 export * from "./fixtures.js";
+export * from "./founder-handoff.js";
 export * from "./governance.js";
 export * from "./legacy-adapter.js";
 export * from "./legacy-mapping.js";

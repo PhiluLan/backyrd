@@ -10,6 +10,8 @@ The lab loads the accepted Phase-3B Product Context release, consumes World only
 
 The resolver is deterministic, local, replaceable and ephemeral. Fixture profiles add only synthetic calibration semantics and are bound to each World snapshot hash. They are not World facts and may not leave the lab as Product claims. A valid Founder cohort is optional; absent input causes an explicit unmixed synthetic fallback.
 
+The Founder handoff is a single evaluation-only file produced by the existing local World authoring export. World binds its server-produced cohort manifest to the unchanged, minimized snapshots already available through the authenticated authoring read boundary. The file excludes precise coordinates, public contacts, payment and every other commercial or private field. Decision validates it recursively, persists an explicitly activated copy atomically outside Git, and reads no database. The active source is always visible and the two sources can never be mixed.
+
 ## Rejected alternatives
 
 - Direct spot tables or legacy RPCs: prohibited by the World authority boundary.
@@ -17,6 +19,7 @@ The resolver is deterministic, local, replaceable and ephemeral. Fixture profile
 - Treating unknown facts as false: violates the Product Context policy.
 - Reading User event history: violates the minimized projection boundary.
 - Silent registry upgrade: would create unreviewed Product semantics.
+- A manifest-only Decision import: rejected because snapshot hashes without snapshot contents cannot support an offline evaluation.
 
 ## Consequences
 
