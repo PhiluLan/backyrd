@@ -34,3 +34,5 @@ export * from "./phase3b-release.js";
 export * from "./phase3b-resolvers.js";
 export * from "./phase3b-policy.js";
 export * from "./phase3b-oracle-workbench.js";
+export * from "./phase3c-lab-contracts.js";
+export * from "./phase3c-lab.js";
