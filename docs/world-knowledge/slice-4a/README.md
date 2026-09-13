@@ -2,6 +2,8 @@
 
 Slice 4A connects the canonical Slice 3B ledger to a guided Admin/Owner authoring experience for an isolated Founder cohort. It does not activate World Knowledge for production clients or Decision vNext.
 
+The Founder-approved schedule-authoring retest is recorded in the machine-readable [`founder-schedule-authoring-retest.json`](./founder-schedule-authoring-retest.json). It records UX acceptance only and grants no Production, migration, runtime, or Decision authorization.
+
 ## Boundary
 
 - Every cohort member is marked `FOUNDER_EVALUATION_ONLY`, stored with `data_origin = TEST`, and its legacy `public.spots` row remains `archived`.

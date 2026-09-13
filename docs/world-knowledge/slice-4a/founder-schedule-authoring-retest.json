@@ -1,0 +1,28 @@
+{
+  "artifactType": "BACKYRD_WORLD_KNOWLEDGE_SLICE_4A_FOUNDER_RETEST_V1",
+  "approval": {
+    "approvedAt": "2026-09-13",
+    "approvedByRole": "FOUNDER",
+    "multipleIntervals": "PASS",
+    "productionAuthorization": "NOT_GRANTED",
+    "saveReloadPersistence": "PASS",
+    "scheduleAuthoringRetest": "PASS",
+    "scheduleUx": "FOUNDER_APPROVED",
+    "separateKitchenHours": "PASS"
+  },
+  "canonicalIdentity": {
+    "baseSha": "ffd9f7326b00e49c91b911fbc615d7c3ca7c52fd",
+    "pullRequest": 280,
+    "reviewedHeadSha": "856661c854e46f5661f36b086d5710c2bc117b8e",
+    "reviewedTreeSha": "cbb5e921dc8621f3ba0bd24bdbbcc099a765612d"
+  },
+  "evidenceHash": "fb892599f3f623f53ec8efcd5fc084bd8e9f55e6a6317de7e23c8f7f0d168437",
+  "scope": {
+    "decisionActivation": false,
+    "productionDeployment": false,
+    "productionMigration": false,
+    "productionRead": false,
+    "productionWrite": false,
+    "runtimeActivation": false
+  }
+}
