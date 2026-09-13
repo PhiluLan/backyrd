@@ -8,11 +8,11 @@ import { classifyChange } from "./classify-change.mjs";
 
 const policy = {
   decisionTrustAnchor: "decision-lab/config/anchor.json",
-  surfacePrefixes: { mobile: ["mobile/"], web: ["web/"], admin: ["admin-dashboard/"], shared: ["packages/shared/", "packages/user-intelligence-vnext-core/", "packages/world-knowledge-core/"] },
+  surfacePrefixes: { mobile: ["mobile/"], web: ["web/", "packages/world-knowledge-authoring-ui/"], admin: ["admin-dashboard/", "packages/world-knowledge-authoring-ui/"], shared: ["packages/shared/", "packages/user-intelligence-vnext-core/", "packages/world-knowledge-core/"] },
   databasePrefixes: ["supabase/migrations/", "supabase/canonical/", "supabase/tests/"],
   authorizationPrefixes: ["supabase/canonical/auth_hooks.sql", "supabase/canonical/storage.sql"],
   privilegedServerPrefixes: ["supabase/functions/", "supabase/config.toml", "supabase/production/auth-config.json"],
-  decisionSemanticPrefixes: ["packages/decision-vnext-core/src/", "supabase/functions/decision-v13/"],
+  decisionSemanticPrefixes: ["packages/decision-vnext-core/src/", "packages/world-knowledge-core/src/port.ts", "supabase/functions/decision-v13/"],
   decisionEvaluationPrefixes: ["packages/decision-vnext-core/test/", "packages/decision-vnext-core/sandbox/", "decision-lab/"],
   decisionConsumerPrefixes: ["packages/shared/", "packages/user-intelligence-vnext-core/", "packages/world-knowledge-core/"],
   decisionPipelineControlPrefixes: [".github/workflows/", "package.json", "package-lock.json", "scripts/ci/classify-change.mjs", "scripts/ci/decision-", "scripts/ci/verify-decision-shards.mjs"],
@@ -122,6 +122,20 @@ test("unknown files and deleted tests cannot silently bypass routing", () => {
   assert.notEqual(base, head);
 });
 
+test("shared authoring UI selects web and admin fast lanes without Decision recertification", () => {
+  const result = plan({ files: { "packages/world-knowledge-authoring-ui/src/index.tsx": "export const authoring = true;\n" } });
+  assert.equal(result.flags.web, true);
+  assert.equal(result.flags.admin, true);
+  assert.equal(result.flags.decisionSemantics, false);
+});
+
+test("WorldKnowledgePort changes still select relevant Decision checks", () => {
+  const result = plan({ files: { "packages/world-knowledge-core/src/port.ts": "export const port = true;\n" } });
+  assert.equal(result.flags.shared, true);
+  assert.equal(result.flags.decisionSemantics, true);
+  assert.ok(result.requiredGates.includes("decision"));
+});
+
 test("privileged Edge Function source selects the server deployment contract", () => {
   const result = plan({ files: { "supabase/functions/example/index.ts": "Deno.serve(() => new Response('ok'));\n" } });
   assert.equal(result.flags.privilegedServer, true);
@@ -139,4 +153,28 @@ test("published migration mutation is identified independently", () => {
   assert.equal(result.flags.migrationMutation, true);
   assert.ok(result.blockedReasons.includes("published_migration_mutation"));
   assert.notEqual(base, head);
+});
+
+test("additive ALTER TABLE and later DROP TRIGGER are not joined into a destructive operation", () => {
+  const result = plan({ files: { "supabase/migrations/20260102120000_additive_rls.sql": "alter table private.example enable row level security;\ndrop trigger if exists old_trigger on private.example;\n" } });
+  assert.equal(result.flags.destructive, false);
+  assert.ok(!result.blockedReasons.includes("destructive_migration_requires_separate_founder_cto_authorization"));
+});
+
+test("an atomic named CHECK replacement is an authorization change, not a destructive data operation", () => {
+  const result = plan({ files: { "supabase/migrations/20260102120000_expand_check.sql": "alter table private.example drop constraint example_kind_check;\nalter table private.example add constraint example_kind_check check (kind in ('A','B'));\n" } });
+  assert.equal(result.flags.destructive, false);
+  assert.equal(result.flags.database, true);
+  assert.ok(!result.blockedReasons.includes("destructive_migration_requires_separate_founder_cto_authorization"));
+});
+
+test("an unpaired or differently named constraint drop remains fail-closed", () => {
+  for (const sql of [
+    "alter table private.example drop constraint example_kind_check;\n",
+    "alter table private.example drop constraint example_kind_check;\nalter table private.example add constraint other_check check (kind in ('A','B'));\n",
+  ]) {
+    const result = plan({ files: { "supabase/migrations/20260102120000_drop_check.sql": sql } });
+    assert.equal(result.flags.destructive, true);
+    assert.ok(result.blockedReasons.includes("destructive_migration_requires_separate_founder_cto_authorization"));
+  }
 });

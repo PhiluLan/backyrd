@@ -40,8 +40,10 @@ export interface ReservationRule { readonly mode: typeof RESERVATION_MODES[numbe
 export interface ConsumptionRule { readonly policy: typeof CONSUMPTION_POLICIES[number]; readonly exceptions: readonly string[] }
 export interface PetAccessRule { readonly indoor: typeof PET_ACCESS_STATES[number]; readonly outdoor: typeof PET_ACCESS_STATES[number]; readonly assistanceAnimals: typeof PET_ACCESS_STATES[number]; readonly notes: string | null }
 export interface AgeAccessRule { readonly policy: "ALL_AGES" | "MINIMUM_AGE"; readonly minimumAge: number | null; readonly appliesFromTime: string | null }
+export interface AgeAccessCondition { readonly mode: "NO_MINIMUM" | "GENERAL_MINIMUM" | "UNACCOMPANIED_MINIMUM"; readonly minimumAge: number | null; readonly accompaniment: "NONE" | "ADULT" | "LEGAL_GUARDIAN"; readonly appliesFromTime: string | null; readonly days: readonly Weekday[]; readonly area: string | null; readonly event: string | null }
+export interface AgeAccessRuleV2 { readonly rules: readonly AgeAccessCondition[] }
 export interface CurrentStateValue { readonly kind: typeof CURRENT_STATE_KINDS[number]; readonly scope: string }
-export type ClaimValue = string | number | boolean | null | readonly string[] | MoneyRange | IntegerRange | ReservationRule | ConsumptionRule | PetAccessRule | AgeAccessRule | readonly WeeklyScheduleDay[] | readonly SpecialHoursDay[] | CurrentStateValue;
+export type ClaimValue = string | number | boolean | null | readonly string[] | MoneyRange | IntegerRange | ReservationRule | ConsumptionRule | PetAccessRule | AgeAccessRule | AgeAccessRuleV2 | readonly WeeklyScheduleDay[] | readonly SpecialHoursDay[] | CurrentStateValue;
 
 export interface WorldKnowledgeClaim {
   readonly contractVersion: typeof CLAIM_CONTRACT_VERSION;
@@ -172,6 +174,24 @@ export function parseAttributeValue(attributeKeyValue: unknown, value: unknown, 
       if (policy === "ALL_AGES" && (minimumAge !== null || appliesFromTime !== null)) throw new ContractValidationError(path, "ALL_AGES cannot contain a minimum age or time restriction");
       if (policy === "MINIMUM_AGE" && minimumAge === null) throw new ContractValidationError(path, "MINIMUM_AGE requires minimumAge");
       return { policy, minimumAge, appliesFromTime };
+    }
+    case "AGE_ACCESS_RULE_V2": {
+      const root = object(value, path, ["rules"]);
+      const rules = array(required(root, "rules", path), `${path}.rules`, { min: 1, max: 12 }).map((entry, index) => {
+        const itemPath = `${path}.rules[${index}]`; const input = object(entry, itemPath, ["mode", "minimumAge", "accompaniment", "appliesFromTime", "days", "area", "event"]);
+        const mode = enumValue(required(input, "mode", itemPath), ["NO_MINIMUM", "GENERAL_MINIMUM", "UNACCOMPANIED_MINIMUM"] as const, `${itemPath}.mode`);
+        const rawAge = required(input, "minimumAge", itemPath); const minimumAge = rawAge === null ? null : number(rawAge, `${itemPath}.minimumAge`, { min: 0, max: 120, integer: true });
+        const accompaniment = enumValue(required(input, "accompaniment", itemPath), ["NONE", "ADULT", "LEGAL_GUARDIAN"] as const, `${itemPath}.accompaniment`);
+        const rawTime = required(input, "appliesFromTime", itemPath); const appliesFromTime = rawTime === null ? null : parseTime(rawTime, `${itemPath}.appliesFromTime`);
+        const days = sortedUnique(array(required(input, "days", itemPath), `${itemPath}.days`, { max: 7 }).map((day, dayIndex) => enumValue(day, WEEKDAYS, `${itemPath}.days[${dayIndex}]`))) as readonly Weekday[];
+        const nullableText = (key: "area" | "event") => { const item = required(input, key, itemPath); return item === null ? null : string(item, `${itemPath}.${key}`, { min: 1, max: 160 }); };
+        if (mode === "NO_MINIMUM" && (minimumAge !== null || accompaniment !== "NONE")) throw new ContractValidationError(itemPath, "NO_MINIMUM cannot contain age or accompaniment requirements");
+        if (mode !== "NO_MINIMUM" && minimumAge === null) throw new ContractValidationError(`${itemPath}.minimumAge`, "age restriction requires minimumAge");
+        if (mode === "GENERAL_MINIMUM" && accompaniment !== "NONE") throw new ContractValidationError(`${itemPath}.accompaniment`, "general minimum does not allow an accompaniment exception");
+        if (mode === "UNACCOMPANIED_MINIMUM" && accompaniment === "NONE") throw new ContractValidationError(`${itemPath}.accompaniment`, "unaccompanied minimum requires the allowed accompanying person");
+        return { mode, minimumAge, accompaniment, appliesFromTime, days, area: nullableText("area"), event: nullableText("event") };
+      });
+      return { rules };
     }
     case "WEEKLY_SCHEDULE": return parseWeeklySchedule(value, path);
     case "SPECIAL_HOURS": return parseSpecialHours(value, path);

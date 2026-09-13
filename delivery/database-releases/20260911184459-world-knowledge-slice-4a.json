@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260911184459-world-knowledge-slice-4a",
+  "previousEvidence": "review-capture-trust-v2",
+  "previousFingerprints": {
+    "publicAclSha256": "097c34637cecd413bccb112f663adfc3d2092defdb6f0d04015fe9b0f8e393fd",
+    "applicationSchemaSha256": "898210dbedce247f82b45e44657cfe0e759c05ce9ce6fa3cd65823c311333d37"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260911184459_world_knowledge_slice_4a_authoring.sql",
+      "sha256": "ace27a232abb8bdf5eef2d170468d3d668d5c3848848975775bfd49839ced8a3"
+    },
+    {
+      "path": "supabase/migrations/20260911214533_world_knowledge_slice_4a_legacy_import_rehearsal.sql",
+      "sha256": "d233311f443dcbb8fd09023420639e4019ee04ac304153c55b3decad3a61530b"
+    },
+    {
+      "path": "supabase/migrations/20260912084654_world_knowledge_slice_4a_authoring_product_readiness.sql",
+      "sha256": "6677391186650567b72b0e41b9969dab6b5b34780bc03149fda73e09cd571bfd"
+    },
+    {
+      "path": "supabase/migrations/20260912103000_world_knowledge_slice_4a_authoring_reliability.sql",
+      "sha256": "ef21cf5f1829bc06509d8b063fa8cc4ac1fcbd2a7997f38722112b744737ada9"
+    },
+    {
+      "path": "supabase/migrations/20260912121000_world_knowledge_slice_4a_taxonomy_candidate_expansion.sql",
+      "sha256": "ec90ccf9eebd43fb97374eff6ea77d3343abb0e62c246868a2ce0b69dafe1aa8"
+    },
+    {
+      "path": "supabase/migrations/20260912165043_world_knowledge_slice_4a_authoring_registry_2.sql",
+      "sha256": "f93b40c657fea27cbc95982d62344ad267c456b8a7c2a135866a351fd1b48642"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/world_knowledge_slice4a_authoring.sql",
+      "sha256": "f96d83c19eda9cdd46f9253852a60ea1fbe1557de45f6c73c686455af58efc76"
+    },
+    {
+      "path": "supabase/tests/world_knowledge_slice4a_legacy_import.sql",
+      "sha256": "11377def0b6269f51207a12f8d046dc2e395b51bc5909ab8dcbb7792f77471ab"
+    },
+    {
+      "path": "supabase/tests/world_knowledge_slice4a_product_readiness.sql",
+      "sha256": "760073f5ec8ac1f1f674f05fe3879341fe780415aad1195aefe89572ba1d675b"
+    },
+    {
+      "path": "supabase/tests/world_knowledge_slice4a_registry2.sql",
+      "sha256": "bd6d37e7db33cb99499d5fc2bee048ef7c3436d0b542716501b217a375554395"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "9daf4329618f2a2b6ae445f60b5044cf9d2a87d2acd9abcf34428eb11aab3ee1",
+    "applicationSchemaSha256": "9eb43c971e5ce194e6bc500ada0ffeedd4ae7510bcf3d299fdf6ac8bf963991f"
+  }
+}

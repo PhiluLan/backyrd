@@ -61,7 +61,7 @@ test("Events remain behind the existing Admin authorization boundary", async () 
   ]);
 
   assert.match(layout, /<AdminGuard>/);
-  assert.match(guard, /supabase\.auth\.getSession\(\)/);
+  assert.match(guard, /recoverWorldKnowledgeSession\(supabase\.auth\)/);
   assert.match(guard, /supabase\.rpc\("admin_is_admin_v1"\)/);
   assert.match(guard, /router\.replace\("\/login"\)/);
 });

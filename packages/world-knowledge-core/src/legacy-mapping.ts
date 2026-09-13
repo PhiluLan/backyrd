@@ -1,6 +1,6 @@
 import { sha256 } from "./canonical.js";
 
-export const LEGACY_MAPPING_VERSION = "backyrd.world-knowledge.legacy-mapping@1.0" as const;
+export const LEGACY_MAPPING_VERSION = "backyrd.world-knowledge.legacy-mapping@1.1" as const;
 export const MAPPING_STATUSES = ["DIRECT", "NORMALIZED", "AMBIGUOUS", "SUBJECTIVE", "MISSING_PROVENANCE", "UNSUPPORTED", "DEPRECATED", "PROHIBITED", "NO_TARGET_KEY"] as const;
 export type MappingStatus = typeof MAPPING_STATUSES[number];
 export interface LegacyMappingRow { readonly sourceSystem: string; readonly location: string; readonly field: string; readonly legacyType: string; readonly meaning: string; readonly writeAuthority: string; readonly sourceTrust: string; readonly targetKey: string | null; readonly transformation: string; readonly status: MappingStatus; readonly informationLoss: string; readonly conflictRisk: "LOW" | "MEDIUM" | "HIGH"; readonly verificationRequired: boolean; readonly engineEligibility: "POSSIBLE_AFTER_POLICY" | "EXPLANATION_ONLY" | "PROHIBITED"; readonly recommendation: "KEEP" | "ADAPT" | "EXTEND" | "REPLACE" | "DEPRECATE" | "DO_NOT_MIGRATE" | "UNKNOWN_NEEDS_DECISION" }

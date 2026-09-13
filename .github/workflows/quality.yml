@@ -49,7 +49,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - run: npm ci
       - name: Typecheck Web
-        run: npm exec --workspace web tsc -- --noEmit --pretty false
+        run: npm run typecheck --workspace web -- --pretty false
       - name: Build Web
         run: npm run build --workspace web
 
@@ -96,11 +96,14 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: admin-dashboard/package-lock.json
+      - name: Install repository workspace dependencies
+        working-directory: ${{ github.workspace }}
+        run: npm ci
       - run: npm ci
       - name: Admin navigation and Events access contracts
         run: npm run test:contracts
       - name: Typecheck Admin
-        run: npm exec tsc -- --noEmit --pretty false
+        run: npm run typecheck -- --pretty false
       - name: Build Admin
         run: npm run build
 

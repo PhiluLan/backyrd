@@ -199,3 +199,6 @@ supabase/functions/decision-engine-worker/index.deploy.ts
 supabase/functions/decision-north-star-internal/index.deploy.ts
 .vercel
 .env*
+
+# Sensitive local World Knowledge rehearsal exports (never commit Production rows).
+.local/world-knowledge-import/

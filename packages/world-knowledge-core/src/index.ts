@@ -1,4 +1,6 @@
 export * from "./canonical.js";
+export * from "./authoring.js";
+export * from "./authoring-taxonomy.js";
 export * from "./calibration.js";
 export * from "./contracts.js";
 export * from "./derived.js";
@@ -6,6 +8,7 @@ export * from "./fixtures.js";
 export * from "./governance.js";
 export * from "./legacy-adapter.js";
 export * from "./legacy-mapping.js";
+export * from "./legacy-rehearsal.js";
 export * from "./port.js";
 export * from "./registry.js";
 export * from "./resolver.js";

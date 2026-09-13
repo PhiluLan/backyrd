@@ -4,13 +4,19 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "prepare:world-knowledge": "tsc -p ../packages/world-knowledge-core/tsconfig.build.json --typeRoots ./node_modules/@types",
+    "prebuild": "npm run prepare:world-knowledge",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:contracts": "node --test test/*.test.mjs"
+    "test:contracts": "node --test test/*.test.mjs",
+    "pretypecheck": "npm run prepare:world-knowledge",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@backyrd/canonical-semantics": "file:../packages/canonical-semantics",
+    "@backyrd/world-knowledge-authoring-ui": "file:../packages/world-knowledge-authoring-ui",
+    "@backyrd/world-knowledge-core": "file:../packages/world-knowledge-core",
     "@supabase/supabase-js": "^2.75.0",
     "next": "^16.2.3",
     "react": "^19.2.4",

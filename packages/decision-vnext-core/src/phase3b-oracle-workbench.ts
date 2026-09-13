@@ -1,5 +1,5 @@
 import { assertContentHash, canonicalJson, contentHash, deepFreeze, withContentHash } from "./canonical.js";
-import { REGISTRY_HASH as WORLD_REGISTRY_HASH } from "@backyrd/world-knowledge-core";
+import { REGISTRY_V1_1_HASH as WORLD_REGISTRY_HASH } from "@backyrd/world-knowledge-core";
 import { PHASE3B_VERSIONS, ProductOracleWorkbenchSchema, ProductScenarioReportSchema, type ProductScenarioExpectation, type ProductScenarioReport, type ProductOracleWorkbench } from "./phase3b-contracts.js";
 import { PHASE3B_PRODUCT_SCENARIO_IDS } from "./phase3b-artifacts.js";
 import { assertAcceptedPhase3BProductContextRelease, loadAcceptedPhase3BProductContextRelease, selectAcceptedPhase3BScenario, type AcceptedPhase3BProductContextRelease } from "./phase3b-release.js";

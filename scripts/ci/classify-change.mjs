@@ -16,7 +16,28 @@ const startsWithAny = (path, prefixes) => prefixes.some((prefix) => path === pre
 const unique = (values) => [...new Set(values)].sort();
 
 const migrationSecurityPattern = /\b(?:create|alter|drop)\s+policy\b|\brow\s+level\s+security\b|\b(?:grant|revoke)\b|\bsecurity\s+definer\b|\bauth\.|\bstorage\./i;
-const destructivePattern = /\btruncate\b|\bdrop\s+(?:table|schema|column|type)\b|\bdelete\s+from\b|\balter\s+table\b[\s\S]*?\bdrop\b/i;
+const destructivePattern = /\btruncate\b|\bdrop\s+(?:table|schema|column|type)\b|\bdelete\s+from\b|\balter\s+table\b[^;]*\bdrop\b/i;
+
+const normalizedStatements = (text) => text
+  .replace(/--[^\n]*/g, "")
+  .split(";")
+  .map((statement) => statement.trim().replace(/\s+/g, " "))
+  .filter(Boolean);
+
+export function isDestructiveMigration(text) {
+  const statements = normalizedStatements(text);
+  for (const statement of statements) {
+    if (!destructivePattern.test(statement)) continue;
+    const replacement = statement.match(/^alter table ([a-z0-9_."]+) drop constraint(?: if exists)? ([a-z0-9_"]+)$/i);
+    if (replacement) {
+      const [, relation, constraint] = replacement;
+      const addPattern = new RegExp(`^alter table ${relation.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} add constraint ${constraint.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} check \\(`, "i");
+      if (statements.some((candidate) => addPattern.test(candidate))) continue;
+    }
+    return true;
+  }
+  return false;
+}
 
 export function classifyChange({ root, context, policy }) {
   const statusLines = git(root, ["diff", "--name-status", `${context.baseSha}..${context.headSha}`]).split("\n").filter(Boolean);
@@ -29,7 +50,8 @@ export function classifyChange({ root, context, policy }) {
   const protectedDecisionPaths = new Set(trustAnchor.protectedSemanticSourceSet?.paths ?? []);
   const newMigrations = changes.filter(({ status, path }) => status === "A" && path.startsWith("supabase/migrations/"));
   const migrationMutations = changes.filter(({ status, path }) => status !== "A" && path.startsWith("supabase/migrations/"));
-  const migrationText = newMigrations.map(({ path }) => git(root, ["show", `${context.headSha}:${path}`])).join("\n");
+  const migrationTexts = newMigrations.map(({ path }) => git(root, ["show", `${context.headSha}:${path}`]));
+  const migrationText = migrationTexts.join("\n");
   const testDeletion = changes.some(({ status, path }) => status === "D" && (path.includes("/test/") || /(?:^|\.)test\.[cm]?[jt]sx?$/.test(path)));
   const decisionConsumer = changedFiles.some((path) => startsWithAny(path, policy.decisionConsumerPrefixes ?? []));
   const pipelineControl = changedFiles.some((path) => startsWithAny(path, policy.decisionPipelineControlPrefixes ?? []));
@@ -51,7 +73,7 @@ export function classifyChange({ root, context, policy }) {
     unknown,
     deliveryControl: changedFiles.some((path) => startsWithAny(path, policy.deliveryControlPrefixes)),
     releaseEvidence: changedFiles.some((path) => startsWithAny(path, policy.releaseEvidencePrefixes)),
-    destructive: destructivePattern.test(migrationText),
+    destructive: migrationTexts.some(isDestructiveMigration),
     migrationMutation: migrationMutations.length > 0,
   };
   const classes = [

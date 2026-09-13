@@ -1,0 +1,30 @@
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { createInterface } from "node:readline";
+
+const output = resolve(process.argv[2] ?? ".local/world-knowledge-import/production-export.json");
+const query = resolve("scripts/world-knowledge/production-legacy-export-readonly-v1.sql");
+const fromStdin = process.env.WK_LEGACY_EXPORT_STDIN === "1";
+const service = process.env.WK_LEGACY_EXPORT_PGSERVICE;
+if (!fromStdin && !service) throw new Error("WK_LEGACY_EXPORT_PGSERVICE is required unless WK_LEGACY_EXPORT_STDIN=1");
+if (service && !/^[a-zA-Z0-9_.-]{1,80}$/.test(service)) throw new Error("invalid read-only service profile name");
+const raw = (fromStdin
+  ? await new Promise((resolveLine, reject) => {
+      const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
+      input.once("line", (line) => { input.close(); resolveLine(line); });
+      input.once("error", reject);
+    })
+  : execFileSync("psql", ["--no-password", "--no-psqlrc", "--quiet", "--tuples-only", "--no-align", "--file", query], { encoding: "utf8", env: { ...process.env, PGSERVICE: service, PGAPPNAME: "backyrd-world-knowledge-readonly-export" }, maxBuffer: 32 * 1024 * 1024 })
+).trim();
+const parsed = JSON.parse(raw);
+if (parsed.queryVersion !== "backyrd.world-knowledge.production-legacy-export-query@4a.1" || !Array.isArray(parsed.records)) throw new Error("unexpected export result");
+const sourceSnapshotAt = new Date(parsed.sourceSnapshotAt).toISOString();
+const canonical = (value) => Array.isArray(value) ? `[${value.map(canonical).join(",")}]` : value && typeof value === "object" ? `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}` : JSON.stringify(value);
+const sha256 = (value) => createHash("sha256").update(canonical(value)).digest("hex");
+const records = parsed.records.map((row) => { const body = { spotId: row.spotId, lifecycle: row.lifecycle, fields: row.fields }; return { ...body, recordHash: sha256(body) }; }).sort((a,b) => a.spotId.localeCompare(b.spotId));
+const body = { contractVersion: "backyrd.world-knowledge.legacy-export@4a.1", batchId: `legacy-production:${sourceSnapshotAt.replace(/[^0-9]/g, "").slice(0,14)}`, sourceSnapshotAt, schemaFingerprint: sha256(readFileSync(query, "utf8")), scope: "ACTIVE_PUBLISHED_ONLY", records, exclusions: [...parsed.excludedDataClasses].sort() };
+const artifact = { ...body, manifestHash: sha256(body) };
+mkdirSync(dirname(output), { recursive: true, mode: 0o700 }); writeFileSync(output, `${JSON.stringify(artifact, null, 2)}\n`, { mode: 0o600 }); chmodSync(output, 0o600);
+process.stdout.write(`${JSON.stringify({ output, manifestHash: artifact.manifestHash, records: records.length, statusCounts: parsed.statusCounts })}\n`);
