@@ -1,0 +1,18 @@
+{
+  "contractVersion": "backyrd.decision-vnext.phase3c-compatibility-matrix@1.0",
+  "canonicalBaseSha": "ee71680ed81a9a93b20e2ad82166ef7b4db1190e",
+  "productionAuthorized": false,
+  "entries": [
+    { "component": "Product Context Phase-3B signed release", "classification": "KEEP", "reason": "Pinned release is loaded through its accepted capability and remains unchanged." },
+    { "component": "WorldKnowledgeReaderPort", "classification": "KEEP", "reason": "Only canonical read-only snapshots are accepted." },
+    { "component": "World Registry 1.1 Product Context to Registry 2.0 lab", "classification": "ADAPT", "reason": "Explicit hashed evaluation bridge; no Product-policy upgrade." },
+    { "component": "RelevantUserProjection", "classification": "KEEP", "reason": "Only canonical minimized projection is consumed." },
+    { "component": "Phase-3B fixture resolvers", "classification": "ADAPT", "reason": "A replaceable local German resolver capability expands evaluation coverage without Product authority." },
+    { "component": "Phase-3B per-rule Unknown policy", "classification": "KEEP", "reason": "Candidate tiers are classified through the accepted Product Context policy." },
+    { "component": "Founder World Cohort", "classification": "ADAPT", "reason": "Optional external manifest plus reader; deterministic synthetic fallback when absent." },
+    { "component": "World authoring NOT_CONFIGURED candidates", "classification": "PROHIBITED", "reason": "Authoring candidates are never treated as Decision truth." },
+    { "component": "Raw User events, evidence chains and memory", "classification": "PROHIBITED", "reason": "Outside the minimized projection boundary." },
+    { "component": "Direct spot tables, N4, Suitability and Decision-v13 RPC", "classification": "PROHIBITED", "reason": "No canonical authority and no offline-lab need." },
+    { "component": "Product ranking weights and confidence calibration", "classification": "PROHIBITED", "reason": "Explicitly deferred; fixture ordering is not Product ranking." }
+  ]
+}
