@@ -46,6 +46,10 @@ npm run decision-vnext:phase3c:ui:e2e
 7. Request an alternative, reject a candidate for this Decision, compare two requests or run the prepared Context Flip.
 8. Replay the same input and confirm the byte-identical result identity.
 
+Every action reports its current state in the sticky status area: file selected, validating, preview ready, import active, interpretation ready, evaluation complete, alternative, situational reject, comparison, Context Flip and replay. Evaluation remains disabled until the current text has been interpreted; changing the task invalidates the prior interpretation instead of silently reusing it.
+
+The prepared family task explicitly says family meal, Basel, a twelve-year-old child and the adult speaker. The normal “Erkannte Situation” view therefore exposes intent, occasion, target city, companion type, child age, adult accompaniment and the age constraint before evaluation. The prepared accessibility task explicitly targets Basel and resolves “Kaffee trinken” to coffee rather than the broader drinks intent.
+
 ## Semantics and boundaries
 
 - A named target city wins over device location. With denied tracking, an explicit city remains usable; without either, location is not invented.
@@ -56,6 +60,7 @@ npm run decision-vnext:phase3c:ui:e2e
 - The age fixture means: under 13 alone fails, under 13 with an adult passes, and 13 or older passes. No absent time/day/area/event rule is invented.
 - Opening and kitchen hard constraints with no authorized World evidence follow the accepted per-rule fail-closed policy.
 - Commercial state has no request, World, User, result or UI channel.
+- A situational reject triggers a fresh evaluation bound to the updated Spot × Decision × Context state. Replay therefore always verifies the result against the exact current request; it still emits no User event.
 
 ## World cohort
 
@@ -64,6 +69,8 @@ Preferred input is the single, versioned handoff file produced by “Founder Wor
 The active handoff is written atomically outside Git with directory mode `0700` and file mode `0600`. It contains no raw Decision text or user data. Reimporting the identical file is idempotent. Importing another valid file requires an explicit preview and confirmation; resetting removes only this local Decision-Lab copy. Founder and synthetic spots are never mixed.
 
 If a cohort contains one spot, the spot remains technically evaluable, but the UI explicitly says that this is not a meaningful ranking or candidate-comparison test. No synthetic candidates are added.
+
+The normal view intentionally avoids hashes, enum names and reason codes. It separates confirmed conditions, unknown facts, unconfigured rules and exclusions, and states what Backyrd must not claim. The Expert view contains the corresponding technical identities for engineering review.
 
 ## Oracles
 

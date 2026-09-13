@@ -6,3 +6,10 @@
 .plain-summary, #comparison, #cohort-preview { border: 1px solid var(--line); border-radius: 16px; background: #0f0f13; padding: 1rem; margin: 1rem 0; }
 .plain-summary h3, #cohort-preview h3 { margin-top: 0; }
 @media (max-width: 760px) { .guide { columns: 1; } .presets > * { width: 100%; } }
+button:disabled { opacity: .45; cursor: not-allowed; }
+.action-status { position: sticky; top: .7rem; z-index: 5; border: 1px solid #4f4858; border-radius: 14px; background: #191820; padding: .8rem 1rem; box-shadow: 0 10px 30px #0008; }
+.check-label { align-content: end; display: flex; align-items: center; gap: .6rem; padding: .9rem; }
+.check-label input { width: auto; }
+.knowledge-box { border-left: 3px solid var(--pink); padding: .7rem 1rem; background: #111116; border-radius: 0 12px 12px 0; }
+.knowledge-box p { margin: .35rem 0; }
+.claim-boundary { border: 1px solid #58432e; background: #21170f; color: #ffc998; border-radius: 12px; padding: .7rem; margin-top: .7rem; }

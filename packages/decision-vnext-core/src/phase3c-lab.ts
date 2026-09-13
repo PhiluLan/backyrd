@@ -63,7 +63,7 @@ const nullable = <T>(value: T | undefined): T | null => value ?? null;
 /** Local deterministic resolver. It has no network, persistence or Product authority. */
 export function resolveFounderLabText(raw: unknown, correctionInput: unknown = {}): FounderLabInterpretation {
   const request = FounderLabRequestSchema.parse(raw); const corrections: FounderLabCorrections = FounderLabCorrectionsSchema.parse(correctionInput); const text = normalize(request.ephemeralText);
-  const primaryIntent = /bar|trinken|drink/.test(text) ? "context.intent.drinks" : /kaffee|café|cafe/.test(text) ? "context.intent.coffee" : /essen|restaurant|mittag|abendessen/.test(text) ? "context.intent.food" : null;
+  const primaryIntent = /kaffee|café|cafe/.test(text) ? "context.intent.coffee" : /bar|trinken|drink/.test(text) ? "context.intent.drinks" : /essen|restaurant|mittag|abendessen/.test(text) ? "context.intent.food" : null;
   const incompatible = /essen und nicht essen|ruhig und laut zugleich/.test(text);
   const secondaryIntent = incompatible ? "context.intent.conflicting" : /ruhig|gemütlich|date/.test(text) && primaryIntent ? "context.intent.conversation" : /essen.*trinken|trinken.*essen/.test(text) ? "context.intent.food" : null;
   const targetCity = /zürich|zurich/.test(text) ? "Zurich" : /basel/.test(text) ? "Basel" : null;
@@ -118,8 +118,10 @@ function profileHash(profile: FixtureProfile, snapshotHash: string, authority: "
 const stateFromFact = (snapshot: FounderShadowSnapshot, key: string): "KNOWN_TRUE"|"KNOWN_FALSE"|"UNKNOWN" => { const fact = snapshot.facts.find((item) => item.key === key); return fact?.resolution === "KNOWN_TRUE" ? "KNOWN_TRUE" : fact?.resolution === "KNOWN_FALSE" ? "KNOWN_FALSE" : "UNKNOWN"; };
 const valueFromFact = (snapshot: FounderShadowSnapshot, key: string): unknown => snapshot.facts.find((item) => item.key === key && item.resolution === "KNOWN_VALUE")?.value;
 function rowFromHandoff(item: FounderWorldCohortHandoff["spots"][number]): LabWorldRow {
-  const age = valueFromFact(item.snapshot, "rule.age_access_conditions") as { minimumAge?: unknown; accompaniment?: unknown } | undefined;
-  const profile: FixtureProfile = { label: item.name, quiet: "UNKNOWN", lively: "UNKNOWN", wheelchair: stateFromFact(item.snapshot, "accessibility.step_free_entrance"), priceMaxChf: null, distanceMinutes: null, ageRule: age && age.minimumAge === 13 && age.accompaniment === "ADULT" ? { mode: "UNACCOMPANIED_MINIMUM", minimumAge: 13, accompaniment: "ADULT" } : null, conflict: item.snapshot.conflicts.length > 0 };
+  const age = valueFromFact(item.snapshot, "rule.age_access_conditions") as { rules?: readonly { mode?: unknown; minimumAge?: unknown; accompaniment?: unknown }[] } | undefined;
+  const matchingAgeRule = age?.rules?.find((rule) => rule.mode === "UNACCOMPANIED_MINIMUM" && rule.minimumAge === 13 && rule.accompaniment === "ADULT");
+  const priceRange = valueFromFact(item.snapshot, "operation.price_range") as { currency?: unknown; max?: unknown } | undefined;
+  const profile: FixtureProfile = { label: item.name, quiet: "UNKNOWN", lively: "UNKNOWN", wheelchair: stateFromFact(item.snapshot, "accessibility.step_free_entrance"), priceMaxChf: priceRange?.currency === "CHF" && typeof priceRange.max === "number" ? priceRange.max : null, distanceMinutes: null, ageRule: matchingAgeRule ? { mode: "UNACCOMPANIED_MINIMUM", minimumAge: 13, accompaniment: "ADULT" } : null, conflict: item.snapshot.conflicts.length > 0 };
   const locality = valueFromFact(item.snapshot, "location.locality");
   return { spotId: item.spotId, name: item.name, locality: typeof locality === "string" ? locality : null, snapshotHash: item.snapshotContentHash, profile };
 }

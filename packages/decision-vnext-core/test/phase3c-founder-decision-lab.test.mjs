@@ -35,6 +35,14 @@ test("composite quiet first-date objective is interpreted together and remains e
   assert.notEqual(value.interpretationHash, changed.interpretationHash);
 });
 
+test("prepared Founder family and coffee tasks expose complete, correction-ready interpretations", () => {
+  const family = resolveFounderLabText(request("Ich suche nächste Woche in Basel einen Ort für ein Familienessen für mich und meine zwölfjährige Tochter."));
+  assert.equal(family.primaryIntent, "context.intent.food"); assert.equal(family.occasion, "context.occasion.family"); assert.equal(family.targetCity, "Basel");
+  assert.deepEqual(family.group, { size: null, minimumAge: 12, adultPresent: true, companionType: "family" }); assert.ok(family.hardConstraints.includes("AGE_OR_LEGAL"));
+  const coffee = resolveFounderLabText(request("Ich möchte in Basel gemütlich Kaffee trinken und brauche einen rollstuhlgerechten Zugang."));
+  assert.equal(coffee.primaryIntent, "context.intent.coffee"); assert.ok(coffee.hardConstraints.includes("ACCESSIBILITY"));
+});
+
 test("explicit target city wins over device location and denied tracking still permits explicit city", async () => {
   const explicit = await runFounderDecisionLab({ request: request("Restaurant in Zürich", { deviceLocation: { state: "AVAILABLE", city: "Basel" } }) });
   assert.equal(explicit.interpretation.targetCity, "Zurich"); assert.equal(explicit.interpretation.locationAuthority.deviceCityUsed, false);

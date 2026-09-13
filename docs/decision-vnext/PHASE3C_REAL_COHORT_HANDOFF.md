@@ -14,6 +14,8 @@ The Phase-3C Decision port required a manifest and a separately injected World r
 6. Only explicit confirmation activates it. The file is stored atomically outside Git with directory mode `0700` and file mode `0600`.
 7. Evaluation and replay bind the handoff hash into the Decision cohort and result.
 
+The consumer contract now also follows the Registry-2.0 `AGE_ACCESS_RULE_V2` shape emitted by local World authoring: `notes` belongs to the rule-set value, while each nested rule remains the closed seven-field condition. A nested or otherwise unknown field still fails closed. This closes the concrete `founder_handoff_unknown_field` import failure without weakening validation or changing World data.
+
 No Decision process contacts Supabase, reads tables, changes Claims or writes World/User state. The handoff is `FOUNDER_EVALUATION_ONLY`, `productionAuthorized:false` and `productQualityClaim:false`.
 
 ## Degradation
@@ -22,3 +24,7 @@ No Decision process contacts Supabase, reads tables, changes Claims or writes Wo
 - Invalid scope, Registry, policy, manifest, snapshot or content hash: fail closed before preview.
 - One imported spot: evaluate it without adding fixtures and show that no meaningful ranking/comparison conclusion is possible.
 - Reset: remove only the local Decision-Lab copy.
+
+## Founder-facing proof
+
+The browser flow is tested through an actual file chooser using the same `createFounderWorldCohortHandoff` export builder as the World route. Its five-spot integration fixture uses the canonical local Founder spot identities and names. The final manual retest additionally loads the local World export artifact itself; neither path synthesizes missing spots or mixes the Founder cohort with the fallback world.
