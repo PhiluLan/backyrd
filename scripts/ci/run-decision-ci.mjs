@@ -14,6 +14,7 @@ const coreTests = [
   "packages/decision-vnext-core/test/final-integrity-closure.test.mjs",
   "packages/decision-vnext-core/test/integration-closure.test.mjs",
   "packages/decision-vnext-core/test/isolation.test.mjs",
+  "packages/decision-vnext-core/test/phase3c-founder-decision-lab.test.mjs",
 ];
 
 function compactSuccessOutput(output) {
@@ -80,9 +81,10 @@ function runGroup(group) {
   if (group === "phase2-all") return [nodeTest("Phase-2 complete integration", ["packages/decision-vnext-core/test/phase2-evaluation-harness.test.mjs"])];
   if (group.startsWith("phase2-")) return [nodeTest(`Phase-2 integration ${group}`, ["packages/decision-vnext-core/test/phase2-evaluation-harness.test.mjs"], ["--test-name-pattern", phase2Pattern(group)])];
   if (group === "oracles-workbenches") return [
-    nodeTest("Context kernel and Founder Oracle contracts", ["packages/decision-vnext-core/test/context-kernel.test.mjs", "packages/decision-vnext-core/test/phase3b-product-context.test.mjs"]),
+    nodeTest("Context kernel and Founder Oracle contracts", ["packages/decision-vnext-core/test/context-kernel.test.mjs", "packages/decision-vnext-core/test/phase3b-product-context.test.mjs", "scripts/decision/phase3c-founder-lab-ui.test.mjs"]),
     run("Phase-3A recursive Workbench replay", process.execPath, ["packages/decision-vnext-core/sandbox/evaluate-context-phase3a.mjs"]),
     run("Phase-3B Product Context Workbench replay", process.execPath, ["packages/decision-vnext-core/sandbox/evaluate-context-phase3b.mjs"]),
+    run("Phase-3C Founder Decision Lab replay", process.execPath, ["packages/decision-vnext-core/sandbox/evaluate-phase3c.mjs"]),
   ];
   if (group === "sandbox-worlds") return [
     run("small deterministic smoke world", process.execPath, ["packages/decision-vnext-core/sandbox/run.mjs", "packages/decision-vnext-core/sandbox/config/world-smoke-v1.json"], {}, true),

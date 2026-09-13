@@ -20,6 +20,7 @@
     "phase2:evaluate": "npm run build && node sandbox/evaluate-phase2.mjs sandbox/config/world-smoke-v1.json",
     "phase2:full": "npm run build && node sandbox/evaluate-phase2.mjs sandbox/config/world-phase1-v1.json && node sandbox/evaluate-phase2.mjs sandbox/config/world-phase1-seed-1002-v1.json",
     "phase3a:context": "npm run build && node sandbox/evaluate-context-phase3a.mjs",
-    "phase3b:context": "npm run build && node sandbox/evaluate-context-phase3b.mjs"
+    "phase3b:context": "npm run build && node sandbox/evaluate-context-phase3b.mjs",
+    "phase3c:lab": "npm run build && node sandbox/evaluate-phase3c.mjs"
   }
 }

@@ -299,6 +299,10 @@ jobs:
           path: .
       - run: node scripts/ci/decision-build-artifact.mjs --verify decision-ci-artifact.json
       - run: npm run decision-ci:group -- --group core-consumers --output "$RUNNER_TEMP/decision-core-consumers.json"
+      - name: Install isolated Decision Founder Lab browser
+        run: npx playwright install --with-deps chromium
+      - name: Validate Phase 3C interactive Founder Decision Lab
+        run: node scripts/decision/phase3c-founder-lab-ui.e2e.mjs
 
   decision-phase2:
     name: Decision Phase-2 recursive integration
