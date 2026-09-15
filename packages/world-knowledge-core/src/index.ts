@@ -3,6 +3,7 @@ export * from "./authoring.js";
 export * from "./authoring-taxonomy.js";
 export * from "./calibration.js";
 export * from "./contracts.js";
+export * from "./contextual.js";
 export * from "./derived.js";
 export * from "./fixtures.js";
 export * from "./governance.js";

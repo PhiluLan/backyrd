@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "world-knowledge-slice-4b",
+  "previousEvidence": "review-capture-trust-v2",
+  "previousFingerprints": {
+    "publicAclSha256": "097c34637cecd413bccb112f663adfc3d2092defdb6f0d04015fe9b0f8e393fd",
+    "applicationSchemaSha256": "898210dbedce247f82b45e44657cfe0e759c05ce9ce6fa3cd65823c311333d37"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260915163631_world_knowledge_slice_4b_contextual_semantics.sql",
+      "sha256": "ca4332b13929aa7a880d20c2303c62d6c053601d4b6ac926e828079611206505"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/world_knowledge_slice3b.sql",
+      "sha256": "1018de885a59831083d275e3c65efcf95b95e7f07ee76732a6430f9c18adb6b0"
+    },
+    {
+      "path": "supabase/tests/world_knowledge_slice4b_contextual.sql",
+      "sha256": "d53fd845372608be2a3db5fa9d15d93cc5df7f9c4f1db7983e4946e0303e9d06"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "9daf4329618f2a2b6ae445f60b5044cf9d2a87d2acd9abcf34428eb11aab3ee1",
+    "applicationSchemaSha256": "b662144a33f741a9a9398d730304fb4371a45858263f4982586f5a5a8077e916"
+  }
+}

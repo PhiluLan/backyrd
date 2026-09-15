@@ -1,7 +1,8 @@
 import { canonicalJson, hashBody } from "./canonical.js";
 import {
-  CONSUMPTION_POLICIES, CURRENT_STATE_KINDS, getAttributeDefinition, PET_ACCESS_STATES,
-  REGISTRY_VERSION, RESERVATION_MODES,
+  ATMOSPHERE_VALUES, CONSUMPTION_POLICIES, CURRENT_STATE_KINDS, DAYPARTS, getAttributeDefinition,
+  ONSITE_OFFERING_KINDS, ONSITE_OFFERING_RELATIONSHIPS, PET_ACCESS_STATES,
+  REGISTRY_VERSION, RESERVATION_MODES, VISIT_SITUATIONS,
 } from "./registry.js";
 import { array, boolean, ContractValidationError, date, enumValue, hash, identifier, number, object, required, string, timestamp } from "./schema.js";
 
@@ -43,7 +44,12 @@ export interface AgeAccessRule { readonly policy: "ALL_AGES" | "MINIMUM_AGE"; re
 export interface AgeAccessCondition { readonly mode: "NO_MINIMUM" | "GENERAL_MINIMUM" | "UNACCOMPANIED_MINIMUM"; readonly minimumAge: number | null; readonly accompaniment: "NONE" | "ADULT" | "LEGAL_GUARDIAN"; readonly appliesFromTime: string | null; readonly days: readonly Weekday[]; readonly area: string | null; readonly event: string | null }
 export interface AgeAccessRuleV2 { readonly rules: readonly AgeAccessCondition[] }
 export interface CurrentStateValue { readonly kind: typeof CURRENT_STATE_KINDS[number]; readonly scope: string }
-export type ClaimValue = string | number | boolean | null | readonly string[] | MoneyRange | IntegerRange | ReservationRule | ConsumptionRule | PetAccessRule | AgeAccessRule | AgeAccessRuleV2 | readonly WeeklyScheduleDay[] | readonly SpecialHoursDay[] | CurrentStateValue;
+export interface ContextConditions { readonly dayparts: readonly typeof DAYPARTS[number][]; readonly days: readonly Weekday[]; readonly area: string | null; readonly occasion: string | null; readonly groupSize: IntegerRange | null; readonly ageContext: "ADULTS" | "CHILDREN" | "MIXED_AGES" | null; readonly accompaniment: "ALONE" | "ADULT" | "LEGAL_GUARDIAN" | "GROUP" | null; readonly eventMode: "NORMAL_OPERATION" | "EVENT" | null }
+export interface OnsiteOffering { readonly kind: typeof ONSITE_OFFERING_KINDS[number]; readonly relationship: typeof ONSITE_OFFERING_RELATIONSHIPS[number]; readonly area: string | null }
+export interface VisitSituationContext { readonly situation: typeof VISIT_SITUATIONS[number]; readonly conditions: ContextConditions }
+export interface AtmosphereContext { readonly atmosphere: typeof ATMOSPHERE_VALUES[number]; readonly conditions: ContextConditions }
+export interface DaypartContext { readonly daypart: typeof DAYPARTS[number]; readonly conditions: Omit<ContextConditions, "dayparts"> }
+export type ClaimValue = string | number | boolean | null | readonly string[] | MoneyRange | IntegerRange | ReservationRule | ConsumptionRule | PetAccessRule | AgeAccessRule | AgeAccessRuleV2 | readonly WeeklyScheduleDay[] | readonly SpecialHoursDay[] | CurrentStateValue | readonly OnsiteOffering[] | readonly VisitSituationContext[] | readonly AtmosphereContext[] | readonly DaypartContext[];
 
 export interface WorldKnowledgeClaim {
   readonly contractVersion: typeof CLAIM_CONTRACT_VERSION;
@@ -108,6 +114,47 @@ function parseEnumSet(value: unknown, definition: ReturnType<typeof getAttribute
   const values = array(value, path, { max: allowed.length }).map((entry, index) => enumValue(entry, allowed, `${path}[${index}]`));
   if (new Set(values).size !== values.length) throw new ContractValidationError(path, "duplicate enum value");
   return sortedUnique(values);
+}
+
+const nullableContextText = (input: Record<string, unknown>, key: "area" | "occasion", path: string): string | null => {
+  const value = required(input, key, path);
+  return value === null ? null : string(value, `${path}.${key}`, { min: 1, max: key === "area" ? 120 : 160 });
+};
+
+function parseContextConditions(value: unknown, path: string, includeDayparts = true): ContextConditions {
+  const keys = includeDayparts ? ["dayparts", "days", "area", "occasion", "groupSize", "ageContext", "accompaniment", "eventMode"] : ["days", "area", "occasion", "groupSize", "ageContext", "accompaniment", "eventMode"];
+  const input = object(value, path, keys);
+  const groupSizeValue = required(input, "groupSize", path);
+  let groupSize: IntegerRange | null = null;
+  if (groupSizeValue !== null) {
+    const range = object(groupSizeValue, `${path}.groupSize`, ["min", "max"]);
+    groupSize = { min: number(required(range, "min", `${path}.groupSize`), `${path}.groupSize.min`, { min: 1, max: 100000, integer: true }), max: number(required(range, "max", `${path}.groupSize`), `${path}.groupSize.max`, { min: 1, max: 100000, integer: true }) };
+    if (groupSize.min > groupSize.max) throw new ContractValidationError(`${path}.groupSize`, "min exceeds max");
+  }
+  return {
+    dayparts: includeDayparts ? sortedUnique(array(required(input, "dayparts", path), `${path}.dayparts`, { max: DAYPARTS.length }).map((entry, index) => enumValue(entry, DAYPARTS, `${path}.dayparts[${index}]`))) as ContextConditions["dayparts"] : [],
+    days: sortedUnique(array(required(input, "days", path), `${path}.days`, { max: WEEKDAYS.length }).map((entry, index) => enumValue(entry, WEEKDAYS, `${path}.days[${index}]`))) as readonly Weekday[],
+    area: nullableContextText(input, "area", path), occasion: nullableContextText(input, "occasion", path), groupSize,
+    ageContext: required(input, "ageContext", path) === null ? null : enumValue(required(input, "ageContext", path), ["ADULTS", "CHILDREN", "MIXED_AGES"] as const, `${path}.ageContext`),
+    accompaniment: required(input, "accompaniment", path) === null ? null : enumValue(required(input, "accompaniment", path), ["ALONE", "ADULT", "LEGAL_GUARDIAN", "GROUP"] as const, `${path}.accompaniment`),
+    eventMode: required(input, "eventMode", path) === null ? null : enumValue(required(input, "eventMode", path), ["NORMAL_OPERATION", "EVENT"] as const, `${path}.eventMode`),
+  };
+}
+
+function parseContextRows(value: unknown, path: string, discriminator: "situation" | "atmosphere" | "daypart"): readonly (VisitSituationContext | AtmosphereContext | DaypartContext)[] {
+  const allowed = discriminator === "situation" ? VISIT_SITUATIONS : discriminator === "atmosphere" ? ATMOSPHERE_VALUES : DAYPARTS;
+  const rows = array(value, path, { max: 50 }).map((entry, index) => {
+    const itemPath = `${path}[${index}]`; const input = object(entry, itemPath, [discriminator, "conditions"]);
+    const selected = enumValue(required(input, discriminator, itemPath), allowed, `${itemPath}.${discriminator}`);
+    const conditions = parseContextConditions(required(input, "conditions", itemPath), `${itemPath}.conditions`, discriminator !== "daypart");
+    if (discriminator === "situation") return { situation: selected as typeof VISIT_SITUATIONS[number], conditions };
+    if (discriminator === "atmosphere") return { atmosphere: selected as typeof ATMOSPHERE_VALUES[number], conditions };
+    const { dayparts: _dayparts, ...daypartConditions } = conditions;
+    return { daypart: selected as typeof DAYPARTS[number], conditions: daypartConditions };
+  });
+  const identity = (row: VisitSituationContext | AtmosphereContext | DaypartContext) => canonicalJson(row);
+  if (new Set(rows.map(identity)).size !== rows.length) throw new ContractValidationError(path, "duplicate contextual statement");
+  return [...rows].sort((left, right) => identity(left).localeCompare(identity(right)));
 }
 
 export function parseAttributeValue(attributeKeyValue: unknown, value: unknown, path = "$.value"): ClaimValue {
@@ -195,6 +242,17 @@ export function parseAttributeValue(attributeKeyValue: unknown, value: unknown, 
     }
     case "WEEKLY_SCHEDULE": return parseWeeklySchedule(value, path);
     case "SPECIAL_HOURS": return parseSpecialHours(value, path);
+    case "ONSITE_OFFERINGS": {
+      const rows = array(value, path, { max: 30 }).map((entry, index): OnsiteOffering => {
+        const itemPath = `${path}[${index}]`; const input = object(entry, itemPath, ["kind", "relationship", "area"]); const rawArea = required(input, "area", itemPath);
+        return { kind: enumValue(required(input, "kind", itemPath), ONSITE_OFFERING_KINDS, `${itemPath}.kind`), relationship: enumValue(required(input, "relationship", itemPath), ONSITE_OFFERING_RELATIONSHIPS, `${itemPath}.relationship`), area: rawArea === null ? null : string(rawArea, `${itemPath}.area`, { min: 1, max: 120 }) };
+      });
+      if (new Set(rows.map((row) => canonicalJson(row))).size !== rows.length) throw new ContractValidationError(path, "duplicate onsite offering");
+      return [...rows].sort((left, right) => canonicalJson(left).localeCompare(canonicalJson(right)));
+    }
+    case "VISIT_SITUATIONS": return parseContextRows(value, path, "situation") as readonly VisitSituationContext[];
+    case "ATMOSPHERE_CONTEXTS": return parseContextRows(value, path, "atmosphere") as readonly AtmosphereContext[];
+    case "DAYPART_CONTEXTS": return parseContextRows(value, path, "daypart") as readonly DaypartContext[];
     case "CURRENT_STATE": {
       const input = object(value, path, ["kind", "scope"]);
       return { kind: enumValue(required(input, "kind", path), CURRENT_STATE_KINDS, `${path}.kind`), scope: identifier(required(input, "scope", path), `${path}.scope`) };

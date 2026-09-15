@@ -22,7 +22,7 @@ import {
 } from "../dist/index.js";
 
 test("guided German catalog covers canonical fields without creating false tasks", () => {
-  assert.equal(AUTHORING_STEPS.length, 8);
+  assert.equal(AUTHORING_STEPS.length, 9);
   assert.equal(AUTHORING_STEPS.some((step) => step.id === "activities"), false);
   assert.match(AUTHORING_CATALOG_HASH, /^[0-9a-f]{64}$/);
   assert.equal(AUTHORING_FIELDS.every((field) => field.optional), true);

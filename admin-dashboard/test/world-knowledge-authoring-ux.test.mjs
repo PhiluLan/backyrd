@@ -59,3 +59,17 @@ test("normal rendering translates structured codes and reserves JSON for expert 
   assert.match(source, /Hashes sind nur in der Expertensicht sichtbar/);
   assert.equal((source.match(/JSON\.stringify\(detail, null, 2\)/g) ?? []).length, 1);
 });
+
+test("context authoring keeps purpose, on-site offering and conditional observations separate", async () => {
+  const source = await read("packages/world-knowledge-authoring-ui/src/index.tsx");
+  assert.match(source, /Zusatzangebot ist nicht der Hauptzweck/);
+  assert.match(source, /Angebote lediglich in der Nähe werden hier nicht gespeichert/);
+  assert.match(source, /Beziehung zum Spot/);
+  assert.match(source, /Bedingungen hinzufügen/);
+  assert.match(source, /<legend>Tageszeit/);
+  assert.match(source, /Wochentage/);
+  assert.match(source, /Alterskonstellation/);
+  assert.match(source, /Begleitung/);
+  assert.match(source, /<label>Betrieb/);
+  assert.doesNotMatch(source, /option value="NEARBY"/);
+});

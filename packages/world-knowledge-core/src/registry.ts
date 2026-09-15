@@ -1,8 +1,9 @@
 import { canonicalJson, sha256 } from "./canonical.js";
 
-export const REGISTRY_VERSION = "backyrd.world-knowledge.registry@2.0" as const;
+export const REGISTRY_VERSION = "backyrd.world-knowledge.registry@2.1" as const;
+export const REGISTRY_V2_0_VERSION = "backyrd.world-knowledge.registry@2.0" as const;
 export const REGISTRY_V1_1_VERSION = "backyrd.world-knowledge.registry@1.1" as const;
-export const PREVIOUS_REGISTRY_VERSION = REGISTRY_V1_1_VERSION;
+export const PREVIOUS_REGISTRY_VERSION = REGISTRY_V2_0_VERSION;
 export const VALIDITY_POLICY_VERSION = "backyrd.world-knowledge.validity-policy@1.0" as const;
 
 export const PRIMARY_CATEGORIES = [
@@ -27,6 +28,7 @@ export const FOUNDATION_AREAS = [
   "CUISINES", "FOOD_SPECIALITIES", "OFFERING_GROUPS", "PRICE", "PAYMENT", "TAKEAWAY",
   "SERVICE", "CAPACITY", "GROUP_SIZE", "RESERVATION", "EXTERNAL_CONSUMPTION", "AMENITIES",
   "ACCESSIBILITY", "PET_ACCESS", "AGE_ACCESS", "REGULAR_HOURS", "SPECIAL_HOURS", "SERVICE_HOURS", "CURRENT_STATE",
+  "PRIMARY_VISIT_PURPOSE", "ONSITE_OFFERINGS", "VISIT_CONTEXT", "ATMOSPHERE", "DAYPART_CONTEXT",
 ] as const;
 export type FoundationArea = typeof FOUNDATION_AREAS[number];
 
@@ -55,7 +57,13 @@ export const PRICE_LEVEL_LABELS: Readonly<Record<PriceLevel, { readonly de: stri
 });
 
 export type AttributeKind = "FACT" | "OPERATIONAL_RULE" | "CURRENT_STATE" | "EXPLANATION_ONLY";
-export type ValueType = "TEXT" | "EMAIL" | "URL" | "PHONE" | "COUNTRY_CODE" | "IANA_TIMEZONE" | "DECIMAL" | "BOOLEAN" | "ENUM" | "ENUM_SET" | "MONEY_RANGE" | "INTEGER" | "INTEGER_RANGE" | "RESERVATION_RULE" | "CONSUMPTION_RULE" | "PET_ACCESS_RULE" | "AGE_ACCESS_RULE" | "AGE_ACCESS_RULE_V2" | "WEEKLY_SCHEDULE" | "SPECIAL_HOURS" | "CURRENT_STATE";
+export const PRIMARY_VISIT_PURPOSES = ["EAT_DRINK", "CULTURE_ARTS", "ENTERTAINMENT", "ACTIVITY_PLAY", "SPORT_MOVEMENT", "NATURE_ANIMAL_EXPERIENCE", "WELLNESS_RELAXATION", "SHOPPING_MARKET", "OVERNIGHT_STAY", "COMMUNITY_SOCIAL", "ATTRACTION_VISIT", "TEMPORARY_EVENT", "OTHER"] as const;
+export const ONSITE_OFFERING_KINDS = ["RESTAURANT", "CAFE", "BAR", "KIOSK", "TAKEAWAY", "FULL_MEALS", "SNACKS", "DRINKS", "PICNIC", "HOTEL", "SHOP", "KIDS_PLAY_AREA"] as const;
+export const ONSITE_OFFERING_RELATIONSHIPS = ["PART_OF_SPOT", "EMBEDDED_FACILITY", "UNKNOWN"] as const;
+export const VISIT_SITUATIONS = ["ALONE", "DATE_PAIR", "FAMILY", "FRIENDS_GROUP", "BUSINESS"] as const;
+export const ATMOSPHERE_VALUES = ["QUIET", "LIVELY", "ROMANTIC", "COZY", "CREATIVE", "RELAXED", "SOCIABLE", "ELEGANT", "CASUAL", "FAMILY_FRIENDLY", "BUSINESS_SUITABLE"] as const;
+export const DAYPARTS = ["MORNING", "MIDDAY", "AFTERNOON", "EVENING", "NIGHT"] as const;
+export type ValueType = "TEXT" | "EMAIL" | "URL" | "PHONE" | "COUNTRY_CODE" | "IANA_TIMEZONE" | "DECIMAL" | "BOOLEAN" | "ENUM" | "ENUM_SET" | "MONEY_RANGE" | "INTEGER" | "INTEGER_RANGE" | "RESERVATION_RULE" | "CONSUMPTION_RULE" | "PET_ACCESS_RULE" | "AGE_ACCESS_RULE" | "AGE_ACCESS_RULE_V2" | "WEEKLY_SCHEDULE" | "SPECIAL_HOURS" | "CURRENT_STATE" | "ONSITE_OFFERINGS" | "VISIT_SITUATIONS" | "ATMOSPHERE_CONTEXTS" | "DAYPART_CONTEXTS";
 export type ExpiryBehavior = "STATIC" | "STALE_AFTER_VALID_UNTIL" | "EXPIRES_AT_VALID_UNTIL";
 
 export interface AttributeDefinition {
@@ -91,6 +99,11 @@ export const ATTRIBUTE_DEFINITIONS: readonly AttributeDefinition[] = Object.free
   definition({ key: "description.highlight", version: 1, area: "DESCRIPTION", labels: { de: "Besonderheit", en: "Special feature" }, kind: "EXPLANATION_ONLY", valueType: "TEXT", min: 1, max: 800, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "EXPLANATION_ONLY" }),
   definition({ key: "classification.primary_category", version: 1, area: "PRIMARY_CATEGORY", labels: { de: "Hauptkategorie", en: "Primary category" }, kind: "FACT", valueType: "ENUM", allowedValues: PRIMARY_CATEGORIES, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "classification.place_types", version: 1, area: "PLACE_TYPES", labels: { de: "Art des Ortes", en: "Place types" }, kind: "FACT", valueType: "ENUM_SET", allowedValues: PLACE_TYPES, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
+  definition({ key: "purpose.primary_visit", version: 1, area: "PRIMARY_VISIT_PURPOSE", labels: { de: "Hauptgrund für den Besuch", en: "Primary visit purpose" }, kind: "FACT", valueType: "ENUM", allowedValues: PRIMARY_VISIT_PURPOSES, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
+  definition({ key: "offering.onsite", version: 1, area: "ONSITE_OFFERINGS", labels: { de: "Zusätzliche Angebote vor Ort", en: "Additional on-site offerings" }, kind: "FACT", valueType: "ONSITE_OFFERINGS", allowedValues: ONSITE_OFFERING_KINDS, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
+  definition({ key: "context.visit_situations", version: 1, area: "VISIT_CONTEXT", labels: { de: "Typische Besuchssituationen", en: "Typical visit situations" }, kind: "FACT", valueType: "VISIT_SITUATIONS", allowedValues: VISIT_SITUATIONS, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
+  definition({ key: "context.atmosphere", version: 1, area: "ATMOSPHERE", labels: { de: "Atmosphäre und Ortsgefühl", en: "Atmosphere and sense of place" }, kind: "FACT", valueType: "ATMOSPHERE_CONTEXTS", allowedValues: ATMOSPHERE_VALUES, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
+  definition({ key: "context.typical_dayparts", version: 1, area: "DAYPART_CONTEXT", labels: { de: "Typische Besuchszeiten", en: "Typical visit dayparts" }, kind: "FACT", valueType: "DAYPART_CONTEXTS", allowedValues: DAYPARTS, applicability: all, expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "offering.cuisines", version: 1, area: "CUISINES", labels: { de: "Küchenrichtungen", en: "Cuisines" }, kind: "FACT", valueType: "ENUM_SET", allowedValues: CUISINES, applicability: ["EAT", "STAY", "TEMPORARY_PLACES"], expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "offering.food_specialities", version: 1, area: "FOOD_SPECIALITIES", labels: { de: "Food Specialities", en: "Food specialities" }, kind: "FACT", valueType: "ENUM_SET", allowedValues: FOOD_SPECIALITIES, applicability: ["EAT", "COFFEE_DAYTIME", "NIGHTLIFE", "STAY", "TEMPORARY_PLACES"], expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
   definition({ key: "offering.groups", version: 1, area: "OFFERING_GROUPS", labels: { de: "Angebotsgruppen", en: "Offering groups" }, kind: "FACT", valueType: "ENUM_SET", allowedValues: OFFERING_GROUPS, applicability: ["EAT", "DRINKS", "COFFEE_DAYTIME", "NIGHTLIFE", "STAY", "TEMPORARY_PLACES"], expiryBehavior: "STALE_AFTER_VALID_UNTIL", engineAuthorization: "AUTHORIZED" }),
@@ -149,9 +162,10 @@ const LEGACY_CUISINES = ["ITALIAN", "INDIAN", "SWISS", "FRENCH", "JAPANESE", "ME
 const LEGACY_SPECIALITIES = ["PIZZA", "BURGER", "SUSHI"] as const;
 const LEGACY_OFFERINGS = ["BEER", "WINE", "COCKTAILS", "NON_ALCOHOLIC_DRINKS", "COFFEE", "SNACKS", "FULL_MEALS", "BREAKFAST", "BRUNCH", "LUNCH", "DINNER", "TAKEAWAY_MEALS"] as const;
 const LEGACY_AMENITIES = ["WIFI", "POWER_OUTLETS", "TOILET", "HIGH_CHAIR", "STROLLER_SPACE", "TERRACE", "GARDEN", "OUTDOOR_SEATING", "WATER_BOWL", "WORK_TABLES"] as const;
-export const PREVIOUS_REGISTRY_DEFINITIONS = Object.freeze(ATTRIBUTE_DEFINITIONS.filter((definitionValue) => !["rule.age_access_conditions", "hours.kitchen_special"].includes(definitionValue.key)).map((item) => item.key === "classification.place_types" ? { ...item, allowedValues: LEGACY_PLACE_TYPES } : item.key === "offering.cuisines" ? { ...item, allowedValues: LEGACY_CUISINES } : item.key === "offering.food_specialities" ? { ...item, allowedValues: LEGACY_SPECIALITIES } : item.key === "offering.groups" ? { ...item, allowedValues: LEGACY_OFFERINGS } : item.key === "amenity.features" ? { ...item, allowedValues: LEGACY_AMENITIES } : item));
+export const PREVIOUS_REGISTRY_DEFINITIONS = Object.freeze(ATTRIBUTE_DEFINITIONS.filter((definitionValue) => !["purpose.primary_visit", "offering.onsite", "context.visit_situations", "context.atmosphere", "context.typical_dayparts"].includes(definitionValue.key)));
 export const REGISTRY_V1_1_HASH = "e51e78f929d8d11ca149a50eaba250cf484e916ef38f2d447d3c8d881bb203be" as const;
-export const PREVIOUS_REGISTRY_HASH = REGISTRY_V1_1_HASH;
+export const REGISTRY_V2_0_HASH = "e93a7399c41535f7da2987c46343fbe82d1e3c07bca345b076d604f8d39f5a72" as const;
+export const PREVIOUS_REGISTRY_HASH = REGISTRY_V2_0_HASH;
 
 export function getAttributeDefinition(keyValue: unknown): AttributeDefinition {
   if (typeof keyValue !== "string" || !/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/.test(keyValue)) throw new Error("invalid_attribute_key");

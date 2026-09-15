@@ -23,6 +23,10 @@ const samples = {
   AGE_ACCESS_RULE: { policy: "MINIMUM_AGE", minimumAge: 18, appliesFromTime: "22:00" },
   AGE_ACCESS_RULE_V2: { rules: [{ mode: "UNACCOMPANIED_MINIMUM", minimumAge: 12, accompaniment: "ADULT", appliesFromTime: null, days: [], area: null, event: null }, { mode: "GENERAL_MINIMUM", minimumAge: 18, accompaniment: "NONE", appliesFromTime: "22:00", days: [], area: null, event: null }] },
   CURRENT_STATE: { kind: "AREA_CLOSED", scope: "TERRACE" },
+  ONSITE_OFFERINGS: [{ kind: "CAFE", relationship: "EMBEDDED_FACILITY", area: "Foyer" }],
+  VISIT_SITUATIONS: [{ situation: "FAMILY", conditions: { dayparts: ["AFTERNOON"], days: [], area: null, occasion: null, groupSize: null, ageContext: "MIXED_AGES", accompaniment: "ADULT", eventMode: null } }],
+  ATMOSPHERE_CONTEXTS: [{ atmosphere: "LIVELY", conditions: { dayparts: ["EVENING"], days: ["FRIDAY"], area: null, occasion: null, groupSize: null, ageContext: null, accompaniment: null, eventMode: "NORMAL_OPERATION" } }],
+  DAYPART_CONTEXTS: [{ daypart: "EVENING", conditions: { days: ["FRIDAY"], area: null, occasion: null, groupSize: null, ageContext: null, accompaniment: null, eventMode: "NORMAL_OPERATION" } }],
 };
 
 test("every exposed authoring field produces a registry-valid canonical value", () => {
