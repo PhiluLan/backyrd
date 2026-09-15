@@ -10,9 +10,9 @@ import { makeFounderCohortHandoff } from "../../../scripts/decision/phase3c-foun
 const request = (text, overrides = {}) => ({ contractVersion: PHASE3C_LAB_VERSIONS.request, requestId: "lab-test", ephemeralText: text, deviceLocation: { state: "AVAILABLE", city: "Basel" }, userMode: "NEUTRAL_MISSING", alternativeRequested: false, rejectedCandidateIds: [], ...overrides });
 const rehash = (value, field) => { const body = structuredClone(value); delete body[field]; return { ...body, [field]: contentHash(body) }; };
 
-test("canonical authority identities and explicit World 1.1 to 2.0 evaluation bridge remain bound", () => {
+test("canonical authority identities and explicit World 1.1 to 2.1 evaluation bridge remain bound", () => {
   assert.equal(PHASE3C_LAB_COMPATIBILITY.productContextWorldRegistryVersion, "backyrd.world-knowledge.registry@1.1");
-  assert.equal(PHASE3C_LAB_COMPATIBILITY.founderLabWorldRegistryVersion, "backyrd.world-knowledge.registry@2.0");
+  assert.equal(PHASE3C_LAB_COMPATIBILITY.founderLabWorldRegistryVersion, "backyrd.world-knowledge.registry@2.1");
   assert.equal(PHASE3C_LAB_COMPATIBILITY.mode, "EXPLICIT_EVALUATION_ADAPTER_NO_POLICY_UPGRADE");
   assert.equal(PHASE3C_FOUNDER_LAB_RELEASE.phase3BReleaseHash, "fa724e8a6616e502e34bc9ad0366bcb85a2ec05760074f411da18b5c1ed61725");
   assert.equal(PHASE3C_FOUNDER_LAB_RELEASE.worldFounderEvidenceHash, "fb892599f3f623f53ec8efcd5fc084bd8e9f55e6a6317de7e23c8f7f0d168437");

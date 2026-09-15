@@ -25,7 +25,7 @@ const labFlags = {
 export const Phase3CLabCompatibilitySchema = schema.object({
   contractVersion: version(PHASE3C_LAB_VERSIONS.compatibility), compatibilityId: identifier,
   productContextWorldRegistryVersion: schema.literal("backyrd.world-knowledge.registry@1.1"), productContextWorldRegistryHash: sha256,
-  founderLabWorldRegistryVersion: schema.literal("backyrd.world-knowledge.registry@2.0"), founderLabWorldRegistryHash: sha256,
+  founderLabWorldRegistryVersion: schema.literal("backyrd.world-knowledge.registry@2.1"), founderLabWorldRegistryHash: sha256,
   mode: schema.literal("EXPLICIT_EVALUATION_ADAPTER_NO_POLICY_UPGRADE"), authoringDraftsAuthorized: schema.literal(false),
   compatibilityHash: sha256,
 });

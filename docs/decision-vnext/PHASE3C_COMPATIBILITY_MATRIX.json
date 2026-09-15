@@ -5,7 +5,7 @@
   "entries": [
     { "component": "Product Context Phase-3B signed release", "classification": "KEEP", "reason": "Pinned release is loaded through its accepted capability and remains unchanged." },
     { "component": "WorldKnowledgeReaderPort", "classification": "KEEP", "reason": "Only canonical read-only snapshots are accepted." },
-    { "component": "World Registry 1.1 Product Context to Registry 2.0 lab", "classification": "ADAPT", "reason": "Explicit hashed evaluation bridge; no Product-policy upgrade." },
+    { "component": "World Registry 1.1 Product Context to Registry 2.1 lab", "classification": "ADAPT", "reason": "Explicit hashed evaluation bridge; Slice-4B context is integrity-bound but excluded, with no Product-policy upgrade." },
     { "component": "RelevantUserProjection", "classification": "KEEP", "reason": "Only canonical minimized projection is consumed." },
     { "component": "Phase-3B fixture resolvers", "classification": "ADAPT", "reason": "A replaceable local German resolver capability expands evaluation coverage without Product authority." },
     { "component": "Phase-3B per-rule Unknown policy", "classification": "EXTEND", "reason": "The accepted policy remains canonical; the Founder-confirmed age-unknown fallback is a separately hashed Phase-3C evaluation-only override with no Production authority." },

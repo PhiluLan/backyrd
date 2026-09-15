@@ -14,14 +14,16 @@ The Phase-3C Decision port required a manifest and a separately injected World r
 6. Only explicit confirmation activates it. The file is stored atomically outside Git with directory mode `0700` and file mode `0600`.
 7. Evaluation and replay bind the handoff hash into the Decision cohort and result.
 
-The consumer contract now also follows the Registry-2.0 `AGE_ACCESS_RULE_V2` shape emitted by local World authoring: `notes` belongs to the rule-set value, while each nested rule remains the closed seven-field condition. A nested or otherwise unknown field still fails closed. This closes the concrete `founder_handoff_unknown_field` import failure without weakening validation or changing World data.
+The consumer contract follows Registry 2.1 and the `AGE_ACCESS_RULE_V2` shape emitted by local World authoring: `notes` belongs to the rule-set value, while each nested rule remains the closed seven-field condition. A nested or otherwise unknown field still fails closed. This closes the concrete `founder_handoff_unknown_field` import failure without weakening validation or changing World data.
 
-No Decision process contacts Supabase, reads tables, changes Claims or writes World/User state. The handoff is `FOUNDER_EVALUATION_ONLY`, `productionAuthorized:false` and `productQualityClaim:false`.
+Slice 4B adds a nested, PostgreSQL-JSONB-hashed `context-handoff-shadow@1.0` to each `founder-cohort-shadow@3.0` row. Phase 3C validates its exact registry, policy, spot, source facts, unknowns, conflicts, exclusions and inner hash before accepting the cohort. The five Slice-4B fields remain deliberately absent from the Decision candidate snapshot: primary visit purpose, embedded offerings, conditional visit situations, conditional atmosphere and typical dayparts have no Eligibility or ranking authority in this integration. Their later Decision semantics require a separately approved relation contract.
+
+No Decision process contacts Supabase, reads tables, changes Claims or writes World/User state. A small offline builder converts an explicitly supplied local World export to the handoff; it performs no database or network access. The handoff is `FOUNDER_EVALUATION_ONLY`, `productionAuthorized:false` and `productQualityClaim:false`.
 
 ## Degradation
 
 - No import: clearly labelled synthetic test world.
-- Invalid scope, Registry, policy, manifest, snapshot or content hash: fail closed before preview.
+- Invalid scope, Registry, policy, context handoff, manifest, snapshot or content hash: fail closed before preview.
 - One imported spot: evaluate it without adding fixtures and show that no meaningful ranking/comparison conclusion is possible.
 - Reset: remove only the local Decision-Lab copy.
 

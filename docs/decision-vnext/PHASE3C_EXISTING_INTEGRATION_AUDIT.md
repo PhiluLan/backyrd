@@ -14,7 +14,7 @@ The implementation starts at `ee71680ed81a9a93b20e2ad82166ef7b4db1190e`. The rep
 
 ## Findings
 
-Phase 3B is intentionally bound to World Registry 1.1. The current canonical World reader and authoring foundation use Registry 2.0. Phase 3C therefore introduces a narrow, content-addressed evaluation compatibility record. It does not mutate or silently reinterpret the Phase-3B policy.
+Phase 3B is intentionally bound to World Registry 1.1. The current canonical World reader and authoring foundation use Registry 2.1. Phase 3C therefore introduces a narrow, content-addressed evaluation compatibility record. It does not mutate or silently reinterpret the Phase-3B policy, and Registry-2.1 context remains excluded until a separate Decision relation is approved.
 
 No checked-in Founder World Cohort manifest exists. A valid externally supplied manifest and matching `WorldKnowledgeReaderPort` can be used together; neither may be supplied alone. The default lab therefore uses a deterministic synthetic fallback and identifies it in every result. Founder and synthetic World sources are never mixed.
 
