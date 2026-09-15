@@ -7,7 +7,7 @@ import {
 } from "../dist/index.js";
 
 test("registry is bilingual, language-neutral, unique and SHA-256 bound", () => {
-  assert.equal(REGISTRY_HASH, "e93a7399c41535f7da2987c46343fbe82d1e3c07bca345b076d604f8d39f5a72");
+  assert.equal(REGISTRY_HASH, "cc9c5d1ac55d0080dc8a4a2e9b240b28d30dabc35ec5f35e5a4603b203e169f3");
   assert.equal(RULE_REGISTRY_HASH, "ce6b70c6f3ebc7c114af1fc2a24c79b415e552996e5db7d6f352e7e5867d61f8");
   assert.match(REGISTRY_CANONICAL_JSON, /classification\.primary_category/);
   assert.equal(new Set(ATTRIBUTE_DEFINITIONS.map((item) => item.key)).size, ATTRIBUTE_DEFINITIONS.length);

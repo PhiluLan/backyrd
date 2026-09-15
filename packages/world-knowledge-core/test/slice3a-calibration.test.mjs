@@ -8,9 +8,9 @@ import {
 } from "../dist/index.js";
 
 test("calibration inventories every foundation area without claiming product approval", () => {
-  assert.equal(POLICY_CALIBRATION_MATRIX.length, 25);
-  assert.equal(new Set(POLICY_CALIBRATION_MATRIX.map((row) => row.area)).size, 25);
-  assert.equal(Object.keys(FRESHNESS_CLASS_CANDIDATES).length, 25);
+  assert.equal(POLICY_CALIBRATION_MATRIX.length, 30);
+  assert.equal(new Set(POLICY_CALIBRATION_MATRIX.map((row) => row.area)).size, 30);
+  assert.equal(Object.keys(FRESHNESS_CLASS_CANDIDATES).length, 30);
   assert.ok(POLICY_CALIBRATION_MATRIX.every((row) => row.status === "DRAFT_CANDIDATE"));
   assert.equal(SOURCE_LANDSCAPE.length, 13);
   assert.ok(SOURCE_LANDSCAPE.every((source) => source.verifiedAlone === false));

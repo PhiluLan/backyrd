@@ -72,9 +72,13 @@ if (process.argv.includes("--build-admin")) {
   process.exit(0);
 }
 
+const adminOnly = process.argv.includes("--admin-only");
+const ownerOnly = process.argv.includes("--owner-only");
+if (adminOnly && ownerOnly) throw new Error("--admin-only und --owner-only dürfen nicht gemeinsam verwendet werden.");
+
 const children = [
-  spawn("npm", ["--prefix", "admin-dashboard", "run", "dev", "--", "-p", "3218"], { env: sharedEnvironment, stdio: "inherit" }),
-  spawn("npm", ["--prefix", "web", "run", "dev", "--", "-p", "3219"], { env: sharedEnvironment, stdio: "inherit" }),
+  ...(!ownerOnly ? [spawn("npm", ["--prefix", "admin-dashboard", "run", "dev", "--", "-p", "3218"], { env: sharedEnvironment, stdio: "inherit" })] : []),
+  ...(!adminOnly ? [spawn("npm", ["--prefix", "web", "run", "dev", "--", "-p", "3219"], { env: sharedEnvironment, stdio: "inherit" })] : []),
 ];
 
 const stop = () => { for (const child of children) child.kill("SIGTERM"); };

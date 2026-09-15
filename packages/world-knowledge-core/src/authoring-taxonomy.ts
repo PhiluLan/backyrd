@@ -46,7 +46,7 @@ const categoryPlaces: Readonly<Record<PrimaryCategory, readonly string[] | "NOT_
 });
 
 const gastronomic = ["EAT", "DRINKS", "COFFEE_DAYTIME", "NIGHTLIFE", "STAY", "TEMPORARY_PLACES"] as const;
-const always = ["basics", "classification", "price", "hours", "objective", "amenities", "review"] as const;
+const always = ["basics", "classification", "context", "price", "hours", "objective", "amenities", "review"] as const;
 export const CATEGORY_AUTHORING_MATRIX = Object.freeze(Object.fromEntries(PRIMARY_CATEGORIES.map((category) => [category, Object.freeze({
   category,
   placeTypes: categoryPlaces[category],

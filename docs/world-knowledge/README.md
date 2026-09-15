@@ -1,6 +1,6 @@
 # World Knowledge Foundation
 
-Status: Slices 1–3A are canonical. Slice 3B adds the accepted policy contracts and a forward migration for private append-only persistence, fail-closed authority, and allowlisted shadow resolution. It is not Production applied or consumer activated. See [`slice-3b/README.md`](slice-3b/README.md).
+Status: Slices 1–4A are canonical. Slice 4B is a Draft-PR for contextual Spot semantics in the isolated local Founder environment. It is not Production applied or Decision activated. See [`slice-4b/README.md`](slice-4b/README.md).
 
 ## Purpose
 

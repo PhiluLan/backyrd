@@ -1,0 +1,18 @@
+{
+  "contractVersion": "backyrd.world-knowledge.slice-4b-compatibility@1.0",
+  "registryVersion": "backyrd.world-knowledge.registry@2.1",
+  "rows": [
+    { "source": "WorldKnowledge claim ledger", "legacyField": "objective facts/rules/state", "target": "unchanged canonical keys", "disposition": "KEEP", "reason": "Append-only authority and evidence boundary remains canonical" },
+    { "source": "Slice 4A authoring", "legacyField": "guided sections", "target": "Besuch und Atmosphäre", "disposition": "ADAPT", "reason": "Add one German, progressively disclosed section" },
+    { "source": "public.spots", "legacyField": "category", "target": "purpose.primary_visit", "disposition": "PROHIBITED", "reason": "Category does not prove primary visit purpose" },
+    { "source": "legacy offerings", "legacyField": "restaurant/cafe/bar at venue", "target": "offering.onsite", "disposition": "ADAPT", "reason": "Only after explicit spot relationship and provenance are known" },
+    { "source": "legacy offerings", "legacyField": "nearby offering", "target": null, "disposition": "PROHIBITED", "reason": "Nearby infrastructure is not a fact about the spot" },
+    { "source": "backyrd_spot_accepted_facts_v1", "legacyField": "social.suitability", "target": null, "disposition": "PROHIBITED", "reason": "Unconditional suitability is not context-bound World truth" },
+    { "source": "backyrd_spot_accepted_facts_v1", "legacyField": "atmosphere.descriptors", "target": "context.atmosphere", "disposition": "ADAPT", "reason": "Requires explicit conditions, evidence and human confirmation" },
+    { "source": "N4", "legacyField": "suitability/confidence", "target": null, "disposition": "PROHIBITED", "reason": "Derived intent fit and numeric confidence cannot become World trust" },
+    { "source": "Decision mood/context registry", "legacyField": "mood and request context", "target": null, "disposition": "PROHIBITED", "reason": "Decision-owned consumer semantics are not a World registry source" },
+    { "source": "research.subjective_fits", "legacyField": "AFTERWORK/ROMANTIC/SPONTANEOUS/BIRTHDAY/COZY", "target": null, "disposition": "REPLACE", "reason": "Retained as historical explanation-only research; never silently promoted" },
+    { "source": "WorldKnowledgeSnapshot", "legacyField": "facts/conflicts/unknowns", "target": "context-handoff@1.0", "disposition": "ADAPT", "reason": "Versioned, sanitized, fail-closed handoff without Decision activation" }
+  ],
+  "productionState": "NOT_QUERIED_NOT_MUTATED"
+}

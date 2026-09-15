@@ -25,10 +25,10 @@ end$$;
 create function pg_temp.rebuild_request_hash(p_spot_id uuid,p_mode text,p_as_of timestamptz,p_key text) returns text language sql immutable as $$
   select encode(extensions.digest(convert_to(jsonb_build_object(
     'spotId',p_spot_id,'mode',p_mode,'asOf',p_as_of,
-    'registryVersion','backyrd.world-knowledge.registry@1.1',
-    'policyVersion','backyrd.world-knowledge.source-policy@3b.1',
+    'registryVersion','backyrd.world-knowledge.registry@2.1',
+    'policyVersion','backyrd.world-knowledge.source-policy@4b.1',
     'resolverContract','backyrd.world-knowledge.shadow-resolver@1.0',
-    'resolverVersion','1.1.0','idempotencyIdentity',p_key
+    'resolverVersion','2.1.0','idempotencyIdentity',p_key
   )::text,'UTF8'),'sha256'),'hex')
 $$;
 
@@ -247,7 +247,7 @@ reset role;
 update world_knowledge_private.rebuild_jobs j set resolver_version=b.resolver_version from wk_baseline_job_backup b where j.id=b.id;
 
 insert into world_knowledge_private.rebuild_jobs(spot_id,idempotency_key,mode,as_of,request_hash,input_hash,registry_version,policy_version,resolver_contract,resolver_version,status)
-select pg_temp.id('wk-basic-spot'),state_key,'FULL',(select as_of from wk_clock),pg_temp.rebuild_request_hash(pg_temp.id('wk-basic-spot'),'FULL',(select as_of from wk_clock),state_key),repeat('c',64),'backyrd.world-knowledge.registry@1.1','backyrd.world-knowledge.source-policy@3b.1','backyrd.world-knowledge.shadow-resolver@1.0','1.1.0',state
+select pg_temp.id('wk-basic-spot'),state_key,'FULL',(select as_of from wk_clock),pg_temp.rebuild_request_hash(pg_temp.id('wk-basic-spot'),'FULL',(select as_of from wk_clock),state_key),repeat('c',64),'backyrd.world-knowledge.registry@2.1','backyrd.world-knowledge.source-policy@4b.1','backyrd.world-knowledge.shadow-resolver@1.0','2.1.0',state
 from (values('job-pending','PENDING'),('job-running','RUNNING'),('job-failed','FAILED')) states(state_key,state);
 set local role service_role;
 select pg_temp.expect_error(format('select public.world_shadow_rebuild_spot_v1(%L,%L,%L,%L)',pg_temp.id('wk-basic-spot'),(select as_of from wk_clock),'FULL','job-pending'),'55000','PENDING request was recomputed');

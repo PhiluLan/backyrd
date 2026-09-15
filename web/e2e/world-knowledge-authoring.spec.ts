@@ -1,7 +1,7 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 
 const spotId = "41000000-0000-4000-8000-000000000001";
-const allKeys = ["identity.name", "contact.phone", "classification.primary_category", "classification.place_types", "offering.cuisines", "operation.price_level", "operation.takeaway", "hours.regular", "hours.special", "hours.kitchen", "hours.kitchen_special", "rule.age_access_conditions", "accessibility.accessible_toilet"];
+const allKeys = ["identity.name", "contact.phone", "classification.primary_category", "classification.place_types", "offering.cuisines", "purpose.primary_visit", "offering.onsite", "context.visit_situations", "context.atmosphere", "context.typical_dayparts", "operation.price_level", "operation.takeaway", "hours.regular", "hours.special", "hours.kitchen", "hours.kitchen_special", "rule.age_access_conditions", "accessibility.accessible_toilet"];
 
 async function mockWorld(page: Page, entitlement: "OWNER_BASIC" | "OWNER_PRO" = "OWNER_PRO", role: "VERIFIED_OWNER" | "ADMIN" = "VERIFIED_OWNER") {
   const answers: Record<string, unknown> = { "identity.name": { claimId: "claim:name", claimHash: "a".repeat(64), knowledgeState: "KNOWN_VALUE", value: "Philipps Casa", observedAt: "2026-09-11T10:00:00.000Z", visibility: "PUBLIC", verificationMethod: "OWNER_CONFIRMED" } };
@@ -54,7 +54,7 @@ async function expectScheduleLayoutInsideViewport(page: Page) {
 }
 
 for (const viewport of [{ name: "desktop", width: 1440, height: 1000 }, { name: "schmale Owner-Ansicht", width: 390, height: 844 }]) {
-  test(`Founder-Ablauf funktioniert in ${viewport.name}`, async ({ page }) => {
+  test(`Founder-Ablauf funktioniert in ${viewport.name}`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport); await mockWorld(page); await page.goto("/owner/world-knowledge");
     await expect(page.getByRole("heading", { name: "Philipps Casa" })).toBeVisible();
     await page.getByRole("button", { name: /2 Einordnung/ }).click();
@@ -67,11 +67,14 @@ for (const viewport of [{ name: "desktop", width: 1440, height: 1000 }, { name: 
     const cuisines = page.getByRole("group", { name: "Küchenrichtungen" });
     await cuisines.getByRole("button", { name: "Italienisch" }).click();
     await cuisines.getByRole("button", { name: "Auswahl übernehmen" }).click();
-    await page.getByRole("button", { name: /4 Preise und Bezahlung/ }).click();
+    await page.getByRole("button", { name: /4 Besuch und Atmosphäre/ }).click();
+    await page.getByLabel("Hauptgrund für den Besuch").selectOption("EAT_DRINK");
+    await page.screenshot({ path: testInfo.outputPath(`context-authoring-${viewport.width}.png`), fullPage: true });
+    await page.getByRole("button", { name: /5 Preise und Bezahlung/ }).click();
     await page.getByLabel("Preislevel").selectOption("MEDIUM");
-    await page.getByRole("button", { name: /7 Ausstattung und Einschränkungen/ }).click();
+    await page.getByRole("button", { name: /8 Ausstattung und Einschränkungen/ }).click();
     await expect(page.getByText("Zugänglichkeit")).toBeVisible();
-    await page.getByRole("button", { name: /8 Prüfen und Datenvorschau/ }).click();
+    await page.getByRole("button", { name: /9 Prüfen und Datenvorschau/ }).click();
     await expect(page.getByText("Das weiß Backyrd")).toBeVisible();
     await page.getByRole("button", { name: /Erweiterte Angaben und Quellen öffnen/ }).click();
     await expect(page.getByText("Technische Nachvollziehbarkeit")).toBeVisible();
@@ -79,13 +82,13 @@ for (const viewport of [{ name: "desktop", width: 1440, height: 1000 }, { name: 
 }
 
 test("Basic Owner sieht Pro-Feld mit verständlicher Begründung gesperrt", async ({ page }) => {
-  await mockWorld(page, "OWNER_BASIC"); await page.goto("/owner/world-knowledge"); await page.getByRole("button", { name: /7 Ausstattung und Einschränkungen/ }).click();
+  await mockWorld(page, "OWNER_BASIC"); await page.goto("/owner/world-knowledge"); await page.getByRole("button", { name: /8 Ausstattung und Einschränkungen/ }).click();
   await expect(page.getByText(/Owner-Pro-Umfang verfügbar/).first()).toBeVisible();
 });
 
 test("Admin speichert über die getrennte serverseitige Admin-Grenze", async ({ page }) => {
   const world = await mockWorld(page, "OWNER_PRO", "ADMIN"); await page.goto("/owner/world-knowledge");
-  await page.getByRole("button", { name: /4 Preise und Bezahlung/ }).click();
+  await page.getByRole("button", { name: /5 Preise und Bezahlung/ }).click();
   await page.getByLabel("Preislevel").selectOption("HIGH");
   await expect.poll(() => world.submissions.length).toBe(1);
   expect(world.submissions[0].p_attribute_key).toBe("operation.price_level");
@@ -104,7 +107,7 @@ for (const [category, expectedType] of [["EAT", "Restaurant"], ["DRINKS", "Bar"]
 
 test("mehrere und über Nacht laufende Öffnungszeiten bleiben nach Reload kanonisch", async ({ page }) => {
   const world = await mockWorld(page); await page.goto("/owner/world-knowledge");
-  await page.getByRole("button", { name: /5 Öffnungszeiten/ }).click();
+  await page.getByRole("button", { name: /6 Öffnungszeiten/ }).click();
   const regular = page.getByRole("group", { name: "Reguläre Öffnungszeiten" });
   await regular.getByLabel("Montag Status").selectOption("OPEN");
   await regular.getByRole("button", { name: "+ Weiteres Zeitfenster" }).click();
@@ -113,7 +116,7 @@ test("mehrere und über Nacht laufende Öffnungszeiten bleiben nach Reload kanon
   await regular.getByRole("button", { name: "Zeiten übernehmen" }).click();
   await expect.poll(() => world.submissions.length).toBe(1);
   expect(world.submissions[0].p_value).toEqual([{ day: "MONDAY", intervals: [{ start: "09:00", end: "18:00" }, { start: "22:00", end: "02:00" }] }]);
-  await page.reload(); await page.getByRole("button", { name: /5 Öffnungszeiten/ }).click();
+  await page.reload(); await page.getByRole("button", { name: /6 Öffnungszeiten/ }).click();
   await expect(page.getByLabel("Montag Intervall 2 bis")).toHaveValue("02:00");
 });
 
@@ -130,9 +133,55 @@ for (const [category, expectedType] of [["ACTIVITIES_PLAY", "Escape Room"], ["EN
   });
 }
 
+for (const [label, purpose, offering] of [
+  ["Museum mit Restaurant", "CULTURE_ARTS", "RESTAURANT"],
+  ["Tierpark mit Kiosk", "NATURE_ANIMAL_EXPERIENCE", "KIOSK"],
+  ["Boulderhalle mit Café", "SPORT_MOVEMENT", "CAFE"],
+  ["Restaurant", "EAT_DRINK", "BAR"],
+] as const) {
+  test(`${label} trennt Hauptgrund und Zusatzangebot`, async ({ page }) => {
+    const world = await mockWorld(page); await page.goto("/owner/world-knowledge");
+    await page.getByRole("button", { name: /4 Besuch und Atmosphäre/ }).click();
+    await page.getByLabel("Hauptgrund für den Besuch").selectOption(purpose);
+    const onSite = page.getByRole("group", { name: "Zusätzliche Angebote vor Ort" });
+    await onSite.getByRole("button", { name: "+ Zusatzangebot" }).click();
+    await onSite.getByLabel("Angebot").selectOption(offering);
+    await onSite.getByLabel("Beziehung zum Spot").selectOption("EMBEDDED_FACILITY");
+    await onSite.getByRole("button", { name: "Angaben übernehmen" }).click();
+    await expect.poll(() => world.submissions.filter((entry) => ["purpose.primary_visit", "offering.onsite"].includes(String(entry.p_attribute_key))).length).toBe(2);
+    expect(world.submissions.find((entry) => entry.p_attribute_key === "purpose.primary_visit")?.p_value).toBe(purpose);
+    expect(world.submissions.find((entry) => entry.p_attribute_key === "offering.onsite")?.p_value).toEqual([{ kind: offering, relationship: "EMBEDDED_FACILITY", area: null }]);
+  });
+}
+
+test("Atmosphäre und Besuchssituation behalten ihren situativen Kontext", async ({ page }) => {
+  const world = await mockWorld(page); await page.goto("/owner/world-knowledge");
+  await page.getByRole("button", { name: /4 Besuch und Atmosphäre/ }).click();
+  const visits = page.getByRole("group", { name: "Typische Besuchssituationen" });
+  await visits.getByRole("button", { name: "+ Angabe hinzufügen" }).click();
+  await visits.getByLabel("Besuchssituation").selectOption("FAMILY");
+  await visits.getByText("Bedingungen hinzufügen").click();
+  await visits.getByLabel("Alterskonstellation").selectOption("MIXED_AGES");
+  await visits.getByLabel("Begleitung").selectOption("ADULT");
+  await visits.getByRole("button", { name: "Angaben übernehmen" }).click();
+
+  const atmosphere = page.getByRole("group", { name: "Atmosphäre und Ortsgefühl" });
+  await atmosphere.getByRole("button", { name: "+ Angabe hinzufügen" }).click();
+  await atmosphere.getByLabel("Atmosphäre").selectOption("QUIET");
+  await atmosphere.getByText("Bedingungen hinzufügen").click();
+  await atmosphere.getByRole("button", { name: "Vormittag" }).click();
+  await atmosphere.getByRole("button", { name: "Angaben übernehmen" }).click();
+
+  await expect.poll(() => world.submissions.filter((entry) => ["context.visit_situations", "context.atmosphere"].includes(String(entry.p_attribute_key))).length).toBe(2);
+  const visitValue = world.submissions.find((entry) => entry.p_attribute_key === "context.visit_situations")?.p_value as readonly { conditions: { ageContext: string; accompaniment: string } }[];
+  expect(visitValue[0]?.conditions).toMatchObject({ ageContext: "MIXED_AGES", accompaniment: "ADULT" });
+  const atmosphereValue = world.submissions.find((entry) => entry.p_attribute_key === "context.atmosphere")?.p_value as readonly { atmosphere: string; conditions: { dayparts: readonly string[] } }[];
+  expect(atmosphereValue[0]).toMatchObject({ atmosphere: "QUIET", conditions: { dayparts: ["MORNING"] } });
+});
+
 test("Küchenzeiten bleiben getrennt und können den regulären Plan bewusst übernehmen", async ({ page }) => {
   const world = await mockWorld(page); await page.goto("/owner/world-knowledge");
-  await page.getByRole("button", { name: /5 Öffnungszeiten/ }).click();
+  await page.getByRole("button", { name: /6 Öffnungszeiten/ }).click();
   const regular = page.getByRole("group", { name: "Reguläre Öffnungszeiten" });
   await regular.getByLabel("Dienstag Status").selectOption("OPEN");
   await regular.getByLabel("Dienstag Intervall 1 von").fill("17:00");
@@ -146,7 +195,7 @@ test("Küchenzeiten bleiben getrennt und können den regulären Plan bewusst üb
 
 test("Wochen-, Küchen- und Sonderzeiten bleiben in allen Ziel-Viewports lesbar und stabil", async ({ page }, testInfo) => {
   const world = await mockWorld(page); await page.goto("/owner/world-knowledge");
-  await page.getByRole("button", { name: /5 Öffnungszeiten/ }).click();
+  await page.getByRole("button", { name: /6 Öffnungszeiten/ }).click();
 
   const regular = page.getByRole("group", { name: "Reguläre Öffnungszeiten" });
   await regular.getByLabel("Montag Status").selectOption("OPEN");
@@ -187,7 +236,7 @@ test("Wochen-, Küchen- und Sonderzeiten bleiben in allen Ziel-Viewports lesbar 
     if ([320, 1440, 2400].includes(width)) await page.screenshot({ path: testInfo.outputPath(`schedule-after-${width}.png`), fullPage: true });
   }
 
-  await page.reload(); await page.getByRole("button", { name: /5 Öffnungszeiten/ }).click();
+  await page.reload(); await page.getByRole("button", { name: /6 Öffnungszeiten/ }).click();
   await expect(page.getByRole("group", { name: "Reguläre Öffnungszeiten" }).getByLabel("Montag Intervall 1 von")).toHaveValue("10:00");
   await expect(page.getByRole("group", { name: "Reguläre Öffnungszeiten" }).getByLabel("Freitag Intervall 1 bis")).toHaveValue("02:00");
   await expect(page.getByRole("group", { name: "Küchenzeiten" }).getByLabel("Montag Intervall 2 bis")).toHaveValue("21:30");
@@ -197,13 +246,14 @@ test("Wochen-, Küchen- und Sonderzeiten bleiben in allen Ziel-Viewports lesbar 
 
 test("Küchenmodus, Küchen-Sonderzeit und verständliche Zeitfehler bleiben getrennt", async ({ page }) => {
   await mockWorld(page); await page.goto("/owner/world-knowledge");
-  await page.getByRole("button", { name: /5 Öffnungszeiten/ }).click();
+  await page.getByRole("button", { name: /6 Öffnungszeiten/ }).click();
   const regular = page.getByRole("group", { name: "Reguläre Öffnungszeiten" });
   await regular.getByLabel("Montag Status").selectOption("OPEN");
   await regular.getByRole("button", { name: "Zeiten übernehmen" }).click();
   const kitchen = page.getByRole("group", { name: "Küchenzeiten" });
   const same = kitchen.getByRole("button", { name: "Küche entspricht den regulären Öffnungszeiten" });
-  await same.click(); await page.reload(); await page.getByRole("button", { name: /5 Öffnungszeiten/ }).click();
+  await same.click(); await page.reload(); await page.getByRole("button", { name: /6 Öffnungszeiten/ }).click();
+  const regularAfterReload = page.getByRole("group", { name: "Reguläre Öffnungszeiten" });
   await expect(page.getByRole("group", { name: "Küchenzeiten" }).getByRole("button", { name: "Küche entspricht den regulären Öffnungszeiten" })).toHaveClass(/selected/);
 
   const kitchenSpecial = page.getByRole("group", { name: "Besondere Küchenzeiten" });
@@ -211,16 +261,16 @@ test("Küchenmodus, Küchen-Sonderzeit und verständliche Zeitfehler bleiben get
   await kitchenSpecial.getByLabel("Sondertag 1 Datum").fill("2026-12-31");
   await kitchenSpecial.getByRole("button", { name: "Sondertage übernehmen" }).click();
 
-  await regular.getByLabel("Mittwoch Status").selectOption("OPEN");
-  await regular.getByLabel("Mittwoch Intervall 1 von").fill("");
-  await regular.getByRole("button", { name: "Zeiten übernehmen" }).click();
-  await expect(regular.getByRole("alert")).toContainText(/Reguläre Öffnungszeiten.*Zeitintervall/i);
+  await regularAfterReload.getByLabel("Mittwoch Status").selectOption("OPEN");
+  await regularAfterReload.getByLabel("Mittwoch Intervall 1 von").fill("");
+  await regularAfterReload.getByRole("button", { name: "Zeiten übernehmen" }).click();
+  await expect(regularAfterReload.getByRole("alert")).toContainText(/Reguläre Öffnungszeiten.*Zeitintervall/i);
   await expect(page.getByText(/Unhandled Runtime Error|Application error/)).toHaveCount(0);
 });
 
 test("Altersregeln speichern Mindestalter, Begleitung, Zeit, Tage und Bereich strukturiert", async ({ page }) => {
   const world = await mockWorld(page); await page.goto("/owner/world-knowledge");
-  await page.getByRole("button", { name: /7 Ausstattung und Einschränkungen/ }).click();
+  await page.getByRole("button", { name: /8 Ausstattung und Einschränkungen/ }).click();
   const age = page.getByRole("group", { name: "Alters- und Begleitregeln" });
   await age.getByLabel("Art der Regel").selectOption("UNACCOMPANIED_MINIMUM");
   await age.getByRole("spinbutton", { name: "Mindestalter" }).fill("16");
