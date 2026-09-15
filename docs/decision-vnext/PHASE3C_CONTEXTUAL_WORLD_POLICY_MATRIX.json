@@ -1,0 +1,31 @@
+{
+  "contractVersion": "backyrd.decision-vnext.contextual-world-policy-matrix@3c-1",
+  "scope": "SYNTHETIC_FOUNDER_EVALUATION_ONLY",
+  "productionAuthorized": false,
+  "productRankingAuthorized": false,
+  "coreIntent": [
+    { "intent": "food", "worldFact": "purpose.primary_visit", "accepted": ["EAT_DRINK"] },
+    { "intent": "coffee", "worldFact": "purpose.primary_visit", "accepted": ["EAT_DRINK"] },
+    { "intent": "drinks", "worldFact": "purpose.primary_visit", "accepted": ["EAT_DRINK"] },
+    { "intent": "family-outing", "worldFact": "purpose.primary_visit", "accepted": ["NATURE_ANIMAL_EXPERIENCE"] },
+    { "intent": "bouldering", "worldFact": "purpose.primary_visit", "accepted": ["SPORT_MOVEMENT"] }
+  ],
+  "onsiteOfferings": {
+    "worldFact": "offering.onsite",
+    "relationships": ["PART_OF_SPOT", "EMBEDDED_FACILITY", "UNKNOWN"],
+    "nearbyAllowed": false,
+    "confirmsCoreIntent": false
+  },
+  "visitSituations": ["ALONE", "DATE_PAIR", "FAMILY", "FRIENDS_GROUP", "BUSINESS"],
+  "softAtmosphere": ["QUIET", "COZY", "LIVELY", "ROMANTIC", "CREATIVE"],
+  "softTypicalDayparts": ["MORNING", "MIDDAY", "AFTERNOON", "EVENING"],
+  "actualAvailabilitySource": ["hours.regular", "hours.special", "state.current"],
+  "knowledgeStates": ["CONFIRMED", "UNKNOWN", "NOT_CONFIGURED", "NOT_APPLICABLE", "INCOMPATIBLE", "DISPUTED"],
+  "invariants": {
+    "confirmedRequiresCoreIntent": true,
+    "softContextCanExclude": false,
+    "typicalDaypartDeterminesOpening": false,
+    "spotIdentitySpecialCases": false,
+    "fixtureOrderPreference": false
+  }
+}

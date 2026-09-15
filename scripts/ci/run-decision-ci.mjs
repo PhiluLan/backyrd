@@ -14,6 +14,7 @@ const coreTests = [
   "packages/decision-vnext-core/test/final-integrity-closure.test.mjs",
   "packages/decision-vnext-core/test/integration-closure.test.mjs",
   "packages/decision-vnext-core/test/isolation.test.mjs",
+  "packages/decision-vnext-core/test/phase3c-contextual-world-evaluation.test.mjs",
   "packages/decision-vnext-core/test/phase3c-founder-decision-lab.test.mjs",
 ];
 

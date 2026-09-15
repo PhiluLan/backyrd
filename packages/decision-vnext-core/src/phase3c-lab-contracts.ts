@@ -5,12 +5,12 @@ export const PHASE3C_LAB_VERSIONS = Object.freeze({
   request: "backyrd.decision-vnext.founder-lab-request@3c-1",
   interpretation: "backyrd.decision-vnext.founder-lab-interpretation@3c-1",
   cohort: "backyrd.decision-vnext.founder-lab-cohort@3c-1",
-  coreIntentPolicy: "backyrd.decision-vnext.founder-lab-core-intent-policy@3c-1",
-  assessment: "backyrd.decision-vnext.founder-lab-candidate-assessment@3c-2",
-  result: "backyrd.decision-vnext.founder-lab-result@3c-2",
+  contextualWorldPolicy: "backyrd.decision-vnext.founder-lab-contextual-world-policy@3c-1",
+  assessment: "backyrd.decision-vnext.founder-lab-candidate-assessment@3c-3",
+  result: "backyrd.decision-vnext.founder-lab-result@3c-3",
   oracle: "backyrd.decision-vnext.founder-lab-oracle@3c-1",
   report: "backyrd.decision-vnext.founder-lab-report@3c-1",
-  release: "backyrd.decision-vnext.founder-lab-release@3c-2",
+  release: "backyrd.decision-vnext.founder-lab-release@3c-3",
 } as const);
 
 const nullableIdentifier = schema.union([identifier, schema.literal(null)] as const);
@@ -74,25 +74,36 @@ export const FounderLabCohortSchema = schema.object({
 export type FounderLabCohort = Infer<typeof FounderLabCohortSchema>;
 
 const reason = schema.object({ reasonCode: identifier, domain: schema.enum(["WORLD", "USER", "CONTEXT", "LIMITATION"] as const), sourceHash: sha256, statementDe: schema.string({ min: 1, max: 500 }), confirmed: schema.boolean() });
-const coreIntentCoverageState = schema.enum(["CONFIRMED", "UNKNOWN", "NOT_CONFIGURED", "INCOMPATIBLE"] as const);
-export const FounderLabCoreIntentPolicySchema = schema.object({
-  contractVersion: version(PHASE3C_LAB_VERSIONS.coreIntentPolicy), policyId: identifier,
+const coreIntentCoverageState = schema.enum(["CONFIRMED", "UNKNOWN", "NOT_CONFIGURED", "INCOMPATIBLE", "DISPUTED"] as const);
+const contextualState = schema.enum(["CONFIRMED", "UNKNOWN", "NOT_CONFIGURED", "INCOMPATIBLE", "DISPUTED", "NOT_APPLICABLE"] as const);
+export const FounderLabContextualWorldPolicySchema = schema.object({
+  contractVersion: version(PHASE3C_LAB_VERSIONS.contextualWorldPolicy), policyId: identifier,
   scope: schema.literal("SYNTHETIC_FOUNDER_EVALUATION_ONLY"),
-  mappings: schema.array(schema.object({ mappingId: identifier, intentId: identifier, worldFactKey: identifier, acceptedValues: schema.array(identifier, { min: 1, max: 20 }) }), { min: 1, max: 20 }),
+  primaryPurposeMappings: schema.array(schema.object({ mappingId: identifier, intentId: identifier, acceptedPrimaryPurposes: schema.array(identifier, { min: 1, max: 20 }) }), { min: 1, max: 20 }),
+  onsiteOfferingMappings: schema.array(schema.object({ mappingId: identifier, intentId: identifier, acceptedKinds: schema.array(identifier, { min: 1, max: 20 }), confirmsCoreIntent: schema.literal(false) }), { min: 1, max: 20 }),
+  situationMappings: schema.array(schema.object({ mappingId: identifier, contextId: identifier, worldSituation: identifier }), { min: 1, max: 20 }),
+  atmosphereMappings: schema.array(schema.object({ mappingId: identifier, contextId: identifier, worldAtmosphere: identifier }), { min: 1, max: 20 }),
+  daypartMappings: schema.array(schema.object({ mappingId: identifier, contextId: identifier, worldDaypart: identifier }), { min: 1, max: 20 }),
   unknownConstraintEvaluationOverrides: schema.array(schema.object({ ruleClass: identifier, treatment: schema.literal("UNCONFIRMED_FALLBACK"), rationale: identifier }), { max: 10 }),
+  embeddedOfferingsNeverConfirmCoreIntent: schema.literal(true), typicalDaypartsNeverDetermineOpeningState: schema.literal(true), softContextNeverExcludes: schema.literal(true),
   confirmedTierRequiresCoreIntentCoverage: schema.literal("CONFIRMED"), productionAuthorized: schema.literal(false), productQualityClaim: schema.literal(false),
   productRankingAuthorized: schema.literal(false), policyHash: sha256,
 });
-export type FounderLabCoreIntentPolicy = Infer<typeof FounderLabCoreIntentPolicySchema>;
+export type FounderLabContextualWorldPolicy = Infer<typeof FounderLabContextualWorldPolicySchema>;
 
 const intentCoverage = schema.object({
   intentId: nullableIdentifier, state: schema.union([coreIntentCoverageState, schema.literal("NOT_APPLICABLE")] as const),
   mappingIds: schema.array(identifier, { max: 20 }), worldFactKeys: schema.array(identifier, { max: 20 }), evidenceSourceHash: sha256,
 });
+const contextualEvaluation = schema.object({ state: contextualState, mappingIds: schema.array(identifier, { max: 20 }), evidenceSourceHash: sha256 });
+const onsiteEvaluation = schema.object({ state: contextualState, mappingIds: schema.array(identifier, { max: 20 }), matchedKinds: schema.array(identifier, { max: 20 }), relationships: schema.array(schema.enum(["PART_OF_SPOT", "EMBEDDED_FACILITY", "UNKNOWN"] as const), { max: 3 }), confirmsCoreIntent: schema.literal(false), evidenceSourceHash: sha256 });
 export const FounderLabCandidateAssessmentSchema = schema.object({
   contractVersion: version(PHASE3C_LAB_VERSIONS.assessment), candidateId: identifier, label: schema.string({ min: 1, max: 160 }),
   tier: schema.enum(["ELIGIBLE_CONFIRMED", "UNCONFIRMED_FALLBACK", "NOT_CONFIGURED", "INELIGIBLE"] as const),
   coreIntentCoverage: intentCoverage, secondaryIntentCoverage: intentCoverage,
+  primaryVisitPurpose: contextualEvaluation, onsiteOfferings: onsiteEvaluation, visitSituation: contextualEvaluation,
+  atmosphere: contextualEvaluation, typicalDaypart: contextualEvaluation,
+  actualAvailability: schema.object({ status: schema.enum(["open", "closed", "unknown", "not_authorized", "expired", "disputed", "not_requested"] as const), evidenceSourceHash: sha256 }),
   confirmedHardConstraints: schema.array(identifier, { max: 30 }), unknownHardConstraints: schema.array(identifier, { max: 30 }), failedHardConstraints: schema.array(identifier, { max: 30 }),
   matchedSoftPreferences: schema.array(identifier, { max: 30 }), conflicts: schema.array(identifier, { max: 20 }), reasons: schema.array(reason, { min: 1, max: 60 }), limitations: schema.array(identifier, { max: 30 }),
   rejectionClass: schema.enum(["NONE", "SITUATIONAL_REJECT"] as const), userIntelligenceInvolved: schema.boolean(), userIntelligenceAffectsEligibility: schema.literal(false), fixtureOrderKey: schema.string({ min: 1, max: 200 }), assessmentHash: sha256,
@@ -102,7 +113,7 @@ export type FounderLabCandidateAssessment = Infer<typeof FounderLabCandidateAsse
 export const FounderLabResultSchema = schema.object({
   contractVersion: version(PHASE3C_LAB_VERSIONS.result), resultId: identifier, createdAt: timestamp,
   requestHash: sha256, interpretation: FounderLabInterpretationSchema, compatibilityHash: sha256, phase3BReleaseHash: sha256,
-  coreIntentPolicyHash: sha256,
+  contextualWorldPolicyHash: sha256,
   worldCohort: FounderLabCohortSchema, userProjectionHash: sha256, userProjectionState: schema.enum(["ACTIVE", "NEUTRAL"] as const), userNeutralReason: nullableIdentifier,
   candidates: schema.array(FounderLabCandidateAssessmentSchema, { max: 40 }), explanation: schema.array(reason, { max: 100 }),
   alternative: schema.object({ requested: schema.boolean(), negativeSignalProduced: schema.literal(false) }), reject: schema.object({ candidateIds: schema.array(identifier, { max: 50 }), userEventProduced: schema.literal(false), scope: schema.literal("USER_X_SPOT_X_DECISION_X_CONTEXT") }),
@@ -130,7 +141,7 @@ export const FounderLabReleaseSchema = schema.object({
   contractVersion: version(PHASE3C_LAB_VERSIONS.release), releaseId: identifier, canonicalBaseSha: schema.string({ pattern: /^[a-f0-9]{40}$/ }),
   phase3BReleaseHash: sha256, compatibilityHash: sha256, worldFounderEvidenceHash: sha256, userFounderRecordHash: sha256,
   userProductPolicyHash: sha256, userSignalRegistryHash: sha256, scenarioSetHash: sha256,
-  coreIntentPolicyHash: sha256,
+  contextualWorldPolicyHash: sha256,
   founderCohortHandoffContract: schema.literal("backyrd.world-knowledge.founder-cohort-handoff@1.0"),
   trustRoot: schema.literal("INHERITED_PHASE3B_SIGNED_RELEASE_PLUS_REPOSITORY_SOURCE_IDENTITY"), ...labFlags, releaseHash: sha256,
 });

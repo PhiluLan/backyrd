@@ -13,18 +13,24 @@ export const LOCAL_FOUNDER_COHORT_FIXTURE = Object.freeze([
   { spotId: "ff90b2f4-0c51-4423-adb5-e9a0ad22213e", name: "Consum Weinbar" },
   { spotId: "644fbd15-91f8-4ab7-8a4b-dbe06622d148", name: "Café Frühling" },
 ]);
-export function makeFounderCohortHandoff(entries = LOCAL_FOUNDER_COHORT_FIXTURE) {
+export function makeFounderCohortHandoff(entries = LOCAL_FOUNDER_COHORT_FIXTURE, contextualBySpot = {}, worldFactsBySpot = {}) {
   const normalized = entries.map((entry, index) => typeof entry === "string" ? { spotId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`, name: entry } : entry);
   const spotDetails = normalized.map(({ spotId, name }, index) => {
     const manifestHash = h(`manifest:${name}`);
     const fact = (key, value, resolution = "KNOWN_VALUE") => ({ key, scope: "GLOBAL", resolution, value, trust: "VERIFIED", freshness: "CURRENT", basisClaimHashes: [h(`claim:${spotId}:${key}`)] });
     const ageRule = name === "Volta Bräu" ? [fact("rule.age_access_conditions", { rules: [{ mode: "UNACCOMPANIED_MINIMUM", minimumAge: 13, accompaniment: "ADULT", appliesFromTime: null, days: [], area: null, event: null }], notes: null })] : [];
     const price = name === "Consum Weinbar" ? [fact("operation.price_range", { currency: "CHF", min: 12, max: 38 })] : [];
-    const worldSnapshot = { contractVersion: "backyrd.world-knowledge.shadow-snapshot@1.0", registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, policyVersion: ACCEPTED_POLICY_VERSION, spotId, resolvedAt: "2026-09-16T18:00:00.000Z", facts: [fact("identity.name", name), fact("location.locality", "Basel"), fact("accessibility.step_free_entrance", index === 0 ? true : null, index === 0 ? "KNOWN_TRUE" : "UNKNOWN"), ...ageRule, ...price], explicitUnknowns: index === 0 ? [] : [{ key: "accessibility.step_free_entrance", scope: "GLOBAL" }], conflicts: [] };
+    const extraFacts = (worldFactsBySpot[spotId] ?? []).map((item) => fact(item.key, item.value, item.resolution));
+    const worldSnapshot = { contractVersion: "backyrd.world-knowledge.shadow-snapshot@1.0", registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH, policyVersion: ACCEPTED_POLICY_VERSION, spotId, resolvedAt: "2026-09-16T18:00:00.000Z", facts: [fact("identity.name", name), fact("location.locality", "Basel"), fact("accessibility.step_free_entrance", index === 0 ? true : null, index === 0 ? "KNOWN_TRUE" : "UNKNOWN"), ...ageRule, ...price, ...extraFacts], explicitUnknowns: index === 0 ? [] : [{ key: "accessibility.step_free_entrance", scope: "GLOBAL" }], conflicts: [] };
     return { spotId, fallbackName: name, manifest: { manifestHash, worldSnapshot } };
   });
   const spots = spotDetails.map((detail) => {
-    const contextBody = { contractVersion: "backyrd.world-knowledge.context-handoff-shadow@1.0", registryVersion: REGISTRY_VERSION, policyVersion: ACCEPTED_POLICY_VERSION, spotId: detail.spotId, resolvedAt: detail.manifest.worldSnapshot.resolvedAt, entries: {}, absentKeys: contextKeys, explicitUnknowns: [], conflicts: [], exclusions: contextExclusions };
+    const configured = contextualBySpot[detail.spotId] ?? {};
+    const entries = Object.fromEntries(Object.entries(configured).filter(([key, value]) => contextKeys.includes(key) && value !== undefined && value !== null && !(typeof value === "object" && (value?.disputed || value?.unknown))).map(([key, value]) => [key, { key, scope: "SPOT", resolution: "KNOWN_VALUE", value, trust: "VERIFIED", freshness: "CURRENT", basisClaimHashes: [h(`context-claim:${detail.spotId}:${key}`)] }]));
+    const conflicts = Object.entries(configured).filter(([, value]) => typeof value === "object" && value?.disputed).map(([key]) => ({ key, scope: "SPOT", claimHashes: [h(`context-conflict-a:${detail.spotId}:${key}`), h(`context-conflict-b:${detail.spotId}:${key}`)].sort() }));
+    const explicitUnknowns = Object.entries(configured).filter(([, value]) => typeof value === "object" && value?.unknown).map(([key]) => key);
+    const absentKeys = contextKeys.filter((key) => !(key in entries) && !explicitUnknowns.includes(key) && !conflicts.some((row) => row.key === key));
+    const contextBody = { contractVersion: "backyrd.world-knowledge.context-handoff-shadow@1.0", registryVersion: REGISTRY_VERSION, policyVersion: ACCEPTED_POLICY_VERSION, spotId: detail.spotId, resolvedAt: detail.manifest.worldSnapshot.resolvedAt, entries, absentKeys, explicitUnknowns, conflicts, exclusions: contextExclusions };
     const contextHandoffHash = pgHash(contextBody);
     return { spotId: detail.spotId, manifestHash: detail.manifest.manifestHash, resolutionHash: h(`resolution:${detail.spotId}`), inputHash: h(`input:${detail.spotId}`), snapshotHash: h(`source-snapshot:${detail.spotId}`), contextHandoff: { ...contextBody, handoffHash: contextHandoffHash }, contextHandoffHash };
   });

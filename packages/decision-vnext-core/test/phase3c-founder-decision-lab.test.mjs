@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  FounderLabRequestSchema, PHASE3C_CORE_INTENT_EVALUATION_POLICY, PHASE3C_FOUNDER_LAB_RELEASE, PHASE3C_FOUNDER_ORACLES, PHASE3C_FOUNDER_SCENARIO_IDS,
+  FounderLabRequestSchema, PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY, PHASE3C_FOUNDER_LAB_RELEASE, PHASE3C_FOUNDER_ORACLES, PHASE3C_FOUNDER_SCENARIO_IDS,
   PHASE3C_LAB_COMPATIBILITY, PHASE3C_LAB_VERSIONS, canonicalJson, contentHash, replayFounderDecisionLab,
   assertFounderLabEvaluable, founderLabEvaluationGaps, replayFounderLabReport, resolveFounderLabText, runFounderDecisionLab, runFounderLabOracles,
 } from "../dist/index.js";
@@ -44,9 +44,10 @@ test("prepared Founder family and coffee tasks expose complete, correction-ready
 });
 
 test("Founder evaluation requires authorized core-intent coverage before confirmed eligibility", async () => {
-  assert.equal(PHASE3C_CORE_INTENT_EVALUATION_POLICY.confirmedTierRequiresCoreIntentCoverage, "CONFIRMED");
-  assert.equal(PHASE3C_CORE_INTENT_EVALUATION_POLICY.productionAuthorized, false);
-  assert.equal(PHASE3C_FOUNDER_LAB_RELEASE.coreIntentPolicyHash, PHASE3C_CORE_INTENT_EVALUATION_POLICY.policyHash);
+  assert.equal(PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY.confirmedTierRequiresCoreIntentCoverage, "CONFIRMED");
+  assert.equal(PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY.embeddedOfferingsNeverConfirmCoreIntent, true);
+  assert.equal(PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY.productionAuthorized, false);
+  assert.equal(PHASE3C_FOUNDER_LAB_RELEASE.contextualWorldPolicyHash, PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY.policyHash);
   const handoff = makeFounderCohortHandoff();
   const family = await runFounderDecisionLab({ request: request("Ich suche nächste Woche in Basel einen Ort für ein Familienessen für mich und meine zwölfjährige Tochter."), cohortHandoff: handoff });
   const elys = family.candidates.find((row) => row.label === "ELYS Boulderloft");
@@ -58,7 +59,7 @@ test("Founder evaluation requires authorized core-intent coverage before confirm
   assert.ok(accessibility.candidates.every((row) => row.tier !== "ELIGIBLE_CONFIRMED"));
   const unconfigured = await runFounderDecisionLab({ request: request("Essen in Basel"), corrections: { primaryIntent: "context.intent.unreleased" }, cohortHandoff: handoff });
   assert.ok(unconfigured.candidates.every((row) => row.coreIntentCoverage.state === "NOT_CONFIGURED" && row.tier !== "ELIGIBLE_CONFIRMED"));
-  assert.doesNotMatch(canonicalJson(PHASE3C_CORE_INTENT_EVALUATION_POLICY), /Volta|ELYS|Tierpark|Consum|Frühling|1101ee26|57cb213c|f8ae8625|ff90b2f4|644fbd15/);
+  assert.doesNotMatch(canonicalJson(PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY), /Volta|ELYS|Tierpark|Consum|Frühling|1101ee26|57cb213c|f8ae8625|ff90b2f4|644fbd15/);
 });
 
 test("incomplete free text is fail-closed until primary intent and an explicit authorized target are supplied", async () => {
