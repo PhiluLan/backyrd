@@ -16,7 +16,7 @@ import { loadAcceptedPhase3BProductContextRelease, type AcceptedPhase3BProductCo
 import { generateSyntheticWorld, SyntheticWorldKnowledgeReader } from "./sandbox.js";
 import { SYNTHETIC_WORLD_SOURCE_POLICY } from "./synthetic-world-policy.js";
 import {
-  FounderLabCandidateAssessmentSchema, FounderLabCohortSchema, FounderLabCorrectionsSchema, FounderLabInterpretationSchema, FounderLabOracleSchema,
+  FounderLabCandidateAssessmentSchema, FounderLabCohortSchema, FounderLabCoreIntentPolicySchema, FounderLabCorrectionsSchema, FounderLabInterpretationSchema, FounderLabOracleSchema,
   FounderLabReleaseSchema, FounderLabReportSchema, FounderLabRequestSchema, FounderLabResultSchema,
   PHASE3C_LAB_VERSIONS, Phase3CLabCompatibilitySchema, type FounderLabCandidateAssessment, type FounderLabCohort,
   type FounderLabCorrections, type FounderLabInterpretation, type FounderLabOracle, type FounderLabRelease, type FounderLabReport, type FounderLabRequest,
@@ -37,6 +37,24 @@ const compatibilityBody = {
   mode: "EXPLICIT_EVALUATION_ADAPTER_NO_POLICY_UPGRADE" as const, authoringDraftsAuthorized: false as const,
 };
 export const PHASE3C_LAB_COMPATIBILITY = deepFreeze(Phase3CLabCompatibilitySchema.parse(withContentHash(compatibilityBody, "compatibilityHash")));
+
+const coreIntentPolicyBody = {
+  contractVersion: PHASE3C_LAB_VERSIONS.coreIntentPolicy,
+  policyId: "decision-founder-lab-core-intent-evaluation-policy-3c-1",
+  scope: "SYNTHETIC_FOUNDER_EVALUATION_ONLY" as const,
+  mappings: [
+    { mappingId: "core-intent-food-primary-eat-3c-1", intentId: "context.intent.food", worldFactKey: "classification.primary_category", acceptedValues: ["EAT"] },
+    { mappingId: "core-intent-food-offerings-3c-1", intentId: "context.intent.food", worldFactKey: "offering.groups", acceptedValues: ["DINNER", "FULL_MEALS", "LUNCH"] },
+    { mappingId: "core-intent-coffee-primary-3c-1", intentId: "context.intent.coffee", worldFactKey: "classification.primary_category", acceptedValues: ["COFFEE_DAYTIME"] },
+    { mappingId: "core-intent-coffee-offerings-3c-1", intentId: "context.intent.coffee", worldFactKey: "offering.groups", acceptedValues: ["COFFEE"] },
+    { mappingId: "core-intent-drinks-primary-3c-1", intentId: "context.intent.drinks", worldFactKey: "classification.primary_category", acceptedValues: ["DRINKS", "NIGHTLIFE"] },
+    { mappingId: "core-intent-drinks-offerings-3c-1", intentId: "context.intent.drinks", worldFactKey: "offering.groups", acceptedValues: ["BEER", "COCKTAILS", "CRAFT_BEER", "NON_ALCOHOLIC_DRINKS", "WINE"] },
+  ],
+  unknownConstraintEvaluationOverrides: [{ ruleClass: "AGE_OR_LEGAL", treatment: "UNCONFIRMED_FALLBACK" as const, rationale: "founder-confirmed-age-unknown-remains-fallback-3c" }],
+  confirmedTierRequiresCoreIntentCoverage: "CONFIRMED" as const,
+  productionAuthorized: false as const, productQualityClaim: false as const, productRankingAuthorized: false as const,
+};
+export const PHASE3C_CORE_INTENT_EVALUATION_POLICY = deepFreeze(FounderLabCoreIntentPolicySchema.parse(withContentHash(coreIntentPolicyBody, "policyHash")));
 
 interface FixtureProfile {
   readonly label: string; readonly quiet: "KNOWN_TRUE"|"KNOWN_FALSE"|"UNKNOWN"; readonly lively: "KNOWN_TRUE"|"KNOWN_FALSE"|"UNKNOWN";
@@ -113,7 +131,13 @@ async function readSnapshot(reader: WorldKnowledgeReaderPort, spotId: string): P
   return snapshot;
 }
 
-interface LabWorldRow { readonly spotId: string; readonly name: string; readonly locality: string | null; readonly snapshotHash: string; readonly profile: FixtureProfile }
+interface LabWorldFact { readonly key: string; readonly resolution: string; readonly value: unknown }
+interface LabWorldRow { readonly spotId: string; readonly name: string; readonly locality: string | null; readonly snapshotHash: string; readonly facts: readonly LabWorldFact[]; readonly profile: FixtureProfile }
+const factsFromWorldSnapshot = (snapshot: WorldKnowledgeSnapshot): readonly LabWorldFact[] => [
+  ...snapshot.facts,
+  { key: "classification.primary_category", resolution: snapshot.spot.classification.primaryCategory ? "KNOWN_VALUE" : "UNKNOWN", value: snapshot.spot.classification.primaryCategory },
+  { key: "classification.place_types", resolution: snapshot.spot.classification.placeTypes.length ? "KNOWN_VALUE" : "UNKNOWN", value: snapshot.spot.classification.placeTypes },
+];
 function profileHash(profile: FixtureProfile, snapshotHash: string, authority: "SYNTHETIC_FIXTURE_ONLY" | "WORLD_COHORT_HANDOFF" = "SYNTHETIC_FIXTURE_ONLY") { return contentHash({ authority, snapshotHash, profile }); }
 const stateFromFact = (snapshot: FounderShadowSnapshot, key: string): "KNOWN_TRUE"|"KNOWN_FALSE"|"UNKNOWN" => { const fact = snapshot.facts.find((item) => item.key === key); return fact?.resolution === "KNOWN_TRUE" ? "KNOWN_TRUE" : fact?.resolution === "KNOWN_FALSE" ? "KNOWN_FALSE" : "UNKNOWN"; };
 const valueFromFact = (snapshot: FounderShadowSnapshot, key: string): unknown => snapshot.facts.find((item) => item.key === key && item.resolution === "KNOWN_VALUE")?.value;
@@ -123,7 +147,7 @@ function rowFromHandoff(item: FounderWorldCohortHandoff["spots"][number]): LabWo
   const priceRange = valueFromFact(item.snapshot, "operation.price_range") as { currency?: unknown; max?: unknown } | undefined;
   const profile: FixtureProfile = { label: item.name, quiet: "UNKNOWN", lively: "UNKNOWN", wheelchair: stateFromFact(item.snapshot, "accessibility.step_free_entrance"), priceMaxChf: priceRange?.currency === "CHF" && typeof priceRange.max === "number" ? priceRange.max : null, distanceMinutes: null, ageRule: matchingAgeRule ? { mode: "UNACCOMPANIED_MINIMUM", minimumAge: 13, accompaniment: "ADULT" } : null, conflict: item.snapshot.conflicts.length > 0 };
   const locality = valueFromFact(item.snapshot, "location.locality");
-  return { spotId: item.spotId, name: item.name, locality: typeof locality === "string" ? locality : null, snapshotHash: item.snapshotContentHash, profile };
+  return { spotId: item.spotId, name: item.name, locality: typeof locality === "string" ? locality : null, snapshotHash: item.snapshotContentHash, facts: item.snapshot.facts, profile };
 }
 
 let syntheticCohortCache: Promise<{ cohort: FounderLabCohort; rows: readonly LabWorldRow[] }> | null = null;
@@ -141,13 +165,13 @@ async function loadCohort(input: { reader?: WorldKnowledgeReaderPort; manifest?:
     const body = { ...manifest } as Record<string, unknown>; delete body.cohortHash;
     if (manifest.contractVersion !== FOUNDER_COHORT_VERSION || manifest.scope !== FOUNDER_EVALUATION_SCOPE || manifest.registryVersion !== REGISTRY_VERSION || manifest.registryHash !== REGISTRY_HASH || contentHash(body) !== manifest.cohortHash || manifest.spots.length < 1 || manifest.spots.length > 40 || new Set(manifest.spots.map((row) => row.spotId)).size !== manifest.spots.length) throw new Error("phase3c_founder_cohort_manifest_invalid");
     const snapshots = await Promise.all(manifest.spots.map(async (binding) => { const snapshot = await readSnapshot(input.reader!, binding.spotId); if (snapshot.snapshotHash !== binding.snapshotHash) throw new Error("phase3c_founder_cohort_snapshot_mismatch"); return snapshot; }));
-    const rows = snapshots.map((snapshot, index) => ({ spotId: snapshot.spot.spotId, name: snapshot.spot.identity.name ?? profiles[index % profiles.length]!.label, locality: snapshot.spot.location.locality, snapshotHash: snapshot.snapshotHash, profile: { ...profiles[index % profiles.length]!, label: snapshot.spot.identity.name ?? profiles[index % profiles.length]!.label } }));
+    const rows = snapshots.map((snapshot, index) => ({ spotId: snapshot.spot.spotId, name: snapshot.spot.identity.name ?? profiles[index % profiles.length]!.label, locality: snapshot.spot.location.locality, snapshotHash: snapshot.snapshotHash, facts: factsFromWorldSnapshot(snapshot), profile: { ...profiles[index % profiles.length]!, label: snapshot.spot.identity.name ?? profiles[index % profiles.length]!.label } }));
     const cohortBody = { contractVersion: PHASE3C_LAB_VERSIONS.cohort, cohortId: manifest.cohortId, source: "FOUNDER_WORLD_COHORT" as const, worldRegistryVersion: manifest.registryVersion, worldRegistryHash: manifest.registryHash, sourcePolicyVersion: manifest.policyVersion, sourceHandoffHash: null, spotBindings: rows.map((row) => ({ spotId: row.spotId, snapshotHash: row.snapshotHash, fixtureProfileHash: profileHash(row.profile, row.snapshotHash) })), limitations: ["fixture-fit-profile-is-calibration-only"], mixedSources: false as const };
     return { cohort: deepFreeze(FounderLabCohortSchema.parse(withContentHash(cohortBody, "cohortHash"))), rows };
   }
   syntheticCohortCache ??= (async () => {
     const { world, reader } = fixtureWorld(); const snapshots = await Promise.all(world.spots.slice(0, profiles.length).map((spot) => readSnapshot(reader, spot.id)));
-    const rows = snapshots.map((snapshot, index) => ({ spotId: snapshot.spot.spotId, name: profiles[index]!.label, locality: snapshot.spot.location.locality, snapshotHash: snapshot.snapshotHash, profile: profiles[index]! }));
+    const rows = snapshots.map((snapshot, index) => ({ spotId: snapshot.spot.spotId, name: profiles[index]!.label, locality: snapshot.spot.location.locality, snapshotHash: snapshot.snapshotHash, facts: factsFromWorldSnapshot(snapshot), profile: profiles[index]! }));
     const cohortBody = { contractVersion: PHASE3C_LAB_VERSIONS.cohort, cohortId: "synthetic-founder-lab-cohort-3c-1", source: "SYNTHETIC_FALLBACK" as const, worldRegistryVersion: REGISTRY_VERSION, worldRegistryHash: REGISTRY_HASH, sourcePolicyVersion: SYNTHETIC_WORLD_SOURCE_POLICY.policyVersion, sourceHandoffHash: null, spotBindings: rows.map((row) => ({ spotId: row.spotId, snapshotHash: row.snapshotHash, fixtureProfileHash: profileHash(row.profile, row.snapshotHash) })), limitations: ["no-bound-founder-world-cohort", "synthetic-world-never-mixed-with-founder-world", "fixture-fit-profile-is-calibration-only"], mixedSources: false as const };
     return deepFreeze({ cohort: FounderLabCohortSchema.parse(withContentHash(cohortBody, "cohortHash")), rows });
   })();
@@ -187,6 +211,32 @@ function userProjection(request: FounderLabRequest, contextHash: string): Releva
 
 const reason = (reasonCode: string, domain: "WORLD"|"USER"|"CONTEXT"|"LIMITATION", sourceHash: string, statementDe: string, confirmed: boolean) => ({ reasonCode, domain, sourceHash, statementDe, confirmed });
 
+function resolveIntentCoverage(world: LabWorldRow, intentId: string | null) {
+  const evidenceSourceHash = contentHash({ policyHash: PHASE3C_CORE_INTENT_EVALUATION_POLICY.policyHash, snapshotHash: world.snapshotHash, intentId });
+  if (!intentId) return { intentId: null, state: "NOT_APPLICABLE" as const, mappingIds: [], worldFactKeys: [], evidenceSourceHash };
+  const mappings = PHASE3C_CORE_INTENT_EVALUATION_POLICY.mappings.filter((mapping) => mapping.intentId === intentId);
+  if (!mappings.length) return { intentId, state: "NOT_CONFIGURED" as const, mappingIds: [], worldFactKeys: [], evidenceSourceHash };
+  let unknown = false;
+  for (const mapping of mappings) {
+    const fact = world.facts.find((entry) => entry.key === mapping.worldFactKey);
+    if (!fact || ["UNKNOWN", "NOT_CONFIGURED", "NOT_AVAILABLE", "DENIED", "DISPUTED", "EXPIRED"].includes(fact.resolution)) { unknown = true; continue; }
+    const values = Array.isArray(fact.value) ? fact.value : [fact.value];
+    if (values.some((value) => typeof value === "string" && mapping.acceptedValues.includes(value))) return { intentId, state: "CONFIRMED" as const, mappingIds: [mapping.mappingId], worldFactKeys: [mapping.worldFactKey], evidenceSourceHash };
+  }
+  return { intentId, state: unknown ? "UNKNOWN" as const : "INCOMPATIBLE" as const, mappingIds: mappings.map((mapping) => mapping.mappingId), worldFactKeys: unique(mappings.map((mapping) => mapping.worldFactKey)), evidenceSourceHash };
+}
+
+function resolveAgeConstraint(world: LabWorldRow, age: number | null, adultPresent: boolean): "KNOWN_TRUE" | "KNOWN_FALSE" | "UNKNOWN" {
+  if (world.spotId.startsWith("syn-") && world.profile.ageRule) return age === null ? "UNKNOWN" : age >= world.profile.ageRule.minimumAge || adultPresent ? "KNOWN_TRUE" : "KNOWN_FALSE";
+  const fact = world.facts.find((entry) => entry.key === "rule.age_access_conditions");
+  if (!fact || fact.resolution !== "KNOWN_VALUE" || !fact.value || typeof fact.value !== "object" || !("rules" in fact.value) || !Array.isArray(fact.value.rules)) return "UNKNOWN";
+  const rules = fact.value.rules.filter((rule): rule is Record<string, unknown> => Boolean(rule) && typeof rule === "object" && !Array.isArray(rule) && (rule as Record<string, unknown>).area == null && (rule as Record<string, unknown>).event == null && Array.isArray((rule as Record<string, unknown>).days) && ((rule as Record<string, unknown>).days as unknown[]).length === 0 && (rule as Record<string, unknown>).appliesFromTime == null);
+  if (rules.some((rule) => rule.mode === "NO_MINIMUM")) return "KNOWN_TRUE";
+  const applicable = rules.filter((rule) => ["GENERAL_MINIMUM", "UNACCOMPANIED_MINIMUM"].includes(String(rule.mode)) && typeof rule.minimumAge === "number");
+  if (!applicable.length || age === null) return "UNKNOWN";
+  return applicable.every((rule) => age >= Number(rule.minimumAge) || (rule.mode === "UNACCOMPANIED_MINIMUM" && adultPresent && rule.accompaniment === "ADULT")) ? "KNOWN_TRUE" : "KNOWN_FALSE";
+}
+
 function assess(world: LabWorldRow, interpretation: FounderLabInterpretation, projection: RelevantUserProjection, rejected: readonly string[], release: AcceptedPhase3BProductContextRelease): FounderLabCandidateAssessment {
   const profile = world.profile;
   const hardKnown: string[] = []; const hardUnknown: string[] = []; const hardFailed: string[] = []; const soft: string[] = []; const limitations: string[] = []; const reasons = [];
@@ -195,29 +245,44 @@ function assess(world: LabWorldRow, interpretation: FounderLabInterpretation, pr
   if (interpretation.hardConstraints.includes("ACCESSIBILITY")) { if (profile.wheelchair === "KNOWN_TRUE") hardKnown.push("ACCESSIBILITY"); else if (profile.wheelchair === "KNOWN_FALSE") hardFailed.push("ACCESSIBILITY"); else hardUnknown.push("ACCESSIBILITY"); }
   if (interpretation.hardConstraints.includes("BUDGET_MAXIMUM")) { const amount = interpretation.budget.amount; if (amount === null || profile.priceMaxChf === null) hardUnknown.push("BUDGET_MAXIMUM"); else if (profile.priceMaxChf <= amount) hardKnown.push("BUDGET_MAXIMUM"); else hardFailed.push("BUDGET_MAXIMUM"); }
   if (interpretation.hardConstraints.includes("DISTANCE_MAXIMUM")) { if (profile.distanceMinutes === null) hardUnknown.push("DISTANCE_MAXIMUM"); else if (profile.distanceMinutes <= 20) hardKnown.push("DISTANCE_MAXIMUM"); else hardFailed.push("DISTANCE_MAXIMUM"); }
-  if (interpretation.hardConstraints.includes("AGE_OR_LEGAL")) { const age = interpretation.group.minimumAge; if (!profile.ageRule || age === null) hardUnknown.push("AGE_OR_LEGAL"); else if (age >= profile.ageRule.minimumAge || interpretation.group.adultPresent) hardKnown.push("AGE_OR_LEGAL"); else hardFailed.push("AGE_OR_LEGAL"); }
+  if (interpretation.hardConstraints.includes("AGE_OR_LEGAL")) { const state = resolveAgeConstraint(world, interpretation.group.minimumAge, interpretation.group.adultPresent); if (state === "KNOWN_TRUE") hardKnown.push("AGE_OR_LEGAL"); else if (state === "KNOWN_FALSE") hardFailed.push("AGE_OR_LEGAL"); else hardUnknown.push("AGE_OR_LEGAL"); }
   if (interpretation.hardConstraints.includes("OPENING_CURRENT")) hardUnknown.push("OPENING_CURRENT");
   if (interpretation.hardConstraints.includes("KITCHEN_CURRENT")) hardUnknown.push("KITCHEN_CURRENT");
   if (interpretation.moods.includes("context.mood.quiet") && profile.quiet === "KNOWN_TRUE") soft.push("MOOD_QUIET");
   if (interpretation.moods.includes("context.mood.lively") && profile.lively === "KNOWN_TRUE") soft.push("MOOD_LIVELY");
+  const coreIntentCoverage = resolveIntentCoverage(world, interpretation.primaryIntent);
+  const secondaryIntentCoverage = resolveIntentCoverage(world, interpretation.secondaryIntent);
   if (profile.conflict) limitations.push("blocking-world-conflict");
   if (rejected.includes(world.spotId)) limitations.push("rejected-in-current-session");
+  if (interpretation.softPreferences.includes("MOOD") && !soft.length) limitations.push("soft-mood-world-evidence-not-available");
   const policyTiers = [
     ...hardKnown.filter((key) => key !== "LOCATION_SCOPE").map((ruleClass) => classifyConstraintCandidate({ candidateId: world.spotId, ruleClass: ruleClass as "ACCESSIBILITY"|"AGE_OR_LEGAL"|"BUDGET_MAXIMUM"|"DISTANCE_MAXIMUM"|"OPENING_CURRENT"|"KITCHEN_CURRENT", knowledgeState: "KNOWN_TRUE" }, release).tier),
     ...hardUnknown.map((ruleClass) => classifyConstraintCandidate({ candidateId: world.spotId, ruleClass: ruleClass as "ACCESSIBILITY"|"AGE_OR_LEGAL"|"BUDGET_MAXIMUM"|"DISTANCE_MAXIMUM"|"OPENING_CURRENT"|"KITCHEN_CURRENT", knowledgeState: "UNKNOWN" }, release).tier),
     ...hardFailed.filter((key) => key !== "LOCATION_SCOPE").map((ruleClass) => classifyConstraintCandidate({ candidateId: world.spotId, ruleClass: ruleClass as "ACCESSIBILITY"|"AGE_OR_LEGAL"|"BUDGET_MAXIMUM"|"DISTANCE_MAXIMUM"|"OPENING_CURRENT"|"KITCHEN_CURRENT", knowledgeState: "KNOWN_FALSE" }, release).tier),
   ];
-  const notConfigured = interpretation.intentCompatibility === "INCOMPATIBLE" || interpretation.locationAuthority.state !== "KNOWN" || policyTiers.includes("NOT_CONFIGURED");
-  const tier = hardFailed.length || policyTiers.includes("INELIGIBLE") || rejected.includes(world.spotId) || profile.conflict ? "INELIGIBLE" as const : notConfigured ? "NOT_CONFIGURED" as const : policyTiers.includes("UNCONFIRMED_FALLBACK") ? "UNCONFIRMED_FALLBACK" as const : "ELIGIBLE_CONFIRMED" as const;
+  if (hardUnknown.includes("AGE_OR_LEGAL") && PHASE3C_CORE_INTENT_EVALUATION_POLICY.unknownConstraintEvaluationOverrides.some((entry) => entry.ruleClass === "AGE_OR_LEGAL")) {
+    const index = policyTiers.indexOf("NOT_CONFIGURED"); if (index >= 0) policyTiers[index] = "UNCONFIRMED_FALLBACK";
+  }
+  const notConfigured = interpretation.intentCompatibility === "INCOMPATIBLE" || interpretation.locationAuthority.state !== "KNOWN" || policyTiers.includes("NOT_CONFIGURED") || ["NOT_CONFIGURED", "NOT_APPLICABLE"].includes(coreIntentCoverage.state);
+  const rejectedHere = rejected.includes(world.spotId);
+  const tier = hardFailed.length || policyTiers.includes("INELIGIBLE") || coreIntentCoverage.state === "INCOMPATIBLE" || rejectedHere || profile.conflict ? "INELIGIBLE" as const : notConfigured ? "NOT_CONFIGURED" as const : policyTiers.includes("UNCONFIRMED_FALLBACK") || coreIntentCoverage.state === "UNKNOWN" ? "UNCONFIRMED_FALLBACK" as const : "ELIGIBLE_CONFIRMED" as const;
   reasons.push(reason("world-snapshot-authorized", "WORLD", worldHash, `World Knowledge bestätigt den Snapshot für ${profile.label}.`, true));
+  if (coreIntentCoverage.state === "CONFIRMED") reasons.push(reason("core-intent-confirmed", "WORLD", coreIntentCoverage.evidenceSourceHash, "Die Kernabsicht ist durch autorisierte World-Fakten und die evaluation-only Zuordnung bestätigt.", true));
+  if (coreIntentCoverage.state === "UNKNOWN") reasons.push(reason("core-intent-unknown", "LIMITATION", coreIntentCoverage.evidenceSourceHash, "Für die Kernabsicht fehlt eine benötigte World-Angabe; unbekannt ist weder Ja noch Nein.", false));
+  if (coreIntentCoverage.state === "NOT_CONFIGURED") reasons.push(reason("core-intent-mapping-not-configured", "LIMITATION", coreIntentCoverage.evidenceSourceHash, "Die Zuordnung der World-Fakten zur Kernabsicht ist noch nicht freigegeben.", false));
+  if (coreIntentCoverage.state === "NOT_APPLICABLE") reasons.push(reason("core-intent-required", "LIMITATION", coreIntentCoverage.evidenceSourceHash, "Ohne gebundene Kernabsicht ist keine bestätigte Candidate-Auswertung möglich.", false));
+  if (coreIntentCoverage.state === "INCOMPATIBLE") reasons.push(reason("core-intent-incompatible", "WORLD", coreIntentCoverage.evidenceSourceHash, "Autorisierte World-Fakten belegen, dass der Spot die Kernabsicht nicht erfüllt.", true));
+  if (secondaryIntentCoverage.state === "NOT_CONFIGURED") reasons.push(reason("secondary-intent-mapping-not-configured", "LIMITATION", secondaryIntentCoverage.evidenceSourceHash, "Die Nebenabsicht wird getrennt geführt; ihre World-Zuordnung ist noch nicht freigegeben.", false));
   if (soft.length) reasons.push(reason("composite-context-soft-match", "CONTEXT", interpretation.interpretationHash, "Der Spot passt zu belegten Teilen der gemeinsam verstandenen Situation.", true));
+  if (interpretation.softPreferences.includes("MOOD") && !soft.length) reasons.push(reason("soft-mood-evidence-unavailable", "LIMITATION", worldHash, "Der weiche Stimmungswunsch bleibt sichtbar, ist für diesen Spot aber nicht durch autorisierte World-Evidence belegt.", false));
   const constraintLabel = (key: string) => ({ LOCATION_SCOPE: "Das Zielgebiet", ACCESSIBILITY: "Der rollstuhlgerechte Zugang", BUDGET_MAXIMUM: "Das maximale Budget", DISTANCE_MAXIMUM: "Die gewünschte Nähe", AGE_OR_LEGAL: "Die Altersregel", OPENING_CURRENT: "Der aktuelle Öffnungsstatus", KITCHEN_CURRENT: "Der aktuelle Küchenstatus" } as Record<string, string>)[key] ?? "Die Bedingung";
   for (const key of hardKnown) reasons.push(reason(`hard-${key.toLowerCase()}-confirmed`, "WORLD", profileSource, `${constraintLabel(key)} ist durch die gebundene World-Auswertung bestätigt.`, true));
   for (const key of hardUnknown) reasons.push(reason(`hard-${key.toLowerCase()}-unknown`, "LIMITATION", profileSource, `${constraintLabel(key)} ist unbekannt und wird weder als erfüllt noch als nicht erfüllt behauptet.`, false));
   for (const key of hardFailed) reasons.push(reason(`hard-${key.toLowerCase()}-failed`, "WORLD", profileSource, `${constraintLabel(key)} verletzt eine ausdrückliche Bedingung.`, true));
+  if (rejectedHere) reasons.push(reason("situational-reject", "CONTEXT", interpretation.interpretationHash, "Dieser Spot wurde nur für diese Anfrage und diesen Context abgewählt; das ist keine objektive World-Inkompatibilität.", true));
   if (projection.status === "ACTIVE") reasons.push(reason("user-projection-read-without-authority", "USER", projection.projectionHash, "Minimierte User Intelligence ist sichtbar, besitzt hier aber keine Ranking- oder Eligibility-Autorität.", true));
   const order = { ELIGIBLE_CONFIRMED: "0", UNCONFIRMED_FALLBACK: "1", NOT_CONFIGURED: "2", INELIGIBLE: "3" }[tier];
-  const body = { contractVersion: PHASE3C_LAB_VERSIONS.assessment, candidateId: world.spotId, label: profile.label, tier, confirmedHardConstraints: unique(hardKnown), unknownHardConstraints: unique(hardUnknown), failedHardConstraints: unique(hardFailed), matchedSoftPreferences: unique(soft), conflicts: profile.conflict ? ["WORLD_BLOCKING_CONFLICT"] : [], reasons, limitations: unique(limitations), userIntelligenceInvolved: projection.status === "ACTIVE", userIntelligenceAffectsEligibility: false as const, fixtureOrderKey: `${order}:${String(99 - soft.length).padStart(2, "0")}:${world.spotId}` };
+  const body = { contractVersion: PHASE3C_LAB_VERSIONS.assessment, candidateId: world.spotId, label: profile.label, tier, coreIntentCoverage, secondaryIntentCoverage, confirmedHardConstraints: unique(hardKnown), unknownHardConstraints: unique(hardUnknown), failedHardConstraints: unique(hardFailed), matchedSoftPreferences: unique(soft), conflicts: profile.conflict ? ["WORLD_BLOCKING_CONFLICT"] : [], reasons, limitations: unique(limitations), rejectionClass: rejectedHere ? "SITUATIONAL_REJECT" as const : "NONE" as const, userIntelligenceInvolved: projection.status === "ACTIVE", userIntelligenceAffectsEligibility: false as const, fixtureOrderKey: `${order}:${String(99 - soft.length).padStart(2, "0")}:${world.spotId}` };
   return deepFreeze(FounderLabCandidateAssessmentSchema.parse(withContentHash(body, "assessmentHash")));
 }
 
@@ -233,7 +298,7 @@ export async function runFounderDecisionLab(input: { request: unknown; correctio
   const explanation = candidates.slice(0, 3).flatMap((candidate) => candidate.reasons.filter((item) => item.confirmed || item.domain === "LIMITATION"));
   const degradation = cohort.source === "SYNTHETIC_FALLBACK" ? "SYNTHETIC_WORLD_FALLBACK" as const : projection.status === "NEUTRAL" ? "USER_NEUTRAL" as const : interpretation.limitations.length ? "NOT_CONFIGURED" as const : "NONE" as const;
   const requestHash = contentHash({ contractVersion: request.contractVersion, requestId: request.requestId, inputHash: interpretation.inputHash, deviceLocation: request.deviceLocation, userMode: request.userMode, alternativeRequested: request.alternativeRequested, rejectedCandidateIds: request.rejectedCandidateIds });
-  const body = { contractVersion: PHASE3C_LAB_VERSIONS.result, resultId: `result-${request.requestId}`, createdAt: FIXED_TIME, requestHash, interpretation, compatibilityHash: PHASE3C_LAB_COMPATIBILITY.compatibilityHash, phase3BReleaseHash: PHASE3B_COMBINED_RELEASE.releaseHash, worldCohort: cohort, userProjectionHash: projection.projectionHash, userProjectionState: projection.status, userNeutralReason: nullable(projection.neutralReason), candidates, explanation, alternative: { requested: request.alternativeRequested, negativeSignalProduced: false as const }, reject: { candidateIds: unique(request.rejectedCandidateIds), userEventProduced: false as const, scope: "USER_X_SPOT_X_DECISION_X_CONTEXT" as const }, limitations: unique([...interpretation.limitations, ...cohort.limitations, ...(projection.status === "NEUTRAL" ? [`user-projection-neutral-${projection.neutralReason?.toLowerCase()}`] : [])]), degradation, evaluationOnly: true as const, calibrationOnly: true as const, productionAuthorized: false as const, productRankingAuthorized: false as const, externalProviderUsed: false as const, rawTextPersisted: false as const, writesUserIntelligence: false as const, commercialInfluence: "FORBIDDEN" as const };
+  const body = { contractVersion: PHASE3C_LAB_VERSIONS.result, resultId: `result-${request.requestId}`, createdAt: FIXED_TIME, requestHash, interpretation, compatibilityHash: PHASE3C_LAB_COMPATIBILITY.compatibilityHash, phase3BReleaseHash: PHASE3B_COMBINED_RELEASE.releaseHash, coreIntentPolicyHash: PHASE3C_CORE_INTENT_EVALUATION_POLICY.policyHash, worldCohort: cohort, userProjectionHash: projection.projectionHash, userProjectionState: projection.status, userNeutralReason: nullable(projection.neutralReason), candidates, explanation, alternative: { requested: request.alternativeRequested, negativeSignalProduced: false as const }, reject: { candidateIds: unique(request.rejectedCandidateIds), userEventProduced: false as const, scope: "USER_X_SPOT_X_DECISION_X_CONTEXT" as const }, limitations: unique([...interpretation.limitations, ...cohort.limitations, ...(projection.status === "NEUTRAL" ? [`user-projection-neutral-${projection.neutralReason?.toLowerCase()}`] : [])]), degradation, evaluationOnly: true as const, calibrationOnly: true as const, productionAuthorized: false as const, productRankingAuthorized: false as const, externalProviderUsed: false as const, rawTextPersisted: false as const, writesUserIntelligence: false as const, commercialInfluence: "FORBIDDEN" as const };
   return deepFreeze(FounderLabResultSchema.parse(withContentHash(body, "resultHash")));
 }
 
@@ -250,19 +315,21 @@ export const PHASE3C_FOUNDER_SCENARIO_IDS = Object.freeze([
 ] as const);
 
 const scenarioText: Record<typeof PHASE3C_FOUNDER_SCENARIO_IDS[number], string> = {
-  "quiet-first-date": "Ruhiges Restaurant in Zürich für ein erstes Date", "lively-bar-friends": "Lebhafte Bar in Zürich mit Freunden", "quiet-alone": "Ruhiges Café in Zürich allein", "family-age12-with-adult": "Familienessen in Zürich mit 12-jährigem Kind und Erwachsenen", "age12-alone": "12-jährige Person allein in einer Bar in Zürich", "target-zurich-device-basel": "Restaurant in Zürich", "tracking-off-city-text": "Café in Zürich", "nearby-reachable-unreachable": "Restaurant in der Nähe in Zürich", "cheap-dinner-under-20": "Günstiges Abendessen in Zürich unter 20 CHF pro Person", "concrete-budget-conflicting-price-level": "Abendessen in Zürich höchstens 20 CHF pro Person", "wheelchair-confirmed-vs-unknown": "Rollstuhlgerechtes gemütliches Café in Zürich", "multiple-hard-partially-confirmed": "Rollstuhlgerecht, in der Nähe und höchstens 20 CHF in Zürich", "mood-synonym": "Entspanntes gemütliches Café in Zürich", "unknown-mood": "Café in Zürich Stimmung flirrblau", "compatible-secondary-intent": "Ruhig essen und reden in Zürich", "incompatible-intents": "Essen und nicht essen in Zürich", "alternative-request": "Ruhiges Café in Zürich", "spot-not-fit": "Ruhiges Café in Zürich", "context-flip": "Lebhafte Bar in Zürich mit Freunden", "world-conflict": "Ruhiges Restaurant in Zürich", "missing-cohort-manifest": "Restaurant in Zürich", "tampered-cohort-manifest": "Restaurant in Zürich", "user-unresolved-conflict": "Ruhiges Café in Zürich", "projection-outside-context": "Ruhiges Café in Zürich", "consent-withdrawal-reset-erasure": "Ruhiges Café in Zürich", "full-replay": "Ruhiges Restaurant in Zürich für ein erstes Date", "event-order-changed": "Ruhiges Café in Zürich", "same-input-byte-identical": "Ruhiges Café in Zürich",
+  "quiet-first-date": "Ruhiges Restaurant in Zürich für ein erstes Date", "lively-bar-friends": "Lebhafte Bar in Zürich mit Freunden", "quiet-alone": "Ruhiges Café in Zürich allein", "family-age12-with-adult": "Familienessen in Zürich mit 12-jährigem Kind und Erwachsenen", "age12-alone": "12-jährige Person allein in einer Bar in Zürich", "target-zurich-device-basel": "Restaurant in Zürich", "tracking-off-city-text": "Café in Zürich", "nearby-reachable-unreachable": "Restaurant in der Nähe in Zürich", "cheap-dinner-under-20": "Günstiges Abendessen in Zürich unter 20 CHF pro Person", "concrete-budget-conflicting-price-level": "Abendessen in Zürich höchstens 20 CHF pro Person", "wheelchair-confirmed-vs-unknown": "Rollstuhlgerechtes gemütliches Café in Zürich", "multiple-hard-partially-confirmed": "Rollstuhlgerechtes Café, in der Nähe und höchstens 20 CHF in Zürich", "mood-synonym": "Entspanntes gemütliches Café in Zürich", "unknown-mood": "Café in Zürich Stimmung flirrblau", "compatible-secondary-intent": "Ruhig essen und reden in Zürich", "incompatible-intents": "Essen und nicht essen in Zürich", "alternative-request": "Ruhiges Café in Zürich", "spot-not-fit": "Ruhiges Café in Zürich", "context-flip": "Lebhafte Bar in Zürich mit Freunden", "world-conflict": "Ruhiges Restaurant in Zürich", "missing-cohort-manifest": "Restaurant in Zürich", "tampered-cohort-manifest": "Restaurant in Zürich", "user-unresolved-conflict": "Ruhiges Café in Zürich", "projection-outside-context": "Ruhiges Café in Zürich", "consent-withdrawal-reset-erasure": "Ruhiges Café in Zürich", "full-replay": "Ruhiges Restaurant in Zürich für ein erstes Date", "event-order-changed": "Ruhiges Café in Zürich", "same-input-byte-identical": "Ruhiges Café in Zürich",
 };
 
 const requestForScenario = (scenarioId: typeof PHASE3C_FOUNDER_SCENARIO_IDS[number], index: number): FounderLabRequest => FounderLabRequestSchema.parse({ contractVersion: PHASE3C_LAB_VERSIONS.request, requestId: `phase3c-scenario-${String(index + 1).padStart(2, "0")}`, ephemeralText: scenarioText[scenarioId], deviceLocation: scenarioId === "target-zurich-device-basel" ? { state: "AVAILABLE", city: "Basel" } : scenarioId === "tracking-off-city-text" ? { state: "DENIED", city: null } : { state: "AVAILABLE", city: "Zurich" }, userMode: scenarioId === "user-unresolved-conflict" || scenarioId === "projection-outside-context" ? "ACTIVE_SYNTHETIC" : scenarioId === "consent-withdrawal-reset-erasure" ? "NO_CONSENT" : "NEUTRAL_MISSING", alternativeRequested: scenarioId === "alternative-request", rejectedCandidateIds: scenarioId === "spot-not-fit" ? ["syn-spot-0001"] : [] });
 
 export const PHASE3C_FOUNDER_ORACLES: readonly FounderLabOracle[] = deepFreeze(PHASE3C_FOUNDER_SCENARIO_IDS.map((scenarioId, index) => {
   const requiredReasonCodes = scenarioId === "wheelchair-confirmed-vs-unknown" ? ["hard-accessibility-confirmed", "hard-accessibility-unknown"] : ["world-snapshot-authorized"];
-  const requiredTiers = scenarioId === "incompatible-intents" ? ["NOT_CONFIGURED"] : scenarioId === "age12-alone" ? ["INELIGIBLE", "NOT_CONFIGURED"] : scenarioId === "wheelchair-confirmed-vs-unknown" ? ["ELIGIBLE_CONFIRMED", "UNCONFIRMED_FALLBACK"] : ["ELIGIBLE_CONFIRMED"];
-  const body = { contractVersion: PHASE3C_LAB_VERSIONS.oracle, oracleId: `founder-lab-oracle-3c-${String(index + 1).padStart(2, "0")}`, scenarioId, request: requestForScenario(scenarioId, index), expected: { requiredReasonCodes, requiredTiers, degradation: "SYNTHETIC_WORLD_FALLBACK" as const }, worldEvidenceRequired: true, userProjectionExpected: scenarioId === "user-unresolved-conflict" || scenarioId === "projection-outside-context" ? "ACTIVE" as const : "NEUTRAL" as const, contextExpectation: `context-${scenarioId}`, productionAuthorized: false as const, productQualityClaim: false as const };
+  const oracleRequest = requestForScenario(scenarioId, index);
+  const primaryIntent = resolveFounderLabText(oracleRequest).primaryIntent;
+  const requiredTiers = scenarioId === "incompatible-intents" ? ["NOT_CONFIGURED"] : scenarioId === "age12-alone" ? ["INELIGIBLE", "UNCONFIRMED_FALLBACK"] : primaryIntent === "context.intent.food" ? ["ELIGIBLE_CONFIRMED"] : ["UNCONFIRMED_FALLBACK"];
+  const body = { contractVersion: PHASE3C_LAB_VERSIONS.oracle, oracleId: `founder-lab-oracle-3c-${String(index + 1).padStart(2, "0")}`, scenarioId, request: oracleRequest, expected: { requiredReasonCodes, requiredTiers, degradation: "SYNTHETIC_WORLD_FALLBACK" as const }, worldEvidenceRequired: true, userProjectionExpected: scenarioId === "user-unresolved-conflict" || scenarioId === "projection-outside-context" ? "ACTIVE" as const : "NEUTRAL" as const, contextExpectation: `context-${scenarioId}`, productionAuthorized: false as const, productQualityClaim: false as const };
   return FounderLabOracleSchema.parse(withContentHash(body, "oracleHash"));
 }));
 
-const releaseBody = { contractVersion: PHASE3C_LAB_VERSIONS.release, releaseId: "decision-founder-lab-release-3c-1", canonicalBaseSha: CANONICAL_BASE_SHA, phase3BReleaseHash: PHASE3B_COMBINED_RELEASE.releaseHash, compatibilityHash: PHASE3C_LAB_COMPATIBILITY.compatibilityHash, worldFounderEvidenceHash: WORLD_FOUNDER_EVIDENCE_HASH, userFounderRecordHash: USER_FOUNDER_RECORD_HASH, userProductPolicyHash: USER_PRODUCT_POLICY_HASH, userSignalRegistryHash: USER_SIGNAL_REGISTRY_HASH, scenarioSetHash: contentHash(PHASE3C_FOUNDER_SCENARIO_IDS), founderCohortHandoffContract: "backyrd.world-knowledge.founder-cohort-handoff@1.0" as const, trustRoot: "INHERITED_PHASE3B_SIGNED_RELEASE_PLUS_REPOSITORY_SOURCE_IDENTITY" as const, evaluationOnly: true as const, calibrationOnly: true as const, productionAuthorized: false as const, productRankingAuthorized: false as const, externalProviderUsed: false as const, rawTextPersisted: false as const, writesUserIntelligence: false as const, commercialInfluence: "FORBIDDEN" as const };
+const releaseBody = { contractVersion: PHASE3C_LAB_VERSIONS.release, releaseId: "decision-founder-lab-release-3c-2", canonicalBaseSha: CANONICAL_BASE_SHA, phase3BReleaseHash: PHASE3B_COMBINED_RELEASE.releaseHash, compatibilityHash: PHASE3C_LAB_COMPATIBILITY.compatibilityHash, worldFounderEvidenceHash: WORLD_FOUNDER_EVIDENCE_HASH, userFounderRecordHash: USER_FOUNDER_RECORD_HASH, userProductPolicyHash: USER_PRODUCT_POLICY_HASH, userSignalRegistryHash: USER_SIGNAL_REGISTRY_HASH, scenarioSetHash: contentHash(PHASE3C_FOUNDER_SCENARIO_IDS), coreIntentPolicyHash: PHASE3C_CORE_INTENT_EVALUATION_POLICY.policyHash, founderCohortHandoffContract: "backyrd.world-knowledge.founder-cohort-handoff@1.0" as const, trustRoot: "INHERITED_PHASE3B_SIGNED_RELEASE_PLUS_REPOSITORY_SOURCE_IDENTITY" as const, evaluationOnly: true as const, calibrationOnly: true as const, productionAuthorized: false as const, productRankingAuthorized: false as const, externalProviderUsed: false as const, rawTextPersisted: false as const, writesUserIntelligence: false as const, commercialInfluence: "FORBIDDEN" as const };
 export const PHASE3C_FOUNDER_LAB_RELEASE: FounderLabRelease = deepFreeze(FounderLabReleaseSchema.parse(withContentHash(releaseBody, "releaseHash")));
 
 export async function runFounderLabOracles(): Promise<FounderLabReport> {

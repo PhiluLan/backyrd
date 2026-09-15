@@ -13,3 +13,9 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .knowledge-box { border-left: 3px solid var(--pink); padding: .7rem 1rem; background: #111116; border-radius: 0 12px 12px 0; }
 .knowledge-box p { margin: .35rem 0; }
 .claim-boundary { border: 1px solid #58432e; background: #21170f; color: #ffc998; border-radius: 12px; padding: .7rem; margin-top: .7rem; }
+.card .core-intent { color: #fff; font-weight: 750; }
+.summary { grid-template-columns: repeat(5, 1fr); }
+.table-wrap { overflow: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+th, td { min-width: 8rem; padding: .7rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+@media (max-width: 760px) { .summary { grid-template-columns: 1fr; } }

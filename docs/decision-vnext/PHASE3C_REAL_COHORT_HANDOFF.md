@@ -28,3 +28,11 @@ No Decision process contacts Supabase, reads tables, changes Claims or writes Wo
 ## Founder-facing proof
 
 The browser flow is tested through an actual file chooser using the same `createFounderWorldCohortHandoff` export builder as the World route. Its five-spot integration fixture uses the canonical local Founder spot identities and names. The final manual retest additionally loads the local World export artifact itself; neither path synthesizes missing spots or mixes the Founder cohort with the fallback world.
+
+## Candidate-evaluation closure
+
+The imported snapshot's authorized `classification.primary_category` and `offering.groups` facts now feed a versioned, evaluation-only core-intent mapping. Candidate logic contains no spot names or spot IDs. A candidate can enter `ELIGIBLE_CONFIRMED` only when core intent, target location and every hard condition are confirmed. Missing World data remains an unconfirmed fallback, missing mapping authority remains `NOT_CONFIGURED`, and contradictory authorized facts remain incompatible.
+
+The normal browser view exposes that core-intent state per spot, shows an explicit target city as a binding condition, and separates “Für diese Anfrage abgewählt” from objective hard-constraint failures. The controlled flip keeps drinks, Basel and hard conditions fixed while changing only the named situational dimensions. Direct comparison lists every spot's old/new group and reason deltas without making a ranking claim.
+
+For an independent local acceptance run, set `PHASE3C_FOUNDER_COHORT_PATH` to the exported handoff (or its local state wrapper) before running `npm run decision-vnext:phase3c:ui:e2e`. The suite then exercises the real five-spot file through the same browser import and Decision consumer path and reports `realFounderCohort:true`.
