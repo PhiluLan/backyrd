@@ -1,0 +1,212 @@
+{
+  "schemaVersion": "backyrd.world-knowledge.world-basis-cohort@week2-v1",
+  "scope": "INTERNAL_ALLOWLIST_PREPARATION_ONLY",
+  "sourceCandidateHash": "0cd08cd2fde2f1bada4972c568a80e8f54718eb502c4949e7ed81a881424a9c1",
+  "candidateCount": 30,
+  "geography": "Basel",
+  "identifiersIncluded": false,
+  "namesIncluded": false,
+  "contactsIncluded": false,
+  "actorPseudonymsIncluded": false,
+  "automaticConfirmation": false,
+  "automaticCohortMembership": false,
+  "registryVersion": "backyrd.world-knowledge.registry@2.1",
+  "stateVocabulary": [
+    "CONFIRMED",
+    "UNKNOWN",
+    "NOT_CONFIGURED",
+    "NOT_APPLICABLE",
+    "DISPUTED"
+  ],
+  "coverage": {
+    "classification.primary_category": {
+      "documentedClaim": 0,
+      "safeLegacyPrefill": 0,
+      "reviewRequired": 0,
+      "absent": 30,
+      "semanticStateCounts": {
+        "CONFIRMED": null,
+        "UNKNOWN": null,
+        "NOT_CONFIGURED": null,
+        "NOT_APPLICABLE": null,
+        "DISPUTED": null
+      },
+      "semanticStateEvidence": "NOT_DERIVABLE_FROM_MINIMIZED_WEEK1_CANDIDATE_SOURCE"
+    },
+    "purpose.primary_visit": {
+      "documentedClaim": 5,
+      "safeLegacyPrefill": 0,
+      "reviewRequired": 0,
+      "absent": 25,
+      "semanticStateCounts": {
+        "CONFIRMED": null,
+        "UNKNOWN": null,
+        "NOT_CONFIGURED": null,
+        "NOT_APPLICABLE": null,
+        "DISPUTED": null
+      },
+      "semanticStateEvidence": "NOT_DERIVABLE_FROM_MINIMIZED_WEEK1_CANDIDATE_SOURCE"
+    },
+    "offering.onsite": {
+      "documentedClaim": 4,
+      "safeLegacyPrefill": 0,
+      "reviewRequired": 0,
+      "absent": 26,
+      "semanticStateCounts": {
+        "CONFIRMED": null,
+        "UNKNOWN": null,
+        "NOT_CONFIGURED": null,
+        "NOT_APPLICABLE": null,
+        "DISPUTED": null
+      },
+      "semanticStateEvidence": "NOT_DERIVABLE_FROM_MINIMIZED_WEEK1_CANDIDATE_SOURCE"
+    },
+    "context.visit_situations": {
+      "documentedClaim": 5,
+      "safeLegacyPrefill": 0,
+      "reviewRequired": 0,
+      "absent": 25,
+      "semanticStateCounts": {
+        "CONFIRMED": null,
+        "UNKNOWN": null,
+        "NOT_CONFIGURED": null,
+        "NOT_APPLICABLE": null,
+        "DISPUTED": null
+      },
+      "semanticStateEvidence": "NOT_DERIVABLE_FROM_MINIMIZED_WEEK1_CANDIDATE_SOURCE"
+    },
+    "context.atmosphere": {
+      "documentedClaim": 5,
+      "safeLegacyPrefill": 0,
+      "reviewRequired": 0,
+      "absent": 25,
+      "semanticStateCounts": {
+        "CONFIRMED": null,
+        "UNKNOWN": null,
+        "NOT_CONFIGURED": null,
+        "NOT_APPLICABLE": null,
+        "DISPUTED": null
+      },
+      "semanticStateEvidence": "NOT_DERIVABLE_FROM_MINIMIZED_WEEK1_CANDIDATE_SOURCE"
+    },
+    "context.typical_dayparts": {
+      "documentedClaim": 5,
+      "safeLegacyPrefill": 0,
+      "reviewRequired": 0,
+      "absent": 25,
+      "semanticStateCounts": {
+        "CONFIRMED": null,
+        "UNKNOWN": null,
+        "NOT_CONFIGURED": null,
+        "NOT_APPLICABLE": null,
+        "DISPUTED": null
+      },
+      "semanticStateEvidence": "NOT_DERIVABLE_FROM_MINIMIZED_WEEK1_CANDIDATE_SOURCE"
+    },
+    "hours.regular": {
+      "documentedClaim": 4,
+      "safeLegacyPrefill": 30,
+      "reviewRequired": 0,
+      "absent": 0,
+      "semanticStateCounts": {
+        "CONFIRMED": null,
+        "UNKNOWN": null,
+        "NOT_CONFIGURED": null,
+        "NOT_APPLICABLE": null,
+        "DISPUTED": null
+      },
+      "semanticStateEvidence": "NOT_DERIVABLE_FROM_MINIMIZED_WEEK1_CANDIDATE_SOURCE"
+    },
+    "rule.age_access": {
+      "documentedClaim": 0,
+      "safeLegacyPrefill": 0,
+      "reviewRequired": 0,
+      "absent": 30,
+      "semanticStateCounts": {
+        "CONFIRMED": null,
+        "UNKNOWN": null,
+        "NOT_CONFIGURED": null,
+        "NOT_APPLICABLE": null,
+        "DISPUTED": null
+      },
+      "semanticStateEvidence": "NOT_DERIVABLE_FROM_MINIMIZED_WEEK1_CANDIDATE_SOURCE"
+    },
+    "accessibility.step_free_entrance": {
+      "documentedClaim": 2,
+      "safeLegacyPrefill": 0,
+      "reviewRequired": 0,
+      "absent": 28,
+      "semanticStateCounts": {
+        "CONFIRMED": null,
+        "UNKNOWN": null,
+        "NOT_CONFIGURED": null,
+        "NOT_APPLICABLE": null,
+        "DISPUTED": null
+      },
+      "semanticStateEvidence": "NOT_DERIVABLE_FROM_MINIMIZED_WEEK1_CANDIDATE_SOURCE"
+    },
+    "operation.price_level": {
+      "documentedClaim": 3,
+      "safeLegacyPrefill": 0,
+      "reviewRequired": 29,
+      "absent": 1,
+      "semanticStateCounts": {
+        "CONFIRMED": null,
+        "UNKNOWN": null,
+        "NOT_CONFIGURED": null,
+        "NOT_APPLICABLE": null,
+        "DISPUTED": null
+      },
+      "semanticStateEvidence": "NOT_DERIVABLE_FROM_MINIMIZED_WEEK1_CANDIDATE_SOURCE"
+    }
+  },
+  "gaps": [
+    {
+      "key": "classification.primary_category",
+      "absent": 30,
+      "reviewRequired": 0
+    },
+    {
+      "key": "purpose.primary_visit",
+      "absent": 25,
+      "reviewRequired": 0
+    },
+    {
+      "key": "offering.onsite",
+      "absent": 26,
+      "reviewRequired": 0
+    },
+    {
+      "key": "context.visit_situations",
+      "absent": 25,
+      "reviewRequired": 0
+    },
+    {
+      "key": "context.atmosphere",
+      "absent": 25,
+      "reviewRequired": 0
+    },
+    {
+      "key": "context.typical_dayparts",
+      "absent": 25,
+      "reviewRequired": 0
+    },
+    {
+      "key": "rule.age_access",
+      "absent": 30,
+      "reviewRequired": 0
+    },
+    {
+      "key": "accessibility.step_free_entrance",
+      "absent": 28,
+      "reviewRequired": 0
+    },
+    {
+      "key": "operation.price_level",
+      "absent": 1,
+      "reviewRequired": 29
+    }
+  ],
+  "caveat": "The minimized Week-1 candidate source proves field presence only. It does not preserve per-value resolution, therefore semantic states remain explicitly uncounted rather than inferred.",
+  "artifactHash": "32c5c6ff4a12997f3d02a6413002eb593a19c6d2cb3c571796641abf148785f1"
+}
