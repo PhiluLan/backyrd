@@ -16,7 +16,7 @@ Prohibited: real users, raw review/search history, precise coordinates, companio
 
 ## Future shadow-mode guidance
 
-Not implemented. If separately authorized, permitted diagnostic fields should be pseudonymous Decision/session identities, contract/version hashes, counts, reason codes, limitation states and bounded timings. Raw task text, full projections, raw locations, social data and private evidence must not be stored. Retention remains `NOT_CONFIGURED` and requires Privacy/Product approval.
+Week 1 now implements only the disabled, synthetic contract and evaluation foundation described in `WEEK1_DARK_SHADOW_FOUNDATION.md`. It adds no Production adapter, traffic, data or persistence. Permitted future diagnostic fields remain pseudonymous Decision/session identities, contract/version hashes, counts, bounded reason classes, limitation states and bounded timings. Raw task text, full projections, raw locations, social data and private evidence must not be stored. Retention remains `NOT_CONFIGURED` and requires Privacy/Product approval before any real shadow integration.
 
 ## Observability
 
