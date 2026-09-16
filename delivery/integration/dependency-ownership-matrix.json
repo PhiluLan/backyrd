@@ -1,0 +1,51 @@
+{
+  "contractVersion": "backyrd.integration-dependency-ownership-matrix@1.0",
+  "executionAuthorized": false,
+  "tracks": [
+    {
+      "id": "WORLD",
+      "authority": ["packages/world-knowledge-core/**", "docs/world-knowledge/**", "World-only forward migrations and SQL tests"],
+      "allowedInputs": ["source and verification evidence", "Founder-approved World registry records"],
+      "outputs": ["WorldKnowledgeReaderPort", "backyrd.world-knowledge.context-handoff@1.0", "backyrd.world-knowledge.registry@2.1"],
+      "forbidden": ["User taste or intent", "Decision ranking semantics", "Production execution authority"],
+      "dependsOn": [],
+      "mergeOrder": 1,
+      "stopConditions": ["registry identity mismatch", "non-forward migration", "direct Decision or User semantic ownership"]
+    },
+    {
+      "id": "USER",
+      "authority": ["packages/user-intelligence-vnext-core/**", "docs/user-intelligence-vnext/**"],
+      "allowedInputs": ["canonical user events", "server-bound authority", "World concepts through declared port"],
+      "outputs": ["RelevantUserProjection", "backyrd.user-intelligence.projection@1.0"],
+      "forbidden": ["raw evidence to Decision", "World fact authoring", "Product activation from calibration"],
+      "dependsOn": ["WORLD_PORT_ONLY"],
+      "mergeOrder": 2,
+      "stopConditions": ["privacy-minimization regression", "projection contract mismatch", "learning activation requested"]
+    },
+    {
+      "id": "DECISION",
+      "authority": ["packages/decision-vnext-core/**", "docs/decision-vnext/**", "decision-lab/**"],
+      "allowedInputs": ["WorldKnowledgeReaderPort", "RelevantUserProjection", "server-authorized situational context"],
+      "outputs": ["evaluation-only Decision result", "evidence-bounded explanation"],
+      "forbidden": ["direct World tables", "raw User evidence", "Product ranking activation", "commercial ranking influence"],
+      "dependsOn": ["WORLD", "USER"],
+      "mergeOrder": 3,
+      "stopConditions": ["eligibility bypass", "unknown contract version", "ranking or runtime activation requested"]
+    },
+    {
+      "id": "INTEGRATION",
+      "authority": ["delivery/integration/**", "docs/operations/integration/**", "scripts/ci/integration-*", "risk-gate routing only"],
+      "allowedInputs": ["domain-owned immutable contract identities", "PR base head tree and artifact hashes", "existing CI and deployment controls"],
+      "outputs": ["change plan", "integration manifest", "daily track truth", "release gate evidence"],
+      "forbidden": ["domain semantic decisions", "Production deployment", "merging domain PRs"],
+      "dependsOn": ["WORLD", "USER", "DECISION"],
+      "mergeOrder": 4,
+      "stopConditions": ["ownership overlap", "unbound artifact", "missing required gate", "executionAuthorized is not false"]
+    }
+  ],
+  "sharedPorts": [
+    {"owner": "WORLD", "consumer": "DECISION", "identity": "backyrd.world-knowledge.reader-port@1.0", "changeRule": "owner proposes; all consumers recertify"},
+    {"owner": "WORLD", "consumer": "DECISION", "identity": "backyrd.world-knowledge.context-handoff@1.0", "changeRule": "unknown version fails closed"},
+    {"owner": "USER", "consumer": "DECISION", "identity": "backyrd.user-intelligence.projection@1.0", "changeRule": "minimized projection only; all consumers recertify"}
+  ]
+}

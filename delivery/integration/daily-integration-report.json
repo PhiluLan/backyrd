@@ -1,0 +1,13 @@
+{
+  "contractVersion": "backyrd.daily-integration-report@1.0",
+  "asOf": "2026-09-16",
+  "executionAuthorized": false,
+  "overall": "GREEN",
+  "tracks": [
+    {"id": "WORLD", "status": "GREEN", "reason": "PRs #290 and #291 are canonical; nine World migrations remain planned and Production execution is unauthorized"},
+    {"id": "USER", "status": "GREEN", "reason": "PR #287 is canonical and founder-calibrated offline; runtime, write, learning, and ranking activation remain disabled"},
+    {"id": "DECISION", "status": "GREEN", "reason": "PR #288 is canonical for offline evaluation; Product ranking and Production shadow activation remain disabled"},
+    {"id": "INTEGRATION", "status": "GREEN", "reason": "all domain identities are sealed to one immutable Node 20 artifact and the complete local pre-merge gate set passes"}
+  ],
+  "stopConditions": ["Production execution remains unauthorized", "all dark-release flags remain OFF with kill switches engaged"]
+}

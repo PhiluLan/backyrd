@@ -108,6 +108,8 @@
     "decision-ci:full": "node scripts/ci/run-decision-ci.mjs --group full",
     "decision-ci:group": "node scripts/ci/run-decision-ci.mjs",
     "decision-ci:test": "node --test scripts/ci/decision-fast-lane.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/verify-risk-gate.test.mjs",
+    "integration:preflight": "node scripts/ci/integration-preflight.mjs",
+    "integration:test": "node --test scripts/ci/integration-preflight.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/verify-risk-gate.test.mjs",
     "supabase:start": "npx supabase start",
     "supabase:stop": "npx supabase stop",
     "supabase:status": "npx supabase status",

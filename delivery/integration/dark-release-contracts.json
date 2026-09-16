@@ -1,0 +1,21 @@
+{
+  "contractVersion": "backyrd.dark-release-contracts@1.0",
+  "executionAuthorized": false,
+  "missingConfigurationBehavior": "OFF",
+  "unknownFlagBehavior": "REJECT",
+  "flags": [
+    {"id": "WORLD_PRODUCT_READ", "default": false, "killSwitch": "WORLD_PRODUCT_READ_KILL", "killSwitchDefault": true, "owner": "WORLD", "scope": "server"},
+    {"id": "USER_LEARNING_RUNTIME", "default": false, "killSwitch": "USER_LEARNING_KILL", "killSwitchDefault": true, "owner": "USER", "scope": "server"},
+    {"id": "DECISION_VNEXT_PRODUCT_RANKING", "default": false, "killSwitch": "DECISION_VNEXT_KILL", "killSwitchDefault": true, "owner": "DECISION", "scope": "server"},
+    {"id": "DECISION_VNEXT_SHADOW_TRAFFIC", "default": false, "killSwitch": "DECISION_VNEXT_SHADOW_KILL", "killSwitchDefault": true, "owner": "DECISION", "scope": "server-internal-allowlist"}
+  ],
+  "activationRequirements": [
+    "separate Founder CTO authorization",
+    "canonical-main hash binding",
+    "final full risk gate PASS",
+    "environment-scoped configuration",
+    "tested kill switch and rollback",
+    "post-deploy verification plan"
+  ],
+  "prohibited": ["client-controlled authority", "implicit enablement", "shared Production and non-Production flag state", "activation from this contract alone"]
+}

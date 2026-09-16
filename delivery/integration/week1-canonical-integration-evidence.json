@@ -1,0 +1,94 @@
+{
+  "contractVersion": "backyrd.week1-canonical-integration-evidence@1.0",
+  "asOf": "2026-09-16T20:30:04Z",
+  "executionAuthorized": false,
+  "productionDataUsed": false,
+  "canonicalMainAtIntegration": {
+    "sha": "688b72a4013bf265a4a25dfcdb509f1a4baa0d82",
+    "treeSha": "02498981fd34fed97dd2416ea09b4f7fb12959ce"
+  },
+  "integrationMerge": {
+    "sha": "2d454f7646bad52ba5a7b3acef6fbf9d17b33dd9",
+    "treeSha": "90f4ffbf7d362b3281da30452ae210ea40db0714",
+    "parents": [
+      "f4eacf859e9d46e98a2857abb0e0838a9aa2e0d8",
+      "688b72a4013bf265a4a25dfcdb509f1a4baa0d82"
+    ],
+    "resolution": "regular merge; the sole workflow conflict retained both the World release-foundation contract gate and the Week-1 integration preflight"
+  },
+  "domains": {
+    "world": {
+      "pullRequests": [290, 291],
+      "canonicalMergeSha": "e377919a25efe2789be05acbdd1af572a8ce055a",
+      "treeSha": "d277ced201d634c0035fc7afbbb33ab17994eb75",
+      "migrationBundleHash": "8a642e025701cb02a769fcdf7fda4390f955bad08478a2690ae512a6c197d066",
+      "executionAuthorized": false
+    },
+    "user": {
+      "pullRequest": 287,
+      "canonicalMergeSha": "f650f37cb24ed3b6395a88a5bcdad7b4c2dde587",
+      "treeSha": "68b5380b67f21406ef375a03f11657a0316bc016",
+      "releaseHash": "b9ae392e3f50540bdbe36456e5342d5bd089d0953dd86b9f4b2b2ba6359db417",
+      "noWriteHash": "309408760ce36bcc344d7a9ea6966eb655d647193c91a71764bec9e58d5618f3",
+      "killSwitch": "FORCED_OFF",
+      "runtimeAuthorized": false,
+      "writesAuthorized": false,
+      "rankingAuthorized": false
+    },
+    "decision": {
+      "pullRequest": 288,
+      "canonicalMergeSha": "688b72a4013bf265a4a25dfcdb509f1a4baa0d82",
+      "treeSha": "02498981fd34fed97dd2416ea09b4f7fb12959ce",
+      "releaseHash": "a23bddcd2ee44d1a86983db15d630de80e2a507b1f0c69b2bdf27f9f04a3b3b7",
+      "controlHash": "2d17618d1eeb26f7201a0b9290bfe08cfea7c4c2ff7392a746ad248ae1a2b23f",
+      "oracleCatalogHash": "5d3298ec1df3dba383c9dc765cf23c574561184ab9e1329632073027b08e493b",
+      "killSwitch": "ENGAGED",
+      "executionAuthorized": false,
+      "productionDataUsed": false,
+      "productRankingAuthorized": false
+    }
+  },
+  "sharedArtifact": {
+    "contractVersion": "backyrd-decision-ci-build-artifact-v1",
+    "testPlanVersion": "backyrd-decision-ci-test-plan-v1",
+    "nodeMajor": 20,
+    "lockfileHash": "a53a2c81372fc3c1cffbc582ad02008c79fba73d251b34c95a9a6af0b069c509",
+    "sourceSetHash": "d565a0ad0c8f012049c053a811148e7ecf4161eabd99067f43130fed15f15849",
+    "artifactHash": "7f07e0cd3ec49463896a75d39903ef8032fb8ff374baa089269f4ca16a8a6424",
+    "verification": "PASS"
+  },
+  "productionPlan": {
+    "shippedSourceSha": "d63c5ae66aa30aa017cc54c2ed8be47944b84889",
+    "pendingMigrationCount": 9,
+    "deployFunctions": [],
+    "authDeploy": false,
+    "runtimeDeploymentRequired": true,
+    "executionAuthorized": false
+  },
+  "releaseState": {
+    "darkOnly": true,
+    "productionActivationAuthorized": false,
+    "productionMigrationAuthorized": false,
+    "productionDeploymentAuthorized": false,
+    "productRankingAuthorized": false
+  },
+  "localValidation": {
+    "integrationContractTests": "PASS_31_OF_31",
+    "deliveryAndDeploymentContractTests": "PASS_77_OF_77",
+    "databaseContractTests": "PASS_20_OF_20",
+    "decisionFullGate": "PASS_433_OF_433",
+    "decisionFullDurationMilliseconds": 382017.166,
+    "worldCanonicalRegression": "PASS_77_OF_77",
+    "userCanonicalRegression": "PASS_244_OF_244",
+    "userFounderUi": "PASS_28_OF_28",
+    "userFounderBrowserE2e": "PASS_42_ASSERTIONS",
+    "mobile": "PASS",
+    "web": "PASS",
+    "admin": "PASS",
+    "shared": "PASS",
+    "supabaseCliVersion": "2.80.0",
+    "databaseCleanBoot": "PASS",
+    "integrationPreflight": "GREEN_FINAL",
+    "productionExecutionPerformed": false
+  }
+}
