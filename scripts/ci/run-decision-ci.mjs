@@ -16,6 +16,7 @@ const coreTests = [
   "packages/decision-vnext-core/test/isolation.test.mjs",
   "packages/decision-vnext-core/test/phase3c-contextual-world-evaluation.test.mjs",
   "packages/decision-vnext-core/test/phase3c-founder-decision-lab.test.mjs",
+  "packages/decision-vnext-core/test/dark-shadow-foundation.test.mjs",
 ];
 
 function compactSuccessOutput(output) {
@@ -77,6 +78,11 @@ function runGroup(group) {
     ...runGroup("preflight"),
     nodeTest("Decision core and contract fast tests", coreTests),
     run("small deterministic smoke world", process.execPath, ["packages/decision-vnext-core/sandbox/run.mjs", "packages/decision-vnext-core/sandbox/config/world-smoke-v1.json"]),
+  ];
+  if (group === "dark-shadow-week1") return [
+    ...runGroup("preflight"),
+    nodeTest("Decision Week-1 dark-shadow contracts, tamper and replay", ["packages/decision-vnext-core/test/dark-shadow-foundation.test.mjs"]),
+    run("Decision Week-1 deterministic dark-shadow smoke", process.execPath, ["packages/decision-vnext-core/sandbox/evaluate-dark-shadow-week1.mjs"]),
   ];
   if (group === "core-context") return [nodeTest("Decision core, integrity and contract tests", coreTests)];
   if (group === "phase2-all") return [nodeTest("Phase-2 complete integration", ["packages/decision-vnext-core/test/phase2-evaluation-harness.test.mjs"])];
