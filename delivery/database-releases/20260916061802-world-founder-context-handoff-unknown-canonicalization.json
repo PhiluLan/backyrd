@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260916061802-world-founder-context-handoff-unknown-canonicalization",
+  "previousEvidence": "world-knowledge-slice-4b",
+  "previousFingerprints": {
+    "publicAclSha256": "9daf4329618f2a2b6ae445f60b5044cf9d2a87d2acd9abcf34428eb11aab3ee1",
+    "applicationSchemaSha256": "b662144a33f741a9a9398d730304fb4371a45858263f4982586f5a5a8077e916"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260916061802_world_founder_context_handoff_unknown_canonicalization.sql",
+      "sha256": "07dd2b43da4ff10bc3c9504669fe63925a14aa6ffb725485609b00f450ce8649"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/world_knowledge_slice4b_contextual.sql",
+      "sha256": "5eae145e4aea56ae7b92ceafa9112653b26f051446ca96ce0ecc6d7c271ba752"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "9daf4329618f2a2b6ae445f60b5044cf9d2a87d2acd9abcf34428eb11aab3ee1",
+    "applicationSchemaSha256": "b3375a0e47c38df7606ad5669438407b2af2b18df10857fdee8a3f67a9e77be2"
+  }
+}
