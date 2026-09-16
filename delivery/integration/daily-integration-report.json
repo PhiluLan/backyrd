@@ -7,7 +7,7 @@
     {"id": "WORLD", "status": "YELLOW", "reason": "canonical code present; nine World migrations are not Production-applied"},
     {"id": "USER", "status": "GREEN", "reason": "Phase 3D founder-calibrated offline; no runtime or learning activation"},
     {"id": "DECISION", "status": "GREEN", "reason": "Phase 3C canonical complete for offline evaluation; no Product ranking or shadow activation"},
-    {"id": "INTEGRATION", "status": "YELLOW", "reason": "control-plane candidate awaits final CI and CTO review"}
+    {"id": "INTEGRATION", "status": "GREEN", "reason": "local control-plane, release-contract and complete Decision full-gate suites pass; Draft PR remains unmerged"}
   ],
   "stopConditions": ["Production execution remains unauthorized", "domain candidate hashes are not yet sealed"]
 }
