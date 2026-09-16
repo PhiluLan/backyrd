@@ -107,6 +107,7 @@ const statementMetrics = (sql) => ({
 });
 
 export const buildWorldWeek1Foundation = ({ headSha = git(["rev-parse", "HEAD"]) } = {}) => {
+  const canonicalBaseSha = git(["merge-base", headSha, "origin/main"]);
   const productionState = JSON.parse(readFileSync(resolve(root, "delivery/production-state.json"), "utf8"));
   const sourcePlan = buildProductionPlan({ repo: root, baseSha: productionState.supabase.shippedSourceSha, headSha });
   if (sourcePlan.pendingMigrations.length !== migrationPolicy.length) throw new Error(`expected_nine_pending_world_migrations:${sourcePlan.pendingMigrations.length}`);
@@ -126,7 +127,8 @@ export const buildWorldWeek1Foundation = ({ headSha = git(["rev-parse", "HEAD"])
   const bundle = migrations.map(({ order, path, sha256 }) => ({ order, path, sha256 }));
   const foundation = {
     schemaVersion: "backyrd.world-knowledge.production-release-foundation@week1-v1",
-    canonicalBaseSha: headSha,
+    canonicalBaseSha,
+    candidateHeadSha: headSha,
     shippedSourceSha: productionState.supabase.shippedSourceSha,
     shippedMigrationTip: productionState.supabase.migrationTip,
     projectRef: sourcePlan.projectRef,

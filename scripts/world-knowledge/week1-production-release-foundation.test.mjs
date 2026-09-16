@@ -9,6 +9,9 @@ const root = resolve(import.meta.dirname, "../..");
 test("source-aware Week 1 plan binds exactly nine immutable World migrations", () => {
   const plan = buildWorldWeek1Foundation();
   assert.equal(plan.migrationCount, 9);
+  assert.match(plan.canonicalBaseSha, /^[0-9a-f]{40}$/);
+  assert.match(plan.candidateHeadSha, /^[0-9a-f]{40}$/);
+  assert.notEqual(plan.canonicalBaseSha, plan.candidateHeadSha);
   assert.equal(plan.migrations.length, 9);
   assert.equal(plan.executionAuthorized, false);
   assert.equal(plan.runtimeActivationAuthorized, false);
