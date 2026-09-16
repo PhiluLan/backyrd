@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { validateDatabaseRelease } from "./validate-database-release.mjs";
+import { activeDatabaseEvidence, validateDatabaseRelease } from "./validate-database-release.mjs";
 
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
@@ -40,6 +40,27 @@ test("a forward migration accepts one exact generated, chained record", () => {
   git(fixture.root, ["add", "."]); git(fixture.root, ["commit", "-qm", "candidate"]);
   const result = validateDatabaseRelease({ root: fixture.root, baseSha: fixture.base, headSha: "HEAD", actualPublicAcl: fixture.acl, actualApplicationSchema: candidateSchema });
   assert.deepEqual(result.newMigrations, [migrationPath]);
+});
+
+test("active evidence follows migration lineage rather than release filename ordering", () => {
+  const fixture = repository();
+  const olderMigration = "supabase/migrations/20260102000000_older.sql";
+  const newerMigration = "supabase/migrations/20260103000000_newer.sql";
+  put(fixture.root, olderMigration, "select 1;\n"); put(fixture.root, newerMigration, "select 2;\n");
+  const record = (id, migration) => ({ schemaVersion: "backyrd-database-evidence-v1", kind: "release", id, previousEvidence: "baseline-v1", migrations: [{ path: migration, sha256: hash(migration) }], fingerprints: { publicAclSha256: fixture.acl, applicationSchemaSha256: fixture.schema } });
+  put(fixture.root, "delivery/database-releases/z-older.json", `${JSON.stringify(record("older", olderMigration))}\n`);
+  put(fixture.root, "delivery/database-releases/a-newer.json", `${JSON.stringify(record("newer", newerMigration))}\n`);
+  git(fixture.root, ["add", "."]); git(fixture.root, ["commit", "-qm", "non-lexical evidence names"]);
+  assert.equal(activeDatabaseEvidence(fixture.root, "HEAD").evidence.id, "newer");
+});
+
+test("duplicate evidence for one migration tip fails closed", () => {
+  const fixture = repository();
+  const migration = "supabase/migrations/20260102000000_tip.sql";
+  put(fixture.root, migration, "select 1;\n");
+  for (const id of ["first", "second"]) put(fixture.root, `delivery/database-releases/${id}.json`, `${JSON.stringify({ schemaVersion: "backyrd-database-evidence-v1", kind: "release", id, previousEvidence: "baseline-v1", migrations: [{ path: migration, sha256: hash(migration) }], fingerprints: { publicAclSha256: fixture.acl, applicationSchemaSha256: fixture.schema } })}\n`);
+  git(fixture.root, ["add", "."]); git(fixture.root, ["commit", "-qm", "ambiguous evidence"]);
+  assert.throws(() => activeDatabaseEvidence(fixture.root, "HEAD"), /database_evidence_tip_ambiguous/);
 });
 
 test("an ACL change cannot be blessed without positive and negative tests", () => {

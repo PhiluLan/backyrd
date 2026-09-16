@@ -14,11 +14,29 @@ const releasePathsAt = (root, ref) => git(root, ["ls-tree", "-r", "--name-only",
 
 export function activeDatabaseEvidence(root, ref) {
   const paths = releasePathsAt(root, ref);
-  const path = paths.at(-1) ?? "delivery/database-baseline.json";
-  const evidence = jsonAt(root, ref, path);
-  if (evidence.schemaVersion !== "backyrd-database-evidence-v1" || !evidence.id || !SHA256.test(evidence.fingerprints?.publicAclSha256 ?? "") || !SHA256.test(evidence.fingerprints?.applicationSchemaSha256 ?? "")) {
-    throw new Error(`database_evidence_invalid:${path}`);
+  if (!paths.length) {
+    const path = "delivery/database-baseline.json";
+    const evidence = jsonAt(root, ref, path);
+    if (evidence.schemaVersion !== "backyrd-database-evidence-v1" || !evidence.id || !SHA256.test(evidence.fingerprints?.publicAclSha256 ?? "") || !SHA256.test(evidence.fingerprints?.applicationSchemaSha256 ?? "")) {
+      throw new Error(`database_evidence_invalid:${path}`);
+    }
+    return { path, evidence };
   }
+  const releases = paths.map((path) => ({ path, evidence: jsonAt(root, ref, path) }));
+  for (const { path, evidence } of releases) {
+    if (evidence.schemaVersion !== "backyrd-database-evidence-v1" || evidence.kind !== "release" || !evidence.id || !SHA256.test(evidence.fingerprints?.publicAclSha256 ?? "") || !SHA256.test(evidence.fingerprints?.applicationSchemaSha256 ?? "") || !Array.isArray(evidence.migrations) || evidence.migrations.length === 0) {
+      throw new Error(`database_evidence_invalid:${path}`);
+    }
+    for (const migration of evidence.migrations) {
+      if (!/^supabase\/migrations\/\d{14}_[a-z0-9_]+\.sql$/.test(migration.path ?? "")) throw new Error(`database_evidence_migration_invalid:${path}`);
+    }
+  }
+  const migrationTip = ({ evidence }) => evidence.migrations.map(({ path }) => path).sort().at(-1);
+  releases.sort((left, right) => migrationTip(left).localeCompare(migrationTip(right)) || left.path.localeCompare(right.path));
+  const selected = releases.at(-1);
+  const sameTip = releases.filter((release) => migrationTip(release) === migrationTip(selected));
+  if (sameTip.length !== 1) throw new Error(`database_evidence_tip_ambiguous:${migrationTip(selected)}`);
+  const { path, evidence } = selected;
   return { path, evidence };
 }
 
