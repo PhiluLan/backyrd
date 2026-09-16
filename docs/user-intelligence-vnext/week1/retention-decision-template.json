@@ -1,0 +1,12 @@
+{
+  "contractVersion": "backyrd.user-intelligence.retention-decision-template@week1-1",
+  "templateId": "backyrd-user-intelligence-retention-decision-week1-1",
+  "status": "NOT_CONFIGURED_PENDING_FOUNDER_CTO_LEGAL",
+  "productionAuthorized": false,
+  "defaultsForbidden": true,
+  "decisionOwners": ["FOUNDER", "CTO", "LEGAL"],
+  "requiredFieldsPerClass": ["concreteDuration", "legalBasis", "founderDecision", "ctoDecision", "legalDecision", "activationRelease"],
+  "classes": ["SEARCH_MINIMIZED", "SKIP_CONTEXTUAL", "CONTEXT_MINIMIZED", "ATTENTION_RESEARCH", "EVIDENCE_LEDGER", "USER_MODEL_DERIVED", "CORRECTION_GUARD", "PRIVACY_EXPORT_EPHEMERAL", "NON_PERSONAL_AUDIT"],
+  "prohibitedFallbacks": ["FIXTURE_DURATION", "INFINITE_RETENTION", "SOURCE_CODE_DEFAULT", "CLIENT_SELECTED_DURATION"],
+  "note": "Konkrete Zeiträume bleiben absichtlich leer und benötigen einen neuen versionierten Release."
+}
