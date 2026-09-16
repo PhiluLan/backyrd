@@ -17,6 +17,9 @@ const unique = (values) => [...new Set(values)].sort();
 
 const migrationSecurityPattern = /\b(?:create|alter|drop)\s+policy\b|\brow\s+level\s+security\b|\b(?:grant|revoke)\b|\bsecurity\s+definer\b|\bauth\.|\bstorage\./i;
 const destructivePattern = /\btruncate\b|\bdrop\s+(?:table|schema|column|type)\b|\bdelete\s+from\b|\balter\s+table\b[^;]*\bdrop\b/i;
+const provablyNonExecutableDocumentation = (path) => (
+  /^(?:docs\/.*\.md|README\.md|AGENTS\.md)$/.test(path)
+);
 
 const normalizedStatements = (text) => text
   .replace(/--[^\n]*/g, "")
@@ -56,21 +59,31 @@ export function classifyChange({ root, context, policy }) {
   const decisionConsumer = changedFiles.some((path) => startsWithAny(path, policy.decisionConsumerPrefixes ?? []));
   const pipelineControl = changedFiles.some((path) => startsWithAny(path, policy.decisionPipelineControlPrefixes ?? []));
   const unknown = changedFiles.some((path) => !startsWithAny(path, policy.knownRepositoryPrefixes ?? []));
+  const workflowChange = changedFiles.some((path) => path.startsWith(".github/workflows/") || path === "package.json" || path === "package-lock.json");
+  const deploymentControl = changedFiles.some((path) => path.startsWith("scripts/deployment/") || path.startsWith("supabase/production/") || path === ".github/workflows/supabase-production.yml");
+  const documentationOnly = changedFiles.length > 0 && changedFiles.every(provablyNonExecutableDocumentation);
+  const machineReadableDocumentation = changedFiles.some((path) => path.startsWith("docs/") && !path.endsWith(".md"));
+  const fullScopeRouting = unknown || workflowChange || machineReadableDocumentation;
 
   const flags = {
-    mobile: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.mobile)),
-    web: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.web)),
-    admin: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.admin)),
-    shared: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.shared)),
-    database: changedFiles.some((path) => startsWithAny(path, [...policy.databasePrefixes, ...(policy.databaseControlPrefixes ?? [])])),
+    mobile: fullScopeRouting || changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.mobile)),
+    web: fullScopeRouting || changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.web)),
+    admin: fullScopeRouting || changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.admin)),
+    shared: fullScopeRouting || changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.shared)),
+    database: fullScopeRouting || deploymentControl || changedFiles.some((path) => startsWithAny(path, [...policy.databasePrefixes, ...(policy.databaseControlPrefixes ?? [])])),
     privilegedServer: changedFiles.some((path) => startsWithAny(path, policy.privilegedServerPrefixes ?? [])),
     authorizationBoundary: changedFiles.some((path) => startsWithAny(path, policy.authorizationPrefixes)) || migrationSecurityPattern.test(migrationText),
     decisionSemantics: changedFiles.some((path) => protectedDecisionPaths.has(path) || startsWithAny(path, policy.decisionSemanticPrefixes)),
-    decisionEvaluation: changedFiles.some((path) => startsWithAny(path, policy.decisionEvaluationPrefixes)) || decisionConsumer || pipelineControl || testDeletion || unknown,
+    decisionEvaluation: changedFiles.some((path) => startsWithAny(path, policy.decisionEvaluationPrefixes)) || decisionConsumer || pipelineControl || testDeletion || fullScopeRouting,
     decisionConsumer,
     pipelineControl,
     testDeletion,
     unknown,
+    workflowChange,
+    deploymentControl,
+    fullScopeRouting,
+    documentationOnly,
+    machineReadableDocumentation,
     deliveryControl: changedFiles.some((path) => startsWithAny(path, policy.deliveryControlPrefixes)),
     releaseEvidence: changedFiles.some((path) => startsWithAny(path, policy.releaseEvidencePrefixes)),
     destructive: migrationTexts.some(isDestructiveMigration),
@@ -89,6 +102,10 @@ export function classifyChange({ root, context, policy }) {
     ...(flags.pipelineControl ? ["decision-pipeline-control"] : []),
     ...(flags.testDeletion ? ["test-routing-change"] : []),
     ...(flags.unknown ? ["unknown-change"] : []),
+    ...(flags.workflowChange ? ["workflow-or-package-control"] : []),
+    ...(flags.deploymentControl ? ["deployment-control"] : []),
+    ...(flags.documentationOnly ? ["documentation-only"] : []),
+    ...(flags.machineReadableDocumentation ? ["machine-readable-documentation-contract"] : []),
     ...(flags.deliveryControl ? ["delivery-control"] : []),
     ...(flags.releaseEvidence ? ["release-evidence"] : []),
     ...(flags.destructive ? ["destructive-production-operation"] : []),
@@ -109,7 +126,7 @@ export function classifyChange({ root, context, policy }) {
       ...(flags.shared ? ["shared"] : []),
       ...(flags.database ? ["database"] : []),
       ...(flags.decisionSemantics || flags.decisionEvaluation ? ["decision"] : []),
-      ...(flags.deliveryControl || flags.releaseEvidence || flags.database || flags.privilegedServer || flags.pipelineControl || flags.testDeletion || flags.unknown ? ["delivery-contract"] : []),
+      ...(flags.deliveryControl || flags.releaseEvidence || flags.database || flags.privilegedServer || flags.pipelineControl || flags.testDeletion || flags.fullScopeRouting ? ["delivery-contract"] : []),
     ]),
     blockedReasons: unique([
       ...(flags.migrationMutation ? ["published_migration_mutation"] : []),

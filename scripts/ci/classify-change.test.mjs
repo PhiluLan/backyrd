@@ -102,14 +102,16 @@ test("workflow and package routing changes force the complete Decision pipeline 
     assert.equal(result.flags.pipelineControl, true);
     assert.ok(result.requiredGates.includes("decision"));
     assert.ok(result.requiredGates.includes("delivery-contract"));
+    if (path !== "scripts/ci/decision-test-plan.mjs") {
+      for (const gate of ["mobile", "web", "admin", "shared", "database", "decision", "delivery-contract"]) assert.ok(result.requiredGates.includes(gate));
+    }
   }
 });
 
 test("unknown files and deleted tests cannot silently bypass routing", () => {
   const unknown = plan({ files: { "unclassified-surface/value.bin": "opaque\n" } });
   assert.equal(unknown.flags.unknown, true);
-  assert.ok(unknown.requiredGates.includes("decision"));
-  assert.ok(unknown.requiredGates.includes("delivery-contract"));
+  for (const gate of ["mobile", "web", "admin", "shared", "database", "decision", "delivery-contract"]) assert.ok(unknown.requiredGates.includes(gate));
 
   const { root, base } = fixture();
   put(root, "packages/decision-vnext-core/test/deleted.test.mjs", "test('required',()=>{});\n");
@@ -120,6 +122,25 @@ test("unknown files and deleted tests cannot silently bypass routing", () => {
   assert.equal(result.flags.testDeletion, true);
   assert.ok(result.classes.includes("test-routing-change"));
   assert.notEqual(base, head);
+});
+
+test("only proven non-executable Markdown takes the documentation-only shortcut", () => {
+  const markdown = plan({ files: { "docs/product/note.md": "prose only\n" } });
+  assert.equal(markdown.flags.documentationOnly, true);
+  assert.deepEqual(markdown.requiredGates, ["repository-security"]);
+  assert.ok(markdown.classes.includes("documentation-only"));
+
+  const machineReadable = plan({ files: { "docs/product/contract.json": "{}\n" } });
+  assert.equal(machineReadable.flags.documentationOnly, false);
+  assert.ok(machineReadable.requiredGates.includes("decision"));
+  assert.ok(machineReadable.requiredGates.includes("delivery-contract"));
+});
+
+test("Supabase deployment controls select database and delivery verification", () => {
+  const result = plan({ files: { "scripts/deployment/release.mjs": "export const release = false;\n" } });
+  assert.equal(result.flags.deploymentControl, true);
+  assert.ok(result.requiredGates.includes("database"));
+  assert.ok(result.requiredGates.includes("delivery-contract"));
 });
 
 test("shared authoring UI selects web and admin fast lanes without Decision recertification", () => {
