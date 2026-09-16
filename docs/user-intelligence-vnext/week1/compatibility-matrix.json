@@ -1,0 +1,14 @@
+{
+  "contractVersion": "backyrd.user-intelligence.week1-compatibility@1",
+  "productionAuthorized": false,
+  "rows": [
+    { "component": "phase2-evidence", "classification": "KEEP", "integration": "REFERENCE_ONLY_NO_INGESTION" },
+    { "component": "phase3a-reducer", "classification": "KEEP", "integration": "INVARIANTS_REUSED" },
+    { "component": "phase3b-calibration", "classification": "KEEP", "integration": "CALIBRATION_ONLY" },
+    { "component": "phase3c-product-policy", "classification": "KEEP", "integration": "HASH_BOUND_RUNTIME_INACTIVE" },
+    { "component": "phase3d-founder-lab", "classification": "KEEP", "integration": "SYNTHETIC_LOCAL_ONLY" },
+    { "component": "legacy-user-intelligence-runtime", "classification": "DEPRECATE", "integration": "NOT_WIRED" },
+    { "component": "production-event-ingestion", "classification": "PROHIBITED", "integration": "FAIL_CLOSED_DISABLED" },
+    { "component": "production-storage", "classification": "PROHIBITED", "integration": "NO_WRITE_PORT" }
+  ]
+}
