@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "backyrd.world-knowledge.week1-cohort-aggregate@1",
+  "source": "LOCAL_FOUNDER_EVALUATION_READ_ONLY",
+  "sourceSpotCount": 412,
+  "candidateCount": 30,
+  "categories": {
+    "COFFEE_DAYTIME": 5,
+    "CULTURE_ARTS": 5,
+    "DRINKS": 5,
+    "EAT": 8,
+    "NOT_CONFIGURED": 7
+  },
+  "alreadyFounderSelected": 5,
+  "coverage": {
+    "purpose.primary_visit": { "confirmedOrAssertedClaim": 5, "safeLegacyPrefill": 0, "reviewRequired": 0, "absent": 25 },
+    "classification.place_types": { "confirmedOrAssertedClaim": 5, "safeLegacyPrefill": 0, "reviewRequired": 0, "absent": 25 },
+    "hours.regular": { "confirmedOrAssertedClaim": 4, "safeLegacyPrefill": 30, "reviewRequired": 0, "absent": 0 },
+    "hours.kitchen_service": { "confirmedOrAssertedClaim": 0, "safeLegacyPrefill": 0, "reviewRequired": 0, "absent": 30 },
+    "context.typical_dayparts": { "confirmedOrAssertedClaim": 5, "safeLegacyPrefill": 0, "reviewRequired": 0, "absent": 25 },
+    "context.visit_situations": { "confirmedOrAssertedClaim": 5, "safeLegacyPrefill": 0, "reviewRequired": 0, "absent": 25 },
+    "context.atmosphere": { "confirmedOrAssertedClaim": 5, "safeLegacyPrefill": 0, "reviewRequired": 0, "absent": 25 },
+    "operation.price_level": { "confirmedOrAssertedClaim": 3, "safeLegacyPrefill": 0, "reviewRequired": 29, "absent": 1 },
+    "accessibility.step_free_entrance": { "confirmedOrAssertedClaim": 2, "safeLegacyPrefill": 0, "reviewRequired": 0, "absent": 28 },
+    "rule.age_access": { "confirmedOrAssertedClaim": 0, "safeLegacyPrefill": 0, "reviewRequired": 0, "absent": 30 },
+    "offering.onsite": { "confirmedOrAssertedClaim": 4, "safeLegacyPrefill": 0, "reviewRequired": 0, "absent": 26 }
+  },
+  "authority": "CANDIDATE_ONLY_NO_CLAIMS_OR_CONFIRMATIONS",
+  "localCandidateHash": "0cd08cd2fde2f1bada4972c568a80e8f54718eb502c4949e7ed81a881424a9c1",
+  "aggregateHash": "529373f477412a2d049df2677119f8222ed276b4d87f8ad2fc5b279a537cd919"
+}
