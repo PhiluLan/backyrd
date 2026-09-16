@@ -18,6 +18,12 @@ The consumer contract follows Registry 2.1 and the `AGE_ACCESS_RULE_V2` shape em
 
 Slice 4B adds a nested, PostgreSQL-JSONB-hashed `context-handoff-shadow@1.0` to each `founder-cohort-shadow@3.0` row. Phase 3C validates its exact registry, policy, spot, source facts, unknowns, conflicts, exclusions and inner hash before accepting the cohort. The Founder-approved evaluation policy now consumes five fields without upgrading them to Production authority: primary visit purpose gates core-intent coverage; onsite offerings remain additional; visit situations, atmosphere and typical dayparts are conditional context evidence. Actual availability remains exclusively on the existing opening-hours evaluator.
 
+### Canonical knowledge-state partition
+
+`context-handoff-shadow@1.0` has one representation per context attribute. Known values live only in `entries`, explicit `UNKNOWN` only in `explicitUnknowns`, unresolved conflicts only in `conflicts`, and attributes without any resolution only in `absentKeys`. These sets are disjoint and the World exporter, TypeScript builder, Preview, import and replay validators all enforce the same invariant. A resolver snapshot may retain an `UNKNOWN` or `DISPUTED` resolution row for audit, but that audit representation is not copied into the handoff `entries` partition.
+
+The forward migration `20260916061802_world_founder_context_handoff_unknown_canonicalization.sql` corrects the SQL exporter to meet the already fail-closed `@1.0` contract; it does not broaden or reinterpret Product semantics. Contract versions therefore remain stable, while every newly exported cohort, nested context handoff and outer Decision handoff receives a new content hash derived from the canonical representation. Previously contradictory exports remain invalid and must be regenerated rather than normalized by the UI.
+
 No Decision process contacts Supabase, reads tables, changes Claims or writes World/User state. A small offline builder converts an explicitly supplied local World export to the handoff; it performs no database or network access. The handoff is `FOUNDER_EVALUATION_ONLY`, `productionAuthorized:false` and `productQualityClaim:false`.
 
 ## Degradation

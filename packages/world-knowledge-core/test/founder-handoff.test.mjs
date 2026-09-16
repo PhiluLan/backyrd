@@ -70,3 +70,32 @@ test("Registry 2.1 context is integrity-bound but excluded from Decision facts",
   rebindOuterHashes(obsolete, hashBody);
   assert.throws(() => parseFounderWorldCohortHandoff(obsolete), /contractVersion_identity_mismatch/);
 });
+
+test("Founder context handoff keeps known, unknown, absent and disputed states disjoint", async () => {
+  const { hashBody } = await import("../dist/index.js");
+  const artifact = makeFounderCohortHandoff();
+  const cafe = artifact.manifest.spots.find((spot) => spot.spotId === "644fbd15-91f8-4ab7-8a4b-dbe06622d148");
+  assert.ok(cafe);
+  assert.equal(cafe.contextHandoff.entries["context.atmosphere"], undefined);
+  assert.equal(cafe.contextHandoff.explicitUnknowns.includes("context.atmosphere"), true);
+  assert.equal(cafe.contextHandoff.absentKeys.includes("context.atmosphere"), false);
+
+  const overlap = structuredClone(artifact);
+  const overlapCafe = overlap.manifest.spots.find((spot) => spot.spotId === cafe.spotId);
+  overlapCafe.contextHandoff.entries["context.atmosphere"] = {
+    key: "context.atmosphere", scope: "SPOT", resolution: "UNKNOWN", value: null,
+    trust: "VERIFIED", freshness: "CURRENT", basisClaimHashes: ["1".repeat(64)],
+  };
+  overlapCafe.contextHandoff = rehashPostgres(overlapCafe.contextHandoff, "handoffHash");
+  overlapCafe.contextHandoffHash = overlapCafe.contextHandoff.handoffHash;
+  rebindOuterHashes(overlap, hashBody);
+  assert.throws(() => parseFounderWorldCohortHandoff(overlap), /entries_non_known_state|knowledge_state_overlap/);
+
+  const conflictOverlap = structuredClone(artifact);
+  const conflictCafe = conflictOverlap.manifest.spots.find((spot) => spot.spotId === cafe.spotId);
+  conflictCafe.contextHandoff.conflicts.push({ key: "context.atmosphere", scope: "SPOT", claimHashes: ["2".repeat(64), "3".repeat(64)] });
+  conflictCafe.contextHandoff = rehashPostgres(conflictCafe.contextHandoff, "handoffHash");
+  conflictCafe.contextHandoffHash = conflictCafe.contextHandoff.handoffHash;
+  rebindOuterHashes(conflictOverlap, hashBody);
+  assert.throws(() => parseFounderWorldCohortHandoff(conflictOverlap), /knowledge_state_overlap/);
+});
