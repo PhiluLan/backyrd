@@ -1,0 +1,40 @@
+{
+  "contractVersion": "backyrd.accelerated-production-roadmap@1.0",
+  "frozenAt": "2026-09-16",
+  "canonicalBaseSha": "4dd76c6149e425f191586e904d21b851fc1995c5",
+  "executionAuthorized": false,
+  "invariants": [
+    "NO_PRODUCTION_ACTION_WITHOUT_EXPLICIT_SEPARATE_AUTHORITY",
+    "WORLD_USER_DECISION_DOMAIN_AUTHORITY_REMAINS_WITH_DOMAIN_OWNERS",
+    "FLAGS_DEFAULT_OFF_AND_MISSING_CONFIGURATION_IS_OFF",
+    "ONE_HASH_BOUND_BUILD_ARTIFACT_PER_CANDIDATE",
+    "FINAL_FULL_RISK_GATE_AND_POST_MERGE_GATE_REQUIRED"
+  ],
+  "milestones": [
+    {
+      "day": 7,
+      "name": "Production-Release-Fundament",
+      "exitCriteria": ["dependency ownership frozen", "fail-closed change classification", "read-only integration preflight", "release rollback incident runbooks"]
+    },
+    {
+      "day": 14,
+      "name": "World-Basis und dunkles Wiring",
+      "exitCriteria": ["nine World migrations separately authorized and verified", "all runtime flags remain off", "no Product ranking or User learning activation"]
+    },
+    {
+      "day": 21,
+      "name": "Interner produktnaher Betrieb",
+      "exitCriteria": ["internal allowlist only", "kill switches rehearsed", "post-deploy evidence bound to released hashes"]
+    },
+    {
+      "day": 42,
+      "name": "Begrenzter Nutzerpilot",
+      "exitCriteria": ["Founder CTO go decision", "privacy and safety acceptance", "bounded cohort and rollback thresholds"]
+    },
+    {
+      "dayRange": [84, 98],
+      "name": "Breiterer kontrollierter Rollout",
+      "exitCriteria": ["measured decision quality", "coverage diversity and trust thresholds", "staged expansion with independently tested kill switches"]
+    }
+  ]
+}

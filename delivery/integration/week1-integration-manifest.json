@@ -1,0 +1,21 @@
+{
+  "contractVersion": "backyrd.week1-integration-manifest@1.0",
+  "roadmapVersion": "backyrd.accelerated-production-roadmap@1.0",
+  "canonicalBaseSha": "4dd76c6149e425f191586e904d21b851fc1995c5",
+  "executionAuthorized": false,
+  "artifactContract": "backyrd-decision-ci-build-artifact-v1",
+  "artifactRule": "exactly one candidate artifact; World User and Decision shards verify the same artifactHash",
+  "domainCandidates": [
+    {"track": "WORLD", "pr": null, "baseSha": null, "headSha": null, "treeSha": null, "artifactHash": null, "status": "AWAITING_DOMAIN_PR"},
+    {"track": "USER", "pr": null, "baseSha": null, "headSha": null, "treeSha": null, "artifactHash": null, "status": "AWAITING_DOMAIN_PR"},
+    {"track": "DECISION", "pr": null, "baseSha": null, "headSha": null, "treeSha": null, "artifactHash": null, "status": "AWAITING_DOMAIN_PR"}
+  ],
+  "mergeSequence": ["WORLD", "USER", "DECISION", "INTEGRATION_FINAL_REVALIDATION"],
+  "finalGates": ["repository-security", "shared", "decision", "database", "delivery-contract", "risk-gate", "post-merge-risk-gate"],
+  "productionPlan": {
+    "shippedSourceSha": "d63c5ae66aa30aa017cc54c2ed8be47944b84889",
+    "expectedPendingMigrationCount": 9,
+    "runtimeDeploymentRequired": true,
+    "executionAuthorized": false
+  }
+}
