@@ -48,7 +48,15 @@ export function validateDatabaseRelease({ root, baseSha, headSha, actualPublicAc
   for (const item of [...record.migrations, ...record.tests]) {
     if (!SHA256.test(item.sha256 ?? "") || hashAt(root, headSha, item.path) !== item.sha256) throw new Error(`database_release_source_hash_mismatch:${item.path}`);
   }
-  if (record.fingerprints?.publicAclSha256 !== actualPublicAcl || record.fingerprints?.applicationSchemaSha256 !== actualApplicationSchema) throw new Error("database_release_candidate_fingerprint_mismatch");
+  if (record.fingerprints?.publicAclSha256 !== actualPublicAcl || record.fingerprints?.applicationSchemaSha256 !== actualApplicationSchema) {
+    throw new Error([
+      "database_release_candidate_fingerprint_mismatch",
+      `expected_acl=${record.fingerprints?.publicAclSha256 ?? "missing"}`,
+      `actual_acl=${actualPublicAcl}`,
+      `expected_schema=${record.fingerprints?.applicationSchemaSha256 ?? "missing"}`,
+      `actual_schema=${actualApplicationSchema}`,
+    ].join(":"));
+  }
   if (actualPublicAcl !== previous.evidence.fingerprints.publicAclSha256) {
     const source = changedTests.map((path) => git(root, ["show", `${headSha}:${path}`])).join("\n");
     if (!/^--\s*backyrd:authorization-positive\s*$/im.test(source) || !/^--\s*backyrd:authorization-negative\s*$/im.test(source)) throw new Error("acl_change_requires_positive_and_negative_authorization_tests");
