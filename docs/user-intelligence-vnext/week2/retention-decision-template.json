@@ -1,0 +1,16 @@
+{
+  "contractVersion": "backyrd.user-intelligence.retention-decision-template@week2-1",
+  "templateId": "backyrd-user-intelligence-retention-decision-week2-1",
+  "supersedesTemplateHash": "5f598bad7446a60a7e2335435c82afae758af69b7947c8184f76d82d1198a3bc",
+  "status": "NOT_CONFIGURED_PENDING_FOUNDER_CTO_LEGAL",
+  "productionAuthorized": false,
+  "defaultsForbidden": true,
+  "requiredApprovals": ["FOUNDER", "CTO", "LEGAL"],
+  "classes": [
+    { "dataClass": "MINIMIZED_EVENT_LEDGER", "purpose": "LOCAL_DARK_REPLAY", "personal": true, "trigger": "CONSENT_OR_LIFECYCLE", "action": "DELETE", "duration": null },
+    { "dataClass": "DERIVED_PROJECTION_STATE", "purpose": "READ_ONLY_DECISION_HANDOFF", "personal": true, "trigger": "CONSENT_OR_LIFECYCLE", "action": "DELETE", "duration": null },
+    { "dataClass": "PRIVACY_EXPORT_EPHEMERAL", "purpose": "LEGAL_EXPORT", "personal": true, "trigger": "EXPORT_COMPLETION", "action": "DELETE", "duration": null },
+    { "dataClass": "NON_PERSONAL_RELEASE_MANIFEST", "purpose": "INTEGRITY_AUDIT", "personal": false, "trigger": "NEW_RELEASE", "action": "RETAIN_NON_PERSONAL_ONLY", "duration": null }
+  ],
+  "prohibitedFallbacks": ["FIXTURE_DURATION", "INFINITE_RETENTION", "SOURCE_CODE_DEFAULT", "CLIENT_SELECTED_DURATION"]
+}

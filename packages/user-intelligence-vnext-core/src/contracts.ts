@@ -93,6 +93,15 @@ export const CONTRACT_VERSIONS = Object.freeze({
   darkRuntimeMetrics: "backyrd.user-intelligence.dark-runtime-metrics@week1-1",
   darkRuntimeRetentionDecision: "backyrd.user-intelligence.retention-decision-template@week1-1",
   darkRuntimePrivacyExport: "backyrd.user-intelligence.privacy-legal-export@week1-1",
+  darkProjectionRuntimeRelease: "backyrd.user-intelligence.dark-projection-runtime-release@week2-1",
+  darkProjectionRuntimeTrustAnchor: "backyrd.user-intelligence.dark-projection-runtime-trust-anchor@week2-1",
+  darkProjectionRuntimeAuthority: "backyrd.user-intelligence.dark-projection-runtime-authority@week2-1",
+  darkProjectionRuntimeEvent: "backyrd.user-intelligence.dark-projection-runtime-event@week2-1",
+  darkProjectionRuntimeState: "backyrd.user-intelligence.dark-projection-runtime-state@week2-1",
+  darkProjectionRuntimeHandoff: "backyrd.user-intelligence.dark-projection-runtime-handoff@week2-1",
+  darkProjectionRuntimeMetrics: "backyrd.user-intelligence.dark-projection-runtime-metrics@week2-1",
+  darkProjectionRuntimePrivacyExport: "backyrd.user-intelligence.dark-projection-privacy-export@week2-1",
+  darkProjectionRetentionDecision: "backyrd.user-intelligence.retention-decision-template@week2-1",
 } as const);
 
 export const SYNTHETIC_CONCEPT_REGISTRY_VERSION = "backyrd.synthetic-user-concepts@1.0";
