@@ -1,14 +1,19 @@
 {
-  "contractVersion": "backyrd.decision-vnext.contextual-world-policy-matrix@3c-1",
+  "contractVersion": "backyrd.decision-vnext.contextual-world-policy-matrix@3c-2",
   "scope": "SYNTHETIC_FOUNDER_EVALUATION_ONLY",
   "productionAuthorized": false,
   "productRankingAuthorized": false,
   "coreIntent": [
-    { "intent": "food", "worldFact": "purpose.primary_visit", "accepted": ["EAT_DRINK"] },
-    { "intent": "coffee", "worldFact": "purpose.primary_visit", "accepted": ["EAT_DRINK"] },
-    { "intent": "drinks", "worldFact": "purpose.primary_visit", "accepted": ["EAT_DRINK"] },
-    { "intent": "family-outing", "worldFact": "purpose.primary_visit", "accepted": ["NATURE_ANIMAL_EXPERIENCE"] },
-    { "intent": "bouldering", "worldFact": "purpose.primary_visit", "accepted": ["SPORT_MOVEMENT"] }
+    { "intent": "eat-drink-general", "primaryPurpose": ["EAT_DRINK"], "specificity": "PRIMARY_PURPOSE_ONLY", "primaryCategories": [], "placeTypes": [] },
+    { "intent": "food", "primaryPurpose": ["EAT_DRINK"], "specificity": "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION", "primaryCategories": ["EAT"], "placeTypes": ["RESTAURANT", "BRASSERIE", "BISTRO"] },
+    { "intent": "coffee", "primaryPurpose": ["EAT_DRINK"], "specificity": "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION", "primaryCategories": ["COFFEE_DAYTIME"], "placeTypes": ["CAFE"] },
+    { "intent": "drinks", "primaryPurpose": ["EAT_DRINK"], "specificity": "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION", "primaryCategories": ["DRINKS", "NIGHTLIFE"], "placeTypes": ["BAR", "PUB", "BREWERY", "TAPROOM", "WINE_BAR", "COCKTAIL_BAR", "LOUNGE"] },
+    { "intent": "wine-bar", "primaryPurpose": ["EAT_DRINK"], "specificity": "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION", "primaryCategories": ["DRINKS"], "placeTypes": ["WINE_BAR"] },
+    { "intent": "bar-nightlife", "primaryPurpose": ["EAT_DRINK"], "specificity": "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION", "primaryCategories": ["DRINKS", "NIGHTLIFE"], "placeTypes": ["BAR", "PUB", "COCKTAIL_BAR", "NIGHTCLUB", "MUSIC_CLUB", "LOUNGE"] },
+    { "intent": "family-outing", "primaryPurpose": ["NATURE_ANIMAL_EXPERIENCE"], "specificity": "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION", "primaryCategories": ["OUTDOOR_NATURE"], "placeTypes": ["PARK", "NATURE_RESERVE", "ZOO", "AQUARIUM"] },
+    { "intent": "bouldering", "primaryPurpose": ["SPORT_MOVEMENT"], "specificity": "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION", "primaryCategories": ["SPORT_MOVEMENT"], "placeTypes": ["CLIMBING_GYM"] },
+    { "intent": "nature-animal", "primaryPurpose": ["NATURE_ANIMAL_EXPERIENCE"], "specificity": "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION", "primaryCategories": ["OUTDOOR_NATURE"], "placeTypes": ["PARK", "NATURE_RESERVE", "ZOO", "AQUARIUM"] },
+    { "intent": "sport", "primaryPurpose": ["SPORT_MOVEMENT"], "specificity": "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION", "primaryCategories": ["SPORT_MOVEMENT"], "placeTypes": ["GYM", "SPORTS_CENTRE", "CLIMBING_GYM", "SPORTS_COURT"] }
   ],
   "onsiteOfferings": {
     "worldFact": "offering.onsite",
@@ -23,6 +28,7 @@
   "knowledgeStates": ["CONFIRMED", "UNKNOWN", "NOT_CONFIGURED", "NOT_APPLICABLE", "INCOMPATIBLE", "DISPUTED"],
   "invariants": {
     "confirmedRequiresCoreIntent": true,
+    "broadPurposeAloneConfirmsSpecificIntent": false,
     "softContextCanExclude": false,
     "typicalDaypartDeterminesOpening": false,
     "spotIdentitySpecialCases": false,

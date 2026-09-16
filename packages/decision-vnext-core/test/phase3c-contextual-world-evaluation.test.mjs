@@ -36,7 +36,7 @@ test("primary purpose gates core intent while embedded onsite offering remains a
   const primary = await run("Ich möchte in Basel Kaffee trinken.", {
     "purpose.primary_visit": "EAT_DRINK",
     "offering.onsite": [{ area: null, kind: "CAFE", relationship: "PART_OF_SPOT" }],
-  });
+  }, [{ key: "classification.primary_category", value: "COFFEE_DAYTIME", resolution: "KNOWN_VALUE" }]);
   assert.equal(primary.coreIntentCoverage.state, "CONFIRMED");
   assert.equal(primary.onsiteOfferings.state, "CONFIRMED");
   assert.equal(primary.onsiteOfferings.confirmsCoreIntent, false);
@@ -56,7 +56,7 @@ test("primary purpose gates core intent while embedded onsite offering remains a
     "context.visit_situations": [{ situation: "DATE_PAIR", conditions: conditions() }],
   });
   assert.equal(kiosk.coreIntentCoverage.state, "INCOMPATIBLE");
-  assert.equal(kiosk.onsiteOfferings.state, "INCOMPATIBLE");
+  assert.equal(kiosk.onsiteOfferings.state, "NOT_APPLICABLE");
   assert.equal(kiosk.visitSituation.state, "CONFIRMED");
   assert.equal(kiosk.tier, "INELIGIBLE");
 });
@@ -65,7 +65,7 @@ test("family outing and bouldering use authorized primary-purpose mappings witho
   const family = await run("Ich suche in Basel einen Familienausflug mit meiner Familie.", {
     "purpose.primary_visit": "NATURE_ANIMAL_EXPERIENCE",
     "context.visit_situations": [{ situation: "FAMILY", conditions: conditions() }],
-  });
+  }, [{ key: "classification.primary_category", value: "OUTDOOR_NATURE", resolution: "KNOWN_VALUE" }]);
   assert.equal(family.coreIntentCoverage.state, "CONFIRMED");
   assert.equal(family.visitSituation.state, "CONFIRMED");
 
@@ -73,7 +73,7 @@ test("family outing and bouldering use authorized primary-purpose mappings witho
     "purpose.primary_visit": "NATURE_ANIMAL_EXPERIENCE",
     "context.visit_situations": [{ situation: "FAMILY", conditions: conditions({ accompaniment: "ADULT", ageContext: "MIXED_AGES", dayparts: ["AFTERNOON"] }) }],
     "context.typical_dayparts": [{ daypart: "AFTERNOON", conditions: typicalConditions() }],
-  });
+  }, [{ key: "classification.primary_category", value: "OUTDOOR_NATURE", resolution: "KNOWN_VALUE" }]);
   assert.equal(familyAfternoon.coreIntentCoverage.state, "CONFIRMED");
   assert.equal(familyAfternoon.visitSituation.state, "CONFIRMED");
   assert.equal(familyAfternoon.typicalDaypart.state, "CONFIRMED");
@@ -81,7 +81,7 @@ test("family outing and bouldering use authorized primary-purpose mappings witho
   const bouldering = await run("Ich möchte in Basel mit meiner Familie bouldern.", {
     "purpose.primary_visit": "SPORT_MOVEMENT",
     "context.visit_situations": [{ situation: "FAMILY", conditions: conditions() }],
-  });
+  }, [{ key: "classification.primary_category", value: "SPORT_MOVEMENT", resolution: "KNOWN_VALUE" }]);
   assert.equal(bouldering.coreIntentCoverage.state, "CONFIRMED");
   assert.equal(bouldering.visitSituation.state, "CONFIRMED");
   assert.equal(bouldering.tier, "ELIGIBLE_CONFIRMED");
@@ -89,7 +89,7 @@ test("family outing and bouldering use authorized primary-purpose mappings witho
   const business = await run("Ich möchte heute Abend in Basel geschäftlich etwas trinken.", {
     "purpose.primary_visit": "EAT_DRINK",
     "context.visit_situations": [{ situation: "BUSINESS", conditions: conditions() }],
-  });
+  }, [{ key: "classification.primary_category", value: "DRINKS", resolution: "KNOWN_VALUE" }]);
   assert.equal(business.visitSituation.state, "CONFIRMED");
 });
 
@@ -99,7 +99,7 @@ test("conditional visit situation, atmosphere, and daypart preserve confirmed, u
     "context.visit_situations": [{ situation: "FRIENDS_GROUP", conditions: conditions({ dayparts: ["EVENING"] }) }],
     "context.atmosphere": [{ atmosphere: "LIVELY", conditions: conditions({ accompaniment: "GROUP" }) }],
     "context.typical_dayparts": [{ daypart: "EVENING", conditions: typicalConditions({ days: ["WEDNESDAY"], eventMode: "NORMAL_OPERATION" }) }],
-  });
+  }, [{ key: "classification.primary_category", value: "DRINKS", resolution: "KNOWN_VALUE" }]);
   assert.equal(confirmed.visitSituation.state, "CONFIRMED");
   assert.equal(confirmed.atmosphere.state, "CONFIRMED");
   assert.equal(confirmed.typicalDaypart.state, "CONFIRMED");
@@ -110,7 +110,7 @@ test("conditional visit situation, atmosphere, and daypart preserve confirmed, u
     "context.visit_situations": [{ situation: "FRIENDS_GROUP", conditions: conditions() }],
     "context.atmosphere": [{ atmosphere: "LIVELY", conditions: conditions() }],
     "context.typical_dayparts": [{ daypart: "MORNING", conditions: typicalConditions() }],
-  });
+  }, [{ key: "classification.primary_category", value: "DRINKS", resolution: "KNOWN_VALUE" }]);
   assert.equal(incompatible.visitSituation.state, "INCOMPATIBLE");
   assert.equal(incompatible.atmosphere.state, "INCOMPATIBLE");
   assert.equal(incompatible.typicalDaypart.state, "INCOMPATIBLE");
@@ -156,12 +156,58 @@ test("unknown and not-configured contextual knowledge stay distinct and do not i
 test("one-spot cohort is technically evaluable without claiming a meaningful comparison", async () => {
   const result = await runFounderDecisionLab({
     request: request("Ich möchte in Basel etwas trinken.", "one-spot-contextual-evaluation"),
-    cohortHandoff: makeFounderCohortHandoff([SPOT], { [SPOT.spotId]: { "purpose.primary_visit": "EAT_DRINK" } }),
+    cohortHandoff: makeFounderCohortHandoff([SPOT], { [SPOT.spotId]: { "purpose.primary_visit": "EAT_DRINK" } }, { [SPOT.spotId]: [{ key: "classification.primary_category", value: "DRINKS", resolution: "KNOWN_VALUE" }] }),
   });
   assert.equal(result.worldCohort.spotBindings.length, 1);
   assert.equal(result.candidates.length, 1);
   assert.equal(result.productRankingAuthorized, false);
   assert.equal(result.candidates[0].tier, "ELIGIBLE_CONFIRMED");
+});
+
+test("specific intent matrix requires authorized primary classification and never promotes embedded facilities", async () => {
+  const cases = [
+    ["Ich möchte in Basel Kaffee trinken.", "EAT_DRINK", "COFFEE_DAYTIME", "CAFE", "CONFIRMED"],
+    ["Ich möchte in Basel Kaffee trinken.", "EAT_DRINK", "EAT", "PUB", "UNKNOWN"],
+    ["Ich möchte in Basel Kaffee trinken.", "EAT_DRINK", "DRINKS", "WINE_BAR", "UNKNOWN"],
+    ["Ich möchte in Basel essen.", "EAT_DRINK", "EAT", "RESTAURANT", "CONFIRMED"],
+    ["Ich möchte in Basel etwas trinken.", "EAT_DRINK", "DRINKS", "WINE_BAR", "CONFIRMED"],
+    ["Ich suche in Basel einen Familienausflug.", "NATURE_ANIMAL_EXPERIENCE", "OUTDOOR_NATURE", "PARK", "CONFIRMED"],
+    ["Ich möchte in Basel bouldern.", "SPORT_MOVEMENT", "SPORT_MOVEMENT", "CLIMBING_GYM", "CONFIRMED"],
+  ];
+  for (const [text, purpose, category, placeType, expected] of cases) {
+    const candidate = await run(text, { "purpose.primary_visit": purpose }, [
+      { key: "classification.primary_category", value: category, resolution: "KNOWN_VALUE" },
+      { key: "classification.place_types", value: [placeType], resolution: "KNOWN_VALUE" },
+    ], `matrix-${String(category).toLowerCase()}`);
+    assert.equal(candidate.coreIntentCoverage.state, expected, `${text} / ${category}`);
+  }
+  const embeddedCafe = await run("Ich möchte in Basel Kaffee trinken.", {
+    "purpose.primary_visit": "SPORT_MOVEMENT",
+    "offering.onsite": [{ area: "Bistro", kind: "CAFE", relationship: "EMBEDDED_FACILITY" }],
+  }, [
+    { key: "classification.primary_category", value: "SPORT_MOVEMENT", resolution: "KNOWN_VALUE" },
+    { key: "classification.place_types", value: ["CLIMBING_GYM"], resolution: "KNOWN_VALUE" },
+  ], "embedded-cafe-never-core");
+  assert.equal(embeddedCafe.coreIntentCoverage.state, "INCOMPATIBLE");
+  assert.equal(embeddedCafe.onsiteOfferings.state, "CONFIRMED");
+  assert.equal(embeddedCafe.onsiteOfferings.confirmsCoreIntent, false);
+});
+
+test("spot binding is identity based and invariant to five-spot handoff order", async () => {
+  const entries = Array.from({ length: 5 }, (_, index) => ({ spotId: `00000000-0000-4000-8000-${String(index + 501).padStart(12, "0")}`, name: `Gebundener Testspot ${index + 1}` }));
+  const context = Object.fromEntries(entries.map(({ spotId }, index) => [spotId, {
+    "purpose.primary_visit": index % 2 ? "SPORT_MOVEMENT" : "EAT_DRINK",
+    "context.visit_situations": index === 2 ? [{ situation: "FAMILY", conditions: conditions() }] : { unknown: true },
+    "context.atmosphere": { unknown: true },
+  }]));
+  const facts = Object.fromEntries(entries.map(({ spotId }, index) => [spotId, [
+    { key: "classification.primary_category", value: index % 2 ? "SPORT_MOVEMENT" : "COFFEE_DAYTIME", resolution: "KNOWN_VALUE" },
+    { key: "classification.place_types", value: [index % 2 ? "CLIMBING_GYM" : "CAFE"], resolution: "KNOWN_VALUE" },
+  ]]));
+  const first = await runFounderDecisionLab({ request: request("Ich möchte in Basel Kaffee trinken.", "order-a"), cohortHandoff: makeFounderCohortHandoff(entries, context, facts) });
+  const second = await runFounderDecisionLab({ request: request("Ich möchte in Basel Kaffee trinken.", "order-b"), cohortHandoff: makeFounderCohortHandoff([...entries].reverse(), context, facts) });
+  const semantic = (candidate) => ({ ...candidate, assessmentHash: undefined, reasons: candidate.reasons.map((item) => ({ ...item, sourceHash: undefined })), coreIntentCoverage: { ...candidate.coreIntentCoverage, evidenceSourceHash: undefined }, secondaryIntentCoverage: { ...candidate.secondaryIntentCoverage, evidenceSourceHash: undefined }, worldClassification: { ...candidate.worldClassification, evidenceSourceHash: undefined }, primaryVisitPurpose: { ...candidate.primaryVisitPurpose, evidenceSourceHash: undefined }, specificCoreClassification: { ...candidate.specificCoreClassification, evidenceSourceHash: undefined }, onsiteOfferings: { ...candidate.onsiteOfferings, evidenceSourceHash: undefined }, visitSituation: { ...candidate.visitSituation, evidenceSourceHash: undefined }, atmosphere: { ...candidate.atmosphere, evidenceSourceHash: undefined }, typicalDaypart: { ...candidate.typicalDaypart, evidenceSourceHash: undefined }, actualAvailability: { ...candidate.actualAvailability, evidenceSourceHash: undefined } });
+  assert.deepEqual(first.candidates.map(semantic), second.candidates.map(semantic));
 });
 
 test("NEARBY is rejected by the canonical World handoff instead of becoming an onsite relation", () => {

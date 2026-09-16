@@ -51,7 +51,7 @@ test("Founder evaluation requires authorized core-intent coverage before confirm
   const handoff = makeFounderCohortHandoff();
   const family = await runFounderDecisionLab({ request: request("Ich suche nächste Woche in Basel einen Ort für ein Familienessen für mich und meine zwölfjährige Tochter."), cohortHandoff: handoff });
   const elys = family.candidates.find((row) => row.label === "ELYS Boulderloft");
-  assert.equal(elys.coreIntentCoverage.state, "UNKNOWN"); assert.notEqual(elys.tier, "ELIGIBLE_CONFIRMED");
+  assert.equal(elys.coreIntentCoverage.state, "INCOMPATIBLE"); assert.notEqual(elys.tier, "ELIGIBLE_CONFIRMED");
   assert.ok(family.candidates.every((row) => row.tier !== "ELIGIBLE_CONFIRMED" || row.coreIntentCoverage.state === "CONFIRMED"));
   const accessibility = await runFounderDecisionLab({ request: request("Ich möchte in Basel gemütlich Kaffee trinken und brauche einen rollstuhlgerechten Zugang."), cohortHandoff: handoff });
   const accessOnly = accessibility.candidates.find((row) => row.label === "Volta Bräu");

@@ -41,14 +41,19 @@ export const PHASE3C_LAB_COMPATIBILITY = deepFreeze(Phase3CLabCompatibilitySchem
 
 const contextualWorldPolicyBody = {
   contractVersion: PHASE3C_LAB_VERSIONS.contextualWorldPolicy,
-  policyId: "decision-founder-lab-contextual-world-evaluation-policy-3c-1",
+  policyId: "decision-founder-lab-contextual-world-evaluation-policy-3c-2",
   scope: "SYNTHETIC_FOUNDER_EVALUATION_ONLY" as const,
-  primaryPurposeMappings: [
-    { mappingId: "primary-purpose-food-eat-drink-3c-1", intentId: "context.intent.food", acceptedPrimaryPurposes: ["EAT_DRINK"] },
-    { mappingId: "primary-purpose-coffee-eat-drink-3c-1", intentId: "context.intent.coffee", acceptedPrimaryPurposes: ["EAT_DRINK"] },
-    { mappingId: "primary-purpose-drinks-eat-drink-3c-1", intentId: "context.intent.drinks", acceptedPrimaryPurposes: ["EAT_DRINK"] },
-    { mappingId: "primary-purpose-family-outing-nature-3c-1", intentId: "context.intent.family-outing", acceptedPrimaryPurposes: ["NATURE_ANIMAL_EXPERIENCE"] },
-    { mappingId: "primary-purpose-bouldering-sport-3c-1", intentId: "context.intent.bouldering", acceptedPrimaryPurposes: ["SPORT_MOVEMENT"] },
+  intentMappings: [
+    { mappingId: "intent-eat-drink-general-3c-2", intentId: "context.intent.eat-drink-general", acceptedPrimaryPurposes: ["EAT_DRINK"], requiredSpecificity: "PRIMARY_PURPOSE_ONLY" as const, acceptedPrimaryCategories: [], acceptedPlaceTypes: [] },
+    { mappingId: "intent-food-restaurant-3c-2", intentId: "context.intent.food", acceptedPrimaryPurposes: ["EAT_DRINK"], requiredSpecificity: "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION" as const, acceptedPrimaryCategories: ["EAT"], acceptedPlaceTypes: ["RESTAURANT", "BRASSERIE", "BISTRO"] },
+    { mappingId: "intent-coffee-primary-3c-2", intentId: "context.intent.coffee", acceptedPrimaryPurposes: ["EAT_DRINK"], requiredSpecificity: "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION" as const, acceptedPrimaryCategories: ["COFFEE_DAYTIME"], acceptedPlaceTypes: ["CAFE"] },
+    { mappingId: "intent-drinks-primary-3c-2", intentId: "context.intent.drinks", acceptedPrimaryPurposes: ["EAT_DRINK"], requiredSpecificity: "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION" as const, acceptedPrimaryCategories: ["DRINKS", "NIGHTLIFE"], acceptedPlaceTypes: ["BAR", "PUB", "BREWERY", "TAPROOM", "WINE_BAR", "COCKTAIL_BAR", "LOUNGE"] },
+    { mappingId: "intent-wine-bar-primary-3c-2", intentId: "context.intent.wine-bar", acceptedPrimaryPurposes: ["EAT_DRINK"], requiredSpecificity: "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION" as const, acceptedPrimaryCategories: ["DRINKS"], acceptedPlaceTypes: ["WINE_BAR"] },
+    { mappingId: "intent-bar-nightlife-primary-3c-2", intentId: "context.intent.bar-nightlife", acceptedPrimaryPurposes: ["EAT_DRINK"], requiredSpecificity: "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION" as const, acceptedPrimaryCategories: ["DRINKS", "NIGHTLIFE"], acceptedPlaceTypes: ["BAR", "PUB", "COCKTAIL_BAR", "NIGHTCLUB", "MUSIC_CLUB", "LOUNGE"] },
+    { mappingId: "intent-family-outing-nature-3c-2", intentId: "context.intent.family-outing", acceptedPrimaryPurposes: ["NATURE_ANIMAL_EXPERIENCE"], requiredSpecificity: "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION" as const, acceptedPrimaryCategories: ["OUTDOOR_NATURE"], acceptedPlaceTypes: ["PARK", "NATURE_RESERVE", "ZOO", "AQUARIUM"] },
+    { mappingId: "intent-bouldering-sport-3c-2", intentId: "context.intent.bouldering", acceptedPrimaryPurposes: ["SPORT_MOVEMENT"], requiredSpecificity: "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION" as const, acceptedPrimaryCategories: ["SPORT_MOVEMENT"], acceptedPlaceTypes: ["CLIMBING_GYM"] },
+    { mappingId: "intent-nature-animal-3c-2", intentId: "context.intent.nature-animal", acceptedPrimaryPurposes: ["NATURE_ANIMAL_EXPERIENCE"], requiredSpecificity: "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION" as const, acceptedPrimaryCategories: ["OUTDOOR_NATURE"], acceptedPlaceTypes: ["PARK", "NATURE_RESERVE", "ZOO", "AQUARIUM"] },
+    { mappingId: "intent-sport-general-3c-2", intentId: "context.intent.sport", acceptedPrimaryPurposes: ["SPORT_MOVEMENT"], requiredSpecificity: "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION" as const, acceptedPrimaryCategories: ["SPORT_MOVEMENT"], acceptedPlaceTypes: ["GYM", "SPORTS_CENTRE", "CLIMBING_GYM", "SPORTS_COURT"] },
   ],
   onsiteOfferingMappings: [
     { mappingId: "onsite-food-3c-1", intentId: "context.intent.food", acceptedKinds: ["RESTAURANT", "FULL_MEALS"], confirmsCoreIntent: false as const },
@@ -107,7 +112,7 @@ const nullable = <T>(value: T | undefined): T | null => value ?? null;
 /** Local deterministic resolver. It has no network, persistence or Product authority. */
 export function resolveFounderLabText(raw: unknown, correctionInput: unknown = {}): FounderLabInterpretation {
   const request = FounderLabRequestSchema.parse(raw); const corrections: FounderLabCorrections = FounderLabCorrectionsSchema.parse(correctionInput); const text = normalize(request.ephemeralText);
-  const primaryIntent = /boulder/.test(text) ? "context.intent.bouldering" : /familienausflug/.test(text) ? "context.intent.family-outing" : /kaffee|café|cafe/.test(text) ? "context.intent.coffee" : /bar|trinken|drink/.test(text) ? "context.intent.drinks" : /essen|restaurant|mittag|abendessen/.test(text) ? "context.intent.food" : null;
+  const primaryIntent = /boulder/.test(text) ? "context.intent.bouldering" : /familienausflug/.test(text) ? "context.intent.family-outing" : /tierpark|natur(?:-| )?erlebnis/.test(text) ? "context.intent.nature-animal" : /kaffee|café|cafe/.test(text) ? "context.intent.coffee" : /weinbar|wein trinken/.test(text) ? "context.intent.wine-bar" : /nachtleben|cocktailbar|\bbar\b/.test(text) ? "context.intent.bar-nightlife" : /sport/.test(text) ? "context.intent.sport" : /essen oder trinken/.test(text) ? "context.intent.eat-drink-general" : /trinken|drink/.test(text) ? "context.intent.drinks" : /essen|restaurant|mittag|abendessen/.test(text) ? "context.intent.food" : null;
   const incompatible = /essen und nicht essen|ruhig und laut zugleich/.test(text);
   const secondaryIntent = incompatible ? "context.intent.conflicting" : /ruhig|gemütlich|date/.test(text) && primaryIntent ? "context.intent.conversation" : /essen.*trinken|trinken.*essen/.test(text) ? "context.intent.food" : null;
   const targetCity = /zürich|zurich/.test(text) ? "Zurich" : /basel/.test(text) ? "Basel" : null;
@@ -175,6 +180,7 @@ function contextBinding(value: FounderContextShadowHandoff): LabContextBinding {
   return { entries: value.entries as Readonly<Record<string, LabWorldFact>>, absentKeys: value.absentKeys, explicitUnknowns: value.explicitUnknowns, conflicts: value.conflicts, bindingHash: value.handoffHash };
 }
 function rowFromHandoff(item: FounderWorldCohortHandoff["spots"][number], binding: FounderWorldCohortHandoff["manifest"]["spots"][number]): LabWorldRow {
+  if (item.spotId !== binding.spotId || item.snapshot.spotId !== item.spotId || binding.contextHandoff.spotId !== item.spotId || binding.contextHandoffHash !== binding.contextHandoff.handoffHash) throw new Error("phase3c_founder_cohort_spot_binding_mismatch");
   const age = valueFromFact(item.snapshot, "rule.age_access_conditions") as { rules?: readonly { mode?: unknown; minimumAge?: unknown; accompaniment?: unknown }[] } | undefined;
   const matchingAgeRule = age?.rules?.find((rule) => rule.mode === "UNACCOMPANIED_MINIMUM" && rule.minimumAge === 13 && rule.accompaniment === "ADULT");
   const priceRange = valueFromFact(item.snapshot, "operation.price_range") as { currency?: unknown; max?: unknown } | undefined;
@@ -188,7 +194,14 @@ let syntheticCohortCache: Promise<{ cohort: FounderLabCohort; rows: readonly Lab
 async function loadCohort(input: { reader?: WorldKnowledgeReaderPort; manifest?: FounderWorldCohortManifest | null; handoff?: FounderWorldCohortHandoff | unknown } = {}): Promise<{ cohort: FounderLabCohort; rows: readonly LabWorldRow[] }> {
   if (input.handoff && (input.reader || input.manifest)) throw new Error("phase3c_founder_cohort_sources_must_not_mix");
   if (input.handoff) {
-    const handoff = parseFounderWorldCohortHandoff(input.handoff); const bindings = new Map(handoff.manifest.spots.map((row) => [row.spotId, row])); const rows = handoff.spots.map((item) => rowFromHandoff(item, bindings.get(item.spotId)!));
+    const handoff = parseFounderWorldCohortHandoff(input.handoff);
+    const bindings = new Map(handoff.manifest.spots.map((row) => [row.spotId, row]));
+    if (bindings.size !== handoff.manifest.spots.length || handoff.spots.length !== handoff.manifest.spots.length) throw new Error("phase3c_founder_cohort_spot_binding_mismatch");
+    const rows = [...handoff.spots].sort((a, b) => a.spotId.localeCompare(b.spotId)).map((item) => {
+      const binding = bindings.get(item.spotId);
+      if (!binding) throw new Error("phase3c_founder_cohort_spot_binding_missing");
+      return rowFromHandoff(item, binding);
+    });
     const cohortBody = { contractVersion: PHASE3C_LAB_VERSIONS.cohort, cohortId: handoff.manifest.cohortId, source: "FOUNDER_WORLD_COHORT" as const, worldRegistryVersion: handoff.manifest.registryVersion, worldRegistryHash: handoff.registryHash, sourcePolicyVersion: handoff.manifest.policyVersion, sourceHandoffHash: handoff.handoffHash, spotBindings: rows.map((row) => ({ spotId: row.spotId, snapshotHash: row.snapshotHash, fixtureProfileHash: profileHash(row.profile, row.snapshotHash, "WORLD_COHORT_HANDOFF") })), limitations: [...(rows.length === 1 ? ["single-spot-cohort-comparison-not-representative"] : []), "world-cohort-evaluation-only-no-product-ranking"], mixedSources: false as const };
     return { cohort: deepFreeze(FounderLabCohortSchema.parse(withContentHash(cohortBody, "cohortHash"))), rows };
   }
@@ -245,7 +258,7 @@ function userProjection(request: FounderLabRequest, contextHash: string): Releva
 const reason = (reasonCode: string, domain: "WORLD"|"USER"|"CONTEXT"|"LIMITATION", sourceHash: string, statementDe: string, confirmed: boolean) => ({ reasonCode, domain, sourceHash, statementDe, confirmed });
 
 type ContextualState = "CONFIRMED" | "UNKNOWN" | "NOT_CONFIGURED" | "INCOMPATIBLE" | "DISPUTED" | "NOT_APPLICABLE";
-const contextualSourceHash = (world: LabWorldRow, key: string, contextId: string | null) => contentHash({ policyHash: PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY.policyHash, worldBindingHash: world.context?.bindingHash ?? world.snapshotHash, key, contextId });
+const contextualSourceHash = (world: LabWorldRow, key: string, contextId: string | null) => contentHash({ policyHash: PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY.policyHash, spotId: world.spotId, snapshotHash: world.snapshotHash, contextBindingHash: world.context?.bindingHash ?? null, key, contextId });
 function contextualFact(world: LabWorldRow, key: string): { readonly state: "KNOWN" | "UNKNOWN" | "DISPUTED"; readonly value: unknown; readonly evidenceSourceHash: string } {
   const evidenceSourceHash = contextualSourceHash(world, key, null);
   if (world.context?.conflicts.some((row) => row.key === key)) return { state: "DISPUTED", value: null, evidenceSourceHash };
@@ -254,16 +267,35 @@ function contextualFact(world: LabWorldRow, key: string): { readonly state: "KNO
   if (entry.resolution === "DISPUTED" || entry.trust === "CONFLICTING") return { state: "DISPUTED", value: null, evidenceSourceHash };
   return { state: "KNOWN", value: entry.value, evidenceSourceHash };
 }
+function snapshotFact(world: LabWorldRow, key: string): { readonly state: "KNOWN" | "UNKNOWN" | "DISPUTED"; readonly value: unknown; readonly evidenceSourceHash: string } {
+  const evidenceSourceHash = contextualSourceHash(world, key, null);
+  const matches = world.facts.filter((entry) => entry.key === key);
+  if (matches.length > 1 || matches.some((entry) => entry.resolution === "DISPUTED" || entry.trust === "CONFLICTING")) return { state: "DISPUTED", value: null, evidenceSourceHash };
+  const entry = matches[0];
+  if (!entry || entry.resolution === "UNKNOWN" || entry.value === null || entry.value === undefined) return { state: "UNKNOWN", value: null, evidenceSourceHash };
+  return { state: "KNOWN", value: entry.value, evidenceSourceHash };
+}
 function resolveIntentCoverage(world: LabWorldRow, intentId: string | null) {
-  const evidenceSourceHash = contextualSourceHash(world, "purpose.primary_visit", intentId);
+  const evidenceSourceHash = contentHash({ purpose: contextualSourceHash(world, "purpose.primary_visit", intentId), category: contextualSourceHash(world, "classification.primary_category", intentId), placeTypes: contextualSourceHash(world, "classification.place_types", intentId) });
   if (!intentId) return { intentId: null, state: "NOT_APPLICABLE" as const, mappingIds: [], worldFactKeys: [], evidenceSourceHash };
-  const mappings = PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY.primaryPurposeMappings.filter((mapping) => mapping.intentId === intentId);
-  if (!mappings.length) return { intentId, state: "NOT_CONFIGURED" as const, mappingIds: [], worldFactKeys: ["purpose.primary_visit"], evidenceSourceHash };
+  const mappings = PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY.intentMappings.filter((mapping) => mapping.intentId === intentId);
+  const worldFactKeys = ["purpose.primary_visit", "classification.primary_category", "classification.place_types"];
+  if (!mappings.length) return { intentId, state: "NOT_CONFIGURED" as const, mappingIds: [], worldFactKeys, evidenceSourceHash };
   const purpose = contextualFact(world, "purpose.primary_visit");
-  if (purpose.state === "DISPUTED") return { intentId, state: "DISPUTED" as const, mappingIds: mappings.map((row) => row.mappingId), worldFactKeys: ["purpose.primary_visit"], evidenceSourceHash };
-  if (purpose.state === "UNKNOWN") return { intentId, state: "UNKNOWN" as const, mappingIds: mappings.map((row) => row.mappingId), worldFactKeys: ["purpose.primary_visit"], evidenceSourceHash };
-  const confirmed = typeof purpose.value === "string" && mappings.some((mapping) => mapping.acceptedPrimaryPurposes.includes(purpose.value as string));
-  return { intentId, state: confirmed ? "CONFIRMED" as const : "INCOMPATIBLE" as const, mappingIds: mappings.map((row) => row.mappingId), worldFactKeys: ["purpose.primary_visit"], evidenceSourceHash };
+  const mappingIds = mappings.map((row) => row.mappingId);
+  if (purpose.state === "DISPUTED") return { intentId, state: "DISPUTED" as const, mappingIds, worldFactKeys, evidenceSourceHash };
+  if (purpose.state === "UNKNOWN") return { intentId, state: "UNKNOWN" as const, mappingIds, worldFactKeys, evidenceSourceHash };
+  const purposeValue = typeof purpose.value === "string" ? purpose.value : null;
+  const purposeMappings = purposeValue ? mappings.filter((mapping) => mapping.acceptedPrimaryPurposes.includes(purposeValue)) : [];
+  if (!purposeMappings.length) return { intentId, state: "INCOMPATIBLE" as const, mappingIds, worldFactKeys, evidenceSourceHash };
+  if (purposeMappings.some((mapping) => mapping.requiredSpecificity === "PRIMARY_PURPOSE_ONLY")) return { intentId, state: "CONFIRMED" as const, mappingIds, worldFactKeys, evidenceSourceHash };
+  const category = snapshotFact(world, "classification.primary_category");
+  const placeTypes = snapshotFact(world, "classification.place_types");
+  if (category.state === "DISPUTED" || placeTypes.state === "DISPUTED") return { intentId, state: "DISPUTED" as const, mappingIds, worldFactKeys, evidenceSourceHash };
+  const categoryValue = typeof category.value === "string" ? category.value : null;
+  const placeTypeValues = Array.isArray(placeTypes.value) ? placeTypes.value.filter((value): value is string => typeof value === "string") : [];
+  const specificallyConfirmed = purposeMappings.some((mapping) => (categoryValue !== null && mapping.acceptedPrimaryCategories.includes(categoryValue)) || placeTypeValues.some((value) => mapping.acceptedPlaceTypes.includes(value)));
+  return { intentId, state: specificallyConfirmed ? "CONFIRMED" as const : "UNKNOWN" as const, mappingIds, worldFactKeys, evidenceSourceHash };
 }
 function contextualEvaluation(state: ContextualState, world: LabWorldRow, key: string, contextId: string | null, mappingIds: readonly string[] = []) {
   return { state, mappingIds: unique(mappingIds), evidenceSourceHash: contextualSourceHash(world, key, contextId) };
@@ -271,16 +303,17 @@ function contextualEvaluation(state: ContextualState, world: LabWorldRow, key: s
 function resolveOnsiteOfferings(world: LabWorldRow, intentId: string | null) {
   const mappings = intentId ? PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY.onsiteOfferingMappings.filter((row) => row.intentId === intentId) : [];
   const evidenceSourceHash = contextualSourceHash(world, "offering.onsite", intentId);
-  const base = { mappingIds: mappings.map((row) => row.mappingId), matchedKinds: [] as string[], relationships: [] as ("PART_OF_SPOT"|"EMBEDDED_FACILITY"|"UNKNOWN")[], confirmsCoreIntent: false as const, evidenceSourceHash };
+  const base = { mappingIds: mappings.map((row) => row.mappingId), availableKinds: [] as string[], matchedKinds: [] as string[], relationships: [] as ("PART_OF_SPOT"|"EMBEDDED_FACILITY"|"UNKNOWN")[], confirmsCoreIntent: false as const, evidenceSourceHash };
   if (!intentId) return { ...base, state: "NOT_APPLICABLE" as const };
-  if (!mappings.length) return { ...base, state: "NOT_CONFIGURED" as const };
   const fact = contextualFact(world, "offering.onsite");
   if (fact.state === "DISPUTED") return { ...base, state: "DISPUTED" as const };
   if (fact.state === "UNKNOWN") return { ...base, state: "UNKNOWN" as const };
   const rows = Array.isArray(fact.value) ? fact.value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object" && !Array.isArray(item)) : [];
+  const relationships = unique(rows.map((row) => String(row.relationship)).filter((value) => ["PART_OF_SPOT", "EMBEDDED_FACILITY", "UNKNOWN"].includes(value))) as ("PART_OF_SPOT"|"EMBEDDED_FACILITY"|"UNKNOWN")[];
+  const availableKinds = unique(rows.map((row) => String(row.kind)).filter(Boolean));
+  if (!mappings.length) return { ...base, state: "NOT_CONFIGURED" as const, availableKinds, relationships };
   const matched = rows.filter((row) => typeof row.kind === "string" && mappings.some((mapping) => mapping.acceptedKinds.includes(row.kind as string)));
-  const relationships = unique(matched.map((row) => String(row.relationship))) as ("PART_OF_SPOT"|"EMBEDDED_FACILITY"|"UNKNOWN")[];
-  return { ...base, state: matched.length ? "CONFIRMED" as const : "INCOMPATIBLE" as const, matchedKinds: unique(matched.map((row) => String(row.kind))), relationships };
+  return { ...base, state: matched.length ? "CONFIRMED" as const : "NOT_APPLICABLE" as const, availableKinds, matchedKinds: unique(matched.map((row) => String(row.kind))), relationships };
 }
 function conditionMatches(conditions: unknown, interpretation: FounderLabInterpretation): true | false | "UNKNOWN" {
   if (!conditions || typeof conditions !== "object" || Array.isArray(conditions)) return false;
@@ -360,7 +393,19 @@ function assess(world: LabWorldRow, interpretation: FounderLabInterpretation, pr
   if (interpretation.hardConstraints.includes("KITCHEN_CURRENT")) hardUnknown.push("KITCHEN_CURRENT");
   const coreIntentCoverage = resolveIntentCoverage(world, interpretation.primaryIntent);
   const secondaryIntentCoverage = resolveIntentCoverage(world, interpretation.secondaryIntent);
-  const primaryVisitPurpose = contextualEvaluation(coreIntentCoverage.state, world, "purpose.primary_visit", interpretation.primaryIntent, coreIntentCoverage.mappingIds);
+  const purposeFact = contextualFact(world, "purpose.primary_visit");
+  const categoryFact = snapshotFact(world, "classification.primary_category");
+  const placeTypesFact = snapshotFact(world, "classification.place_types");
+  const purposeState = purposeFact.state === "KNOWN" ? "CONFIRMED" as const : purposeFact.state;
+  const classificationState = categoryFact.state === "DISPUTED" || placeTypesFact.state === "DISPUTED" ? "DISPUTED" as const : categoryFact.state === "KNOWN" || placeTypesFact.state === "KNOWN" ? "CONFIRMED" as const : "UNKNOWN" as const;
+  const primaryVisitPurpose = contextualEvaluation(purposeState, world, "purpose.primary_visit", interpretation.primaryIntent, coreIntentCoverage.mappingIds);
+  const specificCoreClassification = contextualEvaluation(classificationState, world, "classification.primary_category+classification.place_types", interpretation.primaryIntent, coreIntentCoverage.mappingIds);
+  const worldClassification = {
+    primaryVisitPurpose: typeof purposeFact.value === "string" ? purposeFact.value : null,
+    primaryCategory: typeof categoryFact.value === "string" ? categoryFact.value : null,
+    placeTypes: Array.isArray(placeTypesFact.value) ? unique(placeTypesFact.value.filter((value): value is string => typeof value === "string")) : [],
+    evidenceSourceHash: contentHash({ purpose: purposeFact.evidenceSourceHash, category: categoryFact.evidenceSourceHash, placeTypes: placeTypesFact.evidenceSourceHash }),
+  };
   const onsiteOfferings = resolveOnsiteOfferings(world, interpretation.primaryIntent);
   const visitSituation = resolveVisitSituation(world, interpretation);
   const atmosphere = resolveAtmosphere(world, interpretation);
@@ -409,7 +454,7 @@ function assess(world: LabWorldRow, interpretation: FounderLabInterpretation, pr
   if (rejectedHere) reasons.push(reason("situational-reject", "CONTEXT", interpretation.interpretationHash, "Dieser Spot wurde nur für diese Anfrage und diesen Context abgewählt; das ist keine objektive World-Inkompatibilität.", true));
   if (projection.status === "ACTIVE") reasons.push(reason("user-projection-read-without-authority", "USER", projection.projectionHash, "Minimierte User Intelligence ist sichtbar, besitzt hier aber keine Ranking- oder Eligibility-Autorität.", true));
   const order = { ELIGIBLE_CONFIRMED: "0", UNCONFIRMED_FALLBACK: "1", NOT_CONFIGURED: "2", INELIGIBLE: "3" }[tier];
-  const body = { contractVersion: PHASE3C_LAB_VERSIONS.assessment, candidateId: world.spotId, label: profile.label, tier, coreIntentCoverage, secondaryIntentCoverage, primaryVisitPurpose, onsiteOfferings, visitSituation, atmosphere, typicalDaypart, actualAvailability, confirmedHardConstraints: unique(hardKnown), unknownHardConstraints: unique(hardUnknown), failedHardConstraints: unique(hardFailed), matchedSoftPreferences: unique(soft), conflicts: profile.conflict ? ["WORLD_BLOCKING_CONFLICT"] : [], reasons, limitations: unique(limitations), rejectionClass: rejectedHere ? "SITUATIONAL_REJECT" as const : "NONE" as const, userIntelligenceInvolved: projection.status === "ACTIVE", userIntelligenceAffectsEligibility: false as const, fixtureOrderKey: `${order}:${world.spotId}` };
+  const body = { contractVersion: PHASE3C_LAB_VERSIONS.assessment, candidateId: world.spotId, label: profile.label, tier, coreIntentCoverage, secondaryIntentCoverage, worldClassification, primaryVisitPurpose, specificCoreClassification, onsiteOfferings, visitSituation, atmosphere, typicalDaypart, actualAvailability, confirmedHardConstraints: unique(hardKnown), unknownHardConstraints: unique(hardUnknown), failedHardConstraints: unique(hardFailed), matchedSoftPreferences: unique(soft), conflicts: profile.conflict ? ["WORLD_BLOCKING_CONFLICT"] : [], reasons, limitations: unique(limitations), rejectionClass: rejectedHere ? "SITUATIONAL_REJECT" as const : "NONE" as const, userIntelligenceInvolved: projection.status === "ACTIVE", userIntelligenceAffectsEligibility: false as const, fixtureOrderKey: `${order}:${world.spotId}` };
   return deepFreeze(FounderLabCandidateAssessmentSchema.parse(withContentHash(body, "assessmentHash")));
 }
 
@@ -455,7 +500,7 @@ export const PHASE3C_FOUNDER_ORACLES: readonly FounderLabOracle[] = deepFreeze(P
   return FounderLabOracleSchema.parse(withContentHash(body, "oracleHash"));
 }));
 
-const releaseBody = { contractVersion: PHASE3C_LAB_VERSIONS.release, releaseId: "decision-founder-lab-release-3c-3", canonicalBaseSha: CANONICAL_BASE_SHA, phase3BReleaseHash: PHASE3B_COMBINED_RELEASE.releaseHash, compatibilityHash: PHASE3C_LAB_COMPATIBILITY.compatibilityHash, worldFounderEvidenceHash: WORLD_FOUNDER_EVIDENCE_HASH, userFounderRecordHash: USER_FOUNDER_RECORD_HASH, userProductPolicyHash: USER_PRODUCT_POLICY_HASH, userSignalRegistryHash: USER_SIGNAL_REGISTRY_HASH, scenarioSetHash: contentHash(PHASE3C_FOUNDER_SCENARIO_IDS), contextualWorldPolicyHash: PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY.policyHash, founderCohortHandoffContract: "backyrd.world-knowledge.founder-cohort-handoff@1.0" as const, trustRoot: "INHERITED_PHASE3B_SIGNED_RELEASE_PLUS_REPOSITORY_SOURCE_IDENTITY" as const, evaluationOnly: true as const, calibrationOnly: true as const, productionAuthorized: false as const, productRankingAuthorized: false as const, externalProviderUsed: false as const, rawTextPersisted: false as const, writesUserIntelligence: false as const, commercialInfluence: "FORBIDDEN" as const };
+const releaseBody = { contractVersion: PHASE3C_LAB_VERSIONS.release, releaseId: "decision-founder-lab-release-3c-4", canonicalBaseSha: CANONICAL_BASE_SHA, phase3BReleaseHash: PHASE3B_COMBINED_RELEASE.releaseHash, compatibilityHash: PHASE3C_LAB_COMPATIBILITY.compatibilityHash, worldFounderEvidenceHash: WORLD_FOUNDER_EVIDENCE_HASH, userFounderRecordHash: USER_FOUNDER_RECORD_HASH, userProductPolicyHash: USER_PRODUCT_POLICY_HASH, userSignalRegistryHash: USER_SIGNAL_REGISTRY_HASH, scenarioSetHash: contentHash(PHASE3C_FOUNDER_SCENARIO_IDS), contextualWorldPolicyHash: PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY.policyHash, founderCohortHandoffContract: "backyrd.world-knowledge.founder-cohort-handoff@1.0" as const, trustRoot: "INHERITED_PHASE3B_SIGNED_RELEASE_PLUS_REPOSITORY_SOURCE_IDENTITY" as const, evaluationOnly: true as const, calibrationOnly: true as const, productionAuthorized: false as const, productRankingAuthorized: false as const, externalProviderUsed: false as const, rawTextPersisted: false as const, writesUserIntelligence: false as const, commercialInfluence: "FORBIDDEN" as const };
 export const PHASE3C_FOUNDER_LAB_RELEASE: FounderLabRelease = deepFreeze(FounderLabReleaseSchema.parse(withContentHash(releaseBody, "releaseHash")));
 
 export async function runFounderLabOracles(): Promise<FounderLabReport> {

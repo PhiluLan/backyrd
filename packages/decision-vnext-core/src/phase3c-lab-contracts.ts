@@ -5,12 +5,12 @@ export const PHASE3C_LAB_VERSIONS = Object.freeze({
   request: "backyrd.decision-vnext.founder-lab-request@3c-1",
   interpretation: "backyrd.decision-vnext.founder-lab-interpretation@3c-1",
   cohort: "backyrd.decision-vnext.founder-lab-cohort@3c-1",
-  contextualWorldPolicy: "backyrd.decision-vnext.founder-lab-contextual-world-policy@3c-1",
-  assessment: "backyrd.decision-vnext.founder-lab-candidate-assessment@3c-3",
-  result: "backyrd.decision-vnext.founder-lab-result@3c-3",
+  contextualWorldPolicy: "backyrd.decision-vnext.founder-lab-contextual-world-policy@3c-2",
+  assessment: "backyrd.decision-vnext.founder-lab-candidate-assessment@3c-4",
+  result: "backyrd.decision-vnext.founder-lab-result@3c-4",
   oracle: "backyrd.decision-vnext.founder-lab-oracle@3c-1",
   report: "backyrd.decision-vnext.founder-lab-report@3c-1",
-  release: "backyrd.decision-vnext.founder-lab-release@3c-3",
+  release: "backyrd.decision-vnext.founder-lab-release@3c-4",
 } as const);
 
 const nullableIdentifier = schema.union([identifier, schema.literal(null)] as const);
@@ -79,7 +79,12 @@ const contextualState = schema.enum(["CONFIRMED", "UNKNOWN", "NOT_CONFIGURED", "
 export const FounderLabContextualWorldPolicySchema = schema.object({
   contractVersion: version(PHASE3C_LAB_VERSIONS.contextualWorldPolicy), policyId: identifier,
   scope: schema.literal("SYNTHETIC_FOUNDER_EVALUATION_ONLY"),
-  primaryPurposeMappings: schema.array(schema.object({ mappingId: identifier, intentId: identifier, acceptedPrimaryPurposes: schema.array(identifier, { min: 1, max: 20 }) }), { min: 1, max: 20 }),
+  intentMappings: schema.array(schema.object({
+    mappingId: identifier, intentId: identifier,
+    acceptedPrimaryPurposes: schema.array(identifier, { min: 1, max: 20 }),
+    requiredSpecificity: schema.enum(["PRIMARY_PURPOSE_ONLY", "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION"] as const),
+    acceptedPrimaryCategories: schema.array(identifier, { max: 20 }), acceptedPlaceTypes: schema.array(identifier, { max: 20 }),
+  }), { min: 1, max: 30 }),
   onsiteOfferingMappings: schema.array(schema.object({ mappingId: identifier, intentId: identifier, acceptedKinds: schema.array(identifier, { min: 1, max: 20 }), confirmsCoreIntent: schema.literal(false) }), { min: 1, max: 20 }),
   situationMappings: schema.array(schema.object({ mappingId: identifier, contextId: identifier, worldSituation: identifier }), { min: 1, max: 20 }),
   atmosphereMappings: schema.array(schema.object({ mappingId: identifier, contextId: identifier, worldAtmosphere: identifier }), { min: 1, max: 20 }),
@@ -96,12 +101,13 @@ const intentCoverage = schema.object({
   mappingIds: schema.array(identifier, { max: 20 }), worldFactKeys: schema.array(identifier, { max: 20 }), evidenceSourceHash: sha256,
 });
 const contextualEvaluation = schema.object({ state: contextualState, mappingIds: schema.array(identifier, { max: 20 }), evidenceSourceHash: sha256 });
-const onsiteEvaluation = schema.object({ state: contextualState, mappingIds: schema.array(identifier, { max: 20 }), matchedKinds: schema.array(identifier, { max: 20 }), relationships: schema.array(schema.enum(["PART_OF_SPOT", "EMBEDDED_FACILITY", "UNKNOWN"] as const), { max: 3 }), confirmsCoreIntent: schema.literal(false), evidenceSourceHash: sha256 });
+const onsiteEvaluation = schema.object({ state: contextualState, mappingIds: schema.array(identifier, { max: 20 }), availableKinds: schema.array(identifier, { max: 20 }), matchedKinds: schema.array(identifier, { max: 20 }), relationships: schema.array(schema.enum(["PART_OF_SPOT", "EMBEDDED_FACILITY", "UNKNOWN"] as const), { max: 3 }), confirmsCoreIntent: schema.literal(false), evidenceSourceHash: sha256 });
 export const FounderLabCandidateAssessmentSchema = schema.object({
   contractVersion: version(PHASE3C_LAB_VERSIONS.assessment), candidateId: identifier, label: schema.string({ min: 1, max: 160 }),
   tier: schema.enum(["ELIGIBLE_CONFIRMED", "UNCONFIRMED_FALLBACK", "NOT_CONFIGURED", "INELIGIBLE"] as const),
   coreIntentCoverage: intentCoverage, secondaryIntentCoverage: intentCoverage,
-  primaryVisitPurpose: contextualEvaluation, onsiteOfferings: onsiteEvaluation, visitSituation: contextualEvaluation,
+  worldClassification: schema.object({ primaryVisitPurpose: nullableIdentifier, primaryCategory: nullableIdentifier, placeTypes: schema.array(identifier, { max: 20 }), evidenceSourceHash: sha256 }),
+  primaryVisitPurpose: contextualEvaluation, specificCoreClassification: contextualEvaluation, onsiteOfferings: onsiteEvaluation, visitSituation: contextualEvaluation,
   atmosphere: contextualEvaluation, typicalDaypart: contextualEvaluation,
   actualAvailability: schema.object({ status: schema.enum(["open", "closed", "unknown", "not_authorized", "expired", "disputed", "not_requested"] as const), evidenceSourceHash: sha256 }),
   confirmedHardConstraints: schema.array(identifier, { max: 30 }), unknownHardConstraints: schema.array(identifier, { max: 30 }), failedHardConstraints: schema.array(identifier, { max: 30 }),

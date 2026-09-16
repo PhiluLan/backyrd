@@ -12,18 +12,18 @@ This record is completed from actual validation output before review; no uncheck
 - Local, ephemeral, German and editable interpretation.
 - Four candidate tiers; no Product ranking authorization.
 - Evidence-backed explanations and recursive deterministic replay.
-- Versioned evaluation-only contextual World policy: primary visit purpose gates Core Intent; embedded or part-level offerings never confirm it.
+- Versioned evaluation-only contextual World policy: broad primary purpose plus an authorized specific classification gates specific Core Intent; embedded or part-level offerings never confirm it.
 - Authorized visit-situation, atmosphere and typical-daypart facts remain conditional context signals; typical daypart never substitutes for actual opening state.
 - 28 evaluation-only oracles.
 - Commercial neutrality and no Production path.
 
 ## Local validation on the review tree
 
-- Targeted contextual World evaluation: 8/8 tests; Phase-3C core regression: 19/19; UI service: 1/1.
-- Real Founder-cohort Browser E2E: 25 interaction scenarios and 334 assertions, including exact A-D per-spot outcomes, controlled context flip, direct comparison, alternative, situational reject, replay, desktop and narrow viewport.
-- Complete Decision CI: PASS in 379.269 s.
-- Complete Decision-vNext package: 133/133 in 65.871 s.
-- Decision core/integrity shard: 58/58.
+- Targeted contextual World evaluation: 10/10 tests; Phase-3C core regression: 19/19; UI service: 1/1.
+- Founder-cohort Browser E2E: 29 interaction scenarios and 522 assertions, including exact A-D per-spot outcomes, family outing, family bouldering, embedded café, kiosk, unknown and disputed atmosphere, controlled context flip, direct comparison, alternative, situational reject, replay, desktop and narrow viewport.
+- Complete Decision CI: PASS in 352.563 s.
+- Complete Decision-vNext package: 135/135 in 68.230 s.
+- Decision core/integrity shard: 60/60.
 - User Intelligence canonical regression: 222/222.
 - World Knowledge canonical regression: 75/75.
 - Phase-2 recursive integration: 21/21.

@@ -27,17 +27,22 @@ test("Founder cohort handoff validates the complete local World export", async (
 
 test("Founder cohort handoff consumes the Registry 2.1 age-rule shape emitted by local World authoring", async () => {
   const { createFounderWorldCohortHandoff, hashBody } = await import("../dist/index.js");
-  const artifact = makeFounderCohortHandoff(["Volta Bräu"]);
+  const elys = { spotId: "57cb213c-9472-40b6-80be-a810fd77b7c9", name: "ELYS Boulderloft" };
+  const artifact = makeFounderCohortHandoff([elys]);
   const manifest = artifact.manifest;
-  const sourceSnapshot = structuredClone(artifact.spots[0].snapshot);
+  const source = artifact.spots.find((spot) => spot.spotId === elys.spotId);
+  const binding = manifest.spots.find((spot) => spot.spotId === elys.spotId);
+  assert.ok(source);
+  assert.ok(binding);
+  const sourceSnapshot = structuredClone(source.snapshot);
   sourceSnapshot.facts.find((fact) => fact.key === "rule.age_access_conditions").value.notes = "Founder-geprüfte lokale Regel";
-  const built = createFounderWorldCohortHandoff({ manifest, spotDetails: [{ spotId: manifest.spots[0].spotId, fallbackName: "Volta Bräu", manifest: { manifestHash: manifest.spots[0].manifestHash, worldSnapshot: sourceSnapshot } }] });
+  const built = createFounderWorldCohortHandoff({ manifest, spotDetails: [{ spotId: binding.spotId, fallbackName: elys.name, manifest: { manifestHash: binding.manifestHash, worldSnapshot: sourceSnapshot } }] });
   assert.equal(built.spots[0].snapshot.facts.find((fact) => fact.key === "rule.age_access_conditions").value.notes, "Founder-geprüfte lokale Regel");
   assert.equal(parseFounderWorldCohortHandoff(built).handoffHash, built.handoffHash);
   assert.equal(hashBody(built.spots[0].snapshot, []), built.spots[0].snapshotContentHash);
   const malformed = structuredClone(sourceSnapshot);
   malformed.facts.find((fact) => fact.key === "rule.age_access_conditions").value.rules[0].notes = "wrong nesting";
-  assert.throws(() => createFounderWorldCohortHandoff({ manifest, spotDetails: [{ spotId: manifest.spots[0].spotId, fallbackName: "Volta Bräu", manifest: { manifestHash: manifest.spots[0].manifestHash, worldSnapshot: malformed } }] }), /unknown field/);
+  assert.throws(() => createFounderWorldCohortHandoff({ manifest, spotDetails: [{ spotId: binding.spotId, fallbackName: elys.name, manifest: { manifestHash: binding.manifestHash, worldSnapshot: malformed } }] }), /unknown field/);
 });
 
 test("Registry 2.1 context is integrity-bound but excluded from Decision facts", async () => {
