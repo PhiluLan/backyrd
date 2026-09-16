@@ -2,12 +2,12 @@
   "contractVersion": "backyrd.daily-integration-report@1.0",
   "asOf": "2026-09-16",
   "executionAuthorized": false,
-  "overall": "YELLOW",
+  "overall": "GREEN",
   "tracks": [
-    {"id": "WORLD", "status": "YELLOW", "reason": "canonical code present; nine World migrations are not Production-applied"},
-    {"id": "USER", "status": "GREEN", "reason": "Phase 3D founder-calibrated offline; no runtime or learning activation"},
-    {"id": "DECISION", "status": "GREEN", "reason": "Phase 3C canonical complete for offline evaluation; no Product ranking or shadow activation"},
-    {"id": "INTEGRATION", "status": "GREEN", "reason": "local control-plane, release-contract and complete Decision full-gate suites pass; Draft PR remains unmerged"}
+    {"id": "WORLD", "status": "GREEN", "reason": "PRs #290 and #291 are canonical; nine World migrations remain planned and Production execution is unauthorized"},
+    {"id": "USER", "status": "GREEN", "reason": "PR #287 is canonical and founder-calibrated offline; runtime, write, learning, and ranking activation remain disabled"},
+    {"id": "DECISION", "status": "GREEN", "reason": "PR #288 is canonical for offline evaluation; Product ranking and Production shadow activation remain disabled"},
+    {"id": "INTEGRATION", "status": "GREEN", "reason": "all domain identities are sealed to one immutable Node 20 artifact and the complete local pre-merge gate set passes"}
   ],
-  "stopConditions": ["Production execution remains unauthorized", "domain candidate hashes are not yet sealed"]
+  "stopConditions": ["Production execution remains unauthorized", "all dark-release flags remain OFF with kill switches engaged"]
 }

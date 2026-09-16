@@ -1,14 +1,14 @@
 {
   "contractVersion": "backyrd.week1-integration-manifest@1.0",
   "roadmapVersion": "backyrd.accelerated-production-roadmap@1.0",
-  "canonicalBaseSha": "4dd76c6149e425f191586e904d21b851fc1995c5",
+  "canonicalBaseSha": "688b72a4013bf265a4a25dfcdb509f1a4baa0d82",
   "executionAuthorized": false,
   "artifactContract": "backyrd-decision-ci-build-artifact-v1",
   "artifactRule": "exactly one candidate artifact; World User and Decision shards verify the same artifactHash",
   "domainCandidates": [
-    {"track": "WORLD", "pr": null, "baseSha": null, "headSha": null, "treeSha": null, "artifactHash": null, "status": "AWAITING_DOMAIN_PR"},
-    {"track": "USER", "pr": null, "baseSha": null, "headSha": null, "treeSha": null, "artifactHash": null, "status": "AWAITING_DOMAIN_PR"},
-    {"track": "DECISION", "pr": null, "baseSha": null, "headSha": null, "treeSha": null, "artifactHash": null, "status": "AWAITING_DOMAIN_PR"}
+    {"track": "WORLD", "pr": 290, "recoveryPr": 291, "baseSha": "4dd76c6149e425f191586e904d21b851fc1995c5", "headSha": "e377919a25efe2789be05acbdd1af572a8ce055a", "treeSha": "d277ced201d634c0035fc7afbbb33ab17994eb75", "artifactHash": "7f07e0cd3ec49463896a75d39903ef8032fb8ff374baa089269f4ca16a8a6424", "status": "READY"},
+    {"track": "USER", "pr": 287, "baseSha": "e377919a25efe2789be05acbdd1af572a8ce055a", "headSha": "f650f37cb24ed3b6395a88a5bcdad7b4c2dde587", "treeSha": "68b5380b67f21406ef375a03f11657a0316bc016", "artifactHash": "7f07e0cd3ec49463896a75d39903ef8032fb8ff374baa089269f4ca16a8a6424", "status": "READY"},
+    {"track": "DECISION", "pr": 288, "baseSha": "f650f37cb24ed3b6395a88a5bcdad7b4c2dde587", "headSha": "688b72a4013bf265a4a25dfcdb509f1a4baa0d82", "treeSha": "02498981fd34fed97dd2416ea09b4f7fb12959ce", "artifactHash": "7f07e0cd3ec49463896a75d39903ef8032fb8ff374baa089269f4ca16a8a6424", "status": "READY"}
   ],
   "mergeSequence": ["WORLD", "USER", "DECISION", "INTEGRATION_FINAL_REVALIDATION"],
   "finalGates": ["repository-security", "shared", "decision", "database", "delivery-contract", "risk-gate", "post-merge-risk-gate"],

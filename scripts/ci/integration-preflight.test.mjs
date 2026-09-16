@@ -6,8 +6,8 @@ const clone = (value) => JSON.parse(JSON.stringify(value));
 
 test("Week-1 control-plane documents are internally consistent and fail closed", () => {
   const result = validateControlPlaneDocuments(loadControlPlaneDocuments());
-  assert.equal(result.boundDomainCandidates, 0);
-  assert.equal(result.sharedArtifactHash, null);
+  assert.equal(result.boundDomainCandidates, 3);
+  assert.match(result.sharedArtifactHash, /^[0-9a-f]{64}$/);
 });
 
 test("missing flag configuration cannot become enabled", () => {
@@ -18,7 +18,7 @@ test("missing flag configuration cannot become enabled", () => {
 
 test("domain candidates must be completely hash-bound and share one artifact", () => {
   const documents = clone(loadControlPlaneDocuments());
-  documents.manifest.domainCandidates[0].headSha = "a".repeat(40);
+  documents.manifest.domainCandidates[0].headSha = null;
   assert.throws(() => validateControlPlaneDocuments(documents), /domain_candidate_partially_bound:WORLD/);
 
   for (const [index, candidate] of documents.manifest.domainCandidates.entries()) Object.assign(candidate, {
