@@ -1,6 +1,6 @@
 {
   "contractVersion": "backyrd.decision-ci.execution-matrix@1.0",
-  "canonicalBase": "8744d34e99413ea1f89f6df5fbc3814061abca39",
+  "canonicalBase": "4dd76c6149e425f191586e904d21b851fc1995c5",
   "measurementClass": "SYNTHETIC_LOCAL_AND_GITHUB_CI",
   "productionAuthorized": false,
   "summary": {
@@ -117,6 +117,19 @@
       "parallelizable": true,
       "cacheSuitability": "build artifact only",
       "trigger": "required Decision gate and World/User/shared contract changes"
+    },
+    {
+      "group": "dark-shadow-week1",
+      "purpose": "Disabled shadow contracts, authority binding, no-activation, tamper detection and deterministic replay",
+      "script": "npm run decision-ci:group -- --group dark-shadow-week1",
+      "observedLocalSeconds": 7.1,
+      "setupSeconds": 0,
+      "buildDependencies": ["world-knowledge-core", "user-intelligence-vnext-core", "decision-vnext-core"],
+      "fixtures": ["synthetic Phase-3C Founder cohort and minimized User projection"],
+      "overlapRemoved": ["no Decision Lab or large sandbox rerun during focused development"],
+      "parallelizable": true,
+      "cacheSuitability": "build artifact only; replay always executes",
+      "trigger": "Decision dark-shadow contract, metric, oracle, authority or replay change"
     },
     {
       "group": "aggregator",

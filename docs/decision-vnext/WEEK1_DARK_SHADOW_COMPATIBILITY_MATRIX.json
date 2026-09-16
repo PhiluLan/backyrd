@@ -1,0 +1,18 @@
+{
+  "contractVersion": "backyrd.decision-vnext.dark-shadow-compatibility@week1-1",
+  "canonicalBase": "4dd76c6149e425f191586e904d21b851fc1995c5",
+  "productionAuthorized": false,
+  "shadowActivationAuthorized": false,
+  "components": [
+    { "component": "phase3c-founder-result", "classification": "KEEP", "canonicalSource": "@backyrd/decision-vnext-core" },
+    { "component": "world-knowledge-reader-port", "classification": "KEEP", "canonicalSource": "@backyrd/world-knowledge-core" },
+    { "component": "relevant-user-projection", "classification": "KEEP", "canonicalSource": "@backyrd/user-intelligence-vnext-core" },
+    { "component": "phase3b-context-and-phase3c-policy", "classification": "KEEP", "canonicalSource": "@backyrd/decision-vnext-core" },
+    { "component": "canonical-hash-and-replay", "classification": "EXTEND", "canonicalSource": "@backyrd/decision-vnext-core" },
+    { "component": "decision-ci", "classification": "EXTEND", "canonicalSource": "scripts/ci/run-decision-ci.mjs" },
+    { "component": "phase3c-founder-ui", "classification": "ADAPT_LATER", "canonicalSource": "scripts/decision" },
+    { "component": "n6-shadow-runtime", "classification": "PROHIBITED", "reason": "legacy Decision-v13 and Supabase coupling" },
+    { "component": "production-ranking", "classification": "UNKNOWN_NEEDS_PRODUCT_DECISION", "state": "NOT_CONFIGURED" },
+    { "component": "production-confidence", "classification": "UNKNOWN_NEEDS_PRODUCT_DECISION", "state": "NOT_CONFIGURED" }
+  ]
+}
