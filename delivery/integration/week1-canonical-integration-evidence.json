@@ -59,7 +59,6 @@
   },
   "productionPlan": {
     "shippedSourceSha": "d63c5ae66aa30aa017cc54c2ed8be47944b84889",
-    "planHash": "10aa5ce73c8aa1d77263bd0469e000ea05c35fde5e50af8ad9a581447ccacfce",
     "pendingMigrationCount": 9,
     "deployFunctions": [],
     "authDeploy": false,
