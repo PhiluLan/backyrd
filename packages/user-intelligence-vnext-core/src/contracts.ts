@@ -83,6 +83,16 @@ export const CONTRACT_VERSIONS = Object.freeze({
   phase3dCalibrationTraceability: "backyrd.user-intelligence.calibration-traceability@3d-1",
   phase3dCalibrationReleaseFinal: "backyrd.user-intelligence.calibration-release@3d-2",
   phase3dCalibrationTrustAnchorFinal: "backyrd.user-intelligence.calibration-trust-anchor@3d-2",
+  darkRuntimeRelease: "backyrd.user-intelligence.dark-runtime-release@week1-1",
+  darkRuntimeTrustAnchor: "backyrd.user-intelligence.dark-runtime-trust-anchor@week1-1",
+  darkRuntimeAuthority: "backyrd.user-intelligence.dark-runtime-authority@week1-1",
+  darkRuntimeCommand: "backyrd.user-intelligence.dark-runtime-command@week1-1",
+  darkRuntimeReceipt: "backyrd.user-intelligence.dark-runtime-receipt@week1-1",
+  darkRuntimeSyntheticEvent: "backyrd.user-intelligence.dark-runtime-synthetic-event@week1-1",
+  darkRuntimeSyntheticState: "backyrd.user-intelligence.dark-runtime-synthetic-state@week1-1",
+  darkRuntimeMetrics: "backyrd.user-intelligence.dark-runtime-metrics@week1-1",
+  darkRuntimeRetentionDecision: "backyrd.user-intelligence.retention-decision-template@week1-1",
+  darkRuntimePrivacyExport: "backyrd.user-intelligence.privacy-legal-export@week1-1",
 } as const);
 
 export const SYNTHETIC_CONCEPT_REGISTRY_VERSION = "backyrd.synthetic-user-concepts@1.0";

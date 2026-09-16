@@ -1,0 +1,33 @@
+{
+  "contractVersion": "backyrd.user-intelligence.dark-runtime-release-summary@week1-1",
+  "releaseHash": "b9ae392e3f50540bdbe36456e5342d5bd089d0953dd86b9f4b2b2ba6359db417",
+  "trustAnchorHash": "eba6e262c92824bc97e710d75df5d3af5af5b02d5e5b953809b7c87ce8ab27fe",
+  "retentionDecisionTemplateHash": "5f598bad7446a60a7e2335435c82afae758af69b7947c8184f76d82d1198a3bc",
+  "noWriteProofHash": "309408760ce36bcc344d7a9ea6966eb655d647193c91a71764bec9e58d5618f3",
+  "syntheticStateHash": "2a0f916d27fb008f9bebd6d31a9a38948706d37314b4779cb0abed28549f6f2a",
+  "privacyExportHash": "758d298b91fd011fd10c35bb5a5081583adfa412748bfc378d8812213b043882",
+  "metricsHash": "76fb82d3125f6b144381c18886e057dbad301d49bc64b0029d5417820c19d2bd",
+  "fullReportHash": "369ea14070418e68f93ec99d97b6f40167354decb899057bb009d85f65301abe",
+  "flags": {
+    "eventIngestionEnabled": false,
+    "runtimeActivated": false,
+    "learningAuthorized": false,
+    "productionWritesAuthorized": false,
+    "projectionWritesAuthorized": false,
+    "rankingAuthorized": false,
+    "eligibilityAuthorized": false,
+    "shadowTrafficAuthorized": false,
+    "killSwitch": "FORCED_OFF"
+  },
+  "productionPlan": {
+    "migrations": [],
+    "functions": [],
+    "authChanges": [],
+    "rpcChanges": [],
+    "edgeChanges": [],
+    "productWiring": [],
+    "runtimeDeploymentRequired": false,
+    "executionAuthorized": false
+  },
+  "summaryHash": "5a55bb490deb5f8a627e849f973074cd3811cb365f78c6150cc7540ed7ea218a"
+}
