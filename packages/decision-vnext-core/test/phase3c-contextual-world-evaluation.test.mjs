@@ -167,8 +167,10 @@ test("one-spot cohort is technically evaluable without claiming a meaningful com
 test("specific intent matrix requires authorized primary classification and never promotes embedded facilities", async () => {
   const cases = [
     ["Ich möchte in Basel Kaffee trinken.", "EAT_DRINK", "COFFEE_DAYTIME", "CAFE", "CONFIRMED"],
-    ["Ich möchte in Basel Kaffee trinken.", "EAT_DRINK", "EAT", "PUB", "UNKNOWN"],
-    ["Ich möchte in Basel Kaffee trinken.", "EAT_DRINK", "DRINKS", "WINE_BAR", "UNKNOWN"],
+    ["Ich möchte in Basel Kaffee trinken.", "EAT_DRINK", "EAT", "PUB", "INCOMPATIBLE"],
+    ["Ich möchte in Basel Kaffee trinken.", "EAT_DRINK", "DRINKS", "WINE_BAR", "INCOMPATIBLE"],
+    ["Ich möchte in Basel Kaffee trinken.", "SPORT_MOVEMENT", "SPORT_MOVEMENT", "CLIMBING_GYM", "INCOMPATIBLE"],
+    ["Ich möchte in Basel Kaffee trinken.", "NATURE_ANIMAL_EXPERIENCE", "OUTDOOR_NATURE", "PARK", "INCOMPATIBLE"],
     ["Ich möchte in Basel essen.", "EAT_DRINK", "EAT", "RESTAURANT", "CONFIRMED"],
     ["Ich möchte in Basel etwas trinken.", "EAT_DRINK", "DRINKS", "WINE_BAR", "CONFIRMED"],
     ["Ich suche in Basel einen Familienausflug.", "NATURE_ANIMAL_EXPERIENCE", "OUTDOOR_NATURE", "PARK", "CONFIRMED"],
@@ -191,6 +193,12 @@ test("specific intent matrix requires authorized primary classification and neve
   assert.equal(embeddedCafe.coreIntentCoverage.state, "INCOMPATIBLE");
   assert.equal(embeddedCafe.onsiteOfferings.state, "CONFIRMED");
   assert.equal(embeddedCafe.onsiteOfferings.confirmsCoreIntent, false);
+
+  const missingSpecificClassification = await run("Ich möchte in Basel Kaffee trinken.", {
+    "purpose.primary_visit": "EAT_DRINK",
+  }, [], "coffee-specific-classification-missing");
+  assert.equal(missingSpecificClassification.coreIntentCoverage.state, "UNKNOWN");
+  assert.equal(PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY.specificClassificationPrecedence, "CONFIRM_THEN_INCOMPATIBLE_THEN_UNKNOWN");
 });
 
 test("spot binding is identity based and invariant to five-spot handoff order", async () => {
@@ -208,6 +216,28 @@ test("spot binding is identity based and invariant to five-spot handoff order", 
   const second = await runFounderDecisionLab({ request: request("Ich möchte in Basel Kaffee trinken.", "order-b"), cohortHandoff: makeFounderCohortHandoff([...entries].reverse(), context, facts) });
   const semantic = (candidate) => ({ ...candidate, assessmentHash: undefined, reasons: candidate.reasons.map((item) => ({ ...item, sourceHash: undefined })), coreIntentCoverage: { ...candidate.coreIntentCoverage, evidenceSourceHash: undefined }, secondaryIntentCoverage: { ...candidate.secondaryIntentCoverage, evidenceSourceHash: undefined }, worldClassification: { ...candidate.worldClassification, evidenceSourceHash: undefined }, primaryVisitPurpose: { ...candidate.primaryVisitPurpose, evidenceSourceHash: undefined }, specificCoreClassification: { ...candidate.specificCoreClassification, evidenceSourceHash: undefined }, onsiteOfferings: { ...candidate.onsiteOfferings, evidenceSourceHash: undefined }, visitSituation: { ...candidate.visitSituation, evidenceSourceHash: undefined }, atmosphere: { ...candidate.atmosphere, evidenceSourceHash: undefined }, typicalDaypart: { ...candidate.typicalDaypart, evidenceSourceHash: undefined }, actualAvailability: { ...candidate.actualAvailability, evidenceSourceHash: undefined } });
   assert.deepEqual(first.candidates.map(semantic), second.candidates.map(semantic));
+});
+
+test("specific intent semantics do not branch on display names or concrete spot identities", async () => {
+  const evaluate = async (spotId, name) => {
+    const candidate = { spotId, name };
+    const result = await runFounderDecisionLab({
+      request: request("Ich möchte in Basel gemütlich Kaffee trinken und brauche einen rollstuhlgerechten Zugang.", `identity-neutral-${spotId.slice(-4)}`),
+      cohortHandoff: makeFounderCohortHandoff([candidate], {
+        [spotId]: { "purpose.primary_visit": "EAT_DRINK", "accessibility.mobility": { wheelchairAccessible: true } },
+      }, {
+        [spotId]: [
+          { key: "classification.primary_category", value: "EAT", resolution: "KNOWN_VALUE" },
+          { key: "classification.place_types", value: ["PUB"], resolution: "KNOWN_VALUE" },
+        ],
+      }),
+    });
+    return { tier: result.candidates[0].tier, core: result.candidates[0].coreIntentCoverage.state };
+  };
+  assert.deepEqual(
+    await evaluate("00000000-0000-4000-8000-000000000611", "Café klingender Name"),
+    await evaluate("00000000-0000-4000-8000-000000000612", "Völlig neutraler Name"),
+  );
 });
 
 test("NEARBY is rejected by the canonical World handoff instead of becoming an onsite relation", () => {

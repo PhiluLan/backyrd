@@ -5,12 +5,12 @@ export const PHASE3C_LAB_VERSIONS = Object.freeze({
   request: "backyrd.decision-vnext.founder-lab-request@3c-1",
   interpretation: "backyrd.decision-vnext.founder-lab-interpretation@3c-1",
   cohort: "backyrd.decision-vnext.founder-lab-cohort@3c-1",
-  contextualWorldPolicy: "backyrd.decision-vnext.founder-lab-contextual-world-policy@3c-2",
-  assessment: "backyrd.decision-vnext.founder-lab-candidate-assessment@3c-4",
-  result: "backyrd.decision-vnext.founder-lab-result@3c-4",
+  contextualWorldPolicy: "backyrd.decision-vnext.founder-lab-contextual-world-policy@3c-3",
+  assessment: "backyrd.decision-vnext.founder-lab-candidate-assessment@3c-5",
+  result: "backyrd.decision-vnext.founder-lab-result@3c-5",
   oracle: "backyrd.decision-vnext.founder-lab-oracle@3c-1",
-  report: "backyrd.decision-vnext.founder-lab-report@3c-1",
-  release: "backyrd.decision-vnext.founder-lab-release@3c-4",
+  report: "backyrd.decision-vnext.founder-lab-report@3c-2",
+  release: "backyrd.decision-vnext.founder-lab-release@3c-5",
 } as const);
 
 const nullableIdentifier = schema.union([identifier, schema.literal(null)] as const);
@@ -84,7 +84,9 @@ export const FounderLabContextualWorldPolicySchema = schema.object({
     acceptedPrimaryPurposes: schema.array(identifier, { min: 1, max: 20 }),
     requiredSpecificity: schema.enum(["PRIMARY_PURPOSE_ONLY", "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION"] as const),
     acceptedPrimaryCategories: schema.array(identifier, { max: 20 }), acceptedPlaceTypes: schema.array(identifier, { max: 20 }),
+    incompatiblePrimaryCategories: schema.array(identifier, { max: 20 }), incompatiblePlaceTypes: schema.array(identifier, { max: 40 }),
   }), { min: 1, max: 30 }),
+  specificClassificationPrecedence: schema.literal("CONFIRM_THEN_INCOMPATIBLE_THEN_UNKNOWN"),
   onsiteOfferingMappings: schema.array(schema.object({ mappingId: identifier, intentId: identifier, acceptedKinds: schema.array(identifier, { min: 1, max: 20 }), confirmsCoreIntent: schema.literal(false) }), { min: 1, max: 20 }),
   situationMappings: schema.array(schema.object({ mappingId: identifier, contextId: identifier, worldSituation: identifier }), { min: 1, max: 20 }),
   atmosphereMappings: schema.array(schema.object({ mappingId: identifier, contextId: identifier, worldAtmosphere: identifier }), { min: 1, max: 20 }),

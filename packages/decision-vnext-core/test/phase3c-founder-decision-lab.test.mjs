@@ -55,7 +55,8 @@ test("Founder evaluation requires authorized core-intent coverage before confirm
   assert.ok(family.candidates.every((row) => row.tier !== "ELIGIBLE_CONFIRMED" || row.coreIntentCoverage.state === "CONFIRMED"));
   const accessibility = await runFounderDecisionLab({ request: request("Ich möchte in Basel gemütlich Kaffee trinken und brauche einen rollstuhlgerechten Zugang."), cohortHandoff: handoff });
   const accessOnly = accessibility.candidates.find((row) => row.label === "Volta Bräu");
-  assert.equal(accessOnly.confirmedHardConstraints.includes("ACCESSIBILITY"), true); assert.equal(accessOnly.coreIntentCoverage.state, "UNKNOWN"); assert.notEqual(accessOnly.tier, "ELIGIBLE_CONFIRMED");
+  assert.equal(accessOnly.confirmedHardConstraints.includes("ACCESSIBILITY"), true); assert.equal(accessOnly.coreIntentCoverage.state, "INCOMPATIBLE"); assert.equal(accessOnly.tier, "INELIGIBLE");
+  assert.equal(accessOnly.confirmedHardConstraints.includes("LOCATION_SCOPE"), true);
   assert.ok(accessibility.candidates.every((row) => row.tier !== "ELIGIBLE_CONFIRMED"));
   const unconfigured = await runFounderDecisionLab({ request: request("Essen in Basel"), corrections: { primaryIntent: "context.intent.unreleased" }, cohortHandoff: handoff });
   assert.ok(unconfigured.candidates.every((row) => row.coreIntentCoverage.state === "NOT_CONFIGURED" && row.tier !== "ELIGIBLE_CONFIRMED"));

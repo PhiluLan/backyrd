@@ -1,12 +1,12 @@
 {
-  "contractVersion": "backyrd.decision-vnext.contextual-world-policy-matrix@3c-2",
+  "contractVersion": "backyrd.decision-vnext.contextual-world-policy-matrix@3c-3",
   "scope": "SYNTHETIC_FOUNDER_EVALUATION_ONLY",
   "productionAuthorized": false,
   "productRankingAuthorized": false,
   "coreIntent": [
     { "intent": "eat-drink-general", "primaryPurpose": ["EAT_DRINK"], "specificity": "PRIMARY_PURPOSE_ONLY", "primaryCategories": [], "placeTypes": [] },
     { "intent": "food", "primaryPurpose": ["EAT_DRINK"], "specificity": "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION", "primaryCategories": ["EAT"], "placeTypes": ["RESTAURANT", "BRASSERIE", "BISTRO"] },
-    { "intent": "coffee", "primaryPurpose": ["EAT_DRINK"], "specificity": "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION", "primaryCategories": ["COFFEE_DAYTIME"], "placeTypes": ["CAFE"] },
+    { "intent": "coffee", "primaryPurpose": ["EAT_DRINK"], "specificity": "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION", "primaryCategories": ["COFFEE_DAYTIME"], "placeTypes": ["CAFE"], "incompatiblePrimaryCategories": ["DRINKS", "EAT", "NIGHTLIFE", "OUTDOOR_NATURE", "SPORT_MOVEMENT"], "incompatiblePlaceTypes": ["AQUARIUM", "BAR", "BISTRO", "BRASSERIE", "BREWERY", "CLIMBING_GYM", "COCKTAIL_BAR", "GYM", "LOUNGE", "MUSIC_CLUB", "NATURE_RESERVE", "NIGHTCLUB", "PARK", "PUB", "RESTAURANT", "SPORTS_CENTRE", "SPORTS_COURT", "TAPROOM", "WINE_BAR", "ZOO"] },
     { "intent": "drinks", "primaryPurpose": ["EAT_DRINK"], "specificity": "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION", "primaryCategories": ["DRINKS", "NIGHTLIFE"], "placeTypes": ["BAR", "PUB", "BREWERY", "TAPROOM", "WINE_BAR", "COCKTAIL_BAR", "LOUNGE"] },
     { "intent": "wine-bar", "primaryPurpose": ["EAT_DRINK"], "specificity": "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION", "primaryCategories": ["DRINKS"], "placeTypes": ["WINE_BAR"] },
     { "intent": "bar-nightlife", "primaryPurpose": ["EAT_DRINK"], "specificity": "PRIMARY_PURPOSE_AND_SPECIFIC_CLASSIFICATION", "primaryCategories": ["DRINKS", "NIGHTLIFE"], "placeTypes": ["BAR", "PUB", "COCKTAIL_BAR", "NIGHTCLUB", "MUSIC_CLUB", "LOUNGE"] },
@@ -26,6 +26,7 @@
   "softTypicalDayparts": ["MORNING", "MIDDAY", "AFTERNOON", "EVENING"],
   "actualAvailabilitySource": ["hours.regular", "hours.special", "state.current"],
   "knowledgeStates": ["CONFIRMED", "UNKNOWN", "NOT_CONFIGURED", "NOT_APPLICABLE", "INCOMPATIBLE", "DISPUTED"],
+  "specificClassificationPrecedence": ["CONFIRMED", "INCOMPATIBLE", "UNKNOWN"],
   "invariants": {
     "confirmedRequiresCoreIntent": true,
     "broadPurposeAloneConfirmsSpecificIntent": false,
