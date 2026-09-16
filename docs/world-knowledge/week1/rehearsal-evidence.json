@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "backyrd.world-knowledge.week1-rehearsal-evidence@1",
+  "environment": "DISPOSABLE_LOCAL",
+  "productionConnection": false,
+  "databaseImage": "public.ecr.aws/supabase/postgres:17.6.1.095",
+  "syntheticSpotCount": 1000,
+  "migrationBundleHash": "8a642e025701cb02a769fcdf7fda4390f955bad08478a2690ae512a6c197d066",
+  "migrationTimingsMilliseconds": [245, 168, 196, 261, 276, 224, 186, 244, 156],
+  "migrationLedgerCount": 9,
+  "worldSqlSuites": 6,
+  "parallelRebuildCases": ["SAME_KEY", "CROSS_KEY_SAME_INPUT", "DISTINCT_INPUT_MONOTONE_POINTER"],
+  "privateClientGrantCount": 0,
+  "securityDefinerWithoutEmptySearchPath": 0,
+  "replay": "NO_OP",
+  "executionAuthorized": false
+}

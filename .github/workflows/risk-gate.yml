@@ -443,6 +443,10 @@ jobs:
         run: |
           node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/validate-client-secret-boundary.test.mjs scripts/ci/validate-decision-change.test.mjs scripts/ci/validate-production-state.test.mjs scripts/ci/verify-risk-gate.test.mjs
           node --test scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/verify-supabase-migration-dry-run.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs
+      - name: Validate World Week 1 release foundation contract
+        run: |
+          npm run world-knowledge:week1:test
+          bash -n scripts/world-knowledge/rehearse-week1-world-release.sh
 
   risk-gate:
     name: Risk-based merge gate
