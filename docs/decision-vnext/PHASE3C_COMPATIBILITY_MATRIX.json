@@ -1,0 +1,21 @@
+{
+  "contractVersion": "backyrd.decision-vnext.phase3c-compatibility-matrix@1.0",
+  "canonicalBaseSha": "966e44ef636cb6c0c125dbd6b0fb0c63d6293443",
+  "productionAuthorized": false,
+  "entries": [
+    { "component": "Product Context Phase-3B signed release", "classification": "KEEP", "reason": "Pinned release is loaded through its accepted capability and remains unchanged." },
+    { "component": "WorldKnowledgeReaderPort", "classification": "KEEP", "reason": "Only canonical read-only snapshots are accepted." },
+    { "component": "World Registry 1.1 Product Context to Registry 2.1 lab", "classification": "ADAPT", "reason": "Explicit hashed evaluation bridge; Slice-4B context is consumed only through the separately versioned Founder-evaluation policy, with no Production-policy upgrade." },
+    { "component": "RelevantUserProjection", "classification": "KEEP", "reason": "Only canonical minimized projection is consumed." },
+    { "component": "Phase-3B fixture resolvers", "classification": "ADAPT", "reason": "A replaceable local German resolver capability expands evaluation coverage without Product authority." },
+    { "component": "Phase-3B per-rule Unknown policy", "classification": "EXTEND", "reason": "The accepted policy remains canonical; the Founder-confirmed age-unknown fallback is a separately hashed Phase-3C evaluation-only override with no Production authority." },
+    { "component": "Contextual World evaluation", "classification": "EXTEND", "reason": "ELIGIBLE_CONFIRMED requires primary-visit-purpose coverage. Onsite offerings never confirm it alone; conditional situation, atmosphere and typical dayparts are traced separately; actual availability remains on the opening-hours path." },
+    { "component": "Situational Reject presentation", "classification": "EXTEND", "reason": "The internal tier remains compatible while the normal UI separates Spot × Decision × Context rejection from an objective hard-constraint failure." },
+    { "component": "Founder World Cohort", "classification": "EXTEND", "reason": "The canonical local World export now bundles its immutable manifest with minimized snapshots; Decision validates and consumes it through the existing cohort boundary without database access." },
+    { "component": "Founder cohort local lifecycle", "classification": "KEEP", "reason": "Preview, explicit activation, idempotent reimport, replacement and local-only reset are hash-bound and never write World or User state." },
+    { "component": "World authoring NOT_CONFIGURED candidates", "classification": "PROHIBITED", "reason": "Authoring candidates are never treated as Decision truth." },
+    { "component": "Raw User events, evidence chains and memory", "classification": "PROHIBITED", "reason": "Outside the minimized projection boundary." },
+    { "component": "Direct spot tables, N4, Suitability and Decision-v13 RPC", "classification": "PROHIBITED", "reason": "No canonical authority and no offline-lab need." },
+    { "component": "Product ranking weights and confidence calibration", "classification": "PROHIBITED", "reason": "Explicitly deferred; fixture ordering is not Product ranking." }
+  ]
+}

@@ -48,7 +48,12 @@ const fieldByKey = {
 export function createWorldKnowledgeContextHandoff(snapshotValue: unknown, acceptedPolicies: readonly Pick<SourcePolicy, "policyVersion" | "policyHash">[], createdAtValue: string): WorldKnowledgeContextHandoff {
   const snapshot = parseWorldKnowledgeSnapshot(snapshotValue, acceptedPolicies);
   const createdAt = timestamp(createdAtValue, "$.createdAt");
-  const contextual = new Map(snapshot.facts.filter((entry) => CONTEXT_HANDOFF_KEYS.includes(entry.key as typeof CONTEXT_HANDOFF_KEYS[number])).map((entry) => [entry.key, entry]));
+  // The resolver snapshot deliberately carries all resolution entries for audit.
+  // The consumer handoff is a state partition: known entries, explicit unknowns,
+  // conflicts and absence must be mutually exclusive.
+  const contextual = new Map(snapshot.facts.filter((entry) => CONTEXT_HANDOFF_KEYS.includes(entry.key as typeof CONTEXT_HANDOFF_KEYS[number]) && entry.resolution !== "UNKNOWN" && entry.resolution !== "DISPUTED").map((entry) => [entry.key, entry]));
+  const explicitUnknowns = new Set(snapshot.explicitUnknowns.filter((entry) => CONTEXT_HANDOFF_KEYS.includes(entry.key as typeof CONTEXT_HANDOFF_KEYS[number])).map((entry) => entry.key));
+  const conflictKeys = new Set(snapshot.conflicts.flatMap((conflict) => conflict.attributeKeys.filter((key) => CONTEXT_HANDOFF_KEYS.includes(key as typeof CONTEXT_HANDOFF_KEYS[number]))));
   const body: Omit<WorldKnowledgeContextHandoff, "handoffHash"> = {
     contractVersion: CONTEXT_HANDOFF_VERSION, registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH,
     spotId: snapshot.spot.spotId, snapshotHash: snapshot.snapshotHash, createdAt,
@@ -57,8 +62,8 @@ export function createWorldKnowledgeContextHandoff(snapshotValue: unknown, accep
     visitSituations: contextual.get("context.visit_situations") as ContextHandoffEntry | undefined ?? null,
     atmosphere: contextual.get("context.atmosphere") as ContextHandoffEntry | undefined ?? null,
     typicalDayparts: contextual.get("context.typical_dayparts") as ContextHandoffEntry | undefined ?? null,
-    absentKeys: CONTEXT_HANDOFF_KEYS.filter((key) => !contextual.has(key) && !snapshot.explicitUnknowns.some((entry) => entry.key === key)),
-    explicitUnknowns: CONTEXT_HANDOFF_KEYS.filter((key) => snapshot.explicitUnknowns.some((entry) => entry.key === key)),
+    absentKeys: CONTEXT_HANDOFF_KEYS.filter((key) => !contextual.has(key) && !explicitUnknowns.has(key) && !conflictKeys.has(key)),
+    explicitUnknowns: CONTEXT_HANDOFF_KEYS.filter((key) => explicitUnknowns.has(key)),
     conflicts: snapshot.conflicts.filter((conflict) => conflict.attributeKeys.some((key) => CONTEXT_HANDOFF_KEYS.includes(key as typeof CONTEXT_HANDOFF_KEYS[number]))).map((conflict) => ({ code: conflict.code, attributeKeys: [...conflict.attributeKeys].sort(), claimRefs: [...conflict.claimRefs].sort() })),
     exclusions: ["CAPABILITY_INTENT_MAPPING", "CONTACTS", "OWNER_TIER", "PAYMENT", "PRIVATE_PROVENANCE", "RANKING_WEIGHTS", "SUBSCRIPTION", "USER_TASTE"],
   };
@@ -85,7 +90,19 @@ export function parseWorldKnowledgeContextHandoff(value: unknown): WorldKnowledg
       if (hashBody(entryBody, []) !== suppliedEntryHash) throw new ContractValidationError(`$.${field}.entryHash`, "context entry hash mismatch");
     }
   }
-  for (const field of ["absentKeys", "explicitUnknowns", "conflicts", "exclusions"] as const) array(required(input, field), `$.${field}`);
+  const absentKeys = array(required(input, "absentKeys"), "$.absentKeys") as string[];
+  const explicitUnknowns = array(required(input, "explicitUnknowns"), "$.explicitUnknowns") as string[];
+  const conflicts = array(required(input, "conflicts"), "$.conflicts") as Record<string, unknown>[];
+  array(required(input, "exclusions"), "$.exclusions");
+  const entryKeys = CONTEXT_HANDOFF_KEYS.filter((key) => input[fieldByKey[key]] !== null);
+  const conflictKeys = conflicts.flatMap((conflict) => Array.isArray(conflict.attributeKeys) ? conflict.attributeKeys.filter((key): key is string => typeof key === "string") : []);
+  const allStates = [...entryKeys, ...absentKeys, ...explicitUnknowns, ...conflictKeys];
+  if (new Set(allStates).size !== allStates.length) throw new ContractValidationError("$", "context knowledge state overlap");
+  if ([...absentKeys, ...explicitUnknowns, ...conflictKeys].some((key) => !CONTEXT_HANDOFF_KEYS.includes(key as typeof CONTEXT_HANDOFF_KEYS[number]))) throw new ContractValidationError("$", "unknown context knowledge state key");
+  for (const key of entryKeys) {
+    const entry = input[fieldByKey[key]] as Record<string, unknown>;
+    if (entry.resolution === "UNKNOWN" || entry.resolution === "DISPUTED") throw new ContractValidationError(`$.${fieldByKey[key]}.resolution`, "non-known context state must use its dedicated partition");
+  }
   const suppliedHash = hash(required(input, "handoffHash"), "$.handoffHash");
   const body = Object.fromEntries(Object.entries(input).filter(([key]) => key !== "handoffHash"));
   if (hashBody(body, []) !== suppliedHash) throw new ContractValidationError("$.handoffHash", "context handoff hash mismatch");

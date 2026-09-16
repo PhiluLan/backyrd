@@ -46,6 +46,7 @@ create temporary table wk4b_cohort as select public.world_founder_export_cohort_
 select pg_temp.assert((select payload->>'contractVersion'='backyrd.world-knowledge.founder-cohort-shadow@3.0' from wk4b_cohort),'context cohort contract missing');
 select pg_temp.assert((select payload#>>'{spots,0,contextHandoff,contractVersion}'='backyrd.world-knowledge.context-handoff-shadow@1.0' from wk4b_cohort),'context handoff missing');
 select pg_temp.assert((select payload#>>'{spots,0,contextHandoff,entries,purpose.primary_visit,value}'='NATURE_ANIMAL_EXPERIENCE' from wk4b_cohort),'context handoff purpose missing');
+select pg_temp.assert((select not exists(select 1 from jsonb_each(payload#>'{spots,0,contextHandoff,entries}') entry where entry.value->>'resolution' in ('UNKNOWN','DISPUTED')) from wk4b_cohort),'non-known context appeared in the known-entry partition');
 select pg_temp.assert((select (payload#>'{spots,0,contextHandoff,entries}')::text !~* 'subscription|payment|owner[_ ]?tier|private_source|user_taste' from wk4b_cohort),'private or commercial data leaked into contextual entries');
 reset role;
 

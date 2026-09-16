@@ -1,0 +1,101 @@
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import test from "node:test";
+import { parseFounderWorldCohortHandoff } from "../dist/index.js";
+import { makeFounderCohortHandoff } from "../../../scripts/decision/phase3c-founder-cohort-fixture.mjs";
+import { postgresJsonbText } from "../../../scripts/world-knowledge/postgres-jsonb-canonical.mjs";
+
+const rehash = (value, key, hashBody) => { const copy = structuredClone(value); delete copy[key]; return { ...copy, [key]: hashBody(copy, []) }; };
+const pgHash = (value) => createHash("sha256").update(postgresJsonbText(value), "utf8").digest("hex");
+const rehashPostgres = (value, key) => { const copy = structuredClone(value); delete copy[key]; return { ...copy, [key]: pgHash(copy) }; };
+const rebindOuterHashes = (artifact, hashBody) => {
+  artifact.manifest = rehashPostgres(artifact.manifest, "cohortHash");
+  artifact.manifestContentHash = hashBody(artifact.manifest, []);
+  artifact.handoffHash = rehash(artifact, "handoffHash", hashBody).handoffHash;
+  return artifact;
+};
+
+test("Founder cohort handoff validates the complete local World export", async () => {
+  const { hashBody } = await import("../dist/index.js"); const artifact = makeFounderCohortHandoff();
+  assert.equal(parseFounderWorldCohortHandoff(artifact).spots[0].name, "Volta Bräu");
+  const scope = structuredClone(artifact); scope.scope = "PRODUCTION"; assert.throws(() => parseFounderWorldCohortHandoff(scope), /scope_identity_mismatch/);
+  const registry = structuredClone(artifact); registry.manifest.registryVersion = "backyrd.world-knowledge.registry@999"; registry.manifestContentHash = hashBody(registry.manifest, []); registry.handoffHash = rehash(registry, "handoffHash", hashBody).handoffHash; assert.throws(() => parseFounderWorldCohortHandoff(registry), /registryVersion_identity_mismatch/);
+  const manifest = structuredClone(artifact); manifest.spots[0].manifestHash = "0".repeat(64); manifest.handoffHash = rehash(manifest, "handoffHash", hashBody).handoffHash; assert.throws(() => parseFounderWorldCohortHandoff(manifest), /manifest_binding_mismatch/);
+  const snapshot = structuredClone(artifact); snapshot.spots[0].snapshot.facts[0].value = "Manipuliert"; snapshot.handoffHash = rehash(snapshot, "handoffHash", hashBody).handoffHash; assert.throws(() => parseFounderWorldCohortHandoff(snapshot), /snapshot_integrity_mismatch/);
+  const commercial = structuredClone(artifact); commercial.ownerTier = "PRO"; assert.throws(() => parseFounderWorldCohortHandoff(commercial), /unknown_field/);
+});
+
+test("Founder cohort handoff consumes the Registry 2.1 age-rule shape emitted by local World authoring", async () => {
+  const { createFounderWorldCohortHandoff, hashBody } = await import("../dist/index.js");
+  const elys = { spotId: "57cb213c-9472-40b6-80be-a810fd77b7c9", name: "ELYS Boulderloft" };
+  const artifact = makeFounderCohortHandoff([elys]);
+  const manifest = artifact.manifest;
+  const source = artifact.spots.find((spot) => spot.spotId === elys.spotId);
+  const binding = manifest.spots.find((spot) => spot.spotId === elys.spotId);
+  assert.ok(source);
+  assert.ok(binding);
+  const sourceSnapshot = structuredClone(source.snapshot);
+  sourceSnapshot.facts.find((fact) => fact.key === "rule.age_access_conditions").value.notes = "Founder-geprüfte lokale Regel";
+  const built = createFounderWorldCohortHandoff({ manifest, spotDetails: [{ spotId: binding.spotId, fallbackName: elys.name, manifest: { manifestHash: binding.manifestHash, worldSnapshot: sourceSnapshot } }] });
+  assert.equal(built.spots[0].snapshot.facts.find((fact) => fact.key === "rule.age_access_conditions").value.notes, "Founder-geprüfte lokale Regel");
+  assert.equal(parseFounderWorldCohortHandoff(built).handoffHash, built.handoffHash);
+  assert.equal(hashBody(built.spots[0].snapshot, []), built.spots[0].snapshotContentHash);
+  const malformed = structuredClone(sourceSnapshot);
+  malformed.facts.find((fact) => fact.key === "rule.age_access_conditions").value.rules[0].notes = "wrong nesting";
+  assert.throws(() => createFounderWorldCohortHandoff({ manifest, spotDetails: [{ spotId: binding.spotId, fallbackName: elys.name, manifest: { manifestHash: binding.manifestHash, worldSnapshot: malformed } }] }), /unknown field/);
+});
+
+test("Registry 2.1 context is integrity-bound but excluded from Decision facts", async () => {
+  const { hashBody } = await import("../dist/index.js");
+  const artifact = makeFounderCohortHandoff();
+  const binding = artifact.manifest.spots[0];
+  binding.contextHandoff.entries["purpose.primary_visit"] = { key: "purpose.primary_visit", scope: "GLOBAL", resolution: "KNOWN_VALUE", value: "NATURE_ANIMAL_EXPERIENCE", trust: "VERIFIED", freshness: "CURRENT", basisClaimHashes: ["1".repeat(64)] };
+  binding.contextHandoff.absentKeys = binding.contextHandoff.absentKeys.filter((key) => key !== "purpose.primary_visit");
+  binding.contextHandoff = rehashPostgres(binding.contextHandoff, "handoffHash");
+  binding.contextHandoffHash = binding.contextHandoff.handoffHash;
+  rebindOuterHashes(artifact, hashBody);
+  const parsed = parseFounderWorldCohortHandoff(artifact);
+  assert.equal(parsed.manifest.spots[0].contextHandoff.entries["purpose.primary_visit"].value, "NATURE_ANIMAL_EXPERIENCE");
+  assert.equal(parsed.spots[0].snapshot.facts.some((fact) => fact.key === "purpose.primary_visit"), false);
+
+  const forged = structuredClone(artifact);
+  forged.manifest.spots[0].contextHandoff.entries["purpose.primary_visit"].value = "UNREGISTERED_PURPOSE";
+  forged.manifest.spots[0].contextHandoff = rehashPostgres(forged.manifest.spots[0].contextHandoff, "handoffHash");
+  forged.manifest.spots[0].contextHandoffHash = forged.manifest.spots[0].contextHandoff.handoffHash;
+  rebindOuterHashes(forged, hashBody);
+  assert.throws(() => parseFounderWorldCohortHandoff(forged), /expected one of/);
+
+  const obsolete = structuredClone(artifact);
+  obsolete.manifest.contractVersion = "backyrd.world-knowledge.founder-cohort-shadow@2.0";
+  rebindOuterHashes(obsolete, hashBody);
+  assert.throws(() => parseFounderWorldCohortHandoff(obsolete), /contractVersion_identity_mismatch/);
+});
+
+test("Founder context handoff keeps known, unknown, absent and disputed states disjoint", async () => {
+  const { hashBody } = await import("../dist/index.js");
+  const artifact = makeFounderCohortHandoff();
+  const cafe = artifact.manifest.spots.find((spot) => spot.spotId === "644fbd15-91f8-4ab7-8a4b-dbe06622d148");
+  assert.ok(cafe);
+  assert.equal(cafe.contextHandoff.entries["context.atmosphere"], undefined);
+  assert.equal(cafe.contextHandoff.explicitUnknowns.includes("context.atmosphere"), true);
+  assert.equal(cafe.contextHandoff.absentKeys.includes("context.atmosphere"), false);
+
+  const overlap = structuredClone(artifact);
+  const overlapCafe = overlap.manifest.spots.find((spot) => spot.spotId === cafe.spotId);
+  overlapCafe.contextHandoff.entries["context.atmosphere"] = {
+    key: "context.atmosphere", scope: "SPOT", resolution: "UNKNOWN", value: null,
+    trust: "VERIFIED", freshness: "CURRENT", basisClaimHashes: ["1".repeat(64)],
+  };
+  overlapCafe.contextHandoff = rehashPostgres(overlapCafe.contextHandoff, "handoffHash");
+  overlapCafe.contextHandoffHash = overlapCafe.contextHandoff.handoffHash;
+  rebindOuterHashes(overlap, hashBody);
+  assert.throws(() => parseFounderWorldCohortHandoff(overlap), /entries_non_known_state|knowledge_state_overlap/);
+
+  const conflictOverlap = structuredClone(artifact);
+  const conflictCafe = conflictOverlap.manifest.spots.find((spot) => spot.spotId === cafe.spotId);
+  conflictCafe.contextHandoff.conflicts.push({ key: "context.atmosphere", scope: "SPOT", claimHashes: ["2".repeat(64), "3".repeat(64)] });
+  conflictCafe.contextHandoff = rehashPostgres(conflictCafe.contextHandoff, "handoffHash");
+  conflictCafe.contextHandoffHash = conflictCafe.contextHandoff.handoffHash;
+  rebindOuterHashes(conflictOverlap, hashBody);
+  assert.throws(() => parseFounderWorldCohortHandoff(conflictOverlap), /knowledge_state_overlap/);
+});

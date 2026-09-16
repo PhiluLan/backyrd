@@ -42,7 +42,7 @@ export interface ConsumptionRule { readonly policy: typeof CONSUMPTION_POLICIES[
 export interface PetAccessRule { readonly indoor: typeof PET_ACCESS_STATES[number]; readonly outdoor: typeof PET_ACCESS_STATES[number]; readonly assistanceAnimals: typeof PET_ACCESS_STATES[number]; readonly notes: string | null }
 export interface AgeAccessRule { readonly policy: "ALL_AGES" | "MINIMUM_AGE"; readonly minimumAge: number | null; readonly appliesFromTime: string | null }
 export interface AgeAccessCondition { readonly mode: "NO_MINIMUM" | "GENERAL_MINIMUM" | "UNACCOMPANIED_MINIMUM"; readonly minimumAge: number | null; readonly accompaniment: "NONE" | "ADULT" | "LEGAL_GUARDIAN"; readonly appliesFromTime: string | null; readonly days: readonly Weekday[]; readonly area: string | null; readonly event: string | null }
-export interface AgeAccessRuleV2 { readonly rules: readonly AgeAccessCondition[] }
+export interface AgeAccessRuleV2 { readonly rules: readonly AgeAccessCondition[]; readonly notes?: string | null }
 export interface CurrentStateValue { readonly kind: typeof CURRENT_STATE_KINDS[number]; readonly scope: string }
 export interface ContextConditions { readonly dayparts: readonly typeof DAYPARTS[number][]; readonly days: readonly Weekday[]; readonly area: string | null; readonly occasion: string | null; readonly groupSize: IntegerRange | null; readonly ageContext: "ADULTS" | "CHILDREN" | "MIXED_AGES" | null; readonly accompaniment: "ALONE" | "ADULT" | "LEGAL_GUARDIAN" | "GROUP" | null; readonly eventMode: "NORMAL_OPERATION" | "EVENT" | null }
 export interface OnsiteOffering { readonly kind: typeof ONSITE_OFFERING_KINDS[number]; readonly relationship: typeof ONSITE_OFFERING_RELATIONSHIPS[number]; readonly area: string | null }
@@ -223,7 +223,7 @@ export function parseAttributeValue(attributeKeyValue: unknown, value: unknown, 
       return { policy, minimumAge, appliesFromTime };
     }
     case "AGE_ACCESS_RULE_V2": {
-      const root = object(value, path, ["rules"]);
+      const root = object(value, path, ["rules", "notes"]); const rawNotes = root.notes;
       const rules = array(required(root, "rules", path), `${path}.rules`, { min: 1, max: 12 }).map((entry, index) => {
         const itemPath = `${path}.rules[${index}]`; const input = object(entry, itemPath, ["mode", "minimumAge", "accompaniment", "appliesFromTime", "days", "area", "event"]);
         const mode = enumValue(required(input, "mode", itemPath), ["NO_MINIMUM", "GENERAL_MINIMUM", "UNACCOMPANIED_MINIMUM"] as const, `${itemPath}.mode`);
@@ -238,7 +238,7 @@ export function parseAttributeValue(attributeKeyValue: unknown, value: unknown, 
         if (mode === "UNACCOMPANIED_MINIMUM" && accompaniment === "NONE") throw new ContractValidationError(`${itemPath}.accompaniment`, "unaccompanied minimum requires the allowed accompanying person");
         return { mode, minimumAge, accompaniment, appliesFromTime, days, area: nullableText("area"), event: nullableText("event") };
       });
-      return { rules };
+      return { rules, ...(rawNotes === undefined ? {} : { notes: rawNotes === null ? null : string(rawNotes, `${path}.notes`, { min: 1, max: 500 }) }) };
     }
     case "WEEKLY_SCHEDULE": return parseWeeklySchedule(value, path);
     case "SPECIAL_HOURS": return parseSpecialHours(value, path);

@@ -50,3 +50,24 @@ test("context handoff and contextual values fail closed after semantic rehashing
   assert.throws(() => parseWorldKnowledgeContextHandoff(forged), /unknown context handoff version/);
   assert.deepEqual(handoff.absentKeys, ["purpose.primary_visit", "offering.onsite", "context.visit_situations", "context.atmosphere", "context.typical_dayparts"]);
 });
+
+test("context handoff represents UNKNOWN exactly once and rejects overlap", () => {
+  const unknown = createClaim({
+    claimId: "claim:unknown-atmosphere", attributeKey: "context.atmosphere", scope: { spotId: "spot:unknown-context", area: "SPOT" }, knowledgeState: "UNKNOWN", value: null,
+    actorType: "ADMIN", sourceType: "ADMIN_OBSERVATION", sourceReferenceId: "source:unknown-context", provenanceSessionId: "session:unknown-context",
+    verificationState: "UNVERIFIED", observedAt, validFrom: null, validUntil: null, stance: "SUPPORTS", visibility: "INTERNAL", supersedesClaimId: null,
+  });
+  const resolution = resolveWorldKnowledge(resolutionRequest([unknown]));
+  const snapshot = buildWorldKnowledgeSnapshot(snapshotInput("spot:unknown-context", resolution));
+  const handoff = createWorldKnowledgeContextHandoff(snapshot, [UNCONFIGURED_SOURCE_POLICY], "2026-09-15T11:00:00.000Z");
+  assert.equal(handoff.atmosphere, null);
+  assert.deepEqual(handoff.explicitUnknowns, ["context.atmosphere"]);
+  assert.equal(handoff.absentKeys.includes("context.atmosphere"), false);
+  assert.equal(parseWorldKnowledgeContextHandoff(handoff).handoffHash, handoff.handoffHash);
+
+  const forged = structuredClone(handoff);
+  forged.absentKeys.push("context.atmosphere");
+  const { handoffHash: _hash, ...body } = forged;
+  forged.handoffHash = hashBody(body, []);
+  assert.throws(() => parseWorldKnowledgeContextHandoff(forged), /knowledge state overlap/);
+});
