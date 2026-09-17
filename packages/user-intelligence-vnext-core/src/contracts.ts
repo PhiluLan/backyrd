@@ -109,6 +109,15 @@ export const CONTRACT_VERSIONS = Object.freeze({
   internalProjectionRehearsal: "backyrd.user-intelligence.internal-projection-rehearsal@week3-1",
   internalProjectionPostDeployEvidence: "backyrd.user-intelligence.internal-projection-post-deploy-evidence@week3-1",
   internalProjectionRetentionDecision: "backyrd.user-intelligence.retention-decision-template@week3-1",
+  founderLiveProjectionRelease: "backyrd.user-intelligence.founder-live-projection-release@1.0",
+  founderLiveProjectionTrustAnchor: "backyrd.user-intelligence.founder-live-projection-trust-anchor@1.0",
+  founderLiveSubjectSlot: "backyrd.user-intelligence.founder-live-subject-slot@1.0",
+  founderLiveSubjectAuthority: "backyrd.user-intelligence.founder-live-subject-authority@1.0",
+  founderLiveProjectionInvocation: "backyrd.user-intelligence.founder-live-projection-invocation@1.0",
+  founderLiveProjectionOutcome: "backyrd.user-intelligence.founder-live-projection-outcome@1.0",
+  founderLiveProjectionRehearsal: "backyrd.user-intelligence.founder-live-projection-rehearsal@1.0",
+  founderLivePostDeployEvidence: "backyrd.user-intelligence.founder-live-post-deploy-evidence@1.0",
+  founderLiveRetentionDecision: "backyrd.user-intelligence.retention-decision-template@founder-live-1",
 } as const);
 
 export const SYNTHETIC_CONCEPT_REGISTRY_VERSION = "backyrd.synthetic-user-concepts@1.0";
