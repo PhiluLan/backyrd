@@ -2,6 +2,15 @@
 
 This runbook is the operational source of truth for the integration-only Week 3 rehearsal. It grants no Production authority.
 
+## Canonical identity modes
+
+The Week 3 preflight accepts exactly two explicit modes and never infers one:
+
+- `PR_CANDIDATE` is selected only for `pull_request`. The requested base and `origin/main` must both equal the sealed canonical base. The checkout must be either the exact PR head or GitHub's exact two-parent synthetic merge with an identical candidate tree.
+- `POST_MERGE_MAIN` is selected only for a push to `refs/heads/main`. The requested head, checkout, and `origin/main` must all be the exact regular merge commit. Its first parent must be the sealed canonical base, its second parent must be the exact sealed Integration candidate, and the merge tree must equal the candidate tree.
+
+The candidate is exactly one Evidence-only seal commit after the recorded functional Integration head. Cross-mode replay, unknown or missing modes, unrelated descendants, wrong parents, wrong trees, wrong artifacts, and canonical-main drift fail closed.
+
 ## Release train
 
 The only permitted order is WORLD → USER → DECISION → INTEGRATION_FINAL_REVALIDATION. Each domain owns its semantics; Integration binds immutable identities, shared gates, recovery choreography, and evidence.

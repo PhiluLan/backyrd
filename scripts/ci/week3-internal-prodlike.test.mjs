@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { resolve } from "node:path";
 import { createInternalAllowlistEnvelope, loadWeek3Documents, rehearseInternalProductLike, resolveWeek3Controls, sha256, validateInternalAllowlistEnvelope, validateWeek3Documents } from "./week3-internal-prodlike.mjs";
-import { verifySecurityDefinerSources } from "./week3-internal-prodlike-preflight.mjs";
+import { resolveWeek3IdentityMode, verifySecurityDefinerSources, verifyWeek3IdentityMode } from "./week3-internal-prodlike-preflight.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const fixture = JSON.parse(readFileSync(resolve(ROOT, "delivery/integration/fixtures/week3-internal-prodlike-synthetic.json"), "utf8"));
@@ -27,3 +30,61 @@ test("reports are byte-identical twice", () => { const first = rehearseInternalP
 test("unsafe SECURITY DEFINER search path fails", () => assert.throws(() => verifySecurityDefinerSources([{ path: "bad.sql", source: "create function private.bad() returns void language sql security definer as $$ select 1 $$; revoke execute on function private.bad() from public;" }]), /search_path_unsafe/));
 test("SECURITY DEFINER without revoke fails", () => assert.throws(() => verifySecurityDefinerSources([{ path: "bad.sql", source: "create function private.bad() returns void language sql security definer set search_path = '' as $$ select 1 $$;" }]), /execute_not_revoked/));
 test("safe SECURITY DEFINER boundary passes", () => assert.deepEqual(verifySecurityDefinerSources([{ path: "safe.sql", source: "create function private.safe() returns void language sql security definer set search_path = '' as $$ select 1 $$; revoke execute on function private.safe() from public;" }]), { unsafeSecurityDefinerCount: 0 }));
+
+const identityTuple = (overrides = {}) => ({
+  mode: "PR_CANDIDATE",
+  canonicalBaseSha: "1".repeat(40), baseSha: "1".repeat(40), headSha: "2".repeat(40), checkoutSha: "2".repeat(40), canonicalMainSha: "1".repeat(40),
+  headTreeSha: "3".repeat(40), checkoutTreeSha: "3".repeat(40), canonicalMainTreeSha: "4".repeat(40), candidateHeadSha: "2".repeat(40), candidateTreeSha: "3".repeat(40), functionalHeadSha: "5".repeat(40),
+  mergeParents: [], sealCommitCount: 1, sealPaths: ["delivery/integration/week3-rehearsal-evidence.json"], ...overrides,
+});
+
+test("Week 3 identity mode is mandatory and closed", () => {
+  assert.throws(() => verifyWeek3IdentityMode(identityTuple({ mode: undefined })), /mode_invalid:missing/);
+  assert.throws(() => verifyWeek3IdentityMode(identityTuple({ mode: "AUTO" })), /mode_invalid:AUTO/);
+});
+test("GitHub selects the Week 3 identity mode explicitly from the event", () => {
+  const workflow = readFileSync(resolve(ROOT, ".github/workflows/risk-gate.yml"), "utf8");
+  assert.match(workflow, /pull_request\) WEEK3_MODE=PR_CANDIDATE/);
+  assert.match(workflow, /push\)[\s\S]*WEEK3_MODE=POST_MERGE_MAIN/);
+  assert.match(workflow, /--mode "\$WEEK3_MODE"/);
+  assert.match(workflow, /Unsupported Week-3 event/);
+});
+test("PR and post-merge tuples cannot be replayed across modes", () => {
+  assert.throws(() => verifyWeek3IdentityMode(identityTuple({ mode: "POST_MERGE_MAIN" })), /post_merge_head_main_mismatch/);
+  const post = identityTuple({ mode: "POST_MERGE_MAIN", headSha: "6".repeat(40), checkoutSha: "6".repeat(40), canonicalMainSha: "6".repeat(40), headTreeSha: "3".repeat(40), checkoutTreeSha: "3".repeat(40), canonicalMainTreeSha: "3".repeat(40), mergeParents: ["1".repeat(40), "2".repeat(40)] });
+  assert.deepEqual(verifyWeek3IdentityMode(post).mergeParents, post.mergeParents);
+  assert.throws(() => verifyWeek3IdentityMode({ ...post, mode: "PR_CANDIDATE" }), /pr_main_or_base_drift/);
+});
+test("wrong base, head, main, tree, artifact and unrelated descendant fail closed", () => {
+  assert.throws(() => verifyWeek3IdentityMode(identityTuple({ baseSha: "9".repeat(40) })), /base_mismatch/);
+  assert.throws(() => verifyWeek3IdentityMode(identityTuple({ headSha: "9".repeat(40) })), /candidate_identity_mismatch/);
+  assert.throws(() => verifyWeek3IdentityMode(identityTuple({ canonicalMainSha: "9".repeat(40) })), /main_or_base_drift/);
+  assert.throws(() => verifyWeek3IdentityMode(identityTuple({ checkoutTreeSha: "9".repeat(40) })), /checkout_identity_mismatch/);
+  assert.throws(() => verifyWeek3IdentityMode(identityTuple({ sealCommitCount: 2 })), /candidate_scope_invalid/);
+  const documents = structuredClone(loadWeek3Documents(ROOT)); documents.sharedArtifact.artifactHash = "0".repeat(64);
+  assert.throws(() => validateWeek3Documents(documents), /shared_artifact_evidence_mismatch/);
+});
+
+test("real Git PR candidate and exact regular Main merge pass while legacy equality and tampering fail", () => {
+  const root = mkdtempSync(join(tmpdir(), "backyrd-week3-mode-test-"));
+  const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", env: { ...process.env, GIT_AUTHOR_NAME: "Week3 Test", GIT_AUTHOR_EMAIL: "week3@example.invalid", GIT_COMMITTER_NAME: "Week3 Test", GIT_COMMITTER_EMAIL: "week3@example.invalid" } }).trim();
+  try {
+    git("init", "-q"); git("config", "user.name", "Week3 Test"); git("config", "user.email", "week3@example.invalid");
+    writeFileSync(join(root, "README.md"), "base\n"); git("add", "README.md"); git("commit", "-qm", "base"); const base = git("rev-parse", "HEAD");
+    mkdirSync(join(root, "scripts", "ci"), { recursive: true }); writeFileSync(join(root, "scripts", "ci", "control.mjs"), "export const closed = true;\n"); git("add", "."); git("commit", "-qm", "functional"); const functional = git("rev-parse", "HEAD");
+    mkdirSync(join(root, "delivery", "integration"), { recursive: true }); const sealPath = join(root, "delivery", "integration", "week3-rehearsal-evidence.json"); writeFileSync(sealPath, "{\"status\":\"READY\"}\n"); git("add", "."); git("commit", "-qm", "seal"); const candidate = git("rev-parse", "HEAD");
+    git("update-ref", "refs/remotes/origin/main", base);
+    assert.equal(resolveWeek3IdentityMode({ root, mode: "PR_CANDIDATE", canonicalBaseSha: base, baseRef: base, headRef: candidate, checkoutRef: candidate, canonicalMainRef: "refs/remotes/origin/main", functionalHeadSha: functional }).candidateHeadSha, candidate);
+    const merge = git("commit-tree", `${candidate}^{tree}`, "-p", base, "-p", candidate, "-m", "regular merge"); git("update-ref", "refs/remotes/origin/main", merge);
+    assert.equal(resolveWeek3IdentityMode({ root, mode: "POST_MERGE_MAIN", canonicalBaseSha: base, baseRef: base, headRef: merge, checkoutRef: merge, canonicalMainRef: "refs/remotes/origin/main", functionalHeadSha: functional }).candidateHeadSha, candidate);
+    assert.throws(() => { if (git("rev-parse", "refs/remotes/origin/main") !== base) throw new Error("week3_base_or_main_drift"); }, /base_or_main_drift/);
+    assert.throws(() => resolveWeek3IdentityMode({ root, mode: "PR_CANDIDATE", canonicalBaseSha: base, baseRef: base, headRef: merge, checkoutRef: merge, canonicalMainRef: "refs/remotes/origin/main", functionalHeadSha: functional }), /candidate_scope_invalid|pr_main_or_base_drift/);
+    git("update-ref", "refs/remotes/origin/main", base);
+    assert.throws(() => resolveWeek3IdentityMode({ root, mode: "POST_MERGE_MAIN", canonicalBaseSha: base, baseRef: base, headRef: candidate, checkoutRef: candidate, canonicalMainRef: "refs/remotes/origin/main", functionalHeadSha: functional }), /candidate_missing|post_merge_head_main_mismatch|post_merge_parents_mismatch/);
+    git("checkout", "-q", candidate); git("commit", "--allow-empty", "-qm", "unrelated descendant"); const unrelated = git("rev-parse", "HEAD");
+    const unrelatedMerge = git("commit-tree", `${unrelated}^{tree}`, "-p", base, "-p", unrelated, "-m", "wrong merge"); git("update-ref", "refs/remotes/origin/main", unrelatedMerge);
+    assert.throws(() => resolveWeek3IdentityMode({ root, mode: "POST_MERGE_MAIN", canonicalBaseSha: base, baseRef: base, headRef: unrelatedMerge, checkoutRef: unrelatedMerge, canonicalMainRef: "refs/remotes/origin/main", functionalHeadSha: functional }), /candidate_scope_invalid/);
+    const wrongTreeMerge = git("commit-tree", `${base}^{tree}`, "-p", base, "-p", candidate, "-m", "wrong tree"); git("update-ref", "refs/remotes/origin/main", wrongTreeMerge);
+    assert.throws(() => resolveWeek3IdentityMode({ root, mode: "POST_MERGE_MAIN", canonicalBaseSha: base, baseRef: base, headRef: wrongTreeMerge, checkoutRef: wrongTreeMerge, canonicalMainRef: "refs/remotes/origin/main", functionalHeadSha: functional }), /post_merge_tree_mismatch/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});

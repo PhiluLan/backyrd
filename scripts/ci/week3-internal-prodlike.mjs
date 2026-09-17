@@ -74,6 +74,7 @@ export function validateWeek3Documents({ manifest, matrix, controls, status, fix
   requireValue(sharedArtifact.contractVersion === "backyrd.week3-shared-artifact-attestation@1.0", "week3_shared_artifact_contract_invalid");
   requireValue(sharedArtifact.artifactContract === "backyrd-decision-ci-build-artifact-v1" && HASH.test(sharedArtifact.artifactHash) && HASH.test(sharedArtifact.sourceSetHash), "week3_shared_artifact_invalid");
   requireValue(sharedArtifact.nodeMajor === 20 && Number.isInteger(sharedArtifact.fileCount) && sharedArtifact.fileCount > 0 && SHA.test(sharedArtifact.combinedCommitSha) && SHA.test(sharedArtifact.combinedTreeSha), "week3_shared_artifact_identity_invalid");
+  requireValue(sharedArtifact.artifactHash === evidence.artifactHash && sharedArtifact.combinedCommitSha === evidence.combinedCommitSha && sharedArtifact.combinedTreeSha === evidence.combinedTreeSha, "week3_shared_artifact_evidence_mismatch");
   return { boundDomainCandidates: manifest.domainCandidates.length, rehearsalReady: evidence.status === "READY" && evidence.conflictCount === 0, releaseTrainStatus: status.overall };
 }
 
