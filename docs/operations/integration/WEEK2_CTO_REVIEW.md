@@ -11,9 +11,9 @@ The release candidate is eligible for CTO review only when the Integration Draft
 - The combined four-track tree is conflict-free and every overlap has an owner.
 - One shared Node 20 artifact is verified by all four tracks.
 - Exactly nine pending migrations are classified `WORLD_INHERITED`; functions are empty; auth deployment is false; `executionAuthorized` is false.
-- PostgreSQL 17, explicit grants/RLS, protected auth/realtime schemas, unpinned extension versions, and no `logs.all` dependency are verified.
+- PostgreSQL 17, explicit grants/RLS, protected auth/realtime/storage schemas, unpinned extension versions, and no `logs.all` dependency are verified.
 - Every risk-selected gate, local full suite, and GitHub Risk Gate passes.
 - Release train, rollback, incident, kill-switch, and recovery evidence is complete.
 - No merge or Production action occurred.
 
-GO means “ready for a later explicitly authorized merge train,” not ready for Production activation. Any unresolved identity, authority, compatibility, privacy, or safety issue is NO-GO.
+Technical candidate GREEN means “ready for a later explicitly authorized merge train,” not release-train GREEN and not ready for Production activation. The release train stays YELLOW while the domain PRs are not canonically merged or Production execution lacks separate authorization. Any unresolved identity, authority, compatibility, privacy, or safety issue is NO-GO.

@@ -1,6 +1,6 @@
 # Week 2 Dark-Wiring Release Train
 
-Status: **YELLOW until all three real domain heads, the combined rehearsal tree, the shared artifact, the full local Risk Gate, and Draft-PR CI are hash-bound and green.** This runbook grants no Production authority.
+Status: **YELLOW while domain PRs are not canonically merged or Production execution is not separately authorized.** Technical candidate/preflight GREEN cannot promote the release-train status. This runbook grants no Production authority.
 
 ## Fixed order and ownership
 
@@ -21,7 +21,7 @@ Each step must bind the exact PR, base, head, tree, domain artifact, plan hash, 
 
 ## Stop conditions
 
-Stop and mark RED for any identity/tree mismatch, merge conflict, unowned overlap, missing/unknown flag, activation-order bypass, nonzero OFF counter, write/network/Product output, migration mutation, auth or realtime schema mutation, extension-version pinning, `logs.all` dependency, unexpected function/auth deployment, required gate not selected, failed/skipped required test, or `executionAuthorized` other than `false`.
+Stop and mark RED for any identity/tree mismatch, merge conflict, unowned overlap, missing/unknown flag, activation-order bypass, nonzero OFF counter, write/network/Product output, migration mutation, auth, realtime or storage schema mutation, extension-version pinning, `logs.all` dependency, unexpected function/auth deployment, required gate not selected, failed/skipped required test, or `executionAuthorized` other than `false`.
 
 Mark YELLOW for a still-open domain candidate, an unexecuted final rehearsal, unresolved but non-conflicting overlap review, or pending CTO decision. Production not being authorized is expected and keeps the release train non-executable.
 

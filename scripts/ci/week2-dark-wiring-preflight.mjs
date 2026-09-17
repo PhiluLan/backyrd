@@ -30,24 +30,35 @@ const parseArgs = (argv) => {
   return args;
 };
 
-function verifyDomainCandidates(root, manifest) {
+const fieldValue = (value, path) => path.split(".").reduce((current, key) => current?.[key], value);
+
+export function verifyDomainCandidates(root, manifest, decisionEvidence) {
   for (const candidate of manifest.domainCandidates.filter(({ headSha }) => headSha)) {
     requireValue(git(root, ["merge-base", "--is-ancestor", candidate.baseSha, candidate.headSha]) === "", `week2_candidate_not_descendant:${candidate.track}`);
     requireValue(git(root, ["rev-parse", `${candidate.headSha}^{tree}`]) === candidate.treeSha, `week2_candidate_tree_mismatch:${candidate.track}`);
     for (const binding of candidate.bindings) {
       const content = git(root, ["show", `${candidate.headSha}:${binding.path}`]);
-      requireValue(content.includes(binding.contains), `week2_candidate_binding_mismatch:${candidate.track}:${binding.path}`);
+      if (binding.type === "TEXT_CONTAINS") requireValue(content.includes(binding.expected), `week2_candidate_binding_mismatch:${candidate.track}:${binding.name}`);
+      else if (binding.type === "JSON_FIELD_EQUALS") requireValue(fieldValue(JSON.parse(content), binding.field) === binding.expected, `week2_candidate_binding_mismatch:${candidate.track}:${binding.name}`);
+      else throw new Error(`week2_candidate_binding_type_unknown:${candidate.track}:${binding.name}`);
+    }
+    if (candidate.evidence) {
+      requireValue(candidate.evidence.path === "delivery/integration/week2-decision-frozen-evidence.json", `week2_candidate_evidence_path_invalid:${candidate.track}`);
+      requireValue(sha256(readFileSync(resolve(root, candidate.evidence.path))) === candidate.evidence.fileHash, `week2_candidate_evidence_file_hash_mismatch:${candidate.track}`);
+      requireValue(decisionEvidence.sourceSha === candidate.headSha && decisionEvidence.sourceTreeHash === candidate.treeSha, `week2_candidate_evidence_source_mismatch:${candidate.track}`);
+      for (const binding of candidate.evidence.bindings) {
+        for (const field of binding.fields) requireValue(fieldValue(decisionEvidence, field) === binding.expected, `week2_candidate_evidence_binding_mismatch:${candidate.track}:${binding.name}:${field}`);
+      }
     }
   }
 }
 
-function verifySupabaseCompatibility(root, pendingMigrations) {
-  const combined = pendingMigrations.map(({ path }) => readFileSync(resolve(root, path), "utf8")).join("\n");
-  requireValue(!/\b(?:create|alter|drop)\s+(?:table|schema|function|type)\s+(?:if\s+(?:not\s+)?exists\s+)?(?:auth|realtime)\./i.test(combined), "week2_forbidden_auth_or_realtime_schema_mutation");
+export function verifySupabaseCompatibilitySources(migrations) {
+  const combined = migrations.map(({ source }) => source).join("\n");
+  requireValue(!/\b(?:create|alter|drop)\s+(?:table|schema|function|type)\s+(?:if\s+(?:not\s+)?exists\s+)?(?:auth|realtime|storage)\./i.test(combined), "week2_forbidden_protected_schema_mutation");
   requireValue(!/\bcreate\s+extension\b[^;]*\bversion\b|\balter\s+extension\b[^;]*\bupdate\s+to\b/i.test(combined), "week2_extension_version_pinning_forbidden");
   requireValue(!/logs\.all/i.test(combined), "week2_logs_all_dependency_forbidden");
-  for (const { path } of pendingMigrations) {
-    const sql = readFileSync(resolve(root, path), "utf8");
+  for (const { path, source: sql } of migrations) {
     if (!/\bcreate\s+table\b/i.test(sql)) continue;
     requireValue(/enable\s+row\s+level\s+security/i.test(sql), `week2_rls_missing:${path}`);
     requireValue(/\brevoke\b/i.test(sql) && /\bgrant\b/i.test(sql), `week2_explicit_grants_missing:${path}`);
@@ -59,6 +70,10 @@ function verifySupabaseCompatibility(root, pendingMigrations) {
     extensionVersionPinning: false,
     logsAllDependency: false,
   };
+}
+
+function verifySupabaseCompatibility(root, pendingMigrations) {
+  return verifySupabaseCompatibilitySources(pendingMigrations.map(({ path }) => ({ path, source: readFileSync(resolve(root, path), "utf8") })));
 }
 
 function hashControlPlane(root) {
@@ -77,7 +92,7 @@ function hashControlPlane(root) {
 export function runWeek2Preflight({ root = ROOT, baseSha: requestedBase, headSha: requestedHead, final = false }) {
   const documents = loadWeek2Documents(root);
   const documentState = validateWeek2Documents(documents);
-  verifyDomainCandidates(root, documents.manifest);
+  verifyDomainCandidates(root, documents.manifest, documents.decisionEvidence);
   if (final) requireValue(documentState.boundDomainCandidates === 3 && documentState.rehearsalReady, "week2_final_domain_or_rehearsal_not_ready");
 
   const baseSha = git(root, ["rev-parse", `${requestedBase ?? documents.manifest.canonicalBaseSha}^{commit}`]);
@@ -150,6 +165,7 @@ export function runWeek2Preflight({ root = ROOT, baseSha: requestedBase, headSha
     candidate: { baseSha, headSha, treeSha: git(root, ["rev-parse", `${headSha}^{tree}`]) },
     canonicalMainSha,
     controlPlaneHash: hashControlPlane(root),
+    releaseTrainStatus: documentState.releaseTrainStatus,
     domainCandidates: documents.manifest.domainCandidates,
     rehearsal: documents.evidence,
     offInvariant: off.counters,

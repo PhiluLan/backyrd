@@ -37,10 +37,11 @@ export function loadWeek2Documents(root) {
     status: load("delivery/integration/week2-daily-status.json"),
     fixture: load("delivery/integration/fixtures/week2-dark-wiring-synthetic.json"),
     evidence: load("delivery/integration/week2-dark-wiring-rehearsal-evidence.json"),
+    decisionEvidence: load("delivery/integration/week2-decision-frozen-evidence.json"),
   };
 }
 
-export function validateWeek2Documents({ manifest, matrix, flags, status, fixture, evidence }) {
+export function validateWeek2Documents({ manifest, matrix, flags, status, fixture, evidence, decisionEvidence }) {
   requireValue(manifest.contractVersion === "backyrd.week2-dark-wiring-manifest@1.0", "week2_manifest_identity_mismatch");
   requireValue(manifest.canonicalBaseSha === "f999e2185d9102ea59a2c6e2c0861a4122af359b", "week2_canonical_base_mismatch");
   requireValue(manifest.executionAuthorized === false && manifest.productionActivationAuthorized === false, "week2_manifest_authority_must_be_false");
@@ -61,9 +62,22 @@ export function validateWeek2Documents({ manifest, matrix, flags, status, fixtur
       requireValue(candidate.baseSha === manifest.canonicalBaseSha && SHA.test(candidate.headSha) && SHA.test(candidate.treeSha), `week2_domain_git_identity_invalid:${candidate.track}`);
       requireValue(HASH.test(candidate.domainArtifactHash) && HASH.test(candidate.planHash), `week2_domain_hash_invalid:${candidate.track}`);
       requireValue(Array.isArray(candidate.bindings) && candidate.bindings.length > 0, `week2_domain_bindings_missing:${candidate.track}`);
+      const bindingNames = candidate.bindings.map(({ name }) => name);
+      requireValue(new Set(bindingNames).size === bindingNames.length && candidate.bindings.every(({ name, type, path, expected }) => name && ["TEXT_CONTAINS", "JSON_FIELD_EQUALS"].includes(type) && path && expected), `week2_domain_binding_shape_invalid:${candidate.track}`);
     } else {
       requireValue(candidate.status === "AWAITING_DOMAIN_PR" && Array.isArray(candidate.bindings) && candidate.bindings.length === 0, `week2_domain_awaiting_state_invalid:${candidate.track}`);
     }
+  }
+  const user = manifest.domainCandidates.find(({ track }) => track === "USER");
+  for (const name of ["USER_HANDOFF_HASH", "USER_NO_WRITE_PROOF_HASH"]) requireValue(user.bindings.some((binding) => binding.name === name), `week2_user_binding_missing:${name}`);
+  const decision = manifest.domainCandidates.find(({ track }) => track === "DECISION");
+  const requiredDecisionBindings = ["DECISION_REPORT_HASH", "DECISION_RESULT_HASH", "DECISION_CONTROL_HASH", "DECISION_AUTHORITY_HASH", "DECISION_SOURCE_TRUST_HASH"];
+  requireValue(decision.evidence?.path === "delivery/integration/week2-decision-frozen-evidence.json" && HASH.test(decision.evidence.fileHash) && decision.evidence.contractVersion === decisionEvidence.contractVersion, "week2_decision_evidence_identity_invalid");
+  requireValue(decisionEvidence.sourceSha === decision.headSha && decisionEvidence.sourceTreeHash === decision.treeSha, "week2_decision_evidence_source_invalid");
+  for (const name of requiredDecisionBindings) requireValue(decision.evidence.bindings.some((binding) => binding.name === name), `week2_decision_binding_missing:${name}`);
+  for (const binding of decision.evidence.bindings) {
+    requireValue(binding.name && Array.isArray(binding.fields) && binding.fields.length > 0 && HASH.test(binding.expected), `week2_decision_binding_shape_invalid:${binding.name ?? "unknown"}`);
+    for (const field of binding.fields) requireValue(decisionEvidence[field] === binding.expected, `week2_decision_evidence_binding_mismatch:${binding.name}:${field}`);
   }
   requireValue(manifest.productionPlan.expectedPendingMigrationCount === 9 && manifest.productionPlan.pendingMigrationClass === "WORLD_INHERITED", "week2_migration_expectation_mismatch");
   requireValue(manifest.productionPlan.executionAuthorized === false && manifest.productionPlan.authDeploy === false && manifest.productionPlan.expectedDeployFunctions.length === 0, "week2_production_plan_scope_invalid");
@@ -85,7 +99,9 @@ export function validateWeek2Documents({ manifest, matrix, flags, status, fixtur
   requireValue(Object.values(flags.offInvariant).every((value) => value === 0), "week2_off_invariant_nonzero");
 
   requireValue(status.contractVersion === "backyrd.week2-daily-integration-status@1.0" && status.executionAuthorized === false, "week2_status_identity_or_authority_invalid");
-  requireValue(["GREEN", "YELLOW", "RED"].includes(status.overall), "week2_status_invalid");
+  requireValue(status.overall === "YELLOW", "week2_release_train_status_must_remain_yellow");
+  requireValue(status.yellowUntil?.includes("DOMAIN_PRS_NOT_CANONICALLY_MERGED"), "week2_status_domain_merge_blocker_missing");
+  requireValue(status.yellowUntil?.includes("PRODUCTION_EXECUTION_NOT_SEPARATELY_AUTHORIZED"), "week2_status_production_authority_blocker_missing");
   requireValue(status.tracks.map(({ id }) => id).join(",") === "WORLD,USER,DECISION,INTEGRATION", "week2_status_tracks_invalid");
   for (const track of status.tracks) requireValue(["GREEN", "YELLOW", "RED"].includes(track.status) && Boolean(track.reason), `week2_status_track_invalid:${track.id}`);
 
@@ -104,6 +120,7 @@ export function validateWeek2Documents({ manifest, matrix, flags, status, fixtur
   return {
     boundDomainCandidates: manifest.domainCandidates.filter(({ headSha }) => headSha).length,
     rehearsalReady,
+    releaseTrainStatus: status.overall,
   };
 }
 

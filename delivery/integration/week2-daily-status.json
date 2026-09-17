@@ -2,13 +2,16 @@
   "contractVersion": "backyrd.week2-daily-integration-status@1.0",
   "asOf": "2026-09-17",
   "executionAuthorized": false,
-  "overall": "GREEN",
+  "overall": "YELLOW",
   "tracks": [
     {"id": "WORLD", "status": "GREEN", "reason": "PR #293 is CTO-GREEN and hash-bound; Production read remains OFF"},
     {"id": "USER", "status": "GREEN", "reason": "PR #292 is CTO-GREEN and hash-bound; learning and persistence remain OFF"},
     {"id": "DECISION", "status": "GREEN", "reason": "PR #294 is CI-GREEN and hash-bound; shadow traffic remains OFF with kill switch ENGAGED"},
     {"id": "INTEGRATION", "status": "GREEN", "reason": "four-track combined tree, Node 20 artifact, full local Risk Gate and PostgreSQL 17 clean boot are sealed"}
   ],
-  "yellowUntil": [],
+  "yellowUntil": [
+    "DOMAIN_PRS_NOT_CANONICALLY_MERGED",
+    "PRODUCTION_EXECUTION_NOT_SEPARATELY_AUTHORIZED"
+  ],
   "releaseBoundary": "Draft PR and CTO review only; merge and Production execution remain unauthorized"
 }

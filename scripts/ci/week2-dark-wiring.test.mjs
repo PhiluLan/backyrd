@@ -8,6 +8,7 @@ import {
   runWeek2ContractRehearsal,
   validateWeek2Documents,
 } from "./week2-dark-wiring.mjs";
+import { verifyDomainCandidates, verifySupabaseCompatibilitySources } from "./week2-dark-wiring-preflight.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const documents = () => loadWeek2Documents(ROOT);
@@ -18,6 +19,39 @@ test("Week-2 control-plane documents are internally consistent", () => {
   const result = validateWeek2Documents(value);
   assert.equal(result.boundDomainCandidates, 3);
   assert.equal(result.rehearsalReady, value.evidence.status === "READY");
+  assert.equal(result.releaseTrainStatus, "YELLOW");
+});
+
+for (const name of ["USER_HANDOFF_HASH", "USER_NO_WRITE_PROOF_HASH"]) {
+  test(`${name} rejects an individually tampered canonical User binding`, () => {
+    const value = clone(documents());
+    value.manifest.domainCandidates.find(({ track }) => track === "USER").bindings.find((binding) => binding.name === name).expected = "0".repeat(64);
+    assert.throws(() => verifyDomainCandidates(ROOT, value.manifest, value.decisionEvidence), new RegExp(`week2_candidate_binding_mismatch:USER:${name}`));
+  });
+}
+
+for (const name of ["DECISION_REPORT_HASH", "DECISION_RESULT_HASH", "DECISION_CONTROL_HASH", "DECISION_AUTHORITY_HASH", "DECISION_SOURCE_TRUST_HASH"]) {
+  test(`${name} rejects an individually tampered frozen Decision evidence binding`, () => {
+    const value = clone(documents());
+    value.manifest.domainCandidates.find(({ track }) => track === "DECISION").evidence.bindings.find((binding) => binding.name === name).expected = "0".repeat(64);
+    assert.throws(() => verifyDomainCandidates(ROOT, value.manifest, value.decisionEvidence), new RegExp(`week2_candidate_evidence_binding_mismatch:DECISION:${name}`));
+  });
+}
+
+for (const schema of ["auth", "realtime", "storage"]) {
+  test(`${schema} schema mutation is blocked fail closed`, () => {
+    assert.throws(
+      () => verifySupabaseCompatibilitySources([{ path: `synthetic-${schema}.sql`, source: `alter table ${schema}.objects add column unsafe text;` }]),
+      /week2_forbidden_protected_schema_mutation/,
+    );
+  });
+}
+
+test("technical rehearsal GREEN cannot promote the release train to GREEN", () => {
+  const value = clone(documents());
+  value.status.overall = "GREEN";
+  value.status.yellowUntil = [];
+  assert.throws(() => validateWeek2Documents(value), /week2_release_train_status_must_remain_yellow/);
 });
 
 test("missing and unknown configuration fail closed with zero work", () => {

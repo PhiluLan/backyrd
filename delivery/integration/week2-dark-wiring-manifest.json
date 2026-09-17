@@ -24,9 +24,9 @@
       "domainArtifactHash": "aa9ce7075877924347cf0d31622e04577e7d3bcfea5b4cd8599b73d9418a19b8",
       "planHash": "7ea77bc13f03b61b7094f5018540410c2ea97fa0067eb4ec8b7a0f2c467b9232",
       "bindings": [
-        {"path": "packages/world-knowledge-core/src/dark-reader.ts", "contains": "backyrd.world-knowledge.dark-reader@1.0"},
-        {"path": "packages/world-knowledge-core/src/port.ts", "contains": "backyrd.world-knowledge.reader-port@1.0"},
-        {"path": "packages/world-knowledge-core/test/registry-contracts.test.mjs", "contains": "cc9c5d1ac55d0080dc8a4a2e9b240b28d30dabc35ec5f35e5a4603b203e169f3"}
+        {"name": "WORLD_DARK_READER_CONTRACT", "type": "TEXT_CONTAINS", "path": "packages/world-knowledge-core/src/dark-reader.ts", "expected": "backyrd.world-knowledge.dark-reader@1.0"},
+        {"name": "WORLD_READER_PORT_CONTRACT", "type": "TEXT_CONTAINS", "path": "packages/world-knowledge-core/src/port.ts", "expected": "backyrd.world-knowledge.reader-port@1.0"},
+        {"name": "WORLD_REGISTRY_HASH", "type": "TEXT_CONTAINS", "path": "packages/world-knowledge-core/test/registry-contracts.test.mjs", "expected": "cc9c5d1ac55d0080dc8a4a2e9b240b28d30dabc35ec5f35e5a4603b203e169f3"}
       ],
       "status": "READY"
     },
@@ -39,10 +39,11 @@
       "domainArtifactHash": "8678a932434d9890e2332634317328af0e75ce9228c5262b0f9861003eb065d6",
       "planHash": "cd950c835f3b3366ffedfeab1dd7ea5fdda62c521802f8510f7d1bbdd6547c2b",
       "bindings": [
-        {"path": "packages/user-intelligence-vnext-core/src/dark-projection-runtime.ts", "contains": "RelevantUserProjection"},
-        {"path": "docs/user-intelligence-vnext/week2/dark-projection-runtime-release-summary.json", "contains": "f7d31f9860706b54effdd33199d1c419de4d92856fbc292b7dbfaf4ba6910391"},
-        {"path": "docs/user-intelligence-vnext/week2/dark-projection-runtime-release-summary.json", "contains": "42f2e56e1ea020c2a5522740d09cb82063e1c819e806b57f70fcb05a84fa1fe6"},
-        {"path": "docs/user-intelligence-vnext/week2/dark-projection-runtime-release-summary.json", "contains": "43f8ac66e7eb1e5bc7dfe564782eef39fdf43c1e9142508b829d2f03d3bae046"}
+        {"name": "USER_RELEVANT_PROJECTION_CONTRACT", "type": "TEXT_CONTAINS", "path": "packages/user-intelligence-vnext-core/src/dark-projection-runtime.ts", "expected": "RelevantUserProjection"},
+        {"name": "USER_WEEK2_RELEASE_HASH", "type": "JSON_FIELD_EQUALS", "path": "docs/user-intelligence-vnext/week2/dark-projection-runtime-release-summary.json", "field": "releaseHash", "expected": "f7d31f9860706b54effdd33199d1c419de4d92856fbc292b7dbfaf4ba6910391"},
+        {"name": "USER_PROJECTION_HASH", "type": "JSON_FIELD_EQUALS", "path": "docs/user-intelligence-vnext/week2/dark-projection-runtime-release-summary.json", "field": "projectionHash", "expected": "42f2e56e1ea020c2a5522740d09cb82063e1c819e806b57f70fcb05a84fa1fe6"},
+        {"name": "USER_HANDOFF_HASH", "type": "JSON_FIELD_EQUALS", "path": "docs/user-intelligence-vnext/week2/dark-projection-runtime-release-summary.json", "field": "handoffHash", "expected": "43f8ac66e7eb1e5bc7dfe564782eef39fdf43c1e9142508b829d2f03d3bae046"},
+        {"name": "USER_NO_WRITE_PROOF_HASH", "type": "JSON_FIELD_EQUALS", "path": "docs/user-intelligence-vnext/week2/dark-projection-runtime-release-summary.json", "field": "noWriteProofHash", "expected": "43ac9ef41f55a634d748f26c424fcc655e38c12f57feac1c1970f3180911d82f"}
       ],
       "status": "READY"
     },
@@ -55,11 +56,23 @@
       "domainArtifactHash": "03aad4ccf41620cdc620ebef2f427fcff807ef52ce35be666c5f900f5d762728",
       "planHash": "cbd2d66d0defbe5fdd7331d8ee8d87b963c6e7b9b88f84a45c6b986ea67e5658",
       "bindings": [
-        {"path": "packages/decision-vnext-core/src/dark-request-contracts.ts", "contains": "backyrd.decision-vnext.dark-request-control@week2-1"},
-        {"path": "packages/decision-vnext-core/src/dark-request-contracts.ts", "contains": "DECISION_VNEXT_SHADOW_TRAFFIC"},
-        {"path": "packages/decision-vnext-core/src/dark-request-contracts.ts", "contains": "backyrd.decision-vnext.dark-request-oracles@week2-1"},
-        {"path": "packages/decision-vnext-core/src/dark-request-contracts.ts", "contains": "backyrd.decision-vnext.dark-request-threshold-template@week2-1"}
+        {"name": "DECISION_DARK_REQUEST_CONTROL_CONTRACT", "type": "TEXT_CONTAINS", "path": "packages/decision-vnext-core/src/dark-request-contracts.ts", "expected": "backyrd.decision-vnext.dark-request-control@week2-1"},
+        {"name": "DECISION_SHADOW_FLAG", "type": "TEXT_CONTAINS", "path": "packages/decision-vnext-core/src/dark-request-contracts.ts", "expected": "DECISION_VNEXT_SHADOW_TRAFFIC"},
+        {"name": "DECISION_ORACLE_CONTRACT", "type": "TEXT_CONTAINS", "path": "packages/decision-vnext-core/src/dark-request-contracts.ts", "expected": "backyrd.decision-vnext.dark-request-oracles@week2-1"},
+        {"name": "DECISION_THRESHOLD_CONTRACT", "type": "TEXT_CONTAINS", "path": "packages/decision-vnext-core/src/dark-request-contracts.ts", "expected": "backyrd.decision-vnext.dark-request-threshold-template@week2-1"}
       ],
+      "evidence": {
+        "path": "delivery/integration/week2-decision-frozen-evidence.json",
+        "fileHash": "2d153335b1c34497436b8931a8a0c90bb34fd4730512fac05a093e5cd539663d",
+        "contractVersion": "backyrd.decision-vnext.dark-request-evaluation@week2-1",
+        "bindings": [
+          {"name": "DECISION_REPORT_HASH", "fields": ["reportHash", "replayHash"], "expected": "15a93bf0e07c24121ce9edd0c5edc2f2687f3e534c93d8c15b97bad56bd7c421"},
+          {"name": "DECISION_RESULT_HASH", "fields": ["resultHash"], "expected": "cb857c6d6fb89799999932805c92435636bc131271204db45d095dca5d381f0b"},
+          {"name": "DECISION_CONTROL_HASH", "fields": ["controlHash"], "expected": "34a546de6937b9c6be4e2c4352595083cb8ba83e744b55b94f37746fbfccdd8c"},
+          {"name": "DECISION_AUTHORITY_HASH", "fields": ["authorityHash"], "expected": "69136cfe2e931dea5aa77404951f8754a53f059cda9de8cde7c9242ac3517bf4"},
+          {"name": "DECISION_SOURCE_TRUST_HASH", "fields": ["sourceTrustHash"], "expected": "74071f5c4f83371744484d8d658fc344faf00b5daccb3a7e07d5d8caf2408dac"}
+        ]
+      },
       "status": "READY"
     }
   ],
