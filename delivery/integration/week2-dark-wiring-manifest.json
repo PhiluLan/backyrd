@@ -48,14 +48,19 @@
     },
     {
       "track": "DECISION",
-      "pr": null,
-      "baseSha": null,
-      "headSha": null,
-      "treeSha": null,
-      "domainArtifactHash": null,
-      "planHash": null,
-      "bindings": [],
-      "status": "AWAITING_DOMAIN_PR"
+      "pr": 294,
+      "baseSha": "f999e2185d9102ea59a2c6e2c0861a4122af359b",
+      "headSha": "2daf547da226d9b80a382437c9c39df89399e267",
+      "treeSha": "2d309c35a21439840977affd01b3d6213234f4df",
+      "domainArtifactHash": "03aad4ccf41620cdc620ebef2f427fcff807ef52ce35be666c5f900f5d762728",
+      "planHash": "333090bb26b502ba96160e184990a7889fab956721c927c9db4cb66f24519247",
+      "bindings": [
+        {"path": "packages/decision-vnext-core/src/dark-request-contracts.ts", "contains": "backyrd.decision-vnext.dark-request-control@week2-1"},
+        {"path": "packages/decision-vnext-core/src/dark-request-contracts.ts", "contains": "DECISION_VNEXT_SHADOW_TRAFFIC"},
+        {"path": "packages/decision-vnext-core/src/dark-request-contracts.ts", "contains": "backyrd.decision-vnext.dark-request-oracles@week2-1"},
+        {"path": "packages/decision-vnext-core/src/dark-request-contracts.ts", "contains": "backyrd.decision-vnext.dark-request-threshold-template@week2-1"}
+      ],
+      "status": "READY"
     }
   ],
   "mergeSequence": ["WORLD", "USER", "DECISION", "INTEGRATION"],
