@@ -13,7 +13,9 @@ The candidate is exactly one Evidence-only seal commit after the recorded functi
 
 ## Release train
 
-The only permitted order is WORLD → USER → DECISION → INTEGRATION_FINAL_REVALIDATION. Each domain owns its semantics; Integration binds immutable identities, shared gates, recovery choreography, and evidence.
+The only permitted order is WORLD → USER → DECISION → INTEGRATION_FINAL_REVALIDATION. The first three steps are bound to their actual regular merge identities on canonical Main: World `1d689e38…`, User `0ff695f8…`, and Decision `d3f15190…`. Old PR heads are historical inputs only and cannot satisfy the final identity gate. Each domain owns its semantics; Integration binds immutable identities, shared gates, recovery choreography, and evidence.
+
+The final rehearsal starts from canonical Main `d3f15190…` and applies only the Integration functional patch in a disposable worktree. The regular Main uptake was conflict-free. The complete 16-file Integration diff retained stable patch ID `ccd55352…` before and after Main uptake. File-overlap reporting remains explicit; no conflict resolution or Domain semantic edit was required.
 
 ## Allowlist and activation boundary
 
@@ -37,4 +39,4 @@ Revert the scoped Integration commit and any separately authorized domain commit
 
 ## Evidence capture
 
-Bind the final combined commit, tree, one Node-20 artifact, all three release/allowlist hashes, kill-switch control hash, and source-aware plan hash. When Production has not run, the only truthful status is `NOT_EXECUTED_NO_PRODUCTION_AUTHORITY`.
+Bind the final combined commit, tree, one Node-20 artifact and source set, all three final Domain heads/trees/merge identities, all release/allowlist hashes, kill-switch control hash, and source-aware plan hash. The plan may recognize only the nine inherited World migrations; it must contain no function deployment, Auth change, runtime activation, or execution authority. When Production has not run, the only truthful status is `NOT_EXECUTED_NO_PRODUCTION_AUTHORITY` and Production remains `NO_GO`.

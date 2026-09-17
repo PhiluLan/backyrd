@@ -35,9 +35,24 @@ export function rehearseWeek3FourTrack({ root = ROOT, integrationHead = "HEAD" }
     const files = intersection(changes[ordered[left].track], changes[ordered[right].track]);
     if (files.length) overlaps.push({ left: ordered[left].track, right: ordered[right].track, files });
   }
-  let current = manifest.canonicalBaseSha; const steps = [];
-  for (const item of ordered) { const step = mergeStep(root, current, item.headSha, item.track); steps.push(step); current = step.commitSha; }
-  return { contractVersion: "backyrd.week3-four-track-rehearsal@1.0", status: "MERGEABLE_WITHOUT_CONFLICT", executionAuthorized: false, baseSha: manifest.canonicalBaseSha, integrationHeadSha, orderedHeads: ordered.map(({ track, headSha }) => ({ track, headSha })), steps, combinedCommitSha: current, combinedTreeSha: steps.at(-1).treeSha, conflictCount: 0, overlaps, productionActionPerformed: false };
+  const domainLineage = manifest.domainCandidates.map(({ track, headSha, treeSha, mergeSha, mergeTreeSha, mergeParents }) => ({ track, headSha, treeSha, mergeSha, mergeTreeSha, mergeParents }));
+  const integrationStep = mergeStep(root, manifest.canonicalBaseSha, integrationHeadSha, "INTEGRATION_FINAL_REVALIDATION");
+  return {
+    contractVersion: "backyrd.week3-four-track-rehearsal@1.0",
+    status: "MERGEABLE_WITHOUT_CONFLICT",
+    executionAuthorized: false,
+    baseSha: manifest.canonicalBaseSha,
+    integrationHeadSha,
+    orderedHeads: ordered.map(({ track, headSha }) => ({ track, headSha })),
+    domainLineage,
+    steps: [integrationStep],
+    combinedCommitSha: integrationStep.commitSha,
+    combinedTreeSha: integrationStep.treeSha,
+    conflictCount: 0,
+    overlaps,
+    conflictResolutions: [],
+    productionActionPerformed: false,
+  };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

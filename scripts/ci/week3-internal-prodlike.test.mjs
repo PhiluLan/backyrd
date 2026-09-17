@@ -63,6 +63,12 @@ test("wrong base, head, main, tree, artifact and unrelated descendant fail close
   assert.throws(() => verifyWeek3IdentityMode(identityTuple({ sealCommitCount: 2 })), /candidate_scope_invalid/);
   const documents = structuredClone(loadWeek3Documents(ROOT)); documents.sharedArtifact.artifactHash = "0".repeat(64);
   assert.throws(() => validateWeek3Documents(documents), /shared_artifact_evidence_mismatch/);
+  const domainDrift = structuredClone(loadWeek3Documents(ROOT)); domainDrift.manifest.domainCandidates[0].headSha = "8".repeat(40);
+  assert.throws(() => validateWeek3Documents(domainDrift), /candidate_lineage_invalid:WORLD/);
+  const mergeDrift = structuredClone(loadWeek3Documents(ROOT)); mergeDrift.manifest.domainCandidates[1].mergeParents[0] = "7".repeat(40);
+  assert.throws(() => validateWeek3Documents(mergeDrift), /candidate_lineage_invalid:USER/);
+  const releaseDrift = structuredClone(loadWeek3Documents(ROOT)); releaseDrift.manifest.domainCandidates[2].domainArtifactHash = "6".repeat(64);
+  assert.throws(() => validateWeek3Documents(releaseDrift), /candidate_lineage_invalid:DECISION/);
 });
 
 test("real Git PR candidate and exact regular Main merge pass while legacy equality and tampering fail", () => {
