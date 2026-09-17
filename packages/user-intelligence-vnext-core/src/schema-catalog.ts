@@ -84,5 +84,9 @@ export const USER_INTELLIGENCE_VNEXT_SCHEMA_CATALOG = Object.freeze({
     ["DarkProjectionEvent", CONTRACT_VERSIONS.darkProjectionRuntimeEvent, "DarkProjectionEventSchema", "runDarkProjectionRuntime"],
     ["DarkProjectionHandoff", CONTRACT_VERSIONS.darkProjectionRuntimeHandoff, "DarkProjectionHandoffSchema", "verifyDarkProjectionHandoff"],
     ["DarkProjectionPrivacyExport", CONTRACT_VERSIONS.darkProjectionRuntimePrivacyExport, "DarkProjectionPrivacyExportSchema", "buildDarkProjectionPrivacyExport"],
+    ["InternalProjectionAllowlist", CONTRACT_VERSIONS.internalProjectionAllowlist, "InternalProjectionAllowlistSchema", "verifyInternalProjectionAllowlist"],
+    ["InternalProjectionInvocation", CONTRACT_VERSIONS.internalProjectionInvocation, "InternalProjectionInvocationSchema", "consumeInternalAllowlistedProjection"],
+    ["InternalProjectionRehearsal", CONTRACT_VERSIONS.internalProjectionRehearsal, "InternalProjectionRehearsalSchema", "rehearseInternalAllowlistedProjection"],
+    ["InternalProjectionPostDeployEvidence", CONTRACT_VERSIONS.internalProjectionPostDeployEvidence, "InternalProjectionPostDeployEvidenceSchema", "verifyInternalProjectionPostDeployEvidence"],
   ].map(([name, contractVersion, runtimeSchemaExport, semanticValidatorExport]) => ({ name, contractVersion, runtimeSchemaExport, semanticValidatorExport }))),
 });
