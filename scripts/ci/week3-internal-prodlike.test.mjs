@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolve } from "node:path";
 import { createInternalAllowlistEnvelope, loadWeek3Documents, rehearseInternalProductLike, resolveWeek3Controls, sha256, validateInternalAllowlistEnvelope, validateWeek3Documents } from "./week3-internal-prodlike.mjs";
-import { resolveWeek3IdentityMode, verifySecurityDefinerSources, verifyWeek3IdentityMode } from "./week3-internal-prodlike-preflight.mjs";
+import { resolveWeek3IdentityMode, verifySecurityDefinerSources, verifyWeek3CanonicalInheritance, verifyWeek3IdentityMode } from "./week3-internal-prodlike-preflight.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const fixture = JSON.parse(readFileSync(resolve(ROOT, "delivery/integration/fixtures/week3-internal-prodlike-synthetic.json"), "utf8"));
@@ -54,6 +54,18 @@ test("PR and post-merge tuples cannot be replayed across modes", () => {
   const post = identityTuple({ mode: "POST_MERGE_MAIN", headSha: "6".repeat(40), checkoutSha: "6".repeat(40), canonicalMainSha: "6".repeat(40), headTreeSha: "3".repeat(40), checkoutTreeSha: "3".repeat(40), canonicalMainTreeSha: "3".repeat(40), mergeParents: ["1".repeat(40), "2".repeat(40)] });
   assert.deepEqual(verifyWeek3IdentityMode(post).mergeParents, post.mergeParents);
   assert.throws(() => verifyWeek3IdentityMode({ ...post, mode: "PR_CANDIDATE" }), /pr_main_or_base_drift/);
+});
+
+test("later PRs inherit only the exact canonical Week 3 merge", () => {
+  const canonicalMerge = "9c38946462c5698ee1ff6375d996463254dd829e";
+  const canonicalTree = "9e74daabc42f86327291b781c43b41502f2579a8";
+  const base = "6".repeat(40); const head = "7".repeat(40); const tree = "8".repeat(40); const checkout = "9".repeat(40);
+  const tuple = { mode: "PR_CANDIDATE", baseSha: base, headSha: head, checkoutSha: checkout, canonicalMainSha: base, checkoutTreeSha: tree, headTreeSha: tree, mergeParents: [base, head], canonicalMergeSha: canonicalMerge, canonicalMergeTreeSha: canonicalTree, canonicalMergeParents: ["d3f151901d8d284469968323ac8edc1e287fdf59", "29dc817de4a248d75d69f6ef1ad881b5eb328028"], canonicalMergeIsAncestor: true };
+  assert.equal(verifyWeek3CanonicalInheritance(tuple).inheritedCanonicalMergeSha, canonicalMerge);
+  assert.throws(() => verifyWeek3CanonicalInheritance({ ...tuple, canonicalMergeTreeSha: "0".repeat(40) }), /canonical_identity_mismatch/);
+  assert.throws(() => verifyWeek3CanonicalInheritance({ ...tuple, canonicalMergeIsAncestor: false }), /canonical_not_ancestor/);
+  assert.throws(() => verifyWeek3CanonicalInheritance({ ...tuple, canonicalMainSha: "5".repeat(40) }), /main_or_base_drift/);
+  assert.throws(() => verifyWeek3CanonicalInheritance({ ...tuple, mergeParents: [base, "4".repeat(40)] }), /checkout_identity_mismatch/);
 });
 test("wrong base, head, main, tree, artifact and unrelated descendant fail closed", () => {
   assert.throws(() => verifyWeek3IdentityMode(identityTuple({ baseSha: "9".repeat(40) })), /base_mismatch/);

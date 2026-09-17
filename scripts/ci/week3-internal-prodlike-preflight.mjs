@@ -18,6 +18,11 @@ const fieldValue = (value, path) => path.split(".").reduce((current, key) => cur
 const SHA = /^[0-9a-f]{40}$/;
 const WEEK3_MODES = new Set(["PR_CANDIDATE", "POST_MERGE_MAIN"]);
 const WEEK3_SEAL_PATHS = new Set(["delivery/integration/week3-decision-evidence.json", "delivery/integration/week3-post-deploy-evidence.json", "delivery/integration/week3-rehearsal-evidence.json", "delivery/integration/week3-shared-artifact.json", "delivery/integration/week3-status.json"]);
+const WEEK3_CANONICAL_MERGE = {
+  sha: "9c38946462c5698ee1ff6375d996463254dd829e",
+  treeSha: "9e74daabc42f86327291b781c43b41502f2579a8",
+  parents: ["d3f151901d8d284469968323ac8edc1e287fdf59", "29dc817de4a248d75d69f6ef1ad881b5eb328028"],
+};
 
 export function verifyWeek3IdentityMode({ mode, canonicalBaseSha, baseSha, headSha, checkoutSha, canonicalMainSha, headTreeSha, checkoutTreeSha, canonicalMainTreeSha, mergeParents = [], candidateHeadSha, candidateTreeSha, functionalHeadSha, sealCommitCount, sealPaths }) {
   requireValue(WEEK3_MODES.has(mode), `week3_identity_mode_invalid:${mode ?? "missing"}`);
@@ -59,6 +64,39 @@ export function resolveWeek3IdentityMode({ root = ROOT, mode, canonicalBaseSha, 
   });
 }
 
+export function verifyWeek3CanonicalInheritance({ mode, baseSha, headSha, checkoutSha, canonicalMainSha, checkoutTreeSha, headTreeSha, mergeParents, canonicalMergeSha, canonicalMergeTreeSha, canonicalMergeParents, canonicalMergeIsAncestor }) {
+  requireValue(WEEK3_MODES.has(mode), `week3_identity_mode_invalid:${mode ?? "missing"}`);
+  for (const [name, value] of Object.entries({ baseSha, headSha, checkoutSha, canonicalMainSha, checkoutTreeSha, headTreeSha, canonicalMergeSha, canonicalMergeTreeSha })) requireValue(SHA.test(value), `week3_identity_sha_invalid:${name}`);
+  requireValue(canonicalMergeSha === WEEK3_CANONICAL_MERGE.sha && canonicalMergeTreeSha === WEEK3_CANONICAL_MERGE.treeSha, "week3_inherited_canonical_identity_mismatch");
+  requireValue(JSON.stringify(canonicalMergeParents) === JSON.stringify(WEEK3_CANONICAL_MERGE.parents), "week3_inherited_canonical_parents_mismatch");
+  requireValue(canonicalMergeIsAncestor === true, "week3_inherited_canonical_not_ancestor");
+  if (mode === "PR_CANDIDATE") {
+    requireValue(baseSha === canonicalMainSha, "week3_inherited_pr_main_or_base_drift");
+    const exactHead = checkoutSha === headSha && checkoutTreeSha === headTreeSha;
+    const exactSyntheticMerge = mergeParents.length === 2 && mergeParents[0] === baseSha && mergeParents[1] === headSha && checkoutTreeSha === headTreeSha;
+    requireValue(exactHead || exactSyntheticMerge, "week3_inherited_pr_checkout_identity_mismatch");
+  } else {
+    requireValue(headSha === checkoutSha && headSha === canonicalMainSha && headTreeSha === checkoutTreeSha, "week3_inherited_post_merge_identity_mismatch");
+  }
+  return { mode, inheritedCanonicalMergeSha: canonicalMergeSha, inheritedCanonicalMergeTreeSha: canonicalMergeTreeSha };
+}
+
+export function resolveWeek3CanonicalInheritance({ root = ROOT, mode, baseRef, headRef, checkoutRef = "HEAD", canonicalMainRef = "origin/main" }) {
+  const baseSha = git(root, ["rev-parse", `${baseRef}^{commit}`]);
+  const headSha = git(root, ["rev-parse", `${headRef}^{commit}`]);
+  const checkoutSha = git(root, ["rev-parse", `${checkoutRef}^{commit}`]);
+  const canonicalMainSha = git(root, ["rev-parse", `${canonicalMainRef}^{commit}`]);
+  requireValue(git(root, ["merge-base", "--is-ancestor", baseSha, headSha]) === "", "week3_inherited_candidate_not_descendant");
+  const mergeParents = git(root, ["show", "-s", "--format=%P", checkoutSha]).split(" ").filter(Boolean);
+  const canonicalMergeParents = git(root, ["show", "-s", "--format=%P", WEEK3_CANONICAL_MERGE.sha]).split(" ").filter(Boolean);
+  return verifyWeek3CanonicalInheritance({
+    mode, baseSha, headSha, checkoutSha, canonicalMainSha, mergeParents,
+    headTreeSha: git(root, ["rev-parse", `${headSha}^{tree}`]), checkoutTreeSha: git(root, ["rev-parse", `${checkoutSha}^{tree}`]),
+    canonicalMergeSha: git(root, ["rev-parse", `${WEEK3_CANONICAL_MERGE.sha}^{commit}`]), canonicalMergeTreeSha: git(root, ["rev-parse", `${WEEK3_CANONICAL_MERGE.sha}^{tree}`]), canonicalMergeParents,
+    canonicalMergeIsAncestor: git(root, ["merge-base", "--is-ancestor", WEEK3_CANONICAL_MERGE.sha, baseSha]) === "",
+  });
+}
+
 export function verifyWeek3CandidateIdentities(root, manifest) {
   for (const candidate of manifest.domainCandidates) {
     requireValue(git(root, ["merge-base", "--is-ancestor", candidate.baseSha, candidate.headSha]) === "", `week3_candidate_not_descendant:${candidate.track}`);
@@ -90,10 +128,12 @@ export function runWeek3Preflight({ root = ROOT, mode, baseSha: requestedBase, h
   requireValue(Number(process.versions.node.split(".")[0]) === 20, "week3_preflight_node20_required");
   const documents = loadWeek3Documents(root); const state = validateWeek3Documents(documents);
   verifyWeek3CandidateIdentities(root, documents.manifest);
-  const identity = resolveWeek3IdentityMode({ root, mode, canonicalBaseSha: documents.manifest.canonicalBaseSha, baseRef: requestedBase, headRef: requestedHead, checkoutRef: requestedCheckout, canonicalMainRef, functionalHeadSha: documents.evidence.integrationHeadSha });
   const baseSha = git(root, ["rev-parse", `${requestedBase}^{commit}`]);
   const headSha = git(root, ["rev-parse", `${requestedHead}^{commit}`]);
   const canonicalMainSha = git(root, ["rev-parse", `${canonicalMainRef}^{commit}`]);
+  const identity = baseSha === documents.manifest.canonicalBaseSha
+    ? resolveWeek3IdentityMode({ root, mode, canonicalBaseSha: documents.manifest.canonicalBaseSha, baseRef: requestedBase, headRef: requestedHead, checkoutRef: requestedCheckout, canonicalMainRef, functionalHeadSha: documents.evidence.integrationHeadSha })
+    : resolveWeek3CanonicalInheritance({ root, mode, baseRef: requestedBase, headRef: requestedHead, checkoutRef: requestedCheckout, canonicalMainRef });
   const reconstruction = rehearseWeek3FourTrack({ root, integrationHead: documents.evidence.integrationHeadSha });
   requireValue(reconstruction.conflictCount === 0, "week3_rehearsal_conflict");
   const artifactExecution = executeCombinedArtifact({ root, reconstruction });
