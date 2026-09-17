@@ -53,10 +53,10 @@ export function rehearseFourTrack({ root = ROOT, integrationHead = "HEAD" }) {
   const baseSha = documents.manifest.canonicalBaseSha;
   const integrationHeadSha = git(root, ["rev-parse", `${integrationHead}^{commit}`]);
   const ordered = [
-    ...documents.manifest.domainCandidates.map(({ track, headSha }) => ({ track, headSha })),
-    { track: "INTEGRATION", headSha: integrationHeadSha },
+    ...documents.manifest.domainCandidates.map(({ track, baseSha, headSha }) => ({ track, baseSha, headSha })),
+    { track: "INTEGRATION", baseSha: documents.manifest.domainCandidates.at(-1).mergeSha, headSha: integrationHeadSha },
   ];
-  const changes = Object.fromEntries(ordered.map(({ track, headSha }) => [track, changedFiles(root, baseSha, headSha)]));
+  const changes = Object.fromEntries(ordered.map(({ track, baseSha: trackBaseSha, headSha }) => [track, changedFiles(root, trackBaseSha, headSha)]));
   const overlaps = [];
   for (let left = 0; left < ordered.length; left += 1) {
     for (let right = left + 1; right < ordered.length; right += 1) {
@@ -78,7 +78,7 @@ export function rehearseFourTrack({ root = ROOT, integrationHead = "HEAD" }) {
     executionAuthorized: false,
     baseSha,
     integrationHeadSha,
-    orderedHeads: ordered,
+    orderedHeads: ordered.map(({ track, headSha }) => ({ track, headSha })),
     steps,
     combinedCommitSha: current,
     combinedTreeSha: steps.at(-1).treeSha,
