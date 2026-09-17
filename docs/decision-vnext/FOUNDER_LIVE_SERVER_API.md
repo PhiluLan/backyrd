@@ -1,6 +1,6 @@
 # Decision vNext Founder Live Server API
 
-Status: **release candidate; evaluation only; not deployed**  
+Status: **release candidate; evaluation only; not deployed**
 Canonical base: `9c38946462c5698ee1ff6375d996463254dd829e`
 
 ## Existing server/runtime audit
