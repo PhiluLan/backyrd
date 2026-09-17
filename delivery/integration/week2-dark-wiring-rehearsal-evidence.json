@@ -3,30 +3,30 @@
   "status": "READY",
   "executionAuthorized": false,
   "baseSha": "f999e2185d9102ea59a2c6e2c0861a4122af359b",
-  "integrationHeadSha": "041b0ed2fb96d38b281ee8a081aea28b39a57e59",
+  "integrationHeadSha": "c5b5b110b74c2f9ba7f6d8dcc74c71906f77d8d6",
   "domainHeads": {
     "WORLD": "0dbed4a9a8b0270a077e9f7b235cb9f54544dfb9",
-    "USER": "80a1579564d1f10f450dfb35db4c4847b1539b60",
-    "DECISION": "2daf547da226d9b80a382437c9c39df89399e267"
+    "USER": "8afd98b1605d5637b68348f3d5107c6fd051fd39",
+    "DECISION": "9a02194d67f0163601c7020b920bb2f1c08db110"
   },
   "mergeSequence": ["WORLD", "USER", "DECISION", "INTEGRATION"],
   "orderedHeads": [
     {"track": "WORLD", "headSha": "0dbed4a9a8b0270a077e9f7b235cb9f54544dfb9"},
-    {"track": "USER", "headSha": "80a1579564d1f10f450dfb35db4c4847b1539b60"},
-    {"track": "DECISION", "headSha": "2daf547da226d9b80a382437c9c39df89399e267"},
-    {"track": "INTEGRATION", "headSha": "041b0ed2fb96d38b281ee8a081aea28b39a57e59"}
+    {"track": "USER", "headSha": "8afd98b1605d5637b68348f3d5107c6fd051fd39"},
+    {"track": "DECISION", "headSha": "9a02194d67f0163601c7020b920bb2f1c08db110"},
+    {"track": "INTEGRATION", "headSha": "c5b5b110b74c2f9ba7f6d8dcc74c71906f77d8d6"}
   ],
   "steps": [
     {"label": "WORLD", "left": "f999e2185d9102ea59a2c6e2c0861a4122af359b", "right": "0dbed4a9a8b0270a077e9f7b235cb9f54544dfb9", "treeSha": "e3e0c1754aaef340b44fc6068922317e95c41b3e", "commitSha": "b6c8eba58b683daa4fa84a8af9d493e055e4c8b4", "conflicts": []},
-    {"label": "USER", "left": "b6c8eba58b683daa4fa84a8af9d493e055e4c8b4", "right": "80a1579564d1f10f450dfb35db4c4847b1539b60", "treeSha": "f1baca3c4b2e15e9e6697db9f82c05af022e66c5", "commitSha": "48ffe9bc031b433d9822f2a13e28bde58f1f0737", "conflicts": []},
-    {"label": "DECISION", "left": "48ffe9bc031b433d9822f2a13e28bde58f1f0737", "right": "2daf547da226d9b80a382437c9c39df89399e267", "treeSha": "20a927e6e828dca2a9b09a303a3ead8422326c7d", "commitSha": "81db0db880f57ad50bbc35b8483328e462c686e4", "conflicts": []},
-    {"label": "INTEGRATION", "left": "81db0db880f57ad50bbc35b8483328e462c686e4", "right": "041b0ed2fb96d38b281ee8a081aea28b39a57e59", "treeSha": "fa227381c237b02f9925030b9d8ba1c74bb99b0c", "commitSha": "0861582eea711271400d8319d6e509d63316fd30", "conflicts": []}
+    {"label": "USER", "left": "b6c8eba58b683daa4fa84a8af9d493e055e4c8b4", "right": "8afd98b1605d5637b68348f3d5107c6fd051fd39", "treeSha": "f1baca3c4b2e15e9e6697db9f82c05af022e66c5", "commitSha": "a5fa448990074f8b419c5ae3710298891837b2bc", "conflicts": []},
+    {"label": "DECISION", "left": "a5fa448990074f8b419c5ae3710298891837b2bc", "right": "9a02194d67f0163601c7020b920bb2f1c08db110", "treeSha": "20a927e6e828dca2a9b09a303a3ead8422326c7d", "commitSha": "bb16dcdb856d6a5a0320261e0969494d947a7f0f", "conflicts": []},
+    {"label": "INTEGRATION", "left": "bb16dcdb856d6a5a0320261e0969494d947a7f0f", "right": "c5b5b110b74c2f9ba7f6d8dcc74c71906f77d8d6", "treeSha": "2370e27d8d4d0206983218cb65c5d48666f5ba4c", "commitSha": "67bbe40f13fa168c4aa7caf3c4e9bc231de0e697", "conflicts": []}
   ],
-  "combinedCommitSha": "0861582eea711271400d8319d6e509d63316fd30",
-  "combinedTreeSha": "fa227381c237b02f9925030b9d8ba1c74bb99b0c",
-  "sharedArtifactHash": "4883e8278e7d88e122b677bf7166b6c678dfc2598cdf8e9251cfe22cdaa86b81",
+  "combinedCommitSha": "67bbe40f13fa168c4aa7caf3c4e9bc231de0e697",
+  "combinedTreeSha": "2370e27d8d4d0206983218cb65c5d48666f5ba4c",
+  "sharedArtifactHash": "0880a064aef5cda3f587fd20770022fc036dcb739f273e424a7463f4c837f077",
   "sharedArtifactManifestPath": "delivery/integration/week2-shared-decision-artifact.json",
-  "sharedArtifactManifestHash": "0355edfac2dc571895f8a43d0549aee5de9799d2d7e6bd49948131a95b320774",
+  "sharedArtifactManifestHash": "bc6b6f29e8e08840ba653f6d06fd7646902188e843342c437f5f69738a85f0df",
   "conflictCount": 0,
   "overlaps": [
     {"left": "WORLD", "right": "USER", "files": ["package.json"]},
