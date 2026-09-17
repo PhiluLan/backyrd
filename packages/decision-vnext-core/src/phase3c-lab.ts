@@ -463,14 +463,14 @@ function assess(world: LabWorldRow, interpretation: FounderLabInterpretation, pr
   return deepFreeze(FounderLabCandidateAssessmentSchema.parse(withContentHash(body, "assessmentHash")));
 }
 
-export async function runFounderDecisionLab(input: { request: unknown; corrections?: unknown; worldReader?: WorldKnowledgeReaderPort; cohortManifest?: FounderWorldCohortManifest | null; cohortHandoff?: FounderWorldCohortHandoff | unknown }): Promise<FounderLabResult> {
+export async function runFounderDecisionLab(input: { request: unknown; corrections?: unknown; worldReader?: WorldKnowledgeReaderPort; cohortManifest?: FounderWorldCohortManifest | null; cohortHandoff?: FounderWorldCohortHandoff | unknown; userProjection?: unknown }): Promise<FounderLabResult> {
   const acceptedProductContext = loadAcceptedPhase3BProductContextRelease(); const request = FounderLabRequestSchema.parse(input.request); const interpretation = resolveFounderLabText(request, input.corrections);
   if (input.cohortHandoff && (input.worldReader || input.cohortManifest)) throw new Error("phase3c_founder_cohort_sources_must_not_mix");
   if ((input.worldReader && !input.cohortManifest) || (!input.worldReader && input.cohortManifest)) throw new Error("phase3c_founder_cohort_binding_incomplete");
   const cohortInput = input.worldReader && input.cohortManifest
     ? { reader: input.worldReader, manifest: input.cohortManifest }
     : input.cohortHandoff ? { handoff: input.cohortHandoff } : {};
-  const { cohort, rows } = await loadCohort(cohortInput); const projection = userProjection(request, interpretation.interpretationHash);
+  const { cohort, rows } = await loadCohort(cohortInput); const projection = input.userProjection === undefined ? userProjection(request, interpretation.interpretationHash) : parseRelevantUserProjection(input.userProjection);
   const candidates = rows.map((row) => assess(row, interpretation, projection, request.rejectedCandidateIds, acceptedProductContext)).sort((a, b) => a.fixtureOrderKey.localeCompare(b.fixtureOrderKey));
   const explanation = candidates.slice(0, 3).flatMap((candidate) => candidate.reasons.filter((item) => item.confirmed || item.domain === "LIMITATION"));
   const degradation = cohort.source === "SYNTHETIC_FALLBACK" ? "SYNTHETIC_WORLD_FALLBACK" as const : projection.status === "NEUTRAL" ? "USER_NEUTRAL" as const : interpretation.limitations.length ? "NOT_CONFIGURED" as const : "NONE" as const;

@@ -38,3 +38,6 @@ export * from "./phase3c-lab-contracts.js";
 export * from "./phase3c-lab.js";
 export * from "./shadow-contracts.js";
 export * from "./shadow.js";
+export * from "./dark-request-contracts.js";
+export * from "./dark-request-ports.js";
+export * from "./dark-request.js";
