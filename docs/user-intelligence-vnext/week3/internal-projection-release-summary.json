@@ -1,0 +1,41 @@
+{
+  "contractVersion": "backyrd.user-intelligence.internal-projection-release-summary@week3-1",
+  "canonicalBaseSha": "b98b3870f60e9495c10f3c23f006fb9b3213d63e",
+  "canonicalBaseTree": "e59939dc43c51139dcaf0928b9725e8b98b0a1cc",
+  "releaseHash": "c8399a7fca8fb329e3ced9930b46d495308c44b5c5a75a4df293e52a239c09a5",
+  "trustAnchorHash": "c8886ffca902a2feb39c8bd5507f310863c51f65298c29d760e25ac138a71b98",
+  "allowlistPolicyHash": "b372dc18c5d62d15b5c63eca94345626041eb7bbf3e17c5fe8b68589933fd983",
+  "syntheticAllowlistRecordHash": "f9a3b248630f54514295d2d00adeea0fd31ea4dd00925b788a770e2133c642cb",
+  "invocationHash": "2861584fbc6a9bab4e43df1b9500b91509bc6de7ad27faaa0b512fb018c302e0",
+  "week2ReleaseHash": "f7d31f9860706b54effdd33199d1c419de4d92856fbc292b7dbfaf4ba6910391",
+  "noWriteProofHash": "5a2aa93a0c36505ce13b739c04d48244291cb791f7b76d2c4713310c9fae9557",
+  "retentionTemplateHash": "2ab87aa563eec80b1500b13c1e60a5381b7d896d825101863580c1bf83fa21d2",
+  "artifactManifestHash": "aa29d23c06d477a62f8b44ed893238225955eda7f6bf519f7944129a176f23df",
+  "projectionHash": "d216c65688f4efc0a0643dd451f7d1b762181b5ab7c7b380d9e9ab2a0cd23b10",
+  "rehearsalHash": "b120204f1416ae0f9fbb0823da923b5fdaf34ca848b81e7b6936f11f6824480c",
+  "postDeployEvidenceHash": "918541819839750ea101b96d05b4ff7f8b981f9169ea4b420edfdde91c7f293c",
+  "fullReportHash": "162ac7987d7c697b38d57b322f9fa25bd062b8c4c4e1ea68122460e908ccf757",
+  "flags": {
+    "USER_LEARNING_RUNTIME": false,
+    "internalProjectionRuntimeActivated": false,
+    "eventIngestionEnabled": false,
+    "persistentWritesAuthorized": false,
+    "networkCallsAuthorized": false,
+    "productConsumerRegistered": false,
+    "rankingAuthorized": false,
+    "eligibilityAuthorized": false,
+    "shadowTrafficAuthorized": false,
+    "killSwitch": "FORCED_OFF"
+  },
+  "productionPlan": {
+    "migrations": [],
+    "functions": [],
+    "authChanges": [],
+    "rpcChanges": [],
+    "edgeChanges": [],
+    "productWiring": [],
+    "runtimeDeploymentRequired": false,
+    "executionAuthorized": false
+  },
+  "summaryHash": "2306377a33412e63e37358251b81a3a3f3fa010badad4d58781f14915b455155"
+}

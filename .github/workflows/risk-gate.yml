@@ -253,6 +253,15 @@ jobs:
           path: ${{ runner.temp }}/user-intelligence-week2-dark-projection-runtime.json
           if-no-files-found: error
           retention-days: 14
+      - name: Reproduce Week 3 internal allowlisted projection proof
+        run: npm run user-intelligence-vnext:week3:report -- --full-output "$RUNNER_TEMP/user-intelligence-week3-internal-projection.json" --verify-summary docs/user-intelligence-vnext/week3/internal-projection-release-summary.json
+      - name: Retain Week 3 internal allowlisted projection proof
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: user-intelligence-week3-internal-projection-${{ github.sha }}
+          path: ${{ runner.temp }}/user-intelligence-week3-internal-projection.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Validate World Knowledge foundation
         run: |
           npm run world-knowledge:typecheck
