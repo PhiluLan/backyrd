@@ -112,6 +112,7 @@
     "decision-vnext:shadow:week1": "npm run shadow:week1 --workspace @backyrd/decision-vnext-core",
     "decision-vnext:dark-request:week2": "npm run dark-request:week2 --workspace @backyrd/decision-vnext-core",
     "decision-vnext:internal-dark-shadow:week3": "npm run internal-dark-shadow:week3 --workspace @backyrd/decision-vnext-core",
+    "decision-vnext:founder-live-api:evaluate": "npm run founder-live-api:evaluate --workspace @backyrd/decision-vnext-core",
     "decision-vnext:phase3c:lab:ui": "npm run decision-vnext:build && node scripts/decision/phase3c-founder-lab-ui-server.mjs",
     "decision-vnext:phase3c:lab:reset": "npm run decision-vnext:build && node scripts/decision/reset-phase3c-founder-lab.mjs",
     "decision-vnext:phase3c:ui:test": "npm run decision-vnext:build && node --test scripts/decision/phase3c-founder-lab-ui.test.mjs",
