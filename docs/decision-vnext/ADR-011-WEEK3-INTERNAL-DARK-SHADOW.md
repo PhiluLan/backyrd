@@ -1,7 +1,7 @@
 # ADR-011 — Week-3 Internal Dark Shadow Operation
 
-Status: Accepted for local and CI evaluation only  
-Scope: Decision vNext Week 3  
+Status: Accepted for local and CI evaluation only
+Scope: Decision vNext Week 3
 Production authority: none
 
 ## Decision
