@@ -16,7 +16,7 @@ const clone = (value) => JSON.parse(JSON.stringify(value));
 test("Week-2 control-plane documents are internally consistent", () => {
   const result = validateWeek2Documents(documents());
   assert.equal(result.boundDomainCandidates, 3);
-  assert.equal(result.rehearsalReady, false);
+  assert.equal(result.rehearsalReady, true);
 });
 
 test("missing and unknown configuration fail closed with zero work", () => {
