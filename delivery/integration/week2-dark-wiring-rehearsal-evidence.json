@@ -3,16 +3,16 @@
   "status": "READY",
   "executionAuthorized": false,
   "baseSha": "f999e2185d9102ea59a2c6e2c0861a4122af359b",
-  "integrationHeadSha": "96ce9b0e8903b9b36948652809a804288b278108",
+  "integrationHeadSha": "fa2e0c31a8cac7c0bf9167f03cdc878c0122fed9",
   "domainHeads": {
     "WORLD": "0dbed4a9a8b0270a077e9f7b235cb9f54544dfb9",
     "USER": "80a1579564d1f10f450dfb35db4c4847b1539b60",
     "DECISION": "2daf547da226d9b80a382437c9c39df89399e267"
   },
   "mergeSequence": ["WORLD", "USER", "DECISION", "INTEGRATION"],
-  "combinedCommitSha": "c014c656e57d3977177c90384cb169e8c90bb3b0",
-  "combinedTreeSha": "0f39281a9c5603a184f803dd29c0e4163ebc2330",
-  "sharedArtifactHash": "356874a332be71f12953c28cb76eaba8a7d251182e6ba0a867c32061bcfda1bd",
+  "combinedCommitSha": "a2081e9d991e0a5eeff2e4da9cfd4e3790c87470",
+  "combinedTreeSha": "e2890ed5141ed194de22fe742c9d2408e42074f3",
+  "sharedArtifactHash": "80c70b0fe3a8bd114f6026a881614cac3135eeac7d4ea5b62892bdc0bf6bab79",
   "conflictCount": 0,
   "overlaps": [
     {"left": "WORLD", "right": "USER", "files": ["package.json"]},
