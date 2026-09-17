@@ -28,7 +28,9 @@ assert.match(decision, /invokeFounderLiveDecision/, "Decision must pass through 
 assert.doesNotMatch(decision, /supabase\.functions\.invoke<DecisionV13Response>/, "Decision screen must not bypass the release-bound client");
 assert.match(founderLiveDecision, /freshAccessToken/, "Founder-live requests must revalidate the authenticated user and session");
 assert.match(founderLiveDecision, /userData\.user\.id !== expectedUserId/, "session changes must fail closed");
-assert.match(founderLiveBinding, /YELLOW_CANDIDATES_PENDING/, "vNext must stay closed while domain candidates are missing");
+assert.match(founderLiveBinding, /GREEN_CANDIDATES_BOUND/, "Mobile must consume the exact sealed three-domain binding");
+assert.match(founderLiveBinding, /"vNextFunction": null/, "bound candidates must not imply a deployed vNext function");
+assert.match(founderLiveBinding, /"executionAuthorized": false/, "bound candidates must not imply runtime authority");
 assert.doesNotMatch(`${founderLiveDecision}\n${founderLiveBinding}`, /EXPO_PUBLIC_.*VNEXT|AsyncStorage|clientToggle/i, "Mobile must not contain a vNext authority toggle");
 assert.doesNotMatch(decision, /decision-copy|create_decision_session_v1|Math\.max\(\s*82/);
 assert.match(home, /pathname: "\/\(tabs\)\/decision"/, "Home search must enter Decision");
