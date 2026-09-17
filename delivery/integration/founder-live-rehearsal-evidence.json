@@ -2,31 +2,116 @@
   "contractVersion": "backyrd.founder-live-rehearsal-evidence@1.0",
   "baseSha": "9c38946462c5698ee1ff6375d996463254dd829e",
   "baseTreeSha": "9e74daabc42f86327291b781c43b41502f2579a8",
-  "functionalHeadSha": "e82c7dc590919400400a1feb35b4521eed7b19bd",
-  "functionalTreeSha": "df381a0d4ca2f1259c99684b4b7ec522933ba1cf",
-  "patchId": "92c23cf5fddaa81fa48e04336c2d58949b762ef6",
-  "changedFileCount": 32,
-  "disposableMergeCommitSha": "cfdc3d34ea7145683139c665207abe1878591cc4",
-  "combinedTreeSha": "df381a0d4ca2f1259c99684b4b7ec522933ba1cf",
-  "parents": ["9c38946462c5698ee1ff6375d996463254dd829e", "e82c7dc590919400400a1feb35b4521eed7b19bd"],
-  "conflictCount": 0,
-  "conflictResolutions": [],
+  "functionalHeadSha": "25e8db0b33633d975a35238532000f3acf6a7287",
+  "functionalTreeSha": "35ef67839511044ce073342dfa6590b692c65731",
+  "patchId": "295b84d6e895daf62009f7c36ac3d4839700d9ee",
+  "changedFileCount": 59,
+  "disposableMergeCommitSha": "d0dbaa569d70cd443244b61e0d569626fd46fea5",
+  "combinedTreeSha": "35ef67839511044ce073342dfa6590b692c65731",
+  "parents": [
+    "960d618b7a51c2b1aa2ad3e2c5f9b62f19dd8258"
+  ],
+  "reconstruction": {
+    "worldMergeCommitSha": "ead3352f81be03af8d8fa504885d8a3257a46eff",
+    "userMergeCommitSha": "0a6eb30932cbb769ffa8980e092a28ce5d9ecdb8",
+    "decisionMergeCommitSha": "387859a184e992d083b5d7b5cdfcdbb5fb90ce69",
+    "integrationMergeCommitSha": "960d618b7a51c2b1aa2ad3e2c5f9b62f19dd8258",
+    "integrationMergeParents": [
+      "387859a184e992d083b5d7b5cdfcdbb5fb90ce69",
+      "32658d0da91e6b058e08c2c9653f9d5d80d9d967"
+    ],
+    "reconstructedHeadSha": "d0dbaa569d70cd443244b61e0d569626fd46fea5",
+    "treeIdenticalToFunctionalHead": true
+  },
+  "conflictCount": 2,
+  "conflictResolutions": [
+    {
+      "path": "scripts/ci/week3-internal-prodlike-preflight.mjs",
+      "resolution": "STRICTER_USER_VARIANT",
+      "blobMatchesUserHead": true,
+      "domainSemanticsChanged": false
+    },
+    {
+      "path": "scripts/ci/week3-internal-prodlike.test.mjs",
+      "resolution": "STRICTER_USER_VARIANT",
+      "blobMatchesUserHead": true,
+      "domainSemanticsChanged": false
+    }
+  ],
   "domainTracks": [
-    {"track": "WORLD", "status": "AWAITING_DOMAIN_PR"},
-    {"track": "USER", "status": "AWAITING_DOMAIN_PR"},
-    {"track": "DECISION", "status": "AWAITING_DOMAIN_PR"}
+    {
+      "track": "WORLD",
+      "pr": 302,
+      "headSha": "239d73ab1b7229414363dc4b2a66bd625e71b9aa",
+      "treeSha": "47383a7b9ff367008e3cb8d384246a79fb97eede",
+      "patchId": "c9b44d1a3c855a5869cecca0d18095ab9e0a17eb",
+      "status": "BOUND_VERIFIED"
+    },
+    {
+      "track": "USER",
+      "pr": 301,
+      "headSha": "418c9bd0b87289769346052e3b681bde0cd9ed86",
+      "treeSha": "83df6786ab30c988c29b4f0fb3f9a98cfef23570",
+      "patchId": "f63f185ca610a75f5ca8128d64c7bda7e694bc8a",
+      "status": "BOUND_VERIFIED"
+    },
+    {
+      "track": "DECISION",
+      "pr": 303,
+      "headSha": "8acd3f40e8938c77f2d9f3a3c8139e71970ceab5",
+      "treeSha": "f7a919c9ba35797e480a39937eb018f1c06dd239",
+      "patchId": "c9e189c9ed472d2c66e384603c5fb7b3a90408c2",
+      "status": "BOUND_VERIFIED"
+    }
   ],
   "e2e": {
-    "flow": "ADMIN_SAVE_REBUILD_TO_WORLD_READER_TO_DECISION_TO_MOBILE",
+    "flow": "ADMIN_AUTHORING_TO_WORLD_READER_TO_USER_PROJECTION_TO_DECISION_API_TO_MOBILE",
+    "nodeMajor": 20,
+    "scenarioSet": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "FAMILY_OUTING",
+      "BOULDERING",
+      "CONTEXT_FLIP",
+      "ALTERNATIVE",
+      "SITUATIONAL_REJECT"
+    ],
+    "failClosed": [
+      "DEFAULT_OFF",
+      "EMERGENCY_OFF",
+      "ALLOWLIST_DENIED",
+      "AUTH_STALE_OR_INVALID",
+      "AUTHORITY_MISMATCH",
+      "IDEMPOTENCY_CONFLICT",
+      "RATE_LIMIT",
+      "UNKNOWN_VERSION",
+      "PORT_FAILURE",
+      "TIMEOUT"
+    ],
     "localAuthFixture": true,
     "adminBrowser": true,
-    "mobileViewports": ["320x568", "1440x900"],
+    "mobileViewports": [
+      "320x568",
+      "1440x900"
+    ],
     "assertions": 10,
     "manualFileHandoffs": 0,
+    "realAllowlistMembers": 0,
     "userLearningWrites": 0,
+    "durableWrites": 0,
+    "externalNetworkCalls": 0,
+    "productOutputs": 0,
+    "readsAfterEmergencyOff": 0,
+    "projectionsAfterEmergencyOff": 0,
+    "evaluationsAfterEmergencyOff": 0,
+    "ranking": "NOT_CONFIGURED",
+    "confidenceInfluence": "NOT_CONFIGURED",
+    "syntheticProductionMixing": false,
     "productionActions": 0
   },
-  "e2eEvidenceHash": "476ea9829b0cc725883c92604f2326f2c3b6292c5392fc6be3c48397907edc8e",
+  "e2eEvidenceHash": "aaa16b4ac6a7afc5691fc54e94339035afec85400d6d9589217a4824b0845d4d",
   "byteIdenticalRuns": 2,
   "executionAuthorized": false
 }

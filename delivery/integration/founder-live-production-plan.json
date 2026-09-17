@@ -1,7 +1,7 @@
 {
   "contractVersion": "backyrd.founder-live-source-aware-production-plan@1.0",
-  "sourceSha": "e82c7dc590919400400a1feb35b4521eed7b19bd",
-  "planHash": "f12aa14408a5cc03714bb2936826b22f715057ac9e1c58419ac5d4587f697c2b",
+  "sourceSha": "25e8db0b33633d975a35238532000f3acf6a7287",
+  "planHash": "b4657689eff68db09ff6676837b11f6e1e1fc54ec6f123930e3ef2c9370f35eb",
   "pendingMigrations": [
     "supabase/migrations/20260910174419_world_knowledge_slice_3b_foundation.sql",
     "supabase/migrations/20260911184459_world_knowledge_slice_4a_authoring.sql",
@@ -13,6 +13,7 @@
     "supabase/migrations/20260915163631_world_knowledge_slice_4b_contextual_semantics.sql",
     "supabase/migrations/20260916061802_world_founder_context_handoff_unknown_canonicalization.sql"
   ],
+  "inheritedWorldMigrationCount": 9,
   "newMigrations": 0,
   "deployFunctions": [],
   "authDeploy": false,

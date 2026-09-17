@@ -1,19 +1,56 @@
 {
   "contractVersion": "backyrd.founder-live-shared-node20-artifact@1.0",
   "nodeMajor": 20,
-  "sourceSha": "e82c7dc590919400400a1feb35b4521eed7b19bd",
-  "sourceTreeSha": "df381a0d4ca2f1259c99684b4b7ec522933ba1cf",
-  "sourceSetHash": "72da87f4445d3e06a92695f5d05d7fb4ab787187770ae1eb7166748861622665",
-  "fileCount": 121,
-  "tracks": ["WORLD", "USER", "DECISION", "MOBILE", "ADMIN", "INTEGRATION"],
-  "artifactHash": "f88a5b214d415b025255b4f21cbd5612a2a6925012dc6b573f8e4e93f6a308d5",
+  "sourceSha": "25e8db0b33633d975a35238532000f3acf6a7287",
+  "sourceTreeSha": "35ef67839511044ce073342dfa6590b692c65731",
+  "sourceSetHash": "b0fd2091d23521416e90ff71853b055d360c3215112f8f1c2d8b2320feb1c07e",
+  "fileCount": 124,
+  "tracks": [
+    "WORLD",
+    "USER",
+    "DECISION",
+    "MOBILE",
+    "ADMIN",
+    "INTEGRATION"
+  ],
+  "artifactHash": "db7efd82a258f4e92b8e707502466be8b625910cc6a295c4f32a2e14b755fa6a",
   "trackVerifications": [
-    {"track": "WORLD", "artifactHash": "f88a5b214d415b025255b4f21cbd5612a2a6925012dc6b573f8e4e93f6a308d5", "sourceSetHash": "72da87f4445d3e06a92695f5d05d7fb4ab787187770ae1eb7166748861622665", "status": "VERIFIED"},
-    {"track": "USER", "artifactHash": "f88a5b214d415b025255b4f21cbd5612a2a6925012dc6b573f8e4e93f6a308d5", "sourceSetHash": "72da87f4445d3e06a92695f5d05d7fb4ab787187770ae1eb7166748861622665", "status": "VERIFIED"},
-    {"track": "DECISION", "artifactHash": "f88a5b214d415b025255b4f21cbd5612a2a6925012dc6b573f8e4e93f6a308d5", "sourceSetHash": "72da87f4445d3e06a92695f5d05d7fb4ab787187770ae1eb7166748861622665", "status": "VERIFIED"},
-    {"track": "MOBILE", "artifactHash": "f88a5b214d415b025255b4f21cbd5612a2a6925012dc6b573f8e4e93f6a308d5", "sourceSetHash": "72da87f4445d3e06a92695f5d05d7fb4ab787187770ae1eb7166748861622665", "status": "VERIFIED"},
-    {"track": "ADMIN", "artifactHash": "f88a5b214d415b025255b4f21cbd5612a2a6925012dc6b573f8e4e93f6a308d5", "sourceSetHash": "72da87f4445d3e06a92695f5d05d7fb4ab787187770ae1eb7166748861622665", "status": "VERIFIED"},
-    {"track": "INTEGRATION", "artifactHash": "f88a5b214d415b025255b4f21cbd5612a2a6925012dc6b573f8e4e93f6a308d5", "sourceSetHash": "72da87f4445d3e06a92695f5d05d7fb4ab787187770ae1eb7166748861622665", "status": "VERIFIED"}
+    {
+      "track": "WORLD",
+      "artifactHash": "db7efd82a258f4e92b8e707502466be8b625910cc6a295c4f32a2e14b755fa6a",
+      "sourceSetHash": "b0fd2091d23521416e90ff71853b055d360c3215112f8f1c2d8b2320feb1c07e",
+      "status": "VERIFIED"
+    },
+    {
+      "track": "USER",
+      "artifactHash": "db7efd82a258f4e92b8e707502466be8b625910cc6a295c4f32a2e14b755fa6a",
+      "sourceSetHash": "b0fd2091d23521416e90ff71853b055d360c3215112f8f1c2d8b2320feb1c07e",
+      "status": "VERIFIED"
+    },
+    {
+      "track": "DECISION",
+      "artifactHash": "db7efd82a258f4e92b8e707502466be8b625910cc6a295c4f32a2e14b755fa6a",
+      "sourceSetHash": "b0fd2091d23521416e90ff71853b055d360c3215112f8f1c2d8b2320feb1c07e",
+      "status": "VERIFIED"
+    },
+    {
+      "track": "MOBILE",
+      "artifactHash": "db7efd82a258f4e92b8e707502466be8b625910cc6a295c4f32a2e14b755fa6a",
+      "sourceSetHash": "b0fd2091d23521416e90ff71853b055d360c3215112f8f1c2d8b2320feb1c07e",
+      "status": "VERIFIED"
+    },
+    {
+      "track": "ADMIN",
+      "artifactHash": "db7efd82a258f4e92b8e707502466be8b625910cc6a295c4f32a2e14b755fa6a",
+      "sourceSetHash": "b0fd2091d23521416e90ff71853b055d360c3215112f8f1c2d8b2320feb1c07e",
+      "status": "VERIFIED"
+    },
+    {
+      "track": "INTEGRATION",
+      "artifactHash": "db7efd82a258f4e92b8e707502466be8b625910cc6a295c4f32a2e14b755fa6a",
+      "sourceSetHash": "b0fd2091d23521416e90ff71853b055d360c3215112f8f1c2d8b2320feb1c07e",
+      "status": "VERIFIED"
+    }
   ],
   "executionAuthorized": false
 }
