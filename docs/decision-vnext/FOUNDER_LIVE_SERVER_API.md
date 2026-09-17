@@ -101,8 +101,9 @@ There is no Production operation in this slice. A future deployment must add a r
 Local deterministic validation:
 
 ```bash
-npm run decision-ci:group -- --group founder-live-api
-npm run decision-vnext:founder-live-api:evaluate
+npm run decision-vnext:build
+node --test packages/decision-vnext-core/test/founder-live-api.test.mjs
+node packages/decision-vnext-core/sandbox/evaluate-founder-live-api.mjs
 ```
 
 The evaluation covers A–D, family outing, bouldering with family, Context flip, Alternative, Reject, and byte-identical replay through the same server orchestrator. The release evidence remains `NOT_EXECUTED_NO_PRODUCTION_AUTHORITY`.
