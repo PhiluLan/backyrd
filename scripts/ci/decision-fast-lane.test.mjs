@@ -41,11 +41,13 @@ function artifactFixture() {
     "decision-lab/test/sample.test.mjs", "decision-lab/config/config.json", "scripts/ci/decision-test-plan.mjs",
     ".github/workflows/risk-gate.yml", "delivery/change-policy.json",
     "delivery/integration/week2-dark-wiring-manifest.json", "delivery/integration/week2-dependency-ownership-compatibility-matrix.json",
-    "delivery/integration/week2-dark-wiring-flags.json", "delivery/integration/fixtures/week2-dark-wiring-synthetic.json",
+    "delivery/integration/week2-dark-wiring-flags.json", "delivery/integration/week2-decision-frozen-evidence.json",
+    "delivery/integration/fixtures/week2-dark-wiring-synthetic.json",
     "docs/operations/integration/WEEK2_RELEASE_TRAIN.md", "docs/operations/integration/WEEK2_ROLLBACK_INCIDENT.md", "docs/operations/integration/WEEK2_CTO_REVIEW.md",
     "package.json", "scripts/ci/decision-build-artifact.mjs", "scripts/ci/decision-fast-lane.test.mjs",
     "scripts/ci/run-decision-ci.mjs", "scripts/ci/validate-decision-test-plan.mjs", "scripts/ci/verify-decision-shards.mjs",
-    "scripts/ci/week2-dark-wiring.mjs", "scripts/ci/week2-dark-wiring-preflight.mjs", "scripts/ci/week2-four-track-rehearsal.mjs",
+    "scripts/ci/week2-dark-wiring.mjs", "scripts/ci/week2-dark-wiring-preflight.mjs", "scripts/ci/week2-decision-provenance.mjs",
+    "scripts/ci/week2-dark-wiring.test.mjs", "scripts/ci/week2-four-track-rehearsal.mjs",
     "packages/world-knowledge-core/dist/index.js", "packages/user-intelligence-vnext-core/dist/index.js", "packages/decision-vnext-core/dist/index.js",
   ]) put(root, path, `${path}\n`);
   return root;
