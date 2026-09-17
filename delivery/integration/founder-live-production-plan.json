@@ -1,7 +1,7 @@
 {
   "contractVersion": "backyrd.founder-live-source-aware-production-plan@1.0",
-  "sourceSha": "a157b9b41f62ef2d60e28f15732fedb5cbae9fdd",
-  "planHash": "297e334c77169dd8d15faacb94ec3b32418dc079d20da0f25c507719126885e0",
+  "sourceSha": "e82c7dc590919400400a1feb35b4521eed7b19bd",
+  "planHash": "f12aa14408a5cc03714bb2936826b22f715057ac9e1c58419ac5d4587f697c2b",
   "pendingMigrations": [
     "supabase/migrations/20260910174419_world_knowledge_slice_3b_foundation.sql",
     "supabase/migrations/20260911184459_world_knowledge_slice_4a_authoring.sql",
