@@ -89,6 +89,7 @@ export function runFounderLivePreflight({ root = ROOT, base = BASE, head = "HEAD
     const evidence = load(root, "delivery/integration/founder-live-rehearsal-evidence.json");
     const sealedPlan = load(root, "delivery/integration/founder-live-production-plan.json");
     const postDeploy = load(root, "delivery/integration/founder-live-post-deploy-evidence.json");
+    const functionalPlan = buildProductionPlan({ repo: root, baseSha: load(root, "delivery/production-state.json").supabase.shippedSourceSha, headSha: evidence.functionalHeadSha });
     requireValue(Number(process.versions.node.split(".")[0]) === 20, "founder_live_seal_node20_required");
     const rebuilt = buildFounderLiveArtifact({ root, source: evidence.functionalHeadSha });
     for (const key of ["contractVersion", "nodeMajor", "sourceSha", "sourceTreeSha", "sourceSetHash", "fileCount", "artifactHash", "executionAuthorized"]) requireValue(artifact[key] === rebuilt[key], `founder_live_artifact_mismatch:${key}`);
@@ -97,7 +98,7 @@ export function runFounderLivePreflight({ root = ROOT, base = BASE, head = "HEAD
     const reconstructedTree = git(root, ["merge-tree", "--write-tree", BASE, evidence.functionalHeadSha]).split("\n")[0];
     requireValue(reconstructedTree === evidence.combinedTreeSha, "founder_live_rehearsal_tree_mismatch");
     requireValue(evidence.e2eEvidenceHash === "476ea9829b0cc725883c92604f2326f2c3b6292c5392fc6be3c48397907edc8e" && evidence.byteIdenticalRuns === 2, "founder_live_replay_evidence_invalid");
-    requireValue(sealedPlan.planHash === plan.planHash && JSON.stringify(sealedPlan.pendingMigrations) === JSON.stringify(plan.pendingMigrations.map(({ path }) => path)), "founder_live_production_plan_drift");
+    requireValue(sealedPlan.sourceSha === evidence.functionalHeadSha && sealedPlan.planHash === functionalPlan.planHash && JSON.stringify(sealedPlan.pendingMigrations) === JSON.stringify(functionalPlan.pendingMigrations.map(({ path }) => path)), "founder_live_production_plan_drift");
     requireValue(sealedPlan.newMigrations === 0 && sealedPlan.deployFunctions.length === 0 && sealedPlan.authDeploy === false && sealedPlan.runtimeActivation === false && sealedPlan.executionAuthorized === false, "founder_live_production_scope_open");
     requireValue(postDeploy.status === "NOT_EXECUTED_NO_PRODUCTION_AUTHORITY" && postDeploy.productionQueries === 0 && postDeploy.migrationsExecuted === 0 && postDeploy.deploymentsExecuted === 0 && postDeploy.otaActions === 0 && postDeploy.executionAuthorized === false, "founder_live_post_deploy_claim_invalid");
     requireValue(documents.status.ctoReviewReady === true && documents.status.productionStatus === "NO_GO", "founder_live_cto_status_invalid");
