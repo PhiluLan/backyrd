@@ -5,6 +5,7 @@ export * from "./calibration.js";
 export * from "./contracts.js";
 export * from "./contextual.js";
 export * from "./derived.js";
+export * from "./dark-reader.js";
 export * from "./fixtures.js";
 export * from "./founder-handoff.js";
 export * from "./governance.js";

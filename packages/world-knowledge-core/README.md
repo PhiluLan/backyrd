@@ -8,6 +8,8 @@ Slice 2 governance, audit, policy and the isolated read-only compatibility adapt
 
 Slice 3B authority, entitlement, persistence, shadow-resolution and retention boundaries are documented at [`docs/world-knowledge/slice-3b/README.md`](../../docs/world-knowledge/slice-3b/README.md).
 
+The Week-2 `createWorldDarkReader` boundary implements only `WorldKnowledgeReaderPort`, defaults product read to OFF, defaults its independent kill switch to engaged, and permits an injected read-only loader only in local or prod-like test environments. Missing or unknown configuration fails closed before the loader is called.
+
 ```bash
 npm run world-knowledge:typecheck
 npm run world-knowledge:test
