@@ -85,6 +85,15 @@ export function runWeek2Preflight({ root = ROOT, baseSha: requestedBase, headSha
   const canonicalMainSha = git(root, ["rev-parse", "origin/main^{commit}"]);
   requireValue(baseSha === documents.manifest.canonicalBaseSha && canonicalMainSha === documents.manifest.canonicalBaseSha, "week2_base_or_canonical_main_drift");
   requireValue(git(root, ["merge-base", "--is-ancestor", baseSha, headSha]) === "", "week2_integration_candidate_not_descendant");
+  if (final) {
+    requireValue(git(root, ["merge-base", "--is-ancestor", documents.evidence.integrationHeadSha, headSha]) === "", "week2_rehearsed_integration_head_not_ancestor");
+    const allowedSealPaths = new Set([
+      "delivery/integration/week2-dark-wiring-rehearsal-evidence.json",
+      "delivery/integration/week2-daily-status.json",
+    ]);
+    const postRehearsalPaths = git(root, ["diff", "--name-only", `${documents.evidence.integrationHeadSha}..${headSha}`]).split("\n").filter(Boolean);
+    requireValue(postRehearsalPaths.length > 0 && postRehearsalPaths.every((path) => allowedSealPaths.has(path)), `week2_post_rehearsal_scope_invalid:${postRehearsalPaths.join(",")}`);
+  }
 
   const policy = JSON.parse(readFileSync(resolve(root, "delivery/change-policy.json"), "utf8"));
   const changePlan = classifyChange({
