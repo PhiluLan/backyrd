@@ -4,6 +4,8 @@
   "sourceTreeSha": "82af3c335c071aeed7d0f57ef9d7338a9d211133",
   "nodeMajor": 20,
   "evaluatorPath": "packages/decision-vnext-core/sandbox/evaluate-internal-dark-shadow-week3.mjs",
+  "evaluatorBlobSha": "9e3c5deaeb4b5358b85c58bbf36c67e23d48f345",
+  "outputCanonicalHash": "0f223d56c0cfa65e21e76810db102a33e6e270a6760aacce1e892394aa54406a",
   "releaseHash": "b009054fc0429df8ca1b933efa1296fa98ddcfce78abcf61efe46813e0124c53",
   "controlHash": "88f19b43bb68add17285277827587721fe341b630b9473ddecdc4ff2c4a2a472",
   "allowlistHash": "b52e10ed3173e11f3385a27bd6f2fa7f409be46c0e96818254cbdd34ff186ffc",

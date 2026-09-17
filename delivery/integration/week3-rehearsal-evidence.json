@@ -1,18 +1,33 @@
 {
   "contractVersion": "backyrd.week3-rehearsal-evidence@1.0",
-  "status": "PENDING_LOCAL_REHEARSAL",
+  "status": "READY",
   "executionAuthorized": false,
   "productionActionPerformed": false,
-  "conflictCount": null,
-  "integrationHeadSha": null,
-  "orderedHeads": [],
-  "steps": [],
-  "combinedCommitSha": null,
-  "combinedTreeSha": null,
-  "overlaps": [],
-  "artifactHash": null,
-  "artifactManifestHash": null,
-  "reportHash": null,
-  "replayHash": null,
-  "recoveryMilliseconds": null
+  "conflictCount": 0,
+  "integrationHeadSha": "ce8ab1612f380461c96b77f18585807b74c654c6",
+  "orderedHeads": [
+    { "track": "WORLD", "headSha": "bee8c456f2fec036db2986f6c263d2c195ecea06" },
+    { "track": "USER", "headSha": "d7b728f6baa17cee1ca326e6203758417e037a83" },
+    { "track": "DECISION", "headSha": "f0d93903c84c387c448dc1ce50f2d6820a9a1c52" },
+    { "track": "INTEGRATION_FINAL_REVALIDATION", "headSha": "ce8ab1612f380461c96b77f18585807b74c654c6" }
+  ],
+  "steps": [
+    { "label": "WORLD", "left": "b98b3870f60e9495c10f3c23f006fb9b3213d63e", "right": "bee8c456f2fec036db2986f6c263d2c195ecea06", "treeSha": "ebd9adb094ee60429f7debf13d4aa24847fd5518", "commitSha": "6fec8e95bfcd6ae38c82b58d399263a287a59c15", "conflicts": [] },
+    { "label": "USER", "left": "6fec8e95bfcd6ae38c82b58d399263a287a59c15", "right": "d7b728f6baa17cee1ca326e6203758417e037a83", "treeSha": "638778a78adcb27e07557851f268ba8c10b3708e", "commitSha": "bc4ca7e565a0cf94765ff0cea57252a127a99c57", "conflicts": [] },
+    { "label": "DECISION", "left": "bc4ca7e565a0cf94765ff0cea57252a127a99c57", "right": "f0d93903c84c387c448dc1ce50f2d6820a9a1c52", "treeSha": "06c075543807713bb1f29528e73698224ba227a6", "commitSha": "5c1f34739b1335dfe355d426a4cbd9938756dd74", "conflicts": [] },
+    { "label": "INTEGRATION_FINAL_REVALIDATION", "left": "5c1f34739b1335dfe355d426a4cbd9938756dd74", "right": "ce8ab1612f380461c96b77f18585807b74c654c6", "treeSha": "fcf595b6f3cb31882b2ed50709898ac5ed3e4cdc", "commitSha": "0fd29398fd7b59c928a6607a51f01ac884f10544", "conflicts": [] }
+  ],
+  "combinedCommitSha": "0fd29398fd7b59c928a6607a51f01ac884f10544",
+  "combinedTreeSha": "fcf595b6f3cb31882b2ed50709898ac5ed3e4cdc",
+  "overlaps": [
+    { "left": "WORLD", "right": "USER", "files": ["package.json"] },
+    { "left": "WORLD", "right": "DECISION", "files": ["package.json"] },
+    { "left": "USER", "right": "DECISION", "files": ["package.json"] },
+    { "left": "USER", "right": "INTEGRATION_FINAL_REVALIDATION", "files": [".github/workflows/risk-gate.yml"] }
+  ],
+  "artifactHash": "260bc5282e43937f7ee9532733261ef0d213732ee733700219c55d94b41fbc3c",
+  "artifactManifestHash": "e60ed86e0dc013cb5f4fb7c2224f45a3cfc8ef90b69b9bfdfbc1bb1e458ce7ff",
+  "reportHash": "affc21b106bf503367b109557e210f0351618c59caa049ef7b48ae1e849488db",
+  "replayHash": "affc21b106bf503367b109557e210f0351618c59caa049ef7b48ae1e849488db",
+  "recoveryMilliseconds": 0.004
 }

@@ -1,4 +1,10 @@
 {
-  "contractVersion": "backyrd-decision-ci-build-artifact-v1",
-  "artifactHash": "PENDING_LOCAL_REHEARSAL"
+  "contractVersion": "backyrd.week3-shared-artifact-attestation@1.0",
+  "artifactContract": "backyrd-decision-ci-build-artifact-v1",
+  "artifactHash": "260bc5282e43937f7ee9532733261ef0d213732ee733700219c55d94b41fbc3c",
+  "sourceSetHash": "440d97d584dd00ce3876881704f225e5f346de69c722c7edf9b0f5b142623b96",
+  "fileCount": 200,
+  "nodeMajor": 20,
+  "combinedCommitSha": "0fd29398fd7b59c928a6607a51f01ac884f10544",
+  "combinedTreeSha": "fcf595b6f3cb31882b2ed50709898ac5ed3e4cdc"
 }
