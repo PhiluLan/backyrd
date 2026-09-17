@@ -488,11 +488,22 @@ jobs:
           WEEK3_EVENT_NAME: ${{ github.event_name }}
           WEEK3_CHECKOUT_SHA: ${{ github.sha }}
         run: |
+          WEEK3_CANONICAL_COMPLETION_SHA=9c38946462c5698ee1ff6375d996463254dd829e
           case "$WEEK3_EVENT_NAME" in
-            pull_request) WEEK3_MODE=PR_CANDIDATE ;;
+            pull_request)
+              if git merge-base --is-ancestor "$WEEK3_CANONICAL_COMPLETION_SHA" "${{ needs.classify.outputs.base-sha }}"; then
+                WEEK3_MODE=CANONICAL_DESCENDANT_PR
+              else
+                WEEK3_MODE=PR_CANDIDATE
+              fi
+              ;;
             push)
               test "$GITHUB_REF" = "refs/heads/main"
-              WEEK3_MODE=POST_MERGE_MAIN
+              if git merge-base --is-ancestor "$WEEK3_CANONICAL_COMPLETION_SHA" "${{ needs.classify.outputs.base-sha }}"; then
+                WEEK3_MODE=CANONICAL_DESCENDANT_MAIN
+              else
+                WEEK3_MODE=POST_MERGE_MAIN
+              fi
               ;;
             *) echo "Unsupported Week-3 event: $WEEK3_EVENT_NAME" >&2; exit 1 ;;
           esac
