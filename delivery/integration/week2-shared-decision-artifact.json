@@ -1,0 +1,770 @@
+{
+  "contractVersion": "backyrd-decision-ci-build-artifact-v1",
+  "testPlanVersion": "backyrd-decision-ci-test-plan-v1",
+  "nodeMajor": 20,
+  "lockfileHash": "a53a2c81372fc3c1cffbc582ad02008c79fba73d251b34c95a9a6af0b069c509",
+  "sourceSetHash": "c7f444b8dee86a39c15f4bdaeeae8191f7dd8f2ea67dd2588a5557c6950fc072",
+  "files": [
+    {
+      "path": "packages/decision-vnext-core/dist/baselines.d.ts",
+      "sha256": "4f942474e8b44eda129321ca0d2ebc40432f3d66f7648c85a8f95ecada1aae32"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/baselines.js",
+      "sha256": "2a4acba8a419c168fcaa944c9b88f79a28b384c7da1c50468a677ca5694653c1"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/candidate-pool.d.ts",
+      "sha256": "dc630ebbe0a91b6eafd0f2d62a7d98a366889bbddddd531246118c1a2fd1a46e"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/candidate-pool.js",
+      "sha256": "bde856853183640ca004e9a11287794b27fe11bb1eb8c41c90199b22e57b0158"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/canonical.d.ts",
+      "sha256": "e217a723b2a838fca8a3773baf3a3fcd1dbc76c002d79f316bae3f03e2d01432"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/canonical.js",
+      "sha256": "1d1eed51dbb2f6f0360055bdf4a094f3ce37eb85fbdaa3f736defcf90b56edf9"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/confidence.d.ts",
+      "sha256": "a8f4895daa28616e4fedb40b43308b03f6cd416b2c1551f902bf24c22e7165fc"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/confidence.js",
+      "sha256": "c8c16f71ade20134ac991f4b55e2ef1cd83506e946cd8b1f06b91a92be66dc1d"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-degradation.d.ts",
+      "sha256": "93aaaf42746f1ccf3511be78c55bc68a879a4d6be6fd71989b63bfea4ee02e59"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-degradation.js",
+      "sha256": "717319d711043623e78be002b611795735758763f3108b67492da57524e7ceac"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-fixtures.d.ts",
+      "sha256": "a8ccb633a8181ae524ff5e7348b11b33cd403f8e91171fb21966bbc14e7fe33f"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-fixtures.js",
+      "sha256": "9061c14d436304d73830dc188dd14d7369697af627ba312365e4d0426c819d43"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-flip-harness.d.ts",
+      "sha256": "c22df96904056b415b5954873182b27cc3ef90d46c7fde4a06dba05342f29c9d"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-flip-harness.js",
+      "sha256": "14257b2206d07c09265d50a04e22c63f4abb872499f33ae9571762f8788783f1"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-kernel-contracts.d.ts",
+      "sha256": "7acff8f609d410f43a6e18914dc8172200afa4d1ec9b9d2bb8cfd2c5ea2cff89"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-kernel-contracts.js",
+      "sha256": "0904d93fb27fbf39e6c9ecaf871efb824b9ac28c7dd56863b6875e39befbce1c"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-kernel.d.ts",
+      "sha256": "82f94d0a21489ae44f7cecc2d93b054550e99ecc971b2762e5632cbc33d32bf7"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-kernel.js",
+      "sha256": "5291e3d8f3077a44646b2099a98dc0348ad7ff3ad9b0491d2418d7f8529831cc"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-oracle-catalog.d.ts",
+      "sha256": "1cf0285291b30d2c46f1924bc1a391b90306419c8fdcf680ab8719b2f955f207"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-oracle-catalog.js",
+      "sha256": "e72c9824c8137f6666ca80d5d158e3297750db9add279172736efc2945ddeb26"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-oracle-provisioning.d.ts",
+      "sha256": "373c76bd36c066e9a518b329f08271eed8a367d87e590b1f87fb995f7fb16324"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-oracle-provisioning.js",
+      "sha256": "d1eaa0594fc8ede95ba6ed3f136ad0e9817f18b7564df9725bfdaf4c6b4e7add"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-oracle-release-fixture.d.ts",
+      "sha256": "fe2e5b38d54494b8df77378fa9d46d5a57e83841791e1c68c53dc8584b398889"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-oracle-release-fixture.js",
+      "sha256": "73a927ec9d91e16d4cc8f3a8a0b19af6d0ff37b87c9c9c3f09a5d564b6afc539"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-oracle.d.ts",
+      "sha256": "bce794127a37f7552dd8de3cf884ea6077b409c29c5b327dc4ab87845fb3c997"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context-oracle.js",
+      "sha256": "bb3aab320abc0a19128785115060aa22238b46fa74698b046ea0c1496a4b356f"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context.d.ts",
+      "sha256": "52b6aceb2e9e744b1f39b4e9f50d72cb9f12419297834f64921d42a8d6f7391d"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/context.js",
+      "sha256": "4ed9bc2c304f99361acb5ca0f1f2a1052165665b040a7aee98096b23a65c72c1"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/contracts.d.ts",
+      "sha256": "647439d1f4fb8634cd27841784bcd3babb7ab25cbf09269d116f4ae88775aa16"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/contracts.js",
+      "sha256": "bac6d817e8a15ecd3092e8548cd2ae34dac7985b4eeacc0f8c935f29bb30226e"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/dark-request-contracts.d.ts",
+      "sha256": "4694890c98d18bc73c52c1b9083eb24876df545abe8ba803ce5742df55f1939d"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/dark-request-contracts.js",
+      "sha256": "b405aab907624be490b9c3219a41f64e868f83ecc980456da4fe70f1055edb84"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/dark-request-fixtures.d.ts",
+      "sha256": "4e0c80d122e50cfbedf7dd33ed381f8502557e329a904f8e11d68a7a40be7b9d"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/dark-request-fixtures.js",
+      "sha256": "00295a48075dba85eac587c375567ef55482b9e3ef10b19f2ad80ccd22ad7cc5"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/dark-request-ports.d.ts",
+      "sha256": "cce8d8994ea1dea83132853f829d5ed02e806cab1035ba5704f08cbd5458915b"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/dark-request-ports.js",
+      "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/dark-request.d.ts",
+      "sha256": "28f9e04ce41bfab4b09f650f3858d8ae49073c35825f1cc8cb8887ec2b0ad875"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/dark-request.js",
+      "sha256": "6bdfd61e822e6fe5a0cbdb0f0bedd79355a5f24c4e708474c8f633f6f6979ecf"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/degradation.d.ts",
+      "sha256": "1514fe9f32e7ade103537fbce005e1ade728d2d5222dd450ae3a2eb38c5da0ef"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/degradation.js",
+      "sha256": "fe7cba201748d173b23ee9dada86112b6d73615988d6ac1f83cb643034c1ee69"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/eligibility.d.ts",
+      "sha256": "4f6696b34ed1a696545376e612abfd655d5293b05f5e6d77d51004e732f8762a"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/eligibility.js",
+      "sha256": "0c4eea10f49f1cf01401d2fadd8b193b1187e0312d60f48d97f319953e068668"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/engine-registry.d.ts",
+      "sha256": "06a93ff9bae170f9c8e98b111f1b30e04f3f0582914896564bb35d621b290a97"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/engine-registry.js",
+      "sha256": "67567bae38e0eceb1db99f33e7454d94d132e6d3fdae3eb75259c2ab810e0952"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/evaluation-authority.d.ts",
+      "sha256": "96fb045bec1774965946714574bbc7789e94542c38811fa13a6711f3f87a305d"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/evaluation-authority.js",
+      "sha256": "98880471007b44cfc07695a9bd518418da816786a04ef77a5d4de11ad50058ed"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/evidence.d.ts",
+      "sha256": "1acd8e4845ba8bfd4a2e814477f26c653102164e4ebaa93e654b36247c31d60a"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/evidence.js",
+      "sha256": "1a3514462e92d7cd463807e04400b3ba6c712308ab616859e066b4fa15deced0"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/execution.d.ts",
+      "sha256": "de8c6d40baa9f22251729906523734151c3934d01650c07cfed3763a9f0c1491"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/execution.js",
+      "sha256": "383c8f303a730b50ce2206aba4a2a2cdcb41580c4a148e4da6bcd0d2e4049c01"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/explanation.d.ts",
+      "sha256": "8d4783ddd5919fe6e7bbbdc955ede8fd7c1f212bc78a5b7893e27b76a1b9c57a"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/explanation.js",
+      "sha256": "05aafcc52cbdb4e6eea5719e02c939aef7fe9c39e1702b8b32499beb09da93ef"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/index.d.ts",
+      "sha256": "07b395a012147bee53ba8dfc75fea7d56171765e5bcdba6db39cbfb3b2a93e5d"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/index.js",
+      "sha256": "07b395a012147bee53ba8dfc75fea7d56171765e5bcdba6db39cbfb3b2a93e5d"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/integration-harness.d.ts",
+      "sha256": "32364d5d8cf988b76640e1f67d0164697b21684f4d3c415bdbbb94f9f0a8bbaa"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/integration-harness.js",
+      "sha256": "8ef737db6f5d7366f99fd954fcf735dbfacaf72001307095ed918265dfdd4a38"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/manifest.d.ts",
+      "sha256": "ac18e645fad4734387bfed6b10580ce8f4303802a78a7ecad48eb19b86fcf8f9"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/manifest.js",
+      "sha256": "20a77d5e5b5c41b04f9d9804ba131e5f22c983c1b88d3f07582019b0bf8edfae"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/opening-state.d.ts",
+      "sha256": "2333f752463e48b00a32cf4186a0e0ef6f2769a8c73f293e5648e0ceeb91b5c5"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/opening-state.js",
+      "sha256": "dec146b6463dbee2c8336c64b64d9e861c51357f6c098a3ee67d6cfae90373ba"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase2-contracts.d.ts",
+      "sha256": "bc5aa8a3d17648e57b2d7408cae973a7f51528394f3fe92d4003d434f3f9f59f"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase2-contracts.js",
+      "sha256": "ab2abf6cc894352a7aab0e6b0a11aeaed796a0e76d5b8eb58014e16cc620a044"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase2-fixtures.d.ts",
+      "sha256": "3098c346fa3bd82f277b2c5a9271bd0b3cb82864bf36f49a1e57c005e733c6ba"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase2-fixtures.js",
+      "sha256": "ca6e2e0ce4517ddefc74dd021fbfb0f94c52def945c31af920286b532d755a60"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase3b-artifacts.d.ts",
+      "sha256": "2db4d874143d5aea599ab6b3178f1bc2bf07f8410fe83c0341850c5134d49ab9"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase3b-artifacts.js",
+      "sha256": "f4e2238f670fcc145181d9af57619eabcb33360f2b394173bd9d387cd6c4e3e6"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase3b-contracts.d.ts",
+      "sha256": "ebe84dc7d218a3f7d160cd02e09504e25b2ed2ad5c40ba04932c6a14a744f92f"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase3b-contracts.js",
+      "sha256": "06590b459451d2daf8a59745f9dcf23ce40926e195dd929bab0872aea5dd03c8"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase3b-oracle-workbench.d.ts",
+      "sha256": "2da89bae797125ac53167370ce3f2f2eccb22b9fd6ea9f0f2a1f34bae21c06ad"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase3b-oracle-workbench.js",
+      "sha256": "3a1e6a36457115dad9d1824f62626fcdf4546b5111b657eaa15a2e74576e996b"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase3b-policy.d.ts",
+      "sha256": "9368e7b8f040da453e3de097209cf01c036d6ef6bd13945f44d83dedf5bd1f31"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase3b-policy.js",
+      "sha256": "3f45612459d5135c5a949fa64bc18fa2fe8ec20bebdad21d988e41f22b4c8764"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase3b-release.d.ts",
+      "sha256": "96db7d07341ce5d14885346aea9a3ad84f48a86d880fc4aa0a39fe35f399d1a8"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase3b-release.js",
+      "sha256": "67c54e1bbbc6939fd86a4d24094c9c1d891bea59570e31bed533da247261c7ee"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase3b-resolvers.d.ts",
+      "sha256": "5b20f48f343d7f8a9464b189512da16688bf211d87eb65e3adb7c9fd95280615"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase3b-resolvers.js",
+      "sha256": "e418a8c2fb64b5921f001c96a154183fd9083364cd1b9c289f9c05b26ed1c5ff"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase3c-lab-contracts.d.ts",
+      "sha256": "8abd4b6d3a4457adc3f514fc3e3c9bbe907f33fad4e22134db9227ce451e918e"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase3c-lab-contracts.js",
+      "sha256": "03ca1aab68311861f804885d14206547bc7e2d0e009ac486d581844295744bf8"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase3c-lab.d.ts",
+      "sha256": "531f3151ea0569e03094ea0c32d24e3cc9e0eb53e7e6c81f32f38e7c0f671083"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/phase3c-lab.js",
+      "sha256": "1126502528d4c8311da3090afbcd3465904bda8ab0c78496064d3b7bda6787c3"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/pipeline.d.ts",
+      "sha256": "03dbe0239ae1c6e459c393fdd6f57e7b644a0569321a8dd8244f12dbef0b6f27"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/pipeline.js",
+      "sha256": "fbb4bf256720ca2c1ab5b1d41e177fa1061105f1f64a1c3db076aa9a8a07b6af"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/sandbox.d.ts",
+      "sha256": "0edf48d1e5c5c28fed1e0339b14cb05bef24b0b917136456a0c06d6b7ec396c4"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/sandbox.js",
+      "sha256": "31d02e0511ae8f4e7a07020c540b7a3acb1cb04de4ff6aa6f63296cf0e35fad7"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/schema.d.ts",
+      "sha256": "7e0074d33e43f950adcf2d36ad5ed3460c6a9c1599260fb4a921adb442de8383"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/schema.js",
+      "sha256": "63a0e9e42bbe7c086c02bb09b1e537594d5fa0cd824288c77d909bc0a332caf9"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/shadow-contracts.d.ts",
+      "sha256": "49b8d649f3ca0c654718ea53372dd46623c9a09a0575ba9c3f4118a0a4aa5ec8"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/shadow-contracts.js",
+      "sha256": "efb17c21cf41f5ec93781587d271f474e5a502838fa83b6805f0ec06f703f316"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/shadow-fixtures.d.ts",
+      "sha256": "87dd0acfb180a1a604f4906d8dc12350519e9530b21222c14953462247dc354b"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/shadow-fixtures.js",
+      "sha256": "89e2d4c565e5b02e7091738f7239620fefc3406fc8669b3b3641dca4fe9bcdd4"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/shadow.d.ts",
+      "sha256": "6c4fe549926e1d00e6a4ec66392e0e5fb35736240c9a7c3e4b566e543ad3fb84"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/shadow.js",
+      "sha256": "3feb836b505ad341cdb5e37966486717fad9f0e0c465beaa2768f3641a8ed996"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/synthetic-world-policy.d.ts",
+      "sha256": "275428770578a3c182122313903a0284da25adeaa8989c8f0ef2f77d5af8f429"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/synthetic-world-policy.js",
+      "sha256": "93187395ca0d6f177d3cb55238d28858de67f37cab0156f731b029ac7e491feb"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/user-adapter.d.ts",
+      "sha256": "a26e6617f85cf1f6b83909756fd38931bfd2f51bcf37915f1c206528b31ee71f"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/user-adapter.js",
+      "sha256": "8c49e01c3022fe0208196ca5831bafa7195eb01f30e475a2ce2bced02049e77d"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/world-adapter.d.ts",
+      "sha256": "d4a8a3d9718ba64cd09897884ce6956a9a997862f3595436cbf181f17893329f"
+    },
+    {
+      "path": "packages/decision-vnext-core/dist/world-adapter.js",
+      "sha256": "1c0af33b02bbc7f32759bcfabd6eb919964505084a32eb999dc5e02ab506bac4"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/calibration-adapter.d.ts",
+      "sha256": "0f1691221a5b3f27c1134f5c36454d5633ac982ab8e60669b76569acff76ff94"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/calibration-adapter.js",
+      "sha256": "3ae6923e8014d1840052ca21f78206a975116d76e6279daf41b21e8b83a21db7"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/calibration-fixtures.d.ts",
+      "sha256": "3bc09cc5fd68ffd4a125faac7de1cbce5b66bd45302b7495a679c9a3d04d0d25"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/calibration-fixtures.js",
+      "sha256": "d42172af2b29313f621d938893425ec8a31222dfd36ce8d6be85ab8c6d9f03a4"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/calibration.d.ts",
+      "sha256": "929a90ae7704292638b4525de52d69f3e75971a1ebdcbffece801a711455648f"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/calibration.js",
+      "sha256": "ab3e7da3c65453c53df01a388d9df982e57de3e93afcaf8c3d15c9c216bdb3dd"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/canonical.d.ts",
+      "sha256": "9446b2d94d8e3c8875f075acc7bf1e0d363a681fdb2f42e1e132627872b7486c"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/canonical.js",
+      "sha256": "5d07cf7554df0c6aaed8eb08392b95739921fdedba7a1f22f7f68c5e3f13c70f"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/contracts.d.ts",
+      "sha256": "01370b45b83490a23ed96fca122268ff5215911b85a4fde3a7fdecdfdbfa596b"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/contracts.js",
+      "sha256": "a4e11f37a625d2abc4a78ed53b215ebe70b2fdd049920c9db43bd37446d7d19e"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/dark-projection-runtime.d.ts",
+      "sha256": "bcf4b2f4106b40b20e0e73dd005b9fc0f96f0293b3c677540dc467b102f4ebd3"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/dark-projection-runtime.js",
+      "sha256": "3cd466ea41175dcd1aa0c2de28083785f9ebae9e51a533c141fd6ed74091723d"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/dark-runtime.d.ts",
+      "sha256": "a0efb64952d0fec383cc7354ccb73afd70a8a7f0eb7da77a79136d08d1452090"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/dark-runtime.js",
+      "sha256": "42853ef7ae0765c132c202da278ba6032e54aa5e7b32c4b4dd61893f79a319f7"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/event-catalog.d.ts",
+      "sha256": "07e0ff7a66c2fc040c1206c022adddd5e870043ca9bdab2ce74ba33ca7907a92"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/event-catalog.js",
+      "sha256": "b5ac6de607774d8fd205de187a6fcd07560f9fbc5dbabc1f2c4d6a7db0622ef0"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/evidence-chain.d.ts",
+      "sha256": "ef024721233f98d7e740ea381c7727a13792576e908ac3728e868e0fb617096f"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/evidence-chain.js",
+      "sha256": "078abaab6bc7f23aa633031894460356b47f7ac739a01ce5b605c694ebd36935"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/evidence-lifecycle.d.ts",
+      "sha256": "5bf2bce269f668cd7870c476679979a9f6e44dba4499def5b36886a8ac30c49d"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/evidence-lifecycle.js",
+      "sha256": "b9e6e540c8d9661e7674fe94152b96ba859dab4d541b940895f1ae2586958c8c"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/fixtures.d.ts",
+      "sha256": "9791384ac4c7a4719e562078a0b1c80f89ec65d93a23fdb39392e2ae5931743c"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/fixtures.js",
+      "sha256": "9e676e8ba58abb9b22efbea117cfda5051b0a3504616fa9f3719808448d25304"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/index.d.ts",
+      "sha256": "b177f8630df5f76c55655a15f33c0a2e9209cd0ea62b3798d994d02668cd5489"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/index.js",
+      "sha256": "b177f8630df5f76c55655a15f33c0a2e9209cd0ea62b3798d994d02668cd5489"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/ingestion.d.ts",
+      "sha256": "42e4d3030101381559bfe6e924812308f4f72caf9788141ef07dfae9006081c5"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/ingestion.js",
+      "sha256": "8619624781843826841d4ee9164df857eee4726fa62437a0d3e8926877e06ee3"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/journey-resolver.d.ts",
+      "sha256": "49ef8e7ead2ba635cd9907b0f7e14e4fadc66d170ed8ffa56bc4c8667032de31"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/journey-resolver.js",
+      "sha256": "cc3407a0f2f8d01ae4cb95579fb22a59db24555b7687a2e08560d0be7cd9c0fa"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/lifecycle.d.ts",
+      "sha256": "99530a957a0ba91435dc85a0f6e60d6f46d553df5291c9d332a773d78b4c1d2e"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/lifecycle.js",
+      "sha256": "c14f38fb659f9e2a6d2abae9266948081bdde10761af46b9a4c2371043a459c3"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/phase3d-lab.d.ts",
+      "sha256": "c58bc5c20660558d756ac8fb75a42b827f4d74d0e3e15702f0c44abe4a4014ca"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/phase3d-lab.js",
+      "sha256": "9f21ebb85abeb9b551f4db9bcea279eefbeb311b79e111db8e40b01e2ca667be"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/ports.d.ts",
+      "sha256": "b72848b9b72b5f24ad0cc1e7a86e26b2e6ad925856dba6cd27cb3deb5e2eb67c"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/ports.js",
+      "sha256": "8e609bb71c20b858c77f0e9f90bb1319db8477b13f9f965f1a1e18524bf50881"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/product-policy.d.ts",
+      "sha256": "ec7df5bf6c0a2e643d999eade3f6f29fd3c697ddbe07620aeacc172d3d7aac7e"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/product-policy.js",
+      "sha256": "d1317cc50b2c258ff1dbcc928abda5b7c191aab76cb86d4c157c2ba33ea90b08"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/projection.d.ts",
+      "sha256": "d0b1000257ba518d716bb58cd83c480e3984b0226916b6275bab36ee2b80b3a0"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/projection.js",
+      "sha256": "1ce44c571f4a19bdc9f9eb991b944ed8d100486163fb4b1dea1c7655d652d610"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/schema-catalog.d.ts",
+      "sha256": "072e5d1972b4fa2d1d8642744165269253aad16bd21c47d6fe12d10dcf48f778"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/schema-catalog.js",
+      "sha256": "1d364349dadf922dead36e482c01e3bb30cc1e51327b0dede128863ab8134ec3"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/schema.d.ts",
+      "sha256": "7f9f2ec148a2141ecc1febc14a2cf55bc32e4ee6193b6f8f46f1b1a5d8cd3ccf"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/schema.js",
+      "sha256": "6e94891cbd36b6fc44f73002d1b54b016f201f6c452eec6d00914aa3c8525095"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/temporal.d.ts",
+      "sha256": "1fd50aa4e1fb5617d5876306cb0e85751a758789e6dc3f357332cc19c0cee636"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/temporal.js",
+      "sha256": "f07b93c32b7e0e3bc2aa7b596796d0a33225dc9508179d2cf3a72f0e4d516b59"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/user-model.d.ts",
+      "sha256": "7b818966dad08054b01c25a7f242a1665a50f36e2625ebe8df072040013ab3da"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/dist/user-model.js",
+      "sha256": "234e9b396bd982fb516bfb28549c63cfc940bdc609c21807867af21e329145e5"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/authoring-taxonomy.d.ts",
+      "sha256": "458bcc86e3a316641be033a656450709c2ecef351a2e8c9f8f11d4dfefa344c2"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/authoring-taxonomy.js",
+      "sha256": "dcd9e74f89a8010a574840525fcbb41f9c67c903629b5264178b1e4fe0198c52"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/authoring.d.ts",
+      "sha256": "b0c27cd269466975a261f24e773d8d580763cad2c23c5620e52fe0fbd4ba5328"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/authoring.js",
+      "sha256": "9fc06c0575579ef618552726855f345e49c823f676ab8598f09bd1f3d4b006ac"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/calibration.d.ts",
+      "sha256": "b84b43571b9b840fb12c2e3460e78435377428737e15a19891d824b85f82a14c"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/calibration.js",
+      "sha256": "d554ef34b0a93071677a3c1f761055e800512d04f4dd0937862888b2f63cbc19"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/canonical.d.ts",
+      "sha256": "ca8444547aa773684b9217e78374f58157a758f200165f1ab09101b88ea94111"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/canonical.js",
+      "sha256": "e8ecd90b679f43b0cbe70145adb566b1e148cbe6a971b723d60538af683bbd32"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/contextual.d.ts",
+      "sha256": "b24b81e7cbb5be3eb41344e3f3943e6e722dd1e20902756008bd52cc14fe24c4"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/contextual.js",
+      "sha256": "bb4f75cf8af6956ab102644f96786cfcc823a8d79a21c266fc38a25d2440a264"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/contracts.d.ts",
+      "sha256": "d019430a39073e922c8fd03dceef4b535365dde981f16c8b061af49eb2bb9071"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/contracts.js",
+      "sha256": "b0785ec279ea993e9867487cb76a18f448981fb0ec3965ffef4817c2d88b4578"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/dark-reader.d.ts",
+      "sha256": "7c02dac803d5157306b9b68cde758285cdf0fda63e897918da1148cccf2aa3af"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/dark-reader.js",
+      "sha256": "74f843f758f4918d9474cffebe436cf69a0366f9d79b0e7a022208a5c83bc7d6"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/derived.d.ts",
+      "sha256": "bc9299788a4980eb16242b8b1609a8e996aa3e3efc9d0f97af2147cd3a9766f0"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/derived.js",
+      "sha256": "1c43ca7decb76d677c4a06523ae47cd3f18ad4badee92ae9a6d80e1369d2df40"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/fixtures.d.ts",
+      "sha256": "fd1e618506ee3b2fafba261ae7b2bcb0f31f032b66eadaaf48d96b1106d67002"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/fixtures.js",
+      "sha256": "9a2e652cf493d50b6851e889ab0e786eed216680488d0da7d42cd07e0eb2cdb9"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/founder-handoff.d.ts",
+      "sha256": "fa7754bea890e623a32a39be5d6975efdaee6cde8231795198bc526c89ea4e41"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/founder-handoff.js",
+      "sha256": "5c594d98af5f90bb3dd539346430eca03c1ea835230c82fcc69b372d1fb0786a"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/governance.d.ts",
+      "sha256": "bca4fbbeec9f45f671dd65fa2c6240a19cf7fe65c0354c6d0833890ae05f8a6e"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/governance.js",
+      "sha256": "381c76a748bc782861d6210513c465ac3a9c24e3e8d9242f57216b63e29ff623"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/index.d.ts",
+      "sha256": "0b54f9abc5ac4fe391e2e36dd0a9913b12251fc73693e242136ebb2f62492133"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/index.js",
+      "sha256": "0b54f9abc5ac4fe391e2e36dd0a9913b12251fc73693e242136ebb2f62492133"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/legacy-adapter.d.ts",
+      "sha256": "46a915042b352c4bfe6fb26495c61d3e1cbd52f388e92be07de9977cd55df913"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/legacy-adapter.js",
+      "sha256": "104b7bf4beba79a414a036b801cb483926cba87c6b30f6ba89819758341b9df0"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/legacy-mapping.d.ts",
+      "sha256": "7796eda06bdce9a445b0ece87396653a046686ea881510b4623099a11b3a450c"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/legacy-mapping.js",
+      "sha256": "6086bfe8f9c8cd7a68817d2f65e55dd82f81ee18d0d2fe1bf255a69c23d1511e"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/legacy-rehearsal.d.ts",
+      "sha256": "ed4dd157dfd1b74e7fef7e0891850fc85b1f8c4a07711c23e114e97246acf49c"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/legacy-rehearsal.js",
+      "sha256": "1f905b311bf16032c689a223fb40edc0569abb391705d71b55dcb0ccf103bf6a"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/port.d.ts",
+      "sha256": "51b6f65e4673ec6ae7ff01a2f9201ced03f6f1b415bcddbeb44a0494416748c0"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/port.js",
+      "sha256": "23babfb4b1a48e96984be630a0e29a3d0f464b0186108e3550cfaf5619a15205"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/registry.d.ts",
+      "sha256": "53fcfcadd6c25fca933f8f0f1258e9f94b3ec23767e967487e97aa1987de1d76"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/registry.js",
+      "sha256": "4a1d8973d04ec604735c7f0bb084ea4f041202e9eac796759f685a82f68eb490"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/resolver.d.ts",
+      "sha256": "04c3a09c2444b3b956ae6d94c0dea2287c29c505be3bfef7a76f02450891ac53"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/resolver.js",
+      "sha256": "f07c4cb58527e18934ee541bf59f001e9aa6939a98bb2b8f68a72d0718f11566"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/schema.d.ts",
+      "sha256": "5d402cb6fd43fa111c87557c4e83c017b007480e5414f9cfd9a6befa62115776"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/schema.js",
+      "sha256": "d8ddef952459af63865c9f3f28b575e6821e08c78d5ad319290689d5f6aff5b1"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/slice3b.d.ts",
+      "sha256": "0d665400ccf3cc653f0e645a4236ba5d3667d8b27363ae07e95d6dfcfdb4c9a6"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/slice3b.js",
+      "sha256": "cff65147bc2c0705dd9f6984036dfacd3b4084628b3a7ff2fff82ab1a385d166"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/source-policy.d.ts",
+      "sha256": "026845c5a8a6c92eb38fe9ec000fc3ec31938f0315ffb5251082dffb23e94ff7"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/source-policy.js",
+      "sha256": "36a757c5e81f0467f1dab0b1ebb8dc9eec788c894df9143ea775fa38397439c6"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/temporal.d.ts",
+      "sha256": "feb80cb4b3ec1566798b61be947fe5fb437305831f7edab00b235e6688073378"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/temporal.js",
+      "sha256": "be17ca51e84fdbc69d434701fdb37869a4bfc7b1fe68672fd5a46ba2a2ec83f7"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/verification.d.ts",
+      "sha256": "e13ab908687f6fd2611759d8abfb70919ef718f441f652c202a1e81939429d45"
+    },
+    {
+      "path": "packages/world-knowledge-core/dist/verification.js",
+      "sha256": "dd5f45de84fa71c71a82cd2d697d524e2ae4afdb1734e4d223af1dfd9a6c19f4"
+    }
+  ],
+  "artifactHash": "2abf8daa3c67c0c62247be3c187066d6c60147590557eed8138c25bdd04fac4c"
+}
