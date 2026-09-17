@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { validateFounderLiveDocuments, verifyFounderIdentityMode } from "./founder-live-control-plane.mjs";
+import { validateFounderLiveDocuments, verifyFounderIdentityMode, verifyFounderSealScope } from "./founder-live-control-plane.mjs";
 
 const root = new URL("../..", import.meta.url);
 const load = (path) => JSON.parse(readFileSync(new URL(path, root), "utf8"));
@@ -26,6 +26,13 @@ test("PR_CANDIDATE and POST_MERGE_MAIN identities are disjoint and exact", () =>
   assert.equal(verifyFounderIdentityMode({ mode: "POST_MERGE_MAIN", baseSha: base, headSha: merge, checkoutSha: merge, mainSha: merge, headTree: candidateTree, checkoutTree: candidateTree, candidateHead: candidate, candidateTree, parents: [base, candidate] }), true);
   assert.throws(() => verifyFounderIdentityMode({ mode: "POST_MERGE_MAIN", baseSha: base, headSha: merge, checkoutSha: merge, mainSha: merge, headTree: candidateTree, checkoutTree: candidateTree, candidateHead: candidate, candidateTree, parents: [candidate, base] }), /parents_mismatch/);
   assert.throws(() => verifyFounderIdentityMode({ mode: "UNKNOWN", baseSha: base, headSha: candidate, checkoutSha: candidate, mainSha: base, headTree: candidateTree, checkoutTree: candidateTree, candidateHead: candidate, candidateTree, parents: [] }), /mode_invalid/);
+});
+
+test("only one exact evidence-only seal commit is accepted", () => {
+  const paths = ["delivery/integration/founder-live-status.json", "delivery/integration/founder-live-post-deploy-evidence.json", "delivery/integration/founder-live-production-plan.json", "delivery/integration/founder-live-rehearsal-evidence.json", "delivery/integration/founder-live-shared-artifact.json"];
+  assert.equal(verifyFounderSealScope({ commitCount: 1, paths }), true);
+  assert.throws(() => verifyFounderSealScope({ commitCount: 2, paths }), /commit_count_invalid/);
+  assert.throws(() => verifyFounderSealScope({ commitCount: 1, paths: [...paths.slice(0, -1), "mobile/app/(tabs)/decision.tsx"] }), /scope_invalid/);
 });
 
 test("mobile integration has no client activation toggle, raw telemetry, or second UI", () => {

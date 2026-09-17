@@ -12,6 +12,7 @@ const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const BASE = "9c38946462c5698ee1ff6375d996463254dd829e";
 const BASE_TREE = "9e74daabc42f86327291b781c43b41502f2579a8";
 const SHA = /^[0-9a-f]{40}$/; const HASH = /^[0-9a-f]{64}$/;
+const SEAL_PATHS = new Set(["delivery/integration/founder-live-status.json", "delivery/integration/founder-live-post-deploy-evidence.json", "delivery/integration/founder-live-production-plan.json", "delivery/integration/founder-live-rehearsal-evidence.json", "delivery/integration/founder-live-shared-artifact.json"]);
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] }).trim();
 const load = (root, path) => JSON.parse(readFileSync(resolve(root, path), "utf8"));
 const requireValue = (condition, reason) => { if (!condition) throw new Error(reason); };
@@ -66,7 +67,13 @@ export function verifyFounderIdentityMode(value) {
   return true;
 }
 
-export function runFounderLivePreflight({ root = ROOT, base = BASE, head = "HEAD" } = {}) {
+export function verifyFounderSealScope({ commitCount, paths }) {
+  requireValue(commitCount === 1, "founder_live_seal_commit_count_invalid");
+  requireValue(paths.length === SEAL_PATHS.size && paths.every((path) => SEAL_PATHS.has(path)), "founder_live_seal_scope_invalid");
+  return true;
+}
+
+export function runFounderLivePreflight({ root = ROOT, base = BASE, head = "HEAD", checkout = "HEAD", mode = "PR_CANDIDATE", canonicalMain = "origin/main" } = {}) {
   requireValue(git(root, ["rev-parse", `${base}^{commit}`]) === BASE, "founder_live_requested_base_invalid");
   requireValue(git(root, ["rev-parse", `${BASE}^{tree}`]) === BASE_TREE, "founder_live_base_tree_invalid");
   requireValue(git(root, ["merge-base", "--is-ancestor", BASE, head]) === "", "founder_live_candidate_not_descendant");
@@ -94,12 +101,18 @@ export function runFounderLivePreflight({ root = ROOT, base = BASE, head = "HEAD
     requireValue(sealedPlan.newMigrations === 0 && sealedPlan.deployFunctions.length === 0 && sealedPlan.authDeploy === false && sealedPlan.runtimeActivation === false && sealedPlan.executionAuthorized === false, "founder_live_production_scope_open");
     requireValue(postDeploy.status === "NOT_EXECUTED_NO_PRODUCTION_AUTHORITY" && postDeploy.productionQueries === 0 && postDeploy.migrationsExecuted === 0 && postDeploy.deploymentsExecuted === 0 && postDeploy.otaActions === 0 && postDeploy.executionAuthorized === false, "founder_live_post_deploy_claim_invalid");
     requireValue(documents.status.ctoReviewReady === true && documents.status.productionStatus === "NO_GO", "founder_live_cto_status_invalid");
+    const headSha = git(root, ["rev-parse", `${head}^{commit}`]); const checkoutSha = git(root, ["rev-parse", `${checkout}^{commit}`]); const mainSha = git(root, ["rev-parse", `${canonicalMain}^{commit}`]);
+    const parents = git(root, ["show", "-s", "--format=%P", checkoutSha]).split(" ").filter(Boolean);
+    const candidateHead = mode === "POST_MERGE_MAIN" ? parents[1] : headSha;
+    const candidateTree = git(root, ["rev-parse", `${candidateHead}^{tree}`]); const checkoutTree = git(root, ["rev-parse", `${checkoutSha}^{tree}`]);
+    verifyFounderSealScope({ commitCount: Number(git(root, ["rev-list", "--count", `${evidence.functionalHeadSha}..${candidateHead}`])), paths: git(root, ["diff", "--name-only", `${evidence.functionalHeadSha}..${candidateHead}`]).split("\n").filter(Boolean) });
+    verifyFounderIdentityMode({ mode, baseSha: BASE, headSha: mode === "POST_MERGE_MAIN" ? checkoutSha : headSha, checkoutSha, mainSha, headTree: mode === "POST_MERGE_MAIN" ? checkoutTree : candidateTree, checkoutTree, candidateHead, candidateTree, parents });
     seal = { artifactHash: artifact.artifactHash, sourceSetHash: artifact.sourceSetHash, functionalHeadSha: evidence.functionalHeadSha, combinedTreeSha: evidence.combinedTreeSha, e2eEvidenceHash: evidence.e2eEvidenceHash };
   }
   return { contractVersion: "backyrd.founder-live-preflight@1.0", gateStatus: "GREEN", releaseStatus: state.status, boundCandidates: state.boundCandidates, executionAuthorized: false, baseSha: BASE, headSha: git(root, ["rev-parse", `${head}^{commit}`]), treeSha: git(root, ["rev-parse", `${head}^{tree}`]), binding, seal, productionPlan: { planHash: plan.planHash, pendingMigrations: plan.pendingMigrations.map(({ path }) => path), newMigrations: 0, deployFunctions: [], authDeploy: false, runtimeActivation: false, executionAuthorized: false }, changedFiles: changed };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try { process.stdout.write(`${JSON.stringify(runFounderLivePreflight({ root: resolve(process.argv[2] ?? ROOT), head: process.argv[3] ?? "HEAD" }), null, 2)}\n`); }
+  try { process.stdout.write(`${JSON.stringify(runFounderLivePreflight({ root: resolve(process.argv[2] ?? ROOT), head: process.argv[3] ?? "HEAD", checkout: process.env.FOUNDER_LIVE_CHECKOUT_SHA ?? "HEAD", mode: process.env.FOUNDER_LIVE_MODE ?? "PR_CANDIDATE", canonicalMain: process.env.FOUNDER_LIVE_CANONICAL_MAIN ?? "origin/main" }), null, 2)}\n`); }
   catch (error) { process.stderr.write(`founder_live_preflight_blocked:${error.message}\n`); process.exitCode = 1; }
 }
