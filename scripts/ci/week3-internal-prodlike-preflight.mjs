@@ -60,7 +60,7 @@ export function runWeek3Preflight({ root = ROOT, baseSha: requestedBase, headSha
   const artifactAttestation = { artifactContract: artifactExecution.artifact.contractVersion, artifactHash: artifactExecution.artifact.artifactHash, sourceSetHash: artifactExecution.artifact.sourceSetHash, fileCount: artifactExecution.artifact.files.length, nodeMajor: 20, combinedCommitSha: reconstruction.combinedCommitSha, combinedTreeSha: reconstruction.combinedTreeSha };
   for (const [field, expected] of Object.entries(artifactAttestation)) requireValue(documents.sharedArtifact[field] === expected, `week3_shared_artifact_mismatch:${field}`);
   requireValue(artifactExecution.verifiedTracks.join(",") === "WORLD,USER,DECISION,INTEGRATION", "week3_artifact_tracks_invalid");
-  const sealedArtifactFileHash = sha256(readFileSync(resolve(root, "delivery/integration/week3-shared-artifact.json")));
+  const sealedArtifactFileHash = sha256(readFileSync(resolve(root, "delivery/integration/week3-shared-artifact.json"), "utf8"));
   requireValue(documents.evidence.artifactHash === artifactExecution.artifact.artifactHash && documents.evidence.artifactManifestHash === sealedArtifactFileHash, "week3_artifact_evidence_mismatch");
   requireValue(documents.evidence.combinedCommitSha === reconstruction.combinedCommitSha && documents.evidence.combinedTreeSha === reconstruction.combinedTreeSha, "week3_rehearsal_identity_mismatch");
   requireValue(JSON.stringify(documents.evidence.orderedHeads) === JSON.stringify(reconstruction.orderedHeads) && JSON.stringify(documents.evidence.steps) === JSON.stringify(reconstruction.steps) && JSON.stringify(documents.evidence.overlaps) === JSON.stringify(reconstruction.overlaps), "week3_rehearsal_detail_mismatch");
