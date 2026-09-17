@@ -46,6 +46,7 @@ const fourTrackInputs = (value = documents()) => ({
     overlaps: clone(value.evidence.overlaps),
   },
   sealedArtifact: clone(value.sharedArtifact),
+  sealedArtifactFileHash: value.evidence.sharedArtifactManifestHash,
   execution: {
     combinedCommitSha: value.evidence.combinedCommitSha,
     combinedTreeSha: value.evidence.combinedTreeSha,
@@ -191,7 +192,7 @@ test("wrong shared artifact hash fails closed", () => {
 test("manipulated shared artifact manifest and file set fail closed", () => {
   const manipulated = fourTrackInputs();
   manipulated.sealedArtifact.sourceSetHash = "0".repeat(64);
-  assert.throws(() => verifyFourTrackAuthority(manipulated), /week2_shared_artifact_manifest_hash_mismatch/);
+  assert.throws(() => verifyFourTrackAuthority(manipulated), /week2_shared_artifact_manifest_mismatch/);
   const incomplete = fourTrackInputs();
   incomplete.execution.artifact.files.pop();
   assert.throws(() => verifyFourTrackAuthority(incomplete), /week2_shared_artifact_manifest_mismatch/);

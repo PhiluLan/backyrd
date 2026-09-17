@@ -112,6 +112,7 @@ export function runWeek2Preflight({ root = ROOT, baseSha: requestedBase, headSha
       evidence: documents.evidence,
       reconstruction,
       sealedArtifact: documents.sharedArtifact,
+      sealedArtifactFileHash: sha256(readFileSync(resolve(root, documents.evidence.sharedArtifactManifestPath))),
       execution: artifactExecution,
     });
   }

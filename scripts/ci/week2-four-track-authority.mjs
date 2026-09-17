@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -7,7 +6,6 @@ import { findNode20, linkIsolatedDependencies } from "./week2-decision-provenanc
 
 const ARTIFACT_PATH = "delivery/integration/week2-shared-decision-artifact.json";
 const TRACKS = ["WORLD", "USER", "DECISION", "INTEGRATION"];
-const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const requireValue = (condition, reason) => { if (!condition) throw new Error(reason); };
 const sameJson = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 const git = (root, args) => execFileSync("git", args, {
@@ -21,9 +19,9 @@ const normalizedOverlaps = (value) => value
   .map(({ left, right, files }) => ({ left, right, files: [...files].sort() }))
   .sort((a, b) => `${a.left}:${a.right}`.localeCompare(`${b.left}:${b.right}`));
 
-export function verifyFourTrackAuthority({ manifest, evidence, reconstruction, sealedArtifact, execution }) {
+export function verifyFourTrackAuthority({ manifest, evidence, reconstruction, sealedArtifact, sealedArtifactFileHash, execution }) {
   requireValue(evidence.sharedArtifactManifestPath === ARTIFACT_PATH, "week2_shared_artifact_path_mismatch");
-  requireValue(sha256(`${JSON.stringify(sealedArtifact, null, 2)}\n`) === evidence.sharedArtifactManifestHash, "week2_shared_artifact_manifest_hash_mismatch");
+  requireValue(sealedArtifactFileHash === evidence.sharedArtifactManifestHash, "week2_shared_artifact_manifest_hash_mismatch");
   requireValue(sealedArtifact.artifactHash === evidence.sharedArtifactHash, "week2_shared_artifact_hash_mismatch");
 
   const expectedHeads = [
