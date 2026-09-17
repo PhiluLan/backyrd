@@ -54,14 +54,17 @@ export function validateWeek2Documents({ manifest, matrix, flags, status, fixtur
   ]), "week2_wiring_chain_mismatch");
   requireValue(JSON.stringify(manifest.domainCandidates.map(({ track }) => track)) === JSON.stringify(TRACKS), "week2_domain_track_order_mismatch");
 
-  for (const candidate of manifest.domainCandidates) {
-    const identity = [candidate.pr, candidate.baseSha, candidate.headSha, candidate.treeSha, candidate.domainArtifactHash, candidate.planHash];
+  const expectedDomainBases = [manifest.canonicalBaseSha, ...manifest.domainCandidates.slice(0, -1).map(({ mergeSha }) => mergeSha)];
+  for (const [index, candidate] of manifest.domainCandidates.entries()) {
+    const identity = [candidate.pr, candidate.baseSha, candidate.headSha, candidate.treeSha, candidate.mergeSha, candidate.mergeTreeSha, candidate.domainArtifactHash, candidate.planHash];
     const populated = identity.filter((value) => value !== null).length;
     requireValue(populated === 0 || populated === identity.length, `week2_domain_candidate_partially_bound:${candidate.track}`);
     if (populated) {
       requireValue(candidate.status === "READY", `week2_domain_candidate_not_ready:${candidate.track}`);
       requireValue(Number.isInteger(candidate.pr) && candidate.pr > 0, `week2_domain_pr_invalid:${candidate.track}`);
-      requireValue(candidate.baseSha === manifest.canonicalBaseSha && SHA.test(candidate.headSha) && SHA.test(candidate.treeSha), `week2_domain_git_identity_invalid:${candidate.track}`);
+      requireValue(candidate.baseSha === expectedDomainBases[index] && SHA.test(candidate.headSha) && SHA.test(candidate.treeSha), `week2_domain_git_identity_invalid:${candidate.track}`);
+      requireValue(SHA.test(candidate.mergeSha) && candidate.mergeTreeSha === candidate.treeSha, `week2_domain_merge_identity_invalid:${candidate.track}`);
+      requireValue(JSON.stringify(candidate.mergeParents) === JSON.stringify([candidate.baseSha, candidate.headSha]), `week2_domain_merge_parents_invalid:${candidate.track}`);
       requireValue(HASH.test(candidate.domainArtifactHash) && HASH.test(candidate.planHash), `week2_domain_hash_invalid:${candidate.track}`);
       requireValue(Array.isArray(candidate.bindings) && candidate.bindings.length > 0, `week2_domain_bindings_missing:${candidate.track}`);
       const bindingNames = candidate.bindings.map(({ name }) => name);

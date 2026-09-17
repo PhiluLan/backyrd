@@ -64,6 +64,15 @@ test("Week-2 control-plane documents are internally consistent", () => {
   assert.equal(result.releaseTrainStatus, "YELLOW");
 });
 
+test("canonical domain merge identities fail closed on parent or tree tampering", () => {
+  for (const field of ["mergeParents", "mergeTreeSha"]) {
+    const value = clone(documents());
+    const candidate = value.manifest.domainCandidates[1];
+    candidate[field] = field === "mergeParents" ? [candidate.headSha, candidate.baseSha] : "0".repeat(40);
+    assert.throws(() => validateWeek2Documents(value), /week2_domain_merge_/);
+  }
+});
+
 test("required GitHub Week-2 preflight cannot be downgraded from final mode", () => {
   const workflow = readFileSync(new URL("../../.github/workflows/risk-gate.yml", import.meta.url), "utf8");
   const invocations = workflow.split("\n").filter((line) => line.includes("scripts/ci/week2-dark-wiring-preflight.mjs"));
@@ -94,7 +103,7 @@ test("frozen Decision evidence is bound to the exact evaluator output and source
       nodeMajor: 20,
       evaluatorPath: "packages/decision-vnext-core/sandbox/evaluate-dark-request-week2.mjs",
       evaluatorBlobSha: "74c2bab6383bec29ef4f90f9639fe0d9f701710c",
-      outputSha256: "735135f171a542f6862971b521ac316b76cc1bdf6baaf6e76b4cce3faeaaaa25",
+      outputSha256: "152038c4bea7a41d004b123aa91d94126a6e40e67fde162fc29b31710690c1fa",
     },
   );
 });

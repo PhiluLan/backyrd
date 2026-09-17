@@ -39,6 +39,8 @@ export function verifyDomainCandidates(root, manifest, decisionEvidence) {
   for (const candidate of manifest.domainCandidates.filter(({ headSha }) => headSha)) {
     requireValue(git(root, ["merge-base", "--is-ancestor", candidate.baseSha, candidate.headSha]) === "", `week2_candidate_not_descendant:${candidate.track}`);
     requireValue(git(root, ["rev-parse", `${candidate.headSha}^{tree}`]) === candidate.treeSha, `week2_candidate_tree_mismatch:${candidate.track}`);
+    requireValue(git(root, ["rev-parse", `${candidate.mergeSha}^{tree}`]) === candidate.mergeTreeSha, `week2_candidate_merge_tree_mismatch:${candidate.track}`);
+    requireValue(git(root, ["show", "-s", "--format=%P", candidate.mergeSha]).split(" ").join(",") === candidate.mergeParents.join(","), `week2_candidate_merge_parents_mismatch:${candidate.track}`);
     for (const binding of candidate.bindings) {
       const content = git(root, ["show", `${candidate.headSha}:${binding.path}`]);
       if (binding.type === "TEXT_CONTAINS") requireValue(content.includes(binding.expected), `week2_candidate_binding_mismatch:${candidate.track}:${binding.name}`);
