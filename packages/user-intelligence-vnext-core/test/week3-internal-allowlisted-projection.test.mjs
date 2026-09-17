@@ -205,7 +205,7 @@ test("no-write proof closes persistence network product output and privacy bridg
 
 test("post-deploy evidence is hash-bound and honestly not executed", () => {
   const evidence = buildInternalProjectionPostDeployEvidence(consent);
-  assert.equal(evidence.canonicalMainSha, "b98b3870f60e9495c10f3c23f006fb9b3213d63e"); assert.equal(evidence.artifactManifestHash, INTERNAL_PROJECTION_ARTIFACT_MANIFEST_HASH);
+  assert.equal(evidence.canonicalMainSha, "1d689e38f12edee2821cc4f4e3d5bc5ee8ccf48b"); assert.equal(evidence.artifactManifestHash, INTERNAL_PROJECTION_ARTIFACT_MANIFEST_HASH);
   assert.equal(evidence.status, "NOT_EXECUTED_NO_PRODUCTION_AUTHORITY"); assert.equal(evidence.deploymentExecuted, false); assert.equal(evidence.executionAuthorized, false);
   assert.doesNotThrow(() => verifyInternalProjectionPostDeployEvidence(evidence, consent));
   const changed = { ...evidence, artifactManifestHash: contentHash("other") }; delete changed.evidenceHash; changed.evidenceHash = contentHash(changed);
@@ -215,7 +215,7 @@ test("post-deploy evidence is hash-bound and honestly not executed", () => {
 test("release binds Week-2, allowlist, no-write and canonical base", () => {
   assert.equal(INTERNAL_PROJECTION_RELEASE.week2ReleaseHash.length, 64); assert.equal(INTERNAL_PROJECTION_RELEASE.allowlistPolicyHash, INTERNAL_PROJECTION_ALLOWLIST_POLICY.policyHash);
   assert.equal(INTERNAL_PROJECTION_TRUST_ANCHOR.acceptedReleaseHash, INTERNAL_PROJECTION_RELEASE.releaseHash);
-  assert.equal(INTERNAL_PROJECTION_RELEASE.canonicalBaseSha, "b98b3870f60e9495c10f3c23f006fb9b3213d63e");
+  assert.equal(INTERNAL_PROJECTION_RELEASE.canonicalBaseSha, "1d689e38f12edee2821cc4f4e3d5bc5ee8ccf48b");
 });
 
 test("allowlist verifier accepts exact complete binding", () => {

@@ -1,6 +1,6 @@
 {
   "contractVersion": "backyrd.user-intelligence.internal-projection-compatibility@week3-1",
-  "canonicalBase": "b98b3870f60e9495c10f3c23f006fb9b3213d63e",
+  "canonicalBase": "1d689e38f12edee2821cc4f4e3d5bc5ee8ccf48b",
   "entries": [
     { "component": "RelevantUserProjection", "classification": "KEEP", "parallelContract": false },
     { "component": "Week2DarkProjectionRuntime", "classification": "KEEP", "semanticChange": false },
@@ -10,4 +10,3 @@
     { "component": "RetentionDurations", "classification": "NOT_CONFIGURED", "fallback": null }
   ]
 }
-
