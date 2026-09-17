@@ -1,21 +1,21 @@
 {
   "contractVersion": "backyrd.user-intelligence.founder-live-projection-release-summary@1.0",
-  "canonicalBaseSha": "9c38946462c5698ee1ff6375d996463254dd829e",
-  "canonicalBaseTree": "9e74daabc42f86327291b781c43b41502f2579a8",
-  "releaseHash": "0517c74400b625980feeb656b5a77908e7c71a6a222f2ed08c94ce15b7bf36e9",
-  "trustAnchorHash": "732c3e1a54ce1cfbf17bdf38b40b9c71d150e4c4233f5a591e338b7129ba2ce9",
+  "canonicalBaseSha": "480e621f63aaf0fd9385bc5fa4b7886b9e82dd55",
+  "canonicalBaseTree": "47383a7b9ff367008e3cb8d384246a79fb97eede",
+  "releaseHash": "856f321875eb3d43c408b7b1b4ae1fb4be0d562e8aeeee1401ca5f715f9e3865",
+  "trustAnchorHash": "8245e36e2852c2e930c08b88c4b9eeea43fb83ce1cf59fd4addae49c265332f2",
   "founderSlotHash": "c729a9527095740740d8e5e82c63cb636f24c2199370eb652c570bcbdcec63ba",
   "founderSlotStatus": "NOT_CONFIGURED_PENDING_EXPLICIT_RELEASE",
-  "syntheticSubjectAuthorityHash": "7af5dd490cc57c614472d906fc0032d423d7088682ea3af0a1e509f8d2d54091",
-  "invocationHash": "3b479e02aaea2e17e80bf46247b19518c4c351500bc3b4d97b5fd9838cc9ec16",
+  "syntheticSubjectAuthorityHash": "f665689f7676647674a6b626c2281fbdb4d31d5a8a228db7a21dc956b8d381ff",
+  "invocationHash": "8fe1c997f1d6d5624d02c40b11aeb5e37f1da66b2be240ff9c1021ffd5496c29",
   "noWriteProofHash": "9ba9c1a930dcb76a62335afbc0fec0f39081d5fe0e003976e1b2da2e4e1753b9",
   "retentionTemplateHash": "5c13f6775b85335d744cea6e71563e2cd2a8fe0a0665175f6421ac44e9aa037f",
-  "artifactManifestHash": "5e908fe2a42703de39cc7c1c231661e7b717fd4f0585a86a99009bbf765fd6a9",
+  "artifactManifestHash": "27bc372714643b0e473595037851c780b396efb485b9be1392d6f331dbe5f6b0",
   "projectionHash": "4aabe0c49a7b214edc946dfa1ea0624eee0522db3cf1324e3bf41d91ca39cd3a",
   "outcomeHash": "d0105b5bda3d9c113b11ed1194258220ab103a7ad4b606254c3f1eef7a4dfa04",
-  "rehearsalHash": "998ef579878cfbef96fab199a4ce1c28746187afebd50c901127a87a2411496e",
-  "postDeployEvidenceHash": "5caea59baa1139e5493e7ae42e9a7b733eb73052c4a92e444e60ef77646b401a",
-  "fullReportHash": "547065689c5b79e78e475a78fec52344404d25560495d9798d8fca7e5c8025c2",
+  "rehearsalHash": "6ddd52bf5a32aadb6d94f00e966c4f283407b2cce849837b9c89c79c6a0bab5d",
+  "postDeployEvidenceHash": "b54c092067b2491acc2ff9cb2d61d5e81c620f11861582007ab17d889d0d70e0",
+  "fullReportHash": "62ce4db33d8964f9c64f5e8af5b82f5f6222321dbdc29d6bfe8d1e0ca94748e6",
   "flags": {
     "USER_LEARNING_RUNTIME": false,
     "eventIngestionEnabled": false,
@@ -44,5 +44,5 @@
     "runtimeDeploymentRequired": false,
     "executionAuthorized": false
   },
-  "summaryHash": "1cd577d74cf71db6b91a989b14a2b6fdf254b204bc5cfca006c5197ad4ac23c8"
+  "summaryHash": "61205e4631244c2bc221032476beb9dba985c8edc4b720cc32a4b1d89ef7afa6"
 }
