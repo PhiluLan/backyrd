@@ -9,6 +9,7 @@ export * from "./dark-reader.js";
 export * from "./fixtures.js";
 export * from "./founder-handoff.js";
 export * from "./governance.js";
+export * from "./internal-allowlist.js";
 export * from "./legacy-adapter.js";
 export * from "./legacy-mapping.js";
 export * from "./legacy-rehearsal.js";
