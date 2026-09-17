@@ -4,30 +4,34 @@
   "executionAuthorized": false,
   "productionActionPerformed": false,
   "conflictCount": 0,
-  "integrationHeadSha": "c915ee28fe66a4823660e3e23cf40a7092595564",
+  "integrationHeadSha": "7996130c3082224267162eae75fa05f4211d01cb",
   "orderedHeads": [
     { "track": "WORLD", "headSha": "bee8c456f2fec036db2986f6c263d2c195ecea06" },
-    { "track": "USER", "headSha": "d7b728f6baa17cee1ca326e6203758417e037a83" },
-    { "track": "DECISION", "headSha": "f0d93903c84c387c448dc1ce50f2d6820a9a1c52" },
-    { "track": "INTEGRATION_FINAL_REVALIDATION", "headSha": "c915ee28fe66a4823660e3e23cf40a7092595564" }
+    { "track": "USER", "headSha": "2c1c0facae38b91fc8f3aa31ece1f1e9c08b54a5" },
+    { "track": "DECISION", "headSha": "9c80a5edcccda72d87f219d74bfe2280ce3f8280" },
+    { "track": "INTEGRATION_FINAL_REVALIDATION", "headSha": "7996130c3082224267162eae75fa05f4211d01cb" }
+  ],
+  "domainLineage": [
+    { "track": "WORLD", "headSha": "bee8c456f2fec036db2986f6c263d2c195ecea06", "treeSha": "ebd9adb094ee60429f7debf13d4aa24847fd5518", "mergeSha": "1d689e38f12edee2821cc4f4e3d5bc5ee8ccf48b", "mergeTreeSha": "ebd9adb094ee60429f7debf13d4aa24847fd5518", "mergeParents": ["b98b3870f60e9495c10f3c23f006fb9b3213d63e", "bee8c456f2fec036db2986f6c263d2c195ecea06"] },
+    { "track": "USER", "headSha": "2c1c0facae38b91fc8f3aa31ece1f1e9c08b54a5", "treeSha": "74f5513cca71ea798822283ab817db61a3b57b5a", "mergeSha": "0ff695f8fbc659fd2ae1551f625d169dc60aeb21", "mergeTreeSha": "74f5513cca71ea798822283ab817db61a3b57b5a", "mergeParents": ["1d689e38f12edee2821cc4f4e3d5bc5ee8ccf48b", "2c1c0facae38b91fc8f3aa31ece1f1e9c08b54a5"] },
+    { "track": "DECISION", "headSha": "9c80a5edcccda72d87f219d74bfe2280ce3f8280", "treeSha": "0d48b77440b925c8c60deacbaf508fcf84993b0e", "mergeSha": "d3f151901d8d284469968323ac8edc1e287fdf59", "mergeTreeSha": "0d48b77440b925c8c60deacbaf508fcf84993b0e", "mergeParents": ["0ff695f8fbc659fd2ae1551f625d169dc60aeb21", "9c80a5edcccda72d87f219d74bfe2280ce3f8280"] }
   ],
   "steps": [
-    { "label": "WORLD", "left": "b98b3870f60e9495c10f3c23f006fb9b3213d63e", "right": "bee8c456f2fec036db2986f6c263d2c195ecea06", "treeSha": "ebd9adb094ee60429f7debf13d4aa24847fd5518", "commitSha": "6fec8e95bfcd6ae38c82b58d399263a287a59c15", "conflicts": [] },
-    { "label": "USER", "left": "6fec8e95bfcd6ae38c82b58d399263a287a59c15", "right": "d7b728f6baa17cee1ca326e6203758417e037a83", "treeSha": "638778a78adcb27e07557851f268ba8c10b3708e", "commitSha": "bc4ca7e565a0cf94765ff0cea57252a127a99c57", "conflicts": [] },
-    { "label": "DECISION", "left": "bc4ca7e565a0cf94765ff0cea57252a127a99c57", "right": "f0d93903c84c387c448dc1ce50f2d6820a9a1c52", "treeSha": "06c075543807713bb1f29528e73698224ba227a6", "commitSha": "5c1f34739b1335dfe355d426a4cbd9938756dd74", "conflicts": [] },
-    { "label": "INTEGRATION_FINAL_REVALIDATION", "left": "5c1f34739b1335dfe355d426a4cbd9938756dd74", "right": "c915ee28fe66a4823660e3e23cf40a7092595564", "treeSha": "14f1b681e74b58741c8214938ec94904e71c1e50", "commitSha": "66e8166b0f636ed5a83a5e4f581c7c9b139b8ee2", "conflicts": [] }
+    { "label": "INTEGRATION_FINAL_REVALIDATION", "left": "d3f151901d8d284469968323ac8edc1e287fdf59", "right": "7996130c3082224267162eae75fa05f4211d01cb", "treeSha": "b2087312e942dd72be9268f5a32e7051191eb40b", "commitSha": "97f7e27090f4c305aa80a50273818d57d2419a3d", "conflicts": [] }
   ],
-  "combinedCommitSha": "66e8166b0f636ed5a83a5e4f581c7c9b139b8ee2",
-  "combinedTreeSha": "14f1b681e74b58741c8214938ec94904e71c1e50",
+  "combinedCommitSha": "97f7e27090f4c305aa80a50273818d57d2419a3d",
+  "combinedTreeSha": "b2087312e942dd72be9268f5a32e7051191eb40b",
   "overlaps": [
-    { "left": "WORLD", "right": "USER", "files": ["package.json"] },
-    { "left": "WORLD", "right": "DECISION", "files": ["package.json"] },
-    { "left": "USER", "right": "DECISION", "files": ["package.json"] },
-    { "left": "USER", "right": "INTEGRATION_FINAL_REVALIDATION", "files": [".github/workflows/risk-gate.yml"] }
+    { "left": "WORLD", "right": "USER", "files": ["docs/world-knowledge/week3/README.md", "docs/world-knowledge/week3/RUNBOOK.md", "docs/world-knowledge/week3/rehearsal-evidence.json", "docs/world-knowledge/week3/release-evidence.json", "package.json", "packages/world-knowledge-core/src/index.ts", "packages/world-knowledge-core/src/internal-allowlist.ts", "packages/world-knowledge-core/test/week3-internal-allowlist.test.mjs", "scripts/world-knowledge/build-week3-internal-allowlist-foundation.mjs", "scripts/world-knowledge/week3-internal-allowlist-foundation.test.mjs"] },
+    { "left": "WORLD", "right": "DECISION", "files": ["docs/world-knowledge/week3/README.md", "docs/world-knowledge/week3/RUNBOOK.md", "docs/world-knowledge/week3/rehearsal-evidence.json", "docs/world-knowledge/week3/release-evidence.json", "package.json", "packages/world-knowledge-core/src/index.ts", "packages/world-knowledge-core/src/internal-allowlist.ts", "packages/world-knowledge-core/test/week3-internal-allowlist.test.mjs", "scripts/world-knowledge/build-week3-internal-allowlist-foundation.mjs", "scripts/world-knowledge/week3-internal-allowlist-foundation.test.mjs"] },
+    { "left": "USER", "right": "DECISION", "files": [".github/workflows/risk-gate.yml", "docs/user-intelligence-vnext/week3/ACCEPTANCE.md", "docs/user-intelligence-vnext/week3/ARCHITECTURE.md", "docs/user-intelligence-vnext/week3/EXISTING_SYSTEM_AUDIT.md", "docs/user-intelligence-vnext/week3/README.md", "docs/user-intelligence-vnext/week3/RETENTION_DECISION_PACKAGE_DE.md", "docs/user-intelligence-vnext/week3/compatibility-matrix.json", "docs/user-intelligence-vnext/week3/internal-projection-release-summary.json", "docs/user-intelligence-vnext/week3/retention-decision-template.json", "docs/world-knowledge/week3/README.md", "docs/world-knowledge/week3/RUNBOOK.md", "docs/world-knowledge/week3/rehearsal-evidence.json", "docs/world-knowledge/week3/release-evidence.json", "package.json", "packages/user-intelligence-vnext-core/src/contracts.ts", "packages/user-intelligence-vnext-core/src/index.ts", "packages/user-intelligence-vnext-core/src/internal-allowlisted-projection.ts", "packages/user-intelligence-vnext-core/src/schema-catalog.ts", "packages/user-intelligence-vnext-core/test/week3-internal-allowlisted-projection.test.mjs", "packages/world-knowledge-core/src/index.ts", "packages/world-knowledge-core/src/internal-allowlist.ts", "packages/world-knowledge-core/test/week3-internal-allowlist.test.mjs", "scripts/user-intelligence/run-week3-internal-projection.mjs", "scripts/world-knowledge/build-week3-internal-allowlist-foundation.mjs", "scripts/world-knowledge/week3-internal-allowlist-foundation.test.mjs"] },
+    { "left": "USER", "right": "INTEGRATION_FINAL_REVALIDATION", "files": [".github/workflows/risk-gate.yml"] },
+    { "left": "DECISION", "right": "INTEGRATION_FINAL_REVALIDATION", "files": [".github/workflows/risk-gate.yml"] }
   ],
-  "artifactHash": "38d60834b40bd8ad60fd5716a67f4ef32d50a79c3256e7dcffcd01237749d507",
-  "artifactManifestHash": "7c4c6f0324f93047eae637e370ffbc82a5c9c66204cfd8dd6c1ab861405d1330",
-  "reportHash": "affc21b106bf503367b109557e210f0351618c59caa049ef7b48ae1e849488db",
-  "replayHash": "affc21b106bf503367b109557e210f0351618c59caa049ef7b48ae1e849488db",
+  "conflictResolutions": [],
+  "artifactHash": "13511c8339e6f4289a5dc31d5cd2f5e0f2849ab46e3a73d0442b82e3c219472e",
+  "artifactManifestHash": "b1465e5abde3df29e9aa98ef1054337c3e33d1255e89a487e04d651f9cdb30d0",
+  "reportHash": "6bd3c53bf2dd1d64ffe2b1dcb5137aabc265104569ef0a76ac175090905cbada",
+  "replayHash": "6bd3c53bf2dd1d64ffe2b1dcb5137aabc265104569ef0a76ac175090905cbada",
   "recoveryMilliseconds": 0.004
 }

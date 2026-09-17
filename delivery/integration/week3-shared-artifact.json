@@ -1,10 +1,10 @@
 {
   "contractVersion": "backyrd.week3-shared-artifact-attestation@1.0",
   "artifactContract": "backyrd-decision-ci-build-artifact-v1",
-  "artifactHash": "38d60834b40bd8ad60fd5716a67f4ef32d50a79c3256e7dcffcd01237749d507",
-  "sourceSetHash": "9d3c2205e380c0fc6a5c3da69709fbe968fdd3b469454f9f9d3b6dfdecd6452f",
+  "artifactHash": "13511c8339e6f4289a5dc31d5cd2f5e0f2849ab46e3a73d0442b82e3c219472e",
+  "sourceSetHash": "20438edc5f7074f2213dd6c4f411a2327c256fe016c875349de3819457d50934",
   "fileCount": 200,
   "nodeMajor": 20,
-  "combinedCommitSha": "66e8166b0f636ed5a83a5e4f581c7c9b139b8ee2",
-  "combinedTreeSha": "14f1b681e74b58741c8214938ec94904e71c1e50"
+  "combinedCommitSha": "97f7e27090f4c305aa80a50273818d57d2419a3d",
+  "combinedTreeSha": "b2087312e942dd72be9268f5a32e7051191eb40b"
 }

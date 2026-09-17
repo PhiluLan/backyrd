@@ -1,15 +1,17 @@
 {
   "contractVersion": "backyrd.week3-integration-status@1.0",
   "asOf": "2026-09-17",
-  "overall": "YELLOW",
+  "overall": "GREEN_CANDIDATE",
+  "productionStatus": "NO_GO",
   "executionAuthorized": false,
   "tracks": [
-    { "id": "WORLD", "status": "GREEN", "reason": "PR #299 exact head/tree bound; required gates green; kill switch engaged" },
-    { "id": "USER", "status": "GREEN", "reason": "PR #297 exact head/tree bound; required gates green; runtime forced off" },
-    { "id": "DECISION", "status": "GREEN", "reason": "PR #298 exact head/tree bound; required gates green; shadow traffic off" },
-    { "id": "INTEGRATION", "status": "GREEN", "reason": "Local four-track reconstruction, shared artifact, allowlist, kill-switch, replay, and no-production boundary validation passed" }
+    { "id": "WORLD", "status": "GREEN", "reason": "Final Domain head/tree and regular merge #299 are exactly bound on canonical Main; kill switch engaged" },
+    { "id": "USER", "status": "GREEN", "reason": "Final Domain head/tree and regular merge #297 are exactly bound on canonical Main; runtime forced off" },
+    { "id": "DECISION", "status": "GREEN", "reason": "Final Domain head/tree and regular merge #298 are exactly bound on canonical Main; shadow traffic off" },
+    { "id": "INTEGRATION", "status": "GREEN", "reason": "Canonical-Main reconstruction, shared artifact, allowlist, kill-switch, replay, and no-production boundary validation passed" }
   ],
-  "yellowUntil": ["INTEGRATION_PR_NOT_CANONICALLY_MERGED", "PRODUCTION_EXECUTION_NOT_AUTHORIZED"],
+  "completionCondition": "EXACT_REGULAR_MERGE_AND_POST_MERGE_MAIN_GATE",
+  "productionBlockers": ["PRODUCTION_EXECUTION_NOT_AUTHORIZED", "REAL_ALLOWLIST_NOT_CONFIGURED", "RUNTIME_ACTIVATION_NOT_AUTHORIZED"],
   "remainingDecisions": ["Real internal allowlist authority", "Expiration policy", "Retention policy", "Any future Production activation"],
-  "releaseBoundary": "Draft review only; no merge or Production authority"
+  "releaseBoundary": "PR #300 regular merge authorized only after green revalidation; no Production authority"
 }
