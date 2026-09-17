@@ -7,4 +7,3 @@
 5. **No Write:** Kein DB-, Persistence-, Network-, Product-Consumer-, Cache- oder Writeback-Port. Der Consumer ist zustandslos.
 6. **Privacy Export:** Bleibt im Week‑2-Legal-Pfad mit separater Authority und ist aus der Runtime-Grenze nicht erreichbar.
 7. **Post-Deploy Evidence:** Bindet kanonischen Main und Tree, Artefaktmanifest, Release, Trust Anchor, Allowlist Policy, Consent, Lifecycle und No-Write Proof. Ohne Production Authority ist der einzige ehrliche Status `NOT_EXECUTED_NO_PRODUCTION_AUTHORITY`.
-

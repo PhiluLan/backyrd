@@ -12,4 +12,3 @@
 | Ranking/Eligibility/Learning | PROHIBITED | keine Autorität und keine Ausgabe |
 
 Root Cause der Week‑3-Erweiterung: Week 2 bewies einen lokal integrierbaren Projection-Pfad, besaß aber noch keinen eigenen geschlossenen Consumer-Vertrag für interne Testsubjekte und keinen hashgebundenen Post-Deploy-Evidence-Vertrag. Week 3 schließt genau diese Integrationsgrenzen, ohne Runtime-Aktivierung oder neue Product-Semantik.
-

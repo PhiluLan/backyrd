@@ -9,4 +9,3 @@ Offene Freigaben:
 - **Legal:** Welche gesetzlichen Mindest-/Höchstfristen und Exportpflichten gelten je Datenklasse?
 
 Bis zur gemeinsamen Freigabe bleibt der Status `NOT_CONFIGURED_PENDING_FOUNDER_CTO_LEGAL` und blockiert jede Production-Aktivierung.
-

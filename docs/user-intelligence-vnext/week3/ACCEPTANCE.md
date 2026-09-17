@@ -10,4 +10,3 @@
 - Privacy Export erfordert weiterhin die separate Legal Authority.
 - Post-Deploy Evidence meldet ohne Production Authority ausschließlich `NOT_EXECUTED_NO_PRODUCTION_AUTHORITY`.
 - Reports müssen zweimal byte-identisch sein; der vollständige Report bleibt CI-Artefakt.
-
