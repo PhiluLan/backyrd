@@ -1,0 +1,55 @@
+{
+  "contractVersion": "backyrd.decision-vnext.dark-request-evaluation@week2-1",
+  "provenance": {
+    "contractVersion": "backyrd.week2-decision-provenance@1.0",
+    "sourceSha": "9a02194d67f0163601c7020b920bb2f1c08db110",
+    "sourceTreeHash": "20a927e6e828dca2a9b09a303a3ead8422326c7d",
+    "nodeMajor": 20,
+    "buildCommand": ["npm", "run", "decision-vnext:build"],
+    "evaluatorPath": "packages/decision-vnext-core/sandbox/evaluate-dark-request-week2.mjs",
+    "evaluatorCommand": ["node", "packages/decision-vnext-core/sandbox/evaluate-dark-request-week2.mjs"],
+    "evaluatorBlobSha": "74c2bab6383bec29ef4f90f9639fe0d9f701710c",
+    "inputBlobs": {
+      "package-lock.json": "72f481366a2770c326762d442aaedb5bc7d8eb37",
+      "package.json": "e8da1d237681306085aa4867cfd743b2138b1195",
+      "packages/decision-vnext-core/package.json": "ca100cde522b04f746857e8ebd57a103f3f6203f",
+      "packages/decision-vnext-core/tsconfig.json": "ef0a2bd619713acd272208502de4da0f752b9c91",
+      "packages/decision-vnext-core/src/dark-request-contracts.ts": "ddb31409f15fe26aa9cfa73820780063adbf59ec",
+      "packages/decision-vnext-core/src/dark-request-fixtures.ts": "b6df6daaa3b0291712c4be05f4f946b062161108",
+      "packages/decision-vnext-core/src/dark-request.ts": "d244d448c627e346d0f58ddad880930471366d45",
+      "packages/decision-vnext-core/src/index.ts": "6cf052a2ade03db4c0f3e9b402ee7edc63695ea8",
+      "packages/decision-vnext-core/sandbox/evaluate-dark-request-week2.mjs": "74c2bab6383bec29ef4f90f9639fe0d9f701710c"
+    },
+    "outputSha256": "152038c4bea7a41d004b123aa91d94126a6e40e67fde162fc29b31710690c1fa"
+  },
+  "output": {
+    "contractVersion": "backyrd.decision-vnext.dark-request-evaluation@week2-1",
+    "sourceSha": "9a02194d67f0163601c7020b920bb2f1c08db110",
+    "sourceTreeHash": "20a927e6e828dca2a9b09a303a3ead8422326c7d",
+    "controlHash": "34a546de6937b9c6be4e2c4352595083cb8ba83e744b55b94f37746fbfccdd8c",
+    "oracleCatalogHash": "b90e98a3b33a9c3d2e9f0340e5fad4b8a906760acc7db1ce01905eee359ee1cc",
+    "thresholdTemplateHash": "a98bb9a446d93e38b6b819e25fd7d70d5794c525145d3f349891a050b129e58d",
+    "authorityHash": "df47acb57b9dedec5eb5dc2e88b63e3e808ded825cc0de095a7e8315404b050f",
+    "sourceTrustHash": "8f2f5843066653d530a889ba341be370f23f67cd276a95c7706fe3d0fceeba5c",
+    "worldHash": "622b877d496ef98356be47aaacae667f7f6c0605003143ec0c12eee3245ecb56",
+    "cohortHash": "fbfa778e98609b110e81e67e123a0fe19f871e9f5f927964f6ffdc7667d25595",
+    "evaluationCohortHash": "afae0c8b3b09463a2244a89b7b5d4d623a360dd1aab00233d77d893b6309983b",
+    "resultHash": "cb857c6d6fb89799999932805c92435636bc131271204db45d095dca5d381f0b",
+    "reportHash": "f4190b2891ba77db51a7786f1840b60885668c19ca48c616686df9dee5d96104",
+    "replayHash": "f4190b2891ba77db51a7786f1840b60885668c19ca48c616686df9dee5d96104",
+    "counters": {
+      "worldReads": 8,
+      "userReads": 1,
+      "evaluations": 1,
+      "persistenceWrites": 0,
+      "networkCalls": 0,
+      "productOutputs": 0
+    },
+    "killSwitch": "ENGAGED",
+    "sampleRateBasisPoints": 0,
+    "executionAuthorized": false,
+    "productionAuthorized": false,
+    "productOutputProduced": false,
+    "status": "PASS"
+  }
+}

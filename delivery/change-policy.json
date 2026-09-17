@@ -69,6 +69,12 @@
     "scripts/ci/verify-risk-gate.mjs",
     "scripts/ci/verify-risk-gate.test.mjs"
   ],
+  "integrationControlPrefixes": [
+    "delivery/integration/",
+    "docs/operations/integration/",
+    "scripts/ci/integration-",
+    "scripts/ci/week2-dark-wiring"
+  ],
   "knownRepositoryPrefixes": [
     ".github/",
     ".gitignore",

@@ -16,8 +16,9 @@ const policy = {
   decisionEvaluationPrefixes: ["packages/decision-vnext-core/test/", "packages/decision-vnext-core/sandbox/", "decision-lab/"],
   decisionConsumerPrefixes: ["packages/shared/", "packages/user-intelligence-vnext-core/", "packages/world-knowledge-core/"],
   decisionPipelineControlPrefixes: [".github/workflows/", "package.json", "package-lock.json", "scripts/ci/classify-change.mjs", "scripts/ci/decision-", "scripts/ci/verify-decision-shards.mjs"],
+  integrationControlPrefixes: ["delivery/integration/", "docs/operations/integration/", "scripts/ci/integration-", "scripts/ci/week2-dark-wiring"],
   knownRepositoryPrefixes: [".github/", "README.md", "admin-dashboard/", "decision-lab/", "docs/", "mobile/", "package.json", "package-lock.json", "packages/", "scripts/", "supabase/", "web/"],
-  deliveryControlPrefixes: [".github/workflows/", "scripts/ci/", "scripts/deployment/", "docs/operations/"],
+  deliveryControlPrefixes: [".github/workflows/", "delivery/", "scripts/ci/", "scripts/deployment/", "docs/operations/"],
   releaseEvidencePrefixes: ["docs/operations/releases/"],
 };
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
@@ -93,6 +94,15 @@ test("World, User and shared contract changes select Decision consumer regressio
     const result = plan({ files: { [path]: "export const changed = true;\n" } });
     assert.equal(result.flags.decisionConsumer, true);
     assert.ok(result.requiredGates.includes("decision"));
+  }
+});
+
+test("Week-2 integration controls fail closed to the complete gate set", () => {
+  for (const path of ["delivery/integration/week2-dark-wiring-manifest.json", "scripts/ci/week2-dark-wiring-preflight.mjs", "docs/operations/integration/WEEK2_RELEASE_TRAIN.md"]) {
+    const result = plan({ files: { [path]: path.endsWith(".json") ? "{}\n" : "control\n" } });
+    assert.equal(result.flags.integrationControl, true);
+    assert.ok(result.classes.includes("integration-control-plane"));
+    for (const gate of ["mobile", "web", "admin", "shared", "database", "decision", "delivery-contract"]) assert.ok(result.requiredGates.includes(gate));
   }
 });
 

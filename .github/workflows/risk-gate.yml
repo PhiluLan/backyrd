@@ -448,9 +448,12 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci --ignore-scripts
       - name: Risk, identity, Decision and deployment contract regressions
         run: |
-          node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/integration-preflight.test.mjs scripts/ci/validate-client-secret-boundary.test.mjs scripts/ci/validate-decision-change.test.mjs scripts/ci/validate-production-state.test.mjs scripts/ci/verify-risk-gate.test.mjs
+          node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/integration-preflight.test.mjs scripts/ci/week2-dark-wiring.test.mjs scripts/ci/validate-client-secret-boundary.test.mjs scripts/ci/validate-decision-change.test.mjs scripts/ci/validate-production-state.test.mjs scripts/ci/verify-risk-gate.test.mjs
           node --test scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/verify-supabase-migration-dry-run.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs
       - name: Validate World Week 1 release foundation contract
         run: |
@@ -458,6 +461,8 @@ jobs:
           bash -n scripts/world-knowledge/rehearse-week1-world-release.sh
       - name: Read-only Week-1 integration preflight
         run: node scripts/ci/integration-preflight.mjs --base-sha "${{ needs.classify.outputs.base-sha }}" --head-sha "${{ needs.classify.outputs.head-sha }}"
+      - name: Read-only Week-2 dark-wiring preflight
+        run: node scripts/ci/week2-dark-wiring-preflight.mjs --base-sha "${{ needs.classify.outputs.base-sha }}" --head-sha "${{ needs.classify.outputs.head-sha }}" --final
 
   risk-gate:
     name: Risk-based merge gate

@@ -22,6 +22,14 @@ const SOURCE_ROOTS = [
   "decision-lab/config",
   ".github/workflows/risk-gate.yml",
   "delivery/change-policy.json",
+  "delivery/integration/week2-dark-wiring-manifest.json",
+  "delivery/integration/week2-dependency-ownership-compatibility-matrix.json",
+  "delivery/integration/week2-dark-wiring-flags.json",
+  "delivery/integration/week2-decision-frozen-evidence.json",
+  "delivery/integration/fixtures/week2-dark-wiring-synthetic.json",
+  "docs/operations/integration/WEEK2_RELEASE_TRAIN.md",
+  "docs/operations/integration/WEEK2_ROLLBACK_INCIDENT.md",
+  "docs/operations/integration/WEEK2_CTO_REVIEW.md",
   "package.json",
   "scripts/ci/decision-build-artifact.mjs",
   "scripts/ci/decision-fast-lane.test.mjs",
@@ -29,6 +37,12 @@ const SOURCE_ROOTS = [
   "scripts/ci/decision-test-plan.mjs",
   "scripts/ci/validate-decision-test-plan.mjs",
   "scripts/ci/verify-decision-shards.mjs",
+  "scripts/ci/week2-dark-wiring.mjs",
+  "scripts/ci/week2-dark-wiring-preflight.mjs",
+  "scripts/ci/week2-decision-provenance.mjs",
+  "scripts/ci/week2-four-track-authority.mjs",
+  "scripts/ci/week2-dark-wiring.test.mjs",
+  "scripts/ci/week2-four-track-rehearsal.mjs",
 ];
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");

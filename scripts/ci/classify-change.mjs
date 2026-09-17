@@ -63,7 +63,8 @@ export function classifyChange({ root, context, policy }) {
   const deploymentControl = changedFiles.some((path) => path.startsWith("scripts/deployment/") || path.startsWith("supabase/production/") || path === ".github/workflows/supabase-production.yml");
   const documentationOnly = changedFiles.length > 0 && changedFiles.every(provablyNonExecutableDocumentation);
   const machineReadableDocumentation = changedFiles.some((path) => path.startsWith("docs/") && !path.endsWith(".md"));
-  const fullScopeRouting = unknown || workflowChange || machineReadableDocumentation;
+  const integrationControl = changedFiles.some((path) => startsWithAny(path, policy.integrationControlPrefixes ?? []));
+  const fullScopeRouting = unknown || workflowChange || machineReadableDocumentation || integrationControl;
 
   const flags = {
     mobile: fullScopeRouting || changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.mobile)),
@@ -84,6 +85,7 @@ export function classifyChange({ root, context, policy }) {
     fullScopeRouting,
     documentationOnly,
     machineReadableDocumentation,
+    integrationControl,
     deliveryControl: changedFiles.some((path) => startsWithAny(path, policy.deliveryControlPrefixes)),
     releaseEvidence: changedFiles.some((path) => startsWithAny(path, policy.releaseEvidencePrefixes)),
     destructive: migrationTexts.some(isDestructiveMigration),
@@ -106,6 +108,7 @@ export function classifyChange({ root, context, policy }) {
     ...(flags.deploymentControl ? ["deployment-control"] : []),
     ...(flags.documentationOnly ? ["documentation-only"] : []),
     ...(flags.machineReadableDocumentation ? ["machine-readable-documentation-contract"] : []),
+    ...(flags.integrationControl ? ["integration-control-plane"] : []),
     ...(flags.deliveryControl ? ["delivery-control"] : []),
     ...(flags.releaseEvidence ? ["release-evidence"] : []),
     ...(flags.destructive ? ["destructive-production-operation"] : []),
