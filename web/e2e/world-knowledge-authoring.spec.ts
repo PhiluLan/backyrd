@@ -4,12 +4,18 @@ const spotId = "41000000-0000-4000-8000-000000000001";
 const allKeys = ["identity.name", "contact.phone", "classification.primary_category", "classification.place_types", "offering.cuisines", "purpose.primary_visit", "offering.onsite", "context.visit_situations", "context.atmosphere", "context.typical_dayparts", "operation.price_level", "operation.takeaway", "hours.regular", "hours.special", "hours.kitchen", "hours.kitchen_special", "rule.age_access_conditions", "accessibility.accessible_toilet"];
 
 async function mockWorld(page: Page, entitlement: "OWNER_BASIC" | "OWNER_PRO" = "OWNER_PRO", role: "VERIFIED_OWNER" | "ADMIN" = "VERIFIED_OWNER") {
+  const jwtPart = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const expiresAt = Math.floor(Date.now() / 1000) + 3_600;
+  const accessToken = `${jwtPart({ alg: "HS256", typ: "JWT" })}.${jwtPart({ sub: "41000000-0000-4000-8000-000000000099", role: "authenticated", exp: expiresAt })}.local-signature`;
+  const session = { access_token: accessToken, refresh_token: "local-refresh", token_type: "bearer", expires_in: 3_600, expires_at: expiresAt, user: { id: "41000000-0000-4000-8000-000000000099", aud: "authenticated", role: "authenticated", email: "founder@local.test", app_metadata: {}, user_metadata: {}, identities: [], created_at: "2026-09-17T00:00:00.000Z" } };
+  await page.context().addCookies([{ name: "sb-127-auth-token", value: `base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}`, domain: "127.0.0.1", path: "/" }]);
   const answers: Record<string, unknown> = { "identity.name": { claimId: "claim:name", claimHash: "a".repeat(64), knowledgeState: "KNOWN_VALUE", value: "Philipps Casa", observedAt: "2026-09-11T10:00:00.000Z", visibility: "PUBLIC", verificationMethod: "OWNER_CONFIRMED" } };
   const applicability: Record<string, string> = {};
   const submissions: Record<string, unknown>[] = [];
   const candidates: Record<string, unknown> = {};
+  let manifest: null | Record<string, unknown> = null;
   await page.route("**/rest/v1/rpc/world_founder_list_spots_v1", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ scope: "FOUNDER_EVALUATION_ONLY", spots: [{ spotId, name: "Philipps Casa", lifecycleStatus: "ACTIVE", scope: "FOUNDER_EVALUATION_ONLY", answerCount: Object.keys(answers).length, conflictCount: 0 }] }) }));
-  await page.route("**/rest/v1/rpc/world_authoring_get_spot_v1", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ scope: "FOUNDER_EVALUATION_ONLY", lifecycleStatus: "ACTIVE", spotId, fallbackName: "Philipps Casa", actor: { role, entitlement, allowedAttributeKeys: entitlement === "OWNER_PRO" ? allKeys : allKeys.filter((key) => !key.startsWith("accessibility.")) }, answers, applicability, reviewItems: [], manifest: null }) }));
+  await page.route("**/rest/v1/rpc/world_authoring_get_spot_v1", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ scope: "FOUNDER_EVALUATION_ONLY", lifecycleStatus: "ACTIVE", spotId, fallbackName: "Philipps Casa", actor: { role, entitlement, allowedAttributeKeys: entitlement === "OWNER_PRO" ? allKeys : allKeys.filter((key) => !key.startsWith("accessibility.")) }, answers, applicability, reviewItems: [], manifest }) }));
   await page.route("**/rest/v1/rpc/world_authoring_get_taxonomy_candidates_v1", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(candidates) }));
   await page.route("**/rest/v1/rpc/world_authoring_get_section_reviews_v1", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ spotId, reviewedSections: [] }) }));
   await page.route("**/rest/v1/rpc/world_authoring_set_section_review_v1", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ created: true }) }));
@@ -18,6 +24,12 @@ async function mockWorld(page: Page, entitlement: "OWNER_BASIC" | "OWNER_PRO" = 
   await page.route("**/rest/v1/rpc/world_owner_submit_claim_v1", submitClaim);
   await page.route("**/rest/v1/rpc/world_admin_submit_claim_v1", submitClaim);
   await page.route("**/rest/v1/rpc/world_authoring_set_applicability_v1", async (route) => { const body = JSON.parse(route.request().postData() ?? "{}"); applicability[body.p_attribute_key] = body.p_applicability; await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ created: true, applicability: body.p_applicability }) }); });
+  await page.route("**/api/world-knowledge/shadow", async (route) => {
+    const body = JSON.parse(route.request().postData() ?? "{}");
+    if (body.action !== "rebuild" || body.spotId !== spotId) return route.fulfill({ status: 400, contentType: "application/json", body: JSON.stringify({ error: "invalid_shadow_action" }) });
+    manifest = { manifestId: "manifest:live", manifestHash: "c".repeat(64), resolutionHash: "d".repeat(64), inputHash: "e".repeat(64), worldSnapshot: { spotId, facts: [], conflicts: [], exclusions: [], derivedKnowledge: [] }, decisionProjection: {} };
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ rebuild: { reused: false }, readerSnapshot: manifest.worldSnapshot }) });
+  });
   return { answers, submissions, candidates, applicability };
 }
 
@@ -92,6 +104,18 @@ test("Admin speichert über die getrennte serverseitige Admin-Grenze", async ({ 
   await page.getByLabel("Preislevel").selectOption("HIGH");
   await expect.poll(() => world.submissions.length).toBe(1);
   expect(world.submissions[0].p_attribute_key).toBe("operation.price_level");
+});
+
+test("Speichern aktualisiert den kanonischen Reader ohne Datei-Handoff", async ({ page }) => {
+  await mockWorld(page, "OWNER_PRO", "ADMIN"); await page.goto("/owner/world-knowledge");
+  await page.getByRole("button", { name: /5 Preise und Bezahlung/ }).click();
+  await page.getByLabel("Preislevel").selectOption("MEDIUM");
+  await expect(page.getByRole("status")).toContainText("gespeichert und in der Datenvorschau aktualisiert");
+  await page.getByRole("button", { name: /9 Prüfen und Datenvorschau/ }).click();
+  await expect(page.getByText("Kanonisch gelesener Snapshot ist aktuell")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Spot exportieren" })).toHaveCount(0);
+  await page.getByRole("button", { name: /Erweiterte Angaben und Quellen öffnen/ }).click();
+  await expect(page.getByRole("button", { name: "Technischen Spot-Export erstellen" })).toBeVisible();
 });
 
 for (const [category, expectedType] of [["EAT", "Restaurant"], ["DRINKS", "Bar"], ["COFFEE_DAYTIME", "Café"]] as const) {
@@ -227,7 +251,7 @@ test("Wochen-, Küchen- und Sonderzeiten bleiben in allen Ziel-Viewports lesbar 
   await special.getByLabel("Sondertag 1 Intervall 1 von").fill("10:00");
   await special.getByLabel("Sondertag 1 Intervall 1 bis").fill("16:00");
   await special.getByRole("button", { name: "Sondertage übernehmen" }).click();
-  await expect(page.getByText("Sonderöffnungszeiten gespeichert.")).toBeVisible();
+  await expect(page.getByText("Sonderöffnungszeiten gespeichert und in der Datenvorschau aktualisiert.")).toBeVisible();
   await page.waitForTimeout(3_100);
 
   for (const width of [320, 375, 768, 1024, 1280, 1440, 1920, 2400]) {
