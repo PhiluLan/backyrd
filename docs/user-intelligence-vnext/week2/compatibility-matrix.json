@@ -1,0 +1,15 @@
+{
+  "contractVersion": "backyrd.user-intelligence.dark-projection-compatibility@week2-1",
+  "base": "f999e2185d9102ea59a2c6e2c0861a4122af359b",
+  "entries": [
+    { "component": "week1-dark-runtime", "classification": "KEEP", "binding": "release-and-no-write-hashes", "changed": false },
+    { "component": "phase2-evidence-authority", "classification": "KEEP", "binding": "no-parallel-product-truth", "changed": false },
+    { "component": "phase3c-product-policy", "classification": "KEEP", "binding": "policy-and-registry-hashes", "changed": false },
+    { "component": "relevant-user-projection", "classification": "EXTEND", "binding": "canonical-read-only-port", "changed": false },
+    { "component": "dark-projection-handoff", "classification": "NEW_NON_PRODUCTION", "binding": "purpose-consent-schema-projection-hash", "changed": true },
+    { "component": "legacy-taste-runtime", "classification": "PROHIBITED", "binding": "none", "changed": false },
+    { "component": "production-event-consumer", "classification": "DEFERRED", "binding": "none", "changed": false },
+    { "component": "persistence-network-adapters", "classification": "PROHIBITED", "binding": "none", "changed": false }
+  ],
+  "productionAuthorized": false
+}

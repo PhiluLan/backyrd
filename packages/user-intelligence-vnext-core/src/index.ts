@@ -19,3 +19,4 @@ export * from "./calibration-fixtures.js";
 export * from "./product-policy.js";
 export * from "./phase3d-lab.js";
 export * from "./dark-runtime.js";
+export * from "./dark-projection-runtime.js";
