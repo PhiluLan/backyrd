@@ -262,6 +262,15 @@ jobs:
           path: ${{ runner.temp }}/user-intelligence-week3-internal-projection.json
           if-no-files-found: error
           retention-days: 14
+      - name: Reproduce Founder live projection foundation proof
+        run: npm run user-intelligence-vnext:founder-live:report -- --full-output "$RUNNER_TEMP/user-intelligence-founder-live-projection.json" --verify-summary docs/user-intelligence-vnext/founder-live/release-summary.json
+      - name: Retain Founder live projection foundation proof
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: user-intelligence-founder-live-projection-${{ github.sha }}
+          path: ${{ runner.temp }}/user-intelligence-founder-live-projection.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Validate World Knowledge foundation
         run: |
           npm run world-knowledge:typecheck
