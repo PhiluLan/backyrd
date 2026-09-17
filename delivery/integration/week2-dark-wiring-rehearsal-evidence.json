@@ -3,16 +3,16 @@
   "status": "READY",
   "executionAuthorized": false,
   "baseSha": "f999e2185d9102ea59a2c6e2c0861a4122af359b",
-  "integrationHeadSha": "aae336a8b34726ae746de1e68ca1a0f33835982c",
+  "integrationHeadSha": "1def9dafe9f4baabc4de05a40189f79740bbd8b4",
   "domainHeads": {
     "WORLD": "0dbed4a9a8b0270a077e9f7b235cb9f54544dfb9",
     "USER": "80a1579564d1f10f450dfb35db4c4847b1539b60",
     "DECISION": "2daf547da226d9b80a382437c9c39df89399e267"
   },
   "mergeSequence": ["WORLD", "USER", "DECISION", "INTEGRATION"],
-  "combinedCommitSha": "003e9a7173f54a4d7dfe9ef571c370814660af01",
-  "combinedTreeSha": "39af05a072fc08b66c2008f6284ed6f98b54c199",
-  "sharedArtifactHash": "f1ef887448dc2dc72de0bcc7e7b659e952964414f9de95be9523cab64d176229",
+  "combinedCommitSha": "8ab34b5e4b1a8540aa39d3d2a5e487e3bb07d6c2",
+  "combinedTreeSha": "81f53e4d6c4b73aca7a1a11e279d99b0000c925f",
+  "sharedArtifactHash": "bb69a214289046bd7a493105bad2f9ea6faca31ea2dd9eba5c445c2a2d75ecd5",
   "conflictCount": 0,
   "overlaps": [
     {"left": "WORLD", "right": "USER", "files": ["package.json"]},
@@ -40,7 +40,7 @@
     "shared": "PASS",
     "repositoryAndSecrets": "PASS",
     "databasePostgres17CleanBoot": "PASS",
-    "deliveryContracts": "PASS_49_AND_34",
+    "deliveryContracts": "PASS_60_AND_34",
     "diffCheck": "PASS"
   },
   "productionActionPerformed": false
