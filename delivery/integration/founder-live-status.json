@@ -5,6 +5,7 @@
   "codeAndTests": "GREEN",
   "ctoReviewReady": true,
   "identityGate": "PR_AND_POST_MERGE_EXACT",
+  "sealedFunctionalHead": "a157b9b41f62ef2d60e28f15732fedb5cbae9fdd",
   "draftRequired": true,
   "productionStatus": "NO_GO",
   "executionAuthorized": false,
