@@ -1,0 +1,38 @@
+{
+  "contractVersion": "backyrd.user-intelligence.dark-projection-runtime-release-summary@week2-1",
+  "releaseHash": "f7d31f9860706b54effdd33199d1c419de4d92856fbc292b7dbfaf4ba6910391",
+  "trustAnchorHash": "c68d419299ea853b0f9dcb283198ccce26853641e1a53a2b03a9cdb614b81e9e",
+  "week1ReleaseHash": "b9ae392e3f50540bdbe36456e5342d5bd089d0953dd86b9f4b2b2ba6359db417",
+  "week1NoWriteProofHash": "309408760ce36bcc344d7a9ea6966eb655d647193c91a71764bec9e58d5618f3",
+  "noWriteProofHash": "43ac9ef41f55a634d748f26c424fcc655e38c12f57feac1c1970f3180911d82f",
+  "retentionDecisionTemplateHash": "227db41aa2cd02b18ba95610898430ba7cfec9570c831e1cd698524620076991",
+  "stateHash": "329ec7402b6785e2c4de3224775dda747137da9495ac65243f9a8f75478246c6",
+  "projectionHash": "42f2e56e1ea020c2a5522740d09cb82063e1c819e806b57f70fcb05a84fa1fe6",
+  "handoffHash": "43f8ac66e7eb1e5bc7dfe564782eef39fdf43c1e9142508b829d2f03d3bae046",
+  "privacyExportHash": "001f749f7d3155acbd6e9981cf630e0093935bbdb5d67ce704e369f12022af5f",
+  "metricsHash": "9403dad29bf5ad779272b036f9e79efb6488f0da7b4f47bee382ce4838385f11",
+  "lifecycleRehearsalHash": "a600147720eca145b69b8b64f30c54a4b178088b0e4f34d61cde90796b6d2f15",
+  "fullReportHash": "8678a932434d9890e2332634317328af0e75ce9228c5262b0f9861003eb065d6",
+  "flags": {
+    "USER_LEARNING_RUNTIME": false,
+    "eventIngestionEnabled": false,
+    "projectionRuntimeActivated": false,
+    "persistentWritesAuthorized": false,
+    "networkCallsAuthorized": false,
+    "rankingAuthorized": false,
+    "eligibilityAuthorized": false,
+    "shadowTrafficAuthorized": false,
+    "killSwitch": "FORCED_OFF"
+  },
+  "productionPlan": {
+    "migrations": [],
+    "functions": [],
+    "authChanges": [],
+    "rpcChanges": [],
+    "edgeChanges": [],
+    "productWiring": [],
+    "runtimeDeploymentRequired": false,
+    "executionAuthorized": false
+  },
+  "summaryHash": "4cf6414a8e791e525ef57c28b02c4aa1fc32b1e3374742f7f28f45ab9e40998a"
+}
