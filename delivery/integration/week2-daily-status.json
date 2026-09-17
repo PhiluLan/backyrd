@@ -4,14 +4,14 @@
   "executionAuthorized": false,
   "overall": "YELLOW",
   "tracks": [
-    {"id": "WORLD", "status": "GREEN", "reason": "PR #293 is CTO-GREEN and hash-bound; Production read remains OFF"},
-    {"id": "USER", "status": "GREEN", "reason": "PR #292 is CTO-GREEN and hash-bound; learning and persistence remain OFF"},
-    {"id": "DECISION", "status": "GREEN", "reason": "PR #294 is CI-GREEN and hash-bound; shadow traffic remains OFF with kill switch ENGAGED"},
+    {"id": "WORLD", "status": "GREEN", "reason": "PR #293 is canonically merged and post-merge GREEN; Production read remains OFF"},
+    {"id": "USER", "status": "GREEN", "reason": "PR #292 is canonically merged and post-merge GREEN; learning and persistence remain OFF"},
+    {"id": "DECISION", "status": "GREEN", "reason": "PR #294 is canonically merged and post-merge GREEN; shadow traffic remains OFF with kill switch ENGAGED"},
     {"id": "INTEGRATION", "status": "GREEN", "reason": "four-track combined tree, Node 20 artifact, full local Risk Gate and PostgreSQL 17 clean boot are sealed"}
   ],
   "yellowUntil": [
-    "DOMAIN_PRS_NOT_CANONICALLY_MERGED",
+    "INTEGRATION_PR_NOT_CANONICALLY_MERGED",
     "PRODUCTION_EXECUTION_NOT_SEPARATELY_AUTHORIZED"
   ],
-  "releaseBoundary": "Draft PR and CTO review only; merge and Production execution remain unauthorized"
+  "releaseBoundary": "Integration PR merge is authorized only after final gates; Production execution remains unauthorized"
 }

@@ -1,6 +1,8 @@
 {
   "contractVersion": "backyrd.week2-dark-wiring-manifest@1.0",
   "canonicalBaseSha": "f999e2185d9102ea59a2c6e2c0861a4122af359b",
+  "canonicalDomainMainSha": "d41acb2f0eedf1d7b3c9494ab6664281cd000465",
+  "canonicalDomainMainTreeSha": "20a927e6e828dca2a9b09a303a3ead8422326c7d",
   "executionAuthorized": false,
   "productionActivationAuthorized": false,
   "wiringChain": [

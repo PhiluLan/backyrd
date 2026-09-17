@@ -46,6 +46,7 @@ export function loadWeek2Documents(root) {
 export function validateWeek2Documents({ manifest, matrix, flags, status, fixture, evidence, decisionEvidence, sharedArtifact }) {
   requireValue(manifest.contractVersion === "backyrd.week2-dark-wiring-manifest@1.0", "week2_manifest_identity_mismatch");
   requireValue(manifest.canonicalBaseSha === "f999e2185d9102ea59a2c6e2c0861a4122af359b", "week2_canonical_base_mismatch");
+  requireValue(manifest.canonicalDomainMainSha === manifest.domainCandidates.at(-1)?.mergeSha && manifest.canonicalDomainMainTreeSha === manifest.domainCandidates.at(-1)?.mergeTreeSha, "week2_canonical_domain_main_mismatch");
   requireValue(manifest.executionAuthorized === false && manifest.productionActivationAuthorized === false, "week2_manifest_authority_must_be_false");
   requireValue(JSON.stringify(manifest.wiringChain) === JSON.stringify([
     "WORLD_PRODUCT_READ",
@@ -107,7 +108,7 @@ export function validateWeek2Documents({ manifest, matrix, flags, status, fixtur
 
   requireValue(status.contractVersion === "backyrd.week2-daily-integration-status@1.0" && status.executionAuthorized === false, "week2_status_identity_or_authority_invalid");
   requireValue(status.overall === "YELLOW", "week2_release_train_status_must_remain_yellow");
-  requireValue(status.yellowUntil?.includes("DOMAIN_PRS_NOT_CANONICALLY_MERGED"), "week2_status_domain_merge_blocker_missing");
+  requireValue(status.yellowUntil?.includes("INTEGRATION_PR_NOT_CANONICALLY_MERGED"), "week2_status_integration_merge_blocker_missing");
   requireValue(status.yellowUntil?.includes("PRODUCTION_EXECUTION_NOT_SEPARATELY_AUTHORIZED"), "week2_status_production_authority_blocker_missing");
   requireValue(status.tracks.map(({ id }) => id).join(",") === "WORLD,USER,DECISION,INTEGRATION", "week2_status_tracks_invalid");
   for (const track of status.tracks) requireValue(["GREEN", "YELLOW", "RED"].includes(track.status) && Boolean(track.reason), `week2_status_track_invalid:${track.id}`);

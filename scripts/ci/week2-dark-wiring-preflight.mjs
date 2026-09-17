@@ -120,10 +120,10 @@ export function runWeek2Preflight({ root = ROOT, baseSha: requestedBase, headSha
   }
   if (final) requireValue(documentState.boundDomainCandidates === 3 && documentState.rehearsalReady, "week2_final_domain_or_rehearsal_not_ready");
 
-  const baseSha = git(root, ["rev-parse", `${requestedBase ?? documents.manifest.canonicalBaseSha}^{commit}`]);
+  const baseSha = git(root, ["rev-parse", `${requestedBase ?? documents.manifest.canonicalDomainMainSha}^{commit}`]);
   const headSha = git(root, ["rev-parse", `${requestedHead ?? "HEAD"}^{commit}`]);
   const canonicalMainSha = git(root, ["rev-parse", "origin/main^{commit}"]);
-  requireValue(baseSha === documents.manifest.canonicalBaseSha && canonicalMainSha === documents.manifest.canonicalBaseSha, "week2_base_or_canonical_main_drift");
+  requireValue(baseSha === documents.manifest.canonicalDomainMainSha && canonicalMainSha === documents.manifest.canonicalDomainMainSha, "week2_base_or_canonical_main_drift");
   requireValue(git(root, ["merge-base", "--is-ancestor", baseSha, headSha]) === "", "week2_integration_candidate_not_descendant");
   if (final) {
     requireValue(git(root, ["merge-base", "--is-ancestor", documents.evidence.integrationHeadSha, headSha]) === "", "week2_rehearsed_integration_head_not_ancestor");

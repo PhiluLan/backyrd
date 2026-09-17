@@ -73,6 +73,12 @@ test("canonical domain merge identities fail closed on parent or tree tampering"
   }
 });
 
+test("canonical domain main is bound to the final domain merge identity", () => {
+  const value = clone(documents());
+  value.manifest.canonicalDomainMainSha = value.manifest.canonicalBaseSha;
+  assert.throws(() => validateWeek2Documents(value), /week2_canonical_domain_main_mismatch/);
+});
+
 test("required GitHub Week-2 preflight cannot be downgraded from final mode", () => {
   const workflow = readFileSync(new URL("../../.github/workflows/risk-gate.yml", import.meta.url), "utf8");
   const invocations = workflow.split("\n").filter((line) => line.includes("scripts/ci/week2-dark-wiring-preflight.mjs"));
