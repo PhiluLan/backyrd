@@ -96,8 +96,6 @@
     "world-knowledge:week3:plan": "npm run world-knowledge:build && node scripts/world-knowledge/build-week3-internal-allowlist-foundation.mjs",
     "world-knowledge:week3:test": "npm run world-knowledge:build && node --test packages/world-knowledge-core/test/week3-internal-allowlist.test.mjs scripts/world-knowledge/week3-internal-allowlist-foundation.test.mjs",
     "world-knowledge:week3:rehearsal": "WORLD_WEEK2_BACKUP_RESTORE=true bash scripts/world-knowledge/rehearse-week1-world-release.sh",
-    "world-knowledge:founder-live:evidence": "npm run world-knowledge:build && node scripts/world-knowledge/build-founder-live-authoring-evidence.mjs",
-    "world-knowledge:founder-live:test": "npm run world-knowledge:build && node --test scripts/world-knowledge/founder-live-authoring-evidence.test.mjs admin-dashboard/test/world-knowledge-authoring-ux.test.mjs admin-dashboard/test/world-knowledge-session-recovery.test.mjs",
     "world-knowledge:legacy:export": "node scripts/world-knowledge/export-production-legacy-spots.mjs",
     "world-knowledge:legacy:transform": "npm run world-knowledge:build && node scripts/world-knowledge/transform-legacy-export.mjs",
     "world-knowledge:legacy:import-local": "node scripts/world-knowledge/import-legacy-local.mjs",
