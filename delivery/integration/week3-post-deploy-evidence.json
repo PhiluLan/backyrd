@@ -1,18 +1,18 @@
 {
   "contractVersion": "backyrd.week3-post-deploy-evidence@1.0",
   "status": "NOT_EXECUTED_NO_PRODUCTION_AUTHORITY",
-  "mainSha": "1010c420ed6063a5e4dca2f88dd9d73c4c736790",
-  "treeSha": "6955a30c5479cd9ecff8837fcc92ebad7f9eea5c",
-  "artifactHash": "260bc5282e43937f7ee9532733261ef0d213732ee733700219c55d94b41fbc3c",
+  "mainSha": "66e8166b0f636ed5a83a5e4f581c7c9b139b8ee2",
+  "treeSha": "14f1b681e74b58741c8214938ec94904e71c1e50",
+  "artifactHash": "38d60834b40bd8ad60fd5716a67f4ef32d50a79c3256e7dcffcd01237749d507",
   "worldReleaseHash": "c5c230e932b4322523364ef12940f690e8e60d85879ca870796c6872a98f4b2f",
   "userReleaseHash": "c8399a7fca8fb329e3ced9930b46d495308c44b5c5a75a4df293e52a239c09a5",
   "decisionReleaseHash": "b009054fc0429df8ca1b933efa1296fa98ddcfce78abcf61efe46813e0124c53",
   "allowlistHashes": ["0994c6dd24d45391c9698e7393226165b7bc2dfb85757ae947e9e3bdc141d4ee", "b372dc18c5d62d15b5c63eca94345626041eb7bbf3e17c5fe8b68589933fd983", "b52e10ed3173e11f3385a27bd6f2fa7f409be46c0e96818254cbdd34ff186ffc"],
   "killSwitchControlHash": "ec031adb538b44104924424f1ead1c246e9e8d7e8b153c73929a8e070e4ddcfa",
-  "productionPlanHash": "c67b91dda77686340b0e4af47d46c1f8bbf7e4cf76817cca7de0591ce3b71168",
+  "productionPlanHash": "223c6bcc26a246acd4779966808e380edc82cdb07e1f3d2274f63ca44604c12e",
   "executionAuthorized": false,
   "deploymentExecuted": false,
   "migrationExecuted": false,
   "activationExecuted": false,
-  "evidenceHash": "1cfed3f291765d715cb5d667aa05143544768aafb1d48fad6501ae89e51d869e"
+  "evidenceHash": "606ddad976708c5b5500ea9d85d4d9331b97eb0fa30918a1ae91f39ae326c8b1"
 }
