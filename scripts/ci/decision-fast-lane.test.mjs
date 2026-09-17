@@ -39,8 +39,13 @@ function artifactFixture() {
     "packages/world-knowledge-core/src/index.ts", "packages/user-intelligence-vnext-core/src/index.ts", "packages/decision-vnext-core/src/index.ts",
     "packages/decision-vnext-core/test/sample.test.mjs", "packages/decision-vnext-core/sandbox/config.json", "decision-lab/src/index.mjs",
     "decision-lab/test/sample.test.mjs", "decision-lab/config/config.json", "scripts/ci/decision-test-plan.mjs",
-    ".github/workflows/risk-gate.yml", "delivery/change-policy.json", "package.json", "scripts/ci/decision-build-artifact.mjs", "scripts/ci/decision-fast-lane.test.mjs",
+    ".github/workflows/risk-gate.yml", "delivery/change-policy.json",
+    "delivery/integration/week2-dark-wiring-manifest.json", "delivery/integration/week2-dependency-ownership-compatibility-matrix.json",
+    "delivery/integration/week2-dark-wiring-flags.json", "delivery/integration/fixtures/week2-dark-wiring-synthetic.json",
+    "docs/operations/integration/WEEK2_RELEASE_TRAIN.md", "docs/operations/integration/WEEK2_ROLLBACK_INCIDENT.md", "docs/operations/integration/WEEK2_CTO_REVIEW.md",
+    "package.json", "scripts/ci/decision-build-artifact.mjs", "scripts/ci/decision-fast-lane.test.mjs",
     "scripts/ci/run-decision-ci.mjs", "scripts/ci/validate-decision-test-plan.mjs", "scripts/ci/verify-decision-shards.mjs",
+    "scripts/ci/week2-dark-wiring.mjs", "scripts/ci/week2-dark-wiring-preflight.mjs", "scripts/ci/week2-four-track-rehearsal.mjs",
     "packages/world-knowledge-core/dist/index.js", "packages/user-intelligence-vnext-core/dist/index.js", "packages/decision-vnext-core/dist/index.js",
   ]) put(root, path, `${path}\n`);
   return root;
