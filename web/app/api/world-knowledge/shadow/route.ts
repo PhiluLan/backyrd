@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
+import { createFounderWorldKnowledgeReader, REGISTRY_HASH, REGISTRY_VERSION, WORLD_KNOWLEDGE_PORT_VERSION } from "@backyrd/world-knowledge-core";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -21,7 +22,17 @@ export async function POST(request: Request) {
   if (body?.action === "rebuild" && body.spotId && UUID.test(body.spotId)) {
     const { error: scopeError } = await actor.rpc("world_authoring_get_spot_v1", { p_spot_id: body.spotId }); if (scopeError) return Response.json({ error: "world_authoring_scope_denied" }, { status: 403 });
     const now = new Date().toISOString(); const { data, error } = await service.rpc("world_shadow_rebuild_spot_v1", { p_spot_id: body.spotId, p_mode: "FULL", p_as_of: now, p_idempotency_key: `authoring:${body.spotId}:${now}` });
-    return error ? Response.json({ error: error.message }, { status: 400 }) : Response.json(data);
+    if (error) return Response.json({ error: error.message }, { status: 400 });
+    try {
+      const readerSnapshot = await createFounderWorldKnowledgeReader(async () => {
+        const result = await actor.rpc("world_authoring_get_spot_v1", { p_spot_id: body.spotId });
+        if (result.error || !result.data) throw new Error(result.error?.message ?? "founder_reader_snapshot_missing");
+        const detail = result.data as { manifest?: { worldSnapshot?: unknown } | null };
+        if (!detail.manifest?.worldSnapshot) throw new Error("founder_reader_snapshot_missing");
+        return detail.manifest.worldSnapshot;
+      }).readSnapshot({ spotId: body.spotId, contractVersion: WORLD_KNOWLEDGE_PORT_VERSION, registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH });
+      return Response.json({ rebuild: data, readerSnapshot });
+    } catch (cause) { return Response.json({ error: cause instanceof Error ? cause.message : "founder_reader_snapshot_invalid" }, { status: 400 }); }
   }
   if (body?.action === "cohort" && body.cohortId) {
     const { data: admin } = await actor.rpc("admin_is_admin_v1"); if (admin !== true) return Response.json({ error: "admin_required" }, { status: 403 });
