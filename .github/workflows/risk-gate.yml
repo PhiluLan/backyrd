@@ -472,6 +472,27 @@ jobs:
         run: node scripts/ci/integration-preflight.mjs --base-sha "${{ needs.classify.outputs.base-sha }}" --head-sha "${{ needs.classify.outputs.head-sha }}"
       - name: Read-only Week-2 dark-wiring preflight
         run: node scripts/ci/week2-dark-wiring-preflight.mjs --base-sha "${{ needs.classify.outputs.base-sha }}" --head-sha "${{ needs.classify.outputs.head-sha }}" --final
+      - name: Validate Week-3 internal product-like control plane
+        run: node --test scripts/ci/week3-internal-prodlike.test.mjs
+      - name: Read-only Week-3 internal product-like preflight
+        env:
+          WEEK3_EVENT_NAME: ${{ github.event_name }}
+          WEEK3_CHECKOUT_SHA: ${{ github.sha }}
+        run: |
+          case "$WEEK3_EVENT_NAME" in
+            pull_request) WEEK3_MODE=PR_CANDIDATE ;;
+            push)
+              test "$GITHUB_REF" = "refs/heads/main"
+              WEEK3_MODE=POST_MERGE_MAIN
+              ;;
+            *) echo "Unsupported Week-3 event: $WEEK3_EVENT_NAME" >&2; exit 1 ;;
+          esac
+          node scripts/ci/week3-internal-prodlike-preflight.mjs \
+            --mode "$WEEK3_MODE" \
+            --base-sha "${{ needs.classify.outputs.base-sha }}" \
+            --head-sha "${{ needs.classify.outputs.head-sha }}" \
+            --checkout-sha "$WEEK3_CHECKOUT_SHA" \
+            --final
 
   risk-gate:
     name: Risk-based merge gate

@@ -1,0 +1,42 @@
+{
+  "contractVersion": "backyrd.week3-dependency-ownership-compatibility-matrix@1.0",
+  "executionAuthorized": false,
+  "canonicalMain": {
+    "sha": "d3f151901d8d284469968323ac8edc1e287fdf59",
+    "treeSha": "0d48b77440b925c8c60deacbaf508fcf84993b0e"
+  },
+  "domainBindings": [
+    { "id": "WORLD", "headSha": "bee8c456f2fec036db2986f6c263d2c195ecea06", "treeSha": "ebd9adb094ee60429f7debf13d4aa24847fd5518", "mergeSha": "1d689e38f12edee2821cc4f4e3d5bc5ee8ccf48b" },
+    { "id": "USER", "headSha": "2c1c0facae38b91fc8f3aa31ece1f1e9c08b54a5", "treeSha": "74f5513cca71ea798822283ab817db61a3b57b5a", "mergeSha": "0ff695f8fbc659fd2ae1551f625d169dc60aeb21" },
+    { "id": "DECISION", "headSha": "9c80a5edcccda72d87f219d74bfe2280ce3f8280", "treeSha": "0d48b77440b925c8c60deacbaf508fcf84993b0e", "mergeSha": "d3f151901d8d284469968323ac8edc1e287fdf59" }
+  ],
+  "tracks": [
+    { "id": "WORLD", "authority": ["World reader, registry, source policy, allowlist release"], "forbidden": ["User semantics", "Decision semantics", "Production activation"], "killSwitch": "WORLD_KILL_SWITCH" },
+    { "id": "USER", "authority": ["Consent/lifecycle and minimized RelevantUserProjection"], "forbidden": ["World authoring", "Decision ranking", "persistent learning"], "killSwitch": "USER_KILL_SWITCH" },
+    { "id": "DECISION", "authority": ["Evaluation-only internal dark shadow"], "forbidden": ["direct World tables", "raw User evidence", "Product output"], "killSwitch": "DECISION_KILL_SWITCH" },
+    { "id": "INTEGRATION", "authority": ["identity binding", "gate routing", "rehearsal", "evidence binding"], "forbidden": ["domain semantics", "domain merges", "Production execution"], "killSwitch": "GLOBAL_INTEGRATION_KILL_SWITCH" }
+  ],
+  "supabaseCompatibility": {
+    "verifiedAsOf": "2026-09-17",
+    "postgresMajor": 17,
+    "dataApi": "EXPLICIT_GRANTS_PLUS_RLS",
+    "forbiddenSchemaMutations": ["auth", "realtime", "storage"],
+    "extensionVersionPinningAllowed": false,
+    "logsAllDependencyAllowed": false,
+    "securityDefiner": "PRIVATE_SCHEMA_EMPTY_SEARCH_PATH_EXPLICIT_EXECUTE_ONLY",
+    "officialSources": [
+      "https://supabase.com/changelog?types=breaking-change",
+      "https://supabase.com/docs/guides/platform/upgrading",
+      "https://supabase.com/docs/guides/database/postgres/row-level-security",
+      "https://supabase.com/docs/guides/database/functions"
+    ]
+  },
+  "productionBoundary": {
+    "pendingMigrationClass": "NINE_INHERITED_WORLD_ONLY",
+    "newMigrations": 0,
+    "deployFunctions": [],
+    "authDeploy": false,
+    "runtimeActivation": false,
+    "executionAuthorized": false
+  }
+}
