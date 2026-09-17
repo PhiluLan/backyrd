@@ -63,14 +63,14 @@
       ],
       "evidence": {
         "path": "delivery/integration/week2-decision-frozen-evidence.json",
-        "fileHash": "2d153335b1c34497436b8931a8a0c90bb34fd4730512fac05a093e5cd539663d",
+        "fileHash": "2a5d5c504611fe457585de89b550c47804b5af1dc8a450da0fff7210b34073da",
         "contractVersion": "backyrd.decision-vnext.dark-request-evaluation@week2-1",
         "bindings": [
-          {"name": "DECISION_REPORT_HASH", "fields": ["reportHash", "replayHash"], "expected": "15a93bf0e07c24121ce9edd0c5edc2f2687f3e534c93d8c15b97bad56bd7c421"},
-          {"name": "DECISION_RESULT_HASH", "fields": ["resultHash"], "expected": "cb857c6d6fb89799999932805c92435636bc131271204db45d095dca5d381f0b"},
-          {"name": "DECISION_CONTROL_HASH", "fields": ["controlHash"], "expected": "34a546de6937b9c6be4e2c4352595083cb8ba83e744b55b94f37746fbfccdd8c"},
-          {"name": "DECISION_AUTHORITY_HASH", "fields": ["authorityHash"], "expected": "69136cfe2e931dea5aa77404951f8754a53f059cda9de8cde7c9242ac3517bf4"},
-          {"name": "DECISION_SOURCE_TRUST_HASH", "fields": ["sourceTrustHash"], "expected": "74071f5c4f83371744484d8d658fc344faf00b5daccb3a7e07d5d8caf2408dac"}
+          {"name": "DECISION_REPORT_HASH", "fields": ["output.reportHash", "output.replayHash"], "expected": "15a93bf0e07c24121ce9edd0c5edc2f2687f3e534c93d8c15b97bad56bd7c421"},
+          {"name": "DECISION_RESULT_HASH", "fields": ["output.resultHash"], "expected": "cb857c6d6fb89799999932805c92435636bc131271204db45d095dca5d381f0b"},
+          {"name": "DECISION_CONTROL_HASH", "fields": ["output.controlHash"], "expected": "34a546de6937b9c6be4e2c4352595083cb8ba83e744b55b94f37746fbfccdd8c"},
+          {"name": "DECISION_AUTHORITY_HASH", "fields": ["output.authorityHash"], "expected": "69136cfe2e931dea5aa77404951f8754a53f059cda9de8cde7c9242ac3517bf4"},
+          {"name": "DECISION_SOURCE_TRUST_HASH", "fields": ["output.sourceTrustHash"], "expected": "74071f5c4f83371744484d8d658fc344faf00b5daccb3a7e07d5d8caf2408dac"}
         ]
       },
       "status": "READY"

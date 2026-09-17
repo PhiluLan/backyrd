@@ -12,16 +12,17 @@ Each step must bind the exact PR, base, head, tree, domain artifact, plan hash, 
 
 1. Verify each candidate is a descendant of the fixed base and that its tree and declared contract identities match.
 2. Run the four-track merge-tree rehearsal without updating any branch or PR.
-3. Materialize only the resulting ephemeral rehearsal commit in an isolated local worktree.
-4. Build one Node 20 artifact from that combined tree and make every World/User/Decision/Integration shard verify the same artifact hash.
-5. Run OFF first. It must produce zero queries, ingestion, evaluation, writes, network calls, persistence, and Product output.
-6. Run controlled Test-ON only with versioned synthetic fixtures in local or prod-like local infrastructure. It may exercise declared ports, but writes, network calls, persistence, and Product output must remain zero.
-7. Run Integration, Delivery, Database, Classifier, World/User/Decision fast and full suites, Shared/Web/Admin/Mobile, repository/secret checks, source-aware plan, `git diff --check`, and the complete local Risk Gate.
-8. Push only the Integration branch and open exactly one Draft PR. Do not merge.
+3. Materialize the frozen Decision head in an isolated temporary worktree, verify its commit/tree, canonical lockfile and pinned build/contract blobs, build with Node 20 in offline mode, execute the exact evaluator blob, and require its complete deterministic JSON output to equal the Integration evidence.
+4. Materialize only the resulting ephemeral four-track rehearsal commit in an isolated local worktree.
+5. Build one Node 20 artifact from that combined tree and make every World/User/Decision/Integration shard verify the same artifact hash.
+6. Run OFF first. It must produce zero queries, ingestion, evaluation, writes, network calls, persistence, and Product output.
+7. Run controlled Test-ON only with versioned synthetic fixtures in local or prod-like local infrastructure. It may exercise declared ports, but writes, network calls, persistence, and Product output must remain zero.
+8. Run Integration, Delivery, Database, Classifier, World/User/Decision fast and full suites, Shared/Web/Admin/Mobile, repository/secret checks, source-aware plan, `git diff --check`, and the complete local Risk Gate.
+9. Push only the Integration branch and open exactly one Draft PR. Do not merge.
 
 ## Stop conditions
 
-Stop and mark RED for any identity/tree mismatch, merge conflict, unowned overlap, missing/unknown flag, activation-order bypass, nonzero OFF counter, write/network/Product output, migration mutation, auth, realtime or storage schema mutation, extension-version pinning, `logs.all` dependency, unexpected function/auth deployment, required gate not selected, failed/skipped required test, or `executionAuthorized` other than `false`.
+Stop and mark RED for any identity/tree mismatch, Decision evidence/output mismatch, evaluator path/blob or build-input substitution, cross-head replay, merge conflict, unowned overlap, missing/unknown flag, activation-order bypass, nonzero OFF counter, write/network/Product output, migration mutation, auth, realtime or storage schema mutation, extension-version pinning, `logs.all` dependency, unexpected function/auth deployment, required gate not selected, failed/skipped required test, or `executionAuthorized` other than `false`.
 
 Mark YELLOW for a still-open domain candidate, an unexecuted final rehearsal, unresolved but non-conflicting overlap review, or pending CTO decision. Production not being authorized is expected and keeps the release train non-executable.
 

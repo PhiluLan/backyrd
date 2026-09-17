@@ -27,6 +27,7 @@ const CONFIG_KEYS = new Set([
 const requireValue = (condition, reason) => {
   if (!condition) throw new Error(reason);
 };
+const fieldValue = (value, path) => path.split(".").reduce((current, key) => current?.[key], value);
 
 export function loadWeek2Documents(root) {
   const load = (path) => JSON.parse(readFileSync(resolve(root, path), "utf8"));
@@ -73,11 +74,12 @@ export function validateWeek2Documents({ manifest, matrix, flags, status, fixtur
   const decision = manifest.domainCandidates.find(({ track }) => track === "DECISION");
   const requiredDecisionBindings = ["DECISION_REPORT_HASH", "DECISION_RESULT_HASH", "DECISION_CONTROL_HASH", "DECISION_AUTHORITY_HASH", "DECISION_SOURCE_TRUST_HASH"];
   requireValue(decision.evidence?.path === "delivery/integration/week2-decision-frozen-evidence.json" && HASH.test(decision.evidence.fileHash) && decision.evidence.contractVersion === decisionEvidence.contractVersion, "week2_decision_evidence_identity_invalid");
-  requireValue(decisionEvidence.sourceSha === decision.headSha && decisionEvidence.sourceTreeHash === decision.treeSha, "week2_decision_evidence_source_invalid");
+  requireValue(decisionEvidence.provenance?.sourceSha === decision.headSha && decisionEvidence.provenance?.sourceTreeHash === decision.treeSha, "week2_decision_provenance_source_invalid");
+  requireValue(decisionEvidence.output?.sourceSha === decision.headSha && decisionEvidence.output?.sourceTreeHash === decision.treeSha, "week2_decision_evidence_source_invalid");
   for (const name of requiredDecisionBindings) requireValue(decision.evidence.bindings.some((binding) => binding.name === name), `week2_decision_binding_missing:${name}`);
   for (const binding of decision.evidence.bindings) {
     requireValue(binding.name && Array.isArray(binding.fields) && binding.fields.length > 0 && HASH.test(binding.expected), `week2_decision_binding_shape_invalid:${binding.name ?? "unknown"}`);
-    for (const field of binding.fields) requireValue(decisionEvidence[field] === binding.expected, `week2_decision_evidence_binding_mismatch:${binding.name}:${field}`);
+    for (const field of binding.fields) requireValue(fieldValue(decisionEvidence, field) === binding.expected, `week2_decision_evidence_binding_mismatch:${binding.name}:${field}`);
   }
   requireValue(manifest.productionPlan.expectedPendingMigrationCount === 9 && manifest.productionPlan.pendingMigrationClass === "WORLD_INHERITED", "week2_migration_expectation_mismatch");
   requireValue(manifest.productionPlan.executionAuthorized === false && manifest.productionPlan.authDeploy === false && manifest.productionPlan.expectedDeployFunctions.length === 0, "week2_production_plan_scope_invalid");

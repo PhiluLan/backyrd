@@ -9,10 +9,28 @@ import {
   validateWeek2Documents,
 } from "./week2-dark-wiring.mjs";
 import { verifyDomainCandidates, verifySupabaseCompatibilitySources } from "./week2-dark-wiring-preflight.mjs";
+import { verifyDecisionEvidenceAuthority } from "./week2-decision-provenance.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const documents = () => loadWeek2Documents(ROOT);
 const clone = (value) => JSON.parse(JSON.stringify(value));
+const decisionInputs = (value = documents()) => {
+  const candidate = value.manifest.domainCandidates.find(({ track }) => track === "DECISION");
+  const evidence = value.decisionEvidence;
+  return {
+    candidate,
+    evidence,
+    execution: {
+      nodeMajor: 20,
+      sourceSha: candidate.headSha,
+      sourceTreeHash: candidate.treeSha,
+      evaluatorPath: evidence.provenance.evaluatorPath,
+      evaluatorBlobSha: evidence.provenance.evaluatorBlobSha,
+      outputSha256: evidence.provenance.outputSha256,
+      output: clone(evidence.output),
+    },
+  };
+};
 
 test("Week-2 control-plane documents are internally consistent", () => {
   const value = documents();
@@ -37,6 +55,68 @@ for (const name of ["DECISION_REPORT_HASH", "DECISION_RESULT_HASH", "DECISION_CO
     assert.throws(() => verifyDomainCandidates(ROOT, value.manifest, value.decisionEvidence), new RegExp(`week2_candidate_evidence_binding_mismatch:DECISION:${name}`));
   });
 }
+
+test("frozen Decision evidence is bound to the exact evaluator output and source blobs", () => {
+  assert.deepEqual(
+    verifyDecisionEvidenceAuthority({ root: ROOT, ...decisionInputs() }),
+    {
+      nodeMajor: 20,
+      evaluatorPath: "packages/decision-vnext-core/sandbox/evaluate-dark-request-week2.mjs",
+      evaluatorBlobSha: "74c2bab6383bec29ef4f90f9639fe0d9f701710c",
+      outputSha256: "735135f171a542f6862971b521ac316b76cc1bdf6baaf6e76b4cce3faeaaaa25",
+    },
+  );
+});
+
+test("manipulated Decision evidence fails closed", () => {
+  const input = decisionInputs();
+  input.evidence.output.resultHash = "0".repeat(64);
+  assert.throws(() => verifyDecisionEvidenceAuthority({ root: ROOT, ...input }), /week2_decision_evidence_output_hash_mismatch/);
+});
+
+test("wrong frozen Decision head fails closed", () => {
+  const input = decisionInputs();
+  input.candidate.headSha = input.candidate.baseSha;
+  assert.throws(() => verifyDecisionEvidenceAuthority({ root: ROOT, ...input }));
+});
+
+test("wrong frozen Decision tree fails closed", () => {
+  const input = decisionInputs();
+  input.candidate.treeSha = "0".repeat(40);
+  assert.throws(() => verifyDecisionEvidenceAuthority({ root: ROOT, ...input }), /week2_decision_provenance_tree_mismatch/);
+});
+
+test("alternate evaluator path fails closed", () => {
+  const input = decisionInputs();
+  input.evidence.provenance.evaluatorPath = "packages/decision-vnext-core/sandbox/run.mjs";
+  assert.throws(() => verifyDecisionEvidenceAuthority({ root: ROOT, ...input }), /week2_decision_evaluator_path_mismatch/);
+});
+
+test("altered evaluator blob fails closed", () => {
+  const input = decisionInputs();
+  input.evidence.provenance.evaluatorBlobSha = "0".repeat(40);
+  assert.throws(() => verifyDecisionEvidenceAuthority({ root: ROOT, ...input }), /week2_decision_evaluator_blob_mismatch/);
+});
+
+test("forged evaluator output fails closed", () => {
+  const input = decisionInputs();
+  input.execution.output.reportHash = "0".repeat(64);
+  assert.throws(() => verifyDecisionEvidenceAuthority({ root: ROOT, ...input }), /week2_decision_execution_output_mismatch/);
+});
+
+test("incomplete evaluator output fails closed", () => {
+  const input = decisionInputs();
+  delete input.evidence.output.sourceTrustHash;
+  assert.throws(() => verifyDecisionEvidenceAuthority({ root: ROOT, ...input }), /week2_decision_output_shape_mismatch/);
+});
+
+test("cross-head Decision replay fails closed", () => {
+  const input = decisionInputs();
+  const world = documents().manifest.domainCandidates.find(({ track }) => track === "WORLD");
+  input.candidate.headSha = world.headSha;
+  input.candidate.treeSha = world.treeSha;
+  assert.throws(() => verifyDecisionEvidenceAuthority({ root: ROOT, ...input }), /week2_decision_provenance_head_mismatch/);
+});
 
 for (const schema of ["auth", "realtime", "storage"]) {
   test(`${schema} schema mutation is blocked fail closed`, () => {

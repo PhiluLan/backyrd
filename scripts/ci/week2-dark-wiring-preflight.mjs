@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { classifyChange } from "./classify-change.mjs";
 import { loadWeek2Documents, runWeek2ContractRehearsal, validateWeek2Documents } from "./week2-dark-wiring.mjs";
+import { executeFrozenDecisionEvidence, verifyDecisionEvidenceAuthority } from "./week2-decision-provenance.mjs";
 import { buildProductionPlan } from "../deployment/supabase-production-plan.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
@@ -45,7 +46,7 @@ export function verifyDomainCandidates(root, manifest, decisionEvidence) {
     if (candidate.evidence) {
       requireValue(candidate.evidence.path === "delivery/integration/week2-decision-frozen-evidence.json", `week2_candidate_evidence_path_invalid:${candidate.track}`);
       requireValue(sha256(readFileSync(resolve(root, candidate.evidence.path))) === candidate.evidence.fileHash, `week2_candidate_evidence_file_hash_mismatch:${candidate.track}`);
-      requireValue(decisionEvidence.sourceSha === candidate.headSha && decisionEvidence.sourceTreeHash === candidate.treeSha, `week2_candidate_evidence_source_mismatch:${candidate.track}`);
+      requireValue(decisionEvidence.output.sourceSha === candidate.headSha && decisionEvidence.output.sourceTreeHash === candidate.treeSha, `week2_candidate_evidence_source_mismatch:${candidate.track}`);
       for (const binding of candidate.evidence.bindings) {
         for (const field of binding.fields) requireValue(fieldValue(decisionEvidence, field) === binding.expected, `week2_candidate_evidence_binding_mismatch:${candidate.track}:${binding.name}:${field}`);
       }
@@ -85,6 +86,8 @@ function hashControlPlane(root) {
     "delivery/integration/fixtures/week2-dark-wiring-synthetic.json",
     "scripts/ci/week2-dark-wiring.mjs",
     "scripts/ci/week2-dark-wiring-preflight.mjs",
+    "scripts/ci/week2-decision-provenance.mjs",
+    "delivery/integration/week2-decision-frozen-evidence.json",
   ];
   return sha256(JSON.stringify(paths.map((path) => ({ path, sha256: sha256(readFileSync(resolve(root, path))) }))));
 }
@@ -93,6 +96,9 @@ export function runWeek2Preflight({ root = ROOT, baseSha: requestedBase, headSha
   const documents = loadWeek2Documents(root);
   const documentState = validateWeek2Documents(documents);
   verifyDomainCandidates(root, documents.manifest, documents.decisionEvidence);
+  const decisionCandidate = documents.manifest.domainCandidates.find(({ track }) => track === "DECISION");
+  const decisionExecution = executeFrozenDecisionEvidence({ root, candidate: decisionCandidate });
+  const decisionProvenance = verifyDecisionEvidenceAuthority({ root, candidate: decisionCandidate, evidence: documents.decisionEvidence, execution: decisionExecution });
   if (final) requireValue(documentState.boundDomainCandidates === 3 && documentState.rehearsalReady, "week2_final_domain_or_rehearsal_not_ready");
 
   const baseSha = git(root, ["rev-parse", `${requestedBase ?? documents.manifest.canonicalBaseSha}^{commit}`]);
@@ -166,6 +172,7 @@ export function runWeek2Preflight({ root = ROOT, baseSha: requestedBase, headSha
     canonicalMainSha,
     controlPlaneHash: hashControlPlane(root),
     releaseTrainStatus: documentState.releaseTrainStatus,
+    decisionProvenance,
     domainCandidates: documents.manifest.domainCandidates,
     rehearsal: documents.evidence,
     offInvariant: off.counters,
