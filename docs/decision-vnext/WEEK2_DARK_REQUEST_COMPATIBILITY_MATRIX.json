@@ -1,0 +1,14 @@
+{
+  "contractVersion": "backyrd.decision-vnext.dark-request-compatibility-matrix@week2-1",
+  "canonicalBaseSha": "f999e2185d9102ea59a2c6e2c0861a4122af359b",
+  "components": [
+    { "component": "Week-1 dark shadow control", "classification": "KEEP", "reason": "default-off and no-product boundaries remain unchanged" },
+    { "component": "WorldKnowledgeReaderPort", "classification": "KEEP", "reason": "canonical read-only World boundary" },
+    { "component": "RelevantUserProjection port", "classification": "KEEP", "reason": "canonical minimized User boundary" },
+    { "component": "Phase-3C Context and Candidate evaluation", "classification": "EXTEND", "reason": "accept an already validated canonical projection without changing default fixture semantics" },
+    { "component": "Week-1 mirror envelope", "classification": "ADAPT", "reason": "Week 2 adds request authority, port reads and a full execution report" },
+    { "component": "Production adapter", "classification": "UNKNOWN_NEEDS_DECISION", "reason": "explicitly deferred and not authorized" },
+    { "component": "Product ranking and confidence thresholds", "classification": "UNKNOWN_NEEDS_DECISION", "reason": "remain NOT_CONFIGURED" }
+  ],
+  "productionAuthorized": false
+}
