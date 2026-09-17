@@ -4,6 +4,7 @@
   "reason": "WORLD_USER_DECISION_FOLLOWUP_CANDIDATES_NOT_YET_AVAILABLE",
   "codeAndTests": "GREEN",
   "ctoReviewReady": true,
+  "identityGate": "PR_AND_POST_MERGE_EXACT",
   "draftRequired": true,
   "productionStatus": "NO_GO",
   "executionAuthorized": false,
