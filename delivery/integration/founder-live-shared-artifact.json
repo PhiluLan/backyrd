@@ -1,8 +1,8 @@
 {
   "contractVersion": "backyrd.founder-live-shared-node20-artifact@1.0",
   "nodeMajor": 20,
-  "sourceSha": "25e8db0b33633d975a35238532000f3acf6a7287",
-  "sourceTreeSha": "35ef67839511044ce073342dfa6590b692c65731",
+  "sourceSha": "78a60b6df796c3439908c19b1684cdcba88df0a6",
+  "sourceTreeSha": "b236839c6e6c6dfa2d6f5b9e6ce8e4fabe2bfd05",
   "sourceSetHash": "b0fd2091d23521416e90ff71853b055d360c3215112f8f1c2d8b2320feb1c07e",
   "fileCount": 124,
   "tracks": [
@@ -13,41 +13,41 @@
     "ADMIN",
     "INTEGRATION"
   ],
-  "artifactHash": "db7efd82a258f4e92b8e707502466be8b625910cc6a295c4f32a2e14b755fa6a",
+  "artifactHash": "0d92b3148ad9c005feb2a4d9470b98230abc3f9a3a0a77144d118c199a8ee398",
   "trackVerifications": [
     {
       "track": "WORLD",
-      "artifactHash": "db7efd82a258f4e92b8e707502466be8b625910cc6a295c4f32a2e14b755fa6a",
+      "artifactHash": "0d92b3148ad9c005feb2a4d9470b98230abc3f9a3a0a77144d118c199a8ee398",
       "sourceSetHash": "b0fd2091d23521416e90ff71853b055d360c3215112f8f1c2d8b2320feb1c07e",
       "status": "VERIFIED"
     },
     {
       "track": "USER",
-      "artifactHash": "db7efd82a258f4e92b8e707502466be8b625910cc6a295c4f32a2e14b755fa6a",
+      "artifactHash": "0d92b3148ad9c005feb2a4d9470b98230abc3f9a3a0a77144d118c199a8ee398",
       "sourceSetHash": "b0fd2091d23521416e90ff71853b055d360c3215112f8f1c2d8b2320feb1c07e",
       "status": "VERIFIED"
     },
     {
       "track": "DECISION",
-      "artifactHash": "db7efd82a258f4e92b8e707502466be8b625910cc6a295c4f32a2e14b755fa6a",
+      "artifactHash": "0d92b3148ad9c005feb2a4d9470b98230abc3f9a3a0a77144d118c199a8ee398",
       "sourceSetHash": "b0fd2091d23521416e90ff71853b055d360c3215112f8f1c2d8b2320feb1c07e",
       "status": "VERIFIED"
     },
     {
       "track": "MOBILE",
-      "artifactHash": "db7efd82a258f4e92b8e707502466be8b625910cc6a295c4f32a2e14b755fa6a",
+      "artifactHash": "0d92b3148ad9c005feb2a4d9470b98230abc3f9a3a0a77144d118c199a8ee398",
       "sourceSetHash": "b0fd2091d23521416e90ff71853b055d360c3215112f8f1c2d8b2320feb1c07e",
       "status": "VERIFIED"
     },
     {
       "track": "ADMIN",
-      "artifactHash": "db7efd82a258f4e92b8e707502466be8b625910cc6a295c4f32a2e14b755fa6a",
+      "artifactHash": "0d92b3148ad9c005feb2a4d9470b98230abc3f9a3a0a77144d118c199a8ee398",
       "sourceSetHash": "b0fd2091d23521416e90ff71853b055d360c3215112f8f1c2d8b2320feb1c07e",
       "status": "VERIFIED"
     },
     {
       "track": "INTEGRATION",
-      "artifactHash": "db7efd82a258f4e92b8e707502466be8b625910cc6a295c4f32a2e14b755fa6a",
+      "artifactHash": "0d92b3148ad9c005feb2a4d9470b98230abc3f9a3a0a77144d118c199a8ee398",
       "sourceSetHash": "b0fd2091d23521416e90ff71853b055d360c3215112f8f1c2d8b2320feb1c07e",
       "status": "VERIFIED"
     }
