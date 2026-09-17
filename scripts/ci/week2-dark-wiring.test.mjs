@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -61,6 +62,13 @@ test("Week-2 control-plane documents are internally consistent", () => {
   assert.equal(result.boundDomainCandidates, 3);
   assert.equal(result.rehearsalReady, value.evidence.status === "READY");
   assert.equal(result.releaseTrainStatus, "YELLOW");
+});
+
+test("required GitHub Week-2 preflight cannot be downgraded from final mode", () => {
+  const workflow = readFileSync(new URL("../../.github/workflows/risk-gate.yml", import.meta.url), "utf8");
+  const invocations = workflow.split("\n").filter((line) => line.includes("scripts/ci/week2-dark-wiring-preflight.mjs"));
+  assert.equal(invocations.length, 1);
+  assert.match(invocations[0], /--base-sha[^]*--head-sha[^]*--final/);
 });
 
 for (const name of ["USER_HANDOFF_HASH", "USER_NO_WRITE_PROOF_HASH"]) {
