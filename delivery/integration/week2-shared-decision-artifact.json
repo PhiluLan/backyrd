@@ -3,7 +3,7 @@
   "testPlanVersion": "backyrd-decision-ci-test-plan-v1",
   "nodeMajor": 20,
   "lockfileHash": "a53a2c81372fc3c1cffbc582ad02008c79fba73d251b34c95a9a6af0b069c509",
-  "sourceSetHash": "c7f444b8dee86a39c15f4bdaeeae8191f7dd8f2ea67dd2588a5557c6950fc072",
+  "sourceSetHash": "42fd2fbbb99d207159b959a5671061e4b78b57b0765fe6ab94ded1e4e0645a81",
   "files": [
     {
       "path": "packages/decision-vnext-core/dist/baselines.d.ts",
@@ -766,5 +766,5 @@
       "sha256": "dd5f45de84fa71c71a82cd2d697d524e2ae4afdb1734e4d223af1dfd9a6c19f4"
     }
   ],
-  "artifactHash": "2abf8daa3c67c0c62247be3c187066d6c60147590557eed8138c25bdd04fac4c"
+  "artifactHash": "df308bdcb871806e9edd75792e4125cf9f745671440187f72acc5b4369c1b154"
 }
