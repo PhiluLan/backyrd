@@ -35,6 +35,30 @@ const parseArgs = (argv) => {
 
 const fieldValue = (value, path) => path.split(".").reduce((current, key) => current?.[key], value);
 
+export function classifyCanonicalContext({
+  canonicalDomainMainSha,
+  baseSha,
+  headSha,
+  canonicalMainSha,
+  integrationMergeSha,
+  integrationMergeParents,
+  integrationMergeTreeSha,
+  integrationCandidateTreeSha,
+}) {
+  requireValue(canonicalMainSha === baseSha || canonicalMainSha === headSha, "week2_base_or_canonical_main_drift");
+  if (!integrationMergeSha) {
+    requireValue(baseSha === canonicalDomainMainSha && canonicalMainSha === canonicalDomainMainSha, "week2_base_or_canonical_main_drift");
+    return "PRE_MERGE";
+  }
+  requireValue(
+    integrationMergeParents.length === 2
+      && integrationMergeParents[0] === canonicalDomainMainSha
+      && integrationMergeTreeSha === integrationCandidateTreeSha,
+    "week2_base_or_canonical_main_drift",
+  );
+  return canonicalMainSha === headSha && headSha === integrationMergeSha ? "POST_MERGE" : "POST_INTEGRATION";
+}
+
 export function verifyDomainCandidates(root, manifest, decisionEvidence) {
   for (const candidate of manifest.domainCandidates.filter(({ headSha }) => headSha)) {
     requireValue(git(root, ["merge-base", "--is-ancestor", candidate.baseSha, candidate.headSha]) === "", `week2_candidate_not_descendant:${candidate.track}`);
@@ -123,16 +147,38 @@ export function runWeek2Preflight({ root = ROOT, baseSha: requestedBase, headSha
   const baseSha = git(root, ["rev-parse", `${requestedBase ?? documents.manifest.canonicalDomainMainSha}^{commit}`]);
   const headSha = git(root, ["rev-parse", `${requestedHead ?? "HEAD"}^{commit}`]);
   const canonicalMainSha = git(root, ["rev-parse", "origin/main^{commit}"]);
-  requireValue(baseSha === documents.manifest.canonicalDomainMainSha && canonicalMainSha === documents.manifest.canonicalDomainMainSha, "week2_base_or_canonical_main_drift");
+  requireValue(git(root, ["merge-base", "--is-ancestor", documents.manifest.canonicalDomainMainSha, canonicalMainSha]) === "", "week2_base_or_canonical_main_drift");
+  const canonicalFirstParentPath = git(root, ["rev-list", "--first-parent", "--reverse", `${documents.manifest.canonicalDomainMainSha}..${canonicalMainSha}`]).split("\n").filter(Boolean);
+  const integrationMergeSha = canonicalFirstParentPath[0] ?? null;
+  const integrationMergeParents = integrationMergeSha
+    ? git(root, ["show", "-s", "--format=%P", integrationMergeSha]).split(" ").filter(Boolean)
+    : [];
+  const integrationCandidateHead = integrationMergeParents[1] ?? headSha;
+  const canonicalContext = classifyCanonicalContext({
+    canonicalDomainMainSha: documents.manifest.canonicalDomainMainSha,
+    baseSha,
+    headSha,
+    canonicalMainSha,
+    integrationMergeSha,
+    integrationMergeParents,
+    integrationMergeTreeSha: integrationMergeSha ? git(root, ["rev-parse", `${integrationMergeSha}^{tree}`]) : null,
+    integrationCandidateTreeSha: integrationMergeSha ? git(root, ["rev-parse", `${integrationCandidateHead}^{tree}`]) : null,
+  });
+  if (integrationMergeSha) {
+    requireValue(git(root, ["merge-base", "--is-ancestor", integrationMergeSha, headSha]) === "", "week2_integration_merge_not_ancestor");
+    if (baseSha !== documents.manifest.canonicalDomainMainSha) {
+      requireValue(git(root, ["merge-base", "--is-ancestor", integrationMergeSha, baseSha]) === "", "week2_integration_merge_not_ancestor");
+    }
+  }
   requireValue(git(root, ["merge-base", "--is-ancestor", baseSha, headSha]) === "", "week2_integration_candidate_not_descendant");
   if (final) {
-    requireValue(git(root, ["merge-base", "--is-ancestor", documents.evidence.integrationHeadSha, headSha]) === "", "week2_rehearsed_integration_head_not_ancestor");
+    requireValue(git(root, ["merge-base", "--is-ancestor", documents.evidence.integrationHeadSha, integrationCandidateHead]) === "", "week2_rehearsed_integration_head_not_ancestor");
     const allowedSealPaths = new Set([
       "delivery/integration/week2-dark-wiring-rehearsal-evidence.json",
       "delivery/integration/week2-daily-status.json",
       "delivery/integration/week2-shared-decision-artifact.json",
     ]);
-    const postRehearsalPaths = git(root, ["diff", "--name-only", `${documents.evidence.integrationHeadSha}..${headSha}`]).split("\n").filter(Boolean);
+    const postRehearsalPaths = git(root, ["diff", "--name-only", `${documents.evidence.integrationHeadSha}..${integrationCandidateHead}`]).split("\n").filter(Boolean);
     requireValue(postRehearsalPaths.length > 0 && postRehearsalPaths.every((path) => allowedSealPaths.has(path)), `week2_post_rehearsal_scope_invalid:${postRehearsalPaths.join(",")}`);
   }
 
@@ -190,6 +236,7 @@ export function runWeek2Preflight({ root = ROOT, baseSha: requestedBase, headSha
     executionAuthorized: false,
     candidate: { baseSha, headSha, treeSha: git(root, ["rev-parse", `${headSha}^{tree}`]) },
     canonicalMainSha,
+    canonicalContext,
     controlPlaneHash: hashControlPlane(root),
     releaseTrainStatus: documentState.releaseTrainStatus,
     decisionProvenance,

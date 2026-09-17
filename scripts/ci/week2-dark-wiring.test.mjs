@@ -9,13 +9,94 @@ import {
   runWeek2ContractRehearsal,
   validateWeek2Documents,
 } from "./week2-dark-wiring.mjs";
-import { verifyDomainCandidates, verifySupabaseCompatibilitySources } from "./week2-dark-wiring-preflight.mjs";
+import { classifyCanonicalContext, verifyDomainCandidates, verifySupabaseCompatibilitySources } from "./week2-dark-wiring-preflight.mjs";
 import { verifyDecisionEvidenceAuthority } from "./week2-decision-provenance.mjs";
 import { verifyFourTrackAuthority } from "./week2-four-track-authority.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const documents = () => loadWeek2Documents(ROOT);
 const clone = (value) => JSON.parse(JSON.stringify(value));
+
+test("canonical context accepts the sealed PR and its exact normal merge", () => {
+  const canonicalDomainMainSha = "a".repeat(40);
+  const candidateHead = "b".repeat(40);
+  const mergeHead = "c".repeat(40);
+  assert.equal(classifyCanonicalContext({
+    canonicalDomainMainSha,
+    baseSha: canonicalDomainMainSha,
+    headSha: candidateHead,
+    canonicalMainSha: canonicalDomainMainSha,
+    integrationMergeSha: null,
+    integrationMergeParents: [],
+    integrationMergeTreeSha: null,
+    integrationCandidateTreeSha: null,
+  }), "PRE_MERGE");
+  assert.equal(classifyCanonicalContext({
+    canonicalDomainMainSha,
+    baseSha: canonicalDomainMainSha,
+    headSha: mergeHead,
+    canonicalMainSha: mergeHead,
+    integrationMergeSha: mergeHead,
+    integrationMergeParents: [canonicalDomainMainSha, candidateHead],
+    integrationMergeTreeSha: "e".repeat(40),
+    integrationCandidateTreeSha: "e".repeat(40),
+  }), "POST_MERGE");
+  assert.equal(classifyCanonicalContext({
+    canonicalDomainMainSha,
+    baseSha: mergeHead,
+    headSha: "d".repeat(40),
+    canonicalMainSha: mergeHead,
+    integrationMergeSha: mergeHead,
+    integrationMergeParents: [canonicalDomainMainSha, candidateHead],
+    integrationMergeTreeSha: "e".repeat(40),
+    integrationCandidateTreeSha: "e".repeat(40),
+  }), "POST_INTEGRATION");
+});
+
+test("canonical context rejects drift and non-canonical post-merge parents", () => {
+  const canonicalDomainMainSha = "a".repeat(40);
+  const mergeHead = "c".repeat(40);
+  assert.throws(() => classifyCanonicalContext({
+    canonicalDomainMainSha,
+    baseSha: "d".repeat(40),
+    headSha: mergeHead,
+    canonicalMainSha: mergeHead,
+    integrationMergeSha: null,
+    integrationMergeParents: [],
+    integrationMergeTreeSha: null,
+    integrationCandidateTreeSha: null,
+  }), /week2_base_or_canonical_main_drift/);
+  assert.throws(() => classifyCanonicalContext({
+    canonicalDomainMainSha,
+    baseSha: canonicalDomainMainSha,
+    headSha: mergeHead,
+    canonicalMainSha: mergeHead,
+    integrationMergeSha: mergeHead,
+    integrationMergeParents: ["d".repeat(40), "b".repeat(40)],
+    integrationMergeTreeSha: "e".repeat(40),
+    integrationCandidateTreeSha: "e".repeat(40),
+  }), /week2_base_or_canonical_main_drift/);
+  assert.throws(() => classifyCanonicalContext({
+    canonicalDomainMainSha,
+    baseSha: canonicalDomainMainSha,
+    headSha: mergeHead,
+    canonicalMainSha: mergeHead,
+    integrationMergeSha: mergeHead,
+    integrationMergeParents: [canonicalDomainMainSha],
+    integrationMergeTreeSha: "e".repeat(40),
+    integrationCandidateTreeSha: "e".repeat(40),
+  }), /week2_base_or_canonical_main_drift/);
+  assert.throws(() => classifyCanonicalContext({
+    canonicalDomainMainSha,
+    baseSha: canonicalDomainMainSha,
+    headSha: mergeHead,
+    canonicalMainSha: mergeHead,
+    integrationMergeSha: mergeHead,
+    integrationMergeParents: [canonicalDomainMainSha, "b".repeat(40)],
+    integrationMergeTreeSha: "e".repeat(40),
+    integrationCandidateTreeSha: "f".repeat(40),
+  }), /week2_base_or_canonical_main_drift/);
+});
 const decisionInputs = (value = documents()) => {
   const candidate = value.manifest.domainCandidates.find(({ track }) => track === "DECISION");
   const evidence = value.decisionEvidence;
