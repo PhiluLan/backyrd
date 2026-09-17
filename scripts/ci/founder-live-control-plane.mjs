@@ -20,7 +20,7 @@ export const sha256 = (value) => createHash("sha256").update(typeof value === "s
 
 export function validateFounderLiveDocuments({ roadmap, matrix, manifest, status }) {
   requireValue(roadmap.canonicalBaseSha === BASE && roadmap.completedThroughDay === 21, "founder_live_roadmap_base_or_completion_invalid");
-  requireValue(JSON.stringify(roadmap.currentPhase.dayRange) === "[21,26]" && roadmap.currentPhase.status.startsWith("YELLOW_"), "founder_live_roadmap_phase_invalid");
+  requireValue(JSON.stringify(roadmap.currentPhase.dayRange) === "[21,26]" && ["YELLOW_AWAITING_WORLD_USER_DECISION_CANDIDATES", "GREEN_THREE_OF_THREE_CANDIDATES_BOUND_DRAFT_ONLY"].includes(roadmap.currentPhase.status), "founder_live_roadmap_phase_invalid");
   requireValue(roadmap.milestones.find(({ day }) => day === 21)?.status === "COMPLETED", "founder_live_day21_not_completed");
   requireValue(roadmap.milestones.find(({ day }) => day === 42)?.name === "Begrenzter Nutzerpilot" && JSON.stringify(roadmap.milestones.at(-1).dayRange) === "[84,98]", "founder_live_later_roadmap_drift");
   requireValue(matrix.decisionProductBoundary?.owner === "DECISION" && matrix.decisionProductBoundary?.compatibility === "ADDITIVE", "founder_live_decision_boundary_invalid");
@@ -31,22 +31,27 @@ export function validateFounderLiveDocuments({ roadmap, matrix, manifest, status
   requireValue(manifest.domainCandidates.map(({ track }) => track).join(",") === "WORLD,USER,DECISION", "founder_live_domain_order_invalid");
   const bound = manifest.domainCandidates.filter(({ headSha }) => headSha);
   for (const candidate of manifest.domainCandidates) {
-    const values = [candidate.pr, candidate.baseSha, candidate.headSha, candidate.treeSha, candidate.contractHash, candidate.artifactHash];
+    const values = [candidate.pr, candidate.baseSha, candidate.headSha, candidate.treeSha, candidate.patchId, candidate.contractHash, candidate.artifactHash];
     const populated = values.filter((value) => value !== null).length;
     requireValue(populated === 0 || populated === values.length, `founder_live_partial_candidate:${candidate.track}`);
-    if (populated) requireValue(SHA.test(candidate.baseSha) && SHA.test(candidate.headSha) && SHA.test(candidate.treeSha) && HASH.test(candidate.contractHash) && HASH.test(candidate.artifactHash), `founder_live_candidate_identity_invalid:${candidate.track}`);
+    if (populated) {
+      requireValue(Number.isInteger(candidate.pr) && candidate.pr > 0 && candidate.baseSha === BASE && SHA.test(candidate.headSha) && SHA.test(candidate.treeSha) && SHA.test(candidate.patchId) && HASH.test(candidate.contractHash) && HASH.test(candidate.artifactHash), `founder_live_candidate_identity_invalid:${candidate.track}`);
+      requireValue(candidate.status === "BOUND_VERIFIED", `founder_live_candidate_status_invalid:${candidate.track}`);
+    }
     else requireValue(candidate.status === "AWAITING_DOMAIN_PR", `founder_live_candidate_status_invalid:${candidate.track}`);
   }
   requireValue((bound.length === 3) === manifest.releaseBinding.allCandidatesBound, "founder_live_binding_count_mismatch");
   requireValue(bound.length === 3 || manifest.status === "YELLOW_CANDIDATES_PENDING", "founder_live_missing_candidates_not_yellow");
+  requireValue(bound.length !== 3 || (manifest.status === "GREEN_CANDIDATES_BOUND" && manifest.releaseBinding.status === "GREEN_CANDIDATES_BOUND"), "founder_live_bound_candidates_not_green");
   requireValue(HASH.test(manifest.releaseBinding.releaseHash) && HASH.test(manifest.releaseBinding.bindingHash), "founder_live_release_hash_invalid");
   const expectedReleaseHash = sha256({ canonicalBaseSha: manifest.canonicalBaseSha, apiContracts: manifest.apiContracts, domainCandidates: manifest.domainCandidates });
   const expectedBindingHash = sha256({ releaseHash: expectedReleaseHash, status: manifest.releaseBinding.status, allCandidatesBound: manifest.releaseBinding.allCandidatesBound, vNextFunction: manifest.releaseBinding.vNextFunction, fallbackFunction: manifest.releaseBinding.fallbackFunction, executionAuthorized: false });
   requireValue(manifest.releaseBinding.releaseHash === expectedReleaseHash && manifest.releaseBinding.bindingHash === expectedBindingHash, "founder_live_release_binding_hash_mismatch");
   requireValue(manifest.releaseBinding.executionAuthorized === false && manifest.releaseBinding.vNextFunction === null, "founder_live_pending_vnext_must_be_closed");
   requireValue(manifest.clients.mobile === "EXISTING_NON_PUBLIC_APP" && manifest.clients.admin === "EXISTING_WORLD_AUTHORING_DASHBOARD" && manifest.clients.newDemoSurface === false && manifest.clients.clientToggleAllowed === false, "founder_live_client_scope_invalid");
-  requireValue(status.overall === "YELLOW" && status.draftRequired === true && status.productionStatus === "NO_GO" && status.executionAuthorized === false, "founder_live_status_invalid");
-  requireValue(status.blockers.includes("WORLD_CANDIDATE_MISSING") && status.blockers.includes("USER_CANDIDATE_MISSING") && status.blockers.includes("DECISION_CANDIDATE_MISSING"), "founder_live_domain_blockers_missing");
+  requireValue(status.overall === (bound.length === 3 ? "GREEN" : "YELLOW") && status.draftRequired === true && status.productionStatus === "NO_GO" && status.executionAuthorized === false, "founder_live_status_invalid");
+  if (bound.length === 3) requireValue(!status.blockers.some((value) => value.endsWith("_CANDIDATE_MISSING")), "founder_live_stale_domain_blocker");
+  else requireValue(status.blockers.includes("WORLD_CANDIDATE_MISSING") && status.blockers.includes("USER_CANDIDATE_MISSING") && status.blockers.includes("DECISION_CANDIDATE_MISSING"), "founder_live_domain_blockers_missing");
   return { boundCandidates: bound.length, status: status.overall };
 }
 
@@ -79,6 +84,13 @@ export function runFounderLivePreflight({ root = ROOT, base = BASE, head = "HEAD
   requireValue(git(root, ["merge-base", "--is-ancestor", BASE, head]) === "", "founder_live_candidate_not_descendant");
   const documents = { roadmap: load(root, "delivery/integration/accelerated-production-roadmap.json"), matrix: load(root, "delivery/integration/dependency-ownership-matrix.json"), manifest: load(root, "delivery/integration/founder-live-manifest.json"), status: load(root, "delivery/integration/founder-live-status.json") };
   const state = validateFounderLiveDocuments(documents); const binding = verifyFounderLiveBinding(root);
+  for (const candidate of documents.manifest.domainCandidates.filter(({ headSha }) => headSha)) {
+    requireValue(git(root, ["rev-parse", `${candidate.headSha}^{commit}`]) === candidate.headSha, `founder_live_candidate_commit_missing:${candidate.track}`);
+    requireValue(git(root, ["rev-parse", `${candidate.headSha}^{tree}`]) === candidate.treeSha, `founder_live_candidate_tree_mismatch:${candidate.track}`);
+    requireValue(git(root, ["merge-base", "--is-ancestor", candidate.headSha, head]) === "", `founder_live_candidate_not_merged:${candidate.track}`);
+    const patchId = execFileSync("git", ["patch-id", "--stable"], { cwd: root, encoding: "utf8", input: execFileSync("git", ["diff", `${candidate.baseSha}..${candidate.headSha}`], { cwd: root, maxBuffer: 50 * 1024 * 1024 }), maxBuffer: 50 * 1024 * 1024 }).trim().split(" ")[0];
+    requireValue(patchId === candidate.patchId, `founder_live_candidate_patch_mismatch:${candidate.track}`);
+  }
   const changed = git(root, ["diff", "--name-only", `${BASE}..${head}`]).split("\n").filter(Boolean);
   requireValue(!changed.some((path) => path.startsWith("supabase/migrations/") || path.startsWith("supabase/functions/") || path === "supabase/production/auth-config.json"), "founder_live_unexpected_database_or_runtime_change");
   const plan = buildProductionPlan({ repo: root, baseSha: load(root, "delivery/production-state.json").supabase.shippedSourceSha, headSha: git(root, ["rev-parse", `${head}^{commit}`]) });

@@ -1,7 +1,7 @@
 {
   "contractVersion": "backyrd.founder-live-status@1.0",
-  "overall": "YELLOW",
-  "reason": "WORLD_USER_DECISION_FOLLOWUP_CANDIDATES_NOT_YET_AVAILABLE",
+  "overall": "GREEN",
+  "reason": "ALL_THREE_DOMAIN_CANDIDATES_BOUND_AND_LOCALLY_REVALIDATED",
   "codeAndTests": "GREEN",
   "ctoReviewReady": true,
   "identityGate": "PR_AND_POST_MERGE_EXACT",
@@ -10,9 +10,6 @@
   "productionStatus": "NO_GO",
   "executionAuthorized": false,
   "blockers": [
-    "WORLD_CANDIDATE_MISSING",
-    "USER_CANDIDATE_MISSING",
-    "DECISION_CANDIDATE_MISSING",
     "FOUNDER_ALLOWLIST_NOT_CONFIGURED",
     "PRODUCTION_EXECUTION_NOT_AUTHORIZED"
   ]

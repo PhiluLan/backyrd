@@ -16,7 +16,7 @@
   "currentPhase": {
     "dayRange": [21, 26],
     "name": "Founder-only Live Mobile + Admin Authoring",
-    "status": "YELLOW_AWAITING_WORLD_USER_DECISION_CANDIDATES",
+    "status": "GREEN_THREE_OF_THREE_CANDIDATES_BOUND_DRAFT_ONLY",
     "clients": ["EXISTING_NON_PUBLIC_MOBILE", "EXISTING_ADMIN_DASHBOARD"],
     "forbidden": ["SEPARATE_DEMO", "SECOND_FOUNDER_APP", "CLIENT_DOMAIN_AUTHORITY", "PRODUCTION_ACTIVATION"]
   },

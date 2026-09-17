@@ -8,16 +8,16 @@ const load = (path) => JSON.parse(readFileSync(new URL(path, root), "utf8"));
 const documents = { roadmap: load("delivery/integration/accelerated-production-roadmap.json"), matrix: load("delivery/integration/dependency-ownership-matrix.json"), manifest: load("delivery/integration/founder-live-manifest.json"), status: load("delivery/integration/founder-live-status.json") };
 const sha = (digit) => digit.repeat(40); const tree = (digit) => digit.repeat(40);
 
-test("machine-readable architecture remains YELLOW until all real domain candidates exist", () => {
+test("machine-readable architecture is GREEN only with all three real domain candidates", () => {
   const result = validateFounderLiveDocuments(structuredClone(documents));
-  assert.deepEqual(result, { boundCandidates: 0, status: "YELLOW" });
+  assert.deepEqual(result, { boundCandidates: 3, status: "GREEN" });
 });
 
 test("partial and fabricated domain bindings fail closed", () => {
-  const partial = structuredClone(documents); partial.manifest.domainCandidates[0].headSha = sha("a");
+  const partial = structuredClone(documents); partial.manifest.domainCandidates[0].artifactHash = null;
   assert.throws(() => validateFounderLiveDocuments(partial), /partial_candidate/);
-  const falselyGreen = structuredClone(documents); falselyGreen.manifest.status = "READY";
-  assert.throws(() => validateFounderLiveDocuments(falselyGreen), /missing_candidates_not_yellow/);
+  const falselyPending = structuredClone(documents); falselyPending.manifest.status = "YELLOW_CANDIDATES_PENDING";
+  assert.throws(() => validateFounderLiveDocuments(falselyPending), /bound_candidates_not_green/);
 });
 
 test("PR_CANDIDATE and POST_MERGE_MAIN identities are disjoint and exact", () => {

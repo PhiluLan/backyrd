@@ -6,7 +6,7 @@ The existing non-public Mobile app remains the only Founder live client, and the
 
 ## Current decision
 
-Status is YELLOW because no exact World, User, or Decision follow-up candidate exists on canonical Main `9c38946462c5698ee1ff6375d996463254dd829e`. The Mobile integration therefore routes exclusively to the existing engine. The vNext stub is local-test-only and rejects every non-local environment.
+Technical status is GREEN for Draft review: World/Admin #302, User #301 and Decision #303 are bound by exact base, head, tree, stable patch ID, contract hash and artifact identity. The Mobile integration still routes exclusively to the existing engine because the Founder allowlist is empty, the server release function is unconfigured, every runtime flag remains OFF and Production execution is unauthorized. The vNext stub is local-test-only and rejects every non-local environment.
 
 ## Review focus
 
@@ -19,4 +19,4 @@ Status is YELLOW because no exact World, User, or Decision follow-up candidate e
 - Observability excludes raw text and personal data.
 - No schema, Function, Auth, credential, Production, deployment, or OTA action is included.
 
-The Draft PR may become release-ready only after all three domain identities and their shared artifact are exact, compatible, and green. That transition is a new seal, not a reinterpretation of this YELLOW evidence.
+The Draft PR is CTO-reviewable after the final evidence-only seal and green GitHub gates. It must remain Draft and unmerged under the present authority. A future Production decision requires a separate exact-SHA authorization and may not reinterpret this technical GREEN state as activation authority.

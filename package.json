@@ -128,6 +128,7 @@
     "founder-live:binding": "node scripts/ci/founder-live-binding.mjs",
     "founder-live:preflight": "node scripts/ci/founder-live-control-plane.mjs",
     "founder-live:e2e": "node scripts/ci/founder-live-e2e.mjs",
+    "founder-live:four-track": "node scripts/ci/founder-live-four-track-rehearsal.mjs",
     "week2:preflight": "node scripts/ci/week2-dark-wiring-preflight.mjs",
     "week2:test": "node --test scripts/ci/week2-dark-wiring.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/verify-risk-gate.test.mjs",
     "week2:rehearsal": "node scripts/ci/week2-four-track-rehearsal.mjs",

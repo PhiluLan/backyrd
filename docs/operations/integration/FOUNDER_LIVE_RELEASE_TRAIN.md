@@ -1,6 +1,8 @@
 # Founder-only Live Mobile + Admin release train
 
-Canonical base: `9c38946462c5698ee1ff6375d996463254dd829e`. Current state: YELLOW. No Production execution is authorized.
+Canonical base: `9c38946462c5698ee1ff6375d996463254dd829e`. Current technical state: GREEN, with all three approved domain candidates bound in order. Production remains NO-GO and no Production execution is authorized.
+
+Bound domain train: World/Admin PR #302 at `239d73ab1b7229414363dc4b2a66bd625e71b9aa`, User PR #301 at `418c9bd0b87289769346052e3b681bde0cd9ed86`, then Decision PR #303 at `8acd3f40e8938c77f2d9f3a3c8139e71970ceab5`. The only conflict resolutions were the two additive Week-3 CI files, resolved to the stricter User implementation. No domain semantics were changed.
 
 | Order | Track | Required immutable input | Exit condition | Rollback boundary |
 |---|---|---|---|---|
