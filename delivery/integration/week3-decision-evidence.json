@@ -1,0 +1,15 @@
+{
+  "contractVersion": "backyrd.week3-decision-evidence@1.0",
+  "sourceSha": "f0d93903c84c387c448dc1ce50f2d6820a9a1c52",
+  "sourceTreeSha": "82af3c335c071aeed7d0f57ef9d7338a9d211133",
+  "nodeMajor": 20,
+  "evaluatorPath": "packages/decision-vnext-core/sandbox/evaluate-internal-dark-shadow-week3.mjs",
+  "releaseHash": "b009054fc0429df8ca1b933efa1296fa98ddcfce78abcf61efe46813e0124c53",
+  "controlHash": "88f19b43bb68add17285277827587721fe341b630b9473ddecdc4ff2c4a2a472",
+  "allowlistHash": "b52e10ed3173e11f3385a27bd6f2fa7f409be46c0e96818254cbdd34ff186ffc",
+  "reportHash": "2e699119f2e9d4c78df644817acc256648ea0cb9cb4f4de3b76c3839c95e2054",
+  "replayHash": "2e699119f2e9d4c78df644817acc256648ea0cb9cb4f4de3b76c3839c95e2054",
+  "postDeployEvidenceHash": "5daed9a5d48f5b04e521868138a92898b24e7a5c5b18786900807e3be66fcab0",
+  "postDeployStatus": "NOT_EXECUTED_NO_PRODUCTION_AUTHORITY",
+  "executionAuthorized": false
+}

@@ -1,0 +1,62 @@
+{
+  "contractVersion": "backyrd.week3-internal-prodlike-manifest@1.0",
+  "canonicalBaseSha": "b98b3870f60e9495c10f3c23f006fb9b3213d63e",
+  "canonicalBaseTreeSha": "e59939dc43c51139dcaf0928b9725e8b98b0a1cc",
+  "executionAuthorized": false,
+  "productionActivationAuthorized": false,
+  "artifactContract": "backyrd-decision-ci-build-artifact-v1",
+  "domainCandidates": [
+    {
+      "track": "WORLD",
+      "pr": 299,
+      "baseSha": "b98b3870f60e9495c10f3c23f006fb9b3213d63e",
+      "headSha": "bee8c456f2fec036db2986f6c263d2c195ecea06",
+      "treeSha": "ebd9adb094ee60429f7debf13d4aa24847fd5518",
+      "domainArtifactHash": "c5c230e932b4322523364ef12940f690e8e60d85879ca870796c6872a98f4b2f",
+      "planHash": "9ceee13711b91b213532823c5562d1a3d8623ca290c9f8158ca7bf884796dea0",
+      "bindings": [
+        { "name": "WORLD_RELEASE_ARTIFACT", "type": "JSON_FIELD_EQUALS", "path": "docs/world-knowledge/week3/release-evidence.json", "field": "releaseArtifactHash", "expected": "c5c230e932b4322523364ef12940f690e8e60d85879ca870796c6872a98f4b2f" },
+        { "name": "WORLD_ALLOWLIST_RELEASE", "type": "JSON_FIELD_EQUALS", "path": "docs/world-knowledge/week3/release-evidence.json", "field": "allowlist.releaseHash", "expected": "0994c6dd24d45391c9698e7393226165b7bc2dfb85757ae947e9e3bdc141d4ee" },
+        { "name": "WORLD_POST_DEPLOY_STATUS", "type": "JSON_FIELD_EQUALS", "path": "docs/world-knowledge/week3/release-evidence.json", "field": "postDeployEvidence.status", "expected": "NOT_EXECUTED_NO_PRODUCTION_AUTHORITY" }
+      ]
+    },
+    {
+      "track": "USER",
+      "pr": 297,
+      "baseSha": "b98b3870f60e9495c10f3c23f006fb9b3213d63e",
+      "headSha": "d7b728f6baa17cee1ca326e6203758417e037a83",
+      "treeSha": "58db2f7ed601e3221da47fe97c97dcaa49069ed6",
+      "domainArtifactHash": "aa29d23c06d477a62f8b44ed893238225955eda7f6bf519f7944129a176f23df",
+      "planHash": "2306377a33412e63e37358251b81a3a3f3fa010badad4d58781f14915b455155",
+      "bindings": [
+        { "name": "USER_RELEASE", "type": "JSON_FIELD_EQUALS", "path": "docs/user-intelligence-vnext/week3/internal-projection-release-summary.json", "field": "releaseHash", "expected": "c8399a7fca8fb329e3ced9930b46d495308c44b5c5a75a4df293e52a239c09a5" },
+        { "name": "USER_ALLOWLIST_POLICY", "type": "JSON_FIELD_EQUALS", "path": "docs/user-intelligence-vnext/week3/internal-projection-release-summary.json", "field": "allowlistPolicyHash", "expected": "b372dc18c5d62d15b5c63eca94345626041eb7bbf3e17c5fe8b68589933fd983" },
+        { "name": "USER_ARTIFACT_MANIFEST", "type": "JSON_FIELD_EQUALS", "path": "docs/user-intelligence-vnext/week3/internal-projection-release-summary.json", "field": "artifactManifestHash", "expected": "aa29d23c06d477a62f8b44ed893238225955eda7f6bf519f7944129a176f23df" },
+        { "name": "USER_EXECUTION_CLOSED", "type": "JSON_FIELD_EQUALS", "path": "docs/user-intelligence-vnext/week3/internal-projection-release-summary.json", "field": "productionPlan.executionAuthorized", "expected": false }
+      ]
+    },
+    {
+      "track": "DECISION",
+      "pr": 298,
+      "baseSha": "b98b3870f60e9495c10f3c23f006fb9b3213d63e",
+      "headSha": "f0d93903c84c387c448dc1ce50f2d6820a9a1c52",
+      "treeSha": "82af3c335c071aeed7d0f57ef9d7338a9d211133",
+      "domainArtifactHash": "b009054fc0429df8ca1b933efa1296fa98ddcfce78abcf61efe46813e0124c53",
+      "planHash": "4ef49170a7f5bd0621ac3fb7ff462b0d24cc7d75eea8349ab7a0b3dbe23846d2",
+      "bindings": [
+        { "name": "DECISION_RELEASE_CONTRACT", "type": "TEXT_CONTAINS", "path": "packages/decision-vnext-core/src/internal-dark-shadow-contracts.ts", "expected": "backyrd.decision-vnext.internal-dark-release@week3-1" },
+        { "name": "DECISION_POST_DEPLOY_CONTRACT", "type": "TEXT_CONTAINS", "path": "packages/decision-vnext-core/src/internal-dark-shadow-contracts.ts", "expected": "backyrd.decision-vnext.internal-dark-post-deploy-evidence@week3-1" },
+        { "name": "DECISION_PRODUCTION_CLOSED", "type": "JSON_FIELD_EQUALS", "path": "docs/decision-vnext/WEEK3_INTERNAL_DARK_SHADOW_COMPATIBILITY_MATRIX.json", "field": "productionAuthorized", "expected": false }
+      ]
+    }
+  ],
+  "mergeSequence": ["WORLD", "USER", "DECISION", "INTEGRATION_FINAL_REVALIDATION"],
+  "productionPlan": {
+    "shippedSourceSha": "d63c5ae66aa30aa017cc54c2ed8be47944b84889",
+    "expectedPendingMigrationCount": 9,
+    "pendingMigrationClass": "WORLD_INHERITED",
+    "expectedDeployFunctions": [],
+    "authDeploy": false,
+    "executionAuthorized": false
+  }
+}

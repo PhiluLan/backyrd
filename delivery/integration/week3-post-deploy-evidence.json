@@ -1,0 +1,18 @@
+{
+  "contractVersion": "backyrd.week3-post-deploy-evidence@1.0",
+  "status": "NOT_EXECUTED_NO_PRODUCTION_AUTHORITY",
+  "mainSha": null,
+  "treeSha": null,
+  "artifactHash": null,
+  "worldReleaseHash": "c5c230e932b4322523364ef12940f690e8e60d85879ca870796c6872a98f4b2f",
+  "userReleaseHash": "c8399a7fca8fb329e3ced9930b46d495308c44b5c5a75a4df293e52a239c09a5",
+  "decisionReleaseHash": "b009054fc0429df8ca1b933efa1296fa98ddcfce78abcf61efe46813e0124c53",
+  "allowlistHashes": ["0994c6dd24d45391c9698e7393226165b7bc2dfb85757ae947e9e3bdc141d4ee", "b372dc18c5d62d15b5c63eca94345626041eb7bbf3e17c5fe8b68589933fd983", "b52e10ed3173e11f3385a27bd6f2fa7f409be46c0e96818254cbdd34ff186ffc"],
+  "killSwitchControlHash": null,
+  "productionPlanHash": null,
+  "executionAuthorized": false,
+  "deploymentExecuted": false,
+  "migrationExecuted": false,
+  "activationExecuted": false,
+  "evidenceHash": null
+}

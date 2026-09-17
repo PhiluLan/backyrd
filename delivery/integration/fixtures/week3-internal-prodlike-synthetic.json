@@ -1,0 +1,13 @@
+{
+  "contractVersion": "backyrd.week3-internal-prodlike-fixture@1.0",
+  "syntheticOnly": true,
+  "productionData": false,
+  "now": "2026-09-17T12:00:00.000Z",
+  "subjectPseudonym": "synthetic-internal:tester-01",
+  "purpose": "INTERNAL_PRODUCT_LIKE_REHEARSAL",
+  "environment": "PROD_LIKE_TEST",
+  "requestId": "week3-internal-request-01",
+  "requestBody": { "city": "Zurich", "intent": "quiet-cafe", "synthetic": true },
+  "validFrom": "2026-09-17T11:00:00.000Z",
+  "validUntil": "2026-09-17T13:00:00.000Z"
+}

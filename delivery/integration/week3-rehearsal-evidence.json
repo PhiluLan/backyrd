@@ -1,0 +1,18 @@
+{
+  "contractVersion": "backyrd.week3-rehearsal-evidence@1.0",
+  "status": "PENDING_LOCAL_REHEARSAL",
+  "executionAuthorized": false,
+  "productionActionPerformed": false,
+  "conflictCount": null,
+  "integrationHeadSha": null,
+  "orderedHeads": [],
+  "steps": [],
+  "combinedCommitSha": null,
+  "combinedTreeSha": null,
+  "overlaps": [],
+  "artifactHash": null,
+  "artifactManifestHash": null,
+  "reportHash": null,
+  "replayHash": null,
+  "recoveryMilliseconds": null
+}

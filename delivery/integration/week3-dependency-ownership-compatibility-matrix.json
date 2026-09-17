@@ -1,0 +1,25 @@
+{
+  "contractVersion": "backyrd.week3-dependency-ownership-compatibility-matrix@1.0",
+  "executionAuthorized": false,
+  "tracks": [
+    { "id": "WORLD", "authority": ["World reader, registry, source policy, allowlist release"], "forbidden": ["User semantics", "Decision semantics", "Production activation"], "killSwitch": "WORLD_KILL_SWITCH" },
+    { "id": "USER", "authority": ["Consent/lifecycle and minimized RelevantUserProjection"], "forbidden": ["World authoring", "Decision ranking", "persistent learning"], "killSwitch": "USER_KILL_SWITCH" },
+    { "id": "DECISION", "authority": ["Evaluation-only internal dark shadow"], "forbidden": ["direct World tables", "raw User evidence", "Product output"], "killSwitch": "DECISION_KILL_SWITCH" },
+    { "id": "INTEGRATION", "authority": ["identity binding", "gate routing", "rehearsal", "evidence binding"], "forbidden": ["domain semantics", "domain merges", "Production execution"], "killSwitch": "GLOBAL_INTEGRATION_KILL_SWITCH" }
+  ],
+  "supabaseCompatibility": {
+    "verifiedAsOf": "2026-09-17",
+    "postgresMajor": 17,
+    "dataApi": "EXPLICIT_GRANTS_PLUS_RLS",
+    "forbiddenSchemaMutations": ["auth", "realtime", "storage"],
+    "extensionVersionPinningAllowed": false,
+    "logsAllDependencyAllowed": false,
+    "securityDefiner": "PRIVATE_SCHEMA_EMPTY_SEARCH_PATH_EXPLICIT_EXECUTE_ONLY",
+    "officialSources": [
+      "https://supabase.com/changelog?types=breaking-change",
+      "https://supabase.com/docs/guides/platform/upgrading",
+      "https://supabase.com/docs/guides/database/postgres/row-level-security",
+      "https://supabase.com/docs/guides/database/functions"
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "contractVersion": "backyrd.week3-integration-status@1.0",
+  "asOf": "2026-09-17",
+  "overall": "YELLOW",
+  "executionAuthorized": false,
+  "tracks": [
+    { "id": "WORLD", "status": "GREEN", "reason": "PR #299 exact head/tree bound; required gates green; kill switch engaged" },
+    { "id": "USER", "status": "GREEN", "reason": "PR #297 exact head/tree bound; required gates green; runtime forced off" },
+    { "id": "DECISION", "status": "GREEN", "reason": "PR #298 exact head/tree bound; required gates green; shadow traffic off" },
+    { "id": "INTEGRATION", "status": "YELLOW", "reason": "Local final rehearsal and Draft-PR revalidation required" }
+  ],
+  "yellowUntil": ["INTEGRATION_PR_NOT_CANONICALLY_MERGED", "PRODUCTION_EXECUTION_NOT_AUTHORIZED"],
+  "remainingDecisions": ["Real internal allowlist authority", "Expiration policy", "Retention policy", "Any future Production activation"],
+  "releaseBoundary": "Draft review only; no merge or Production authority"
+}

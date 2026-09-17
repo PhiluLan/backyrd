@@ -1,0 +1,23 @@
+{
+  "contractVersion": "backyrd.week3-internal-controls@1.0",
+  "executionAuthorized": false,
+  "realAllowlistMemberCount": 0,
+  "authorityStatus": "NOT_CONFIGURED",
+  "expirationPolicy": "NOT_CONFIGURED",
+  "retentionPolicy": "NOT_CONFIGURED",
+  "missingConfigurationBehavior": "OFF",
+  "unknownConfigurationBehavior": "OFF_AND_DENY",
+  "defaultFlags": [
+    { "id": "WORLD_INTERNAL_READ", "enabled": false },
+    { "id": "USER_INTERNAL_PROJECTION", "enabled": false },
+    { "id": "DECISION_VNEXT_INTERNAL_DARK_SHADOW", "enabled": false }
+  ],
+  "killSwitches": {
+    "GLOBAL_INTEGRATION_KILL_SWITCH": "ENGAGED",
+    "WORLD_KILL_SWITCH": "ENGAGED",
+    "USER_KILL_SWITCH": "FORCED_OFF",
+    "DECISION_KILL_SWITCH": "ENGAGED"
+  },
+  "allowedEnvironments": ["LOCAL_TEST", "PROD_LIKE_TEST"],
+  "syntheticTestAuthorityOnly": true
+}
