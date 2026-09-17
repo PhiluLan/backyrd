@@ -1,0 +1,45 @@
+{
+  "contractVersion": "backyrd.founder-live-integration-manifest@1.0",
+  "canonicalBaseSha": "9c38946462c5698ee1ff6375d996463254dd829e",
+  "canonicalBaseTreeSha": "9e74daabc42f86327291b781c43b41502f2579a8",
+  "branch": "codex/founder-live-mobile-admin-control-plane",
+  "status": "YELLOW_CANDIDATES_PENDING",
+  "executionAuthorized": false,
+  "productionActivationAuthorized": false,
+  "identityModes": ["PR_CANDIDATE", "POST_MERGE_MAIN"],
+  "apiContracts": {
+    "request": "backyrd.decision-api.request@1.0",
+    "response": "backyrd.decision-api.response@1.0",
+    "routeAuthority": "backyrd.decision-api.route-authority@1.0",
+    "localStub": "backyrd.decision-api.contract-stub@0.1",
+    "localStubProductionCapable": false
+  },
+  "releaseBinding": {
+    "status": "YELLOW_CANDIDATES_PENDING",
+    "releaseHash": "38a9382ef8a3c810a97ee533cf31c8441d6d0de80dd1ae5d828874362bf3dfe5",
+    "bindingHash": "b5a06d7c0d2dfeeefba261b40433bde3c042b2b1c08de5bc4e64b0a249cdc02e",
+    "allCandidatesBound": false,
+    "vNextFunction": null,
+    "fallbackFunction": "decision-v13",
+    "executionAuthorized": false
+  },
+  "domainCandidates": [
+    {"track": "WORLD", "pr": null, "baseSha": null, "headSha": null, "treeSha": null, "contractHash": null, "artifactHash": null, "status": "AWAITING_DOMAIN_PR"},
+    {"track": "USER", "pr": null, "baseSha": null, "headSha": null, "treeSha": null, "contractHash": null, "artifactHash": null, "status": "AWAITING_DOMAIN_PR"},
+    {"track": "DECISION", "pr": null, "baseSha": null, "headSha": null, "treeSha": null, "contractHash": null, "artifactHash": null, "status": "AWAITING_DOMAIN_PR"}
+  ],
+  "clients": {
+    "mobile": "EXISTING_NON_PUBLIC_APP",
+    "admin": "EXISTING_WORLD_AUTHORING_DASHBOARD",
+    "newDemoSurface": false,
+    "clientToggleAllowed": false
+  },
+  "productionPlan": {
+    "sourceAware": true,
+    "newMigrations": 0,
+    "deployFunctions": [],
+    "authDeploy": false,
+    "runtimeActivation": false,
+    "executionAuthorized": false
+  }
+}

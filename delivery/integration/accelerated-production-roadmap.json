@@ -1,15 +1,25 @@
 {
   "contractVersion": "backyrd.accelerated-production-roadmap@1.0",
-  "frozenAt": "2026-09-16",
-  "canonicalBaseSha": "4dd76c6149e425f191586e904d21b851fc1995c5",
+  "frozenAt": "2026-09-17",
+  "canonicalBaseSha": "9c38946462c5698ee1ff6375d996463254dd829e",
   "executionAuthorized": false,
   "invariants": [
     "NO_PRODUCTION_ACTION_WITHOUT_EXPLICIT_SEPARATE_AUTHORITY",
     "WORLD_USER_DECISION_DOMAIN_AUTHORITY_REMAINS_WITH_DOMAIN_OWNERS",
     "FLAGS_DEFAULT_OFF_AND_MISSING_CONFIGURATION_IS_OFF",
     "ONE_HASH_BOUND_BUILD_ARTIFACT_PER_CANDIDATE",
-    "FINAL_FULL_RISK_GATE_AND_POST_MERGE_GATE_REQUIRED"
+    "FINAL_FULL_RISK_GATE_AND_POST_MERGE_GATE_REQUIRED",
+    "DECISION_ENGINE_IS_AN_INDEPENDENT_SERVER_SIDE_PRODUCT",
+    "FOUNDER_LIVE_MOBILE_AND_ADMIN_DO_NOT_OWN_DOMAIN_AUTHORITY"
   ],
+  "completedThroughDay": 21,
+  "currentPhase": {
+    "dayRange": [21, 26],
+    "name": "Founder-only Live Mobile + Admin Authoring",
+    "status": "YELLOW_AWAITING_WORLD_USER_DECISION_CANDIDATES",
+    "clients": ["EXISTING_NON_PUBLIC_MOBILE", "EXISTING_ADMIN_DASHBOARD"],
+    "forbidden": ["SEPARATE_DEMO", "SECOND_FOUNDER_APP", "CLIENT_DOMAIN_AUTHORITY", "PRODUCTION_ACTIVATION"]
+  },
   "milestones": [
     {
       "day": 7,
@@ -24,6 +34,7 @@
     {
       "day": 21,
       "name": "Interner produktnaher Betrieb",
+      "status": "COMPLETED",
       "exitCriteria": ["internal allowlist only", "kill switches rehearsed", "post-deploy evidence bound to released hashes"]
     },
     {

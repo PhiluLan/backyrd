@@ -26,7 +26,7 @@
       "id": "DECISION",
       "authority": ["packages/decision-vnext-core/**", "docs/decision-vnext/**", "decision-lab/**"],
       "allowedInputs": ["WorldKnowledgeReaderPort", "RelevantUserProjection", "server-authorized situational context"],
-      "outputs": ["evaluation-only Decision result", "evidence-bounded explanation"],
+      "outputs": ["evaluation-only Decision result", "evidence-bounded explanation", "stable versioned server-side Decision API"],
       "forbidden": ["direct World tables", "raw User evidence", "Product ranking activation", "commercial ranking influence"],
       "dependsOn": ["WORLD", "USER"],
       "mergeOrder": 3,
@@ -34,7 +34,7 @@
     },
     {
       "id": "INTEGRATION",
-      "authority": ["delivery/integration/**", "docs/operations/integration/**", "scripts/ci/integration-*", "risk-gate routing only"],
+      "authority": ["delivery/integration/**", "docs/operations/integration/**", "scripts/ci/integration-*", "mobile/packages/founder-live-control-plane/**", "risk-gate routing only"],
       "allowedInputs": ["domain-owned immutable contract identities", "PR base head tree and artifact hashes", "existing CI and deployment controls"],
       "outputs": ["change plan", "integration manifest", "daily track truth", "release gate evidence"],
       "forbidden": ["domain semantic decisions", "Production deployment", "merging domain PRs"],
@@ -46,6 +46,32 @@
   "sharedPorts": [
     {"owner": "WORLD", "consumer": "DECISION", "identity": "backyrd.world-knowledge.reader-port@1.0", "changeRule": "owner proposes; all consumers recertify"},
     {"owner": "WORLD", "consumer": "DECISION", "identity": "backyrd.world-knowledge.context-handoff@1.0", "changeRule": "unknown version fails closed"},
-    {"owner": "USER", "consumer": "DECISION", "identity": "backyrd.user-intelligence.projection@1.0", "changeRule": "minimized projection only; all consumers recertify"}
-  ]
+    {"owner": "USER", "consumer": "DECISION", "identity": "backyrd.user-intelligence.projection@1.0", "changeRule": "minimized projection only; all consumers recertify"},
+    {"owner": "DECISION", "consumer": "MOBILE_DESKTOP_WEB", "identity": "backyrd.decision-api.response@1.0", "changeRule": "additive compatibility; old clients remain certified; exact release identity required"}
+  ],
+  "clientSurfaces": [
+    {
+      "id": "MOBILE",
+      "role": "THIN_FOUNDER_LIVE_CLIENT",
+      "authority": ["request context capture", "result presentation", "alternative and contextual reject intent"],
+      "forbidden": ["Decision ranking semantics", "World authoring", "User learning authority", "vNext activation toggle"],
+      "routingAuthority": "SERVER_RELEASE_ALLOWLIST_ONLY"
+    },
+    {
+      "id": "ADMIN",
+      "role": "WORLD_AUTHORING_CLIENT",
+      "authority": ["authenticated human World authoring through canonical World contracts"],
+      "forbidden": ["Decision ranking semantics", "direct Product activation", "manual JSON handoff"],
+      "routingAuthority": "SERVER_AUTHORIZED_WORLD_WRITE_PATH_ONLY"
+    }
+  ],
+  "decisionProductBoundary": {
+    "owner": "DECISION",
+    "ports": ["WORLD_READER", "USER_PROJECTION", "SITUATIONAL_CONTEXT"],
+    "clients": ["MOBILE", "DESKTOP", "WEB"],
+    "pipeline": "MODULAR_REPLACEABLE_DARK_DUAL_RUN",
+    "compatibility": "ADDITIVE",
+    "controls": ["SERVER_ALLOWLIST", "GLOBAL_KILL_SWITCH", "DECISION_KILL_SWITCH", "ROLLBACK"],
+    "userLearning": "SEPARATE_CONSENT_BOUND_PRODUCT"
+  }
 }

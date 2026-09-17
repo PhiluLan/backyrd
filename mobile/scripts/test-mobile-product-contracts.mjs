@@ -13,6 +13,8 @@ const spotDetail = read("app/spot/[id].tsx");
 const homeEvents = read("components/events/HomeEventsSection.tsx");
 const eventDiscovery = read("lib/events-v1.ts");
 const spotOpeningStatus = read("lib/spot-opening-status.ts");
+const founderLiveDecision = read("lib/decision/founderLiveDecision.ts");
+const founderLiveBinding = read("lib/decision/founderLiveRelease.generated.ts");
 
 assert.match(decision, /DecisionCardAction = "next" \| "like" \| "dislike"/);
 assert.match(decision, /if \(action !== "next" &&/, "neutral Next must bypass feedback");
@@ -22,6 +24,12 @@ assert.match(decision, /AppState\.currentState!=="active"/, "background card mou
 assert.match(decision, /clearTimeout\(timer\)/, "card transitions must cancel pending exposure");
 assert.match(decision, /actionType: "navigation_intent"/, "Route must emit canonical navigation intent");
 assert.match(decision, /data\.north_star\?\.active !== true/, "canonical user must fail closed without North-Star");
+assert.match(decision, /invokeFounderLiveDecision/, "Decision must pass through the sealed Founder-live client boundary");
+assert.doesNotMatch(decision, /supabase\.functions\.invoke<DecisionV13Response>/, "Decision screen must not bypass the release-bound client");
+assert.match(founderLiveDecision, /freshAccessToken/, "Founder-live requests must revalidate the authenticated user and session");
+assert.match(founderLiveDecision, /userData\.user\.id !== expectedUserId/, "session changes must fail closed");
+assert.match(founderLiveBinding, /YELLOW_CANDIDATES_PENDING/, "vNext must stay closed while domain candidates are missing");
+assert.doesNotMatch(`${founderLiveDecision}\n${founderLiveBinding}`, /EXPO_PUBLIC_.*VNEXT|AsyncStorage|clientToggle/i, "Mobile must not contain a vNext authority toggle");
 assert.doesNotMatch(decision, /decision-copy|create_decision_session_v1|Math\.max\(\s*82/);
 assert.match(home, /pathname: "\/\(tabs\)\/decision"/, "Home search must enter Decision");
 assert.match(home, /auto: "1"/, "Home submission must execute Decision");

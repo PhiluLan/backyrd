@@ -1,0 +1,17 @@
+{
+  "contractVersion": "backyrd.founder-live-status@1.0",
+  "overall": "YELLOW",
+  "reason": "WORLD_USER_DECISION_FOLLOWUP_CANDIDATES_NOT_YET_AVAILABLE",
+  "codeAndTests": "PENDING_REVALIDATION",
+  "ctoReviewReady": false,
+  "draftRequired": true,
+  "productionStatus": "NO_GO",
+  "executionAuthorized": false,
+  "blockers": [
+    "WORLD_CANDIDATE_MISSING",
+    "USER_CANDIDATE_MISSING",
+    "DECISION_CANDIDATE_MISSING",
+    "FOUNDER_ALLOWLIST_NOT_CONFIGURED",
+    "PRODUCTION_EXECUTION_NOT_AUTHORIZED"
+  ]
+}

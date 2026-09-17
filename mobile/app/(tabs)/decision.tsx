@@ -26,6 +26,7 @@ import * as Crypto from "expo-crypto";
 import { supabase } from "@/lib/supabase";
 import { getMyProductEntryStatus } from "@/lib/onboardingStatus";
 import { mapTextToClusterIds } from "@/lib/decision/moodMapping";
+import { invokeFounderLiveDecision } from "@/lib/decision/founderLiveDecision";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { recordMemoryProductAction } from "@/lib/memory-bridge";
 import { selectSpotImageUrl } from "@/lib/spot-images";
@@ -207,7 +208,6 @@ const theme = {
 };
 
 const VISIBLE_DECISION_LIMIT = 10;
-const DECISION_V13_FUNCTION = "decision-v13";
 const DECISION_V13_LIMIT = 16;
 const DECISION_V13_V12_LIMIT = 16;
 const DECISION_V13_SEMANTIC_LIMIT = 24;
@@ -1013,21 +1013,10 @@ export default function DecisionScreen() {
           setStatus("deciding");
         }
         const ctx = isRemix && context ? context : null;
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-
-        if (sessionError) throw sessionError;
-
-        const accessToken = sessionData.session?.access_token;
-
-        if (!accessToken) {
-          Alert.alert("Session abgelaufen", "Bitte logge dich nochmal ein.");
-          setStatus("idle");
-          router.push("/auth/login");
-          return;
-        }
-
-        const { data, error } = await supabase.functions.invoke<DecisionV13Response>(DECISION_V13_FUNCTION, {
-          body: isRemix ? {
+        const founderRequestId = isRemix
+          ? continuationRequestIdRef.current ?? Crypto.randomUUID()
+          : Crypto.randomUUID();
+        const legacyBody = isRemix ? {
             continuationDecisionId: decisionId,
             continuationRequestId: continuationRequestIdRef.current,
           } : {
@@ -1043,13 +1032,25 @@ export default function DecisionScreen() {
             limit: DECISION_V13_LIMIT,
             v12Limit: DECISION_V13_V12_LIMIT,
             semanticLimit: DECISION_V13_SEMANTIC_LIMIT,
+          };
+        const routed = await invokeFounderLiveDecision<DecisionV13Response>({
+          supabase,
+          expectedUserId: userId,
+          requestId: founderRequestId,
+          idempotencyKey: founderRequestId,
+          context: {
+            city: c,
+            query: decisionQuery,
+            moods: [a, b, ...selectedMoods].filter(Boolean),
+            audience: selectedAudiences,
+            placeTypes: selectedPlaceTypes,
           },
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+          continuation: isRemix && decisionId
+            ? { decisionId, requestId: founderRequestId }
+            : null,
+          legacyBody,
         });
-
-        if (error) throw error;
+        const data = routed.response;
 
         if (!data?.ok) {
           throw new Error(data?.error || "Decision V13 konnte nicht geladen werden.");
@@ -1077,6 +1078,11 @@ export default function DecisionScreen() {
           query_text: data.queryText ?? null,
           intent: data.intent ?? null,
           counts: data.counts ?? null,
+          request_hash: routed.observability.requestHash,
+          release_hash: routed.observability.releaseHash,
+          result_hash: routed.observability.resultHash,
+          route_status: routed.observability.status,
+          route_latency_ms: routed.observability.latencyMs,
 
           inputMode,
           rawFreeText: activeFreeText,

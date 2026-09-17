@@ -127,6 +127,11 @@ jobs:
       - run: npm ci
       - run: npm run test:contracts
       - run: npm run lint
+      - name: Build the real Founder Mobile web bundle
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: https://example.invalid
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-public-placeholder-key-000000000000
+        run: npx expo export --platform web --output-dir "$RUNNER_TEMP/founder-mobile-web"
       - name: Mobile TypeScript baseline (advisory inherited debt)
         continue-on-error: true
         run: npm run typecheck
@@ -206,6 +211,8 @@ jobs:
           npm run user-intelligence-vnext:phase3d:ui:test
       - name: Install isolated Founder Lab browser
         run: npx playwright install --with-deps chromium
+      - name: Validate Admin to Reader to Decision to Mobile Founder flow
+        run: npm run founder-live:e2e
       - name: Validate Phase 3D interactive Founder Lab
         run: npm run user-intelligence-vnext:phase3d:ui:e2e
       - name: Reproduce Phase 3B calibration report
@@ -462,8 +469,12 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Risk, identity, Decision and deployment contract regressions
         run: |
-          node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/integration-preflight.test.mjs scripts/ci/week2-dark-wiring.test.mjs scripts/ci/validate-client-secret-boundary.test.mjs scripts/ci/validate-decision-change.test.mjs scripts/ci/validate-production-state.test.mjs scripts/ci/verify-risk-gate.test.mjs
+          node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/integration-preflight.test.mjs scripts/ci/week2-dark-wiring.test.mjs scripts/ci/founder-live-control-plane.test.mjs mobile/packages/founder-live-control-plane/test/control-plane.test.mjs scripts/ci/validate-client-secret-boundary.test.mjs scripts/ci/validate-decision-change.test.mjs scripts/ci/validate-production-state.test.mjs scripts/ci/verify-risk-gate.test.mjs
           node --test scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/verify-supabase-migration-dry-run.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs
+      - name: Validate Founder-live generated binding and source-aware preflight
+        run: |
+          npm run founder-live:binding
+          node scripts/ci/founder-live-control-plane.mjs . "${{ needs.classify.outputs.head-sha }}"
       - name: Validate World Week 1 release foundation contract
         run: |
           npm run world-knowledge:week1:test

@@ -10,6 +10,7 @@ const originalResolveRequest = config.resolver.resolveRequest;
 config.watchFolders = [
   ...(config.watchFolders ?? []),
   path.resolve(__dirname, "../packages/shared"),
+  path.resolve(__dirname, "./packages/founder-live-control-plane"),
 ];
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
