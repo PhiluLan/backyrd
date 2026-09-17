@@ -1,0 +1,19 @@
+{
+  "contractVersion": "backyrd.founder-live-shared-node20-artifact@1.0",
+  "nodeMajor": 20,
+  "sourceSha": "e28cc18acb72a325d4e9918c90cab1426392bd21",
+  "sourceTreeSha": "4a1ff67409806620399878e46009a21bb7ce00f6",
+  "sourceSetHash": "72da87f4445d3e06a92695f5d05d7fb4ab787187770ae1eb7166748861622665",
+  "fileCount": 121,
+  "tracks": ["WORLD", "USER", "DECISION", "MOBILE", "ADMIN", "INTEGRATION"],
+  "artifactHash": "0a1dfbeb46b1e18e2c86869c176816d7e0e29267c0f801e4f8ec6f6c63f2e201",
+  "trackVerifications": [
+    {"track": "WORLD", "artifactHash": "0a1dfbeb46b1e18e2c86869c176816d7e0e29267c0f801e4f8ec6f6c63f2e201", "sourceSetHash": "72da87f4445d3e06a92695f5d05d7fb4ab787187770ae1eb7166748861622665", "status": "VERIFIED"},
+    {"track": "USER", "artifactHash": "0a1dfbeb46b1e18e2c86869c176816d7e0e29267c0f801e4f8ec6f6c63f2e201", "sourceSetHash": "72da87f4445d3e06a92695f5d05d7fb4ab787187770ae1eb7166748861622665", "status": "VERIFIED"},
+    {"track": "DECISION", "artifactHash": "0a1dfbeb46b1e18e2c86869c176816d7e0e29267c0f801e4f8ec6f6c63f2e201", "sourceSetHash": "72da87f4445d3e06a92695f5d05d7fb4ab787187770ae1eb7166748861622665", "status": "VERIFIED"},
+    {"track": "MOBILE", "artifactHash": "0a1dfbeb46b1e18e2c86869c176816d7e0e29267c0f801e4f8ec6f6c63f2e201", "sourceSetHash": "72da87f4445d3e06a92695f5d05d7fb4ab787187770ae1eb7166748861622665", "status": "VERIFIED"},
+    {"track": "ADMIN", "artifactHash": "0a1dfbeb46b1e18e2c86869c176816d7e0e29267c0f801e4f8ec6f6c63f2e201", "sourceSetHash": "72da87f4445d3e06a92695f5d05d7fb4ab787187770ae1eb7166748861622665", "status": "VERIFIED"},
+    {"track": "INTEGRATION", "artifactHash": "0a1dfbeb46b1e18e2c86869c176816d7e0e29267c0f801e4f8ec6f6c63f2e201", "sourceSetHash": "72da87f4445d3e06a92695f5d05d7fb4ab787187770ae1eb7166748861622665", "status": "VERIFIED"}
+  ],
+  "executionAuthorized": false
+}

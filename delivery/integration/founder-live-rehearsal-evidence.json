@@ -1,0 +1,32 @@
+{
+  "contractVersion": "backyrd.founder-live-rehearsal-evidence@1.0",
+  "baseSha": "9c38946462c5698ee1ff6375d996463254dd829e",
+  "baseTreeSha": "9e74daabc42f86327291b781c43b41502f2579a8",
+  "functionalHeadSha": "e28cc18acb72a325d4e9918c90cab1426392bd21",
+  "functionalTreeSha": "4a1ff67409806620399878e46009a21bb7ce00f6",
+  "patchId": "c0fbd314379863ae7c321738836ebe31102ff175",
+  "changedFileCount": 26,
+  "disposableMergeCommitSha": "c44c2ceb09f101dc0a559c4cf1f9940fa77b3488",
+  "combinedTreeSha": "4a1ff67409806620399878e46009a21bb7ce00f6",
+  "parents": ["9c38946462c5698ee1ff6375d996463254dd829e", "e28cc18acb72a325d4e9918c90cab1426392bd21"],
+  "conflictCount": 0,
+  "conflictResolutions": [],
+  "domainTracks": [
+    {"track": "WORLD", "status": "AWAITING_DOMAIN_PR"},
+    {"track": "USER", "status": "AWAITING_DOMAIN_PR"},
+    {"track": "DECISION", "status": "AWAITING_DOMAIN_PR"}
+  ],
+  "e2e": {
+    "flow": "ADMIN_SAVE_REBUILD_TO_WORLD_READER_TO_DECISION_TO_MOBILE",
+    "localAuthFixture": true,
+    "adminBrowser": true,
+    "mobileViewports": ["320x568", "1440x900"],
+    "assertions": 10,
+    "manualFileHandoffs": 0,
+    "userLearningWrites": 0,
+    "productionActions": 0
+  },
+  "e2eEvidenceHash": "476ea9829b0cc725883c92604f2326f2c3b6292c5392fc6be3c48397907edc8e",
+  "byteIdenticalRuns": 2,
+  "executionAuthorized": false
+}
