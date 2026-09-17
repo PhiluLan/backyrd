@@ -41,3 +41,5 @@ export * from "./shadow.js";
 export * from "./dark-request-contracts.js";
 export * from "./dark-request-ports.js";
 export * from "./dark-request.js";
+export * from "./internal-dark-shadow-contracts.js";
+export * from "./internal-dark-shadow.js";
