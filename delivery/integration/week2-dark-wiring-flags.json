@@ -1,0 +1,63 @@
+{
+  "contractVersion": "backyrd.week2-dark-wiring-flags@1.0",
+  "executionAuthorized": false,
+  "missingConfigurationBehavior": "OFF",
+  "unknownConfigurationBehavior": "OFF_AND_REJECT_ACTIVATION",
+  "globalKillSwitch": {
+    "id": "WEEK2_DARK_WIRING_GLOBAL_KILL_SWITCH",
+    "default": "ENGAGED"
+  },
+  "flags": [
+    {
+      "id": "WORLD_PRODUCT_READ",
+      "default": false,
+      "killSwitch": "WORLD_PRODUCT_READ_KILL_SWITCH",
+      "killSwitchDefault": "ENGAGED",
+      "owner": "WORLD",
+      "activationOrder": 1,
+      "allowedEnvironment": "LOCAL_OR_PROD_LIKE_SYNTHETIC_ONLY"
+    },
+    {
+      "id": "USER_LEARNING_RUNTIME",
+      "default": false,
+      "killSwitch": "USER_LEARNING_KILL_SWITCH",
+      "killSwitchDefault": "FORCED_OFF",
+      "owner": "USER",
+      "activationOrder": 2,
+      "allowedEnvironment": "NEVER_IN_WEEK2_REHEARSAL"
+    },
+    {
+      "id": "DECISION_VNEXT_SHADOW_TRAFFIC",
+      "default": false,
+      "killSwitch": "DECISION_VNEXT_SHADOW_KILL_SWITCH",
+      "killSwitchDefault": "ENGAGED",
+      "owner": "DECISION",
+      "activationOrder": 3,
+      "allowedEnvironment": "LOCAL_OR_PROD_LIKE_SYNTHETIC_ONLY"
+    },
+    {
+      "id": "DECISION_VNEXT_PRODUCT_RANKING",
+      "default": false,
+      "killSwitch": "DECISION_VNEXT_PRODUCT_KILL_SWITCH",
+      "killSwitchDefault": "ENGAGED",
+      "owner": "DECISION",
+      "activationOrder": 4,
+      "allowedEnvironment": "NEVER_IN_WEEK2"
+    }
+  ],
+  "activationSequence": [
+    "global kill switch explicitly disengaged for isolated rehearsal",
+    "WORLD_PRODUCT_READ read-only synthetic port ready",
+    "RelevantUserProjection local synthetic port ready while USER_LEARNING_RUNTIME remains false",
+    "DECISION_VNEXT_SHADOW_TRAFFIC read-only synthetic evaluation ready",
+    "DECISION_VNEXT_PRODUCT_RANKING remains false"
+  ],
+  "offInvariant": {
+    "queries": 0,
+    "ingestion": 0,
+    "evaluations": 0,
+    "writes": 0,
+    "networkCalls": 0,
+    "productOutputs": 0
+  }
+}

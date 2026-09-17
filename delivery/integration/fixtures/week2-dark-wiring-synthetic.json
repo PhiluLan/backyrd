@@ -1,0 +1,11 @@
+{
+  "contractVersion": "backyrd.week2-dark-wiring-fixture@1.0",
+  "fixtureId": "week2-contract-chain-minimal-1",
+  "syntheticOnly": true,
+  "productionData": false,
+  "worldRequest": {"spotId": "synthetic-spot-1"},
+  "userRequest": {"userId": "synthetic-user-1", "projectionPurpose": "LOCAL_REHEARSAL"},
+  "decisionRequest": {"requestId": "synthetic-decision-1", "outputMode": "DISCARD"},
+  "expectedOffCounters": {"queries": 0, "ingestion": 0, "evaluations": 0, "writes": 0, "networkCalls": 0, "productOutputs": 0},
+  "expectedTestOnCounters": {"worldReads": 1, "projectionBuilds": 1, "shadowEvaluations": 1, "writes": 0, "networkCalls": 0, "productOutputs": 0}
+}

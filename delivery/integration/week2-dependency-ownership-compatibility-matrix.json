@@ -1,0 +1,60 @@
+{
+  "contractVersion": "backyrd.week2-dependency-ownership-compatibility-matrix@1.0",
+  "executionAuthorized": false,
+  "dependencyChain": [
+    {
+      "order": 1,
+      "owner": "WORLD",
+      "input": "versioned synthetic/local request",
+      "output": "backyrd.world-knowledge.reader-port@1.0",
+      "darkControl": "WORLD_PRODUCT_READ"
+    },
+    {
+      "order": 2,
+      "owner": "USER",
+      "input": "World port identity only; no World semantic ownership",
+      "output": "backyrd.user-intelligence.relevant-user-projection@1.0",
+      "darkControl": "USER_LEARNING_RUNTIME"
+    },
+    {
+      "order": 3,
+      "owner": "DECISION",
+      "input": "WorldKnowledgeReaderPort plus RelevantUserProjection",
+      "output": "evaluation-only shadow result with no Product output",
+      "darkControl": "DECISION_VNEXT_SHADOW_TRAFFIC"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "WORLD",
+      "authority": ["packages/world-knowledge-core/**", "docs/world-knowledge/**", "World migrations and SQL tests"],
+      "forbidden": ["User semantics", "Decision semantics", "Production activation"],
+      "compatibility": ["PostgreSQL 17", "explicit Data API grants", "RLS on every table", "read-only dark reader"]
+    },
+    {
+      "id": "USER",
+      "authority": ["packages/user-intelligence-vnext-core/**", "docs/user-intelligence-vnext/**"],
+      "forbidden": ["World fact authoring", "Decision ranking semantics", "Production learning activation"],
+      "compatibility": ["minimized RelevantUserProjection only", "no persistence", "no network", "privacy lifecycle preserved"]
+    },
+    {
+      "id": "DECISION",
+      "authority": ["packages/decision-vnext-core/**", "docs/decision-vnext/**", "Decision evaluation fixtures"],
+      "forbidden": ["direct World tables", "raw User evidence", "Product output", "Production shadow activation"],
+      "compatibility": ["ports only", "read-only shadow evaluation", "evidence-bounded output"]
+    },
+    {
+      "id": "INTEGRATION",
+      "authority": ["delivery/integration/week2-*", "docs/operations/integration/WEEK2_*", "scripts/ci/week2-*"],
+      "forbidden": ["domain semantics", "domain PR merge", "Production execution", "automatic activation"],
+      "compatibility": ["identity binding", "hash binding", "gate routing", "rollback choreography"]
+    }
+  ],
+  "supabaseCompatibility": {
+    "postgresMajor": 17,
+    "dataApi": "EXPLICIT_GRANTS_PLUS_RLS",
+    "forbiddenSchemaMutations": ["auth", "realtime"],
+    "extensionVersionPinningAllowed": false,
+    "logsAllDependencyAllowed": false
+  }
+}

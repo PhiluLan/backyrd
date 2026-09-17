@@ -1,0 +1,75 @@
+{
+  "contractVersion": "backyrd.week2-dark-wiring-manifest@1.0",
+  "canonicalBaseSha": "f999e2185d9102ea59a2c6e2c0861a4122af359b",
+  "executionAuthorized": false,
+  "productionActivationAuthorized": false,
+  "wiringChain": [
+    "WORLD_PRODUCT_READ",
+    "backyrd.user-intelligence.relevant-user-projection@1.0",
+    "DECISION_VNEXT_SHADOW_TRAFFIC"
+  ],
+  "artifactContract": "backyrd-decision-ci-build-artifact-v1",
+  "artifactBinding": {
+    "strategy": "EXTERNAL_IMMUTABLE_EVIDENCE",
+    "evidenceContract": "backyrd.week2-dark-wiring-rehearsal-evidence@1.0",
+    "rule": "WORLD, USER, DECISION and INTEGRATION must verify one artifact built from the combined rehearsal tree"
+  },
+  "domainCandidates": [
+    {
+      "track": "WORLD",
+      "pr": 293,
+      "baseSha": "f999e2185d9102ea59a2c6e2c0861a4122af359b",
+      "headSha": "0dbed4a9a8b0270a077e9f7b235cb9f54544dfb9",
+      "treeSha": "e3e0c1754aaef340b44fc6068922317e95c41b3e",
+      "domainArtifactHash": "aa9ce7075877924347cf0d31622e04577e7d3bcfea5b4cd8599b73d9418a19b8",
+      "planHash": "7ea77bc13f03b61b7094f5018540410c2ea97fa0067eb4ec8b7a0f2c467b9232",
+      "bindings": [
+        {"path": "packages/world-knowledge-core/src/dark-reader.ts", "contains": "backyrd.world-knowledge.dark-reader@1.0"},
+        {"path": "packages/world-knowledge-core/src/port.ts", "contains": "backyrd.world-knowledge.reader-port@1.0"},
+        {"path": "packages/world-knowledge-core/test/registry-contracts.test.mjs", "contains": "cc9c5d1ac55d0080dc8a4a2e9b240b28d30dabc35ec5f35e5a4603b203e169f3"}
+      ],
+      "status": "READY"
+    },
+    {
+      "track": "USER",
+      "pr": 292,
+      "baseSha": "f999e2185d9102ea59a2c6e2c0861a4122af359b",
+      "headSha": "80a1579564d1f10f450dfb35db4c4847b1539b60",
+      "treeSha": "cbd49f68aaa2a7c10c14129e287f16079ec74b36",
+      "domainArtifactHash": "8678a932434d9890e2332634317328af0e75ce9228c5262b0f9861003eb065d6",
+      "planHash": "cd950c835f3b3366ffedfeab1dd7ea5fdda62c521802f8510f7d1bbdd6547c2b",
+      "bindings": [
+        {"path": "packages/user-intelligence-vnext-core/src/dark-projection-runtime.ts", "contains": "RelevantUserProjection"},
+        {"path": "docs/user-intelligence-vnext/week2/dark-projection-runtime-release-summary.json", "contains": "f7d31f9860706b54effdd33199d1c419de4d92856fbc292b7dbfaf4ba6910391"},
+        {"path": "docs/user-intelligence-vnext/week2/dark-projection-runtime-release-summary.json", "contains": "42f2e56e1ea020c2a5522740d09cb82063e1c819e806b57f70fcb05a84fa1fe6"},
+        {"path": "docs/user-intelligence-vnext/week2/dark-projection-runtime-release-summary.json", "contains": "43f8ac66e7eb1e5bc7dfe564782eef39fdf43c1e9142508b829d2f03d3bae046"}
+      ],
+      "status": "READY"
+    },
+    {
+      "track": "DECISION",
+      "pr": null,
+      "baseSha": null,
+      "headSha": null,
+      "treeSha": null,
+      "domainArtifactHash": null,
+      "planHash": null,
+      "bindings": [],
+      "status": "AWAITING_DOMAIN_PR"
+    }
+  ],
+  "mergeSequence": ["WORLD", "USER", "DECISION", "INTEGRATION"],
+  "rehearsal": {
+    "evidenceContract": "backyrd.week2-dark-wiring-rehearsal-evidence@1.0",
+    "evidencePath": "delivery/integration/week2-dark-wiring-rehearsal-evidence.json",
+    "requiredStatus": "READY"
+  },
+  "productionPlan": {
+    "shippedSourceSha": "d63c5ae66aa30aa017cc54c2ed8be47944b84889",
+    "expectedPendingMigrationCount": 9,
+    "pendingMigrationClass": "WORLD_INHERITED",
+    "expectedDeployFunctions": [],
+    "authDeploy": false,
+    "executionAuthorized": false
+  }
+}
