@@ -1,0 +1,121 @@
+{
+  "schemaVersion": "backyrd.world-knowledge.internal-allowlist-foundation@week3-v1",
+  "canonicalMainSha": "b98b3870f60e9495c10f3c23f006fb9b3213d63e",
+  "canonicalTreeSha": "e59939dc43c51139dcaf0928b9725e8b98b0a1cc",
+  "migrationCount": 9,
+  "migrationBundleHash": "8a642e025701cb02a769fcdf7fda4390f955bad08478a2690ae512a6c197d066",
+  "exactMigrationPaths": [
+    "supabase/migrations/20260910174419_world_knowledge_slice_3b_foundation.sql",
+    "supabase/migrations/20260911184459_world_knowledge_slice_4a_authoring.sql",
+    "supabase/migrations/20260911214533_world_knowledge_slice_4a_legacy_import_rehearsal.sql",
+    "supabase/migrations/20260912084654_world_knowledge_slice_4a_authoring_product_readiness.sql",
+    "supabase/migrations/20260912103000_world_knowledge_slice_4a_authoring_reliability.sql",
+    "supabase/migrations/20260912121000_world_knowledge_slice_4a_taxonomy_candidate_expansion.sql",
+    "supabase/migrations/20260912165043_world_knowledge_slice_4a_authoring_registry_2.sql",
+    "supabase/migrations/20260915163631_world_knowledge_slice_4b_contextual_semantics.sql",
+    "supabase/migrations/20260916061802_world_founder_context_handoff_unknown_canonicalization.sql"
+  ],
+  "exactMigrationHashes": [
+    "11ec437c394d452a5b5d152ab342f18316fdfdcc4fec074fb723d0c8710c6be2",
+    "ace27a232abb8bdf5eef2d170468d3d668d5c3848848975775bfd49839ced8a3",
+    "d233311f443dcbb8fd09023420639e4019ee04ac304153c55b3decad3a61530b",
+    "6677391186650567b72b0e41b9969dab6b5b34780bc03149fda73e09cd571bfd",
+    "ef21cf5f1829bc06509d8b063fa8cc4ac1fcbd2a7997f38722112b744737ada9",
+    "ec90ccf9eebd43fb97374eff6ea77d3343abb0e62c246868a2ce0b69dafe1aa8",
+    "f93b40c657fea27cbc95982d62344ad267c456b8a7c2a135866a351fd1b48642",
+    "ca4332b13929aa7a880d20c2303c62d6c053601d4b6ac926e828079611206505",
+    "07dd2b43da4ff10bc3c9504669fe63925a14aa6ffb725485609b00f450ce8649"
+  ],
+  "postgresCompatibility": {
+    "postgresMajor": 17,
+    "prohibitedSchemaMutations": [
+      "auth",
+      "realtime",
+      "storage"
+    ],
+    "extensionVersionPinning": "FORBIDDEN",
+    "removedEndpointDependencies": [
+      "logs.all"
+    ],
+    "dataApiExposure": "EXPLICIT_GRANT_PLUS_RLS_ONLY"
+  },
+  "reader": {
+    "contractVersion": "backyrd.world-knowledge.dark-reader@1.0",
+    "allowlistContractVersion": "backyrd.world-knowledge.internal-allowlist@1.0",
+    "registryVersion": "backyrd.world-knowledge.registry@2.1",
+    "registryHash": "cc9c5d1ac55d0080dc8a4a2e9b240b28d30dabc35ec5f35e5a4603b203e169f3",
+    "sourcePolicyVersion": "backyrd.world-knowledge.source-policy@4b.1",
+    "sourcePolicyHash": "a5f36fdb17fd9c4cfe8800f0d43db8109e0744fe0d126cc4b0f7c627a8a04699",
+    "defaultState": "OFF",
+    "killSwitchDefault": "ENGAGED",
+    "allowedEnvironments": [
+      "LOCAL_TEST",
+      "PROD_LIKE_TEST"
+    ],
+    "decisionSemantics": "NONE",
+    "userSemantics": "NONE",
+    "offEffects": {
+      "connections": 0,
+      "queries": 0,
+      "writes": 0
+    }
+  },
+  "authority": {
+    "realAllowlistMembers": 0,
+    "authorityStatus": "NOT_CONFIGURED",
+    "expirationPolicy": "NOT_CONFIGURED",
+    "retentionPolicy": "NOT_CONFIGURED",
+    "executionAuthorized": false,
+    "productionCredentialsUsed": false,
+    "productionQueried": false,
+    "productionMigrated": false,
+    "productionDeployed": false
+  },
+  "requiredRehearsal": [
+    "DEFAULT_OFF_ZERO_EFFECTS",
+    "SYNTHETIC_TEST_ON_MINIMIZED_READ",
+    "EMERGENCY_OFF_ZERO_EFFECTS",
+    "NINE_MIGRATION_CLEAN_BOOT",
+    "REPLAY_NO_OP",
+    "CONCURRENCY",
+    "LOGICAL_BACKUP_RESTORE"
+  ],
+  "releaseArtifactHash": "c5c230e932b4322523364ef12940f690e8e60d85879ca870796c6872a98f4b2f",
+  "allowlist": {
+    "contractVersion": "backyrd.world-knowledge.internal-allowlist@1.0",
+    "releaseVersion": "week3-internal-allowlist-release-1",
+    "canonicalMainSha": "b98b3870f60e9495c10f3c23f006fb9b3213d63e",
+    "canonicalTreeSha": "e59939dc43c51139dcaf0928b9725e8b98b0a1cc",
+    "releaseArtifactHash": "c5c230e932b4322523364ef12940f690e8e60d85879ca870796c6872a98f4b2f",
+    "migrationBundleHash": "8a642e025701cb02a769fcdf7fda4390f955bad08478a2690ae512a6c197d066",
+    "readerContractVersion": "backyrd.world-knowledge.dark-reader@1.0",
+    "registryVersion": "backyrd.world-knowledge.registry@2.1",
+    "registryHash": "cc9c5d1ac55d0080dc8a4a2e9b240b28d30dabc35ec5f35e5a4603b203e169f3",
+    "sourcePolicyVersion": "backyrd.world-knowledge.source-policy@4b.1",
+    "sourcePolicyHash": "a5f36fdb17fd9c4cfe8800f0d43db8109e0744fe0d126cc4b0f7c627a8a04699",
+    "authorityStatus": "NOT_CONFIGURED",
+    "expirationPolicy": "NOT_CONFIGURED",
+    "retentionPolicy": "NOT_CONFIGURED",
+    "executionAuthorized": false,
+    "entries": [],
+    "releaseHash": "0994c6dd24d45391c9698e7393226165b7bc2dfb85757ae947e9e3bdc141d4ee"
+  },
+  "postDeployEvidence": {
+    "contractVersion": "backyrd.world-knowledge.post-deploy-evidence@1.0",
+    "mainSha": "b98b3870f60e9495c10f3c23f006fb9b3213d63e",
+    "treeSha": "e59939dc43c51139dcaf0928b9725e8b98b0a1cc",
+    "releaseArtifactHash": "c5c230e932b4322523364ef12940f690e8e60d85879ca870796c6872a98f4b2f",
+    "migrationBundleHash": "8a642e025701cb02a769fcdf7fda4390f955bad08478a2690ae512a6c197d066",
+    "readerContractVersion": "backyrd.world-knowledge.dark-reader@1.0",
+    "registryVersion": "backyrd.world-knowledge.registry@2.1",
+    "registryHash": "cc9c5d1ac55d0080dc8a4a2e9b240b28d30dabc35ec5f35e5a4603b203e169f3",
+    "sourcePolicyVersion": "backyrd.world-knowledge.source-policy@4b.1",
+    "sourcePolicyHash": "a5f36fdb17fd9c4cfe8800f0d43db8109e0744fe0d126cc4b0f7c627a8a04699",
+    "allowlistContractVersion": "backyrd.world-knowledge.internal-allowlist@1.0",
+    "allowlistHash": "0994c6dd24d45391c9698e7393226165b7bc2dfb85757ae947e9e3bdc141d4ee",
+    "status": "NOT_EXECUTED_NO_PRODUCTION_AUTHORITY",
+    "executionAuthorized": false,
+    "evidenceHash": "817a83bb613e874617d24c2c88ca159910f0b3194346c2a2869a8d8afbe73a25"
+  },
+  "reportHash": "0d71d8426657c5a3e4ee45fc89fde40a884662233d2a6611e0e22ab02ec7f39e"
+}

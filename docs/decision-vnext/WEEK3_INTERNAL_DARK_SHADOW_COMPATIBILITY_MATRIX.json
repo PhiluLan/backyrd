@@ -1,0 +1,16 @@
+{
+  "contractVersion": "backyrd.decision-vnext.week3-compatibility-matrix@1.0",
+  "productionAuthorized": false,
+  "productQualityClaim": false,
+  "components": [
+    { "component": "Phase-3C contextual evaluation", "classification": "KEEP", "reason": "Canonical deterministic evaluation remains unchanged" },
+    { "component": "Week-2 server-authorized dark request", "classification": "EXTEND", "reason": "Provides the independently bound technical reference path" },
+    { "component": "WorldKnowledgeReaderPort and World dark reader", "classification": "KEEP", "reason": "Only canonical policy-authorized read-only World snapshots are consumed" },
+    { "component": "RelevantUserProjection port", "classification": "KEEP", "reason": "Only the canonical minimized projection is read once" },
+    { "component": "Public runtime activation", "classification": "PROHIBITED", "reason": "Control is fixed OFF with an engaged kill switch and zero sampling" },
+    { "component": "Local Test-ON fixture capability", "classification": "EXTEND", "reason": "Non-exported process capability permits isolated rehearsal only" },
+    { "component": "Product ranking, eligibility and confidence", "classification": "NOT_CONFIGURED", "reason": "Week 3 records technical parity and grants no Product authority" },
+    { "component": "Persistence and shadow traffic", "classification": "PROHIBITED", "reason": "Results are discarded and side-effect counters must remain zero" },
+    { "component": "Post-deploy evidence", "classification": "KEEP", "reason": "Recorded as NOT_EXECUTED_NO_PRODUCTION_AUTHORITY" }
+  ]
+}

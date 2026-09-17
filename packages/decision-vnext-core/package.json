@@ -23,6 +23,7 @@
     "phase3b:context": "npm run build && node sandbox/evaluate-context-phase3b.mjs",
     "phase3c:lab": "npm run build && node sandbox/evaluate-phase3c.mjs",
     "shadow:week1": "npm run build && node sandbox/evaluate-dark-shadow-week1.mjs",
-    "dark-request:week2": "npm run build && node sandbox/evaluate-dark-request-week2.mjs"
+    "dark-request:week2": "npm run build && node sandbox/evaluate-dark-request-week2.mjs",
+    "internal-dark-shadow:week3": "npm run build && node sandbox/evaluate-internal-dark-shadow-week3.mjs"
   }
 }

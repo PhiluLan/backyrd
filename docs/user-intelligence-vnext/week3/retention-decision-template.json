@@ -1,0 +1,14 @@
+{
+  "contractVersion": "backyrd.user-intelligence.retention-decision-template@week3-1",
+  "templateId": "backyrd-user-intelligence-retention-decision-week3-1",
+  "status": "NOT_CONFIGURED_PENDING_FOUNDER_CTO_LEGAL",
+  "productionAuthorized": false,
+  "defaultsForbidden": true,
+  "classes": [
+    { "dataClass": "INTERNAL_ALLOWLIST_RECORD", "personal": true, "purpose": "INTERNAL_REHEARSAL_AUTHORIZATION", "action": "DELETE", "duration": null },
+    { "dataClass": "EPHEMERAL_PROJECTION", "personal": true, "purpose": "INTERNAL_READ_ONLY_REHEARSAL", "action": "DELETE", "duration": null },
+    { "dataClass": "POST_DEPLOY_EVIDENCE", "personal": false, "purpose": "INTEGRITY_AUDIT", "action": "RETAIN_NON_PERSONAL_ONLY", "duration": null }
+  ],
+  "requiredApprovals": ["FOUNDER", "CTO", "LEGAL"],
+  "prohibitedFallbacks": ["FIXTURE_DURATION", "INFINITE_RETENTION", "SOURCE_CODE_DEFAULT", "CLIENT_SELECTED_DURATION"]
+}
