@@ -1,0 +1,12 @@
+{
+  "contractVersion": "backyrd.user-intelligence.internal-projection-compatibility@week3-1",
+  "canonicalBase": "1d689e38f12edee2821cc4f4e3d5bc5ee8ccf48b",
+  "entries": [
+    { "component": "RelevantUserProjection", "classification": "KEEP", "parallelContract": false },
+    { "component": "Week2DarkProjectionRuntime", "classification": "KEEP", "semanticChange": false },
+    { "component": "InternalAllowlistConsumer", "classification": "ADD_NON_PRODUCTION", "output": "RelevantUserProjection|null" },
+    { "component": "PrivacyLegalExport", "classification": "KEEP_SEPARATE", "runtimeReachable": false },
+    { "component": "PersistenceNetworkWriteback", "classification": "PROHIBITED", "present": false },
+    { "component": "RetentionDurations", "classification": "NOT_CONFIGURED", "fallback": null }
+  ]
+}
