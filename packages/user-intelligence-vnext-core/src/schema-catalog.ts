@@ -80,5 +80,9 @@ export const USER_INTELLIGENCE_VNEXT_SCHEMA_CATALOG = Object.freeze({
     ["Phase3DCalibrationRelease", CONTRACT_VERSIONS.phase3dCalibrationReleaseFinal, "Phase3DCalibrationReleaseSchema", "verifyPhase3DCalibrationCandidates"],
     ["Phase3DCalibrationTrustAnchor", CONTRACT_VERSIONS.phase3dCalibrationTrustAnchorFinal, "Phase3DCalibrationTrustAnchorSchema", "verifyPhase3DCalibrationCandidates"],
     ["Phase3DFounderLabReport", CONTRACT_VERSIONS.phase3dReport, "Phase3DFounderLabReportSchema", "verifyPhase3DFounderLabReport"],
+    ["DarkProjectionAuthority", CONTRACT_VERSIONS.darkProjectionRuntimeAuthority, "DarkProjectionAuthoritySchema", "verifyDarkProjectionAuthority"],
+    ["DarkProjectionEvent", CONTRACT_VERSIONS.darkProjectionRuntimeEvent, "DarkProjectionEventSchema", "runDarkProjectionRuntime"],
+    ["DarkProjectionHandoff", CONTRACT_VERSIONS.darkProjectionRuntimeHandoff, "DarkProjectionHandoffSchema", "verifyDarkProjectionHandoff"],
+    ["DarkProjectionPrivacyExport", CONTRACT_VERSIONS.darkProjectionRuntimePrivacyExport, "DarkProjectionPrivacyExportSchema", "buildDarkProjectionPrivacyExport"],
   ].map(([name, contractVersion, runtimeSchemaExport, semanticValidatorExport]) => ({ name, contractVersion, runtimeSchemaExport, semanticValidatorExport }))),
 });

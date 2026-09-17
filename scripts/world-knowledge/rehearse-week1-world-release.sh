@@ -103,5 +103,26 @@ test "$definer_without_empty_path" = 0
 replay_output="$("$supabase_cli" migration up --workdir "$rehearsal_root" --local --include-all --agent=no 2>&1)"
 grep -q 'Local database is up to date' <<<"$replay_output"
 
-result="$(jq -n --arg project "$project_id" --arg image "$(docker inspect --format '{{.Config.Image}}' "supabase_db_$project_id")" --argjson syntheticSpots 1000 --argjson timings "$timings" --argjson ledger "$ledger_count" --argjson privateExposure "$private_exposure" --argjson unsafeDefiners "$definer_without_empty_path" '{schemaVersion:"backyrd.world-knowledge.week1-rehearsal@1",environment:"DISPOSABLE_LOCAL",productionConnection:false,projectId:$project,databaseImage:$image,syntheticSpotCount:$syntheticSpots,migrationTimings:$timings,migrationLedgerCount:$ledger,privateClientGrantCount:$privateExposure,securityDefinerWithoutEmptySearchPath:$unsafeDefiners,worldSqlSuites:6,parallelRebuildCases:["SAME_KEY","CROSS_KEY_SAME_INPUT","DISTINCT_INPUT_MONOTONE_POINTER"],replay:"NO_OP",executionAuthorized:false}')"
+backup_restore='NOT_REQUESTED'
+backup_bytes=0
+if test "${WORLD_WEEK2_BACKUP_RESTORE:-false}" = true; then
+  backup_file="$rehearsal_root/world-week2-backup.dump"
+  database_container="supabase_db_$project_id"
+  docker exec "$database_container" pg_dump -U postgres -d postgres --schema=world_knowledge_private --format=custom --no-owner --no-acl --file=/tmp/world-week2-backup.dump
+  docker cp "$database_container:/tmp/world-week2-backup.dump" "$backup_file" >/dev/null
+  backup_bytes="$(wc -c <"$backup_file" | tr -d ' ')"
+  original_world_tables="$(docker exec "$database_container" psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atc "select count(*) from information_schema.tables where table_schema='world_knowledge_private';")"
+  original_claims="$(docker exec "$database_container" psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atc 'select count(*) from world_knowledge_private.claims;')"
+  docker exec "$database_container" psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 -c 'drop schema world_knowledge_private cascade;' >/dev/null
+  docker exec "$database_container" pg_restore -U postgres -d postgres --no-owner --no-acl /tmp/world-week2-backup.dump
+  restored_ledger="$(docker exec "$database_container" psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atc "select count(*) from supabase_migrations.schema_migrations where version >= '20260910174419';")"
+  restored_world_tables="$(docker exec "$database_container" psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atc "select count(*) from information_schema.tables where table_schema='world_knowledge_private';")"
+  restored_claims="$(docker exec "$database_container" psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atc 'select count(*) from world_knowledge_private.claims;')"
+  test "$restored_ledger" = 9
+  test "$restored_world_tables" = "$original_world_tables"
+  test "$restored_claims" = "$original_claims"
+  backup_restore='PASS'
+fi
+
+result="$(jq -n --arg project "$project_id" --arg image "$(docker inspect --format '{{.Config.Image}}' "supabase_db_$project_id")" --argjson syntheticSpots 1000 --argjson timings "$timings" --argjson ledger "$ledger_count" --argjson privateExposure "$private_exposure" --argjson unsafeDefiners "$definer_without_empty_path" --arg backupRestore "$backup_restore" --argjson backupBytes "$backup_bytes" '{schemaVersion:"backyrd.world-knowledge.week1-rehearsal@1",environment:"DISPOSABLE_LOCAL",productionConnection:false,projectId:$project,databaseImage:$image,syntheticSpotCount:$syntheticSpots,migrationTimings:$timings,migrationLedgerCount:$ledger,privateClientGrantCount:$privateExposure,securityDefinerWithoutEmptySearchPath:$unsafeDefiners,worldSqlSuites:6,parallelRebuildCases:["SAME_KEY","CROSS_KEY_SAME_INPUT","DISTINCT_INPUT_MONOTONE_POINTER"],replay:"NO_OP",backupRestore:$backupRestore,backupBytes:$backupBytes,executionAuthorized:false}')"
 printf '%s\n' "$result"
