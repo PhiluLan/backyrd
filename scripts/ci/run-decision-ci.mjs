@@ -18,6 +18,7 @@ const coreTests = [
   "packages/decision-vnext-core/test/phase3c-founder-decision-lab.test.mjs",
   "packages/decision-vnext-core/test/dark-shadow-foundation.test.mjs",
   "packages/decision-vnext-core/test/dark-request-week2.test.mjs",
+  "packages/decision-vnext-core/test/internal-dark-shadow-week3.test.mjs",
 ];
 
 function compactSuccessOutput(output) {
@@ -89,6 +90,11 @@ function runGroup(group) {
     ...runGroup("preflight"),
     nodeTest("Decision Week-2 dark-request authority, ports, OFF proof, tamper and replay", ["packages/decision-vnext-core/test/dark-request-week2.test.mjs"]),
     run("Decision Week-2 deterministic end-to-end dark request", process.execPath, ["packages/decision-vnext-core/sandbox/evaluate-dark-request-week2.mjs"]),
+  ];
+  if (group === "internal-dark-shadow-week3") return [
+    ...runGroup("preflight"),
+    nodeTest("Decision Week-3 internal dark-shadow authority, kill switches, tamper and replay", ["packages/decision-vnext-core/test/internal-dark-shadow-week3.test.mjs"]),
+    run("Decision Week-3 deterministic internal dark-shadow operation", process.execPath, ["packages/decision-vnext-core/sandbox/evaluate-internal-dark-shadow-week3.mjs"]),
   ];
   if (group === "core-context") return [nodeTest("Decision core, integrity and contract tests", coreTests)];
   if (group === "phase2-all") return [nodeTest("Phase-2 complete integration", ["packages/decision-vnext-core/test/phase2-evaluation-harness.test.mjs"])];
