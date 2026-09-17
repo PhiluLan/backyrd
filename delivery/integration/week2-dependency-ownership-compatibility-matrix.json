@@ -53,7 +53,7 @@
   "supabaseCompatibility": {
     "postgresMajor": 17,
     "dataApi": "EXPLICIT_GRANTS_PLUS_RLS",
-    "forbiddenSchemaMutations": ["auth", "realtime"],
+    "forbiddenSchemaMutations": ["auth", "realtime", "storage"],
     "extensionVersionPinningAllowed": false,
     "logsAllDependencyAllowed": false
   }

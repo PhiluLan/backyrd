@@ -10,6 +10,7 @@ import {
 } from "./week2-dark-wiring.mjs";
 import { verifyDomainCandidates, verifySupabaseCompatibilitySources } from "./week2-dark-wiring-preflight.mjs";
 import { verifyDecisionEvidenceAuthority } from "./week2-decision-provenance.mjs";
+import { verifyFourTrackAuthority } from "./week2-four-track-authority.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const documents = () => loadWeek2Documents(ROOT);
@@ -31,6 +32,27 @@ const decisionInputs = (value = documents()) => {
     },
   };
 };
+const fourTrackInputs = (value = documents()) => ({
+  manifest: value.manifest,
+  evidence: value.evidence,
+  reconstruction: {
+    baseSha: value.evidence.baseSha,
+    integrationHeadSha: value.evidence.integrationHeadSha,
+    orderedHeads: clone(value.evidence.orderedHeads),
+    steps: clone(value.evidence.steps),
+    combinedCommitSha: value.evidence.combinedCommitSha,
+    combinedTreeSha: value.evidence.combinedTreeSha,
+    conflictCount: value.evidence.conflictCount,
+    overlaps: clone(value.evidence.overlaps),
+  },
+  sealedArtifact: clone(value.sharedArtifact),
+  execution: {
+    combinedCommitSha: value.evidence.combinedCommitSha,
+    combinedTreeSha: value.evidence.combinedTreeSha,
+    artifact: clone(value.sharedArtifact),
+    verifiedTracks: ["WORLD", "USER", "DECISION", "INTEGRATION"],
+  },
+});
 
 test("Week-2 control-plane documents are internally consistent", () => {
   const value = documents();
@@ -118,6 +140,71 @@ test("cross-head Decision replay fails closed", () => {
   assert.throws(() => verifyDecisionEvidenceAuthority({ root: ROOT, ...input }), /week2_decision_provenance_head_mismatch/);
 });
 
+test("four-track evidence matches its complete reconstruction and shared artifact", () => {
+  const result = verifyFourTrackAuthority(fourTrackInputs());
+  assert.equal(result.combinedTreeSha, documents().evidence.combinedTreeSha);
+  assert.equal(result.artifactHash, documents().evidence.sharedArtifactHash);
+  assert.deepEqual(result.verifiedTracks, ["WORLD", "USER", "DECISION", "INTEGRATION"]);
+});
+
+for (const field of ["combinedCommitSha", "combinedTreeSha"]) {
+  test(`manipulated ${field} fails four-track reconstruction`, () => {
+    const input = fourTrackInputs();
+    input.evidence[field] = "0".repeat(40);
+    assert.throws(() => verifyFourTrackAuthority(input), /week2_rehearsal_/);
+  });
+}
+
+test("wrong domain head fails four-track reconstruction", () => {
+  const input = fourTrackInputs();
+  input.reconstruction.orderedHeads[0].headSha = input.manifest.canonicalBaseSha;
+  assert.throws(() => verifyFourTrackAuthority(input), /week2_rehearsal_ordered_heads_mismatch/);
+});
+
+test("wrong Integration head and cross-head replay fail four-track reconstruction", () => {
+  const input = fourTrackInputs();
+  input.reconstruction.integrationHeadSha = input.manifest.canonicalBaseSha;
+  assert.throws(() => verifyFourTrackAuthority(input), /week2_rehearsal_integration_head_mismatch/);
+});
+
+test("missing and additional overlap fail four-track reconstruction", () => {
+  const missing = fourTrackInputs();
+  missing.reconstruction.overlaps.pop();
+  assert.throws(() => verifyFourTrackAuthority(missing), /week2_rehearsal_overlaps_mismatch/);
+  const additional = fourTrackInputs();
+  additional.reconstruction.overlaps.push({ left: "WORLD", right: "INTEGRATION", files: ["forged"] });
+  assert.throws(() => verifyFourTrackAuthority(additional), /week2_rehearsal_overlaps_mismatch/);
+});
+
+test("changed merge order fails four-track reconstruction", () => {
+  const input = fourTrackInputs();
+  input.reconstruction.orderedHeads.reverse();
+  assert.throws(() => verifyFourTrackAuthority(input), /week2_rehearsal_ordered_heads_mismatch/);
+});
+
+test("wrong shared artifact hash fails closed", () => {
+  const input = fourTrackInputs();
+  input.evidence.sharedArtifactHash = "0".repeat(64);
+  assert.throws(() => verifyFourTrackAuthority(input), /week2_shared_artifact_hash_mismatch/);
+});
+
+test("manipulated shared artifact manifest and file set fail closed", () => {
+  const manipulated = fourTrackInputs();
+  manipulated.sealedArtifact.sourceSetHash = "0".repeat(64);
+  assert.throws(() => verifyFourTrackAuthority(manipulated), /week2_shared_artifact_manifest_hash_mismatch/);
+  const incomplete = fourTrackInputs();
+  incomplete.execution.artifact.files.pop();
+  assert.throws(() => verifyFourTrackAuthority(incomplete), /week2_shared_artifact_manifest_mismatch/);
+});
+
+test("single-head artifact, wrong combined tree and cross-tree replay fail closed", () => {
+  for (const tree of [documents().manifest.domainCandidates[2].treeSha, documents().manifest.canonicalBaseSha]) {
+    const input = fourTrackInputs();
+    input.execution.combinedTreeSha = tree;
+    assert.throws(() => verifyFourTrackAuthority(input), /week2_artifact_combined_tree_mismatch/);
+  }
+});
+
 for (const schema of ["auth", "realtime", "storage"]) {
   test(`${schema} schema mutation is blocked fail closed`, () => {
     assert.throws(
@@ -126,6 +213,13 @@ for (const schema of ["auth", "realtime", "storage"]) {
     );
   });
 }
+
+test("compatibility contract names exactly auth, realtime and storage as protected schemas", () => {
+  assert.deepEqual(documents().matrix.supabaseCompatibility.forbiddenSchemaMutations, ["auth", "realtime", "storage"]);
+  const value = clone(documents());
+  value.matrix.supabaseCompatibility.forbiddenSchemaMutations.pop();
+  assert.throws(() => validateWeek2Documents(value), /week2_protected_schema_contract_invalid/);
+});
 
 test("technical rehearsal GREEN cannot promote the release train to GREEN", () => {
   const value = clone(documents());

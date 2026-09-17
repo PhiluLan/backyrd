@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 import { classifyChange } from "./classify-change.mjs";
 import { loadWeek2Documents, runWeek2ContractRehearsal, validateWeek2Documents } from "./week2-dark-wiring.mjs";
 import { executeFrozenDecisionEvidence, verifyDecisionEvidenceAuthority } from "./week2-decision-provenance.mjs";
+import { rehearseFourTrack } from "./week2-four-track-rehearsal.mjs";
+import { executeCombinedArtifact, verifyFourTrackAuthority } from "./week2-four-track-authority.mjs";
 import { buildProductionPlan } from "../deployment/supabase-production-plan.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
@@ -87,7 +89,9 @@ function hashControlPlane(root) {
     "scripts/ci/week2-dark-wiring.mjs",
     "scripts/ci/week2-dark-wiring-preflight.mjs",
     "scripts/ci/week2-decision-provenance.mjs",
+    "scripts/ci/week2-four-track-authority.mjs",
     "delivery/integration/week2-decision-frozen-evidence.json",
+    "delivery/integration/week2-shared-decision-artifact.json",
   ];
   return sha256(JSON.stringify(paths.map((path) => ({ path, sha256: sha256(readFileSync(resolve(root, path))) }))));
 }
@@ -99,6 +103,18 @@ export function runWeek2Preflight({ root = ROOT, baseSha: requestedBase, headSha
   const decisionCandidate = documents.manifest.domainCandidates.find(({ track }) => track === "DECISION");
   const decisionExecution = executeFrozenDecisionEvidence({ root, candidate: decisionCandidate });
   const decisionProvenance = verifyDecisionEvidenceAuthority({ root, candidate: decisionCandidate, evidence: documents.decisionEvidence, execution: decisionExecution });
+  let fourTrackAuthority = null;
+  if (documentState.rehearsalReady) {
+    const reconstruction = rehearseFourTrack({ root, integrationHead: documents.evidence.integrationHeadSha });
+    const artifactExecution = executeCombinedArtifact({ root, reconstruction });
+    fourTrackAuthority = verifyFourTrackAuthority({
+      manifest: documents.manifest,
+      evidence: documents.evidence,
+      reconstruction,
+      sealedArtifact: documents.sharedArtifact,
+      execution: artifactExecution,
+    });
+  }
   if (final) requireValue(documentState.boundDomainCandidates === 3 && documentState.rehearsalReady, "week2_final_domain_or_rehearsal_not_ready");
 
   const baseSha = git(root, ["rev-parse", `${requestedBase ?? documents.manifest.canonicalBaseSha}^{commit}`]);
@@ -111,6 +127,7 @@ export function runWeek2Preflight({ root = ROOT, baseSha: requestedBase, headSha
     const allowedSealPaths = new Set([
       "delivery/integration/week2-dark-wiring-rehearsal-evidence.json",
       "delivery/integration/week2-daily-status.json",
+      "delivery/integration/week2-shared-decision-artifact.json",
     ]);
     const postRehearsalPaths = git(root, ["diff", "--name-only", `${documents.evidence.integrationHeadSha}..${headSha}`]).split("\n").filter(Boolean);
     requireValue(postRehearsalPaths.length > 0 && postRehearsalPaths.every((path) => allowedSealPaths.has(path)), `week2_post_rehearsal_scope_invalid:${postRehearsalPaths.join(",")}`);
@@ -173,6 +190,7 @@ export function runWeek2Preflight({ root = ROOT, baseSha: requestedBase, headSha
     controlPlaneHash: hashControlPlane(root),
     releaseTrainStatus: documentState.releaseTrainStatus,
     decisionProvenance,
+    fourTrackAuthority,
     domainCandidates: documents.manifest.domainCandidates,
     rehearsal: documents.evidence,
     offInvariant: off.counters,

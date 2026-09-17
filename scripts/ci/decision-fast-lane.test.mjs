@@ -47,6 +47,7 @@ function artifactFixture() {
     "package.json", "scripts/ci/decision-build-artifact.mjs", "scripts/ci/decision-fast-lane.test.mjs",
     "scripts/ci/run-decision-ci.mjs", "scripts/ci/validate-decision-test-plan.mjs", "scripts/ci/verify-decision-shards.mjs",
     "scripts/ci/week2-dark-wiring.mjs", "scripts/ci/week2-dark-wiring-preflight.mjs", "scripts/ci/week2-decision-provenance.mjs",
+    "scripts/ci/week2-four-track-authority.mjs",
     "scripts/ci/week2-dark-wiring.test.mjs", "scripts/ci/week2-four-track-rehearsal.mjs",
     "packages/world-knowledge-core/dist/index.js", "packages/user-intelligence-vnext-core/dist/index.js", "packages/decision-vnext-core/dist/index.js",
   ]) put(root, path, `${path}\n`);

@@ -38,7 +38,7 @@ const git = (root, args) => execFileSync("git", args, {
 }).trim();
 const sameJson = (left, right) => JSON.stringify(left) === JSON.stringify(right);
 
-function findNode20() {
+export function findNode20() {
   const candidates = [
     process.env.BACKYRD_NODE20_BIN,
     Number(process.versions.node.split(".")[0]) === EXPECTED_NODE_MAJOR ? process.execPath : null,
@@ -52,7 +52,7 @@ function findNode20() {
   return node;
 }
 
-function linkIsolatedDependencies(root, checkout) {
+export function linkIsolatedDependencies(root, checkout) {
   const source = resolve(root, "node_modules");
   const target = join(checkout, "node_modules");
   mkdirSync(target);

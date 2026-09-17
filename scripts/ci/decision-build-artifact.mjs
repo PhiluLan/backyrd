@@ -40,6 +40,7 @@ const SOURCE_ROOTS = [
   "scripts/ci/week2-dark-wiring.mjs",
   "scripts/ci/week2-dark-wiring-preflight.mjs",
   "scripts/ci/week2-decision-provenance.mjs",
+  "scripts/ci/week2-four-track-authority.mjs",
   "scripts/ci/week2-dark-wiring.test.mjs",
   "scripts/ci/week2-four-track-rehearsal.mjs",
 ];

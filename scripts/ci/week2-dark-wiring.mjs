@@ -39,10 +39,11 @@ export function loadWeek2Documents(root) {
     fixture: load("delivery/integration/fixtures/week2-dark-wiring-synthetic.json"),
     evidence: load("delivery/integration/week2-dark-wiring-rehearsal-evidence.json"),
     decisionEvidence: load("delivery/integration/week2-decision-frozen-evidence.json"),
+    sharedArtifact: load("delivery/integration/week2-shared-decision-artifact.json"),
   };
 }
 
-export function validateWeek2Documents({ manifest, matrix, flags, status, fixture, evidence, decisionEvidence }) {
+export function validateWeek2Documents({ manifest, matrix, flags, status, fixture, evidence, decisionEvidence, sharedArtifact }) {
   requireValue(manifest.contractVersion === "backyrd.week2-dark-wiring-manifest@1.0", "week2_manifest_identity_mismatch");
   requireValue(manifest.canonicalBaseSha === "f999e2185d9102ea59a2c6e2c0861a4122af359b", "week2_canonical_base_mismatch");
   requireValue(manifest.executionAuthorized === false && manifest.productionActivationAuthorized === false, "week2_manifest_authority_must_be_false");
@@ -91,6 +92,7 @@ export function validateWeek2Documents({ manifest, matrix, flags, status, fixtur
   for (const track of matrix.tracks) requireValue(track.authority.length > 0 && track.forbidden.length > 0 && track.compatibility.length > 0, `week2_ownership_track_incomplete:${track.id}`);
   requireValue(matrix.supabaseCompatibility.postgresMajor === 17, "week2_postgres_major_mismatch");
   requireValue(matrix.supabaseCompatibility.dataApi === "EXPLICIT_GRANTS_PLUS_RLS", "week2_data_api_contract_invalid");
+  requireValue(JSON.stringify(matrix.supabaseCompatibility.forbiddenSchemaMutations) === JSON.stringify(["auth", "realtime", "storage"]), "week2_protected_schema_contract_invalid");
   requireValue(matrix.supabaseCompatibility.extensionVersionPinningAllowed === false && matrix.supabaseCompatibility.logsAllDependencyAllowed === false, "week2_supabase_deprecation_contract_invalid");
 
   requireValue(flags.contractVersion === "backyrd.week2-dark-wiring-flags@1.0" && flags.executionAuthorized === false, "week2_flags_identity_or_authority_invalid");
@@ -113,8 +115,13 @@ export function validateWeek2Documents({ manifest, matrix, flags, status, fixtur
 
   requireValue(evidence.contractVersion === manifest.rehearsal.evidenceContract && evidence.executionAuthorized === false && evidence.productionActionPerformed === false, "week2_rehearsal_evidence_identity_or_authority_invalid");
   requireValue(evidence.baseSha === manifest.canonicalBaseSha && JSON.stringify(evidence.mergeSequence) === JSON.stringify(manifest.mergeSequence), "week2_rehearsal_evidence_lineage_invalid");
+  requireValue(evidence.sharedArtifactManifestPath === "delivery/integration/week2-shared-decision-artifact.json" && HASH.test(evidence.sharedArtifactManifestHash ?? ""), "week2_shared_artifact_evidence_identity_invalid");
+  requireValue(sharedArtifact?.contractVersion === "backyrd-decision-ci-build-artifact-v1" && sharedArtifact.artifactHash === evidence.sharedArtifactHash, "week2_shared_artifact_identity_invalid");
   const rehearsalReady = evidence.status === "READY"
     && SHA.test(evidence.integrationHeadSha ?? "")
+    && Array.isArray(evidence.orderedHeads) && evidence.orderedHeads.length === 4
+    && Array.isArray(evidence.steps) && evidence.steps.length === 4
+    && SHA.test(evidence.combinedCommitSha ?? "")
     && SHA.test(evidence.combinedTreeSha ?? "")
     && HASH.test(evidence.sharedArtifactHash ?? "")
     && evidence.conflictCount === 0;
