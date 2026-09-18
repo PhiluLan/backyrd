@@ -3,10 +3,10 @@ import { identifier, schema, sha256, timestamp, version, type Infer } from "./sc
 
 export const FOUNDER_LIVE_API_VERSIONS = Object.freeze({
   request: "backyrd.decision-vnext.founder-live-request@1.0",
-  response: "backyrd.decision-vnext.founder-live-response@1.0",
-  expert: "backyrd.decision-vnext.founder-live-expert@1.0",
-  envelope: "backyrd.decision-vnext.founder-live-envelope@1.0",
-  release: "backyrd.decision-vnext.founder-live-release@1.0",
+  response: "backyrd.decision-vnext.founder-live-response@1.1",
+  expert: "backyrd.decision-vnext.founder-live-expert@1.1",
+  envelope: "backyrd.decision-vnext.founder-live-envelope@1.1",
+  release: "backyrd.decision-vnext.founder-live-release@1.1",
   dualRunReport: "backyrd.decision-vnext.founder-live-dual-run-report@1.0",
   postDeployEvidence: "backyrd.decision-vnext.founder-live-post-deploy-evidence@1.0",
 } as const);
@@ -32,10 +32,10 @@ export const FounderLiveExecutionEnvelopeSchema = schema.object({
   decisionId: identifier,
   requestHash: sha256,
   idempotencyIdentityHash: sha256,
-  actor: schema.object({ userId: identifier, subjectBindingHash: sha256, authenticationContextHash: sha256, boundBy: schema.literal("SERVER") }),
+  actor: schema.object({ subjectBindingHash: sha256, authenticationContextHash: sha256, allowlistAuthorityVersion: contractRef, allowlistDecisionHash: sha256, boundBy: schema.literal("SERVER") }),
   authority: schema.object({ serverTime: timestamp, authorizedCity: identifier, locationBindingHash: sha256, purpose: schema.literal("FOUNDER_DECISION_EVALUATION"), environment: schema.enum(["LOCAL_TEST", "PROD_LIKE_TEST"] as const) }),
   bindings: schema.object({ worldManifestHash: sha256, worldCohortHash: sha256, userProjectionContractVersion: contractRef, evaluatorContractVersion: contractRef, contextPolicyHash: sha256, releaseHash: sha256 }),
-  boundaries: schema.object({ evaluationOnly: schema.literal(true), productionAuthorized: schema.literal(false), durablePersistenceAuthorized: schema.literal(false), learningAuthorized: schema.literal(false), rankingAuthorized: schema.literal(false), mutationAuthorized: schema.literal(false) }),
+  boundaries: schema.object({ evaluationOnly: schema.literal(true), productionAuthorized: schema.literal(false), executionAuthorized: schema.literal(false), durablePersistenceAuthorized: schema.literal(false), externalProviderNetworkAuthorized: schema.literal(false), productOutputAuthorized: schema.literal(false), eligibilityAuthority: schema.literal(false), confidenceAuthority: schema.literal(false), learningAuthorized: schema.literal(false), rankingAuthorized: schema.literal(false), mutationAuthorized: schema.literal(false) }),
   envelopeHash: sha256,
 });
 export type FounderLiveExecutionEnvelope = Infer<typeof FounderLiveExecutionEnvelopeSchema>;
@@ -43,8 +43,6 @@ export type FounderLiveExecutionEnvelope = Infer<typeof FounderLiveExecutionEnve
 const normalCandidate = schema.object({ name: schema.string({ min: 1, max: 160 }), group: schema.enum(["BESTAETIGT_PASSEND", "KOENNTE_PASSEN_ANGABE_FEHLT", "REGEL_NOCH_NICHT_FREIGEGEBEN", "PASST_NICHT", "FUER_DIESE_ANFRAGE_ABGEWAEHLT"] as const), reasons: schema.array(schema.string({ min: 1, max: 500 }), { min: 1, max: 60 }) });
 export const FounderLiveResponseSchema = schema.object({
   contractVersion: version(FOUNDER_LIVE_API_VERSIONS.response),
-  decisionId: identifier,
-  requestId: identifier,
   status: schema.literal("EVALUATION_ONLY"),
   understood: schema.object({ primaryIntent: nullableText, secondaryIntent: nullableText, occasion: nullableText, targetCity: nullableText, hardConditions: schema.array(schema.string({ min: 1, max: 240 }), { max: 30 }), softPreferences: schema.array(schema.string({ min: 1, max: 240 }), { max: 30 }) }),
   candidates: schema.array(normalCandidate, { max: 40 }),
@@ -80,9 +78,9 @@ export type FounderLiveDualRunReport = Infer<typeof FounderLiveDualRunReportSche
 export const FounderLiveReleaseSchema = schema.object({
   contractVersion: version(FOUNDER_LIVE_API_VERSIONS.release), releaseId: identifier,
   sourceBaseSha: schema.string({ pattern: /^[a-f0-9]{40}$/ }), apiRequestVersion: contractRef, apiResponseVersion: contractRef,
-  worldPortVersion: contractRef, userProjectionPortVersion: contractRef, evaluatorPortVersion: contractRef, contextPolicyHash: sha256,
+  authPortVersion: contractRef, allowlistPortVersion: contractRef, worldPortVersion: contractRef, userProjectionPortVersion: contractRef, evaluatorPortVersion: contractRef, contextPolicyHash: sha256,
   hostingBoundary: schema.literal("EXISTING_SERVER_EDGE_ADAPTER_REQUIRED"), productRanking: schema.literal("NOT_CONFIGURED"),
-  shadowTraffic: schema.literal(false), productionAuthorized: schema.literal(false), deploymentAuthorized: schema.literal(false),
+  shadowTraffic: schema.literal(false), samplingRate: schema.literal(0), productionAuthorized: schema.literal(false), deploymentAuthorized: schema.literal(false),
   releaseHash: sha256,
 });
 export type FounderLiveRelease = Infer<typeof FounderLiveReleaseSchema>;

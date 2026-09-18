@@ -1,7 +1,7 @@
 # Decision vNext Founder Live Server API
 
 Status: **release candidate; evaluation only; not deployed**
-Canonical base: `9c38946462c5698ee1ff6375d996463254dd829e`
+Canonical base: `a76910f6da5b407dae6d4022528e644613caf5d8`
 
 ## Existing server/runtime audit
 
@@ -33,14 +33,16 @@ The canonical hosting boundary remains the existing authenticated server/Edge la
 
 Unknown fields fail closed. User identity, authentication binding, server time, authorized location, World cohort, World policy, User Projection policy, engine release, ranking, evidence, rollout mode, and kill switch never come from the request.
 
-The server authenticates first, rate-limits the subject, authorizes location, retrieves a server-selected neutral cohort, reads World snapshots through `WorldKnowledgeReaderPort`, requests only `RelevantUserProjection`, evaluates the canonical Phase-3C Context, and maps the result to a non-technical response. Location mismatch, missing intent, version drift, invalid projection, missing ports, timeout, and kill switch return closed stable errors.
+The server authenticates first against Supabase Auth, derives the UUID only from the verified session, checks it against the private two-member UUID authority, rate-limits the resulting pseudonymous subject, authorizes location, retrieves a server-selected neutral cohort, reads World snapshots through `WorldKnowledgeReaderPort`, requests only `RelevantUserProjection`, evaluates the canonical Phase-3C Context, and maps the result to a non-technical response. Location mismatch, missing intent, version drift, invalid projection, missing ports, timeout, and kill switch return closed stable errors.
+
+The private members and its binding secret are server configuration outside Git. Startup fails unless exactly two distinct UUIDs and a sufficiently strong binding secret are present. Email, `user_metadata`, app-controlled role claims, request fields and client state never grant Founder authority. The verified UUID exists only inside the server process and is not serialized into the execution envelope, response, evidence or logs.
 
 ## Stage and port map
 
 | Stage | Owner | Boundary |
 |---|---|---|
-| Authentication | server host | `FounderLiveAuthPort@1.0` |
-| Founder allowlist | server host | `FounderLiveAllowlistPort@1.0`; purpose and environment bound |
+| Authentication | server host | `FounderLiveAuthPort@2.0`; Supabase `/auth/v1/user` plus bound JWT subject/session/expiry |
+| Founder allowlist | server host | `FounderLiveAllowlistPort@2.0`; exact private UUID membership, purpose, environment and auth context bound |
 | Interpretation | Decision Context | canonical Phase-3C resolver; no authority |
 | Location/time authority | server host | `FounderLiveAuthorityPort@1.0` |
 | Neutral retrieval | Decision | `FounderLiveCandidateRetrievalPort@1.0`; fixed server cohort |
@@ -63,19 +65,20 @@ The evaluator is an explicit versioned port. Candidate evaluation can therefore 
 
 ## Responses
 
-The normal response contains what Backyrd understood, hard conditions, soft wishes, the four evaluation groups plus contextual Reject, human-readable reasons, visible limitations, and `rankingState: NOT_CONFIGURED`. It contains no candidate IDs, reason codes, hashes, policy identifiers, or JSON diagnostics.
+The normal response contains what Backyrd understood, hard conditions, soft wishes, the four evaluation groups plus contextual Reject, human-readable reasons, visible limitations, and `rankingState: NOT_CONFIGURED`. It contains no user/request/decision/candidate IDs, reason codes, hashes, policy identifiers, or JSON diagnostics.
 
 Expert provenance is returned only when the authenticated actor has expert access and explicitly asks for it. It binds the execution envelope, candidate IDs, snapshot/evidence hashes, User Projection hash, Context hash, policy, release, and recursive assessment hashes.
 
 ## Security, privacy, and limits
 
-- Bearer authentication is delegated to the canonical host; this package never validates or stores credentials.
+- Bearer authentication is verified server-side through Supabase Auth. The package binds the Auth-verified user to signed JWT `sub`, `session_id` and expiry, while ignoring mutable email and metadata.
+- The server allowlist requires exactly two UUIDs supplied outside the repository. Neither those UUIDs nor their email addresses may enter Git, client bundles, CI artefacts, Decision evidence, responses or application logs.
 - Natural language is bounded to 2,000 characters and marked ephemeral. The API core performs no durable write.
 - Raw location is absent. Only an authorized city binding enters the envelope.
 - The response never contains Raw User events, review text, private social data, owner/payment/advertising fields, or secrets.
 - Request size, rate, timeout, candidate count, projection item/byte budgets, idempotency, and kill switch are server controls.
 - A request timeout aborts the execution capability. When a pending authority call returns after the deadline, the pipeline fails before retrieval or World/User evaluation rather than continuing in the background.
-- No external network call exists in the core. World and User access are injected canonical ports.
+- The only concrete network adapter added here is the server-side Supabase Auth verification call. World and User access remain injected canonical ports; external Product/provider network authority remains false.
 - The release is limited to `LOCAL_TEST` and `PROD_LIKE_TEST`; `productionAuthorized:false`, `deploymentAuthorized:false`, and `shadowTraffic:false` are content-addressed.
 
 ### Privacy/observability inventory
@@ -83,6 +86,7 @@ Expert provenance is returned only when the authenticated actor has expert acces
 | Data | Purpose | Persistence in this release | Logs/normal response |
 |---|---|---|---|
 | Bearer token | Authentication | Never | Never |
+| Verified UUID | Private Founder membership | Process memory only | Never |
 | Subject binding | Authority/idempotency | Process-local hash only | Expert provenance only through envelope |
 | Natural language | Current Decision | Never durably persisted | Not echoed |
 | Authorized city | Scope binding | Envelope in process-local result | Human-readable target city |
@@ -92,7 +96,13 @@ Expert provenance is returned only when the authenticated actor has expert acces
 | Candidate reasons | Explain the current result | No store | Human-readable statements |
 | Runtime duration | Operations only | Not part of semantic identity | Not emitted by core |
 
-A later host may log status, stable error code, counts, release version, and pseudonymous hashes. It must not log tokens, raw text, raw coordinates, complete projections, private source URLs, or commercial state.
+A later host may log status, stable error code, counts, release version, and non-member-specific operational hashes. It must not log tokens, emails, UUIDs, raw text, raw coordinates, complete projections, private source URLs, or commercial state.
+
+## Server-only configuration contract
+
+The host must inject `BACKYRD_FOUNDER_LIVE_UUID_ALLOWLIST` and `BACKYRD_FOUNDER_LIVE_AUTHORITY_BINDING_SECRET` from its private secret store. The first value must resolve to exactly two distinct UUIDs. No example member values are committed. `createFounderLiveServerRuntimeControl({})` proves the default state: evaluation OFF, kill switch engaged, shadow traffic false and sampling zero. The only opt-in modes implemented are `LOCAL_TEST` and `PROD_LIKE_TEST`; this release has no Production execution mode.
+
+The normal client request remains authority-free. Mobile and Desktop send only the bearer session and strict Decision request to the same HTTP contract. A hosting adapter may instantiate the Supabase verifier and private allowlist, but it must not expose their configuration or reconstruct those checks in client code.
 
 ## Operation and rollback
 

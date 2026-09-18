@@ -12,19 +12,21 @@ import {
 
 const EVALUATOR_PORT_VERSION = "backyrd.decision-vnext.founder-live-evaluator-port@1.0" as const;
 
-const BASE_SHA = "9c38946462c5698ee1ff6375d996463254dd829e";
+const BASE_SHA = "a76910f6da5b407dae6d4022528e644613caf5d8";
 export const FOUNDER_LIVE_RELEASE = deepFreeze(FounderLiveReleaseSchema.parse(withContentHash({
-  contractVersion: FOUNDER_LIVE_API_VERSIONS.release, releaseId: "decision-founder-live-server-api-1",
+  contractVersion: FOUNDER_LIVE_API_VERSIONS.release, releaseId: "decision-founder-live-server-api-2",
   sourceBaseSha: BASE_SHA, apiRequestVersion: FOUNDER_LIVE_API_VERSIONS.request, apiResponseVersion: FOUNDER_LIVE_API_VERSIONS.response,
+  authPortVersion: "backyrd.decision-vnext.founder-live-auth-port@2.0", allowlistPortVersion: "backyrd.decision-vnext.founder-live-allowlist-port@2.0",
   worldPortVersion: WORLD_KNOWLEDGE_PORT_VERSION, userProjectionPortVersion: "backyrd.user-intelligence.decision-projection-port@1.0", evaluatorPortVersion: EVALUATOR_PORT_VERSION,
   contextPolicyHash: PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY.policyHash,
   hostingBoundary: "EXISTING_SERVER_EDGE_ADAPTER_REQUIRED" as const, productRanking: "NOT_CONFIGURED" as const,
-  shadowTraffic: false as const, productionAuthorized: false as const, deploymentAuthorized: false as const,
+  shadowTraffic: false as const, samplingRate: 0 as const, productionAuthorized: false as const, deploymentAuthorized: false as const,
 }, "releaseHash")));
 
 export interface FounderLiveAuthenticatedActor { readonly userId: string; readonly subjectBindingHash: string; readonly authenticationContextHash: string; readonly expertAccess: boolean }
-export interface FounderLiveAuthPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-auth-port@1.0"; authenticate(bearerToken: string): Promise<FounderLiveAuthenticatedActor | null> }
-export interface FounderLiveAllowlistPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-allowlist-port@1.0"; authorize(input: { readonly subjectBindingHash: string; readonly purpose: "FOUNDER_DECISION_EVALUATION"; readonly environment: "LOCAL_TEST" | "PROD_LIKE_TEST" }): Promise<boolean> }
+export interface FounderLiveAuthPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-auth-port@2.0"; authenticate(bearerToken: string): Promise<FounderLiveAuthenticatedActor | null> }
+export interface FounderLiveAllowlistDecision { readonly authorized: boolean; readonly authorityVersion: string; readonly decisionHash: string }
+export interface FounderLiveAllowlistPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-allowlist-port@2.0"; authorize(input: { readonly verifiedUserId: string; readonly subjectBindingHash: string; readonly authenticationContextHash: string; readonly purpose: "FOUNDER_DECISION_EVALUATION"; readonly environment: "LOCAL_TEST" | "PROD_LIKE_TEST" }): Promise<FounderLiveAllowlistDecision> }
 export interface FounderLiveAuthorityPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-authority-port@1.0"; bind(input: { readonly actor: FounderLiveAuthenticatedActor; readonly requestedCity: string | null; readonly requestHash: string }): Promise<{ readonly serverTime: string; readonly authorizedCity: string; readonly locationBindingHash: string }> }
 export interface FounderLiveCandidateRetrievalPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-retrieval-port@1.0"; retrieve(input: { readonly authorizedCity: string; readonly requestHash: string }): Promise<FounderWorldCohortManifest> }
 export interface FounderLiveIdempotencyPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-idempotency-port@1.0"; read(key: string): Promise<FounderLiveExecution | null>; create(key: string, value: FounderLiveExecution): Promise<"CREATED" | "CONFLICT"> }
@@ -42,6 +44,7 @@ export interface FounderLivePorts {
   readonly userSnapshot: { readonly snapshotId: string; readonly snapshotHash: string } | null;
 }
 export interface FounderLiveExecution { readonly response: FounderLiveResponse; readonly expert: FounderLiveExpertResponse }
+interface FounderLiveAuthorizedActor extends FounderLiveAuthenticatedActor { readonly allowlistAuthorityVersion: string; readonly allowlistDecisionHash: string }
 
 export const createCanonicalFounderLiveEvaluator = (): FounderLiveEvaluatorPort => Object.freeze({
   contractVersion: EVALUATOR_PORT_VERSION, evaluatorId: "phase3c-founder-contextual-world-evaluator",
@@ -79,25 +82,32 @@ function projectionRequest(input: { request: FounderLiveRequest; actor: FounderL
   };
 }
 
-function envelope(input: { request: FounderLiveRequest; actor: FounderLiveAuthenticatedActor; authority: Awaited<ReturnType<FounderLiveAuthorityPort["bind"]>>; manifest: FounderWorldCohortManifest; environment: FounderLiveRuntimeControl["environment"]; evaluatorContractVersion: string }): FounderLiveExecutionEnvelope {
+function envelope(input: { request: FounderLiveRequest; actor: FounderLiveAuthorizedActor; authority: Awaited<ReturnType<FounderLiveAuthorityPort["bind"]>>; manifest: FounderWorldCohortManifest; environment: FounderLiveRuntimeControl["environment"]; evaluatorContractVersion: string }): FounderLiveExecutionEnvelope {
   const requestHash = contentHash(input.request); const decisionId = `decision-${input.request.idempotencyKey}`;
   return deepFreeze(FounderLiveExecutionEnvelopeSchema.parse(withContentHash({
     contractVersion: FOUNDER_LIVE_API_VERSIONS.envelope, envelopeId: `envelope-${input.request.idempotencyKey}`, decisionId, requestHash,
     idempotencyIdentityHash: contentHash({ subjectBindingHash: input.actor.subjectBindingHash, idempotencyKey: input.request.idempotencyKey, requestHash }),
-    actor: { userId: input.actor.userId, subjectBindingHash: input.actor.subjectBindingHash, authenticationContextHash: input.actor.authenticationContextHash, boundBy: "SERVER" as const },
+    actor: { subjectBindingHash: input.actor.subjectBindingHash, authenticationContextHash: input.actor.authenticationContextHash, allowlistAuthorityVersion: input.actor.allowlistAuthorityVersion, allowlistDecisionHash: input.actor.allowlistDecisionHash, boundBy: "SERVER" as const },
     authority: { ...input.authority, purpose: "FOUNDER_DECISION_EVALUATION" as const, environment: input.environment },
     bindings: { worldManifestHash: input.manifest.cohortHash, worldCohortHash: input.manifest.cohortHash, userProjectionContractVersion: USER_VERSIONS.projection, evaluatorContractVersion: input.evaluatorContractVersion, contextPolicyHash: PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY.policyHash, releaseHash: FOUNDER_LIVE_RELEASE.releaseHash },
-    boundaries: { evaluationOnly: true as const, productionAuthorized: false as const, durablePersistenceAuthorized: false as const, learningAuthorized: false as const, rankingAuthorized: false as const, mutationAuthorized: false as const },
+    boundaries: { evaluationOnly: true as const, productionAuthorized: false as const, executionAuthorized: false as const, durablePersistenceAuthorized: false as const, externalProviderNetworkAuthorized: false as const, productOutputAuthorized: false as const, eligibilityAuthority: false as const, confidenceAuthority: false as const, learningAuthorized: false as const, rankingAuthorized: false as const, mutationAuthorized: false as const },
   }, "envelopeHash")));
 }
 
 function assertRunning(ports: FounderLivePorts, signal?: AbortSignal): void { if (signal?.aborted) throw new FounderLiveApiError("REQUEST_TIMEOUT", 504, "Die sichere Auswertung hat zu lange gedauert."); if (!ports.control.enabled) throw new FounderLiveApiError("API_DISABLED", 503, "Die Decision-Auswertung ist derzeit nicht freigegeben."); if (ports.control.isKillSwitchEngaged()) throw new FounderLiveApiError("KILL_SWITCH_ENGAGED", 503, "Die Decision-Auswertung ist derzeit sicher deaktiviert."); }
 function assertPortVersions(ports: FounderLivePorts): void {
-  if (ports.auth.contractVersion !== "backyrd.decision-vnext.founder-live-auth-port@1.0" || ports.allowlist.contractVersion !== "backyrd.decision-vnext.founder-live-allowlist-port@1.0" || ports.authority.contractVersion !== "backyrd.decision-vnext.founder-live-authority-port@1.0" || ports.retrieval.contractVersion !== "backyrd.decision-vnext.founder-live-retrieval-port@1.0" || ports.idempotency.contractVersion !== "backyrd.decision-vnext.founder-live-idempotency-port@1.0" || ports.rateLimit.contractVersion !== "backyrd.decision-vnext.founder-live-rate-limit-port@1.0" || ports.world.contractVersion !== "backyrd.world-knowledge.reader-port@1.0" || ports.user.contractVersion !== "backyrd.user-intelligence.decision-projection-port@1.0" || ports.evaluator.contractVersion !== EVALUATOR_PORT_VERSION) throw new FounderLiveApiError("SERVER_PORT_VERSION_UNSUPPORTED", 503, "Eine Server-Komponente verwendet eine nicht unterstützte Version.");
+  if (ports.auth.contractVersion !== "backyrd.decision-vnext.founder-live-auth-port@2.0" || ports.allowlist.contractVersion !== "backyrd.decision-vnext.founder-live-allowlist-port@2.0" || ports.authority.contractVersion !== "backyrd.decision-vnext.founder-live-authority-port@1.0" || ports.retrieval.contractVersion !== "backyrd.decision-vnext.founder-live-retrieval-port@1.0" || ports.idempotency.contractVersion !== "backyrd.decision-vnext.founder-live-idempotency-port@1.0" || ports.rateLimit.contractVersion !== "backyrd.decision-vnext.founder-live-rate-limit-port@1.0" || ports.world.contractVersion !== "backyrd.world-knowledge.reader-port@1.0" || ports.user.contractVersion !== "backyrd.user-intelligence.decision-projection-port@1.0" || ports.evaluator.contractVersion !== EVALUATOR_PORT_VERSION) throw new FounderLiveApiError("SERVER_PORT_VERSION_UNSUPPORTED", 503, "Eine Server-Komponente verwendet eine nicht unterstützte Version.");
   if (!Number.isInteger(ports.control.requestTimeoutMilliseconds) || ports.control.requestTimeoutMilliseconds < 1 || !Number.isInteger(ports.control.maxRequestBytes) || ports.control.maxRequestBytes < 256) throw new FounderLiveApiError("SERVER_LIMITS_INVALID", 503, "Die Server-Limits sind nicht sicher konfiguriert.");
 }
 
-export async function executeFounderLiveDecision(raw: unknown, actor: FounderLiveAuthenticatedActor, ports: FounderLivePorts, options: { readonly signal?: AbortSignal } = {}): Promise<FounderLiveExecution> {
+async function authorizeActor(actor: FounderLiveAuthenticatedActor, ports: FounderLivePorts, signal?: AbortSignal): Promise<FounderLiveAuthorizedActor> {
+  const allowlist = await ports.allowlist.authorize({ verifiedUserId: actor.userId, subjectBindingHash: actor.subjectBindingHash, authenticationContextHash: actor.authenticationContextHash, purpose: ports.control.purpose, environment: ports.control.environment });
+  assertRunning(ports, signal);
+  if (!allowlist.authorized) throw new FounderLiveApiError("NOT_ALLOWLISTED", 403, "Dieser Account ist für die Evaluation nicht freigegeben.");
+  return Object.freeze({ ...actor, allowlistAuthorityVersion: allowlist.authorityVersion, allowlistDecisionHash: allowlist.decisionHash });
+}
+
+async function executeAuthorizedFounderLiveDecision(raw: unknown, actor: FounderLiveAuthorizedActor, ports: FounderLivePorts, options: { readonly signal?: AbortSignal } = {}): Promise<FounderLiveExecution> {
   const signal = options.signal; assertPortVersions(ports); assertRunning(ports, signal);
   const request = FounderLiveRequestSchema.parse(raw); const requestHash = contentHash(request);
   const idempotencyIdentity = contentHash({ subjectBindingHash: actor.subjectBindingHash, idempotencyKey: request.idempotencyKey });
@@ -124,7 +134,7 @@ export async function executeFounderLiveDecision(raw: unknown, actor: FounderLiv
   assertRunning(ports, signal);
   const env = envelope({ request, actor, authority: bound, manifest: worldManifest, environment: ports.control.environment, evaluatorContractVersion: ports.evaluator.contractVersion });
   const normalBody = {
-    contractVersion: FOUNDER_LIVE_API_VERSIONS.response, decisionId, requestId: request.requestId, status: "EVALUATION_ONLY" as const,
+    contractVersion: FOUNDER_LIVE_API_VERSIONS.response, status: "EVALUATION_ONLY" as const,
     understood: { primaryIntent: friendly(evaluation.interpretation.primaryIntent, primaryLabels), secondaryIntent: friendly(evaluation.interpretation.secondaryIntent, secondaryLabels), occasion: friendly(evaluation.interpretation.occasion, occasionLabels), targetCity: evaluation.interpretation.targetCity, hardConditions: ["Zielort", ...evaluation.interpretation.hardConstraints.map((item) => constraintLabels[item] ?? "Weitere zwingende Bedingung")], softPreferences: evaluation.interpretation.softPreferences.map((item) => preferenceLabels[item] ?? "Weiterer Wunsch") },
     candidates: evaluation.candidates.map((candidate) => ({ name: candidate.label, group: candidateGroup(candidate), reasons: candidate.reasons.map((item) => item.statementDe) })),
     limitations: readableLimitations(evaluation.limitations), alternative: evaluation.alternative,
@@ -136,6 +146,12 @@ export async function executeFounderLiveDecision(raw: unknown, actor: FounderLiv
   const result = deepFreeze({ response, expert });
   if (await ports.idempotency.create(idempotencyIdentity, result) === "CONFLICT") { const winner = await ports.idempotency.read(idempotencyIdentity); if (!winner || canonicalJson(winner) !== canonicalJson(result)) throw new FounderLiveApiError("IDEMPOTENCY_CONFLICT", 409, "Diese Anfrage-ID wurde bereits mit anderen Eingaben verwendet."); return winner; }
   return result;
+}
+
+export async function executeFounderLiveDecision(raw: unknown, authenticatedActor: FounderLiveAuthenticatedActor, ports: FounderLivePorts, options: { readonly signal?: AbortSignal } = {}): Promise<FounderLiveExecution> {
+  assertPortVersions(ports); assertRunning(ports, options.signal);
+  const actor = await authorizeActor(authenticatedActor, ports, options.signal);
+  return executeAuthorizedFounderLiveDecision(raw, actor, ports, options);
 }
 
 /** Local/prod-like technical comparison only. It is deliberately not exposed by the HTTP route. */
@@ -159,12 +175,13 @@ export function createFounderLiveHttpHandler(ports: FounderLivePorts): (request:
       timeout = setTimeout(() => abort.abort(), ports.control.requestTimeoutMilliseconds);
       const timedOut = new Promise<never>((_, reject) => abort.signal.addEventListener("abort", () => reject(new FounderLiveApiError("REQUEST_TIMEOUT", 504, "Die sichere Auswertung hat zu lange gedauert.")), { once: true }));
       const pipeline = async () => {
+      assertPortVersions(ports); assertRunning(ports, abort.signal);
       const actor = await ports.auth.authenticate(token); assertRunning(ports, abort.signal); if (!actor) throw new FounderLiveApiError("UNAUTHENTICATED", 401, "Die Anmeldung ist ungültig oder abgelaufen.");
-      if (!await ports.allowlist.authorize({ subjectBindingHash: actor.subjectBindingHash, purpose: ports.control.purpose, environment: ports.control.environment })) throw new FounderLiveApiError("NOT_ALLOWLISTED", 403, "Dieser Account ist für die Evaluation nicht freigegeben.");
+      const authorizedActor = await authorizeActor(actor, ports, abort.signal);
       if (!await ports.rateLimit.consume(actor.subjectBindingHash)) throw new FounderLiveApiError("RATE_LIMITED", 429, "Zu viele Anfragen. Bitte versuche es später erneut.");
       const text = await request.text(); if (new TextEncoder().encode(text).length > ports.control.maxRequestBytes) throw new FounderLiveApiError("REQUEST_TOO_LARGE", 413, "Die Anfrage ist zu groß.");
       let body: unknown; try { body = JSON.parse(text); } catch { throw new FounderLiveApiError("INVALID_JSON", 400, "Die Anfrage enthält kein gültiges JSON."); }
-      const execution = await executeFounderLiveDecision(body, actor, ports, { signal: abort.signal });
+      const execution = await executeAuthorizedFounderLiveDecision(body, authorizedActor, ports, { signal: abort.signal });
       const expertRequested = request.headers.get("x-backyrd-expert-view") === "true";
       if (expertRequested && !actor.expertAccess) throw new FounderLiveApiError("EXPERT_ACCESS_FORBIDDEN", 403, "Die Expertensicht ist für diesen Account nicht freigegeben.");
       return new Response(JSON.stringify(expertRequested ? execution.expert : execution.response), { status: 200, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } }); };
