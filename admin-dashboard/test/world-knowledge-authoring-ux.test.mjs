@@ -73,3 +73,20 @@ test("context authoring keeps purpose, on-site offering and conditional observat
   assert.match(source, /<label>Betrieb/);
   assert.doesNotMatch(source, /option value="NEARBY"/);
 });
+
+test("authoring writes rebuild and read the canonical snapshot without a normal-view file handoff", async () => {
+  const [source, adminRoute, ownerRoute] = await Promise.all([
+    read("packages/world-knowledge-authoring-ui/src/index.tsx"),
+    read("admin-dashboard/app/api/world-knowledge/shadow/route.ts"),
+    read("web/app/api/world-knowledge/shadow/route.ts"),
+  ]);
+  assert.match(source, /await rebuildAndReload\(detail\.spotId/);
+  assert.match(source, /Kanonisch gelesener Snapshot ist aktuell/);
+  assert.match(source, /Technischen Spot-Export erstellen/);
+  assert.doesNotMatch(source, /className="wk-tools"><button[^>]+>Spot exportieren/);
+  for (const route of [adminRoute, ownerRoute]) {
+    assert.match(route, /createFounderWorldKnowledgeReader/);
+    assert.match(route, /WORLD_KNOWLEDGE_PORT_VERSION/);
+    assert.match(route, /readerSnapshot/);
+  }
+});

@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolve } from "node:path";
 import { createInternalAllowlistEnvelope, loadWeek3Documents, rehearseInternalProductLike, resolveWeek3Controls, sha256, validateInternalAllowlistEnvelope, validateWeek3Documents } from "./week3-internal-prodlike.mjs";
-import { resolveWeek3IdentityMode, verifySecurityDefinerSources, verifyWeek3IdentityMode } from "./week3-internal-prodlike-preflight.mjs";
+import { resolveWeek3IdentityMode, verifySecurityDefinerSources, verifyWeek3CanonicalDescendantIdentity, verifyWeek3IdentityMode } from "./week3-internal-prodlike-preflight.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const fixture = JSON.parse(readFileSync(resolve(ROOT, "delivery/integration/fixtures/week3-internal-prodlike-synthetic.json"), "utf8"));
@@ -44,10 +44,52 @@ test("Week 3 identity mode is mandatory and closed", () => {
 });
 test("GitHub selects the Week 3 identity mode explicitly from the event", () => {
   const workflow = readFileSync(resolve(ROOT, ".github/workflows/risk-gate.yml"), "utf8");
-  assert.match(workflow, /pull_request\) WEEK3_MODE=PR_CANDIDATE/);
+  assert.match(workflow, /WEEK3_CANONICAL_COMPLETION_SHA=9c38946462c5698ee1ff6375d996463254dd829e/);
+  assert.match(workflow, /WEEK3_MODE=CANONICAL_DESCENDANT_PR/);
+  assert.match(workflow, /WEEK3_MODE=CANONICAL_DESCENDANT_MAIN/);
+  assert.match(workflow, /pull_request\)[\s\S]*WEEK3_MODE=PR_CANDIDATE/);
   assert.match(workflow, /push\)[\s\S]*WEEK3_MODE=POST_MERGE_MAIN/);
   assert.match(workflow, /--mode "\$WEEK3_MODE"/);
   assert.match(workflow, /Unsupported Week-3 event/);
+});
+
+const descendantTuple = (overrides = {}) => ({
+  mode: "CANONICAL_DESCENDANT_PR",
+  completionSha: "9c38946462c5698ee1ff6375d996463254dd829e",
+  completionTree: "9e74daabc42f86327291b781c43b41502f2579a8",
+  completionParents: ["d3f151901d8d284469968323ac8edc1e287fdf59", "29dc817de4a248d75d69f6ef1ad881b5eb328028"],
+  baseSha: "1".repeat(40), headSha: "2".repeat(40), checkoutSha: "2".repeat(40), canonicalMainSha: "1".repeat(40),
+  headTreeSha: "3".repeat(40), checkoutTreeSha: "3".repeat(40), mergeParents: [], changedSealedPaths: [],
+  secondParentTreeSha: null,
+  completionIsAncestorOfBase: true, baseIsAncestorOfHead: true,
+  ...overrides,
+});
+
+test("canonical descendant PR accepts exact head and GitHub synthetic merge checkout", () => {
+  assert.equal(verifyWeek3CanonicalDescendantIdentity(descendantTuple()).mode, "CANONICAL_DESCENDANT_PR");
+  const synthetic = descendantTuple({ checkoutSha: "4".repeat(40), mergeParents: ["1".repeat(40), "2".repeat(40)] });
+  assert.deepEqual(verifyWeek3CanonicalDescendantIdentity(synthetic).mergeParents, synthetic.mergeParents);
+});
+
+test("canonical descendant Main accepts only an exact regular merge on canonical main", () => {
+  const main = descendantTuple({ mode: "CANONICAL_DESCENDANT_MAIN", headSha: "4".repeat(40), checkoutSha: "4".repeat(40), canonicalMainSha: "4".repeat(40), mergeParents: ["1".repeat(40), "2".repeat(40)], secondParentTreeSha: "3".repeat(40) });
+  assert.equal(verifyWeek3CanonicalDescendantIdentity(main).mode, "CANONICAL_DESCENDANT_MAIN");
+  assert.throws(() => verifyWeek3CanonicalDescendantIdentity({ ...main, mergeParents: ["8".repeat(40), "2".repeat(40)] }), /main_parents_mismatch/);
+  assert.throws(() => verifyWeek3CanonicalDescendantIdentity({ ...main, secondParentTreeSha: "8".repeat(40) }), /main_second_parent_mismatch/);
+});
+
+test("canonical descendant modes reject cross-mode replay, identity drift and sealed evidence changes", () => {
+  assert.throws(() => verifyWeek3CanonicalDescendantIdentity(descendantTuple({ mode: "PR_CANDIDATE" })), /descendant_mode_invalid/);
+  assert.throws(() => verifyWeek3CanonicalDescendantIdentity(descendantTuple({ completionSha: "8".repeat(40) })), /completion_sha_mismatch/);
+  assert.throws(() => verifyWeek3CanonicalDescendantIdentity(descendantTuple({ completionTree: "8".repeat(40) })), /completion_tree_mismatch/);
+  assert.throws(() => verifyWeek3CanonicalDescendantIdentity(descendantTuple({ completionParents: ["8".repeat(40)] })), /completion_parents_mismatch/);
+  assert.throws(() => verifyWeek3CanonicalDescendantIdentity(descendantTuple({ completionIsAncestorOfBase: false })), /base_not_canonical/);
+  assert.throws(() => verifyWeek3CanonicalDescendantIdentity(descendantTuple({ baseIsAncestorOfHead: false })), /head_not_based_on_main/);
+  assert.throws(() => verifyWeek3CanonicalDescendantIdentity(descendantTuple({ canonicalMainSha: "8".repeat(40) })), /pr_main_or_base_drift/);
+  assert.throws(() => verifyWeek3CanonicalDescendantIdentity(descendantTuple({ changedSealedPaths: ["delivery/integration/week3-status.json"] })), /canonical_seal_changed/);
+  assert.throws(() => verifyWeek3CanonicalDescendantIdentity(descendantTuple({ checkoutSha: "4".repeat(40), mergeParents: ["8".repeat(40), "2".repeat(40)] })), /pr_checkout_identity_mismatch/);
+  const mainAsPr = descendantTuple({ mode: "CANONICAL_DESCENDANT_MAIN", headSha: "4".repeat(40), checkoutSha: "4".repeat(40), canonicalMainSha: "4".repeat(40), mergeParents: ["1".repeat(40), "2".repeat(40)], secondParentTreeSha: "3".repeat(40) });
+  assert.throws(() => verifyWeek3CanonicalDescendantIdentity({ ...mainAsPr, mode: "CANONICAL_DESCENDANT_PR" }), /pr_main_or_base_drift/);
 });
 test("PR and post-merge tuples cannot be replayed across modes", () => {
   assert.throws(() => verifyWeek3IdentityMode(identityTuple({ mode: "POST_MERGE_MAIN" })), /post_merge_head_main_mismatch/);
