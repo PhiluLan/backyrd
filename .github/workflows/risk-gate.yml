@@ -133,12 +133,12 @@ jobs:
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-public-placeholder-key-000000000000
         run: npx expo export --platform web --output-dir "$RUNNER_TEMP/founder-mobile-web"
       - name: Install isolated Founder Mobile rehearsal browser
-        working-directory: ..
+        working-directory: ${{ github.workspace }}
         run: |
           npm ci --ignore-scripts
           npx playwright install chromium
       - name: Founder two-account real Mobile UI rehearsal
-        working-directory: ..
+        working-directory: ${{ github.workspace }}
         run: npm run founder-activation:mobile-e2e
       - name: Mobile TypeScript baseline (advisory inherited debt)
         continue-on-error: true
