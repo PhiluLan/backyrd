@@ -53,6 +53,8 @@ test("Web Decision uses the strict vNext single-route Product contract", async (
   ]) assert.match(source, new RegExp(`\\b${field}\\b`));
   assert.match(source, /backyrd\.decision-vnext\.product-request@1\.0/);
   assert.match(source, /backyrd\.decision-vnext\.product-response@1\.0/);
+  assert.match(source, /backyrd\.decision-vnext\.product-context@1\.0/);
+  assert.doesNotMatch(source, /backyrd\.decision-vnext\.founder-lab-interpretation/);
   assert.match(source, /backyrd\.decision-vnext\.product-interaction-request@1\.0/);
   assert.match(source, /backyrd\.decision-vnext\.product-interaction-response@1\.0/);
   assert.match(source, /status !== "AVAILABLE"/);
