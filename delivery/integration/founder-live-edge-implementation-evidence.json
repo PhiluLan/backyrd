@@ -1,0 +1,28 @@
+{
+  "contractVersion": "backyrd.founder-live-edge-implementation-evidence@1.0",
+  "sourceSha": "76f6cd6e57de9db544526798035b014f361f5ba2",
+  "sourceTreeSha": "fad15a15ea127f08d25132a5e259a849b802b33f",
+  "sourceSetHash": "b682f97d7d706540b8b99829c1dbcb35b242b9c06da171ba481d57d15e7f655a",
+  "artifactHash": "257efa56d634fff2da7cece6d34d1e20707bad15ed2e61a49230b00b5740714a",
+  "productionPlanHash": "f6133de3288c717b8d4a4a6d9e31114c3e223191bac9740ebe675f16d42f87db",
+  "deployFunctions": [
+    "decision-founder-live"
+  ],
+  "edgeBoundaryVersion": "backyrd.decision-vnext.founder-live-edge-boundary@1.0",
+  "verifyJwt": true,
+  "corsPolicy": "EXACT_SERVER_CONFIGURED_ORIGIN_ALLOWLIST",
+  "runtimeAuthority": "NOT_AUTHORIZED",
+  "defaultState": "OFF",
+  "killSwitch": "ENGAGED_BY_ABSENT_RUNTIME_AUTHORITY",
+  "worldPort": "CANONICAL_WORLD_READER_ONLY",
+  "userPort": "CANONICAL_RELEVANT_USER_PROJECTION_ONLY",
+  "idempotencyPort": "DURABLE_RPC_ONLY",
+  "rateLimitPort": "GATE_7_DURABLE_RPC_ONLY",
+  "deploymentAuthorized": false,
+  "executionAuthorized": false,
+  "productionQueries": 0,
+  "migrationsExecuted": 0,
+  "functionsDeployed": 0,
+  "runtimeActivations": 0,
+  "evidenceHash": "775b290e597ece129b0f7864aae1af623d09813930d2924085443445c55ff7d6"
+}
