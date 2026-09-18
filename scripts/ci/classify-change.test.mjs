@@ -18,8 +18,8 @@ const policy = {
   decisionPipelineControlPrefixes: [".github/workflows/", "package.json", "package-lock.json", "scripts/ci/classify-change.mjs", "scripts/ci/decision-", "scripts/ci/verify-decision-shards.mjs"],
   integrationControlPrefixes: ["delivery/integration/", "docs/operations/integration/", "scripts/ci/integration-", "scripts/ci/week2-dark-wiring", "scripts/ci/founder-live-control-plane", "scripts/ci/founder-activation-control-plane", "scripts/ci/source-aware-idempotency-migration-scope", "scripts/world-knowledge/build-week1-production-release-foundation"],
   productReleasePrefixes: ["mobile/app/(tabs)/decision.tsx", "mobile/lib/decision/", "packages/decision-vnext-core/src/product-", "supabase/functions/decision-", "scripts/deployment/"],
-  knownRepositoryPrefixes: [".github/", "README.md", "admin-dashboard/", "decision-lab/", "docs/", "mobile/", "package.json", "package-lock.json", "packages/", "scripts/", "supabase/", "web/"],
-  deliveryControlPrefixes: [".github/workflows/", "delivery/", "scripts/ci/", "scripts/deployment/", "docs/operations/"],
+  knownRepositoryPrefixes: [".github/", ".gitleaks.toml", "README.md", "admin-dashboard/", "decision-lab/", "docs/", "mobile/", "package.json", "package-lock.json", "packages/", "scripts/", "supabase/", "web/"],
+  deliveryControlPrefixes: [".github/workflows/", ".gitleaks.toml", "delivery/", "scripts/ci/", "scripts/deployment/", "docs/operations/"],
   releaseEvidencePrefixes: ["docs/operations/releases/"],
   retiredPrefixes: ["decision-lab/", "scripts/decision/", "packages/decision-vnext-core/sandbox/", "docs/operations/integration/"],
 };
@@ -129,6 +129,14 @@ test("a new Product authority can replace the legacy anchor without opening Deci
   const result = classifyChange({ root, context: { baseSha: base, headSha: head }, policy: { ...policy, decisionTrustAnchor: "delivery/product-authority-v1.json" } });
   assert.equal(result.flags.decisionSemantics, true);
   assert.ok(result.requiredGates.includes("decision"));
+});
+
+test("secret scanner policy changes are explicit delivery-control changes", () => {
+  const result = plan({ files: { ".gitleaks.toml": "[extend]\nuseDefault = true\n" } });
+  assert.equal(result.flags.unknown, false);
+  assert.equal(result.flags.deliveryControl, true);
+  assert.ok(result.requiredGates.includes("delivery-policy"));
+  assert.deepEqual(result.blockedReasons, []);
 });
 
 test("independent vNext core and sandbox select the Decision gate", () => {

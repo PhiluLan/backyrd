@@ -79,6 +79,7 @@
   ],
   "knownRepositoryPrefixes": [
     ".github/",
+    ".gitleaks.toml",
     ".gitignore",
     "AGENTS.md",
     "README.md",
@@ -97,6 +98,7 @@
   ],
   "deliveryControlPrefixes": [
     ".github/workflows/",
+    ".gitleaks.toml",
     "delivery/",
     "scripts/ci/",
     "scripts/deployment/",
