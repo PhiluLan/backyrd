@@ -3,6 +3,13 @@
   "status": "ACTIVE",
   "productRoute": "DECISION_VNEXT_SINGLE_ROUTE",
   "legacyDecisionAuthority": false,
+  "authorizedBoundedMigrations": [
+    {
+      "path": "supabase/migrations/20260918182831_decision_vnext_product_runtime_v1.sql",
+      "sha256": "18031d32ac5151178a401884ad79e9f09cff24d1ea8c08e951611f85f94b5e18",
+      "scope": "CONSENT_ERASURE_AND_EXPIRED_PRIVATE_IDEMPOTENCY_ONLY"
+    }
+  ],
   "protectedSemanticSourceSet": {
     "paths": [
       "mobile/app/(tabs)/decision.tsx",

@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { classifyChange, isDestructiveMigration } from "./classify-change.mjs";
+import { classifyChange, isAuthorizedBoundedMigration, isDestructiveMigration } from "./classify-change.mjs";
 
 const policy = {
   decisionTrustAnchor: "decision-lab/config/anchor.json",
@@ -97,6 +97,18 @@ test("only the exact private Founder Live expired-key purge is non-destructive",
   assert.equal(isDestructiveMigration(`${migration}\ntruncate founder_live_private.idempotency_records_v1;`), true);
   const reformatted = migration.replace(/\n/g, "\n  ").replace("with expired_keys", "-- bounded expired selection\n  with expired_keys");
   assert.equal(isDestructiveMigration(reformatted), false);
+});
+
+test("only the exact authority-hashed Product consent/expiry migration clears the destructive blocker", () => {
+  const path = "supabase/migrations/20260918182831_decision_vnext_product_runtime_v1.sql";
+  const migration = readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
+  const authority = JSON.parse(readFileSync(new URL("../../delivery/product-authority-v1.json", import.meta.url), "utf8"));
+  assert.equal(isDestructiveMigration(migration), true);
+  assert.equal(isAuthorizedBoundedMigration(path, migration, authority), true);
+  assert.equal(isAuthorizedBoundedMigration(path, `${migration}\n-- drift`, authority), false);
+  assert.equal(isAuthorizedBoundedMigration("supabase/migrations/other.sql", migration, authority), false);
+  assert.equal(isAuthorizedBoundedMigration(path, migration, { ...authority, authorizedBoundedMigrations: authority.authorizedBoundedMigrations.map((entry) => ({ ...entry, scope: "BROAD_DELETE" })) }), false);
+  assert.equal(isAuthorizedBoundedMigration(path, migration, { ...authority, authorizedBoundedMigrations: authority.authorizedBoundedMigrations.map((entry) => ({ ...entry, sha256: "0".repeat(64) })) }), false);
 });
 
 test("protected source changes select Decision recertification while evaluator-only changes do not", () => {

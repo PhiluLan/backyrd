@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -103,6 +104,15 @@ export function isDestructiveMigration(text) {
   return false;
 }
 
+export function isAuthorizedBoundedMigration(path, text, trustAnchor) {
+  const entries = trustAnchor.authorizedBoundedMigrations;
+  if (!Array.isArray(entries)) return false;
+  const match = entries.find((entry) => entry?.path === path);
+  if (!match || typeof match.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(match.sha256)
+    || match.scope !== "CONSENT_ERASURE_AND_EXPIRED_PRIVATE_IDEMPOTENCY_ONLY") return false;
+  return createHash("sha256").update(text, "utf8").digest("hex") === match.sha256;
+}
+
 export function classifyChange({ root, context, policy }) {
   const statusLines = git(root, ["diff", "--name-status", `${context.baseSha}..${context.headSha}`]).split("\n").filter(Boolean);
   const changes = statusLines.map((line) => {
@@ -124,8 +134,8 @@ export function classifyChange({ root, context, policy }) {
   const protectedDecisionPaths = new Set(trustAnchor.protectedSemanticSourceSet?.paths ?? []);
   const newMigrations = changes.filter(({ status, path }) => status === "A" && path.startsWith("supabase/migrations/"));
   const migrationMutations = changes.filter(({ status, path }) => status !== "A" && path.startsWith("supabase/migrations/"));
-  const migrationTexts = newMigrations.map(({ path }) => git(root, ["show", `${context.headSha}:${path}`]));
-  const migrationText = migrationTexts.join("\n");
+  const migrationTexts = newMigrations.map(({ path }) => ({ path, text: git(root, ["show", `${context.headSha}:${path}`]) }));
+  const migrationText = migrationTexts.map(({ text }) => text).join("\n");
   const testDeletion = changes.some(({ status, path }) => status === "D" && (path.includes("/test/") || /(?:^|\.)test\.[cm]?[jt]sx?$/.test(path)));
   const decisionConsumer = changedFiles.some((path) => startsWithAny(path, policy.decisionConsumerPrefixes ?? []));
   const pipelineControl = changedFiles.some((path) => startsWithAny(path, policy.decisionPipelineControlPrefixes ?? []));
@@ -163,7 +173,7 @@ export function classifyChange({ root, context, policy }) {
     productRelease,
     deliveryControl: changedFiles.some((path) => startsWithAny(path, policy.deliveryControlPrefixes)),
     releaseEvidence: changedFiles.some((path) => startsWithAny(path, policy.releaseEvidencePrefixes)),
-    destructive: migrationTexts.some(isDestructiveMigration),
+    destructive: migrationTexts.some(({ path, text }) => isDestructiveMigration(text) && !isAuthorizedBoundedMigration(path, text, trustAnchor)),
     migrationMutation: migrationMutations.length > 0,
   };
   const classes = [
