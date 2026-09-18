@@ -16,6 +16,12 @@ const CANONICAL_COMPLETION_TREE = "730a405788ffc70e2c8ee32caadcf3b5a39bbb30";
 const CANONICAL_COMPLETION_PARENTS = [BASE, "1db9b95e56a369ff5791a01884012718ee907c76"];
 const SHA = /^[0-9a-f]{40}$/; const HASH = /^[0-9a-f]{64}$/;
 const SEAL_PATHS = new Set(["delivery/integration/founder-live-status.json", "delivery/integration/founder-live-post-deploy-evidence.json", "delivery/integration/founder-live-production-plan.json", "delivery/integration/founder-live-rehearsal-evidence.json", "delivery/integration/founder-live-shared-artifact.json"]);
+const EDGE_RUNTIME_PATHS = new Set([
+  "supabase/config.toml",
+  "supabase/functions/decision-founder-live/index.ts",
+  "supabase/functions/decision-founder-live/runtime-boundary.mjs",
+  "supabase/functions/decision-founder-live/runtime-boundary.test.mjs",
+]);
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] }).trim();
 const load = (root, path) => JSON.parse(readFileSync(resolve(root, path), "utf8"));
 const requireValue = (condition, reason) => { if (!condition) throw new Error(reason); };
@@ -52,7 +58,7 @@ export function validateFounderLiveDocuments({ roadmap, matrix, manifest, status
   requireValue(manifest.releaseBinding.releaseHash === expectedReleaseHash && manifest.releaseBinding.bindingHash === expectedBindingHash, "founder_live_release_binding_hash_mismatch");
   requireValue(manifest.releaseBinding.executionAuthorized === false && manifest.releaseBinding.vNextFunction === null, "founder_live_pending_vnext_must_be_closed");
   requireValue(manifest.clients.mobile === "EXISTING_NON_PUBLIC_APP" && manifest.clients.admin === "EXISTING_WORLD_AUTHORING_DASHBOARD" && manifest.clients.newDemoSurface === false && manifest.clients.clientToggleAllowed === false, "founder_live_client_scope_invalid");
-  requireValue(status.overall === (bound.length === 3 ? "GREEN" : "YELLOW") && status.draftRequired === true && status.productionStatus === "NO_GO" && status.executionAuthorized === false, "founder_live_status_invalid");
+  requireValue(status.overall === (bound.length === 3 ? "GREEN" : "YELLOW") && status.draftRequired === true && ["NO_GO", "IMPLEMENTATION_READY_DEPLOYMENT_NOT_AUTHORIZED"].includes(status.productionStatus) && status.executionAuthorized === false, "founder_live_status_invalid");
   if (bound.length === 3) requireValue(!status.blockers.some((value) => value.endsWith("_CANDIDATE_MISSING")), "founder_live_stale_domain_blocker");
   else requireValue(status.blockers.includes("WORLD_CANDIDATE_MISSING") && status.blockers.includes("USER_CANDIDATE_MISSING") && status.blockers.includes("DECISION_CANDIDATE_MISSING"), "founder_live_domain_blockers_missing");
   return { boundCandidates: bound.length, status: status.overall };
@@ -171,9 +177,11 @@ export function runFounderLivePreflight({ root = ROOT, base = BASE, head = "HEAD
   });
   const changed = changeEntries.map(({ path }) => path);
   const newMigrations = verifyFounderDescendantMigrationChanges({ descendant, entries: changeEntries });
-  requireValue(!changed.some((path) => path.startsWith("supabase/functions/") || path === "supabase/config.toml" || path === "supabase/production/auth-config.json"), "founder_live_unexpected_runtime_change");
+  const runtimeChanges = changed.filter((path) => path.startsWith("supabase/functions/") || path === "supabase/config.toml" || path === "supabase/production/auth-config.json");
+  requireValue(runtimeChanges.every((path) => EDGE_RUNTIME_PATHS.has(path)), "founder_live_unexpected_runtime_change");
   const plan = buildProductionPlan({ repo: root, baseSha: load(root, "delivery/production-state.json").supabase.shippedSourceSha, headSha: git(root, ["rev-parse", `${head}^{commit}`]) });
-  requireValue(plan.deployFunctions.length === 0 && plan.authConfig?.deploy === false, "founder_live_production_plan_runtime_open");
+  const expectedDeployFunctions = runtimeChanges.length > 0 ? ["decision-founder-live"] : [];
+  requireValue(JSON.stringify(plan.deployFunctions) === JSON.stringify(expectedDeployFunctions) && plan.authConfig?.deploy === false, "founder_live_production_plan_runtime_scope_invalid");
   let seal = null;
   if (documents.status.codeAndTests === "GREEN") {
     const artifact = load(root, "delivery/integration/founder-live-shared-artifact.json");
@@ -191,9 +199,9 @@ export function runFounderLivePreflight({ root = ROOT, base = BASE, head = "HEAD
     requireValue(git(root, ["rev-parse", `${evidence.functionalHeadSha}^{tree}`]) === evidence.combinedTreeSha, "founder_live_rehearsal_tree_mismatch");
     requireValue(evidence.e2eEvidenceHash === "aaa16b4ac6a7afc5691fc54e94339035afec85400d6d9589217a4824b0845d4d" && evidence.byteIdenticalRuns === 2, "founder_live_replay_evidence_invalid");
     requireValue(sealedPlan.sourceSha === evidence.functionalHeadSha && sealedPlan.planHash === functionalPlan.planHash && JSON.stringify(sealedPlan.pendingMigrations) === JSON.stringify(functionalPlan.pendingMigrations.map(({ path }) => path)), "founder_live_production_plan_drift");
-    requireValue(sealedPlan.newMigrations === 0 && sealedPlan.deployFunctions.length === 0 && sealedPlan.authDeploy === false && sealedPlan.runtimeActivation === false && sealedPlan.executionAuthorized === false, "founder_live_production_scope_open");
+    requireValue(sealedPlan.newMigrations === 0 && JSON.stringify(sealedPlan.deployFunctions) === JSON.stringify(expectedDeployFunctions) && sealedPlan.authDeploy === false && sealedPlan.runtimeActivation === false && sealedPlan.executionAuthorized === false, "founder_live_production_scope_open");
     requireValue(postDeploy.status === "NOT_EXECUTED_NO_PRODUCTION_AUTHORITY" && postDeploy.productionQueries === 0 && postDeploy.migrationsExecuted === 0 && postDeploy.deploymentsExecuted === 0 && postDeploy.otaActions === 0 && postDeploy.executionAuthorized === false, "founder_live_post_deploy_claim_invalid");
-    requireValue(documents.status.ctoReviewReady === true && documents.status.productionStatus === "NO_GO", "founder_live_cto_status_invalid");
+    requireValue(documents.status.ctoReviewReady === true && ["NO_GO", "IMPLEMENTATION_READY_DEPLOYMENT_NOT_AUTHORIZED"].includes(documents.status.productionStatus), "founder_live_cto_status_invalid");
     const headSha = git(root, ["rev-parse", `${head}^{commit}`]); const checkoutSha = git(root, ["rev-parse", `${checkout}^{commit}`]); const mainSha = git(root, ["rev-parse", `${canonicalMain}^{commit}`]);
     const parents = git(root, ["show", "-s", "--format=%P", checkoutSha]).split(" ").filter(Boolean);
     const candidateHead = mode === "POST_MERGE_MAIN" ? parents[1] : headSha;
@@ -206,7 +214,7 @@ export function runFounderLivePreflight({ root = ROOT, base = BASE, head = "HEAD
     }
     seal = { artifactHash: artifact.artifactHash, sourceSetHash: artifact.sourceSetHash, functionalHeadSha: evidence.functionalHeadSha, combinedTreeSha: evidence.combinedTreeSha, e2eEvidenceHash: evidence.e2eEvidenceHash };
   }
-  return { contractVersion: "backyrd.founder-live-preflight@1.0", gateStatus: "GREEN", releaseStatus: state.status, boundCandidates: state.boundCandidates, executionAuthorized: false, baseSha: git(root, ["rev-parse", `${base}^{commit}`]), headSha: git(root, ["rev-parse", `${head}^{commit}`]), treeSha: git(root, ["rev-parse", `${head}^{tree}`]), binding, seal, productionPlan: { planHash: plan.planHash, pendingMigrations: plan.pendingMigrations.map(({ path }) => path), newMigrations: newMigrations.length, deployFunctions: [], authDeploy: false, runtimeActivation: false, executionAuthorized: false }, changedFiles: changed };
+  return { contractVersion: "backyrd.founder-live-preflight@1.0", gateStatus: "GREEN", releaseStatus: state.status, boundCandidates: state.boundCandidates, executionAuthorized: false, baseSha: git(root, ["rev-parse", `${base}^{commit}`]), headSha: git(root, ["rev-parse", `${head}^{commit}`]), treeSha: git(root, ["rev-parse", `${head}^{tree}`]), binding, seal, productionPlan: { planHash: plan.planHash, pendingMigrations: plan.pendingMigrations.map(({ path }) => path), newMigrations: newMigrations.length, deployFunctions: plan.deployFunctions, authDeploy: false, runtimeActivation: false, executionAuthorized: false }, changedFiles: changed };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

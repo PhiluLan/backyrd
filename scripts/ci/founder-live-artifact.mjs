@@ -9,11 +9,13 @@ const TRACKS = ["WORLD", "USER", "DECISION", "MOBILE", "ADMIN", "INTEGRATION"];
 const PREFIXES = [
   "package-lock.json", "package.json",
   "packages/world-knowledge-core/src/", "packages/user-intelligence-vnext-core/src/", "packages/decision-vnext-core/src/",
+  "supabase/config.toml", "supabase/functions/decision-founder-live/",
   "mobile/packages/founder-live-control-plane/src/", "mobile/app/(tabs)/decision.tsx", "mobile/lib/decision/",
   "admin-dashboard/app/world-knowledge/", "packages/world-knowledge-authoring-ui/src/",
   "delivery/integration/accelerated-production-roadmap.json", "delivery/integration/dependency-ownership-matrix.json",
   "delivery/integration/founder-live-manifest.json", "docs/adr/ADR-DECISION-VNEXT-012-INDEPENDENT-PRODUCT.md",
   "docs/operations/integration/FOUNDER_LIVE_",
+  "docs/decision-vnext/FOUNDER_LIVE_ADAPTER_COMPATIBILITY_MATRIX.md",
 ];
 const canonical = (value) => Array.isArray(value) ? `[${value.map(canonical).join(",")}]` : value && typeof value === "object" ? `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}` : JSON.stringify(value);
 const sha256 = (value) => createHash("sha256").update(typeof value === "string" ? value : canonical(value)).digest("hex");
