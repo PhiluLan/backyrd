@@ -162,7 +162,7 @@ test("workflow and package routing changes validate delivery policy without trig
     const result = plan({ files: { [path]: "changed\n" } });
     assert.equal(result.flags.pipelineControl, true);
     assert.ok(result.requiredGates.includes("delivery-policy"));
-    if (path !== "scripts/ci/decision-test-plan.mjs") assert.deepEqual(result.requiredGates, ["delivery-policy", "repository-security"]);
+    if (path !== "scripts/ci/decision-test-plan.mjs") assert.deepEqual(result.requiredGates, ["delivery-policy", "repository-security", "supply-chain"]);
   }
 });
 
@@ -170,6 +170,7 @@ test("unknown files and deleted tests cannot silently bypass routing", () => {
   const unknown = plan({ files: { "unclassified-surface/value.bin": "opaque\n" } });
   assert.equal(unknown.flags.unknown, true);
   assert.deepEqual(unknown.requiredGates, ["delivery-policy", "repository-security"]);
+  assert.deepEqual(unknown.blockedReasons, ["unknown_path_requires_explicit_risk_classification"]);
 
   const { root, base } = fixture();
   put(root, "packages/decision-vnext-core/test/deleted.test.mjs", "test('required',()=>{});\n");
@@ -180,6 +181,23 @@ test("unknown files and deleted tests cannot silently bypass routing", () => {
   assert.equal(result.flags.testDeletion, true);
   assert.ok(result.classes.includes("test-routing-change"));
   assert.notEqual(base, head);
+});
+
+test("cross-domain changes receive the union of every affected gate", () => {
+  const result = plan({ files: {
+    "packages/user-intelligence-vnext-core/src/contracts.ts": "export const user = true;\n",
+    "packages/decision-vnext-core/src/product-policy.ts": "export const decision = true;\n",
+    "supabase/migrations/20260101000000_union.sql": "create table public.union_fixture(id uuid primary key);\n",
+  } });
+  assert.deepEqual(result.requiredGates, ["database", "decision", "release-certification", "repository-security", "user"]);
+});
+
+test("dependency and workflow changes always select the supply-chain gate", () => {
+  for (const path of ["package-lock.json", "mobile/package.json", "packages/shared/package.json", ".github/workflows/risk-gate.yml"]) {
+    const result = plan({ files: { [path]: "{}\n" } });
+    assert.equal(result.flags.supplyChain, true);
+    assert.ok(result.requiredGates.includes("supply-chain"));
+  }
 });
 
 test("only proven non-executable Markdown takes the documentation-only shortcut", () => {

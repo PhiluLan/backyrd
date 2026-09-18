@@ -45,8 +45,17 @@ and rollback criteria. A push can never trigger it.
 
 Weekly and manually runnable. Contains historical Decision Lab, synthetic
 worlds/profiles and old Week/Founder evidence. It detects long-range drift but
-does not block an unrelated routine PR. A failure must be resolved before the
-next Product release.
+does not block an unrelated routine PR. A failure automatically opens a
+release-blocking incident. Development may continue, but Production remains
+blocked until a successful run closes the incident. Production also rejects a
+missing or older-than-eight-days recertification.
+
+### SUPPLY_CHAIN
+
+Runs for dependency manifests, lockfiles and GitHub Actions. Direct dependency
+changes require the matching lockfile, installs must be reproducible without
+package lifecycle scripts, newly introduced high/critical vulnerabilities are
+rejected, and every third-party Action is pinned to a full commit SHA.
 
 ## Non-negotiable boundaries
 
@@ -58,6 +67,12 @@ next Product release.
 - Decision has one Product route: Decision vNext. No legacy fallback.
 - Learning is consent-bound; no consent means neutral projection and no write.
 - Missing or skipped required gates fail the final `Risk-based merge gate`.
+- Unknown or newly introduced repository paths are `UNKNOWN/HIGH` and block
+  classification until the delivery policy assigns an explicit risk class.
+- Cross-domain changes receive the set union of every affected gate. No
+  "primary domain" may suppress another domain's checks.
+- A Production release must consume the exact CI-certified artifact identity;
+  rebuilding an unbound artifact at deployment time is forbidden.
 
 ## Retired from routine PRs
 
@@ -82,3 +97,18 @@ unrelated domain recertification.
 This workflow may change only through a Delivery Policy change with positive
 and negative classifier tests. A new gate requires an owner, a precise trigger,
 a unique invariant, and removal or replacement of overlapping checks.
+
+## Measurement window
+
+The next optimization review happens after 50–100 merged PRs. The evidence set
+is median/p95 PR feedback time, duration per gate, failure rate, false-positive
+rate, skipped-required-gate incidents and defects found per gate. Gates are
+then changed from observed protection value, not from intuition.
+
+## Release identity
+
+Human release control converges on one hierarchical Release Manifest. It binds
+source/tree SHAs, World/User/Decision artifacts, migration set, test evidence,
+build artifact, runtime policy and Production plan. Component hashes remain
+machine-verifiable children; the manifest hash is the single release identity
+shown to humans.

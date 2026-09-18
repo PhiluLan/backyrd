@@ -25,6 +25,7 @@ jobs:
       world: ${{ steps.plan.outputs.world }}
       decision: ${{ steps.plan.outputs.decision }}
       database: ${{ steps.plan.outputs.database }}
+      supply-chain: ${{ steps.plan.outputs.supply-chain }}
       delivery-policy: ${{ steps.plan.outputs.delivery-policy }}
       release-certification: ${{ steps.plan.outputs.release-certification }}
     steps:
@@ -43,7 +44,7 @@ jobs:
           const { appendFileSync, readFileSync } = require("node:fs");
           const plan = JSON.parse(readFileSync(process.argv[2], "utf8"));
           const selected = new Set(plan.requiredGates);
-          const gates = ["mobile", "web", "admin", "shared", "user", "world", "decision", "database", "delivery-policy", "release-certification"];
+          const gates = ["mobile", "web", "admin", "shared", "user", "world", "decision", "database", "supply-chain", "delivery-policy", "release-certification"];
           appendFileSync(process.argv[3], [`base-sha=${plan.context.baseSha}`, `head-sha=${plan.context.headSha}`, `required-gates=${JSON.stringify(plan.requiredGates)}`, ...gates.map((gate) => `${gate}=${selected.has(gate)}`)].join("\n") + "\n");
           NODE
 
@@ -192,6 +193,29 @@ jobs:
       - env: { BASE_SHA: "${{ needs.classify.outputs.base-sha }}", BACKYRD_CHANGED_DATABASE_TESTS_FILE: "${{ runner.temp }}/database-tests.txt" }
         run: scripts/ci/validate-supabase-current.sh
 
+  supply-chain:
+    name: Dependency and supply-chain gate
+    if: needs.classify.outputs.supply-chain == 'true'
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 20 }
+      - name: Validate lockfile coupling and pinned Actions
+        env: { BASE_SHA: "${{ needs.classify.outputs.base-sha }}", HEAD_SHA: "${{ needs.classify.outputs.head-sha }}" }
+        run: |
+          node scripts/ci/validate-supply-chain-change.mjs --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA" --output "$RUNNER_TEMP/supply-chain.json"
+          jq -r '.installRoots[]' "$RUNNER_TEMP/supply-chain.json" | while IFS= read -r root; do
+            (cd "$root" && npm ci --ignore-scripts)
+          done
+      - name: Reject newly introduced vulnerable dependencies
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        with: { fail-on-severity: high }
+
   delivery-policy:
     name: Delivery policy v2
     if: needs.classify.outputs.delivery-policy == 'true'
@@ -228,17 +252,27 @@ jobs:
         working-directory: mobile
         env: { EXPO_PUBLIC_SUPABASE_URL: "https://example.invalid", EXPO_PUBLIC_SUPABASE_ANON_KEY: "ci-public-placeholder-key-000000000000" }
         run: npm ci && npx expo export --platform web --output-dir "$RUNNER_TEMP/mobile-web"
+      - name: Seal the tested Product artifact
+        env: { HEAD_SHA: "${{ needs.classify.outputs.head-sha }}" }
+        run: node scripts/ci/product-release-manifest.mjs build --source-sha "$HEAD_SHA" --mobile-bundle "$RUNNER_TEMP/mobile-web" --output "$RUNNER_TEMP/product-release"
+      - name: Retain the exact tested Product artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: backyrd-product-release-${{ needs.classify.outputs.head-sha }}
+          path: ${{ runner.temp }}/product-release/
+          if-no-files-found: error
+          retention-days: 30
 
   risk-gate:
     name: Risk-based merge gate
     if: always()
-    needs: [classify, repository-security, mobile, web, admin, shared, user, world, decision, database, delivery-policy, release-certification]
+    needs: [classify, repository-security, mobile, web, admin, shared, user, world, decision, database, supply-chain, delivery-policy, release-certification]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
       REQUIRED_GATES: ${{ needs.classify.outputs.required-gates }}
       RESULTS: >-
-        {"repository-security":"${{ needs.repository-security.result }}","mobile":"${{ needs.mobile.result }}","web":"${{ needs.web.result }}","admin":"${{ needs.admin.result }}","shared":"${{ needs.shared.result }}","user":"${{ needs.user.result }}","world":"${{ needs.world.result }}","decision":"${{ needs.decision.result }}","database":"${{ needs.database.result }}","delivery-policy":"${{ needs.delivery-policy.result }}","release-certification":"${{ needs.release-certification.result }}"}
+        {"repository-security":"${{ needs.repository-security.result }}","mobile":"${{ needs.mobile.result }}","web":"${{ needs.web.result }}","admin":"${{ needs.admin.result }}","shared":"${{ needs.shared.result }}","user":"${{ needs.user.result }}","world":"${{ needs.world.result }}","decision":"${{ needs.decision.result }}","database":"${{ needs.database.result }}","supply-chain":"${{ needs.supply-chain.result }}","delivery-policy":"${{ needs.delivery-policy.result }}","release-certification":"${{ needs.release-certification.result }}"}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - run: node scripts/ci/verify-risk-gate.mjs --required-gates "$REQUIRED_GATES" --results "$RESULTS"

@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "ci:delivery-policy": "node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/verify-risk-gate.test.mjs scripts/ci/delivery-workflow-v2.test.mjs",
+    "ci:delivery-policy": "node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/validate-supply-chain-change.test.mjs scripts/ci/product-release-manifest.test.mjs scripts/ci/verify-risk-gate.test.mjs scripts/ci/delivery-workflow-v2.test.mjs",
     "ci:deep-recertification": "npm run decision-ci:full && npm run world-knowledge:week1:test && npm run week2:test && node --test scripts/ci/week3-internal-prodlike.test.mjs",
     "city-bootstrap": "node scripts/spot-intelligence/city-bootstrap.mjs",
     "city-bootstrap:test": "node --test packages/city-bootstrap-runtime/test/*.test.mjs",

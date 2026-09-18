@@ -27,6 +27,8 @@ const destructivePattern = /\btruncate\b|\bdrop\s+(?:table|schema|column|type)\b
 const provablyNonExecutableDocumentation = (path) => (
   /^(?:docs\/.*\.md|README\.md|AGENTS\.md)$/.test(path)
 );
+const dependencyManifestPattern = /(?:^|\/)package\.json$/;
+const dependencyLockPattern = /(?:^|\/)package-lock\.json$/;
 
 const normalizedStatements = (text) => text
   .replace(/--[^\n]*/g, "")
@@ -147,6 +149,9 @@ export function classifyChange({ root, context, policy }) {
   const pipelineControl = changedFiles.some((path) => startsWithAny(path, policy.decisionPipelineControlPrefixes ?? []));
   const unknown = changedFiles.some((path) => !startsWithAny(path, policy.knownRepositoryPrefixes ?? []));
   const workflowChange = changedFiles.some((path) => path.startsWith(".github/workflows/") || path === "package.json" || path === "package-lock.json");
+  const supplyChain = changedFiles.some((path) => dependencyManifestPattern.test(path)
+    || dependencyLockPattern.test(path)
+    || path.startsWith(".github/workflows/"));
   const deploymentControl = changedFiles.some((path) => path.startsWith("scripts/deployment/") || path.startsWith("supabase/production/") || path === ".github/workflows/supabase-production.yml");
   const documentationOnly = changedFiles.length > 0 && changedFiles.every(provablyNonExecutableDocumentation);
   const machineReadableDocumentation = changedFiles.some((path) => path.startsWith("docs/") && !path.endsWith(".md"));
@@ -171,6 +176,7 @@ export function classifyChange({ root, context, policy }) {
     testDeletion,
     unknown,
     workflowChange,
+    supplyChain,
     deploymentControl,
     fullScopeRouting: false,
     documentationOnly,
@@ -198,6 +204,7 @@ export function classifyChange({ root, context, policy }) {
     ...(flags.testDeletion ? ["test-routing-change"] : []),
     ...(flags.unknown ? ["unknown-change"] : []),
     ...(flags.workflowChange ? ["workflow-or-package-control"] : []),
+    ...(flags.supplyChain ? ["dependency-supply-chain"] : []),
     ...(flags.deploymentControl ? ["deployment-control"] : []),
     ...(flags.documentationOnly ? ["documentation-only"] : []),
     ...(flags.machineReadableDocumentation ? ["machine-readable-documentation-contract"] : []),
@@ -225,12 +232,14 @@ export function classifyChange({ root, context, policy }) {
       ...(flags.world ? ["world"] : []),
       ...(flags.database ? ["database"] : []),
       ...(flags.decisionSemantics || flags.decisionEvaluation ? ["decision"] : []),
+      ...(flags.supplyChain ? ["supply-chain"] : []),
       ...(flags.deliveryControl || flags.releaseEvidence || flags.privilegedServer || flags.pipelineControl || flags.testDeletion || flags.workflowChange || flags.machineReadableDocumentation || flags.integrationControl || flags.unknown ? ["delivery-policy"] : []),
       ...(flags.productRelease ? ["release-certification"] : []),
     ]),
     blockedReasons: unique([
       ...(flags.migrationMutation ? ["published_migration_mutation"] : []),
       ...(flags.destructive ? ["destructive_migration_requires_separate_founder_cto_authorization"] : []),
+      ...(flags.unknown ? ["unknown_path_requires_explicit_risk_classification"] : []),
     ]),
   };
 }

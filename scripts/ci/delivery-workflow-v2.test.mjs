@@ -6,7 +6,7 @@ const read = (path) => readFileSync(new URL(`../../${path}`, import.meta.url), "
 
 test("routine Risk Gate is task-scoped and keeps the stable final gate", () => {
   const workflow = read(".github/workflows/risk-gate.yml");
-  for (const gate of ["user", "world", "decision", "database", "delivery-policy", "release-certification"]) {
+  for (const gate of ["user", "world", "decision", "database", "supply-chain", "delivery-policy", "release-certification"]) {
     assert.match(workflow, new RegExp(`\\n  ${gate}:`));
   }
   assert.match(workflow, /name: Risk-based merge gate/);
@@ -28,6 +28,8 @@ test("historical recertification is isolated from pull requests", () => {
   assert.match(workflow, /schedule:/);
   assert.doesNotMatch(workflow, /pull_request:/);
   assert.match(workflow, /decision-ci:full/);
+  assert.match(workflow, /gh issue create/);
+  assert.match(workflow, /Production release is blocked/);
 });
 
 test("Production release is manual-only", () => {
@@ -36,6 +38,26 @@ test("Production release is manual-only", () => {
   assert.match(trigger, /workflow_dispatch:/);
   assert.doesNotMatch(trigger, /push:/);
   assert.match(workflow, /DEPLOY_SUPABASE_PRODUCTION/);
+  assert.match(workflow, /deep-recertification\.yml/);
+  assert.match(workflow, /8 \* 24 \* 60 \* 60 \* 1000/);
+  assert.match(workflow, /certification_run_id/);
+  assert.match(workflow, /release_manifest_hash/);
+  assert.match(workflow, /actions\/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093/);
+  assert.match(workflow, /product-release-manifest\.mjs verify/);
+});
+
+test("the supply-chain gate pins dependency review and validates lockfile coupling", () => {
+  const workflow = read(".github/workflows/risk-gate.yml");
+  assert.match(workflow, /actions\/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48/);
+  assert.match(workflow, /validate-supply-chain-change\.mjs/);
+  assert.match(workflow, /npm ci --ignore-scripts/);
+});
+
+test("Product release certification uploads one hierarchical tested artifact", () => {
+  const workflow = read(".github/workflows/risk-gate.yml");
+  assert.match(workflow, /product-release-manifest\.mjs build/);
+  assert.match(workflow, /backyrd-product-release-/);
+  assert.match(workflow, /actions\/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02/);
 });
 
 test("superseded manual duplicate workflows are removed", () => {
