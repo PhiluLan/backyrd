@@ -11,8 +11,12 @@ import { verifyFounderLiveBinding } from "./founder-live-binding.mjs";
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const BASE = "f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6";
 const BASE_TREE = "97e2a09a776a989effbd2aa8a3a5591fa98de4e4";
+const CANONICAL_COMPLETION_SHA = "a76910f6da5b407dae6d4022528e644613caf5d8";
+const CANONICAL_COMPLETION_TREE = "730a405788ffc70e2c8ee32caadcf3b5a39bbb30";
+const CANONICAL_COMPLETION_PARENTS = ["f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6", "1db9b95e56a369ff5791a01884012718ee907c76"];
 const SHA = /^[0-9a-f]{40}$/; const HASH = /^[0-9a-f]{64}$/;
 const SEAL_PATHS = new Set(["delivery/integration/founder-live-status.json", "delivery/integration/founder-live-post-deploy-evidence.json", "delivery/integration/founder-live-production-plan.json", "delivery/integration/founder-live-rehearsal-evidence.json", "delivery/integration/founder-live-shared-artifact.json"]);
+const IDENTITY_MODES = new Set(["PR_CANDIDATE", "POST_MERGE_MAIN", "CANONICAL_DESCENDANT_PR", "CANONICAL_DESCENDANT_MAIN"]);
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] }).trim();
 const load = (root, path) => JSON.parse(readFileSync(resolve(root, path), "utf8"));
 const requireValue = (condition, reason) => { if (!condition) throw new Error(reason); };
@@ -78,7 +82,58 @@ export function verifyFounderSealScope({ commitCount, paths }) {
   return true;
 }
 
-export function runFounderLivePreflight({ root = ROOT, base = BASE, head = "HEAD", checkout = "HEAD", mode = "PR_CANDIDATE", canonicalMain = "origin/main" } = {}) {
+export function verifyFounderCanonicalDescendantIdentity(value) {
+  requireValue(["CANONICAL_DESCENDANT_PR", "CANONICAL_DESCENDANT_MAIN"].includes(value.mode), "founder_live_descendant_mode_invalid");
+  requireValue(value.eventName === (value.mode === "CANONICAL_DESCENDANT_PR" ? "pull_request" : "push"), "founder_live_descendant_event_mode_mismatch");
+  for (const [key, sha] of Object.entries({ completionSha: value.completionSha, completionTree: value.completionTree, baseSha: value.baseSha, baseTree: value.baseTree, headSha: value.headSha, headTree: value.headTree, checkoutSha: value.checkoutSha, checkoutTree: value.checkoutTree, mainSha: value.mainSha, mainTree: value.mainTree })) requireValue(SHA.test(sha), `founder_live_descendant_sha_invalid:${key}`);
+  requireValue(value.completionSha === CANONICAL_COMPLETION_SHA && value.completionTree === CANONICAL_COMPLETION_TREE, "founder_live_descendant_completion_mismatch");
+  requireValue(value.completionParents?.join(",") === CANONICAL_COMPLETION_PARENTS.join(","), "founder_live_descendant_completion_parents_mismatch");
+  requireValue(value.completionIsAncestorOfBase === true && value.baseIsAncestorOfHead === true, "founder_live_descendant_ancestry_invalid");
+  requireValue(value.changedSealedPaths?.length === 0, `founder_live_descendant_seal_drift:${value.changedSealedPaths?.join(",") ?? "missing"}`);
+  requireValue(value.sealedBlobBindings?.length === SEAL_PATHS.size, "founder_live_descendant_sealed_binding_set_invalid");
+  const seen = new Set();
+  for (const binding of value.sealedBlobBindings) {
+    requireValue(SEAL_PATHS.has(binding.path) && !seen.has(binding.path), `founder_live_descendant_sealed_binding_invalid:${binding.path}`);
+    seen.add(binding.path);
+    const blobs = [binding.completion, binding.base, binding.head, binding.checkout, binding.main];
+    requireValue(blobs.every((sha) => SHA.test(sha)) && new Set(blobs).size === 1, `founder_live_descendant_sealed_blob_drift:${binding.path}`);
+  }
+  if (value.mode === "CANONICAL_DESCENDANT_PR") {
+    requireValue(value.mainSha === value.baseSha && value.mainTree === value.baseTree, "founder_live_descendant_pr_base_main_mismatch");
+    requireValue(value.parents?.length === 2 && value.parents[0] === value.baseSha && value.parents[1] === value.headSha, "founder_live_descendant_pr_parents_mismatch");
+    requireValue(value.checkoutSha !== value.headSha && value.checkoutTree === value.headTree, "founder_live_descendant_pr_checkout_mismatch");
+  } else {
+    requireValue(value.headSha === value.checkoutSha && value.headSha === value.mainSha, "founder_live_descendant_main_identity_mismatch");
+    requireValue(value.headTree === value.checkoutTree && value.headTree === value.mainTree, "founder_live_descendant_main_tree_mismatch");
+    requireValue(value.parents?.length === 2 && value.parents[0] === value.baseSha && SHA.test(value.parents[1]) && value.secondParentTree === value.headTree, "founder_live_descendant_main_parents_mismatch");
+  }
+  return true;
+}
+
+function resolveFounderCanonicalDescendantIdentity({ root, mode, eventName, baseRef, headRef, checkoutRef, canonicalMainRef }) {
+  requireValue(IDENTITY_MODES.has(mode), "founder_live_identity_mode_invalid");
+  const baseSha = git(root, ["rev-parse", `${baseRef}^{commit}`]);
+  const headSha = git(root, ["rev-parse", `${headRef}^{commit}`]);
+  const checkoutSha = git(root, ["rev-parse", `${checkoutRef}^{commit}`]);
+  const mainSha = git(root, ["rev-parse", `${canonicalMainRef}^{commit}`]);
+  const parents = git(root, ["show", "-s", "--format=%P", checkoutSha]).split(" ").filter(Boolean);
+  const blob = (ref, path) => git(root, ["rev-parse", `${ref}:${path}`]);
+  return verifyFounderCanonicalDescendantIdentity({
+    mode, eventName, completionSha: CANONICAL_COMPLETION_SHA,
+    completionTree: git(root, ["rev-parse", `${CANONICAL_COMPLETION_SHA}^{tree}`]),
+    completionParents: git(root, ["show", "-s", "--format=%P", CANONICAL_COMPLETION_SHA]).split(" ").filter(Boolean),
+    baseSha, baseTree: git(root, ["rev-parse", `${baseSha}^{tree}`]), headSha, headTree: git(root, ["rev-parse", `${headSha}^{tree}`]),
+    checkoutSha, checkoutTree: git(root, ["rev-parse", `${checkoutSha}^{tree}`]), mainSha, mainTree: git(root, ["rev-parse", `${mainSha}^{tree}`]), parents,
+    secondParentTree: parents[1] ? git(root, ["rev-parse", `${parents[1]}^{tree}`]) : null,
+    completionIsAncestorOfBase: git(root, ["merge-base", "--is-ancestor", CANONICAL_COMPLETION_SHA, baseSha]) === "",
+    baseIsAncestorOfHead: git(root, ["merge-base", "--is-ancestor", baseSha, headSha]) === "",
+    changedSealedPaths: git(root, ["diff", "--name-only", `${CANONICAL_COMPLETION_SHA}..${headSha}`, "--", ...SEAL_PATHS]).split("\n").filter(Boolean),
+    sealedBlobBindings: [...SEAL_PATHS].map((path) => ({ path, completion: blob(CANONICAL_COMPLETION_SHA, path), base: blob(baseSha, path), head: blob(headSha, path), checkout: blob(checkoutSha, path), main: blob(mainSha, path) })),
+  });
+}
+
+export function runFounderLivePreflight({ root = ROOT, base = BASE, head = "HEAD", checkout = "HEAD", mode = "PR_CANDIDATE", canonicalMain = "origin/main", descendantBase = null, eventName = null } = {}) {
+  requireValue(IDENTITY_MODES.has(mode), "founder_live_identity_mode_invalid");
   requireValue(git(root, ["rev-parse", `${base}^{commit}`]) === BASE, "founder_live_requested_base_invalid");
   requireValue(git(root, ["rev-parse", `${BASE}^{tree}`]) === BASE_TREE, "founder_live_base_tree_invalid");
   requireValue(git(root, ["merge-base", "--is-ancestor", BASE, head]) === "", "founder_live_candidate_not_descendant");
@@ -123,14 +178,19 @@ export function runFounderLivePreflight({ root = ROOT, base = BASE, head = "HEAD
     const parents = git(root, ["show", "-s", "--format=%P", checkoutSha]).split(" ").filter(Boolean);
     const candidateHead = mode === "POST_MERGE_MAIN" ? parents[1] : headSha;
     const candidateTree = git(root, ["rev-parse", `${candidateHead}^{tree}`]); const checkoutTree = git(root, ["rev-parse", `${checkoutSha}^{tree}`]);
-    verifyFounderSealScope({ commitCount: Number(git(root, ["rev-list", "--count", `${evidence.functionalHeadSha}..${candidateHead}`])), paths: git(root, ["diff", "--name-only", `${evidence.functionalHeadSha}..${candidateHead}`]).split("\n").filter(Boolean) });
-    verifyFounderIdentityMode({ mode, baseSha: BASE, headSha: mode === "POST_MERGE_MAIN" ? checkoutSha : headSha, checkoutSha, mainSha, headTree: mode === "POST_MERGE_MAIN" ? checkoutTree : candidateTree, checkoutTree, candidateHead, candidateTree, parents });
+    if (mode === "CANONICAL_DESCENDANT_PR" || mode === "CANONICAL_DESCENDANT_MAIN") {
+      requireValue(descendantBase, "founder_live_descendant_base_missing");
+      resolveFounderCanonicalDescendantIdentity({ root, mode, eventName, baseRef: descendantBase, headRef: head, checkoutRef: checkout, canonicalMainRef: canonicalMain });
+    } else {
+      verifyFounderSealScope({ commitCount: Number(git(root, ["rev-list", "--count", `${evidence.functionalHeadSha}..${candidateHead}`])), paths: git(root, ["diff", "--name-only", `${evidence.functionalHeadSha}..${candidateHead}`]).split("\n").filter(Boolean) });
+      verifyFounderIdentityMode({ mode, baseSha: BASE, headSha: mode === "POST_MERGE_MAIN" ? checkoutSha : headSha, checkoutSha, mainSha, headTree: mode === "POST_MERGE_MAIN" ? checkoutTree : candidateTree, checkoutTree, candidateHead, candidateTree, parents });
+    }
     seal = { artifactHash: artifact.artifactHash, sourceSetHash: artifact.sourceSetHash, functionalHeadSha: evidence.functionalHeadSha, combinedTreeSha: evidence.combinedTreeSha, e2eEvidenceHash: evidence.e2eEvidenceHash };
   }
   return { contractVersion: "backyrd.founder-live-preflight@1.0", gateStatus: "GREEN", releaseStatus: state.status, boundCandidates: state.boundCandidates, executionAuthorized: false, baseSha: BASE, headSha: git(root, ["rev-parse", `${head}^{commit}`]), treeSha: git(root, ["rev-parse", `${head}^{tree}`]), binding, seal, productionPlan: { planHash: plan.planHash, pendingMigrations: plan.pendingMigrations.map(({ path }) => path), newMigrations: 0, deployFunctions: [], authDeploy: false, runtimeActivation: false, executionAuthorized: false }, changedFiles: changed };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try { process.stdout.write(`${JSON.stringify(runFounderLivePreflight({ root: resolve(process.argv[2] ?? ROOT), head: process.argv[3] ?? "HEAD", checkout: process.env.FOUNDER_LIVE_CHECKOUT_SHA ?? "HEAD", mode: process.env.FOUNDER_LIVE_MODE ?? "PR_CANDIDATE", canonicalMain: process.env.FOUNDER_LIVE_CANONICAL_MAIN ?? "origin/main" }), null, 2)}\n`); }
+  try { process.stdout.write(`${JSON.stringify(runFounderLivePreflight({ root: resolve(process.argv[2] ?? ROOT), head: process.argv[3] ?? "HEAD", checkout: process.env.FOUNDER_LIVE_CHECKOUT_SHA ?? "HEAD", mode: process.env.FOUNDER_LIVE_MODE ?? "PR_CANDIDATE", canonicalMain: process.env.FOUNDER_LIVE_CANONICAL_MAIN ?? "origin/main", descendantBase: process.env.FOUNDER_LIVE_DESCENDANT_BASE_SHA ?? null, eventName: process.env.FOUNDER_LIVE_EVENT_NAME ?? null }), null, 2)}\n`); }
   catch (error) { process.stderr.write(`founder_live_preflight_blocked:${error.message}\n`); process.exitCode = 1; }
 }

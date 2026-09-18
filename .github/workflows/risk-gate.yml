@@ -487,15 +487,29 @@ jobs:
         env:
           FOUNDER_LIVE_EVENT_NAME: ${{ github.event_name }}
           FOUNDER_LIVE_CHECKOUT_SHA: ${{ github.sha }}
+          FOUNDER_LIVE_CANONICAL_MAIN: ${{ github.event.pull_request.base.sha || github.sha }}
+          FOUNDER_LIVE_DESCENDANT_BASE_SHA: ${{ needs.classify.outputs.base-sha }}
         run: |
           npm run founder-live:binding
           npm run founder-activation:scan
           npm run founder-activation:preflight
+          npm run founder-activation:four-track
+          FOUNDER_LIVE_CANONICAL_COMPLETION_SHA=a76910f6da5b407dae6d4022528e644613caf5d8
           case "$FOUNDER_LIVE_EVENT_NAME" in
-            pull_request) FOUNDER_LIVE_MODE=PR_CANDIDATE ;;
+            pull_request)
+              if git merge-base --is-ancestor "$FOUNDER_LIVE_CANONICAL_COMPLETION_SHA" "${{ needs.classify.outputs.base-sha }}"; then
+                FOUNDER_LIVE_MODE=CANONICAL_DESCENDANT_PR
+              else
+                FOUNDER_LIVE_MODE=PR_CANDIDATE
+              fi
+              ;;
             push)
               test "$GITHUB_REF" = "refs/heads/main"
-              FOUNDER_LIVE_MODE=POST_MERGE_MAIN
+              if git merge-base --is-ancestor "$FOUNDER_LIVE_CANONICAL_COMPLETION_SHA" "${{ needs.classify.outputs.base-sha }}"; then
+                FOUNDER_LIVE_MODE=CANONICAL_DESCENDANT_MAIN
+              else
+                FOUNDER_LIVE_MODE=POST_MERGE_MAIN
+              fi
               ;;
             *) echo "Unsupported Founder-live event: $FOUNDER_LIVE_EVENT_NAME" >&2; exit 1 ;;
           esac

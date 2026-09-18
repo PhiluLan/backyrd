@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { validateFounderLiveDocuments, verifyFounderIdentityMode, verifyFounderSealScope } from "./founder-live-control-plane.mjs";
+import { validateFounderLiveDocuments, verifyFounderCanonicalDescendantIdentity, verifyFounderIdentityMode, verifyFounderSealScope } from "./founder-live-control-plane.mjs";
 
 const root = new URL("../..", import.meta.url);
 const load = (path) => JSON.parse(readFileSync(new URL(path, root), "utf8"));
@@ -33,6 +33,24 @@ test("only one exact evidence-only seal commit is accepted", () => {
   assert.equal(verifyFounderSealScope({ commitCount: 1, paths }), true);
   assert.throws(() => verifyFounderSealScope({ commitCount: 2, paths }), /commit_count_invalid/);
   assert.throws(() => verifyFounderSealScope({ commitCount: 1, paths: [...paths.slice(0, -1), "mobile/app/(tabs)/decision.tsx"] }), /scope_invalid/);
+});
+
+test("canonical descendants preserve the completed Founder-live seal and exact identities", () => {
+  const completion = "a76910f6da5b407dae6d4022528e644613caf5d8";
+  const completionTree = "730a405788ffc70e2c8ee32caadcf3b5a39bbb30";
+  const completionParents = ["f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6", "1db9b95e56a369ff5791a01884012718ee907c76"];
+  const value = (digit) => digit.repeat(40);
+  const paths = ["delivery/integration/founder-live-status.json", "delivery/integration/founder-live-post-deploy-evidence.json", "delivery/integration/founder-live-production-plan.json", "delivery/integration/founder-live-rehearsal-evidence.json", "delivery/integration/founder-live-shared-artifact.json"];
+  const sealed = paths.map((path) => ({ path, completion: value("a"), base: value("a"), head: value("a"), checkout: value("a"), main: value("a") }));
+  const pr = { mode: "CANONICAL_DESCENDANT_PR", eventName: "pull_request", completionSha: completion, completionTree, completionParents, baseSha: value("1"), baseTree: value("b"), headSha: value("2"), headTree: value("c"), checkoutSha: value("3"), checkoutTree: value("c"), mainSha: value("1"), mainTree: value("b"), parents: [value("1"), value("2")], secondParentTree: value("c"), completionIsAncestorOfBase: true, baseIsAncestorOfHead: true, changedSealedPaths: [], sealedBlobBindings: sealed };
+  assert.equal(verifyFounderCanonicalDescendantIdentity(pr), true);
+  const main = { ...pr, mode: "CANONICAL_DESCENDANT_MAIN", eventName: "push", headSha: value("3"), checkoutSha: value("3"), mainSha: value("3"), headTree: value("c"), checkoutTree: value("c"), mainTree: value("c") };
+  assert.equal(verifyFounderCanonicalDescendantIdentity(main), true);
+  assert.throws(() => verifyFounderCanonicalDescendantIdentity({ ...pr, eventName: "push" }), /event_mode_mismatch/);
+  assert.throws(() => verifyFounderCanonicalDescendantIdentity({ ...pr, changedSealedPaths: [paths[0]] }), /seal_drift/);
+  assert.throws(() => verifyFounderCanonicalDescendantIdentity({ ...pr, sealedBlobBindings: sealed.map((binding, index) => index ? binding : { ...binding, head: value("9") }) }), /sealed_blob_drift/);
+  assert.throws(() => verifyFounderCanonicalDescendantIdentity({ ...pr, parents: [value("9"), value("2")] }), /parents_mismatch/);
+  assert.throws(() => verifyFounderCanonicalDescendantIdentity({ ...main, secondParentTree: value("9") }), /parents_mismatch/);
 });
 
 test("mobile integration has no client activation toggle, raw telemetry, or second UI", () => {
