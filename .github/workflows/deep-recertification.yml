@@ -1,0 +1,40 @@
+name: CI / Deep Historical Recertification
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 2 * * 1"
+
+permissions: { contents: read }
+concurrency:
+  group: deep-recertification-main
+  cancel-in-progress: true
+
+jobs:
+  historical-decision:
+    name: Historical Decision and Lab corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: main, fetch-depth: 0 }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: package-lock.json }
+      - run: npm ci --ignore-scripts
+      - run: npm run decision-ci:full
+
+  historical-release-evidence:
+    name: Historical Week and Founder evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: main, fetch-depth: 0 }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: package-lock.json }
+      - run: npm ci --ignore-scripts
+      - run: npm run world-knowledge:week1:test
+      - run: npm run week2:test
+      - run: node --test scripts/ci/week3-internal-prodlike.test.mjs
+      - run: npm run founder-activation:test
+      - run: npm run founder-live:test

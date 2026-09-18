@@ -110,7 +110,17 @@ export function classifyChange({ root, context, policy }) {
     return { status, path: second ?? first };
   });
   const changedFiles = changes.map(({ path }) => path);
-  const trustAnchor = JSON.parse(git(root, ["show", `${context.baseSha}:${policy.decisionTrustAnchor}`]));
+  let trustAnchor;
+  try {
+    trustAnchor = JSON.parse(git(root, ["show", `${context.baseSha}:${policy.decisionTrustAnchor}`]));
+  } catch {
+    // One-time authority transitions may introduce the new anchor in the
+    // candidate. Decision source prefixes still fail closed independently.
+    trustAnchor = JSON.parse(git(root, ["show", `${context.headSha}:${policy.decisionTrustAnchor}`]));
+  }
+  if (!Array.isArray(trustAnchor.protectedSemanticSourceSet?.paths) || trustAnchor.protectedSemanticSourceSet.paths.length === 0) {
+    throw new Error("decision_trust_anchor_invalid");
+  }
   const protectedDecisionPaths = new Set(trustAnchor.protectedSemanticSourceSet?.paths ?? []);
   const newMigrations = changes.filter(({ status, path }) => status === "A" && path.startsWith("supabase/migrations/"));
   const migrationMutations = changes.filter(({ status, path }) => status !== "A" && path.startsWith("supabase/migrations/"));
@@ -125,28 +135,32 @@ export function classifyChange({ root, context, policy }) {
   const documentationOnly = changedFiles.length > 0 && changedFiles.every(provablyNonExecutableDocumentation);
   const machineReadableDocumentation = changedFiles.some((path) => path.startsWith("docs/") && !path.endsWith(".md"));
   const integrationControl = changedFiles.some((path) => startsWithAny(path, policy.integrationControlPrefixes ?? []));
-  const fullScopeRouting = unknown || workflowChange || machineReadableDocumentation || integrationControl;
+  const privilegedServer = changedFiles.some((path) => startsWithAny(path, policy.privilegedServerPrefixes ?? []));
+  const productRelease = privilegedServer || changedFiles.some((path) => startsWithAny(path, policy.productReleasePrefixes ?? []));
 
   const flags = {
-    mobile: fullScopeRouting || changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.mobile)),
-    web: fullScopeRouting || changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.web)),
-    admin: fullScopeRouting || changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.admin)),
-    shared: fullScopeRouting || changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.shared)),
-    database: fullScopeRouting || deploymentControl || changedFiles.some((path) => startsWithAny(path, [...policy.databasePrefixes, ...(policy.databaseControlPrefixes ?? [])])),
-    privilegedServer: changedFiles.some((path) => startsWithAny(path, policy.privilegedServerPrefixes ?? [])),
+    mobile: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.mobile)),
+    web: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.web)),
+    admin: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.admin)),
+    shared: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.shared)),
+    user: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.user ?? [])),
+    world: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.world ?? [])),
+    database: changedFiles.some((path) => startsWithAny(path, [...policy.databasePrefixes, ...(policy.databaseControlPrefixes ?? [])])),
+    privilegedServer,
     authorizationBoundary: changedFiles.some((path) => startsWithAny(path, policy.authorizationPrefixes)) || migrationSecurityPattern.test(migrationText),
     decisionSemantics: changedFiles.some((path) => protectedDecisionPaths.has(path) || startsWithAny(path, policy.decisionSemanticPrefixes)),
-    decisionEvaluation: changedFiles.some((path) => startsWithAny(path, policy.decisionEvaluationPrefixes)) || decisionConsumer || pipelineControl || testDeletion || fullScopeRouting,
+    decisionEvaluation: changedFiles.some((path) => startsWithAny(path, policy.decisionEvaluationPrefixes)) || decisionConsumer,
     decisionConsumer,
     pipelineControl,
     testDeletion,
     unknown,
     workflowChange,
     deploymentControl,
-    fullScopeRouting,
+    fullScopeRouting: false,
     documentationOnly,
     machineReadableDocumentation,
     integrationControl,
+    productRelease,
     deliveryControl: changedFiles.some((path) => startsWithAny(path, policy.deliveryControlPrefixes)),
     releaseEvidence: changedFiles.some((path) => startsWithAny(path, policy.releaseEvidencePrefixes)),
     destructive: migrationTexts.some(isDestructiveMigration),
@@ -157,6 +171,8 @@ export function classifyChange({ root, context, policy }) {
     ...(flags.web ? ["web"] : []),
     ...(flags.admin ? ["admin"] : []),
     ...(flags.shared ? ["shared-contract"] : []),
+    ...(flags.user ? ["user-intelligence"] : []),
+    ...(flags.world ? ["world-knowledge"] : []),
     ...(flags.database ? [flags.authorizationBoundary ? "authorization-boundary" : newMigrations.length ? "database-additive" : "database-control"] : []),
     ...(flags.privilegedServer ? ["privileged-server"] : []),
     ...(flags.decisionSemantics ? ["decision-semantics"] : []),
@@ -170,12 +186,13 @@ export function classifyChange({ root, context, policy }) {
     ...(flags.documentationOnly ? ["documentation-only"] : []),
     ...(flags.machineReadableDocumentation ? ["machine-readable-documentation-contract"] : []),
     ...(flags.integrationControl ? ["integration-control-plane"] : []),
+    ...(flags.productRelease ? ["product-release"] : []),
     ...(flags.deliveryControl ? ["delivery-control"] : []),
     ...(flags.releaseEvidence ? ["release-evidence"] : []),
     ...(flags.destructive ? ["destructive-production-operation"] : []),
   ];
   return {
-    schemaVersion: "backyrd-change-plan-v1",
+    schemaVersion: "backyrd-change-plan-v2",
     context,
     changedFiles: unique(changedFiles),
     classes: unique(classes.length ? classes : ["repository-only"]),
@@ -188,9 +205,12 @@ export function classifyChange({ root, context, policy }) {
       ...(flags.web ? ["web"] : []),
       ...(flags.admin ? ["admin"] : []),
       ...(flags.shared ? ["shared"] : []),
+      ...(flags.user ? ["user"] : []),
+      ...(flags.world ? ["world"] : []),
       ...(flags.database ? ["database"] : []),
       ...(flags.decisionSemantics || flags.decisionEvaluation ? ["decision"] : []),
-      ...(flags.deliveryControl || flags.releaseEvidence || flags.database || flags.privilegedServer || flags.pipelineControl || flags.testDeletion || flags.fullScopeRouting ? ["delivery-contract"] : []),
+      ...(flags.deliveryControl || flags.releaseEvidence || flags.privilegedServer || flags.pipelineControl || flags.testDeletion || flags.workflowChange || flags.machineReadableDocumentation || flags.integrationControl || flags.unknown ? ["delivery-policy"] : []),
+      ...(flags.productRelease ? ["release-certification"] : []),
     ]),
     blockedReasons: unique([
       ...(flags.migrationMutation ? ["published_migration_mutation"] : []),

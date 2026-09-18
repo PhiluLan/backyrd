@@ -1,11 +1,13 @@
 {
-  "schemaVersion": "backyrd-change-policy-v1",
-  "decisionTrustAnchor": "decision-lab/config/decision-v13-production-recertification-v44.json",
+  "schemaVersion": "backyrd-change-policy-v2",
+  "decisionTrustAnchor": "delivery/product-authority-v1.json",
   "surfacePrefixes": {
     "mobile": ["mobile/"],
     "web": ["web/", "packages/world-knowledge-authoring-ui/"],
     "admin": ["admin-dashboard/", "packages/world-knowledge-authoring-ui/"],
-    "shared": ["packages/shared/", "packages/user-intelligence-vnext-core/", "packages/world-knowledge-core/"]
+    "shared": ["packages/shared/"],
+    "user": ["packages/user-intelligence-vnext-core/", "scripts/user-intelligence/", "docs/user-intelligence-vnext/"],
+    "world": ["packages/world-knowledge-core/", "scripts/world-knowledge/", "docs/world-knowledge/"]
   },
   "databasePrefixes": [
     "supabase/migrations/",
@@ -53,9 +55,9 @@
     "scripts/decision/"
   ],
   "decisionConsumerPrefixes": [
-    "packages/shared/",
-    "packages/user-intelligence-vnext-core/",
-    "packages/world-knowledge-core/"
+    "packages/shared/src/",
+    "packages/user-intelligence-vnext-core/src/",
+    "packages/world-knowledge-core/src/"
   ],
   "decisionPipelineControlPrefixes": [
     ".github/workflows/",
@@ -78,6 +80,16 @@
     "scripts/ci/founder-activation-control-plane",
     "scripts/ci/source-aware-idempotency-migration-scope",
     "scripts/world-knowledge/build-week1-production-release-foundation"
+  ],
+  "productReleasePrefixes": [
+    "mobile/app/(tabs)/decision.tsx",
+    "mobile/lib/decision/",
+    "packages/decision-vnext-core/src/product-",
+    "packages/decision-vnext-core/src/founder-live-",
+    "supabase/functions/decision-",
+    "supabase/config.toml",
+    "scripts/deployment/",
+    "delivery/releases/"
   ],
   "knownRepositoryPrefixes": [
     ".github/",

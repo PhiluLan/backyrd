@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "backyrd-product-authority-v1",
+  "status": "ACTIVE",
+  "productRoute": "DECISION_VNEXT_SINGLE_ROUTE",
+  "legacyDecisionAuthority": false,
+  "protectedSemanticSourceSet": {
+    "paths": [
+      "mobile/app/(tabs)/decision.tsx",
+      "mobile/lib/decision/founderLiveDecision.ts",
+      "packages/decision-vnext-core/src/product-decision.ts",
+      "packages/decision-vnext-core/src/product-decision-production-adapter.ts",
+      "packages/decision-vnext-core/src/product-v1-authority.ts",
+      "packages/decision-vnext-core/src/product-v1-contracts.ts",
+      "packages/decision-vnext-core/src/product-v1-evaluator.ts",
+      "packages/user-intelligence-vnext-core/src/product-decision-learning.ts",
+      "packages/world-knowledge-core/src/port.ts",
+      "supabase/functions/decision-founder-live/index.ts"
+    ]
+  }
+}

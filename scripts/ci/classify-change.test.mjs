@@ -8,7 +8,7 @@ import { classifyChange, isDestructiveMigration } from "./classify-change.mjs";
 
 const policy = {
   decisionTrustAnchor: "decision-lab/config/anchor.json",
-  surfacePrefixes: { mobile: ["mobile/"], web: ["web/", "packages/world-knowledge-authoring-ui/"], admin: ["admin-dashboard/", "packages/world-knowledge-authoring-ui/"], shared: ["packages/shared/", "packages/user-intelligence-vnext-core/", "packages/world-knowledge-core/"] },
+  surfacePrefixes: { mobile: ["mobile/"], web: ["web/", "packages/world-knowledge-authoring-ui/"], admin: ["admin-dashboard/", "packages/world-knowledge-authoring-ui/"], shared: ["packages/shared/"], user: ["packages/user-intelligence-vnext-core/", "scripts/user-intelligence/"], world: ["packages/world-knowledge-core/", "scripts/world-knowledge/"] },
   databasePrefixes: ["supabase/migrations/", "supabase/canonical/", "supabase/tests/"],
   authorizationPrefixes: ["supabase/canonical/auth_hooks.sql", "supabase/canonical/storage.sql"],
   privilegedServerPrefixes: ["supabase/functions/", "supabase/config.toml", "supabase/production/auth-config.json"],
@@ -17,6 +17,7 @@ const policy = {
   decisionConsumerPrefixes: ["packages/shared/", "packages/user-intelligence-vnext-core/", "packages/world-knowledge-core/"],
   decisionPipelineControlPrefixes: [".github/workflows/", "package.json", "package-lock.json", "scripts/ci/classify-change.mjs", "scripts/ci/decision-", "scripts/ci/verify-decision-shards.mjs"],
   integrationControlPrefixes: ["delivery/integration/", "docs/operations/integration/", "scripts/ci/integration-", "scripts/ci/week2-dark-wiring", "scripts/ci/founder-live-control-plane", "scripts/ci/founder-activation-control-plane", "scripts/ci/source-aware-idempotency-migration-scope", "scripts/world-knowledge/build-week1-production-release-foundation"],
+  productReleasePrefixes: ["mobile/app/(tabs)/decision.tsx", "mobile/lib/decision/", "packages/decision-vnext-core/src/product-", "supabase/functions/decision-", "scripts/deployment/"],
   knownRepositoryPrefixes: [".github/", "README.md", "admin-dashboard/", "decision-lab/", "docs/", "mobile/", "package.json", "package-lock.json", "packages/", "scripts/", "supabase/", "web/"],
   deliveryControlPrefixes: [".github/workflows/", "delivery/", "scripts/ci/", "scripts/deployment/", "docs/operations/"],
   releaseEvidencePrefixes: ["docs/operations/releases/"],
@@ -45,8 +46,8 @@ for (const [label, path, flag] of [
   ["Web presentation", "web/components/Card.tsx", "web"],
   ["Admin presentation", "admin-dashboard/components/Card.tsx", "admin"],
   ["shared Product contract", "packages/shared/src/contract.ts", "shared"],
-  ["User Intelligence vNext contract", "packages/user-intelligence-vnext-core/src/contracts.ts", "shared"],
-  ["World Knowledge foundation contract", "packages/world-knowledge-core/src/contracts.ts", "shared"],
+  ["User Intelligence vNext contract", "packages/user-intelligence-vnext-core/src/contracts.ts", "user"],
+  ["World Knowledge foundation contract", "packages/world-knowledge-core/src/contracts.ts", "world"],
 ]) test(`${label} selects only its relevant surface gate`, () => {
   const result = plan({ files: { [path]: "export const value = true;\n" } });
   assert.equal(result.flags[flag], true);
@@ -106,6 +107,16 @@ test("protected source changes select Decision recertification while evaluator-o
   assert.equal(evaluator.flags.decisionEvaluation, true);
 });
 
+test("a new Product authority can replace the legacy anchor without opening Decision source routing", () => {
+  const { root, base } = fixture();
+  put(root, "delivery/product-authority-v1.json", JSON.stringify({ protectedSemanticSourceSet: { paths: ["packages/decision-vnext-core/src/product.ts"] } }));
+  put(root, "packages/decision-vnext-core/src/product.ts", "export const product = true;\n");
+  const head = commit(root, "product authority transition");
+  const result = classifyChange({ root, context: { baseSha: base, headSha: head }, policy: { ...policy, decisionTrustAnchor: "delivery/product-authority-v1.json" } });
+  assert.equal(result.flags.decisionSemantics, true);
+  assert.ok(result.requiredGates.includes("decision"));
+});
+
 test("independent vNext core and sandbox select the Decision gate", () => {
   const core = plan({ files: { "packages/decision-vnext-core/src/index.ts": "export const spine = true;\n" } });
   assert.equal(core.flags.decisionSemantics, true);
@@ -123,31 +134,29 @@ test("World, User and shared contract changes select Decision consumer regressio
   }
 });
 
-test("Week-2 integration controls fail closed to the complete gate set", () => {
+test("historical integration controls select delivery policy without rebuilding every product surface", () => {
   for (const path of ["delivery/integration/week2-dark-wiring-manifest.json", "scripts/ci/week2-dark-wiring-preflight.mjs", "docs/operations/integration/WEEK2_RELEASE_TRAIN.md", "scripts/ci/founder-live-control-plane.mjs", "scripts/ci/founder-activation-control-plane.mjs", "scripts/ci/source-aware-idempotency-migration-scope.mjs", "scripts/world-knowledge/build-week1-production-release-foundation.mjs"]) {
     const result = plan({ files: { [path]: path.endsWith(".json") ? "{}\n" : "control\n" } });
     assert.equal(result.flags.integrationControl, true);
     assert.ok(result.classes.includes("integration-control-plane"));
-    for (const gate of ["mobile", "web", "admin", "shared", "database", "decision", "delivery-contract"]) assert.ok(result.requiredGates.includes(gate));
+    const expected = path.startsWith("scripts/world-knowledge/") ? ["delivery-policy", "repository-security", "world"] : ["delivery-policy", "repository-security"];
+    assert.deepEqual(result.requiredGates, expected);
   }
 });
 
-test("workflow and package routing changes force the complete Decision pipeline self-test", () => {
+test("workflow and package routing changes validate delivery policy without triggering unrelated products", () => {
   for (const path of [".github/workflows/risk-gate.yml", "package.json", "scripts/ci/decision-test-plan.mjs"]) {
     const result = plan({ files: { [path]: "changed\n" } });
     assert.equal(result.flags.pipelineControl, true);
-    assert.ok(result.requiredGates.includes("decision"));
-    assert.ok(result.requiredGates.includes("delivery-contract"));
-    if (path !== "scripts/ci/decision-test-plan.mjs") {
-      for (const gate of ["mobile", "web", "admin", "shared", "database", "decision", "delivery-contract"]) assert.ok(result.requiredGates.includes(gate));
-    }
+    assert.ok(result.requiredGates.includes("delivery-policy"));
+    if (path !== "scripts/ci/decision-test-plan.mjs") assert.deepEqual(result.requiredGates, ["delivery-policy", "repository-security"]);
   }
 });
 
 test("unknown files and deleted tests cannot silently bypass routing", () => {
   const unknown = plan({ files: { "unclassified-surface/value.bin": "opaque\n" } });
   assert.equal(unknown.flags.unknown, true);
-  for (const gate of ["mobile", "web", "admin", "shared", "database", "decision", "delivery-contract"]) assert.ok(unknown.requiredGates.includes(gate));
+  assert.deepEqual(unknown.requiredGates, ["delivery-policy", "repository-security"]);
 
   const { root, base } = fixture();
   put(root, "packages/decision-vnext-core/test/deleted.test.mjs", "test('required',()=>{});\n");
@@ -168,15 +177,15 @@ test("only proven non-executable Markdown takes the documentation-only shortcut"
 
   const machineReadable = plan({ files: { "docs/product/contract.json": "{}\n" } });
   assert.equal(machineReadable.flags.documentationOnly, false);
-  assert.ok(machineReadable.requiredGates.includes("decision"));
-  assert.ok(machineReadable.requiredGates.includes("delivery-contract"));
+  assert.deepEqual(machineReadable.requiredGates, ["delivery-policy", "repository-security"]);
 });
 
 test("Supabase deployment controls select database and delivery verification", () => {
   const result = plan({ files: { "scripts/deployment/release.mjs": "export const release = false;\n" } });
   assert.equal(result.flags.deploymentControl, true);
-  assert.ok(result.requiredGates.includes("database"));
-  assert.ok(result.requiredGates.includes("delivery-contract"));
+  assert.ok(!result.requiredGates.includes("database"));
+  assert.ok(result.requiredGates.includes("delivery-policy"));
+  assert.ok(result.requiredGates.includes("release-certification"));
 });
 
 test("shared authoring UI selects web and admin fast lanes without Decision recertification", () => {
@@ -188,7 +197,7 @@ test("shared authoring UI selects web and admin fast lanes without Decision rece
 
 test("WorldKnowledgePort changes still select relevant Decision checks", () => {
   const result = plan({ files: { "packages/world-knowledge-core/src/port.ts": "export const port = true;\n" } });
-  assert.equal(result.flags.shared, true);
+  assert.equal(result.flags.world, true);
   assert.equal(result.flags.decisionSemantics, true);
   assert.ok(result.requiredGates.includes("decision"));
 });
@@ -197,7 +206,8 @@ test("privileged Edge Function source selects the server deployment contract", (
   const result = plan({ files: { "supabase/functions/example/index.ts": "Deno.serve(() => new Response('ok'));\n" } });
   assert.equal(result.flags.privilegedServer, true);
   assert.ok(result.classes.includes("privileged-server"));
-  assert.ok(result.requiredGates.includes("delivery-contract"));
+  assert.ok(result.requiredGates.includes("delivery-policy"));
+  assert.ok(result.requiredGates.includes("release-certification"));
 });
 
 test("published migration mutation is identified independently", () => {

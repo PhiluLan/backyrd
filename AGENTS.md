@@ -153,6 +153,17 @@ AI may propose; deterministic controls and accountable humans decide.
 
 Git is the source of truth and the backup. Generated artifacts, secrets, local configuration, and manual backup copies do not belong in commits.
 
+## Delivery workflow (frozen)
+
+- Follow `docs/operations/DELIVERY_WORKFLOW_V2.md`.
+- Classify work as FAST_PR, DATABASE_PR, PRODUCT_RELEASE,
+  PRODUCTION_RELEASE, or DEEP_RECERTIFICATION.
+- Routine work runs only affected gates. Do not add historical Week-1/2/3,
+  Founder-Lab, synthetic-world, or full-repository recertification to a normal
+  PR gate.
+- A new gate must own a unique invariant and replace overlapping checks.
+- Production workflows are manual-only and bind an exact canonical Main SHA.
+
 ## Definition of Done
 
 A change is complete only when:
