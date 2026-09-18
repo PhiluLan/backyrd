@@ -6,8 +6,8 @@ import {
   type DecisionProductResponse,
   type DecisionProductRequest,
   type DecisionProductInteractionRequest,
-} from "@backyrd/founder-live-control-plane";
-import { DECISION_PRODUCT_RELEASE_BINDING } from "./founderLiveRelease.generated";
+} from "@backyrd/product-decision-contract";
+import { DECISION_PRODUCT_RELEASE_BINDING } from "./productDecisionRelease.generated";
 
 type InvokeResult<T> = { data: T | null; error: unknown };
 

@@ -21,6 +21,7 @@ const policy = {
   knownRepositoryPrefixes: [".github/", "README.md", "admin-dashboard/", "decision-lab/", "docs/", "mobile/", "package.json", "package-lock.json", "packages/", "scripts/", "supabase/", "web/"],
   deliveryControlPrefixes: [".github/workflows/", "delivery/", "scripts/ci/", "scripts/deployment/", "docs/operations/"],
   releaseEvidencePrefixes: ["docs/operations/releases/"],
+  retiredPrefixes: ["decision-lab/", "scripts/decision/", "packages/decision-vnext-core/sandbox/", "docs/operations/integration/"],
 };
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
 const put = (root, path, value) => { mkdirSync(dirname(join(root, path)), { recursive: true }); writeFileSync(join(root, path), value); };
@@ -181,6 +182,12 @@ test("unknown files and deleted tests cannot silently bypass routing", () => {
   assert.equal(result.flags.testDeletion, true);
   assert.ok(result.classes.includes("test-routing-change"));
   assert.notEqual(base, head);
+});
+
+test("retired systems are read-only history and can only be deleted", () => {
+  const mutation = plan({ files: { "decision-lab/src/revival.mjs": "export const revived = true;\n" } });
+  assert.ok(mutation.classes.includes("retired-system-removal"));
+  assert.ok(mutation.blockedReasons.includes("retired_system_is_read_only_and_may_only_be_deleted"));
 });
 
 test("cross-domain changes receive the union of every affected gate", () => {

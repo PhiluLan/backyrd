@@ -22,12 +22,15 @@ test("routine Risk Gate is task-scoped and keeps the stable final gate", () => {
   ]) assert.doesNotMatch(workflow, new RegExp(obsolete.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
-test("historical recertification is isolated from pull requests", () => {
+test("current Product system recertification is isolated from pull requests", () => {
   const workflow = read(".github/workflows/deep-recertification.yml");
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /schedule:/);
   assert.doesNotMatch(workflow, /pull_request:/);
-  assert.match(workflow, /decision-ci:full/);
+  assert.match(workflow, /decision-product:ci/);
+  assert.match(workflow, /world-knowledge:test/);
+  assert.match(workflow, /user-intelligence-vnext:test/);
+  assert.doesNotMatch(workflow, /decision-ci:full|decision-lab|week[123]|founder-activation/);
   assert.match(workflow, /gh issue create/);
   assert.match(workflow, /Production release is blocked/);
 });

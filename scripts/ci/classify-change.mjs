@@ -158,6 +158,8 @@ export function classifyChange({ root, context, policy }) {
   const integrationControl = changedFiles.some((path) => startsWithAny(path, policy.integrationControlPrefixes ?? []));
   const privilegedServer = changedFiles.some((path) => startsWithAny(path, policy.privilegedServerPrefixes ?? []));
   const productRelease = privilegedServer || changedFiles.some((path) => startsWithAny(path, policy.productReleasePrefixes ?? []));
+  const retiredChanges = changes.filter(({ path }) => startsWithAny(path, policy.retiredPrefixes ?? []));
+  const retiredMutation = retiredChanges.some(({ status }) => status !== "D");
 
   const flags = {
     mobile: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.mobile)),
@@ -183,6 +185,8 @@ export function classifyChange({ root, context, policy }) {
     machineReadableDocumentation,
     integrationControl,
     productRelease,
+    retiredSystem: retiredChanges.length > 0,
+    retiredMutation,
     deliveryControl: changedFiles.some((path) => startsWithAny(path, policy.deliveryControlPrefixes)),
     releaseEvidence: changedFiles.some((path) => startsWithAny(path, policy.releaseEvidencePrefixes)),
     destructive: migrationTexts.some(({ path, text }) => isDestructiveMigration(text) && !isAuthorizedBoundedMigration(path, text, trustAnchor)),
@@ -210,6 +214,7 @@ export function classifyChange({ root, context, policy }) {
     ...(flags.machineReadableDocumentation ? ["machine-readable-documentation-contract"] : []),
     ...(flags.integrationControl ? ["integration-control-plane"] : []),
     ...(flags.productRelease ? ["product-release"] : []),
+    ...(flags.retiredSystem ? ["retired-system-removal"] : []),
     ...(flags.deliveryControl ? ["delivery-control"] : []),
     ...(flags.releaseEvidence ? ["release-evidence"] : []),
     ...(flags.destructive ? ["destructive-production-operation"] : []),
@@ -240,6 +245,7 @@ export function classifyChange({ root, context, policy }) {
       ...(flags.migrationMutation ? ["published_migration_mutation"] : []),
       ...(flags.destructive ? ["destructive_migration_requires_separate_founder_cto_authorization"] : []),
       ...(flags.unknown ? ["unknown_path_requires_explicit_risk_classification"] : []),
+      ...(flags.retiredMutation ? ["retired_system_is_read_only_and_may_only_be_deleted"] : []),
     ]),
   };
 }

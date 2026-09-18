@@ -89,9 +89,9 @@ for (const file of sourceFiles) {
 }
 
 const decision = fs.readFileSync(path.join(root, "app/(tabs)/decision.tsx"), "utf8");
-const decisionClient = fs.readFileSync(path.join(root, "lib/decision/founderLiveDecision.ts"), "utf8");
-const decisionBinding = fs.readFileSync(path.join(root, "lib/decision/founderLiveRelease.generated.ts"), "utf8");
-const decisionControl = fs.readFileSync(path.join(root, "packages/founder-live-control-plane/src/index.mjs"), "utf8");
+const decisionClient = fs.readFileSync(path.join(root, "lib/decision/productDecision.ts"), "utf8");
+const decisionBinding = fs.readFileSync(path.join(root, "lib/decision/productDecisionRelease.generated.ts"), "utf8");
+const decisionControl = fs.readFileSync(path.join(root, "packages/product-decision-contract/src/index.mjs"), "utf8");
 const activeDecisionPath = `${decision}\n${decisionClient}\n${decisionBinding}\n${decisionControl}`;
 
 for (const [label, source, pattern] of [

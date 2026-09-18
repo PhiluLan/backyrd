@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
-import { validateFounderLiveDocuments, verifyFounderCanonicalDescendantIdentity, verifyFounderDescendantMigrationChanges, verifyFounderIdentityMode, verifyFounderSealScope } from "./founder-live-control-plane.mjs";
+import { validateFounderLiveDocuments, verifyFounderCanonicalDescendantIdentity, verifyFounderDescendantMigrationChanges, verifyFounderIdentityMode, verifyFounderSealScope } from "./product-decision-contract.mjs";
 
 const root = new URL("../..", import.meta.url);
 const load = (path) => JSON.parse(readFileSync(new URL(path, root), "utf8"));
@@ -66,8 +66,8 @@ test("canonical descendant PR and main identities preserve every sealed Founder-
 });
 
 test("mobile integration has no client activation toggle, raw telemetry, or second UI", () => {
-  const client = readFileSync(new URL("mobile/lib/decision/founderLiveDecision.ts", root), "utf8");
-  const clientContract = readFileSync(new URL("mobile/packages/founder-live-control-plane/src/index.mjs", root), "utf8");
+  const client = readFileSync(new URL("mobile/lib/decision/productDecision.ts", root), "utf8");
+  const clientContract = readFileSync(new URL("mobile/packages/product-decision-contract/src/index.mjs", root), "utf8");
   const serverAuthority = readFileSync(new URL("packages/decision-vnext-core/src/product-decision-production-adapter.ts", root), "utf8");
   const screen = readFileSync(new URL("mobile/app/(tabs)/decision.tsx", root), "utf8");
   const tabs = readFileSync(new URL("mobile/app/(tabs)/_layout.tsx", root), "utf8");

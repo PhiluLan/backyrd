@@ -8,14 +8,14 @@ const REQUIRE = (condition, reason) => {
 };
 
 const ACTIVE_SOURCE_PATHS = Object.freeze([
-  "mobile/lib/decision/founderLiveDecision.ts",
-  "mobile/packages/founder-live-control-plane/src/index.mjs",
+  "mobile/lib/decision/productDecision.ts",
+  "mobile/packages/product-decision-contract/src/index.mjs",
   "web/lib/decision-web-api.ts",
   "supabase/functions/decision-v13/vnext-only.ts",
 ]);
 
 const DEPLOY_ENTRYPOINT = "supabase/functions/decision-v13/index.deploy.ts";
-const GENERATED_BINDING = "mobile/lib/decision/founderLiveRelease.generated.ts";
+const GENERATED_BINDING = "mobile/lib/decision/productDecisionRelease.generated.ts";
 const SUPABASE_CONFIG = "supabase/config.toml";
 const PRODUCT_AUTHORITY = "delivery/product-authority-v1.json";
 const RISK_GATE = ".github/workflows/risk-gate.yml";

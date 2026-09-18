@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import http from "node:http";
 import { chromium } from "@playwright/test";
-import { DECISION_PRODUCT_CONTRACT, validateDecisionProductRequest } from "../../mobile/packages/founder-live-control-plane/src/index.mjs";
+import { DECISION_PRODUCT_CONTRACT, validateDecisionProductRequest } from "../../mobile/packages/product-decision-contract/src/index.mjs";
 
 const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const auth = "synthetic-founder-admin-0001";

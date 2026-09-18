@@ -2,10 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { ACCEPTED_SOURCE_POLICY, WORLD_KNOWLEDGE_PORT_VERSION, buildWorldKnowledgeSnapshot, parseBuildWorldKnowledgeInput, resolutionRequest, resolveWorldKnowledge } from "@backyrd/world-knowledge-core";
+import { canonicalBytes as userCanonicalBytes, contentHash as userContentHash, parseRelevantUserProjection, projectionHashBody } from "@backyrd/user-intelligence-vnext-core";
 import {
   DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY, DECISION_PRODUCT_RANKING_POLICY,
   DecisionProductCandidateAssessmentSchema, DecisionProductContextSchema, DecisionProductEvaluationSchema, DecisionProductRequestSchema, DecisionProductWorldCohortSchema, PRODUCT_DECISION_VERSIONS,
-  SyntheticPhase2UserProjectionPort, SyntheticUserProjectionReader, buildDecisionInteractionLearningEvent, buildDecisionProductExecution,
+  buildDecisionInteractionLearningEvent, buildDecisionProductExecution,
   canonicalJson, contentHash, createDecisionProductHttpHandler,
   createDecisionProductEvaluator, evaluateProductV1IntentClassification, validateDecisionProductExecution, withContentHash,
 } from "../dist/index.js";
@@ -36,16 +37,19 @@ async function fixture(request, mode = "NO_CONSENT") {
     group: { size: null, minimumAge: null, adultPresent: false, companionType: null }, budget: { state: "UNKNOWN", amount: null, currency: null, perPerson: false, calibrationLabel: null },
     stayDuration: null, hardConstraints: [], softPreferences: [], unresolvedTerms: [], locationAuthority: { explicitTargetWins: true, authorizedCity: "Zurich", deviceCityUsed: false, state: "KNOWN" }, limitations: [], rawTextPersisted: false,
   }, "interpretationHash"));
-  const projectionRequest = {
-    contractVersion: "backyrd.user-intelligence.projection-request@1.0", requestId: `projection-${request.requestId}`,
-    actor: { kind: "AUTHENTICATED_USER", userId: ACTOR.userId, subjectBindingHash: ACTOR.subjectBindingHash, authenticationContextHash: ACTOR.authenticationContextHash, boundBy: "SERVER" },
-    decisionId, snapshot: mode === "ACTIVE" ? { snapshotId: "synthetic-product-snapshot", snapshotHash: "5".repeat(64) } : null,
-    context: { contextContractVersion: interpretation.contractVersion, contextHash: interpretation.interpretationHash, placeTypes: [], domainKeys: [], rawLocationIncluded: false, socialDetailsIncluded: false },
-    requestedDomains: [], budgets: { maxItems: 16, maxBytes: 8192 }, projectionPolicyVersion: "product-test-policy-v1", killSwitch: false,
+  const neutral = mode !== "ACTIVE";
+  const projectionBody = {
+    contractVersion: "backyrd.user-intelligence.projection@1.0", projectionId: `product-projection-${request.requestId}`, decisionId,
+    subjectBindingHash: neutral ? userContentHash("backyrd.user-intelligence.neutral-subject-binding@1.0") : ACTOR.subjectBindingHash,
+    snapshot: neutral ? null : { snapshotId: "product-snapshot", snapshotHash: "5".repeat(64) },
+    manifest: { manifestId: "product-user-manifest", manifestHash: "6".repeat(64) }, status: neutral ? "NEUTRAL" : "ACTIVE",
+    neutralReason: neutral ? mode : null, taste: [], practical: [], directSpot: [], domainSufficiency: [], knowledgeLevel: "UNKNOWN",
+    suppression: { total: 0, byReason: [] },
+    boundaries: { rawEventsIncluded: false, reviewTextIncluded: false, rawLocationIncluded: false, privateSocialDataIncluded: false, eligibilityAuthority: false, rankingAuthority: false },
+    budgets: { maxItems: 16, maxBytes: 8192, actualItems: 0, canonicalPayloadBytes: 0 }, technicalMetadata: { createdAt: SERVER_TIME },
   };
-  const projection = mode === "ACTIVE"
-    ? await new SyntheticPhase2UserProjectionPort("ACTIVE").project(projectionRequest)
-    : await new SyntheticUserProjectionReader(mode).project(projectionRequest);
+  projectionBody.budgets.canonicalPayloadBytes = userCanonicalBytes(projectionHashBody(projectionBody));
+  const projection = parseRelevantUserProjection({ ...projectionBody, projectionHash: userContentHash(projectionHashBody(projectionBody)) });
   const evaluatorContractVersion = "decision-vnext-product-evaluator@1.0";
   const candidate = (id, state, tier) => DecisionProductCandidateAssessmentSchema.parse(withContentHash({
     contractVersion: PRODUCT_DECISION_VERSIONS.assessment, candidateId: id, snapshotHash: contentHash({ id, snapshot: true }), tier,

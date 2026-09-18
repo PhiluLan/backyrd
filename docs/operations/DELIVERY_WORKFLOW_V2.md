@@ -41,14 +41,14 @@ Manual workflow only. Requires an exact canonical Main SHA, explicit release
 confirmation, recovery readiness, source-aware plan, apply, post-deploy smoke
 and rollback criteria. A push can never trigger it.
 
-### DEEP_RECERTIFICATION
+### PRODUCT_SYSTEM_RECERTIFICATION
 
-Weekly and manually runnable. Contains historical Decision Lab, synthetic
-worlds/profiles and old Week/Founder evidence. It detects long-range drift but
-does not block an unrelated routine PR. A failure automatically opens a
-release-blocking incident. Development may continue, but Production remains
-blocked until a successful run closes the incident. Production also rejects a
-missing or older-than-eight-days recertification.
+Weekly and manually runnable. Revalidates the current Product-v1 Decision,
+World and User systems only. Historical phases, Week milestones, Founder Labs
+and retired routes are Git history, not executable release authority. A failure
+automatically opens a release-blocking incident. Development may continue, but
+Production remains blocked until a successful run closes the incident.
+Production also rejects a missing or older-than-eight-days recertification.
 
 ### SUPPLY_CHAIN
 
@@ -84,8 +84,8 @@ rejected, and every third-party Action is pinned to a full commit SHA.
 - unrelated Mobile/Web/Admin/Database rebuilds caused by workflow, package,
   documentation or integration-control changes
 
-The tools remain available through Deep Recertification until final archival
-review. They are not active Product authority.
+The retired tools are not callable from the root command surface and are not
+active Product authority. Git history is their archive.
 
 ## Developer contract
 

@@ -1,5 +1,7 @@
 import type { PortKnowledgeEntry, WorldKnowledgeSnapshot } from "@backyrd/world-knowledge-core";
-import { PHASE1_VERSIONS } from "./manifest.js";
+
+const OPENING_STATE_VERSION = "backyrd-vnext-opening-state-evaluator-v1" as const;
+const SYNTHETIC_OPENING_POLICY_VERSION = "backyrd-vnext-synthetic-opening-source-policy-v1-unapproved" as const;
 
 export type OpeningStatus = "open" | "closed" | "unknown" | "not_authorized" | "expired" | "disputed";
 
@@ -10,13 +12,13 @@ export interface OpeningSourcePolicy {
 }
 
 export const SYNTHETIC_OPENING_SOURCE_POLICY: OpeningSourcePolicy = Object.freeze({
-  version: PHASE1_VERSIONS.openingSourcePolicy,
+  version: SYNTHETIC_OPENING_POLICY_VERSION,
   configured: true,
   authorizedTrustStates: ["REFERENCED", "VERIFIED"] as const,
 });
 
 export interface OpeningStateEvaluation {
-  readonly evaluatorVersion: typeof PHASE1_VERSIONS.openingState;
+  readonly evaluatorVersion: typeof OPENING_STATE_VERSION;
   readonly sourcePolicyVersion: string;
   readonly status: OpeningStatus;
   readonly basisEntryHashes: readonly string[];
@@ -54,7 +56,7 @@ const containsSameDay = (intervals: readonly Interval[], minute: number) => inte
 const containsCarryOver = (intervals: readonly Interval[], minute: number) => intervals.some((interval) => minutes(interval.start) > minutes(interval.end) && minute < minutes(interval.end));
 
 export function evaluateOpeningState(snapshot: WorldKnowledgeSnapshot, at: string, policy: OpeningSourcePolicy): OpeningStateEvaluation {
-  const result = (status: OpeningStatus, basisEntryHashes: readonly string[] = [], limitations: readonly string[] = []): OpeningStateEvaluation => ({ evaluatorVersion: PHASE1_VERSIONS.openingState, sourcePolicyVersion: policy.version, status, basisEntryHashes: [...basisEntryHashes].sort(), limitations: [...limitations].sort() });
+  const result = (status: OpeningStatus, basisEntryHashes: readonly string[] = [], limitations: readonly string[] = []): OpeningStateEvaluation => ({ evaluatorVersion: OPENING_STATE_VERSION, sourcePolicyVersion: policy.version, status, basisEntryHashes: [...basisEntryHashes].sort(), limitations: [...limitations].sort() });
   const temporalConflict = snapshot.conflicts.some((conflict) => conflict.severity === "BLOCKING" && conflict.attributeKeys.some((key) => key === "hours.regular" || key === "hours.special" || key === "state.current"));
   if (temporalConflict) return result("disputed", [], ["blocking-temporal-conflict"]);
   if (!policy.configured) return result("not_authorized", [], ["opening-source-policy-not-configured"]);

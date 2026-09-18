@@ -37,22 +37,14 @@
   ],
   "decisionSemanticPrefixes": [
     "packages/decision-vnext-core/src/",
-    "packages/canonical-semantics/src/",
-    "packages/decision-input-runtime/src/",
-    "packages/decision-orchestrator-runtime/src/",
-    "packages/n6-shadow-runtime/src/",
     "packages/world-knowledge-core/src/port.ts",
     "supabase/functions/decision-v13/"
   ],
   "decisionEvaluationPrefixes": [
     "packages/decision-vnext-core/test/",
     "packages/decision-vnext-core/type-tests/",
-    "packages/decision-vnext-core/sandbox/",
-    "decision-lab/src/",
-    "decision-lab/config/",
-    "decision-lab/baselines/",
-    "decision-lab/test/",
-    "scripts/decision/"
+    "scripts/ci/run-product-decision-ci.mjs",
+    "scripts/ci/product-release-e2e.mjs"
   ],
   "decisionConsumerPrefixes": [
     "packages/shared/src/",
@@ -65,28 +57,22 @@
     "package-lock.json",
     "scripts/ci/classify-change.mjs",
     "scripts/ci/classify-change.test.mjs",
-    "scripts/ci/decision-",
-    "scripts/ci/validate-decision-test-plan.mjs",
-    "scripts/ci/verify-decision-shards.mjs",
+    "scripts/ci/run-product-decision-ci.mjs",
+    "scripts/ci/product-release-",
     "scripts/ci/verify-risk-gate.mjs",
     "scripts/ci/verify-risk-gate.test.mjs"
   ],
   "integrationControlPrefixes": [
-    "delivery/integration/",
-    "docs/operations/integration/",
-    "scripts/ci/integration-",
-    "scripts/ci/week2-dark-wiring",
-    "scripts/ci/founder-live-control-plane",
-    "scripts/ci/founder-activation-control-plane",
-    "scripts/ci/source-aware-idempotency-migration-scope",
-    "scripts/world-knowledge/build-week1-production-release-foundation"
+    "delivery/releases/",
+    "docs/operations/releases/",
+    "scripts/ci/product-release-"
   ],
   "productReleasePrefixes": [
     "mobile/app/(tabs)/decision.tsx",
     "mobile/lib/decision/",
+    "mobile/packages/product-decision-contract/",
     "packages/decision-vnext-core/src/product-",
-    "packages/decision-vnext-core/src/founder-live-",
-    "supabase/functions/decision-",
+    "supabase/functions/decision-v13/",
     "supabase/config.toml",
     "scripts/deployment/",
     "delivery/releases/"
@@ -119,5 +105,11 @@
   "releaseEvidencePrefixes": [
     "docs/operations/releases/",
     "docs/operations/production-lineage-candidates/"
+  ],
+  "retiredPrefixes": [
+    "decision-lab/",
+    "scripts/decision/",
+    "packages/decision-vnext-core/sandbox/",
+    "docs/operations/integration/"
   ]
 }

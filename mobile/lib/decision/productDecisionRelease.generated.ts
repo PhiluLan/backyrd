@@ -1,5 +1,5 @@
 // Generated from the sealed Decision Product release manifest. Do not hand-edit.
-import type { DecisionProductReleaseBinding } from "@backyrd/founder-live-control-plane";
+import type { DecisionProductReleaseBinding } from "@backyrd/product-decision-contract";
 
 export const DECISION_PRODUCT_RELEASE_BINDING: DecisionProductReleaseBinding = Object.freeze({
   "status": "PRODUCT_SINGLE_ROUTE_BOUND",

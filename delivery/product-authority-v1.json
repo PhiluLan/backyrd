@@ -30,7 +30,7 @@
   "protectedSemanticSourceSet": {
     "paths": [
       "mobile/app/(tabs)/decision.tsx",
-      "mobile/lib/decision/founderLiveDecision.ts",
+      "mobile/lib/decision/productDecision.ts",
       "packages/decision-vnext-core/src/product-decision.ts",
       "packages/decision-vnext-core/src/product-decision-production-adapter.ts",
       "packages/decision-vnext-core/src/product-v1-authority.ts",

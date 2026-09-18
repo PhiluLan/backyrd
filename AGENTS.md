@@ -157,7 +157,10 @@ Git is the source of truth and the backup. Generated artifacts, secrets, local c
 
 - Follow `docs/operations/DELIVERY_WORKFLOW_V2.md`.
 - Classify work as FAST_PR, DATABASE_PR, PRODUCT_RELEASE,
-  PRODUCTION_RELEASE, or DEEP_RECERTIFICATION.
+  PRODUCTION_RELEASE, or PRODUCT_SYSTEM_RECERTIFICATION.
+- Treat `docs/architecture/PRODUCT_V1_ACTIVE_SURFACE.md` as the only active
+  Decision product surface. Historical phases, labs, weeks, Founder routes
+  and shadow runtimes are read-only Git history, not implementation options.
 - Routine work runs only affected gates. Do not add historical Week-1/2/3,
   Founder-Lab, synthetic-world, or full-repository recertification to a normal
   PR gate.

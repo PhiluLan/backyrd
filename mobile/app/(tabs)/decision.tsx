@@ -7,14 +7,14 @@ import * as Crypto from "expo-crypto";
 import { AppText } from "@/components/foundation/AppText";
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { getMyProductEntryStatus } from "@/lib/onboardingStatus";
-import { invokeDecisionProduct, recordDecisionProductInteraction } from "@/lib/decision/founderLiveDecision";
+import { invokeDecisionProduct, recordDecisionProductInteraction } from "@/lib/decision/productDecision";
 import { supabase } from "@/lib/supabase";
 import { userFacingError } from "@/lib/userFacingError";
 import {
   DECISION_PRODUCT_CONTRACT,
   type DecisionProductResponse,
   type DecisionProductRequest,
-} from "@backyrd/founder-live-control-plane";
+} from "@backyrd/product-decision-contract";
 
 type DecisionStatus = "idle" | "checking" | "deciding" | "success" | "empty" | "error";
 type DecisionInputMode = "guided" | "free";

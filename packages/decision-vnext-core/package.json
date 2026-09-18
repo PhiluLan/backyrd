@@ -14,16 +14,6 @@
     "build": "tsc -p tsconfig.build.json",
     "pretypecheck": "npm run build --workspace @backyrd/world-knowledge-core && npm run build --workspace @backyrd/user-intelligence-vnext-core",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run build && node --test test/*.test.mjs",
-    "sandbox:smoke": "npm run build && node sandbox/run.mjs sandbox/config/world-smoke-v1.json",
-    "sandbox:full": "npm run build && node sandbox/run.mjs sandbox/config/world-phase1-v1.json && node sandbox/run.mjs sandbox/config/world-phase1-seed-1002-v1.json",
-    "phase2:evaluate": "npm run build && node sandbox/evaluate-phase2.mjs sandbox/config/world-smoke-v1.json",
-    "phase2:full": "npm run build && node sandbox/evaluate-phase2.mjs sandbox/config/world-phase1-v1.json && node sandbox/evaluate-phase2.mjs sandbox/config/world-phase1-seed-1002-v1.json",
-    "phase3a:context": "npm run build && node sandbox/evaluate-context-phase3a.mjs",
-    "phase3b:context": "npm run build && node sandbox/evaluate-context-phase3b.mjs",
-    "phase3c:lab": "npm run build && node sandbox/evaluate-phase3c.mjs",
-    "shadow:week1": "npm run build && node sandbox/evaluate-dark-shadow-week1.mjs",
-    "dark-request:week2": "npm run build && node sandbox/evaluate-dark-request-week2.mjs",
-    "internal-dark-shadow:week3": "npm run build && node sandbox/evaluate-internal-dark-shadow-week3.mjs"
+    "test": "npm run build && node --test test/product-decision-single-route.test.mjs test/product-decision-production-adapter.test.mjs test/product-runtime-composition.test.mjs test/isolation.test.mjs"
   }
 }

@@ -16,7 +16,7 @@ const walk = (root) => readdirSync(root, { withFileTypes: true }).flatMap((entry
 export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDir, mobileBundle }) {
   const canonicalSha = git(root, ["rev-parse", sourceSha]);
   const treeSha = git(root, ["rev-parse", `${canonicalSha}^{tree}`]);
-  const tracked = git(root, ["ls-tree", "-r", "--name-only", canonicalSha, "--", "supabase/functions", "supabase/migrations", "supabase/config.toml", "supabase/production"])
+  const tracked = git(root, ["ls-tree", "-r", "--name-only", canonicalSha, "--", "supabase/functions/decision-v13", "supabase/migrations", "supabase/config.toml", "supabase/production"])
     .split("\n").filter(Boolean).sort();
   const bundleRoot = resolve(outputDir, "bundle");
   mkdirSync(bundleRoot, { recursive: true });
@@ -40,13 +40,15 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   }
   files.sort((left, right) => left.path.localeCompare(right.path));
   const body = {
-    contractVersion: "backyrd.product-release-manifest@1.0",
+    contractVersion: "backyrd.product-release-manifest@2.0",
     sourceSha: canonicalSha,
     sourceTreeSha: treeSha,
     buildOnceDeploySameArtifact: true,
     nodeMajor: Number(process.versions.node.split(".")[0]),
     components: {
-      supabase: files.filter(({ path }) => path.startsWith("supabase/")),
+      productRuntime: files.filter(({ path }) => path.startsWith("supabase/functions/decision-v13/")),
+      database: files.filter(({ path }) => path.startsWith("supabase/migrations/")),
+      releaseConfiguration: files.filter(({ path }) => path === "supabase/config.toml" || path.startsWith("supabase/production/")),
       mobileUpdate: files.filter(({ path }) => path.startsWith("mobile-update/")),
     },
   };
@@ -58,10 +60,16 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
 export function verifyProductReleaseManifest({ artifactDir, expectedHash, expectedSourceSha, checkoutRoot }) {
   const manifest = JSON.parse(readFileSync(resolve(artifactDir, "release-manifest.json"), "utf8"));
   const { manifestHash, ...body } = manifest;
-  if (manifest.contractVersion !== "backyrd.product-release-manifest@1.0") throw new Error("release_manifest_contract_invalid");
+  if (manifest.contractVersion !== "backyrd.product-release-manifest@2.0") throw new Error("release_manifest_contract_invalid");
   if (sha256(JSON.stringify(body)) !== manifestHash || manifestHash !== expectedHash) throw new Error("release_manifest_hash_mismatch");
   if (manifest.sourceSha !== expectedSourceSha) throw new Error("release_manifest_source_mismatch");
-  for (const file of [...manifest.components.supabase, ...manifest.components.mobileUpdate]) {
+  const componentFiles = [
+    ...manifest.components.productRuntime,
+    ...manifest.components.database,
+    ...manifest.components.releaseConfiguration,
+    ...manifest.components.mobileUpdate,
+  ];
+  for (const file of componentFiles) {
     const content = readFileSync(resolve(artifactDir, "bundle", file.path));
     if (content.length !== file.bytes || sha256(content) !== file.sha256) throw new Error(`release_artifact_file_mismatch:${file.path}`);
     if (checkoutRoot && file.path.startsWith("supabase/")) {
