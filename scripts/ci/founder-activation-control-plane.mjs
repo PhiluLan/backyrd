@@ -20,6 +20,13 @@ const SEALED_PATHS = new Set([
   "delivery/integration/founder-activation-shared-artifact.json",
   "delivery/integration/founder-activation-status.json"
 ]);
+const INACTIVE_EDGE_CONFIG_BLOCK = `[functions.decision-founder-live]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/decision-founder-live/index.ts"\n\n`;
+const INACTIVE_EDGE_CHANGES = new Map([
+  ["supabase/config.toml", "M"],
+  ["supabase/functions/decision-founder-live/index.ts", "A"],
+  ["supabase/functions/decision-founder-live/runtime-boundary.mjs", "A"],
+  ["supabase/functions/decision-founder-live/runtime-boundary.test.mjs", "A"],
+]);
 const SHA = /^[0-9a-f]{40}$/;
 const HASH = /^[0-9a-f]{64}$/;
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024 }).trim();
@@ -89,6 +96,21 @@ export function verifyFounderActivationDescendantMigrationChanges({ descendant, 
   return migrations.map(({ path }) => path);
 }
 
+export function verifyFounderActivationInactiveEdgeChanges({ entries, baseConfig, headConfig }) {
+  const runtimeEntries = entries.filter(({ path }) => path.startsWith("supabase/functions/") || path === "supabase/config.toml" || path === "supabase/production/auth-config.json");
+  if (runtimeEntries.length === 0) return [];
+  requireValue(runtimeEntries.length === INACTIVE_EDGE_CHANGES.size, "founder_activation_runtime_change_set_invalid");
+  const seen = new Set();
+  for (const entry of runtimeEntries) {
+    requireValue(INACTIVE_EDGE_CHANGES.get(entry.path) === entry.status && !seen.has(entry.path), `founder_activation_runtime_change_invalid:${entry.status}:${entry.path}`);
+    seen.add(entry.path);
+  }
+  requireValue(typeof baseConfig === "string" && typeof headConfig === "string", "founder_activation_edge_config_missing");
+  const occurrences = headConfig.split(INACTIVE_EDGE_CONFIG_BLOCK).length - 1;
+  requireValue(occurrences === 1 && headConfig.replace(INACTIVE_EDGE_CONFIG_BLOCK, "") === baseConfig, "founder_activation_edge_config_scope_invalid");
+  return runtimeEntries.map(({ path }) => path);
+}
+
 export function runFounderActivationPreflight({ root = ROOT, head = "HEAD", base = BASE } = {}) {
   requireValue(git(root, ["rev-parse", `${BASE}^{commit}`]) === BASE, "founder_activation_base_missing");
   requireValue(git(root, ["rev-parse", `${BASE}^{tree}`]) === BASE_TREE, "founder_activation_base_tree_mismatch");
@@ -126,7 +148,11 @@ export function runFounderActivationPreflight({ root = ROOT, head = "HEAD", base
   });
   const changed = changeEntries.map(({ path }) => path);
   const newMigrations = verifyFounderActivationDescendantMigrationChanges({ descendant: canonicalDescendant, entries: changeEntries });
-  requireValue(!changed.some((path) => path.startsWith("supabase/functions/") || path === "supabase/config.toml" || path === "supabase/production/auth-config.json"), "founder_activation_runtime_or_auth_change_forbidden");
+  verifyFounderActivationInactiveEdgeChanges({
+    entries: changeEntries,
+    baseConfig: git(root, ["show", `${base}:supabase/config.toml`]),
+    headConfig: git(root, ["show", `${head}:supabase/config.toml`]),
+  });
   let seal = null;
   if (state.sealed) {
     requireValue(Number(process.versions.node.split(".")[0]) === 20, "founder_activation_seal_node20_required");

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { validateFounderActivationDocuments, verifyFounderActivationCanonicalDescendant, verifyFounderActivationDescendantMigrationChanges } from "./founder-activation-control-plane.mjs";
+import { validateFounderActivationDocuments, verifyFounderActivationCanonicalDescendant, verifyFounderActivationDescendantMigrationChanges, verifyFounderActivationInactiveEdgeChanges } from "./founder-activation-control-plane.mjs";
 
 const root = resolve(new URL("../..", import.meta.url).pathname);
 const load = (path) => JSON.parse(readFileSync(resolve(root, path), "utf8"));
@@ -49,6 +49,20 @@ test("activation descendants accept only newly added versioned migrations", () =
     { ...additive, status: "M" }, { ...additive, status: "D" }, { ...additive, status: "R100" },
     { status: "A", path: "supabase/migrations/not-versioned.sql" }
   ]) assert.throws(() => verifyFounderActivationDescendantMigrationChanges({ descendant: true, entries: [entry] }), /migration_not_additive/);
+});
+
+test("only the exact independently inactive Founder Live Edge host may cross the sealed activation boundary", () => {
+  const block = `[functions.decision-founder-live]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/decision-founder-live/index.ts"\n\n`;
+  const entries = [
+    { status: "M", path: "supabase/config.toml" },
+    { status: "A", path: "supabase/functions/decision-founder-live/index.ts" },
+    { status: "A", path: "supabase/functions/decision-founder-live/runtime-boundary.mjs" },
+    { status: "A", path: "supabase/functions/decision-founder-live/runtime-boundary.test.mjs" },
+  ];
+  assert.equal(verifyFounderActivationInactiveEdgeChanges({ entries: [], baseConfig: "base", headConfig: "base" }).length, 0);
+  assert.deepEqual(verifyFounderActivationInactiveEdgeChanges({ entries, baseConfig: "before\nafter\n", headConfig: `before\n${block}after\n` }), entries.map(({ path }) => path));
+  assert.throws(() => verifyFounderActivationInactiveEdgeChanges({ entries: [...entries, { status: "M", path: "supabase/production/auth-config.json" }], baseConfig: "before\nafter\n", headConfig: `before\n${block}after\n` }), /runtime_change_set_invalid/);
+  assert.throws(() => verifyFounderActivationInactiveEdgeChanges({ entries, baseConfig: "before\nafter\n", headConfig: `before\n${block}after = true\n` }), /edge_config_scope_invalid/);
 });
 
 for (const [name, mutate, expected] of [
