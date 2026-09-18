@@ -27,8 +27,69 @@ const normalizedStatements = (text) => text
   .map((statement) => statement.trim().replace(/\s+/g, " "))
   .filter(Boolean);
 
+const canonicalSql = (text) => text
+  .replace(/--[^\n]*/g, "")
+  .replace(/\s+/g, " ")
+  .trim()
+  .toLowerCase();
+
+const founderLivePurgeSignature = "public.backyrd_founder_live_idempotency_purge_expired_v1(integer)";
+const certifiedFounderLivePurge = canonicalSql(`
+create function public.backyrd_founder_live_idempotency_purge_expired_v1(p_limit integer default 500)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_deleted integer;
+begin
+  perform founder_live_private.assert_service_authority_v1();
+  if p_limit is null or p_limit not between 1 and 1000 then
+    raise exception 'founder_live_idempotency_purge_limit_invalid' using errcode = '22023';
+  end if;
+  perform set_config('backyrd.founder_live_expired_purge', 'v1', true);
+  with expired_keys as materialized (
+    select scope_version, purpose, release_hash, artifact_hash, source_set_hash,
+      response_contract_version, subject_digest, idempotency_key_digest
+    from founder_live_private.idempotency_records_v1
+    where expires_at <= clock_timestamp()
+    order by expires_at
+    limit p_limit
+    for update skip locked
+  )
+  delete from founder_live_private.idempotency_records_v1 as target
+  using expired_keys
+  where target.scope_version = expired_keys.scope_version
+    and target.purpose = expired_keys.purpose
+    and target.release_hash = expired_keys.release_hash
+    and target.artifact_hash = expired_keys.artifact_hash
+    and target.source_set_hash = expired_keys.source_set_hash
+    and target.response_contract_version = expired_keys.response_contract_version
+    and target.subject_digest = expired_keys.subject_digest
+    and target.idempotency_key_digest = expired_keys.idempotency_key_digest;
+  get diagnostics v_deleted = row_count;
+  return v_deleted;
+end;
+$$;`);
+
+function withoutCertifiedFounderLivePurge(text) {
+  const definitions = [...text.matchAll(/create\s+function\s+public\.backyrd_founder_live_idempotency_purge_expired_v1\s*\(p_limit\s+integer\s+default\s+500\)[\s\S]*?\$\$\s*;/gi)];
+  if (definitions.length !== 1 || canonicalSql(definitions[0][0]) !== certifiedFounderLivePurge) return text;
+  const acl = normalizedStatements(text).map((statement) => statement.toLowerCase()).filter((statement) =>
+    /^(?:grant|revoke)\b/.test(statement) && statement.includes("backyrd_founder_live_idempotency_purge_expired_v1"));
+  const expectedAcl = [
+    `revoke all on function ${founderLivePurgeSignature} from public, anon, authenticated`,
+    `grant execute on function ${founderLivePurgeSignature} to service_role`,
+  ].sort();
+  if (JSON.stringify(acl.sort()) !== JSON.stringify(expectedAcl)) return text;
+  const remainder = text.replace(definitions[0][0], "");
+  if (/\b(?:delete\s+from|update|truncate)\s+founder_live_private\.idempotency_records_v1\b/i.test(remainder)) return text;
+  return remainder;
+}
+
 export function isDestructiveMigration(text) {
-  const statements = normalizedStatements(text);
+  const statements = normalizedStatements(withoutCertifiedFounderLivePurge(text));
   for (const statement of statements) {
     if (!destructivePattern.test(statement)) continue;
     const replacement = statement.match(/^alter table ([a-z0-9_."]+) drop constraint(?: if exists)? ([a-z0-9_"]+)$/i);

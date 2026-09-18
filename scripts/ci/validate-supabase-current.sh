@@ -173,6 +173,7 @@ core_tests=(
   canonical_product_mood_v1.sql mood_founder_acceptance_closure_v1.sql mood_final_founder_closure_v1.sql
   events_v1_basel_pilot.sql events_v1_manual_recurrence_horizon.sql
   restaurant_information_v1_positive.sql restaurant_information_v1_negative.sql review_media_atomic_v1.sql
+  founder_live_durable_idempotency_v1.sql
 )
 executed_tests="$validation_root/executed-tests.txt"
 : >"$executed_tests"
@@ -189,6 +190,7 @@ if test -n "${BACKYRD_CHANGED_DATABASE_TESTS_FILE:-}" && test -f "$BACKYRD_CHANG
 fi
 DB_URL="$DB_URL" bash "$repo_root/scripts/ci/validate-world-knowledge-rebuild-race.sh"
 DB_URL="$DB_URL" bash "$repo_root/scripts/ci/validate-review-same-day-race.sh"
+DB_URL="$DB_URL" bash "$repo_root/scripts/ci/validate-founder-live-idempotency-race.sh"
 
 lint_json="$validation_root/db-lint.json"
 "$supabase_cli" db lint --workdir "$validation_root" --local --schema public --level error --fail-on none --agent=no >"$lint_json"

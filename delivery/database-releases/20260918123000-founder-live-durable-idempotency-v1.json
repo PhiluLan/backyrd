@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260918123000-founder-live-durable-idempotency-v1",
+  "previousEvidence": "20260916061802-world-founder-context-handoff-unknown-canonicalization",
+  "previousFingerprints": {
+    "publicAclSha256": "9daf4329618f2a2b6ae445f60b5044cf9d2a87d2acd9abcf34428eb11aab3ee1",
+    "applicationSchemaSha256": "94f115d19517a94e0ed9657c10d9746329262bc402e5673cbcb67210f600d63c"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260918123000_founder_live_durable_idempotency_v1.sql",
+      "sha256": "0db49db4b2e0f5c191cf5960eb51fab4f2d569ba87b3037dfe8d253f89785fb2"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/founder_live_durable_idempotency_v1.sql",
+      "sha256": "dcd4c15833c71bc611a4acd2e205baf0fc2a0cdd63fffde4a15d567eea4fa842"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "ffe92f57403e281247d44b3022af597836c8bf2d207b2d3eb0d2d8346496ce75",
+    "applicationSchemaSha256": "bb19333735d2643bf0c5efcc8bbebf3c776120389d7b02d0830c003008b0fcf2"
+  }
+}

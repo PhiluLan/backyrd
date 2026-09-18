@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { loadControlPlaneDocuments, validateControlPlaneDocuments } from "./integration-preflight.mjs";
+import { IDEMPOTENCY_MIGRATION_PATH, partitionSourceAwareMigrationScopes, WORLD_MIGRATION_PATHS } from "./source-aware-idempotency-migration-scope.mjs";
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
@@ -36,4 +37,14 @@ test("execution authority is false in every release identity", () => {
   const documents = clone(loadControlPlaneDocuments());
   documents.manifest.productionPlan.executionAuthorized = true;
   assert.throws(() => validateControlPlaneDocuments(documents), /manifest_execution_must_be_false/);
+});
+
+test("source-aware scope preserves nine World migrations and accepts only the sealed idempotency addition", () => {
+  const world = WORLD_MIGRATION_PATHS.map((path) => ({ path, sha256: "a".repeat(64) }));
+  assert.deepEqual(partitionSourceAwareMigrationScopes(world), { worldMigrations: world, independentMigrations: [] });
+  const idempotency = { path: IDEMPOTENCY_MIGRATION_PATH, sha256: "b".repeat(64) };
+  assert.deepEqual(partitionSourceAwareMigrationScopes([...world, idempotency]), { worldMigrations: world, independentMigrations: [idempotency] });
+  assert.throws(() => partitionSourceAwareMigrationScopes([...world, { path: "supabase/migrations/20260919000000_unknown.sql", sha256: "c".repeat(64) }]), /independent_scope_unknown/);
+  assert.throws(() => partitionSourceAwareMigrationScopes([world[1], world[0], ...world.slice(2)]), /world_migration_identity_or_order_mismatch/);
+  assert.throws(() => partitionSourceAwareMigrationScopes([...world, idempotency, idempotency]), /duplicate_pending_migration|pending_migration_count_invalid/);
 });

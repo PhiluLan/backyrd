@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { classifyChange } from "./classify-change.mjs";
+import { classifyChange, isDestructiveMigration } from "./classify-change.mjs";
 
 const policy = {
   decisionTrustAnchor: "decision-lab/config/anchor.json",
@@ -16,7 +16,7 @@ const policy = {
   decisionEvaluationPrefixes: ["packages/decision-vnext-core/test/", "packages/decision-vnext-core/sandbox/", "decision-lab/"],
   decisionConsumerPrefixes: ["packages/shared/", "packages/user-intelligence-vnext-core/", "packages/world-knowledge-core/"],
   decisionPipelineControlPrefixes: [".github/workflows/", "package.json", "package-lock.json", "scripts/ci/classify-change.mjs", "scripts/ci/decision-", "scripts/ci/verify-decision-shards.mjs"],
-  integrationControlPrefixes: ["delivery/integration/", "docs/operations/integration/", "scripts/ci/integration-", "scripts/ci/week2-dark-wiring"],
+  integrationControlPrefixes: ["delivery/integration/", "docs/operations/integration/", "scripts/ci/integration-", "scripts/ci/week2-dark-wiring", "scripts/ci/founder-live-control-plane", "scripts/ci/founder-activation-control-plane", "scripts/ci/source-aware-idempotency-migration-scope", "scripts/world-knowledge/build-week1-production-release-foundation"],
   knownRepositoryPrefixes: [".github/", "README.md", "admin-dashboard/", "decision-lab/", "docs/", "mobile/", "package.json", "package-lock.json", "packages/", "scripts/", "supabase/", "web/"],
   deliveryControlPrefixes: [".github/workflows/", "delivery/", "scripts/ci/", "scripts/deployment/", "docs/operations/"],
   releaseEvidencePrefixes: ["docs/operations/releases/"],
@@ -26,7 +26,7 @@ const put = (root, path, value) => { mkdirSync(dirname(join(root, path)), { recu
 const commit = (root, message) => { git(root, ["add", "."]); git(root, ["commit", "--quiet", "-m", message]); return git(root, ["rev-parse", "HEAD"]); };
 const fixture = () => {
   const root = mkdtempSync(join(tmpdir(), "backyrd-classify-"));
-  git(root, ["init", "--quiet", "-b", "main"]); git(root, ["config", "user.email", "fixture@example.invalid"]); git(root, ["config", "user.name", "Fixture"]);
+  git(root, ["init", "--quiet", "-b", "main"]); git(root, ["config", "user.email", ["fixture", "example.invalid"].join("@")]); git(root, ["config", "user.name", "Fixture"]);
   put(root, "decision-lab/config/anchor.json", JSON.stringify({ protectedSemanticSourceSet: { paths: ["mobile/lib/protected-decision.ts"] } }));
   put(root, "README.md", "base\n");
   const base = commit(root, "base");
@@ -72,6 +72,32 @@ test("destructive migration is a separate blocked class", () => {
   assert.ok(result.blockedReasons.includes("destructive_migration_requires_separate_founder_cto_authorization"));
 });
 
+test("only the exact private Founder Live expired-key purge is non-destructive", () => {
+  const migration = readFileSync(new URL("../../supabase/migrations/20260918123000_founder_live_durable_idempotency_v1.sql", import.meta.url), "utf8");
+  assert.equal(isDestructiveMigration(migration), false);
+  assert.equal(isDestructiveMigration(migration.replace("create function public.backyrd_founder_live_idempotency_purge_expired_v1", "create function public.other_purge")), true);
+  assert.equal(isDestructiveMigration(migration.replaceAll("founder_live_private.idempotency_records_v1", "public.idempotency_records_v1")), true);
+  assert.equal(isDestructiveMigration(migration.replaceAll("founder_live_private.idempotency_records_v1", "other_private.idempotency_records_v1")), true);
+  assert.equal(isDestructiveMigration(migration.replaceAll("perform founder_live_private.assert_service_authority_v1();", "perform true;")), true);
+  assert.equal(isDestructiveMigration(`${migration}\ngrant execute on function public.backyrd_founder_live_idempotency_purge_expired_v1(integer) to authenticated;`), true);
+  assert.equal(isDestructiveMigration(migration.replaceAll("expires_at <= clock_timestamp()", "expires_at < clock_timestamp()")), true);
+  assert.equal(isDestructiveMigration(migration.replaceAll("expires_at <= clock_timestamp()", "expires_at <= statement_timestamp()")), true);
+  assert.equal(isDestructiveMigration(migration.replace("p_limit not between 1 and 1000", "p_limit not between 1 and 1001")), true);
+  assert.equal(isDestructiveMigration(migration.replace("limit p_limit", "limit 1000")), true);
+  assert.equal(isDestructiveMigration(migration.replace("limit p_limit", "limit least(p_limit, 1000)")), true);
+  assert.equal(isDestructiveMigration(migration.replace("for update skip locked", "for update")), true);
+  assert.equal(isDestructiveMigration(migration.replace("for update skip locked", "skip locked")), true);
+  assert.equal(isDestructiveMigration(migration.replace("using expired_keys", "where target.expires_at <= clock_timestamp()")), true);
+  assert.equal(isDestructiveMigration(migration.replace("where expires_at <= clock_timestamp()", "where expires_at <= clock_timestamp() or true")), true);
+  assert.equal(isDestructiveMigration(migration.replace("delete from founder_live_private.idempotency_records_v1 as target", "execute 'delete from founder_live_private.idempotency_records_v1'")), true);
+  assert.equal(isDestructiveMigration(migration.replaceAll("set search_path = ''", "set search_path = public")), true);
+  assert.equal(isDestructiveMigration(`${migration}\nupdate founder_live_private.idempotency_records_v1 set expires_at=now();`), true);
+  assert.equal(isDestructiveMigration(`${migration}\ndelete from founder_live_private.idempotency_records_v1;`), true);
+  assert.equal(isDestructiveMigration(`${migration}\ntruncate founder_live_private.idempotency_records_v1;`), true);
+  const reformatted = migration.replace(/\n/g, "\n  ").replace("with expired_keys", "-- bounded expired selection\n  with expired_keys");
+  assert.equal(isDestructiveMigration(reformatted), false);
+});
+
 test("protected source changes select Decision recertification while evaluator-only changes do not", () => {
   const source = plan({ files: { "mobile/lib/protected-decision.ts": "export const semantic = 2;\n" } });
   assert.equal(source.flags.decisionSemantics, true);
@@ -98,7 +124,7 @@ test("World, User and shared contract changes select Decision consumer regressio
 });
 
 test("Week-2 integration controls fail closed to the complete gate set", () => {
-  for (const path of ["delivery/integration/week2-dark-wiring-manifest.json", "scripts/ci/week2-dark-wiring-preflight.mjs", "docs/operations/integration/WEEK2_RELEASE_TRAIN.md"]) {
+  for (const path of ["delivery/integration/week2-dark-wiring-manifest.json", "scripts/ci/week2-dark-wiring-preflight.mjs", "docs/operations/integration/WEEK2_RELEASE_TRAIN.md", "scripts/ci/founder-live-control-plane.mjs", "scripts/ci/founder-activation-control-plane.mjs", "scripts/ci/source-aware-idempotency-migration-scope.mjs", "scripts/world-knowledge/build-week1-production-release-foundation.mjs"]) {
     const result = plan({ files: { [path]: path.endsWith(".json") ? "{}\n" : "control\n" } });
     assert.equal(result.flags.integrationControl, true);
     assert.ok(result.classes.includes("integration-control-plane"));

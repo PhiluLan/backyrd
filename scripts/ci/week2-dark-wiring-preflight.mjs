@@ -11,6 +11,7 @@ import { executeFrozenDecisionEvidence, verifyDecisionEvidenceAuthority } from "
 import { rehearseFourTrack } from "./week2-four-track-rehearsal.mjs";
 import { executeCombinedArtifact, verifyFourTrackAuthority } from "./week2-four-track-authority.mjs";
 import { buildProductionPlan } from "../deployment/supabase-production-plan.mjs";
+import { verifySourceAwareIdempotencyMigrationScope } from "./source-aware-idempotency-migration-scope.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -203,9 +204,9 @@ export function runWeek2Preflight({ root = ROOT, baseSha: requestedBase, headSha
   for (const gate of ["repository-security", "mobile", "web", "admin", "shared", "database", "decision", "delivery-contract"]) requireValue(changePlan.requiredGates.includes(gate), `week2_required_gate_missing:${gate}`);
 
   const productionPlan = buildProductionPlan({ repo: root, baseSha: documents.manifest.productionPlan.shippedSourceSha, headSha });
-  requireValue(productionPlan.pendingMigrations.length === 9, `week2_pending_migration_count_mismatch:${productionPlan.pendingMigrations.length}`);
-  requireValue(productionPlan.pendingMigrations.every(({ path }) => /world_knowledge|world_founder/.test(path)), "week2_non_world_inherited_migration");
   requireValue(productionPlan.deployFunctions.length === 0 && productionPlan.authConfig?.deploy === false, "week2_unexpected_function_or_auth_deploy");
+  const migrationScopes = verifySourceAwareIdempotencyMigrationScope({ root, pendingMigrations: productionPlan.pendingMigrations, baseSha, headSha });
+  requireValue(migrationScopes.worldMigrations.length === 9 && migrationScopes.worldMigrations.every(({ path }) => /world_knowledge|world_founder/.test(path)), "week2_world_inherited_migration_scope_invalid");
   const supabaseCompatibility = verifySupabaseCompatibility(root, productionPlan.pendingMigrations);
 
   const off = runWeek2ContractRehearsal({ fixture: documents.fixture, configuration: {} });
@@ -249,7 +250,9 @@ export function runWeek2Preflight({ root = ROOT, baseSha: requestedBase, headSha
     productionPlan: {
       planHash: productionPlan.planHash,
       pendingMigrationCount: productionPlan.pendingMigrations.length,
-      pendingMigrationClass: "WORLD_INHERITED",
+      inheritedWorldMigrationCount: migrationScopes.worldMigrations.length,
+      pendingMigrationClass: migrationScopes.independentMigrations.length ? "WORLD_INHERITED_PLUS_SEALED_IDEMPOTENCY" : "WORLD_INHERITED",
+      independentAdditiveMigrations: migrationScopes.independentMigrations.map(({ path, sha256 }) => ({ path, sha256, evidenceId: migrationScopes.evidenceId })),
       deployFunctions: productionPlan.deployFunctions,
       authDeploy: productionPlan.authConfig?.deploy ?? false,
       runtimeDeploymentRequired: productionPlan.runtimeDeploymentRequired,

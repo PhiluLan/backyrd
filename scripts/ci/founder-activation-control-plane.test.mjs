@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { validateFounderActivationDocuments } from "./founder-activation-control-plane.mjs";
+import { validateFounderActivationDocuments, verifyFounderActivationCanonicalDescendant, verifyFounderActivationDescendantMigrationChanges } from "./founder-activation-control-plane.mjs";
 
 const root = resolve(new URL("../..", import.meta.url).pathname);
 const load = (path) => JSON.parse(readFileSync(resolve(root, path), "utf8"));
@@ -21,6 +21,34 @@ test("an unsealed status cannot claim CTO readiness", () => {
   const value = documents();
   value.manifest.release.sealed = false;
   assert.throws(() => validateFounderActivationDocuments(value), /pending_status_invalid/);
+});
+
+test("canonical descendants preserve every sealed activation blob and exact lineage", () => {
+  const paths = [
+    "delivery/integration/founder-activation-dependency-ownership-matrix.json",
+    "delivery/integration/founder-activation-manifest.json",
+    "delivery/integration/founder-activation-post-deploy-evidence.json",
+    "delivery/integration/founder-activation-production-plan.json",
+    "delivery/integration/founder-activation-rehearsal-evidence.json",
+    "delivery/integration/founder-activation-shared-artifact.json",
+    "delivery/integration/founder-activation-status.json"
+  ];
+  const bindings = paths.map((path) => ({ path, completionBlobSha: "a".repeat(40), baseBlobSha: "a".repeat(40), headBlobSha: "a".repeat(40) }));
+  const value = { completionSha: "96f648cebbfdfd854aec688613ddbedb447c25bb", completionTree: "4321f018f04056f14aea6c7d59c4cb21a88a9a44", completionIsAncestorOfBase: true, baseIsAncestorOfHead: true, sealedBlobBindings: bindings };
+  assert.equal(verifyFounderActivationCanonicalDescendant(value), true);
+  assert.throws(() => verifyFounderActivationCanonicalDescendant({ ...value, baseIsAncestorOfHead: false }), /descendant_lineage_invalid/);
+  assert.throws(() => verifyFounderActivationCanonicalDescendant({ ...value, sealedBlobBindings: bindings.map((entry, index) => index === 0 ? { ...entry, headBlobSha: "b".repeat(40) } : entry) }), /sealed_blob_drift/);
+  assert.throws(() => verifyFounderActivationCanonicalDescendant({ ...value, sealedBlobBindings: bindings.slice(1) }), /sealed_binding_set_invalid/);
+});
+
+test("activation descendants accept only newly added versioned migrations", () => {
+  const additive = { status: "A", path: "supabase/migrations/20260918123000_founder_live_durable_idempotency_v1.sql" };
+  assert.deepEqual(verifyFounderActivationDescendantMigrationChanges({ descendant: true, entries: [additive] }), [additive.path]);
+  assert.throws(() => verifyFounderActivationDescendantMigrationChanges({ descendant: false, entries: [additive] }), /database_change_forbidden/);
+  for (const entry of [
+    { ...additive, status: "M" }, { ...additive, status: "D" }, { ...additive, status: "R100" },
+    { status: "A", path: "supabase/migrations/not-versioned.sql" }
+  ]) assert.throws(() => verifyFounderActivationDescendantMigrationChanges({ descendant: true, entries: [entry] }), /migration_not_additive/);
 });
 
 for (const [name, mutate, expected] of [

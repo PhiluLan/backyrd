@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { validateFounderLiveDocuments, verifyFounderCanonicalDescendantIdentity, verifyFounderIdentityMode, verifyFounderSealScope } from "./founder-live-control-plane.mjs";
+import { validateFounderLiveDocuments, verifyFounderCanonicalDescendantIdentity, verifyFounderDescendantMigrationChanges, verifyFounderIdentityMode, verifyFounderSealScope } from "./founder-live-control-plane.mjs";
 
 const root = new URL("../..", import.meta.url);
 const load = (path) => JSON.parse(readFileSync(new URL(path, root), "utf8"));
@@ -33,6 +33,16 @@ test("only one exact evidence-only seal commit is accepted", () => {
   assert.equal(verifyFounderSealScope({ commitCount: 1, paths }), true);
   assert.throws(() => verifyFounderSealScope({ commitCount: 2, paths }), /commit_count_invalid/);
   assert.throws(() => verifyFounderSealScope({ commitCount: 1, paths: [...paths.slice(0, -1), "mobile/app/(tabs)/decision.tsx"] }), /scope_invalid/);
+});
+
+test("canonical descendants accept only newly added versioned migrations", () => {
+  const additive = { status: "A", path: "supabase/migrations/20260918123000_founder_live_durable_idempotency_v1.sql" };
+  assert.deepEqual(verifyFounderDescendantMigrationChanges({ descendant: true, entries: [additive] }), [additive.path]);
+  assert.throws(() => verifyFounderDescendantMigrationChanges({ descendant: false, entries: [additive] }), /unexpected_database_change/);
+  for (const entry of [
+    { ...additive, status: "M" }, { ...additive, status: "D" }, { ...additive, status: "R100" },
+    { status: "A", path: "supabase/migrations/not-versioned.sql" }
+  ]) assert.throws(() => verifyFounderDescendantMigrationChanges({ descendant: true, entries: [entry] }), /migration_not_additive/);
 });
 
 test("canonical descendant PR and main identities preserve every sealed Founder-live blob", () => {

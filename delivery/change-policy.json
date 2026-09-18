@@ -73,7 +73,11 @@
     "delivery/integration/",
     "docs/operations/integration/",
     "scripts/ci/integration-",
-    "scripts/ci/week2-dark-wiring"
+    "scripts/ci/week2-dark-wiring",
+    "scripts/ci/founder-live-control-plane",
+    "scripts/ci/founder-activation-control-plane",
+    "scripts/ci/source-aware-idempotency-migration-scope",
+    "scripts/world-knowledge/build-week1-production-release-foundation"
   ],
   "knownRepositoryPrefixes": [
     ".github/",
