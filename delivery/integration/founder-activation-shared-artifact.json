@@ -1,14 +1,14 @@
 {
   "contractVersion": "backyrd.founder-activation-shared-node20-artifact@1.0",
   "nodeMajor": 20,
-  "sourceSha": "6a0a898e0395098a34274f69ce80005603231e63",
-  "sourceTreeSha": "7906eaba3c219c0c4236e33d8ea47cac184be25f",
-  "sourceSetHash": "a6d6961dde97bd33d96d28ae9192cc5705563724d0c7f24c47d8a3c1e5968a2c",
-  "fileCount": 132,
+  "sourceSha": "b513eff9db01013bd1af1c5ac052457830a2d0ed",
+  "sourceTreeSha": "bb9d018e2dea072f0d2f1549674dc81356aec4bd",
+  "sourceSetHash": "4fe401a3700f6c093c2a955dbc3ff6ae52d43696fa1b0a591901a9e5562dfe9a",
+  "fileCount": 135,
   "files": [
     {
       "path": ".github/workflows/risk-gate.yml",
-      "blobSha": "3cd0e3c954272ffe67257dfdf7f95aff62355835"
+      "blobSha": "846ba033d311e0fb7e576c701635ba5bfdae1b72"
     },
     {
       "path": "admin-dashboard/app/world-knowledge/page.tsx",
@@ -16,19 +16,31 @@
     },
     {
       "path": "delivery/integration/founder-activation-dependency-ownership-matrix.json",
-      "blobSha": "72a116ff09391a4b71c46ec59b9d71f948bd3bc6"
+      "blobSha": "9ef0c8e2432adc08f0e80b8f02c7529e11a55510"
     },
     {
       "path": "delivery/integration/founder-activation-manifest.json",
-      "blobSha": "cf5f02b586b6098690be1f18652f4e818b27d3c6"
+      "blobSha": "0e3ad77d8784f041cfbf3852ef70ce1c018f4674"
+    },
+    {
+      "path": "delivery/integration/founder-activation-post-deploy-evidence.json",
+      "blobSha": "09fa58e4a2e5d4b0a82b90e7d79b9bf3b54b295c"
     },
     {
       "path": "delivery/integration/founder-activation-production-plan.json",
-      "blobSha": "a2b54c2dde6f3c653381b3b05ccd31217b8b76f0"
+      "blobSha": "ebc5eb2d887135a1f6af37f92703dead38f774e3"
+    },
+    {
+      "path": "delivery/integration/founder-activation-rehearsal-evidence.json",
+      "blobSha": "6ff0204a7d9f5228e458c37915c6096df7411829"
+    },
+    {
+      "path": "delivery/integration/founder-activation-shared-artifact.json",
+      "blobSha": "439f7658c82acb39dbfda177189333da5dcbe541"
     },
     {
       "path": "delivery/integration/founder-activation-status.json",
-      "blobSha": "5d16243676a5723d3d24fa910fdab901948415a9"
+      "blobSha": "4d1268a5db1a836039cc72425a90765afe499879"
     },
     {
       "path": "docs/operations/FOUNDER_TWO_ACCOUNT_ACTIVATION_RUNBOOK.md",
@@ -542,30 +554,30 @@
     "MOBILE_INTEGRATION"
   ],
   "executionAuthorized": false,
-  "artifactHash": "3beb2ea524b5bd0880451a0da28258049bba0a70b1ed1a42ed1bede6c3fa8979",
+  "artifactHash": "a5cae2f8dc177309a012a3ad4ed8217afa1c93c5f0b987a2e179889e25951713",
   "trackVerifications": [
     {
       "track": "WORLD_ADMIN",
-      "sourceSetHash": "a6d6961dde97bd33d96d28ae9192cc5705563724d0c7f24c47d8a3c1e5968a2c",
-      "artifactHash": "3beb2ea524b5bd0880451a0da28258049bba0a70b1ed1a42ed1bede6c3fa8979",
+      "sourceSetHash": "4fe401a3700f6c093c2a955dbc3ff6ae52d43696fa1b0a591901a9e5562dfe9a",
+      "artifactHash": "a5cae2f8dc177309a012a3ad4ed8217afa1c93c5f0b987a2e179889e25951713",
       "status": "VERIFIED"
     },
     {
       "track": "USER_UUID_AUTHORITY",
-      "sourceSetHash": "a6d6961dde97bd33d96d28ae9192cc5705563724d0c7f24c47d8a3c1e5968a2c",
-      "artifactHash": "3beb2ea524b5bd0880451a0da28258049bba0a70b1ed1a42ed1bede6c3fa8979",
+      "sourceSetHash": "4fe401a3700f6c093c2a955dbc3ff6ae52d43696fa1b0a591901a9e5562dfe9a",
+      "artifactHash": "a5cae2f8dc177309a012a3ad4ed8217afa1c93c5f0b987a2e179889e25951713",
       "status": "VERIFIED"
     },
     {
       "track": "DECISION_SERVER_AUTHORITY",
-      "sourceSetHash": "a6d6961dde97bd33d96d28ae9192cc5705563724d0c7f24c47d8a3c1e5968a2c",
-      "artifactHash": "3beb2ea524b5bd0880451a0da28258049bba0a70b1ed1a42ed1bede6c3fa8979",
+      "sourceSetHash": "4fe401a3700f6c093c2a955dbc3ff6ae52d43696fa1b0a591901a9e5562dfe9a",
+      "artifactHash": "a5cae2f8dc177309a012a3ad4ed8217afa1c93c5f0b987a2e179889e25951713",
       "status": "VERIFIED"
     },
     {
       "track": "MOBILE_INTEGRATION",
-      "sourceSetHash": "a6d6961dde97bd33d96d28ae9192cc5705563724d0c7f24c47d8a3c1e5968a2c",
-      "artifactHash": "3beb2ea524b5bd0880451a0da28258049bba0a70b1ed1a42ed1bede6c3fa8979",
+      "sourceSetHash": "4fe401a3700f6c093c2a955dbc3ff6ae52d43696fa1b0a591901a9e5562dfe9a",
+      "artifactHash": "a5cae2f8dc177309a012a3ad4ed8217afa1c93c5f0b987a2e179889e25951713",
       "status": "VERIFIED"
     }
   ]
