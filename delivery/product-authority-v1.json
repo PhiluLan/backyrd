@@ -11,6 +11,13 @@
     "retiredTransports": [
       "decision-founder-live"
     ],
+    "quarantinedTransports": [
+      {
+        "name": "decision-copy",
+        "reason": "NO_ACTIVE_PRODUCT_CONSUMER",
+        "requiredBeforeRemoval": "READ_ONLY_PRODUCTION_DEPLOYMENT_INVENTORY"
+      }
+    ],
     "legacyDecisionModulesPolicy": "DEEP_RECERTIFICATION_ONLY"
   },
   "authorizedBoundedMigrations": [

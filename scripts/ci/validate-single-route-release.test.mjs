@@ -44,6 +44,7 @@ test("rejects every legacy or parallel routing primitive in active Product sourc
     "fallbackFunction",
     "EXISTING_ENGINE",
     "decision-founder-live",
+    "decision-copy",
     "routeFounderDecision",
     "invokeVNext",
     "serverAuthority",
