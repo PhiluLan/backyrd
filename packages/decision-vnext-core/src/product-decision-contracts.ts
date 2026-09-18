@@ -12,6 +12,8 @@ import { identifier, schema, sha256, timestamp, version, type Infer } from "./sc
 
 export const PRODUCT_DECISION_VERSIONS = Object.freeze({
   request: "backyrd.decision-vnext.product-request@1.0",
+  interactionRequest: "backyrd.decision-vnext.product-interaction-request@1.0",
+  interactionResponse: "backyrd.decision-vnext.product-interaction-response@1.0",
   response: "backyrd.decision-vnext.product-response@1.0",
   envelope: "backyrd.decision-vnext.product-envelope@1.0",
   rankingPolicy: "backyrd.decision-vnext.product-ranking-policy@1.0",
@@ -39,6 +41,28 @@ export const DecisionProductRequestSchema = schema.object({
   rejectedCandidateIds: schema.array(identifier, { max: 50 }),
 });
 export type DecisionProductRequest = Infer<typeof DecisionProductRequestSchema>;
+
+/** Same-route UI interaction input. Candidate and session authority remain server-owned. */
+export const DecisionProductInteractionRequestSchema = schema.object({
+  contractVersion: version(PRODUCT_DECISION_VERSIONS.interactionRequest),
+  actionId: identifier,
+  idempotencyKey: identifier,
+  decisionId: identifier,
+  eventType: schema.enum(["candidate_impression", "candidate_opened"] as const),
+  candidateId: identifier,
+});
+export type DecisionProductInteractionRequest = Infer<typeof DecisionProductInteractionRequestSchema>;
+
+export const DecisionProductInteractionResponseSchema = schema.object({
+  contractVersion: version(PRODUCT_DECISION_VERSIONS.interactionResponse),
+  status: schema.literal("ACKNOWLEDGED"),
+  decisionId: identifier,
+  candidateId: identifier,
+  eventType: schema.enum(["candidate_impression", "candidate_opened"] as const),
+  legacyWriteUsed: schema.literal(false),
+  fallbackUsed: schema.literal(false),
+});
+export type DecisionProductInteractionResponse = Infer<typeof DecisionProductInteractionResponseSchema>;
 
 /** Strict, product-safe projection. Commercial and Owner fields have no channel. */
 export const DecisionProductPresentationSchema = schema.object({

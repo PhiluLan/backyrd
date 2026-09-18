@@ -50,3 +50,4 @@ export * from "./founder-live-durable-rate-limit.js";
 export * from "./founder-live-server-authority.js";
 export * from "./product-decision-contracts.js";
 export * from "./product-decision.js";
+export * from "./product-decision-production-adapter.js";

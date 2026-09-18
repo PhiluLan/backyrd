@@ -163,6 +163,24 @@ export interface ProductDecisionLearningTrustContext {
   getRelease(id: string): unknown;
   getTrustAnchor(id: string): unknown;
   acceptsAuthorityRecordHash(hash: string): boolean;
+  acceptsRuntimeAuthorityHash?(hash: string): boolean;
+}
+
+export const ProductDecisionLearningRuntimeAuthoritySchema = schema.object({
+  contractVersion: schema.literal("backyrd.user-intelligence.product-decision-runtime-authority@1.0"),
+  enabled: schema.literal(true),
+  killSwitchEngaged: schema.literal(false),
+  generation: schema.number({ integer: true, min: 1 }),
+  releaseHash: schema.literal(PRODUCT_DECISION_LEARNING_RELEASE.releaseHash),
+  artifactHash: schema.literal(PRODUCT_DECISION_LEARNING_ARTIFACT_HASH),
+  sourceSetHash: schema.literal(PRODUCT_DECISION_LEARNING_SOURCE_SET_HASH),
+  validFrom: timestamp,
+  validUntil: timestamp,
+  authorityHash: sha256,
+});
+export interface ProductDecisionLearningRuntimeAuthorityProvider {
+  readonly contractVersion: "backyrd.user-intelligence.product-decision-runtime-authority-provider@1.0";
+  read(): Promise<unknown>;
 }
 export const ProductDecisionServerSessionSchema = schema.object({
   authUserId: identifier,
@@ -238,13 +256,24 @@ export function createProductDecisionLearningWritePort(input: {
   readonly repository: ProductDecisionLearningRepository;
   readonly rateLimit: ProductDecisionLearningRateLimitPort;
   readonly trust: ProductDecisionLearningTrustContext;
+  readonly runtimeAuthority?: ProductDecisionLearningRuntimeAuthorityProvider;
 }) {
-  if (input.mode === "PRODUCT_RUNTIME" && !PRODUCT_DECISION_LEARNING_RELEASE.productionAuthorized) throw new Error("product_decision_learning_runtime_not_authorized");
+  if (input.mode === "PRODUCT_RUNTIME" && (input.runtimeAuthority?.contractVersion !== "backyrd.user-intelligence.product-decision-runtime-authority-provider@1.0" || typeof input.trust.acceptsRuntimeAuthorityHash !== "function")) throw new Error("product_decision_learning_runtime_not_authorized");
   if (input.sessionProvider.contractVersion !== "backyrd.user-intelligence.product-session-provider@1.0" || input.consentLifecycleProvider.contractVersion !== "backyrd.user-intelligence.product-consent-lifecycle-provider@1.0" || input.authorityProvider.contractVersion !== "backyrd.user-intelligence.product-decision-authority-provider@1.0" || input.repository.contractVersion !== "backyrd.user-intelligence.product-decision-learning-repository@1.0" || input.rateLimit.contractVersion !== "backyrd.user-intelligence.product-decision-learning-rate-limit@1.0" || !same(input.trust.getRelease(PRODUCT_DECISION_LEARNING_RELEASE.releaseId), PRODUCT_DECISION_LEARNING_RELEASE) || !same(input.trust.getTrustAnchor(PRODUCT_DECISION_LEARNING_TRUST_ANCHOR.anchorId), PRODUCT_DECISION_LEARNING_TRUST_ANCHOR)) throw new Error("product_decision_learning_configuration_denied");
+  const assertRuntimeAuthority = async (): Promise<void> => {
+    if (input.mode !== "PRODUCT_RUNTIME") return;
+    let value: Infer<typeof ProductDecisionLearningRuntimeAuthoritySchema>;
+    try { value = ProductDecisionLearningRuntimeAuthoritySchema.parse(await input.runtimeAuthority!.read()); }
+    catch { throw new Error("product_decision_learning_runtime_not_authorized"); }
+    const bodyHash = hashBody(value as unknown as Record<string, unknown>, "authorityHash");
+    const now = input.now().getTime();
+    if (bodyHash !== value.authorityHash || !input.trust.acceptsRuntimeAuthorityHash!(value.authorityHash) || now < Date.parse(value.validFrom) || now >= Date.parse(value.validUntil)) throw new Error("product_decision_learning_runtime_not_authorized");
+  };
   return Object.freeze({
     contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0" as const,
     async record(raw: unknown): Promise<ProductDecisionLearningReceipt> {
       const event = ProductDecisionLearningInputSchema.parse(raw);
+      await assertRuntimeAuthority();
       let session: Infer<typeof ProductDecisionServerSessionSchema>;
       try { session = ProductDecisionServerSessionSchema.parse(await input.sessionProvider.readVerifiedSession()); }
       catch { throw new Error("product_decision_learning_session_denied"); }
@@ -258,6 +287,7 @@ export function createProductDecisionLearningWritePort(input: {
       let consent: ConsentEnvelope;
       try { consent = parseConsentEnvelope(state.consent); } catch { throw new Error("product_decision_learning_consent_invalid"); }
       if (consent.state !== "GRANTED" || !consent.allowedProcessing.includes("PERSONALIZATION_EVIDENCE")) return ProductDecisionLearningReceiptSchema.parse({ contractVersion: CONTRACT_VERSIONS.productDecisionLearningReceipt, status: "SUPPRESSED_NO_CONSENT", persisted: false, eventId: null, recordHash: null, neutralProjectionRequired: true });
+      await assertRuntimeAuthority();
       if (!(await input.rateLimit.consume({ subjectBindingHash: session.subjectBindingHash, sessionId: event.sessionId, eventType: event.eventType })).allowed) throw new Error("product_decision_learning_rate_limited");
       const authority = ProductDecisionLearningAuthoritySchema.parse(await input.authorityProvider.resolve(event, session.authUserId));
       if (hashBody(authority as unknown as Record<string, unknown>, "recordHash") !== authority.recordHash || !input.trust.acceptsAuthorityRecordHash(authority.recordHash) || authority.authUserId !== session.authUserId || authority.subjectBindingHash !== session.subjectBindingHash || authority.authenticationContextHash !== session.authenticationContextHash || authority.decisionId !== event.decisionId || authority.sessionId !== event.sessionId || authority.candidateId !== event.candidateId || authority.spotId !== event.spotId || authority.contextBindingHash !== event.contextBindingHash || authority.eventOccurredAt !== event.occurredAt || authority.authorityPolicyVersion !== PRODUCT_DECISION_LEARNING_RELEASE.authorityPolicyVersion || authority.releaseHash !== PRODUCT_DECISION_LEARNING_RELEASE.releaseHash || authority.artifactHash !== PRODUCT_DECISION_LEARNING_ARTIFACT_HASH || authority.sourceSetHash !== PRODUCT_DECISION_LEARNING_SOURCE_SET_HASH || Date.parse(input.trust.verifiedAt) < Date.parse(authority.validFrom) || Date.parse(input.trust.verifiedAt) >= Date.parse(authority.validUntil) || Date.parse(event.occurredAt) > input.now().getTime() + 300_000) throw new Error("product_decision_learning_authority_denied");
@@ -276,6 +306,7 @@ export function createProductDecisionLearningWritePort(input: {
         boundaries: { rawEvidenceIncluded: false as const, rawTextIncluded: false as const, sensitiveInferenceIncluded: false as const, worldMutationAuthorized: false as const, clientRankingAuthorized: false as const, clientProfileMutationAuthorized: false as const },
       };
       const record = ProductDecisionLearningRecordSchema.parse({ ...body, recordHash: contentHash(body) });
+      await assertRuntimeAuthority();
       const result = await input.repository.append(record);
       if (!result || !["PERSISTED", "REPLAYED"].includes(result.status) || typeof result.eventId !== "string" || typeof result.recordHash !== "string") throw new Error("product_decision_learning_repository_receipt_invalid");
       if (result.eventId !== record.eventId || result.recordHash !== record.recordHash) throw new Error("product_decision_learning_repository_receipt_invalid");

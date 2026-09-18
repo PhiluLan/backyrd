@@ -59,6 +59,7 @@ function harness(overrides = {}) {
   let appendCount = 0;
   let authorityCount = 0;
   let rateCount = 0;
+  let runtimeAuthorityCount = 0;
   const records = new Map();
   const authorityProvider = {
     contractVersion: "backyrd.user-intelligence.product-decision-authority-provider@1.0",
@@ -107,17 +108,30 @@ function harness(overrides = {}) {
       return { status: "PERSISTED", eventId: record.eventId, recordHash: record.recordHash };
     },
   };
+  const runtimeBody = {
+    contractVersion: "backyrd.user-intelligence.product-decision-runtime-authority@1.0",
+    enabled: true,
+    killSwitchEngaged: false,
+    generation: 1,
+    releaseHash: PRODUCT_DECISION_LEARNING_RELEASE.releaseHash,
+    artifactHash: PRODUCT_DECISION_LEARNING_ARTIFACT_HASH,
+    sourceSetHash: PRODUCT_DECISION_LEARNING_SOURCE_SET_HASH,
+    validFrom: "2026-09-18T14:00:00.000Z",
+    validUntil: "2026-09-18T16:00:00.000Z",
+  };
+  const runtimeAuthority = { ...runtimeBody, authorityHash: contentHash(runtimeBody), ...overrides.runtimeAuthority };
   const port = createProductDecisionLearningWritePort({
-    mode: "LOCAL_INTEGRATION_TEST",
+    mode: overrides.runtime ? "PRODUCT_RUNTIME" : "LOCAL_INTEGRATION_TEST",
     now: () => new Date(now),
     sessionProvider: { contractVersion: "backyrd.user-intelligence.product-session-provider@1.0", readVerifiedSession: async () => session },
     consentLifecycleProvider: { contractVersion: "backyrd.user-intelligence.product-consent-lifecycle-provider@1.0", readForAuthenticatedUser: async () => state },
     authorityProvider,
     repository,
     rateLimit: { contractVersion: "backyrd.user-intelligence.product-decision-learning-rate-limit@1.0", async consume() { rateCount += 1; return { allowed: !overrides.rateLimited }; } },
-    trust: { verifiedAt: now, getRelease: (id) => id === PRODUCT_DECISION_LEARNING_RELEASE.releaseId ? PRODUCT_DECISION_LEARNING_RELEASE : null, getTrustAnchor: (id) => id === PRODUCT_DECISION_LEARNING_TRUST_ANCHOR.anchorId ? PRODUCT_DECISION_LEARNING_TRUST_ANCHOR : null, acceptsAuthorityRecordHash: (hash) => hash === acceptedAuthorityHash },
+    trust: { verifiedAt: now, getRelease: (id) => id === PRODUCT_DECISION_LEARNING_RELEASE.releaseId ? PRODUCT_DECISION_LEARNING_RELEASE : null, getTrustAnchor: (id) => id === PRODUCT_DECISION_LEARNING_TRUST_ANCHOR.anchorId ? PRODUCT_DECISION_LEARNING_TRUST_ANCHOR : null, acceptsAuthorityRecordHash: (hash) => hash === acceptedAuthorityHash, acceptsRuntimeAuthorityHash: (hash) => !overrides.rejectRuntimeAuthority && hash === runtimeAuthority.authorityHash },
+    ...(overrides.runtime ? { runtimeAuthority: { contractVersion: "backyrd.user-intelligence.product-decision-runtime-authority-provider@1.0", async read() { runtimeAuthorityCount += 1; return runtimeAuthority; } } } : {}),
   });
-  return { port, records, setState: (value) => { state = value; }, setSession: (value) => { session = value; }, counts: () => ({ appendCount, authorityCount, rateCount }) };
+  return { port, records, setState: (value) => { state = value; }, setSession: (value) => { session = value; }, counts: () => ({ appendCount, authorityCount, rateCount }), runtimeAuthorityCount: () => runtimeAuthorityCount };
 }
 
 test("all versioned Product Decision events traverse the server-authorized port", async () => {
@@ -214,6 +228,27 @@ test("PRODUCT_RUNTIME cannot be constructed from the non-activated source releas
   assert.throws(() => createProductDecisionLearningWritePort({ mode: "PRODUCT_RUNTIME", now: () => new Date(now), sessionProvider: h.port, consentLifecycleProvider: h.port, authorityProvider: h.port, repository: h.port, rateLimit: h.port, trust: {} }), /runtime_not_authorized/);
   assert.equal(PRODUCT_DECISION_LEARNING_RELEASE.productionAuthorized, false);
   assert.equal(PRODUCT_DECISION_LEARNING_RELEASE.runtimeActivated, false);
+});
+
+test("PRODUCT_RUNTIME requires a fresh externally trusted exact-release authority at every write boundary", async () => {
+  const h = harness({ runtime: true });
+  assert.equal((await h.port.record(event("candidate_opened"))).status, "PERSISTED");
+  assert.equal(h.runtimeAuthorityCount(), 3);
+  assert.equal(PRODUCT_DECISION_LEARNING_RELEASE.productionAuthorized, false);
+  assert.equal(PRODUCT_DECISION_LEARNING_RELEASE.runtimeActivated, false);
+
+  for (const invalid of [
+    { enabled: false },
+    { killSwitchEngaged: true },
+    { generation: 0 },
+    { releaseHash: contentHash("wrong-release") },
+    { validUntil: now },
+  ]) {
+    const denied = harness({ runtime: true, runtimeAuthority: invalid });
+    await assert.rejects(denied.port.record(event("candidate_opened")), /runtime_not_authorized/);
+    assert.deepEqual(denied.counts(), { appendCount: 0, authorityCount: 0, rateCount: 0 });
+  }
+  await assert.rejects(harness({ runtime: true, rejectRuntimeAuthority: true }).port.record(event("candidate_opened")), /runtime_not_authorized/);
 });
 
 const projectionRequest = (overrides = {}) => ({

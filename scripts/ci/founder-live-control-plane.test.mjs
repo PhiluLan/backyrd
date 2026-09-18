@@ -67,11 +67,21 @@ test("canonical descendant PR and main identities preserve every sealed Founder-
 
 test("mobile integration has no client activation toggle, raw telemetry, or second UI", () => {
   const client = readFileSync(new URL("mobile/lib/decision/founderLiveDecision.ts", root), "utf8");
+  const clientContract = readFileSync(new URL("mobile/packages/founder-live-control-plane/src/index.mjs", root), "utf8");
+  const serverAuthority = readFileSync(new URL("packages/decision-vnext-core/src/product-decision-production-adapter.ts", root), "utf8");
   const screen = readFileSync(new URL("mobile/app/(tabs)/decision.tsx", root), "utf8");
   const tabs = readFileSync(new URL("mobile/app/(tabs)/_layout.tsx", root), "utf8");
-  assert.match(client, /freshAccessToken/); assert.match(client, /userData\.user\.id !== expectedUserId/);
-  assert.match(client, /FOUNDER_LIVE_RELEASE_BINDING/); assert.doesNotMatch(client, /AsyncStorage|EXPO_PUBLIC_.*VNEXT|clientToggle/i);
-  assert.match(screen, /invokeFounderLiveDecision/); assert.match(screen, /request_hash/); assert.doesNotMatch(`${screen}\n${tabs}`, /founder-demo|decision-vnext-demo/i);
+  assert.match(client, /freshAccessToken\(supabase\)/); assert.match(client, /supabase\.auth\.getSession\(\)/);
+  assert.match(client, /Authorization:\s*`Bearer \$\{accessToken\}`/); assert.match(client, /body:\s*request/);
+  assert.doesNotMatch(client, /expectedUserId|userData\.user\.id|\.auth\.getUser\(|\buuid\b|\bemail\b|user_metadata/i);
+  assert.match(serverAuthority, /authClient\.getUser\(token, signal\)/); assert.match(serverAuthority, /verified\.user\.id\?\.toString\(\)\.toLowerCase\(\) !== claims\.subject/);
+  assert.match(clientContract, /exactKeys\(value, \["contractVersion", "requestId", "idempotencyKey", "naturalLanguage", "explicit", "alternativeRequested", "previouslyPresentedCandidateIds", "rejectedCandidateIds"\]/);
+  assert.doesNotMatch(clientContract.match(/export function validateDecisionProductRequest[\s\S]*?\n}\n/)?.[0] ?? "", /\buuid\b|\bemail\b|user_metadata|expectedUserId/i);
+  assert.match(client, /DECISION_PRODUCT_RELEASE_BINDING/); assert.doesNotMatch(client, /AsyncStorage|EXPO_PUBLIC_.*VNEXT|clientToggle/i);
+  assert.match(screen, /invokeDecisionProduct/); assert.match(screen, /result\.candidates/);
+  assert.match(screen, /candidate_impression/); assert.match(screen, /candidate_opened/);
+  assert.doesNotMatch(screen, /request_hash|console\.(?:log|debug)|trackAnalyticsEvent/);
+  assert.doesNotMatch(`${screen}\n${tabs}`, /founder-demo|decision-vnext-demo/i);
 });
 
 test("Supabase public-client boundary remains explicit", () => {

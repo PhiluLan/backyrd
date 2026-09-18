@@ -11,10 +11,11 @@ import { type FounderLabCandidateAssessment } from "./phase3c-lab-contracts.js";
 import {
   DecisionProductCandidateSchema, DecisionProductEvaluationPolicySchema, DecisionProductEvaluationReleaseSchema,
   DecisionProductEvaluationSchema, DecisionProductExecutionEnvelopeSchema, DecisionProductExecutionSchema,
+  DecisionProductInteractionRequestSchema, DecisionProductInteractionResponseSchema,
   DecisionProductPresentationSchema, DecisionProductRankingPolicySchema, DecisionProductRequestSchema,
   DecisionProductResponseSchema, PRODUCT_DECISION_VERSIONS,
-  type DecisionProductEvaluation, type DecisionProductExecution, type DecisionProductPresentation,
-  type DecisionProductRequest, type DecisionProductResponse,
+  type DecisionProductEvaluation, type DecisionProductExecution, type DecisionProductInteractionRequest,
+  type DecisionProductPresentation, type DecisionProductRequest, type DecisionProductResponse,
 } from "./product-decision-contracts.js";
 
 const POLICY_BODY = {
@@ -282,6 +283,28 @@ export function buildDecisionInteractionLearningEvent(input: {
   });
 }
 
+export function buildAuthorizedDecisionInteractionLearningEvent(input: {
+  readonly request: DecisionProductInteractionRequest;
+  readonly authority: { readonly sessionId: string; readonly spotId: string; readonly contextBindingHash: string; readonly occurredAt: string };
+}): ProductDecisionLearningInput {
+  const request = DecisionProductInteractionRequestSchema.parse(input.request);
+  if (input.authority.spotId !== request.candidateId) throw new Error("product_decision_interaction_candidate_authority_invalid");
+  return ProductDecisionLearningInputSchema.parse({
+    contractVersion: CONTRACT_VERSIONS.productDecisionLearningInput,
+    eventId: `decision-event-${contentHash({ actionId: request.actionId, decisionId: request.decisionId, eventType: request.eventType, candidateId: request.candidateId, contextBindingHash: input.authority.contextBindingHash }).slice(0, 32)}`,
+    idempotencyKey: `decision-learning-${contentHash({ idempotencyKey: request.idempotencyKey, decisionId: request.decisionId, eventType: request.eventType })}`,
+    eventType: request.eventType,
+    decisionId: request.decisionId,
+    sessionId: input.authority.sessionId,
+    candidateId: request.candidateId,
+    spotId: input.authority.spotId,
+    contextBindingHash: input.authority.contextBindingHash,
+    occurredAt: input.authority.occurredAt,
+    feedback: null,
+    targetEventId: null,
+  });
+}
+
 export function validateDecisionProductExecution(input: DecisionProductBuildInput, supplied: unknown): DecisionProductExecution {
   const parsed = DecisionProductExecutionSchema.parse(supplied);
   const expected = buildDecisionProductExecution(input);
@@ -289,7 +312,7 @@ export function validateDecisionProductExecution(input: DecisionProductBuildInpu
   return expected;
 }
 
-export type DecisionProductRuntimeBoundary = "REQUEST_START" | "AUTH" | "RATE_LIMIT" | "BODY_PARSE" | "EVALUATION" | "IDEMPOTENCY" | "LEARNING" | "FINAL_OUTPUT";
+export type DecisionProductRuntimeBoundary = "REQUEST_START" | "AUTH" | "RATE_LIMIT" | "BODY_PARSE" | "INTERACTION_AUTHORITY" | "EVALUATION" | "IDEMPOTENCY" | "LEARNING" | "FINAL_OUTPUT";
 export interface DecisionProductAuthenticatedActor { readonly userId: string; readonly subjectBindingHash: string; readonly authenticationContextHash: string; readonly sessionBindingHash: string; readonly sessionId: string }
 export interface DecisionProductRuntimePorts {
   readonly auth: { authenticate(token: string, signal: AbortSignal): Promise<DecisionProductAuthenticatedActor | null> };
@@ -297,6 +320,10 @@ export interface DecisionProductRuntimePorts {
   readonly control: { assertBoundary(boundary: DecisionProductRuntimeBoundary, signal: AbortSignal): Promise<void> | void; readonly timeoutMilliseconds: number; readonly maxRequestBytes: number };
   readonly evaluate: (request: DecisionProductRequest, actor: DecisionProductAuthenticatedActor, signal: AbortSignal) => Promise<Omit<DecisionProductBuildInput, "request" | "actor">>;
   readonly idempotency: { commit(input: { subjectBindingHash: string; idempotencyKey: string; payloadHash: string; execution: DecisionProductExecution }, signal: AbortSignal): Promise<{ status: "CREATED" } | { status: "REPLAYED"; execution: unknown } | { status: "CONFLICT" | "EXPIRED" }> };
+  readonly interaction: { resolve(input: { request: DecisionProductInteractionRequest; actor: DecisionProductAuthenticatedActor }, signal: AbortSignal): Promise<
+    { status: "AUTHORIZED"; sessionId: string; spotId: string; contextBindingHash: string; occurredAt: string }
+    | { status: "SUPPRESSED_NO_CONSENT" }
+  > };
   readonly learning: {
     readonly contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0";
     record(event: ProductDecisionLearningInput, signal: AbortSignal): Promise<unknown>;
@@ -334,8 +361,32 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
       const parsedRequest = await at("BODY_PARSE", async () => {
         const text = await request.text(); if (new TextEncoder().encode(text).length > ports.control.maxRequestBytes) throw new DecisionProductError("REQUEST_TOO_LARGE", 413, "Die Anfrage ist zu groß.");
         let raw: unknown; try { raw = JSON.parse(text); } catch { throw new DecisionProductError("INVALID_JSON", 400, "Die Anfrage enthält kein gültiges JSON."); }
-        return DecisionProductRequestSchema.parse(raw);
+        const version = raw && typeof raw === "object" && "contractVersion" in raw ? (raw as { contractVersion?: unknown }).contractVersion : null;
+        return version === PRODUCT_DECISION_VERSIONS.interactionRequest
+          ? DecisionProductInteractionRequestSchema.parse(raw)
+          : DecisionProductRequestSchema.parse(raw);
       });
+      if (parsedRequest.contractVersion === PRODUCT_DECISION_VERSIONS.interactionRequest) {
+        const authority = await at("INTERACTION_AUTHORITY", (signal) => ports.interaction.resolve({ request: parsedRequest, actor }, signal));
+        if (authority.status === "AUTHORIZED") {
+          const event = buildAuthorizedDecisionInteractionLearningEvent({ request: parsedRequest, authority });
+          await at("LEARNING", async (signal) => {
+            if (ports.learning.contractVersion !== "backyrd.user-intelligence.product-decision-learning-port@1.0") throw new Error("product_decision_learning_port_version_invalid");
+            ProductDecisionLearningReceiptSchema.parse(await ports.learning.record(event, signal));
+          });
+        }
+        await at("FINAL_OUTPUT", async () => undefined);
+        const response = DecisionProductInteractionResponseSchema.parse({
+          contractVersion: PRODUCT_DECISION_VERSIONS.interactionResponse,
+          status: "ACKNOWLEDGED",
+          decisionId: parsedRequest.decisionId,
+          candidateId: parsedRequest.candidateId,
+          eventType: parsedRequest.eventType,
+          legacyWriteUsed: false,
+          fallbackUsed: false,
+        });
+        return new Response(JSON.stringify(response), { status: 200, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
+      }
       const evaluated = await at("EVALUATION", (signal) => ports.evaluate(parsedRequest, actor, signal));
       const expectedInput = { request: parsedRequest, actor, ...evaluated }; const execution = buildDecisionProductExecution(expectedInput);
       const committed = await at("IDEMPOTENCY", (signal) => ports.idempotency.commit({ subjectBindingHash: actor.subjectBindingHash, idempotencyKey: parsedRequest.idempotencyKey, payloadHash: contentHash(parsedRequest), execution }, signal));

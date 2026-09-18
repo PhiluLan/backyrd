@@ -189,6 +189,7 @@ test("HTTP boundary accepts any authenticated account, replays byte-identically,
     control: { timeoutMilliseconds: 2_000, maxRequestBytes: 16_384, async assertBoundary() {} },
     async evaluate() { evaluatedCount += 1; const { request: _request, actor: _actor, ...rest } = evaluated; return rest; },
     idempotency: { async commit(value) { const existing = records.get(value.idempotencyKey); if (existing) return { status: "REPLAYED", execution: existing }; records.set(value.idempotencyKey, value.execution); return { status: "CREATED" }; } },
+    interaction: { async resolve() { throw new Error("interaction_not_expected"); } },
     learning: {
       contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0",
       async record() { learningCount += 1; throw new Error("neutral_projection_must_not_write"); },
@@ -214,6 +215,7 @@ test("active learning uses canonical idempotent User receipts on create and repl
     control: { timeoutMilliseconds: 2_000, maxRequestBytes: 16_384, async assertBoundary() {} },
     async evaluate() { const { request: _request, actor: _actor, ...rest } = evaluated; return rest; },
     idempotency: { async commit(value) { const existing = records.get(value.idempotencyKey); if (existing) return { status: "REPLAYED", execution: existing }; records.set(value.idempotencyKey, value.execution); return { status: "CREATED" }; } },
+    interaction: { async resolve() { throw new Error("interaction_not_expected"); } },
     learning: {
       contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0",
       async record(event) {
@@ -231,6 +233,54 @@ test("active learning uses canonical idempotent User receipts on create and repl
   assert.ok(firstKeys.length > 0);
 });
 
+test("the same endpoint records only server-authorized visible impression and open interactions", async () => {
+  const recorded = [];
+  const ports = {
+    auth: { async authenticate() { return ACTOR; } },
+    rateLimit: { async consume() { return true; } },
+    control: { timeoutMilliseconds: 2_000, maxRequestBytes: 16_384, async assertBoundary() {} },
+    async evaluate() { throw new Error("evaluation_not_expected"); },
+    idempotency: { async commit() { throw new Error("idempotency_not_expected"); } },
+    interaction: {
+      async resolve({ request, actor }) {
+        assert.equal(actor.subjectBindingHash, ACTOR.subjectBindingHash);
+        if (request.candidateId !== "spot-visible") throw new Error("candidate_not_presented");
+        return { status: "AUTHORIZED", sessionId: ACTOR.sessionId, spotId: request.candidateId, contextBindingHash: "c".repeat(64), occurredAt: SERVER_TIME };
+      },
+    },
+    learning: {
+      contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0",
+      async record(event) {
+        recorded.push(event);
+        return { contractVersion: "backyrd.user-intelligence.product-decision-learning-receipt@1.0", status: "PERSISTED", persisted: true, eventId: event.eventId, recordHash: contentHash(event), neutralProjectionRequired: false };
+      },
+    },
+  };
+  const handler = createDecisionProductHttpHandler(ports);
+  for (const eventType of ["candidate_impression", "candidate_opened"]) {
+    const interaction = {
+      contractVersion: PRODUCT_DECISION_VERSIONS.interactionRequest,
+      actionId: `action-${eventType}`,
+      idempotencyKey: `interaction-${eventType}`,
+      decisionId: "decision-visible",
+      eventType,
+      candidateId: "spot-visible",
+    };
+    const response = await handler(new Request("https://example.test/functions/v1/decision-v13", { method: "POST", headers: { authorization: "Bearer valid" }, body: JSON.stringify(interaction) }));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { contractVersion: PRODUCT_DECISION_VERSIONS.interactionResponse, status: "ACKNOWLEDGED", decisionId: interaction.decisionId, candidateId: interaction.candidateId, eventType, legacyWriteUsed: false, fallbackUsed: false });
+  }
+  assert.deepEqual(recorded.map((event) => event.eventType), ["candidate_impression", "candidate_opened"]);
+  const forged = await handler(new Request("https://example.test/functions/v1/decision-v13", { method: "POST", headers: { authorization: "Bearer valid" }, body: JSON.stringify({ contractVersion: PRODUCT_DECISION_VERSIONS.interactionRequest, actionId: "action-forged", idempotencyKey: "interaction-forged", decisionId: "decision-visible", eventType: "candidate_opened", candidateId: "spot-forged" }) }));
+  assert.equal(forged.status, 503);
+  assert.equal(recorded.length, 2);
+
+  const noConsent = createDecisionProductHttpHandler({ ...ports, interaction: { async resolve() { return { status: "SUPPRESSED_NO_CONSENT" }; } } });
+  const neutralResponse = await noConsent(new Request("https://example.test/functions/v1/decision-v13", { method: "POST", headers: { authorization: "Bearer valid" }, body: JSON.stringify({ contractVersion: PRODUCT_DECISION_VERSIONS.interactionRequest, actionId: "action-neutral", idempotencyKey: "interaction-neutral", decisionId: "decision-visible", eventType: "candidate_impression", candidateId: "spot-visible" }) }));
+  assert.equal(neutralResponse.status, 200);
+  assert.equal(recorded.length, 2);
+});
+
 test("deadline races and aborts hanging auth, evaluation, idempotency and learning stages", async () => {
   for (const stage of ["AUTH", "EVALUATION", "IDEMPOTENCY", "LEARNING"]) {
     const request = productRequest("Ruhiges Café in Zürich", `timeout-${stage.toLowerCase()}`);
@@ -242,6 +292,7 @@ test("deadline races and aborts hanging auth, evaluation, idempotency and learni
       control: { timeoutMilliseconds: 20, maxRequestBytes: 16_384, async assertBoundary() {} },
       async evaluate(_request, _actor, signal) { if (stage === "EVALUATION") return hang(signal); const { request: _ignoredRequest, actor: _ignoredActor, ...rest } = evaluated; return rest; },
       idempotency: { async commit(_value, signal) { return stage === "IDEMPOTENCY" ? hang(signal) : { status: "CREATED" }; } },
+      interaction: { async resolve() { throw new Error("interaction_not_expected"); } },
       learning: {
         contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0",
         async record(event, signal) {

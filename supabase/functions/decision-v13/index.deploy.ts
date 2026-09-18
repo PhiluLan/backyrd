@@ -1,1 +1,1 @@
-import "./live-index.ts";
+import './vnext-only.ts';

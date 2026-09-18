@@ -444,7 +444,7 @@ verify_jwt = true
 entrypoint = "./functions/decision-copy/index.ts"
 
 [functions.decision-founder-live]
-enabled = true
+enabled = false
 verify_jwt = true
 entrypoint = "./functions/decision-founder-live/index.ts"
 
