@@ -6,6 +6,7 @@ import {
   assertFounderLabEvaluable, founderLabEvaluationGaps, replayFounderLabReport, resolveFounderLabText, runFounderDecisionLab, runFounderLabOracles,
 } from "../dist/index.js";
 import { makeFounderCohortHandoff } from "../../../scripts/decision/phase3c-founder-cohort-fixture.mjs";
+import "./founder-live-api.test.mjs";
 
 const request = (text, overrides = {}) => ({ contractVersion: PHASE3C_LAB_VERSIONS.request, requestId: "lab-test", ephemeralText: text, deviceLocation: { state: "AVAILABLE", city: "Basel" }, userMode: "NEUTRAL_MISSING", alternativeRequested: false, rejectedCandidateIds: [], ...overrides });
 const rehash = (value, field) => { const body = structuredClone(value); delete body[field]; return { ...body, [field]: contentHash(body) }; };
