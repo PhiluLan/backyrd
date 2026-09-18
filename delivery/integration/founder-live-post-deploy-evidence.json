@@ -1,0 +1,16 @@
+{
+  "contractVersion": "backyrd.founder-live-post-deploy-evidence@1.0",
+  "status": "NOT_EXECUTED_NO_PRODUCTION_AUTHORITY",
+  "candidateSourceSha": "4998a90b1281faebb7b2d79555edadd27af9810c",
+  "artifactHash": "4f44729c280e2c4fb7d86bebd2220fb1cc3218ade16acfc925a85737499e406f",
+  "productionPlanHash": "7d3aee6682e6663b68620fd7819238e515d454f608fbd2cdd776b09dae2a3bd7",
+  "productionQueries": 0,
+  "credentialChecks": 0,
+  "migrationsExecuted": 0,
+  "functionsDeployed": 0,
+  "deploymentsExecuted": 0,
+  "runtimeActivations": 0,
+  "otaActions": 0,
+  "realFounderIdsRecorded": 0,
+  "executionAuthorized": false
+}

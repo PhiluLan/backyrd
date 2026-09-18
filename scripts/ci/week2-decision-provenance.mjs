@@ -64,6 +64,10 @@ export function linkIsolatedDependencies(root, checkout) {
   mkdirSync(scope);
   for (const name of readdirSync(join(source, "@backyrd"))) {
     const workspace = join(checkout, "packages", name);
+    if (name === "founder-live-control-plane") {
+      requireValue(existsSync(resolve(root, "mobile/packages/founder-live-control-plane")), "week2_decision_mobile_founder_workspace_missing");
+      continue;
+    }
     requireValue(existsSync(workspace), `week2_decision_workspace_dependency_missing:${name}`);
     symlinkSync(workspace, join(scope, name), "dir");
   }

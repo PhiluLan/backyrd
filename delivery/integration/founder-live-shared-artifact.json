@@ -1,0 +1,56 @@
+{
+  "contractVersion": "backyrd.founder-live-shared-node20-artifact@1.0",
+  "nodeMajor": 20,
+  "sourceSha": "4998a90b1281faebb7b2d79555edadd27af9810c",
+  "sourceTreeSha": "0b9c4e8a89c05f1362cd934910d396b2f1fbda61",
+  "sourceSetHash": "f196c17335d6adc9991292c0f55343124470d7e7e17c8ad634ebeca3a7c821a4",
+  "fileCount": 124,
+  "tracks": [
+    "WORLD",
+    "USER",
+    "DECISION",
+    "MOBILE",
+    "ADMIN",
+    "INTEGRATION"
+  ],
+  "artifactHash": "4f44729c280e2c4fb7d86bebd2220fb1cc3218ade16acfc925a85737499e406f",
+  "trackVerifications": [
+    {
+      "track": "WORLD",
+      "artifactHash": "4f44729c280e2c4fb7d86bebd2220fb1cc3218ade16acfc925a85737499e406f",
+      "sourceSetHash": "f196c17335d6adc9991292c0f55343124470d7e7e17c8ad634ebeca3a7c821a4",
+      "status": "VERIFIED"
+    },
+    {
+      "track": "USER",
+      "artifactHash": "4f44729c280e2c4fb7d86bebd2220fb1cc3218ade16acfc925a85737499e406f",
+      "sourceSetHash": "f196c17335d6adc9991292c0f55343124470d7e7e17c8ad634ebeca3a7c821a4",
+      "status": "VERIFIED"
+    },
+    {
+      "track": "DECISION",
+      "artifactHash": "4f44729c280e2c4fb7d86bebd2220fb1cc3218ade16acfc925a85737499e406f",
+      "sourceSetHash": "f196c17335d6adc9991292c0f55343124470d7e7e17c8ad634ebeca3a7c821a4",
+      "status": "VERIFIED"
+    },
+    {
+      "track": "MOBILE",
+      "artifactHash": "4f44729c280e2c4fb7d86bebd2220fb1cc3218ade16acfc925a85737499e406f",
+      "sourceSetHash": "f196c17335d6adc9991292c0f55343124470d7e7e17c8ad634ebeca3a7c821a4",
+      "status": "VERIFIED"
+    },
+    {
+      "track": "ADMIN",
+      "artifactHash": "4f44729c280e2c4fb7d86bebd2220fb1cc3218ade16acfc925a85737499e406f",
+      "sourceSetHash": "f196c17335d6adc9991292c0f55343124470d7e7e17c8ad634ebeca3a7c821a4",
+      "status": "VERIFIED"
+    },
+    {
+      "track": "INTEGRATION",
+      "artifactHash": "4f44729c280e2c4fb7d86bebd2220fb1cc3218ade16acfc925a85737499e406f",
+      "sourceSetHash": "f196c17335d6adc9991292c0f55343124470d7e7e17c8ad634ebeca3a7c821a4",
+      "status": "VERIFIED"
+    }
+  ],
+  "executionAuthorized": false
+}

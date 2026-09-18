@@ -27,6 +27,7 @@
     "eas-build-post-install": "node ./scripts/eas-build-post-install.mjs"
   },
   "dependencies": {
+    "@backyrd/founder-live-control-plane": "file:packages/founder-live-control-plane",
     "@expo-google-fonts/dm-serif-display": "^0.4.2",
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/libre-franklin": "^0.4.2",

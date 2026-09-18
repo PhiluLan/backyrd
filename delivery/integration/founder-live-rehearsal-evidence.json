@@ -1,0 +1,128 @@
+{
+  "contractVersion": "backyrd.founder-live-rehearsal-evidence@1.0",
+  "baseSha": "f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6",
+  "baseTreeSha": "97e2a09a776a989effbd2aa8a3a5591fa98de4e4",
+  "functionalHeadSha": "4998a90b1281faebb7b2d79555edadd27af9810c",
+  "functionalTreeSha": "0b9c4e8a89c05f1362cd934910d396b2f1fbda61",
+  "patchId": "a4c0d9a014fadd8e57399ee688ed042eece51e6b",
+  "preservedIntegrationPatchId": "a4c0d9a014fadd8e57399ee688ed042eece51e6b",
+  "canonicalMainIntegrationPatchId": "22faabd451ba530389e9996a6894ba45f0f54d89",
+  "canonicalDomainDeltaPaths": [
+    "docs/user-intelligence-vnext/founder-live/release-summary.json",
+    "packages/user-intelligence-vnext-core/src/founder-live-projection.ts"
+  ],
+  "patchAudit": "ORIGINAL_INTEGRATION_PATCH_PRESERVED_CANONICAL_DOMAIN_DELTAS_EXCLUDED",
+  "changedFileCount": 32,
+  "disposableMergeCommitSha": null,
+  "combinedTreeSha": "0b9c4e8a89c05f1362cd934910d396b2f1fbda61",
+  "parents": [
+    "e77ae2479f7354662e4d512c9bb0c4e1fe49b4ac"
+  ],
+  "reconstruction": {
+    "worldMergeCommitSha": "480e621f63aaf0fd9385bc5fa4b7886b9e82dd55",
+    "userMergeCommitSha": "92424e043e72532761376caa46a351193a737560",
+    "decisionMergeCommitSha": "f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6",
+    "integrationMergeCommitSha": "e77ae2479f7354662e4d512c9bb0c4e1fe49b4ac",
+    "integrationMergeParents": [
+      "6a2d3ecba724016df9fce5a3b727e12f4b67d3b1",
+      "f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6"
+    ],
+    "reconstructedHeadSha": "4998a90b1281faebb7b2d79555edadd27af9810c",
+    "treeIdenticalToFunctionalHead": true
+  },
+  "canonicalMainIntegrationConflictCount": 0,
+  "conflictCount": 2,
+  "conflictResolutions": [
+    {
+      "path": "scripts/ci/week3-internal-prodlike-preflight.mjs",
+      "resolution": "STRICTER_USER_VARIANT",
+      "blobMatchesUserHead": true,
+      "domainSemanticsChanged": false
+    },
+    {
+      "path": "scripts/ci/week3-internal-prodlike.test.mjs",
+      "resolution": "STRICTER_USER_VARIANT",
+      "blobMatchesUserHead": true,
+      "domainSemanticsChanged": false
+    }
+  ],
+  "domainTracks": [
+    {
+      "track": "WORLD",
+      "pr": 302,
+      "approvedHeadSha": "239d73ab1b7229414363dc4b2a66bd625e71b9aa",
+      "canonicalMergeSha": "480e621f63aaf0fd9385bc5fa4b7886b9e82dd55",
+      "canonicalTreeSha": "47383a7b9ff367008e3cb8d384246a79fb97eede",
+      "patchId": "c9b44d1a3c855a5869cecca0d18095ab9e0a17eb",
+      "status": "CANONICAL_MERGE_VERIFIED"
+    },
+    {
+      "track": "USER",
+      "pr": 301,
+      "approvedHeadSha": "418c9bd0b87289769346052e3b681bde0cd9ed86",
+      "canonicalMergeSha": "92424e043e72532761376caa46a351193a737560",
+      "canonicalTreeSha": "2bb5b8232721a8bffe5263bbf323f7de4a48c8b4",
+      "patchId": "f63f185ca610a75f5ca8128d64c7bda7e694bc8a",
+      "status": "CANONICAL_MERGE_VERIFIED"
+    },
+    {
+      "track": "DECISION",
+      "pr": 303,
+      "approvedHeadSha": "8acd3f40e8938c77f2d9f3a3c8139e71970ceab5",
+      "canonicalMergeSha": "f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6",
+      "canonicalTreeSha": "97e2a09a776a989effbd2aa8a3a5591fa98de4e4",
+      "patchId": "c9e189c9ed472d2c66e384603c5fb7b3a90408c2",
+      "status": "CANONICAL_MERGE_VERIFIED"
+    }
+  ],
+  "e2e": {
+    "flow": "ADMIN_AUTHORING_TO_WORLD_READER_TO_USER_PROJECTION_TO_DECISION_API_TO_MOBILE",
+    "nodeMajor": 20,
+    "scenarioSet": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "FAMILY_OUTING",
+      "BOULDERING",
+      "CONTEXT_FLIP",
+      "ALTERNATIVE",
+      "SITUATIONAL_REJECT"
+    ],
+    "failClosed": [
+      "DEFAULT_OFF",
+      "EMERGENCY_OFF",
+      "ALLOWLIST_DENIED",
+      "AUTH_STALE_OR_INVALID",
+      "AUTHORITY_MISMATCH",
+      "IDEMPOTENCY_CONFLICT",
+      "RATE_LIMIT",
+      "UNKNOWN_VERSION",
+      "PORT_FAILURE",
+      "TIMEOUT"
+    ],
+    "localAuthFixture": true,
+    "adminBrowser": true,
+    "mobileViewports": [
+      "320x568",
+      "1440x900"
+    ],
+    "assertions": 10,
+    "manualFileHandoffs": 0,
+    "realAllowlistMembers": 0,
+    "userLearningWrites": 0,
+    "durableWrites": 0,
+    "externalNetworkCalls": 0,
+    "productOutputs": 0,
+    "readsAfterEmergencyOff": 0,
+    "projectionsAfterEmergencyOff": 0,
+    "evaluationsAfterEmergencyOff": 0,
+    "ranking": "NOT_CONFIGURED",
+    "confidenceInfluence": "NOT_CONFIGURED",
+    "syntheticProductionMixing": false,
+    "productionActions": 0
+  },
+  "e2eEvidenceHash": "aaa16b4ac6a7afc5691fc54e94339035afec85400d6d9589217a4824b0845d4d",
+  "byteIdenticalRuns": 2,
+  "executionAuthorized": false
+}

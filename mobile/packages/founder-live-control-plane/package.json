@@ -1,0 +1,11 @@
+{
+  "name": "@backyrd/founder-live-control-plane",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.mjs",
+  "types": "./src/index.d.mts",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  }
+}

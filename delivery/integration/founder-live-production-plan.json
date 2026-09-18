@@ -1,0 +1,25 @@
+{
+  "contractVersion": "backyrd.founder-live-source-aware-production-plan@1.0",
+  "sourceSha": "4998a90b1281faebb7b2d79555edadd27af9810c",
+  "planHash": "7d3aee6682e6663b68620fd7819238e515d454f608fbd2cdd776b09dae2a3bd7",
+  "pendingMigrations": [
+    "supabase/migrations/20260910174419_world_knowledge_slice_3b_foundation.sql",
+    "supabase/migrations/20260911184459_world_knowledge_slice_4a_authoring.sql",
+    "supabase/migrations/20260911214533_world_knowledge_slice_4a_legacy_import_rehearsal.sql",
+    "supabase/migrations/20260912084654_world_knowledge_slice_4a_authoring_product_readiness.sql",
+    "supabase/migrations/20260912103000_world_knowledge_slice_4a_authoring_reliability.sql",
+    "supabase/migrations/20260912121000_world_knowledge_slice_4a_taxonomy_candidate_expansion.sql",
+    "supabase/migrations/20260912165043_world_knowledge_slice_4a_authoring_registry_2.sql",
+    "supabase/migrations/20260915163631_world_knowledge_slice_4b_contextual_semantics.sql",
+    "supabase/migrations/20260916061802_world_founder_context_handoff_unknown_canonicalization.sql"
+  ],
+  "inheritedWorldMigrationCount": 9,
+  "newMigrations": 0,
+  "deployFunctions": [],
+  "authDeploy": false,
+  "runtimeActivation": false,
+  "mobileRelease": "PREPARED_NOT_EXECUTED",
+  "adminRelease": "PREPARED_NOT_EXECUTED",
+  "founderAllowlist": "EMPTY_NOT_CONFIGURED",
+  "executionAuthorized": false
+}

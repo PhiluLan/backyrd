@@ -1,0 +1,16 @@
+{
+  "contractVersion": "backyrd.founder-live-status@1.0",
+  "overall": "GREEN",
+  "reason": "THREE_OF_THREE_CANONICAL_DOMAIN_MERGES_BOUND_FOUR_TRACK_REHEARSAL_GREEN",
+  "codeAndTests": "GREEN",
+  "ctoReviewReady": true,
+  "identityGate": "PR_AND_POST_MERGE_EXACT",
+  "sealedFunctionalHead": "4998a90b1281faebb7b2d79555edadd27af9810c",
+  "draftRequired": true,
+  "productionStatus": "NO_GO",
+  "executionAuthorized": false,
+  "blockers": [
+    "FOUNDER_ALLOWLIST_NOT_CONFIGURED",
+    "PRODUCTION_EXECUTION_NOT_AUTHORIZED"
+  ]
+}
