@@ -1,0 +1,75 @@
+{
+  "contractVersion": "backyrd.founder-activation-integration@1.0",
+  "canonicalBaseSha": "a76910f6da5b407dae6d4022528e644613caf5d8",
+  "canonicalBaseTreeSha": "730a405788ffc70e2c8ee32caadcf3b5a39bbb30",
+  "status": "YELLOW_AWAITING_DOMAIN_CANDIDATES",
+  "draftRequired": true,
+  "executionAuthorized": false,
+  "productionActivationAuthorized": false,
+  "productionQueriesAuthorized": false,
+  "identityModes": [
+    "PR_CANDIDATE",
+    "POST_MERGE_MAIN"
+  ],
+  "mergeOrder": [
+    "USER_UUID_AUTHORITY",
+    "DECISION_SERVER_AUTHORITY",
+    "INTEGRATION_EVIDENCE_SEAL"
+  ],
+  "inheritedCanonicalRelease": {
+    "mergeSha": "a76910f6da5b407dae6d4022528e644613caf5d8",
+    "treeSha": "730a405788ffc70e2c8ee32caadcf3b5a39bbb30",
+    "worldAdminAuthoringIndependent": true,
+    "domainSemanticsMutable": false
+  },
+  "domainCandidates": [
+    {
+      "track": "USER_UUID_AUTHORITY",
+      "headSha": null,
+      "treeSha": null,
+      "patchId": null,
+      "status": "AWAITING_APPROVED_HEAD"
+    },
+    {
+      "track": "DECISION_SERVER_AUTHORITY",
+      "headSha": null,
+      "treeSha": null,
+      "patchId": null,
+      "status": "AWAITING_APPROVED_HEAD"
+    }
+  ],
+  "authority": {
+    "source": "AUTHENTICATED_SERVER_SESSION_SUBJECT",
+    "clientClaimsAccepted": false,
+    "emailAuthorizationAccepted": false,
+    "userMetadataAuthorizationAccepted": false,
+    "serverUuidAllowlist": true,
+    "configuration": "PRIVATE_SECRET_PROVIDER",
+    "expectedMemberCount": 2,
+    "failClosedOnMissingConfiguration": true,
+    "failClosedOnMalformedConfiguration": true,
+    "failClosedOnWrongEnvironment": true,
+    "identifiersPersistedInRepository": 0
+  },
+  "runtimeControls": {
+    "defaultState": "OFF",
+    "killSwitch": "ENGAGED",
+    "learning": "OFF",
+    "writeback": "OFF",
+    "ranking": "OFF",
+    "shadow": "OFF"
+  },
+  "testAuthority": {
+    "provider": "IN_MEMORY_TEST_ONLY",
+    "productionCapable": false,
+    "realProductionIdentityUsed": false,
+    "networkAccess": false,
+    "screenshotsRetained": false
+  },
+  "release": {
+    "sharedArtifactHash": null,
+    "sourceSetHash": null,
+    "evidenceHash": null,
+    "sealed": false
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "contractVersion": "backyrd.founder-activation-ownership@1.0",
+  "executionAuthorized": false,
+  "mergeOrder": [
+    {
+      "order": 1,
+      "track": "USER_UUID_AUTHORITY",
+      "owns": [
+        "minimized user projection contract",
+        "subject binding and privacy boundaries",
+        "learning and writeback disabled invariants"
+      ],
+      "mustNotOwn": [
+        "session authentication",
+        "allowlist membership decision",
+        "World facts",
+        "ranking or eligibility"
+      ]
+    },
+    {
+      "order": 2,
+      "track": "DECISION_SERVER_AUTHORITY",
+      "owns": [
+        "authenticated server session verification",
+        "private UUID allowlist provider port",
+        "fail-closed runtime and kill-switch checks",
+        "evaluation request orchestration"
+      ],
+      "mustNotOwn": [
+        "client-provided Founder claims",
+        "email or user_metadata authorization",
+        "World authoring",
+        "durable learning writes"
+      ]
+    },
+    {
+      "order": 3,
+      "track": "INTEGRATION_EVIDENCE_SEAL",
+      "owns": [
+        "real Mobile UI test orchestration",
+        "four-track rehearsal",
+        "PII and secret scanning",
+        "immutable artifact and source-aware plan",
+        "activation and rollback runbook"
+      ],
+      "mustNotOwn": [
+        "Domain semantics",
+        "Production activation",
+        "Production identity lookup"
+      ]
+    }
+  ],
+  "inherited": {
+    "WORLD_ADMIN": {
+      "source": "canonical main",
+      "authoringIndependent": true,
+      "semanticChangesAllowed": false
+    },
+    "FOUNDER_LIVE_MOBILE_ADMIN": {
+      "source": "PR #304 canonical merge",
+      "semanticChangesAllowed": false
+    }
+  },
+  "stopConditions": [
+    "domain head is not explicitly approved",
+    "candidate is not based on or replayable onto canonical main",
+    "email or UUID appears in source, build, artifact, log, screenshot, evidence, or PR text",
+    "client supplies authority or Founder membership claims",
+    "private allowlist configuration is missing or malformed without a closed result",
+    "kill switch, learning, writeback, ranking, or shadow control is open",
+    "production query, migration, deployment, OTA, secret mutation, or activation would be required"
+  ]
+}

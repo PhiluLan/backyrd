@@ -1,0 +1,20 @@
+{
+  "contractVersion": "backyrd.founder-activation-status@1.0",
+  "overall": "YELLOW",
+  "draftRequired": true,
+  "ctoReviewReady": false,
+  "mergeable": false,
+  "domainCandidatesBound": 0,
+  "domainCandidatesRequired": 2,
+  "piiSecretScan": "PENDING",
+  "mobileE2E": "PENDING",
+  "fourTrackRehearsal": "PENDING",
+  "sharedArtifact": "PENDING",
+  "productionStatus": "NO_GO",
+  "executionAuthorized": false,
+  "blockers": [
+    "USER_UUID_AUTHORITY_HEAD_PENDING",
+    "DECISION_SERVER_AUTHORITY_HEAD_PENDING",
+    "FINAL_EVIDENCE_SEAL_PENDING"
+  ]
+}

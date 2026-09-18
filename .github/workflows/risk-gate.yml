@@ -478,7 +478,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Risk, identity, Decision and deployment contract regressions
         run: |
-          node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/integration-preflight.test.mjs scripts/ci/week2-dark-wiring.test.mjs scripts/ci/founder-live-control-plane.test.mjs mobile/packages/founder-live-control-plane/test/control-plane.test.mjs scripts/ci/validate-client-secret-boundary.test.mjs scripts/ci/validate-decision-change.test.mjs scripts/ci/validate-production-state.test.mjs scripts/ci/verify-risk-gate.test.mjs
+          node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/integration-preflight.test.mjs scripts/ci/week2-dark-wiring.test.mjs scripts/ci/founder-live-control-plane.test.mjs scripts/ci/founder-activation-control-plane.test.mjs scripts/ci/scan-founder-activation-pii.test.mjs mobile/packages/founder-live-control-plane/test/control-plane.test.mjs scripts/ci/validate-client-secret-boundary.test.mjs scripts/ci/validate-decision-change.test.mjs scripts/ci/validate-production-state.test.mjs scripts/ci/verify-risk-gate.test.mjs
           node --test scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/verify-supabase-migration-dry-run.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs
       - name: Validate Founder-live generated binding and source-aware preflight
         env:
@@ -486,6 +486,8 @@ jobs:
           FOUNDER_LIVE_CHECKOUT_SHA: ${{ github.sha }}
         run: |
           npm run founder-live:binding
+          npm run founder-activation:scan
+          npm run founder-activation:preflight
           case "$FOUNDER_LIVE_EVENT_NAME" in
             pull_request) FOUNDER_LIVE_MODE=PR_CANDIDATE ;;
             push)
