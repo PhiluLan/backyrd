@@ -1,12 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { ACCEPTED_SOURCE_POLICY, WORLD_KNOWLEDGE_PORT_VERSION, buildWorldKnowledgeSnapshot, parseBuildWorldKnowledgeInput, resolutionRequest, resolveWorldKnowledge } from "@backyrd/world-knowledge-core";
 import {
-  DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_RANKING_POLICY,
-  DecisionProductEvaluationSchema, DecisionProductRequestSchema, PRODUCT_DECISION_VERSIONS,
+  DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY, DECISION_PRODUCT_RANKING_POLICY,
+  DecisionProductCandidateAssessmentSchema, DecisionProductContextSchema, DecisionProductEvaluationSchema, DecisionProductRequestSchema, DecisionProductWorldCohortSchema, PRODUCT_DECISION_VERSIONS,
   SyntheticPhase2UserProjectionPort, SyntheticUserProjectionReader, buildDecisionInteractionLearningEvent, buildDecisionProductExecution,
-  canonicalJson, contentHash, createDecisionProductHttpHandler, resolveFounderLabText,
-  runFounderDecisionLab, validateDecisionProductExecution, withContentHash,
+  canonicalJson, contentHash, createDecisionProductHttpHandler,
+  createDecisionProductEvaluator, evaluateProductV1IntentClassification, validateDecisionProductExecution, withContentHash,
 } from "../dist/index.js";
 
 const ACTOR = Object.freeze({ userId: "product-user", subjectBindingHash: "2".repeat(64), authenticationContextHash: "3".repeat(64), sessionBindingHash: "4".repeat(64), sessionId: "product-session" });
@@ -28,12 +29,13 @@ function productRequest(text, suffix = "base", overrides = {}) {
 
 async function fixture(request, mode = "NO_CONSENT") {
   const decisionId = `decision-${contentHash({ requestId: request.requestId, idempotencyKey: request.idempotencyKey }).slice(0, 32)}`;
-  const labRequest = {
-    contractVersion: "backyrd.decision-vnext.founder-lab-request@3c-1", requestId: request.requestId,
-    ephemeralText: request.naturalLanguage, deviceLocation: { state: "DENIED", city: null }, userMode: "NEUTRAL_MISSING",
-    alternativeRequested: request.alternativeRequested, rejectedCandidateIds: request.rejectedCandidateIds,
-  };
-  const interpretation = resolveFounderLabText(labRequest, request.explicit);
+  const interpretation = DecisionProductContextSchema.parse(withContentHash({
+    contractVersion: PRODUCT_DECISION_VERSIONS.context, resolverVersion: "decision-vnext-product-context-resolver-v1", inputHash: contentHash(request),
+    primaryIntent: "COFFEE", secondaryIntent: null, intentCompatibility: "COMPATIBLE", occasion: null, moods: [], targetCity: "Zurich",
+    dateTime: { state: "KNOWN", localDate: "2026-09-18", dayPhase: "EVENING", timeZone: "Europe/Zurich" },
+    group: { size: null, minimumAge: null, adultPresent: false, companionType: null }, budget: { state: "UNKNOWN", amount: null, currency: null, perPerson: false, calibrationLabel: null },
+    stayDuration: null, hardConstraints: [], softPreferences: [], unresolvedTerms: [], locationAuthority: { explicitTargetWins: true, authorizedCity: "Zurich", deviceCityUsed: false, state: "KNOWN" }, limitations: [], rawTextPersisted: false,
+  }, "interpretationHash"));
   const projectionRequest = {
     contractVersion: "backyrd.user-intelligence.projection-request@1.0", requestId: `projection-${request.requestId}`,
     actor: { kind: "AUTHENTICATED_USER", userId: ACTOR.userId, subjectBindingHash: ACTOR.subjectBindingHash, authenticationContextHash: ACTOR.authenticationContextHash, boundBy: "SERVER" },
@@ -44,28 +46,39 @@ async function fixture(request, mode = "NO_CONSENT") {
   const projection = mode === "ACTIVE"
     ? await new SyntheticPhase2UserProjectionPort("ACTIVE").project(projectionRequest)
     : await new SyntheticUserProjectionReader(mode).project(projectionRequest);
-  const labEvaluation = await runFounderDecisionLab({ request: labRequest, corrections: request.explicit, userProjection: projection });
   const evaluatorContractVersion = "decision-vnext-product-evaluator@1.0";
+  const candidate = (id, state, tier) => DecisionProductCandidateAssessmentSchema.parse(withContentHash({
+    contractVersion: PRODUCT_DECISION_VERSIONS.assessment, candidateId: id, snapshotHash: contentHash({ id, snapshot: true }), tier,
+    coreIntentCoverage: { intentId: "COFFEE", state, mappingIds: ["product-intent-coffee"], worldFactKeys: ["classification.primary_category"], evidenceSourceHash: contentHash({ id, core: state }) },
+    secondaryIntentCoverage: { intentId: null, state: "NOT_APPLICABLE", mappingIds: [], worldFactKeys: [], evidenceSourceHash: contentHash({ id, secondary: null }) },
+    worldClassification: { primaryVisitPurpose: state === "CONFIRMED" ? "EAT" : "DRINKS", primaryCategory: state === "CONFIRMED" ? "COFFEE_DAYTIME" : "DRINKS", placeTypes: state === "CONFIRMED" ? ["CAFE"] : ["BAR"], evidenceSourceHash: contentHash({ id, classification: state }) },
+    primaryVisitPurpose: { state: "CONFIRMED", mappingIds: [], evidenceSourceHash: contentHash({ id, purpose: true }) }, specificCoreClassification: { state, mappingIds: ["product-intent-coffee"], evidenceSourceHash: contentHash({ id, specific: state }) },
+    onsiteOfferings: { state: "NOT_CONFIGURED", mappingIds: [], availableKinds: [], matchedKinds: [], relationships: [], confirmsCoreIntent: false, evidenceSourceHash: contentHash({ id, onsite: null }) },
+    visitSituation: { state: "NOT_CONFIGURED", mappingIds: [], evidenceSourceHash: contentHash({ id, visit: null }) }, atmosphere: { state: "UNKNOWN", mappingIds: [], evidenceSourceHash: contentHash({ id, atmosphere: null }) }, typicalDaypart: { state: "NOT_CONFIGURED", mappingIds: [], evidenceSourceHash: contentHash({ id, daypart: null }) },
+    actualAvailability: { status: "not_requested", evidenceSourceHash: contentHash({ id, availability: "not_requested" }) }, confirmedHardConstraints: [], unknownHardConstraints: [], failedHardConstraints: [], matchedSoftPreferences: [], conflicts: [],
+    reasons: [{ reasonCode: `core-intent-${state.toLowerCase()}`, domain: "WORLD", sourceHash: contentHash({ id, reason: state }), statementDe: state === "CONFIRMED" ? "Der Hauptzweck bestätigt die Kernabsicht." : "Die Kernabsicht ist nicht bestätigt.", confirmed: state === "CONFIRMED" }], limitations: [],
+    rejectionClass: request.rejectedCandidateIds.includes(id) ? "SITUATIONAL_REJECT" : "NONE", userIntelligenceInvolved: false, userIntelligenceAffectsEligibility: false, neutralTieBreakerHash: contentHash({ id, tie: true }),
+  }, "assessmentHash"));
+  const candidates = [candidate("product-spot-cafe", "CONFIRMED", "ELIGIBLE_CONFIRMED"), candidate("product-spot-unknown", "UNKNOWN", "UNCONFIRMED_FALLBACK"), candidate("product-spot-bar", "INCOMPATIBLE", "INELIGIBLE")];
+  const bindings = candidates.map((row) => ({ spotId: row.candidateId, snapshotHash: row.snapshotHash })).sort((a, b) => a.spotId.localeCompare(b.spotId));
+  const worldCohort = DecisionProductWorldCohortSchema.parse(withContentHash({ contractVersion: PRODUCT_DECISION_VERSIONS.cohort, cohortId: "product-world-test", source: "CANONICAL_WORLD_KNOWLEDGE_READER", generatedAt: SERVER_TIME, authorizedCity: "Zurich", worldRegistryVersion: "backyrd.world-knowledge.registry@2.1", worldRegistryHash: "6".repeat(64), sourcePolicyVersion: "backyrd.world-knowledge.source-policy@1.0", sourcePolicyHash: "7".repeat(64), spotBindings: bindings, candidateSetHash: contentHash(bindings.map((row) => row.spotId)), limitations: [], commercialSignalsPresent: false, fixtureSourceUsed: false }, "cohortHash"));
   const evaluation = DecisionProductEvaluationSchema.parse(withContentHash({
     contractVersion: PRODUCT_DECISION_VERSIONS.evaluation,
     evaluationId: `product-evaluation-${request.requestId}`,
     createdAt: SERVER_TIME,
     requestHash: contentHash(request),
-    interpretation: labEvaluation.interpretation,
-    worldCohort: labEvaluation.worldCohort,
-    userProjectionHash: labEvaluation.userProjectionHash,
-    candidates: labEvaluation.candidates,
-    limitations: labEvaluation.limitations,
+    interpretation, worldCohort, userProjectionHash: projection.projectionHash, candidates, limitations: [],
     evaluatorVersion: evaluatorContractVersion,
     evaluationPolicyHash: DECISION_PRODUCT_EVALUATION_POLICY.policyHash,
     evaluationReleaseHash: DECISION_PRODUCT_EVALUATION_RELEASE.releaseHash,
+    intentPolicyHash: DECISION_PRODUCT_INTENT_POLICY.policyHash,
     sourceKind: "CANONICAL_PRODUCT_PORTS",
     productSemanticsApproved: true,
     productRankingAuthorized: true,
     fixtureSourceUsed: false,
   }, "evaluationHash"));
   const presentations = evaluation.candidates.map((candidate) => withContentHash({
-    contractVersion: PRODUCT_DECISION_VERSIONS.presentation, spotId: candidate.candidateId, name: candidate.label,
+    contractVersion: PRODUCT_DECISION_VERSIONS.presentation, spotId: candidate.candidateId, name: `Ort ${candidate.candidateId}`,
     locality: evaluation.interpretation.targetCity, categoryLabel: null, imageUrl: null,
     sourceHash: contentHash({ candidateId: candidate.candidateId, assessmentHash: candidate.assessmentHash }),
   }, "presentationHash"));
@@ -81,6 +94,39 @@ test("single-route product contract rejects client authority and has one transpa
   assert.equal(DECISION_PRODUCT_EVALUATION_POLICY.founderLabAuthorityAccepted, false);
   assert.equal(DECISION_PRODUCT_EVALUATION_RELEASE.runtimeActivated, false);
   assert.equal(DECISION_PRODUCT_EVALUATION_RELEASE.productionExecutionAuthorized, false);
+});
+
+test("closed Product-v1 intent matrix is specific, evidence-only and never rescued by embedded offers", () => {
+  const evaluate = (intent, purpose, category, placeTypes = []) => evaluateProductV1IntentClassification({ intent, purpose, category, placeTypes, disputed: false, evidenceSourceHash: "8".repeat(64) }).state;
+  assert.equal(evaluate("COFFEE", "EAT_DRINK", "COFFEE_DAYTIME", ["CAFE"]), "CONFIRMED");
+  assert.equal(evaluate("COFFEE", "EAT_DRINK", "EAT", ["PUB"]), "INCOMPATIBLE");
+  assert.equal(evaluate("COFFEE", "EAT_DRINK", "DRINKS", ["WINE_BAR"]), "INCOMPATIBLE");
+  assert.equal(evaluate("COFFEE", "SPORT_MOVEMENT", "SPORT_MOVEMENT", ["CLIMBING_GYM"]), "INCOMPATIBLE");
+  assert.equal(evaluate("COFFEE", "NATURE_ANIMAL_EXPERIENCE", "NATURE_ANIMAL_EXPERIENCE", ["PARK"]), "INCOMPATIBLE");
+  assert.equal(evaluate("COFFEE", "EAT_DRINK", null, []), "UNKNOWN");
+  assert.equal(evaluate("EAT", "EAT_DRINK", "EAT", []), "CONFIRMED");
+  assert.equal(evaluate("SPORT_MOVEMENT", "SPORT_MOVEMENT", "SPORT_MOVEMENT", ["CLIMBING_GYM"]), "CONFIRMED");
+  assert.equal(evaluate("NATURE_ANIMAL_EXPERIENCE", "NATURE_ANIMAL_EXPERIENCE", "NATURE_ANIMAL_EXPERIENCE", ["ZOO"]), "CONFIRMED");
+  assert.equal(evaluateProductV1IntentClassification({ intent: "COFFEE", purpose: "EAT_DRINK", category: "COFFEE_DAYTIME", placeTypes: ["CAFE"], disputed: true, evidenceSourceHash: "8".repeat(64) }).state, "DISPUTED");
+  assert.equal(DECISION_PRODUCT_INTENT_POLICY.embeddedOfferingsConfirmPrimaryIntent, false);
+});
+
+test("Product evaluator consumes only canonical World reader snapshots and server-owned candidate selection", async () => {
+  const resolution = resolveWorldKnowledge({ ...resolutionRequest([]), sourcePolicy: ACCEPTED_SOURCE_POLICY }, [ACCEPTED_SOURCE_POLICY]);
+  const snapshots = ["product-world-a", "product-world-b"].map((spotId) => buildWorldKnowledgeSnapshot(parseBuildWorldKnowledgeInput({ contractVersion: WORLD_KNOWLEDGE_PORT_VERSION, spotId, resolution }, [ACCEPTED_SOURCE_POLICY]), [ACCEPTED_SOURCE_POLICY]));
+  const byId = new Map(snapshots.map((row) => [row.spot.spotId, row]));
+  const reader = { contractVersion: "backyrd.world-knowledge.reader-port@1.0", async readSnapshot({ spotId }) { const row = byId.get(spotId); if (!row) throw new Error("missing"); return row; } };
+  const ids = snapshots.map((row) => row.spot.spotId).reverse();
+  const request = productRequest("Etwas erleben", "canonical-world");
+  const projection = (await fixture(request, "NO_CONSENT")).projection;
+  const evaluate = createDecisionProductEvaluator({ world: reader, async selectCandidates() { return { candidateIds: ids, candidateSetHash: contentHash([...ids].sort()) }; } });
+  const one = await evaluate(request, { authorizedCity: "Zurich", serverTime: SERVER_TIME }, projection, new AbortController().signal);
+  const two = await evaluate(request, { authorizedCity: "Zurich", serverTime: SERVER_TIME }, projection, new AbortController().signal);
+  assert.equal(canonicalJson(one), canonicalJson(two));
+  assert.equal(one.evaluation.worldCohort.source, "CANONICAL_WORLD_KNOWLEDGE_READER");
+  assert.equal(one.evaluation.fixtureSourceUsed, false);
+  assert.deepEqual(one.evaluation.worldCohort.spotBindings.map((row) => row.spotId), [...ids].sort());
+  assert.throws(() => DecisionProductEvaluationSchema.parse({ ...one.evaluation, founderCohort: true }), /unknown field/);
 });
 
 test("evaluation-only Lab authority cannot be relabeled as Product output", async () => {
@@ -310,6 +356,7 @@ test("deadline races and aborts hanging auth, evaluation, idempotency and learni
 test("active product module has no legacy, founder allowlist, dual-run or fallback channel", async () => {
   const source = await readFile(new URL("../src/product-decision.ts", import.meta.url), "utf8");
   assert.doesNotMatch(source, /EXISTING_ENGINE|legacyBody|fallbackFunction|invokeExisting|FounderLiveAllowlistPort|createFounderLiveDualRun/);
-  const contracts = await readFile(new URL("../src/product-decision-contracts.ts", import.meta.url), "utf8");
-  assert.doesNotMatch(contracts, /decision-learning-event@1\.0|DecisionLearningEventSchema/);
+  const contracts = await readFile(new URL("../src/product-v1-contracts.ts", import.meta.url), "utf8");
+  const evaluator = await readFile(new URL("../src/product-v1-evaluator.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(contracts + evaluator, /FounderLab|FOUNDER_WORLD_COHORT|SYNTHETIC_FALLBACK|decision-learning-event@1\.0|DecisionLearningEventSchema/);
 });

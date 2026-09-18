@@ -7,54 +7,17 @@ import {
   type RelevantUserProjection,
 } from "@backyrd/user-intelligence-vnext-core";
 import { assertContentHash, canonicalJson, contentHash, deepFreeze, withContentHash } from "./canonical.js";
-import { type FounderLabCandidateAssessment } from "./phase3c-lab-contracts.js";
 import {
-  DecisionProductCandidateSchema, DecisionProductEvaluationPolicySchema, DecisionProductEvaluationReleaseSchema,
+  DecisionProductCandidateSchema,
   DecisionProductEvaluationSchema, DecisionProductExecutionEnvelopeSchema, DecisionProductExecutionSchema,
   DecisionProductInteractionRequestSchema, DecisionProductInteractionResponseSchema,
-  DecisionProductPresentationSchema, DecisionProductRankingPolicySchema, DecisionProductRequestSchema,
+  DecisionProductPresentationSchema, DecisionProductRequestSchema,
   DecisionProductResponseSchema, PRODUCT_DECISION_VERSIONS,
-  type DecisionProductEvaluation, type DecisionProductExecution, type DecisionProductInteractionRequest,
-  type DecisionProductPresentation, type DecisionProductRequest, type DecisionProductResponse,
-} from "./product-decision-contracts.js";
-
-const POLICY_BODY = {
-  contractVersion: PRODUCT_DECISION_VERSIONS.rankingPolicy,
-  policyId: "decision-vnext-product-lexicographic-ranking-v1",
-  precedence: [
-    "HARD_CONSTRAINTS", "ELIGIBILITY_TIER", "CORE_INTENT_COVERAGE", "ACTUAL_AVAILABILITY",
-    "CONSENTED_USER_RELEVANCE", "SITUATIONAL_CONTEXT_FIT", "WORLD_EVIDENCE", "NEUTRAL_IDENTITY",
-  ] as const,
-  userSignals: ["DIRECT_SPOT_POSITIVE"] as const,
-  commercialSignalsForbidden: true as const,
-  fixtureOrderForbidden: true as const,
-  spotNameForbidden: true as const,
-};
-export const DECISION_PRODUCT_RANKING_POLICY = deepFreeze(DecisionProductRankingPolicySchema.parse(withContentHash(POLICY_BODY, "policyHash")));
-
-const EVALUATION_POLICY_BODY = {
-  contractVersion: PRODUCT_DECISION_VERSIONS.evaluationPolicy,
-  policyId: "decision-vnext-product-evaluation-policy-v1",
-  scope: "PRODUCT_DECISION" as const,
-  requiresCanonicalWorldPort: true as const,
-  requiresCanonicalUserProjectionPort: true as const,
-  requiresVerifiedContext: true as const,
-  founderLabAuthorityAccepted: false as const,
-  syntheticFixtureAuthorityAccepted: false as const,
-  hardConstraintsBeforeRanking: true as const,
-};
-export const DECISION_PRODUCT_EVALUATION_POLICY = deepFreeze(DecisionProductEvaluationPolicySchema.parse(withContentHash(EVALUATION_POLICY_BODY, "policyHash")));
-const EVALUATION_RELEASE_BODY = {
-  contractVersion: PRODUCT_DECISION_VERSIONS.evaluationRelease,
-  releaseId: "decision-vnext-product-evaluation-release-v1",
-  evaluationPolicyHash: DECISION_PRODUCT_EVALUATION_POLICY.policyHash,
-  rankingPolicyHash: DECISION_PRODUCT_RANKING_POLICY.policyHash,
-  productSemanticsApproved: true as const,
-  productRankingAuthorized: true as const,
-  runtimeActivated: false as const,
-  productionExecutionAuthorized: false as const,
-};
-export const DECISION_PRODUCT_EVALUATION_RELEASE = deepFreeze(DecisionProductEvaluationReleaseSchema.parse(withContentHash(EVALUATION_RELEASE_BODY, "releaseHash")));
+  type DecisionProductCandidateAssessment, type DecisionProductEvaluation, type DecisionProductExecution,
+  type DecisionProductInteractionRequest, type DecisionProductPresentation, type DecisionProductRequest,
+  type DecisionProductResponse,
+} from "./product-v1-contracts.js";
+import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY, DECISION_PRODUCT_RANKING_POLICY } from "./product-v1-authority.js";
 
 const tierScore = { ELIGIBLE_CONFIRMED: 3, UNCONFIRMED_FALLBACK: 2, NOT_CONFIGURED: 1, INELIGIBLE: 0 } as const;
 const coreScore = { CONFIRMED: 5, UNKNOWN: 3, NOT_CONFIGURED: 2, NOT_APPLICABLE: 1, DISPUTED: 0, INCOMPATIBLE: -1 } as const;
@@ -64,7 +27,7 @@ const positiveDirectStates = new Set(["SAVED", "REPEATEDLY_SELECTED", "VISITED"]
 type RankableCandidate = DecisionProductResponse["candidates"][number];
 type ProductReason = RankableCandidate["reasons"][number];
 
-const reasonDomain = (domain: FounderLabCandidateAssessment["reasons"][number]["domain"]): ProductReason["domain"] =>
+const reasonDomain = (domain: DecisionProductCandidateAssessment["reasons"][number]["domain"]): ProductReason["domain"] =>
   domain === "LIMITATION" ? "LIMITATION" : domain;
 
 function userRelevance(candidateId: string, projection: RelevantUserProjection) {
@@ -78,7 +41,7 @@ function userRelevance(candidateId: string, projection: RelevantUserProjection) 
   };
 }
 
-function vector(candidate: FounderLabCandidateAssessment, projection: RelevantUserProjection) {
+function vector(candidate: DecisionProductCandidateAssessment, projection: RelevantUserProjection) {
   const hardConstraintState = candidate.failedHardConstraints.length || candidate.rejectionClass === "SITUATIONAL_REJECT"
     ? "FAIL" as const : candidate.unknownHardConstraints.length ? "UNKNOWN" as const : "PASS" as const;
   const body = {
@@ -98,7 +61,7 @@ function vector(candidate: FounderLabCandidateAssessment, projection: RelevantUs
       conflictFree: candidate.conflicts.length === 0,
       confirmedReasonCount: candidate.reasons.filter((reason) => reason.domain === "WORLD" && reason.confirmed).length,
     },
-    neutralIdentity: candidate.candidateId,
+    neutralIdentity: candidate.neutralTieBreakerHash,
   };
   return deepFreeze(withContentHash(body, "vectorHash"));
 }
@@ -136,7 +99,7 @@ function rankable(candidate: RankableCandidate): boolean {
     && !candidate.contextualReject;
 }
 
-function presentationsById(candidates: readonly FounderLabCandidateAssessment[], raw: readonly unknown[]): ReadonlyMap<string, DecisionProductPresentation> {
+function presentationsById(candidates: readonly DecisionProductCandidateAssessment[], raw: readonly unknown[]): ReadonlyMap<string, DecisionProductPresentation> {
   const presentations = raw.map((value) => DecisionProductPresentationSchema.parse(value));
   for (const presentation of presentations) assertContentHash(presentation as unknown as Record<string, unknown>, "presentationHash");
   const byId = new Map(presentations.map((value) => [value.spotId, value]));
@@ -186,7 +149,7 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
   const requestHash = contentHash(request); const decisionId = `decision-${contentHash({ requestId: request.requestId, idempotencyKey: request.idempotencyKey }).slice(0, 32)}`;
   const evaluation = DecisionProductEvaluationSchema.parse(input.evaluation);
   assertContentHash(evaluation as unknown as Record<string, unknown>, "evaluationHash");
-  if (evaluation.requestHash !== requestHash || evaluation.evaluatorVersion !== input.evaluatorContractVersion || evaluation.evaluationPolicyHash !== DECISION_PRODUCT_EVALUATION_POLICY.policyHash || evaluation.evaluationReleaseHash !== DECISION_PRODUCT_EVALUATION_RELEASE.releaseHash || evaluation.sourceKind !== "CANONICAL_PRODUCT_PORTS") throw new Error("product_decision_evaluation_authority_invalid");
+  if (evaluation.requestHash !== requestHash || evaluation.evaluatorVersion !== input.evaluatorContractVersion || evaluation.evaluationPolicyHash !== DECISION_PRODUCT_EVALUATION_POLICY.policyHash || evaluation.evaluationReleaseHash !== DECISION_PRODUCT_EVALUATION_RELEASE.releaseHash || evaluation.intentPolicyHash !== DECISION_PRODUCT_INTENT_POLICY.policyHash || evaluation.sourceKind !== "CANONICAL_PRODUCT_PORTS") throw new Error("product_decision_evaluation_authority_invalid");
   for (const candidate of evaluation.candidates) assertContentHash(candidate as unknown as Record<string, unknown>, "assessmentHash");
   const projection = parseRelevantUserProjection(input.projection);
   if (evaluation.userProjectionHash !== projection.projectionHash) throw new Error("product_decision_projection_binding_invalid");

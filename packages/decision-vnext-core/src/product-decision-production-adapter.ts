@@ -14,7 +14,7 @@ import {
   type DecisionProductExecution,
   type DecisionProductInteractionRequest,
   type DecisionProductRequest,
-} from "./product-decision-contracts.js";
+} from "./product-v1-contracts.js";
 import type {
   DecisionProductAuthenticatedActor,
   DecisionProductBuildInput,

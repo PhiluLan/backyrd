@@ -14,12 +14,18 @@ Status: domain patch for Integration; no deployment or runtime activation.
 
 Canonical runtime schemas and inferred TypeScript types live in:
 
-- `src/product-decision-contracts.ts`
+- `src/product-v1-contracts.ts`
+- `src/product-v1-authority.ts`
+- `src/product-v1-evaluator.ts`
 - `src/product-decision.ts`
 
 Versions:
 
 - request: `backyrd.decision-vnext.product-request@1.0`
+- context: `backyrd.decision-vnext.product-context@1.0`
+- World cohort: `backyrd.decision-vnext.product-world-cohort@1.0`
+- candidate assessment: `backyrd.decision-vnext.product-candidate-assessment@1.0`
+- intent policy: `backyrd.decision-vnext.product-intent-policy@1.0`
 - response: `backyrd.decision-vnext.product-response@1.0`
 - envelope: `backyrd.decision-vnext.product-envelope@1.0`
 - ranking policy: `backyrd.decision-vnext.product-ranking-policy@1.0`
@@ -31,7 +37,9 @@ Versions:
 
 The normal response includes the canonical spot identity, product-safe presentation, eligibility tier, core-intent coverage, actual availability, hard-constraint proofs, transparent rank vector, reasons and limitations. Commercial and Owner fields have no schema channel.
 
-The Product evaluator contract is a distinct authority boundary. It reuses reviewed deterministic candidate shapes, but rejects Phase-3C Lab flags, fixture authority and the `SYNTHETIC_FOUNDER_EVALUATION_ONLY` policy. Its pinned release approves Product semantics and ranking while deliberately keeping `runtimeActivated:false` and `productionExecutionAuthorized:false`; Integration must seal and activate an exact combined release rather than relabel a Lab result.
+The Product evaluator is an independent authority boundary: Product Context, World cohort, intent policy and candidate assessment do not import or accept Founder-Lab contracts. It rejects Phase-3C Lab flags, Founder cohorts, fixture authority and synthetic fallback sources. Its pinned release approves the explicitly authorized Product-v1 semantics and ranking while deliberately keeping `runtimeActivated:false` and `productionExecutionAuthorized:false`; Integration must seal and activate an exact combined release rather than relabel a Lab result.
+
+Candidate generation is server-owned. The evaluator accepts a hash-bound candidate-ID set from an injected neutral selection port and reads every item through the canonical `WorldKnowledgeReaderPort` under the accepted World source policy. It has no direct table, ledger, Founder-manifest, spot-name, commercial or array-position path. The closed Product-v1 matrix covers eating, coffee, drinks, sport/movement, nature/animal experiences, culture/art and activities/experiences. Specific classifications take precedence over broad domains; embedded or part-of-spot offerings never confirm the primary intent.
 
 ## Ranking policy v1
 
@@ -44,7 +52,7 @@ The comparator is deterministic and lexicographic:
 5. consented direct-spot relevance from the canonical `RelevantUserProjection`;
 6. situational context fit;
 7. conflict-free World evidence and confirmed evidence count;
-8. canonical spot identity only as the neutral final tie-break.
+8. a content hash of canonical spot and snapshot identity only as the neutral final tie-break.
 
 Fixture order, display name and commercial state are forbidden. User Intelligence cannot modify eligibility. Candidates that fail a hard constraint, are contextually rejected, or have incompatible/disputed core intent receive no rank.
 
