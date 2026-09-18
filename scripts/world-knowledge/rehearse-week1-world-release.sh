@@ -39,7 +39,12 @@ plan="$rehearsal_root/plan.json"
 node "$repo_root/scripts/world-knowledge/build-week1-production-release-foundation.mjs" --output "${plan#$repo_root/}" 2>/dev/null || cp "$repo_root/.local/world-week1/release-foundation.json" "$plan"
 pending=()
 while IFS= read -r pending_name; do pending+=("$pending_name"); done < <(jq -r '.migrations[].path | split("/")[-1]' "$plan")
-test "${#pending[@]}" = 9
+if test "${WORLD_INCLUDE_IDEMPOTENCY:-false}" = true; then
+  pending+=("20260918123000_founder_live_durable_idempotency_v1.sql")
+fi
+expected_migration_count=9
+if test "${WORLD_INCLUDE_IDEMPOTENCY:-false}" = true; then expected_migration_count=10; fi
+test "${#pending[@]}" = "$expected_migration_count"
 
 "$supabase_cli" start --workdir "$rehearsal_root" --exclude studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor,postgres-meta --agent=no >"$rehearsal_root/start.log" 2>&1
 started=true
@@ -90,12 +95,15 @@ rmdir "$rehearsal_root/supabase/migrations.pool"
 for test_file in world_knowledge_slice3b.sql world_knowledge_slice4a_authoring.sql world_knowledge_slice4a_legacy_import.sql world_knowledge_slice4a_product_readiness.sql world_knowledge_slice4a_registry2.sql world_knowledge_slice4b_contextual.sql; do
   psql "$DB_URL" -X -v ON_ERROR_STOP=1 --file "$rehearsal_root/supabase/tests/$test_file" >/dev/null
 done
+if test "${WORLD_INCLUDE_IDEMPOTENCY:-false}" = true; then
+  psql "$DB_URL" -X -v ON_ERROR_STOP=1 --file "$rehearsal_root/supabase/tests/founder_live_durable_idempotency_v1.sql" >/dev/null
+fi
 DB_URL="$DB_URL" "$repo_root/scripts/ci/validate-world-knowledge-rebuild-race.sh" >/dev/null
 
 ledger_count="$(psql "$DB_URL" -X -v ON_ERROR_STOP=1 -Atc "select count(*) from supabase_migrations.schema_migrations where version >= '20260910174419';")"
 private_exposure="$(psql "$DB_URL" -X -v ON_ERROR_STOP=1 -Atc "select count(*) from information_schema.role_table_grants where table_schema='world_knowledge_private' and grantee in ('PUBLIC','anon','authenticated');")"
 definer_without_empty_path="$(psql "$DB_URL" -X -v ON_ERROR_STOP=1 -Atc "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where (n.nspname='world_knowledge_private' or (n.nspname='public' and p.proname like 'world_%')) and p.prosecdef and not coalesce(p.proconfig,'{}') @> array['search_path=\"\"'];")"
-test "$ledger_count" = 9
+test "$ledger_count" = "$expected_migration_count"
 test "$private_exposure" = 0
 test "$definer_without_empty_path" = 0
 
@@ -118,11 +126,11 @@ if test "${WORLD_WEEK2_BACKUP_RESTORE:-false}" = true; then
   restored_ledger="$(docker exec "$database_container" psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atc "select count(*) from supabase_migrations.schema_migrations where version >= '20260910174419';")"
   restored_world_tables="$(docker exec "$database_container" psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atc "select count(*) from information_schema.tables where table_schema='world_knowledge_private';")"
   restored_claims="$(docker exec "$database_container" psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atc 'select count(*) from world_knowledge_private.claims;')"
-  test "$restored_ledger" = 9
+  test "$restored_ledger" = "$expected_migration_count"
   test "$restored_world_tables" = "$original_world_tables"
   test "$restored_claims" = "$original_claims"
   backup_restore='PASS'
 fi
 
-result="$(jq -n --arg project "$project_id" --arg image "$(docker inspect --format '{{.Config.Image}}' "supabase_db_$project_id")" --argjson syntheticSpots 1000 --argjson timings "$timings" --argjson ledger "$ledger_count" --argjson privateExposure "$private_exposure" --argjson unsafeDefiners "$definer_without_empty_path" --arg backupRestore "$backup_restore" --argjson backupBytes "$backup_bytes" '{schemaVersion:"backyrd.world-knowledge.week1-rehearsal@1",environment:"DISPOSABLE_LOCAL",productionConnection:false,projectId:$project,databaseImage:$image,syntheticSpotCount:$syntheticSpots,migrationTimings:$timings,migrationLedgerCount:$ledger,privateClientGrantCount:$privateExposure,securityDefinerWithoutEmptySearchPath:$unsafeDefiners,worldSqlSuites:6,parallelRebuildCases:["SAME_KEY","CROSS_KEY_SAME_INPUT","DISTINCT_INPUT_MONOTONE_POINTER"],replay:"NO_OP",backupRestore:$backupRestore,backupBytes:$backupBytes,executionAuthorized:false}')"
+result="$(jq -n --arg project "$project_id" --arg image "$(docker inspect --format '{{.Config.Image}}' "supabase_db_$project_id")" --argjson syntheticSpots 1000 --argjson timings "$timings" --argjson ledger "$ledger_count" --argjson privateExposure "$private_exposure" --argjson unsafeDefiners "$definer_without_empty_path" --arg backupRestore "$backup_restore" --argjson backupBytes "$backup_bytes" --argjson worldSqlSuites "$((6 + (expected_migration_count - 9)))" '{schemaVersion:"backyrd.world-knowledge.week1-rehearsal@1",environment:"DISPOSABLE_LOCAL",productionConnection:false,projectId:$project,databaseImage:$image,syntheticSpotCount:$syntheticSpots,migrationTimings:$timings,migrationLedgerCount:$ledger,privateClientGrantCount:$privateExposure,securityDefinerWithoutEmptySearchPath:$unsafeDefiners,worldSqlSuites:$worldSqlSuites,parallelRebuildCases:["SAME_KEY","CROSS_KEY_SAME_INPUT","DISTINCT_INPUT_MONOTONE_POINTER"],replay:"NO_OP",backupRestore:$backupRestore,backupBytes:$backupBytes,executionAuthorized:false}')"
 printf '%s\n' "$result"
