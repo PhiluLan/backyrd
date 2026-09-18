@@ -118,6 +118,15 @@ export const CONTRACT_VERSIONS = Object.freeze({
   founderLiveProjectionRehearsal: "backyrd.user-intelligence.founder-live-projection-rehearsal@1.0",
   founderLivePostDeployEvidence: "backyrd.user-intelligence.founder-live-post-deploy-evidence@1.0",
   founderLiveRetentionDecision: "backyrd.user-intelligence.retention-decision-template@founder-live-1",
+  founderLiveUuidAuthorityRelease: "backyrd.user-intelligence.founder-live-uuid-authority-release@1.0",
+  founderLiveUuidAuthorityTrustAnchor: "backyrd.user-intelligence.founder-live-uuid-authority-trust-anchor@1.0",
+  founderLiveUuidPrivateStoreEnvelope: "backyrd.user-intelligence.founder-live-uuid-private-store@1.0",
+  founderLiveUuidPrivateRecord: "backyrd.user-intelligence.founder-live-uuid-private-record@1.0",
+  founderLiveUuidServerSession: "backyrd.user-intelligence.founder-live-server-session@1.0",
+  founderLiveUuidCapability: "backyrd.user-intelligence.founder-live-uuid-capability@1.0",
+  founderLiveUuidProjectionHandoff: "backyrd.user-intelligence.founder-live-uuid-projection-handoff@1.0",
+  founderLiveUuidPrivacyLegalAuthority: "backyrd.user-intelligence.founder-live-privacy-legal-authority@1.0",
+  founderLiveUuidPrivacyLegalReceipt: "backyrd.user-intelligence.founder-live-privacy-legal-receipt@1.0",
 } as const);
 
 export const SYNTHETIC_CONCEPT_REGISTRY_VERSION = "backyrd.synthetic-user-concepts@1.0";
