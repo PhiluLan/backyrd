@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { scanFounderActivationPii } from "./scan-founder-activation-pii.mjs";
 
 const fixture = (content) => {
@@ -12,6 +12,13 @@ const fixture = (content) => {
 
 test("accepts sanitized activation evidence", () => {
   assert.equal(scanFounderActivationPii([fixture('{"memberCount":2,"executionAuthorized":false}')]).findings, 0);
+});
+
+test("permits only the canonical Supabase email placeholder", () => {
+  assert.equal(scanFounderActivationPii([resolve(process.cwd(), "supabase/config.toml")]).findings, 0);
+  const placeholder = ["admin", "email.com"].join("@");
+  const realEmail = ["real.person", "example.org"].join("@");
+  assert.throws(() => scanFounderActivationPii([fixture(`${placeholder} and ${realEmail}`)]), /sensitive_value_detected/);
 });
 
 test("rejects concrete email", () => {

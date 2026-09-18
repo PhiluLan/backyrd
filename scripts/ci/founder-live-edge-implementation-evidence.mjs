@@ -5,11 +5,41 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildProductionPlan } from "../deployment/supabase-production-plan.mjs";
-import { buildFounderLiveArtifact } from "./founder-live-artifact.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const sha256 = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
+const EDGE_SOURCE_PATHS = Object.freeze([
+  "docs/decision-vnext/FOUNDER_LIVE_ADAPTER_COMPATIBILITY_MATRIX.md",
+  "packages/decision-vnext-core/src/api.ts",
+  "packages/decision-vnext-core/src/founder-live-production-adapter.ts",
+  "packages/decision-vnext-core/src/production-adapter.ts",
+  "packages/decision-vnext-core/src/production-durable-ports.ts",
+  "packages/decision-vnext-core/src/server-authority.ts",
+  "packages/user-intelligence-vnext-core/src/production-relevant-user-projection.ts",
+  "scripts/ci/founder-live-edge-implementation-evidence.mjs",
+  "supabase/config.toml",
+  "supabase/functions/decision-founder-live/index.ts",
+  "supabase/functions/decision-founder-live/runtime-boundary.mjs",
+]);
+
+function buildEdgeSourceArtifact(root, sourceSha, sourceTreeSha) {
+  const entries = EDGE_SOURCE_PATHS.map((path) => ({
+    path,
+    blobSha: git(root, ["rev-parse", `${sourceSha}:${path}`]),
+  }));
+  const sourceSetHash = sha256(entries);
+  const body = {
+    contractVersion: "backyrd.founder-live-edge-source-artifact@1.0",
+    sourceSha,
+    sourceTreeSha,
+    sourceSetHash,
+    fileCount: entries.length,
+    files: entries,
+    executionAuthorized: false,
+  };
+  return { ...body, artifactHash: sha256(body) };
+}
 
 export function buildFounderLiveEdgeImplementationEvidence({ root = ROOT, source = "HEAD" } = {}) {
   if (Number(process.versions.node.split(".")[0]) !== 20) throw new Error("founder_live_edge_evidence_node20_required");
@@ -19,7 +49,7 @@ export function buildFounderLiveEdgeImplementationEvidence({ root = ROOT, source
   const plan = buildProductionPlan({ repo: root, baseSha: productionState.supabase.shippedSourceSha, headSha: sourceSha });
   if (JSON.stringify(plan.deployFunctions) !== JSON.stringify(["decision-founder-live"])) throw new Error("founder_live_edge_plan_scope_invalid");
   if (plan.authConfig?.deploy !== false) throw new Error("founder_live_edge_auth_scope_open");
-  const artifact = buildFounderLiveArtifact({ root, source: sourceSha });
+  const artifact = buildEdgeSourceArtifact(root, sourceSha, sourceTreeSha);
   const body = {
     contractVersion: "backyrd.founder-live-edge-implementation-evidence@1.0",
     sourceSha,
