@@ -1,0 +1,19 @@
+{
+  "contractVersion": "backyrd.founder-activation-post-deploy-evidence@1.0",
+  "status": "NOT_EXECUTED_NO_PRODUCTION_AUTHORITY",
+  "canonicalMainBeforeIntegration": "34c0cbec903e53087e28e46d1886648bc6ce72bc",
+  "candidateFunctionalHeadSha": "238daef4184509e58059b1f9460bfcc4fc72a09d",
+  "candidateTreeSha": "532ade129fd1b480452c788458ceceb0867378e9",
+  "sharedArtifactHash": "1310936d18ae75be89825df36e4953ef06fe42608a02f77a67fa45c109fe54f8",
+  "sourceSetHash": "a10d210b79ff4d4cbb7ce5efe2fe67dfef7c292a3d74bc9f68c79d50e78f2d40",
+  "productionPlanHash": "96fbb3c52e98686ff00ee81c75b209d25b140c66adc231545617d2050bfad93d",
+  "productionStatus": "NO_GO",
+  "productionQueries": 0,
+  "migrationsExecuted": 0,
+  "deploymentsExecuted": 0,
+  "secretMutations": 0,
+  "runtimeActivations": 0,
+  "mobileReleases": 0,
+  "otaActions": 0,
+  "executionAuthorized": false
+}

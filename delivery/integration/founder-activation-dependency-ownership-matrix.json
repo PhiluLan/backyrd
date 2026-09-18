@@ -1,0 +1,91 @@
+{
+  "contractVersion": "backyrd.founder-activation-ownership@1.0",
+  "executionAuthorized": false,
+  "boundCandidates": {
+    "USER_UUID_AUTHORITY": {
+      "pr": 307,
+      "headSha": "c967ea9111e8ee28cf625dbd4f2c250a283f95af",
+      "treeSha": "25db963842cfd1d9ecad5fe09033bd5570287023",
+      "finalPrHeadSha": "c967ea9111e8ee28cf625dbd4f2c250a283f95af",
+      "canonicalMergeSha": "3db914153105969359a64013bce7a21aa9b2768e",
+      "canonicalMergeTreeSha": "25db963842cfd1d9ecad5fe09033bd5570287023"
+    },
+    "DECISION_SERVER_AUTHORITY": {
+      "pr": 306,
+      "headSha": "52b8aa3b790a4685748b25e4f2930161679e277d",
+      "treeSha": "3de2e50d7ab5c979fa75c28c820219d4dd01cf50",
+      "finalPrHeadSha": "fc239313edaa5348d560d9c88f0f2dd986181e81",
+      "canonicalMergeSha": "34c0cbec903e53087e28e46d1886648bc6ce72bc",
+      "canonicalMergeTreeSha": "87b44dfef7154c35c5f386e161e0fec622ad12b4"
+    }
+  },
+  "mergeOrder": [
+    {
+      "order": 1,
+      "track": "USER_UUID_AUTHORITY",
+      "owns": [
+        "minimized user projection contract",
+        "subject binding and privacy boundaries",
+        "learning and writeback disabled invariants"
+      ],
+      "mustNotOwn": [
+        "session authentication",
+        "allowlist membership decision",
+        "World facts",
+        "ranking or eligibility"
+      ]
+    },
+    {
+      "order": 2,
+      "track": "DECISION_SERVER_AUTHORITY",
+      "owns": [
+        "authenticated server session verification",
+        "private UUID allowlist provider port",
+        "fail-closed runtime and kill-switch checks",
+        "evaluation request orchestration"
+      ],
+      "mustNotOwn": [
+        "client-provided Founder claims",
+        "email or user_metadata authorization",
+        "World authoring",
+        "durable learning writes"
+      ]
+    },
+    {
+      "order": 3,
+      "track": "INTEGRATION_EVIDENCE_SEAL",
+      "owns": [
+        "real Mobile UI test orchestration",
+        "four-track rehearsal",
+        "PII and secret scanning",
+        "immutable artifact and source-aware plan",
+        "activation and rollback runbook"
+      ],
+      "mustNotOwn": [
+        "Domain semantics",
+        "Production activation",
+        "Production identity lookup"
+      ]
+    }
+  ],
+  "inherited": {
+    "WORLD_ADMIN": {
+      "source": "canonical main",
+      "authoringIndependent": true,
+      "semanticChangesAllowed": false
+    },
+    "FOUNDER_LIVE_MOBILE_ADMIN": {
+      "source": "PR #304 canonical merge",
+      "semanticChangesAllowed": false
+    }
+  },
+  "stopConditions": [
+    "domain head is not explicitly approved",
+    "candidate is not based on or replayable onto canonical main",
+    "email or UUID appears in source, build, artifact, log, screenshot, evidence, or PR text",
+    "client supplies authority or Founder membership claims",
+    "private allowlist configuration is missing or malformed without a closed result",
+    "kill switch, learning, writeback, ranking, or shadow control is open",
+    "production query, migration, deployment, OTA, secret mutation, or activation would be required"
+  ]
+}

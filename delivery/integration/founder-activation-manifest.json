@@ -1,0 +1,83 @@
+{
+  "contractVersion": "backyrd.founder-activation-integration@1.0",
+  "canonicalBaseSha": "34c0cbec903e53087e28e46d1886648bc6ce72bc",
+  "canonicalBaseTreeSha": "87b44dfef7154c35c5f386e161e0fec622ad12b4",
+  "status": "GREEN_CTO_REVIEW_READY_DRAFT_ONLY",
+  "draftRequired": true,
+  "executionAuthorized": false,
+  "productionActivationAuthorized": false,
+  "productionQueriesAuthorized": false,
+  "identityModes": [
+    "PR_CANDIDATE",
+    "POST_MERGE_MAIN"
+  ],
+  "mergeOrder": [
+    "USER_UUID_AUTHORITY",
+    "DECISION_SERVER_AUTHORITY",
+    "INTEGRATION_EVIDENCE_SEAL"
+  ],
+  "inheritedCanonicalRelease": {
+    "mergeSha": "34c0cbec903e53087e28e46d1886648bc6ce72bc",
+    "treeSha": "87b44dfef7154c35c5f386e161e0fec622ad12b4",
+    "worldAdminAuthoringIndependent": true,
+    "domainSemanticsMutable": false
+  },
+  "domainCandidates": [
+    {
+      "track": "USER_UUID_AUTHORITY",
+      "headSha": "c967ea9111e8ee28cf625dbd4f2c250a283f95af",
+      "treeSha": "25db963842cfd1d9ecad5fe09033bd5570287023",
+      "patchId": "4e5925c4f86a43469b2e8443dc5519388b7ba5ab",
+      "finalPrHeadSha": "c967ea9111e8ee28cf625dbd4f2c250a283f95af",
+      "canonicalMergeSha": "3db914153105969359a64013bce7a21aa9b2768e",
+      "canonicalMergeTreeSha": "25db963842cfd1d9ecad5fe09033bd5570287023",
+      "canonicalMergeParents": ["a76910f6da5b407dae6d4022528e644613caf5d8", "c967ea9111e8ee28cf625dbd4f2c250a283f95af"],
+      "status": "APPROVED_HEAD_BOUND"
+    },
+    {
+      "track": "DECISION_SERVER_AUTHORITY",
+      "headSha": "52b8aa3b790a4685748b25e4f2930161679e277d",
+      "treeSha": "3de2e50d7ab5c979fa75c28c820219d4dd01cf50",
+      "patchId": "fb229cbe8bcc1d501b061e38c1a2574caa60b397",
+      "finalPrHeadSha": "fc239313edaa5348d560d9c88f0f2dd986181e81",
+      "canonicalMergeSha": "34c0cbec903e53087e28e46d1886648bc6ce72bc",
+      "canonicalMergeTreeSha": "87b44dfef7154c35c5f386e161e0fec622ad12b4",
+      "canonicalMergeParents": ["3db914153105969359a64013bce7a21aa9b2768e", "fc239313edaa5348d560d9c88f0f2dd986181e81"],
+      "status": "APPROVED_HEAD_BOUND"
+    }
+  ],
+  "authority": {
+    "source": "AUTHENTICATED_SERVER_SESSION_SUBJECT",
+    "clientClaimsAccepted": false,
+    "emailAuthorizationAccepted": false,
+    "userMetadataAuthorizationAccepted": false,
+    "serverUuidAllowlist": true,
+    "configuration": "PRIVATE_SECRET_PROVIDER",
+    "expectedMemberCount": 2,
+    "failClosedOnMissingConfiguration": true,
+    "failClosedOnMalformedConfiguration": true,
+    "failClosedOnWrongEnvironment": true,
+    "identifiersPersistedInRepository": 0
+  },
+  "runtimeControls": {
+    "defaultState": "OFF",
+    "killSwitch": "ENGAGED",
+    "learning": "OFF",
+    "writeback": "OFF",
+    "ranking": "OFF",
+    "shadow": "OFF"
+  },
+  "testAuthority": {
+    "provider": "IN_MEMORY_TEST_ONLY",
+    "productionCapable": false,
+    "realProductionIdentityUsed": false,
+    "networkAccess": false,
+    "screenshotsRetained": false
+  },
+  "release": {
+    "sharedArtifactHash": "1310936d18ae75be89825df36e4953ef06fe42608a02f77a67fa45c109fe54f8",
+    "sourceSetHash": "a10d210b79ff4d4cbb7ce5efe2fe67dfef7c292a3d74bc9f68c79d50e78f2d40",
+    "evidenceHash": "f1a3760567a2fbcae17be134c230642de3233e93efb57210f63ceae6674f8fc5",
+    "sealed": true
+  }
+}

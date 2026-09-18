@@ -1,0 +1,31 @@
+{
+  "contractVersion": "backyrd.founder-activation-source-aware-plan@1.0",
+  "canonicalBaseSha": "34c0cbec903e53087e28e46d1886648bc6ce72bc",
+  "candidateSourceSha": "238daef4184509e58059b1f9460bfcc4fc72a09d",
+  "planHash": "96fbb3c52e98686ff00ee81c75b209d25b140c66adc231545617d2050bfad93d",
+  "sourceAware": true,
+  "productionActivation": {
+    "separateManualAuthorityRequired": true,
+    "authorized": false,
+    "executionAuthorized": false
+  },
+  "changes": {
+    "newMigrations": 0,
+    "deployFunctions": [],
+    "authConfigDeploy": false,
+    "secretMutation": false,
+    "runtimeActivation": false,
+    "mobileRelease": false,
+    "ota": false
+  },
+  "controls": {
+    "defaultState": "OFF",
+    "killSwitch": "ENGAGED",
+    "learning": "OFF",
+    "writeback": "OFF",
+    "ranking": "OFF",
+    "shadow": "OFF"
+  },
+  "productionActionsPerformed": 0,
+  "executionAuthorized": false
+}

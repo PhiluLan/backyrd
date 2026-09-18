@@ -1,0 +1,16 @@
+{
+  "contractVersion": "backyrd.founder-activation-status@1.0",
+  "overall": "GREEN",
+  "draftRequired": true,
+  "ctoReviewReady": true,
+  "mergeable": true,
+  "domainCandidatesBound": 2,
+  "domainCandidatesRequired": 2,
+  "piiSecretScan": "PASS",
+  "mobileE2E": "PASS",
+  "fourTrackRehearsal": "PASS",
+  "sharedArtifact": "PASS",
+  "productionStatus": "NO_GO",
+  "executionAuthorized": false,
+  "blockers": []
+}

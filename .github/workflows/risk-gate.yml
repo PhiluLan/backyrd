@@ -132,6 +132,14 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: https://example.invalid
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-public-placeholder-key-000000000000
         run: npx expo export --platform web --output-dir "$RUNNER_TEMP/founder-mobile-web"
+      - name: Install isolated Founder Mobile rehearsal browser
+        working-directory: ${{ github.workspace }}
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install chromium
+      - name: Founder two-account real Mobile UI rehearsal
+        working-directory: ${{ github.workspace }}
+        run: npm run founder-activation:mobile-e2e
       - name: Mobile TypeScript baseline (advisory inherited debt)
         continue-on-error: true
         run: npm run typecheck
@@ -478,7 +486,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Risk, identity, Decision and deployment contract regressions
         run: |
-          node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/integration-preflight.test.mjs scripts/ci/week2-dark-wiring.test.mjs scripts/ci/founder-live-control-plane.test.mjs mobile/packages/founder-live-control-plane/test/control-plane.test.mjs scripts/ci/validate-client-secret-boundary.test.mjs scripts/ci/validate-decision-change.test.mjs scripts/ci/validate-production-state.test.mjs scripts/ci/verify-risk-gate.test.mjs
+          node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/integration-preflight.test.mjs scripts/ci/week2-dark-wiring.test.mjs scripts/ci/founder-live-control-plane.test.mjs scripts/ci/founder-activation-control-plane.test.mjs scripts/ci/scan-founder-activation-pii.test.mjs mobile/packages/founder-live-control-plane/test/control-plane.test.mjs scripts/ci/validate-client-secret-boundary.test.mjs scripts/ci/validate-decision-change.test.mjs scripts/ci/validate-production-state.test.mjs scripts/ci/verify-risk-gate.test.mjs
           node --test scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/verify-supabase-migration-dry-run.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs
       - name: Validate Founder-live generated binding and source-aware preflight
         env:
@@ -488,6 +496,9 @@ jobs:
           FOUNDER_LIVE_CANONICAL_MAIN: ${{ github.event.pull_request.base.sha || github.sha }}
         run: |
           npm run founder-live:binding
+          npm run founder-activation:scan
+          npm run founder-activation:preflight
+          npm run founder-activation:four-track
           case "$FOUNDER_LIVE_EVENT_NAME" in
             pull_request) FOUNDER_LIVE_MODE=CANONICAL_DESCENDANT_PR ;;
             push)
@@ -513,6 +524,7 @@ jobs:
           WEEK3_EVENT_NAME: ${{ github.event_name }}
           WEEK3_CHECKOUT_SHA: ${{ github.sha }}
         run: |
+          node scripts/ci/week3-internal-prodlike-preflight.mjs --identity-regressions
           WEEK3_CANONICAL_COMPLETION_SHA=9c38946462c5698ee1ff6375d996463254dd829e
           case "$WEEK3_EVENT_NAME" in
             pull_request)
@@ -534,9 +546,11 @@ jobs:
           esac
           node scripts/ci/week3-internal-prodlike-preflight.mjs \
             --mode "$WEEK3_MODE" \
+            --event-name "$WEEK3_EVENT_NAME" \
             --base-sha "${{ needs.classify.outputs.base-sha }}" \
             --head-sha "${{ needs.classify.outputs.head-sha }}" \
             --checkout-sha "$WEEK3_CHECKOUT_SHA" \
+            --canonical-main-ref "${{ github.event.pull_request.base.sha || github.sha }}" \
             --final
 
   risk-gate:

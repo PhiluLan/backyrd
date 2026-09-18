@@ -1,0 +1,584 @@
+{
+  "contractVersion": "backyrd.founder-activation-shared-node20-artifact@1.0",
+  "nodeMajor": 20,
+  "sourceSha": "238daef4184509e58059b1f9460bfcc4fc72a09d",
+  "sourceTreeSha": "532ade129fd1b480452c788458ceceb0867378e9",
+  "sourceSetHash": "a10d210b79ff4d4cbb7ce5efe2fe67dfef7c292a3d74bc9f68c79d50e78f2d40",
+  "fileCount": 135,
+  "files": [
+    {
+      "path": ".github/workflows/risk-gate.yml",
+      "blobSha": "137c44c94502cecd5ff9599b7258224440244805"
+    },
+    {
+      "path": "admin-dashboard/app/world-knowledge/page.tsx",
+      "blobSha": "356c1ec3ce51d310e48c9261038b36707508546e"
+    },
+    {
+      "path": "delivery/integration/founder-activation-dependency-ownership-matrix.json",
+      "blobSha": "88f3ec437a2380f9a95e14e8b227c3f83a7e945e"
+    },
+    {
+      "path": "delivery/integration/founder-activation-manifest.json",
+      "blobSha": "acfeaca33ac8dd80125ff45ff8fc4a8ecab3c645"
+    },
+    {
+      "path": "delivery/integration/founder-activation-post-deploy-evidence.json",
+      "blobSha": "09fa58e4a2e5d4b0a82b90e7d79b9bf3b54b295c"
+    },
+    {
+      "path": "delivery/integration/founder-activation-production-plan.json",
+      "blobSha": "982d79a9aae5e0c64073c822f9904d0ccd6b9a2f"
+    },
+    {
+      "path": "delivery/integration/founder-activation-rehearsal-evidence.json",
+      "blobSha": "204ca3dbd114e0af53df07b51ba4ca8d61dba999"
+    },
+    {
+      "path": "delivery/integration/founder-activation-shared-artifact.json",
+      "blobSha": "a8f0cf164f759cd157f8337f6dd6f19e22a8a03f"
+    },
+    {
+      "path": "delivery/integration/founder-activation-status.json",
+      "blobSha": "4d1268a5db1a836039cc72425a90765afe499879"
+    },
+    {
+      "path": "docs/operations/FOUNDER_TWO_ACCOUNT_ACTIVATION_RUNBOOK.md",
+      "blobSha": "388210cc20a1b2859406a1f9ca9697e57f00ebec"
+    },
+    {
+      "path": "mobile/app/(tabs)/decision.tsx",
+      "blobSha": "288070981183944e76df62433676145996096b07"
+    },
+    {
+      "path": "mobile/components/PushNotificationRouter.tsx",
+      "blobSha": "fbd7719a46c3c2202896ee70b428105b4e09a608"
+    },
+    {
+      "path": "mobile/lib/decision/founderLiveDecision.ts",
+      "blobSha": "9948041e4c746c1d7e75810e3e1b7d23022e093b"
+    },
+    {
+      "path": "mobile/lib/decision/founderLiveRelease.generated.ts",
+      "blobSha": "b3fc76ff77162a8754910560f55c0dea1586de57"
+    },
+    {
+      "path": "mobile/lib/decision/friendCopy.ts",
+      "blobSha": "7e1b46c1a706f3bd7c870f7dc2a5659dad47e45c"
+    },
+    {
+      "path": "mobile/lib/decision/moodMapping.ts",
+      "blobSha": "9cab26aaf9fd36944860bf0c0a70ad690446662b"
+    },
+    {
+      "path": "mobile/lib/decision/reasoning.ts",
+      "blobSha": "350abc85acf55c879c57ce0e9c85100850b6fbd3"
+    },
+    {
+      "path": "mobile/packages/founder-live-control-plane/src/index.d.mts",
+      "blobSha": "056df371b96f9014ed82e5ba16e74b2a91fc83e6"
+    },
+    {
+      "path": "mobile/packages/founder-live-control-plane/src/index.mjs",
+      "blobSha": "ecd06e22277a800b516ccaf5b1e50595792c212f"
+    },
+    {
+      "path": "package-lock.json",
+      "blobSha": "72f481366a2770c326762d442aaedb5bc7d8eb37"
+    },
+    {
+      "path": "package.json",
+      "blobSha": "89fd2150ec797c3bbb17f96d14563087565efaa8"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/baselines.ts",
+      "blobSha": "38852ebc9ec0254067c0f955878839e5d5e81eff"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/candidate-pool.ts",
+      "blobSha": "117e5595f869c758f6688dded17ab5b971eafdac"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/canonical.ts",
+      "blobSha": "bbc1f29758a1996baed4d46bea48b3e4c7ddcf56"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/confidence.ts",
+      "blobSha": "5b91f3eb31dc7a548ec3200c2fdfa38fdd723437"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/context-degradation.ts",
+      "blobSha": "17cb0200a17101da82aa1bdd4895a8b247a9a036"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/context-fixtures.ts",
+      "blobSha": "a0a66fd0119e02cbc1783a2853509df181a50695"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/context-flip-harness.ts",
+      "blobSha": "596740c8d9c17d868bbcc435f699cf76ed0598e6"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/context-kernel-contracts.ts",
+      "blobSha": "d9474fbdd440c5d5ca9eb72e37226b04fbd825df"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/context-kernel.ts",
+      "blobSha": "ba64c280fbba334f0d701a4e3098efe9dc7e3baf"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/context-oracle-catalog.ts",
+      "blobSha": "714062f7702913e822345e157f399ea719fb7f03"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/context-oracle-provisioning.ts",
+      "blobSha": "099d47d40dba8feadcd8c9bb37c787d1ac61b4fd"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/context-oracle-release-fixture.ts",
+      "blobSha": "b2ae1842c8f8f1b9922524a94b4bf8a9dcfeafad"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/context-oracle.ts",
+      "blobSha": "55d4c2059b708fd37e5385d090b7a4645637149e"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/context.ts",
+      "blobSha": "97570912f95cafa5e380d6f5d86ae07554350b47"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/contracts.ts",
+      "blobSha": "434e915f81b8ae62b39f81d49db6ac23adfb149a"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/dark-request-contracts.ts",
+      "blobSha": "ddb31409f15fe26aa9cfa73820780063adbf59ec"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/dark-request-fixtures.ts",
+      "blobSha": "b6df6daaa3b0291712c4be05f4f946b062161108"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/dark-request-ports.ts",
+      "blobSha": "d4e82f519ecad4a1537934d0c2bcbcf786da2f6d"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/dark-request.ts",
+      "blobSha": "d244d448c627e346d0f58ddad880930471366d45"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/degradation.ts",
+      "blobSha": "524bf3807943f4d238e0ca7782590fe099a54ad3"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/eligibility.ts",
+      "blobSha": "13b2a56db9ab2eb18713327ec1825e3aeeffe3f1"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/engine-registry.ts",
+      "blobSha": "0616c3c11f80476d4634b526a2a1bc4723c7513d"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/evaluation-authority.ts",
+      "blobSha": "978d74438539f03ecd780cc824f8db71a23cedbd"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/evidence.ts",
+      "blobSha": "5059e878b26305c051f427ba4481874ccce9e2b2"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/execution.ts",
+      "blobSha": "97c19aae55d1f6b530b73c93358abdd6672b8cb1"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/explanation.ts",
+      "blobSha": "bd622ffb9cada6316b156755651e1b6aba47c06d"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/founder-live-api-contracts.ts",
+      "blobSha": "f192cab81e11a27f6dfd869a819e7af5e25d2040"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/founder-live-api.ts",
+      "blobSha": "dfe9e6eb8c41e675fc9f2db9d30984e05d41e616"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/founder-live-server-authority.ts",
+      "blobSha": "dc885af26f04ae887a4f0606bfaa78da97ebc7da"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/index.ts",
+      "blobSha": "6e780f6810a984a1ca633f382d5ea8218fa5767d"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/integration-harness.ts",
+      "blobSha": "42e7be9ce8833a2d27250fa0bb9bc34db86c68d2"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/internal-dark-shadow-contracts.ts",
+      "blobSha": "6738f6749d73dc68f9672f2e68fa977c4d213a60"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/internal-dark-shadow-fixtures.ts",
+      "blobSha": "4e75bc1b1cbd5888dad72244c1c91c81097c6af9"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/internal-dark-shadow.ts",
+      "blobSha": "ed06650ef93df40d8fed8a4bb2ac4b2c7344cb52"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/manifest.ts",
+      "blobSha": "5c83b3578fe083f2c79e13056148d1eddc04ca85"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/opening-state.ts",
+      "blobSha": "95e3ff12321c23ea444c6a54a9baed477cbd082c"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/phase2-contracts.ts",
+      "blobSha": "3b770d5a7a5a38f07cfa06beb1f1ba07f534ed29"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/phase2-fixtures.ts",
+      "blobSha": "1d4668524886d77caf441dbfe26cad332acc7302"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/phase3b-artifacts.ts",
+      "blobSha": "48d885971213c90a401c52b7eae9badd801c2564"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/phase3b-contracts.ts",
+      "blobSha": "02f2979fd98b528c515089fa5a5207edad4631c9"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/phase3b-oracle-workbench.ts",
+      "blobSha": "4629b3056179acf04b70249e4df3fa7737e644e3"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/phase3b-policy.ts",
+      "blobSha": "d701bdd9c3691c40e0a27ced3ccb7be7793c8332"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/phase3b-release.ts",
+      "blobSha": "bf68c74262abdc7ff35bacb9d19c47c958312d47"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/phase3b-resolvers.ts",
+      "blobSha": "4c6d2a1405118efcb5f31bf2bff6fa18ca52ce48"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/phase3c-lab-contracts.ts",
+      "blobSha": "b16913073c2c21b6dc0e038826c5979ebd59ab65"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/phase3c-lab.ts",
+      "blobSha": "b2f715d6335f1c6845f189dd625ffb065fba7e9f"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/pipeline.ts",
+      "blobSha": "17b92a38c3c787de20f553913125e8c97b606259"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/sandbox.ts",
+      "blobSha": "125fb928a417f2c99062eda5b3d69ff32605fdc8"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/schema.ts",
+      "blobSha": "129e5161f4539528734720f57103c3514650590a"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/shadow-contracts.ts",
+      "blobSha": "e87e01753cd35003a7911ed8f38bdf0540c358a7"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/shadow-fixtures.ts",
+      "blobSha": "fe13dbad8f0ae26d3a811fb73636323500f18876"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/shadow.ts",
+      "blobSha": "bdfc851bda5083ad556ce3043fa5e61cf9fd5189"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/synthetic-world-policy.ts",
+      "blobSha": "c2d1efb18571b366e2c64744fd32168b68baee36"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/user-adapter.ts",
+      "blobSha": "a4fb6119168fd2e12962e9504917d4c2677a0701"
+    },
+    {
+      "path": "packages/decision-vnext-core/src/world-adapter.ts",
+      "blobSha": "51958a1d7f4bc652b0500206546e7392f37aa559"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/calibration-adapter.ts",
+      "blobSha": "485cb56fbbfc32517c7aab573d6964202c281088"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/calibration-fixtures.ts",
+      "blobSha": "cec06e10176aa78c325c7fe52cafb36e423492ba"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/calibration.ts",
+      "blobSha": "951efd1f81e26d959fa01ce64e72fb9c4afa0116"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/canonical.ts",
+      "blobSha": "0ed00317dd98c2f7eb478106a7aff1fc5149639b"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/contracts.ts",
+      "blobSha": "cb739c6dc000b28010965f620ad27dd619661b38"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/dark-projection-runtime.ts",
+      "blobSha": "c2444e33d71b8a8da4350892687f50f567ac14ac"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/dark-runtime.ts",
+      "blobSha": "adbce70ca941e5fa45a63af23c32a2e29caeebbf"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/event-catalog.ts",
+      "blobSha": "1b889b5b48510dd941f93be375b7e81dc887fc52"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/evidence-chain.ts",
+      "blobSha": "cfb50097f299e598f013a0f0a3370d9993815b35"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/evidence-lifecycle.ts",
+      "blobSha": "de8c8305058d882bd9d2f0604a6f09eef78096ee"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/fixtures.ts",
+      "blobSha": "0a992543332db0051c9a4be927e1e9219ad29060"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/founder-live-projection.ts",
+      "blobSha": "5624a3edb2e4cb5cf040b01fd268ee6bd5386832"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/founder-live-uuid-authority.ts",
+      "blobSha": "bd67195b86c07b55411367c134a3b790dc6e334f"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/index.ts",
+      "blobSha": "1a5ddc6229de1abc274e7355317a6a8eb31360a1"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/ingestion.ts",
+      "blobSha": "52fa8225c56eed37963aabaddb7fabe3ec2311d7"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/internal-allowlisted-projection.ts",
+      "blobSha": "8eeb69d8a714c7aafcb18f3a6283c8c0c4b8929c"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/journey-resolver.ts",
+      "blobSha": "4f2a45a4a0f6d5b19c8531df9b0a4e9fd0892de5"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/lifecycle.ts",
+      "blobSha": "5f3aed1866c31092d71a72876d1c0c8b75fd8912"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/phase3d-lab.ts",
+      "blobSha": "334933ae3d72a0292ac205355a89f4d9e8dcf068"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/ports.ts",
+      "blobSha": "0aec6ffc8193cc5ffc848381ef8849753b6f4003"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/product-policy.ts",
+      "blobSha": "274412c4eabe7c58a9b5d59adca684624983d977"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/projection.ts",
+      "blobSha": "c18ec4ba01af0193ab86b920b987f15caec321a2"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/schema-catalog.ts",
+      "blobSha": "da4d8dfad3ba141ab2c8791b493b507c8cbab686"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/schema.ts",
+      "blobSha": "6ffa402bd0690d1c8f548886de5eac5ef9a1a038"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/temporal.ts",
+      "blobSha": "e7e32c280458b8bed859a0ea1753eeddd7081def"
+    },
+    {
+      "path": "packages/user-intelligence-vnext-core/src/user-model.ts",
+      "blobSha": "df66254a57981d1751897438bf1beafe45a34baa"
+    },
+    {
+      "path": "packages/world-knowledge-authoring-ui/src/index.tsx",
+      "blobSha": "470e272ca5572363b42ac804cc070d74d1c01cf6"
+    },
+    {
+      "path": "packages/world-knowledge-authoring-ui/src/session.ts",
+      "blobSha": "00499b877583d129daf4aa8834c167e8f9478228"
+    },
+    {
+      "path": "packages/world-knowledge-authoring-ui/src/styles.css",
+      "blobSha": "dfbb28fdf39aa1b002c2d1665b16d3318edb2162"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/authoring-taxonomy.ts",
+      "blobSha": "6e17527036a4d91095c8d012988fbb0b7a7b5957"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/authoring.ts",
+      "blobSha": "24304e830df55fdb6f620185562f7a3c14b8cdcf"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/calibration.ts",
+      "blobSha": "a65e69a3993bbd230710bd3e706799a550e6c160"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/canonical.ts",
+      "blobSha": "73195bc198628c6aca0f63323938ce7ec2d7bdc0"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/contextual.ts",
+      "blobSha": "90d08b754017c708adc93253b3c7ed6dcd016cc2"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/contracts.ts",
+      "blobSha": "4cbd62168fc806882a406f446a06cccfe91e4615"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/dark-reader.ts",
+      "blobSha": "4805236f06feff80c3195f358a692a04480f47c8"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/derived.ts",
+      "blobSha": "9a79f7696e329135dae27a5c6d69bc8f442ecc14"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/fixtures.ts",
+      "blobSha": "e39afcabd3feeac143128442c9e112dc397ec4f8"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/founder-handoff.ts",
+      "blobSha": "820f4831ed1c3e2fb2f2ed62efc2f60ccbfbc27a"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/governance.ts",
+      "blobSha": "dad925c964250b63db738ae3b9fc1dcdbae37da6"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/index.ts",
+      "blobSha": "a3f22bc8f355dff743e6c300a4ecfaed6d040e9c"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/internal-allowlist.ts",
+      "blobSha": "6407d46fd68b683e5e8052d42a4e8895d5e4753e"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/legacy-adapter.ts",
+      "blobSha": "f0efa97ae3bdec17f1e1dd2b0e2f0cac4787638d"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/legacy-mapping.ts",
+      "blobSha": "b074bac3131184e5333329ac3b55563fbe7bf9a3"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/legacy-rehearsal.ts",
+      "blobSha": "fdb3bc48b341b255ef34a9ff3c50124d35fb689b"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/port.ts",
+      "blobSha": "b5e007f8d4821b84714aa2356a7917ad2f93f653"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/registry.ts",
+      "blobSha": "4f21b53169e4a0a6eb467c00e0dfa29e02a7f840"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/resolver.ts",
+      "blobSha": "c09bfe5d70c0417f00af209fead8a59e0efd0057"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/schema.ts",
+      "blobSha": "7e47faada23d279d7419203f701e5677e85b2e89"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/slice3b.ts",
+      "blobSha": "09cdcc255c78f94970f764337716dbed1d1dc59c"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/source-policy.ts",
+      "blobSha": "6bd30de310becaa6d4316c9e24ec092e7adf668a"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/temporal.ts",
+      "blobSha": "4c06dd627fe35f8293f87f6529eb81425156d98b"
+    },
+    {
+      "path": "packages/world-knowledge-core/src/verification.ts",
+      "blobSha": "9ecc0a8325bbedc2f89ab5ef7175ec75ee388ae2"
+    },
+    {
+      "path": "scripts/ci/founder-activation-artifact.mjs",
+      "blobSha": "0f6d2ce7bb02e484896ce1ddc056d0db0cd93c12"
+    },
+    {
+      "path": "scripts/ci/founder-activation-control-plane.mjs",
+      "blobSha": "65f2c9c39dcee9b9922e220b48279ab46be7354c"
+    },
+    {
+      "path": "scripts/ci/founder-activation-control-plane.test.mjs",
+      "blobSha": "22bddc56a49ddfcc375eeece574e19cb5e742da3"
+    },
+    {
+      "path": "scripts/ci/founder-activation-four-track-rehearsal.mjs",
+      "blobSha": "57b27aed5aa717343493ed5f1f51bb5e8012ddad"
+    },
+    {
+      "path": "scripts/ci/founder-activation-mobile-e2e.mjs",
+      "blobSha": "1b6a81a07effb2b601ee73f89894ecadde927884"
+    },
+    {
+      "path": "scripts/ci/founder-live-control-plane.mjs",
+      "blobSha": "f350410a8af400ec603b3cce43e1875a8b318de2"
+    }
+  ],
+  "tracks": [
+    "WORLD_ADMIN",
+    "USER_UUID_AUTHORITY",
+    "DECISION_SERVER_AUTHORITY",
+    "MOBILE_INTEGRATION"
+  ],
+  "executionAuthorized": false,
+  "artifactHash": "1310936d18ae75be89825df36e4953ef06fe42608a02f77a67fa45c109fe54f8",
+  "trackVerifications": [
+    {
+      "track": "WORLD_ADMIN",
+      "sourceSetHash": "a10d210b79ff4d4cbb7ce5efe2fe67dfef7c292a3d74bc9f68c79d50e78f2d40",
+      "artifactHash": "1310936d18ae75be89825df36e4953ef06fe42608a02f77a67fa45c109fe54f8",
+      "status": "VERIFIED"
+    },
+    {
+      "track": "USER_UUID_AUTHORITY",
+      "sourceSetHash": "a10d210b79ff4d4cbb7ce5efe2fe67dfef7c292a3d74bc9f68c79d50e78f2d40",
+      "artifactHash": "1310936d18ae75be89825df36e4953ef06fe42608a02f77a67fa45c109fe54f8",
+      "status": "VERIFIED"
+    },
+    {
+      "track": "DECISION_SERVER_AUTHORITY",
+      "sourceSetHash": "a10d210b79ff4d4cbb7ce5efe2fe67dfef7c292a3d74bc9f68c79d50e78f2d40",
+      "artifactHash": "1310936d18ae75be89825df36e4953ef06fe42608a02f77a67fa45c109fe54f8",
+      "status": "VERIFIED"
+    },
+    {
+      "track": "MOBILE_INTEGRATION",
+      "sourceSetHash": "a10d210b79ff4d4cbb7ce5efe2fe67dfef7c292a3d74bc9f68c79d50e78f2d40",
+      "artifactHash": "1310936d18ae75be89825df36e4953ef06fe42608a02f77a67fa45c109fe54f8",
+      "status": "VERIFIED"
+    }
+  ]
+}
