@@ -8,6 +8,14 @@ The server accepts only the subject UUID obtained from a freshly verified authen
 
 No concrete email address or UUID may be copied into this document, Git, CI evidence, screenshots, logs, artifacts, PR text, or client bundles.
 
+## Canonical merge-train binding
+
+- User PR #307: final head `c967ea9111e8ee28cf625dbd4f2c250a283f95af`, canonical merge `3db914153105969359a64013bce7a21aa9b2768e`, tree `25db963842cfd1d9ecad5fe09033bd5570287023`.
+- Decision PR #306: preserved domain head `52b8aa3b790a4685748b25e4f2930161679e277d`, final PR head `fc239313edaa5348d560d9c88f0f2dd986181e81`, canonical merge `34c0cbec903e53087e28e46d1886648bc6ce72bc`, tree `87b44dfef7154c35c5f386e161e0fec622ad12b4`.
+- Integration reconstruction: canonical base `34c0cbec903e53087e28e46d1886648bc6ce72bc`, functional merge `238daef4184509e58059b1f9460bfcc4fc72a09d`, tree `532ade129fd1b480452c788458ceceb0867378e9`.
+
+The reconstruction was conflict-free and preserved the pre-merge Integration tree byte-for-byte. The changed stable patch ID reflects that canonical Main now already contains the approved User and Decision patches; it does not represent a change to the Integration control-plane blobs or domain semantics.
+
 ## Preconditions for a separately authorized activation
 
 1. The exact candidate commit, tree, shared artifact, source set, and domain heads match the CTO-approved seal.

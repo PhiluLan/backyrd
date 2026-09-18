@@ -1,8 +1,8 @@
 {
   "contractVersion": "backyrd.founder-activation-source-aware-plan@1.0",
-  "canonicalBaseSha": "a76910f6da5b407dae6d4022528e644613caf5d8",
-  "candidateSourceSha": "e3df97aedd5f14941477a6b9ba019486ba408fa9",
-  "planHash": "95db0391a1ae0d466804a116dfbced6175285b34a60eddc89ffac312cb5995bb",
+  "canonicalBaseSha": "34c0cbec903e53087e28e46d1886648bc6ce72bc",
+  "candidateSourceSha": "238daef4184509e58059b1f9460bfcc4fc72a09d",
+  "planHash": "96fbb3c52e98686ff00ee81c75b209d25b140c66adc231545617d2050bfad93d",
   "sourceAware": true,
   "productionActivation": {
     "separateManualAuthorityRequired": true,

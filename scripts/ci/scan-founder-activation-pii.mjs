@@ -5,7 +5,7 @@ import { extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
-const BASE = "a76910f6da5b407dae6d4022528e644613caf5d8";
+const BASE = "34c0cbec903e53087e28e46d1886648bc6ce72bc";
 const EMAIL = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
 const SECRET = /(?:service[_-]?role|secret[_-]?key|access[_-]?token|refresh[_-]?token)\s*[:=]\s*["']?[A-Za-z0-9._-]{20,}/i;

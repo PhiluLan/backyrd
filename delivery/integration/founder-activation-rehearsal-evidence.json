@@ -2,9 +2,9 @@
   "contractVersion": "backyrd.founder-activation-rehearsal-evidence@1.0",
   "status": "PASS",
   "nodeMajor": 20,
-  "canonicalBaseSha": "a76910f6da5b407dae6d4022528e644613caf5d8",
-  "functionalHeadSha": "e3df97aedd5f14941477a6b9ba019486ba408fa9",
-  "functionalTreeSha": "5680a2973470f396486edc9fa719930653d5f807",
+  "canonicalBaseSha": "34c0cbec903e53087e28e46d1886648bc6ce72bc",
+  "functionalHeadSha": "238daef4184509e58059b1f9460bfcc4fc72a09d",
+  "functionalTreeSha": "532ade129fd1b480452c788458ceceb0867378e9",
   "domainCandidates": {
     "USER_UUID_AUTHORITY": "c967ea9111e8ee28cf625dbd4f2c250a283f95af",
     "DECISION_SERVER_AUTHORITY": "52b8aa3b790a4685748b25e4f2930161679e277d"
@@ -21,14 +21,35 @@
     "USER_UUID_AUTHORITY": "e3df97aedd5f14941477a6b9ba019486ba408fa9",
     "DECISION_SERVER_AUTHORITY": "47bef5e51960538554b4deee60a14c3d4a2d4ce1"
   },
+  "canonicalMerges": {
+    "USER_UUID_AUTHORITY": {
+      "finalPrHeadSha": "c967ea9111e8ee28cf625dbd4f2c250a283f95af",
+      "mergeSha": "3db914153105969359a64013bce7a21aa9b2768e",
+      "treeSha": "25db963842cfd1d9ecad5fe09033bd5570287023",
+      "parents": ["a76910f6da5b407dae6d4022528e644613caf5d8", "c967ea9111e8ee28cf625dbd4f2c250a283f95af"]
+    },
+    "DECISION_SERVER_AUTHORITY": {
+      "finalPrHeadSha": "fc239313edaa5348d560d9c88f0f2dd986181e81",
+      "mergeSha": "34c0cbec903e53087e28e46d1886648bc6ce72bc",
+      "treeSha": "87b44dfef7154c35c5f386e161e0fec622ad12b4",
+      "parents": ["3db914153105969359a64013bce7a21aa9b2768e", "fc239313edaa5348d560d9c88f0f2dd986181e81"]
+    }
+  },
+  "integrationMainMerge": {
+    "mergeSha": "238daef4184509e58059b1f9460bfcc4fc72a09d",
+    "treeSha": "532ade129fd1b480452c788458ceceb0867378e9",
+    "parents": ["1495525baf872512a343083ec6010e762a463c6e", "34c0cbec903e53087e28e46d1886648bc6ce72bc"],
+    "preMergeTreeSha": "532ade129fd1b480452c788458ceceb0867378e9",
+    "conflicts": []
+  },
   "mergeOrder": [
     "USER_UUID_AUTHORITY",
     "DECISION_SERVER_AUTHORITY",
     "INTEGRATION_EVIDENCE_SEAL"
   ],
-  "sharedArtifactHash": "f0ab395877f511814d378334fcb31ad3612b2016794f5a1777cf280a4b934c05",
-  "sourceSetHash": "8ddc5eafd6c0662a88010906b58dd872a73291a7adf966412d393c5aacd6c8a0",
-  "fourTrackEvidenceHash": "1f7e18aec486560695066705ec437fe0c66810ee8e7e98131f06f4d6ea8eb145",
+  "sharedArtifactHash": "1310936d18ae75be89825df36e4953ef06fe42608a02f77a67fa45c109fe54f8",
+  "sourceSetHash": "a10d210b79ff4d4cbb7ce5efe2fe67dfef7c292a3d74bc9f68c79d50e78f2d40",
+  "fourTrackEvidenceHash": "dc0cf6a18f8bd75ccf3816ecee246d27fc7d772ad3dbf95e6d7626a58105e9e6",
   "realMobileWebBundle": true,
   "ordinaryAuthenticatedSessionOnly": true,
   "testAuthorityProvider": "IN_MEMORY_TEST_ONLY",
@@ -50,5 +71,5 @@
   "productionActions": 0,
   "productionStatus": "NO_GO",
   "executionAuthorized": false,
-  "evidenceHash": "661745302f3d94fb2eb1fcf4a4ec1249fd59806bdeb083e8bfce250e928f6793"
+  "evidenceHash": "f1a3760567a2fbcae17be134c230642de3233e93efb57210f63ceae6674f8fc5"
 }

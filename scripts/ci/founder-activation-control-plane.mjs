@@ -7,8 +7,8 @@ import { fileURLToPath } from "node:url";
 import { buildFounderActivationArtifact } from "./founder-activation-artifact.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
-const BASE = "a76910f6da5b407dae6d4022528e644613caf5d8";
-const BASE_TREE = "730a405788ffc70e2c8ee32caadcf3b5a39bbb30";
+const BASE = "34c0cbec903e53087e28e46d1886648bc6ce72bc";
+const BASE_TREE = "87b44dfef7154c35c5f386e161e0fec622ad12b4";
 const SHA = /^[0-9a-f]{40}$/;
 const HASH = /^[0-9a-f]{64}$/;
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024 }).trim();
@@ -29,7 +29,7 @@ export function validateFounderActivationDocuments({ manifest, matrix, plan, sta
     const populated = [candidate.headSha, candidate.treeSha, candidate.patchId].filter(Boolean).length;
     requireValue(populated === 0 || populated === 3, `founder_activation_partial_candidate:${candidate.track}`);
     if (populated === 0) requireValue(candidate.status === "AWAITING_APPROVED_HEAD", `founder_activation_pending_candidate_status_invalid:${candidate.track}`);
-    else requireValue(SHA.test(candidate.headSha) && SHA.test(candidate.treeSha) && SHA.test(candidate.patchId) && candidate.status === "APPROVED_HEAD_BOUND", `founder_activation_candidate_invalid:${candidate.track}`);
+    else requireValue(SHA.test(candidate.headSha) && SHA.test(candidate.treeSha) && SHA.test(candidate.patchId) && SHA.test(candidate.finalPrHeadSha) && SHA.test(candidate.canonicalMergeSha) && SHA.test(candidate.canonicalMergeTreeSha) && candidate.canonicalMergeParents?.length === 2 && candidate.canonicalMergeParents.every((value) => SHA.test(value)) && candidate.status === "APPROVED_HEAD_BOUND", `founder_activation_candidate_invalid:${candidate.track}`);
   }
   const authority = manifest.authority;
   requireValue(authority.source === "AUTHENTICATED_SERVER_SESSION_SUBJECT" && authority.clientClaimsAccepted === false && authority.emailAuthorizationAccepted === false && authority.userMetadataAuthorizationAccepted === false, "founder_activation_client_authority_open");
@@ -69,6 +69,10 @@ export function runFounderActivationPreflight({ root = ROOT, head = "HEAD" } = {
   for (const candidate of documents.manifest.domainCandidates.filter(({ headSha }) => headSha)) {
     requireValue(git(root, ["rev-parse", `${candidate.headSha}^{commit}`]) === candidate.headSha, `founder_activation_candidate_missing:${candidate.track}`);
     requireValue(git(root, ["rev-parse", `${candidate.headSha}^{tree}`]) === candidate.treeSha, `founder_activation_candidate_tree_mismatch:${candidate.track}`);
+    requireValue(git(root, ["rev-parse", `${candidate.finalPrHeadSha}^{commit}`]) === candidate.finalPrHeadSha, `founder_activation_final_pr_head_missing:${candidate.track}`);
+    requireValue(git(root, ["rev-parse", `${candidate.canonicalMergeSha}^{tree}`]) === candidate.canonicalMergeTreeSha, `founder_activation_canonical_merge_tree_mismatch:${candidate.track}`);
+    requireValue(git(root, ["show", "-s", "--format=%P", candidate.canonicalMergeSha]) === candidate.canonicalMergeParents.join(" "), `founder_activation_canonical_merge_parents_mismatch:${candidate.track}`);
+    requireValue(git(root, ["merge-base", "--is-ancestor", candidate.canonicalMergeSha, head]) === "", `founder_activation_canonical_merge_not_integrated:${candidate.track}`);
     requireValue(git(root, ["merge-base", "--is-ancestor", candidate.headSha, head]) === "", `founder_activation_candidate_not_integrated:${candidate.track}`);
   }
   const changed = git(root, ["diff", "--name-only", `${BASE}..${head}`]).split("\n").filter(Boolean);
@@ -88,6 +92,7 @@ export function runFounderActivationPreflight({ root = ROOT, head = "HEAD" } = {
     requireValue(evidence.domainCandidates.USER_UUID_AUTHORITY === documents.manifest.domainCandidates[0].headSha && evidence.domainCandidates.DECISION_SERVER_AUTHORITY === documents.manifest.domainCandidates[1].headSha, "founder_activation_evidence_domain_mismatch");
     requireValue(evidence.allowlistMembers === 2 && evidence.concreteIdentityValues === 0 && evidence.durableWrites === 0 && evidence.externalNetworkCalls === 0 && evidence.readsAfterEmergencyOff === 0 && evidence.projectionsAfterEmergencyOff === 0 && evidence.productOutputsAfterEmergencyOff === 0 && evidence.productionActions === 0 && evidence.executionAuthorized === false, "founder_activation_evidence_boundary_open");
     requireValue(postDeploy.status === "NOT_EXECUTED_NO_PRODUCTION_AUTHORITY" && postDeploy.productionQueries === 0 && postDeploy.migrationsExecuted === 0 && postDeploy.deploymentsExecuted === 0 && postDeploy.otaActions === 0 && postDeploy.executionAuthorized === false, "founder_activation_post_deploy_claim_invalid");
+    requireValue(postDeploy.canonicalMainBeforeIntegration === BASE && postDeploy.candidateFunctionalHeadSha === evidence.functionalHeadSha && postDeploy.candidateTreeSha === evidence.functionalTreeSha && postDeploy.sharedArtifactHash === artifact.artifactHash && postDeploy.sourceSetHash === artifact.sourceSetHash && postDeploy.productionPlanHash === documents.plan.planHash && postDeploy.productionStatus === "NO_GO", "founder_activation_post_deploy_identity_mismatch");
     seal = { artifactHash: artifact.artifactHash, sourceSetHash: artifact.sourceSetHash, evidenceHash: evidence.evidenceHash, functionalHeadSha: evidence.functionalHeadSha };
   }
   return {
