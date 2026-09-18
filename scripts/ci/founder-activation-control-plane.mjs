@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildFounderActivationArtifact } from "./founder-activation-artifact.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const BASE = "a76910f6da5b407dae6d4022528e644613caf5d8";
@@ -14,6 +15,7 @@ const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "ut
 const load = (root, path) => JSON.parse(readFileSync(resolve(root, path), "utf8"));
 const requireValue = (value, reason) => { if (!value) throw new Error(reason); };
 const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+const without = (value, key) => Object.fromEntries(Object.entries(value).filter(([name]) => name !== key));
 
 export function validateFounderActivationDocuments({ manifest, matrix, plan, status }) {
   requireValue(manifest.contractVersion === "backyrd.founder-activation-integration@1.0", "founder_activation_manifest_version_invalid");
@@ -45,6 +47,7 @@ export function validateFounderActivationDocuments({ manifest, matrix, plan, sta
     requireValue(bound.length === 2 && HASH.test(manifest.release.sharedArtifactHash) && HASH.test(manifest.release.sourceSetHash) && HASH.test(manifest.release.evidenceHash), "founder_activation_seal_invalid");
     requireValue(SHA.test(plan.candidateSourceSha) && HASH.test(plan.planHash), "founder_activation_sealed_plan_invalid");
     requireValue(status.overall === "GREEN" && status.ctoReviewReady === true && status.mergeable === true && status.domainCandidatesBound === 2 && status.piiSecretScan === "PASS" && status.mobileE2E === "PASS" && status.fourTrackRehearsal === "PASS" && status.sharedArtifact === "PASS" && status.blockers.length === 0, "founder_activation_green_status_invalid");
+    requireValue(plan.planHash === hash(without(plan, "planHash")), "founder_activation_plan_hash_mismatch");
   } else {
     requireValue(status.overall === "YELLOW" && status.ctoReviewReady === false && status.mergeable === false, "founder_activation_pending_status_invalid");
   }
@@ -70,6 +73,23 @@ export function runFounderActivationPreflight({ root = ROOT, head = "HEAD" } = {
   }
   const changed = git(root, ["diff", "--name-only", `${BASE}..${head}`]).split("\n").filter(Boolean);
   requireValue(!changed.some((path) => path.startsWith("supabase/migrations/") || path === "supabase/production/auth-config.json"), "founder_activation_database_or_auth_change_forbidden");
+  let seal = null;
+  if (state.sealed) {
+    requireValue(Number(process.versions.node.split(".")[0]) === 20, "founder_activation_seal_node20_required");
+    const artifact = load(root, "delivery/integration/founder-activation-shared-artifact.json");
+    const evidence = load(root, "delivery/integration/founder-activation-rehearsal-evidence.json");
+    const postDeploy = load(root, "delivery/integration/founder-activation-post-deploy-evidence.json");
+    const rebuilt = buildFounderActivationArtifact({ root, source: evidence.functionalHeadSha });
+    for (const key of ["contractVersion", "nodeMajor", "sourceSha", "sourceTreeSha", "sourceSetHash", "fileCount", "artifactHash", "executionAuthorized"]) requireValue(artifact[key] === rebuilt[key], `founder_activation_artifact_mismatch:${key}`);
+    requireValue(JSON.stringify(artifact.files) === JSON.stringify(rebuilt.files) && JSON.stringify(artifact.trackVerifications) === JSON.stringify(rebuilt.trackVerifications), "founder_activation_artifact_source_set_mismatch");
+    requireValue(documents.manifest.release.sharedArtifactHash === artifact.artifactHash && documents.manifest.release.sourceSetHash === artifact.sourceSetHash, "founder_activation_manifest_artifact_mismatch");
+    requireValue(evidence.evidenceHash === hash(without(evidence, "evidenceHash")) && documents.manifest.release.evidenceHash === evidence.evidenceHash, "founder_activation_evidence_hash_mismatch");
+    requireValue(evidence.functionalHeadSha === artifact.sourceSha && evidence.functionalTreeSha === artifact.sourceTreeSha && evidence.nodeMajor === 20 && evidence.status === "PASS", "founder_activation_evidence_identity_mismatch");
+    requireValue(evidence.domainCandidates.USER_UUID_AUTHORITY === documents.manifest.domainCandidates[0].headSha && evidence.domainCandidates.DECISION_SERVER_AUTHORITY === documents.manifest.domainCandidates[1].headSha, "founder_activation_evidence_domain_mismatch");
+    requireValue(evidence.allowlistMembers === 2 && evidence.concreteIdentityValues === 0 && evidence.durableWrites === 0 && evidence.externalNetworkCalls === 0 && evidence.readsAfterEmergencyOff === 0 && evidence.projectionsAfterEmergencyOff === 0 && evidence.productOutputsAfterEmergencyOff === 0 && evidence.productionActions === 0 && evidence.executionAuthorized === false, "founder_activation_evidence_boundary_open");
+    requireValue(postDeploy.status === "NOT_EXECUTED_NO_PRODUCTION_AUTHORITY" && postDeploy.productionQueries === 0 && postDeploy.migrationsExecuted === 0 && postDeploy.deploymentsExecuted === 0 && postDeploy.otaActions === 0 && postDeploy.executionAuthorized === false, "founder_activation_post_deploy_claim_invalid");
+    seal = { artifactHash: artifact.artifactHash, sourceSetHash: artifact.sourceSetHash, evidenceHash: evidence.evidenceHash, functionalHeadSha: evidence.functionalHeadSha };
+  }
   return {
     contractVersion: "backyrd.founder-activation-preflight@1.0",
     status: state.sealed ? "GREEN" : "YELLOW",
@@ -80,6 +100,7 @@ export function runFounderActivationPreflight({ root = ROOT, head = "HEAD" } = {
     manifestHash: hash(documents.manifest),
     executionAuthorized: false,
     productionStatus: "NO_GO",
+    seal,
     changedFiles: changed
   };
 }
