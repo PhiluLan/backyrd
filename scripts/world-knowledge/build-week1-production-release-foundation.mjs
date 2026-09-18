@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildProductionPlan } from "../deployment/supabase-production-plan.mjs";
+import { verifySourceAwareIdempotencyMigrationScope } from "../ci/source-aware-idempotency-migration-scope.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -110,10 +111,10 @@ export const buildWorldWeek1Foundation = ({ headSha = git(["rev-parse", "HEAD"])
   const canonicalBaseSha = git(["merge-base", headSha, "origin/main"]);
   const productionState = JSON.parse(readFileSync(resolve(root, "delivery/production-state.json"), "utf8"));
   const sourcePlan = buildProductionPlan({ repo: root, baseSha: productionState.supabase.shippedSourceSha, headSha });
-  if (sourcePlan.pendingMigrations.length !== migrationPolicy.length) throw new Error(`expected_nine_pending_world_migrations:${sourcePlan.pendingMigrations.length}`);
   if (sourcePlan.deployFunctions.length !== 0 || sourcePlan.authConfig?.deploy === true) throw new Error("unexpected_non_migration_runtime_scope");
+  const scopes = verifySourceAwareIdempotencyMigrationScope({ root, pendingMigrations: sourcePlan.pendingMigrations, baseSha: canonicalBaseSha, headSha });
 
-  const migrations = sourcePlan.pendingMigrations.map((entry, index) => {
+  const migrations = scopes.worldMigrations.map((entry, index) => {
     const policy = migrationPolicy[index];
     if (!entry.path.endsWith(policy.suffix)) throw new Error(`migration_order_or_identity_mismatch:${index}:${entry.path}`);
     const sql = readFileSync(resolve(root, entry.path), "utf8");
@@ -138,6 +139,7 @@ export const buildWorldWeek1Foundation = ({ headSha = git(["rev-parse", "HEAD"])
     migrationCount: migrations.length,
     migrationBundleHash: sha256(stable(bundle)),
     sourceAwarePlanHash: sourcePlan.planHash,
+    independentMigrationScopes: scopes.independentMigrations.map(({ path, sha256: digest }) => ({ path, sha256: digest, evidenceId: scopes.evidenceId, executionAuthorized: false })),
     migrations,
     releaseSequence: ["PREFLIGHT", "BACKUP", "RESTORE_REHEARSAL", "APPLY_REHEARSAL", "VERIFY_REHEARSAL", "CTO_AUTHORIZATION_REQUIRED", "PRODUCTION_APPLY_BLOCKED"],
     globalStopConditions: [

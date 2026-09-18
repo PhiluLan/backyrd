@@ -9,6 +9,17 @@ import { buildFounderActivationArtifact } from "./founder-activation-artifact.mj
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const BASE = "34c0cbec903e53087e28e46d1886648bc6ce72bc";
 const BASE_TREE = "87b44dfef7154c35c5f386e161e0fec622ad12b4";
+const CANONICAL_COMPLETION_SHA = "96f648cebbfdfd854aec688613ddbedb447c25bb";
+const CANONICAL_COMPLETION_TREE = "4321f018f04056f14aea6c7d59c4cb21a88a9a44";
+const SEALED_PATHS = new Set([
+  "delivery/integration/founder-activation-dependency-ownership-matrix.json",
+  "delivery/integration/founder-activation-manifest.json",
+  "delivery/integration/founder-activation-post-deploy-evidence.json",
+  "delivery/integration/founder-activation-production-plan.json",
+  "delivery/integration/founder-activation-rehearsal-evidence.json",
+  "delivery/integration/founder-activation-shared-artifact.json",
+  "delivery/integration/founder-activation-status.json"
+]);
 const SHA = /^[0-9a-f]{40}$/;
 const HASH = /^[0-9a-f]{64}$/;
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024 }).trim();
@@ -55,10 +66,45 @@ export function validateFounderActivationDocuments({ manifest, matrix, plan, sta
   return { boundCandidates: bound.length, sealed };
 }
 
-export function runFounderActivationPreflight({ root = ROOT, head = "HEAD" } = {}) {
+export function verifyFounderActivationCanonicalDescendant({ completionSha, completionTree, completionIsAncestorOfBase, baseIsAncestorOfHead, sealedBlobBindings }) {
+  requireValue(completionSha === CANONICAL_COMPLETION_SHA && completionTree === CANONICAL_COMPLETION_TREE, "founder_activation_completion_identity_mismatch");
+  requireValue(completionIsAncestorOfBase && baseIsAncestorOfHead, "founder_activation_descendant_lineage_invalid");
+  requireValue(Array.isArray(sealedBlobBindings) && sealedBlobBindings.length === SEALED_PATHS.size, "founder_activation_sealed_binding_set_invalid");
+  const seen = new Set();
+  for (const binding of sealedBlobBindings) {
+    requireValue(binding && SEALED_PATHS.has(binding.path) && !seen.has(binding.path), `founder_activation_sealed_binding_invalid:${binding?.path ?? "missing"}`);
+    seen.add(binding.path);
+    requireValue([binding.completionBlobSha, binding.baseBlobSha, binding.headBlobSha].every((value) => SHA.test(value)), `founder_activation_sealed_blob_invalid:${binding.path}`);
+    requireValue(binding.completionBlobSha === binding.baseBlobSha && binding.baseBlobSha === binding.headBlobSha, `founder_activation_sealed_blob_drift:${binding.path}`);
+  }
+  return true;
+}
+
+export function verifyFounderActivationDescendantMigrationChanges({ descendant, entries }) {
+  const migrations = entries.filter(({ path }) => path.startsWith("supabase/migrations/"));
+  if (!descendant) requireValue(migrations.length === 0, "founder_activation_database_change_forbidden");
+  for (const entry of migrations) {
+    requireValue(entry.status === "A" && /^supabase\/migrations\/\d{14}_[a-z0-9_]+\.sql$/.test(entry.path), `founder_activation_descendant_migration_not_additive:${entry.status}:${entry.path}`);
+  }
+  return migrations.map(({ path }) => path);
+}
+
+export function runFounderActivationPreflight({ root = ROOT, head = "HEAD", base = BASE } = {}) {
   requireValue(git(root, ["rev-parse", `${BASE}^{commit}`]) === BASE, "founder_activation_base_missing");
   requireValue(git(root, ["rev-parse", `${BASE}^{tree}`]) === BASE_TREE, "founder_activation_base_tree_mismatch");
   requireValue(git(root, ["merge-base", "--is-ancestor", BASE, head]) === "", "founder_activation_candidate_not_descendant");
+  const canonicalDescendant = base !== BASE;
+  if (canonicalDescendant) {
+    requireValue(git(root, ["rev-parse", `${base}^{commit}`]) === base, "founder_activation_requested_base_invalid");
+    const blob = (ref, path) => git(root, ["rev-parse", `${ref}:${path}`]);
+    verifyFounderActivationCanonicalDescendant({
+      completionSha: git(root, ["rev-parse", `${CANONICAL_COMPLETION_SHA}^{commit}`]),
+      completionTree: git(root, ["rev-parse", `${CANONICAL_COMPLETION_SHA}^{tree}`]),
+      completionIsAncestorOfBase: git(root, ["merge-base", "--is-ancestor", CANONICAL_COMPLETION_SHA, base]) === "",
+      baseIsAncestorOfHead: git(root, ["merge-base", "--is-ancestor", base, head]) === "",
+      sealedBlobBindings: [...SEALED_PATHS].sort().map((path) => ({ path, completionBlobSha: blob(CANONICAL_COMPLETION_SHA, path), baseBlobSha: blob(base, path), headBlobSha: blob(head, path) }))
+    });
+  }
   const documents = {
     manifest: load(root, "delivery/integration/founder-activation-manifest.json"),
     matrix: load(root, "delivery/integration/founder-activation-dependency-ownership-matrix.json"),
@@ -75,8 +121,12 @@ export function runFounderActivationPreflight({ root = ROOT, head = "HEAD" } = {
     requireValue(git(root, ["merge-base", "--is-ancestor", candidate.canonicalMergeSha, head]) === "", `founder_activation_canonical_merge_not_integrated:${candidate.track}`);
     requireValue(git(root, ["merge-base", "--is-ancestor", candidate.headSha, head]) === "", `founder_activation_candidate_not_integrated:${candidate.track}`);
   }
-  const changed = git(root, ["diff", "--name-only", `${BASE}..${head}`]).split("\n").filter(Boolean);
-  requireValue(!changed.some((path) => path.startsWith("supabase/migrations/") || path === "supabase/production/auth-config.json"), "founder_activation_database_or_auth_change_forbidden");
+  const changeEntries = git(root, ["diff", "--name-status", "--no-renames", `${base}..${head}`]).split("\n").filter(Boolean).map((line) => {
+    const [status, path] = line.split("\t"); return { status, path };
+  });
+  const changed = changeEntries.map(({ path }) => path);
+  const newMigrations = verifyFounderActivationDescendantMigrationChanges({ descendant: canonicalDescendant, entries: changeEntries });
+  requireValue(!changed.some((path) => path.startsWith("supabase/functions/") || path === "supabase/config.toml" || path === "supabase/production/auth-config.json"), "founder_activation_runtime_or_auth_change_forbidden");
   let seal = null;
   if (state.sealed) {
     requireValue(Number(process.versions.node.split(".")[0]) === 20, "founder_activation_seal_node20_required");
@@ -98,19 +148,20 @@ export function runFounderActivationPreflight({ root = ROOT, head = "HEAD" } = {
   return {
     contractVersion: "backyrd.founder-activation-preflight@1.0",
     status: state.sealed ? "GREEN" : "YELLOW",
-    baseSha: BASE,
+    baseSha: base,
     headSha: git(root, ["rev-parse", `${head}^{commit}`]),
     treeSha: git(root, ["rev-parse", `${head}^{tree}`]),
     boundCandidates: state.boundCandidates,
     manifestHash: hash(documents.manifest),
     executionAuthorized: false,
     productionStatus: "NO_GO",
+    newMigrations,
     seal,
     changedFiles: changed
   };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try { process.stdout.write(`${JSON.stringify(runFounderActivationPreflight({ root: resolve(process.argv[2] ?? ROOT), head: process.argv[3] ?? "HEAD" }), null, 2)}\n`); }
+  try { process.stdout.write(`${JSON.stringify(runFounderActivationPreflight({ root: resolve(process.argv[2] ?? ROOT), head: process.argv[3] ?? "HEAD", base: process.env.FOUNDER_LIVE_BASE_SHA ?? BASE }), null, 2)}\n`); }
   catch (error) { process.stderr.write(`founder_activation_preflight_blocked:${error.message}\n`); process.exitCode = 1; }
 }

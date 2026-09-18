@@ -81,6 +81,15 @@ export function verifyFounderSealScope({ commitCount, paths }) {
   return true;
 }
 
+export function verifyFounderDescendantMigrationChanges({ descendant, entries }) {
+  const migrations = entries.filter(({ path }) => path.startsWith("supabase/migrations/"));
+  if (!descendant) requireValue(migrations.length === 0, "founder_live_unexpected_database_change");
+  for (const entry of migrations) {
+    requireValue(entry.status === "A" && /^supabase\/migrations\/\d{14}_[a-z0-9_]+\.sql$/.test(entry.path), `founder_live_descendant_migration_not_additive:${entry.status}:${entry.path}`);
+  }
+  return migrations.map(({ path }) => path);
+}
+
 export function verifyFounderCanonicalDescendantIdentity(input) {
   const {
     mode, eventName, completionSha, completionTree, completionParents,
@@ -156,8 +165,13 @@ export function runFounderLivePreflight({ root = ROOT, base = BASE, head = "HEAD
     const patchId = execFileSync("git", ["patch-id", "--stable"], { cwd: root, encoding: "utf8", input: execFileSync("git", ["diff", `${candidate.approvedBaseSha}..${candidate.approvedHeadSha}`], { cwd: root, maxBuffer: 50 * 1024 * 1024 }), maxBuffer: 50 * 1024 * 1024 }).trim().split(" ")[0];
     requireValue(patchId === candidate.approvedPatchId, `founder_live_candidate_patch_mismatch:${candidate.track}`);
   }
-  const changed = git(root, ["diff", "--name-only", `${BASE}..${head}`]).split("\n").filter(Boolean);
-  requireValue(!changed.some((path) => path.startsWith("supabase/migrations/") || path.startsWith("supabase/functions/") || path === "supabase/production/auth-config.json"), "founder_live_unexpected_database_or_runtime_change");
+  const changeBase = descendant ? base : BASE;
+  const changeEntries = git(root, ["diff", "--name-status", "--no-renames", `${changeBase}..${head}`]).split("\n").filter(Boolean).map((line) => {
+    const [status, path] = line.split("\t"); return { status, path };
+  });
+  const changed = changeEntries.map(({ path }) => path);
+  const newMigrations = verifyFounderDescendantMigrationChanges({ descendant, entries: changeEntries });
+  requireValue(!changed.some((path) => path.startsWith("supabase/functions/") || path === "supabase/config.toml" || path === "supabase/production/auth-config.json"), "founder_live_unexpected_runtime_change");
   const plan = buildProductionPlan({ repo: root, baseSha: load(root, "delivery/production-state.json").supabase.shippedSourceSha, headSha: git(root, ["rev-parse", `${head}^{commit}`]) });
   requireValue(plan.deployFunctions.length === 0 && plan.authConfig?.deploy === false, "founder_live_production_plan_runtime_open");
   let seal = null;
@@ -192,7 +206,7 @@ export function runFounderLivePreflight({ root = ROOT, base = BASE, head = "HEAD
     }
     seal = { artifactHash: artifact.artifactHash, sourceSetHash: artifact.sourceSetHash, functionalHeadSha: evidence.functionalHeadSha, combinedTreeSha: evidence.combinedTreeSha, e2eEvidenceHash: evidence.e2eEvidenceHash };
   }
-  return { contractVersion: "backyrd.founder-live-preflight@1.0", gateStatus: "GREEN", releaseStatus: state.status, boundCandidates: state.boundCandidates, executionAuthorized: false, baseSha: git(root, ["rev-parse", `${base}^{commit}`]), headSha: git(root, ["rev-parse", `${head}^{commit}`]), treeSha: git(root, ["rev-parse", `${head}^{tree}`]), binding, seal, productionPlan: { planHash: plan.planHash, pendingMigrations: plan.pendingMigrations.map(({ path }) => path), newMigrations: 0, deployFunctions: [], authDeploy: false, runtimeActivation: false, executionAuthorized: false }, changedFiles: changed };
+  return { contractVersion: "backyrd.founder-live-preflight@1.0", gateStatus: "GREEN", releaseStatus: state.status, boundCandidates: state.boundCandidates, executionAuthorized: false, baseSha: git(root, ["rev-parse", `${base}^{commit}`]), headSha: git(root, ["rev-parse", `${head}^{commit}`]), treeSha: git(root, ["rev-parse", `${head}^{tree}`]), binding, seal, productionPlan: { planHash: plan.planHash, pendingMigrations: plan.pendingMigrations.map(({ path }) => path), newMigrations: newMigrations.length, deployFunctions: [], authDeploy: false, runtimeActivation: false, executionAuthorized: false }, changedFiles: changed };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
