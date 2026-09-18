@@ -199,7 +199,10 @@ export function runFounderLivePreflight({ root = ROOT, base = BASE, head = "HEAD
     requireValue(git(root, ["rev-parse", `${evidence.functionalHeadSha}^{tree}`]) === evidence.combinedTreeSha, "founder_live_rehearsal_tree_mismatch");
     requireValue(evidence.e2eEvidenceHash === "aaa16b4ac6a7afc5691fc54e94339035afec85400d6d9589217a4824b0845d4d" && evidence.byteIdenticalRuns === 2, "founder_live_replay_evidence_invalid");
     requireValue(sealedPlan.sourceSha === evidence.functionalHeadSha && sealedPlan.planHash === functionalPlan.planHash && JSON.stringify(sealedPlan.pendingMigrations) === JSON.stringify(functionalPlan.pendingMigrations.map(({ path }) => path)), "founder_live_production_plan_drift");
-    requireValue(sealedPlan.newMigrations === 0 && JSON.stringify(sealedPlan.deployFunctions) === JSON.stringify(expectedDeployFunctions) && sealedPlan.authDeploy === false && sealedPlan.runtimeActivation === false && sealedPlan.executionAuthorized === false, "founder_live_production_scope_open");
+    // This is immutable historical evidence for the previously completed
+    // source-only release. Edge implementation readiness is evidenced
+    // separately and must never be relabelled as deployment evidence.
+    requireValue(sealedPlan.newMigrations === 0 && sealedPlan.deployFunctions.length === 0 && sealedPlan.authDeploy === false && sealedPlan.runtimeActivation === false && sealedPlan.executionAuthorized === false, "founder_live_production_scope_open");
     requireValue(postDeploy.status === "NOT_EXECUTED_NO_PRODUCTION_AUTHORITY" && postDeploy.productionQueries === 0 && postDeploy.migrationsExecuted === 0 && postDeploy.deploymentsExecuted === 0 && postDeploy.otaActions === 0 && postDeploy.executionAuthorized === false, "founder_live_post_deploy_claim_invalid");
     requireValue(documents.status.ctoReviewReady === true && ["NO_GO", "IMPLEMENTATION_READY_DEPLOYMENT_NOT_AUTHORIZED"].includes(documents.status.productionStatus), "founder_live_cto_status_invalid");
     const headSha = git(root, ["rev-parse", `${head}^{commit}`]); const checkoutSha = git(root, ["rev-parse", `${checkout}^{commit}`]); const mainSha = git(root, ["rev-parse", `${canonicalMain}^{commit}`]);
