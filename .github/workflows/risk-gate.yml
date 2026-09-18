@@ -513,6 +513,8 @@ jobs:
         run: node --test supabase/functions/decision-founder-live/runtime-boundary.test.mjs
       - name: Reproduce Founder-live Edge evidence
         run: node scripts/ci/founder-live-edge-implementation-evidence.mjs . "${{ needs.classify.outputs.head-sha }}"
+      - name: Install isolated Founder-live rehearsal browser
+        run: npx playwright install chromium
       - name: Rehearse Founder-live four-track flow
         run: npm run founder-live:four-track -- "${{ needs.classify.outputs.head-sha }}"
       - name: Validate World Week 1 release foundation contract

@@ -171,6 +171,7 @@ test("required CI binds Founder-live Edge evidence, runtime boundary and four-tr
   const workflow = readFileSync(new URL("../../.github/workflows/risk-gate.yml", import.meta.url), "utf8");
   assert.match(workflow, /node --test supabase\/functions\/decision-founder-live\/runtime-boundary\.test\.mjs/);
   assert.match(workflow, /founder-live-edge-implementation-evidence\.mjs \. "\$\{\{ needs\.classify\.outputs\.head-sha \}\}"/);
+  assert.ok(workflow.indexOf("npx playwright install chromium") < workflow.indexOf("npm run founder-live:four-track"));
   assert.match(workflow, /npm run founder-live:four-track -- "\$\{\{ needs\.classify\.outputs\.head-sha \}\}"/);
 });
 
