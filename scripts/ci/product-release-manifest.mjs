@@ -7,7 +7,8 @@ import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
-const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 30 * 1024 * 1024 }).trim();
+const MAX_GIT_OUTPUT = 50 * 1024 * 1024;
+const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: MAX_GIT_OUTPUT }).trim();
 const walk = (root) => readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
   const path = resolve(root, entry.name);
   return entry.isDirectory() ? walk(path) : [path];
@@ -22,7 +23,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   mkdirSync(bundleRoot, { recursive: true });
   const files = [];
   for (const path of tracked) {
-    const content = execFileSync("git", ["show", `${canonicalSha}:${path}`], { cwd: root });
+    const content = execFileSync("git", ["show", `${canonicalSha}:${path}`], { cwd: root, maxBuffer: MAX_GIT_OUTPUT });
     const target = resolve(bundleRoot, path);
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, content);

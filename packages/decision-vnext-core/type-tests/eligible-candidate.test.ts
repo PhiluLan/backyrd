@@ -1,4 +1,5 @@
-import { rankBaselineA, type EligibilityResult, type WorldCandidate } from "../src/index.js";
+import { rankBaselineA } from "../src/baselines.js";
+import type { EligibilityResult, WorldCandidate } from "../src/contracts.js";
 
 declare const candidate: WorldCandidate;
 declare const rejected: EligibilityResult & { readonly eligible: false };
