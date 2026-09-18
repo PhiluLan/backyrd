@@ -13,8 +13,14 @@ const documents = () => ({
   status: load("delivery/integration/founder-activation-status.json")
 });
 
-test("pending Founder activation documents remain fail closed", () => {
-  assert.deepEqual(validateFounderActivationDocuments(documents()), { boundCandidates: 0, sealed: false });
+test("sealed Founder activation documents bind both candidates and remain non-executable", () => {
+  assert.deepEqual(validateFounderActivationDocuments(documents()), { boundCandidates: 2, sealed: true });
+});
+
+test("an unsealed status cannot claim CTO readiness", () => {
+  const value = documents();
+  value.manifest.release.sealed = false;
+  assert.throws(() => validateFounderActivationDocuments(value), /pending_status_invalid/);
 });
 
 for (const [name, mutate, expected] of [
