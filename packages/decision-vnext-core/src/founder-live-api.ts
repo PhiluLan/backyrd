@@ -12,21 +12,21 @@ import {
 
 const EVALUATOR_PORT_VERSION = "backyrd.decision-vnext.founder-live-evaluator-port@1.0" as const;
 
-const BASE_SHA = "a76910f6da5b407dae6d4022528e644613caf5d8";
+const BASE_SHA = "96f648cebbfdfd854aec688613ddbedb447c25bb";
 export const FOUNDER_LIVE_RELEASE = deepFreeze(FounderLiveReleaseSchema.parse(withContentHash({
-  contractVersion: FOUNDER_LIVE_API_VERSIONS.release, releaseId: "decision-founder-live-server-api-2",
+  contractVersion: FOUNDER_LIVE_API_VERSIONS.release, releaseId: "decision-founder-live-production-adapter-source-3",
   sourceBaseSha: BASE_SHA, apiRequestVersion: FOUNDER_LIVE_API_VERSIONS.request, apiResponseVersion: FOUNDER_LIVE_API_VERSIONS.response,
   authPortVersion: "backyrd.decision-vnext.founder-live-auth-port@2.0", allowlistPortVersion: "backyrd.decision-vnext.founder-live-allowlist-port@2.0",
   worldPortVersion: WORLD_KNOWLEDGE_PORT_VERSION, userProjectionPortVersion: "backyrd.user-intelligence.decision-projection-port@1.0", evaluatorPortVersion: EVALUATOR_PORT_VERSION,
   contextPolicyHash: PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY.policyHash,
-  hostingBoundary: "EXISTING_SERVER_EDGE_ADAPTER_REQUIRED" as const, productRanking: "NOT_CONFIGURED" as const,
+  hostingBoundary: "SERVER_EDGE_ADAPTER_SOURCE_PRESENT_INACTIVE" as const, productRanking: "NOT_CONFIGURED" as const,
   shadowTraffic: false as const, samplingRate: 0 as const, productionAuthorized: false as const, deploymentAuthorized: false as const,
 }, "releaseHash")));
 
-export interface FounderLiveAuthenticatedActor { readonly userId: string; readonly subjectBindingHash: string; readonly authenticationContextHash: string; readonly expertAccess: boolean }
+export interface FounderLiveAuthenticatedActor { readonly userId: string; readonly subjectBindingHash: string; readonly authenticationContextHash: string; readonly sessionBindingHash: string; readonly issuedAt: string; readonly expiresAt: string; readonly expertAccess: boolean }
 export interface FounderLiveAuthPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-auth-port@2.0"; authenticate(bearerToken: string): Promise<FounderLiveAuthenticatedActor | null> }
 export interface FounderLiveAllowlistDecision { readonly authorized: boolean; readonly authorityVersion: string; readonly decisionHash: string }
-export interface FounderLiveAllowlistPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-allowlist-port@2.0"; authorize(input: { readonly verifiedUserId: string; readonly subjectBindingHash: string; readonly authenticationContextHash: string; readonly purpose: "FOUNDER_DECISION_EVALUATION"; readonly environment: "LOCAL_TEST" | "PROD_LIKE_TEST" }): Promise<FounderLiveAllowlistDecision> }
+export interface FounderLiveAllowlistPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-allowlist-port@2.0"; authorize(input: { readonly verifiedUserId: string; readonly subjectBindingHash: string; readonly authenticationContextHash: string; readonly sessionBindingHash: string; readonly issuedAt: string; readonly expiresAt: string; readonly purpose: "FOUNDER_DECISION_EVALUATION"; readonly environment: "LOCAL_TEST" | "PROD_LIKE_TEST" }): Promise<FounderLiveAllowlistDecision> }
 export interface FounderLiveAuthorityPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-authority-port@1.0"; bind(input: { readonly actor: FounderLiveAuthenticatedActor; readonly requestedCity: string | null; readonly requestHash: string }): Promise<{ readonly serverTime: string; readonly authorizedCity: string; readonly locationBindingHash: string }> }
 export interface FounderLiveCandidateRetrievalPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-retrieval-port@1.0"; retrieve(input: { readonly authorizedCity: string; readonly requestHash: string }): Promise<FounderWorldCohortManifest> }
 export interface FounderLiveIdempotencyPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-idempotency-port@1.0"; read(key: string): Promise<FounderLiveExecution | null>; create(key: string, value: FounderLiveExecution): Promise<"CREATED" | "CONFLICT"> }
@@ -101,7 +101,7 @@ function assertPortVersions(ports: FounderLivePorts): void {
 }
 
 async function authorizeActor(actor: FounderLiveAuthenticatedActor, ports: FounderLivePorts, signal?: AbortSignal): Promise<FounderLiveAuthorizedActor> {
-  const allowlist = await ports.allowlist.authorize({ verifiedUserId: actor.userId, subjectBindingHash: actor.subjectBindingHash, authenticationContextHash: actor.authenticationContextHash, purpose: ports.control.purpose, environment: ports.control.environment });
+  const allowlist = await ports.allowlist.authorize({ verifiedUserId: actor.userId, subjectBindingHash: actor.subjectBindingHash, authenticationContextHash: actor.authenticationContextHash, sessionBindingHash: actor.sessionBindingHash, issuedAt: actor.issuedAt, expiresAt: actor.expiresAt, purpose: ports.control.purpose, environment: ports.control.environment });
   assertRunning(ports, signal);
   if (!allowlist.authorized) throw new FounderLiveApiError("NOT_ALLOWLISTED", 403, "Dieser Account ist für die Evaluation nicht freigegeben.");
   return Object.freeze({ ...actor, allowlistAuthorityVersion: allowlist.authorityVersion, allowlistDecisionHash: allowlist.decisionHash });
@@ -190,6 +190,40 @@ export function createFounderLiveHttpHandler(ports: FounderLivePorts): (request:
       const known = error instanceof FounderLiveApiError ? error : new FounderLiveApiError("REQUEST_REJECTED", 422, "Die Anfrage konnte nicht sicher ausgewertet werden.");
       return new Response(JSON.stringify(errorBody(known.code, known.publicMessage)), { status: known.status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
     } finally { if (timeout) clearTimeout(timeout); }
+  };
+}
+
+const MOBILE_GATEWAY_VERSION = "backyrd.decision-api.gateway-response@1.0" as const;
+function parseMobileGatewayRequest(value: unknown): { contractVersion: "backyrd.decision-api.request@1.0"; requestId: string; idempotencyKey: string; context: { city: string; query: string; moods: string[]; audience: string[]; placeTypes: string[] }; continuation: null | { decisionId: string; requestId: string } } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new FounderLiveApiError("MOBILE_REQUEST_INVALID", 400, "Die Anfrage verwendet keinen unterstützten Vertrag.");
+  const object = value as Record<string, unknown>; const exact = (target: Record<string, unknown>, keys: readonly string[]) => Object.keys(target).sort().join("|") === [...keys].sort().join("|");
+  if (!exact(object, ["contractVersion", "requestId", "idempotencyKey", "context", "continuation"]) || object.contractVersion !== "backyrd.decision-api.request@1.0") throw new FounderLiveApiError("MOBILE_REQUEST_VERSION_UNSUPPORTED", 400, "Die Anfrage verwendet keinen unterstützten Vertrag.");
+  const context = object.context as Record<string, unknown>;
+  if (!context || !exact(context, ["city", "query", "moods", "audience", "placeTypes"]) || typeof context.city !== "string" || typeof context.query !== "string" || ![context.moods, context.audience, context.placeTypes].every((list) => Array.isArray(list) && list.every((item) => typeof item === "string"))) throw new FounderLiveApiError("MOBILE_CONTEXT_INVALID", 400, "Die Situation konnte nicht sicher gelesen werden.");
+  if (typeof object.requestId !== "string" || typeof object.idempotencyKey !== "string") throw new FounderLiveApiError("MOBILE_REQUEST_IDENTITY_INVALID", 400, "Die Anfrage besitzt keine gültige Identität.");
+  if (object.continuation !== null) throw new FounderLiveApiError("CROSS_ENGINE_CONTINUATION_FORBIDDEN", 409, "Eine bestehende Decision kann nicht zwischen Engines fortgesetzt werden.");
+  return object as ReturnType<typeof parseMobileGatewayRequest>;
+}
+
+/** Server-selected mobile gateway. Founder output stays read-only and distinct from v13. */
+export function createFounderLiveMobileGatewayHandler(ports: FounderLivePorts): (request: Request) => Promise<Response> {
+  return async (request) => {
+    try {
+      assertPortVersions(ports); assertRunning(ports);
+      if (request.method !== "POST") throw new FounderLiveApiError("METHOD_NOT_ALLOWED", 405, "Dieser API-Pfad unterstützt nur POST.");
+      const token = (request.headers.get("authorization") ?? "").match(/^Bearer\s+(.+)$/i)?.[1];
+      if (!token) throw new FounderLiveApiError("UNAUTHENTICATED", 401, "Bitte melde dich an.");
+      const actor = await ports.auth.authenticate(token); if (!actor) throw new FounderLiveApiError("UNAUTHENTICATED", 401, "Die Anmeldung ist ungültig oder abgelaufen.");
+      const raw = await request.json(); const mobile = parseMobileGatewayRequest(raw);
+      const allowlist = await ports.allowlist.authorize({ verifiedUserId: actor.userId, subjectBindingHash: actor.subjectBindingHash, authenticationContextHash: actor.authenticationContextHash, sessionBindingHash: actor.sessionBindingHash, issuedAt: actor.issuedAt, expiresAt: actor.expiresAt, purpose: ports.control.purpose, environment: ports.control.environment });
+      if (!allowlist.authorized) return new Response(JSON.stringify({ contractVersion: MOBILE_GATEWAY_VERSION, route: "EXISTING_ENGINE", requestId: mobile.requestId, writebackPerformed: false, response: null }), { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+      const founderRequest: FounderLiveRequest = { contractVersion: FOUNDER_LIVE_API_VERSIONS.request, requestId: mobile.requestId, idempotencyKey: mobile.idempotencyKey, naturalLanguage: mobile.context.query, explicit: { targetCity: mobile.context.city }, alternativeRequested: false, rejectedCandidateIds: [] };
+      const execution = await executeFounderLiveDecision(founderRequest, actor, ports);
+      return new Response(JSON.stringify({ contractVersion: MOBILE_GATEWAY_VERSION, route: "FOUNDER_LIVE_READ_ONLY", requestId: mobile.requestId, writebackPerformed: false, response: execution.response }), { status: 200, headers: { "content-type": "application/json", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
+    } catch (error) {
+      const known = error instanceof FounderLiveApiError ? error : new FounderLiveApiError("REQUEST_REJECTED", 422, "Die Anfrage konnte nicht sicher ausgewertet werden.");
+      return new Response(JSON.stringify(errorBody(known.code, known.publicMessage)), { status: known.status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
+    }
   };
 }
 

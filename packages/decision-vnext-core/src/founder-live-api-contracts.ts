@@ -79,7 +79,7 @@ export const FounderLiveReleaseSchema = schema.object({
   contractVersion: version(FOUNDER_LIVE_API_VERSIONS.release), releaseId: identifier,
   sourceBaseSha: schema.string({ pattern: /^[a-f0-9]{40}$/ }), apiRequestVersion: contractRef, apiResponseVersion: contractRef,
   authPortVersion: contractRef, allowlistPortVersion: contractRef, worldPortVersion: contractRef, userProjectionPortVersion: contractRef, evaluatorPortVersion: contractRef, contextPolicyHash: sha256,
-  hostingBoundary: schema.literal("EXISTING_SERVER_EDGE_ADAPTER_REQUIRED"), productRanking: schema.literal("NOT_CONFIGURED"),
+  hostingBoundary: schema.literal("SERVER_EDGE_ADAPTER_SOURCE_PRESENT_INACTIVE"), productRanking: schema.literal("NOT_CONFIGURED"),
   shadowTraffic: schema.literal(false), samplingRate: schema.literal(0), productionAuthorized: schema.literal(false), deploymentAuthorized: schema.literal(false),
   releaseHash: sha256,
 });

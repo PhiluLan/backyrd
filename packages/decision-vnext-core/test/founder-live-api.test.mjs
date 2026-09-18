@@ -47,7 +47,7 @@ function ports(overrides = {}) {
 const request = (id, naturalLanguage, extra = {}) => ({ contractVersion: FOUNDER_LIVE_API_VERSIONS.request, requestId: `request-${id}`, idempotencyKey: `idem-${id}`, naturalLanguage, explicit: {}, alternativeRequested: false, rejectedCandidateIds: [], ...extra });
 
 const jwt = (claims) => `${Buffer.from(JSON.stringify({ alg: "ES256", typ: "JWT" })).toString("base64url")}.${Buffer.from(JSON.stringify(claims)).toString("base64url")}.signature`;
-const validClaims = (overrides = {}) => ({ sub: VERIFIED_USER_ID, session_id: SESSION_ID, exp: 1_800_000_000, role: "authenticated", aud: "authenticated", ...overrides });
+const validClaims = (overrides = {}) => ({ sub: VERIFIED_USER_ID, session_id: SESSION_ID, iat: 1_758_153_600, exp: 1_800_000_000, role: "authenticated", aud: "authenticated", ...overrides });
 
 test("Supabase Auth is the sole session identity authority and ignores mutable metadata", async () => {
   const calls = [];

@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   FOUNDER_DECISION_CONTRACT,
   FounderDecisionUnavailableError,
-  routeFounderDecision,
+  routeFounderDecisionGateway,
   type FounderDecisionRequest,
 } from "@backyrd/founder-live-control-plane";
 import { FOUNDER_LIVE_RELEASE_BINDING } from "./founderLiveRelease.generated";
@@ -53,12 +53,18 @@ export async function invokeFounderLiveDecision<T extends object>({
     continuation,
   };
 
-  return routeFounderDecision<T>({
+  return routeFounderDecisionGateway<T>({
     binding: FOUNDER_LIVE_RELEASE_BINDING,
     request,
     hash,
-    invokeVNext: async () => {
-      throw new FounderDecisionUnavailableError("founder_vnext_candidate_not_bound");
+    invokeGateway: async () => {
+      if (!FOUNDER_LIVE_RELEASE_BINDING.vNextFunction) throw new FounderDecisionUnavailableError("founder_vnext_candidate_not_bound");
+      const { data, error } = await supabase.functions.invoke<unknown>(FOUNDER_LIVE_RELEASE_BINDING.vNextFunction, {
+        body: request,
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }) as InvokeResult<unknown>;
+      if (error || !data) throw error ?? new Error("founder_live_gateway_empty_response");
+      return data;
     },
     invokeExisting: async () => {
       const { data, error } = await supabase.functions.invoke<T>(FOUNDER_LIVE_RELEASE_BINDING.fallbackFunction, {

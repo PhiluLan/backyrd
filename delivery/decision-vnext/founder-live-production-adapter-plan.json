@@ -1,0 +1,24 @@
+{
+  "contractVersion": "backyrd.decision-vnext.founder-live-production-plan@1.0",
+  "sourceBaseSha": "96f648cebbfdfd854aec688613ddbedb447c25bb",
+  "edgeFunction": "decision-founder-live",
+  "deploymentAuthorized": false,
+  "executionAuthorized": false,
+  "productionQueryAuthorized": false,
+  "migrationAuthorized": false,
+  "shadowTraffic": false,
+  "samplingRate": 0,
+  "killSwitch": "ENGAGED",
+  "productOutputAuthorized": false,
+  "rankingAuthorized": false,
+  "eligibilityAuthorized": false,
+  "confidenceAuthorized": false,
+  "learningAuthorized": false,
+  "mutationAuthorized": false,
+  "status": "SOURCE_ONLY_NO_GO",
+  "blockers": [
+    "CANONICAL_PRODUCTION_RELEVANT_USER_PROJECTION_PORT_MISSING",
+    "DURABLE_FOUNDER_LIVE_IDEMPOTENCY_PORT_MISSING",
+    "DURABLE_FOUNDER_LIVE_RATE_LIMIT_PORT_MISSING"
+  ]
+}

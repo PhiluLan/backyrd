@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { createFounderLivePrivateUuidProvider, FounderLiveUuidPrivateRecordSchema } from "@backyrd/user-intelligence-vnext-core";
 import { canonicalJson, contentHash, deepFreeze } from "./canonical.js";
 import type { FounderLiveAllowlistPort, FounderLiveAuthPort, FounderLiveRuntimeControl } from "./founder-live-api.js";
 
@@ -11,6 +12,7 @@ interface JwtClaims {
   readonly sub: string;
   readonly sessionId: string;
   readonly expiresAtSeconds: number;
+  readonly issuedAtSeconds: number;
 }
 
 function parseVerifiedSessionCandidate(token: string, now: Date): JwtClaims | null {
@@ -19,11 +21,11 @@ function parseVerifiedSessionCandidate(token: string, now: Date): JwtClaims | nu
   if (parts.length !== 3 || !parts[1]) return null;
   try {
     const raw = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8")) as Record<string, unknown>;
-    const sub = raw.sub; const sessionId = raw.session_id; const expiresAtSeconds = raw.exp;
+    const sub = raw.sub; const sessionId = raw.session_id; const expiresAtSeconds = raw.exp; const issuedAtSeconds = raw.iat;
     if (typeof sub !== "string" || !UUID.test(sub) || typeof sessionId !== "string" || !UUID.test(sessionId)) return null;
-    if (typeof expiresAtSeconds !== "number" || !Number.isSafeInteger(expiresAtSeconds) || expiresAtSeconds <= Math.floor(now.getTime() / 1_000)) return null;
+    if (typeof expiresAtSeconds !== "number" || !Number.isSafeInteger(expiresAtSeconds) || typeof issuedAtSeconds !== "number" || !Number.isSafeInteger(issuedAtSeconds) || issuedAtSeconds > Math.floor(now.getTime() / 1_000) || expiresAtSeconds <= Math.floor(now.getTime() / 1_000)) return null;
     if (raw.role !== "authenticated" || !(raw.aud === "authenticated" || (Array.isArray(raw.aud) && raw.aud.includes("authenticated")))) return null;
-    return { sub: sub.toLowerCase(), sessionId: sessionId.toLowerCase(), expiresAtSeconds };
+    return { sub: sub.toLowerCase(), sessionId: sessionId.toLowerCase(), expiresAtSeconds, issuedAtSeconds };
   } catch { return null; }
 }
 
@@ -62,12 +64,46 @@ export function createFounderLiveSupabaseAuthPort(input: {
       try { user = await response.json() as Record<string, unknown>; } catch { return null; }
       if (typeof user.id !== "string" || user.id.toLowerCase() !== claims.sub || user.role !== "authenticated" || user.is_anonymous === true) return null;
       const subjectBindingHash = contentHash({ namespace: "founder-live-subject@1.0", verifiedUserId: claims.sub });
+      const sessionBindingHash = contentHash({ namespace: "founder-live-session@1.0", subjectBindingHash, sessionId: claims.sessionId });
       return deepFreeze({
         userId: claims.sub,
         subjectBindingHash,
         authenticationContextHash: contentHash({ namespace: "founder-live-auth-context@1.0", subjectBindingHash, sessionId: claims.sessionId, expiresAtSeconds: claims.expiresAtSeconds }),
+        sessionBindingHash,
+        issuedAt: new Date(claims.issuedAtSeconds * 1_000).toISOString(),
+        expiresAt: new Date(claims.expiresAtSeconds * 1_000).toISOString(),
         expertAccess: false,
       });
+    },
+  });
+}
+
+/** Canonical User-Intelligence private provider; no UUID enumeration or client input. */
+export function createFounderLiveCanonicalUuidAllowlistPort(input: {
+  readonly loadPrivateStoreSecret: () => string;
+  readonly bindingSecret: string;
+  readonly now?: () => Date;
+}): FounderLiveAllowlistPort {
+  if (Buffer.byteLength(input.bindingSecret, "utf8") < 32) throw new Error("founder_live_allowlist_binding_secret_too_short");
+  const provider = createFounderLivePrivateUuidProvider(input.loadPrivateStoreSecret);
+  const now = input.now ?? (() => new Date());
+  return Object.freeze({
+    contractVersion: "backyrd.decision-vnext.founder-live-allowlist-port@2.0" as const,
+    async authorize(value: Parameters<FounderLiveAllowlistPort["authorize"]>[0]) {
+      let authorized = false;
+      try {
+        const record = FounderLiveUuidPrivateRecordSchema.parse(provider.findByAuthUserId(value.verifiedUserId));
+        const verifiedAt = now().getTime();
+        authorized = value.purpose === "FOUNDER_DECISION_EVALUATION"
+          && (value.environment === "LOCAL_TEST" || value.environment === "PROD_LIKE_TEST")
+          && record.status === "ACTIVE" && record.consentState === "GRANTED" && record.lifecycle === "ACTIVE"
+          && record.subjectBindingHash === value.subjectBindingHash
+          && record.acceptedSessionBindingHash === value.sessionBindingHash
+          && verifiedAt >= Date.parse(record.validFrom) && verifiedAt <= Date.parse(record.validUntil)
+          && Date.parse(value.issuedAt) <= verifiedAt && verifiedAt < Date.parse(value.expiresAt);
+      } catch { authorized = false; }
+      const decisionHash = createHmac("sha256", input.bindingSecret).update(canonicalJson({ authorityVersion: FOUNDER_LIVE_SERVER_AUTHORITY_VERSION, authenticationContextHash: value.authenticationContextHash, environment: value.environment, purpose: value.purpose, subjectBindingHash: value.subjectBindingHash, sessionBindingHash: value.sessionBindingHash, providerEnvelopeHash: provider.providerEnvelopeHash(), authorized })).digest("hex");
+      return deepFreeze({ authorized, authorityVersion: FOUNDER_LIVE_SERVER_AUTHORITY_VERSION, decisionHash });
     },
   });
 }
@@ -115,13 +151,13 @@ export function createFounderLiveServerRuntimeControl(environment: Readonly<Reco
   const requested = environment.BACKYRD_FOUNDER_LIVE_TEST_ENVIRONMENT;
   const testEnvironment = requested === "LOCAL_TEST" || requested === "PROD_LIKE_TEST" ? requested : "LOCAL_TEST";
   const enabled = environment.BACKYRD_FOUNDER_LIVE_TEST_EVALUATION_ENABLED === "true";
-  const killSwitchEngaged = environment.BACKYRD_FOUNDER_LIVE_TEST_KILL_SWITCH !== "DISENGAGED_FOR_TEST_EVALUATION";
   return Object.freeze({
     enabled,
     environment: testEnvironment,
     purpose: "FOUNDER_DECISION_EVALUATION" as const,
     requestTimeoutMilliseconds: 5_000,
     maxRequestBytes: 16_384,
-    isKillSwitchEngaged: () => killSwitchEngaged,
+    // Read on every stage boundary so Emergency-OFF also aborts in-flight work.
+    isKillSwitchEngaged: () => environment.BACKYRD_FOUNDER_LIVE_TEST_KILL_SWITCH !== "DISENGAGED_FOR_TEST_EVALUATION",
   });
 }
