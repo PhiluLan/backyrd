@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import http from "node:http";
 import { chromium } from "@playwright/test";
-import { createContractGeneratedLocalStub, FOUNDER_DECISION_CONTRACT } from "../../mobile/packages/founder-live-control-plane/src/index.mjs";
+import { DECISION_PRODUCT_CONTRACT, validateDecisionProductRequest } from "../../mobile/packages/founder-live-control-plane/src/index.mjs";
 
-const hash = async (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
+const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const auth = "synthetic-founder-admin-0001";
 const state = { version: "world-v0001", spots: [{ id: "spot-casa", name: "Casa vorher" }], saves: 0, rebuilds: 0, manualFileHandoffs: 0, userLearningWrites: 0 };
 const json = (response, status, body) => { response.writeHead(status, { "content-type": "application/json", "cache-control": "no-store" }); response.end(JSON.stringify(body)); };
@@ -14,7 +14,7 @@ const shell = (title, body, script) => `<!doctype html><html lang="de"><meta nam
 
 const server = http.createServer(async (request, response) => {
   if (request.method === "GET" && request.url === "/admin") return html(response, shell("World Authoring", '<label>Spot name<input id="name" value="Casa aktualisiert"></label><button id="save">Speichern & neu aufbauen</button><p id="status" role="status"></p>', `document.querySelector('#save').onclick=async()=>{const result=await fetch('/api/admin/save',{method:'POST',headers:{'content-type':'application/json','x-local-auth':'${auth}'},body:JSON.stringify({name:document.querySelector('#name').value})});const body=await result.json();document.querySelector('#status').textContent=body.ok?'Gespeichert · '+body.worldVersion:'Nicht gespeichert'};`));
-  if (request.method === "GET" && request.url === "/mobile") return html(response, shell("Für jetzt", '<p>Was passt zu deinem Moment?</p><button id="decide">Vorschläge laden</button><section id="results" aria-live="polite"></section>', `document.querySelector('#decide').onclick=async()=>{const result=await fetch('/api/decision',{method:'POST',headers:{'content-type':'application/json','x-local-auth':'${auth}'},body:JSON.stringify({contractVersion:'${FOUNDER_DECISION_CONTRACT.request}',requestId:'founder-e2e-request-0001',idempotencyKey:'founder-e2e-idempotency-0001',context:{city:'Bern',query:'ruhiges Café',moods:['ruhig'],audience:['solo'],placeTypes:['cafe']},continuation:null})});const body=await result.json();document.querySelector('#results').innerHTML=body.candidates.map(item=>'<article class="card"><h2>'+item.name+'</h2><p>'+item.explanation+'</p><button>Alternative</button><button>Nicht passend</button></article>').join('');};`));
+  if (request.method === "GET" && request.url === "/mobile") return html(response, shell("Für jetzt", '<p>Was passt zu deinem Moment?</p><button id="decide">Vorschläge laden</button><section id="results" aria-live="polite"></section>', `document.querySelector('#decide').onclick=async()=>{const result=await fetch('/api/decision',{method:'POST',headers:{'content-type':'application/json','x-local-auth':'${auth}'},body:JSON.stringify({contractVersion:'${DECISION_PRODUCT_CONTRACT.request}',requestId:'product-e2e-request-0001',idempotencyKey:'product-e2e-idempotency-0001',naturalLanguage:'ruhiges Café in Bern',explicit:{primaryIntent:'coffee',moods:['quiet'],targetCity:'Bern',hardConstraints:[],softPreferences:[]},alternativeRequested:false,previouslyPresentedCandidateIds:[],rejectedCandidateIds:[]})});const body=await result.json();document.querySelector('#results').innerHTML=body.candidates.map(item=>'<article class="card"><h2>'+item.presentation.name+'</h2><p>'+item.reasons[0].statement+'</p><button>Alternative</button><button>Nicht passend</button></article>').join('');};`));
   if (request.method === "POST" && request.url === "/api/admin/save") {
     if (request.headers["x-local-auth"] !== auth) return json(response, 403, { ok: false });
     let raw = ""; for await (const chunk of request) raw += chunk;
@@ -25,8 +25,25 @@ const server = http.createServer(async (request, response) => {
   if (request.method === "POST" && request.url === "/api/decision") {
     if (request.headers["x-local-auth"] !== auth) return json(response, 403, { ok: false });
     let raw = ""; for await (const chunk of request) raw += chunk;
-    const stub = createContractGeneratedLocalStub({ worldVersion: state.version, spots: state.spots });
-    return json(response, 200, await stub(JSON.parse(raw), { executionEnvironment: "LOCAL_TEST", hash }));
+    const productRequest = validateDecisionProductRequest(JSON.parse(raw));
+    const spot = state.spots[0];
+    const sourceHash = hash({ worldVersion: state.version, spot });
+    const candidate = {
+      spotId: spot.id,
+      presentation: { contractVersion: "backyrd.decision-vnext.product-presentation@1.0", spotId: spot.id, name: spot.name, locality: "Bern", categoryLabel: "Café", imageUrl: null, sourceHash, presentationHash: hash({ spot, sourceHash }) },
+      tier: "ELIGIBLE_CONFIRMED", rank: 1, coreIntentCoverage: "CONFIRMED", actualAvailability: "open",
+      confirmedHardConstraints: [], unknownHardConstraints: [], failedHardConstraints: [], rankVector: { vectorHash: hash({ rank: 1 }) },
+      reasons: [{ code: "world-version", domain: "WORLD", sourceHash, statement: `World-Version ${state.version}`, confirmed: true }],
+      limitations: [], contextualReject: false, candidateHash: hash({ spotId: spot.id, sourceHash }),
+    };
+    return json(response, 200, {
+      contractVersion: DECISION_PRODUCT_CONTRACT.response, status: "AVAILABLE", decisionId: "decision-e2e-0001",
+      requestHash: hash(productRequest), envelopeHash: hash({ productRequest, sourceHash }), rankingPolicyVersion: "backyrd.decision-vnext.product-ranking-policy@1.0", rankingPolicyHash: hash("ranking-policy"),
+      interpretation: { interpretationHash: hash(productRequest.explicit), targetCity: "Bern" }, primaryCandidateId: spot.id, candidates: [candidate], limitations: [],
+      alternative: { requested: false, selectedCandidateId: null, negativeSignalProduced: false }, reject: { candidateIds: [], contextualOnly: true, worldFactProduced: false },
+      personalization: { state: "NEUTRAL", neutralReason: "LOCAL_TEST", projectionHash: hash("neutral") }, learning: { mode: "DISABLED_NEUTRAL", acknowledgement: "NOT_APPLICABLE_NEUTRAL", eventCount: 0, rawTextIncluded: false },
+      productOutputAuthorized: true, legacyEngineUsed: false, fallbackUsed: false, resultHash: hash({ candidate, sourceHash }),
+    });
   }
   return json(response, 404, { ok: false });
 });
@@ -47,7 +64,7 @@ try {
     await mobile.close();
   }
   assert.deepEqual({ saves: state.saves, rebuilds: state.rebuilds, manualFileHandoffs: state.manualFileHandoffs, userLearningWrites: state.userLearningWrites }, { saves: 1, rebuilds: 1, manualFileHandoffs: 0, userLearningWrites: 0 }); assertions += 1;
-  process.stdout.write(`${JSON.stringify({ suite: "founder-live-admin-reader-decision-mobile-e2e", status: "PASS", assertions, localAuthFixture: true, adminBrowser: true, mobileViewports: ["320x568", "1440x900"], worldVersion: state.version, manualFileHandoffs: 0, userLearningWrites: 0, productionActions: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ suite: "product-single-route-admin-reader-mobile-e2e", status: "PASS", assertions, localAuthFixture: true, adminBrowser: true, mobileViewports: ["320x568", "1440x900"], worldVersion: state.version, manualFileHandoffs: 0, userLearningWrites: 0, productionActions: 0 })}\n`);
 } finally {
   await browser.close(); await new Promise((resolve) => server.close(resolve));
 }
