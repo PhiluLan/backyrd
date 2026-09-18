@@ -1,6 +1,18 @@
 {
   "contractVersion": "backyrd.founder-activation-ownership@1.0",
   "executionAuthorized": false,
+  "boundCandidates": {
+    "USER_UUID_AUTHORITY": {
+      "pr": 307,
+      "headSha": "ed58d3a56d27a11520ed9a625f80dcb03e331414",
+      "treeSha": "4fdcef0ab3d56724491b04693abadbedc0d4b464"
+    },
+    "DECISION_SERVER_AUTHORITY": {
+      "pr": 306,
+      "headSha": "52b8aa3b790a4685748b25e4f2930161679e277d",
+      "treeSha": "3de2e50d7ab5c979fa75c28c820219d4dd01cf50"
+    }
+  },
   "mergeOrder": [
     {
       "order": 1,

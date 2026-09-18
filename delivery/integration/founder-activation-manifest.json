@@ -2,7 +2,7 @@
   "contractVersion": "backyrd.founder-activation-integration@1.0",
   "canonicalBaseSha": "a76910f6da5b407dae6d4022528e644613caf5d8",
   "canonicalBaseTreeSha": "730a405788ffc70e2c8ee32caadcf3b5a39bbb30",
-  "status": "YELLOW_AWAITING_DOMAIN_CANDIDATES",
+  "status": "GREEN_CTO_REVIEW_READY_DRAFT_ONLY",
   "draftRequired": true,
   "executionAuthorized": false,
   "productionActivationAuthorized": false,
@@ -25,17 +25,17 @@
   "domainCandidates": [
     {
       "track": "USER_UUID_AUTHORITY",
-      "headSha": null,
-      "treeSha": null,
-      "patchId": null,
-      "status": "AWAITING_APPROVED_HEAD"
+      "headSha": "ed58d3a56d27a11520ed9a625f80dcb03e331414",
+      "treeSha": "4fdcef0ab3d56724491b04693abadbedc0d4b464",
+      "patchId": "b806c28c54c845baa03953150d370f9a9739140f",
+      "status": "APPROVED_HEAD_BOUND"
     },
     {
       "track": "DECISION_SERVER_AUTHORITY",
-      "headSha": null,
-      "treeSha": null,
-      "patchId": null,
-      "status": "AWAITING_APPROVED_HEAD"
+      "headSha": "52b8aa3b790a4685748b25e4f2930161679e277d",
+      "treeSha": "3de2e50d7ab5c979fa75c28c820219d4dd01cf50",
+      "patchId": "fb229cbe8bcc1d501b061e38c1a2574caa60b397",
+      "status": "APPROVED_HEAD_BOUND"
     }
   ],
   "authority": {
@@ -67,9 +67,9 @@
     "screenshotsRetained": false
   },
   "release": {
-    "sharedArtifactHash": null,
-    "sourceSetHash": null,
-    "evidenceHash": null,
-    "sealed": false
+    "sharedArtifactHash": "3beb2ea524b5bd0880451a0da28258049bba0a70b1ed1a42ed1bede6c3fa8979",
+    "sourceSetHash": "a6d6961dde97bd33d96d28ae9192cc5705563724d0c7f24c47d8a3c1e5968a2c",
+    "evidenceHash": "f3b6f74e3233838cba076a48ef49e173dedcdbba877483f4570fb68714a6997a",
+    "sealed": true
   }
 }

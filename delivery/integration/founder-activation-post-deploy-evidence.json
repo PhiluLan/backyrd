@@ -1,0 +1,12 @@
+{
+  "contractVersion": "backyrd.founder-activation-post-deploy-evidence@1.0",
+  "status": "NOT_EXECUTED_NO_PRODUCTION_AUTHORITY",
+  "productionQueries": 0,
+  "migrationsExecuted": 0,
+  "deploymentsExecuted": 0,
+  "secretMutations": 0,
+  "runtimeActivations": 0,
+  "mobileReleases": 0,
+  "otaActions": 0,
+  "executionAuthorized": false
+}

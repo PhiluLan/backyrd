@@ -1,20 +1,16 @@
 {
   "contractVersion": "backyrd.founder-activation-status@1.0",
-  "overall": "YELLOW",
+  "overall": "GREEN",
   "draftRequired": true,
-  "ctoReviewReady": false,
-  "mergeable": false,
-  "domainCandidatesBound": 0,
+  "ctoReviewReady": true,
+  "mergeable": true,
+  "domainCandidatesBound": 2,
   "domainCandidatesRequired": 2,
-  "piiSecretScan": "PENDING",
-  "mobileE2E": "PENDING",
-  "fourTrackRehearsal": "PENDING",
-  "sharedArtifact": "PENDING",
+  "piiSecretScan": "PASS",
+  "mobileE2E": "PASS",
+  "fourTrackRehearsal": "PASS",
+  "sharedArtifact": "PASS",
   "productionStatus": "NO_GO",
   "executionAuthorized": false,
-  "blockers": [
-    "USER_UUID_AUTHORITY_HEAD_PENDING",
-    "DECISION_SERVER_AUTHORITY_HEAD_PENDING",
-    "FINAL_EVIDENCE_SEAL_PENDING"
-  ]
+  "blockers": []
 }
