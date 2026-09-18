@@ -1,6 +1,7 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CanonicalSpotImage } from "@/components/canonical-spot-image";
 import { supabase } from "@/lib/supabase/client";
@@ -8,16 +9,14 @@ import {
   AUDIENCE_OPTIONS,
   DIRECTION_OPTIONS,
   MOOD_OPTIONS,
-  continueWebDecision,
-  recordDecisionFeedback,
-  recordVisibleDecisionImpression,
+  recordDecisionInteraction,
   runWebDecision,
   type DecisionInputMode,
   type DecisionResult,
   type DecisionRun,
 } from "@/lib/decision-web-api";
 import { ArrowIcon, RouteIcon, SparkIcon } from "./icons";
-import { Button, ButtonLink, Chip, StateView, Toast } from "./ui";
+import { Button, Chip, StateView } from "./ui";
 
 type Status = "input" | "loading" | "results" | "error" | "empty";
 function toggle(values: string[], value: string) {
@@ -26,18 +25,16 @@ function toggle(values: string[], value: string) {
     : [...values, value];
 }
 function image(spot: DecisionResult) {
-  return spot.detail?.spot?.header_photo_path ?? null;
+  return spot.presentation.imageUrl;
 }
 function category(spot: DecisionResult) {
-  return (
-    spot.category_name || spot.detail?.spot?.category?.name || "Backyrd Spot"
-  );
+  return spot.presentation.categoryLabel || "Backyrd Spot";
 }
 function maps(spot: DecisionResult) {
-  const place = spot.detail?.spot;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place?.address || spot.name)}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([spot.presentation.name, spot.presentation.locality].filter(Boolean).join(", "))}`;
 }
 export function DecisionExperience() {
+  const router = useRouter();
   const params = useSearchParams();
   const [userId, setUserId] = useState<string | null>(null);
   const [mode, setMode] = useState<DecisionInputMode>(
@@ -52,11 +49,10 @@ export function DecisionExperience() {
   const [status, setStatus] = useState<Status>("input");
   const [run, setRun] = useState<DecisionRun | null>(null);
   const [index, setIndex] = useState(0);
-  const [exposureReady, setExposureReady] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const seen = useRef(new Set<string>());
   const busy = useRef(false);
+  const resultElement = useRef<HTMLElement | null>(null);
+  const impressed = useRef(new Set<string>());
   useEffect(() => {
     void supabase.auth
       .getUser()
@@ -72,28 +68,46 @@ export function DecisionExperience() {
   );
   const current = run?.results[index] ?? null;
   useEffect(() => {
-    setExposureReady(false);
-    if (status !== "results" || !run || !current) return;
-    const key = `${run.decisionId}:${current.spot_id}`;
-    if (seen.current.has(key)) {
-      setExposureReady(true);
-      return;
-    }
-    const id = window.setTimeout(() => {
-      void recordVisibleDecisionImpression(
-        run.decisionId,
-        current.spot_id,
-        run.page,
-        index + 1,
-      )
-        .then(() => {
-          seen.current.add(key);
-          setExposureReady(true);
-        })
-        .catch(() => setToast("Die Ansicht konnte nicht bestätigt werden."));
-    }, 750);
-    return () => window.clearTimeout(id);
-  }, [status, run, current, index]);
+    const element = resultElement.current;
+    if (status !== "results" || !run || !current || !element) return;
+    const key = `${run.decisionId}:${current.spotId}`;
+    if (impressed.current.has(key)) return;
+    let timer: number | null = null;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && entry.intersectionRatio >= 0.5 && timer === null) {
+        timer = window.setTimeout(() => {
+          timer = null;
+          void recordDecisionInteraction(run.decisionId, current.spotId, "candidate_impression")
+            .then(() => impressed.current.add(key))
+            .catch(() => undefined);
+        }, 750);
+      } else if ((!entry.isIntersecting || entry.intersectionRatio < 0.5) && timer !== null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+    }, { threshold: [0.5] });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [current, run, status]);
+  const decisionInput = useCallback(() => ({
+    city,
+    inputMode: mode,
+    rawFreeText: freeText,
+    directions,
+    audiences,
+    moods,
+  }), [audiences, city, directions, freeText, mode, moods]);
+  const acceptRun = useCallback((value: DecisionRun) => {
+    setRun(value);
+    const primaryIndex = value.primaryCandidateId
+      ? value.results.findIndex((candidate) => candidate.spotId === value.primaryCandidateId)
+      : -1;
+    setIndex(primaryIndex >= 0 ? primaryIndex : 0);
+    setStatus(value.results.length && value.primaryCandidateId ? "results" : "empty");
+  }, []);
   const start = useCallback(async () => {
     if (!userId) {
       setError(
@@ -106,59 +120,50 @@ export function DecisionExperience() {
     setStatus("loading");
     setError("");
     try {
-      const value = await runWebDecision({
-        city,
-        inputMode: mode,
-        rawFreeText: freeText,
-        directions,
-        audiences,
-        moods,
-      });
-      setRun(value);
-      setIndex(0);
-      setStatus(value.results.length ? "results" : "empty");
+      const value = await runWebDecision(decisionInput());
+      acceptRun(value);
     } catch {
       setError("Deine Vorschläge konnten gerade nicht geladen werden.");
       setStatus("error");
     }
-  }, [userId, canRun, city, mode, freeText, directions, audiences, moods]);
-  async function advance(action: "next" | "like" | "dislike") {
+  }, [acceptRun, canRun, decisionInput, userId]);
+  async function alternative() {
     if (!run || !current || busy.current) return;
     busy.current = true;
+    setStatus("loading");
     try {
-      if (action !== "next") {
-        if (!exposureReady) {
-          setToast(
-            "Einen kurzen Moment – der Treffer wird noch sichtbar bestätigt.",
-          );
-          return;
-        }
-        await recordDecisionFeedback(run.decisionId, current.spot_id, action);
-      }
-      setIndex((value) => value + 1);
+      const presented = Array.from(new Set([...run.presentedCandidateIds, current.spotId]));
+      acceptRun(await runWebDecision(decisionInput(), {
+        alternativeRequested: true,
+        previouslyPresentedCandidateIds: presented,
+        rejectedCandidateIds: run.rejectedCandidateIds,
+      }));
     } catch {
-      setToast("Die Aktion konnte nicht gespeichert werden.");
+      setError("Eine sichere Alternative ist gerade nicht verfügbar.");
+      setStatus("error");
     } finally {
       busy.current = false;
     }
   }
-  async function more() {
-    if (!run || run.exhausted) return;
+  async function reject() {
+    if (!run || !current || busy.current) return;
+    busy.current = true;
     setStatus("loading");
     try {
-      const next = await continueWebDecision(
-        run.decisionId,
-        crypto.randomUUID(),
-      );
-      setRun(next);
-      setIndex(0);
-      setStatus(next.results.length ? "results" : "empty");
+      const rejected = Array.from(new Set([...run.rejectedCandidateIds, current.spotId]));
+      const presented = Array.from(new Set([...run.presentedCandidateIds, current.spotId]));
+      acceptRun(await runWebDecision(decisionInput(), {
+        alternativeRequested: false,
+        previouslyPresentedCandidateIds: presented,
+        rejectedCandidateIds: rejected,
+      }));
     } catch {
-      setToast("Weitere Vorschläge konnten nicht geladen werden.");
-      setStatus("results");
+      setError("Die kontextuelle Abwahl konnte nicht sicher verarbeitet werden.");
+      setStatus("error");
+    } finally {
+      busy.current = false;
     }
   }
-  const finished = Boolean(run && index >= run.results.length);
   return (
     <div className="b-decision-layout">
       <aside className="b-decision-form-panel">
@@ -324,9 +329,7 @@ export function DecisionExperience() {
             onAction={() =>
               userId
                 ? void start()
-                : location.assign(
-                    `/login?next=${encodeURIComponent("/decision")}`,
-                  )
+                : router.push(`/login?next=${encodeURIComponent("/decision")}`)
             }
           />
         ) : status === "empty" ? (
@@ -336,29 +339,12 @@ export function DecisionExperience() {
             actionLabel="Auswahl anpassen"
             onAction={() => setStatus("input")}
           />
-        ) : finished ? (
-          <StateView
-            title={
-              run?.exhausted
-                ? "Das waren die passendsten Vorschläge."
-                : "Noch nicht das Richtige?"
-            }
-            message={
-              run?.exhausted
-                ? "Passe deinen Moment an und starte eine neue Suche."
-                : "Backyrd kann weitere Vorschläge aus derselben Decision laden."
-            }
-            actionLabel={
-              run?.exhausted ? "Moment anpassen" : "Weitere Vorschläge"
-            }
-            onAction={() => (run?.exhausted ? setStatus("input") : void more())}
-          />
         ) : current && run ? (
-          <article className="b-decision-result">
+          <article className="b-decision-result" ref={resultElement}>
             <CanonicalSpotImage
               ownerAdminImageUrl={image(current)}
-              spotId={current.spot_id}
-              spotName={current.name}
+              spotId={current.spotId}
+              spotName={current.presentation.name}
             >
               <div style={{ position: "absolute", left: 24, top: 24 }}>
                 <span className="b-chip b-chip-lime">{category(current)}</span>
@@ -369,29 +355,41 @@ export function DecisionExperience() {
                 Treffer {index + 1} von {run.results.length}
               </div>
               <h2 className="b-display b-page-title" style={{ marginTop: 16 }}>
-                {current.name}
+                {current.presentation.name}
               </h2>
               <p className="b-kicker" style={{ marginTop: 18 }}>
-                {current.is_open_now === true
+                {current.actualAvailability === "open"
                   ? "Jetzt geöffnet"
-                  : current.city || "Basel"}
+                  : current.actualAvailability === "closed"
+                    ? "Aktuell geschlossen"
+                    : current.presentation.locality || "Öffnungsstatus nicht bestätigt"}
               </p>
               <div style={{ marginTop: 30 }}>
                 <p className="b-label">Warum dieser Treffer?</p>
                 <p className="b-body" style={{ fontSize: 18 }}>
-                  {current.human_reason ||
-                    current.technical_why_this ||
-                    "Dieser Ort passt zu den Signalen deines aktuellen Moments."}
+                  {current.reasons
+                    .filter((reason) => reason.confirmed)
+                    .map((reason) => reason.statement)
+                    .slice(0, 3)
+                    .join(" ") || "Für diesen Treffer liegt noch keine bestätigte Begründung vor."}
                 </p>
+                {[...current.limitations, ...run.limitations].length ? (
+                  <p className="b-meta" style={{ marginTop: 14 }}>
+                    Grenzen: {Array.from(new Set([...current.limitations, ...run.limitations])).join(" · ")}
+                  </p>
+                ) : null}
               </div>
               <div className="b-decision-actions">
                 <div className="b-form-actions">
-                  <ButtonLink
-                    href={`/spots/${current.spot_id}?from=decision`}
-                    variant="secondary"
+                  <Link
+                    href={`/spots/${current.spotId}?from=decision`}
+                    className="b-button b-button-secondary"
+                    onClick={() => {
+                      void recordDecisionInteraction(run.decisionId, current.spotId, "candidate_opened").catch(() => undefined);
+                    }}
                   >
                     Spot ansehen
-                  </ButtonLink>
+                  </Link>
                   <a
                     className="b-button b-button-secondary"
                     href={maps(current)}
@@ -402,25 +400,17 @@ export function DecisionExperience() {
                   </a>
                 </div>
                 <Button
-                  disabled={!exposureReady}
-                  onClick={() => void advance("next")}
+                  disabled={!run.alternativeAvailable}
+                  onClick={() => void alternative()}
                 >
-                  Weiter <ArrowIcon />
+                  Alternative <ArrowIcon />
                 </Button>
                 <div className="b-decision-feedback">
                   <Button
-                    variant="secondary"
-                    disabled={!exposureReady}
-                    onClick={() => void advance("like")}
-                  >
-                    Passt
-                  </Button>
-                  <Button
                     variant="tertiary"
-                    disabled={!exposureReady}
-                    onClick={() => void advance("dislike")}
+                    onClick={() => void reject()}
                   >
-                    Nicht passend
+                    Für diese Anfrage nicht passend
                   </Button>
                 </div>
               </div>
@@ -428,9 +418,6 @@ export function DecisionExperience() {
           </article>
         ) : null}
       </section>
-      {toast ? (
-        <Toast message={toast} onDismiss={() => setToast(null)} />
-      ) : null}
     </div>
   );
 }

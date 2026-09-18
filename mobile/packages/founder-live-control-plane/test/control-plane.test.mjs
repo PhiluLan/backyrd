@@ -1,61 +1,91 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import test from "node:test";
-import { createContractGeneratedLocalStub, FOUNDER_DECISION_CONTRACT, FounderDecisionUnavailableError, routeFounderDecision } from "../src/index.mjs";
+import {
+  executeDecisionProductSingleRoute,
+  executeDecisionProductInteraction,
+  DecisionProductUnavailableError,
+  validateDecisionProductRequest,
+  validateDecisionProductResponse,
+} from "../src/index.mjs";
 
-const hash = async (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
-const request = {
-  contractVersion: FOUNDER_DECISION_CONTRACT.request,
-  requestId: "founder-request-0001",
-  idempotencyKey: "founder-idempotency-0001",
-  context: { city: "Bern", query: "ruhiges Café", moods: ["ruhig"], audience: ["solo"], placeTypes: ["cafe"] },
-  continuation: null,
+const hash = (character) => character.repeat(64);
+const binding = {
+  status: "PRODUCT_SINGLE_ROUTE_BOUND",
+  releaseHash: hash("a"), bindingHash: hash("b"), transportFunction: "decision-v13",
+  requestContract: "backyrd.decision-vnext.product-request@1.0",
+  responseContract: "backyrd.decision-vnext.product-response@1.0",
+  executionAuthorized: false,
 };
-const pending = { status: "YELLOW_CANDIDATES_PENDING", releaseHash: "1".repeat(64), bindingHash: "2".repeat(64), allCandidatesBound: false, vNextFunction: null, fallbackFunction: "decision-v13", executionAuthorized: false };
-const ready = { ...pending, status: "READY_FOR_FOUNDER_ALLOWLIST", allCandidatesBound: true, vNextFunction: "decision-vnext-v1" };
-const authority = { contractVersion: FOUNDER_DECISION_CONTRACT.routeAuthority, requestId: request.requestId, releaseHash: ready.releaseHash, bindingHash: ready.bindingHash, route: "VNEXT", allowlisted: true, globalKillSwitch: false, decisionKillSwitch: false, validUntil: "2026-10-01T00:00:00.000Z" };
-const vnext = async () => ({ contractVersion: FOUNDER_DECISION_CONTRACT.response, requestId: request.requestId, idempotencyKey: request.idempotencyKey, releaseHash: ready.releaseHash, bindingHash: ready.bindingHash, resultHash: "3".repeat(64), writebackPerformed: false, candidates: [{ spotId: "spot-a" }] });
-
-test("pending candidates always use the existing engine without a client toggle", async () => {
-  let candidateCalls = 0;
-  const result = await routeFounderDecision({ binding: pending, request, hash, invokeVNext: async () => { candidateCalls += 1; }, invokeExisting: async () => ({ ok: true, candidates: [{ spot_id: "legacy-a" }] }) });
-  assert.equal(result.route, "EXISTING_ENGINE");
-  assert.equal(result.fallbackReason, "CANDIDATES_PENDING");
-  assert.equal(result.mixedResults, false);
-  assert.equal(candidateCalls, 0);
+const request = {
+  contractVersion: "backyrd.decision-vnext.product-request@1.0",
+  requestId: "request-12345678",
+  idempotencyKey: "idem-12345678",
+  naturalLanguage: "Ruhiges Café in Basel",
+  explicit: { primaryIntent: "cafe", moods: ["quiet"], targetCity: "Basel", softPreferences: [] },
+  alternativeRequested: false,
+  previouslyPresentedCandidateIds: [],
+  rejectedCandidateIds: [],
+};
+const candidate = {
+  spotId: "spot-12345678",
+  presentation: { contractVersion: "backyrd.decision-vnext.product-presentation@1.0", spotId: "spot-12345678", name: "Café", locality: "Basel", categoryLabel: "Café", imageUrl: null, sourceHash: hash("1"), presentationHash: hash("2") },
+  tier: "ELIGIBLE_CONFIRMED", rank: 1, coreIntentCoverage: "CONFIRMED", actualAvailability: "open",
+  confirmedHardConstraints: [], unknownHardConstraints: [], failedHardConstraints: [],
+  rankVector: { vectorHash: hash("3") },
+  reasons: [{ code: "core-intent", domain: "WORLD", sourceHash: hash("4"), statement: "Passt zum gewünschten Café-Moment.", confirmed: true }],
+  limitations: [], contextualReject: false, candidateHash: hash("5"),
+};
+const response = (source = request) => ({
+  contractVersion: "backyrd.decision-vnext.product-response@1.0", status: "AVAILABLE",
+  decisionId: "decision-12345678", requestHash: hash("6"), envelopeHash: hash("7"),
+  rankingPolicyVersion: "backyrd.decision-vnext.product-ranking-policy@1.0", rankingPolicyHash: hash("8"),
+  interpretation: { interpretationHash: hash("9"), targetCity: "Basel" },
+  primaryCandidateId: candidate.spotId, candidates: [candidate], limitations: ["hours-uncertain"],
+  alternative: { requested: source.alternativeRequested, selectedCandidateId: source.alternativeRequested ? candidate.spotId : null, negativeSignalProduced: false },
+  reject: { candidateIds: source.rejectedCandidateIds, contextualOnly: true, worldFactProduced: false },
+  personalization: { state: "NEUTRAL", neutralReason: "NO_CONSENT", projectionHash: hash("a") },
+  learning: { mode: "DISABLED_NEUTRAL", acknowledgement: "NOT_APPLICABLE_NEUTRAL", eventCount: 0, rawTextIncluded: false },
+  productOutputAuthorized: true, legacyEngineUsed: false, fallbackUsed: false, resultHash: hash("b"),
 });
 
-test("only fresh server authority can select vNext", async () => {
-  const result = await routeFounderDecision({ binding: ready, request, serverAuthority: authority, hash, now: "2026-09-18T00:00:00.000Z", invokeVNext: vnext, invokeExisting: async () => ({ ok: true }) });
-  assert.equal(result.route, "VNEXT");
-  assert.equal(result.writebackPerformed, false);
+test("the Build-57 transport accepts only the vNext Product contract", async () => {
+  let calls = 0;
+  const result = await executeDecisionProductSingleRoute({ binding, request, invoke: async () => { calls += 1; return response(); } });
+  assert.equal(calls, 1); assert.equal(result.status, "AVAILABLE"); assert.equal(result.candidates[0].rank, 1);
+  await assert.rejects(() => executeDecisionProductSingleRoute({ binding: { ...binding, transportFunction: "decision-vnext" }, request, invoke: async () => response() }), /decision_transport_slug_invalid/);
+  await assert.rejects(() => executeDecisionProductSingleRoute({ binding, request, invoke: async () => { throw new Error("offline"); } }), DecisionProductUnavailableError);
 });
 
-for (const [name, override] of [
-  ["missing authority", null],
-  ["forged release", { ...authority, releaseHash: "9".repeat(64) }],
-  ["expired authority", { ...authority, validUntil: "2026-09-01T00:00:00.000Z" }],
-  ["not allowlisted", { ...authority, allowlisted: false }],
-  ["global kill switch", { ...authority, globalKillSwitch: true }],
-  ["decision kill switch", { ...authority, decisionKillSwitch: true }],
-]) test(`${name} fails closed to one unmixed existing result`, async () => {
-  const result = await routeFounderDecision({ binding: ready, request, serverAuthority: override, hash, now: "2026-09-18T00:00:00.000Z", invokeVNext: vnext, invokeExisting: async () => ({ ok: true, source: "existing" }) });
-  assert.equal(result.route, "EXISTING_ENGINE");
-  assert.deepEqual(result.response, { ok: true, source: "existing" });
-  assert.equal(result.mixedResults, false);
+test("legacy, Founder and evaluation-only responses fail visibly without fallback", () => {
+  assert.throws(() => validateDecisionProductResponse({ ok: true, north_star: { active: true }, candidates: [] }, request), /decision_response_shape_invalid/);
+  assert.throws(() => validateDecisionProductResponse({ ...response(), contractVersion: "backyrd.decision-vnext.founder-live-response@1.1", status: "EVALUATION_ONLY" }, request), /decision_response_version_or_status_invalid/);
 });
 
-test("candidate failure falls back and dual failure becomes an honest unavailable state", async () => {
-  const fallback = await routeFounderDecision({ binding: ready, request, serverAuthority: authority, hash, now: "2026-09-18T00:00:00.000Z", invokeVNext: async () => { throw new Error("down"); }, invokeExisting: async () => ({ ok: true }) });
-  assert.equal(fallback.fallbackReason, "VNEXT_FAILED_CLOSED");
-  await assert.rejects(() => routeFounderDecision({ binding: pending, request, hash, invokeVNext: vnext, invokeExisting: async () => { throw new Error("offline"); } }), (error) => error instanceof FounderDecisionUnavailableError && /verlässlichen Vorschläge/.test(error.userMessage));
+test("ranking, presentation, reasons and limitations are strict", () => {
+  assert.throws(() => validateDecisionProductResponse({ ...response(), candidates: [{ ...candidate, rank: 0 }] }, request), /decision_candidate_rank_invalid/);
+  assert.throws(() => validateDecisionProductResponse({ ...response(), candidates: [{ ...candidate, actualAvailability: "maybe" }] }, request), /decision_candidate_availability_invalid/);
+  assert.throws(() => validateDecisionProductResponse({ ...response(), candidates: [{ ...candidate, reasons: [] }] }, request), /decision_candidate_reasons_invalid/);
+  assert.throws(() => validateDecisionProductResponse({ ...response(), limitations: [""] }, request), /decision_limitations_invalid/);
 });
 
-test("local stub is contract generated, local-only and never writes user learning", async () => {
-  const stub = createContractGeneratedLocalStub({ worldVersion: "world-v0001", spots: [{ id: "spot-a", name: "Casa" }] });
-  const result = await stub(request, { executionEnvironment: "LOCAL_TEST", hash });
-  assert.equal(result.contractVersion, FOUNDER_DECISION_CONTRACT.localStub);
-  assert.equal(result.writebackPerformed, false);
-  assert.equal(result.productionCapable, false);
-  await assert.rejects(() => stub(request, { executionEnvironment: "PRODUCTION", hash }), /stub_non_local_execution_forbidden/);
+test("alternative and contextual reject bind to the same Product request", () => {
+  const alternative = { ...request, requestId: "request-23456789", idempotencyKey: "idem-23456789", alternativeRequested: true, previouslyPresentedCandidateIds: [candidate.spotId] };
+  assert.equal(validateDecisionProductResponse(response(alternative), alternative).alternative.requested, true);
+  const rejected = { ...request, requestId: "request-34567890", idempotencyKey: "idem-34567890", rejectedCandidateIds: [candidate.spotId] };
+  assert.deepEqual(validateDecisionProductResponse(response(rejected), rejected).reject.candidateIds, [candidate.spotId]);
+  assert.throws(() => validateDecisionProductResponse({ ...response(rejected), reject: { candidateIds: [], contextualOnly: true, worldFactProduced: false } }, rejected), /decision_reject_binding_invalid/);
+});
+
+test("client authority, fallback and duplicate candidates remain fail-closed", () => {
+  assert.throws(() => validateDecisionProductRequest({ ...request, serverAuthority: true }), /decision_request_shape_invalid/);
+  assert.throws(() => validateDecisionProductResponse({ ...response(), fallbackUsed: true }, request), /decision_product_authority_invalid/);
+  assert.throws(() => validateDecisionProductResponse({ ...response(), candidates: [candidate, candidate] }, request), /decision_candidate_identity_invalid/);
+});
+
+test("impression and open interactions use the same sealed transport and reject forged acknowledgements", async () => {
+  const interaction = { contractVersion: "backyrd.decision-vnext.product-interaction-request@1.0", actionId: "action-visible", idempotencyKey: "interaction-visible", decisionId: "decision-12345678", eventType: "candidate_impression", candidateId: "spot-12345678" };
+  const acknowledged = { contractVersion: "backyrd.decision-vnext.product-interaction-response@1.0", status: "ACKNOWLEDGED", decisionId: interaction.decisionId, candidateId: interaction.candidateId, eventType: interaction.eventType, legacyWriteUsed: false, fallbackUsed: false };
+  assert.equal((await executeDecisionProductInteraction({ binding, request: interaction, invoke: async () => acknowledged })).status, "ACKNOWLEDGED");
+  await assert.rejects(() => executeDecisionProductInteraction({ binding, request: interaction, invoke: async () => ({ ...acknowledged, candidateId: "spot-forged" }) }), /decision_interaction_response_binding_invalid/);
+  await assert.rejects(() => executeDecisionProductInteraction({ binding, request: { ...interaction, serverAuthority: true }, invoke: async () => acknowledged }), /decision_interaction_request_shape_invalid/);
 });

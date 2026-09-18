@@ -172,6 +172,7 @@ const InfoRow = ({
 
 export default function SpotDetailScreen() {
   const { id, entrySource } = useLocalSearchParams<{ id: string; entrySource?: string }>();
+  const decisionOrigin = entrySource === "decision";
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -205,7 +206,7 @@ export default function SpotDetailScreen() {
   // One canonical detail-open signal for generic entry surfaces. Decision and
   // nearby-card entries already emit their own source event before navigation.
   useEffect(() => {
-    if (!id || productOpenLogged.current || entrySource === "decision" || entrySource === "nearby") return;
+    if (!id || productOpenLogged.current || decisionOrigin || entrySource === "nearby") return;
     productOpenLogged.current = true;
     void recordMemoryProductAction({ actionType: "spot_opened", spotId: id, entrySurface: "generic" });
     void trackAnalyticsEvent({
@@ -216,7 +217,7 @@ export default function SpotDetailScreen() {
       spotId: id,
       properties: { entry_surface: "generic" },
     });
-  }, [entrySource, id]);
+  }, [decisionOrigin, entrySource, id]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   const [ownerCtx, setOwnerCtx] = useState<any>(null);
@@ -511,7 +512,7 @@ export default function SpotDetailScreen() {
     const url =
       spot.website ||
       `https://maps.apple.com/?ll=${spot.lat},${spot.lng}&q=${encodeURIComponent(spot.name)}`;
-    void trackAnalyticsEvent({ eventName: "spot_shared", screenName: "spot_detail", entityType: "spot", entityId: id, spotId: id });
+    if (!decisionOrigin) void trackAnalyticsEvent({ eventName: "spot_shared", screenName: "spot_detail", entityType: "spot", entityId: id, spotId: id });
     Share.share({ message: `${spot.name}\n${spot.address ?? ""}\n${url}` });
   }
 
@@ -727,8 +728,10 @@ export default function SpotDetailScreen() {
         <View style={styles.content}>
           <View style={styles.quickActions}>
             <Pressable onPress={() => {
-              void trackAnalyticsEvent({ eventName: "spot_route_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
-              void recordMemoryProductAction({ actionType: "navigation_intent", spotId: spot.id, entrySurface: "generic" });
+              if (!decisionOrigin) {
+                void trackAnalyticsEvent({ eventName: "spot_route_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
+                void recordMemoryProductAction({ actionType: "navigation_intent", spotId: spot.id, entrySurface: "generic" });
+              }
               openInAppleMaps(spot.lat, spot.lng, spot.name);
             }} style={styles.primaryAction}>
               <Feather name="navigation" size={17} color="#111113" />
@@ -737,7 +740,7 @@ export default function SpotDetailScreen() {
             <Pressable
               onPress={() => {
                 if (!userId) return setShowLoginPrompt(true);
-                void trackAnalyticsEvent({ eventName: "spot_review_started", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
+                if (!decisionOrigin) void trackAnalyticsEvent({ eventName: "spot_review_started", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
                 void openMomentComposerSafely({ router, href: `/review/new?spotId=${spot.id}` });
               }}
               style={styles.secondaryAction}
@@ -790,11 +793,11 @@ export default function SpotDetailScreen() {
             <View style={styles.infoCard}>
               {spot.address ? <InfoRow icon="map-pin" text={spot.address} /> : null}
               {spot.phone ? <InfoRow icon="phone" text={spot.phone} color={theme.colors.pinkSoft} onPress={() => {
-                void trackAnalyticsEvent({ eventName: "spot_phone_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
+                if (!decisionOrigin) void trackAnalyticsEvent({ eventName: "spot_phone_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
                 callNumber(spot.phone);
               }} /> : null}
               {spot.website ? <InfoRow icon="globe" text={spot.website} color={theme.colors.pinkSoft} onPress={() => {
-                void trackAnalyticsEvent({ eventName: "spot_website_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
+                if (!decisionOrigin) void trackAnalyticsEvent({ eventName: "spot_website_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
                 openWebsite(spot.website);
               }} /> : null}
             </View>

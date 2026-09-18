@@ -35,31 +35,48 @@ test("Web Decision keeps the canonical Mobile option keys and labels", async () 
   }
 });
 
-test("Web Decision invokes the same frozen Engine and action contracts", async () => {
+test("Web Decision uses the strict vNext single-route Product contract", async () => {
   const [source, experience] = await Promise.all([
     read("web/lib/decision-web-api.ts"),
     read("web/components/consumer/decision-experience.tsx"),
   ]);
-  assert.match(source, /functions\.invoke<Response>\(\s*["']decision-v13["']/);
+  assert.match(source, /functions\.invoke<unknown>\(["']decision-v13["']/);
   for (const field of [
-    "city",
-    "moodA",
-    "moodB",
-    "query",
-    "preferredPlaceTypes",
-    "audience",
-    "strictCategoryIntent",
-    "inputMode",
-    "rawFreeText",
-    "limit",
-    "v12Limit",
-    "semanticLimit",
+    "contractVersion",
+    "requestId",
+    "idempotencyKey",
+    "naturalLanguage",
+    "explicit",
+    "alternativeRequested",
+    "previouslyPresentedCandidateIds",
+    "rejectedCandidateIds",
   ]) assert.match(source, new RegExp(`\\b${field}\\b`));
-  assert.match(source, /backyrd_record_visible_decision_impression_v1/);
-  assert.match(experience, /window\.setTimeout[\s\S]*750/);
-  assert.match(source, /action === "like" \? "exact_mood" : "not_there"/);
-  assert.match(source, /continuationDecisionId/);
-  assert.match(source, /continuationRequestId/);
+  assert.match(source, /backyrd\.decision-vnext\.product-request@1\.0/);
+  assert.match(source, /backyrd\.decision-vnext\.product-response@1\.0/);
+  assert.match(source, /backyrd\.decision-vnext\.product-interaction-request@1\.0/);
+  assert.match(source, /backyrd\.decision-vnext\.product-interaction-response@1\.0/);
+  assert.match(source, /status !== "AVAILABLE"/);
+  assert.match(source, /productOutputAuthorized !== true/);
+  assert.match(source, /legacyEngineUsed !== false/);
+  assert.match(source, /fallbackUsed !== false/);
+  assert.match(experience, /current\.presentation\.name/);
+  assert.match(experience, /current\.actualAvailability/);
+  assert.match(experience, /current\.reasons/);
+  assert.match(experience, /run\.limitations/);
+  assert.match(experience, /IntersectionObserver/);
+  assert.match(experience, /candidate_impression/);
+  assert.match(experience, /candidate_opened/);
+  assert.match(source, /legacyWriteUsed !== false/);
+  assert.doesNotMatch(source + experience, /north_star|continuationDecisionId|continuationRequestId|backyrd_record_visible_decision_impression_v1|log_decision_action_v1|exact_mood|not_there/);
+  assert.doesNotMatch(source, /decision-founder-live|fallbackFunction|legacyBody|invokeExisting/);
+});
+
+test("Decision history remains explicitly Legacy-only", async () => {
+  const source = await read("web/app/settings/decision-history/page.tsx");
+  assert.match(source, /Historische Ansicht/);
+  assert.match(source, /ausschließlich frühere Legacy-Decision-Einträge/);
+  assert.match(source, /get_decision_visit_candidates_v1/);
+  assert.doesNotMatch(source, /product-response@1\.0|product-decision-learning-port@1\.0/);
 });
 
 test("Consumer navigation and canonical terminology are stable", async () => {

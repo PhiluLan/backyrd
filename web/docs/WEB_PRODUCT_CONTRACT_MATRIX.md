@@ -2,11 +2,12 @@
 
 | Contract | Web implementation | Preserved truth |
 | --- | --- | --- |
-| Decision | authenticated `decision-v13` | identical guided keys, request fields and limits as Mobile |
-| Weiter | local result navigation without feedback RPC | neutral |
-| Passt / Nicht passend | `log_decision_action_v1` | `exact_mood` / `not_there` |
-| Exposure | `backyrd_record_visible_decision_impression_v1` after 750 ms | visible-only |
-| Continuation | `decision-v13` continuation identifiers | unchanged |
+| Decision | authenticated `decision-v13` | strict `backyrd.decision-vnext.product-request@1.0` / `product-response@1.0` only |
+| Product rendering | server-bound presentation, ranking, availability, reasons and limitations | no client ranking or generated claims |
+| Alternative | `decision-v13` with `alternativeRequested` and `previouslyPresentedCandidateIds` | no negative signal |
+| Contextual reject | `decision-v13` with `rejectedCandidateIds` | contextual only; no World fact |
+| Visible impression / open | `decision-v13` with strict Product interaction request | canonical consent-bound User learning; no Legacy write |
+| Failure | visible unavailable state | no Legacy route, engine selector or fallback |
 | Discovery | `distribution_trust_spot_catalog_v1` | approved Product universe |
 | Search / filters | existing catalog query and client presentation filters | no eligibility rewrite |
 | Social | canonical feed/profile/comment/follow RPCs | RLS-authenticated |
@@ -14,6 +15,7 @@
 | Public Spot image | curated Owner/Admin header then Backyrd fallback | public Google disabled |
 | Moment media | social-post media resolver | never replaced by Spot image |
 | Private data | cookie-backed authenticated Supabase client | private/no-store and RLS |
-| Learning firewall | only existing explicit feedback/impression calls | scroll, hover, map pan and route views are not Taste |
+| Learning firewall | canonical server-side, consent-bound User port only | no client impression, feedback or Memory write |
+| Decision history | legacy `get_decision_visit_candidates_v1` read model | explicitly historical; never mixed with vNext |
 
-No Decision Engine, ranking, learning, database, Mobile, Admin or Owner implementation is changed by this workstream.
+The Web client supplies Product inputs only. Actor identity, location authority, policy, ranking, learning consent and persistence remain server-owned.

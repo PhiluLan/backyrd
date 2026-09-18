@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { SettingsShell } from "@/components/consumer/settings-shell";
 import { StateView } from "@/components/consumer/ui";
@@ -17,6 +18,7 @@ type Row = {
   status: string;
 };
 export default function DecisionHistory() {
+  const router = useRouter();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -34,13 +36,19 @@ export default function DecisionHistory() {
     void load();
   }, [load]);
   return (
-    <SettingsShell title="FÜR-JETZT-VERLAUF">
+    <SettingsShell title="BISHERIGER FÜR-JETZT-VERLAUF">
+      <div className="b-surface" style={{ padding: 20, marginBottom: 14 }}>
+        <p className="b-kicker">Historische Ansicht</p>
+        <p className="b-muted" style={{ marginTop: 8 }}>
+          Diese Ansicht enthält ausschließlich frühere Legacy-Decision-Einträge. Neue Decision-vNext-Ergebnisse werden hier nicht beigemischt.
+        </p>
+      </div>
       {loading ? (
         <div className="b-skeleton" style={{ height: 420, borderRadius: 22 }} />
       ) : error ? (
         <StateView
           title="Verlauf nicht geladen"
-          message="Deine vergangenen Vorschläge konnten gerade nicht geladen werden."
+          message="Deine bisherigen Legacy-Vorschläge konnten gerade nicht geladen werden."
           actionLabel="Erneut versuchen"
           onAction={() => void load()}
         />
@@ -70,10 +78,10 @@ export default function DecisionHistory() {
         </div>
       ) : (
         <StateView
-          title="Noch kein Für-jetzt-Verlauf"
-          message="Deine vergangenen Vorschläge erscheinen hier, sobald du Für jetzt genutzt hast."
+          title="Kein historischer Verlauf"
+          message="In der bisherigen Legacy-Decision-Historie sind keine Einträge vorhanden."
           actionLabel="Für jetzt öffnen"
-          onAction={() => location.assign("/decision")}
+          onAction={() => router.push("/decision")}
         />
       )}
     </SettingsShell>
