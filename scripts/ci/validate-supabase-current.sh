@@ -8,6 +8,10 @@ test -x "$supabase_cli" || { printf 'Supabase CLI is missing.\n' >&2; exit 1; }
 test "$($supabase_cli --version)" = "2.80.0" || { printf 'Expected Supabase CLI 2.80.0 for verified ACL denial runtime.\n' >&2; exit 1; }
 
 base_sha="${BASE_SHA:-}"
+gate_cache_root="${RUNNER_TEMP:-$repo_root/.local/gate-receipts}"
+snapshot_output="${BACKYRD_DATABASE_SNAPSHOT_OUTPUT:-$gate_cache_root/database-clean-boot-snapshot.json}"
+gate_receipt_output="${BACKYRD_DATABASE_GATE_RECEIPT:-$gate_cache_root/database-gate-receipt.json}"
+mkdir -p "$(dirname "$snapshot_output")" "$(dirname "$gate_receipt_output")"
 if test -n "$base_sha"; then
   git -C "$repo_root" merge-base --is-ancestor "$base_sha" HEAD || { printf 'Database candidate does not descend from base.\n' >&2; exit 1; }
 fi
@@ -120,14 +124,9 @@ schema_result="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-alig
 actual_schema="${schema_result##*|}"
 test "$(jq -r '.supabase.migrationTip' "$repo_root/delivery/production-state.json")" = "20260909073004_close_review_capture_trust_v2"
 test "$(jq -r '.mobile.productionVerified' "$repo_root/delivery/production-state.json")" = "$(jq -r '.reviewMediaIncident.productionVerified' "$repo_root/delivery/production-state.json")"
-if test -n "${BACKYRD_DATABASE_SNAPSHOT_OUTPUT:-}"; then
-  jq -n --arg publicAclSha256 "$actual_acl" --arg applicationSchemaSha256 "$actual_schema" \
-    '{schemaVersion:"backyrd-database-clean-boot-snapshot-v1",publicAclSha256:$publicAclSha256,applicationSchemaSha256:$applicationSchemaSha256}' \
-    >"$BACKYRD_DATABASE_SNAPSHOT_OUTPUT"
-fi
-node "$repo_root/scripts/ci/validate-database-release.mjs" \
-  --base-sha "${base_sha:-HEAD}" --head-sha HEAD \
-  --actual-public-acl "$actual_acl" --actual-application-schema "$actual_schema"
+jq -n --arg publicAclSha256 "$actual_acl" --arg applicationSchemaSha256 "$actual_schema" \
+  '{schemaVersion:"backyrd-database-clean-boot-snapshot-v1",publicAclSha256:$publicAclSha256,applicationSchemaSha256:$applicationSchemaSha256}' \
+  >"$snapshot_output"
 
 find "$validation_root/supabase/migrations" -maxdepth 1 -type f -name '*.sql' -exec basename {} \; | sed -E 's/^([0-9]{14})_.*/\1/' | sort >"$validation_root/expected-versions.txt"
 psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align --command 'select version from supabase_migrations.schema_migrations order by version;' >"$validation_root/actual-versions.txt"
@@ -199,6 +198,18 @@ printf '%s\n' \
   $'public.follow_spot_v1\t42702\tcolumn reference "spot_id" is ambiguous' \
   $'public.upsert_my_owned_spot_content_v1\t42702\tcolumn reference "spot_id" is ambiguous' >"$validation_root/db-lint-expected.txt"
 diff -u "$validation_root/db-lint-expected.txt" "$validation_root/db-lint-actual.txt"
+node "$repo_root/scripts/ci/database-gate-receipt.mjs" record \
+  --snapshot "$snapshot_output" \
+  --output "$gate_receipt_output" \
+  --supabase-cli-version "$($supabase_cli --version)" \
+  --database-image "$db_image"
+if ! node "$repo_root/scripts/ci/validate-database-release.mjs" \
+  --base-sha "${base_sha:-HEAD}" --head-sha HEAD \
+  --actual-public-acl "$actual_acl" --actual-application-schema "$actual_schema"; then
+  printf 'Database execution passed. Release evidence failed; reuse receipt %s after fixing evidence instead of restarting Clean Boot.\n' "$gate_receipt_output" >&2
+  printf 'Resume: node scripts/ci/database-gate-receipt.mjs resume-evidence --receipt %q --base-sha %q --head-sha HEAD --supabase-cli-version %q --database-image %q\n' "$gate_receipt_output" "${base_sha:-HEAD}" "$($supabase_cli --version)" "$db_image" >&2
+  exit 1
+fi
 printf 'Current candidate clean boot passed: migration lineage, semantic schema/ACL, SQL behavior, negative authorization and DB lint.\n'
 if test "$keep_running" = true; then
   # The disposable database is owned by supabase_admin. Use that local-only
