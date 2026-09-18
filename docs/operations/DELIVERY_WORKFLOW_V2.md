@@ -104,6 +104,15 @@ by that gate changes: source or migration bytes, its tests or harness, toolchain
 identity, database image, authorization policy, or another declared semantic
 input. Receipt mismatch fails closed.
 
+For an incremental pull-request update, the previous head itself is the gate
+receipt carrier. Reuse is allowed only when GitHub reports the exact named gate
+as successful for that head, Git proves `base -> previous head -> new head`, and
+the incremental diff does not select that gate. Repository/security always runs
+again. A missing check, cancelled job, untrusted check provider, force-push,
+unrelated lineage, unknown path, or newly affected risk class forces the gate
+to run. The full PR remains the source of blocked reasons and the incremental
+diff can only remove already-proven executions; it can never clear a blocker.
+
 For every red gate the repair loop is fixed:
 
 1. isolate one root cause;

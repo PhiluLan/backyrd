@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { classifyChange, isAuthorizedBoundedMigration, isDestructiveMigration } from "./classify-change.mjs";
+import { applyVerifiedGateResume, classifyChange, isAuthorizedBoundedMigration, isDestructiveMigration } from "./classify-change.mjs";
 
 const policy = {
   decisionTrustAnchor: "decision-lab/config/anchor.json",
@@ -213,6 +213,30 @@ test("dependency and workflow changes always select the supply-chain gate", () =
     assert.equal(result.flags.supplyChain, true);
     assert.ok(result.requiredGates.includes("supply-chain"));
   }
+});
+
+test("a verified prior green gate is reused only when the incremental delta cannot affect it", () => {
+  const fullPlan = { context: { baseSha: "a".repeat(40), headSha: "c".repeat(40) }, requiredGates: ["admin", "database", "decision", "repository-security", "supply-chain"] };
+  const deltaPlan = { context: { baseSha: "b".repeat(40), headSha: "c".repeat(40) }, changedFiles: ["admin-dashboard/package.json"], requiredGates: ["admin", "repository-security", "supply-chain"] };
+  const result = applyVerifiedGateResume({ fullPlan, deltaPlan, resume: { eligible: true, baseSha: "a".repeat(40), previousHeadSha: "b".repeat(40), headSha: "c".repeat(40), previousTree: "d".repeat(40), successfulGates: ["database", "decision"] } });
+  assert.deepEqual(result.requiredGates, ["admin", "repository-security", "supply-chain"]);
+  assert.deepEqual(result.gateResume.reusedGates, ["database", "decision"]);
+});
+
+test("missing or failed prior evidence never suppresses a full-plan gate", () => {
+  const fullPlan = { context: { baseSha: "a".repeat(40), headSha: "c".repeat(40) }, requiredGates: ["database", "decision", "repository-security"] };
+  const deltaPlan = { context: { baseSha: "b".repeat(40), headSha: "c".repeat(40) }, changedFiles: ["README.md"], requiredGates: ["repository-security"] };
+  const result = applyVerifiedGateResume({ fullPlan, deltaPlan, resume: { eligible: true, baseSha: "a".repeat(40), previousHeadSha: "b".repeat(40), headSha: "c".repeat(40), previousTree: "d".repeat(40), successfulGates: ["decision"] } });
+  assert.deepEqual(result.requiredGates, ["database", "repository-security"]);
+  assert.deepEqual(result.gateResume.reusedGates, ["decision"]);
+});
+
+test("resume evidence is fail-closed when plan identities differ", () => {
+  assert.throws(() => applyVerifiedGateResume({
+    fullPlan: { context: { baseSha: "a".repeat(40), headSha: "c".repeat(40) }, requiredGates: [] },
+    deltaPlan: { context: { baseSha: "b".repeat(40), headSha: "c".repeat(40) }, changedFiles: [], requiredGates: [] },
+    resume: { eligible: true, baseSha: "0".repeat(40), previousHeadSha: "b".repeat(40), headSha: "c".repeat(40), successfulGates: [] },
+  }), /identity_mismatch/);
 });
 
 test("only proven non-executable Markdown takes the documentation-only shortcut", () => {

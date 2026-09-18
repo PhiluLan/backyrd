@@ -250,6 +250,31 @@ export function classifyChange({ root, context, policy }) {
   };
 }
 
+export function applyVerifiedGateResume({ fullPlan, deltaPlan, resume }) {
+  if (!resume?.eligible) return fullPlan;
+  if (resume.baseSha !== fullPlan.context.baseSha || resume.headSha !== fullPlan.context.headSha
+    || deltaPlan.context.baseSha !== resume.previousHeadSha || deltaPlan.context.headSha !== resume.headSha) {
+    throw new Error("gate_resume_plan_identity_mismatch");
+  }
+  const prior = new Set(resume.successfulGates ?? []);
+  const delta = new Set(deltaPlan.requiredGates);
+  const reusable = fullPlan.requiredGates.filter((gate) => gate !== "repository-security" && !delta.has(gate) && prior.has(gate));
+  const reused = new Set(reusable);
+  return {
+    ...fullPlan,
+    requiredGates: fullPlan.requiredGates.filter((gate) => !reused.has(gate)),
+    gateResume: {
+      contractVersion: "backyrd.incremental-gate-resume@1.0",
+      previousHeadSha: resume.previousHeadSha,
+      previousTree: resume.previousTree,
+      deltaChangedFiles: deltaPlan.changedFiles,
+      deltaRequiredGates: deltaPlan.requiredGates,
+      priorSuccessfulGates: [...prior].sort(),
+      reusedGates: reusable,
+    },
+  };
+}
+
 const parseArgs = (argv) => Object.fromEntries(argv.reduce((items, value, index) => {
   if (value.startsWith("--")) items.push([value.slice(2), argv[index + 1]]);
   return items;
@@ -268,7 +293,15 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       checkoutSha: args["checkout-sha"] ?? "HEAD",
       canonicalMainRef: args["canonical-main-ref"] ?? "refs/remotes/origin/main",
     });
-    const plan = classifyChange({ root, context, policy });
+    const fullPlan = classifyChange({ root, context, policy });
+    let plan = fullPlan;
+    if (args["resume-evidence"]) {
+      const resume = JSON.parse(readFileSync(resolve(args["resume-evidence"]), "utf8"));
+      if (resume.eligible) {
+        const deltaPlan = classifyChange({ root, context: { ...context, baseSha: resume.previousHeadSha }, policy });
+        plan = applyVerifiedGateResume({ fullPlan, deltaPlan, resume });
+      }
+    }
     if (args.output) {
       const { writeFileSync } = await import("node:fs");
       writeFileSync(resolve(args.output), `${JSON.stringify(plan, null, 2)}\n`, { flag: "w" });

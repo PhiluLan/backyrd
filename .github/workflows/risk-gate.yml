@@ -2,7 +2,7 @@ name: CI / Risk Gate v2
 on:
   pull_request: { branches: [main] }
   push: { branches: [main] }
-permissions: { contents: read }
+permissions: { contents: read, checks: read }
 concurrency:
   group: risk-gate-v2-${{ github.ref }}
   cancel-in-progress: true
@@ -34,12 +34,17 @@ jobs:
       - id: plan
         env:
           EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action || '' }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PREVIOUS_HEAD_SHA: ${{ github.event.before || '' }}
           CHECKOUT_SHA: ${{ github.sha }}
           CANONICAL_MAIN_REF: ${{ github.event.pull_request.base.sha || github.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY_NAME: ${{ github.repository }}
         run: |
-          node scripts/ci/classify-change.mjs --event-name "$EVENT_NAME" --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA" --checkout-sha "$CHECKOUT_SHA" --canonical-main-ref "$CANONICAL_MAIN_REF" --output "$RUNNER_TEMP/change-plan.json"
+          node scripts/ci/resolve-prior-gates.mjs --event-name "$EVENT_NAME" --event-action "$EVENT_ACTION" --base-sha "$BASE_SHA" --previous-head-sha "$PREVIOUS_HEAD_SHA" --head-sha "$HEAD_SHA" --repository "$GITHUB_REPOSITORY_NAME" --output "$RUNNER_TEMP/prior-gates.json"
+          node scripts/ci/classify-change.mjs --event-name "$EVENT_NAME" --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA" --checkout-sha "$CHECKOUT_SHA" --canonical-main-ref "$CANONICAL_MAIN_REF" --resume-evidence "$RUNNER_TEMP/prior-gates.json" --output "$RUNNER_TEMP/change-plan.json"
           node - "$RUNNER_TEMP/change-plan.json" "$GITHUB_OUTPUT" <<'NODE'
           const { appendFileSync, readFileSync } = require("node:fs");
           const plan = JSON.parse(readFileSync(process.argv[2], "utf8"));
@@ -47,6 +52,7 @@ jobs:
           const gates = ["mobile", "web", "admin", "shared", "user", "world", "decision", "database", "supply-chain", "delivery-policy", "release-certification"];
           appendFileSync(process.argv[3], [`base-sha=${plan.context.baseSha}`, `head-sha=${plan.context.headSha}`, `required-gates=${JSON.stringify(plan.requiredGates)}`, ...gates.map((gate) => `${gate}=${selected.has(gate)}`)].join("\n") + "\n");
           NODE
+          jq '{requiredGates, gateResume}' "$RUNNER_TEMP/change-plan.json"
 
   repository-security:
     name: Repository and secret invariants

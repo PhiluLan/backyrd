@@ -56,6 +56,14 @@ test("the supply-chain gate pins dependency review and validates lockfile coupli
   assert.match(workflow, /npm ci --ignore-scripts/);
 });
 
+test("incremental PR updates reuse only authenticated successful prior gates", () => {
+  const workflow = read(".github/workflows/risk-gate.yml");
+  assert.match(workflow, /permissions: \{ contents: read, checks: read \}/);
+  assert.match(workflow, /resolve-prior-gates\.mjs/);
+  assert.match(workflow, /--resume-evidence/);
+  assert.match(workflow, /github\.event\.before/);
+});
+
 test("Product release certification uploads one hierarchical tested artifact", () => {
   const workflow = read(".github/workflows/risk-gate.yml");
   assert.match(workflow, /product-release-manifest\.mjs build/);
