@@ -23,6 +23,14 @@ export interface FounderLiveRuntimeCapability {
   readonly authorityGeneration: number;
   readonly killSwitchGeneration: number;
   readonly memberDigestSetHash: string;
+  readonly projectRef: string;
+  readonly canonicalMainSha: string;
+  readonly canonicalTreeSha: string;
+  readonly releaseHash: string;
+  readonly artifactHash: string;
+  readonly sourceSetHash: string;
+  readonly productionPlanHash: string;
+  readonly policyHash: string;
 }
 
 export type FounderLiveRuntimeBoundary =
@@ -81,6 +89,14 @@ export function createFounderLiveRuntimeCapabilityController(input: {
       authorityGeneration: authority.authorityGeneration,
       killSwitchGeneration: authority.killSwitchGeneration,
       memberDigestSetHash: digestSetHash,
+      projectRef: input.expected.projectRef,
+      canonicalMainSha: input.expected.canonicalMainSha,
+      canonicalTreeSha: input.expected.canonicalTreeSha,
+      releaseHash: input.expected.releaseHash,
+      artifactHash: input.expected.artifactHash,
+      sourceSetHash: input.expected.sourceSetHash,
+      productionPlanHash: input.expected.productionPlanHash,
+      policyHash: input.expected.policyHash,
     });
     mintedCapabilities.add(capability);
     return capability;
@@ -94,7 +110,15 @@ export function createFounderLiveRuntimeCapabilityController(input: {
       || capability.authorityHash !== authority.authorityHash
       || capability.authorityGeneration !== authority.authorityGeneration
       || capability.killSwitchGeneration !== authority.killSwitchGeneration
-      || capability.memberDigestSetHash !== digestSetHash) throw new Error("founder_live_runtime_capability_stale");
+      || capability.memberDigestSetHash !== digestSetHash
+      || capability.projectRef !== input.expected.projectRef
+      || capability.canonicalMainSha !== input.expected.canonicalMainSha
+      || capability.canonicalTreeSha !== input.expected.canonicalTreeSha
+      || capability.releaseHash !== input.expected.releaseHash
+      || capability.artifactHash !== input.expected.artifactHash
+      || capability.sourceSetHash !== input.expected.sourceSetHash
+      || capability.productionPlanHash !== input.expected.productionPlanHash
+      || capability.policyHash !== input.expected.policyHash) throw new Error("founder_live_runtime_capability_stale");
   };
 
   const runBoundary = async <T>(capability: FounderLiveRuntimeCapability, _boundary: FounderLiveRuntimeBoundary, operation: () => Promise<T> | T): Promise<T> => {

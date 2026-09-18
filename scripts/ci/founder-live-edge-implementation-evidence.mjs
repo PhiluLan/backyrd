@@ -11,14 +11,18 @@ const sha256 = (value) => createHash("sha256").update(JSON.stringify(value)).dig
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
 const EDGE_SOURCE_PATHS = Object.freeze([
   "docs/decision-vnext/FOUNDER_LIVE_ADAPTER_COMPATIBILITY_MATRIX.md",
+  "packages/decision-vnext-core/package.json",
   "packages/decision-vnext-core/src/founder-live-api-contracts.ts",
   "packages/decision-vnext-core/src/founder-live-api.ts",
   "packages/decision-vnext-core/src/founder-live-durable-idempotency.ts",
   "packages/decision-vnext-core/src/founder-live-durable-rate-limit.ts",
   "packages/decision-vnext-core/src/founder-live-production-adapter.ts",
+  "packages/decision-vnext-core/src/founder-live-edge-runtime.ts",
+  "packages/decision-vnext-core/src/founder-live-runtime-capability.ts",
   "packages/decision-vnext-core/src/founder-live-runtime-bootstrap.ts",
   "packages/decision-vnext-core/src/founder-live-server-authority.ts",
   "packages/user-intelligence-vnext-core/src/production-relevant-user-projection.ts",
+  "packages/user-intelligence-vnext-core/src/founder-live-uuid-authority.ts",
   "packages/world-knowledge-core/src/port.ts",
   "scripts/ci/founder-live-edge-implementation-evidence.mjs",
   "supabase/config.toml",
@@ -26,6 +30,9 @@ const EDGE_SOURCE_PATHS = Object.freeze([
   "supabase/functions/decision-founder-live/runtime-bootstrap.mjs",
   "supabase/functions/decision-founder-live/runtime-bootstrap.test.mjs",
   "supabase/functions/decision-founder-live/runtime-boundary.mjs",
+  "supabase/functions/decision-founder-live/runtime-production.mjs",
+  "supabase/functions/decision-founder-live/runtime-production.test.mjs",
+  "supabase/functions/decision-founder-live/runtime-provisioning.mjs",
 ]);
 
 function buildEdgeSourceArtifact(root, sourceSha, sourceTreeSha) {

@@ -2,7 +2,7 @@
 
 Status: **Draft source only — Production trust root not provisioned**
 
-This slice introduces the contracts and verification tooling needed for a later, separately authorised Founder-Live Production bootstrap. It does not activate the runtime. The shipped Edge entrypoint still returns `503` before request-body parsing, Auth, allowlist, World/User reads, rate-limit, idempotency, evaluation, persistence or output.
+This slice introduces the contracts, canonical port assembly and verification tooling needed for a later, separately authorised Founder-Live Production bootstrap. It does not activate the runtime. The shipped Edge entrypoint is bound to the internal assembly, but the pinned trust root is `null` and the sealed provisioning seam returns `null`. It therefore still returns `503` before request-body parsing, Auth, allowlist, World/User reads, rate-limit, idempotency, evaluation, persistence or output.
 
 ## Authority model
 
@@ -20,7 +20,9 @@ This slice introduces the contracts and verification tooling needed for a later,
 
 The public repository verifier validates provenance and still returns only `VERIFIED_NON_EXECUTABLE`. A separate internal module can mint a process-local `VERIFIED_EXECUTABLE` capability only when an externally accepted trust-root hash, matching signed authority, exact two-member digest commitment and fresh signed `DISENGAGED_FOR_EXACT_RELEASE` record are supplied by server-side provisioning. This module is deliberately absent from the package index. Its capability is backed by controller-local `WeakSet` provenance: casts, object spread, JSON, structured cloning, process changes and independently provisioned instances cannot reproduce it.
 
-The accepted Production trust root is deliberately absent from this release and the Edge entrypoint does not wire the internal controller. Consequently the checked-in runtime remains OFF. Headers, request payloads, publishable keys, boolean environment flags, repository hashes and a caller-created replacement key cannot provision it.
+The accepted Production trust root and sealed provisioning record are deliberately absent from this release. The Edge entrypoint can consume only a process-local runtime produced by that internal, exact-root-bound seam; ordinary callers cannot mint or serialize it. Consequently the checked-in runtime remains OFF. Headers, request payloads, publishable keys, boolean environment flags, repository hashes and a caller-created replacement key cannot provision it.
+
+`PRODUCTION_FOUNDER_READ_ONLY` is accepted by the canonical Founder UUID authority and `RelevantUserProjection` port only when a process-local runtime-capability assertion is injected. That assertion is checked at port construction, before each read and across every Decision stage boundary. Without it, Production mode fails closed and cannot fall back to `LOCAL_TEST`, `PROD_LIKE_TEST`, a synthetic projection or an empty projection.
 
 ## Kill switch
 
@@ -40,7 +42,8 @@ The current private UUID authority binds an exact server-verified session hash. 
 - `verify_jwt=true` preserved;
 - default OFF and kill switch effectively engaged by the missing trust root;
 - internal, non-exported capability source and synthetic positive/negative verification tests;
-- no capability provisioning and no Edge-to-Decision execution wiring;
+- conditional Edge-to-Decision wiring through the canonical World reader, canonical minimized User projection, server Context/evaluator, Gate-7 rate limit and durable idempotency ports;
+- no accepted trust root, sealed capability provisioning, credentials or live providers;
 - no Production queries, secrets, deployment, runtime activation, Product output or OTA;
 - no World/User contract copies and no User-Intelligence writes.
 

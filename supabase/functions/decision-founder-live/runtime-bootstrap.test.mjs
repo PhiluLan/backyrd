@@ -30,3 +30,31 @@ test("missing configuration never causes a thrown configuration value or secret 
   const response = await closed(new Request("https://edge.test/decision-founder-live", { method: "POST", body: "secret-payload" }));
   assert.equal(response.status, 503); assert.doesNotMatch(await response.text(), /secret-payload|undefined|null/);
 });
+
+test("the host delegates only to a process-supplied authorized runtime and preserves the read-only boundary", async () => {
+  const stages = [];
+  const runtime = Object.freeze({
+    contractVersion: "backyrd.decision-vnext.founder-live-authorized-edge-runtime@1.0",
+    async handle(request) {
+      stages.push("AUTHORIZED_RUNTIME");
+      assert.equal(request.headers.get("authorization"), "Bearer verified-session");
+      assert.deepEqual(await request.json(), { query: "Café in Basel" });
+      return new Response(JSON.stringify({ status: "EVALUATION_ONLY" }), { status: 200, headers: { "content-type": "application/json" } });
+    },
+  });
+  const authorized = createFounderLiveRuntimeBootstrapAdapter({ BACKYRD_FOUNDER_LIVE_CORS_ORIGINS: origin }, async () => runtime);
+  const response = await authorized(new Request("https://edge.test/decision-founder-live", { method: "POST", headers: { origin, authorization: "Bearer verified-session", "content-type": "application/json" }, body: JSON.stringify({ query: "Café in Basel" }) }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { status: "EVALUATION_ONLY" });
+  assert.deepEqual(stages, ["AUTHORIZED_RUNTIME"]);
+  assert.equal(response.headers.get("access-control-allow-origin"), origin);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+});
+
+test("invalid or rejected runtime loading fails before the request body reaches a runtime", async () => {
+  for (const loader of [async () => ({ handle: async () => new Response("forbidden") }), async () => { throw new Error("secret-detail"); }]) {
+    const response = await createFounderLiveRuntimeBootstrapAdapter({}, loader)(new Request("https://edge.test/decision-founder-live", { method: "POST", body: "private-body" }));
+    assert.equal(response.status, 503);
+    assert.doesNotMatch(await response.text(), /private-body|secret-detail|forbidden/);
+  }
+});

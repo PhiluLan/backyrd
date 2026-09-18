@@ -187,7 +187,9 @@ function requestHash(request: RelevantUserProjectionRequest, consent: ConsentEnv
 export function createProductionRelevantUserProjectionPort(input: {
   readonly projectRef: string;
   readonly host: string;
-  readonly mode: "LOCAL_TEST" | "PROD_LIKE_TEST";
+  readonly mode: "LOCAL_TEST" | "PROD_LIKE_TEST" | "PRODUCTION_FOUNDER_READ_ONLY";
+  /** Required for Production Founder reads; must re-verify a process-local, externally anchored capability. */
+  readonly assertProductionRuntimeCapability?: () => void;
   readonly sessionProvider: ProductionProjectionSessionProvider;
   readonly consentLifecycleProvider: ProductionProjectionConsentLifecycleProvider;
   readonly projectionProvider: ProductionProjectionReadProvider;
@@ -195,6 +197,11 @@ export function createProductionRelevantUserProjectionPort(input: {
   readonly uuidTrust: FounderLiveUuidExternalTrustContext;
   readonly releaseTrust: ProductionProjectionReleaseTrustContext;
 }): DecisionVNextUserProjectionPort {
+  if (input.mode === "PRODUCTION_FOUNDER_READ_ONLY") {
+    if (!input.assertProductionRuntimeCapability) throw new ProductionProjectionPortError("CONFIGURATION_DENIED");
+    try { input.assertProductionRuntimeCapability(); }
+    catch { throw new ProductionProjectionPortError("CONFIGURATION_DENIED"); }
+  }
   verifyRelease(input);
   if (input.sessionProvider.contractVersion !== "backyrd.user-intelligence.server-session-provider@1.0"
     || input.consentLifecycleProvider.contractVersion !== "backyrd.user-intelligence.consent-lifecycle-provider@1.0"
@@ -204,6 +211,10 @@ export function createProductionRelevantUserProjectionPort(input: {
   return Object.freeze({
     contractVersion: "backyrd.user-intelligence.decision-projection-port@1.0" as const,
     async project(rawRequest: RelevantUserProjectionRequest): Promise<RelevantUserProjection> {
+      if (input.mode === "PRODUCTION_FOUNDER_READ_ONLY") {
+        try { input.assertProductionRuntimeCapability?.(); }
+        catch { throw new ProductionProjectionPortError("CONFIGURATION_DENIED"); }
+      }
       verifyRelease(input);
       let request: RelevantUserProjectionRequest;
       let session: Infer<typeof FounderLiveServerSessionSchema>;
@@ -227,6 +238,7 @@ export function createProductionRelevantUserProjectionPort(input: {
       const capability = authorizeFounderLiveUuidSession({
         mode: input.mode, session, request, consent, lifecycle: state.lifecycle,
         provider: input.privateUuidProvider, trust: input.uuidTrust,
+        ...(input.assertProductionRuntimeCapability ? { assertProductionRuntimeCapability: input.assertProductionRuntimeCapability } : {}),
       });
       if (capability.status !== "AUTHORIZED_READ_ONLY") throw new ProductionProjectionPortError("SESSION_DENIED");
 
@@ -252,6 +264,10 @@ export function createProductionRelevantUserProjectionPort(input: {
         || Date.parse(input.releaseTrust.verifiedAt) < Date.parse(envelope.issuedAt)
         || Date.parse(input.releaseTrust.verifiedAt) >= Date.parse(envelope.validUntil)) {
         throw new ProductionProjectionPortError("PROJECTION_AUTHORITY_DENIED");
+      }
+      if (input.mode === "PRODUCTION_FOUNDER_READ_ONLY") {
+        try { input.assertProductionRuntimeCapability?.(); }
+        catch { throw new ProductionProjectionPortError("CONFIGURATION_DENIED"); }
       }
       try { return parseRelevantUserProjection(envelope.projection, request); }
       catch { throw new ProductionProjectionPortError("PROJECTION_AUTHORITY_DENIED"); }

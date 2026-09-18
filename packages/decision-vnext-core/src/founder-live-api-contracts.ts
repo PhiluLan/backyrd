@@ -33,7 +33,7 @@ export const FounderLiveExecutionEnvelopeSchema = schema.object({
   requestHash: sha256,
   idempotencyIdentityHash: sha256,
   actor: schema.object({ subjectBindingHash: sha256, authenticationContextHash: sha256, allowlistAuthorityVersion: contractRef, allowlistDecisionHash: sha256, boundBy: schema.literal("SERVER") }),
-  authority: schema.object({ serverTime: timestamp, authorizedCity: identifier, locationBindingHash: sha256, purpose: schema.literal("FOUNDER_DECISION_EVALUATION"), environment: schema.enum(["LOCAL_TEST", "PROD_LIKE_TEST"] as const) }),
+  authority: schema.object({ serverTime: timestamp, authorizedCity: identifier, locationBindingHash: sha256, purpose: schema.literal("FOUNDER_DECISION_EVALUATION"), environment: schema.enum(["LOCAL_TEST", "PROD_LIKE_TEST", "PRODUCTION_FOUNDER_READ_ONLY"] as const) }),
   bindings: schema.object({ worldManifestHash: sha256, worldCohortHash: sha256, userProjectionContractVersion: contractRef, evaluatorContractVersion: contractRef, contextPolicyHash: sha256, releaseHash: sha256 }),
   boundaries: schema.object({ evaluationOnly: schema.literal(true), productionAuthorized: schema.literal(false), executionAuthorized: schema.literal(false), durablePersistenceAuthorized: schema.literal(false), externalProviderNetworkAuthorized: schema.literal(false), productOutputAuthorized: schema.literal(false), eligibilityAuthority: schema.literal(false), confidenceAuthority: schema.literal(false), learningAuthorized: schema.literal(false), rankingAuthorized: schema.literal(false), mutationAuthorized: schema.literal(false) }),
   envelopeHash: sha256,

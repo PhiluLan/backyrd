@@ -192,6 +192,18 @@ test("canonical server port returns only an externally accepted minimized projec
   assert.deepEqual(projection.boundaries, { rawEventsIncluded: false, reviewTextIncluded: false, rawLocationIncluded: false, privateSocialDataIncluded: false, eligibilityAuthority: false, rankingAuthority: false });
 });
 
+test("Production Founder projection cannot be constructed or read without a fresh runtime capability", async () => {
+  assert.throws(() => harness({ input: { mode: "PRODUCTION_FOUNDER_READ_ONLY" } }).port, /CONFIGURATION_DENIED/);
+  assert.throws(() => harness({ input: { mode: "PRODUCTION_FOUNDER_READ_ONLY", assertProductionRuntimeCapability: () => { throw new Error("untrusted"); } } }).port, /CONFIGURATION_DENIED/);
+  let active = true; let checks = 0;
+  const h = harness({ input: { mode: "PRODUCTION_FOUNDER_READ_ONLY", assertProductionRuntimeCapability: () => { checks += 1; if (!active) throw new Error("emergency-off"); } } });
+  await h.port.project(request());
+  assert.ok(checks >= 4);
+  active = false;
+  await assert.rejects(h.port.project(request()), /CONFIGURATION_DENIED/);
+  assert.equal(h.reads(), 1);
+});
+
 test("missing projection is honest and never replaced by empty or synthetic truth", async () => {
   const { port } = harness({ missingProjection: true });
   await assert.rejects(port.project(request()), (error) => error instanceof ProductionProjectionPortError && error.code === "PROJECTION_MISSING");

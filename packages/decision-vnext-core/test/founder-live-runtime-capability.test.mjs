@@ -67,6 +67,7 @@ test("exact externally anchored records mint an in-process executable capability
   assert.equal(capability.contractVersion, FOUNDER_LIVE_RUNTIME_CAPABILITY_VERSION);
   assert.equal(capability.status, "VERIFIED_EXECUTABLE");
   assert.equal(capability.memberDigestSetHash, memberDigestSetHash);
+  for (const key of ["projectRef", "canonicalMainSha", "canonicalTreeSha", "releaseHash", "artifactHash", "sourceSetHash", "productionPlanHash", "policyHash"]) assert.equal(capability[key], expected[key]);
   controller.verifyBoundary(capability);
 });
 

@@ -23,6 +23,9 @@ const EDGE_RUNTIME_PATHS = new Set([
   "supabase/functions/decision-founder-live/runtime-boundary.test.mjs",
   "supabase/functions/decision-founder-live/runtime-bootstrap.mjs",
   "supabase/functions/decision-founder-live/runtime-bootstrap.test.mjs",
+  "supabase/functions/decision-founder-live/runtime-production.mjs",
+  "supabase/functions/decision-founder-live/runtime-production.test.mjs",
+  "supabase/functions/decision-founder-live/runtime-provisioning.mjs",
 ]);
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] }).trim();
 const load = (root, path) => JSON.parse(readFileSync(resolve(root, path), "utf8"));
