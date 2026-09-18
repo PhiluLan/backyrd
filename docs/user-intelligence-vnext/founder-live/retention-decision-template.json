@@ -1,0 +1,16 @@
+{
+  "contractVersion": "backyrd.user-intelligence.retention-decision-template@founder-live-1",
+  "templateId": "backyrd-user-intelligence-founder-live-retention-1",
+  "status": "NOT_CONFIGURED_PENDING_FOUNDER_CTO_LEGAL",
+  "productionAuthorized": false,
+  "defaultsForbidden": true,
+  "classes": [
+    { "dataClass": "SERVER_SUBJECT_AUTHORITY", "personal": true, "action": "DELETE", "duration": null },
+    { "dataClass": "CONSENT_AND_SESSION_BINDING", "personal": true, "action": "DELETE", "duration": null },
+    { "dataClass": "EPHEMERAL_RELEVANT_USER_PROJECTION", "personal": true, "action": "DELETE", "duration": null },
+    { "dataClass": "PRIVACY_LEGAL_EXPORT", "personal": true, "action": "LEGAL_PROCESS_ONLY", "duration": null },
+    { "dataClass": "NON_PERSONAL_RELEASE_EVIDENCE", "personal": false, "action": "RETAIN_NON_PERSONAL_ONLY", "duration": null }
+  ],
+  "requiredApprovals": ["FOUNDER", "CTO", "LEGAL"],
+  "prohibitedFallbacks": ["FIXTURE_DURATION", "INFINITE_RETENTION", "SOURCE_CODE_DEFAULT", "CLIENT_SELECTED_DURATION"]
+}
