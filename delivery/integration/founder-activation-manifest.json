@@ -67,9 +67,9 @@
     "screenshotsRetained": false
   },
   "release": {
-    "sharedArtifactHash": "a5cae2f8dc177309a012a3ad4ed8217afa1c93c5f0b987a2e179889e25951713",
-    "sourceSetHash": "4fe401a3700f6c093c2a955dbc3ff6ae52d43696fa1b0a591901a9e5562dfe9a",
-    "evidenceHash": "0fe18d3874482849e6bc1d0c0971fd6b2a0b81c9beaccbfbce5caf68a347555b",
+    "sharedArtifactHash": "04c5ae21e58d9e3b09683c32ccdfe09f0cb47cbf29dfbb0ed7d7f66cf07fc12a",
+    "sourceSetHash": "49a23c4e673f971669351d1f246c341d534fcda53233e3f457895538c439eb23",
+    "evidenceHash": "cd7c2342518e66648a8ab4c6e40db64e583c45b893699e3d54f499c20660c127",
     "sealed": true
   }
 }

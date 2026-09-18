@@ -1,14 +1,14 @@
 {
   "contractVersion": "backyrd.founder-activation-shared-node20-artifact@1.0",
   "nodeMajor": 20,
-  "sourceSha": "b513eff9db01013bd1af1c5ac052457830a2d0ed",
-  "sourceTreeSha": "bb9d018e2dea072f0d2f1549674dc81356aec4bd",
-  "sourceSetHash": "4fe401a3700f6c093c2a955dbc3ff6ae52d43696fa1b0a591901a9e5562dfe9a",
+  "sourceSha": "24cfe8235cf205b40749c265eddc7121e4d54ed1",
+  "sourceTreeSha": "3af757f23bbaf4ebbcfafcc71ec62284ff994398",
+  "sourceSetHash": "49a23c4e673f971669351d1f246c341d534fcda53233e3f457895538c439eb23",
   "fileCount": 135,
   "files": [
     {
       "path": ".github/workflows/risk-gate.yml",
-      "blobSha": "846ba033d311e0fb7e576c701635ba5bfdae1b72"
+      "blobSha": "c479753e8db2ea595c84879c4ce6dda53a3356b7"
     },
     {
       "path": "admin-dashboard/app/world-knowledge/page.tsx",
@@ -20,7 +20,7 @@
     },
     {
       "path": "delivery/integration/founder-activation-manifest.json",
-      "blobSha": "0e3ad77d8784f041cfbf3852ef70ce1c018f4674"
+      "blobSha": "570c9b0e77ea24d93323ba1ab9fb7cf3b8a03679"
     },
     {
       "path": "delivery/integration/founder-activation-post-deploy-evidence.json",
@@ -28,15 +28,15 @@
     },
     {
       "path": "delivery/integration/founder-activation-production-plan.json",
-      "blobSha": "ebc5eb2d887135a1f6af37f92703dead38f774e3"
+      "blobSha": "444835c4c76da4b9119c696a4272b75955304cf2"
     },
     {
       "path": "delivery/integration/founder-activation-rehearsal-evidence.json",
-      "blobSha": "6ff0204a7d9f5228e458c37915c6096df7411829"
+      "blobSha": "90ed74cd8bfd8be9e0dc038a51b9decc2bd3d066"
     },
     {
       "path": "delivery/integration/founder-activation-shared-artifact.json",
-      "blobSha": "439f7658c82acb39dbfda177189333da5dcbe541"
+      "blobSha": "a6d60cb237d18aed4c4bc33c70176d963191e58e"
     },
     {
       "path": "delivery/integration/founder-activation-status.json",
@@ -554,30 +554,30 @@
     "MOBILE_INTEGRATION"
   ],
   "executionAuthorized": false,
-  "artifactHash": "a5cae2f8dc177309a012a3ad4ed8217afa1c93c5f0b987a2e179889e25951713",
+  "artifactHash": "04c5ae21e58d9e3b09683c32ccdfe09f0cb47cbf29dfbb0ed7d7f66cf07fc12a",
   "trackVerifications": [
     {
       "track": "WORLD_ADMIN",
-      "sourceSetHash": "4fe401a3700f6c093c2a955dbc3ff6ae52d43696fa1b0a591901a9e5562dfe9a",
-      "artifactHash": "a5cae2f8dc177309a012a3ad4ed8217afa1c93c5f0b987a2e179889e25951713",
+      "sourceSetHash": "49a23c4e673f971669351d1f246c341d534fcda53233e3f457895538c439eb23",
+      "artifactHash": "04c5ae21e58d9e3b09683c32ccdfe09f0cb47cbf29dfbb0ed7d7f66cf07fc12a",
       "status": "VERIFIED"
     },
     {
       "track": "USER_UUID_AUTHORITY",
-      "sourceSetHash": "4fe401a3700f6c093c2a955dbc3ff6ae52d43696fa1b0a591901a9e5562dfe9a",
-      "artifactHash": "a5cae2f8dc177309a012a3ad4ed8217afa1c93c5f0b987a2e179889e25951713",
+      "sourceSetHash": "49a23c4e673f971669351d1f246c341d534fcda53233e3f457895538c439eb23",
+      "artifactHash": "04c5ae21e58d9e3b09683c32ccdfe09f0cb47cbf29dfbb0ed7d7f66cf07fc12a",
       "status": "VERIFIED"
     },
     {
       "track": "DECISION_SERVER_AUTHORITY",
-      "sourceSetHash": "4fe401a3700f6c093c2a955dbc3ff6ae52d43696fa1b0a591901a9e5562dfe9a",
-      "artifactHash": "a5cae2f8dc177309a012a3ad4ed8217afa1c93c5f0b987a2e179889e25951713",
+      "sourceSetHash": "49a23c4e673f971669351d1f246c341d534fcda53233e3f457895538c439eb23",
+      "artifactHash": "04c5ae21e58d9e3b09683c32ccdfe09f0cb47cbf29dfbb0ed7d7f66cf07fc12a",
       "status": "VERIFIED"
     },
     {
       "track": "MOBILE_INTEGRATION",
-      "sourceSetHash": "4fe401a3700f6c093c2a955dbc3ff6ae52d43696fa1b0a591901a9e5562dfe9a",
-      "artifactHash": "a5cae2f8dc177309a012a3ad4ed8217afa1c93c5f0b987a2e179889e25951713",
+      "sourceSetHash": "49a23c4e673f971669351d1f246c341d534fcda53233e3f457895538c439eb23",
+      "artifactHash": "04c5ae21e58d9e3b09683c32ccdfe09f0cb47cbf29dfbb0ed7d7f66cf07fc12a",
       "status": "VERIFIED"
     }
   ]
