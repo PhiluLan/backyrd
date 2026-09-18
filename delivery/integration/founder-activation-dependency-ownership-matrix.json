@@ -4,8 +4,8 @@
   "boundCandidates": {
     "USER_UUID_AUTHORITY": {
       "pr": 307,
-      "headSha": "ed58d3a56d27a11520ed9a625f80dcb03e331414",
-      "treeSha": "4fdcef0ab3d56724491b04693abadbedc0d4b464"
+      "headSha": "c967ea9111e8ee28cf625dbd4f2c250a283f95af",
+      "treeSha": "25db963842cfd1d9ecad5fe09033bd5570287023"
     },
     "DECISION_SERVER_AUTHORITY": {
       "pr": 306,

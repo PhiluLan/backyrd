@@ -25,9 +25,9 @@
   "domainCandidates": [
     {
       "track": "USER_UUID_AUTHORITY",
-      "headSha": "ed58d3a56d27a11520ed9a625f80dcb03e331414",
-      "treeSha": "4fdcef0ab3d56724491b04693abadbedc0d4b464",
-      "patchId": "b806c28c54c845baa03953150d370f9a9739140f",
+      "headSha": "c967ea9111e8ee28cf625dbd4f2c250a283f95af",
+      "treeSha": "25db963842cfd1d9ecad5fe09033bd5570287023",
+      "patchId": "4e5925c4f86a43469b2e8443dc5519388b7ba5ab",
       "status": "APPROVED_HEAD_BOUND"
     },
     {
@@ -67,9 +67,9 @@
     "screenshotsRetained": false
   },
   "release": {
-    "sharedArtifactHash": "04c5ae21e58d9e3b09683c32ccdfe09f0cb47cbf29dfbb0ed7d7f66cf07fc12a",
-    "sourceSetHash": "49a23c4e673f971669351d1f246c341d534fcda53233e3f457895538c439eb23",
-    "evidenceHash": "cd7c2342518e66648a8ab4c6e40db64e583c45b893699e3d54f499c20660c127",
+    "sharedArtifactHash": "f0ab395877f511814d378334fcb31ad3612b2016794f5a1777cf280a4b934c05",
+    "sourceSetHash": "8ddc5eafd6c0662a88010906b58dd872a73291a7adf966412d393c5aacd6c8a0",
+    "evidenceHash": "661745302f3d94fb2eb1fcf4a4ec1249fd59806bdeb083e8bfce250e928f6793",
     "sealed": true
   }
 }
