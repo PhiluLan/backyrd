@@ -2,9 +2,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   createDecisionProductProductionPorts,
   createDecisionProductRpcInteractionAuthorityProvider,
+  createDecisionProductRpcEvaluationProvider,
+  createDecisionProductRpcLearningPort,
   type DecisionProductAuthClient,
-  type DecisionProductCanonicalEvaluationProvider,
-  type DecisionProductCanonicalLearningPort,
   type DecisionProductProductionConfiguration,
   type DecisionProductRpcClient,
 } from "../../../packages/decision-vnext-core/src/product-decision-production-adapter.ts";
@@ -57,18 +57,6 @@ function configuration(): DecisionProductProductionConfiguration {
     idempotencyTtlSeconds: positiveInteger("BACKYRD_DECISION_VNEXT_IDEMPOTENCY_TTL_SECONDS", 86_400),
   };
 }
-
-// These are intentionally unavailable until the Decision and User domains
-// publish their canonical Product-runtime authorities. The route remains
-// deployed-but-inert (503) instead of importing Founder Lab or legacy logic.
-const unavailableEvaluationProvider: DecisionProductCanonicalEvaluationProvider = Object.freeze({
-  contractVersion: "backyrd.decision-vnext.product-canonical-evaluation-provider@1.0" as const,
-  async evaluate() { throw new Error("decision_vnext_product_evaluation_authority_unavailable"); },
-});
-const unavailableLearningPort: DecisionProductCanonicalLearningPort = Object.freeze({
-  contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0" as const,
-  async record() { throw new Error("decision_vnext_product_learning_authority_unavailable"); },
-});
 
 function rpcClient(service: ServiceClient): DecisionProductRpcClient {
   return {
@@ -131,13 +119,14 @@ Deno.serve(async (request: Request) => {
     const rpc = rpcClient(service);
     // Fresh ports per request: the authenticated actor is request-local and
     // can never leak across concurrent Edge requests.
+    const config = configuration();
     const ports = createDecisionProductProductionPorts({
       rpc,
       authClient: authClient(service),
-      evaluationProvider: unavailableEvaluationProvider,
+      evaluationProvider: createDecisionProductRpcEvaluationProvider(rpc),
       interactionAuthority: createDecisionProductRpcInteractionAuthorityProvider(rpc),
-      learningPort: unavailableLearningPort,
-      configuration: configuration(),
+      learningPort: createDecisionProductRpcLearningPort(rpc, config.identity),
+      configuration: config,
     });
     return withCors(await createDecisionProductHttpHandler(ports)(request), origin);
   } catch {

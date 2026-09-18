@@ -30,8 +30,19 @@ select pg_temp.product_runtime_assert(
   and has_function_privilege('service_role','public.backyrd_decision_vnext_product_projection_v1(uuid,text,text,text,text,text,text,bigint)','EXECUTE')
   and has_function_privilege('service_role','public.backyrd_decision_vnext_product_learning_append_v1(text,text,text,text,bigint)','EXECUTE')
   and has_function_privilege('service_role','public.backyrd_decision_vnext_product_interaction_authority_v1(uuid,text,text,text,text,text,text,bigint)','EXECUTE')
+  and has_function_privilege('service_role','public.backyrd_decision_vnext_product_context_v1(uuid,text,text,text,text,text,bigint)','EXECUTE')
+  and has_function_privilege('service_role','public.backyrd_decision_vnext_product_learning_event_v1(uuid,text,text,jsonb,text,text,text,bigint)','EXECUTE')
   and not has_function_privilege('authenticated','public.backyrd_decision_vnext_product_learning_append_v1(text,text,text,text,bigint)','EXECUTE'),
   'only service_role receives the aligned Product RPCs'
+);
+select pg_temp.product_runtime_assert(
+  not has_function_privilege('public','public.backyrd_decision_vnext_product_context_v1(uuid,text,text,text,text,text,bigint)','EXECUTE')
+  and not has_function_privilege('anon','public.backyrd_decision_vnext_product_context_v1(uuid,text,text,text,text,text,bigint)','EXECUTE')
+  and not has_function_privilege('authenticated','public.backyrd_decision_vnext_product_context_v1(uuid,text,text,text,text,text,bigint)','EXECUTE')
+  and not has_function_privilege('public','public.backyrd_decision_vnext_product_learning_event_v1(uuid,text,text,jsonb,text,text,text,bigint)','EXECUTE')
+  and not has_function_privilege('anon','public.backyrd_decision_vnext_product_learning_event_v1(uuid,text,text,jsonb,text,text,text,bigint)','EXECUTE')
+  and not has_function_privilege('authenticated','public.backyrd_decision_vnext_product_learning_event_v1(uuid,text,text,jsonb,text,text,text,bigint)','EXECUTE'),
+  'Product context and event authority RPCs deny every client role'
 );
 select pg_temp.product_runtime_assert(
   not exists(

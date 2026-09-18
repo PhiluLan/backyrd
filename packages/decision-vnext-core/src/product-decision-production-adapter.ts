@@ -1,12 +1,20 @@
 import { createHash, createHmac } from "node:crypto";
 import { Buffer } from "node:buffer";
 import {
+  CONTRACT_VERSIONS,
+  ProductDecisionLearningInputSchema,
+  ProductDecisionLearningReceiptSchema,
   ProductDecisionLearningRecordSchema,
+  parseConsentEnvelope,
+  parseRelevantUserProjection,
+  projectionHashBody,
   type ProductDecisionLearningInput,
   type ProductDecisionLearningRecord,
   type ProductDecisionLearningRepository,
   type ProductProjectionReadProvider,
+  type RelevantUserProjection,
 } from "@backyrd/user-intelligence-vnext-core";
+import { WORLD_KNOWLEDGE_PORT_VERSION, type WorldKnowledgeReaderPort, type WorldKnowledgeSnapshot } from "@backyrd/world-knowledge-core";
 import { canonicalJson, contentHash, deepFreeze } from "./canonical.js";
 import {
   DecisionProductExecutionSchema,
@@ -21,6 +29,7 @@ import type {
   DecisionProductRuntimeBoundary,
   DecisionProductRuntimePorts,
 } from "./product-decision.js";
+import { createDecisionProductEvaluator, PRODUCT_V1_EVALUATOR_VERSION } from "./product-v1-evaluator.js";
 
 const HASH = /^[0-9a-f]{64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -35,6 +44,8 @@ export const DECISION_PRODUCT_PRODUCTION_RPCS = Object.freeze({
   projection: "backyrd_decision_vnext_product_projection_v1",
   learning: "backyrd_decision_vnext_product_learning_append_v1",
   interactionAuthority: "backyrd_decision_vnext_product_interaction_authority_v1",
+  runtimeContext: "backyrd_decision_vnext_product_context_v1",
+  learningEvent: "backyrd_decision_vnext_product_learning_event_v1",
 } as const);
 
 export interface DecisionProductProductionIdentity {
@@ -86,7 +97,7 @@ export interface DecisionProductCanonicalEvaluationProvider {
 
 export interface DecisionProductCanonicalLearningPort {
   readonly contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0";
-  record(event: ProductDecisionLearningInput, signal?: AbortSignal): Promise<unknown>;
+  record(event: ProductDecisionLearningInput, signal?: AbortSignal, actor?: DecisionProductAuthenticatedActor): Promise<unknown>;
 }
 
 export interface DecisionProductInteractionAuthorityProvider {
@@ -282,8 +293,125 @@ export function createDecisionProductProductionPorts(input: {
       contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0" as const,
       async record(event: ProductDecisionLearningInput, signal: AbortSignal) {
         if (!currentActor.value || signal.aborted || event.sessionId !== currentActor.value.sessionId) throw new Error("product_learning_actor_unbound");
-        return input.learningPort.record(event, signal);
+        return input.learningPort.record(event, signal, currentActor.value);
       },
+    },
+  });
+}
+
+const neutralSubjectBindingHash = contentHash("backyrd.user-intelligence.neutral-subject-binding@1.0");
+const productProjectionManifest = Object.freeze({
+  manifestId: "backyrd-product-runtime-projection-manifest-v1",
+  manifestHash: contentHash({ authority: "CANONICAL_USER_CARD", version: 1 }),
+});
+
+function productTargetCity(request: DecisionProductRequest): string {
+  if (request.explicit.targetCity) return request.explicit.targetCity;
+  const normalized = request.naturalLanguage.normalize("NFKC").toLocaleLowerCase("de-CH");
+  if (normalized.includes("zürich") || normalized.includes("zurich")) return "Zurich";
+  if (normalized.includes("basel")) return "Basel";
+  throw new Error("product_target_area_required");
+}
+
+function productProjection(input: {
+  readonly request: DecisionProductRequest;
+  readonly actor: DecisionProductAuthenticatedActor;
+  readonly serverTime: string;
+  readonly context: Record<string, unknown>;
+}) {
+  const decisionId = `decision-${contentHash({ requestId: input.request.requestId, idempotencyKey: input.request.idempotencyKey }).slice(0, 32)}`;
+  const snapshot = input.context.snapshot && typeof input.context.snapshot === "object" && !Array.isArray(input.context.snapshot)
+    ? input.context.snapshot as Record<string, unknown> : null;
+  const consentValue = input.context.consent;
+  const consent = consentValue && typeof consentValue === "object" ? parseConsentEnvelope(consentValue) : null;
+  const active = input.context.status === "ACTIVE" && consent?.state === "GRANTED" && snapshot !== null;
+  const rawNodes = active && Array.isArray(snapshot.nodes) ? snapshot.nodes : [];
+  const identifier = /^[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,239}$/;
+  const registryVersion = typeof snapshot?.runtimeVersion === "string" && identifier.test(snapshot.runtimeVersion) ? snapshot.runtimeVersion : "backyrd-product-user-concepts-v1";
+  const taste = active ? rawNodes.flatMap((raw) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const node = raw as Record<string, unknown>; const concept = node.concept;
+    const affinity = Number(node.affinity); const confidence = Number(node.confidence);
+    if (typeof concept !== "string" || !identifier.test(concept) || !Number.isFinite(affinity) || affinity < -1 || affinity > 1 || !Number.isFinite(confidence) || confidence < 0 || confidence > 1) return [];
+    const scopeValue = node.scope && typeof node.scope === "object" && !Array.isArray(node.scope) ? node.scope as Record<string, unknown> : {};
+    const kind = ["GLOBAL", "PLACE_TYPE", "CONTEXT"].includes(String(scopeValue.kind)) ? String(scopeValue.kind) as "GLOBAL" | "PLACE_TYPE" | "CONTEXT" : "GLOBAL";
+    const reference = typeof scopeValue.key === "string" && identifier.test(scopeValue.key) && kind !== "GLOBAL" ? scopeValue.key : undefined;
+    const reasonCode: "PORTABLE_GLOBAL" | "EXACT_CONTEXT" = kind === "GLOBAL" ? "PORTABLE_GLOBAL" : "EXACT_CONTEXT";
+    return [{ concept: { contractVersion: CONTRACT_VERSIONS.userConceptReference, registryVersion, conceptId: concept }, scope: { kind, ...(reference ? { reference } : {}) }, affinity, confidence, reason: { code: reasonCode, subjectRef: String(node.nodeKey ?? concept), policyRef: "backyrd-product-runtime-projection-policy-v1" } }];
+  }).slice(0, 32) : [];
+  const snapshotId = typeof snapshot?.snapshotId === "string" ? snapshot.snapshotId : null;
+  const snapshotHash = typeof snapshot?.snapshotHash === "string" && HASH.test(snapshot.snapshotHash) ? snapshot.snapshotHash : null;
+  const isActive = active && snapshotId !== null && snapshotHash !== null && taste.length > 0;
+  const neutralReason: RelevantUserProjection["neutralReason"] = isActive ? null : input.context.status === "NO_CONSENT" ? "NO_CONSENT" : active ? "COLD_START" : "MISSING_SNAPSHOT";
+  const body = {
+    contractVersion: CONTRACT_VERSIONS.projection,
+    projectionId: `product-projection-${contentHash({ decisionId, snapshotHash, neutralReason }).slice(0, 32)}`,
+    decisionId,
+    subjectBindingHash: isActive ? input.actor.subjectBindingHash : neutralSubjectBindingHash,
+    snapshot: isActive ? { snapshotId: snapshotId!, snapshotHash: snapshotHash! } : neutralReason === "COLD_START" && snapshotId && snapshotHash ? { snapshotId, snapshotHash } : null,
+    manifest: productProjectionManifest,
+    status: isActive ? "ACTIVE" as const : "NEUTRAL" as const,
+    neutralReason,
+    taste: isActive ? taste : [], practical: [], directSpot: [], domainSufficiency: [],
+    knowledgeLevel: isActive ? "PARTIAL" as const : "UNKNOWN" as const,
+    suppression: neutralReason === "NO_CONSENT" || neutralReason === "MISSING_SNAPSHOT" ? { total: 0, byReason: [] } : neutralReason ? { total: 1, byReason: [{ code: neutralReason, count: 1 }] } : { total: 0, byReason: [] },
+    boundaries: { rawEventsIncluded: false as const, reviewTextIncluded: false as const, rawLocationIncluded: false as const, privateSocialDataIncluded: false as const, eligibilityAuthority: false as const, rankingAuthority: false as const },
+    budgets: { maxItems: 32, maxBytes: 65536, actualItems: isActive ? taste.length : 0, canonicalPayloadBytes: 0 },
+    technicalMetadata: { createdAt: input.serverTime },
+  };
+  const measured = { ...body, budgets: { ...body.budgets, canonicalPayloadBytes: Buffer.byteLength(canonicalJson(projectionHashBody(body)), "utf8") } };
+  return parseRelevantUserProjection({ ...measured, projectionHash: contentHash(projectionHashBody(measured)) });
+}
+
+/** Canonical Product composition over service-only World/User RPCs. */
+export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductRpcClient): DecisionProductCanonicalEvaluationProvider {
+  return Object.freeze({
+    contractVersion: "backyrd.decision-vnext.product-canonical-evaluation-provider@1.0" as const,
+    async evaluate(input: Parameters<DecisionProductCanonicalEvaluationProvider["evaluate"]>[0]) {
+      const targetCity = productTargetCity(input.request);
+      const result = await rpc.rpc(DECISION_PRODUCT_PRODUCTION_RPCS.runtimeContext, {
+        p_auth_user_id: input.actor.userId, p_subject_binding_hash: input.actor.subjectBindingHash,
+        p_target_city: targetCity, p_release_hash: input.identity.releaseHash,
+        p_artifact_hash: input.identity.artifactHash, p_source_set_hash: input.identity.sourceSetHash,
+        p_generation: input.identity.controlGeneration,
+      }, input.signal);
+      if (result.error) throw new Error("product_runtime_context_unavailable");
+      const context = row(result.data, "product_runtime_context_invalid");
+      if (context.contractVersion !== "backyrd.decision-vnext.product-runtime-context@1.0" || context.authorizedCity !== targetCity || typeof context.serverTime !== "string") throw new Error("product_runtime_context_invalid");
+      const rawSnapshots = Array.isArray(context.worldSnapshots) ? context.worldSnapshots : [];
+      const snapshots = new Map<string, WorldKnowledgeSnapshot>();
+      for (const raw of rawSnapshots) {
+        if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("product_world_snapshot_invalid");
+        const snapshot = raw as WorldKnowledgeSnapshot;
+        if (snapshot.contractVersion !== WORLD_KNOWLEDGE_PORT_VERSION || snapshot.spot?.location?.locality !== targetCity || snapshots.has(snapshot.spot.spotId)) throw new Error("product_world_snapshot_invalid");
+        snapshots.set(snapshot.spot.spotId, snapshot);
+      }
+      const candidateIds = [...snapshots.keys()].sort();
+      if (!candidateIds.length || candidateIds.length > 1000) throw new Error("product_world_candidate_set_invalid");
+      const world: WorldKnowledgeReaderPort = Object.freeze({ contractVersion: "backyrd.world-knowledge.reader-port@1.0" as const, async readSnapshot(request: Parameters<WorldKnowledgeReaderPort["readSnapshot"]>[0]) { const value = snapshots.get(request.spotId); if (!value) throw new Error("product_world_snapshot_missing"); return value; } });
+      const projection = productProjection({ request: input.request, actor: input.actor, serverTime: context.serverTime, context });
+      const evaluator = createDecisionProductEvaluator({ world, selectCandidates: async () => ({ candidateIds, candidateSetHash: contentHash(candidateIds) }) });
+      const evaluated = await evaluator(input.request, { authorizedCity: targetCity, serverTime: context.serverTime }, projection, input.signal);
+      return { ...evaluated, projection, authority: { serverTime: context.serverTime, authorizedCity: targetCity, locationBindingHash: contentHash({ authorizedCity: targetCity, subjectBindingHash: input.actor.subjectBindingHash, worldCandidateSetHash: contentHash(candidateIds) }) }, evaluatorContractVersion: PRODUCT_V1_EVALUATOR_VERSION };
+    },
+  });
+}
+
+/** Exact event transport; the database derives User×Decision×Context×Candidate authority from the sealed decision ledger. */
+export function createDecisionProductRpcLearningPort(rpc: DecisionProductRpcClient, identity: DecisionProductProductionIdentity): DecisionProductCanonicalLearningPort {
+  return Object.freeze({
+    contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0" as const,
+    async record(raw: ProductDecisionLearningInput, signal?: AbortSignal, actor?: DecisionProductAuthenticatedActor) {
+      if (!signal || !actor) throw new Error("product_learning_actor_unbound");
+      const event = ProductDecisionLearningInputSchema.parse(raw);
+      const result = await rpc.rpc(DECISION_PRODUCT_PRODUCTION_RPCS.learningEvent, {
+        p_auth_user_id: actor.userId, p_subject_binding_hash: actor.subjectBindingHash,
+        p_authentication_context_hash: actor.authenticationContextHash, p_event: event,
+        p_release_hash: identity.releaseHash, p_artifact_hash: identity.artifactHash,
+        p_source_set_hash: identity.sourceSetHash, p_generation: identity.controlGeneration,
+      }, signal);
+      if (result.error) throw new Error("product_learning_authority_unavailable");
+      return ProductDecisionLearningReceiptSchema.parse(row(result.data, "product_learning_receipt_invalid"));
     },
   });
 }

@@ -528,6 +528,162 @@ begin
 end;
 $$;
 
+-- One service-only Product read boundary. It exposes only canonical current
+-- World snapshots for active spots in the requested area and, after the
+-- consent check, the authenticated user's latest minimized canonical nodes.
+create function public.backyrd_decision_vnext_product_context_v1(
+  p_auth_user_id uuid,p_subject_binding_hash text,p_target_city text,
+  p_release_hash text,p_artifact_hash text,p_source_set_hash text,p_generation bigint
+) returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare v_control jsonb;v_world jsonb;v_consent public.user_consents%rowtype;
+  v_snapshot jsonb;v_count integer;v_now timestamptz:=clock_timestamp();
+begin
+  perform decision_vnext_private.assert_service_authority_v1();
+  v_control:=public.backyrd_decision_vnext_product_control_v1(p_release_hash,p_artifact_hash,p_source_set_hash,p_generation);
+  if coalesce((v_control->>'enabled')::boolean,false) is not true then
+    raise exception 'decision_vnext_product_runtime_off' using errcode='55000';
+  end if;
+  if p_auth_user_id is null or p_subject_binding_hash !~ '^[0-9a-f]{64}$'
+     or nullif(btrim(p_target_city),'') is null or length(p_target_city)>120
+     or not exists(select 1 from auth.users u where u.id=p_auth_user_id and u.deleted_at is null) then
+    raise exception 'decision_vnext_product_context_authority_denied' using errcode='42501';
+  end if;
+  select count(*),coalesce(jsonb_agg(m.world_snapshot order by p.spot_id),'[]'::jsonb)
+    into v_count,v_world
+  from world_knowledge_private.current_projection_pointers p
+  join world_knowledge_private.resolution_manifests m on m.id=p.manifest_id and m.manifest_hash=p.manifest_hash
+  join public.spots s on s.id=p.spot_id and s.status='approved'
+  where lower(m.world_snapshot#>>'{spot,location,locality}')=lower(btrim(p_target_city))
+    and not exists(
+      select 1 from jsonb_array_elements(coalesce(m.world_snapshot->'conflicts','[]'::jsonb)) conflict
+      cross join lateral jsonb_array_elements_text(coalesce(conflict->'attributeKeys','[]'::jsonb)) attribute_key
+      where attribute_key in ('identity.location','identity.locality','location.locality')
+    );
+  if v_count=0 or v_count>1000 then
+    raise exception 'decision_vnext_product_world_cohort_unavailable' using errcode='55000';
+  end if;
+  select * into v_consent from public.user_consents c
+   where c.user_id=p_auth_user_id and c.purpose_key='personalized_recommendations';
+  if not found or v_consent.status<>'granted' then
+    return jsonb_build_object('contractVersion','backyrd.decision-vnext.product-runtime-context@1.0',
+      'authorizedCity',btrim(p_target_city),'serverTime',v_now,'worldSnapshots',v_world,
+      'status','NO_CONSENT','consent',null,'snapshot',null);
+  end if;
+  select jsonb_build_object('snapshotId',s.snapshot_id,'snapshotHash',s.snapshot_hash,
+      'runtimeVersion',s.runtime_version,'sourceHash',s.source_hash,
+      'nodes',coalesce((select jsonb_agg(n.node order by n.node_key)
+        from public.backyrd_user_intelligence_snapshot_nodes_v1 n where n.snapshot_id=s.snapshot_id),'[]'::jsonb))
+    into v_snapshot
+  from public.backyrd_user_intelligence_latest_v1 l
+  join public.backyrd_user_intelligence_snapshots_v2 s on s.snapshot_id=l.snapshot_id and s.user_id=l.user_id
+  where l.user_id=p_auth_user_id and s.status='COMMITTED';
+  return jsonb_build_object('contractVersion','backyrd.decision-vnext.product-runtime-context@1.0',
+    'authorizedCity',btrim(p_target_city),'serverTime',v_now,'worldSnapshots',v_world,
+    'status',case when v_snapshot is null then 'MISSING_SNAPSHOT' else 'ACTIVE' end,
+    'consent',jsonb_build_object(
+      'contractVersion','backyrd.user-intelligence.consent-envelope@1.0',
+      'purpose','PERSONALIZED_RECOMMENDATIONS','state','GRANTED',
+      'consentVersion',coalesce(v_consent.document_id::text,'personalized-recommendations-v1'),
+      'policyVersion',coalesce(v_consent.document_id::text,'personalized-recommendations-v1'),
+      'uxVersion','canonical-consent-ledger-v1','effectiveAt',v_consent.granted_at,
+      'captureContext',case when v_consent.source='mobile' then 'ONBOARDING' when v_consent.source='web' then 'SETTINGS' else 'MIGRATION_VERIFIED' end,
+      'allowedProcessing',jsonb_build_array('PERSONALIZATION_EVIDENCE','TRANSPARENCY','EXPORT','ERASURE'),
+      'lifecycleEffect','ALLOW'),'snapshot',v_snapshot);
+end;
+$$;
+
+-- The client can submit only the versioned event transport. User, consent,
+-- decision, session, context and candidate authority are reconstructed from
+-- the authenticated server binding and the sealed decision ledger.
+create function public.backyrd_decision_vnext_product_learning_event_v1(
+  p_auth_user_id uuid,p_subject_binding_hash text,p_authentication_context_hash text,p_event jsonb,
+  p_release_hash text,p_artifact_hash text,p_source_set_hash text,p_generation bigint
+) returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v_control jsonb;v_row decision_vnext_private.product_idempotency_records_v1%rowtype;
+  v_execution jsonb;v_event_type text;v_candidate_required boolean;v_candidate jsonb;
+  v_consent public.user_consents%rowtype;v_consent_hash text;v_authority_hash text;
+  v_semantic text;v_record jsonb;v_result jsonb;v_record_bytes text;
+begin
+  perform decision_vnext_private.assert_service_authority_v1();
+  v_control:=public.backyrd_decision_vnext_product_control_v1(p_release_hash,p_artifact_hash,p_source_set_hash,p_generation);
+  if coalesce((v_control->>'enabled')::boolean,false) is not true then raise exception 'decision_vnext_product_runtime_off' using errcode='55000'; end if;
+  if p_auth_user_id is null or p_subject_binding_hash !~ '^[0-9a-f]{64}$'
+     or p_authentication_context_hash !~ '^[0-9a-f]{64}$' or jsonb_typeof(p_event)<>'object'
+     or not exists(select 1 from auth.users u where u.id=p_auth_user_id and u.deleted_at is null) then
+    raise exception 'product_learning_event_authority_denied' using errcode='42501';
+  end if;
+  select * into v_consent from public.user_consents c where c.user_id=p_auth_user_id
+    and c.purpose_key='personalized_recommendations' and c.status='granted';
+  if not found then
+    return jsonb_build_object('contractVersion','backyrd.user-intelligence.product-decision-learning-receipt@1.0',
+      'status','SUPPRESSED_NO_CONSENT','persisted',false,'eventId',null,'recordHash',null,'neutralProjectionRequired',true);
+  end if;
+  v_event_type:=p_event->>'eventType';
+  if p_event->>'contractVersion'<>'backyrd.user-intelligence.product-decision-learning-input@1.0'
+     or v_event_type not in ('decision_requested','candidate_impression','candidate_opened','candidate_saved','alternative_requested','candidate_rejected','explicit_feedback','outcome_confirmed','event_correction')
+     or nullif(p_event->>'eventId','') is null or nullif(p_event->>'idempotencyKey','') is null
+     or nullif(p_event->>'decisionId','') is null or nullif(p_event->>'sessionId','') is null
+     or p_event->>'contextBindingHash' !~ '^[0-9a-f]{64}$' then
+    raise exception 'product_learning_event_contract_invalid' using errcode='22023';
+  end if;
+  select * into v_row from decision_vnext_private.product_idempotency_records_v1 r
+   where r.scope_version='backyrd.decision-vnext.product-idempotency-scope@1.0'
+     and r.purpose='PRODUCT_DECISION_VNEXT_EVALUATION' and r.auth_user_id=p_auth_user_id
+     and r.subject_digest=p_subject_binding_hash and r.release_hash=p_release_hash
+     and r.artifact_hash=p_artifact_hash and r.source_set_hash=p_source_set_hash
+     and r.generation=p_generation and r.response_contract_version='backyrd.decision-vnext.product-response@1.0'
+     and r.expires_at>clock_timestamp()
+     and r.response_envelope_bytes::jsonb#>>'{response,decisionId}'=p_event->>'decisionId'
+   order by r.created_at desc limit 1 for update;
+  if not found or encode(extensions.digest(convert_to(v_row.response_envelope_bytes,'UTF8'),'sha256'),'hex')<>v_row.response_hash then
+    raise exception 'product_learning_decision_ledger_missing' using errcode='42501';
+  end if;
+  v_execution:=v_row.response_envelope_bytes::jsonb;
+  if v_execution#>>'{envelope,actor,subjectBindingHash}'<>p_subject_binding_hash
+     or v_execution#>>'{envelope,actor,authenticationContextHash}'<>p_authentication_context_hash
+     or v_execution#>>'{envelope,authority,transportSlug}'<>'decision-v13'
+     or v_execution#>>'{envelope,bindings,contextHash}'<>p_event->>'contextBindingHash' then
+    raise exception 'product_learning_decision_binding_invalid' using errcode='42501';
+  end if;
+  v_candidate_required:=v_event_type in ('candidate_impression','candidate_opened','candidate_saved','candidate_rejected','explicit_feedback','outcome_confirmed');
+  if p_event->>'sessionId' is distinct from (
+      select x->>'sessionId' from jsonb_array_elements(v_execution->'learningEvents') x
+      where x->>'eventType'='decision_requested' limit 1) then
+    raise exception 'product_learning_session_binding_invalid' using errcode='42501';
+  end if;
+  if v_candidate_required then
+    select x into v_candidate from jsonb_array_elements(v_execution#>'{response,candidates}') x
+      where x->>'spotId'=p_event->>'candidateId' and x->>'spotId'=p_event->>'spotId' limit 1;
+    if v_candidate is null then raise exception 'product_learning_candidate_binding_invalid' using errcode='42501'; end if;
+  elsif v_event_type<>'event_correction' and (p_event->>'candidateId' is not null or p_event->>'spotId' is not null) then
+    raise exception 'product_learning_candidate_forbidden' using errcode='42501';
+  end if;
+  if v_event_type not in ('candidate_impression','candidate_opened') and not exists(
+      select 1 from jsonb_array_elements(v_execution->'learningEvents') x where x=p_event) then
+    raise exception 'product_learning_event_not_sealed' using errcode='42501';
+  end if;
+  v_semantic:=case when v_event_type='candidate_saved' then 'PLANNING_STATE'
+    when v_event_type='candidate_rejected' then 'WEAK_CONTEXTUAL_NEGATIVE'
+    when v_event_type in ('explicit_feedback','outcome_confirmed') then 'EXPLICIT_OUTCOME'
+    when v_event_type='event_correction' then 'CORRECTION' else 'OBSERVATION_ONLY' end;
+  v_consent_hash:=encode(extensions.digest(convert_to(jsonb_build_object('user',p_auth_user_id,'purpose',v_consent.purpose_key,'status',v_consent.status,'document',v_consent.document_id,'grantedAt',v_consent.granted_at)::text,'UTF8'),'sha256'),'hex');
+  v_authority_hash:=encode(extensions.digest(convert_to(jsonb_build_object('user',p_auth_user_id,'subject',p_subject_binding_hash,'decision',p_event->>'decisionId','session',p_event->>'sessionId','candidate',p_event->'candidateId','context',p_event->>'contextBindingHash','event',p_event->>'eventId')::text,'UTF8'),'sha256'),'hex');
+  v_record:=jsonb_build_object(
+    'contractVersion','backyrd.user-intelligence.product-decision-learning-record@1.0','eventVersion','backyrd.user-intelligence.product-decision-event@1.0',
+    'eventId',p_event->>'eventId','idempotencyKey',p_event->>'idempotencyKey','eventType',v_event_type,'purpose','PERSONALIZED_DECISION_LEARNING',
+    'userId',p_auth_user_id,'subjectBindingHash',p_subject_binding_hash,'decisionId',p_event->>'decisionId','sessionId',p_event->>'sessionId',
+    'journeyId',p_event->>'sessionId','candidateId',p_event->'candidateId','spotId',p_event->'spotId','contextBindingHash',p_event->>'contextBindingHash',
+    'occurredAt',p_event->>'occurredAt','feedback',p_event->'feedback','targetEventId',p_event->'targetEventId','targetRecordHash',null,
+    'authorityRecordId','product-authority-'||(p_event->>'eventId'),'authorityRecordHash',v_authority_hash,'consentHash',v_consent_hash,
+    'consentVersion',coalesce(v_consent.document_id::text,'personalized-recommendations-v1'),'lifecycle','ACTIVE','semanticDisposition',v_semantic,
+    'boundaries',jsonb_build_object('rawEvidenceIncluded',false,'rawTextIncluded',false,'sensitiveInferenceIncluded',false,'worldMutationAuthorized',false,'clientRankingAuthorized',false,'clientProfileMutationAuthorized',false));
+  v_record_bytes:=v_record::text;
+  v_result:=public.backyrd_decision_vnext_product_learning_append_v1(v_record_bytes,p_release_hash,p_artifact_hash,p_source_set_hash,p_generation);
+  return jsonb_build_object('contractVersion','backyrd.user-intelligence.product-decision-learning-receipt@1.0',
+    'status',v_result->>'status','persisted',true,'eventId',v_result->>'eventId','recordHash',v_result->>'recordHash','neutralProjectionRequired',false);
+end;
+$$;
+
 create function decision_vnext_private.purge_product_user_v1(p_user_id uuid)
 returns void language plpgsql security definer set search_path = '' as $$
 begin
@@ -587,6 +743,8 @@ revoke all on function public.backyrd_decision_vnext_product_control_v1(text,tex
   public.backyrd_decision_vnext_product_idempotency_commit_v1(text,uuid,text,text,text,text,text,text,text,bigint,text,text,integer),
   public.backyrd_decision_vnext_product_interaction_authority_v1(uuid,text,text,text,text,text,text,bigint),
   public.backyrd_decision_vnext_product_learning_append_v1(text,text,text,text,bigint),
+  public.backyrd_decision_vnext_product_context_v1(uuid,text,text,text,text,text,bigint),
+  public.backyrd_decision_vnext_product_learning_event_v1(uuid,text,text,jsonb,text,text,text,bigint),
   public.backyrd_decision_vnext_product_projection_v1(uuid,text,text,text,text,text,text,bigint),
   public.backyrd_decision_vnext_product_idempotency_purge_expired_v1(integer)
 from public, anon, authenticated;
@@ -595,6 +753,8 @@ grant execute on function public.backyrd_decision_vnext_product_control_v1(text,
   public.backyrd_decision_vnext_product_idempotency_commit_v1(text,uuid,text,text,text,text,text,text,text,bigint,text,text,integer),
   public.backyrd_decision_vnext_product_interaction_authority_v1(uuid,text,text,text,text,text,text,bigint),
   public.backyrd_decision_vnext_product_learning_append_v1(text,text,text,text,bigint),
+  public.backyrd_decision_vnext_product_context_v1(uuid,text,text,text,text,text,bigint),
+  public.backyrd_decision_vnext_product_learning_event_v1(uuid,text,text,jsonb,text,text,text,bigint),
   public.backyrd_decision_vnext_product_projection_v1(uuid,text,text,text,text,text,text,bigint),
   public.backyrd_decision_vnext_product_idempotency_purge_expired_v1(integer)
 to service_role;

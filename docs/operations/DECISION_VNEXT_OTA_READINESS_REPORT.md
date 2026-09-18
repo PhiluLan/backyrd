@@ -1,6 +1,6 @@
 # Decision vNext OTA Readiness Report
 
-Status: **NO-GO — Product runtime composition is not closed**
+Status: **NO-GO — Product runtime wiring is closed; final freeze and release seal are pending**
 
 This report is a source-only release checkpoint. It does not authorize or
 perform an EAS update, channel mutation, republish, deployment, migration,
@@ -31,6 +31,7 @@ frozen.
 - Integration branch: `codex/decision-vnext-single-route-cutover`
 - Checkpoint head: `99aff9b4f7a9f3ca4faade9f56125631aee26cbb`
 - Checkpoint tree: `40fea80e27aa51f8811f517ab987ce9050859aad`
+- OTA-report checkpoint before runtime closure: `3fc3d901d0d0c58ba2e82348c14fc6eca6ddd02b`
 - User Domain patch: original `2474bc627febb2c123a620067954358585c5d585`,
   integrated `9f760b9fc8216264e2e02b3cfbb11fefb4c244d0`, stable patch ID
   `cdb8becf59bbc21caf55ff92a6e0e1ebd9e325cc`
@@ -88,6 +89,22 @@ frozen.
 - No-consent, withdrawal, reset, erasure, wrong identity, wrong release,
   expired authority, and kill-switch paths fail closed before personal reads or
   writes.
+- The Product Edge route now composes the canonical Product evaluator with a
+  service-only World/User context RPC and an exact ledger-bound Product event
+  RPC. The previous deliberately unavailable evaluator and learning providers
+  are no longer injected.
+- Candidate retrieval is limited to approved spots with canonical current
+  World snapshots whose confirmed locality equals the server-checked target
+  area. Candidate order is canonicalized by spot identity; no Founder,
+  fixture, name, ID, commercial, subscription, or input-array authority is
+  consulted.
+- User projection data is read only after the canonical consent ledger grants
+  personalized recommendations. The RPC returns only the latest committed
+  snapshot identity and minimized node set; no-consent and missing-snapshot
+  states remain neutral and produce no learning writes.
+- Product learning reconstructs User×Decision×Session×Context×Candidate
+  authority from the verified user and the sealed Decision idempotency ledger.
+  Client-supplied identity or authority cannot select the persisted user.
 - The migration and pgTAP contract were applied only to a local transactional
   test database and rolled back. Nothing was applied to Production.
 
@@ -106,40 +123,43 @@ frozen.
 - Founder-live compatibility/control tests: 15/15
 - SQL migration/authority/negative tests: pass with transactional rollback
 - `git diff --check`: pass
+- Runtime-composition target suite: 8/8
+- Updated Product SQL authority and client-role negative tests: pass in one
+  local rollback-only transaction
 
 These are checkpoint gates, not the final full Risk Gate or a release seal.
 
-## Blocking runtime-composition gap
+## Functional closure and remaining release boundary
 
 The Product-v1 semantic authority is now closed without relabeling Founder Lab
 authority. The committed Product release remains deliberately
 `runtimeActivated:false` and `productionExecutionAuthorized:false`.
 
-The deployed source entry still injects unavailable evaluation and learning
-ports. Before a release candidate can be sealed, Edge must compose the new
-Product evaluator with the canonical `WorldKnowledgeReaderPort`, a
-server-authorized and hash-bound candidate selection, the canonical minimized
-User projection, and the exact `PRODUCT_RUNTIME` learning authority. No weaker
-adapter, synthetic cohort, Lab authority, Legacy route, or fallback may fill
-these ports. Until that composition and its negative tests exist,
-`decision-v13` remains deliberately unavailable behind the OFF-default control.
+The deployed source entry now composes the Product evaluator, canonical World
+cohort, consent-bound minimized User projection, and ledger-bound exact Product
+learning path. No weaker adapter, synthetic cohort, Lab authority, Legacy
+route, or fallback fills these ports. The migration still creates generation
+zero as OFF and exposes no ON RPC, so source completion cannot activate the
+route.
+
+The remaining NO-GO is the release boundary: the functional tree has not yet
+been committed as the final closure checkpoint, clean-booted once from that
+frozen tree, or resealed into the shared artifact/source-set, Mobile binding,
+Production plan, and full pre-merge evidence. None of those pending steps
+authorizes OTA creation or Production execution.
 
 ## Remaining acceptance before any OTA proposal
 
-1. Compose the Product-v1 evaluator from the canonical World reader,
-   server-bound candidate selection, and canonical User projection.
-2. Bind the canonical User `PRODUCT_RUNTIME` learning port to the external,
-   exact-release authority and dynamic kill switch.
-3. Freeze the functional tree and regenerate one Node-20 artifact, source set,
+1. Freeze the functional tree and regenerate one Node-20 artifact, source set,
    Mobile binding, Production plan, and this report.
-4. Run the complete repository, database, Decision, World, User, Mobile, Web,
+2. Run the complete repository, database, Decision, World, User, Mobile, Web,
    Admin, delivery, deployment, secret, and Risk gates once against the frozen
    candidate.
-5. Merge only through the protected path, then pass the exact Main post-merge
+3. Merge only through the protected path, then pass the exact Main post-merge
    gate.
-6. Obtain a new explicit Release-GO naming the exact Main SHA, tree, artifact,
+4. Obtain a new explicit Release-GO naming the exact Main SHA, tree, artifact,
    update identity, rollout cohort, monitoring thresholds, and rollback plan.
-7. Perform physical-device validation of the exact installed update before any
+5. Perform physical-device validation of the exact installed update before any
    rollout expansion.
 
 Final conclusion: **Production NO-GO. OTA not created, uploaded, published,
