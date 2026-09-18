@@ -1,10 +1,11 @@
 import { createProductionRelevantUserProjectionPort } from "@backyrd/user-intelligence-vnext-core";
 import { createFounderWorldKnowledgeReader, type FounderWorldCohortManifest } from "@backyrd/world-knowledge-core";
 import { contentHash, deepFreeze } from "./canonical.js";
-import { createCanonicalFounderLiveEvaluator, type FounderLivePorts } from "./founder-live-api.js";
+import { createCanonicalFounderLiveEvaluator, type FounderLivePorts, type FounderLiveRuntimeControl } from "./founder-live-api.js";
 import type { FounderLiveDurableIdempotencyPort } from "./founder-live-durable-idempotency.js";
 import { createFounderLiveDurableRateLimitPort } from "./founder-live-durable-rate-limit.js";
-import { createFounderLiveCanonicalUuidAllowlistPort, createFounderLiveServerRuntimeControl, createFounderLiveSupabaseAuthPort } from "./founder-live-server-authority.js";
+import { createFounderLiveCanonicalUuidAllowlistPort, createFounderLiveSupabaseAuthPort } from "./founder-live-server-authority.js";
+import type { FounderLiveRuntimeCapability, FounderLiveRuntimeCapabilityController } from "./founder-live-runtime-capability.js";
 
 export interface FounderLiveServerEnvironment { readonly [key: string]: string | undefined }
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
@@ -36,12 +37,26 @@ export function createFounderLiveProductionPorts(input: {
   readonly userProjectionConfiguration: Parameters<typeof createProductionRelevantUserProjectionPort>[0];
   readonly idempotencyPort: FounderLiveDurableIdempotencyPort;
   readonly rateLimitConfiguration: Parameters<typeof createFounderLiveDurableRateLimitPort>[0];
+  readonly runtimeCapability: FounderLiveRuntimeCapability;
+  readonly runtimeCapabilityController: FounderLiveRuntimeCapabilityController;
   readonly fetchImpl?: FetchLike;
   readonly now?: () => Date;
 }): FounderLivePorts {
   const environment = input.environment; const fetchImpl = input.fetchImpl ?? fetch; const now = input.now ?? (() => new Date());
-  const control = createFounderLiveServerRuntimeControl(environment);
+  const assertCapability = () => input.runtimeCapabilityController.verifyBoundary(input.runtimeCapability);
+  assertCapability();
+  const control: FounderLiveRuntimeControl = Object.freeze({
+    enabled: true,
+    environment: "PRODUCTION_FOUNDER_READ_ONLY" as const,
+    purpose: "FOUNDER_DECISION_EVALUATION" as const,
+    requestTimeoutMilliseconds: 5_000,
+    maxRequestBytes: 16_384,
+    assertBoundary: () => assertCapability(),
+    isKillSwitchEngaged: () => { try { assertCapability(); return false; } catch { return true; } },
+  });
   const supabaseUrl = requireSecret(environment, "SUPABASE_URL").replace(/\/$/, "");
+  const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+  if (projectRef !== input.runtimeCapability.projectRef) throw new Error("founder_live_project_binding_invalid");
   const serviceKey = requireSecret(environment, "SUPABASE_SERVICE_ROLE_KEY");
   const manifest = parsePrivateWorldManifest(requireSecret(environment, "BACKYRD_FOUNDER_LIVE_WORLD_MANIFEST"));
   const cities = JSON.parse(requireSecret(environment, "BACKYRD_FOUNDER_LIVE_AUTHORIZED_CITIES")) as unknown;
@@ -57,12 +72,25 @@ export function createFounderLiveProductionPorts(input: {
     return rows[0].snapshot;
   };
   const world = createFounderWorldKnowledgeReader(({ spotId }) => loadSnapshot(spotId));
-  const userProjectionPort = createProductionRelevantUserProjectionPort(input.userProjectionConfiguration);
-  const rateLimitPort = createFounderLiveDurableRateLimitPort(input.rateLimitConfiguration);
-  if (input.idempotencyPort.contractVersion !== "backyrd.decision-vnext.founder-live-durable-idempotency-port@1.0" || rateLimitPort.contractVersion !== "backyrd.decision-vnext.founder-live-rate-limit-port@1.0") throw new Error("founder_live_operational_ports_unsupported");
+  const userProjectionPort = createProductionRelevantUserProjectionPort({
+    ...input.userProjectionConfiguration,
+    mode: "PRODUCTION_FOUNDER_READ_ONLY",
+    assertProductionRuntimeCapability: assertCapability,
+  });
+  const expectedRateBinding = input.rateLimitConfiguration.expectedBinding;
+  if (expectedRateBinding.projectRef !== input.runtimeCapability.projectRef
+    || expectedRateBinding.releaseHash !== input.runtimeCapability.releaseHash
+    || expectedRateBinding.artifactHash !== input.runtimeCapability.artifactHash
+    || expectedRateBinding.sourceSetHash !== input.runtimeCapability.sourceSetHash) throw new Error("founder_live_rate_limit_capability_binding_invalid");
+  const rateLimitPort = createFounderLiveDurableRateLimitPort({ ...input.rateLimitConfiguration, assertActive: assertCapability });
+  if (input.idempotencyPort.contractVersion !== "backyrd.decision-vnext.founder-live-durable-idempotency-port@1.0"
+    || input.idempotencyPort.releaseHash !== input.runtimeCapability.releaseHash
+    || input.idempotencyPort.artifactHash !== input.runtimeCapability.artifactHash
+    || input.idempotencyPort.sourceSetHash !== input.runtimeCapability.sourceSetHash
+    || rateLimitPort.contractVersion !== "backyrd.decision-vnext.founder-live-rate-limit-port@1.0") throw new Error("founder_live_operational_ports_unsupported");
   return deepFreeze({
     auth: createFounderLiveSupabaseAuthPort({ supabaseUrl, publishableKey: requireSecret(environment, "SUPABASE_ANON_KEY"), fetchImpl, now }),
-    allowlist: createFounderLiveCanonicalUuidAllowlistPort({ loadPrivateStoreSecret: () => requireSecret(environment, "BACKYRD_FOUNDER_LIVE_PRIVATE_UUID_STORE"), bindingSecret: requireSecret(environment, "BACKYRD_FOUNDER_LIVE_AUTHORITY_BINDING_SECRET"), now }),
+    allowlist: createFounderLiveCanonicalUuidAllowlistPort({ loadPrivateStoreSecret: () => requireSecret(environment, "BACKYRD_FOUNDER_LIVE_PRIVATE_UUID_STORE"), bindingSecret: requireSecret(environment, "BACKYRD_FOUNDER_LIVE_AUTHORITY_BINDING_SECRET"), assertProductionRuntimeCapability: assertCapability, now }),
     authority: { contractVersion: "backyrd.decision-vnext.founder-live-authority-port@1.0", async bind({ actor, requestedCity }) { if (!requestedCity || !citySet.has(requestedCity.toLocaleLowerCase("de-CH"))) throw new Error("founder_live_location_not_authorized"); return { serverTime: now().toISOString(), authorizedCity: requestedCity, locationBindingHash: contentHash({ requestedCity, authorizedCity: requestedCity, subjectBindingHash: actor.subjectBindingHash }) }; } },
     world, retrieval: { contractVersion: "backyrd.decision-vnext.founder-live-retrieval-port@1.0", async retrieve({ authorizedCity }) { if (!citySet.has(authorizedCity.toLocaleLowerCase("de-CH"))) throw new Error("founder_live_location_not_authorized"); return manifest; } }, user: userProjectionPort, evaluator: createCanonicalFounderLiveEvaluator(), userSnapshot: null, control,
     idempotency: input.idempotencyPort,

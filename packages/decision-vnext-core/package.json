@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./internal/founder-live-edge-runtime": "./dist/founder-live-edge-runtime.js"
+  },
   "types": "./dist/index.d.ts",
   "dependencies": {
     "@backyrd/user-intelligence-vnext-core": "0.1.0",

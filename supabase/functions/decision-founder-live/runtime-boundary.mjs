@@ -6,7 +6,7 @@ const BASE_HEADERS = Object.freeze({
   "x-content-type-options": "nosniff",
 });
 
-const response = (status, code, message, origin = null) => new Response(JSON.stringify({
+export const founderLiveEdgeErrorResponse = (status, code, message, origin = null) => new Response(JSON.stringify({
   contractVersion: "backyrd.decision-vnext.founder-live-edge-error@1.0",
   error: { code, message },
 }), {
@@ -22,7 +22,7 @@ const response = (status, code, message, origin = null) => new Response(JSON.str
   },
 });
 
-const allowedOrigins = (environment) => new Set((environment.BACKYRD_FOUNDER_LIVE_CORS_ORIGINS ?? "")
+export const founderLiveAllowedOrigins = (environment) => new Set((environment.BACKYRD_FOUNDER_LIVE_CORS_ORIGINS ?? "")
   .split(",")
   .map((value) => value.trim())
   .filter((value) => {
@@ -43,12 +43,12 @@ const allowedOrigins = (environment) => new Set((environment.BACKYRD_FOUNDER_LIV
  * impossible through this module.
  */
 export function createInactiveFounderLiveEdgeAdapter(environment = {}) {
-  const origins = allowedOrigins(environment);
+  const origins = founderLiveAllowedOrigins(environment);
   return async function handle(request) {
     const origin = request.headers.get("origin");
     const acceptedOrigin = origin && origins.has(origin) ? origin : null;
     if (request.method === "OPTIONS") {
-      if (!acceptedOrigin) return response(403, "CORS_ORIGIN_DENIED", "Dieser Ursprung ist nicht freigegeben.");
+      if (!acceptedOrigin) return founderLiveEdgeErrorResponse(403, "CORS_ORIGIN_DENIED", "Dieser Ursprung ist nicht freigegeben.");
       return new Response(null, { status: 204, headers: {
         "access-control-allow-origin": acceptedOrigin,
         "access-control-allow-headers": "authorization, content-type, x-backyrd-expert-view",
@@ -57,7 +57,7 @@ export function createInactiveFounderLiveEdgeAdapter(environment = {}) {
         vary: "origin",
       } });
     }
-    if (request.method !== "POST") return response(405, "METHOD_NOT_ALLOWED", "Dieser API-Pfad unterstützt nur POST.", acceptedOrigin);
-    return response(503, "RUNTIME_AUTHORITY_NOT_AUTHORIZED", "Die Founder-Live-Ausführung ist noch nicht autorisiert.", acceptedOrigin);
+    if (request.method !== "POST") return founderLiveEdgeErrorResponse(405, "METHOD_NOT_ALLOWED", "Dieser API-Pfad unterstützt nur POST.", acceptedOrigin);
+    return founderLiveEdgeErrorResponse(503, "RUNTIME_AUTHORITY_NOT_AUTHORIZED", "Die Founder-Live-Ausführung ist noch nicht autorisiert.", acceptedOrigin);
   };
 }

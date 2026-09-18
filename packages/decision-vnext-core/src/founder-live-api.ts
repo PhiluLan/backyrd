@@ -29,9 +29,14 @@ export const FOUNDER_LIVE_RELEASE = deepFreeze(FounderLiveReleaseSchema.parse(wi
 }, "releaseHash")));
 
 export interface FounderLiveAuthenticatedActor { readonly userId: string; readonly subjectBindingHash: string; readonly authenticationContextHash: string; readonly sessionBindingHash: string; readonly issuedAt: string; readonly expiresAt: string; readonly expertAccess: boolean }
+export type FounderLiveExecutionEnvironment = "LOCAL_TEST" | "PROD_LIKE_TEST" | "PRODUCTION_FOUNDER_READ_ONLY";
+export type FounderLiveExecutionBoundary =
+  | "REQUEST_START" | "AUTH" | "ALLOWLIST" | "RATE_LIMIT" | "BODY_PARSE"
+  | "LOCATION_AUTHORITY" | "RETRIEVAL" | "USER_READ" | "WORLD_READ"
+  | "EVALUATION" | "IDEMPOTENCY" | "EXPERT_RESPONSE" | "FINAL_OUTPUT";
 export interface FounderLiveAuthPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-auth-port@2.0"; authenticate(bearerToken: string): Promise<FounderLiveAuthenticatedActor | null> }
 export interface FounderLiveAllowlistDecision { readonly authorized: boolean; readonly authorityVersion: string; readonly decisionHash: string }
-export interface FounderLiveAllowlistPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-allowlist-port@2.0"; authorize(input: { readonly verifiedUserId: string; readonly subjectBindingHash: string; readonly authenticationContextHash: string; readonly sessionBindingHash: string; readonly issuedAt: string; readonly expiresAt: string; readonly purpose: "FOUNDER_DECISION_EVALUATION"; readonly environment: "LOCAL_TEST" | "PROD_LIKE_TEST" }): Promise<FounderLiveAllowlistDecision> }
+export interface FounderLiveAllowlistPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-allowlist-port@2.0"; authorize(input: { readonly verifiedUserId: string; readonly subjectBindingHash: string; readonly authenticationContextHash: string; readonly sessionBindingHash: string; readonly issuedAt: string; readonly expiresAt: string; readonly purpose: "FOUNDER_DECISION_EVALUATION"; readonly environment: FounderLiveExecutionEnvironment }): Promise<FounderLiveAllowlistDecision> }
 export interface FounderLiveAuthorityPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-authority-port@1.0"; bind(input: { readonly actor: FounderLiveAuthenticatedActor; readonly requestedCity: string | null; readonly requestHash: string }): Promise<{ readonly serverTime: string; readonly authorizedCity: string; readonly locationBindingHash: string }> }
 export interface FounderLiveCandidateRetrievalPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-retrieval-port@1.0"; retrieve(input: { readonly authorizedCity: string; readonly requestHash: string }): Promise<FounderWorldCohortManifest> }
 export interface FounderLiveRateLimitPort { readonly contractVersion: "backyrd.decision-vnext.founder-live-rate-limit-port@1.0"; consume(subjectBindingHash: string): Promise<boolean> }
@@ -39,7 +44,7 @@ export interface FounderLiveEvaluatorPort {
   readonly contractVersion: typeof EVALUATOR_PORT_VERSION; readonly evaluatorId: string;
   evaluate(input: { readonly request: FounderLabRequest; readonly corrections: FounderLabCorrections; readonly worldReader: WorldKnowledgeReaderPort; readonly cohortManifest: FounderWorldCohortManifest; readonly userProjection: RelevantUserProjection }): Promise<FounderLabResult>;
 }
-export interface FounderLiveRuntimeControl { readonly enabled: boolean; readonly environment: "LOCAL_TEST" | "PROD_LIKE_TEST"; readonly purpose: "FOUNDER_DECISION_EVALUATION"; readonly requestTimeoutMilliseconds: number; readonly maxRequestBytes: number; isKillSwitchEngaged(): boolean }
+export interface FounderLiveRuntimeControl { readonly enabled: boolean; readonly environment: FounderLiveExecutionEnvironment; readonly purpose: "FOUNDER_DECISION_EVALUATION"; readonly requestTimeoutMilliseconds: number; readonly maxRequestBytes: number; isKillSwitchEngaged(): boolean; assertBoundary?(boundary: FounderLiveExecutionBoundary): void }
 export interface FounderLivePorts {
   readonly auth: FounderLiveAuthPort; readonly allowlist: FounderLiveAllowlistPort; readonly authority: FounderLiveAuthorityPort; readonly world: WorldKnowledgeReaderPort;
   readonly retrieval: FounderLiveCandidateRetrievalPort; readonly user: DecisionVNextUserProjectionPort;
@@ -98,38 +103,48 @@ function envelope(input: { request: FounderLiveRequest; actor: FounderLiveAuthor
   }, "envelopeHash")));
 }
 
-function assertRunning(ports: FounderLivePorts, signal?: AbortSignal): void { if (signal?.aborted) throw new FounderLiveApiError("REQUEST_TIMEOUT", 504, "Die sichere Auswertung hat zu lange gedauert."); if (!ports.control.enabled) throw new FounderLiveApiError("API_DISABLED", 503, "Die Decision-Auswertung ist derzeit nicht freigegeben."); if (ports.control.isKillSwitchEngaged()) throw new FounderLiveApiError("KILL_SWITCH_ENGAGED", 503, "Die Decision-Auswertung ist derzeit sicher deaktiviert."); }
+function assertRunning(ports: FounderLivePorts, signal?: AbortSignal, boundary: FounderLiveExecutionBoundary = "REQUEST_START"): void {
+  if (signal?.aborted) throw new FounderLiveApiError("REQUEST_TIMEOUT", 504, "Die sichere Auswertung hat zu lange gedauert.");
+  if (!ports.control.enabled) throw new FounderLiveApiError("API_DISABLED", 503, "Die Decision-Auswertung ist derzeit nicht freigegeben.");
+  try { ports.control.assertBoundary?.(boundary); }
+  catch { throw new FounderLiveApiError("RUNTIME_AUTHORITY_REJECTED", 503, "Die Decision-Auswertung ist derzeit sicher deaktiviert."); }
+  if (ports.control.isKillSwitchEngaged()) throw new FounderLiveApiError("KILL_SWITCH_ENGAGED", 503, "Die Decision-Auswertung ist derzeit sicher deaktiviert.");
+}
 function assertPortVersions(ports: FounderLivePorts): void {
   if (ports.auth.contractVersion !== "backyrd.decision-vnext.founder-live-auth-port@2.0" || ports.allowlist.contractVersion !== "backyrd.decision-vnext.founder-live-allowlist-port@2.0" || ports.authority.contractVersion !== "backyrd.decision-vnext.founder-live-authority-port@1.0" || ports.retrieval.contractVersion !== "backyrd.decision-vnext.founder-live-retrieval-port@1.0" || ports.idempotency.contractVersion !== FOUNDER_LIVE_DURABLE_IDEMPOTENCY_VERSION || ports.rateLimit.contractVersion !== "backyrd.decision-vnext.founder-live-rate-limit-port@1.0" || ports.world.contractVersion !== "backyrd.world-knowledge.reader-port@1.0" || ports.user.contractVersion !== "backyrd.user-intelligence.decision-projection-port@1.0" || ports.evaluator.contractVersion !== EVALUATOR_PORT_VERSION) throw new FounderLiveApiError("SERVER_PORT_VERSION_UNSUPPORTED", 503, "Eine Server-Komponente verwendet eine nicht unterstützte Version.");
   if (!Number.isInteger(ports.control.requestTimeoutMilliseconds) || ports.control.requestTimeoutMilliseconds < 1 || !Number.isInteger(ports.control.maxRequestBytes) || ports.control.maxRequestBytes < 256) throw new FounderLiveApiError("SERVER_LIMITS_INVALID", 503, "Die Server-Limits sind nicht sicher konfiguriert.");
 }
 
 async function authorizeActor(actor: FounderLiveAuthenticatedActor, ports: FounderLivePorts, signal?: AbortSignal): Promise<FounderLiveAuthorizedActor> {
+  assertRunning(ports, signal, "ALLOWLIST");
   const allowlist = await ports.allowlist.authorize({ verifiedUserId: actor.userId, subjectBindingHash: actor.subjectBindingHash, authenticationContextHash: actor.authenticationContextHash, sessionBindingHash: actor.sessionBindingHash, issuedAt: actor.issuedAt, expiresAt: actor.expiresAt, purpose: ports.control.purpose, environment: ports.control.environment });
-  assertRunning(ports, signal);
+  assertRunning(ports, signal, "ALLOWLIST");
   if (!allowlist.authorized) throw new FounderLiveApiError("NOT_ALLOWLISTED", 403, "Dieser Account ist für die Evaluation nicht freigegeben.");
   return Object.freeze({ ...actor, allowlistAuthorityVersion: allowlist.authorityVersion, allowlistDecisionHash: allowlist.decisionHash });
 }
 
 async function executeAuthorizedFounderLiveDecision(raw: unknown, actor: FounderLiveAuthorizedActor, ports: FounderLivePorts, options: { readonly signal?: AbortSignal } = {}): Promise<FounderLiveExecution> {
-  const signal = options.signal; assertPortVersions(ports); assertRunning(ports, signal);
+  const signal = options.signal; assertPortVersions(ports); assertRunning(ports, signal, "BODY_PARSE");
   const request = FounderLiveRequestSchema.parse(raw); const requestHash = contentHash(request);
   const labRequest = { contractVersion: PHASE3C_LAB_VERSIONS.request, requestId: request.requestId, ephemeralText: request.naturalLanguage, deviceLocation: { state: "DENIED" as const, city: null }, userMode: "NEUTRAL_MISSING" as const, alternativeRequested: request.alternativeRequested, rejectedCandidateIds: request.rejectedCandidateIds };
   const initial = resolveFounderLabText(labRequest, request.explicit); const requestedCity = initial.targetCity;
   if (!requestedCity) throw new FounderLiveApiError("LOCATION_REQUIRED", 422, "Bitte gib an, in welcher Stadt oder welchem Gebiet du suchst.");
-  const bound = await ports.authority.bind({ actor, requestedCity, requestHash }); assertRunning(ports, signal);
+  assertRunning(ports, signal, "LOCATION_AUTHORITY");
+  const bound = await ports.authority.bind({ actor, requestedCity, requestHash }); assertRunning(ports, signal, "LOCATION_AUTHORITY");
   if (bound.authorizedCity !== requestedCity || bound.locationBindingHash !== contentHash({ requestedCity, authorizedCity: bound.authorizedCity, subjectBindingHash: actor.subjectBindingHash })) throw new FounderLiveApiError("LOCATION_AUTHORITY_MISMATCH", 403, "Der gewünschte Ort konnte serverseitig nicht bestätigt werden.");
   const interpretation = resolveFounderLabText(labRequest, { ...request.explicit, targetCity: bound.authorizedCity });
   if (!interpretation.primaryIntent) throw new FounderLiveApiError("PRIMARY_INTENT_REQUIRED", 422, "Bitte beschreibe noch, was du jetzt unternehmen möchtest.");
-  assertRunning(ports, signal);
+  assertRunning(ports, signal, "RETRIEVAL");
   const decisionId = `decision-${request.idempotencyKey}`;
-  const worldManifest = await ports.retrieval.retrieve({ authorizedCity: bound.authorizedCity, requestHash }); assertRunning(ports, signal);
+  const worldManifest = await ports.retrieval.retrieve({ authorizedCity: bound.authorizedCity, requestHash }); assertRunning(ports, signal, "RETRIEVAL");
   const userRequest = projectionRequest({ request, actor, decisionId, contextHash: interpretation.interpretationHash, snapshot: ports.userSnapshot });
-  const projection = await readRelevantUserProjection(ports.user, userRequest); assertRunning(ports, signal);
+  assertRunning(ports, signal, "USER_READ");
+  const projection = await readRelevantUserProjection(ports.user, userRequest); assertRunning(ports, signal, "USER_READ");
   if (projection.decisionId !== decisionId || (projection.status === "ACTIVE" && projection.subjectBindingHash !== actor.subjectBindingHash) || projection.boundaries.eligibilityAuthority || projection.boundaries.rankingAuthority) throw new FounderLiveApiError("USER_PROJECTION_BINDING_INVALID", 503, "Die Personalisierung konnte nicht sicher gebunden werden; die Anfrage wurde beendet.");
-  const guardedWorld: WorldKnowledgeReaderPort = { contractVersion: ports.world.contractVersion, async readSnapshot(input) { assertRunning(ports, signal); const value = await ports.world.readSnapshot(input); assertRunning(ports, signal); return value; } };
+  const guardedWorld: WorldKnowledgeReaderPort = { contractVersion: ports.world.contractVersion, async readSnapshot(input) { assertRunning(ports, signal, "WORLD_READ"); const value = await ports.world.readSnapshot(input); assertRunning(ports, signal, "WORLD_READ"); return value; } };
+  assertRunning(ports, signal, "EVALUATION");
   const evaluation = await ports.evaluator.evaluate({ request: labRequest, corrections: { ...request.explicit, targetCity: bound.authorizedCity }, worldReader: guardedWorld, cohortManifest: worldManifest, userProjection: projection });
-  assertRunning(ports, signal);
+  assertRunning(ports, signal, "EVALUATION");
   const env = envelope({ request, actor, authority: bound, manifest: worldManifest, environment: ports.control.environment, evaluatorContractVersion: ports.evaluator.contractVersion });
   const normalBody = {
     contractVersion: FOUNDER_LIVE_API_VERSIONS.response, status: "EVALUATION_ONLY" as const,
@@ -142,10 +157,11 @@ async function executeAuthorizedFounderLiveDecision(raw: unknown, actor: Founder
   const expertBody = { contractVersion: FOUNDER_LIVE_API_VERSIONS.expert, normal: response, envelope: env, provenance: { worldSnapshotHashes: evaluation.worldCohort.spotBindings.map((row) => row.snapshotHash), worldCohortHash: evaluation.worldCohort.cohortHash, userProjectionHash: evaluation.userProjectionHash, contextHash: evaluation.interpretation.interpretationHash, evaluationResultHash: evaluation.resultHash, policyHash: PHASE3C_CONTEXTUAL_WORLD_EVALUATION_POLICY.policyHash, releaseHash: FOUNDER_LIVE_RELEASE.releaseHash }, candidateProofs: evaluation.candidates.map((candidate) => ({ candidateId: candidate.candidateId, assessmentHash: candidate.assessmentHash, tier: candidate.tier, coreIntentState: candidate.coreIntentCoverage.state, reasonSourceHashes: candidate.reasons.map((reason) => reason.sourceHash) })) };
   const expert = deepFreeze(FounderLiveExpertResponseSchema.parse(withContentHash(expertBody, "expertHash")));
   const result = deepFreeze({ response, expert });
+  assertRunning(ports, signal, "IDEMPOTENCY");
   const committed = await ports.idempotency.commit({ subjectBindingHash: actor.subjectBindingHash, idempotencyKey: request.idempotencyKey, payloadHash: requestHash, execution: result });
-  assertRunning(ports, signal);
+  assertRunning(ports, signal, "IDEMPOTENCY");
   if (committed.status === "CONFLICT" || committed.status === "EXPIRED") throw new FounderLiveApiError("IDEMPOTENCY_CONFLICT", 409, "Diese Anfrage-ID wurde bereits mit anderen Eingaben verwendet oder ist abgelaufen.");
-  if (committed.status === "CREATED") return result;
+  if (committed.status === "CREATED") { assertRunning(ports, signal, "FINAL_OUTPUT"); return result; }
   if (committed.status !== "REPLAYED") throw new FounderLiveApiError("IDEMPOTENCY_REPLAY_INVALID", 503, "Die gespeicherte Wiederholung besitzt keinen unterstützten Zustand.");
   const replayResponse = FounderLiveResponseSchema.parse(committed.execution.response);
   const replayExpert = FounderLiveExpertResponseSchema.parse(committed.execution.expert);
@@ -153,6 +169,7 @@ async function executeAuthorizedFounderLiveDecision(raw: unknown, actor: Founder
   const { expertHash: _expertHash, ...replayExpertBody } = replayExpert;
   const identityHash = contentHash({ subjectBindingHash: actor.subjectBindingHash, idempotencyKey: request.idempotencyKey, requestHash });
   if (contentHash(envelopeBody) !== replayExpert.envelope.envelopeHash || contentHash(replayExpertBody) !== replayExpert.expertHash || canonicalJson(replayResponse) !== canonicalJson(replayExpert.normal) || replayExpert.envelope.requestHash !== requestHash || replayExpert.envelope.idempotencyIdentityHash !== identityHash || replayExpert.envelope.actor.subjectBindingHash !== actor.subjectBindingHash) throw new FounderLiveApiError("IDEMPOTENCY_REPLAY_INVALID", 503, "Die gespeicherte Wiederholung konnte nicht sicher validiert werden.");
+  assertRunning(ports, signal, "FINAL_OUTPUT");
   return deepFreeze({ response: replayResponse, expert: replayExpert });
 }
 
@@ -164,7 +181,7 @@ export async function executeFounderLiveDecision(raw: unknown, authenticatedActo
 
 /** Local/prod-like technical comparison only. It is deliberately not exposed by the HTTP route. */
 export async function executeFounderLiveDualRun(input: { readonly request: unknown; readonly actor: FounderLiveAuthenticatedActor; readonly primary: FounderLivePorts; readonly comparator: FounderLivePorts }): Promise<FounderLiveDualRunReport> {
-  if (!(["LOCAL_TEST", "PROD_LIKE_TEST"] as const).includes(input.primary.control.environment) || !(["LOCAL_TEST", "PROD_LIKE_TEST"] as const).includes(input.comparator.control.environment)) throw new FounderLiveApiError("DUAL_RUN_ENVIRONMENT_FORBIDDEN", 403, "Der technische Vergleich ist in dieser Umgebung nicht erlaubt.");
+  if (input.primary.control.environment === "PRODUCTION_FOUNDER_READ_ONLY" || input.comparator.control.environment === "PRODUCTION_FOUNDER_READ_ONLY") throw new FounderLiveApiError("DUAL_RUN_ENVIRONMENT_FORBIDDEN", 403, "Der technische Vergleich ist in dieser Umgebung nicht erlaubt.");
   const primary = await executeFounderLiveDecision(input.request, input.actor, input.primary);
   const comparator = await executeFounderLiveDecision(input.request, input.actor, input.comparator);
   const body = { contractVersion: FOUNDER_LIVE_API_VERSIONS.dualRunReport, requestHash: primary.expert.envelope.requestHash, primary: { evaluatorId: input.primary.evaluator.evaluatorId, evaluatorContractVersion: input.primary.evaluator.contractVersion, expertHash: primary.expert.expertHash }, comparator: { evaluatorId: input.comparator.evaluator.evaluatorId, evaluatorContractVersion: input.comparator.evaluator.contractVersion, expertHash: comparator.expert.expertHash }, semanticResponseEquivalent: canonicalJson(primary.response) === canonicalJson(comparator.response), classification: "LOCAL_OR_PROD_LIKE_TECHNICAL_COMPARISON_ONLY" as const, productOutputProduced: false as const, durableWriteProduced: false as const, learningProduced: false as const, productQualityClaim: false as const, rankingClaim: false as const };
@@ -183,15 +200,22 @@ export function createFounderLiveHttpHandler(ports: FounderLivePorts): (request:
       timeout = setTimeout(() => abort.abort(), ports.control.requestTimeoutMilliseconds);
       const timedOut = new Promise<never>((_, reject) => abort.signal.addEventListener("abort", () => reject(new FounderLiveApiError("REQUEST_TIMEOUT", 504, "Die sichere Auswertung hat zu lange gedauert.")), { once: true }));
       const pipeline = async () => {
-      assertPortVersions(ports); assertRunning(ports, abort.signal);
-      const actor = await ports.auth.authenticate(token); assertRunning(ports, abort.signal); if (!actor) throw new FounderLiveApiError("UNAUTHENTICATED", 401, "Die Anmeldung ist ungültig oder abgelaufen.");
+      assertPortVersions(ports); assertRunning(ports, abort.signal, "REQUEST_START");
+      assertRunning(ports, abort.signal, "AUTH");
+      const actor = await ports.auth.authenticate(token); assertRunning(ports, abort.signal, "AUTH"); if (!actor) throw new FounderLiveApiError("UNAUTHENTICATED", 401, "Die Anmeldung ist ungültig oder abgelaufen.");
       const authorizedActor = await authorizeActor(actor, ports, abort.signal);
+      assertRunning(ports, abort.signal, "RATE_LIMIT");
       if (!await ports.rateLimit.consume(actor.subjectBindingHash)) throw new FounderLiveApiError("RATE_LIMITED", 429, "Zu viele Anfragen. Bitte versuche es später erneut.");
+      assertRunning(ports, abort.signal, "RATE_LIMIT");
+      assertRunning(ports, abort.signal, "BODY_PARSE");
       const text = await request.text(); if (new TextEncoder().encode(text).length > ports.control.maxRequestBytes) throw new FounderLiveApiError("REQUEST_TOO_LARGE", 413, "Die Anfrage ist zu groß.");
       let body: unknown; try { body = JSON.parse(text); } catch { throw new FounderLiveApiError("INVALID_JSON", 400, "Die Anfrage enthält kein gültiges JSON."); }
+      assertRunning(ports, abort.signal, "BODY_PARSE");
       const execution = await executeAuthorizedFounderLiveDecision(body, authorizedActor, ports, { signal: abort.signal });
       const expertRequested = request.headers.get("x-backyrd-expert-view") === "true";
+      assertRunning(ports, abort.signal, "EXPERT_RESPONSE");
       if (expertRequested && !actor.expertAccess) throw new FounderLiveApiError("EXPERT_ACCESS_FORBIDDEN", 403, "Die Expertensicht ist für diesen Account nicht freigegeben.");
+      assertRunning(ports, abort.signal, "FINAL_OUTPUT");
       return new Response(JSON.stringify(expertRequested ? execution.expert : execution.response), { status: 200, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } }); };
       return await Promise.race([pipeline(), timedOut]);
     } catch (error) {

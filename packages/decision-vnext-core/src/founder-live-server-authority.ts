@@ -82,6 +82,8 @@ export function createFounderLiveSupabaseAuthPort(input: {
 export function createFounderLiveCanonicalUuidAllowlistPort(input: {
   readonly loadPrivateStoreSecret: () => string;
   readonly bindingSecret: string;
+  /** Mandatory for the Production Founder mode; verifies the process-local Runtime Capability. */
+  readonly assertProductionRuntimeCapability?: () => void;
   readonly now?: () => Date;
 }): FounderLiveAllowlistPort {
   if (Buffer.byteLength(input.bindingSecret, "utf8") < 32) throw new Error("founder_live_allowlist_binding_secret_too_short");
@@ -92,15 +94,20 @@ export function createFounderLiveCanonicalUuidAllowlistPort(input: {
     async authorize(value: Parameters<FounderLiveAllowlistPort["authorize"]>[0]) {
       let authorized = false;
       try {
+        if (value.environment === "PRODUCTION_FOUNDER_READ_ONLY") {
+          if (!input.assertProductionRuntimeCapability) throw new Error("founder_live_runtime_capability_required");
+          input.assertProductionRuntimeCapability();
+        }
         const record = FounderLiveUuidPrivateRecordSchema.parse(provider.findByAuthUserId(value.verifiedUserId));
         const verifiedAt = now().getTime();
         authorized = value.purpose === "FOUNDER_DECISION_EVALUATION"
-          && (value.environment === "LOCAL_TEST" || value.environment === "PROD_LIKE_TEST")
+          && (value.environment === "LOCAL_TEST" || value.environment === "PROD_LIKE_TEST" || value.environment === "PRODUCTION_FOUNDER_READ_ONLY")
           && record.status === "ACTIVE" && record.consentState === "GRANTED" && record.lifecycle === "ACTIVE"
           && record.subjectBindingHash === value.subjectBindingHash
           && record.acceptedSessionBindingHash === value.sessionBindingHash
           && verifiedAt >= Date.parse(record.validFrom) && verifiedAt <= Date.parse(record.validUntil)
           && Date.parse(value.issuedAt) <= verifiedAt && verifiedAt < Date.parse(value.expiresAt);
+        if (authorized && value.environment === "PRODUCTION_FOUNDER_READ_ONLY") input.assertProductionRuntimeCapability?.();
       } catch { authorized = false; }
       const decisionHash = createHmac("sha256", input.bindingSecret).update(canonicalJson({ authorityVersion: FOUNDER_LIVE_SERVER_AUTHORITY_VERSION, authenticationContextHash: value.authenticationContextHash, environment: value.environment, purpose: value.purpose, subjectBindingHash: value.subjectBindingHash, sessionBindingHash: value.sessionBindingHash, providerEnvelopeHash: provider.providerEnvelopeHash(), authorized })).digest("hex");
       return deepFreeze({ authorized, authorityVersion: FOUNDER_LIVE_SERVER_AUTHORITY_VERSION, decisionHash });

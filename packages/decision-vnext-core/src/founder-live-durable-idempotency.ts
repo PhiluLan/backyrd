@@ -29,6 +29,9 @@ export type FounderLiveDurableIdempotencyResult =
 
 export interface FounderLiveDurableIdempotencyPort {
   readonly contractVersion: typeof FOUNDER_LIVE_DURABLE_IDEMPOTENCY_VERSION;
+  readonly releaseHash: string;
+  readonly artifactHash: string;
+  readonly sourceSetHash: string;
   commit(input: FounderLiveDurableIdempotencyCommit): Promise<FounderLiveDurableIdempotencyResult>;
 }
 
@@ -63,6 +66,9 @@ export function createFounderLiveDurableIdempotencyPort(
 
   return Object.freeze({
     contractVersion: FOUNDER_LIVE_DURABLE_IDEMPOTENCY_VERSION,
+    releaseHash: bindings.releaseHash,
+    artifactHash: bindings.artifactHash,
+    sourceSetHash: bindings.sourceSetHash,
     async commit(input: FounderLiveDurableIdempotencyCommit): Promise<FounderLiveDurableIdempotencyResult> {
       assertHash("subject_binding", input.subjectBindingHash); assertHash("payload_hash", input.payloadHash);
       if (input.idempotencyKey.length < 1 || input.idempotencyKey.length > 256) throw new Error("founder_live_idempotency_key_invalid");

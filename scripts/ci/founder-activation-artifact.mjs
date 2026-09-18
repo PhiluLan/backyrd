@@ -13,6 +13,7 @@ const PREFIXES = [
   "mobile/app/(tabs)/decision.tsx", "mobile/components/PushNotificationRouter.tsx", "mobile/lib/decision/", "mobile/packages/founder-live-control-plane/src/",
   "delivery/integration/founder-activation-", "docs/operations/FOUNDER_TWO_ACCOUNT_ACTIVATION_RUNBOOK.md",
   "scripts/ci/founder-activation-", "scripts/ci/founder-live-control-plane.mjs",
+  "supabase/functions/decision-founder-live/",
 ];
 const canonical = (value) => Array.isArray(value) ? `[${value.map(canonical).join(",")}]` : value && typeof value === "object" ? `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}` : JSON.stringify(value);
 const sha256 = (value) => createHash("sha256").update(typeof value === "string" ? value : canonical(value)).digest("hex");

@@ -509,8 +509,10 @@ jobs:
           esac
           export FOUNDER_LIVE_MODE
           node scripts/ci/founder-live-control-plane.mjs . "${{ needs.classify.outputs.head-sha }}"
-      - name: Validate Founder-live inactive Edge boundary
-        run: node --test supabase/functions/decision-founder-live/runtime-boundary.test.mjs
+      - name: Validate Founder-live inactive Edge and runtime-bootstrap boundaries
+        run: |
+          npm run decision-vnext:build
+          node --test supabase/functions/decision-founder-live/runtime-boundary.test.mjs supabase/functions/decision-founder-live/runtime-bootstrap.test.mjs supabase/functions/decision-founder-live/runtime-production.test.mjs packages/decision-vnext-core/test/founder-live-runtime-bootstrap.test.mjs packages/decision-vnext-core/test/founder-live-runtime-capability.test.mjs packages/user-intelligence-vnext-core/test/production-relevant-user-projection.test.mjs scripts/ci/founder-live-runtime-bootstrap.test.mjs
       - name: Reproduce Founder-live Edge evidence
         run: node scripts/ci/founder-live-edge-implementation-evidence.mjs . "${{ needs.classify.outputs.head-sha }}"
       - name: Install isolated Founder-live rehearsal browser

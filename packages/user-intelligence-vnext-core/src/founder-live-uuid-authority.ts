@@ -216,6 +216,7 @@ function verifyExternalRelease(trust: FounderLiveUuidExternalTrustContext): bool
 
 export function authorizeFounderLiveUuidSession(input: {
   readonly mode: unknown;
+  readonly assertProductionRuntimeCapability?: () => void;
   readonly session: unknown;
   readonly request: unknown;
   readonly consent: unknown;
@@ -224,7 +225,12 @@ export function authorizeFounderLiveUuidSession(input: {
   readonly trust: FounderLiveUuidExternalTrustContext;
 }): FounderLiveUuidAuthorization {
   if (input.mode === "EMERGENCY_OFF") return denied("EMERGENCY_OFF");
-  if (input.mode !== "LOCAL_TEST" && input.mode !== "PROD_LIKE_TEST") return denied("RUNTIME_OFF");
+  if (input.mode !== "LOCAL_TEST" && input.mode !== "PROD_LIKE_TEST" && input.mode !== "PRODUCTION_FOUNDER_READ_ONLY") return denied("RUNTIME_OFF");
+  if (input.mode === "PRODUCTION_FOUNDER_READ_ONLY") {
+    try { input.assertProductionRuntimeCapability?.(); }
+    catch { return denied("RUNTIME_OFF"); }
+    if (!input.assertProductionRuntimeCapability) return denied("RUNTIME_OFF");
+  }
   let session: FounderLiveServerSession;
   let request: RelevantUserProjectionRequest;
   let consent: ConsentEnvelope;
@@ -278,6 +284,10 @@ export function authorizeFounderLiveUuidSession(input: {
     shadowTrafficAuthorized: false as const,
     productionAuthorized: false as const,
   };
+  if (input.mode === "PRODUCTION_FOUNDER_READ_ONLY") {
+    try { input.assertProductionRuntimeCapability?.(); }
+    catch { return denied("RUNTIME_OFF"); }
+  }
   return FounderLiveUuidCapabilitySchema.parse({ ...body, capabilityHash: contentHash(body) });
 }
 

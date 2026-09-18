@@ -115,6 +115,15 @@ test("consent lifecycle and emergency OFF dominate before projection", () => {
   assert.equal(authorize(users[0], { mode: "PRODUCTION" }).status, "DENIED");
 });
 
+test("Production Founder mode requires a fresh process-local runtime capability assertion", () => {
+  assert.equal(authorize(users[0], { mode: "PRODUCTION_FOUNDER_READ_ONLY" }).status, "DENIED");
+  assert.equal(authorize(users[0], { mode: "PRODUCTION_FOUNDER_READ_ONLY", assertProductionRuntimeCapability: () => { throw new Error("stale"); } }).status, "DENIED");
+  let checks = 0;
+  const accepted = authorize(users[0], { mode: "PRODUCTION_FOUNDER_READ_ONLY", assertProductionRuntimeCapability: () => { checks += 1; } });
+  assert.equal(accepted.status, "AUTHORIZED_READ_ONLY");
+  assert.equal(checks, 2);
+});
+
 test("provider restart is deterministic and exposes no enumeration", () => {
   assert.deepEqual(authorize(users[0], { provider: provider() }), authorize(users[0], { provider: provider() }));
   assert.equal("records" in provider(), false);

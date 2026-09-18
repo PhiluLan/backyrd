@@ -5,10 +5,11 @@ import { test } from "node:test";
 import {
   FOUNDER_COHORT_VERSION, FOUNDER_EVALUATION_SCOPE, REGISTRY_HASH, REGISTRY_VERSION,
 } from "@backyrd/world-knowledge-core";
+import { CONTRACT_VERSIONS as USER_CONTRACT_VERSIONS } from "@backyrd/user-intelligence-vnext-core";
 import {
   FOUNDER_LIVE_API_VERSIONS, FOUNDER_LIVE_RELEASE, SyntheticUserProjectionReader, SyntheticWorldKnowledgeReader,
   FOUNDER_LIVE_SERVER_AUTHORITY_VERSION, canonicalJson, contentHash, createCanonicalFounderLiveEvaluator, createFounderLiveHttpHandler, createFounderLivePostDeployEvidence,
-  createFounderLivePrivateUuidAllowlistFromEnvironment, createFounderLivePrivateUuidAllowlistPort, createFounderLiveSupabaseAuthPort,
+  createFounderLiveCanonicalUuidAllowlistPort, createFounderLivePrivateUuidAllowlistFromEnvironment, createFounderLivePrivateUuidAllowlistPort, createFounderLiveSupabaseAuthPort,
   createFounderLiveServerRuntimeControl,
   executeFounderLiveDecision, executeFounderLiveDualRun, generateSyntheticWorld,
 } from "../dist/index.js";
@@ -86,6 +87,31 @@ test("private UUID authority requires exactly two external members and never ser
   assert.throws(() => createFounderLivePrivateUuidAllowlistFromEnvironment({}), /not_configured/);
   const fromEnvironment = createFounderLivePrivateUuidAllowlistFromEnvironment({ BACKYRD_FOUNDER_LIVE_UUID_ALLOWLIST: `${VERIFIED_USER_ID},${second}`, BACKYRD_FOUNDER_LIVE_AUTHORITY_BINDING_SECRET: secret });
   assert.equal((await fromEnvironment.authorize(input)).authorized, true);
+  assert.equal((await allowlist.authorize({ ...input, environment: "PRODUCTION_FOUNDER_READ_ONLY" })).authorized, true);
+});
+
+test("canonical Production Founder allowlist requires the process-local runtime capability", async () => {
+  const memberIds = [VERIFIED_USER_ID, randomUUID()];
+  const records = memberIds.map((authUserId, index) => {
+    const body = {
+      contractVersion: USER_CONTRACT_VERSIONS.founderLiveUuidPrivateRecord, recordId: `production-member-${index + 1}`, authUserId,
+      status: "ACTIVE", purpose: "FOUNDER_LIVE_RELEVANT_USER_PROJECTION", consentHash: contentHash(`consent-${index}`), consentState: "GRANTED", lifecycle: "ACTIVE",
+      acceptedSessionBindingHash: index === 0 ? ACTOR.sessionBindingHash : contentHash(`session-${index}`), subjectBindingHash: index === 0 ? ACTOR.subjectBindingHash : contentHash(`subject-${index}`),
+      cohortVersion: "FOUNDER_LIVE_TWO_MEMBER_COHORT_V1", validFrom: "2026-09-17T00:00:00.000Z", validUntil: "2027-09-18T00:00:00.000Z", issuer: "BACKYRD_PRIVATE_IDENTITY_AUTHORITY",
+    };
+    return { ...body, recordHash: contentHash(body) };
+  });
+  const envelopeBody = { contractVersion: USER_CONTRACT_VERSIONS.founderLiveUuidPrivateStoreEnvelope, providerId: "BACKYRD_PRIVATE_FOUNDER_UUID_STORE", cohortVersion: "FOUNDER_LIVE_TWO_MEMBER_COHORT_V1", configuredMemberCount: 2, records, productionAuthorized: false, runtimeActivated: false };
+  const privateStore = canonicalJson({ ...envelopeBody, envelopeHash: contentHash(envelopeBody) });
+  const request = { verifiedUserId: ACTOR.userId, subjectBindingHash: ACTOR.subjectBindingHash, authenticationContextHash: ACTOR.authenticationContextHash, sessionBindingHash: ACTOR.sessionBindingHash, issuedAt: ACTOR.issuedAt, expiresAt: ACTOR.expiresAt, purpose: "FOUNDER_DECISION_EVALUATION", environment: "PRODUCTION_FOUNDER_READ_ONLY" };
+  const base = { loadPrivateStoreSecret: () => privateStore, bindingSecret: "a".repeat(48), now: () => new Date("2026-09-18T00:00:00.000Z") };
+  assert.equal((await createFounderLiveCanonicalUuidAllowlistPort(base).authorize(request)).authorized, false);
+  let checks = 0;
+  const guarded = createFounderLiveCanonicalUuidAllowlistPort({ ...base, assertProductionRuntimeCapability: () => { checks += 1; } });
+  assert.equal((await guarded.authorize(request)).authorized, true);
+  assert.equal(checks, 2);
+  const revoked = createFounderLiveCanonicalUuidAllowlistPort({ ...base, assertProductionRuntimeCapability: () => { throw new Error("emergency_off"); } });
+  assert.equal((await revoked.authorize(request)).authorized, false);
 });
 
 test("server runtime defaults to OFF, zero shadow release and engaged kill switch", () => {
@@ -172,6 +198,30 @@ test("Gate-7 rate limiting remains separate and every durable replay consumes it
   assert.equal((await call()).status, 429, "a durable replay must not bypass the separate rate-limit gate");
   assert.equal(rateLimitCalls, 3);
   assert.equal(records.size, 1, "rate limiting and idempotency retain separate durable state");
+});
+
+test("Production Founder runtime revalidates capability at every security and data boundary", async () => {
+  const boundaries = [];
+  const p = ports({ control: {
+    enabled: true,
+    environment: "PRODUCTION_FOUNDER_READ_ONLY",
+    purpose: "FOUNDER_DECISION_EVALUATION",
+    requestTimeoutMilliseconds: 2_000,
+    maxRequestBytes: 16_384,
+    assertBoundary(boundary) { boundaries.push(boundary); },
+    isKillSwitchEngaged() { return false; },
+  } });
+  const response = await createFounderLiveHttpHandler(p)(new Request("http://local/v1/decision/evaluate", {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: "Bearer local-founder-token" },
+    body: JSON.stringify(request("production-boundaries", "Café in Basel")),
+  }));
+  assert.equal(response.status, 200);
+  for (const boundary of ["REQUEST_START", "AUTH", "ALLOWLIST", "RATE_LIMIT", "BODY_PARSE", "LOCATION_AUTHORITY", "RETRIEVAL", "USER_READ", "WORLD_READ", "EVALUATION", "IDEMPOTENCY", "EXPERT_RESPONSE", "FINAL_OUTPUT"]) {
+    assert.ok(boundaries.includes(boundary), `missing runtime boundary ${boundary}`);
+  }
+  assert.equal(boundaries[0], "REQUEST_START");
+  assert.equal(boundaries.at(-1), "FINAL_OUTPUT");
 });
 
 test("Emergency OFF during an in-flight authority check prevents every later read and output", async () => {

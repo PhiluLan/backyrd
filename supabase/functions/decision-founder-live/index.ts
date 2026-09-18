@@ -1,10 +1,10 @@
-import { createInactiveFounderLiveEdgeAdapter } from "./runtime-boundary.mjs";
+import { createFounderLiveRuntimeBootstrapAdapter } from "./runtime-bootstrap.mjs";
+import { createFounderLiveProductionRuntimeLoader } from "./runtime-production.mjs";
 
 const environment = {
   BACKYRD_FOUNDER_LIVE_CORS_ORIGINS: Deno.env.get("BACKYRD_FOUNDER_LIVE_CORS_ORIGINS") ?? undefined,
 };
 
-// Runtime Authority is intentionally not loaded by this release. The function
-// is deployable source, but remains fail-closed even if callers forge enable,
-// release, allowlist or kill-switch headers/environment values.
-Deno.serve(createInactiveFounderLiveEdgeAdapter(environment));
+// The canonical Production trust root is deliberately not provisioned by this
+// source release. Runtime Authority cannot be supplied by request or env flags.
+Deno.serve(createFounderLiveRuntimeBootstrapAdapter(environment, createFounderLiveProductionRuntimeLoader()));
