@@ -5,6 +5,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildFounderActivationArtifact } from "./founder-activation-artifact.mjs";
+import { buildProductionPlan } from "../deployment/supabase-production-plan.mjs";
+import { verifySourceAwareInactiveFounderLiveScope } from "./source-aware-inactive-founder-live-scope.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const BASE = "34c0cbec903e53087e28e46d1886648bc6ce72bc";
@@ -148,11 +150,18 @@ export function runFounderActivationPreflight({ root = ROOT, head = "HEAD", base
   });
   const changed = changeEntries.map(({ path }) => path);
   const newMigrations = verifyFounderActivationDescendantMigrationChanges({ descendant: canonicalDescendant, entries: changeEntries });
-  verifyFounderActivationInactiveEdgeChanges({
-    entries: changeEntries,
-    baseConfig: git(root, ["show", `${base}:supabase/config.toml`]),
-    headConfig: git(root, ["show", `${head}:supabase/config.toml`]),
-  });
+  const runtimeEntries = changeEntries.filter(({ path }) => path.startsWith("supabase/functions/") || path === "supabase/config.toml" || path === "supabase/production/auth-config.json");
+  if (canonicalDescendant && runtimeEntries.length > 0) {
+    const productionState = load(root, "delivery/production-state.json");
+    const productionPlan = buildProductionPlan({ repo: root, baseSha: productionState.supabase.shippedSourceSha, headSha: git(root, ["rev-parse", `${head}^{commit}`]) });
+    verifySourceAwareInactiveFounderLiveScope({ root, productionPlan, headSha: git(root, ["rev-parse", `${head}^{commit}`]), treeSha: git(root, ["rev-parse", `${head}^{tree}`]) });
+  } else {
+    verifyFounderActivationInactiveEdgeChanges({
+      entries: changeEntries,
+      baseConfig: git(root, ["show", `${base}:supabase/config.toml`]),
+      headConfig: git(root, ["show", `${head}:supabase/config.toml`]),
+    });
+  }
   let seal = null;
   if (state.sealed) {
     requireValue(Number(process.versions.node.split(".")[0]) === 20, "founder_activation_seal_node20_required");

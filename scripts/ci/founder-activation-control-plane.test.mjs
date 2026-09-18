@@ -65,6 +65,13 @@ test("only the exact independently inactive Founder Live Edge host may cross the
   assert.throws(() => verifyFounderActivationInactiveEdgeChanges({ entries, baseConfig: "before\nafter\n", headConfig: `before\n${block}after = true\n` }), /edge_config_scope_invalid/);
 });
 
+test("canonical descendants use the source-aware inactive Founder Live verifier", () => {
+  const source = readFileSync(new URL("founder-activation-control-plane.mjs", import.meta.url), "utf8");
+  assert.match(source, /canonicalDescendant && runtimeEntries\.length > 0/);
+  assert.match(source, /verifySourceAwareInactiveFounderLiveScope/);
+  assert.match(source, /productionState\.supabase\.shippedSourceSha/);
+});
+
 for (const [name, mutate, expected] of [
   ["client claims", (value) => { value.manifest.authority.clientClaimsAccepted = true; }, /client_authority_open/],
   ["email authority", (value) => { value.manifest.authority.emailAuthorizationAccepted = true; }, /client_authority_open/],
