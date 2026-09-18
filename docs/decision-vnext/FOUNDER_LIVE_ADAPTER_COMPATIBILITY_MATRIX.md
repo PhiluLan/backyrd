@@ -11,4 +11,4 @@
 | Continuation | v13 Decision ID | Cross-Engine fail-closed | implementiert |
 | Product Ranking | keine Authority | `NOT_CONFIGURED` | unverändert |
 | Durable Operations | autorisierte Idempotency-/Rate-Limit-Ports | keine prozesslokalen Stores | NO-GO: Ports fehlen |
-| Production | keine Authority | permanenter PII-freier 503-Einstieg; keine Environment-Aktivierung | SOURCE_ONLY_NO_GO |
+| Production | keine Authority | keine Edge Function, keine Environment-Aktivierung | SOURCE_ONLY_NO_GO |

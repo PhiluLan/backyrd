@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runPhase1Decision } from "../dist/index.js";
@@ -30,11 +30,9 @@ test("sandbox and deterministic core have no Supabase, network, production crede
   assert.doesNotMatch(production, /hjgcrrzfjchzqoegcywn|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
 });
 
-test("Founder Live edge remains an unactivatable fail-closed NO-GO", () => {
-  const edge = readFileSync(resolve(fileURLToPath(new URL("../../..", import.meta.url)), "supabase/functions/decision-founder-live/index.ts"), "utf8");
-  assert.match(edge, /CANONICAL_PRODUCTION_PORTS_NOT_CONFIGURED/);
-  assert.match(edge, /status:\s*503/);
-  assert.doesNotMatch(edge, /Deno\.env|getenv|SUPABASE_|createFounderLiveProductionPorts/);
+test("Founder Live remains source-only with no deployable Edge entry", () => {
+  const edge = resolve(fileURLToPath(new URL("../../..", import.meta.url)), "supabase/functions/decision-founder-live/index.ts");
+  assert.equal(existsSync(edge), false);
 });
 
 test("decision executes with network disabled", () => {
