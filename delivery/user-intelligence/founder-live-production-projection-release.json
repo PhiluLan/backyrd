@@ -1,0 +1,40 @@
+{
+  "contractVersion": "backyrd.user-intelligence.production-projection-port-report@1.0",
+  "canonicalBaseSha": "96f648cebbfdfd854aec688613ddbedb447c25bb",
+  "canonicalBaseTree": "4321f018f04056f14aea6c7d59c4cb21a88a9a44",
+  "releaseId": "backyrd-user-intelligence-production-projection-port-1",
+  "releaseHash": "ce5d281586ca7ee9229a18b545de2910c593a4cf95556c8cdae9708c7e10c506",
+  "trustAnchorId": "backyrd-user-intelligence-production-projection-port-anchor-1",
+  "trustAnchorHash": "a9f5a42bdd1ebf472195f4ae227a57b8f39db1be441d8321d863eb7cbe40ac24",
+  "projectBindingHash": "f48ac4ff21838fdb725a47e490f2da337de9c182c213a56b94be45fd3b5b84b8",
+  "sourceSetHash": "a10d210b79ff4d4cbb7ce5efe2fe67dfef7c292a3d74bc9f68c79d50e78f2d40",
+  "artifactHash": "1310936d18ae75be89825df36e4953ef06fe42608a02f77a67fa45c109fe54f8",
+  "purpose": "FOUNDER_LIVE_RELEVANT_USER_PROJECTION",
+  "noWriteProofHash": "4fd2b2de967b918923aa55f456d5d3653f27d3db7e3de8094f557a6f59eb8052",
+  "personalIdentifiersIncluded": false,
+  "privateMetadataIncluded": false,
+  "rawEvidenceIncluded": false,
+  "syntheticOrEmptyFallback": false,
+  "flags": {
+    "runtimeActivated": false,
+    "deploymentAuthorized": false,
+    "executionAuthorized": false,
+    "learningAuthorized": false,
+    "persistenceAuthorized": false,
+    "writebackAuthorized": false,
+    "rankingAuthorized": false,
+    "eligibilityAuthorized": false,
+    "shadowTrafficAuthorized": false,
+    "syntheticFallbackAuthorized": false,
+    "emptyFallbackAuthorized": false
+  },
+  "productionPlan": {
+    "migrations": [],
+    "functions": [],
+    "authChanges": [],
+    "productWiring": false,
+    "runtimeDeploymentRequired": false,
+    "executionAuthorized": false
+  },
+  "reportHash": "97b14efd44af60af4e4254940b3705c8fb77ca9d2964e1239c4acbbfa755813b"
+}
