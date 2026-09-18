@@ -10,17 +10,17 @@
   "migrations": [
     {
       "path": "supabase/migrations/20260918182831_decision_vnext_product_runtime_v1.sql",
-      "sha256": "18031d32ac5151178a401884ad79e9f09cff24d1ea8c08e951611f85f94b5e18"
+      "sha256": "8fd81ac5cea98819fc4e037621033813193016729139cbea2a7482c480367277"
     }
   ],
   "tests": [
     {
       "path": "supabase/tests/decision_vnext_product_runtime_v1.sql",
-      "sha256": "f48b22b8addb6558a4802287cb470ea363903050920d1a937566bca4ebadcbc7"
+      "sha256": "f1a400b3824fc7dcfa96c7076767fef95c5aaad778e57d4f618bb551609b5d5b"
     }
   ],
   "fingerprints": {
     "publicAclSha256": "50cb7fb40e509275825a23d394ff75d358ed9f57a02e76b01c0722db24a01dba",
-    "applicationSchemaSha256": "d3e2414941d5ac894a1f1a2ed1ed1892776200ebebd8a977f876031761503fcc"
+    "applicationSchemaSha256": "3b7a5732aa973dea0b6fede379b1f26b0a75432cd81488ffd8aa9b9203fcf719"
   }
 }

@@ -261,23 +261,19 @@ select public.backyrd_decision_vnext_product_learning_append_v1(body,b.release_h
 from product_learning_body cross join product_runtime_binding b;
 select pg_temp.product_runtime_assert((select value->>'status'='PERSISTED' from product_learning_created),'exact Product learning record persists');
 select pg_temp.product_runtime_assert(
-  (select count(*)=1 from public.backyrd_memory_bridge_outbox_v1
-   where source_type='product_decision_vnext' and canonical_event_type='decision_requested'
-     and source_metadata#>>'{productRecord,eventType}'='decision_requested'
-     and source_metadata->>'mapping'='exact_product_decision_record_v1'),
-  'N2 outbox stores exact Product event without legacy translation'
+  (select count(*)=1 from decision_vnext_private.product_learning_records_v1
+   where event_type='decision_requested' and record->>'eventType'='decision_requested'
+     and record_bytes=(select body from product_learning_body)),
+  'isolated Product store preserves the exact Product event bytes'
 );
 select pg_temp.product_runtime_assert(
-  not exists(select 1 from public.backyrd_memory_bridge_outbox_v1 where source_type='product_decision_vnext'
-    and canonical_event_type in ('decision_request','candidate_exposed','spot_opened','saved','not_there')),
-  'Product append creates no legacy event mapping'
+  (select count(*)=22 from public.backyrd_memory_event_types_v1)
+    and not exists(select 1 from public.backyrd_memory_source_adapters_v1 where source_table='decision_vnext_product_learning'),
+  'Product append leaves the frozen N2 registry and adapters unchanged'
 );
 select pg_temp.product_runtime_assert(
-  (select count(*)=9 from public.backyrd_memory_event_types_v1
-   where event_type=any(array['decision_requested','candidate_impression','candidate_opened','candidate_saved','alternative_requested','candidate_rejected','explicit_feedback','outcome_confirmed','event_correction'])
-     and contract_version='backyrd.user-intelligence.product-decision-event@1.0'
-     and taste_event_type is null and direction=0 and not learning_eligible and not pattern_eligible),
-  'all nine Product events remain exact and generic-learning neutral'
+  not exists(select 1 from public.backyrd_memory_bridge_outbox_v1 where source_type='product_decision_vnext'),
+  'Product append creates no Legacy/N2 outbox row'
 );
 select pg_temp.product_runtime_assert(
   (select public.backyrd_decision_vnext_product_learning_append_v1(body,b.release_hash,b.artifact_hash,b.source_set_hash,1)->>'status'='REPLAYED'

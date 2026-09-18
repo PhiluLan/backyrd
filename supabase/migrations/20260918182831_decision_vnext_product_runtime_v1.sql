@@ -309,73 +309,52 @@ begin
 end;
 $$;
 
--- Exact Product events are admitted as themselves. None is renamed to a legacy
--- event, and generic learning stays disabled until its exact consumer exists.
-insert into public.backyrd_memory_event_types_v1(
-  event_type,event_class,evidence_family,retention_class,taste_event_type,
-  direction,learning_eligible,pattern_eligible,outcome_support,contract_version
-) values
- ('decision_requested','REQUEST','product_decision_request','REQUEST_MINIMIZED',null,0,false,false,false,'backyrd.user-intelligence.product-decision-event@1.0'),
- ('candidate_impression','EXPOSURE','product_candidate_impression','EXPOSURE',null,0,false,false,false,'backyrd.user-intelligence.product-decision-event@1.0'),
- ('candidate_opened','WEAK_INTERACTION','product_candidate_opened','WEAK_INTERACTION',null,0,false,false,false,'backyrd.user-intelligence.product-decision-event@1.0'),
- ('candidate_saved','DELIBERATE_INTENT','product_candidate_saved','DELIBERATE_INTENT',null,0,false,false,false,'backyrd.user-intelligence.product-decision-event@1.0'),
- ('alternative_requested','REQUEST','product_alternative_request','REQUEST_MINIMIZED',null,0,false,false,false,'backyrd.user-intelligence.product-decision-event@1.0'),
- ('candidate_rejected','WEAK_INTERACTION','product_contextual_rejection','WEAK_INTERACTION',null,0,false,false,false,'backyrd.user-intelligence.product-decision-event@1.0'),
- ('explicit_feedback','EXPLICIT_FEEDBACK','product_explicit_feedback','EXPLICIT_FEEDBACK',null,0,false,false,false,'backyrd.user-intelligence.product-decision-event@1.0'),
- ('outcome_confirmed','OUTCOME','product_confirmed_outcome','OUTCOME',null,0,false,false,true,'backyrd.user-intelligence.product-decision-event@1.0'),
- ('event_correction','CORRECTION','product_event_correction','CORRECTION',null,0,false,false,false,'backyrd.user-intelligence.product-decision-event@1.0')
-on conflict(event_type) do nothing;
+-- Product learning is deliberately isolated from the frozen N2 Memory event
+-- registry and bridge. The exact Product vocabulary is enforced here without
+-- relabeling, registering, or feeding any Legacy/N2 consumer.
+create table decision_vnext_private.product_learning_records_v1 (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  event_type text not null check (event_type in (
+    'decision_requested','candidate_impression','candidate_opened','candidate_saved',
+    'alternative_requested','candidate_rejected','explicit_feedback','outcome_confirmed','event_correction'
+  )),
+  event_id text not null check (length(btrim(event_id)) between 1 and 240),
+  idempotency_key text not null check (length(btrim(idempotency_key)) between 1 and 240),
+  occurred_at timestamptz not null,
+  record_bytes text not null check (octet_length(record_bytes) between 2 and 65536),
+  record jsonb not null check (jsonb_typeof(record)='object'),
+  record_hash text not null check (record_hash ~ '^[0-9a-f]{64}$'),
+  release_hash text not null check (release_hash ~ '^[0-9a-f]{64}$'),
+  artifact_hash text not null check (artifact_hash ~ '^[0-9a-f]{64}$'),
+  source_set_hash text not null check (source_set_hash ~ '^[0-9a-f]{64}$'),
+  generation bigint not null check (generation > 0),
+  created_at timestamptz not null default clock_timestamp(),
+  unique(user_id,idempotency_key),
+  unique(user_id,event_id)
+);
+alter table decision_vnext_private.product_learning_records_v1 enable row level security;
+revoke all on table decision_vnext_private.product_learning_records_v1 from public, anon, authenticated, service_role;
 
-do $$
+create function decision_vnext_private.reject_product_learning_mutation_v1()
+returns trigger language plpgsql security definer set search_path = '' as $$
 begin
-  if (select count(*) from public.backyrd_memory_event_types_v1
-      where event_type=any(array['decision_requested','candidate_impression','candidate_opened','candidate_saved','alternative_requested','candidate_rejected','explicit_feedback','outcome_confirmed','event_correction'])
-        and contract_version='backyrd.user-intelligence.product-decision-event@1.0'
-        and taste_event_type is null and direction=0 and not learning_eligible and not pattern_eligible)<>9 then
-    raise exception 'decision_vnext_product_event_catalog_drift' using errcode='22023';
+  if tg_op='DELETE' and current_setting('backyrd.decision_vnext_product_lifecycle_purge',true)='v1' then
+    return old;
   end if;
+  raise exception 'decision_vnext_product_learning_immutable' using errcode='55000';
 end;
 $$;
-
-insert into public.backyrd_memory_source_adapters_v1(
-  source_table,source_event_type,canonical_event_type,mapping_status,notes,adapter_version
-) select 'decision_vnext_product_learning',event_type,event_type,'SUPPORTED',
-  'Identity mapping only. Exact Product record remains in outbox metadata; no legacy semantic translation.',
-  'backyrd-product-decision-learning-outbox@1.0'
-from unnest(array['decision_requested','candidate_impression','candidate_opened','candidate_saved','alternative_requested','candidate_rejected','explicit_feedback','outcome_confirmed','event_correction']) event_type
-on conflict(source_table,source_event_type) do nothing;
-
-do $$
-begin
-  if (select count(*) from public.backyrd_memory_source_adapters_v1
-      where source_table='decision_vnext_product_learning'
-        and source_event_type=canonical_event_type
-        and mapping_status='SUPPORTED'
-        and adapter_version='backyrd-product-decision-learning-outbox@1.0')<>9 then
-    raise exception 'decision_vnext_product_source_adapter_drift' using errcode='22023';
-  end if;
-end;
-$$;
-
-alter table public.backyrd_memory_bridge_outbox_v1
-  drop constraint if exists backyrd_memory_bridge_outbox_v1_source_type_check;
-alter table public.backyrd_memory_bridge_outbox_v1
-  add constraint backyrd_memory_bridge_outbox_v1_source_type_check check(source_type in (
-    'decision_session','decision_impression','analytics_event','product_action','favorite',
-    'reservation','smart_review','standard_review','product_decision_vnext'
-  ));
-
-create unique index backyrd_memory_bridge_product_learning_idempotency_v1
-  on public.backyrd_memory_bridge_outbox_v1(user_id,((source_metadata->'productRecord')->>'idempotencyKey'))
-  where source_type='product_decision_vnext';
-create unique index backyrd_memory_bridge_product_learning_event_v1
-  on public.backyrd_memory_bridge_outbox_v1(user_id,((source_metadata->'productRecord')->>'eventId'))
-  where source_type='product_decision_vnext';
+create trigger decision_vnext_product_learning_immutable_v1
+before update or delete on decision_vnext_private.product_learning_records_v1
+for each row execute function decision_vnext_private.reject_product_learning_mutation_v1();
+revoke all on function decision_vnext_private.reject_product_learning_mutation_v1()
+from public, anon, authenticated, service_role;
 
 create function public.backyrd_decision_vnext_product_learning_append_v1(
   p_record_bytes text,p_release_hash text,p_artifact_hash text,p_source_set_hash text,p_generation bigint
 ) returns jsonb language plpgsql security definer set search_path = '' as $$
-declare v_record jsonb;v_control jsonb;v_user uuid;v_existing public.backyrd_memory_bridge_outbox_v1%rowtype;
+declare v_record jsonb;v_control jsonb;v_user uuid;v_existing decision_vnext_private.product_learning_records_v1%rowtype;
   v_event_type text;v_event_id text;v_idempotency_key text;v_record_hash text;v_occurred_at timestamptz;
   v_candidate_required boolean;v_allowed_keys text[]:=array[
     'contractVersion','eventVersion','eventId','idempotencyKey','eventType','purpose','userId',
@@ -442,33 +421,27 @@ begin
   end if;
   v_record:=v_record||jsonb_build_object('recordHash',v_record_hash);
   if v_event_type='event_correction' and not exists(
-    select 1 from public.backyrd_memory_bridge_outbox_v1 o
-    where o.source_type='product_decision_vnext' and o.user_id=v_user
-      and o.source_metadata#>>'{productRecord,eventId}'=v_record->>'targetEventId'
-      and o.source_metadata#>>'{productRecord,recordHash}'=v_record->>'targetRecordHash'
+    select 1 from decision_vnext_private.product_learning_records_v1 o
+    where o.user_id=v_user and o.event_id=v_record->>'targetEventId'
+      and o.record_hash=v_record->>'targetRecordHash'
   ) then raise exception 'product_learning_correction_target_invalid' using errcode='23503'; end if;
   perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_user::text,0));
-  select * into v_existing from public.backyrd_memory_bridge_outbox_v1 o
-   where o.source_type='product_decision_vnext' and o.user_id=v_user
-     and (o.source_metadata#>>'{productRecord,idempotencyKey}'=v_idempotency_key
-          or o.source_metadata#>>'{productRecord,eventId}'=v_event_id)
+  select * into v_existing from decision_vnext_private.product_learning_records_v1 o
+   where o.user_id=v_user and (o.idempotency_key=v_idempotency_key or o.event_id=v_event_id)
    order by o.created_at limit 1 for update;
   if found then
-    if v_existing.source_metadata#>>'{productRecord,idempotencyKey}'=v_idempotency_key
-       and v_existing.source_metadata#>>'{productRecord,eventId}'=v_event_id
-       and v_existing.source_metadata#>>'{productRecord,recordHash}'=v_record_hash
-       and v_existing.source_metadata->>'productRecordBytes'=p_record_bytes then
+    if v_existing.idempotency_key=v_idempotency_key and v_existing.event_id=v_event_id
+       and v_existing.record_hash=v_record_hash and v_existing.record_bytes=p_record_bytes then
       return jsonb_build_object('status','REPLAYED','eventId',v_event_id,'recordHash',v_record_hash);
     end if;
     raise exception 'product_learning_idempotency_conflict' using errcode='23505';
   end if;
-  insert into public.backyrd_memory_bridge_outbox_v1(
-    source_type,source_id,semantic_version,user_id,canonical_event_type,occurred_at,
-    session_id,decision_id,spot_id,exposure_rank,source_metadata
+  insert into decision_vnext_private.product_learning_records_v1(
+    user_id,event_type,event_id,idempotency_key,occurred_at,record_bytes,record,record_hash,
+    release_hash,artifact_hash,source_set_hash,generation
   ) values (
-    'product_decision_vnext',v_event_id,'backyrd.user-intelligence.product-decision-event@1.0',
-    v_user,v_event_type,v_occurred_at,v_record->>'sessionId',null,null,null,
-    jsonb_build_object('mapping','exact_product_decision_record_v1','productRecord',v_record,'productRecordBytes',p_record_bytes,'releaseHash',p_release_hash,'artifactHash',p_artifact_hash,'sourceSetHash',p_source_set_hash,'generation',p_generation)
+    v_user,v_event_type,v_event_id,v_idempotency_key,v_occurred_at,p_record_bytes,v_record,v_record_hash,
+    p_release_hash,p_artifact_hash,p_source_set_hash,p_generation
   );
   return jsonb_build_object('status','PERSISTED','eventId',v_event_id,'recordHash',v_record_hash);
 end;
@@ -690,7 +663,7 @@ begin
   perform set_config('backyrd.decision_vnext_product_purge','v1',true);
   perform set_config('backyrd.decision_vnext_product_lifecycle_purge','v1',true);
   delete from decision_vnext_private.product_idempotency_records_v1 where auth_user_id=p_user_id;
-  delete from public.backyrd_memory_bridge_outbox_v1 where user_id=p_user_id and source_type='product_decision_vnext';
+  delete from decision_vnext_private.product_learning_records_v1 where user_id=p_user_id;
 end;
 $$;
 
