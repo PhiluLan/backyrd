@@ -22,7 +22,7 @@ const WEEK3_CANONICAL_COMPLETION_TREE = "9e74daabc42f86327291b781c43b41502f2579a
 const WEEK3_CANONICAL_COMPLETION_PARENTS = ["d3f151901d8d284469968323ac8edc1e287fdf59", "29dc817de4a248d75d69f6ef1ad881b5eb328028"];
 const WEEK3_SEALED_PATHS = [
   "delivery/integration/week3-decision-evidence.json",
-  "delivery/integration/week3-internal-prodlike-controls.json",
+  "delivery/integration/week3-internal-controls.json",
   "delivery/integration/week3-internal-prodlike-manifest.json",
   "delivery/integration/week3-post-deploy-evidence.json",
   "delivery/integration/week3-rehearsal-evidence.json",
@@ -30,6 +30,10 @@ const WEEK3_SEALED_PATHS = [
   "delivery/integration/week3-status.json",
 ];
 const WEEK3_SEAL_PATHS = new Set(["delivery/integration/week3-decision-evidence.json", "delivery/integration/week3-post-deploy-evidence.json", "delivery/integration/week3-rehearsal-evidence.json", "delivery/integration/week3-shared-artifact.json", "delivery/integration/week3-status.json"]);
+const WEEK3_DESCENDANT_EVENT_BY_MODE = Object.freeze({
+  CANONICAL_DESCENDANT_PR: "pull_request",
+  CANONICAL_DESCENDANT_MAIN: "push",
+});
 
 export function verifyWeek3IdentityMode({ mode, canonicalBaseSha, baseSha, headSha, checkoutSha, canonicalMainSha, headTreeSha, checkoutTreeSha, canonicalMainTreeSha, mergeParents = [], candidateHeadSha, candidateTreeSha, functionalHeadSha, sealCommitCount, sealPaths }) {
   requireValue(WEEK3_MODES.has(mode), `week3_identity_mode_invalid:${mode ?? "missing"}`);
@@ -94,20 +98,75 @@ export function verifyWeek3CanonicalDescendantIdentity(input) {
   return { mode, canonicalCompletionSha: completionSha, baseSha, headSha, checkoutSha, canonicalMainSha, headTreeSha, checkoutTreeSha, mergeParents: [...mergeParents], sealedPaths: [...WEEK3_SEALED_PATHS] };
 }
 
-export function resolveWeek3CanonicalDescendantIdentity({ root = ROOT, mode, baseRef, headRef, checkoutRef = "HEAD", canonicalMainRef = "origin/main" }) {
+/**
+ * CI execution boundary for canonical descendants. The lower-level verifier remains
+ * reusable for tuple tests, while this boundary requires the complete GitHub identity:
+ * event, base, head, merge checkout/main, trees and every sealed evidence blob.
+ */
+export function verifyWeek3CanonicalDescendantExecution(input) {
+  const identity = verifyWeek3CanonicalDescendantIdentity(input);
+  const {
+    eventName, baseTreeSha, canonicalMainTreeSha, sealedBlobBindings,
+    baseSha, headSha, checkoutSha, canonicalMainSha, headTreeSha, checkoutTreeSha,
+    mergeParents, secondParentTreeSha,
+  } = input;
+  requireValue(eventName === WEEK3_DESCENDANT_EVENT_BY_MODE[input.mode], `week3_descendant_event_mode_mismatch:${eventName ?? "missing"}`);
+  for (const [name, value] of Object.entries({ baseTreeSha, canonicalMainTreeSha })) {
+    requireValue(SHA.test(value), `week3_descendant_sha_invalid:${name}`);
+  }
+  requireValue(Array.isArray(sealedBlobBindings) && sealedBlobBindings.length === WEEK3_SEALED_PATHS.length, "week3_descendant_sealed_binding_set_invalid");
+  const seenPaths = new Set();
+  for (const binding of sealedBlobBindings) {
+    requireValue(binding && WEEK3_SEALED_PATHS.includes(binding.path) && !seenPaths.has(binding.path), `week3_descendant_sealed_binding_invalid:${binding?.path ?? "missing"}`);
+    seenPaths.add(binding.path);
+    const hashes = [binding.completionBlobSha, binding.baseBlobSha, binding.headBlobSha, binding.checkoutBlobSha, binding.canonicalMainBlobSha];
+    requireValue(hashes.every((value) => SHA.test(value)), `week3_descendant_sealed_blob_invalid:${binding.path}`);
+    requireValue(new Set(hashes).size === 1, `week3_descendant_sealed_blob_drift:${binding.path}`);
+  }
+  if (input.mode === "CANONICAL_DESCENDANT_PR") {
+    requireValue(baseSha === canonicalMainSha && baseTreeSha === canonicalMainTreeSha, "week3_descendant_pr_base_main_mismatch");
+    requireValue(checkoutSha !== headSha, "week3_descendant_pr_merge_checkout_required");
+    requireValue(mergeParents.length === 2 && mergeParents[0] === baseSha && mergeParents[1] === headSha, "week3_descendant_pr_merge_parents_mismatch");
+    requireValue(checkoutTreeSha === headTreeSha, "week3_descendant_pr_merge_tree_mismatch");
+  } else {
+    requireValue(headSha === checkoutSha && checkoutSha === canonicalMainSha, "week3_descendant_main_checkout_mismatch");
+    requireValue(headTreeSha === checkoutTreeSha && checkoutTreeSha === canonicalMainTreeSha, "week3_descendant_main_checkout_tree_mismatch");
+    requireValue(mergeParents.length === 2 && mergeParents[0] === baseSha, "week3_descendant_main_merge_parents_mismatch");
+    requireValue(SHA.test(mergeParents[1]) && secondParentTreeSha === headTreeSha && checkoutTreeSha === headTreeSha, "week3_descendant_main_merge_tree_mismatch");
+  }
+  return {
+    ...identity,
+    eventName,
+    baseTreeSha,
+    canonicalMainTreeSha,
+    sealedBlobBindings: sealedBlobBindings.map(({ path, completionBlobSha }) => ({ path, blobSha: completionBlobSha })),
+    identityBindingHash: sha256({
+      mode: input.mode, eventName, completionSha: input.completionSha, completionTree: input.completionTree,
+      completionParents: input.completionParents, baseSha, baseTreeSha, headSha, headTreeSha,
+      checkoutSha, checkoutTreeSha, canonicalMainSha, canonicalMainTreeSha, mergeParents,
+      sealedBlobs: sealedBlobBindings.map(({ path, completionBlobSha }) => ({ path, blobSha: completionBlobSha })),
+    }),
+  };
+}
+
+export function resolveWeek3CanonicalDescendantIdentity({ root = ROOT, mode, eventName, baseRef, headRef, checkoutRef = "HEAD", canonicalMainRef = "origin/main" }) {
   const baseSha = git(root, ["rev-parse", `${baseRef}^{commit}`]);
   const headSha = git(root, ["rev-parse", `${headRef}^{commit}`]);
   const checkoutSha = git(root, ["rev-parse", `${checkoutRef}^{commit}`]);
   const mergeParents = git(root, ["show", "-s", "--format=%P", checkoutSha]).split(" ").filter(Boolean);
-  return verifyWeek3CanonicalDescendantIdentity({
+  const blobAt = (ref, path) => git(root, ["rev-parse", `${ref}:${path}`]);
+  return verifyWeek3CanonicalDescendantExecution({
     mode,
+    eventName,
     completionSha: WEEK3_CANONICAL_COMPLETION_SHA,
     completionTree: git(root, ["rev-parse", `${WEEK3_CANONICAL_COMPLETION_SHA}^{tree}`]),
     completionParents: git(root, ["show", "-s", "--format=%P", WEEK3_CANONICAL_COMPLETION_SHA]).split(" ").filter(Boolean),
     baseSha,
+    baseTreeSha: git(root, ["rev-parse", `${baseSha}^{tree}`]),
     headSha,
     checkoutSha,
     canonicalMainSha: git(root, ["rev-parse", `${canonicalMainRef}^{commit}`]),
+    canonicalMainTreeSha: git(root, ["rev-parse", `${canonicalMainRef}^{tree}`]),
     headTreeSha: git(root, ["rev-parse", `${headSha}^{tree}`]),
     checkoutTreeSha: git(root, ["rev-parse", `${checkoutSha}^{tree}`]),
     mergeParents,
@@ -115,7 +174,48 @@ export function resolveWeek3CanonicalDescendantIdentity({ root = ROOT, mode, bas
     changedSealedPaths: git(root, ["diff", "--name-only", `${WEEK3_CANONICAL_COMPLETION_SHA}..${headSha}`, "--", ...WEEK3_SEALED_PATHS]).split("\n").filter(Boolean),
     completionIsAncestorOfBase: git(root, ["merge-base", "--is-ancestor", WEEK3_CANONICAL_COMPLETION_SHA, baseSha]) === "",
     baseIsAncestorOfHead: git(root, ["merge-base", "--is-ancestor", baseSha, headSha]) === "",
+    sealedBlobBindings: WEEK3_SEALED_PATHS.map((path) => ({
+      path,
+      completionBlobSha: blobAt(WEEK3_CANONICAL_COMPLETION_SHA, path),
+      baseBlobSha: blobAt(baseSha, path),
+      headBlobSha: blobAt(headSha, path),
+      checkoutBlobSha: blobAt(checkoutSha, path),
+      canonicalMainBlobSha: blobAt(canonicalMainRef, path),
+    })),
   });
+}
+
+export function runWeek3CanonicalDescendantIdentityRegressions() {
+  const value = (digit) => digit.repeat(40);
+  const sealed = () => WEEK3_SEALED_PATHS.map((path) => ({ path, completionBlobSha: value("a"), baseBlobSha: value("a"), headBlobSha: value("a"), checkoutBlobSha: value("a"), canonicalMainBlobSha: value("a") }));
+  const tuple = (mode) => ({
+    mode,
+    eventName: mode === "CANONICAL_DESCENDANT_PR" ? "pull_request" : "push",
+    completionSha: WEEK3_CANONICAL_COMPLETION_SHA,
+    completionTree: WEEK3_CANONICAL_COMPLETION_TREE,
+    completionParents: [...WEEK3_CANONICAL_COMPLETION_PARENTS],
+    baseSha: value("1"), baseTreeSha: value("b"), headSha: value("2"), checkoutSha: mode === "CANONICAL_DESCENDANT_PR" ? value("3") : value("2"), canonicalMainSha: mode === "CANONICAL_DESCENDANT_PR" ? value("1") : value("2"),
+    headTreeSha: value("c"), checkoutTreeSha: value("c"), canonicalMainTreeSha: mode === "CANONICAL_DESCENDANT_PR" ? value("b") : value("c"),
+    mergeParents: [value("1"), value("2")], secondParentTreeSha: value("c"), changedSealedPaths: [], completionIsAncestorOfBase: true, baseIsAncestorOfHead: true,
+    sealedBlobBindings: sealed(),
+  });
+  const expectFailure = (input, pattern) => { try { verifyWeek3CanonicalDescendantExecution(input); } catch (error) { requireValue(pattern.test(error.message), `week3_descendant_regression_wrong_failure:${error.message}`); return; } throw new Error("week3_descendant_regression_unexpected_pass"); };
+  const pr = tuple("CANONICAL_DESCENDANT_PR");
+  const main = tuple("CANONICAL_DESCENDANT_MAIN");
+  verifyWeek3CanonicalDescendantExecution(pr);
+  verifyWeek3CanonicalDescendantExecution(main);
+  expectFailure({ ...pr, eventName: "push" }, /event_mode_mismatch/);
+  expectFailure({ ...main, eventName: "pull_request" }, /event_mode_mismatch/);
+  expectFailure({ ...pr, checkoutSha: pr.headSha, mergeParents: [] }, /merge_checkout_required/);
+  expectFailure({ ...pr, mergeParents: [value("9"), pr.headSha] }, /pr_checkout_identity_mismatch|pr_merge_parents_mismatch/);
+  expectFailure({ ...pr, baseTreeSha: value("9") }, /pr_base_main_mismatch/);
+  expectFailure({ ...pr, completionTree: value("9") }, /completion_tree_mismatch/);
+  expectFailure({ ...pr, completionParents: [value("9"), value("2")] }, /completion_parents_mismatch/);
+  expectFailure({ ...pr, sealedBlobBindings: pr.sealedBlobBindings.map((binding, index) => index === 0 ? { ...binding, headBlobSha: value("9") } : binding) }, /sealed_blob_drift/);
+  expectFailure({ ...pr, sealedBlobBindings: pr.sealedBlobBindings.slice(1) }, /sealed_binding_set_invalid/);
+  expectFailure({ ...main, checkoutSha: value("9") }, /main_identity_mismatch|main_checkout_mismatch/);
+  expectFailure({ ...main, secondParentTreeSha: value("9") }, /main_second_parent_mismatch|main_merge_tree_mismatch/);
+  return { status: "GREEN", positiveCases: 2, negativeCases: 11, executionAuthorized: false };
 }
 
 export function verifyWeek3CandidateIdentities(root, manifest) {
@@ -145,12 +245,12 @@ export function verifySecurityDefinerSources(sources) {
   return { unsafeSecurityDefinerCount: 0 };
 }
 
-export function runWeek3Preflight({ root = ROOT, mode, baseSha: requestedBase, headSha: requestedHead, checkoutSha: requestedCheckout = "HEAD", canonicalMainRef = "origin/main", final = false }) {
+export function runWeek3Preflight({ root = ROOT, mode, eventName, baseSha: requestedBase, headSha: requestedHead, checkoutSha: requestedCheckout = "HEAD", canonicalMainRef = "origin/main", final = false }) {
   requireValue(Number(process.versions.node.split(".")[0]) === 20, "week3_preflight_node20_required");
   const documents = loadWeek3Documents(root); const state = validateWeek3Documents(documents);
   verifyWeek3CandidateIdentities(root, documents.manifest);
   const identity = mode === "CANONICAL_DESCENDANT_PR" || mode === "CANONICAL_DESCENDANT_MAIN"
-    ? resolveWeek3CanonicalDescendantIdentity({ root, mode, baseRef: requestedBase, headRef: requestedHead, checkoutRef: requestedCheckout, canonicalMainRef })
+    ? resolveWeek3CanonicalDescendantIdentity({ root, mode, eventName, baseRef: requestedBase, headRef: requestedHead, checkoutRef: requestedCheckout, canonicalMainRef })
     : resolveWeek3IdentityMode({ root, mode, canonicalBaseSha: documents.manifest.canonicalBaseSha, baseRef: requestedBase, headRef: requestedHead, checkoutRef: requestedCheckout, canonicalMainRef, functionalHeadSha: documents.evidence.integrationHeadSha });
   const baseSha = git(root, ["rev-parse", `${requestedBase}^{commit}`]);
   const headSha = git(root, ["rev-parse", `${requestedHead}^{commit}`]);
@@ -200,7 +300,11 @@ export function runWeek3Preflight({ root = ROOT, mode, baseSha: requestedBase, h
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
+    if (process.argv.includes("--identity-regressions")) {
+      process.stdout.write(`${JSON.stringify(runWeek3CanonicalDescendantIdentityRegressions(), null, 2)}\n`);
+      process.exit(0);
+    }
     const args = Object.fromEntries(process.argv.slice(2).reduce((items, value, index, all) => { if (value.startsWith("--") && value !== "--final") items.push([value.slice(2), all[index + 1]]); return items; }, []));
-    process.stdout.write(`${JSON.stringify(runWeek3Preflight({ root: resolve(args.root ?? ROOT), mode: args.mode, baseSha: args["base-sha"], headSha: args["head-sha"], checkoutSha: args["checkout-sha"] ?? "HEAD", canonicalMainRef: args["canonical-main-ref"] ?? "origin/main", final: process.argv.includes("--final") }), null, 2)}\n`);
+    process.stdout.write(`${JSON.stringify(runWeek3Preflight({ root: resolve(args.root ?? ROOT), mode: args.mode, eventName: args["event-name"], baseSha: args["base-sha"], headSha: args["head-sha"], checkoutSha: args["checkout-sha"] ?? "HEAD", canonicalMainRef: args["canonical-main-ref"] ?? "origin/main", final: process.argv.includes("--final") }), null, 2)}\n`);
   } catch (error) { process.stderr.write(`week3_internal_prodlike_preflight_blocked:${error.message}\n`); process.exitCode = 1; }
 }

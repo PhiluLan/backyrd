@@ -516,6 +516,7 @@ jobs:
           WEEK3_EVENT_NAME: ${{ github.event_name }}
           WEEK3_CHECKOUT_SHA: ${{ github.sha }}
         run: |
+          node scripts/ci/week3-internal-prodlike-preflight.mjs --identity-regressions
           WEEK3_CANONICAL_COMPLETION_SHA=9c38946462c5698ee1ff6375d996463254dd829e
           case "$WEEK3_EVENT_NAME" in
             pull_request)
@@ -537,9 +538,11 @@ jobs:
           esac
           node scripts/ci/week3-internal-prodlike-preflight.mjs \
             --mode "$WEEK3_MODE" \
+            --event-name "$WEEK3_EVENT_NAME" \
             --base-sha "${{ needs.classify.outputs.base-sha }}" \
             --head-sha "${{ needs.classify.outputs.head-sha }}" \
             --checkout-sha "$WEEK3_CHECKOUT_SHA" \
+            --canonical-main-ref "${{ github.event.pull_request.base.sha || github.sha }}" \
             --final
 
   risk-gate:
