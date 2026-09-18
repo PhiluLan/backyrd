@@ -48,3 +48,5 @@ export * from "./founder-live-api.js";
 export * from "./founder-live-durable-idempotency.js";
 export * from "./founder-live-durable-rate-limit.js";
 export * from "./founder-live-server-authority.js";
+export * from "./product-decision-contracts.js";
+export * from "./product-decision.js";
