@@ -22,3 +22,4 @@ export * from "./dark-runtime.js";
 export * from "./dark-projection-runtime.js";
 export * from "./internal-allowlisted-projection.js";
 export * from "./founder-live-projection.js";
+export * from "./founder-live-uuid-authority.js";
