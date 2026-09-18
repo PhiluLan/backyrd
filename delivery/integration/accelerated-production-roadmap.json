@@ -1,7 +1,7 @@
 {
   "contractVersion": "backyrd.accelerated-production-roadmap@1.0",
   "frozenAt": "2026-09-17",
-  "canonicalBaseSha": "9c38946462c5698ee1ff6375d996463254dd829e",
+  "canonicalBaseSha": "f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6",
   "executionAuthorized": false,
   "invariants": [
     "NO_PRODUCTION_ACTION_WITHOUT_EXPLICIT_SEPARATE_AUTHORITY",

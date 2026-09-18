@@ -2,7 +2,7 @@
 
 - Status: Accepted architecture; implementation candidate is YELLOW until exact World, User, and Decision follow-up candidates are sealed.
 - Date: 2026-09-17
-- Canonical base: `9c38946462c5698ee1ff6375d996463254dd829e`
+- Canonical Integration base: `f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6`
 - Production authority: none
 
 ## Decision

@@ -21,7 +21,7 @@ test("partial and fabricated domain bindings fail closed", () => {
 });
 
 test("PR_CANDIDATE and POST_MERGE_MAIN identities are disjoint and exact", () => {
-  const base = "9c38946462c5698ee1ff6375d996463254dd829e"; const candidate = sha("a"); const candidateTree = tree("b"); const merge = sha("c");
+  const base = "f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6"; const candidate = sha("a"); const candidateTree = tree("b"); const merge = sha("c");
   assert.equal(verifyFounderIdentityMode({ mode: "PR_CANDIDATE", baseSha: base, headSha: candidate, checkoutSha: candidate, mainSha: base, headTree: candidateTree, checkoutTree: candidateTree, candidateHead: candidate, candidateTree, parents: [] }), true);
   assert.equal(verifyFounderIdentityMode({ mode: "POST_MERGE_MAIN", baseSha: base, headSha: merge, checkoutSha: merge, mainSha: merge, headTree: candidateTree, checkoutTree: candidateTree, candidateHead: candidate, candidateTree, parents: [base, candidate] }), true);
   assert.throws(() => verifyFounderIdentityMode({ mode: "POST_MERGE_MAIN", baseSha: base, headSha: merge, checkoutSha: merge, mainSha: merge, headTree: candidateTree, checkoutTree: candidateTree, candidateHead: candidate, candidateTree, parents: [candidate, base] }), /parents_mismatch/);

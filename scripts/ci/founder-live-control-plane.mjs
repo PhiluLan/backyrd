@@ -9,8 +9,8 @@ import { buildFounderLiveArtifact } from "./founder-live-artifact.mjs";
 import { verifyFounderLiveBinding } from "./founder-live-binding.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
-const BASE = "9c38946462c5698ee1ff6375d996463254dd829e";
-const BASE_TREE = "9e74daabc42f86327291b781c43b41502f2579a8";
+const BASE = "f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6";
+const BASE_TREE = "97e2a09a776a989effbd2aa8a3a5591fa98de4e4";
 const SHA = /^[0-9a-f]{40}$/; const HASH = /^[0-9a-f]{64}$/;
 const SEAL_PATHS = new Set(["delivery/integration/founder-live-status.json", "delivery/integration/founder-live-post-deploy-evidence.json", "delivery/integration/founder-live-production-plan.json", "delivery/integration/founder-live-rehearsal-evidence.json", "delivery/integration/founder-live-shared-artifact.json"]);
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] }).trim();
@@ -29,14 +29,14 @@ export function validateFounderLiveDocuments({ roadmap, matrix, manifest, status
   requireValue(manifest.executionAuthorized === false && manifest.productionActivationAuthorized === false, "founder_live_authority_open");
   requireValue(manifest.identityModes.join(",") === "PR_CANDIDATE,POST_MERGE_MAIN", "founder_live_identity_modes_invalid");
   requireValue(manifest.domainCandidates.map(({ track }) => track).join(",") === "WORLD,USER,DECISION", "founder_live_domain_order_invalid");
-  const bound = manifest.domainCandidates.filter(({ headSha }) => headSha);
+  const bound = manifest.domainCandidates.filter(({ canonicalMergeSha }) => canonicalMergeSha);
   for (const candidate of manifest.domainCandidates) {
-    const values = [candidate.pr, candidate.baseSha, candidate.headSha, candidate.treeSha, candidate.patchId, candidate.contractHash, candidate.artifactHash];
+    const values = [candidate.pr, candidate.approvedBaseSha, candidate.approvedHeadSha, candidate.approvedTreeSha, candidate.approvedPatchId, candidate.canonicalHeadSha, candidate.canonicalMergeSha, candidate.canonicalTreeSha, candidate.mergeParents, candidate.contractHash, candidate.artifactHash];
     const populated = values.filter((value) => value !== null).length;
     requireValue(populated === 0 || populated === values.length, `founder_live_partial_candidate:${candidate.track}`);
     if (populated) {
-      requireValue(Number.isInteger(candidate.pr) && candidate.pr > 0 && candidate.baseSha === BASE && SHA.test(candidate.headSha) && SHA.test(candidate.treeSha) && SHA.test(candidate.patchId) && HASH.test(candidate.contractHash) && HASH.test(candidate.artifactHash), `founder_live_candidate_identity_invalid:${candidate.track}`);
-      requireValue(candidate.status === "BOUND_VERIFIED", `founder_live_candidate_status_invalid:${candidate.track}`);
+      requireValue(Number.isInteger(candidate.pr) && candidate.pr > 0 && SHA.test(candidate.approvedBaseSha) && SHA.test(candidate.approvedHeadSha) && SHA.test(candidate.approvedTreeSha) && SHA.test(candidate.approvedPatchId) && SHA.test(candidate.canonicalHeadSha) && SHA.test(candidate.canonicalMergeSha) && SHA.test(candidate.canonicalTreeSha) && candidate.mergeParents?.length === 2 && candidate.mergeParents.every((value) => SHA.test(value)) && HASH.test(candidate.contractHash) && HASH.test(candidate.artifactHash), `founder_live_candidate_identity_invalid:${candidate.track}`);
+      requireValue(candidate.status === "CANONICAL_MERGE_VERIFIED", `founder_live_candidate_status_invalid:${candidate.track}`);
     }
     else requireValue(candidate.status === "AWAITING_DOMAIN_PR", `founder_live_candidate_status_invalid:${candidate.track}`);
   }
@@ -84,12 +84,16 @@ export function runFounderLivePreflight({ root = ROOT, base = BASE, head = "HEAD
   requireValue(git(root, ["merge-base", "--is-ancestor", BASE, head]) === "", "founder_live_candidate_not_descendant");
   const documents = { roadmap: load(root, "delivery/integration/accelerated-production-roadmap.json"), matrix: load(root, "delivery/integration/dependency-ownership-matrix.json"), manifest: load(root, "delivery/integration/founder-live-manifest.json"), status: load(root, "delivery/integration/founder-live-status.json") };
   const state = validateFounderLiveDocuments(documents); const binding = verifyFounderLiveBinding(root);
-  for (const candidate of documents.manifest.domainCandidates.filter(({ headSha }) => headSha)) {
-    requireValue(git(root, ["rev-parse", `${candidate.headSha}^{commit}`]) === candidate.headSha, `founder_live_candidate_commit_missing:${candidate.track}`);
-    requireValue(git(root, ["rev-parse", `${candidate.headSha}^{tree}`]) === candidate.treeSha, `founder_live_candidate_tree_mismatch:${candidate.track}`);
-    requireValue(git(root, ["merge-base", "--is-ancestor", candidate.headSha, head]) === "", `founder_live_candidate_not_merged:${candidate.track}`);
-    const patchId = execFileSync("git", ["patch-id", "--stable"], { cwd: root, encoding: "utf8", input: execFileSync("git", ["diff", `${candidate.baseSha}..${candidate.headSha}`], { cwd: root, maxBuffer: 50 * 1024 * 1024 }), maxBuffer: 50 * 1024 * 1024 }).trim().split(" ")[0];
-    requireValue(patchId === candidate.patchId, `founder_live_candidate_patch_mismatch:${candidate.track}`);
+  for (const candidate of documents.manifest.domainCandidates.filter(({ canonicalMergeSha }) => canonicalMergeSha)) {
+    for (const key of ["approvedHeadSha", "canonicalHeadSha", "canonicalMergeSha"]) requireValue(git(root, ["rev-parse", `${candidate[key]}^{commit}`]) === candidate[key], `founder_live_candidate_commit_missing:${candidate.track}:${key}`);
+    requireValue(git(root, ["rev-parse", `${candidate.approvedHeadSha}^{tree}`]) === candidate.approvedTreeSha, `founder_live_approved_tree_mismatch:${candidate.track}`);
+    requireValue(git(root, ["rev-parse", `${candidate.canonicalMergeSha}^{tree}`]) === candidate.canonicalTreeSha, `founder_live_canonical_tree_mismatch:${candidate.track}`);
+    requireValue(git(root, ["show", "-s", "--format=%P", candidate.canonicalMergeSha]).split(" ").join(",") === candidate.mergeParents.join(","), `founder_live_canonical_parents_mismatch:${candidate.track}`);
+    requireValue(candidate.mergeParents[1] === candidate.canonicalHeadSha, `founder_live_canonical_head_not_second_parent:${candidate.track}`);
+    requireValue(git(root, ["merge-base", "--is-ancestor", candidate.approvedHeadSha, candidate.canonicalHeadSha]) === "", `founder_live_approved_head_not_in_canonical_head:${candidate.track}`);
+    requireValue(git(root, ["merge-base", "--is-ancestor", candidate.canonicalMergeSha, head]) === "", `founder_live_canonical_merge_not_in_candidate:${candidate.track}`);
+    const patchId = execFileSync("git", ["patch-id", "--stable"], { cwd: root, encoding: "utf8", input: execFileSync("git", ["diff", `${candidate.approvedBaseSha}..${candidate.approvedHeadSha}`], { cwd: root, maxBuffer: 50 * 1024 * 1024 }), maxBuffer: 50 * 1024 * 1024 }).trim().split(" ")[0];
+    requireValue(patchId === candidate.approvedPatchId, `founder_live_candidate_patch_mismatch:${candidate.track}`);
   }
   const changed = git(root, ["diff", "--name-only", `${BASE}..${head}`]).split("\n").filter(Boolean);
   requireValue(!changed.some((path) => path.startsWith("supabase/migrations/") || path.startsWith("supabase/functions/") || path === "supabase/production/auth-config.json"), "founder_live_unexpected_database_or_runtime_change");
@@ -106,10 +110,10 @@ export function runFounderLivePreflight({ root = ROOT, base = BASE, head = "HEAD
     const rebuilt = buildFounderLiveArtifact({ root, source: evidence.functionalHeadSha });
     for (const key of ["contractVersion", "nodeMajor", "sourceSha", "sourceTreeSha", "sourceSetHash", "fileCount", "artifactHash", "executionAuthorized"]) requireValue(artifact[key] === rebuilt[key], `founder_live_artifact_mismatch:${key}`);
     requireValue(JSON.stringify(artifact.tracks) === JSON.stringify(rebuilt.tracks) && JSON.stringify(artifact.trackVerifications) === JSON.stringify(rebuilt.trackVerifications), "founder_live_artifact_tracks_mismatch");
-    requireValue(evidence.baseSha === BASE && evidence.functionalTreeSha === rebuilt.sourceTreeSha && evidence.combinedTreeSha === rebuilt.sourceTreeSha && evidence.conflictCount === 2, "founder_live_rehearsal_identity_invalid");
+    requireValue(evidence.baseSha === BASE && evidence.baseTreeSha === BASE_TREE && evidence.functionalTreeSha === rebuilt.sourceTreeSha && evidence.combinedTreeSha === rebuilt.sourceTreeSha && evidence.conflictCount === 2, "founder_live_rehearsal_identity_invalid");
+    requireValue(evidence.preservedIntegrationPatchId === "a4c0d9a014fadd8e57399ee688ed042eece51e6b" && evidence.canonicalDomainDeltaPaths?.join(",") === "docs/user-intelligence-vnext/founder-live/release-summary.json,packages/user-intelligence-vnext-core/src/founder-live-projection.ts", "founder_live_integration_patch_audit_invalid");
     requireValue(evidence.conflictResolutions?.length === 2 && evidence.conflictResolutions.every(({ resolution }) => resolution === "STRICTER_USER_VARIANT"), "founder_live_conflict_resolution_invalid");
-    const reconstructedTree = git(root, ["merge-tree", "--write-tree", BASE, evidence.functionalHeadSha]).split("\n")[0];
-    requireValue(reconstructedTree === evidence.combinedTreeSha, "founder_live_rehearsal_tree_mismatch");
+    requireValue(git(root, ["rev-parse", `${evidence.functionalHeadSha}^{tree}`]) === evidence.combinedTreeSha, "founder_live_rehearsal_tree_mismatch");
     requireValue(evidence.e2eEvidenceHash === "aaa16b4ac6a7afc5691fc54e94339035afec85400d6d9589217a4824b0845d4d" && evidence.byteIdenticalRuns === 2, "founder_live_replay_evidence_invalid");
     requireValue(sealedPlan.sourceSha === evidence.functionalHeadSha && sealedPlan.planHash === functionalPlan.planHash && JSON.stringify(sealedPlan.pendingMigrations) === JSON.stringify(functionalPlan.pendingMigrations.map(({ path }) => path)), "founder_live_production_plan_drift");
     requireValue(sealedPlan.newMigrations === 0 && sealedPlan.deployFunctions.length === 0 && sealedPlan.authDeploy === false && sealedPlan.runtimeActivation === false && sealedPlan.executionAuthorized === false, "founder_live_production_scope_open");

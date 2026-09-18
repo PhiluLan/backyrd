@@ -4,7 +4,7 @@
   "tracks": [
     {
       "id": "WORLD",
-      "boundCandidate": {"pr": 302, "headSha": "239d73ab1b7229414363dc4b2a66bd625e71b9aa", "treeSha": "47383a7b9ff367008e3cb8d384246a79fb97eede"},
+      "boundCandidate": {"pr": 302, "approvedHeadSha": "239d73ab1b7229414363dc4b2a66bd625e71b9aa", "canonicalMergeSha": "480e621f63aaf0fd9385bc5fa4b7886b9e82dd55", "canonicalTreeSha": "47383a7b9ff367008e3cb8d384246a79fb97eede"},
       "authority": ["packages/world-knowledge-core/**", "docs/world-knowledge/**", "World-only forward migrations and SQL tests"],
       "allowedInputs": ["source and verification evidence", "Founder-approved World registry records"],
       "outputs": ["WorldKnowledgeReaderPort", "backyrd.world-knowledge.context-handoff@1.0", "backyrd.world-knowledge.registry@2.1"],
@@ -15,7 +15,7 @@
     },
     {
       "id": "USER",
-      "boundCandidate": {"pr": 301, "headSha": "418c9bd0b87289769346052e3b681bde0cd9ed86", "treeSha": "83df6786ab30c988c29b4f0fb3f9a98cfef23570"},
+      "boundCandidate": {"pr": 301, "approvedHeadSha": "418c9bd0b87289769346052e3b681bde0cd9ed86", "canonicalMergeSha": "92424e043e72532761376caa46a351193a737560", "canonicalTreeSha": "2bb5b8232721a8bffe5263bbf323f7de4a48c8b4"},
       "authority": ["packages/user-intelligence-vnext-core/**", "docs/user-intelligence-vnext/**"],
       "allowedInputs": ["canonical user events", "server-bound authority", "World concepts through declared port"],
       "outputs": ["RelevantUserProjection", "backyrd.user-intelligence.projection@1.0"],
@@ -26,7 +26,7 @@
     },
     {
       "id": "DECISION",
-      "boundCandidate": {"pr": 303, "headSha": "8acd3f40e8938c77f2d9f3a3c8139e71970ceab5", "treeSha": "f7a919c9ba35797e480a39937eb018f1c06dd239"},
+      "boundCandidate": {"pr": 303, "approvedHeadSha": "8acd3f40e8938c77f2d9f3a3c8139e71970ceab5", "canonicalMergeSha": "f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6", "canonicalTreeSha": "97e2a09a776a989effbd2aa8a3a5591fa98de4e4"},
       "authority": ["packages/decision-vnext-core/**", "docs/decision-vnext/**", "decision-lab/**"],
       "allowedInputs": ["WorldKnowledgeReaderPort", "RelevantUserProjection", "server-authorized situational context"],
       "outputs": ["evaluation-only Decision result", "evidence-bounded explanation", "stable versioned server-side Decision API"],
@@ -37,7 +37,7 @@
     },
     {
       "id": "INTEGRATION",
-      "boundCandidate": {"pr": 304, "branch": "codex/founder-live-mobile-admin-control-plane", "status": "DRAFT_UNMERGED"},
+      "boundCandidate": {"pr": 304, "branch": "codex/founder-live-mobile-admin-control-plane", "status": "CANONICAL_RESEAL_CANDIDATE"},
       "authority": ["delivery/integration/**", "docs/operations/integration/**", "scripts/ci/integration-*", "mobile/packages/founder-live-control-plane/**", "risk-gate routing only"],
       "allowedInputs": ["domain-owned immutable contract identities", "PR base head tree and artifact hashes", "existing CI and deployment controls"],
       "outputs": ["change plan", "integration manifest", "daily track truth", "release gate evidence"],
@@ -48,7 +48,8 @@
     }
   ],
   "mergeTrain": {
-    "canonicalBaseSha": "9c38946462c5698ee1ff6375d996463254dd829e",
+    "canonicalBaseSha": "f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6",
+    "canonicalDomainMergeShas": ["480e621f63aaf0fd9385bc5fa4b7886b9e82dd55", "92424e043e72532761376caa46a351193a737560", "f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6"],
     "order": ["WORLD", "USER", "DECISION", "INTEGRATION"],
     "domainCandidatesBound": 3,
     "conflictPolicy": "ONLY_TWO_KNOWN_WEEK3_CI_OVERLAPS_USE_STRICTER_USER_VARIANT",

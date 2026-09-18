@@ -1,7 +1,7 @@
 {
   "contractVersion": "backyrd.founder-live-integration-manifest@1.0",
-  "canonicalBaseSha": "9c38946462c5698ee1ff6375d996463254dd829e",
-  "canonicalBaseTreeSha": "9e74daabc42f86327291b781c43b41502f2579a8",
+  "canonicalBaseSha": "f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6",
+  "canonicalBaseTreeSha": "97e2a09a776a989effbd2aa8a3a5591fa98de4e4",
   "branch": "codex/founder-live-mobile-admin-control-plane",
   "status": "GREEN_CANDIDATES_BOUND",
   "executionAuthorized": false,
@@ -16,17 +16,17 @@
   },
   "releaseBinding": {
     "status": "GREEN_CANDIDATES_BOUND",
-    "releaseHash": "a5542e930a38b40baa55d086d74a5286cbfe0117ac7d3b1c13d8c52246883d2b",
-    "bindingHash": "39f28c296a7396b6099b89da7b3732835d0586406345100edb5bd8bc8a3fb729",
+    "releaseHash": "d13da217f22bcdf57fc0627c2d1a212b7ed2a16ba544ec166b74e6d71c36e476",
+    "bindingHash": "3d48beb6c1d1b273e5a9d08a8a7c1ec9d65b4b83c28a5e9c0599592bbec1e0b7",
     "allCandidatesBound": true,
     "vNextFunction": null,
     "fallbackFunction": "decision-v13",
     "executionAuthorized": false
   },
   "domainCandidates": [
-    {"track": "WORLD", "pr": 302, "baseSha": "9c38946462c5698ee1ff6375d996463254dd829e", "headSha": "239d73ab1b7229414363dc4b2a66bd625e71b9aa", "treeSha": "47383a7b9ff367008e3cb8d384246a79fb97eede", "patchId": "c9b44d1a3c855a5869cecca0d18095ab9e0a17eb", "contractHash": "491d5b8d16f711e50eae86a3554594ee2a29e62770cda93c3d3da6e276a48deb", "artifactHash": "535fafdc61745205cbafd2a0372e8106b5e5971b898b5914011d349755ba13bf", "status": "BOUND_VERIFIED"},
-    {"track": "USER", "pr": 301, "baseSha": "9c38946462c5698ee1ff6375d996463254dd829e", "headSha": "418c9bd0b87289769346052e3b681bde0cd9ed86", "treeSha": "83df6786ab30c988c29b4f0fb3f9a98cfef23570", "patchId": "f63f185ca610a75f5ca8128d64c7bda7e694bc8a", "contractHash": "ee1461fe45c57df318d0d687658705e1a2e1de041ce30ef0c30e8b153380ee94", "artifactHash": "a88e7e26264bc35adba1b22baa695f272165e8b17eef96a00531abdaec739f2a", "status": "BOUND_VERIFIED"},
-    {"track": "DECISION", "pr": 303, "baseSha": "9c38946462c5698ee1ff6375d996463254dd829e", "headSha": "8acd3f40e8938c77f2d9f3a3c8139e71970ceab5", "treeSha": "f7a919c9ba35797e480a39937eb018f1c06dd239", "patchId": "c9e189c9ed472d2c66e384603c5fb7b3a90408c2", "contractHash": "cd4cee3baf987ec9c026fef372ee5c9beafdb733c08d0465ee7932e0ea5fc1f6", "artifactHash": "b7abb3811b12ee824276f25602c40d9cb257dd0965474feb7e7cf2863635eba2", "status": "BOUND_VERIFIED"}
+    {"track": "WORLD", "pr": 302, "approvedBaseSha": "9c38946462c5698ee1ff6375d996463254dd829e", "approvedHeadSha": "239d73ab1b7229414363dc4b2a66bd625e71b9aa", "approvedTreeSha": "47383a7b9ff367008e3cb8d384246a79fb97eede", "approvedPatchId": "c9b44d1a3c855a5869cecca0d18095ab9e0a17eb", "canonicalHeadSha": "239d73ab1b7229414363dc4b2a66bd625e71b9aa", "canonicalMergeSha": "480e621f63aaf0fd9385bc5fa4b7886b9e82dd55", "canonicalTreeSha": "47383a7b9ff367008e3cb8d384246a79fb97eede", "mergeParents": ["9c38946462c5698ee1ff6375d996463254dd829e", "239d73ab1b7229414363dc4b2a66bd625e71b9aa"], "contractHash": "491d5b8d16f711e50eae86a3554594ee2a29e62770cda93c3d3da6e276a48deb", "artifactHash": "535fafdc61745205cbafd2a0372e8106b5e5971b898b5914011d349755ba13bf", "status": "CANONICAL_MERGE_VERIFIED"},
+    {"track": "USER", "pr": 301, "approvedBaseSha": "9c38946462c5698ee1ff6375d996463254dd829e", "approvedHeadSha": "418c9bd0b87289769346052e3b681bde0cd9ed86", "approvedTreeSha": "83df6786ab30c988c29b4f0fb3f9a98cfef23570", "approvedPatchId": "f63f185ca610a75f5ca8128d64c7bda7e694bc8a", "canonicalHeadSha": "c8fe2f476dae333607801f73e8889d1b0cb0f71a", "canonicalMergeSha": "92424e043e72532761376caa46a351193a737560", "canonicalTreeSha": "2bb5b8232721a8bffe5263bbf323f7de4a48c8b4", "mergeParents": ["480e621f63aaf0fd9385bc5fa4b7886b9e82dd55", "c8fe2f476dae333607801f73e8889d1b0cb0f71a"], "contractHash": "ee1461fe45c57df318d0d687658705e1a2e1de041ce30ef0c30e8b153380ee94", "artifactHash": "a88e7e26264bc35adba1b22baa695f272165e8b17eef96a00531abdaec739f2a", "status": "CANONICAL_MERGE_VERIFIED"},
+    {"track": "DECISION", "pr": 303, "approvedBaseSha": "9c38946462c5698ee1ff6375d996463254dd829e", "approvedHeadSha": "8acd3f40e8938c77f2d9f3a3c8139e71970ceab5", "approvedTreeSha": "f7a919c9ba35797e480a39937eb018f1c06dd239", "approvedPatchId": "c9e189c9ed472d2c66e384603c5fb7b3a90408c2", "canonicalHeadSha": "bf4fa90e918e2045ae9a237c478ade2f04682c92", "canonicalMergeSha": "f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6", "canonicalTreeSha": "97e2a09a776a989effbd2aa8a3a5591fa98de4e4", "mergeParents": ["92424e043e72532761376caa46a351193a737560", "bf4fa90e918e2045ae9a237c478ade2f04682c92"], "contractHash": "cd4cee3baf987ec9c026fef372ee5c9beafdb733c08d0465ee7932e0ea5fc1f6", "artifactHash": "b7abb3811b12ee824276f25602c40d9cb257dd0965474feb7e7cf2863635eba2", "status": "CANONICAL_MERGE_VERIFIED"}
   ],
   "clients": {
     "mobile": "EXISTING_NON_PUBLIC_APP",

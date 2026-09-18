@@ -1,8 +1,8 @@
 # Founder-only Live Mobile + Admin release train
 
-Canonical base: `9c38946462c5698ee1ff6375d996463254dd829e`. Current technical state: GREEN, with all three approved domain candidates bound in order. Production remains NO-GO and no Production execution is authorized.
+Canonical base: `f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6`. Current technical state: GREEN, with all three approved domain tracks canonically merged and bound in order. Production remains NO-GO and no Production execution is authorized.
 
-Bound domain train: World/Admin PR #302 at `239d73ab1b7229414363dc4b2a66bd625e71b9aa`, User PR #301 at `418c9bd0b87289769346052e3b681bde0cd9ed86`, then Decision PR #303 at `8acd3f40e8938c77f2d9f3a3c8139e71970ceab5`. The only conflict resolutions were the two additive Week-3 CI files, resolved to the stricter User implementation. No domain semantics were changed.
+Canonical domain train: World/Admin PR #302 merged as `480e621f63aaf0fd9385bc5fa4b7886b9e82dd55`, User PR #301 merged as `92424e043e72532761376caa46a351193a737560`, then Decision PR #303 merged as `f30eb153e35a979fb6b01e5bfd2bf7e42cb08dc6`. Their approved heads remain recorded as provenance, but release authority is bound to these canonical merge identities. The only original integration conflict resolutions were the two additive Week-3 CI files, resolved to the stricter User implementation. The final Main integration was conflict-free and changed only the two canonically resealed User evidence/source files relative to the earlier Integration tree. No domain semantics were changed by Integration.
 
 | Order | Track | Required immutable input | Exit condition | Rollback boundary |
 |---|---|---|---|---|
