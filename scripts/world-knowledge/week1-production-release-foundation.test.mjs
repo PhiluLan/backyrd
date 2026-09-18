@@ -33,6 +33,7 @@ test("source-aware Week 1 plan binds exactly nine immutable World migrations", (
   if (checkedHeadSha === canonicalMainSha) assert.equal(plan.candidateHeadSha, plan.canonicalBaseSha);
   else assert.notEqual(plan.candidateHeadSha, plan.canonicalBaseSha);
   assert.equal(plan.migrations.length, 9);
+  assert.deepEqual(plan.independentMigrationScopes.map(({ path, evidenceId, executionAuthorized }) => ({ path, evidenceId, executionAuthorized })), [{ path: "supabase/migrations/20260918123000_founder_live_durable_idempotency_v1.sql", evidenceId: "20260918123000-founder-live-durable-idempotency-v1", executionAuthorized: false }]);
   assert.equal(plan.executionAuthorized, false);
   assert.equal(plan.runtimeActivationAuthorized, false);
   assert.deepEqual(plan.migrations.map(({ order }) => order), [1,2,3,4,5,6,7,8,9]);
