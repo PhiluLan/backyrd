@@ -16,12 +16,15 @@ const EDGE_SOURCE_PATHS = Object.freeze([
   "packages/decision-vnext-core/src/founder-live-durable-idempotency.ts",
   "packages/decision-vnext-core/src/founder-live-durable-rate-limit.ts",
   "packages/decision-vnext-core/src/founder-live-production-adapter.ts",
+  "packages/decision-vnext-core/src/founder-live-runtime-bootstrap.ts",
   "packages/decision-vnext-core/src/founder-live-server-authority.ts",
   "packages/user-intelligence-vnext-core/src/production-relevant-user-projection.ts",
   "packages/world-knowledge-core/src/port.ts",
   "scripts/ci/founder-live-edge-implementation-evidence.mjs",
   "supabase/config.toml",
   "supabase/functions/decision-founder-live/index.ts",
+  "supabase/functions/decision-founder-live/runtime-bootstrap.mjs",
+  "supabase/functions/decision-founder-live/runtime-bootstrap.test.mjs",
   "supabase/functions/decision-founder-live/runtime-boundary.mjs",
 ]);
 

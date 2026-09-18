@@ -32,11 +32,11 @@ test("sandbox and deterministic core have no Supabase, network, production crede
 
 test("Founder Live Edge source is deployable but cannot acquire runtime authority", () => {
   const edge = resolve(fileURLToPath(new URL("../../..", import.meta.url)), "supabase/functions/decision-founder-live/index.ts");
-  const boundary = resolve(fileURLToPath(new URL("../../..", import.meta.url)), "supabase/functions/decision-founder-live/runtime-boundary.mjs");
+  const boundary = resolve(fileURLToPath(new URL("../../..", import.meta.url)), "supabase/functions/decision-founder-live/runtime-bootstrap.mjs");
   assert.equal(existsSync(edge), true);
   assert.equal(existsSync(boundary), true);
   const source = `${readFileSync(edge, "utf8")}\n${readFileSync(boundary, "utf8")}`;
-  assert.match(source, /RUNTIME_AUTHORITY_NOT_AUTHORIZED/);
+  assert.match(source, /RUNTIME_TRUST_ROOT_NOT_PROVISIONED/);
   assert.doesNotMatch(source, /SUPABASE_SERVICE_ROLE_KEY|createClient\(|executeFounderLiveDecision|createFounderLiveProductionPorts/);
 });
 

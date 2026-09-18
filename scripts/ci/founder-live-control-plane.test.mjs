@@ -83,9 +83,9 @@ test("Supabase public-client boundary remains explicit", () => {
 test("deployable Founder Live edge host stays independently runtime-disabled", () => {
   const config = readFileSync(new URL("supabase/config.toml", root), "utf8");
   const entry = readFileSync(new URL("supabase/functions/decision-founder-live/index.ts", root), "utf8");
-  const boundary = readFileSync(new URL("supabase/functions/decision-founder-live/runtime-boundary.mjs", root), "utf8");
+  const boundary = readFileSync(new URL("supabase/functions/decision-founder-live/runtime-bootstrap.mjs", root), "utf8");
   assert.match(config, /\[functions\.decision-founder-live\][\s\S]*verify_jwt = true/);
-  assert.match(entry, /createInactiveFounderLiveEdgeAdapter/);
-  assert.match(boundary, /RUNTIME_AUTHORITY_NOT_AUTHORIZED/);
+  assert.match(entry, /createFounderLiveRuntimeBootstrapAdapter/);
+  assert.match(boundary, /RUNTIME_TRUST_ROOT_NOT_PROVISIONED/);
   assert.doesNotMatch(`${entry}\n${boundary}`, /SUPABASE_SERVICE_ROLE_KEY|functions\.invoke|createClient\(/);
 });

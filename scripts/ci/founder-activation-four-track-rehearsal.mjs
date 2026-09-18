@@ -14,7 +14,7 @@ for (const script of ["world-knowledge:build", "user-intelligence-vnext:build", 
 const tracks = [
   { track: "WORLD_ADMIN", tests: ["packages/world-knowledge-core/test/slice4a-authoring.test.mjs", "packages/world-knowledge-core/test/authoring-reliability.test.mjs", "packages/world-knowledge-core/test/founder-handoff.test.mjs"] },
   { track: "USER_UUID_AUTHORITY", tests: ["packages/user-intelligence-vnext-core/test/founder-live-projection.test.mjs", "packages/user-intelligence-vnext-core/test/founder-live-uuid-authority.test.mjs"] },
-  { track: "DECISION_SERVER_AUTHORITY", tests: ["packages/decision-vnext-core/test/founder-live-api.test.mjs", "packages/decision-vnext-core/test/isolation.test.mjs"] },
+  { track: "DECISION_SERVER_AUTHORITY", tests: ["packages/decision-vnext-core/test/founder-live-api.test.mjs", "packages/decision-vnext-core/test/founder-live-runtime-bootstrap.test.mjs", "packages/decision-vnext-core/test/isolation.test.mjs", "supabase/functions/decision-founder-live/runtime-bootstrap.test.mjs", "scripts/ci/founder-live-runtime-bootstrap.test.mjs"] },
   { track: "MOBILE_INTEGRATION", tests: ["mobile/packages/founder-live-control-plane/test/control-plane.test.mjs", "scripts/ci/founder-activation-control-plane.test.mjs", "scripts/ci/scan-founder-activation-pii.test.mjs"] },
 ];
 for (const { tests } of tracks) run(process.execPath, ["--test", ...tests]);
