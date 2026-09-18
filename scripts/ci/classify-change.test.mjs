@@ -105,6 +105,7 @@ test("only the exact authority-hashed Product consent/expiry migration clears th
   const authority = JSON.parse(readFileSync(new URL("../../delivery/product-authority-v1.json", import.meta.url), "utf8"));
   assert.equal(isDestructiveMigration(migration), true);
   assert.equal(isAuthorizedBoundedMigration(path, migration, authority), true);
+  assert.equal(isAuthorizedBoundedMigration(path, migration.trim(), authority), false);
   assert.equal(isAuthorizedBoundedMigration(path, `${migration}\n-- drift`, authority), false);
   assert.equal(isAuthorizedBoundedMigration("supabase/migrations/other.sql", migration, authority), false);
   assert.equal(isAuthorizedBoundedMigration(path, migration, { ...authority, authorizedBoundedMigrations: authority.authorizedBoundedMigrations.map((entry) => ({ ...entry, scope: "BROAD_DELETE" })) }), false);

@@ -13,6 +13,12 @@ const git = (root, args) => execFileSync("git", args, {
   maxBuffer: 50 * 1024 * 1024,
   stdio: ["ignore", "pipe", "pipe"],
 }).trim();
+const gitBlob = (root, revisionPath) => execFileSync("git", ["show", revisionPath], {
+  cwd: root,
+  encoding: "utf8",
+  maxBuffer: 50 * 1024 * 1024,
+  stdio: ["ignore", "pipe", "pipe"],
+});
 const startsWithAny = (path, prefixes) => prefixes.some((prefix) => path === prefix || path.startsWith(prefix));
 const unique = (values) => [...new Set(values)].sort();
 
@@ -134,7 +140,7 @@ export function classifyChange({ root, context, policy }) {
   const protectedDecisionPaths = new Set(trustAnchor.protectedSemanticSourceSet?.paths ?? []);
   const newMigrations = changes.filter(({ status, path }) => status === "A" && path.startsWith("supabase/migrations/"));
   const migrationMutations = changes.filter(({ status, path }) => status !== "A" && path.startsWith("supabase/migrations/"));
-  const migrationTexts = newMigrations.map(({ path }) => ({ path, text: git(root, ["show", `${context.headSha}:${path}`]) }));
+  const migrationTexts = newMigrations.map(({ path }) => ({ path, text: gitBlob(root, `${context.headSha}:${path}`) }));
   const migrationText = migrationTexts.map(({ text }) => text).join("\n");
   const testDeletion = changes.some(({ status, path }) => status === "D" && (path.includes("/test/") || /(?:^|\.)test\.[cm]?[jt]sx?$/.test(path)));
   const decisionConsumer = changedFiles.some((path) => startsWithAny(path, policy.decisionConsumerPrefixes ?? []));
