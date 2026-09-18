@@ -3,7 +3,7 @@ import { canonicalJson, contentHash, deepFreeze } from "./canonical.js";
 import { ContractValidationError, identifier, schema, sha256, timestamp, type Infer } from "./schema.js";
 
 export const FOUNDER_LIVE_PRODUCTION_MODE = "PRODUCTION_FOUNDER_READ_ONLY" as const;
-export const FOUNDER_LIVE_RUNTIME_AUTHORITY_VERSION = "backyrd.decision-vnext.founder-live-runtime-authority@1.0" as const;
+export const FOUNDER_LIVE_RUNTIME_AUTHORITY_VERSION = "backyrd.decision-vnext.founder-live-runtime-authority@1.1" as const;
 export const FOUNDER_LIVE_KILL_SWITCH_VERSION = "backyrd.decision-vnext.founder-live-kill-switch@1.0" as const;
 export const FOUNDER_LIVE_RUNTIME_TRUST_ROOT_VERSION = "backyrd.decision-vnext.founder-live-runtime-trust-root@1.0" as const;
 
@@ -22,7 +22,8 @@ export const FounderLiveRuntimeAuthorityRecordSchema = schema.object({
   purpose: schema.literal("FOUNDER_DECISION_EVALUATION"), projectRef: identifier, canonicalMainSha: gitSha, canonicalTreeSha: gitSha,
   releaseHash: sha256, artifactHash: sha256, sourceSetHash: sha256, productionPlanHash: sha256, policyHash: sha256,
   authorityGeneration: schema.number({ integer: true, min: 1 }), authorityNonce: identifier, killSwitchGeneration: schema.number({ integer: true, min: 1 }),
-  expectedMemberCount: schema.literal(2), validFrom: timestamp, validUntil: timestamp, issuer: schema.literal("BACKYRD_FOUNDER_LIVE_RUNTIME_AUTHORITY"),
+  expectedMemberCount: schema.literal(2), memberDigestSetHash: sha256,
+  validFrom: timestamp, validUntil: timestamp, issuer: schema.literal("BACKYRD_FOUNDER_LIVE_RUNTIME_AUTHORITY"),
   readOnlyScope: schema.literal(true), learningAuthorized: schema.literal(false), writebackAuthorized: schema.literal(false), rankingAuthorized: schema.literal(false),
   eligibilityAuthorized: schema.literal(false), shadowTrafficAuthorized: schema.literal(false), genericProductionAuthority: schema.literal(false),
   keyId: identifier, authorityHash: sha256, signature,
@@ -40,6 +41,8 @@ export type FounderLiveKillSwitchRecord = Infer<typeof FounderLiveKillSwitchReco
 export interface FounderLiveRuntimeExpectedIdentity {
   readonly projectRef: string; readonly canonicalMainSha: string; readonly canonicalTreeSha: string; readonly releaseHash: string;
   readonly artifactHash: string; readonly sourceSetHash: string; readonly productionPlanHash: string; readonly policyHash: string;
+  readonly memberDigestSetHash: string;
+  readonly authorityGeneration: number; readonly authorityNonce: string; readonly killSwitchGeneration: number;
 }
 export interface FounderLiveRuntimeAuthorityInspection {
   readonly status: "VERIFIED_NON_EXECUTABLE";
@@ -77,7 +80,8 @@ export function inspectFounderLiveRuntimeAuthority(input: {
   const record = FounderLiveRuntimeAuthorityRecordSchema.parse(input.record);
   verifyDetached(record as unknown as Record<string, unknown>, "authorityHash", root);
   if (record.keyId !== root.keyId || now < Date.parse(record.validFrom) || now > Date.parse(record.validUntil)) throw new ContractValidationError("$.authority", "authority is stale or uses another key");
-  for (const key of ["projectRef", "canonicalMainSha", "canonicalTreeSha", "releaseHash", "artifactHash", "sourceSetHash", "productionPlanHash", "policyHash"] as const) if (record[key] !== input.expected[key]) throw new ContractValidationError(`$.authority.${key}`, "runtime identity mismatch");
+  for (const key of ["projectRef", "canonicalMainSha", "canonicalTreeSha", "releaseHash", "artifactHash", "sourceSetHash", "productionPlanHash", "policyHash", "memberDigestSetHash"] as const) if (record[key] !== input.expected[key]) throw new ContractValidationError(`$.authority.${key}`, "runtime identity mismatch");
+  for (const key of ["authorityGeneration", "authorityNonce", "killSwitchGeneration"] as const) if (record[key] !== input.expected[key]) throw new ContractValidationError(`$.authority.${key}`, "runtime authority generation mismatch");
   return deepFreeze({ status: "VERIFIED_NON_EXECUTABLE", authorityHash: record.authorityHash, authorityGeneration: record.authorityGeneration, killSwitchGeneration: record.killSwitchGeneration, projectRef: record.projectRef, executionAuthorized: false });
 }
 
@@ -87,10 +91,12 @@ export function inspectFounderLiveKillSwitch(input: {
   readonly authority: FounderLiveRuntimeAuthorityInspection; readonly now: string;
 }): Readonly<{ state: FounderLiveKillSwitchRecord["state"]; recordHash: string; executionAuthorized: false }> {
   const root = FounderLiveRuntimeTrustRootSchema.parse(input.trustRoot);
-  if (root.trustRootHash !== input.acceptedTrustRootHash || root.status !== "ACTIVE") throw new ContractValidationError("$.trustRoot", "kill-switch trust root rejected");
+  const rootBody = without(root as unknown as Record<string, unknown>, "trustRootHash");
+  if (root.trustRootHash !== contentHash(rootBody) || root.trustRootHash !== input.acceptedTrustRootHash || root.status !== "ACTIVE") throw new ContractValidationError("$.trustRoot", "kill-switch trust root rejected");
+  const now = Date.parse(timestamp.parse(input.now));
+  if (now < Date.parse(root.validFrom) || now > Date.parse(root.validUntil)) throw new ContractValidationError("$.trustRoot", "kill-switch trust root outside validity");
   const record = FounderLiveKillSwitchRecordSchema.parse(input.record);
   verifyDetached(record as unknown as Record<string, unknown>, "recordHash", root);
-  const now = Date.parse(timestamp.parse(input.now));
   if (record.keyId !== root.keyId || record.projectRef !== input.authority.projectRef || record.authorityHash !== input.authority.authorityHash || record.authorityGeneration !== input.authority.authorityGeneration || record.killSwitchGeneration !== input.authority.killSwitchGeneration || now < Date.parse(record.observedAt) || now > Date.parse(record.validUntil)) throw new ContractValidationError("$.killSwitch", "kill switch is stale or unrelated");
   return deepFreeze({ state: record.state, recordHash: record.recordHash, executionAuthorized: false });
 }

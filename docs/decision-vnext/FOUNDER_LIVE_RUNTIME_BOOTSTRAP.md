@@ -18,11 +18,13 @@ This slice introduces the contracts and verification tooling needed for a later,
 - exactly two members;
 - read-only scope and explicit false values for learning, writeback, ranking, eligibility, shadow traffic and generic Production authority.
 
-The repository verifier can validate provenance, but returns only `VERIFIED_NON_EXECUTABLE`. It cannot mint a runtime capability. The accepted Production trust root is deliberately absent. Headers, environment variables, request payloads, repository hashes and a caller-created replacement key cannot provision it.
+The public repository verifier validates provenance and still returns only `VERIFIED_NON_EXECUTABLE`. A separate internal module can mint a process-local `VERIFIED_EXECUTABLE` capability only when an externally accepted trust-root hash, matching signed authority, exact two-member digest commitment and fresh signed `DISENGAGED_FOR_EXACT_RELEASE` record are supplied by server-side provisioning. This module is deliberately absent from the package index. Its capability is backed by controller-local `WeakSet` provenance: casts, object spread, JSON, structured cloning, process changes and independently provisioned instances cannot reproduce it.
+
+The accepted Production trust root is deliberately absent from this release and the Edge entrypoint does not wire the internal controller. Consequently the checked-in runtime remains OFF. Headers, request payloads, publishable keys, boolean environment flags, repository hashes and a caller-created replacement key cannot provision it.
 
 ## Kill switch
 
-A future activated release must read a fresh externally signed kill-switch record at request start and before Auth, allowlist, rate-limit, body parsing, location authority, retrieval, User read, every World read, evaluation, idempotency commit/replay, expert response and final output. A value captured at isolate startup is insufficient. Any missing, malformed, stale, cross-project, cross-release or wrong-generation record fails closed.
+The internal controller revalidates trust root, signed authority, complete identity tuple, exact member-digest set and the externally signed kill-switch record on every capability boundary. A future activated adapter must invoke this guard at request start and before Auth, allowlist, rate-limit, body parsing, location authority, retrieval, User read, every World read, evaluation, idempotency commit/replay, expert response and final output. A value captured at isolate startup is insufficient. Any missing, malformed, stale, revoked, cross-project, cross-release or wrong-generation record fails closed.
 
 Emergency-OFF remains a separate operational path and must not depend on the normal deployment path.
 
@@ -37,6 +39,8 @@ The current private UUID authority binds an exact server-verified session hash. 
 - only `decision-founder-live` Function source changes;
 - `verify_jwt=true` preserved;
 - default OFF and kill switch effectively engaged by the missing trust root;
+- internal, non-exported capability source and synthetic positive/negative verification tests;
+- no capability provisioning and no Edge-to-Decision execution wiring;
 - no Production queries, secrets, deployment, runtime activation, Product output or OTA;
 - no World/User contract copies and no User-Intelligence writes.
 

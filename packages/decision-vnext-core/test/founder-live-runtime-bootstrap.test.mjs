@@ -15,7 +15,8 @@ const hash64 = (label) => H(label);
 const expected = Object.freeze({
   projectRef: "synthetic-project-ref", canonicalMainSha: "3".repeat(40), canonicalTreeSha: "b".repeat(40),
   releaseHash: hash64("release"), artifactHash: hash64("artifact"), sourceSetHash: hash64("source-set"),
-  productionPlanHash: hash64("plan"), policyHash: hash64("policy"),
+  productionPlanHash: hash64("plan"), policyHash: hash64("policy"), memberDigestSetHash: hash64("members"),
+  authorityGeneration: 7, authorityNonce: "synthetic-nonce-7", killSwitchGeneration: 11,
 });
 const rootBody = Object.freeze({
   contractVersion: FOUNDER_LIVE_RUNTIME_TRUST_ROOT_VERSION, trustRootId: "synthetic-runtime-root-1", keyId: "synthetic-ed25519-key-1",
@@ -26,8 +27,9 @@ const trustRoot = Object.freeze({ ...rootBody, trustRootHash: H(rootBody) });
 const signed = (body, hashField) => ({ ...body, [hashField]: H(body), signature: sign(null, Buffer.from(canonicalJson(body)), privateKey).toString("base64") });
 const authorityBody = Object.freeze({
   contractVersion: FOUNDER_LIVE_RUNTIME_AUTHORITY_VERSION, authorityId: "synthetic-runtime-authority-1", mode: FOUNDER_LIVE_PRODUCTION_MODE,
-  purpose: "FOUNDER_DECISION_EVALUATION", ...expected, authorityGeneration: 7, authorityNonce: "synthetic-nonce-7", killSwitchGeneration: 11,
-  expectedMemberCount: 2, validFrom: "2026-09-18T15:00:00.000Z", validUntil: "2026-09-18T17:00:00.000Z",
+  purpose: "FOUNDER_DECISION_EVALUATION", ...expected,
+  expectedMemberCount: 2, memberDigestSetHash: expected.memberDigestSetHash,
+  validFrom: "2026-09-18T15:00:00.000Z", validUntil: "2026-09-18T17:00:00.000Z",
   issuer: "BACKYRD_FOUNDER_LIVE_RUNTIME_AUTHORITY", readOnlyScope: true, learningAuthorized: false, writebackAuthorized: false,
   rankingAuthorized: false, eligibilityAuthorized: false, shadowTrafficAuthorized: false, genericProductionAuthority: false, keyId: rootBody.keyId,
 });

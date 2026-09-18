@@ -5,6 +5,8 @@
   "productionMode": "PRODUCTION_FOUNDER_READ_ONLY",
   "trustRootStatus": "NOT_PROVISIONED",
   "runtimeCapabilityMintingAvailable": false,
+  "internalCapabilitySourcePresent": true,
+  "internalCapabilityPubliclyExported": false,
   "defaultState": "OFF",
   "killSwitch": "ENGAGED_BY_ABSENT_TRUST_ROOT",
   "expectedMemberCount": 2,
@@ -35,6 +37,7 @@
     "AUTHORITY_GENERATION",
     "AUTHORITY_NONCE",
     "VALIDITY_INTERVAL",
-    "KILL_SWITCH_GENERATION"
+    "KILL_SWITCH_GENERATION",
+    "MEMBER_DIGEST_SET_HASH"
   ]
 }
