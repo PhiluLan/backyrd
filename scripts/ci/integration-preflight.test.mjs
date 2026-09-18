@@ -56,8 +56,8 @@ test("source-aware preflight admits only the evidence-bound inactive Founder-liv
 
 test("source-aware preflight fails closed on function, evidence, Auth, activation and authority drift", () => {
   const failures = [
-    { productionPlan: { ...inactivePlan, deployFunctions: ["decision-copy"] }, evidence: edgeEvidence() },
-    { productionPlan: { ...inactivePlan, deployFunctions: ["decision-founder-live", "decision-copy"] }, evidence: edgeEvidence() },
+    { productionPlan: { ...inactivePlan, deployFunctions: ["unknown-function"] }, evidence: edgeEvidence() },
+    { productionPlan: { ...inactivePlan, deployFunctions: ["decision-founder-live", "unknown-function"] }, evidence: edgeEvidence() },
     { productionPlan: inactivePlan, evidence: null },
     { productionPlan: { ...inactivePlan, authConfig: { deploy: true } }, evidence: edgeEvidence() },
     { productionPlan: { ...inactivePlan, runtimeActivation: true }, evidence: edgeEvidence() },

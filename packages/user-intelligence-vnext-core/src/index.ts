@@ -24,3 +24,4 @@ export * from "./internal-allowlisted-projection.js";
 export * from "./founder-live-projection.js";
 export * from "./founder-live-uuid-authority.js";
 export * from "./production-relevant-user-projection.js";
+export * from "./product-decision-learning.js";

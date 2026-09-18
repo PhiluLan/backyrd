@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +13,12 @@ const git = (root, args) => execFileSync("git", args, {
   maxBuffer: 50 * 1024 * 1024,
   stdio: ["ignore", "pipe", "pipe"],
 }).trim();
+const gitBlob = (root, revisionPath) => execFileSync("git", ["show", revisionPath], {
+  cwd: root,
+  encoding: "utf8",
+  maxBuffer: 50 * 1024 * 1024,
+  stdio: ["ignore", "pipe", "pipe"],
+});
 const startsWithAny = (path, prefixes) => prefixes.some((prefix) => path === prefix || path.startsWith(prefix));
 const unique = (values) => [...new Set(values)].sort();
 
@@ -20,6 +27,8 @@ const destructivePattern = /\btruncate\b|\bdrop\s+(?:table|schema|column|type)\b
 const provablyNonExecutableDocumentation = (path) => (
   /^(?:docs\/.*\.md|README\.md|AGENTS\.md)$/.test(path)
 );
+const dependencyManifestPattern = /(?:^|\/)package\.json$/;
+const dependencyLockPattern = /(?:^|\/)package-lock\.json$/;
 
 const normalizedStatements = (text) => text
   .replace(/--[^\n]*/g, "")
@@ -103,6 +112,15 @@ export function isDestructiveMigration(text) {
   return false;
 }
 
+export function isAuthorizedBoundedMigration(path, text, trustAnchor) {
+  const entries = trustAnchor.authorizedBoundedMigrations;
+  if (!Array.isArray(entries)) return false;
+  const match = entries.find((entry) => entry?.path === path);
+  if (!match || typeof match.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(match.sha256)
+    || match.scope !== "CONSENT_ERASURE_AND_EXPIRED_PRIVATE_IDEMPOTENCY_ONLY") return false;
+  return createHash("sha256").update(text, "utf8").digest("hex") === match.sha256;
+}
+
 export function classifyChange({ root, context, policy }) {
   const statusLines = git(root, ["diff", "--name-status", `${context.baseSha}..${context.headSha}`]).split("\n").filter(Boolean);
   const changes = statusLines.map((line) => {
@@ -110,46 +128,68 @@ export function classifyChange({ root, context, policy }) {
     return { status, path: second ?? first };
   });
   const changedFiles = changes.map(({ path }) => path);
-  const trustAnchor = JSON.parse(git(root, ["show", `${context.baseSha}:${policy.decisionTrustAnchor}`]));
+  let trustAnchor;
+  try {
+    trustAnchor = JSON.parse(git(root, ["show", `${context.baseSha}:${policy.decisionTrustAnchor}`]));
+  } catch {
+    // One-time authority transitions may introduce the new anchor in the
+    // candidate. Decision source prefixes still fail closed independently.
+    trustAnchor = JSON.parse(git(root, ["show", `${context.headSha}:${policy.decisionTrustAnchor}`]));
+  }
+  if (!Array.isArray(trustAnchor.protectedSemanticSourceSet?.paths) || trustAnchor.protectedSemanticSourceSet.paths.length === 0) {
+    throw new Error("decision_trust_anchor_invalid");
+  }
   const protectedDecisionPaths = new Set(trustAnchor.protectedSemanticSourceSet?.paths ?? []);
   const newMigrations = changes.filter(({ status, path }) => status === "A" && path.startsWith("supabase/migrations/"));
   const migrationMutations = changes.filter(({ status, path }) => status !== "A" && path.startsWith("supabase/migrations/"));
-  const migrationTexts = newMigrations.map(({ path }) => git(root, ["show", `${context.headSha}:${path}`]));
-  const migrationText = migrationTexts.join("\n");
+  const migrationTexts = newMigrations.map(({ path }) => ({ path, text: gitBlob(root, `${context.headSha}:${path}`) }));
+  const migrationText = migrationTexts.map(({ text }) => text).join("\n");
   const testDeletion = changes.some(({ status, path }) => status === "D" && (path.includes("/test/") || /(?:^|\.)test\.[cm]?[jt]sx?$/.test(path)));
   const decisionConsumer = changedFiles.some((path) => startsWithAny(path, policy.decisionConsumerPrefixes ?? []));
   const pipelineControl = changedFiles.some((path) => startsWithAny(path, policy.decisionPipelineControlPrefixes ?? []));
   const unknown = changedFiles.some((path) => !startsWithAny(path, policy.knownRepositoryPrefixes ?? []));
   const workflowChange = changedFiles.some((path) => path.startsWith(".github/workflows/") || path === "package.json" || path === "package-lock.json");
+  const supplyChain = changedFiles.some((path) => dependencyManifestPattern.test(path)
+    || dependencyLockPattern.test(path)
+    || path.startsWith(".github/workflows/"));
   const deploymentControl = changedFiles.some((path) => path.startsWith("scripts/deployment/") || path.startsWith("supabase/production/") || path === ".github/workflows/supabase-production.yml");
   const documentationOnly = changedFiles.length > 0 && changedFiles.every(provablyNonExecutableDocumentation);
   const machineReadableDocumentation = changedFiles.some((path) => path.startsWith("docs/") && !path.endsWith(".md"));
   const integrationControl = changedFiles.some((path) => startsWithAny(path, policy.integrationControlPrefixes ?? []));
-  const fullScopeRouting = unknown || workflowChange || machineReadableDocumentation || integrationControl;
+  const privilegedServer = changedFiles.some((path) => startsWithAny(path, policy.privilegedServerPrefixes ?? []));
+  const productRelease = privilegedServer || changedFiles.some((path) => startsWithAny(path, policy.productReleasePrefixes ?? []));
+  const retiredChanges = changes.filter(({ path }) => startsWithAny(path, policy.retiredPrefixes ?? []));
+  const retiredMutation = retiredChanges.some(({ status }) => status !== "D");
 
   const flags = {
-    mobile: fullScopeRouting || changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.mobile)),
-    web: fullScopeRouting || changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.web)),
-    admin: fullScopeRouting || changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.admin)),
-    shared: fullScopeRouting || changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.shared)),
-    database: fullScopeRouting || deploymentControl || changedFiles.some((path) => startsWithAny(path, [...policy.databasePrefixes, ...(policy.databaseControlPrefixes ?? [])])),
-    privilegedServer: changedFiles.some((path) => startsWithAny(path, policy.privilegedServerPrefixes ?? [])),
+    mobile: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.mobile)),
+    web: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.web)),
+    admin: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.admin)),
+    shared: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.shared)),
+    user: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.user ?? [])),
+    world: changedFiles.some((path) => startsWithAny(path, policy.surfacePrefixes.world ?? [])),
+    database: changedFiles.some((path) => startsWithAny(path, [...policy.databasePrefixes, ...(policy.databaseControlPrefixes ?? [])])),
+    privilegedServer,
     authorizationBoundary: changedFiles.some((path) => startsWithAny(path, policy.authorizationPrefixes)) || migrationSecurityPattern.test(migrationText),
     decisionSemantics: changedFiles.some((path) => protectedDecisionPaths.has(path) || startsWithAny(path, policy.decisionSemanticPrefixes)),
-    decisionEvaluation: changedFiles.some((path) => startsWithAny(path, policy.decisionEvaluationPrefixes)) || decisionConsumer || pipelineControl || testDeletion || fullScopeRouting,
+    decisionEvaluation: changedFiles.some((path) => startsWithAny(path, policy.decisionEvaluationPrefixes)) || decisionConsumer,
     decisionConsumer,
     pipelineControl,
     testDeletion,
     unknown,
     workflowChange,
+    supplyChain,
     deploymentControl,
-    fullScopeRouting,
+    fullScopeRouting: false,
     documentationOnly,
     machineReadableDocumentation,
     integrationControl,
+    productRelease,
+    retiredSystem: retiredChanges.length > 0,
+    retiredMutation,
     deliveryControl: changedFiles.some((path) => startsWithAny(path, policy.deliveryControlPrefixes)),
     releaseEvidence: changedFiles.some((path) => startsWithAny(path, policy.releaseEvidencePrefixes)),
-    destructive: migrationTexts.some(isDestructiveMigration),
+    destructive: migrationTexts.some(({ path, text }) => isDestructiveMigration(text) && !isAuthorizedBoundedMigration(path, text, trustAnchor)),
     migrationMutation: migrationMutations.length > 0,
   };
   const classes = [
@@ -157,6 +197,8 @@ export function classifyChange({ root, context, policy }) {
     ...(flags.web ? ["web"] : []),
     ...(flags.admin ? ["admin"] : []),
     ...(flags.shared ? ["shared-contract"] : []),
+    ...(flags.user ? ["user-intelligence"] : []),
+    ...(flags.world ? ["world-knowledge"] : []),
     ...(flags.database ? [flags.authorizationBoundary ? "authorization-boundary" : newMigrations.length ? "database-additive" : "database-control"] : []),
     ...(flags.privilegedServer ? ["privileged-server"] : []),
     ...(flags.decisionSemantics ? ["decision-semantics"] : []),
@@ -166,16 +208,19 @@ export function classifyChange({ root, context, policy }) {
     ...(flags.testDeletion ? ["test-routing-change"] : []),
     ...(flags.unknown ? ["unknown-change"] : []),
     ...(flags.workflowChange ? ["workflow-or-package-control"] : []),
+    ...(flags.supplyChain ? ["dependency-supply-chain"] : []),
     ...(flags.deploymentControl ? ["deployment-control"] : []),
     ...(flags.documentationOnly ? ["documentation-only"] : []),
     ...(flags.machineReadableDocumentation ? ["machine-readable-documentation-contract"] : []),
     ...(flags.integrationControl ? ["integration-control-plane"] : []),
+    ...(flags.productRelease ? ["product-release"] : []),
+    ...(flags.retiredSystem ? ["retired-system-removal"] : []),
     ...(flags.deliveryControl ? ["delivery-control"] : []),
     ...(flags.releaseEvidence ? ["release-evidence"] : []),
     ...(flags.destructive ? ["destructive-production-operation"] : []),
   ];
   return {
-    schemaVersion: "backyrd-change-plan-v1",
+    schemaVersion: "backyrd-change-plan-v2",
     context,
     changedFiles: unique(changedFiles),
     classes: unique(classes.length ? classes : ["repository-only"]),
@@ -188,14 +233,45 @@ export function classifyChange({ root, context, policy }) {
       ...(flags.web ? ["web"] : []),
       ...(flags.admin ? ["admin"] : []),
       ...(flags.shared ? ["shared"] : []),
+      ...(flags.user ? ["user"] : []),
+      ...(flags.world ? ["world"] : []),
       ...(flags.database ? ["database"] : []),
       ...(flags.decisionSemantics || flags.decisionEvaluation ? ["decision"] : []),
-      ...(flags.deliveryControl || flags.releaseEvidence || flags.database || flags.privilegedServer || flags.pipelineControl || flags.testDeletion || flags.fullScopeRouting ? ["delivery-contract"] : []),
+      ...(flags.supplyChain ? ["supply-chain"] : []),
+      ...(flags.deliveryControl || flags.releaseEvidence || flags.privilegedServer || flags.pipelineControl || flags.testDeletion || flags.workflowChange || flags.machineReadableDocumentation || flags.integrationControl || flags.unknown ? ["delivery-policy"] : []),
+      ...(flags.productRelease ? ["release-certification"] : []),
     ]),
     blockedReasons: unique([
       ...(flags.migrationMutation ? ["published_migration_mutation"] : []),
       ...(flags.destructive ? ["destructive_migration_requires_separate_founder_cto_authorization"] : []),
+      ...(flags.unknown ? ["unknown_path_requires_explicit_risk_classification"] : []),
+      ...(flags.retiredMutation ? ["retired_system_is_read_only_and_may_only_be_deleted"] : []),
     ]),
+  };
+}
+
+export function applyVerifiedGateResume({ fullPlan, deltaPlan, resume }) {
+  if (!resume?.eligible) return fullPlan;
+  if (resume.baseSha !== fullPlan.context.baseSha || resume.headSha !== fullPlan.context.headSha
+    || deltaPlan.context.baseSha !== resume.previousHeadSha || deltaPlan.context.headSha !== resume.headSha) {
+    throw new Error("gate_resume_plan_identity_mismatch");
+  }
+  const prior = new Set(resume.successfulGates ?? []);
+  const delta = new Set(deltaPlan.requiredGates);
+  const reusable = fullPlan.requiredGates.filter((gate) => gate !== "repository-security" && !delta.has(gate) && prior.has(gate));
+  const reused = new Set(reusable);
+  return {
+    ...fullPlan,
+    requiredGates: fullPlan.requiredGates.filter((gate) => !reused.has(gate)),
+    gateResume: {
+      contractVersion: "backyrd.incremental-gate-resume@1.0",
+      previousHeadSha: resume.previousHeadSha,
+      previousTree: resume.previousTree,
+      deltaChangedFiles: deltaPlan.changedFiles,
+      deltaRequiredGates: deltaPlan.requiredGates,
+      priorSuccessfulGates: [...prior].sort(),
+      reusedGates: reusable,
+    },
   };
 }
 
@@ -217,7 +293,15 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       checkoutSha: args["checkout-sha"] ?? "HEAD",
       canonicalMainRef: args["canonical-main-ref"] ?? "refs/remotes/origin/main",
     });
-    const plan = classifyChange({ root, context, policy });
+    const fullPlan = classifyChange({ root, context, policy });
+    let plan = fullPlan;
+    if (args["resume-evidence"]) {
+      const resume = JSON.parse(readFileSync(resolve(args["resume-evidence"]), "utf8"));
+      if (resume.eligible) {
+        const deltaPlan = classifyChange({ root, context: { ...context, baseSha: resume.previousHeadSha }, policy });
+        plan = applyVerifiedGateResume({ fullPlan, deltaPlan, resume });
+      }
+    }
     if (args.output) {
       const { writeFileSync } = await import("node:fs");
       writeFileSync(resolve(args.output), `${JSON.stringify(plan, null, 2)}\n`, { flag: "w" });

@@ -1277,7 +1277,7 @@
 .b-decision-result .b-spot-image {
   min-height: 560px;
 }
-.b-decision-copy {
+.b-decision-content {
   padding: clamp(26px, 4vw, 54px);
   display: flex;
   flex-direction: column;
@@ -1372,7 +1372,7 @@
   .b-decision-result .b-spot-image {
     min-height: 420px;
   }
-  .b-decision-copy {
+  .b-decision-content {
     min-height: 460px;
   }
 }

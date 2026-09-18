@@ -1,8 +1,6 @@
 name: Supabase Production Deployment
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       canonical_main_sha:
@@ -13,9 +11,18 @@ on:
         description: Type DEPLOY_SUPABASE_PRODUCTION to authorize the bound release
         required: true
         type: string
+      certification_run_id:
+        description: GitHub Actions run that produced the exact tested Product artifact
+        required: true
+        type: string
+      release_manifest_hash:
+        description: SHA-256 manifest identity printed by Product release certification
+        required: true
+        type: string
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: supabase-production
@@ -34,6 +41,27 @@ jobs:
       - name: Refresh canonical main identity
         if: github.event_name == 'workflow_dispatch'
         run: git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+      - name: Require a recent green deep recertification
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          latest="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow deep-recertification.yml --branch main --limit 1 --json conclusion,status,createdAt,databaseId)"
+          test "$(jq 'length' <<<"$latest")" -eq 1
+          test "$(jq -r '.[0].status' <<<"$latest")" = completed
+          test "$(jq -r '.[0].conclusion' <<<"$latest")" = success
+          node - "$(jq -r '.[0].createdAt' <<<"$latest")" <<'NODE'
+          const age = Date.now() - Date.parse(process.argv[2]);
+          if (!Number.isFinite(age) || age > 8 * 24 * 60 * 60 * 1000) process.exit(1);
+          NODE
+      - name: Download the exact CI-certified Product artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: backyrd-product-release-${{ inputs.canonical_main_sha }}
+          path: ${{ runner.temp }}/product-release
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.certification_run_id }}
+      - name: Verify build-once/deploy-same-artifact identity
+        run: node scripts/ci/product-release-manifest.mjs verify --artifact "$RUNNER_TEMP/product-release" --expected-hash "${{ inputs.release_manifest_hash }}" --expected-source-sha "${{ inputs.canonical_main_sha }}" --expected-mode POST_MERGE_MAIN --checkout-root "$GITHUB_WORKSPACE"
       - name: Verify explicit manual release authority
         if: github.event_name == 'workflow_dispatch'
         id: manual_release
@@ -133,6 +161,16 @@ jobs:
             --confirmation "${{ inputs.release_confirmation }}" \
             --output manual-production-release.json
           echo "base_sha=$(jq -r '.baseSha' manual-production-release.json)" >> "$GITHUB_OUTPUT"
+      - name: Download the exact CI-certified Product artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: backyrd-product-release-${{ inputs.canonical_main_sha }}
+          path: ${{ runner.temp }}/product-release
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.certification_run_id }}
+      - name: Reverify artifact immediately before deployment
+        run: node scripts/ci/product-release-manifest.mjs verify --artifact "$RUNNER_TEMP/product-release" --expected-hash "${{ inputs.release_manifest_hash }}" --expected-source-sha "${{ inputs.canonical_main_sha }}" --expected-mode POST_MERGE_MAIN --checkout-root "$GITHUB_WORKSPACE"
       - name: Set up pinned Supabase CLI
         uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with:

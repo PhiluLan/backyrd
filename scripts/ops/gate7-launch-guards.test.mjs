@@ -28,7 +28,6 @@ test("variable-cost runtime paths use bounded, fail-closed server counters", () 
     ["supabase/functions/send-spot-claim-code/index.ts", "spot_claim_email", 3, 10, 30, 200],
     ["supabase/functions/send-spot-claim-approved-email/index.ts", "claim_approved_email", 10, 100, 20, 200],
     ["supabase/functions/send-test-push/index.ts", "test_push", 5, 20, 100, 1000],
-    ["supabase/functions/decision-copy/index.ts", "legacy_decision_copy", 10, 50, 50, 500],
     ["supabase/functions/semantic-spot-search/index.ts", "legacy_semantic_search", 20, 100, 100, 1000],
   ];
   for (const [path, operation, subjectMinute, subjectDay, globalMinute, globalDay] of expected) {
@@ -64,7 +63,6 @@ test("gateway identity is explicit for every changed Edge Function", () => {
     ["send-spot-claim-code", "./functions/send-spot-claim-code/index.ts"],
     ["send-spot-claim-approved-email", "./functions/send-spot-claim-approved-email/index.ts"],
     ["send-test-push", "./functions/send-test-push/index.ts"],
-    ["decision-copy", "./functions/decision-copy/index.ts"],
     ["semantic-spot-search", "./functions/semantic-spot-search/index.ts"],
   ]) {
     const section = config.match(new RegExp(`\\[functions\\.${slug}\\]([\\s\\S]*?)(?=\\n\\[|$)`))?.[1] ?? "";

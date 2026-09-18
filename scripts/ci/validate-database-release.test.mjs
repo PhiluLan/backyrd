@@ -80,6 +80,6 @@ test("database jobs consume the one resolved base and head for PR and push event
   const workflow = readFileSync(new URL("../../.github/workflows/risk-gate.yml", import.meta.url), "utf8");
   assert.match(workflow, /base-sha: \$\{\{ steps\.plan\.outputs\.base-sha \}\}/);
   assert.match(workflow, /head-sha: \$\{\{ steps\.plan\.outputs\.head-sha \}\}/);
-  assert.match(workflow, /BASE_SHA: \$\{\{ needs\.classify\.outputs\.base-sha \}\}/);
-  assert.match(workflow, /HEAD_SHA: \$\{\{ needs\.classify\.outputs\.head-sha \}\}/);
+  assert.match(workflow, /BASE_SHA: "?\$\{\{ needs\.classify\.outputs\.base-sha \}\}"?/);
+  assert.match(workflow, /HEAD_SHA: "?\$\{\{ needs\.classify\.outputs\.head-sha \}\}"?/);
 });

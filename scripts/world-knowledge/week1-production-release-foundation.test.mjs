@@ -59,7 +59,7 @@ test("World Week 1 admits only the separately validated inactive Decision functi
   }]);
   for (const plan of [
     { ...closed, deployFunctions: ["decision-v13"] },
-    { ...closed, deployFunctions: ["decision-founder-live", "decision-copy"] },
+    { ...closed, deployFunctions: ["decision-founder-live", "unknown-function"] },
     { ...closed, deployFunctions: ["decision-founder-live"], authConfig: { deploy: true } },
     { ...closed, deployFunctions: ["decision-founder-live"], runtimeActivation: true },
     { ...closed, deployFunctions: ["decision-founder-live"], executionAuthorized: true },

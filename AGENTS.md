@@ -153,6 +153,24 @@ AI may propose; deterministic controls and accountable humans decide.
 
 Git is the source of truth and the backup. Generated artifacts, secrets, local configuration, and manual backup copies do not belong in commits.
 
+## Delivery workflow (frozen)
+
+- Follow `docs/operations/DELIVERY_WORKFLOW_V2.md`.
+- Classify work as FAST_PR, DATABASE_PR, PRODUCT_RELEASE,
+  PRODUCTION_RELEASE, or PRODUCT_SYSTEM_RECERTIFICATION.
+- Treat `docs/architecture/PRODUCT_V1_ACTIVE_SURFACE.md` as the only active
+  Decision product surface. Historical phases, labs, weeks, Founder routes
+  and shadow runtimes are read-only Git history, not implementation options.
+- Routine work runs only affected gates. Do not add historical Week-1/2/3,
+  Founder-Lab, synthetic-world, or full-repository recertification to a normal
+  PR gate.
+- A new gate must own a unique invariant and replace overlapping checks.
+- Production workflows are manual-only and bind an exact canonical Main SHA.
+- After a localized failure, test the reproducer and resume the affected gate
+  from its input-bound receipt. Do not restart complete suites for an
+  evidence-only, report-only, packaging-only, or presentation-only fix unless
+  a protected input changed and invalidated that receipt.
+
 ## Definition of Done
 
 A change is complete only when:

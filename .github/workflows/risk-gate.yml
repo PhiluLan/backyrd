@@ -1,25 +1,16 @@
-name: CI / Risk Gate
-
+name: CI / Risk Gate v2
 on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
-
-permissions:
-  contents: read
-
+  pull_request: { branches: [main] }
+  push: { branches: [main] }
+permissions: { contents: read, checks: read }
 concurrency:
-  group: risk-gate-${{ github.workflow }}-${{ github.ref }}
+  group: risk-gate-v2-${{ github.ref }}
   cancel-in-progress: true
-
-env:
-  CI: true
-  NEXT_TELEMETRY_DISABLED: 1
+env: { CI: true, NEXT_TELEMETRY_DISABLED: 1 }
 
 jobs:
   classify:
-    name: Change risk classification
+    name: Change classification
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -30,57 +21,38 @@ jobs:
       web: ${{ steps.plan.outputs.web }}
       admin: ${{ steps.plan.outputs.admin }}
       shared: ${{ steps.plan.outputs.shared }}
-      database: ${{ steps.plan.outputs.database }}
+      user: ${{ steps.plan.outputs.user }}
+      world: ${{ steps.plan.outputs.world }}
       decision: ${{ steps.plan.outputs.decision }}
-      delivery-contract: ${{ steps.plan.outputs.delivery-contract }}
+      database: ${{ steps.plan.outputs.database }}
+      supply-chain: ${{ steps.plan.outputs.supply-chain }}
+      delivery-policy: ${{ steps.plan.outputs.delivery-policy }}
+      release-certification: ${{ steps.plan.outputs.release-certification }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          fetch-depth: 0
+        with: { fetch-depth: 0 }
       - id: plan
-        name: Resolve immutable candidate and classify risk
         env:
           EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action || '' }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PREVIOUS_HEAD_SHA: ${{ github.event.before || '' }}
           CHECKOUT_SHA: ${{ github.sha }}
           CANONICAL_MAIN_REF: ${{ github.event.pull_request.base.sha || github.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY_NAME: ${{ github.repository }}
         run: |
-          node scripts/ci/classify-change.mjs \
-            --event-name "$EVENT_NAME" \
-            --base-sha "$BASE_SHA" \
-            --head-sha "$HEAD_SHA" \
-            --checkout-sha "$CHECKOUT_SHA" \
-            --canonical-main-ref "$CANONICAL_MAIN_REF" \
-            --output "$RUNNER_TEMP/change-plan.json"
+          node scripts/ci/resolve-prior-gates.mjs --event-name "$EVENT_NAME" --event-action "$EVENT_ACTION" --base-sha "$BASE_SHA" --previous-head-sha "$PREVIOUS_HEAD_SHA" --head-sha "$HEAD_SHA" --repository "$GITHUB_REPOSITORY_NAME" --output "$RUNNER_TEMP/prior-gates.json"
+          node scripts/ci/classify-change.mjs --event-name "$EVENT_NAME" --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA" --checkout-sha "$CHECKOUT_SHA" --canonical-main-ref "$CANONICAL_MAIN_REF" --resume-evidence "$RUNNER_TEMP/prior-gates.json" --output "$RUNNER_TEMP/change-plan.json"
           node - "$RUNNER_TEMP/change-plan.json" "$GITHUB_OUTPUT" <<'NODE'
           const { appendFileSync, readFileSync } = require("node:fs");
           const plan = JSON.parse(readFileSync(process.argv[2], "utf8"));
           const selected = new Set(plan.requiredGates);
-          const lines = [
-            `base-sha=${plan.context.baseSha}`,
-            `head-sha=${plan.context.headSha}`,
-            `required-gates=${JSON.stringify(plan.requiredGates)}`,
-            ...["mobile", "web", "admin", "shared", "database", "decision", "delivery-contract"]
-              .map((gate) => `${gate}=${selected.has(gate)}`),
-          ];
-          appendFileSync(process.argv[3], `${lines.join("\n")}\n`);
+          const gates = ["mobile", "web", "admin", "shared", "user", "world", "decision", "database", "supply-chain", "delivery-policy", "release-certification"];
+          appendFileSync(process.argv[3], [`base-sha=${plan.context.baseSha}`, `head-sha=${plan.context.headSha}`, `required-gates=${JSON.stringify(plan.requiredGates)}`, ...gates.map((gate) => `${gate}=${selected.has(gate)}`)].join("\n") + "\n");
           NODE
-          node - "$RUNNER_TEMP/change-plan.json" "$GITHUB_STEP_SUMMARY" <<'NODE'
-          const { appendFileSync, readFileSync } = require("node:fs");
-          const plan = JSON.parse(readFileSync(process.argv[2], "utf8"));
-          appendFileSync(process.argv[3], [
-            "## Risk-based change plan",
-            "",
-            `- Candidate: \`${plan.context.headSha}\``,
-            `- Base: \`${plan.context.baseSha}\``,
-            `- Checkout: \`${plan.context.checkoutKind}\``,
-            `- Stale base: \`${plan.context.staleBase}\``,
-            `- Classes: ${plan.classes.join(", ")}`,
-            `- Required gates: ${plan.requiredGates.join(", ")}`,
-            "",
-          ].join("\n"));
-          NODE
+          jq '{requiredGates, gateResume}' "$RUNNER_TEMP/change-plan.json"
 
   repository-security:
     name: Repository and secret invariants
@@ -89,489 +61,231 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          fetch-depth: 0
-      - name: Repository and migration structure
-        env:
-          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        with: { fetch-depth: 0 }
+      - env: { CI_BASE_SHA: "${{ github.event.pull_request.base.sha || github.event.before }}" }
         run: scripts/ci/repository-sanity.sh
-      - name: Canonical SQL secret guard
-        run: scripts/ci/scan-canonical-secrets.sh
-      - name: Client/service-role and public-secret boundary
-        run: node scripts/ci/validate-client-secret-boundary.mjs
-      - name: Shipped Production state and immutable migration bytes
-        run: node scripts/ci/validate-production-state.mjs
-      - name: Scan changed repository content
-        uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITLEAKS_ENABLE_COMMENTS: "false"
-          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+      - run: scripts/ci/scan-canonical-secrets.sh
+      - run: node scripts/ci/validate-client-secret-boundary.mjs
+      - run: node scripts/ci/validate-production-state.mjs
+      - uses: gitleaks/gitleaks-action@dcedce43c6f43de0b836d1fe38946645c9c638dc # v2
+        env: { GITHUB_TOKEN: "${{ github.token }}", GITLEAKS_ENABLE_COMMENTS: "false", GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false" }
 
   mobile:
-    name: Mobile contracts, lint and advisory typecheck
+    name: Mobile focused gate
     if: needs.classify.outputs.mobile == 'true'
     needs: classify
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: mobile
+    timeout-minutes: 12
+    defaults: { run: { working-directory: mobile } }
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: mobile/package-lock.json
+        with: { node-version: 20, cache: npm, cache-dependency-path: mobile/package-lock.json }
       - run: npm ci
       - run: npm run test:contracts
       - run: npm run lint
-      - name: Build the real Founder Mobile web bundle
-        env:
-          EXPO_PUBLIC_SUPABASE_URL: https://example.invalid
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-public-placeholder-key-000000000000
-        run: npx expo export --platform web --output-dir "$RUNNER_TEMP/founder-mobile-web"
-      - name: Install isolated Founder Mobile rehearsal browser
-        working-directory: ${{ github.workspace }}
-        run: |
-          npm ci --ignore-scripts
-          npx playwright install chromium
-      - name: Founder two-account real Mobile UI rehearsal
-        working-directory: ${{ github.workspace }}
-        run: npm run founder-activation:mobile-e2e
-      - name: Mobile TypeScript baseline (advisory inherited debt)
+      - name: TypeScript baseline
         continue-on-error: true
         run: npm run typecheck
 
   web:
-    name: Web contracts, typecheck and build
+    name: Web focused gate
     if: needs.classify.outputs.web == 'true'
     needs: classify
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: https://example.invalid
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-public-placeholder
-      NEXT_PUBLIC_SITE_URL: https://example.invalid
-      NEXT_PUBLIC_APP_DOWNLOAD_URL: https://example.invalid
+    timeout-minutes: 12
+    env: { NEXT_PUBLIC_SUPABASE_URL: "https://example.invalid", NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-public-placeholder", NEXT_PUBLIC_SITE_URL: "https://example.invalid", NEXT_PUBLIC_APP_DOWNLOAD_URL: "https://example.invalid" }
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - run: npm ci
+        with: { node-version: 20, cache: npm, cache-dependency-path: package-lock.json }
+      - run: npm ci --ignore-scripts
       - run: npm run test:contracts --workspace web
       - run: npm run typecheck --workspace web -- --pretty false
       - run: npm run build --workspace web
 
   admin:
-    name: Admin contracts, typecheck and build
+    name: Admin focused gate
     if: needs.classify.outputs.admin == 'true'
     needs: classify
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: https://example.invalid
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-public-placeholder
-      NEXT_PUBLIC_SITE_URL: https://example.invalid
-      NEXT_PUBLIC_GOOGLE_API_KEY: ci-public-placeholder
-      SUPABASE_SERVICE_ROLE_KEY: ci-server-placeholder
-    defaults:
-      run:
-        working-directory: admin-dashboard
+    timeout-minutes: 12
+    defaults: { run: { working-directory: admin-dashboard } }
+    env: { NEXT_PUBLIC_SUPABASE_URL: "https://example.invalid", NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-public-placeholder", NEXT_PUBLIC_SITE_URL: "https://example.invalid", NEXT_PUBLIC_GOOGLE_API_KEY: "ci-public-placeholder", SUPABASE_SERVICE_ROLE_KEY: "ci-server-placeholder" }
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: admin-dashboard/package-lock.json
-      - name: Install repository workspace dependencies
-        working-directory: ${{ github.workspace }}
-        run: npm ci
+        with: { node-version: 20, cache: npm, cache-dependency-path: admin-dashboard/package-lock.json }
       - run: npm ci
       - run: npm run test:contracts
-      - run: npm run typecheck -- --pretty false
+      - run: npm run typecheck
       - run: npm run build
 
   shared:
-    name: Shared contract typecheck
+    name: Shared contracts
     if: needs.classify.outputs.shared == 'true'
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: package-lock.json }
+      - run: npm ci --ignore-scripts
+      - run: npm exec tsc -- --noEmit --pretty false -p packages/shared/tsconfig.json
+
+  user:
+    name: User Intelligence focused gate
+    if: needs.classify.outputs.user == 'true'
     needs: classify
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - run: npm ci
-      - run: npm exec tsc -- --noEmit --pretty false -p packages/shared/tsconfig.json
-      - name: Validate User Intelligence vNext contract foundation
-        run: |
-          npm run user-intelligence-vnext:typecheck
-          npm run user-intelligence-vnext:test
-          npm run user-intelligence-vnext:phase3d:ui:test
-      - name: Install isolated Founder Lab browser
-        run: npx playwright install --with-deps chromium
-      - name: Validate Admin to Reader to Decision to Mobile Founder flow
-        run: npm run founder-live:e2e
-      - name: Validate Phase 3D interactive Founder Lab
-        run: npm run user-intelligence-vnext:phase3d:ui:e2e
-      - name: Reproduce Phase 3B calibration report
-        run: npm run user-intelligence-vnext:calibration -- --full-output "$RUNNER_TEMP/user-intelligence-phase3b-full-report.json" --verify-summary docs/user-intelligence-vnext/phase3b/calibration-release-summary.json
-      - name: Retain Phase 3B synthetic calibration report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: user-intelligence-phase3b-calibration-${{ github.sha }}
-          path: ${{ runner.temp }}/user-intelligence-phase3b-full-report.json
-          if-no-files-found: error
-          retention-days: 14
-      - name: Reproduce Phase 3C Product Policy release
-        run: npm run user-intelligence-vnext:phase3c -- --full-output "$RUNNER_TEMP/user-intelligence-phase3c-product-policy.json" --verify-summary docs/user-intelligence-vnext/phase3c/product-policy-release-summary.json
-      - name: Retain Phase 3C non-production Product Policy proof
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: user-intelligence-phase3c-product-policy-${{ github.sha }}
-          path: ${{ runner.temp }}/user-intelligence-phase3c-product-policy.json
-          if-no-files-found: error
-          retention-days: 14
-      - name: Reproduce Phase 3D offline Founder Lab report
-        run: npm run user-intelligence-vnext:phase3d -- --full-output "$RUNNER_TEMP/user-intelligence-phase3d-founder-lab.json" --verify-summary docs/user-intelligence-vnext/phase3d/phase3d-release-summary.json
-      - name: Retain Phase 3D offline Founder Lab report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: user-intelligence-phase3d-founder-lab-${{ github.sha }}
-          path: ${{ runner.temp }}/user-intelligence-phase3d-founder-lab.json
-          if-no-files-found: error
-          retention-days: 14
-      - name: Reproduce Week 1 dark-runtime and privacy proof
-        run: npm run user-intelligence-vnext:week1:report -- --full-output "$RUNNER_TEMP/user-intelligence-week1-dark-runtime.json" --verify-summary docs/user-intelligence-vnext/week1/dark-runtime-release-summary.json
-      - name: Retain Week 1 dark-runtime and privacy proof
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: user-intelligence-week1-dark-runtime-${{ github.sha }}
-          path: ${{ runner.temp }}/user-intelligence-week1-dark-runtime.json
-          if-no-files-found: error
-          retention-days: 14
-      - name: Reproduce Week 2 dark projection runtime proof
-        run: npm run user-intelligence-vnext:week2:report -- --full-output "$RUNNER_TEMP/user-intelligence-week2-dark-projection-runtime.json" --verify-summary docs/user-intelligence-vnext/week2/dark-projection-runtime-release-summary.json
-      - name: Retain Week 2 dark projection runtime proof
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: user-intelligence-week2-dark-projection-runtime-${{ github.sha }}
-          path: ${{ runner.temp }}/user-intelligence-week2-dark-projection-runtime.json
-          if-no-files-found: error
-          retention-days: 14
-      - name: Reproduce Week 3 internal allowlisted projection proof
-        run: npm run user-intelligence-vnext:week3:report -- --full-output "$RUNNER_TEMP/user-intelligence-week3-internal-projection.json" --verify-summary docs/user-intelligence-vnext/week3/internal-projection-release-summary.json
-      - name: Retain Week 3 internal allowlisted projection proof
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: user-intelligence-week3-internal-projection-${{ github.sha }}
-          path: ${{ runner.temp }}/user-intelligence-week3-internal-projection.json
-          if-no-files-found: error
-          retention-days: 14
-      - name: Reproduce Founder live projection foundation proof
-        run: npm run user-intelligence-vnext:founder-live:report -- --full-output "$RUNNER_TEMP/user-intelligence-founder-live-projection.json" --verify-summary docs/user-intelligence-vnext/founder-live/release-summary.json
-      - name: Retain Founder live projection foundation proof
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: user-intelligence-founder-live-projection-${{ github.sha }}
-          path: ${{ runner.temp }}/user-intelligence-founder-live-projection.json
-          if-no-files-found: error
-          retention-days: 14
-      - name: Validate World Knowledge foundation
-        run: |
-          npm run world-knowledge:typecheck
-          npm run world-knowledge:test
+        with: { node-version: 20, cache: npm, cache-dependency-path: package-lock.json }
+      - run: npm ci --ignore-scripts
+      - run: npm run user-intelligence-vnext:typecheck
+      - run: npm run user-intelligence-vnext:test
 
-  decision-preflight:
-    name: Decision preflight and immutable build
+  world:
+    name: World Knowledge focused gate
+    if: needs.classify.outputs.world == 'true'
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: package-lock.json }
+      - run: npm ci --ignore-scripts
+      - run: npm run world-knowledge:typecheck
+      - run: npm run world-knowledge:test
+
+  decision:
+    name: Decision vNext focused gate
     if: needs.classify.outputs.decision == 'true'
     needs: classify
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          fetch-depth: 0
+        with: { fetch-depth: 0 }
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: package-lock.json
+        with: { node-version: 20, cache: npm, cache-dependency-path: package-lock.json }
       - run: npm ci --ignore-scripts
-      - name: Validate fast-lane routing and aggregation contracts
-        run: npm run decision-ci:test
-      - name: Build once, typecheck and verify the closed test plan
-        run: npm run decision-ci:group -- --group preflight --output "$RUNNER_TEMP/decision-preflight.json"
-      - name: Validate independently derived semantic release record
-        env:
-          BASE_SHA: ${{ needs.classify.outputs.base-sha }}
-          HEAD_SHA: ${{ needs.classify.outputs.head-sha }}
-        run: node scripts/ci/validate-decision-change.mjs --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"
-      - name: Bind immutable build to lockfile, runtime, source tree and test plan
-        run: node scripts/ci/decision-build-artifact.mjs --create decision-ci-artifact.json
-      - name: Retain verified Decision build
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: decision-build-${{ needs.classify.outputs.head-sha }}
-          path: |
-            decision-ci-artifact.json
-            packages/world-knowledge-core/dist
-            packages/user-intelligence-vnext-core/dist
-            packages/decision-vnext-core/dist
-          if-no-files-found: error
-          retention-days: 1
-
-  decision-core-consumers:
-    name: Decision core, replay and consumer integrity
-    if: needs.classify.outputs.decision == 'true'
-    needs: [classify, decision-preflight]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - run: npm ci --ignore-scripts
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: decision-build-${{ needs.classify.outputs.head-sha }}
-          path: .
-      - run: node scripts/ci/decision-build-artifact.mjs --verify decision-ci-artifact.json
-      - run: npm run decision-ci:group -- --group core-consumers --output "$RUNNER_TEMP/decision-core-consumers.json"
-      - name: Install isolated Decision Founder Lab browser
-        run: npx playwright install --with-deps chromium
-      - name: Validate Phase 3C interactive Founder Decision Lab
-        run: node scripts/decision/phase3c-founder-lab-ui.e2e.mjs
-
-  decision-phase2:
-    name: Decision Phase-2 recursive integration
-    if: needs.classify.outputs.decision == 'true'
-    needs: [classify, decision-preflight]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - run: npm ci --ignore-scripts
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: decision-build-${{ needs.classify.outputs.head-sha }}
-          path: .
-      - run: node scripts/ci/decision-build-artifact.mjs --verify decision-ci-artifact.json
-      - run: npm run decision-ci:group -- --group phase2-all --output "$RUNNER_TEMP/decision-phase2.json"
-
-  decision-sandbox:
-    name: Decision synthetic validation (${{ matrix.group }})
-    if: needs.classify.outputs.decision == 'true'
-    needs: [classify, decision-preflight]
-    strategy:
-      fail-fast: false
-      matrix:
-        group: [sandbox-worlds, sandbox-profiles]
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - run: npm ci --ignore-scripts
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: decision-build-${{ needs.classify.outputs.head-sha }}
-          path: .
-      - run: node scripts/ci/decision-build-artifact.mjs --verify decision-ci-artifact.json
-      - run: npm run decision-ci:group -- --group "${{ matrix.group }}" --output "$RUNNER_TEMP/${{ matrix.group }}.json"
-
-  decision-lab:
-    name: Decision Lab acceptance and recertification
-    if: needs.classify.outputs.decision == 'true'
-    needs: [classify, decision-preflight]
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: package-lock.json
-      - run: npm ci --ignore-scripts
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: decision-build-${{ needs.classify.outputs.head-sha }}
-          path: .
-      - run: node scripts/ci/decision-build-artifact.mjs --verify decision-ci-artifact.json
-      - run: npm run decision-ci:group -- --group decision-lab --output "$RUNNER_TEMP/decision-lab.json"
-
-  decision:
-    name: Versioned Decision semantics and evaluation
-    if: always() && needs.classify.outputs.decision == 'true'
-    needs: [classify, decision-preflight, decision-core-consumers, decision-phase2, decision-sandbox, decision-lab]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    env:
-      SHARD_RESULTS: >-
-        {"core-consumers":"${{ needs.decision-core-consumers.result }}","phase2":"${{ needs.decision-phase2.result }}","large-sandbox":"${{ needs.decision-sandbox.result }}","decision-lab":"${{ needs.decision-lab.result }}"}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Require every Decision shard; skipped or missing is failure
-        run: node scripts/ci/verify-decision-shards.mjs --results "$SHARD_RESULTS"
+      - run: npm run decision-vnext:typecheck
+      - run: npm run decision-vnext:test
+      - run: npm run decision-vnext:single-route
 
   database:
-    name: Database lineage, clean boot and authorization
+    name: Database clean boot and authorization
     if: needs.classify.outputs.database == 'true'
     needs: classify
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          fetch-depth: 0
+        with: { fetch-depth: 0 }
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 20
+        with: { node-version: 20 }
       - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
-        with:
-          version: 2.80.0
-      - name: Migration immutability and harness contracts
-        env:
-          BASE_SHA: ${{ needs.classify.outputs.base-sha }}
-          HEAD_SHA: ${{ needs.classify.outputs.head-sha }}
+        with: { version: 2.80.0 }
+      - env: { BASE_SHA: "${{ needs.classify.outputs.base-sha }}", HEAD_SHA: "${{ needs.classify.outputs.head-sha }}" }
         run: |
           node scripts/ci/validate-database-lineage.mjs --base-sha "$BASE_SHA"
           node scripts/ci/validate-database-test-coverage.mjs --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA" --output "$RUNNER_TEMP/database-tests.txt"
-          node --test scripts/ci/validate-database-lineage.test.mjs scripts/ci/validate-database-test-coverage.test.mjs scripts/ci/validate-database-release.test.mjs scripts/ci/validate-lockfile-install.test.mjs
-      - name: Isolated canonical clean boot and SQL authorization tests
-        env:
-          BASE_SHA: ${{ needs.classify.outputs.base-sha }}
-          BACKYRD_CHANGED_DATABASE_TESTS_FILE: ${{ runner.temp }}/database-tests.txt
+          node --test scripts/ci/validate-database-lineage.test.mjs scripts/ci/validate-database-test-coverage.test.mjs scripts/ci/validate-database-release.test.mjs
+      - env: { BASE_SHA: "${{ needs.classify.outputs.base-sha }}", BACKYRD_CHANGED_DATABASE_TESTS_FILE: "${{ runner.temp }}/database-tests.txt" }
         run: scripts/ci/validate-supabase-current.sh
 
-  delivery-contract:
-    name: Candidate and deployment contract tests
-    if: needs.classify.outputs.delivery-contract == 'true'
+  supply-chain:
+    name: Dependency and supply-chain gate
+    if: needs.classify.outputs.supply-chain == 'true'
     needs: classify
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          fetch-depth: 0
+        with: { fetch-depth: 0 }
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: package-lock.json
+        with: { node-version: 20 }
+      - name: Validate lockfile coupling and pinned Actions
+        env: { BASE_SHA: "${{ needs.classify.outputs.base-sha }}", HEAD_SHA: "${{ needs.classify.outputs.head-sha }}" }
+        run: |
+          node scripts/ci/validate-supply-chain-change.mjs --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA" --output "$RUNNER_TEMP/supply-chain.json"
+          jq -r '.installRoots[]' "$RUNNER_TEMP/supply-chain.json" | while IFS= read -r root; do
+            (cd "$root" && npm ci --ignore-scripts)
+          done
+      - name: Reject newly introduced vulnerable dependencies
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        with: { fail-on-severity: high }
+
+  delivery-policy:
+    name: Delivery policy v2
+    if: needs.classify.outputs.delivery-policy == 'true'
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: package-lock.json }
       - run: npm ci --ignore-scripts
-      - name: Risk, identity, Decision and deployment contract regressions
-        run: |
-          node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/integration-preflight.test.mjs scripts/ci/week2-dark-wiring.test.mjs scripts/ci/founder-live-control-plane.test.mjs scripts/ci/founder-activation-control-plane.test.mjs scripts/ci/scan-founder-activation-pii.test.mjs mobile/packages/founder-live-control-plane/test/control-plane.test.mjs scripts/ci/validate-client-secret-boundary.test.mjs scripts/ci/validate-decision-change.test.mjs scripts/ci/validate-production-state.test.mjs scripts/ci/verify-risk-gate.test.mjs
-          node --test scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/verify-supabase-migration-dry-run.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs
-      - name: Validate Founder-live generated binding and source-aware preflight
+      - run: node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/verify-risk-gate.test.mjs scripts/ci/delivery-workflow-v2.test.mjs scripts/ci/validate-client-secret-boundary.test.mjs scripts/ci/validate-production-state.test.mjs
+      - run: node --test scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/verify-supabase-migration-dry-run.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs
+
+  release-certification:
+    name: Product release certification
+    if: needs.classify.outputs.release-certification == 'true'
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: package-lock.json }
+      - run: npm ci --ignore-scripts
+      - run: npm run decision-vnext:single-route
+      - run: npm run product-release:test
+      - run: npx playwright install chromium
+      - run: npm run product-release:e2e
+      - name: Build installed Mobile path
+        working-directory: mobile
+        env: { EXPO_PUBLIC_SUPABASE_URL: "https://example.invalid", EXPO_PUBLIC_SUPABASE_ANON_KEY: "ci-public-placeholder-key-000000000000" }
+        run: npm ci && npx expo export --platform web --output-dir "$RUNNER_TEMP/mobile-web"
+      - name: Seal the tested Product artifact
         env:
-          FOUNDER_LIVE_EVENT_NAME: ${{ github.event_name }}
-          FOUNDER_LIVE_CHECKOUT_SHA: ${{ github.sha }}
-          FOUNDER_LIVE_BASE_SHA: ${{ needs.classify.outputs.base-sha }}
-          FOUNDER_LIVE_CANONICAL_MAIN: ${{ github.event.pull_request.base.sha || github.sha }}
+          EVENT_NAME: "${{ github.event_name }}"
+          BASE_SHA: "${{ needs.classify.outputs.base-sha }}"
+          HEAD_SHA: "${{ needs.classify.outputs.head-sha }}"
+          CHECKOUT_SHA: "${{ github.sha }}"
+          CANONICAL_MAIN_SHA: "${{ github.event.pull_request.base.sha || github.sha }}"
         run: |
-          npm run founder-live:binding
-          npm run founder-activation:scan
-          npm run founder-activation:preflight
-          npm run founder-activation:four-track
-          case "$FOUNDER_LIVE_EVENT_NAME" in
-            pull_request) FOUNDER_LIVE_MODE=CANONICAL_DESCENDANT_PR ;;
-            push)
-              test "$GITHUB_REF" = "refs/heads/main"
-              FOUNDER_LIVE_MODE=CANONICAL_DESCENDANT_MAIN
-              ;;
-            *) echo "Unsupported Founder-live event: $FOUNDER_LIVE_EVENT_NAME" >&2; exit 1 ;;
-          esac
-          export FOUNDER_LIVE_MODE
-          node scripts/ci/founder-live-control-plane.mjs . "${{ needs.classify.outputs.head-sha }}"
-      - name: Validate Founder-live inactive Edge boundary
-        run: node --test supabase/functions/decision-founder-live/runtime-boundary.test.mjs
-      - name: Reproduce Founder-live Edge evidence
-        run: node scripts/ci/founder-live-edge-implementation-evidence.mjs . "${{ needs.classify.outputs.head-sha }}"
-      - name: Install isolated Founder-live rehearsal browser
-        run: npx playwright install chromium
-      - name: Rehearse Founder-live four-track flow
-        run: npm run founder-live:four-track -- "${{ needs.classify.outputs.head-sha }}"
-      - name: Validate World Week 1 release foundation contract
-        run: |
-          npm run world-knowledge:week1:test
-          bash -n scripts/world-knowledge/rehearse-week1-world-release.sh
-      - name: Read-only Week-1 integration preflight
-        run: node scripts/ci/integration-preflight.mjs --base-sha "${{ needs.classify.outputs.base-sha }}" --head-sha "${{ needs.classify.outputs.head-sha }}"
-      - name: Read-only Week-2 dark-wiring preflight
-        run: node scripts/ci/week2-dark-wiring-preflight.mjs --base-sha "${{ needs.classify.outputs.base-sha }}" --head-sha "${{ needs.classify.outputs.head-sha }}" --final
-      - name: Validate Week-3 internal product-like control plane
-        run: node --test scripts/ci/week3-internal-prodlike.test.mjs
-      - name: Read-only Week-3 internal product-like preflight
-        env:
-          WEEK3_EVENT_NAME: ${{ github.event_name }}
-          WEEK3_CHECKOUT_SHA: ${{ github.sha }}
-        run: |
-          node scripts/ci/week3-internal-prodlike-preflight.mjs --identity-regressions
-          WEEK3_CANONICAL_COMPLETION_SHA=9c38946462c5698ee1ff6375d996463254dd829e
-          case "$WEEK3_EVENT_NAME" in
-            pull_request)
-              if git merge-base --is-ancestor "$WEEK3_CANONICAL_COMPLETION_SHA" "${{ needs.classify.outputs.base-sha }}"; then
-                WEEK3_MODE=CANONICAL_DESCENDANT_PR
-              else
-                WEEK3_MODE=PR_CANDIDATE
-              fi
-              ;;
-            push)
-              test "$GITHUB_REF" = "refs/heads/main"
-              if git merge-base --is-ancestor "$WEEK3_CANONICAL_COMPLETION_SHA" "${{ needs.classify.outputs.base-sha }}"; then
-                WEEK3_MODE=CANONICAL_DESCENDANT_MAIN
-              else
-                WEEK3_MODE=POST_MERGE_MAIN
-              fi
-              ;;
-            *) echo "Unsupported Week-3 event: $WEEK3_EVENT_NAME" >&2; exit 1 ;;
-          esac
-          node scripts/ci/week3-internal-prodlike-preflight.mjs \
-            --mode "$WEEK3_MODE" \
-            --event-name "$WEEK3_EVENT_NAME" \
-            --base-sha "${{ needs.classify.outputs.base-sha }}" \
-            --head-sha "${{ needs.classify.outputs.head-sha }}" \
-            --checkout-sha "$WEEK3_CHECKOUT_SHA" \
-            --canonical-main-ref "${{ github.event.pull_request.base.sha || github.sha }}" \
-            --final
+          if [ "$EVENT_NAME" = "pull_request" ]; then MODE=PR_CANDIDATE; else MODE=POST_MERGE_MAIN; fi
+          node scripts/ci/product-release-manifest.mjs evidence --source-sha "$HEAD_SHA" --output "$RUNNER_TEMP/product-release-tests.json"
+          node scripts/ci/product-release-manifest.mjs build --mode "$MODE" --base-sha "$BASE_SHA" --source-sha "$HEAD_SHA" --checkout-sha "$CHECKOUT_SHA" --canonical-main-sha "$CANONICAL_MAIN_SHA" --test-evidence "$RUNNER_TEMP/product-release-tests.json" --mobile-bundle "$RUNNER_TEMP/mobile-web" --output "$RUNNER_TEMP/product-release"
+      - name: Retain the exact tested Product artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: backyrd-product-release-${{ needs.classify.outputs.head-sha }}
+          path: ${{ runner.temp }}/product-release/
+          if-no-files-found: error
+          retention-days: 30
 
   risk-gate:
     name: Risk-based merge gate
     if: always()
-    needs: [classify, repository-security, mobile, web, admin, shared, decision, database, delivery-contract]
+    needs: [classify, repository-security, mobile, web, admin, shared, user, world, decision, database, supply-chain, delivery-policy, release-certification]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
       REQUIRED_GATES: ${{ needs.classify.outputs.required-gates }}
       RESULTS: >-
-        {"repository-security":"${{ needs.repository-security.result }}","mobile":"${{ needs.mobile.result }}","web":"${{ needs.web.result }}","admin":"${{ needs.admin.result }}","shared":"${{ needs.shared.result }}","decision":"${{ needs.decision.result }}","database":"${{ needs.database.result }}","delivery-contract":"${{ needs.delivery-contract.result }}"}
+        {"repository-security":"${{ needs.repository-security.result }}","mobile":"${{ needs.mobile.result }}","web":"${{ needs.web.result }}","admin":"${{ needs.admin.result }}","shared":"${{ needs.shared.result }}","user":"${{ needs.user.result }}","world":"${{ needs.world.result }}","decision":"${{ needs.decision.result }}","database":"${{ needs.database.result }}","supply-chain":"${{ needs.supply-chain.result }}","delivery-policy":"${{ needs.delivery-policy.result }}","release-certification":"${{ needs.release-certification.result }}"}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Require every risk-selected gate and ignore irrelevant skipped gates
-        run: node scripts/ci/verify-risk-gate.mjs --required-gates "$REQUIRED_GATES" --results "$RESULTS"
+      - run: node scripts/ci/verify-risk-gate.mjs --required-gates "$REQUIRED_GATES" --results "$RESULTS"

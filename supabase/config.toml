@@ -438,16 +438,6 @@ enabled = true
 verify_jwt = true
 entrypoint = "./functions/decision-v13/index.deploy.ts"
 
-[functions.decision-copy]
-enabled = true
-verify_jwt = true
-entrypoint = "./functions/decision-copy/index.ts"
-
-[functions.decision-founder-live]
-enabled = true
-verify_jwt = true
-entrypoint = "./functions/decision-founder-live/index.ts"
-
 [functions.google-place-photo]
 enabled = true
 verify_jwt = true

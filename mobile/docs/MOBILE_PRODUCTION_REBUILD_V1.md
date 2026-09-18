@@ -1,24 +1,40 @@
-# Mobile Production Rebuild V1
+# Mobile Product Candidate V1
 
-## Product boundary
+## Candidate boundary
 
-Mobile now has one active authenticated Product path. Server Product-entry status controls onboarding; Home free text and the Decision tab invoke `decision-v13`; a response is renderable only when North-Star is explicitly active. There is no client ranking, client AI reason generation, legacy Decision fallback, legacy Taste write, or local onboarding authority.
+The source candidate has one authenticated Product Decision path. Home free text
+and the Decision tab send the strict
+`backyrd.decision-vnext.product-request@1.0` contract to `decision-v13`.
+Mobile renders only the server response's presentation, rank, availability,
+reasons, and limitations. It has no client ranking, client-generated reason,
+legacy Decision fallback, parallel Taste write, or client runtime authority.
 
-Decision events are distinct: a visible card records one exposure; Weiter/swipe records no feedback; Passt and Nicht passend are explicit canonical moment feedback; Route records navigation intent. Continuation stays bound to the server Decision.
+The same route accepts strict Product interaction requests for a card that was
+actually visible and for a candidate that was opened. Alternative requests and
+contextual rejects remain bound to the original Decision through
+`previouslyPresentedCandidateIds` and `rejectedCandidateIds`; they do not create
+World facts or silently call a legacy continuation contract.
+
+This is candidate source, not current Production truth. The Product control is
+OFF by default, the Founder-special Function is disabled in source config, and
+the client shows an honest unavailable state when the exact server authority is
+not present.
 
 ## Startup and releases
 
-Startup is ordered as runtime configuration, one Supabase client, one Auth provider, font readiness, safety/consent guards, then routing. Recoverable configuration, auth, network, and rendering failures show Product states instead of crashing the tree.
+Startup is ordered as runtime configuration, one Supabase client, one Auth
+provider, font readiness, safety/consent guards, then routing. Recoverable
+configuration, auth, network, and rendering failures show Product states instead
+of crashing the tree.
 
-Expo Updates no longer reloads JavaScript from a mounted tab. Native Expo launch selection applies a compatible update on clean launch. Runtime `1.1.0` intentionally requires a new native TestFlight build; it is not pushed into the installed `1.0.0` runtime.
+Expo Updates does not reload JavaScript from a mounted tab. Native Expo launch
+selection applies a compatible update on clean launch. Runtime `1.1.0` is bound
+to accepted iOS Build 57; this candidate does not change native dependencies,
+runtime configuration, native projects, or plugins.
 
-The Production build fails if Supabase, Maps, OAuth, update channel, runtime, contracts, TypeScript, lint, or the forbidden-path scan fails. Internal Release Status shows native version/build, runtime, channel, update ID/group, embedded-versus-OTA source, emergency launch state, and recent update errors without credentials.
-
-## Visual system
-
-The shared mobile theme is near-black with off-white editorial type, Backyrd pink for interaction, and acid for editorial emphasis. Home, Decision, navigation, auth/onboarding, Spot, Map, Moments, Profile, Settings, review, safety, loading, empty, and error surfaces use the same token direction. Home asks “WOHIN GEHT’S HEUTE?” and sends free text directly to Decision.
-
-No externally supplied reference images were present in the task context, so visual validation targets the written brand direction rather than pixel comparison.
+No OTA has been created, uploaded, published, activated, or delivered for this
+candidate. The authoritative readiness and NO-GO record is
+`docs/operations/DECISION_VNEXT_OTA_READINESS_REPORT.md`.
 
 ## Removed active debt
 
@@ -27,7 +43,7 @@ No externally supplied reference images were present in the task context, so vis
 - tab-mounted `Updates.reloadAsync()`
 - direct profile repair writes during auth hydration
 - copied service-role Edge Functions and seed script under Mobile
-- repository backup/before files
-- client-side direct achievement insert, replaced by an authenticated idempotent RPC
+- client-side direct achievement inserts
 
-Historical backend records and frozen Decision/User-Intelligence semantics are unchanged.
+Historical backend records remain isolated and are not presented as vNext
+Product history.

@@ -4,9 +4,15 @@ import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { isDestructiveMigration } from "./classify-change.mjs";
+import { isAuthorizedBoundedMigration, isDestructiveMigration } from "./classify-change.mjs";
 
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024 }).trim();
+const gitBlob = (root, revisionPath) => execFileSync("git", ["show", revisionPath], {
+  cwd: root,
+  encoding: "utf8",
+  maxBuffer: 50 * 1024 * 1024,
+  stdio: ["ignore", "pipe", "pipe"],
+});
 const securityPattern = /\b(?:create|alter|drop)\s+policy\b|\brow\s+level\s+security\b|\b(?:grant|revoke)\b|\bsecurity\s+definer\b|\bauth\.|\bstorage\./i;
 
 export function validateDatabaseTestCoverage({ root, baseSha, headSha }) {
@@ -16,9 +22,17 @@ export function validateDatabaseTestCoverage({ root, baseSha, headSha }) {
   const newMigrations = changes.filter(({ status, path }) => status === "A" && path.startsWith("supabase/migrations/")).map(({ path }) => path);
   const migrationMutations = changes.filter(({ status, path }) => status !== "A" && path.startsWith("supabase/migrations/"));
   if (migrationMutations.length) throw new Error(`published_migration_mutation:${migrationMutations.map(({ path }) => path).join(",")}`);
-  const newMigrationSources = newMigrations.map((path) => git(root, ["show", `${headSha}:${path}`]));
-  const newMigrationSource = newMigrationSources.join("\n");
-  if (newMigrationSources.some(isDestructiveMigration)) throw new Error("destructive_database_change_requires_separate_authorization");
+  const newMigrationSources = newMigrations.map((path) => ({ path, text: gitBlob(root, `${headSha}:${path}`) }));
+  const newMigrationSource = newMigrationSources.map(({ text }) => text).join("\n");
+  let trustAnchor = {};
+  try {
+    trustAnchor = JSON.parse(gitBlob(root, `${headSha}:delivery/product-authority-v1.json`));
+  } catch {
+    // Repositories without the Product authority anchor retain the strict default.
+  }
+  if (newMigrationSources.some(({ path, text }) => isDestructiveMigration(text) && !isAuthorizedBoundedMigration(path, text, trustAnchor))) {
+    throw new Error("destructive_database_change_requires_separate_authorization");
+  }
   const changedTests = changes.filter(({ status, path }) => status !== "D" && /^supabase\/tests\/.+\.sql$/.test(path)).map(({ path }) => path).sort();
   const authorizationFiles = changes.filter(({ path }) => ["supabase/canonical/auth_hooks.sql", "supabase/canonical/storage.sql"].includes(path));
   const authorizationBoundary = authorizationFiles.length > 0 || securityPattern.test(newMigrationSource);

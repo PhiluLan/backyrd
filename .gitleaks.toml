@@ -17,3 +17,17 @@ id = "generic-api-key"
   regexTarget = "secret"
   regexes = ['''^idem-12345678$''']
   paths = ['''^mobile/packages/founder-live-control-plane/test/gateway\.test\.mjs$''']
+
+  [[rules.allowlists]]
+  description = "Product contract tests use visibly synthetic idempotency fixtures, never credentials."
+  condition = "AND"
+  regexTarget = "secret"
+  regexes = ['''^idem-[0-9]{8}$''']
+  paths = ['''^mobile/packages/(founder-live-control-plane|product-decision-contract)/test/control-plane\.test\.mjs$''']
+
+  [[rules.allowlists]]
+  description = "Product adapter test names the idempotency key version; the value is a public contract label."
+  condition = "AND"
+  regexTarget = "secret"
+  regexes = ['''^idempotency-key-v1$''']
+  paths = ['''^packages/decision-vnext-core/test/product-decision-production-adapter\.test\.mjs$''']

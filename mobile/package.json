@@ -27,7 +27,7 @@
     "eas-build-post-install": "node ./scripts/eas-build-post-install.mjs"
   },
   "dependencies": {
-    "@backyrd/founder-live-control-plane": "file:packages/founder-live-control-plane",
+    "@backyrd/product-decision-contract": "file:packages/product-decision-contract",
     "@expo-google-fonts/dm-serif-display": "^0.4.2",
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/libre-franklin": "^0.4.2",
@@ -39,7 +39,6 @@
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
     "@supabase/supabase-js": "^2.95.3",
-    "base-64": "^1.0.0",
     "base64-arraybuffer": "^1.0.2",
     "dotenv": "^17.2.3",
     "expo": "~54.0.37",
@@ -69,7 +68,6 @@
     "expo-system-ui": "~6.0.7",
     "expo-updates": "~29.0.20",
     "expo-web-browser": "~15.0.11",
-    "node-fetch": "^3.3.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -89,6 +87,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "@types/react-dom": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2"

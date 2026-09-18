@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "backyrd-product-authority-v1",
+  "status": "ACTIVE",
+  "productRoute": "DECISION_VNEXT_SINGLE_ROUTE",
+  "legacyDecisionAuthority": false,
+  "runtimeScope": {
+    "contractVersion": "backyrd.product-runtime-scope@1.0",
+    "activeTransport": "decision-v13",
+    "deployEntrypoint": "supabase/functions/decision-v13/index.deploy.ts",
+    "productHandler": "supabase/functions/decision-v13/vnext-only.ts",
+    "retiredTransports": [
+      "decision-founder-live"
+    ],
+    "quarantinedTransports": [],
+    "legacyDecisionModulesPolicy": "DEEP_RECERTIFICATION_ONLY"
+  },
+  "authorizedBoundedMigrations": [
+    {
+      "path": "supabase/migrations/20260918182831_decision_vnext_product_runtime_v1.sql",
+      "sha256": "8fd81ac5cea98819fc4e037621033813193016729139cbea2a7482c480367277",
+      "scope": "CONSENT_ERASURE_AND_EXPIRED_PRIVATE_IDEMPOTENCY_ONLY"
+    }
+  ],
+  "protectedSemanticSourceSet": {
+    "paths": [
+      "mobile/app/(tabs)/decision.tsx",
+      "mobile/lib/decision/productDecision.ts",
+      "packages/decision-vnext-core/src/product-decision.ts",
+      "packages/decision-vnext-core/src/product-decision-production-adapter.ts",
+      "packages/decision-vnext-core/src/product-v1-authority.ts",
+      "packages/decision-vnext-core/src/product-v1-contracts.ts",
+      "packages/decision-vnext-core/src/product-v1-evaluator.ts",
+      "packages/user-intelligence-vnext-core/src/product-decision-learning.ts",
+      "packages/world-knowledge-core/src/port.ts",
+      "supabase/functions/decision-v13/vnext-only.ts"
+    ]
+  }
+}

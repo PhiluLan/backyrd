@@ -1,0 +1,100 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import {
+  buildProductReleaseManifest,
+  buildProductReleaseTestEvidence,
+  resolveProductReleaseIdentity,
+  verifyProductReleaseIdentity,
+  verifyProductReleaseManifest,
+} from "./product-release-manifest.mjs";
+
+const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
+const put = (root, path, value) => { mkdirSync(dirname(join(root, path)), { recursive: true }); writeFileSync(join(root, path), value); };
+const commit = (root, message) => { git(root, ["add", "."]); git(root, ["commit", "--quiet", "-m", message]); return git(root, ["rev-parse", "HEAD"]); };
+const fixture = () => {
+  const root = mkdtempSync(join(tmpdir(), "backyrd-release-manifest-"));
+  git(root, ["init", "--quiet", "-b", "main"]); git(root, ["config", "user.email", "fixture@example.invalid"]); git(root, ["config", "user.name", "Fixture"]);
+  put(root, "supabase/config.toml", "project_id='fixture'\n[functions.decision-v13]\nentrypoint='./functions/decision-v13/index.deploy.ts'\n");
+  put(root, "supabase/functions/decision-v13/index.deploy.ts", "import './vnext-only.ts';\n");
+  put(root, "supabase/functions/decision-v13/vnext-only.ts", "export default true;\n");
+  put(root, "supabase/migrations/20260101000000_base.sql", "select 1;\n");
+  put(root, "packages/world-knowledge-core/package.json", "{}\n"); put(root, "packages/world-knowledge-core/src/port.ts", "export const world = true;\n");
+  put(root, "packages/user-intelligence-vnext-core/package.json", "{}\n"); put(root, "packages/user-intelligence-vnext-core/src/product-decision-learning.ts", "export const user = true;\n");
+  put(root, "packages/decision-vnext-core/package.json", "{}\n"); put(root, "packages/decision-vnext-core/src/product-decision.ts", "export const decision = true;\n");
+  put(root, "mobile/packages/product-decision-contract/index.mjs", "export const contract = true;\n");
+  put(root, "mobile/lib/decision/productDecision.ts", "export const client = true;\n");
+  put(root, "mobile/app/(tabs)/decision.tsx", "export default true;\n");
+  put(root, "web/lib/decision-web-api.ts", "export const web = true;\n");
+  put(root, "docs/architecture/PRODUCT_V1_ACTIVE_SURFACE.md", "# Product v1\n");
+  put(root, "delivery/product-authority-v1.json", `${JSON.stringify({ status: "ACTIVE", productRoute: "DECISION_VNEXT_SINGLE_ROUTE", legacyDecisionAuthority: false, runtimeScope: { activeTransport: "decision-v13", quarantinedTransports: [] } })}\n`);
+  put(root, "mobile-export/index.html", "mobile\n");
+  const base = commit(root, "base");
+  put(root, "packages/decision-vnext-core/src/product-decision.ts", "export const decision = 'candidate';\n");
+  const head = commit(root, "candidate");
+  return { root, base, head };
+};
+const plan = (baseSha, headSha) => ({
+  version: "backyrd-supabase-production-deployment-plan-v1", baseSha, canonicalMainSha: headSha,
+  functions: [], deployFunctions: [], migrations: [], pendingMigrations: [], authConfig: null,
+  runtimeDeploymentRequired: false, planHash: "a".repeat(64),
+});
+
+function buildFixture() {
+  const { root, base, head } = fixture();
+  const output = join(root, "release"); mkdirSync(output);
+  const identity = resolveProductReleaseIdentity({ root, mode: "PR_CANDIDATE", sourceSha: head, baseSha: base, checkoutSha: head, canonicalMainSha: base });
+  const testEvidence = buildProductReleaseTestEvidence({ root, sourceSha: head });
+  const manifest = buildProductReleaseManifest({ root, sourceSha: head, outputDir: output, mobileBundle: join(root, "mobile-export"), identity, testEvidence, productionPlan: plan(base, head) });
+  return { root, base, head, output, manifest };
+}
+
+test("a release manifest binds source, tree, domain artifacts, evidence and every deployable byte", () => {
+  const { root, head, output, manifest } = buildFixture();
+  assert.equal(verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head, expectedMode: "PR_CANDIDATE", checkoutRoot: root }).manifestHash, manifest.manifestHash);
+  assert.deepEqual(manifest.components.productRuntime.map(({ path }) => path), ["supabase/functions/decision-v13/index.deploy.ts", "supabase/functions/decision-v13/vnext-only.ts"]);
+  for (const name of ["worldArtifact", "userArtifact", "decisionArtifact", "productPolicy"]) assert.match(manifest.componentIdentities[name].artifactHash, /^[0-9a-f]{64}$/);
+  assert.equal(manifest.testEvidence.results["product-release-e2e"], "PASS");
+  assert.equal(manifest.productionPlan.executionAuthorized, false);
+  put(output, "bundle/supabase/config.toml", "tampered\n");
+  assert.throws(() => verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head }), /release_artifact_file_mismatch/);
+});
+
+test("tree, artifact, evidence and mode manipulation fail closed", () => {
+  const { head, output, manifest } = buildFixture();
+  const original = readFileSync(join(output, "release-manifest.json"), "utf8");
+  const attacks = [
+    (value) => { value.identity.sourceTreeSha = "0".repeat(40); },
+    (value) => { value.componentIdentities.decisionArtifact.artifactHash = "0".repeat(64); },
+    (value) => { value.testEvidence.results["product-release-e2e"] = "SKIP"; },
+    (value) => { value.identity.mode = "UNKNOWN"; },
+  ];
+  for (const attack of attacks) {
+    const value = JSON.parse(original); attack(value); writeFileSync(join(output, "release-manifest.json"), `${JSON.stringify(value, null, 2)}\n`);
+    assert.throws(() => verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head }), /release_manifest_hash_mismatch/);
+  }
+});
+
+test("PR and post-merge identities enforce canonical parents and candidate tree parity", () => {
+  const { root, base, head } = fixture();
+  const pr = resolveProductReleaseIdentity({ root, mode: "PR_CANDIDATE", sourceSha: head, baseSha: base, checkoutSha: head, canonicalMainSha: base });
+  assert.equal(verifyProductReleaseIdentity(pr), true);
+  git(root, ["switch", "--quiet", "-c", "integration", base]);
+  git(root, ["merge", "--quiet", "--no-ff", head, "-m", "merge candidate"]);
+  const merge = git(root, ["rev-parse", "HEAD"]);
+  const main = resolveProductReleaseIdentity({ root, mode: "POST_MERGE_MAIN", sourceSha: merge, baseSha: base, checkoutSha: merge, canonicalMainSha: merge, candidateHeadSha: head });
+  assert.equal(verifyProductReleaseIdentity(main), true);
+  assert.throws(() => verifyProductReleaseIdentity({ ...main, parents: [head, base] }), /main_parents_mismatch/);
+  assert.throws(() => verifyProductReleaseIdentity({ ...main, candidateTreeSha: "0".repeat(40) }), /candidate_tree_mismatch/);
+  assert.throws(() => verifyProductReleaseIdentity({ ...pr, canonicalAncestryVerified: false }), /ancestry_invalid/);
+});
+
+test("a different release identity cannot replay the artifact", () => {
+  const { head, output, manifest } = buildFixture();
+  assert.throws(() => verifyProductReleaseManifest({ artifactDir: output, expectedHash: "0".repeat(64), expectedSourceSha: head }), /release_manifest_hash_mismatch/);
+  assert.throws(() => verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: "0".repeat(40) }), /release_manifest_source_mismatch/);
+  assert.throws(() => verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head, expectedMode: "POST_MERGE_MAIN" }), /release_manifest_mode_mismatch/);
+});

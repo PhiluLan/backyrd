@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { writeFileSync } from "node:fs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
+const HASH = /^[0-9a-f]{64}$/;
 const stable = (value) => {
   if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
   if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stable(value[key])}`).join(",")}}`;
@@ -173,12 +174,33 @@ const productionPreappliedMigrationImport = (tree, baseSha) => {
   return { path, evidence, migrations };
 };
 
+const functionRetirementContract = (tree) => {
+  const path = "supabase/production/function-retirements.json";
+  if (!tree.files.has(path)) return null;
+  const document = JSON.parse(tree.text(path));
+  if (document.version !== "backyrd-function-retirements-v1" || document.projectRef !== "hjgcrrzfjchzqoegcywn") throw new Error("function_retirement_contract_invalid");
+  if (document.remoteState !== "NOT_QUERIED" || document.productionAction !== "NONE_NOT_AUTHORIZED" || document.executionAuthorized !== false) throw new Error("function_retirement_authority_open");
+  if (!Array.isArray(document.retirements) || document.retirements.length === 0) throw new Error("function_retirement_scope_required");
+  const retirements = document.retirements.map((entry) => {
+    for (const key of ["slugSha256", "previousConfigHash", "previousSourceSetHash"]) if (!HASH.test(entry?.[key])) throw new Error(`function_retirement_hash_invalid:${key}`);
+    if (entry.repositoryDisposition !== "DELETE_SOURCE_AND_CONFIG" || entry.reason !== "NO_ACTIVE_PRODUCT_CONSUMER") throw new Error("function_retirement_disposition_invalid");
+    return entry;
+  });
+  if (new Set(retirements.map(({ slugSha256 }) => slugSha256)).size !== retirements.length) throw new Error("function_retirement_duplicate_identity");
+  return { path, retirements };
+};
+
 const sourceExtensions = ["", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".wasm"];
 const resolveLocalImport = (tree, importer, specifier) => {
   if (specifier.startsWith("/")) throw new Error(`absolute_local_import_forbidden:${importer}:${specifier}`);
   const initial = posix.normalize(posix.join(posix.dirname(importer), specifier));
   if (initial === ".." || initial.startsWith("../")) throw new Error(`dependency_escapes_repository:${importer}:${specifier}`);
-  const candidates = sourceExtensions.flatMap((extension) => [`${initial}${extension}`, `${initial}/index${extension}`]);
+  const emittedExtension = initial.match(/\.(?:mjs|cjs|js|jsx)$/)?.[0];
+  const sourceStem = emittedExtension ? initial.slice(0, -emittedExtension.length) : initial;
+  const emittedSourceCandidates = emittedExtension
+    ? [".ts", ".tsx", ".mts", ".cts"].map((extension) => `${sourceStem}${extension}`)
+    : [];
+  const candidates = [initial, ...emittedSourceCandidates, ...sourceExtensions.flatMap((extension) => [`${initial}${extension}`, `${initial}/index${extension}`])];
   const matches = [...new Set(candidates)].filter((candidate) => tree.files.has(candidate));
   if (matches.length !== 1) throw new Error(`${matches.length ? "ambiguous" : "unresolved"}_local_dependency:${importer}:${specifier}`);
   return matches[0];
@@ -263,12 +285,16 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   const afterAuthConfig = productionAuthConfig(head);
   const recoveryPath = "supabase/production/pending-migration-recovery.json";
   const preappliedImportPath = "supabase/production/preapplied-migration-import.json";
+  const retirementPath = "supabase/production/function-retirements.json";
   const recoveryChanged = changedPaths.has(recoveryPath);
   const preappliedImportChanged = changedPaths.has(preappliedImportPath);
+  const retirementChanged = changedPaths.has(retirementPath);
   const migrationRecovery = recoveryChanged ? productionMigrationRecovery(head, baseSha) : null;
   const preappliedMigrationImport = preappliedImportChanged ? productionPreappliedMigrationImport(head, baseSha) : null;
+  const retirementContract = retirementChanged ? functionRetirementContract(head) : null;
   if (recoveryChanged && changes.find((entry) => entry.paths.includes(recoveryPath))?.status !== "A") throw new Error("migration_recovery_must_be_additive");
   if (preappliedImportChanged && changes.find((entry) => entry.paths.includes(preappliedImportPath))?.status !== "A") throw new Error("preapplied_migration_import_must_be_additive");
+  if (retirementChanged && changes.find((entry) => entry.paths.includes(retirementPath))?.status !== "A") throw new Error("function_retirement_contract_must_be_additive");
   if ([migrationRecovery, preappliedMigrationImport].filter(Boolean).length > 1) throw new Error("migration_release_modes_conflict");
   if (beforeAuthConfig && !afterAuthConfig) throw new Error("production_auth_config_removal_forbidden");
   const authConfig = afterAuthConfig
@@ -281,12 +307,20 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
 
   const slugs = [...new Set([...baseConfig.functions.keys(), ...headConfig.functions.keys()])].sort();
   const functions = [];
+  const retiredFunctions = [];
   const claimedRuntimePaths = new Set();
   for (const slug of slugs) {
     const beforeConfig = baseConfig.functions.get(slug);
     const afterConfig = headConfig.functions.get(slug);
     if (!afterConfig?.enabled) {
-      if (beforeConfig?.enabled) throw new Error(`function_retirement_requires_explicit_contract:${slug}`);
+      if (beforeConfig?.enabled) {
+        const before = expandFunctionSourceSet(base, beforeConfig);
+        for (const item of before.files) claimedRuntimePaths.add(item.path);
+        const slugSha256 = sha256(slug);
+        const contract = retirementContract?.retirements.find((entry) => entry.slugSha256 === slugSha256);
+        if (!contract || contract.previousConfigHash !== before.configHash || contract.previousSourceSetHash !== before.sourceSetHash) throw new Error(`function_retirement_requires_explicit_contract:${slug}`);
+        retiredFunctions.push({ slug, slugSha256, previousConfigHash: before.configHash, previousSourceSetHash: before.sourceSetHash, productionAction: "NONE_NOT_AUTHORIZED", executionAuthorized: false });
+      }
       continue;
     }
     const after = expandFunctionSourceSet(head, afterConfig);
@@ -311,8 +345,9 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   }
   for (const path of changedPaths) {
     if (!path?.startsWith("supabase/production/")) continue;
-    if (!["supabase/production/auth-config.json", recoveryPath, preappliedImportPath].includes(path)) throw new Error(`unknown_production_config_scope:${path}`);
+    if (!["supabase/production/auth-config.json", recoveryPath, preappliedImportPath, retirementPath].includes(path)) throw new Error(`unknown_production_config_scope:${path}`);
   }
+  if ((retirementContract?.retirements.length ?? 0) !== retiredFunctions.length) throw new Error("function_retirement_contract_scope_mismatch");
 
   const migrations = [];
   for (const change of changes) {
@@ -343,6 +378,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     canonicalMainSha: headSha,
     supabaseCliVersion: "2.98.2",
     functions,
+    retiredFunctions,
     deployFunctions,
     migrations,
     pendingMigrations,

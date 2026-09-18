@@ -71,7 +71,6 @@ const forbidden = [
   ["legacy Taste table", /user_taste_events_v2/],
   ["legacy Taste RPC", /backyrd_log_taste_event_v3/],
   ["runtime OTA reload", /Updates\.reloadAsync/],
-  ["legacy Decision copy", /decision-copy/],
   ["legacy Decision session", /create_decision_session_v1/],
   ["legacy Decision retrieval", /backyrd_get_decision_spots_v9/],
   ["legacy Decision context", /get_decision_context_v1/],
@@ -89,12 +88,32 @@ for (const file of sourceFiles) {
 }
 
 const decision = fs.readFileSync(path.join(root, "app/(tabs)/decision.tsx"), "utf8");
-for (const requiredDecisionContract of [
-  "backyrd_record_visible_decision_impression_v1",
-  'DecisionCardAction = "next" | "like" | "dislike"',
-  'data.north_star?.active !== true',
+const decisionClient = fs.readFileSync(path.join(root, "lib/decision/productDecision.ts"), "utf8");
+const decisionBinding = fs.readFileSync(path.join(root, "lib/decision/productDecisionRelease.generated.ts"), "utf8");
+const decisionControl = fs.readFileSync(path.join(root, "packages/product-decision-contract/src/index.mjs"), "utf8");
+const activeDecisionPath = `${decision}\n${decisionClient}\n${decisionBinding}\n${decisionControl}`;
+
+for (const [label, source, pattern] of [
+  ["single Mobile Decision boundary", decision, /invokeDecisionProduct/],
+  ["server-ranked Product candidates", decision, /result\.candidates/],
+  ["single-route client execution", decisionClient, /executeDecisionProductSingleRoute/],
+  ["fresh bearer session", decisionClient, /freshAccessToken/],
+  ["Bearer-only server invocation", decisionClient, /Authorization:\s*`Bearer \$\{accessToken\}`/],
+  ["decision-v13 Product transport", decisionBinding, /"transportFunction":\s*"decision-v13"/],
+  ["vNext Product request", decisionBinding, /backyrd\.decision-vnext\.product-request@1\.0/],
+  ["vNext Product response", decisionBinding, /backyrd\.decision-vnext\.product-response@1\.0/],
+  ["strict authority-free Product request", decisionControl, /exactKeys\(value, \["contractVersion", "requestId", "idempotencyKey", "naturalLanguage", "explicit", "alternativeRequested", "previouslyPresentedCandidateIds", "rejectedCandidateIds"\]/],
 ]) {
-  if (!decision.includes(requiredDecisionContract)) failures.push(`Decision contract missing: ${requiredDecisionContract}`);
+  if (!pattern.test(source)) failures.push(`Decision contract missing: ${label}`);
+}
+
+for (const [label, pattern] of [
+  ["legacy Decision body", /\blegacyBody\b/],
+  ["legacy Decision invocation", /\binvokeExisting\b/],
+  ["legacy Decision fallback", /\bfallbackFunction\b|\bEXISTING_ENGINE\b/],
+  ["legacy Decision response", /\bnorth_star\b|\bsemantic_v13\b|\bpersonalized_v12\b/],
+]) {
+  if (pattern.test(activeDecisionPath)) failures.push(`${label} is forbidden in the active Mobile Product path`);
 }
 
 if (failures.length) {

@@ -1,38 +1,41 @@
-# Mobile Production Validation
+# Mobile Candidate Validation
 
-## Automated gates
+## Green source checkpoint
 
 - Strict TypeScript: pass
-- Expo lint: pass, zero warnings
-- Expo Doctor: 18/18 checks pass
-- Mobile Product contract suite: pass
-- Forbidden legacy/client-secret scan: pass
-- iOS Hermes Production export: pass
+- Targeted Expo lint: pass, zero warnings
+- Mobile Product control-plane tests: 6/6
+- Mobile Product contract suite, including native contracts: 24/24
+- Repository single-route scan: pass
+- Forbidden Legacy/client-secret scan: pass
+- Local iOS Hermes export: pass without upload or Production access
 - Git whitespace validation: pass
-- EAS Production environment: Maps present; iOS/Web OAuth configured; obsolete public OpenAI key removed
-- Production dependency audit: all non-breaking fixes applied; remaining advisories are Expo/Metro build-tool transitives whose automated fix requires an unsupported breaking Expo 57 upgrade
+
+These results are a source checkpoint. They are not a Production acceptance,
+release seal, OTA publication, or runtime activation.
 
 ## Contract coverage
 
-- Fresh/COLD/EARLY users use North-Star or receive an honest error; never Legacy Ranking.
-- Home free text reaches canonical Decision.
-- Server reasons render without client invention or fake percentage.
-- Visible card creates exposure; unseen payload candidates do not.
-- Neutral browsing creates no Taste event.
-- Explicit feedback is Decision/spot-bound and has no parallel legacy write.
-- Route creates navigation intent.
-- Trigger-created profile is read with bounded retry; onboarding writes remain RPC-owned.
-- Badge sync is authenticated, self-only, idempotent, and server-authoritative.
-- Missing Production configuration fails before release.
+- One Product transport slug: `decision-v13`.
+- Strict Product request and response contracts; no Legacy/Founder fallback.
+- Server ordering, presentation, availability, reasons, and limitations render
+  without client invention.
+- A visible card emits `candidate_impression` only after the visibility gate;
+  unseen response candidates do not.
+- Opening a candidate emits `candidate_opened` on the same Product route.
+- Alternative and contextual reject remain Decision-bound and do not mutate
+  World truth.
+- Decision-origin navigation suppresses historical Decision/Taste/Memory
+  writers.
+- Missing or mismatched release authority fails closed before Product output.
 
-## Release acceptance
+## Remaining release acceptance
 
-The prior first-launch-after-OTA failure is closed at its code root: JavaScript no longer initiates a reload after Tabs/Auth/providers have mounted. A new native runtime is required to validate the changed Expo launch contract cleanly.
+Final acceptance stays open until the exact frozen candidate has one Node-20
+artifact/source set, complete local and GitHub Risk Gates, protected merge,
+exact-Main post-merge validation, and a separate explicit Release-GO. Physical
+device validation must use the exact accepted update identity before rollout.
 
-Final Production acceptance remains intentionally open until the single native TestFlight release candidate is installed and verified on a real iPhone for: first and second launch, signup/onboarding, Home Decision, neutral browsing, explicit feedback, route, continuation, logout/login, offline recovery, and internal Release Status. No Production OTA is published as a substitute for this test.
-
-Visual device capture against supplied references is also pending because the referenced images were not attached to the task context.
-
-## Production boundary change
-
-Migration `20260824235900_harden_mobile_achievement_sync_v1.sql` is applied. The Production schema linter reports no finding for the new function; its output still contains pre-existing unrelated extension/legacy-function findings that this Mobile scope did not modify.
+No Production query, migration application, Function deployment, secret
+mutation, activation, channel mutation, or OTA action is part of this
+validation.

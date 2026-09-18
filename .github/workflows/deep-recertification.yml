@@ -1,0 +1,66 @@
+name: CI / Product System Recertification
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 2 * * 1"
+
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: deep-recertification-main
+  cancel-in-progress: true
+
+jobs:
+  product-decision:
+    name: Current Product Decision system
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: main, fetch-depth: 0 }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: package-lock.json }
+      - run: npm ci --ignore-scripts
+      - run: npm run decision-product:ci
+
+  current-domain-integrity:
+    name: Current World and User domain integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with: { ref: main, fetch-depth: 0 }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: package-lock.json }
+      - run: npm ci --ignore-scripts
+      - run: npm run world-knowledge:test
+      - run: npm run user-intelligence-vnext:test
+
+  release-health:
+    name: Record release-train health
+    if: always()
+    needs: [product-decision, current-domain-integrity]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DECISION_RESULT: ${{ needs.product-decision.result }}
+      EVIDENCE_RESULT: ${{ needs.current-domain-integrity.result }}
+      ISSUE_TITLE: "Product system recertification is red — Production release blocked"
+    steps:
+      - name: Create or close the release-blocking incident
+        run: |
+          open_issue="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "in:title $ISSUE_TITLE" --json number --jq '.[0].number // empty')"
+          if test "$DECISION_RESULT" != success || test "$EVIDENCE_RESULT" != success; then
+            if test -z "$open_issue"; then
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "$ISSUE_TITLE" --body "The weekly current-product recertification failed on main. Normal development may continue, but Production release is blocked until the root cause is classified and this workflow is green. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            else
+              gh issue comment "$open_issue" --repo "$GITHUB_REPOSITORY" --body "Still red: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            fi
+            exit 1
+          fi
+          if test -n "$open_issue"; then
+            gh issue close "$open_issue" --repo "$GITHUB_REPOSITORY" --comment "Product system recertification is green again: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          fi

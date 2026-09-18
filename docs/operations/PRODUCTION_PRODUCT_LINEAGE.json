@@ -422,7 +422,6 @@
         "supabase/config.toml",
         "supabase/functions/_shared/launch-cost-boundary.ts",
         "supabase/functions/cluster-mood/index.ts",
-        "supabase/functions/decision-copy/index.ts",
         "supabase/functions/decision-v13/index.ts",
         "supabase/functions/decision-v13/live-index.ts",
         "supabase/functions/enrich-spot-description/index.ts",
@@ -824,12 +823,6 @@
       "version": 54,
       "verify_jwt": false,
       "ezbr_sha256": "0300605434813de217aed53ca509c7a951c6c653daa30087f972303206cba190"
-    },
-    {
-      "slug": "decision-copy",
-      "version": 53,
-      "verify_jwt": true,
-      "ezbr_sha256": "c061bfacce1f8319f853b01014d0647c6408838e212b167a0a107a3b6cd62f06"
     },
     {
       "slug": "generate-spot-embeddings",

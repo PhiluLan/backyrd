@@ -1,11 +1,13 @@
 {
-  "schemaVersion": "backyrd-change-policy-v1",
-  "decisionTrustAnchor": "decision-lab/config/decision-v13-production-recertification-v44.json",
+  "schemaVersion": "backyrd-change-policy-v2",
+  "decisionTrustAnchor": "delivery/product-authority-v1.json",
   "surfacePrefixes": {
     "mobile": ["mobile/"],
     "web": ["web/", "packages/world-knowledge-authoring-ui/"],
     "admin": ["admin-dashboard/", "packages/world-knowledge-authoring-ui/"],
-    "shared": ["packages/shared/", "packages/user-intelligence-vnext-core/", "packages/world-knowledge-core/"]
+    "shared": ["packages/shared/"],
+    "user": ["packages/user-intelligence-vnext-core/", "scripts/user-intelligence/", "docs/user-intelligence-vnext/"],
+    "world": ["packages/world-knowledge-core/", "scripts/world-knowledge/", "docs/world-knowledge/"]
   },
   "databasePrefixes": [
     "supabase/migrations/",
@@ -35,27 +37,19 @@
   ],
   "decisionSemanticPrefixes": [
     "packages/decision-vnext-core/src/",
-    "packages/canonical-semantics/src/",
-    "packages/decision-input-runtime/src/",
-    "packages/decision-orchestrator-runtime/src/",
-    "packages/n6-shadow-runtime/src/",
     "packages/world-knowledge-core/src/port.ts",
     "supabase/functions/decision-v13/"
   ],
   "decisionEvaluationPrefixes": [
     "packages/decision-vnext-core/test/",
     "packages/decision-vnext-core/type-tests/",
-    "packages/decision-vnext-core/sandbox/",
-    "decision-lab/src/",
-    "decision-lab/config/",
-    "decision-lab/baselines/",
-    "decision-lab/test/",
-    "scripts/decision/"
+    "scripts/ci/run-product-decision-ci.mjs",
+    "scripts/ci/product-release-e2e.mjs"
   ],
   "decisionConsumerPrefixes": [
-    "packages/shared/",
-    "packages/user-intelligence-vnext-core/",
-    "packages/world-knowledge-core/"
+    "packages/shared/src/",
+    "packages/user-intelligence-vnext-core/src/",
+    "packages/world-knowledge-core/src/"
   ],
   "decisionPipelineControlPrefixes": [
     ".github/workflows/",
@@ -63,32 +57,40 @@
     "package-lock.json",
     "scripts/ci/classify-change.mjs",
     "scripts/ci/classify-change.test.mjs",
-    "scripts/ci/decision-",
-    "scripts/ci/validate-decision-test-plan.mjs",
-    "scripts/ci/verify-decision-shards.mjs",
+    "scripts/ci/run-product-decision-ci.mjs",
+    "scripts/ci/product-release-",
     "scripts/ci/verify-risk-gate.mjs",
     "scripts/ci/verify-risk-gate.test.mjs"
   ],
   "integrationControlPrefixes": [
-    "delivery/integration/",
-    "docs/operations/integration/",
-    "scripts/ci/integration-",
-    "scripts/ci/week2-dark-wiring",
-    "scripts/ci/founder-live-control-plane",
-    "scripts/ci/founder-activation-control-plane",
-    "scripts/ci/source-aware-idempotency-migration-scope",
-    "scripts/world-knowledge/build-week1-production-release-foundation"
+    "delivery/releases/",
+    "docs/operations/releases/",
+    "scripts/ci/product-release-"
+  ],
+  "productReleasePrefixes": [
+    "mobile/app/(tabs)/decision.tsx",
+    "mobile/lib/decision/",
+    "mobile/packages/product-decision-contract/",
+    "packages/decision-vnext-core/src/product-",
+    "supabase/functions/decision-v13/",
+    "supabase/config.toml",
+    "scripts/deployment/",
+    "delivery/releases/"
   ],
   "knownRepositoryPrefixes": [
     ".github/",
+    ".gitleaks.toml",
     ".gitignore",
     "AGENTS.md",
     "README.md",
     "admin-dashboard/",
+    "backups/",
+    "backyrd_sprint_1_code_inventory",
     "decision-lab/",
     "delivery/",
     "docs/",
     "legal/",
+    "location-privacy-audit/",
     "mobile/",
     "package-lock.json",
     "package.json",
@@ -99,6 +101,7 @@
   ],
   "deliveryControlPrefixes": [
     ".github/workflows/",
+    ".gitleaks.toml",
     "delivery/",
     "scripts/ci/",
     "scripts/deployment/",
@@ -107,5 +110,14 @@
   "releaseEvidencePrefixes": [
     "docs/operations/releases/",
     "docs/operations/production-lineage-candidates/"
+  ],
+  "retiredPrefixes": [
+    "backups/",
+    "backyrd_sprint_1_code_inventory",
+    "decision-lab/",
+    "location-privacy-audit/",
+    "scripts/decision/",
+    "packages/decision-vnext-core/sandbox/",
+    "docs/operations/integration/"
   ]
 }
