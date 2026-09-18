@@ -21,6 +21,13 @@
     "separateFromIdempotency": true,
     "runtimeActivated": false
   },
+  "sealedCandidate": {
+    "sourceSha": "ccbb1880ba593ebfb77143f0bf24f5371a5fa26c",
+    "sourceTreeSha": "0ebf040ceb76def57235e19d855ab8e2a97ffa05",
+    "artifactHash": "7120a723b6652371457235b13cece2e12867f519c771196842ee21358644a855",
+    "sourceSetHash": "17acca67e2a57a52cb2aaffe0677ad05f1cf5feaf651d3ba247341891ce04313",
+    "rehearsalEvidenceHash": "585100027762dc923d4cb11bee61f90dd57dc37b99681057288938b6610c17ca"
+  },
   "deploymentAuthorized": false,
   "executionAuthorized": false,
   "productionQueryAuthorized": false,

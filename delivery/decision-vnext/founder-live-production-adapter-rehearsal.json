@@ -1,0 +1,113 @@
+{
+  "contractVersion": "backyrd.founder-live-four-track-rehearsal@1.0",
+  "nodeMajor": 20,
+  "status": "PASS",
+  "tracks": [
+    {
+      "track": "WORLD_ADMIN",
+      "files": [
+        "packages/world-knowledge-core/test/slice4a-authoring.test.mjs",
+        "packages/world-knowledge-core/test/authoring-reliability.test.mjs",
+        "packages/world-knowledge-core/test/founder-handoff.test.mjs"
+      ],
+      "artifactHash": "7120a723b6652371457235b13cece2e12867f519c771196842ee21358644a855",
+      "sourceSetHash": "17acca67e2a57a52cb2aaffe0677ad05f1cf5feaf651d3ba247341891ce04313",
+      "status": "PASS"
+    },
+    {
+      "track": "USER",
+      "files": [
+        "packages/user-intelligence-vnext-core/test/founder-live-projection.test.mjs",
+        "packages/user-intelligence-vnext-core/test/production-relevant-user-projection.test.mjs"
+      ],
+      "artifactHash": "7120a723b6652371457235b13cece2e12867f519c771196842ee21358644a855",
+      "sourceSetHash": "17acca67e2a57a52cb2aaffe0677ad05f1cf5feaf651d3ba247341891ce04313",
+      "status": "PASS"
+    },
+    {
+      "track": "DECISION",
+      "files": [
+        "packages/decision-vnext-core/test/founder-live-api.test.mjs",
+        "packages/decision-vnext-core/test/founder-live-durable-idempotency.test.mjs",
+        "packages/decision-vnext-core/test/founder-live-durable-rate-limit.test.mjs",
+        "packages/decision-vnext-core/test/isolation.test.mjs"
+      ],
+      "artifactHash": "7120a723b6652371457235b13cece2e12867f519c771196842ee21358644a855",
+      "sourceSetHash": "17acca67e2a57a52cb2aaffe0677ad05f1cf5feaf651d3ba247341891ce04313",
+      "status": "PASS"
+    },
+    {
+      "track": "MOBILE_INTEGRATION",
+      "files": [
+        "mobile/packages/founder-live-control-plane/test/control-plane.test.mjs",
+        "scripts/ci/founder-live-control-plane.test.mjs"
+      ],
+      "artifactHash": "7120a723b6652371457235b13cece2e12867f519c771196842ee21358644a855",
+      "sourceSetHash": "17acca67e2a57a52cb2aaffe0677ad05f1cf5feaf651d3ba247341891ce04313",
+      "status": "PASS"
+    }
+  ],
+  "flow": "ADMIN_AUTHORING_TO_WORLD_READER_TO_USER_PROJECTION_TO_DECISION_API_TO_MOBILE",
+  "scenarios": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "FAMILY_OUTING",
+    "BOULDERING",
+    "CONTEXT_FLIP",
+    "ALTERNATIVE",
+    "SITUATIONAL_REJECT"
+  ],
+  "failClosed": [
+    "DEFAULT_OFF",
+    "EMERGENCY_OFF",
+    "ALLOWLIST_DENIED",
+    "AUTH_STALE_OR_INVALID",
+    "AUTHORITY_MISMATCH",
+    "IDEMPOTENCY_CONFLICT",
+    "IDEMPOTENCY_EXPIRED",
+    "IDEMPOTENCY_REPLAY_TAMPER",
+    "RATE_LIMIT",
+    "RATE_LIMIT_STORE_UNAVAILABLE",
+    "RATE_LIMIT_BINDING_DRIFT",
+    "UNKNOWN_VERSION",
+    "PORT_FAILURE",
+    "TIMEOUT"
+  ],
+  "boundaries": {
+    "realAllowlistMembers": 0,
+    "syntheticFixturesOnly": true,
+    "productionActions": 0,
+    "externalNetworkCalls": 0,
+    "productOutputs": 0,
+    "durableWrites": 0,
+    "durableUserWrites": 0,
+    "readsAfterEmergencyOff": 0,
+    "projectionsAfterEmergencyOff": 0,
+    "evaluationsAfterEmergencyOff": 0,
+    "productOutputsAfterEmergencyOff": 0,
+    "userLearning": "OFF",
+    "ranking": "NOT_CONFIGURED",
+    "confidenceInfluence": "NOT_CONFIGURED",
+    "syntheticProductionMixing": false
+  },
+  "browser": {
+    "adminBrowser": true,
+    "mobileViewports": [
+      "320x568",
+      "1440x900"
+    ],
+    "assertions": 10,
+    "manualFileHandoffs": 0
+  },
+  "artifact": {
+    "sourceSha": "ccbb1880ba593ebfb77143f0bf24f5371a5fa26c",
+    "sourceTreeSha": "0ebf040ceb76def57235e19d855ab8e2a97ffa05",
+    "artifactHash": "7120a723b6652371457235b13cece2e12867f519c771196842ee21358644a855",
+    "sourceSetHash": "17acca67e2a57a52cb2aaffe0677ad05f1cf5feaf651d3ba247341891ce04313",
+    "fileCount": 130
+  },
+  "executionAuthorized": false,
+  "evidenceHash": "585100027762dc923d4cb11bee61f90dd57dc37b99681057288938b6610c17ca"
+}
