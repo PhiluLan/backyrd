@@ -24,6 +24,15 @@ test("only successful GitHub Actions checks with canonical gate names are reusab
   ]), ["decision"]);
 });
 
+test("a successful final Risk Gate carries every reusable receipt forward", () => {
+  const url = "https://github.com/example/repo/actions/runs/42/job/7";
+  const gates = successfulPriorGates([{ name: "Risk-based merge gate", status: "completed", conclusion: "success", app: { slug: "github-actions" }, details_url: url }]);
+  assert.ok(gates.includes("database"));
+  assert.ok(gates.includes("decision"));
+  assert.ok(gates.includes("release-certification"));
+  assert.equal(gates.includes("repository-security"), false);
+});
+
 test("resume lineage requires base -> prior -> head", () => {
   const x = fixture();
   assert.equal(validateResumeLineage({ root: x.root, baseSha: x.base, previousHeadSha: x.prior, headSha: x.head }).previousHeadSha, x.prior);
@@ -54,4 +63,19 @@ test("verified synchronize event returns only authenticated successful gates", a
   });
   assert.deepEqual(result.successfulGates, ["world"]);
   assert.equal(result.eligible, true);
+});
+
+test("a cancelled immediate head may inherit the nearest green ancestor receipt", async () => {
+  const x = fixture();
+  const immediate = x.head;
+  const newest = (() => { writeFileSync(join(x.root, "value"), "newest"); git(x.root, ["add", "value"]); git(x.root, ["commit", "--quiet", "-m", "newest"]); return git(x.root, ["rev-parse", "HEAD"]); })();
+  const url = "https://github.com/example/repo/actions/runs/42/job/7";
+  const result = await resolvePriorGates({
+    root: x.root, eventName: "pull_request", eventAction: "synchronize", baseSha: x.base, previousHeadSha: immediate, headSha: newest,
+    repository: "example/repo", token: "test-token",
+    fetchImpl: async (input) => ({ ok: true, json: async () => ({ check_runs: input.includes(immediate) ? [] : [{ name: "Risk-based merge gate", status: "completed", conclusion: "success", app: { slug: "github-actions" }, details_url: url }] }) }),
+  });
+  assert.equal(result.reason, "verified_ancestor_gate_receipt");
+  assert.equal(result.previousHeadSha, x.prior);
+  assert.ok(result.successfulGates.includes("database"));
 });

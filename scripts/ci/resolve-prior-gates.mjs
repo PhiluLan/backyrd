@@ -18,6 +18,7 @@ export const gateNames = Object.freeze({
   "Delivery policy v2": "delivery-policy",
   "Product release certification": "release-certification",
 });
+const allReusableGates = Object.freeze([...new Set(Object.values(gateNames))].sort());
 
 const git = (root, args) => execFileSync("git", args, {
   cwd: root,
@@ -26,6 +27,11 @@ const git = (root, args) => execFileSync("git", args, {
 }).trim();
 
 export function successfulPriorGates(checkRuns) {
+  const finalGatePassed = checkRuns.some((run) => run?.name === "Risk-based merge gate"
+    && run?.status === "completed" && run?.conclusion === "success"
+    && run?.app?.slug === "github-actions"
+    && typeof run?.details_url === "string" && /\/actions\/runs\/\d+/.test(run.details_url));
+  if (finalGatePassed) return [...allReusableGates];
   return [...new Set(checkRuns
     .filter((run) => run?.status === "completed"
       && run?.conclusion === "success"
@@ -55,24 +61,30 @@ export async function resolvePriorGates({ root, eventName, eventAction, baseSha,
     return { eligible: false, reason: "not_incremental_pull_request", successfulGates: [] };
   }
   try {
-    const lineage = validateResumeLineage({ root, baseSha, previousHeadSha, headSha });
     if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository ?? "") || !token) throw new Error("github_authority_missing");
-    const response = await fetchImpl(`https://api.github.com/repos/${repository}/commits/${previousHeadSha}/check-runs?per_page=100`, {
-      headers: {
-        accept: "application/vnd.github+json",
-        authorization: `Bearer ${token}`,
-        "x-github-api-version": "2022-11-28",
-      },
-    });
-    if (!response.ok) throw new Error(`check_runs_unavailable_${response.status}`);
-    const payload = await response.json();
-    if (!Array.isArray(payload.check_runs)) throw new Error("check_runs_invalid");
-    return {
-      eligible: true,
-      reason: "verified_incremental_pull_request",
-      ...lineage,
-      successfulGates: successfulPriorGates(payload.check_runs),
-    };
+    const candidates = git(root, ["rev-list", "--first-parent", "--max-count=12", previousHeadSha, `^${baseSha}`]).split("\n").filter(Boolean);
+    for (const candidateSha of candidates) {
+      const lineage = validateResumeLineage({ root, baseSha, previousHeadSha: candidateSha, headSha });
+      const response = await fetchImpl(`https://api.github.com/repos/${repository}/commits/${candidateSha}/check-runs?per_page=100`, {
+        headers: {
+          accept: "application/vnd.github+json",
+          authorization: `Bearer ${token}`,
+          "x-github-api-version": "2022-11-28",
+        },
+      });
+      if (!response.ok) continue;
+      const payload = await response.json();
+      if (!Array.isArray(payload.check_runs)) continue;
+      const successfulGates = successfulPriorGates(payload.check_runs);
+      if (successfulGates.length === 0) continue;
+      return {
+        eligible: true,
+        reason: candidateSha === previousHeadSha ? "verified_incremental_pull_request" : "verified_ancestor_gate_receipt",
+        ...lineage,
+        successfulGates,
+      };
+    }
+    throw new Error("no_verified_prior_gate_receipt");
   } catch (error) {
     return { eligible: false, reason: `full_rerun_required:${error.message}`, successfulGates: [] };
   }
