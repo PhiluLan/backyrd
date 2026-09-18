@@ -15,6 +15,7 @@ const eventDiscovery = read("lib/events-v1.ts");
 const spotOpeningStatus = read("lib/spot-opening-status.ts");
 const founderLiveDecision = read("lib/decision/founderLiveDecision.ts");
 const founderLiveBinding = read("lib/decision/founderLiveRelease.generated.ts");
+const pushNotificationRouter = read("components/PushNotificationRouter.tsx");
 
 assert.match(decision, /DecisionCardAction = "next" \| "like" \| "dislike"/);
 assert.match(decision, /if \(action !== "next" &&/, "neutral Next must bypass feedback");
@@ -32,6 +33,7 @@ assert.match(founderLiveBinding, /GREEN_CANDIDATES_BOUND/, "Mobile must consume 
 assert.match(founderLiveBinding, /"vNextFunction": null/, "bound candidates must not imply a deployed vNext function");
 assert.match(founderLiveBinding, /"executionAuthorized": false/, "bound candidates must not imply runtime authority");
 assert.doesNotMatch(`${founderLiveDecision}\n${founderLiveBinding}`, /EXPO_PUBLIC_.*VNEXT|AsyncStorage|clientToggle/i, "Mobile must not contain a vNext authority toggle");
+assert.match(pushNotificationRouter, /Platform\.OS === "web"\) return/, "Web must not invoke native push notification APIs");
 assert.doesNotMatch(decision, /decision-copy|create_decision_session_v1|Math\.max\(\s*82/);
 assert.match(home, /pathname: "\/\(tabs\)\/decision"/, "Home search must enter Decision");
 assert.match(home, /auto: "1"/, "Home submission must execute Decision");

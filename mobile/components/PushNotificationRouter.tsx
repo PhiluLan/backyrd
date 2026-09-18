@@ -33,6 +33,7 @@ export default function PushNotificationRouter() {
 
   useEffect(() => {
     if (!rootNavigationState?.key) return;
+    if (Platform.OS === "web") return;
 
     console.log("[cold-start-push] root navigation ready=true");
 

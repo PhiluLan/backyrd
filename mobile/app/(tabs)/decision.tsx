@@ -598,7 +598,7 @@ export default function DecisionScreen() {
   const [remixCount, setRemixCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [visibleExposureReady, setVisibleExposureReady] = useState(false);
-  const [appStateStatus, setAppStateStatus] = useState<AppStateStatus>(AppState.currentState);
+  const [appStateStatus, setAppStateStatus] = useState<AppStateStatus>(Platform.OS === "web" ? "active" : AppState.currentState);
   const [continuationExhausted, setContinuationExhausted] = useState(false);
   const [continuationLoading, setContinuationLoading] = useState(false);
   const [deckMode, setDeckMode] = useState(false);
@@ -681,11 +681,13 @@ export default function DecisionScreen() {
   }, []);
 
   useEffect(()=>{
+    if (Platform.OS === "web") return;
     const subscription=AppState.addEventListener("change",setAppStateStatus);
     return()=>subscription.remove();
   },[]);
 
   useEffect(() => {
+    if (Platform.OS === "web") return;
     router.setParams({
       hideTabs: deckMode ? "1" : "",
     });
@@ -1244,7 +1246,7 @@ export default function DecisionScreen() {
     // A mounted next card is not yet a human exposure. It must remain the
     // active foreground card for a bounded interval before persistence.
     const timer=setTimeout(()=>{
-      if(cancelled||AppState.currentState!=="active")return;
+      if(cancelled||(Platform.OS!=="web"&&AppState.currentState!=="active"))return;
       void supabase.rpc("backyrd_record_visible_decision_impression_v1",{
         p_decision_id:decisionId,p_spot_id:currentSpot.spot_id,
         p_page_number:currentPage,p_position_in_page:activeIndex+1,

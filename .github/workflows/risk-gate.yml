@@ -132,6 +132,9 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: https://example.invalid
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-public-placeholder-key-000000000000
         run: npx expo export --platform web --output-dir "$RUNNER_TEMP/founder-mobile-web"
+      - name: Founder two-account real Mobile UI rehearsal
+        working-directory: ..
+        run: npm run founder-activation:mobile-e2e
       - name: Mobile TypeScript baseline (advisory inherited debt)
         continue-on-error: true
         run: npm run typecheck
