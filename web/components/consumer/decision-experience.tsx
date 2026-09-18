@@ -350,7 +350,7 @@ export function DecisionExperience() {
                 <span className="b-chip b-chip-lime">{category(current)}</span>
               </div>
             </CanonicalSpotImage>
-            <div className="b-decision-copy">
+            <div className="b-decision-content">
               <div className="b-progress">
                 Treffer {index + 1} von {run.results.length}
               </div>

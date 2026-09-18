@@ -1,0 +1,16 @@
+{
+  "version": "backyrd-function-retirements-v1",
+  "projectRef": "hjgcrrzfjchzqoegcywn",
+  "remoteState": "NOT_QUERIED",
+  "productionAction": "NONE_NOT_AUTHORIZED",
+  "executionAuthorized": false,
+  "retirements": [
+    {
+      "slugSha256": "340a944dfb313d4d2e8dd087bec95c9f63886f09a92bc5016f16a5490ae2998b",
+      "previousConfigHash": "ddea9affe441b5ed149240de7e0c497b6d7d796ac70c81a415ba4245859efbd3",
+      "previousSourceSetHash": "ca734b3b70ac37b169eca4cae58133048a69e14c06980b1e0ce0b692018d7cf8",
+      "repositoryDisposition": "DELETE_SOURCE_AND_CONFIG",
+      "reason": "NO_ACTIVE_PRODUCT_CONSUMER"
+    }
+  ]
+}

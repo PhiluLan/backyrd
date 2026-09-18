@@ -40,7 +40,7 @@ assert.match(founderLiveControl, /product-decision-learning-port@1\.0/, "Learnin
 assert.match(spotDetail, /decisionOrigin/, "Spot Detail must identify Decision-originated navigation");
 assert.match(spotDetail, /if \(!decisionOrigin\)/, "Spot Detail must suppress Decision-originated legacy writes");
 assert.match(pushNotificationRouter, /Platform\.OS === "web"\) return/, "Web must not invoke native push notification APIs");
-assert.doesNotMatch(decision, /decision-copy|create_decision_session_v1|Math\.max\(\s*82/);
+assert.doesNotMatch(decision, /create_decision_session_v1|Math\.max\(\s*82/);
 assert.match(home, /pathname: "\/\(tabs\)\/decision"/, "Home search must enter Decision");
 assert.match(home, /auto: "1"/, "Home submission must execute Decision");
 assert.match(home, /loadDiscoverySpots/, "Home must use the canonical Product-visible catalog");

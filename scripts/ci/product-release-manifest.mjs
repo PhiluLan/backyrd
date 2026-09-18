@@ -5,29 +5,140 @@ import { createHash } from "node:crypto";
 import { cpSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildProductionPlan } from "../deployment/supabase-production-plan.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
+const SHA = /^[0-9a-f]{40}$/;
+const HASH = /^[0-9a-f]{64}$/;
 const MAX_GIT_OUTPUT = 50 * 1024 * 1024;
-const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: MAX_GIT_OUTPUT }).trim();
+const MODES = new Set(["PR_CANDIDATE", "POST_MERGE_MAIN"]);
+const REQUIRED_TESTS = Object.freeze([
+  "decision-vnext-single-route",
+  "product-release-contracts",
+  "product-release-e2e",
+  "mobile-export",
+]);
+const SOURCE_SETS = Object.freeze({
+  worldArtifact: ["packages/world-knowledge-core/package.json", "packages/world-knowledge-core/src"],
+  userArtifact: ["packages/user-intelligence-vnext-core/package.json", "packages/user-intelligence-vnext-core/src"],
+  decisionArtifact: [
+    "packages/decision-vnext-core/package.json",
+    "packages/decision-vnext-core/src",
+    "mobile/packages/product-decision-contract",
+    "mobile/lib/decision/productDecision.ts",
+    "mobile/app/(tabs)/decision.tsx",
+    "web/lib/decision-web-api.ts",
+  ],
+  productPolicy: ["delivery/product-authority-v1.json", "docs/architecture/PRODUCT_V1_ACTIVE_SURFACE.md"],
+});
+
+const git = (root, args) => execFileSync("git", args, {
+  cwd: root,
+  encoding: "utf8",
+  maxBuffer: MAX_GIT_OUTPUT,
+  stdio: ["ignore", "pipe", "pipe"],
+}).trim();
+const gitBytes = (root, args) => execFileSync("git", args, { cwd: root, maxBuffer: MAX_GIT_OUTPUT });
+const isAncestor = (root, ancestor, descendant) => {
+  try { execFileSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], { cwd: root, stdio: "ignore" }); return true; }
+  catch { return false; }
+};
 const walk = (root) => readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
   const path = resolve(root, entry.name);
   return entry.isDirectory() ? walk(path) : [path];
 });
+const requireValue = (condition, reason) => { if (!condition) throw new Error(reason); };
+const componentHash = (files) => sha256(JSON.stringify(files.map(({ path, bytes, sha256: hash }) => ({ path, bytes, sha256: hash }))));
 
-export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDir, mobileBundle }) {
-  const canonicalSha = git(root, ["rev-parse", sourceSha]);
-  const treeSha = git(root, ["rev-parse", `${canonicalSha}^{tree}`]);
-  const tracked = git(root, ["ls-tree", "-r", "--name-only", canonicalSha, "--", "supabase/functions/decision-v13", "supabase/migrations", "supabase/config.toml", "supabase/production"])
-    .split("\n").filter(Boolean).sort();
+export function verifyProductReleaseIdentity(identity) {
+  requireValue(identity && MODES.has(identity.mode), "release_identity_mode_invalid");
+  for (const key of ["sourceSha", "sourceTreeSha", "baseSha", "baseTreeSha", "checkoutSha", "checkoutTreeSha", "canonicalMainSha", "canonicalMainTreeSha", "candidateHeadSha", "candidateTreeSha"]) {
+    requireValue(SHA.test(identity[key]), `release_identity_sha_invalid:${key}`);
+  }
+  requireValue(Array.isArray(identity.parents) && identity.parents.every((value) => SHA.test(value)), "release_identity_parents_invalid");
+  requireValue(identity.canonicalAncestryVerified === true, "release_identity_ancestry_invalid");
+  if (identity.mode === "PR_CANDIDATE") {
+    requireValue(identity.baseSha === identity.canonicalMainSha && identity.baseTreeSha === identity.canonicalMainTreeSha, "release_identity_pr_base_main_mismatch");
+    requireValue(identity.sourceSha === identity.candidateHeadSha && identity.sourceTreeSha === identity.candidateTreeSha, "release_identity_pr_candidate_mismatch");
+    const exact = identity.checkoutSha === identity.sourceSha && identity.checkoutTreeSha === identity.sourceTreeSha;
+    const synthetic = identity.checkoutSha !== identity.sourceSha
+      && identity.parents.length === 2
+      && identity.parents[0] === identity.baseSha
+      && identity.parents[1] === identity.sourceSha
+      && identity.checkoutTreeSha === identity.sourceTreeSha;
+    requireValue(exact || synthetic, "release_identity_pr_checkout_invalid");
+  } else {
+    requireValue(identity.sourceSha === identity.checkoutSha && identity.sourceSha === identity.canonicalMainSha, "release_identity_main_sha_mismatch");
+    requireValue(identity.sourceTreeSha === identity.checkoutTreeSha && identity.sourceTreeSha === identity.canonicalMainTreeSha, "release_identity_main_tree_mismatch");
+    requireValue(identity.parents.length === 2 && identity.parents[0] === identity.baseSha && identity.parents[1] === identity.candidateHeadSha, "release_identity_main_parents_mismatch");
+    requireValue(identity.sourceTreeSha === identity.candidateTreeSha, "release_identity_main_candidate_tree_mismatch");
+  }
+  return true;
+}
+
+export function resolveProductReleaseIdentity({ root, mode, sourceSha, baseSha, checkoutSha = "HEAD", canonicalMainSha, candidateHeadSha }) {
+  requireValue(MODES.has(mode), "release_identity_mode_invalid");
+  const commit = (value) => git(root, ["rev-parse", `${value}^{commit}`]);
+  const tree = (value) => git(root, ["rev-parse", `${value}^{tree}`]);
+  const source = commit(sourceSha); const base = commit(baseSha); const checkout = commit(checkoutSha); const main = commit(canonicalMainSha);
+  const parents = git(root, ["show", "-s", "--format=%P", checkout]).split(" ").filter(Boolean);
+  const candidate = mode === "POST_MERGE_MAIN" ? commit(candidateHeadSha ?? parents[1] ?? "") : source;
+  const identity = {
+    mode,
+    sourceSha: source,
+    sourceTreeSha: tree(source),
+    baseSha: base,
+    baseTreeSha: tree(base),
+    checkoutSha: checkout,
+    checkoutTreeSha: tree(checkout),
+    canonicalMainSha: main,
+    canonicalMainTreeSha: tree(main),
+    parents,
+    candidateHeadSha: candidate,
+    candidateTreeSha: tree(candidate),
+    canonicalAncestryVerified: isAncestor(root, base, source),
+  };
+  verifyProductReleaseIdentity(identity);
+  return identity;
+}
+
+export function buildProductReleaseTestEvidence({ root, sourceSha = "HEAD" }) {
+  const source = git(root, ["rev-parse", `${sourceSha}^{commit}`]);
+  return {
+    contractVersion: "backyrd.product-release-test-evidence@1.0",
+    sourceSha: source,
+    sourceTreeSha: git(root, ["rev-parse", `${source}^{tree}`]),
+    results: Object.fromEntries(REQUIRED_TESTS.map((name) => [name, "PASS"])),
+  };
+}
+
+export function verifyProductReleaseTestEvidence(evidence, identity) {
+  requireValue(evidence?.contractVersion === "backyrd.product-release-test-evidence@1.0", "release_test_evidence_contract_invalid");
+  requireValue(evidence.sourceSha === identity.sourceSha && evidence.sourceTreeSha === identity.sourceTreeSha, "release_test_evidence_source_invalid");
+  requireValue(JSON.stringify(Object.keys(evidence.results ?? {}).sort()) === JSON.stringify([...REQUIRED_TESTS].sort()), "release_test_evidence_set_invalid");
+  requireValue(Object.values(evidence.results).every((status) => status === "PASS"), "release_test_evidence_not_green");
+  return true;
+}
+
+const trackedFor = (root, sourceSha, paths) => git(root, ["ls-tree", "-r", "--name-only", sourceSha, "--", ...paths]).split("\n").filter(Boolean).sort();
+const readProductionState = (root, sourceSha) => JSON.parse(git(root, ["show", `${sourceSha}:delivery/production-state.json`]));
+
+export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDir, mobileBundle, identity, testEvidence, productionPlan }) {
+  verifyProductReleaseIdentity(identity);
+  requireValue(identity.sourceSha === git(root, ["rev-parse", `${sourceSha}^{commit}`]), "release_manifest_identity_source_mismatch");
+  verifyProductReleaseTestEvidence(testEvidence, identity);
+  const deployable = trackedFor(root, identity.sourceSha, ["supabase/functions/decision-v13", "supabase/migrations", "supabase/config.toml", "supabase/production"]);
+  const sourceSetPaths = Object.fromEntries(Object.entries(SOURCE_SETS).map(([name, paths]) => [name, trackedFor(root, identity.sourceSha, paths)]));
+  const tracked = [...new Set([...deployable, ...Object.values(sourceSetPaths).flat()])].sort();
   const bundleRoot = resolve(outputDir, "bundle");
   mkdirSync(bundleRoot, { recursive: true });
-  const files = [];
+  const fileIndex = new Map();
   for (const path of tracked) {
-    const content = execFileSync("git", ["show", `${canonicalSha}:${path}`], { cwd: root, maxBuffer: MAX_GIT_OUTPUT });
+    const content = gitBytes(root, ["show", `${identity.sourceSha}:${path}`]);
     const target = resolve(bundleRoot, path);
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, content);
-    files.push({ path, bytes: content.length, sha256: sha256(content) });
+    fileIndex.set(path, { path, bytes: content.length, sha256: sha256(content) });
   }
   if (mobileBundle) {
     const source = resolve(mobileBundle);
@@ -36,62 +147,124 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     for (const path of walk(targetRoot).sort()) {
       if (!statSync(path).isFile()) continue;
       const content = readFileSync(path);
-      files.push({ path: `mobile-update/${relative(targetRoot, path)}`, bytes: content.length, sha256: sha256(content) });
+      const name = `mobile-update/${relative(targetRoot, path)}`;
+      fileIndex.set(name, { path: name, bytes: content.length, sha256: sha256(content) });
     }
   }
-  files.sort((left, right) => left.path.localeCompare(right.path));
+  const files = [...fileIndex.values()].sort((left, right) => left.path.localeCompare(right.path));
+  const byPaths = (paths) => paths.map((path) => fileIndex.get(path));
+  const actualPlan = productionPlan ?? buildProductionPlan({
+    repo: root,
+    baseSha: readProductionState(root, identity.sourceSha).supabase.shippedSourceSha,
+    headSha: identity.sourceSha,
+  });
+  requireValue(actualPlan?.canonicalMainSha === identity.sourceSha && HASH.test(actualPlan.planHash), "release_production_plan_identity_invalid");
+  const authority = JSON.parse(git(root, ["show", `${identity.sourceSha}:delivery/product-authority-v1.json`]));
+  requireValue(authority.status === "ACTIVE" && authority.productRoute === "DECISION_VNEXT_SINGLE_ROUTE" && authority.legacyDecisionAuthority === false, "release_product_authority_invalid");
+  requireValue(authority.runtimeScope?.activeTransport === "decision-v13" && (authority.runtimeScope?.quarantinedTransports ?? []).length === 0, "release_runtime_policy_invalid");
+  const components = {
+    productRuntime: byPaths(deployable.filter((path) => path.startsWith("supabase/functions/decision-v13/"))),
+    database: byPaths(deployable.filter((path) => path.startsWith("supabase/migrations/"))),
+    releaseConfiguration: byPaths(deployable.filter((path) => path === "supabase/config.toml" || path.startsWith("supabase/production/"))),
+    mobileUpdate: files.filter(({ path }) => path.startsWith("mobile-update/")),
+    ...Object.fromEntries(Object.entries(sourceSetPaths).map(([name, paths]) => [name, byPaths(paths)])),
+  };
+  const componentIdentities = Object.fromEntries(Object.entries(components).map(([name, entries]) => [name, { fileCount: entries.length, artifactHash: componentHash(entries) }]));
+  const testEvidenceHash = sha256(JSON.stringify(testEvidence));
+  const productionPlanAttestation = {
+    version: actualPlan.version,
+    baseSha: actualPlan.baseSha,
+    canonicalMainSha: actualPlan.canonicalMainSha,
+    planHash: actualPlan.planHash,
+    migrationSet: actualPlan.migrations,
+    pendingMigrations: actualPlan.pendingMigrations,
+    deployFunctions: actualPlan.deployFunctions,
+    retiredFunctions: actualPlan.retiredFunctions ?? [],
+    authDeploy: actualPlan.authConfig?.deploy === true,
+    runtimeDeploymentRequired: actualPlan.runtimeDeploymentRequired,
+    executionAuthorized: false,
+  };
   const body = {
-    contractVersion: "backyrd.product-release-manifest@2.0",
-    sourceSha: canonicalSha,
-    sourceTreeSha: treeSha,
+    contractVersion: "backyrd.product-release-manifest@3.0",
+    sourceSha: identity.sourceSha,
+    sourceTreeSha: identity.sourceTreeSha,
+    identity,
     buildOnceDeploySameArtifact: true,
     nodeMajor: Number(process.versions.node.split(".")[0]),
-    components: {
-      productRuntime: files.filter(({ path }) => path.startsWith("supabase/functions/decision-v13/")),
-      database: files.filter(({ path }) => path.startsWith("supabase/migrations/")),
-      releaseConfiguration: files.filter(({ path }) => path === "supabase/config.toml" || path.startsWith("supabase/production/")),
-      mobileUpdate: files.filter(({ path }) => path.startsWith("mobile-update/")),
+    productIdentity: {
+      route: authority.productRoute,
+      policyHash: fileIndex.get("delivery/product-authority-v1.json").sha256,
+      releaseIdentityHash: sha256(JSON.stringify(componentIdentities)),
     },
+    componentIdentities,
+    components,
+    testEvidence: { ...testEvidence, evidenceHash: testEvidenceHash },
+    runtimePolicy: authority.runtimeScope,
+    productionPlan: productionPlanAttestation,
   };
   const manifest = { ...body, manifestHash: sha256(JSON.stringify(body)) };
   writeFileSync(resolve(outputDir, "release-manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   return manifest;
 }
 
-export function verifyProductReleaseManifest({ artifactDir, expectedHash, expectedSourceSha, checkoutRoot }) {
+export function verifyProductReleaseManifest({ artifactDir, expectedHash, expectedSourceSha, expectedMode, checkoutRoot }) {
   const manifest = JSON.parse(readFileSync(resolve(artifactDir, "release-manifest.json"), "utf8"));
   const { manifestHash, ...body } = manifest;
-  if (manifest.contractVersion !== "backyrd.product-release-manifest@2.0") throw new Error("release_manifest_contract_invalid");
-  if (sha256(JSON.stringify(body)) !== manifestHash || manifestHash !== expectedHash) throw new Error("release_manifest_hash_mismatch");
-  if (manifest.sourceSha !== expectedSourceSha) throw new Error("release_manifest_source_mismatch");
-  const componentFiles = [
-    ...manifest.components.productRuntime,
-    ...manifest.components.database,
-    ...manifest.components.releaseConfiguration,
-    ...manifest.components.mobileUpdate,
-  ];
-  for (const file of componentFiles) {
+  requireValue(manifest.contractVersion === "backyrd.product-release-manifest@3.0", "release_manifest_contract_invalid");
+  requireValue(sha256(JSON.stringify(body)) === manifestHash && manifestHash === expectedHash, "release_manifest_hash_mismatch");
+  requireValue(manifest.sourceSha === expectedSourceSha, "release_manifest_source_mismatch");
+  requireValue(!expectedMode || manifest.identity.mode === expectedMode, "release_manifest_mode_mismatch");
+  verifyProductReleaseIdentity(manifest.identity);
+  const { evidenceHash, ...rawEvidence } = manifest.testEvidence;
+  verifyProductReleaseTestEvidence(rawEvidence, manifest.identity);
+  requireValue(evidenceHash === sha256(JSON.stringify(rawEvidence)), "release_test_evidence_hash_mismatch");
+  requireValue(manifest.buildOnceDeploySameArtifact === true, "release_build_once_policy_invalid");
+  requireValue(manifest.productionPlan?.canonicalMainSha === manifest.sourceSha && manifest.productionPlan.executionAuthorized === false, "release_production_plan_invalid");
+  requireValue((manifest.productionPlan?.retiredFunctions ?? []).every((entry) => entry.productionAction === "NONE_NOT_AUTHORIZED" && entry.executionAuthorized === false), "release_function_retirement_policy_invalid");
+  requireValue(manifest.runtimePolicy?.activeTransport === "decision-v13" && (manifest.runtimePolicy?.quarantinedTransports ?? []).length === 0, "release_runtime_policy_invalid");
+  const componentFiles = Object.values(manifest.components).flat();
+  for (const [name, entries] of Object.entries(manifest.components)) {
+    requireValue(manifest.componentIdentities?.[name]?.artifactHash === componentHash(entries), `release_component_identity_mismatch:${name}`);
+  }
+  for (const file of new Map(componentFiles.map((entry) => [entry.path, entry])).values()) {
     const content = readFileSync(resolve(artifactDir, "bundle", file.path));
-    if (content.length !== file.bytes || sha256(content) !== file.sha256) throw new Error(`release_artifact_file_mismatch:${file.path}`);
-    if (checkoutRoot && file.path.startsWith("supabase/")) {
+    requireValue(content.length === file.bytes && sha256(content) === file.sha256, `release_artifact_file_mismatch:${file.path}`);
+    if (checkoutRoot && !file.path.startsWith("mobile-update/")) {
       const checkedOut = readFileSync(resolve(checkoutRoot, file.path));
-      if (sha256(checkedOut) !== file.sha256) throw new Error(`release_checkout_file_mismatch:${file.path}`);
+      requireValue(sha256(checkedOut) === file.sha256, `release_checkout_file_mismatch:${file.path}`);
     }
+  }
+  if (checkoutRoot) {
+    requireValue(git(checkoutRoot, ["rev-parse", "HEAD^{commit}"]) === manifest.identity.checkoutSha, "release_checkout_commit_mismatch");
+    requireValue(git(checkoutRoot, ["rev-parse", "HEAD^{tree}"]) === manifest.identity.checkoutTreeSha, "release_checkout_tree_mismatch");
   }
   return manifest;
 }
 
-const args = Object.fromEntries(process.argv.slice(3).flatMap((value, index, all) => value.startsWith("--") ? [[value.slice(2), all[index + 1]]] : []));
+const parseArgs = (argv) => {
+  const result = {};
+  for (let index = 0; index < argv.length; index += 1) {
+    if (!argv[index].startsWith("--")) continue;
+    result[argv[index].slice(2)] = argv[index + 1]; index += 1;
+  }
+  return result;
+};
+const args = parseArgs(process.argv.slice(3));
 const invoked = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (invoked) {
   try {
     const root = resolve(args.root ?? new URL("../..", import.meta.url).pathname);
-    if (process.argv[2] === "build") {
-      const result = buildProductReleaseManifest({ root, sourceSha: args["source-sha"] ?? "HEAD", outputDir: resolve(args.output), mobileBundle: args["mobile-bundle"] });
-      process.stdout.write(`${JSON.stringify({ status: "PASS", manifestHash: result.manifestHash })}\n`);
+    if (process.argv[2] === "evidence") {
+      const result = buildProductReleaseTestEvidence({ root, sourceSha: args["source-sha"] ?? "HEAD" });
+      writeFileSync(resolve(args.output), `${JSON.stringify(result, null, 2)}\n`);
+      process.stdout.write(`${JSON.stringify({ status: "PASS", sourceSha: result.sourceSha })}\n`);
+    } else if (process.argv[2] === "build") {
+      const identity = resolveProductReleaseIdentity({ root, mode: args.mode, sourceSha: args["source-sha"] ?? "HEAD", baseSha: args["base-sha"], checkoutSha: args["checkout-sha"] ?? "HEAD", canonicalMainSha: args["canonical-main-sha"], candidateHeadSha: args["candidate-head-sha"] });
+      const result = buildProductReleaseManifest({ root, sourceSha: identity.sourceSha, outputDir: resolve(args.output), mobileBundle: args["mobile-bundle"], identity, testEvidence: JSON.parse(readFileSync(resolve(args["test-evidence"]), "utf8")) });
+      process.stdout.write(`${JSON.stringify({ status: "PASS", manifestHash: result.manifestHash, mode: result.identity.mode })}\n`);
     } else if (process.argv[2] === "verify") {
-      const result = verifyProductReleaseManifest({ artifactDir: resolve(args.artifact), expectedHash: args["expected-hash"], expectedSourceSha: args["expected-source-sha"], checkoutRoot: args["checkout-root"] ? resolve(args["checkout-root"]) : undefined });
-      process.stdout.write(`${JSON.stringify({ status: "PASS", manifestHash: result.manifestHash })}\n`);
+      const result = verifyProductReleaseManifest({ artifactDir: resolve(args.artifact), expectedHash: args["expected-hash"], expectedSourceSha: args["expected-source-sha"], expectedMode: args["expected-mode"], checkoutRoot: args["checkout-root"] ? resolve(args["checkout-root"]) : undefined });
+      process.stdout.write(`${JSON.stringify({ status: "PASS", manifestHash: result.manifestHash, mode: result.identity.mode })}\n`);
     } else throw new Error("release_manifest_command_invalid");
   } catch (error) {
     process.stderr.write(`${error.message}\n`);

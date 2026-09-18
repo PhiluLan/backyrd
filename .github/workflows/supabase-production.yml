@@ -61,7 +61,7 @@ jobs:
           repository: ${{ github.repository }}
           run-id: ${{ inputs.certification_run_id }}
       - name: Verify build-once/deploy-same-artifact identity
-        run: node scripts/ci/product-release-manifest.mjs verify --artifact "$RUNNER_TEMP/product-release" --expected-hash "${{ inputs.release_manifest_hash }}" --expected-source-sha "${{ inputs.canonical_main_sha }}" --checkout-root "$GITHUB_WORKSPACE"
+        run: node scripts/ci/product-release-manifest.mjs verify --artifact "$RUNNER_TEMP/product-release" --expected-hash "${{ inputs.release_manifest_hash }}" --expected-source-sha "${{ inputs.canonical_main_sha }}" --expected-mode POST_MERGE_MAIN --checkout-root "$GITHUB_WORKSPACE"
       - name: Verify explicit manual release authority
         if: github.event_name == 'workflow_dispatch'
         id: manual_release
@@ -170,7 +170,7 @@ jobs:
           repository: ${{ github.repository }}
           run-id: ${{ inputs.certification_run_id }}
       - name: Reverify artifact immediately before deployment
-        run: node scripts/ci/product-release-manifest.mjs verify --artifact "$RUNNER_TEMP/product-release" --expected-hash "${{ inputs.release_manifest_hash }}" --expected-source-sha "${{ inputs.canonical_main_sha }}" --checkout-root "$GITHUB_WORKSPACE"
+        run: node scripts/ci/product-release-manifest.mjs verify --artifact "$RUNNER_TEMP/product-release" --expected-hash "${{ inputs.release_manifest_hash }}" --expected-source-sha "${{ inputs.canonical_main_sha }}" --expected-mode POST_MERGE_MAIN --checkout-root "$GITHUB_WORKSPACE"
       - name: Set up pinned Supabase CLI
         uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
         with:

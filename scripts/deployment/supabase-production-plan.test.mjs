@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -37,6 +38,7 @@ const authConfig = (password_min_length = 8) => `${JSON.stringify({
 
 test("Decision source changed -> deploy", () => { const f=fixture(); write(f.repo,"supabase/functions/decision-v13/index.ts",`import { value } from "../../../packages/shared/runtime.mjs";\nconsole.log(value + 1);\n`); assert.deepEqual(plan(f,commit(f.repo)).deployFunctions,["decision-v13"]); });
 test("Decision transitive source changed -> deploy", () => { const f=fixture(); write(f.repo,"packages/shared/runtime.mjs",`export const value = 2;\n`); assert.deepEqual(plan(f,commit(f.repo)).deployFunctions,["decision-v13"]); });
+test("TypeScript source imports with emitted .js extensions resolve to tracked .ts files", () => { const f=fixture(); write(f.repo,"supabase/functions/decision-v13/index.ts",`import { value } from "../../../packages/shared/runtime.js";\nconsole.log(value);\n`); write(f.repo,"packages/shared/runtime.ts",`export const value = 2;\n`); const head=commit(f.repo); assert.deepEqual(plan(f,head).deployFunctions,["decision-v13"]); });
 test("Decision verify_jwt changed -> deploy", () => { const f=fixture(); const path=join(f.repo,"supabase/config.toml"); const source=execFileSync("sed",["-n","1,99p",path],{encoding:"utf8"}).replace("verify_jwt = true","verify_jwt = false"); writeFileSync(path,source); assert.deepEqual(plan(f,commit(f.repo)).deployFunctions,["decision-v13"]); });
 test("Unrelated declared Edge Function changed -> only affected scope", () => { const f=fixture(); write(f.repo,"supabase/functions/other/index.ts",`console.log("other-v2");\n`); assert.deepEqual(plan(f,commit(f.repo)).deployFunctions,["other"]); });
 test("New Forward Migration -> apply", () => { const f=fixture(); write(f.repo,"supabase/migrations/20260902000000_forward.sql","select 1;\n"); const result=plan(f,commit(f.repo)); assert.equal(result.migrations.length,1); assert.deepEqual(result.deployFunctions,[]); });
@@ -59,6 +61,20 @@ test("Weak Production password policy -> fail closed", () => { const f=fixture()
 test("Unknown Production config scope -> fail closed", () => { const f=fixture(); write(f.repo,"supabase/production/unknown.json","{}\n"); const head=commit(f.repo); assert.throws(()=>plan(f,head),/unknown_production_config_scope/); });
 test("Unknown dependency state -> fail closed", () => { const f=fixture(); write(f.repo,"supabase/functions/decision-v13/index.ts",`const target = "./unknown.ts";\nawait import(target);\n`); const head=commit(f.repo); assert.throws(()=>plan(f,head),/non_literal_dynamic_dependency/); });
 test("Changed undeclared Edge source -> fail closed", () => { const f=fixture(); write(f.repo,"supabase/functions/undeclared/index.ts",`console.log("unsafe");\n`); const head=commit(f.repo); assert.throws(()=>plan(f,head),/no_declared_deployment_scope/); });
+test("Function source retirement requires an additive, hash-bound, non-executing contract", () => {
+  const f=fixture();
+  const before=buildProductionPlan({repo:f.repo,baseSha:f.base,headSha:f.base}).functions.find(({slug})=>slug==="other");
+  write(f.repo,"supabase/config.toml",`[functions.decision-v13]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/decision-v13/index.ts"\n`);
+  execFileSync("git",["rm","supabase/functions/other/index.ts"],{cwd:f.repo});
+  assert.throws(()=>plan(f,commit(f.repo,"uncontracted retirement")),/function_retirement_requires_explicit_contract/);
+  const uncontracted=git(f.repo,["rev-parse","HEAD"]);
+  write(f.repo,"supabase/production/function-retirements.json",`${JSON.stringify({version:"backyrd-function-retirements-v1",projectRef:"hjgcrrzfjchzqoegcywn",remoteState:"NOT_QUERIED",productionAction:"NONE_NOT_AUTHORIZED",executionAuthorized:false,retirements:[{slugSha256:createHash("sha256").update("other").digest("hex"),previousConfigHash:before.configHash,previousSourceSetHash:before.sourceSetHash,repositoryDisposition:"DELETE_SOURCE_AND_CONFIG",reason:"NO_ACTIVE_PRODUCT_CONSUMER"}]},null,2)}\n`);
+  const head=commit(f.repo,"contract retirement");
+  const result=buildProductionPlan({repo:f.repo,baseSha:f.base,headSha:head});
+  assert.deepEqual(result.retiredFunctions.map(({slug,productionAction,executionAuthorized})=>({slug,productionAction,executionAuthorized})),[{slug:"other",productionAction:"NONE_NOT_AUTHORIZED",executionAuthorized:false}]);
+  assert.equal(result.runtimeDeploymentRequired,false);
+  assert.notEqual(uncontracted,head);
+});
 test("Published migration mutation -> fail closed", () => { const f=fixture(); write(f.repo,"supabase/migrations/20260901000000_existing.sql","select 1;\n"); const withMigration=commit(f.repo,"migration"); write(f.repo,"supabase/migrations/20260901000000_existing.sql","select 2;\n"); const head=commit(f.repo,"mutate"); assert.throws(()=>buildProductionPlan({repo:f.repo,baseSha:withMigration,headSha:head}),/published_migration_is_not_immutable/); });
 test("Audited failed canonical migration -> recover exact unchanged scope once", () => { const f=fixture(); const migration="supabase/migrations/20260901191833_gate5_forward.sql"; const source="select 1;\n"; write(f.repo,migration,source); const failedMain=commit(f.repo,"failed canonical main"); const digest=execFileSync("sha256sum",[join(f.repo,migration)],{encoding:"utf8"}).split(/\s+/)[0]; write(f.repo,"supabase/production/pending-migration-recovery.json",`${JSON.stringify({version:"backyrd-pending-migration-recovery-v1",projectRef:"hjgcrrzfjchzqoegcywn",failedCanonicalMainSha:failedMain,failedDeploymentRunId:33552000155,failureStage:"BEFORE_MIGRATION_APPLY",migrations:[{path:migration,sha256:digest}]},null,2)}\n`); const head=commit(f.repo,"recovery"); const result=buildProductionPlan({repo:f.repo,baseSha:failedMain,headSha:head}); assert.deepEqual(result.migrations,[{path:migration,sha256:digest}]); assert.equal(result.migrationRecovery.failedCanonicalMainSha,failedMain); assert.equal(result.runtimeDeploymentRequired,true); });
 test("Migration recovery with a different base or bytes fails closed", () => { const f=fixture(); const migration="supabase/migrations/20260901191833_gate5_forward.sql"; write(f.repo,migration,"select 1;\n"); const failedMain=commit(f.repo,"failed canonical main"); const document={version:"backyrd-pending-migration-recovery-v1",projectRef:"hjgcrrzfjchzqoegcywn",failedCanonicalMainSha:"0".repeat(40),failedDeploymentRunId:33552000155,failureStage:"BEFORE_MIGRATION_APPLY",migrations:[{path:migration,sha256:"0".repeat(64)}]}; write(f.repo,"supabase/production/pending-migration-recovery.json",`${JSON.stringify(document,null,2)}\n`); const head=commit(f.repo,"invalid recovery"); assert.throws(()=>buildProductionPlan({repo:f.repo,baseSha:failedMain,headSha:head}),/migration_recovery_base_mismatch/); });

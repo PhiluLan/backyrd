@@ -258,8 +258,16 @@ jobs:
         env: { EXPO_PUBLIC_SUPABASE_URL: "https://example.invalid", EXPO_PUBLIC_SUPABASE_ANON_KEY: "ci-public-placeholder-key-000000000000" }
         run: npm ci && npx expo export --platform web --output-dir "$RUNNER_TEMP/mobile-web"
       - name: Seal the tested Product artifact
-        env: { HEAD_SHA: "${{ needs.classify.outputs.head-sha }}" }
-        run: node scripts/ci/product-release-manifest.mjs build --source-sha "$HEAD_SHA" --mobile-bundle "$RUNNER_TEMP/mobile-web" --output "$RUNNER_TEMP/product-release"
+        env:
+          EVENT_NAME: "${{ github.event_name }}"
+          BASE_SHA: "${{ needs.classify.outputs.base-sha }}"
+          HEAD_SHA: "${{ needs.classify.outputs.head-sha }}"
+          CHECKOUT_SHA: "${{ github.sha }}"
+          CANONICAL_MAIN_SHA: "${{ github.event.pull_request.base.sha || github.sha }}"
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then MODE=PR_CANDIDATE; else MODE=POST_MERGE_MAIN; fi
+          node scripts/ci/product-release-manifest.mjs evidence --source-sha "$HEAD_SHA" --output "$RUNNER_TEMP/product-release-tests.json"
+          node scripts/ci/product-release-manifest.mjs build --mode "$MODE" --base-sha "$BASE_SHA" --source-sha "$HEAD_SHA" --checkout-sha "$CHECKOUT_SHA" --canonical-main-sha "$CANONICAL_MAIN_SHA" --test-evidence "$RUNNER_TEMP/product-release-tests.json" --mobile-bundle "$RUNNER_TEMP/mobile-web" --output "$RUNNER_TEMP/product-release"
       - name: Retain the exact tested Product artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

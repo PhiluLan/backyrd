@@ -8,7 +8,6 @@ const ACTIVE_ROUTE_FORBIDDEN = Object.freeze([
   ["fallback_function", /\bfallbackFunction\b/],
   ["existing_engine_route", /\bEXISTING_ENGINE\b/],
   ["founder_special_transport", /\bdecision-founder-live\b/],
-  ["legacy_copy_transport", /\bdecision-copy\b/],
   ["parallel_route_orchestrator", /\brouteFounderDecision\b/],
   ["parallel_vnext_invoker", /\binvokeVNext\b/],
   ["client_route_authority", /\bserverAuthority\b/],

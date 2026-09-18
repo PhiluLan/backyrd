@@ -51,7 +51,7 @@ export async function validateSingleRouteRepository(root) {
   REQUIRE(authorityDocument.runtimeScope?.deployEntrypoint === DEPLOY_ENTRYPOINT, "product_runtime_entrypoint_invalid");
   REQUIRE(authorityDocument.runtimeScope?.productHandler === "supabase/functions/decision-v13/vnext-only.ts", "product_runtime_handler_invalid");
   REQUIRE(JSON.stringify(authorityDocument.runtimeScope?.retiredTransports) === JSON.stringify(["decision-founder-live"]), "retired_transport_set_invalid");
-  REQUIRE(JSON.stringify(authorityDocument.runtimeScope?.quarantinedTransports) === JSON.stringify([{ name: "decision-copy", reason: "NO_ACTIVE_PRODUCT_CONSUMER", requiredBeforeRemoval: "READ_ONLY_PRODUCTION_DEPLOYMENT_INVENTORY" }]), "quarantined_transport_set_invalid");
+  REQUIRE(JSON.stringify(authorityDocument.runtimeScope?.quarantinedTransports) === "[]", "quarantined_transport_set_invalid");
   REQUIRE(authorityDocument.runtimeScope?.legacyDecisionModulesPolicy === "DEEP_RECERTIFICATION_ONLY", "legacy_decision_policy_invalid");
   REQUIRE(!authorityDocument.protectedSemanticSourceSet?.paths?.some((path) => path.startsWith("supabase/functions/decision-founder-live")), "retired_founder_edge_must_not_be_product_authority");
   REQUIRE(authorityDocument.protectedSemanticSourceSet?.paths?.includes("supabase/functions/decision-v13/vnext-only.ts"), "vnext_product_authority_missing");

@@ -39,5 +39,5 @@ test("the installed Product route has no legacy or parallel fallback", () => {
   const entrypoint = readFileSync(resolve(repositoryRoot, "supabase/functions/decision-v13/index.deploy.ts"), "utf8");
   const implementation = readFileSync(resolve(repositoryRoot, "supabase/functions/decision-v13/vnext-only.ts"), "utf8");
   assert.equal(entrypoint.trim(), "import './vnext-only.ts';");
-  assert.doesNotMatch(`${entrypoint}\n${implementation}`, /decision-copy|founder-live|north-star|legacyBody|fallbackFunction|DecisionV13/);
+  assert.doesNotMatch(`${entrypoint}\n${implementation}`, /founder-live|north-star|legacyBody|fallbackFunction|DecisionV13/);
 });

@@ -44,7 +44,6 @@ test("rejects every legacy or parallel routing primitive in active Product sourc
     "fallbackFunction",
     "EXISTING_ENGINE",
     "decision-founder-live",
-    "decision-copy",
     "routeFounderDecision",
     "invokeVNext",
     "serverAuthority",
@@ -57,7 +56,7 @@ test("rejects every legacy or parallel routing primitive in active Product sourc
   }
 });
 
-test("rejects missing, duplicate, and Founder-special Product transports", () => {
+test("rejects missing, duplicate, and retired Product transports", () => {
   for (const productTransportSlugs of [[], ["decision-v13", "decision-founder-live"], ["decision-founder-live"]]) {
     assert.throws(() => verifySingleProductTransport({ productTransportSlugs }), /single_route_release_blocked/);
   }

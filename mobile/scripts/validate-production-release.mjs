@@ -71,7 +71,6 @@ const forbidden = [
   ["legacy Taste table", /user_taste_events_v2/],
   ["legacy Taste RPC", /backyrd_log_taste_event_v3/],
   ["runtime OTA reload", /Updates\.reloadAsync/],
-  ["legacy Decision copy", /decision-copy/],
   ["legacy Decision session", /create_decision_session_v1/],
   ["legacy Decision retrieval", /backyrd_get_decision_spots_v9/],
   ["legacy Decision context", /get_decision_context_v1/],

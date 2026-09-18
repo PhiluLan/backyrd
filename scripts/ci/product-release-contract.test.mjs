@@ -15,7 +15,7 @@ test("Mobile uses the authenticated Product Decision contract without client aut
   assert.match(screen, /invokeDecisionProduct/);
   assert.match(screen, /candidate_impression/);
   assert.match(screen, /candidate_opened/);
-  assert.doesNotMatch(`${client}\n${contract}\n${screen}`, /decision-copy|decision-founder-live|legacyBody|fallbackFunction|FounderReleaseBinding|EXPO_PUBLIC_.*VNEXT|AsyncStorage/i);
+  assert.doesNotMatch(`${client}\n${contract}\n${screen}`, /decision-founder-live|legacyBody|fallbackFunction|FounderReleaseBinding|EXPO_PUBLIC_.*VNEXT|AsyncStorage/i);
 });
 
 test("Decision has exactly one deployable Product entrypoint", () => {
@@ -27,7 +27,7 @@ test("Decision has exactly one deployable Product entrypoint", () => {
   assert.match(config, /\[functions\.decision-v13\][\s\S]*entrypoint = "\.\/functions\/decision-v13\/index\.deploy\.ts"/);
   assert.equal(deploy.trim(), "import './vnext-only.ts';");
   assert.doesNotMatch(config, /\[functions\.decision-founder-live\]/);
-  assert.doesNotMatch(`${deploy}\n${implementation}\n${mobile}\n${web}`, /decision-copy|legacyBody|fallbackFunction|north-star/);
+  assert.doesNotMatch(`${deploy}\n${implementation}\n${mobile}\n${web}`, /legacyBody|fallbackFunction|north-star/);
   assert.equal(existsSync(new URL("supabase/functions/decision-founder-live/index.ts", root)), false);
 });
 

@@ -84,10 +84,13 @@
     "AGENTS.md",
     "README.md",
     "admin-dashboard/",
+    "backups/",
+    "backyrd_sprint_1_code_inventory",
     "decision-lab/",
     "delivery/",
     "docs/",
     "legal/",
+    "location-privacy-audit/",
     "mobile/",
     "package-lock.json",
     "package.json",
@@ -109,7 +112,10 @@
     "docs/operations/production-lineage-candidates/"
   ],
   "retiredPrefixes": [
+    "backups/",
+    "backyrd_sprint_1_code_inventory",
     "decision-lab/",
+    "location-privacy-audit/",
     "scripts/decision/",
     "packages/decision-vnext-core/sandbox/",
     "docs/operations/integration/"
