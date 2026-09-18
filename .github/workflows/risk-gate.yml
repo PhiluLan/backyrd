@@ -484,13 +484,15 @@ jobs:
         env:
           FOUNDER_LIVE_EVENT_NAME: ${{ github.event_name }}
           FOUNDER_LIVE_CHECKOUT_SHA: ${{ github.sha }}
+          FOUNDER_LIVE_BASE_SHA: ${{ needs.classify.outputs.base-sha }}
+          FOUNDER_LIVE_CANONICAL_MAIN: ${{ github.event.pull_request.base.sha || github.sha }}
         run: |
           npm run founder-live:binding
           case "$FOUNDER_LIVE_EVENT_NAME" in
-            pull_request) FOUNDER_LIVE_MODE=PR_CANDIDATE ;;
+            pull_request) FOUNDER_LIVE_MODE=CANONICAL_DESCENDANT_PR ;;
             push)
               test "$GITHUB_REF" = "refs/heads/main"
-              FOUNDER_LIVE_MODE=POST_MERGE_MAIN
+              FOUNDER_LIVE_MODE=CANONICAL_DESCENDANT_MAIN
               ;;
             *) echo "Unsupported Founder-live event: $FOUNDER_LIVE_EVENT_NAME" >&2; exit 1 ;;
           esac
