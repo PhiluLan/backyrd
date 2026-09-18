@@ -35,12 +35,12 @@ test("Production deployment remains explicit-manual and canonical-main-only", as
   assert.match(workflow, /--assert-canonical-main/);
 });
 
-test("main pushes retain the source-aware plan but cannot execute Production", async () => {
+test("Production workflow is manual-only and retains the source-aware plan", async () => {
   const workflow = await readFile(
     new URL("../../.github/workflows/supabase-production.yml", import.meta.url),
     "utf8",
   );
-  assert.match(workflow, /push:\n\s+branches: \[main\]/);
+  assert.doesNotMatch(workflow, /push:\n\s+branches: \[main\]/);
   assert.match(workflow, /Build auditable deployment plan/);
   assert.match(workflow, /Retain deployment plan and gate audit/);
   assert.equal((workflow.match(/run: bash scripts\/deployment\/deploy-supabase-production\.sh/g) ?? []).length, 1);

@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260918182831-decision-vnext-product-runtime-v1",
+  "previousEvidence": "20260918123000-founder-live-durable-idempotency-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "ffe92f57403e281247d44b3022af597836c8bf2d207b2d3eb0d2d8346496ce75",
+    "applicationSchemaSha256": "bb19333735d2643bf0c5efcc8bbebf3c776120389d7b02d0830c003008b0fcf2"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260918182831_decision_vnext_product_runtime_v1.sql",
+      "sha256": "18031d32ac5151178a401884ad79e9f09cff24d1ea8c08e951611f85f94b5e18"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/decision_vnext_product_runtime_v1.sql",
+      "sha256": "f48b22b8addb6558a4802287cb470ea363903050920d1a937566bca4ebadcbc7"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "50cb7fb40e509275825a23d394ff75d358ed9f57a02e76b01c0722db24a01dba",
+    "applicationSchemaSha256": "d3e2414941d5ac894a1f1a2ed1ed1892776200ebebd8a977f876031761503fcc"
+  }
+}

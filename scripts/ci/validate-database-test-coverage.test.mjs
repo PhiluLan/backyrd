@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -53,6 +54,28 @@ test("an unpaired or differently named constraint drop remains destructive", () 
     write(f.root, "supabase/tests/example.sql", "begin; select 1; rollback;\n");
     assert.throws(() => validateDatabaseTestCoverage({ root: f.root, baseSha: f.base, headSha: commit(f) }), /destructive_database/);
   }
+});
+
+test("an exact trust-anchor-bound migration is accepted while byte drift fails closed", () => {
+  const path = "supabase/migrations/20260102000000_bounded.sql";
+  const sql = "delete from private.expired_records where expires_at < now();\n";
+  const authority = (sha256) => JSON.stringify({ authorizedBoundedMigrations: [{
+    path,
+    sha256,
+    scope: "CONSENT_ERASURE_AND_EXPIRED_PRIVATE_IDEMPOTENCY_ONLY",
+  }] });
+
+  const accepted = fixture();
+  write(accepted.root, path, sql);
+  write(accepted.root, "supabase/tests/bounded.sql", "begin; select 1; rollback;\n");
+  write(accepted.root, "delivery/product-authority-v1.json", authority(createHash("sha256").update(sql, "utf8").digest("hex")));
+  assert.deepEqual(validateDatabaseTestCoverage({ root: accepted.root, baseSha: accepted.base, headSha: commit(accepted) }).newMigrations, [path]);
+
+  const drifted = fixture();
+  write(drifted.root, path, `${sql}-- drift\n`);
+  write(drifted.root, "supabase/tests/bounded.sql", "begin; select 1; rollback;\n");
+  write(drifted.root, "delivery/product-authority-v1.json", authority(createHash("sha256").update(sql, "utf8").digest("hex")));
+  assert.throws(() => validateDatabaseTestCoverage({ root: drifted.root, baseSha: drifted.base, headSha: commit(drifted) }), /destructive_database/);
 });
 
 test("missing tests, missing negative proof, destructive SQL and historical mutation fail closed", () => {
