@@ -1,6 +1,6 @@
 # Decision vNext OTA Readiness Report
 
-Status: **NO-GO — Product evaluation authority is not closed**
+Status: **NO-GO — Product runtime composition is not closed**
 
 This report is a source-only release checkpoint. It does not authorize or
 perform an EAS update, channel mutation, republish, deployment, migration,
@@ -29,14 +29,20 @@ frozen.
 
 - Canonical base: `3ba36825017959b1c6b54bb2b0aefc987da06fa9`
 - Integration branch: `codex/decision-vnext-single-route-cutover`
-- Checkpoint head: `29c09ad0c8518993f922e7c8b037f876a85270ad`
-- Checkpoint tree: `e8a6d748575e84cd0be3417b3762c9eee81e5e4f`
+- Checkpoint head: `99aff9b4f7a9f3ca4faade9f56125631aee26cbb`
+- Checkpoint tree: `40fea80e27aa51f8811f517ab987ce9050859aad`
 - User Domain patch: original `2474bc627febb2c123a620067954358585c5d585`,
   integrated `9f760b9fc8216264e2e02b3cfbb11fefb4c244d0`, stable patch ID
   `cdb8becf59bbc21caf55ff92a6e0e1ebd9e325cc`
 - Decision Domain patch: original `f9112356dae14e06cafb0f3a6c72630af8db7c44`,
   integrated `0bf964eea98283627062406189b0675a9513b194`, stable patch ID
   `f848942a04e7191109e17aad07f6ab1c9682f600`
+- Product-v1 authority refactor: original
+  `ec1997fb4f5aeee8e518f0699bbd4b8f0ac31d87`, original tree
+  `41e690e410340bbe19954de092c807d0c9160fac`, integrated as
+  `99aff9b4f7a9f3ca4faade9f56125631aee26cbb`. The authority and evaluator
+  blobs are byte-identical; the documented additive overlap moves the existing
+  same-route impression/open contracts into the new Product-v1 contract file.
 - World/Admin cutover patches: original `9bb0aeb00c18768683c5b08cdea761df37e3ef9d`
   and `663a4c920939f63acee8601a3d4c37921923d10a`, integrated as `d32979b`
   and `eeea301` with identical stable patch IDs.
@@ -48,6 +54,17 @@ frozen.
 - The separate `decision-founder-live` Function is disabled in source config.
 - Product request, response, impression, open, alternative, and contextual
   reject use strict versioned contracts on the same route.
+- Product Context, World cohort, candidate assessment, intent classification,
+  evaluation, and ranking are independent Product-v1 contracts. They do not
+  import or relabel Founder Lab or synthetic cohort authority.
+- Product intent policy SHA-256:
+  `42832b387aa7adad838f9fef9fd25dc6fa73b3c48753aa471776bb9f7ff28c0a`
+- Product ranking policy SHA-256:
+  `5d71d1505970d54b67b1f92f6208a02ab5274894e35b7c70af436e76b3473472`
+- Product evaluation policy SHA-256:
+  `1fc6a43c571bdaaab7a8ca6d80c101a57148db50507ee2e9e9079acdc873896d`
+- Product evaluation release SHA-256:
+  `22bb5b7d24539339fed81982d7cad102e7c64a5a3401b9c65bd28c47709e940d`
 - Client-provided identity, runtime authority, ranking authority, fallback, and
   legacy writeback are rejected.
 - Mobile and Web display server presentations, ordering, availability, reasons,
@@ -76,8 +93,10 @@ frozen.
 
 ## Green checkpoint gates
 
-- Decision Domain single-route and adapter tests: 17/17
+- Complete Decision suite, including Product-v1 and adapter tests: 219/219
 - Single-route CI classifier tests: 5/5
+- Repository scan against the actual Mobile, Web, Edge, generated binding, and
+  Supabase config paths: pass
 - User Product learning tests: 15/15
 - Mobile single-route client tests: 6/6
 - Mobile TypeScript, targeted lint, and Product contract suite: pass
@@ -90,23 +109,25 @@ frozen.
 
 These are checkpoint gates, not the final full Risk Gate or a release seal.
 
-## Blocking authority gap
+## Blocking runtime-composition gap
 
-The only existing interpretation, candidate-assessment, cohort, and
-capability-to-intent/context evaluation kernel is structurally bound to Phase
-3C Founder Lab authority. Its policy is
-`SYNTHETIC_FOUNDER_EVALUATION_ONLY`; its release is evaluation/calibration-only
-and explicitly denies Product ranking and Production authorization.
+The Product-v1 semantic authority is now closed without relabeling Founder Lab
+authority. The committed Product release remains deliberately
+`runtimeActivated:false` and `productionExecutionAuthorized:false`.
 
-Wrapping or re-hashing that output as Product would be an authority bypass.
-Accordingly, `decision-v13` remains deliberately unavailable behind the
-OFF-default control until separately approved Product contracts, a Product
-World cohort, an approved Product capability/context matrix, and an exact
-Product evaluator release exist. There is no Legacy or Founder fallback.
+The deployed source entry still injects unavailable evaluation and learning
+ports. Before a release candidate can be sealed, Edge must compose the new
+Product evaluator with the canonical `WorldKnowledgeReaderPort`, a
+server-authorized and hash-bound candidate selection, the canonical minimized
+User projection, and the exact `PRODUCT_RUNTIME` learning authority. No weaker
+adapter, synthetic cohort, Lab authority, Legacy route, or fallback may fill
+these ports. Until that composition and its negative tests exist,
+`decision-v13` remains deliberately unavailable behind the OFF-default control.
 
 ## Remaining acceptance before any OTA proposal
 
-1. Close the Product evaluation authority without relabeling Lab authority.
+1. Compose the Product-v1 evaluator from the canonical World reader,
+   server-bound candidate selection, and canonical User projection.
 2. Bind the canonical User `PRODUCT_RUNTIME` learning port to the external,
    exact-release authority and dynamic kill switch.
 3. Freeze the functional tree and regenerate one Node-20 artifact, source set,
