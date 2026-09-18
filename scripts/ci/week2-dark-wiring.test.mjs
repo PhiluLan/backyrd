@@ -167,6 +167,14 @@ test("required GitHub Week-2 preflight cannot be downgraded from final mode", ()
   assert.match(invocations[0], /--base-sha[^]*--head-sha[^]*--final/);
 });
 
+test("required CI binds Founder-live Edge evidence, runtime boundary and four-track rehearsal", () => {
+  const workflow = readFileSync(new URL("../../.github/workflows/risk-gate.yml", import.meta.url), "utf8");
+  assert.match(workflow, /node --test supabase\/functions\/decision-founder-live\/runtime-boundary\.test\.mjs/);
+  assert.match(workflow, /founder-live-edge-implementation-evidence\.mjs \. "\$\{\{ needs\.classify\.outputs\.head-sha \}\}"/);
+  assert.ok(workflow.indexOf("npx playwright install chromium") < workflow.indexOf("npm run founder-live:four-track"));
+  assert.match(workflow, /npm run founder-live:four-track -- "\$\{\{ needs\.classify\.outputs\.head-sha \}\}"/);
+});
+
 for (const name of ["USER_HANDOFF_HASH", "USER_NO_WRITE_PROOF_HASH"]) {
   test(`${name} rejects an individually tampered canonical User binding`, () => {
     const value = clone(documents());

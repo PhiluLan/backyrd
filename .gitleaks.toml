@@ -10,3 +10,10 @@ id = "generic-api-key"
   regexTarget = "secret"
   regexes = ['''^[0-9a-f]{64}$''']
   paths = ['''^docs/spot-intelligence/manifests/BASEL_(CANDIDATE_UNIVERSE|PILOT_SELECTION)_SHADOW_V1\.json$''']
+
+  [[rules.allowlists]]
+  description = "Founder Live gateway uses one explicit low-value deterministic idempotency fixture, not a credential."
+  condition = "AND"
+  regexTarget = "secret"
+  regexes = ['''^idem-12345678$''']
+  paths = ['''^mobile/packages/founder-live-control-plane/test/gateway\.test\.mjs$''']

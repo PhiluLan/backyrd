@@ -2,6 +2,7 @@
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
+import { buildFounderLiveArtifact } from "./founder-live-artifact.mjs";
 
 const ROOT = resolve(new URL("../..", import.meta.url).pathname);
 const run = (command, args) => execFileSync(command, args, {
@@ -20,27 +21,35 @@ run("npm", ["run", "decision-vnext:build"]);
 
 const suites = [
   { track: "WORLD_ADMIN", files: ["packages/world-knowledge-core/test/slice4a-authoring.test.mjs", "packages/world-knowledge-core/test/authoring-reliability.test.mjs", "packages/world-knowledge-core/test/founder-handoff.test.mjs"] },
-  { track: "USER", files: ["packages/user-intelligence-vnext-core/test/founder-live-projection.test.mjs"] },
-  { track: "DECISION", files: ["packages/decision-vnext-core/test/founder-live-api.test.mjs"] },
+  { track: "USER", files: ["packages/user-intelligence-vnext-core/test/founder-live-projection.test.mjs", "packages/user-intelligence-vnext-core/test/production-relevant-user-projection.test.mjs"] },
+  { track: "DECISION", files: ["packages/decision-vnext-core/test/founder-live-api.test.mjs", "packages/decision-vnext-core/test/founder-live-durable-idempotency.test.mjs", "packages/decision-vnext-core/test/founder-live-durable-rate-limit.test.mjs", "packages/decision-vnext-core/test/isolation.test.mjs"] },
   { track: "MOBILE_INTEGRATION", files: ["mobile/packages/founder-live-control-plane/test/control-plane.test.mjs", "scripts/ci/founder-live-control-plane.test.mjs"] },
 ];
 
 for (const suite of suites) run(process.execPath, ["--test", ...suite.files]);
 const browser = JSON.parse(run(process.execPath, ["scripts/ci/founder-live-e2e.mjs"]).trim());
+const artifact = buildFounderLiveArtifact({ root: ROOT, source: process.argv[2] ?? "HEAD" });
 
 const body = {
   contractVersion: "backyrd.founder-live-four-track-rehearsal@1.0",
   nodeMajor: 20,
   status: "PASS",
-  tracks: suites.map(({ track, files }) => ({ track, files, status: "PASS" })),
+  tracks: suites.map(({ track, files }) => ({ track, files, artifactHash: artifact.artifactHash, sourceSetHash: artifact.sourceSetHash, status: "PASS" })),
   flow: "ADMIN_AUTHORING_TO_WORLD_READER_TO_USER_PROJECTION_TO_DECISION_API_TO_MOBILE",
   scenarios: ["A", "B", "C", "D", "FAMILY_OUTING", "BOULDERING", "CONTEXT_FLIP", "ALTERNATIVE", "SITUATIONAL_REJECT"],
-  failClosed: ["DEFAULT_OFF", "EMERGENCY_OFF", "ALLOWLIST_DENIED", "AUTH_STALE_OR_INVALID", "AUTHORITY_MISMATCH", "IDEMPOTENCY_CONFLICT", "RATE_LIMIT", "UNKNOWN_VERSION", "PORT_FAILURE", "TIMEOUT"],
+  failClosed: ["DEFAULT_OFF", "EMERGENCY_OFF", "ALLOWLIST_DENIED", "AUTH_STALE_OR_INVALID", "AUTHORITY_MISMATCH", "IDEMPOTENCY_CONFLICT", "IDEMPOTENCY_EXPIRED", "IDEMPOTENCY_REPLAY_TAMPER", "RATE_LIMIT", "RATE_LIMIT_STORE_UNAVAILABLE", "RATE_LIMIT_BINDING_DRIFT", "UNKNOWN_VERSION", "PORT_FAILURE", "TIMEOUT"],
   boundaries: {
+    realAllowlistMembers: 0,
+    syntheticFixturesOnly: true,
     productionActions: 0,
     externalNetworkCalls: 0,
     productOutputs: 0,
+    durableWrites: 0,
     durableUserWrites: 0,
+    readsAfterEmergencyOff: 0,
+    projectionsAfterEmergencyOff: 0,
+    evaluationsAfterEmergencyOff: 0,
+    productOutputsAfterEmergencyOff: 0,
     userLearning: "OFF",
     ranking: "NOT_CONFIGURED",
     confidenceInfluence: "NOT_CONFIGURED",
@@ -52,6 +61,7 @@ const body = {
     assertions: browser.assertions,
     manualFileHandoffs: browser.manualFileHandoffs
   },
+  artifact: { sourceSha: artifact.sourceSha, sourceTreeSha: artifact.sourceTreeSha, artifactHash: artifact.artifactHash, sourceSetHash: artifact.sourceSetHash, fileCount: artifact.fileCount },
   executionAuthorized: false
 };
 

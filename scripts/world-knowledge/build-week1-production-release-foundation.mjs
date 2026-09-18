@@ -107,11 +107,25 @@ const statementMetrics = (sql) => ({
   destructiveDdl: (sql.match(/\b(?:drop\s+(?:table|schema)|truncate\s+table)\b/gi) ?? []).length,
 });
 
+export const validateWorldWeek1IndependentRuntimeScope = (sourcePlan) => {
+  const functions = sourcePlan?.deployFunctions;
+  const exactFunctionScope = Array.isArray(functions) && (functions.length === 0 || functions.join(",") === "decision-founder-live");
+  if (!exactFunctionScope || sourcePlan?.authConfig?.deploy === true || sourcePlan?.runtimeActivation === true || sourcePlan?.executionAuthorized === true) throw new Error("unexpected_non_migration_runtime_scope");
+  return functions.map((functionName) => ({
+    functionName,
+    relationship: "SEPARATELY_VALIDATED_INACTIVE_DECISION_SOURCE",
+    defaultState: "OFF",
+    killSwitch: "ENGAGED",
+    runtimeAuthority: "NOT_AUTHORIZED",
+    executionAuthorized: false,
+  }));
+};
+
 export const buildWorldWeek1Foundation = ({ headSha = git(["rev-parse", "HEAD"]) } = {}) => {
   const canonicalBaseSha = git(["merge-base", headSha, "origin/main"]);
   const productionState = JSON.parse(readFileSync(resolve(root, "delivery/production-state.json"), "utf8"));
   const sourcePlan = buildProductionPlan({ repo: root, baseSha: productionState.supabase.shippedSourceSha, headSha });
-  if (sourcePlan.deployFunctions.length !== 0 || sourcePlan.authConfig?.deploy === true) throw new Error("unexpected_non_migration_runtime_scope");
+  const independentRuntimeScopes = validateWorldWeek1IndependentRuntimeScope(sourcePlan);
   const scopes = verifySourceAwareIdempotencyMigrationScope({ root, pendingMigrations: sourcePlan.pendingMigrations, baseSha: canonicalBaseSha, headSha });
 
   const migrations = scopes.worldMigrations.map((entry, index) => {
@@ -140,6 +154,7 @@ export const buildWorldWeek1Foundation = ({ headSha = git(["rev-parse", "HEAD"])
     migrationBundleHash: sha256(stable(bundle)),
     sourceAwarePlanHash: sourcePlan.planHash,
     independentMigrationScopes: scopes.independentMigrations.map(({ path, sha256: digest }) => ({ path, sha256: digest, evidenceId: scopes.evidenceId, executionAuthorized: false })),
+    independentRuntimeScopes,
     migrations,
     releaseSequence: ["PREFLIGHT", "BACKUP", "RESTORE_REHEARSAL", "APPLY_REHEARSAL", "VERIFY_REHEARSAL", "CTO_AUTHORIZATION_REQUIRED", "PRODUCTION_APPLY_BLOCKED"],
     globalStopConditions: [

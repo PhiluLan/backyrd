@@ -3,6 +3,9 @@ import { canonicalJson, deepFreeze } from "./canonical.js";
 import type { FounderLiveExecution } from "./founder-live-api.js";
 
 export const FOUNDER_LIVE_DURABLE_IDEMPOTENCY_VERSION = "backyrd.decision-vnext.founder-live-durable-idempotency-port@1.0" as const;
+export const FOUNDER_LIVE_DURABLE_IDEMPOTENCY_MIGRATION_SHA256 = "0db49db4b2e0f5c191cf5960eb51fab4f2d569ba87b3037dfe8d253f89785fb2" as const;
+export const FOUNDER_LIVE_DURABLE_IDEMPOTENCY_ACL_HASH = "ffe92f57403e281247d44b3022af597836c8bf2d207b2d3eb0d2d8346496ce75" as const;
+export const FOUNDER_LIVE_DURABLE_IDEMPOTENCY_SCHEMA_HASH = "bb19333735d2643bf0c5efcc8bbebf3c776120389d7b02d0830c003008b0fcf2" as const;
 export const FOUNDER_LIVE_IDEMPOTENCY_SCOPE = "backyrd.founder-live.idempotency-scope@1.0" as const;
 export const FOUNDER_LIVE_IDEMPOTENCY_PURPOSE = "FOUNDER_LIVE_READ_ONLY_EVALUATION" as const;
 const RPC = "backyrd_founder_live_idempotency_commit_v1" as const;

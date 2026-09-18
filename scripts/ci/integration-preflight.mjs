@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { classifyChange } from "./classify-change.mjs";
 import { buildProductionPlan } from "../deployment/supabase-production-plan.mjs";
 import { verifySourceAwareIdempotencyMigrationScope } from "./source-aware-idempotency-migration-scope.mjs";
+import { verifySourceAwareInactiveFounderLiveScope } from "./source-aware-inactive-founder-live-scope.mjs";
 
 const SHA = /^[0-9a-f]{40}$/;
 const HASH = /^[0-9a-f]{64}$/;
@@ -116,7 +117,12 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     requireValue(changePlan.blockedReasons.length === 0, `change_plan_blocked:${changePlan.blockedReasons.join(",")}`);
 
     const productionPlan = buildProductionPlan({ repo: root, baseSha: documents.manifest.productionPlan.shippedSourceSha, headSha });
-    requireValue(productionPlan.deployFunctions.length === 0 && productionPlan.authConfig?.deploy === false, "unexpected_production_runtime_scope");
+    const inactiveFounderLiveScope = verifySourceAwareInactiveFounderLiveScope({
+      root,
+      productionPlan,
+      headSha,
+      treeSha: git(root, ["rev-parse", `${headSha}^{tree}`]),
+    });
     const migrationScopes = verifySourceAwareIdempotencyMigrationScope({ root, pendingMigrations: productionPlan.pendingMigrations, baseSha, headSha });
     requireValue(migrationScopes.worldMigrations.length === documents.manifest.productionPlan.expectedPendingMigrationCount, `world_pending_migration_count_mismatch:${migrationScopes.worldMigrations.length}`);
 
@@ -132,7 +138,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       domainCandidates: documents.manifest.domainCandidates,
       canonicalContracts,
       darkRelease: { flags: documents.flags.flags.map(({ id, default: defaultValue, killSwitchDefault }) => ({ id, default: defaultValue, killSwitchDefault })), missingConfigurationBehavior: documents.flags.missingConfigurationBehavior },
-      productionPlan: { planHash: productionPlan.planHash, pendingMigrationCount: productionPlan.pendingMigrations.length, inheritedWorldMigrationCount: migrationScopes.worldMigrations.length, independentAdditiveMigrations: migrationScopes.independentMigrations.map(({ path, sha256 }) => ({ path, sha256, evidenceId: migrationScopes.evidenceId })), runtimeDeploymentRequired: productionPlan.runtimeDeploymentRequired, deployFunctions: productionPlan.deployFunctions, authDeploy: productionPlan.authConfig?.deploy ?? false, executionAuthorized: false },
+      productionPlan: { planHash: productionPlan.planHash, pendingMigrationCount: productionPlan.pendingMigrations.length, inheritedWorldMigrationCount: migrationScopes.worldMigrations.length, independentAdditiveMigrations: migrationScopes.independentMigrations.map(({ path, sha256 }) => ({ path, sha256, evidenceId: migrationScopes.evidenceId })), independentRuntimeScopes: inactiveFounderLiveScope.runtimeScopes, edgeEvidenceHash: inactiveFounderLiveScope.evidence?.evidenceHash ?? null, runtimeDeploymentRequired: productionPlan.runtimeDeploymentRequired, deployFunctions: productionPlan.deployFunctions, authDeploy: productionPlan.authConfig?.deploy ?? false, executionAuthorized: false },
       changePlan: { classes: changePlan.classes, requiredGates: changePlan.requiredGates },
       finalMode: Boolean(args.final),
     };

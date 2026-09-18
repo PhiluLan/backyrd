@@ -9,6 +9,9 @@ const BASE = "34c0cbec903e53087e28e46d1886648bc6ce72bc";
 const EMAIL = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 const UUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
 const SECRET = /(?:service[_-]?role|secret[_-]?key|access[_-]?token|refresh[_-]?token)\s*[:=]\s*["']?[A-Za-z0-9._-]{20,}/i;
+const CANONICAL_PLACEHOLDERS = new Map([
+  ["supabase/config.toml", new Set([["admin", "email.com"].join("@")])],
+]);
 const binary = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".woff", ".woff2", ".ttf", ".zip", ".gz", ".pdf"]);
 const git = (args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8", maxBuffer: 50 * 1024 * 1024 }).trim();
 
@@ -27,8 +30,10 @@ export function scanFounderActivationPii(paths) {
   const findings = [];
   for (const path of paths) {
     const content = readFileSync(path, "utf8");
+    const relativePath = path.startsWith(ROOT) ? path.slice(ROOT.length + 1) : path;
     for (const [kind, pattern] of [["EMAIL", EMAIL], ["UUID", UUID], ["SECRET_VALUE", SECRET]]) {
-      if (pattern.test(content)) findings.push({ kind, path: path.startsWith(ROOT) ? path.slice(ROOT.length + 1) : path });
+      const matches = content.matchAll(new RegExp(pattern.source, `${pattern.flags}g`));
+      if ([...matches].some((match) => !CANONICAL_PLACEHOLDERS.get(relativePath)?.has(match[0]))) findings.push({ kind, path: relativePath });
     }
   }
   if (findings.length) throw new Error(`founder_activation_sensitive_value_detected:${JSON.stringify(findings)}`);

@@ -27,6 +27,7 @@ import { supabase } from "@/lib/supabase";
 import { getMyProductEntryStatus } from "@/lib/onboardingStatus";
 import { mapTextToClusterIds } from "@/lib/decision/moodMapping";
 import { invokeFounderLiveDecision } from "@/lib/decision/founderLiveDecision";
+import type { FounderLiveReadOnlyResponse } from "@backyrd/founder-live-control-plane";
 import { trackAnalyticsEvent } from "@/lib/analytics";
 import { recordMemoryProductAction } from "@/lib/memory-bridge";
 import { selectSpotImageUrl } from "@/lib/spot-images";
@@ -575,6 +576,7 @@ export default function DecisionScreen() {
   const homeAutoRunRef = useRef<string | null>(null);
 
   const [userId, setUserId] = useState<string | null>(null);
+  const [founderLiveReadOnly, setFounderLiveReadOnly] = useState<FounderLiveReadOnlyResponse | null>(null);
 
   const [city, setCity] = useState("");
   const [citySource, setCitySource] = useState<DecisionCitySource>("empty");
@@ -1052,7 +1054,16 @@ export default function DecisionScreen() {
             : null,
           legacyBody,
         });
-        const data = routed.response;
+        if (routed.route === "FOUNDER_LIVE_READ_ONLY") {
+          setFounderLiveReadOnly(routed.response as FounderLiveReadOnlyResponse);
+          setSpots([]);
+          setDecisionId(null);
+          setDeckMode(false);
+          setStatus("success");
+          return;
+        }
+        setFounderLiveReadOnly(null);
+        const data = routed.response as DecisionV13Response;
 
         if (!data?.ok) {
           throw new Error(data?.error || "Decision V13 konnte nicht geladen werden.");
@@ -1322,6 +1333,33 @@ export default function DecisionScreen() {
         onSettings={() => setDeckMode(false)}
         onRemix={() => runDecision({ remix: true })}
       />
+    );
+  }
+
+  if (founderLiveReadOnly && !loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+        <ScrollView contentContainerStyle={{ padding: 24, gap: 18 }}>
+          <Text style={{ color: theme.acid, fontSize: 12, fontWeight: "900", letterSpacing: 1.1 }}>FOUNDER-EVALUATION · NUR LESEN</Text>
+          <Text style={{ color: theme.text, fontSize: 28, fontWeight: "900" }}>Was Backyrd verstanden hat</Text>
+          <Text style={{ color: theme.text, fontSize: 16 }}>{[founderLiveReadOnly.understood.primaryIntent, founderLiveReadOnly.understood.secondaryIntent, founderLiveReadOnly.understood.occasion, founderLiveReadOnly.understood.targetCity].filter(Boolean).join(" · ")}</Text>
+          <Text style={{ color: theme.text, fontSize: 18, fontWeight: "800" }}>Zwingend</Text>
+          <Text style={{ color: theme.text }}>{founderLiveReadOnly.understood.hardConditions.join(" · ") || "Keine weitere zwingende Bedingung erkannt."}</Text>
+          <Text style={{ color: theme.text, fontSize: 18, fontWeight: "800" }}>Wünsche</Text>
+          <Text style={{ color: theme.text }}>{founderLiveReadOnly.understood.softPreferences.join(" · ") || "Keine weichen Wünsche erkannt."}</Text>
+          {founderLiveReadOnly.candidates.map((candidate) => (
+            <View key={`${candidate.name}:${candidate.group}`} style={{ padding: 16, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.06)", gap: 8 }}>
+              <Text style={{ color: theme.text, fontSize: 20, fontWeight: "900" }}>{candidate.name}</Text>
+              <Text style={{ color: theme.acid, fontWeight: "800" }}>{candidate.group.replaceAll("_", " ")}</Text>
+              {candidate.reasons.map((reason) => <Text key={reason} style={{ color: theme.text }}>{reason}</Text>)}
+            </View>
+          ))}
+          <Text style={{ color: theme.text, opacity: 0.7 }}>Diese Ansicht bewertet nur vorhandene Evidence. Es gibt noch kein freigegebenes Product-Ranking, keine Navigation und kein Learning.</Text>
+          <Pressable onPress={() => { setFounderLiveReadOnly(null); setStatus("idle"); }} style={{ padding: 16, borderRadius: 14, backgroundColor: theme.acid }}>
+            <Text style={{ color: theme.bg, textAlign: "center", fontWeight: "900" }}>Neue Anfrage</Text>
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 

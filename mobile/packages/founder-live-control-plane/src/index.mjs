@@ -2,6 +2,8 @@ const REQUEST_VERSION = "backyrd.decision-api.request@1.0";
 const RESPONSE_VERSION = "backyrd.decision-api.response@1.0";
 const AUTHORITY_VERSION = "backyrd.decision-api.route-authority@1.0";
 const STUB_VERSION = "backyrd.decision-api.contract-stub@0.1";
+const GATEWAY_VERSION = "backyrd.decision-api.gateway-response@1.0";
+const FOUNDER_LIVE_VERSION = "backyrd.decision-vnext.founder-live-response@1.1";
 const HASH = /^[0-9a-f]{64}$/;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
 
@@ -28,7 +30,54 @@ export const FOUNDER_DECISION_CONTRACT = Object.freeze({
   response: RESPONSE_VERSION,
   routeAuthority: AUTHORITY_VERSION,
   localStub: STUB_VERSION,
+  gatewayResponse: GATEWAY_VERSION,
 });
+
+/**
+ * Strict mobile boundary for the Founder-Live endpoint. The endpoint, not the
+ * client, chooses the engine. A Founder-Live evaluation can never masquerade
+ * as a v13/North-Star response and failures never fall back after selection.
+ */
+export function validateFounderDecisionGatewayResponse(value) {
+  exactKeys(value, ["contractVersion", "route", "requestId", "writebackPerformed", "response"], "gateway_response_shape_invalid");
+  requireValue(value.contractVersion === GATEWAY_VERSION, "gateway_response_version_unknown");
+  requireValue(ID.test(value.requestId), "gateway_response_request_identity_invalid");
+  requireValue(value.writebackPerformed === false, "gateway_response_writeback_forbidden");
+  requireValue(["FOUNDER_LIVE_READ_ONLY", "EXISTING_ENGINE"].includes(value.route), "gateway_response_route_invalid");
+  if (value.route === "EXISTING_ENGINE") {
+    requireValue(value.response === null, "gateway_existing_engine_payload_forbidden");
+    return value;
+  }
+  const response = value.response;
+  requireValue(response && typeof response === "object" && !Array.isArray(response), "gateway_founder_live_payload_missing");
+  requireValue(response.contractVersion === FOUNDER_LIVE_VERSION && response.status === "EVALUATION_ONLY", "gateway_founder_live_contract_invalid");
+  requireValue(response.rankingState === "NOT_CONFIGURED", "gateway_founder_live_ranking_claim_forbidden");
+  requireValue(response.reject?.contextualOnly === true && response.reject?.userLearningProduced === false, "gateway_founder_live_learning_forbidden");
+  requireValue(Array.isArray(response.candidates) && response.candidates.every((candidate) => candidate && typeof candidate.name === "string" && !Object.hasOwn(candidate, "spotId") && !Object.hasOwn(candidate, "spot_id")), "gateway_founder_live_product_identity_forbidden");
+  return value;
+}
+
+export async function routeFounderDecisionGateway({ binding, request, invokeGateway, invokeExisting, hash }) {
+  const startedAt = Date.now();
+  validateFounderDecisionRequest(request);
+  requireValue(binding && HASH.test(binding.releaseHash) && HASH.test(binding.bindingHash), "release_binding_invalid");
+  requireValue(binding.executionAuthorized === false, "production_execution_authority_forbidden");
+  if (!(binding.status === "READY_FOR_FOUNDER_ALLOWLIST" && binding.allCandidatesBound === true && binding.vNextFunction)) {
+    const response = await invokeExisting(request);
+    requireValue(response && typeof response === "object", "existing_engine_response_invalid");
+    return Object.freeze({ route: "EXISTING_ENGINE", response, mixedResults: false, writebackPerformed: false, observability: await observe({ hash, request, binding, response, route: "EXISTING_ENGINE", status: "EXISTING", startedAt }) });
+  }
+  let gateway;
+  try { gateway = validateFounderDecisionGatewayResponse(await invokeGateway(request)); }
+  catch (error) { throw new FounderDecisionUnavailableError("founder_live_gateway_unavailable", error); }
+  requireValue(gateway.requestId === request.requestId, "gateway_response_request_mismatch");
+  if (gateway.route === "EXISTING_ENGINE") {
+    const response = await invokeExisting(request);
+    requireValue(response && typeof response === "object", "existing_engine_response_invalid");
+    return Object.freeze({ route: "EXISTING_ENGINE", response, mixedResults: false, writebackPerformed: false, observability: await observe({ hash, request, binding, response, route: "EXISTING_ENGINE", status: "SERVER_SELECTED_EXISTING", startedAt }) });
+  }
+  return Object.freeze({ route: "FOUNDER_LIVE_READ_ONLY", response: gateway.response, mixedResults: false, writebackPerformed: false, observability: await observe({ hash, request, binding, response: gateway.response, route: "FOUNDER_LIVE_READ_ONLY", status: "EVALUATION_ONLY", startedAt }) });
+}
 
 export function validateFounderDecisionRequest(value) {
   exactKeys(value, ["contractVersion", "requestId", "idempotencyKey", "context", "continuation"], "decision_request_shape_invalid");
