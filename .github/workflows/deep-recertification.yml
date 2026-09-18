@@ -39,7 +39,7 @@ jobs:
       - run: npm run week2:test
       - run: node --test scripts/ci/week3-internal-prodlike.test.mjs
       - run: npm run founder-activation:test
-      - run: npm run founder-live:test
+      - run: npm run product-release:test
 
   release-health:
     name: Record release-train health

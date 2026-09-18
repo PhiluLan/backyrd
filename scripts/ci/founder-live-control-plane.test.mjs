@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { validateFounderLiveDocuments, verifyFounderCanonicalDescendantIdentity, verifyFounderDescendantMigrationChanges, verifyFounderIdentityMode, verifyFounderSealScope } from "./founder-live-control-plane.mjs";
 
@@ -90,12 +90,9 @@ test("Supabase public-client boundary remains explicit", () => {
   assert.match(mobile, /EXPO_PUBLIC_SUPABASE_ANON_KEY/); assert.doesNotMatch(`${mobile}\n${admin}`, /service[_-]?role|sb_secret_/i);
 });
 
-test("deployable Founder Live edge host stays independently runtime-disabled", () => {
+test("obsolete Founder Live edge host is absent from the deployable Product scope", () => {
   const config = readFileSync(new URL("supabase/config.toml", root), "utf8");
-  const entry = readFileSync(new URL("supabase/functions/decision-founder-live/index.ts", root), "utf8");
-  const boundary = readFileSync(new URL("supabase/functions/decision-founder-live/runtime-boundary.mjs", root), "utf8");
-  assert.match(config, /\[functions\.decision-founder-live\][\s\S]*verify_jwt = true/);
-  assert.match(entry, /createInactiveFounderLiveEdgeAdapter/);
-  assert.match(boundary, /RUNTIME_AUTHORITY_NOT_AUTHORIZED/);
-  assert.doesNotMatch(`${entry}\n${boundary}`, /SUPABASE_SERVICE_ROLE_KEY|functions\.invoke|createClient\(/);
+  assert.doesNotMatch(config, /\[functions\.decision-founder-live\]/);
+  assert.match(config, /\[functions\.decision-v13\][\s\S]*entrypoint = "\.\/functions\/decision-v13\/index\.deploy\.ts"/);
+  assert.equal(existsSync(new URL("supabase/functions/decision-v13/vnext-only.ts", root)), true);
 });

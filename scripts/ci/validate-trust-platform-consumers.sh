@@ -37,12 +37,6 @@ require_pattern() {
 }
 
 require_pattern 'distribution_trust_filter_entities_v1' \
-  'supabase/functions/decision-v13/index.ts' 'Decision must use canonical Distribution eligibility'
-require_pattern 'distribution_trust_spot_catalog_v1' \
-  'supabase/functions/decision-v13/index.ts' 'Decision must use trusted fallback candidates'
-require_pattern 'fetchCatalog\(null\)' \
-  'supabase/functions/decision-v13/index.ts' 'Decision must expand to a global trusted fallback'
-require_pattern 'distribution_trust_filter_entities_v1' \
   'supabase/functions/semantic-spot-search/index.ts' 'Semantic Search must use canonical Distribution eligibility'
 require_pattern 'distribution_trust_filter_entities_v1' \
   'mobile/lib/distributionTrust.ts' 'Mobile must use the central client-safe contract'

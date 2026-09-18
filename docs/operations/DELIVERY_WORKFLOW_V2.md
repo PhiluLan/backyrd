@@ -94,6 +94,28 @@ Developers run the affected local fast lane. CI is authoritative for selected
 gates. A red gate is fixed at its root; it is never bypassed and does not cause
 unrelated domain recertification.
 
+### Root-cause repair and resume
+
+After a gate has completed its expensive execution successfully, a later
+evidence, report, packaging, or presentation failure does not authorize a
+second full run. The gate records an input-bound receipt and resumes only the
+failed downstream step. A full rerun is required only when an input protected
+by that gate changes: source or migration bytes, its tests or harness, toolchain
+identity, database image, authorization policy, or another declared semantic
+input. Receipt mismatch fails closed.
+
+For every red gate the repair loop is fixed:
+
+1. isolate one root cause;
+2. run the smallest reproducing test;
+3. run the affected gate from its last valid receipt;
+4. let CI run the classifier-selected union once on the final candidate.
+
+Developers must not restart complete Decision, database, four-track, browser,
+or repository suites after an evidence-only correction when their input-bound
+receipt is still valid. Repeated full loops require a documented invalidated
+input, not habit or uncertainty.
+
 This workflow may change only through a Delivery Policy change with positive
 and negative classifier tests. A new gate requires an owner, a precise trigger,
 a unique invariant, and removal or replacement of overlapping checks.

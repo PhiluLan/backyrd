@@ -244,10 +244,9 @@ jobs:
         with: { node-version: 20, cache: npm, cache-dependency-path: package-lock.json }
       - run: npm ci --ignore-scripts
       - run: npm run decision-vnext:single-route
-      - run: node --test supabase/functions/decision-founder-live/runtime-boundary.test.mjs
-      - run: npm run founder-live:test
+      - run: npm run product-release:test
       - run: npx playwright install chromium
-      - run: npm run founder-live:e2e
+      - run: npm run product-release:e2e
       - name: Build installed Mobile path
         working-directory: mobile
         env: { EXPO_PUBLIC_SUPABASE_URL: "https://example.invalid", EXPO_PUBLIC_SUPABASE_ANON_KEY: "ci-public-placeholder-key-000000000000" }

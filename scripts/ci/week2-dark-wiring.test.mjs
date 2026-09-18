@@ -160,19 +160,22 @@ test("canonical domain main is bound to the final domain merge identity", () => 
   assert.throws(() => validateWeek2Documents(value), /week2_canonical_domain_main_mismatch/);
 });
 
-test("required GitHub Week-2 preflight cannot be downgraded from final mode", () => {
+test("historical Week-2 release logic cannot re-enter the routine risk gate", () => {
   const workflow = readFileSync(new URL("../../.github/workflows/risk-gate.yml", import.meta.url), "utf8");
-  const invocations = workflow.split("\n").filter((line) => line.includes("scripts/ci/week2-dark-wiring-preflight.mjs"));
-  assert.equal(invocations.length, 1);
-  assert.match(invocations[0], /--base-sha[^]*--head-sha[^]*--final/);
+  assert.doesNotMatch(workflow, /week2-dark-wiring-preflight\.mjs/);
+  assert.match(workflow, /classify-change\.mjs/);
+  assert.match(workflow, /verify-risk-gate\.mjs/);
 });
 
-test("required CI binds Founder-live Edge evidence, runtime boundary and four-track rehearsal", () => {
+test("required CI binds the single Product route and exact tested Mobile artifact", () => {
   const workflow = readFileSync(new URL("../../.github/workflows/risk-gate.yml", import.meta.url), "utf8");
-  assert.match(workflow, /node --test supabase\/functions\/decision-founder-live\/runtime-boundary\.test\.mjs/);
-  assert.match(workflow, /founder-live-edge-implementation-evidence\.mjs \. "\$\{\{ needs\.classify\.outputs\.head-sha \}\}"/);
-  assert.ok(workflow.indexOf("npx playwright install chromium") < workflow.indexOf("npm run founder-live:four-track"));
-  assert.match(workflow, /npm run founder-live:four-track -- "\$\{\{ needs\.classify\.outputs\.head-sha \}\}"/);
+  assert.doesNotMatch(workflow, /supabase\/functions\/decision-founder-live\/runtime-boundary\.test\.mjs/);
+  assert.match(workflow, /npm run decision-vnext:single-route/);
+  assert.match(workflow, /npm run product-release:test/);
+  assert.doesNotMatch(workflow, /npm run founder-live:test/);
+  assert.match(workflow, /product-release-manifest\.mjs build --source-sha/);
+  assert.match(workflow, /upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02/);
+  assert.match(workflow, /backyrd-product-release-\$\{\{ needs\.classify\.outputs\.head-sha \}\}/);
 });
 
 for (const name of ["USER_HANDOFF_HASH", "USER_NO_WRITE_PROOF_HASH"]) {

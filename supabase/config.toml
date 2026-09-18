@@ -443,11 +443,6 @@ enabled = true
 verify_jwt = true
 entrypoint = "./functions/decision-copy/index.ts"
 
-[functions.decision-founder-live]
-enabled = false
-verify_jwt = true
-entrypoint = "./functions/decision-founder-live/index.ts"
-
 [functions.google-place-photo]
 enabled = true
 verify_jwt = true

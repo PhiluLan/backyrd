@@ -52,7 +52,9 @@ frozen.
 
 - Mobile and Web use one transport slug: `decision-v13`.
 - The deployed entrypoint imports only `./vnext-only.ts`.
-- The separate `decision-founder-live` Function is disabled in source config.
+- The separate `decision-founder-live` Function has been removed from the
+  deployable Supabase Function scope. There is exactly one Product transport:
+  `decision-v13`, whose deployed entrypoint imports only `vnext-only.ts`.
 - Product request, response, impression, open, alternative, and contextual
   reject use strict versioned contracts on the same route.
 - Product Context, World cohort, candidate assessment, intent classification,

@@ -163,6 +163,10 @@ Git is the source of truth and the backup. Generated artifacts, secrets, local c
   PR gate.
 - A new gate must own a unique invariant and replace overlapping checks.
 - Production workflows are manual-only and bind an exact canonical Main SHA.
+- After a localized failure, test the reproducer and resume the affected gate
+  from its input-bound receipt. Do not restart complete suites for an
+  evidence-only, report-only, packaging-only, or presentation-only fix unless
+  a protected input changed and invalidated that receipt.
 
 ## Definition of Done
 
