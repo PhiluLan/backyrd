@@ -46,4 +46,5 @@ export * from "./internal-dark-shadow.js";
 export * from "./founder-live-api-contracts.js";
 export * from "./founder-live-api.js";
 export * from "./founder-live-durable-idempotency.js";
+export * from "./founder-live-durable-rate-limit.js";
 export * from "./founder-live-server-authority.js";

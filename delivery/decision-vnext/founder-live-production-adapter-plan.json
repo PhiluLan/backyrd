@@ -2,6 +2,25 @@
   "contractVersion": "backyrd.decision-vnext.founder-live-production-plan@1.0",
   "sourceBaseSha": "96f648cebbfdfd854aec688613ddbedb447c25bb",
   "edgeFunction": null,
+  "durableIdempotency": {
+    "contractVersion": "backyrd.decision-vnext.founder-live-durable-idempotency-port@1.0",
+    "sourcePr": 311,
+    "sourceHeadSha": "d45c982858bc940f0c0531336b507f18b61a368d",
+    "sourceTreeSha": "c92b4a35417222aea81d6e7e5b7d3bb6ce5b7777",
+    "migrationSha256": "0db49db4b2e0f5c191cf5960eb51fab4f2d569ba87b3037dfe8d253f89785fb2",
+    "aclHash": "ffe92f57403e281247d44b3022af597836c8bf2d207b2d3eb0d2d8346496ce75",
+    "schemaHash": "bb19333735d2643bf0c5efcc8bbebf3c776120389d7b02d0830c003008b0fcf2",
+    "productionApplied": false
+  },
+  "durableRateLimit": {
+    "contractVersion": "backyrd.decision-vnext.founder-live-rate-limit-port@1.0",
+    "source": "CANONICAL_GATE_7",
+    "rpc": "backyrd_consume_launch_cost_boundary_v1",
+    "migration": "20260904233000_gate7_launch_cost_boundaries.sql",
+    "migrationSha256": "0b0cb4fd8f773313174f1f765956f3195604c3eea624bdd3d6fab82c7bf553aa",
+    "separateFromIdempotency": true,
+    "runtimeActivated": false
+  },
   "deploymentAuthorized": false,
   "executionAuthorized": false,
   "productionQueryAuthorized": false,
@@ -17,8 +36,7 @@
   "mutationAuthorized": false,
   "status": "SOURCE_ONLY_NO_GO",
   "blockers": [
-    "CANONICAL_PRODUCTION_RELEVANT_USER_PROJECTION_PORT_MISSING",
-    "DURABLE_FOUNDER_LIVE_IDEMPOTENCY_PORT_MISSING",
-    "DURABLE_FOUNDER_LIVE_RATE_LIMIT_PORT_MISSING"
+    "FOUNDER_LIVE_RUNTIME_AUTHORITY_NOT_AUTHORIZED",
+    "FOUNDER_LIVE_EDGE_ADAPTER_NOT_AUTHORIZED"
   ]
 }

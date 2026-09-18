@@ -6,7 +6,7 @@ export const FOUNDER_LIVE_API_VERSIONS = Object.freeze({
   response: "backyrd.decision-vnext.founder-live-response@1.1",
   expert: "backyrd.decision-vnext.founder-live-expert@1.1",
   envelope: "backyrd.decision-vnext.founder-live-envelope@1.1",
-  release: "backyrd.decision-vnext.founder-live-release@1.1",
+  release: "backyrd.decision-vnext.founder-live-release@1.2",
   dualRunReport: "backyrd.decision-vnext.founder-live-dual-run-report@1.0",
   postDeployEvidence: "backyrd.decision-vnext.founder-live-post-deploy-evidence@1.0",
 } as const);
@@ -79,6 +79,9 @@ export const FounderLiveReleaseSchema = schema.object({
   contractVersion: version(FOUNDER_LIVE_API_VERSIONS.release), releaseId: identifier,
   sourceBaseSha: schema.string({ pattern: /^[a-f0-9]{40}$/ }), apiRequestVersion: contractRef, apiResponseVersion: contractRef,
   authPortVersion: contractRef, allowlistPortVersion: contractRef, worldPortVersion: contractRef, userProjectionPortVersion: contractRef, evaluatorPortVersion: contractRef, contextPolicyHash: sha256,
+  userProjectionReleaseHash: sha256, userProjectionArtifactHash: sha256, userProjectionSourceSetHash: sha256,
+  durableIdempotencyPortVersion: contractRef, durableIdempotencyMigrationSha256: sha256, durableIdempotencyAclHash: sha256, durableIdempotencySchemaHash: sha256,
+  durableRateLimitPortVersion: contractRef, durableRateLimitRpc: contractRef, durableRateLimitMigration: contractRef, durableRateLimitMigrationSha256: sha256,
   hostingBoundary: schema.literal("SERVER_EDGE_ADAPTER_SOURCE_PRESENT_INACTIVE"), productRanking: schema.literal("NOT_CONFIGURED"),
   shadowTraffic: schema.literal(false), samplingRate: schema.literal(0), productionAuthorized: schema.literal(false), deploymentAuthorized: schema.literal(false),
   releaseHash: sha256,

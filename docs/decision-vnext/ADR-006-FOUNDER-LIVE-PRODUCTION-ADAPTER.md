@@ -12,7 +12,7 @@ Die Session wird serverseitig über Supabase Auth geprüft. UUID, Session und Su
 
 - Standard: API aus, Kill Switch engaged, Sampling und Shadow Traffic 0.
 - Fehlende Secrets, Manifest-, Snapshot-, Registry-, Session- oder Location-Bindungen stoppen die Auswertung.
-- Request-Limit und Timeout begrenzen den technischen Slice. Durable, kanonische Idempotenz- und Rate-Limit-Ports sind verpflichtend zu injizieren; prozesslokale Ersatz-Stores sind für Production verboten.
+- Request-Limit und Timeout begrenzen den technischen Slice. Der kanonische atomare Durable-Idempotenz-Port (`CREATED | REPLAYED | CONFLICT`) und der getrennte Gate-7-Rate-Limit-Port werden fail-closed gebunden; prozesslokale Ersatz-Stores sind für Production verboten. Auch ein gültiger Replay konsumiert weiterhin zuerst das getrennte Rate-Limit.
 - Alle Decision Authorities (Product Output, Ranking, Eligibility, Confidence, Learning, Mutation) bleiben `false`.
 - Es existiert kein Edge-Einstieg und damit kein Environment-basierter Aktivierungspfad.
 
@@ -26,4 +26,4 @@ Deployment, Production-Abfragen, Secret-Schreiben, Migration, Shadow Traffic, Pr
 
 ## Aktueller NO-GO
 
-`main` stellt noch keinen freigegebenen Production-Port für die reale minimierte `RelevantUserProjection` und keine Founder-Live-spezifischen durable Idempotency-/Rate-Limit-Ports bereit. Der Adapter akzeptiert deshalb ausschließlich injizierte kanonische Ports. Eine Edge Function und jede Runtime-Aktivierung bleiben einer separaten Freigabe vorbehalten.
+Der atomare Durable-Idempotenz-Port ist über die gebundene Foundation aus PR #311 integriert. Die kanonische read-only Production-Projection-Factory des User-Tracks ist direkt gebunden und erlaubt weder Fallback noch Writeback. Der getrennte Gate-7-Rate-Limit-Adapter bindet ausschließlich den bereits kanonischen service-only RPC `backyrd_consume_launch_cost_boundary_v1`; er führt keine neue Migration ein. Runtime-/Edge-Autorisierung bleibt geschlossen. Eine Edge Function und jede Runtime-Aktivierung bleiben einer separaten Freigabe vorbehalten.

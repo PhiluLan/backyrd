@@ -23,9 +23,9 @@ test("sandbox and deterministic core have no Supabase, network, production crede
   assert.doesNotMatch(adapter, /service_role|hjgcrrzfjchzqoegcywn|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
   const production = readFileSync(productionAdapter, "utf8");
   assert.match(production, /createFounderWorldKnowledgeReader/);
-  assert.match(production, /DecisionVNextUserProjectionPort/);
-  assert.match(production, /FounderLiveIdempotencyPort/);
-  assert.match(production, /FounderLiveRateLimitPort/);
+  assert.match(production, /createProductionRelevantUserProjectionPort/);
+  assert.match(production, /FounderLiveDurableIdempotencyPort/);
+  assert.match(production, /createFounderLiveDurableRateLimitPort/);
   assert.doesNotMatch(production, /new Map|buildRelevantUserProjection/);
   assert.doesNotMatch(production, /hjgcrrzfjchzqoegcywn|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
 });

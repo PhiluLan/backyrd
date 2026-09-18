@@ -1,7 +1,9 @@
-import type { DecisionVNextUserProjectionPort } from "@backyrd/user-intelligence-vnext-core";
+import { createProductionRelevantUserProjectionPort } from "@backyrd/user-intelligence-vnext-core";
 import { createFounderWorldKnowledgeReader, type FounderWorldCohortManifest } from "@backyrd/world-knowledge-core";
 import { contentHash, deepFreeze } from "./canonical.js";
-import { createCanonicalFounderLiveEvaluator, type FounderLiveIdempotencyPort, type FounderLivePorts, type FounderLiveRateLimitPort } from "./founder-live-api.js";
+import { createCanonicalFounderLiveEvaluator, type FounderLivePorts } from "./founder-live-api.js";
+import type { FounderLiveDurableIdempotencyPort } from "./founder-live-durable-idempotency.js";
+import { createFounderLiveDurableRateLimitPort } from "./founder-live-durable-rate-limit.js";
 import { createFounderLiveCanonicalUuidAllowlistPort, createFounderLiveServerRuntimeControl, createFounderLiveSupabaseAuthPort } from "./founder-live-server-authority.js";
 
 export interface FounderLiveServerEnvironment { readonly [key: string]: string | undefined }
@@ -31,9 +33,9 @@ function parsePrivateWorldManifest(raw: string): FounderWorldCohortManifest {
  */
 export function createFounderLiveProductionPorts(input: {
   readonly environment: FounderLiveServerEnvironment;
-  readonly userProjectionPort: DecisionVNextUserProjectionPort;
-  readonly idempotencyPort: FounderLiveIdempotencyPort;
-  readonly rateLimitPort: FounderLiveRateLimitPort;
+  readonly userProjectionConfiguration: Parameters<typeof createProductionRelevantUserProjectionPort>[0];
+  readonly idempotencyPort: FounderLiveDurableIdempotencyPort;
+  readonly rateLimitConfiguration: Parameters<typeof createFounderLiveDurableRateLimitPort>[0];
   readonly fetchImpl?: FetchLike;
   readonly now?: () => Date;
 }): FounderLivePorts {
@@ -55,14 +57,15 @@ export function createFounderLiveProductionPorts(input: {
     return rows[0].snapshot;
   };
   const world = createFounderWorldKnowledgeReader(({ spotId }) => loadSnapshot(spotId));
-  if (input.userProjectionPort.contractVersion !== "backyrd.user-intelligence.decision-projection-port@1.0") throw new Error("founder_live_user_projection_port_unsupported");
-  if (input.idempotencyPort.contractVersion !== "backyrd.decision-vnext.founder-live-idempotency-port@1.0" || input.rateLimitPort.contractVersion !== "backyrd.decision-vnext.founder-live-rate-limit-port@1.0") throw new Error("founder_live_operational_ports_unsupported");
+  const userProjectionPort = createProductionRelevantUserProjectionPort(input.userProjectionConfiguration);
+  const rateLimitPort = createFounderLiveDurableRateLimitPort(input.rateLimitConfiguration);
+  if (input.idempotencyPort.contractVersion !== "backyrd.decision-vnext.founder-live-durable-idempotency-port@1.0" || rateLimitPort.contractVersion !== "backyrd.decision-vnext.founder-live-rate-limit-port@1.0") throw new Error("founder_live_operational_ports_unsupported");
   return deepFreeze({
     auth: createFounderLiveSupabaseAuthPort({ supabaseUrl, publishableKey: requireSecret(environment, "SUPABASE_ANON_KEY"), fetchImpl, now }),
     allowlist: createFounderLiveCanonicalUuidAllowlistPort({ loadPrivateStoreSecret: () => requireSecret(environment, "BACKYRD_FOUNDER_LIVE_PRIVATE_UUID_STORE"), bindingSecret: requireSecret(environment, "BACKYRD_FOUNDER_LIVE_AUTHORITY_BINDING_SECRET"), now }),
     authority: { contractVersion: "backyrd.decision-vnext.founder-live-authority-port@1.0", async bind({ actor, requestedCity }) { if (!requestedCity || !citySet.has(requestedCity.toLocaleLowerCase("de-CH"))) throw new Error("founder_live_location_not_authorized"); return { serverTime: now().toISOString(), authorizedCity: requestedCity, locationBindingHash: contentHash({ requestedCity, authorizedCity: requestedCity, subjectBindingHash: actor.subjectBindingHash }) }; } },
-    world, retrieval: { contractVersion: "backyrd.decision-vnext.founder-live-retrieval-port@1.0", async retrieve({ authorizedCity }) { if (!citySet.has(authorizedCity.toLocaleLowerCase("de-CH"))) throw new Error("founder_live_location_not_authorized"); return manifest; } }, user: input.userProjectionPort, evaluator: createCanonicalFounderLiveEvaluator(), userSnapshot: null, control,
+    world, retrieval: { contractVersion: "backyrd.decision-vnext.founder-live-retrieval-port@1.0", async retrieve({ authorizedCity }) { if (!citySet.has(authorizedCity.toLocaleLowerCase("de-CH"))) throw new Error("founder_live_location_not_authorized"); return manifest; } }, user: userProjectionPort, evaluator: createCanonicalFounderLiveEvaluator(), userSnapshot: null, control,
     idempotency: input.idempotencyPort,
-    rateLimit: input.rateLimitPort,
+    rateLimit: rateLimitPort,
   });
 }

@@ -17,7 +17,7 @@ import { SYNTHETIC_WORLD_SOURCE_POLICY } from "../dist/synthetic-world-policy.js
 const VERIFIED_USER_ID = randomUUID();
 const SESSION_ID = randomUUID();
 const SUBJECT_HASH = contentHash({ namespace: "founder-live-subject@1.0", verifiedUserId: VERIFIED_USER_ID });
-const ACTOR = Object.freeze({ userId: VERIFIED_USER_ID, subjectBindingHash: SUBJECT_HASH, authenticationContextHash: contentHash("founder-live-auth"), expertAccess: true });
+const ACTOR = Object.freeze({ userId: VERIFIED_USER_ID, subjectBindingHash: SUBJECT_HASH, authenticationContextHash: contentHash("founder-live-auth"), sessionBindingHash: contentHash("founder-live-session"), issuedAt: "2026-09-17T00:00:00.000Z", expiresAt: "2027-01-15T08:00:00.000Z", expertAccess: true });
 const AUTHORIZED_ACTOR = Object.freeze({ ...ACTOR, allowlistAuthorityVersion: FOUNDER_LIVE_SERVER_AUTHORITY_VERSION, allowlistDecisionHash: contentHash("founder-live-allowlist-decision") });
 const world = generateSyntheticWorld({ configVersion: "backyrd-vnext-sandbox-config-v1", worldVersion: "backyrd-vnext-synthetic-world-founder-live-api", seed: 3101, observedAt: "2026-09-17T18:00:00.000Z", spotCount: 12, userCount: 3, cities: ["Zurich", "Basel"], candidatePoolSize: 8 });
 const selected = [...world.spots].sort((a, b) => a.id.localeCompare(b.id)).slice(0, 5);
@@ -29,15 +29,18 @@ const manifestBody = {
 };
 const manifest = Object.freeze({ ...manifestBody, cohortHash: contentHash(manifestBody) });
 
-function ports(overrides = {}) {
-  const records = new Map();
+function durablePort(records = new Map()) {
+  return { contractVersion: "backyrd.decision-vnext.founder-live-durable-idempotency-port@1.0", async commit(input) { const key = `${input.subjectBindingHash}:${input.idempotencyKey}`; const prior = records.get(key); const timestamps = { createdAt: world.observedAt, expiresAt: "2026-09-18T18:00:00.000Z" }; if (!prior) { records.set(key, { payloadHash: input.payloadHash, execution: input.execution }); return { status: "CREATED", responseHash: contentHash(input.execution), ...timestamps }; } if (prior.payloadHash !== input.payloadHash) return { status: "CONFLICT", ...timestamps }; return { status: "REPLAYED", responseHash: contentHash(prior.execution), execution: prior.execution, ...timestamps }; } };
+}
+
+function ports(overrides = {}, durableRecords = new Map()) {
   const state = { killed: false };
   return {
     state,
     auth: { contractVersion: "backyrd.decision-vnext.founder-live-auth-port@2.0", async authenticate(token) { return token === "local-founder-token" ? ACTOR : null; } }, allowlist: { contractVersion: "backyrd.decision-vnext.founder-live-allowlist-port@2.0", async authorize() { return { authorized: true, authorityVersion: FOUNDER_LIVE_SERVER_AUTHORITY_VERSION, decisionHash: AUTHORIZED_ACTOR.allowlistDecisionHash }; } },
     authority: { contractVersion: "backyrd.decision-vnext.founder-live-authority-port@1.0", async bind({ actor, requestedCity }) { return { serverTime: world.observedAt, authorizedCity: requestedCity, locationBindingHash: contentHash({ requestedCity, authorizedCity: requestedCity, subjectBindingHash: actor.subjectBindingHash }) }; } },
     world: new SyntheticWorldKnowledgeReader(world), retrieval: { contractVersion: "backyrd.decision-vnext.founder-live-retrieval-port@1.0", async retrieve() { return manifest; } }, user: new SyntheticUserProjectionReader("MISSING_SNAPSHOT"), evaluator: createCanonicalFounderLiveEvaluator(), userSnapshot: null,
-    idempotency: { contractVersion: "backyrd.decision-vnext.founder-live-idempotency-port@1.0", async read(key) { return records.get(key) ?? null; }, async create(key, value) { if (records.has(key)) return "CONFLICT"; records.set(key, value); return "CREATED"; } },
+    idempotency: durablePort(durableRecords),
     rateLimit: { contractVersion: "backyrd.decision-vnext.founder-live-rate-limit-port@1.0", async consume() { return true; } },
     control: { enabled: true, environment: "LOCAL_TEST", purpose: "FOUNDER_DECISION_EVALUATION", requestTimeoutMilliseconds: 2_000, maxRequestBytes: 16_384, isKillSwitchEngaged() { return state.killed; } },
     ...overrides,
@@ -105,6 +108,21 @@ test("server-bound execution is deterministic, port-only, evaluation-only and id
   assert.equal(JSON.stringify(one.response).includes("reasonCode"), false); assert.equal(JSON.stringify(one.response).includes("candidateId"), false); assert.equal(JSON.stringify(one.response).includes("Hash"), false);
 });
 
+test("durable idempotency is atomic across concurrent calls and restart-like port instances", async () => {
+  const records = new Map(); const value = request("durable-race", "Café in Basel");
+  const [left, right] = await Promise.all([executeFounderLiveDecision(value, AUTHORIZED_ACTOR, ports({}, records)), executeFounderLiveDecision(value, AUTHORIZED_ACTOR, ports({}, records))]);
+  assert.equal(canonicalJson(left), canonicalJson(right)); assert.equal(records.size, 1);
+  const afterRestart = await executeFounderLiveDecision(value, AUTHORIZED_ACTOR, ports({}, records));
+  assert.equal(canonicalJson(afterRestart), canonicalJson(left));
+});
+
+test("durable replay is recursively validated and semantic tampering fails closed", async () => {
+  const valid = await executeFounderLiveDecision(request("tamper-source", "Café in Basel"), AUTHORIZED_ACTOR, ports());
+  const tampered = { ...valid, response: { ...valid.response, rankingState: "NOT_CONFIGURED", limitations: [...valid.response.limitations, "Manipuliert"] } };
+  const idempotency = { contractVersion: "backyrd.decision-vnext.founder-live-durable-idempotency-port@1.0", async commit() { return { status: "REPLAYED", responseHash: contentHash(tampered), execution: tampered, createdAt: world.observedAt, expiresAt: "2026-09-18T18:00:00.000Z" }; } };
+  await assert.rejects(() => executeFounderLiveDecision(request("tampered-replay", "Café in Basel"), AUTHORIZED_ACTOR, ports({ idempotency })), /IDEMPOTENCY_REPLAY_INVALID/);
+});
+
 test("A-D, family, bouldering, flip, alternative, reject and replay use the same API", async () => {
   const scenarios = [
     ["a2", "Ruhiges Restaurant in Zürich für ein erstes Date, höchstens 40 CHF pro Person", "Essen", "Zurich"],
@@ -141,6 +159,19 @@ test("client authority injection, bad auth, versions, locations, limits and kill
   assert.equal(deniedRateCalls, 0, "private membership must be checked before subject-scoped rate state");
   const idemPorts = ports(); await executeFounderLiveDecision(request("same", "Café in Basel"), AUTHORIZED_ACTOR, idemPorts);
   await assert.rejects(() => executeFounderLiveDecision({ ...request("same", "Bar in Basel"), requestId: "request-same-two" }, AUTHORIZED_ACTOR, idemPorts), /IDEMPOTENCY_CONFLICT/);
+});
+
+test("Gate-7 rate limiting remains separate and every durable replay consumes it first", async () => {
+  const records = new Map(); let rateLimitCalls = 0;
+  const rateLimit = { contractVersion: "backyrd.decision-vnext.founder-live-rate-limit-port@1.0", async consume() { rateLimitCalls += 1; return rateLimitCalls <= 2; } };
+  const handler = createFounderLiveHttpHandler(ports({ rateLimit }, records));
+  const body = JSON.stringify(request("rate-before-replay", "Café in Basel"));
+  const call = () => handler(new Request("http://local/v1/decision/evaluate", { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer local-founder-token" }, body }));
+  assert.equal((await call()).status, 200);
+  assert.equal((await call()).status, 200);
+  assert.equal((await call()).status, 429, "a durable replay must not bypass the separate rate-limit gate");
+  assert.equal(rateLimitCalls, 3);
+  assert.equal(records.size, 1, "rate limiting and idempotency retain separate durable state");
 });
 
 test("Emergency OFF during an in-flight authority check prevents every later read and output", async () => {
