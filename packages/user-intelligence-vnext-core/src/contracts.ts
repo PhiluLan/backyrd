@@ -127,6 +127,9 @@ export const CONTRACT_VERSIONS = Object.freeze({
   founderLiveUuidProjectionHandoff: "backyrd.user-intelligence.founder-live-uuid-projection-handoff@1.0",
   founderLiveUuidPrivacyLegalAuthority: "backyrd.user-intelligence.founder-live-privacy-legal-authority@1.0",
   founderLiveUuidPrivacyLegalReceipt: "backyrd.user-intelligence.founder-live-privacy-legal-receipt@1.0",
+  productionProjectionPortRelease: "backyrd.user-intelligence.production-projection-port-release@1.0",
+  productionProjectionPortTrustAnchor: "backyrd.user-intelligence.production-projection-port-trust-anchor@1.0",
+  productionProjectionEnvelope: "backyrd.user-intelligence.production-projection-envelope@1.0",
 } as const);
 
 export const SYNTHETIC_CONCEPT_REGISTRY_VERSION = "backyrd.synthetic-user-concepts@1.0";

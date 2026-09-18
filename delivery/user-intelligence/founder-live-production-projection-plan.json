@@ -1,0 +1,25 @@
+{
+  "contractVersion": "backyrd.user-intelligence.production-projection-plan@1.0",
+  "canonicalBaseSha": "96f648cebbfdfd854aec688613ddbedb447c25bb",
+  "canonicalBaseTree": "4321f018f04056f14aea6c7d59c4cb21a88a9a44",
+  "status": "SOURCE_READY_RUNTIME_NO_GO",
+  "purpose": "FOUNDER_LIVE_RELEVANT_USER_PROJECTION",
+  "projectionContract": "backyrd.user-intelligence.projection@1.0",
+  "portContract": "backyrd.user-intelligence.decision-projection-port@1.0",
+  "migrations": [],
+  "functions": [],
+  "authChanges": [],
+  "productWiring": false,
+  "productionQueriesAuthorized": false,
+  "runtimeDeploymentRequired": false,
+  "deploymentAuthorized": false,
+  "executionAuthorized": false,
+  "rankingAuthorized": false,
+  "eligibilityAuthorized": false,
+  "shadowTrafficAuthorized": false,
+  "blockers": [
+    "AUTHORIZED_MATERIALIZED_PROJECTION_PROVIDER_NOT_WIRED",
+    "DURABLE_FOUNDER_LIVE_IDEMPOTENCY_PORT_MISSING",
+    "DURABLE_FOUNDER_LIVE_RATE_LIMIT_PORT_MISSING"
+  ]
+}

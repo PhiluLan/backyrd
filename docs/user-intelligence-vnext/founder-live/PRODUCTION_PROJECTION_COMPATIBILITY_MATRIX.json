@@ -1,0 +1,15 @@
+{
+  "contractVersion": "backyrd.user-intelligence.production-projection-compatibility@1.0",
+  "canonicalPort": "backyrd.user-intelligence.decision-projection-port@1.0",
+  "canonicalProjection": "backyrd.user-intelligence.projection@1.0",
+  "classifications": [
+    {"component":"RelevantUserProjection","decision":"KEEP","reason":"einzige minimierte Decision-Grenze"},
+    {"component":"FounderLiveUuidAuthority","decision":"KEEP","reason":"servergebundene Session- und private UUID-Authority"},
+    {"component":"backyrd_read_latest_shared_user_card_v1","decision":"DO_NOT_ADAPT","reason":"ältere User Card ist keine autorisierte vNext-Projection"},
+    {"component":"SyntheticOrEmptyProjectionFallback","decision":"PROHIBITED","reason":"fehlende Projection bleibt ehrlich fehlend"},
+    {"component":"AuthorizedProjectionReadProvider","decision":"ADD_INTERFACE_ONLY","reason":"read-only, separat autorisierte Materialisierung erforderlich"}
+  ],
+  "migrationRequired": false,
+  "productionAuthorized": false,
+  "executionAuthorized": false
+}
