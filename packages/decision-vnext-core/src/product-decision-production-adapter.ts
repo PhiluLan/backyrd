@@ -14,7 +14,6 @@ import {
   type ProductProjectionReadProvider,
   type RelevantUserProjection,
 } from "@backyrd/user-intelligence-vnext-core";
-import { WORLD_KNOWLEDGE_PORT_VERSION, type WorldKnowledgeReaderPort, type WorldKnowledgeSnapshot } from "@backyrd/world-knowledge-core";
 import { canonicalJson, contentHash, deepFreeze } from "./canonical.js";
 import {
   DecisionProductExecutionSchema,
@@ -29,7 +28,8 @@ import type {
   DecisionProductRuntimeBoundary,
   DecisionProductRuntimePorts,
 } from "./product-decision.js";
-import { createDecisionProductEvaluator, PRODUCT_V1_EVALUATOR_VERSION } from "./product-v1-evaluator.js";
+import { evaluateProductWorldViews, PRODUCT_V1_EVALUATOR_VERSION } from "./product-v1-evaluator.js";
+import { parseProductWorldResolverBinding } from "./product-world-resolver-binding.js";
 
 const HASH = /^[0-9a-f]{64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -377,22 +377,20 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
       }, input.signal);
       if (result.error) throw new Error("product_runtime_context_unavailable");
       const context = row(result.data, "product_runtime_context_invalid");
-      if (context.contractVersion !== "backyrd.decision-vnext.product-runtime-context@1.0" || context.authorizedCity !== targetCity || typeof context.serverTime !== "string") throw new Error("product_runtime_context_invalid");
+      if (context.contractVersion !== "backyrd.decision-vnext.product-runtime-context@1.0" || context.authorizedCity !== targetCity || typeof context.serverTime !== "string" || !Number.isFinite(Date.parse(context.serverTime))) throw new Error("product_runtime_context_invalid");
+      const serverTime = new Date(context.serverTime).toISOString();
       const rawSnapshots = Array.isArray(context.worldSnapshots) ? context.worldSnapshots : [];
-      const snapshots = new Map<string, WorldKnowledgeSnapshot>();
+      const snapshots = new Map<string, ReturnType<typeof parseProductWorldResolverBinding>>();
       for (const raw of rawSnapshots) {
-        if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("product_world_snapshot_invalid");
-        const snapshot = raw as WorldKnowledgeSnapshot;
-        if (snapshot.contractVersion !== WORLD_KNOWLEDGE_PORT_VERSION || snapshot.spot?.location?.locality !== targetCity || snapshots.has(snapshot.spot.spotId)) throw new Error("product_world_snapshot_invalid");
+        const snapshot = parseProductWorldResolverBinding(raw, targetCity);
+        if (snapshots.has(snapshot.spot.spotId)) throw new Error("product_world_snapshot_duplicate");
         snapshots.set(snapshot.spot.spotId, snapshot);
       }
       const candidateIds = [...snapshots.keys()].sort();
       if (!candidateIds.length || candidateIds.length > 1000) throw new Error("product_world_candidate_set_invalid");
-      const world: WorldKnowledgeReaderPort = Object.freeze({ contractVersion: "backyrd.world-knowledge.reader-port@1.0" as const, async readSnapshot(request: Parameters<WorldKnowledgeReaderPort["readSnapshot"]>[0]) { const value = snapshots.get(request.spotId); if (!value) throw new Error("product_world_snapshot_missing"); return value; } });
-      const projection = productProjection({ request: input.request, actor: input.actor, serverTime: context.serverTime, context });
-      const evaluator = createDecisionProductEvaluator({ world, selectCandidates: async () => ({ candidateIds, candidateSetHash: contentHash(candidateIds) }) });
-      const evaluated = await evaluator(input.request, { authorizedCity: targetCity, serverTime: context.serverTime }, projection, input.signal);
-      return { ...evaluated, projection, authority: { serverTime: context.serverTime, authorizedCity: targetCity, locationBindingHash: contentHash({ authorizedCity: targetCity, subjectBindingHash: input.actor.subjectBindingHash, worldCandidateSetHash: contentHash(candidateIds) }) }, evaluatorContractVersion: PRODUCT_V1_EVALUATOR_VERSION };
+      const projection = productProjection({ request: input.request, actor: input.actor, serverTime, context });
+      const evaluated = evaluateProductWorldViews(input.request, { authorizedCity: targetCity, serverTime }, projection, [...snapshots.values()], contentHash(candidateIds));
+      return { ...evaluated, projection, authority: { serverTime, authorizedCity: targetCity, locationBindingHash: contentHash({ authorizedCity: targetCity, subjectBindingHash: input.actor.subjectBindingHash, worldCandidateSetHash: contentHash(candidateIds) }) }, evaluatorContractVersion: PRODUCT_V1_EVALUATOR_VERSION };
     },
   });
 }

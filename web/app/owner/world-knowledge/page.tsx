@@ -1,6 +1,6 @@
 "use client";
 
-import { sessionRecoveringAuthoringClient, WorldKnowledgeAuthoring } from "@backyrd/world-knowledge-authoring-ui";
+import { sessionRecoveringAuthoringClient, WorldKnowledgeAuthoring, WorldProductCorrection } from "@backyrd/world-knowledge-authoring-ui";
 import "@backyrd/world-knowledge-authoring-ui/styles.css";
 import { supabase } from "@/lib/supabase/client";
 
@@ -23,5 +23,9 @@ async function authorizedPost(body: unknown) {
 }
 
 export default function OwnerWorldKnowledgePage() {
-  return <WorldKnowledgeAuthoring client={authoringClient} surface="OWNER" rebuild={(spotId) => authorizedPost({ action: "rebuild", spotId })} />;
+  const local = (() => { try { return ["localhost", "127.0.0.1", "::1"].includes(new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").hostname); } catch { return false; } })();
+  return <>
+    <WorldProductCorrection client={authoringClient} rebuild={(spotId, idempotencyKey) => authorizedPost({ action: "product-rebuild", spotId, idempotencyKey })} />
+    {local && <WorldKnowledgeAuthoring client={authoringClient} surface="OWNER" rebuild={(spotId) => authorizedPost({ action: "rebuild", spotId })} />}
+  </>;
 }

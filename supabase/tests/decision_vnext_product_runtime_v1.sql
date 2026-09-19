@@ -45,12 +45,12 @@ select pg_temp.product_runtime_assert(
   'Product context and event authority RPCs deny every client role'
 );
 select pg_temp.product_runtime_assert(
-  not exists(
-    select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-    where n.nspname='public' and p.proname like 'backyrd_decision_vnext_product%'
-      and p.proname ~ '_(enable|activate|on)_v1$'
-  ),
-  'migration must expose no enable/activate/ON RPC'
+  has_function_privilege('postgres','public.backyrd_decision_vnext_product_activate_v1(bigint,text,text,text,text,timestamptz)','EXECUTE')
+  and not has_function_privilege('public','public.backyrd_decision_vnext_product_activate_v1(bigint,text,text,text,text,timestamptz)','EXECUTE')
+  and not has_function_privilege('anon','public.backyrd_decision_vnext_product_activate_v1(bigint,text,text,text,text,timestamptz)','EXECUTE')
+  and not has_function_privilege('authenticated','public.backyrd_decision_vnext_product_activate_v1(bigint,text,text,text,text,timestamptz)','EXECUTE')
+  and not has_function_privilege('service_role','public.backyrd_decision_vnext_product_activate_v1(bigint,text,text,text,text,timestamptz)','EXECUTE'),
+  'only the manual database release operator can activate Product'
 );
 select pg_temp.product_runtime_assert(
   to_regclass('founder_live_private.idempotency_records_v1') is null
@@ -92,12 +92,13 @@ select pg_temp.product_runtime_assert(
   'OFF projection returns kill-switch neutral without a personal read'
 );
 
--- There is intentionally no ON RPC. This direct owner insert exists only in
--- the rolled-back SQL contract test to exercise the otherwise unreachable path.
-insert into decision_vnext_private.product_runtime_control_events_v1(
-  generation,state,release_hash,artifact_hash,source_set_hash,reason_code,authority_hash
-) select 1,'ON',release_hash,artifact_hash,source_set_hash,'TEST_ONLY_DIRECT_OWNER_ON',repeat('1',64)
-from product_runtime_binding;
+select pg_temp.product_runtime_assert(
+  (select (public.backyrd_decision_vnext_product_activate_v1(
+    0,release_hash,artifact_hash,source_set_hash,repeat('1',64),
+    pg_catalog.clock_timestamp()+interval '1 hour'
+  )->>'generation')::bigint=1 from product_runtime_binding),
+  'manual operator activation binds exact generation and a finite authority lease'
+);
 
 select pg_temp.product_runtime_assert(
   (select (public.backyrd_decision_vnext_product_control_v1(release_hash,artifact_hash,source_set_hash,1)->>'enabled')::boolean from product_runtime_binding),
@@ -107,6 +108,27 @@ select pg_temp.product_runtime_assert(
   (select not (public.backyrd_decision_vnext_product_control_v1(repeat('0',64),artifact_hash,source_set_hash,1)->>'enabled')::boolean from product_runtime_binding),
   'wrong release hash fails closed'
 );
+do $$
+declare v_binding record;
+begin
+  select * into v_binding from product_runtime_binding;
+  begin
+    perform public.backyrd_decision_vnext_product_activate_v1(1,v_binding.release_hash,v_binding.artifact_hash,v_binding.source_set_hash,repeat('1',64),pg_catalog.clock_timestamp()+interval '1 hour');
+    raise exception 'ON-to-ON transition accepted';
+  exception when object_not_in_prerequisite_state then null;
+  end;
+  begin
+    perform public.backyrd_decision_vnext_product_activate_v1(0,v_binding.release_hash,v_binding.artifact_hash,v_binding.source_set_hash,repeat('1',64),pg_catalog.clock_timestamp()+interval '1 hour');
+    raise exception 'stale generation accepted';
+  exception when serialization_failure then null;
+  end;
+  begin
+    perform public.backyrd_decision_vnext_product_activate_v1(1,v_binding.release_hash,v_binding.artifact_hash,v_binding.source_set_hash,repeat('1',64),pg_catalog.clock_timestamp()-interval '1 second');
+    raise exception 'expired authority accepted';
+  exception when invalid_parameter_value then null;
+  end;
+end;
+$$;
 
 create temporary table product_projection_bytes as
 select jsonb_build_object(
@@ -114,7 +136,8 @@ select jsonb_build_object(
   'purpose','DECISION_RELEVANT_USER_PROJECTION','requestHash',b.request_hash,
   'subjectBindingHash',b.subject_hash,'consentHash',b.consent_hash,
   'projection',jsonb_build_object('status','NEUTRAL','neutralReason','MISSING_SNAPSHOT'),
-  'issuedAt','2026-09-18T00:00:00.000Z','validUntil','2026-09-19T00:00:00.000Z',
+  'issuedAt',pg_catalog.clock_timestamp()-interval '1 minute',
+  'validUntil',pg_catalog.clock_timestamp()+interval '1 hour',
   'issuer','BACKYRD_USER_INTELLIGENCE_PROJECTION_AUTHORITY','envelopeHash',repeat('2',64)
 )::text envelope from product_runtime_binding b;
 

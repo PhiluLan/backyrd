@@ -93,7 +93,7 @@ function compareCandidates(left: RankableCandidate, right: RankableCandidate): n
 
 function rankable(candidate: RankableCandidate): boolean {
   return candidate.tier !== "INELIGIBLE"
-    && candidate.rankVector.hardConstraintState !== "FAIL"
+    && candidate.rankVector.hardConstraintState === "PASS"
     && candidate.coreIntentCoverage !== "INCOMPATIBLE"
     && candidate.coreIntentCoverage !== "DISPUTED"
     && !candidate.contextualReject;
@@ -311,7 +311,11 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
     const race = <T>(operation: Promise<T>): Promise<T> => Promise.race([operation, deadline]);
     const at = async <T>(boundary: DecisionProductRuntimeBoundary, operation: (signal: AbortSignal) => Promise<T>): Promise<T> => {
       await race(Promise.resolve(ports.control.assertBoundary(boundary, abort.signal)));
-      return race(operation(abort.signal));
+      const result = await race(operation(abort.signal));
+      // A control transition during an awaited operation must suppress its
+      // result, including a response assembled from already-read data.
+      await race(Promise.resolve(ports.control.assertBoundary(boundary, abort.signal)));
+      return result;
     };
     try {
       await at("REQUEST_START", async () => undefined);

@@ -1,4 +1,4 @@
-import type { PortKnowledgeEntry, WorldKnowledgeSnapshot } from "@backyrd/world-knowledge-core";
+import type { ProductWorldView } from "./product-world-resolver-binding.js";
 
 const OPENING_STATE_VERSION = "backyrd-vnext-opening-state-evaluator-v1" as const;
 const SYNTHETIC_OPENING_POLICY_VERSION = "backyrd-vnext-synthetic-opening-source-policy-v1-unapproved" as const;
@@ -44,18 +44,19 @@ function localClock(at: string, timeZone: string): { readonly date: string; read
   return { date: `${get("year")}-${get("month")}-${get("day")}`, minute: Number(get("hour")) * 60 + Number(get("minute")) };
 }
 
-function authorized(entry: PortKnowledgeEntry | undefined, policy: OpeningSourcePolicy): boolean {
+type OpeningEntry = ProductWorldView["facts"][number];
+function authorized(entry: OpeningEntry | undefined, policy: OpeningSourcePolicy): boolean {
   return entry !== undefined && entry.freshness === "CURRENT" && entry.resolution === "KNOWN_VALUE" && policy.authorizedTrustStates.includes(entry.trust as "REFERENCED" | "VERIFIED");
 }
 
-const rows = <T>(entry: PortKnowledgeEntry | undefined): readonly T[] => Array.isArray(entry?.value) ? entry.value as readonly T[] : [];
+const rows = <T>(entry: OpeningEntry | undefined): readonly T[] => Array.isArray(entry?.value) ? entry.value as readonly T[] : [];
 const containsSameDay = (intervals: readonly Interval[], minute: number) => intervals.some((interval) => {
   const start = minutes(interval.start); const end = minutes(interval.end);
   return start < end ? start <= minute && minute < end : start > end && start <= minute;
 });
 const containsCarryOver = (intervals: readonly Interval[], minute: number) => intervals.some((interval) => minutes(interval.start) > minutes(interval.end) && minute < minutes(interval.end));
 
-export function evaluateOpeningState(snapshot: WorldKnowledgeSnapshot, at: string, policy: OpeningSourcePolicy): OpeningStateEvaluation {
+export function evaluateOpeningState(snapshot: ProductWorldView, at: string, policy: OpeningSourcePolicy): OpeningStateEvaluation {
   const result = (status: OpeningStatus, basisEntryHashes: readonly string[] = [], limitations: readonly string[] = []): OpeningStateEvaluation => ({ evaluatorVersion: OPENING_STATE_VERSION, sourcePolicyVersion: policy.version, status, basisEntryHashes: [...basisEntryHashes].sort(), limitations: [...limitations].sort() });
   const temporalConflict = snapshot.conflicts.some((conflict) => conflict.severity === "BLOCKING" && conflict.attributeKeys.some((key) => key === "hours.regular" || key === "hours.special" || key === "state.current"));
   if (temporalConflict) return result("disputed", [], ["blocking-temporal-conflict"]);
@@ -73,7 +74,7 @@ export function evaluateOpeningState(snapshot: WorldKnowledgeSnapshot, at: strin
 
   const regular = snapshot.operationalRules.find((entry) => entry.key === "hours.regular");
   const special = snapshot.operationalRules.find((entry) => entry.key === "hours.special");
-  const temporalEntries = [regular, special].filter((entry): entry is PortKnowledgeEntry => entry !== undefined);
+  const temporalEntries = [regular, special].filter((entry): entry is OpeningEntry => entry !== undefined);
   if (temporalEntries.some((entry) => !authorized(entry, policy))) return result("not_authorized", temporalEntries.map((entry) => entry.entryHash), ["opening-hours-not-authorized"]);
   if (!snapshot.spot.location.timezone) return result("unknown", temporalEntries.map((entry) => entry.entryHash), ["spot-timezone-unknown"]);
   if (!regular && !special) {
