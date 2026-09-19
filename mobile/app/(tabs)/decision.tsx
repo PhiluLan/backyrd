@@ -93,6 +93,7 @@ export default function DecisionScreen() {
   const homeParams = useLocalSearchParams<{ query?: string; city?: string; auto?: string }>();
   const autoRunKey = useRef<string | null>(null);
   const recordedImpressions = useRef(new Set<string>());
+  const presentedCandidateIds = useRef<string[]>([]);
   const [authenticated, setAuthenticated] = useState(false);
   const [city, setCity] = useState("");
   const [citySource, setCitySource] = useState<DecisionCitySource>("empty");
@@ -174,7 +175,10 @@ export default function DecisionScreen() {
       setStatus(alternativeRequested || rejectedCandidateIds.length ? "deciding" : "checking");
       const response = await invokeDecisionProduct({ supabase, request });
       setResult(response);
-      setStatus(response.candidates.some((candidate) => candidate.rank !== null && !candidate.contextualReject) ? "success" : "empty");
+      if (!alternativeRequested && rejectedCandidateIds.length === 0) presentedCandidateIds.current = [];
+      const primary = response.candidates.find((candidate) => candidate.spotId === response.primaryCandidateId && candidate.rank !== null && !candidate.contextualReject);
+      if (primary && !presentedCandidateIds.current.includes(primary.spotId)) presentedCandidateIds.current = [...presentedCandidateIds.current, primary.spotId];
+      setStatus(primary ? "success" : "empty");
     } catch (error) {
       setResult(null);
       setStatus("error");
@@ -192,17 +196,17 @@ export default function DecisionScreen() {
 
   const alternative = useCallback(() => {
     if (!result) return;
-    void runDecision({ alternativeRequested: true, previouslyPresentedCandidateIds: result.candidates.filter((candidate) => candidate.rank !== null).map((candidate) => candidate.spotId), rejectedCandidateIds: result.reject.candidateIds });
+    void runDecision({ alternativeRequested: true, previouslyPresentedCandidateIds: presentedCandidateIds.current, rejectedCandidateIds: result.reject.candidateIds });
   }, [result, runDecision]);
 
   const reject = useCallback((candidateId: string) => {
     if (!result) return;
-    void runDecision({ previouslyPresentedCandidateIds: result.candidates.filter((candidate) => candidate.rank !== null).map((candidate) => candidate.spotId), rejectedCandidateIds: unique([...result.reject.candidateIds, candidateId]) });
+    void runDecision({ previouslyPresentedCandidateIds: presentedCandidateIds.current, rejectedCandidateIds: unique([...result.reject.candidateIds, candidateId]) });
   }, [result, runDecision]);
 
   useEffect(() => {
     if (!result || status !== "success") return;
-    for (const candidate of result.candidates.filter((item) => item.rank !== null && !item.contextualReject)) {
+    for (const candidate of result.candidates.filter((item) => item.spotId === result.primaryCandidateId && item.rank !== null && !item.contextualReject)) {
       const key = `${result.decisionId}:${candidate.spotId}`;
       if (recordedImpressions.current.has(key)) continue;
       recordedImpressions.current.add(key);
@@ -270,7 +274,7 @@ export default function DecisionScreen() {
             <View style={{ marginTop: 26 }}>
               <Text style={{ color: theme.text, fontSize: 25, fontWeight: "900" }}>Das passt zu deinem Moment</Text>
               <Text style={{ color: theme.muted, marginTop: 6 }}>Die Reihenfolge und Gründe stammen vollständig aus dem versionierten Decision-vNext-Serververtrag.</Text>
-              {result.candidates.filter((candidate) => candidate.rank !== null && !candidate.contextualReject).map((candidate) => (
+              {result.candidates.filter((candidate) => candidate.spotId === result.primaryCandidateId && candidate.rank !== null && !candidate.contextualReject).map((candidate) => (
                 <View key={candidate.spotId} style={{ marginTop: 14, padding: 18, borderRadius: 24, backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }}>
                   <SpotArtwork spotId={candidate.spotId} spotName={candidate.presentation.name} style={{ height: 180, margin: -18, marginBottom: 18, borderTopLeftRadius: 24, borderTopRightRadius: 24 }} />
                   <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
@@ -292,7 +296,7 @@ export default function DecisionScreen() {
               ))}
 
               {result.limitations.length ? <View style={{ marginTop: 18, padding: 16, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.04)" }}><Text style={{ color: theme.text, fontWeight: "900" }}>Was Backyrd noch nicht sicher weiss</Text>{result.limitations.map((item, index) => <Text key={`limitation-${index}`} style={{ color: theme.muted, marginTop: 7, lineHeight: 20 }}>• {item}</Text>)}</View> : null}
-              {result.candidates.filter((candidate) => candidate.rank !== null && !candidate.contextualReject).length > 1 ? <Pressable disabled={loading} onPress={alternative} style={{ marginTop: 18, minHeight: 52, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: theme.acid }}><Text style={{ color: "#111", fontWeight: "900" }}>{loading ? "Sichere Alternative wird geprüft…" : "Andere Richtung zeigen"}</Text></Pressable> : null}
+              {result.candidates.some((candidate) => candidate.rank !== null && !candidate.contextualReject && !presentedCandidateIds.current.includes(candidate.spotId)) ? <Pressable disabled={loading} onPress={alternative} style={{ marginTop: 18, minHeight: 52, borderRadius: 999, alignItems: "center", justifyContent: "center", backgroundColor: theme.acid }}><Text style={{ color: "#111", fontWeight: "900" }}>{loading ? "Sichere Alternative wird geprüft…" : "Andere Richtung zeigen"}</Text></Pressable> : null}
               {result.learning.eventCount > 0 ? <Text style={{ color: theme.muted, fontSize: 12, marginTop: 10, textAlign: "center" }}>{result.personalization.state === "ACTIVE" ? "Deine Auswahl wurde mit Einwilligung berücksichtigt." : "Diese Auswahl wurde nicht gespeichert."}</Text> : null}
             </View>
           ) : null}
