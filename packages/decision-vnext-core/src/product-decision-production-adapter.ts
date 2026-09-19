@@ -313,6 +313,14 @@ function productTargetCity(request: DecisionProductRequest): string {
   throw new Error("product_target_area_required");
 }
 
+function canonicalConsentTimestamp(value: unknown): unknown {
+  // PostgREST serializes timestamptz with microseconds and +00:00. The User
+  // contract requires millisecond precision and Z; preserve the instant.
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{1,6}\+00:00$/.test(value)) return value;
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? new Date(time).toISOString() : value;
+}
+
 function productProjection(input: {
   readonly request: DecisionProductRequest;
   readonly actor: DecisionProductAuthenticatedActor;
@@ -323,7 +331,9 @@ function productProjection(input: {
   const snapshot = input.context.snapshot && typeof input.context.snapshot === "object" && !Array.isArray(input.context.snapshot)
     ? input.context.snapshot as Record<string, unknown> : null;
   const consentValue = input.context.consent;
-  const consent = consentValue && typeof consentValue === "object" ? parseConsentEnvelope(consentValue) : null;
+  const consent = consentValue && typeof consentValue === "object" && !Array.isArray(consentValue)
+    ? parseConsentEnvelope({ ...consentValue, effectiveAt: canonicalConsentTimestamp((consentValue as Record<string, unknown>).effectiveAt) })
+    : null;
   const active = input.context.status === "ACTIVE" && consent?.state === "GRANTED" && snapshot !== null;
   const rawNodes = active && Array.isArray(snapshot.nodes) ? snapshot.nodes : [];
   const identifier = /^[A-Za-z0-9][A-Za-z0-9_.:@/-]{0,239}$/;

@@ -95,6 +95,24 @@ test("evaluation failures reveal only a fixed stage and never a World fact or co
   await assert.rejects(evaluate(malformedWorld), (error) => error.message === "product_evaluation_world_binding_invalid");
   const malformedConsent = { ...context, status: "ACTIVE", consent: { marker }, snapshot: {} };
   await assert.rejects(evaluate(malformedConsent), (error) => error.message === "product_evaluation_user_projection_invalid");
+  const postgresConsent = {
+    contractVersion: "backyrd.user-intelligence.consent-envelope@1.0",
+    purpose: "PERSONALIZED_RECOMMENDATIONS", state: "GRANTED",
+    consentVersion: "personalized-recommendations-v1", policyVersion: "personalized-recommendations-v1",
+    uxVersion: "canonical-consent-ledger-v1", effectiveAt: "2026-08-21T08:12:44.001326+00:00",
+    captureContext: "MIGRATION_VERIFIED",
+    allowedProcessing: ["PERSONALIZATION_EVIDENCE", "TRANSPARENCY", "EXPORT", "ERASURE"],
+    lifecycleEffect: "ALLOW",
+  };
+  const missingSnapshot = { ...context, status: "MISSING_SNAPSHOT", consent: postgresConsent, snapshot: null };
+  assert.equal((await evaluate(missingSnapshot)).projection.neutralReason, "MISSING_SNAPSHOT");
+  const activeSnapshot = { ...context, status: "ACTIVE", consent: postgresConsent,
+    snapshot: { snapshotId: "synthetic-snapshot-v1", snapshotHash: hash("synthetic-snapshot"),
+      runtimeVersion: "synthetic-user-runtime-v1", nodes: [{ nodeKey: "synthetic-node", concept: "place_type.cafe",
+        affinity: 0.5, confidence: 0.8, scope: { kind: "GLOBAL" } }] } };
+  assert.equal((await evaluate(activeSnapshot)).projection.status, "ACTIVE");
+  await assert.rejects(evaluate({ ...missingSnapshot, consent: { ...postgresConsent, effectiveAt: "not-a-timestamp" } }),
+    (error) => error.message === "product_evaluation_user_projection_invalid");
   await assert.rejects(evaluate(context, { ...request, naturalLanguage: marker.repeat(200) }),
     (error) => error.message === "product_evaluation_ranking_invalid");
   const citySized = { ...context, worldSnapshots: Array.from({ length: 387 }, (_, index) => ({
