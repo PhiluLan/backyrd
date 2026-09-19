@@ -223,6 +223,14 @@ test("a verified prior green gate is reused only when the incremental delta cann
   assert.deepEqual(result.gateResume.reusedGates, ["database", "decision"]);
 });
 
+test("Product release certification never reuses an ancestor-bound artifact", () => {
+  const fullPlan = { context: { baseSha: "a".repeat(40), headSha: "c".repeat(40) }, requiredGates: ["database", "release-certification", "repository-security"] };
+  const deltaPlan = { context: { baseSha: "b".repeat(40), headSha: "c".repeat(40) }, changedFiles: ["delivery/database-releases/new.json"], requiredGates: ["database", "repository-security"] };
+  const result = applyVerifiedGateResume({ fullPlan, deltaPlan, resume: { eligible: true, baseSha: "a".repeat(40), previousHeadSha: "b".repeat(40), headSha: "c".repeat(40), previousTree: "d".repeat(40), successfulGates: ["database", "release-certification"] } });
+  assert.deepEqual(result.requiredGates, ["database", "release-certification", "repository-security"]);
+  assert.deepEqual(result.gateResume.reusedGates, []);
+});
+
 test("missing or failed prior evidence never suppresses a full-plan gate", () => {
   const fullPlan = { context: { baseSha: "a".repeat(40), headSha: "c".repeat(40) }, requiredGates: ["database", "decision", "repository-security"] };
   const deltaPlan = { context: { baseSha: "b".repeat(40), headSha: "c".repeat(40) }, changedFiles: ["README.md"], requiredGates: ["repository-security"] };

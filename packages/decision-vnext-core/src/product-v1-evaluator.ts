@@ -1,10 +1,11 @@
 import {
   ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION, WORLD_KNOWLEDGE_PORT_VERSION, parseWorldKnowledgeSnapshot,
-  type PortKnowledgeEntry, type WorldKnowledgeReaderPort, type WorldKnowledgeSnapshot,
+  type WorldKnowledgeReaderPort,
 } from "@backyrd/world-knowledge-core";
 import type { RelevantUserProjection } from "@backyrd/user-intelligence-vnext-core";
 import { contentHash, deepFreeze, withContentHash } from "./canonical.js";
 import { evaluateOpeningState, type OpeningSourcePolicy } from "./opening-state.js";
+import type { ProductWorldView } from "./product-world-resolver-binding.js";
 import {
   DecisionProductCandidateAssessmentSchema, DecisionProductContextSchema, DecisionProductEvaluationSchema,
   DecisionProductPresentationSchema, DecisionProductRequestSchema,
@@ -48,8 +49,8 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
 }
 
 const productOpeningPolicy: OpeningSourcePolicy = Object.freeze({ version: "decision-vnext-product-opening-source-policy-v1", configured: true, authorizedTrustStates: ["VERIFIED"] as const });
-const entry = (snapshot: WorldKnowledgeSnapshot, key: string): PortKnowledgeEntry | undefined => [...snapshot.facts, ...snapshot.operationalRules, ...snapshot.currentStates].find((row) => row.key === key);
-const unknown = (snapshot: WorldKnowledgeSnapshot, key: string) => snapshot.explicitUnknowns.some((row) => row.key === key);
+const entry = (snapshot: ProductWorldView, key: string): ProductWorldView["facts"][number] | undefined => [...snapshot.facts, ...snapshot.operationalRules, ...snapshot.currentStates].find((row) => row.key === key);
+const unknown = (snapshot: ProductWorldView, key: string) => snapshot.explicitUnknowns.some((row) => row.key === key);
 const contextual = (state: DecisionProductCandidateAssessment["visitSituation"]["state"], source: unknown, ids: readonly string[] = []) => ({ state, mappingIds: ids, evidenceSourceHash: contentHash(source) });
 const reason = (reasonCode: string, domain: "WORLD" | "CONTEXT" | "LIMITATION", sourceHash: string, statementDe: string, confirmed: boolean) => ({ reasonCode, domain, sourceHash, statementDe, confirmed });
 
@@ -64,13 +65,13 @@ export function evaluateProductV1IntentClassification(input: { readonly intent: 
   return { intentId: input.intent, state, mappingIds: [`product-intent-${input.intent.toLowerCase()}`], worldFactKeys: ["purpose.primary_visit", "classification.primary_category", "classification.place_types"], evidenceSourceHash: contentHash({ evidenceSourceHash: input.evidenceSourceHash, purpose, category, placeTypes, policyHash: DECISION_PRODUCT_INTENT_POLICY.policyHash }) };
 }
 
-function intentCoverage(snapshot: WorldKnowledgeSnapshot, intent: string | null) {
+function intentCoverage(snapshot: ProductWorldView, intent: string | null) {
   const purposeEntry = entry(snapshot, "purpose.primary_visit"); const purpose = typeof purposeEntry?.value === "string" ? purposeEntry.value : null;
   const category = snapshot.spot.classification.primaryCategory; const placeTypes = snapshot.spot.classification.placeTypes ?? [];
   return evaluateProductV1IntentClassification({ intent, purpose, category, placeTypes, disputed: snapshot.conflicts.some((row) => row.attributeKeys.some((key) => ["purpose.primary_visit", "classification.primary_category", "classification.place_types"].includes(key))), evidenceSourceHash: snapshot.snapshotHash });
 }
 
-function assess(snapshot: WorldKnowledgeSnapshot, context: DecisionProductContext, rejected: readonly string[], evaluationAt: string): DecisionProductCandidateAssessment {
+function assess(snapshot: ProductWorldView, context: DecisionProductContext, rejected: readonly string[], evaluationAt: string): DecisionProductCandidateAssessment {
   const core = intentCoverage(snapshot, context.primaryIntent); const secondary = intentCoverage(snapshot, context.secondaryIntent);
   const confirmed: string[] = []; const unknownHard: string[] = []; const failed: string[] = [];
   if (context.hardConstraints.includes("TARGET_LOCATION")) (snapshot.spot.location.locality === context.targetCity ? confirmed : failed).push("TARGET_LOCATION");
@@ -109,11 +110,20 @@ export function createDecisionProductEvaluator(input: { readonly world: WorldKno
     const request = DecisionProductRequestSchema.parse(requestValue); const context = resolveDecisionProductContext(request, authority); const selected = await input.selectCandidates(authority.authorizedCity, signal);
     const ids = [...new Set(selected.candidateIds)].sort(); if (!ids.length || contentHash(ids) !== selected.candidateSetHash) throw new Error("product_world_candidate_set_invalid");
     const snapshots = await Promise.all(ids.map(async (spotId) => { const raw = await input.world.readSnapshot({ spotId, contractVersion: WORLD_KNOWLEDGE_PORT_VERSION, registryVersion: REGISTRY_VERSION, registryHash: REGISTRY_HASH }); const snapshot = parseWorldKnowledgeSnapshot(raw, [ACCEPTED_SOURCE_POLICY]); if (snapshot.spot.spotId !== spotId) throw new Error("product_world_spot_binding_invalid"); return snapshot; }));
+    return evaluateProductWorldViews(request, authority, projection, snapshots, selected.candidateSetHash);
+  };
+}
+
+/** Shared deterministic Product assessment for the typed TS reader and the manifest-validated SQL resolver. */
+export function evaluateProductWorldViews(requestValue: unknown, authority: { readonly authorizedCity: string; readonly serverTime: string }, projection: RelevantUserProjection, snapshotsValue: readonly ProductWorldView[], candidateSetHash: string): { evaluation: DecisionProductEvaluation; presentations: readonly DecisionProductPresentation[] } {
+    const request = DecisionProductRequestSchema.parse(requestValue); const context = resolveDecisionProductContext(request, authority);
+    const snapshots = [...snapshotsValue];
+    const ids = snapshots.map((item) => item.spot.spotId).sort();
+    if (!ids.length || ids.length > 1000 || new Set(ids).size !== ids.length || contentHash(ids) !== candidateSetHash) throw new Error("product_world_candidate_set_invalid");
     const bindings = snapshots.map((row) => ({ spotId: row.spot.spotId, snapshotHash: row.snapshotHash })).sort((a, b) => a.spotId.localeCompare(b.spotId));
-    const cohort = DecisionProductWorldCohortSchema.parse(withContentHash({ contractVersion: PRODUCT_DECISION_VERSIONS.cohort, cohortId: `product-world-${selected.candidateSetHash.slice(0, 24)}`, source: "CANONICAL_WORLD_KNOWLEDGE_READER", generatedAt: authority.serverTime, authorizedCity: authority.authorizedCity, worldRegistryVersion: REGISTRY_VERSION, worldRegistryHash: REGISTRY_HASH, sourcePolicyVersion: ACCEPTED_SOURCE_POLICY.policyVersion, sourcePolicyHash: ACCEPTED_SOURCE_POLICY.policyHash, spotBindings: bindings, candidateSetHash: selected.candidateSetHash, limitations: snapshots.length === 1 ? ["SINGLE_CANDIDATE"] : [], commercialSignalsPresent: false, fixtureSourceUsed: false }, "cohortHash"));
+    const cohort = DecisionProductWorldCohortSchema.parse(withContentHash({ contractVersion: PRODUCT_DECISION_VERSIONS.cohort, cohortId: `product-world-${candidateSetHash.slice(0, 24)}`, source: "CANONICAL_WORLD_KNOWLEDGE_READER", generatedAt: authority.serverTime, authorizedCity: authority.authorizedCity, worldRegistryVersion: REGISTRY_VERSION, worldRegistryHash: REGISTRY_HASH, sourcePolicyVersion: ACCEPTED_SOURCE_POLICY.policyVersion, sourcePolicyHash: ACCEPTED_SOURCE_POLICY.policyHash, spotBindings: bindings, candidateSetHash, limitations: snapshots.length === 1 ? ["SINGLE_CANDIDATE"] : [], commercialSignalsPresent: false, fixtureSourceUsed: false }, "cohortHash"));
     const candidates = snapshots.map((row) => assess(row, context, request.rejectedCandidateIds, authority.serverTime)).sort((a, b) => a.candidateId.localeCompare(b.candidateId));
     const evaluation = DecisionProductEvaluationSchema.parse(withContentHash({ contractVersion: PRODUCT_DECISION_VERSIONS.evaluation, evaluationId: `product-evaluation-${contentHash({ requestId: request.requestId, cohortHash: cohort.cohortHash }).slice(0, 24)}`, createdAt: authority.serverTime, requestHash: contentHash(request), interpretation: context, worldCohort: cohort, userProjectionHash: projection.projectionHash, candidates, limitations: cohort.limitations, evaluatorVersion: PRODUCT_V1_EVALUATOR_VERSION, evaluationPolicyHash: DECISION_PRODUCT_EVALUATION_POLICY.policyHash, evaluationReleaseHash: DECISION_PRODUCT_EVALUATION_RELEASE.releaseHash, intentPolicyHash: DECISION_PRODUCT_INTENT_POLICY.policyHash, sourceKind: "CANONICAL_PRODUCT_PORTS", productSemanticsApproved: true, productRankingAuthorized: true, fixtureSourceUsed: false }, "evaluationHash"));
     const presentations = snapshots.map((row) => DecisionProductPresentationSchema.parse(withContentHash({ contractVersion: PRODUCT_DECISION_VERSIONS.presentation, spotId: row.spot.spotId, name: row.spot.identity.name ?? "Unbenannter Ort", locality: row.spot.location.locality, categoryLabel: row.spot.classification.primaryCategory, imageUrl: null, sourceHash: row.snapshotHash }, "presentationHash")));
     return deepFreeze({ evaluation, presentations });
-  };
 }

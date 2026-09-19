@@ -252,11 +252,13 @@ jobs:
       - run: npm run decision-vnext:single-route
       - run: npm run product-release:test
       - run: npx playwright install chromium
-      - run: npm run product-release:e2e
       - name: Build installed Mobile path
         working-directory: mobile
         env: { EXPO_PUBLIC_SUPABASE_URL: "https://example.invalid", EXPO_PUBLIC_SUPABASE_ANON_KEY: "ci-public-placeholder-key-000000000000" }
         run: npm ci && npx expo export --platform web --output-dir "$RUNNER_TEMP/mobile-web"
+      - name: Test the exact Mobile export
+        env: { BACKYRD_PRODUCT_MOBILE_BUNDLE: "${{ runner.temp }}/mobile-web" }
+        run: npm run product-release:e2e
       - name: Seal the tested Product artifact
         env:
           EVENT_NAME: "${{ github.event_name }}"

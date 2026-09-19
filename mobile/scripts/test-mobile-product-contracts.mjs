@@ -33,6 +33,8 @@ assert.match(decision, /candidate\.reasons/, "Product rendering must present ser
 assert.match(decision, /result\.limitations/, "Product rendering must present server limitations");
 assert.match(decision, /alternativeRequested: true/, "Alternative must use the canonical single route");
 assert.match(decision, /rejectedCandidateIds/, "Contextual reject must use the canonical single route");
+assert.match(decision, /presentedCandidateIds\.current/, "Alternative and reject must carry only actually presented candidates");
+assert.match(decision, /candidate\.spotId === result\.primaryCandidateId/, "Mobile must show and log only the server-selected primary candidate");
 assert.match(decision, /eventType: "candidate_impression"/, "Visible Product candidates must use the same-route canonical impression event");
 assert.match(decision, /eventType: "candidate_opened"/, "Product candidate opens must use the same-route canonical open event");
 assert.match(productDecision, /executeDecisionProductInteraction/, "Product interactions must use the sealed single-route boundary");

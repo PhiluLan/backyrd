@@ -145,7 +145,7 @@ test("hard constraints and core intent always precede consented user relevance",
   const built = buildDecisionProductExecution(await fixture(productRequest("Rollstuhlgerechtes Café in Zürich", "ranking"), "ACTIVE"));
   const ranked = built.response.candidates.filter((candidate) => candidate.rank !== null);
   assert.ok(ranked.length > 0);
-  assert.ok(ranked.every((candidate) => candidate.failedHardConstraints.length === 0 && candidate.coreIntentCoverage !== "INCOMPATIBLE"));
+  assert.ok(ranked.every((candidate) => candidate.failedHardConstraints.length === 0 && candidate.unknownHardConstraints.length === 0 && candidate.coreIntentCoverage !== "INCOMPATIBLE"));
   assert.ok(built.response.candidates.filter((candidate) => candidate.tier === "INELIGIBLE").every((candidate) => candidate.rank === null));
   assert.equal(built.response.legacyEngineUsed, false);
   assert.equal(built.response.fallbackUsed, false);
@@ -160,6 +160,18 @@ test("no-consent projection keeps Decision usable and emits no persistent learni
   assert.equal(built.response.learning.mode, "DISABLED_NEUTRAL");
   assert.equal(built.response.learning.acknowledgement, "NOT_APPLICABLE_NEUTRAL");
   assert.deepEqual(built.learningEvents, []);
+});
+
+test("an unproven hard constraint cannot enter Product ranking", async () => {
+  const input = await fixture(productRequest("Jetzt geöffnetes Café in Zürich", "unknown-hard"), "NO_CONSENT");
+  const candidate = input.evaluation.candidates[0];
+  const { assessmentHash: _assessmentHash, ...candidateBody } = candidate;
+  const guarded = withContentHash({ ...candidateBody, unknownHardConstraints: ["OPEN_NOW"] }, "assessmentHash");
+  const { evaluationHash: _evaluationHash, ...evaluationBody } = input.evaluation;
+  const evaluation = withContentHash({ ...evaluationBody, candidates: [guarded, ...input.evaluation.candidates.slice(1)] }, "evaluationHash");
+  const result = buildDecisionProductExecution({ ...input, evaluation });
+  const row = result.response.candidates.find((item) => item.spotId === candidate.candidateId);
+  assert.equal(row?.rank, null);
 });
 
 test("active projection emits minimized consent-bound events; alternative and reject stay contextual", async () => {
@@ -255,6 +267,32 @@ test("HTTP boundary accepts any authenticated account, replays byte-identically,
   const denied = createDecisionProductHttpHandler({ ...ports, control: { ...ports.control, async assertBoundary(boundary) { if (boundary === "AUTH") throw new Error("kill-switch"); } } });
   const unavailable = await denied(new Request("https://example.test/functions/v1/decision-v13", { method: "POST", headers: { authorization: "Bearer valid", "content-type": "application/json" }, body: JSON.stringify(request) }));
   assert.equal(unavailable.status, 503); const unavailableBody = await unavailable.json(); assert.equal(unavailableBody.status, "UNAVAILABLE"); assert.equal(unavailableBody.legacyFallbackUsed, false);
+});
+
+test("Emergency-OFF during evaluation suppresses output and later writes", async () => {
+  const request = productRequest("Ruhiges Café in Zürich", "midflight-off");
+  const evaluated = await fixture(request, "ACTIVE");
+  let enabled = true; let started; let finish;
+  const evaluationStarted = new Promise((resolve) => { started = resolve; });
+  const evaluationMayFinish = new Promise((resolve) => { finish = resolve; });
+  let commits = 0; let learningWrites = 0;
+  const handler = createDecisionProductHttpHandler({
+    auth: { async authenticate() { return ACTOR; } },
+    rateLimit: { async consume() { return true; } },
+    control: { timeoutMilliseconds: 2_000, maxRequestBytes: 16_384, async assertBoundary() { if (!enabled) throw new Error("emergency_off"); } },
+    async evaluate() { started(); await evaluationMayFinish; const { request: _request, actor: _actor, ...rest } = evaluated; return rest; },
+    idempotency: { async commit() { commits += 1; return { status: "CREATED" }; } },
+    interaction: { async resolve() { throw new Error("interaction_not_expected"); } },
+    learning: { contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0", async record() { learningWrites += 1; throw new Error("learning_not_expected"); } },
+  });
+  const pending = handler(new Request("https://example.test/functions/v1/decision-v13", { method: "POST", headers: { authorization: "Bearer valid", "content-type": "application/json" }, body: JSON.stringify(request) }));
+  await evaluationStarted;
+  enabled = false; finish();
+  const response = await pending;
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).legacyFallbackUsed, false);
+  assert.equal(commits, 0);
+  assert.equal(learningWrites, 0);
 });
 
 test("active learning uses canonical idempotent User receipts on create and replay", async () => {
