@@ -12,18 +12,22 @@ import { chromium } from "@playwright/test";
 import { DECISION_PRODUCT_CONTRACT, validateDecisionProductRequest } from "../../mobile/packages/product-decision-contract/src/index.mjs";
 
 const root = resolve(new URL("../..", import.meta.url).pathname);
-const output = mkdtempSync(join(tmpdir(), "backyrd-product-mobile-"));
+const suppliedBundle = process.env.BACKYRD_PRODUCT_MOBILE_BUNDLE;
+const output = suppliedBundle ? resolve(suppliedBundle) : mkdtempSync(join(tmpdir(), "backyrd-product-mobile-"));
 const endpoint = "https://example.invalid";
 const publicKey = "ci-public-placeholder-key-000000000000";
 const hash = (value) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json", ".png": "image/png", ".ttf": "font/ttf", ".woff": "font/woff", ".woff2": "font/woff2" };
 
-execFileSync("npx", ["expo", "export", "--platform", "web", "--output-dir", output], {
-  cwd: resolve(root, "mobile"),
-  env: { ...process.env, EXPO_PUBLIC_SUPABASE_URL: endpoint, EXPO_PUBLIC_SUPABASE_ANON_KEY: publicKey },
-  stdio: ["ignore", "pipe", "pipe"],
-  maxBuffer: 100 * 1024 * 1024,
-});
+if (!suppliedBundle) {
+  execFileSync("npx", ["expo", "export", "--platform", "web", "--output-dir", output], {
+    cwd: resolve(root, "mobile"),
+    env: { ...process.env, EXPO_PUBLIC_SUPABASE_URL: endpoint, EXPO_PUBLIC_SUPABASE_ANON_KEY: publicKey },
+    stdio: ["ignore", "pipe", "pipe"],
+    maxBuffer: 100 * 1024 * 1024,
+  });
+}
+if (!existsSync(resolve(output, "index.html"))) throw new Error("product_mobile_bundle_missing");
 
 const server = http.createServer((request, response) => {
   const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
