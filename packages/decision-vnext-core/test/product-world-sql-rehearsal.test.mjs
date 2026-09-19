@@ -13,7 +13,7 @@ test("real append-only Admin correction and canonical SQL context reach Product 
   const discoveryMarker = "select pg_temp.expect_state(format(\n  'select public.world_product_admin_submit_claim_v1(";
   assert.ok(source.includes(discoveryMarker));
   const discovery = "select 'PRODUCT_SEARCH_JSON=' || public.world_product_admin_search_spots_v1('Synthetic Reader',20)::text;\n";
-  const capture = `select 'PRODUCT_CONTEXT_JSON=' || public.backyrd_decision_vnext_product_context_v1(\n    pg_temp.id('product-world-admin'),repeat('f',64),'Zurich',repeat('a',64),repeat('b',64),repeat('c',64),1\n  )::text;\n`;
+  const capture = `select 'PRODUCT_CONTEXT_JSON=' || public.backyrd_decision_vnext_product_context_v2(\n    pg_temp.id('product-world-admin'),repeat('f',64),'Zurich','ACTIVITY_EXPERIENCE',repeat('a',64),repeat('b',64),repeat('c',64),1\n  )::text;\n`;
   const sql = source.replace(discoveryMarker, `${discovery}${discoveryMarker}`).replace(marker, `${capture}${marker}`);
   const result = spawnSync("psql", [databaseUrl, "-X", "-A", "-t", "-q", "-v", "ON_ERROR_STOP=1"], { input: sql, encoding: "utf8", maxBuffer: 4 * 1024 * 1024 });
   assert.equal(result.status, 0, result.stderr);

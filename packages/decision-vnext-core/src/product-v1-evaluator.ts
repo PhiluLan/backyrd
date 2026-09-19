@@ -22,6 +22,12 @@ const includes = (text: string, terms: readonly string[]) => terms.some((term) =
 const inferredIntent = (text: string): ProductV1Intent | null => includes(text, ["kaffee", "café", "cafe"]) ? "COFFEE" : includes(text, ["boulder", "klettern", "sport"]) ? "SPORT_MOVEMENT" : includes(text, ["tierpark", "zoo", "familienausflug", "natur"]) ? "NATURE_ANIMAL_EXPERIENCE" : includes(text, ["museum", "kunst", "kultur"]) ? "CULTURE_ART" : includes(text, ["wein", "bar", "drink", "etwas trinken"]) ? "DRINKS" : includes(text, ["restaurant", "essen", "mittag", "abendessen"]) ? "EAT" : includes(text, ["aktivität", "erlebnis"]) ? "ACTIVITY_EXPERIENCE" : null;
 const cityIn = (text: string) => includes(text, ["zürich", "zurich"]) ? "Zurich" : text.includes("basel") ? "Basel" : null;
 
+/** A server-derived catalog hint, never eligibility or ranking authority. */
+export function productRetrievalIntent(request: DecisionProductRequest): ProductV1Intent | null {
+  const intent = request.explicit.primaryIntent ?? inferredIntent(normalize(request.naturalLanguage));
+  return PRODUCT_V1_INTENT_MAPPINGS.find((mapping) => mapping.intentId === intent)?.intentId ?? null;
+}
+
 export function resolveDecisionProductContext(requestValue: unknown, authority: { readonly authorizedCity: string; readonly serverTime: string }): DecisionProductContext {
   const request = DecisionProductRequestSchema.parse(requestValue); const text = normalize(request.naturalLanguage); const explicit = request.explicit;
   const textCity = cityIn(text); const requestedCity = explicit.targetCity ?? textCity; if (requestedCity && requestedCity !== authority.authorizedCity) throw new Error("product_context_location_authority_mismatch");
