@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION } from "@backyrd/world-knowledge-core";
 import {
   createDecisionProductRpcEvaluationProvider,
   createDecisionProductRpcLearningPort,
@@ -54,4 +55,37 @@ test("runtime adapters reject missing target authority and forward only server-b
   const evaluation = createDecisionProductRpcEvaluationProvider({ async rpc() { calls += 100; return { data: null, error: null }; } });
   await assert.rejects(() => evaluation.evaluate({ request: { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "request-1", idempotencyKey: "key-1", naturalLanguage: "etwas essen", explicit: {}, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] }, actor, identity, signal: new AbortController().signal }), /target_area_required/);
   assert.equal(calls, 1);
+});
+
+test("evaluation failures reveal only a fixed stage and never a World fact or consent payload", async () => {
+  const marker = "private-marker-must-not-reach-diagnostics";
+  const fact = (key, value) => ({ key, value, scope: "SPOT", resolution: "KNOWN_VALUE", freshness: "CURRENT", trust: "VERIFIED", basisClaimHashes: [hash(key)] });
+  const binding = {
+    contractVersion: "backyrd.world-knowledge.product-resolver-binding@1.0", manifestHash: hash("manifest"),
+    registryHash: REGISTRY_HASH, resolvedAt: "2026-09-19T12:00:00.000Z",
+    decisionProjection: { contractVersion: "backyrd.world-knowledge.shadow-decision-projection@1.0",
+      registryVersion: REGISTRY_VERSION, policyVersion: ACCEPTED_SOURCE_POLICY.policyVersion,
+      spotId: "33333333-3333-4333-a333-333333333333", facts: [fact("identity.name", "Test Spot"), fact("location.locality", "Basel")],
+      conflicts: [], explicitUnknowns: [] },
+  };
+  const context = { contractVersion: "backyrd.decision-vnext.product-runtime-context@1.0", authorizedCity: "Basel",
+    serverTime: "2026-09-19T12:00:00.000Z", worldSnapshots: [binding], status: "NO_CONSENT", consent: null, snapshot: null };
+  const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "request-1",
+    idempotencyKey: "key-1", naturalLanguage: "Café in Basel", explicit: { targetCity: "Basel" },
+    alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
+  const evaluate = (data, incoming = request) => createDecisionProductRpcEvaluationProvider({ async rpc() { return { data, error: null }; } })
+    .evaluate({ request: incoming, actor, identity, signal: new AbortController().signal });
+  const malformedWorld = structuredClone(context);
+  malformedWorld.worldSnapshots[0].decisionProjection.facts.push(fact("classification.primary_category", marker));
+  await assert.rejects(evaluate(malformedWorld), (error) => error.message === "product_evaluation_world_binding_invalid");
+  const malformedConsent = { ...context, status: "ACTIVE", consent: { marker }, snapshot: {} };
+  await assert.rejects(evaluate(malformedConsent), (error) => error.message === "product_evaluation_user_projection_invalid");
+  await assert.rejects(evaluate(context, { ...request, naturalLanguage: marker.repeat(200) }),
+    (error) => error.message === "product_evaluation_ranking_invalid");
+  const citySized = { ...context, worldSnapshots: Array.from({ length: 387 }, (_, index) => ({
+    ...binding, decisionProjection: { ...binding.decisionProjection,
+      spotId: `33333333-3333-4333-a333-${index.toString(16).padStart(12, "0")}` },
+  })) };
+  const evaluated = await evaluate(citySized);
+  assert.equal(evaluated.evaluation.candidates.length, 387);
 });
