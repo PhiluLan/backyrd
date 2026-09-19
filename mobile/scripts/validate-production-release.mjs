@@ -87,7 +87,7 @@ for (const file of sourceFiles) {
   }
 }
 
-const decision = fs.readFileSync(path.join(root, "app/(tabs)/decision.tsx"), "utf8");
+const decision = fs.readFileSync(path.join(root, "app/(tabs)/wohin.tsx"), "utf8");
 const decisionClient = fs.readFileSync(path.join(root, "lib/decision/productDecision.ts"), "utf8");
 const decisionBinding = fs.readFileSync(path.join(root, "lib/decision/productDecisionRelease.generated.ts"), "utf8");
 const decisionControl = fs.readFileSync(path.join(root, "packages/product-decision-contract/src/index.mjs"), "utf8");
@@ -95,7 +95,7 @@ const activeDecisionPath = `${decision}\n${decisionClient}\n${decisionBinding}\n
 
 for (const [label, source, pattern] of [
   ["single Mobile Decision boundary", decision, /invokeDecisionProduct/],
-  ["server-ranked Product candidates", decision, /result\.candidates/],
+  ["server-ranked Product candidates", decision, /visibleWohinCandidates/],
   ["single-route client execution", decisionClient, /executeDecisionProductSingleRoute/],
   ["fresh bearer session", decisionClient, /freshAccessToken/],
   ["Bearer-only server invocation", decisionClient, /Authorization:\s*`Bearer \$\{accessToken\}`/],

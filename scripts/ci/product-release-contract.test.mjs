@@ -8,13 +8,15 @@ const read = (path) => readFileSync(new URL(path, root), "utf8");
 test("Mobile uses the authenticated Product Decision contract without client authority", () => {
   const client = read("mobile/lib/decision/productDecision.ts");
   const contract = read("mobile/packages/product-decision-contract/src/index.mjs");
-  const screen = read("mobile/app/(tabs)/decision.tsx");
+  const screen = read("mobile/app/(tabs)/wohin.tsx");
+  const oldRoute = read("mobile/app/(tabs)/decision.tsx");
   assert.match(client, /supabase\.auth\.getSession\(\)/);
   assert.match(client, /Authorization:\s*`Bearer \$\{accessToken\}`/);
   assert.match(client, /DECISION_PRODUCT_RELEASE_BINDING/);
   assert.match(screen, /invokeDecisionProduct/);
   assert.match(screen, /candidate_impression/);
   assert.match(screen, /candidate_opened/);
+  assert.match(oldRoute, /Redirect href="\/\(tabs\)\/wohin"/);
   assert.doesNotMatch(`${client}\n${contract}\n${screen}`, /decision-founder-live|legacyBody|fallbackFunction|FounderReleaseBinding|EXPO_PUBLIC_.*VNEXT|AsyncStorage/i);
 });
 

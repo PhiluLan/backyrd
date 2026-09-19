@@ -70,12 +70,12 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
-        name="decision"
+        name="wohin"
         options={{
-          title: "Für jetzt",
+          title: "Wohin",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? "heart" : "heart-outline"}
+              name={focused ? "sparkles" : "sparkles-outline"}
               color={color}
               size={23}
             />
@@ -134,6 +134,7 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="decision" options={{ href: null }} />
       <Tabs.Screen name="settings" options={{ href: null }} />
       <Tabs.Screen name="release-diagnostics" options={{ href: null }} />
       <Tabs.Screen name="decision-onboarding" options={{ href: null }} />

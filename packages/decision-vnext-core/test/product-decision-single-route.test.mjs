@@ -8,7 +8,7 @@ import {
   DecisionProductCandidateAssessmentSchema, DecisionProductContextSchema, DecisionProductEvaluationSchema, DecisionProductRequestSchema, DecisionProductWorldCohortSchema, PRODUCT_DECISION_VERSIONS,
   buildDecisionInteractionLearningEvent, buildDecisionProductExecution,
   canonicalJson, contentHash, createDecisionProductHttpHandler,
-  createDecisionProductEvaluator, evaluateProductV1IntentClassification, validateDecisionProductExecution, withContentHash,
+  createDecisionProductEvaluator, evaluateProductV1IntentClassification, resolveDecisionProductContext, validateDecisionProductExecution, withContentHash,
 } from "../dist/index.js";
 
 const ACTOR = Object.freeze({ userId: "product-user", subjectBindingHash: "2".repeat(64), authenticationContextHash: "3".repeat(64), sessionBindingHash: "4".repeat(64), sessionId: "product-session" });
@@ -27,6 +27,16 @@ function productRequest(text, suffix = "base", overrides = {}) {
     ...overrides,
   });
 }
+
+test("free-text Sunday coffee resolves the next Zurich Sunday without guided intent", () => {
+  const request = productRequest("Sonntag gemütlich Kaffee trinken", "sunday-coffee");
+  const context = resolveDecisionProductContext(request, { authorizedCity: "Basel", serverTime: "2026-09-19T19:52:00.000Z" });
+  assert.equal(context.primaryIntent, "COFFEE");
+  assert.equal(context.dateTime.localDate, "2026-09-20");
+  assert.deepEqual(context.softPreferences, ["ATMOSPHERE_QUIET"]);
+  const localMidnight = resolveDecisionProductContext(productRequest("Kaffee trinken", "local-midnight"), { authorizedCity: "Basel", serverTime: "2026-09-19T22:30:00.000Z" });
+  assert.equal(localMidnight.dateTime.localDate, "2026-09-20");
+});
 
 async function fixture(request, mode = "NO_CONSENT") {
   const decisionId = `decision-${contentHash({ requestId: request.requestId, idempotencyKey: request.idempotencyKey }).slice(0, 32)}`;
@@ -146,6 +156,8 @@ test("hard constraints and core intent always precede consented user relevance",
   const ranked = built.response.candidates.filter((candidate) => candidate.rank !== null);
   assert.ok(ranked.length > 0);
   assert.ok(ranked.every((candidate) => candidate.failedHardConstraints.length === 0 && candidate.unknownHardConstraints.length === 0 && candidate.coreIntentCoverage !== "INCOMPATIBLE"));
+  assert.ok(ranked.slice(0, -1).every((candidate) => candidate.reasons.some((reason) => reason.code === "product-rank-versus-next-v1")), "every ranked candidate with a follower has a server-authored comparative reason");
+  assert.match(ranked[0].reasons.find((reason) => reason.code === "product-rank-versus-next-v1")?.statement ?? "", /Hauptabsicht|Eignungsklasse|World-Gründe|Tie-Breakers/);
   assert.ok(built.response.candidates.filter((candidate) => candidate.tier === "INELIGIBLE").every((candidate) => candidate.rank === null));
   assert.equal(built.response.legacyEngineUsed, false);
   assert.equal(built.response.fallbackUsed, false);

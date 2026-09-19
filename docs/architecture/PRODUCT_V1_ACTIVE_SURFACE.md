@@ -8,7 +8,8 @@ runtime, release or gate authority.
 
 ## Runtime
 
-- Mobile: `mobile/app/(tabs)/decision.tsx`
+- Mobile: `mobile/app/(tabs)/wohin.tsx` (the hidden historical `decision.tsx`
+  route redirects here; it does not evaluate or display a second Product path)
 - Mobile contract: `mobile/packages/product-decision-contract/`
 - Mobile transport: `mobile/lib/decision/productDecision.ts`
 - Web transport: `web/lib/decision-web-api.ts`

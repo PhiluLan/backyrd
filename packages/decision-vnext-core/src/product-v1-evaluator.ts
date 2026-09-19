@@ -21,6 +21,16 @@ const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase("
 const includes = (text: string, terms: readonly string[]) => terms.some((term) => text.includes(term));
 const inferredIntent = (text: string): ProductV1Intent | null => includes(text, ["kaffee", "café", "cafe"]) ? "COFFEE" : includes(text, ["boulder", "klettern", "sport"]) ? "SPORT_MOVEMENT" : includes(text, ["tierpark", "zoo", "familienausflug", "natur"]) ? "NATURE_ANIMAL_EXPERIENCE" : includes(text, ["museum", "kunst", "kultur"]) ? "CULTURE_ART" : includes(text, ["wein", "bar", "drink", "etwas trinken"]) ? "DRINKS" : includes(text, ["restaurant", "essen", "mittag", "abendessen"]) ? "EAT" : includes(text, ["aktivität", "erlebnis"]) ? "ACTIVITY_EXPERIENCE" : null;
 const cityIn = (text: string) => includes(text, ["zürich", "zurich"]) ? "Zurich" : text.includes("basel") ? "Basel" : null;
+const weekdays = ["sonntag", "montag", "dienstag", "mittwoch", "donnerstag", "freitag", "samstag"] as const;
+
+function requestedLocalDate(text: string, serverTime: string): string {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Zurich", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(serverTime));
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value);
+  const current = new Date(Date.UTC(value("year"), value("month") - 1, value("day")));
+  const requestedDay = weekdays.findIndex((day) => new RegExp(`\\b${day}\\b`, "u").test(text));
+  if (requestedDay >= 0) current.setUTCDate(current.getUTCDate() + (requestedDay - current.getUTCDay() + 7) % 7);
+  return current.toISOString().slice(0, 10);
+}
 
 /** A server-derived catalog hint, never eligibility or ranking authority. */
 export function productRetrievalIntent(request: DecisionProductRequest): ProductV1Intent | null {
@@ -44,7 +54,7 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
     primaryIntent, secondaryIntent: explicit.secondaryIntent ?? (includes(text, ["date", "in ruhe reden"]) ? "QUIET_CONVERSATION" : null),
     intentCompatibility: primaryIntent ? "COMPATIBLE" as const : "UNKNOWN" as const, occasion: explicit.occasion ?? (text.includes("date") ? "DATE" : null),
     moods: explicit.moods ?? (includes(text, ["ruhig", "gemütlich"]) ? ["CALM"] : []), targetCity: authority.authorizedCity,
-    dateTime: explicit.dateTime ?? { state: "KNOWN" as const, localDate: authority.serverTime.slice(0, 10), dayPhase: null, timeZone: "Europe/Zurich" },
+    dateTime: explicit.dateTime ?? { state: "KNOWN" as const, localDate: requestedLocalDate(text, authority.serverTime), dayPhase: null, timeZone: "Europe/Zurich" },
     group: explicit.group ?? { size: includes(text, ["tochter", "sohn", "kind", "familie"]) ? 2 : null, minimumAge: Number(text.match(/\b(\d{1,2})[- ]?(?:jährig|jaehrig)/)?.[1] ?? NaN) || null, adultPresent: includes(text, ["mich und", "mit erwachsenen", "familie"]), companionType: includes(text, ["tochter", "sohn", "kind", "familie"]) ? "FAMILY" : null },
     budget: explicit.budget ?? (() => { const amount = Number(text.match(/(?:höchstens|maximal|bis)\s+(\d{1,4})\s*(?:chf|franken)/)?.[1] ?? NaN); return Number.isFinite(amount) ? { state: "KNOWN" as const, amount, currency: "CHF" as const, perPerson: includes(text, ["pro person", "p.p."]), calibrationLabel: null } : { state: "UNKNOWN" as const, amount: null, currency: null, perPerson: false, calibrationLabel: null }; })(),
     stayDuration: explicit.stayDuration ?? null, hardConstraints: [...hard].sort(), softPreferences: [...soft].sort(), unresolvedTerms: primaryIntent ? [] : ["CORE_INTENT"],

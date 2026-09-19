@@ -147,7 +147,7 @@ export default function HomeScreen() {
   function submitDecision(value = query) {
     const normalized = value.trim();
     if (normalized.length < 3) return;
-    router.push({ pathname: "/(tabs)/decision", params: { query: normalized, city, auto: "1" } });
+    router.push({ pathname: "/(tabs)/wohin", params: { query: normalized, auto: "1" } });
   }
 
   return (

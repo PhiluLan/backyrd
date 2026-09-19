@@ -17,7 +17,7 @@ const policy = {
   decisionConsumerPrefixes: ["packages/shared/", "packages/user-intelligence-vnext-core/", "packages/world-knowledge-core/"],
   decisionPipelineControlPrefixes: [".github/workflows/", "package.json", "package-lock.json", "scripts/ci/classify-change.mjs", "scripts/ci/decision-", "scripts/ci/verify-decision-shards.mjs"],
   integrationControlPrefixes: ["delivery/integration/", "docs/operations/integration/", "scripts/ci/integration-", "scripts/ci/week2-dark-wiring", "scripts/ci/founder-live-control-plane", "scripts/ci/founder-activation-control-plane", "scripts/ci/source-aware-idempotency-migration-scope", "scripts/world-knowledge/build-week1-production-release-foundation"],
-  productReleasePrefixes: ["mobile/app/(tabs)/decision.tsx", "mobile/lib/decision/", "packages/decision-vnext-core/src/product-", "supabase/functions/decision-", "scripts/deployment/"],
+  productReleasePrefixes: ["mobile/app/(tabs)/decision.tsx", "mobile/app/(tabs)/wohin.tsx", "mobile/lib/decision/", "packages/decision-vnext-core/src/product-", "supabase/functions/decision-", "scripts/deployment/"],
   knownRepositoryPrefixes: [".github/", ".gitleaks.toml", "README.md", "admin-dashboard/", "decision-lab/", "docs/", "mobile/", "package.json", "package-lock.json", "packages/", "scripts/", "supabase/", "web/"],
   deliveryControlPrefixes: [".github/workflows/", ".gitleaks.toml", "delivery/", "scripts/ci/", "scripts/deployment/", "docs/operations/"],
   releaseEvidencePrefixes: ["docs/operations/releases/"],
@@ -54,6 +54,12 @@ for (const [label, path, flag] of [
   assert.equal(result.flags[flag], true);
   assert.equal(result.flags.decisionSemantics, false);
   assert.equal(result.flags.database, false);
+});
+
+test("Wohin is classified as a Product release, not an unguarded Mobile-only screen", () => {
+  const result = plan({ files: { "mobile/app/(tabs)/wohin.tsx": "export default true;\n" } });
+  assert.equal(result.flags.mobile, true);
+  assert.equal(result.flags.productRelease, true);
 });
 
 test("additive migration is separated from authorization and destructive changes", () => {
