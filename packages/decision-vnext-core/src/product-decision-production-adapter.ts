@@ -363,6 +363,16 @@ function productProjection(input: {
   return parseRelevantUserProjection({ ...measured, projectionHash: contentHash(projectionHashBody(measured)) });
 }
 
+// The public response stays fail-closed. Only a fixed, data-free stage code
+// crosses into operational diagnostics; never log a claim, actor or raw error.
+function productEvaluationStage<T>(stage: "world_binding" | "user_projection" | "ranking", run: () => T): T {
+  try { return run(); }
+  catch (error) {
+    if (error instanceof Error && /^product_[a-z0-9_]{1,75}$/.test(error.message)) throw error;
+    throw new Error(`product_evaluation_${stage}_invalid`);
+  }
+}
+
 /** Canonical Product composition over service-only World/User RPCs. */
 export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductRpcClient): DecisionProductCanonicalEvaluationProvider {
   return Object.freeze({
@@ -374,7 +384,7 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
         p_target_city: targetCity, p_release_hash: input.identity.releaseHash,
         p_artifact_hash: input.identity.artifactHash, p_source_set_hash: input.identity.sourceSetHash,
         p_generation: input.identity.controlGeneration,
-      }, input.signal);
+      }, input.signal).catch(() => { throw new Error("product_runtime_context_transport_failed"); });
       if (result.error) throw new Error("product_runtime_context_unavailable");
       const context = row(result.data, "product_runtime_context_invalid");
       if (context.contractVersion !== "backyrd.decision-vnext.product-runtime-context@1.0" || context.authorizedCity !== targetCity || typeof context.serverTime !== "string" || !Number.isFinite(Date.parse(context.serverTime))) throw new Error("product_runtime_context_invalid");
@@ -382,14 +392,14 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
       const rawSnapshots = Array.isArray(context.worldSnapshots) ? context.worldSnapshots : [];
       const snapshots = new Map<string, ReturnType<typeof parseProductWorldResolverBinding>>();
       for (const raw of rawSnapshots) {
-        const snapshot = parseProductWorldResolverBinding(raw, targetCity);
+        const snapshot = productEvaluationStage("world_binding", () => parseProductWorldResolverBinding(raw, targetCity));
         if (snapshots.has(snapshot.spot.spotId)) throw new Error("product_world_snapshot_duplicate");
         snapshots.set(snapshot.spot.spotId, snapshot);
       }
       const candidateIds = [...snapshots.keys()].sort();
       if (!candidateIds.length || candidateIds.length > 1000) throw new Error("product_world_candidate_set_invalid");
-      const projection = productProjection({ request: input.request, actor: input.actor, serverTime, context });
-      const evaluated = evaluateProductWorldViews(input.request, { authorizedCity: targetCity, serverTime }, projection, [...snapshots.values()], contentHash(candidateIds));
+      const projection = productEvaluationStage("user_projection", () => productProjection({ request: input.request, actor: input.actor, serverTime, context }));
+      const evaluated = productEvaluationStage("ranking", () => evaluateProductWorldViews(input.request, { authorizedCity: targetCity, serverTime }, projection, [...snapshots.values()], contentHash(candidateIds)));
       return { ...evaluated, projection, authority: { serverTime, authorizedCity: targetCity, locationBindingHash: contentHash({ authorizedCity: targetCity, subjectBindingHash: input.actor.subjectBindingHash, worldCandidateSetHash: contentHash(candidateIds) }) }, evaluatorContractVersion: PRODUCT_V1_EVALUATOR_VERSION };
     },
   });
