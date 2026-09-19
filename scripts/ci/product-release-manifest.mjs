@@ -238,8 +238,8 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
       && additiveMigrationScope.guaranteedDatabaseRollback === false
       && JSON.stringify(currentRiskSet) === JSON.stringify(additiveMigrationScope.migrations)
       && currentRiskSet.length === 1
-      && currentRiskSet[0].path === "supabase/migrations/20260919172027_decision_vnext_bounded_catalog_context_v2.sql"
-      && currentRiskSet[0].sha256 === "7a441acadc8d3827fdc56aebbfea71a07782c52fb6969a467f961e0d479f4f23",
+      && currentRiskSet[0].path === "supabase/migrations/20260919205256_decision_vnext_verified_world_catalog_priority.sql"
+      && currentRiskSet[0].sha256 === "541c15131c53efb23a5d300ef17cbd8ba3312cfc3be320e0537c1491d7547626",
     "release_recovery_risk_acceptance_invalid");
   }
   requireValue(recoveryRisk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
@@ -321,8 +321,8 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
     ? JSON.stringify(currentRiskSet) === JSON.stringify(acceptedMigrationSet)
     : !manifest.productionPlan.productPreappliedImport && (currentRiskSet.length === 0
       || (currentRiskSet.length === 1
-        && currentRiskSet[0].path === "supabase/migrations/20260919172027_decision_vnext_bounded_catalog_context_v2.sql"
-        && currentRiskSet[0].sha256 === "7a441acadc8d3827fdc56aebbfea71a07782c52fb6969a467f961e0d479f4f23"
+        && currentRiskSet[0].path === "supabase/migrations/20260919205256_decision_vnext_verified_world_catalog_priority.sql"
+        && currentRiskSet[0].sha256 === "541c15131c53efb23a5d300ef17cbd8ba3312cfc3be320e0537c1491d7547626"
         && manifest.productionPlan.additiveMigrationScope?.contractVersion === "backyrd.product-v1-additive-migration-scope@1.0"
         && manifest.productionPlan.additiveMigrationScope.projectRef === "hjgcrrzfjchzqoegcywn"
         && manifest.productionPlan.additiveMigrationScope.executionAuthorized === false

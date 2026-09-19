@@ -122,7 +122,9 @@ psql "$DB_URL" -X --set ON_ERROR_STOP=1 --single-transaction --file "$validation
 actual_acl="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align --file "$repo_root/scripts/ci/public-acl-fingerprint.sql")"
 schema_result="$(psql "$DB_URL" -X --set ON_ERROR_STOP=1 --tuples-only --no-align --file "$repo_root/scripts/ci/application-schema-fingerprint.sql")"
 actual_schema="${schema_result##*|}"
-test "$(jq -r '.supabase.migrationTip' "$repo_root/delivery/production-state.json")" = "20260919122454_world_product_approved_catalog_bootstrap_v1"
+production_tip="$(jq -r '.supabase.migrationTip' "$repo_root/delivery/production-state.json")"
+[[ "$production_tip" =~ ^[0-9]{14}_[a-z0-9_]+$ ]] || { printf 'Invalid recorded Production migration tip.\n' >&2; exit 1; }
+test -f "$repo_root/supabase/migrations/$production_tip.sql" || { printf 'Recorded Production migration tip is absent from canonical source.\n' >&2; exit 1; }
 test "$(jq -r '.mobile.productionVerified' "$repo_root/delivery/production-state.json")" = "$(jq -r '.reviewMediaIncident.productionVerified' "$repo_root/delivery/production-state.json")"
 jq -n --arg publicAclSha256 "$actual_acl" --arg applicationSchemaSha256 "$actual_schema" \
   '{schemaVersion:"backyrd-database-clean-boot-snapshot-v1",publicAclSha256:$publicAclSha256,applicationSchemaSha256:$applicationSchemaSha256}' \

@@ -96,8 +96,8 @@ test("a separately bound additive Product migration seals without inheriting the
   put(root, "supabase/production/preapplied-product-migrations-v1.json", `${JSON.stringify({
     version: "backyrd-preapplied-product-migrations-v1", projectRef: "hjgcrrzfjchzqoegcywn", migrations: pendingMigrations,
   })}\n`);
-  const path = "supabase/migrations/20260919172027_decision_vnext_bounded_catalog_context_v2.sql";
-  const source = readFileSync(new URL("../../supabase/migrations/20260919172027_decision_vnext_bounded_catalog_context_v2.sql", import.meta.url), "utf8");
+  const path = "supabase/migrations/20260919205256_decision_vnext_verified_world_catalog_priority.sql";
+  const source = readFileSync(new URL("../../supabase/migrations/20260919205256_decision_vnext_verified_world_catalog_priority.sql", import.meta.url), "utf8");
   put(root, path, source);
   const newMigration = { path, sha256: hash(source) };
   const authority = JSON.parse(readFileSync(join(root, "delivery/product-authority-v1.json"), "utf8"));

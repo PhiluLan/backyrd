@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260919205256-decision-vnext-verified-world-catalog-priority",
+  "previousEvidence": "20260919172027-decision-vnext-bounded-catalog-context-v2",
+  "previousFingerprints": {
+    "publicAclSha256": "e02655893c6a2a6bdd87f96c439bb16cf439440a674cd9798485bf0138b0b9ae",
+    "applicationSchemaSha256": "8b723de32eb6d50c6232ceafa85535b1e394e1eef47d8384662027cd8c2b65be"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260919205256_decision_vnext_verified_world_catalog_priority.sql",
+      "sha256": "541c15131c53efb23a5d300ef17cbd8ba3312cfc3be320e0537c1491d7547626"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/decision_vnext_catalog_context_v2.sql",
+      "sha256": "4f52358784d2d1a040eb70191f79755f9bbc4a5f100b81c46538958b2930e03f"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "e02655893c6a2a6bdd87f96c439bb16cf439440a674cd9798485bf0138b0b9ae",
+    "applicationSchemaSha256": "2a8258559b3476a7f906a5b49099dfd63130bf6c7035b5b751e424c1b26a3cf3"
+  }
+}

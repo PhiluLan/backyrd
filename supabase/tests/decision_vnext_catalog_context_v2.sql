@@ -14,6 +14,17 @@ select pg_temp.assert_catalog(
   and not has_function_privilege('authenticated','public.backyrd_decision_vnext_product_context_v2(uuid,text,text,text,text,text,text,bigint)','EXECUTE'),
   'only the service role may execute the bounded context');
 
+-- The bounded 48-row retrieval must see a verified World coffee fact before
+-- the old catalog-category hint; neither source is ranking authority.
+select pg_temp.assert_catalog(
+  position('classification.primary_category' in pg_get_functiondef(
+    'public.backyrd_decision_vnext_product_context_v2(uuid,text,text,text,text,text,text,bigint)'::regprocedure)) > 0
+  and position('COFFEE_DAYTIME' in pg_get_functiondef(
+    'public.backyrd_decision_vnext_product_context_v2(uuid,text,text,text,text,text,text,bigint)'::regprocedure)) > 0
+  and position('classification.place_types' in pg_get_functiondef(
+    'public.backyrd_decision_vnext_product_context_v2(uuid,text,text,text,text,text,text,bigint)'::regprocedure)) > 0,
+  'verified World coffee classification must be considered in bounded retrieval');
+
 -- Even a service caller cannot bypass OFF.
 select set_config('request.jwt.claim.role','service_role',true);
 select set_config('request.jwt.claims','{"role":"service_role"}',true);
