@@ -39,6 +39,19 @@ const authConfig = (password_min_length = 8) => `${JSON.stringify({
 test("Decision source changed -> deploy", () => { const f=fixture(); write(f.repo,"supabase/functions/decision-v13/index.ts",`import { value } from "../../../packages/shared/runtime.mjs";\nconsole.log(value + 1);\n`); assert.deepEqual(plan(f,commit(f.repo)).deployFunctions,["decision-v13"]); });
 test("Decision transitive source changed -> deploy", () => { const f=fixture(); write(f.repo,"packages/shared/runtime.mjs",`export const value = 2;\n`); assert.deepEqual(plan(f,commit(f.repo)).deployFunctions,["decision-v13"]); });
 test("TypeScript source imports with emitted .js extensions resolve to tracked .ts files", () => { const f=fixture(); write(f.repo,"supabase/functions/decision-v13/index.ts",`import { value } from "../../../packages/shared/runtime.js";\nconsole.log(value);\n`); write(f.repo,"packages/shared/runtime.ts",`export const value = 2;\n`); const head=commit(f.repo); assert.deepEqual(plan(f,head).deployFunctions,["decision-v13"]); });
+test("deploy-only dist imports and function-scoped Deno aliases bind tracked TypeScript sources", () => {
+  const f=fixture();
+  write(f.repo,"supabase/functions/decision-v13/index.ts",`import "../../../packages/decision-vnext-core/dist/product-decision.js";\n`);
+  write(f.repo,"supabase/functions/decision-v13/deno.json",JSON.stringify({imports:{"@backyrd/user-intelligence-vnext-core":"../../../packages/user-intelligence-vnext-core/dist/index.js"}}));
+  write(f.repo,"packages/decision-vnext-core/src/product-decision.ts",`import "@backyrd/user-intelligence-vnext-core";\n`);
+  write(f.repo,"packages/user-intelligence-vnext-core/src/index.ts",`export const user = true;\n`);
+  const result=plan(f,commit(f.repo));
+  const files=result.functions.find((item)=>item.slug==="decision-v13").files.map((item)=>item.path);
+  assert.ok(files.includes("supabase/functions/decision-v13/deno.json"));
+  assert.ok(files.includes("packages/decision-vnext-core/src/product-decision.ts"));
+  assert.ok(files.includes("packages/user-intelligence-vnext-core/src/index.ts"));
+  assert.deepEqual(result.deployFunctions,["decision-v13"]);
+});
 test("Decision verify_jwt changed -> deploy", () => { const f=fixture(); const path=join(f.repo,"supabase/config.toml"); const source=execFileSync("sed",["-n","1,99p",path],{encoding:"utf8"}).replace("verify_jwt = true","verify_jwt = false"); writeFileSync(path,source); assert.deepEqual(plan(f,commit(f.repo)).deployFunctions,["decision-v13"]); });
 test("Unrelated declared Edge Function changed -> only affected scope", () => { const f=fixture(); write(f.repo,"supabase/functions/other/index.ts",`console.log("other-v2");\n`); assert.deepEqual(plan(f,commit(f.repo)).deployFunctions,["other"]); });
 test("New Forward Migration -> apply", () => { const f=fixture(); write(f.repo,"supabase/migrations/20260902000000_forward.sql","select 1;\n"); const result=plan(f,commit(f.repo)); assert.equal(result.migrations.length,1); assert.deepEqual(result.deployFunctions,[]); });

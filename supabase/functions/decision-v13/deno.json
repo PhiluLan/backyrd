@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "@backyrd/user-intelligence-vnext-core": "../../../packages/user-intelligence-vnext-core/dist/index.js",
+    "@backyrd/world-knowledge-core": "../../../packages/world-knowledge-core/dist/index.js"
+  }
+}

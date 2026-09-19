@@ -203,7 +203,9 @@ const resolveLocalImport = (tree, importer, specifier) => {
   const emittedSourceCandidates = emittedExtension
     ? [".ts", ".tsx", ".mts", ".cts"].map((extension) => `${sourceStem}${extension}`)
     : [];
-  const candidates = [initial, ...emittedSourceCandidates, ...sourceExtensions.flatMap((extension) => [`${initial}${extension}`, `${initial}/index${extension}`])];
+  const deploySource = /^packages\/(?:decision-vnext-core|user-intelligence-vnext-core|world-knowledge-core)\/dist\/(.+)\.js$/.exec(initial);
+  const generatedSourceCandidate = deploySource ? [initial.replace("/dist/", "/src/").replace(/\.js$/, ".ts")] : [];
+  const candidates = [initial, ...generatedSourceCandidate, ...emittedSourceCandidates, ...sourceExtensions.flatMap((extension) => [`${initial}${extension}`, `${initial}/index${extension}`])];
   const matches = [...new Set(candidates)].filter((candidate) => tree.files.has(candidate));
   if (matches.length !== 1) throw new Error(`${matches.length ? "ambiguous" : "unresolved"}_local_dependency:${importer}:${specifier}`);
   return matches[0];
@@ -236,7 +238,7 @@ const expandFunctionSourceSet = (tree, config) => {
   if (importMapPath) {
     const importMap = JSON.parse(tree.text(importMapPath));
     ambient.push(importMapPath);
-    for (const [key, value] of Object.entries(importMap.imports ?? {})) aliases.set(key, value);
+    for (const [key, value] of Object.entries(importMap.imports ?? {})) aliases.set(key, { value, importer: importMapPath });
   }
   for (const candidate of [
     "supabase/functions/.npmrc",
@@ -244,6 +246,11 @@ const expandFunctionSourceSet = (tree, config) => {
     posix.join(posix.dirname(entrypoint), "deno.json"),
     posix.join(posix.dirname(entrypoint), "deno.jsonc"),
   ]) if (tree.files.has(candidate)) ambient.push(candidate);
+  const denoConfigPath = posix.join(posix.dirname(entrypoint), "deno.json");
+  if (tree.files.has(denoConfigPath)) {
+    const denoConfig = JSON.parse(tree.text(denoConfigPath));
+    for (const [key, value] of Object.entries(denoConfig.imports ?? {})) aliases.set(key, { value, importer: denoConfigPath });
+  }
   if (config.values.static_files !== undefined) throw new Error(`static_files_require_explicit_dependency_support:${config.slug}`);
 
   const visited = new Set(ambient);
@@ -254,9 +261,14 @@ const expandFunctionSourceSet = (tree, config) => {
     visited.add(path);
     const source = tree.text(path);
     for (let specifier of importsFor(source, path)) {
-      if (aliases.has(specifier)) specifier = aliases.get(specifier);
+      let importer = path;
+      if (aliases.has(specifier)) {
+        const alias = aliases.get(specifier);
+        specifier = alias.value;
+        importer = alias.importer;
+      }
       if (!specifier.startsWith(".")) continue;
-      const dependency = resolveLocalImport(tree, path, specifier);
+      const dependency = resolveLocalImport(tree, importer, specifier);
       if (!visited.has(dependency)) pending.push(dependency);
     }
   }
