@@ -56,7 +56,7 @@ const errorCode = (error: unknown) => error instanceof Error ? error.message : "
 const messageOf = (error: unknown) => {
   const code = errorCode(error);
   if (code === "WORLD_BACKEND_NOT_PUBLISHED" || /PGRST202|Could not find the function|does not exist/i.test(code)) return "World Knowledge ist hier noch nicht vollständig verfügbar.";
-  if (code.includes("world_product_authoring_authority_off")) return "Die Spot-Pflege ist derzeit ausgeschaltet. Deine Eingaben bleiben erhalten.";
+  if (code.includes("world_product_authoring_authority_off") || code.includes("world_product_admin_authoring_off")) return "Die Spot-Pflege ist derzeit ausgeschaltet. Deine Eingaben bleiben erhalten.";
   if (code === "WORLD_ADMIN_FORBIDDEN" || code === "admin_required") return "Du bist für diesen Spot nicht berechtigt.";
   if (code === "WORLD_SERVICE_UNAVAILABLE" || code.startsWith("world_product_reader_")) return "World Knowledge ist derzeit nicht erreichbar. Deine Eingaben bleiben erhalten.";
   return code.startsWith("Bitte ") || code.startsWith("Der ") || code.startsWith("Die ") || code.startsWith("Für ") || code.startsWith("World ")
@@ -66,7 +66,7 @@ const backendMissing = (error: { code?: string; message?: string } | null) =>
   error?.code === "PGRST202" || error?.code === "42883" || error?.code === "42P01";
 const safeRpcMessage = (error: { code?: string; message?: string } | null): string => {
   if (backendMissing(error)) return "World Knowledge ist hier noch nicht vollständig verfügbar.";
-  if (error?.message?.includes("world_product_authoring_authority_off")) return "Die Spot-Pflege ist derzeit ausgeschaltet. Deine Eingaben bleiben erhalten.";
+  if (error?.message?.includes("world_product_authoring_authority_off") || error?.message?.includes("world_product_admin_authoring_off")) return "Die Spot-Pflege ist derzeit ausgeschaltet. Deine Eingaben bleiben erhalten.";
   if (error?.code === "42501") return "Du bist für diesen Spot nicht berechtigt.";
   if (error?.code === "40001" || error?.code === "23505" || error?.message?.includes("conflict")) return "Die Angabe hat sich zwischenzeitlich geändert. Bitte lade den Spot erneut und prüfe den Konflikt.";
   return "World Knowledge ist derzeit nicht erreichbar. Deine Eingaben bleiben erhalten.";

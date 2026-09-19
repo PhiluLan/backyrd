@@ -64,6 +64,33 @@ select pg_temp.expect_state(format(
   pg_temp.id('product-world-admin'),pg_temp.id('product-world-spot'),'off-rebuild'
 ),'42501');
 select pg_temp.assert(
+  (world_knowledge_private.set_product_admin_authoring_control_v1(
+    0,'ON','ADMIN_WORLD_MAINTENANCE_TEST')->>'state')='ON',
+  'separate Admin World authority did not activate'
+);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims',jsonb_build_object('role','authenticated','sub',pg_temp.id('product-world-admin'))::text,true);
+select pg_temp.assert(
+  (public.world_product_admin_submit_claim_v1(
+    pg_temp.id('product-world-spot'),'description.highlight','KNOWN_VALUE','"Administrative World correction"',
+    clock_timestamp(),null,null,'PUBLIC',null,'admin-while-decision-off'
+  )->>'created')::boolean,
+  'Admin World correction was incorrectly gated by Decision OFF'
+);
+select set_config('request.jwt.claim.role','service_role',true);
+select set_config('request.jwt.claims','{"role":"service_role"}',true);
+select pg_temp.assert(
+  (public.world_product_rebuild_spot_v1(
+    pg_temp.id('product-world-admin'),pg_temp.id('product-world-spot'),clock_timestamp(),
+    'admin-world-rebuild-while-decision-off')->>'manifestHash') is not null,
+  'Admin World rebuild was incorrectly gated by Decision OFF'
+);
+select pg_temp.expect_state(format(
+  'select public.backyrd_decision_vnext_product_context_v1(%L,%L,%L,%L,%L,%L,%s)',
+  pg_temp.id('product-world-admin'),repeat('f',64),'Zürich',
+  repeat('a',64),repeat('b',64),repeat('c',64),1
+),'55000');
+select pg_temp.assert(
   (public.backyrd_decision_vnext_product_activate_v1(
     0,repeat('a',64),repeat('b',64),repeat('c',64),repeat('d',64),
     clock_timestamp()+interval '1 hour'
@@ -94,6 +121,10 @@ select pg_temp.assert(
 select set_config('request.jwt.claim.sub',pg_temp.id('product-world-other')::text,true);
 select set_config('request.jwt.claims',jsonb_build_object('role','authenticated','sub',pg_temp.id('product-world-other'))::text,true);
 select pg_temp.expect_state(format('select public.world_product_authoring_detail_v1(%L)',pg_temp.id('product-world-spot')),'42501');
+select pg_temp.expect_state(format(
+  'select public.world_product_admin_submit_claim_v1(%L,%L,%L,%L::jsonb,clock_timestamp(),null,null,%L,null,%L)',
+  pg_temp.id('product-world-spot'),'identity.name','KNOWN_VALUE','"Unauthorized"','PUBLIC','nonadmin-claim'
+),'42501');
 
 select set_config('request.jwt.claim.role','service_role',true);
 select set_config('request.jwt.claims','{"role":"service_role"}',true);
@@ -166,14 +197,34 @@ select pg_temp.assert(
   )->>'generation')::bigint=2,
   'Emergency-OFF transition failed'
 );
-select pg_temp.expect_state(format(
-  'select public.world_product_rebuild_spot_v1(%L,%L,clock_timestamp(),%L)',
-  pg_temp.id('product-world-admin'),pg_temp.id('product-world-spot'),'after-off-rebuild'
-),'42501');
+select pg_temp.assert(
+  (public.world_product_rebuild_spot_v1(
+    pg_temp.id('product-world-admin'),pg_temp.id('product-world-spot'),clock_timestamp(),
+    'after-decision-off-admin-rebuild')->>'manifestHash') is not null,
+  'Decision Emergency-OFF incorrectly disabled independent Admin World maintenance'
+);
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claims',jsonb_build_object('role','authenticated','sub',pg_temp.id('product-world-admin'))::text,true);
+select pg_temp.assert(
+  (public.world_product_admin_submit_claim_v1(
+    pg_temp.id('product-world-spot'),'contact.website','KNOWN_VALUE','"https://example.invalid"',
+    clock_timestamp(),null,null,'PUBLIC',null,'after-decision-off-admin-claim'
+  )->>'created')::boolean,
+  'Decision Emergency-OFF incorrectly disabled independent Admin World claims'
+);
+select pg_temp.assert(
+  (world_knowledge_private.set_product_admin_authoring_control_v1(
+    1,'OFF','ADMIN_WORLD_EMERGENCY_OFF_TEST')->>'killSwitch')::boolean,
+  'World Admin emergency OFF did not engage'
+);
 select pg_temp.expect_state(format(
   'select public.world_product_admin_submit_claim_v1(%L,%L,%L,%L::jsonb,clock_timestamp(),null,null,%L,null,%L)',
-  pg_temp.id('product-world-spot'),'identity.name','KNOWN_VALUE','"Forbidden"','PUBLIC','after-off-claim'
+  pg_temp.id('product-world-spot'),'identity.name','KNOWN_VALUE','"Forbidden"','PUBLIC','after-world-off-claim'
+),'42501');
+select set_config('request.jwt.claim.role','service_role',true);
+select set_config('request.jwt.claims','{"role":"service_role"}',true);
+select pg_temp.expect_state(format(
+  'select public.world_product_rebuild_spot_v1(%L,%L,clock_timestamp(),%L)',
+  pg_temp.id('product-world-admin'),pg_temp.id('product-world-spot'),'after-world-off-rebuild'
 ),'42501');
 rollback;

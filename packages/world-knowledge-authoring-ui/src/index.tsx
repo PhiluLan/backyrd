@@ -33,7 +33,7 @@ export function translateAuthoringError(error: unknown, label?: string): string 
   const code = raw.toLowerCase();
   const prefix = label ? `${label}: ` : "";
   if (code.includes("invalid_session") || code.includes("authentication_required") || code.includes("jwt")) return "Deine lokale Sitzung ist abgelaufen. Bitte melde dich erneut an; deine Eingaben bleiben erhalten.";
-  if (code.includes("world_product_authoring_authority_off")) return "Die Spot-Pflege ist derzeit ausgeschaltet. Deine Eingaben bleiben erhalten.";
+  if (code.includes("world_product_authoring_authority_off") || code.includes("world_product_admin_authoring_off")) return "Die Spot-Pflege ist derzeit ausgeschaltet. Deine Eingaben bleiben erhalten.";
   if (code.includes("world_product_reader") || code.includes("world-reader")) return "Die Angabe wurde gespeichert, aber die aktuelle Datenvorschau konnte nicht bestätigt werden. Bitte lade den Spot neu.";
   if (code.includes("world_authoring_scope_denied") || code.includes("admin_required")) return "Du bist für diesen Spot nicht berechtigt.";
   if (code.includes("endpoint_mismatch") || code.includes("local_world_knowledge_not_configured")) return "Die lokale Testumgebung ist nicht korrekt verbunden. Bitte starte Admin und Supabase mit derselben lokalen Konfiguration neu.";

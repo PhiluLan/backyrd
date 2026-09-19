@@ -33,8 +33,30 @@ test("Product edits remain append-only, role-scoped and reader-verified", async 
   assert.match(product, /Die Angabe wurde gespeichert, aber die Datenvorschau/);
 });
 
-test("Decision-OFF authoring boundary is unchanged by the UI improvement", async () => {
-  const migration = await source("../../supabase/migrations/20260919073307_decision_product_activation_lease_v1.sql");
-  assert.match(migration, /if not world_knowledge_private\.product_authoring_active_v1\(\) then/);
-  assert.match(migration, /world_product_authoring_authority_off/);
+test("Admin maintenance has its own OFF switch while owner writes retain Decision authority", async () => {
+  const [migration, existing] = await Promise.all([
+    source("../../supabase/migrations/20260919120432_world_product_admin_authoring_independent_v1.sql"),
+    source("../../supabase/migrations/20260919073307_decision_product_activation_lease_v1.sql"),
+  ]);
+  assert.match(migration, /values \(0,'OFF','INITIAL_OFF'\)/);
+  assert.match(migration, /product_admin_authoring_active_v1\(\)/);
+  assert.match(migration, /world_product_admin_authoring_off/);
+  assert.match(migration, /current_user <> 'postgres'/);
+  assert.match(migration, /public\.is_admin_v1\(auth\.uid\(\)\)/);
+  assert.match(migration, /public\.is_admin_v1\(p_actor_user_id\)/);
+  assert.match(migration, /revoke all on world_knowledge_private\.product_admin_authoring_control_events_v1/);
+  assert.match(existing, /world_product_owner_submit_claim_v1[\s\S]*?product_authoring_active_v1\(\)/);
+});
+
+test("the live Decision route reads the current validated World pointer after Admin rebuild", async () => {
+  const [route, sql, product] = await Promise.all([
+    source("../app/api/world-knowledge/shadow/route.ts"),
+    source("../../supabase/migrations/20260919073307_decision_product_activation_lease_v1.sql"),
+    source("../../packages/world-knowledge-authoring-ui/src/ProductCorrection.tsx"),
+  ]);
+  assert.match(product, /await rebuild\(detail\.spotId/);
+  assert.match(route, /world_product_rebuild_spot_v1/);
+  assert.match(route, /detail\.manifest\.manifestHash !== rebuilt\?\.manifestHash/);
+  assert.match(sql, /from world_knowledge_private\.current_projection_pointers p/);
+  assert.match(sql, /world_knowledge_private\.validate_resolution_manifest_v1\(m\.id\)/);
 });
