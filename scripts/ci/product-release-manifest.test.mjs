@@ -34,7 +34,8 @@ const fixture = () => {
   put(root, "web/lib/decision-web-api.ts", "export const web = true;\n");
   put(root, "docs/architecture/PRODUCT_V1_ACTIVE_SURFACE.md", "# Product v1\n");
   put(root, "delivery/product-authority-v1.json", `${JSON.stringify({ status: "ACTIVE", productRoute: "DECISION_VNEXT_SINGLE_ROUTE", legacyDecisionAuthority: false, runtimeScope: { activeTransport: "decision-v13", quarantinedTransports: [] }, founderRecoveryRiskAcceptance: { contractVersion: "backyrd.product-v1-founder-recovery-risk-acceptance@1.0", decision: "ACCEPT_UNTESTED_DATABASE_RECOVERY_RISK", canonicalStartingMainSha: "a58d829a6c5f231e48f3582bcd69adf9245c0589", projectRef: "hjgcrrzfjchzqoegcywn", pendingMigrationCount: 13, pendingMigrationSetSha256: hash(JSON.stringify(pendingMigrations)), restoreDrillStatus: "NOT_PERFORMED_BY_FOUNDER_DECISION", guaranteedDatabaseRollback: false, productionDataCopyAuthorized: false } })}\n`);
-  put(root, "mobile-export/index.html", "mobile\n");
+  put(root, "mobile-export/_expo/static/js/ios/entry-abc123.hbc", "synthetic-ios-bundle\n");
+  put(root, "mobile-export/metadata.json", `${JSON.stringify({ version: 0, bundler: "metro", fileMetadata: { ios: { bundle: "_expo/static/js/ios/entry-abc123.hbc", assets: [] } } })}\n`);
   const base = commit(root, "base");
   put(root, "packages/decision-vnext-core/src/product-decision.ts", "export const decision = 'candidate';\n");
   const head = commit(root, "candidate");
@@ -64,6 +65,14 @@ test("a release manifest binds source, tree, domain artifacts, evidence and ever
   assert.equal(manifest.productionPlan.executionAuthorized, false);
   put(output, "bundle/supabase/config.toml", "tampered\n");
   assert.throws(() => verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head }), /release_artifact_file_mismatch/);
+});
+
+test("a Web export cannot be sealed as the iPhone OTA artifact", () => {
+  const { root, base, head } = fixture();
+  put(root, "mobile-export/index.html", "web-only\n");
+  const identity = resolveProductReleaseIdentity({ root, mode: "PR_CANDIDATE", sourceSha: head, baseSha: base, checkoutSha: head, canonicalMainSha: base });
+  const testEvidence = buildProductReleaseTestEvidence({ root, sourceSha: head });
+  assert.throws(() => buildProductReleaseManifest({ root, sourceSha: head, outputDir: join(root, "release"), mobileBundle: join(root, "mobile-export"), identity, testEvidence, productionPlan: plan(base, head) }), /release_ios_ota_artifact_required/);
 });
 
 test("tree, artifact, evidence and mode manipulation fail closed", () => {

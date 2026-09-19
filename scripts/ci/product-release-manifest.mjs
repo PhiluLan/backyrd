@@ -39,6 +39,15 @@ const git = (root, args) => execFileSync("git", args, {
   stdio: ["ignore", "pipe", "pipe"],
 }).trim();
 const gitBytes = (root, args) => execFileSync("git", args, { cwd: root, maxBuffer: MAX_GIT_OUTPUT });
+const verifyIosOtaBundle = (bundleRoot, entries) => {
+  const paths = new Set(entries.map(({ path }) => path));
+  requireValue(paths.has("mobile-update/metadata.json") && !paths.has("mobile-update/index.html"), "release_ios_ota_artifact_required");
+  const metadata = JSON.parse(readFileSync(resolve(bundleRoot, "mobile-update/metadata.json"), "utf8"));
+  const bundle = metadata.fileMetadata?.ios?.bundle;
+  requireValue(metadata.bundler === "metro" && Object.keys(metadata.fileMetadata ?? {}).length === 1
+    && typeof bundle === "string" && /^_expo\/static\/js\/ios\/entry-[0-9a-f]+\.hbc$/.test(bundle)
+    && paths.has(`mobile-update/${bundle}`) && Array.isArray(metadata.fileMetadata.ios.assets), "release_ios_ota_artifact_required");
+};
 const isAncestor = (root, ancestor, descendant) => {
   try { execFileSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], { cwd: root, stdio: "ignore" }); return true; }
   catch { return false; }
@@ -151,6 +160,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
       fileIndex.set(name, { path: name, bytes: content.length, sha256: sha256(content) });
     }
   }
+  verifyIosOtaBundle(bundleRoot, [...fileIndex.values()].filter(({ path }) => path.startsWith("mobile-update/")));
   const files = [...fileIndex.values()].sort((left, right) => left.path.localeCompare(right.path));
   const byPaths = (paths) => paths.map((path) => fileIndex.get(path));
   const actualPlan = productionPlan ?? buildProductionPlan({
@@ -247,6 +257,7 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
         && JSON.stringify(entry.requiredPreconditions) === JSON.stringify(retirementPreconditions)))), "release_function_retirement_policy_invalid");
   requireValue(manifest.runtimePolicy?.activeTransport === "decision-v13" && (manifest.runtimePolicy?.quarantinedTransports ?? []).length === 0, "release_runtime_policy_invalid");
   const componentFiles = Object.values(manifest.components).flat();
+  verifyIosOtaBundle(resolve(artifactDir, "bundle"), manifest.components.mobileUpdate ?? []);
   for (const [name, entries] of Object.entries(manifest.components)) {
     requireValue(manifest.componentIdentities?.[name]?.artifactHash === componentHash(entries), `release_component_identity_mismatch:${name}`);
   }
