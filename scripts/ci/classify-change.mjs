@@ -144,6 +144,8 @@ export function classifyChange({ root, context, policy }) {
   const migrationMutations = changes.filter(({ status, path }) => status !== "A" && path.startsWith("supabase/migrations/"));
   const migrationTexts = newMigrations.map(({ path }) => ({ path, text: gitBlob(root, `${context.headSha}:${path}`) }));
   const migrationText = migrationTexts.map(({ text }) => text).join("\n");
+  const productRuntimeMigration = migrationTexts.some(({ text }) =>
+    /\b(?:create(?:\s+or\s+replace)?|alter|drop)\s+function\s+public\.backyrd_decision_vnext_product_/i.test(text));
   const testDeletion = changes.some(({ status, path }) => status === "D" && (path.includes("/test/") || /(?:^|\.)test\.[cm]?[jt]sx?$/.test(path)));
   const decisionConsumer = changedFiles.some((path) => startsWithAny(path, policy.decisionConsumerPrefixes ?? []));
   const pipelineControl = changedFiles.some((path) => startsWithAny(path, policy.decisionPipelineControlPrefixes ?? []));
@@ -158,7 +160,7 @@ export function classifyChange({ root, context, policy }) {
   const machineReadableDocumentation = changedFiles.some((path) => path.startsWith("docs/") && !path.endsWith(".md"));
   const integrationControl = changedFiles.some((path) => startsWithAny(path, policy.integrationControlPrefixes ?? []));
   const privilegedServer = changedFiles.some((path) => startsWithAny(path, policy.privilegedServerPrefixes ?? []));
-  const productRelease = privilegedServer || shippedProductionState || changedFiles.some((path) => startsWithAny(path, policy.productReleasePrefixes ?? []));
+  const productRelease = productRuntimeMigration || privilegedServer || shippedProductionState || changedFiles.some((path) => startsWithAny(path, policy.productReleasePrefixes ?? []));
   const retiredChanges = changes.filter(({ path }) => startsWithAny(path, policy.retiredPrefixes ?? []));
   const retiredMutation = retiredChanges.some(({ status }) => status !== "D");
 
@@ -173,7 +175,7 @@ export function classifyChange({ root, context, policy }) {
     privilegedServer,
     authorizationBoundary: changedFiles.some((path) => startsWithAny(path, policy.authorizationPrefixes)) || migrationSecurityPattern.test(migrationText),
     decisionSemantics: changedFiles.some((path) => protectedDecisionPaths.has(path) || startsWithAny(path, policy.decisionSemanticPrefixes)),
-    decisionEvaluation: changedFiles.some((path) => startsWithAny(path, policy.decisionEvaluationPrefixes)) || decisionConsumer,
+    decisionEvaluation: productRuntimeMigration || changedFiles.some((path) => startsWithAny(path, policy.decisionEvaluationPrefixes)) || decisionConsumer,
     decisionConsumer,
     pipelineControl,
     testDeletion,

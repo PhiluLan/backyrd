@@ -68,6 +68,18 @@ test("additive migration is separated from authorization and destructive changes
   assert.deepEqual(result.blockedReasons, []);
 });
 
+test("Product context RPC migrations require Decision and release certification", () => {
+  const result = plan({ files: {
+    "supabase/migrations/20260101000000_product_context.sql":
+      "create or replace function public.backyrd_decision_vnext_product_context_v2() returns void language sql as $$ select 1 $$;\n",
+  } });
+  assert.equal(result.flags.database, true);
+  assert.equal(result.flags.decisionEvaluation, true);
+  assert.equal(result.flags.productRelease, true);
+  assert.ok(result.requiredGates.includes("decision"));
+  assert.ok(result.requiredGates.includes("release-certification"));
+});
+
 test("RLS migration selects the strict authorization boundary", () => {
   const result = plan({ files: { "supabase/migrations/20260101000000_add_rls.sql": "create policy own_rows on public.example to authenticated using ((select auth.uid()) = user_id);\n" } });
   assert.equal(result.flags.authorizationBoundary, true);
