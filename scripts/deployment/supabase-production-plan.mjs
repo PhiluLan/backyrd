@@ -174,6 +174,40 @@ const productionPreappliedMigrationImport = (tree, baseSha) => {
   return { path, evidence, migrations };
 };
 
+// One-time reconciliation of the 13 Founder-authorized Product migrations
+// already recorded in Production. This observes history; it never repairs it.
+const productPreappliedMigrationImport = (tree, baseSha) => {
+  const path = "supabase/production/preapplied-product-migrations-v1.json";
+  const document = JSON.parse(tree.text(path));
+  if (document.version !== "backyrd-preapplied-product-migrations-v1"
+    || document.projectRef !== "hjgcrrzfjchzqoegcywn"
+    || document.canonicalBaseSha !== baseSha
+    || document.observation !== "READ_ONLY_PRODUCTION_LEDGER_NOT_APPLY_RECEIPT"
+    || document.restoreProbe !== "NOT_PERFORMED_FOUNDER_RISK_ACCEPTED"
+    || !/^2026-09-19T\d{2}:\d{2}:\d{2}Z$/.test(document.observedAt ?? "")
+    || document.remoteMigrationCount !== 152
+    || document.remoteMigrationTip !== "20260919090423"
+    || !Number.isSafeInteger(document.backupRunId) || document.backupRunId <= 0) {
+    throw new Error("product_preapplied_observation_invalid");
+  }
+  if (!Array.isArray(document.migrations) || document.migrations.length !== 13) {
+    throw new Error("product_preapplied_scope_invalid");
+  }
+  const migrations = document.migrations.map((entry) => {
+    if (!/^supabase\/migrations\/\d{14}_[a-z0-9_]+\.sql$/.test(entry?.path ?? "")
+      || !HASH.test(entry?.sha256) || !Number.isInteger(entry?.productionStatementCount)
+      || entry.productionStatementCount < 1 || !HASH.test(entry?.productionStatementSha256)
+      || !tree.files.has(entry.path) || sha256(tree.read(entry.path)) !== entry.sha256) {
+      throw new Error(`product_preapplied_migration_identity_invalid:${entry?.path ?? "missing"}`);
+    }
+    return entry;
+  });
+  if (new Set(migrations.map(({ path: migrationPath }) => migrationPath)).size !== 13) {
+    throw new Error("product_preapplied_duplicate_migration");
+  }
+  return { path, document, migrations };
+};
+
 const functionRetirementContract = (tree) => {
   const path = "supabase/production/function-retirements.json";
   if (!tree.files.has(path)) return null;
@@ -300,17 +334,21 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   const afterAuthConfig = productionAuthConfig(head);
   const recoveryPath = "supabase/production/pending-migration-recovery.json";
   const preappliedImportPath = "supabase/production/preapplied-migration-import.json";
+  const productPreappliedPath = "supabase/production/preapplied-product-migrations-v1.json";
   const retirementPath = "supabase/production/function-retirements.json";
   const recoveryChanged = changedPaths.has(recoveryPath);
   const preappliedImportChanged = changedPaths.has(preappliedImportPath);
+  const productPreappliedChanged = changedPaths.has(productPreappliedPath);
   const retirementChanged = changedPaths.has(retirementPath);
   const migrationRecovery = recoveryChanged ? productionMigrationRecovery(head, baseSha) : null;
   const preappliedMigrationImport = preappliedImportChanged ? productionPreappliedMigrationImport(head, baseSha) : null;
+  const productPreappliedImport = productPreappliedChanged ? productPreappliedMigrationImport(head, baseSha) : null;
   const retirementContract = retirementChanged ? functionRetirementContract(head) : null;
   if (recoveryChanged && changes.find((entry) => entry.paths.includes(recoveryPath))?.status !== "A") throw new Error("migration_recovery_must_be_additive");
   if (preappliedImportChanged && changes.find((entry) => entry.paths.includes(preappliedImportPath))?.status !== "A") throw new Error("preapplied_migration_import_must_be_additive");
+  if (productPreappliedChanged && changes.find((entry) => entry.paths.includes(productPreappliedPath))?.status !== "A") throw new Error("product_preapplied_import_must_be_additive");
   if (retirementChanged && changes.find((entry) => entry.paths.includes(retirementPath))?.status !== "A") throw new Error("function_retirement_contract_must_be_additive");
-  if ([migrationRecovery, preappliedMigrationImport].filter(Boolean).length > 1) throw new Error("migration_release_modes_conflict");
+  if ([migrationRecovery, preappliedMigrationImport, productPreappliedImport].filter(Boolean).length > 1) throw new Error("migration_release_modes_conflict");
   if (beforeAuthConfig && !afterAuthConfig) throw new Error("production_auth_config_removal_forbidden");
   const authConfig = afterAuthConfig
     ? {
@@ -360,7 +398,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   }
   for (const path of changedPaths) {
     if (!path?.startsWith("supabase/production/")) continue;
-    if (!["supabase/production/auth-config.json", recoveryPath, preappliedImportPath, retirementPath].includes(path)) throw new Error(`unknown_production_config_scope:${path}`);
+    if (!["supabase/production/auth-config.json", recoveryPath, preappliedImportPath, productPreappliedPath, retirementPath].includes(path)) throw new Error(`unknown_production_config_scope:${path}`);
   }
   if ((retirementContract?.retirements.length ?? 0) !== retiredFunctions.length) throw new Error("function_retirement_contract_scope_mismatch");
 
@@ -377,11 +415,19 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     if (!migrations.some((entry) => entry.path === migration.path)) migrations.push(migration);
   }
   migrations.sort((left, right) => left.path.localeCompare(right.path));
-  const preappliedMigrations = preappliedMigrationImport?.migrations ?? [];
+  const preappliedMigrations = preappliedMigrationImport?.migrations ?? productPreappliedImport?.migrations ?? [];
   if (preappliedMigrationImport) {
     const planned = migrations.map((entry) => `${entry.path}:${entry.sha256}`).sort();
     const attested = preappliedMigrations.map((entry) => `${entry.path}:${entry.sha256}`).sort();
     if (JSON.stringify(planned) !== JSON.stringify(attested)) throw new Error("preapplied_migration_scope_mismatch");
+  }
+  if (productPreappliedImport) {
+    const expectedPrefix = migrations.slice(0, 13).map(({ path, sha256: digest }) => `${path}:${digest}`);
+    const observedPrefix = preappliedMigrations.map(({ path, sha256: digest }) => `${path}:${digest}`);
+    if (migrations.length < 14 || JSON.stringify(expectedPrefix) !== JSON.stringify(observedPrefix)
+      || migrations[12].path.slice(20, 34) !== productPreappliedImport.document.remoteMigrationTip) {
+      throw new Error("product_preapplied_scope_mismatch");
+    }
   }
   const preappliedPaths = new Set(preappliedMigrations.map((entry) => entry.path));
   const pendingMigrations = migrations.filter((entry) => !preappliedPaths.has(entry.path));
@@ -401,6 +447,15 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
       path: preappliedMigrationImport.path,
       canonicalBaseSha: baseSha,
       productionEvidence: preappliedMigrationImport.evidence,
+      migrations: preappliedMigrations,
+    } : null,
+    productPreappliedImport: productPreappliedImport ? {
+      path: productPreappliedImport.path,
+      observedAt: productPreappliedImport.document.observedAt,
+      remoteMigrationCount: productPreappliedImport.document.remoteMigrationCount,
+      remoteMigrationTip: productPreappliedImport.document.remoteMigrationTip,
+      backupRunId: productPreappliedImport.document.backupRunId,
+      restoreProbe: productPreappliedImport.document.restoreProbe,
       migrations: preappliedMigrations,
     } : null,
     migrationRecovery: migrationRecovery ? {

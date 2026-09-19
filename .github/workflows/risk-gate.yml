@@ -235,7 +235,7 @@ jobs:
         with: { node-version: 20, cache: npm, cache-dependency-path: package-lock.json }
       - run: npm ci --ignore-scripts
       - run: node --test scripts/ci/resolve-change-context.test.mjs scripts/ci/classify-change.test.mjs scripts/ci/verify-risk-gate.test.mjs scripts/ci/delivery-workflow-v2.test.mjs scripts/ci/validate-client-secret-boundary.test.mjs scripts/ci/validate-production-state.test.mjs
-      - run: node --test scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/verify-supabase-migration-dry-run.test.mjs scripts/deployment/verify-already-applied-product-migrations.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs
+      - run: node --test scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/verify-supabase-migration-dry-run.test.mjs scripts/deployment/verify-already-applied-product-migrations.test.mjs scripts/deployment/verify-preapplied-product-ledger.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs
 
   release-certification:
     name: Product release certification

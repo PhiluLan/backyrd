@@ -27,3 +27,27 @@ Each enabled Edge Function is bound to its config block, entrypoint, transitivel
 The Production job pins the CLI, checks out the exact candidate, re-resolves canonical Main, rebuilds the plan from the shipped baseline, binds the candidate SHA and plan hash, and retains an immutable audit artifact. Feature branches cannot execute Production. Evidence-only candidates produce `NO_RUNTIME_DEPLOY` without inventing a release generation.
 
 The legacy Supabase GitHub “Deploy to production” integration must remain disabled; two deployers would violate source identity.
+
+## 2026-09-19 Product migration reconciliation
+
+The Production migration ledger was observed read-only at 152 entries, ending
+`20260919090423`, while `delivery/production-state.json` still records the older
+139-migration shipped baseline. The previous 13 Product migrations were applied
+under Founder authority, but no immutable apply-run receipt is available. Do not
+describe the read-only ledger observation as an apply receipt or a restore drill.
+
+`supabase/production/preapplied-product-migrations-v1.json` binds each of those
+13 canonical files to its byte hash and observed remote statement count/hash.
+The manual release plan treats only this exact, ordered prefix as pre-applied.
+Immediately before any SQL apply, the linked Production ledger must still match
+all 13 statement digests, 152 total entries and the expected tip. The CLI
+dry-run must then show only the two World-Admin migrations from PR #319. Any
+drift stops the train; no migration history repair or reapplication of the 13
+is permitted. The 2026-09-19 off-provider backup run is evidence of a current
+export, not proof that a restore would succeed; the Founder accepted the
+remaining restore risk explicitly.
+
+After an audited Production deployment, update the shipped baseline from the
+actual deployment result in a separate evidence change. Do not advance it in
+anticipation of deployment. World-Admin authoring is a separate default-OFF
+control; Decision Product remains OFF until its own release gate passes.

@@ -23,6 +23,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with: { node-version: 20, cache: npm, cache-dependency-path: package-lock.json }
       - run: npm ci --ignore-scripts
+      - name: Install the existing Mobile app from its lockfile
+        run: npm ci --prefix mobile
       - run: npm run decision-product:ci
 
   current-domain-integrity:

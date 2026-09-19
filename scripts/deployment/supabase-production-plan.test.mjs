@@ -165,3 +165,38 @@ test("Pre-applied migration import fails closed on base, bytes, schema, ACL or e
     assert.throws(()=>plan(f,commit(f.repo,"invalid pre-applied import")),/preapplied_migration_/);
   }
 });
+
+test("observed Product ledger subtracts only the exact 13-migration prefix", () => {
+  const f=fixture();
+  const migrations=[];
+  for (let n=11;n<=23;n++) {
+    const path=`supabase/migrations/202609190904${n}_prior_${n}.sql`;
+    write(f.repo,path,`select ${n};\n`);
+    migrations.push({path,sha256:createHash("sha256").update(`select ${n};\n`).digest("hex"),productionStatementCount:1,productionStatementSha256:"a".repeat(64)});
+  }
+  const pending="supabase/migrations/20260919120432_pending.sql";
+  write(f.repo,pending,"select 99;\n");
+  const document={version:"backyrd-preapplied-product-migrations-v1",projectRef:"hjgcrrzfjchzqoegcywn",canonicalBaseSha:f.base,
+    observation:"READ_ONLY_PRODUCTION_LEDGER_NOT_APPLY_RECEIPT",observedAt:"2026-09-19T12:51:40Z",
+    remoteMigrationCount:152,remoteMigrationTip:"20260919090423",backupRunId:35443861446,
+    restoreProbe:"NOT_PERFORMED_FOUNDER_RISK_ACCEPTED",migrations};
+  write(f.repo,"supabase/production/preapplied-product-migrations-v1.json",`${JSON.stringify(document)}\n`);
+  const result=plan(f,commit(f.repo,"observed prior apply"));
+  assert.deepEqual(result.pendingMigrations.map(({path})=>path),[pending]);
+  assert.equal(result.productPreappliedImport.migrations.length,13);
+  document.migrations[0].sha256="0".repeat(64);
+  write(f.repo,"supabase/production/preapplied-product-migrations-v1.json",`${JSON.stringify(document)}\n`);
+  assert.throws(()=>plan(f,commit(f.repo,"tampered evidence")),/product_preapplied_migration_identity_invalid/);
+});
+
+test("Product pre-applied observation cannot skip a middle migration", () => {
+  const f=fixture();
+  const migrations=[];
+  for (let n=11;n<=24;n++) {
+    const path=`supabase/migrations/202609190904${n}_prior_${n}.sql`;
+    write(f.repo,path,`select ${n};\n`);
+    if (n!==12) migrations.push({path,sha256:createHash("sha256").update(`select ${n};\n`).digest("hex"),productionStatementCount:1,productionStatementSha256:"a".repeat(64)});
+  }
+  write(f.repo,"supabase/production/preapplied-product-migrations-v1.json",`${JSON.stringify({version:"backyrd-preapplied-product-migrations-v1",projectRef:"hjgcrrzfjchzqoegcywn",canonicalBaseSha:f.base,observation:"READ_ONLY_PRODUCTION_LEDGER_NOT_APPLY_RECEIPT",observedAt:"2026-09-19T12:51:40Z",remoteMigrationCount:152,remoteMigrationTip:"20260919090423",backupRunId:35443861446,restoreProbe:"NOT_PERFORMED_FOUNDER_RISK_ACCEPTED",migrations})}\n`);
+  assert.throws(()=>plan(f,commit(f.repo,"gap")),/product_preapplied_scope_mismatch/);
+});
