@@ -128,7 +128,13 @@ Deno.serve(async (request: Request) => {
       learningPort: createDecisionProductRpcLearningPort(rpc, config.identity),
       configuration: config,
     });
-    return withCors(await createDecisionProductHttpHandler(ports)(request), origin);
+    return withCors(await createDecisionProductHttpHandler({
+      ...ports,
+      diagnostics: { reportFailure(stage, code) {
+        // Fixed-shape operational signal only: no token, actor, query text, or SQL error detail.
+        console.error(JSON.stringify({ event: "decision_vnext_failure", stage, code }));
+      } },
+    })(request), origin);
   } catch {
     return withCors(unavailable(), origin);
   }
