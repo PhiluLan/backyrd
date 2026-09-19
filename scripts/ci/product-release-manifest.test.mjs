@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -21,7 +21,7 @@ const commit = (root, message) => { git(root, ["add", "."]); git(root, ["commit"
 const fixture = () => {
   const root = mkdtempSync(join(tmpdir(), "backyrd-release-manifest-"));
   git(root, ["init", "--quiet", "-b", "main"]); git(root, ["config", "user.email", "fixture@example.invalid"]); git(root, ["config", "user.name", "Fixture"]);
-  put(root, "supabase/config.toml", "project_id='fixture'\n[functions.decision-v13]\nentrypoint='./functions/decision-v13/index.deploy.ts'\n");
+  put(root, "supabase/config.toml", "project_id=\"fixture\"\n[functions.decision-v13]\nenabled = true\nverify_jwt = true\nentrypoint=\"./functions/decision-v13/index.deploy.ts\"\n");
   put(root, "supabase/functions/decision-v13/index.deploy.ts", "import './vnext-only.ts';\n");
   put(root, "supabase/functions/decision-v13/vnext-only.ts", "export default true;\n");
   put(root, "supabase/migrations/20260101000000_base.sql", "select 1;\n");
@@ -63,6 +63,9 @@ test("a release manifest binds source, tree, domain artifacts, evidence and ever
   for (const name of ["worldArtifact", "userArtifact", "decisionArtifact", "productPolicy"]) assert.match(manifest.componentIdentities[name].artifactHash, /^[0-9a-f]{64}$/);
   assert.equal(manifest.testEvidence.results["product-release-e2e"], "PASS");
   assert.equal(manifest.productionPlan.executionAuthorized, false);
+  put(output, "bundle/supabase/functions/decision-v13/unsealed.js", "export const unsealed = true;\n");
+  assert.throws(() => verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head }), /release_unsealed_artifact_file/);
+  unlinkSync(join(output, "bundle/supabase/functions/decision-v13/unsealed.js"));
   put(output, "bundle/supabase/config.toml", "tampered\n");
   assert.throws(() => verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head }), /release_artifact_file_mismatch/);
 });
@@ -73,6 +76,26 @@ test("a Web export cannot be sealed as the iPhone OTA artifact", () => {
   const identity = resolveProductReleaseIdentity({ root, mode: "PR_CANDIDATE", sourceSha: head, baseSha: base, checkoutSha: head, canonicalMainSha: base });
   const testEvidence = buildProductReleaseTestEvidence({ root, sourceSha: head });
   assert.throws(() => buildProductReleaseManifest({ root, sourceSha: head, outputDir: join(root, "release"), mobileBundle: join(root, "mobile-export"), identity, testEvidence, productionPlan: plan(base, head) }), /release_ios_ota_artifact_required/);
+});
+
+test("the Supabase deploy package seals generated JS and rejects missing build output", () => {
+  const { root, base } = fixture();
+  put(root, "supabase/functions/decision-v13/deno.json", JSON.stringify({ imports: {} }));
+  const head = commit(root, "add deploy configuration");
+  const identity = resolveProductReleaseIdentity({ root, mode: "PR_CANDIDATE", sourceSha: head, baseSha: base, checkoutSha: head, canonicalMainSha: base });
+  const testEvidence = buildProductReleaseTestEvidence({ root, sourceSha: head });
+  const output = join(root, "release");
+  assert.throws(() => buildProductReleaseManifest({ root, sourceSha: head, outputDir: output, mobileBundle: join(root, "mobile-export"), identity, testEvidence, productionPlan: plan(base, head) }), /ENOENT|release_edge_build_missing/);
+  for (const path of [
+    "packages/decision-vnext-core/dist/product-decision-production-adapter.js",
+    "packages/decision-vnext-core/dist/product-decision.js",
+    "packages/user-intelligence-vnext-core/dist/index.js",
+    "packages/world-knowledge-core/dist/index.js",
+  ]) put(root, path, "export const sealed = true;\n");
+  const manifest = buildProductReleaseManifest({ root, sourceSha: head, outputDir: output, mobileBundle: join(root, "mobile-export"), identity, testEvidence, productionPlan: plan(base, head) });
+  assert.equal(verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head, checkoutRoot: root }).manifestHash, manifest.manifestHash);
+  put(output, "bundle/packages/decision-vnext-core/dist/product-decision.js", "export const sealed = false;\n");
+  assert.throws(() => verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head }), /release_artifact_file_mismatch/);
 });
 
 test("tree, artifact, evidence and mode manipulation fail closed", () => {
