@@ -86,8 +86,8 @@ select pg_temp.assert(
   'Admin World rebuild was incorrectly gated by Decision OFF'
 );
 select pg_temp.expect_state(format(
-  'select public.backyrd_decision_vnext_product_context_v1(%L,%L,%L,%L,%L,%L,%s)',
-  pg_temp.id('product-world-admin'),repeat('f',64),'Zürich',
+  'select public.backyrd_decision_vnext_product_context_v2(%L,%L,%L,%L,%L,%L,%L,%s)',
+  pg_temp.id('product-world-admin'),repeat('f',64),'Zürich','ACTIVITY_EXPERIENCE',
   repeat('a',64),repeat('b',64),repeat('c',64),1
 ),'55000');
 select pg_temp.assert(
@@ -97,6 +97,11 @@ select pg_temp.assert(
   )->>'generation')::bigint=1,
   'operator ON transition failed'
 );
+select pg_temp.expect_state(format(
+  'select public.backyrd_decision_vnext_product_context_v2(%L,%L,%L,%L,%L,%L,%L,%s)',
+  pg_temp.id('product-world-admin'),repeat('f',64),'Zürich','UNRECOGNIZED',
+  repeat('a',64),repeat('b',64),repeat('c',64),1
+),'42501');
 
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claims',jsonb_build_object('role','authenticated','sub',pg_temp.id('product-world-admin'))::text,true);
@@ -169,8 +174,8 @@ select pg_temp.assert(
   'correction did not change canonical manifest'
 );
 select pg_temp.assert(
-  (select public.backyrd_decision_vnext_product_context_v1(
-    pg_temp.id('product-world-admin'),repeat('f',64),'Zürich',
+  (select public.backyrd_decision_vnext_product_context_v2(
+    pg_temp.id('product-world-admin'),repeat('f',64),'Zürich','ACTIVITY_EXPERIENCE',
     repeat('a',64),repeat('b',64),repeat('c',64),1
   )->'worldSnapshots' @> jsonb_build_array(jsonb_build_object(
       'contractVersion','backyrd.world-knowledge.product-resolver-binding@1.0',

@@ -11,6 +11,7 @@ import {
 const root = new URL("../../../", import.meta.url);
 const edge = readFileSync(new URL("supabase/functions/decision-v13/vnext-only.ts", root), "utf8");
 const migration = readFileSync(new URL("supabase/migrations/20260918182831_decision_vnext_product_runtime_v1.sql", root), "utf8");
+const boundedContextMigration = readFileSync(new URL("supabase/migrations/20260919172027_decision_vnext_bounded_catalog_context_v2.sql", root), "utf8");
 const hash = (value) => contentHash(value);
 const identity = { releaseHash: hash("release"), artifactHash: hash("artifact"), sourceSetHash: hash("source"), controlGeneration: 1 };
 const actor = { userId: "11111111-1111-4111-a111-111111111111", subjectBindingHash: hash("subject"), authenticationContextHash: hash("auth"), sessionBindingHash: hash("session-binding"), sessionId: "22222222-2222-4222-a222-222222222222" };
@@ -30,6 +31,15 @@ test("Product context RPC is service-only, area-bound and reads personal state o
   assert.match(migration, /revoke all on function[\s\S]+backyrd_decision_vnext_product_context_v1[\s\S]+from public, anon, authenticated/);
   assert.match(migration, /grant execute on function[\s\S]+backyrd_decision_vnext_product_context_v1[\s\S]+to service_role/);
   assert.doesNotMatch(migration, /p_(?:allowlist|founder|fixture|spot_ids)/i);
+});
+
+test("Product catalog intake is bounded before World validation and cannot grant client access", () => {
+  assert.match(boundedContextMigration, /create function public\.backyrd_decision_vnext_product_context_v2/);
+  assert.match(boundedContextMigration, /with catalog as materialized[\s\S]+?limit 48[\s\S]+?verified as materialized/);
+  assert.match(boundedContextMigration, /world_knowledge_private\.validate_resolution_manifest_v1/);
+  assert.match(boundedContextMigration, /revoke all on function public\.backyrd_decision_vnext_product_context_v2[\s\S]+?from public,anon,authenticated/);
+  assert.match(boundedContextMigration, /grant execute on function public\.backyrd_decision_vnext_product_context_v2[\s\S]+?to service_role/);
+  assert.doesNotMatch(boundedContextMigration, /delete from|truncate|drop table/i);
 });
 
 test("Product learning authority reconstructs exact bindings from consent and sealed Decision ledger", () => {
@@ -73,7 +83,12 @@ test("evaluation failures reveal only a fixed stage and never a World fact or co
   const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "request-1",
     idempotencyKey: "key-1", naturalLanguage: "Café in Basel", explicit: { targetCity: "Basel" },
     alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
-  const evaluate = (data, incoming = request) => createDecisionProductRpcEvaluationProvider({ async rpc() { return { data, error: null }; } })
+  const evaluate = (data, incoming = request) => createDecisionProductRpcEvaluationProvider({ async rpc(name, parameters) {
+    assert.equal(name, "backyrd_decision_vnext_product_context_v2");
+    assert.equal(parameters.p_primary_intent, incoming === request ? "COFFEE" : null);
+    assert.equal(Object.hasOwn(parameters, "naturalLanguage"), false);
+    return { data, error: null };
+  } })
     .evaluate({ request: incoming, actor, identity, signal: new AbortController().signal });
   const malformedWorld = structuredClone(context);
   malformedWorld.worldSnapshots[0].decisionProjection.facts.push(fact("classification.primary_category", marker));

@@ -28,7 +28,7 @@ import type {
   DecisionProductRuntimeBoundary,
   DecisionProductRuntimePorts,
 } from "./product-decision.js";
-import { evaluateProductWorldViews, PRODUCT_V1_EVALUATOR_VERSION } from "./product-v1-evaluator.js";
+import { evaluateProductWorldViews, productRetrievalIntent, PRODUCT_V1_EVALUATOR_VERSION } from "./product-v1-evaluator.js";
 import { parseProductWorldResolverBinding } from "./product-world-resolver-binding.js";
 
 const HASH = /^[0-9a-f]{64}$/;
@@ -44,7 +44,7 @@ export const DECISION_PRODUCT_PRODUCTION_RPCS = Object.freeze({
   projection: "backyrd_decision_vnext_product_projection_v1",
   learning: "backyrd_decision_vnext_product_learning_append_v1",
   interactionAuthority: "backyrd_decision_vnext_product_interaction_authority_v1",
-  runtimeContext: "backyrd_decision_vnext_product_context_v1",
+  runtimeContext: "backyrd_decision_vnext_product_context_v2",
   learningEvent: "backyrd_decision_vnext_product_learning_event_v1",
 } as const);
 
@@ -381,7 +381,8 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
       const targetCity = productTargetCity(input.request);
       const result = await rpc.rpc(DECISION_PRODUCT_PRODUCTION_RPCS.runtimeContext, {
         p_auth_user_id: input.actor.userId, p_subject_binding_hash: input.actor.subjectBindingHash,
-        p_target_city: targetCity, p_release_hash: input.identity.releaseHash,
+        p_target_city: targetCity, p_primary_intent: productRetrievalIntent(input.request),
+        p_release_hash: input.identity.releaseHash,
         p_artifact_hash: input.identity.artifactHash, p_source_set_hash: input.identity.sourceSetHash,
         p_generation: input.identity.controlGeneration,
       }, input.signal).catch(() => { throw new Error("product_runtime_context_transport_failed"); });
