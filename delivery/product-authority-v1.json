@@ -21,8 +21,8 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20260919172027_decision_vnext_bounded_catalog_context_v2.sql",
-        "sha256": "7a441acadc8d3827fdc56aebbfea71a07782c52fb6969a467f961e0d479f4f23"
+        "path": "supabase/migrations/20260919205256_decision_vnext_verified_world_catalog_priority.sql",
+        "sha256": "541c15131c53efb23a5d300ef17cbd8ba3312cfc3be320e0537c1491d7547626"
       }
     ],
     "executionAuthorized": false,
