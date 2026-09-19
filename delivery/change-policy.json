@@ -68,6 +68,7 @@
     "scripts/ci/product-release-"
   ],
   "productReleasePrefixes": [
+    ".github/workflows/deep-recertification.yml",
     "mobile/app/(tabs)/decision.tsx",
     "mobile/lib/decision/",
     "mobile/packages/product-decision-contract/",
