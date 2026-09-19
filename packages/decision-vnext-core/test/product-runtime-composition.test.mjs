@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { execFileSync } from "node:child_process";
 import { ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION } from "@backyrd/world-knowledge-core";
 import {
   createDecisionProductRpcEvaluationProvider,
@@ -14,6 +15,16 @@ const migration = readFileSync(new URL("supabase/migrations/20260918182831_decis
 const boundedContextMigration = readFileSync(new URL("supabase/migrations/20260919172027_decision_vnext_bounded_catalog_context_v2.sql", root), "utf8");
 const hash = (value) => contentHash(value);
 const identity = { releaseHash: hash("release"), artifactHash: hash("artifact"), sourceSetHash: hash("source"), controlGeneration: 1 };
+
+test("Product projection canonicalization works without a global Node Buffer in the Edge runtime", () => {
+  const userCanonical = new URL("../../user-intelligence-vnext-core/dist/canonical.js", import.meta.url).href;
+  const output = execFileSync(process.execPath, ["--input-type=module", "-e",
+    `globalThis.Buffer = undefined; const { canonicalBytes } = await import(${JSON.stringify(userCanonical)}); process.stdout.write(String(canonicalBytes({ status: 'ACTIVE' })));`],
+  { encoding: "utf8" });
+  assert.equal(Number(output), Buffer.byteLength('{"status":"ACTIVE"}', "utf8"));
+  const productSource = readFileSync(new URL("../src/product-decision.ts", import.meta.url), "utf8");
+  assert.match(productSource, /import \{ Buffer \} from ["']node:buffer["']/);
+});
 const actor = { userId: "11111111-1111-4111-a111-111111111111", subjectBindingHash: hash("subject"), authenticationContextHash: hash("auth"), sessionBindingHash: hash("session-binding"), sessionId: "22222222-2222-4222-a222-222222222222" };
 
 test("decision-v13 composes canonical Product providers without unavailable, Founder or legacy fallbacks", () => {

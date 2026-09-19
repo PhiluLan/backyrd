@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { Buffer } from "node:buffer";
 
 function normalize(value: unknown, path: string): unknown {
   if (value === undefined) throw new Error(`canonical_undefined:${path}`);
