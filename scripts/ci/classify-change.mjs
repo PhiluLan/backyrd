@@ -258,7 +258,11 @@ export function applyVerifiedGateResume({ fullPlan, deltaPlan, resume }) {
   }
   const prior = new Set(resume.successfulGates ?? []);
   const delta = new Set(deltaPlan.requiredGates);
-  const reusable = fullPlan.requiredGates.filter((gate) => gate !== "repository-security" && !delta.has(gate) && prior.has(gate));
+  // The Product artifact and manifest bind the exact source commit and tree.
+  // A successful certification for an ancestor cannot certify a new head,
+  // even when the incremental files do not affect Product runtime bytes.
+  const identityBoundGates = new Set(["repository-security", "release-certification"]);
+  const reusable = fullPlan.requiredGates.filter((gate) => !identityBoundGates.has(gate) && !delta.has(gate) && prior.has(gate));
   const reused = new Set(reusable);
   return {
     ...fullPlan,
