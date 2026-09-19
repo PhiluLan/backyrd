@@ -10,13 +10,23 @@ test("real append-only Admin correction and canonical SQL context reach Product 
   const source = readFileSync(fileURLToPath(new URL("../../../supabase/tests/decision_product_authoring_lease_v1.sql", import.meta.url)), "utf8");
   const marker = "select pg_temp.assert(\n  (public.backyrd_decision_vnext_product_emergency_off_v1(";
   assert.ok(source.includes(marker));
+  const discoveryMarker = "select pg_temp.expect_state(format(\n  'select public.world_product_admin_submit_claim_v1(";
+  assert.ok(source.includes(discoveryMarker));
+  const discovery = "select 'PRODUCT_SEARCH_JSON=' || public.world_product_admin_search_spots_v1('Synthetic Reader',20)::text;\n";
   const capture = `select 'PRODUCT_CONTEXT_JSON=' || public.backyrd_decision_vnext_product_context_v1(\n    pg_temp.id('product-world-admin'),repeat('f',64),'Zurich',repeat('a',64),repeat('b',64),repeat('c',64),1\n  )::text;\n`;
-  const sql = source.replace(marker, `${capture}${marker}`);
+  const sql = source.replace(discoveryMarker, `${discovery}${discoveryMarker}`).replace(marker, `${capture}${marker}`);
   const result = spawnSync("psql", [databaseUrl, "-X", "-A", "-t", "-q", "-v", "ON_ERROR_STOP=1"], { input: sql, encoding: "utf8", maxBuffer: 4 * 1024 * 1024 });
   assert.equal(result.status, 0, result.stderr);
   const output = result.stdout.split("\n").find((line) => line.startsWith("PRODUCT_CONTEXT_JSON="));
+  const searchOutput = result.stdout.split("\n").find((line) => line.startsWith("PRODUCT_SEARCH_JSON="));
+  assert.ok(searchOutput, "authorized Product Admin discovery was not emitted from real SQL");
+  const search = JSON.parse(searchOutput.slice("PRODUCT_SEARCH_JSON=".length));
+  assert.equal(search.contractVersion, "backyrd.world-knowledge.product-admin-spot-search@1.0");
+  assert.equal(search.spots.length, 1);
+  assert.equal(search.spots[0].name, "Synthetic Reader Spot");
   assert.ok(output, "real SQL Product context was not emitted");
   const context = JSON.parse(output.slice("PRODUCT_CONTEXT_JSON=".length));
+  assert.equal(context.worldSnapshots[0].decisionProjection.spotId, search.spots[0].spotId);
   assert.equal(context.status, "NO_CONSENT");
   const request = DecisionProductRequestSchema.parse({ contractVersion: PRODUCT_DECISION_VERSIONS.request,
     requestId: "product-sql-world-rehearsal", idempotencyKey: "product-sql-world-rehearsal",
