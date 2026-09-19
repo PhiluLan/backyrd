@@ -39,19 +39,28 @@ fi
 mapfile -t planned_migrations < <(jq -r '(.pendingMigrations // .migrations)[].path' "$plan_path")
 if test "${#planned_migrations[@]}" -gt 0; then
   if test "$(jq -r '.pendingMigrations | length' "$plan_path")" = "13"; then
-    echo "Product-v1 release requires individually applied, hash-verified migrations with a ledger check after each step; bulk db push is prohibited" >&2
-    exit 1
+    supabase link --project-ref hjgcrrzfjchzqoegcywn >/dev/null
+    supabase migration list --linked > deployment-audit/migrations-already-applied.txt
+    node scripts/deployment/verify-already-applied-product-migrations.mjs \
+      --plan "$plan_path" --listing deployment-audit/migrations-already-applied.txt \
+      > deployment-audit/migrations-preapplied-verification.json
+  else
+    supabase link --project-ref hjgcrrzfjchzqoegcywn
+    supabase db push --dry-run 2>&1 | tee deployment-audit/migration-dry-run.txt
+    node scripts/deployment/verify-supabase-migration-dry-run.mjs "$plan_path" deployment-audit/migration-dry-run.txt
+    supabase db push --yes 2>&1 | tee deployment-audit/migration-apply.txt
   fi
-  supabase link --project-ref hjgcrrzfjchzqoegcywn
-  supabase db push --dry-run 2>&1 | tee deployment-audit/migration-dry-run.txt
-  node scripts/deployment/verify-supabase-migration-dry-run.mjs "$plan_path" deployment-audit/migration-dry-run.txt
-  supabase db push --yes 2>&1 | tee deployment-audit/migration-apply.txt
 fi
 
 mapfile -t functions < <(jq -r '.functions[] | select(.deploy) | .slug' "$plan_path")
 for slug in "${functions[@]}"; do
   verify_jwt="$(jq -r --arg slug "$slug" '.functions[] | select(.slug==$slug) | .verifyJwt' "$plan_path")"
   args=(functions deploy "$slug" --project-ref hjgcrrzfjchzqoegcywn --use-api)
+  if test "$slug" = "decision-v13"; then
+    test -n "${BACKYRD_PRODUCT_RELEASE_ARTIFACT_DIR:-}" || { echo "verified Product release artifact directory required" >&2; exit 1; }
+    test -f "$BACKYRD_PRODUCT_RELEASE_ARTIFACT_DIR/bundle/supabase/functions/$slug/index.deploy.ts" || { echo "exact Function artifact missing: $slug" >&2; exit 1; }
+    args=(--workdir "$BACKYRD_PRODUCT_RELEASE_ARTIFACT_DIR/bundle" "${args[@]}")
+  fi
   if test "$verify_jwt" = "false"; then args+=(--no-verify-jwt); fi
   supabase "${args[@]}"
 done

@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.112.4";
 import {
   createDecisionProductProductionPorts,
   createDecisionProductRpcInteractionAuthorityProvider,
@@ -7,8 +7,8 @@ import {
   type DecisionProductAuthClient,
   type DecisionProductProductionConfiguration,
   type DecisionProductRpcClient,
-} from "../../../packages/decision-vnext-core/src/product-decision-production-adapter.ts";
-import { createDecisionProductHttpHandler } from "../../../packages/decision-vnext-core/src/product-decision.ts";
+} from "../../../packages/decision-vnext-core/dist/product-decision-production-adapter.js";
+import { createDecisionProductHttpHandler } from "../../../packages/decision-vnext-core/dist/product-decision.js";
 
 export const DECISION_V13_VNEXT_ONLY_ENTRYPOINT = "backyrd.decision-vnext.single-route@1.0" as const;
 
