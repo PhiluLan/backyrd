@@ -41,6 +41,11 @@ select set_config('request.jwt.claim.sub',pg_temp.id('product-world-admin')::tex
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claims',jsonb_build_object('role','authenticated','sub',pg_temp.id('product-world-admin'))::text,true);
 select set_config('app.world_knowledge_founder_authoring_enabled','off',true);
+select pg_temp.assert(
+  (public.world_product_admin_search_spots_v1('Synthetic Reader',20)->'spots') @>
+    jsonb_build_array(jsonb_build_object('spotId',pg_temp.id('product-world-spot'))),
+  'Admin could not discover the real approved spot before the correction flow'
+);
 select pg_temp.expect_state(format(
   'select public.world_product_admin_submit_claim_v1(%L,%L,%L,%L::jsonb,clock_timestamp(),null,null,%L,null,%L)',
   pg_temp.id('product-world-spot'),'identity.name','KNOWN_VALUE','"Before"','PUBLIC','off-claim'

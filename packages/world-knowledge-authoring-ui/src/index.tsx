@@ -4,7 +4,7 @@ import { Component, useCallback, useEffect, useMemo, useState, type ReactNode } 
 import { AUTHORING_FIELDS, AUTHORING_STEPS, AUTHORING_TAXONOMY_VERSION, evaluateAuthoringReadiness, getAuthoringFieldsForContext, getPlaceTypeConflict, validateAuthoringSubmission, type AuthoringField, type AuthoringReadinessReport, type AuthoringRole, type AuthoringSectionState } from "@backyrd/world-knowledge-core";
 import type { WorldAuthoringClient } from "./session";
 export { sessionRecoveringAuthoringClient, type RpcResult, type WorldAuthoringAuth, type WorldAuthoringClient } from "./session";
-export { WorldProductCorrection } from "./ProductCorrection";
+export { WorldProductCorrection, type ProductAdminSpotSearch } from "./ProductCorrection";
 
 
 type SpotListItem = { spotId: string; name: string; primaryCategory?: string; lifecycleStatus: "ACTIVE" | "ARCHIVED"; scope: string; answerCount: number; conflictCount: number; manifestHash?: string; catalogOrigin?: "MANUAL" | "LEGACY_PRODUCTION_IMPORT"; cohortSelected?: boolean; unconfirmedLegacyCount?: number; ambiguousLegacyCount?: number };
