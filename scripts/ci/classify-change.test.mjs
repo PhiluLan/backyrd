@@ -266,6 +266,17 @@ test("Supabase deployment controls select database and delivery verification", (
   assert.ok(result.requiredGates.includes("release-certification"));
 });
 
+test("shipped Production state requires a new exact-source Product artifact", () => {
+  const shipped = plan({ files: { "delivery/production-state.json": "{}\n" } });
+  assert.equal(shipped.flags.deploymentControl, true);
+  assert.equal(shipped.flags.productRelease, true);
+  assert.ok(shipped.requiredGates.includes("release-certification"));
+  assert.ok(shipped.requiredGates.includes("delivery-policy"));
+  const unrelated = plan({ files: { "delivery/notes.json": "{}\n" } });
+  assert.equal(unrelated.flags.productRelease, false);
+  assert.ok(!unrelated.requiredGates.includes("release-certification"));
+});
+
 test("shared authoring UI selects web and admin fast lanes without Decision recertification", () => {
   const result = plan({ files: { "packages/world-knowledge-authoring-ui/src/index.tsx": "export const authoring = true;\n" } });
   assert.equal(result.flags.web, true);
