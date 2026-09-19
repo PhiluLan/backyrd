@@ -61,6 +61,30 @@ test("candidate planning remains NO-GO when Production has not been queried", ()
   assert.equal(verifyProductReleasePreflight({ ...input, remote: null }).status, "NO_GO_REMOTE_NOT_QUERIED");
 });
 
+test("later additive Product SQL needs its own exact scope, never the historical 13-migration acceptance", () => {
+  const input = fixture();
+  const newMigration = {
+    path: "supabase/migrations/20260919172027_decision_vnext_bounded_catalog_context_v2.sql",
+    sha256: "7a441acadc8d3827fdc56aebbfea71a07782c52fb6969a467f961e0d479f4f23",
+  };
+  input.plan.pendingMigrations = [newMigration];
+  input.manifest.productionPlan.pendingMigrations = [newMigration];
+  input.manifest.productionPlan.recoveryRiskMigrationSet = migrations;
+  input.manifest.productionPlan.additiveMigrationScope = {
+    contractVersion: "backyrd.product-v1-additive-migration-scope@1.0",
+    projectRef: input.plan.projectRef,
+    migrations: [newMigration], executionAuthorized: false,
+    restoreDrillStatus: "NOT_PERFORMED_BY_FOUNDER_DECISION", guaranteedDatabaseRollback: false,
+  };
+  const { manifestHash: unused, ...body } = input.manifest;
+  input.manifest.manifestHash = hash(JSON.stringify(body));
+  input.remote.manifestHash = input.manifest.manifestHash;
+  assert.equal(verifyProductReleasePreflight({ ...input, remote: null }).status, "NO_GO_REMOTE_NOT_QUERIED");
+  assert.equal(verifyProductReleasePreflight(input).status, "SOURCE_AWARE_MATCH_PENDING_RELEASE_GO");
+  input.manifest.productionPlan.additiveMigrationScope.migrations[0] = { ...newMigration, sha256: hash("tampered") };
+  assert.throws(() => verifyProductReleasePreflight(input), /release_additive_migration_scope_invalid|release_manifest_integrity_invalid/);
+});
+
 test("missing or substituted Admin spot search migration blocks the release plan", () => {
   const missing = fixture();
   missing.plan.pendingMigrations.pop();

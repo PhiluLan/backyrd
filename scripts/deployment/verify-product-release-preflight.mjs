@@ -25,11 +25,26 @@ export function verifyProductReleasePreflight({ manifest, plan, ledger, baseline
   required(plan.authConfig?.deploy !== true && manifest.productionPlan.executionAuthorized === false, "release_auth_or_execution_scope_invalid");
   required(equal(plan.pendingMigrations, manifest.productionPlan.pendingMigrations), "release_migration_set_mismatch");
   required(equal(plan.deployFunctions, manifest.productionPlan.deployFunctions), "release_function_set_mismatch");
-  const acceptedMigrations = (plan.productPreappliedImport?.migrations ?? plan.pendingMigrations)
+  const currentRiskSet = (plan.productPreappliedImport?.migrations ?? plan.pendingMigrations)
     .map(({ path, sha256: migrationSha256 }) => ({ path, sha256: migrationSha256 }));
-  required(equal(acceptedMigrations, (manifest.productionPlan.productPreappliedImport?.migrations ?? manifest.productionPlan.pendingMigrations)
-    .map(({ path, sha256: migrationSha256 }) => ({ path, sha256: migrationSha256 }))), "release_accepted_migration_set_mismatch");
+  const acceptedMigrations = currentRiskSet.length === 13
+    ? currentRiskSet : manifest.productionPlan.recoveryRiskMigrationSet;
+  required(Array.isArray(acceptedMigrations) && (currentRiskSet.length === 13
+    ? equal(currentRiskSet, (manifest.productionPlan.productPreappliedImport?.migrations ?? manifest.productionPlan.pendingMigrations)
+      .map(({ path, sha256: migrationSha256 }) => ({ path, sha256: migrationSha256 })))
+    : !plan.productPreappliedImport && !manifest.productionPlan.productPreappliedImport), "release_accepted_migration_set_mismatch");
   required(acceptedMigrations.length === 13, "release_candidate_migration_count_invalid");
+  if (currentRiskSet.length !== 13 && plan.pendingMigrations.length > 0) {
+    const scope = manifest.productionPlan.additiveMigrationScope;
+    required(scope?.contractVersion === "backyrd.product-v1-additive-migration-scope@1.0"
+      && scope.projectRef === plan.projectRef && scope.executionAuthorized === false
+      && scope.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
+      && scope.guaranteedDatabaseRollback === false
+      && currentRiskSet.length === 1
+      && currentRiskSet[0].path === "supabase/migrations/20260919172027_decision_vnext_bounded_catalog_context_v2.sql"
+      && currentRiskSet[0].sha256 === "7a441acadc8d3827fdc56aebbfea71a07782c52fb6969a467f961e0d479f4f23"
+      && equal(scope.migrations, currentRiskSet), "release_additive_migration_scope_invalid");
+  }
   if (plan.productPreappliedImport) {
     required(plan.pendingMigrations.length === 2
       && /\/20260919120432_world_product_admin_authoring_independent_v1\.sql$/.test(plan.pendingMigrations[0]?.path)

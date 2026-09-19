@@ -217,14 +217,28 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   const currentRiskSet = (actualPlan.productPreappliedImport?.migrations ?? actualPlan.pendingMigrations)
     .map(({ path, sha256: migrationSha256 }) => ({ path, sha256: migrationSha256 }));
   let acceptedMigrationSet = currentRiskSet;
-  if (currentRiskSet.length === 0) {
+  if (currentRiskSet.length !== 13) {
     // Once all accepted migrations are shipped, the risk acceptance remains
-    // historical evidence. It cannot authorize any newly pending SQL.
-    requireValue(actualPlan.pendingMigrations.length === 0 && !actualPlan.productPreappliedImport, "release_recovery_pending_scope_invalid");
+    // historical evidence. A separately bounded additive scope is required
+    // for any newly pending SQL; the 13-migration acceptance cannot cover it.
+    requireValue(!actualPlan.productPreappliedImport, "release_recovery_pending_scope_invalid");
     const ledger = JSON.parse(git(root, ["show", `${identity.sourceSha}:supabase/production/preapplied-product-migrations-v1.json`]));
     requireValue(ledger.version === "backyrd-preapplied-product-migrations-v1" && ledger.projectRef === actualPlan.projectRef && Array.isArray(ledger.migrations), "release_recovery_ledger_invalid");
     acceptedMigrationSet = ledger.migrations.map(({ path, sha256: migrationSha256 }) => ({ path, sha256: migrationSha256 }));
     for (const entry of acceptedMigrationSet) requireValue(HASH.test(entry.sha256) && sha256(gitBlob(root, `${identity.sourceSha}:${entry.path}`)) === entry.sha256, "release_recovery_migration_bytes_invalid");
+  }
+  const additiveMigrationScope = authority.additiveProductMigrationScope ?? null;
+  if (currentRiskSet.length !== 13 && currentRiskSet.length > 0) {
+    requireValue(additiveMigrationScope?.contractVersion === "backyrd.product-v1-additive-migration-scope@1.0"
+      && additiveMigrationScope.projectRef === actualPlan.projectRef
+      && additiveMigrationScope.executionAuthorized === false
+      && additiveMigrationScope.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
+      && additiveMigrationScope.guaranteedDatabaseRollback === false
+      && JSON.stringify(currentRiskSet) === JSON.stringify(additiveMigrationScope.migrations)
+      && currentRiskSet.length === 1
+      && currentRiskSet[0].path === "supabase/migrations/20260919172027_decision_vnext_bounded_catalog_context_v2.sql"
+      && currentRiskSet[0].sha256 === "7a441acadc8d3827fdc56aebbfea71a07782c52fb6969a467f961e0d479f4f23",
+    "release_recovery_risk_acceptance_invalid");
   }
   requireValue(recoveryRisk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
     && recoveryRisk.decision === "ACCEPT_UNTESTED_DATABASE_RECOVERY_RISK"
@@ -256,6 +270,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     retiredFunctions: actualPlan.retiredFunctions ?? [],
     recoveryRiskAcceptance: recoveryRisk,
     recoveryRiskMigrationSet: acceptedMigrationSet,
+    additiveMigrationScope,
     authDeploy: actualPlan.authConfig?.deploy === true,
     runtimeDeploymentRequired: actualPlan.runtimeDeploymentRequired,
     executionAuthorized: false,
@@ -302,7 +317,16 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
     .map(({ path, sha256: migrationSha256 }) => ({ path, sha256: migrationSha256 }));
   requireValue(Array.isArray(acceptedMigrationSet) && (currentRiskSet.length === 13
     ? JSON.stringify(currentRiskSet) === JSON.stringify(acceptedMigrationSet)
-    : currentRiskSet.length === 0 && manifest.productionPlan.pendingMigrations.length === 0 && !manifest.productionPlan.productPreappliedImport), "release_recovery_pending_scope_invalid");
+    : !manifest.productionPlan.productPreappliedImport && (currentRiskSet.length === 0
+      || (currentRiskSet.length === 1
+        && currentRiskSet[0].path === "supabase/migrations/20260919172027_decision_vnext_bounded_catalog_context_v2.sql"
+        && currentRiskSet[0].sha256 === "7a441acadc8d3827fdc56aebbfea71a07782c52fb6969a467f961e0d479f4f23"
+        && manifest.productionPlan.additiveMigrationScope?.contractVersion === "backyrd.product-v1-additive-migration-scope@1.0"
+        && manifest.productionPlan.additiveMigrationScope.projectRef === "hjgcrrzfjchzqoegcywn"
+        && manifest.productionPlan.additiveMigrationScope.executionAuthorized === false
+        && manifest.productionPlan.additiveMigrationScope.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
+        && manifest.productionPlan.additiveMigrationScope.guaranteedDatabaseRollback === false
+        && JSON.stringify(currentRiskSet) === JSON.stringify(manifest.productionPlan.additiveMigrationScope.migrations)))), "release_recovery_pending_scope_invalid");
   const sealedMigrations = new Map((manifest.components.database ?? []).map(({ path, sha256: migrationSha256 }) => [path, migrationSha256]));
   for (const entry of acceptedMigrationSet) requireValue(sealedMigrations.get(entry.path) === entry.sha256, "release_recovery_migration_bytes_invalid");
   requireValue(recoveryRisk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
