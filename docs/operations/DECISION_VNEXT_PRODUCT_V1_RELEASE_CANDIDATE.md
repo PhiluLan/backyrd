@@ -15,6 +15,12 @@ Function delivery, runtime activation, OTA, or traffic.
   and shipped Mobile source `4810711a663efc75dbb03450b7864c277b7f0fb8`
   (runtime 1.1.0, Production channel). This is repository evidence, **not**
   a live Production observation. No live Production state was queried.
+- The source-aware plan computed against that shipped source proposes exactly
+  **11 ordered pending migrations** (nine inherited World migrations, one
+  Founder idempotency migration, one Product runtime migration), deployment
+  of `decision-v13`, retirement of `decision-copy`, no Auth configuration
+  deployment, and `executionAuthorized:false`. This is not evidence that the
+  remote migration ledger still matches the committed baseline.
 - The installed Product client calls only `decision-v13`; its deploy entrypoint
   imports only `vnext-only.ts`. Invalid or unavailable responses show an
   unavailable state; there is no Legacy fallback.
