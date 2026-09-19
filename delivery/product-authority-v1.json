@@ -3,6 +3,19 @@
   "status": "ACTIVE",
   "productRoute": "DECISION_VNEXT_SINGLE_ROUTE",
   "legacyDecisionAuthority": false,
+  "founderRecoveryRiskAcceptance": {
+    "contractVersion": "backyrd.product-v1-founder-recovery-risk-acceptance@1.0",
+    "decision": "ACCEPT_UNTESTED_DATABASE_RECOVERY_RISK",
+    "canonicalStartingMainSha": "a58d829a6c5f231e48f3582bcd69adf9245c0589",
+    "projectRef": "hjgcrrzfjchzqoegcywn",
+    "pendingMigrationCount": 13,
+    "pendingMigrationSetSha256": "740770a6e67511775b012d501bb45406c0d9cbd7c9923bef01aa640325868a8c",
+    "restoreDrillStatus": "NOT_PERFORMED_BY_FOUNDER_DECISION",
+    "guaranteedDatabaseRollback": false,
+    "productionDataCopyAuthorized": false,
+    "risk": "A database migration failure may not be fully reversible; only a reviewed forward correction is permitted after Emergency-OFF.",
+    "source": "Founder release-train instruction, 2026-09-19"
+  },
   "runtimeScope": {
     "contractVersion": "backyrd.product-runtime-scope@1.0",
     "activeTransport": "decision-v13",

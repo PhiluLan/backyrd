@@ -259,6 +259,16 @@ jobs:
       - name: Test the exact Mobile export
         env: { BACKYRD_PRODUCT_MOBILE_BUNDLE: "${{ runner.temp }}/mobile-web" }
         run: npm run product-release:e2e
+      - name: Build the exact Production iOS OTA input
+        working-directory: mobile
+        env:
+          BACKYRD_RELEASE_BUILD: "1"
+          APP_VARIANT: prod
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.PRODUCT_V1_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.PRODUCT_V1_SUPABASE_ANON_KEY }}
+        run: |
+          npm run release:validate
+          npx expo export --platform ios --output-dir "$RUNNER_TEMP/mobile-ios"
       - name: Seal the tested Product artifact
         env:
           EVENT_NAME: "${{ github.event_name }}"
@@ -269,7 +279,7 @@ jobs:
         run: |
           if [ "$EVENT_NAME" = "pull_request" ]; then MODE=PR_CANDIDATE; else MODE=POST_MERGE_MAIN; fi
           node scripts/ci/product-release-manifest.mjs evidence --source-sha "$HEAD_SHA" --output "$RUNNER_TEMP/product-release-tests.json"
-          node scripts/ci/product-release-manifest.mjs build --mode "$MODE" --base-sha "$BASE_SHA" --source-sha "$HEAD_SHA" --checkout-sha "$CHECKOUT_SHA" --canonical-main-sha "$CANONICAL_MAIN_SHA" --test-evidence "$RUNNER_TEMP/product-release-tests.json" --mobile-bundle "$RUNNER_TEMP/mobile-web" --output "$RUNNER_TEMP/product-release"
+          node scripts/ci/product-release-manifest.mjs build --mode "$MODE" --base-sha "$BASE_SHA" --source-sha "$HEAD_SHA" --checkout-sha "$CHECKOUT_SHA" --canonical-main-sha "$CANONICAL_MAIN_SHA" --test-evidence "$RUNNER_TEMP/product-release-tests.json" --mobile-bundle "$RUNNER_TEMP/mobile-ios" --output "$RUNNER_TEMP/product-release"
       - name: Retain the exact tested Product artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

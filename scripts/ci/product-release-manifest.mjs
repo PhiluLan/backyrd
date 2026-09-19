@@ -16,7 +16,7 @@ const REQUIRED_TESTS = Object.freeze([
   "decision-vnext-single-route",
   "product-release-contracts",
   "product-release-e2e",
-  "mobile-export",
+  "ios-ota-export",
 ]);
 const SOURCE_SETS = Object.freeze({
   worldArtifact: ["packages/world-knowledge-core/package.json", "packages/world-knowledge-core/src"],
@@ -39,6 +39,15 @@ const git = (root, args) => execFileSync("git", args, {
   stdio: ["ignore", "pipe", "pipe"],
 }).trim();
 const gitBytes = (root, args) => execFileSync("git", args, { cwd: root, maxBuffer: MAX_GIT_OUTPUT });
+const verifyIosOtaBundle = (bundleRoot, entries) => {
+  const paths = new Set(entries.map(({ path }) => path));
+  requireValue(paths.has("mobile-update/metadata.json") && !paths.has("mobile-update/index.html"), "release_ios_ota_artifact_required");
+  const metadata = JSON.parse(readFileSync(resolve(bundleRoot, "mobile-update/metadata.json"), "utf8"));
+  const bundle = metadata.fileMetadata?.ios?.bundle;
+  requireValue(metadata.bundler === "metro" && Object.keys(metadata.fileMetadata ?? {}).length === 1
+    && typeof bundle === "string" && /^_expo\/static\/js\/ios\/entry-[0-9a-f]+\.hbc$/.test(bundle)
+    && paths.has(`mobile-update/${bundle}`) && Array.isArray(metadata.fileMetadata.ios.assets), "release_ios_ota_artifact_required");
+};
 const isAncestor = (root, ancestor, descendant) => {
   try { execFileSync("git", ["merge-base", "--is-ancestor", ancestor, descendant], { cwd: root, stdio: "ignore" }); return true; }
   catch { return false; }
@@ -151,6 +160,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
       fileIndex.set(name, { path: name, bytes: content.length, sha256: sha256(content) });
     }
   }
+  verifyIosOtaBundle(bundleRoot, [...fileIndex.values()].filter(({ path }) => path.startsWith("mobile-update/")));
   const files = [...fileIndex.values()].sort((left, right) => left.path.localeCompare(right.path));
   const byPaths = (paths) => paths.map((path) => fileIndex.get(path));
   const actualPlan = productionPlan ?? buildProductionPlan({
@@ -162,6 +172,16 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   const authority = JSON.parse(git(root, ["show", `${identity.sourceSha}:delivery/product-authority-v1.json`]));
   requireValue(authority.status === "ACTIVE" && authority.productRoute === "DECISION_VNEXT_SINGLE_ROUTE" && authority.legacyDecisionAuthority === false, "release_product_authority_invalid");
   requireValue(authority.runtimeScope?.activeTransport === "decision-v13" && (authority.runtimeScope?.quarantinedTransports ?? []).length === 0, "release_runtime_policy_invalid");
+  const recoveryRisk = authority.founderRecoveryRiskAcceptance;
+  requireValue(recoveryRisk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
+    && recoveryRisk.decision === "ACCEPT_UNTESTED_DATABASE_RECOVERY_RISK"
+    && recoveryRisk.canonicalStartingMainSha === "a58d829a6c5f231e48f3582bcd69adf9245c0589"
+    && recoveryRisk.projectRef === actualPlan.projectRef
+    && recoveryRisk.pendingMigrationCount === 13 && actualPlan.pendingMigrations.length === 13
+    && recoveryRisk.pendingMigrationSetSha256 === sha256(JSON.stringify(actualPlan.pendingMigrations))
+    && recoveryRisk.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
+    && recoveryRisk.guaranteedDatabaseRollback === false
+    && recoveryRisk.productionDataCopyAuthorized === false, "release_recovery_risk_acceptance_invalid");
   const components = {
     productRuntime: byPaths(deployable.filter((path) => path.startsWith("supabase/functions/decision-v13/"))),
     database: byPaths(deployable.filter((path) => path.startsWith("supabase/migrations/"))),
@@ -180,6 +200,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     pendingMigrations: actualPlan.pendingMigrations,
     deployFunctions: actualPlan.deployFunctions,
     retiredFunctions: actualPlan.retiredFunctions ?? [],
+    recoveryRiskAcceptance: recoveryRisk,
     authDeploy: actualPlan.authConfig?.deploy === true,
     runtimeDeploymentRequired: actualPlan.runtimeDeploymentRequired,
     executionAuthorized: false,
@@ -220,9 +241,23 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
   requireValue(evidenceHash === sha256(JSON.stringify(rawEvidence)), "release_test_evidence_hash_mismatch");
   requireValue(manifest.buildOnceDeploySameArtifact === true, "release_build_once_policy_invalid");
   requireValue(manifest.productionPlan?.canonicalMainSha === manifest.sourceSha && manifest.productionPlan.executionAuthorized === false, "release_production_plan_invalid");
-  requireValue((manifest.productionPlan?.retiredFunctions ?? []).every((entry) => entry.productionAction === "NONE_NOT_AUTHORIZED" && entry.executionAuthorized === false), "release_function_retirement_policy_invalid");
+  const recoveryRisk = manifest.productionPlan.recoveryRiskAcceptance;
+  requireValue(recoveryRisk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
+    && recoveryRisk.decision === "ACCEPT_UNTESTED_DATABASE_RECOVERY_RISK"
+    && recoveryRisk.canonicalStartingMainSha === "a58d829a6c5f231e48f3582bcd69adf9245c0589"
+    && recoveryRisk.pendingMigrationCount === 13 && manifest.productionPlan.pendingMigrations.length === 13
+    && recoveryRisk.pendingMigrationSetSha256 === sha256(JSON.stringify(manifest.productionPlan.pendingMigrations))
+    && recoveryRisk.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
+    && recoveryRisk.guaranteedDatabaseRollback === false
+    && recoveryRisk.productionDataCopyAuthorized === false, "release_recovery_risk_acceptance_invalid");
+  const retirementPreconditions = ["EXACT_POST_MERGE_MAIN_AND_ARTIFACT", "CURRENT_REMOTE_FUNCTION_IDENTITY_MATCHES", "PRODUCT_BACKEND_OFF_SMOKE_GREEN", "OLD_CLIENT_INCOMPATIBILITY_FAILS_CLOSED", "EXACT_MOBILE_OTA_AND_IPHONE_SMOKE_GREEN", "EMERGENCY_OFF_READY"];
+  requireValue((manifest.productionPlan?.retiredFunctions ?? []).every((entry) => entry.executionAuthorized === false
+    && (entry.productionAction === "NONE_NOT_AUTHORIZED"
+      || (entry.slug === "decision-copy" && entry.productionAction === "DELETE_AFTER_VERIFIED_SINGLE_ROUTE_CUTOVER"
+        && JSON.stringify(entry.requiredPreconditions) === JSON.stringify(retirementPreconditions)))), "release_function_retirement_policy_invalid");
   requireValue(manifest.runtimePolicy?.activeTransport === "decision-v13" && (manifest.runtimePolicy?.quarantinedTransports ?? []).length === 0, "release_runtime_policy_invalid");
   const componentFiles = Object.values(manifest.components).flat();
+  verifyIosOtaBundle(resolve(artifactDir, "bundle"), manifest.components.mobileUpdate ?? []);
   for (const [name, entries] of Object.entries(manifest.components)) {
     requireValue(manifest.componentIdentities?.[name]?.artifactHash === componentHash(entries), `release_component_identity_mismatch:${name}`);
   }

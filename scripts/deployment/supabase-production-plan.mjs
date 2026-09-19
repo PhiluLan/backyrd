@@ -178,16 +178,19 @@ const functionRetirementContract = (tree) => {
   const path = "supabase/production/function-retirements.json";
   if (!tree.files.has(path)) return null;
   const document = JSON.parse(tree.text(path));
-  if (document.version !== "backyrd-function-retirements-v1" || document.projectRef !== "hjgcrrzfjchzqoegcywn") throw new Error("function_retirement_contract_invalid");
-  if (document.remoteState !== "NOT_QUERIED" || document.productionAction !== "NONE_NOT_AUTHORIZED" || document.executionAuthorized !== false) throw new Error("function_retirement_authority_open");
+  if (!["backyrd-function-retirements-v1", "backyrd-function-retirements-v2"].includes(document.version) || document.projectRef !== "hjgcrrzfjchzqoegcywn") throw new Error("function_retirement_contract_invalid");
+  const cutover = document.version === "backyrd-function-retirements-v2";
+  const requiredPreconditions = ["EXACT_POST_MERGE_MAIN_AND_ARTIFACT", "CURRENT_REMOTE_FUNCTION_IDENTITY_MATCHES", "PRODUCT_BACKEND_OFF_SMOKE_GREEN", "OLD_CLIENT_INCOMPATIBILITY_FAILS_CLOSED", "EXACT_MOBILE_OTA_AND_IPHONE_SMOKE_GREEN", "EMERGENCY_OFF_READY"];
+  if (document.remoteState !== "NOT_QUERIED" || document.productionAction !== (cutover ? "DELETE_AFTER_VERIFIED_SINGLE_ROUTE_CUTOVER" : "NONE_NOT_AUTHORIZED")
+    || document.executionAuthorized !== false || (cutover && JSON.stringify(document.requiredPreconditions) !== JSON.stringify(requiredPreconditions))) throw new Error("function_retirement_authority_open");
   if (!Array.isArray(document.retirements) || document.retirements.length === 0) throw new Error("function_retirement_scope_required");
   const retirements = document.retirements.map((entry) => {
     for (const key of ["slugSha256", "previousConfigHash", "previousSourceSetHash"]) if (!HASH.test(entry?.[key])) throw new Error(`function_retirement_hash_invalid:${key}`);
-    if (entry.repositoryDisposition !== "DELETE_SOURCE_AND_CONFIG" || entry.reason !== "NO_ACTIVE_PRODUCT_CONSUMER") throw new Error("function_retirement_disposition_invalid");
+    if (entry.repositoryDisposition !== "DELETE_SOURCE_AND_CONFIG" || entry.reason !== (cutover ? "SINGLE_ROUTE_CUTOVER_WITH_UNPROVEN_HISTORICAL_CLIENT_USAGE" : "NO_ACTIVE_PRODUCT_CONSUMER")) throw new Error("function_retirement_disposition_invalid");
     return entry;
   });
   if (new Set(retirements.map(({ slugSha256 }) => slugSha256)).size !== retirements.length) throw new Error("function_retirement_duplicate_identity");
-  return { path, retirements };
+  return { path, retirements, productionAction: document.productionAction, requiredPreconditions: cutover ? requiredPreconditions : [] };
 };
 
 const sourceExtensions = ["", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".wasm"];
@@ -319,7 +322,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
         const slugSha256 = sha256(slug);
         const contract = retirementContract?.retirements.find((entry) => entry.slugSha256 === slugSha256);
         if (!contract || contract.previousConfigHash !== before.configHash || contract.previousSourceSetHash !== before.sourceSetHash) throw new Error(`function_retirement_requires_explicit_contract:${slug}`);
-        retiredFunctions.push({ slug, slugSha256, previousConfigHash: before.configHash, previousSourceSetHash: before.sourceSetHash, productionAction: "NONE_NOT_AUTHORIZED", executionAuthorized: false });
+        retiredFunctions.push({ slug, slugSha256, previousConfigHash: before.configHash, previousSourceSetHash: before.sourceSetHash, productionAction: retirementContract.productionAction, requiredPreconditions: retirementContract.requiredPreconditions, executionAuthorized: false });
       }
       continue;
     }

@@ -38,6 +38,10 @@ fi
 
 mapfile -t planned_migrations < <(jq -r '(.pendingMigrations // .migrations)[].path' "$plan_path")
 if test "${#planned_migrations[@]}" -gt 0; then
+  if test "$(jq -r '.pendingMigrations | length' "$plan_path")" = "13"; then
+    echo "Product-v1 release requires individually applied, hash-verified migrations with a ledger check after each step; bulk db push is prohibited" >&2
+    exit 1
+  fi
   supabase link --project-ref hjgcrrzfjchzqoegcywn
   supabase db push --dry-run 2>&1 | tee deployment-audit/migration-dry-run.txt
   node scripts/deployment/verify-supabase-migration-dry-run.mjs "$plan_path" deployment-audit/migration-dry-run.txt
