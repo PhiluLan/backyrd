@@ -25,6 +25,7 @@ const fixture = () => {
   put(root, "supabase/functions/decision-v13/index.deploy.ts", "import './vnext-only.ts';\n");
   put(root, "supabase/functions/decision-v13/vnext-only.ts", "export default true;\n");
   put(root, "supabase/migrations/20260101000000_base.sql", "select 1;\n");
+  pendingMigrations.forEach((entry, index) => put(root, entry.path, `migration-${index}`));
   put(root, "packages/world-knowledge-core/package.json", "{}\n"); put(root, "packages/world-knowledge-core/src/port.ts", "export const world = true;\n");
   put(root, "packages/user-intelligence-vnext-core/package.json", "{}\n"); put(root, "packages/user-intelligence-vnext-core/src/product-decision-learning.ts", "export const user = true;\n");
   put(root, "packages/decision-vnext-core/package.json", "{}\n"); put(root, "packages/decision-vnext-core/src/product-decision.ts", "export const decision = true;\n");
@@ -68,6 +69,24 @@ test("a release manifest binds source, tree, domain artifacts, evidence and ever
   unlinkSync(join(output, "bundle/supabase/functions/decision-v13/unsealed.js"));
   put(output, "bundle/supabase/config.toml", "tampered\n");
   assert.throws(() => verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head }), /release_artifact_file_mismatch/);
+});
+
+test("fully shipped Founder migration risk stays historically bound while pending SQL stays empty", () => {
+  const { root, base } = fixture();
+  put(root, "supabase/production/preapplied-product-migrations-v1.json", `${JSON.stringify({
+    version: "backyrd-preapplied-product-migrations-v1", projectRef: "hjgcrrzfjchzqoegcywn", migrations: pendingMigrations,
+  })}\n`);
+  const head = commit(root, "record shipped migration ledger");
+  const identity = resolveProductReleaseIdentity({ root, mode: "PR_CANDIDATE", sourceSha: head, baseSha: base, checkoutSha: head, canonicalMainSha: base });
+  const testEvidence = buildProductReleaseTestEvidence({ root, sourceSha: head });
+  const output = join(root, "release");
+  const shippedPlan = { ...plan(base, head), pendingMigrations: [] };
+  const manifest = buildProductReleaseManifest({ root, sourceSha: head, outputDir: output, mobileBundle: join(root, "mobile-export"), identity, testEvidence, productionPlan: shippedPlan });
+  assert.deepEqual(manifest.productionPlan.pendingMigrations, []);
+  assert.deepEqual(manifest.productionPlan.recoveryRiskMigrationSet, pendingMigrations);
+  assert.equal(verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head, checkoutRoot: root }).manifestHash, manifest.manifestHash);
+  const newMigration = { path: "supabase/migrations/20260920000000_unapproved.sql", sha256: hash("unapproved") };
+  assert.throws(() => buildProductReleaseManifest({ root, sourceSha: head, outputDir: output, mobileBundle: join(root, "mobile-export"), identity, testEvidence, productionPlan: { ...shippedPlan, pendingMigrations: [newMigration] } }), /release_recovery_risk_acceptance_invalid/);
 });
 
 test("a Web export cannot be sealed as the iPhone OTA artifact", () => {
