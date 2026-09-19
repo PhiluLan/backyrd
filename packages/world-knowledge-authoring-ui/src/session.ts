@@ -1,4 +1,4 @@
-export type RpcResult<T> = { data: T | null; error: { message: string } | null };
+export type RpcResult<T> = { data: T | null; error: { message: string; code?: string } | null };
 
 export interface WorldAuthoringClient {
   rpc<T = unknown>(name: string, parameters?: Record<string, unknown>): PromiseLike<RpcResult<T>>;

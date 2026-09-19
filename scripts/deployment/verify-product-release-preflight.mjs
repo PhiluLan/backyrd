@@ -25,12 +25,13 @@ export function verifyProductReleasePreflight({ manifest, plan, ledger, baseline
   required(plan.authConfig?.deploy !== true && manifest.productionPlan.executionAuthorized === false, "release_auth_or_execution_scope_invalid");
   required(equal(plan.pendingMigrations, manifest.productionPlan.pendingMigrations), "release_migration_set_mismatch");
   required(equal(plan.deployFunctions, manifest.productionPlan.deployFunctions), "release_function_set_mismatch");
-  required(plan.pendingMigrations.length === 12, "release_candidate_migration_count_invalid");
+  required(plan.pendingMigrations.length === 13, "release_candidate_migration_count_invalid");
   const inherited = plan.pendingMigrations.slice(0, 11);
   required(inherited.filter((item) => /world_knowledge|world_founder/.test(item.path)).length === 9
     && inherited.some((item) => /founder_live_durable_idempotency_v1\.sql$/.test(item.path))
     && inherited.some((item) => /decision_vnext_product_runtime_v1\.sql$/.test(item.path)), "release_inherited_migration_scope_invalid");
   required(/\/20260919073307_decision_product_activation_lease_v1\.sql$/.test(plan.pendingMigrations[11].path), "release_activation_migration_missing");
+  required(/\/20260919090423_world_product_admin_spot_search_v1\.sql$/.test(plan.pendingMigrations[12].path), "release_admin_spot_search_migration_missing");
   required(plan.pendingMigrations.every((item) => /^supabase\/migrations\/\d{14}_[a-z0-9_]+\.sql$/.test(item.path) && HASH.test(item.sha256)), "release_migration_identity_invalid");
   if (!remote) return {
     status: "NO_GO_REMOTE_NOT_QUERIED", sourceAware: true, productionQueried: false,

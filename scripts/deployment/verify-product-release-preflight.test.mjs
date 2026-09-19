@@ -11,11 +11,13 @@ const migrations = [
   { path: "supabase/migrations/20260918123000_founder_live_durable_idempotency_v1.sql", sha256: hash("founder") },
   { path: "supabase/migrations/20260918182831_decision_vnext_product_runtime_v1.sql", sha256: hash("runtime") },
   { path: "supabase/migrations/20260919073307_decision_product_activation_lease_v1.sql", sha256: hash("activation") },
+  { path: "supabase/migrations/20260919090423_world_product_admin_spot_search_v1.sql", sha256: hash("admin-search") },
 ];
 const fixture = () => {
+  const pendingMigrations = migrations.map((migration) => ({ ...migration }));
   const plan = {
     projectRef: "test-project", baseSha: shipped, canonicalMainSha: sha,
-    planHash: hash("plan"), pendingMigrations: migrations, deployFunctions: ["decision-v13"],
+    planHash: hash("plan"), pendingMigrations, deployFunctions: ["decision-v13"],
     functions: [{ slug: "decision-v13", deploy: true, previousSourceSetHash: hash("prior-function") }], authConfig: null,
   };
   const ledger = {
@@ -25,7 +27,7 @@ const fixture = () => {
   const body = {
     contractVersion: "backyrd.product-release-manifest@3.0", sourceSha: sha,
     identity: { mode: "PR_CANDIDATE" }, nodeMajor: 20, buildOnceDeploySameArtifact: true,
-    productionPlan: { planHash: plan.planHash, pendingMigrations: migrations, deployFunctions: plan.deployFunctions, executionAuthorized: false },
+    productionPlan: { planHash: plan.planHash, pendingMigrations: pendingMigrations.map((migration) => ({ ...migration })), deployFunctions: plan.deployFunctions, executionAuthorized: false },
   };
   const manifest = { ...body, manifestHash: hash(JSON.stringify(body)) };
   const now = new Date("2026-09-19T12:00:00.000Z");
@@ -46,6 +48,18 @@ const fixture = () => {
 test("candidate planning remains NO-GO when Production has not been queried", () => {
   const input = fixture();
   assert.equal(verifyProductReleasePreflight({ ...input, remote: null }).status, "NO_GO_REMOTE_NOT_QUERIED");
+});
+
+test("missing or substituted Admin spot search migration blocks the release plan", () => {
+  const missing = fixture();
+  missing.plan.pendingMigrations.pop();
+  assert.throws(() => verifyProductReleasePreflight(missing), /release_migration_set_mismatch|release_candidate_migration_count_invalid/);
+  const substituted = fixture();
+  substituted.plan.pendingMigrations[12] = { path: "supabase/migrations/20260919090423_wrong_search.sql", sha256: hash("wrong") };
+  substituted.manifest.productionPlan.pendingMigrations[12] = substituted.plan.pendingMigrations[12];
+  const { manifestHash: _hash, ...body } = substituted.manifest;
+  substituted.manifest.manifestHash = hash(JSON.stringify(body));
+  assert.throws(() => verifyProductReleasePreflight(substituted), /release_admin_spot_search_migration_missing/);
 });
 
 test("source-aware comparison binds migration, Function, installed app and recovery point", () => {

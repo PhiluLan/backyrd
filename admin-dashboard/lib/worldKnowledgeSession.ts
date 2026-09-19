@@ -65,3 +65,20 @@ export async function authorizedWorldKnowledgePost(input: { auth: WorldKnowledge
   if (!response.ok) throw new Error(result.error ?? "world_knowledge_action_failed");
   return result;
 }
+
+export async function authorizedWorldKnowledgeSpotSearch(input: { auth: WorldKnowledgeBrowserAuth; query: string; fetcher?: typeof fetch }): Promise<unknown> {
+  const fetcher = input.fetcher ?? fetch;
+  const path = `/api/world-knowledge/spots?q=${encodeURIComponent(input.query)}`;
+  const send = async (forceRefresh: boolean) => {
+    const token = await accessToken(input.auth, forceRefresh);
+    return fetcher(path, { method: "GET", headers: { authorization: `Bearer ${token}` }, cache: "no-store" });
+  };
+  let response = await send(false);
+  let result = await response.json().catch(() => ({ error: "WORLD_SERVICE_UNAVAILABLE" })) as { error?: string };
+  if (response.status === 401 && ["invalid_session", "authentication_required"].includes(result.error ?? "")) {
+    response = await send(true);
+    result = await response.json().catch(() => ({ error: "WORLD_SERVICE_UNAVAILABLE" })) as { error?: string };
+  }
+  if (!response.ok) throw new Error(result.error ?? "WORLD_SERVICE_UNAVAILABLE");
+  return result;
+}

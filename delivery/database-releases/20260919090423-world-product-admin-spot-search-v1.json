@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260919090423-world-product-admin-spot-search-v1",
+  "previousEvidence": "20260919073307-decision-product-activation-lease-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "ed203b2b6606e3c99e8852750a499256bb775f61af4678aabe9a9740bbb38d57",
+    "applicationSchemaSha256": "f84883fe21f285c767ced00da68670fcb1f9b22d6fffcde56ef7079fd8b80f34"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260919090423_world_product_admin_spot_search_v1.sql",
+      "sha256": "49eecd620b638139fa731e9996ba5d0edda751fa2f755204175f28f059a52623"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/decision_product_authoring_lease_v1.sql",
+      "sha256": "99bffb1f75d2487ca52db9dab9913429921de6521c0cb40f53b7f749040727be"
+    },
+    {
+      "path": "supabase/tests/world_product_admin_spot_search_v1.sql",
+      "sha256": "b7fbe1f68cde85e46ae95ed05026eed222d9f9e622b5542d7b7badb788798994"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "94b79ae86421a78355d9c8a3bafc5fd01ab34e14b7ea968ddce656097cf04a75",
+    "applicationSchemaSha256": "848966b368c7a22931e05c31e152a669e4500ac2b0da08309d550560e279f876"
+  }
+}
