@@ -287,7 +287,8 @@ jobs:
       - name: Bundle the exact deployment artifact with Supabase Edge Runtime
         run: |
           node scripts/ci/verify-edge-deploy-closure.mjs --bundle "$RUNNER_TEMP/product-release/bundle"
-          supabase start -x gotrue,realtime,storage-api,imgproxy,mailpit,postgrest,postgres-meta,studio,logflare,vector,supavisor
+          node scripts/ci/prepare-edge-bundle-harness.mjs --output "$RUNNER_TEMP/edge-bundle-harness"
+          supabase --workdir "$RUNNER_TEMP/edge-bundle-harness" start -x gotrue,realtime,storage-api,imgproxy,mailpit,postgrest,postgres-meta,studio,logflare,vector,supavisor
           node scripts/ci/verify-edge-runtime-bundle.mjs --bundle "$RUNNER_TEMP/product-release/bundle"
       - name: Retain the exact tested Product artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
