@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260919073307-decision-product-activation-lease-v1",
+  "previousEvidence": "20260918182831-decision-vnext-product-runtime-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "50cb7fb40e509275825a23d394ff75d358ed9f57a02e76b01c0722db24a01dba",
+    "applicationSchemaSha256": "3b7a5732aa973dea0b6fede379b1f26b0a75432cd81488ffd8aa9b9203fcf719"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260919073307_decision_product_activation_lease_v1.sql",
+      "sha256": "08581087f883a3cc343db480634046e2d2a37edd57a4d44994a2344c6e94ea14"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/decision_product_authoring_lease_v1.sql",
+      "sha256": "1df796b257b23ac94bce2dbe645843b446885790131c5580f28c2dada0450b75"
+    },
+    {
+      "path": "supabase/tests/decision_vnext_product_runtime_v1.sql",
+      "sha256": "b240e7f1a75a939c4eebecf4ea4e182908654d64e09e1dea0eb8de8e9df07812"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "ed203b2b6606e3c99e8852750a499256bb775f61af4678aabe9a9740bbb38d57",
+    "applicationSchemaSha256": "f84883fe21f285c767ced00da68670fcb1f9b22d6fffcde56ef7079fd8b80f34"
+  }
+}
