@@ -20,6 +20,15 @@ const fixture = () => {
     planHash: hash("plan"), pendingMigrations, deployFunctions: ["decision-v13"],
     functions: [{ slug: "decision-v13", deploy: true, previousSourceSetHash: hash("prior-function") }], authConfig: null,
   };
+  const recoveryRiskAcceptance = {
+    contractVersion: "backyrd.product-v1-founder-recovery-risk-acceptance@1.0",
+    decision: "ACCEPT_UNTESTED_DATABASE_RECOVERY_RISK",
+    canonicalStartingMainSha: "a58d829a6c5f231e48f3582bcd69adf9245c0589",
+    projectRef: plan.projectRef, pendingMigrationCount: 13,
+    pendingMigrationSetSha256: hash(JSON.stringify(pendingMigrations)),
+    restoreDrillStatus: "NOT_PERFORMED_BY_FOUNDER_DECISION",
+    guaranteedDatabaseRollback: false, productionDataCopyAuthorized: false,
+  };
   const ledger = {
     projectRef: "test-project", supabase: { shippedSourceSha: shipped, migrationCount: 2, migrationTip: "20260909073004_close_review_capture_trust_v2" },
     mobile: { shippedSourceSha: shipped, runtimeVersion: "1.1.0", otaGroupId: "prior-ota" },
@@ -27,20 +36,22 @@ const fixture = () => {
   const body = {
     contractVersion: "backyrd.product-release-manifest@3.0", sourceSha: sha,
     identity: { mode: "PR_CANDIDATE" }, nodeMajor: 20, buildOnceDeploySameArtifact: true,
-    productionPlan: { planHash: plan.planHash, pendingMigrations: pendingMigrations.map((migration) => ({ ...migration })), deployFunctions: plan.deployFunctions, executionAuthorized: false },
+    productionPlan: { planHash: plan.planHash, pendingMigrations: pendingMigrations.map((migration) => ({ ...migration })), deployFunctions: plan.deployFunctions, executionAuthorized: false, recoveryRiskAcceptance },
   };
   const manifest = { ...body, manifestHash: hash(JSON.stringify(body)) };
   const now = new Date("2026-09-19T12:00:00.000Z");
   const baselineMigrationVersions = ["20260908000000", "20260909073004"];
   const remote = {
-    contractVersion: "backyrd.product-release-remote-observation@1.0", projectRef: "test-project",
+    contractVersion: "backyrd.product-release-remote-observation@2.0", projectRef: "test-project",
     candidateSha: sha, manifestHash: manifest.manifestHash, planHash: plan.planHash,
+    recoveryRiskAcceptanceSha256: hash(JSON.stringify(recoveryRiskAcceptance)),
     observationSource: "PROTECTED_MANUAL_READ_ONLY_PREFLIGHT", runId: 111,
     observedAt: "2026-09-19T11:55:00.000Z", appliedMigrationVersions: [...baselineMigrationVersions],
     deployedSupabaseSourceSha: shipped, deployedFunctionSourceSets: { "decision-v13": hash("prior-function") },
     installedMobile: { sourceSha: shipped, runtimeVersion: "1.1.0", otaGroupId: "prior-ota" },
-    recoveryPoint: { backupId: "backup-test-1", capturedAt: "2026-09-19T10:00:00.000Z", restoreDrillPassed: true,
-      restoreOperator: "release-operator", priorFunctionSourceSetHash: hash("prior-function"), priorOtaGroupId: "prior-ota", emergencyOffReady: true },
+    recoveryPoint: { backupId: "backup-test-1", capturedAt: "2026-09-19T10:00:00.000Z", restoreDrillPassed: false,
+      restoreDrillStatus: "NOT_PERFORMED_BY_FOUNDER_DECISION", guaranteedDatabaseRollback: false,
+      priorFunctionSourceSetHash: hash("prior-function"), priorOtaGroupId: "prior-ota", emergencyOffReady: true },
   };
   return { manifest, plan, ledger, baselineMigrationVersions, remote, now };
 };
@@ -69,7 +80,10 @@ test("source-aware comparison binds migration, Function, installed app and recov
     [(value) => { value.remote.appliedMigrationVersions[1] = "20260919000000"; }, /remote_migration_ledger_drift/],
     [(value) => { value.remote.deployedFunctionSourceSets["decision-v13"] = hash("other"); }, /remote_function_drift/],
     [(value) => { value.remote.installedMobile.otaGroupId = "other"; }, /remote_mobile_drift/],
-    [(value) => { value.remote.recoveryPoint.restoreDrillPassed = false; }, /remote_recovery_point_unusable/],
+    [(value) => { value.remote.recoveryPoint.restoreDrillPassed = true; }, /remote_recovery_point_unusable/],
+    [(value) => { value.remote.recoveryRiskAcceptanceSha256 = hash("other"); }, /remote_receipt_binding_invalid/],
+    [(value) => { value.remote.recoveryPoint.guaranteedDatabaseRollback = true; }, /remote_recovery_point_unusable/],
+    [(value) => { value.plan.pendingMigrations[0].sha256 = hash("changed"); }, /release_migration_set_mismatch/],
     [(value) => { value.remote.recoveryPoint.capturedAt = "2026-09-17T00:00:00.000Z"; }, /remote_recovery_point_unusable/],
     [(value) => { value.remote.planHash = hash("other"); }, /remote_receipt_binding_invalid/],
     [(value) => { value.remote.observedAt = "2026-09-18T00:00:00.000Z"; }, /remote_observation_stale/],

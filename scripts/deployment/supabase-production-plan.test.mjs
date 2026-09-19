@@ -75,6 +75,22 @@ test("Function source retirement requires an additive, hash-bound, non-executing
   assert.equal(result.runtimeDeploymentRequired,false);
   assert.notEqual(uncontracted,head);
 });
+test("versioned single-route retirement is conditional and refuses missing cutover evidence", () => {
+  const f=fixture();
+  const before=buildProductionPlan({repo:f.repo,baseSha:f.base,headSha:f.base}).functions.find(({slug})=>slug==="other");
+  write(f.repo,"supabase/config.toml",`[functions.decision-v13]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/decision-v13/index.ts"\n`);
+  execFileSync("git",["rm","supabase/functions/other/index.ts"],{cwd:f.repo});
+  const contract={version:"backyrd-function-retirements-v2",projectRef:"hjgcrrzfjchzqoegcywn",remoteState:"NOT_QUERIED",productionAction:"DELETE_AFTER_VERIFIED_SINGLE_ROUTE_CUTOVER",executionAuthorized:false,
+    requiredPreconditions:["EXACT_POST_MERGE_MAIN_AND_ARTIFACT","CURRENT_REMOTE_FUNCTION_IDENTITY_MATCHES","PRODUCT_BACKEND_OFF_SMOKE_GREEN","OLD_CLIENT_INCOMPATIBILITY_FAILS_CLOSED","EXACT_MOBILE_OTA_AND_IPHONE_SMOKE_GREEN","EMERGENCY_OFF_READY"],
+    retirements:[{slugSha256:createHash("sha256").update("other").digest("hex"),previousConfigHash:before.configHash,previousSourceSetHash:before.sourceSetHash,repositoryDisposition:"DELETE_SOURCE_AND_CONFIG",reason:"SINGLE_ROUTE_CUTOVER_WITH_UNPROVEN_HISTORICAL_CLIENT_USAGE"}]};
+  write(f.repo,"supabase/production/function-retirements.json",`${JSON.stringify(contract,null,2)}\n`);
+  const head=commit(f.repo,"conditional retirement");
+  const result=buildProductionPlan({repo:f.repo,baseSha:f.base,headSha:head});
+  assert.deepEqual(result.retiredFunctions.map(({productionAction,executionAuthorized})=>({productionAction,executionAuthorized})),[{productionAction:"DELETE_AFTER_VERIFIED_SINGLE_ROUTE_CUTOVER",executionAuthorized:false}]);
+  contract.requiredPreconditions.pop();
+  write(f.repo,"supabase/production/function-retirements.json",`${JSON.stringify(contract,null,2)}\n`);
+  assert.throws(()=>plan(f,commit(f.repo,"remove cutover precondition")),/function_retirement_authority_open/);
+});
 test("Published migration mutation -> fail closed", () => { const f=fixture(); write(f.repo,"supabase/migrations/20260901000000_existing.sql","select 1;\n"); const withMigration=commit(f.repo,"migration"); write(f.repo,"supabase/migrations/20260901000000_existing.sql","select 2;\n"); const head=commit(f.repo,"mutate"); assert.throws(()=>buildProductionPlan({repo:f.repo,baseSha:withMigration,headSha:head}),/published_migration_is_not_immutable/); });
 test("Audited failed canonical migration -> recover exact unchanged scope once", () => { const f=fixture(); const migration="supabase/migrations/20260901191833_gate5_forward.sql"; const source="select 1;\n"; write(f.repo,migration,source); const failedMain=commit(f.repo,"failed canonical main"); const digest=execFileSync("sha256sum",[join(f.repo,migration)],{encoding:"utf8"}).split(/\s+/)[0]; write(f.repo,"supabase/production/pending-migration-recovery.json",`${JSON.stringify({version:"backyrd-pending-migration-recovery-v1",projectRef:"hjgcrrzfjchzqoegcywn",failedCanonicalMainSha:failedMain,failedDeploymentRunId:33552000155,failureStage:"BEFORE_MIGRATION_APPLY",migrations:[{path:migration,sha256:digest}]},null,2)}\n`); const head=commit(f.repo,"recovery"); const result=buildProductionPlan({repo:f.repo,baseSha:failedMain,headSha:head}); assert.deepEqual(result.migrations,[{path:migration,sha256:digest}]); assert.equal(result.migrationRecovery.failedCanonicalMainSha,failedMain); assert.equal(result.runtimeDeploymentRequired,true); });
 test("Migration recovery with a different base or bytes fails closed", () => { const f=fixture(); const migration="supabase/migrations/20260901191833_gate5_forward.sql"; write(f.repo,migration,"select 1;\n"); const failedMain=commit(f.repo,"failed canonical main"); const document={version:"backyrd-pending-migration-recovery-v1",projectRef:"hjgcrrzfjchzqoegcywn",failedCanonicalMainSha:"0".repeat(40),failedDeploymentRunId:33552000155,failureStage:"BEFORE_MIGRATION_APPLY",migrations:[{path:migration,sha256:"0".repeat(64)}]}; write(f.repo,"supabase/production/pending-migration-recovery.json",`${JSON.stringify(document,null,2)}\n`); const head=commit(f.repo,"invalid recovery"); assert.throws(()=>buildProductionPlan({repo:f.repo,baseSha:failedMain,headSha:head}),/migration_recovery_base_mismatch/); });

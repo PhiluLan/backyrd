@@ -33,14 +33,24 @@ export function verifyProductReleasePreflight({ manifest, plan, ledger, baseline
   required(/\/20260919073307_decision_product_activation_lease_v1\.sql$/.test(plan.pendingMigrations[11].path), "release_activation_migration_missing");
   required(/\/20260919090423_world_product_admin_spot_search_v1\.sql$/.test(plan.pendingMigrations[12].path), "release_admin_spot_search_migration_missing");
   required(plan.pendingMigrations.every((item) => /^supabase\/migrations\/\d{14}_[a-z0-9_]+\.sql$/.test(item.path) && HASH.test(item.sha256)), "release_migration_identity_invalid");
+  const risk = manifest.productionPlan.recoveryRiskAcceptance;
+  required(risk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
+    && risk.decision === "ACCEPT_UNTESTED_DATABASE_RECOVERY_RISK"
+    && risk.canonicalStartingMainSha === "a58d829a6c5f231e48f3582bcd69adf9245c0589"
+    && risk.projectRef === plan.projectRef && risk.pendingMigrationCount === 13
+    && risk.pendingMigrationSetSha256 === sha256(JSON.stringify(plan.pendingMigrations))
+    && risk.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
+    && risk.guaranteedDatabaseRollback === false && risk.productionDataCopyAuthorized === false,
+  "release_recovery_risk_acceptance_invalid");
   if (!remote) return {
     status: "NO_GO_REMOTE_NOT_QUERIED", sourceAware: true, productionQueried: false,
     candidateSha: manifest.sourceSha, manifestHash, planHash: plan.planHash,
     inheritedMigrationCount: 11, candidateMigrationCount: plan.pendingMigrations.length,
   };
-  required(remote.contractVersion === "backyrd.product-release-remote-observation@1.0", "remote_receipt_contract_invalid");
+  required(remote.contractVersion === "backyrd.product-release-remote-observation@2.0", "remote_receipt_contract_invalid");
   required(remote.projectRef === plan.projectRef && remote.candidateSha === manifest.sourceSha
-    && remote.manifestHash === manifestHash && remote.planHash === plan.planHash, "remote_receipt_binding_invalid");
+    && remote.manifestHash === manifestHash && remote.planHash === plan.planHash
+    && remote.recoveryRiskAcceptanceSha256 === sha256(JSON.stringify(risk)), "remote_receipt_binding_invalid");
   required(remote.observationSource === "PROTECTED_MANUAL_READ_ONLY_PREFLIGHT"
     && Number.isSafeInteger(remote.runId) && remote.runId > 0, "remote_receipt_provenance_missing");
   required(Array.isArray(baselineMigrationVersions) && baselineMigrationVersions.length === ledger.supabase.migrationCount
@@ -60,7 +70,8 @@ export function verifyProductReleasePreflight({ manifest, plan, ledger, baseline
   required(Number.isFinite(observedAt) && observedAt <= now.getTime() && now.getTime() - observedAt <= 60 * 60 * 1000, "remote_observation_stale");
   required(typeof point?.backupId === "string" && point.backupId.length > 0
     && Number.isFinite(pointAt) && pointAt <= observedAt && observedAt - pointAt <= 24 * 60 * 60 * 1000
-    && point.restoreDrillPassed === true && typeof point.restoreOperator === "string" && point.restoreOperator.length > 0
+    && point.restoreDrillPassed === false && point.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
+    && point.guaranteedDatabaseRollback === false
     && point.priorFunctionSourceSetHash === remote.deployedFunctionSourceSets?.["decision-v13"]
     && point.priorOtaGroupId === remote.installedMobile.otaGroupId
     && point.emergencyOffReady === true, "remote_recovery_point_unusable");
