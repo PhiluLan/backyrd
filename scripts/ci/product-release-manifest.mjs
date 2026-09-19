@@ -209,12 +209,13 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   requireValue(authority.status === "ACTIVE" && authority.productRoute === "DECISION_VNEXT_SINGLE_ROUTE" && authority.legacyDecisionAuthority === false, "release_product_authority_invalid");
   requireValue(authority.runtimeScope?.activeTransport === "decision-v13" && (authority.runtimeScope?.quarantinedTransports ?? []).length === 0, "release_runtime_policy_invalid");
   const recoveryRisk = authority.founderRecoveryRiskAcceptance;
+  const acceptedMigrationSet = actualPlan.productPreappliedImport?.migrations ?? actualPlan.pendingMigrations;
   requireValue(recoveryRisk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
     && recoveryRisk.decision === "ACCEPT_UNTESTED_DATABASE_RECOVERY_RISK"
     && recoveryRisk.canonicalStartingMainSha === "a58d829a6c5f231e48f3582bcd69adf9245c0589"
     && recoveryRisk.projectRef === actualPlan.projectRef
-    && recoveryRisk.pendingMigrationCount === 13 && actualPlan.pendingMigrations.length === 13
-    && recoveryRisk.pendingMigrationSetSha256 === sha256(JSON.stringify(actualPlan.pendingMigrations))
+    && recoveryRisk.pendingMigrationCount === 13 && acceptedMigrationSet.length === 13
+    && recoveryRisk.pendingMigrationSetSha256 === sha256(JSON.stringify(acceptedMigrationSet))
     && recoveryRisk.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
     && recoveryRisk.guaranteedDatabaseRollback === false
     && recoveryRisk.productionDataCopyAuthorized === false, "release_recovery_risk_acceptance_invalid");
@@ -234,6 +235,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     planHash: actualPlan.planHash,
     migrationSet: actualPlan.migrations,
     pendingMigrations: actualPlan.pendingMigrations,
+    productPreappliedImport: actualPlan.productPreappliedImport,
     deployFunctions: actualPlan.deployFunctions,
     retiredFunctions: actualPlan.retiredFunctions ?? [],
     recoveryRiskAcceptance: recoveryRisk,
@@ -278,11 +280,12 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
   requireValue(manifest.buildOnceDeploySameArtifact === true, "release_build_once_policy_invalid");
   requireValue(manifest.productionPlan?.canonicalMainSha === manifest.sourceSha && manifest.productionPlan.executionAuthorized === false, "release_production_plan_invalid");
   const recoveryRisk = manifest.productionPlan.recoveryRiskAcceptance;
+  const acceptedMigrationSet = manifest.productionPlan.productPreappliedImport?.migrations ?? manifest.productionPlan.pendingMigrations;
   requireValue(recoveryRisk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
     && recoveryRisk.decision === "ACCEPT_UNTESTED_DATABASE_RECOVERY_RISK"
     && recoveryRisk.canonicalStartingMainSha === "a58d829a6c5f231e48f3582bcd69adf9245c0589"
-    && recoveryRisk.pendingMigrationCount === 13 && manifest.productionPlan.pendingMigrations.length === 13
-    && recoveryRisk.pendingMigrationSetSha256 === sha256(JSON.stringify(manifest.productionPlan.pendingMigrations))
+    && recoveryRisk.pendingMigrationCount === 13 && acceptedMigrationSet.length === 13
+    && recoveryRisk.pendingMigrationSetSha256 === sha256(JSON.stringify(acceptedMigrationSet))
     && recoveryRisk.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
     && recoveryRisk.guaranteedDatabaseRollback === false
     && recoveryRisk.productionDataCopyAuthorized === false, "release_recovery_risk_acceptance_invalid");

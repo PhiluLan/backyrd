@@ -25,20 +25,27 @@ export function verifyProductReleasePreflight({ manifest, plan, ledger, baseline
   required(plan.authConfig?.deploy !== true && manifest.productionPlan.executionAuthorized === false, "release_auth_or_execution_scope_invalid");
   required(equal(plan.pendingMigrations, manifest.productionPlan.pendingMigrations), "release_migration_set_mismatch");
   required(equal(plan.deployFunctions, manifest.productionPlan.deployFunctions), "release_function_set_mismatch");
-  required(plan.pendingMigrations.length === 13, "release_candidate_migration_count_invalid");
-  const inherited = plan.pendingMigrations.slice(0, 11);
+  const acceptedMigrations = plan.productPreappliedImport?.migrations ?? plan.pendingMigrations;
+  required(equal(acceptedMigrations, manifest.productionPlan.productPreappliedImport?.migrations ?? manifest.productionPlan.pendingMigrations), "release_accepted_migration_set_mismatch");
+  required(acceptedMigrations.length === 13, "release_candidate_migration_count_invalid");
+  if (plan.productPreappliedImport) {
+    required(plan.pendingMigrations.length === 2
+      && /\/20260919120432_world_product_admin_authoring_independent_v1\.sql$/.test(plan.pendingMigrations[0]?.path)
+      && /\/20260919122454_world_product_approved_catalog_bootstrap_v1\.sql$/.test(plan.pendingMigrations[1]?.path), "release_pending_world_admin_scope_invalid");
+  }
+  const inherited = acceptedMigrations.slice(0, 11);
   required(inherited.filter((item) => /world_knowledge|world_founder/.test(item.path)).length === 9
     && inherited.some((item) => /founder_live_durable_idempotency_v1\.sql$/.test(item.path))
     && inherited.some((item) => /decision_vnext_product_runtime_v1\.sql$/.test(item.path)), "release_inherited_migration_scope_invalid");
-  required(/\/20260919073307_decision_product_activation_lease_v1\.sql$/.test(plan.pendingMigrations[11].path), "release_activation_migration_missing");
-  required(/\/20260919090423_world_product_admin_spot_search_v1\.sql$/.test(plan.pendingMigrations[12].path), "release_admin_spot_search_migration_missing");
-  required(plan.pendingMigrations.every((item) => /^supabase\/migrations\/\d{14}_[a-z0-9_]+\.sql$/.test(item.path) && HASH.test(item.sha256)), "release_migration_identity_invalid");
+  required(/\/20260919073307_decision_product_activation_lease_v1\.sql$/.test(acceptedMigrations[11].path), "release_activation_migration_missing");
+  required(/\/20260919090423_world_product_admin_spot_search_v1\.sql$/.test(acceptedMigrations[12].path), "release_admin_spot_search_migration_missing");
+  required([...acceptedMigrations, ...plan.pendingMigrations].every((item) => /^supabase\/migrations\/\d{14}_[a-z0-9_]+\.sql$/.test(item.path) && HASH.test(item.sha256)), "release_migration_identity_invalid");
   const risk = manifest.productionPlan.recoveryRiskAcceptance;
   required(risk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
     && risk.decision === "ACCEPT_UNTESTED_DATABASE_RECOVERY_RISK"
     && risk.canonicalStartingMainSha === "a58d829a6c5f231e48f3582bcd69adf9245c0589"
     && risk.projectRef === plan.projectRef && risk.pendingMigrationCount === 13
-    && risk.pendingMigrationSetSha256 === sha256(JSON.stringify(plan.pendingMigrations))
+    && risk.pendingMigrationSetSha256 === sha256(JSON.stringify(acceptedMigrations))
     && risk.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
     && risk.guaranteedDatabaseRollback === false && risk.productionDataCopyAuthorized === false,
   "release_recovery_risk_acceptance_invalid");
@@ -55,7 +62,10 @@ export function verifyProductReleasePreflight({ manifest, plan, ledger, baseline
     && Number.isSafeInteger(remote.runId) && remote.runId > 0, "remote_receipt_provenance_missing");
   required(Array.isArray(baselineMigrationVersions) && baselineMigrationVersions.length === ledger.supabase.migrationCount
     && baselineMigrationVersions.at(-1) === ledger.supabase.migrationTip.replace(/_.*/, ""), "remote_shipped_migration_baseline_invalid");
-  required(equal(remote.appliedMigrationVersions, baselineMigrationVersions), "remote_migration_ledger_drift");
+  const expectedAppliedVersions = plan.productPreappliedImport
+    ? [...baselineMigrationVersions, ...acceptedMigrations.map((item) => item.path.match(/\/([0-9]{14})_/)?.[1])]
+    : baselineMigrationVersions;
+  required(equal(remote.appliedMigrationVersions, expectedAppliedVersions), "remote_migration_ledger_drift");
   required(remote.deployedSupabaseSourceSha === ledger.supabase.shippedSourceSha, "remote_source_drift");
   for (const item of plan.functions.filter((entry) => entry.deploy)) {
     required(HASH.test(item.previousSourceSetHash) && remote.deployedFunctionSourceSets?.[item.slug] === item.previousSourceSetHash,
