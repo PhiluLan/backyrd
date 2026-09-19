@@ -14,7 +14,7 @@ select pg_temp.assert_catalog(
   and not has_function_privilege('authenticated','public.backyrd_decision_vnext_product_context_v2(uuid,text,text,text,text,text,text,bigint)','EXECUTE'),
   'only the service role may execute the bounded context');
 
--- Even a service caller cannot bypass OFF or supply an unrecognized intent.
+-- Even a service caller cannot bypass OFF.
 select set_config('request.jwt.claim.role','service_role',true);
 select set_config('request.jwt.claims','{"role":"service_role"}',true);
 create function pg_temp.expect_catalog_error(p_query text,p_code text) returns void language plpgsql as $$
@@ -26,7 +26,7 @@ exception when others then
 end $$;
 select pg_temp.expect_catalog_error(
   format('select public.backyrd_decision_vnext_product_context_v2(null,%L,%L,%L,%L,%L,%L,%s)',
-    repeat('a',64),'Basel','UNRECOGNIZED',repeat('b',64),repeat('c',64),repeat('d',64),-1),
+    repeat('a',64),'Basel','UNRECOGNIZED',repeat('b',64),repeat('c',64),repeat('d',64),1),
   '55000');
 
 rollback;

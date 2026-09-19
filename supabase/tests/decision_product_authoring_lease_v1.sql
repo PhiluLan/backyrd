@@ -97,6 +97,11 @@ select pg_temp.assert(
   )->>'generation')::bigint=1,
   'operator ON transition failed'
 );
+select pg_temp.expect_state(format(
+  'select public.backyrd_decision_vnext_product_context_v2(%L,%L,%L,%L,%L,%L,%L,%s)',
+  pg_temp.id('product-world-admin'),repeat('f',64),'Zürich','UNRECOGNIZED',
+  repeat('a',64),repeat('b',64),repeat('c',64),1
+),'42501');
 
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claims',jsonb_build_object('role','authenticated','sub',pg_temp.id('product-world-admin'))::text,true);
