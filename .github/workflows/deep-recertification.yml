@@ -25,6 +25,8 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Install the existing Mobile app from its lockfile
         run: npm ci --prefix mobile
+      - name: Install the Product journey browser
+        run: npx playwright install --with-deps chromium
       - run: npm run decision-product:ci
 
   current-domain-integrity:
