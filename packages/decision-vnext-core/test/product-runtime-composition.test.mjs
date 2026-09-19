@@ -88,4 +88,7 @@ test("evaluation failures reveal only a fixed stage and never a World fact or co
   })) };
   const evaluated = await evaluate(citySized);
   assert.equal(evaluated.evaluation.candidates.length, 387);
+  const transport = createDecisionProductRpcEvaluationProvider({ async rpc() { throw new Error(marker); } });
+  await assert.rejects(transport.evaluate({ request, actor, identity, signal: new AbortController().signal }),
+    (error) => error.message === "product_runtime_context_transport_failed");
 });

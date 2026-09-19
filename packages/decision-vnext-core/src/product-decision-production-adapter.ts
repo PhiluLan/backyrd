@@ -384,7 +384,7 @@ export function createDecisionProductRpcEvaluationProvider(rpc: DecisionProductR
         p_target_city: targetCity, p_release_hash: input.identity.releaseHash,
         p_artifact_hash: input.identity.artifactHash, p_source_set_hash: input.identity.sourceSetHash,
         p_generation: input.identity.controlGeneration,
-      }, input.signal);
+      }, input.signal).catch(() => { throw new Error("product_runtime_context_transport_failed"); });
       if (result.error) throw new Error("product_runtime_context_unavailable");
       const context = row(result.data, "product_runtime_context_invalid");
       if (context.contractVersion !== "backyrd.decision-vnext.product-runtime-context@1.0" || context.authorizedCity !== targetCity || typeof context.serverTime !== "string" || !Number.isFinite(Date.parse(context.serverTime))) throw new Error("product_runtime_context_invalid");
