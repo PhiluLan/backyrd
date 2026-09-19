@@ -45,8 +45,11 @@ if test "${#planned_migrations[@]}" -gt 0; then
       --plan "$plan_path" --listing deployment-audit/migrations-already-applied.txt \
       > deployment-audit/migrations-preapplied-verification.json
   else
-    supabase link --project-ref hjgcrrzfjchzqoegcywn
-    supabase db push --dry-run 2>&1 | tee deployment-audit/migration-dry-run.txt
+  supabase link --project-ref hjgcrrzfjchzqoegcywn
+  if jq -e '.productPreappliedImport != null' "$plan_path" >/dev/null; then
+    node scripts/deployment/verify-preapplied-product-ledger.mjs "$plan_path" deployment-audit/product-preapplied-ledger.json
+  fi
+  supabase db push --dry-run 2>&1 | tee deployment-audit/migration-dry-run.txt
     node scripts/deployment/verify-supabase-migration-dry-run.mjs "$plan_path" deployment-audit/migration-dry-run.txt
     supabase db push --yes 2>&1 | tee deployment-audit/migration-apply.txt
   fi

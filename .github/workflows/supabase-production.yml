@@ -80,7 +80,7 @@ jobs:
         with:
           version: 2.98.2
       - name: Verify fail-closed deployment planner
-        run: node --test scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/verify-supabase-migration-dry-run.test.mjs scripts/deployment/verify-already-applied-product-migrations.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs scripts/ci/validate-production-state.test.mjs
+        run: node --test scripts/deployment/supabase-production-plan.test.mjs scripts/deployment/verify-manual-production-release.test.mjs scripts/deployment/verify-supabase-migration-dry-run.test.mjs scripts/deployment/verify-already-applied-product-migrations.test.mjs scripts/deployment/verify-preapplied-product-ledger.test.mjs scripts/deployment/deploy-supabase-production-contract.test.mjs scripts/ci/validate-production-state.test.mjs
       - name: Validate shipped Production baseline
         run: node scripts/ci/validate-production-state.mjs
       - name: Build auditable deployment plan
@@ -120,10 +120,18 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           test -n "$SUPABASE_ACCESS_TOKEN"
+          if jq -e '.productPreappliedImport != null' supabase-production-plan.json >/dev/null; then
+            backup_run="$(jq -r '.productPreappliedImport.backupRunId' supabase-production-plan.json)"
+            test "$(gh run view "$backup_run" --json status,conclusion,workflowName --jq 'select(.status=="completed" and .conclusion=="success" and .workflowName=="Production Backup") | .conclusion')" = success
+          fi
           supabase functions list --project-ref hjgcrrzfjchzqoegcywn --output json | jq -e '.[] | select(.slug=="decision-v13" and .status=="ACTIVE" and .verify_jwt==true)'
           supabase link --project-ref hjgcrrzfjchzqoegcywn
+          if jq -e '.productPreappliedImport != null' supabase-production-plan.json >/dev/null; then
+            node scripts/deployment/verify-preapplied-product-ledger.mjs supabase-production-plan.json product-preapplied-ledger-audit.json
+          fi
           supabase db push --dry-run 2>&1 | tee production-migration-dry-run.txt
           node scripts/deployment/verify-supabase-migration-dry-run.mjs supabase-production-plan.json production-migration-dry-run.txt
       - name: Retain deployment plan and gate audit
@@ -135,6 +143,7 @@ jobs:
             supabase-production-plan.json
             supabase-production-gate.json
             production-migration-dry-run.txt
+            product-preapplied-ledger-audit.json
             manual-production-release.json
           if-no-files-found: error
           retention-days: 30

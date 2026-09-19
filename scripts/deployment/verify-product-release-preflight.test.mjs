@@ -94,3 +94,23 @@ test("source-aware comparison binds migration, Function, installed app and recov
     assert.throws(() => verifyProductReleasePreflight(candidate), reason);
   }
 });
+
+test("observed 13-migration prefix leaves only the two World Admin migrations pending", () => {
+  const input = fixture();
+  const observed = input.plan.pendingMigrations.map((entry) => ({ ...entry, productionStatementCount: 1, productionStatementSha256: hash(entry.path) }));
+  const pending = [
+    { path: "supabase/migrations/20260919120432_world_product_admin_authoring_independent_v1.sql", sha256: hash("authoring") },
+    { path: "supabase/migrations/20260919122454_world_product_approved_catalog_bootstrap_v1.sql", sha256: hash("bootstrap") },
+  ];
+  input.plan.productPreappliedImport = { migrations: observed };
+  input.plan.pendingMigrations = pending;
+  input.manifest.productionPlan.productPreappliedImport = { migrations: observed.map((entry) => ({ ...entry })) };
+  input.manifest.productionPlan.pendingMigrations = pending.map((entry) => ({ ...entry }));
+  const { manifestHash: _hash, ...body } = input.manifest;
+  input.manifest.manifestHash = hash(JSON.stringify(body));
+  input.remote.manifestHash = input.manifest.manifestHash;
+  input.remote.appliedMigrationVersions.push(...observed.map(({ path }) => path.match(/\/([0-9]{14})_/)[1]));
+  assert.equal(verifyProductReleasePreflight(input).candidateMigrationCount, 2);
+  input.remote.appliedMigrationVersions.pop();
+  assert.throws(() => verifyProductReleasePreflight(input), /remote_migration_ledger_drift/);
+});
