@@ -60,3 +60,21 @@ test("the live Decision route reads the current validated World pointer after Ad
   assert.match(sql, /from world_knowledge_private\.current_projection_pointers p/);
   assert.match(sql, /world_knowledge_private\.validate_resolution_manifest_v1\(m\.id\)/);
 });
+
+test("approved catalog coverage is explicit, bounded and resumable without inventing intent", async () => {
+  const [migration, product] = await Promise.all([
+    source("../../supabase/migrations/20260919122454_world_product_approved_catalog_bootstrap_v1.sql"),
+    source("../../packages/world-knowledge-authoring-ui/src/ProductCorrection.tsx"),
+  ]);
+  assert.match(migration, /world_product_admin_bootstrap_catalog_v1/);
+  assert.match(migration, /p_limit not between 1 and 10/);
+  assert.match(migration, /p_acknowledgement is distinct from 'APPROVED_CATALOG_BASELINE_ONLY'/);
+  assert.match(migration, /where s\.status='approved'/);
+  assert.match(migration, /'classification\.primary_category','purpose\.primary_visit'/);
+  assert.match(migration, /v_state:='UNKNOWN'; v_value:=null/);
+  assert.match(migration, /not exists\(select 1 from world_knowledge_private\.claims c/);
+  assert.match(migration, /world_shadow_rebuild_spot_v1/);
+  assert.match(product, /world_product_admin_catalog_coverage_v1/);
+  assert.match(product, /world_product_admin_bootstrap_catalog_v1/);
+  assert.match(product, /Freigegebene Spots in World übernehmen/);
+});

@@ -5,7 +5,7 @@ import {
   AUTHORING_FIELDS, AUTHORING_STEPS, getAuthoringFieldsForContext,
   validateAuthoringSubmission, type AuthoringField,
 } from "@backyrd/world-knowledge-core";
-import type { WorldAuthoringClient } from "./session";
+import type { RpcResult, WorldAuthoringClient } from "./session";
 
 type Answer = {
   claimId: string;
@@ -48,6 +48,22 @@ export type ProductAdminSpotSearch = {
   contractVersion: "backyrd.world-knowledge.product-admin-spot-search@1.0";
   spots: Array<{ spotId: string; name: string; city: string | null }>;
   hasMore: boolean;
+};
+type CatalogCoverage = {
+  contractVersion: "backyrd.world-knowledge.approved-catalog-coverage@1.0";
+  approved: number;
+  withClaims: number;
+  withSnapshots: number;
+  missingCity: number;
+  authoringActive: boolean;
+};
+type CatalogBatch = {
+  contractVersion: "backyrd.world-knowledge.approved-catalog-bootstrap@1.0";
+  processed: number;
+  claimsCreated: number;
+  snapshotsRebuilt: number;
+  nextCursor: string | null;
+  complete: boolean;
 };
 type SearchState = "LOADING" | "RESULTS" | "EMPTY" | "BACKEND_NOT_PUBLISHED" | "FORBIDDEN" | "UNAVAILABLE";
 
@@ -102,6 +118,10 @@ export function WorldProductCorrection({ client, rebuild, search, FieldEditor }:
   const [matches, setMatches] = useState<ProductAdminSpotSearch["spots"]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [searchState, setSearchState] = useState<SearchState>("LOADING");
+  const [coverage, setCoverage] = useState<CatalogCoverage | null>(null);
+  const [catalogBusy, setCatalogBusy] = useState(false);
+  const [catalogProgress, setCatalogProgress] = useState(0);
+  const [catalogError, setCatalogError] = useState("");
   const searchSequence = useRef(0);
   const loadSequence = useRef(0);
 
@@ -129,6 +149,55 @@ export function WorldProductCorrection({ client, rebuild, search, FieldEditor }:
     void findSpots("");
     return () => { searchSequence.current += 1; };
   }, [findSpots, search]);
+
+  const refreshCoverage = useCallback(async () => {
+    if (!search) return;
+    const { data, error } = await client.rpc<CatalogCoverage>("world_product_admin_catalog_coverage_v1");
+    if (error || !data || data.contractVersion !== "backyrd.world-knowledge.approved-catalog-coverage@1.0") {
+      setCatalogError(error ? safeRpcMessage(error) : "Der Bestandsstatus konnte nicht geprüft werden.");
+      return;
+    }
+    setCoverage(data);
+    setCatalogError("");
+  }, [client, search]);
+  useEffect(() => { void refreshCoverage(); }, [refreshCoverage]);
+
+  const bootstrapCatalog = async () => {
+    if (!coverage?.authoringActive || catalogBusy) return;
+    setCatalogBusy(true);
+    setCatalogError("");
+    setCatalogProgress(0);
+    let cursor: string | null = null;
+    try {
+      // Every batch commits independently. Restarting after an interruption is
+      // safe: the backend skips existing claims and current snapshots.
+      for (let batchNumber = 0; batchNumber < 1000; batchNumber += 1) {
+        const response: RpcResult<CatalogBatch> = await client.rpc<CatalogBatch>("world_product_admin_bootstrap_catalog_v1", {
+          p_cursor: cursor,
+          p_limit: 10,
+          p_acknowledgement: "APPROVED_CATALOG_BASELINE_ONLY",
+        });
+        const { data, error } = response;
+        if (error || !data || data.contractVersion !== "backyrd.world-knowledge.approved-catalog-bootstrap@1.0"
+          || typeof data.processed !== "number" || typeof data.complete !== "boolean"
+          || (data.processed > 0 && (!data.nextCursor || data.nextCursor === cursor))) {
+          throw new Error(error ? safeRpcMessage(error) : "Der Bestandsabgleich wurde unterbrochen. Du kannst ihn fortsetzen.");
+        }
+        setCatalogProgress((count) => count + data.processed);
+        if (data.complete) break;
+        cursor = data.nextCursor;
+        if (batchNumber === 999) throw new Error("Der Bestandsabgleich erreichte seine Sicherheitsgrenze. Bitte Status prüfen.");
+      }
+      await refreshCoverage();
+      if (detail) void selectSpot(detail.spotId);
+    } catch (error) {
+      const failure = messageOf(error);
+      await refreshCoverage();
+      setCatalogError(failure);
+    } finally {
+      setCatalogBusy(false);
+    }
+  };
 
   const readDetail = async (id: string) => {
     if (!uuid.test(id)) throw new Error("Bitte eine gültige Spot-ID eingeben.");
@@ -212,6 +281,16 @@ export function WorldProductCorrection({ client, rebuild, search, FieldEditor }:
         <p>{detail ? `${known} bestätigte Angaben · ${unknown} bewusst unbekannt · ${unresolved} offene Konflikte` : "Wähle einen Spot und pflege seine Angaben Schritt für Schritt."}</p></div>
       <div className="wk-header-actions"><span className="wk-status">{detail?.manifest ? "● Datenvorschau vorhanden" : "● Noch keine Datenvorschau"}</span></div>
     </header>
+    {search && <section className="wk-panel" aria-label="World-Bestandsabgleich">
+      <h2>Bestand im Wissensspeicher</h2>
+      {coverage && <p>{coverage.withClaims} von {coverage.approved} freigegebenen Spots haben Claims; {coverage.withSnapshots} haben eine geprüfte Datenvorschau.</p>}
+      <p>Der Erstabgleich übernimmt Namen und vorhandene Orte aus dem freigegebenen Spot-Bestand. Fehlende Orte sowie Hauptzweck und Kategorie bleiben ausdrücklich unbekannt. Bestehende Angaben werden nicht überschrieben; die übernommenen Angaben solltest du anschließend prüfen.</p>
+      {coverage?.missingCity ? <p>{coverage.missingCity} Spots haben noch keinen Ort und benötigen eine manuelle Ergänzung.</p> : null}
+      <button type="button" disabled={catalogBusy || !coverage?.authoringActive || (coverage.withClaims === coverage.approved && coverage.withSnapshots === coverage.approved)}
+        onClick={() => void bootstrapCatalog()}>{catalogBusy ? `Abgleich läuft · ${catalogProgress} geprüft` : "Freigegebene Spots in World übernehmen"}</button>
+      {coverage && !coverage.authoringActive && <p role="status">Die Spot-Pflege ist derzeit ausgeschaltet; der Bestand kann erst nach der separaten World-Freigabe übernommen werden.</p>}
+      {catalogError && <p role="alert">{catalogError}</p>}
+    </section>}
     <div className="wk-layout"><aside className="wk-sidebar">
       {search ? <div className="wk-product-search">
         <form onSubmit={(event) => { event.preventDefault(); void findSpots(query); }}>
@@ -239,7 +318,8 @@ export function WorldProductCorrection({ client, rebuild, search, FieldEditor }:
       })}</nav>}
     </aside>
     <main className="wk-main">{!detail ? <section className="wk-panel"><h2>Spot auswählen</h2><p>Suche links nach einem freigegebenen Spot. Anschließend kannst du alle für deine Rolle freigegebenen Angaben direkt und ohne JSON-Eingabe pflegen.</p></section>
-      : <section className="wk-panel"><div className="wk-step-title"><span>Bereich {step + 1} von {AUTHORING_STEPS.length}</span><h2>{current.title}</h2><p>{current.explanation}</p></div>
+      : <section className="wk-panel"><div className="wk-step-title"><span>Bereich {step + 1} von {AUTHORING_STEPS.length}</span><h2>{current.title}</h2><p>{current.explanation}</p>
+        {detail.actor.role === "ADMIN" && <p>Ein übernommenes Basisprofil ersetzt keine fachliche Prüfung. Ergänze insbesondere Hauptzweck, Kategorie, Besuchssituation, Öffnung und Zugänglichkeit nur mit belegten Angaben.</p>}</div>
         {unresolved > 0 && <div className="wk-error-summary" role="alert"><strong>{unresolved} offene {unresolved === 1 ? "Angabe" : "Angaben"} mit Widerspruch</strong>
           <p>Betroffene Angaben bleiben bis zur Prüfung gesperrt.</p><ul>{detail.openConflicts.map((conflict, index) => <li key={index}>{fieldLabel(conflict.attributeKey)}</li>)}</ul></div>}
         {current.id === "review" ? <div className="wk-review">
