@@ -25,8 +25,10 @@ export function verifyProductReleasePreflight({ manifest, plan, ledger, baseline
   required(plan.authConfig?.deploy !== true && manifest.productionPlan.executionAuthorized === false, "release_auth_or_execution_scope_invalid");
   required(equal(plan.pendingMigrations, manifest.productionPlan.pendingMigrations), "release_migration_set_mismatch");
   required(equal(plan.deployFunctions, manifest.productionPlan.deployFunctions), "release_function_set_mismatch");
-  const acceptedMigrations = plan.productPreappliedImport?.migrations ?? plan.pendingMigrations;
-  required(equal(acceptedMigrations, manifest.productionPlan.productPreappliedImport?.migrations ?? manifest.productionPlan.pendingMigrations), "release_accepted_migration_set_mismatch");
+  const acceptedMigrations = (plan.productPreappliedImport?.migrations ?? plan.pendingMigrations)
+    .map(({ path, sha256: migrationSha256 }) => ({ path, sha256: migrationSha256 }));
+  required(equal(acceptedMigrations, (manifest.productionPlan.productPreappliedImport?.migrations ?? manifest.productionPlan.pendingMigrations)
+    .map(({ path, sha256: migrationSha256 }) => ({ path, sha256: migrationSha256 }))), "release_accepted_migration_set_mismatch");
   required(acceptedMigrations.length === 13, "release_candidate_migration_count_invalid");
   if (plan.productPreappliedImport) {
     required(plan.pendingMigrations.length === 2

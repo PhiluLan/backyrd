@@ -209,7 +209,8 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   requireValue(authority.status === "ACTIVE" && authority.productRoute === "DECISION_VNEXT_SINGLE_ROUTE" && authority.legacyDecisionAuthority === false, "release_product_authority_invalid");
   requireValue(authority.runtimeScope?.activeTransport === "decision-v13" && (authority.runtimeScope?.quarantinedTransports ?? []).length === 0, "release_runtime_policy_invalid");
   const recoveryRisk = authority.founderRecoveryRiskAcceptance;
-  const acceptedMigrationSet = actualPlan.productPreappliedImport?.migrations ?? actualPlan.pendingMigrations;
+  const acceptedMigrationSet = (actualPlan.productPreappliedImport?.migrations ?? actualPlan.pendingMigrations)
+    .map(({ path, sha256: migrationSha256 }) => ({ path, sha256: migrationSha256 }));
   requireValue(recoveryRisk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
     && recoveryRisk.decision === "ACCEPT_UNTESTED_DATABASE_RECOVERY_RISK"
     && recoveryRisk.canonicalStartingMainSha === "a58d829a6c5f231e48f3582bcd69adf9245c0589"
@@ -280,7 +281,8 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
   requireValue(manifest.buildOnceDeploySameArtifact === true, "release_build_once_policy_invalid");
   requireValue(manifest.productionPlan?.canonicalMainSha === manifest.sourceSha && manifest.productionPlan.executionAuthorized === false, "release_production_plan_invalid");
   const recoveryRisk = manifest.productionPlan.recoveryRiskAcceptance;
-  const acceptedMigrationSet = manifest.productionPlan.productPreappliedImport?.migrations ?? manifest.productionPlan.pendingMigrations;
+  const acceptedMigrationSet = (manifest.productionPlan.productPreappliedImport?.migrations ?? manifest.productionPlan.pendingMigrations)
+    .map(({ path, sha256: migrationSha256 }) => ({ path, sha256: migrationSha256 }));
   requireValue(recoveryRisk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
     && recoveryRisk.decision === "ACCEPT_UNTESTED_DATABASE_RECOVERY_RISK"
     && recoveryRisk.canonicalStartingMainSha === "a58d829a6c5f231e48f3582bcd69adf9245c0589"

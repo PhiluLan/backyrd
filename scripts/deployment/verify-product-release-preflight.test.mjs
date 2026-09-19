@@ -97,7 +97,7 @@ test("source-aware comparison binds migration, Function, installed app and recov
 
 test("observed 13-migration prefix leaves only the two World Admin migrations pending", () => {
   const input = fixture();
-  const observed = input.plan.pendingMigrations;
+  const observed = input.plan.pendingMigrations.map((entry) => ({ ...entry, productionStatementCount: 1, productionStatementSha256: hash(entry.path) }));
   const pending = [
     { path: "supabase/migrations/20260919120432_world_product_admin_authoring_independent_v1.sql", sha256: hash("authoring") },
     { path: "supabase/migrations/20260919122454_world_product_approved_catalog_bootstrap_v1.sql", sha256: hash("bootstrap") },
