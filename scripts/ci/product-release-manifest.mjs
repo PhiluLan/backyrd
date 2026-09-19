@@ -50,6 +50,11 @@ const git = (root, args) => execFileSync("git", args, {
   maxBuffer: MAX_GIT_OUTPUT,
   stdio: ["ignore", "pipe", "pipe"],
 }).trim();
+const gitBlob = (root, spec) => execFileSync("git", ["show", spec], {
+  cwd: root,
+  maxBuffer: MAX_GIT_OUTPUT,
+  stdio: ["ignore", "pipe", "pipe"],
+});
 const gitBytes = (root, args) => execFileSync("git", args, { cwd: root, maxBuffer: MAX_GIT_OUTPUT });
 const verifyIosOtaBundle = (bundleRoot, entries) => {
   const paths = new Set(entries.map(({ path }) => path));
@@ -209,8 +214,18 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   requireValue(authority.status === "ACTIVE" && authority.productRoute === "DECISION_VNEXT_SINGLE_ROUTE" && authority.legacyDecisionAuthority === false, "release_product_authority_invalid");
   requireValue(authority.runtimeScope?.activeTransport === "decision-v13" && (authority.runtimeScope?.quarantinedTransports ?? []).length === 0, "release_runtime_policy_invalid");
   const recoveryRisk = authority.founderRecoveryRiskAcceptance;
-  const acceptedMigrationSet = (actualPlan.productPreappliedImport?.migrations ?? actualPlan.pendingMigrations)
+  const currentRiskSet = (actualPlan.productPreappliedImport?.migrations ?? actualPlan.pendingMigrations)
     .map(({ path, sha256: migrationSha256 }) => ({ path, sha256: migrationSha256 }));
+  let acceptedMigrationSet = currentRiskSet;
+  if (currentRiskSet.length === 0) {
+    // Once all accepted migrations are shipped, the risk acceptance remains
+    // historical evidence. It cannot authorize any newly pending SQL.
+    requireValue(actualPlan.pendingMigrations.length === 0 && !actualPlan.productPreappliedImport, "release_recovery_pending_scope_invalid");
+    const ledger = JSON.parse(git(root, ["show", `${identity.sourceSha}:supabase/production/preapplied-product-migrations-v1.json`]));
+    requireValue(ledger.version === "backyrd-preapplied-product-migrations-v1" && ledger.projectRef === actualPlan.projectRef && Array.isArray(ledger.migrations), "release_recovery_ledger_invalid");
+    acceptedMigrationSet = ledger.migrations.map(({ path, sha256: migrationSha256 }) => ({ path, sha256: migrationSha256 }));
+    for (const entry of acceptedMigrationSet) requireValue(HASH.test(entry.sha256) && sha256(gitBlob(root, `${identity.sourceSha}:${entry.path}`)) === entry.sha256, "release_recovery_migration_bytes_invalid");
+  }
   requireValue(recoveryRisk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
     && recoveryRisk.decision === "ACCEPT_UNTESTED_DATABASE_RECOVERY_RISK"
     && recoveryRisk.canonicalStartingMainSha === "a58d829a6c5f231e48f3582bcd69adf9245c0589"
@@ -240,6 +255,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     deployFunctions: actualPlan.deployFunctions,
     retiredFunctions: actualPlan.retiredFunctions ?? [],
     recoveryRiskAcceptance: recoveryRisk,
+    recoveryRiskMigrationSet: acceptedMigrationSet,
     authDeploy: actualPlan.authConfig?.deploy === true,
     runtimeDeploymentRequired: actualPlan.runtimeDeploymentRequired,
     executionAuthorized: false,
@@ -281,8 +297,14 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
   requireValue(manifest.buildOnceDeploySameArtifact === true, "release_build_once_policy_invalid");
   requireValue(manifest.productionPlan?.canonicalMainSha === manifest.sourceSha && manifest.productionPlan.executionAuthorized === false, "release_production_plan_invalid");
   const recoveryRisk = manifest.productionPlan.recoveryRiskAcceptance;
-  const acceptedMigrationSet = (manifest.productionPlan.productPreappliedImport?.migrations ?? manifest.productionPlan.pendingMigrations)
+  const acceptedMigrationSet = manifest.productionPlan.recoveryRiskMigrationSet;
+  const currentRiskSet = (manifest.productionPlan.productPreappliedImport?.migrations ?? manifest.productionPlan.pendingMigrations)
     .map(({ path, sha256: migrationSha256 }) => ({ path, sha256: migrationSha256 }));
+  requireValue(Array.isArray(acceptedMigrationSet) && (currentRiskSet.length === 13
+    ? JSON.stringify(currentRiskSet) === JSON.stringify(acceptedMigrationSet)
+    : currentRiskSet.length === 0 && manifest.productionPlan.pendingMigrations.length === 0 && !manifest.productionPlan.productPreappliedImport), "release_recovery_pending_scope_invalid");
+  const sealedMigrations = new Map((manifest.components.database ?? []).map(({ path, sha256: migrationSha256 }) => [path, migrationSha256]));
+  for (const entry of acceptedMigrationSet) requireValue(sealedMigrations.get(entry.path) === entry.sha256, "release_recovery_migration_bytes_invalid");
   requireValue(recoveryRisk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
     && recoveryRisk.decision === "ACCEPT_UNTESTED_DATABASE_RECOVERY_RISK"
     && recoveryRisk.canonicalStartingMainSha === "a58d829a6c5f231e48f3582bcd69adf9245c0589"

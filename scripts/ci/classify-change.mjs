@@ -152,12 +152,13 @@ export function classifyChange({ root, context, policy }) {
   const supplyChain = changedFiles.some((path) => dependencyManifestPattern.test(path)
     || dependencyLockPattern.test(path)
     || path.startsWith(".github/workflows/"));
-  const deploymentControl = changedFiles.some((path) => path.startsWith("scripts/deployment/") || path.startsWith("supabase/production/") || path === ".github/workflows/supabase-production.yml");
+  const shippedProductionState = changedFiles.includes("delivery/production-state.json");
+  const deploymentControl = shippedProductionState || changedFiles.some((path) => path.startsWith("scripts/deployment/") || path.startsWith("supabase/production/") || path === ".github/workflows/supabase-production.yml");
   const documentationOnly = changedFiles.length > 0 && changedFiles.every(provablyNonExecutableDocumentation);
   const machineReadableDocumentation = changedFiles.some((path) => path.startsWith("docs/") && !path.endsWith(".md"));
   const integrationControl = changedFiles.some((path) => startsWithAny(path, policy.integrationControlPrefixes ?? []));
   const privilegedServer = changedFiles.some((path) => startsWithAny(path, policy.privilegedServerPrefixes ?? []));
-  const productRelease = privilegedServer || changedFiles.some((path) => startsWithAny(path, policy.productReleasePrefixes ?? []));
+  const productRelease = privilegedServer || shippedProductionState || changedFiles.some((path) => startsWithAny(path, policy.productReleasePrefixes ?? []));
   const retiredChanges = changes.filter(({ path }) => startsWithAny(path, policy.retiredPrefixes ?? []));
   const retiredMutation = retiredChanges.some(({ status }) => status !== "D");
 
