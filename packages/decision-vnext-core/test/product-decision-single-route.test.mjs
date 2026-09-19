@@ -242,6 +242,63 @@ test("candidate input order, display names and commercial-looking unknown fields
   assert.throws(() => buildDecisionProductExecution({ ...input, presentations: input.presentations.map((row, index) => index ? row : { ...row, ownerTier: "PREMIUM" }) }), /unknown field/);
 });
 
+test("city-sized canonical cohort fits the durable 64 KiB replay record without client ranking", async () => {
+  const input = await fixture(productRequest("Café in Zürich", "city-window"), "NO_CONSENT");
+  const template = input.evaluation.candidates[0];
+  const candidates = Array.from({ length: 387 }, (_, index) => {
+    const candidateId = `product-city-spot-${String(index).padStart(3, "0")}`;
+    const { assessmentHash: _assessmentHash, ...body } = template;
+    return DecisionProductCandidateAssessmentSchema.parse(withContentHash({
+      ...body, candidateId, snapshotHash: contentHash({ candidateId, snapshot: true }),
+      neutralTieBreakerHash: contentHash({ candidateId, tie: true }),
+    }, "assessmentHash"));
+  });
+  const bindings = candidates.map((candidate) => ({ spotId: candidate.candidateId, snapshotHash: candidate.snapshotHash }));
+  const { cohortHash: _cohortHash, ...cohortBody } = input.evaluation.worldCohort;
+  const worldCohort = DecisionProductWorldCohortSchema.parse(withContentHash({
+    ...cohortBody, spotBindings: bindings, candidateSetHash: contentHash(bindings.map((row) => row.spotId)),
+  }, "cohortHash"));
+  const { evaluationHash: _evaluationHash, ...evaluationBody } = input.evaluation;
+  const evaluation = DecisionProductEvaluationSchema.parse(withContentHash({ ...evaluationBody, worldCohort, candidates }, "evaluationHash"));
+  const presentations = candidates.map((candidate) => withContentHash({
+    contractVersion: PRODUCT_DECISION_VERSIONS.presentation, spotId: candidate.candidateId,
+    name: `Ort ${candidate.candidateId}`, locality: "Zurich", categoryLabel: null, imageUrl: null,
+    sourceHash: contentHash({ candidateId: candidate.candidateId, assessmentHash: candidate.assessmentHash }),
+  }, "presentationHash"));
+  const largeInput = { ...input, evaluation, presentations };
+  const one = buildDecisionProductExecution(largeInput);
+  const two = buildDecisionProductExecution(largeInput);
+  assert.ok(Buffer.byteLength(canonicalJson(one), "utf8") <= 65_536);
+  assert.ok(one.response.candidates.length > 0 && one.response.candidates.length <= 8);
+  assert.ok(one.response.limitations.includes("CANDIDATE_WINDOW_LIMITED"));
+  assert.equal(canonicalJson(one), canonicalJson(two));
+  assert.equal(validateDecisionProductExecution(largeInput, one).response.resultHash, one.response.resultHash);
+  assert.equal(one.response.legacyEngineUsed, false);
+  assert.equal(one.response.fallbackUsed, false);
+});
+
+test("failure diagnostics expose only a stage and static code while response remains unavailable", async () => {
+  const failures = [];
+  const handler = createDecisionProductHttpHandler({
+    auth: { async authenticate() { return ACTOR; } },
+    rateLimit: { async consume() { return true; } },
+    control: { timeoutMilliseconds: 2_000, maxRequestBytes: 16_384, async assertBoundary() {} },
+    async evaluate() { throw new Error("product_runtime_context_unavailable"); },
+    idempotency: { async commit() { throw new Error("should_not_commit"); } },
+    interaction: { async resolve() { throw new Error("should_not_resolve"); } },
+    learning: { contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0", async record() { throw new Error("should_not_write"); } },
+    diagnostics: { reportFailure(stage, code) { failures.push({ stage, code }); } },
+  });
+  const response = await handler(new Request("https://example.invalid/decision-v13", {
+    method: "POST", headers: { authorization: "Bearer synthetic-token" },
+    body: JSON.stringify(productRequest("Café in Zürich", "diagnostic")),
+  }));
+  assert.equal(response.status, 503);
+  assert.deepEqual(failures, [{ stage: "EVALUATION", code: "product_runtime_context_unavailable" }]);
+  const body = await response.text();
+  assert.doesNotMatch(body, /runtime_context|synthetic-token/);
+});
+
 test("HTTP boundary accepts any authenticated account, replays byte-identically, and visibly fails closed", async () => {
   const request = productRequest("Ruhiges Café in Zürich", "http"); const evaluated = await fixture(request, "NO_CONSENT");
   let evaluatedCount = 0; let learningCount = 0;

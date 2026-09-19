@@ -23,6 +23,7 @@ const tierScore = { ELIGIBLE_CONFIRMED: 3, UNCONFIRMED_FALLBACK: 2, NOT_CONFIGUR
 const coreScore = { CONFIRMED: 5, UNKNOWN: 3, NOT_CONFIGURED: 2, NOT_APPLICABLE: 1, DISPUTED: 0, INCOMPATIBLE: -1 } as const;
 const availabilityScore = { open: 6, not_requested: 5, unknown: 4, not_authorized: 3, expired: 2, disputed: 1, closed: 0 } as const;
 const positiveDirectStates = new Set(["SAVED", "REPEATEDLY_SELECTED", "VISITED"]);
+const PRODUCT_PRESENTATION_WINDOW = 8;
 
 type RankableCandidate = DecisionProductResponse["candidates"][number];
 type ProductReason = RankableCandidate["reasons"][number];
@@ -166,27 +167,40 @@ export function buildDecisionProductExecution(input: DecisionProductBuildInput):
     boundaries: { authenticatedAccountsOnly: true as const, founderAllowlistUsed: false as const, legacyEngineUsed: false as const, fallbackUsed: false as const, hardConstraintsBeforeRanking: true as const, userProjectionEligibilityAuthority: false as const, commercialInfluence: false as const },
   };
   const envelope = DecisionProductExecutionEnvelopeSchema.parse(withContentHash(envelopeBody, "envelopeHash"));
-  const candidates = candidateRows(evaluation, projection, input.presentations);
-  const available = candidates.filter(rankable);
+  // Rank the complete canonical World cohort before choosing a presentation
+  // window. The durable, byte-identical idempotency record is capped at 64 KiB;
+  // a city-sized cohort must not turn an otherwise valid request into a 503.
+  const ranked = candidateRows(evaluation, projection, input.presentations);
+  const available = ranked.filter(rankable);
   const previouslyPresented = new Set(request.previouslyPresentedCandidateIds);
-  const primary = available.find((candidate) => !previouslyPresented.has(candidate.spotId)) ?? null;
-  const responseBody = {
-    contractVersion: PRODUCT_DECISION_VERSIONS.response, status: "AVAILABLE" as const, decisionId, requestHash, envelopeHash: envelope.envelopeHash,
-    rankingPolicyVersion: PRODUCT_DECISION_VERSIONS.rankingPolicy, rankingPolicyHash: DECISION_PRODUCT_RANKING_POLICY.policyHash,
-    interpretation: evaluation.interpretation, primaryCandidateId: primary?.spotId ?? null, candidates, limitations: evaluation.limitations,
-    alternative: { requested: request.alternativeRequested, selectedCandidateId: request.alternativeRequested ? primary?.spotId ?? null : null, negativeSignalProduced: false as const },
-    reject: { candidateIds: request.rejectedCandidateIds, contextualOnly: true as const, worldFactProduced: false as const },
-    personalization: { state: projection.status, neutralReason: projection.neutralReason, projectionHash: projection.projectionHash },
-    learning: {
-      mode: projection.status === "ACTIVE" ? "CONSENT_BOUND_EVENTS" as const : "DISABLED_NEUTRAL" as const,
-      acknowledgement: projection.status === "ACTIVE" ? "CONSENT_BOUND_IDEMPOTENT" as const : "NOT_APPLICABLE_NEUTRAL" as const,
-      eventCount: learningEvents.length,
-      rawTextIncluded: false as const,
-    },
-    productOutputAuthorized: true as const, legacyEngineUsed: false as const, fallbackUsed: false as const,
-  };
-  const response = DecisionProductResponseSchema.parse(withContentHash(responseBody, "resultHash"));
-  return deepFreeze(DecisionProductExecutionSchema.parse({ response, envelope, projection, learningEvents }));
+  const firstUnseenIndex = available.findIndex((candidate) => !previouslyPresented.has(candidate.spotId));
+  const maxWindowSize = firstUnseenIndex < 0 ? 0 : Math.min(PRODUCT_PRESENTATION_WINDOW, available.length - firstUnseenIndex);
+  for (let windowSize = maxWindowSize; windowSize >= (maxWindowSize === 0 ? 0 : 1); windowSize -= 1) {
+    const candidates = firstUnseenIndex < 0 ? ranked.filter((candidate) => !rankable(candidate)).slice(0, PRODUCT_PRESENTATION_WINDOW)
+      : ranked.length <= PRODUCT_PRESENTATION_WINDOW && windowSize === maxWindowSize ? ranked
+        : available.slice(firstUnseenIndex, firstUnseenIndex + windowSize);
+    const primary = firstUnseenIndex < 0 ? null : available[firstUnseenIndex];
+    const responseBody = {
+      contractVersion: PRODUCT_DECISION_VERSIONS.response, status: "AVAILABLE" as const, decisionId, requestHash, envelopeHash: envelope.envelopeHash,
+      rankingPolicyVersion: PRODUCT_DECISION_VERSIONS.rankingPolicy, rankingPolicyHash: DECISION_PRODUCT_RANKING_POLICY.policyHash,
+      interpretation: evaluation.interpretation, primaryCandidateId: primary?.spotId ?? null, candidates,
+      limitations: candidates.filter(rankable).length < available.length ? [...evaluation.limitations, "CANDIDATE_WINDOW_LIMITED"] : evaluation.limitations,
+      alternative: { requested: request.alternativeRequested, selectedCandidateId: request.alternativeRequested ? primary?.spotId ?? null : null, negativeSignalProduced: false as const },
+      reject: { candidateIds: request.rejectedCandidateIds, contextualOnly: true as const, worldFactProduced: false as const },
+      personalization: { state: projection.status, neutralReason: projection.neutralReason, projectionHash: projection.projectionHash },
+      learning: {
+        mode: projection.status === "ACTIVE" ? "CONSENT_BOUND_EVENTS" as const : "DISABLED_NEUTRAL" as const,
+        acknowledgement: projection.status === "ACTIVE" ? "CONSENT_BOUND_IDEMPOTENT" as const : "NOT_APPLICABLE_NEUTRAL" as const,
+        eventCount: learningEvents.length,
+        rawTextIncluded: false as const,
+      },
+      productOutputAuthorized: true as const, legacyEngineUsed: false as const, fallbackUsed: false as const,
+    };
+    const response = DecisionProductResponseSchema.parse(withContentHash(responseBody, "resultHash"));
+    const execution = DecisionProductExecutionSchema.parse({ response, envelope, projection, learningEvents });
+    if (Buffer.byteLength(canonicalJson(execution), "utf8") <= 65_536) return deepFreeze(execution);
+  }
+  throw new Error("product_decision_response_budget_exceeded");
 }
 
 export function buildDecisionLearningEvents(input: {
@@ -291,6 +305,7 @@ export interface DecisionProductRuntimePorts {
     readonly contractVersion: "backyrd.user-intelligence.product-decision-learning-port@1.0";
     record(event: ProductDecisionLearningInput, signal: AbortSignal): Promise<unknown>;
   };
+  readonly diagnostics?: { reportFailure(stage: string, code: string): void };
 }
 
 export class DecisionProductError extends Error {
@@ -303,6 +318,7 @@ const errorResponse = (error: DecisionProductError) => new Response(JSON.stringi
 export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePorts): (request: Request) => Promise<Response> {
   return async (request) => {
     const abort = new AbortController();
+    let stage: string = "REQUEST_START";
     const timeoutError = new DecisionProductError("REQUEST_TIMEOUT", 504, "Die sichere Auswertung hat zu lange gedauert.");
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const deadline = new Promise<never>((_resolve, reject) => {
@@ -310,6 +326,7 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
     });
     const race = <T>(operation: Promise<T>): Promise<T> => Promise.race([operation, deadline]);
     const at = async <T>(boundary: DecisionProductRuntimeBoundary, operation: (signal: AbortSignal) => Promise<T>): Promise<T> => {
+      stage = boundary;
       await race(Promise.resolve(ports.control.assertBoundary(boundary, abort.signal)));
       const result = await race(operation(abort.signal));
       // A control transition during an awaited operation must suppress its
@@ -355,6 +372,7 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
         return new Response(JSON.stringify(response), { status: 200, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
       }
       const evaluated = await at("EVALUATION", (signal) => ports.evaluate(parsedRequest, actor, signal));
+      stage = "RESPONSE_BUILD";
       const expectedInput = { request: parsedRequest, actor, ...evaluated }; const execution = buildDecisionProductExecution(expectedInput);
       const committed = await at("IDEMPOTENCY", (signal) => ports.idempotency.commit({ subjectBindingHash: actor.subjectBindingHash, idempotencyKey: parsedRequest.idempotencyKey, payloadHash: contentHash(parsedRequest), execution }, signal));
       if (committed.status === "CONFLICT" || committed.status === "EXPIRED") throw new DecisionProductError("IDEMPOTENCY_CONFLICT", 409, "Diese Anfrage-ID wurde bereits mit anderen Eingaben verwendet oder ist abgelaufen.");
@@ -370,6 +388,8 @@ export function createDecisionProductHttpHandler(ports: DecisionProductRuntimePo
       return new Response(JSON.stringify(resolved.response), { status: 200, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
     } catch (error) {
       const known = error instanceof DecisionProductError ? error : new DecisionProductError("DECISION_UNAVAILABLE", 503, "Decision ist momentan nicht verfügbar. Bitte versuche es später erneut.");
+      const internalCode = error instanceof Error && /^product_[a-z0-9_]{1,75}$/.test(error.message) ? error.message : known.code;
+      try { ports.diagnostics?.reportFailure(stage, internalCode); } catch { /* Diagnostics may never change the fail-closed response. */ }
       return errorResponse(known);
     } finally { if (timeout) clearTimeout(timeout); }
   };
