@@ -16,7 +16,7 @@ const REQUIRED_TESTS = Object.freeze([
   "decision-vnext-single-route",
   "product-release-contracts",
   "product-release-e2e",
-  "mobile-export",
+  "ios-ota-export",
 ]);
 const SOURCE_SETS = Object.freeze({
   worldArtifact: ["packages/world-knowledge-core/package.json", "packages/world-knowledge-core/src"],

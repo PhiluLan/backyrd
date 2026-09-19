@@ -2,7 +2,7 @@
 
 This is a `PRODUCTION_RELEASE` for the existing Backyrd App and Admin, starting from canonical Main `a58d829a6c5f231e48f3582bcd69adf9245c0589`. The release artifact, Product-v1 Manifest v3, source-aware plan, and post-merge Main identity must be generated from the **final** candidate. This document is not permission to substitute a different build or migration.
 
-**Current release blocker:** The inherited certification job exports a Web bundle, not an iOS OTA bundle. A Web-only bundle must fail the Product artifact seal. The normal `eas update` command rebuilds an iOS bundle and therefore cannot satisfy build-once/deploy-the-same-artifact. The smallest safe pipeline completion is a protected, CI-certified iOS export using the existing EAS Production public runtime configuration, an iOS bundle/runtime hash in Manifest v3, and publication of those exact bytes with `eas update --skip-bundler --input-dir`. Until that path and installed-device compatibility are proven, keep the PR Draft and Product OFF; a green Web-browser test is not an OTA gate.
+**iOS artifact boundary:** The inherited certification job exported a Web bundle, not an iOS OTA bundle. The release seal now rejects that Web-only export. Certification builds a separate iOS Hermes export with the existing client-public EAS Production URL and anon key, and Manifest v3 binds every byte. A normal `eas update` would rebuild; publication must instead use the manifest-verified `bundle/mobile-update` directory with `eas update --skip-bundler --input-dir`. The Web-browser journey is supplementary and is never an iPhone acceptance. Keep Product OFF until the CI iOS export, installed-device compatibility, and live smoke are proven.
 
 ## Narrow recovery exception
 
