@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260919172027-decision-vnext-bounded-catalog-context-v2",
+  "previousEvidence": "20260919122454-world-product-approved-catalog-bootstrap-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "07061a962b2702bb8b06adc9cb2c9c9620c92f13d22f43045f7bee83fbddd5ec",
+    "applicationSchemaSha256": "c90c7ecda0392a40225597faa836db7c512b7ff8ddacda894f84cd008e840a9e"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260919172027_decision_vnext_bounded_catalog_context_v2.sql",
+      "sha256": "7a441acadc8d3827fdc56aebbfea71a07782c52fb6969a467f961e0d479f4f23"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/decision_product_authoring_lease_v1.sql",
+      "sha256": "02d49f937b4c8c34b3c76625be7ecb4a6b2f06bc4a5a1d47e7ff7dfa58854fb4"
+    },
+    {
+      "path": "supabase/tests/decision_vnext_catalog_context_v2.sql",
+      "sha256": "63d996b6ca5dd88e940939a316ede5cc00a4aaf5478c3f641659e8ae92b0c36f"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "e02655893c6a2a6bdd87f96c439bb16cf439440a674cd9798485bf0138b0b9ae",
+    "applicationSchemaSha256": "8b723de32eb6d50c6232ceafa85535b1e394e1eef47d8384662027cd8c2b65be"
+  }
+}
