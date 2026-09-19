@@ -32,6 +32,8 @@ const fixture = () => {
   put(root, "mobile/packages/product-decision-contract/index.mjs", "export const contract = true;\n");
   put(root, "mobile/lib/decision/productDecision.ts", "export const client = true;\n");
   put(root, "mobile/app/(tabs)/decision.tsx", "export default true;\n");
+  put(root, "mobile/app/(tabs)/wohin.tsx", "export default true;\n");
+  put(root, "mobile/lib/decision/wohinModel.ts", "export const wohin = true;\n");
   put(root, "web/lib/decision-web-api.ts", "export const web = true;\n");
   put(root, "docs/architecture/PRODUCT_V1_ACTIVE_SURFACE.md", "# Product v1\n");
   put(root, "delivery/product-authority-v1.json", `${JSON.stringify({ status: "ACTIVE", productRoute: "DECISION_VNEXT_SINGLE_ROUTE", legacyDecisionAuthority: false, runtimeScope: { activeTransport: "decision-v13", quarantinedTransports: [] }, founderRecoveryRiskAcceptance: { contractVersion: "backyrd.product-v1-founder-recovery-risk-acceptance@1.0", decision: "ACCEPT_UNTESTED_DATABASE_RECOVERY_RISK", canonicalStartingMainSha: "a58d829a6c5f231e48f3582bcd69adf9245c0589", projectRef: "hjgcrrzfjchzqoegcywn", pendingMigrationCount: 13, pendingMigrationSetSha256: hash(JSON.stringify(pendingMigrations)), restoreDrillStatus: "NOT_PERFORMED_BY_FOUNDER_DECISION", guaranteedDatabaseRollback: false, productionDataCopyAuthorized: false } })}\n`);

@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
-const decision = read("app/(tabs)/decision.tsx");
+const decision = read("app/(tabs)/wohin.tsx");
+const retiredDecision = read("app/(tabs)/decision.tsx");
 const home = read("app/(tabs)/index.tsx");
 const tabs = read("app/(tabs)/_layout.tsx");
 const profile = read("lib/profile.ts");
@@ -18,7 +19,7 @@ const founderLiveBinding = read("lib/decision/productDecisionRelease.generated.t
 const founderLiveControl = read("packages/product-decision-contract/src/index.mjs");
 const pushNotificationRouter = read("components/PushNotificationRouter.tsx");
 
-assert.match(decision, /invokeDecisionProduct/, "Decision must pass through the sealed Product client boundary");
+assert.match(decision, /invokeDecisionProduct/, "Wohin must pass through the sealed Product client boundary");
 assert.match(productDecision, /freshAccessToken/, "Decision requests must carry a fresh authenticated session token to the server boundary");
 assert.match(founderLiveBinding, /"transportFunction": "decision-v13"/, "Build-57 must retain the one deployed transport slug");
 assert.match(founderLiveBinding, /backyrd\.decision-vnext\.product-request@1\.0/, "Mobile must bind the vNext request contract");
@@ -27,14 +28,15 @@ assert.match(founderLiveBinding, /"executionAuthorized": false/, "bound candidat
 assert.doesNotMatch(`${productDecision}\n${founderLiveBinding}`, /EXPO_PUBLIC_.*VNEXT|AsyncStorage|clientToggle/i, "Mobile must not contain a vNext authority toggle");
 assert.doesNotMatch(`${decision}\n${productDecision}\n${founderLiveControl}`, /DecisionV13|legacyBody|invokeExisting|fallbackFunction|north_star|semantic_v13|personalized_v12/, "the Mobile Decision path must contain no legacy engine contract or fallback");
 assert.doesNotMatch(decision, /backyrd_record_visible_decision_impression_v1|log_decision_action_v1|recordMemoryProductAction|trackAnalyticsEvent/, "Decision must not emit legacy impression, feedback, memory, analytics or navigation writes");
-assert.match(decision, /result\.candidates/, "Product rendering must use the server-ranked candidate order");
+assert.match(decision, /visibleWohinCandidates/, "Wohin must show the server-ranked candidates without client ranking");
 assert.match(decision, /candidate\.actualAvailability/, "Product rendering must present server availability honestly");
 assert.match(decision, /candidate\.reasons/, "Product rendering must present server reasons");
-assert.match(decision, /result\.limitations/, "Product rendering must present server limitations");
-assert.match(decision, /alternativeRequested: true/, "Alternative must use the canonical single route");
-assert.match(decision, /rejectedCandidateIds/, "Contextual reject must use the canonical single route");
-assert.match(decision, /presentedCandidateIds\.current/, "Alternative and reject must carry only actually presented candidates");
-assert.match(decision, /candidate\.spotId === result\.primaryCandidateId/, "Mobile must show and log only the server-selected primary candidate");
+assert.match(decision, /response\.limitations/, "Product rendering must present server limitations");
+assert.match(decision, /<FlatList[\s\S]*data=\{candidates\}/, "Wohin must present the bounded server-ranked window");
+assert.match(decision, /onViewableItemsChanged/, "Candidate impressions must require actual visibility");
+assert.equal((decision.match(/<TextInput\b/g) ?? []).length, 1, "Wohin has exactly one user input");
+assert.match(decision, /createWohinRequest/, "Wohin must send only its fresh free-text request");
+assert.match(retiredDecision, /Redirect href="\/\(tabs\)\/wohin"/, "Old Decision deep links must redirect to Wohin");
 assert.match(decision, /eventType: "candidate_impression"/, "Visible Product candidates must use the same-route canonical impression event");
 assert.match(decision, /eventType: "candidate_opened"/, "Product candidate opens must use the same-route canonical open event");
 assert.match(productDecision, /executeDecisionProductInteraction/, "Product interactions must use the sealed single-route boundary");
@@ -43,7 +45,9 @@ assert.match(spotDetail, /decisionOrigin/, "Spot Detail must identify Decision-o
 assert.match(spotDetail, /if \(!decisionOrigin\)/, "Spot Detail must suppress Decision-originated legacy writes");
 assert.match(pushNotificationRouter, /Platform\.OS === "web"\) return/, "Web must not invoke native push notification APIs");
 assert.doesNotMatch(decision, /create_decision_session_v1|Math\.max\(\s*82/);
-assert.match(home, /pathname: "\/\(tabs\)\/decision"/, "Home search must enter Decision");
+assert.match(home, /pathname: "\/\(tabs\)\/wohin"/, "Home search must enter Wohin");
+assert.match(tabs, /name="wohin"/, "Wohin must be visible in app navigation");
+assert.match(tabs, /name="decision" options=\{\{ href: null \}\}/, "Old Decision must not be a visible tab");
 assert.match(home, /auto: "1"/, "Home submission must execute Decision");
 assert.match(home, /loadDiscoverySpots/, "Home must use the canonical Product-visible catalog");
 assert.doesNotMatch(home, /\.from\(["']spots["']\)/, "Home must not rebuild Product visibility in the client");

@@ -51,6 +51,8 @@ const spots = [
   { spotId: "spot-cafe-one", name: () => state.worldName, rank: 1 },
   { spotId: "spot-cafe-two", name: () => "Café Alternative", rank: 2 },
   { spotId: "spot-cafe-three", name: () => "Café Dritte Wahl", rank: 3 },
+  { spotId: "spot-cafe-four", name: () => "Café Vierte Wahl", rank: 4 },
+  { spotId: "spot-cafe-five", name: () => "Café Fünfte Wahl", rank: 5 },
 ];
 const candidate = (spot) => {
   const sourceHash = hash({ spotId: spot.spotId, worldVersion: state.worldVersion });
@@ -58,7 +60,7 @@ const candidate = (spot) => {
     spotId: spot.spotId,
     presentation: { contractVersion: "backyrd.decision-vnext.product-presentation@1.0", spotId: spot.spotId, name: spot.name(), locality: "Bern", categoryLabel: "Café", imageUrl: null, sourceHash, presentationHash: hash({ spotId: spot.spotId, sourceHash }) },
     tier: "ELIGIBLE_CONFIRMED", rank: spot.rank, coreIntentCoverage: "CONFIRMED", actualAvailability: "open",
-    confirmedHardConstraints: [], unknownHardConstraints: [], failedHardConstraints: [], rankVector: { vectorHash: hash({ rank: spot.rank }) },
+    confirmedHardConstraints: [], unknownHardConstraints: [], failedHardConstraints: [], rankVector: { hardConstraintState: "PASS", userRelevance: { state: "NEUTRAL" }, contextFit: { secondaryIntentConfirmed: false, visitSituationConfirmed: false, atmosphereConfirmed: false, typicalDaypartConfirmed: false, matchedSoftPreferenceCount: 0 }, worldEvidence: { confirmedReasonCount: 1 }, vectorHash: hash({ rank: spot.rank }) },
     reasons: [{ code: "world-fit", domain: "WORLD", sourceHash, statement: `Bestätigter Café-Fit aus World-Version ${state.worldVersion}.`, confirmed: true }],
     limitations: [], contextualReject: false, candidateHash: hash({ spotId: spot.spotId, sourceHash }),
   };
@@ -69,7 +71,7 @@ const responseFor = (request) => {
     contractVersion: DECISION_PRODUCT_CONTRACT.response, status: "AVAILABLE", decisionId: `decision-${state.decisions.length}`,
     requestHash: hash(request), envelopeHash: hash({ request, worldVersion: state.worldVersion }),
     rankingPolicyVersion: "backyrd.decision-vnext.product-ranking-policy@1.0", rankingPolicyHash: hash("synthetic-policy"),
-    interpretation: { interpretationHash: hash(request.explicit), targetCity: "Bern" },
+    interpretation: { interpretationHash: hash(request.explicit), targetCity: "Bern", primaryIntent: "COFFEE", dateTime: { localDate: "2026-09-20" } },
     primaryCandidateId: available?.spotId ?? null, candidates: spots.map(candidate), limitations: [],
     alternative: { requested: request.alternativeRequested, selectedCandidateId: request.alternativeRequested ? available?.spotId ?? null : null, negativeSignalProduced: false },
     reject: { candidateIds: request.rejectedCandidateIds, contextualOnly: true, worldFactProduced: false },
@@ -84,6 +86,7 @@ try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await context.addInitScript((injected) => window.localStorage.setItem("sb-example-auth-token", JSON.stringify(injected)), session);
   const page = await context.newPage();
+  page.on("pageerror", (error) => process.stderr.write(`browser page error: ${error.message}\n`));
   let passwordLogins = 0;
   const remoteFixture = async (route) => {
     const request = route.request();
@@ -118,48 +121,39 @@ try {
 
   const appUrl = `http://127.0.0.1:${address.port}`;
   await page.goto(appUrl, { waitUntil: "domcontentloaded" });
-  await page.getByText("Für jetzt", { exact: true }).last().waitFor({ timeout: 30000 });
-  await page.getByText("Für jetzt", { exact: true }).last().click();
-  await page.getByText("Was passt jetzt?", { exact: true }).waitFor({ timeout: 30000 });
-  await page.getByText("Freitext", { exact: true }).click();
-  await page.getByPlaceholder(/ruhiges Café zum Lesen/).fill("ruhiges Café für ein Gespräch");
-  await page.getByText("Vorschläge finden", { exact: true }).click();
+  await page.getByPlaceholder("Was hast du heute vor?").waitFor({ timeout: 30000 });
+  await page.getByText("Wohin", { exact: true }).last().click();
+  await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).waitFor({ timeout: 30000 });
+  await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).fill("Sonntag gemütlich Kaffee trinken");
+  await page.getByText("Für Bern · Ort aus deinem Profil", { exact: true }).waitFor();
+  await page.getByText("Decision starten", { exact: true }).click();
   await page.getByText("Café Vorher", { exact: true }).first().waitFor();
-  assert.equal(await page.getByText("Café Alternative", { exact: true }).count(), 0, "only the server-selected primary is presented");
+  for (const spot of spots) assert.ok(await page.getByText(spot.name(), { exact: true }).count() >= 1, "five server-ranked spots are presented");
   assert.equal(state.decisions[0].explicit.targetCity, "Bern");
+  assert.equal(state.decisions[0].explicit.primaryIntent, undefined, "old guided intent must not leak into Wohin");
   assert.equal(state.decisions[0].alternativeRequested, false);
-  assert.equal(await page.getByText(/World-Version 1/).count(), 1);
-
-  await page.getByText("Andere Richtung zeigen", { exact: true }).click();
-  await page.getByText("Café Alternative", { exact: true }).first().waitFor();
-  assert.deepEqual(state.decisions[1].previouslyPresentedCandidateIds, ["spot-cafe-one"]);
-  assert.equal(state.decisions[1].alternativeRequested, true);
-  await page.getByText("Passt nicht", { exact: true }).click();
-  await page.getByText("Café Dritte Wahl", { exact: true }).first().waitFor();
-  assert.deepEqual(state.decisions[2].previouslyPresentedCandidateIds, ["spot-cafe-one", "spot-cafe-two"]);
-  assert.deepEqual(state.decisions[2].rejectedCandidateIds, ["spot-cafe-two"]);
-  assert.equal(state.decisions[2].alternativeRequested, false);
+  assert.equal(await page.getByText(/World-Version 1/).count(), 5);
+  assert.equal(await page.getByText(/Ohne gültige Einwilligung/).count(), 1);
   assert.equal(state.decisions.every((item) => item.contractVersion === DECISION_PRODUCT_CONTRACT.request), true);
-  assert.equal(state.interactions.some((item) => item.eventType === "candidate_impression"), true);
-  assert.equal(state.decisions.length, 3);
+  assert.equal(state.decisions.length, 1);
 
   state.consent = true;
   state.worldName = "Café Aktualisiert";
   state.worldVersion = 2;
-  await page.getByText("Vorschläge finden", { exact: true }).click();
+  await page.getByText("Decision starten", { exact: true }).click();
   await page.getByText("Café Aktualisiert", { exact: true }).first().waitFor();
-  assert.equal(await page.getByText(/World-Version 2/).count(), 1);
-  assert.equal(await page.getByText(/mit Einwilligung berücksichtigt/).count(), 1);
+  assert.equal(await page.getByText(/World-Version 2/).count(), 5);
+  assert.equal(await page.getByText(/Learning nur mit gültiger Einwilligung/).count(), 1);
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.getByText("Für jetzt", { exact: true }).last().waitFor();
-  await page.getByText("Für jetzt", { exact: true }).last().click();
-  await page.getByText("Freitext", { exact: true }).click();
-  await page.getByPlaceholder(/ruhiges Café zum Lesen/).fill("ruhiges Café nach Reload");
-  await page.getByText("Vorschläge finden", { exact: true }).click();
+  await page.getByPlaceholder("Was hast du heute vor?").waitFor();
+  await page.getByText("Wohin", { exact: true }).last().click();
+  await page.getByPlaceholder(/Sonntag gemütlich Kaffee trinken/).fill("ruhiges Café nach Reload");
+  await page.getByText("Für Bern · Ort aus deinem Profil", { exact: true }).waitFor();
+  await page.getByText("Decision starten", { exact: true }).click();
   await page.getByText("Café Aktualisiert", { exact: true }).first().waitFor();
   state.unavailable = true;
-  await page.getByText("Vorschläge finden", { exact: true }).click();
-  await page.getByText("Vorschläge nicht verfügbar", { exact: true }).waitFor();
+  await page.getByText("Decision starten", { exact: true }).click();
+  await page.getByText(/Wohin kann gerade keine verlässlichen Vorschläge zeigen|Vorschläge nicht verfügbar/).waitFor();
   assert.equal(await page.getByText("Café Aktualisiert", { exact: true }).count(), 0);
   assert.equal(state.unexpectedRemote.length, 0);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -176,7 +170,7 @@ try {
   assert.equal(passwordLogins, 1);
   await loginContext.close();
 
-  process.stdout.write(`${JSON.stringify({ suite: "product-existing-mobile-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, decisionRequests: state.decisions.length, alternative: true, contextualReject: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableNoFallback: true, productionActions: 0 })}\n`);
+  process.stdout.write(`${JSON.stringify({ suite: "product-wohin-web-bundle", status: "PASS", realExistingApp: true, localSyntheticTransport: true, passwordLogin: true, authenticatedSession: true, decisionRequests: state.decisions.length, fiveServerRankedCandidates: true, noGuidedIntentLeak: true, consentTransition: true, reload: true, worldReaderVisibilityFixture: true, unavailableNoFallback: true, productionActions: 0 })}\n`);
 } finally {
   await browser.close();
   await new Promise((closed) => server.close(closed));

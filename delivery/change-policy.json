@@ -70,6 +70,7 @@
   "productReleasePrefixes": [
     ".github/workflows/deep-recertification.yml",
     "mobile/app/(tabs)/decision.tsx",
+    "mobile/app/(tabs)/wohin.tsx",
     "mobile/lib/decision/",
     "mobile/packages/product-decision-contract/",
     "packages/decision-vnext-core/src/product-",

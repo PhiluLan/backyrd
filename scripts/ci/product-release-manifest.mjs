@@ -28,6 +28,8 @@ const SOURCE_SETS = Object.freeze({
     "mobile/packages/product-decision-contract",
     "mobile/lib/decision/productDecision.ts",
     "mobile/app/(tabs)/decision.tsx",
+    "mobile/app/(tabs)/wohin.tsx",
+    "mobile/lib/decision/wohinModel.ts",
     "web/lib/decision-web-api.ts",
   ],
   productPolicy: ["delivery/product-authority-v1.json", "docs/architecture/PRODUCT_V1_ACTIVE_SURFACE.md"],

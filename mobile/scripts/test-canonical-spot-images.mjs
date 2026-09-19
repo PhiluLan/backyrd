@@ -7,12 +7,12 @@ const source = fs.readFileSync(path.resolve("lib/spot-images.ts"), "utf8");
 const artwork = fs.readFileSync(path.resolve("components/spot/SpotArtwork.tsx"), "utf8");
 const googlePhoto = fs.readFileSync(path.resolve("lib/google-place-photo.ts"), "utf8");
 const photoPolicy = fs.readFileSync(path.resolve("lib/spot-photo-policy.ts"), "utf8");
-const decision = fs.readFileSync(path.resolve("app/(tabs)/decision.tsx"), "utf8");
+const decision = fs.readFileSync(path.resolve("app/(tabs)/wohin.tsx"), "utf8");
 const detail = fs.readFileSync(path.resolve("app/spot/[id].tsx"), "utf8");
 const sharedSurfaceSources = [
   "app/(tabs)/index.tsx", // Home
   "app/(tabs)/map.tsx", // Orte list + Map preview
-  "app/(tabs)/decision.tsx", // Decision
+  "app/(tabs)/wohin.tsx", // Decision
   "app/(tabs)/profile.tsx", // Favorites
   "app/(tabs)/journey.tsx", // additional Spot cards
   "app/spot/[id].tsx", // Spot Detail + Nearby rail

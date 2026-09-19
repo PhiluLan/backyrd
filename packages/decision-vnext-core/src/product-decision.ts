@@ -71,26 +71,29 @@ function vector(candidate: DecisionProductCandidateAssessment, projection: Relev
 function compareBoolean(left: boolean, right: boolean): number { return Number(right) - Number(left); }
 function compareNumber(left: number, right: number): number { return right - left; }
 
-function compareCandidates(left: RankableCandidate, right: RankableCandidate): number {
+function rankingChecks(left: RankableCandidate, right: RankableCandidate): readonly (readonly [number, string])[] {
   const a = left.rankVector; const b = right.rankVector;
   const hard = compareNumber(a.hardConstraintState === "PASS" ? 2 : a.hardConstraintState === "UNKNOWN" ? 1 : 0, b.hardConstraintState === "PASS" ? 2 : b.hardConstraintState === "UNKNOWN" ? 1 : 0);
-  if (hard) return hard;
-  const tier = compareNumber(tierScore[a.eligibilityTier], tierScore[b.eligibilityTier]); if (tier) return tier;
-  const core = compareNumber(coreScore[a.coreIntentState], coreScore[b.coreIntentState]); if (core) return core;
-  const availability = compareNumber(availabilityScore[a.actualAvailability], availabilityScore[b.actualAvailability]); if (availability) return availability;
-  const userState = compareBoolean(a.userRelevance.state === "POSITIVE_DIRECT", b.userRelevance.state === "POSITIVE_DIRECT"); if (userState) return userState;
-  const userConfidence = compareNumber(a.userRelevance.confidence, b.userRelevance.confidence); if (userConfidence) return userConfidence;
-  const contextChecks = [
-    compareBoolean(a.contextFit.secondaryIntentConfirmed, b.contextFit.secondaryIntentConfirmed),
-    compareBoolean(a.contextFit.visitSituationConfirmed, b.contextFit.visitSituationConfirmed),
-    compareNumber(a.contextFit.matchedSoftPreferenceCount, b.contextFit.matchedSoftPreferenceCount),
-    compareBoolean(a.contextFit.atmosphereConfirmed, b.contextFit.atmosphereConfirmed),
-    compareBoolean(a.contextFit.typicalDaypartConfirmed, b.contextFit.typicalDaypartConfirmed),
+  return [
+    [hard, "der besser belegten Erfüllung harter Bedingungen"],
+    [compareNumber(tierScore[a.eligibilityTier], tierScore[b.eligibilityTier]), "der besser belegten Eignungsklasse"],
+    [compareNumber(coreScore[a.coreIntentState], coreScore[b.coreIntentState]), "der besser belegten Hauptabsicht"],
+    [compareNumber(availabilityScore[a.actualAvailability], availabilityScore[b.actualAvailability]), "der besser belegten Verfügbarkeit"],
+    [compareBoolean(a.userRelevance.state === "POSITIVE_DIRECT", b.userRelevance.state === "POSITIVE_DIRECT"), "einer consentgebundenen direkten Nutzerpräferenz"],
+    [compareNumber(a.userRelevance.confidence, b.userRelevance.confidence), "der Stärke einer consentgebundenen direkten Nutzerpräferenz"],
+    [compareBoolean(a.contextFit.secondaryIntentConfirmed, b.contextFit.secondaryIntentConfirmed), "einer bestätigten Nebenabsicht"],
+    [compareBoolean(a.contextFit.visitSituationConfirmed, b.contextFit.visitSituationConfirmed), "der bestätigten Besuchssituation"],
+    [compareNumber(a.contextFit.matchedSoftPreferenceCount, b.contextFit.matchedSoftPreferenceCount), "weiterer bestätigter Kontextmerkmale"],
+    [compareBoolean(a.contextFit.atmosphereConfirmed, b.contextFit.atmosphereConfirmed), "der bestätigten Atmosphäre"],
+    [compareBoolean(a.contextFit.typicalDaypartConfirmed, b.contextFit.typicalDaypartConfirmed), "der bestätigten Tageszeit"],
+    [compareBoolean(a.worldEvidence.conflictFree, b.worldEvidence.conflictFree), "weniger widersprüchlicher World-Angaben"],
+    [compareNumber(a.worldEvidence.confirmedReasonCount, b.worldEvidence.confirmedReasonCount), "zusätzlicher bestätigter World-Gründe"],
+    [a.neutralIdentity.localeCompare(b.neutralIdentity), "eines neutralen stabilen Tie-Breakers, nicht wegen einer besser belegten Passung"],
   ];
-  const context = contextChecks.find((value) => value !== 0); if (context) return context;
-  const conflict = compareBoolean(a.worldEvidence.conflictFree, b.worldEvidence.conflictFree); if (conflict) return conflict;
-  const evidence = compareNumber(a.worldEvidence.confirmedReasonCount, b.worldEvidence.confirmedReasonCount); if (evidence) return evidence;
-  return a.neutralIdentity.localeCompare(b.neutralIdentity);
+}
+
+function compareCandidates(left: RankableCandidate, right: RankableCandidate): number {
+  return rankingChecks(left, right).find(([difference]) => difference !== 0)?.[0] ?? 0;
 }
 
 function rankable(candidate: RankableCandidate): boolean {
@@ -129,10 +132,14 @@ function candidateRows(evaluation: DecisionProductEvaluation, projection: Releva
     return DecisionProductCandidateSchema.parse(withContentHash(body, "candidateHash"));
   }).sort(compareCandidates);
   let position = 0;
+  const rankedRows = rows.filter(rankable);
   return deepFreeze(rows.map((candidate) => {
     const { candidateHash: _candidateHash, ...body } = candidate;
     const ranked = rankable(candidate); if (ranked) position += 1;
-    return DecisionProductCandidateSchema.parse(withContentHash({ ...body, rank: ranked ? position : null }, "candidateHash"));
+    const next = ranked ? rankedRows[position] : undefined;
+    const decidingFactor = next ? rankingChecks(candidate, next).find(([difference]) => difference < 0)?.[1] : undefined;
+    const comparativeReason: ProductReason[] = decidingFactor ? [{ code: "product-rank-versus-next-v1", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: `Vor dem nächsten Platz wegen ${decidingFactor}.`, confirmed: true }] : [];
+    return DecisionProductCandidateSchema.parse(withContentHash({ ...body, rank: ranked ? position : null, reasons: [...body.reasons, ...comparativeReason] }, "candidateHash"));
   }));
 }
 

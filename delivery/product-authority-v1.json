@@ -50,6 +50,8 @@
   "protectedSemanticSourceSet": {
     "paths": [
       "mobile/app/(tabs)/decision.tsx",
+      "mobile/app/(tabs)/wohin.tsx",
+      "mobile/lib/decision/wohinModel.ts",
       "mobile/lib/decision/productDecision.ts",
       "packages/decision-vnext-core/src/product-decision.ts",
       "packages/decision-vnext-core/src/product-decision-production-adapter.ts",

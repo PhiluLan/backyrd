@@ -202,7 +202,7 @@ export default function DecisionOnboardingScreen() {
       const entryStatus = await getMyProductEntryStatus();
       if (!alive) return;
       if (entryStatus.canEnterDecision) {
-        router.replace("/(tabs)/decision" as any);
+        router.replace("/(tabs)/wohin" as any);
         return;
       }
 
