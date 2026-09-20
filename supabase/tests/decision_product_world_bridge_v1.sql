@@ -6,9 +6,9 @@ create function pg_temp.assert(p_ok boolean,p_message text) returns void languag
 begin if p_ok is not true then raise exception 'Product World bridge failed: %',p_message; end if; end $$;
 
 select pg_temp.assert(
-  has_function_privilege('service_role','public.backyrd_decision_vnext_product_context_v2(uuid,text,text,text,text,text,text,bigint)','execute')
-  and not has_function_privilege('anon','public.backyrd_decision_vnext_product_context_v2(uuid,text,text,text,text,text,text,bigint)','execute')
-  and not has_function_privilege('authenticated','public.backyrd_decision_vnext_product_context_v2(uuid,text,text,text,text,text,text,bigint)','execute'),
+  has_function_privilege('service_role','public.backyrd_decision_vnext_product_context_v3(uuid,text,text,text,text,text,text,bigint)','execute')
+  and not has_function_privilege('anon','public.backyrd_decision_vnext_product_context_v3(uuid,text,text,text,text,text,text,bigint)','execute')
+  and not has_function_privilege('authenticated','public.backyrd_decision_vnext_product_context_v3(uuid,text,text,text,text,text,text,bigint)','execute'),
   'Product context must remain service-only'
 );
 select pg_temp.assert(

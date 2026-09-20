@@ -47,8 +47,9 @@ $$;
 revoke all on function world_knowledge_private.product_decision_projection_v1(jsonb)
   from public,anon,authenticated,service_role;
 
--- Existing single transport keeps its service-only authority and 48-row bound.
-create or replace function public.backyrd_decision_vnext_product_context_v2(
+-- Additive service-only reader: the already deployed v2 remains intact during
+-- migration; only the same Decision transport switches to v3 on backend deploy.
+create function public.backyrd_decision_vnext_product_context_v3(
   p_auth_user_id uuid,p_subject_binding_hash text,p_target_city text,p_primary_intent text,
   p_release_hash text,p_artifact_hash text,p_source_set_hash text,p_generation bigint
 ) returns jsonb language plpgsql volatile security definer set search_path = '' as $$
@@ -194,7 +195,7 @@ begin
 end;
 $$;
 
-revoke all on function public.backyrd_decision_vnext_product_context_v2(uuid,text,text,text,text,text,text,bigint)
+revoke all on function public.backyrd_decision_vnext_product_context_v3(uuid,text,text,text,text,text,text,bigint)
   from public,anon,authenticated;
-grant execute on function public.backyrd_decision_vnext_product_context_v2(uuid,text,text,text,text,text,text,bigint)
+grant execute on function public.backyrd_decision_vnext_product_context_v3(uuid,text,text,text,text,text,text,bigint)
   to service_role;

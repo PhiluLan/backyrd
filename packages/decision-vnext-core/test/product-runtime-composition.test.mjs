@@ -63,7 +63,9 @@ test("Product bridge keeps manifests immutable, exposes only authorized context 
   assert.match(bridgeMigration, /'DRINKS' then array\['PUB','WINE_BAR','BAR'/);
   assert.match(bridgeMigration, /validate_resolution_manifest_v1/);
   assert.match(bridgeMigration, /limit 48/);
-  assert.match(bridgeMigration, /revoke all on function public\.backyrd_decision_vnext_product_context_v2[\s\S]+?from public,anon,authenticated/);
+  assert.match(bridgeMigration, /create function public\.backyrd_decision_vnext_product_context_v3/);
+  assert.match(bridgeMigration, /revoke all on function public\.backyrd_decision_vnext_product_context_v3[\s\S]+?from public,anon,authenticated/);
+  assert.doesNotMatch(bridgeMigration, /create or replace function public\.backyrd_decision_vnext_product_context_v2/);
   assert.doesNotMatch(bridgeMigration, /create or replace function world_knowledge_private\.decision_projection_v1/);
 });
 
@@ -109,7 +111,7 @@ test("evaluation failures reveal only a fixed stage and never a World fact or co
     idempotencyKey: "key-1", naturalLanguage: "Café in Basel", explicit: { targetCity: "Basel" },
     alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
   const evaluate = (data, incoming = request) => createDecisionProductRpcEvaluationProvider({ async rpc(name, parameters) {
-    assert.equal(name, "backyrd_decision_vnext_product_context_v2");
+    assert.equal(name, "backyrd_decision_vnext_product_context_v3");
     assert.equal(parameters.p_primary_intent, incoming === request ? "COFFEE" : null);
     assert.equal(Object.hasOwn(parameters, "naturalLanguage"), false);
     return { data, error: null };

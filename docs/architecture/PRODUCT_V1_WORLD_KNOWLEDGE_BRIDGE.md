@@ -2,8 +2,10 @@
 
 This is a focused change to the existing `decision-v13` Product transport and
 Decision vNext evaluator, not a second engine or a mobile route change. The
-database migration adds a Product-only, manifest-derived view. It does not
-rewrite the immutable shadow projection in already sealed manifests.
+database migration adds a Product-only, manifest-derived view and an additive,
+service-only v3 context reader. The existing v2 context reader remains intact
+for the already deployed backend during the migration-to-backend cutover. It
+does not rewrite the immutable shadow projection in already sealed manifests.
 
 | Input / boundary | Before | Candidate after this PR |
 | --- | --- | --- |
@@ -26,9 +28,14 @@ Read-only Production observation on 2026-09-20, before this PR is deployed:
 The local SQL acceptance test checks the Product-only projection, service-only
 context RPC, preservation of explicit unknowns, and exclusion of contacts. The
 Decision tests replay the public, non-personal fact shapes above through the
-Product binding/evaluator. Existing Admin/World authoring tests cover the
-append-only Claim → rebuild → canonical manifest path; this PR does **not**
-perform a Production Admin write or change any spot fact. Thus it does not
-claim that an installed iPhone has consumed this new candidate. After review,
-merge, migration, and backend deployment, a separate live smoke must verify
-Admin save → manifest rebuild → `Wohin` output on the installed app.
+Product binding/evaluator. The isolated PostgreSQL-17 rehearsal
+(`product-world-sql-rehearsal.test.mjs`) executed an authorized append-only
+Admin correction, rebuild, manifest validation, Product v3 context RPC and
+vNext evaluation with synthetic data; unauthorized calls and tampered World
+bindings were denied. The changed spot name reached the Product presentation.
+This is an end-to-end **local** path, not a Production Admin write or installed
+iPhone smoke. No real spot fact was changed. After review and merge, deploy in
+this order: additive migration (old v2 backend still works), matching backend
+artifact (same mobile route now calls service-only v3), then live read-only
+World/Wohin smoke. A separate authorized, factually justified Admin correction
+would be needed to prove the live write-to-mobile leg; do not invent one.
