@@ -15,7 +15,7 @@ import {
 } from "./product-v1-contracts.js";
 import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY, PRODUCT_V1_INTENT_MAPPINGS, type ProductV1Intent } from "./product-v1-authority.js";
 
-export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@1.0" as const;
+export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@1.1" as const;
 
 const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase("de-CH");
 const includes = (text: string, terms: readonly string[]) => terms.some((term) => text.includes(term));
@@ -49,12 +49,13 @@ export function resolveDecisionProductContext(requestValue: unknown, authority: 
   if (/\b(?:höchstens|maximal|bis)\s+\d{1,4}\s*(?:chf|franken)/.test(text)) hard.add("BUDGET_MAXIMUM");
   if (requestedCity) hard.add("TARGET_LOCATION");
   if (includes(text, ["ruhig", "gemütlich"])) soft.add("ATMOSPHERE_QUIET");
+  if (includes(text, ["günstig", "preiswert"])) soft.add("PRICE_LEVEL_LOW");
   const body = {
     contractVersion: PRODUCT_DECISION_VERSIONS.context, resolverVersion: "decision-vnext-product-context-resolver-v1", inputHash: contentHash({ request, authority }),
     primaryIntent, secondaryIntent: explicit.secondaryIntent ?? (includes(text, ["date", "in ruhe reden"]) ? "QUIET_CONVERSATION" : null),
     intentCompatibility: primaryIntent ? "COMPATIBLE" as const : "UNKNOWN" as const, occasion: explicit.occasion ?? (text.includes("date") ? "DATE" : null),
     moods: explicit.moods ?? (includes(text, ["ruhig", "gemütlich"]) ? ["CALM"] : []), targetCity: authority.authorizedCity,
-    dateTime: explicit.dateTime ?? { state: "KNOWN" as const, localDate: requestedLocalDate(text, authority.serverTime), dayPhase: null, timeZone: "Europe/Zurich" },
+    dateTime: explicit.dateTime ?? { state: "KNOWN" as const, localDate: requestedLocalDate(text, authority.serverTime), dayPhase: includes(text, ["morgen", "frühstück"]) ? "MORNING" : includes(text, ["mittag"]) ? "MIDDAY" : includes(text, ["nachmittag"]) ? "AFTERNOON" : includes(text, ["abend"]) ? "EVENING" : includes(text, ["nacht"]) ? "NIGHT" : null, timeZone: "Europe/Zurich" },
     group: explicit.group ?? { size: includes(text, ["tochter", "sohn", "kind", "familie"]) ? 2 : null, minimumAge: Number(text.match(/\b(\d{1,2})[- ]?(?:jährig|jaehrig)/)?.[1] ?? NaN) || null, adultPresent: includes(text, ["mich und", "mit erwachsenen", "familie"]), companionType: includes(text, ["tochter", "sohn", "kind", "familie"]) ? "FAMILY" : null },
     budget: explicit.budget ?? (() => { const amount = Number(text.match(/(?:höchstens|maximal|bis)\s+(\d{1,4})\s*(?:chf|franken)/)?.[1] ?? NaN); return Number.isFinite(amount) ? { state: "KNOWN" as const, amount, currency: "CHF" as const, perPerson: includes(text, ["pro person", "p.p."]), calibrationLabel: null } : { state: "UNKNOWN" as const, amount: null, currency: null, perPerson: false, calibrationLabel: null }; })(),
     stayDuration: explicit.stayDuration ?? null, hardConstraints: [...hard].sort(), softPreferences: [...soft].sort(), unresolvedTerms: primaryIntent ? [] : ["CORE_INTENT"],
@@ -69,6 +70,18 @@ const entry = (snapshot: ProductWorldView, key: string): ProductWorldView["facts
 const unknown = (snapshot: ProductWorldView, key: string) => snapshot.explicitUnknowns.some((row) => row.key === key);
 const contextual = (state: DecisionProductCandidateAssessment["visitSituation"]["state"], source: unknown, ids: readonly string[] = []) => ({ state, mappingIds: ids, evidenceSourceHash: contentHash(source) });
 const reason = (reasonCode: string, domain: "WORLD" | "CONTEXT" | "LIMITATION", sourceHash: string, statementDe: string, confirmed: boolean) => ({ reasonCode, domain, sourceHash, statementDe, confirmed });
+type ContextRow = { readonly conditions?: { readonly days?: readonly string[]; readonly dayparts?: readonly string[]; readonly occasion?: string | null; readonly area?: string | null; readonly groupSize?: { readonly min?: number; readonly max?: number } | null; readonly ageContext?: string | null; readonly accompaniment?: string | null; readonly eventMode?: string | null }; readonly atmosphere?: string; readonly situation?: string; readonly daypart?: string };
+function contextApplies(row: ContextRow, context: DecisionProductContext): boolean {
+  const c = row.conditions;
+  if (!c) return false;
+  const day = context.dateTime.localDate ? ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"][new Date(`${context.dateTime.localDate}T12:00:00Z`).getUTCDay()] : null;
+  if (c.days?.length && (!day || !c.days.includes(day))) return false;
+  if (c.dayparts?.length && (!context.dateTime.dayPhase || !c.dayparts.includes(context.dateTime.dayPhase))) return false;
+  if (c.occasion && c.occasion !== context.occasion || c.area || c.ageContext || c.accompaniment || c.eventMode && c.eventMode !== "NORMAL_OPERATION") return false;
+  if (c.groupSize && (context.group.size === null || c.groupSize.min !== undefined && context.group.size < c.groupSize.min || c.groupSize.max !== undefined && context.group.size > c.groupSize.max)) return false;
+  return true;
+}
+const matchedRows = (value: unknown, context: DecisionProductContext): readonly ContextRow[] => Array.isArray(value) ? (value as ContextRow[]).filter((row) => contextApplies(row, context)) : [];
 
 export function evaluateProductV1IntentClassification(input: { readonly intent: string | null; readonly purpose: string | null; readonly category: string | null; readonly placeTypes: readonly string[]; readonly disputed: boolean; readonly evidenceSourceHash: string }) {
   if (!input.intent) return { intentId: null, state: "NOT_APPLICABLE" as const, mappingIds: [], worldFactKeys: [], evidenceSourceHash: input.evidenceSourceHash };
@@ -94,26 +107,38 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, rej
   if (context.hardConstraints.includes("ACCESSIBILITY_STEP_FREE")) { const row = entry(snapshot, "accessibility.step_free_entrance"); row?.resolution === "KNOWN_TRUE" ? confirmed.push("ACCESSIBILITY_STEP_FREE") : row?.resolution === "KNOWN_FALSE" ? failed.push("ACCESSIBILITY_STEP_FREE") : unknownHard.push("ACCESSIBILITY_STEP_FREE"); }
   if (context.hardConstraints.includes("BUDGET_MAXIMUM")) { const row = entry(snapshot, "operation.price_range"); const value = row?.value; const maximum = value && typeof value === "object" && !Array.isArray(value) && "max" in value ? Number(value.max) : null; maximum === null || context.budget.amount === null ? unknownHard.push("BUDGET_MAXIMUM") : maximum <= context.budget.amount ? confirmed.push("BUDGET_MAXIMUM") : failed.push("BUDGET_MAXIMUM"); }
   if (context.hardConstraints.includes("AGE_OR_LEGAL")) { const row = entry(snapshot, "rule.age_access_conditions"); const value = row?.value; const age = context.group.minimumAge; if (!value || typeof value !== "object" || Array.isArray(value) || !("rules" in value) || age === null) unknownHard.push("AGE_OR_LEGAL"); else { const rules = Array.isArray(value.rules) ? value.rules : []; const allowed = rules.some((rule) => rule && typeof rule === "object" && ((rule.mode === "NO_MINIMUM") || (typeof rule.minimumAge === "number" && (age >= rule.minimumAge || (rule.mode === "UNACCOMPANIED_MINIMUM" && context.group.adultPresent))))); (allowed ? confirmed : failed).push("AGE_OR_LEGAL"); } }
-  let openingStatus: DecisionProductCandidateAssessment["actualAvailability"]["status"] = "not_requested";
-  if (context.hardConstraints.includes("OPEN_NOW")) { openingStatus = evaluateOpeningState(snapshot, evaluationAt, productOpeningPolicy).status; openingStatus === "open" ? confirmed.push("OPEN_NOW") : openingStatus === "closed" ? failed.push("OPEN_NOW") : unknownHard.push("OPEN_NOW"); }
+  const openingStatus = evaluateOpeningState(snapshot, evaluationAt, productOpeningPolicy).status;
+  if (openingStatus === "closed") failed.push("ACTUAL_AVAILABILITY");
+  if (context.hardConstraints.includes("OPEN_NOW")) { openingStatus === "open" ? confirmed.push("OPEN_NOW") : openingStatus === "closed" ? failed.push("OPEN_NOW") : unknownHard.push("OPEN_NOW"); }
   const contextualReject = rejected.includes(snapshot.spot.spotId); const incompatible = ["INCOMPATIBLE", "DISPUTED"].includes(core.state); const notConfigured = core.state === "NOT_CONFIGURED";
   const tierValue = contextualReject || failed.length || incompatible ? "INELIGIBLE" : notConfigured ? "NOT_CONFIGURED" : core.state === "CONFIRMED" && !unknownHard.length ? "ELIGIBLE_CONFIRMED" : "UNCONFIRMED_FALLBACK";
   const purposeEntry = entry(snapshot, "purpose.primary_visit"); const onsiteEntry = entry(snapshot, "offering.onsite"); const onsite = Array.isArray(onsiteEntry?.value) ? onsiteEntry.value as readonly { kind: string; relationship: "PART_OF_SPOT" | "EMBEDDED_FACILITY" }[] : [];
   const atmosphereEntry = entry(snapshot, "context.atmosphere"); const visitEntry = entry(snapshot, "context.visit_situations"); const daypartEntry = entry(snapshot, "context.typical_dayparts");
-  const worldReasons = [reason(`core-intent-${core.state.toLowerCase()}`, "WORLD", core.evidenceSourceHash, core.state === "CONFIRMED" ? "Der Hauptzweck bestätigt die Kernabsicht." : core.state === "INCOMPATIBLE" ? "Der bestätigte Hauptzweck passt nicht zur Kernabsicht." : "Die Kernabsicht ist durch World Knowledge nicht bestätigt.", core.state === "CONFIRMED")];
+  const matchingAtmosphere = matchedRows(atmosphereEntry?.value, context).filter((row) => context.softPreferences.includes("ATMOSPHERE_QUIET") && ["QUIET", "COZY", "RELAXED"].includes(row.atmosphere ?? ""));
+  const matchingVisit = matchedRows(visitEntry?.value, context).filter((row) => context.group.companionType === "FAMILY" && row.situation === "FAMILY" || context.occasion === "DATE" && row.situation === "DATE_PAIR");
+  const matchingDaypart = matchedRows(daypartEntry?.value, context).filter((row) => context.dateTime.dayPhase !== null && row.daypart === context.dateTime.dayPhase);
+  const priceLevel = entry(snapshot, "operation.price_level")?.value;
+  const matchingPrice = context.softPreferences.includes("PRICE_LEVEL_LOW") && ["VERY_LOW", "LOW"].includes(String(priceLevel));
+  const matchedSoft = [...(matchingAtmosphere.length ? ["ATMOSPHERE_QUIET"] : []), ...(matchingVisit.length ? ["VISIT_SITUATION"] : []), ...(matchingDaypart.length ? ["TYPICAL_DAYPART"] : []), ...(matchingPrice ? ["PRICE_LEVEL_LOW"] : [])];
+  const worldReasons = [reason(`core-intent-${core.state.toLowerCase()}`, "WORLD", core.evidenceSourceHash, core.state === "CONFIRMED" ? "Die bestätigte Kernklassifikation passt zur Absicht." : core.state === "INCOMPATIBLE" ? "Die bestätigte Kernklassifikation passt nicht zur Absicht; Zusatzangebote ersetzen sie nicht." : "Die Kernabsicht ist durch World Knowledge nicht bestätigt.", core.state === "CONFIRMED")];
+  if (openingStatus === "closed") worldReasons.push(reason("currently-closed", "WORLD", contentHash({ snapshotHash: snapshot.snapshotHash, openingStatus }), "Der Ort ist laut gültigem World Knowledge geschlossen.", true));
   if (contextualReject) worldReasons.push(reason("situational-reject", "CONTEXT", context.interpretationHash, "Dieser Spot wurde nur für diese Anfrage abgewählt.", false));
+  if (matchingAtmosphere.length) worldReasons.push(reason("atmosphere-fit", "CONTEXT", contentHash(atmosphereEntry), "Die bestätigte Atmosphäre passt zu deinem Wunsch.", true));
+  if (matchingVisit.length) worldReasons.push(reason("visit-fit", "CONTEXT", contentHash(visitEntry), "Die bestätigte Besuchssituation passt.", true));
+  if (matchingDaypart.length) worldReasons.push(reason("daypart-fit", "CONTEXT", contentHash(daypartEntry), "Die bestätigte Tageszeit passt.", true));
+  if (matchingPrice) worldReasons.push(reason("price-level-fit", "CONTEXT", contentHash({ priceLevel, snapshotHash: snapshot.snapshotHash }), "Das bestätigte Preislevel passt zum Wunsch nach günstig.", true));
   const body = {
     contractVersion: PRODUCT_DECISION_VERSIONS.assessment, candidateId: snapshot.spot.spotId, snapshotHash: snapshot.snapshotHash, tier: tierValue, coreIntentCoverage: core, secondaryIntentCoverage: secondary,
     worldClassification: { primaryVisitPurpose: typeof purposeEntry?.value === "string" ? purposeEntry.value : null, primaryCategory: snapshot.spot.classification.primaryCategory, placeTypes: snapshot.spot.classification.placeTypes ?? [], evidenceSourceHash: contentHash({ snapshotHash: snapshot.snapshotHash, structural: snapshot.spot.classification }) },
     primaryVisitPurpose: contextual(purposeEntry ? "CONFIRMED" : unknown(snapshot, "purpose.primary_visit") ? "UNKNOWN" : "NOT_CONFIGURED", purposeEntry ?? snapshot.snapshotHash),
     specificCoreClassification: contextual(core.state, core.evidenceSourceHash, core.mappingIds),
     onsiteOfferings: { state: onsiteEntry ? "CONFIRMED" as const : unknown(snapshot, "offering.onsite") ? "UNKNOWN" as const : "NOT_CONFIGURED" as const, mappingIds: [], availableKinds: onsite.map((row) => row.kind), matchedKinds: [], relationships: [...new Set(onsite.map((row) => row.relationship))].sort(), confirmsCoreIntent: false as const, evidenceSourceHash: contentHash(onsiteEntry ?? { snapshotHash: snapshot.snapshotHash, key: "offering.onsite" }) },
-    visitSituation: contextual(visitEntry ? "CONFIRMED" : unknown(snapshot, "context.visit_situations") ? "UNKNOWN" : "NOT_CONFIGURED", visitEntry ?? snapshot.snapshotHash),
-    atmosphere: contextual(atmosphereEntry ? "CONFIRMED" : unknown(snapshot, "context.atmosphere") ? "UNKNOWN" : "NOT_CONFIGURED", atmosphereEntry ?? snapshot.snapshotHash),
-    typicalDaypart: contextual(daypartEntry ? "CONFIRMED" : unknown(snapshot, "context.typical_dayparts") ? "UNKNOWN" : "NOT_CONFIGURED", daypartEntry ?? snapshot.snapshotHash),
+    visitSituation: contextual(matchingVisit.length ? "CONFIRMED" : visitEntry || unknown(snapshot, "context.visit_situations") ? "UNKNOWN" : "NOT_CONFIGURED", visitEntry ?? snapshot.snapshotHash),
+    atmosphere: contextual(matchingAtmosphere.length ? "CONFIRMED" : atmosphereEntry || unknown(snapshot, "context.atmosphere") ? "UNKNOWN" : "NOT_CONFIGURED", atmosphereEntry ?? snapshot.snapshotHash),
+    typicalDaypart: contextual(matchingDaypart.length ? "CONFIRMED" : daypartEntry || unknown(snapshot, "context.typical_dayparts") ? "UNKNOWN" : "NOT_CONFIGURED", daypartEntry ?? snapshot.snapshotHash),
     actualAvailability: { status: openingStatus, evidenceSourceHash: contentHash({ snapshotHash: snapshot.snapshotHash, status: openingStatus }) },
-    confirmedHardConstraints: confirmed.sort(), unknownHardConstraints: unknownHard.sort(), failedHardConstraints: failed.sort(), matchedSoftPreferences: [],
-    conflicts: snapshot.conflicts.map((row) => row.code).sort(), reasons: worldReasons, limitations: [...(unknownHard.length ? ["HARD_CONSTRAINT_EVIDENCE_UNKNOWN"] : []), ...(core.state === "UNKNOWN" ? ["CORE_INTENT_EVIDENCE_UNKNOWN"] : [])],
+    confirmedHardConstraints: confirmed.sort(), unknownHardConstraints: unknownHard.sort(), failedHardConstraints: failed.sort(), matchedSoftPreferences: matchedSoft.sort(),
+    conflicts: snapshot.conflicts.map((row) => row.code).sort(), reasons: worldReasons, limitations: [...(unknownHard.length ? ["HARD_CONSTRAINT_EVIDENCE_UNKNOWN"] : []), ...(context.hardConstraints.includes("BUDGET_MAXIMUM") && unknownHard.includes("BUDGET_MAXIMUM") && priceLevel ? ["PRICE_LEVEL_NOT_A_CHF_AMOUNT"] : []), ...(core.state === "UNKNOWN" ? ["CORE_INTENT_EVIDENCE_UNKNOWN"] : [])],
     rejectionClass: contextualReject ? "SITUATIONAL_REJECT" as const : "NONE" as const, userIntelligenceInvolved: false, userIntelligenceAffectsEligibility: false as const,
     neutralTieBreakerHash: contentHash({ spotId: snapshot.spot.spotId, snapshotHash: snapshot.snapshotHash }),
   };
