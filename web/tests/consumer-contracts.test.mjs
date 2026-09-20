@@ -5,10 +5,14 @@ import test from "node:test";
 const root = new URL("../../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
 
-test("Web Decision keeps the canonical Mobile option keys and labels", async () => {
-  const [web, mobile] = await Promise.all([
+test("Web keeps its guided option labels while Mobile uses the single Wohin vNext route", async () => {
+  const [web, retiredMobileRoute, wohin, mobileRequest, mobileTransport, release] = await Promise.all([
     read("web/lib/decision-web-api.ts"),
     read("mobile/app/(tabs)/decision.tsx"),
+    read("mobile/app/(tabs)/wohin.tsx"),
+    read("mobile/lib/decision/wohinModel.ts"),
+    read("mobile/lib/decision/productDecision.ts"),
+    read("mobile/lib/decision/productDecisionRelease.generated.ts"),
   ]);
   const expected = [
     ["restaurant", "Essen"],
@@ -31,8 +35,14 @@ test("Web Decision keeps the canonical Mobile option keys and labels", async () 
   for (const [key, label] of expected) {
     const pattern = new RegExp(`key:\\s*["']${key}["'][\\s\\S]{0,100}label:\\s*["']${label}["']`);
     assert.match(web, pattern);
-    assert.match(mobile, pattern);
   }
+  assert.match(retiredMobileRoute, /Redirect href="\/\(tabs\)\/wohin"/);
+  assert.doesNotMatch(retiredMobileRoute, /DIRECTION_OPTIONS|functions\.invoke|requestDecision/);
+  assert.match(wohin, /createWohinRequest/);
+  assert.match(wohin, /invokeDecisionProduct/);
+  assert.match(mobileRequest, /backyrd\.decision-vnext\.product-request@1\.0/);
+  assert.match(mobileTransport, /executeDecisionProductSingleRoute/);
+  assert.match(release, /"transportFunction": "decision-v13"/);
 });
 
 test("Web Decision uses the strict vNext single-route Product contract", async () => {
