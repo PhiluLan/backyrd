@@ -74,6 +74,40 @@ test("context authoring keeps purpose, on-site offering and conditional observat
   assert.doesNotMatch(source, /option value="NEARBY"/);
 });
 
+test("product context, special hours and temporary state have low-friction, truthful choices", async () => {
+  const [editor, product] = await Promise.all([
+    read("packages/world-knowledge-authoring-ui/src/index.tsx"),
+    read("packages/world-knowledge-authoring-ui/src/ProductCorrection.tsx"),
+  ]);
+  assert.match(editor, /Was passt zu diesem Spot\?/);
+  assert.match(editor, /aria-pressed=\{active\} onClick=\{\(\) => toggleSimple\(option\.value\)\}/);
+  assert.match(editor, /Ausnahmen und Bedingungen bearbeiten/);
+  assert.match(editor, /save\("KNOWN_VALUE", \[\]\)/);
+  assert.match(editor, /Keine besonderen Zeiten vorhanden/);
+  assert.match(editor, /Der normale, bis auf Weiteres geltende Betrieb steht bei den regulären Öffnungszeiten/);
+  assert.match(product, /query\.trim\(\) \? 300 : 0/);
+  assert.match(product, /wk-catalog-details/);
+  assert.match(product, /Angaben gespeichert/);
+});
+
+test("Admin World reuses the existing Swiss Places lookup with explicit address confirmation", async () => {
+  const [page, picker, product] = await Promise.all([
+    read("admin-dashboard/app/world-knowledge/page.tsx"),
+    read("admin-dashboard/app/world-knowledge/WorldAddressPicker.tsx"),
+    read("packages/world-knowledge-authoring-ui/src/ProductCorrection.tsx"),
+  ]);
+  assert.match(page, /addressPicker=\{WorldAddressPicker\}/);
+  assert.match(picker, /libraries=places/);
+  assert.match(picker, /componentRestrictions: \{ country: "ch" \}/);
+  assert.match(picker, /Number\.isFinite\(latitude\)/);
+  assert.match(picker, /onChange=\{\(\) => onSelectRef\.current\(null\)\}/);
+  assert.match(product, /Adresse und Position speichern/);
+  for (const key of ["location.address_line1", "location.locality", "location.country_code", "location.latitude", "location.longitude"]) {
+    assert.ok(product.includes(key), `${key} must be saved through the authorized claim path`);
+  }
+  assert.match(product, /await saveField\(field, "KNOWN_VALUE", value\)/);
+});
+
 test("authoring writes rebuild and read the canonical snapshot without a normal-view file handoff", async () => {
   const [source, adminRoute, ownerRoute] = await Promise.all([
     read("packages/world-knowledge-authoring-ui/src/index.tsx"),
