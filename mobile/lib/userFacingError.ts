@@ -27,6 +27,9 @@ export function userFacingError(
   fallback = "Das hat gerade nicht geklappt. Bitte versuche es noch einmal.",
 ): string {
   const technical = technicalErrorText(error).toLowerCase();
+  if (technical.includes("decision_session_timeout")) {
+    return "Deine Anmeldung konnte nicht rechtzeitig erneuert werden. Schließe Backyrd vollständig und öffne es erneut.";
+  }
   if (technical.includes("review_same_day_limit")) {
     return "Du hast diesen Ort heute bereits bewertet.";
   }
