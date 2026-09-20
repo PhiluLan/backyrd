@@ -69,4 +69,25 @@
 .wk-product-app .wk-review .wk-note{grid-column:1/-1}
 .wk-product-app .wk-review .wk-preview{margin-top:0}
 .wk-product-app .wk-main{max-width:1100px}
+.wk-catalog-details{margin-bottom:1rem}
+.wk-catalog-details>summary{display:flex;align-items:center;justify-content:space-between;gap:1rem;cursor:pointer;list-style:none}
+.wk-catalog-details>summary::-webkit-details-marker{display:none}
+.wk-catalog-details>summary:after{content:"⌄";font-size:1.25rem;color:var(--pink)}
+.wk-catalog-details[open]>summary:after{transform:rotate(180deg)}
+.wk-catalog-details>summary span{color:#bbb8c1;font-size:.92rem;text-align:right}
+.wk-product-search small{color:#bbb8c1}
+.wk-context-quick{padding:1rem;border:1px solid #4b4552;border-radius:14px;background:#211c26}
+.wk-context-quick strong{display:block;margin-bottom:.25rem}
+.wk-context-quick p{margin:.25rem 0 .8rem;color:#cbc7d0}
+.wk-context-advanced{padding:.8rem 1rem;border:1px solid var(--line);border-radius:12px}
+.wk-context-advanced>summary{cursor:pointer;font-weight:700}
+.wk-context-advanced[open]>summary{margin-bottom:.8rem}
+.wk-field-hint{grid-column:1/-1;color:#cbc7d0;line-height:1.5}
+.wk-address-assist{display:grid;gap:.8rem;margin:1rem 0 1.4rem;padding:1.2rem;border:1px solid #6b4a60;border-radius:16px;background:linear-gradient(135deg,#261b27,#17151d)}
+.wk-address-assist h3,.wk-address-assist p{margin:0}
+.wk-address-assist p,.wk-address-selection span{color:#cbc7d0}
+.wk-address-picker label{display:grid;gap:.4rem;font-weight:700}
+.wk-address-picker input{width:100%;min-height:48px;padding:.8rem 1rem;border:1px solid #75616e;border-radius:12px;background:#101015;color:#fff;font:inherit}
+.wk-address-selection{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.8rem;border:1px solid #6b4a60;border-radius:12px}
+.wk-address-selection strong{flex:1 1 240px}
 @media(max-width:760px){.wk-product-app .wk-layout{display:block}.wk-product-app .wk-spot-list{max-height:210px}.wk-product-app .wk-sidebar nav{overflow-x:auto}.wk-product-app .wk-main{padding:1rem}}
