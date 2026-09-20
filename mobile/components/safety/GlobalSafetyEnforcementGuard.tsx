@@ -101,14 +101,17 @@ export default function GlobalSafetyEnforcementGuard({
   useEffect(() => {
     mounted.current = true;
     if (!authReady) return;
+    let active = true;
     void refresh();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(() => {
       setLoading(true);
-      void refresh();
+      // Leave Supabase's auth callback before calling its APIs again.
+      setTimeout(() => { if (active) void refresh(); }, 0);
     });
 
     return () => {
+      active = false;
       mounted.current = false;
       authListener.subscription.unsubscribe();
     };

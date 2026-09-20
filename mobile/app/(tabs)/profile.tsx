@@ -376,10 +376,15 @@ export default function ProfileScreen() {
         if (active) setCheckedAuth(true);
       });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!active) return;
-      await loadForUser(session?.user ?? null);
-      if (active) setCheckedAuth(true);
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Supabase dispatches auth events while holding its client lock. A
+      // database request in this callback can deadlock every later request.
+      setTimeout(() => {
+        if (!active) return;
+        void loadForUser(session?.user ?? null).then(() => {
+          if (active) setCheckedAuth(true);
+        });
+      }, 0);
     });
 
     return () => {
