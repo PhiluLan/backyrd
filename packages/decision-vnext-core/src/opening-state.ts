@@ -67,9 +67,10 @@ export function evaluateOpeningState(snapshot: ProductWorldView, at: string, pol
   const current = globalStates[0];
   if (current) {
     if (!authorized(current, policy)) return result("not_authorized", [current.entryHash], ["current-state-not-authorized"]);
+    if (current.validFrom && Date.parse(at) < Date.parse(current.validFrom) || current.validUntil && Date.parse(at) >= Date.parse(current.validUntil)) return result("expired", [current.entryHash], ["current-state-outside-validity"]);
     const kind = String((current.value as { readonly kind?: string }).kind);
     if (kind === "OPEN") return result("open", [current.entryHash]);
-    if (kind === "CLOSED" || kind === "TEMPORARILY_CLOSED") return result("closed", [current.entryHash]);
+    if (kind === "CLOSED" || kind === "TEMPORARILY_CLOSED" || kind === "AREA_CLOSED") return result("closed", [current.entryHash]);
   }
 
   const regular = snapshot.operationalRules.find((entry) => entry.key === "hours.regular");
