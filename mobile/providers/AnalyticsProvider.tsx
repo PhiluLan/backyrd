@@ -59,7 +59,11 @@ export function AnalyticsProvider({ children }: PropsWithChildren) {
 
     const { data: authSubscription } = supabase.auth.onAuthStateChange(() => {
       clearConsentCache();
-      registerInstallation({ auth_state_changed: true });
+      // Analytics may call the same Supabase client. Never start it from an
+      // auth callback while Supabase's internal lock is held.
+      setTimeout(() => {
+        if (mounted) void registerInstallation({ auth_state_changed: true });
+      }, 0);
     });
 
     return () => {

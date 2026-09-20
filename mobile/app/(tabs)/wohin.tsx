@@ -23,6 +23,20 @@ const color = {
   warning: "#FFC878",
 };
 
+async function withinIdentityDeadline<T>(operation: PromiseLike<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      Promise.resolve(operation),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("wohin_identity_timeout")), 8_000);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 function availabilityLabel(value: DecisionProductCandidate["actualAvailability"]): string {
   if (value === "open") return "Geöffnet";
   if (value === "closed") return "Geschlossen";
@@ -45,6 +59,8 @@ export default function WohinScreen() {
   const [city, setCity] = useState<string | null>(null);
   const [identityReady, setIdentityReady] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
+  const [identityError, setIdentityError] = useState(false);
+  const [identityAttempt, setIdentityAttempt] = useState(0);
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<DecisionProductResponse | null>(null);
   const [candidates, setCandidates] = useState<DecisionProductCandidate[]>([]);
@@ -72,29 +88,37 @@ export default function WohinScreen() {
 
   useEffect(() => {
     let active = true;
+    setIdentityReady(false);
+    setIdentityError(false);
+    setAuthenticated(false);
+    setCity(null);
     void (async () => {
-      const { data, error: authError } = await supabase.auth.getUser();
+      const { data, error: authError } = await withinIdentityDeadline(supabase.auth.getUser());
       if (!active) return;
-      if (authError || !data.user) {
+      if (authError) throw authError;
+      if (!data.user) {
         setAuthenticated(false);
         setIdentityReady(true);
         return;
       }
       setAuthenticated(true);
-      const { data: profile, error: profileError } = await supabase.from("profiles").select("city").eq("id", data.user.id).maybeSingle();
+      const { data: profile, error: profileError } = await withinIdentityDeadline(
+        supabase.from("profiles").select("city").eq("id", data.user.id).maybeSingle(),
+      );
       if (!active) return;
-      setCity(profileError ? null : typeof profile?.city === "string" ? profile.city.trim() : null);
+      if (profileError) throw profileError;
+      setCity(typeof profile?.city === "string" ? profile.city.trim() : null);
       setIdentityReady(true);
-    })().catch(() => { if (active) { setAuthenticated(false); setIdentityReady(true); } });
+    })().catch(() => { if (active) { setIdentityError(true); setIdentityReady(true); } });
     return () => { active = false; };
-  }, []);
+  }, [identityAttempt]);
 
   useEffect(() => {
     if (typeof params.query === "string") setQuery(params.query);
   }, [params.query]);
 
   const run = useCallback(async (text: string) => {
-    if (!authenticated || !city || loading) return;
+    if (!identityReady || identityError || !authenticated || !city || loading) return;
     const generation = ++requestGeneration.current;
     setLoading(true);
     setError(null);
@@ -114,16 +138,16 @@ export default function WohinScreen() {
     } finally {
       setLoading(false);
     }
-  }, [authenticated, city, loading]);
+  }, [authenticated, city, identityError, identityReady, loading]);
 
   useEffect(() => {
     const incoming = typeof params.query === "string" ? params.query.trim() : "";
-    if (!identityReady || !authenticated || !city || params.auto !== "1" || incoming.length < 3) return;
+    if (!identityReady || identityError || !authenticated || !city || params.auto !== "1" || incoming.length < 3) return;
     const key = `${city}:${incoming}`;
     if (autoRunKey.current === key) return;
     autoRunKey.current = key;
     void run(incoming);
-  }, [authenticated, city, identityReady, params.auto, params.query, run]);
+  }, [authenticated, city, identityError, identityReady, params.auto, params.query, run]);
 
   const openSpot = (candidate: DecisionProductCandidate) => {
     if (response) {
@@ -168,7 +192,7 @@ export default function WohinScreen() {
             <Text style={{ color: color.muted, fontSize: 12, marginTop: 8 }}>{city ? `Für ${city} · Ort aus deinem Profil` : "Dein Profilort wird geladen"}</Text>
             <Pressable
               accessibilityRole="button"
-              disabled={loading || !identityReady || !authenticated || !city || query.trim().length < 3}
+              disabled={loading || !identityReady || identityError || !authenticated || !city || query.trim().length < 3}
               onPress={() => void run(query)}
               style={{ marginTop: 22, minHeight: 54, borderRadius: 999, backgroundColor: !loading && authenticated && city && query.trim().length >= 3 ? color.pink : "#48484C", alignItems: "center", justifyContent: "center" }}
             >
@@ -176,8 +200,9 @@ export default function WohinScreen() {
             </Pressable>
           </View>
 
-          {identityReady && !authenticated ? <Text style={{ color: color.warning, marginTop: 20 }}>Bitte melde dich an, um Wohin zu nutzen.</Text> : null}
-          {identityReady && authenticated && !city ? <Text style={{ color: color.warning, marginTop: 20 }}>Dein Profilort fehlt. Ergänze ihn im Profil, damit Decision sichere Orte prüfen kann.</Text> : null}
+          {identityError ? <View style={{ marginTop: 20 }}><Text style={{ color: color.warning }}>Dein Profil konnte gerade nicht geprüft werden. Wohin ist vorübergehend nicht verfügbar.</Text><Pressable accessibilityRole="button" onPress={() => setIdentityAttempt((value) => value + 1)}><Text style={{ color: color.pink, marginTop: 12, fontWeight: "800" }}>Erneut prüfen</Text></Pressable></View> : null}
+          {identityReady && !identityError && !authenticated ? <Text style={{ color: color.warning, marginTop: 20 }}>Bitte melde dich an, um Wohin zu nutzen.</Text> : null}
+          {identityReady && !identityError && authenticated && !city ? <Text style={{ color: color.warning, marginTop: 20 }}>Dein Profilort fehlt. Ergänze ihn im Profil, damit Decision sichere Orte prüfen kann.</Text> : null}
           {error ? <Text style={{ color: color.warning, marginTop: 20 }}>{error}</Text> : null}
 
           {response ? (

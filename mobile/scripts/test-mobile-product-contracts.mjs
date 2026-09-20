@@ -22,12 +22,22 @@ const userFacingError = read("lib/userFacingError.ts");
 const founderLiveBinding = read("lib/decision/productDecisionRelease.generated.ts");
 const founderLiveControl = read("packages/product-decision-contract/src/index.mjs");
 const pushNotificationRouter = read("components/PushNotificationRouter.tsx");
+const profileScreen = read("app/(tabs)/profile.tsx");
+const safetyGuard = read("components/safety/GlobalSafetyEnforcementGuard.tsx");
+const analyticsProvider = read("providers/AnalyticsProvider.tsx");
 
 assert.match(decision, /invokeDecisionProduct/, "Wohin must pass through the sealed Product client boundary");
 assert.match(productDecision, /freshAccessToken/, "Decision requests must carry a fresh authenticated session token to the server boundary");
 assert.match(supabaseClient, /AppState\.addEventListener\("change",/, "native Auth refresh must follow foreground state");
 assert.match(supabaseClient, /state === "active"[\s\S]*auth\.startAutoRefresh\(\)[\s\S]*auth\.stopAutoRefresh\(\)/, "foreground resumes refresh and background stops it");
 assert.match(userFacingError, /decision_session_timeout[\s\S]*Anmeldung konnte nicht rechtzeitig erneuert werden/, "session stalls must not be mislabeled as a network outage");
+for (const [name, source] of [["profile", profileScreen], ["safety", safetyGuard], ["analytics", analyticsProvider]]) {
+  assert.doesNotMatch(source, /onAuthStateChange\(async\s*\(/, `${name} must not await work under the Supabase auth lock`);
+  assert.match(source, /onAuthStateChange\([\s\S]*?setTimeout\(/, `${name} must defer Supabase work until after the auth callback returns`);
+}
+assert.match(decision, /withinIdentityDeadline\(supabase\.auth\.getUser\(\)\)/, "Wohin must bound its Auth gate");
+assert.match(decision, /withinIdentityDeadline\([\s\S]*?\.from\("profiles"\)/, "Wohin must bound its profile lookup");
+assert.match(decision, /Dein Profil konnte gerade nicht geprüft werden[\s\S]*Erneut prüfen/, "Wohin must expose a retryable, honest identity failure");
 
 function exerciseAuthLifecycle(platform) {
   const calls = [];
