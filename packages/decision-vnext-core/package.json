@@ -14,6 +14,6 @@
     "build": "tsc -p tsconfig.build.json",
     "pretypecheck": "npm run build --workspace @backyrd/world-knowledge-core && npm run build --workspace @backyrd/user-intelligence-vnext-core",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run build && node --test test/product-decision-single-route.test.mjs test/product-decision-production-adapter.test.mjs test/product-runtime-composition.test.mjs test/isolation.test.mjs"
+    "test": "npm run build && node --test test/product-decision-single-route.test.mjs test/product-decision-production-adapter.test.mjs test/product-runtime-composition.test.mjs test/product-world-bridge.test.mjs test/isolation.test.mjs"
   }
 }

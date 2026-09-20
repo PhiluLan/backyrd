@@ -1,7 +1,7 @@
 import { ACCEPTED_SOURCE_POLICY, REGISTRY_HASH, REGISTRY_VERSION, getAttributeDefinition, parseAttributeValue, type PortKnowledgeEntry, type WorldKnowledgeSnapshot } from "@backyrd/world-knowledge-core";
 import { contentHash, deepFreeze } from "./canonical.js";
 
-type Entry = Pick<PortKnowledgeEntry, "key" | "value" | "resolution" | "freshness" | "trust" | "entryHash">;
+type Entry = Pick<PortKnowledgeEntry, "key" | "value" | "resolution" | "freshness" | "trust" | "entryHash"> & { readonly validFrom?: string | null; readonly validUntil?: string | null };
 export type ProductWorldView = Pick<WorldKnowledgeSnapshot, "spot" | "explicitUnknowns" | "exclusions" | "snapshotHash"> & {
   readonly facts: readonly Entry[];
   readonly operationalRules: readonly Entry[];
@@ -33,7 +33,7 @@ export function parseProductWorldResolverBinding(value: unknown, targetCity: str
   const binding = object(value);
   if (binding.contractVersion !== "backyrd.world-knowledge.product-resolver-binding@1.0" || typeof binding.manifestHash !== "string" || !HASH.test(binding.manifestHash)) throw new Error("product_world_manifest_binding_invalid");
   const raw = object(binding.decisionProjection);
-  if (raw.contractVersion !== "backyrd.world-knowledge.shadow-decision-projection@1.0" || raw.registryVersion !== REGISTRY_VERSION || binding.registryHash !== REGISTRY_HASH || raw.policyVersion !== ACCEPTED_SOURCE_POLICY.policyVersion || typeof raw.spotId !== "string" || !ID.test(raw.spotId)) throw new Error("product_world_resolver_identity_invalid");
+  if (raw.contractVersion !== "backyrd.world-knowledge.product-decision-projection@1.0" || raw.registryVersion !== REGISTRY_VERSION || binding.registryHash !== REGISTRY_HASH || raw.policyVersion !== ACCEPTED_SOURCE_POLICY.policyVersion || typeof raw.spotId !== "string" || !ID.test(raw.spotId)) throw new Error("product_world_resolver_identity_invalid");
   if (typeof binding.resolvedAt !== "string" || !Number.isFinite(Date.parse(binding.resolvedAt))) throw new Error("product_world_resolver_time_invalid");
   const seen = new Map<string, string>();
   const parsed = rows(raw.facts, 200).flatMap((item): (Entry & { kind: string })[] => {
@@ -50,11 +50,8 @@ export function parseProductWorldResolverBinding(value: unknown, targetCity: str
     if (row.trust !== "VERIFIED" || !["KNOWN_VALUE", "KNOWN_TRUE", "KNOWN_FALSE"].includes(String(row.resolution))) throw new Error("product_world_fact_not_current_verified");
     const validated = parseAttributeValue(key, row.value, `product_world.${key}`);
     if (row.resolution === "KNOWN_TRUE" && validated !== true || row.resolution === "KNOWN_FALSE" && validated !== false) throw new Error("product_world_fact_resolution_mismatch");
-    // The SQL snapshot does not carry current-state expiry. Never turn an old
-    // OPEN assertion into a live opening guarantee; a CLOSED assertion only
-    // suppresses a recommendation until the next authorized rebuild.
-    if (key === "state.current" && validated && typeof validated === "object" && !Array.isArray(validated) && "kind" in validated && validated.kind === "OPEN") return [];
-    return [{ key, value: validated, resolution: row.resolution as Entry["resolution"], freshness: "CURRENT", trust: "VERIFIED", entryHash: contentHash({ manifestHash: binding.manifestHash, fact: row }), kind: getAttributeDefinition(key).kind }];
+    if (key === "state.current" && (row.validityVerified !== true || (row.validFrom !== null && (typeof row.validFrom !== "string" || !Number.isFinite(Date.parse(row.validFrom)))) || typeof row.validUntil !== "string" || !Number.isFinite(Date.parse(row.validUntil)))) throw new Error("product_world_current_state_validity_unverified");
+    return [{ key, value: validated, resolution: row.resolution as Entry["resolution"], freshness: "CURRENT", trust: "VERIFIED", entryHash: contentHash({ manifestHash: binding.manifestHash, fact: row }), ...(key === "state.current" ? { validFrom: row.validFrom as string | null, validUntil: row.validUntil as string | null } : {}), kind: getAttributeDefinition(key).kind }];
   });
   const byKey = (key: string): unknown => parsed.find((item) => item.key === key)?.value ?? null;
   const locality = byKey("location.locality");

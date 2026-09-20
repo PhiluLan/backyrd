@@ -44,7 +44,7 @@ export const DECISION_PRODUCT_PRODUCTION_RPCS = Object.freeze({
   projection: "backyrd_decision_vnext_product_projection_v1",
   learning: "backyrd_decision_vnext_product_learning_append_v1",
   interactionAuthority: "backyrd_decision_vnext_product_interaction_authority_v1",
-  runtimeContext: "backyrd_decision_vnext_product_context_v2",
+  runtimeContext: "backyrd_decision_vnext_product_context_v3",
   learningEvent: "backyrd_decision_vnext_product_learning_event_v1",
 } as const);
 

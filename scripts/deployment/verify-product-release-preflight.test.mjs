@@ -85,6 +85,35 @@ test("later additive Product SQL needs its own exact scope, never the historical
   assert.throws(() => verifyProductReleasePreflight(input), /release_additive_migration_scope_invalid|release_manifest_integrity_invalid/);
 });
 
+test("two-file World Product additive scope is exact, ordered, and never execution authority", () => {
+  const input = fixture();
+  input.manifest.productionPlan.recoveryRiskMigrationSet = input.plan.pendingMigrations;
+  const migrations = [
+    { path: "supabase/migrations/20260919205256_decision_vnext_verified_world_catalog_priority.sql", sha256: "541c15131c53efb23a5d300ef17cbd8ba3312cfc3be320e0537c1491d7547626" },
+    { path: "supabase/migrations/20260920190048_bridge_product_world_knowledge_v1.sql", sha256: "f13bbb8a91ad6f3b976a6b5b95cd4e72af68750b53be6668cadf810248b6d02d" },
+  ];
+  input.plan.pendingMigrations = migrations;
+  input.manifest.productionPlan.pendingMigrations = migrations;
+  input.manifest.productionPlan.additiveMigrationScope = {
+    contractVersion: "backyrd.product-v1-additive-migration-scope@1.0", projectRef: input.plan.projectRef,
+    migrations, executionAuthorized: false, restoreDrillStatus: "NOT_PERFORMED_BY_FOUNDER_DECISION", guaranteedDatabaseRollback: false,
+  };
+  const reseal = () => { const { manifestHash: unused, ...body } = input.manifest; input.manifest.manifestHash = hash(JSON.stringify(body)); input.remote.manifestHash = input.manifest.manifestHash; };
+  reseal();
+  assert.equal(verifyProductReleasePreflight({ ...input, remote: null }).status, "NO_GO_REMOTE_NOT_QUERIED");
+  for (const bad of [
+    [...migrations, { path: "supabase/migrations/20260920190100_foreign.sql", sha256: hash("foreign") }],
+    [migrations[0], { ...migrations[1], sha256: hash("changed") }],
+    [...migrations].reverse(),
+  ]) {
+    input.plan.pendingMigrations = bad;
+    input.manifest.productionPlan.pendingMigrations = bad;
+    input.manifest.productionPlan.additiveMigrationScope.migrations = bad;
+    reseal();
+    assert.throws(() => verifyProductReleasePreflight({ ...input, remote: null }), /release_additive_migration_scope_invalid/);
+  }
+});
+
 test("missing or substituted Admin spot search migration blocks the release plan", () => {
   const missing = fixture();
   missing.plan.pendingMigrations.pop();

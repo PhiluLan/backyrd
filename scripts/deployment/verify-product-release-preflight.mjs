@@ -5,6 +5,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isExactProductAdditiveSet } from "../ci/product-additive-migration-scope.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const HASH = /^[0-9a-f]{64}$/;
@@ -40,9 +41,7 @@ export function verifyProductReleasePreflight({ manifest, plan, ledger, baseline
       && scope.projectRef === plan.projectRef && scope.executionAuthorized === false
       && scope.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
       && scope.guaranteedDatabaseRollback === false
-      && currentRiskSet.length === 1
-      && currentRiskSet[0].path === "supabase/migrations/20260919205256_decision_vnext_verified_world_catalog_priority.sql"
-      && currentRiskSet[0].sha256 === "541c15131c53efb23a5d300ef17cbd8ba3312cfc3be320e0537c1491d7547626"
+      && isExactProductAdditiveSet(currentRiskSet)
       && equal(scope.migrations, currentRiskSet), "release_additive_migration_scope_invalid");
   }
   if (plan.productPreappliedImport) {

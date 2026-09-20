@@ -13,6 +13,7 @@ const root = new URL("../../../", import.meta.url);
 const edge = readFileSync(new URL("supabase/functions/decision-v13/vnext-only.ts", root), "utf8");
 const migration = readFileSync(new URL("supabase/migrations/20260918182831_decision_vnext_product_runtime_v1.sql", root), "utf8");
 const boundedContextMigration = readFileSync(new URL("supabase/migrations/20260919172027_decision_vnext_bounded_catalog_context_v2.sql", root), "utf8");
+const bridgeMigration = readFileSync(new URL("supabase/migrations/20260920190048_bridge_product_world_knowledge_v1.sql", root), "utf8");
 const hash = (value) => contentHash(value);
 const identity = { releaseHash: hash("release"), artifactHash: hash("artifact"), sourceSetHash: hash("source"), controlGeneration: 1 };
 
@@ -53,6 +54,21 @@ test("Product catalog intake is bounded before World validation and cannot grant
   assert.doesNotMatch(boundedContextMigration, /delete from|truncate|drop table/i);
 });
 
+test("Product bridge keeps manifests immutable, exposes only authorized context and prioritizes verified core types", () => {
+  assert.match(bridgeMigration, /product_decision_projection_v1\(p_snapshot jsonb\)/);
+  assert.match(bridgeMigration, /world_knowledge_private\.decision_projection_v1\(p_snapshot\)/);
+  for (const key of ["purpose.primary_visit", "offering.onsite", "context.visit_situations", "context.atmosphere", "context.typical_dayparts"]) assert.match(bridgeMigration, new RegExp(key.replaceAll(".", "\\.")));
+  assert.match(bridgeMigration, /c\.content_hash=a\.item->'basisClaimHashes'->>0/);
+  assert.match(bridgeMigration, /c\.valid_until/);
+  assert.match(bridgeMigration, /'DRINKS' then array\['PUB','WINE_BAR','BAR'/);
+  assert.match(bridgeMigration, /validate_resolution_manifest_v1/);
+  assert.match(bridgeMigration, /limit 48/);
+  assert.match(bridgeMigration, /create function public\.backyrd_decision_vnext_product_context_v3/);
+  assert.match(bridgeMigration, /revoke all on function public\.backyrd_decision_vnext_product_context_v3[\s\S]+?from public,anon,authenticated/);
+  assert.doesNotMatch(bridgeMigration, /create or replace function public\.backyrd_decision_vnext_product_context_v2/);
+  assert.doesNotMatch(bridgeMigration, /create or replace function world_knowledge_private\.decision_projection_v1/);
+});
+
 test("Product learning authority reconstructs exact bindings from consent and sealed Decision ledger", () => {
   assert.match(migration, /create function public\.backyrd_decision_vnext_product_learning_event_v1/);
   for (const binding of ["auth_user_id=p_auth_user_id", "subject_digest=p_subject_binding_hash", "authenticationContextHash", "contextHash", "sessionId", "candidate_binding_invalid", "product_learning_event_not_sealed"]) assert.match(migration, new RegExp(binding));
@@ -84,7 +100,7 @@ test("evaluation failures reveal only a fixed stage and never a World fact or co
   const binding = {
     contractVersion: "backyrd.world-knowledge.product-resolver-binding@1.0", manifestHash: hash("manifest"),
     registryHash: REGISTRY_HASH, resolvedAt: "2026-09-19T12:00:00.000Z",
-    decisionProjection: { contractVersion: "backyrd.world-knowledge.shadow-decision-projection@1.0",
+    decisionProjection: { contractVersion: "backyrd.world-knowledge.product-decision-projection@1.0",
       registryVersion: REGISTRY_VERSION, policyVersion: ACCEPTED_SOURCE_POLICY.policyVersion,
       spotId: "33333333-3333-4333-a333-333333333333", facts: [fact("identity.name", "Test Spot"), fact("location.locality", "Basel")],
       conflicts: [], explicitUnknowns: [] },
@@ -95,7 +111,7 @@ test("evaluation failures reveal only a fixed stage and never a World fact or co
     idempotencyKey: "key-1", naturalLanguage: "Café in Basel", explicit: { targetCity: "Basel" },
     alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
   const evaluate = (data, incoming = request) => createDecisionProductRpcEvaluationProvider({ async rpc(name, parameters) {
-    assert.equal(name, "backyrd_decision_vnext_product_context_v2");
+    assert.equal(name, "backyrd_decision_vnext_product_context_v3");
     assert.equal(parameters.p_primary_intent, incoming === request ? "COFFEE" : null);
     assert.equal(Object.hasOwn(parameters, "naturalLanguage"), false);
     return { data, error: null };
