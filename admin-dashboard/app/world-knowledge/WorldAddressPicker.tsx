@@ -29,7 +29,7 @@ const loadPlaces = (apiKey: string): Promise<void> => new Promise((resolve, reje
   script.addEventListener("error", () => reject(new Error("Die Adresssuche ist nicht erreichbar.")), { once: true });
 });
 
-export function WorldAddressPicker({ disabled, onSelect }: { disabled: boolean; onSelect(value: ProductAddressSelection): void }) {
+export function WorldAddressPicker({ disabled, onSelect }: { disabled: boolean; onSelect(value: ProductAddressSelection | null): void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const onSelectRef = useRef(onSelect);
   const [error, setError] = useState("");
@@ -72,5 +72,5 @@ export function WorldAddressPicker({ disabled, onSelect }: { disabled: boolean; 
     return () => { active = false; cleanup?.(); };
   }, []);
 
-  return <div className="wk-address-picker"><label>Adresse suchen<input ref={inputRef} type="search" disabled={disabled || !!error} placeholder="Straße und Hausnummer eingeben" autoComplete="off" /></label>{error && <p role="status">{error}</p>}</div>;
+  return <div className="wk-address-picker"><label>Adresse suchen<input ref={inputRef} type="search" disabled={disabled || !!error} placeholder="Straße und Hausnummer eingeben" autoComplete="off" onChange={() => onSelectRef.current(null)} /></label>{error && <p role="status">{error}</p>}</div>;
 }

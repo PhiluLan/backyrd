@@ -51,7 +51,7 @@ export type ProductCorrectionProps = {
   client: WorldAuthoringClient;
   rebuild(spotId: string, idempotencyKey: string): Promise<unknown>;
   search?: (query: string) => Promise<ProductAdminSpotSearch>;
-  addressPicker?: ComponentType<{ disabled: boolean; onSelect(value: ProductAddressSelection): void }>;
+  addressPicker?: ComponentType<{ disabled: boolean; onSelect(value: ProductAddressSelection | null): void }>;
 };
 export type ProductAddressSelection = { addressLine1: string; locality: string; countryCode: string; latitude: number; longitude: number };
 export type ProductAdminSpotSearch = {

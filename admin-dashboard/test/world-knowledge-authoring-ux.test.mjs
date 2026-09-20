@@ -100,6 +100,7 @@ test("Admin World reuses the existing Swiss Places lookup with explicit address 
   assert.match(picker, /libraries=places/);
   assert.match(picker, /componentRestrictions: \{ country: "ch" \}/);
   assert.match(picker, /Number\.isFinite\(latitude\)/);
+  assert.match(picker, /onChange=\{\(\) => onSelectRef\.current\(null\)\}/);
   assert.match(product, /Adresse und Position speichern/);
   for (const key of ["location.address_line1", "location.locality", "location.country_code", "location.latitude", "location.longitude"]) {
     assert.ok(product.includes(key), `${key} must be saved through the authorized claim path`);
