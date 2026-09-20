@@ -50,7 +50,7 @@ export function parseProductWorldResolverBinding(value: unknown, targetCity: str
     if (row.trust !== "VERIFIED" || !["KNOWN_VALUE", "KNOWN_TRUE", "KNOWN_FALSE"].includes(String(row.resolution))) throw new Error("product_world_fact_not_current_verified");
     const validated = parseAttributeValue(key, row.value, `product_world.${key}`);
     if (row.resolution === "KNOWN_TRUE" && validated !== true || row.resolution === "KNOWN_FALSE" && validated !== false) throw new Error("product_world_fact_resolution_mismatch");
-    if (key === "state.current" && (row.validityVerified !== true || (row.validFrom !== null && (typeof row.validFrom !== "string" || !Number.isFinite(Date.parse(row.validFrom)))) || (row.validUntil !== null && (typeof row.validUntil !== "string" || !Number.isFinite(Date.parse(row.validUntil)))))) throw new Error("product_world_current_state_validity_unverified");
+    if (key === "state.current" && (row.validityVerified !== true || (row.validFrom !== null && (typeof row.validFrom !== "string" || !Number.isFinite(Date.parse(row.validFrom)))) || typeof row.validUntil !== "string" || !Number.isFinite(Date.parse(row.validUntil)))) throw new Error("product_world_current_state_validity_unverified");
     return [{ key, value: validated, resolution: row.resolution as Entry["resolution"], freshness: "CURRENT", trust: "VERIFIED", entryHash: contentHash({ manifestHash: binding.manifestHash, fact: row }), ...(key === "state.current" ? { validFrom: row.validFrom as string | null, validUntil: row.validUntil as string | null } : {}), kind: getAttributeDefinition(key).kind }];
   });
   const byKey = (key: string): unknown => parsed.find((item) => item.key === key)?.value ?? null;

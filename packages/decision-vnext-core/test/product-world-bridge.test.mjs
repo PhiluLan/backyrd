@@ -28,6 +28,8 @@ test("time-valid AREA_CLOSED from the manifest's claim closes the venue, then ex
   assert.equal(evaluateOpeningState(world, "2026-12-24T12:00:00.000Z", policy).status, "expired");
   const unverified = binding(voltaId, [fact("state.current", { kind: "AREA_CLOSED", scope: "VENUE" })]);
   assert.throws(() => read(unverified), /validity_unverified/);
+  const noExpiry = binding(voltaId, [fact("state.current", { kind: "AREA_CLOSED", scope: "VENUE" }, { validityVerified: true, validFrom: null, validUntil: null })]);
+  assert.throws(() => read(noExpiry), /validity_unverified/);
 });
 
 test("Volta's verified PUB confirms drinks, but onsite coffee cannot replace its EAT/PUB primary purpose", () => {
