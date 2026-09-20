@@ -68,6 +68,26 @@ test("all migrations since the shipped baseline remain pending across later evid
   assert.equal(result.runtimeDeploymentRequired, true);
   assert.deepEqual(result.pendingMigrations.map(({ path }) => path), [first, second]);
 });
+test("exact observed priority migration is excluded from apply, while bridge remains pending", () => {
+  const f = fixture();
+  const priority = "supabase/migrations/20260919205256_decision_vnext_verified_world_catalog_priority.sql";
+  const bridge = "supabase/migrations/20260920190048_bridge_product_world_knowledge_v1.sql";
+  const priorityBytes = "priority fixture\n";
+  const prioritySha = createHash("sha256").update(priorityBytes).digest("hex");
+  // The production receipt cannot be repurposed for fixture bytes.
+  write(f.repo, priority, priorityBytes);
+  write(f.repo, bridge, "bridge fixture\n");
+  write(f.repo, "delivery/product-authority-v1.json", JSON.stringify({ additiveProductMigrationScope: {
+    preappliedPriorityReceipt: {
+      status: "READ_ONLY_PRODUCTION_STATEMENTS_MATCH", projectRef: "hjgcrrzfjchzqoegcywn",
+      path: priority, sha256: prioritySha, executionAuthorized: false,
+      statementSha256: ["c101dba45cc83819760539e7c468d6cb8d81729b3bc24c707b07e797396807ff",
+        "c5a281ef9ad82e44ed873994a03ec3c607342b6cc87c75a41f239c2ad38d34cf",
+        "e844c3da0705dd991bd221412e5bc828e4a9c60761c28cc236910cee9202083d"],
+    },
+  } }));
+  assert.throws(() => plan(f, commit(f.repo)), /product_priority_preapplied_receipt_invalid/);
+});
 test("Production Auth config -> bounded config deploy only", () => { const f=fixture(); write(f.repo,"supabase/production/auth-config.json",authConfig()); const result=plan(f,commit(f.repo)); assert.equal(result.authConfig.deploy,true); assert.equal(result.runtimeDeploymentRequired,true); assert.deepEqual(result.deployFunctions,[]); });
 test("Unchanged Production Auth config -> no runtime deploy", () => { const f=fixture(); write(f.repo,"supabase/production/auth-config.json",authConfig()); const configured=commit(f.repo); write(f.repo,"docs/evidence.md","evidence\n"); const head=commit(f.repo); const result=buildProductionPlan({repo:f.repo,baseSha:configured,headSha:head}); assert.equal(result.authConfig.deploy,false); assert.equal(result.runtimeDeploymentRequired,false); });
 test("Weak Production password policy -> fail closed", () => { const f=fixture(); write(f.repo,"supabase/production/auth-config.json",authConfig(6)); const head=commit(f.repo); assert.throws(()=>plan(f,head),/password_policy_invalid/); });
