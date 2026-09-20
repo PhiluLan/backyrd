@@ -51,7 +51,9 @@ export type ProductCorrectionProps = {
   client: WorldAuthoringClient;
   rebuild(spotId: string, idempotencyKey: string): Promise<unknown>;
   search?: (query: string) => Promise<ProductAdminSpotSearch>;
+  addressPicker?: ComponentType<{ disabled: boolean; onSelect(value: ProductAddressSelection): void }>;
 };
+export type ProductAddressSelection = { addressLine1: string; locality: string; countryCode: string; latitude: number; longitude: number };
 export type ProductAdminSpotSearch = {
   contractVersion: "backyrd.world-knowledge.product-admin-spot-search@1.0";
   spots: Array<{ spotId: string; name: string; city: string | null }>;
@@ -113,7 +115,7 @@ const valueLabel = (field: AuthoringField, value: unknown): string => {
 
 /** Product authoring uses the same typed editors as the local Founder workflow,
  * but only server-authorized keys and the Product append-only RPCs. */
-export function WorldProductCorrection({ client, rebuild, search, FieldEditor }: ProductCorrectionProps & {
+export function WorldProductCorrection({ client, rebuild, search, addressPicker: AddressPicker, FieldEditor }: ProductCorrectionProps & {
   FieldEditor: ComponentType<ProductFieldInputProps>;
 }) {
   const [spotId, setSpotId] = useState("");
@@ -130,6 +132,7 @@ export function WorldProductCorrection({ client, rebuild, search, FieldEditor }:
   const [catalogBusy, setCatalogBusy] = useState(false);
   const [catalogProgress, setCatalogProgress] = useState(0);
   const [catalogError, setCatalogError] = useState("");
+  const [addressSelection, setAddressSelection] = useState<ProductAddressSelection | null>(null);
   const searchSequence = useRef(0);
   const loadSequence = useRef(0);
 
@@ -154,9 +157,9 @@ export function WorldProductCorrection({ client, rebuild, search, FieldEditor }:
   }, [search]);
   useEffect(() => {
     if (!search) return;
-    void findSpots("");
-    return () => { searchSequence.current += 1; };
-  }, [findSpots, search]);
+    const timer = window.setTimeout(() => { void findSpots(query.trim()); }, query.trim() ? 300 : 0);
+    return () => { window.clearTimeout(timer); searchSequence.current += 1; };
+  }, [findSpots, query, search]);
 
   const refreshCoverage = useCallback(async () => {
     if (!search) return;
@@ -228,6 +231,7 @@ export function WorldProductCorrection({ client, rebuild, search, FieldEditor }:
       setDetail(loaded);
       setSpotId(id);
       setStep(0);
+      setAddressSelection(null);
     } catch (error) {
       if (sequence !== loadSequence.current) return;
       setMessage(messageOf(error));
@@ -272,6 +276,38 @@ export function WorldProductCorrection({ client, rebuild, search, FieldEditor }:
       : "Angabe gespeichert und in der aktuellen Datenvorschau bestätigt.");
     setMessageIsError(blocking);
   };
+  const saveSelectedAddress = async () => {
+    if (!detail || !addressSelection) return;
+    const values: Array<[string, string | number]> = [
+      ["location.address_line1", addressSelection.addressLine1],
+      ["location.locality", addressSelection.locality],
+      ["location.country_code", addressSelection.countryCode],
+      ["location.latitude", addressSelection.latitude],
+      ["location.longitude", addressSelection.longitude],
+    ];
+    if (!values.every(([key]) => detail.actor.allowedAttributeKeys.includes(key))) {
+      setMessage("Für eine vollständige Adressübernahme fehlt die Berechtigung für mindestens ein Ortsfeld.");
+      setMessageIsError(true);
+      return;
+    }
+    setBusy(true);
+    try {
+      for (const [key, value] of values) {
+        if (detail.answers[key]?.knowledgeState === "KNOWN_VALUE" && detail.answers[key]?.value === value) continue;
+        const field = AUTHORING_FIELDS.find((item) => item.attributeKey === key);
+        if (!field) throw new Error(`Das Ortsfeld ${key} ist nicht verfügbar.`);
+        await saveField(field, "KNOWN_VALUE", value);
+      }
+      setAddressSelection(null);
+      setMessage("Adresse und Koordinaten gespeichert und im World-Reader geprüft.");
+      setMessageIsError(false);
+    } catch (error) {
+      setMessage(`${messageOf(error)} Bereits gespeicherte Ortsangaben bleiben erhalten; bitte den Spot neu laden und prüfen.`);
+      setMessageIsError(true);
+    } finally {
+      setBusy(false);
+    }
+  };
   const current = AUTHORING_STEPS[step]!;
   const primaryCategory = detail?.answers["classification.primary_category"]?.value;
   const fields = getAuthoringFieldsForContext(current.id, typeof primaryCategory === "string" ? primaryCategory : undefined)
@@ -292,8 +328,8 @@ export function WorldProductCorrection({ client, rebuild, search, FieldEditor }:
         <p>{detail ? `${known} bestätigte Angaben · ${unknown} bewusst unbekannt · ${unresolved} echte Konflikte · ${reviewNotices} Prüfhinweise` : "Wähle einen Spot und pflege seine Angaben Schritt für Schritt."}</p></div>
       <div className="wk-header-actions"><span className="wk-status">{detail?.manifest ? "● Datenvorschau vorhanden" : "● Noch keine Datenvorschau"}</span></div>
     </header>
-    {search && <section className="wk-panel" aria-label="World-Bestandsabgleich">
-      <h2>Bestand im Wissensspeicher</h2>
+    {search && <details className="wk-panel wk-catalog-details" aria-label="World-Bestandsabgleich">
+      <summary><strong>Bestand im Wissensspeicher</strong><span>{coverage ? `${coverage.withClaims} von ${coverage.approved} Spots mit Claims · ${coverage.withSnapshots} Datenvorschauen` : "Bestandsstatus prüfen"}</span></summary>
       {coverage && <p>{coverage.withClaims} von {coverage.approved} freigegebenen Spots haben Claims; {coverage.withSnapshots} haben eine geprüfte Datenvorschau.</p>}
       <p>Der Erstabgleich übernimmt Namen und vorhandene Orte aus dem freigegebenen Spot-Bestand. Fehlende Orte sowie Hauptzweck und Kategorie bleiben ausdrücklich unbekannt. Bestehende Angaben werden nicht überschrieben; die übernommenen Angaben solltest du anschließend prüfen.</p>
       {coverage?.missingCity ? <p>{coverage.missingCity} Spots haben noch keinen Ort und benötigen eine manuelle Ergänzung.</p> : null}
@@ -301,13 +337,14 @@ export function WorldProductCorrection({ client, rebuild, search, FieldEditor }:
         onClick={() => void bootstrapCatalog()}>{catalogBusy ? `Abgleich läuft · ${catalogProgress} geprüft` : "Freigegebene Spots in World übernehmen"}</button>
       {coverage && !coverage.authoringActive && <p role="status">Die Spot-Pflege ist derzeit ausgeschaltet; der Bestand kann erst nach der separaten World-Freigabe übernommen werden.</p>}
       {catalogError && <p role="alert">{catalogError}</p>}
-    </section>}
+    </details>}
     <div className="wk-layout"><aside className="wk-sidebar">
       {search ? <div className="wk-product-search">
         <form onSubmit={(event) => { event.preventDefault(); void findSpots(query); }}>
-          <label>Spot nach Namen suchen<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name oder Ort" aria-label="Spot nach Namen suchen" /></label>
+          <label>Spot nach Namen suchen<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name oder Ort" aria-label="Spot nach Namen suchen" autoComplete="off" /></label>
           <button type="submit" disabled={searchState === "LOADING"}>Suchen</button>
         </form>
+        <small>Die Suche aktualisiert sich beim Tippen.</small>
         {searchState === "LOADING" && <p role="status">Spots werden geladen …</p>}
         {searchState === "BACKEND_NOT_PUBLISHED" && <p role="alert">World Knowledge hier noch nicht verfügbar.</p>}
         {searchState === "FORBIDDEN" && <p role="alert">Du bist für die Spot-Suche nicht berechtigt.</p>}
@@ -329,13 +366,14 @@ export function WorldProductCorrection({ client, rebuild, search, FieldEditor }:
       })}</nav>}
     </aside>
     <main className="wk-main">{!detail ? <section className="wk-panel"><h2>Spot auswählen</h2><p>Suche links nach einem freigegebenen Spot. Anschließend kannst du alle für deine Rolle freigegebenen Angaben direkt und ohne JSON-Eingabe pflegen.</p></section>
-      : <section className="wk-panel"><div className="wk-step-title"><span>Bereich {step + 1} von {AUTHORING_STEPS.length}</span><h2>{current.title}</h2><p>{current.explanation}</p>
+      : <section className="wk-panel"><div className="wk-step-title"><span>Bereich {step + 1} von {AUTHORING_STEPS.length} · {fields.filter((field) => detail.answers[field.attributeKey]).length} von {fields.length} Angaben gespeichert</span><h2>{current.title}</h2><p>{current.explanation}</p>
         {detail.actor.role === "ADMIN" && <p>Ein übernommenes Basisprofil ersetzt keine fachliche Prüfung. Ergänze insbesondere Hauptzweck, Kategorie, Besuchssituation, Öffnung und Zugänglichkeit nur mit belegten Angaben.</p>}</div>
         {reviewNotices > 0 && <div className="wk-note"><strong>{reviewNotices} offene {reviewNotices === 1 ? "Prüfnotiz" : "Prüfnotizen"}</strong>
           <p>Diese Notizen stammen aus der Claim-Prüfung und sperren die Spot-Pflege nicht. Du kannst eine Angabe korrigieren; maßgeblich ist der aktuelle World-Reader.</p>
           <ul>{detail.openConflicts.map((conflict, index) => <li key={index}>{fieldLabel(conflict.attributeKey)}</li>)}</ul></div>}
         {unresolved > 0 && <div className="wk-error-summary" role="alert"><strong>{unresolved} echte {unresolved === 1 ? "Angabe" : "Angaben"} mit Widerspruch im World-Reader</strong>
           <p>Die betroffenen Angaben können korrigiert werden; bis zur Klärung werden sie nicht als gesichert ausgegeben.</p></div>}
+        {current.id === "basics" && AddressPicker && detail.actor.role === "ADMIN" && <div className="wk-address-assist"><h3>Adresse suchen statt Koordinaten eintippen</h3><p>Nutze die gleiche Adresssuche wie beim Anlegen eines Spots. Erst nach deiner Auswahl und Bestätigung werden Adresse, Ort und Position als World-Angaben gespeichert.</p><AddressPicker disabled={busy} onSelect={setAddressSelection} />{addressSelection && <div className="wk-address-selection"><strong>{addressSelection.addressLine1}, {addressSelection.locality}</strong><span>Position: {addressSelection.latitude.toFixed(6)}, {addressSelection.longitude.toFixed(6)}</span><button type="button" disabled={busy} onClick={() => void saveSelectedAddress()}>{busy ? "Adresse wird geprüft …" : "Adresse und Position speichern"}</button><button type="button" className="wk-secondary" disabled={busy} onClick={() => setAddressSelection(null)}>Auswahl verwerfen</button></div>}</div>}
         {current.id === "review" ? <div className="wk-review">
           <article><b>Bestätigt</b><strong>{known}</strong><span>gespeicherte Angaben</span></article>
           <article><b>Bewusst unbekannt</b><strong>{unknown}</strong><span>weder Ja noch Nein</span></article>
