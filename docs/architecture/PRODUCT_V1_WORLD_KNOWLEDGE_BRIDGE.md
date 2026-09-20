@@ -39,3 +39,9 @@ this order: additive migration (old v2 backend still works), matching backend
 artifact (same mobile route now calls service-only v3), then live read-only
 World/Wohin smoke. A separate authorized, factually justified Admin correction
 would be needed to prove the live write-to-mobile leg; do not invent one.
+
+The source-aware release plan binds exactly two pending Product SQL files: the
+previously sealed verified-catalog priority migration and this bridge migration.
+The historical Founder 13-migration risk acceptance is not reused as authority
+for either additive file. The additive scope remains `executionAuthorized:false`;
+changed bytes, a third migration, or reordered files fail the release guard.

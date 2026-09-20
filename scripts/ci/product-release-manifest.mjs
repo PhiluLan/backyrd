@@ -6,6 +6,7 @@ import { cpSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync }
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildProductionPlan, parseSupabaseFunctionConfig } from "../deployment/supabase-production-plan.mjs";
+import { isExactProductAdditiveSet } from "./product-additive-migration-scope.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const SHA = /^[0-9a-f]{40}$/;
@@ -237,9 +238,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
       && additiveMigrationScope.restoreDrillStatus === "NOT_PERFORMED_BY_FOUNDER_DECISION"
       && additiveMigrationScope.guaranteedDatabaseRollback === false
       && JSON.stringify(currentRiskSet) === JSON.stringify(additiveMigrationScope.migrations)
-      && currentRiskSet.length === 1
-      && currentRiskSet[0].path === "supabase/migrations/20260919205256_decision_vnext_verified_world_catalog_priority.sql"
-      && currentRiskSet[0].sha256 === "541c15131c53efb23a5d300ef17cbd8ba3312cfc3be320e0537c1491d7547626",
+      && isExactProductAdditiveSet(currentRiskSet),
     "release_recovery_risk_acceptance_invalid");
   }
   requireValue(recoveryRisk?.contractVersion === "backyrd.product-v1-founder-recovery-risk-acceptance@1.0"
@@ -320,9 +319,7 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
   requireValue(Array.isArray(acceptedMigrationSet) && (currentRiskSet.length === 13
     ? JSON.stringify(currentRiskSet) === JSON.stringify(acceptedMigrationSet)
     : !manifest.productionPlan.productPreappliedImport && (currentRiskSet.length === 0
-      || (currentRiskSet.length === 1
-        && currentRiskSet[0].path === "supabase/migrations/20260919205256_decision_vnext_verified_world_catalog_priority.sql"
-        && currentRiskSet[0].sha256 === "541c15131c53efb23a5d300ef17cbd8ba3312cfc3be320e0537c1491d7547626"
+      || (isExactProductAdditiveSet(currentRiskSet)
         && manifest.productionPlan.additiveMigrationScope?.contractVersion === "backyrd.product-v1-additive-migration-scope@1.0"
         && manifest.productionPlan.additiveMigrationScope.projectRef === "hjgcrrzfjchzqoegcywn"
         && manifest.productionPlan.additiveMigrationScope.executionAuthorized === false

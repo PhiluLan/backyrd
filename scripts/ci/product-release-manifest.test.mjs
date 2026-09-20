@@ -120,6 +120,40 @@ test("a separately bound additive Product migration seals without inheriting the
   assert.equal(verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head, checkoutRoot: root }).manifestHash, manifest.manifestHash);
 });
 
+test("the World Product bridge extends only the exact additive prefix and fails closed on drift", () => {
+  const { root, base } = fixture();
+  put(root, "supabase/production/preapplied-product-migrations-v1.json", `${JSON.stringify({
+    version: "backyrd-preapplied-product-migrations-v1", projectRef: "hjgcrrzfjchzqoegcywn", migrations: pendingMigrations,
+  })}\n`);
+  const paths = ["20260919205256_decision_vnext_verified_world_catalog_priority.sql", "20260920190048_bridge_product_world_knowledge_v1.sql"];
+  const additive = paths.map((name) => {
+    const path = `supabase/migrations/${name}`;
+    const source = readFileSync(new URL(`../../${path}`, import.meta.url), "utf8");
+    put(root, path, source);
+    return { path, sha256: hash(source) };
+  });
+  const authority = JSON.parse(readFileSync(join(root, "delivery/product-authority-v1.json"), "utf8"));
+  authority.additiveProductMigrationScope = { contractVersion: "backyrd.product-v1-additive-migration-scope@1.0",
+    projectRef: "hjgcrrzfjchzqoegcywn", migrations: additive, executionAuthorized: false,
+    restoreDrillStatus: "NOT_PERFORMED_BY_FOUNDER_DECISION", guaranteedDatabaseRollback: false };
+  put(root, "delivery/product-authority-v1.json", `${JSON.stringify(authority)}\n`);
+  const head = commit(root, "bind exact two-file additive Product scope");
+  const identity = resolveProductReleaseIdentity({ root, mode: "PR_CANDIDATE", sourceSha: head, baseSha: base, checkoutSha: head, canonicalMainSha: base });
+  const testEvidence = buildProductReleaseTestEvidence({ root, sourceSha: head });
+  const output = join(root, "release");
+  const productionPlan = { ...plan(base, head), pendingMigrations: additive };
+  const manifest = buildProductReleaseManifest({ root, sourceSha: head, outputDir: output,
+    mobileBundle: join(root, "mobile-export"), identity, testEvidence, productionPlan });
+  assert.deepEqual(manifest.productionPlan.pendingMigrations, additive);
+  assert.equal(verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head, checkoutRoot: root }).manifestHash, manifest.manifestHash);
+  for (const pendingMigrations of [[...additive, { path: "supabase/migrations/20260920190100_foreign.sql", sha256: hash("foreign") }],
+    [additive[0], { ...additive[1], sha256: hash("changed") }], [...additive].reverse()]) {
+    assert.throws(() => buildProductReleaseManifest({ root, sourceSha: head, outputDir: output,
+      mobileBundle: join(root, "mobile-export"), identity, testEvidence,
+      productionPlan: { ...productionPlan, pendingMigrations } }), /release_recovery_risk_acceptance_invalid/);
+  }
+});
+
 test("a Web export cannot be sealed as the iPhone OTA artifact", () => {
   const { root, base, head } = fixture();
   put(root, "mobile-export/index.html", "web-only\n");
