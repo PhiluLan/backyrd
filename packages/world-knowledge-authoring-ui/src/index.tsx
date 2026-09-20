@@ -4,6 +4,7 @@ import { Component, useCallback, useEffect, useMemo, useState, type ReactNode } 
 import { AUTHORING_FIELDS, AUTHORING_STEPS, AUTHORING_TAXONOMY_VERSION, evaluateAuthoringReadiness, getAuthoringFieldsForContext, getPlaceTypeConflict, validateAuthoringSubmission, type AuthoringField, type AuthoringReadinessReport, type AuthoringRole, type AuthoringSectionState } from "@backyrd/world-knowledge-core";
 import type { WorldAuthoringClient } from "./session";
 import { WorldProductCorrection as ProductCorrection, type ProductCorrectionProps, type ProductFieldInputProps } from "./ProductCorrection";
+import { isUnconditionalContextConditions } from "./context-choice";
 export { sessionRecoveringAuthoringClient, type RpcResult, type WorldAuthoringAuth, type WorldAuthoringClient } from "./session";
 export { type ProductAddressSelection, type ProductAdminSpotSearch } from "./ProductCorrection";
 
@@ -197,10 +198,7 @@ function ContextualInput({ field, value, onChange }: { field: AuthoringField; va
   if (field.control === "ONSITE_OFFERINGS") return <div className="wk-context-editor"><div className="wk-context-notice"><strong>Zusatzangebot ist nicht der Hauptzweck</strong><span>Ein zusätzliches Restaurant oder Café macht den gesamten Spot nicht automatisch zu einem Restaurant- oder Café-Spot. Angebote lediglich in der Nähe werden hier nicht gespeichert.</span></div>{rows.map((row, index) => <section className="wk-context-row" key={index}><label>Angebot<select className="wk-input" value={String(row.kind ?? "")} onChange={(event) => update(index, { ...row, kind: event.target.value })}>{field.allowedValues.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label><label>Beziehung zum Spot<select className="wk-input" value={String(row.relationship ?? "UNKNOWN")} onChange={(event) => update(index, { ...row, relationship: event.target.value })}><option value="PART_OF_SPOT">Teil des Spots</option><option value="EMBEDDED_FACILITY">Eingebettete Einrichtung</option><option value="UNKNOWN">Beziehung noch unbekannt</option></select></label><label>Bereich (optional)<input className="wk-input" value={String(row.area ?? "")} onChange={(event) => update(index, { ...row, area: event.target.value || null })} /></label><button type="button" className="wk-secondary" onClick={() => onChange(rows.filter((_, rowIndex) => rowIndex !== index))}>Entfernen</button></section>)}<button type="button" className="wk-secondary" onClick={() => onChange([...rows, { kind: field.allowedValues[0]?.value ?? "RESTAURANT", relationship: "UNKNOWN", area: null }])}>+ Zusatzangebot</button></div>;
   const discriminator = field.control === "VISIT_SITUATIONS" ? "situation" : field.control === "ATMOSPHERE_CONTEXTS" ? "atmosphere" : "daypart";
   const emptyConditions = () => { const conditions = blankContextConditions(); return discriminator === "daypart" ? Object.fromEntries(Object.entries(conditions).filter(([key]) => key !== "dayparts")) : conditions; };
-  const isSimple = (row: Record<string, unknown>) => {
-    const conditions = objectValue(row.conditions);
-    return Object.values(conditions).every((entry) => entry == null || (Array.isArray(entry) && entry.length === 0));
-  };
+  const isSimple = (row: Record<string, unknown>) => isUnconditionalContextConditions(row.conditions);
   const toggleSimple = (option: string) => {
     const active = rows.some((row) => row[discriminator] === option && isSimple(row));
     onChange(active
