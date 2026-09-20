@@ -188,7 +188,7 @@ jobs:
         env:
           BASE_SHA: ${{ steps.manual_release.outputs.base_sha }}
           GITHUB_REF: refs/heads/main
-          GITHUB_SHA: ${{ inputs.canonical_main_sha }}
+          BACKYRD_CANONICAL_MAIN_SHA: ${{ inputs.canonical_main_sha }}
         run: node scripts/deployment/supabase-production-plan.mjs --base-sha "$BASE_SHA" --head-sha HEAD --assert-canonical-main --output supabase-production-plan.json
       - name: Bind explicit release authority to immutable audit
         run: |
@@ -198,7 +198,7 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           GITHUB_REF: refs/heads/main
-          GITHUB_SHA: ${{ inputs.canonical_main_sha }}
+          BACKYRD_CANONICAL_MAIN_SHA: ${{ inputs.canonical_main_sha }}
           BACKYRD_PRODUCT_RELEASE_ARTIFACT_DIR: ${{ runner.temp }}/product-release
         run: bash scripts/deployment/deploy-supabase-production.sh supabase-production-plan.json
       - name: Publish deployment audit

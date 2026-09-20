@@ -33,6 +33,12 @@ test("Production deployment remains explicit-manual and canonical-main-only", as
   assert.match(workflow, /AWAITING_EXPLICIT_RELEASE/);
   assert.match(workflow, /release-authority\.json/);
   assert.match(workflow, /--assert-canonical-main/);
+  assert.equal((workflow.match(/BACKYRD_CANONICAL_MAIN_SHA: \$\{\{ inputs\.canonical_main_sha \}\}/g) ?? []).length, 2);
+  assert.doesNotMatch(workflow, /\n\s+GITHUB_SHA: \$\{\{ inputs\.canonical_main_sha \}\}/);
+  const planner = await readFile(new URL("./supabase-production-plan.mjs", import.meta.url), "utf8");
+  const deploy = await readFile(new URL("./deploy-supabase-production.sh", import.meta.url), "utf8");
+  assert.match(planner, /BACKYRD_CANONICAL_MAIN_SHA \?\? process\.env\.GITHUB_SHA/);
+  assert.match(deploy, /BACKYRD_CANONICAL_MAIN_SHA:-\$\{GITHUB_SHA:-\}/);
 });
 
 test("Production workflow is manual-only and retains the source-aware plan", async () => {

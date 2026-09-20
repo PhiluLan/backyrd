@@ -496,7 +496,8 @@ if (isMain) {
     const resolvedHead = git(repo, ["rev-parse", headSha]);
     if (!/^[0-9a-f]{40}$/.test(resolvedHead)) throw new Error("valid_head_sha_required");
     if (args["assert-canonical-main"] && process.env.GITHUB_REF !== "refs/heads/main") throw new Error("production_deployment_requires_canonical_main_ref");
-    if (args["assert-canonical-main"] && process.env.GITHUB_SHA !== resolvedHead) throw new Error("production_deployment_sha_mismatch");
+    const releaseSha = process.env.BACKYRD_CANONICAL_MAIN_SHA ?? process.env.GITHUB_SHA;
+    if (args["assert-canonical-main"] && releaseSha !== resolvedHead) throw new Error("production_deployment_sha_mismatch");
     const plan = buildProductionPlan({ repo, baseSha, headSha: resolvedHead });
     const serialized = `${JSON.stringify(plan, null, 2)}\n`;
     if (args.output) writeFileSync(resolve(args.output), serialized, { encoding: "utf8", flag: "wx" });

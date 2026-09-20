@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -35,6 +35,21 @@ const authConfig = (password_min_length = 8) => `${JSON.stringify({
     mailer_templates_recovery_content: "Recovery template",
   },
 }, null, 2)}\n`;
+
+test("manual release binds the requested Main ancestor, not the newer dispatch event SHA", () => {
+  const f = fixture();
+  const args = [new URL("./supabase-production-plan.mjs", import.meta.url).pathname,
+    "--repo", f.repo, "--base-sha", f.base, "--head-sha", f.base, "--assert-canonical-main"];
+  const env = { ...process.env, GITHUB_REF: "refs/heads/main", GITHUB_SHA: "f".repeat(40),
+    BACKYRD_CANONICAL_MAIN_SHA: f.base };
+  const accepted = spawnSync(process.execPath, args, { encoding: "utf8", env });
+  assert.equal(accepted.status, 0, accepted.stderr);
+  assert.equal(JSON.parse(accepted.stdout).canonicalMainSha, f.base);
+  const denied = spawnSync(process.execPath, args, { encoding: "utf8",
+    env: { ...env, BACKYRD_CANONICAL_MAIN_SHA: "e".repeat(40) } });
+  assert.notEqual(denied.status, 0);
+  assert.match(denied.stderr, /production_deployment_sha_mismatch/);
+});
 
 test("Decision source changed -> deploy", () => { const f=fixture(); write(f.repo,"supabase/functions/decision-v13/index.ts",`import { value } from "../../../packages/shared/runtime.mjs";\nconsole.log(value + 1);\n`); assert.deepEqual(plan(f,commit(f.repo)).deployFunctions,["decision-v13"]); });
 test("Decision transitive source changed -> deploy", () => { const f=fixture(); write(f.repo,"packages/shared/runtime.mjs",`export const value = 2;\n`); assert.deepEqual(plan(f,commit(f.repo)).deployFunctions,["decision-v13"]); });

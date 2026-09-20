@@ -7,8 +7,9 @@ cd "$repo_root"
 plan_path="${1:-supabase-production-plan.json}"
 test -f "$plan_path" || { echo "production plan missing: $plan_path" >&2; exit 1; }
 test "${GITHUB_REF:-}" = "refs/heads/main" || { echo "canonical main ref required" >&2; exit 1; }
-test "${GITHUB_SHA:-}" = "$(git rev-parse HEAD)" || { echo "canonical main SHA mismatch" >&2; exit 1; }
-test "$(jq -r '.canonicalMainSha' "$plan_path")" = "$GITHUB_SHA" || { echo "plan SHA mismatch" >&2; exit 1; }
+release_sha="${BACKYRD_CANONICAL_MAIN_SHA:-${GITHUB_SHA:-}}"
+test "$release_sha" = "$(git rev-parse HEAD)" || { echo "canonical main SHA mismatch" >&2; exit 1; }
+test "$(jq -r '.canonicalMainSha' "$plan_path")" = "$release_sha" || { echo "plan SHA mismatch" >&2; exit 1; }
 test "$(jq -r '.projectRef' "$plan_path")" = "hjgcrrzfjchzqoegcywn" || { echo "Production project mismatch" >&2; exit 1; }
 test "$(supabase --version)" = "$(jq -r '.supabaseCliVersion' "$plan_path")" || { echo "Supabase CLI identity mismatch" >&2; exit 1; }
 
