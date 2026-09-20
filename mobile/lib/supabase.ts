@@ -1,4 +1,5 @@
 import "react-native-url-polyfill/auto";
+import { AppState, Platform } from "react-native";
 import { createClient } from "@supabase/supabase-js";
 import Constants from "expo-constants";
 import { secureStoreAdapter } from "./supabaseStorage";
@@ -49,3 +50,17 @@ export const supabase = createClient(supabaseRuntimeUrl, supabaseRuntimeAnonKey,
     schema: "public",
   },
 });
+
+// A native process can remain alive while the app is backgrounded for hours.
+// Keep the Auth refresh loop tied to foreground activity so a resumed Product
+// request does not wait behind a stale background refresh. This module owns the
+// single Supabase client, so this listener is registered exactly once.
+if (Platform.OS !== "web") {
+  AppState.addEventListener("change", (state) => {
+    if (state === "active") {
+      supabase.auth.startAutoRefresh();
+    } else {
+      supabase.auth.stopAutoRefresh();
+    }
+  });
+}

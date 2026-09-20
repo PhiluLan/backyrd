@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import vm from "node:vm";
+import ts from "typescript";
 
 const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
 const decision = read("app/(tabs)/wohin.tsx");
@@ -15,12 +17,43 @@ const homeEvents = read("components/events/HomeEventsSection.tsx");
 const eventDiscovery = read("lib/events-v1.ts");
 const spotOpeningStatus = read("lib/spot-opening-status.ts");
 const productDecision = read("lib/decision/productDecision.ts");
+const supabaseClient = read("lib/supabase.ts");
+const userFacingError = read("lib/userFacingError.ts");
 const founderLiveBinding = read("lib/decision/productDecisionRelease.generated.ts");
 const founderLiveControl = read("packages/product-decision-contract/src/index.mjs");
 const pushNotificationRouter = read("components/PushNotificationRouter.tsx");
 
 assert.match(decision, /invokeDecisionProduct/, "Wohin must pass through the sealed Product client boundary");
 assert.match(productDecision, /freshAccessToken/, "Decision requests must carry a fresh authenticated session token to the server boundary");
+assert.match(supabaseClient, /AppState\.addEventListener\("change",/, "native Auth refresh must follow foreground state");
+assert.match(supabaseClient, /state === "active"[\s\S]*auth\.startAutoRefresh\(\)[\s\S]*auth\.stopAutoRefresh\(\)/, "foreground resumes refresh and background stops it");
+assert.match(userFacingError, /decision_session_timeout[\s\S]*Anmeldung konnte nicht rechtzeitig erneuert werden/, "session stalls must not be mislabeled as a network outage");
+
+function exerciseAuthLifecycle(platform) {
+  const calls = [];
+  const listeners = [];
+  const runtime = ts.transpileModule(supabaseClient, { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true } }).outputText;
+  const modules = {
+    "react-native-url-polyfill/auto": {},
+    "react-native": { Platform: { OS: platform }, AppState: { addEventListener: (event, listener) => listeners.push({ event, listener }) } },
+    "@supabase/supabase-js": { createClient: () => ({ auth: { startAutoRefresh: () => calls.push("start"), stopAutoRefresh: () => calls.push("stop") } }) },
+    "expo-constants": { expoConfig: { extra: { supabaseUrl: "https://test.supabase.co", supabaseAnonKey: "a".repeat(32) } } },
+    "./supabaseStorage": { secureStoreAdapter: {} },
+  };
+  vm.runInNewContext(runtime, { require: (name) => {
+    assert.ok(Object.hasOwn(modules, name), `unexpected Auth lifecycle import: ${name}`);
+    return modules[name];
+  }, exports: {}, process: { env: {} }, URL });
+  return { calls, listeners };
+}
+
+const nativeAuth = exerciseAuthLifecycle("ios");
+assert.equal(nativeAuth.listeners.length, 1, "native Auth refresh must register once");
+assert.equal(nativeAuth.listeners[0].event, "change");
+nativeAuth.listeners[0].listener("background");
+nativeAuth.listeners[0].listener("active");
+assert.deepEqual(nativeAuth.calls, ["stop", "start"], "a resumed native client must restart token refresh");
+assert.equal(exerciseAuthLifecycle("web").listeners.length, 0, "the native listener must not affect web Auth");
 assert.match(founderLiveBinding, /"transportFunction": "decision-v13"/, "Build-57 must retain the one deployed transport slug");
 assert.match(founderLiveBinding, /backyrd\.decision-vnext\.product-request@1\.0/, "Mobile must bind the vNext request contract");
 assert.match(founderLiveBinding, /backyrd\.decision-vnext\.product-response@1\.0/, "Mobile must bind the vNext Product response contract");
