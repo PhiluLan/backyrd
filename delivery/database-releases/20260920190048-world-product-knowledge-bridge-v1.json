@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260920190048-world-product-knowledge-bridge-v1",
+  "previousEvidence": "20260919205256-decision-vnext-verified-world-catalog-priority",
+  "previousFingerprints": {
+    "publicAclSha256": "e02655893c6a2a6bdd87f96c439bb16cf439440a674cd9798485bf0138b0b9ae",
+    "applicationSchemaSha256": "2a8258559b3476a7f906a5b49099dfd63130bf6c7035b5b751e424c1b26a3cf3"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260920190048_bridge_product_world_knowledge_v1.sql",
+      "sha256": "158b6661ea55dce071b6ffd8ad0c80e6bf8945ddfe532db030075d78a1641416"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/decision_product_world_bridge_v1.sql",
+      "sha256": "8c40c5231cdc4eda7fac06f52d2348d6da515c3b56d6d27873177deabe923f42"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "e02655893c6a2a6bdd87f96c439bb16cf439440a674cd9798485bf0138b0b9ae",
+    "applicationSchemaSha256": "64fd10c07a231dfcc75f6f995eb8bdaaa9295056747b0909efb36e4be02139d0"
+  }
+}
