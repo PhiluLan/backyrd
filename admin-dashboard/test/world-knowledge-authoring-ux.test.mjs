@@ -82,6 +82,7 @@ test("product context, special hours and temporary state have low-friction, trut
   ]);
   assert.match(editor, /Was passt zu diesem Spot\?/);
   assert.match(editor, /aria-pressed=\{active\} onClick=\{\(\) => toggleSimple\(option\.value\)\}/);
+  assert.match(editor, /row\[discriminator\] === option\.value && isSimple\(row\)/);
   assert.match(editor, /Ausnahmen und Bedingungen bearbeiten/);
   assert.match(editor, /save\("KNOWN_VALUE", \[\]\)/);
   assert.match(editor, /Keine besonderen Zeiten vorhanden/);
