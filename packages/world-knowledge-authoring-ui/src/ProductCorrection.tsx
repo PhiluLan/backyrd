@@ -25,6 +25,14 @@ type Detail = {
   openConflicts: Array<{ class: string; attributeKey: string; reasonCodes: string[] }>;
   manifest: null | { manifestHash: string; worldSnapshot: unknown };
 };
+type SnapshotConflict = { severity?: string; attributeKeys?: string[] };
+const snapshotConflicts = (detail: Detail | null): SnapshotConflict[] => {
+  const snapshot = detail?.manifest?.worldSnapshot;
+  if (!snapshot || typeof snapshot !== "object" || !("conflicts" in snapshot)) return [];
+  const conflicts = snapshot.conflicts;
+  return Array.isArray(conflicts) ? conflicts.filter((item): item is SnapshotConflict =>
+    item !== null && typeof item === "object" && Array.isArray(item.attributeKeys)) : [];
+};
 export type ProductFieldInputProps = {
   field: AuthoringField;
   answer?: Answer;
@@ -230,7 +238,6 @@ export function WorldProductCorrection({ client, rebuild, search, FieldEditor }:
   };
   const saveField = async (field: AuthoringField, knowledgeState: string, value: unknown, validUntil?: string) => {
     if (!detail || !detail.actor.allowedAttributeKeys.includes(field.attributeKey)) throw new Error("Dieses Feld ist nicht freigegeben.");
-    if (detail.openConflicts.some((item) => item.attributeKey === field.attributeKey)) throw new Error("Für dieses Feld ist eine offene Konfliktprüfung erforderlich.");
     const validated = validateAuthoringSubmission(field.attributeKey, knowledgeState, value);
     if (!validated.ok) throw new Error(validated.message);
     if (field.attributeKey === "state.current" && !validUntil) throw new Error("Der aktuelle Zustand benötigt ein Gültig-bis-Datum.");
@@ -258,9 +265,12 @@ export function WorldProductCorrection({ client, rebuild, search, FieldEditor }:
     const refreshed = await readDetail(detail.spotId);
     if (refreshed.manifest?.manifestHash !== result.manifestHash) throw new Error("Die Angabe wurde gespeichert, aber Datenvorschau und Spot-Ansicht stimmen nicht überein. Bitte lade den Spot neu.");
     setDetail(refreshed);
-    if (result.openConflicts?.length) throw new Error("Die Angabe wurde gespeichert, aber ein offener Konflikt muss geprüft werden.");
-    setMessage("Angabe gespeichert und in der aktuellen Datenvorschau bestätigt.");
-    setMessageIsError(false);
+    const blocking = snapshotConflicts(refreshed).some((conflict) =>
+      conflict.severity === "BLOCKING" && conflict.attributeKeys?.includes(field.attributeKey));
+    setMessage(blocking
+      ? "Angabe gespeichert. Der World-Reader zeigt für dieses Feld weiterhin einen echten Widerspruch; bitte prüfe die Belege."
+      : "Angabe gespeichert und in der aktuellen Datenvorschau bestätigt.");
+    setMessageIsError(blocking);
   };
   const current = AUTHORING_STEPS[step]!;
   const primaryCategory = detail?.answers["classification.primary_category"]?.value;
@@ -269,7 +279,8 @@ export function WorldProductCorrection({ client, rebuild, search, FieldEditor }:
     .map((field) => ({ ...field, allowedValues: field.allowedValues.filter((option) => option.state !== "NOT_CONFIGURED") }));
   const known = Object.values(detail?.answers ?? {}).filter((answer) => answer.knowledgeState !== "UNKNOWN").length;
   const unknown = Object.values(detail?.answers ?? {}).filter((answer) => answer.knowledgeState === "UNKNOWN").length;
-  const unresolved = detail?.openConflicts.length ?? 0;
+  const unresolved = snapshotConflicts(detail).filter((conflict) => conflict.severity === "BLOCKING").length;
+  const reviewNotices = detail?.openConflicts.length ?? 0;
   const goToStep = (index: number) => {
     setStep(Math.max(0, Math.min(AUTHORING_STEPS.length - 1, index)));
     document.querySelector(".wk-product-app .wk-main")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -278,7 +289,7 @@ export function WorldProductCorrection({ client, rebuild, search, FieldEditor }:
   return <div className="wk-app wk-product-app">
     <header className="wk-header">
       <div><span className="wk-eyebrow">WORLD KNOWLEDGE · SPOT-PFLEGE</span><h1>{detail?.name ?? "Spots pflegen"}</h1>
-        <p>{detail ? `${known} bestätigte Angaben · ${unknown} bewusst unbekannt · ${unresolved} offene Konflikte` : "Wähle einen Spot und pflege seine Angaben Schritt für Schritt."}</p></div>
+        <p>{detail ? `${known} bestätigte Angaben · ${unknown} bewusst unbekannt · ${unresolved} echte Konflikte · ${reviewNotices} Prüfhinweise` : "Wähle einen Spot und pflege seine Angaben Schritt für Schritt."}</p></div>
       <div className="wk-header-actions"><span className="wk-status">{detail?.manifest ? "● Datenvorschau vorhanden" : "● Noch keine Datenvorschau"}</span></div>
     </header>
     {search && <section className="wk-panel" aria-label="World-Bestandsabgleich">
@@ -320,12 +331,16 @@ export function WorldProductCorrection({ client, rebuild, search, FieldEditor }:
     <main className="wk-main">{!detail ? <section className="wk-panel"><h2>Spot auswählen</h2><p>Suche links nach einem freigegebenen Spot. Anschließend kannst du alle für deine Rolle freigegebenen Angaben direkt und ohne JSON-Eingabe pflegen.</p></section>
       : <section className="wk-panel"><div className="wk-step-title"><span>Bereich {step + 1} von {AUTHORING_STEPS.length}</span><h2>{current.title}</h2><p>{current.explanation}</p>
         {detail.actor.role === "ADMIN" && <p>Ein übernommenes Basisprofil ersetzt keine fachliche Prüfung. Ergänze insbesondere Hauptzweck, Kategorie, Besuchssituation, Öffnung und Zugänglichkeit nur mit belegten Angaben.</p>}</div>
-        {unresolved > 0 && <div className="wk-error-summary" role="alert"><strong>{unresolved} offene {unresolved === 1 ? "Angabe" : "Angaben"} mit Widerspruch</strong>
-          <p>Betroffene Angaben bleiben bis zur Prüfung gesperrt.</p><ul>{detail.openConflicts.map((conflict, index) => <li key={index}>{fieldLabel(conflict.attributeKey)}</li>)}</ul></div>}
+        {reviewNotices > 0 && <div className="wk-note"><strong>{reviewNotices} offene {reviewNotices === 1 ? "Prüfnotiz" : "Prüfnotizen"}</strong>
+          <p>Diese Notizen stammen aus der Claim-Prüfung und sperren die Spot-Pflege nicht. Du kannst eine Angabe korrigieren; maßgeblich ist der aktuelle World-Reader.</p>
+          <ul>{detail.openConflicts.map((conflict, index) => <li key={index}>{fieldLabel(conflict.attributeKey)}</li>)}</ul></div>}
+        {unresolved > 0 && <div className="wk-error-summary" role="alert"><strong>{unresolved} echte {unresolved === 1 ? "Angabe" : "Angaben"} mit Widerspruch im World-Reader</strong>
+          <p>Die betroffenen Angaben können korrigiert werden; bis zur Klärung werden sie nicht als gesichert ausgegeben.</p></div>}
         {current.id === "review" ? <div className="wk-review">
           <article><b>Bestätigt</b><strong>{known}</strong><span>gespeicherte Angaben</span></article>
           <article><b>Bewusst unbekannt</b><strong>{unknown}</strong><span>weder Ja noch Nein</span></article>
-          <article><b>Konflikte</b><strong>{unresolved}</strong><span>müssen geprüft werden</span></article>
+          <article><b>Reader-Konflikte</b><strong>{unresolved}</strong><span>fachlich zu prüfen</span></article>
+          <article><b>Prüfnotizen</b><strong>{reviewNotices}</strong><span>blockieren die Bearbeitung nicht</span></article>
           <article><b>Datenvorschau</b><strong>{detail.manifest ? "✓" : "—"}</strong><span>{detail.manifest ? "kanonisch vorhanden" : "noch nicht bestätigt"}</span></article>
           <section className="wk-preview"><span className="wk-eyebrow">SPOT-PROFIL</span><h2>{detail.name}</h2>
             <p>{typeof detail.answers["description.highlight"]?.value === "string" ? String(detail.answers["description.highlight"].value) : "Noch keine öffentliche Beschreibung."}</p>
@@ -339,9 +354,8 @@ export function WorldProductCorrection({ client, rebuild, search, FieldEditor }:
           <section className="wk-group" key={group}><h3>{group}</h3>{fields.filter((field) => field.group === group).map((field) =>
             <FieldEditor key={`${detail.spotId}:${field.attributeKey}`} field={field} answer={detail.answers[field.attributeKey]}
               referenceValue={field.attributeKey === "hours.kitchen" ? detail.answers["hours.regular"]?.value : undefined}
-              disabled={busy || detail.openConflicts.some((conflict) => conflict.attributeKey === field.attributeKey)}
-              disabledReason={detail.openConflicts.some((conflict) => conflict.attributeKey === field.attributeKey)
-                ? "Für diese Angabe ist eine offene Konfliktprüfung erforderlich." : busy ? "Ein anderer Spot wird gerade geladen." : undefined}
+              disabled={busy}
+              disabledReason={busy ? "Ein anderer Spot wird gerade geladen." : undefined}
               onSave={(state, value, until) => saveField(field, state, value, until)}
               onError={(error) => { if (error) { setMessage(error); setMessageIsError(true); } }} />)}</section>)}</div>
           : <div className="wk-note"><strong>Für diesen Spot keine bearbeitbaren Angaben in diesem Bereich.</strong><p>Du kannst zum nächsten Bereich wechseln.</p></div>}

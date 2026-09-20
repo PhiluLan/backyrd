@@ -23,7 +23,10 @@ test("Product spot care reuses the complete typed nine-step World editor, not JS
 test("Product edits remain append-only, role-scoped and reader-verified", async () => {
   const product = await source("../../packages/world-knowledge-authoring-ui/src/ProductCorrection.tsx");
   assert.match(product, /actor\.allowedAttributeKeys\.includes\(field\.attributeKey\)/);
-  assert.match(product, /openConflicts\.some/);
+  assert.match(product, /snapshotConflicts\(refreshed\)/);
+  assert.match(product, /conflict\.severity === "BLOCKING"/);
+  assert.doesNotMatch(product, /openConflicts\.some/);
+  assert.match(product, /Prüfnotizen.*blockieren die Bearbeitung nicht/);
   assert.match(product, /validateAuthoringSubmission/);
   assert.match(product, /world_product_admin_submit_claim_v1/);
   assert.match(product, /world_product_owner_submit_claim_v1/);
