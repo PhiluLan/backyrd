@@ -10,14 +10,14 @@ const policy = {
   decisionTrustAnchor: "decision-lab/config/anchor.json",
   surfacePrefixes: { mobile: ["mobile/"], web: ["web/", "packages/world-knowledge-authoring-ui/"], admin: ["admin-dashboard/", "packages/world-knowledge-authoring-ui/"], shared: ["packages/shared/"], user: ["packages/user-intelligence-vnext-core/", "scripts/user-intelligence/"], world: ["packages/world-knowledge-core/", "scripts/world-knowledge/"] },
   databasePrefixes: ["supabase/migrations/", "supabase/canonical/", "supabase/tests/"],
-  authorizationPrefixes: ["supabase/canonical/auth_hooks.sql", "supabase/canonical/storage.sql"],
+  authorizationPrefixes: ["mobile/lib/supabase.ts", "supabase/canonical/auth_hooks.sql", "supabase/canonical/storage.sql"],
   privilegedServerPrefixes: ["supabase/functions/", "supabase/config.toml", "supabase/production/auth-config.json"],
   decisionSemanticPrefixes: ["packages/decision-vnext-core/src/", "packages/world-knowledge-core/src/port.ts", "supabase/functions/decision-v13/"],
   decisionEvaluationPrefixes: ["packages/decision-vnext-core/test/", "packages/decision-vnext-core/sandbox/", "decision-lab/"],
   decisionConsumerPrefixes: ["packages/shared/", "packages/user-intelligence-vnext-core/", "packages/world-knowledge-core/"],
   decisionPipelineControlPrefixes: [".github/workflows/", "package.json", "package-lock.json", "scripts/ci/classify-change.mjs", "scripts/ci/decision-", "scripts/ci/verify-decision-shards.mjs"],
   integrationControlPrefixes: ["delivery/integration/", "docs/operations/integration/", "scripts/ci/integration-", "scripts/ci/week2-dark-wiring", "scripts/ci/founder-live-control-plane", "scripts/ci/founder-activation-control-plane", "scripts/ci/source-aware-idempotency-migration-scope", "scripts/world-knowledge/build-week1-production-release-foundation"],
-  productReleasePrefixes: ["mobile/app/(tabs)/decision.tsx", "mobile/app/(tabs)/wohin.tsx", "mobile/lib/decision/", "packages/decision-vnext-core/src/product-", "supabase/functions/decision-", "scripts/deployment/"],
+  productReleasePrefixes: ["mobile/app/(tabs)/decision.tsx", "mobile/app/(tabs)/wohin.tsx", "mobile/lib/supabase.ts", "mobile/lib/decision/", "packages/decision-vnext-core/src/product-", "supabase/functions/decision-", "scripts/deployment/"],
   knownRepositoryPrefixes: [".github/", ".gitleaks.toml", "README.md", "admin-dashboard/", "decision-lab/", "docs/", "mobile/", "package.json", "package-lock.json", "packages/", "scripts/", "supabase/", "web/"],
   deliveryControlPrefixes: [".github/workflows/", ".gitleaks.toml", "delivery/", "scripts/ci/", "scripts/deployment/", "docs/operations/"],
   releaseEvidencePrefixes: ["docs/operations/releases/"],
@@ -60,6 +60,15 @@ test("Wohin is classified as a Product release, not an unguarded Mobile-only scr
   const result = plan({ files: { "mobile/app/(tabs)/wohin.tsx": "export default true;\n" } });
   assert.equal(result.flags.mobile, true);
   assert.equal(result.flags.productRelease, true);
+});
+
+test("native Supabase Auth lifecycle selects authorization and Product release certification", () => {
+  const result = plan({ files: { "mobile/lib/supabase.ts": "export const authLifecycle = true;\n" } });
+  assert.equal(result.flags.mobile, true);
+  assert.equal(result.flags.authorizationBoundary, true);
+  assert.equal(result.flags.productRelease, true);
+  assert.ok(result.requiredGates.includes("release-certification"));
+  assert.ok(result.requiredGates.includes("repository-security"));
 });
 
 test("additive migration is separated from authorization and destructive changes", () => {

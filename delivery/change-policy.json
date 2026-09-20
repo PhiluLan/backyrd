@@ -26,6 +26,7 @@
     "scripts/ci/validate-supabase-local.sh"
   ],
   "authorizationPrefixes": [
+    "mobile/lib/supabase.ts",
     "supabase/canonical/auth_hooks.sql",
     "supabase/canonical/storage.sql",
     "supabase/production/auth-config.json"
@@ -71,6 +72,7 @@
     ".github/workflows/deep-recertification.yml",
     "mobile/app/(tabs)/decision.tsx",
     "mobile/app/(tabs)/wohin.tsx",
+    "mobile/lib/supabase.ts",
     "mobile/lib/decision/",
     "mobile/packages/product-decision-contract/",
     "packages/decision-vnext-core/src/product-",
