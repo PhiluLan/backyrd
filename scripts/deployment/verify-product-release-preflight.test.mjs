@@ -113,6 +113,38 @@ test("two-file World Product additive scope is exact, ordered, and never executi
     assert.throws(() => verifyProductReleasePreflight({ ...input, remote: null }), /release_additive_migration_scope_invalid/);
   }
 });
+test("already applied priority requires exact statement evidence and leaves only bridge pending", () => {
+  const input = fixture();
+  const priority = { path: "supabase/migrations/20260919205256_decision_vnext_verified_world_catalog_priority.sql", sha256: "541c15131c53efb23a5d300ef17cbd8ba3312cfc3be320e0537c1491d7547626" };
+  const bridge = { path: "supabase/migrations/20260920190048_bridge_product_world_knowledge_v1.sql", sha256: "f13bbb8a91ad6f3b976a6b5b95cd4e72af68750b53be6668cadf810248b6d02d" };
+  const receipt = { ...priority, status: "READ_ONLY_PRODUCTION_STATEMENTS_MATCH", projectRef: "hjgcrrzfjchzqoegcywn", executionAuthorized: false,
+    statementSha256: ["c101dba45cc83819760539e7c468d6cb8d81729b3bc24c707b07e797396807ff", "c5a281ef9ad82e44ed873994a03ec3c607342b6cc87c75a41f239c2ad38d34cf", "e844c3da0705dd991bd221412e5bc828e4a9c60761c28cc236910cee9202083d"] };
+  input.plan.projectRef = receipt.projectRef;
+  input.ledger.projectRef = receipt.projectRef;
+  input.remote.projectRef = receipt.projectRef;
+  input.manifest.productionPlan.recoveryRiskAcceptance.projectRef = receipt.projectRef;
+  input.remote.recoveryRiskAcceptanceSha256 = hash(JSON.stringify(input.manifest.productionPlan.recoveryRiskAcceptance));
+  input.plan.pendingMigrations = [bridge];
+  input.plan.additivePreappliedPriority = receipt;
+  input.manifest.productionPlan.pendingMigrations = [bridge];
+  input.manifest.productionPlan.additivePreappliedPriority = receipt;
+  input.manifest.productionPlan.recoveryRiskMigrationSet = migrations;
+  input.manifest.productionPlan.additiveMigrationScope = {
+    contractVersion: "backyrd.product-v1-additive-migration-scope@1.0", projectRef: receipt.projectRef,
+    migrations: [priority, bridge], preappliedPriorityReceipt: receipt, executionAuthorized: false,
+    restoreDrillStatus: "NOT_PERFORMED_BY_FOUNDER_DECISION", guaranteedDatabaseRollback: false,
+  };
+  input.remote.appliedMigrationVersions.push("20260919205256");
+  input.remote.preappliedPriorityStatementSha256 = [...receipt.statementSha256];
+  const reseal = () => { const { manifestHash: ignored, ...body } = input.manifest; input.manifest.manifestHash = hash(JSON.stringify(body)); input.remote.manifestHash = input.manifest.manifestHash; };
+  reseal();
+  assert.equal(verifyProductReleasePreflight(input).candidateMigrationCount, 1);
+  input.remote.preappliedPriorityStatementSha256[0] = hash("changed");
+  assert.throws(() => verifyProductReleasePreflight(input), /remote_preapplied_priority_statement_drift/);
+  input.remote.preappliedPriorityStatementSha256 = [...receipt.statementSha256];
+  input.remote.appliedMigrationVersions.pop();
+  assert.throws(() => verifyProductReleasePreflight(input), /remote_migration_ledger_drift/);
+});
 
 test("missing or substituted Admin spot search migration blocks the release plan", () => {
   const missing = fixture();

@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { dirname, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeFileSync } from "node:fs";
+import { isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const HASH = /^[0-9a-f]{64}$/;
@@ -416,6 +417,18 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
   }
   migrations.sort((left, right) => left.path.localeCompare(right.path));
   const preappliedMigrations = preappliedMigrationImport?.migrations ?? productPreappliedImport?.migrations ?? [];
+  const observedPriorityReceipt = head.files.has("delivery/product-authority-v1.json")
+    ? JSON.parse(head.text("delivery/product-authority-v1.json"))
+      .additiveProductMigrationScope?.preappliedPriorityReceipt ?? null
+    : null;
+  const priorityReceipt = migrations.some((entry) => entry.path === observedPriorityReceipt?.path)
+    ? observedPriorityReceipt : null;
+  if (priorityReceipt) {
+    const priority = migrations[0];
+    if (!isExactPreappliedPriorityReceipt(priorityReceipt)
+      || priority?.path !== priorityReceipt.path || priority?.sha256 !== priorityReceipt.sha256
+      || preappliedMigrations.length > 0) throw new Error("product_priority_preapplied_receipt_invalid");
+  }
   if (preappliedMigrationImport) {
     const planned = migrations.map((entry) => `${entry.path}:${entry.sha256}`).sort();
     const attested = preappliedMigrations.map((entry) => `${entry.path}:${entry.sha256}`).sort();
@@ -429,7 +442,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
       throw new Error("product_preapplied_scope_mismatch");
     }
   }
-  const preappliedPaths = new Set(preappliedMigrations.map((entry) => entry.path));
+  const preappliedPaths = new Set([...preappliedMigrations.map((entry) => entry.path), ...(priorityReceipt ? [priorityReceipt.path] : [])]);
   const pendingMigrations = migrations.filter((entry) => !preappliedPaths.has(entry.path));
   const deployFunctions = functions.filter((item) => item.deploy).map((item) => item.slug);
   const plan = {
@@ -443,6 +456,7 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     deployFunctions,
     migrations,
     pendingMigrations,
+    additivePreappliedPriority: priorityReceipt,
     preappliedMigrationImport: preappliedMigrationImport ? {
       path: preappliedMigrationImport.path,
       canonicalBaseSha: baseSha,

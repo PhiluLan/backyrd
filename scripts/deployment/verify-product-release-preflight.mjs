@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { isExactProductAdditiveSet } from "../ci/product-additive-migration-scope.mjs";
+import { isExactProductAdditiveSet, isExactPreappliedPriorityReceipt } from "../ci/product-additive-migration-scope.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const HASH = /^[0-9a-f]{64}$/;
@@ -26,8 +26,16 @@ export function verifyProductReleasePreflight({ manifest, plan, ledger, baseline
   required(plan.authConfig?.deploy !== true && manifest.productionPlan.executionAuthorized === false, "release_auth_or_execution_scope_invalid");
   required(equal(plan.pendingMigrations, manifest.productionPlan.pendingMigrations), "release_migration_set_mismatch");
   required(equal(plan.deployFunctions, manifest.productionPlan.deployFunctions), "release_function_set_mismatch");
-  const currentRiskSet = (plan.productPreappliedImport?.migrations ?? plan.pendingMigrations)
+  const currentRiskSet = (plan.productPreappliedImport?.migrations ?? [
+    ...(plan.additivePreappliedPriority ? [plan.additivePreappliedPriority] : []),
+    ...plan.pendingMigrations,
+  ])
     .map(({ path, sha256: migrationSha256 }) => ({ path, sha256: migrationSha256 }));
+  required(equal(plan.additivePreappliedPriority ?? null, manifest.productionPlan.additivePreappliedPriority ?? null)
+    && (!plan.additivePreappliedPriority
+      || (isExactPreappliedPriorityReceipt(plan.additivePreappliedPriority)
+        && equal(plan.additivePreappliedPriority, manifest.productionPlan.additiveMigrationScope?.preappliedPriorityReceipt)
+        && plan.pendingMigrations.length === 1)), "release_preapplied_priority_invalid");
   const acceptedMigrations = currentRiskSet.length === 13
     ? currentRiskSet : manifest.productionPlan.recoveryRiskMigrationSet;
   required(Array.isArray(acceptedMigrations) && (currentRiskSet.length === 13
@@ -80,8 +88,11 @@ export function verifyProductReleasePreflight({ manifest, plan, ledger, baseline
     && baselineMigrationVersions.at(-1) === ledger.supabase.migrationTip.replace(/_.*/, ""), "remote_shipped_migration_baseline_invalid");
   const expectedAppliedVersions = plan.productPreappliedImport
     ? [...baselineMigrationVersions, ...acceptedMigrations.map((item) => item.path.match(/\/([0-9]{14})_/)?.[1])]
-    : baselineMigrationVersions;
+    : [...baselineMigrationVersions, ...(plan.additivePreappliedPriority
+      ? [plan.additivePreappliedPriority.path.match(/\/([0-9]{14})_/)?.[1]] : [])];
   required(equal(remote.appliedMigrationVersions, expectedAppliedVersions), "remote_migration_ledger_drift");
+  if (plan.additivePreappliedPriority) required(equal(remote.preappliedPriorityStatementSha256,
+    plan.additivePreappliedPriority.statementSha256), "remote_preapplied_priority_statement_drift");
   required(remote.deployedSupabaseSourceSha === ledger.supabase.shippedSourceSha, "remote_source_drift");
   for (const item of plan.functions.filter((entry) => entry.deploy)) {
     required(HASH.test(item.previousSourceSetHash) && remote.deployedFunctionSourceSets?.[item.slug] === item.previousSourceSetHash,
