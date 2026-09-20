@@ -6,7 +6,7 @@ import { cpSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync }
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildProductionPlan, parseSupabaseFunctionConfig } from "../deployment/supabase-production-plan.mjs";
-import { isExactProductAdditiveSet } from "./product-additive-migration-scope.mjs";
+import { isExactProductAdditiveSet, isExactPreappliedPriorityReceipt } from "./product-additive-migration-scope.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const SHA = /^[0-9a-f]{40}$/;
@@ -217,7 +217,10 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   requireValue(authority.status === "ACTIVE" && authority.productRoute === "DECISION_VNEXT_SINGLE_ROUTE" && authority.legacyDecisionAuthority === false, "release_product_authority_invalid");
   requireValue(authority.runtimeScope?.activeTransport === "decision-v13" && (authority.runtimeScope?.quarantinedTransports ?? []).length === 0, "release_runtime_policy_invalid");
   const recoveryRisk = authority.founderRecoveryRiskAcceptance;
-  const currentRiskSet = (actualPlan.productPreappliedImport?.migrations ?? actualPlan.pendingMigrations)
+  const currentRiskSet = (actualPlan.productPreappliedImport?.migrations ?? [
+    ...(actualPlan.additivePreappliedPriority ? [actualPlan.additivePreappliedPriority] : []),
+    ...actualPlan.pendingMigrations,
+  ])
     .map(({ path, sha256: migrationSha256 }) => ({ path, sha256: migrationSha256 }));
   let acceptedMigrationSet = currentRiskSet;
   if (currentRiskSet.length !== 13) {
@@ -231,6 +234,10 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     for (const entry of acceptedMigrationSet) requireValue(HASH.test(entry.sha256) && sha256(gitBlob(root, `${identity.sourceSha}:${entry.path}`)) === entry.sha256, "release_recovery_migration_bytes_invalid");
   }
   const additiveMigrationScope = authority.additiveProductMigrationScope ?? null;
+  requireValue(!actualPlan.additivePreappliedPriority
+    || (isExactPreappliedPriorityReceipt(actualPlan.additivePreappliedPriority)
+      && JSON.stringify(actualPlan.additivePreappliedPriority) === JSON.stringify(additiveMigrationScope?.preappliedPriorityReceipt)
+      && actualPlan.pendingMigrations.length === 1), "release_preapplied_priority_invalid");
   if (currentRiskSet.length !== 13 && currentRiskSet.length > 0) {
     requireValue(additiveMigrationScope?.contractVersion === "backyrd.product-v1-additive-migration-scope@1.0"
       && additiveMigrationScope.projectRef === actualPlan.projectRef
@@ -266,6 +273,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     planHash: actualPlan.planHash,
     migrationSet: actualPlan.migrations,
     pendingMigrations: actualPlan.pendingMigrations,
+    additivePreappliedPriority: actualPlan.additivePreappliedPriority,
     productPreappliedImport: actualPlan.productPreappliedImport,
     deployFunctions: actualPlan.deployFunctions,
     retiredFunctions: actualPlan.retiredFunctions ?? [],
@@ -314,8 +322,16 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
   requireValue(manifest.productionPlan?.canonicalMainSha === manifest.sourceSha && manifest.productionPlan.executionAuthorized === false, "release_production_plan_invalid");
   const recoveryRisk = manifest.productionPlan.recoveryRiskAcceptance;
   const acceptedMigrationSet = manifest.productionPlan.recoveryRiskMigrationSet;
-  const currentRiskSet = (manifest.productionPlan.productPreappliedImport?.migrations ?? manifest.productionPlan.pendingMigrations)
+  const currentRiskSet = (manifest.productionPlan.productPreappliedImport?.migrations ?? [
+    ...(manifest.productionPlan.additivePreappliedPriority ? [manifest.productionPlan.additivePreappliedPriority] : []),
+    ...manifest.productionPlan.pendingMigrations,
+  ])
     .map(({ path, sha256: migrationSha256 }) => ({ path, sha256: migrationSha256 }));
+  requireValue(!manifest.productionPlan.additivePreappliedPriority
+    || (isExactPreappliedPriorityReceipt(manifest.productionPlan.additivePreappliedPriority)
+      && JSON.stringify(manifest.productionPlan.additivePreappliedPriority)
+        === JSON.stringify(manifest.productionPlan.additiveMigrationScope?.preappliedPriorityReceipt)
+      && manifest.productionPlan.pendingMigrations.length === 1), "release_preapplied_priority_invalid");
   requireValue(Array.isArray(acceptedMigrationSet) && (currentRiskSet.length === 13
     ? JSON.stringify(currentRiskSet) === JSON.stringify(acceptedMigrationSet)
     : !manifest.productionPlan.productPreappliedImport && (currentRiskSet.length === 0
