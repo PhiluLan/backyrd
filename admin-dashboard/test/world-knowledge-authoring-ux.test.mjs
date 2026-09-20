@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import ts from "typescript";
 
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
@@ -88,6 +89,17 @@ test("product context, special hours and temporary state have low-friction, trut
   assert.match(product, /query\.trim\(\) \? 300 : 0/);
   assert.match(product, /wk-catalog-details/);
   assert.match(product, /Angaben gespeichert/);
+});
+
+test("older empty context encodings remain visibly selected without erasing real conditions", async () => {
+  const source = await read("packages/world-knowledge-authoring-ui/src/context-choice.ts");
+  const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const { isUnconditionalContextConditions: simple } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`);
+  assert.equal(simple({ dayparts: [], days: [], area: "", occasion: null, groupSize: { min: null, max: null }, ageContext: "", accompaniment: null, eventMode: null }), true);
+  assert.equal(simple({ dayparts: ["EVENING"], days: [], area: null }), false);
+  assert.equal(simple({ days: [], area: "Innenhof" }), false);
+  assert.equal(simple({ groupSize: { min: 2, max: 4 } }), false);
+  assert.equal(simple("invalid"), false);
 });
 
 test("Admin World reuses the existing Swiss Places lookup with explicit address confirmation", async () => {
