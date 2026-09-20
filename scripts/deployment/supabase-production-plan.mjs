@@ -421,10 +421,13 @@ export const buildProductionPlan = ({ repo, baseSha, headSha }) => {
     ? JSON.parse(head.text("delivery/product-authority-v1.json"))
       .additiveProductMigrationScope?.preappliedPriorityReceipt ?? null
     : null;
-  const priorityReceipt = migrations.some((entry) => entry.path === observedPriorityReceipt?.path)
+  const priorityReceipt = (migrations.some((entry) => entry.path === observedPriorityReceipt?.path)
+    || base.files.has(observedPriorityReceipt?.path))
     ? observedPriorityReceipt : null;
   if (priorityReceipt) {
-    const priority = migrations[0];
+    const priority = migrations.find((entry) => entry.path === priorityReceipt.path)
+      ?? (base.files.has(priorityReceipt.path)
+        ? { path: priorityReceipt.path, sha256: sha256(base.read(priorityReceipt.path)) } : null);
     if (!isExactPreappliedPriorityReceipt(priorityReceipt)
       || priority?.path !== priorityReceipt.path || priority?.sha256 !== priorityReceipt.sha256
       || preappliedMigrations.length > 0) throw new Error("product_priority_preapplied_receipt_invalid");

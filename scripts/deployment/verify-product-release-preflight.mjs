@@ -86,10 +86,11 @@ export function verifyProductReleasePreflight({ manifest, plan, ledger, baseline
     && Number.isSafeInteger(remote.runId) && remote.runId > 0, "remote_receipt_provenance_missing");
   required(Array.isArray(baselineMigrationVersions) && baselineMigrationVersions.length === ledger.supabase.migrationCount
     && baselineMigrationVersions.at(-1) === ledger.supabase.migrationTip.replace(/_.*/, ""), "remote_shipped_migration_baseline_invalid");
+  const priorityVersion = plan.additivePreappliedPriority?.path.match(/\/([0-9]{14})_/)?.[1];
   const expectedAppliedVersions = plan.productPreappliedImport
     ? [...baselineMigrationVersions, ...acceptedMigrations.map((item) => item.path.match(/\/([0-9]{14})_/)?.[1])]
     : [...baselineMigrationVersions, ...(plan.additivePreappliedPriority
-      ? [plan.additivePreappliedPriority.path.match(/\/([0-9]{14})_/)?.[1]] : [])];
+      && !baselineMigrationVersions.includes(priorityVersion) ? [priorityVersion] : [])];
   required(equal(remote.appliedMigrationVersions, expectedAppliedVersions), "remote_migration_ledger_drift");
   if (plan.additivePreappliedPriority) required(equal(remote.preappliedPriorityStatementSha256,
     plan.additivePreappliedPriority.statementSha256), "remote_preapplied_priority_statement_drift");

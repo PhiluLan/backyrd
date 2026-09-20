@@ -144,6 +144,11 @@ test("already applied priority requires exact statement evidence and leaves only
   input.remote.preappliedPriorityStatementSha256 = [...receipt.statementSha256];
   input.remote.appliedMigrationVersions.pop();
   assert.throws(() => verifyProductReleasePreflight(input), /remote_migration_ledger_drift/);
+  input.baselineMigrationVersions.push("20260919205256");
+  input.ledger.supabase.migrationCount += 1;
+  input.ledger.supabase.migrationTip = "20260919205256_decision_vnext_verified_world_catalog_priority";
+  input.remote.appliedMigrationVersions.push("20260919205256");
+  assert.equal(verifyProductReleasePreflight(input).candidateMigrationCount, 1);
 });
 
 test("missing or substituted Admin spot search migration blocks the release plan", () => {
