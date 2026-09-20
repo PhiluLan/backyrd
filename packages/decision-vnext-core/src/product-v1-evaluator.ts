@@ -82,6 +82,21 @@ function contextApplies(row: ContextRow, context: DecisionProductContext): boole
   return true;
 }
 const matchedRows = (value: unknown, context: DecisionProductContext): readonly ContextRow[] => Array.isArray(value) ? (value as ContextRow[]).filter((row) => contextApplies(row, context)) : [];
+function confirmedClosureForRequestedDate(snapshot: ProductWorldView, context: DecisionProductContext, evaluationAt: string): boolean {
+  const state = snapshot.currentStates.find((row) => row.key === "state.current" && row.value && typeof row.value === "object" && !Array.isArray(row.value) && "scope" in row.value && ["SPOT", "VENUE"].includes(String(row.value.scope)));
+  if (!state || snapshot.conflicts.some((row) => row.attributeKeys.includes("state.current")) || !state.validUntil || !context.dateTime.localDate) return false;
+  const value = state.value as { readonly kind?: string };
+  if (!["CLOSED", "TEMPORARILY_CLOSED", "AREA_CLOSED"].includes(value.kind ?? "")) return false;
+  const start = Date.parse(`${context.dateTime.localDate}T00:00:00Z`);
+  const from = state.validFrom ? Date.parse(state.validFrom) : Number.NEGATIVE_INFINITY;
+  const until = Date.parse(state.validUntil);
+  // Without an exact requested hour, only a claim covering the full local day
+  // may suppress a future recommendation. A 24h UTC margin is conservative
+  // across Swiss daylight-saving changes, never an invented opening time.
+  if (context.dateTime.localDate !== requestedLocalDate("", evaluationAt) || context.dateTime.dayPhase) return from <= start - 86_400_000 && until >= start + 172_800_000;
+  const now = Date.parse(evaluationAt);
+  return from <= now && now < until;
+}
 
 export function evaluateProductV1IntentClassification(input: { readonly intent: string | null; readonly purpose: string | null; readonly category: string | null; readonly placeTypes: readonly string[]; readonly disputed: boolean; readonly evidenceSourceHash: string }) {
   if (!input.intent) return { intentId: null, state: "NOT_APPLICABLE" as const, mappingIds: [], worldFactKeys: [], evidenceSourceHash: input.evidenceSourceHash };
@@ -107,7 +122,9 @@ function assess(snapshot: ProductWorldView, context: DecisionProductContext, rej
   if (context.hardConstraints.includes("ACCESSIBILITY_STEP_FREE")) { const row = entry(snapshot, "accessibility.step_free_entrance"); row?.resolution === "KNOWN_TRUE" ? confirmed.push("ACCESSIBILITY_STEP_FREE") : row?.resolution === "KNOWN_FALSE" ? failed.push("ACCESSIBILITY_STEP_FREE") : unknownHard.push("ACCESSIBILITY_STEP_FREE"); }
   if (context.hardConstraints.includes("BUDGET_MAXIMUM")) { const row = entry(snapshot, "operation.price_range"); const value = row?.value; const maximum = value && typeof value === "object" && !Array.isArray(value) && "max" in value ? Number(value.max) : null; maximum === null || context.budget.amount === null ? unknownHard.push("BUDGET_MAXIMUM") : maximum <= context.budget.amount ? confirmed.push("BUDGET_MAXIMUM") : failed.push("BUDGET_MAXIMUM"); }
   if (context.hardConstraints.includes("AGE_OR_LEGAL")) { const row = entry(snapshot, "rule.age_access_conditions"); const value = row?.value; const age = context.group.minimumAge; if (!value || typeof value !== "object" || Array.isArray(value) || !("rules" in value) || age === null) unknownHard.push("AGE_OR_LEGAL"); else { const rules = Array.isArray(value.rules) ? value.rules : []; const allowed = rules.some((rule) => rule && typeof rule === "object" && ((rule.mode === "NO_MINIMUM") || (typeof rule.minimumAge === "number" && (age >= rule.minimumAge || (rule.mode === "UNACCOMPANIED_MINIMUM" && context.group.adultPresent))))); (allowed ? confirmed : failed).push("AGE_OR_LEGAL"); } }
-  const openingStatus = evaluateOpeningState(snapshot, evaluationAt, productOpeningPolicy).status;
+  const openingStatus: DecisionProductCandidateAssessment["actualAvailability"]["status"] = context.hardConstraints.includes("OPEN_NOW")
+    ? evaluateOpeningState(snapshot, evaluationAt, productOpeningPolicy).status
+    : confirmedClosureForRequestedDate(snapshot, context, evaluationAt) ? "closed" : "not_requested";
   if (openingStatus === "closed") failed.push("ACTUAL_AVAILABILITY");
   if (context.hardConstraints.includes("OPEN_NOW")) { openingStatus === "open" ? confirmed.push("OPEN_NOW") : openingStatus === "closed" ? failed.push("OPEN_NOW") : unknownHard.push("OPEN_NOW"); }
   const contextualReject = rejected.includes(snapshot.spot.spotId); const incompatible = ["INCOMPATIBLE", "DISPUTED"].includes(core.state); const notConfigured = core.state === "NOT_CONFIGURED";

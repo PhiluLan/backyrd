@@ -13,7 +13,7 @@ does not rewrite the immutable shadow projection in already sealed manifests.
 | Contacts, private provenance, payment | Not Product ranking authority | Excluded from the Product payload; never used to rank |
 | Main purpose vs. ancillary offer | Specific verified category/type determines core intent | Same rule, now with visible primary-purpose evidence; coffee in an ancillary offering cannot turn a pub into a café |
 | Context | Presence of a context fact could appear as a match | Only a matching, condition-applicable visit/atmosphere/daypart contributes to context ranking and a specific reason |
-| `AREA_CLOSED` | Not treated as closed | A manifest-bound, claim-validated current state closes the venue within its validity interval; expired state is not asserted as current |
+| `AREA_CLOSED` | Not treated as closed | A manifest-bound, claim-validated current state closes the venue within its validity interval; a future-day request is suppressed only if the closure covers that full day; expired state is not asserted as current |
 | Price level / numeric budget | Stored qualitative level did not satisfy numeric limit | Qualitative low-price preference can match `LOW`/`VERY_LOW`; a CHF ceiling remains unknown without a confirmed numeric price range |
 | Bounded candidate retrieval | COFFEE verified facts preferred, other intents relied on legacy catalog order | Verified core category/type preferred for each intent before the 48-row limit; no ancillary-offer or name-based priority |
 

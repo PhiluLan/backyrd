@@ -50,6 +50,14 @@ test("Volta's current AREA_CLOSED blocks even a core-matching drinks request", (
   assert.ok(result.evaluation.candidates[0].reasons.some((row) => row.reasonCode === "currently-closed"));
 });
 
+test("a closure expiring tonight cannot close a requested future Sunday", () => {
+  const world = read(binding(voltaId, [fact("purpose.primary_visit", "EAT_DRINK"), fact("classification.primary_category", "DRINKS"), fact("state.current", { kind: "AREA_CLOSED", scope: "VENUE" }, { validityVerified: true, validFrom: null, validUntil: "2026-09-19T22:00:00.000Z" })]));
+  const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "future-request", idempotencyKey: "future-key", naturalLanguage: "Sonntag einen Drink in Basel", explicit: {}, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
+  const result = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: "2026-09-19T12:00:00.000Z" }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, [world], contentHash([world.spot.spotId]));
+  assert.equal(result.evaluation.candidates[0].actualAvailability.status, "not_requested");
+  assert.equal(result.evaluation.candidates[0].failedHardConstraints.includes("ACTUAL_AVAILABILITY"), false);
+});
+
 test("confirmed context changes ranking evidence; missing data and numeric budget remain unknown", () => {
   const contextConditions = { dayparts: [], days: [], area: null, occasion: null, groupSize: null, ageContext: null, accompaniment: null, eventMode: null };
   const cafe = read(binding(cafeId, [fact("purpose.primary_visit", "EAT_DRINK"), fact("classification.primary_category", "COFFEE_DAYTIME"), fact("classification.place_types", ["CAFE"]), fact("context.atmosphere", [{ atmosphere: "COZY", conditions: contextConditions }]), fact("operation.price_level", "MEDIUM")], ["context.typical_dayparts"]));
