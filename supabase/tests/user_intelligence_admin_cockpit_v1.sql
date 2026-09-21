@@ -1,4 +1,6 @@
 \set ON_ERROR_STOP on
+-- backyrd:authorization-positive
+-- backyrd:authorization-negative
 begin;
 
 create function pg_temp.ui_assert(p_ok boolean,p_message text) returns void language plpgsql as $$
