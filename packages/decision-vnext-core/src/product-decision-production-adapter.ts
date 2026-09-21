@@ -44,7 +44,7 @@ export const DECISION_PRODUCT_PRODUCTION_RPCS = Object.freeze({
   projection: "backyrd_decision_vnext_product_projection_v1",
   learning: "backyrd_decision_vnext_product_learning_append_v1",
   interactionAuthority: "backyrd_decision_vnext_product_interaction_authority_v1",
-  runtimeContext: "backyrd_decision_vnext_product_context_v3",
+  runtimeContext: "backyrd_decision_vnext_product_context_v4",
   learningEvent: "backyrd_decision_vnext_product_learning_event_v1",
 } as const);
 
@@ -349,9 +349,40 @@ function productProjection(input: {
     const reasonCode: "PORTABLE_GLOBAL" | "EXACT_CONTEXT" = kind === "GLOBAL" ? "PORTABLE_GLOBAL" : "EXACT_CONTEXT";
     return [{ concept: { contractVersion: CONTRACT_VERSIONS.userConceptReference, registryVersion, conceptId: concept }, scope: { kind, ...(reference ? { reference } : {}) }, affinity, confidence, reason: { code: reasonCode, subjectRef: String(node.nodeKey ?? concept), policyRef: "backyrd-product-runtime-projection-policy-v1" } }];
   }).slice(0, 32) : [];
+  const directSpot = active && Array.isArray(snapshot.directSpot) ? snapshot.directSpot.flatMap((raw) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const item = raw as Record<string, unknown>; const confidence = Number(item.confidence);
+    if (typeof item.relationshipId !== "string" || !identifier.test(item.relationshipId)
+      || typeof item.spotId !== "string" || !identifier.test(item.spotId)
+      || !["OBSERVED", "SAVED", "REPEATEDLY_SELECTED", "VISITED", "EXCLUDED", "CORRECTED"].includes(String(item.state))
+      || !Number.isFinite(confidence) || confidence < 0 || confidence > 1) return [];
+    return [{ relationshipId: item.relationshipId, spotId: item.spotId, state: String(item.state), confidence,
+      reason: { code: "DIRECT_SPOT_RELATIONSHIP" as const, subjectRef: item.relationshipId, policyRef: "backyrd-product-learning-projection-policy-v1" } }];
+  }).slice(0, 32) : [];
+  const practical = active && Array.isArray(snapshot.practical) ? snapshot.practical.flatMap((raw) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const item = raw as Record<string, unknown>; const confidence = Number(item.confidence);
+    if (typeof item.preferenceId !== "string" || !identifier.test(item.preferenceId)
+      || typeof item.dimension !== "string" || !identifier.test(item.dimension)
+      || !["UNKNOWN", "HYPOTHESIS", "SUPPORTED", "CONTRADICTED"].includes(String(item.knowledgeState))
+      || !Number.isFinite(confidence) || confidence < 0 || confidence > 1) return [];
+    return [{ preferenceId: item.preferenceId, dimension: item.dimension, knowledgeState: String(item.knowledgeState) as "UNKNOWN" | "HYPOTHESIS" | "SUPPORTED" | "CONTRADICTED", confidence,
+      reason: { code: "PRACTICAL_CONTEXT_MATCH" as const, subjectRef: item.preferenceId, policyRef: "backyrd-product-learning-projection-policy-v1" } }];
+  }).slice(0, Math.max(0, 64 - taste.length - directSpot.length)) : [];
+  const domainSufficiency = active && Array.isArray(snapshot.domainSufficiency) ? snapshot.domainSufficiency.flatMap((raw) => {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
+    const item = raw as Record<string, unknown>; const sufficiency = item.sufficiency;
+    if (typeof item.domain !== "string" || !identifier.test(item.domain) || !sufficiency || typeof sufficiency !== "object" || Array.isArray(sufficiency)) return [];
+    const value = sufficiency as Record<string, unknown>;
+    if (!["UNKNOWN", "LOW", "PARTIAL", "SUFFICIENT"].includes(String(value.level))
+      || typeof value.policyRef !== "string" || !identifier.test(value.policyRef)
+      || !Array.isArray(value.reasons) || value.reasons.some((reason) => typeof reason !== "string" || !identifier.test(reason))) return [];
+    return [{ domain: item.domain, sufficiency: { level: String(value.level) as "UNKNOWN" | "LOW" | "PARTIAL" | "SUFFICIENT", policyRef: value.policyRef, reasons: value.reasons as string[] } }];
+  }).slice(0, 64) : [];
   const snapshotId = typeof snapshot?.snapshotId === "string" ? snapshot.snapshotId : null;
   const snapshotHash = typeof snapshot?.snapshotHash === "string" && HASH.test(snapshot.snapshotHash) ? snapshot.snapshotHash : null;
-  const isActive = active && snapshotId !== null && snapshotHash !== null && taste.length > 0;
+  const actualItems = taste.length + practical.length + directSpot.length;
+  const isActive = active && snapshotId !== null && snapshotHash !== null && actualItems > 0;
   const neutralReason: RelevantUserProjection["neutralReason"] = isActive ? null : input.context.status === "NO_CONSENT" ? "NO_CONSENT" : active ? "COLD_START" : "MISSING_SNAPSHOT";
   const body = {
     contractVersion: CONTRACT_VERSIONS.projection,
@@ -362,11 +393,12 @@ function productProjection(input: {
     manifest: productProjectionManifest,
     status: isActive ? "ACTIVE" as const : "NEUTRAL" as const,
     neutralReason,
-    taste: isActive ? taste : [], practical: [], directSpot: [], domainSufficiency: [],
-    knowledgeLevel: isActive ? "PARTIAL" as const : "UNKNOWN" as const,
+    taste: isActive ? taste : [], practical: isActive ? practical : [], directSpot: isActive ? directSpot : [], domainSufficiency: isActive ? domainSufficiency : [],
+    knowledgeLevel: isActive && ["LOW", "PARTIAL", "SUFFICIENT"].includes(String(snapshot?.knowledgeLevel))
+      ? snapshot!.knowledgeLevel as "LOW" | "PARTIAL" | "SUFFICIENT" : isActive ? "PARTIAL" as const : "UNKNOWN" as const,
     suppression: neutralReason === "NO_CONSENT" || neutralReason === "MISSING_SNAPSHOT" ? { total: 0, byReason: [] } : neutralReason ? { total: 1, byReason: [{ code: neutralReason, count: 1 }] } : { total: 0, byReason: [] },
     boundaries: { rawEventsIncluded: false as const, reviewTextIncluded: false as const, rawLocationIncluded: false as const, privateSocialDataIncluded: false as const, eligibilityAuthority: false as const, rankingAuthority: false as const },
-    budgets: { maxItems: 32, maxBytes: 65536, actualItems: isActive ? taste.length : 0, canonicalPayloadBytes: 0 },
+    budgets: { maxItems: 64, maxBytes: 65536, actualItems: isActive ? actualItems : 0, canonicalPayloadBytes: 0 },
     technicalMetadata: { createdAt: input.serverTime },
   };
   const measured = { ...body, budgets: { ...body.budgets, canonicalPayloadBytes: Buffer.byteLength(canonicalJson(projectionHashBody(body)), "utf8") } };

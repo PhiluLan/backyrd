@@ -3,13 +3,18 @@
 export const PRODUCT_ADDITIVE_MIGRATIONS = Object.freeze([
   Object.freeze({ path: "supabase/migrations/20260919205256_decision_vnext_verified_world_catalog_priority.sql", sha256: "541c15131c53efb23a5d300ef17cbd8ba3312cfc3be320e0537c1491d7547626" }),
   Object.freeze({ path: "supabase/migrations/20260920190048_bridge_product_world_knowledge_v1.sql", sha256: "f13bbb8a91ad6f3b976a6b5b95cd4e72af68750b53be6668cadf810248b6d02d" }),
+  Object.freeze({ path: "supabase/migrations/20260921173129_connect_user_intelligence_to_product_ranking_v1.sql", sha256: "24339b01a3ced8b439b6f3c2b7f5246b8cd9c6d38754fba3b8011d6010251d96" }),
 ]);
 
 export function isExactProductAdditiveSet(migrations) {
-  return Array.isArray(migrations)
-    && migrations.length >= 1 && migrations.length <= PRODUCT_ADDITIVE_MIGRATIONS.length
-    && migrations.every((row, index) => row?.path === PRODUCT_ADDITIVE_MIGRATIONS[index].path
-      && row?.sha256 === PRODUCT_ADDITIVE_MIGRATIONS[index].sha256);
+  if (!Array.isArray(migrations) || migrations.length < 1
+    || migrations.length > PRODUCT_ADDITIVE_MIGRATIONS.length) return false;
+  return PRODUCT_ADDITIVE_MIGRATIONS.some((_, start) =>
+    start + migrations.length <= PRODUCT_ADDITIVE_MIGRATIONS.length
+    && migrations.every((row, index) => {
+      const expected = PRODUCT_ADDITIVE_MIGRATIONS[start + index];
+      return row?.path === expected.path && row?.sha256 === expected.sha256;
+    }));
 }
 
 export function isExactPreappliedPriorityReceipt(receipt) {

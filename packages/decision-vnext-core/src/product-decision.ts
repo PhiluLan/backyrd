@@ -24,6 +24,7 @@ const tierScore = { ELIGIBLE_CONFIRMED: 3, UNCONFIRMED_FALLBACK: 2, NOT_CONFIGUR
 const coreScore = { CONFIRMED: 5, UNKNOWN: 3, NOT_CONFIGURED: 2, NOT_APPLICABLE: 1, DISPUTED: 0, INCOMPATIBLE: -1 } as const;
 const availabilityScore = { open: 6, not_requested: 5, unknown: 4, not_authorized: 3, expired: 2, disputed: 1, closed: 0 } as const;
 const positiveDirectStates = new Set(["SAVED", "REPEATEDLY_SELECTED", "VISITED"]);
+const negativeDirectStates = new Set(["EXCLUDED"]);
 const PRODUCT_PRESENTATION_WINDOW = 8;
 
 type RankableCandidate = DecisionProductResponse["candidates"][number];
@@ -32,16 +33,29 @@ type ProductReason = RankableCandidate["reasons"][number];
 const reasonDomain = (domain: DecisionProductCandidateAssessment["reasons"][number]["domain"]): ProductReason["domain"] =>
   domain === "LIMITATION" ? "LIMITATION" : domain;
 
-function userRelevance(candidateId: string, projection: RelevantUserProjection) {
+function userRelevance(candidate: DecisionProductCandidateAssessment, projection: RelevantUserProjection) {
   const direct = projection.status === "ACTIVE"
-    ? projection.directSpot.filter((item) => item.spotId === candidateId && positiveDirectStates.has(item.state)).sort((a, b) => b.confidence - a.confidence)[0]
+    ? projection.directSpot.filter((item) => item.spotId === candidate.candidateId && (positiveDirectStates.has(item.state) || negativeDirectStates.has(item.state))).sort((a, b) => b.confidence - a.confidence)[0]
     : undefined;
+  const matches = projection.status === "ACTIVE" ? candidate.userTasteMatches : [];
+  const weighted = matches.reduce((sum, item) => sum + item.affinity * item.confidence, 0);
+  const weight = matches.reduce((sum, item) => sum + Math.abs(item.affinity) * item.confidence, 0);
+  const tasteConfidence = matches.length ? Math.min(1, weight / matches.length) : 0;
+  const state = direct && positiveDirectStates.has(direct.state) ? "POSITIVE_DIRECT" as const
+    : direct && negativeDirectStates.has(direct.state) ? "NEGATIVE_DIRECT" as const
+      : matches.length && weighted > 0.05 ? "POSITIVE_TASTE" as const
+        : matches.length && weighted < -0.05 ? "NEGATIVE_TASTE" as const
+          : matches.length ? "MIXED_TASTE" as const : "NEUTRAL" as const;
   return {
-    state: direct ? "POSITIVE_DIRECT" as const : "NEUTRAL" as const,
-    confidence: direct?.confidence ?? 0,
-    sourceHash: contentHash(direct ? { projectionHash: projection.projectionHash, direct } : { projectionHash: projection.projectionHash, candidateId, state: "NEUTRAL" }),
+    state,
+    confidence: direct?.confidence ?? (state === "POSITIVE_TASTE" || state === "NEGATIVE_TASTE" ? tasteConfidence : 0),
+    sourceHash: contentHash({ projectionHash: projection.projectionHash, candidateId: candidate.candidateId, direct: direct ?? null, matches }),
   };
 }
+
+const userRelevanceScore = (state: ReturnType<typeof userRelevance>["state"]): number => ({
+  POSITIVE_DIRECT: 5, POSITIVE_TASTE: 4, MIXED_TASTE: 3, NEUTRAL: 3, NEGATIVE_TASTE: 2, NEGATIVE_DIRECT: 1,
+})[state];
 
 function vector(candidate: DecisionProductCandidateAssessment, projection: RelevantUserProjection) {
   const hardConstraintState = candidate.failedHardConstraints.length || candidate.rejectionClass === "SITUATIONAL_REJECT"
@@ -52,7 +66,7 @@ function vector(candidate: DecisionProductCandidateAssessment, projection: Relev
     coreIntentState: candidate.coreIntentCoverage.state,
     primaryVisitPurposeState: candidate.primaryVisitPurpose.state,
     actualAvailability: candidate.actualAvailability.status,
-    userRelevance: userRelevance(candidate.candidateId, projection),
+    userRelevance: userRelevance(candidate, projection),
     contextFit: {
       secondaryIntentConfirmed: candidate.secondaryIntentCoverage.state === "CONFIRMED",
       visitSituationConfirmed: candidate.visitSituation.state === "CONFIRMED",
@@ -81,8 +95,8 @@ function rankingChecks(left: RankableCandidate, right: RankableCandidate): reado
     [compareNumber(coreScore[a.coreIntentState], coreScore[b.coreIntentState]), "der besser belegten Hauptabsicht"],
     [compareNumber(coreScore[a.primaryVisitPurposeState], coreScore[b.primaryVisitPurposeState]), "des zusätzlich bestätigten Hauptzwecks"],
     [compareNumber(availabilityScore[a.actualAvailability], availabilityScore[b.actualAvailability]), "der besser belegten Verfügbarkeit"],
-    [compareBoolean(a.userRelevance.state === "POSITIVE_DIRECT", b.userRelevance.state === "POSITIVE_DIRECT"), "einer consentgebundenen direkten Nutzerpräferenz"],
-    [compareNumber(a.userRelevance.confidence, b.userRelevance.confidence), "der Stärke einer consentgebundenen direkten Nutzerpräferenz"],
+    [compareNumber(userRelevanceScore(a.userRelevance.state), userRelevanceScore(b.userRelevance.state)), "der consentgebundenen persönlichen Passung"],
+    [compareNumber(a.userRelevance.confidence, b.userRelevance.confidence), "der Stärke der consentgebundenen persönlichen Evidenz"],
     [compareBoolean(a.contextFit.secondaryIntentConfirmed, b.contextFit.secondaryIntentConfirmed), "einer bestätigten Nebenabsicht"],
     [compareBoolean(a.contextFit.visitSituationConfirmed, b.contextFit.visitSituationConfirmed), "der bestätigten Besuchssituation"],
     [compareNumber(a.contextFit.matchedSoftPreferenceCount, b.contextFit.matchedSoftPreferenceCount), "weiterer bestätigter Kontextmerkmale"],
@@ -125,7 +139,7 @@ function candidateRows(evaluation: DecisionProductEvaluation, projection: Releva
     const rankVector = vector(candidate, projection);
     const reasons: ProductReason[] = [
       ...candidate.reasons.map((item) => ({ code: item.reasonCode, domain: reasonDomain(item.domain), sourceHash: item.sourceHash, statement: item.statementDe, confirmed: item.confirmed })),
-      { code: "product-ranking-policy-v1", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Die Reihenfolge folgt der freigegebenen lexikografischen Decision-vNext-Policy.", confirmed: true },
+      { code: "product-ranking-policy-v2", domain: "RANKING", sourceHash: DECISION_PRODUCT_RANKING_POLICY.policyHash, statement: "Die Reihenfolge folgt der freigegebenen lexikografischen Decision-vNext-Policy; persönliche Signale wirken nur nach harten Bedingungen und fachlicher Eignung.", confirmed: true },
     ];
     const body = {
       spotId: candidate.candidateId, presentation, tier: candidate.tier, rank: null,

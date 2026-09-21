@@ -120,10 +120,10 @@ async function fixture(request, mode = "NO_CONSENT", options = {}) {
     subjectBindingHash: neutral ? userContentHash("backyrd.user-intelligence.neutral-subject-binding@1.0") : ACTOR.subjectBindingHash,
     snapshot: neutral ? null : { snapshotId: "product-snapshot", snapshotHash: "5".repeat(64) },
     manifest: { manifestId: "product-user-manifest", manifestHash: "6".repeat(64) }, status: neutral ? "NEUTRAL" : "ACTIVE",
-    neutralReason: neutral ? mode : null, taste: [], practical: [], directSpot: [], domainSufficiency: [], knowledgeLevel: "UNKNOWN",
+    neutralReason: neutral ? mode : null, taste: neutral ? [] : (options.taste ?? []), practical: [], directSpot: neutral ? [] : (options.directSpot ?? []), domainSufficiency: [], knowledgeLevel: neutral ? "UNKNOWN" : "PARTIAL",
     suppression: { total: 0, byReason: [] },
     boundaries: { rawEventsIncluded: false, reviewTextIncluded: false, rawLocationIncluded: false, privateSocialDataIncluded: false, eligibilityAuthority: false, rankingAuthority: false },
-    budgets: { maxItems: 16, maxBytes: 8192, actualItems: 0, canonicalPayloadBytes: 0 }, technicalMetadata: { createdAt: SERVER_TIME },
+    budgets: { maxItems: 64, maxBytes: 65536, actualItems: neutral ? 0 : (options.taste?.length ?? 0) + (options.directSpot?.length ?? 0), canonicalPayloadBytes: 0 }, technicalMetadata: { createdAt: SERVER_TIME },
   };
   projectionBody.budgets.canonicalPayloadBytes = userCanonicalBytes(projectionHashBody(projectionBody));
   const projection = parseRelevantUserProjection({ ...projectionBody, projectionHash: userContentHash(projectionHashBody(projectionBody)) });
@@ -138,7 +138,8 @@ async function fixture(request, mode = "NO_CONSENT", options = {}) {
     visitSituation: { state: "NOT_CONFIGURED", mappingIds: [], evidenceSourceHash: contentHash({ id, visit: null }) }, atmosphere: { state: "UNKNOWN", mappingIds: [], evidenceSourceHash: contentHash({ id, atmosphere: null }) }, typicalDaypart: { state: "NOT_CONFIGURED", mappingIds: [], evidenceSourceHash: contentHash({ id, daypart: null }) },
     actualAvailability: { status: "not_requested", evidenceSourceHash: contentHash({ id, availability: "not_requested" }) }, confirmedHardConstraints: [], unknownHardConstraints: [], failedHardConstraints: [], matchedSoftPreferences: [], conflicts: [],
     reasons: [{ reasonCode: `core-intent-${state.toLowerCase()}`, domain: "WORLD", sourceHash: contentHash({ id, reason: state }), statementDe: state === "CONFIRMED" ? "Der Hauptzweck bestätigt die Kernabsicht." : "Die Kernabsicht ist nicht bestätigt.", confirmed: state === "CONFIRMED" }], limitations: [],
-    rejectionClass: request.rejectedCandidateIds.includes(id) ? "SITUATIONAL_REJECT" : "NONE", userIntelligenceInvolved: false, userIntelligenceAffectsEligibility: false, neutralTieBreakerHash,
+    userTasteMatches: options.userTasteMatches?.[id] ?? [],
+    rejectionClass: request.rejectedCandidateIds.includes(id) ? "SITUATIONAL_REJECT" : "NONE", userIntelligenceInvolved: (options.userTasteMatches?.[id]?.length ?? 0) > 0, userIntelligenceAffectsEligibility: false, neutralTieBreakerHash,
   }, "assessmentHash"));
   const candidates = options.purposeRanking
     ? [candidate("product-spot-purpose-confirmed", "CONFIRMED", "ELIGIBLE_CONFIRMED", "CONFIRMED", "f".repeat(64)), candidate("product-spot-purpose-unknown", "CONFIRMED", "ELIGIBLE_CONFIRMED", "UNKNOWN", "0".repeat(64))]
@@ -241,6 +242,26 @@ test("hard constraints and core intent always precede consented user relevance",
   assert.equal(built.response.legacyEngineUsed, false);
   assert.equal(built.response.fallbackUsed, false);
   assert.equal(built.envelope.boundaries.userProjectionEligibilityAuthority, false);
+});
+
+test("consented taste and direct-spot signals influence only live ranking after eligibility", async () => {
+  const sourceHash = contentHash("taste-source");
+  const taste = [{ concept: { contractVersion: "backyrd.user-intelligence.user-concept-reference@1.0", registryVersion: "taste-v1", conceptId: "vibe.quiet" }, scope: { kind: "GLOBAL" }, affinity: 0.8, confidence: 0.9, reason: { code: "PORTABLE_GLOBAL", subjectRef: "taste-quiet", policyRef: "product-test" } }];
+  const userTasteMatches = {
+    "product-spot-unknown": [{ conceptId: "vibe.quiet", direction: "POSITIVE", affinity: 0.8, confidence: 0.9, evidenceSourceHash: sourceHash }],
+  };
+  const input = await fixture(productRequest("Ruhiges Café in Zürich", "taste-ranking"), "ACTIVE", { taste, userTasteMatches });
+  const built = buildDecisionProductExecution(input);
+  const unknown = built.response.candidates.find((candidate) => candidate.spotId === "product-spot-unknown");
+  const confirmed = built.response.candidates.find((candidate) => candidate.spotId === "product-spot-cafe");
+  assert.equal(unknown?.rankVector.userRelevance.state, "POSITIVE_TASTE");
+  assert.ok((confirmed?.rank ?? 99) < (unknown?.rank ?? 99), "taste cannot rescue weaker eligibility/core evidence");
+
+  const direct = [{ relationshipId: "direct-cafe", spotId: "product-spot-cafe", state: "EXCLUDED", confidence: 0.9, reason: { code: "DIRECT_SPOT_RELATIONSHIP", subjectRef: "direct-cafe", policyRef: "product-test" } }];
+  const excluded = buildDecisionProductExecution(await fixture(productRequest("Café in Zürich", "direct-negative"), "ACTIVE", { directSpot: direct }));
+  const row = excluded.response.candidates.find((candidate) => candidate.spotId === "product-spot-cafe");
+  assert.equal(row?.rankVector.userRelevance.state, "NEGATIVE_DIRECT");
+  assert.notEqual(row?.rank, null, "personalization is ranking evidence, never an eligibility authority");
 });
 
 test("no-consent projection keeps Decision usable and emits no persistent learning event", async () => {
