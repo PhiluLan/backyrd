@@ -198,6 +198,25 @@ test("an unproven hard constraint cannot enter Product ranking", async () => {
   assert.equal(row?.rank, null);
 });
 
+test("unknown requested-day hours remain an explicit fallback while confirmed closure still excludes", async () => {
+  const input = await fixture(productRequest("Sonntag ruhig Kaffee trinken", "unknown-sunday-hours"), "NO_CONSENT");
+  const candidate = input.evaluation.candidates[0];
+  const { assessmentHash: _assessmentHash, ...candidateBody } = candidate;
+  const fallback = withContentHash({
+    ...candidateBody,
+    tier: "UNCONFIRMED_FALLBACK",
+    actualAvailability: { status: "unknown", evidenceSourceHash: contentHash({ id: candidate.candidateId, availability: "unknown" }) },
+    unknownHardConstraints: ["OPEN_ON_REQUESTED_DAY"],
+  }, "assessmentHash");
+  const { evaluationHash: _evaluationHash, ...evaluationBody } = input.evaluation;
+  const evaluation = withContentHash({ ...evaluationBody, candidates: [fallback, ...input.evaluation.candidates.slice(1)] }, "evaluationHash");
+  const result = buildDecisionProductExecution({ ...input, evaluation });
+  const row = result.response.candidates.find((item) => item.spotId === candidate.candidateId);
+  assert.notEqual(row?.rank, null);
+  assert.equal(row?.actualAvailability, "unknown");
+  assert.deepEqual(row?.unknownHardConstraints, ["OPEN_ON_REQUESTED_DAY"]);
+});
+
 test("active projection emits minimized consent-bound events; alternative and reject stay contextual", async () => {
   const initialRequest = productRequest("Ruhiges Café in Zürich", "initial");
   const initial = buildDecisionProductExecution(await fixture(initialRequest, "ACTIVE"));

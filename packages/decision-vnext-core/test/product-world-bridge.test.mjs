@@ -79,6 +79,7 @@ test("an explicitly requested weekday is checked against verified hours and expl
   assert.ok(closedAssessment.failedHardConstraints.includes("OPEN_ON_REQUESTED_DAY"));
   assert.equal(missingAssessment.actualAvailability.status, "unknown");
   assert.ok(missingAssessment.unknownHardConstraints.includes("OPEN_ON_REQUESTED_DAY"));
+  assert.equal(missingAssessment.tier, "UNCONFIRMED_FALLBACK");
 });
 
 test("a verified overnight interval counts on the requested following day", () => {
