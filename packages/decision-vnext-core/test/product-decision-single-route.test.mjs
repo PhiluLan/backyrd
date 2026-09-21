@@ -8,7 +8,7 @@ import {
   DecisionProductCandidateAssessmentSchema, DecisionProductContextSchema, DecisionProductEvaluationSchema, DecisionProductRequestSchema, DecisionProductWorldCohortSchema, PRODUCT_DECISION_VERSIONS,
   buildDecisionInteractionLearningEvent, buildDecisionProductExecution,
   canonicalJson, contentHash, createDecisionProductHttpHandler,
-  createDecisionProductEvaluator, evaluateProductV1IntentClassification, resolveDecisionProductContext, validateDecisionProductExecution, withContentHash,
+  createDecisionProductEvaluator, evaluateProductV1IntentClassification, inferProductV1Intent, PRODUCT_INTENT_LEXICON, productRetrievalIntent, resolveDecisionProductContext, validateDecisionProductExecution, withContentHash,
 } from "../dist/index.js";
 
 const ACTOR = Object.freeze({ userId: "product-user", subjectBindingHash: "2".repeat(64), authenticationContextHash: "3".repeat(64), sessionBindingHash: "4".repeat(64), sessionId: "product-session" });
@@ -36,6 +36,40 @@ test("free-text Sunday coffee resolves the next Zurich Sunday without guided int
   assert.deepEqual(context.softPreferences, ["ATMOSPHERE_QUIET"]);
   const localMidnight = resolveDecisionProductContext(productRequest("Kaffee trinken", "local-midnight"), { authorizedCity: "Basel", serverTime: "2026-09-19T22:30:00.000Z" });
   assert.equal(localMidnight.dateTime.localDate, "2026-09-20");
+});
+
+test("the Product intent lexicon recognizes concrete food, drink, sport, culture, nature and activity requests", () => {
+  const examples = [
+    ["Bier trinken in Basel", "DRINKS"],
+    ["Lust auf ein IPA", "DRINKS"],
+    ["Tacos essen", "EAT"],
+    ["Ramen in Basel", "EAT"],
+    ["Ping Pong spielen", "SPORT_MOVEMENT"],
+    ["Badminton trainieren", "SPORT_MOVEMENT"],
+    ["ins Museum", "CULTURE_ART"],
+    ["im Wald spazieren", "NATURE_ANIMAL_EXPERIENCE"],
+    ["Escape Room", "ACTIVITY_EXPERIENCE"],
+    ["Espresso trinken", "COFFEE"],
+  ];
+  for (const [text, expected] of examples) {
+    const request = productRequest(text, text.replaceAll(" ", "-").toLowerCase());
+    assert.equal(inferProductV1Intent(text), expected, text);
+    assert.equal(productRetrievalIntent(request), expected, text);
+    assert.equal(resolveDecisionProductContext(request, { authorizedCity: "Basel", serverTime: SERVER_TIME }).primaryIntent, expected, text);
+  }
+});
+
+test("the Product intent lexicon respects negation and does not invent a winner for equally strong mixed intents", () => {
+  assert.equal(inferProductV1Intent("Kein Bier, sondern Ramen"), "EAT");
+  assert.equal(inferProductV1Intent("Bier und Tacos"), null);
+  assert.equal(inferProductV1Intent("Einfach irgendwo sitzen"), null);
+  assert.equal(inferProductV1Intent("Das ist wunderbar"), null);
+});
+
+test("every released Product-v1 lexicon term resolves to its declared broad intent", () => {
+  for (const [intent, signals] of Object.entries(PRODUCT_INTENT_LEXICON)) {
+    for (const { term } of signals) assert.equal(inferProductV1Intent(term), intent, `${term} -> ${intent}`);
+  }
 });
 
 async function fixture(request, mode = "NO_CONSENT", options = {}) {

@@ -14,12 +14,12 @@ import {
   type DecisionProductPresentation, type DecisionProductRequest,
 } from "./product-v1-contracts.js";
 import { DECISION_PRODUCT_EVALUATION_POLICY, DECISION_PRODUCT_EVALUATION_RELEASE, DECISION_PRODUCT_INTENT_POLICY, PRODUCT_V1_INTENT_MAPPINGS, type ProductV1Intent } from "./product-v1-authority.js";
+import { inferProductV1Intent } from "./product-intent-lexicon.js";
 
-export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@1.3" as const;
+export const PRODUCT_V1_EVALUATOR_VERSION = "decision-vnext-product-evaluator@1.4" as const;
 
 const normalize = (value: string) => value.normalize("NFKC").toLocaleLowerCase("de-CH");
 const includes = (text: string, terms: readonly string[]) => terms.some((term) => text.includes(term));
-const inferredIntent = (text: string): ProductV1Intent | null => includes(text, ["kaffee", "café", "cafe"]) ? "COFFEE" : includes(text, ["boulder", "klettern", "sport"]) ? "SPORT_MOVEMENT" : includes(text, ["tierpark", "zoo", "familienausflug", "natur"]) ? "NATURE_ANIMAL_EXPERIENCE" : includes(text, ["museum", "kunst", "kultur"]) ? "CULTURE_ART" : includes(text, ["wein", "bar", "drink", "etwas trinken"]) ? "DRINKS" : includes(text, ["restaurant", "essen", "mittag", "abendessen"]) ? "EAT" : includes(text, ["aktivität", "erlebnis"]) ? "ACTIVITY_EXPERIENCE" : null;
 const cityIn = (text: string) => includes(text, ["zürich", "zurich"]) ? "Zurich" : text.includes("basel") ? "Basel" : null;
 const weekdays = ["sonntag", "montag", "dienstag", "mittwoch", "donnerstag", "freitag", "samstag"] as const;
 const requestedWeekday = (text: string): number => weekdays.findIndex((day) => new RegExp(`\\b${day}\\b`, "u").test(text));
@@ -35,14 +35,14 @@ function requestedLocalDate(text: string, serverTime: string): string {
 
 /** A server-derived catalog hint, never eligibility or ranking authority. */
 export function productRetrievalIntent(request: DecisionProductRequest): ProductV1Intent | null {
-  const intent = request.explicit.primaryIntent ?? inferredIntent(normalize(request.naturalLanguage));
+  const intent = request.explicit.primaryIntent ?? inferProductV1Intent(request.naturalLanguage);
   return PRODUCT_V1_INTENT_MAPPINGS.find((mapping) => mapping.intentId === intent)?.intentId ?? null;
 }
 
 export function resolveDecisionProductContext(requestValue: unknown, authority: { readonly authorizedCity: string; readonly serverTime: string }): DecisionProductContext {
   const request = DecisionProductRequestSchema.parse(requestValue); const text = normalize(request.naturalLanguage); const explicit = request.explicit;
   const textCity = cityIn(text); const requestedCity = explicit.targetCity ?? textCity; if (requestedCity && requestedCity !== authority.authorizedCity) throw new Error("product_context_location_authority_mismatch");
-  const primaryIntent = explicit.primaryIntent ?? inferredIntent(text);
+  const primaryIntent = explicit.primaryIntent ?? inferProductV1Intent(request.naturalLanguage);
   const hard = new Set(explicit.hardConstraints ?? []); const soft = new Set(explicit.softPreferences ?? []);
   if (includes(text, ["rollstuhl", "stufenfrei"])) hard.add("ACCESSIBILITY_STEP_FREE");
   if (includes(text, ["geöffnet", "offen", "jetzt"])) hard.add("OPEN_NOW");
