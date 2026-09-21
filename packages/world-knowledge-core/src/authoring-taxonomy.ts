@@ -2,6 +2,7 @@ import { hashBody } from "./canonical.js";
 import { AMENITY_FEATURES, CUISINES, FOOD_SPECIALITIES, OFFERING_GROUPS, PLACE_TYPES, PRIMARY_CATEGORIES, type PrimaryCategory } from "./registry.js";
 
 export const AUTHORING_TAXONOMY_VERSION = "backyrd.world-knowledge.authoring-taxonomy@4a.2" as const;
+export const AUTHORING_GUIDANCE_VERSION = "backyrd.world-knowledge.authoring-guidance@1.0" as const;
 export type AuthoringTaxonomyState = "CANONICAL" | "NOT_CONFIGURED";
 export interface AuthoringTaxonomyOption {
   readonly value: string;
@@ -45,6 +46,47 @@ const categoryPlaces: Readonly<Record<PrimaryCategory, readonly string[] | "NOT_
   TEMPORARY_PLACES: ["EVENT_VENUE", "POP_UP", "FESTIVAL_SITE", "SEASONAL_MARKET"], OTHER: ["OTHER_PLACE"],
 });
 
+// Product authoring guidance is deliberately separate from the persisted taxonomy.
+// ZOO and OUTDOOR_NATURE were already canonical values; this policy only permits a
+// truthful cross-category authoring combination without changing stored claims.
+const categoryPlaceTypeExtensions: Readonly<Partial<Record<PrimaryCategory, readonly string[]>>> = Object.freeze({
+  OUTDOOR_NATURE: Object.freeze(["ZOO"]),
+});
+
+const cuisinePlaceTypes = Object.freeze(["RESTAURANT", "BRASSERIE", "BISTRO", "FOOD_HALL", "SNACK_BAR", "TAKEAWAY", "FAST_FOOD"]);
+const foodOfferingPlaceTypes = Object.freeze([...cuisinePlaceTypes, "CAFE", "BAKERY", "PATISSERIE", "BAR", "PUB", "BREWERY", "TAPROOM", "WINE_BAR", "COCKTAIL_BAR", "LOUNGE"]);
+const kitchenPlaceTypes = Object.freeze([...cuisinePlaceTypes]);
+const servicePlaceTypes = Object.freeze([...foodOfferingPlaceTypes]);
+const seatedPlaceTypes = Object.freeze([...foodOfferingPlaceTypes, "THEATRE", "CINEMA", "CONCERT_VENUE", "COMEDY_CLUB", "EVENT_VENUE"]);
+const bookablePlaceTypes = Object.freeze([...seatedPlaceTypes, "HOTEL", "HOSTEL", "GUESTHOUSE", "SPA", "SAUNA", "THERMAL_BATH", "MASSAGE_STUDIO", "YOGA_STUDIO", "ESCAPE_ROOM", "BOWLING_ALLEY", "MINI_GOLF", "WORKSHOP_STUDIO", "CLIMBING_GYM"]);
+const laptopPlaceTypes = Object.freeze(["CAFE", "BISTRO", "LIBRARY", "COWORKING_SPACE", "HOTEL"]);
+const stayPolicyPlaceTypes = Object.freeze([...laptopPlaceTypes, "RESTAURANT", "BAR", "PUB", "LOUNGE"]);
+
+export interface AuthoringGuidanceContext {
+  readonly placeTypes?: unknown;
+  readonly onsiteOfferings?: unknown;
+}
+
+const selectedPlaceTypes = (context?: AuthoringGuidanceContext): readonly string[] => Array.isArray(context?.placeTypes)
+  ? context.placeTypes.filter((value): value is string => typeof value === "string")
+  : [];
+const hasAnyType = (selected: readonly string[], allowed: readonly string[]): boolean => selected.some((value) => allowed.includes(value));
+
+/** Field-level question policy. It changes form guidance only; it never deletes or rewrites a World claim. */
+export function isAuthoringAttributeRelevant(attributeKey: string, context?: AuthoringGuidanceContext): boolean {
+  const selected = selectedPlaceTypes(context);
+  if (!selected.length) return true;
+  if (attributeKey === "offering.cuisines") return hasAnyType(selected, cuisinePlaceTypes);
+  if (["offering.food_specialities", "offering.groups"].includes(attributeKey)) return hasAnyType(selected, foodOfferingPlaceTypes);
+  if (["operation.service_model", "operation.service_format", "operation.takeaway"].includes(attributeKey)) return hasAnyType(selected, servicePlaceTypes);
+  if (["hours.kitchen", "hours.kitchen_special"].includes(attributeKey)) return hasAnyType(selected, kitchenPlaceTypes);
+  if (["capacity.seats_indoor", "capacity.seats_outdoor", "capacity.seats_total"].includes(attributeKey)) return hasAnyType(selected, seatedPlaceTypes);
+  if (attributeKey === "rule.reservation") return hasAnyType(selected, bookablePlaceTypes);
+  if (attributeKey === "operation.laptop_policy") return hasAnyType(selected, laptopPlaceTypes);
+  if (attributeKey === "operation.stay_policy") return hasAnyType(selected, stayPolicyPlaceTypes);
+  return true;
+}
+
 const gastronomic = ["EAT", "DRINKS", "COFFEE_DAYTIME", "NIGHTLIFE", "STAY", "TEMPORARY_PLACES"] as const;
 const always = ["basics", "classification", "context", "price", "hours", "objective", "amenities", "review"] as const;
 export const CATEGORY_AUTHORING_MATRIX = Object.freeze(Object.fromEntries(PRIMARY_CATEGORIES.map((category) => [category, Object.freeze({
@@ -77,12 +119,13 @@ export const getCategoryPlaceTypes = (category: PrimaryCategory | null | undefin
   if (!category) return [];
   const allowed = CATEGORY_AUTHORING_MATRIX[category].placeTypes;
   if (allowed === "NOT_CONFIGURED") return [];
-  return PLACE_TYPE_AUTHORING_OPTIONS.filter((entry) => allowed.includes(entry.value));
+  const guided = new Set([...allowed, ...(categoryPlaceTypeExtensions[category] ?? [])]);
+  return PLACE_TYPE_AUTHORING_OPTIONS.filter((entry) => guided.has(entry.value));
 };
 
 export const assessPlaceTypeCompatibility = (category: PrimaryCategory | null | undefined, placeTypes: readonly string[]): { readonly compatible: readonly string[]; readonly incompatible: readonly string[]; readonly state: "COMPATIBLE" | "CONFLICT" | "NOT_CONFIGURED" } => {
   if (!category) return { compatible: [], incompatible: [...placeTypes], state: "NOT_CONFIGURED" };
-  const allowed = CATEGORY_AUTHORING_MATRIX[category].placeTypes as readonly string[];
+  const allowed = getCategoryPlaceTypes(category).map((entry) => entry.value);
   const compatible = placeTypes.filter((value) => allowed.includes(value));
   const incompatible = placeTypes.filter((value) => !allowed.includes(value));
   const containsUnreleased = compatible.some((value) => PLACE_TYPE_AUTHORING_OPTIONS.find((entry) => entry.value === value)?.state === "NOT_CONFIGURED");
@@ -90,3 +133,4 @@ export const assessPlaceTypeCompatibility = (category: PrimaryCategory | null | 
 };
 
 export const AUTHORING_TAXONOMY_HASH = hashBody({ version: AUTHORING_TAXONOMY_VERSION, categoryMatrix: CATEGORY_AUTHORING_MATRIX, placeTypes: PLACE_TYPE_AUTHORING_OPTIONS, cuisines: CUISINE_AUTHORING_OPTIONS, foodSpecialities: FOOD_SPECIALITY_AUTHORING_OPTIONS, offerings: OFFERING_AUTHORING_OPTIONS, amenities: AMENITY_AUTHORING_OPTIONS }, []);
+export const AUTHORING_GUIDANCE_HASH = hashBody({ version: AUTHORING_GUIDANCE_VERSION, categoryPlaceTypeExtensions, fieldRules: { cuisinePlaceTypes, foodOfferingPlaceTypes, kitchenPlaceTypes, servicePlaceTypes, seatedPlaceTypes, bookablePlaceTypes, laptopPlaceTypes, stayPolicyPlaceTypes } }, []);
