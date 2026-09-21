@@ -49,7 +49,7 @@ export function wohinRankingEvidence(candidate: DecisionProductCandidate): strin
   const vector = candidate.rankVector as unknown as {
     hardConstraintState: "PASS" | "UNKNOWN" | "FAIL";
     primaryVisitPurposeState: "CONFIRMED" | "UNKNOWN" | "NOT_CONFIGURED" | "INCOMPATIBLE" | "DISPUTED" | "NOT_APPLICABLE";
-    userRelevance: { state: "POSITIVE_DIRECT" | "NEUTRAL" };
+    userRelevance: { state: "POSITIVE_DIRECT" | "NEGATIVE_DIRECT" | "POSITIVE_TASTE" | "NEGATIVE_TASTE" | "MIXED_TASTE" | "NEUTRAL" };
     contextFit: { secondaryIntentConfirmed: boolean; visitSituationConfirmed: boolean; atmosphereConfirmed: boolean; typicalDaypartConfirmed: boolean; matchedSoftPreferenceCount: number };
     worldEvidence: { confirmedReasonCount: number };
   };
@@ -58,6 +58,10 @@ export function wohinRankingEvidence(candidate: DecisionProductCandidate): strin
     vector.hardConstraintState === "PASS" ? "Keine bekannte harte Bedingung ist verletzt." : "Mindestens eine harte Bedingung ist ungeklärt.",
   ];
   if (vector.userRelevance.state === "POSITIVE_DIRECT") evidence.push("Eine consentgebundene direkte Nutzerpräferenz beeinflusst die Reihenfolge.");
+  if (vector.userRelevance.state === "NEGATIVE_DIRECT") evidence.push("Eine frühere ausdrückliche Rückmeldung spricht gegen diesen Ort; sie beeinflusst nur die Reihenfolge.");
+  if (vector.userRelevance.state === "POSITIVE_TASTE") evidence.push("Deine consentgebundenen Geschmackssignale passen zu bestätigten Eigenschaften dieses Orts.");
+  if (vector.userRelevance.state === "NEGATIVE_TASTE") evidence.push("Deine consentgebundenen Geschmackssignale sprechen eher gegen bestätigte Eigenschaften dieses Orts.");
+  if (vector.userRelevance.state === "MIXED_TASTE") evidence.push("Deine consentgebundenen Geschmackssignale sind für diesen Ort gemischt und verändern die Reihenfolge nicht.");
   if (vector.primaryVisitPurposeState === "CONFIRMED") evidence.push("Der bestätigte Hauptzweck unterstützt diese Absicht zusätzlich zur Kernklassifikation.");
   if (vector.contextFit.secondaryIntentConfirmed || vector.contextFit.visitSituationConfirmed || vector.contextFit.atmosphereConfirmed || vector.contextFit.typicalDaypartConfirmed || vector.contextFit.matchedSoftPreferenceCount > 0) {
     evidence.push("Bestätigte Kontext- oder Stimmungsmerkmale beeinflussen die Reihenfolge.");

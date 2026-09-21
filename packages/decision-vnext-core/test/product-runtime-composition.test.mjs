@@ -14,6 +14,7 @@ const edge = readFileSync(new URL("supabase/functions/decision-v13/vnext-only.ts
 const migration = readFileSync(new URL("supabase/migrations/20260918182831_decision_vnext_product_runtime_v1.sql", root), "utf8");
 const boundedContextMigration = readFileSync(new URL("supabase/migrations/20260919172027_decision_vnext_bounded_catalog_context_v2.sql", root), "utf8");
 const bridgeMigration = readFileSync(new URL("supabase/migrations/20260920190048_bridge_product_world_knowledge_v1.sql", root), "utf8");
+const userRankingMigration = readFileSync(new URL("supabase/migrations/20260921173129_connect_user_intelligence_to_product_ranking_v1.sql", root), "utf8");
 const hash = (value) => contentHash(value);
 const identity = { releaseHash: hash("release"), artifactHash: hash("artifact"), sourceSetHash: hash("source"), controlGeneration: 1 };
 
@@ -69,6 +70,18 @@ test("Product bridge keeps manifests immutable, exposes only authorized context 
   assert.doesNotMatch(bridgeMigration, /create or replace function world_knowledge_private\.decision_projection_v1/);
 });
 
+test("Product User ranking projection is consent-bound, service-only and preserves contextual rejection semantics", () => {
+  assert.match(userRankingMigration, /create function public\.backyrd_decision_vnext_product_context_v4/);
+  assert.match(userRankingMigration, /backyrd_decision_vnext_product_context_v3/);
+  assert.match(userRankingMigration, /if v_context->>'status' = 'NO_CONSENT' then return v_context/);
+  assert.match(userRankingMigration, /event_type in \('candidate_opened','candidate_saved','explicit_feedback','outcome_confirmed'\)/);
+  assert.doesNotMatch(userRankingMigration, /event_type in \([^)]*candidate_rejected/);
+  assert.match(userRankingMigration, /'HAS_NOT_MATCHED'[^]*?'EXCLUDED'/);
+  assert.match(userRankingMigration, /revoke all on function public\.backyrd_decision_vnext_product_context_v4[^]*?from public,anon,authenticated/);
+  assert.match(userRankingMigration, /grant execute on function public\.backyrd_decision_vnext_product_context_v4[^]*?to service_role/);
+  assert.doesNotMatch(userRankingMigration, /email|raw_app_meta_data|raw_user_meta_data|contact\./i);
+});
+
 test("Product learning authority reconstructs exact bindings from consent and sealed Decision ledger", () => {
   assert.match(migration, /create function public\.backyrd_decision_vnext_product_learning_event_v1/);
   for (const binding of ["auth_user_id=p_auth_user_id", "subject_digest=p_subject_binding_hash", "authenticationContextHash", "contextHash", "sessionId", "candidate_binding_invalid", "product_learning_event_not_sealed"]) assert.match(migration, new RegExp(binding));
@@ -111,7 +124,7 @@ test("evaluation failures reveal only a fixed stage and never a World fact or co
     idempotencyKey: "key-1", naturalLanguage: "Café in Basel", explicit: { targetCity: "Basel" },
     alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
   const evaluate = (data, incoming = request) => createDecisionProductRpcEvaluationProvider({ async rpc(name, parameters) {
-    assert.equal(name, "backyrd_decision_vnext_product_context_v3");
+    assert.equal(name, "backyrd_decision_vnext_product_context_v4");
     assert.equal(parameters.p_primary_intent, incoming === request ? "COFFEE" : null);
     assert.equal(Object.hasOwn(parameters, "naturalLanguage"), false);
     return { data, error: null };
@@ -136,8 +149,13 @@ test("evaluation failures reveal only a fixed stage and never a World fact or co
   const activeSnapshot = { ...context, status: "ACTIVE", consent: postgresConsent,
     snapshot: { snapshotId: "synthetic-snapshot-v1", snapshotHash: hash("synthetic-snapshot"),
       runtimeVersion: "synthetic-user-runtime-v1", nodes: [{ nodeKey: "synthetic-node", concept: "place_type.cafe",
-        affinity: 0.5, confidence: 0.8, scope: { kind: "GLOBAL" } }] } };
-  assert.equal((await evaluate(activeSnapshot)).projection.status, "ACTIVE");
+        affinity: 0.5, confidence: 0.8, scope: { kind: "GLOBAL" } }], practical: [],
+      directSpot: [{ relationshipId: "product-direct-spot", spotId: "33333333-3333-4333-a333-333333333333", state: "SAVED", confidence: 0.7 }],
+      domainSufficiency: [{ domain: "taste", sufficiency: { level: "LOW", policyRef: "projection-v1", reasons: ["CANONICAL_SNAPSHOT_NODES"] } }], knowledgeLevel: "PARTIAL" } };
+  const activeProjection = (await evaluate(activeSnapshot)).projection;
+  assert.equal(activeProjection.status, "ACTIVE");
+  assert.equal(activeProjection.directSpot[0]?.state, "SAVED");
+  assert.equal(activeProjection.taste[0]?.concept.conceptId, "place_type.cafe");
   await assert.rejects(evaluate({ ...missingSnapshot, consent: { ...postgresConsent, effectiveAt: "not-a-timestamp" } }),
     (error) => error.message === "product_evaluation_user_projection_invalid");
   await assert.rejects(evaluate(context, { ...request, naturalLanguage: marker.repeat(200) }),

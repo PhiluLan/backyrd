@@ -31,6 +31,7 @@ select pg_temp.product_runtime_assert(
   and has_function_privilege('service_role','public.backyrd_decision_vnext_product_learning_append_v1(text,text,text,text,bigint)','EXECUTE')
   and has_function_privilege('service_role','public.backyrd_decision_vnext_product_interaction_authority_v1(uuid,text,text,text,text,text,text,bigint)','EXECUTE')
   and has_function_privilege('service_role','public.backyrd_decision_vnext_product_context_v1(uuid,text,text,text,text,text,bigint)','EXECUTE')
+  and has_function_privilege('service_role','public.backyrd_decision_vnext_product_context_v4(uuid,text,text,text,text,text,text,bigint)','EXECUTE')
   and has_function_privilege('service_role','public.backyrd_decision_vnext_product_learning_event_v1(uuid,text,text,jsonb,text,text,text,bigint)','EXECUTE')
   and not has_function_privilege('authenticated','public.backyrd_decision_vnext_product_learning_append_v1(text,text,text,text,bigint)','EXECUTE'),
   'only service_role receives the aligned Product RPCs'
@@ -39,6 +40,9 @@ select pg_temp.product_runtime_assert(
   not has_function_privilege('public','public.backyrd_decision_vnext_product_context_v1(uuid,text,text,text,text,text,bigint)','EXECUTE')
   and not has_function_privilege('anon','public.backyrd_decision_vnext_product_context_v1(uuid,text,text,text,text,text,bigint)','EXECUTE')
   and not has_function_privilege('authenticated','public.backyrd_decision_vnext_product_context_v1(uuid,text,text,text,text,text,bigint)','EXECUTE')
+  and not has_function_privilege('public','public.backyrd_decision_vnext_product_context_v4(uuid,text,text,text,text,text,text,bigint)','EXECUTE')
+  and not has_function_privilege('anon','public.backyrd_decision_vnext_product_context_v4(uuid,text,text,text,text,text,text,bigint)','EXECUTE')
+  and not has_function_privilege('authenticated','public.backyrd_decision_vnext_product_context_v4(uuid,text,text,text,text,text,text,bigint)','EXECUTE')
   and not has_function_privilege('public','public.backyrd_decision_vnext_product_learning_event_v1(uuid,text,text,jsonb,text,text,text,bigint)','EXECUTE')
   and not has_function_privilege('anon','public.backyrd_decision_vnext_product_learning_event_v1(uuid,text,text,jsonb,text,text,text,bigint)','EXECUTE')
   and not has_function_privilege('authenticated','public.backyrd_decision_vnext_product_learning_event_v1(uuid,text,text,jsonb,text,text,text,bigint)','EXECUTE'),
@@ -385,6 +389,8 @@ do $$ begin
   begin perform public.backyrd_decision_vnext_product_control_v1(repeat('a',64),repeat('b',64),repeat('c',64),1);raise exception 'authenticated control call accepted';
   exception when insufficient_privilege then null;end;
   begin perform public.backyrd_decision_vnext_product_learning_append_v1('{}',repeat('a',64),repeat('b',64),repeat('c',64),1);raise exception 'authenticated learning call accepted';
+  exception when insufficient_privilege then null;end;
+  begin perform public.backyrd_decision_vnext_product_context_v4(null,repeat('a',64),'Basel','COFFEE',repeat('a',64),repeat('b',64),repeat('c',64),1);raise exception 'authenticated v4 Product context call accepted';
   exception when insufficient_privilege then null;end;
 end $$;
 reset role;

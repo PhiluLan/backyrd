@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260921173129-user-intelligence-live-ranking-v1",
+  "previousEvidence": "20260920190048-world-product-knowledge-bridge-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "7444f37aab1201eacda99210c5cf02dea12956e6d676128672b93146714aa1d4",
+    "applicationSchemaSha256": "cdf90fdda05bb9ee01310fb48e71e5925e80317a0a28fa84c72fc7125506d5a4"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260921173129_connect_user_intelligence_to_product_ranking_v1.sql",
+      "sha256": "24339b01a3ced8b439b6f3c2b7f5246b8cd9c6d38754fba3b8011d6010251d96"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/decision_vnext_product_runtime_v1.sql",
+      "sha256": "148d7b927970e7673207a948c6afd4b176a215683286a52144545546231d079e"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "ee5499dceefebf68c18fd66ca342d96b19e212828bf3d2f5211de90fd3ccc88c",
+    "applicationSchemaSha256": "f4c371fd46c8587b8495537b01a9a25cfb74abf755d9794ebacd32d26c91d327"
+  }
+}
