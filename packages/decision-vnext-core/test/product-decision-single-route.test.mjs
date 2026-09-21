@@ -8,7 +8,7 @@ import {
   DecisionProductCandidateAssessmentSchema, DecisionProductContextSchema, DecisionProductEvaluationSchema, DecisionProductRequestSchema, DecisionProductWorldCohortSchema, PRODUCT_DECISION_VERSIONS,
   buildDecisionInteractionLearningEvent, buildDecisionProductExecution,
   canonicalJson, contentHash, createDecisionProductHttpHandler,
-  createDecisionProductEvaluator, evaluateProductV1IntentClassification, resolveDecisionProductContext, validateDecisionProductExecution, withContentHash,
+  createDecisionProductEvaluator, evaluateProductV1IntentClassification, inferProductV1Intent, PRODUCT_INTENT_DOMAINS, PRODUCT_INTENT_LEXICON, PRODUCT_INTENT_ONTOLOGY, productRetrievalIntent, resolveDecisionProductContext, resolveProductV1Intent, validateDecisionProductExecution, withContentHash,
 } from "../dist/index.js";
 
 const ACTOR = Object.freeze({ userId: "product-user", subjectBindingHash: "2".repeat(64), authenticationContextHash: "3".repeat(64), sessionBindingHash: "4".repeat(64), sessionId: "product-session" });
@@ -36,6 +36,73 @@ test("free-text Sunday coffee resolves the next Zurich Sunday without guided int
   assert.deepEqual(context.softPreferences, ["ATMOSPHERE_QUIET"]);
   const localMidnight = resolveDecisionProductContext(productRequest("Kaffee trinken", "local-midnight"), { authorizedCity: "Basel", serverTime: "2026-09-19T22:30:00.000Z" });
   assert.equal(localMidnight.dateTime.localDate, "2026-09-20");
+});
+
+test("the Product intent lexicon recognizes concrete food, drink, sport, culture, nature and activity requests", () => {
+  const examples = [
+    ["Bier trinken in Basel", "DRINKS"],
+    ["Lust auf ein IPA", "DRINKS"],
+    ["Tacos essen", "EAT"],
+    ["Ramen in Basel", "EAT"],
+    ["Ping Pong spielen", "SPORT_MOVEMENT"],
+    ["Badminton trainieren", "SPORT_MOVEMENT"],
+    ["ins Museum", "CULTURE_ART"],
+    ["im Wald spazieren", "NATURE_ANIMAL_EXPERIENCE"],
+    ["Escape Room", "ACTIVITY_EXPERIENCE"],
+    ["Espresso trinken", "COFFEE"],
+  ];
+  for (const [text, expected] of examples) {
+    const request = productRequest(text, text.replaceAll(" ", "-").toLowerCase());
+    assert.equal(inferProductV1Intent(text), expected, text);
+    assert.equal(productRetrievalIntent(request), expected, text);
+    assert.equal(resolveDecisionProductContext(request, { authorizedCity: "Basel", serverTime: SERVER_TIME }).primaryIntent, expected, text);
+  }
+});
+
+test("the Product intent lexicon respects negation and does not invent a winner for equally strong mixed intents", () => {
+  assert.equal(inferProductV1Intent("Kein Bier, sondern Ramen"), "EAT");
+  assert.equal(inferProductV1Intent("Bier und Tacos"), null);
+  assert.equal(inferProductV1Intent("Einfach irgendwo sitzen"), null);
+  assert.equal(inferProductV1Intent("Das ist wunderbar"), null);
+});
+
+test("every released Product-v1 lexicon term resolves to its declared broad intent", () => {
+  for (const [intent, signals] of Object.entries(PRODUCT_INTENT_LEXICON)) {
+    for (const { term } of signals) assert.equal(inferProductV1Intent(term), intent, `${term} -> ${intent}`);
+  }
+});
+
+test("the versioned ontology covers more than ten thousand representative German request forms", () => {
+  const wrappers = [
+    (term) => term,
+    (term) => `Ich möchte ${term}`,
+    (term) => `Ich habe Lust auf ${term}`,
+    (term) => `Wo kann ich ${term}`,
+    (term) => `Heute gerne ${term}`,
+    (term) => `Morgen möchte ich ${term}`,
+    (term) => `Am Wochenende ${term}`,
+    (term) => `${term} in Basel`,
+    (term) => `Gemütlich ${term}`,
+    (term) => `${term} mit Freunden`,
+    (term) => `Bitte etwas mit ${term}`,
+    (term) => `Jetzt ${term}`,
+  ];
+  const aliases = PRODUCT_INTENT_ONTOLOGY.flatMap((row) => row.aliases.map((term) => ({ term, intent: row.intent })));
+  assert.ok(PRODUCT_INTENT_ONTOLOGY.length >= 100);
+  assert.ok(PRODUCT_INTENT_DOMAINS.length >= 20);
+  assert.ok(aliases.length >= 900);
+  assert.ok(aliases.length * wrappers.length >= 10_000);
+  for (const { term, intent } of aliases) {
+    for (const wrap of wrappers) assert.equal(inferProductV1Intent(wrap(term)), intent, `${wrap(term)} -> ${intent}`);
+  }
+});
+
+test("specific sub-intents remain explainable while mixed broad intents fail closed", () => {
+  assert.deepEqual(resolveProductV1Intent("Lust auf eine Sushi Bar").matchedConceptIds, ["sushi"]);
+  assert.deepEqual(resolveProductV1Intent("Ramen in Basel").matchedDomains, ["JAPANESE"]);
+  assert.deepEqual(resolveProductV1Intent("Chli go pingpöngle").matchedConceptIds, ["table-tennis"]);
+  assert.equal(resolveProductV1Intent("Bier und Tacos").primaryIntent, null);
+  assert.deepEqual(resolveProductV1Intent("Bier und Tacos").ambiguousIntents, ["DRINKS", "EAT"]);
 });
 
 async function fixture(request, mode = "NO_CONSENT", options = {}) {

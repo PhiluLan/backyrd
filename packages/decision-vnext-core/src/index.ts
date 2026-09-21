@@ -3,6 +3,7 @@ export * from "./opening-state.js";
 export * from "./schema.js";
 export * from "./product-v1-contracts.js";
 export * from "./product-v1-authority.js";
+export * from "./product-intent-lexicon.js";
 export * from "./product-v1-evaluator.js";
 export * from "./product-decision.js";
 export * from "./product-decision-production-adapter.js";
