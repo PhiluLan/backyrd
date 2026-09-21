@@ -99,8 +99,11 @@ function compareCandidates(left: RankableCandidate, right: RankableCandidate): n
 }
 
 function rankable(candidate: RankableCandidate): boolean {
+  const onlyRequestedDayOpeningUnknown = candidate.unknownHardConstraints.length > 0
+    && candidate.unknownHardConstraints.every((constraint) => constraint === "OPEN_ON_REQUESTED_DAY")
+    && ["unknown", "not_authorized", "expired", "disputed"].includes(candidate.actualAvailability);
   return candidate.tier !== "INELIGIBLE"
-    && candidate.rankVector.hardConstraintState === "PASS"
+    && (candidate.rankVector.hardConstraintState === "PASS" || onlyRequestedDayOpeningUnknown)
     && candidate.coreIntentCoverage !== "INCOMPATIBLE"
     && candidate.coreIntentCoverage !== "DISPUTED"
     && !candidate.contextualReject;
