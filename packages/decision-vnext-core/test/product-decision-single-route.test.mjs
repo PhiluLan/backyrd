@@ -8,7 +8,7 @@ import {
   DecisionProductCandidateAssessmentSchema, DecisionProductContextSchema, DecisionProductEvaluationSchema, DecisionProductRequestSchema, DecisionProductWorldCohortSchema, PRODUCT_DECISION_VERSIONS,
   buildDecisionInteractionLearningEvent, buildDecisionProductExecution,
   canonicalJson, contentHash, createDecisionProductHttpHandler,
-  createDecisionProductEvaluator, evaluateProductV1IntentClassification, inferProductV1Intent, PRODUCT_INTENT_LEXICON, productRetrievalIntent, resolveDecisionProductContext, validateDecisionProductExecution, withContentHash,
+  createDecisionProductEvaluator, evaluateProductV1IntentClassification, inferProductV1Intent, PRODUCT_INTENT_DOMAINS, PRODUCT_INTENT_LEXICON, PRODUCT_INTENT_ONTOLOGY, productRetrievalIntent, resolveDecisionProductContext, resolveProductV1Intent, validateDecisionProductExecution, withContentHash,
 } from "../dist/index.js";
 
 const ACTOR = Object.freeze({ userId: "product-user", subjectBindingHash: "2".repeat(64), authenticationContextHash: "3".repeat(64), sessionBindingHash: "4".repeat(64), sessionId: "product-session" });
@@ -70,6 +70,39 @@ test("every released Product-v1 lexicon term resolves to its declared broad inte
   for (const [intent, signals] of Object.entries(PRODUCT_INTENT_LEXICON)) {
     for (const { term } of signals) assert.equal(inferProductV1Intent(term), intent, `${term} -> ${intent}`);
   }
+});
+
+test("the versioned ontology covers more than ten thousand representative German request forms", () => {
+  const wrappers = [
+    (term) => term,
+    (term) => `Ich möchte ${term}`,
+    (term) => `Ich habe Lust auf ${term}`,
+    (term) => `Wo kann ich ${term}`,
+    (term) => `Heute gerne ${term}`,
+    (term) => `Morgen möchte ich ${term}`,
+    (term) => `Am Wochenende ${term}`,
+    (term) => `${term} in Basel`,
+    (term) => `Gemütlich ${term}`,
+    (term) => `${term} mit Freunden`,
+    (term) => `Bitte etwas mit ${term}`,
+    (term) => `Jetzt ${term}`,
+  ];
+  const aliases = PRODUCT_INTENT_ONTOLOGY.flatMap((row) => row.aliases.map((term) => ({ term, intent: row.intent })));
+  assert.ok(PRODUCT_INTENT_ONTOLOGY.length >= 100);
+  assert.ok(PRODUCT_INTENT_DOMAINS.length >= 20);
+  assert.ok(aliases.length >= 900);
+  assert.ok(aliases.length * wrappers.length >= 10_000);
+  for (const { term, intent } of aliases) {
+    for (const wrap of wrappers) assert.equal(inferProductV1Intent(wrap(term)), intent, `${wrap(term)} -> ${intent}`);
+  }
+});
+
+test("specific sub-intents remain explainable while mixed broad intents fail closed", () => {
+  assert.deepEqual(resolveProductV1Intent("Lust auf eine Sushi Bar").matchedConceptIds, ["sushi"]);
+  assert.deepEqual(resolveProductV1Intent("Ramen in Basel").matchedDomains, ["JAPANESE"]);
+  assert.deepEqual(resolveProductV1Intent("Chli go pingpöngle").matchedConceptIds, ["table-tennis"]);
+  assert.equal(resolveProductV1Intent("Bier und Tacos").primaryIntent, null);
+  assert.deepEqual(resolveProductV1Intent("Bier und Tacos").ambiguousIntents, ["DRINKS", "EAT"]);
 });
 
 async function fixture(request, mode = "NO_CONSENT", options = {}) {
