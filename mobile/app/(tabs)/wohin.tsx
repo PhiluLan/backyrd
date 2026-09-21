@@ -37,7 +37,10 @@ async function withinIdentityDeadline<T>(operation: PromiseLike<T>): Promise<T> 
   }
 }
 
-function availabilityLabel(value: DecisionProductCandidate["actualAvailability"]): string {
+function availabilityLabel(candidate: DecisionProductCandidate): string {
+  const requestedDay = candidate.reasons.find((reason) => ["requested-day-opening-hours", "requested-day-closed", "requested-day-opening-unknown"].includes(reason.code));
+  if (requestedDay) return requestedDay.statement;
+  const value = candidate.actualAvailability;
   if (value === "open") return "Geöffnet";
   if (value === "closed") return "Geschlossen";
   if (value === "not_requested") return "Öffnung für diesen Wunsch nicht geprüft";
@@ -222,9 +225,9 @@ export default function WohinScreen() {
                     <Text style={{ color: color.pink, fontSize: 12, fontWeight: "900" }}>PLATZ {candidate.rank} · {wohinEvidenceState(candidate)}</Text>
                     <Text style={{ color: color.text, fontSize: 23, fontWeight: "900", marginTop: 5 }}>{candidate.presentation.name}</Text>
                     <Text style={{ color: color.muted, marginTop: 4 }}>{[candidate.presentation.categoryLabel, candidate.presentation.locality].filter(Boolean).join(" · ")}</Text>
-                    <Text style={{ color: color.muted, marginTop: 8 }}>{availabilityLabel(candidate.actualAvailability)}</Text>
+                    <Text style={{ color: color.muted, marginTop: 8 }}>{availabilityLabel(candidate)}</Text>
                     <Text style={{ color: color.text, fontWeight: "900", marginTop: 18 }}>Warum dieser Platz?</Text>
-                    {candidate.reasons.map((reason) => <Text key={`${candidate.spotId}:${reason.code}`} style={{ color: reason.confirmed ? color.text : color.muted, marginTop: 7, lineHeight: 21 }}>• {reason.statement}</Text>)}
+                    {candidate.reasons.filter((reason) => !["requested-day-opening-hours", "requested-day-closed", "requested-day-opening-unknown"].includes(reason.code)).map((reason) => <Text key={`${candidate.spotId}:${reason.code}`} style={{ color: reason.confirmed ? color.text : color.muted, marginTop: 7, lineHeight: 21 }}>• {reason.statement}</Text>)}
                     {wohinRankingEvidence(candidate).map((statement) => <Text key={statement} style={{ color: color.muted, marginTop: 7, lineHeight: 21 }}>• {statement}</Text>)}
                     <Pressable onPress={() => openSpot(candidate)} style={{ marginTop: 18, minHeight: 46, borderRadius: 999, backgroundColor: color.pink, justifyContent: "center", alignItems: "center" }}><Text style={{ color: color.background, fontWeight: "900" }}>Spot ansehen</Text></Pressable>
                   </View>

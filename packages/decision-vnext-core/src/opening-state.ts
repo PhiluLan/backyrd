@@ -25,6 +25,12 @@ export interface OpeningStateEvaluation {
   readonly limitations: readonly string[];
 }
 
+export interface OpeningDayEvaluation extends OpeningStateEvaluation {
+  readonly localDate: string;
+  readonly weekday: string;
+  readonly intervals: readonly Interval[];
+}
+
 type Interval = { readonly start: string; readonly end: string };
 type WeeklyRow = { readonly day: string; readonly intervals: readonly Interval[] };
 type SpecialRow = { readonly date: string; readonly status: "OPEN" | "CLOSED"; readonly intervals: readonly Interval[] };
@@ -100,4 +106,56 @@ export function evaluateOpeningState(snapshot: ProductWorldView, at: string, pol
   const today = regularRows.find((entry) => entry.day === weekdayForDate(local.date));
   const prior = regularRows.find((entry) => entry.day === weekdayForDate(priorDate));
   return result(containsSameDay(today?.intervals ?? [], local.minute) || containsCarryOver(prior?.intervals ?? [], local.minute) ? "open" : "closed", [regular.entryHash, ...(special ? [special.entryHash] : [])]);
+}
+
+/**
+ * Evaluates whether a venue has at least one verified opening interval on the
+ * requested local calendar day. This is deliberately different from
+ * `evaluateOpeningState`: a day-only request must not claim that a venue is
+ * open *now*, but it may prove that the venue opens at some point that day.
+ */
+export function evaluateOpeningDay(snapshot: ProductWorldView, localDate: string, policy: OpeningSourcePolicy): OpeningDayEvaluation {
+  const weekday = weekdayForDate(localDate);
+  const result = (status: OpeningStatus, intervals: readonly Interval[] = [], basisEntryHashes: readonly string[] = [], limitations: readonly string[] = []): OpeningDayEvaluation => ({
+    evaluatorVersion: OPENING_STATE_VERSION,
+    sourcePolicyVersion: policy.version,
+    status,
+    localDate,
+    weekday,
+    intervals: [...intervals],
+    basisEntryHashes: [...basisEntryHashes].sort(),
+    limitations: [...limitations].sort(),
+  });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(localDate) || !Number.isFinite(Date.parse(`${localDate}T12:00:00.000Z`))) return result("unknown", [], [], ["requested-local-date-invalid"]);
+  const temporalConflict = snapshot.conflicts.some((conflict) => conflict.severity === "BLOCKING" && conflict.attributeKeys.some((key) => key === "hours.regular" || key === "hours.special"));
+  if (temporalConflict) return result("disputed", [], [], ["blocking-temporal-conflict"]);
+  if (!policy.configured) return result("not_authorized", [], [], ["opening-source-policy-not-configured"]);
+
+  const regular = snapshot.operationalRules.find((entry) => entry.key === "hours.regular");
+  const special = snapshot.operationalRules.find((entry) => entry.key === "hours.special");
+  const temporalEntries = [regular, special].filter((entry): entry is OpeningEntry => entry !== undefined);
+  if (temporalEntries.some((entry) => !authorized(entry, policy))) return result("not_authorized", [], temporalEntries.map((entry) => entry.entryHash), ["opening-hours-not-authorized"]);
+  if (!snapshot.spot.location.timezone) return result("unknown", [], temporalEntries.map((entry) => entry.entryHash), ["spot-timezone-unknown"]);
+  if (!regular && !special) return result("unknown", [], [], ["opening-hours-unknown"]);
+
+  const specialRows = rows<SpecialRow>(special);
+  const exactSpecial = specialRows.find((entry) => entry.date === localDate);
+  if (exactSpecial) {
+    if (exactSpecial.status === "CLOSED") return result("closed", [], [special!.entryHash]);
+    return result(exactSpecial.intervals.length ? "open" : "closed", exactSpecial.intervals, [special!.entryHash]);
+  }
+
+  if (!regular) return result("unknown", [], [special!.entryHash], ["regular-hours-unknown"]);
+  const regularRows = rows<WeeklyRow>(regular);
+  const priorDate = previousDate(localDate);
+  const priorSpecial = specialRows.find((entry) => entry.date === priorDate);
+  const priorRegular = regularRows.find((entry) => entry.day === weekdayForDate(priorDate));
+  const priorIntervals = priorSpecial?.status === "OPEN" ? priorSpecial.intervals : priorSpecial?.status === "CLOSED" ? [] : priorRegular?.intervals ?? [];
+  const carryOver = priorIntervals
+    .filter((interval) => minutes(interval.start) > minutes(interval.end))
+    .map((interval) => ({ start: "00:00", end: interval.end }));
+  const today = regularRows.find((entry) => entry.day === weekday);
+  if (!today && !carryOver.length) return result("unknown", [], [regular.entryHash, ...(special ? [special.entryHash] : [])], ["requested-weekday-unknown"]);
+  const intervals = [...carryOver, ...(today?.intervals ?? [])];
+  return result(intervals.length ? "open" : "closed", intervals, [regular.entryHash, ...(special ? [special.entryHash] : [])]);
 }

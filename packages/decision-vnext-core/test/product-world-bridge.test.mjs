@@ -54,8 +54,43 @@ test("a closure expiring tonight cannot close a requested future Sunday", () => 
   const world = read(binding(voltaId, [fact("purpose.primary_visit", "EAT_DRINK"), fact("classification.primary_category", "DRINKS"), fact("state.current", { kind: "AREA_CLOSED", scope: "VENUE" }, { validityVerified: true, validFrom: null, validUntil: "2026-09-19T22:00:00.000Z" })]));
   const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "future-request", idempotencyKey: "future-key", naturalLanguage: "Sonntag einen Drink in Basel", explicit: {}, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
   const result = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: "2026-09-19T12:00:00.000Z" }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, [world], contentHash([world.spot.spotId]));
-  assert.equal(result.evaluation.candidates[0].actualAvailability.status, "not_requested");
+  assert.equal(result.evaluation.candidates[0].actualAvailability.status, "unknown");
   assert.equal(result.evaluation.candidates[0].failedHardConstraints.includes("ACTUAL_AVAILABILITY"), false);
+  assert.ok(result.evaluation.candidates[0].unknownHardConstraints.includes("OPEN_ON_REQUESTED_DAY"));
+});
+
+test("an explicitly requested weekday is checked against verified hours and explained with exact intervals", () => {
+  const common = [fact("location.timezone", "Europe/Zurich"), fact("purpose.primary_visit", "EAT_DRINK"), fact("classification.primary_category", "COFFEE_DAYTIME"), fact("classification.place_types", ["CAFE"])];
+  const open = read(binding("33333333-3333-4333-a333-333333333333", [...common, fact("hours.regular", [{ day: "SUNDAY", intervals: [{ start: "09:00", end: "18:00" }] }])]));
+  const closed = read(binding("44444444-4444-4444-a444-444444444444", [...common, fact("hours.regular", [{ day: "SUNDAY", intervals: [] }])]));
+  const missing = read(binding("55555555-5555-4555-a555-555555555555", common, ["hours.regular"]));
+  const worlds = [open, closed, missing];
+  const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "sunday-hours-request", idempotencyKey: "sunday-hours-key", naturalLanguage: "Sonntag gemütlich Kaffee trinken", explicit: {}, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
+  const result = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, worlds, contentHash(worlds.map((world) => world.spot.spotId).sort()));
+  const byId = new Map(result.evaluation.candidates.map((candidate) => [candidate.candidateId, candidate]));
+  const openAssessment = byId.get(open.spot.spotId);
+  const closedAssessment = byId.get(closed.spot.spotId);
+  const missingAssessment = byId.get(missing.spot.spotId);
+  assert.equal(openAssessment.actualAvailability.status, "open");
+  assert.ok(openAssessment.confirmedHardConstraints.includes("OPEN_ON_REQUESTED_DAY"));
+  assert.equal(openAssessment.reasons.find((reason) => reason.reasonCode === "requested-day-opening-hours")?.statementDe, "Öffnungszeiten am gefragten Sonntag: 09:00–18:00.");
+  assert.equal(closedAssessment.actualAvailability.status, "closed");
+  assert.equal(closedAssessment.tier, "INELIGIBLE");
+  assert.ok(closedAssessment.failedHardConstraints.includes("OPEN_ON_REQUESTED_DAY"));
+  assert.equal(missingAssessment.actualAvailability.status, "unknown");
+  assert.ok(missingAssessment.unknownHardConstraints.includes("OPEN_ON_REQUESTED_DAY"));
+});
+
+test("a verified overnight interval counts on the requested following day", () => {
+  const world = read(binding("66666666-6666-4666-a666-666666666666", [
+    fact("location.timezone", "Europe/Zurich"), fact("purpose.primary_visit", "EAT_DRINK"),
+    fact("classification.primary_category", "COFFEE_DAYTIME"), fact("classification.place_types", ["CAFE"]),
+    fact("hours.regular", [{ day: "SATURDAY", intervals: [{ start: "22:00", end: "02:00" }] }, { day: "SUNDAY", intervals: [] }]),
+  ]));
+  const request = { contractVersion: "backyrd.decision-vnext.product-request@1.0", requestId: "overnight-request", idempotencyKey: "overnight-key", naturalLanguage: "Sonntag Kaffee trinken", explicit: {}, alternativeRequested: false, previouslyPresentedCandidateIds: [], rejectedCandidateIds: [] };
+  const result = evaluateProductWorldViews(request, { authorizedCity: "Basel", serverTime: at }, { status: "NEUTRAL", projectionHash: contentHash("neutral") }, [world], contentHash([world.spot.spotId]));
+  assert.equal(result.evaluation.candidates[0].actualAvailability.status, "open");
+  assert.equal(result.evaluation.candidates[0].reasons.find((reason) => reason.reasonCode === "requested-day-opening-hours")?.statementDe, "Öffnungszeiten am gefragten Sonntag: 00:00–02:00.");
 });
 
 test("confirmed context changes ranking evidence; missing data and numeric budget remain unknown", () => {
