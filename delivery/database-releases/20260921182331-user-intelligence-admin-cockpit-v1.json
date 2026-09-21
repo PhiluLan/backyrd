@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260921182331-user-intelligence-admin-cockpit-v1",
+  "previousEvidence": "20260921173129-user-intelligence-live-ranking-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "ee5499dceefebf68c18fd66ca342d96b19e212828bf3d2f5211de90fd3ccc88c",
+    "applicationSchemaSha256": "f4c371fd46c8587b8495537b01a9a25cfb74abf755d9794ebacd32d26c91d327"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260921182331_create_user_intelligence_admin_cockpit_v1.sql",
+      "sha256": "785a53e29fcee1ee689c0491c77301b3a2f05a550a175356f7aed6fc34184ead"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/user_intelligence_admin_cockpit_v1.sql",
+      "sha256": "a1308ec349ca0baa1a32ec8b1593cc0ffbb9e9a0dee08ced631516ef75f599e5"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "2d401ded1a7e2b75634376933bbb747f9b4e1ed8c470763836f7933a0f58d77b",
+    "applicationSchemaSha256": "2203d43b573f565e9a04fe200ce67c7ab1d6629f34775d97bd1d6fd9839c2a25"
+  }
+}

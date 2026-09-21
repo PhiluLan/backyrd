@@ -24,6 +24,7 @@ const navigationItems: NavigationItem[] = [
   { href: "/moods", label: "Mood Engine", icon: "◌" },
   { href: "/taxonomy", label: "Kategorien", icon: "◆" },
   { href: "/users", label: "Nutzer", icon: "◎", groupLabel: "Menschen" },
+  { href: "/user-intelligence", label: "User Intelligence", icon: "◉" },
   { href: "/claims", label: "Owner-Anfragen", icon: "◇" },
   { href: "/partners", label: "Owner & Partner", icon: "◈" },
   { href: "/safety-integrity", label: "Safety & Moderation", icon: "!", groupLabel: "Sicherheit" },
