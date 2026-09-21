@@ -34,6 +34,19 @@
       "scope": "CONSENT_ERASURE_AND_EXPIRED_PRIVATE_IDEMPOTENCY_ONLY"
     }
   ],
+  "additiveProductMigrationScope": {
+    "contractVersion": "backyrd.product-v1-additive-migration-scope@1.0",
+    "projectRef": "hjgcrrzfjchzqoegcywn",
+    "migrations": [
+      {
+        "path": "supabase/migrations/20260921173129_connect_user_intelligence_to_product_ranking_v1.sql",
+        "sha256": "24339b01a3ced8b439b6f3c2b7f5246b8cd9c6d38754fba3b8011d6010251d96"
+      }
+    ],
+    "executionAuthorized": false,
+    "restoreDrillStatus": "NOT_PERFORMED_BY_FOUNDER_DECISION",
+    "guaranteedDatabaseRollback": false
+  },
   "protectedSemanticSourceSet": {
     "paths": [
       "mobile/app/(tabs)/decision.tsx",
