@@ -6,7 +6,7 @@ import { validateDecisionProductRequest } from "@backyrd/product-decision-contra
 
 const source = fs.readFileSync(new URL("../lib/decision/wohinModel.ts", import.meta.url), "utf8");
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { createWohinRequest, visibleWohinCandidates, wohinEvidenceState } = await import(`data:text/javascript,${encodeURIComponent(compiled)}`);
+const { createWohinRequest, visibleWohinCandidates, wohinEvidenceState, wohinRankingEvidence } = await import(`data:text/javascript,${encodeURIComponent(compiled)}`);
 
 test("Wohin sends only the new free text and profile city", () => {
   const request = createWohinRequest({ query: "  Sonntag   gemütlich Kaffee trinken  ", city: "Basel", requestId: "test-request-1" });
@@ -33,4 +33,23 @@ test("Unconfirmed evidence is never presented as a confirmed match", () => {
   assert.equal(wohinEvidenceState({ tier: "ELIGIBLE_CONFIRMED", coreIntentCoverage: "CONFIRMED" }), "Kernabsicht bestätigt");
   assert.equal(wohinEvidenceState({ tier: "NOT_CONFIGURED", coreIntentCoverage: "NOT_CONFIGURED" }), "Passung nicht bestätigt");
   assert.equal(wohinEvidenceState({ tier: "UNCONFIRMED_FALLBACK", coreIntentCoverage: "UNKNOWN" }), "Passung nicht bestätigt");
+});
+
+test("confirmed primary purpose is explained as a secondary ranking signal", () => {
+  const candidate = {
+    coreIntentCoverage: "CONFIRMED",
+    reasons: [{ code: "product-rank-versus-next-v1", statement: "Vor dem nächsten Platz wegen des zusätzlich bestätigten Hauptzwecks." }],
+    rankVector: {
+      hardConstraintState: "PASS",
+      primaryVisitPurposeState: "CONFIRMED",
+      userRelevance: { state: "NEUTRAL" },
+      contextFit: { secondaryIntentConfirmed: false, visitSituationConfirmed: false, atmosphereConfirmed: false, typicalDaypartConfirmed: false, matchedSoftPreferenceCount: 0 },
+      worldEvidence: { confirmedReasonCount: 1 },
+    },
+  };
+  const evidence = wohinRankingEvidence(candidate);
+  assert.ok(evidence.some((statement) => /Hauptzweck/.test(statement)));
+  assert.equal(evidence.some((statement) => /Tie-Breaker/.test(statement)), false);
+  candidate.reasons[0].statement = "Vor dem nächsten Platz wegen eines neutralen stabilen Tie-Breakers, nicht wegen einer besser belegten Passung.";
+  assert.ok(wohinRankingEvidence(candidate).some((statement) => /Tie-Breaker/.test(statement)));
 });

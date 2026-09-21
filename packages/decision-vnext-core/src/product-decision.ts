@@ -50,6 +50,7 @@ function vector(candidate: DecisionProductCandidateAssessment, projection: Relev
     hardConstraintState,
     eligibilityTier: candidate.tier,
     coreIntentState: candidate.coreIntentCoverage.state,
+    primaryVisitPurposeState: candidate.primaryVisitPurpose.state,
     actualAvailability: candidate.actualAvailability.status,
     userRelevance: userRelevance(candidate.candidateId, projection),
     contextFit: {
@@ -61,7 +62,7 @@ function vector(candidate: DecisionProductCandidateAssessment, projection: Relev
     },
     worldEvidence: {
       conflictFree: candidate.conflicts.length === 0,
-      confirmedReasonCount: candidate.reasons.filter((reason) => reason.domain === "WORLD" && reason.confirmed).length,
+      confirmedReasonCount: candidate.reasons.filter((reason) => reason.domain === "WORLD" && reason.confirmed && !reason.reasonCode.startsWith("primary-purpose-")).length,
     },
     neutralIdentity: candidate.neutralTieBreakerHash,
   };
@@ -78,6 +79,7 @@ function rankingChecks(left: RankableCandidate, right: RankableCandidate): reado
     [hard, "der besser belegten Erfüllung harter Bedingungen"],
     [compareNumber(tierScore[a.eligibilityTier], tierScore[b.eligibilityTier]), "der besser belegten Eignungsklasse"],
     [compareNumber(coreScore[a.coreIntentState], coreScore[b.coreIntentState]), "der besser belegten Hauptabsicht"],
+    [compareNumber(coreScore[a.primaryVisitPurposeState], coreScore[b.primaryVisitPurposeState]), "des zusätzlich bestätigten Hauptzwecks"],
     [compareNumber(availabilityScore[a.actualAvailability], availabilityScore[b.actualAvailability]), "der besser belegten Verfügbarkeit"],
     [compareBoolean(a.userRelevance.state === "POSITIVE_DIRECT", b.userRelevance.state === "POSITIVE_DIRECT"), "einer consentgebundenen direkten Nutzerpräferenz"],
     [compareNumber(a.userRelevance.confidence, b.userRelevance.confidence), "der Stärke einer consentgebundenen direkten Nutzerpräferenz"],

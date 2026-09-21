@@ -38,7 +38,7 @@ test("free-text Sunday coffee resolves the next Zurich Sunday without guided int
   assert.equal(localMidnight.dateTime.localDate, "2026-09-20");
 });
 
-async function fixture(request, mode = "NO_CONSENT") {
+async function fixture(request, mode = "NO_CONSENT", options = {}) {
   const decisionId = `decision-${contentHash({ requestId: request.requestId, idempotencyKey: request.idempotencyKey }).slice(0, 32)}`;
   const interpretation = DecisionProductContextSchema.parse(withContentHash({
     contractVersion: PRODUCT_DECISION_VERSIONS.context, resolverVersion: "decision-vnext-product-context-resolver-v1", inputHash: contentHash(request),
@@ -61,19 +61,21 @@ async function fixture(request, mode = "NO_CONSENT") {
   projectionBody.budgets.canonicalPayloadBytes = userCanonicalBytes(projectionHashBody(projectionBody));
   const projection = parseRelevantUserProjection({ ...projectionBody, projectionHash: userContentHash(projectionHashBody(projectionBody)) });
   const evaluatorContractVersion = "decision-vnext-product-evaluator@1.0";
-  const candidate = (id, state, tier) => DecisionProductCandidateAssessmentSchema.parse(withContentHash({
+  const candidate = (id, state, tier, purposeState = "CONFIRMED", neutralTieBreakerHash = contentHash({ id, tie: true })) => DecisionProductCandidateAssessmentSchema.parse(withContentHash({
     contractVersion: PRODUCT_DECISION_VERSIONS.assessment, candidateId: id, snapshotHash: contentHash({ id, snapshot: true }), tier,
     coreIntentCoverage: { intentId: "COFFEE", state, mappingIds: ["product-intent-coffee"], worldFactKeys: ["classification.primary_category"], evidenceSourceHash: contentHash({ id, core: state }) },
     secondaryIntentCoverage: { intentId: null, state: "NOT_APPLICABLE", mappingIds: [], worldFactKeys: [], evidenceSourceHash: contentHash({ id, secondary: null }) },
     worldClassification: { primaryVisitPurpose: state === "CONFIRMED" ? "EAT" : "DRINKS", primaryCategory: state === "CONFIRMED" ? "COFFEE_DAYTIME" : "DRINKS", placeTypes: state === "CONFIRMED" ? ["CAFE"] : ["BAR"], evidenceSourceHash: contentHash({ id, classification: state }) },
-    primaryVisitPurpose: { state: "CONFIRMED", mappingIds: [], evidenceSourceHash: contentHash({ id, purpose: true }) }, specificCoreClassification: { state, mappingIds: ["product-intent-coffee"], evidenceSourceHash: contentHash({ id, specific: state }) },
+    primaryVisitPurpose: { state: purposeState, mappingIds: [], evidenceSourceHash: contentHash({ id, purpose: purposeState }) }, specificCoreClassification: { state, mappingIds: ["product-intent-coffee"], evidenceSourceHash: contentHash({ id, specific: state }) },
     onsiteOfferings: { state: "NOT_CONFIGURED", mappingIds: [], availableKinds: [], matchedKinds: [], relationships: [], confirmsCoreIntent: false, evidenceSourceHash: contentHash({ id, onsite: null }) },
     visitSituation: { state: "NOT_CONFIGURED", mappingIds: [], evidenceSourceHash: contentHash({ id, visit: null }) }, atmosphere: { state: "UNKNOWN", mappingIds: [], evidenceSourceHash: contentHash({ id, atmosphere: null }) }, typicalDaypart: { state: "NOT_CONFIGURED", mappingIds: [], evidenceSourceHash: contentHash({ id, daypart: null }) },
     actualAvailability: { status: "not_requested", evidenceSourceHash: contentHash({ id, availability: "not_requested" }) }, confirmedHardConstraints: [], unknownHardConstraints: [], failedHardConstraints: [], matchedSoftPreferences: [], conflicts: [],
     reasons: [{ reasonCode: `core-intent-${state.toLowerCase()}`, domain: "WORLD", sourceHash: contentHash({ id, reason: state }), statementDe: state === "CONFIRMED" ? "Der Hauptzweck bestätigt die Kernabsicht." : "Die Kernabsicht ist nicht bestätigt.", confirmed: state === "CONFIRMED" }], limitations: [],
-    rejectionClass: request.rejectedCandidateIds.includes(id) ? "SITUATIONAL_REJECT" : "NONE", userIntelligenceInvolved: false, userIntelligenceAffectsEligibility: false, neutralTieBreakerHash: contentHash({ id, tie: true }),
+    rejectionClass: request.rejectedCandidateIds.includes(id) ? "SITUATIONAL_REJECT" : "NONE", userIntelligenceInvolved: false, userIntelligenceAffectsEligibility: false, neutralTieBreakerHash,
   }, "assessmentHash"));
-  const candidates = [candidate("product-spot-cafe", "CONFIRMED", "ELIGIBLE_CONFIRMED"), candidate("product-spot-unknown", "UNKNOWN", "UNCONFIRMED_FALLBACK"), candidate("product-spot-bar", "INCOMPATIBLE", "INELIGIBLE")];
+  const candidates = options.purposeRanking
+    ? [candidate("product-spot-purpose-confirmed", "CONFIRMED", "ELIGIBLE_CONFIRMED", "CONFIRMED", "f".repeat(64)), candidate("product-spot-purpose-unknown", "CONFIRMED", "ELIGIBLE_CONFIRMED", "UNKNOWN", "0".repeat(64))]
+    : [candidate("product-spot-cafe", "CONFIRMED", "ELIGIBLE_CONFIRMED"), candidate("product-spot-unknown", "UNKNOWN", "UNCONFIRMED_FALLBACK"), candidate("product-spot-bar", "INCOMPATIBLE", "INELIGIBLE")];
   const bindings = candidates.map((row) => ({ spotId: row.candidateId, snapshotHash: row.snapshotHash })).sort((a, b) => a.spotId.localeCompare(b.spotId));
   const worldCohort = DecisionProductWorldCohortSchema.parse(withContentHash({ contractVersion: PRODUCT_DECISION_VERSIONS.cohort, cohortId: "product-world-test", source: "CANONICAL_WORLD_KNOWLEDGE_READER", generatedAt: SERVER_TIME, authorizedCity: "Zurich", worldRegistryVersion: "backyrd.world-knowledge.registry@2.1", worldRegistryHash: "6".repeat(64), sourcePolicyVersion: "backyrd.world-knowledge.source-policy@1.0", sourcePolicyHash: "7".repeat(64), spotBindings: bindings, candidateSetHash: contentHash(bindings.map((row) => row.spotId)), limitations: [], commercialSignalsPresent: false, fixtureSourceUsed: false }, "cohortHash"));
   const evaluation = DecisionProductEvaluationSchema.parse(withContentHash({
@@ -100,7 +102,7 @@ async function fixture(request, mode = "NO_CONSENT") {
 }
 
 test("single-route product contract rejects client authority and has one transparent ranking policy", () => {
-  assert.deepEqual(DECISION_PRODUCT_RANKING_POLICY.precedence, ["HARD_CONSTRAINTS", "ELIGIBILITY_TIER", "CORE_INTENT_COVERAGE", "ACTUAL_AVAILABILITY", "CONSENTED_USER_RELEVANCE", "SITUATIONAL_CONTEXT_FIT", "WORLD_EVIDENCE", "NEUTRAL_IDENTITY"]);
+  assert.deepEqual(DECISION_PRODUCT_RANKING_POLICY.precedence, ["HARD_CONSTRAINTS", "ELIGIBILITY_TIER", "CORE_INTENT_COVERAGE", "PRIMARY_VISIT_PURPOSE", "ACTUAL_AVAILABILITY", "CONSENTED_USER_RELEVANCE", "SITUATIONAL_CONTEXT_FIT", "WORLD_EVIDENCE", "NEUTRAL_IDENTITY"]);
   assert.throws(() => DecisionProductRequestSchema.parse({ ...productRequest("Café in Zürich"), userId: "attacker" }), /unknown field/);
   assert.equal(DECISION_PRODUCT_RANKING_POLICY.commercialSignalsForbidden, true);
   assert.equal(DECISION_PRODUCT_RANKING_POLICY.fixtureOrderForbidden, true);
@@ -118,11 +120,21 @@ test("closed Product-v1 intent matrix is specific, evidence-only and never rescu
   assert.equal(evaluate("COFFEE", "SPORT_MOVEMENT", "SPORT_MOVEMENT", ["CLIMBING_GYM"]), "INCOMPATIBLE");
   assert.equal(evaluate("COFFEE", "NATURE_ANIMAL_EXPERIENCE", "NATURE_ANIMAL_EXPERIENCE", ["PARK"]), "INCOMPATIBLE");
   assert.equal(evaluate("COFFEE", "EAT_DRINK", null, []), "UNKNOWN");
+  assert.equal(evaluate("EAT", "EAT_DRINK", null, []), "UNKNOWN", "purpose alone is weaker than category/place type and cannot establish core eligibility");
   assert.equal(evaluate("EAT", "EAT_DRINK", "EAT", []), "CONFIRMED");
   assert.equal(evaluate("SPORT_MOVEMENT", "SPORT_MOVEMENT", "SPORT_MOVEMENT", ["CLIMBING_GYM"]), "CONFIRMED");
   assert.equal(evaluate("NATURE_ANIMAL_EXPERIENCE", "NATURE_ANIMAL_EXPERIENCE", "NATURE_ANIMAL_EXPERIENCE", ["ZOO"]), "CONFIRMED");
   assert.equal(evaluateProductV1IntentClassification({ intent: "COFFEE", purpose: "EAT_DRINK", category: "COFFEE_DAYTIME", placeTypes: ["CAFE"], disputed: true, evidenceSourceHash: "8".repeat(64) }).state, "DISPUTED");
   assert.equal(DECISION_PRODUCT_INTENT_POLICY.embeddedOfferingsConfirmPrimaryIntent, false);
+});
+
+test("confirmed primary purpose ranks after core classification but before the neutral tie-breaker", async () => {
+  const built = buildDecisionProductExecution(await fixture(productRequest("Café in Zürich", "purpose-ranking"), "NO_CONSENT", { purposeRanking: true }));
+  const ranked = built.response.candidates.filter((candidate) => candidate.rank !== null);
+  assert.equal(ranked[0].spotId, "product-spot-purpose-confirmed");
+  assert.equal(ranked[0].rankVector.primaryVisitPurposeState, "CONFIRMED");
+  assert.equal(ranked[1].rankVector.primaryVisitPurposeState, "UNKNOWN");
+  assert.match(ranked[0].reasons.find((reason) => reason.code === "product-rank-versus-next-v1")?.statement ?? "", /Hauptzwecks/);
 });
 
 test("Product evaluator consumes only canonical World reader snapshots and server-owned candidate selection", async () => {
