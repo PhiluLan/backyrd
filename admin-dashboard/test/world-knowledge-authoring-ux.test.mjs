@@ -137,3 +137,18 @@ test("authoring writes rebuild and read the canonical snapshot without a normal-
     assert.match(route, /readerSnapshot/);
   }
 });
+
+test("spot authoring is driven by category and concrete place types without hiding stored history", async () => {
+  const [taxonomy, core, editor] = await Promise.all([
+    read("packages/world-knowledge-core/src/authoring-taxonomy.ts"),
+    read("packages/world-knowledge-core/src/authoring.ts"),
+    read("packages/world-knowledge-authoring-ui/src/index.tsx"),
+  ]);
+  assert.match(taxonomy, /OUTDOOR_NATURE: Object\.freeze\(\["ZOO"\]\)/);
+  assert.match(taxonomy, /attributeKey === "offering\.cuisines"/);
+  assert.match(taxonomy, /capacity\.seats_indoor/);
+  assert.match(core, /isAuthoringAttributeRelevant\(field\.attributeKey, guidance\)/);
+  assert.match(editor, /placeTypes: placeTypeValue, onsiteOfferings/);
+  assert.match(editor, /Vorhandene, für diese Einordnung nicht benötigte Angaben/);
+  assert.match(editor, /Sie bleiben in der Historie und in der Datenvorschau sichtbar/);
+});

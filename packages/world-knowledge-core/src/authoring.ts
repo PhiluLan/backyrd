@@ -4,7 +4,7 @@ import { ACCEPTED_ENTITLEMENT_POLICY } from "./slice3b.js";
 import { ATMOSPHERE_VALUES, ATTRIBUTE_DEFINITIONS, DAYPARTS, ONSITE_OFFERING_KINDS, PRICE_LEVEL_LABELS, PRIMARY_CATEGORIES, PRIMARY_CATEGORY_LABELS, REGISTRY_HASH, REGISTRY_VERSION, VISIT_SITUATIONS, type ValueType } from "./registry.js";
 import { parseWorldKnowledgeSnapshot, type WorldKnowledgeReaderPort, type WorldKnowledgeSnapshot } from "./port.js";
 import { ACCEPTED_SOURCE_POLICY } from "./slice3b.js";
-import { AMENITY_AUTHORING_OPTIONS, CATEGORY_AUTHORING_MATRIX, CUISINE_AUTHORING_OPTIONS, FOOD_SPECIALITY_AUTHORING_OPTIONS, OFFERING_AUTHORING_OPTIONS, PLACE_TYPE_AUTHORING_OPTIONS, assessPlaceTypeCompatibility, getCategoryPlaceTypes, type AuthoringTaxonomyState } from "./authoring-taxonomy.js";
+import { AMENITY_AUTHORING_OPTIONS, CATEGORY_AUTHORING_MATRIX, CUISINE_AUTHORING_OPTIONS, FOOD_SPECIALITY_AUTHORING_OPTIONS, OFFERING_AUTHORING_OPTIONS, PLACE_TYPE_AUTHORING_OPTIONS, assessPlaceTypeCompatibility, getCategoryPlaceTypes, isAuthoringAttributeRelevant, type AuthoringGuidanceContext, type AuthoringTaxonomyState } from "./authoring-taxonomy.js";
 import { createWorldKnowledgeContextHandoff, type WorldKnowledgeContextHandoff } from "./contextual.js";
 
 export const FOUNDER_EVALUATION_SCOPE = "FOUNDER_EVALUATION_ONLY" as const;
@@ -131,12 +131,12 @@ export const AUTHORING_FIELDS: readonly AuthoringField[] = Object.freeze(AUTHORI
 
 export type AuthoringSectionState = "NOT_STARTED" | "IN_PROGRESS" | "ERRORS" | "REQUIRED_COMPLETE" | "INTENTIONALLY_INCOMPLETE" | "NOT_RELEVANT" | "FULLY_REVIEWED";
 
-export function getAuthoringFieldsForContext(stepId: string, primaryCategory: unknown): readonly AuthoringField[] {
+export function getAuthoringFieldsForContext(stepId: string, primaryCategory: unknown, guidance?: AuthoringGuidanceContext): readonly AuthoringField[] {
   const step = AUTHORING_STEPS.find((entry) => entry.id === stepId);
   if (!step) return [];
   const category = typeof primaryCategory === "string" && (PRIMARY_CATEGORIES as readonly string[]).includes(primaryCategory) ? primaryCategory as typeof PRIMARY_CATEGORIES[number] : null;
   if (category && !CATEGORY_AUTHORING_MATRIX[category].relevantSteps.includes(stepId) && !["basics", "classification", "review"].includes(stepId)) return [];
-  return AUTHORING_FIELDS.filter((field) => step.attributeKeys.includes(field.attributeKey)).map((field) => {
+  return AUTHORING_FIELDS.filter((field) => step.attributeKeys.includes(field.attributeKey) && isAuthoringAttributeRelevant(field.attributeKey, guidance)).map((field) => {
     if (field.attributeKey !== "classification.place_types") return field;
     return Object.freeze({ ...field, allowedValues: getCategoryPlaceTypes(category) });
   });
@@ -161,10 +161,11 @@ export function evaluateAuthoringReadiness(input: {
   readonly reviewedSteps?: readonly string[];
 }): AuthoringReadinessReport {
   const category = input.answers["classification.primary_category"]?.value;
+  const guidance = { placeTypes: input.answers["classification.place_types"]?.value, onsiteOfferings: input.answers["offering.onsite"]?.value };
   const issues: AuthoringIssue[] = [];
   for (const field of AUTHORING_FIELDS) {
     const stepId = AUTHORING_STEPS.find((step) => step.attributeKeys.includes(field.attributeKey))?.id ?? "review";
-    const relevantFields = getAuthoringFieldsForContext(stepId, category);
+    const relevantFields = getAuthoringFieldsForContext(stepId, category, guidance);
     if (!relevantFields.some((item) => item.attributeKey === field.attributeKey)) continue;
     const message = input.fieldErrors?.[field.attributeKey];
     if (message) issues.push({ id: `INVALID_VALUE:${field.attributeKey}`, attributeKey: field.attributeKey, stepId, label: field.label, kind: "INVALID_VALUE", severity: "BLOCKING", explanation: message, correction: "Öffne das Feld und korrigiere den markierten Wert.", currentValue: input.answers[field.attributeKey]?.value });
@@ -181,7 +182,7 @@ export function evaluateAuthoringReadiness(input: {
   const uniqueIssues = [...new Map(issues.map((issue) => [issue.id, issue])).values()].sort((left, right) => left.id.localeCompare(right.id));
   const sectionStates = Object.fromEntries(AUTHORING_STEPS.map((step) => {
     if (step.id === "review") return [step.id, "IN_PROGRESS"];
-    const fields = getAuthoringFieldsForContext(step.id, category);
+    const fields = getAuthoringFieldsForContext(step.id, category, guidance);
     if (!fields.length) return [step.id, "NOT_RELEVANT"];
     const stepIssues = uniqueIssues.filter((issue) => issue.stepId === step.id && issue.severity === "BLOCKING");
     if (stepIssues.length) return [step.id, "ERRORS"];
