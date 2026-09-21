@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "backyrd-product-release-request-v1",
+  "releaseClass": "PRODUCTION_RELEASE",
+  "status": "REQUESTED",
+  "canonicalMainBeforeRequest": "3fa8608289b818c637e534704dbef74dfe7d7740",
+  "productChange": {
+    "pullRequest": 341,
+    "candidateSha": "0ef9807d47b8433878fbaa1d29b5158908dc5bbd",
+    "mergeSha": "5fd5d40eed200dcd038939e221e0cd79893bb9dc",
+    "scope": [
+      "REQUESTED_WEEKDAY_OPENING_HOURS",
+      "EXACT_VERIFIED_WEEKDAY_INTERVAL_EXPLANATION",
+      "PRIMARY_VISIT_PURPOSE_WEAKER_THAN_CORE_CATEGORY"
+    ]
+  },
+  "shippedSupabaseBaseline": "0f58077027a2f7bba9ebcf663562201b5bfe1803",
+  "requiredProductionPlan": {
+    "pendingMigrationCount": 0,
+    "deployFunctions": [
+      "decision-v13"
+    ],
+    "mobilePublication": "SEALED_INPUT_DIR_NO_REBUILD"
+  },
+  "semanticChangeInRequest": false,
+  "databaseChangeInRequest": false,
+  "spotFactChangeInRequest": false
+}
