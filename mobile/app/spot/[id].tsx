@@ -38,6 +38,7 @@ import { StateView } from "../../components/foundation/StateView";
 import SharedAvatar from "../../components/Avatar";
 import { backyrdTheme as foundationTheme } from "../../theme/backyrd";
 import { SPOT_OPENING_STATUS_COPY, spotOpeningStatusNow } from "../../lib/spot-opening-status";
+import { getMobileSpotProductProfile, presentSpotProductValue, spotProductLabel, type SpotProductProfile } from "../../lib/spot-product-profile";
 
 import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
 const theme = {
@@ -195,6 +196,7 @@ export default function SpotDetailScreen() {
   const [moodSummary, setMoodSummary] = useState<SpotMoodProfileItem[]>([]);
   const [nearby, setNearby] = useState<any[]>([]);
   const [taxonomyItems, setTaxonomyItems] = useState<MobileSpotTaxonomyItem[]>([]);
+  const [productProfile, setProductProfile] = useState<SpotProductProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [hoursExpanded, setHoursExpanded] = useState(false);
@@ -342,6 +344,7 @@ export default function SpotDetailScreen() {
         { data: revRows },
         { data: hourRows },
         taxonomyRows,
+        worldProfile,
       ] = await Promise.all([
         supabase
           .from("spots")
@@ -380,6 +383,10 @@ export default function SpotDetailScreen() {
         getMobileSpotTaxonomy(String(id), "de").catch((error) => {
           console.log("get_mobile_spot_taxonomy_v1 error", error);
           return [];
+        }),
+        getMobileSpotProductProfile(String(id)).catch((error) => {
+          console.log("spot_detail_product_profile_v1 error", error);
+          return null;
         }),
       ]);
 
@@ -432,6 +439,7 @@ export default function SpotDetailScreen() {
       setReviews(visibleReviews);
 
       setTaxonomyItems(taxonomyRows || []);
+      setProductProfile(worldProfile);
 
       await loadOwnerCtx();
 
@@ -469,6 +477,7 @@ export default function SpotDetailScreen() {
   const openingStatus = useMemo(() => spotOpeningStatusNow(Object.values(hours).flat()), [hours]);
   const openingState = openingStatus === "open" ? "open" : openingStatus === "openingSoon" ? "openingSoon" : openingStatus === "closingSoon" ? "closingSoon" : openingStatus === "unknown" ? "unknown" : "closed";
   const openingUnknown = openingState === "unknown";
+  const canonicalWorldDetail = Boolean(productProfile?.worldManifestHash);
 
   useEffect(() => {
     if (!userId || !id) return;
@@ -714,7 +723,7 @@ export default function SpotDetailScreen() {
                     {SPOT_OPENING_STATUS_COPY[openingStatus]}
                   </Text>
                 </View>
-                {spot.price_level ? <Chip text={priceToSymbols(spot.price_level)} /> : null}
+                {!canonicalWorldDetail && spot.price_level ? <Chip text={priceToSymbols(spot.price_level)} /> : null}
               </View>
 
               <AppText adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={4} role="displayL" style={styles.heroTitle}>{spot.name}</AppText>
@@ -750,23 +759,31 @@ export default function SpotDetailScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.profileSection}>
+          {!canonicalWorldDetail ? <View style={styles.profileSection}>
             <SpotTaxonomyDetails items={taxonomyItems} />
-          </View>
+          </View> : null}
 
-          {taxonomyItems.length > 0 ? (
+          {!canonicalWorldDetail && taxonomyItems.length > 0 ? (
             <View style={styles.compactSection}>
               <AppText role="meta" style={styles.compactLabel}>EIGENSCHAFTEN</AppText>
               <SpotTaxonomyChips items={taxonomyItems} />
             </View>
           ) : null}
 
+          {productProfile?.fields.length ? <View style={styles.section}>
+            <View style={styles.sectionHeader}><SectionTitle>World Knowledge</SectionTitle><View style={styles.sourcePill}><Text style={styles.sourceText}>Bestätigte Angaben</Text></View></View>
+            <View style={styles.infoCard}>{productProfile.fields.map((field,index) => <View style={styles.infoRow} key={`${field.attributeKey}:${field.scope}:${index}`}>
+              <View style={styles.infoIcon}><Feather name="check-circle" size={17} color={theme.colors.greenSoft} /></View>
+              <View style={{flex:1}}><Text style={styles.infoText}>{presentSpotProductValue(field.value)}</Text><Text style={styles.previewMeta}>{spotProductLabel(field.attributeKey)}</Text></View>
+            </View>)}</View>
+          </View> : null}
+
           <View style={styles.section}>
               <View style={styles.sectionHeader}><SectionTitle>So fühlt es sich hier an</SectionTitle></View>
               {moodSummary.length > 0 ? <SpotMoodProfile moods={moodSummary} /> : <StateView appearance="dark" kind="empty" title="Noch keine Stimmung eingefangen." message="Teile nach deinem Besuch deinen Eindruck." />}
             </View>
 
-          <View style={styles.section}>
+          {!canonicalWorldDetail ? <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <SectionTitle>Über diesen Spot</SectionTitle>
               {!!descriptionSourceLabel(descSource) ? (
@@ -786,17 +803,17 @@ export default function SpotDetailScreen() {
                 ) : null}
               </>
             ) : <StateView appearance="dark" kind="empty" title="Noch ohne Geschichte." message="Für diesen Ort gibt es noch keine Beschreibung – die wichtigsten Infos findest du trotzdem hier." />}
-          </View>
+          </View> : null}
 
           <View style={styles.section}>
             <SectionTitle>Info</SectionTitle>
             <View style={styles.infoCard}>
               {spot.address ? <InfoRow icon="map-pin" text={spot.address} /> : null}
-              {spot.phone ? <InfoRow icon="phone" text={spot.phone} color={theme.colors.pinkSoft} onPress={() => {
+              {!canonicalWorldDetail && spot.phone ? <InfoRow icon="phone" text={spot.phone} color={theme.colors.pinkSoft} onPress={() => {
                 if (!decisionOrigin) void trackAnalyticsEvent({ eventName: "spot_phone_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
                 callNumber(spot.phone);
               }} /> : null}
-              {spot.website ? <InfoRow icon="globe" text={spot.website} color={theme.colors.pinkSoft} onPress={() => {
+              {!canonicalWorldDetail && spot.website ? <InfoRow icon="globe" text={spot.website} color={theme.colors.pinkSoft} onPress={() => {
                 if (!decisionOrigin) void trackAnalyticsEvent({ eventName: "spot_website_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
                 openWebsite(spot.website);
               }} /> : null}
@@ -822,7 +839,7 @@ export default function SpotDetailScreen() {
             )}
           </View>
 
-          {Object.keys(hours).length > 0 ? (
+          {!canonicalWorldDetail && Object.keys(hours).length > 0 ? (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <SectionTitle>Heute</SectionTitle>
@@ -862,12 +879,12 @@ export default function SpotDetailScreen() {
                 }) : null}
               </View>
             </View>
-          ) : (
+          ) : !canonicalWorldDetail ? (
             <View style={styles.section}>
               <SectionTitle>Öffnungszeiten</SectionTitle>
               <StateView appearance="dark" kind="empty" title="Noch nicht bekannt" message="Backyrd zeigt keinen Öffnungsstatus, solange keine verlässlichen Zeiten hinterlegt sind." />
             </View>
-          )}
+          ) : null}
 
           {reviews.length > 0 && (
             <View style={styles.section}>

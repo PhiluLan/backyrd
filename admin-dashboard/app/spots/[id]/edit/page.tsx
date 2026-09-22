@@ -7,7 +7,11 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { Spot } from "@/types/spots";
 import { SpotForm } from "../../SpotForm";
-import { GoldAuthoringPanel } from "../../GoldAuthoringPanel";
+import { sessionRecoveringAuthoringClient, WorldProductCorrection } from "@backyrd/world-knowledge-authoring-ui";
+import type { ProductAdminSpotSearch } from "@backyrd/world-knowledge-authoring-ui";
+import "@backyrd/world-knowledge-authoring-ui/styles.css";
+import { authorizedWorldKnowledgePost, authorizedWorldKnowledgeSpotSearch } from "@/lib/worldKnowledgeSession";
+import { WorldAddressPicker } from "../../../world-knowledge/WorldAddressPicker";
 
 type EditSpotPageProps = {
   params: Promise<{ id: string }>;
@@ -22,6 +26,8 @@ interface OpeningHourRow {
   idx: number;
 }
 
+const worldAuthoringClient = sessionRecoveringAuthoringClient(supabase, supabase.auth);
+
 export default function EditSpotPage({ params }: EditSpotPageProps) {
   const router = useRouter();
   const { id: spotId } = React.use(params);
@@ -31,7 +37,6 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [archiveConfirmation, setArchiveConfirmation] = useState(false);
-  const [goldRefresh, setGoldRefresh] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -121,7 +126,7 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
         <div>
           <div className="spot-editor-eyebrow">Spot Management</div>
           <h1>{spot.name || "Spot bearbeiten"}</h1>
-          <p>Stammdaten, Intelligence, Fotos und Öffnungszeiten aktualisieren.</p>
+          <p>Stammdaten und das vollständige World Knowledge an einem Ort pflegen.</p>
         </div>
 
         <div className="spot-editor-actions">
@@ -149,7 +154,8 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
 
       <nav className="spot-editor-tabs" aria-label="Spot-Bereiche">
         <a href="#spot-information">Informationen</a>
-        <a href="#spot-understanding">Backyrd versteht den Spot</a>
+        <a href="#spot-understanding">World Knowledge</a>
+        <Link href="/spots/presentation">Detail-Darstellung</Link>
         <a href="#human-sources">Quellen & Prüfung</a>
         <Link href={`/spots/${spotId}`}>Übersicht</Link>
         <Link href={`/spots/${spotId}/owner`}>Owner</Link>
@@ -178,9 +184,17 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
           ...spot,
           opening_hours: openingHours,
         }}
-        onSaved={() => setGoldRefresh((value) => value + 1)}
+        onSaved={() => router.refresh()}
       /></div>
-      <div id="spot-understanding" className="spot-editor-anchor"><GoldAuthoringPanel spotId={spotId} refreshToken={goldRefresh} /></div>
+      <div id="spot-understanding" className="spot-editor-anchor">
+        <WorldProductCorrection
+          initialSpotId={spotId}
+          client={worldAuthoringClient}
+          search={(query) => authorizedWorldKnowledgeSpotSearch({ auth: supabase.auth, query }) as Promise<ProductAdminSpotSearch>}
+          addressPicker={WorldAddressPicker}
+          rebuild={(id, idempotencyKey) => authorizedWorldKnowledgePost({ auth: supabase.auth, body: { action: "product-rebuild", spotId: id, idempotencyKey } })}
+        />
+      </div>
     </div>
   );
 }

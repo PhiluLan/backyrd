@@ -52,6 +52,7 @@ export type ProductCorrectionProps = {
   rebuild(spotId: string, idempotencyKey: string): Promise<unknown>;
   search?: (query: string) => Promise<ProductAdminSpotSearch>;
   addressPicker?: ComponentType<{ disabled: boolean; onSelect(value: ProductAddressSelection | null): void }>;
+  initialSpotId?: string;
 };
 export type ProductAddressSelection = { addressLine1: string; locality: string; countryCode: string; latitude: number; longitude: number };
 export type ProductAdminSpotSearch = {
@@ -76,6 +77,7 @@ type CatalogBatch = {
   complete: boolean;
 };
 type SearchState = "LOADING" | "RESULTS" | "EMPTY" | "BACKEND_NOT_PUBLISHED" | "FORBIDDEN" | "UNAVAILABLE";
+type PresentationUse = { attributeKey:string; mobileVisible:boolean; webVisible:boolean; publicAllowed:boolean; engineAuthorization:"AUTHORIZED"|"EXPLANATION_ONLY" };
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const errorCode = (error: unknown) => error instanceof Error ? error.message : "";
@@ -115,7 +117,7 @@ const valueLabel = (field: AuthoringField, value: unknown): string => {
 
 /** Product authoring uses the same typed editors as the local Founder workflow,
  * but only server-authorized keys and the Product append-only RPCs. */
-export function WorldProductCorrection({ client, rebuild, search, addressPicker: AddressPicker, FieldEditor }: ProductCorrectionProps & {
+export function WorldProductCorrection({ client, rebuild, search, addressPicker: AddressPicker, initialSpotId, FieldEditor }: ProductCorrectionProps & {
   FieldEditor: ComponentType<ProductFieldInputProps>;
 }) {
   const [spotId, setSpotId] = useState("");
@@ -134,8 +136,10 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
   const [catalogError, setCatalogError] = useState("");
   const [addressSelection, setAddressSelection] = useState<ProductAddressSelection | null>(null);
   const [spotPickerOpen, setSpotPickerOpen] = useState(true);
+  const [presentationUse, setPresentationUse] = useState<Record<string,PresentationUse>>({});
   const searchSequence = useRef(0);
   const loadSequence = useRef(0);
+  const initialSpotLoaded = useRef(false);
 
   const findSpots = useCallback(async (term: string) => {
     if (!search) return;
@@ -173,6 +177,14 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
     setCatalogError("");
   }, [client, search]);
   useEffect(() => { void refreshCoverage(); }, [refreshCoverage]);
+  useEffect(() => {
+    let active = true;
+    void client.rpc<{fields:PresentationUse[]}>("admin_spot_presentation_policy_v1").then(({data,error}) => {
+      if (!active || error || !data || !Array.isArray(data.fields)) return;
+      setPresentationUse(Object.fromEntries(data.fields.map((field) => [field.attributeKey,field])));
+    });
+    return () => { active = false; };
+  }, [client]);
 
   const bootstrapCatalog = async () => {
     if (!coverage?.authoringActive || catalogBusy) return;
@@ -241,6 +253,16 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
       if (sequence === loadSequence.current) setBusy(false);
     }
   };
+  useEffect(() => {
+    if (!initialSpotId || initialSpotLoaded.current) return;
+    initialSpotLoaded.current = true;
+    setSpotPickerOpen(false);
+    void selectSpot(initialSpotId);
+  // The editor intentionally binds once to the route identity. Navigating to a
+  // different spot creates a new page instance rather than silently switching
+  // an in-progress draft.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSpotId]);
   const saveField = async (field: AuthoringField, knowledgeState: string, value: unknown, validUntil?: string) => {
     if (!detail || !detail.actor.allowedAttributeKeys.includes(field.attributeKey)) throw new Error("Dieses Feld ist nicht freigegeben.");
     const validated = validateAuthoringSubmission(field.attributeKey, knowledgeState, value);
@@ -326,12 +348,12 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
   const optionalFields = fields.filter((field) => field.requirementClass === "OPTIONAL");
   const renderFieldGroups = (items: AuthoringField[]) => [...new Set(items.map((field) => field.group))].map((group) =>
     <section className="wk-group" key={group}><h3>{group}</h3>{items.filter((field) => field.group === group).map((field) =>
-      <FieldEditor key={`${detail?.spotId}:${field.attributeKey}`} field={field} answer={detail?.answers[field.attributeKey]}
+      <div className="wk-field-with-usage" key={`${detail?.spotId}:${field.attributeKey}`}><div className="wk-field-usage" aria-label="Verwendung dieser Angabe"><span className="decision">{presentationUse[field.attributeKey]?.engineAuthorization === "EXPLANATION_ONLY" ? "vNext: Erklärung" : "vNext: fachlich nutzbar"}</span><span className={presentationUse[field.attributeKey]?.mobileVisible ? "visible" : "hidden"}>App: {presentationUse[field.attributeKey]?.mobileVisible ? "sichtbar" : "ausgeblendet"}</span><span className={presentationUse[field.attributeKey]?.webVisible ? "visible" : "hidden"}>Browser: {presentationUse[field.attributeKey]?.webVisible ? "sichtbar" : "ausgeblendet"}</span></div><FieldEditor field={field} answer={detail?.answers[field.attributeKey]}
         referenceValue={field.attributeKey === "hours.kitchen" ? detail?.answers["hours.regular"]?.value : undefined}
         disabled={busy}
         disabledReason={busy ? "Ein anderer Spot wird gerade geladen." : undefined}
         onSave={(state, value, until) => saveField(field, state, value, until)}
-        onError={(error) => { if (error) { setMessage(error); setMessageIsError(true); } }} />)}</section>);
+        onError={(error) => { if (error) { setMessage(error); setMessageIsError(true); } }} /></div>)}</section>);
 
   return <div className="wk-app wk-product-app">
     <header className="wk-header">

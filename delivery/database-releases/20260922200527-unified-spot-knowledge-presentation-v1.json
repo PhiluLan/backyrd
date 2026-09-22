@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260922200527-unified-spot-knowledge-presentation-v1",
+  "previousEvidence": "20260922190000-growth-intelligence-cockpit-v2",
+  "previousFingerprints": {
+    "publicAclSha256": "129b7942e0484ac04a865b892ec41aab3b206c3d2add19c04c028338dcb4e7d4",
+    "applicationSchemaSha256": "62a5cc20f6cffb069cff7dc71b58845d801909fc113d8d94618a961641029b3a"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260922200527_unified_spot_knowledge_presentation_v1.sql",
+      "sha256": "49090c335022654e74be75fed4c6db11669691989f7e80336756dd849e9142cb"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/unified_spot_knowledge_presentation_v1.sql",
+      "sha256": "f94da9db8999eda24b3c9561ed1d82c333b79becfaa6c4fe0141019fd6700206"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "82c511b02c28cd19664960169afa9103df8a7a8f7d027bad44e2efaf55b08a20",
+    "applicationSchemaSha256": "66f9be6a15f9dd1960621f302062d8c3285dcd7d74eec11c23b76859641b9e1b"
+  }
+}

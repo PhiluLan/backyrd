@@ -9,17 +9,24 @@ export async function getPublicSpotDetailServer(spotId: string) {
   if (error) return null;
   if (!data) return null;
 
-  const { data: moodProfile, error: moodError } = await client
+  const [{ data: moodProfile, error: moodError }, { data: worldProfile, error: worldError }] = await Promise.all([client
     .from("backyrd_spot_mood_profile_public_v1")
     .select(
       "concept_key,label,canonical_label,concept_contributors,eligible_contributors,percentage,evidence_state,rank",
     )
     .eq("spot_id", spotId)
-    .order("rank", { ascending: true });
+    .order("rank", { ascending: true }), client.rpc("spot_detail_product_profile_v1", { p_spot_id: spotId, p_surface: "WEB" })]);
 
+  // The public detail page remains available while the forward migration is
+  // being applied. Once the governed projection exists it becomes the sole
+  // source for manifested World Knowledge fields; before that, we expose no
+  // World facts rather than turning a valid spot into a 404.
   if (moodError) return null;
   return {
     ...(data as PublicSpotDetailDTO),
     top_moods: moodProfile ?? [],
+    world_profile: worldError
+      ? null
+      : (worldProfile as PublicSpotDetailDTO["world_profile"]),
   } as PublicSpotDetailDTO;
 }
