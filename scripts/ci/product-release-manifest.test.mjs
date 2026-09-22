@@ -91,13 +91,13 @@ test("fully shipped Founder migration risk stays historically bound while pendin
   assert.throws(() => buildProductReleaseManifest({ root, sourceSha: head, outputDir: output, mobileBundle: join(root, "mobile-export"), identity, testEvidence, productionPlan: { ...shippedPlan, pendingMigrations: [newMigration] } }), /release_recovery_risk_acceptance_invalid/);
 });
 
-test("a separately bound additive Admin cockpit migration seals without inheriting the Founder 13-migration authority", () => {
+test("a separately bound additive Growth cockpit migration seals without inheriting the Founder 13-migration authority", () => {
   const { root, base } = fixture();
   put(root, "supabase/production/preapplied-product-migrations-v1.json", `${JSON.stringify({
     version: "backyrd-preapplied-product-migrations-v1", projectRef: "hjgcrrzfjchzqoegcywn", migrations: pendingMigrations,
   })}\n`);
-  const path = "supabase/migrations/20260921182331_create_user_intelligence_admin_cockpit_v1.sql";
-  const source = readFileSync(new URL("../../supabase/migrations/20260921182331_create_user_intelligence_admin_cockpit_v1.sql", import.meta.url), "utf8");
+  const path = "supabase/migrations/20260922183824_create_growth_intelligence_cockpit_v2.sql";
+  const source = readFileSync(new URL("../../supabase/migrations/20260922183824_create_growth_intelligence_cockpit_v2.sql", import.meta.url), "utf8");
   put(root, path, source);
   const newMigration = { path, sha256: hash(source) };
   const authority = JSON.parse(readFileSync(join(root, "delivery/product-authority-v1.json"), "utf8"));
