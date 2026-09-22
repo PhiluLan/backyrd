@@ -36,4 +36,8 @@ test("the interface states uncertainty and direct attribution honestly", () => {
   assert.match(detailPage, /Keine direkt zuordenbare Profiländerung/);
   assert.match(detailPage, /Keine direkte Decision-Zuordnung im Ledger/);
   assert.match(detailPage, /Keine Tokens, Service-Credentials oder rohen Decision-Texte/);
+  assert.match(detailPage, /Noch in Prüfung/);
+  assert.match(detailPage, /Für Ranking freigegeben/);
+  assert.match(detailPage, /Bewusst sichtbar/);
+  assert.match(detailPage, /Lebendes Nutzerbild/);
 });
