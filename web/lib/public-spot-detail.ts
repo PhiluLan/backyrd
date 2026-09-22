@@ -74,6 +74,12 @@ export async function getPublicSpotDetail(
     .select("concept_key,label,canonical_label,concept_contributors,eligible_contributors,percentage,evidence_state,rank")
     .eq("spot_id", spotId)
     .order("rank", { ascending: true }), supabase.rpc("spot_detail_product_profile_v1", { p_spot_id: spotId, p_surface: "WEB" })]);
-  if (moodError || worldError) throw new Error("Spot-Wissen konnte nicht geladen werden.");
-  return { ...(data as PublicSpotDetailDTO), top_moods: moodProfile ?? [], world_profile: worldProfile as PublicSpotDetailDTO["world_profile"] };
+  if (moodError) throw new Error("Spot-Wissen konnte nicht geladen werden.");
+  return {
+    ...(data as PublicSpotDetailDTO),
+    top_moods: moodProfile ?? [],
+    world_profile: worldError
+      ? null
+      : (worldProfile as PublicSpotDetailDTO["world_profile"]),
+  };
 }
