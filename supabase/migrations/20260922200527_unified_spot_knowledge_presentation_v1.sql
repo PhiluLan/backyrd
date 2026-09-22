@@ -182,7 +182,7 @@ begin
     raise exception 'spot_detail_profile_input_invalid' using errcode = '22023';
   end if;
   select jsonb_build_object(
-    'spotId',spot.id,'name',spot.name,'slug',spot.slug,'address',spot.address,
+    'spotId',spot.id,'name',spot.name,'address',spot.address,
     'city',spot.city,'country',spot.country,'categoryId',spot.category_id,
     'headerPhotoPath',spot.header_photo_path
   ) into v_spot
