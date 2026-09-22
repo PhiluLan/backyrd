@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260922190000-growth-intelligence-cockpit-v2",
+  "previousEvidence": "20260922165937-founder-live-product-cockpit-v2",
+  "previousFingerprints": {
+    "publicAclSha256": "e7b318535c2d45c020e299d090bf237af1e865ef2a3b290b62fc1a67ac1d6d87",
+    "applicationSchemaSha256": "c0871310f13e318d8d9588f254b45b0a84227d80c4a68b74ed1f9db3ecd3aefc"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260922183824_create_growth_intelligence_cockpit_v2.sql",
+      "sha256": "741818e3ad2d79e65e37ca6d9dc3d10f89626aa7fed775a73b1662f18063d60f"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/growth_intelligence_cockpit_v2.sql",
+      "sha256": "4a68724b5c5e0bc5eb600557ba2b896268f8c1f9e4ab56522820ed409f68d761"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "129b7942e0484ac04a865b892ec41aab3b206c3d2add19c04c028338dcb4e7d4",
+    "applicationSchemaSha256": "62a5cc20f6cffb069cff7dc71b58845d801909fc113d8d94618a961641029b3a"
+  }
+}
