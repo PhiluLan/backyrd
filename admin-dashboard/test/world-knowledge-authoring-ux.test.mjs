@@ -99,6 +99,8 @@ test("Product World authoring is compact on mobile without hiding rules or optio
     read("packages/world-knowledge-authoring-ui/src/styles.css"),
   ]);
   assert.match(product, /wk-spot-picker/);
+  assert.match(product, /open=\{spotPickerOpen\}/);
+  assert.match(product, /setSpotPickerOpen\(event\.currentTarget\.open\)/);
   assert.match(product, /wk-step-progress/);
   assert.match(product, /Weitere Angaben/);
   assert.match(product, /renderFieldGroups\(optionalFields\)/);
