@@ -1,0 +1,113 @@
+name: Manual Product Artifact Certification
+
+on:
+  workflow_dispatch:
+    inputs:
+      canonical_main_sha:
+        description: Exact canonical Main SHA to certify
+        required: true
+        type: string
+      certification_confirmation:
+        description: Type CERTIFY_PRODUCT_RELEASE
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manual-product-artifact-${{ inputs.canonical_main_sha }}
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    name: Exact canonical Main Product artifact
+    if: inputs.certification_confirmation == 'CERTIFY_PRODUCT_RELEASE'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.canonical_main_sha }}
+      - name: Bind certification to the current canonical Main tip
+        env:
+          CANONICAL_MAIN_SHA: ${{ inputs.canonical_main_sha }}
+        run: |
+          test "$GITHUB_SHA" = "$CANONICAL_MAIN_SHA"
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          test "$(git rev-parse refs/remotes/origin/main)" = "$CANONICAL_MAIN_SHA"
+          test "$(git rev-parse HEAD)" = "$CANONICAL_MAIN_SHA"
+          git diff --quiet
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run decision-vnext:build
+      - run: npm run decision-vnext:single-route
+      - run: npm run product-release:test
+      - run: node --test scripts/ci/verify-edge-deploy-closure.test.mjs
+      - run: npx playwright install chromium
+      - name: Build installed Mobile path
+        working-directory: mobile
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: https://example.invalid
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-public-placeholder-key-000000000000
+        run: npm ci && npx expo export --platform web --output-dir "$RUNNER_TEMP/mobile-web"
+      - name: Test the exact Mobile export
+        env:
+          BACKYRD_PRODUCT_MOBILE_BUNDLE: ${{ runner.temp }}/mobile-web
+        run: npm run product-release:e2e
+      - name: Build the exact Production iOS OTA input
+        working-directory: mobile
+        env:
+          BACKYRD_RELEASE_BUILD: '1'
+          APP_VARIANT: prod
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.PRODUCT_V1_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.PRODUCT_V1_SUPABASE_ANON_KEY }}
+        run: |
+          npm run release:validate
+          npx expo export --platform ios --output-dir "$RUNNER_TEMP/mobile-ios"
+      - name: Seal the tested canonical Main artifact
+        env:
+          SOURCE_SHA: ${{ inputs.canonical_main_sha }}
+        run: |
+          base_sha="$(git rev-parse "$SOURCE_SHA^1")"
+          node scripts/ci/product-release-manifest.mjs evidence --source-sha "$SOURCE_SHA" --output "$RUNNER_TEMP/product-release-tests.json"
+          node scripts/ci/product-release-manifest.mjs build \
+            --mode POST_MERGE_MAIN \
+            --base-sha "$base_sha" \
+            --source-sha "$SOURCE_SHA" \
+            --checkout-sha "$SOURCE_SHA" \
+            --canonical-main-sha "$SOURCE_SHA" \
+            --test-evidence "$RUNNER_TEMP/product-release-tests.json" \
+            --mobile-bundle "$RUNNER_TEMP/mobile-ios" \
+            --output "$RUNNER_TEMP/product-release"
+          node scripts/ci/product-release-manifest.mjs verify \
+            --artifact "$RUNNER_TEMP/product-release" \
+            --expected-source-sha "$SOURCE_SHA" \
+            --expected-mode POST_MERGE_MAIN \
+            --checkout-root "$GITHUB_WORKSPACE"
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3.0.0
+        with:
+          version: 2.98.2
+      - name: Bundle the exact deployment artifact with Supabase Edge Runtime
+        run: |
+          node scripts/ci/verify-edge-deploy-closure.mjs --bundle "$RUNNER_TEMP/product-release/bundle"
+          node scripts/ci/prepare-edge-bundle-harness.mjs --output "$RUNNER_TEMP/edge-bundle-harness"
+          supabase --workdir "$RUNNER_TEMP/edge-bundle-harness" start -x gotrue,realtime,storage-api,imgproxy,mailpit,postgrest,postgres-meta,studio,logflare,vector,supavisor
+          node scripts/ci/verify-edge-runtime-bundle.mjs --bundle "$RUNNER_TEMP/product-release/bundle"
+      - name: Publish immutable manifest identity
+        run: |
+          manifest_hash="$(shasum -a 256 "$RUNNER_TEMP/product-release/manifest.json" | awk '{print $1}')"
+          echo "### Certified Product artifact" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Main: \`${{ inputs.canonical_main_sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Manifest SHA-256: \`$manifest_hash\`" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: backyrd-product-release-${{ inputs.canonical_main_sha }}
+          path: ${{ runner.temp }}/product-release/
+          if-no-files-found: error
+          retention-days: 30
