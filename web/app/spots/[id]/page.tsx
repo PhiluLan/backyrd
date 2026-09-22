@@ -12,6 +12,8 @@ const weekOrder = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "S
 function shortTime(value: string | null) {
   return value ? value.slice(0, 5) : null;
 }
+const worldWord:Record<string,string>={COFFEE_DAYTIME:"Café & Tageszeit",DRINKS:"Getränke",EAT:"Essen",QUIET:"Ruhig",LIVELY:"Lebendig",COZY:"Gemütlich",MORNING:"Vormittag",MIDDAY:"Mittag",AFTERNOON:"Nachmittag",EVENING:"Abend",NIGHT:"Nacht"};
+function presentWorld(value:unknown):string{if(value==null)return "Noch unbekannt";if(typeof value==="boolean")return value?"Ja":"Nein";if(typeof value==="string")return worldWord[value]??value.replaceAll("_"," ").toLocaleLowerCase("de-CH").replace(/^./,(letter)=>letter.toLocaleUpperCase("de-CH"));if(typeof value==="number")return new Intl.NumberFormat("de-CH").format(value);if(Array.isArray(value))return value.map(presentWorld).join(" · ");if(typeof value==="object")return Object.entries(value as Record<string,unknown>).filter(([,item])=>item!=null&&item!=="").map(([key,item])=>`${key.replaceAll("_"," ")}: ${presentWorld(item)}`).join(" · ");return String(value)}
 export async function generateMetadata({
   params,
 }: {
@@ -40,6 +42,8 @@ export default async function SpotDetailPage({
   const data = await getPublicSpotDetailServer(id);
   if (!data?.spot?.id) notFound();
   const spot = data.spot;
+  const canonicalWorldDetail = Boolean(data.world_profile?.worldManifestHash);
+  const publicCategory = data.world_profile?.fields.find((field)=>field.attributeKey==="classification.primary_category");
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
@@ -76,7 +80,7 @@ export default async function SpotDetailPage({
           >
             <div className="b-container" style={{ margin: 0 }}>
               <p className="b-kicker">
-                {spot.category?.name || "Backyrd Spot"} · {spot.city || "Basel"}
+                {publicCategory ? presentWorld(publicCategory.value) : canonicalWorldDetail ? "Backyrd Spot" : spot.category?.name || "Backyrd Spot"} · {spot.city || "Basel"}
               </p>
               <h1
                 className="b-display b-display-lg"
@@ -100,7 +104,7 @@ export default async function SpotDetailPage({
       <div className="b-container b-section">
         <div className="b-spot-detail-grid">
           <section aria-label="Erfahrungen und Eindrücke">
-            {spot.description ? (
+            {!canonicalWorldDetail && spot.description ? (
               <section aria-label="Über diesen Ort">
                 <p className="b-kicker">Über diesen Ort</p>
                 <h2 className="b-section-title" style={{ marginTop: 9 }}>
@@ -134,6 +138,7 @@ export default async function SpotDetailPage({
                 </div>
               </section>
             ) : null}
+            {data.world_profile?.fields.length ? <section style={{marginTop:48}} aria-label="Bestätigtes Spot-Wissen"><p className="b-kicker">World Knowledge</p><h2 className="b-section-title" style={{marginTop:9}}>Was über diesen Ort bestätigt ist.</h2><dl className="b-grid b-grid-2" style={{marginTop:24}}>{data.world_profile.fields.map((field,index)=><div className="b-surface" style={{padding:18}} key={`${field.attributeKey}:${field.scope}:${index}`}><dt className="b-label">{field.attributeKey.replaceAll("."," · ")}</dt><dd style={{margin:"8px 0 0"}}>{presentWorld(field.value)}</dd></div>)}</dl></section>:null}
             {data.photos.length > 1 ? (
               <section style={{ marginTop: 64 }}>
                 <p className="b-kicker">Eindrücke</p>
@@ -230,31 +235,22 @@ export default async function SpotDetailPage({
             >
               <p className="b-kicker">Spot Info</p>
               <dl style={{ display: "grid", gap: 20, marginTop: 24 }}>
-                <div>
+                {!canonicalWorldDetail && spot.website ? (
+                  <div>
+                    <dt className="b-label">Website</dt>
+                    <dd style={{ margin: "6px 0 0" }}><a href={spot.website} target="_blank" rel="noreferrer">Website öffnen ↗</a></dd>
+                  </div>
+                ) : null}
+                {!canonicalWorldDetail && spot.phone ? (
+                  <div><dt className="b-label">Telefon</dt><dd style={{ margin: "6px 0 0" }}><a href={`tel:${spot.phone}`}>{spot.phone}</a></dd></div>
+                ) : null}
+                {!canonicalWorldDetail ? <div>
                   <dt className="b-label">Adresse</dt>
                   <dd style={{ margin: "6px 0 0" }}>
                     {spot.address || "Nicht angegeben"}
                   </dd>
-                </div>
-                {spot.website ? (
-                  <div>
-                    <dt className="b-label">Website</dt>
-                    <dd style={{ margin: "6px 0 0" }}>
-                      <a href={spot.website} target="_blank" rel="noreferrer">
-                        Website öffnen ↗
-                      </a>
-                    </dd>
-                  </div>
-                ) : null}
-                {spot.phone ? (
-                  <div>
-                    <dt className="b-label">Telefon</dt>
-                    <dd style={{ margin: "6px 0 0" }}>
-                      <a href={`tel:${spot.phone}`}>{spot.phone}</a>
-                    </dd>
-                  </div>
-                ) : null}
-                <div>
+                </div> : <div><dt className="b-label">Adresse</dt><dd style={{ margin: "6px 0 0" }}>{spot.address || "Nicht angegeben"}</dd></div>}
+                {!canonicalWorldDetail ? <div>
                   <dt className="b-label">Öffnungszeiten</dt>
                   <dd style={{ margin: "8px 0 0" }}>
                     {data.opening_hours.length ? (
@@ -279,7 +275,7 @@ export default async function SpotDetailPage({
                       <span>Aktuell nicht verlässlich hinterlegt</span>
                     )}
                   </dd>
-                </div>
+                </div> : null}
               </dl>
               <a
                 className="b-button b-button-primary"

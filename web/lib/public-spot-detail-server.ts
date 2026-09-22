@@ -9,17 +9,18 @@ export async function getPublicSpotDetailServer(spotId: string) {
   if (error) return null;
   if (!data) return null;
 
-  const { data: moodProfile, error: moodError } = await client
+  const [{ data: moodProfile, error: moodError }, { data: worldProfile, error: worldError }] = await Promise.all([client
     .from("backyrd_spot_mood_profile_public_v1")
     .select(
       "concept_key,label,canonical_label,concept_contributors,eligible_contributors,percentage,evidence_state,rank",
     )
     .eq("spot_id", spotId)
-    .order("rank", { ascending: true });
+    .order("rank", { ascending: true }), client.rpc("spot_detail_product_profile_v1", { p_spot_id: spotId, p_surface: "WEB" })]);
 
-  if (moodError) return null;
+  if (moodError || worldError) return null;
   return {
     ...(data as PublicSpotDetailDTO),
     top_moods: moodProfile ?? [],
+    world_profile: worldProfile as PublicSpotDetailDTO["world_profile"],
   } as PublicSpotDetailDTO;
 }

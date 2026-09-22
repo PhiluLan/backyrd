@@ -1,6 +1,12 @@
 import { supabase } from "@/lib/supabase/client";
 
 export type PublicSpotDetailDTO = {
+  world_profile?: {
+    contractVersion: "backyrd.spot-detail-product-profile@1.0";
+    surface: "WEB";
+    worldManifestHash: string | null;
+    fields: Array<{ attributeKey:string; sectionKey:string; sortOrder:number; scope:string; knowledgeState:string; value:unknown; trust:string; freshness:string }>;
+  } | null;
   spot: {
     id: string;
     name: string;
@@ -63,11 +69,11 @@ export async function getPublicSpotDetail(
 
   if (error) throw new Error("Spot konnte nicht geladen werden.");
   if (!data) return null;
-  const { data: moodProfile, error: moodError } = await supabase
+  const [{ data: moodProfile, error: moodError }, { data: worldProfile, error: worldError }] = await Promise.all([supabase
     .from("backyrd_spot_mood_profile_public_v1")
     .select("concept_key,label,canonical_label,concept_contributors,eligible_contributors,percentage,evidence_state,rank")
     .eq("spot_id", spotId)
-    .order("rank", { ascending: true });
-  if (moodError) throw new Error("Community-Moods konnten nicht geladen werden.");
-  return { ...(data as PublicSpotDetailDTO), top_moods: moodProfile ?? [] };
+    .order("rank", { ascending: true }), supabase.rpc("spot_detail_product_profile_v1", { p_spot_id: spotId, p_surface: "WEB" })]);
+  if (moodError || worldError) throw new Error("Spot-Wissen konnte nicht geladen werden.");
+  return { ...(data as PublicSpotDetailDTO), top_moods: moodProfile ?? [], world_profile: worldProfile as PublicSpotDetailDTO["world_profile"] };
 }
