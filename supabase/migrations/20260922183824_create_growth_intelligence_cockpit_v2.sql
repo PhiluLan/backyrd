@@ -105,40 +105,58 @@ for each row execute function decision_vnext_private.capture_product_growth_open
 -- Recover only still-present canonical Product records. The inserts remain
 -- consent-gated by trg_analytics_events_consent and are intentionally not a
 -- claim of complete historical telemetry.
+with source as materialized (
+  select r.*,
+    case
+      when pg_catalog.pg_input_is_valid(r.response_envelope_bytes::jsonb#>>'{response,decisionId}','uuid')
+      then (r.response_envelope_bytes::jsonb#>>'{response,decisionId}')::uuid
+      else null
+    end as decision_uuid
+  from decision_vnext_private.product_idempotency_records_v1 r
+  where r.purpose='PRODUCT_DECISION_VNEXT_EVALUATION'
+    and r.response_contract_version='backyrd.decision-vnext.product-response@1.0'
+    and r.response_envelope_bytes::jsonb#>>'{response,status}'='AVAILABLE'
+)
 insert into public.analytics_events(
   user_id,event_name,screen_name,entity_type,entity_id,decision_id,properties,occurred_at
 )
 select r.auth_user_id,'decision_vnext_completed','wohin','decision',
-  (r.response_envelope_bytes::jsonb#>>'{response,decisionId}')::uuid,
-  (r.response_envelope_bytes::jsonb#>>'{response,decisionId}')::uuid,
+  r.decision_uuid,r.decision_uuid,
   pg_catalog.jsonb_build_object(
     'source','sealed_product_ledger_backfill',
     'contract_version',r.response_contract_version,
     'generation',r.generation,
     'candidate_count',pg_catalog.jsonb_array_length(coalesce(r.response_envelope_bytes::jsonb#>'{response,candidates}','[]'::jsonb))
   ),r.created_at
-from decision_vnext_private.product_idempotency_records_v1 r
-where r.purpose='PRODUCT_DECISION_VNEXT_EVALUATION'
-  and r.response_contract_version='backyrd.decision-vnext.product-response@1.0'
-  and r.response_envelope_bytes::jsonb#>>'{response,status}'='AVAILABLE'
+from source r
+where r.decision_uuid is not null
   and not exists (
     select 1 from public.analytics_events e
     where e.user_id=r.auth_user_id and e.event_name='decision_vnext_completed'
-      and e.decision_id=(r.response_envelope_bytes::jsonb#>>'{response,decisionId}')::uuid
+      and e.decision_id=r.decision_uuid
   );
 
+with source as materialized (
+  select l.*,
+    case when pg_catalog.pg_input_is_valid(l.record->>'decisionId','uuid')
+      then (l.record->>'decisionId')::uuid else null end as decision_uuid,
+    case when pg_catalog.pg_input_is_valid(l.record->>'spotId','uuid')
+      then (l.record->>'spotId')::uuid else null end as spot_uuid
+  from decision_vnext_private.product_learning_records_v1 l
+  where l.event_type='candidate_opened'
+)
 insert into public.analytics_events(
   user_id,event_name,screen_name,entity_type,entity_id,spot_id,decision_id,properties,occurred_at
 )
 select l.user_id,'decision_vnext_candidate_opened','wohin','spot',
-  (l.record->>'spotId')::uuid,(l.record->>'spotId')::uuid,(l.record->>'decisionId')::uuid,
+  l.spot_uuid,l.spot_uuid,l.decision_uuid,
   pg_catalog.jsonb_build_object('source','consent_bound_product_interaction_backfill'),l.occurred_at
-from decision_vnext_private.product_learning_records_v1 l
-where l.event_type='candidate_opened'
+from source l
+where l.decision_uuid is not null and l.spot_uuid is not null
   and not exists (
     select 1 from public.analytics_events e
     where e.user_id=l.user_id and e.event_name='decision_vnext_candidate_opened'
-      and e.decision_id=(l.record->>'decisionId')::uuid and e.spot_id=(l.record->>'spotId')::uuid
+      and e.decision_id=l.decision_uuid and e.spot_id=l.spot_uuid
   );
 
 create index if not exists analytics_events_growth_v2_idx

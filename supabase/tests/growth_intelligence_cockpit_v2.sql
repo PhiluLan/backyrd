@@ -20,6 +20,11 @@ select pg_temp.growth_assert(
   has_function_privilege('authenticated','public.admin_growth_intelligence_v2(timestamptz,timestamptz)','execute'),
   'authenticated admin gateway missing'
 );
+select pg_temp.growth_assert(
+  (case when pg_catalog.pg_input_is_valid('decision-59f5d6cc7d562a58d106921165f1de3d','uuid')
+    then 'decision-59f5d6cc7d562a58d106921165f1de3d'::uuid else null end) is null,
+  'historical non-UUID Decision ids must be ignored by the optional backfill'
+);
 
 insert into auth.users(instance_id,id,aud,role,email,encrypted_password,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values
  ('00000000-0000-0000-0000-000000000000','7a000000-0000-4000-8000-000000000001','authenticated','authenticated','growth-admin@invalid','','{}','{}',now()-interval '10 days',now()),

@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { validatePendingMigrationCorrection } from "./validate-pending-migration-correction.mjs";
 
 const SHA256 = /^[0-9a-f]{64}$/;
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024 }).trim();
@@ -46,14 +47,18 @@ export function validateDatabaseRelease({ root, baseSha, headSha, actualPublicAc
     const [status, first, second] = line.split("\t"); return { status, path: second ?? first };
   });
   const newMigrations = changes.filter(({ status, path }) => status === "A" && path.startsWith("supabase/migrations/")).map(({ path }) => path).sort();
+  const migrationMutations = changes.filter(({ status, path }) => status !== "A" && path.startsWith("supabase/migrations/"));
   const changedTests = changes.filter(({ status, path }) => status !== "D" && /^supabase\/tests\/.+\.sql$/.test(path)).map(({ path }) => path).sort();
   const evidenceChanges = changes.filter(({ path }) => /^delivery\/database-releases\/.+\.json$/.test(path));
+  const correction = validatePendingMigrationCorrection({ root, baseSha, headSha, changes });
+  if (migrationMutations.length && (!correction || migrationMutations.some(({ path }) => path !== correction.migration.path))) throw new Error("published_migration_mutation");
   if (evidenceChanges.some(({ status }) => status !== "A")) throw new Error("database_release_evidence_is_immutable");
   if (!newMigrations.length) {
     if (evidenceChanges.length) throw new Error("database_release_without_forward_migration");
     const current = activeDatabaseEvidence(root, headSha).evidence;
     if (current.fingerprints.publicAclSha256 !== actualPublicAcl || current.fingerprints.applicationSchemaSha256 !== actualApplicationSchema) throw new Error("unrecorded_database_semantic_drift");
-    return { schemaVersion: "backyrd-database-release-validation-v1", evidenceId: current.id, newMigrations: [] };
+    return { schemaVersion: "backyrd-database-release-validation-v1", evidenceId: current.id, newMigrations: [],
+      migrationCorrectionId: correction?.id ?? null };
   }
   const previous = activeDatabaseEvidence(root, baseSha);
   if (evidenceChanges.length !== 1) throw new Error("forward_migration_requires_exactly_one_generated_database_release");
