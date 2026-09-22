@@ -39,8 +39,8 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20260922165937_founder_live_product_cockpit_v2.sql",
-        "sha256": "a3cdd90138c9fe5d956484cd5c5660d7debdd072d9322ab3895e2b68ed0abf14"
+        "path": "supabase/migrations/20260922183824_create_growth_intelligence_cockpit_v2.sql",
+        "sha256": "741818e3ad2d79e65e37ca6d9dc3d10f89626aa7fed775a73b1662f18063d60f"
       }
     ],
     "executionAuthorized": false,
