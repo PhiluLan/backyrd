@@ -11,6 +11,11 @@ begin
   perform set_config('request.jwt.claim.sub',p_user::text,true);
   perform set_config('request.jwt.claim.role','authenticated',true);
 end$$;
+create function pg_temp.growth_safe_uuid(p_value text) returns uuid language plpgsql as $$
+begin
+  if not pg_catalog.pg_input_is_valid(p_value,'uuid') then return null; end if;
+  return p_value::uuid;
+end$$;
 
 select pg_temp.growth_assert(
   not has_function_privilege('anon','public.admin_growth_intelligence_v2(timestamptz,timestamptz)','execute'),
@@ -21,8 +26,7 @@ select pg_temp.growth_assert(
   'authenticated admin gateway missing'
 );
 select pg_temp.growth_assert(
-  (case when pg_catalog.pg_input_is_valid('decision-59f5d6cc7d562a58d106921165f1de3d','uuid')
-    then 'decision-59f5d6cc7d562a58d106921165f1de3d'::uuid else null end) is null,
+  pg_temp.growth_safe_uuid('decision-59f5d6cc7d562a58d106921165f1de3d') is null,
   'historical non-UUID Decision ids must be ignored by the optional backfill'
 );
 
