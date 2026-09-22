@@ -321,6 +321,16 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
     setStep(Math.max(0, Math.min(AUTHORING_STEPS.length - 1, index)));
     document.querySelector(".wk-product-app .wk-main")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+  const priorityFields = fields.filter((field) => field.requirementClass !== "OPTIONAL");
+  const optionalFields = fields.filter((field) => field.requirementClass === "OPTIONAL");
+  const renderFieldGroups = (items: AuthoringField[]) => [...new Set(items.map((field) => field.group))].map((group) =>
+    <section className="wk-group" key={group}><h3>{group}</h3>{items.filter((field) => field.group === group).map((field) =>
+      <FieldEditor key={`${detail?.spotId}:${field.attributeKey}`} field={field} answer={detail?.answers[field.attributeKey]}
+        referenceValue={field.attributeKey === "hours.kitchen" ? detail?.answers["hours.regular"]?.value : undefined}
+        disabled={busy}
+        disabledReason={busy ? "Ein anderer Spot wird gerade geladen." : undefined}
+        onSave={(state, value, until) => saveField(field, state, value, until)}
+        onError={(error) => { if (error) { setMessage(error); setMessageIsError(true); } }} />)}</section>);
 
   return <div className="wk-app wk-product-app">
     <header className="wk-header">
@@ -339,6 +349,7 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
       {catalogError && <p role="alert">{catalogError}</p>}
     </details>}
     <div className="wk-layout"><aside className="wk-sidebar">
+      <details className="wk-spot-picker"><summary><span>Spot auswählen</span><strong>{detail?.name ?? "Suche öffnen"}</strong></summary><div className="wk-spot-picker-content">
       {search ? <div className="wk-product-search">
         <form onSubmit={(event) => { event.preventDefault(); void findSpots(query); }}>
           <label>Spot nach Namen suchen<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name oder Ort" aria-label="Spot nach Namen suchen" autoComplete="off" /></label>
@@ -356,7 +367,7 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
           {hasMore && <p>Weitere Spots vorhanden – bitte die Suche verfeinern.</p>}
         </div>}
       </div> : <div className="wk-product-search"><label>Spot-ID<input className="wk-input" value={spotId} onChange={(event) => setSpotId(event.target.value)} /></label>
-        <button type="button" disabled={busy} onClick={() => void selectSpot(spotId)}>Spot laden</button></div>}
+        <button type="button" disabled={busy} onClick={() => void selectSpot(spotId)}>Spot laden</button></div>}</div></details>
       {detail && <nav aria-label="Bereiche der Spot-Pflege">{AUTHORING_STEPS.map((item, index) => {
         const sectionFields = item.attributeKeys.filter((key) => detail.actor.allowedAttributeKeys.includes(key));
         const completed = sectionFields.filter((key) => detail.answers[key]).length;
@@ -366,7 +377,7 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
       })}</nav>}
     </aside>
     <main className="wk-main">{!detail ? <section className="wk-panel"><h2>Spot auswählen</h2><p>Suche links nach einem freigegebenen Spot. Anschließend kannst du alle für deine Rolle freigegebenen Angaben direkt und ohne JSON-Eingabe pflegen.</p></section>
-      : <section className="wk-panel"><div className="wk-step-title"><span>Bereich {step + 1} von {AUTHORING_STEPS.length} · {fields.filter((field) => detail.answers[field.attributeKey]).length} von {fields.length} Angaben gespeichert</span><h2>{current.title}</h2><p>{current.explanation}</p>
+      : <section className="wk-panel"><div className="wk-step-progress" aria-label={`Bereich ${step + 1} von ${AUTHORING_STEPS.length}`}><span style={{ width: `${((step + 1) / AUTHORING_STEPS.length) * 100}%` }} /></div><div className="wk-step-title"><span>Bereich {step + 1} von {AUTHORING_STEPS.length} · {fields.filter((field) => detail.answers[field.attributeKey]).length} von {fields.length} Angaben gespeichert</span><h2>{current.title}</h2><p>{current.explanation}</p>
         {detail.actor.role === "ADMIN" && <p>Ein übernommenes Basisprofil ersetzt keine fachliche Prüfung. Ergänze insbesondere Hauptzweck, Kategorie, Besuchssituation, Öffnung und Zugänglichkeit nur mit belegten Angaben.</p>}</div>
         {reviewNotices > 0 && <div className="wk-note"><strong>{reviewNotices} offene {reviewNotices === 1 ? "Prüfnotiz" : "Prüfnotizen"}</strong>
           <p>Diese Notizen stammen aus der Claim-Prüfung und sperren die Spot-Pflege nicht. Du kannst eine Angabe korrigieren; maßgeblich ist der aktuelle World-Reader.</p>
@@ -388,14 +399,7 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
             })}</div></section>
           <section className="wk-note"><strong>{detail.manifest ? "Datenvorschau vorhanden" : "Noch keine Datenvorschau"}</strong>
             <p>{detail.manifest ? "Gespeicherte Änderungen werden nach jedem Speichern über den kanonischen Reader geprüft." : "Speichere eine Angabe. Danach wird der Spot automatisch neu aufgebaut und geprüft."}</p></section>
-        </div> : fields.length ? <div className="wk-fields">{[...new Set(fields.map((field) => field.group))].map((group) =>
-          <section className="wk-group" key={group}><h3>{group}</h3>{fields.filter((field) => field.group === group).map((field) =>
-            <FieldEditor key={`${detail.spotId}:${field.attributeKey}`} field={field} answer={detail.answers[field.attributeKey]}
-              referenceValue={field.attributeKey === "hours.kitchen" ? detail.answers["hours.regular"]?.value : undefined}
-              disabled={busy}
-              disabledReason={busy ? "Ein anderer Spot wird gerade geladen." : undefined}
-              onSave={(state, value, until) => saveField(field, state, value, until)}
-              onError={(error) => { if (error) { setMessage(error); setMessageIsError(true); } }} />)}</section>)}</div>
+        </div> : fields.length ? <div className="wk-fields">{renderFieldGroups(priorityFields)}{optionalFields.length > 0 && <details className="wk-optional-fields"><summary><span><strong>Weitere Angaben</strong><small>{optionalFields.filter((field) => detail.answers[field.attributeKey]).length} von {optionalFields.length} optionalen Angaben gespeichert</small></span><b>{optionalFields.length}</b></summary><div>{renderFieldGroups(optionalFields)}</div></details>}</div>
           : <div className="wk-note"><strong>Für diesen Spot keine bearbeitbaren Angaben in diesem Bereich.</strong><p>Du kannst zum nächsten Bereich wechseln.</p></div>}
         <footer className="wk-footer"><button type="button" className="wk-secondary" disabled={step === 0} onClick={() => goToStep(step - 1)}>Zurück</button>
           <span>Jede Änderung wird einzeln gespeichert und danach im World-Reader geprüft.</span>

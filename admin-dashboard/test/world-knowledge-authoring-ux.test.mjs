@@ -92,6 +92,29 @@ test("product context, special hours and temporary state have low-friction, trut
   assert.match(product, /Angaben gespeichert/);
 });
 
+test("Product World authoring is compact on mobile without hiding rules or optional knowledge", async () => {
+  const [editor, product, styles] = await Promise.all([
+    read("packages/world-knowledge-authoring-ui/src/index.tsx"),
+    read("packages/world-knowledge-authoring-ui/src/ProductCorrection.tsx"),
+    read("packages/world-knowledge-authoring-ui/src/styles.css"),
+  ]);
+  assert.match(product, /wk-spot-picker/);
+  assert.match(product, /wk-step-progress/);
+  assert.match(product, /Weitere Angaben/);
+  assert.match(product, /renderFieldGroups\(optionalFields\)/);
+  assert.match(styles, /wk-spot-picker:not\(\[open\]\) \.wk-spot-picker-content/);
+  assert.match(styles, /wk-optional-fields/);
+  assert.match(editor, /Zeiten und Ausnahmen \(optional\)/);
+});
+
+test("an empty minimum-age field saves the explicit no-restriction contract", async () => {
+  const editor = await read("packages/world-knowledge-authoring-ui/src/index.tsx");
+  assert.match(editor, /control === "AGE_ACCESS_RULE_V2"[\s\S]*?\{ rules: \[blankAgeRule\(\)\] \}/);
+  assert.match(editor, /control === "AGE_ACCESS_RULE"[\s\S]*?\{ policy: "ALL_AGES", minimumAge: null, appliesFromTime: null \}/);
+  assert.match(editor, /Keine Altersbeschränkung/);
+  assert.match(editor, /Diese Auswahl wird ausdrücklich als „keine Mindestalter-Regel“ gespeichert/);
+});
+
 test("older empty context encodings remain visibly selected without erasing real conditions", async () => {
   const source = await read("packages/world-knowledge-authoring-ui/src/context-choice.ts");
   const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 } }).outputText;
