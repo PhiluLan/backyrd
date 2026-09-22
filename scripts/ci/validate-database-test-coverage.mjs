@@ -5,6 +5,7 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isAuthorizedBoundedMigration, isDestructiveMigration } from "./classify-change.mjs";
+import { validatePendingMigrationCorrection } from "./validate-pending-migration-correction.mjs";
 
 const git = (root, args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 50 * 1024 * 1024 }).trim();
 const gitBlob = (root, revisionPath) => execFileSync("git", ["show", revisionPath], {
@@ -21,8 +22,11 @@ export function validateDatabaseTestCoverage({ root, baseSha, headSha }) {
   });
   const newMigrations = changes.filter(({ status, path }) => status === "A" && path.startsWith("supabase/migrations/")).map(({ path }) => path);
   const migrationMutations = changes.filter(({ status, path }) => status !== "A" && path.startsWith("supabase/migrations/"));
-  if (migrationMutations.length) throw new Error(`published_migration_mutation:${migrationMutations.map(({ path }) => path).join(",")}`);
-  const newMigrationSources = newMigrations.map((path) => ({ path, text: gitBlob(root, `${headSha}:${path}`) }));
+  const correction = validatePendingMigrationCorrection({ root, baseSha, headSha, changes });
+  const correctedPaths = new Set(correction ? [correction.migration.path] : []);
+  const unauthorizedMutations = migrationMutations.filter(({ path }) => !correctedPaths.has(path));
+  if (unauthorizedMutations.length) throw new Error(`published_migration_mutation:${unauthorizedMutations.map(({ path }) => path).join(",")}`);
+  const newMigrationSources = [...newMigrations, ...correctedPaths].map((path) => ({ path, text: gitBlob(root, `${headSha}:${path}`) }));
   const newMigrationSource = newMigrationSources.map(({ text }) => text).join("\n");
   let trustAnchor = {};
   try {
@@ -36,14 +40,14 @@ export function validateDatabaseTestCoverage({ root, baseSha, headSha }) {
   const changedTests = changes.filter(({ status, path }) => status !== "D" && /^supabase\/tests\/.+\.sql$/.test(path)).map(({ path }) => path).sort();
   const authorizationFiles = changes.filter(({ path }) => ["supabase/canonical/auth_hooks.sql", "supabase/canonical/storage.sql"].includes(path));
   const authorizationBoundary = authorizationFiles.length > 0 || securityPattern.test(newMigrationSource);
-  if (newMigrations.length && !changedTests.length) throw new Error("forward_migration_requires_changed_sql_acceptance_test");
+  if ((newMigrations.length || correctedPaths.size) && !changedTests.length) throw new Error("forward_migration_requires_changed_sql_acceptance_test");
   if (authorizationBoundary && !changedTests.length) throw new Error("authorization_change_requires_changed_sql_acceptance_test");
   if (authorizationBoundary) {
     const tests = changedTests.map((path) => git(root, ["show", `${headSha}:${path}`])).join("\n");
     if (!/^--\s*backyrd:authorization-positive\s*$/im.test(tests)) throw new Error("authorization_positive_marker_missing");
     if (!/^--\s*backyrd:authorization-negative\s*$/im.test(tests)) throw new Error("authorization_negative_marker_missing");
   }
-  return { schemaVersion: "backyrd-database-test-plan-v1", newMigrations, authorizationBoundary, changedTests };
+  return { schemaVersion: "backyrd-database-test-plan-v1", newMigrations, correctedMigrations: [...correctedPaths], authorizationBoundary, changedTests };
 }
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((items, value, index, values) => {

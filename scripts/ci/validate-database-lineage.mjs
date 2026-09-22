@@ -5,6 +5,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { validatePendingMigrationCorrection } from "./validate-pending-migration-correction.mjs";
 
 const migrationPattern = /^(\d{14})_([a-z0-9_]+)\.sql$/;
 
@@ -118,6 +119,7 @@ export function validateBaseDiff(root, baseSha, manifest) {
     { encoding: "utf8" },
   ).trim();
   if (!output) return;
+  const correction = validatePendingMigrationCorrection({ root, baseSha, headSha: "HEAD" });
 
   const allowedHistorical = new Set(manifest.production_aliases.map((alias) => alias.production_filename));
   const baseNames = execFileSync(
@@ -129,6 +131,7 @@ export function validateBaseDiff(root, baseSha, manifest) {
 
   for (const line of output.split("\n")) {
     const [status, path] = line.split("\t");
+    if (status === "M" && path === correction?.migration.path) continue;
     invariant(status === "A", `historical migration changed or removed relative to base: ${line}`);
     const filename = path.split("/").at(-1);
     const version = filename.match(migrationPattern)?.[1];

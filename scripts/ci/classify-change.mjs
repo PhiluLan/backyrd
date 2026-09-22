@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveChangeContext } from "./resolve-change-context.mjs";
+import { validatePendingMigrationCorrection } from "./validate-pending-migration-correction.mjs";
 
 const git = (root, args) => execFileSync("git", args, {
   cwd: root,
@@ -142,7 +143,12 @@ export function classifyChange({ root, context, policy }) {
   const protectedDecisionPaths = new Set(trustAnchor.protectedSemanticSourceSet?.paths ?? []);
   const newMigrations = changes.filter(({ status, path }) => status === "A" && path.startsWith("supabase/migrations/"));
   const migrationMutations = changes.filter(({ status, path }) => status !== "A" && path.startsWith("supabase/migrations/"));
-  const migrationTexts = newMigrations.map(({ path }) => ({ path, text: gitBlob(root, `${context.headSha}:${path}`) }));
+  let migrationCorrection = null;
+  try { migrationCorrection = validatePendingMigrationCorrection({ root, baseSha: context.baseSha, headSha: context.headSha, changes }); } catch { /* surfaced below */ }
+  const correctedMigrationPaths = new Set(migrationCorrection ? [migrationCorrection.migration.path] : []);
+  const unauthorizedMigrationMutations = migrationMutations.filter(({ path }) => !correctedMigrationPaths.has(path));
+  const migrationTexts = [...newMigrations, ...migrationMutations.filter(({ path }) => correctedMigrationPaths.has(path))]
+    .map(({ path }) => ({ path, text: gitBlob(root, `${context.headSha}:${path}`) }));
   const migrationText = migrationTexts.map(({ text }) => text).join("\n");
   const productRuntimeMigration = migrationTexts.some(({ text }) =>
     /\b(?:create(?:\s+or\s+replace)?|alter|drop)\s+function\s+public\.backyrd_decision_vnext_product_/i.test(text));
@@ -193,7 +199,7 @@ export function classifyChange({ root, context, policy }) {
     deliveryControl: changedFiles.some((path) => startsWithAny(path, policy.deliveryControlPrefixes)),
     releaseEvidence: changedFiles.some((path) => startsWithAny(path, policy.releaseEvidencePrefixes)),
     destructive: migrationTexts.some(({ path, text }) => isDestructiveMigration(text) && !isAuthorizedBoundedMigration(path, text, trustAnchor)),
-    migrationMutation: migrationMutations.length > 0,
+    migrationMutation: unauthorizedMigrationMutations.length > 0,
   };
   const classes = [
     ...(flags.mobile ? ["mobile"] : []),
@@ -230,6 +236,8 @@ export function classifyChange({ root, context, policy }) {
     flags,
     newMigrations: newMigrations.map(({ path }) => path).sort(),
     migrationMutations: migrationMutations.map(({ status, path }) => ({ status, path })),
+    migrationCorrection: migrationCorrection ? { id: migrationCorrection.id, path: migrationCorrection.path,
+      migration: migrationCorrection.migration } : null,
     requiredGates: unique([
       "repository-security",
       ...(flags.mobile ? ["mobile"] : []),

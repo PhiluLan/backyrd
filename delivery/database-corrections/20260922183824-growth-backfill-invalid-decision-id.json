@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "backyrd-database-migration-correction-v1",
+  "id": "20260922183824-growth-backfill-invalid-decision-id",
+  "projectRef": "hjgcrrzfjchzqoegcywn",
+  "failedCanonicalMainSha": "2359fa77638bfab1aa467d549df72071b1f1e198",
+  "failedDeploymentRunId": 35771311354,
+  "failureStage": "TRANSACTION_ROLLED_BACK",
+  "productionEffect": "NONE_MIGRATION_NOT_RECORDED",
+  "rootCauseCode": "HISTORICAL_DECISION_ID_NOT_UUID",
+  "migration": {
+    "path": "supabase/migrations/20260922183824_create_growth_intelligence_cockpit_v2.sql",
+    "previousSha256": "741818e3ad2d79e65e37ca6d9dc3d10f89626aa7fed775a73b1662f18063d60f",
+    "correctedSha256": "a87ed1583e08d9595a2b6b996ae12d655d68e1341a2d87cc6dbab75ac7fd6031"
+  },
+  "test": {
+    "path": "supabase/tests/growth_intelligence_cockpit_v2.sql",
+    "sha256": "1e91693cd6eebeb1b49b2f5c37b21e2ca7842cd2b6cceb2afe1c6de478652a43"
+  }
+}
