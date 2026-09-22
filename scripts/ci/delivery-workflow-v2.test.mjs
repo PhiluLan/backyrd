@@ -35,6 +35,17 @@ test("current Product system recertification is isolated from pull requests", ()
   assert.match(workflow, /Production release is blocked/);
 });
 
+test("manual Product artifact certification is canonical-main-only and does not deploy", () => {
+  const workflow = read(".github/workflows/manual-product-artifact-certification.yml");
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /CERTIFY_PRODUCT_RELEASE/);
+  assert.match(workflow, /refs\/remotes\/origin\/main/);
+  assert.match(workflow, /POST_MERGE_MAIN/);
+  assert.match(workflow, /backyrd-product-release-/);
+  assert.doesNotMatch(workflow, /supabase\s+(?:db push|functions deploy)/);
+  assert.doesNotMatch(workflow, /eas\s+update/);
+});
+
 test("Production release is manual-only", () => {
   const workflow = read(".github/workflows/supabase-production.yml");
   const trigger = workflow.slice(workflow.indexOf("on:"), workflow.indexOf("permissions:"));
