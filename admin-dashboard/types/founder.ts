@@ -180,6 +180,84 @@ export type FounderOverview = {
   last_updated: string;
 };
 
+export type FounderLiveProductOverview = {
+  contractVersion: "backyrd.founder-live-product-overview@2.0";
+  generatedAt: string;
+  freshForSeconds: number;
+  product: {
+    effectiveState: "ON" | "OFF";
+    recordedState: "ON" | "OFF";
+    killSwitchEngaged: boolean;
+    generation: number;
+    route: "decision-v13";
+    engine: "DECISION_VNEXT_PRODUCT_V1";
+    singleRoute: true;
+    legacyFallback: false;
+    releaseHash: string | null;
+    artifactHash: string | null;
+    sourceSetHash: string | null;
+    authorityVersion: string | null;
+    authorityExpiresAt: string | null;
+    reasonCode: string;
+    changedAt: string;
+  };
+  activity: {
+    measurementWindowHours: 24;
+    successfulDecisions24h: number;
+    activeDecisionUsers24h: number;
+    zeroResultDecisions24h: number;
+    zeroResultRate24h: number | null;
+    personalizedDecisions24h: number;
+    lastSuccessfulDecisionAt: string | null;
+    lastCurrentBindingSuccessAt: string | null;
+    errorTelemetry: {
+      status: "NOT_CANONICALLY_AVAILABLE";
+      count24h: null;
+      rate24h: null;
+      explanation: string;
+    };
+  };
+  world: {
+    approvedSpots: number;
+    approvedBaselSpots: number;
+    spotsWithClaims: number;
+    spotsWithCanonicalSnapshot: number;
+    spotsWithoutCanonicalSnapshot: number;
+    snapshotCoveragePercent: number;
+    openReviewItems: number;
+    failedRebuilds: number;
+    lastCanonicalRebuildAt: string | null;
+    adminAuthoringActive: boolean;
+  };
+  users: {
+    registeredUsers: number;
+    consentedUsers: number;
+    usersWithIntelligenceProfile: number;
+    learningEvents24h: number;
+    learningEvents7d: number;
+    lastLearningEventAt: string | null;
+  };
+  trust: FounderOverview["trust_health"];
+  attention: Array<{
+    severity: "CRITICAL" | "WARNING" | "INFO";
+    code: string;
+    title: string;
+    detail: string;
+  }>;
+  privacy: {
+    aggregateOnly: true;
+    rawDecisionTextIncluded: false;
+    userIdentityIncluded: false;
+    serviceCredentialsIncluded: false;
+    adminAuthorityRequired: true;
+  };
+  history: {
+    launchReadinessArchived: true;
+    path: "/founder/launch-readiness";
+    explanation: string;
+  };
+};
+
 export type EngineeringPullRequest = {
   number: number;
   title: string;
