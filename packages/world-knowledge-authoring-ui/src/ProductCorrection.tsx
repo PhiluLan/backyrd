@@ -133,6 +133,7 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
   const [catalogProgress, setCatalogProgress] = useState(0);
   const [catalogError, setCatalogError] = useState("");
   const [addressSelection, setAddressSelection] = useState<ProductAddressSelection | null>(null);
+  const [spotPickerOpen, setSpotPickerOpen] = useState(true);
   const searchSequence = useRef(0);
   const loadSequence = useRef(0);
 
@@ -349,7 +350,7 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
       {catalogError && <p role="alert">{catalogError}</p>}
     </details>}
     <div className="wk-layout"><aside className="wk-sidebar">
-      <details className="wk-spot-picker"><summary><span>Spot auswählen</span><strong>{detail?.name ?? "Suche öffnen"}</strong></summary><div className="wk-spot-picker-content">
+      <details className="wk-spot-picker" open={spotPickerOpen} onToggle={(event) => setSpotPickerOpen(event.currentTarget.open)}><summary><span>Spot auswählen</span><strong>{detail?.name ?? "Suche öffnen"}</strong></summary><div className="wk-spot-picker-content">
       {search ? <div className="wk-product-search">
         <form onSubmit={(event) => { event.preventDefault(); void findSpots(query); }}>
           <label>Spot nach Namen suchen<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name oder Ort" aria-label="Spot nach Namen suchen" autoComplete="off" /></label>
