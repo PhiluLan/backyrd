@@ -85,8 +85,10 @@ jobs:
             --test-evidence "$RUNNER_TEMP/product-release-tests.json" \
             --mobile-bundle "$RUNNER_TEMP/mobile-ios" \
             --output "$RUNNER_TEMP/product-release"
+          manifest_hash="$(jq -r '.manifestHash' "$RUNNER_TEMP/product-release/release-manifest.json")"
           node scripts/ci/product-release-manifest.mjs verify \
             --artifact "$RUNNER_TEMP/product-release" \
+            --expected-hash "$manifest_hash" \
             --expected-source-sha "$SOURCE_SHA" \
             --expected-mode POST_MERGE_MAIN \
             --checkout-root "$GITHUB_WORKSPACE"
@@ -101,7 +103,7 @@ jobs:
           node scripts/ci/verify-edge-runtime-bundle.mjs --bundle "$RUNNER_TEMP/product-release/bundle"
       - name: Publish immutable manifest identity
         run: |
-          manifest_hash="$(shasum -a 256 "$RUNNER_TEMP/product-release/manifest.json" | awk '{print $1}')"
+          manifest_hash="$(jq -r '.manifestHash' "$RUNNER_TEMP/product-release/release-manifest.json")"
           echo "### Certified Product artifact" >> "$GITHUB_STEP_SUMMARY"
           echo "- Main: \`${{ inputs.canonical_main_sha }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Manifest SHA-256: \`$manifest_hash\`" >> "$GITHUB_STEP_SUMMARY"

@@ -42,6 +42,8 @@ test("manual Product artifact certification is canonical-main-only and does not 
   assert.match(workflow, /refs\/remotes\/origin\/main/);
   assert.match(workflow, /POST_MERGE_MAIN/);
   assert.match(workflow, /backyrd-product-release-/);
+  assert.match(workflow, /--expected-hash "\$manifest_hash"/);
+  assert.match(workflow, /release-manifest\.json/);
   assert.doesNotMatch(workflow, /supabase\s+(?:db push|functions deploy)/);
   assert.doesNotMatch(workflow, /eas\s+update/);
 });
