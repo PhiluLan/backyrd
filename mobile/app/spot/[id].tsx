@@ -38,7 +38,7 @@ import { StateView } from "../../components/foundation/StateView";
 import SharedAvatar from "../../components/Avatar";
 import { backyrdTheme as foundationTheme } from "../../theme/backyrd";
 import { SPOT_OPENING_STATUS_COPY, spotOpeningStatusNow } from "../../lib/spot-opening-status";
-import { getMobileSpotProductProfile, presentSpotProductValue, spotProductLabel, type SpotProductProfile } from "../../lib/spot-product-profile";
+import { getMobileSpotProductProfile, presentSpotProductValue, spotProductLabel, spotProductOpeningHours, type SpotProductProfile } from "../../lib/spot-product-profile";
 
 import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
 const theme = {
@@ -401,7 +401,18 @@ export default function SpotDetailScreen() {
         }]
         : [];
 
-      setSpot(spotRow);
+      const canonicalSpot = worldProfile?.worldManifestHash && worldProfile.spot.source === "WORLD_KNOWLEDGE"
+        ? {
+          ...spotRow,
+          name: worldProfile.spot.name,
+          address: worldProfile.spot.addressLine1,
+          city: worldProfile.spot.locality,
+          lat: worldProfile.spot.latitude,
+          lng: worldProfile.spot.longitude,
+          header_photo_path: worldProfile.spot.headerPhotoPath ?? spotRow?.header_photo_path ?? null,
+        }
+        : spotRow;
+      setSpot(canonicalSpot);
       setPhotos(canonicalPhotos);
 
       const rawReviews = revRows || [];
@@ -444,7 +455,10 @@ export default function SpotDetailScreen() {
       await loadOwnerCtx();
 
       const grouped: Record<string, any[]> = {};
-      (hourRows || []).forEach((h: any) => {
+      const effectiveHourRows = worldProfile?.worldManifestHash
+        ? spotProductOpeningHours(worldProfile)
+        : (hourRows || []);
+      effectiveHourRows.forEach((h: any) => {
         if (!grouped[h.day_of_week]) grouped[h.day_of_week] = [];
         grouped[h.day_of_week].push(h);
       });
@@ -839,7 +853,7 @@ export default function SpotDetailScreen() {
             )}
           </View>
 
-          {!canonicalWorldDetail && Object.keys(hours).length > 0 ? (
+          {Object.keys(hours).length > 0 ? (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <SectionTitle>Heute</SectionTitle>

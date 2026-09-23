@@ -16,6 +16,7 @@ const spotDetail = read("app/spot/[id].tsx");
 const homeEvents = read("components/events/HomeEventsSection.tsx");
 const eventDiscovery = read("lib/events-v1.ts");
 const spotOpeningStatus = read("lib/spot-opening-status.ts");
+const spotProductProfile = read("lib/spot-product-profile.ts");
 const productDecision = read("lib/decision/productDecision.ts");
 const supabaseClient = read("lib/supabase.ts");
 const userFacingError = read("lib/userFacingError.ts");
@@ -107,6 +108,10 @@ assert.doesNotMatch(`${decision}\n${tabs}`, /decision-debug/, "retired Decision 
 assert.match(config, /checkAutomatically: "ON_LOAD"/);
 assert.match(config, /BACKYRD_RELEASE_BUILD/);
 assert.match(spotDetail, /spotOpeningStatusNow/, "Spot Detail must use the canonical opening-hours presentation helper");
+assert.match(spotDetail, /spotProductOpeningHours\(worldProfile\)/, "Spot Detail must derive hours from the manifested World profile");
+assert.match(spotDetail, /worldProfile\.spot\.name/, "Spot Detail must derive its displayed identity from World Knowledge");
+assert.match(spotProductProfile, /source: "WORLD_KNOWLEDGE" \| "LEGACY_COMPATIBILITY"/, "Spot profile source must be explicit");
+assert.match(spotProductProfile, /profile\.spot\.source !== "WORLD_KNOWLEDGE"/, "legacy data must not be mixed into a manifested World schedule");
 assert.match(spotOpeningStatus, /unknown: "Öffnungszeiten unbekannt"/, "missing hours must not be presented as closed");
 assert.match(spotDetail, /Backyrd zeigt keinen Öffnungsstatus/, "hours uncertainty must be explicit");
 assert.match(spotDetail, /SPOT_OPENING_STATUS_COPY/, "Spot Detail must use canonical opening-status copy");
