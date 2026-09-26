@@ -2,6 +2,7 @@ import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { createWorldResearchBatch, parseWorldResearchBatch, type WorldResearchClaim } from "@backyrd/world-knowledge-core";
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
+import { locationBinding, lookupLocations, signLocation, verifyLocation } from "@/lib/server/researchLocation.mjs";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const noStore = { "cache-control": "no-store" };
@@ -12,7 +13,8 @@ type Detail = {
   manifest?: null | { manifestHash?: string; worldSnapshot?: { spotId?: string } };
 };
 type Accepted = { spotId: string; manifestHash: string; claim: WorldResearchClaim };
-type SpotReport = { spotId: string; name: string; ready: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; manifestHash?: string };
+type LocationCandidate = { placeId: string; name: string; address: string; latitude: number; longitude: number; token: string; exact: boolean };
+type SpotReport = { spotId: string; name: string; ready: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; manifestHash?: string; location?: { message: string; candidates: LocationCandidate[]; automatic: string | null } };
 
 const same = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right);
 const message = (cause: unknown) => cause instanceof Error ? cause.message : "world_research_action_failed";
@@ -33,7 +35,7 @@ export async function POST(request: Request) {
     if (detail.spotId !== spotId || detail.status !== "approved" || detail.actor?.role !== "ADMIN" || !detail.answers || !detail.manifest?.manifestHash) throw new Error("world_research_spot_binding_invalid");
     return detail;
   };
-  const body = await request.json().catch(() => null) as null | { action?: string; spotIds?: unknown; document?: unknown };
+  const body = await request.json().catch(() => null) as null | { action?: string; spotIds?: unknown; document?: unknown; locations?: Record<string, string> };
 
   try {
     if (body?.action === "export") {
@@ -74,6 +76,43 @@ export async function POST(request: Request) {
         }
         accepted.push({ spotId: exported.spotId, manifestHash: exported.manifestHash, claim });
         report.ready.push(claim.attributeKey);
+      }
+      const addressClaim = document.validatedClaims.get(exported.spotId)?.find((claim) => claim.attributeKey === "location.address_line1");
+      // Only the address that can actually be accepted is eligible for lookup.
+      if (addressClaim && !report.conflicts.includes("location.address_line1")) {
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        const expectedValue = (key: string) => detail.answers?.[key]?.value ?? document.validatedClaims.get(exported.spotId)?.find((claim) => claim.attributeKey === key)?.value;
+        const binding = locationBinding(body.document, exported.spotId, authorization.userId);
+        if (body.action === "preview") {
+          try {
+            if (["location.latitude", "location.longitude"].some((key) => detail.answers?.[key] || document.validatedClaims.get(exported.spotId)?.some((claim) => claim.attributeKey === key))) throw new Error("Koordinaten sind bereits vorhanden oder Teil der Recherche. Keine automatische Ersetzung; Änderungen bitte im Spot-Editor prüfen.");
+            if (!serviceKey) throw new Error("Standortabgleich ist noch nicht konfiguriert.");
+            const service = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+            const stored = await service.from("spots").select("google_place_id,lat,lng").eq("id", exported.spotId).single();
+            if (stored.error) throw new Error("Bestehende Google-Zuordnung konnte nicht geprüft werden.");
+            const found = await lookupLocations({ name: detail.name, address: addressClaim.value, locality: expectedValue("location.locality"), country: expectedValue("location.country_code") }, stored.data.google_place_id, process.env.GOOGLE_PLACES_API_KEY);
+            if (found.automatic && found.candidates.some((candidate) =>
+              (stored.data.lat != null && Math.abs(Number(stored.data.lat) - candidate.latitude) > 0.00001)
+              || (stored.data.lng != null && Math.abs(Number(stored.data.lng) - candidate.longitude) > 0.00001))) found.automatic = null;
+            report.location = { message: found.automatic ? "Name, Adresse und Ort stimmen überein. Koordinaten zur Übernahme ausgewählt." : found.candidates.length ? "Bitte Google-Treffer mit dem recherchierten Spot vergleichen und ausdrücklich auswählen." : "Kein Google-Treffer gefunden. Koordinaten bleiben unverändert.",
+              automatic: found.automatic, candidates: found.candidates.map((candidate) => ({ ...candidate, token: signLocation(candidate, binding, serviceKey) })) };
+          } catch (cause) { report.location = { message: message(cause), candidates: [], automatic: null }; }
+        } else if (body.locations?.[exported.spotId]) {
+          if (!serviceKey) throw new Error("Standortbestätigung kann nicht verifiziert werden.");
+          const candidate = verifyLocation(body.locations[exported.spotId], binding, serviceKey) as LocationCandidate & { sourceUrl: string; observedAt: string };
+          const coordinateClaims: WorldResearchClaim[] = ["latitude", "longitude"].map((axis) => ({
+            attributeKey: `location.${axis}`, knowledgeState: "KNOWN_VALUE", value: axis === "latitude" ? candidate.latitude : candidate.longitude,
+            source: { url: candidate.sourceUrl, evidence: `Google Places Standortabgleich; Place-ID ${candidate.placeId}`, observedAt: candidate.observedAt, trust: "AUTHORITATIVE_PRIMARY" },
+          }));
+          // Preserve all existing/researched coordinates. Never mix two different pairs.
+          const occupied = coordinateClaims.some((claim) => detail.answers?.[claim.attributeKey] || document.validatedClaims.get(exported.spotId)?.some((item) => item.attributeKey === claim.attributeKey));
+          if (occupied) report.conflicts.push("GOOGLE_COORDINATES_EXISTING_VALUES");
+          else for (const claim of coordinateClaims) {
+            accepted.push({ spotId: exported.spotId, manifestHash: exported.manifestHash, claim });
+            report.ready.push(claim.attributeKey);
+            report.unresolved = report.unresolved.filter((key) => key !== claim.attributeKey);
+          }
+        }
       }
     }
 
