@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260926120337-world-research-batch-import-v1",
+  "previousEvidence": "20260923-unified-world-spot-authoring-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "82c511b02c28cd19664960169afa9103df8a7a8f7d027bad44e2efaf55b08a20",
+    "applicationSchemaSha256": "08d558fee9724be7d536db7a5c1b6c08f18bcaa191dba91f9903328afe12d62c"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260926120337_world_research_batch_import_v1.sql",
+      "sha256": "0623674cbe88895f51959de3e00ba723087238256b9db9c1ee83bf89c4d4fac0"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/world_research_batch_import_v1.sql",
+      "sha256": "773d13faff91b6a0a2239e231eb42cd61ead068d7d64b846894e21f3c63ae047"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "3db1adf79165930b0562a5fb3c12905277ec0d66fcee5d7c50180fef63a00fb2",
+    "applicationSchemaSha256": "4d58eb11c27abfc02a3eab0bab71ca91b20ac0e6bc68d939eed6a0041d46e543"
+  }
+}

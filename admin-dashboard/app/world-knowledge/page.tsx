@@ -4,8 +4,9 @@ import { sessionRecoveringAuthoringClient, WorldKnowledgeAuthoring, WorldProduct
 import type { ProductAdminSpotSearch } from "@backyrd/world-knowledge-authoring-ui";
 import "@backyrd/world-knowledge-authoring-ui/styles.css";
 import { supabase } from "@/lib/supabaseClient";
-import { authorizedWorldKnowledgePost, authorizedWorldKnowledgeSpotSearch } from "@/lib/worldKnowledgeSession";
+import { authorizedWorldKnowledgePost, authorizedWorldKnowledgeSpotSearch, authorizedWorldResearchBatchPost } from "@/lib/worldKnowledgeSession";
 import { WorldAddressPicker } from "./WorldAddressPicker";
+import { WorldResearchBatchPanel } from "./WorldResearchBatchPanel";
 import Link from "next/link";
 
 const authoringClient = sessionRecoveringAuthoringClient(supabase, supabase.auth);
@@ -17,6 +18,7 @@ export default function AdminWorldKnowledgePage() {
   const local = (() => { try { return ["localhost", "127.0.0.1", "::1"].includes(new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").hostname); } catch { return false; } })();
   return <>
     <div className="wk-presentation-link"><div><strong>Eine Wissensquelle, kontrollierte Ausgabe</strong><span>Hier gepflegte Fakten bleiben vollständig erhalten. Welche davon auf Spot-Detailseiten erscheinen, wird separat gesteuert und verändert Decision vNext nicht.</span></div><Link href="/spots/presentation">Detail-Darstellung steuern</Link></div>
+    <WorldResearchBatchPanel search={searchSpots} post={(body) => authorizedWorldResearchBatchPost({ auth: supabase.auth, body })} />
     <WorldProductCorrection client={authoringClient} search={searchSpots} addressPicker={WorldAddressPicker} rebuild={(spotId, idempotencyKey) => authorizedPost({ action: "product-rebuild", spotId, idempotencyKey })} />
     {local && <WorldKnowledgeAuthoring client={authoringClient} surface="ADMIN" rebuild={(spotId) => authorizedPost({ action: "rebuild", spotId })} exportCohort={exportCohort} />}
   </>;

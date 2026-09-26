@@ -66,6 +66,22 @@ export async function authorizedWorldKnowledgePost(input: { auth: WorldKnowledge
   return result;
 }
 
+export async function authorizedWorldResearchBatchPost(input: { auth: WorldKnowledgeBrowserAuth; body: unknown; fetcher?: typeof fetch }): Promise<unknown> {
+  const fetcher = input.fetcher ?? fetch;
+  const send = async (forceRefresh: boolean) => {
+    const token = await accessToken(input.auth, forceRefresh);
+    return fetcher("/api/world-knowledge/research-batch", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify(input.body) });
+  };
+  let response = await send(false);
+  let result = await response.json().catch(() => ({ error: "invalid_server_response" })) as { error?: string };
+  if (response.status === 401 && ["invalid_session", "authentication_required"].includes(result.error ?? "")) {
+    response = await send(true);
+    result = await response.json().catch(() => ({ error: "invalid_server_response" })) as { error?: string };
+  }
+  if (!response.ok) throw new Error(result.error ?? "world_research_action_failed");
+  return result;
+}
+
 export async function authorizedWorldKnowledgeSpotSearch(input: { auth: WorldKnowledgeBrowserAuth; query: string; fetcher?: typeof fetch }): Promise<unknown> {
   const fetcher = input.fetcher ?? fetch;
   const path = `/api/world-knowledge/spots?q=${encodeURIComponent(input.query)}`;
