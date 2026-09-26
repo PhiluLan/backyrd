@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
-import { createWorldResearchBatch, parseWorldResearchBatch, type WorldResearchClaim } from "@backyrd/world-knowledge-core";
+import { createWorldResearchBatch, parseWorldResearchBatch, planWorldResearchSpot, type WorldResearchClaim, type ReviewedResearchClaim, type ResearchReview, type WorldResearchExistingValue } from "@backyrd/world-knowledge-core";
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
 import { locationBinding, validateBrowserLocations, signLocation, verifyLocation } from "@/lib/server/researchLocation.mjs";
 
@@ -12,11 +12,10 @@ type Detail = {
   answers?: Record<string, { claimId?: string; knowledgeState?: string; value?: unknown; visibility?: string }>;
   manifest?: null | { manifestHash?: string; worldSnapshot?: { spotId?: string } };
 };
-type Accepted = { spotId: string; manifestHash: string; claim: WorldResearchClaim };
+type Accepted = { spotId: string; manifestHash: string; claim: ReviewedResearchClaim };
 type LocationCandidate = { placeId: string; name: string; address: string; latitude: number; longitude: number; token: string; exact: boolean };
-type SpotReport = { spotId: string; name: string; ready: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; manifestHash?: string; location?: { message: string; candidates: LocationCandidate[]; automatic: string | null; query?: string } };
+type SpotReport = { spotId: string; name: string; ready: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; reviews: ResearchReview[]; blocked: string[]; derived: string[]; manifestHash?: string; location?: { message: string; candidates: LocationCandidate[]; automatic: string | null; query?: string } };
 
-const same = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right);
 const message = (cause: unknown) => cause instanceof Error ? cause.message : "world_research_action_failed";
 
 export async function POST(request: Request) {
@@ -35,7 +34,7 @@ export async function POST(request: Request) {
     if (detail.spotId !== spotId || detail.status !== "approved" || detail.actor?.role !== "ADMIN" || !detail.answers || !detail.manifest?.manifestHash) throw new Error("world_research_spot_binding_invalid");
     return detail;
   };
-  const body = await request.json().catch(() => null) as null | { action?: string; spotIds?: unknown; document?: unknown; locations?: Record<string, string>; browserPlaces?: Record<string, unknown> };
+  const body = await request.json().catch(() => null) as null | { action?: string; spotIds?: unknown; document?: unknown; locations?: Record<string, string>; browserPlaces?: Record<string, unknown>; confirmations?: Record<string, Record<string, string>> };
 
   try {
     if (body?.action === "export") {
@@ -61,21 +60,20 @@ export async function POST(request: Request) {
     const reports = new Map<string, SpotReport>();
     const accepted: Accepted[] = [];
     for (const exported of document.batch.spots) {
-      const report: SpotReport = { spotId: exported.spotId, name: exported.name, ready: [], imported: [], skipped: [], conflicts: [], invalid: [], unresolved: (document.research.spots.find((spot) => spot.spotId === exported.spotId)?.unresolved ?? []).map((gap) => gap.attributeKey) };
+      const report: SpotReport = { spotId: exported.spotId, name: exported.name, ready: [], imported: [], skipped: [], conflicts: [], invalid: [], reviews: [], blocked: [], derived: [], unresolved: (document.research.spots.find((spot) => spot.spotId === exported.spotId)?.unresolved ?? []).map((gap) => gap.attributeKey) };
       reports.set(exported.spotId, report);
       let detail: Detail;
       try { detail = await readDetail(exported.spotId); }
       catch (cause) { report.invalid.push(message(cause)); continue; }
       if (detail.name !== exported.name || detail.manifest?.manifestHash !== exported.manifestHash) { report.conflicts.push("EXPORT_OR_MANIFEST_DRIFT"); continue; }
-      for (const claim of document.validatedClaims.get(exported.spotId) ?? []) {
-        const current = detail.answers?.[claim.attributeKey];
-        if (current) {
-          if (current.knowledgeState === claim.knowledgeState && same(current.value, claim.value)) report.skipped.push(claim.attributeKey);
-          else report.conflicts.push(claim.attributeKey);
-          continue;
-        }
+      const current = Object.fromEntries(Object.entries(detail.answers ?? {}).filter((entry): entry is [string, WorldResearchExistingValue] => typeof entry[1].claimId === "string" && typeof entry[1].knowledgeState === "string"));
+      const plan = planWorldResearchSpot({ claims: document.validatedClaims.get(exported.spotId) ?? [], current, confirmations: body.confirmations?.[exported.spotId] ?? {}, observedAt: document.batch.createdAt });
+      report.skipped = plan.skipped; report.reviews = plan.reviews; report.blocked = plan.blocked; report.derived = plan.derived;
+      report.conflicts = plan.reviews.map((review) => review.attributeKey);
+      for (const claim of plan.accepted) {
         accepted.push({ spotId: exported.spotId, manifestHash: exported.manifestHash, claim });
         report.ready.push(claim.attributeKey);
+        report.unresolved = report.unresolved.filter((key) => key !== claim.attributeKey);
       }
       const addressClaim = document.validatedClaims.get(exported.spotId)?.find((claim) => claim.attributeKey === "location.address_line1");
       // Only the address that can actually be accepted is eligible for lookup.
@@ -113,7 +111,7 @@ export async function POST(request: Request) {
           const occupied = coordinateClaims.some((claim) => detail.answers?.[claim.attributeKey] || document.validatedClaims.get(exported.spotId)?.some((item) => item.attributeKey === claim.attributeKey));
           if (occupied) report.conflicts.push("GOOGLE_COORDINATES_EXISTING_VALUES");
           else for (const claim of coordinateClaims) {
-            accepted.push({ spotId: exported.spotId, manifestHash: exported.manifestHash, claim });
+            accepted.push({ spotId: exported.spotId, manifestHash: exported.manifestHash, claim: { ...claim, supersedesClaimId: null } });
             report.ready.push(claim.attributeKey);
             report.unresolved = report.unresolved.filter((key) => key !== claim.attributeKey);
           }
@@ -126,18 +124,16 @@ export async function POST(request: Request) {
       if (!serviceKey) return Response.json({ error: "world_research_rebuild_not_configured" }, { status: 503, headers: noStore });
       const service = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
       const changed = new Set<string>();
-      for (const item of accepted) {
-        const report = reports.get(item.spotId)!;
-        const result = await actor.rpc("world_product_admin_import_research_claim_v1", {
-          p_batch_id: document.batch.batchId, p_spot_id: item.spotId, p_attribute_key: item.claim.attributeKey,
-          p_knowledge_state: item.claim.knowledgeState, p_value: item.claim.value,
-          p_source_url: item.claim.source.url, p_evidence_excerpt: item.claim.source.evidence,
-          p_observed_at: item.claim.source.observedAt, p_trust_level: item.claim.source.trust,
-          p_expected_manifest_hash: item.manifestHash,
-          p_idempotency_key: `research:${document.batch.batchId}:${item.spotId}:${item.claim.attributeKey}`,
+      for (const exported of document.batch.spots) {
+        const items = accepted.filter((item) => item.spotId === exported.spotId);
+        const report = reports.get(exported.spotId)!;
+        if (!items.length || report.invalid.length) continue;
+        const result = await actor.rpc("world_product_admin_import_research_spot_v2", {
+          p_batch_id: document.batch.batchId, p_spot_id: exported.spotId,
+          p_expected_manifest_hash: exported.manifestHash, p_claims: items.map((item) => item.claim),
         });
-        if (result.error) { report.invalid.push(`${item.claim.attributeKey}:${result.error.message}`); continue; }
-        report.imported.push(item.claim.attributeKey); changed.add(item.spotId);
+        if (result.error) { report.invalid.push(`SPOT_BATCH_ROLLED_BACK:${result.error.message}`); continue; }
+        report.imported.push(...items.map((item) => item.claim.attributeKey)); report.ready = []; changed.add(exported.spotId);
       }
       // A retry after claims committed but before rebuilding must still finish
       // the canonical projection. Same-value skips are therefore rebuild-safe.
@@ -162,7 +158,8 @@ export async function POST(request: Request) {
       batchId: document.batch.batchId, mode: body.action === "commit" ? "COMMIT" : "PREVIEW",
       totals: {
         imported: perSpot.reduce((sum, item) => sum + item.imported.length, 0),
-        ready: body.action === "preview" ? perSpot.reduce((sum, item) => sum + item.ready.length, 0) : 0,
+        ready: perSpot.reduce((sum, item) => sum + item.ready.length, 0),
+        blocked: perSpot.reduce((sum, item) => sum + item.blocked.length, 0),
         skipped: perSpot.reduce((sum, item) => sum + item.skipped.length, 0),
         conflicts: perSpot.reduce((sum, item) => sum + item.conflicts.length, 0),
         invalid: perSpot.reduce((sum, item) => sum + item.invalid.length, 0),
