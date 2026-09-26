@@ -16,6 +16,7 @@ export * from "./legacy-rehearsal.js";
 export * from "./port.js";
 export * from "./registry.js";
 export * from "./resolver.js";
+export * from "./research-batch.js";
 export * from "./schema.js";
 export * from "./slice3b.js";
 export * from "./source-policy.js";
