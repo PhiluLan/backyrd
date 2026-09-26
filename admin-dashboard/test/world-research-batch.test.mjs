@@ -38,6 +38,17 @@ test("review choices refresh the preview automatically and keep commit separate"
   assert.match(panel, /Bisherige behalten/);
 });
 
+test("a verified complete import clears the form and shows a visible finish state", () => {
+  assert.match(panel, /report\.mode === "COMMIT" && report\.totals\.imported > 0/);
+  assert.match(panel, /report\.totals\.invalid === 0 && report\.totals\.conflicts === 0 && report\.totals\.blocked === 0/);
+  assert.match(panel, /spot\.imported\.length === 0 \|\| !!spot\.manifestHash/);
+  assert.match(panel, /setCompletion\(\{ imported: report\.totals\.imported/);
+  assert.match(panel, /setQuery\(""\); setResults\(\[\]\); setSelected\(\[\]\); setJson\(""\); setPreview\(null\)/);
+  assert.match(panel, /scrollIntoView/);
+  assert.match(panel, /Import erfolgreich abgeschlossen/);
+  assert.match(panel, /setPreview\(report\);\s*setMessage\(report\.totals\.invalid > 0/);
+});
+
 test("research export starts from canonical World values, never old Spot attributes", () => {
   const exportBranch = route.slice(route.indexOf('if (body?.action === "export")'), route.indexOf('if (body?.action !== "preview"'));
   assert.match(exportBranch, /detail\.answers/);

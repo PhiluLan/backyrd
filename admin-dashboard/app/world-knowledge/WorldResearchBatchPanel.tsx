@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { ProductAdminSpotSearch } from "@backyrd/world-knowledge-authoring-ui";
 import { findResearchPlaces, type ResearchPlace } from "./WorldAddressPicker";
 import type { ResearchReview } from "@backyrd/world-knowledge-core";
@@ -12,6 +12,7 @@ export function WorldResearchBatchPanel(props: {
   search(query: string): Promise<ProductAdminSpotSearch>;
   post(body: unknown): Promise<unknown>;
 }) {
+  const panelRef = useRef<HTMLElement>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Spot[]>([]);
   const [selected, setSelected] = useState<Spot[]>([]);
@@ -23,6 +24,8 @@ export function WorldResearchBatchPanel(props: {
   const [reviewChanged, setReviewChanged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [completion, setCompletion] = useState<{ imported: number; spots: number } | null>(null);
+  const [uploadKey, setUploadKey] = useState(0);
 
   const run = async (operation: () => Promise<void>) => {
     setBusy(true); setMessage("");
@@ -37,6 +40,7 @@ export function WorldResearchBatchPanel(props: {
       : current.length < 10 ? [...current, spot] : current);
   };
   const exportBatch = () => run(async () => {
+    setCompletion(null);
     const document = await props.post({ action: "export", spotIds: selected.map((spot) => spot.spotId) });
     const text = JSON.stringify(document, null, 2); setJson(text); setPreview(null); setReviewOptions({}); setConfirmations({}); setReviewChanged(false);
     const link = documentElement(text, `world-research-${(document as { batch?: { batchId?: string } }).batch?.batchId ?? "batch"}.json`);
@@ -74,18 +78,29 @@ export function WorldResearchBatchPanel(props: {
     setReviewChanged(true);
     void previewBatch(next, true);
   };
-  const importBatch = () => run(async () => { const report = await props.post({ action: "commit", document: parse(), locations, confirmations }) as Report; setPreview(report); setMessage(report.totals.invalid > 0 ? "Ein Spot-Import oder sein Neuaufbau ist fehlgeschlagen. Bitte den Bericht prüfen; innerhalb eines fehlgeschlagenen Spot-Batches wurde nichts teilweise gespeichert." : report.totals.conflicts || report.totals.blocked ? "Freigegebene Angaben übernommen. Offene Reviews und abhängige Felder wurden nicht geschrieben; sie bleiben im Bericht sichtbar." : "Import abgeschlossen und geänderte World-Snapshots verifiziert."); });
+  const importBatch = () => run(async () => {
+    const report = await props.post({ action: "commit", document: parse(), locations, confirmations }) as Report;
+    if (report.mode === "COMMIT" && report.totals.imported > 0 && report.totals.invalid === 0 && report.totals.conflicts === 0 && report.totals.blocked === 0 && report.perSpot.every((spot) => spot.imported.length === 0 || !!spot.manifestHash)) {
+      setCompletion({ imported: report.totals.imported, spots: report.perSpot.filter((spot) => spot.imported.length > 0).length });
+      setQuery(""); setResults([]); setSelected([]); setJson(""); setPreview(null); setReviewOptions({}); setLocations({}); setConfirmations({}); setReviewChanged(false); setUploadKey((current) => current + 1);
+      requestAnimationFrame(() => panelRef.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }));
+      return;
+    }
+    setPreview(report);
+    setMessage(report.totals.invalid > 0 ? "Ein Spot-Import oder sein Neuaufbau ist fehlgeschlagen. Bitte den Bericht prüfen; innerhalb eines fehlgeschlagenen Spot-Batches wurde nichts teilweise gespeichert." : report.totals.conflicts || report.totals.blocked ? `${report.totals.imported > 0 ? "Ein Teil wurde übernommen." : "Noch nichts übernommen."} Offene Reviews und abhängige Felder bleiben unten sichtbar.` : "Der Import ist noch nicht vollständig verifiziert. Bitte den Bericht prüfen.");
+  });
 
-  return <section className="wk-research-panel">
+  return <section className="wk-research-panel" ref={panelRef}>
     <div className="wk-research-heading"><div><span className="wk-eyebrow">Recherche Spot</span><h2>Spot-Wissen recherchieren und importieren</h2><p>Bis zu zehn Spots auswählen, JSON extern recherchieren lassen, Vorschau prüfen und erst danach in World Knowledge übernehmen. Der Export enthält nur bestehendes World-Wissen; alte Spot-Felder werden nicht als Fakten übernommen. Einzelne Spots pflegst du unter Spots → Pflegen.</p></div><strong>{selected.length}/10</strong></div>
+    {completion && <div className="wk-research-completion" role="status"><span aria-hidden="true">✓</span><div><strong>Import erfolgreich abgeschlossen</strong><p>{completion.imported} {completion.imported === 1 ? "Angabe" : "Angaben"} für {completion.spots} {completion.spots === 1 ? "Spot" : "Spots"} übernommen und im World-Reader verifiziert. Du kannst jetzt einen neuen Batch auswählen.</p></div></div>}
     <div className="wk-research-steps"><span>1 · Export</span><span>2 · Recherche</span><span>3 · Prüfen</span><span>4 · Import</span></div>
     <div className="wk-research-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Spot suchen, z. B. Nomad Eatery & Bar" onKeyDown={(event) => { if (event.key === "Enter") void search(); }} /><button disabled={busy} onClick={() => void search()}>Suchen</button></div>
     {!!results.length && <div className="wk-research-results">{results.map((spot) => <label key={spot.spotId}><input type="checkbox" checked={selected.some((item) => item.spotId === spot.spotId)} disabled={!selected.some((item) => item.spotId === spot.spotId) && selected.length >= 10} onChange={() => toggle(spot)} /><span><b>{spot.name}</b><small>{spot.city ?? "Ort nicht gepflegt"}</small></span></label>)}</div>}
     {!!selected.length && <div className="wk-research-selection">{selected.map((spot) => <button key={spot.spotId} onClick={() => toggle(spot)}>{spot.name} ×</button>)}</div>}
     <button className="wk-research-primary" disabled={busy || !selected.length} onClick={() => void exportBatch()}>Recherche-JSON herunterladen</button>
     <div className="wk-research-instructions"><b>Danach in ChatGPT oder Sol:</b><span>Datei anhängen, öffentliche Quellen recherchieren lassen und verlangen, dass ausschließlich das vollständige JSON zurückgegeben wird. Nicht belegte Angaben müssen unter <code>unresolved</code> bleiben.</span></div>
-    <label className="wk-research-upload">Recherchiertes JSON hochladen<input type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then((text) => { setJson(text); setPreview(null); setReviewOptions({}); setConfirmations({}); }); }} /></label>
-    <details className="wk-research-json-details" open={!preview}><summary>JSON ansehen oder einfügen</summary><textarea className="wk-research-json" value={json} onChange={(event) => { setJson(event.target.value); setPreview(null); setReviewOptions({}); setConfirmations({}); }} placeholder="Oder vollständiges recherchiertes JSON hier einfügen …" spellCheck={false} /></details>
+    <label className="wk-research-upload">Recherchiertes JSON hochladen<input key={uploadKey} type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then((text) => { setCompletion(null); setJson(text); setPreview(null); setReviewOptions({}); setConfirmations({}); }); }} /></label>
+    <details className="wk-research-json-details" open={!!json && !preview}><summary>JSON ansehen oder einfügen</summary><textarea className="wk-research-json" value={json} onChange={(event) => { setCompletion(null); setJson(event.target.value); setPreview(null); setReviewOptions({}); setConfirmations({}); }} placeholder="Oder vollständiges recherchiertes JSON hier einfügen …" spellCheck={false} /></details>
     <div className="wk-research-actions"><button disabled={busy || !json} onClick={() => void previewBatch()}>{preview ? "Import erneut prüfen" : "JSON prüfen"}</button></div>
     {message && <p className="wk-research-message" role="status">{message}</p>}
     {preview && <div className="wk-research-report"><div className="wk-research-review-state" role="status">{busy || reviewChanged ? "Deine Auswahl wird automatisch geprüft …" : preview.mode === "COMMIT" ? "Import abgeschlossen. Das Ergebnis steht unten." : preview.totals.invalid > 0 ? "Fehler gefunden. Bitte den Bericht prüfen; es wird noch nichts übernommen." : preview.totals.conflicts > 0 ? `${preview.totals.conflicts} Angabe(n) brauchen deine Entscheidung. Bestätigte Angaben werden automatisch neu geprüft.` : `${preview.totals.ready} Angabe(n) geprüft und bereit. Du kannst sie jetzt übernehmen.`}</div><div className="wk-research-totals">{Object.entries(preview.totals).map(([key, value]) => <span key={key}><b>{value}</b>{key}</span>)}</div>{preview.perSpot.map((spot) => <article key={spot.spotId}><h3>{spot.name}</h3><p>Übernommen: {spot.imported.length} · Bereit: {spot.ready.length} · Übersprungen: {spot.skipped.length} · Konflikte: {spot.conflicts.length} · Ungelöst: {spot.unresolved.length} · Ungültig: {spot.invalid.length}</p>{!!spot.conflicts.length && <small>Review nötig: {spot.conflicts.join(", ")}</small>}{!!spot.invalid.length && <small>Fehler: {spot.invalid.join(", ")}</small>}
