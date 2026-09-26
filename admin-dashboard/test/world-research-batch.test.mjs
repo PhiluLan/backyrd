@@ -24,9 +24,18 @@ test("research provenance is private, immutable and admin-only", () => {
 test("Admin UI limits the workflow to ten and requires preview before import", () => {
   assert.match(panel, /current\.length < 10/);
   assert.match(panel, /Recherche-JSON herunterladen/);
-  assert.match(panel, /Import prüfen/);
+  assert.match(panel, /JSON prüfen/);
   assert.match(panel, /preview\.mode !== "PREVIEW"/);
   assert.match(panel, /unresolved/);
+});
+
+test("review choices refresh the preview automatically and keep commit separate", () => {
+  assert.match(panel, /const next = \{ \.\.\.confirmations/);
+  assert.match(panel, /void previewBatch\(next, true\)/);
+  assert.match(panel, /setReviewChanged\(false\)/);
+  assert.match(panel, /busy \|\| reviewChanged \|\| preview\.totals\.invalid > 0 \|\| preview\.totals\.ready < 1/);
+  assert.match(panel, /Jetzt \{preview\.totals\.ready\} geprüfte Angabe\(n\) übernehmen/);
+  assert.match(panel, /Bisherige behalten/);
 });
 
 test("research export starts from canonical World values, never old Spot attributes", () => {
