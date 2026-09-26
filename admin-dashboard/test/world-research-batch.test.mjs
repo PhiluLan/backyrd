@@ -33,9 +33,19 @@ test("review choices refresh the preview automatically and keep commit separate"
   assert.match(panel, /const next = \{ \.\.\.confirmations/);
   assert.match(panel, /void previewBatch\(next, true\)/);
   assert.match(panel, /setReviewChanged\(false\)/);
-  assert.match(panel, /busy \|\| reviewChanged \|\| preview\.totals\.invalid > 0 \|\| preview\.totals\.ready < 1/);
+  assert.match(panel, /preview\.mode === "PREVIEW" && !driftedSpots\.length && preview\.totals\.ready > 0/);
+  assert.match(panel, /disabled=\{busy \|\| reviewChanged \|\| preview\.totals\.invalid > 0\}/);
   assert.match(panel, /Jetzt \{preview\.totals\.ready\} geprüfte Angabe\(n\) übernehmen/);
   assert.match(panel, /Bisherige behalten/);
+});
+
+test("manifest drift is explained and offers a read-only refresh instead of a disabled commit", () => {
+  assert.match(panel, /spot\.conflicts\.includes\("EXPORT_OR_MANIFEST_DRIFT"\)/);
+  assert.match(panel, /Das ist keine bearbeitbare Angabe/);
+  assert.match(panel, /Aktuellen Stand laden und erneut prüfen/);
+  assert.match(panel, /action: "export", spotIds/);
+  assert.match(panel, /refreshResearchDocument\(previous, current\)/);
+  assert.match(panel, /await loadPreview\(refreshed, \{\}, false\)/);
 });
 
 test("a verified complete import clears the form and shows a visible finish state", () => {

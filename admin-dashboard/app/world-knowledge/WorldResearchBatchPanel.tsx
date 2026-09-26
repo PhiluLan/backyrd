@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import type { ProductAdminSpotSearch } from "@backyrd/world-knowledge-authoring-ui";
 import { findResearchPlaces, type ResearchPlace } from "./WorldAddressPicker";
+import { refreshResearchDocument } from "./researchBatchRefresh.mjs";
 import type { ResearchReview } from "@backyrd/world-knowledge-core";
 
 type Spot = ProductAdminSpotSearch["spots"][number];
@@ -48,9 +49,8 @@ export function WorldResearchBatchPanel(props: {
     setMessage("Export erstellt. Recherchiere extern und füge das vollständige JSON danach wieder ein.");
   });
   const parse = () => { try { return JSON.parse(json) as unknown; } catch { throw new Error("Das eingefügte JSON ist nicht gültig."); } };
-  const previewBatch = (choices = confirmations, preserveReviews = false) => run(async () => {
+  const loadPreview = async (document: unknown, choices: typeof confirmations, preserveReviews: boolean) => {
     if (!preserveReviews) { setPreview(null); setReviewOptions({}); setLocations({}); }
-    const document = parse();
     let report = await props.post({ action: "preview", document, confirmations: choices }) as Report;
     const pending = report.perSpot.filter((spot) => spot.location?.query);
     if (pending.length) {
@@ -71,6 +71,19 @@ export function WorldResearchBatchPanel(props: {
       const candidate = spot.location?.candidates.find((item) => item.placeId === spot.location?.automatic);
       return candidate ? [[spot.spotId, candidate.token]] : [];
     })));
+  };
+  const previewBatch = (choices = confirmations, preserveReviews = false) => run(() => loadPreview(parse(), choices, preserveReviews));
+  const refreshBatch = () => run(async () => {
+    const previous = parse() as { batch?: { spots?: Array<{ spotId: string }> } };
+    const spotIds = previous.batch?.spots?.map((spot) => spot.spotId);
+    if (!spotIds?.length) throw new Error("Die Spot-Auswahl fehlt. Bitte die Recherche-Datei erneut hochladen.");
+    const current = await props.post({ action: "export", spotIds });
+    const refreshed = refreshResearchDocument(previous, current);
+    setJson(JSON.stringify(refreshed, null, 2));
+    setConfirmations({});
+    setReviewChanged(false);
+    await loadPreview(refreshed, {}, false);
+    setMessage("Aktueller World-Stand geladen. Deine recherchierten Vorschläge sind erhalten und wurden neu geprüft. Bitte die angezeigten Entscheidungen erneut kontrollieren.");
   });
   const chooseReview = (spotId: string, review: ResearchReview, accept: boolean) => {
     const next = { ...confirmations, [spotId]: { ...confirmations[spotId], [review.attributeKey]: accept ? review.current.claimId : "" } };
@@ -89,6 +102,7 @@ export function WorldResearchBatchPanel(props: {
     setPreview(report);
     setMessage(report.totals.invalid > 0 ? "Ein Spot-Import oder sein Neuaufbau ist fehlgeschlagen. Bitte den Bericht prüfen; innerhalb eines fehlgeschlagenen Spot-Batches wurde nichts teilweise gespeichert." : report.totals.conflicts || report.totals.blocked ? `${report.totals.imported > 0 ? "Ein Teil wurde übernommen." : "Noch nichts übernommen."} Offene Reviews und abhängige Felder bleiben unten sichtbar.` : "Der Import ist noch nicht vollständig verifiziert. Bitte den Bericht prüfen.");
   });
+  const driftedSpots = preview?.perSpot.filter((spot) => spot.conflicts.includes("EXPORT_OR_MANIFEST_DRIFT")) ?? [];
 
   return <section className="wk-research-panel" ref={panelRef}>
     <div className="wk-research-heading"><div><span className="wk-eyebrow">Recherche Spot</span><h2>Spot-Wissen recherchieren und importieren</h2><p>Bis zu zehn Spots auswählen, JSON extern recherchieren lassen, Vorschau prüfen und erst danach in World Knowledge übernehmen. Der Export enthält nur bestehendes World-Wissen; alte Spot-Felder werden nicht als Fakten übernommen. Einzelne Spots pflegst du unter Spots → Pflegen.</p></div><strong>{selected.length}/10</strong></div>
@@ -103,7 +117,9 @@ export function WorldResearchBatchPanel(props: {
     <details className="wk-research-json-details" open={!!json && !preview}><summary>JSON ansehen oder einfügen</summary><textarea className="wk-research-json" value={json} onChange={(event) => { setCompletion(null); setJson(event.target.value); setPreview(null); setReviewOptions({}); setConfirmations({}); }} placeholder="Oder vollständiges recherchiertes JSON hier einfügen …" spellCheck={false} /></details>
     <div className="wk-research-actions"><button disabled={busy || !json} onClick={() => void previewBatch()}>{preview ? "Import erneut prüfen" : "JSON prüfen"}</button></div>
     {message && <p className="wk-research-message" role="status">{message}</p>}
-    {preview && <div className="wk-research-report"><div className="wk-research-review-state" role="status">{busy || reviewChanged ? "Deine Auswahl wird automatisch geprüft …" : preview.mode === "COMMIT" ? "Import abgeschlossen. Das Ergebnis steht unten." : preview.totals.invalid > 0 ? "Fehler gefunden. Bitte den Bericht prüfen; es wird noch nichts übernommen." : preview.totals.conflicts > 0 ? `${preview.totals.conflicts} Angabe(n) brauchen deine Entscheidung. Bestätigte Angaben werden automatisch neu geprüft.` : `${preview.totals.ready} Angabe(n) geprüft und bereit. Du kannst sie jetzt übernehmen.`}</div><div className="wk-research-totals">{Object.entries(preview.totals).map(([key, value]) => <span key={key}><b>{value}</b>{key}</span>)}</div>{preview.perSpot.map((spot) => <article key={spot.spotId}><h3>{spot.name}</h3><p>Übernommen: {spot.imported.length} · Bereit: {spot.ready.length} · Übersprungen: {spot.skipped.length} · Konflikte: {spot.conflicts.length} · Ungelöst: {spot.unresolved.length} · Ungültig: {spot.invalid.length}</p>{!!spot.conflicts.length && <small>Review nötig: {spot.conflicts.join(", ")}</small>}{!!spot.invalid.length && <small>Fehler: {spot.invalid.join(", ")}</small>}
+    {preview && <div className="wk-research-report"><div className="wk-research-review-state" role="status">{busy || reviewChanged ? "Deine Auswahl wird automatisch geprüft …" : driftedSpots.length ? `Die Recherche-Datei ist für ${driftedSpots.map((spot) => spot.name).join(" und ")} veraltet. Das ist keine bearbeitbare Angabe: World Knowledge hat sich seit dem Export geändert.` : preview.mode === "COMMIT" ? "Import abgeschlossen. Das Ergebnis steht unten." : preview.totals.invalid > 0 ? "Fehler gefunden. Bitte den Bericht prüfen; es wird noch nichts übernommen." : preview.totals.conflicts > 0 ? `${preview.totals.conflicts} Angabe(n) brauchen deine Entscheidung. Bestätigte Angaben werden automatisch neu geprüft.` : preview.totals.ready > 0 ? `${preview.totals.ready} Angabe(n) geprüft und bereit. Du kannst sie jetzt übernehmen.` : preview.totals.skipped > 0 ? "Die recherchierten Angaben sind bereits im aktuellen World Knowledge vorhanden. Es gibt nichts Neues zu übernehmen." : "Keine neue Angabe zur Übernahme gefunden."}</div>
+    {!!driftedSpots.length && <div className="wk-research-drift"><strong>Deine Recherche ist nicht verloren.</strong><p>Wir laden den aktuellen Stand dieser Spots und prüfen deine Vorschläge dagegen erneut. Nichts wird dabei gespeichert. Prüfe danach mögliche neue Abweichungen bewusst.</p><button className="wk-research-primary" disabled={busy} onClick={() => void refreshBatch()}>Aktuellen Stand laden und erneut prüfen</button></div>}
+    {!driftedSpots.length && <div className="wk-research-totals">{Object.entries(preview.totals).filter(([key, value]) => value > 0 && key !== "blocked").map(([key, value]) => <span key={key}><b>{value}</b>{key}</span>)}</div>}{preview.perSpot.map((spot) => <article key={spot.spotId}><h3>{spot.name}</h3>{spot.conflicts.includes("EXPORT_OR_MANIFEST_DRIFT") ? <p className="wk-research-spot-drift">Stand seit dem Export geändert. Für diesen Spot wurde nichts neu übernommen. Lade oben den aktuellen Stand und prüfe deine Vorschläge erneut.</p> : <><p>Übernommen: {spot.imported.length} · Bereit: {spot.ready.length} · Übersprungen: {spot.skipped.length} · Konflikte: {spot.conflicts.length} · Ungelöst: {spot.unresolved.length} · Ungültig: {spot.invalid.length}</p>{!!spot.conflicts.length && <small>Review nötig: {spot.conflicts.join(", ")}</small>}</>}{!!spot.invalid.length && <small>Fehler: {spot.invalid.join(", ")}</small>}
       {!!spot.ready.length && <p>Bereit: {spot.ready.join(", ")}</p>}
       {!!spot.blocked?.length && <p>Zurückgehalten: {spot.blocked.join(" · ")}</p>}
       {!!spot.derived?.length && <p>Zeitzone: Europe/Zurich, aus dem bestätigten Schweizer Standort abgeleitet. Ein bestehender unbekannter Wert benötigt ebenfalls deine Bestätigung.</p>}
@@ -113,7 +129,7 @@ export function WorldResearchBatchPanel(props: {
         {!!spot.location.candidates.length && <label><input type="radio" name={`location-${spot.spotId}`} disabled={busy} checked={!locations[spot.spotId]} onChange={() => setLocations((current) => ({ ...current, [spot.spotId]: "" }))} /> Koordinaten vorerst unverändert lassen</label>}
         {locations[spot.spotId] && <p>Zusätzlich zu den Rechercheangaben werden zwei Koordinaten übernommen. Die Auswahl ist 15 Minuten gültig.</p>}
       </fieldset>}
-    </article>)}{preview.mode === "PREVIEW" && <div className="wk-research-footer"><div><strong>{busy || reviewChanged ? "Prüfung läuft" : preview.totals.invalid > 0 ? "Import blockiert" : `${preview.totals.ready} bereit zur Übernahme`}</strong><small>{preview.totals.conflicts > 0 ? `${preview.totals.conflicts} offene Konflikte bleiben unverändert.` : "Keine offenen Konflikte."}</small></div><button className="wk-research-primary" disabled={busy || reviewChanged || preview.totals.invalid > 0 || preview.totals.ready < 1} onClick={() => void importBatch()}>Jetzt {preview.totals.ready} geprüfte Angabe(n) übernehmen</button></div>}</div>}
+    </article>)}{preview.mode === "PREVIEW" && !driftedSpots.length && preview.totals.ready > 0 && <div className="wk-research-footer"><div><strong>{busy || reviewChanged ? "Prüfung läuft" : `${preview.totals.ready} bereit zur Übernahme`}</strong><small>{preview.totals.conflicts > 0 ? `${preview.totals.conflicts} offene Angaben bleiben unverändert.` : "Keine offenen Abweichungen."}</small></div><button className="wk-research-primary" disabled={busy || reviewChanged || preview.totals.invalid > 0} onClick={() => void importBatch()}>Jetzt {preview.totals.ready} geprüfte Angabe(n) übernehmen</button></div>}</div>}
   </section>;
 }
 
