@@ -16,6 +16,12 @@ interface SpotFormProps {
   initialValues?: SpotFormValues & { opening_hours?: any[] };
   spotId?: string;
   onSaved?: () => void;
+  /**
+   * Existing approved spots are edited through World Knowledge. In that mode
+   * this form owns only lifecycle and media; it must not write a second copy
+   * of semantic spot facts or opening hours.
+   */
+  canonicalKnowledgeManaged?: boolean;
 }
 
 const STATUS_OPTIONS: SpotStatus[] = [
@@ -207,6 +213,7 @@ export function SpotForm({
   initialValues,
   spotId,
   onSaved,
+  canonicalKnowledgeManaged = false,
 }: SpotFormProps) {
   const [values, setValues] = useState<SpotFormValues>(() => {
     if (initialValues) {
@@ -241,6 +248,7 @@ export function SpotForm({
   const addressInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    if (canonicalKnowledgeManaged) return;
     async function init() {
       const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
       if (!apiKey) return;
@@ -267,9 +275,10 @@ export function SpotForm({
     }
 
     void init();
-  }, []);
+  }, [canonicalKnowledgeManaged]);
 
   useEffect(() => {
+    if (canonicalKnowledgeManaged) return;
     async function loadCategories() {
       const { data, error } = await supabase
         .from("categories")
@@ -277,7 +286,7 @@ export function SpotForm({
       if (!error && data) setCategories(data);
     }
     void loadCategories();
-  }, []);
+  }, [canonicalKnowledgeManaged]);
 
   useEffect(() => {
     if (!values.header_photo_path) {
@@ -298,6 +307,7 @@ export function SpotForm({
   }, [values.header_photo_path]);
 
   useEffect(() => {
+    if (canonicalKnowledgeManaged) return;
     if (!initialValues?.opening_hours) return;
 
     const next = createEmptyOpeningHours();
@@ -321,7 +331,7 @@ export function SpotForm({
     }
 
     setOpeningHours(next);
-  }, [initialValues]);
+  }, [canonicalKnowledgeManaged, initialValues]);
 
   useEffect(() => {
     if (!spotId) return;
@@ -340,6 +350,7 @@ export function SpotForm({
   }, [spotId]);
 
   useEffect(() => {
+    if (canonicalKnowledgeManaged) return;
     if (!spotId) return;
 
     async function loadContentAndIntelligence() {
@@ -404,7 +415,7 @@ export function SpotForm({
     }
 
     void loadContentAndIntelligence();
-  }, [spotId]);
+  }, [canonicalKnowledgeManaged, spotId]);
 
   function handleChange<K extends keyof SpotFormValues>(
     key: K,
@@ -689,7 +700,15 @@ export function SpotForm({
 
     let savedSpotId = spotId ?? null;
 
-    const payload = normalizeSpotFormValues(values);
+    const normalized = normalizeSpotFormValues(values);
+    const payload: Partial<SpotFormValues> = canonicalKnowledgeManaged
+      ? {
+          header_photo_path: normalized.header_photo_path,
+          google_place_id: normalized.google_place_id,
+          google_photo_enabled: normalized.google_photo_enabled,
+          status: normalized.status,
+        }
+      : normalized;
 
     try {
       if (mode === "create") {
@@ -720,9 +739,11 @@ export function SpotForm({
 
       if (!savedSpotId) throw new Error("Spot ID fehlt nach dem Speichern.");
 
-      await upsertAdminContent(savedSpotId);
-      await upsertIntelligence(savedSpotId);
-      await upsertOpeningHours(savedSpotId);
+      if (!canonicalKnowledgeManaged) {
+        await upsertAdminContent(savedSpotId);
+        await upsertIntelligence(savedSpotId);
+        await upsertOpeningHours(savedSpotId);
+      }
 
       if (headerFile) {
         setUploadingPhoto(true);
@@ -737,9 +758,9 @@ export function SpotForm({
         setUploadingPhoto(false);
       }
 
-      await refreshSpotMl(savedSpotId);
+      if (!canonicalKnowledgeManaged) await refreshSpotMl(savedSpotId);
 
-      setSuccess("Gespeichert");
+      setSuccess(canonicalKnowledgeManaged ? "Betrieb & Medien gespeichert" : "Gespeichert");
       onSaved?.();
     } catch (err: unknown) {
       const failure = err && typeof err === "object" ? err as Record<string, unknown> : {};
@@ -762,6 +783,10 @@ export function SpotForm({
       {success ? <div className="by-alert by-alertOk">{success}</div> : null}
 
       <div className="by-formGrid1">
+        <div
+          hidden={canonicalKnowledgeManaged}
+          style={canonicalKnowledgeManaged ? undefined : { display: "contents" }}
+        >
         <Field label="Name *">
           <input
             type="text"
@@ -1262,6 +1287,30 @@ export function SpotForm({
             })}
           </div>
         </div>
+        </div>
+
+        {canonicalKnowledgeManaged ? (
+          <div className="by-panel by-section" style={{ padding: 18 }}>
+            <div className="by-h3">Betrieb & Medien</div>
+            <div className="by-muted by-small" style={{ marginTop: 6 }}>
+              Name, Standort, Kategorie, Preis, Kontakte, Beschreibung und Öffnungszeiten
+              werden einmalig im Bereich „Spot-Wissen pflegen“ bearbeitet. Von dort
+              gelangen sie geprüft zu Decision vNext und in die bestehenden App-Leser.
+            </div>
+            <div style={{ height: 14 }} />
+            <Field label="Spot-Status">
+              <select
+                value={values.status as any}
+                onChange={(e) => handleChange("status", e.target.value as any)}
+                className="by-select"
+              >
+                {STATUS_OPTIONS.map((status) => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        ) : null}
 
         <div className="by-panel by-section" style={{ padding: 14 }}>
           <div className="by-h3">Header Foto</div>

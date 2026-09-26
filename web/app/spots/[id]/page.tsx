@@ -250,7 +250,7 @@ export default async function SpotDetailPage({
                     {spot.address || "Nicht angegeben"}
                   </dd>
                 </div> : <div><dt className="b-label">Adresse</dt><dd style={{ margin: "6px 0 0" }}>{spot.address || "Nicht angegeben"}</dd></div>}
-                {!canonicalWorldDetail ? <div>
+                <div>
                   <dt className="b-label">Öffnungszeiten</dt>
                   <dd style={{ margin: "8px 0 0" }}>
                     {data.opening_hours.length ? (
@@ -275,7 +275,7 @@ export default async function SpotDetailPage({
                       <span>Aktuell nicht verlässlich hinterlegt</span>
                     )}
                   </dd>
-                </div> : null}
+                </div>
               </dl>
               <a
                 className="b-button b-button-primary"

@@ -153,8 +153,8 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
       </div>
 
       <nav className="spot-editor-tabs" aria-label="Spot-Bereiche">
-        <a href="#spot-information">Informationen</a>
-        <a href="#spot-understanding">World Knowledge</a>
+        <a href="#spot-understanding">Spot-Wissen pflegen</a>
+        <a href="#spot-information">Betrieb & Medien</a>
         <Link href="/spots/presentation">Detail-Darstellung</Link>
         <a href="#human-sources">Quellen & Prüfung</a>
         <Link href={`/spots/${spotId}`}>Übersicht</Link>
@@ -177,15 +177,6 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
         </div>
       ) : null}
 
-      <div id="spot-information" className="spot-editor-anchor"><SpotForm
-        mode="edit"
-        spotId={spotId}
-        initialValues={{
-          ...spot,
-          opening_hours: openingHours,
-        }}
-        onSaved={() => router.refresh()}
-      /></div>
       <div id="spot-understanding" className="spot-editor-anchor">
         <WorldProductCorrection
           initialSpotId={spotId}
@@ -195,6 +186,16 @@ export default function EditSpotPage({ params }: EditSpotPageProps) {
           rebuild={(id, idempotencyKey) => authorizedWorldKnowledgePost({ auth: supabase.auth, body: { action: "product-rebuild", spotId: id, idempotencyKey } })}
         />
       </div>
+      <div id="spot-information" className="spot-editor-anchor"><SpotForm
+        mode="edit"
+        spotId={spotId}
+        initialValues={{
+          ...spot,
+          opening_hours: openingHours,
+        }}
+        canonicalKnowledgeManaged
+        onSaved={() => router.refresh()}
+      /></div>
     </div>
   );
 }

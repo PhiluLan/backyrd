@@ -296,7 +296,7 @@ export function WorldProductCorrection({ client, rebuild, search, addressPicker:
       conflict.severity === "BLOCKING" && conflict.attributeKeys?.includes(field.attributeKey));
     setMessage(blocking
       ? "Angabe gespeichert. Der World-Reader zeigt für dieses Feld weiterhin einen echten Widerspruch; bitte prüfe die Belege."
-      : "Angabe gespeichert und in der aktuellen Datenvorschau bestätigt.");
+      : "Angabe gespeichert, für Decision vNext bestätigt und in das App-Lesemodell übernommen.");
     setMessageIsError(blocking);
   };
   const saveSelectedAddress = async () => {

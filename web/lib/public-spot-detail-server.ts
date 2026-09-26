@@ -1,6 +1,7 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { PublicSpotDetailDTO } from "@/lib/public-spot-detail";
+import { applyCanonicalWorldSpot } from "@/lib/spot-world-profile";
 export async function getPublicSpotDetailServer(spotId: string) {
   const client = await createSupabaseServerClient();
   const { data, error } = await client.rpc("backyrd_web_spot_detail_v1", {
@@ -22,11 +23,12 @@ export async function getPublicSpotDetailServer(spotId: string) {
   // source for manifested World Knowledge fields; before that, we expose no
   // World facts rather than turning a valid spot into a 404.
   if (moodError) return null;
-  return {
+  const result = {
     ...(data as PublicSpotDetailDTO),
     top_moods: moodProfile ?? [],
     world_profile: worldError
       ? null
       : (worldProfile as PublicSpotDetailDTO["world_profile"]),
   } as PublicSpotDetailDTO;
+  return applyCanonicalWorldSpot(result, result.world_profile ?? null) as PublicSpotDetailDTO;
 }

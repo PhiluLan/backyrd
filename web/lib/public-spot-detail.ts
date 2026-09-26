@@ -1,12 +1,8 @@
 import { supabase } from "@/lib/supabase/client";
+import { applyCanonicalWorldSpot, type PublicWorldSpotProfile } from "@/lib/spot-world-profile";
 
 export type PublicSpotDetailDTO = {
-  world_profile?: {
-    contractVersion: "backyrd.spot-detail-product-profile@1.0";
-    surface: "WEB";
-    worldManifestHash: string | null;
-    fields: Array<{ attributeKey:string; sectionKey:string; sortOrder:number; scope:string; knowledgeState:string; value:unknown; trust:string; freshness:string }>;
-  } | null;
+  world_profile?: PublicWorldSpotProfile | null;
   spot: {
     id: string;
     name: string;
@@ -75,11 +71,12 @@ export async function getPublicSpotDetail(
     .eq("spot_id", spotId)
     .order("rank", { ascending: true }), supabase.rpc("spot_detail_product_profile_v1", { p_spot_id: spotId, p_surface: "WEB" })]);
   if (moodError) throw new Error("Spot-Wissen konnte nicht geladen werden.");
-  return {
+  const result = {
     ...(data as PublicSpotDetailDTO),
     top_moods: moodProfile ?? [],
     world_profile: worldError
       ? null
       : (worldProfile as PublicSpotDetailDTO["world_profile"]),
   };
+  return applyCanonicalWorldSpot(result, result.world_profile ?? null) as PublicSpotDetailDTO;
 }

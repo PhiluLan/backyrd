@@ -14,13 +14,58 @@ export type SpotProductProfile = {
   contractVersion: "backyrd.spot-detail-product-profile@1.0";
   surface: "MOBILE";
   worldManifestHash: string | null;
+  spot: {
+    spotId: string;
+    name: string;
+    addressLine1: string | null;
+    locality: string | null;
+    countryCode: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    regularHours: unknown;
+    source: "WORLD_KNOWLEDGE" | "LEGACY_COMPATIBILITY";
+    headerPhotoPath: string | null;
+  };
   fields: SpotProductField[];
 };
+
+export type SpotProductOpeningHour = {
+  day_of_week: string;
+  open_time: string;
+  close_time: string;
+  idx: number;
+};
+
+const dayNames: Record<string,string> = {
+  MONDAY:"Montag",TUESDAY:"Dienstag",WEDNESDAY:"Mittwoch",THURSDAY:"Donnerstag",
+  FRIDAY:"Freitag",SATURDAY:"Samstag",SUNDAY:"Sonntag",
+};
+
+export function spotProductOpeningHours(profile: SpotProductProfile): SpotProductOpeningHour[] {
+  if (profile.spot.source !== "WORLD_KNOWLEDGE" || !Array.isArray(profile.spot.regularHours)) return [];
+  const rows: SpotProductOpeningHour[] = [];
+  for (const day of profile.spot.regularHours) {
+    if (!day || typeof day !== "object") continue;
+    const value = day as { day?: unknown; intervals?: unknown };
+    const label = typeof value.day === "string" ? dayNames[value.day] : undefined;
+    if (!label || !Array.isArray(value.intervals)) continue;
+    for (const interval of value.intervals) {
+      if (!interval || typeof interval !== "object") continue;
+      const window = interval as { start?: unknown; end?: unknown };
+      if (typeof window.start !== "string" || typeof window.end !== "string") continue;
+      rows.push({ day_of_week: label, open_time: window.start, close_time: window.end, idx: rows.length });
+    }
+  }
+  return rows;
+}
 
 export async function getMobileSpotProductProfile(spotId: string): Promise<SpotProductProfile | null> {
   const { data, error } = await supabase.rpc("spot_detail_product_profile_v1", { p_spot_id: spotId, p_surface: "MOBILE" });
   if (error) throw error;
-  if (!data || data.contractVersion !== "backyrd.spot-detail-product-profile@1.0" || data.surface !== "MOBILE" || !Array.isArray(data.fields)) return null;
+  if (!data || data.contractVersion !== "backyrd.spot-detail-product-profile@1.0" || data.surface !== "MOBILE"
+    || !data.spot || typeof data.spot !== "object" || typeof data.spot.name !== "string"
+    || !["WORLD_KNOWLEDGE","LEGACY_COMPATIBILITY"].includes(data.spot.source)
+    || !Array.isArray(data.fields)) return null;
   return data as SpotProductProfile;
 }
 
