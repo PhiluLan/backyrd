@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260926142253-world-research-reviewed-import-v2",
+  "previousEvidence": "20260926120337-world-research-batch-import-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "3db1adf79165930b0562a5fb3c12905277ec0d66fcee5d7c50180fef63a00fb2",
+    "applicationSchemaSha256": "4d58eb11c27abfc02a3eab0bab71ca91b20ac0e6bc68d939eed6a0041d46e543"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260926142253_world_research_reviewed_import_v2.sql",
+      "sha256": "9dacce20ea925b5e3e506d3bb933d46af2012a8aa788e83bf72f634da8840028"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/world_research_reviewed_import_v2.sql",
+      "sha256": "eee8718096c5f9686e055363f47cfc634d6caa1beb3e67ea89581bfe511eea3f"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "0f2a4288275ea63df5fb0adbca55bb9fcad0f486da517e1b7973214e77b69d3c",
+    "applicationSchemaSha256": "4a22116bb6a6c045a45c688d5eafa9a3695fd2701e0587f1b9a680e6fe9639b5"
+  }
+}

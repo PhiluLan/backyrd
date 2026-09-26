@@ -8,7 +8,7 @@ const migration = await readFile(new URL("../../supabase/migrations/202609261203
 
 test("research import reuses the canonical append-only writer and rebuild", () => {
   assert.match(migration, /submit_authoritative_claim_v3/);
-  assert.match(route, /world_product_admin_import_research_claim_v1/);
+  assert.match(route, /world_product_admin_import_research_spot_v2/);
   assert.match(route, /world_product_rebuild_spot_v1/);
   assert.doesNotMatch(route, /\.from\([^)]*claims[^)]*\).*\.insert/s);
 });

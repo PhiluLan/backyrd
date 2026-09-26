@@ -1,7 +1,10 @@
 import { AUTHORING_CATALOG_HASH, AUTHORING_CATALOG_VERSION, AUTHORING_FIELDS, validateAuthoringSubmission } from "./authoring.js";
-import { hashBody } from "./canonical.js";
+import { canonicalJson, hashBody } from "./canonical.js";
+import { getPlaceTypeConflict } from "./authoring.js";
+import { researchValueContract } from "./research-value-schema.js";
 
-export const WORLD_RESEARCH_BATCH_VERSION = "backyrd.world-research-batch@1.0" as const;
+export const WORLD_RESEARCH_BATCH_VERSION = "backyrd.world-research-batch@1.1" as const;
+const LEGACY_VERSION = "backyrd.world-research-batch@1.0" as const;
 export const WORLD_RESEARCH_TRUST_LEVELS = ["OFFICIAL_PRIMARY", "AUTHORITATIVE_PRIMARY", "CORROBORATED_SECONDARY"] as const;
 export type WorldResearchTrustLevel = typeof WORLD_RESEARCH_TRUST_LEVELS[number];
 
@@ -25,6 +28,9 @@ export type WorldResearchFieldCatalogEntry = {
   label: string;
   help: string;
   allowedValues: Array<{ value: string; label: string }>;
+  valueSchema?: Record<string, unknown>;
+  valueRules?: string[];
+  valueExample?: unknown;
 };
 
 export type WorldResearchClaim = {
@@ -43,7 +49,7 @@ export type WorldResearchUnresolved = { attributeKey: string; reason: string };
 export type WorldResearchSpotResult = { spotId: string; claims: WorldResearchClaim[]; unresolved: WorldResearchUnresolved[] };
 
 export type WorldResearchBatchDocument = {
-  contractVersion: typeof WORLD_RESEARCH_BATCH_VERSION;
+  contractVersion: typeof WORLD_RESEARCH_BATCH_VERSION | typeof LEGACY_VERSION;
   purpose: "ADMIN_ASSISTED_RESEARCH";
   batch: {
     batchId: string;
@@ -80,6 +86,7 @@ export function createWorldResearchBatch(input: { batchId: string; createdAt: st
     label: field.label,
     help: field.help,
     allowedValues: field.allowedValues.filter((entry) => entry.state !== "NOT_CONFIGURED").map(({ value, label }) => ({ value, label })),
+    ...researchValueContract(field.attributeKey),
   }));
   const body = {
     contractVersion: WORLD_RESEARCH_BATCH_VERSION,
@@ -94,6 +101,11 @@ export function createWorldResearchBatch(input: { batchId: string; createdAt: st
         "Verändere batch, fieldCatalog und exportHash nicht.",
         "Trage ausschließlich öffentlich belegte Angaben in research.spots ein.",
         "Nutze nur Feldnamen und Werte aus fieldCatalog.",
+        "Jeder Claim enthält attributeKey, knowledgeState (KNOWN_VALUE bzw. bei Boolean KNOWN_TRUE/KNOWN_FALSE), value und source: {url: HTTPS-Quellen-URL, evidence: konkreter öffentlicher Beleg ohne private Daten, observedAt: tatsächlicher UTC-Beobachtungszeitpunkt im ISO-Format, trust: OFFICIAL_PRIMARY|AUTHORITATIVE_PRIMARY|CORROBORATED_SECONDARY}.",
+        "valueSchema und valueRules beschreiben das genaue JSON-Format. valueExample ist nur ein Formatbeispiel, niemals eine Spot-Tatsache.",
+        "Prüfe die offizielle Website ausdrücklich auf Öffnungszeiten und Küchenzeiten. Übernimm alle belegten Wochentage und Zeitfenster getrennt in hours.regular und hours.kitchen.",
+        "Bestehende unveränderte Werte nicht erneut recherchieren. Belegte Ergänzungen oder Korrekturen sind erlaubt; bestehende abweichende Angaben benötigen Admin-Review.",
+        "Belegter Standort Schweiz (CH): Europe/Zurich ist als begründete geografische Ableitung zulässig. Quelle und Ableitung nennen; nicht allein aus einem mehrdeutigen Ortsnamen raten.",
         "Nicht belastbar belegte Felder gehören in unresolved und niemals als false oder UNKNOWN in claims.",
         "Gib dieses vollständige JSON-Dokument ohne Markdown zurück.",
       ],
@@ -105,9 +117,57 @@ export function createWorldResearchBatch(input: { batchId: string; createdAt: st
 
 export type ParsedWorldResearchBatch = WorldResearchBatchDocument & { validatedClaims: Map<string, WorldResearchClaim[]> };
 
+export type ResearchReview = { attributeKey: string; current: WorldResearchExistingValue; proposed: WorldResearchClaim };
+export type ReviewedResearchClaim = WorldResearchClaim & { supersedesClaimId: string | null };
+
+/** Pure preflight shared by preview and commit. It never turns gaps into facts. */
+export function planWorldResearchSpot(input: {
+  claims: readonly WorldResearchClaim[];
+  current: Record<string, WorldResearchExistingValue>;
+  confirmations: Record<string, string>;
+  observedAt: string;
+}) {
+  const claims = [...input.claims];
+  const accepted: ReviewedResearchClaim[] = [];
+  const skipped: string[] = [];
+  const reviews: ResearchReview[] = [];
+  const blocked: string[] = [];
+  const derived: string[] = [];
+  const classify = (claim: WorldResearchClaim) => {
+    const current = input.current[claim.attributeKey];
+    if (current?.knowledgeState === claim.knowledgeState && canonicalJson(current.value) === canonicalJson(claim.value)) { skipped.push(claim.attributeKey); return; }
+    if (current && input.confirmations[claim.attributeKey] !== current.claimId) { reviews.push({ attributeKey: claim.attributeKey, current, proposed: claim }); return; }
+    accepted.push({ ...claim, supersedesClaimId: current?.claimId ?? null });
+  };
+  claims.forEach(classify);
+  const effective = (key: string) => accepted.find((claim) => claim.attributeKey === key) ?? input.current[key];
+  const country = effective("location.country_code");
+  // CH has a single IANA civil time zone. A city-name guess or proposed country
+  // awaiting review cannot establish it. Existing known zones remain untouched.
+  if (!claims.some((claim) => claim.attributeKey === "location.timezone")
+    && (!input.current["location.timezone"] || input.current["location.timezone"].knowledgeState === "UNKNOWN")
+    && !reviews.some((review) => review.attributeKey === "location.country_code")
+    && country?.knowledgeState === "KNOWN_VALUE" && country.value === "CH") {
+    derived.push("location.timezone");
+    classify({ attributeKey: "location.timezone", knowledgeState: "KNOWN_VALUE", value: "Europe/Zurich",
+      source: { url: "https://data.iana.org/time-zones/tzdb/zone.tab", evidence: "Geografische Ableitung CH → Europe/Zurich aus dem bestätigten bzw. im selben Import bestätigten Ländercode. Keine vom Betrieb veröffentlichte Zeitangabe.", observedAt: input.observedAt, trust: "AUTHORITATIVE_PRIMARY" } });
+  }
+  const places = accepted.find((claim) => claim.attributeKey === "classification.place_types");
+  if (places) {
+    const category = effective("classification.primary_category");
+    if (reviews.some((review) => review.attributeKey === "classification.primary_category")
+      || category?.knowledgeState !== "KNOWN_VALUE" || getPlaceTypeConflict(category.value, places.value).state !== "COMPATIBLE") {
+      accepted.splice(accepted.indexOf(places), 1);
+      blocked.push("classification.place_types: Hauptkategorie zuerst bestätigen; Ortstypen müssen dazu passen.");
+    }
+  }
+  accepted.sort((a, b) => (a.attributeKey === "classification.primary_category" ? -1 : b.attributeKey === "classification.primary_category" ? 1 : a.attributeKey.localeCompare(b.attributeKey)));
+  return { accepted, skipped, reviews, blocked, derived };
+}
+
 export function parseWorldResearchBatch(input: unknown): ParsedWorldResearchBatch {
   const root = object(input);
-  if (root.contractVersion !== WORLD_RESEARCH_BATCH_VERSION || root.purpose !== "ADMIN_ASSISTED_RESEARCH") throw new Error("world_research_contract_invalid");
+  if (![WORLD_RESEARCH_BATCH_VERSION, LEGACY_VERSION].includes(root.contractVersion as typeof WORLD_RESEARCH_BATCH_VERSION) || root.purpose !== "ADMIN_ASSISTED_RESEARCH") throw new Error("world_research_contract_invalid");
   const batch = object(root.batch);
   const batchId = safeText(batch.batchId, 64);
   const createdAt = safeText(batch.createdAt, 40);
@@ -119,7 +179,10 @@ export function parseWorldResearchBatch(input: unknown): ParsedWorldResearchBatc
   const typedSpots = spots as WorldResearchBatchSpot[];
   if (new Set(typedSpots.map((spot) => spot.spotId)).size !== typedSpots.length
     || typedSpots.some((spot) => !UUID.test(spot.spotId) || !safeText(spot.name, 240) || !SHA256.test(spot.manifestHash) || !spot.existingValues || typeof spot.existingValues !== "object")) throw new Error("world_research_spot_binding_invalid");
-  const canonicalCatalog = createWorldResearchBatch({ batchId, createdAt, spots: typedSpots }).fieldCatalog;
+  const fullCatalog = createWorldResearchBatch({ batchId, createdAt, spots: typedSpots }).fieldCatalog;
+  const canonicalCatalog = root.contractVersion === LEGACY_VERSION
+    ? fullCatalog.map(({ attributeKey, valueType, label, help, allowedValues }) => ({ attributeKey, valueType, label, help, allowedValues }))
+    : fullCatalog;
   if (hashBody({ fieldCatalog }, []) !== hashBody({ fieldCatalog: canonicalCatalog }, [])) throw new Error("world_research_catalog_drift");
   const bound = { contractVersion: root.contractVersion, purpose: root.purpose, batch: root.batch, fieldCatalog: root.fieldCatalog } as Pick<WorldResearchBatchDocument, "contractVersion" | "purpose" | "batch" | "fieldCatalog">;
   if (root.exportHash !== hashBody(exportCore(bound), [])) throw new Error("world_research_export_hash_invalid");
@@ -153,6 +216,7 @@ export function parseWorldResearchBatch(input: unknown): ParsedWorldResearchBatc
         || !evidence || hasSensitiveMaterial(evidence) || !observedAt || !ISO_INSTANT.test(observedAt)
         || !WORLD_RESEARCH_TRUST_LEVELS.includes(trust as WorldResearchTrustLevel)) throw new Error(`world_research_claim_invalid:${attributeKey ?? "unknown"}`);
       const validated = validateAuthoringSubmission(attributeKey, claim.knowledgeState, claim.value);
+      if (attributeKey === "state.current") throw new Error("world_research_current_state_requires_editor_validity");
       if (!validated.ok || claim.knowledgeState === "UNKNOWN") throw new Error(`world_research_value_invalid:${attributeKey}`);
       seenFields.add(attributeKey);
       parsedClaims.push({ attributeKey, knowledgeState: claim.knowledgeState as WorldResearchClaim["knowledgeState"], value: validated.value, source: { url: url.toString(), evidence, observedAt, trust: trust as WorldResearchTrustLevel } });

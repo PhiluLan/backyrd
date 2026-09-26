@@ -3,9 +3,10 @@
 import { useState } from "react";
 import type { ProductAdminSpotSearch } from "@backyrd/world-knowledge-authoring-ui";
 import { findResearchPlaces, type ResearchPlace } from "./WorldAddressPicker";
+import type { ResearchReview } from "@backyrd/world-knowledge-core";
 
 type Spot = ProductAdminSpotSearch["spots"][number];
-type Report = { batchId: string; mode: string; totals: Record<string, number>; perSpot: Array<{ spotId: string; name: string; ready: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; manifestHash?: string; location?: { message: string; automatic: string | null; query?: string; candidates: Array<{ placeId: string; name: string; address: string; latitude: number; longitude: number; token: string; sourceUrl: string }> } }> };
+type Report = { batchId: string; mode: string; totals: Record<string, number>; perSpot: Array<{ spotId: string; name: string; ready: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; reviews: ResearchReview[]; blocked: string[]; derived: string[]; manifestHash?: string; location?: { message: string; automatic: string | null; query?: string; candidates: Array<{ placeId: string; name: string; address: string; latitude: number; longitude: number; token: string; sourceUrl: string }> } }> };
 
 export function WorldResearchBatchPanel(props: {
   search(query: string): Promise<ProductAdminSpotSearch>;
@@ -17,6 +18,8 @@ export function WorldResearchBatchPanel(props: {
   const [json, setJson] = useState("");
   const [preview, setPreview] = useState<Report | null>(null);
   const [locations, setLocations] = useState<Record<string, string>>({});
+  const [confirmations, setConfirmations] = useState<Record<string, Record<string, string>>>({});
+  const [reviewChanged, setReviewChanged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -34,7 +37,7 @@ export function WorldResearchBatchPanel(props: {
   };
   const exportBatch = () => run(async () => {
     const document = await props.post({ action: "export", spotIds: selected.map((spot) => spot.spotId) });
-    const text = JSON.stringify(document, null, 2); setJson(text); setPreview(null);
+    const text = JSON.stringify(document, null, 2); setJson(text); setPreview(null); setConfirmations({}); setReviewChanged(false);
     const link = documentElement(text, `world-research-${(document as { batch?: { batchId?: string } }).batch?.batchId ?? "batch"}.json`);
     link.click(); URL.revokeObjectURL(link.href);
     setMessage("Export erstellt. Recherchiere extern und füge das vollständige JSON danach wieder ein.");
@@ -43,7 +46,7 @@ export function WorldResearchBatchPanel(props: {
   const previewBatch = () => run(async () => {
     setPreview(null); setLocations({});
     const document = parse();
-    let report = await props.post({ action: "preview", document }) as Report;
+    let report = await props.post({ action: "preview", document, confirmations }) as Report;
     const pending = report.perSpot.filter((spot) => spot.location?.query);
     if (pending.length) {
       const browserPlaces: Record<string, ResearchPlace[] | null> = {};
@@ -51,15 +54,16 @@ export function WorldResearchBatchPanel(props: {
         try { browserPlaces[spot.spotId] = await findResearchPlaces(spot.location!.query!); }
         catch { browserPlaces[spot.spotId] = null; }
       }
-      report = await props.post({ action: "preview", document, browserPlaces }) as Report;
+      report = await props.post({ action: "preview", document, browserPlaces, confirmations }) as Report;
     }
     setPreview(report);
+    setReviewChanged(false);
     setLocations(Object.fromEntries(report.perSpot.flatMap((spot) => {
       const candidate = spot.location?.candidates.find((item) => item.placeId === spot.location?.automatic);
       return candidate ? [[spot.spotId, candidate.token]] : [];
     })));
   });
-  const importBatch = () => run(async () => { const report = await props.post({ action: "commit", document: parse(), locations }) as Report; setPreview(report); setMessage(report.totals.invalid > 0 ? "Import teilweise fehlgeschlagen. Bitte die Fehler im Bericht prüfen." : "Import abgeschlossen und geänderte World-Snapshots verifiziert."); });
+  const importBatch = () => run(async () => { const report = await props.post({ action: "commit", document: parse(), locations, confirmations }) as Report; setPreview(report); setMessage(report.totals.invalid > 0 ? "Ein Spot-Import oder sein Neuaufbau ist fehlgeschlagen. Bitte den Bericht prüfen; innerhalb eines fehlgeschlagenen Spot-Batches wurde nichts teilweise gespeichert." : report.totals.conflicts || report.totals.blocked ? "Freigegebene Angaben übernommen. Offene Reviews und abhängige Felder wurden nicht geschrieben; sie bleiben im Bericht sichtbar." : "Import abgeschlossen und geänderte World-Snapshots verifiziert."); });
 
   return <section className="wk-research-panel">
     <div className="wk-research-heading"><div><span className="wk-eyebrow">Assistierte Recherche</span><h2>Spot-Wissen als geprüfter Zehner-Batch</h2><p>Auswählen, JSON extern recherchieren lassen, Vorschau prüfen und erst danach append-only übernehmen.</p></div><strong>{selected.length}/10</strong></div>
@@ -69,11 +73,16 @@ export function WorldResearchBatchPanel(props: {
     {!!selected.length && <div className="wk-research-selection">{selected.map((spot) => <button key={spot.spotId} onClick={() => toggle(spot)}>{spot.name} ×</button>)}</div>}
     <button className="wk-research-primary" disabled={busy || !selected.length} onClick={() => void exportBatch()}>Recherche-JSON herunterladen</button>
     <div className="wk-research-instructions"><b>Danach in ChatGPT oder Sol:</b><span>Datei anhängen, öffentliche Quellen recherchieren lassen und verlangen, dass ausschließlich das vollständige JSON zurückgegeben wird. Nicht belegte Angaben müssen unter <code>unresolved</code> bleiben.</span></div>
-    <label className="wk-research-upload">Recherchiertes JSON hochladen<input type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then((text) => { setJson(text); setPreview(null); }); }} /></label>
-    <textarea className="wk-research-json" value={json} onChange={(event) => { setJson(event.target.value); setPreview(null); }} placeholder="Oder vollständiges recherchiertes JSON hier einfügen …" spellCheck={false} />
-    <div className="wk-research-actions"><button disabled={busy || !json} onClick={() => void previewBatch()}>Import prüfen</button><button className="wk-research-primary" disabled={busy || !preview || preview.mode !== "PREVIEW" || preview.totals.invalid > 0} onClick={() => void importBatch()}>Geprüfte Angaben übernehmen</button></div>
+    <label className="wk-research-upload">Recherchiertes JSON hochladen<input type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then((text) => { setJson(text); setPreview(null); setConfirmations({}); }); }} /></label>
+    <textarea className="wk-research-json" value={json} onChange={(event) => { setJson(event.target.value); setPreview(null); setConfirmations({}); }} placeholder="Oder vollständiges recherchiertes JSON hier einfügen …" spellCheck={false} />
+    <div className="wk-research-actions"><button disabled={busy || !json} onClick={() => void previewBatch()}>Import prüfen</button><button className="wk-research-primary" disabled={busy || reviewChanged || !preview || preview.mode !== "PREVIEW" || preview.totals.invalid > 0} onClick={() => void importBatch()}>Geprüfte Angaben übernehmen</button></div>
+    {reviewChanged && <p>Review-Auswahl geändert. Bitte „Import prüfen“ erneut ausführen, damit abhängige Angaben ebenfalls geprüft werden.</p>}
     {message && <p className="wk-research-message">{message}</p>}
     {preview && <div className="wk-research-report"><div className="wk-research-totals">{Object.entries(preview.totals).map(([key, value]) => <span key={key}><b>{value}</b>{key}</span>)}</div>{preview.perSpot.map((spot) => <article key={spot.spotId}><h3>{spot.name}</h3><p>Übernommen: {spot.imported.length} · Bereit: {spot.ready.length} · Übersprungen: {spot.skipped.length} · Konflikte: {spot.conflicts.length} · Ungelöst: {spot.unresolved.length} · Ungültig: {spot.invalid.length}</p>{!!spot.conflicts.length && <small>Review nötig: {spot.conflicts.join(", ")}</small>}{!!spot.invalid.length && <small>Fehler: {spot.invalid.join(", ")}</small>}
+      {!!spot.ready.length && <p>Bereit: {spot.ready.join(", ")}</p>}
+      {!!spot.blocked?.length && <p>Zurückgehalten: {spot.blocked.join(" · ")}</p>}
+      {!!spot.derived?.length && <p>Zeitzone: Europe/Zurich, aus dem bestätigten Schweizer Standort abgeleitet. Ein bestehender unbekannter Wert benötigt ebenfalls deine Bestätigung.</p>}
+      {spot.reviews?.map((review) => <fieldset key={review.attributeKey}><legend>{review.attributeKey} · bewusste Korrektur</legend><p>Bisher: {review.current.knowledgeState === "UNKNOWN" ? "Noch unbekannt" : JSON.stringify(review.current.value)}</p><p>Recherchiert: {JSON.stringify(review.proposed.value)}</p><p>{review.proposed.source.evidence}</p><a href={review.proposed.source.url} target="_blank" rel="noreferrer">Quelle prüfen</a><label style={{ display: "block", padding: "12px 0" }}><input type="checkbox" disabled={busy || preview.mode !== "PREVIEW"} checked={confirmations[spot.spotId]?.[review.attributeKey] === review.current.claimId} onChange={(event) => { const checked = event.target.checked; setConfirmations((current) => ({ ...current, [spot.spotId]: { ...current[spot.spotId], [review.attributeKey]: checked ? review.current.claimId : "" } })); setReviewChanged(true); }} /> Ich bestätige diese neue Angabe. Die bisherige bleibt in der Historie erhalten.</label></fieldset>)}
       {spot.location && <fieldset><legend>Standortabgleich · Google Maps</legend><p>{spot.location.message}</p>
         {spot.location.candidates.map((candidate) => <label key={candidate.placeId} style={{ display: "block", padding: "12px 0" }}><input type="radio" name={`location-${spot.spotId}`} disabled={busy} checked={locations[spot.spotId] === candidate.token} onChange={() => setLocations((current) => ({ ...current, [spot.spotId]: candidate.token }))} /> <b>{candidate.name}</b> · {candidate.address}<br /><small>{candidate.latitude}, {candidate.longitude} · </small><a href={candidate.sourceUrl} target="_blank" rel="noreferrer">Auf Google Maps prüfen</a></label>)}
         {!!spot.location.candidates.length && <label><input type="radio" name={`location-${spot.spotId}`} disabled={busy} checked={!locations[spot.spotId]} onChange={() => setLocations((current) => ({ ...current, [spot.spotId]: "" }))} /> Koordinaten vorerst unverändert lassen</label>}
