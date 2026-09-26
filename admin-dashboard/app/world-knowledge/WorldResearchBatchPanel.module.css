@@ -2,4 +2,5 @@
 .secondary{display:block;width:100%;min-height:48px;border:0;background:transparent;color:#c7bfca;font:inherit;font-weight:700;cursor:pointer;margin-top:8px}
 .shell button:focus-visible,.shell summary:focus-visible,.shell a:focus-visible,.upload:focus-within{outline:2px solid #ff86b9;outline-offset:3px}.shell button:disabled{cursor:not-allowed}
 @media(max-width:600px){.shell{margin-bottom:130px}.header{padding-top:0}.steps span{font-size:12px;padding:10px 6px;text-align:center}.steps b{display:block;margin:3px 0 0}.stage,.spot,.status,.outcome{border-radius:20px;padding:20px}.spot header{display:block}.spot header span{display:inline-block;margin-top:10px}.comparison,.choices{grid-template-columns:1fr}.footer{bottom:calc(72px + env(safe-area-inset-bottom))}.search button{padding:0 14px}}
+@media(max-width:600px){.shell{padding:0 16px}}
 @media(prefers-reduced-motion:reduce){.primary{transition:none}.primary:hover:not(:disabled){transform:none}}
