@@ -59,14 +59,16 @@ test("unpublished backend cannot be confused with an actual empty search", async
   assert.deepEqual(empty.spots, []);
 });
 
-test("the published Admin surface uses Product search while Founder list remains local-only", async () => {
-  const [page, ui, route] = await Promise.all([
+test("the Spot editor uses Product search; the research page has no duplicate editor", async () => {
+  const [page, researchPage, ui, route] = await Promise.all([
+    readFile(new URL("../app/spots/[id]/edit/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/world-knowledge/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../../packages/world-knowledge-authoring-ui/src/ProductCorrection.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/world-knowledge/spots/route.ts", import.meta.url), "utf8"),
   ]);
-  assert.match(page, /<WorldProductCorrection[^>]+search=\{searchSpots\}/);
-  assert.match(page, /\{local && <WorldKnowledgeAuthoring/);
+  assert.match(page, /<WorldProductCorrection[\s\S]+search=\{\(query\) => authorizedWorldKnowledgeSpotSearch/);
+  assert.match(researchPage, /<WorldResearchBatchPanel/);
+  assert.doesNotMatch(researchPage, /<WorldProductCorrection|<WorldKnowledgeAuthoring/);
   assert.match(ui, /Spot nach Namen suchen/);
   assert.match(ui, /World Knowledge hier noch nicht verfügbar/);
   assert.match(ui, /Keine freigegebenen Spots zu dieser Suche gefunden/);
