@@ -30,12 +30,13 @@ const loadPlaces = (apiKey: string): Promise<void> => new Promise((resolve, reje
   script.addEventListener("error", () => { clearTimeout(timer); reject(new Error("Die Adresssuche ist nicht erreichbar.")); }, { once: true });
 });
 
-/** Reuse the same browser SDK/key as the canonical address editor. Return IDs only. */
-export async function findResearchPlaceIds(query: string): Promise<string[]> {
+export type ResearchPlace = { placeId: string; name: string; address: string; latitude: number; longitude: number };
+/** Same Google SDK as manual authoring; proposals require explicit Admin confirmation. */
+export async function findResearchPlaces(query: string): Promise<ResearchPlace[]> {
   const key = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
   if (!key) throw new Error("Die bestehende Google-Adresssuche ist nicht konfiguriert.");
   await loadPlaces(key);
-  type Result = { place_id?: string };
+  type Result = GooglePlace & { place_id?: string; name?: string };
   const sdk = window as typeof window & { google?: { maps?: { places?: { PlacesService: new (element: HTMLDivElement) => {
     textSearch(request: { query: string }, callback: (results: Result[] | null, status: string) => void): void;
   } } } } };
@@ -47,7 +48,11 @@ export async function findResearchPlaceIds(query: string): Promise<string[]> {
       clearTimeout(timer);
       if (status === "ZERO_RESULTS") { resolve([]); return; }
       if (status !== "OK") { reject(new Error("Google-Standortsuche derzeit nicht verfügbar.")); return; }
-      resolve((results ?? []).flatMap((result) => typeof result.place_id === "string" ? [result.place_id] : []).slice(0, 5));
+      resolve((results ?? []).flatMap((result) => {
+        const latitude = result.geometry?.location?.lat(), longitude = result.geometry?.location?.lng();
+        return typeof result.place_id === "string" && typeof result.name === "string" && typeof result.formatted_address === "string" && Number.isFinite(latitude) && Number.isFinite(longitude)
+          ? [{ placeId: result.place_id, name: result.name, address: result.formatted_address, latitude: latitude!, longitude: longitude! }] : [];
+      }).slice(0, 5));
     });
   });
 }

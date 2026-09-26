@@ -17,14 +17,14 @@ function browser(status, results) {
     window: { google: { maps: { places: { PlacesService: class { textSearch(request, callback) { queries.push(request.query); callback(results, status); } } } } } },
   });
   vm.runInContext(code, context);
-  return { search: module.exports.findResearchPlaceIds, queries };
+  return { search: module.exports.findResearchPlaces, queries };
 }
-test("research uses existing browser SDK and returns bounded IDs, never browser coordinates", async () => {
-  const app = browser("OK", Array.from({ length: 8 }, (_, i) => ({ place_id: `place${i}`, geometry: { latitude: 0 } })));
+test("research uses existing browser SDK and returns bounded complete proposals", async () => {
+  const app = browser("OK", Array.from({ length: 8 }, (_, i) => ({ place_id: `place${i}`, name: "Nomad", formatted_address: "Brunngässlein 8, Basel", geometry: { location: { lat: () => 47.55, lng: () => 7.59 } } })));
   const result = await app.search("Nomad Eatery & Bar, Brunngässlein 8, Basel");
   assert.equal(result.length, 5);
-  assert.equal(result[0], "place0");
-  assert.equal(typeof result[0], "string");
+  assert.equal(result[0].placeId, "place0");
+  assert.equal(result[0].latitude, 47.55);
   assert.equal(app.queries.length, 1);
 });
 test("browser distinguishes no match and denied/provider error", async () => {
