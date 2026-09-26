@@ -4,15 +4,17 @@ Class: FAST_PR. Owned surface: Admin research import. Existing canonical World
 authoring and rebuild RPCs remain the write authority. No migration or mobile
 release is required.
 
-The authenticated Admin preview looks up the existing `spots.google_place_id`
-through Place Details, or uses a bounded (five-result) Text Search if no ID is
-stored. The query contains only the public spot name, street, city and country.
-Google responses are shown with Google Maps attribution and a verification link.
+The authenticated Admin preview prepares a public spot-name/address query. The
+existing browser Places SDK searches with `NEXT_PUBLIC_GOOGLE_API_KEY`, just like
+the manual editor, and returns at most five Place IDs. The server independently
+queries the existing authenticated `mobile-geocode` function with the canonical
+query. Only IDs present in both responses are eligible; coordinates always come
+from the server response, never from browser input. An existing stored Place ID
+must also match. Results show Google Maps attribution and a verification link.
 
-Only one operational result with an exact normalized name, street/house number,
-city and country is preselected. A different existing legacy position suppresses
-automatic selection. All other returned matches require explicit Admin selection;
-no match/provider failure leaves coordinates unchanged. Existing canonical or
+All results require explicit Admin selection because the existing geocoder does
+not provide enough business metadata to prove an exact business-name match.
+No match/provider failure leaves coordinates unchanged. Existing canonical or
 researched coordinates are never replaced through this path.
 
 Each candidate confirmation is HMAC-bound to the full research document, spot,
@@ -24,10 +26,12 @@ Per-claim RPC failures are reported; partial imports are not reported as complet
 
 ## Deployment
 
-Admin server needs `GOOGLE_PLACES_API_KEY` with Places API (New) access plus its
-existing server-only `SUPABASE_SERVICE_ROLE_KEY`. Never reuse a browser-restricted
-public key as a server credential. Missing configuration is visibly reported and
-does not prevent unrelated research claims from being reviewed/imported.
+No new Google key or Admin environment variable is required. Browser search uses
+the existing `NEXT_PUBLIC_GOOGLE_API_KEY`; verification uses the deployed
+`mobile-geocode` function and its existing Google configuration and cost limits.
+The existing server-only `SUPABASE_SERVICE_ROLE_KEY` signs the confirmation.
+Provider errors remain visible and do not prevent unrelated research claims from
+being reviewed/imported. Browser key restrictions remain unchanged.
 
 No production lookup or write is proven by unit tests. Live acceptance: preview
 Nomad's exported research document, inspect provider result, compare its address
@@ -37,7 +41,6 @@ must instead remain unchanged with an explanation.
 
 ## Acceptance
 
-Targeted tests cover exact/ambiguous/wrong address, city, country and Place ID,
-closed results, invalid coordinates, provider/configuration failures, bounded
-requests, tampering, actor/document/spot binding and expiry. Admin typecheck and
+Targeted tests cover mismatched Place IDs, existing identities, invalid coordinates,
+provider failures, bounded requests, tampering, actor/document/spot binding and expiry. Admin typecheck and
 the classifier-selected CI gates are required before merge.

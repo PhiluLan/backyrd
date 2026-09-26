@@ -2,7 +2,7 @@ import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { createWorldResearchBatch, parseWorldResearchBatch, type WorldResearchClaim } from "@backyrd/world-knowledge-core";
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
-import { locationBinding, lookupLocations, signLocation, verifyLocation } from "@/lib/server/researchLocation.mjs";
+import { locationBinding, verifiedBrowserLocations, signLocation, verifyLocation } from "@/lib/server/researchLocation.mjs";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const noStore = { "cache-control": "no-store" };
@@ -14,7 +14,7 @@ type Detail = {
 };
 type Accepted = { spotId: string; manifestHash: string; claim: WorldResearchClaim };
 type LocationCandidate = { placeId: string; name: string; address: string; latitude: number; longitude: number; token: string; exact: boolean };
-type SpotReport = { spotId: string; name: string; ready: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; manifestHash?: string; location?: { message: string; candidates: LocationCandidate[]; automatic: string | null } };
+type SpotReport = { spotId: string; name: string; ready: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; manifestHash?: string; location?: { message: string; candidates: LocationCandidate[]; automatic: string | null; query?: string } };
 
 const same = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right);
 const message = (cause: unknown) => cause instanceof Error ? cause.message : "world_research_action_failed";
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     if (detail.spotId !== spotId || detail.status !== "approved" || detail.actor?.role !== "ADMIN" || !detail.answers || !detail.manifest?.manifestHash) throw new Error("world_research_spot_binding_invalid");
     return detail;
   };
-  const body = await request.json().catch(() => null) as null | { action?: string; spotIds?: unknown; document?: unknown; locations?: Record<string, string> };
+  const body = await request.json().catch(() => null) as null | { action?: string; spotIds?: unknown; document?: unknown; locations?: Record<string, string>; browserPlaceIds?: Record<string, string[] | null> };
 
   try {
     if (body?.action === "export") {
@@ -87,14 +87,23 @@ export async function POST(request: Request) {
           try {
             if (["location.latitude", "location.longitude"].some((key) => detail.answers?.[key] || document.validatedClaims.get(exported.spotId)?.some((claim) => claim.attributeKey === key))) throw new Error("Koordinaten sind bereits vorhanden oder Teil der Recherche. Keine automatische Ersetzung; Änderungen bitte im Spot-Editor prüfen.");
             if (!serviceKey) throw new Error("Standortabgleich ist noch nicht konfiguriert.");
+            const query = [detail.name, addressClaim.value, expectedValue("location.locality"), expectedValue("location.country_code")].filter((value) => typeof value === "string" && value.trim()).join(", ");
+            if (query.length > 160) throw new Error("Spot-Adresse ist für den Standortabgleich zu lang. Bitte im Spot-Editor prüfen.");
+            if (!body.browserPlaceIds || !(exported.spotId in body.browserPlaceIds)) {
+              report.location = { message: "Google-Standortsuche über die vorhandene Admin-Anbindung …", candidates: [], automatic: null, query };
+              continue;
+            }
+            const browserIds = body.browserPlaceIds[exported.spotId];
+            if (browserIds === null) throw new Error("Die Google-Suche im Browser ist nicht verfügbar. Bitte erneut prüfen; Koordinaten bleiben unverändert.");
+            if (!Array.isArray(browserIds) || browserIds.length > 5 || browserIds.some((id) => typeof id !== "string" || !/^[a-zA-Z0-9_-]{1,255}$/.test(id))) throw new Error("Ungültige Google-Trefferauswahl.");
+            if (browserIds.length === 0) throw new Error("Kein Google-Treffer gefunden. Koordinaten bleiben unverändert.");
             const service = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
-            const stored = await service.from("spots").select("google_place_id,lat,lng").eq("id", exported.spotId).single();
+            const stored = await service.from("spots").select("google_place_id").eq("id", exported.spotId).single();
             if (stored.error) throw new Error("Bestehende Google-Zuordnung konnte nicht geprüft werden.");
-            const found = await lookupLocations({ name: detail.name, address: addressClaim.value, locality: expectedValue("location.locality"), country: expectedValue("location.country_code") }, stored.data.google_place_id, process.env.GOOGLE_PLACES_API_KEY);
-            if (found.automatic && found.candidates.some((candidate) =>
-              (stored.data.lat != null && Math.abs(Number(stored.data.lat) - candidate.latitude) > 0.00001)
-              || (stored.data.lng != null && Math.abs(Number(stored.data.lng) - candidate.longitude) > 0.00001))) found.automatic = null;
-            report.location = { message: found.automatic ? "Name, Adresse und Ort stimmen überein. Koordinaten zur Übernahme ausgewählt." : found.candidates.length ? "Bitte Google-Treffer mit dem recherchierten Spot vergleichen und ausdrücklich auswählen." : "Kein Google-Treffer gefunden. Koordinaten bleiben unverändert.",
+            const verified = await actor.functions.invoke("mobile-geocode", { body: { action: "search_address", query } });
+            if (verified.error) throw new Error("Der bestehende Standortdienst konnte die Google-Treffer nicht bestätigen. Bitte später erneut prüfen.");
+            const found = verifiedBrowserLocations(browserIds, verified.data, stored.data.google_place_id);
+            report.location = { message: found.candidates.length ? "Koordinaten serverseitig bestätigt. Bitte Adresse und Spot auf Google Maps vergleichen und den passenden Treffer auswählen." : "Keine übereinstimmende Google-Zuordnung bestätigt. Koordinaten bleiben unverändert.",
               automatic: found.automatic, candidates: found.candidates.map((candidate) => ({ ...candidate, token: signLocation(candidate, binding, serviceKey) })) };
           } catch (cause) { report.location = { message: message(cause), candidates: [], automatic: null }; }
         } else if (body.locations?.[exported.spotId]) {

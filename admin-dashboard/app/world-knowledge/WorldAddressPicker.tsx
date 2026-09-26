@@ -25,15 +25,38 @@ const loadPlaces = (apiKey: string): Promise<void> => new Promise((resolve, reje
     script.async = true;
     document.head.appendChild(script);
   }
-  script.addEventListener("load", () => resolve(), { once: true });
-  script.addEventListener("error", () => reject(new Error("Die Adresssuche ist nicht erreichbar.")), { once: true });
+  const timer = setTimeout(() => reject(new Error("Die Adresssuche ist nicht erreichbar.")), 10000);
+  script.addEventListener("load", () => { clearTimeout(timer); resolve(); }, { once: true });
+  script.addEventListener("error", () => { clearTimeout(timer); reject(new Error("Die Adresssuche ist nicht erreichbar.")); }, { once: true });
 });
+
+/** Reuse the same browser SDK/key as the canonical address editor. Return IDs only. */
+export async function findResearchPlaceIds(query: string): Promise<string[]> {
+  const key = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+  if (!key) throw new Error("Die bestehende Google-Adresssuche ist nicht konfiguriert.");
+  await loadPlaces(key);
+  type Result = { place_id?: string };
+  const sdk = window as typeof window & { google?: { maps?: { places?: { PlacesService: new (element: HTMLDivElement) => {
+    textSearch(request: { query: string }, callback: (results: Result[] | null, status: string) => void): void;
+  } } } } };
+  const Service = sdk.google?.maps?.places?.PlacesService;
+  if (!Service) throw new Error("Google-Standortsuche ist nicht verfügbar.");
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Google-Standortsuche hat zu lange gedauert.")), 10000);
+    new Service(document.createElement("div")).textSearch({ query }, (results, status) => {
+      clearTimeout(timer);
+      if (status === "ZERO_RESULTS") { resolve([]); return; }
+      if (status !== "OK") { reject(new Error("Google-Standortsuche derzeit nicht verfügbar.")); return; }
+      resolve((results ?? []).flatMap((result) => typeof result.place_id === "string" ? [result.place_id] : []).slice(0, 5));
+    });
+  });
+}
 
 export function WorldAddressPicker({ disabled, onSelect }: { disabled: boolean; onSelect(value: ProductAddressSelection | null): void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const onSelectRef = useRef(onSelect);
   const [error, setError] = useState("");
-  onSelectRef.current = onSelect;
+  useEffect(() => { onSelectRef.current = onSelect; }, [onSelect]);
 
   useEffect(() => {
     let active = true;
