@@ -34,6 +34,19 @@
       "scope": "CONSENT_ERASURE_AND_EXPIRED_PRIVATE_IDEMPOTENCY_ONLY"
     }
   ],
+  "additiveProductMigrationScope": {
+    "contractVersion": "backyrd.product-v1-additive-migration-scope@1.0",
+    "projectRef": "hjgcrrzfjchzqoegcywn",
+    "migrations": [
+      {
+        "path": "supabase/migrations/20260926142253_world_research_reviewed_import_v2.sql",
+        "sha256": "9dacce20ea925b5e3e506d3bb933d46af2012a8aa788e83bf72f634da8840028"
+      }
+    ],
+    "executionAuthorized": false,
+    "restoreDrillStatus": "NOT_PERFORMED_BY_FOUNDER_DECISION",
+    "guaranteedDatabaseRollback": false
+  },
   "protectedSemanticSourceSet": {
     "paths": [
       "mobile/app/(tabs)/decision.tsx",
