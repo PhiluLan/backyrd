@@ -18,17 +18,18 @@ export function verifyLocation(token, binding, secret, now = Date.now()) {
   return payload.candidate;
 }
 
-/** Browser proposals are IDs only. Coordinates always come from the authenticated server provider. */
-export function verifiedBrowserLocations(browserIds, provider, existingPlaceId) {
-  if (!Array.isArray(browserIds) || browserIds.length > 5 || browserIds.some((id) => typeof id !== "string" || !/^[a-zA-Z0-9_-]{1,255}$/.test(id))) throw new Error("Ungültige Google-Trefferauswahl.");
-  if (!provider?.ok || !Array.isArray(provider.results)) throw new Error("Der bestehende Standortdienst konnte die Google-Treffer nicht bestätigen.");
-  const candidates = provider.results.slice(0, 5).flatMap((result) => {
-    if (!browserIds.includes(result.id) || (existingPlaceId && result.id !== existingPlaceId)) return [];
-    const [longitude, latitude] = Array.isArray(result.coords) ? result.coords : [];
-    if (typeof latitude !== "number" || typeof longitude !== "number" || !Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180 || typeof result.place_name !== "string") return [];
-    return [{ placeId: result.id, name: "Google-Standort", address: result.place_name, latitude, longitude, exact: false,
-      sourceUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(result.place_name)}&query_place_id=${encodeURIComponent(result.id)}` }];
+/** Validate an Admin proposal, not a cryptographic assertion by Google. Never auto-select. */
+export function validateBrowserLocations(proposals, existingPlaceId) {
+  if (!Array.isArray(proposals) || proposals.length > 5) throw new Error("Ungültige Google-Trefferauswahl.");
+  const candidates = proposals.map((result) => {
+    if (!result || typeof result !== "object" || Array.isArray(result)
+      || typeof result.placeId !== "string" || !/^[a-zA-Z0-9_-]{1,255}$/.test(result.placeId)
+      || typeof result.name !== "string" || !result.name.trim() || result.name.length > 240
+      || typeof result.address !== "string" || !result.address.trim() || result.address.length > 500) throw new Error("Ungültiger Standortvorschlag.");
+    const { latitude, longitude } = result;
+    if (typeof latitude !== "number" || typeof longitude !== "number" || !Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) throw new Error("Ungültige Koordinaten.");
+    return { placeId: result.placeId, name: result.name, address: result.address, latitude, longitude, exact: false,
+      sourceUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(result.name)}&query_place_id=${encodeURIComponent(result.placeId)}` };
   });
-  // The existing geocoder supplies identity + position, not enough metadata to assert an exact business match.
-  return { candidates: [...new Map(candidates.map((candidate) => [candidate.placeId, candidate])).values()], automatic: null };
+  return { candidates: [...new Map(candidates.filter((candidate) => !existingPlaceId || candidate.placeId === existingPlaceId).map((candidate) => [candidate.placeId, candidate])).values()], automatic: null };
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ProductAdminSpotSearch } from "@backyrd/world-knowledge-authoring-ui";
-import { findResearchPlaceIds } from "./WorldAddressPicker";
+import { findResearchPlaces, type ResearchPlace } from "./WorldAddressPicker";
 
 type Spot = ProductAdminSpotSearch["spots"][number];
 type Report = { batchId: string; mode: string; totals: Record<string, number>; perSpot: Array<{ spotId: string; name: string; ready: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; manifestHash?: string; location?: { message: string; automatic: string | null; query?: string; candidates: Array<{ placeId: string; name: string; address: string; latitude: number; longitude: number; token: string; sourceUrl: string }> } }> };
@@ -46,12 +46,12 @@ export function WorldResearchBatchPanel(props: {
     let report = await props.post({ action: "preview", document }) as Report;
     const pending = report.perSpot.filter((spot) => spot.location?.query);
     if (pending.length) {
-      const browserPlaceIds: Record<string, string[] | null> = {};
+      const browserPlaces: Record<string, ResearchPlace[] | null> = {};
       for (const spot of pending) {
-        try { browserPlaceIds[spot.spotId] = await findResearchPlaceIds(spot.location!.query!); }
-        catch { browserPlaceIds[spot.spotId] = null; }
+        try { browserPlaces[spot.spotId] = await findResearchPlaces(spot.location!.query!); }
+        catch { browserPlaces[spot.spotId] = null; }
       }
-      report = await props.post({ action: "preview", document, browserPlaceIds }) as Report;
+      report = await props.post({ action: "preview", document, browserPlaces }) as Report;
     }
     setPreview(report);
     setLocations(Object.fromEntries(report.perSpot.flatMap((spot) => {

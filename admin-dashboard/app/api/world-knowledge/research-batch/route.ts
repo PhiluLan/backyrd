@@ -2,7 +2,7 @@ import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { createWorldResearchBatch, parseWorldResearchBatch, type WorldResearchClaim } from "@backyrd/world-knowledge-core";
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
-import { locationBinding, verifiedBrowserLocations, signLocation, verifyLocation } from "@/lib/server/researchLocation.mjs";
+import { locationBinding, validateBrowserLocations, signLocation, verifyLocation } from "@/lib/server/researchLocation.mjs";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const noStore = { "cache-control": "no-store" };
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     if (detail.spotId !== spotId || detail.status !== "approved" || detail.actor?.role !== "ADMIN" || !detail.answers || !detail.manifest?.manifestHash) throw new Error("world_research_spot_binding_invalid");
     return detail;
   };
-  const body = await request.json().catch(() => null) as null | { action?: string; spotIds?: unknown; document?: unknown; locations?: Record<string, string>; browserPlaceIds?: Record<string, string[] | null> };
+  const body = await request.json().catch(() => null) as null | { action?: string; spotIds?: unknown; document?: unknown; locations?: Record<string, string>; browserPlaces?: Record<string, unknown> };
 
   try {
     if (body?.action === "export") {
@@ -89,21 +89,17 @@ export async function POST(request: Request) {
             if (!serviceKey) throw new Error("Standortabgleich ist noch nicht konfiguriert.");
             const query = [detail.name, addressClaim.value, expectedValue("location.locality"), expectedValue("location.country_code")].filter((value) => typeof value === "string" && value.trim()).join(", ");
             if (query.length > 160) throw new Error("Spot-Adresse ist für den Standortabgleich zu lang. Bitte im Spot-Editor prüfen.");
-            if (!body.browserPlaceIds || !(exported.spotId in body.browserPlaceIds)) {
+            if (!body.browserPlaces || !(exported.spotId in body.browserPlaces)) {
               report.location = { message: "Google-Standortsuche über die vorhandene Admin-Anbindung …", candidates: [], automatic: null, query };
               continue;
             }
-            const browserIds = body.browserPlaceIds[exported.spotId];
-            if (browserIds === null) throw new Error("Die Google-Suche im Browser ist nicht verfügbar. Bitte erneut prüfen; Koordinaten bleiben unverändert.");
-            if (!Array.isArray(browserIds) || browserIds.length > 5 || browserIds.some((id) => typeof id !== "string" || !/^[a-zA-Z0-9_-]{1,255}$/.test(id))) throw new Error("Ungültige Google-Trefferauswahl.");
-            if (browserIds.length === 0) throw new Error("Kein Google-Treffer gefunden. Koordinaten bleiben unverändert.");
+            const browserPlaces = body.browserPlaces[exported.spotId];
+            if (browserPlaces === null) throw new Error("Die Google-Suche im Browser ist nicht verfügbar. Bitte erneut prüfen; Koordinaten bleiben unverändert.");
             const service = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
             const stored = await service.from("spots").select("google_place_id").eq("id", exported.spotId).single();
             if (stored.error) throw new Error("Bestehende Google-Zuordnung konnte nicht geprüft werden.");
-            const verified = await actor.functions.invoke("mobile-geocode", { body: { action: "search_address", query } });
-            if (verified.error) throw new Error("Der bestehende Standortdienst konnte die Google-Treffer nicht bestätigen. Bitte später erneut prüfen.");
-            const found = verifiedBrowserLocations(browserIds, verified.data, stored.data.google_place_id);
-            report.location = { message: found.candidates.length ? "Koordinaten serverseitig bestätigt. Bitte Adresse und Spot auf Google Maps vergleichen und den passenden Treffer auswählen." : "Keine übereinstimmende Google-Zuordnung bestätigt. Koordinaten bleiben unverändert.",
+            const found = validateBrowserLocations(browserPlaces, stored.data.google_place_id);
+            report.location = { message: found.candidates.length ? "Google-Vorschlag aus der Browser-Suche. Bitte Name, Adresse und Position prüfen. Mit der Auswahl bestätigst du diese Angaben als Admin; sie wurden nicht unabhängig serverseitig bei Google verifiziert." : "Kein passender Treffer zur bestehenden Google-Zuordnung gefunden. Koordinaten bleiben unverändert.",
               automatic: found.automatic, candidates: found.candidates.map((candidate) => ({ ...candidate, token: signLocation(candidate, binding, serviceKey) })) };
           } catch (cause) { report.location = { message: message(cause), candidates: [], automatic: null }; }
         } else if (body.locations?.[exported.spotId]) {
@@ -111,7 +107,7 @@ export async function POST(request: Request) {
           const candidate = verifyLocation(body.locations[exported.spotId], binding, serviceKey) as LocationCandidate & { sourceUrl: string; observedAt: string };
           const coordinateClaims: WorldResearchClaim[] = ["latitude", "longitude"].map((axis) => ({
             attributeKey: `location.${axis}`, knowledgeState: "KNOWN_VALUE", value: axis === "latitude" ? candidate.latitude : candidate.longitude,
-            source: { url: candidate.sourceUrl, evidence: `Google Places Standortabgleich; Place-ID ${candidate.placeId}`, observedAt: candidate.observedAt, trust: "AUTHORITATIVE_PRIMARY" },
+            source: { url: candidate.sourceUrl, evidence: `Admin-bestätigter Standort aus Google-Browser-Suche; Place-ID ${candidate.placeId}; keine unabhängige serverseitige Provider-Verifikation`, observedAt: candidate.observedAt, trust: "AUTHORITATIVE_PRIMARY" },
           }));
           // Preserve all existing/researched coordinates. Never mix two different pairs.
           const occupied = coordinateClaims.some((claim) => detail.answers?.[claim.attributeKey] || document.validatedClaims.get(exported.spotId)?.some((item) => item.attributeKey === claim.attributeKey));
