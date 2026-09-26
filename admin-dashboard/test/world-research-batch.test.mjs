@@ -28,3 +28,11 @@ test("Admin UI limits the workflow to ten and requires preview before import", (
   assert.match(panel, /preview\.mode !== "PREVIEW"/);
   assert.match(panel, /unresolved/);
 });
+
+test("research export starts from canonical World values, never old Spot attributes", () => {
+  const exportBranch = route.slice(route.indexOf('if (body?.action === "export")'), route.indexOf('if (body?.action !== "preview"'));
+  assert.match(exportBranch, /detail\.answers/);
+  assert.match(exportBranch, /entry\[1\]\.visibility === "PUBLIC"/);
+  assert.doesNotMatch(exportBranch, /\.from\("spots"\)|legacy|spot\.address|spot\.description/);
+  assert.match(panel, /alte Spot-Felder werden nicht als Fakten übernommen/);
+});

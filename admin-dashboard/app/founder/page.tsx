@@ -129,7 +129,7 @@ export default function FounderControlCenterPage() {
       </section>
 
       <section className="fcc-liveSection">
-        <div className="fcc-liveSectionHead"><div><span className="fcc-overline">02 · Qualität und Wissen</span><h2>World Knowledge im Product-Pfad</h2></div><Link href="/world-knowledge">World Knowledge öffnen →</Link></div>
+        <div className="fcc-liveSectionHead"><div><span className="fcc-overline">02 · Qualität und Wissen</span><h2>World Knowledge im Product-Pfad</h2></div><Link href="/world-knowledge">Recherche Spot öffnen →</Link></div>
         <div className="fcc-liveCoverage">
           <div className="fcc-liveCoverageDial" style={{ "--coverage": `${data.world.snapshotCoveragePercent}%` } as CSSProperties}>
             <strong>{data.world.snapshotCoveragePercent}%</strong><span>kanonische Snapshots</span>

@@ -25,7 +25,7 @@ test("normal legacy review is human-readable and raw data stays in expert mode",
 test("validation and session errors stay inside the German authoring UI", async () => {
   const [source, page] = await Promise.all([
     read("packages/world-knowledge-authoring-ui/src/index.tsx"),
-    read("admin-dashboard/app/world-knowledge/page.tsx"),
+    read("admin-dashboard/app/spots/[id]/edit/page.tsx"),
   ]);
   assert.match(source, /translateAuthoringError/);
   assert.match(source, /Deine lokale Sitzung ist abgelaufen/);
@@ -130,7 +130,7 @@ test("older empty context encodings remain visibly selected without erasing real
 
 test("Admin World reuses the existing Swiss Places lookup with explicit address confirmation", async () => {
   const [page, picker, product] = await Promise.all([
-    read("admin-dashboard/app/world-knowledge/page.tsx"),
+    read("admin-dashboard/app/spots/[id]/edit/page.tsx"),
     read("admin-dashboard/app/world-knowledge/WorldAddressPicker.tsx"),
     read("packages/world-knowledge-authoring-ui/src/ProductCorrection.tsx"),
   ]);

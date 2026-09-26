@@ -105,6 +105,7 @@ export function createWorldResearchBatch(input: { batchId: string; createdAt: st
         "valueSchema und valueRules beschreiben das genaue JSON-Format. valueExample ist nur ein Formatbeispiel, niemals eine Spot-Tatsache.",
         "Prüfe die offizielle Website ausdrücklich auf Öffnungszeiten und Küchenzeiten. Übernimm alle belegten Wochentage und Zeitfenster getrennt in hours.regular und hours.kitchen.",
         "Bestehende unveränderte Werte nicht erneut recherchieren. Belegte Ergänzungen oder Korrekturen sind erlaubt; bestehende abweichende Angaben benötigen Admin-Review.",
+        "Alte Spot-Katalogwerte sind keine World-Knowledge-Wahrheit und dürfen nicht ohne öffentlichen Beleg in Claims übernommen werden.",
         "Belegter Standort Schweiz (CH): Europe/Zurich ist als begründete geografische Ableitung zulässig. Quelle und Ableitung nennen; nicht allein aus einem mehrdeutigen Ortsnamen raten.",
         "Nicht belastbar belegte Felder gehören in unresolved und niemals als false oder UNKNOWN in claims.",
         "Gib dieses vollständige JSON-Dokument ohne Markdown zurück.",
