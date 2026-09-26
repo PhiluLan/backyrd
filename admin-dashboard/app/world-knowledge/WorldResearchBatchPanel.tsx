@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import type { ProductAdminSpotSearch } from "@backyrd/world-knowledge-authoring-ui";
+import { findResearchPlaceIds } from "./WorldAddressPicker";
 
 type Spot = ProductAdminSpotSearch["spots"][number];
-type Report = { batchId: string; mode: string; totals: Record<string, number>; perSpot: Array<{ spotId: string; name: string; ready: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; manifestHash?: string; location?: { message: string; automatic: string | null; candidates: Array<{ placeId: string; name: string; address: string; latitude: number; longitude: number; token: string; sourceUrl: string }> } }> };
+type Report = { batchId: string; mode: string; totals: Record<string, number>; perSpot: Array<{ spotId: string; name: string; ready: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; manifestHash?: string; location?: { message: string; automatic: string | null; query?: string; candidates: Array<{ placeId: string; name: string; address: string; latitude: number; longitude: number; token: string; sourceUrl: string }> } }> };
 
 export function WorldResearchBatchPanel(props: {
   search(query: string): Promise<ProductAdminSpotSearch>;
@@ -41,7 +42,17 @@ export function WorldResearchBatchPanel(props: {
   const parse = () => { try { return JSON.parse(json) as unknown; } catch { throw new Error("Das eingefügte JSON ist nicht gültig."); } };
   const previewBatch = () => run(async () => {
     setPreview(null); setLocations({});
-    const report = await props.post({ action: "preview", document: parse() }) as Report;
+    const document = parse();
+    let report = await props.post({ action: "preview", document }) as Report;
+    const pending = report.perSpot.filter((spot) => spot.location?.query);
+    if (pending.length) {
+      const browserPlaceIds: Record<string, string[] | null> = {};
+      for (const spot of pending) {
+        try { browserPlaceIds[spot.spotId] = await findResearchPlaceIds(spot.location!.query!); }
+        catch { browserPlaceIds[spot.spotId] = null; }
+      }
+      report = await props.post({ action: "preview", document, browserPlaceIds }) as Report;
+    }
     setPreview(report);
     setLocations(Object.fromEntries(report.perSpot.flatMap((spot) => {
       const candidate = spot.location?.candidates.find((item) => item.placeId === spot.location?.automatic);
