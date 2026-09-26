@@ -23,10 +23,12 @@ test("research provenance is private, immutable and admin-only", () => {
 
 test("Admin UI limits the workflow to ten and requires preview before import", () => {
   assert.match(panel, /current\.length < 10/);
-  assert.match(panel, /Recherche-JSON herunterladen/);
+  assert.match(panel, /Recherche-Datei herunterladen/);
   assert.match(panel, /JSON prüfen/);
   assert.match(panel, /preview\.mode !== "PREVIEW"/);
   assert.match(panel, /unresolved/);
+  assert.match(panel, /Alles bereits aktuell/);
+  assert.match(panel, /Du musst nichts mehr übernehmen/);
 });
 
 test("review choices refresh the preview automatically and keep commit separate", () => {
@@ -41,8 +43,8 @@ test("review choices refresh the preview automatically and keep commit separate"
 
 test("manifest drift is explained and offers a read-only refresh instead of a disabled commit", () => {
   assert.match(panel, /spot\.conflicts\.includes\("EXPORT_OR_MANIFEST_DRIFT"\)/);
-  assert.match(panel, /Das ist keine bearbeitbare Angabe/);
-  assert.match(panel, /Aktuellen Stand laden und erneut prüfen/);
+  assert.match(panel, /Der Stand hat sich geändert/);
+  assert.match(panel, /Aktuellen Stand laden/);
   assert.match(panel, /action: "export", spotIds/);
   assert.match(panel, /refreshResearchDocument\(previous, current\)/);
   assert.match(panel, /await loadPreview\(refreshed, \{\}, false\)/);
@@ -55,7 +57,7 @@ test("a verified complete import clears the form and shows a visible finish stat
   assert.match(panel, /setCompletion\(\{ imported: report\.totals\.imported/);
   assert.match(panel, /setQuery\(""\); setResults\(\[\]\); setSelected\(\[\]\); setJson\(""\); setPreview\(null\)/);
   assert.match(panel, /scrollIntoView/);
-  assert.match(panel, /Import erfolgreich abgeschlossen/);
+  assert.match(panel, /Alles erledigt/);
   assert.match(panel, /setPreview\(report\);\s*setMessage\(report\.totals\.invalid > 0/);
 });
 
@@ -64,5 +66,5 @@ test("research export starts from canonical World values, never old Spot attribu
   assert.match(exportBranch, /detail\.answers/);
   assert.match(exportBranch, /entry\[1\]\.visibility === "PUBLIC"/);
   assert.doesNotMatch(exportBranch, /\.from\("spots"\)|legacy|spot\.address|spot\.description/);
-  assert.match(panel, /alte Spot-Felder werden nicht als Fakten übernommen/);
+  assert.match(panel, /nicht alte Spot-Felder/);
 });
