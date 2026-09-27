@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260927153722-spot-detail-explanation-projection-v1",
+  "previousEvidence": "20260927134435-world-product-admin-research-queue-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "214583bbfaabdddcacc55c6629ad777d2e4fe336106da1428d5da49734473981",
+    "applicationSchemaSha256": "2d526235f19a0addeacc01bd39527476da1f4f34f7a9281b96e907a4ab43abb5"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260927153722_spot_detail_explanation_projection_v1.sql",
+      "sha256": "0e6941984394a20eec4ef7cbfca835245aafc7c78eb82bc6e36a3a1fb7c2b3ca"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/unify_world_spot_authoring_projection.sql",
+      "sha256": "e7bf8cf41cd24400168c36031335119bb54ba2b3ff4388c33a2830f6adcc9ee7"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "214583bbfaabdddcacc55c6629ad777d2e4fe336106da1428d5da49734473981",
+    "applicationSchemaSha256": "067fdad5dd569b3f82e6e3ef9c00dbcb5fd8b5b2de950e38cb121a6853b5e35f"
+  }
+}

@@ -114,6 +114,23 @@ assert.match(config, /checkAutomatically: "ON_LOAD"/);
 assert.match(config, /BACKYRD_RELEASE_BUILD/);
 assert.match(spotDetail, /spotOpeningStatusNow/, "Spot Detail must use the canonical opening-hours presentation helper");
 assert.match(spotDetail, /spotProductOpeningHours\(worldProfile\)/, "Spot Detail must derive hours from the manifested World profile");
+const spotProfileModule = { exports: {} };
+vm.runInNewContext(ts.transpileModule(spotProductProfile, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
+  module: spotProfileModule,
+  exports: spotProfileModule.exports,
+  require: (name) => name === "./supabase" ? { supabase: {} } : assert.fail(`unexpected Spot profile import: ${name}`),
+  Intl,
+});
+const spotProfileRuntime = spotProfileModule.exports;
+const closedSunday = spotProfileRuntime.spotProductOpeningHours({
+  spot: { source: "WORLD_KNOWLEDGE", regularHours: [{ day: "MONDAY", intervals: [{ start: "09:00", end: "18:00" }] }, { day: "SUNDAY", intervals: [] }] },
+});
+assert.equal(closedSunday.length, 2, "an explicit closed day must not be dropped");
+assert.equal(closedSunday[1].day_of_week, "Sonntag");
+assert.equal(closedSunday[1].open_time, "");
+assert.match(spotDetail, /Heute geschlossen/, "an explicit closed day must be labeled closed, not unknown");
+const confirmedHighlight = "Im IWB Unterwerk wird Craft Beer gebraut.";
+assert.equal(spotProfileRuntime.presentSpotProductField({ attributeKey: "description.highlight", knowledgeState: "KNOWN_VALUE", value: confirmedHighlight }), confirmedHighlight, "a confirmed World description must retain original spelling");
 assert.match(spotDetail, /worldProfile\.spot\.name/, "Spot Detail must derive its displayed identity from World Knowledge");
 assert.match(spotProductProfile, /source: "WORLD_KNOWLEDGE" \| "LEGACY_COMPATIBILITY"/, "Spot profile source must be explicit");
 assert.match(spotProductProfile, /profile\.spot\.source !== "WORLD_KNOWLEDGE"/, "legacy data must not be mixed into a manifested World schedule");

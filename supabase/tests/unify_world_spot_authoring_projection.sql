@@ -74,6 +74,41 @@ insert into world_knowledge_private.current_projection_pointers(
 );
 
 select pg_temp.assert(
+  not exists (select 1 from jsonb_array_elements(public.spot_detail_product_profile_v1(pg_temp.id('unified-spot'),'MOBILE')->'fields') item where item->>'attributeKey'='description.highlight'),
+  'a World spot without a verified description must not fall back to legacy text'
+);
+
+insert into auth.users(instance_id,id,aud,role,email,encrypted_password,raw_app_meta_data,raw_user_meta_data,created_at,updated_at)
+values('00000000-0000-0000-0000-000000000000',pg_temp.id('unified-admin'),'authenticated','authenticated','unified-admin@test.invalid','','{}','{}',clock_timestamp(),clock_timestamp());
+insert into public.profiles(id,is_admin) values(pg_temp.id('unified-admin'),true)
+on conflict(id) do update set is_admin=excluded.is_admin;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',pg_temp.id('unified-admin')::text,true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select public.world_admin_submit_claim_v1(
+  pg_temp.id('unified-spot'),'description.highlight','KNOWN_VALUE',
+  '"Im IWB Unterwerk wird Craft Beer gebraut."'::jsonb,
+  pg_catalog.clock_timestamp(),null,null,'PUBLIC',null,'unified-description'
+);
+reset role;
+
+select pg_temp.assert(
+  exists (select 1 from jsonb_array_elements(public.spot_detail_product_profile_v1(pg_temp.id('unified-spot'),'MOBILE')->'fields') item
+    where item->>'attributeKey'='description.highlight' and item->>'value'='Im IWB Unterwerk wird Craft Beer gebraut.'),
+  'verified explanation-only World description is absent from Mobile Spot detail'
+);
+select pg_temp.assert(
+  exists (select 1 from jsonb_array_elements(public.spot_detail_product_profile_v1(pg_temp.id('unified-spot'),'WEB')->'fields') item
+    where item->>'attributeKey'='description.highlight' and item->>'value'='Im IWB Unterwerk wird Craft Beer gebraut.'),
+  'verified explanation-only World description is absent from Browser Spot detail'
+);
+select pg_temp.assert(
+  not exists (select 1 from world_knowledge_private.resolution_entries entry
+    where entry.manifest_id=pg_temp.id('unified-manifest') and entry.attribute_key='description.highlight'),
+  'Spot reader test must not alter the manifest-bound Decision projection'
+);
+
+select pg_temp.assert(
   public.spot_detail_product_profile_v1(pg_temp.id('unified-spot'),'MOBILE')->'spot'
     @> '{"name":"Volta Bräu","addressLine1":"Voltastrasse 30","locality":"Basel","countryCode":"CH","source":"WORLD_KNOWLEDGE"}'::jsonb,
   'Mobile did not receive canonical World identity and location'
