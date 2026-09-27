@@ -71,6 +71,7 @@ where registry.registry_version='backyrd.world-knowledge.registry@2.1'
   and policy.policy_version='backyrd.world-knowledge.source-policy@4b.1';
 insert into world_knowledge_private.resolution_entries(manifest_id,attribute_key,scope,resolution,value,trust,freshness,basis_claim_hashes,entry_hash)
 values
+  (pg_temp.id('presentation-manifest'),'identity.name','SPOT','KNOWN_VALUE','"Presentation Café"','VERIFIED','CURRENT',array[pg_temp.hash('claim-name')],pg_temp.hash('entry-name')),
   (pg_temp.id('presentation-manifest'),'description.highlight','VENUE','KNOWN_VALUE','"A calm room"','VERIFIED','CURRENT',array[pg_temp.hash('claim-highlight')],pg_temp.hash('entry-highlight')),
   (pg_temp.id('presentation-manifest'),'contact.public_email','SPOT','KNOWN_VALUE','"hello@example.org"','VERIFIED','CURRENT',array[pg_temp.hash('claim-email')],pg_temp.hash('entry-email')),
   (pg_temp.id('presentation-manifest'),'contact.instagram','SPOT','KNOWN_VALUE','"https://www.instagram.com/example/"','VERIFIED','CURRENT',array[pg_temp.hash('claim-instagram')],pg_temp.hash('entry-instagram')),
