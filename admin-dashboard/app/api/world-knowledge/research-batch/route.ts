@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     if (detail.spotId !== spotId || detail.status !== "approved" || detail.actor?.role !== "ADMIN" || !detail.answers || !detail.manifest?.manifestHash) throw new Error("world_research_spot_binding_invalid");
     return detail;
   };
-  const body = await request.json().catch(() => null) as null | { action?: string; spotIds?: unknown; document?: unknown; locations?: Record<string, string>; browserPlaces?: Record<string, unknown>; confirmations?: Record<string, Record<string, string>> };
+  const body = await request.json().catch(() => null) as null | { action?: string; spotIds?: unknown; recordExport?: unknown; document?: unknown; locations?: Record<string, string>; browserPlaces?: Record<string, unknown>; confirmations?: Record<string, Record<string, string>> };
 
   try {
     if (body?.action === "export") {
@@ -52,6 +52,10 @@ export async function POST(request: Request) {
           existingValues: Object.fromEntries(Object.entries(detail.answers ?? {}).filter((entry): entry is [string, { claimId: string; knowledgeState: string; value: unknown; visibility: string }] => entry[1].visibility === "PUBLIC" && typeof entry[1].claimId === "string" && typeof entry[1].knowledgeState === "string").map(([key, value]) => [key, { claimId: value.claimId, knowledgeState: value.knowledgeState, value: value.value }])),
         })),
       });
+      if (body.recordExport === true) {
+        const recorded = await actor.rpc("world_product_admin_record_research_export_v1", { p_spot_ids: spotIds });
+        if (recorded.error) throw new Error("world_research_export_tracking_unavailable");
+      }
       return Response.json(document, { headers: noStore });
     }
 

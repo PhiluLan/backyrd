@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ProductAdminSpotSearch } from "@backyrd/world-knowledge-authoring-ui";
+import { parseWorldResearchQueue, type WorldResearchQueue } from "@/lib/worldResearchQueue";
 import { findResearchPlaces, type ResearchPlace } from "./WorldAddressPicker";
 import { refreshResearchDocument } from "./researchBatchRefresh.mjs";
 import type { ResearchReview } from "@backyrd/world-knowledge-core";
@@ -12,6 +13,7 @@ type Report = { batchId: string; mode: string; totals: Record<string, number>; p
 
 export function WorldResearchBatchPanel(props: {
   search(query: string): Promise<ProductAdminSpotSearch>;
+  queue(page: number): Promise<unknown>;
   post(body: unknown): Promise<unknown>;
 }) {
   const panelRef = useRef<HTMLElement>(null);
@@ -28,13 +30,39 @@ export function WorldResearchBatchPanel(props: {
   const [message, setMessage] = useState("");
   const [completion, setCompletion] = useState<{ imported: number; spots: number } | null>(null);
   const [uploadKey, setUploadKey] = useState(0);
+  const [queuePage, setQueuePage] = useState(1);
+  const [queue, setQueue] = useState<WorldResearchQueue | null>(null);
+  const [queueError, setQueueError] = useState("");
+  const [queueBusy, setQueueBusy] = useState(false);
+  const queueRequest = props.queue;
+
+  useEffect(() => {
+    let active = true;
+    queueRequest(1).then((value) => {
+      if (!active) return;
+      const parsed = parseWorldResearchQueue(value);
+      setQueue(parsed);
+      setSelected(parsed.spots.filter((spot) => !spot.importedAt));
+    }).catch(() => { if (active) setQueueError("Die alphabetische Recherche-Liste ist noch nicht verfügbar."); });
+    return () => { active = false; };
+  }, [queueRequest]);
+
+  const loadQueue = async (page: number) => {
+    setQueueBusy(true); setQueueError("");
+    try {
+      const next = parseWorldResearchQueue(await props.queue(page));
+      if (page > 1 && next.spots.length === 0) throw new Error("Leerer Recherche-Block");
+      setQueue(next); setQueuePage(page); setSelected(next.spots.filter((spot) => !spot.importedAt)); setResults([]); setQuery("");
+    } catch { setQueueError("Dieser Recherche-Block konnte nicht geladen werden. Bitte erneut versuchen."); }
+    finally { setQueueBusy(false); }
+  };
 
   const run = async (operation: () => Promise<void>) => {
     setBusy(true); setMessage("");
     try { await operation(); } catch (cause) { setMessage(cause instanceof Error ? cause.message : "Die Aktion ist fehlgeschlagen."); }
     finally { setBusy(false); }
   };
-  const search = () => run(async () => { const response = await props.search(query); setResults(response.spots); });
+  const search = () => run(async () => { const response = await props.search(query); setResults(response.spots); setSelected([]); });
   const toggle = (spot: Spot) => {
     setPreview(null);
     setSelected((current) => current.some((item) => item.spotId === spot.spotId)
@@ -43,11 +71,12 @@ export function WorldResearchBatchPanel(props: {
   };
   const exportBatch = () => run(async () => {
     setCompletion(null);
-    const document = await props.post({ action: "export", spotIds: selected.map((spot) => spot.spotId) });
+    const document = await props.post({ action: "export", recordExport: true, spotIds: selected.map((spot) => spot.spotId) });
     const text = JSON.stringify(document, null, 2); setJson(text); setPreview(null); setReviewOptions({}); setConfirmations({}); setReviewChanged(false);
     const link = documentElement(text, `world-research-${(document as { batch?: { batchId?: string } }).batch?.batchId ?? "batch"}.json`);
     link.click(); URL.revokeObjectURL(link.href);
     setMessage("Export erstellt. Recherchiere extern und füge das vollständige JSON danach wieder ein.");
+    if (queue) void props.queue(queuePage).then((value) => setQueue(parseWorldResearchQueue(value))).catch(() => setQueueError("Export erstellt; der Fortschritt konnte nicht aktualisiert werden."));
   });
   const parse = () => { try { return JSON.parse(json) as unknown; } catch { throw new Error("Das eingefügte JSON ist nicht gültig."); } };
   const loadPreview = async (document: unknown, choices: typeof confirmations, preserveReviews: boolean) => {
@@ -123,6 +152,7 @@ export function WorldResearchBatchPanel(props: {
     setQuery(""); setResults([]); setSelected([]); setJson(""); setPreview(null); setReviewOptions({});
     setLocations({}); setConfirmations({}); setReviewChanged(false); setCompletion(null); setMessage("");
     setUploadKey((current) => current + 1);
+    if (queue) void loadQueue(queuePage);
     panelRef.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
   };
 
@@ -130,7 +160,10 @@ export function WorldResearchBatchPanel(props: {
     <header className={styles.header}><span className={styles.eyebrow}>RECHERCHE SPOT</span><h2>Wissen ergänzen.</h2><p>Spots auswählen, extern recherchieren und geprüfte Angaben bewusst übernehmen.</p></header>
     <nav className={styles.steps} aria-label="Fortschritt"><span className={!json ? styles.activeStep : ""}>1 <b>Auswählen</b></span><span className={json && !preview ? styles.activeStep : ""}>2 <b>Prüfen</b></span><span className={preview || completion ? styles.activeStep : ""}>3 <b>Übernehmen</b></span></nav>
     {completion ? <div className={styles.outcome} role="status"><span className={styles.outcomeIcon} aria-hidden="true">✓</span><h3>Alles erledigt.</h3><p>{completion.imported} {completion.imported === 1 ? "Angabe" : "Angaben"} für {completion.spots} {completion.spots === 1 ? "Spot" : "Spots"} übernommen und im World-Reader verifiziert.</p><button className={styles.primary} onClick={startNewBatch}>Neue Recherche starten</button></div> : <>
-      {!json && <div className={styles.stage}><div className={styles.stageHeading}><div><span className={styles.stepNumber}>01</span><h3>Welche Spots?</h3></div><span>{selected.length} von 10</span></div><p>Wähle bis zu zehn Spots. Der Export enthält den aktuellen World-Stand, nicht alte Spot-Felder.</p><div className={styles.search}><input aria-label="Spot suchen" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Spot suchen" onKeyDown={(event) => { if (event.key === "Enter") void search(); }} /><button disabled={busy} onClick={() => void search()}>Suchen</button></div>{!!results.length && <div className={styles.results}>{results.map((spot) => <label key={spot.spotId}><input type="checkbox" checked={selected.some((item) => item.spotId === spot.spotId)} disabled={!selected.some((item) => item.spotId === spot.spotId) && selected.length >= 10} onChange={() => toggle(spot)} /><span><b>{spot.name}</b><small>{spot.city ?? "Ort nicht gepflegt"}</small></span></label>)}</div>}{!!selected.length && <div className={styles.chips}>{selected.map((spot) => <button key={spot.spotId} onClick={() => toggle(spot)} aria-label={`${spot.name} entfernen`}>{spot.name} <span aria-hidden="true">×</span></button>)}</div>}<button className={styles.primary} disabled={busy || !selected.length} onClick={() => void exportBatch()}>Recherche-Datei herunterladen <span aria-hidden="true">↗</span></button></div>}
+      {!json && <div className={styles.stage}><div className={styles.stageHeading}><div><span className={styles.stepNumber}>01</span><h3>Welche Spots?</h3></div><span>{selected.length} von 10 ausgewählt</span></div><p>Wähle bis zu zehn Spots. Der Export enthält den aktuellen World-Stand, nicht alte Spot-Felder.</p>
+        {queue && <div className={styles.queue} aria-label="Alphabetische Recherche-Blöcke"><div className={styles.queueTop}><div><strong>Block {queuePage} von {Math.max(1, Math.ceil(queue.total / 10))}</strong><small>{queue.total ? `${(queuePage - 1) * 10 + 1}–${Math.min(queuePage * 10, queue.total)} von ${queue.total} freigegebenen Spots` : "Keine freigegebenen Spots"}</small></div><span>{queue.imported} mit übernommenen Angaben · {queue.total - queue.imported} ohne Import · {queue.exported} exportiert</span></div><p>„Exportiert“ heißt noch nicht recherchiert. „Übernommen“ heißt: Mindestens eine recherchierte Angabe wurde in World Knowledge gespeichert – nicht, dass alle Felder vollständig sind. Bereits übernommene Spots sind zunächst abgewählt.</p><div className={styles.queueList}>{queue.spots.map((spot) => <label key={spot.spotId}><input type="checkbox" checked={selected.some((item) => item.spotId === spot.spotId)} disabled={busy || queueBusy || !selected.some((item) => item.spotId === spot.spotId) && selected.length >= 10} onChange={() => toggle(spot)} /><span><b>{spot.name}</b><small>{spot.city ?? "Ort nicht gepflegt"}</small></span><em className={spot.importedAt ? styles.done : spot.exportedAt ? styles.exported : styles.open}>{spot.importedAt ? "Angaben übernommen" : spot.exportedAt ? "Exportiert · Import offen" : "Noch offen"}</em></label>)}</div><div className={styles.queueActions}><button disabled={queueBusy || busy || queuePage <= 1} onClick={() => void loadQueue(queuePage - 1)}>Vorherige 10</button><button disabled={queueBusy || busy || queuePage >= Math.ceil(queue.total / 10)} onClick={() => void loadQueue(queuePage + 1)}>Nächste 10</button></div><button className={styles.secondary} disabled={queueBusy || busy} onClick={() => setSelected([...queue.spots])}>Auch bereits übernommene Spots auswählen</button></div>}
+        {queueError && <p className={styles.error} role="alert">{queueError}</p>}
+        <div className={styles.search}><input aria-label="Spot suchen" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Anderen Spot nach Namen suchen" onKeyDown={(event) => { if (event.key === "Enter") void search(); }} /><button disabled={busy} onClick={() => void search()}>Suchen</button></div>{!!results.length && <div className={styles.results}>{results.map((spot) => <label key={spot.spotId}><input type="checkbox" checked={selected.some((item) => item.spotId === spot.spotId)} disabled={!selected.some((item) => item.spotId === spot.spotId) && selected.length >= 10} onChange={() => toggle(spot)} /><span><b>{spot.name}</b><small>{spot.city ?? "Ort nicht gepflegt"}</small></span></label>)}</div>}{!!selected.length && <div className={styles.chips}>{selected.map((spot) => <button key={spot.spotId} onClick={() => toggle(spot)} aria-label={`${spot.name} entfernen`}>{spot.name} <span aria-hidden="true">×</span></button>)}</div>}<button className={styles.primary} disabled={busy || !selected.length} onClick={() => void exportBatch()}>Recherche-Datei herunterladen <span aria-hidden="true">↗</span></button></div>}
       {!preview && <div className={styles.stage}><div className={styles.stageHeading}><div><span className={styles.stepNumber}>02</span><h3>Recherche einfügen</h3></div></div><p>Die exportierte Datei extern recherchieren lassen. Nicht belegte Angaben bleiben offen.</p><label className={styles.upload}>Recherchierte JSON-Datei auswählen<input key={uploadKey} type="file" accept="application/json,.json" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then((text) => { setCompletion(null); setJson(text); setPreview(null); setReviewOptions({}); setConfirmations({}); }); }} /></label>{!!json && <p className={styles.note}>Datei geladen. Die Recherche wird erst nach deiner Prüfung gespeichert.</p>}<details className={styles.details}><summary>JSON stattdessen einfügen oder ansehen</summary><textarea className={styles.json} value={json} onChange={(event) => { setCompletion(null); setJson(event.target.value); setPreview(null); setReviewOptions({}); setConfirmations({}); }} placeholder="Vollständiges Recherche-JSON einfügen …" spellCheck={false} /></details>{!!json && <><button className={styles.primary} disabled={busy} onClick={() => void previewBatch()}>JSON prüfen</button><button className={styles.secondary} onClick={startNewBatch}>Andere Spots auswählen</button></>}</div>}
       {message && !alreadyCurrent && <p className={styles.message} role="status">{message}</p>}
       {preview && <div className={styles.report}>
