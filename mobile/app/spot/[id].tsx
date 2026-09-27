@@ -10,6 +10,7 @@ import {
   Animated,
   Easing,
   StyleSheet,
+  Linking,
 } from "react-native";
 
 import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
@@ -38,7 +39,7 @@ import { StateView } from "../../components/foundation/StateView";
 import SharedAvatar from "../../components/Avatar";
 import { backyrdTheme as foundationTheme } from "../../theme/backyrd";
 import { SPOT_OPENING_STATUS_COPY, spotOpeningStatusNow } from "../../lib/spot-opening-status";
-import { getMobileSpotProductProfile, presentSpotProductValue, spotProductLabel, spotProductOpeningHours, type SpotProductProfile } from "../../lib/spot-product-profile";
+import { getMobileSpotProductProfile, presentSpotProductField, spotProductAdditionalFields, spotProductField, spotProductLabel, spotProductOpeningHours, type SpotProductField, type SpotProductProfile } from "../../lib/spot-product-profile";
 
 import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
 const theme = {
@@ -153,23 +154,57 @@ const SectionTitle = ({ children }: { children: React.ReactNode }) => (
 const InfoRow = ({
   icon,
   text,
+  label,
   onPress,
   color,
 }: {
   icon: keyof typeof Feather.glyphMap;
   text: string;
+  label?: string;
   onPress?: () => void;
   color?: string;
 }) => (
-  <Pressable disabled={!onPress} onPress={onPress} style={styles.infoRow}>
+  <Pressable accessibilityRole={onPress ? "button" : undefined} accessibilityLabel={label ? `${label}: ${text}` : text} disabled={!onPress} onPress={onPress} style={styles.infoRow}>
     <View style={styles.infoIcon}>
       <Feather name={icon} size={17} color={color ?? theme.colors.textSoft} />
     </View>
-    <Text numberOfLines={2} style={[styles.infoText, color ? { color } : null]}>
-      {text}
-    </Text>
+    <View style={{ flex: 1 }}>
+      {label ? <Text style={styles.factLabel}>{label}</Text> : null}
+      <Text numberOfLines={2} style={[styles.infoText, color ? { color } : null]}>{text}</Text>
+    </View>
+    {onPress ? <Feather name="arrow-up-right" size={16} color={theme.colors.textMuted} /> : null}
   </Pressable>
 );
+
+const SpotFact = ({ field }: { field: SpotProductField }) => (
+  <View style={styles.factRow}>
+    <Text style={styles.factLabel}>{spotProductLabel(field.attributeKey)}</Text>
+    <Text style={styles.factValue}>{presentSpotProductField(field)}</Text>
+  </View>
+);
+
+const SpotFactSection = ({ field }: { field: SpotProductField | undefined }) => field ? (
+  <View style={styles.section}>
+    <SectionTitle>{spotProductLabel(field.attributeKey)}</SectionTitle>
+    <View style={styles.factCard}><Text style={styles.factHeadline}>{presentSpotProductField(field)}</Text></View>
+  </View>
+) : null;
+
+function specialHours(value: unknown): { date: string; hours: string }[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as { date?: unknown; status?: unknown; intervals?: unknown };
+    if (typeof row.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(row.date)) return [];
+    const parsedDate = new Date(`${row.date}T12:00:00Z`);
+    if (Number.isNaN(parsedDate.getTime())) return [];
+    const date = new Intl.DateTimeFormat("de-CH", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(parsedDate);
+    if (row.status === "CLOSED") return [{ date, hours: "Geschlossen" }];
+    if (row.status !== "OPEN" || !Array.isArray(row.intervals)) return [];
+    const hours = row.intervals.flatMap((interval) => interval && typeof interval === "object" && typeof (interval as { start?: unknown }).start === "string" && typeof (interval as { end?: unknown }).end === "string" ? [`${(interval as { start: string }).start}–${(interval as { end: string }).end}`] : []);
+    return hours.length ? [{ date, hours: hours.join(" · ") }] : [];
+  });
+}
 
 export default function SpotDetailScreen() {
   const { id, entrySource } = useLocalSearchParams<{ id: string; entrySource?: string }>();
@@ -200,6 +235,7 @@ export default function SpotDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [hoursExpanded, setHoursExpanded] = useState(false);
+  const [moreInfoExpanded, setMoreInfoExpanded] = useState(false);
   const productOpenLogged = useRef(false);
 
   const [userId, setUserId] = useState<string | null>(null);
@@ -593,6 +629,21 @@ export default function SpotDetailScreen() {
 
   const effectiveDesc: string | null = ownerCtx?.effective_description ?? null;
   const descSource: string | null = ownerCtx?.description_source ?? null;
+  const field = (key: string) => spotProductField(productProfile, key);
+  const contactKeys = ["contact.website", "contact.phone", "contact.public_email", "contact.instagram", "contact.facebook", "contact.linkedin", "contact.tiktok"];
+  const contacts = canonicalWorldDetail ? contactKeys.map((key) => field(key)).filter((item): item is SpotProductField => Boolean(item)) : [];
+  const descriptionField = canonicalWorldDetail ? field("description.highlight") : undefined;
+  const description = descriptionField ? presentSpotProductField(descriptionField) : canonicalWorldDetail ? null : effectiveDesc;
+  const specialHoursField = field("hours.special");
+  const specialHoursList = specialHoursField ? specialHours(specialHoursField.value) : [];
+  const additionalFields = spotProductAdditionalFields(productProfile);
+  const moreInfoKeys = ["context.typical_dayparts", "context.atmosphere", "amenity.features", "accessibility.accessible_toilet", "accessibility.elevator", "accessibility.step_free_entrance", "context.visit_situations", "offering.food_specialities", "rule.pet_access"];
+  const moreInfoFields = moreInfoKeys.map((key) => field(key)).filter((item): item is SpotProductField => Boolean(item));
+  const hasMoreInfo = moreInfoFields.length > 0 || additionalFields.length > 0 || (!canonicalWorldDetail && taxonomyItems.length > 0);
+  const showHours = !canonicalWorldDetail || Boolean(field("hours.regular"));
+  const trackContact = (kind: "phone" | "website") => {
+    if (!decisionOrigin) void trackAnalyticsEvent({ eventName: kind === "phone" ? "spot_phone_clicked" : "spot_website_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -773,96 +824,68 @@ export default function SpotDetailScreen() {
             </Pressable>
           </View>
 
-          {!canonicalWorldDetail ? <View style={styles.profileSection}>
-            <SpotTaxonomyDetails items={taxonomyItems} />
-          </View> : null}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}><SectionTitle>So fühlt es sich hier an</SectionTitle></View>
+            {moodSummary.length > 0 ? <SpotMoodProfile moods={moodSummary} /> : <StateView appearance="dark" kind="empty" title="Noch keine Stimmung eingefangen." message="Teile nach deinem Besuch deinen Eindruck." />}
+          </View>
 
-          {!canonicalWorldDetail && taxonomyItems.length > 0 ? (
-            <View style={styles.compactSection}>
-              <AppText role="meta" style={styles.compactLabel}>EIGENSCHAFTEN</AppText>
-              <SpotTaxonomyChips items={taxonomyItems} />
+          <SpotFactSection field={field("classification.primary_category")} />
+          <SpotFactSection field={field("classification.place_types")} />
+          <SpotFactSection field={field("operation.price_level")} />
+
+          {(contacts.length > 0 || !canonicalWorldDetail && (spot.website || spot.phone || spot.email)) ? <View style={styles.section}>
+            <SectionTitle>Kontakt</SectionTitle>
+            <View style={styles.infoCard}>
+              {canonicalWorldDetail ? contacts.map((contact) => {
+                const value = presentSpotProductField(contact);
+                const actionable = contact.knowledgeState !== "UNKNOWN" && typeof contact.value === "string";
+                const isPhone = contact.attributeKey === "contact.phone";
+                const isEmail = contact.attributeKey === "contact.public_email";
+                return <InfoRow key={contact.attributeKey} icon={isPhone ? "phone" : isEmail ? "mail" : "globe"} label={spotProductLabel(contact.attributeKey)} text={value} color={actionable ? theme.colors.pinkSoft : undefined} onPress={actionable ? () => {
+                  if (isPhone) { trackContact("phone"); callNumber(value); }
+                  else if (isEmail) void Linking.openURL(`mailto:${value}`);
+                  else { if (contact.attributeKey === "contact.website") trackContact("website"); openWebsite(value); }
+                } : undefined} />;
+              }) : <>
+                {spot.website ? <InfoRow icon="globe" label="Webseite" text={spot.website} color={theme.colors.pinkSoft} onPress={() => { trackContact("website"); openWebsite(spot.website); }} /> : null}
+                {spot.phone ? <InfoRow icon="phone" label="Telefon" text={spot.phone} color={theme.colors.pinkSoft} onPress={() => { trackContact("phone"); callNumber(spot.phone); }} /> : null}
+                {spot.email ? <InfoRow icon="mail" label="E-Mail" text={spot.email} color={theme.colors.pinkSoft} onPress={() => void Linking.openURL(`mailto:${spot.email}`)} /> : null}
+              </>}
             </View>
-          ) : null}
-
-          {productProfile?.fields.length ? <View style={styles.section}>
-            <View style={styles.sectionHeader}><SectionTitle>World Knowledge</SectionTitle><View style={styles.sourcePill}><Text style={styles.sourceText}>Bestätigte Angaben</Text></View></View>
-            <View style={styles.infoCard}>{productProfile.fields.map((field,index) => <View style={styles.infoRow} key={`${field.attributeKey}:${field.scope}:${index}`}>
-              <View style={styles.infoIcon}><Feather name="check-circle" size={17} color={theme.colors.greenSoft} /></View>
-              <View style={{flex:1}}><Text style={styles.infoText}>{presentSpotProductValue(field.value)}</Text><Text style={styles.previewMeta}>{spotProductLabel(field.attributeKey)}</Text></View>
-            </View>)}</View>
           </View> : null}
 
           <View style={styles.section}>
-              <View style={styles.sectionHeader}><SectionTitle>So fühlt es sich hier an</SectionTitle></View>
-              {moodSummary.length > 0 ? <SpotMoodProfile moods={moodSummary} /> : <StateView appearance="dark" kind="empty" title="Noch keine Stimmung eingefangen." message="Teile nach deinem Besuch deinen Eindruck." />}
-            </View>
-
-          {!canonicalWorldDetail ? <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <SectionTitle>Über diesen Spot</SectionTitle>
-              {!!descriptionSourceLabel(descSource) ? (
+              <SectionTitle>Beschreibung</SectionTitle>
+              {!canonicalWorldDetail && !!descriptionSourceLabel(descSource) ? (
                 <View style={styles.sourcePill}>
                   <Text style={styles.sourceText}>{descriptionSourceLabel(descSource)}</Text>
                 </View>
               ) : null}
             </View>
-            {effectiveDesc ? (
+            {description ? (
               <>
-                <Text numberOfLines={descriptionExpanded ? undefined : 4} style={styles.bodyText}>{effectiveDesc}</Text>
-                {effectiveDesc.length > 180 ? (
+                <Text numberOfLines={descriptionExpanded ? undefined : 4} style={styles.bodyText}>{description}</Text>
+                {description.length > 180 ? (
                   <Pressable accessibilityRole="button" accessibilityState={{ expanded: descriptionExpanded }} onPress={() => setDescriptionExpanded((value) => !value)} style={styles.textAction}>
                     <Text style={styles.textActionLabel}>{descriptionExpanded ? "Weniger anzeigen" : "Mehr lesen"}</Text>
                     <Feather name={descriptionExpanded ? "chevron-up" : "chevron-down"} size={16} color={theme.colors.pink} />
                   </Pressable>
                 ) : null}
               </>
-            ) : <StateView appearance="dark" kind="empty" title="Noch ohne Geschichte." message="Für diesen Ort gibt es noch keine Beschreibung – die wichtigsten Infos findest du trotzdem hier." />}
-          </View> : null}
-
-          <View style={styles.section}>
-            <SectionTitle>Info</SectionTitle>
-            <View style={styles.infoCard}>
-              {spot.address ? <InfoRow icon="map-pin" text={spot.address} /> : null}
-              {!canonicalWorldDetail && spot.phone ? <InfoRow icon="phone" text={spot.phone} color={theme.colors.pinkSoft} onPress={() => {
-                if (!decisionOrigin) void trackAnalyticsEvent({ eventName: "spot_phone_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
-                callNumber(spot.phone);
-              }} /> : null}
-              {!canonicalWorldDetail && spot.website ? <InfoRow icon="globe" text={spot.website} color={theme.colors.pinkSoft} onPress={() => {
-                if (!decisionOrigin) void trackAnalyticsEvent({ eventName: "spot_website_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
-                openWebsite(spot.website);
-              }} /> : null}
-            </View>
+            ) : <Text style={styles.mutedText}>Für diesen Spot ist noch keine Beschreibung hinterlegt.</Text>}
           </View>
 
-          <View style={styles.ownerBlock}>
-            {ownerCtx?.is_verified_owner ? (
-              <Pressable onPress={() => router.push(`/spot/${spot.id}/manage`)} style={styles.ownerButton}>
-                <Feather name="settings" size={17} color={theme.colors.text} />
-                <Text style={styles.ownerButtonText}>Spot verwalten</Text>
-              </Pressable>
-            ) : ownerCtx?.claim_status === "pending" ? (
-              <View style={styles.ownerButton}>
-                <Feather name="clock" size={17} color={theme.colors.textSoft} />
-                <Text style={styles.ownerButtonText}>Claim wird geprüft</Text>
-              </View>
-            ) : (
-              <Pressable onPress={requestClaim} style={styles.ownerButton}>
-                <Feather name="check-circle" size={17} color={theme.colors.text} />
-                <Text style={styles.ownerButtonText}>Betreiberzugang anfragen</Text>
-              </Pressable>
-            )}
-          </View>
-
-          {Object.keys(hours).length > 0 ? (
+          {showHours && Object.keys(hours).length > 0 ? (
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <SectionTitle>Heute</SectionTitle>
+                <SectionTitle>Öffnungszeiten</SectionTitle>
                 <Text style={styles.todayState}>{SPOT_OPENING_STATUS_COPY[openingStatus]}</Text>
               </View>
               <View style={styles.hoursCard}>
                 <View style={styles.todayHoursRow}>
                   <Text style={styles.todayHoursLabel}>{todayNameNormalized}</Text>
-                  <Text style={styles.todayHoursValue}>{todaysHours.length > 0 ? todaysHours.map((slot) => slot.open_time && slot.close_time ? `${slot.open_time.slice(0, 5)}–${slot.close_time.slice(0, 5)}` : "–").join(" · ") : "Heute geschlossen"}</Text>
+                  <Text style={styles.todayHoursValue}>{todaysHours.length > 0 ? todaysHours.map((slot) => slot.open_time && slot.close_time ? `${slot.open_time.slice(0, 5)}–${slot.close_time.slice(0, 5)}` : "–").join(" · ") : "Für heute nicht bekannt"}</Text>
                 </View>
                 <Pressable accessibilityRole="button" accessibilityState={{ expanded: hoursExpanded }} onPress={() => setHoursExpanded((value) => !value)} style={styles.hoursToggle}>
                   <Text style={styles.hoursToggleText}>{hoursExpanded ? "Alle Öffnungszeiten ausblenden" : "Alle Öffnungszeiten"}</Text>
@@ -885,7 +908,7 @@ export default function SpotDetailScreen() {
                             </Text>
                           ))
                         ) : (
-                          <Text style={styles.hoursTime}>-</Text>
+                          <Text style={styles.hoursTime}>Nicht bekannt</Text>
                         )}
                       </View>
                     </View>
@@ -893,16 +916,44 @@ export default function SpotDetailScreen() {
                 }) : null}
               </View>
             </View>
-          ) : !canonicalWorldDetail ? (
+          ) : showHours ? (
             <View style={styles.section}>
               <SectionTitle>Öffnungszeiten</SectionTitle>
               <StateView appearance="dark" kind="empty" title="Noch nicht bekannt" message="Backyrd zeigt keinen Öffnungsstatus, solange keine verlässlichen Zeiten hinterlegt sind." />
             </View>
           ) : null}
 
-          {reviews.length > 0 && (
-            <View style={styles.section}>
+          {specialHoursField ? <View style={styles.section}>
+            <SectionTitle>Sonderöffnungszeiten</SectionTitle>
+            <View style={styles.factCard}>
+              {specialHoursList.length ? specialHoursList.map((item) => (
+                <View key={item.date} style={styles.specialHoursRow}>
+                  <Text style={styles.factLabel}>{item.date}</Text>
+                  <Text style={styles.factValue}>{item.hours}</Text>
+                </View>
+              )) : <Text style={styles.mutedText}>Noch keine bestätigten Sonderöffnungszeiten.</Text>}
+            </View>
+          </View> : null}
+
+          <View style={styles.section}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Mehr Infos" accessibilityState={{ expanded: moreInfoExpanded }} onPress={() => setMoreInfoExpanded((value) => !value)} style={styles.moreInfoToggle}>
+              <Text style={styles.moreInfoTitle}>Mehr Infos</Text>
+              <Feather name={moreInfoExpanded ? "chevron-up" : "chevron-down"} size={20} color={theme.colors.pink} />
+            </Pressable>
+            {moreInfoExpanded ? <View style={styles.moreInfoContent}>
+              {moreInfoFields.map((detail) => <SpotFact key={`${detail.attributeKey}:${detail.scope}`} field={detail} />)}
+              {additionalFields.map((detail) => <SpotFact key={`${detail.attributeKey}:${detail.scope}`} field={detail} />)}
+              {!canonicalWorldDetail ? <>
+                <SpotTaxonomyDetails items={taxonomyItems} />
+                {taxonomyItems.length ? <SpotTaxonomyChips items={taxonomyItems} /> : null}
+              </> : null}
+              {!hasMoreInfo ? <Text style={styles.mutedText}>Noch keine weiteren Angaben hinterlegt.</Text> : null}
+            </View> : null}
+          </View>
+
+          <View style={styles.section}>
               <View style={styles.sectionHeader}><SectionTitle>Momente</SectionTitle>{reviews.length > 3 ? <Text style={styles.previewMeta}>Aktuell</Text> : null}</View>
+              {reviews.length === 0 ? <Text style={styles.mutedText}>Hier wurden noch keine Momente geteilt.</Text> : null}
               {reviews.slice(0, 3).map((rev) => {
                 const moods = [
                   presentMoodToken(rev.moodA?.token ?? rev.mood_a),
@@ -989,8 +1040,7 @@ export default function SpotDetailScreen() {
                 );
               })}
               {reviews.length > 3 ? <Text style={styles.momentsMore}>Weitere Momente findest du im Moments-Feed.</Text> : null}
-            </View>
-          )}
+          </View>
 
           <View style={styles.section}>
             <SectionTitle>Rund um diesen Spot</SectionTitle>
@@ -1026,6 +1076,25 @@ export default function SpotDetailScreen() {
               />
             ) : (
               <Text style={styles.mutedText}>Keine Spots gefunden.</Text>
+            )}
+          </View>
+
+          <View style={styles.ownerBlock}>
+            {ownerCtx?.is_verified_owner ? (
+              <Pressable onPress={() => router.push(`/spot/${spot.id}/manage`)} style={styles.ownerButton}>
+                <Feather name="settings" size={17} color={theme.colors.text} />
+                <Text style={styles.ownerButtonText}>Spot verwalten</Text>
+              </Pressable>
+            ) : ownerCtx?.claim_status === "pending" ? (
+              <View style={styles.ownerButton}>
+                <Feather name="clock" size={17} color={theme.colors.textSoft} />
+                <Text style={styles.ownerButtonText}>Claim wird geprüft</Text>
+              </View>
+            ) : (
+              <Pressable onPress={requestClaim} style={styles.ownerButton}>
+                <Feather name="check-circle" size={17} color={theme.colors.text} />
+                <Text style={styles.ownerButtonText}>Betreiberzugang anfragen</Text>
+              </Pressable>
             )}
           </View>
         </View>
@@ -1157,17 +1226,6 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 20,
     paddingTop: 20,
-  },
-  profileSection: {
-    marginBottom: 24,
-  },
-  compactSection: {
-    marginBottom: 26,
-  },
-  compactLabel: {
-    color: theme.colors.textMuted,
-    marginBottom: 8,
-    letterSpacing: 1.2,
   },
   quickActions: {
     flexDirection: "row",
@@ -1314,8 +1372,73 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     fontWeight: "600",
   },
+  factCard: {
+    marginTop: 14,
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  factHeadline: {
+    color: theme.colors.text,
+    fontSize: 17,
+    lineHeight: 24,
+    fontWeight: "700",
+  },
+  factRow: {
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
+  },
+  factLabel: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  factValue: {
+    color: theme.colors.text,
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "600",
+  },
+  specialHoursRow: {
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 18,
+  },
+  moreInfoToggle: {
+    minHeight: 64,
+    paddingHorizontal: 18,
+    borderRadius: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  moreInfoTitle: {
+    color: theme.colors.text,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  moreInfoContent: {
+    marginTop: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 4,
+    borderRadius: 22,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
   ownerBlock: {
-    marginTop: -14,
+    marginTop: 8,
     marginBottom: 26,
   },
   ownerButton: {
