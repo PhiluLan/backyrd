@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
-import Constants from "expo-constants";
+import { supabaseRuntimeConfig } from "./supabaseRuntimeConfig";
 
 type AuthStorage = {
   getItem: (key: string) => Promise<string | null>;
@@ -9,11 +9,7 @@ type AuthStorage = {
 };
 
 function getSupabaseProjectRef() {
-  const supabaseUrl = String(
-    Constants.expoConfig?.extra?.supabaseUrl ??
-      process.env.EXPO_PUBLIC_SUPABASE_URL ??
-      ""
-  ).trim();
+  const supabaseUrl = supabaseRuntimeConfig.url;
 
   if (!supabaseUrl) return null;
 
