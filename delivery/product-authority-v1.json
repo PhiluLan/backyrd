@@ -39,8 +39,8 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20260927153722_spot_detail_explanation_projection_v1.sql",
-        "sha256": "0e6941984394a20eec4ef7cbfca835245aafc7c78eb82bc6e36a3a1fb7c2b3ca"
+        "path": "supabase/migrations/20260927190000_spot_public_contact_presentation.sql",
+        "sha256": "4fe9d29b11b0535c74fcd6916206142450e8b1f5e6f418d2153d5dd7f65eaf05"
       }
     ],
     "executionAuthorized": false,
