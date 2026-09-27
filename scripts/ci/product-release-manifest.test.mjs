@@ -95,6 +95,7 @@ for (const migrationPath of [
   "supabase/migrations/20260922183824_create_growth_intelligence_cockpit_v2.sql",
   "supabase/migrations/20260926142253_world_research_reviewed_import_v2.sql",
   "supabase/migrations/20260927134435_world_product_admin_research_queue_v1.sql",
+  "supabase/migrations/20260927153722_spot_detail_explanation_projection_v1.sql",
 ]) test(`separately bound additive migration seals without inheriting Founder authority: ${migrationPath}`, () => {
   const { root, base } = fixture();
   put(root, "supabase/production/preapplied-product-migrations-v1.json", `${JSON.stringify({
@@ -213,6 +214,19 @@ test("PR and post-merge identities enforce canonical parents and candidate tree 
   assert.throws(() => verifyProductReleaseIdentity({ ...main, parents: [head, base] }), /main_parents_mismatch/);
   assert.throws(() => verifyProductReleaseIdentity({ ...main, candidateTreeSha: "0".repeat(40) }), /candidate_tree_mismatch/);
   assert.throws(() => verifyProductReleaseIdentity({ ...pr, canonicalAncestryVerified: false }), /ancestry_invalid/);
+});
+
+test("a canonical squash merge binds its single parent and exact resulting Main tree", () => {
+  const { root, base, head } = fixture();
+  git(root, ["switch", "--quiet", "-c", "squash-integration", base]);
+  git(root, ["merge", "--quiet", "--squash", head]);
+  const squash = commit(root, "squash candidate into Main");
+  const main = resolveProductReleaseIdentity({ root, mode: "POST_MERGE_MAIN", sourceSha: squash, baseSha: base, checkoutSha: squash, canonicalMainSha: squash });
+  assert.equal(main.candidateHeadSha, squash);
+  assert.equal(verifyProductReleaseIdentity(main), true);
+  assert.throws(() => verifyProductReleaseIdentity({ ...main, baseSha: head }), /main_parents_mismatch/);
+  assert.throws(() => verifyProductReleaseIdentity({ ...main, candidateHeadSha: head }), /main_parents_mismatch/);
+  assert.throws(() => verifyProductReleaseIdentity({ ...main, candidateTreeSha: "0".repeat(40) }), /candidate_tree_mismatch/);
 });
 
 test("a different release identity cannot replay the artifact", () => {

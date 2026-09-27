@@ -99,7 +99,13 @@ export function verifyProductReleaseIdentity(identity) {
   } else {
     requireValue(identity.sourceSha === identity.checkoutSha && identity.sourceSha === identity.canonicalMainSha, "release_identity_main_sha_mismatch");
     requireValue(identity.sourceTreeSha === identity.checkoutTreeSha && identity.sourceTreeSha === identity.canonicalMainTreeSha, "release_identity_main_tree_mismatch");
-    requireValue(identity.parents.length === 2 && identity.parents[0] === identity.baseSha && identity.parents[1] === identity.candidateHeadSha, "release_identity_main_parents_mismatch");
+    const mergeCommit = identity.parents.length === 2
+      && identity.parents[0] === identity.baseSha
+      && identity.parents[1] === identity.candidateHeadSha;
+    const squashCommit = identity.parents.length === 1
+      && identity.parents[0] === identity.baseSha
+      && identity.candidateHeadSha === identity.sourceSha;
+    requireValue(mergeCommit || squashCommit, "release_identity_main_parents_mismatch");
     requireValue(identity.sourceTreeSha === identity.candidateTreeSha, "release_identity_main_candidate_tree_mismatch");
   }
   return true;
@@ -111,7 +117,7 @@ export function resolveProductReleaseIdentity({ root, mode, sourceSha, baseSha, 
   const tree = (value) => git(root, ["rev-parse", `${value}^{tree}`]);
   const source = commit(sourceSha); const base = commit(baseSha); const checkout = commit(checkoutSha); const main = commit(canonicalMainSha);
   const parents = git(root, ["show", "-s", "--format=%P", checkout]).split(" ").filter(Boolean);
-  const candidate = mode === "POST_MERGE_MAIN" ? commit(candidateHeadSha ?? parents[1] ?? "") : source;
+  const candidate = mode === "POST_MERGE_MAIN" ? commit(candidateHeadSha ?? (parents.length === 1 ? source : parents[1] ?? "")) : source;
   const identity = {
     mode,
     sourceSha: source,
