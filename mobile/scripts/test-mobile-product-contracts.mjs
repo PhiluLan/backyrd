@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
+import "./test-supabase-runtime-config.mjs";
 
 const read = (file) => fs.readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
 const decision = read("app/(tabs)/wohin.tsx");
@@ -19,6 +20,7 @@ const spotOpeningStatus = read("lib/spot-opening-status.ts");
 const spotProductProfile = read("lib/spot-product-profile.ts");
 const productDecision = read("lib/decision/productDecision.ts");
 const supabaseClient = read("lib/supabase.ts");
+const supabaseRuntimeConfig = read("lib/supabaseRuntimeConfig.ts");
 const userFacingError = read("lib/userFacingError.ts");
 const founderLiveBinding = read("lib/decision/productDecisionRelease.generated.ts");
 const founderLiveControl = read("packages/product-decision-contract/src/index.mjs");
@@ -30,6 +32,8 @@ const analyticsProvider = read("providers/AnalyticsProvider.tsx");
 assert.match(decision, /invokeDecisionProduct/, "Wohin must pass through the sealed Product client boundary");
 assert.match(productDecision, /freshAccessToken/, "Decision requests must carry a fresh authenticated session token to the server boundary");
 assert.match(supabaseClient, /AppState\.addEventListener\("change",/, "native Auth refresh must follow foreground state");
+assert.match(supabaseClient, /supabaseRuntimeConfig/, "the client must use the shared fail-closed runtime configuration");
+assert.match(supabaseRuntimeConfig, /validPair\(native\) \?\? validPair\(update\)/, "a complete valid OTA configuration must recover an incomplete native pair");
 assert.match(supabaseClient, /state === "active"[\s\S]*auth\.startAutoRefresh\(\)[\s\S]*auth\.stopAutoRefresh\(\)/, "foreground resumes refresh and background stops it");
 assert.match(userFacingError, /decision_session_timeout[\s\S]*Anmeldung konnte nicht rechtzeitig erneuert werden/, "session stalls must not be mislabeled as a network outage");
 for (const [name, source] of [["profile", profileScreen], ["safety", safetyGuard], ["analytics", analyticsProvider]]) {
@@ -50,6 +54,7 @@ function exerciseAuthLifecycle(platform) {
     "@supabase/supabase-js": { createClient: () => ({ auth: { startAutoRefresh: () => calls.push("start"), stopAutoRefresh: () => calls.push("stop") } }) },
     "expo-constants": { expoConfig: { extra: { supabaseUrl: "https://test.supabase.co", supabaseAnonKey: "a".repeat(32) } } },
     "./supabaseStorage": { secureStoreAdapter: {} },
+    "./supabaseRuntimeConfig": { supabaseRuntimeConfig: { valid: true, url: "https://test.supabase.co", anonKey: "a".repeat(32) } },
   };
   vm.runInNewContext(runtime, { require: (name) => {
     assert.ok(Object.hasOwn(modules, name), `unexpected Auth lifecycle import: ${name}`);

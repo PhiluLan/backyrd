@@ -34,7 +34,7 @@ test("Decision has exactly one deployable Product entrypoint", () => {
 });
 
 test("public clients contain no privileged Supabase credential", () => {
-  const mobile = read("mobile/lib/supabase.ts");
+  const mobile = `${read("mobile/lib/supabase.ts")}\n${read("mobile/lib/supabaseRuntimeConfig.ts")}`;
   const admin = read("admin-dashboard/lib/supabaseClient.ts");
   assert.match(mobile, /EXPO_PUBLIC_SUPABASE_ANON_KEY/);
   assert.doesNotMatch(`${mobile}\n${admin}`, /service[_-]?role|sb_secret_/i);

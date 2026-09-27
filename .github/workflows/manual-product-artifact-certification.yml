@@ -69,7 +69,8 @@ jobs:
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.PRODUCT_V1_SUPABASE_ANON_KEY }}
         run: |
           npm run release:validate
-          npx expo export --platform ios --output-dir "$RUNNER_TEMP/mobile-ios"
+          npx expo export --platform ios --clear --output-dir "$RUNNER_TEMP/mobile-ios"
+          node scripts/verify-ios-ota-export.mjs "$RUNNER_TEMP/mobile-ios"
       - name: Seal the tested canonical Main artifact
         env:
           SOURCE_SHA: ${{ inputs.canonical_main_sha }}
