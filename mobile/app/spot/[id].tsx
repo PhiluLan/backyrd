@@ -69,7 +69,8 @@ const theme = {
 
 function Text({ style, ...props }: React.ComponentProps<typeof RNText>) {
   const weight = String(StyleSheet.flatten(style)?.fontWeight ?? "400");
-  const fontFamily = Number.parseInt(weight, 10) >= 600 ? foundationTheme.type.bodyBold : foundationTheme.type.body;
+  const numericWeight = Number.parseInt(weight, 10);
+  const fontFamily = numericWeight >= 700 ? "Inter_700Bold" : numericWeight >= 600 ? "Inter_600SemiBold" : "Inter_400Regular";
   return <RNText {...props} style={[style, { fontFamily, fontWeight: "normal" }]} />;
 }
 
@@ -149,6 +150,12 @@ const Chip = ({ text }: { text: string }) => (
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
   <AppText role="sectionTitle" style={styles.sectionTitle}>{children}</AppText>
 );
+
+const socialContacts = {
+  "contact.instagram": { label: "Instagram", icon: "instagram" },
+  "contact.facebook": { label: "Facebook", icon: "facebook" },
+  "contact.tiktok": { label: "TikTok", icon: "play-circle" },
+} as const;
 
 const InfoRow = ({
   icon,
@@ -663,6 +670,8 @@ export default function SpotDetailScreen() {
   const field = (key: string) => spotProductField(productProfile, key);
   const contactKeys = ["contact.website", "contact.phone", "contact.public_email", "contact.instagram", "contact.facebook", "contact.linkedin", "contact.tiktok"];
   const contacts = canonicalWorldDetail ? contactKeys.map((key) => field(key)).filter((item): item is SpotProductField => Boolean(item)) : [];
+  const socialLinks = contacts.filter((contact) => contact.attributeKey in socialContacts && contact.knowledgeState !== "UNKNOWN" && typeof contact.value === "string");
+  const directContacts = contacts.filter((contact) => !(contact.attributeKey in socialContacts));
   const descriptionField = canonicalWorldDetail ? field("description.highlight") : undefined;
   const description = descriptionField ? presentSpotProductField(descriptionField) : canonicalWorldDetail ? null : effectiveDesc;
   const specialHoursField = field("hours.special");
@@ -850,7 +859,7 @@ export default function SpotDetailScreen() {
           {(contacts.length > 0 || !canonicalWorldDetail && (spot.website || spot.phone || spot.email)) ? <View style={styles.section}>
             <SectionTitle>Kontakt</SectionTitle>
             <View style={styles.infoCard}>
-              {canonicalWorldDetail ? contacts.map((contact) => {
+              {canonicalWorldDetail ? directContacts.map((contact) => {
                 const value = presentSpotProductField(contact);
                 const actionable = contact.knowledgeState !== "UNKNOWN" && typeof contact.value === "string";
                 const isPhone = contact.attributeKey === "contact.phone";
@@ -865,6 +874,16 @@ export default function SpotDetailScreen() {
                 {spot.phone ? <InfoRow icon="phone" label="Telefon" text={spot.phone} color={theme.colors.pinkSoft} onPress={() => { trackContact("phone"); callNumber(spot.phone); }} /> : null}
                 {spot.email ? <InfoRow icon="mail" label="E-Mail" text={spot.email} color={theme.colors.pinkSoft} onPress={() => void Linking.openURL(`mailto:${spot.email}`)} /> : null}
               </>}
+              {socialLinks.length > 0 ? <View style={styles.socialLinks}>
+                {socialLinks.map((contact) => {
+                  const social = socialContacts[contact.attributeKey as keyof typeof socialContacts];
+                  return <Pressable key={contact.attributeKey} accessibilityRole="link" accessibilityLabel={`${social.label} von ${spot.name} öffnen`} onPress={() => openWebsite(contact.value as string)} style={styles.socialBadge}>
+                    <Feather name={social.icon} size={17} color={theme.colors.pink} />
+                    <Text style={styles.socialBadgeText}>{social.label}</Text>
+                    <Feather name="arrow-up-right" size={14} color={theme.colors.textMuted} />
+                  </Pressable>;
+                })}
+              </View> : null}
             </View>
           </View> : null}
 
@@ -1300,7 +1319,10 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: theme.colors.text,
-    letterSpacing: -0.45,
+    fontFamily: "Inter_700Bold",
+    fontSize: 22,
+    lineHeight: 28,
+    letterSpacing: -0.5,
   },
   essentials: {
     marginBottom: 40,
@@ -1311,22 +1333,22 @@ const styles = StyleSheet.create({
   essentialsEyebrow: {
     color: theme.colors.pink,
     fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 2.1,
+    fontWeight: "700",
+    letterSpacing: 1.7,
     marginBottom: 22,
   },
   essentialsLead: { marginBottom: 24 },
   essentialsLabel: {
     color: theme.colors.textMuted,
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "600",
     marginBottom: 6,
   },
   essentialsValue: {
     color: theme.colors.text,
-    fontSize: 29,
-    lineHeight: 34,
-    fontWeight: "800",
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: "700",
     letterSpacing: -0.6,
   },
   essentialsDetails: {
@@ -1339,8 +1361,8 @@ const styles = StyleSheet.create({
   essentialsDetail: { flex: 1 },
   essentialsDetailValue: {
     color: theme.colors.text,
-    fontSize: 17,
-    lineHeight: 23,
+    fontSize: 16,
+    lineHeight: 22,
     fontWeight: "700",
   },
   showMoreText: {
@@ -1388,8 +1410,8 @@ const styles = StyleSheet.create({
   },
   bodyText: {
     color: theme.colors.text,
-    fontSize: 17,
-    lineHeight: 27,
+    fontSize: 16,
+    lineHeight: 25,
     fontWeight: "400",
   },
   textAction: {
@@ -1408,6 +1430,28 @@ const styles = StyleSheet.create({
   infoCard: {
     marginTop: 12,
     gap: 2,
+  },
+  socialLinks: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    paddingTop: 14,
+  },
+  socialBadge: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: "rgba(255,255,255,0.045)",
+  },
+  socialBadgeText: {
+    color: theme.colors.text,
+    fontSize: 14,
+    fontWeight: "600",
   },
   infoRow: {
     minHeight: 52,
@@ -1428,8 +1472,8 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     color: theme.colors.textSoft,
-    fontSize: 14,
-    lineHeight: 19,
+    fontSize: 15,
+    lineHeight: 21,
     fontWeight: "600",
   },
   factRow: {
@@ -1444,17 +1488,17 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.pill,
     backgroundColor: "rgba(255,255,255,0.065)",
   },
-  factTokenText: { color: theme.colors.text, fontSize: 13, lineHeight: 18, fontWeight: "600" },
+  factTokenText: { color: theme.colors.text, fontSize: 14, lineHeight: 20, fontWeight: "600" },
   factLabel: {
     color: theme.colors.textMuted,
-    fontSize: 12,
+    fontSize: 13,
     lineHeight: 17,
     fontWeight: "700",
     marginBottom: 4,
   },
   factValue: {
     color: theme.colors.text,
-    fontSize: 15,
+    fontSize: 16,
     lineHeight: 22,
     fontWeight: "600",
   },
@@ -1479,8 +1523,8 @@ const styles = StyleSheet.create({
   },
   moreInfoTitle: {
     color: theme.colors.text,
-    fontSize: 18,
-    fontWeight: "800",
+    fontSize: 22,
+    fontWeight: "700",
   },
   moreInfoContent: {
     paddingTop: 4,

@@ -6,6 +6,9 @@ import * as ExpoSplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { StyleSheet, View } from "react-native";
 import { DMSerifDisplay_400Regular } from "@expo-google-fonts/dm-serif-display/400Regular";
+import { Inter_400Regular } from "@expo-google-fonts/inter/400Regular";
+import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
+import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
 import { LibreFranklin_400Regular } from "@expo-google-fonts/libre-franklin/400Regular";
 import { LibreFranklin_600SemiBold } from "@expo-google-fonts/libre-franklin/600SemiBold";
 import { LibreFranklin_700Bold } from "@expo-google-fonts/libre-franklin/700Bold";
@@ -61,6 +64,9 @@ function RootStack() {
 function BootstrappedApp() {
   const [fontsLoaded, fontError] = useFonts({
     DMSerifDisplay_400Regular,
+    Inter_400Regular,
+    Inter_600SemiBold,
+    Inter_700Bold,
     LibreFranklin_400Regular,
     LibreFranklin_600SemiBold,
     LibreFranklin_700Bold,
