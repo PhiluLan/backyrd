@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "20260927190000-spot-public-contact-presentation",
+  "previousEvidence": "20260927153722-spot-detail-explanation-projection-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "214583bbfaabdddcacc55c6629ad777d2e4fe336106da1428d5da49734473981",
+    "applicationSchemaSha256": "067fdad5dd569b3f82e6e3ef9c00dbcb5fd8b5b2de950e38cb121a6853b5e35f"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260927190000_spot_public_contact_presentation.sql",
+      "sha256": "4fe9d29b11b0535c74fcd6916206142450e8b1f5e6f418d2153d5dd7f65eaf05"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/unified_spot_knowledge_presentation_v1.sql",
+      "sha256": "2398b1bba74fc2670245fcc868604e29d7657d241e0da43f2d7625270ea18f42"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "214583bbfaabdddcacc55c6629ad777d2e4fe336106da1428d5da49734473981",
+    "applicationSchemaSha256": "067fdad5dd569b3f82e6e3ef9c00dbcb5fd8b5b2de950e38cb121a6853b5e35f"
+  }
+}

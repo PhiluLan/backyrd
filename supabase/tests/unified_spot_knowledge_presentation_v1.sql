@@ -71,7 +71,12 @@ where registry.registry_version='backyrd.world-knowledge.registry@2.1'
   and policy.policy_version='backyrd.world-knowledge.source-policy@4b.1';
 insert into world_knowledge_private.resolution_entries(manifest_id,attribute_key,scope,resolution,value,trust,freshness,basis_claim_hashes,entry_hash)
 values
+  (pg_temp.id('presentation-manifest'),'identity.name','SPOT','KNOWN_VALUE','"Presentation Café"','VERIFIED','CURRENT',array[pg_temp.hash('claim-name')],pg_temp.hash('entry-name')),
   (pg_temp.id('presentation-manifest'),'description.highlight','VENUE','KNOWN_VALUE','"A calm room"','VERIFIED','CURRENT',array[pg_temp.hash('claim-highlight')],pg_temp.hash('entry-highlight')),
+  (pg_temp.id('presentation-manifest'),'contact.public_email','SPOT','KNOWN_VALUE','"hello@example.org"','VERIFIED','CURRENT',array[pg_temp.hash('claim-email')],pg_temp.hash('entry-email')),
+  (pg_temp.id('presentation-manifest'),'contact.instagram','SPOT','KNOWN_VALUE','"https://www.instagram.com/example/"','VERIFIED','CURRENT',array[pg_temp.hash('claim-instagram')],pg_temp.hash('entry-instagram')),
+  (pg_temp.id('presentation-manifest'),'contact.facebook','SPOT','KNOWN_VALUE','"https://www.facebook.com/example/"','VERIFIED','CURRENT',array[pg_temp.hash('claim-facebook')],pg_temp.hash('entry-facebook')),
+  (pg_temp.id('presentation-manifest'),'contact.tiktok','SPOT','UNKNOWN',null,'ASSERTED','CURRENT',array[]::text[],pg_temp.hash('entry-tiktok')),
   (pg_temp.id('presentation-manifest'),'location.latitude','VENUE','KNOWN_VALUE','47.5','VERIFIED','CURRENT',array[pg_temp.hash('claim-lat')],pg_temp.hash('entry-lat'));
 insert into world_knowledge_private.current_projection_pointers(spot_id,manifest_id,manifest_hash,as_of,ledger_cutoff_at,registry_version,policy_version,resolver_version)
 values(pg_temp.id('presentation-spot'),pg_temp.id('presentation-manifest'),pg_temp.hash('presentation-manifest'),'2026-09-22T10:00:00Z','2026-09-22T10:00:00Z','backyrd.world-knowledge.registry@2.1','backyrd.world-knowledge.source-policy@4b.1','test:v1');
@@ -96,9 +101,14 @@ select pg_temp.assert(
   'presentation toggle changed the sealed Decision projection'
 );
 select pg_temp.assert(
-  jsonb_array_length(public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'MOBILE')->'fields')=1
-  and jsonb_array_length(public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'WEB')->'fields')=0,
+  jsonb_array_length(public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'MOBILE')->'fields')=4
+  and jsonb_array_length(public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'WEB')->'fields')=3,
   'surface visibility did not control the canonical public projection'
+);
+select pg_temp.assert(
+  (public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'MOBILE')->'fields') @> '[{"attributeKey":"contact.public_email"},{"attributeKey":"contact.instagram"},{"attributeKey":"contact.facebook"}]'::jsonb
+  and not ((public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'MOBILE')->'fields') @> '[{"attributeKey":"contact.tiktok"}]'::jsonb),
+  'known public contacts missing or unknown TikTok exposed'
 );
 select pg_temp.assert(
   not ((public.spot_detail_product_profile_v1(pg_temp.id('presentation-spot'),'MOBILE')->'fields') @> '[{"attributeKey":"location.latitude"}]'::jsonb),
