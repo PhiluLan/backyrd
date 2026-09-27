@@ -17,7 +17,6 @@ import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from "expo-rou
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, Feather } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 
 import LoginPromptModal from "../../components/LoginPromptModal";
@@ -148,7 +147,7 @@ const Chip = ({ text }: { text: string }) => (
 );
 
 const SectionTitle = ({ children }: { children: React.ReactNode }) => (
-  <View style={styles.sectionTitleRow}><View style={styles.sectionMarker} /><AppText role="sectionTitle" style={styles.sectionTitle}>{children}</AppText></View>
+  <AppText role="sectionTitle" style={styles.sectionTitle}>{children}</AppText>
 );
 
 const InfoRow = ({
@@ -176,17 +175,46 @@ const InfoRow = ({
   </Pressable>
 );
 
-const SpotFact = ({ field }: { field: SpotProductField }) => (
-  <View style={styles.factRow}>
-    <Text style={styles.factLabel}>{spotProductLabel(field.attributeKey)}</Text>
-    <Text style={styles.factValue}>{presentSpotProductField(field)}</Text>
-  </View>
-);
+const tokenFields = new Set([
+  "context.typical_dayparts", "context.atmosphere", "amenity.features",
+  "context.visit_situations", "offering.food_specialities",
+]);
 
-const SpotFactSection = ({ field }: { field: SpotProductField | undefined }) => field ? (
-  <View style={styles.section}>
-    <SectionTitle>{spotProductLabel(field.attributeKey)}</SectionTitle>
-    <View style={styles.factCard}><Text style={styles.factHeadline}>{presentSpotProductField(field)}</Text></View>
+const SpotFact = ({ field }: { field: SpotProductField }) => {
+  const tokens = tokenFields.has(field.attributeKey) && Array.isArray(field.value)
+    ? field.value.map((value) => presentSpotProductField({ ...field, value: [value] }))
+    : null;
+  return (
+    <View style={styles.factRow}>
+      <Text style={styles.factLabel}>{spotProductLabel(field.attributeKey)}</Text>
+      {tokens?.length ? <View style={styles.factTokens}>{tokens.map((token, index) => (
+        <View key={`${token}:${index}`} style={styles.factToken}><Text style={styles.factTokenText}>{token}</Text></View>
+      ))}</View> : <Text style={styles.factValue}>{presentSpotProductField(field)}</Text>}
+    </View>
+  );
+};
+
+const SpotEssentials = ({ category, placeType, price }: {
+  category?: SpotProductField;
+  placeType?: SpotProductField;
+  price?: SpotProductField;
+}) => category || placeType || price ? (
+  <View style={styles.essentials}>
+    <Text style={styles.essentialsEyebrow}>AUF EINEN BLICK</Text>
+    {category ? <View style={styles.essentialsLead}>
+      <Text style={styles.essentialsLabel}>Hauptkategorie</Text>
+      <Text style={styles.essentialsValue}>{presentSpotProductField(category)}</Text>
+    </View> : null}
+    {placeType || price ? <View style={styles.essentialsDetails}>
+      {placeType ? <View style={styles.essentialsDetail}>
+        <Text style={styles.essentialsLabel}>Art des Ortes</Text>
+        <Text style={styles.essentialsDetailValue}>{presentSpotProductField(placeType)}</Text>
+      </View> : null}
+      {price ? <View style={styles.essentialsDetail}>
+        <Text style={styles.essentialsLabel}>Preisniveau</Text>
+        <Text style={styles.essentialsDetailValue}>{presentSpotProductField(price)}</Text>
+      </View> : null}
+    </View> : null}
   </View>
 ) : null;
 
@@ -524,10 +552,13 @@ export default function SpotDetailScreen() {
     return hours[todayNameNormalized] || [];
   }, [hours, todayNameNormalized]);
 
-  const openingStatus = useMemo(() => spotOpeningStatusNow(Object.values(hours).flat()), [hours]);
+  const canonicalWorldDetail = Boolean(productProfile?.worldManifestHash);
+  const openingStatus = useMemo(() => {
+    if (canonicalWorldDetail && !Object.prototype.hasOwnProperty.call(hours, todayNameNormalized)) return "unknown";
+    return spotOpeningStatusNow(Object.values(hours).flat());
+  }, [canonicalWorldDetail, hours, todayNameNormalized]);
   const openingState = openingStatus === "open" ? "open" : openingStatus === "openingSoon" ? "openingSoon" : openingStatus === "closingSoon" ? "closingSoon" : openingStatus === "unknown" ? "unknown" : "closed";
   const openingUnknown = openingState === "unknown";
-  const canonicalWorldDetail = Boolean(productProfile?.worldManifestHash);
 
   useEffect(() => {
     if (!userId || !id) return;
@@ -651,31 +682,16 @@ export default function SpotDetailScreen() {
 
       <Animated.View
         pointerEvents="box-none"
-        style={{
-          position: "absolute",
-          top: insets.top + 18,
-          left: 0,
-          right: 0,
-          zIndex: 9999,
-          elevation: 9999,
-          paddingHorizontal: 16,
-          opacity: scrollY.interpolate({
-            inputRange: [0, HEADER_H * 0.4],
-            outputRange: [1, 0.9],
+        style={[styles.stickyNav, {
+          paddingTop: insets.top + 8,
+          backgroundColor: scrollY.interpolate({
+            inputRange: [0, HEADER_H * 0.55],
+            outputRange: ["rgba(8,8,9,0)", "rgba(8,8,9,0.97)"],
             extrapolate: "clamp",
           }),
-          transform: [
-            {
-              translateY: scrollY.interpolate({
-                inputRange: [0, 120],
-                outputRange: [0, -6],
-                extrapolate: "clamp",
-              }),
-            },
-          ],
-        }}
+        }]}
       >
-        <BlurView intensity={0} tint="dark" style={styles.topBar}>
+        <View style={styles.topBar}>
           <Pressable onPress={() => router.back()} style={styles.topBarBtn} hitSlop={8}>
             <Ionicons name="chevron-back" size={22} color="#fff" />
           </Pressable>
@@ -709,7 +725,7 @@ export default function SpotDetailScreen() {
               />
             </Pressable>
           </View>
-        </BlurView>
+        </View>
       </Animated.View>
 
       <Animated.ScrollView
@@ -829,9 +845,7 @@ export default function SpotDetailScreen() {
             {moodSummary.length > 0 ? <SpotMoodProfile moods={moodSummary} /> : <StateView appearance="dark" kind="empty" title="Noch keine Stimmung eingefangen." message="Teile nach deinem Besuch deinen Eindruck." />}
           </View>
 
-          <SpotFactSection field={field("classification.primary_category")} />
-          <SpotFactSection field={field("classification.place_types")} />
-          <SpotFactSection field={field("operation.price_level")} />
+          <SpotEssentials category={field("classification.primary_category")} placeType={field("classification.place_types")} price={field("operation.price_level")} />
 
           {(contacts.length > 0 || !canonicalWorldDetail && (spot.website || spot.phone || spot.email)) ? <View style={styles.section}>
             <SectionTitle>Kontakt</SectionTitle>
@@ -885,7 +899,7 @@ export default function SpotDetailScreen() {
               <View style={styles.hoursCard}>
                 <View style={styles.todayHoursRow}>
                   <Text style={styles.todayHoursLabel}>{todayNameNormalized}</Text>
-                  <Text style={styles.todayHoursValue}>{todaysHours.length > 0 ? todaysHours.map((slot) => slot.open_time && slot.close_time ? `${slot.open_time.slice(0, 5)}–${slot.close_time.slice(0, 5)}` : "–").join(" · ") : "Für heute nicht bekannt"}</Text>
+                  <Text style={styles.todayHoursValue}>{todaysHours.length > 0 ? todaysHours.map((slot) => slot.open_time && slot.close_time ? `${slot.open_time.slice(0, 5)}–${slot.close_time.slice(0, 5)}` : "Heute geschlossen").join(" · ") : "Für heute nicht bekannt"}</Text>
                 </View>
                 <Pressable accessibilityRole="button" accessibilityState={{ expanded: hoursExpanded }} onPress={() => setHoursExpanded((value) => !value)} style={styles.hoursToggle}>
                   <Text style={styles.hoursToggleText}>{hoursExpanded ? "Alle Öffnungszeiten ausblenden" : "Alle Öffnungszeiten"}</Text>
@@ -904,7 +918,7 @@ export default function SpotDetailScreen() {
                             <Text key={idx} style={[styles.hoursTime, isToday ? styles.hoursToday : null]}>
                               {s.open_time && s.close_time
                                 ? `${s.open_time.slice(0, 5)} - ${s.close_time.slice(0, 5)}`
-                                : "-"}
+                                : "Geschlossen"}
                             </Text>
                           ))
                         ) : (
@@ -925,7 +939,7 @@ export default function SpotDetailScreen() {
 
           {specialHoursField ? <View style={styles.section}>
             <SectionTitle>Sonderöffnungszeiten</SectionTitle>
-            <View style={styles.factCard}>
+            <View style={styles.specialHoursList}>
               {specialHoursList.length ? specialHoursList.map((item) => (
                 <View key={item.date} style={styles.specialHoursRow}>
                   <Text style={styles.factLabel}>{item.date}</Text>
@@ -1108,6 +1122,15 @@ export default function SpotDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  stickyNav: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 9,
+  },
   topBar: {
     height: 48,
     borderRadius: 24,
@@ -1265,7 +1288,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   section: {
-    marginBottom: 34,
+    marginBottom: 38,
   },
   sectionHeader: {
     minHeight: 28,
@@ -1277,10 +1300,49 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: theme.colors.text,
-    marginLeft: foundationTheme.spacing.xs,
+    letterSpacing: -0.45,
   },
-  sectionTitleRow: { flexDirection: "row", alignItems: "center" },
-  sectionMarker: { width: 16, height: 4, borderRadius: 999, backgroundColor: foundationTheme.color.pink },
+  essentials: {
+    marginBottom: 40,
+    paddingTop: 18,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.border,
+  },
+  essentialsEyebrow: {
+    color: theme.colors.pink,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 2.1,
+    marginBottom: 22,
+  },
+  essentialsLead: { marginBottom: 24 },
+  essentialsLabel: {
+    color: theme.colors.textMuted,
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  essentialsValue: {
+    color: theme.colors.text,
+    fontSize: 29,
+    lineHeight: 34,
+    fontWeight: "800",
+    letterSpacing: -0.6,
+  },
+  essentialsDetails: {
+    flexDirection: "row",
+    gap: 18,
+    paddingTop: 19,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.border,
+  },
+  essentialsDetail: { flex: 1 },
+  essentialsDetailValue: {
+    color: theme.colors.text,
+    fontSize: 17,
+    lineHeight: 23,
+    fontWeight: "700",
+  },
   showMoreText: {
     color: theme.colors.pinkSoft,
     fontSize: 13,
@@ -1325,10 +1387,10 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   bodyText: {
-    color: theme.colors.textSoft,
-    fontSize: 15,
-    lineHeight: 23,
-    fontWeight: "500",
+    color: theme.colors.text,
+    fontSize: 17,
+    lineHeight: 27,
+    fontWeight: "400",
   },
   textAction: {
     minHeight: 44,
@@ -1358,10 +1420,8 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.border,
   },
   infoIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.07)",
+    width: 25,
+    height: 30,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1372,26 +1432,19 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     fontWeight: "600",
   },
-  factCard: {
-    marginTop: 14,
-    borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  factHeadline: {
-    color: theme.colors.text,
-    fontSize: 17,
-    lineHeight: 24,
-    fontWeight: "700",
-  },
   factRow: {
-    paddingVertical: 14,
+    paddingVertical: 19,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: theme.colors.border,
   },
+  factTokens: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 },
+  factToken: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "rgba(255,255,255,0.065)",
+  },
+  factTokenText: { color: theme.colors.text, fontSize: 13, lineHeight: 18, fontWeight: "600" },
   factLabel: {
     color: theme.colors.textMuted,
     fontSize: 12,
@@ -1406,21 +1459,22 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   specialHoursRow: {
-    paddingVertical: 8,
+    paddingVertical: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 18,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
   },
+  specialHoursList: { marginTop: 8 },
   moreInfoToggle: {
     minHeight: 64,
-    paddingHorizontal: 18,
-    borderRadius: 22,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: theme.colors.border,
   },
   moreInfoTitle: {
@@ -1429,13 +1483,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   moreInfoContent: {
-    marginTop: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 4,
-    borderRadius: 22,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    paddingTop: 4,
   },
   ownerBlock: {
     marginTop: 8,
@@ -1459,12 +1507,9 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   hoursCard: {
-    marginTop: 2,
-    borderRadius: theme.radius.lg,
-    padding: 14,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    marginTop: 5,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.colors.border,
   },
   hoursRow: {
     flexDirection: "row",
@@ -1500,6 +1545,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 16,
+    paddingVertical: 17,
   },
   todayHoursLabel: {
     color: theme.colors.textMuted,
