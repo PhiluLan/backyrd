@@ -10,14 +10,14 @@ const policy = {
   decisionTrustAnchor: "decision-lab/config/anchor.json",
   surfacePrefixes: { mobile: ["mobile/"], web: ["web/", "packages/world-knowledge-authoring-ui/"], admin: ["admin-dashboard/", "packages/world-knowledge-authoring-ui/"], shared: ["packages/shared/"], user: ["packages/user-intelligence-vnext-core/", "scripts/user-intelligence/"], world: ["packages/world-knowledge-core/", "scripts/world-knowledge/"] },
   databasePrefixes: ["supabase/migrations/", "supabase/canonical/", "supabase/tests/"],
-  authorizationPrefixes: ["mobile/lib/supabase.ts", "supabase/canonical/auth_hooks.sql", "supabase/canonical/storage.sql"],
+  authorizationPrefixes: ["mobile/app/auth/", "mobile/app/gate.tsx", "mobile/app/onboarding/index.tsx", "mobile/hooks/useAuth.tsx", "mobile/lib/authDeepLink.ts", "mobile/lib/googleSignIn.ts", "mobile/lib/signOut.ts", "mobile/lib/supabase.ts", "supabase/canonical/auth_hooks.sql", "supabase/canonical/storage.sql"],
   privilegedServerPrefixes: ["supabase/functions/", "supabase/config.toml", "supabase/production/auth-config.json"],
   decisionSemanticPrefixes: ["packages/decision-vnext-core/src/", "packages/world-knowledge-core/src/port.ts", "supabase/functions/decision-v13/"],
   decisionEvaluationPrefixes: ["packages/decision-vnext-core/test/", "packages/decision-vnext-core/sandbox/", "decision-lab/"],
   decisionConsumerPrefixes: ["packages/shared/", "packages/user-intelligence-vnext-core/", "packages/world-knowledge-core/"],
   decisionPipelineControlPrefixes: [".github/workflows/", "package.json", "package-lock.json", "scripts/ci/classify-change.mjs", "scripts/ci/decision-", "scripts/ci/verify-decision-shards.mjs"],
   integrationControlPrefixes: ["delivery/integration/", "docs/operations/integration/", "scripts/ci/integration-", "scripts/ci/week2-dark-wiring", "scripts/ci/founder-live-control-plane", "scripts/ci/founder-activation-control-plane", "scripts/ci/source-aware-idempotency-migration-scope", "scripts/world-knowledge/build-week1-production-release-foundation"],
-  productReleasePrefixes: ["mobile/app/(tabs)/decision.tsx", "mobile/app/(tabs)/wohin.tsx", "mobile/lib/supabase.ts", "mobile/lib/decision/", "packages/decision-vnext-core/src/product-", "supabase/functions/decision-", "scripts/deployment/"],
+  productReleasePrefixes: ["mobile/app/auth/", "mobile/app/gate.tsx", "mobile/app/onboarding/index.tsx", "mobile/hooks/useAuth.tsx", "mobile/lib/authDeepLink.ts", "mobile/lib/googleSignIn.ts", "mobile/lib/signOut.ts", "mobile/app/(tabs)/decision.tsx", "mobile/app/(tabs)/wohin.tsx", "mobile/lib/supabase.ts", "mobile/lib/decision/", "packages/decision-vnext-core/src/product-", "supabase/functions/decision-", "scripts/deployment/"],
   knownRepositoryPrefixes: [".github/", ".gitleaks.toml", "README.md", "admin-dashboard/", "decision-lab/", "docs/", "mobile/", "package.json", "package-lock.json", "packages/", "scripts/", "supabase/", "web/"],
   deliveryControlPrefixes: [".github/workflows/", ".gitleaks.toml", "delivery/", "scripts/ci/", "scripts/deployment/", "docs/operations/"],
   releaseEvidencePrefixes: ["docs/operations/releases/"],
@@ -69,6 +69,17 @@ test("native Supabase Auth lifecycle selects authorization and Product release c
   assert.equal(result.flags.productRelease, true);
   assert.ok(result.requiredGates.includes("release-certification"));
   assert.ok(result.requiredGates.includes("repository-security"));
+});
+
+test("mobile login and startup Auth changes require release certification", () => {
+  for (const path of ["mobile/app/auth/login.tsx", "mobile/app/gate.tsx", "mobile/lib/googleSignIn.ts", "mobile/lib/signOut.ts"]) {
+    const result = plan({ files: { [path]: "export const authFlow = true;\n" } });
+    assert.equal(result.flags.authorizationBoundary, true, `${path} must select the Auth boundary`);
+    assert.equal(result.flags.productRelease, true, `${path} must select release certification`);
+    assert.ok(result.requiredGates.includes("release-certification"));
+  }
+  const presentation = plan({ files: { "mobile/components/Card.tsx": "export const card = true;\n" } });
+  assert.equal(presentation.flags.productRelease, false, "unrelated mobile UI must stay on the focused gate");
 });
 
 test("additive migration is separated from authorization and destructive changes", () => {
