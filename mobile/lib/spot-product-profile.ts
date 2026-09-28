@@ -18,6 +18,7 @@ export type SpotProductProfile = {
     spotId: string;
     name: string;
     addressLine1: string | null;
+    postalCode?: string | null;
     locality: string | null;
     countryCode: string | null;
     latitude: number | null;
@@ -103,7 +104,7 @@ export function spotProductLabel(key:string):string{return labels[key]??key.spli
 const title = (value:string) => words[value] ?? value.replaceAll("_"," ").toLocaleLowerCase("de-CH").replace(/^./, (letter) => letter.toLocaleUpperCase("de-CH"));
 export const SPOT_DETAIL_PRIMARY_KEYS = ["classification.primary_category","classification.place_types","operation.price_level","contact.website","contact.phone","contact.public_email","contact.instagram","contact.facebook","contact.linkedin","contact.tiktok","description.highlight","hours.regular","hours.special"] as const;
 export const SPOT_DETAIL_MORE_KEYS = ["context.typical_dayparts","context.atmosphere","amenity.features","accessibility.accessible_toilet","accessibility.elevator","accessibility.step_free_entrance","context.visit_situations","offering.food_specialities","rule.pet_access"] as const;
-const presentedKeys = new Set<string>([...SPOT_DETAIL_PRIMARY_KEYS, ...SPOT_DETAIL_MORE_KEYS]);
+const presentedKeys = new Set<string>([...SPOT_DETAIL_PRIMARY_KEYS, ...SPOT_DETAIL_MORE_KEYS, "location.address_line1", "location.locality", "location.neighborhood", "location.country_code"]);
 export function spotProductField(profile: SpotProductProfile | null, key: string): SpotProductField | undefined { return profile?.fields.find((field) => field.attributeKey === key); }
 export function spotProductAdditionalFields(profile: SpotProductProfile | null): SpotProductField[] { return profile?.fields.filter((field) => !presentedKeys.has(field.attributeKey)) ?? []; }
 const contextValue = (value: unknown): string | null => {
