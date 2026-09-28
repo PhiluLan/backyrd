@@ -134,6 +134,10 @@ export default function GateScreen() {
       // was deleted in Supabase. getUser() verifies the JWT against Supabase Auth.
       const { data: verifiedUserData, error: verifiedUserError } = await supabase.auth.getUser();
 
+      if (verifiedUserError && verifiedUserError.status !== 401 && verifiedUserError.status !== 403) {
+        throw verifiedUserError;
+      }
+
       if (verifiedUserError || !verifiedUserData.user?.id) {
         await forceLogoutBecauseSessionIsStale(verifiedUserError?.message ?? "No verified user");
         return;

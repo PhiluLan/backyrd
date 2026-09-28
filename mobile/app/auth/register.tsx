@@ -8,7 +8,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Link, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as AppleAuthentication from "expo-apple-authentication";
-import * as AuthSession from "expo-auth-session";
 import * as Device from "expo-device";
 import * as WebBrowser from "expo-web-browser";
 import Constants from "expo-constants";
@@ -16,12 +15,9 @@ import * as Crypto from "expo-crypto";
 
 import { supabase } from "../../lib/supabase";
 import { ensureProfile } from "../../lib/profile";
+import { signInWithGoogle } from "../../lib/googleSignIn";
 
 WebBrowser.maybeCompleteAuthSession();
-
-const iosClientId = Constants.expoConfig?.extra?.googleIosClientId as string | undefined;
-const androidClientId = Constants.expoConfig?.extra?.googleAndroidClientId as string | undefined;
-const webClientId = Constants.expoConfig?.extra?.googleWebClientId as string | undefined;
 
 const isExpoGo = Constants.appOwnership === "expo";
 const isSimulator = !Device.isDevice;
@@ -125,45 +121,7 @@ export default function RegisterScreen() {
     try {
       setSocialLoading(true);
 
-      const redirectUri = AuthSession.makeRedirectUri({
-        scheme: "backyrd",
-        path: "auth/callback",
-      });
-
-      const clientId = Platform.select({
-        ios: iosClientId,
-        android: androidClientId,
-        web: webClientId,
-        default: webClientId,
-      });
-
-      if (!clientId || clientId.includes("YOUR_ANDROID_CLIENT_ID")) {
-        Alert.alert("Google Registrierung", "Google Login ist für diese Plattform noch nicht vollständig konfiguriert.");
-        return;
-      }
-
-      const authUrl =
-        "https://accounts.google.com/o/oauth2/v2/auth?" +
-        `client_id=${encodeURIComponent(clientId)}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-        "&response_type=code" +
-        "&scope=openid%20email%20profile" +
-        "&access_type=offline" +
-        "&prompt=select_account";
-
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectUri);
-
-      if (result.type !== "success" || !result.url) return;
-
-      const parsed = new URL(result.url);
-      const code = parsed.searchParams.get("code");
-
-      if (!code) {
-        throw new Error("Kein Google-Code erhalten.");
-      }
-
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
-      if (error) throw error;
+      if (!(await signInWithGoogle())) return;
 
       await ensureProfile();
       router.replace("/gate" as any);

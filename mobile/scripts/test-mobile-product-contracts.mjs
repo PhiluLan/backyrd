@@ -30,6 +30,99 @@ const pushNotificationRouter = read("components/PushNotificationRouter.tsx");
 const profileScreen = read("app/(tabs)/profile.tsx");
 const safetyGuard = read("components/safety/GlobalSafetyEnforcementGuard.tsx");
 const analyticsProvider = read("providers/AnalyticsProvider.tsx");
+const googleSignIn = read("lib/googleSignIn.ts");
+const signOut = read("lib/signOut.ts");
+
+for (const path of ["app/(tabs)/feed.tsx", "app/(tabs)/profile.tsx", "app/user/[id].tsx"]) {
+  const source = read(path);
+  assert.match(source, /throw new Error\("safety_visibility_unavailable"\)/, `${path} must fail closed if post or review visibility is unavailable`);
+  assert.doesNotMatch(source, /visiblePostsResult\.data\)\s*\? visiblePostsResult\.data\s*:\s*postIds/, `${path} must not expose unchecked posts`);
+  assert.doesNotMatch(source, /visibleReviewsResult\.data\)\s*\? visibleReviewsResult\.data\s*:\s*reviewIds/, `${path} must not expose unchecked reviews`);
+  assert.match(source, /comment_count: commentCounts\.get\(post\.post_id\) \?\? 0/, `${path} must not show unchecked comment counts`);
+
+  const syntax = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const declaration = syntax.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "filterSafetyVisiblePosts");
+  assert.ok(declaration, `${path} must expose a safety filter for contract testing`);
+  const filterSource = `${declaration.getText(syntax)}\nexports.filterSafetyVisiblePosts = filterSafetyVisiblePosts;`;
+  async function checkSafetyFilter(failingRpc) {
+    const module = { exports: {} };
+    vm.runInNewContext(ts.transpileModule(filterSource, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
+      module,
+      exports: module.exports,
+      console: { log() {} },
+      supabase: { rpc: async (name, params) => {
+        const kind = name === "safety_visible_entity_ids_v1" ? params.p_entity_type : name;
+        if (kind === failingRpc) return { data: null, error: new Error("unavailable") };
+        if (kind === "safety_visible_social_post_ids_v1") return { data: ["post-1"], error: null };
+        if (kind === "review") return { data: ["review-1"], error: null };
+        if (kind === "profile") return { data: ["user-1"], error: null };
+        return { data: [{ post_id: "post-1", visible_count: 2 }], error: null };
+      } },
+    });
+    const posts = [{ post_id: "post-1", review_id: "review-1", user_id: "user-1", display_name: "Person", username: "person", avatar_url: "avatar", comment_count: 99 }];
+    return module.exports.filterSafetyVisiblePosts(posts);
+  }
+  await assert.rejects(checkSafetyFilter("safety_visible_social_post_ids_v1"), /safety_visibility_unavailable/, `${path} must hide posts on a post-safety failure`);
+  await assert.rejects(checkSafetyFilter("review"), /safety_visibility_unavailable/, `${path} must hide reviews on a review-safety failure`);
+  const masked = await checkSafetyFilter("profile");
+  assert.equal(masked[0].display_name, "Backyrd User", `${path} must mask unverified authors`);
+  const withoutCounts = await checkSafetyFilter("safety_visible_comment_counts_v1");
+  assert.equal(withoutCounts[0].comment_count, 0, `${path} must suppress unverified counts`);
+}
+assert.match(read("app/(tabs)/feed.tsx"), /updatePostsForMode\(feedMode, \(\) => \[\]\)/, "a failed safety refresh must remove stale feed posts");
+assert.match(read("app/gate.tsx"), /verifiedUserError\.status !== 401 && verifiedUserError\.status !== 403[\s\S]*throw verifiedUserError/, "a transient identity error must not log out the user");
+assert.match(read("app/(tabs)/profile.tsx"), /await signOutWithPushCleanup\(\)/, "account logout must detach push before ending the session");
+assert.doesNotMatch(read("app/auth/login.tsx") + read("app/auth/register.tsx"), /accounts\.google\.com\/o\/oauth2|exchangeCodeForSession/, "Google sign-in must not exchange a Google code as a Supabase code");
+
+function loadP0Module(source, modules) {
+  const module = { exports: {} };
+  vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, {
+    module,
+    exports: module.exports,
+    require: (name) => {
+      assert.ok(Object.hasOwn(modules, name), `unexpected P0 dependency: ${name}`);
+      return modules[name];
+    },
+  });
+  return module.exports;
+}
+
+const authCalls = [];
+const google = loadP0Module(googleSignIn, {
+  "expo-web-browser": { openAuthSessionAsync: async (url, redirect) => {
+    authCalls.push([url, redirect]);
+    return { type: "success", url: "backyrd://auth/callback#access_token=access&refresh_token=refresh" };
+  } },
+  "./authDeepLink": { createSessionFromAuthDeepLink: async (url) => authCalls.push(url) },
+  "./supabase": { supabase: { auth: { signInWithOAuth: async (options) => {
+    authCalls.push(options);
+    return { data: { url: "https://example.test/supabase/authorize" }, error: null };
+  } } } },
+});
+assert.equal(await google.signInWithGoogle(), true);
+assert.equal(authCalls[0].provider, "google");
+assert.equal(authCalls[0].options.skipBrowserRedirect, true);
+assert.equal(authCalls[0].options.redirectTo, "backyrd://auth/callback");
+assert.equal(authCalls[1][0], "https://example.test/supabase/authorize");
+assert.equal(authCalls[2], "backyrd://auth/callback#access_token=access&refresh_token=refresh");
+
+const logoutCalls = [];
+const logout = loadP0Module(signOut, {
+  "./notifications": { unregisterPushNotificationsAsync: async () => logoutCalls.push("push-disabled") },
+  "./supabase": { supabase: { auth: { signOut: async () => {
+    logoutCalls.push("signed-out");
+    return { error: null };
+  } } } },
+});
+await logout.signOutWithPushCleanup();
+assert.deepEqual(logoutCalls, ["push-disabled", "signed-out"]);
+let signOutAttempted = false;
+const failedLogout = loadP0Module(signOut, {
+  "./notifications": { unregisterPushNotificationsAsync: async () => { throw new Error("offline"); } },
+  "./supabase": { supabase: { auth: { signOut: async () => { signOutAttempted = true; return { error: null }; } } } },
+});
+await assert.rejects(failedLogout.signOutWithPushCleanup(), /offline/);
+assert.equal(signOutAttempted, false, "a failed push detach must keep the account session for retry");
 
 assert.match(decision, /invokeDecisionProduct/, "Wohin must pass through the sealed Product client boundary");
 assert.match(productDecision, /freshAccessToken/, "Decision requests must carry a fresh authenticated session token to the server boundary");
