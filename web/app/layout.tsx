@@ -1,14 +1,20 @@
 import type { Metadata } from "next";
-import { Geist, Inter } from "next/font/google";
+import { DM_Serif_Display, Geist, Libre_Franklin } from "next/font/google";
 import "./globals.css";
 import "./owner-intelligence.css";
 import "./landing-logo-moments.css";
 import "./consumer.css";
 import { ConsumerShell } from "@/components/consumer/consumer-shell";
 
-const inter = Inter({
-  variable: "--font-inter",
+const libreFranklin = Libre_Franklin({
+  variable: "--font-libre-franklin",
   subsets: ["latin"],
+  display: "swap",
+});
+const dmSerif = DM_Serif_Display({
+  variable: "--font-dm-serif",
+  subsets: ["latin"],
+  weight: "400",
   display: "swap",
 });
 const geist = Geist({
@@ -46,7 +52,7 @@ export default function RootLayout({
   return (
     <html
       lang="de"
-      className={`${inter.variable} ${geist.variable} h-full antialiased`}
+      className={`${libreFranklin.variable} ${dmSerif.variable} ${geist.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <ConsumerShell>{children}</ConsumerShell>
