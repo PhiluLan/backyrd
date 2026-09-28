@@ -9,6 +9,7 @@ type Spot = {
   lat: number;
   lng: number;
   address?: string | null;
+  city?: string | null;
   category_id?: string | null;
   header_photo_url?: string | null;
   categories?: { name?: string | null; color?: string | null } | null;
@@ -17,60 +18,56 @@ type Spot = {
 type State = {
   spots: Spot[];
   loading: boolean;
+  error: boolean;
   refresh: () => Promise<void>;
 };
+
+let latestRefresh = 0;
 
 export const useSpotsStore = create<State>((set) => ({
   spots: [],
   loading: true,
+  error: false,
 
   refresh: async () => {
-    set({ loading: true });
+    const refreshId = ++latestRefresh;
+    set({ loading: true, error: false });
 
-    // 1️⃣ Hauptabfrage mit Kategorie + Foto-Join
-    const { data, error } = await supabase
-      .from("spots")
-      .select(
-        `
+    try {
+      const { data, error } = await supabase
+        .from("spots")
+        .select(`
         id,
         name,
         lat,
         lng,
         address,
+        city,
         category_id,
         header_photo_path,
         categories ( name, color ),
         spot_photos ( url )
-        `
-      )
-      .limit(2000);
+        `)
+        .eq("status", "approved")
+        .limit(2000);
 
-    if (error) {
-      console.error("❌ Error loading spots:", error);
-      set({ loading: false });
-      return;
-    }
+      if (error) throw error;
 
-    // 2️⃣ Mappen & sicherstellen, dass URLs und Koordinaten passen
-    const mapped =
-      data?.map((s: any) => ({
+      const mapped = (data ?? []).map((s) => ({
         ...s,
         lat: Number(s.lat),
         lng: Number(s.lng),
+        categories: Array.isArray(s.categories) ? s.categories[0] ?? null : null,
         header_photo_url: selectSpotImageUrl({
-          photoUrl: Array.isArray(s.spot_photos)
-            ? s.spot_photos[0]?.url || null
-            : s.spot_photos?.url || null,
+          photoUrl: s.spot_photos[0]?.url || null,
           headerPhotoPath: s.header_photo_path,
         }),
-      })) ?? [];
-
-    try {
+      }));
       const visible = await filterDistributedSpots(mapped, "maps");
-      set({ spots: visible, loading: false });
-    } catch (distributionError) {
-      console.error("Error applying Distribution eligibility:", distributionError);
-      set({ spots: [], loading: false });
+      if (refreshId === latestRefresh) set({ spots: visible, loading: false, error: false });
+    } catch (loadError) {
+      console.error("Spot catalog loading failed", loadError);
+      if (refreshId === latestRefresh) set({ spots: [], loading: false, error: true });
     }
   },
 }));

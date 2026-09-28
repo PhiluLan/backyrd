@@ -16,6 +16,7 @@ import * as Crypto from "expo-crypto";
 import { supabase } from "../../lib/supabase";
 import { ensureProfile } from "../../lib/profile";
 import { signInWithGoogle } from "../../lib/googleSignIn";
+import { backyrdTheme as productTheme } from "../../theme/backyrd";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -198,12 +199,12 @@ export default function RegisterScreen() {
             <Pressable onPress={() => router.replace("/gate" as any)} hitSlop={10} style={styles.backBtn}>
               <Ionicons name="chevron-back" size={32} color="#fff" />
             </Pressable>
-            <Text allowFontScaling={false} style={styles.headerTitle}>Account erstellen</Text>
+            <Text style={styles.headerTitle}>Account erstellen</Text>
           </View>
 
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
             <BlurView intensity={62} tint="dark" style={styles.card}>
-              <Text allowFontScaling={false} style={styles.cardTitle}>Registrieren</Text>
+              <Text style={styles.cardTitle}>Registrieren</Text>
               <Text maxFontSizeMultiplier={1.4} style={styles.cardSubtitle}>Dein Backyrd beginnt hier.</Text>
               {formError ? <Text accessibilityLiveRegion="polite" maxFontSizeMultiplier={1.3} style={styles.formError}>{formError}</Text> : null}
 
@@ -338,7 +339,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: "#fff",
-    fontSize: 30,
+    ...productTheme.typeScale.sectionTitle,
     fontWeight: "900",
     letterSpacing: 0.2,
     flexShrink: 1,
@@ -354,8 +355,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: "#fff",
-    fontSize: 38,
-    lineHeight: 42,
+    ...productTheme.typeScale.screenTitle,
     fontWeight: "900",
     letterSpacing: -0.9,
     marginBottom: 10,

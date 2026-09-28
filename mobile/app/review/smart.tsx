@@ -621,6 +621,17 @@ export default function SmartReviewScreen() {
             </Pressable>
           ) : null}
 
+          {!loginRequired ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Spot ohne Standort selbst auswählen"
+              style={[styles.btn, styles.btnGhost]}
+              onPress={() => router.replace("/review/select-spot")}
+            >
+              <Text style={styles.btnGhostText}>Spot selbst auswählen</Text>
+            </Pressable>
+          ) : null}
+
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Smart Review schließen"

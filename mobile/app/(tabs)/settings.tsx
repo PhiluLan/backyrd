@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     fontFamily: productTheme.type.display,
     ...productTheme.typeScale.displayL,
   },
-  kicker: { color: productTheme.color.acid, fontFamily: productTheme.type.bodyBold, fontSize: 11, letterSpacing: 2.5 },
+  kicker: { color: productTheme.color.acid, fontFamily: productTheme.type.bodyBold, fontSize: productTheme.typeScale.label.fontSize, letterSpacing: 2.5 },
   subtitle: {
     color: productTheme.color.textSecondary,
     marginTop: 6,
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: productTheme.color.acid,
     fontFamily: productTheme.type.bodyBold,
-    fontSize: 11,
+    fontSize: productTheme.typeScale.label.fontSize,
     letterSpacing: 1.4,
   },
   row: {

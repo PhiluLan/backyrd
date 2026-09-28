@@ -10,6 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { supabase } from "../../lib/supabase";
 import { ensureProfile } from "../../lib/profile";
+import { backyrdTheme as productTheme } from "../../theme/backyrd";
 
 function cleanEmail(value: string) {
   return value.trim().toLowerCase();
@@ -92,12 +93,12 @@ export default function VerifyScreen() {
             <Pressable onPress={() => router.replace("/auth/login" as any)} hitSlop={10} style={styles.backBtn}>
               <Ionicons name="chevron-back" size={32} color="#fff" />
             </Pressable>
-            <Text allowFontScaling={false} style={styles.headerTitle}>E-Mail bestätigen</Text>
+            <Text style={styles.headerTitle}>E-Mail bestätigen</Text>
           </View>
 
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 60 }}>
             <BlurView intensity={62} tint="dark" style={styles.card}>
-              <Text allowFontScaling={false} style={styles.cardTitle}>Bestätigungscode</Text>
+              <Text style={styles.cardTitle}>Bestätigungscode</Text>
               <Text maxFontSizeMultiplier={1.4} style={styles.cardSubtitle}>
                 Gib den Code aus deiner E-Mail ein. Falls du einen Bestätigungslink erhalten hast,
                 kannst du auch einfach den Link öffnen und danach einloggen.
@@ -192,7 +193,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: "#fff",
-    fontSize: 29,
+    ...productTheme.typeScale.sectionTitle,
     fontWeight: "900",
     letterSpacing: 0.2,
     flexShrink: 1,
@@ -208,8 +209,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: "#fff",
-    fontSize: 32,
-    lineHeight: 38,
+    ...productTheme.typeScale.screenTitle,
     fontWeight: "900",
     letterSpacing: -0.9,
     marginBottom: 10,

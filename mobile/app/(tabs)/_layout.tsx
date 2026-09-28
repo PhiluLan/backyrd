@@ -13,7 +13,8 @@ function SmartReviewTabButton({ onPress }: { onPress?: () => void }) {
   return (
     <View style={styles.plusWrap}>
       <Pressable
-        accessibilityLabel="Smart Review erstellen"
+        accessibilityRole="button"
+        accessibilityLabel="Moment erstellen und Spot auswählen"
         hitSlop={8}
         onPress={onPress}
         style={({ pressed }) => [
@@ -96,9 +97,9 @@ export default function TabsLayout() {
                     trackAnalyticsEvent({
                       eventName: "review_started",
                       screenName: "tabs",
-                      properties: { mode: "smart", source: "tab_bar" },
+                      properties: { mode: "spot_selection", source: "tab_bar" },
                     });
-                    router.push("/review/smart");
+                    router.push("/review/select-spot");
                   }}
                 />
               ),
@@ -156,7 +157,7 @@ const styles = StyleSheet.create({
   tabLabel: {
     marginBottom: 1,
     fontFamily: theme.type.bodyMedium,
-    fontSize: 9.5,
+    fontSize: 11,
     letterSpacing: -0.1,
   },
   tabBar: {
