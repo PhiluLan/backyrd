@@ -139,7 +139,11 @@ assert.match(spotProductProfile, /profile\.spot\.source !== "WORLD_KNOWLEDGE"/, 
 assert.match(spotOpeningStatus, /unknown: "Öffnungszeiten unbekannt"/, "missing hours must not be presented as closed");
 assert.match(spotDetail, /Backyrd zeigt keinen Öffnungsstatus/, "hours uncertainty must be explicit");
 assert.match(spotDetail, /SPOT_OPENING_STATUS_COPY/, "Spot Detail must use canonical opening-status copy");
+assert.match(spotDetail, /contactActions\.map\(\(contact\) => <ContactAction/, "all available canonical contact links must remain reachable");
+assert.match(spotDetail, /specialHoursList\[0\]\.date/, "the first confirmed special opening time must be visible before expansion");
+assert.match(spotDetail, /<Modal animationType="slide" presentationStyle="fullScreen" visible=\{moreInfoExpanded\}/, "additional World fields must have a dedicated detail view");
 assert.match(spotDetail, /reviews\.slice\(0, 3\)/, "Spot Detail must keep the Moment preview bounded");
+assert.match(spotDetail, /<SectionTitle>Rund um diesen Spot<\/SectionTitle>/, "the existing nearby rail must remain present");
 assert.match(spotDetail, /descriptionExpanded/, "Spot Detail must keep long descriptions collapsed initially");
 assert.match(spotDetail, /hoursExpanded/, "Spot Detail must keep full weekly hours opt-in");
 assert.doesNotMatch(spotDetail, /appearance="light"/, "Spot Detail must not reintroduce a light state surface");
