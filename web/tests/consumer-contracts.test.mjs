@@ -224,6 +224,24 @@ test("public Spot Detail exposes useful canonical truth and honest hours uncerta
   assert.match(migration, /data_origin/);
 });
 
+test("public Web follows the mobile Home type hierarchy without exposing raw Spot keys", async () => {
+  const [layout, css, spot, shell] = await Promise.all([
+    read("web/app/layout.tsx"),
+    read("web/app/consumer.css"),
+    read("web/app/spots/[id]/page.tsx"),
+    read("web/components/consumer/consumer-shell.tsx"),
+  ]);
+  assert.match(layout, /Libre_Franklin/);
+  assert.match(layout, /DM_Serif_Display/);
+  assert.match(css, /font-family: var\(--font-libre-franklin\)/);
+  assert.match(css, /\.b-display\s*\{\s*font-family: var\(--font-dm-serif\)/);
+  assert.match(shell, /b-logo-mark/);
+  assert.match(spot, /"description.highlight": "Beschreibung"/);
+  assert.match(spot, /"contact.public_email": "E-Mail"/);
+  assert.match(spot, /<summary>Mehr Infos<\/summary>/);
+  assert.doesNotMatch(spot, /World Knowledge<\/p>/);
+});
+
 test("Event consumer surfaces share localized presentation and never render internal provenance", async () => {
   const [webDetail, webList, mobileDetail, mobileList, presentation] = await Promise.all([
     read("web/app/events/[id]/page.tsx"),

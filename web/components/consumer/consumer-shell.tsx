@@ -95,7 +95,8 @@ export function ConsumerShell({ children }: { children: ReactNode }) {
       <header className="b-header">
         <div className="b-container b-header-inner">
           <Link href="/" className="b-logo" aria-label="Backyrd Startseite">
-            BACKYRD
+            <span className="b-logo-mark" aria-hidden="true">B</span>
+            <span>Backyrd</span>
           </Link>
           <nav className="b-nav" aria-label="Hauptnavigation">
             {items.map(({ href, label, Icon }) => (
