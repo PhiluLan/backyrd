@@ -11,6 +11,8 @@ import {
   Easing,
   StyleSheet,
   Linking,
+  Modal,
+  ScrollView,
 } from "react-native";
 
 import { Stack, useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
@@ -158,28 +160,22 @@ const socialContacts = {
   "contact.tiktok": { label: "TikTok", icon: "play-circle" },
 } as const;
 
-const InfoRow = ({
+const ContactAction = ({
   icon,
-  text,
   label,
+  value,
   onPress,
-  color,
 }: {
   icon: keyof typeof Feather.glyphMap;
-  text: string;
-  label?: string;
-  onPress?: () => void;
-  color?: string;
+  label: string;
+  value: string;
+  onPress: () => void;
 }) => (
-  <Pressable accessibilityRole={onPress ? "button" : undefined} accessibilityLabel={label ? `${label}: ${text}` : text} disabled={!onPress} onPress={onPress} style={styles.infoRow}>
-    <View style={styles.infoIcon}>
-      <Feather name={icon} size={17} color={color ?? theme.colors.textSoft} />
+  <Pressable accessibilityRole="link" accessibilityLabel={`${label}: ${value}`} onPress={onPress} style={styles.contactAction}>
+    <View style={styles.contactIcon}>
+      <Feather name={icon} size={19} color={theme.colors.text} />
     </View>
-    <View style={{ flex: 1 }}>
-      {label ? <Text style={styles.factLabel}>{label}</Text> : null}
-      <Text numberOfLines={2} style={[styles.infoText, color ? { color } : null]}>{text}</Text>
-    </View>
-    {onPress ? <Feather name="arrow-up-right" size={16} color={theme.colors.textMuted} /> : null}
+    <Text numberOfLines={1} style={styles.contactLabel}>{label}</Text>
   </Pressable>
 );
 
@@ -220,21 +216,24 @@ const SpotEssentials = ({ category, placeType, price }: {
   price?: SpotProductField;
 }) => category || placeType || price ? (
   <View style={styles.essentials}>
-    <Text style={styles.essentialsEyebrow}>AUF EINEN BLICK</Text>
-    {category ? <View style={styles.essentialsLead}>
-      <Text style={styles.essentialsLabel}>Hauptkategorie</Text>
-      <Text style={styles.essentialsValue}>{presentSpotProductField(category)}</Text>
-    </View> : null}
-    {placeType || price ? <View style={styles.essentialsDetails}>
+    <Text style={styles.essentialsHeading}>Auf einen Blick</Text>
+    <View style={styles.essentialsDetails}>
+      {category ? <View style={styles.essentialsDetail}>
+        <Feather name="grid" size={18} color={theme.colors.pink} />
+        <Text style={styles.essentialsDetailValue}>{presentSpotProductField(category)}</Text>
+        <Text style={styles.essentialsLabel}>Hauptkategorie</Text>
+      </View> : null}
       {placeType ? <View style={styles.essentialsDetail}>
-        <Text style={styles.essentialsLabel}>Art des Ortes</Text>
+        <Feather name="map-pin" size={18} color={theme.colors.pink} />
         <Text style={styles.essentialsDetailValue}>{presentSpotProductField(placeType)}</Text>
+        <Text style={styles.essentialsLabel}>Art des Ortes</Text>
       </View> : null}
       {price ? <View style={styles.essentialsDetail}>
-        <Text style={styles.essentialsLabel}>Preisniveau</Text>
+        <Feather name="credit-card" size={18} color={theme.colors.pink} />
         <Text style={styles.essentialsDetailValue}>{presentSpotProductField(price)}</Text>
+        <Text style={styles.essentialsLabel}>Preisniveau</Text>
       </View> : null}
-    </View> : null}
+    </View>
   </View>
 ) : null;
 
@@ -283,6 +282,7 @@ export default function SpotDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [hoursExpanded, setHoursExpanded] = useState(false);
+  const [specialHoursExpanded, setSpecialHoursExpanded] = useState(false);
   const [moreInfoExpanded, setMoreInfoExpanded] = useState(false);
   const productOpenLogged = useRef(false);
 
@@ -691,8 +691,6 @@ export default function SpotDetailScreen() {
   });
   const contactKeys = ["contact.website", "contact.phone", "contact.public_email", "contact.instagram", "contact.facebook", "contact.linkedin", "contact.tiktok"];
   const contacts = canonicalWorldDetail ? contactKeys.map((key) => field(key)).filter((item): item is SpotProductField => Boolean(item)) : [];
-  const socialLinks = contacts.filter((contact) => contact.attributeKey in socialContacts && contact.knowledgeState !== "UNKNOWN" && typeof contact.value === "string");
-  const directContacts = contacts.filter((contact) => !(contact.attributeKey in socialContacts));
   const descriptionField = canonicalWorldDetail ? field("description.highlight") : undefined;
   const description = descriptionField ? presentSpotProductField(descriptionField) : canonicalWorldDetail ? null : effectiveDesc;
   const specialHoursField = field("hours.special");
@@ -705,6 +703,26 @@ export default function SpotDetailScreen() {
   const trackContact = (kind: "phone" | "website") => {
     if (!decisionOrigin) void trackAnalyticsEvent({ eventName: kind === "phone" ? "spot_phone_clicked" : "spot_website_clicked", screenName: "spot_detail", entityType: "spot", entityId: spot.id, spotId: spot.id });
   };
+  const contactActions: { key: string; label: string; value: string; icon: keyof typeof Feather.glyphMap; onPress: () => void }[] = [];
+  const contactValues = canonicalWorldDetail
+    ? contacts.filter((contact) => contact.knowledgeState !== "UNKNOWN" && typeof contact.value === "string" && contact.value.trim())
+      .map((contact) => ({ key: contact.attributeKey, value: contact.value as string }))
+    : [
+      { key: "contact.website", value: spot.website },
+      { key: "contact.phone", value: spot.phone },
+      { key: "contact.public_email", value: spot.email },
+    ].filter((contact): contact is { key: string; value: string } => typeof contact.value === "string" && Boolean(contact.value.trim()));
+  for (const contact of contactValues) {
+    const social = socialContacts[contact.key as keyof typeof socialContacts];
+    const label = social?.label ?? spotProductLabel(contact.key);
+    const icon: keyof typeof Feather.glyphMap = social?.icon ?? (contact.key === "contact.phone" ? "phone" : contact.key === "contact.public_email" ? "mail" : "globe");
+    const onPress = () => {
+      if (contact.key === "contact.phone") { trackContact("phone"); callNumber(contact.value); }
+      else if (contact.key === "contact.public_email") void Linking.openURL(`mailto:${contact.value}`);
+      else { if (contact.key === "contact.website") trackContact("website"); openWebsite(contact.value); }
+    };
+    contactActions.push({ key: contact.key, label, value: contact.value, icon, onPress });
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
@@ -878,39 +896,19 @@ export default function SpotDetailScreen() {
 
           <View style={styles.section}>
             <View style={styles.sectionHeader}><SectionTitle>So fühlt es sich hier an</SectionTitle></View>
-            {moodSummary.length > 0 ? <SpotMoodProfile moods={moodSummary} /> : <StateView appearance="dark" kind="empty" title="Noch keine Stimmung eingefangen." message="Teile nach deinem Besuch deinen Eindruck." />}
+            {moodSummary.length > 0 ? <SpotMoodProfile moods={moodSummary} /> : <View style={styles.moodEmpty}>
+              <Feather name="sun" size={22} color={theme.colors.textMuted} />
+              <Text style={styles.moodEmptyTitle}>Noch keine Eindrücke</Text>
+              <Text style={styles.moodEmptyCopy}>Teile nach deinem Besuch deinen Moment.</Text>
+            </View>}
           </View>
 
           <SpotEssentials category={field("classification.primary_category")} placeType={field("classification.place_types")} price={field("operation.price_level")} />
 
-          {(contacts.length > 0 || !canonicalWorldDetail && (spot.website || spot.phone || spot.email)) ? <View style={styles.section}>
+          {contactActions.length > 0 ? <View style={styles.section}>
             <SectionTitle>Kontakt</SectionTitle>
-            <View style={styles.infoCard}>
-              {canonicalWorldDetail ? directContacts.map((contact) => {
-                const value = presentSpotProductField(contact);
-                const actionable = contact.knowledgeState !== "UNKNOWN" && typeof contact.value === "string";
-                const isPhone = contact.attributeKey === "contact.phone";
-                const isEmail = contact.attributeKey === "contact.public_email";
-                return <InfoRow key={contact.attributeKey} icon={isPhone ? "phone" : isEmail ? "mail" : "globe"} label={spotProductLabel(contact.attributeKey)} text={value} color={actionable ? theme.colors.pinkSoft : undefined} onPress={actionable ? () => {
-                  if (isPhone) { trackContact("phone"); callNumber(value); }
-                  else if (isEmail) void Linking.openURL(`mailto:${value}`);
-                  else { if (contact.attributeKey === "contact.website") trackContact("website"); openWebsite(value); }
-                } : undefined} />;
-              }) : <>
-                {spot.website ? <InfoRow icon="globe" label="Webseite" text={spot.website} color={theme.colors.pinkSoft} onPress={() => { trackContact("website"); openWebsite(spot.website); }} /> : null}
-                {spot.phone ? <InfoRow icon="phone" label="Telefon" text={spot.phone} color={theme.colors.pinkSoft} onPress={() => { trackContact("phone"); callNumber(spot.phone); }} /> : null}
-                {spot.email ? <InfoRow icon="mail" label="E-Mail" text={spot.email} color={theme.colors.pinkSoft} onPress={() => void Linking.openURL(`mailto:${spot.email}`)} /> : null}
-              </>}
-              {socialLinks.length > 0 ? <View style={styles.socialLinks}>
-                {socialLinks.map((contact) => {
-                  const social = socialContacts[contact.attributeKey as keyof typeof socialContacts];
-                  return <Pressable key={contact.attributeKey} accessibilityRole="link" accessibilityLabel={`${social.label} von ${spot.name} öffnen`} onPress={() => openWebsite(contact.value as string)} style={styles.socialBadge}>
-                    <Feather name={social.icon} size={17} color={theme.colors.pink} />
-                    <Text style={styles.socialBadgeText}>{social.label}</Text>
-                    <Feather name="arrow-up-right" size={14} color={theme.colors.textMuted} />
-                  </Pressable>;
-                })}
-              </View> : null}
+            <View style={styles.contactGrid}>
+              {contactActions.map((contact) => <ContactAction key={contact.key} icon={contact.icon} label={contact.label} value={contact.value} onPress={contact.onPress} />)}
             </View>
           </View> : null}
 
@@ -925,8 +923,8 @@ export default function SpotDetailScreen() {
             </View>
             {description ? (
               <>
-                <Text numberOfLines={descriptionExpanded ? undefined : 4} style={styles.bodyText}>{description}</Text>
-                {description.length > 180 ? (
+                <Text numberOfLines={descriptionExpanded ? undefined : 2} style={styles.bodyText}>{description}</Text>
+                {description.length > 65 ? (
                   <Pressable accessibilityRole="button" accessibilityState={{ expanded: descriptionExpanded }} onPress={() => setDescriptionExpanded((value) => !value)} style={styles.textAction}>
                     <Text style={styles.textActionLabel}>{descriptionExpanded ? "Weniger anzeigen" : "Mehr lesen"}</Text>
                     <Feather name={descriptionExpanded ? "chevron-up" : "chevron-down"} size={16} color={theme.colors.pink} />
@@ -936,22 +934,18 @@ export default function SpotDetailScreen() {
             ) : <Text style={styles.mutedText}>Für diesen Spot ist noch keine Beschreibung hinterlegt.</Text>}
           </View>
 
-          {showHours && Object.keys(hours).length > 0 ? (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <SectionTitle>Öffnungszeiten</SectionTitle>
-                <Text style={styles.todayState}>{SPOT_OPENING_STATUS_COPY[openingStatus]}</Text>
-              </View>
-              <View style={styles.hoursCard}>
-                <View style={styles.todayHoursRow}>
-                  <Text style={styles.todayHoursLabel}>{todayNameNormalized}</Text>
-                  <Text style={styles.todayHoursValue}>{todaysHours.length > 0 ? todaysHours.map((slot) => slot.open_time && slot.close_time ? `${slot.open_time.slice(0, 5)}–${slot.close_time.slice(0, 5)}` : "Heute geschlossen").join(" · ") : "Für heute nicht bekannt"}</Text>
+          {showHours ? (
+            <View style={styles.detailLineGroup}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Alle Öffnungszeiten" accessibilityState={{ expanded: hoursExpanded }} onPress={() => setHoursExpanded((value) => !value)} style={styles.disclosureRow}>
+                <Feather name="clock" size={19} color={theme.colors.textSoft} />
+                <View style={styles.disclosureText}>
+                  <Text style={styles.disclosureTitle}>Öffnungszeiten</Text>
+                  <Text style={styles.disclosureSub}>{Object.keys(hours).length > 0 ? `${todayNameNormalized}: ${todaysHours.length > 0 ? todaysHours.map((slot) => slot.open_time && slot.close_time ? `${slot.open_time.slice(0, 5)}–${slot.close_time.slice(0, 5)}` : "Heute geschlossen").join(" · ") : openingUnknown ? "Nicht bekannt" : "Heute geschlossen"}` : "Noch nicht bekannt"}</Text>
                 </View>
-                <Pressable accessibilityRole="button" accessibilityState={{ expanded: hoursExpanded }} onPress={() => setHoursExpanded((value) => !value)} style={styles.hoursToggle}>
-                  <Text style={styles.hoursToggleText}>{hoursExpanded ? "Alle Öffnungszeiten ausblenden" : "Alle Öffnungszeiten"}</Text>
-                  <Feather name={hoursExpanded ? "chevron-up" : "chevron-down"} size={16} color={theme.colors.pink} />
-                </Pressable>
-                {hoursExpanded ? WEEK_ORDER.map((day) => {
+                <Feather name={hoursExpanded ? "chevron-up" : "chevron-right"} size={19} color={theme.colors.pink} />
+              </Pressable>
+              {hoursExpanded && Object.keys(hours).length === 0 ? <Text style={styles.hoursUncertainty}>Backyrd zeigt keinen Öffnungsstatus, solange keine verlässlichen Zeiten hinterlegt sind.</Text> : null}
+              {hoursExpanded && Object.keys(hours).length > 0 ? <View style={styles.disclosureContent}>{WEEK_ORDER.map((day) => {
                   const slots = hours[day] || [];
                   const isToday = day === todayNameNormalized;
 
@@ -973,42 +967,35 @@ export default function SpotDetailScreen() {
                       </View>
                     </View>
                   );
-                }) : null}
-              </View>
-            </View>
-          ) : showHours ? (
-            <View style={styles.section}>
-              <SectionTitle>Öffnungszeiten</SectionTitle>
-              <StateView appearance="dark" kind="empty" title="Noch nicht bekannt" message="Backyrd zeigt keinen Öffnungsstatus, solange keine verlässlichen Zeiten hinterlegt sind." />
+                })}</View> : null}
             </View>
           ) : null}
 
-          {specialHoursField ? <View style={styles.section}>
-            <SectionTitle>Sonderöffnungszeiten</SectionTitle>
-            <View style={styles.specialHoursList}>
+          {specialHoursField ? <View style={styles.detailLineGroup}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Sonderöffnungszeiten" accessibilityState={{ expanded: specialHoursExpanded }} onPress={() => setSpecialHoursExpanded((value) => !value)} style={styles.disclosureRow}>
+              <Feather name="calendar" size={19} color={theme.colors.textSoft} />
+              <View style={styles.disclosureText}>
+                <Text style={styles.disclosureTitle}>Sonderöffnungszeiten</Text>
+                <Text style={styles.disclosureSub}>{specialHoursList.length ? `${specialHoursList[0].date}: ${specialHoursList[0].hours}${specialHoursList.length > 1 ? ` · +${specialHoursList.length - 1}` : ""}` : "Keine bestätigten Angaben"}</Text>
+              </View>
+              <Feather name={specialHoursExpanded ? "chevron-up" : "chevron-right"} size={19} color={theme.colors.pink} />
+            </Pressable>
+            {specialHoursExpanded ? <View style={styles.disclosureContent}>
               {specialHoursList.length ? specialHoursList.map((item) => (
                 <View key={item.date} style={styles.specialHoursRow}>
                   <Text style={styles.factLabel}>{item.date}</Text>
                   <Text style={styles.factValue}>{item.hours}</Text>
                 </View>
               )) : <Text style={styles.mutedText}>Noch keine bestätigten Sonderöffnungszeiten.</Text>}
-            </View>
+            </View> : null}
           </View> : null}
 
-          <View style={styles.section}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Mehr Infos" accessibilityState={{ expanded: moreInfoExpanded }} onPress={() => setMoreInfoExpanded((value) => !value)} style={styles.moreInfoToggle}>
+          <View style={styles.moreInfoEntry}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Mehr Infos" onPress={() => setMoreInfoExpanded(true)} style={styles.moreInfoToggle}>
               <Text style={styles.moreInfoTitle}>Mehr Infos</Text>
-              <Feather name={moreInfoExpanded ? "chevron-up" : "chevron-down"} size={20} color={theme.colors.pink} />
+              <Feather name="chevron-right" size={20} color={theme.colors.pink} />
             </Pressable>
-            {moreInfoExpanded ? <View style={styles.moreInfoContent}>
-              {moreInfoFields.map((detail) => <SpotFact key={`${detail.attributeKey}:${detail.scope}`} field={detail} />)}
-              {additionalFields.map((detail) => <SpotFact key={`${detail.attributeKey}:${detail.scope}`} field={detail} />)}
-              {!canonicalWorldDetail ? <>
-                <SpotTaxonomyDetails items={taxonomyItems} />
-                {taxonomyItems.length ? <SpotTaxonomyChips items={taxonomyItems} /> : null}
-              </> : null}
-              {!hasMoreInfo ? <Text style={styles.mutedText}>Noch keine weiteren Angaben hinterlegt.</Text> : null}
-            </View> : null}
+            <Text style={styles.moreInfoSubtitle}>Ausstattung, Atmosphäre und weitere Details</Text>
           </View>
 
           <View style={styles.section}>
@@ -1162,6 +1149,32 @@ export default function SpotDetailScreen() {
         <View style={{ height: foundationTheme.control.tabBar + foundationTheme.spacing.xxl + insets.bottom }} />
       </Animated.ScrollView>
 
+      <Modal animationType="slide" presentationStyle="fullScreen" visible={moreInfoExpanded} onRequestClose={() => setMoreInfoExpanded(false)}>
+        <View style={styles.moreInfoScreen}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.moreInfoScroll, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 40 }]}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Zurück zum Spot" onPress={() => setMoreInfoExpanded(false)} style={styles.moreInfoBack}>
+              <Feather name="chevron-left" size={20} color={theme.colors.text} />
+              <Text style={styles.moreInfoBackText}>Zurück zum Spot</Text>
+            </Pressable>
+            <Text style={styles.moreInfoPageTitle}>Mehr Infos</Text>
+            <Text style={styles.moreInfoPageSubtitle}>Alle weiteren Angaben zu {spot.name} auf einen Blick.</Text>
+            <View style={styles.moreInfoFacts}>
+              {moreInfoFields.filter((detail) => ["context.typical_dayparts", "context.atmosphere", "amenity.features"].includes(detail.attributeKey)).map((detail) => <SpotFact key={`${detail.attributeKey}:${detail.scope}`} field={detail} />)}
+              {moreInfoFields.some((detail) => detail.attributeKey.startsWith("accessibility.")) ? <View style={styles.accessibilityGroup}>
+                <Text style={styles.accessibilityHeading}>Barrierefreiheit</Text>
+                {moreInfoFields.filter((detail) => detail.attributeKey.startsWith("accessibility.")).map((detail) => <SpotFact key={`${detail.attributeKey}:${detail.scope}`} field={detail} />)}
+              </View> : null}
+              {moreInfoFields.filter((detail) => !detail.attributeKey.startsWith("accessibility.") && !["context.typical_dayparts", "context.atmosphere", "amenity.features"].includes(detail.attributeKey)).map((detail) => <SpotFact key={`${detail.attributeKey}:${detail.scope}`} field={detail} />)}
+              {additionalFields.map((detail) => <SpotFact key={`${detail.attributeKey}:${detail.scope}`} field={detail} />)}
+              {!canonicalWorldDetail ? <>
+                <SpotTaxonomyDetails items={taxonomyItems} />
+                {taxonomyItems.length ? <SpotTaxonomyChips items={taxonomyItems} /> : null}
+              </> : null}
+              {!hasMoreInfo ? <Text style={styles.mutedText}>Noch keine weiteren Angaben hinterlegt.</Text> : null}
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
       <LoginPromptModal visible={showLoginPrompt} onClose={() => setShowLoginPrompt(false)} />
     </View>
   );
@@ -1350,46 +1363,52 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   essentials: {
-    marginBottom: 40,
-    paddingTop: 18,
+    marginBottom: 32,
+    paddingTop: 24,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: theme.colors.border,
   },
-  essentialsEyebrow: {
-    color: theme.colors.pink,
-    fontSize: 11,
+  essentialsHeading: {
+    color: theme.colors.text,
+    fontSize: 18,
     fontWeight: "700",
-    letterSpacing: 1.7,
-    marginBottom: 22,
+    letterSpacing: -0.3,
+    marginBottom: 18,
   },
-  essentialsLead: { marginBottom: 24 },
   essentialsLabel: {
     color: theme.colors.textMuted,
-    fontSize: 13,
-    fontWeight: "600",
-    marginBottom: 6,
-  },
-  essentialsValue: {
-    color: theme.colors.text,
-    fontSize: 24,
-    lineHeight: 30,
-    fontWeight: "700",
-    letterSpacing: -0.6,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: "500",
   },
   essentialsDetails: {
     flexDirection: "row",
-    gap: 18,
-    paddingTop: 19,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.colors.border,
+    paddingBottom: 22,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
   },
-  essentialsDetail: { flex: 1 },
+  essentialsDetail: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+    paddingHorizontal: 10,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: theme.colors.border,
+  },
   essentialsDetailValue: {
     color: theme.colors.text,
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 15,
+    lineHeight: 21,
     fontWeight: "700",
   },
+  moodEmpty: {
+    minHeight: 124,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  moodEmptyTitle: { color: theme.colors.text, fontSize: 15, fontWeight: "700" },
+  moodEmptyCopy: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 19, textAlign: "center" },
   showMoreText: {
     color: theme.colors.pinkSoft,
     fontSize: 13,
@@ -1452,55 +1471,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
   },
-  infoCard: {
-    marginTop: 12,
-    gap: 2,
-  },
-  socialLinks: {
+  contactGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
-    paddingTop: 14,
-  },
-  socialBadge: {
-    minHeight: 44,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 14,
-    borderRadius: theme.radius.pill,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: "rgba(255,255,255,0.045)",
-  },
-  socialBadgeText: {
-    color: theme.colors.text,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  infoRow: {
-    minHeight: 52,
-    paddingHorizontal: 2,
-    paddingVertical: 12,
-    flexDirection: "row",
-    alignItems: "center",
     gap: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.border,
+    marginTop: 16,
   },
-  infoIcon: {
-    width: 25,
-    height: 30,
+  contactAction: {
+    width: "30%",
+    minHeight: 72,
     alignItems: "center",
     justifyContent: "center",
+    gap: 7,
   },
-  infoText: {
-    flex: 1,
-    color: theme.colors.textSoft,
-    fontSize: 15,
-    lineHeight: 21,
-    fontWeight: "600",
+  contactIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.colors.border,
+    backgroundColor: "rgba(255,255,255,0.04)",
   },
+  contactLabel: { color: theme.colors.textSoft, fontSize: 12, lineHeight: 17, fontWeight: "600" },
   factRow: {
     paddingVertical: 19,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -1536,7 +1530,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   specialHoursRow: {
-    paddingVertical: 16,
+    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -1544,24 +1538,35 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: theme.colors.border,
   },
-  specialHoursList: { marginTop: 8 },
+  detailLineGroup: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
+  disclosureRow: { minHeight: 76, flexDirection: "row", alignItems: "center", gap: 14 },
+  disclosureText: { flex: 1, gap: 4 },
+  disclosureTitle: { color: theme.colors.text, fontSize: 15, lineHeight: 21, fontWeight: "700" },
+  disclosureSub: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 18 },
+  disclosureContent: { paddingLeft: 33, paddingBottom: 18 },
+  hoursUncertainty: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 19, paddingLeft: 33, paddingBottom: 18 },
+  moreInfoEntry: { marginBottom: 38, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: theme.colors.border },
   moreInfoToggle: {
-    minHeight: 64,
+    minHeight: 53,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
   },
   moreInfoTitle: {
     color: theme.colors.text,
-    fontSize: 22,
+    fontSize: 17,
     fontWeight: "700",
   },
-  moreInfoContent: {
-    paddingTop: 4,
-  },
+  moreInfoSubtitle: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 18, paddingBottom: 17 },
+  moreInfoScreen: { flex: 1, backgroundColor: theme.colors.background },
+  moreInfoScroll: { paddingHorizontal: 24 },
+  moreInfoBack: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" },
+  moreInfoBackText: { color: theme.colors.text, fontSize: 14, fontWeight: "600" },
+  moreInfoPageTitle: { color: theme.colors.text, fontSize: 30, lineHeight: 38, fontWeight: "700", letterSpacing: -0.7, marginTop: 20 },
+  moreInfoPageSubtitle: { color: theme.colors.textMuted, fontSize: 14, lineHeight: 20, marginTop: 5, marginBottom: 24 },
+  moreInfoFacts: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
+  accessibilityGroup: { paddingTop: 22, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.border },
+  accessibilityHeading: { color: theme.colors.text, fontSize: 17, fontWeight: "700", marginBottom: 5 },
   ownerBlock: {
     marginTop: 8,
     marginBottom: 26,
@@ -1582,11 +1587,6 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 14,
     fontWeight: "800",
-  },
-  hoursCard: {
-    marginTop: 5,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.colors.border,
   },
   hoursRow: {
     flexDirection: "row",
@@ -1610,42 +1610,6 @@ const styles = StyleSheet.create({
   },
   hoursToday: {
     color: theme.colors.text,
-    fontWeight: "800",
-  },
-  todayState: {
-    color: theme.colors.pink,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  todayHoursRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 16,
-    paddingVertical: 17,
-  },
-  todayHoursLabel: {
-    color: theme.colors.textMuted,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  todayHoursValue: {
-    flex: 1,
-    color: theme.colors.text,
-    textAlign: "right",
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  hoursToggle: {
-    minHeight: 44,
-    marginTop: 6,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  hoursToggleText: {
-    color: theme.colors.pink,
-    fontSize: 13,
     fontWeight: "800",
   },
   reviewCard: {
