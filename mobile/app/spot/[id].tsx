@@ -38,7 +38,7 @@ import { StateView } from "../../components/foundation/StateView";
 import SharedAvatar from "../../components/Avatar";
 import { backyrdTheme as foundationTheme } from "../../theme/backyrd";
 import { SPOT_OPENING_STATUS_COPY, spotOpeningStatusNow } from "../../lib/spot-opening-status";
-import { getMobileSpotProductProfile, presentSpotProductField, spotProductAdditionalFields, spotProductField, spotProductLabel, spotProductOpeningHours, type SpotProductField, type SpotProductProfile } from "../../lib/spot-product-profile";
+import { getMobileSpotProductProfile, presentSpotProductField, spotCurrentStateDetails, spotOfferingLabels, spotPetAccessDetails, spotProductAdditionalFields, spotProductField, spotProductLabel, spotProductOpeningHours, type SpotProductField, type SpotProductProfile } from "../../lib/spot-product-profile";
 
 import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
 const theme = {
@@ -184,17 +184,29 @@ const InfoRow = ({
 
 const tokenFields = new Set([
   "context.typical_dayparts", "context.atmosphere", "amenity.features",
-  "context.visit_situations", "offering.food_specialities",
+  "context.visit_situations", "offering.food_specialities", "offering.groups",
 ]);
 
 const SpotFact = ({ field }: { field: SpotProductField }) => {
-  const tokens = tokenFields.has(field.attributeKey) && Array.isArray(field.value)
+  const tokens = field.attributeKey === "offering.groups" ? spotOfferingLabels(field.value)
+    : tokenFields.has(field.attributeKey) && Array.isArray(field.value)
     ? field.value.map((value) => presentSpotProductField({ ...field, value: [value] }))
     : null;
+  const petDetails = field.attributeKey === "rule.pet_access" && field.knowledgeState !== "UNKNOWN" ? spotPetAccessDetails(field.value) : [];
+  const petNotes = field.attributeKey === "rule.pet_access" && field.value && typeof field.value === "object" && !Array.isArray(field.value) && typeof (field.value as { notes?: unknown }).notes === "string" ? (field.value as { notes: string }).notes.trim() : "";
+  const currentState = field.attributeKey === "state.current" && field.knowledgeState !== "UNKNOWN" ? spotCurrentStateDetails(field.value) : null;
   return (
     <View style={styles.factRow}>
       <Text style={styles.factLabel}>{spotProductLabel(field.attributeKey)}</Text>
-      {tokens?.length ? <View style={styles.factTokens}>{tokens.map((token, index) => (
+      {petDetails.length ? <>
+        <View style={styles.petDetails}>{petDetails.map(({ label, value }) => (
+          <View key={label} style={styles.petDetail}><Text style={styles.petLabel}>{label}</Text><Text style={styles.petValue}>{value}</Text></View>
+        ))}</View>
+        {petNotes ? <Text style={styles.factNote}>{petNotes}</Text> : null}
+      </> : currentState ? <View style={styles.currentState}>
+        <View style={styles.currentStateDot} />
+        <View style={styles.currentStateCopy}><Text style={styles.factValue}>{currentState.title}</Text>{currentState.scope ? <Text style={styles.factNote}>{currentState.scope}</Text> : null}</View>
+      </View> : tokens?.length ? <View style={styles.factTokens}>{tokens.map((token, index) => (
         <View key={`${token}:${index}`} style={styles.factToken}><Text style={styles.factTokenText}>{token}</Text></View>
       ))}</View> : <Text style={styles.factValue}>{presentSpotProductField(field)}</Text>}
     </View>
@@ -1482,6 +1494,14 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.border,
   },
   factTokens: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 },
+  petDetails: { marginTop: 8, gap: 12 },
+  petDetail: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16 },
+  petLabel: { color: theme.colors.textSoft, fontSize: 14, lineHeight: 20 },
+  petValue: { color: theme.colors.text, fontSize: 14, lineHeight: 20, fontWeight: "600" },
+  factNote: { color: theme.colors.textMuted, fontSize: 13, lineHeight: 19, marginTop: 3 },
+  currentState: { flexDirection: "row", alignItems: "flex-start", gap: 12, marginTop: 8 },
+  currentStateDot: { width: 8, height: 8, borderRadius: 4, marginTop: 7, backgroundColor: theme.colors.pink },
+  currentStateCopy: { flex: 1 },
   factToken: {
     paddingHorizontal: 12,
     paddingVertical: 8,

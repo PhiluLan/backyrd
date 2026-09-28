@@ -74,6 +74,30 @@ export async function getMobileSpotProductProfile(spotId: string): Promise<SpotP
 }
 
 const words: Record<string,string> = { TRUE:"Ja",FALSE:"Nein",COFFEE_DAYTIME:"Café & Tageszeit",DRINKS:"Getränke",EAT:"Essen",EAT_DRINK:"Essen & Trinken",ACTIVITY_PLAY:"Aktivitäten & Spiel",SPORT_MOVEMENT:"Sport & Bewegung",CULTURE_ARTS:"Kultur & Kunst",OVERNIGHT_STAY:"Übernachten",QUIET:"Ruhig",LIVELY:"Lebendig",COZY:"Gemütlich",CASUAL:"Locker",SOCIABLE:"Gesellig",MORNING:"Morgens",MIDDAY:"Mittags",AFTERNOON:"Nachmittags",EVENING:"Abends",NIGHT:"Nachts",VERY_LOW:"Sehr günstig",LOW:"Günstig",MEDIUM:"Mittel",HIGH:"Gehoben",PREMIUM:"Premium",FAMILY_FRIENDLY:"Familienfreundlich",BUSINESS_SUITABLE:"Für geschäftliche Treffen",BICYCLE_PARKING:"Fahrradstellplätze",HIGH_CHAIR:"Kinderstühle",OUTDOOR_SEATING:"Sitzplätze draussen",POWER_OUTLETS:"Steckdosen",PUBLIC_TRANSPORT_NEARBY:"ÖV in der Nähe",STROLLER_SPACE:"Platz für Kinderwagen",WATER_BOWL:"Wassernapf",WIFI:"WLAN",PLAY_AREA:"Spielbereich",TERRACE:"Terrasse",GARDEN:"Garten",RESTAURANT:"Restaurant",CAFE:"Café",BAR:"Bar",PUB:"Pub",BAKERY:"Bäckerei",BURGER:"Burger",PIZZA:"Pizza",VEGETARIAN_DISHES:"Vegetarische Gerichte",STAY:"Übernachten",FAMILY:"Familien",FRIENDS_GROUP:"Freundesgruppen",DATE_PAIR:"Zu zweit",ALONE:"Alleine",BUSINESS:"Geschäftlich",ADULTS:"Erwachsene",CHILDREN:"Kinder",MIXED_AGES:"Alle Altersgruppen",EVENT:"Bei Veranstaltungen",ALLOWED:"Erlaubt",NOT_ALLOWED:"Nicht erlaubt",UNKNOWN:"Noch nicht bekannt" };
+const offeringLabels: Record<string, string> = {
+  BEER:"Bier",WINE:"Wein",COCKTAILS:"Cocktails",NON_ALCOHOLIC_DRINKS:"Alkoholfreie Getränke",COFFEE:"Kaffee",TEA:"Tee",SPIRITS:"Spirituosen",CRAFT_BEER:"Craft Beer",NATURAL_WINE:"Naturwein",SNACKS:"Snacks",FULL_MEALS:"Mahlzeiten",TAKEAWAY_MEALS:"Zum Mitnehmen",BAKED_GOODS:"Backwaren",DESSERTS:"Desserts",TASTING_MENU:"Degustationsmenü",BREAKFAST:"Frühstück",BRUNCH:"Brunch",LUNCH:"Mittagessen",DINNER:"Abendessen",LATE_NIGHT_FOOD:"Spätes Essen",
+};
+export function spotOfferingLabels(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").map((item) => offeringLabels[item] ?? title(item)) : [];
+}
+export function spotPetAccessDetails(value: unknown): { label: string; value: string }[] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const pet = value as Record<string, unknown>;
+  return [["Drinnen", pet.indoor], ["Draussen", pet.outdoor], ["Assistenztiere", pet.assistanceAnimals]]
+    .filter((entry): entry is [string, string] => typeof entry[1] === "string")
+    .map(([label, state]) => ({ label, value: words[state] ?? title(state) }));
+}
+export function spotCurrentStateDetails(value: unknown): { title: string; scope: string | null } | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const state = value as Record<string, unknown>;
+  if (typeof state.kind !== "string") return null;
+  const names: Record<string, string> = { OPEN:"Geöffnet",CLOSED:"Geschlossen",TEMPORARILY_CLOSED:"Vorübergehend geschlossen",LIMITED:"Eingeschränkter Betrieb",FULL:"Derzeit ausgelastet",KITCHEN_CLOSED:"Küche geschlossen",AREA_CLOSED:"Bereichsschliessung gemeldet" };
+  const scope = typeof state.scope === "string" ? state.scope : null;
+  return {
+    title: names[state.kind] ?? title(state.kind),
+    scope: scope === "VENUE" || scope === "SPOT" ? "Betrifft den ganzen Ort" : scope?.startsWith("AREA:") ? `Betrifft: ${title(scope.slice(5))}` : scope ? `Betrifft: ${title(scope)}` : null,
+  };
+}
 const labels:Record<string,string>={"description.highlight":"Beschreibung","classification.primary_category":"Hauptkategorie","classification.place_types":"Art des Ortes","purpose.primary_visit":"Hauptzweck","offering.cuisines":"Küche","offering.food_specialities":"Spezialitäten","offering.groups":"Angebot","offering.onsite":"Angebote vor Ort","context.visit_situations":"Passt zu","context.atmosphere":"Atmosphäre","context.typical_dayparts":"Typische Tageszeit","operation.price_level":"Preisniveau","hours.regular":"Öffnungszeiten","hours.special":"Sonderöffnungszeiten","state.current":"Aktueller Zustand","amenity.features":"Ausstattung","accessibility.step_free_entrance":"Stufenfreier Eingang","accessibility.accessible_toilet":"Barrierefreies WC","accessibility.elevator":"Lift","rule.pet_access":"Tiere","rule.age_access_conditions":"Altersregeln","contact.website":"Webseite","contact.phone":"Telefon","contact.public_email":"E-Mail","contact.instagram":"Instagram","contact.facebook":"Facebook","contact.linkedin":"LinkedIn","contact.tiktok":"TikTok"};
 export function spotProductLabel(key:string):string{return labels[key]??key.split(".").at(-1)!.replaceAll("_"," ").replace(/^./,(letter)=>letter.toLocaleUpperCase("de-CH"))}
 const title = (value:string) => words[value] ?? value.replaceAll("_"," ").toLocaleLowerCase("de-CH").replace(/^./, (letter) => letter.toLocaleUpperCase("de-CH"));
@@ -102,13 +126,15 @@ const contextValue = (value: unknown): string | null => {
 };
 export function presentSpotProductField(field: SpotProductField): string {
   if (field.knowledgeState === "UNKNOWN") return "Noch nicht bekannt";
+  if (field.attributeKey === "offering.groups") return spotOfferingLabels(field.value).join(" · ");
+  if (field.attributeKey === "state.current") { const state = spotCurrentStateDetails(field.value); return state ? [state.title, state.scope].filter(Boolean).join(" · ") : "Noch nicht bekannt"; }
   if (field.attributeKey === "description.highlight" && typeof field.value === "string") return field.value;
   if (field.attributeKey.startsWith("contact.") && typeof field.value === "string") return field.value;
   if (["context.atmosphere","context.typical_dayparts","context.visit_situations"].includes(field.attributeKey) && Array.isArray(field.value)) return field.value.map((row) => contextValue(row) ?? presentSpotProductValue(row)).join(" · ");
   if (field.attributeKey === "offering.onsite" && Array.isArray(field.value)) return field.value.map((row) => row && typeof row === "object" && typeof (row as { kind?: unknown }).kind === "string" ? title((row as { kind: string }).kind) : presentSpotProductValue(row)).join(" · ");
   if (field.attributeKey === "rule.pet_access" && field.value && typeof field.value === "object" && !Array.isArray(field.value)) {
     const pet = field.value as Record<string, unknown>;
-    const parts = [["Drinnen", pet.indoor], ["Draussen", pet.outdoor], ["Assistenztiere", pet.assistanceAnimals]].filter((entry): entry is [string, string] => typeof entry[1] === "string").map(([label, value]) => `${label}: ${title(value)}`);
+    const parts = spotPetAccessDetails(field.value).map(({ label, value }) => `${label}: ${value}`);
     if (typeof pet.notes === "string" && pet.notes.trim()) parts.push(pet.notes);
     return parts.join(" · ");
   }
