@@ -63,7 +63,7 @@ export function HomeExperience() {
         <div className="b-container b-hero-grid">
           <div className="b-hero-copy">
             <p className="b-kicker">Basel · jetzt entdecken</p>
-            <h1 className="b-display b-display-xl">WOHIN GEHT&apos;S HEUTE?</h1>
+            <h1 className="b-display b-display-xl">Wohin geht&apos;s heute?</h1>
             <div className="b-marker" />
             <p
               className="b-body b-muted"
@@ -183,7 +183,7 @@ export function HomeExperience() {
             <div>
               <p className="b-kicker">02 · Momente</p>
               <h2 className="b-display b-page-title" style={{ marginTop: 10 }}>
-                SO FÜHLT SICH DIE STADT AN.
+                So fühlt sich die Stadt an.
               </h2>
             </div>
             <ButtonLink href="/moments" variant="secondary">
