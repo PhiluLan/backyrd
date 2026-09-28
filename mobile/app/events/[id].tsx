@@ -2,16 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Image,
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ProductText as Text } from "../../components/foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { EventDiscoveryDTO } from "../../../packages/shared/src/dto/event";
@@ -261,7 +253,7 @@ const styles = StyleSheet.create({
   cancelledText: { color: "#FCA5A5", fontSize: 10, fontWeight: "900" },
   postponed: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, backgroundColor: "rgba(201,177,244,0.13)" },
   postponedText: { color: "#C9B1F4", fontSize: 10, fontWeight: "900" },
-  title: { color: "#F4EFE4", fontSize: 36, lineHeight: 41, fontWeight: "900", letterSpacing: -1 },
+  title: { color: "#F4EFE4", fontSize: 36, lineHeight: 41, fontWeight: "700", letterSpacing: -0.7 },
   factCard: { padding: 18, borderRadius: 24, backgroundColor: "rgba(255,255,255,0.052)", borderWidth: 1, borderColor: "rgba(255,255,255,0.075)" },
   factRow: { flexDirection: "row", gap: 13, alignItems: "flex-start" },
   factCopy: { flex: 1 },
@@ -270,7 +262,7 @@ const styles = StyleSheet.create({
   factSecondary: { color: "#A9A5A0", fontSize: 13, lineHeight: 19, marginTop: 3 },
   divider: { height: 1, backgroundColor: "rgba(255,255,255,0.07)", marginVertical: 16 },
   section: { gap: 9 },
-  sectionTitle: { color: "#F4EFE4", fontSize: 20, fontWeight: "900" },
+  sectionTitle: { color: "#F4EFE4", fontSize: 22, lineHeight: 28, fontWeight: "700" },
   description: { color: "#B8B4B8", fontSize: 15, lineHeight: 23 },
   recurrence: { flexDirection: "row", alignItems: "center", gap: 9 },
   recurrenceText: { color: "#D6D0C7", fontSize: 14, lineHeight: 20, fontWeight: "800" },

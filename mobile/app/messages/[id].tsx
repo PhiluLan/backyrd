@@ -9,20 +9,8 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Platform, Pressable, SafeAreaView, StyleSheet, View } from "react-native";
+import { ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import {
   Stack,

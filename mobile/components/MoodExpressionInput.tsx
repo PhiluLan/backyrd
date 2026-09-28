@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { ProductText as Text, ProductTextInput as TextInput } from "./foundation/AppText";
 import { supabase } from "../lib/supabase";
 
 type Suggestion = { concept_key: string; label: string; matched_expression: string };

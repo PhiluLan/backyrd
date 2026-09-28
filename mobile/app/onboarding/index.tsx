@@ -1,20 +1,8 @@
 // mobile/app/onboarding/index.tsx
 
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableWithoutFeedback,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TouchableWithoutFeedback, View } from "react-native";
+import { ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import type * as Location from "expo-location";
@@ -487,9 +475,9 @@ const styles = StyleSheet.create({
   title: {
     color: "#fff",
     fontSize: 44,
-    lineHeight: 46,
-    fontWeight: "800",
-    letterSpacing: -1.35,
+    lineHeight: 49,
+    fontWeight: "700",
+    letterSpacing: -1,
   },
   titlePink: {
     color: "#FF4F91",

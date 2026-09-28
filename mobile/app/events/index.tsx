@@ -2,16 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, FlatList, Image, Pressable, RefreshControl, StyleSheet, View } from "react-native";
+import { ProductText as Text } from "../../components/foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type {
@@ -261,7 +253,7 @@ const styles = StyleSheet.create({
   iconButton: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.06)", borderWidth: 1, borderColor: "rgba(255,255,255,0.09)" },
   headerCopy: { flex: 1 },
   kicker: { color: "#FF9ABA", fontSize: 11, fontWeight: "900", letterSpacing: 2.4 },
-  title: { color: "#F4EFE4", fontSize: 32, lineHeight: 37, fontWeight: "900", letterSpacing: -0.8 },
+  title: { color: "#F4EFE4", fontSize: 28, lineHeight: 34, fontWeight: "700", letterSpacing: -0.45 },
   liveMark: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 11, paddingVertical: 8, borderRadius: 999, backgroundColor: "rgba(187,199,160,0.08)", borderWidth: 1, borderColor: "rgba(187,199,160,0.16)" },
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#BBC7A0" },
   liveText: { color: "#BBC7A0", fontSize: 12, fontWeight: "800" },

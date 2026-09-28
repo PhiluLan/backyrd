@@ -1,12 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { ProductText as Text } from "../../components/foundation/AppText";
 import { Stack, useRouter } from "expo-router";
 import { StateView } from "@/components/foundation/StateView";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -493,9 +487,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     color: theme.color.textPrimary,
     fontFamily: theme.type.display,
-    fontSize: 31,
-    fontWeight: "900",
-    letterSpacing: -0.9,
+    ...theme.typeScale.displayM,
   },
   heroCard: {
     marginHorizontal: 18,

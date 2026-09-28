@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { FlatList, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, View } from "react-native";
+import { AppText, ProductTextInput as TextInput } from "../components/foundation/AppText";
 import { supabase } from "../lib/supabase";
 import type { Spot } from "../lib/types";
 import { useRouter } from "expo-router";
 import { filterDistributedSpots } from "../lib/distributionTrust";
-import { AppText } from "../components/foundation/AppText";
 import { Button } from "../components/foundation/Button";
 import { Screen } from "../components/foundation/Screen";
 import { StateView } from "../components/foundation/StateView";

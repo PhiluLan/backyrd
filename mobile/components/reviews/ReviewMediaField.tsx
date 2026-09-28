@@ -1,15 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  AccessibilityInfo,
-  ActivityIndicator,
-  Alert,
-  Image,
-  Linking,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Alert, Image, Linking, Pressable, StyleSheet, View } from "react-native";
+import { ProductText as Text } from "../foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 

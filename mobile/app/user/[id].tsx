@@ -1,17 +1,7 @@
 // mobile/app/user/[id].tsx
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import {
-  Alert,
-  Animated,
-  Dimensions,
-  Image,
-  Pressable,
-  RefreshControl,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Alert, Animated, Dimensions, Image, Pressable, RefreshControl, SafeAreaView, StyleSheet, View } from "react-native";
+import { ProductText as Text } from "../../components/foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
@@ -896,9 +886,10 @@ const styles = StyleSheet.create({
   },
   displayName: {
     color: "#FFFFFF",
-    fontSize: 36,
-    fontWeight: "800",
-    letterSpacing: -1.2,
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: "700",
+    letterSpacing: -0.45,
   },
   handleText: {
     marginTop: 5,

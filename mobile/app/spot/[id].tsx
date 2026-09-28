@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import {
   View,
-  Text as RNText,
   Image,
   Dimensions,
   Pressable,
@@ -35,7 +34,7 @@ import { getMobileSpotTaxonomy, type MobileSpotTaxonomyItem } from "../../lib/ta
 import { selectSpotImageUrl } from "../../lib/spot-images";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
 import { SpotMoodProfile, type SpotMoodProfileItem } from "../../components/spot/SpotMoodProfile";
-import { AppText } from "../../components/foundation/AppText";
+import { AppText, ProductText as Text } from "../../components/foundation/AppText";
 import { StateView } from "../../components/foundation/StateView";
 import SharedAvatar from "../../components/Avatar";
 import { backyrdTheme as foundationTheme } from "../../theme/backyrd";
@@ -69,13 +68,6 @@ const theme = {
     pill: foundationTheme.radius.pill,
   },
 };
-
-function Text({ style, ...props }: React.ComponentProps<typeof RNText>) {
-  const weight = String(StyleSheet.flatten(style)?.fontWeight ?? "400");
-  const numericWeight = Number.parseInt(weight, 10);
-  const fontFamily = numericWeight >= 700 ? "Inter_700Bold" : numericWeight >= 600 ? "Inter_600SemiBold" : "Inter_400Regular";
-  return <RNText {...props} style={[style, { fontFamily, fontWeight: "normal" }]} />;
-}
 
 const { width } = Dimensions.get("window");
 // Spot imagery is the opening decision context, just like an Event hero: it
@@ -1187,7 +1179,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: foundationTheme.layout.pageGutter,
     paddingBottom: 9,
   },
   topBar: {
@@ -1246,8 +1238,8 @@ const styles = StyleSheet.create({
   },
   heroContent: {
     position: "absolute",
-    left: 20,
-    right: 20,
+    left: foundationTheme.layout.pageGutter,
+    right: foundationTheme.layout.pageGutter,
     bottom: 30,
   },
   heroPills: {
@@ -1299,7 +1291,7 @@ const styles = StyleSheet.create({
     letterSpacing: -1,
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: foundationTheme.layout.pageGutter,
     paddingTop: 20,
   },
   addressBlock: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 5, marginBottom: 23 },
@@ -1357,7 +1349,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: theme.colors.text,
-    fontFamily: "Inter_700Bold",
     fontSize: 22,
     lineHeight: 28,
     letterSpacing: -0.5,
@@ -1562,7 +1553,7 @@ const styles = StyleSheet.create({
   moreInfoScroll: { paddingHorizontal: 24 },
   moreInfoBack: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" },
   moreInfoBackText: { color: theme.colors.text, fontSize: 14, fontWeight: "600" },
-  moreInfoPageTitle: { color: theme.colors.text, fontSize: 30, lineHeight: 38, fontWeight: "700", letterSpacing: -0.7, marginTop: 20 },
+  moreInfoPageTitle: { color: theme.colors.text, ...foundationTheme.typeScale.screenTitle, fontWeight: "700", marginTop: 20 },
   moreInfoPageSubtitle: { color: theme.colors.textMuted, fontSize: 14, lineHeight: 20, marginTop: 5, marginBottom: 24 },
   moreInfoFacts: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.colors.border },
   accessibilityGroup: { paddingTop: 22, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.colors.border },

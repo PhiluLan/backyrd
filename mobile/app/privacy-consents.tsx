@@ -1,18 +1,7 @@
 // mobile/app/privacy-consents.tsx
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Linking,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { Stack, useRouter } from "expo-router";
@@ -32,7 +21,7 @@ import {
   unregisterPushNotificationsAsync,
 } from "@/lib/notifications";
 import { StateView } from "@/components/foundation/StateView";
-import { AppText } from "@/components/foundation/AppText";
+import { AppText, ProductText as Text } from "@/components/foundation/AppText";
 import { backyrdTheme as theme } from "@/theme/backyrd";
 
 const ORDER: ConsentPurposeKey[] = [

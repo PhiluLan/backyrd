@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { ActivityIndicator, Linking, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { ProductText as Text } from "../foundation/AppText";
 
 import { useAuth } from "../../hooks/useAuth";
 import { getGooglePlacePhotoFallback, type GooglePlacePhotoResult } from "../../lib/google-place-photo";

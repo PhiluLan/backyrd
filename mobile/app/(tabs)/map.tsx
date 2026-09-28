@@ -1,20 +1,8 @@
 // backyrd/mobile/app/map.tsx
 
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
-import {
-  View,
-  Alert,
-  Pressable,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  Dimensions,
-  Animated,
-  FlatList,
-  PanResponder,
-  Modal,
-} from "react-native";
+import { View, Alert, Pressable, ScrollView, StyleSheet, Dimensions, Animated, FlatList, PanResponder, Modal } from "react-native";
+import { AppText, ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 
 import ClusteredMapView from "react-native-map-clustering";
 import { Marker, PROVIDER_GOOGLE } from "react-native-maps";
@@ -32,7 +20,6 @@ import { hasActiveConsent } from "../../lib/consent";
 import { MOOD_SUGGESTIONS } from "../../lib/moods";
 import { trackAnalyticsEvent } from "../../lib/analytics";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
-import { AppText } from "../../components/foundation/AppText";
 import { Button, IconButton } from "../../components/foundation/Button";
 import { Chip } from "../../components/foundation/Chip";
 import { StateView } from "../../components/foundation/StateView";
@@ -853,7 +840,7 @@ const styles = StyleSheet.create({
   sheetCard: { backgroundColor: theme.color.surface, borderRadius: theme.radius.lg, overflow: "hidden", borderWidth: 1, borderColor: theme.color.border, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 10, elevation: 8 },
   cardMedia: { position: "relative" }, cardImg: { width: "100%", height: 214 },
   cardOverlay: { position: "absolute", left: 0, right: 0, bottom: 0, padding: theme.spacing.md },
-  resultTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, fontSize: 25, lineHeight: 30, marginBottom: theme.spacing.xxs, letterSpacing: -0.5 },
+  resultTitle: { color: theme.color.textPrimary, fontFamily: theme.type.bodyBold, ...theme.typeScale.sectionTitle, marginBottom: theme.spacing.xxs },
   resultSubtitle: { color: "rgba(247,243,233,0.76)", fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 19, marginBottom: theme.spacing.sm },
   cardChipsRow: { flexDirection: "row", gap: theme.spacing.xs, flexWrap: "wrap" },
   badgeGhost: { paddingHorizontal: theme.spacing.sm, paddingVertical: theme.spacing.xs, borderRadius: theme.radius.pill, backgroundColor: "rgba(5,5,6,0.35)", borderWidth: 1, borderColor: "rgba(247,243,233,0.2)" },

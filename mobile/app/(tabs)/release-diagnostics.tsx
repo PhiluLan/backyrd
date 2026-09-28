@@ -2,7 +2,8 @@ import Constants from "expo-constants";
 import * as Updates from "expo-updates";
 import { Stack } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { ProductText as Text } from "../../components/foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../hooks/useAuth";

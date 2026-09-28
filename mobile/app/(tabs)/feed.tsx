@@ -1,24 +1,8 @@
 // mobile/app/(tabs)/feed.tsx
 import "react-native-get-random-values";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Image,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  RefreshControl,
-  SafeAreaView,
-  ScrollView,
-  Share,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, SafeAreaView, ScrollView, Share, StyleSheet, View } from "react-native";
+import { ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
@@ -1148,7 +1132,7 @@ const styles = StyleSheet.create({
   },
   appBar: {
     minHeight: 64,
-    paddingHorizontal: theme.spacing.md,
+    paddingHorizontal: theme.layout.pageGutter,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -1156,9 +1140,7 @@ const styles = StyleSheet.create({
   appBarTitle: {
     color: theme.color.textPrimary,
     fontFamily: theme.type.bodyBold,
-    fontSize: 30,
-    lineHeight: 36,
-    letterSpacing: -0.6,
+    ...theme.typeScale.screenTitle,
   },
   appBarActions: {
     flexDirection: "row",
@@ -1343,8 +1325,7 @@ const styles = StyleSheet.create({
   composerIntroTitle: {
     marginTop: 5,
     color: "#FFFFFF",
-    fontSize: 25,
-    lineHeight: 30,
+    ...theme.typeScale.sectionTitle,
     fontWeight: "900",
     letterSpacing: -0.6,
   },

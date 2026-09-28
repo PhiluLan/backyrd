@@ -2,18 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-  type StyleProp,
-  type ViewStyle,
-} from "react-native";
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from "react-native";
+import { ProductText as Text } from "../foundation/AppText";
 
 import type { EventDiscoveryDTO } from "../../../packages/shared/src/dto/event";
 import { eventImageUrl, loadEvents } from "../../lib/events-v1";

@@ -1,5 +1,6 @@
 import React, { PropsWithChildren } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { ProductText as Text } from "../foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { backyrdTheme as theme } from "../../theme/backyrd";

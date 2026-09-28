@@ -1,15 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { usePathname, useRouter } from "expo-router";
 import React, { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import {
-  Alert,
-  AppState,
-  type AppStateStatus,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Alert, AppState, type AppStateStatus, Pressable, StyleSheet, View } from "react-native";
+import { ProductText as Text } from "../foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {

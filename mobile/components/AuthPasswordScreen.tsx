@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { ProductText as Text, ProductTextInput as TextInput } from "./foundation/AppText";
 import { useRouter } from "expo-router";
 import { supabase } from "../lib/supabase";
 

@@ -1,18 +1,8 @@
 // mobile/app/spot/[id]/claim.tsx
 
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-} from "react-native";
+import { View, Pressable, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from "react-native";
+import { ProductText as Text, ProductTextInput as TextInput } from "../../../components/foundation/AppText";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase, supabaseRuntimeAnonKey, supabaseRuntimeUrl } from "@/lib/supabase";

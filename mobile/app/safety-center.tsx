@@ -1,14 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import {
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { ProductText as Text } from "../components/foundation/AppText";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -634,9 +628,9 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "#fff",
-    fontSize: 25,
-    lineHeight: 30,
-    fontWeight: "800",
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: "700",
   },
   content: {
     padding: 20,

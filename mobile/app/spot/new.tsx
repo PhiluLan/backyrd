@@ -1,18 +1,7 @@
 // app/spot/new.tsx
 import React, { useEffect, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  Alert,
-  Image,
-  Pressable,
-  ScrollView,
-  ActivityIndicator,
-  StyleSheet,
-  TextInput,
-  Modal,
-  FlatList,
-} from "react-native";
+import { View, Alert, Image, Pressable, ScrollView, ActivityIndicator, StyleSheet, Modal, FlatList } from "react-native";
+import { ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import { supabase } from "../../lib/supabase";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -656,10 +645,10 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: "#fff",
-    fontSize: 40,
-    lineHeight: 42,
-    fontWeight: "900",
-    letterSpacing: -1,
+    fontSize: 36,
+    lineHeight: 41,
+    fontWeight: "700",
+    letterSpacing: -0.7,
   },
   heroText: {
     color: "rgba(255,255,255,0.56)",

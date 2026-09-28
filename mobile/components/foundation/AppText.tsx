@@ -1,4 +1,5 @@
-import { type StyleProp, type TextProps, type TextStyle, Text, useWindowDimensions } from "react-native";
+import { forwardRef } from "react";
+import { type StyleProp, type TextInputProps, type TextProps, type TextStyle, StyleSheet, Text, TextInput, useWindowDimensions } from "react-native";
 
 import { backyrdTheme as theme } from "../../theme/backyrd";
 
@@ -7,17 +8,17 @@ export type TextRole = "displayXL" | "displayL" | "displayM" | "screenTitle" | "
 type Props = Omit<TextProps, "style" | "role"> & { role?: TextRole; tone?: "primary" | "secondary" | "muted" | "pink" | "lime" | "error"; style?: StyleProp<TextStyle> };
 
 const roles: Record<TextRole, TextStyle> = {
-  displayXL: { fontFamily: theme.type.display, fontSize: 54, lineHeight: 59, letterSpacing: -1.3 },
-  displayL: { fontFamily: theme.type.display, fontSize: 44, lineHeight: 49, letterSpacing: -1 },
-  displayM: { fontFamily: theme.type.display, fontSize: 36, lineHeight: 41, letterSpacing: -0.7 },
-  screenTitle: { fontFamily: theme.type.bodyBold, fontSize: 28, lineHeight: 34, letterSpacing: -0.45 },
-  sectionTitle: { fontFamily: theme.type.bodyBold, fontSize: 22, lineHeight: 28, letterSpacing: -0.3 },
-  cardTitle: { fontFamily: theme.type.bodyBold, fontSize: 20, lineHeight: 26, letterSpacing: -0.25 },
-  body: { fontFamily: theme.type.body, fontSize: 16, lineHeight: 23 },
-  bodyStrong: { fontFamily: theme.type.bodyMedium, fontSize: 16, lineHeight: 23 },
-  meta: { fontFamily: theme.type.bodyMedium, fontSize: 14, lineHeight: 19 },
-  label: { fontFamily: theme.type.bodyBold, fontSize: 13, lineHeight: 18, letterSpacing: 0.1 },
-  caption: { fontFamily: theme.type.bodyMedium, fontSize: 12, lineHeight: 17 },
+  displayXL: { fontFamily: theme.type.display, ...theme.typeScale.displayXL },
+  displayL: { fontFamily: theme.type.display, ...theme.typeScale.displayL },
+  displayM: { fontFamily: theme.type.display, ...theme.typeScale.displayM },
+  screenTitle: { fontFamily: theme.type.bodyBold, ...theme.typeScale.screenTitle },
+  sectionTitle: { fontFamily: theme.type.bodyBold, ...theme.typeScale.sectionTitle },
+  cardTitle: { fontFamily: theme.type.bodyBold, ...theme.typeScale.cardTitle },
+  body: { fontFamily: theme.type.body, ...theme.typeScale.body },
+  bodyStrong: { fontFamily: theme.type.bodyMedium, ...theme.typeScale.body },
+  meta: { fontFamily: theme.type.bodyMedium, ...theme.typeScale.meta },
+  label: { fontFamily: theme.type.bodyBold, ...theme.typeScale.label },
+  caption: { fontFamily: theme.type.bodyMedium, ...theme.typeScale.caption },
 };
 
 const maximumScale: Record<TextRole, number> = { displayXL: 1.1, displayL: 1.12, displayM: 1.15, screenTitle: 1.2, sectionTitle: 1.25, cardTitle: 1.25, body: 1.4, bodyStrong: 1.35, meta: 1.35, label: 1.3, caption: 1.3 };
@@ -30,8 +31,27 @@ function responsiveDisplay(role: TextRole, width: number): TextStyle | undefined
   return { fontSize: Math.round((base.fontSize as number) * factor), lineHeight: Math.round((base.lineHeight as number) * factor) };
 }
 
+function uiFont(style: StyleProp<TextStyle>, fallback: string) {
+  const flattened = StyleSheet.flatten(style);
+  if (fallback === theme.type.display || flattened?.fontFamily === theme.type.display) return theme.type.display;
+  if (flattened?.fontFamily === theme.type.bodyBold || flattened?.fontFamily === theme.type.bodyMedium) return flattened.fontFamily;
+  const weight = Number.parseInt(String(flattened?.fontWeight ?? "400"), 10);
+  return weight >= 700 ? theme.type.bodyBold : weight >= 600 ? theme.type.bodyMedium : fallback;
+}
+
 /** Canonical Libre Franklin UI typography with deliberately scarce DM Serif display roles. */
 export function AppText({ role = "body", tone = "primary", maxFontSizeMultiplier, style, ...props }: Props) {
   const { width } = useWindowDimensions();
-  return <Text {...props} maxFontSizeMultiplier={maxFontSizeMultiplier ?? maximumScale[role]} style={[{ color: tones[tone] }, roles[role], responsiveDisplay(role, width), style]} />;
+  return <Text {...props} maxFontSizeMultiplier={maxFontSizeMultiplier ?? maximumScale[role]} style={[{ color: tones[tone] }, roles[role], responsiveDisplay(role, width), style, { fontFamily: uiFont(style, roles[role].fontFamily as string), fontWeight: "normal" }]} />;
 }
+
+/** For legacy layouts: keeps their sizing while replacing mixed system/Inter fonts with Home's UI family. */
+export function ProductText({ style, maxFontSizeMultiplier, ...props }: TextProps) {
+  const flattened = StyleSheet.flatten(style);
+  return <Text {...props} maxFontSizeMultiplier={maxFontSizeMultiplier ?? 1.4} style={[{ color: theme.color.textPrimary, fontFamily: theme.type.body, ...theme.typeScale.body, lineHeight: flattened?.fontSize ? undefined : theme.typeScale.body.lineHeight }, style, { fontFamily: uiFont(style, theme.type.body), fontWeight: "normal" }]} />;
+}
+
+/** Native input behavior and refs remain intact; only the UI font is normalized. */
+export const ProductTextInput = forwardRef<TextInput, TextInputProps>(function ProductTextInput({ style, ...props }, ref) {
+  return <TextInput ref={ref} {...props} style={[style, { fontFamily: theme.type.body }]} />;
+});

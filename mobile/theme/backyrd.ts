@@ -27,6 +27,7 @@ export const backyrdTheme = {
     danger: "#FF6868",
   },
   spacing: { xxs: 4, xs: 8, sm: 12, md: 16, lg: 20, xl: 24, xxl: 32, xxxl: 40, display: 48 },
+  layout: { pageGutter: 24, sectionGap: 32, contentGap: 16 },
   radius: { sm: 10, md: 16, lg: 24, xl: 30, pill: 999 },
   control: { compact: 44, standard: 52, tabBar: 80, tabBarVisual: 64 },
   border: { hairline: 1, standard: 1 },
@@ -36,6 +37,18 @@ export const backyrdTheme = {
     body: "LibreFranklin_400Regular",
     bodyMedium: "LibreFranklin_600SemiBold",
     bodyBold: "LibreFranklin_700Bold",
+  },
+  typeScale: {
+    displayXL: { fontSize: 54, lineHeight: 59, letterSpacing: -1.3 },
+    displayL: { fontSize: 44, lineHeight: 49, letterSpacing: -1 },
+    displayM: { fontSize: 36, lineHeight: 41, letterSpacing: -0.7 },
+    screenTitle: { fontSize: 28, lineHeight: 34, letterSpacing: -0.45 },
+    sectionTitle: { fontSize: 22, lineHeight: 28, letterSpacing: -0.3 },
+    cardTitle: { fontSize: 20, lineHeight: 26, letterSpacing: -0.25 },
+    body: { fontSize: 16, lineHeight: 23 },
+    meta: { fontSize: 14, lineHeight: 19 },
+    label: { fontSize: 13, lineHeight: 18, letterSpacing: 0.1 },
+    caption: { fontSize: 12, lineHeight: 17 },
   },
 } as const;
 

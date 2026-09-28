@@ -1,11 +1,6 @@
 import { ReactNode } from "react";
-import {
-  Pressable,
-  Text,
-  TextInput,
-  View,
-  ScrollView,
-} from "react-native";
+import { Pressable, View, ScrollView } from "react-native";
+import { ProductText as Text, ProductTextInput as TextInput } from "./foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { theme } from "../lib/theme";
 

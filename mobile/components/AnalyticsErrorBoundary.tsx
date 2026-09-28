@@ -1,5 +1,6 @@
 import React, { ErrorInfo, PropsWithChildren } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
+import { ProductText as Text } from "./foundation/AppText";
 
 import { reportAnalyticsError } from "../lib/analytics";
 

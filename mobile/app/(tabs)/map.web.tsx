@@ -1,14 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import * as Location from "expo-location";
 import { hasActiveConsent } from "../../lib/consent";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -175,13 +167,13 @@ export default function MapWebScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#0b0b0f" },
-  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6 },
+  header: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 6 },
   title: { color: "#fff", fontSize: 24, fontWeight: "700" },
   subtitle: { color: "#a2a2ad", marginTop: 4, fontSize: 13 },
   toolbar: {
     flexDirection: "row",
     gap: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
     paddingBottom: 8,
     alignItems: "center",
   },

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { TouchableOpacity, Text } from 'react-native';
+import { TouchableOpacity } from "react-native";
+import { ProductText as Text } from "./foundation/AppText";
 import { isFollowing, follow, unfollow } from '../lib/social';
 
 export default function FollowButton({ userId }: { userId: string }) {
