@@ -38,6 +38,7 @@ import { StateView } from "../../components/foundation/StateView";
 import SharedAvatar from "../../components/Avatar";
 import { backyrdTheme as foundationTheme } from "../../theme/backyrd";
 import { SPOT_OPENING_STATUS_COPY, spotOpeningStatusNow } from "../../lib/spot-opening-status";
+import { spotAddressLines } from "../../lib/spot-address-presentation";
 import { getMobileSpotProductProfile, presentSpotProductField, spotCurrentStateDetails, spotOfferingLabels, spotPetAccessDetails, spotProductAdditionalFields, spotProductField, spotProductLabel, spotProductOpeningHours, type SpotProductField, type SpotProductProfile } from "../../lib/spot-product-profile";
 
 import { openMomentComposerSafely } from "../../lib/safety-moment-entry";
@@ -680,6 +681,14 @@ export default function SpotDetailScreen() {
   const effectiveDesc: string | null = ownerCtx?.effective_description ?? null;
   const descSource: string | null = ownerCtx?.description_source ?? null;
   const field = (key: string) => spotProductField(productProfile, key);
+  const neighborhoodField = canonicalWorldDetail ? field("location.neighborhood") : undefined;
+  const addressLines = spotAddressLines({
+    street: spot.address,
+    postalCode: canonicalWorldDetail ? productProfile?.spot.postalCode : null,
+    locality: spot.city,
+    neighborhood: neighborhoodField?.knowledgeState === "KNOWN_VALUE" && typeof neighborhoodField.value === "string" ? neighborhoodField.value : null,
+    country: canonicalWorldDetail ? productProfile?.spot.countryCode : spot.country,
+  });
   const contactKeys = ["contact.website", "contact.phone", "contact.public_email", "contact.instagram", "contact.facebook", "contact.linkedin", "contact.tiktok"];
   const contacts = canonicalWorldDetail ? contactKeys.map((key) => field(key)).filter((item): item is SpotProductField => Boolean(item)) : [];
   const socialLinks = contacts.filter((contact) => contact.attributeKey in socialContacts && contact.knowledgeState !== "UNKNOWN" && typeof contact.value === "string");
@@ -789,6 +798,7 @@ export default function SpotDetailScreen() {
                 <SpotArtwork
                   imageUrl={photos[index.current]?.url}
                   priority="high"
+                  showFallbackName={false}
                   spotId={String(spot.id)}
                   spotName={spot.name}
                   style={{ width: HERO_W, height: HEADER_MAX }}
@@ -796,6 +806,7 @@ export default function SpotDetailScreen() {
                 <SpotArtwork
                   imageUrl={photos[(index.current + 1) % photos.length]?.url}
                   priority="high"
+                  showFallbackName={false}
                   spotId={String(spot.id)}
                   spotName={spot.name}
                   style={{ width: HERO_W, height: HEADER_MAX }}
@@ -805,6 +816,7 @@ export default function SpotDetailScreen() {
               <SpotArtwork
                 imageUrl={selectSpotImageUrl({ headerPhotoPath: spot.header_photo_path })}
                 priority="high"
+                showFallbackName={false}
                 spotId={String(spot.id)}
                 spotName={spot.name}
                 style={{ width: HERO_W, height: HEADER_MAX }}
@@ -829,14 +841,17 @@ export default function SpotDetailScreen() {
               </View>
 
               <AppText adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={4} role="displayL" style={styles.heroTitle}>{spot.name}</AppText>
-              {spot.address ? (
-                <Text numberOfLines={1} style={styles.heroAddress}>{spot.address}</Text>
-              ) : null}
             </View>
           </Animated.View>
         </Animated.View>
 
         <View style={styles.content}>
+          {addressLines.length ? <View style={styles.addressBlock}>
+            <Feather name="map-pin" size={18} color={theme.colors.pink} style={styles.addressIcon} />
+            <View style={styles.addressLines}>{addressLines.map((line, index) => (
+              <Text key={`${index}:${line}`} style={index === 0 ? styles.addressStreet : styles.addressDetail}>{line}</Text>
+            ))}</View>
+          </View> : null}
           <View style={styles.quickActions}>
             <Pressable onPress={() => {
               if (!decisionOrigin) {
@@ -1270,17 +1285,15 @@ const styles = StyleSheet.create({
     color: foundationTheme.color.textPrimary,
     letterSpacing: -1,
   },
-  heroAddress: {
-    color: "rgba(255,255,255,0.74)",
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: "600",
-    marginTop: 8,
-  },
   content: {
     paddingHorizontal: 20,
     paddingTop: 20,
   },
+  addressBlock: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingVertical: 5, marginBottom: 23 },
+  addressIcon: { marginTop: 2 },
+  addressLines: { flex: 1, gap: 4 },
+  addressStreet: { color: theme.colors.text, fontSize: 15, lineHeight: 21, fontWeight: "600" },
+  addressDetail: { color: theme.colors.textSoft, fontSize: 14, lineHeight: 20 },
   quickActions: {
     flexDirection: "row",
     gap: 10,
