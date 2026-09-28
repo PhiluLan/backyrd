@@ -1303,7 +1303,7 @@ const styles = StyleSheet.create({
   },
   composerIntroKicker: {
     color: "#8E8E95",
-    fontSize: 11,
+    fontSize: theme.typeScale.label.fontSize,
     fontWeight: "900",
     letterSpacing: 1.1,
     textTransform: "uppercase",
@@ -1399,7 +1399,7 @@ const styles = StyleSheet.create({
   },
   spotCardKicker: {
     color: "#8E8E95",
-    fontSize: 11,
+    fontSize: theme.typeScale.label.fontSize,
     fontWeight: "900",
     letterSpacing: 1.1,
     textTransform: "uppercase",

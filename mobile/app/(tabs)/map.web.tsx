@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
 import { useSpotsStore } from "../../lib/useSpotsStore";
+import { StateView } from "../../components/foundation/StateView";
 
 type Coords = { latitude: number; longitude: number };
 
@@ -38,7 +39,7 @@ function distanceKm(a: Coords, b: Coords) {
 
 export default function MapWebScreen() {
   const router = useRouter();
-  const { spots, loading, refresh } = useSpotsStore();
+  const { spots, loading, error, refresh } = useSpotsStore();
 
   const [search, setSearch] = useState("");
   const [coords, setCoords] = useState<Coords | null>(null);
@@ -121,6 +122,10 @@ export default function MapWebScreen() {
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color="#ffffff" />
+        </View>
+      ) : error ? (
+        <View style={styles.center}>
+          <StateView kind="error" title="Orte gerade nicht verfügbar" message="Die Spots konnten nicht geladen werden." actionLabel="Erneut laden" onAction={() => void refresh()} />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.list}>

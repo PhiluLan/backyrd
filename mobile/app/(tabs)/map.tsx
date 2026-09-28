@@ -13,9 +13,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 
 import { useSpotsStore } from "../../lib/useSpotsStore";
+import { useAuth } from "../../hooks/useAuth";
 import { useDebounce } from "use-debounce";
 import { supabase } from "../../lib/supabase";
-import { resolveLocationContext } from "../../lib/locationContext";
+import { cityCenterFor, normalizeLocationCity, resolveLocationContext } from "../../lib/locationContext";
 import { hasActiveConsent } from "../../lib/consent";
 import { MOOD_SUGGESTIONS } from "../../lib/moods";
 import { trackAnalyticsEvent } from "../../lib/analytics";
@@ -76,7 +77,8 @@ type Spot = {
 };
 
 export default function MapScreen() {
-  const { spots: globalSpots, refresh, loading } = useSpotsStore();
+  const { spots: globalSpots, refresh, loading, error: spotsError } = useSpotsStore();
+  const { user } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ spotIds?: string; view?: string; lat?: string; lng?: string }>();
@@ -115,6 +117,8 @@ export default function MapScreen() {
   const [topMoodChips, setTopMoodChips] = useState<string[]>([]);
 
   const [dbCategories, setDbCategories] = useState<DbCategory[]>([]);
+  const [profileCity, setProfileCity] = useState<string | null>(null);
+  const [mapCity, setMapCity] = useState<string | null>(null);
   const [region, setRegion] = useState(() => ({
     latitude: Number(params.lat) || BASEL.latitude,
     longitude: Number(params.lng) || BASEL.longitude,
@@ -139,10 +143,52 @@ export default function MapScreen() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const mapRef = useRef<ClusteredMapView | null>(null);
+  const centeredProfileCity = useRef<string | null>(null);
   const listRef = useRef<FlatList<Spot> | null>(null);
   const listScrollOffset = useRef(0);
   const [locationConsentGranted, setLocationConsentGranted] = useState(false);
   const clusterPolicy = useMemo(() => clusterPolicyFor(zoomBucket), [zoomBucket]);
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    if (!user?.id) {
+      setProfileCity(null);
+      return () => { active = false; };
+    }
+    void supabase.from("profiles").select("city").eq("id", user.id).maybeSingle().then(({ data }) => {
+      if (active) setProfileCity(normalizeLocationCity(data?.city));
+    });
+    return () => { active = false; };
+  }, [user?.id]));
+
+  useEffect(() => {
+    if (params.lat && params.lng) {
+      centeredProfileCity.current = null;
+      setMapCity(null);
+      return;
+    }
+    if (!profileCity) {
+      centeredProfileCity.current = null;
+      setMapCity(null);
+      return;
+    }
+    if (centeredProfileCity.current === profileCity) return;
+    const cityCenter = cityCenterFor(profileCity);
+    const citySpot = profileCity
+      ? globalSpots.find((spot) => normalizeLocationCity(spot.city) === profileCity)
+      : null;
+    const center = cityCenter ?? (citySpot ? { latitude: citySpot.lat, longitude: citySpot.lng } : null);
+    if (!center) {
+      setMapCity(null);
+      return;
+    }
+    centeredProfileCity.current = profileCity;
+    setMapCity(profileCity);
+    const next = { ...center, latitudeDelta: 0.05, longitudeDelta: 0.05 };
+    setRegion(next);
+    (mapRef.current as unknown as { animateToRegion?: (value: typeof next, duration: number) => void })
+      ?.animateToRegion?.(next, 400);
+  }, [profileCity, globalSpots, params.lat, params.lng]);
 
   const refreshLocationConsent = React.useCallback(async () => {
     const granted = await hasActiveConsent("precise_location", {
@@ -554,13 +600,20 @@ export default function MapScreen() {
       </SafeAreaView>
     );
 
+  if (spotsError)
+    return (
+      <SafeAreaView style={styles.center} edges={["top"]}>
+        <StateView kind="error" title="Orte gerade nicht verfügbar" message="Die Spots konnten nicht geladen werden. Bitte versuche es erneut." actionLabel="Erneut laden" onAction={() => void refresh()} />
+      </SafeAreaView>
+    );
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       {/* HEADER */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <View style={styles.titleCopy}>
-            <AppText role="label" tone="lime">{viewMode === "list" ? "BASEL · ORTE" : "BASEL · KARTE"}</AppText>
+            <AppText role="label" tone="lime">{viewMode === "list" ? "ORTE" : mapCity ? `${mapCity.toLocaleUpperCase("de-CH")} · KARTE` : "KARTE"}</AppText>
             <AppText role="screenTitle">Orte entdecken</AppText>
           </View>
           <AppText role="caption" tone="secondary" style={styles.resultCount}>{filteredSpots.length} Orte</AppText>
@@ -673,7 +726,7 @@ export default function MapScreen() {
             {renderedMarkers}
           </ClusteredMapView>
           {!filteredSpots.length && <View pointerEvents="box-none" style={styles.emptyOverlay}>
-            <StateView kind="empty" title="Hier ist gerade nichts dabei" message="Passe deine Suche oder Filter an und entdecke Basel weiter." actionLabel="Filter zurücksetzen" onAction={clearFilters} />
+            <StateView kind="empty" title="Hier ist gerade nichts dabei" message="Passe deine Suche oder Filter an und entdecke weitere Orte." actionLabel="Filter zurücksetzen" onAction={clearFilters} />
           </View>}
         </View>
       ) : (
@@ -682,6 +735,7 @@ export default function MapScreen() {
           data={filteredSpots}
           keyExtractor={(i) => i.id}
           contentContainerStyle={styles.listContent}
+          ListEmptyComponent={<StateView kind="empty" title="Hier ist gerade nichts dabei" message="Passe deine Suche oder Filter an und entdecke weitere Orte." actionLabel="Filter zurücksetzen" onAction={clearFilters} />}
           style={styles.list}
           initialNumToRender={8}
           maxToRenderPerBatch={8}
@@ -705,7 +759,7 @@ export default function MapScreen() {
               />
               <View style={styles.listCardBody}>
                 <Text style={styles.listCardTitle}>{item.name}</Text>
-                <Text style={styles.listCardContext} numberOfLines={1}>{item.categories?.name || spotMoods[item.id]?.[0] || "Ort in Basel"}</Text>
+                <Text style={styles.listCardContext} numberOfLines={1}>{item.categories?.name || spotMoods[item.id]?.[0] || item.city || "Ort"}</Text>
                 <Text style={styles.listCardAddress} numberOfLines={1}>{item.address || "Adresse offen"}</Text>
               </View>
             </Pressable>
