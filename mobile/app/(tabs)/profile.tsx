@@ -31,6 +31,7 @@ import Avatar from "@/components/Avatar";
 import { StateView } from "@/components/foundation/StateView";
 import { ProductText as Text, ProductTextInput as TextInput } from "@/components/foundation/AppText";
 import { backyrdTheme as theme } from "@/theme/backyrd";
+import { signOutWithPushCleanup } from "@/lib/signOut";
 
 const { width } = Dimensions.get("window");
 
@@ -127,22 +128,23 @@ async function filterSafetyVisiblePosts(
     }),
   ]);
 
+  if (visiblePostsResult.error || !Array.isArray(visiblePostsResult.data) ||
+      visibleReviewsResult.error || !Array.isArray(visibleReviewsResult.data)) {
+    throw new Error("safety_visibility_unavailable");
+  }
+
   const visiblePostIds = new Set(
-    Array.isArray(visiblePostsResult.data)
-      ? visiblePostsResult.data
-      : postIds,
+    visiblePostsResult.data,
   );
 
   const visibleReviewIds = new Set(
-    Array.isArray(visibleReviewsResult.data)
-      ? visibleReviewsResult.data
-      : reviewIds,
+    visibleReviewsResult.data,
   );
 
   const visibleProfileIds = new Set(
-    Array.isArray(visibleProfilesResult.data)
+    !visibleProfilesResult.error && Array.isArray(visibleProfilesResult.data)
       ? visibleProfilesResult.data
-      : authorIds,
+      : [],
   );
 
   const commentCounts = new Map<string, number>();
@@ -186,9 +188,7 @@ async function filterSafetyVisiblePosts(
         avatar_url: authorProfileVisible
           ? post.avatar_url
           : null,
-        comment_count: commentCounts.has(post.post_id)
-          ? commentCounts.get(post.post_id) ?? 0
-          : post.comment_count,
+        comment_count: commentCounts.get(post.post_id) ?? 0,
       };
     });
 }
@@ -348,6 +348,7 @@ export default function ProfileScreen() {
         setFollowingCount(followingRes.count ?? 0);
       } catch (error: any) {
         console.log("profile bootstrap failed", error?.message ?? error);
+        setPosts([]);
         Alert.alert("Profil konnte nicht geladen werden", errorText(error));
       } finally {
         setLoading(false);
@@ -797,8 +798,12 @@ export default function ProfileScreen() {
                       text: "Ausloggen",
                       style: "destructive",
                       onPress: async () => {
-                        await supabase.auth.signOut();
-                        router.replace("/gate" as any);
+                        try {
+                          await signOutWithPushCleanup();
+                          router.replace("/gate" as any);
+                        } catch {
+                          Alert.alert("Ausloggen noch nicht möglich", "Dein Gerät konnte nicht sicher vom Push-Empfang getrennt werden. Prüfe deine Verbindung und versuche es nochmals.");
+                        }
                       },
                     },
                   ],

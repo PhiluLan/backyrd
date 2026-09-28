@@ -5,8 +5,7 @@ import { execFileSync } from "node:child_process";
 
 const root = process.cwd();
 // OTA bundles require only values compiled into the JavaScript runtime. Google
-// Maps and Google OAuth IDs are read from the installed native Expo config,
-// so their presence is enforced by the native production-build config guard.
+// Maps stays native-only; Google sign-in uses Supabase OAuth server configuration.
 const requiredRuntime = [
   "EXPO_PUBLIC_SUPABASE_URL",
   "EXPO_PUBLIC_SUPABASE_ANON_KEY",

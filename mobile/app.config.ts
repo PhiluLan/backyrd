@@ -36,16 +36,6 @@ export default (context = { config: {} }) => {
     process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY ?? "",
     true
   );
-  const googleIosClientId = requiredReleaseValue(
-    "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID",
-    process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? "",
-    true
-  );
-  const googleWebClientId = requiredReleaseValue(
-    "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID",
-    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "",
-    true
-  );
 
   const isEasBuild = process.env.EAS_BUILD === "true";
   if (isDev && isEasBuild && (!supabaseUrl || !supabaseAnonKey)) {
@@ -135,9 +125,6 @@ export default (context = { config: {} }) => {
       supabaseUrl,
       supabaseAnonKey,
       googleMapsKey,
-      googleIosClientId,
-      googleAndroidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID?.trim(),
-      googleWebClientId,
     },
 
     updates: {

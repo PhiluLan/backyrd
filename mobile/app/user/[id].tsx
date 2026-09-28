@@ -89,18 +89,9 @@ async function filterSafetyVisiblePosts(
     }),
   ]);
 
-  if (visiblePostsResult.error) {
-    console.log(
-      "social post safety visibility failed",
-      visiblePostsResult.error,
-    );
-  }
-
-  if (visibleReviewsResult.error) {
-    console.log(
-      "review safety visibility failed",
-      visibleReviewsResult.error,
-    );
+  if (visiblePostsResult.error || !Array.isArray(visiblePostsResult.data) ||
+      visibleReviewsResult.error || !Array.isArray(visibleReviewsResult.data)) {
+    throw new Error("safety_visibility_unavailable");
   }
 
   if (commentCountsResult.error) {
@@ -111,21 +102,17 @@ async function filterSafetyVisiblePosts(
   }
 
   const visiblePostIds = new Set(
-    Array.isArray(visiblePostsResult.data)
-      ? visiblePostsResult.data
-      : postIds,
+    visiblePostsResult.data,
   );
 
   const visibleReviewIds = new Set(
-    Array.isArray(visibleReviewsResult.data)
-      ? visibleReviewsResult.data
-      : reviewIds,
+    visibleReviewsResult.data,
   );
 
   const visibleProfileIds = new Set(
-    Array.isArray(visibleProfilesResult.data)
+    !visibleProfilesResult.error && Array.isArray(visibleProfilesResult.data)
       ? visibleProfilesResult.data
-      : authorIds,
+      : [],
   );
 
   const commentCounts = new Map<string, number>();
@@ -169,9 +156,7 @@ async function filterSafetyVisiblePosts(
         avatar_url: authorProfileVisible
           ? post.avatar_url
           : null,
-        comment_count: commentCounts.has(post.post_id)
-          ? commentCounts.get(post.post_id) ?? 0
-          : post.comment_count,
+        comment_count: commentCounts.get(post.post_id) ?? 0,
       };
     });
 }
@@ -321,6 +306,7 @@ export default function UserProfileScreen() {
         setPosts(visiblePosts);
       } catch (error: any) {
         console.log("user profile load failed", error);
+        setPosts([]);
         Alert.alert("Profil konnte nicht geladen werden", userFacingError(error, "Dieses Profil ist gerade nicht erreichbar. Bitte versuche es noch einmal."));
       } finally {
         setLoading(false);

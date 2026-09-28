@@ -82,6 +82,10 @@ function isUsernameDuplicateError(error: unknown) {
 async function getVerifiedUserOrSignOut() {
   const { data, error } = await supabase.auth.getUser();
 
+  if (error && error.status !== 401 && error.status !== 403) {
+    throw error;
+  }
+
   if (error || !data.user?.id) {
     console.log("profile onboarding stale/invalid auth user", error?.message ?? "No user");
     try {

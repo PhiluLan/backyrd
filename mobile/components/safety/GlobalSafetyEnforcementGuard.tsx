@@ -10,6 +10,7 @@ import {
   type SafetyWriteStatus,
 } from "../../lib/safety-enforcement";
 import { supabase } from "../../lib/supabase";
+import { signOutWithPushCleanup } from "../../lib/signOut";
 import { ProductLoading } from "../ui/ProductState";
 
 type Props = {
@@ -142,8 +143,12 @@ export default function GlobalSafetyEnforcementGuard({
   }, [isSafetyRoute, isWriteSuspension, router, status?.activeMeasureEndsAt, status?.activeMeasureType]);
 
   async function signOut() {
-    await supabase.auth.signOut();
-    router.replace("/auth/login");
+    try {
+      await signOutWithPushCleanup();
+      router.replace("/auth/login");
+    } catch {
+      Alert.alert("Ausloggen noch nicht möglich", "Dein Gerät konnte nicht sicher vom Push-Empfang getrennt werden. Prüfe deine Verbindung und versuche es nochmals.");
+    }
   }
 
   if (isFullAccountLock && !isSafetyRoute) {
