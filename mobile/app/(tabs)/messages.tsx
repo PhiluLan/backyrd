@@ -3,15 +3,8 @@ import React, {
   useCallback,
   useState,
 } from "react";
-import {
-  FlatList,
-  Pressable,
-  RefreshControl,
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { FlatList, Pressable, RefreshControl, SafeAreaView, StyleSheet, View } from "react-native";
+import { ProductText as Text } from "../../components/foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
@@ -20,6 +13,7 @@ import Avatar from "../../components/Avatar";
 import { supabase } from "../../lib/supabase";
 import { StateView } from "../../components/foundation/StateView";
 import { userFacingError } from "../../lib/userFacingError";
+import { backyrdTheme } from "../../theme/backyrd";
 
 type ChatListItem = {
   chat_id: string;
@@ -314,7 +308,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#050506",
   },
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: backyrdTheme.layout.pageGutter,
     paddingTop: 18,
     paddingBottom: 18,
     flexDirection: "row",
@@ -330,7 +324,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "#FFFFFF",
-    fontSize: 30,
+    ...backyrdTheme.typeScale.screenTitle,
     fontWeight: "800",
   },
   headerIcon: {
@@ -342,7 +336,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   listContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: backyrdTheme.layout.pageGutter,
     paddingBottom: 30,
   },
   emptyList: {

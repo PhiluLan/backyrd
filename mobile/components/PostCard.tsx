@@ -1,14 +1,7 @@
 // mobile/components/PostCard.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  Alert,
-  Image,
-  Pressable,
-  Share,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Alert, Image, Pressable, Share, StyleSheet, View } from "react-native";
+import { ProductText as Text } from "./foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 

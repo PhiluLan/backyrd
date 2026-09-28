@@ -1,17 +1,6 @@
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Alert,
-  Modal,
-  ActivityIndicator,
-} from "react-native";
+import { View, Pressable, ScrollView, KeyboardAvoidingView, Platform, StyleSheet, Alert, Modal, ActivityIndicator } from "react-native";
+import { ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../lib/supabase";
@@ -614,9 +603,9 @@ export default function JourneyScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20 },
+  container: { padding: backyrdTheme.layout.pageGutter },
   title: {
-    fontSize: 26,
+    ...backyrdTheme.typeScale.screenTitle,
     fontWeight: "700",
     color: "#fff",
     marginBottom: 4,

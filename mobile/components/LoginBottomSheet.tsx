@@ -1,6 +1,7 @@
 // mobile/components/LoginBottomSheet.tsx
 import React, { useEffect } from "react";
-import { View, Text, Pressable, StyleSheet, Dimensions } from "react-native";
+import { View, Pressable, StyleSheet, Dimensions } from "react-native";
+import { ProductText as Text } from "./foundation/AppText";
 import Animated, {
   useSharedValue,
   withTiming,

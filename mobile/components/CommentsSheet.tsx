@@ -1,20 +1,8 @@
 // mobile/components/CommentsSheet.tsx
 import "react-native-get-random-values";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { ProductText as Text } from "./foundation/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { v4 as uuidv4 } from "uuid";
@@ -24,6 +12,7 @@ import { supabase } from "../lib/supabase";
 import ReportContentButton from "./safety/ReportContentButton";
 import { StateView } from "./foundation/StateView";
 import { technicalErrorText } from "../lib/userFacingError";
+import { backyrdTheme } from "../theme/backyrd";
 
 export type SocialComment = {
   comment_id: string;
@@ -580,6 +569,7 @@ const styles = StyleSheet.create({
     maxHeight: 96,
     minHeight: 40,
     color: "#FFFFFF",
+    fontFamily: backyrdTheme.type.body,
     fontSize: 16,
     lineHeight: 21,
     paddingTop: 9,

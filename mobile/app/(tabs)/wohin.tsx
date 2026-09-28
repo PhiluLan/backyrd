@@ -1,16 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Crypto from "expo-crypto";
 import type { DecisionProductCandidate, DecisionProductResponse } from "@backyrd/product-decision-contract";
 
-import { AppText } from "@/components/foundation/AppText";
+import { AppText, ProductText as Text, ProductTextInput as TextInput } from "@/components/foundation/AppText";
 import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { invokeDecisionProduct, recordDecisionProductInteraction } from "@/lib/decision/productDecision";
 import { createWohinRequest, visibleWohinCandidates, wohinEvidenceState, wohinRankingEvidence } from "@/lib/decision/wohinModel";
 import { supabase } from "@/lib/supabase";
 import { userFacingError } from "@/lib/userFacingError";
+import { backyrdTheme } from "@/theme/backyrd";
 
 const color = {
   background: "#050506",
@@ -210,7 +211,7 @@ export default function WohinScreen() {
 
           {response ? (
             <View style={{ marginTop: 34 }}>
-              <Text style={{ color: color.text, fontSize: 25, fontWeight: "900" }}>Die Antwort von Decision</Text>
+              <Text style={{ color: color.text, ...backyrdTheme.typeScale.sectionTitle, fontWeight: "700" }}>Die Antwort von Decision</Text>
               <Text style={{ color: color.muted, marginTop: 8 }}>{interpretationLabel(response)}</Text>
               <Text style={{ color: color.muted, marginTop: 8 }}>{response.personalization.state === "ACTIVE" ? "Deine freigegebene Präferenz kann die Reihenfolge beeinflussen; Learning nur mit gültiger Einwilligung." : "Ohne gültige Einwilligung: neutrale Reihenfolge und kein Learning-Write."}</Text>
               <Text style={{ color: color.muted, marginTop: 8, lineHeight: 20 }}>Die App zeigt bis zu fünf Plätze der serverseitigen Rangfolge aus dem geprüften Kandidatenfenster. Sie sortiert keine Spots selbst und ergänzt keine unbelegten Gründe. Nicht jeder Katalog-Spot wurde dafür ausgewertet.</Text>

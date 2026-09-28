@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { ProductText as Text } from "../../components/foundation/AppText";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { createSessionFromAuthDeepLink } from "../../lib/authDeepLink";
 import { consumePendingAuthRedirect } from "../../lib/pendingAuthRedirect";
 import { ensureProfile } from "../../lib/profile";
+import { backyrdTheme } from "../../theme/backyrd";
 
 export default function AuthCallbackScreen() {
   const router = useRouter();
@@ -48,8 +50,8 @@ export default function AuthCallbackScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#050506", padding: 28, justifyContent: "center", alignItems: "center" },
-  title: { color: "#fff", fontSize: 30, fontWeight: "900", textAlign: "center", marginBottom: 14 },
-  copy: { color: "#A6A8AD", fontSize: 17, lineHeight: 25, textAlign: "center", marginTop: 14 },
+  title: { color: "#fff", ...backyrdTheme.typeScale.screenTitle, fontWeight: "700", textAlign: "center", marginBottom: 14 },
+  copy: { color: "#A6A8AD", ...backyrdTheme.typeScale.body, textAlign: "center", marginTop: 14 },
   button: { marginTop: 26, backgroundColor: "#fff", borderRadius: 17, paddingHorizontal: 24, paddingVertical: 16 },
   buttonText: { color: "#111", fontSize: 16, fontWeight: "900" },
 });

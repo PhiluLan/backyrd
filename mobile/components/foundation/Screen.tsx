@@ -14,4 +14,4 @@ export function Screen({ children, scroll = false, keyboardSafe = false, bottomT
   return keyboardSafe ? <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.fill}>{body}</KeyboardAvoidingView> : body;
 }
 
-const styles = StyleSheet.create({ root: { flex: 1, backgroundColor: theme.color.background }, fill: { flex: 1 }, scroll: { flexGrow: 1 }, padded: { paddingHorizontal: theme.spacing.xxl } });
+const styles = StyleSheet.create({ root: { flex: 1, backgroundColor: theme.color.background }, fill: { flex: 1 }, scroll: { flexGrow: 1 }, padded: { paddingHorizontal: theme.layout.pageGutter } });

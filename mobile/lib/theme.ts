@@ -1,4 +1,6 @@
-// mobile/lib/theme.ts
+// Compatibility shape for older UI components; values follow the Home design system.
+
+import { backyrdTheme } from "../theme/backyrd";
 
 export const colors = {
   background: "#050506",
@@ -15,11 +17,11 @@ export const colors = {
 };
 
 export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
+  xs: backyrdTheme.spacing.xxs,
+  sm: backyrdTheme.spacing.xs,
+  md: backyrdTheme.spacing.md,
+  lg: backyrdTheme.spacing.xl,
+  xl: backyrdTheme.spacing.xxl,
 };
 
 export const radius = {
@@ -31,12 +33,12 @@ export const radius = {
 };
 
 export const typography = {
-  fontRegular: "Inter_400Regular",
-  fontBold: "Inter_700Bold",
-  h1: { fontFamily: "Inter_700Bold", fontSize: 28 },
-  h2: { fontFamily: "Inter_700Bold", fontSize: 22 },
-  body: { fontFamily: "Inter_400Regular", fontSize: 16 },
-  small: { fontFamily: "Inter_400Regular", fontSize: 14 },
+  fontRegular: backyrdTheme.type.body,
+  fontBold: backyrdTheme.type.bodyBold,
+  h1: { fontFamily: backyrdTheme.type.bodyBold, fontSize: 28 },
+  h2: { fontFamily: backyrdTheme.type.bodyBold, fontSize: 22 },
+  body: { fontFamily: backyrdTheme.type.body, fontSize: 16 },
+  small: { fontFamily: backyrdTheme.type.body, fontSize: 14 },
 };
 
 export const theme = {

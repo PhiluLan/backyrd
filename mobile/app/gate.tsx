@@ -1,14 +1,8 @@
 // mobile/app/gate.tsx
 
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ProductText as Text } from "../components/foundation/AppText";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 

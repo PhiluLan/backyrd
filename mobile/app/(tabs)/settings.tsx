@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
+import { View, Pressable, StyleSheet, ScrollView } from "react-native";
+import { ProductText as Text } from "../../components/foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -103,14 +104,13 @@ const styles = StyleSheet.create({
     backgroundColor: productTheme.color.background,
   },
   container: {
-    padding: 20,
+    padding: productTheme.layout.pageGutter,
     paddingBottom: 120,
   },
   title: {
     color: productTheme.color.textPrimary,
     fontFamily: productTheme.type.display,
-    fontSize: 44,
-    fontWeight: "900",
+    ...productTheme.typeScale.displayL,
   },
   kicker: { color: productTheme.color.acid, fontFamily: productTheme.type.bodyBold, fontSize: 11, letterSpacing: 2.5 },
   subtitle: {

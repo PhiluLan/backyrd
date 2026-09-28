@@ -1,18 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  AccessibilityInfo,
-  TextInput,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Linking,
-} from "react-native";
+import { View, Pressable, StyleSheet, ActivityIndicator, Alert, AccessibilityInfo, ScrollView, KeyboardAvoidingView, Platform, Linking } from "react-native";
+import { ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import * as Crypto from "expo-crypto";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";

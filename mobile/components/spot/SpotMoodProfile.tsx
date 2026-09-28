@@ -39,7 +39,7 @@ export function SpotMoodProfile({ moods, appearance = "dark" }: { moods: SpotMoo
 
   return (
     <>
-      {early ? <AppText role="meta" style={[styles.earlyLabel, styles.interRegular, light && styles.textMutedLight]}>Erste Eindrücke</AppText> : null}
+      {early ? <AppText role="meta" style={[styles.earlyLabel, styles.bodyRegular, light && styles.textMutedLight]}>Erste Eindrücke</AppText> : null}
       <View style={styles.wrap}>
         {visible.map((mood) => {
           const established = mood.evidence_state === "ESTABLISHED";
@@ -53,7 +53,7 @@ export function SpotMoodProfile({ moods, appearance = "dark" }: { moods: SpotMoo
               onPress={() => setSelected(mood)}
               style={({ pressed }) => [styles.pill, light && styles.pillLight, prominent && styles.pillProminent, light && prominent && styles.pillProminentLight, pressed && styles.pillPressed]}
             >
-              <AppText numberOfLines={1} role="label" style={[styles.interBold, light && styles.textLight, !prominent && light && styles.textMutedLight, prominent && styles.labelProminent]}>{mood.label}</AppText>
+              <AppText numberOfLines={1} role="label" style={[styles.bodyBold, light && styles.textLight, !prominent && light && styles.textMutedLight, prominent && styles.labelProminent]}>{mood.label}</AppText>
               {established ? <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.strengthTrack}><View style={[styles.strengthLine, { width: `${strengthWidth(mood.percentage)}%` }]} /></View> : null}
             </Pressable>
           );
@@ -61,7 +61,7 @@ export function SpotMoodProfile({ moods, appearance = "dark" }: { moods: SpotMoo
       </View>
       {moods.length > 5 ? (
         <Pressable accessibilityRole="button" accessibilityState={{ expanded: showAll }} onPress={() => setShowAll((current) => !current)} style={({ pressed }) => [styles.more, pressed && styles.morePressed]}>
-          <AppText role="label" tone="pink" style={styles.interBold}>{showAll ? "Weniger anzeigen" : "Mehr anzeigen"}</AppText>
+          <AppText role="label" tone="pink" style={styles.bodyBold}>{showAll ? "Weniger anzeigen" : "Mehr anzeigen"}</AppText>
           <Ionicons name={showAll ? "chevron-up" : "chevron-down"} size={16} color={theme.color.pink} />
         </Pressable>
       ) : null}
@@ -73,18 +73,18 @@ export function SpotMoodProfile({ moods, appearance = "dark" }: { moods: SpotMoo
             <View style={[styles.handle, light && styles.handleLight]} />
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeading}>
-                <AppText role="caption" tone="pink" style={[styles.kicker, styles.interBold]}>COMMUNITY-EINDRUCK</AppText>
-                <AppText role="sectionTitle" style={[styles.interBold, light && styles.textLight]}>{selected?.label ?? "Mood"}</AppText>
+                <AppText role="caption" tone="pink" style={[styles.kicker, styles.bodyBold]}>COMMUNITY-EINDRUCK</AppText>
+                <AppText role="sectionTitle" style={[styles.bodyBold, light && styles.textLight]}>{selected?.label ?? "Mood"}</AppText>
               </View>
               <IconButton accessibilityLabel="Schließen" onPress={() => setSelected(null)}>
                 <Ionicons name="close" size={21} color={light ? theme.color.textPrimaryLight : theme.color.textPrimary} />
               </IconButton>
             </View>
-            {selected ? <AppText style={[styles.explanation, styles.interRegular, light && styles.textMutedLight]}>{communityCopy(selected)}</AppText> : null}
+            {selected ? <AppText style={[styles.explanation, styles.bodyRegular, light && styles.textMutedLight]}>{communityCopy(selected)}</AppText> : null}
             {selected?.evidence_state === "ESTABLISHED" && typeof selected.concept_contributors === "number" ? (
               <View style={[styles.evidence, light && styles.evidenceLight]}>
-                <AppText role="cardTitle" style={[styles.interBold, light && styles.textLight]}>{selected.concept_contributors}</AppText>
-                <AppText role="meta" style={[styles.evidenceCopy, styles.interRegular, light && styles.textMutedLight]}>{selected.concept_contributors === 1 ? "Community-Stimme bildet die Grundlage." : "Community-Stimmen bilden die Grundlage."}</AppText>
+                <AppText role="cardTitle" style={[styles.bodyBold, light && styles.textLight]}>{selected.concept_contributors}</AppText>
+                <AppText role="meta" style={[styles.evidenceCopy, styles.bodyRegular, light && styles.textMutedLight]}>{selected.concept_contributors === 1 ? "Community-Stimme bildet die Grundlage." : "Community-Stimmen bilden die Grundlage."}</AppText>
               </View>
             ) : null}
           </View>
@@ -103,8 +103,8 @@ const styles = StyleSheet.create({
   pillProminentLight: { borderColor: "rgba(255,79,145,0.46)", backgroundColor: "rgba(255,79,145,0.075)" },
   pillPressed: { opacity: 0.78, transform: [{ scale: theme.motion.pressScale }] },
   labelProminent: { color: theme.color.textPrimary },
-  interRegular: { fontFamily: "Inter_400Regular" },
-  interBold: { fontFamily: "Inter_700Bold", fontSize: 14, lineHeight: 20 },
+  bodyRegular: { fontFamily: theme.type.body },
+  bodyBold: { fontFamily: theme.type.bodyBold, fontSize: 14, lineHeight: 20 },
   textLight: { color: theme.color.textPrimaryLight },
   textMutedLight: { color: theme.color.textSecondaryLight },
   strengthTrack: { position: "absolute", right: theme.spacing.lg, bottom: 6, left: theme.spacing.lg, height: 2, overflow: "hidden", borderRadius: theme.radius.pill, backgroundColor: "rgba(255,79,145,0.13)" },

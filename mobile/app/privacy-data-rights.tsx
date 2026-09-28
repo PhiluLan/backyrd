@@ -1,17 +1,8 @@
 // mobile/app/privacy-data-rights.tsx
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Linking,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { ProductText as Text } from "../components/foundation/AppText";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";

@@ -4,7 +4,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text as RNText,
   View,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
@@ -16,12 +15,7 @@ import {
   type MobileSpotTaxonomyItem,
 } from "../../lib/taxonomy";
 import { backyrdTheme as theme } from "../../theme/backyrd";
-
-function Text({ style, ...props }: React.ComponentProps<typeof RNText>) {
-  const weight = String(StyleSheet.flatten(style)?.fontWeight ?? "400");
-  const fontFamily = Number.parseInt(weight, 10) >= 600 ? theme.type.bodyBold : theme.type.body;
-  return <RNText {...props} style={[style, { fontFamily, fontWeight: "normal" }]} />;
-}
+import { ProductText as Text } from "../foundation/AppText";
 
 type Props = {
   items: MobileSpotTaxonomyItem[];

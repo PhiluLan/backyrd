@@ -1,14 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  Pressable,
-  Alert,
-  ScrollView,
-  AccessibilityInfo,
-} from "react-native";
+import { View, StyleSheet, ActivityIndicator, Pressable, Alert, ScrollView, AccessibilityInfo } from "react-native";
+import { ProductText as Text } from "../../components/foundation/AppText";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Crypto from "expo-crypto";
@@ -468,10 +460,10 @@ const styles = StyleSheet.create({
   },
   permissionTitle: {
     color: theme.text,
-    fontSize: 30,
+    fontSize: 28,
     lineHeight: 34,
-    fontWeight: "900",
-    letterSpacing: -0.8,
+    fontWeight: "700",
+    letterSpacing: -0.45,
     marginBottom: 10,
     textAlign: "center",
   },

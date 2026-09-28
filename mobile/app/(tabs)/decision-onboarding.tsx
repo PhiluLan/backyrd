@@ -1,18 +1,8 @@
 // mobile/app/(tabs)/decision-onboarding.tsx
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ProductText as Text, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import { Stack, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -24,6 +14,7 @@ import {
   resolveLocationContext,
 } from "../../lib/locationContext";
 import { safeDevelopmentWarning } from "../../lib/privacySanitize";
+import { backyrdTheme } from "../../theme/backyrd";
 
 type SpotRow = {
   id: string;
@@ -551,7 +542,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.bg,
   },
   content: {
-    paddingHorizontal: 16,
+    paddingHorizontal: backyrdTheme.layout.pageGutter,
     paddingTop: 10,
     paddingBottom: 36,
   },
@@ -567,10 +558,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: theme.text,
-    fontSize: 34,
-    lineHeight: 38,
-    fontWeight: "900",
-    letterSpacing: -1.1,
+    ...backyrdTheme.typeScale.screenTitle,
+    fontWeight: "700",
   },
   subtitle: {
     color: theme.muted,

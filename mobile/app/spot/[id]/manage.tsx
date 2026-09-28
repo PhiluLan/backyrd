@@ -1,12 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-} from "react-native";
+import { View, TouchableOpacity, ScrollView, Alert } from "react-native";
+import { ProductText as Text, ProductTextInput as TextInput } from "../../../components/foundation/AppText";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { trackEvent } from "@/lib/events";

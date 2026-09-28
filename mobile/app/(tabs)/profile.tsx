@@ -10,8 +10,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text as RNText,
-  TextInput,
   View,
 } from "react-native";
 import { BlurView } from "expo-blur";
@@ -31,13 +29,8 @@ import { SpotArtwork } from "@/components/spot/SpotArtwork";
 import { selectSpotImageUrl } from "@/lib/spot-images";
 import Avatar from "@/components/Avatar";
 import { StateView } from "@/components/foundation/StateView";
+import { ProductText as Text, ProductTextInput as TextInput } from "@/components/foundation/AppText";
 import { backyrdTheme as theme } from "@/theme/backyrd";
-
-function Text({ style, ...props }: React.ComponentProps<typeof RNText>) {
-  const weight = String(StyleSheet.flatten(style)?.fontWeight ?? "400");
-  const fontFamily = Number.parseInt(weight, 10) >= 600 ? theme.type.bodyBold : theme.type.body;
-  return <RNText {...props} style={[style, { fontFamily, fontWeight: "normal" }]} />;
-}
 
 const { width } = Dimensions.get("window");
 
@@ -1038,9 +1031,7 @@ const styles = StyleSheet.create({
   displayName: {
     color: theme.color.textPrimary,
     fontFamily: theme.type.bodyBold,
-    fontSize: 31,
-    lineHeight: 37,
-    letterSpacing: -0.7,
+    ...theme.typeScale.screenTitle,
   },
   handleText: {
     marginTop: 5,
@@ -1381,7 +1372,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   editContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: theme.layout.pageGutter,
     paddingBottom: 120,
   },
   editTitle: {

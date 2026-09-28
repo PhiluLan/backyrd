@@ -1,6 +1,7 @@
 // mobile/components/spot.tsx
 import React from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Pressable } from "react-native";
+import { ProductText as Text } from "./foundation/AppText";
 
 export function Section({
   title,

@@ -9,15 +9,14 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
+import { AppText, ProductTextInput as TextInput } from "../../components/foundation/AppText";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { HomeEventsSection } from "../../components/events/HomeEventsSection";
 import Avatar from "../../components/Avatar";
-import { AppText } from "../../components/foundation/AppText";
 import { IconButton } from "../../components/foundation/Button";
 import { StateView } from "../../components/foundation/StateView";
 import { SpotArtwork } from "../../components/spot/SpotArtwork";
