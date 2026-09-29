@@ -7,6 +7,7 @@ import { N6ShadowService } from "../../../packages/n6-shadow-runtime/src/shadow.
 import { SupabaseN6ShadowRepository } from "../../../packages/n6-shadow-runtime/src/supabase-repository.mjs";
 import { processOneResearchJob } from "../../../packages/spot-research-runtime/src/worker.mjs";
 import { createSpotResearchRepository } from "../../../packages/spot-research-runtime/src/supabase-repository.mjs";
+import { processOneWorldResearchJob } from "../../../packages/spot-research-runtime/src/world-knowledge-worker.mjs";
 
 // The frozen runtime uses Node's UTF-8 byte counter for bounded token/input
 // estimation. Supabase Edge supports node:buffer but does not expose Buffer as
@@ -26,7 +27,7 @@ Deno.serve(async (request) => {
   const internalSecret = Deno.env.get("DECISION_ENGINE_INTERNAL_SECRET");
   if (!url || !serviceKey || !internalSecret) return json({ error: "server_configuration_missing" }, 503);
   if (request.headers.get("x-backyrd-internal-secret") !== internalSecret) return json({ error: "forbidden" }, 403);
-  let input: { mode?: "USER_INTELLIGENCE" | "N6_SHADOW" | "SPOT_RESEARCH" | "LIVE_TICK" };
+  let input: { mode?: "USER_INTELLIGENCE" | "N6_SHADOW" | "SPOT_RESEARCH" | "WORLD_RESEARCH" | "LIVE_TICK" };
   try { input = await request.json(); } catch { return json({ error: "invalid_json" }, 400); }
   const service = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
@@ -38,11 +39,17 @@ Deno.serve(async (request) => {
     if (input.mode === "LIVE_TICK") {
       const { data: bridge, error: bridgeError } = await service.rpc("backyrd_memory_bridge_process_v1", { p_limit: 100 });
       if (bridgeError) throw new Error(`memory_bridge_tick:${bridgeError.message}`);
-      const intelligence = await drainQueue({ repository: new SupabaseUserIntelligenceRepository(service), limit: 25 });
-      const research = openAIKey && Deno.env.get("SPOT_RESEARCH_AGENT_ENABLED") === "true"
-        ? await processOneResearchJob({ repository: createSpotResearchRepository(service), apiKey: openAIKey, runnerId: `scheduled:${crypto.randomUUID()}` })
-        : { state: "DISABLED" };
-      return json({ mode: input.mode, result: { bridge, intelligence, research } });
+      const [intelligence, research, worldResearch] = await Promise.all([
+        drainQueue({ repository: new SupabaseUserIntelligenceRepository(service), limit: 25 }),
+        openAIKey && Deno.env.get("SPOT_RESEARCH_AGENT_ENABLED") === "true"
+          ? processOneResearchJob({ repository: createSpotResearchRepository(service), apiKey: openAIKey, runnerId: `scheduled:${crypto.randomUUID()}` })
+          : Promise.resolve({ state: "DISABLED" }),
+        openAIKey && Deno.env.get("WORLD_RESEARCH_AUTOMATION_ENABLED") === "true"
+          ? processOneWorldResearchJob({ service, apiKey: openAIKey, model: Deno.env.get("WORLD_RESEARCH_MODEL") ?? "gpt-5.5" })
+            .catch(() => ({ state: "WORKER_UNAVAILABLE" }))
+          : Promise.resolve({ state: "DISABLED" }),
+      ]);
+      return json({ mode: input.mode, result: { bridge, intelligence, research, worldResearch } });
     }
     if (input.mode === "N6_SHADOW") {
       if (!openAIKey) return json({ error: "openai_key_missing" }, 503);
@@ -56,6 +63,12 @@ Deno.serve(async (request) => {
       if (!openAIKey) return json({ error: "openai_key_missing" }, 503);
       if (Deno.env.get("SPOT_RESEARCH_AGENT_ENABLED") !== "true") return json({ error: "research_agent_disabled" }, 503);
       const result = await processOneResearchJob({ repository: createSpotResearchRepository(service), apiKey: openAIKey, runnerId: `manual:${crypto.randomUUID()}` });
+      return json({ mode: input.mode, result });
+    }
+    if (input.mode === "WORLD_RESEARCH") {
+      if (!openAIKey) return json({ error: "openai_key_missing" }, 503);
+      if (Deno.env.get("WORLD_RESEARCH_AUTOMATION_ENABLED") !== "true") return json({ error: "world_research_automation_disabled" }, 503);
+      const result = await processOneWorldResearchJob({ service, apiKey: openAIKey, model: Deno.env.get("WORLD_RESEARCH_MODEL") ?? "gpt-5.5" });
       return json({ mode: input.mode, result });
     }
     return json({ error: "invalid_mode" }, 400);

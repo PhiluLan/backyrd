@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "world-research-automation-v1",
+  "previousEvidence": "20260927190000-spot-public-contact-presentation",
+  "previousFingerprints": {
+    "publicAclSha256": "214583bbfaabdddcacc55c6629ad777d2e4fe336106da1428d5da49734473981",
+    "applicationSchemaSha256": "067fdad5dd569b3f82e6e3ef9c00dbcb5fd8b5b2de950e38cb121a6853b5e35f"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260929151626_world_research_automation_jobs_v1.sql",
+      "sha256": "08cd68ba758ea9be48d4f38d0adc44d957db34fb6dcbc68ee82febecd6a6fa16"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/world_research_automation_jobs_v1.sql",
+      "sha256": "8abca3a1869ac2b76f7e7816500e7b12bef393435fe7b8fd4beb843986973e69"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "725a300db27263a96adec81e05f4aaee72fc3a20d000e90f5ee4e6ff69efd558",
+    "applicationSchemaSha256": "e557eafc6d56c4356fe90435299347be97f34cdf07888c62c3e256c722a19cff"
+  }
+}
