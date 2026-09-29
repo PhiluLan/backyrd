@@ -4,9 +4,10 @@ import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export async function verifyEdgeRuntimeBundle(bundleRoot, { timeoutMilliseconds = 90_000 } = {}) {
+export async function verifyEdgeRuntimeBundle(bundleRoot, { timeoutMilliseconds = 90_000, slug = "decision-v13" } = {}) {
   const root = resolve(bundleRoot);
-  const child = spawn("supabase", ["--workdir", root, "functions", "serve", "decision-v13", "--no-verify-jwt"], {
+  if (!["decision-v13", "decision-engine-worker"].includes(slug)) throw new Error("edge_function_slug_invalid");
+  const child = spawn("supabase", ["--workdir", root, "functions", "serve", slug, "--no-verify-jwt"], {
     stdio: ["ignore", "pipe", "pipe"],
   });
   let logs = "";
@@ -18,13 +19,16 @@ export async function verifyEdgeRuntimeBundle(bundleRoot, { timeoutMilliseconds 
     while (Date.now() < deadline) {
       if (child.exitCode !== null) throw new Error(`edge_runtime_exited:${logs}`);
       if (logs.includes("Serving functions on")) {
-        const response = await fetch("http://127.0.0.1:54321/functions/v1/decision-v13", {
+        const response = await fetch(`http://127.0.0.1:54321/functions/v1/${slug}`, {
           method: "POST", headers: { "content-type": "application/json" }, body: "{}",
         }).catch(() => null);
         if (response) {
           const body = await response.json().catch(() => null);
-          if (response.status === 503 && body?.status === "UNAVAILABLE" && body.legacyFallbackUsed === false) {
-            return { status: "PASS", httpStatus: 503, productStatus: body.status, legacyFallbackUsed: false };
+          if (slug === "decision-v13" && response.status === 503 && body?.status === "UNAVAILABLE" && body.legacyFallbackUsed === false) {
+            return { status: "PASS", slug, httpStatus: 503, productStatus: body.status, legacyFallbackUsed: false };
+          }
+          if (slug === "decision-engine-worker" && response.status === 503 && body?.error === "server_configuration_missing") {
+            return { status: "PASS", slug, httpStatus: 503, workerStatus: body.error };
           }
           throw new Error(`edge_runtime_unexpected_response:${response.status}:${JSON.stringify(body).slice(0, 400)}`);
         }
@@ -41,7 +45,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     const index = process.argv.indexOf("--bundle");
     if (index < 0 || !process.argv[index + 1]) throw new Error("edge_bundle_path_required");
-    process.stdout.write(`${JSON.stringify(await verifyEdgeRuntimeBundle(process.argv[index + 1]))}\n`);
+    const slugIndex = process.argv.indexOf("--slug");
+    process.stdout.write(`${JSON.stringify(await verifyEdgeRuntimeBundle(process.argv[index + 1], { slug: slugIndex >= 0 ? process.argv[slugIndex + 1] : "decision-v13" }))}\n`);
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;

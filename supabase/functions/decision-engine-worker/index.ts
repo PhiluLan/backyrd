@@ -1,5 +1,5 @@
 // Internal queue executor. It contains no learning or ranking semantics.
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.112.4";
 import { Buffer } from "node:buffer";
 import { drainQueue, runQueueOnce } from "../../../packages/user-intelligence-runtime/src/queue-runner.mjs";
 import { SupabaseUserIntelligenceRepository } from "../../../packages/user-intelligence-runtime/src/supabase-repository.mjs";

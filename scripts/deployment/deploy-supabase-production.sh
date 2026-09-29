@@ -60,9 +60,11 @@ mapfile -t functions < <(jq -r '.functions[] | select(.deploy) | .slug' "$plan_p
 for slug in "${functions[@]}"; do
   verify_jwt="$(jq -r --arg slug "$slug" '.functions[] | select(.slug==$slug) | .verifyJwt' "$plan_path")"
   args=(functions deploy "$slug" --project-ref hjgcrrzfjchzqoegcywn --use-api)
-  if test "$slug" = "decision-v13"; then
+  if test "$slug" = "decision-v13" || test "$slug" = "decision-engine-worker"; then
     test -n "${BACKYRD_PRODUCT_RELEASE_ARTIFACT_DIR:-}" || { echo "verified Product release artifact directory required" >&2; exit 1; }
-    test -f "$BACKYRD_PRODUCT_RELEASE_ARTIFACT_DIR/bundle/supabase/functions/$slug/index.deploy.ts" || { echo "exact Function artifact missing: $slug" >&2; exit 1; }
+    entrypoint="index.ts"
+    if test "$slug" = "decision-v13"; then entrypoint="index.deploy.ts"; fi
+    test -f "$BACKYRD_PRODUCT_RELEASE_ARTIFACT_DIR/bundle/supabase/functions/$slug/$entrypoint" || { echo "exact Function artifact missing: $slug" >&2; exit 1; }
     args=(--workdir "$BACKYRD_PRODUCT_RELEASE_ARTIFACT_DIR/bundle" "${args[@]}")
   fi
   if test "$verify_jwt" = "false"; then args+=(--no-verify-jwt); fi

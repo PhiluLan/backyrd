@@ -46,6 +46,14 @@ const EDGE_BUILD_REQUIRED = Object.freeze([
   "packages/user-intelligence-vnext-core/dist/index.js",
   "packages/world-knowledge-core/dist/index.js",
 ]);
+const WORKER_SOURCE_DIRS = Object.freeze([
+  "packages/user-intelligence-runtime/src",
+  "packages/n6-shadow-runtime/src",
+  "packages/spot-research-runtime/src",
+  "packages/decision-input-runtime/src",
+  "packages/canonical-semantics/src",
+  "decision-lab/src",
+]);
 
 const git = (root, args) => execFileSync("git", args, {
   cwd: root,
@@ -162,7 +170,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
   verifyProductReleaseIdentity(identity);
   requireValue(identity.sourceSha === git(root, ["rev-parse", `${sourceSha}^{commit}`]), "release_manifest_identity_source_mismatch");
   verifyProductReleaseTestEvidence(testEvidence, identity);
-  const deployable = trackedFor(root, identity.sourceSha, ["supabase/functions/decision-v13", "supabase/migrations", "supabase/config.toml", "supabase/production"]);
+  const deployable = trackedFor(root, identity.sourceSha, ["supabase/functions/decision-v13", "supabase/functions/decision-engine-worker", ...WORKER_SOURCE_DIRS, "supabase/migrations", "supabase/config.toml", "supabase/production"]);
   const sourceSetPaths = Object.fromEntries(Object.entries(SOURCE_SETS).map(([name, paths]) => [name, trackedFor(root, identity.sourceSha, paths)]));
   const tracked = [...new Set([...deployable, ...Object.values(sourceSetPaths).flat()])].sort();
   const bundleRoot = resolve(outputDir, "bundle");
@@ -179,7 +187,9 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     const full = parseSupabaseFunctionConfig(gitBytes(root, ["show", `${identity.sourceSha}:supabase/config.toml`]).toString("utf8"));
     const decision = full.functions.get("decision-v13");
     requireValue(decision?.enabled && decision.verifyJwt && decision.entrypoint === "./functions/decision-v13/index.deploy.ts", "release_edge_function_config_invalid");
-    const minimal = `project_id = "backyrd"\n\n[functions.decision-v13]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/decision-v13/index.deploy.ts"\n`;
+    const worker = full.functions.get("decision-engine-worker");
+    requireValue(worker?.enabled && worker.verifyJwt && worker.entrypoint === "./functions/decision-engine-worker/index.ts", "release_worker_function_config_invalid");
+    const minimal = `project_id = "backyrd"\n\n[functions.decision-v13]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/decision-v13/index.deploy.ts"\n\n[functions.decision-engine-worker]\nenabled = true\nverify_jwt = true\nentrypoint = "./functions/decision-engine-worker/index.ts"\n`;
     const target = resolve(bundleRoot, "supabase/config.toml");
     writeFileSync(target, minimal);
     fileIndex.set("supabase/config.toml", { path: "supabase/config.toml", bytes: Buffer.byteLength(minimal), sha256: sha256(minimal) });
@@ -264,7 +274,7 @@ export function buildProductReleaseManifest({ root, sourceSha = "HEAD", outputDi
     && recoveryRisk.guaranteedDatabaseRollback === false
     && recoveryRisk.productionDataCopyAuthorized === false, "release_recovery_risk_acceptance_invalid");
   const components = {
-    productRuntime: byPaths([...deployable.filter((path) => path.startsWith("supabase/functions/decision-v13/")), ...edgeBuildPaths]),
+    productRuntime: byPaths([...deployable.filter((path) => path.startsWith("supabase/functions/decision-v13/") || path.startsWith("supabase/functions/decision-engine-worker/") || WORKER_SOURCE_DIRS.some((dir) => path.startsWith(`${dir}/`))), ...edgeBuildPaths]),
     database: byPaths(deployable.filter((path) => path.startsWith("supabase/migrations/"))),
     releaseConfiguration: byPaths(deployable.filter((path) => path === "supabase/config.toml" || path.startsWith("supabase/production/"))),
     mobileUpdate: files.filter(({ path }) => path.startsWith("mobile-update/")),
@@ -383,8 +393,8 @@ export function verifyProductReleaseManifest({ artifactDir, expectedHash, expect
     if (checkoutRoot && file.path === "supabase/config.toml" && runtimePaths.has("supabase/functions/decision-v13/deno.json")) {
       const checkedOutConfig = parseSupabaseFunctionConfig(readFileSync(resolve(checkoutRoot, file.path), "utf8"));
       const bundledConfig = parseSupabaseFunctionConfig(content.toString("utf8"));
-      requireValue(bundledConfig.functions.size === 1
-        && bundledConfig.functions.get("decision-v13")?.configHash === checkedOutConfig.functions.get("decision-v13")?.configHash,
+      requireValue(bundledConfig.functions.size === 2
+        && ["decision-v13", "decision-engine-worker"].every((slug) => bundledConfig.functions.get(slug)?.configHash === checkedOutConfig.functions.get(slug)?.configHash),
       "release_edge_function_config_mismatch");
     } else if (checkoutRoot && !file.path.startsWith("mobile-update/") && !EDGE_BUILD_DIRS.some((dir) => file.path.startsWith(`${dir}/`))) {
       const checkedOut = readFileSync(resolve(checkoutRoot, file.path));

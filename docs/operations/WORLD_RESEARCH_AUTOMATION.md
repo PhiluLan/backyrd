@@ -59,40 +59,31 @@ logging provider payloads or credentials. If quality or cost is unacceptable,
 turn off the switch in both server environments. Existing jobs remain durable;
 no canonical facts are changed by stopping research.
 
-## Main Dev production handoff (2026-09-29 snapshot)
+## Release review (2026-09-29)
 
-PR #406 is a draft, not a release authorization. Its database clean boot,
-authorization, Admin, World, Decision and delivery-policy checks passed on the
-reviewed candidate, but Product release certification failed with
-`release_recovery_risk_acceptance_invalid`. Do not bypass or reclassify this
-gate. `delivery/product-authority-v1.json` and
-`scripts/ci/product-additive-migration-scope.mjs` bind an exact reviewed
-migration set; the new World research job migration is outside that set. Obtain
-an explicit Founder decision for this exact migration and its forward-only,
-non-guaranteed recovery risk before extending the reviewed scope. A green
-database test is not a guaranteed rollback or permission to apply Production
-SQL. The migration's SHA-256 in this candidate is recorded in
-`delivery/database-releases/world-research-automation-v1.json`; recheck it
-after every edit.
+PR #406 is not a release authorization. The Founder approved only
+`20260929193000_world_research_automation_jobs_v1.sql` with SHA-256
+`2e1dca5cf05bc11b4d3dc64965c83e73323bffdfe76bedef38adf80a6a5b2b7d`
+and explicitly accepted that no tested or guaranteed database rollback exists.
+The migration is proposal-only and follows the already-shipped safety deletion
+migration. The exact bytes are bound in `delivery/product-authority-v1.json`,
+`scripts/ci/product-additive-migration-scope.mjs`, and the database release
+evidence; this does not authorize any other SQL or bypass a failing gate.
 
-Read-only Production inspection on 2026-09-29 found 168 applied migrations,
-tip `20260927190000`, and no automation jobs table. The checked-in
-`delivery/production-state.json` still records 167 and tip `20260927153722`.
-Collect a fresh remote receipt and reconcile this difference through the
-existing release process. Do not alter migration history or assert that the
-checked-in snapshot is current. Production already has an active
+Read-only Production inspection on 2026-09-29 found 169 applied migrations,
+tip `20260929171915`, and no automation jobs table. The successful canonical
+Main deployment run `36606832464` applied the safety deletion migration; its
+audit and a fresh read-only migration list support the reconciled
+`delivery/production-state.json`. Recheck immediately before release rather
+than treating this ledger as a live monitor. Production already has an active
 `decision-engine-worker` and a one-minute `backyrd-internal-live-worker-v1`
 schedule; re-verify both immediately before release.
 
-The current Product release manifest seals `decision-v13`, not
-`decision-engine-worker`. The changed World research worker must have a
-separately reviewed, reproducible, source-bound build/deploy verification or
-be added to a suitable certified release boundary before deployment. Do not
-deploy an ad-hoc generated `index.deploy.ts` or treat a Vercel preview as a
-Production Edge release. In particular,
-`scripts/deployment/deploy-supabase-production.sh` currently requires a sealed
-artifact directory for `decision-v13` only; extend its worker boundary and
-tests before using it for this changed Function. Keep
+The Product release artifact now seals both `decision-v13` and
+`decision-engine-worker` with its imported source modules. Its closure and
+runtime checks cover the worker; the production deploy script must use the
+verified artifact for both functions. No ad-hoc function deployment or Vercel
+preview is production evidence. Keep
 `WORLD_RESEARCH_AUTOMATION_ENABLED` unset in both Admin and Edge during
 migration and deployment.
 
