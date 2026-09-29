@@ -33,3 +33,12 @@ test("missing, unmapped and non-literal imports fail closed", () => {
   put(dynamic, "packages/decision-vnext-core/dist/product-decision.js", 'import(moduleName);\n');
   assert.throws(() => verifyEdgeDeployClosure(dynamic), /edge_dynamic_import_unbounded/);
 });
+
+test("worker entrypoint and its research dependency are sealed, with no checkout fallback", () => {
+  const root = fixture();
+  put(root, "supabase/functions/decision-engine-worker/index.ts", 'import "../../../packages/spot-research-runtime/src/world-knowledge-worker.mjs"; import "../../../packages/spot-research-runtime/src/supabase-repository.mjs"; import "../../../packages/user-intelligence-runtime/src/queue-runner.mjs";\n');
+  for (const path of ["packages/spot-research-runtime/src/world-knowledge-worker.mjs", "packages/spot-research-runtime/src/supabase-repository.mjs", "packages/user-intelligence-runtime/src/queue-runner.mjs"]) put(root, path, "export const sealed = true;\n");
+  assert.equal(verifyEdgeDeployClosure(root, "decision-engine-worker").status, "PASS");
+  put(root, "packages/spot-research-runtime/src/world-knowledge-worker.mjs", 'import "./missing.mjs";\n');
+  assert.throws(() => verifyEdgeDeployClosure(root, "decision-engine-worker"), /edge_import_unresolved/);
+});

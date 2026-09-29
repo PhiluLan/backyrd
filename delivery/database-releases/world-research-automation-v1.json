@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "world-research-automation-v1",
+  "previousEvidence": "safety-actor-profile-deletion-v1",
+  "previousFingerprints": {
+    "publicAclSha256": "214583bbfaabdddcacc55c6629ad777d2e4fe336106da1428d5da49734473981",
+    "applicationSchemaSha256": "301466646ab212af2004f6c063c9d4e42406afd7eb77839dd1e28649caed2897"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260929193000_world_research_automation_jobs_v1.sql",
+      "sha256": "2e1dca5cf05bc11b4d3dc64965c83e73323bffdfe76bedef38adf80a6a5b2b7d"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/world_research_automation_jobs_v1.sql",
+      "sha256": "af1d903ce004c0be73463cc36d8d521d9e693802de39eb9c0a6079bc43156566"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "725a300db27263a96adec81e05f4aaee72fc3a20d000e90f5ee4e6ff69efd558",
+    "applicationSchemaSha256": "b57a79d695ea0c64ee9decee7c533f5272d3db80d8b32be103598562893c8864"
+  }
+}

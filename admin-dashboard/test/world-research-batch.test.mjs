@@ -4,6 +4,8 @@ import test from "node:test";
 
 const route = await readFile(new URL("../app/api/world-knowledge/research-batch/route.ts", import.meta.url), "utf8");
 const panel = await readFile(new URL("../app/world-knowledge/WorldResearchBatchPanel.tsx", import.meta.url), "utf8");
+const exportHelper = await readFile(new URL("../lib/server/worldResearchExport.ts", import.meta.url), "utf8");
+const jobsRoute = await readFile(new URL("../app/api/world-knowledge/research-jobs/route.ts", import.meta.url), "utf8");
 const migration = await readFile(new URL("../../supabase/migrations/20260926120337_world_research_batch_import_v1.sql", import.meta.url), "utf8");
 
 test("research import reuses the canonical append-only writer and rebuild", () => {
@@ -47,7 +49,7 @@ test("manifest drift is explained and offers a read-only refresh instead of a di
   assert.match(panel, /Aktuellen Stand laden/);
   assert.match(panel, /action: "export", spotIds/);
   assert.match(panel, /refreshResearchDocument\(previous, current\)/);
-  assert.match(panel, /await loadPreview\(refreshed, \{\}, false\)/);
+  assert.match(panel, /await loadPreview\(refreshed, \{\}, false, \{\}\)/);
 });
 
 test("a verified complete import clears the form and shows a visible finish state", () => {
@@ -63,8 +65,20 @@ test("a verified complete import clears the form and shows a visible finish stat
 
 test("research export starts from canonical World values, never old Spot attributes", () => {
   const exportBranch = route.slice(route.indexOf('if (body?.action === "export")'), route.indexOf('if (body?.action !== "preview"'));
-  assert.match(exportBranch, /detail\.answers/);
-  assert.match(exportBranch, /entry\[1\]\.visibility === "PUBLIC"/);
+  assert.match(exportBranch, /createAdminWorldResearchExport\(actor, spotIds\)/);
+  assert.match(exportHelper, /detail\.answers/);
+  assert.match(exportHelper, /entry\[1\]\.visibility === "PUBLIC"/);
   assert.doesNotMatch(exportBranch, /\.from\("spots"\)|legacy|spot\.address|spot\.description/);
   assert.match(panel, /nicht alte Spot-Felder/);
+});
+
+test("automated research remains admin-only, proposal-only and uses the same preview", () => {
+  assert.match(jobsRoute, /authorizeAdminRequest\(request\)/);
+  assert.match(jobsRoute, /createAdminWorldResearchExport\(actor, \[spotId\]\)/);
+  assert.match(jobsRoute, /parseWorldResearchBatch\(normalizeAutomatedWorldResearchBatch\(row\.result_document/);
+  assert.doesNotMatch(jobsRoute, /world_product_admin_import_research_spot_v2|world_product_rebuild_spot_v1/);
+  assert.match(panel, /await loadPreview\(result\.document, \{\}, false, \{\}\)/);
+  assert.match(panel, /claim\.source\.evidence/);
+  assert.match(panel, /claim\.source\.url/);
+  assert.match(panel, /Diesen Vorschlag nicht übernehmen/);
 });

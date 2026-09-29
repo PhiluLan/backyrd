@@ -21,9 +21,10 @@ const commit = (root, message) => { git(root, ["add", "."]); git(root, ["commit"
 const fixture = () => {
   const root = mkdtempSync(join(tmpdir(), "backyrd-release-manifest-"));
   git(root, ["init", "--quiet", "-b", "main"]); git(root, ["config", "user.email", "fixture@example.invalid"]); git(root, ["config", "user.name", "Fixture"]);
-  put(root, "supabase/config.toml", "project_id=\"fixture\"\n[functions.decision-v13]\nenabled = true\nverify_jwt = true\nentrypoint=\"./functions/decision-v13/index.deploy.ts\"\n");
+  put(root, "supabase/config.toml", "project_id=\"fixture\"\n[functions.decision-v13]\nenabled = true\nverify_jwt = true\nentrypoint=\"./functions/decision-v13/index.deploy.ts\"\n[functions.decision-engine-worker]\nenabled = true\nverify_jwt = true\nentrypoint=\"./functions/decision-engine-worker/index.ts\"\n");
   put(root, "supabase/functions/decision-v13/index.deploy.ts", "import './vnext-only.ts';\n");
   put(root, "supabase/functions/decision-v13/vnext-only.ts", "export default true;\n");
+  put(root, "supabase/functions/decision-engine-worker/index.ts", "export default true;\n");
   put(root, "supabase/migrations/20260101000000_base.sql", "select 1;\n");
   pendingMigrations.forEach((entry, index) => put(root, entry.path, `migration-${index}`));
   put(root, "packages/world-knowledge-core/package.json", "{}\n"); put(root, "packages/world-knowledge-core/src/port.ts", "export const world = true;\n");
@@ -62,7 +63,7 @@ function buildFixture() {
 test("a release manifest binds source, tree, domain artifacts, evidence and every deployable byte", () => {
   const { root, head, output, manifest } = buildFixture();
   assert.equal(verifyProductReleaseManifest({ artifactDir: output, expectedHash: manifest.manifestHash, expectedSourceSha: head, expectedMode: "PR_CANDIDATE", checkoutRoot: root }).manifestHash, manifest.manifestHash);
-  assert.deepEqual(manifest.components.productRuntime.map(({ path }) => path), ["supabase/functions/decision-v13/index.deploy.ts", "supabase/functions/decision-v13/vnext-only.ts"]);
+  assert.deepEqual(manifest.components.productRuntime.map(({ path }) => path), ["supabase/functions/decision-engine-worker/index.ts", "supabase/functions/decision-v13/index.deploy.ts", "supabase/functions/decision-v13/vnext-only.ts"]);
   for (const name of ["worldArtifact", "userArtifact", "decisionArtifact", "productPolicy"]) assert.match(manifest.componentIdentities[name].artifactHash, /^[0-9a-f]{64}$/);
   assert.equal(manifest.testEvidence.results["product-release-e2e"], "PASS");
   assert.equal(manifest.productionPlan.executionAuthorized, false);

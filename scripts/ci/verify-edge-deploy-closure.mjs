@@ -5,18 +5,21 @@ import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
-const ENTRYPOINT = "supabase/functions/decision-v13/index.deploy.ts";
-const CONFIG = "supabase/functions/decision-v13/deno.json";
+const ENTRYPOINTS = Object.freeze({
+  "decision-v13": "supabase/functions/decision-v13/index.deploy.ts",
+  "decision-engine-worker": "supabase/functions/decision-engine-worker/index.ts",
+});
 const requireValue = (value, reason) => { if (!value) throw new Error(reason); };
 
-export function verifyEdgeDeployClosure(bundleRoot) {
+export function verifyEdgeDeployClosure(bundleRoot, slug = "decision-v13") {
   const root = resolve(bundleRoot);
-  const configPath = resolve(root, CONFIG);
-  const config = JSON.parse(readFileSync(configPath, "utf8"));
-  const imports = config.imports ?? {};
+  const entrypoint = ENTRYPOINTS[slug];
+  requireValue(entrypoint, "edge_function_slug_invalid");
+  const configPath = resolve(root, `supabase/functions/${slug}/deno.json`);
+  const imports = slug === "decision-v13" ? (JSON.parse(readFileSync(configPath, "utf8")).imports ?? {}) : {};
   requireValue(typeof imports === "object" && !Array.isArray(imports), "edge_import_map_invalid");
   const visited = new Set();
-  const queue = [resolve(root, ENTRYPOINT)];
+  const queue = [resolve(root, entrypoint)];
   while (queue.length) {
     const file = queue.pop();
     const path = relative(root, file);
@@ -35,21 +38,27 @@ export function verifyEdgeDeployClosure(bundleRoot) {
       queue.push(target);
     }
   }
-  for (const required of [
+  const requiredModules = slug === "decision-v13" ? [
     "supabase/functions/decision-v13/vnext-only.ts",
     "packages/decision-vnext-core/dist/product-decision-production-adapter.js",
     "packages/decision-vnext-core/dist/product-decision.js",
     "packages/user-intelligence-vnext-core/dist/index.js",
     "packages/world-knowledge-core/dist/index.js",
-  ]) requireValue(visited.has(required), `edge_required_module_unreached:${required}`);
-  return { status: "PASS", entrypoint: ENTRYPOINT, visitedModules: visited.size };
+  ] : [
+    "packages/spot-research-runtime/src/world-knowledge-worker.mjs",
+    "packages/spot-research-runtime/src/supabase-repository.mjs",
+    "packages/user-intelligence-runtime/src/queue-runner.mjs",
+  ];
+  for (const required of requiredModules) requireValue(visited.has(required), `edge_required_module_unreached:${required}`);
+  return { status: "PASS", entrypoint, visitedModules: visited.size };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const index = process.argv.indexOf("--bundle");
     requireValue(index >= 0 && process.argv[index + 1], "edge_bundle_path_required");
-    process.stdout.write(`${JSON.stringify(verifyEdgeDeployClosure(process.argv[index + 1]))}\n`);
+    const slugIndex = process.argv.indexOf("--slug");
+    process.stdout.write(`${JSON.stringify(verifyEdgeDeployClosure(process.argv[index + 1], slugIndex >= 0 ? process.argv[slugIndex + 1] : "decision-v13"))}\n`);
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exitCode = 1;

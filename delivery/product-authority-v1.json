@@ -39,8 +39,8 @@
     "projectRef": "hjgcrrzfjchzqoegcywn",
     "migrations": [
       {
-        "path": "supabase/migrations/20260929171915_fix_safety_actor_profile_deletion.sql",
-        "sha256": "99ba56cdd4d949fe0005f65d964c6a6470f46910a59608bab297d44f528b47ed"
+        "path": "supabase/migrations/20260929193000_world_research_automation_jobs_v1.sql",
+        "sha256": "2e1dca5cf05bc11b4d3dc64965c83e73323bffdfe76bedef38adf80a6a5b2b7d"
       }
     ],
     "executionAuthorized": false,
