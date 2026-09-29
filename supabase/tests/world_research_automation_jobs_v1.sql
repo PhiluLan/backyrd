@@ -43,4 +43,8 @@ select pg_temp.assert((select status='RUNNING' and lease_token is not null and a
   from public.world_research_automation_jobs_v1 where spot_id=pg_temp.id('world-automation-spot')), 'lease was not recorded');
 select pg_temp.assert(public.world_research_automation_claim_v1(90) is null, 'second worker claimed same job');
 reset role;
+delete from public.spots where id=pg_temp.id('world-automation-spot');
+select pg_temp.assert(
+  not exists (select 1 from public.world_research_automation_jobs_v1 where spot_id=pg_temp.id('world-automation-spot')),
+  'spot deletion retained an orphan research job');
 rollback;

@@ -3,7 +3,7 @@
 -- uses the existing World research preview/import boundary.
 create table public.world_research_automation_jobs_v1 (
   id uuid primary key default gen_random_uuid(),
-  spot_id uuid not null references public.spots(id),
+  spot_id uuid not null references public.spots(id) on delete cascade,
   spot_name text not null check (length(spot_name) between 1 and 240),
   actor_id uuid not null,
   export_document jsonb not null check (jsonb_typeof(export_document) = 'object'),
