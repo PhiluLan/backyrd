@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { supabase } from "./supabase";
 import { filterDistributedSpots } from "./distributionTrust";
 import { selectSpotImageUrl } from "./spot-images";
+import { withRequestDeadline } from "./requestDeadline";
 
 type Spot = {
   id: string;
@@ -34,9 +35,10 @@ export const useSpotsStore = create<State>((set) => ({
     set({ loading: true, error: false });
 
     try {
-      const { data, error } = await supabase
-        .from("spots")
-        .select(`
+      const visible = await withRequestDeadline(async (signal) => {
+        const { data, error } = await supabase
+          .from("spots")
+          .select(`
         id,
         name,
         lat,
@@ -47,23 +49,25 @@ export const useSpotsStore = create<State>((set) => ({
         header_photo_path,
         categories ( name, color ),
         spot_photos ( url )
-        `)
-        .eq("status", "approved")
-        .limit(2000);
+          `)
+          .eq("status", "approved")
+          .limit(2000)
+          .abortSignal(signal);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const mapped = (data ?? []).map((s) => ({
-        ...s,
-        lat: Number(s.lat),
-        lng: Number(s.lng),
-        categories: Array.isArray(s.categories) ? s.categories[0] ?? null : null,
-        header_photo_url: selectSpotImageUrl({
-          photoUrl: s.spot_photos[0]?.url || null,
-          headerPhotoPath: s.header_photo_path,
-        }),
-      }));
-      const visible = await filterDistributedSpots(mapped, "maps");
+        const mapped = (data ?? []).map((s) => ({
+          ...s,
+          lat: Number(s.lat),
+          lng: Number(s.lng),
+          categories: Array.isArray(s.categories) ? s.categories[0] ?? null : null,
+          header_photo_url: selectSpotImageUrl({
+            photoUrl: s.spot_photos[0]?.url || null,
+            headerPhotoPath: s.header_photo_path,
+          }),
+        }));
+        return filterDistributedSpots(mapped, "maps", signal);
+      }, 12_000);
       if (refreshId === latestRefresh) set({ spots: visible, loading: false, error: false });
     } catch (loadError) {
       console.error("Spot catalog loading failed", loadError);
