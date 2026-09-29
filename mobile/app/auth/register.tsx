@@ -13,6 +13,7 @@ import * as Crypto from "expo-crypto";
 import { supabase } from "../../lib/supabase";
 import { ensureProfile } from "../../lib/profile";
 import { signInWithGoogle } from "../../lib/googleSignIn";
+import { registrationOutcome, type RegistrationOutcome } from "../../lib/auth/registrationOutcome";
 import { AuthDivider, AuthField, AuthProviderButton, AuthScreen, AuthSubmit, authStyles } from "../../components/auth/AuthScreen";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -48,6 +49,7 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [registrationState, setRegistrationState] = useState<Exclude<RegistrationOutcome, "signed_in"> | null>(null);
 
   async function onRegister() {
     const firstName = first.trim();
@@ -80,6 +82,10 @@ export default function RegisterScreen() {
         },
       });
 
+      if (error?.code === "user_already_exists") {
+        setRegistrationState("not_created");
+        return;
+      }
       if (error) throw error;
 
       // Supabase may return a session immediately when email confirmations are disabled.
@@ -94,25 +100,46 @@ export default function RegisterScreen() {
         return;
       }
 
-      Alert.alert(
-        "Fast geschafft",
-        "Wir haben dir eine Bestätigungs-E-Mail geschickt. Bestätige deine E-Mail und logge dich danach ein.",
-        [
-          {
-            text: "OK",
-            onPress: () =>
-              router.replace({
-                pathname: "/auth/verify",
-                params: { email: normalizedEmail },
-              } as any),
-          },
-        ]
-      );
+      const outcome = registrationOutcome(data);
+      setRegistrationState(outcome === "signed_in" ? "uncertain" : outcome);
     } catch (e: any) {
       setFormError(getAuthErrorMessage(e));
     } finally {
       setLoading(false);
     }
+  }
+
+  if (registrationState) {
+    const confirmationRequested = registrationState === "confirmation_requested";
+    const notCreated = registrationState === "not_created";
+    return (
+      <AuthScreen
+        eyebrow="BACKYRD · ACCOUNT"
+        title={confirmationRequested ? "Schau in dein Postfach." : notCreated ? "Schon bei Backyrd?" : "Prüfe deinen Account."}
+        description={confirmationRequested
+          ? "Für deinen neuen Account wurde eine Bestätigung angefordert. Öffne den Link in der E-Mail oder gib den Code ein."
+          : notCreated
+            ? "Für diese E-Mail wurde kein neuer Account angelegt. Wenn du schon dabei bist, melde dich mit deinem bestehenden Zugang an."
+            : "Wir konnten nicht bestätigen, ob ein neuer Account angelegt wurde. Bitte prüfe dein Postfach oder versuche es später erneut."}
+      >
+        <View style={authStyles.notice} accessibilityLiveRegion="polite">
+          <AppText role="label" tone="pink">{confirmationRequested ? "NÄCHSTER SCHRITT" : "WICHTIG ZU WISSEN"}</AppText>
+          <AppText role="body">{confirmationRequested
+            ? `Bestätigung für ${cleanEmail(email)} angefordert. Prüfe auch den Spam-Ordner.`
+            : notCreated
+              ? "Es wurde keine neue Bestätigungs-E-Mail verschickt."
+              : "Der Versand einer Bestätigungs-E-Mail ist nicht bestätigt. Bitte versuche es später erneut."}</AppText>
+        </View>
+        {confirmationRequested ? (
+          <AuthSubmit label="Code eingeben" loading={false} disabled={false} onPress={() => router.replace({ pathname: "/auth/verify", params: { email: cleanEmail(email) } } as never)} />
+        ) : (
+          <AuthSubmit label="Einloggen" loading={false} disabled={false} onPress={() => router.replace("/auth/login" as never)} />
+        )}
+        <Pressable accessibilityRole="button" style={authStyles.secondaryAction} onPress={() => { setRegistrationState(null); setFormError(null); }}>
+          <AppText role="bodyStrong">Andere E-Mail verwenden</AppText>
+        </Pressable>
+      </AuthScreen>
+    );
   }
 
   async function onGoogleRegister() {
