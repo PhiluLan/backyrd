@@ -2,15 +2,18 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
-import { ProductText as Text } from "../components/foundation/AppText";
+import { AppText } from "../components/foundation/AppText";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 
 import SplashScreen from "./splash";
 import { supabase } from "../lib/supabase";
 import { getMyProductEntryStatus } from "../lib/onboardingStatus";
 import { useAuth } from "../hooks/useAuth";
 import { rootStartupNavigationAuthority } from "../lib/root-startup-navigation";
+import { backyrdTheme as theme } from "../theme/backyrd";
 
 function normalizeRoute(route: string | null | undefined): string {
   if (!route) return "/(tabs)";
@@ -36,33 +39,32 @@ function LoggedOutGate() {
   const router = useRouter();
 
   return (
-    <LinearGradient colors={["#050506", "#050506", "#171820"]} style={styles.authContainer}>
+    <SafeAreaView style={styles.authContainer} edges={["top", "bottom"]}>
+      <LinearGradient colors={["#050505", "#050505", "#190D15"]} style={StyleSheet.absoluteFill} />
       <ScrollView contentContainerStyle={styles.authContent} showsVerticalScrollIndicator={false}>
-      <View style={styles.authCard}>
-        <Text allowFontScaling={false} style={styles.kicker}>BACKYRD</Text>
-        <Text allowFontScaling={false} style={styles.title}>Willkommen bei Backyrd</Text>
-        <Text maxFontSizeMultiplier={1.4} style={styles.subtitle}>
-          Melde dich an oder erstelle deinen Account. Danach bauen wir deinen ersten persönlichen
-          Decision-Geschmack.
-        </Text>
+      <View style={styles.brandRow}>
+        <View style={styles.brandMark}><AppText role="cardTitle" style={styles.brandLetter}>B</AppText></View>
+        <AppText role="label" style={styles.brandName}>BACKYRD</AppText>
+      </View>
 
-        <Pressable
-          onPress={() => router.push("/auth/login" as any)}
-          style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
-        >
-          <Text maxFontSizeMultiplier={1.2} style={styles.primaryText}>Einloggen</Text>
+      <View style={styles.intro}>
+        <View style={styles.accentLine} />
+        <AppText role="label" tone="pink" style={styles.kicker}>DEIN NÄCHSTER MOMENT</AppText>
+        <AppText role="displayXL" style={styles.title}>Rausgehen. Erleben. Erinnern.</AppText>
+        <AppText role="body" tone="secondary" style={styles.subtitle}>
+          Finde Orte, die zu dir und dem Moment passen, den du jetzt erleben möchtest.
+        </AppText>
+      </View>
+
+      <View style={styles.actions}>
+        <Pressable accessibilityRole="button" onPress={() => router.push("/auth/login" as any)} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
+          <AppText role="bodyStrong" style={styles.primaryText}>Einloggen</AppText>
+          <Ionicons name="arrow-forward" size={20} color={theme.color.background} />
         </Pressable>
 
-        <Pressable
-          onPress={() => router.push("/auth/register" as any)}
-          style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
-        >
-          <Text maxFontSizeMultiplier={1.2} style={styles.secondaryText}>Neu registrieren</Text>
+        <Pressable accessibilityRole="button" onPress={() => router.push("/auth/register" as any)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+          <AppText role="bodyStrong">Account erstellen</AppText>
         </Pressable>
-
-        <Text maxFontSizeMultiplier={1.5} style={styles.hint}>
-          Wenn du bereits eingeloggt bist, leitet dich Backyrd automatisch weiter.
-        </Text>
 
         {__DEV__ ? (
           <View style={styles.previewRow}>
@@ -71,27 +73,27 @@ function LoggedOutGate() {
               onPress={() => router.push({ pathname: "/auth/login", params: { preview: "invalid" } } as any)}
               style={({ pressed }) => [styles.previewButton, pressed && styles.pressed]}
             >
-              <Text style={styles.previewText}>Login-Fehler</Text>
+              <AppText role="caption" style={styles.previewText}>Login-Fehler</AppText>
             </Pressable>
             <Pressable
               accessibilityRole="button"
               onPress={() => router.push({ pathname: "/auth/verify", params: { email: "vorschau@backyrd.ch" } } as any)}
               style={({ pressed }) => [styles.previewButton, pressed && styles.pressed]}
             >
-              <Text style={styles.previewText}>Verification</Text>
+              <AppText role="caption" style={styles.previewText}>Verification</AppText>
             </Pressable>
             <Pressable
               accessibilityRole="button"
               onPress={() => router.push({ pathname: "/onboarding", params: { preview: "1" } } as any)}
               style={({ pressed }) => [styles.previewButton, pressed && styles.pressed]}
             >
-              <Text style={styles.previewText}>Onboarding</Text>
+              <AppText role="caption" style={styles.previewText}>Onboarding</AppText>
             </Pressable>
           </View>
         ) : null}
       </View>
       </ScrollView>
-    </LinearGradient>
+    </SafeAreaView>
   );
 }
 
@@ -204,11 +206,11 @@ export default function GateScreen() {
   if (errorMessage) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>Kurz warten</Text>
-        <Text style={styles.errorText}>{errorMessage}</Text>
+        <AppText role="screenTitle" style={styles.errorTitle}>Kurz warten</AppText>
+        <AppText role="body" style={styles.errorText}>{errorMessage}</AppText>
 
         <Pressable onPress={retry} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
-          <Text style={styles.primaryText}>Nochmals versuchen</Text>
+          <AppText role="bodyStrong" style={styles.primaryText}>Nochmals versuchen</AppText>
         </Pressable>
       </View>
     );
@@ -220,74 +222,51 @@ export default function GateScreen() {
 const styles = StyleSheet.create({
   authContainer: {
     flex: 1,
+    backgroundColor: theme.color.background,
   },
   authContent: {
     flexGrow: 1,
-    paddingHorizontal: 22,
-    justifyContent: "center",
-    paddingVertical: 48,
+    paddingHorizontal: theme.layout.pageGutter,
+    paddingTop: theme.spacing.xxl,
+    paddingBottom: theme.spacing.xxl,
+    justifyContent: "space-between",
   },
-  authCard: {
-    borderRadius: 32,
-    padding: 24,
-    backgroundColor: "rgba(255,255,255,0.07)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-  },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  brandMark: { width: 38, height: 38, borderRadius: 12, backgroundColor: theme.color.pink, alignItems: "center", justifyContent: "center" },
+  brandLetter: { color: theme.color.background, lineHeight: 25 },
+  brandName: { letterSpacing: 3.2 },
+  intro: { marginTop: 92, marginBottom: 62 },
+  accentLine: { width: 36, height: 4, borderRadius: 2, backgroundColor: theme.color.pink, marginBottom: 22 },
   kicker: {
-    color: "rgba(255,255,255,0.54)",
-    fontSize: 13,
-    fontWeight: "900",
-    letterSpacing: 6,
+    letterSpacing: 2.2,
     marginBottom: 18,
   },
   title: {
-    color: "#fff",
-    fontSize: 38,
-    lineHeight: 41,
-    fontWeight: "900",
-    letterSpacing: -1.2,
+    maxWidth: 380,
   },
-  subtitle: {
-    color: "rgba(255,255,255,0.68)",
-    fontSize: 16,
-    lineHeight: 23,
-    marginTop: 12,
-    marginBottom: 22,
-  },
+  subtitle: { maxWidth: 350, marginTop: 22 },
+  actions: { gap: 12 },
   primaryButton: {
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: "#fff",
+    minHeight: 56,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.color.pink,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 12,
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 24,
   },
   primaryText: {
-    color: "#050506",
-    fontSize: 16,
-    fontWeight: "900",
+    color: theme.color.background,
   },
   secondaryButton: {
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    minHeight: 56,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "rgba(246,240,232,0.05)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
+    borderColor: theme.color.border,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 12,
-  },
-  secondaryText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "900",
-  },
-  hint: {
-    color: "rgba(255,255,255,0.42)",
-    fontSize: 12,
-    lineHeight: 17,
-    marginTop: 18,
   },
   previewButton: {
     flex: 1,
@@ -302,9 +281,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   previewText: {
-    color: "rgba(255,255,255,0.58)",
-    fontSize: 13,
-    fontWeight: "700",
+    color: theme.color.textSecondary,
   },
   pressed: {
     opacity: 0.86,
@@ -312,21 +289,16 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
-    backgroundColor: "#050506",
+    backgroundColor: theme.color.background,
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
   },
   errorTitle: {
-    color: "#fff",
-    fontSize: 32,
-    fontWeight: "900",
     marginBottom: 10,
   },
   errorText: {
-    color: "rgba(255,255,255,0.65)",
-    fontSize: 16,
-    lineHeight: 23,
+    color: theme.color.textSecondary,
     textAlign: "center",
     marginBottom: 14,
   },
