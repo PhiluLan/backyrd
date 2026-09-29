@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "backyrd-database-evidence-v1",
+  "kind": "release",
+  "id": "safety-actor-profile-deletion-v1",
+  "previousEvidence": "20260927190000-spot-public-contact-presentation",
+  "previousFingerprints": {
+    "publicAclSha256": "214583bbfaabdddcacc55c6629ad777d2e4fe336106da1428d5da49734473981",
+    "applicationSchemaSha256": "067fdad5dd569b3f82e6e3ef9c00dbcb5fd8b5b2de950e38cb121a6853b5e35f"
+  },
+  "migrations": [
+    {
+      "path": "supabase/migrations/20260929171915_fix_safety_actor_profile_deletion.sql",
+      "sha256": "99ba56cdd4d949fe0005f65d964c6a6470f46910a59608bab297d44f528b47ed"
+    }
+  ],
+  "tests": [
+    {
+      "path": "supabase/tests/safety_actor_profile_deletion.sql",
+      "sha256": "f47192c7242d4c72355aee366350d813376131e7451399309beed27ac12285f4"
+    }
+  ],
+  "fingerprints": {
+    "publicAclSha256": "214583bbfaabdddcacc55c6629ad777d2e4fe336106da1428d5da49734473981",
+    "applicationSchemaSha256": "301466646ab212af2004f6c063c9d4e42406afd7eb77839dd1e28649caed2897"
+  }
+}
