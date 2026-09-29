@@ -81,7 +81,7 @@ export default function VerifyScreen() {
       backTo="/auth/login"
       eyebrow="BACKYRD · E-MAIL BESTÄTIGEN"
       title="Nur noch ein Schritt."
-      description="Gib den Code aus deiner E-Mail ein. Hast du einen Bestätigungslink erhalten, kannst du auch diesen öffnen."
+      description="Gib deine E-Mail-Adresse und den sechsstelligen Code aus deiner E-Mail ein."
     >
       {formError ? <AppText accessibilityLiveRegion="polite" role="meta" style={authStyles.error}>{formError}</AppText> : null}
       {resendStatus ? (

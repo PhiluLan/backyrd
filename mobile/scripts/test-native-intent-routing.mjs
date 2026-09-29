@@ -45,12 +45,33 @@ const compiled = ts.transpileModule(source, {
     target: ts.ScriptTarget.ES2022,
   },
 }).outputText;
-const { resolveProductDeepLink } = await import(
+const { resolveProductDeepLink, resolveEmailVerificationDeepLink } = await import(
   `data:text/javascript;base64,${Buffer.from(compiled).toString("base64")}`
 );
 
 const spotId = "eaf1527a-e193-4982-bef4-aa599ee70daa";
 const userId = "15541483-7467-4e16-af26-901d000e74d2";
+
+test("email app links open only the code-entry form", () => {
+  for (const link of ["https://www.backyrd.ch/auth/verify", "backyrd://auth/verify", "/auth/verify"]) {
+    assert.equal(resolveEmailVerificationDeepLink(link), "/auth/verify");
+  }
+});
+
+test("email app links reject credentials, parameters, and other origins", () => {
+  for (const link of [
+    "https://attacker.example/auth/verify",
+    "https://www.backyrd.ch.attacker.example/auth/verify",
+    "https://user@www.backyrd.ch/auth/verify",
+    "http://www.backyrd.ch/auth/verify",
+    "https://www.backyrd.ch/auth/verify?token=123456",
+    "https://www.backyrd.ch/auth/verify#access_token=secret",
+    "backyrd://user@auth/verify",
+    "backyrd://auth:443/verify",
+    "backyrd://auth/verify?next=/settings",
+    "backyrd://auth/verify#token=secret",
+  ]) assert.equal(resolveEmailVerificationDeepLink(link), null, link);
+});
 
 test("accepts the canonical spot and user deep-link shapes", () => {
   assert.equal(resolveProductDeepLink(`backyrd://spot/${spotId}`), `/spot/${spotId}`);

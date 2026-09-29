@@ -1,6 +1,15 @@
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+/** Opens a form only. Links never carry or consume authentication credentials. */
+export function resolveEmailVerificationDeepLink(rawPath: string): string | null {
+  return [
+    "https://www.backyrd.ch/auth/verify",
+    "backyrd://auth/verify",
+    "/auth/verify",
+  ].includes(rawPath) ? "/auth/verify" : null;
+}
+
 function productRoute(path: string): string | null {
   const normalized = path.replace(/^\/+/, "").replace(/\/+$/, "");
   const match = /^(spot|user)\/([^/]+)$/.exec(normalized);

@@ -1,5 +1,5 @@
 import { setPendingAuthRedirect } from "../lib/pendingAuthRedirect";
-import { resolveProductDeepLink } from "../lib/native-intent-route";
+import { resolveEmailVerificationDeepLink, resolveProductDeepLink } from "../lib/native-intent-route";
 
 type RedirectSystemPathOptions = {
   path: string;
@@ -10,6 +10,8 @@ export function redirectSystemPath(options: RedirectSystemPathOptions): string {
   const rawPath = options?.path ?? "";
 
   try {
+    const verificationLink = resolveEmailVerificationDeepLink(rawPath);
+    if (verificationLink) return verificationLink;
     /**
      * Supabase/AuthSession kann je nach Provider oder Flow solche URLs zurückgeben:
      *

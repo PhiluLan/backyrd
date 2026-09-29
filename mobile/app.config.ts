@@ -72,6 +72,9 @@ export default (context = { config: {} }) => {
       bundleIdentifier: isDev
         ? IOS_DEVELOPMENT_BUNDLE_IDENTIFIER
         : IOS_PRODUCTION_BUNDLE_IDENTIFIER,
+      // The confirmation email opens the code-entry screen as a Universal Link.
+      // Development builds must not claim the Production domain.
+      associatedDomains: isDev ? [] : ["applinks:www.backyrd.ch"],
       usesAppleSignIn: true,
       supportsTablet: false,
       config: {
