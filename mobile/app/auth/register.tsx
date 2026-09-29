@@ -117,7 +117,7 @@ export default function RegisterScreen() {
         eyebrow="BACKYRD · ACCOUNT"
         title={confirmationRequested ? "Schau in dein Postfach." : notCreated ? "Schon bei Backyrd?" : "Prüfe deinen Account."}
         description={confirmationRequested
-          ? "Für deinen neuen Account wurde eine Bestätigung angefordert. Öffne den Link in der E-Mail oder gib den Code ein."
+          ? "Für deinen neuen Account wurde eine Bestätigung angefordert. Gib den Code aus der E-Mail im nächsten Schritt ein."
           : notCreated
             ? "Für diese E-Mail wurde kein neuer Account angelegt. Wenn du schon dabei bist, melde dich mit deinem bestehenden Zugang an."
             : "Wir konnten nicht bestätigen, ob ein neuer Account angelegt wurde. Bitte prüfe dein Postfach oder versuche es später erneut."}
