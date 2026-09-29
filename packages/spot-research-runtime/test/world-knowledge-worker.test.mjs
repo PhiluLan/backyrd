@@ -65,6 +65,42 @@ test("Sensitive evidence and uncorroborated secondary source remain unresolved",
   assert.equal(result2.research.spots[0].claims.length, 0);
 });
 
+test("official public spot email is accepted without allowing unrelated contact details", () => {
+  const document = { ...exportDocument, fieldCatalog: [{ attributeKey: "contact.public_email" }],
+    batch: { ...exportDocument.batch, spots: [{ ...exportDocument.batch.spots[0], name: "Zoo Basel" }] } };
+  const sourceUrl = "https://www.zoobasel.ch/de/kontakt/";
+  const email = { attributeKey: "contact.public_email", knowledgeState: "KNOWN_VALUE", valueJson: '"zoo@zoobasel.ch"',
+    sourceUrl, evidence: "Die offizielle Kontaktseite nennt zoo@zoobasel.ch als allgemeine Zoo-Adresse.",
+    trust: "OFFICIAL_PRIMARY", corroboratingUrl: null };
+  const accepted = worldResearchResponseDocument(document, response({ claims: [email], unresolved: [] }, [sourceUrl]));
+  assert.equal(accepted.research.spots[0].claims[0].value, "zoo@zoobasel.ch");
+  const unrelated = worldResearchResponseDocument(document, response({ claims: [{ ...email,
+    evidence: "Neben zoo@zoobasel.ch wird person@example.com genannt." }], unresolved: [] }, [sourceUrl]));
+  assert.equal(unrelated.research.spots[0].claims.length, 0);
+});
+
+test("venue-wide facts cannot be inferred from event rooms or subvenue restaurants", () => {
+  const document = { ...exportDocument, fieldCatalog: [
+    { attributeKey: "capacity.group_size_supported" }, { attributeKey: "operation.service_model" },
+    { attributeKey: "offering.onsite" },
+  ], batch: { ...exportDocument.batch, spots: [{ ...exportDocument.batch.spots[0], name: "Zoo Basel",
+    existingValues: { "classification.primary_category": { value: "OUTDOOR_NATURE" },
+      "offering.onsite": { value: [{ kind: "KIOSK" }, { kind: "RESTAURANT" }] } } }] } };
+  const sourceUrl = "https://www.zoobasel.ch/de/besuch/";
+  const proposed = [
+    { attributeKey: "capacity.group_size_supported", knowledgeState: "KNOWN_VALUE", valueJson: '{"min":20,"max":400}',
+      sourceUrl, evidence: "Der Eventsaal fasst bis zu 400 Personen.", trust: "OFFICIAL_PRIMARY", corroboratingUrl: null },
+    { attributeKey: "operation.service_model", knowledgeState: "KNOWN_VALUE", valueJson: '"HYBRID"',
+      sourceUrl, evidence: "Das Restaurant hat Bedienung und Selbstbedienung.", trust: "OFFICIAL_PRIMARY", corroboratingUrl: null },
+    { attributeKey: "offering.onsite", knowledgeState: "KNOWN_VALUE", valueJson: '[{"kind":"RESTAURANT"}]',
+      sourceUrl, evidence: "Die Website nennt das Restaurant.", trust: "OFFICIAL_PRIMARY", corroboratingUrl: null },
+  ];
+  const result = worldResearchResponseDocument(document, response({ claims: proposed, unresolved: [] }, [sourceUrl]));
+  assert.equal(result.research.spots[0].claims.length, 0);
+  assert.deepEqual(result.research.spots[0].unresolved.map((item) => item.attributeKey),
+    ["capacity.group_size_supported", "operation.service_model", "offering.onsite"]);
+});
+
 test("background retrieval explicitly requests consulted source list", async () => {
   let retrievedUrl = "";
   await retrieveWorldResearchResponse("resp_safe", { apiKey: "test-only", fetchImpl: async (url) => {
