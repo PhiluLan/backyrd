@@ -163,8 +163,8 @@ try {
   await loginContext.route(`${endpoint}/**`, remoteFixture);
   const loginPage = await loginContext.newPage();
   await loginPage.goto(`${appUrl}/auth/login`, { waitUntil: "domcontentloaded" });
-  await loginPage.getByPlaceholder("E-Mail", { exact: true }).fill("synthetic@example.invalid");
-  await loginPage.getByPlaceholder("Passwort", { exact: true }).fill("synthetic-password");
+  await loginPage.getByLabel("E-Mail", { exact: true }).fill("synthetic@example.invalid");
+  await loginPage.getByLabel("Passwort", { exact: true }).fill("synthetic-password");
   await loginPage.getByText("Einloggen", { exact: true }).last().click();
   await loginPage.waitForFunction(() => window.localStorage.getItem("sb-example-auth-token") !== null);
   assert.equal(passwordLogins, 1);
