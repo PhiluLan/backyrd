@@ -58,3 +58,55 @@ before widening scope. Check `FAILED` job codes in the Admin list without
 logging provider payloads or credentials. If quality or cost is unacceptable,
 turn off the switch in both server environments. Existing jobs remain durable;
 no canonical facts are changed by stopping research.
+
+## Main Dev production handoff (2026-09-29 snapshot)
+
+PR #406 is a draft, not a release authorization. Its database clean boot,
+authorization, Admin, World, Decision and delivery-policy checks passed on the
+reviewed candidate, but Product release certification failed with
+`release_recovery_risk_acceptance_invalid`. Do not bypass or reclassify this
+gate. `delivery/product-authority-v1.json` and
+`scripts/ci/product-additive-migration-scope.mjs` bind an exact reviewed
+migration set; the new World research job migration is outside that set. Obtain
+an explicit Founder decision for this exact migration and its forward-only,
+non-guaranteed recovery risk before extending the reviewed scope. A green
+database test is not a guaranteed rollback or permission to apply Production
+SQL. The migration's SHA-256 in this candidate is recorded in
+`delivery/database-releases/world-research-automation-v1.json`; recheck it
+after every edit.
+
+Read-only Production inspection on 2026-09-29 found 168 applied migrations,
+tip `20260927190000`, and no automation jobs table. The checked-in
+`delivery/production-state.json` still records 167 and tip `20260927153722`.
+Collect a fresh remote receipt and reconcile this difference through the
+existing release process. Do not alter migration history or assert that the
+checked-in snapshot is current. Production already has an active
+`decision-engine-worker` and a one-minute `backyrd-internal-live-worker-v1`
+schedule; re-verify both immediately before release.
+
+The current Product release manifest seals `decision-v13`, not
+`decision-engine-worker`. The changed World research worker must have a
+separately reviewed, reproducible, source-bound build/deploy verification or
+be added to a suitable certified release boundary before deployment. Do not
+deploy an ad-hoc generated `index.deploy.ts` or treat a Vercel preview as a
+Production Edge release. In particular,
+`scripts/deployment/deploy-supabase-production.sh` currently requires a sealed
+artifact directory for `decision-v13` only; extend its worker boundary and
+tests before using it for this changed Function. Keep
+`WORLD_RESEARCH_AUTOMATION_ENABLED` unset in both Admin and Edge during
+migration and deployment.
+
+After all required PR gates are green, merge through the normal protected
+workflow, then obtain a fresh backup timestamp, migration ledger, function
+identity, Admin deployment identity and OFF-switch verification. Apply only
+the reviewed versioned migration through the authorized release path; verify
+the table, RLS, grants and enqueue/claim denial for `anon` and
+`authenticated` before enabling any worker. Deploy the exact certified worker
+and Admin candidate with both switches still OFF. Put `OPENAI_API_KEY` only in
+the Edge server environment; confirm model availability, web-search support,
+spend/rate bounds and background response retrieval before pilot. Enable both
+switches for one approved Spot, verify the job reaches review, inspect the
+opened primary pages and every proposed claim/conflict, and make no automatic
+canonical import. On any fault, disable both switches first; retain job
+evidence, stop further rollout, and use only reviewed forward correction for
+database errors. No Production data copy or untested restore-success claim.
