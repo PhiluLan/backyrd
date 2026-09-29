@@ -22,11 +22,12 @@ export async function filterDistributedEntities<T extends { id: string }>(
   items: T[],
   entityType: "spot" | "review" | "social_post",
   surface: DistributionSurface,
+  signal?: AbortSignal,
 ): Promise<T[]> {
   const unique = Array.from(new Map(items.map((item) => [item.id, item])).values());
   if (unique.length === 0) return [];
 
-  const { data, error } = await supabase.rpc(
+  const request = supabase.rpc(
     "distribution_trust_filter_entities_v1",
     {
       p_entity_type: entityType,
@@ -34,6 +35,7 @@ export async function filterDistributedEntities<T extends { id: string }>(
       p_surface: surface,
     },
   );
+  const { data, error } = await (signal ? request.abortSignal(signal) : request);
 
   if (error) throw error;
 
@@ -55,6 +57,7 @@ export async function filterDistributedEntities<T extends { id: string }>(
 export async function filterDistributedSpots<T extends { id: string }>(
   items: T[],
   surface: Exclude<DistributionSurface, "feed">,
+  signal?: AbortSignal,
 ): Promise<T[]> {
-  return filterDistributedEntities(items, "spot", surface);
+  return filterDistributedEntities(items, "spot", surface, signal);
 }
