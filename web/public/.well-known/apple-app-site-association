@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "7B3B8TL6J9.com.philipplanger.backyrd",
+        "paths": ["/auth/verify"]
+      }
+    ]
+  }
+}
