@@ -8,7 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { backyrdTheme as theme } from "../../theme/backyrd";
 import { AppText, ProductTextInput } from "../foundation/AppText";
 
-export function AuthScreen({ eyebrow, title, description, children }: { eyebrow: string; title: string; description: string; children: ReactNode }) {
+export function AuthScreen({ eyebrow, title, description, children, backTo = "/gate" }: { eyebrow: string; title: string; description: string; children: ReactNode; backTo?: "/gate" | "/auth/login" }) {
   const router = useRouter();
 
   return (
@@ -16,7 +16,7 @@ export function AuthScreen({ eyebrow, title, description, children }: { eyebrow:
       <LinearGradient colors={["#050505", "#050505", "#160B12"]} style={StyleSheet.absoluteFill} />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
         <ScrollView contentContainerStyle={styles.content} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <Pressable accessibilityLabel="Zurück" accessibilityRole="button" hitSlop={8} onPress={() => router.replace("/gate" as never)} style={({ pressed }) => [styles.back, pressed && styles.pressed]}>
+          <Pressable accessibilityLabel="Zurück" accessibilityRole="button" hitSlop={8} onPress={() => router.replace(backTo as never)} style={({ pressed }) => [styles.back, pressed && styles.pressed]}>
             <Ionicons color={theme.color.textPrimary} name="arrow-back" size={23} />
           </Pressable>
           <View style={styles.hero}>
@@ -77,6 +77,8 @@ export const authStyles = StyleSheet.create({
   providerGroup: { gap: 10 },
   footer: { marginTop: 28, gap: 10, alignItems: "center" },
   footerLink: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
+  notice: { borderLeftWidth: 3, borderColor: theme.color.pink, backgroundColor: "rgba(255,79,145,0.09)", paddingHorizontal: 18, paddingVertical: 17, marginBottom: 20, gap: 7 },
+  secondaryAction: { minHeight: 54, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.color.border, alignItems: "center", justifyContent: "center", marginTop: 12, paddingHorizontal: 16 },
 });
 
 const styles = StyleSheet.create({
