@@ -166,6 +166,26 @@ export function planWorldResearchSpot(input: {
   return { accepted, skipped, reviews, blocked, derived };
 }
 
+// Automatic research may return a source-bound but catalog-invalid value.
+// Preserve the immutable export and every valid proposal while recording that
+// field as unresolved. The ordinary parser below remains the final authority.
+export function normalizeAutomatedWorldResearchBatch(document: WorldResearchBatchDocument): WorldResearchBatchDocument {
+  return { ...document, research: { ...document.research, spots: document.research.spots.map((spot) => {
+    const claims: WorldResearchClaim[] = [];
+    const unresolved = [...spot.unresolved];
+    for (const claim of spot.claims) {
+      const valid = validateAuthoringSubmission(claim.attributeKey, claim.knowledgeState, claim.value);
+      if (claim.attributeKey === "state.current" || !valid.ok) {
+        unresolved.push({ attributeKey: claim.attributeKey,
+          reason: claim.attributeKey === "state.current"
+            ? "Der aktuelle Betriebszustand benötigt eine Gültigkeit im Spot-Editor und kann über diesen Recherche-Import nicht wirksam gesetzt werden."
+            : "Der recherchierte Wert entspricht nicht dem aktuellen Feldschema oder einem erlaubten Enum-Wert." });
+      } else claims.push(claim);
+    }
+    return { ...spot, claims, unresolved };
+  }) } };
+}
+
 export function parseWorldResearchBatch(input: unknown): ParsedWorldResearchBatch {
   const root = object(input);
   if (![WORLD_RESEARCH_BATCH_VERSION, LEGACY_VERSION].includes(root.contractVersion as typeof WORLD_RESEARCH_BATCH_VERSION) || root.purpose !== "ADMIN_ASSISTED_RESEARCH") throw new Error("world_research_contract_invalid");

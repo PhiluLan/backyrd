@@ -45,6 +45,7 @@ export function buildWorldResearchRequest(document, { model = "gpt-5.5" } = {}) 
     "Nutze web_search aktiv: offizielle Startseite, Kontakt/Anfahrt/Impressum, Öffnungszeiten, Küchenzeiten, Angebot, Menü, Preise, Buchung, Hausregeln und Social-Links; prüfe tatsächlich geöffnete Zielseiten. Suche danach bei Bedarf unabhängige autoritative oder mehrfach bestätigte Sekundärquellen.",
     "Unterscheide Hauptkategorie und Hauptzweck von Bar, Club, Bistro, Shop und anderen Zusatzangeboten. Suche ausdrücklich nach getrennten Bereichen, Tickets, Alters- und Begleitregeln. Keine bereichsspezifische Regel auf den ganzen Spot übertragen.",
     "Prüfe reguläre Öffnungszeiten und Küchenzeiten getrennt. Gib alle belegten Wochentage und Zeitfenster gemäß valueSchema an; fehlender Tag ist unbekannt. Typische Tageszeiten nicht aus Öffnungszeiten ableiten.",
+    "state.current gehört nur in unresolved: Der World-Recherche-Import kann eine Betriebszustandsänderung ohne editorseitige Gültigkeit nicht wirksam setzen. Koordinaten nie aus einer Adresse schätzen.",
     "Für jeden Katalogschlüssel genau ein Ergebnis: Claim, unresolved mit konkretem Grund oder weder noch, wenn der identische bestehende World-Wert bereits vorliegt. Unterschiedliche belegte Werte als Claim für Admin-Review ausgeben.",
     "Nur KNOWN_TRUE/KNOWN_FALSE bei Boolean; false ausschließlich mit explizitem negativem Beleg. Für andere Typen KNOWN_VALUE. Wert als gültige JSON-Zeichenkette in valueJson kodieren, exakt nach valueSchema/valueRules und erlaubten Enums.",
     "sourceUrl muss eine tatsächlich konsultierte öffentliche HTTPS-Zielseite sein. OFFICIAL_PRIMARY nur für den Betrieb selbst, AUTHORITATIVE_PRIMARY nur für Behörden/Register. CORROBORATED_SECONDARY braucht eine unabhängige zweite konsultierte URL in corroboratingUrl; beschreibe die Gegenprüfung sachlich im Beleg.",
@@ -53,7 +54,7 @@ export function buildWorldResearchRequest(document, { model = "gpt-5.5" } = {}) 
   ].join(" ");
   return { model, background: true, store: true, reasoning: { effort: "high" }, instructions, input,
     tools: [{ type: "web_search", search_context_size: "high" }], tool_choice: "required",
-    include: ["web_search_call.action.sources"], max_tool_calls: 20, max_output_tokens: 16000,
+    include: ["web_search_call.action.sources"], max_tool_calls: 30, max_output_tokens: 32000,
     text: { format: { type: "json_schema", name: "backyrd_world_research_spot_v1", strict: true, schema } } };
 }
 
@@ -66,6 +67,9 @@ export function worldResearchResponseDocument(exportDocument, response, observed
   const sources = new Set((response.output ?? []).filter((item) => item?.type === "web_search_call")
     .flatMap((item) => item?.action?.sources ?? []).map((source) => canonicalSource(source?.url)).filter(Boolean));
   if (sources.size === 0) throw new Error("world_research_sources_missing");
+  const opened = new Set((response.output ?? []).filter((item) => item?.type === "web_search_call"
+    && ["open_page", "find_in_page"].includes(item?.action?.type))
+    .map((item) => canonicalSource(item.action.url)).filter(Boolean));
   const catalog = new Set(exportDocument.fieldCatalog.map((field) => field.attributeKey));
   const seen = new Set();
   const claims = [];
@@ -75,9 +79,10 @@ export function worldResearchResponseDocument(exportDocument, response, observed
     seen.add(item.attributeKey);
     const source = canonicalSource(item.sourceUrl);
     const corroborating = item.corroboratingUrl === null ? null : canonicalSource(item.corroboratingUrl);
-    if (!source || !sources.has(source) || (item.trust === "CORROBORATED_SECONDARY" && (!corroborating || !sources.has(corroborating)
+    if (!source || !sources.has(source) || !opened.has(source)
+      || (item.trust === "CORROBORATED_SECONDARY" && (!corroborating || !sources.has(corroborating) || !opened.has(corroborating)
       || new URL(source).hostname === new URL(corroborating).hostname))) {
-      unresolved.push({ attributeKey: item.attributeKey, reason: "Die angegebene Zielseite oder unabhängige Gegenprüfung ist im Web-Recherchelauf nicht als konsultierte Quelle nachweisbar." });
+      unresolved.push({ attributeKey: item.attributeKey, reason: "Die Zielseite oder unabhängige Gegenprüfung wurde im Web-Recherchelauf nicht als tatsächlich geöffnete Quelle nachgewiesen." });
       continue;
     }
     if (!states.has(item.knowledgeState) || !trusts.has(item.trust) || !validText(item.evidence, 1200) || sensitive.test(item.evidence)) {

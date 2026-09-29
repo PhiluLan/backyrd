@@ -12,7 +12,8 @@ const exportDocument = {
   research: { instructions: ["Keep export immutable"], spots: [{ spotId, claims: [], unresolved: [] }] }, exportHash: "bound-hash",
 };
 const response = (payload, sources = ["https://test-bistro.example/kontakt"]) => ({ status: "completed", output: [
-  { type: "web_search_call", action: { type: "open_page", sources: sources.map((url) => ({ url })) } },
+  { type: "web_search_call", action: { type: "search", sources: sources.map((url) => ({ url })) } },
+  ...sources.map((url) => ({ type: "web_search_call", action: { type: "open_page", url } })),
   { type: "message", content: [{ type: "output_text", text: JSON.stringify(payload) }] },
 ] });
 const claim = { attributeKey: "identity.name", knowledgeState: "KNOWN_VALUE", valueJson: '"Test Bistro"',
@@ -43,6 +44,14 @@ test("Unconsulted source cannot become a claim", () => {
   const result = worldResearchResponseDocument(exportDocument, response({ claims: [claim], unresolved: [] }, ["https://other.example/"]), "2026-09-29T10:05:00Z");
   assert.equal(result.research.spots[0].claims.length, 0);
   assert.equal(result.research.spots[0].unresolved.length, 2);
+});
+
+test("search result snippets alone cannot become claims without an opened page", () => {
+  const lookedUp = response({ claims: [claim], unresolved: [] });
+  lookedUp.output = lookedUp.output.filter((item) => item.action?.type !== "open_page");
+  const result = worldResearchResponseDocument(exportDocument, lookedUp, "2026-09-29T10:05:00Z");
+  assert.equal(result.research.spots[0].claims.length, 0);
+  assert.equal(result.research.spots[0].unresolved[0].attributeKey, "identity.name");
 });
 
 test("Sensitive evidence and uncorroborated secondary source remain unresolved", () => {

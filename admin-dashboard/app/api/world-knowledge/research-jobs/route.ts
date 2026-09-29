@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
-import { parseWorldResearchBatch } from "@backyrd/world-knowledge-core";
+import { normalizeAutomatedWorldResearchBatch, parseWorldResearchBatch, type WorldResearchBatchDocument } from "@backyrd/world-knowledge-core";
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
 import { createAdminWorldResearchExport, WORLD_RESEARCH_SPOT_ID } from "@/lib/server/worldResearchExport";
 
@@ -48,7 +48,7 @@ export async function GET(request: Request) {
       const row = rows[0];
       if (!row) return Response.json({ error: "WORLD_RESEARCH_JOB_NOT_FOUND" }, { status: 404, headers: noStore });
       if (row.status !== "READY_FOR_REVIEW" || !row.result_document) return Response.json({ job: summary(row) }, { headers: noStore });
-      const document = parseWorldResearchBatch(row.result_document);
+      const document = parseWorldResearchBatch(normalizeAutomatedWorldResearchBatch(row.result_document as WorldResearchBatchDocument));
       const exportDocument = row.export_document as { exportHash?: string; research?: { instructions?: unknown } };
       if (document.exportHash !== exportDocument.exportHash || document.batch.spots.length !== 1
         || document.batch.spots[0].spotId !== row.spot_id
