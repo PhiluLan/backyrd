@@ -37,5 +37,11 @@ usable. A screenshot of a browser-rendered template does not prove Gmail or
 Apple Mail delivery behavior.
 
 The template is self-contained HTML with inline styles and no tracking images.
-The mail sender identity is configured by the mail service, separately from the
-HTML. Existing mail transport and sender settings are preserved.
+Production Auth mail uses the separately verified `auth.backyrd.ch` sending
+domain in Resend, with `Backyrd <konto@auth.backyrd.ch>` as its sender. The
+canonical non-secret SMTP settings are in `auth-config.json`; the Resend SMTP
+API key is supplied only by the Production environment secret
+`BACKYRD_RESEND_AUTH_SMTP_KEY`. It must not appear in Git, the plan, logs, or
+deployment audit. The release fails closed if that secret is absent. Verify
+DKIM and SPF in Resend before deployment, then send a real confirmation and
+password-recovery email and inspect the sender, delivery, and link behavior.

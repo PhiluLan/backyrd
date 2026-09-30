@@ -16,6 +16,9 @@ const sourceHash = createHash("sha256").update(source).digest("hex");
 if (sourceHash !== auth.sha256) throw new Error("auth config source identity mismatch");
 const document = JSON.parse(source);
 if (document.projectRef !== plan.projectRef) throw new Error("auth config project mismatch");
+const smtpPassword = process.env.BACKYRD_RESEND_AUTH_SMTP_KEY;
+if (!smtpPassword) throw new Error("BACKYRD_RESEND_AUTH_SMTP_KEY required");
+if (Object.hasOwn(document.config, "smtp_pass")) throw new Error("smtp password must not be stored in auth config");
 const endpoint = `https://api.supabase.com/v1/projects/${plan.projectRef}/config/auth`;
 const request = async (method, body) => {
   const response = await fetch(endpoint, {
@@ -29,16 +32,17 @@ const request = async (method, body) => {
 const before = await request("GET");
 const expected = document.config;
 const changedKeys = Object.keys(expected).filter((key) => before[key] !== expected[key]);
-if (changedKeys.length) await request("PATCH", expected);
+await request("PATCH", { ...expected, smtp_pass: smtpPassword });
 const after = await request("GET");
 for (const [key, value] of Object.entries(expected)) {
   if (after[key] !== value) throw new Error(`auth config verification failed:${key}`);
 }
 writeFileSync(args.audit, `${JSON.stringify({
-  result: changedKeys.length ? "AUTH_CONFIG_DEPLOYED" : "AUTH_CONFIG_ALREADY_CURRENT",
+  result: "AUTH_CONFIG_DEPLOYED",
   canonicalMainSha: plan.canonicalMainSha,
   planHash: plan.planHash,
   sourceHash,
   changedKeys,
+  smtpCredentialApplied: true,
   verified: Object.fromEntries(Object.keys(expected).map((key) => [key, after[key]])),
 }, null, 2)}\n`, { flag: "wx" });

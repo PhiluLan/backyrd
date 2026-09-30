@@ -29,6 +29,11 @@ const authConfig = (password_min_length = 8) => `${JSON.stringify({
     site_url: "https://www.backyrd.ch",
     uri_allow_list: "https://www.backyrd.ch/auth/callback**,backyrd://auth/**",
     password_min_length,
+    smtp_admin_email: "konto@auth.backyrd.ch",
+    smtp_host: "smtp.resend.com",
+    smtp_port: "465",
+    smtp_user: "resend",
+    smtp_sender_name: "Backyrd",
     mailer_subjects_confirmation: "Confirm",
     mailer_subjects_recovery: "Recover",
     mailer_templates_confirmation_content: "Confirmation template",
@@ -106,6 +111,8 @@ test("exact observed priority migration is excluded from apply, while bridge rem
 test("Production Auth config -> bounded config deploy only", () => { const f=fixture(); write(f.repo,"supabase/production/auth-config.json",authConfig()); const result=plan(f,commit(f.repo)); assert.equal(result.authConfig.deploy,true); assert.equal(result.runtimeDeploymentRequired,true); assert.deepEqual(result.deployFunctions,[]); });
 test("Unchanged Production Auth config -> no runtime deploy", () => { const f=fixture(); write(f.repo,"supabase/production/auth-config.json",authConfig()); const configured=commit(f.repo); write(f.repo,"docs/evidence.md","evidence\n"); const head=commit(f.repo); const result=buildProductionPlan({repo:f.repo,baseSha:configured,headSha:head}); assert.equal(result.authConfig.deploy,false); assert.equal(result.runtimeDeploymentRequired,false); });
 test("Weak Production password policy -> fail closed", () => { const f=fixture(); write(f.repo,"supabase/production/auth-config.json",authConfig(6)); const head=commit(f.repo); assert.throws(()=>plan(f,head),/password_policy_invalid/); });
+test("Production Auth SMTP secret cannot be committed", () => { const f=fixture(); const document=JSON.parse(authConfig()); document.config.smtp_pass="secret"; write(f.repo,"supabase/production/auth-config.json",JSON.stringify(document)); const head=commit(f.repo); assert.throws(()=>plan(f,head),/production_auth_config_key_not_allowed:smtp_pass/); });
+test("Production Auth SMTP identity is bound to Backyrd", () => { const f=fixture(); const document=JSON.parse(authConfig()); document.config.smtp_admin_email="other@example.com"; write(f.repo,"supabase/production/auth-config.json",JSON.stringify(document)); const head=commit(f.repo); assert.throws(()=>plan(f,head),/production_auth_smtp_identity_invalid/); });
 test("Unknown Production config scope -> fail closed", () => { const f=fixture(); write(f.repo,"supabase/production/unknown.json","{}\n"); const head=commit(f.repo); assert.throws(()=>plan(f,head),/unknown_production_config_scope/); });
 test("Unknown dependency state -> fail closed", () => { const f=fixture(); write(f.repo,"supabase/functions/decision-v13/index.ts",`const target = "./unknown.ts";\nawait import(target);\n`); const head=commit(f.repo); assert.throws(()=>plan(f,head),/non_literal_dynamic_dependency/); });
 test("Changed undeclared Edge source -> fail closed", () => { const f=fixture(); write(f.repo,"supabase/functions/undeclared/index.ts",`console.log("unsafe");\n`); const head=commit(f.repo); assert.throws(()=>plan(f,head),/no_declared_deployment_scope/); });
