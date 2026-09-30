@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
-import { matchesAutomatedReviewJob, reviewCanFinish, visibleResearchJobs } from "../lib/server/worldResearchJobReview.ts";
+import ts from "typescript";
+
+const source = await readFile(new URL("../lib/server/worldResearchJobReview.ts", import.meta.url), "utf8");
+const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ES2022, target: ts.ScriptTarget.ES2022 } }).outputText;
+const directory = await mkdtemp(join(tmpdir(), "backyrd-research-job-review-test-"));
+const modulePath = join(directory, "module.mjs");
+await writeFile(modulePath, output, { mode: 0o600 });
+const { matchesAutomatedReviewJob, reviewCanFinish, visibleResearchJobs } = await import(modulePath);
 
 const job = {
   id: "job-1", spot_id: "spot-1", actor_id: "admin-1", status: "READY_FOR_REVIEW",
