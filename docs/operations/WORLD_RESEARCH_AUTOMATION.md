@@ -15,6 +15,15 @@ completed document in the existing preview. The existing Admin import RPC and
 rebuild are the only path to canonical World Knowledge; no worker can invoke
 them. Existing different or UNKNOWN values still require explicit review.
 
+The proposal-ready worker state is distinct from Admin review completion. A
+reviewed job leaves the actionable list only after every proposed claim has
+been resolved and any accepted claims have passed the existing canonical import
+and reader rebuild. A fully reviewed no-change proposal can be explicitly
+closed without writing World facts. Earlier proposals for the same Spot are
+retained for audit but stop appearing as actionable after a later job is
+reviewed. Historic jobs with complete, batch-bound import provenance are
+recognized as already completed; partial imports are not silently closed.
+
 The provider receives Spot identity, public World values, the complete exported
 field catalog and export instructions. It has web search, must consult target
 pages, and must return a claim or a concrete unresolved reason for each

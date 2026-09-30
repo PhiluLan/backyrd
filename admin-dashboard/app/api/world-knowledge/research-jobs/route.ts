@@ -3,12 +3,14 @@ import { createClient } from "@supabase/supabase-js";
 import { normalizeAutomatedWorldResearchBatch, parseWorldResearchBatch, type WorldResearchBatchDocument } from "@backyrd/world-knowledge-core";
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
 import { createAdminWorldResearchExport, WORLD_RESEARCH_SPOT_ID } from "@/lib/server/worldResearchExport";
+import { visibleResearchJobs } from "@/lib/server/worldResearchJobReview";
 
 const noStore = { "cache-control": "no-store" };
 const UUID = WORLD_RESEARCH_SPOT_ID;
 type JobRow = {
   id: string; spot_id: string; spot_name: string; status: string; attempts: number; failure_code: string | null;
   created_at: string; updated_at: string; completed_at: string | null;
+  reviewed_at: string | null; review_outcome: string | null;
   export_document?: unknown; result_document?: unknown;
 };
 
@@ -26,7 +28,7 @@ function clients(token: string) {
 const summary = (row: JobRow) => ({
   jobId: row.id, spotId: row.spot_id, spotName: row.spot_name, status: row.status, attempts: row.attempts,
   failureCode: row.failure_code, createdAt: row.created_at, updatedAt: row.updated_at,
-  completedAt: row.completed_at,
+  completedAt: row.completed_at, reviewedAt: row.reviewed_at, reviewOutcome: row.review_outcome,
 });
 
 export async function GET(request: Request) {
@@ -37,8 +39,8 @@ export async function GET(request: Request) {
     const jobId = new URL(request.url).searchParams.get("jobId");
     if (jobId && !UUID.test(jobId)) return Response.json({ error: "WORLD_RESEARCH_JOB_ID_INVALID" }, { status: 400, headers: noStore });
     const columns = jobId
-      ? "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at,export_document,result_document"
-      : "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at";
+      ? "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at,reviewed_at,review_outcome,export_document,result_document"
+      : "id,spot_id,spot_name,status,attempts,failure_code,created_at,updated_at,completed_at,reviewed_at,review_outcome";
     let query = service.from("world_research_automation_jobs_v1").select(columns).eq("actor_id", authorization.userId);
     query = jobId ? query.eq("id", jobId).limit(1) : query.order("created_at", { ascending: false }).limit(30);
     const { data, error } = await query;
@@ -57,7 +59,7 @@ export async function GET(request: Request) {
       }
       return Response.json({ job: summary(row), document }, { headers: noStore });
     }
-    return Response.json({ enabled: process.env.WORLD_RESEARCH_AUTOMATION_ENABLED === "true", jobs: rows.map(summary) }, { headers: noStore });
+    return Response.json({ enabled: process.env.WORLD_RESEARCH_AUTOMATION_ENABLED === "true", jobs: visibleResearchJobs(rows).map(summary) }, { headers: noStore });
   } catch (cause) {
     return Response.json({ error: cause instanceof Error ? cause.message : "WORLD_RESEARCH_JOBS_UNAVAILABLE" }, { status: 503, headers: noStore });
   }
