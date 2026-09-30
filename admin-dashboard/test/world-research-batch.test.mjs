@@ -37,9 +37,9 @@ test("review choices refresh the preview automatically and keep commit separate"
   assert.match(panel, /const next = \{ \.\.\.confirmations/);
   assert.match(panel, /void previewBatch\(next, true\)/);
   assert.match(panel, /setReviewChanged\(false\)/);
-  assert.match(panel, /preview\.mode === "PREVIEW" && !driftedSpots\.length && preview\.totals\.ready > 0/);
+  assert.match(panel, /preview\.mode === "PREVIEW" && !driftedSpots\.length && \(preview\.totals\.ready > 0 \|\| canFinishWithoutWrites\)/);
   assert.match(panel, /disabled=\{busy \|\| reviewChanged \|\| preview\.totals\.invalid > 0\}/);
-  assert.match(panel, /Jetzt \{preview\.totals\.ready\} geprüfte Angabe\(n\) übernehmen/);
+  assert.match(panel, /Jetzt \$\{preview\.totals\.ready\} geprüfte Angabe\(n\) übernehmen/);
   assert.match(panel, /Bisherige behalten/);
 });
 
@@ -53,14 +53,15 @@ test("manifest drift is explained and offers a read-only refresh instead of a di
 });
 
 test("a verified complete import clears the form and shows a visible finish state", () => {
-  assert.match(panel, /report\.mode === "COMMIT" && report\.totals\.imported > 0/);
+  assert.match(panel, /report\.mode === "COMMIT" && \(report\.totals\.imported > 0 \|\| !!activeJobId\)/);
   assert.match(panel, /report\.totals\.invalid === 0 && report\.totals\.conflicts === 0 && report\.totals\.blocked === 0/);
   assert.match(panel, /spot\.imported\.length === 0 \|\| !!spot\.manifestHash/);
+  assert.match(panel, /!activeJobId \|\| spot\.reviewCompleted/);
   assert.match(panel, /setCompletion\(\{ imported: report\.totals\.imported/);
   assert.match(panel, /setQuery\(""\); setResults\(\[\]\); setSelected\(\[\]\); setJson\(""\); setPreview\(null\)/);
   assert.match(panel, /scrollIntoView/);
   assert.match(panel, /Alles erledigt/);
-  assert.match(panel, /setPreview\(report\);\s*setMessage\(report\.totals\.invalid > 0/);
+  assert.match(panel, /setPreview\(report\);\s*setMessage\(report\.perSpot\.find\(\(spot\) => spot\.reviewCompletionError\)/);
 });
 
 test("research export starts from canonical World values, never old Spot attributes", () => {

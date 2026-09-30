@@ -1,14 +1,15 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
-import { parseWorldResearchBatch, planWorldResearchSpot, type WorldResearchClaim, type ReviewedResearchClaim, type ResearchReview, type WorldResearchExistingValue } from "@backyrd/world-knowledge-core";
+import { normalizeAutomatedWorldResearchBatch, parseWorldResearchBatch, planWorldResearchSpot, type WorldResearchBatchDocument, type WorldResearchClaim, type ReviewedResearchClaim, type ResearchReview, type WorldResearchExistingValue } from "@backyrd/world-knowledge-core";
 import { authorizeAdminRequest } from "@/lib/server/adminAuthorization";
 import { locationBinding, validateBrowserLocations, signLocation, verifyLocation } from "@/lib/server/researchLocation.mjs";
 import { createAdminWorldResearchExport, readWorldResearchDetail, WORLD_RESEARCH_SPOT_ID, type WorldResearchDetail } from "@/lib/server/worldResearchExport";
+import { matchesAutomatedReviewJob, reviewCanFinish, type ReviewableJob } from "@/lib/server/worldResearchJobReview";
 
 const noStore = { "cache-control": "no-store" };
 type Accepted = { spotId: string; manifestHash: string; claim: ReviewedResearchClaim };
 type LocationCandidate = { placeId: string; name: string; address: string; latitude: number; longitude: number; token: string; exact: boolean };
-type SpotReport = { spotId: string; name: string; ready: string[]; readyClaims: ReviewedResearchClaim[]; declined: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; unresolvedDetails: Array<{ attributeKey: string; reason: string }>; reviews: ResearchReview[]; blocked: string[]; derived: string[]; manifestHash?: string; location?: { message: string; candidates: LocationCandidate[]; automatic: string | null; query?: string } };
+type SpotReport = { spotId: string; name: string; ready: string[]; readyClaims: ReviewedResearchClaim[]; declined: string[]; imported: string[]; skipped: string[]; conflicts: string[]; invalid: string[]; unresolved: string[]; unresolvedDetails: Array<{ attributeKey: string; reason: string }>; reviews: ResearchReview[]; blocked: string[]; derived: string[]; manifestHash?: string; reviewCompleted?: boolean; reviewCompletionError?: string; location?: { message: string; candidates: LocationCandidate[]; automatic: string | null; query?: string } };
 
 const message = (cause: unknown) => cause instanceof Error ? cause.message : "world_research_action_failed";
 
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
   const actor = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false }, global: { headers: { Authorization: `Bearer ${token}` } } });
   const readDetail = (spotId: string) => readWorldResearchDetail(actor, spotId);
-  const body = await request.json().catch(() => null) as null | { action?: string; spotIds?: unknown; recordExport?: unknown; document?: unknown; locations?: Record<string, string>; browserPlaces?: Record<string, unknown>; confirmations?: Record<string, Record<string, string>>; declined?: Record<string, string[]> };
+  const body = await request.json().catch(() => null) as null | { action?: string; spotIds?: unknown; recordExport?: unknown; jobId?: unknown; document?: unknown; locations?: Record<string, string>; browserPlaces?: Record<string, unknown>; confirmations?: Record<string, Record<string, string>>; declined?: Record<string, string[]> };
 
   try {
     if (body?.action === "export") {
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
 
     if (body?.action !== "preview" && body?.action !== "commit") throw new Error("world_research_action_invalid");
     const document = parseWorldResearchBatch(body.document);
+    if (body.jobId !== undefined && (body.action !== "commit" || typeof body.jobId !== "string" || !WORLD_RESEARCH_SPOT_ID.test(body.jobId))) throw new Error("world_research_review_job_invalid");
     const reports = new Map<string, SpotReport>();
     const accepted: Accepted[] = [];
     for (const exported of document.batch.spots) {
@@ -113,6 +115,18 @@ export async function POST(request: Request) {
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
       if (!serviceKey) return Response.json({ error: "world_research_rebuild_not_configured" }, { status: 503, headers: noStore });
       const service = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+      let reviewJob: ReviewableJob | null = null;
+      if (body.jobId) {
+        const found = await service.from("world_research_automation_jobs_v1")
+          .select("id,spot_id,actor_id,status,created_at,reviewed_at,export_document,result_document")
+          .eq("id", body.jobId).eq("actor_id", authorization.userId).single();
+        const normalized = found.data?.result_document
+          ? normalizeAutomatedWorldResearchBatch(found.data.result_document as WorldResearchBatchDocument) : null;
+        if (found.error || !found.data || !normalized || !matchesAutomatedReviewJob({ ...found.data, result_document: normalized } as ReviewableJob, document, authorization.userId)) {
+          throw new Error("world_research_review_job_binding_invalid");
+        }
+        reviewJob = found.data as ReviewableJob;
+      }
       const changed = new Set<string>();
       for (const exported of document.batch.spots) {
         const items = accepted.filter((item) => item.spotId === exported.spotId);
@@ -139,6 +153,19 @@ export async function POST(request: Request) {
         const manifestHash = verified.manifest?.manifestHash;
         if (!manifestHash || verified.manifest?.worldSnapshot?.spotId !== spotId || manifestHash !== (rebuilt.data as { manifestHash?: string } | null)?.manifestHash) report.invalid.push("READER_REBUILD_VERIFICATION_FAILED");
         else report.manifestHash = manifestHash;
+      }
+      if (reviewJob) {
+        const report = reports.get(reviewJob.spot_id)!;
+        if (reviewCanFinish(report)) {
+          const marked = await service.from("world_research_automation_jobs_v1")
+            .update({ reviewed_at: new Date().toISOString(), reviewed_by: authorization.userId,
+              review_outcome: report.imported.length > 0 ? "IMPORTED" : "NO_CHANGES" })
+            .eq("id", reviewJob.id).eq("actor_id", authorization.userId)
+            .eq("status", "READY_FOR_REVIEW").is("reviewed_at", null)
+            .select("id").single();
+          if (marked.error || !marked.data) report.reviewCompletionError = "Der Import wurde verarbeitet, aber der Rechercheauftrag konnte nicht abgeschlossen werden. Bitte erneut prüfen.";
+          else report.reviewCompleted = true;
+        }
       }
     }
 
