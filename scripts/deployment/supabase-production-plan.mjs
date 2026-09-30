@@ -111,7 +111,7 @@ const productionAuthConfig = (tree) => {
   if (document.config.uri_allow_list !== "https://www.backyrd.ch/auth/callback**,backyrd://auth/**") throw new Error("production_auth_redirect_scope_invalid");
   if (!Number.isInteger(document.config.password_min_length) || document.config.password_min_length < 8 || document.config.password_min_length > 72) throw new Error("production_auth_password_policy_invalid");
   if (smtpKeys.some((key) => key in document.config)) {
-    if (document.config.smtp_admin_email !== "konto@auth.backyrd.ch" || document.config.smtp_host !== "smtp.resend.com" || document.config.smtp_port !== "465" || document.config.smtp_user !== "resend" || document.config.smtp_sender_name !== "Backyrd") throw new Error("production_auth_smtp_identity_invalid");
+    if (document.config.smtp_admin_email !== "hello@backyrd.ch" || document.config.smtp_host !== "smtp.resend.com" || document.config.smtp_port !== "465" || document.config.smtp_user !== "resend" || document.config.smtp_sender_name !== "backyrd") throw new Error("production_auth_smtp_identity_invalid");
   }
   for (const key of [...allowedKeys].filter((value) => value !== "password_min_length")) {
     if (key in document.config && (typeof document.config[key] !== "string" || !document.config[key].trim())) throw new Error(`production_auth_config_value_invalid:${key}`);

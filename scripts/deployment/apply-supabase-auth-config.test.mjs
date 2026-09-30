@@ -10,11 +10,11 @@ const fixture = () => {
   const directory = mkdtempSync(join(tmpdir(), "backyrd-auth-smtp-"));
   const config = { projectRef: "fixture-project", config: {
     site_url: "https://www.backyrd.ch",
-    smtp_admin_email: "konto@auth.backyrd.ch",
+    smtp_admin_email: "hello@backyrd.ch",
     smtp_host: "smtp.resend.com",
     smtp_port: "465",
     smtp_user: "resend",
-    smtp_sender_name: "Backyrd",
+    smtp_sender_name: "backyrd",
   } };
   const source = JSON.stringify(config);
   const configPath = join(directory, "supabase/production/auth-config.json");
@@ -64,8 +64,25 @@ test("SMTP credential is applied but never written to the audit", () => {
   const auditText = readFileSync(paths.auditPath, "utf8");
   const audit = JSON.parse(auditText);
   assert.equal(audit.smtpCredentialApplied, true);
-  assert.equal(audit.verified.smtp_admin_email, "konto@auth.backyrd.ch");
+  assert.equal(audit.verified.smtp_admin_email, "hello@backyrd.ch");
   assert.ok(!auditText.includes("re_fixture_key"));
   assert.ok(!auditText.includes("smtp_pass"));
   assert.ok(!result.stdout.includes("re_fixture_key"));
+});
+
+test("Production Auth emails keep the lowercase brand and styled recovery action", () => {
+  const { config } = JSON.parse(readFileSync(new URL("../../supabase/production/auth-config.json", import.meta.url), "utf8"));
+  assert.equal(config.smtp_admin_email, "hello@backyrd.ch");
+  assert.equal(config.smtp_sender_name, "backyrd");
+  for (const key of ["mailer_subjects_confirmation", "mailer_subjects_recovery"]) {
+    assert.match(config[key], /backyrd/);
+    assert.doesNotMatch(config[key], /Backyrd|BACKYRD/);
+  }
+  for (const key of ["mailer_templates_confirmation_content", "mailer_templates_recovery_content"]) {
+    assert.match(config[key], /background:#050506/);
+    assert.match(config[key], /background:#fa4189/);
+    assert.match(config[key], />backyrd<\/span>/);
+    assert.doesNotMatch(config[key], /Backyrd|BACKYRD/);
+  }
+  assert.match(config.mailer_templates_recovery_content, /href="{{ \.ConfirmationURL }}"/);
 });
